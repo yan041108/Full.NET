@@ -57,7 +57,7 @@ internal sealed class AiFeedbackEvaluationService(AiKnowledgeAnswerFeedbackRevie
         return current is not null && current.UserId == actor && current.TenantId == tenant.Id && current.SessionId != Guid.Empty
             ? current.SessionId : null;
     }
-    private static string SourceHash(AiKnowledgeAnswerFeedbackReviewRecord row) => AiFeedbackEvaluationPolicy.Digest(
+    internal static string SourceHash(AiKnowledgeAnswerFeedbackReviewRecord row) => AiFeedbackEvaluationPolicy.Digest(
         FormattableString.Invariant($"feedback-source.v1|{row.FeedbackId:N}|{row.MessageId:N}|{row.SessionId:N}|{row.OwnerUserId:N}|{row.FeedbackVersion}|{row.ReviewVersion}|{row.ReviewerUserId:N}|{row.LineageHash}|{row.RatingKey}|{row.ReasonKey}|{row.CitationIdsJson}"));
     private bool Same(AiChatScope scope) => AiChatScope.Resolve(tenant) == scope;
     private void Outside() { if (transactions.HasTransaction) throw new InvalidOperationException("Feedback evaluation authorization cannot join an ambient transaction."); }

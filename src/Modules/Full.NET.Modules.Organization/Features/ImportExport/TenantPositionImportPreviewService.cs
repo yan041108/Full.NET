@@ -23,10 +23,10 @@ internal sealed class TenantPositionImportPreviewService
         ArgumentNullException.ThrowIfNull(context);
         var canAssignUnit = HasCapability(
             context,
-            OrganizationPositionManagementPermissions.AssignUnit);
+            OrganizationPositionManagementPermissions.AssignUnit) && HasCapability(context, OrganizationUnitManagementPermissions.Read);
         var canAssignPositionLevel = HasCapability(
             context,
-            OrganizationPositionManagementPermissions.AssignPositionLevel);
+            OrganizationPositionManagementPermissions.AssignPositionLevel) && HasCapability(context, OrganizationPositionLevelManagementPermissions.Read);
         var results = new List<StaticImportRowPreviewResult>(rows.Count);
         var seenCodes = new HashSet<string>(StringComparer.Ordinal);
         var line = 0;

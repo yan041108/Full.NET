@@ -67,7 +67,7 @@
 
 ## 3. 架构与模块边界
 
-1. Full.NET 采用模块化单体优先的架构；模块通过明确契约通信，禁止直接引用其他模块的内部实现或表结构。生产模块的项目引用只能指向其他模块的公开 Contracts，禁止通过具体 `Module` 类型、实现项目引用或 `InternalsVisibleTo` 建立跨模块依赖；具体模块入口只允许由 Composition 组合根引用。
+1. Full.NET 采用模块化单体优先的架构；业务能力通过明确契约通信，禁止直接引用其他模块的内部实现；表结构依赖仅允许本节规定的受控后台查询。生产模块的项目引用只能指向其他模块的公开 Contracts，禁止通过具体 `Module` 类型、实现项目引用或 `InternalsVisibleTo` 建立跨模块依赖；具体模块入口只允许由 Composition 组合根引用。
 2. 一个内聚业务边界默认只创建一个 `Full.NET.Modules.<Module>` 主项目；小功能、CRUD、实体、菜单、Command/Query 和 Endpoint 必须作为主项目内的目录或垂直切片，禁止按功能机械增加 `.csproj`。业务边界按数据所有权、业务不变量、生命周期和公开契约判断，不得仅按前端菜单分组，也不得为了减少项目数把无关能力塞入大杂烩模块。
 3. `Full.NET.Modules.<Module>.Contracts` 只有在存在至少一个真实跨模块或外部编译期消费者，并且需要以程序集隔离稳定公开接口、DTO、权限定义或集成事件时才可创建；没有消费者时 `Contracts/` 只是主项目内目录。禁止为了未来可能复用提前创建 Contracts 项目，禁止把业务契约上移到 BuildingBlocks 以减少项目数量。
 4. `.Http`、`.Worker` 或其他传输/运行适配项目只有在同一模块核心被非该传输宿主真实复用，且程序集隔离能带来可验证的依赖、打包或安全收益时才可创建。API、Worker、Migrator 的运行角色分离本身不构成适配项目拆分证据；应先在主项目中使用显式注册入口和 Host Profile 控制能力集合。新增可选项目必须在已批准 Spec 或计划中列出真实消费者、依赖方向、收益和架构测试；缺少任一项时保持一个主项目。
@@ -79,9 +79,19 @@
 10. 宿主注册完整模块时必须同时注册该模块声明的全部 `Dependencies`；模块排序依赖必须使用稳定模块键而不是另一个模块的具体类型。Worker 或 Migrator 只消费后台/迁移能力时，应由模块提供并使用可验证的最小服务注册入口，禁止为了单个消费者或 Contributor 注册完整 HTTP 模块或留下不完整依赖图。
 11. Full.NET 官方 Api、Worker、Migrator 必须通过 `Full.NET.Composition` 的显式 Host Profile 选择模块能力；新增模块只能更新共享目录和对应测试，禁止在各宿主 `Program.cs` 恢复手工完整模块清单。Composition 可以依赖具体 Modules，通用 BuildingBlock 禁止反向引用业务模块。
 12. Full.NET 1.0 必须保持强化型模块化单体以及 API、Worker、Migrator 运行角色分离；局部模块只有满足 [`ADR-0002`](../docs/architecture/adr/ADR-0002-modular-monolith-evolution.md) 的全部拆分门禁并新增独立 ADR 后才能拆分。禁止用未来扩容、团队增长或技术偏好代替可测量证据，禁止把角色分离误报为微服务能力。
-13. 模块内读取可以关联本模块拥有的表；跨模块读取只能使用最小只读 Port/公开 Contract 的批量投影，或由版本化 Integration Event 建立消费方本地投影。禁止通过直接 SQL、视图、同义词、存储过程、触发器或动态 SQL 读取/写入其他模块的表，也禁止跨模块数据库外键。`015_HostRoleDataScope` 曾建立的 Identity → Organization 外键已由 `083_IdentityRoleDataScopeUnitCrossModuleFk` 双库可恢复迁移移除（见 ADR-0002）；历史脚本不构成新增例外，旧部署必须执行该迁移。
+13. 模块内读取可以关联本模块拥有的表；后台列表、搜索、报表和同语义导出允许本节规定的受控跨模块只读 JOIN。业务操作、权威判断和少量对象的信息组合使用最小 Contract/Port；投影按真实查询负载、存储拓扑和一致性需求引入。禁止跨模块写表、外键，以及通过视图、同义词、存储过程、触发器或动态 SQL 隐藏未经登记的访问。`015_HostRoleDataScope` 曾建立的 Identity → Organization 外键已由 `083_IdentityRoleDataScopeUnitCrossModuleFk` 双库可恢复迁移移除；历史脚本不构成新增例外。
 14. 新业务流程不得依赖跨模块本地事务。跨模块强不变量必须收敛到唯一数据所有者；其他模块通过 Contract 获取当下权威回答，或通过 Outbox 与幂等消费者最终一致。共享数据库、Scoped `DbSession` 或技术上可以加入同一事务均不构成例外。
 15. 领域参数归执行相应业务不变量的模块所有，必须使用强类型、作用域、版本和生效语义表达。Settings 只承载平台通用设置与管理能力，禁止把预约、支付、工作流等业务参数降级为无所有者的字符串或任意 JSON 配置。
+
+### R-20261027-controlled-module-read：后台组合查询受控开放
+
+- 来源与替代：2026-10-27 项目所有者明确授权；[ADR-0014](../docs/architecture/adr/ADR-0014-controlled-cross-module-read-queries.md) 替代 ADR-0002 的全面跨模块读表禁令，不改变写入、事务、外键、租户和授权边界。
+- 适用范围：共享数据库中的后台列表、搜索、报表与同语义导出；业务规则、认证授权判断、Command 和写任务不适用。
+- 集中实现：跨模块 SQL 放在用例的 `Queries/*Sql.cs` 静态只读语句声明中，仍使用 Full.NET 执行器；列表/导出复用查询能力，返回业务查询 DTO，不泄漏持久化实体，不为此创建通用 Repository 或无需求的独立平台。
+- 依赖登记：按 [目录规范](../contracts/architecture/module-read-queries.md) 在 `module-read-queries.json` 精确登记文件、成员、Statement、SQL 摘要、外部模块/表/列、用途和安全说明。表/列包含关联、筛选、排序依赖；结构变更必须检查直接消费者。拒绝通配、漂移、重复和过期项，登记不是债务豁免；必需所有者纳入运行时 Dependencies 闭包，不能依靠 OptionalContractDependencies 或破坏依赖 DAG。
+- 安全与事务：所有关联必须落实可信租户/成员关系、数据范围、软删除及敏感字段策略；Host 后台和 Global 登记不构成绕过。查询不得参与命令事务、使用锁定读、执行写入或复制其他模块的业务规则。单条 JOIN 不保证多个请求或多条 SQL 共享一致快照。
+- 演进准备：区分当前信息与交易时业务快照；需要历史事实时由业务所有者保存。未来按需拆分模块时依据登记的读取依赖替换聚合接口或查询模型，明确回填、同步延迟、失败恢复和 API 行为；不提前为所有查询引入投影，不宣称无成本拆分。
+- 验证：所有权门禁逐源位置放行合规静态查询，拒绝未登记访问、写入、锁定读、动态语句及登记漂移；外键和事务门禁保持。真实查询新增/修改时按 §11 做对应 SQL Server/MySQL、权限与租户场景验证。静态检查不能替代业务权限及 SQL 语义审查。
 
 ## 4. 安全、权限与租户隔离
 

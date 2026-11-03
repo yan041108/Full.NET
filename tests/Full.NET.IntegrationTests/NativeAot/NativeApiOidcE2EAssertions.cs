@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
@@ -24,7 +25,7 @@ internal static class NativeApiOidcE2EAssertions
     {
         var artifact = NativeApiArtifactLocator.RequireArtifact();
         await NativeApiDatabaseBootstrap.BootstrapAsync(provider, connectionString, cancellationToken).ConfigureAwait(false);
-        await using var host = await NativeApiProcessHost.StartAsync(
+        await using var host = await StartOidcHostAsync(
             artifact, provider, connectionString, BuildOidcSettings(),
             NativeAotTestTimeouts.ProcessStartup, cancellationToken).ConfigureAwait(false);
         using var client = host.CreateClient();
@@ -40,7 +41,7 @@ internal static class NativeApiOidcE2EAssertions
     {
         var artifact = NativeApiArtifactLocator.RequireArtifact();
         await NativeApiDatabaseBootstrap.BootstrapAsync(provider, connectionString, cancellationToken).ConfigureAwait(false);
-        await using var host = await NativeApiProcessHost.StartAsync(
+        await using var host = await StartOidcHostAsync(
             artifact, provider, connectionString, BuildOidcSettings(),
             NativeAotTestTimeouts.ProcessStartup, cancellationToken).ConfigureAwait(false);
         using var client = host.CreateClient();
@@ -61,7 +62,7 @@ internal static class NativeApiOidcE2EAssertions
     {
         var artifact = NativeApiArtifactLocator.RequireArtifact();
         await NativeApiDatabaseBootstrap.BootstrapAsync(provider, connectionString, cancellationToken).ConfigureAwait(false);
-        await using var host = await NativeApiProcessHost.StartAsync(
+        await using var host = await StartOidcHostAsync(
             artifact, provider, connectionString, BuildOidcSettings(),
             NativeAotTestTimeouts.ProcessStartup, cancellationToken).ConfigureAwait(false);
         using var client = host.CreateClient();
@@ -114,11 +115,14 @@ internal static class NativeApiOidcE2EAssertions
             IdentityOidcSigningKeyRotationAssertions.KeyBId,
             dataProtectionAssets.KeyRingPath,
             dataProtectionAssets.CertificatePath));
+        // 两个真实节点都必须报告就绪；保留默认预发布窗口，不用 Testing 零窗口替代生产治理。
+        settingsA["Identity:Oidc:MinimumReadyApiNodes"] = "2";
+        settingsB["Identity:Oidc:MinimumReadyApiNodes"] = "2";
         try
         {
-        await using var primaryHost = await NativeApiProcessHost.StartAsync(
+        await using var primaryHost = await StartOidcHostAsync(
             artifact, provider, connectionString, settingsA, NativeAotTestTimeouts.ProcessStartup, cancellationToken).ConfigureAwait(false);
-        await using var secondaryHost = await NativeApiProcessHost.StartAsync(
+        await using var secondaryHost = await StartOidcHostAsync(
             artifact, provider, connectionString, settingsB, NativeAotTestTimeouts.ProcessStartup, cancellationToken).ConfigureAwait(false);
         using var primaryClient = primaryHost.CreateClient();
         using var secondaryClient = secondaryHost.CreateClient();
@@ -137,6 +141,12 @@ internal static class NativeApiOidcE2EAssertions
         using var legacyMe = await secondaryClient.SendAsync(
             Authorized(HttpMethod.Get, "/api/v1/me", legacyFlow.AccessToken), cancellationToken).ConfigureAwait(false);
         await AssertStatusAsync(legacyMe, HttpStatusCode.OK, "Legacy token on rotated native peer", secondaryHost.LogFilePath, cancellationToken).ConfigureAwait(false);
+        await WaitForSigningKeyActivationReadinessAsync(primaryClient, secondaryClient,
+            legacyFlow.AccessToken, secondaryHost.LogFilePath, cancellationToken).ConfigureAwait(false);
+        using var activation = await secondaryClient.SendAsync(Authorized(HttpMethod.Post,
+            $"/api/v1/identity/oidc-signing-keys/{IdentityOidcSigningKeyRotationAssertions.KeyBId}/activate",
+            legacyFlow.AccessToken), cancellationToken).ConfigureAwait(false);
+        await AssertStatusAsync(activation, HttpStatusCode.OK, "Persisted key activation", secondaryHost.LogFilePath, cancellationToken).ConfigureAwait(false);
         var rotatedFlow = await IdentityOidcRelyingPartyFixture.RunAuthorizationCodeFlowAsync(
             secondaryClient,
             IdentityOidcRelyingPartyFixture.PublicClientId,
@@ -160,6 +170,65 @@ internal static class NativeApiOidcE2EAssertions
         }
     }
 
+    private static async Task WaitForSigningKeyActivationReadinessAsync(HttpClient primaryClient,
+        HttpClient secondaryClient, string accessToken, string logFilePath, CancellationToken cancellationToken)
+    {
+        // live 不登记签名节点租约。先证明缺少就绪时拒绝激活，再经真实 ready 探针持续续租。
+        using (var premature = await secondaryClient.SendAsync(Authorized(HttpMethod.Post,
+                   $"/api/v1/identity/oidc-signing-keys/{IdentityOidcSigningKeyRotationAssertions.KeyBId}/activate",
+                   accessToken), cancellationToken).ConfigureAwait(false))
+        {
+            await AssertStatusAsync(premature, HttpStatusCode.Conflict, "Signing key activation before readiness",
+                logFilePath, cancellationToken).ConfigureAwait(false);
+            using var problem = JsonDocument.Parse(await premature.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false));
+            Assert.AreEqual(IdentityErrorCodes.OidcSigningKeyNotActivatable, problem.RootElement.GetProperty("code").GetString());
+        }
+
+        var elapsed = Stopwatch.StartNew();
+        OidcSigningKeyResponse? candidate = null;
+        var verifiedPrepublicationRejection = false;
+        while (elapsed.Elapsed < TimeSpan.FromMinutes(6))
+        {
+            foreach (var client in new[] { primaryClient, secondaryClient })
+            {
+                using var ready = await client.GetAsync("/health/ready", cancellationToken).ConfigureAwait(false);
+                await AssertStatusAsync(ready, HttpStatusCode.OK, "Native signing node readiness", logFilePath,
+                    cancellationToken).ConfigureAwait(false);
+            }
+            using var response = await secondaryClient.SendAsync(Authorized(HttpMethod.Get,
+                "/api/v1/identity/oidc-signing-keys", accessToken), cancellationToken).ConfigureAwait(false);
+            await AssertStatusAsync(response, HttpStatusCode.OK, "Native signing key readiness metadata",
+                logFilePath, cancellationToken).ConfigureAwait(false);
+            var keys = await response.Content.ReadFromJsonAsync<OidcSigningKeyListResponse>(cancellationToken).ConfigureAwait(false);
+            Assert.IsNotNull(keys);
+            candidate = keys.Keys.Single(key => key.KeyId == IdentityOidcSigningKeyRotationAssertions.KeyBId);
+            Assert.AreEqual("prepublished", candidate.LifecycleState);
+            Assert.IsTrue(candidate.HasPrivateKey);
+            Assert.IsNotNull(candidate.PublishedAtUtc);
+            var windowElapsed = DateTimeOffset.UtcNow >= candidate.PublishedAtUtc.Value.AddSeconds(300);
+            if (!windowElapsed && !verifiedPrepublicationRejection)
+            {
+                Assert.IsFalse(candidate.IsActivationReady);
+                using var tooEarly = await secondaryClient.SendAsync(Authorized(HttpMethod.Post,
+                    $"/api/v1/identity/oidc-signing-keys/{IdentityOidcSigningKeyRotationAssertions.KeyBId}/activate",
+                    accessToken), cancellationToken).ConfigureAwait(false);
+                await AssertStatusAsync(tooEarly, HttpStatusCode.Conflict, "Prepublication window after both nodes ready",
+                    logFilePath, cancellationToken).ConfigureAwait(false);
+                verifiedPrepublicationRejection = true;
+            }
+            if (candidate.IsActivationReady)
+            {
+                Assert.IsTrue(windowElapsed, "双节点就绪不能绕过默认三百秒预发布窗口。");
+                Assert.IsTrue(verifiedPrepublicationRejection, "必须实际观察双节点就绪后的窗口内拒绝。");
+                return;
+            }
+            // 默认五分钟窗口内持续刷新两节点的九十秒租约，不能等满后沿用过期声明。
+            await Task.Delay(TimeSpan.FromSeconds(5), cancellationToken).ConfigureAwait(false);
+        }
+        Assert.Fail($"Native signing key did not become activatable after {elapsed.Elapsed}. " +
+                    $"State={candidate?.LifecycleState}, published={candidate?.PublishedAtUtc:O}.");
+    }
+
     public static async Task VerifyCenterRestartPreservesAuthorizationExchangeAsync(
         DatabaseProvider provider,
         string connectionString,
@@ -176,7 +245,7 @@ internal static class NativeApiOidcE2EAssertions
             dataProtectionAssets.CertificatePath);
         try
         {
-        await using var host = await NativeApiProcessHost.StartAsync(
+        await using var host = await StartOidcHostAsync(
             artifact, provider, connectionString, settings, NativeAotTestTimeouts.ProcessStartup, cancellationToken).ConfigureAwait(false);
         using var client = host.CreateClient();
         var pending = await IdentityOidcRelyingPartyFixture.BeginAuthorizationCodeFlowAsync(
@@ -190,7 +259,7 @@ internal static class NativeApiOidcE2EAssertions
         await host.StopGracefullyAsync(cancellationToken).ConfigureAwait(false);
         host.AssertNoFatalMarkersInLogs();
 
-        await using var restartedHost = await NativeApiProcessHost.StartAsync(
+        await using var restartedHost = await StartOidcHostAsync(
             artifact, provider, connectionString, settings, NativeAotTestTimeouts.ProcessStartup, cancellationToken).ConfigureAwait(false);
         using var restartClient = restartedHost.CreateClient();
         var exchanged = await IdentityOidcRelyingPartyFixture.ExchangeAuthorizationCodeAsync(
@@ -236,9 +305,9 @@ internal static class NativeApiOidcE2EAssertions
             dataProtectionAssets.CertificatePath);
         try
         {
-        await using var authorizeHost = await NativeApiProcessHost.StartAsync(
+        await using var authorizeHost = await StartOidcHostAsync(
             artifact, provider, connectionString, settings, NativeAotTestTimeouts.ProcessStartup, cancellationToken).ConfigureAwait(false);
-        await using var tokenHost = await NativeApiProcessHost.StartAsync(
+        await using var tokenHost = await StartOidcHostAsync(
             artifact, provider, connectionString, settings, NativeAotTestTimeouts.ProcessStartup, cancellationToken).ConfigureAwait(false);
         using var authorizeClient = authorizeHost.CreateClient();
         using var tokenClient = tokenHost.CreateClient();
@@ -282,9 +351,9 @@ internal static class NativeApiOidcE2EAssertions
             dataProtectionAssets.CertificatePath);
         try
         {
-        await using var primaryHost = await NativeApiProcessHost.StartAsync(
+        await using var primaryHost = await StartOidcHostAsync(
             artifact, provider, connectionString, settings, NativeAotTestTimeouts.ProcessStartup, cancellationToken).ConfigureAwait(false);
-        await using var peerHost = await NativeApiProcessHost.StartAsync(
+        await using var peerHost = await StartOidcHostAsync(
             artifact, provider, connectionString, settings, NativeAotTestTimeouts.ProcessStartup, cancellationToken).ConfigureAwait(false);
         using var primaryClient = primaryHost.CreateClient();
         using var peerClient = peerHost.CreateClient();
@@ -378,9 +447,9 @@ internal static class NativeApiOidcE2EAssertions
             dataProtectionAssets.CertificatePath);
         try
         {
-        await using var primaryHost = await NativeApiProcessHost.StartAsync(
+        await using var primaryHost = await StartOidcHostAsync(
             artifact, provider, connectionString, settings, NativeAotTestTimeouts.ProcessStartup, cancellationToken).ConfigureAwait(false);
-        await using var peerHost = await NativeApiProcessHost.StartAsync(
+        await using var peerHost = await StartOidcHostAsync(
             artifact, provider, connectionString, settings, NativeAotTestTimeouts.ProcessStartup, cancellationToken).ConfigureAwait(false);
         using var primaryClient = primaryHost.CreateClient();
         using var peerClient = peerHost.CreateClient();
@@ -832,4 +901,14 @@ internal static class NativeApiOidcE2EAssertions
         Assert.Fail(operation + " failed. Expected " + expected + ", actual " + response.StatusCode + ". Response body: " + body
             + (string.IsNullOrEmpty(logTail) ? string.Empty : "\nNative log tail:\n" + logTail));
     }
+    /// <summary>先经 JIT Migrator 初始化当前 OIDC 配置，再启动只读注册状态的原生 API。</summary>
+    private static async Task<NativeApiProcessHost> StartOidcHostAsync(
+        NativeApiArtifact artifact, DatabaseProvider provider, string connectionString,
+        IReadOnlyDictionary<string, string?> settings, TimeSpan startupTimeout, CancellationToken cancellationToken)
+    {
+        await NativeApiMigratorRunner.MigrateAsync(provider, connectionString, cancellationToken, settings).ConfigureAwait(false);
+        return await NativeApiProcessHost.StartAsync(artifact, provider, connectionString, settings,
+            startupTimeout, cancellationToken).ConfigureAwait(false);
+    }
+
 }

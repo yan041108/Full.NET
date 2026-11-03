@@ -36,7 +36,7 @@ internal sealed class DeliveryRollbackService(
     ICommandTransaction transaction,
     ITransactionalDomainAuditWriter<MessagingDomainAuditWrite> domainAuditWriter,
     DeliveryRollbackJournal rollbackJournal,
-    IDatabaseSessionLock sessionLock,
+    IDatabaseTransactionBoundSessionLock sessionLock,
     IServiceScopeFactory scopeFactory,
     Microsoft.AspNetCore.Http.IHttpContextAccessor? httpContextAccessor = null)
 {
@@ -74,6 +74,8 @@ internal sealed class DeliveryRollbackService(
 
         await using var control = await sessionLock.TryAcquireAsync(EventDeliveryControlResources.SessionLock, cancellationToken).ConfigureAwait(false);
         if (control is null) return RollbackFailure("Another delivery control operation is running.");
+        var lease = new EventDeliveryControlLease(control.EnsureHeldAsync);
+        await lease.EnsureHeldAsync(cancellationToken).ConfigureAwait(false);
         var beginResult = await transaction.ExecuteResultAsync(
                 token => BeginRollbackAsync(request, token),
                 cancellationToken)
@@ -92,16 +94,22 @@ internal sealed class DeliveryRollbackService(
                     request.EventType,
                     request.SchemaVersion,
                     preparation.RollbackGeneration,
+                    lease,
                     cancellationToken)
                 .ConfigureAwait(false);
+            await lease.EnsureHeldAsync(cancellationToken).ConfigureAwait(false);
             completion = await transaction.ExecuteResultAsync(
-                    token => CompleteRollbackAsync(request, preparation, readiness, token),
+                    async token =>
+                    {
+                        await lease.EnsureHeldAsync(token).ConfigureAwait(false);
+                        return await CompleteRollbackAsync(request, preparation, readiness, token).ConfigureAwait(false);
+                    },
                     cancellationToken)
                 .ConfigureAwait(false);
         }
         catch
         {
-            await AbortPreparationAsync(request, preparation.RollbackGeneration)
+            await AbortPreparationAsync(request, preparation.RollbackGeneration, control, lease)
                 .ConfigureAwait(false);
             throw;
         }
@@ -111,7 +119,7 @@ internal sealed class DeliveryRollbackService(
             return completion;
         }
 
-        await AbortPreparationAsync(request, preparation.RollbackGeneration)
+        await AbortPreparationAsync(request, preparation.RollbackGeneration, control, lease)
             .ConfigureAwait(false);
         return completion;
     }
@@ -262,7 +270,7 @@ internal sealed class DeliveryRollbackService(
             RollbackOccurredAtUtc = rollbackOccurredAtUtc,
             UpdatedAtUtc = rollbackOccurredAtUtc,
         };
-        await ownershipStore.UpsertAsync(ownershipRecord, cancellationToken).ConfigureAwait(false);
+        await ownershipStore.CompleteRollbackAsync(ownershipRecord, preparation.RollbackGeneration, cancellationToken).ConfigureAwait(false);
         if (!await rollbackJournal.TransitionAsync(preparation.RollbackGeneration, operation.Phase,
                 EventDeliveryRollbackPhase.Completed, cancellationToken).ConfigureAwait(false))
             return RollbackFailure("The rollback operation changed concurrently.");
@@ -306,14 +314,18 @@ internal sealed class DeliveryRollbackService(
 
     private async Task AbortPreparationAsync(
         ChangeDeliveryOwnerRequest request,
-        Guid rollbackGeneration)
+        Guid rollbackGeneration, IDatabaseSessionLockLease control, EventDeliveryControlLease lease)
     {
         // 原事务的提交结果可能未知，必须使用新会话读取权威结果；不能复用失败的事务或内存所有者。
         using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(3));
+        // 失锁执行者不再进行任何补偿；由持有新锁的操作员恢复原持久代次。
+        await lease.EnsureHeldAsync(timeout.Token).ConfigureAwait(false);
+        // 新作用域必须重新获取锁，使其恢复事务与新锁共用物理连接；代次和所有权在锁内重新验证。
+        await control.DisposeAsync().ConfigureAwait(false);
         await using var scope = scopeFactory.CreateAsyncScope();
         scope.ServiceProvider.GetRequiredService<ICurrentTenantContextWriter>().SetHost();
         var recovery = scope.ServiceProvider.GetRequiredService<DeliveryRollbackRecoveryService>();
-        var result = await recovery.RecoverUnderLockAsync(rollbackGeneration, request.Reason, timeout.Token).ConfigureAwait(false);
+        var result = await recovery.RecoverAsync(rollbackGeneration, new RecoverRollbackRequest(request.Reason), timeout.Token).ConfigureAwait(false);
         if (!result.IsSuccess) throw new InvalidOperationException(result.Error!.Message);
     }
 

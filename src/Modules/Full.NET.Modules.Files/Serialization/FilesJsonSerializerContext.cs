@@ -27,6 +27,7 @@ namespace Full.NET.Modules.Files.Serialization;
 [JsonSerializable(typeof(BatchUploadHostFileItem))]
 [JsonSerializable(typeof(StorageProviderCatalogItem))]
 [JsonSerializable(typeof(StorageProviderCatalogItem[]))]
+[JsonSerializable(typeof(IReadOnlyList<StorageProviderCatalogItem>))]
 [JsonSerializable(typeof(TestStorageProviderConnectivityResult))]
 /// <summary>Files 模块 JSON 源生成上下文；Native AOT 绑定已审计契约，禁止反射序列化。</summary>
 internal partial class FilesJsonSerializerContext : JsonSerializerContext;

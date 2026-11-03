@@ -27,6 +27,19 @@ public sealed class WorkflowAsyncDefinitionPlanTests
     }
 
     [TestMethod]
+    [DataRow(false)]
+    [DataRow(true)]
+    public void Collaboration_projection_waits_for_all_actual_async_predecessors(bool noOutput)
+    {
+        var collaboration = Node("collaborate", WorkflowCollaborationCallPolicy.NodeType, new { nextNodeKeys = new[] { "end" },
+            collaborationPolicy = new { schemaVersion = 1, grantId = Guid.CreateVersion7(), grantRevision = 2, policyHash = new string('a', 64) } });
+        Assert.IsTrue(Compile([Producer("call", "collaborate", noOutput), collaboration, Node("end", "end", new { })], out var waits));
+        Assert.IsTrue(waits["collaborate"].IsImplicitBoundary);
+        CollectionAssert.AreEqual(new[] { "call" }, waits["collaborate"].ProducerNodeKeys.ToArray());
+        Assert.IsFalse(waits.ContainsKey("end"));
+    }
+
+    [TestMethod]
     public void Independent_mutation_proceeds_and_end_waits_even_without_a_result_consumer()
     {
         Assert.IsTrue(Compile([Producer("call", "independent"), Mutation("independent", "title", "end"), Node("end", "end", new { })], out var waits));

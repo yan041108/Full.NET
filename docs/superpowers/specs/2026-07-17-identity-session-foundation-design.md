@@ -2,7 +2,8 @@
 
 - 日期：2026-07-17
 - 状态：已确认
-- 2026-09-13 演进确认：新增 §14 OIDC 认证中心与 SSO，按 [ADR-0011](../../architecture/adr/ADR-0011-identity-oidc-sso-evolution.md) 和[执行计划](../plans/2026-09-13-identity-oidc-sso-evolution.md)推进；P0 尚未开始，不改变已实现能力的验证状态。原文双管理端描述为历史切片边界，后续仅持续交付 Vue，Layui 保持冻结。
+- 2026-10-27 执行补记：用户在改造建议保存后要求“执行”并继续；B1 治理、B2 BFF/SSO/可靠退出、B3 中心核心交互已完成本次约定改造和本地影响集验收，包含双库、多节点、真实浏览器与 Linux 原生路径。独立成熟 RP、真实 Worker 故障与官方选定模块补验见研究报告 §16.7；企业接入按真实需求推进，不据此宣称正式 OIDF 认证、生产外部 RP 传播 SLO 或容量通过。
+- 2026-09-13 演进确认：新增 §14 OIDC 认证中心与 SSO，按 [ADR-0011](../../architecture/adr/ADR-0011-identity-oidc-sso-evolution.md) 和[执行计划](../plans/2026-09-13-identity-oidc-sso-evolution.md)推进。2026-10-26 复核：已有协议、会话、治理与 Vue 实现，完整验收仍未关闭；先记录改造建议，随后按执行授权实施。原文双管理端描述为历史切片边界，后续仅持续交付 Vue，Layui 保持冻结。
 - 决策方式：依据项目所有者“后续自动确认（按推荐方案来）”的持续授权，采用推荐方案
 - 适用范围：Identity 后端模块、SQL Server/MySQL 迁移、Vue/Layui 双管理端登录会话
 
@@ -236,9 +237,9 @@ SQL Server 与 MySQL 分别验证：
 
 ### 14.1 授权、状态与唯一来源
 
-项目所有者已确认[研究建议](../../verification/2026-09-13-identity-oidc-sso-research-validation.md)并要求同步项目文档及执行计划。采用 [ADR-0011](../../architecture/adr/ADR-0011-identity-oidc-sso-evolution.md) 的路线：保留现有 Identity，优先验证 OpenIddict，依次推进 P0 可行性、P1 最小 SSO、P2 接入治理和 P3 Vue 迁移。文档已确认，运行能力未验证；当前步骤见[唯一活动执行计划](../plans/2026-09-13-identity-oidc-sso-evolution.md)。
+项目所有者已确认[研究建议](../../verification/2026-09-13-identity-oidc-sso-research-validation.md)并要求同步项目文档及执行计划。采用 [ADR-0011](../../architecture/adr/ADR-0011-identity-oidc-sso-evolution.md) 的路线：保留现有 Identity，以 OpenIddict 实现协议，按 P0 可行性、P1 最小 SSO、P2 接入治理和 P3 Vue 接入的能力门槛验收。2026-10-26 静态复核确认已有相关实现，不能再描述为尚未开始；历史局部证据不等于当前完整验收。用户本次要求保存并审查更新改造建议，§14.7 已获后续执行授权；当前步骤见[唯一活动执行计划](../plans/2026-09-13-identity-oidc-sso-evolution.md)。
 
-本节补充原规格的 OIDC 扩展与协议响应边界；除明确列出的补充外，不替代旧登录、刷新、改密、权限与租户契约。现有外部 OIDC 登录是客户端能力，不作为新服务端已经实现的证据。
+本节补充原规格的 OIDC 扩展与协议响应边界；登录、刷新、改密、权限与租户的安全不变量继续有效。按 R-20261017-direct-evolution，不为假定历史消费者强制保留旧入口或双轨实现。现有外部 OIDC 登录是客户端能力，不作为新服务端已经实现的证据。
 
 ### 14.2 功能与部署范围
 
@@ -246,17 +247,17 @@ SQL Server 与 MySQL 分别验证：
 - 不新增独立生产认证宿主或平行用户库；不引入 EF Core。Store 使用自有执行器、显式 SQL 与双库迁移。
 - 首期使用 Host 账号和两个固定注册的第一方客户端；第二客户端仅用于证明 SSO，不新增持续维护的后台产品。
 - 交互式接入要求授权码 + PKCE S256。公开客户端不依赖 client secret，机密客户端同时执行客户端认证；精确注册回调、退出回跳与允许 scope。
-- 新中心入口在发布验收前不得作为生产默认入口；旧认证入口在迁移与回退验证完成前保持可用。
+- 新中心入口在相应发布验收前不得作为生产默认入口；旧入口收敛同步实际调用方、令牌信任、后台绑定和恢复验证，不预设兼容窗口或永久双轨。
 
 ### 14.3 协议和资源授权契约
 
 | 边界 | 要求 |
 | --- | --- |
-| Discovery／JWKS | 稳定 HTTPS Issuer；元数据与实际端点一致；JWKS 仅公钥 |
+| Discovery／JWKS | 稳定 HTTPS Issuer；按 issuer 路径公开 `/.well-known/openid-configuration`，BFF 使用相同标准地址；元数据与实际端点一致；JWKS 仅公钥 |
 | Authorize／Token | 客户端、redirect_uri、scope、PKCE 绑定；授权码一次性原子消费；错误遵守协议 |
 | ID Token／UserInfo | 最小身份信息；客户端验证签名、iss、aud、nonce、有效期，UserInfo sub 与认证结果一致 |
 | Access Token／资源 API | 按资源设置 aud；检查 token 类型、scope、用户权限、权威会话、租户和数据归属 |
-| 退出／撤销 | 当前应用、中心全部会话、管理员强制下线分开；后续请求和刷新遵守权威状态 |
+| 退出／撤销 | 当前应用退出绑定有效 Bearer 的用户、client 与应用会话，仅撤销该会话；当前中心浏览器与全部设备撤销分别处理，不误伤其他设备或撤回永久同意；后续请求和刷新遵守权威状态 |
 | 管理 API | 继续标准状态码、ProblemDetails、逐页面／逐操作权限和源生成契约 |
 
 协议端点采用协议原生字段名、重定向和错误格式，不交给业务包络或通用 camelCase 转换。具体 URI 和启用集合随 P0/P1 冻结，不能把全部 `/connect/*` 通配为匿名旁路；协议处理器仍负责客户端／用户认证及授权。登录和会话写 UI 保留 Origin、CSRF、可信代理、限流与秘密保护。
@@ -285,9 +286,27 @@ Application、Authorization、Scope、Token Store 保持在 Identity 内，底�
 - P0：验证组件版本／闭包、双库 Store、一次性授权码、旧会话衔接和 Linux 原生运行。失败则记录原因，不关闭 AOT 或降低安全语义换绿。
 - P1：两个受控客户端真实浏览器 SSO、协议负向用例、主会话与本地会话独立。
 - P2：客户端管理、scope、授权／刷新／撤销、全局退出、双实例和密钥轮换；先冻结传播时限，再记录实测结果。
-- P3：Vue 接入、契约兼容、回退与旧入口退役。只清客户端状态不能算服务端撤销；只切换 UI 入口不能算令牌信任回退。
+- P3：Vue 接入、调用方同步、恢复与旧入口收敛。只清客户端状态不能算服务端撤销；只切换 UI 入口不能算令牌信任恢复。是否保留旧路径取决于真实消费者，不因历史计划强制兼容。
 - V01—V24 为稳定场景编号；所有任务保留真实执行证据，未执行／跳过不能标通过。执行位置与测试影响集遵守开发质量 §11。
 - 暂不扩大到动态客户端注册、SAML/CAS、机器身份、设备流、令牌交换、跨租户账号合并或 Layui 新功能。
+
+### 14.7 2026-10-26 改造目标与执行范围
+
+本节经用户要求写入并复核，随后已获“执行”授权；按 B1—B3 推进，不据此宣称下列能力已实现或通过验收。证据与产品比较见[研究报告 §15](../../verification/2026-09-13-identity-oidc-sso-research-validation.md#15-2026-10-26-模块复核与改造建议)，实施事实见同报告 §16，任务与验收映射只在[唯一活动计划](../plans/2026-09-13-identity-oidc-sso-evolution.md)维护。
+
+| 领域 | 推荐目标 | 关键约束 |
+| --- | --- | --- |
+| 客户端治理 | 数据库单一权威，Migrator 受控初始化，API 不按旧配置覆写 | 停用、secret 轮换、回调与信任策略在重启和跨节点后保持；不复活已撤销会话 |
+| 最小授权 | 分别管理允许 scope、grant、audience、离线续期与有效期 | 不无条件追加 profile/offline_access/refresh；scope 不能替代业务权限与租户校验 |
+| 生产配置 | HTTPS Issuer、可信代理、安全 Cookie、持久化加密材料 | 开发例外明确限定环境；生产缺失材料启动失败，不回退临时密钥 |
+| 集群密钥 | 持久化活动版本、预发布与节点协调、旧验签保留和退役 | 私钥不进入普通配置或管理响应；与协议加密和 Data Protection 分开管理；故障不误报激活完成 |
+| Vue 会话 | 同源 BFF 服务端换码、RP 校验与令牌保管 | 浏览器只持有 HttpOnly 会话 Cookie；保留 CSRF、防会话固定、并发刷新和可信上下文；先证明 AOT 可行，不新增生产宿主 |
+| 标准退出 | RP-Initiated Logout、Back-Channel Logout 及可靠投递 | 区分当前应用、当前中心会话、全部设备；本地先撤销，外部传播明确时限、重试和幂等；在线检查或短期 JWT 按资源需求选型 |
+| 认证交互 | 中心多语言、强制改密/恢复、consent、MFA 与 acr/amr 策略 | 已有 TOTP 强重认证不等于完整 MFA 登录；外部 IdP/Passkey 按真实消费者扩展，不按邮箱自动合并账号 |
+
+新增公开元数据只声明实际启用且已验证的端点。按支持的协议 profile 选择 OpenID 一致性测试；Revocation、Introspection 等按消费者需求启用，不将未实现的可选扩展一概判定为 OIDC Core 违规。
+
+2026-10-27 实施增量：已接入标准 `/connect/logout`，并补入同源 Vue BFF、服务端 RP 验证与共享加密票据、CAS 刷新租约、可靠 Back-Channel 投递、中心 TOTP/恢复码、第三方同意和本人撤回、强制改密及中英文交互。ID Token 输出标准 `sid` 与已验证的 `auth_time/amr/acr`，租户切换保留认证强度。启用 BFF 时旧人类登录和令牌信任一起收敛；浏览器会话 API 不返回 access/refresh/ID Token。密钥已补 API/Worker 节点租约、公开材料指纹、预发布/激活/保留/退役状态机和不可逆退役的资源 API 权威校验；生产节点通过 readiness 后才接流量，旧材料不能靠改配置提前移除。真实浏览器与 Linux 原生结果分别按证据验收；新鲜验证与未验证项见研究报告 §16.5—§16.6。
 
 ## 15. 认证事件日志（2026-09-25 规划增补）
 

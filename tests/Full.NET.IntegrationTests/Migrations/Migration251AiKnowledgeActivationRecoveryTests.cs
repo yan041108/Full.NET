@@ -37,7 +37,7 @@ public sealed class Migration251AiKnowledgeActivationRecoveryTests
         foreach (var kind in new[] { "batch", "manifest", "vector" })
         {
             var p = await Migration246AiKnowledgeIndexTaskRecoveryTests.SeedAsync(db, tenant);
-            Assert.AreEqual(1, await db.ExecuteAsync((tenant ? AiKnowledgeIndexTaskSql.EnqueueTenant : AiKnowledgeIndexTaskSql.EnqueueHost).Text, p));
+            Assert.AreEqual(1, await db.ExecuteAsync((tenant ? AiKnowledgeIndexTaskSql.EnqueueTenant : AiKnowledgeIndexTaskSql.EnqueueHost).AutomaticSql(), p));
             p["LeaseToken"] = Guid.CreateVersion7(); p["Expiry"] = ((DateTime)p["Now"]!).AddMinutes(5);
             await db.ExecuteAsync("UPDATE fn_ai_knowledge_index_task SET StateKey='running',LeaseToken=@LeaseToken,LeaseExpiresAtUtc=@Expiry WHERE Id=@TaskId", p);
             p["SessionId"] = Guid.CreateVersion7(); p["SessionKind"] = "refresh"; p["SecurityStamp"] = "stamp"; p["ActorScope"] = tenant ? "tenant" : "host"; p["EffectiveScope"] = p["ActorScope"];
@@ -67,7 +67,7 @@ public sealed class Migration251AiKnowledgeActivationRecoveryTests
             await using var blocker = Migration246AiKnowledgeIndexTaskRecoveryTests.Connection(sqlServer, connectionString); await blocker.OpenAsync();
             await using var blocking = await blocker.BeginTransactionAsync(IsolationLevel.ReadCommitted);
             await blocker.ExecuteAsync("UPDATE fn_ai_knowledge_index_task SET StateKey='completed',LeaseToken=NULL,LeaseExpiresAtUtc=NULL WHERE Id=@TaskId", p, blocking);
-            var pending = writer.ExecuteAsync(sql.Text, p, writing, commandTimeout: 15);
+            var pending = writer.ExecuteAsync(sql.AutomaticSql(), p, writing, commandTimeout: 15);
             Assert.AreNotSame(pending, await Task.WhenAny(pending, Task.Delay(300)), "Late writer must wait for the task completion lock.");
             await blocking.CommitAsync();
             Assert.AreEqual(0, await pending, "A completed task cannot accept a stale running snapshot.");
@@ -82,7 +82,7 @@ public sealed class Migration251AiKnowledgeActivationRecoveryTests
         Migration250AiKnowledgeTextManifestRecoveryTests.Replay(sqlServer, connectionString);
         await using var db = Migration246AiKnowledgeIndexTaskRecoveryTests.Connection(sqlServer, connectionString);
         var p = await Migration246AiKnowledgeIndexTaskRecoveryTests.SeedAsync(db);
-        Assert.AreEqual(1, await db.ExecuteAsync(AiKnowledgeIndexTaskSql.EnqueueHost.Text, p));
+        Assert.AreEqual(1, await db.ExecuteAsync(AiKnowledgeIndexTaskSql.EnqueueHost.AutomaticSql(), p));
         Replay(sqlServer, connectionString); Replay(sqlServer, connectionString);
         Assert.AreEqual("queued", await db.QuerySingleAsync<string>("SELECT StateKey FROM fn_ai_knowledge_index_task WHERE Id=@TaskId", p));
         Assert.AreEqual(0L, await db.QuerySingleAsync<long>("SELECT COUNT(*) FROM fn_ai_knowledge_active_generation"));

@@ -2,7 +2,7 @@
 import { computed, onMounted, reactive, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { ElButton, ElCard, ElForm, ElFormItem, ElInput, ElTable, ElTableColumn } from 'element-plus';
-import type { OAuthUserLink, PublicOAuthProvider } from '@fullnet/client-contracts';
+import type { OAuthUserLink, PublicOAuthProvider, OidcAuthorization } from '@fullnet/client-contracts';
 import {
   showProblem,
   showSuccess,
@@ -14,6 +14,8 @@ import { isIdentityPasswordValid } from '../auth/identity-password-policy';
 import { buildOAuthAuthorizeUrl, deleteOAuthUserLink, listOAuthUserLinks } from '../api/oauth-links';
 import { listPublicOAuthProviders } from '../api/oauth-providers';
 import { regenerateMyMfaRecoveryCodes } from '../api/mfaRecoveryCodes';
+import { listMyOidcAuthorizations, revokeMyOidcAuthorization } from '../api/oidc-authorizations';
+import { adminIdentityAuthMode } from '../config/identity-auth';
 
 defineOptions({ name: 'SecuritySettingsView' });
 
@@ -25,6 +27,8 @@ const saving = ref(false);
 const regeneratingRecoveryCodes = ref(false);
 const recoveryCodes = ref<string[]>([]);
 const linksLoading = ref(false);
+const consentLoading = ref(false);
+const consents = ref<OidcAuthorization[]>([]);
 const oauthLinks = ref<OAuthUserLink[]>([]);
 const availableProviders = ref<PublicOAuthProvider[]>([]);
 const forced = computed(() =>
@@ -114,20 +118,44 @@ async function regenerateRecoveryCodes(): Promise<void> {
   }
 }
 
+async function loadConsents(): Promise<void> {
+  consentLoading.value = true;
+  try { consents.value = await listMyOidcAuthorizations(); }
+  catch (error) { showProblem(error, t('securitySettings.consentFailed')); }
+  finally { consentLoading.value = false; }
+}
+
+async function withdrawConsent(id: unknown): Promise<void> {
+  if (typeof id !== 'string') return;
+  try { await revokeMyOidcAuthorization(id); await loadConsents(); }
+  catch (error) { showProblem(error, t('securitySettings.consentFailed')); }
+}
+
 onMounted(() => {
   if (!forced.value) {
-    void loadOAuthSection();
+    if (adminIdentityAuthMode !== 'oidc-center') void loadOAuthSection();
+    if (adminIdentityAuthMode === 'oidc-center') void loadConsents();
   }
 });
 </script>
 
 <template>
   <section class="security-settings-view">
+    <el-card v-if="!forced && adminIdentityAuthMode === 'oidc-center'" shadow="never" class="security-settings-card">
+      <template #header><h2>{{ t('securitySettings.consents') }}</h2></template>
+      <el-table v-loading="consentLoading" :data="consents">
+        <el-table-column prop="clientId" :label="t('securitySettings.consentClient')" />
+        <el-table-column prop="scopes" :label="t('securitySettings.consentScopes')" />
+        <el-table-column><template #default="{ row }">
+          <el-button type="danger" @click="withdrawConsent(row.id)">{{ t('securitySettings.withdrawConsent') }}</el-button>
+        </template></el-table-column>
+      </el-table>
+    </el-card>
     <el-card shadow="never" class="security-settings-card">
       <template #header>
         <h1 class="security-settings-card__title">{{ t('securitySettings.title') }}</h1>
         <p class="security-settings-card__subtitle">
-          {{ forced ? t('securitySettings.forcedSubtitle') : t('securitySettings.subtitle') }}
+          {{ forced ? t('securitySettings.forcedSubtitle') : t(adminIdentityAuthMode === 'oidc-center' ? 'securitySettings.bffSubtitle' : 'securitySettings.subtitle') }}
         </p>
       </template>
 
@@ -177,7 +205,7 @@ onMounted(() => {
       </ul>
     </el-card>
 
-    <el-card shadow="never" class="security-settings-card security-settings-card--oauth">
+    <el-card v-if="adminIdentityAuthMode !== 'oidc-center'" shadow="never" class="security-settings-card security-settings-card--oauth">
       <template #header>
         <h2 class="security-settings-card__title">{{ t('oauthLinks.title') }}</h2>
         <p class="security-settings-card__subtitle">{{ t('oauthLinks.subtitle') }}</p>

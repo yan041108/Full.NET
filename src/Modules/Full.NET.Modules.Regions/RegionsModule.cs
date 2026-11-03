@@ -62,6 +62,9 @@ public sealed class RegionsModule : IFullNetModule
         IServiceCollection services,
         IConfiguration configuration)
     {
+#if FULLNET_AOT_COMPILE
+        Persistence.RegionsDapperAotMaterializerContributor.RegisterMigrationMaterializers(new global::Full.NET.Data.Dapper.DapperAotMaterializerRegistrar());
+#endif
         services.TryAddSingleton<IClock, SystemClock>();
         services.TryAddSingleton<IIdGenerator, GuidV7IdGenerator>();
         services.TryAddEnumerable(ServiceDescriptor.Scoped<

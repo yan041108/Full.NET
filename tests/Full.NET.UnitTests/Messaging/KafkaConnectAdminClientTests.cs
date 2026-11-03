@@ -10,6 +10,55 @@ namespace Full.NET.UnitTests.Messaging;
 public sealed class KafkaConnectAdminClientTests
 {
     [TestMethod]
+    public async Task Sql_server_offset_retains_transaction_change_position_and_serial()
+    {
+        using var http = new HttpClient(new StaticResponseHandler(HttpStatusCode.OK,
+            """{"offsets":[{"partition":{"server":"source"},"offset":{"commit_lsn":"0000002d:00000288:0008","change_lsn":"0000002d:00000288:0006","event_serial_no":1}}]}"""))
+        { BaseAddress = new("http://connect:8083/") };
+        using var client = new KafkaConnectAdminClient(http);
+        var position = await client.TryReadConnectorPositionAsync("pilot");
+        Assert.AreEqual("0000002d:00000288:0008", position!.Lsn!.CommitLsn);
+        Assert.AreEqual("0000002d:00000288:0006", position.Lsn.ChangeLsn);
+        Assert.AreEqual(1L, position.Lsn.EventSerialNo);
+    }
+
+    [TestMethod]
+    public async Task MySql_offset_preserves_completed_gtid_checkpoint_for_optional_time_observation()
+    {
+        using var http = new HttpClient(new StaticResponseHandler(HttpStatusCode.OK,
+            """{"offsets":[{"partition":{"server":"source"},"offset":{"file":"mysql-bin.000001","pos":950,"gtids":"12345678-1234-1234-1234-123456789abc:1-12"}}]}"""))
+        { BaseAddress = new("http://connect:8083/") };
+        using var client = new KafkaConnectAdminClient(http);
+        var position = await client.TryReadConnectorPositionAsync("pilot");
+        Assert.AreEqual("12345678-1234-1234-1234-123456789abc:1-12", position!.Binlog!.CompletedGtidSet);
+        Assert.AreEqual(950, position.Binlog.Position);
+    }
+    [TestMethod]
+    public async Task Registration_creates_and_updates_the_same_connector_with_config_put()
+    {
+        using var handler = new RegistrationHandler();
+        using var http = new HttpClient(handler) { BaseAddress = new("http://connect:8083/") };
+        using var client = new KafkaConnectAdminClient(http);
+        await client.RegisterConnectorAsync("scope-c", new Dictionary<string, string> { ["tasks.max"] = "1" });
+        await client.RegisterConnectorAsync("scope-c", new Dictionary<string, string> { ["tasks.max"] = "2" });
+        CollectionAssert.AreEqual(new[] { "1", "2" }, handler.TaskCounts.ToArray());
+    }
+
+    private sealed class RegistrationHandler : HttpMessageHandler
+    {
+        internal List<string> TaskCounts { get; } = [];
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            Assert.AreEqual(HttpMethod.Put, request.Method);
+            Assert.AreEqual("/connectors/scope-c/config", request.RequestUri!.AbsolutePath);
+            using var body = System.Text.Json.JsonDocument.Parse(await request.Content!.ReadAsStringAsync(cancellationToken));
+            TaskCounts.Add(body.RootElement.GetProperty("tasks.max").GetString()!);
+            Assert.IsFalse(body.RootElement.TryGetProperty("config", out _), "配置 PUT 不接受创建接口的外层包装。");
+            return new(TaskCounts.Count == 1 ? HttpStatusCode.Created : HttpStatusCode.OK);
+        }
+    }
+
+    [TestMethod]
     public async Task Register_connector_failure_does_not_disclose_response_body()
     {
         const string secret = "must-not-leak";

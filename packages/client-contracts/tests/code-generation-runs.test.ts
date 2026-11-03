@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import {
   isCodeGenerationRunApplyRequest,
   isCodeGenerationRunApplyResponse,
+  isCodeGenerationRunApplyPlanResponse,
+  isCodeGenerationWorkspaceStateResponse,
   isCodeGenerationRunPage,
   isCodeGenerationRunPreviewRequest,
   isCodeGenerationRunPreviewResponse,
@@ -13,6 +15,30 @@ import {
 } from '../src/code-generation-runs';
 
 describe('code-generation run contracts', () => {
+  it('工作区阶段必须与待恢复操作和全局顺序一致', () => {
+    const id = '0198f36e-f7a7-7c52-9cbb-774e67411212';
+    const state = { workspaceId: id, revision: 0, tipOperationId: null, lastOperationId: null,
+      pendingOperationId: id, pendingKind: 'apply', pendingClient: 'host', phase: 'prepared' };
+    expect(isCodeGenerationWorkspaceStateResponse(state)).toBe(true);
+    expect(isCodeGenerationWorkspaceStateResponse({ ...state, phase: 'idle' })).toBe(false);
+    expect(isCodeGenerationWorkspaceStateResponse({ ...state, pendingClient: 'unknown' })).toBe(false);
+    expect(isCodeGenerationWorkspaceStateResponse({ ...state, revision: 1 })).toBe(false);
+  });
+  it('keeps local apply success separate from pending remote publication', () => {
+    const response = {
+      runId: '0198f36e-f7a7-7c52-9cbb-774e67411212',
+      previewRunId: '0198f36e-f7a7-7c52-9cbb-774e67411213',
+      artifactCount: 12,
+      changedArtifactCount: 10,
+      manifestSha256: 'a'.repeat(64),
+      publicationStatus: 'pending',
+      commitSha: 'b'.repeat(40)
+    };
+    expect(isCodeGenerationRunApplyResponse(response)).toBe(true);
+    expect(isCodeGenerationRunApplyResponse({ ...response, publicationStatus: 'published', commitSha: null })).toBe(false);
+    expect(isCodeGenerationRunApplyResponse({ ...response, publicationStatus: 'unknown' })).toBe(false);
+  });
+
   const schema = {
     ownerKey: 'acme',
     moduleKey: 'catalog',
@@ -50,7 +76,9 @@ describe('code-generation run contracts', () => {
     requestedByUserId: '0198f36e-f7a7-7c52-9cbb-774e67411211',
     startedAtUtc: '2026-07-31T05:00:00Z',
     finishedAtUtc: '2026-07-31T05:00:01Z',
-    sourceApplyRunId: null
+    sourceApplyRunId: null,
+    publicationStatus: 'unavailable',
+    commitSha: null
   };
 
   it('accepts exactly one inline or template source', () => {
@@ -92,7 +120,7 @@ describe('code-generation run contracts', () => {
 
   it('accepts strict apply input and output summaries', () => {
     expect(isCodeGenerationRunApplyRequest({
-      previewRunId: run.id
+      planId: run.id, planSha256: 'a'.repeat(64), idempotencyKey: run.id
     })).toBe(true);
     expect(isCodeGenerationRunApplyRequest({
       previewRunId: run.id,
@@ -103,6 +131,8 @@ describe('code-generation run contracts', () => {
       previewRunId: run.id,
       artifactCount: 8,
       changedArtifactCount: 3,
+      publicationStatus: 'disabled',
+      commitSha: null,
       manifestSha256: 'b'.repeat(64)
     })).toBe(true);
     expect(isCodeGenerationRunApplyResponse({
@@ -110,6 +140,8 @@ describe('code-generation run contracts', () => {
       previewRunId: run.id,
       artifactCount: 8,
       changedArtifactCount: 9,
+      publicationStatus: 'disabled',
+      commitSha: null,
       manifestSha256: 'b'.repeat(64)
     })).toBe(false);
     expect(isCodeGenerationRunResponse({
@@ -118,6 +150,18 @@ describe('code-generation run contracts', () => {
       templateVersion: 3,
       operationKind: 'apply'
     })).toBe(true);
+  });
+
+  it('审查计划拒绝遗漏清单、重复路径、非法后态和未知动作', () => {
+    const manifest = { relativePath: '.fullnet/codegeneration-manifest.json', kind: 'manifest', beforeSha256: null, afterSha256: 'a'.repeat(64) };
+    const file = { relativePath: 'module/Product.g.cs', kind: 'create', beforeSha256: null, afterSha256: 'b'.repeat(64) };
+    const plan = { planId: run.id, previewRunId: run.id, workspaceId: run.id, workspaceRevision: 1, generatorVersion: '2026.10.24.1',
+      planSha256: 'c'.repeat(64), expiresAtUtc: '2099-01-01T00:00:00Z', files: [file, manifest] };
+    expect(isCodeGenerationRunApplyPlanResponse(plan)).toBe(true);
+    expect(isCodeGenerationRunApplyPlanResponse({ ...plan, files: [file] })).toBe(false);
+    expect(isCodeGenerationRunApplyPlanResponse({ ...plan, files: [file, file, manifest] })).toBe(false);
+    expect(isCodeGenerationRunApplyPlanResponse({ ...plan, files: [{ ...file, kind: 'delete' }, manifest] })).toBe(false);
+    expect(isCodeGenerationRunApplyPlanResponse({ ...plan, files: [{ ...file, kind: 'execute' }, manifest] })).toBe(false);
   });
 
   it('rejects unknown states, malformed outcomes, and source content', () => {
@@ -164,6 +208,8 @@ describe('code-generation run contracts', () => {
       applyRunId: run.id,
       artifactCount: 0,
       changedArtifactCount: 2,
+      publicationStatus: 'disabled',
+      commitSha: null,
       manifestSha256: 'c'.repeat(64)
     })).toBe(true);
     expect(isCodeGenerationRunResponse({
@@ -178,7 +224,9 @@ describe('code-generation run contracts', () => {
       ...run,
       operationKind: 'rollback',
       artifactCount: 0,
-      sourceApplyRunId: null
+      sourceApplyRunId: null,
+      publicationStatus: 'unavailable',
+      commitSha: null
     })).toBe(false);
   });
 
@@ -198,6 +246,8 @@ describe('code-generation run contracts', () => {
           applyRunId: secondApplyRunId,
           artifactCount: 1,
           changedArtifactCount: 1,
+          publicationStatus: 'disabled',
+          commitSha: null,
           manifestSha256: 'b'.repeat(64)
         },
         {
@@ -205,6 +255,8 @@ describe('code-generation run contracts', () => {
           applyRunId,
           artifactCount: 0,
           changedArtifactCount: 1,
+          publicationStatus: 'disabled',
+          commitSha: null,
           manifestSha256: 'c'.repeat(64)
         }
       ]

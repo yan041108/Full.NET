@@ -15,6 +15,11 @@ internal sealed class ImportExportAuthorizationContributor : IAuthorizationCatal
         new(ImportExportPermissions.ImportTasksRead, "读取导入任务", AuthorizationScope.Tenant),
         new(ImportExportPermissions.ImportTasksCreate, "创建导入任务并预校验", AuthorizationScope.Tenant),
         new(ImportExportPermissions.ImportTasksExecute, "执行导入任务", AuthorizationScope.Tenant),
+        new(ImportExportPermissions.ImportTasksCancel, "取消本人待执行导入任务", AuthorizationScope.Tenant),
+        new(ImportProfilePermissions.Read, "读取本人导入配置", AuthorizationScope.Tenant),
+        new(ImportProfilePermissions.Create, "创建本人导入配置", AuthorizationScope.Tenant),
+        new(ImportProfilePermissions.Update, "更新本人导入配置", AuthorizationScope.Tenant),
+        new(ImportProfilePermissions.Delete, "删除本人导入配置", AuthorizationScope.Tenant),
     ];
 
     public IReadOnlyCollection<NavigationDefinition> Navigation { get; } =
@@ -34,6 +39,8 @@ internal sealed class ImportExportAuthorizationContributor : IAuthorizationCatal
 
     public IReadOnlyCollection<AuthorizationActionDefinition> Actions { get; } =
     [
+        new AuthorizationActionDefinition("import_export.import_tasks.cancel", "import-export-tasks",
+            ImportExportPermissions.ImportTasksCancel, "取消待执行导入", "cancel", 30),
         new AuthorizationActionDefinition(
             "import_export.import_tasks.create",
             "import-export-tasks",

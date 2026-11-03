@@ -26,6 +26,8 @@ public static class IdentityOidcClientPermissions
 /// <param name="IsConfidential">是否为机密客户端；机密客户端须保管 Secret。</param>
 /// <param name="IsFirstParty">是否为第一方客户端；第一方默认获得更高信任。</param>
 /// <param name="ResourceAudience">期望的 Resource Audience；可为空。</param>
+/// <param name="RequireMfa">是否要求经过第二因子验证的中心认证。</param>
+/// <param name="BackchannelLogoutUri">部署许可的精确 HTTPS 退出通知接收端。</param>
 public sealed record CreateOidcClientRequest(
     string ClientId,
     string DisplayName,
@@ -34,7 +36,9 @@ public sealed record CreateOidcClientRequest(
     IReadOnlyList<string> Scopes,
     bool IsConfidential,
     bool IsFirstParty,
-    string? ResourceAudience);
+    string? ResourceAudience,
+    bool RequireMfa = false,
+    string? BackchannelLogoutUri = null);
 
 /// <summary>更新 OIDC 客户端请求；支持乐观并发。</summary>
 /// <remarks>字段顺序发布后不可调整；新增字段只能追加到末尾，以保持线格式兼容。 RedirectUris 与 Scopes 调整需考虑向后兼容。</remarks>
@@ -45,6 +49,8 @@ public sealed record CreateOidcClientRequest(
 /// <param name="IsFirstParty">是否为第一方客户端。</param>
 /// <param name="ResourceAudience">期望的 Resource Audience；可为空。</param>
 /// <param name="Version">调用方感知的当前版本；服务端据此拒绝并发覆盖。</param>
+/// <param name="RequireMfa">是否要求经过第二因子验证的中心认证。</param>
+/// <param name="BackchannelLogoutUri">部署许可的精确 HTTPS 退出通知接收端。</param>
 public sealed record UpdateOidcClientRequest(
     string DisplayName,
     IReadOnlyList<string> RedirectUris,
@@ -52,7 +58,9 @@ public sealed record UpdateOidcClientRequest(
     IReadOnlyList<string> Scopes,
     bool IsFirstParty,
     string? ResourceAudience,
-    int Version);
+    int Version,
+    bool RequireMfa = false,
+    string? BackchannelLogoutUri = null);
 
 /// <summary>OIDC 客户端投影；不含明文密钥。</summary>
 /// <remarks>字段顺序发布后不可调整；新增字段只能追加到末尾，以保持线格式兼容。ClientId 发布后不可改名。</remarks>
@@ -68,6 +76,8 @@ public sealed record UpdateOidcClientRequest(
 /// <param name="IsDisabled">是否已停用；停用后认证请求将被拒绝。</param>
 /// <param name="CreatedAtUtc">创建时间（UTC）。</param>
 /// <param name="Version">乐观并发版本号；调用方更新时必须回传最新值。</param>
+/// <param name="RequireMfa">是否要求经过第二因子验证的中心认证。</param>
+/// <param name="BackchannelLogoutUri">部署许可的精确 HTTPS 退出通知接收端。</param>
 public sealed record OidcClientResponse(
     Guid Id,
     string ClientId,
@@ -80,7 +90,9 @@ public sealed record OidcClientResponse(
     string? ResourceAudience,
     bool IsDisabled,
     DateTimeOffset CreatedAtUtc,
-    int Version);
+    int Version,
+    bool RequireMfa = false,
+    string? BackchannelLogoutUri = null);
 
 /// <summary>创建 OIDC 客户端响应；明文密钥只返回一次。</summary>
 /// <remarks>Secret 仅返回一次，调用方必须立即写入安全 Secret Store；禁止落盘或写日志，丢失后只能通过轮换重置。</remarks>

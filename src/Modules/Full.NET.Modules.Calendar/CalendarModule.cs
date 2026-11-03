@@ -44,10 +44,26 @@ public sealed class CalendarModule : IFullNetModule
         services.TryAddSingleton<IIdGenerator, GuidV7IdGenerator>();
         services.TryAddScoped<Features.ManageMyPersonalSchedules.PersonalScheduleQueryService>();
         services.TryAddScoped<Features.ManageMyPersonalSchedules.PersonalScheduleManagementService>();
+        services.TryAddScoped<Contracts.IPersonalScheduleKnowledgeSource, Features.Knowledge.PersonalScheduleKnowledgeSource>();
+        services.TryAddScoped<Contracts.IPersonalScheduleCompletion, Features.Completion.PersonalScheduleCompletion>();
         services.ConfigureHttpJsonOptions(options =>
             options.SerializerOptions.TypeInfoResolverChain.Insert(
                 0,
                 CalendarJsonSerializerContext.Default));
+#if FULLNET_AOT_COMPILE
+        new Persistence.CalendarDapperAotMaterializerContributor()
+            .RegisterMaterializers(new global::Full.NET.Data.Dapper.DapperAotMaterializerRegistrar());
+#endif
+    }
+
+    /// <summary>Worker只注册来源权威与权限目录；不装配HTTP或个人日程维护服务。</summary>
+    /// <param name="services">后台宿主的服务集合。</param>
+    /// <param name="configuration">宿主配置。</param>
+    public void AddBackgroundServices(IServiceCollection services, IConfiguration configuration)
+    {
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<IAuthorizationCatalogContributor, CalendarAuthorizationContributor>());
+        services.TryAddScoped<Contracts.IPersonalScheduleKnowledgeSource, Features.Knowledge.PersonalScheduleKnowledgeSource>();
+        services.TryAddScoped<Contracts.IPersonalScheduleCompletion, Features.Completion.PersonalScheduleCompletion>();
 #if FULLNET_AOT_COMPILE
         new Persistence.CalendarDapperAotMaterializerContributor()
             .RegisterMaterializers(new global::Full.NET.Data.Dapper.DapperAotMaterializerRegistrar());

@@ -4,6 +4,19 @@
   "description": "OIDC authorization grant admin HTTP contract fixture.",
   "paths": [
     {
+      "path": "/api/v1/me/oidc-authorizations",
+      "operations": [
+        { "method": "GET", "authorization": "authenticated-self", "successStatus": 200,
+          "responseSchema": "OidcAuthorizationResponse", "responseIsArray": true }
+      ]
+    },
+    {
+      "path": "/api/v1/me/oidc-authorizations/{id}/revoke",
+      "operations": [
+        { "method": "POST", "authorization": "authenticated-self", "successStatus": 204 }
+      ]
+    },
+    {
       "path": "/api/v1/identity/oidc-authorizations",
       "operations": [
         {

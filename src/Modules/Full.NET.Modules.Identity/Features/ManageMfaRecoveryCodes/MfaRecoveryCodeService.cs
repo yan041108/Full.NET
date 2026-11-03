@@ -8,6 +8,7 @@ using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Identity.Features.ManageMfaRecoveryCodes.Persistence;
 using Full.NET.Modules.Identity.Security;
+using Full.NET.Modules.Identity.Domain;
 
 /// <summary>Identity 模块应用服务；编排事务、权限与持久化。</summary>
 namespace Full.NET.Modules.Identity.Features.ManageMfaRecoveryCodes;
@@ -18,7 +19,8 @@ internal sealed class MfaRecoveryCodeService(
     ICommandTransaction transaction,
     IClock clock,
     IIdGenerator idGenerator,
-    IRandomTokenGenerator randomTokenGenerator)
+    IRandomTokenGenerator randomTokenGenerator,
+    AuthenticationSecurityEventWriter audit)
 {
     private const int CodeCount = 10;
 
@@ -53,7 +55,7 @@ internal sealed class MfaRecoveryCodeService(
         {
             var code = randomTokenGenerator.Generate(16);
             plaintextCodes.Add(code);
-            await commandExecutor.ExecuteAsync(
+            var affected = await commandExecutor.ExecuteAsync(
                     MfaRecoveryCodeSql.Insert,
                     Identity.Persistence.IdentitySqlParameters.Create(
                         ("Id", idGenerator.NewId()),
@@ -62,7 +64,11 @@ internal sealed class MfaRecoveryCodeService(
                         ("CreatedAtUtc", now)),
                     cancellationToken)
                 .ConfigureAwait(false);
+            if (affected != 1) throw new InvalidOperationException("Recovery code insert did not persist exactly one row.");
         }
+
+        await audit.WriteAsync(userId, userId, AuthenticationEventCatalog.RecoveryCodesRegenerated,
+            "identity.mfa_recovery_codes_regenerated", true, "recovery_code", cancellationToken).ConfigureAwait(false);
 
         return Result<RegenerateMfaRecoveryCodesResponse>.Success(
             new RegenerateMfaRecoveryCodesResponse(plaintextCodes));
@@ -76,6 +82,7 @@ internal sealed class MfaRecoveryCodeService(
         var normalized = recoveryCode?.Trim() ?? string.Empty;
         if (normalized.Length is < 8 or > 64)
         {
+            await WriteConsumptionAsync(userId, false, cancellationToken).ConfigureAwait(false);
             return Result<ConsumeMfaRecoveryCodeResponse>.Failure(new Error(
                 IdentityErrorCodes.MfaRecoveryCodeInvalid,
                 "Recovery code is invalid.",
@@ -88,9 +95,10 @@ internal sealed class MfaRecoveryCodeService(
                 cancellationToken)
             .ConfigureAwait(false);
         var hash = HashCode(normalized);
-        var match = rows.FirstOrDefault(row => row.CodeHash.SequenceEqual(hash));
+        var match = rows.FirstOrDefault(row => CryptographicOperations.FixedTimeEquals(row.CodeHash, hash));
         if (match is null)
         {
+            await WriteConsumptionAsync(userId, false, cancellationToken).ConfigureAwait(false);
             return Result<ConsumeMfaRecoveryCodeResponse>.Failure(new Error(
                 IdentityErrorCodes.MfaRecoveryCodeInvalid,
                 "Recovery code is invalid.",
@@ -107,14 +115,21 @@ internal sealed class MfaRecoveryCodeService(
             .ConfigureAwait(false);
         if (affected != 1)
         {
+            await WriteConsumptionAsync(userId, false, cancellationToken).ConfigureAwait(false);
             return Result<ConsumeMfaRecoveryCodeResponse>.Failure(new Error(
                 IdentityErrorCodes.MfaRecoveryCodeInvalid,
                 "Recovery code is invalid.",
                 ErrorType.Conflict));
         }
 
+        await WriteConsumptionAsync(userId, true, cancellationToken).ConfigureAwait(false);
         return Result<ConsumeMfaRecoveryCodeResponse>.Success(new ConsumeMfaRecoveryCodeResponse(true));
     }
+
+    private Task WriteConsumptionAsync(Guid userId, bool succeeded, CancellationToken token) =>
+        audit.WriteAsync(userId, succeeded ? userId : null, AuthenticationEventCatalog.RecoveryCodeConsumed,
+            succeeded ? "identity.mfa_recovery_code_consumed" : IdentityErrorCodes.MfaRecoveryCodeInvalid,
+            succeeded, "recovery_code", token);
 
     private static byte[] HashCode(string code) =>
         SHA256.HashData(Encoding.UTF8.GetBytes(code.Trim()));

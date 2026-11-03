@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { flushPromises, mount, type VueWrapper } from '@vue/test-utils';
 import { reactive } from 'vue';
 import DocumentPublicShareView from './DocumentPublicShareView.vue';
+import { getDocumentPreviewCapabilities } from '../api/document-preview-tasks';
 import {
   accessDocumentShareByCode,
   createDocumentSharePreviewTaskByCode,
@@ -19,7 +20,8 @@ vi.mock('../api/document-shares', () => ({
   loadDocumentShareContentByCode: vi.fn(),
   loadDocumentSharePreviewTaskContentByCode: vi.fn()
 }));
-vi.mock('../api/host-document-items', () => ({ openDocumentBlob: vi.fn() }));
+vi.mock('../api/document-preview-tasks', () => ({ getDocumentPreviewCapabilities: vi.fn().mockResolvedValue({ enabled: true, allowedMimeTypes: ['application/vnd.openxmlformats-officedocument.wordprocessingml.document'], maxInputBytes: 52428800 }) }));
+vi.mock('../api/host-document-items', async importOriginal => ({ ...(await importOriginal<typeof import('../api/host-document-items')>()), openDocumentBlob: vi.fn() }));
 
 const accessMock = vi.mocked(accessDocumentShareByCode);
 const createMock = vi.mocked(createDocumentSharePreviewTaskByCode);
@@ -29,7 +31,7 @@ const directMock = vi.mocked(loadDocumentShareContentByCode);
 const officeAccess = {
   title: 'Office 文件', fileName: 'preview.docx', accessCountRemaining: 3,
   mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-  previewGrant: 'access-only-grant'
+  fileSizeBytes: 1024, previewGrant: 'access-only-grant'
 };
 let wrapper: VueWrapper | undefined;
 
@@ -40,6 +42,7 @@ function render() {
 
 describe('匿名 Office 预览凭据与生命周期', () => {
   beforeEach(() => {
+    vi.mocked(getDocumentPreviewCapabilities).mockResolvedValue({ enabled: true, allowedMimeTypes: [officeAccess.mimeType], maxInputBytes: 52428800, maxAttempts: 3, providerKey: 'external_http' });
     vi.useFakeTimers({ toFake: ['Date', 'setTimeout', 'clearTimeout'] });
     vi.setSystemTime(new Date('2026-10-21T00:00:00Z'));
     routing.route = reactive({ params: { shareCode: 'alpha' } });
@@ -65,7 +68,7 @@ describe('匿名 Office 预览凭据与生命周期', () => {
     const page = render();
     await flushPromises();
     expect(createMock).toHaveBeenCalledExactlyOnceWith('alpha',
-      { password: null, previewGrant: 'access-only-grant' }, expect.any(AbortSignal));
+      { previewGrant: 'access-only-grant' }, expect.any(AbortSignal));
     expect(pollMock).toHaveBeenCalledExactlyOnceWith('alpha', 'task-alpha',
       { previewGrant: 'task-only-grant' }, expect.any(AbortSignal));
     await vi.advanceTimersByTimeAsync(1999);
@@ -105,7 +108,7 @@ describe('匿名 Office 预览凭据与生命周期', () => {
     accessMock.mockResolvedValueOnce({ ...officeAccess, title: '新分享', mimeType: 'application/pdf' } as never);
     routing.route!.params.shareCode = 'beta'; await flushPromises();
     expect(oldSignal.aborted).toBe(true);
-    expect(directMock).toHaveBeenCalledWith('beta', { password: null }, expect.any(AbortSignal));
+    expect(directMock).toHaveBeenCalledWith('beta', expect.objectContaining({ previewGrant: 'access-only-grant', accessTypeKey: 'preview', requestKey: expect.any(String) }), expect.any(AbortSignal));
     old.resolve({ statusKey: 'succeeded' } as never); await flushPromises();
     expect(contentMock).not.toHaveBeenCalled();
     expect(page.text()).toContain('新分享');
@@ -124,4 +127,43 @@ describe('匿名 Office 预览凭据与生命周期', () => {
     expect(pollMock).toHaveBeenCalledTimes(1);
     expect(contentMock).not.toHaveBeenCalled();
   });
+  it('匿名下载使用会话与独立操作键，不重新提交口令或冒充预览', async () => {
+    const page = render(); await flushPromises();
+    await page.get('[data-testid="document-public-share-download"]').trigger('click');
+    await flushPromises();
+    expect(directMock).toHaveBeenCalledExactlyOnceWith('alpha', {
+      previewGrant: 'access-only-grant', requestKey: expect.any(String), accessTypeKey: 'download'
+    });
+  });
+
+  it('服务端关闭转换时不建任务且不把 Office 原文件装进预览框', async () => {
+    vi.mocked(getDocumentPreviewCapabilities).mockResolvedValue({ enabled: false, allowedMimeTypes: [officeAccess.mimeType], maxInputBytes: 52428800, maxAttempts: 3, providerKey: 'disabled' });
+    render(); await flushPromises();
+    expect(createMock).not.toHaveBeenCalled(); expect(directMock).not.toHaveBeenCalled();
+  });
+
+  it('活动 HTML 按纯文本预览，不能获得同源脚本执行能力', async () => {
+    accessMock.mockResolvedValueOnce({ ...officeAccess, mimeType: 'text/html' } as never);
+    directMock.mockResolvedValueOnce(new Blob(['<script>parent.localStorage.clear()</script>'], { type: 'text/html' }));
+    render(); await flushPromises();
+    expect(vi.mocked(URL.createObjectURL).mock.calls[0]![0]).toMatchObject({ type: 'text/plain' });
+    expect(createMock).not.toHaveBeenCalled();
+  });
+
+  it('超过服务端输入上限时只保留下载，不提交 Office 转换', async () => {
+    accessMock.mockResolvedValueOnce({ ...officeAccess, fileSizeBytes: 52428801 } as never);
+    const page = render(); await flushPromises();
+    expect(createMock).not.toHaveBeenCalled();
+    expect(page.find('[data-testid="document-public-share-download"]').exists()).toBe(true);
+  });
+
+  it('SVG 仍在受限 img 模式展示，不作为独立同源页面打开', async () => {
+    accessMock.mockResolvedValueOnce({ ...officeAccess, mimeType: 'image/svg+xml' } as never);
+    directMock.mockResolvedValueOnce(new Blob(['<svg xmlns="http://www.w3.org/2000/svg"/>'], { type: 'image/svg+xml' }));
+    const page = render(); await flushPromises();
+    expect(page.get('img').attributes('src')).toBe('blob:preview');
+    expect(page.find('iframe').exists()).toBe(false);
+    expect(vi.mocked(URL.createObjectURL).mock.calls[0]![0]).toMatchObject({ type: 'image/svg+xml' });
+  });
+
 });

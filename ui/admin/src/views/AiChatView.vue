@@ -2,21 +2,23 @@
 import AiKnowledgeCitationPosition from '../components/AiKnowledgeCitationPosition.vue';
 import AiKnowledgeAnswerFeedback from '../components/AiKnowledgeAnswerFeedback.vue';
 import AiFeedbackReviewPanel from '../components/AiFeedbackReviewPanel.vue';
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
+import { computed, defineAsyncComponent, onMounted, onUnmounted, ref, watch } from 'vue';
 import { ElAlert, ElButton, ElCard, ElEmpty, ElInput, ElMessageBox, ElOption, ElSelect, ElSwitch } from 'element-plus';
 import { Plus, VideoPause } from '@element-plus/icons-vue';
-import type { AiChatMessage, AiChatSession, AiChatSessionListItem, AiKnowledgeCitation, AiModelConfigListItem, FullNetProblemDetails } from '@fullnet/client-contracts';
+import type { AiChatMessage, AiChatSession, AiChatSessionListItem, AiKnowledgeCitation, AiPersonalScheduleCitation, AiModelConfigListItem, FullNetProblemDetails } from '@fullnet/client-contracts';
 import { isFullNetProblemDetails } from '@fullnet/client-contracts';
 import PermissionGate from '../components/PermissionGate.vue';
 import AiKnowledgeBaseMultiSelect from '../components/AiKnowledgeBaseMultiSelect.vue';
 import AiKnowledgeSourceDialog from '../components/AiKnowledgeSourceDialog.vue';
+import { personalScheduleAssistantText } from '../i18n/personal-schedule-assistant';
+const AiPersonalScheduleSourceDialog = defineAsyncComponent(() => import('../components/AiPersonalScheduleSourceDialog.vue'));
 import { useSessionStore } from '../auth/session';
 import { useAdminI18n } from '../i18n/adminI18n';
 import { showError, showProblem, showWarning } from '../feedback/fullNetMessage';
 import { listAiModelConfigs } from '../api/ai-model-configs';
 import { askAiKnowledge, cancelAiChatGeneration, createAiChatSession, deleteAiChatSession, getAiChatSession, listAiChatSessions, streamAiChatMessage, updateAiChatSession } from '../api/ai-chat';
 defineOptions({ name: 'AiChatView' });
-const { t } = useAdminI18n(); const session = useSessionStore();
+const { t, locale } = useAdminI18n(); const session = useSessionStore();
 const sessions = ref<AiChatSessionListItem[]>([]); const models = ref<AiModelConfigListItem[]>([]);
 const selectedSessionId = ref(''); const activeSession = ref<AiChatSession>(); const draft = ref(''); const selectedModelId = ref('');
 const loading = ref(false); const sending = ref(false); const cancelling = ref(false); const problem = ref<FullNetProblemDetails>();
@@ -24,6 +26,7 @@ const knowledgeMode = ref(false); const knowledgeBaseIds = ref<string[]>([]); co
 const refusedIds = ref(new Set<string>()); const citationBases = new Map<string, string[]>();
 const sourceOpen = ref(false); const sourceCitation = ref<AiKnowledgeCitation>(); const sourceBaseId = ref<string>();
 const sourceCandidateBaseIds = ref<string[]>();
+const scheduleCitation = ref<AiPersonalScheduleCitation>();
 let refreshTimer: ReturnType<typeof setTimeout> | undefined;
 let epoch = 0; let readEpoch = 0; let streamController: AbortController | undefined;
 const canAsk = computed(() => !session.switching && ['ai.chat.messages.send', 'ai.knowledge_bases.read', 'ai.knowledge_documents.read', 'ai.knowledge_documents.source_read', 'ai.knowledge_documents.index_read'].every(code => session.can(code)));
@@ -41,7 +44,10 @@ function toProblem(error: unknown, fallbackKey: Parameters<typeof t>[0]): FullNe
 async function loadSession(id: string) {
   const scope = epoch; const current = ++readEpoch;
   const result = await getAiChatSession(id);
-  if (scope === epoch && current === readEpoch && selectedSessionId.value === id) activeSession.value = result;
+  if (scope === epoch && current === readEpoch && selectedSessionId.value === id) {
+    activeSession.value = result;
+    if (result.messages.some(message => message.knowledgeUnavailableCode)) { scheduleCitation.value = undefined; sourceOpen.value = false; sourceCitation.value = undefined; }
+  }
 }
 async function loadOlderMessages() {
   const current = activeSession.value;
@@ -88,7 +94,7 @@ async function createSession() {
 }
 async function selectSession(id: string) {
   if (sending.value || loading.value) return;
-  activeSession.value = undefined; sourceOpen.value = false; knowledgeBaseIds.value = []; selectedSessionId.value = id; loading.value = true;
+  activeSession.value = undefined; sourceOpen.value = false; scheduleCitation.value = undefined; knowledgeBaseIds.value = []; selectedSessionId.value = id; loading.value = true;
   try { await loadSession(id); } catch (error) { showProblem(error, t('aiChat.loadFailed')); } finally { loading.value = false; }
 }
 async function renameSession() {
@@ -188,11 +194,23 @@ function openCitation(message: AiChatMessage, citation: AiKnowledgeCitation) {
   sourceCitation.value = citation; sourceBaseId.value = bases?.length === 1 ? bases[0] : undefined;
   sourceCandidateBaseIds.value = bases ? [...bases] : undefined; sourceOpen.value = true;
 }
+function faqSourceUnavailable(business = false) {
+  if (!business && !sourceCitation.value?.faqSource) return;
+  scheduleCitation.value = undefined;
+  ++readEpoch; sourceOpen.value = false; sourceCitation.value = undefined;
+  const current = activeSession.value;
+  if (!current) return;
+  // 展示引用只是依赖子集，无法据此判断哪些旧答案仍安全；先清空全部知识正文，再只读重核历史。
+  activeSession.value = { ...current, messages: current.messages.map(message => message.isKnowledgeAnswer || message.citations?.length
+    ? { ...message, content: '', citations: [], personalScheduleCitations: [], knowledgeUnavailableCode: 'ai.knowledge.answer_unavailable' } : message) };
+  void loadSession(current.id).catch(error => { problem.value = toProblem(error, 'aiChat.loadFailed'); });
+}
 function reset() {
   if (refreshTimer) { clearTimeout(refreshTimer); refreshTimer = undefined; }
   ++epoch; ++readEpoch; streamController?.abort(); streamController = undefined; sessions.value = []; models.value = [];
   activeSession.value = undefined; selectedSessionId.value = ''; draft.value = ''; knowledgeBaseIds.value = []; embeddingModelId.value = ''; selectedModelId.value = ''; sourceCandidateBaseIds.value = undefined;
   refusedIds.value.clear(); citationBases.clear(); sourceOpen.value = false; sourceCitation.value = undefined; problem.value = undefined;
+  scheduleCitation.value = undefined;
   sending.value = false; loading.value = false; cancelling.value = false; knowledgeMode.value = false;
 }
 watch(() => [session.currentUser, session.switching], () => { reset(); if (!session.switching && session.can('ai.chat.sessions.read')) { void loadModels(); void loadSessions(); } }, { deep: true });
@@ -305,6 +323,11 @@ onMounted(() => { void loadModels(); void loadSessions(); }); onUnmounted(reset)
                 <el-button v-for="(citation, index) in message.citations" :key="citation.id" link type="primary" :disabled="!session.can('ai.knowledge_bases.read') || !session.can('ai.knowledge_documents.read') || !session.can('ai.knowledge_documents.source_read')" data-testid="knowledge-citation" @click="openCitation(message, citation)">{{ t('knowledge.citation', { number: index + 1 }) }} · <AiKnowledgeCitationPosition :citation="citation" /></el-button>
               </div>
               <AiKnowledgeAnswerFeedback v-if="activeSession && message.isKnowledgeAnswer && message.statusKey === 'completed'" :session-id="activeSession.id" :message-id="message.id" :citations="message.citations ?? []" :unavailable="!!message.knowledgeUnavailableCode" :disabled="loading || sending" />
+              <div v-if="!message.knowledgeUnavailableCode && session.can('calendar.personal_schedules.read') && session.can('calendar.personal_schedules.assistant_read')" class="ai-chat-citations">
+                <ElButton v-for="citation in message.personalScheduleCitations ?? []" :key="citation.id" link type="primary" data-testid="knowledge-schedule-citation" @click="scheduleCitation = citation">
+                  {{ personalScheduleAssistantText(locale, 'citation') }} · {{ citation.scheduleId }} · {{ citation.version }}
+                </ElButton>
+              </div>
             </article>
           </div>
 
@@ -336,7 +359,9 @@ onMounted(() => { void loadModels(); void loadSessions(); }); onUnmounted(reset)
         <el-empty v-else :description="t('aiChat.emptyState')" />
       </el-card>
     </div>
-    <AiKnowledgeSourceDialog v-if="sourceCitation" v-model:open="sourceOpen" :knowledge-base-id="sourceBaseId" :candidate-base-ids="sourceCandidateBaseIds" :document-id="sourceCitation.documentId" :version-id="sourceCitation.versionId" :citation="sourceCitation" />
+    <AiKnowledgeSourceDialog v-if="sourceCitation" v-model:open="sourceOpen" :knowledge-base-id="sourceBaseId" :candidate-base-ids="sourceCandidateBaseIds" :document-id="sourceCitation.documentId" :version-id="sourceCitation.versionId" :citation="sourceCitation" @unavailable="faqSourceUnavailable" />
+    <AiPersonalScheduleSourceDialog v-if="scheduleCitation" :schedule-id="scheduleCitation.scheduleId" :expected-version="scheduleCitation.version"
+      :expected-hash="scheduleCitation.projectionHash" :allow-ask="false" @close="scheduleCitation = undefined" @invalidated="faqSourceUnavailable(true)" />
   </section>
 </template>
 
@@ -344,7 +369,8 @@ onMounted(() => { void loadModels(); void loadSessions(); }); onUnmounted(reset)
 .ai-chat-knowledge { display: grid; gap: 12px; margin: 16px 0; }
 .ai-chat-knowledge p { color: var(--el-text-color-secondary); margin: 0; font-size: 13px; }
 .ai-chat-citations { display: flex; flex-wrap: wrap; gap: 8px; }
-.ai-chat-citations :deep(.el-button) { height: auto; white-space: normal; text-align: left; }
+.ai-chat-citations :deep(.el-button) { height: auto; max-width: 100%; white-space: normal; text-align: left; }
+.ai-chat-citations :deep(.el-button > span) { display: block; min-width: 0; }
 .ai-chat-citations :deep(.el-button span) { white-space: normal; overflow-wrap: anywhere; }
 
 .ai-chat-heading-row {
@@ -361,7 +387,7 @@ onMounted(() => { void loadModels(); void loadSessions(); }); onUnmounted(reset)
 
 .ai-chat-layout {
   display: grid;
-  grid-template-columns: 280px 1fr;
+  grid-template-columns: 280px minmax(0, 1fr);
   gap: 16px;
   min-height: 70vh;
 }
@@ -421,5 +447,10 @@ onMounted(() => { void loadModels(); void loadSessions(); }); onUnmounted(reset)
 .ai-chat-message.role-assistant {
   justify-self: start;
   max-width: 90%;
+}
+
+/* 多来源人工引用需要在窄屏完整展开，侧栏不能占满主会话的可交互宽度。 */
+@media (max-width: 900px) {
+  .ai-chat-layout { grid-template-columns: minmax(0, 1fr); }
 }
 </style>

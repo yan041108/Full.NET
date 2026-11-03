@@ -100,40 +100,29 @@ public sealed record CreateHostDocumentItemRequest(
     }
 }
 
-/// <summary>
-/// 更新主机文档项的请求契约；可空字段传 null 表示不修改对应列，使用乐观并发 Version 守卫。
-/// </summary>
-/// <remarks>
-/// 契约字段顺序为机器码的一部分；新增可选字段只能追加在 Version 之前。
-/// </remarks>
-/// <param name="Title">文档标题，非空即覆盖原值。</param>
-/// <param name="Description">文档描述，传 null 表示不修改。</param>
-/// <param name="CategoryId">分类标识，传 null 表示不修改。</param>
-/// <param name="Thumbnail">缩略图地址，传 null 表示不修改。</param>
-/// <param name="Status">文档状态，传 null 表示不修改。</param>
-/// <param name="Sort">排序值，传 null 表示不修改。</param>
-/// <param name="TagIds">标签集合，传 null 表示不修改。</param>
-/// <param name="Version">乐观并发版本号，必须等于当前行版本以避免丢失更新。</param>
+/// <summary>完整替换可编辑元数据；缺字段拒绝，显式 null 清空可空字段，状态使用独立命令。</summary>
+/// <param name="Title">文档标题，不能为空。</param>
+/// <param name="Description">完整描述；显式 null 清空。</param>
+/// <param name="CategoryId">完整分类绑定；显式 null 清空。</param>
+/// <param name="Thumbnail">完整缩略图引用；显式 null 清空。</param>
+/// <param name="Sort">完整排序值。</param>
+/// <param name="TagIds">完整标签集合；空集合清空，不接受 null。</param>
+/// <param name="Version">当前文档的乐观并发版本。</param>
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 [method: JsonConstructor]
 public sealed record UpdateHostDocumentItemRequest(
-    string Title,
-    string? Description,
-    Guid? CategoryId,
-    string? Thumbnail,
-    HostDocumentStatus? Status,
-    int? Sort,
-    IReadOnlyList<Guid>? TagIds,
-    long Version)
-{
-    /// <summary>
-    /// 保留原更新契约的构造方式；未提供的新字段表示不修改对应值。
-    /// </summary>
-    public UpdateHostDocumentItemRequest(string title, string? description, long version)
-        : this(title, description, null, null, null, null, null, version)
-    {
-    }
-}
+    [property: JsonRequired] string Title,
+    [property: JsonRequired] string? Description,
+    [property: JsonRequired] Guid? CategoryId,
+    [property: JsonRequired] string? Thumbnail,
+    [property: JsonRequired] int Sort,
+    [property: JsonRequired] IReadOnlyList<Guid> TagIds,
+    [property: JsonRequired] long Version);
+
+/// <summary>显式生命周期命令；状态由 Endpoint 决定，不能从元数据更新绕过。</summary>
+/// <param name="Version">当前文档的乐观并发版本，防止陈旧状态转换。</param>
+[JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
+public sealed record ChangeHostDocumentStatusRequest([property: JsonRequired] long Version);
 
 /// <summary>
 /// 为主机文档追加一个新版本的请求契约；版本号由服务端单调递增。
@@ -149,6 +138,9 @@ public sealed record AddHostDocumentVersionRequest(
     Guid FileId,
     string? ChangeDescription)
 {
+    /// <summary>调用者提供的随机请求标识，重试必须复用。</summary>
+    [JsonRequired]
+    public Guid RequestKey { get; init; }
     /// <summary>
     /// 保留原版本上传构造方式，变更说明缺省为空。
     /// </summary>
@@ -264,7 +256,15 @@ public sealed record HostDocumentItemResponse(
     Guid? UpdatedByUserId,
     DateTimeOffset? DeletedAtUtc,
     Guid? DeletedByUserId,
-    long Version);
+    long Version)
+{
+    /// <summary>显式 host 或 restricted；restricted 空授权集合仍然拒绝内容访问。</summary>
+    public string VisibilityMode { get; init; } = "host";
+    /// <summary>当前版本的安全 MIME 快照，供能力入口判断；无版本时为空。</summary>
+    public string? MimeType { get; init; }
+    /// <summary>本次幂等追加实际对应的版本标识。</summary>
+    public Guid? AppliedVersionId { get; init; }
+}
 
 /// <summary>
 /// 设置主机文档精确权限的请求契约；提交集合为整体覆盖，按用户幂等替换。
@@ -273,23 +273,35 @@ public sealed record HostDocumentItemResponse(
 /// 字段顺序与命名为稳定机器码的一部分；发布后不可改名或删除，新增字段只能追加到末尾。
 /// </remarks>
 /// <param name="DocumentId">目标文档标识。</param>
-/// <param name="Permissions">权限条目集合；为空集合表示恢复仅按模块权限控制。</param>
+/// <param name="Permissions">完整授权集合；restricted 空集合拒绝所有内容访问。</param>
+/// <param name="VisibilityMode">显式 host 或 restricted，不由授权条目数量推断。</param>
+/// <param name="Version">当前文档的乐观并发版本。</param>
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 public sealed record SetHostDocumentPermissionsRequest(
     Guid DocumentId,
-    IReadOnlyList<HostDocumentPermissionEntry> Permissions);
+    IReadOnlyList<HostDocumentPermissionEntry> Permissions,
+    string VisibilityMode,
+    long Version);
+
+/// <summary>全局治理所需的最小文档上下文，不包含文件或正文信息。</summary>
+/// <param name="DocumentId">目标文档标识。</param>
+/// <param name="Title">治理定位所需的标题。</param>
+/// <param name="DocumentNo">稳定文档编号。</param>
+/// <param name="VisibilityMode">当前显式可见模式。</param>
+/// <param name="Version">提交治理更新需要的并发版本。</param>
+public sealed record HostDocumentPermissionContext(Guid DocumentId, string Title, string DocumentNo, string VisibilityMode, long Version);
 
 /// <summary>
-/// 文档权限条目，指定单个用户在文档上的权限级别机器码。
+/// 文档权限条目，显式组合单个用户的独立操作。
 /// </summary>
 /// <remarks>
 /// 字段顺序与命名为稳定机器码的一部分；发布后不可改名或删除，新增字段只能追加到末尾。
 /// </remarks>
 /// <param name="UserId">被授权用户标识。</param>
-/// <param name="PermissionLevel">权限级别稳定机器码，read/write/delete/share/manage。</param>
+/// <param name="Actions">read/write/delete/share 动作集合；写、删、分享隐含 read，不包含治理权限。</param>
 public sealed record HostDocumentPermissionEntry(
     Guid UserId,
-    string PermissionLevel);
+    IReadOnlyList<string> Actions);
 
 /// <summary>
 /// 文档权限响应契约，用于回显已保存的授权条目。
@@ -300,13 +312,13 @@ public sealed record HostDocumentPermissionEntry(
 /// <param name="Id">权限行标识。</param>
 /// <param name="DocumentId">所属文档标识。</param>
 /// <param name="UserId">被授权用户标识。</param>
-/// <param name="PermissionLevel">权限级别稳定机器码。</param>
+/// <param name="Actions">规范化动作集合，含隐式 read。</param>
 /// <param name="CreatedAtUtc">授权创建时间（UTC）。</param>
 public sealed record HostDocumentPermissionResponse(
     Guid Id,
     Guid DocumentId,
     Guid UserId,
-    string PermissionLevel,
+    IReadOnlyList<string> Actions,
     DateTimeOffset CreatedAtUtc);
 
 /// <summary>
@@ -490,7 +502,11 @@ public sealed record HostDocumentShareResponse(
 public sealed record AccessHostDocumentShareRequest(
     string? Password = null)
 {
-    /// <summary>短期预览凭据；不授予原始文件下载能力。</summary>
+    /// <summary>内容用途，仅允许 download 或 preview；省略时为 download。</summary>
+    public string? AccessTypeKey { get; init; }
+    /// <summary>一次打开或内容操作的随机幂等键；重试与 Range 保持相同。</summary>
+    public Guid RequestKey { get; init; }
+    /// <summary>短期分享会话凭据，用于固定版本的内容与预览；所有入口均重查权威修订。</summary>
     public string? PreviewGrant { get; init; }
 }
 
@@ -528,15 +544,21 @@ public sealed record HostDocumentShareAccessResponse(
 /// <remarks>
 /// 字段顺序与命名为稳定机器码的一部分；发布后不可改名或删除，新增字段只能追加到末尾。
 /// </remarks>
-/// <param name="TotalItems">未删除文档总数。</param>
-/// <param name="TotalVersions">所有版本记录总数。</param>
-/// <param name="TotalSizeKb">所有当前版本合计大小（KB，取整）。</param>
-/// <param name="TotalSizeInfo">已本地化的可读大小描述，如 "12.4 GB"。</param>
+/// <param name="TotalItems">当前可读的未删除 Published 文档数，含无版本者。</param>
+/// <param name="TotalVersions">当前统计范围内的全部版本记录数。</param>
+/// <param name="TotalSizeKb">当前统计范围的当前版本合计大小（KB，取整）。</param>
+/// <param name="TotalSizeInfo">可读大小描述，如 "12.4 GB"。</param>
 public sealed record HostDocumentStatisticsSummaryResponse(
     long TotalItems,
     long TotalVersions,
     long TotalSizeKb,
-    string TotalSizeInfo);
+    string TotalSizeInfo)
+{
+    /// <summary>当前可读发布文档的当前版本字节合计，先累计后换算。</summary>
+    public long TotalSizeBytes { get; init; }
+    /// <summary>同一范围内非当前版本的字节合计，与当前大小分开展示。</summary>
+    public long HistorySizeBytes { get; init; }
+}
 
 /// <summary>
 /// 按文件扩展名分组的文档统计条目。
@@ -550,7 +572,11 @@ public sealed record HostDocumentStatisticsSummaryResponse(
 public sealed record HostDocumentStatisticsTypeItem(
     string? Extension,
     long Count,
-    long TotalSizeKb);
+    long TotalSizeKb)
+{
+    /// <summary>该类型当前版本的字节合计。</summary>
+    public long TotalSizeBytes { get; init; }
+}
 
 /// <summary>
 /// 按分类分组的文档统计条目。
@@ -606,7 +632,7 @@ public sealed record UpdateHostDocumentVersionRetentionRequest(
 /// <param name="ByCategory">按分类分组的统计集合。</param>
 /// <param name="ShareCount">当前有效的匿名分享总数。</param>
 /// <param name="TodayAccessCount">今日访问次数（自然日，UTC 分区）。</param>
-/// <param name="TodayDownloadCount">今日下载次数（自然日，UTC 分区）。</param>
+/// <param name="TodayDownloadCount">今日成功打开源流的逻辑下载请求数（UTC），不代表传输完成。</param>
 /// <param name="TodayCreatedCount">今日新创建文档数（自然日，UTC 分区）。</param>
 /// <param name="RecycleBinCount">当前回收站中未清理的软删除文档数。</param>
 public sealed record HostDocumentStatisticsResponse(
@@ -617,4 +643,10 @@ public sealed record HostDocumentStatisticsResponse(
     long TodayAccessCount,
     long TodayDownloadCount,
     long TodayCreatedCount,
-    long RecycleBinCount);
+    long RecycleBinCount)
+{
+    /// <summary>UTC 当日成功打开预览内容的逻辑请求数，不含轮询和同键重试。</summary>
+    public long TodayPreviewCount { get; init; }
+    /// <summary>UTC 当日成功创建分享访问会话数，不含同键重试。</summary>
+    public long TodayShareAccessCount { get; init; }
+}

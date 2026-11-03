@@ -5,8 +5,10 @@ namespace Full.NET.Agents.Workflows;
 /// <param name="Kind">节点类型。</param>
 /// <param name="ToolName">工具名；仅工具节点使用。</param>
 /// <param name="PromptTemplate">提示模板；模型节点使用，可引用 <c>{{node_key}}</c> 输出。</param>
+/// <param name="ParallelGroup">静态连续并行组；仅模型节点可用，组内没有相互依赖。</param>
 public sealed record AgentWorkflowNode(
     string Key,
     AgentWorkflowNodeKind Kind,
     string? ToolName = null,
-    string? PromptTemplate = null);
+    string? PromptTemplate = null,
+    string? ParallelGroup = null);

@@ -44,6 +44,8 @@ internal sealed class WorkflowSlaProcessor(IQueryExecutor query, ICommandExecuto
             }
             else tenantWriter.SetHost();
             try {
+                if (!await WorkflowCollaborationRuntimeGate.AllowsAsync(instance.Id,
+                        new(instance.TenantId, instance.ScopeKey, instance.TenantScopeKey), null, clock.UtcNow, query, token, tenants: tenants).ConfigureAwait(false)) continue;
                 var result = await transaction.ExecuteResultAsync(inner => ExecuteAsync(candidate, inner), token).ConfigureAwait(false);
                 if (result.IsSuccess && result.Value) processed++;
             } finally { tenantWriter.Clear(); }
@@ -64,6 +66,8 @@ internal sealed class WorkflowSlaProcessor(IQueryExecutor query, ICommandExecuto
         var row = await query.QuerySingleOrDefaultAsync<WorkflowSlaRecord>(WorkflowSlaSql.Find,
             WorkflowSqlParameters.Create(("Id", candidate.Id), ("InstanceId", candidate.InstanceId), ("TenantScopeKey", candidate.TenantScopeKey)), token).ConfigureAwait(false);
         if (instance is null || row is null || row.StatusKey != "waiting") return Result<bool>.Success(false);
+        if (!await WorkflowCollaborationRuntimeGate.AllowsAsync(instance.Id,
+                new(instance.TenantId, instance.ScopeKey, instance.TenantScopeKey), null, clock.UtcNow, query, token, commands).ConfigureAwait(false)) return Invalid();
         var now = clock.UtcNow;
         var closed = row.StepStatusKey != "active" || instance.StatusKey is not ("active" or "suspended");
         if (!closed && (instance.StatusKey != "active" || row.PausedAtUtc is not null || row.DueAtUtc > now)) return Result<bool>.Success(false);

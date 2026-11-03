@@ -12,6 +12,7 @@ import { PRESET_MODULE_CLOSURE, resolvePresetModules, validateOwnerKey } from '.
 import { buildMigrationInventory, buildPresetMigrationInventory, buildSeedInventory } from './framework-manifest-utils.mjs';
 import { projectPresetComposition } from './project-preset-composition.mjs';
 import { verifyCreatedApp } from './verify-created-app.mjs';
+import { createApplicationPackage } from './application-package.mjs';
 
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
 
@@ -92,7 +93,7 @@ function assertPackageIntegrity(root, verifyFrontendSkeleton = false) {
   inspect(bundleRoot);
   if (verifyFrontendSkeleton) {
     const isFrontendPath = (relativePath) =>
-      relativePath.startsWith('ui/admin/') || relativePath.startsWith('packages/')
+      relativePath.startsWith('ui/admin/') || relativePath.startsWith('packages/') || relativePath.startsWith('patches/')
       || ['package.json', 'pnpm-lock.yaml', 'pnpm-workspace.yaml'].includes(relativePath);
     const copiedPaths = new Set(Object.keys(manifest.managedFiles).filter(isFrontendPath));
     for (const relativePath of copiedPaths) {
@@ -105,7 +106,14 @@ function assertPackageIntegrity(root, verifyFrontendSkeleton = false) {
       }
       if (!lstatSync(current).isFile()) throw new Error('Frontend skeleton path is not a file: ' + relativePath);
       const actualHash = createHash('sha256').update(readFileSync(current)).digest('hex');
-      if (actualHash !== manifest.managedFiles[relativePath]) {
+      // 应用命令是两个已验哈希输入的确定性投影；其余依赖/补丁与前端文件仍逐字节验证。
+      const applicationPackagePath = 'templates/fullnet-app/package.json';
+      const expectedHash = relativePath === 'package.json' && manifest.managedFiles[applicationPackagePath]
+        ? createHash('sha256').update(JSON.stringify(createApplicationPackage(
+          JSON.parse(readFileSync(join(bundleRoot, 'package.json'), 'utf8')),
+          JSON.parse(readFileSync(join(bundleRoot, applicationPackagePath), 'utf8'))), null, 2) + '\n').digest('hex')
+        : manifest.managedFiles[relativePath];
+      if (actualHash !== expectedHash) {
         throw new Error('Frontend skeleton digest mismatch: ' + relativePath);
       }
     }
@@ -125,6 +133,7 @@ function assertPackageIntegrity(root, verifyFrontendSkeleton = false) {
     };
     inspectCopied(join(root, 'ui'), 'ui');
     inspectCopied(join(root, 'packages'), 'packages');
+    inspectCopied(join(root, 'patches'), 'patches');
   }
 }
 

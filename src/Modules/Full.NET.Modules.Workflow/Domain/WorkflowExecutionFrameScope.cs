@@ -6,10 +6,17 @@ namespace Full.NET.Modules.Workflow.Domain;
 /// <summary>局部区域沿不可变外层帧授权；同根、同名分支或任意祖先身份都不能单独授予到达资格。</summary>
 internal static class WorkflowExecutionFrameScope
 {
-    public static async Task<bool> IsValidAsync(IQueryExecutor query, WorkflowInstanceRecord instance, Guid executionEpochId,
-        Guid? forkActivationId, string? branchKey, CancellationToken token)
+    public static Task<bool> IsValidAsync(IQueryExecutor query, WorkflowInstanceRecord instance, Guid executionEpochId,
+        Guid? forkActivationId, string? branchKey, CancellationToken token) => IsCurrentAsync(query, instance, executionEpochId, forkActivationId, branchKey, false, token);
+
+    /// <summary>暂停只保留真实帧，不提供业务推进许可；用于等待与关闭归属判断。</summary>
+    internal static Task<bool> IsRetainedAsync(IQueryExecutor query, WorkflowInstanceRecord instance, Guid executionEpochId,
+        Guid? forkActivationId, string? branchKey, CancellationToken token) => IsCurrentAsync(query, instance, executionEpochId, forkActivationId, branchKey, true, token);
+
+    private static async Task<bool> IsCurrentAsync(IQueryExecutor query, WorkflowInstanceRecord instance, Guid executionEpochId,
+        Guid? forkActivationId, string? branchKey, bool allowSuspended, CancellationToken token)
     {
-        if (instance.Id == Guid.Empty || instance.StatusKey != "active" || executionEpochId == Guid.Empty ||
+        if (instance.Id == Guid.Empty || (instance.StatusKey != "active" && (!allowSuspended || instance.StatusKey != "suspended")) || executionEpochId == Guid.Empty ||
             instance.TenantScopeKey != (instance.TenantId is { } tenant ? $"tenant:{tenant:N}" : "host") ||
             instance.ScopeKey != (instance.TenantId is null ? "host" : "tenant") ||
             (forkActivationId is null ? branchKey is not null : forkActivationId == Guid.Empty || !WorkflowNodeKeyValidator.IsValid(branchKey))) return false;

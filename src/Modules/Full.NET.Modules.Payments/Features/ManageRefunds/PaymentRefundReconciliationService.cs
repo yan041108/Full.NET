@@ -5,12 +5,13 @@ using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Payments.Connectivity;
 using Full.NET.Modules.Payments.Contracts;
 using Full.NET.Modules.Payments.Persistence;
+using Full.NET.Modules.Payments.Features.SubscriptionBilling;
 
 namespace Full.NET.Modules.Payments.Features.ManageRefunds;
 
 /// <summary>查询已受理退款，再在本模块事务内同时收敛退款和订单；远程失败保留原状态。</summary>
 internal sealed class PaymentRefundReconciliationService(IQueryExecutor queries, ICommandExecutor commands,
-    ICommandTransaction transaction, IWeChatNativePayClient client, IClock clock)
+    ICommandTransaction transaction, IWeChatNativePayClient client, IClock clock, PaymentFinancialFactPublisher facts)
 {
     internal async Task<Result<bool>> ReconcileAsync(PaymentOrderRecord order, CancellationToken cancellationToken)
     {
@@ -52,7 +53,12 @@ internal sealed class PaymentRefundReconciliationService(IQueryExecutor queries,
             updated = await commands.ExecuteAsync(PaymentOrderSql.ClaimTradeState,
                 PaymentSqlParameters.Create(("OrderId", order.Id), ("TradeStateKey", orderState), ("FailMessage", null),
                     ("UpdatedAtUtc", now), ("Version", order.Version), ("ExpectedTradeStateKey", PaymentTradeStateKeys.Refunding)), token).ConfigureAwait(false);
-            return updated == 1 ? Result<bool>.Success(true) : Failure("Order changed during reconciliation.");
+            if (updated != 1) return Failure("Order changed during reconciliation.");
+            if (state == PaymentRefundStateKeys.Succeeded)
+                await facts.RefundedAsync(new(new(order.Id, order.TenantId, order.MerchantConfigId, order.IdempotencyKey,
+                    order.AmountMinor, order.Currency, order.ProviderTransactionId ?? string.Empty, order.PaidAtUtc ?? default),
+                    refund.Id, refund.AmountMinor), token).ConfigureAwait(false);
+            return Result<bool>.Success(true);
         }, cancellationToken).ConfigureAwait(false);
     }
 

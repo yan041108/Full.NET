@@ -187,6 +187,13 @@ internal static class NativeApiE2EAssertions
             cancellationToken).ConfigureAwait(false);
 
         using var client = host.CreateClient();
+        // 原生源生成必须覆盖所有 Endpoint 的声明类型，局部业务 HTTP 成功不能证明整份 Schema 可导出。
+        using (var openApi = await client.GetAsync("/openapi/v1.json", cancellationToken).ConfigureAwait(false))
+        {
+            await AssertStatusAsync(openApi, HttpStatusCode.OK, "Export complete Native OpenAPI", cancellationToken).ConfigureAwait(false);
+            using var document = JsonDocument.Parse(await openApi.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false));
+            Assert.IsTrue(document.RootElement.GetProperty("paths").EnumerateObject().Any(), "原生 OpenAPI 不得为空文档。");
+        }
         var token = await LoginAsync(client, host.LogFilePath, cancellationToken)
             .ConfigureAwait(false);
         await VerifyAuthenticatedMeAsync(client, token, cancellationToken)
@@ -1179,6 +1186,7 @@ internal static class NativeApiE2EAssertions
             Assert.IsTrue(page.Items.Any(candidate => candidate.Id == item.Id));
         }
 
+        item = await Full.NET.IntegrationTests.Document.DocumentLifecycleTestSupport.PublishAsync(client, accessToken, item, cancellationToken);
         var share = await PostAndReadAsync<
                 CreateHostDocumentShareRequest,
                 HostDocumentShareResponse>(
@@ -1194,23 +1202,26 @@ internal static class NativeApiE2EAssertions
         await NativeAnonymousPreviewAssertions.VerifyAsync(client, accessToken, item.Id, share.ShareCode, cancellationToken)
             .ConfigureAwait(false);
 
-        var permissionUserId = Guid.NewGuid();
+        item = await Full.NET.IntegrationTests.Document.DocumentLifecycleTestSupport.ReadAsync(client, accessToken, item.Id, cancellationToken);
+        var permissionUser = await PostAndReadAsync<CreateHostUserRequest, HostUserResponse>(client,
+            "/api/v1/identity/users", accessToken,
+            new CreateHostUserRequest($"native-document-reader-{suffix}", "文档授权用户", AdminPassword),
+            HttpStatusCode.Created, cancellationToken).ConfigureAwait(false);
+        var permissionUserId = permissionUser.Id;
         var permissions = await PostAndReadAsync<
                 SetHostDocumentPermissionsRequest,
                 IReadOnlyList<HostDocumentPermissionResponse>>(
                 client,
                 "/api/v1/document/host/permissions/",
                 accessToken,
-                new SetHostDocumentPermissionsRequest(
-                    item.Id,
-                    [new HostDocumentPermissionEntry(permissionUserId, "read")]),
+                new SetHostDocumentPermissionsRequest(item.Id, [new HostDocumentPermissionEntry(permissionUserId, new[] { "read" })], "restricted", item.Version),
                 HttpStatusCode.OK,
                 cancellationToken)
             .ConfigureAwait(false);
         Assert.HasCount(1, permissions);
         Assert.AreEqual(item.Id, permissions[0].DocumentId);
         Assert.AreEqual(permissionUserId, permissions[0].UserId);
-        Assert.AreEqual("read", permissions[0].PermissionLevel);
+        CollectionAssert.AreEqual(new[] { "read" }, permissions[0].Actions.ToArray());
 
         using (var denied = Authorized(HttpMethod.Get, $"/api/v1/document/host/items/{item.Id:D}", accessToken))
         using (var deniedResponse = await client.SendAsync(denied, cancellationToken).ConfigureAwait(false))
@@ -1463,12 +1474,10 @@ internal static class NativeApiE2EAssertions
             .ConfigureAwait(false);
         await AssertStatusAsync(
                 metadataResponse,
-                HttpStatusCode.OK,
-                "Read Native AOT MCP protected resource metadata",
+                HttpStatusCode.ServiceUnavailable,
+                "Reject Native AOT MCP metadata without configured OIDC and HTTPS resource",
                 cancellationToken)
             .ConfigureAwait(false);
-        using var metadata = JsonDocument.Parse(await metadataResponse.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false));
-        Assert.AreEqual("fullnet://ai/mcp", metadata.RootElement.GetProperty("resource").GetString());
 
         // 原生产物实际执行目录写入、可空审批列物化及分页序列化，不以路由存在替代闭包验证。
         using var create = AuthorizedJson(HttpMethod.Post, "/api/v1/ai/knowledge-bases", accessToken, new CreateAiKnowledgeBaseRequest("原生目录", null));

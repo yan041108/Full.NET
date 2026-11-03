@@ -136,6 +136,8 @@ export interface CodeGenerationRelationshipRequest {
   dependentDataScope: CodeGenerationDataScope;
   compositeKeyColumnNames?: string[];
   cascadeDelete?: boolean;
+  principalSchema?: CodeGenerationPreviewRequest;
+  dependentSchema?: CodeGenerationPreviewRequest;
 }
 
 export type CodeGenerationPreviewRequest =
@@ -368,7 +370,20 @@ function isRelationship(
     && dataScopes.has(value.principalDataScope as CodeGenerationDataScope)
     && isNonEmptyString(value.dependentEntityKey)
     && isNonEmptyString(value.dependentColumnName)
-    && dataScopes.has(value.dependentDataScope as CodeGenerationDataScope);
+    && dataScopes.has(value.dependentDataScope as CodeGenerationDataScope)
+    && (isNullish(value.compositeKeyColumnNames) || (Array.isArray(value.compositeKeyColumnNames)
+      && value.compositeKeyColumnNames.every(isNonEmptyString)))
+    && (isNullish(value.cascadeDelete) || typeof value.cascadeDelete === 'boolean')
+    && isRelatedSnapshot(value.principalSchema)
+    && isRelatedSnapshot(value.dependentSchema);
+}
+
+function isRelatedSnapshot(value: unknown): boolean {
+  if (isNullish(value)) return true;
+  return isRecord(value)
+    && (isNullish(value.relationships) || (Array.isArray(value.relationships) && value.relationships.length === 0))
+    && (isNullish(value.scene) || value.scene === 'single')
+    && isCodeGenerationPreviewRequest(value);
 }
 
 function isNullish(value: unknown): value is null | undefined {

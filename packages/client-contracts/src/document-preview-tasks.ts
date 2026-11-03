@@ -4,6 +4,8 @@ export interface CreateHostDocumentPreviewTaskRequest {
 }
 
 export interface HostDocumentPreviewTaskResponse {
+  attemptCount?: number;
+  nextAttemptAtUtc?: string | null;
   previewGrant?: string | null;
   previewPollUntilUtc?: string | null;
   id: string;
@@ -91,6 +93,8 @@ export function isHostDocumentPreviewTaskResponse(
     && typeof value.createdAtUtc === 'string'
     && isNullableString(value.startedAtUtc)
     && isNullableString(value.completedAtUtc)
+    && (value.attemptCount === undefined || (Number.isInteger(value.attemptCount) && Number(value.attemptCount) >= 0))
+    && (value.nextAttemptAtUtc === undefined || isNullableString(value.nextAttemptAtUtc))
     && Number.isInteger(value.version);
 }
 

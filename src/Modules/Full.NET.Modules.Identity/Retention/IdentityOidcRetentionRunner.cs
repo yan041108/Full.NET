@@ -9,11 +9,13 @@ namespace Full.NET.Modules.Identity.Retention;
 
 internal sealed record IdentityOidcRetentionResult(
     int TokensDeleted,
-    int AuthorizationsDeleted)
+    int AuthorizationsDeleted,
+    int BrowserSessionsDeleted = 0,
+    int LogoutDeliveriesDeleted = 0)
 {
     public static IdentityOidcRetentionResult Empty { get; } = new(0, 0);
 
-    public int TotalDeleted => TokensDeleted + AuthorizationsDeleted;
+    public int TotalDeleted => TokensDeleted + AuthorizationsDeleted + BrowserSessionsDeleted + LogoutDeliveriesDeleted;
 }
 
 /// <summary>
@@ -36,6 +38,12 @@ internal sealed class IdentityOidcRetentionRunner(
         }
 
         var threshold = clock.UtcNow.AddDays(-options.RetentionDays);
+        var deliveriesDeleted = await commandExecutor.ExecuteAsync(databaseOptions?.Value.Provider == DatabaseProvider.MySql
+                ? IdentityOidcLogoutSql.PruneMySql : IdentityOidcLogoutSql.PruneSqlServer,
+            IdentitySqlParameters.Create(("Threshold", threshold)), cancellationToken).ConfigureAwait(false);
+        var browserSessionsDeleted = await commandExecutor.ExecuteAsync(databaseOptions?.Value.Provider == DatabaseProvider.MySql
+                ? IdentityBrowserSessionSql.PruneMySql : IdentityBrowserSessionSql.PruneSqlServer,
+            IdentitySqlParameters.Create(("Now", clock.UtcNow)), cancellationToken).ConfigureAwait(false);
         var tokensDeleted = await commandExecutor.ExecuteAsync(
                 databaseOptions?.Value.Provider == DatabaseProvider.MySql ? IdentityOidcSql.PruneTokensMySql : IdentityOidcSql.PruneTokens,
                 IdentitySqlParameters.Create(
@@ -51,6 +59,6 @@ internal sealed class IdentityOidcRetentionRunner(
                 cancellationToken)
             .ConfigureAwait(false);
 
-        return new IdentityOidcRetentionResult(tokensDeleted, authorizationsDeleted);
+        return new IdentityOidcRetentionResult(tokensDeleted, authorizationsDeleted, browserSessionsDeleted, deliveriesDeleted);
     }
 }

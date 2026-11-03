@@ -18,7 +18,7 @@ internal sealed class CodeGenerationRunRecord
     /// <summary>运行类别稳定码：Preview、Apply 或 Rollback；用于列表过滤与 UI 展示区分。</summary>
     public string OperationKind { get; init; } = string.Empty;
 
-    /// <summary>运行状态稳定码：Succeeded、Failed 或 RollbackSucceeded；任何中途异常立即落为 Failed。</summary>
+    /// <summary>运行状态稳定码 running/succeeded/failed；持久化操作进入文件提交后异常保留 running，须从冻结日志恢复终态。</summary>
     public string Status { get; init; } = string.Empty;
 
     /// <summary>本次生成目标的模块键；目录浏览与批量预览时为空，用于按模块过滤历史列表。</summary>
@@ -33,7 +33,7 @@ internal sealed class CodeGenerationRunRecord
     /// <summary>本次生成期望写出的产物数量；用于验收下载包与 apply 阶段产物数目一致。</summary>
     public int ArtifactCount { get; init; }
 
-    /// <summary>成功 apply 时写入磁盘清单的摘要；回滚前必须与磁盘 Manifest 重算一致，FAIL-closed 禁止逆向。</summary>
+    /// <summary>Preview 为生成产物摘要，Apply/Rollback 为完整工作区清单摘要；不能以当前模板重算代替历史归档。</summary>
     public string? ManifestSha256 { get; init; }
 
     /// <summary>失败时写入的稳定错误码；空值表示成功。错误码对应 CodeGenerationErrorCodes，不含用户消息。</summary>

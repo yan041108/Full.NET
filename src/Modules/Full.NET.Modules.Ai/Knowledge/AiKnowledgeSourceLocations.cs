@@ -14,7 +14,7 @@ internal static class AiKnowledgeSourceLocations
         p.HtmlPath, p.Image is { } i ? new(i.FrameNumber, i.ImageWidth, i.ImageHeight, i.X, i.Y, i.Width, i.Height, i.Confidence,
             i.TableNumber, i.RowNumber, i.ColumnNumber, i.Parent is { } parent ? Create(document?.Blocks.First(b => b.Position with { Length = 0 } == parent).Sequence ?? parent.BlockSequence ?? block, parent) : null) : null);
 
-    internal static bool Valid(AiKnowledgeSourceLocationResponse? value, bool parent = false)
+    internal static bool Valid(AiKnowledgeSourceLocationResponse? value, bool parent = false, bool reviewed = false)
     {
         if (value is null) return true;
         var kind = Array.IndexOf(Kinds, value.Kind);
@@ -38,7 +38,7 @@ internal static class AiKnowledgeSourceLocations
         return value.Image is not { } i || i.FrameNumber is >= 1 and <= 128 && i.ImageWidth is >= 1 and <= 16384
             && i.ImageHeight is >= 1 and <= 16384 && (long)i.ImageWidth * i.ImageHeight <= 40000000
             && i.X >= 0 && i.Y >= 0 && i.Width > 0 && i.Height > 0 && i.X <= i.ImageWidth - i.Width && i.Y <= i.ImageHeight - i.Height
-            && double.IsFinite(i.Confidence) && i.Confidence is >= 0.8 and <= 1 && Valid(i.Parent, true)
+            && double.IsFinite(i.Confidence) && i.Confidence >= (reviewed ? 0 : 0.8) && i.Confidence <= 1 && Valid(i.Parent, true, reviewed)
             && (i.TableNumber is null ? i.RowNumber is null && i.ColumnNumber is null
                 : i.TableNumber is >= 1 and <= 128 && i.RowNumber is >= 1 and <= 4096 && i.ColumnNumber is >= 1 and <= 64);
     }

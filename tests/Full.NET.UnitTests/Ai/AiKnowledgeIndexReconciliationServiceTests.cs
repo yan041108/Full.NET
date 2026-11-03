@@ -164,7 +164,7 @@ public sealed class AiKnowledgeIndexReconciliationServiceTests
             var clock = Substitute.For<IClock>(); clock.UtcNow.Returns(DateTimeOffset.Parse("2026-10-07T00:00:00Z"));
             var ids = Substitute.For<IIdGenerator>(); var options = Options.Create(new DatabaseOptions { Provider = DatabaseProvider.SqlServer });
             var activation = new AiKnowledgeIndexActivationStore(this, Command, Substitute.For<ICommandTransaction>(), Transactions, Tenant, clock,
-                ids, new(this, Command, Tenant, clock, ids), Substitute.For<IBackgroundSessionAuthorization>(), options);
+                ids, new AiKnowledgeIndexTaskScope(Tenant, clock), Substitute.For<IBackgroundSessionAuthorization>(), options);
             var statuses = new AiKnowledgeIndexStatusService(this, Transactions, Tenant, access, guard, activation, options);
             service = new(this, Transactions, Tenant, access, guard, statuses, clock, options, Options.Create(new AiKnowledgePdfRuntimeOptions()));
         }

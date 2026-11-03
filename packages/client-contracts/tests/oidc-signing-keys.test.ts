@@ -22,4 +22,10 @@ describe('OIDC signing key contracts', () => {
       keys: [sampleKey]
     })).toBe(true);
   });
+
+  it('rejects unknown lifecycle states and nonboolean readiness from the wire', () => {
+    expect(isOidcSigningKey({ ...sampleKey, lifecycleState: 'retained', isActivationReady: false, isRetirementReady: true })).toBe(true);
+    expect(isOidcSigningKey({ ...sampleKey, lifecycleState: 'forced' })).toBe(false);
+    expect(isOidcSigningKey({ ...sampleKey, isActivationReady: 'true' })).toBe(false);
+  });
 });

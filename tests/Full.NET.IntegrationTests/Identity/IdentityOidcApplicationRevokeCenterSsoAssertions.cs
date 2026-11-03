@@ -32,6 +32,8 @@ internal static class IdentityOidcApplicationRevokeCenterSsoAssertions
         CancellationToken cancellationToken)
     {
         using var client = factory.CreateClientForHost("localhost");
+        // Secure 中心 Cookie 必须经 HTTPS 回送，才能验证同一浏览器的 SSO 与退出。
+        client.BaseAddress = new Uri("https://localhost");
         var publicFlow = await IdentityOidcRelyingPartyFixture.RunAuthorizationCodeFlowAsync(
             client,
             IdentityOidcRelyingPartyFixture.PublicClientId,
@@ -55,6 +57,7 @@ internal static class IdentityOidcApplicationRevokeCenterSsoAssertions
             HttpMethod.Post,
             "/api/v1/identity/oidc/logout/application",
             new { clientId = IdentityOidcRelyingPartyFixture.PublicClientId });
+        logoutRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", publicFlow.AccessToken);
         using var logoutResponse = await client.SendAsync(logoutRequest, cancellationToken);
         Assert.AreEqual(HttpStatusCode.NoContent, logoutResponse.StatusCode);
 
@@ -84,6 +87,8 @@ internal static class IdentityOidcApplicationRevokeCenterSsoAssertions
         CancellationToken cancellationToken)
     {
         using var client = factory.CreateClientForHost("localhost");
+        // Secure 中心 Cookie 必须经 HTTPS 回送，才能验证同一浏览器的 SSO 与退出。
+        client.BaseAddress = new Uri("https://localhost");
         var publicFlow = await IdentityOidcRelyingPartyFixture.RunAuthorizationCodeFlowAsync(
             client,
             IdentityOidcRelyingPartyFixture.PublicClientId,
@@ -166,6 +171,19 @@ internal static class IdentityOidcApplicationRevokeCenterSsoAssertions
             new[] { IdentityOidcRelyingPartyFixture.PublicClientId,
                 IdentityOidcRelyingPartyFixture.ConfidentialClientId },
             events.Select(item => item.ClientId).ToArray());
+        using var reuseRequest = new HttpRequestMessage(HttpMethod.Get,
+            "/api/v1/identity/authentication-events?pageSize=20&eventType=oidc.center_session_reused");
+        reuseRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", adminToken);
+        using var reuseResponse = await client.SendAsync(reuseRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, reuseResponse.StatusCode);
+        var reusePage = await reuseResponse.Content.ReadFromJsonAsync<AuthenticationEventCursorPage>(cancellationToken);
+        Assert.IsNotNull(reusePage);
+        var reused = reusePage.Items.Take(2).ToArray();
+        Assert.HasCount(2, reused);
+        Assert.IsTrue(reused.All(item => item.Succeeded && item.AuthenticationMethod == "sso"
+            && item.CenterSessionId == events[0].CenterSessionId));
+        CollectionAssert.AreEquivalent(events.Select(item => item.ApplicationSessionId).ToArray(),
+            reused.Select(item => item.ApplicationSessionId).ToArray());
     }
 
     private static async Task AssertCenterCookieAuthorizeAndExchangeAsync(

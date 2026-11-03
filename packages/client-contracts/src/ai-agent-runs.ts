@@ -6,6 +6,8 @@ export interface CreateAiAgentRunRequest {
   inputTokenLimit: number;
   outputTokenLimit: number;
   promptVersionId?: string | null;
+  targetChatSessionId?: string | null;
+  personalScheduleTarget?: { id: string; version: number } | null;
 }
 
 export interface CreateAiAgentRunResponse {

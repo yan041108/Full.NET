@@ -11,11 +11,17 @@ internal sealed class RegionsDapperAotMaterializerContributor : IDapperAotMateri
 {
     /// <summary>注册 Regions 模块所需的 Dapper AOT 行物化器。</summary>
     /// <param name="registrar">Native AOT 物化器注册器。</param>
+    /// <summary>区域 Baseline 只需既有代码映射物化，不注册路由或区域查询服务。</summary>
+    internal static void RegisterMigrationMaterializers(DapperAotMaterializerRegistrar registrar)
+    {
+        registrar.Register<AdministrativeRegionCodeLinkRecord>(ReadCodeLinkRecord);
+    }
+
     public void RegisterMaterializers(DapperAotMaterializerRegistrar registrar)
     {
+        RegisterMigrationMaterializers(registrar);
         registrar.Register<AdministrativeRegionRecord>(ReadAdministrativeRegionRecord);
         registrar.Register<AdministrativeRegionParentLinkRecord>(ReadParentLinkRecord);
-        registrar.Register<AdministrativeRegionCodeLinkRecord>(ReadCodeLinkRecord);
         registrar.Register<AdministrativeRegionChildQueryRecord>(ReadChildQueryRecord);
         registrar.Register<AdministrativeRegionTreeRecord>(ReadTreeRecord);
         registrar.Register<DatasetManifestRecord>(ReadDatasetManifestRecord);

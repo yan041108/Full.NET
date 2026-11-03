@@ -55,9 +55,11 @@ public sealed class PaymentRefundReconciliationTests
 
     private static Fixture Create(string remote)
     {
-        var merchant = new PaymentMerchantConfigRecord { Id = Guid.NewGuid(), IsEnabled = true };
+        var tenantId = Guid.NewGuid();
+        var merchant = new PaymentMerchantConfigRecord { Id = Guid.NewGuid(), IsEnabled = true, TenantId = tenantId };
         var order = new PaymentOrderRecord { Id = Guid.NewGuid(), MerchantConfigId = merchant.Id,
-            TradeStateKey = PaymentTradeStateKeys.Refunding, Version = 2 };
+            TenantId = tenantId, AmountMinor = 500, Currency = "CNY", ProviderTransactionId = "transaction-1",
+            PaidAtUtc = DateTimeOffset.UtcNow.AddMinutes(-5), TradeStateKey = PaymentTradeStateKeys.Refunding, Version = 2 };
         var refund = new PaymentRefundRecord { Id = Guid.NewGuid(), OrderId = order.Id, MerchantConfigId = merchant.Id,
             OutRefundNo = "refund-1", AmountMinor = 500, Currency = "CNY", Version = 1 };
         var queries = Substitute.For<IQueryExecutor>();
@@ -77,7 +79,8 @@ public sealed class PaymentRefundReconciliationTests
                 remote == "MISMATCH" ? 999 : 500, "CNY", null));
         });
         var clock = Substitute.For<IClock>(); clock.UtcNow.Returns(DateTimeOffset.UtcNow);
-        return new(new PaymentRefundReconciliationService(queries, commands, new DapperCommandTransaction(coordinator), client, clock),
+        return new(new PaymentRefundReconciliationService(queries, commands, new DapperCommandTransaction(coordinator), client, clock,
+                new Full.NET.Modules.Payments.Features.SubscriptionBilling.PaymentFinancialFactPublisher(Substitute.For<IOutboxWriter>())),
             order, commands, coordinator);
     }
 

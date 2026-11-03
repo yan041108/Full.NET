@@ -47,7 +47,7 @@ internal static class CrudClientPageModelGenerator
 
         return Normalize(
             $$"""
-            import { computed, readonly, ref } from 'vue';
+            import { computed, reactive, readonly, ref } from 'vue';
             import {
               create{{apiFactoryName}}Api,
               {{entityVariable}}Permissions
@@ -55,6 +55,7 @@ internal static class CrudClientPageModelGenerator
             import type {
               Create{{schema.ClrTypeName}}Request,
               GeneratedRequest,
+              {{schema.ClrTypeName}}ListOptions,
               {{schema.ClrTypeName}}Response,
               Update{{schema.ClrTypeName}}Request
             } from './{{schema.ApiResourceName}}.generated';
@@ -79,6 +80,7 @@ internal static class CrudClientPageModelGenerator
             ) {
               const api = create{{apiFactoryName}}Api(dependencies.request);
               const items = ref<{{schema.ClrTypeName}}Response[]>([]);
+              const query = reactive<{{schema.ClrTypeName}}ListOptions>({});
               const page = ref(1);
               const pageSize = ref(20);
               const total = ref(0);
@@ -98,7 +100,7 @@ internal static class CrudClientPageModelGenerator
                 if (!canRead.value || loading.value) return false;
                 loading.value = true;
                 try {
-                  const result = await api.list(nextPage, nextPageSize);
+                  const result = await api.list(nextPage, nextPageSize, { ...query });
                   items.value = result.items;
                   page.value = result.page;
                   pageSize.value = result.pageSize;
@@ -177,6 +179,7 @@ internal static class CrudClientPageModelGenerator
               }
 
               return {
+                query,
                 items: readonly(items),
                 page: readonly(page),
                 pageSize: readonly(pageSize),
@@ -403,7 +406,7 @@ internal static class CrudClientPageModelGenerator
 
         return Normalize(
             $$"""
-            import { computed, readonly, ref } from 'vue';
+            import { computed, reactive, readonly, ref } from 'vue';
             import {
               create{{apiFactoryName}}Api,
               {{entityVariable}}Permissions
@@ -411,7 +414,8 @@ internal static class CrudClientPageModelGenerator
             import type {
               Create{{schema.ClrTypeName}}Request,
               GeneratedRequest,
-              {{schema.ClrTypeName}}Response{{updateImport}}
+              {{schema.ClrTypeName}}ListOptions,
+              {{schema.ClrTypeName}}Response{{updateImport}}{{(CrudAggregateGenerator.Enabled(schema) ? $",\n  {schema.ClrTypeName}DetailChanges,\n  {schema.ClrTypeName}DetailInput,\n  {schema.ClrTypeName}AggregateResponse" : string.Empty)}}
             } from './{{schema.ApiResourceName}}.generated';{{updateAlias}}
 
             export type {{schema.ClrTypeName}}PageProblemCode =
@@ -432,6 +436,7 @@ internal static class CrudClientPageModelGenerator
             ) {
               const api = create{{apiFactoryName}}Api(dependencies.request);
               const items = ref<{{schema.ClrTypeName}}Response[]>([]);
+              const query = reactive<{{schema.ClrTypeName}}ListOptions>({});
               const page = ref(1);
               const pageSize = ref(20);
               const total = ref(0);
@@ -458,8 +463,10 @@ internal static class CrudClientPageModelGenerator
                 if (!canRead.value || loading.value) return false;
                 loading.value = true;
                 try {
-                  const result = await api.list(nextPage, nextPageSize);
-                  items.value = result.items;
+                  const frozenQuery = { ...query };
+                  const result = await api.list({{(schema.Scene == FullNetCrudScene.Tree ? "1, 100" : "nextPage, nextPageSize")}}, frozenQuery);
+            {{(schema.Scene == FullNetCrudScene.Tree ? CrudTreeGenerator.VueLoad(schema) : string.Empty)}}
+                  items.value = {{(schema.Scene == FullNetCrudScene.Tree ? "rows" : "result.items")}};
                   page.value = result.page;
                   pageSize.value = result.pageSize;
                   total.value = result.total;
@@ -476,12 +483,12 @@ internal static class CrudClientPageModelGenerator
               }
 
               async function create(
-                input: Create{{schema.ClrTypeName}}Request
+                input: Create{{schema.ClrTypeName}}Request{{(CrudAggregateGenerator.Enabled(schema) ? $", details: readonly {schema.ClrTypeName}DetailInput[]" : string.Empty)}}{{(CrudOrganizationOwnershipGenerator.IsOrganizationUnitOwned(schema) ? ", organizationUnitId: string" : string.Empty)}}
               ): Promise<boolean> {
                 if (!canCreate.value || changing.value) return false;
                 changing.value = true;
                 try {
-                  await api.create(input);
+                  await api.create(input{{(CrudAggregateGenerator.Enabled(schema) ? ", details" : string.Empty)}}{{(CrudOrganizationOwnershipGenerator.IsOrganizationUnitOwned(schema) ? ", organizationUnitId" : string.Empty)}});
                   await load();
                   return true;
                 } catch (problem: unknown) {
@@ -495,8 +502,18 @@ internal static class CrudClientPageModelGenerator
                 }
               }
             {{updateAction}}{{deleteAction}}
+            {{(CrudAggregateGenerator.Enabled(schema) ? $$"""
+              async function loadAggregate(item: {{schema.ClrTypeName}}Response): Promise<{{schema.ClrTypeName}}AggregateResponse | undefined> {
+                if (!canRead.value || changing.value) return undefined;
+                changing.value = true;
+                try { return await api.getAggregate(item.{{idProperty}}); }
+                catch (problem: unknown) { dependencies.onProblem(problem, 'client.{{problemPrefix}}_load_failed'); return undefined; }
+                finally { changing.value = false; }
+              }
+              """ : string.Empty)}}
 
               return {
+                query,
                 items: readonly(items),
                 page: readonly(page),
                 pageSize: readonly(pageSize),
@@ -509,7 +526,7 @@ internal static class CrudClientPageModelGenerator
                 canDisable,
                 canWrite,
                 load,
-                create{{returnedActions}}
+                create{{returnedActions}}{{(CrudAggregateGenerator.Enabled(schema) ? ",\n    loadAggregate" : string.Empty)}}
               };
             }
             """);
@@ -526,14 +543,14 @@ internal static class CrudClientPageModelGenerator
             await api.update(item.{{idProperty}}, {
               ...input,
               {{versionProperty}}: item.{{versionProperty}}
-            });
+            }{{(CrudAggregateGenerator.Enabled(schema) ? ", changes" : string.Empty)}});
             """
             : $"await api.update(item.{idProperty}, input);";
         return "\n\n" + IndentLines(
             $$"""
             async function update(
               item: {{schema.ClrTypeName}}Response,
-              input: {{schema.ClrTypeName}}PageUpdate
+              input: {{schema.ClrTypeName}}PageUpdate{{(CrudAggregateGenerator.Enabled(schema) ? $", changes: {schema.ClrTypeName}DetailChanges" : string.Empty)}}
             ): Promise<boolean> {
               if (!canUpdate.value || changing.value) return false;
               changing.value = true;

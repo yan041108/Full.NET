@@ -100,6 +100,12 @@ public static class CodeGenerationRunErrorCodes
     /// <summary>Apply 执行失败；调用方应查看运行日志定位原因。</summary>
     public const string ApplyFailed = "codegen.run.apply_failed";
 
+    /// <summary>已登记操作可能已提交文件，必须恢复并重试原计划与幂等键，不能另起 Apply。</summary>
+    public const string RecoveryRequired = "codegen.run.recovery_required";
+
+    /// <summary>维护恢复必须准确指向唯一未完成的 Host 操作，CLI 操作须由 CLI 恢复。</summary>
+    public const string InvalidRecoveryOperation = "codegen.run.invalid_recovery_operation";
+
     /// <summary>回滚操作被禁用；调用方应联系管理员启用。</summary>
     public const string RollbackDisabled = "codegen.run.rollback_disabled";
 
@@ -132,11 +138,25 @@ public static class CodeGenerationRunErrorCodes
     public const string InvalidDownloadRun =
         "codegen.run.invalid_download_run";
 
+    /// <summary>当次下载包超过冻结保留期限，不重新生成替代文件。</summary>
+    public const string ArchiveExpired = "codegen.run.archive_expired";
+    /// <summary>归档未配置、缺失或存储不可用，不能冒充归档成功。</summary>
+    public const string ArchiveUnavailable = "codegen.run.archive_unavailable";
+    /// <summary>归档摘要不一致，保留原文件供排查。</summary>
+    public const string ArchiveCorrupt = "codegen.run.archive_corrupt";
+    /// <summary>包大小、数量或总容量超限。</summary>
+    public const string ArchiveCapacity = "codegen.run.archive_capacity";
+    /// <summary>归档共享存储正由另一实例操作。</summary>
+    public const string ArchiveBusy = "codegen.run.archive_busy";
+
     /// <summary>Git 同步失败；调用方应检查仓库状态与凭据后重试。</summary>
     public const string GitSyncFailed = "codegen.run.git_sync_failed";
 
     /// <summary>Git 发布失败；调用方应检查分支保护与权限后重试。</summary>
     public const string GitPublishFailed = "codegen.run.git_publish_failed";
+
+    /// <summary>所选运行尚未完成本地应用，不能重试发布。</summary>
+    public const string InvalidPublicationRun = "codegen.run.invalid_publication_run";
 }
 
 /// <summary>
@@ -169,10 +189,29 @@ public sealed record CodeGenerationRunPreviewResponse(
 /// <param name="PreviewRunId">绑定的预览运行标识。</param>
 /// <param name="IntegrationTarget">模块接入目标；缺省时仅写入工作区产物，不接入模块。</param>
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
-public sealed record CodeGenerationRunApplyRequest(
+public sealed record CodeGenerationRunApplyPlanRequest(
     Guid PreviewRunId,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     CodeGenerationIntegrationTargetRequest? IntegrationTarget = null);
+
+/// <summary>提交客户端已审查的冻结计划；幂等键由客户端为一次确认生成并在重试中保持。</summary>
+[JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
+public sealed record CodeGenerationRunApplyRequest(Guid PlanId, string PlanSha256, Guid IdempotencyKey);
+
+/// <summary>用于人工审查的逐文件动作，只返回相对路径和摘要，不暴露源代码或服务器绝对路径。</summary>
+public sealed record CodeGenerationApplyPlanFileResponse(string RelativePath, string Kind, string? BeforeSha256, string? AfterSha256);
+
+/// <summary>绑定工作区身份、revision、生成器版本、完整文件动作与有效期的审查计划。</summary>
+public sealed record CodeGenerationRunApplyPlanResponse(Guid PlanId, Guid PreviewRunId, Guid WorkspaceId, long WorkspaceRevision,
+    string GeneratorVersion, string PlanSha256, DateTimeOffset ExpiresAtUtc, IReadOnlyList<CodeGenerationApplyPlanFileResponse> Files);
+
+/// <summary>工作区当前全局顺序与恢复阶段；不包含服务器路径、源码或幂等键。</summary>
+public sealed record CodeGenerationWorkspaceStateResponse(Guid WorkspaceId, long Revision, Guid? TipOperationId, Guid? LastOperationId,
+    Guid? PendingOperationId, string? PendingKind, string? PendingClient, string Phase);
+
+/// <summary>恢复已授权且未完成的指定操作，不接受新 Schema 或文件目标。</summary>
+[JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
+public sealed record CodeGenerationWorkspaceRecoveryRequest(Guid OperationId);
 
 /// <summary>
 /// 调用方显式确认的模块接入目标；缺省时 Host Apply 只写入工作区产物。
@@ -228,7 +267,9 @@ public sealed record CodeGenerationRunApplyResponse(
     Guid PreviewRunId,
     int ArtifactCount,
     int ChangedArtifactCount,
-    string ManifestSha256);
+    string ManifestSha256,
+    string PublicationStatus = "disabled",
+    string? CommitSha = null);
 
 /// <summary>
 /// 表示回滚已成功 Apply 的请求；仅允许 applyRunId，禁止客户端指定路径。
@@ -252,7 +293,9 @@ public sealed record CodeGenerationRunRollbackResponse(
     Guid ApplyRunId,
     int ArtifactCount,
     int ChangedArtifactCount,
-    string ManifestSha256);
+    string ManifestSha256,
+    string PublicationStatus = "disabled",
+    string? CommitSha = null);
 
 /// <summary>
 /// 表示按 LIFO 顺序回滚多个已成功 Apply；禁止客户端指定路径。
@@ -305,4 +348,9 @@ public sealed record CodeGenerationRunResponse(
     Guid RequestedByUserId,
     DateTimeOffset StartedAtUtc,
     DateTimeOffset FinishedAtUtc,
-    Guid? SourceApplyRunId);
+    Guid? SourceApplyRunId,
+    string PublicationStatus = "unavailable",
+    string? CommitSha = null);
+
+/// <summary>发布重试后的独立状态，不包含源码、服务器路径或凭据。</summary>
+public sealed record CodeGenerationRunPublicationResponse(Guid RunId, string PublicationStatus, string? CommitSha);

@@ -14,21 +14,47 @@ namespace Full.NET.Modules.Settings.Persistence;
 /// </summary>
 internal sealed class SettingsDapperAotMaterializerContributor : IDapperAotMaterializerContributor
 {
+    /// <summary>Baseline 字典播种只读取 Host 类型与条目标识，不能借此装配管理端服务。</summary>
+    internal static void RegisterMigrationMaterializers(DapperAotMaterializerRegistrar registrar)
+    {
+        registrar.Register<HostDictTypes.DictTypeIdentityRecord>(ReadHostDictTypeIdentityRecord);
+        registrar.Register<HostDictItems.DictItemIdentityRecord>(ReadHostDictItemIdentityRecord);
+    }
+
     public void RegisterMaterializers(DapperAotMaterializerRegistrar registrar)
     {
+        RegisterMigrationMaterializers(registrar);
         registrar.Register<HostDictTypes.DictTypeRecord>(ReadHostDictTypeRecord);
         registrar.Register<TenantDictTypes.DictTypeRecord>(ReadTenantDictTypeRecord);
-        registrar.Register<HostDictTypes.DictTypeIdentityRecord>(ReadHostDictTypeIdentityRecord);
         registrar.Register<TenantDictTypes.DictTypeIdentityRecord>(ReadTenantDictTypeIdentityRecord);
         registrar.Register<HostDictItems.DictItemRecord>(ReadHostDictItemRecord);
         registrar.Register<TenantDictItems.DictItemRecord>(ReadTenantDictItemRecord);
-        registrar.Register<HostDictItems.DictItemIdentityRecord>(ReadHostDictItemIdentityRecord);
         registrar.Register<TenantDictItems.DictItemIdentityRecord>(ReadTenantDictItemIdentityRecord);
         registrar.Register<ConfigEntryRecord>(ReadConfigEntryRecord);
         registrar.Register<ConfigEntryIdentityRecord>(ReadConfigEntryIdentityRecord);
         registrar.Register<ConfigEntrySecretRecord>(ReadConfigEntrySecretRecord);
         registrar.Register<GridPreferenceRecord>(ReadGridPreferenceRecord);
+        registrar.Register<QuerySchemeRecord>(ReadQuerySchemeRecord);
+        registrar.Register<QuerySchemeDefaultRecord>(reader => new()
+        {
+            DefaultSchemeId = AotDataReaderExtensions.ReadNullableGuid(reader, 0),
+            Version = reader.GetInt64(1),
+        });
     }
+
+    // 摘要固定为前八列，只有详情附加正文；不在摘要路径读取或反序列化配置。
+    private static QuerySchemeRecord ReadQuerySchemeRecord(DbDataReader reader) => new()
+    {
+        Id = reader.GetGuid(0),
+        OwnerUserId = reader.GetGuid(1),
+        Name = reader.GetString(2),
+        SchemaVersion = reader.GetInt32(3),
+        IsShared = AotDataReaderExtensions.ReadBoolean(reader, 4),
+        CreatedAtUtc = AotDataReaderExtensions.ReadDateTimeOffset(reader, 5),
+        UpdatedAtUtc = AotDataReaderExtensions.ReadNullableDateTimeOffset(reader, 6),
+        Version = reader.GetInt64(7),
+        ConfigurationJson = reader.FieldCount == 9 ? AotDataReaderExtensions.ReadNullableString(reader, 8) : null,
+    };
 
     private static HostDictTypes.DictTypeRecord ReadHostDictTypeRecord(DbDataReader reader) =>
         new(

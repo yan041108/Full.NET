@@ -11,6 +11,42 @@ const repositoryRoot = path.resolve(
 );
 const chartDir = path.join(repositoryRoot, 'deploy/helm/fullnet');
 
+test('CDC multi-stream retention mappings render independent IDs and reject ambiguous or unbounded identities', async () => {
+  const { mkdtemp, writeFile, rm } = await import('node:fs/promises');
+  const { tmpdir } = await import('node:os');
+  const directory = await mkdtemp(path.join(tmpdir(), 'fullnet-cdc-monitor-helm-'));
+  const helm = process.env.FULLNET_HELM_BINARY ?? 'helm';
+  try {
+    const render = async (monitoring) => {
+      const values = path.join(directory, 'values.json');
+      await writeFile(values, JSON.stringify({ worker: { messaging: { cdcMonitoring: monitoring } } }));
+      return spawnSync(helm, ['template', 'cdc-monitor', chartDir,
+        '-f', path.join(chartDir, 'ci/values-role-worker.yaml'),
+        '-f', path.join(chartDir, 'ci/values-provider-sqlserver.yaml'), '-f', values],
+      { encoding: 'utf8', cwd: repositoryRoot });
+    };
+    const mappings = { 'workflow.collaboration.requested.v1': 'requested-id', 'workflow.collaboration.completed.v1': 'completed-id' };
+    const valid = await render({ retentionTimeTopics: mappings });
+    assert.equal(valid.status, 0, valid.stderr);
+    for (const [topic, id] of Object.entries(mappings))
+      assert.ok(valid.stdout.includes(`Messaging__CdcMonitoring__RetentionTimeTopics__${topic}: "${id}"`));
+    const single = await render({ retentionTimeTopicId: 'single-topic-id' });
+    assert.equal(single.status, 0, single.stderr);
+    assert.match(single.stdout, /Messaging__CdcMonitoring__RetentionTimeTopicId: "single-topic-id"/);
+    for (const monitoring of [
+      { retentionTimeTopicId: 'ambiguous', retentionTimeTopics: mappings },
+      { retentionTimeTopics: { 'invalid__injected': 'id' } },
+      { retentionTimeTopics: { 'workflow.collaboration.requested.v1': '' } },
+      { retentionTimeTopics: { 'workflow.collaboration.requested.v1': 'a'.repeat(65) } },
+      { retentionTimeTopics: Object.fromEntries(Array.from({ length: 65 }, (_, index) => [`workflow.stream${index}.v1`, 'id'])) },
+    ]) {
+      const invalid = await render(monitoring);
+      assert.notEqual(invalid.status, 0, 'Invalid monitoring identity unexpectedly rendered');
+      assert.match(invalid.stderr, /cdcMonitoring/);
+    }
+  } finally { await rm(directory, { recursive: true, force: true }); }
+});
+
 async function read(relativePath) {
   return readFile(path.join(repositoryRoot, relativePath), 'utf8');
 }
@@ -23,6 +59,23 @@ async function exists(relativePath) {
     return false;
   }
 }
+
+test('CodeGeneration archives render an independent API volume while Apply remains disabled and require an explicit claim', () => {
+  const helm = process.env.FULLNET_HELM_BINARY ?? 'helm';
+  const base = ['template', 'fullnet-codegen-archive-check', chartDir,
+    '-f', path.join(chartDir, 'ci/values-role-api.yaml'), '-f', path.join(chartDir, 'ci/values-provider-sqlserver.yaml'),
+    '--set', 'codeGeneration.artifacts.enabled=true'];
+  const missing = spawnSync(helm, base, { encoding: 'utf8', cwd: repositoryRoot });
+  assert.notEqual(missing.status, 0);
+  assert.match(`${missing.stderr}${missing.stdout}`, /CodeGeneration archives require/);
+  const enabled = spawnSync(helm, [...base, '--set', 'codeGeneration.artifacts.existingClaimName=codegen-archives-rwx'], { encoding: 'utf8', cwd: repositoryRoot });
+  assert.equal(enabled.status, 0, enabled.stderr);
+  assert.match(enabled.stdout, /CodeGeneration__Artifacts__RootDirectory: "\/var\/fullnet\/codegeneration-artifacts"/);
+  assert.match(enabled.stdout, /name: codegeneration-artifacts/);
+  assert.match(enabled.stdout, /claimName: codegen-archives-rwx/);
+  assert.doesNotMatch(enabled.stdout, /name: codegeneration-workspace/);
+  assert.doesNotMatch(enabled.stdout, /CodeGeneration__Apply__Enabled: "true"/);
+});
 
 test('Helm chart files required by Task 12 exist', async () => {
   const required = [
@@ -80,7 +133,7 @@ test('values encode production replica, HPA, MaxConcurrency and budget keys', as
   assert.match(values, /workerQueueLimit:\s*1/);
   assert.match(values, /edgeProtection:/);
   assert.match(values, /codeGeneration:/);
-  assert.match(values, /enabledWhenProduction:/);
+  assert.doesNotMatch(values, /enabledWhenProduction:/);
   assert.doesNotMatch(values, /\bredis:\s*$/m);
   assert.doesNotMatch(values, /bitnami/i);
 });

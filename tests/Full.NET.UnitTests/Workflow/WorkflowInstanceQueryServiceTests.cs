@@ -59,7 +59,7 @@ public sealed class WorkflowInstanceQueryServiceTests
             null);
         var query = Substitute.For<IQueryExecutor>();
         query.QuerySingleOrDefaultAsync<long>(
-                WorkflowSql.CountInstancesFiltered, Arg.Any<object?>(), Arg.Any<CancellationToken>())
+                WorkflowSql.CountInstancesFilteredSqlServer, Arg.Any<object?>(), Arg.Any<CancellationToken>())
             .Returns(1L);
         query.QueryAsync<WorkflowInstanceListRecord>(
                 WorkflowSql.PageInstancesFilteredSqlServer, Arg.Any<object?>(), Arg.Any<CancellationToken>())
@@ -67,6 +67,7 @@ public sealed class WorkflowInstanceQueryServiceTests
         var service = CreateService(query);
 
         var result = await service.ListAsync(
+            Guid.CreateVersion7(),
             1,
             20,
             "active",
@@ -103,7 +104,7 @@ public sealed class WorkflowInstanceQueryServiceTests
         var actorId = Guid.CreateVersion7();
         var query = Substitute.For<IQueryExecutor>();
         query.QuerySingleOrDefaultAsync<long>(
-                WorkflowSql.CountInstancesFiltered, Arg.Any<object?>(), Arg.Any<CancellationToken>())
+                WorkflowSql.CountInstancesFilteredSqlServer, Arg.Any<object?>(), Arg.Any<CancellationToken>())
             .Returns(0L);
         query.QueryAsync<WorkflowInstanceListRecord>(
                 WorkflowSql.PageInstancesFilteredSqlServer, Arg.Any<object?>(), Arg.Any<CancellationToken>())
@@ -124,7 +125,7 @@ public sealed class WorkflowInstanceQueryServiceTests
         Assert.IsTrue(result.IsSuccess);
         Assert.HasCount(0, result.Value!.Items);
         await query.Received(1).QuerySingleOrDefaultAsync<long>(
-            WorkflowSql.CountInstancesFiltered,
+            WorkflowSql.CountInstancesFilteredSqlServer,
             Arg.Is<object?>(parameters => parameters != null),
             Arg.Any<CancellationToken>());
     }
@@ -135,6 +136,7 @@ public sealed class WorkflowInstanceQueryServiceTests
     {
         var service = CreateService(Substitute.For<IQueryExecutor>());
         var result = await service.ListAsync(
+            Guid.CreateVersion7(),
             1,
             20,
             "running",
@@ -155,7 +157,7 @@ public sealed class WorkflowInstanceQueryServiceTests
         return new WorkflowInstanceQueryService(
             query,
             tenant,
-            Options.Create(new DatabaseOptions { Provider = DatabaseProvider.SqlServer }));
+            Options.Create(new DatabaseOptions { Provider = DatabaseProvider.SqlServer }), WorkflowTodoManagementTestDependencies.CreateListAuthorization(query, tenant));
     }
 
     private static async Task AssertEndpointPermissionAsync(string route, string permission, string operationName)

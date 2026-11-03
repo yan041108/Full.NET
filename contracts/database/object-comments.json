@@ -296,6 +296,91 @@
         "Version": "目录与审批乐观并发版本号"
       }
     },
+    "fn_ai_knowledge_correction_head": {
+      "comment": "人工智能knowledge correction head表",
+      "columns": {
+        "Id": "逻辑主键",
+        "RevisionId": "Revision标识",
+        "SourceId": "Source标识",
+        "UpdatedAtUtc": "更新时间(UTC)",
+        "Version": "乐观并发版本号"
+      }
+    },
+    "fn_ai_knowledge_correction_revision": {
+      "comment": "人工智能knowledge correction revision表",
+      "columns": {
+        "ActorUserId": "操作者用户标识",
+        "CleanupState": "Cleanup State",
+        "CreatedAtUtc": "创建时间(UTC)",
+        "DocumentVersion": "Document Version",
+        "HeadVersion": "Head Version",
+        "Id": "逻辑主键",
+        "ParentId": "父级标识",
+        "Payload": "消息正文",
+        "PayloadHash": "载荷哈希",
+        "ReasonText": "Reason Text",
+        "RequestHash": "完整请求绑定摘要",
+        "RequestKey": "Request Key",
+        "SourceId": "Source标识",
+        "VersionId": "版本标识"
+      }
+    },
+    "fn_ai_knowledge_correction_preparation": {
+      "comment": "本地校对来源准备队列，仅解析不收费不发布",
+      "columns": {
+        "ActorScope": "原会话声明范围",
+        "ActorUserId": "原交互操作者",
+        "AttemptCount": "领取次数，最多三次",
+        "CreatedAtUtc": "入队时间 UTC",
+        "DocumentVersion": "入队时文档维护版本",
+        "EffectiveScope": "原会话有效范围",
+        "FailureCode": "受控失败机器码",
+        "Id": "准备任务 UUID v7",
+        "LeaseExpiresAtUtc": "租约到期时间 UTC",
+        "LeaseToken": "当前领取身份",
+        "ParserRuntimeId": "首次领取冻结的服务端解析运行时",
+        "RequestHash": "完整资源及原会话请求摘要",
+        "RequestKey": "客户端原请求重试身份",
+        "SecurityStamp": "原会话安全戳，不进入公开响应",
+        "SessionId": "原交互会话，不接受接管",
+        "SessionKind": "原交互会话类型",
+        "SourceId": "同一事务完成的原解析快照",
+        "StateKey": "queued running completed failed cancelled",
+        "UpdatedAtUtc": "最近状态变化时间 UTC",
+        "VersionId": "被冻结的原文件版本"
+      }
+    },
+    "fn_ai_knowledge_correction_source": {
+      "comment": "人工智能knowledge correction source表",
+      "columns": {
+        "ActorUserId": "操作者用户标识",
+        "CleanupState": "Cleanup State",
+        "CreatedAtUtc": "创建时间(UTC)",
+        "FileHash": "File Hash",
+        "Id": "逻辑主键",
+        "InitialPayload": "Initial Payload",
+        "InitialPayloadHash": "Initial Payload Hash",
+        "OriginalPayload": "Original Payload",
+        "ParserRuntimeId": "Parser Runtime标识",
+        "RequestHash": "完整请求绑定摘要",
+        "RequestKey": "Request Key",
+        "SourceHash": "Source Hash",
+        "VersionId": "版本标识"
+      }
+    },
+    "fn_ai_knowledge_directory": {
+      "comment": "人工智能knowledge directory表",
+      "columns": {
+        "FolderId": "目录标识",
+        "Id": "逻辑主键",
+        "LastRequestKey": "Last Request Key",
+        "RequestHash": "完整请求绑定摘要",
+        "ResponsibleUserId": "Responsible User标识",
+        "TagsJson": "Tags(JSON)",
+        "UpdatedAtUtc": "更新时间(UTC)",
+        "Version": "乐观并发版本号"
+      }
+    },
     "fn_ai_knowledge_document": {
       "comment": "知识库文档草稿及权威删除状态",
       "columns": {
@@ -344,6 +429,33 @@
         "Id": "逻辑主键及所属索引任务标识",
         "Payload": "包含完整正文及逻辑块坐标的有界 DOCX 计划",
         "PayloadHash": "完整清单载荷 SHA256 摘要"
+      }
+    },
+    "fn_ai_knowledge_folder": {
+      "comment": "人工智能knowledge folder表",
+      "columns": {
+        "CreatedAtUtc": "创建时间(UTC)",
+        "Id": "逻辑主键",
+        "KnowledgeBaseId": "Knowledge Base标识",
+        "Name": "名称",
+        "ParentId": "父级标识",
+        "UpdatedAtUtc": "更新时间(UTC)",
+        "Version": "乐观并发版本号"
+      }
+    },
+    "fn_ai_knowledge_generation": {
+      "comment": "人工智能knowledge generation表",
+      "columns": {
+        "ActivatedAtUtc": "Activated At(UTC)",
+        "CleanupState": "Cleanup State",
+        "DocumentId": "文档标识",
+        "Id": "逻辑主键",
+        "LeaseToken": "Lease Token",
+        "ManifestHash": "Manifest Hash",
+        "PlanHash": "Plan Hash",
+        "ReceiptHash": "Receipt Hash",
+        "ReceiptJson": "Receipt(JSON)",
+        "VersionId": "版本标识"
       }
     },
     "fn_ai_knowledge_import": {
@@ -410,6 +522,11 @@
       "comment": "知识库索引任务及有界执行租约",
       "columns": {
         "AttemptCount": "当前人工重试周期内领取次数",
+        "CorrectionHeadVersion": "Correction Head Version",
+        "CorrectionPayloadHash": "Correction Payload Hash",
+        "CorrectionRevisionId": "Correction Revision标识",
+        "CorrectionSourceHash": "Correction Source Hash",
+        "CorrectionSourceId": "Correction Source标识",
         "CreatedAtUtc": "创建时间（UTC）",
         "DocumentId": "所属文档标识",
         "DocumentVersion": "预期文档并发版本",
@@ -460,6 +577,67 @@
         "OrganizationUnitId": "机构单元标识"
       }
     },
+    "fn_ai_knowledge_publication": {
+      "comment": "人工智能knowledge publication表",
+      "columns": {
+        "ActorScope": "Actor Scope",
+        "ActorUserId": "操作者用户标识",
+        "CreatedAtUtc": "创建时间(UTC)",
+        "DocumentId": "文档标识",
+        "DocumentVersion": "Document Version",
+        "EffectiveFromUtc": "Effective From(UTC)",
+        "EffectiveScope": "Effective Scope",
+        "EffectiveToUtc": "Effective To(UTC)",
+        "ExpectedHeadVersion": "Expected Head Version",
+        "GenerationId": "生成代次标识",
+        "Id": "逻辑主键",
+        "KnowledgeBaseVersion": "Knowledge Base Version",
+        "RequestKey": "Request Key",
+        "ReviewedAtUtc": "Reviewed At(UTC)",
+        "ReviewerUserId": "Reviewer User标识",
+        "SecurityStamp": "安全戳",
+        "SessionId": "会话标识",
+        "SessionKind": "Session Kind",
+        "SnapshotHash": "Snapshot Hash",
+        "SnapshotJson": "Snapshot(JSON)",
+        "StateKey": "State Key",
+        "UpdatedAtUtc": "更新时间(UTC)",
+        "Version": "乐观并发版本号",
+        "VersionId": "版本标识"
+      }
+    },
+    "fn_ai_knowledge_publication_event": {
+      "comment": "人工智能knowledge publication event表",
+      "columns": {
+        "ActionKey": "操作键",
+        "ActorUserId": "操作者用户标识",
+        "DocumentId": "文档标识",
+        "Id": "逻辑主键",
+        "OccurredAtUtc": "发生时间(UTC)",
+        "PublicationId": "Publication标识",
+        "SessionId": "会话标识"
+      }
+    },
+    "fn_ai_knowledge_publication_head": {
+      "comment": "人工智能knowledge publication head表",
+      "columns": {
+        "Id": "逻辑主键",
+        "PublicationId": "Publication标识",
+        "UpdatedAtUtc": "更新时间(UTC)",
+        "Version": "乐观并发版本号"
+      }
+    },
+    "fn_ai_knowledge_read_lease": {
+      "comment": "人工智能knowledge read lease表",
+      "columns": {
+        "ActorUserId": "操作者用户标识",
+        "CreatedAtUtc": "创建时间(UTC)",
+        "ExpiresAtUtc": "过期时间(UTC)",
+        "GenerationId": "生成代次标识",
+        "Id": "逻辑主键",
+        "TenantId": "租户标识；NULL 表示 Host 级"
+      }
+    },
     "fn_ai_knowledge_role": {
       "comment": "人工智能knowledge role表",
       "columns": {
@@ -486,13 +664,14 @@
         "ContentType": "经校验的内容类型",
         "CreatedAtUtc": "创建时间（UTC）",
         "DocumentId": "所属文档标识",
-        "FileId": "Files 权威引用标识",
+        "FileId": "真实 Files 引用；FAQ 数据库修订时为空",
         "Id": "逻辑主键",
         "OriginalFileName": "安全来源文件名",
         "ParsingPolicyKey": "导入时冻结的解析策略键，参与重试身份与索引计划摘要",
         "SizeBytes": "实际内容字节数",
         "UploadedByUserId": "上传主体标识",
-        "VersionNumber": "文档内连续文件版本号"
+        "VersionNumber": "文档内连续文件版本号",
+        "FaqRevisionId": "FAQ 修订来源；与 FileId 二选一"
       }
     },
     "fn_ai_mcp_remote_connection": {
@@ -781,6 +960,20 @@
         "TemplateVersion": "模板版本"
       }
     },
+    "fn_codegeneration_run_archive": {
+      "comment": "代码生成不可变下载包元数据及独立保留期限",
+      "columns": {
+        "ByteLength": "原始 zip 字节数",
+        "ExpiresAtUtc": "冻结的到期时刻，到期只删除包",
+        "FileName": "鉴权下载的安全文件名",
+        "GeneratorVersion": "生成器版本",
+        "Id": "与生成运行相同的应用 UUID v7",
+        "ManifestSha256": "当次产物或完整工作区清单摘要",
+        "SchemaJson": "当次规范 Schema，包含冻结关系输入",
+        "SchemaSha256": "规范 Schema 摘要",
+        "ZipSha256": "保存的精确 zip 字节摘要"
+      }
+    },
     "fn_codegeneration_template": {
       "comment": "代码生成模板表",
       "columns": {
@@ -893,6 +1086,7 @@
         "DocumentTitle": "文档标题",
         "Id": "逻辑主键",
         "OccurredAtUtc": "发生时间(UTC)",
+        "OperationKey": "逻辑访问身份，重试与 Range 请求归并",
         "SourceKey": "来源键"
       }
     },
@@ -916,10 +1110,31 @@
         "Version": "乐观并发版本号"
       }
     },
+    "fn_document_category_guard": {
+      "comment": "文档分类树事务闸门表",
+      "columns": {
+        "Id": "预生成的 UUID v7 Host 闸门标识",
+        "Version": "取得锁时递增的闸门版本"
+      }
+    },
+    "fn_document_deletion_fact": {
+      "comment": "文档永久删除最小事实，独立于父文档保留",
+      "columns": {
+        "ActorUserId": "永久删除操作者",
+        "DocumentId": "被删除资源标识",
+        "Id": "应用 UUID v7 审计标识",
+        "OccurredAtUtc": "开始永久删除时间",
+        "PreviewTaskCount": "开始删除时预览任务数量",
+        "ReasonKey": "删除原因机器码",
+        "RetainUntilUtc": "最小事实保留截止时间",
+        "VersionCount": "开始删除时版本数量"
+      }
+    },
     "fn_document_item": {
       "comment": "文档条目表",
       "columns": {
         "AccessCount": "访问次数",
+        "AccessRevision": "文档访问修订号，撤销历史分享会话",
         "CategoryId": "分类标识",
         "CreatedAtUtc": "创建时间(UTC)",
         "CreatedByUserId": "创建人用户标识",
@@ -931,7 +1146,9 @@
         "DocumentType": "文档类型",
         "Id": "逻辑主键",
         "IsDeleted": "是否已软删除",
+        "IsPurging": "永久删除正在分批清理，禁止恢复",
         "LastAccessTime": "最后访问时间",
+        "LastVersionNumber": "已提交版本最大编号，删除后不回退",
         "SizeKb": "大小(KB)",
         "Sort": "排序",
         "Status": "状态",
@@ -940,12 +1157,14 @@
         "Title": "标题",
         "UpdatedAtUtc": "更新时间(UTC)",
         "UpdatedByUserId": "更新人用户标识",
-        "Version": "乐观并发版本号"
+        "Version": "乐观并发版本号",
+        "VisibilityMode": "文档可见模式，host 或 restricted"
       }
     },
     "fn_document_permission": {
       "comment": "文档权限表",
       "columns": {
+        "Actions": "用户动作位集合，读写删分享独立组合",
         "CreatedAtUtc": "创建时间(UTC)",
         "DocumentId": "文档标识",
         "Id": "逻辑主键",
@@ -954,21 +1173,64 @@
         "UserId": "用户标识"
       }
     },
+    "fn_document_permission_audit": {
+      "comment": "文档权限治理审计表",
+      "columns": {
+        "ActorUserId": "受信任治理操作者",
+        "AfterActionsJson": "变更后动作集合",
+        "BeforeActionsJson": "变更前动作集合",
+        "CreatedAtUtc": "治理提交时间",
+        "DocumentId": "文档标识，不级联删除审计",
+        "Id": "应用生成的治理审计标识",
+        "NewMode": "变更后可见模式",
+        "PreviousMode": "变更前可见模式"
+      }
+    },
+    "fn_document_preview_attempt": {
+      "comment": "文档预览领取尝试事实",
+      "columns": {
+        "ClaimVersion": "领取版本，用于拒绝迟到执行者",
+        "CompletedAtUtc": "本次结束时间",
+        "ErrorCode": "稳定终止原因",
+        "Id": "应用 UUID v7 尝试标识",
+        "StartedAtUtc": "本次领取时间",
+        "TaskId": "预览任务标识"
+      }
+    },
+    "fn_document_preview_reference": {
+      "comment": "文档预览源及输出的独立引用意图",
+      "columns": {
+        "CreatedAtUtc": "意图创建时间",
+        "DocumentId": "文档标识，无级联关系",
+        "FileId": "源或预留输出文件标识",
+        "Id": "不可复用的应用 UUID v7 引用标识",
+        "Purpose": "source 或 output",
+        "ReleaseAfterUtc": "有效租约保护截止时间",
+        "StateKey": "preparing claimed 或 released",
+        "TaskId": "预览任务标识"
+      }
+    },
     "fn_document_preview_task": {
       "comment": "文档预览任务表",
       "columns": {
+        "AttemptCount": "已领取次数，含崩溃重领",
         "CompletedAtUtc": "完成时间(UTC)",
         "CreatedAtUtc": "创建时间(UTC)",
         "DocumentItemId": "文档项标识",
         "DocumentTitle": "文档标题",
         "ErrorCode": "错误码",
         "Id": "逻辑主键",
+        "LeaseExpiresAtUtc": "领取时固定的租约截止，热配置不提前回收",
+        "NextAttemptAtUtc": "失败退避后可领取时间",
         "OutputFileId": "输出文件标识",
+        "OutputOwnerId": "固定的文档创建者",
+        "OutputReferenceId": "输出文件独立引用意图",
         "ProviderKey": "存储提供程序键",
         "RequestedByUserId": "请求人用户标识",
         "SourceFileId": "源文件标识",
         "SourceFileName": "源文件名",
         "SourceMimeType": "源 MIME 类型",
+        "SourceReferenceId": "源文件独立引用意图",
         "StartedAtUtc": "开始时间(UTC)",
         "StatusKey": "状态键",
         "Version": "乐观并发版本号",
@@ -986,9 +1248,24 @@
         "IsEnabled": "是否启用",
         "MaxAccessCount": "最大访问次数",
         "PasswordHash": "密码哈希",
+        "PolicyRevision": "分享策略修订号，不随访问计数变化",
         "ShareCode": "分享码",
         "TenantId": "租户标识；NULL 表示 Host 级",
         "Version": "乐观并发版本号"
+      }
+    },
+    "fn_document_share_session": {
+      "comment": "文档分享访问会话表",
+      "columns": {
+        "AccessRevision": "文档授权修订",
+        "CreatedAtUtc": "首次扣次时间",
+        "DocumentId": "文档标识",
+        "ExpiresAtUtc": "不可延长的会话到期时间",
+        "Id": "应用生成的分享会话标识",
+        "PolicyRevision": "分享策略修订",
+        "RequestKey": "一次打开的请求幂等键",
+        "ShareId": "分享标识",
+        "VersionId": "固定文件版本标识"
       }
     },
     "fn_document_tag": {
@@ -1055,6 +1332,19 @@
         "VersionNumber": "版本号"
       }
     },
+    "fn_document_version_operation": {
+      "comment": "文档版本幂等操作表",
+      "columns": {
+        "ActorUserId": "受信调用者",
+        "ChangeDescription": "版本变更说明",
+        "CreatedAtUtc": "提交时间",
+        "DocumentId": "文档标识",
+        "FileId": "输入文件标识",
+        "Id": "应用生成的操作标识",
+        "RequestKey": "调用者提供的请求幂等键",
+        "VersionId": "已提交版本标识"
+      }
+    },
     "fn_document_version_retention_setting": {
       "comment": "文档version retention setting表",
       "columns": {
@@ -1086,7 +1376,8 @@
         "StorageState": "存储状态",
         "TenantId": "租户标识；NULL 表示 Host 级",
         "UpdatedAtUtc": "更新时间(UTC)",
-        "UpdatedByUserId": "更新人用户标识"
+        "UpdatedByUserId": "更新人用户标识",
+        "UploadOperationKey": "受控上传操作幂等键，未知发布结果禁止盲目重传"
       }
     },
     "fn_files_file_reference_claim": {
@@ -1120,6 +1411,30 @@
         "TenantId": "租户标识；NULL 表示 Host 级",
         "UpdatedAtUtc": "更新时间(UTC)",
         "UpdatedByUserId": "更新人用户标识"
+      }
+    },
+    "fn_files_read_capability": {
+      "comment": "Workflow关联的不透明文件读取能力，接收方不获得原文件身份",
+      "columns": {
+        "CallId": "固定Workflow调用身份，无跨模块外键",
+        "ContentHash": "固定小写SHA256内容摘要",
+        "ContentType": "内容类型快照",
+        "CreatedAtUtc": "能力首次签发UTC",
+        "DirectionKey": "input或result协议方向",
+        "ExpiresAtUtc": "不可延长的读取截止UTC",
+        "FieldKey": "最初接收方字段键",
+        "Id": "不透明读取能力UUID v7",
+        "IssuerScopeKey": "可信签发作用域",
+        "IssuerTenantId": "签发租户，空表示Host",
+        "OriginalFileName": "安全下载名快照",
+        "OwnerReferenceId": "本地活动引用或租户资源所有权身份",
+        "RecipientScopeKey": "固定可信接收作用域",
+        "RecipientTenantId": "接收租户，空表示Host",
+        "Revision": "单调修订号",
+        "RevokedAtUtc": "撤销或到期收敛UTC",
+        "SizeBytes": "实际文件字节数快照",
+        "SourceFileId": "Files内部原文件身份，不返回接收方",
+        "StatusKey": "active或revoked状态"
       }
     },
     "fn_files_tenant_resource_file": {
@@ -1222,6 +1537,18 @@
         "UsernameFingerprint": "用户名指纹"
       }
     },
+    "fn_identity_browser_session": {
+      "comment": "身份认证browser session表",
+      "columns": {
+        "Ciphertext": "Ciphertext",
+        "ExpiresAtUtc": "过期时间(UTC)",
+        "HandleHash": "Handle Hash",
+        "Id": "逻辑主键",
+        "RefreshLeaseId": "Refresh Lease标识",
+        "RefreshLeaseUntilUtc": "Refresh Lease Until(UTC)",
+        "Version": "乐观并发版本号"
+      }
+    },
     "fn_identity_ldap_connection": {
       "comment": "身份认证LDAP 连接表",
       "columns": {
@@ -1243,6 +1570,30 @@
         "UserAccountAttribute": "用户账号属性",
         "UserSearchFilter": "用户搜索过滤器",
         "Version": "乐观并发版本号"
+      }
+    },
+    "fn_identity_member_seat_operation": {
+      "comment": "成员席位激活与取消的持久恢复工作项",
+      "columns": {
+        "Attempt": "已取消后的新业务尝试序号，不复用旧配额消费键",
+        "CreatedAtUtc": "工作项创建时间 UTC",
+        "DueAtUtc": "下次恢复时间 UTC",
+        "ErrorCode": "稳定失败机器码",
+        "Id": "工作项逻辑 UUID v7",
+        "InvitationId": "可空的原始邀请标识",
+        "InvitationVersion": "接受邀请后的冻结并发版本",
+        "LeaseId": "当前执行租约身份",
+        "LeaseUntilUtc": "当前执行租约截止 UTC",
+        "MemberId": "本模块成员关系标识",
+        "MemberVersion": "待激活成员的冻结并发版本",
+        "Phase": "席位恢复阶段",
+        "PreviousRole": "激活失败时的原始成员角色",
+        "PreviousStatus": "激活失败时的原始成员状态",
+        "RequestHash": "不含密码的创建请求摘要",
+        "RequestKey": "租户内稳定请求身份",
+        "TenantId": "可信目标租户标识",
+        "UserId": "待激活账号标识",
+        "Version": "工作项乐观并发版本"
       }
     },
     "fn_identity_navigation": {
@@ -1391,6 +1742,24 @@
         "Version": "乐观并发版本号"
       }
     },
+    "fn_identity_oidc_logout_delivery": {
+      "comment": "身份认证oidc logout delivery表",
+      "columns": {
+        "AttemptCount": "尝试次数",
+        "CenterSessionId": "Center Session标识",
+        "ClientId": "客户端标识",
+        "CreatedAtUtc": "创建时间(UTC)",
+        "DeliveredAtUtc": "Delivered At(UTC)",
+        "Id": "逻辑主键",
+        "LastErrorCode": "最后错误码",
+        "LeaseId": "租约标识",
+        "LeaseUntilUtc": "Lease Until(UTC)",
+        "NextAttemptAtUtc": "下次重试时间(UTC)",
+        "StatusKey": "状态键",
+        "TargetUri": "Target Uri",
+        "UserId": "用户标识"
+      }
+    },
     "fn_identity_oidc_scope": {
       "comment": "身份认证oidc scope表",
       "columns": {
@@ -1403,6 +1772,42 @@
         "Name": "名称",
         "PropertiesJson": "Properties(JSON)",
         "ResourcesJson": "Resources(JSON)",
+        "UpdatedAtUtc": "更新时间(UTC)",
+        "Version": "乐观并发版本号"
+      }
+    },
+    "fn_identity_oidc_signing_key": {
+      "comment": "OIDC 签名公钥指纹与受控生命周期",
+      "columns": {
+        "Id": "应用端 UUID v7",
+        "IsRetired": "已退役标志且不可重新激活",
+        "KeyId": "不可重新绑定材料的 kid",
+        "LastActivatedAtUtc": "最近激活时间 UTC",
+        "PublicKeyHash": "规范公钥 DER 的 SHA256",
+        "PublishedAtUtc": "公钥登记时间 UTC",
+        "RetireAfterUtc": "所有合法协议令牌覆盖后的最早退役时间 UTC",
+        "Version": "治理行并发版本"
+      }
+    },
+    "fn_identity_oidc_signing_node": {
+      "comment": "OIDC 签名进程的短期就绪租约",
+      "columns": {
+        "EncryptionFingerprint": "共享协议加密与令牌期限配置摘要",
+        "ExpiresAtUtc": "就绪租约到期时间 UTC",
+        "Id": "进程独立 UUID v7，重启不得继承",
+        "PolicyVersion": "本节点已观察的持久化策略版本",
+        "PrivateKeysJson": "本节点持有私钥的 kid 列表，不含私钥",
+        "RoleKey": "签名角色 api 或 worker",
+        "SigningManifest": "本节点全部公开签名材料摘要",
+        "UpdatedAtUtc": "最近就绪确认时间 UTC"
+      }
+    },
+    "fn_identity_oidc_signing_policy": {
+      "comment": "身份认证oidc signing policy表",
+      "columns": {
+        "ActiveKeyId": "Active Key标识",
+        "Id": "逻辑主键",
+        "PolicyKey": "Policy Key",
         "UpdatedAtUtc": "更新时间(UTC)",
         "Version": "乐观并发版本号"
       }
@@ -1724,7 +2129,9 @@
         "TotalRows": "总行数",
         "ValidRowCount": "有效行数",
         "Version": "乐观并发版本号",
-        "WorksheetKey": "工作表键"
+        "WorksheetKey": "工作表键",
+        "ColumnMappingJson": "创建时固化的有界列映射输入，后台不读取当前个人配置",
+        "ActorSessionBindingJson": "本人显式排队操作绑定的会话，后台每阶段重新授权"
       }
     },
     "fn_jobs_definition": {
@@ -1845,6 +2252,13 @@
         "SubmittedAtUtc": "Submitted At(UTC)",
         "UpdatedAtUtc": "更新时间(UTC)",
         "Version": "乐观并发版本号"
+      }
+    },
+    "fn_messaging_cdc_heartbeat": {
+      "comment": "CDC 基础设施心跳，不承载业务事件",
+      "columns": {
+        "Id": "固定 UUID v7 心跳身份",
+        "UpdatedAtUtc": "基础设施心跳更新时间"
       }
     },
     "fn_messaging_cutover_evidence": {
@@ -2028,6 +2442,7 @@
     "fn_messaging_stream_ownership": {
       "comment": "消息流发布所有权与回滚边界",
       "columns": {
+        "CdcKafkaBindingJson": "切流时冻结的 Kafka 资源身份与原窗口 JSON；缺失时禁止自动回退",
         "CdcSourcePositionJson": "CDC 源位置(JSON)",
         "CreatedAtUtc": "创建时间(UTC)",
         "CurrentOwner": "当前所有者",
@@ -2827,6 +3242,34 @@
         "Version": "乐观并发版本号"
       }
     },
+    "fn_payment_subscription_fulfillment": {
+      "comment": "Payments 自有订阅履约恢复与资金绑定",
+      "columns": {
+        "AmountMinor": "冻结最小单位金额",
+        "Attempt": "连续恢复次数",
+        "BeneficiaryTenantId": "权益受益租户",
+        "CreatedAtUtc": "创建时间 UTC",
+        "Currency": "冻结规范币种",
+        "DueAtUtc": "下次恢复时间 UTC",
+        "EffectiveFromUtc": "权益最早生效 UTC",
+        "EffectiveToUtc": "权益最晚生效 UTC",
+        "ErrorCode": "最近稳定失败码",
+        "Id": "支付创建幂等身份 UUID v7",
+        "LastRefundId": "最近成功退款身份",
+        "LeaseId": "当前恢复租约身份",
+        "LeaseUntilUtc": "当前租约到期 UTC",
+        "MerchantConfigId": "冻结收款商户",
+        "PaidAtUtc": "已验证支付时间 UTC",
+        "PaymentOrderId": "实际资金订单",
+        "Phase": "创建付款履约退款或核对阶段",
+        "ProviderTransactionId": "已验证渠道交易标识",
+        "RefundAmountMinor": "最近已验证退款金额",
+        "SubscriptionId": "Tenancy 原始订阅",
+        "TenantId": "支付收款租户",
+        "UpdatedAtUtc": "最近更新时间 UTC",
+        "Version": "工作项乐观并发版本"
+      }
+    },
     "fn_platform_backup_run": {
       "comment": "平台备份运行表",
       "columns": {
@@ -3035,7 +3478,8 @@
         "StatusKey": "状态键",
         "TenantId": "租户标识；NULL 表示 Host 级",
         "Version": "乐观并发版本号",
-        "VersionNumber": "版本号"
+        "VersionNumber": "版本号",
+        "ActorSessionBindingJson": "私有原会话可信绑定；缺失时执行和下载失败关闭"
       }
     },
     "fn_reporting_group": {
@@ -3252,6 +3696,42 @@
         "Version": "乐观并发版本号"
       }
     },
+    "fn_tenancy_invoice_entitlement": {
+      "comment": "报价时冻结的功能权益快照",
+      "columns": {
+        "CreatedAtUtc": "创建时间 UTC",
+        "EntitlementCode": "冻结稳定功能码",
+        "EntitlementId": "冻结权益目录标识",
+        "Id": "快照逻辑 UUID v7",
+        "InvoiceId": "原始订阅报价"
+      }
+    },
+    "fn_tenancy_offer_entitlement": {
+      "comment": "报价允许授予的功能目录映射",
+      "columns": {
+        "CreatedAtUtc": "创建时间 UTC",
+        "EntitlementId": "受控权益目录标识",
+        "Id": "映射逻辑 UUID v7",
+        "OfferId": "报价所属套餐"
+      }
+    },
+    "fn_tenancy_package_offer": {
+      "comment": "可发布的套餐收款报价与限额",
+      "columns": {
+        "AmountMinor": "最小货币单位金额",
+        "CreatedAtUtc": "创建时间 UTC",
+        "Currency": "规范大写币种",
+        "DurationDays": "价格对应的有效天数",
+        "Id": "复用套餐逻辑主键",
+        "IsActive": "是否允许创建新报价",
+        "MerchantConfigId": "冻结收款商户配置",
+        "PaymentTenantId": "拥有收款商户的租户",
+        "SeatLimit": "席位限额",
+        "StorageLimit": "存储字节限额",
+        "UpdatedAtUtc": "最近更新时间 UTC",
+        "Version": "报价乐观并发版本"
+      }
+    },
     "fn_tenancy_quota_metric": {
       "comment": "租户配额度量表",
       "columns": {
@@ -3261,6 +3741,7 @@
         "MetricCode": "度量编码",
         "PeriodKey": "周期键",
         "ReservedValue": "预留量",
+        "SourceSubscriptionId": "提供本限额的来源订阅；空值为独立人工配置",
         "TenantId": "租户标识",
         "UpdatedAtUtc": "更新时间(UTC)",
         "UsedValue": "已用量",
@@ -3290,6 +3771,36 @@
         "Id": "逻辑主键",
         "UpdatedAtUtc": "更新时间(UTC)",
         "Version": "乐观并发版本号"
+      }
+    },
+    "fn_tenancy_subscription_invoice": {
+      "comment": "订阅不可变报价及资金事实接收状态",
+      "columns": {
+        "AmountMinor": "冻结最小单位金额",
+        "CreatedAtUtc": "创建时间 UTC",
+        "Currency": "冻结规范币种",
+        "EffectiveFromUtc": "权益生效时间 UTC",
+        "EffectiveToUtc": "权益到期时间 UTC",
+        "Id": "复用订阅逻辑主键",
+        "LastRefundId": "最近已接收的成功退款身份",
+        "MerchantConfigId": "冻结收款商户",
+        "OfferVersion": "冻结报价版本",
+        "PackageId": "冻结套餐标识",
+        "PackageVersion": "冻结套餐元数据版本",
+        "PaymentOperationId": "原始支付创建幂等身份",
+        "PaymentOrderId": "已验证的实际支付订单",
+        "PaymentTenantId": "拥有收款商户的租户",
+        "Phase": "待付款已履约退款或核对阶段",
+        "ProviderTransactionId": "已验证的渠道交易标识",
+        "RefundAmountMinor": "最近已验证退款金额",
+        "RequestHash": "冻结购买输入摘要",
+        "RequestId": "调用方固定创建身份",
+        "SeatLimit": "冻结席位限额",
+        "StorageLimit": "冻结存储限额",
+        "Subject": "冻结商品名称",
+        "TenantId": "权益受益租户",
+        "UpdatedAtUtc": "最近更新时间 UTC",
+        "Version": "接收状态乐观并发版本"
       }
     },
     "fn_tenancy_tenant": {
@@ -3326,6 +3837,7 @@
         "EntitlementId": "权益标识",
         "Id": "逻辑主键",
         "SourcePackageId": "来源套餐标识",
+        "SourceSubscriptionId": "自动授权的来源订阅；空值为独立人工授权",
         "TenantId": "租户标识",
         "UpdatedAtUtc": "更新时间(UTC)",
         "Version": "乐观并发版本号"
@@ -3723,6 +4235,80 @@
         "UserId": "用户标识"
       }
     },
+    "fn_workflow_collaboration_admission": {
+      "comment": "工作流双方共享调用准入事实，仅协调创建与关闭",
+      "columns": {
+        "BindingHash": "固定绑定SHA256",
+        "BindingJson": "固定调用绑定，不含源私有正文",
+        "CreatedAtUtc": "源提交时间",
+        "DeliveryId": "源逻辑投递身份",
+        "GrantId": "双边共享授权",
+        "Id": "调用UUID v7",
+        "ProjectionHash": "投影SHA256",
+        "ProjectionJson": "仅含获准字段的最小投影",
+        "Revision": "共享准入CAS修订",
+        "SourceTenantScopeKey": "可信源作用域",
+        "StatusKey": "创建与关闭准入状态",
+        "TargetInstanceId": "目标提交的独立实例身份",
+        "TargetTenantScopeKey": "获准目标作用域",
+        "UpdatedAtUtc": "最近推进时间"
+      }
+    },
+    "fn_workflow_collaboration_call": {
+      "comment": "工作流源协作调用及固定输入证明",
+      "columns": {
+        "BindingHash": "绑定证明SHA256",
+        "BindingJson": "真实源活动及固定授权版本证明",
+        "ContinuationNodeKey": "固定唯一后继",
+        "CreatedAtUtc": "源事务提交意图时间",
+        "DeliveryId": "独立逻辑请求投递UUID v7",
+        "ExecutionEpochId": "实际源执行代次",
+        "GrantId": "已接受的双边授权",
+        "Id": "真实协作Step及调用UUID v7",
+        "InputFormRevision": "原输入修订",
+        "InputHash": "原输入SHA256",
+        "InputJson": "不可变源输入",
+        "InstanceId": "本地源实例",
+        "NodeKey": "固定源节点键",
+        "ProjectionHash": "固定投影SHA256",
+        "ProjectionJson": "仅含获准映射的固定投影",
+        "ReservedActivities": "从源全局预算预留的目标切片",
+        "Revision": "本地CAS修订",
+        "StatusKey": "请求生命周期",
+        "TenantScopeKey": "可信源作用域",
+        "UpdatedAtUtc": "本地状态推进时间"
+      }
+    },
+    "fn_workflow_collaboration_control": {
+      "comment": "工作流创建结果取消的最小耐久协议事实",
+      "columns": {
+        "BodyHash": "不可变正文SHA256",
+        "BodyJson": "固定绑定及最小结果正文",
+        "CallId": "唯一共享调用准入",
+        "CreatedAtUtc": "唯一发布UTC时间",
+        "EnvelopeMessageId": "首次认证物理信封身份",
+        "Id": "协议回执UUID v7",
+        "KindKey": "创建、完成或关闭确认种类",
+        "ReceivedAtUtc": "首次收件UTC时间",
+        "Revision": "协议状态CAS修订",
+        "SourceTenantScopeKey": "可信原源作用域",
+        "StatusKey": "发布、收件或已接纳状态",
+        "TargetTenantScopeKey": "可信目标发布作用域"
+      }
+    },
+    "fn_workflow_collaboration_delivery": {
+      "comment": "工作流源信封本地收件事实；目标Relay另建作用域",
+      "columns": {
+        "BindingHash": "已核对的持久绑定摘要",
+        "CallId": "原本地源调用",
+        "EnvelopeMessageId": "首次接收的物理消息身份",
+        "Id": "逻辑请求投递身份",
+        "ReceivedAtUtc": "首次收件时间",
+        "Revision": "本地收件CAS修订",
+        "StatusKey": "收件与Relay生命周期",
+        "TenantScopeKey": "由可信消息信封确定的作用域"
+      }
+    },
     "fn_workflow_collaboration_grant": {
       "comment": "工作流双边共享授权控制面；业务执行各在自己租户事务内",
       "columns": {
@@ -3768,6 +4354,16 @@
         "ResponseJson": "首次成功响应原文；重放不读取后续状态",
         "ResultRevision": "首次成功响应修订",
         "ResultStatusKey": "首次成功响应状态"
+      }
+    },
+    "fn_workflow_collaboration_origin": {
+      "comment": "工作流目标和后代的真实协作来源",
+      "columns": {
+        "CallId": "共享调用准入身份",
+        "Depth": "实际全局调用深度",
+        "Id": "本地实例UUID v7",
+        "RootInstanceId": "本地独立目标根",
+        "TenantScopeKey": "可信目标作用域"
       }
     },
     "fn_workflow_connector_attempt": {
@@ -3996,6 +4592,23 @@
         "Summary": "执行摘要",
         "ToStatusKey": "迁移后状态键",
         "TransitionKey": "状态迁移键"
+      }
+    },
+    "fn_workflow_file_read_reference": {
+      "comment": "本作用域Workflow附件的不透明能力引用，无外租户原文件身份",
+      "columns": {
+        "CallId": "固定协作调用身份",
+        "CapabilityFieldKey": "原始能力接收字段",
+        "CapabilityId": "Files不透明能力，不是外租户FileId",
+        "ContentHash": "固定内容摘要",
+        "ContentType": "内容类型快照",
+        "DirectionKey": "原input或result方向",
+        "ExpiresAtUtc": "读取期限UTC",
+        "Id": "本地附件历史引用身份",
+        "InstanceId": "本作用域真实实例",
+        "OriginalFileName": "安全下载名快照",
+        "SizeBytes": "实际字节数快照",
+        "TenantScopeKey": "本地可信作用域"
       }
     },
     "fn_workflow_fork_context": {
@@ -4628,30 +5241,384 @@
         "CreatedAtUtc": "创建时间（UTC）"
       }
     },
-    "fn_identity_oidc_signing_key": {
-      "comment": "OIDC 签名公钥指纹与受控生命周期",
+    "demo_enterprise_request_delivery": {
+      "comment": "企业申请附件和报表交付恢复日记",
       "columns": {
-        "Id": "应用端 UUID v7",
-        "IsRetired": "已退役标志且不可重新激活",
-        "KeyId": "不可重新绑定材料的 kid",
-        "LastActivatedAtUtc": "最近激活时间 UTC",
-        "PublicKeyHash": "规范公钥 DER 的 SHA256",
-        "PublishedAtUtc": "公钥登记时间 UTC",
-        "RetireAfterUtc": "所有合法协议令牌覆盖后的最早退役时间 UTC",
-        "Version": "治理行并发版本"
+        "Id": "应用生成的交付身份 UUID v7",
+        "TenantId": "可信租户",
+        "RequestId": "所属申请单",
+        "RequestKey": "调用方幂等请求标识",
+        "Kind": "Attachment 或 Report",
+        "RequestedVersion": "冻结主单版本",
+        "ActorUserId": "原始申请主体",
+        "SessionId": "原始会话",
+        "SecurityStamp": "冻结安全戳",
+        "ActorScope": "原始主体作用域",
+        "EffectiveScope": "冻结有效租户作用域",
+        "SessionKind": "刷新或 OIDC 应用会话",
+        "SourceDigest": "内容或已授权单据快照摘要",
+        "IncludesAmounts": "是否包含获授权金额",
+        "LocaleCode": "生成文案的规范语言标签",
+        "FileId": "绑定的 Files 文件",
+        "FileName": "安全下载文件名",
+        "ContentType": "固定或经验证的媒体类型",
+        "SizeBytes": "实际文件字节数",
+        "ContentHash": "待绑定产物内容摘要",
+        "Phase": "持久化交付及清理状态",
+        "ErrorCode": "稳定失败码",
+        "LeaseId": "本轮恢复租约",
+        "LeaseUntilUtc": "租约截止时间",
+        "Attempt": "实际领取次数",
+        "DueAtUtc": "下一轮可执行时间",
+        "ExpiresAtUtc": "上传意图或报表结果截止时间",
+        "CreatedAtUtc": "创建时间",
+        "UpdatedAtUtc": "最后状态更新时间",
+        "Version": "单调并发版本"
       }
     },
-    "fn_identity_oidc_signing_node": {
-      "comment": "OIDC 签名进程的短期就绪租约",
+    "fn_ai_knowledge_faq": {
+      "comment": "标准问答草稿根，不可变原始来源与预留文档身份",
       "columns": {
-        "EncryptionFingerprint": "共享协议加密与令牌期限配置摘要",
-        "ExpiresAtUtc": "就绪租约到期时间 UTC",
-        "Id": "进程独立 UUID v7，重启不得继承",
-        "PolicyVersion": "本节点已观察的持久化策略版本",
-        "PrivateKeysJson": "本节点持有私钥的 kid 列表，不含私钥",
-        "RoleKey": "签名角色 api 或 worker",
-        "SigningManifest": "本节点全部公开签名材料摘要",
-        "UpdatedAtUtc": "最近就绪确认时间 UTC"
+        "Id": "FAQ UUID v7",
+        "KnowledgeBaseId": "所属知识库",
+        "ReservedDocumentId": "预留文档 UUID v7，草稿阶段不物化文档",
+        "TenantId": "可信租户；NULL 表示 Host",
+        "CreatedById": "原始创建者",
+        "CreateRequestKey": "创建幂等请求 UUID v7",
+        "CreateHash": "创建请求完整摘要",
+        "OriginKey": "independent 或 document_derived，不允许修改",
+        "Basis": "独立编写依据，派生内容必须为空",
+        "SourceJson": "服务器冻结的完整文档来源协议",
+        "SourceHash": "不可变原始来源摘要",
+        "HeadRevisionId": "当前草稿修订身份",
+        "HeadVersion": "草稿头乐观并发版本",
+        "CreatedAtUtc": "创建时间 UTC",
+        "PublicationId": "当前发布身份；与正式发布头同事务推进"
+      }
+    },
+    "fn_ai_knowledge_faq_revision": {
+      "comment": "标准问答不可变草稿修订；仅追加不更新",
+      "columns": {
+        "Id": "修订 UUID v7",
+        "FaqId": "所属 FAQ",
+        "RevisionNo": "从一开始的修订次序",
+        "RequestKey": "本次修改幂等请求 UUID v7",
+        "RequestHash": "绑定操作与原头的完整请求摘要",
+        "ContentJson": "冻结问题同义问法答案分类及有效期",
+        "ContentHash": "绑定正文和原始来源的摘要",
+        "CreatedAtUtc": "修订创建时间 UTC",
+        "RestoredFromRevisionId": "恢复时引用的本 FAQ 历史修订"
+      }
+    },
+    "fn_ai_knowledge_faq_source": {
+      "comment": "FAQ 不可变修订的数据库索引来源，无文件或普通导入凭证",
+      "columns": {
+        "Id": "索引知识版本 UUID v7",
+        "FaqId": "所属 FAQ",
+        "RevisionId": "准确不可变 FAQ 修订",
+        "RevisionHash": "修订正文及原始来源摘要",
+        "SourceHash": "不可变完整来源摘要",
+        "DataClassification": "当前来源交集最严格数据分类",
+        "BodyText": "服务器确定性生成的修订索引文本",
+        "BodyHash": "UTF-8 索引文本摘要",
+        "SizeBytes": "索引文本 UTF-8 字节数",
+        "RequestKey": "索引准入幂等请求 UUID v7",
+        "RequestHash": "冻结修订头和明确收费确认的请求摘要",
+        "ActorUserId": "首次请求可信主体",
+        "CreatedAtUtc": "创建时间 UTC",
+        "KnowledgeBaseVersion": "首次索引批准的知识库版本",
+        "ModelConfigId": "首次索引批准的模型身份",
+        "ModelConfigVersion": "首次索引批准的模型版本",
+        "ModelFingerprint": "包含目的地和受保护凭据的完整模型摘要"
+      }
+    },
+    "fn_ai_knowledge_faq_release": {
+      "comment": "FAQ 审核发布绑定与普通发布协议隔离，指针原子推进",
+      "columns": {
+        "Id": "同一 AI 发布身份 UUID v7",
+        "FaqId": "所属 FAQ",
+        "RevisionId": "冻结审核修订",
+        "VersionId": "冻结完整索引知识版本",
+        "SourceHash": "完整原始来源摘要",
+        "ContentHash": "审核修订内容摘要",
+        "RequestHash": "发布申请完整请求摘要",
+        "CreatedAtUtc": "创建时间 UTC"
+      }
+    },
+    "fn_ai_knowledge_faq_query": {
+      "comment": "当前发布 FAQ 问法的库内唯一占用；撤销或替换在同一事务释放",
+      "columns": {
+        "Id": "问法占用 UUID v7",
+        "KnowledgeBaseId": "所属知识库",
+        "FaqId": "拥有当前问法的 FAQ",
+        "QueryHash": "版本一规范化完整问法摘要",
+        "CreatedAtUtc": "占用创建时间 UTC"
+      }
+    },
+    "fn_ai_knowledge_evaluation_set": {
+      "comment": "知识库评估集根，当前头与累计不可降级来源",
+      "columns": {
+        "Id": "评估集 UUID v7",
+        "KnowledgeBaseId": "所属知识库",
+        "TenantId": "可信租户；NULL 表示 Host",
+        "CreatedById": "原始创建者",
+        "RequestKey": "创建幂等请求 UUID v7",
+        "CreateHash": "创建请求与操作者完整摘要",
+        "HeadRevisionId": "当前不可变修订",
+        "HeadRevisionNo": "当前修订序号",
+        "Version": "根乐观并发版本，批准也递增",
+        "FootprintJson": "累计完整来源与正文贡献者，禁止清空",
+        "FootprintHash": "累计来源规范 JSON 摘要",
+        "ApprovalId": "当前修订最近独立审核记录",
+        "CreatedAtUtc": "创建时间 UTC"
+      }
+    },
+    "fn_ai_knowledge_evaluation_revision": {
+      "comment": "人工脱敏评估不可变修订，仅追加不覆盖",
+      "columns": {
+        "Id": "修订 UUID v7",
+        "SetId": "所属评估集",
+        "RevisionNo": "从一开始的修订次序",
+        "RequestKey": "本次追加的幂等请求 UUID v7",
+        "RequestHash": "绑定原头和操作者的请求摘要",
+        "ContentJson": "人工脱敏正文及显式草稿或冻结状态",
+        "ContentHash": "正文与该修订来源摘要",
+        "SourceJson": "该修订不可变累计来源和贡献者足迹",
+        "SourceHash": "该修订来源摘要",
+        "EditorUserId": "该修订编辑者，不能批准自身正文",
+        "CreatedAtUtc": "修订创建时间 UTC",
+        "RestoredFromRevisionId": "明确恢复的本评估集历史修订"
+      }
+    },
+    "fn_ai_knowledge_evaluation_approval": {
+      "comment": "准确冻结修订的独立审核追加记录",
+      "columns": {
+        "Id": "审核 UUID v7",
+        "SetId": "所属评估集",
+        "RevisionId": "明确审核的不可变修订",
+        "ReviewerUserId": "独立审核操作者",
+        "DecisionKey": "approved 或 withdrawn，不代表模型已执行",
+        "RequestKey": "审核幂等请求 UUID v7",
+        "RequestHash": "绑定原头与审核人的请求摘要",
+        "CreatedAtUtc": "审核时间 UTC"
+      }
+    },
+    "fn_ai_knowledge_evaluation_strategy": {
+      "comment": "知识评估策略根；只追加不可变版本",
+      "columns": {
+        "Id": "应用端 UUID v7",
+        "KnowledgeBaseId": "所属知识库",
+        "TenantId": "可信租户，Host为空",
+        "CreatedById": "策略原创建者",
+        "Name": "人工命名",
+        "HeadRevisionId": "当前不可变策略版本",
+        "HeadRevisionNo": "当前策略版本序号",
+        "Version": "根并发版本",
+        "CreatedAtUtc": "记录创建 UTC 时间"
+      }
+    },
+    "fn_ai_knowledge_evaluation_strategy_revision": {
+      "comment": "准确批准集合与完整来源的不可变策略版本",
+      "columns": {
+        "Id": "应用端 UUID v7",
+        "StrategyId": "所属策略根",
+        "RevisionNo": "策略版本次序",
+        "RequestKey": "原追加请求身份",
+        "RequestHash": "绑定操作者和输入的请求摘要",
+        "DefinitionJson": "闭合策略和完整输入定义",
+        "DefinitionHash": "规范定义摘要",
+        "CreatedById": "本版创建者",
+        "CreatedAtUtc": "记录创建 UTC 时间"
+      }
+    },
+    "fn_ai_knowledge_evaluation_run": {
+      "comment": "绑定原会话和原操作计划的评估运行，不自动重派",
+      "columns": {
+        "Id": "应用端 UUID v7",
+        "KnowledgeBaseId": "所属知识库",
+        "TenantId": "可信租户，Host为空",
+        "StrategyId": "准确策略根",
+        "StrategyRevisionId": "不可替换策略版本",
+        "CreatedById": "运行原操作者",
+        "SessionId": "执行必须复核的原交互会话",
+        "RequestKey": "创建运行原请求身份",
+        "RequestHash": "原运行创建摘要",
+        "PlanJson": "调用前冻结的全样例和全部阶段身份",
+        "PlanHash": "原操作计划摘要",
+        "Version": "运行并发版本",
+        "CreatedAtUtc": "记录创建 UTC 时间"
+      }
+    },
+    "fn_ai_knowledge_evaluation_case": {
+      "comment": "实际样例状态与原结果，失败和跳过保留在分母",
+      "columns": {
+        "Id": "应用端 UUID v7",
+        "RunId": "所属实际运行",
+        "SampleId": "原冻结集合样例",
+        "Sequence": "从零开始的样例顺序",
+        "Version": "并发版本",
+        "StateKey": "not_run/running/succeeded/failed/unknown/skipped",
+        "ReasonCode": "安全机器原因码",
+        "ExecutionToken": "本次领取令牌；终态不重新领取",
+        "RequestKey": "原执行或跳过请求身份",
+        "RequestHash": "原执行请求摘要",
+        "ResultJson": "实际输出的闭合协议",
+        "ResultHash": "原实际输出摘要",
+        "DurationMs": "单调时钟实际测量，缺失为空",
+        "StartedAtUtc": "实际领取时间",
+        "FinishedAtUtc": "实际结束时间",
+        "ReviewId": "当前追加人工判断",
+        "CreatedAtUtc": "记录创建 UTC 时间",
+        "CloseRequestKey": "明确关闭未知的原请求身份",
+        "CloseRequestHash": "明确关闭未知的原请求摘要"
+      }
+    },
+    "fn_ai_knowledge_evaluation_case_review": {
+      "comment": "准确实际结果的追加人工证据支持判断，不是模型评分",
+      "columns": {
+        "Id": "应用端 UUID v7",
+        "RunId": "所属运行",
+        "CaseId": "准确样例",
+        "ResultHash": "被判断的实际输出摘要",
+        "ReviewerUserId": "人工判断者",
+        "BaselineSupports": "基线证据是否支持人工参考答案",
+        "CandidateSupports": "候选证据是否支持人工参考答案",
+        "RequestKey": "原人工判断请求身份",
+        "RequestHash": "人工确认与版本摘要",
+        "CreatedAtUtc": "记录创建 UTC 时间"
+      }
+    },
+    "fn_ai_knowledge_evaluation_operation": {
+      "comment": "真实阶段原操作身份与运行及知识库显式归属，禁止按时间猜测",
+      "columns": {
+        "Id": "应用端 UUID v7",
+        "RunId": "所属运行",
+        "CaseId": "所属样例",
+        "KnowledgeBaseId": "服务器捕获的所属知识库",
+        "TenantId": "原可信租户，Host为空",
+        "StageKey": "服务器闭合阶段标识",
+        "ModelConfigId": "该阶段批准模型",
+        "ModelConfigVersion": "该阶段准确模型版本",
+        "CreatedAtUtc": "记录创建 UTC 时间"
+      }
+    },
+    "fn_ai_knowledge_answer_observation": {
+      "comment": "实际知识回答结果分类及单调时钟观测，不保存问题或答案",
+      "columns": {
+        "Id": "应用端 UUID v7",
+        "TenantId": "可信租户，Host为空",
+        "KnowledgeBaseIdsJson": "服务器捕获的候选知识库身份，最多八项",
+        "Refused": "实际受限回答协议的拒答标记",
+        "DurationMs": "实际收费知识流水线毫秒，未观测为空",
+        "CreatedAtUtc": "记录创建 UTC 时间"
+      }
+    },
+    "fn_calendar_schedule_completion": {
+      "comment": "本人日程原操作Inbox及准确接收方回执，不保存日程正文",
+      "columns": {
+        "Id": "应用端UUID v7",
+        "TenantId": "可信租户，Host为空",
+        "ScopeKey": "可信范围唯一键",
+        "OwnerUserId": "原操作本人主体",
+        "RunId": "真实AI运行身份",
+        "OperationId": "原写节点稳定操作身份",
+        "ScheduleId": "准确个人日程身份，无跨模块外键",
+        "ExpectedVersion": "原批准pending版本",
+        "RequestDigest": "不可更换原请求摘要",
+        "Outcome": "completed或rejected实际事实",
+        "Reason": "安全拒绝原因",
+        "ActualVersion": "成功CAS后的准确版本，拒绝为空",
+        "CompletedAtUtc": "本操作实际完成UTC时间",
+        "CreatedAtUtc": "原操作回执提交UTC时间"
+      }
+    },
+    "fn_ai_schedule_completion_intent": {
+      "comment": "独立批准消费与不可变发送意图，同AI Outbox原子提交",
+      "columns": {
+        "Id": "应用端UUID v7",
+        "TenantId": "可信租户，Host为空",
+        "ScopeKey": "可信范围唯一键",
+        "OwnerUserId": "原运行主体",
+        "RunId": "真实静态运行身份",
+        "OperationId": "原写节点稳定操作身份",
+        "RequestJson": "服务器冻结原会话与准确批准参数，不公开返回",
+        "ScheduleId": "不可变准确日程目标，原操作唯一占用",
+        "ExpectedVersion": "原操作准确pending版本，未知不得换新操作",
+        "RequestDigest": "不可变原请求摘要",
+        "Outcome": "accepted或unknown或接收方completed或rejected",
+        "ReceiptJson": "准确Calendar原操作回执，尚未确认时为空",
+        "Version": "意图结果乐观版本",
+        "CreatedAtUtc": "意图提交UTC时间",
+        "UpdatedAtUtc": "结果核对UTC时间"
+      }
+    },
+    "fn_reporting_definition_tenant_grant": {
+      "comment": "报表定义到租户的显式发布授权",
+      "columns": {
+        "CreatedAtUtc": "创建 UTC 时间",
+        "CreatedByUserId": "可信创建主体",
+        "DefinitionId": "本模块定义身份",
+        "Id": "应用端 UUID v7",
+        "IsEnabled": "显式发布授权启用状态",
+        "TenantId": "Host 明确授权的目标租户，无跨模块外键",
+        "UpdatedAtUtc": "更新 UTC 时间",
+        "UpdatedByUserId": "可信更新主体",
+        "Version": "授权并发版本"
+      }
+    },
+    "fn_settings_query_scheme": {
+      "comment": "按可信用户和Host或租户上下文隔离的受控查询方案",
+      "columns": {
+        "Id": "应用端 UUID v7",
+        "TenantId": "可信租户；Host上下文为空",
+        "ScopeKey": "可信作用域键；Host为host，租户为tenant加冒号及无连字符UUID",
+        "GridKey": "业务所有者发布的稳定Grid键",
+        "OwnerUserId": "不可变创建主体",
+        "Name": "创建者定义的有界方案名",
+        "SchemaVersion": "保存时的业务查询Schema版本",
+        "ConfigurationJson": "有界筛选排序和展示配置，不含查询结果",
+        "IsShared": "仅当前租户可共享；Host必须为否",
+        "CreatedAtUtc": "创建UTC时间",
+        "UpdatedAtUtc": "最后修改UTC时间",
+        "Version": "正整数并发版本"
+      }
+    },
+    "fn_settings_query_scheme_default": {
+      "comment": "每用户上下文与Grid的查询方案默认及写入互斥记录",
+      "columns": {
+        "Id": "应用端 UUID v7",
+        "TenantId": "可信租户；Host上下文为空",
+        "ScopeKey": "可信作用域键；Host为host，租户为tenant加冒号及无连字符UUID",
+        "GridKey": "业务所有者发布的稳定Grid键",
+        "UserId": "当前用户身份",
+        "DefaultSchemeId": "个人选择；撤销共享或删除后读取时重新核对可见性",
+        "Version": "默认选择自己的并发版本；未选择时可为零",
+        "CreatedAtUtc": "首次建立用户上下文记录的UTC时间"
+      }
+    },
+    "fn_import_export_profile_scope": {
+      "comment": "个人导入配置写入互斥作用域，不参与业务模块事务",
+      "columns": {
+        "Id": "应用端 UUID v7 逻辑主键",
+        "TenantId": "可信租户标识",
+        "UserId": "可信用户标识",
+        "CreatedAtUtc": "作用域首次创建 UTC 时间"
+      }
+    },
+    "fn_import_export_profile": {
+      "comment": "按可信租户用户与静态来源隔离的个人导入列映射配置",
+      "columns": {
+        "Id": "应用端 UUID v7 逻辑主键",
+        "TenantId": "可信租户标识",
+        "OwnerUserId": "不可变本人配置所有者",
+        "SchemaKey": "静态导入来源键",
+        "WorksheetKey": "静态工作表键",
+        "Name": "本人定义的有界配置名称",
+        "HeaderFingerprint": "有序目标表头的 SHA256 指纹，不表示业务规则版本",
+        "ConfigurationJson": "规范化表头与字面列映射，不含业务行数据",
+        "CreatedAtUtc": "创建 UTC 时间",
+        "UpdatedAtUtc": "最后修改 UTC 时间",
+        "Version": "正整数并发版本"
       }
     }
   }

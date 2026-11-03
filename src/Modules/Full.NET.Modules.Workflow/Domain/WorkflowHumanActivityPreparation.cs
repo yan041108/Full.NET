@@ -128,7 +128,10 @@ internal sealed class WorkflowHumanActivityPreparation(WorkflowHumanActivityAssi
                     ? await coordinator.ResolveTaskAsync(current.AssigneePolicy, task, scope, initiatorId, token, context).ConfigureAwait(false)
                     : await coordinator.ResolveAsync(current.AssigneePolicy, current.ApprovalPolicy, scope, initiatorId, token, context).ConfigureAwait(false));
         }
-        return new(snapshots, ccSnapshots);
+        var result = new WorkflowPreparedHumanActivities(snapshots, ccSnapshots);
+        if (instanceId is { } currentId && await WorkflowCollaborationOriginPolicy.ReadMembersAsync(currentId, scope, query, token).ConfigureAwait(false) is { } allowed)
+            return result.RestrictTo(allowed);
+        return result;
     }
 
     private static IEnumerable<WorkflowAssigneeSource> Sources(WorkflowRuntimeTransition transition) =>
@@ -140,6 +143,27 @@ internal sealed class WorkflowHumanActivityPreparation(WorkflowHumanActivityAssi
 internal sealed class WorkflowPreparedHumanActivities(IReadOnlyDictionary<string, Result<WorkflowHumanActivityAssignees>> snapshots,
     IReadOnlyDictionary<string, Result<WorkflowCcRecipients>>? ccSnapshots = null)
 {
+    /// <summary>协作只能使用目标同意的成员；不把越界人员静默裁剪为不同的投票分母。</summary>
+    public WorkflowPreparedHumanActivities RestrictTo(IReadOnlyList<Guid> allowed)
+    {
+        var members = allowed.ToHashSet();
+        Error Invalid() => new(WorkflowErrorCodes.CollaborationGrantConflict, "The activity selects a member outside the fixed collaboration policy.", ErrorType.Conflict);
+        bool Permitted(string? json)
+        {
+            if (json is null) return false;
+            try
+            {
+                var snapshot = JsonSerializer.Deserialize(json, WorkflowJsonSerializerContext.Default.WorkflowAssigneeResolutionSnapshot);
+                return snapshot is not null && snapshot.MemberUserIds.All(members.Contains) &&
+                    (snapshot.Groups is null || snapshot.Groups.All(group => group.Resolution.MemberUserIds.All(members.Contains)));
+            }
+            catch (JsonException) { return false; }
+        }
+        return new(snapshots.ToDictionary(pair => pair.Key, pair => !pair.Value.IsSuccess || Permitted(pair.Value.Value!.ResolutionJson)
+                ? pair.Value : Result<WorkflowHumanActivityAssignees>.Failure(Invalid()), StringComparer.Ordinal),
+            ccSnapshots?.ToDictionary(pair => pair.Key, pair => !pair.Value.IsSuccess || pair.Value.Value!.UserIds.All(members.Contains)
+                ? pair.Value : Result<WorkflowCcRecipients>.Failure(Invalid()), StringComparer.Ordinal));
+    }
     public static WorkflowPreparedHumanActivities Empty { get; } = new(new Dictionary<string, Result<WorkflowHumanActivityAssignees>>());
     public bool TryGet(string nodeKey, out Result<WorkflowHumanActivityAssignees> snapshot) =>
         snapshots.TryGetValue(nodeKey, out snapshot!);

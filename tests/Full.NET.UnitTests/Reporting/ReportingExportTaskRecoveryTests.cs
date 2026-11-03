@@ -114,7 +114,48 @@ public sealed class ReportingExportTaskRecoveryTests
         Assert.AreEqual(20, fixture.Store.Tasks.Values.Count(task => task.TenantId != fixture.TenantId));
     }
 
-    private static Fixture CreateFixture()
+    [TestMethod]
+    [DataRow(1, 0)]
+    [DataRow(2, 0)]
+    [DataRow(3, 1)]
+    public async Task Revocation_before_query_upload_or_completion_never_exposes_ready_output(int denyAt, int expectedUploads)
+    {
+        var fixture = CreateFixture(new StageAuthority(denyAt)); var task = SeedQueued(fixture);
+        await fixture.Runner.ProcessPendingAsync(CancellationToken.None);
+        Assert.AreEqual(ReportingExportTaskStatusKeys.Failed, task.StatusKey);
+        Assert.AreEqual(ReportingErrorCodes.ExportAuthorityDenied, task.ErrorCode);
+        Assert.IsNull(task.OutputFileId); Assert.AreEqual(expectedUploads, fixture.Files.UploadCount);
+    }
+
+    [TestMethod]
+    public async Task Revocation_prevents_recovery_from_attaching_an_existing_uploaded_file()
+    {
+        var fixture = CreateFixture(new StageAuthority(2)); var task = SeedProcessing(fixture, true);
+        fixture.Files.ReadyFiles.Add(new(Guid.NewGuid(), "sensitive.xlsx", fixture.Clock.UtcNow));
+        await fixture.Runner.ProcessPendingAsync(CancellationToken.None);
+        Assert.AreEqual(ReportingExportTaskStatusKeys.Failed, task.StatusKey); Assert.IsNull(task.OutputFileId);
+        Assert.AreEqual(0, fixture.GenerateCount); Assert.AreEqual(0, fixture.Files.UploadCount);
+    }
+
+    [TestMethod]
+    public async Task Request_owned_execution_does_not_expand_frozen_column_permissions()
+    {
+        var fixture = CreateFixture(); var task = SeedQueued(fixture);
+        fixture.CurrentTenant.SetTenant(new TenantContext(fixture.TenantId, "acme", "Acme"));
+        var identity = new ClaimsIdentity("new-session"); identity.AddClaim(new("permission", ReportingExecutionPermissions.ColumnSchemaName));
+        await fixture.Runner.RunOwnedAsync(task.Id, new(identity), CancellationToken.None);
+        await fixture.Workbook.Received(1).GenerateAsync(task,
+            Arg.Is<ClaimsPrincipal>(actor => actor != null && !actor.Claims.Any(claim => claim.Value == ReportingExecutionPermissions.ColumnSchemaName)), Arg.Any<CancellationToken>());
+    }
+
+    private sealed class StageAuthority(int denyAt) : IReportingExportTaskAuthority
+    {
+        private int calls;
+        public Task<Error?> ValidateAsync(ReportingExportTaskRecord task, CancellationToken token) =>
+            Task.FromResult(++calls >= denyAt ? ReportingExportTaskAuthority.Denied() : null);
+    }
+
+    private static Fixture CreateFixture(IReportingExportTaskAuthority? authority = null)
     {
         var tenantId = Guid.NewGuid();
         var tenant = new TenantContext(tenantId, "acme", "Acme");
@@ -142,17 +183,24 @@ public sealed class ReportingExportTaskRecoveryTests
             new DapperCommandTransaction(new RecordingDbTransactionCoordinator()),
             files,
             workbook,
+            authority ?? new LeaseOnlyAuthority(),
             resolver,
             currentTenant,
             clock,
             ids,
             Options.Create(new DatabaseOptions { Provider = DatabaseProvider.SqlServer }),
             new OptionsMonitorStub<ReportingExportOptions>(options), new PendingTenantScanState(), new LeaseTestScopeFactory(resolver, store));
-        return new Fixture(store, runner, workbook, files, clock, tenantId, () => generateCount);
+        return new Fixture(store, runner, workbook, files, clock, tenantId, () => generateCount, currentTenant);
     }
 
     private static ReportingExportTaskRecord SeedQueued(Fixture fixture) =>
         Seed(fixture, ReportingExportTaskStatusKeys.Queued, leaseExpired: true);
+
+    // 这些用例只验证领取与租约；真实会话和发布授权由双库 API/Worker 场景验证。
+    private sealed class LeaseOnlyAuthority : IReportingExportTaskAuthority
+    {
+        public Task<Error?> ValidateAsync(ReportingExportTaskRecord task, CancellationToken token) => Task.FromResult<Error?>(null);
+    }
 
     private static ReportingExportTaskRecord SeedProcessing(Fixture fixture, bool leaseExpired) =>
         Seed(fixture, ReportingExportTaskStatusKeys.Processing, leaseExpired);
@@ -208,7 +256,8 @@ public sealed class ReportingExportTaskRecoveryTests
         FakeFileStore files,
         MutableClock clock,
         Guid tenantId,
-        Func<int> generateCount)
+        Func<int> generateCount,
+        CurrentTenantAccessor currentTenant)
     {
         public ExportTaskStore Store { get; } = store;
         public ReportingExportTaskRunner Runner { get; } = runner;
@@ -217,6 +266,7 @@ public sealed class ReportingExportTaskRecoveryTests
         public MutableClock Clock { get; } = clock;
         public Guid TenantId { get; } = tenantId;
         public int GenerateCount => generateCount();
+        public CurrentTenantAccessor CurrentTenant => currentTenant;
     }
 
     private sealed class MutableClock(DateTimeOffset utcNow) : IClock
@@ -234,12 +284,16 @@ public sealed class ReportingExportTaskRecoveryTests
 
     private sealed class FakeFileStore : ITenantResourceFileStore
     {
+        public int UploadCount { get; private set; }
         public List<TenantResourceFileReadyItem> ReadyFiles { get; } = [];
 
         public Task<Result<TenantResourceFileReference>> UploadAsync(
             string ownerModuleKey, Guid resourceId, Guid actorUserId, string originalFileName,
-            string contentType, Stream content, long contentLength, CancellationToken cancellationToken = default) =>
-            Task.FromResult(Result<TenantResourceFileReference>.Success(new(Guid.NewGuid(), contentLength, "hash")));
+            string contentType, Stream content, long contentLength, CancellationToken cancellationToken = default)
+        {
+            UploadCount++;
+            return Task.FromResult(Result<TenantResourceFileReference>.Success(new(Guid.NewGuid(), contentLength, "hash")));
+        }
 
         public Task<Result<TenantResourceFileContent>> OpenReadyContentAsync(
             string ownerModuleKey, Guid resourceId, Guid fileId, CancellationToken cancellationToken = default) =>

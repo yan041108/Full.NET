@@ -24,8 +24,11 @@ public sealed record AgentWorkflowExecutionBinding(Guid RunId, string WorkflowKe
 /// <param name="ToolVersion">工具策略版本；模型节点为空。</param>
 /// <param name="InputTokens">本节点输入用量；未知保持空值。</param>
 /// <param name="OutputTokens">本节点输出用量；未知保持空值。</param>
+/// <param name="InputTokenLimit">派发前冻结的独占输入额度；线性历史为空。</param>
+/// <param name="OutputTokenLimit">派发前冻结的独占输出额度；线性历史为空。</param>
 public sealed record AgentWorkflowNodeReceipt(int NodeIndex, string NodeKey, Guid OperationId, string InputDigest,
-    string? OutputDigest, int? ToolVersion, long? InputTokens, long? OutputTokens)
+    string? OutputDigest, int? ToolVersion, long? InputTokens, long? OutputTokens,
+    long? InputTokenLimit = null, long? OutputTokenLimit = null)
 {
     /// <summary>计算文本摘要；摘要不构成外部系统已完成的独立证明。</summary>
     /// <param name="text">待摘要文本。</param>
@@ -43,7 +46,8 @@ public sealed record AgentWorkflowNodeReceipt(int NodeIndex, string NodeKey, Gui
     /// <param name="definition">静态工作流定义。</param>
     /// <returns>定义摘要。</returns>
     public static string DigestDefinition(AgentWorkflowDefinition definition) => Digest(string.Join('\0',
-        definition.Nodes.Select(node => FormattableString.Invariant($"{node.Key}|{node.Kind}|{node.ToolName}|{node.PromptTemplate}"))));
+        definition.Nodes.Select(node => FormattableString.Invariant($"{node.Key}|{node.Kind}|{node.ToolName}|{node.PromptTemplate}")
+            + (node.ParallelGroup is null ? string.Empty : $"|parallel:{node.ParallelGroup}"))));
 
     /// <summary>构造实际输入；执行与恢复校验共用，避免摘要和派发参数偏离。</summary>
     /// <param name="node">当前静态节点。</param>
@@ -57,9 +61,31 @@ public sealed record AgentWorkflowNodeReceipt(int NodeIndex, string NodeKey, Gui
             foreach (var (key, value) in state.Outputs) prompt = prompt.Replace($"{{{{{key}}}}}", value, StringComparison.Ordinal);
             return prompt;
         }
+        if (node.ToolName == "ai.chat.sessions.metadata")
+            return JsonSerializer.Serialize(new WorkflowChatSessionArguments(state.TargetChatSessionId ?? Guid.Empty),
+                AgentWorkflowJsonContext.Default.WorkflowChatSessionArguments);
+        if (node.ToolName == "calendar.personal_schedules.complete")
+            return JsonSerializer.Serialize(new WorkflowScheduleCompletionArguments(state.TargetResourceId ?? Guid.Empty,
+                state.TargetResourceVersion ?? 0), AgentWorkflowJsonContext.Default.WorkflowScheduleCompletionArguments);
         return node.ToolName == "ai.chat.sessions.rename"
-            ? JsonSerializer.Serialize(new WorkflowRenameSessionArguments(state.SessionId, state.Outputs.GetValueOrDefault("summarize")?.Trim() ?? string.Empty),
+            ? JsonSerializer.Serialize(new WorkflowRenameSessionArguments(state.TargetChatSessionId ?? state.SessionId, state.Outputs.GetValueOrDefault("summarize")?.Trim() ?? string.Empty),
                 AgentWorkflowJsonContext.Default.WorkflowRenameSessionArguments)
             : "{}";
+    }
+
+    /// <summary>只按静态输入前缀构造真实参数；并行完成顺序不得改变模板替换顺序或摘要。</summary>
+    /// <param name="definition">已注册静态定义。</param>
+    /// <param name="index">当前节点序号。</param>
+    /// <param name="state">持久状态。</param>
+    public static string BuildInput(AgentWorkflowDefinition definition, int index, AgentWorkflowState state)
+    {
+        var prefix = AgentWorkflowState.Create(state.SessionId);
+        prefix.TargetChatSessionId = state.TargetChatSessionId;
+        prefix.TargetResourceId = state.TargetResourceId;
+        prefix.TargetResourceVersion = state.TargetResourceVersion;
+        foreach (var node in definition.Nodes.Take(definition.InputPrefixIndex(index)))
+            prefix.Outputs.Add(node.Key, state.Outputs.TryGetValue(node.Key, out var value) ? value
+                : throw new InvalidDataException("Workflow input prefix is incomplete."));
+        return BuildInput(definition.Nodes[index], prefix);
     }
 }

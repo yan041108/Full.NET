@@ -118,4 +118,29 @@ public sealed class DapperAotStaticCommandPlanRegistryTests
         parameters.Add("Name", name);
         return parameters;
     }
+
+    [TestMethod]
+    public void Cursor_timestamp_keeps_microseconds_when_native_command_is_created_and_reused()
+    {
+        foreach (var provider in new[] { DatabaseProvider.SqlServer, DatabaseProvider.MySql })
+        {
+            var statement = $"test.cursor-precision.{Guid.CreateVersion7():N}";
+            DapperAotStaticCommandPlanRegistry.Register(statement, ["BeforeCreatedAtUtc"]);
+            Assert.IsTrue(DapperAotStaticCommandPlanRegistry.TryGetFactory(statement, provider, out var factory));
+            using System.Data.Common.DbConnection connection = provider == DatabaseProvider.SqlServer
+                ? new SqlConnection() : new MySqlConnector.MySqlConnection();
+            var parameters = new DynamicParameters();
+            var timestamp = new DateTime(2026, 11, 3, 0, 0, 0, DateTimeKind.Utc).AddTicks(1234560);
+            parameters.Add("BeforeCreatedAtUtc", timestamp);
+            var command = factory.GetCommand(connection, "SELECT @BeforeCreatedAtUtc", CommandType.Text, parameters);
+            Assert.AreEqual(DbType.DateTime2, command.Parameters[0].DbType);
+            Assert.AreEqual(timestamp.Ticks, ((DateTime)command.Parameters[0].Value!).Ticks);
+            Assert.IsTrue(factory.TryRecycle(command));
+            parameters.Add("BeforeCreatedAtUtc", timestamp.AddTicks(10));
+            using var reused = factory.GetCommand(connection, "SELECT @BeforeCreatedAtUtc", CommandType.Text, parameters);
+            Assert.AreSame(command, reused);
+            Assert.AreEqual(DbType.DateTime2, reused.Parameters[0].DbType);
+            Assert.AreEqual(timestamp.AddTicks(10).Ticks, ((DateTime)reused.Parameters[0].Value!).Ticks);
+        }
+    }
 }

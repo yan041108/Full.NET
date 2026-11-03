@@ -12,7 +12,8 @@ namespace Full.NET.Modules.Ai.Features.ManageKnowledgeIndexing;
 /// <summary>当前读取者独立授权；完成状态须复核当前完整性，不消费原会话或触发模型。</summary>
 internal sealed class AiKnowledgeIndexStatusService(IQueryExecutor query, IDataTransactionState transactions, ICurrentTenant tenant,
     AiKnowledgeReadAccess access, AiKnowledgePermissionGuard permissions, AiKnowledgeIndexActivationStore activation, IOptions<DatabaseOptions> database,
-    AiKnowledgeIndexPdfActivationStore? pdfActivation = null, AiKnowledgeIndexDocumentActivationStore? docxActivation = null)
+    AiKnowledgeIndexPdfActivationStore? pdfActivation = null, AiKnowledgeIndexDocumentActivationStore? docxActivation = null,
+    AiKnowledgeCorrectionActivationStore? correctionActivation = null)
 {
     internal static readonly string[] Permissions = [AiKnowledgePermissions.Read, AiKnowledgeDocumentPermissions.Read, AiKnowledgeDocumentPermissions.IndexRead];
 
@@ -32,7 +33,9 @@ internal sealed class AiKnowledgeIndexStatusService(IQueryExecutor query, IDataT
         if (row.IsCurrent != 1) return Success(row, "failed");
         if (row.StateKey is "queued" or "running") return Success(row, row.StateKey == "queued" ? "queued" : "processing");
         if (row.StateKey != "completed" || row.ActiveTaskId != row.TaskId || row.ActiveLeaseToken is not { } lease || lease == Guid.Empty) return Success(row, "failed");
-        var ready = AiKnowledgeDocumentFormats.IsDocument(row.ContentType) && docxActivation is not null && await docxActivation.IsReadyForReadAsync(row, snapshot.Parameters, token).ConfigureAwait(false) || (row.ContentType switch
+        var ready = row.CorrectionRevisionId.HasValue
+            ? correctionActivation is not null && await correctionActivation.IsReadyForReadAsync(row, snapshot.Parameters, token).ConfigureAwait(false)
+            : AiKnowledgeDocumentFormats.IsDocument(row.ContentType) && docxActivation is not null && await docxActivation.IsReadyForReadAsync(row, snapshot.Parameters, token).ConfigureAwait(false) || (row.ContentType switch
         {
             "text/plain" or "text/markdown" => await activation.IsReadyForReadAsync(row, snapshot.Parameters, token).ConfigureAwait(false),
             "application/pdf" when pdfActivation is not null => await pdfActivation.IsReadyForReadAsync(row, snapshot.Parameters, token).ConfigureAwait(false),

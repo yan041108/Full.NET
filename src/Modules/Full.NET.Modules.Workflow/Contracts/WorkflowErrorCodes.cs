@@ -6,6 +6,8 @@ namespace Full.NET.Modules.Workflow.Contracts;
 /// <remarks>常量字符串发布后不可改名或删除；新增常量只能追加。</remarks>
 public static class WorkflowErrorCodes
 {
+    /// <summary>当前列表查询超出协作授权事实读取上限，必须使用更精确资源或条件。</summary>
+    public const string CollaborationQueryTooBroad = "workflow.collaboration_query.too_broad";
     /// <summary>双边政策、目标版本或本地活动成员无效。</summary>
     public const string CollaborationGrantInvalid="workflow.collaboration_grant.invalid";
     /// <summary>当前可信作用域不是授权参与方或授权不存在。</summary>

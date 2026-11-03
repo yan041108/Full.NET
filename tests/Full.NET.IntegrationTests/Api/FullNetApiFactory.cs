@@ -113,6 +113,8 @@ internal sealed class FullNetApiFactory(
             ["Identity:Bootstrap:DisplayName"] = "系统管理员",
             // 一般 API 契约场景会多次登录不同用户；登录限流语义由专用测试显式覆盖。
             ["Identity:LoginRateLimitPermitLimitPerMinute"] = "1000",
+            // 业务集成测试不等待真实预发布时间；生命周期专用用例显式覆盖时间与节点门禁。
+            ["Identity:Oidc:SigningPrepublicationSeconds"] = "0",
             ["Identity:AllowedOrigins:0"] = "http://localhost",
             ["Tenancy:HostDomains:0"] = "localhost",
             [$"{SeedOptions.SectionName}:DefaultLocale"] = "zh-CN",
@@ -168,6 +170,15 @@ internal sealed class FullNetApiFactory(
 
             await MigrateAndBootstrapAsync(cancellationToken).ConfigureAwait(false);
 
+            if (Services.GetRequiredService<IOptions<Full.NET.Modules.Identity.Configuration.IdentityOidcOptions>>().Value.Enable)
+            {
+                await using var readinessScope = Services.CreateAsyncScope();
+                var readinessTenant = readinessScope.ServiceProvider.GetRequiredService<CurrentTenantAccessor>();
+                readinessTenant.SetHost();
+                try { await readinessScope.ServiceProvider.GetRequiredService<Full.NET.Modules.Identity.Oidc.IdentityOidcKeyGovernance>().ReportNodeAsync(cancellationToken).ConfigureAwait(false); }
+                finally { readinessTenant.Clear(); }
+            }
+
             SubscribeBackplaneEvents();
             _initialized = true;
         }
@@ -209,7 +220,9 @@ internal sealed class FullNetApiFactory(
             // 应用拥有的显式迁移入口，与官方迁移资源分离；API 进程只由测试工厂装配。
             var migration = provider == DatabaseProvider.SqlServer
                 ? DeployChanges.To.SqlDatabase(connectionString)
-                : DeployChanges.To.MySqlDatabase(connectionString);
+                // 与正式 Migrator 一致，仅迁移连接允许固定 DDL 会话变量；业务连接仍严格绑定参数。
+                : DeployChanges.To.MySqlDatabase(Full.NET.Data.MySql.MySqlConnectionStringPolicy.Create(
+                    connectionString, MySqlGuidStorageMode.Binary16, allowUserVariables: true));
             var segment = provider == DatabaseProvider.SqlServer ? ".Migrations.SqlServer." : ".Migrations.MySql.";
             var result = migration.WithScriptsEmbeddedInAssembly(typeof(EnterpriseRequestModule).Assembly,
                 name => name.Contains(segment, StringComparison.Ordinal)).Build().PerformUpgrade();
@@ -380,10 +393,11 @@ internal sealed class FullNetApiFactory(
         string username,
         IReadOnlyCollection<string> permissions,
         CancellationToken cancellationToken = default,
-        string? password = null)
+        string? password = null,
+        Guid? identityId = null)
     {
         var now = DateTimeOffset.UtcNow;
-        var userId = Guid.NewGuid();
+        var userId = identityId ?? Guid.NewGuid();
         var sessionId = Guid.NewGuid();
         var suffix = userId.ToString("N");
         var user = new IdentityUser(
@@ -466,7 +480,7 @@ internal sealed class FullNetApiFactory(
                     IsSystem = false,
                     IsActive = true,
                     IsSuperAdministrator = false,
-                    DataScopeKind = "all",
+                    DataScopeKind = RoleDataScopeKinds.All,
                     CreatedAtUtc = now,
                     Version = 1,
                 },

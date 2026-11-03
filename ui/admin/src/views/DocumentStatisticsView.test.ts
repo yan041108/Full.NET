@@ -41,7 +41,7 @@ describe('Vue 文档统计页', () => {
 
   beforeEach(() => {
     statsMock.mockReset().mockResolvedValue({
-      summary: {
+      summary: { totalSizeBytes: 1537, historySizeBytes: 512,
         totalItems: 3,
         totalVersions: 5,
         totalSizeKb: 1024,
@@ -53,7 +53,7 @@ describe('Vue 文档统计页', () => {
       ],
       byCategory: [],
       shareCount: 1,
-      todayAccessCount: 0,
+      todayPreviewCount: 0, todayShareAccessCount: 0, todayAccessCount: 0,
       todayDownloadCount: 0,
       todayCreatedCount: 1,
       recycleBinCount: 0

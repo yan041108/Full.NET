@@ -7,6 +7,8 @@ namespace Full.NET.Messaging.Abstractions;
 /// </summary>
 public interface IEventStreamOwnershipStore
 {
+    /// <summary>读取权威生产者保护状态；所有权行不存在或状态未知时按活动保护处理。</summary>
+    Task<bool> IsRollbackActiveAsync(string messageType, int schemaVersion, CancellationToken cancellationToken = default);
     /// <summary>
     /// 按事件契约查找对应的所有权记录。
     /// </summary>

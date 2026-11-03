@@ -70,6 +70,17 @@ describe('Vue 租户用户-机构隶属 API', () => {
     );
   });
 
+  it('发送服务端筛选、页码与取消信号，保留 false 状态值', async () => {
+    requestMock.mockResolvedValueOnce({ items: [], page: 2, pageSize: 10, total: 25 });
+    const signal = new AbortController().signal;
+    await listOrganizationUserUnits({ page: 2, pageSize: 10, userSearch: 'a%_用户', unitSearch: '目标', isActive: false }, signal);
+    const [path, init, actualSignal] = requestMock.mock.calls[0]!;
+    const url = new URL(path, 'http://localhost');
+    expect(Object.fromEntries(url.searchParams)).toEqual({ page: '2', pageSize: '10', userSearch: 'a%_用户', unitSearch: '目标', isActive: 'false' });
+    expect(init).toEqual({ method: 'GET' });
+    expect(actualSignal).toBe(signal);
+  });
+
   it('通过 JSON 正文创建、更新并取消隶属', async () => {
     requestMock
       .mockResolvedValueOnce(sampleAssignment)

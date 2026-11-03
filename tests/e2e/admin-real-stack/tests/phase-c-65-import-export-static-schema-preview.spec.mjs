@@ -77,7 +77,7 @@ test('API：静态 Schema 模板下载与预校验入队（清单 65，职位消
   expect(pageResult.items.some((entry) => entry.id === task.id)).toBe(true);
 });
 
-test('UI：导入任务页列表与预校验任务入口占位（清单 65）', async ({ page }, testInfo) => {
+test('UI：导入任务页下载真实模板并上传预校验（清单 65）', async ({ page }, testInfo) => {
   const clientKind = testInfo.project.metadata.clientKind;
   requireVue(clientKind);
   test.setTimeout(90_000);
@@ -90,6 +90,19 @@ test('UI：导入任务页列表与预校验任务入口占位（清单 65）', 
     timeout: 20_000
   });
   await expect(page.getByTestId('import-export-task-create')).toBeVisible();
-  await expect(page.getByTestId('import-export-task-create')).toBeDisabled();
+  await page.getByTestId('import-export-task-create').click();
+  const dialog = page.getByRole('dialog', { name: '提交导入', exact: true });
+  const downloading = page.waitForEvent('download');
+  await dialog.getByTestId('import-task-template').click();
+  const download = await downloading;
+  const chunks = [];
+  for await (const chunk of await download.createReadStream()) chunks.push(chunk);
+  const bytes = Buffer.concat(chunks);
+  expect(bytes.subarray(0, 2).toString()).toBe('PK');
+  await dialog.getByTestId('import-task-file').setInputFiles({ name: 'template.xlsx',
+    mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', buffer: bytes });
+  await dialog.getByTestId('import-task-submit').click();
+  await expect(page.getByRole('dialog', { name: '任务详情', exact: true })).toBeVisible();
+  await expect(dialog).not.toBeVisible();
   await expect(page.getByText('403', { exact: true })).toHaveCount(0);
 });

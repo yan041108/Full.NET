@@ -22,7 +22,7 @@ public sealed class AiKnowledgeCleanupWorkerTests
     {
         var services = new ServiceCollection();
         new AiModule().AddBackgroundServices(services, new ConfigurationBuilder().Build());
-        foreach (var type in new[] { typeof(AiKnowledgeIndexCleanupStore), typeof(AiKnowledgeImportStore), typeof(AiKnowledgeImportCoordinator) })
+        foreach (var type in new[] { typeof(AiKnowledgeIndexCleanupStore), typeof(AiKnowledgeCorrectionCleanupStore), typeof(AiKnowledgeImportStore), typeof(AiKnowledgeImportCoordinator) })
             Assert.IsTrue(services.Any(x => x.ServiceType == type && x.Lifetime == ServiceLifetime.Scoped), type.Name);
         Assert.IsTrue(services.Any(x => x.ServiceType == typeof(AiKnowledgeCleanupCursor) && x.Lifetime == ServiceLifetime.Singleton));
         Assert.IsTrue(services.Any(x => x.ServiceType == typeof(IHostedService) && x.ImplementationType == typeof(AiKnowledgeCleanupHostedProcessor)));
@@ -87,6 +87,20 @@ public sealed class AiKnowledgeCleanupWorkerTests
             NullLogger<AiKnowledgeCleanupWorkerCoordinator>.Instance);
         Assert.AreEqual(1, await worker.ProcessPendingAsync(default)); Assert.AreEqual(id, cursor.Id);
         Assert.AreEqual(1, scopes.ReceivedCalls().Count());
+    }
+
+    [TestMethod] [DataRow(false)] [DataRow(true)]
+    public async Task Correction_source_without_index_task_is_dispatched_and_cursor_advances_after_failure(bool mysql)
+    {
+        var id = Guid.CreateVersion7(); using var cursor = new AiKnowledgeCleanupCursor();
+        var scopes = Substitute.For<IServiceScopeFactory>(); scopes.CreateScope().Returns(_ => throw new IOException("scope failure"));
+        var query = new Query { Read = (sql, _) =>
+        {
+            StringAssert.Contains(sql.Text, "3 AS Kind"); StringAssert.Contains(sql.Text, "fn_ai_knowledge_correction_source");
+            return [new() { Id = id, Kind = 3, CreatedAtUtc = DateTimeOffset.UtcNow, KnowledgeBaseId = id, DocumentId = id, OwnerUserId = id }];
+        } };
+        Assert.AreEqual(1, await Coordinator(query, cursor, mysql: mysql, scopes: scopes).ProcessPendingAsync(default));
+        Assert.AreEqual(id, cursor.Id); Assert.AreEqual(3, cursor.Kind); Assert.AreEqual(1, scopes.ReceivedCalls().Count());
     }
 
     [TestMethod] [DataRow(false)] [DataRow(true)]

@@ -9,13 +9,16 @@ namespace Full.NET.Data.CodeGeneration.Schema;
 /// <param name="HasDeletedAudit">是否包含删除时间和删除人审计。</param>
 /// <param name="HasVersion">是否使用 Version 乐观并发。</param>
 /// <param name="OwnershipMode">业务所有权策略。</param>
+/// <param name="HasMutationPolicy">是否要求应用实现强类型业务写入策略；未注册策略时拒绝构造写入服务。</param>
 public sealed record FullNetCrudEntityCapabilities(
     FullNetCrudDeleteMode DeleteMode,
     bool HasCreatedAudit,
     bool HasUpdatedAudit,
     bool HasDeletedAudit,
     bool HasVersion,
-    FullNetCrudOwnershipMode OwnershipMode)
+    FullNetCrudOwnershipMode OwnershipMode,
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)]
+    bool HasMutationPolicy = false)
 {
     /// <summary>获取生成器是否允许产生更新操作。</summary>
     public bool CanUpdate => DeleteMode != FullNetCrudDeleteMode.Immutable;

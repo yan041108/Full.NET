@@ -13,7 +13,7 @@ public sealed class DocumentContractCompatibilityTests
     public void Legacy_request_constructors_preserve_pre_parity_defaults()
     {
         var item = new CreateHostDocumentItemRequest("title", "description");
-        var itemUpdate = new UpdateHostDocumentItemRequest("title", "description", 7);
+        var itemUpdate = new UpdateHostDocumentItemRequest("title", "description", null, null, 0, Array.Empty<Guid>(), 7);
         var version = new AddHostDocumentVersionRequest(Guid.CreateVersion7());
         var category = new CreateHostDocumentCategoryRequest("category", null, 10);
         var categoryUpdate = new UpdateHostDocumentCategoryRequest("category", null, 10, 11);
@@ -62,21 +62,11 @@ public sealed class DocumentContractCompatibilityTests
     }
 
     [TestMethod]
-    public async Task Share_creation_with_password_fails_closed_until_verification_is_implemented()
+    public async Task Share_creation_rejects_short_password_before_transaction()
     {
         var service = new HostDocumentShareManagementService(
-            null!,
-            null!,
-            null!,
-            null!,
-            null!,
-            null!,
-            null!,
-            null!,
-            null!,
-            NullPasswordHasher.Instance,
-            null!,
-            new TestDocumentAccessPolicy(), null!);
+            null!, null!, null!, null!, null!, null!, null!, null!, NullPasswordHasher.Instance,
+            new TestDocumentAccessPolicy(), null!, null!, null!);
 
         var result = await service.CreateAsync(
             new CreateHostDocumentShareRequest(Guid.CreateVersion7(), 7, "secret"));

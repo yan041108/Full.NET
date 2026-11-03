@@ -24,7 +24,8 @@ internal sealed class OidcAuthorizationManagementService(
     public async Task<Result<OidcAuthorizationResponse>> RevokeAsync(
         Guid authorizationId,
         OidcManagementActorContext actor,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        bool ownOnly = false)
     {
         Guid revokedUserId = default;
         IReadOnlyCollection<Guid> revokedSessions = Array.Empty<Guid>();
@@ -33,7 +34,7 @@ internal sealed class OidcAuthorizationManagementService(
             {
                 revokedUserId = userId;
                 revokedSessions = sessions;
-            }, token), cancellationToken).ConfigureAwait(false);
+            }, ownOnly, token), cancellationToken).ConfigureAwait(false);
         // 广播只加速客户端退出；权威撤销和审计成功提交后才允许发出通知。
         if (result.IsSuccess && revokedSessions.Count > 0)
         {
@@ -47,6 +48,7 @@ internal sealed class OidcAuthorizationManagementService(
         Guid authorizationId,
         OidcManagementActorContext actor,
         Action<Guid, IReadOnlyCollection<Guid>> recordRevocation,
+        bool ownOnly,
         CancellationToken cancellationToken)
     {
         var existing = await queryExecutor.QuerySingleOrDefaultAsync<IdentityOidcAuthorizationDetailRow>(
@@ -54,7 +56,8 @@ internal sealed class OidcAuthorizationManagementService(
                 IdentitySqlParameters.Create(("Id", authorizationId)),
                 cancellationToken)
             .ConfigureAwait(false);
-        if (existing is null)
+        if (existing is null || (ownOnly && (existing.Subject != actor.ActorUserId.ToString("D")
+            || existing.Type != AuthorizationTypes.Permanent)))
         {
             return Result<OidcAuthorizationResponse>.Failure(new Error(
                 IdentityErrorCodes.OidcAuthorizationNotFound,
@@ -63,6 +66,14 @@ internal sealed class OidcAuthorizationManagementService(
         }
 
         var now = clock.UtcNow;
+        if (ownOnly)
+        {
+            // 同一客户端可能有多次 scope 授予；撤回时一起失效，避免另一条永久授权立即恢复同意。
+            var parameters = IdentitySqlParameters.Create(("Subject", existing.Subject),
+                ("ApplicationId", existing.ApplicationId), ("Now", now));
+            await commandExecutor.ExecuteAsync(IdentityOidcSql.RevokeOwnClientAuthorizations, parameters, cancellationToken).ConfigureAwait(false);
+            await commandExecutor.ExecuteAsync(IdentityOidcSql.RevokeOwnClientTokens, parameters, cancellationToken).ConfigureAwait(false);
+        }
         // 已撤销时仍返回成功，满足管理端幂等撤销语义。
         await commandExecutor.ExecuteAsync(
                 IdentityOidcSql.RevokeAuthorizationById,

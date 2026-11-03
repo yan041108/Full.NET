@@ -19,6 +19,13 @@ namespace Full.NET.UnitTests.Workflow;
 /// <summary>为待办管理服务测试提供不可 mock 的密封依赖真实实例。</summary>
 internal static class WorkflowTodoManagementTestDependencies
 {
+    internal static Full.NET.Modules.Workflow.Features.WorkflowCollaborationListAuthorization CreateListAuthorization(IQueryExecutor query,
+        ICurrentTenant tenant, IClock? clock = null, IActiveTenantContextResolver? tenants = null, DatabaseProvider provider = DatabaseProvider.SqlServer) =>
+        new(query, Substitute.For<IDataTransactionState>(), tenant, clock ?? Substitute.For<IClock>(),
+            tenants ?? Substitute.For<IActiveTenantContextResolver>(), Options.Create(new DatabaseOptions { Provider = provider }));
+    internal static WorkflowRemoteFileService CreateRemoteFiles(IQueryExecutor? query = null, ICurrentTenant? tenant = null, IClock? clock = null) =>
+        new(query ?? Substitute.For<IQueryExecutor>(), tenant ?? HostTenant(), clock ?? Substitute.For<IClock>(),
+            Substitute.For<IActiveTenantContextResolver>(), Substitute.For<IWorkflowFileReadCapabilityStore>());
     /// <summary>普通成员与加签链复用同一收敛器，测试不以另一套票数逻辑替代生产决策。</summary>
     internal static WorkflowApprovalStepResolutionCoordinator CreateStepResolution(IQueryExecutor query, ICommandExecutor command,
         IIdGenerator ids, IOutboxWriter outbox) => new(query, command, CreateGroupDecisions(query, command, ids, outbox),
@@ -153,7 +160,8 @@ internal static class WorkflowTodoManagementTestDependencies
             new WorkflowBranchStateCoordinator(query, command),
             new Full.NET.Modules.Workflow.Execution.Connectors.WorkflowConnectorCatalog([]), CreateResultCallbacks(query, command, ids),
             new WorkflowBusinessCommandActivationWriter(query, command, ids, new WorkflowBusinessActionCatalog([]), new WorkflowBusinessCommandPublisher(outbox)),
-            new WorkflowSubprocessActivationWriter(query, command, ids), new WorkflowReturnRoundCoordinator(query, command, ids));
+            new WorkflowSubprocessActivationWriter(query, command, ids), new WorkflowReturnRoundCoordinator(query, command, ids),
+            new WorkflowCollaborationActivationWriter(query, command, ids, outbox));
     }
 
     /// <summary>创建默认放行的发布期办理人校验器，供定义发布测试复用。</summary>
@@ -222,7 +230,7 @@ internal static class WorkflowTodoManagementTestDependencies
             Substitute.For<IClock>(),
             Substitute.For<IIdGenerator>(),
             Microsoft.Extensions.Logging.Abstractions.NullLogger<WorkflowFormAttachmentCoordinator>.Instance,
-            HostTenant(), Substitute.For<ITenantResourceFileDescriptorReader>());
+            HostTenant(), Substitute.For<ITenantResourceFileDescriptorReader>(), CreateRemoteFiles());
     }
 
     private sealed class PassthroughTransaction : ICommandTransaction

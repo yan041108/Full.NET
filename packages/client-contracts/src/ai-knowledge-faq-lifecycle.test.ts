@@ -1,0 +1,14 @@
+import {describe,expect,it} from 'vitest';
+import {validateKnowledgeFaqAdmission,validateKnowledgeFaqLifecycle,validateKnowledgeFaqPublication,validatePublishedKnowledgeFaq} from './ai-knowledge-faq-lifecycle.js';
+const id=(n:number)=>`01900000-0000-7000-8000-${String(n).padStart(12,'0')}`;
+const content={question:'问题',aliases:['同义问法'],answer:'答案',category:'制度',validFromUtc:null,expiresAtUtc:null};
+const publication=()=>({id:id(1),faqId:id(2),revisionId:id(3),versionId:id(4),generationId:id(5),snapshotHash:'A'.repeat(64),sourceHash:'B'.repeat(64),state:'pending',version:1,expectedPublicationVersion:0,requestedByUserId:id(6),reviewedByUserId:null as string|null,content,origin:'independent',basis:'依据' as string|null,sources:[],current:true,effectiveFromUtc:'2026-10-29T00:00:00Z',effectiveToUtc:'2026-11-29T00:00:00Z'});
+const lifecycle=()=>({faqId:id(2),documentId:id(7),revisionId:id(3),headVersion:1,versionId:id(4),taskId:id(5),indexState:'ready',publicationId:null,publishedRevisionId:null,publicationVersion:0,publicationState:'unpublished',effectiveFromUtc:null,effectiveToUtc:null,pendingPublicationId:id(1)});
+describe('FAQ 索引和冻结审核契约',()=>{
+  it('完整候选仍与发布状态分开',()=>expect(validateKnowledgeFaqLifecycle(lifecycle(),id(2)).publicationState).toBe('unpublished'));
+  it('索引绑定准确 FAQ 和修订，接受真实 ready 重放',()=>{const a={faqId:id(2),revisionId:id(3),versionId:id(4),taskId:id(5),state:'ready',replayed:true};expect(validateKnowledgeFaqAdmission(a,id(2),id(3)).replayed).toBe(true);expect(()=>validateKnowledgeFaqAdmission(a,id(2),id(99))).toThrow();});
+  it.each(['faq','index','version','pointer','state'])('状态拒绝错配 %s',fault=>{const l=lifecycle();if(fault==='faq')l.faqId=id(99);if(fault==='index')l.indexState='approved';if(fault==='version')l.publicationVersion=-1;if(fault==='pointer')l.publicationState='published';if(fault==='state')l.publicationState='ready';expect(()=>validateKnowledgeFaqLifecycle(l,id(2))).toThrow();});
+  it('审核者读取原申请快照，不需要变更其所有者',()=>expect(validateKnowledgeFaqPublication(publication(),id(2),id(1)).requestedByUserId).toBe(id(6)));
+  it.each(['id','hash','reviewer','origin','basis','time','body'])('审核快照拒绝无效 %s',fault=>{const p=publication();if(fault==='id')p.id=id(99);if(fault==='hash')p.snapshotHash='bad';if(fault==='reviewer')p.reviewedByUserId=p.requestedByUserId;if(fault==='origin')p.origin='business';if(fault==='basis')p.basis=null;if(fault==='time')p.effectiveToUtc=p.effectiveFromUtc;if(fault==='body')p.content={...content,answer:''};expect(()=>validateKnowledgeFaqPublication(p,id(2),id(1))).toThrow();});
+  it('正式正文必须携带准确发布和不可降级来源',()=>{const p=publication();const value={...p,publicationId:p.id};expect(validatePublishedKnowledgeFaq(value,id(2)).publicationId).toBe(p.id);expect(()=>validatePublishedKnowledgeFaq({...value,origin:'document_derived',basis:null},id(2))).toThrow();});
+});

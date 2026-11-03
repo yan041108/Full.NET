@@ -1,3 +1,5 @@
+import type { ImportColumnMapping } from './generated/models.generated.js';
+
 export interface StaticImportWorksheetDefinition {
   worksheetKey: string;
   displayName: string;
@@ -47,6 +49,7 @@ export interface ImportExportTaskResponse {
 
 export interface ImportExportTaskDetailResponse extends ImportExportTaskResponse {
   previewRows: StaticImportRowPreviewResult[];
+  columnMappings?: ImportColumnMapping[] | null;
 }
 
 export interface ImportExportTaskPage {
@@ -111,7 +114,14 @@ export function isImportExportTaskDetailResponse(
 ): value is ImportExportTaskDetailResponse {
   return isImportExportTaskResponse(value)
     && 'previewRows' in value
-    && Array.isArray(value.previewRows);
+    && Array.isArray(value.previewRows)
+    && (!('columnMappings' in value) || value.columnMappings === undefined || value.columnMappings === null
+      || Array.isArray(value.columnMappings) && value.columnMappings.length > 0 && value.columnMappings.length <= 32
+        && value.columnMappings.every(column => isRecord(column) && typeof column.targetColumn === 'string'
+          && column.targetColumn.length > 0 && column.targetColumn.length <= 64 && typeof column.sourceHeader === 'string'
+          && column.sourceHeader.trim().length > 0 && column.sourceHeader.length <= 128 && !/[\u0000-\u001f\u007f-\u009f]/.test(column.sourceHeader))
+        && new Set(value.columnMappings.map(column => (column as ImportColumnMapping).targetColumn)).size === value.columnMappings.length
+        && new Set(value.columnMappings.map(column => (column as ImportColumnMapping).sourceHeader.trim())).size === value.columnMappings.length);
 }
 
 export function isImportExportTaskPage(value: unknown): value is ImportExportTaskPage {

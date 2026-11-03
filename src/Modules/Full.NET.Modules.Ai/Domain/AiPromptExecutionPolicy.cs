@@ -9,12 +9,14 @@ internal static class AiPromptExecutionPolicy
 {
     internal static AiPromptExecutionBinding? Resolve(string key)
     {
-        if (key == AgentWorkflowRegistry.ChatRenameWorkflowKey)
+        if (AgentWorkflowRegistry.IsWorkflowKey(key))
         {
-            var definition = AgentWorkflowRegistry.Resolve(key, AgentWorkflowRegistry.ChatRenameWorkflowVersion)!;
+            var review = key == AgentWorkflowRegistry.ChatReviewWorkflowKey;
+            var definition = AgentWorkflowRegistry.Resolve(key, review ? AgentWorkflowRegistry.ChatReviewWorkflowVersion : AgentWorkflowRegistry.ChatRenameWorkflowVersion)!;
             return new(2, key, definition.Version, AgentWorkflowNodeReceipt.DigestDefinition(definition),
-                "ai.workflow.chat_rename.input.v2", "ai.workflow.chat_rename.result.v2",
-                ["ai.chat.sessions.list", "ai.chat.sessions.rename"], "none");
+                review ? "ai.workflow.chat_review.input.v1" : "ai.workflow.chat_rename.input.v2",
+                review ? "ai.workflow.chat_review.result.v1" : "ai.workflow.chat_rename.result.v2",
+                [review ? "ai.chat.sessions.metadata" : "ai.chat.sessions.list", "ai.chat.sessions.rename"], "none");
         }
         var agent = AgentDefinitionRegistry.Resolve(key, 1);
         if (agent is null) return null;
@@ -35,7 +37,7 @@ internal static class AiPromptExecutionPolicy
             && binding.RetrievalStrategyKey == expected.RetrievalStrategyKey
             && binding.AllowedToolNames.SequenceEqual(expected.AllowedToolNames, StringComparer.Ordinal)
             // 已有重命名工作流只解释注册目录的节点模板，不接受用户改写其静态图。
-            && (binding.DefinitionKey != AgentWorkflowRegistry.ChatRenameWorkflowKey || body.Template == "{{input}}");
+            && (!AgentWorkflowRegistry.IsWorkflowKey(binding.DefinitionKey) || body.Template == "{{input}}");
     }
     internal static string Definition(AiPromptBody body) => body.Execution?.DefinitionKey ?? AgentDefinitionRegistry.SingleTextKey;
 }

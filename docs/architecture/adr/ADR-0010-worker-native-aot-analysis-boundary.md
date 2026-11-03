@@ -82,6 +82,16 @@ Phase 6 在隔离双库中写入两条 Host 级已删除文件墓碑，其中本
 
 Phase 7 在隔离双库中写入两条超龄 Pending 文件引用 Claim：一条具有 `(VersionId, FileId)` 精确匹配的 Document 版本，另一条没有消费方引用且已超过释放宽限期。原生 Worker 必须把真实引用晋升为 `active` 并写入确认时间，把孤儿 Claim 推进为 `released` 并写入释放时间；外部进程环境显式关闭 Upload Reconciliation 与 Cleanup，只启用 Reference Claim Reconciliation。该门禁证明 Files Claim 对账的 AOT 分页物化、跨模块 Probe 调度和两类确定终态，不证明 Probe 异常隔离、并发 Claim/Delete、其他消费模块、S3 或容量。
 
+### 2026-10-29 独立 Phase 8：Messaging CDC 原生运行
+
+项目所有者明确要求完成完整 Messaging Native 控制面和 Worker CDC 验收，授权本阶段定向实施。复用正式 API/Worker 完整发布闭包，不修改默认 JIT 部署；以真实双库、Debezium、Kafka、两个原生 API/Worker 外部进程，验证切流、会话失锁后的迟到 REST、持久恢复、消费者/重放/DLQ 崩溃接管与最终投影，并验证原生 Worker 的 SIGTERM 退出。该阶段仅验证 Messaging 对应路径，不扩大为 Jobs/Files 全量 Native 回归、生产容量或正式切流授权。发布、输入冻结、精确第三方告警与实际运行结果分别登记，未完成不能报告通过。
+
+本阶段定向运行已实际 **双库2/2、零跳过** 通过：每库运行两个原生API及两个原生Worker，累计5次API/8次Worker启动；两次有限迟到REST物理纠偏、两个Worker的SIGTERM退出0均有日志。当前Worker ELF为106118520 bytes、SHA256 `e910a5d4e6a2920abd257036789623ab1d96d6d58fa11bc2d233ad5995188912`，精确第三方告警门禁通过，冻结托管输入及实际ILC已独立核对。机器码阶段4项非任务AI C#变化未重新编入或认证。此证据限本机Linux容器内Messaging控制与HybridKafka/Debezium交付，不能外推Native长稳、全Worker/Provider、Kubernetes多故障域或容量。完整失败、输入身份和最终TRX见[续办记录](../../verification/2026-10-28-messaging-reliability-continuation.md#2026-10-29分片发现与完整-native-控制链续办)。
+
+2026-10-30 本机补充验收：上述相同Native应用取得默认预取1及显式预取8/低水位0/单槽1、PerMessage的双Worker每库3600秒/3600条长稳，各双库2/2；正式/首个重试Topic自动TTL各双库2/2，原窗口过期后实际Native控制面保留fence、拒绝恢复和旧offset重放。预取8的短时5/10档及最终单帧10档另有输入。原默认1的10档失败和各版测试闭包分别保留，独立只读复核通过；仅改定向测试/代理/入口，未重发应用或改生产默认。生产容量、独立物理故障域及全产品Native仍未验证，范围见[本机续办记录](../../verification/2026-10-28-messaging-reliability-continuation.md#2026-10-30预取8长稳与自动ttl续办)。
+
+2026-10-31 Workflow 消费者切片补证：本批新 Worker ELF `b7eb86bb…ff090`（108384504 bytes）与新 API ELF `cfd62580…208b7`，实际在 SQL Server/MySQL 各1例、零跳过完成物理Kafka基本协作。使用真实HybridKafka、四流订阅、Inbox及业务终态；包括逐流切换、结果/取消、Broker暂停恢复、重复Offset、348重放及Requested隔离回退。同一对ELF另完成本地Files/两层子代/目标双实例/取消/撤权/停机续办组合双库2/2、零跳过，以及真实OTLP四流采集、映射正式流汇总、两分钟生产告警触发与恢复；故障注入持有真实控制会话锁；后续新Worker和API已另行完成多流迟到REST纠偏Native双库2/2、零跳过。不替代其它Worker阶段、容量或生产HA验证，详见[Workflow交接记录](../../superpowers/plans/2026-10-28-workflow-cross-machine-handoff.md)。
+
 ## 6. 回退
 
 Phase 0 不改变默认 JIT 发布。若分析闭包无法在不放宽安全门禁的条件下关闭，保留现有 Worker JIT 运行方式，并在验证记录中列出具体程序集、告警和未验证路径。

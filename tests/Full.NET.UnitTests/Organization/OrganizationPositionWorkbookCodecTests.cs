@@ -213,6 +213,37 @@ public sealed class OrganizationPositionWorkbookCodecTests
         return XDocument.Load(stream);
     }
 
+    [TestMethod]
+    public async Task Mapped_headers_allow_reorder_and_extra_columns_and_preserve_physical_rows()
+    {
+        string[] targets = ["code", "name", "displayOrder", "unitCode", "positionLevelCode"];
+        var mapping = new Full.NET.Modules.ImportExport.Contracts.ImportColumnMappingRequest(targets,
+            targets.Select((target, index) => new Full.NET.Modules.ImportExport.Contracts.ImportColumnMapping(target, "来源" + index)).ToArray());
+        var workbook = CreateImportWorkbook(false,
+            [["来源1", "ignored", "来源4", "来源0", "来源3", "来源2"], ["", "", "", "", "", ""], ["工程师", "extra", "", "engineer", "", "42"]]);
+        using var stream = new MemoryStream(workbook);
+        var rows = await OrganizationPositionWorkbookCodec.ParseImportRowsAsync(stream, workbook.Length, default, mapping);
+        Assert.HasCount(1, rows); Assert.AreEqual(3, rows[0].LineNumber);
+        Assert.AreEqual("engineer", rows[0].Row.Code); Assert.AreEqual("工程师", rows[0].Row.Name); Assert.AreEqual(42, rows[0].Row.DisplayOrder);
+        using var canonical = new MemoryStream(workbook);
+        await Assert.ThrowsExactlyAsync<InvalidDataException>(() => OrganizationPositionWorkbookCodec.ParseImportAsync(canonical, workbook.Length, default));
+    }
+
+    [TestMethod]
+    public async Task Mapped_workbook_still_rejects_duplicate_headers_and_formula_cells()
+    {
+        string[] headers = ["code", "name", "displayOrder", "unitCode", "positionLevelCode"];
+        var mapping = new Full.NET.Modules.ImportExport.Contracts.ImportColumnMappingRequest(headers,
+            headers.Select(target => new Full.NET.Modules.ImportExport.Contracts.ImportColumnMapping(target, target)).ToArray());
+        var duplicates = CreateImportWorkbook(false, [["code", "name", "displayOrder", "unitCode", "positionLevelCode", "code"]]);
+        using var duplicateStream = new MemoryStream(duplicates);
+        await Assert.ThrowsExactlyAsync<Full.NET.Modules.ImportExport.Contracts.StaticImportHeaderMappingException>(() =>
+            OrganizationPositionWorkbookCodec.ParseImportRowsAsync(duplicateStream, duplicates.Length, default, mapping));
+        var formula = CreateImportWorkbook(false, [headers, ["eng", "Engineer", "10", "", ""]], formulaCellReference: "B2");
+        using var formulaStream = new MemoryStream(formula);
+        await Assert.ThrowsExactlyAsync<InvalidDataException>(() => OrganizationPositionWorkbookCodec.ParseImportRowsAsync(formulaStream, formula.Length, default, mapping));
+    }
+
     private static byte[] CreateImportWorkbook(
         bool useSharedStrings,
         IReadOnlyList<string[]> rows,

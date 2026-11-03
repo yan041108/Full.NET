@@ -12,12 +12,15 @@ const props = withDefaults(defineProps<{
   cancelLabel?: string;
   confirmTestId?: string;
   showConfirm?: boolean;
+  /** 多层动态弹窗显式维护本层 Tab 边界，避免焦点落到浏览器或下层表单。 */
+  trapFocus?: boolean;
 }>(), {
   width: '520px',
   saving: false,
   confirmLabel: '确定',
   cancelLabel: '取消',
-  showConfirm: true
+  showConfirm: true,
+  trapFocus: false
 });
 
 const emit = defineEmits<{
@@ -30,11 +33,29 @@ function close(): void {
   emit('update:open', false);
   emit('cancel');
 }
+
+function containTab(event: KeyboardEvent): void {
+  if (!props.trapFocus || event.key !== 'Tab' || event.altKey || event.ctrlKey || event.metaKey) return;
+  const container = event.currentTarget;
+  if (!(container instanceof HTMLElement)) return;
+  const targets = [...container.querySelectorAll<HTMLElement>('a[href],button,input,select,textarea,[tabindex]')]
+    .filter(element => element.tabIndex >= 0 && !element.matches(':disabled,[aria-hidden="true"]')
+      && element.getClientRects().length > 0 && getComputedStyle(element).visibility !== 'hidden');
+  const first = targets[0];
+  const last = targets.at(-1);
+  if (!first || !last) return;
+  if ((!event.shiftKey && document.activeElement === last) || (event.shiftKey && document.activeElement === first)) {
+    event.preventDefault();
+    event.stopPropagation();
+    (event.shiftKey ? last : first).focus();
+  }
+}
 </script>
 
 <template>
   <el-dialog
     :model-value="open"
+    :title="title"
     :width="width"
     class="art-form-dialog"
     modal-class="art-form-dialog-modal"
@@ -42,6 +63,7 @@ function close(): void {
     :show-close="false"
     append-to-body
     align-center
+    @keydown.capture="containTab"
     @update:model-value="emit('update:open', $event)"
   >
     <template #header>

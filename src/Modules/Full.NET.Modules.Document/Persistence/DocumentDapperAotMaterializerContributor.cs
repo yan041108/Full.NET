@@ -14,17 +14,31 @@ internal sealed class DocumentDapperAotMaterializerContributor
     public void RegisterMaterializers(DapperAotMaterializerRegistrar registrar)
     {
         registrar.Register<DocumentCategoryRecord>(ReadCategory);
+        registrar.Register<Contracts.HostDocumentSearchHit>(reader => new(reader.GetGuid(0), reader.GetString(1),
+            reader.IsDBNull(2) ? null : reader.GetString(2)));
         registrar.Register<DocumentTagRecord>(ReadTag);
         registrar.Register<DocumentNameConflictRecord>(ReadNameConflict);
         registrar.Register<DocumentTagAssignmentRow>(ReadTagAssignment);
         registrar.Register<DocumentItemRecord>(ReadItem);
         registrar.Register<DocumentItemDetailRecord>(ReadItemDetail);
         registrar.Register<DocumentVersionRecord>(ReadVersion);
+        registrar.Register<DocumentVersionOperationRecord>(reader => new DocumentVersionOperationRecord {
+            Id = ReadGuid(reader, "Id"), RequestKey = ReadGuid(reader, "RequestKey"), DocumentId = ReadGuid(reader, "DocumentId"), ActorUserId = ReadGuid(reader, "ActorUserId"),
+            VersionId = ReadGuid(reader, "VersionId"), FileId = ReadGuid(reader, "FileId"), ChangeDescription = ReadNullableString(reader, "ChangeDescription"),
+            CreatedAtUtc = ReadDateTimeOffset(reader, "CreatedAtUtc") });
         registrar.Register<DocumentVersionRetentionCandidateRecord>(ReadRetentionCandidate);
         registrar.Register<DocumentAccessLogRecord>(ReadAccessLog);
         registrar.Register<DocumentPreviewTaskRecord>(ReadPreviewTask);
+        registrar.Register<DocumentPreviewReferenceRecord>(r => new DocumentPreviewReferenceRecord {
+            Id = ReadGuid(r, "Id"), DocumentId = ReadGuid(r, "DocumentId"), TaskId = ReadGuid(r, "TaskId"), FileId = ReadGuid(r, "FileId"),
+            Purpose = ReadString(r, "Purpose"), StateKey = ReadString(r, "StateKey"), ReleaseAfterUtc = ReadNullableDateTimeOffset(r, "ReleaseAfterUtc"), CreatedAtUtc = ReadDateTimeOffset(r, "CreatedAtUtc") });
         registrar.Register<DocumentPermissionRecord>(ReadPermission);
         registrar.Register<DocumentShareRecord>(ReadShare);
+        registrar.Register<DocumentShareSessionRecord>(reader => new DocumentShareSessionRecord {
+            Id = ReadGuid(reader, "Id"), ShareId = ReadGuid(reader, "ShareId"), DocumentId = ReadGuid(reader, "DocumentId"),
+            VersionId = ReadGuid(reader, "VersionId"), RequestKey = ReadGuid(reader, "RequestKey"),
+            AccessRevision = ReadInt64(reader, "AccessRevision"), PolicyRevision = ReadInt64(reader, "PolicyRevision"),
+            CreatedAtUtc = ReadDateTimeOffset(reader, "CreatedAtUtc"), ExpiresAtUtc = ReadDateTimeOffset(reader, "ExpiresAtUtc") });
         registrar.Register<DocumentStatisticsSummaryRecord>(ReadStatisticsSummary);
         registrar.Register<DocumentStatisticsByTypeRecord>(ReadStatisticsByType);
         registrar.Register<DocumentStatisticsByCategoryRecord>(ReadStatisticsByCategory);
@@ -129,6 +143,10 @@ internal sealed class DocumentDapperAotMaterializerContributor
         UpdatedAtUtc = ReadNullableDateTimeOffset(reader, "UpdatedAtUtc"),
         UpdatedByUserId = ReadNullableGuid(reader, "UpdatedByUserId"),
         Version = ReadInt64(reader, "Version"),
+        IsPurging = ReadBoolean(reader, "IsPurging"),
+        VisibilityMode = ReadString(reader, "VisibilityMode"),
+        AccessRevision = ReadInt64(reader, "AccessRevision"),
+        LastVersionNumber = ReadInt32(reader, "LastVersionNumber"),
         VersionId = ReadNullableGuid(reader, "VersionId"),
         VersionNumber = ReadNullableInt32(reader, "VersionNumber"),
         FileId = ReadNullableGuid(reader, "FileId"),
@@ -183,6 +201,8 @@ internal sealed class DocumentDapperAotMaterializerContributor
         DocumentItemId = ReadGuid(reader, "DocumentItemId"),
         VersionId = ReadNullableGuid(reader, "VersionId"),
         DocumentTitle = ReadString(reader, "DocumentTitle"),
+        SourceReferenceId = ReadNullableGuid(reader, "SourceReferenceId"), OutputReferenceId = ReadNullableGuid(reader, "OutputReferenceId"),
+        OutputOwnerId = ReadNullableGuid(reader, "OutputOwnerId"), AttemptCount = ReadInt32(reader, "AttemptCount"), NextAttemptAtUtc = ReadNullableDateTimeOffset(reader, "NextAttemptAtUtc"), LeaseExpiresAtUtc = ReadNullableDateTimeOffset(reader, "LeaseExpiresAtUtc"),
         SourceFileId = ReadGuid(reader, "SourceFileId"),
         SourceFileName = ReadNullableString(reader, "SourceFileName"),
         SourceMimeType = ReadNullableString(reader, "SourceMimeType"),
@@ -202,7 +222,7 @@ internal sealed class DocumentDapperAotMaterializerContributor
         Id = ReadGuid(reader, "Id"),
         DocumentId = ReadGuid(reader, "DocumentId"),
         UserId = ReadGuid(reader, "UserId"),
-        PermissionLevel = ReadString(reader, "PermissionLevel"),
+        Actions = ReadInt32(reader, "Actions"),
         CreatedAtUtc = ReadDateTimeOffset(reader, "CreatedAtUtc"),
     };
 
@@ -216,6 +236,7 @@ internal sealed class DocumentDapperAotMaterializerContributor
         PasswordHash = ReadNullableString(reader, "PasswordHash"),
         MaxAccessCount = ReadNullableInt32(reader, "MaxAccessCount"),
         AccessCount = ReadInt32(reader, "AccessCount"),
+        PolicyRevision = ReadInt64(reader, "PolicyRevision"),
         IsEnabled = ReadBoolean(reader, "IsEnabled"),
         Version = ReadInt64(reader, "Version"),
     };
@@ -236,14 +257,15 @@ internal sealed class DocumentDapperAotMaterializerContributor
     {
         TotalItems = ReadInt64(reader, "TotalItems"),
         TotalVersions = ReadInt64(reader, "TotalVersions"),
-        TotalSizeKb = ReadInt64(reader, "TotalSizeKb"),
+        HistorySizeBytes = ReadInt64(reader, "HistorySizeBytes"),
+        TotalSizeBytes = ReadInt64(reader, "TotalSizeBytes"),
     };
 
     private static DocumentStatisticsByTypeRecord ReadStatisticsByType(DbDataReader reader) => new()
     {
         Extension = ReadNullableString(reader, "Extension"),
         Count = ReadInt64(reader, "Count"),
-        TotalSizeKb = ReadInt64(reader, "TotalSizeKb"),
+        TotalSizeBytes = ReadInt64(reader, "TotalSizeBytes"),
     };
 
     private static DocumentStatisticsByCategoryRecord ReadStatisticsByCategory(DbDataReader reader) => new()
@@ -258,6 +280,8 @@ internal sealed class DocumentDapperAotMaterializerContributor
         ShareCount = ReadInt64(reader, "ShareCount"),
         TodayAccessCount = ReadInt64(reader, "TodayAccessCount"),
         TodayDownloadCount = ReadInt64(reader, "TodayDownloadCount"),
+        TodayPreviewCount = ReadInt64(reader, "TodayPreviewCount"),
+        TodayShareAccessCount = ReadInt64(reader, "TodayShareAccessCount"),
         TodayCreatedCount = ReadInt64(reader, "TodayCreatedCount"),
         RecycleBinCount = ReadInt64(reader, "RecycleBinCount"),
     };

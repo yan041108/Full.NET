@@ -53,6 +53,26 @@ describe('Vue 管理端壳层', () => {
     useAdminI18n().setLocale('zh-CN');
   });
 
+  it('保留已授权大屏详情，撤销编辑权限后离开详情', async () => {
+    const pinia = createAuthenticatedPinia();
+    const session = useSessionStore();
+    session.currentUser!.isSuperAdministrator = false;
+    session.currentUser!.permissions = ['platform.dashboard.read', 'goview.projects.read', 'goview.projects.update'];
+    session.navigation.push({ id: 'goview-projects', parentId: null, routeName: 'goview-projects', path: '/goview/projects',
+      componentKey: 'goview-projects', title: '大屏', caption: '大屏', icon: 'dashboard', order: 30,
+      requiredPermission: 'goview.projects.read', children: [] });
+    const router = createAppRouter(createMemoryHistory(), pinia);
+    const target = '/goview/projects/01936c8a-7b3e-7c5d-9f2a-1b2c3d4e5f60/edit';
+    await router.push(target); await router.isReady();
+    const wrapper = mount(App, { global: { plugins: [pinia, router], stubs: { RouterView: true } } });
+    try {
+      await nextTick(); await nextTick();
+      expect(router.currentRoute.value.path).toBe(target);
+      session.currentUser!.permissions = ['platform.dashboard.read', 'goview.projects.read'];
+      await vi.waitFor(() => expect(router.currentRoute.value.path).toBe('/'));
+    } finally { wrapper.unmount(); }
+  });
+
   it('展示服务端导航、Host 上下文和可用租户', async () => {
     const pinia = createAuthenticatedPinia();
     const router = createAppRouter(createMemoryHistory(), pinia);

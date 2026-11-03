@@ -59,6 +59,9 @@ internal sealed class WorkflowClaimReleaseService(IQueryExecutor query, ICommand
             {
                 if (await command.ExecuteAsync(WorkflowSql.LockInstanceForTodoAction,
                     P(("Id", instance.Id), ("TenantScopeKey", scope.TenantScopeKey)), inner).ConfigureAwait(false) != 1) return Conflict();
+                if (!await WorkflowCollaborationRuntimeGate.AllowsAsync(instance.Id, scope, actor, clock.UtcNow,
+                        query, inner, command).ConfigureAwait(false))
+                    return Fail(WorkflowErrorCodes.TodoForbidden, ErrorType.Forbidden);
                 var actualTodo = await FindTodoAsync(todoId, scope, inner).ConfigureAwait(false);
                 var actualPool = await FindPoolAsync(pool.Id, scope, inner).ConfigureAwait(false);
                 var owned = await FindInstanceAsync(instance.Id, scope, inner).ConfigureAwait(false);

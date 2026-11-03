@@ -121,10 +121,7 @@ public sealed class TenantUserUnitManagementServiceTests
             databaseOptions);
         var assignmentQueries = new TenantUserUnitQueryService(
             query,
-            Substitute.For<IHostUserDisplayDirectory>(),
-            Substitute.For<IUserDataScopeResolver>(),
-            Substitute.For<IDataScopeSqlFilterBuilder>(),
-            databaseOptions);
+            Substitute.For<IHostUserDisplayDirectory>());
         return new TenantUserUnitManagementService(
             query,
             command,

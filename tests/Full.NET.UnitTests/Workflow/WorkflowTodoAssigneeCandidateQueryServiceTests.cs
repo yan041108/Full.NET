@@ -1,8 +1,10 @@
 using Full.NET.Abstractions.Results;
 using Full.NET.Abstractions.Tenancy;
+using Full.NET.Abstractions.Time;
 using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Workflow.Contracts;
+using Full.NET.Modules.Workflow.Domain;
 using Full.NET.Modules.Workflow.Features.ManageMyTodos;
 using Full.NET.Modules.Workflow.Persistence;
 using NSubstitute;
@@ -84,9 +86,36 @@ public sealed class WorkflowTodoAssigneeCandidateQueryServiceTests
         await f.Host.Received(1).ListActiveHostUsersAsync(1, 50, Arg.Any<CancellationToken>());
     }
 
-    private static Fixture Create(bool isTenant, string scenario = "active")
+    [TestMethod]
+    [DataRow(false)]
+    [DataRow(true)]
+    public async Task Collaboration_candidates_use_only_current_active_accepted_members_and_deny_revoked_grants(bool revoked)
     {
-        var query = Substitute.For<IQueryExecutor>(); var actor = Guid.CreateVersion7(); var instanceId = Guid.CreateVersion7();
+        var data = WorkflowCollaborationTargetTests.Fixture(); var f = Create(true, actorOverride: data.Accepted.StarterUserId);
+        f.Tenant.SetTenant(new TenantContext(data.Grant.TargetTenantId!.Value, "target", "协作目标"));
+        f.Query.QuerySingleOrDefaultAsync<WorkflowCollaborationOriginRecord>(WorkflowCollaborationRelaySql.FindOrigin, Arg.Any<object?>(), Arg.Any<CancellationToken>())
+            .Returns(data.Origin with { Id = f.Todo.InstanceId, RootInstanceId = f.Todo.InstanceId });
+        f.Query.QuerySingleOrDefaultAsync<WorkflowCollaborationAdmissionRecord>(WorkflowCollaborationRelaySql.FindAdmission, Arg.Any<object?>(), Arg.Any<CancellationToken>())
+            .Returns(data.Admission with { TargetInstanceId = f.Todo.InstanceId });
+        f.Query.QuerySingleOrDefaultAsync<WorkflowCollaborationGrantFact>(WorkflowCollaborationGrantSql.Find, Arg.Any<object?>(), Arg.Any<CancellationToken>())
+            .Returns(revoked ? data.Grant with { StatusKey = "revoked", Revision = 3 } : data.Grant);
+        f.TenantUsers.FindActiveTenantMembersAsync(Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>())
+            .Returns(data.Accepted.AllowedUserIds.ToDictionary(id => id, id => new TenantUserDirectoryEntry(id, "allowed", "已同意成员")));
+        var result = await f.Service.ListTransferAsync(f.Todo.Id, f.Actor, 1, 50);
+        Assert.AreEqual(!revoked, result.IsSuccess);
+        if (!revoked)
+        {
+            Assert.AreEqual((long)data.Accepted.AllowedUserIds.Count, result.Value!.Total);
+            Assert.IsTrue(result.Value.Items.All(item => data.Accepted.AllowedUserIds.Contains(item.Id)));
+            await f.TenantUsers.Received(1).FindActiveTenantMembersAsync(Arg.Is<IReadOnlyCollection<Guid>>(ids => ids != null && ids.Count == data.Accepted.AllowedUserIds.Count && ids.All(id => data.Accepted.AllowedUserIds.Contains(id))), Arg.Any<CancellationToken>());
+        }
+        else Assert.AreEqual(0, f.TenantUsers.ReceivedCalls().Count());
+        await f.TenantUsers.DidNotReceive().ListActiveTenantMembersAsync(Arg.Any<int>(), Arg.Any<int>(), Arg.Any<CancellationToken>());
+    }
+
+    private static Fixture Create(bool isTenant, string scenario = "active", Guid? actorOverride = null)
+    {
+        var query = Substitute.For<IQueryExecutor>(); var actor = actorOverride ?? Guid.CreateVersion7(); var instanceId = Guid.CreateVersion7();
         var todo = new WorkflowTodoRuntimeRecord(Guid.CreateVersion7(), instanceId, Guid.CreateVersion7(), actor,
             scenario is "completed" or "before_countersign" ? scenario : "active", DateTimeOffset.UtcNow, null, null, 1,
             "review", 1, scenario == "multi" ? "all" : "single", 1, 1, null, null, null);
@@ -103,9 +132,10 @@ public sealed class WorkflowTodoAssigneeCandidateQueryServiceTests
         var tenant = new CurrentTenantAccessor();
         if (isTenant) tenant.SetTenant(new TenantContext(Guid.CreateVersion7(), "test", "Test")); else tenant.SetHost();
         var host = Substitute.For<IHostUserSelectionDirectory>(); var tenantUsers = Substitute.For<ITenantMemberSelectionDirectory>();
-        return new(new(query, tenant, host, tenantUsers), todo, actor, host, tenantUsers);
+        var clock = Substitute.For<IClock>(); clock.UtcNow.Returns(DateTimeOffset.UtcNow);
+        return new(new(query, tenant, host, tenantUsers, Substitute.For<IHostUserBatchSelectionDirectory>(), clock), todo, actor, host, tenantUsers, query, tenant);
     }
 
     private sealed record Fixture(WorkflowTodoAssigneeCandidateQueryService Service, WorkflowTodoRuntimeRecord Todo, Guid Actor,
-        IHostUserSelectionDirectory Host, ITenantMemberSelectionDirectory TenantUsers);
+        IHostUserSelectionDirectory Host, ITenantMemberSelectionDirectory TenantUsers, IQueryExecutor Query, CurrentTenantAccessor Tenant);
 }

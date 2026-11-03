@@ -280,7 +280,9 @@ public static class ModuleIntegrationHostOrchestrator
             .Select(artifact => new GeneratedArtifact(
                 string.IsNullOrEmpty(directory) ? Path.GetFileName(artifact.RelativePath)
                     : directory + "/" + Path.GetFileName(artifact.RelativePath),
-                artifact.Kind, artifact.Content)));
+                artifact.Kind, route.ClientModuleSpecifier is { } clientModule
+                    && artifact.RelativePath.EndsWith($"/{schema.ApiResourceName}.generated.ts", StringComparison.Ordinal)
+                    ? CrudArtifactGenerator.GenerateVueClient(schema, clientModule) : artifact.Content)));
         var snapshot = await GenerationWorkspaceStore.CaptureAsync(
             repositoryRoot, mapped, cancellationToken).ConfigureAwait(false);
         var desired = mapped.ToDictionary(artifact => artifact.RelativePath, artifact => artifact.Content,

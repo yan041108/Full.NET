@@ -1,109 +1,59 @@
 using System.Globalization;
-using System.Text;
+using System.Resources;
 using Full.NET.Abstractions.Results;
 using Full.NET.Modules.EnterpriseRequest.Contracts;
 using Full.NET.Modules.EnterpriseRequest.Generated;
 using Full.NET.Modules.ImportExport.Contracts;
+using Full.NET.Modules.Reporting.Contracts;
 
 namespace Full.NET.Modules.EnterpriseRequest.Features.ImportExport;
 
+/// <summary>申请单使用真实 XLSX 模板、统一预校验及原业务写入边界，不接受伪装成工作簿的 CSV。</summary>
 internal sealed class EnterpriseRequestStaticImportSchemaHandler(
-    EnterpriseRequestManagementService managementService) : IStaticImportSchemaHandler
+    EnterpriseRequestImportWriter writer,
+    IReportingWorkbookRenderer workbookRenderer) : IStaticImportSchemaHandler
 {
-    private static readonly string[] Headers =
-    [
-        "requestNumber",
-        "title",
-        "totalAmount",
-        "applicantUserId",
-        "organizationUnitId",
-    ];
+    private static readonly ResourceManager Resources = new(
+        "Full.NET.Modules.EnterpriseRequest.Resources.EnterpriseRequestDeliveryErrors", typeof(EnterpriseRequestStaticImportSchemaHandler).Assembly);
 
     public string SchemaKey => EnterpriseRequestImportSchemaKeys.EnterpriseRequests;
 
-    public StaticImportSchemaDefinition GetDefinition() =>
-        new(
-            SchemaKey,
-            "企业申请",
-            StaticImportSchemaScopeKeys.Tenant,
-            EnterpriseRequestPermissions.Create,
-            [
-                new StaticImportWorksheetDefinition(
-                    "requests",
-                    "申请",
-                    Headers),
-            ]);
+    public StaticImportSchemaDefinition GetDefinition() => new(SchemaKey, "企业申请", StaticImportSchemaScopeKeys.Tenant,
+        EnterpriseRequestPermissions.Create, [new StaticImportWorksheetDefinition("requests", "申请", EnterpriseRequestWorkbookReader.Headers)]);
 
-    public byte[] CreateTemplate(string worksheetKey) =>
-        Encoding.UTF8.GetBytes(string.Join(',', Headers) + Environment.NewLine);
-
-    public Task<Result<StaticImportPreviewResult>> PreviewAsync(
-        Stream content,
-        long contentLength,
-        StaticImportPreviewContext context,
-        CancellationToken cancellationToken = default) =>
-        Task.FromResult(Result<StaticImportPreviewResult>.Success(
-            new StaticImportPreviewResult(0, 0, 0, [])));
-
-    public async Task<Result<StaticImportBatchExecutionResult>> ExecuteBatchAsync(
-        Stream content,
-        long contentLength,
-        int startLineNumber,
-        int batchSize,
-        StaticImportPreviewContext context,
-        CancellationToken cancellationToken = default)
+    public byte[] CreateTemplate(string worksheetKey)
     {
-        using var reader = new StreamReader(content, Encoding.UTF8, detectEncodingFromByteOrderMarks: true, leaveOpen: true);
-        _ = await reader.ReadLineAsync(cancellationToken).ConfigureAwait(false);
-        var lineNumber = 1;
-        var processed = 0;
-        while (lineNumber < startLineNumber && await reader.ReadLineAsync(cancellationToken).ConfigureAwait(false) is not null)
+        if (worksheetKey != "requests") throw new InvalidOperationException("Unsupported worksheet key.");
+        var workbook = workbookRenderer.Render(EnterpriseRequestWorkbookReader.Headers.Select(header =>
+            new ReportingExecutionColumnDefinition(header, header)).ToArray(), []);
+        if (!workbook.IsSuccess) throw new InvalidDataException("Unable to create the bounded workbook template.");
+        return workbook.Value!;
+    }
+
+    public async Task<Result<StaticImportPreviewResult>> PreviewAsync(Stream content, long contentLength,
+        StaticImportPreviewContext context, CancellationToken cancellationToken = default)
+    {
+        var rows = await EnterpriseRequestWorkbookReader.ReadAsync(content, contentLength, cancellationToken, context.ColumnMapping).ConfigureAwait(false);
+        var preview = rows.Select(row => new StaticImportRowPreviewResult(row.LineNumber, row.ErrorCode is null,
+            row.ErrorCode, row.ErrorCode is null ? null : Resources.GetString(row.ErrorCode, CultureInfo.CurrentUICulture))).ToArray();
+        return Result<StaticImportPreviewResult>.Success(new(preview.Length,
+            preview.Count(row => row.IsValid), preview.Count(row => !row.IsValid), preview));
+    }
+
+    public async Task<Result<StaticImportBatchExecutionResult>> ExecuteBatchAsync(Stream content, long contentLength,
+        int startLineNumber, int batchSize, StaticImportPreviewContext context, CancellationToken cancellationToken = default)
+    {
+        if (startLineNumber < 0 || batchSize is < 1 or > 200) throw new InvalidDataException("Invalid batch bounds.");
+        var parsed = await EnterpriseRequestWorkbookReader.ReadAsync(content, contentLength, cancellationToken, context.ColumnMapping).ConfigureAwait(false);
+        var results = new List<StaticImportRowExecutionResult>();
+        // 检查点是有效行序号，不是物理行号；错误回执仍保留工作簿原始行号。
+        foreach (var row in parsed.Where(row => row.ErrorCode is null).Skip(startLineNumber).Take(batchSize))
         {
-            lineNumber++;
+            var created = await writer.WriteAsync(row, context, cancellationToken).ConfigureAwait(false);
+            results.Add(created.IsSuccess ? new(row.LineNumber, true, created.Value, null, null)
+                : new(row.LineNumber, false, null, created.Error!.Code,
+                    Resources.GetString(created.Error.Code, CultureInfo.CurrentUICulture) ?? created.Error.Message));
         }
-
-        var rows = new List<StaticImportRowExecutionResult>();
-        while (processed < batchSize)
-        {
-            var line = await reader.ReadLineAsync(cancellationToken).ConfigureAwait(false);
-            if (line is null)
-            {
-                break;
-            }
-
-            lineNumber++;
-            processed++;
-            var parts = line.Split(',');
-            if (parts.Length < 5)
-            {
-                rows.Add(new StaticImportRowExecutionResult(lineNumber, false, null, "row.invalid", "Invalid column count."));
-                continue;
-            }
-
-            if (!decimal.TryParse(parts[2], NumberStyles.Number, CultureInfo.InvariantCulture, out var amount)
-                || !Guid.TryParse(parts[3], out var applicantUserId)
-                || !Guid.TryParse(parts[4], out var organizationUnitId))
-            {
-                rows.Add(new StaticImportRowExecutionResult(lineNumber, false, null, "row.invalid", "Invalid field values."));
-                continue;
-            }
-
-            var create = await managementService.CreateAsync(
-                    new CreateEnterpriseRequestRequest(
-                        parts[0],
-                        parts[1],
-                        EnterpriseRequestStatusKeys.Draft,
-                        amount,
-                        applicantUserId),
-                    context.RequestedByUserId,
-                    organizationUnitId,
-                    cancellationToken)
-                .ConfigureAwait(false);
-            rows.Add(create.IsSuccess
-                ? new StaticImportRowExecutionResult(lineNumber, true, create.Value!.Id, null, null)
-                : new StaticImportRowExecutionResult(lineNumber, false, null, create.Error!.Code, create.Error.Message));
-        }
-
-        return Result<StaticImportBatchExecutionResult>.Success(new StaticImportBatchExecutionResult(rows));
+        return Result<StaticImportBatchExecutionResult>.Success(new(results));
     }
 }

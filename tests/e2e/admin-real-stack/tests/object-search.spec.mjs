@@ -1,0 +1,36 @@
+import { expect, test } from '@playwright/test';
+import AxeBuilder from '@axe-core/playwright';
+import path from 'node:path';
+import { loginAsHostAdmin, enterDevelopmentTenant } from './support/real-stack-auth.mjs';
+
+test('搜索菜单和当前上下文对象，通过键盘打开经重新授权的来源详情', async ({ page }) => {
+  test.setTimeout(150_000); const query = process.env.FULLNET_E2E_SEARCH_QUERY, evidence = process.env.FULLNET_OBJECT_SEARCH_UI_EVIDENCE;
+  await page.addInitScript(() => localStorage.setItem('fullnet.admin.locale', 'zh-CN'));
+  await page.setViewportSize({ width: 1440, height: 1000 }); await loginAsHostAdmin(page);
+  await page.keyboard.press('Control+k'); const dialog = page.locator('.art-global-search'); await expect(dialog).toBeVisible();
+  const input = dialog.getByRole('textbox'); const hostResponse = page.waitForResponse(response => new URL(response.url()).pathname === '/api/v1/document/host/items/search');
+  await input.fill(query); const response = await hostResponse; expect(response.status(), await response.text()).toBe(200);
+  await expect(dialog.locator('[data-search-source="document"] [data-search-object]')).toContainText(query + ' document');
+  await expect(dialog.locator('[data-search-source="enterprise-request"]')).toHaveCount(0);
+  const axe = await new AxeBuilder({ page }).include('.art-global-search').withTags(['wcag2a', 'wcag2aa', 'wcag21aa']).analyze();
+  expect(axe.violations.filter(item => ['critical', 'serious'].includes(item.impact))).toEqual([]);
+  await page.screenshot({ path: path.join(evidence, 'global-search-host.png') });
+  await input.focus(); await page.keyboard.press('ArrowDown'); await expect(dialog.locator('[data-search-object]')).toBeFocused();
+  const detailResponse = page.waitForResponse(response => /\/api\/v1\/document\/host\/items\/[0-9a-f-]{36}$/.test(new URL(response.url()).pathname));
+  await page.keyboard.press('Enter'); const detail = await detailResponse; expect(detail.status(), await detail.text()).toBe(200);
+  const drawer = page.getByTestId('document-search-detail'); await expect(drawer).toBeVisible();
+  await expect(drawer.getByTestId('document-search-detail-title')).toHaveText(query + ' document');
+  await drawer.getByRole('button', { name: '关闭详情', exact: true }).click(); await expect(drawer).not.toBeVisible();
+  await expect.poll(() => page.url().includes('documentId=')).toBe(false);
+  await enterDevelopmentTenant(page, 'Acme Corporation'); await page.keyboard.press('Control+k'); await expect(dialog).toBeVisible();
+  const tenantResponse = page.waitForResponse(response => new URL(response.url()).pathname === '/api/v1/enterprise_request/enterprise-requests/search');
+  await input.fill(query); const tenant = await tenantResponse; expect(tenant.status(), await tenant.text()).toBe(200);
+  await expect(dialog.locator('[data-search-source="enterprise-request"] [data-search-object]')).toBeVisible();
+  await expect(dialog.locator('[data-search-source="document"]')).toHaveCount(0);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+  await page.screenshot({ path: path.join(evidence, 'global-search-tenant-mobile.png') });
+  await dialog.locator('[data-search-object]').click(); await expect(dialog).not.toBeVisible();
+  const request = page.getByRole('dialog', { name: '申请单与明细', exact: true });
+  await expect(request).toBeVisible(); await expect(request.getByTestId('aggregate-title')).toHaveValue(query + ' request');
+});

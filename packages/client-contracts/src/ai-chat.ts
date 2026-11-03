@@ -1,4 +1,6 @@
 import { isAiKnowledgeSourceLocation, type AiKnowledgeSourceLocation } from './ai-knowledge-location.js';
+import { isKnowledgeSourceIdentity } from './ai-knowledge-source-identity.js';
+import type { AiKnowledgeSearchSource } from './generated/models.generated.js';
 
 export interface AiChatSessionListItem {
   id: string;
@@ -27,6 +29,13 @@ export interface AiChatMessage {
   /** 服务器知识答案标记，包括拒答；来源资格由不可用机器码独立表示。 */
   isKnowledgeAnswer?: boolean;
   citations?: AiKnowledgeCitation[];
+  personalScheduleCitations?: AiPersonalScheduleCitation[];
+}
+
+/** 日程引用有独立协议，不提供文档或文件下载身份。 */
+export interface AiPersonalScheduleCitation {
+  id: string; kind: 'calendar-personal-schedule-v1'; purpose: 'knowledge-assistant-v1';
+  scheduleId: string; version: number; projectionHash: string;
 }
 
 /** DOCX 正文的逻辑坐标；不代表版式页码。 */
@@ -46,14 +55,56 @@ export interface AiKnowledgeCitation {
   pageNumber: number | null;
   docxLocation?: AiKnowledgeDocxLocation | null;
   sourceLocation?: AiKnowledgeSourceLocation | null;
-  offset: number;
-  length: number;
+  correction?: AiKnowledgeCorrectionCitation | null;
+  /** FAQ 修订来源不提供普通文件下载。 */
+  faqSource?: { source: AiKnowledgeSearchSource; embeddingModelConfigId: string; embeddingModelVersion: number } | null;
+  offset: number | null;
+  length: number | null;
+}
+
+/** 人工片段内的来源性质与真实上下文；补写没有任何原文坐标。 */
+export interface AiKnowledgeCorrectionCitation {
+  revisionId: string;
+  textLength: number;
+  spans: readonly {
+    contentKind: 'original' | 'corrected' | 'supplement';
+    textOffset: number;
+    textLength: number;
+    sourceLocation: AiKnowledgeSourceLocation | null;
+    sourceOffset: number | null;
+    sourceLength: number | null;
+  }[];
+}
+
+/** 原文位置不能由人工片段长度推导；保留全部交集并拒绝重叠、越界或补写伪造位置。 */
+export function isAiKnowledgeCorrectionCitation(value: unknown): value is AiKnowledgeCorrectionCitation {
+  if (!isRecord(value) || !isGuid(value.revisionId) || !isNonNegativeInteger(value.textLength) || value.textLength < 1 || value.textLength > 8000
+    || !Array.isArray(value.spans) || value.spans.length < 1 || value.spans.length > 32) return false;
+  let end = 0;
+  for (const span of value.spans) {
+    if (!isRecord(span) || !isNonNegativeInteger(span.textOffset) || !isNonNegativeInteger(span.textLength) || span.textLength < 1
+      || span.textOffset < end || span.textOffset > value.textLength - span.textLength) return false;
+    end = span.textOffset + span.textLength;
+    if (span.contentKind === 'supplement') {
+      if (span.sourceLocation !== null || span.sourceOffset !== null || span.sourceLength !== null) return false;
+    } else if (span.contentKind !== 'original' && span.contentKind !== 'corrected' || span.sourceLocation === null
+      || !isAiKnowledgeSourceLocation(span.sourceLocation, false, span.contentKind === 'corrected')
+      || !isNonNegativeInteger(span.sourceOffset) || !isNonNegativeInteger(span.sourceLength) || span.sourceLength < 1
+      || span.sourceOffset + span.sourceLength > 2147483647 || span.contentKind === 'original' && span.sourceLength !== span.textLength) return false;
+  }
+  return true;
 }
 
 export interface AskAiKnowledgeRequest {
   knowledgeBaseIds: string[];
   embeddingModelConfigId: string;
   question: string;
+  personalSchedules?: { id: string; version: number; projectionHash: string }[] | null;
+  searchScope?: {
+    documentIds: string[];
+    embeddingModelVersion: number;
+    sources: import('./generated/models.generated.js').AiKnowledgeSearchSource[];
+  } | null;
 }
 
 export interface AskAiKnowledgeResponse {
@@ -153,7 +204,25 @@ export function isAiChatMessage(value: unknown): value is AiChatMessage {
     && typeof value.createdAtUtc === 'string'
     && (value.knowledgeUnavailableCode === undefined || value.knowledgeUnavailableCode === null || typeof value.knowledgeUnavailableCode === 'string')
     && (value.isKnowledgeAnswer === undefined || typeof value.isKnowledgeAnswer === 'boolean')
-    && (value.citations === undefined || (Array.isArray(value.citations) && value.citations.every(isAiKnowledgeCitation)));
+    && (value.citations === undefined || (Array.isArray(value.citations) && value.citations.every(isAiKnowledgeCitation)))
+    && (value.personalScheduleCitations === undefined || (Array.isArray(value.personalScheduleCitations)
+      && value.personalScheduleCitations.length <= 7 && value.personalScheduleCitations.every(isAiPersonalScheduleCitation)))
+    && validCombinedCitations(value);
+}
+
+function isAiPersonalScheduleCitation(value: unknown): value is AiPersonalScheduleCitation {
+  return isRecord(value) && isGuid(value.id) && value.id !== '00000000-0000-0000-0000-000000000000'
+    && value.kind === 'calendar-personal-schedule-v1' && value.purpose === 'knowledge-assistant-v1'
+    && isGuid(value.scheduleId) && value.scheduleId !== '00000000-0000-0000-0000-000000000000'
+    && isNonNegativeInteger(value.version) && value.version > 0
+    && typeof value.projectionHash === 'string' && /^[A-F0-9]{64}$/.test(value.projectionHash)
+    && !['documentId', 'fileId', 'content', 'ownerUserId', 'tenantId'].some(key => key in value);
+}
+
+function validCombinedCitations(value: Record<string, unknown>): boolean {
+  const all = [...(Array.isArray(value.citations) ? value.citations : []),
+    ...(Array.isArray(value.personalScheduleCitations) ? value.personalScheduleCitations : [])];
+  return all.length <= 8 && new Set(all.map(item => isRecord(item) && typeof item.id === 'string' ? item.id.toLowerCase() : '')).size === all.length;
 }
 
 export function isAiChatSession(value: unknown): value is AiChatSession {
@@ -186,7 +255,24 @@ function isNonNegativeInteger(value: unknown): value is number {
 }
 
 function isAiKnowledgeCitation(value: unknown): value is AiKnowledgeCitation {
-  return isRecord(value) && isGuid(value.id) && isGuid(value.documentId) && isGuid(value.versionId)
+  return isRecord(value) && isGuid(value.id) && isAiKnowledgeSourceReference(value);
+}
+
+/** 搜索来源和答案引用共用真实位置规则；搜索预览不伪造一个答案引用标识。 */
+export function isAiKnowledgeSourceReference(value: unknown): value is Omit<AiKnowledgeCitation, 'id'> {
+  if (isRecord(value) && value.faqSource != null) {
+    const faq = value.faqSource;
+    return isRecord(faq) && isKnowledgeSourceIdentity(faq.source) && faq.source.sourceKind === 'faq-revision-v1'
+      && faq.source.documentId === value.documentId && faq.source.versionId === value.versionId
+      && isGuid(faq.embeddingModelConfigId) && isNonNegativeInteger(faq.embeddingModelVersion) && faq.embeddingModelVersion > 0
+      && isNonNegativeInteger(value.sequence) && value.pageNumber === null && isNonNegativeInteger(value.offset)
+      && isNonNegativeInteger(value.length) && value.length > 0 && value.offset + value.length <= 2147483647
+      && value.correction == null && value.sourceLocation == null && value.docxLocation == null;
+  }
+  if (isRecord(value) && value.correction != null) return isGuid(value.documentId) && isGuid(value.versionId)
+    && isNonNegativeInteger(value.sequence) && value.pageNumber === null && value.offset === null && value.length === null
+    && value.sourceLocation == null && value.docxLocation == null && isAiKnowledgeCorrectionCitation(value.correction);
+  return isRecord(value) && isGuid(value.documentId) && isGuid(value.versionId)
     && isNonNegativeInteger(value.sequence) && isNonNegativeInteger(value.offset)
     && isNonNegativeInteger(value.length) && value.length > 0
     && (value.pageNumber === null || (isNonNegativeInteger(value.pageNumber) && value.pageNumber > 0))
@@ -212,6 +298,7 @@ export function isAskAiKnowledgeResponse(value: unknown): value is AskAiKnowledg
     || !Array.isArray(message.citations) || message.citations.length > 8
     || !message.citations.every(isAiKnowledgeCitation)
     || new Set(message.citations.map(citation => citation.id)).size !== message.citations.length) return false;
-  return value.refused ? message.content === '' && message.citations.length === 0
-    : message.content.trim().length > 0 && message.citations.length > 0;
+  const count = message.citations.length + (message.personalScheduleCitations?.length ?? 0);
+  return value.refused ? message.content === '' && count === 0
+    : message.content.trim().length > 0 && count > 0;
 }

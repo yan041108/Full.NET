@@ -245,6 +245,11 @@ internal sealed class AuditMicroBatchCoordinator : BackgroundService
             {
                 break;
             }
+            catch (ChannelClosedException) when (_channel.Reader.Completion.IsCompletedSuccessfully)
+            {
+                // StopAsync先关闭入队端再取消宿主；正常关闭也进入统一排空，不误报运行期故障。
+                break;
+            }
             catch (Exception)
             {
                 // Writer 边界的意外失败也必须终结请求，不能带着原缓冲无限重试。

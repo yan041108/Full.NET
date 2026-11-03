@@ -28,7 +28,7 @@ namespace Full.NET.IntegrationTests.Messaging;
 /// <summary>集成测试：KafkaOutboxCdcCapacityRunner。</summary>
 [TestClass]
 [DoNotParallelize]
-public sealed class KafkaOutboxCdcCapacityRunnerTests
+public sealed partial class KafkaOutboxCdcCapacityRunnerTests
 {
     [TestMethod]
     [TestCategory("RequiresDocker")]
@@ -36,7 +36,9 @@ public sealed class KafkaOutboxCdcCapacityRunnerTests
     [DataRow(DatabaseProvider.SqlServer)]
     public async Task Scope_C_runs_outbox_cdc_inbox_pipeline(DatabaseProvider provider)
     {
-        var scenario = provider == DatabaseProvider.MySql
+        var soak = Environment.GetEnvironmentVariable("FULLNET_MESSAGING_SOAK_SECONDS") == "3600";
+        var owned = soak || Environment.GetEnvironmentVariable("FULLNET_MESSAGING_OWNED_CAPACITY") == "1";
+        var scenario = owned ? await CreateOwnedSoakScenarioAsync(provider) : provider == DatabaseProvider.MySql
             ? await TryCreateMySqlScenarioAsync()
             : await TryCreateSqlServerScenarioAsync();
         if (scenario is null)
@@ -54,7 +56,8 @@ public sealed class KafkaOutboxCdcCapacityRunnerTests
         var cluster = await admin.DescribeClusterAsync(
             new DescribeClusterOptions { RequestTimeout = TimeSpan.FromSeconds(10) });
         var root = Path.Combine(
-            Path.GetTempPath(),
+            owned ? Environment.GetEnvironmentVariable("FULLNET_MESSAGING_EVIDENCE_DIR")
+                ?? throw new InvalidOperationException("有界 Soak 必须由正式入口提供任务证据目录。") : Path.GetTempPath(),
             $"fullnet-kafka-capacity-scope-c-{Guid.NewGuid():N}");
         Directory.CreateDirectory(root);
         var settings = Path.Combine(root, "settings.json");
@@ -94,26 +97,58 @@ public sealed class KafkaOutboxCdcCapacityRunnerTests
             }));
         try
         {
-            var exitCode = await KafkaCapacityRunner.RunCommandAsync([
+            using var backlog = owned ? new MessagingSoakBacklogRecorder(scope.Options, KafkaCapacityWorkerContracts.EventType,
+                KafkaCapacityWorkerContracts.ConsumerName, Path.Combine(root, "database-backlog.ndjson")) : null;
+            async Task SampleBacklogAsync(CancellationToken token) { if (backlog is not null) await backlog.CaptureAsync(token); }
+            await using var resources = soak ? new MessagingSoakResourceRecorder(scope.ResourceIds, Path.Combine(root, "resources.ndjson"), SampleBacklogAsync) : null;
+            if (soak) await File.WriteAllTextAsync(Path.Combine(root, "soak-input.json"), JsonSerializer.Serialize(new
+            {
+                Provider = provider.ToString(), DurationSeconds = 3600, RatePerSecond = 2, PayloadBytes = 256,
+                WorkerPipelineInstances = 1, Partitions = 2, ReplicationFactor = 1,
+                DatabaseMemoryGiB = provider == DatabaseProvider.SqlServer ? 3d : 1.5d, KafkaMemoryGiB = 2, ConnectMemoryGiB = 2,
+                CpuPerContainer = 1, DrainSeconds = 180, MaximumMessages = 7200,
+                BrokerPauseAfterSeconds = 1800, BrokerPauseSeconds = 10,
+                ThresholdSource = "Development acceptance: Runner integrity/no unknown outcomes; no production latency budget",
+                StopConditions = "3600s arrivals + 180s drain; reject integrity/unknown outcomes or missing resource evidence; 130m harness limit for both databases",
+                CapacityStatus = "Capacity-not-verified", Scope = "transaction_outbox_cdc / WorkerParity",
+            }));
+            using var faultLifetime = new CancellationTokenSource();
+            using var loadLifetime = new CancellationTokenSource();
+            var fault = soak ? InterruptOwnedSoakBrokerAsync(scope.Pipeline, root, faultLifetime.Token, SampleBacklogAsync) : Task.CompletedTask;
+            var load = KafkaCapacityRunner.RunCommandAsync([
                 "--settings", settings,
                 "--scope", KafkaCapacityScopeCodes.TransactionOutboxCdc,
                 "--host-parity-mode", "worker",
                 "--execute", "true",
-                "--approval-id", "integration-test",
-                "--reason", "scope-c-real-pipeline",
+                "--approval-id", soak ? "messaging-reliability-20261028" : "integration-test",
+                "--reason", soak ? "owned-dual-database-bounded-soak" : "scope-c-real-pipeline",
                 "--run-id", $"scope-c-{Guid.NewGuid():N}",
                 "--output", output,
                 "--scenarios", "low-rate",
-                "--low-rates", "20",
-                "--payload-sizes", "128",
-                "--producer-concurrency", "2",
+                "--low-rates", soak ? "2" : "20",
+                "--payload-sizes", soak ? "256" : "128",
+                "--producer-concurrency", soak ? "1" : "2",
                 "--partitions", "2",
                 "--replication-factor", "1",
                 "--warmup-seconds", "0",
-                "--duration-seconds", "2",
-                "--drain-seconds", "60",
-                "--max-messages-per-sample", "100",
-            ]);
+                "--duration-seconds", soak ? "3600" : "2",
+                "--drain-seconds", soak ? "180" : "60",
+                "--max-messages-per-sample", soak ? "7200" : "100",
+            ], loadLifetime.Token);
+            KafkaCapacityExitCode exitCode;
+            try
+            {
+                if (resources is not null && await Task.WhenAny(load, resources.Completion) != load)
+                {
+                    // 资源记录提前退出即停止负载；不能等一小时后才发现峰值证据已经丢失。
+                    await loadLifetime.CancelAsync();
+                    await load;
+                    await resources.Completion;
+                    Assert.Fail("长跑资源采样提前结束。");
+                }
+                exitCode = await load;
+            }
+            finally { await faultLifetime.CancelAsync(); await fault; }
 
             if (exitCode != KafkaCapacityExitCode.Success && Directory.Exists(output))
             {
@@ -142,10 +177,21 @@ public sealed class KafkaOutboxCdcCapacityRunnerTests
             Assert.AreEqual(sample.Integrity.Acknowledged, sample.OutboxCdc!.CdcPublished);
             Assert.AreEqual(sample.Integrity.Consumed, sample.OutboxCdc.CdcPublished);
             Assert.IsGreaterThan(0, sample.Integrity.Consumed);
+            if (soak) Assert.AreEqual(7200L, sample.Integrity.Consumed, "有界长跑必须实际对账全部计划消息。");
+            if (owned)
+            {
+                var persisted = await backlog!.CaptureAsync();
+                Assert.AreEqual(sample.Integrity.Consumed, persisted.OutboxSamples, "独享库正式负载 Outbox 必须逐项入账。");
+                Assert.AreEqual(sample.Integrity.Consumed, persisted.ProcessedInboxSamples, "不能只凭 Handler 内存计数冒充 Inbox 已提交。");
+                Assert.AreEqual(0L, persisted.PendingSamples);
+            }
+            if (soak) Assert.IsTrue(File.Exists(Path.Combine(root, "broker-pause.json")), "必须实际完成已登记的 Broker 中断恢复。");
         }
         finally
         {
-            Directory.Delete(root, recursive: true);
+            // 长跑保留原始报告和资源采样，始终删除只用于本轮连接的凭据文件。
+            if (owned) File.Delete(settings);
+            else Directory.Delete(root, recursive: true);
         }
     }
 
@@ -278,12 +324,12 @@ public sealed class KafkaOutboxCdcCapacityRunnerTests
             parameters);
     }
 
-    private sealed class ScopeCScenario(
+    internal sealed class ScopeCScenario(
         CdcDebeziumPipelineEnvironment pipeline,
         KafkaConnectAdminClient connectAdmin,
         DatabaseOptions options,
         string connectionString,
-        string databaseName) : IAsyncDisposable
+        string databaseName, IAsyncDisposable? ownedDatabase = null, IReadOnlyList<string>? resourceIds = null) : IAsyncDisposable
     {
         public CdcDebeziumPipelineEnvironment Pipeline { get; } = pipeline;
 
@@ -292,11 +338,16 @@ public sealed class KafkaOutboxCdcCapacityRunnerTests
         public string ConnectionString { get; } = connectionString;
 
         public string DatabaseName { get; } = databaseName;
+        public IReadOnlyList<string> ResourceIds { get; } = resourceIds ?? [];
 
         public async ValueTask DisposeAsync()
         {
             connectAdmin.Dispose();
-            await ValueTask.CompletedTask;
+            if (ownedDatabase is not null)
+            {
+                try { await Pipeline.DisposeAsync(); }
+                finally { await ownedDatabase.DisposeAsync(); }
+            }
         }
     }
 }

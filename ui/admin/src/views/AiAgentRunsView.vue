@@ -19,6 +19,10 @@ import { isFullNetProblemDetails } from '@fullnet/client-contracts';
 import PermissionGate from '../components/PermissionGate.vue';
 import AiPromptPanel from '../components/AiPromptPanel.vue';
 import AiAgentReconciliationPanel from '../components/AiAgentReconciliationPanel.vue';
+import AiWorkflowTargetPicker from '../components/AiWorkflowTargetPicker.vue';
+import AiWorkflowApprovalPanel from '../components/AiWorkflowApprovalPanel.vue';
+import AiPersonalScheduleCompletionReceiptPanel from '../components/AiPersonalScheduleCompletionReceiptPanel.vue';
+import { aiWorkflowText } from '../i18n/ai-workflow';
 import type { AiPromptVersionResponse } from '@fullnet/client-contracts';
 import { useSessionStore } from '../auth/session';
 import { promptText } from '../i18n/prompts';
@@ -37,12 +41,13 @@ import {
 defineOptions({ name: 'AiAgentRunsView' });
 
 const { t, locale } = useAdminI18n();
+const workflowText = (key: Parameters<typeof aiWorkflowText>[1]) => aiWorkflowText(locale.value, key);
 const session = useSessionStore();
 const promptVersion = ref<AiPromptVersionResponse>();
 function selectPrompt(version: AiPromptVersionResponse | undefined) {
   promptVersion.value = version;
   if (version) { createModelId.value = version.body.modelConfigId; createDefinitionKey.value = version.definitionKey ?? 'fullnet-single-text-v1';
-    if (version.definitionKey === 'fullnet-chat-rename-workflow-v1') createPrompt.value = ''; }
+    if (version.definitionKey === 'fullnet-chat-rename-workflow-v1' || version.definitionKey === 'fullnet-chat-review-workflow-v1') createPrompt.value = ''; }
 }
 const runIdInput = ref('');
 const activeRun = ref<AiAgentRunResponse>();
@@ -55,6 +60,8 @@ const streamController = ref<AbortController>();
 const createModelId = ref('');
 const createPrompt = ref('');
 const createDefinitionKey = ref('fullnet-single-text-v1');
+const createTargetId = ref('');
+const creatingWorkflow = computed(() => ['fullnet-chat-rename-workflow-v1', 'fullnet-chat-review-workflow-v1'].includes(createDefinitionKey.value));
 let pendingCreate: { fingerprint: string; body: CreateAiAgentRunRequest } | undefined;
 const pendingAction = shallowRef<{ runId: string; kind: 'cancel' | 'resume' }>();
 let contextEpoch = 0;
@@ -64,14 +71,16 @@ const current = (epoch: number) => epoch === contextEpoch && !contextController.
 // 会话及租户变化同时取消表单请求和事件流，旧模型、正文和运行状态不跨上下文显示。
 watch(() => [session.currentUser, session.currentContextName, session.switching], () => {
   ++contextEpoch; ++loadEpoch; contextController.abort(); contextController = new AbortController(); stopStream();
-  selectPrompt(undefined); createPrompt.value = ''; createModelId.value = ''; runIdInput.value = '';
+  selectPrompt(undefined); createPrompt.value = ''; createModelId.value = ''; createTargetId.value = ''; runIdInput.value = '';
   activeRun.value = undefined; progress.value = undefined; events.value = []; problem.value = undefined; loading.value = false; pendingCreate = undefined; pendingAction.value = undefined;
   if (!session.switching) void loadModels();
 }, { deep: true, flush: 'sync' });
 
 const definitionOptions = [
   { value: 'fullnet-single-text-v1', label: 'fullnet-single-text-v1' },
-  { value: 'fullnet-readonly-tool-loop-v1', label: 'fullnet-readonly-tool-loop-v1' }
+  { value: 'fullnet-readonly-tool-loop-v1', label: 'fullnet-readonly-tool-loop-v1' },
+  { value: 'fullnet-chat-rename-workflow-v1', label: 'linear' },
+  { value: 'fullnet-chat-review-workflow-v1', label: 'parallel' }
 ];
 
 const canResume = computed(() => activeRun.value?.statusKey === 'awaiting_approval');
@@ -130,6 +139,14 @@ async function startEventStream(runId: string): Promise<void> {
     await streamAiAgentRunEvents(runId, {
       onEvent: event => {
         if (!current(epoch) || controller.signal.aborted) return;
+        if (event.eventType === 'RUN_ERROR' && typeof event.payload === 'object' && event.payload !== null
+          && (event.payload as Record<string, unknown>).code === 'authorization.permission_denied') {
+          // 流已建立后仍可能撤权；清除已显示的私有运行，不能靠静默刷新失败继续保留旧内容。
+          ++loadEpoch; stopStream(); loading.value = false;
+          activeRun.value = undefined; progress.value = undefined; events.value = []; runIdInput.value = ''; pendingAction.value = undefined;
+          problem.value = { code: 'authorization.permission_denied', status: 403, type: 'https://full.net/errors/authorization.permission_denied', title: t('aiAgentRuns.streamFailed') };
+          return;
+        }
         events.value.push(event);
         if (event.eventType === 'STATE_SNAPSHOT') {
           progress.value = parseAgUiStateSnapshot(event.payload) ?? progress.value;
@@ -163,7 +180,7 @@ async function refreshRunQuietly(runId: string): Promise<void> {
 async function handleCreate(): Promise<void> {
   if (loading.value || session.switching || !session.can('ai.agent_runs.create')) return;
   const epoch = contextEpoch;
-  if (!createModelId.value || (createDefinitionKey.value !== 'fullnet-chat-rename-workflow-v1' && !createPrompt.value.trim())) {
+  if (!createModelId.value || (creatingWorkflow.value ? !createTargetId.value : !createPrompt.value.trim())) {
     ElMessage.warning(t('aiAgentRuns.createValidation'));
     return;
   }
@@ -174,10 +191,11 @@ async function handleCreate(): Promise<void> {
     const draft: Omit<CreateAiAgentRunRequest, 'clientRequestId'> = {
       definitionKey: createDefinitionKey.value,
       modelConfigId: createModelId.value,
-      prompt: createDefinitionKey.value === 'fullnet-chat-rename-workflow-v1' ? '' : createPrompt.value.trim(),
+      prompt: creatingWorkflow.value ? '' : createPrompt.value.trim(),
       inputTokenLimit: Math.min(4096, promptVersion.value?.body.inputTokenLimit ?? 4096),
       outputTokenLimit: Math.min(4096, promptVersion.value?.body.outputTokenLimit ?? 4096),
-      ...(promptVersion.value ? { promptVersionId: promptVersion.value.id } : {})
+      ...(promptVersion.value ? { promptVersionId: promptVersion.value.id } : {}),
+      ...(creatingWorkflow.value ? { targetChatSessionId: createTargetId.value } : {})
     };
     // 同一上下文中结果不明的相同载荷沿用原幂等身份；修改载荷或已知接受后才创建新身份。
     const fingerprint = JSON.stringify(draft);
@@ -241,7 +259,7 @@ void loadModels();
 </script>
 
 <template>
-  <section class="ai-agent-runs-view art-page-stack art-full-height" :aria-busy="loading || streaming || !!pendingAction">
+  <section class="ai-agent-runs-view art-page-stack" :aria-busy="loading || streaming || !!pendingAction">
     <h1 class="art-sr-heading" data-route-heading tabindex="-1">{{ t('aiAgentRuns.title') }}</h1>
 
     <ElAlert
@@ -291,6 +309,8 @@ void loadModels();
     </ElCard>
 
     <AiPromptPanel :model-id="createModelId" @select="selectPrompt" />
+    <AiWorkflowApprovalPanel :run-id="activeRun?.statusKey === 'awaiting_approval' && activeRun.definitionKey !== 'fullnet-personal-schedule-complete-v1' ? activeRun.id : undefined" />
+    <AiPersonalScheduleCompletionReceiptPanel v-if="activeRun?.definitionKey === 'fullnet-personal-schedule-complete-v1'" :run-id="activeRun.id" />
     <AiAgentReconciliationPanel v-if="activeRun?.statusKey === 'reconciliation_required'" :key="activeRun.id"
       :run-id="activeRun.id" @reconciled="loadRun(activeRun.id)" />
 
@@ -303,14 +323,15 @@ void loadModels();
             <ElOption
               v-for="option in definitionOptions"
               :key="option.value"
-              :label="option.label"
+              :label="option.label === 'linear' || option.label === 'parallel' ? workflowText(option.label) : option.label"
               :value="option.value"
             />
           </ElSelect>
-          <ElInput v-model="createModelId" :disabled="!!promptVersion" :placeholder="t('aiAgentRuns.fieldModelId')" />
+          <ElInput v-model="createModelId" data-testid="ai-agent-runs-create-model" :disabled="!!promptVersion" :placeholder="t('aiAgentRuns.fieldModelId')" />
+          <AiWorkflowTargetPicker v-if="creatingWorkflow" v-model="createTargetId" :disabled="loading" />
           <ElInput
             v-model="createPrompt"
-            :disabled="createDefinitionKey === 'fullnet-chat-rename-workflow-v1'"
+            :disabled="creatingWorkflow"
             data-testid="ai-agent-runs-create-prompt"
             type="textarea"
             :rows="3"
@@ -325,7 +346,7 @@ void loadModels();
 
     <ElCard v-if="activeRun" shadow="never">
       <template #header>{{ t('aiAgentRuns.runSummary') }}</template>
-      <ElDescriptions :column="2" border>
+      <ElDescriptions :column="1" border>
         <ElDescriptionsItem :label="t('aiAgentRuns.fieldStatus')">
           <ElTag>{{ activeRun.statusKey }}</ElTag>
         </ElDescriptionsItem>
@@ -367,6 +388,12 @@ void loadModels();
 </template>
 
 <style scoped>
+.ai-agent-runs-view > :deep(.el-card) {
+  flex-shrink: 0;
+  min-width: 0;
+  margin-bottom: 16px;
+}
+
 .ai-agent-runs-toolbar {
   display: flex;
   flex-wrap: wrap;

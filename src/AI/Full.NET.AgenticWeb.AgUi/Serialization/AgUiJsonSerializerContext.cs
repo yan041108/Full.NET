@@ -21,10 +21,11 @@ internal sealed record AgUiRunFinishedPayload(
     string Type,
     string ThreadId,
     string RunId,
-    AgUiRunFinishedOutcome? Outcome = null,
-    object? Result = null);
+    AgUiRunFinishedOutcome Outcome);
 
-internal sealed record AgUiRunFinishedOutcome(string Type, IReadOnlyList<AgUiRunInterrupt>? Interrupts = null);
+// 成功结果不发送interrupts:null或已退役result:null，避免标准客户端依赖兼容转换才能接收。
+internal sealed record AgUiRunFinishedOutcome(string Type,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] IReadOnlyList<AgUiRunInterrupt>? Interrupts = null);
 
 internal sealed record AgUiRunInterrupt(string Id, string Reason);
 

@@ -285,7 +285,14 @@ public sealed class MessagingDeliveryControlTests
         ["value.converter.delegate.converter.type"] = "org.apache.kafka.connect.json.JsonConverter",
         ["value.converter.delegate.converter.type.schemas.enable"] = "false",
         ["topic.heartbeat.prefix"] = "fullnet.test.internal.heartbeat", ["heartbeat.interval.ms"] = "1000",
-        ["transforms"] = "outbox", ["tasks.max"] = "1", ["snapshot.mode"] = "no_data", ["database.user"] = "test-source-user",
+        ["topic.prefix"] = "fullnet.test.source",
+        ["transforms"] = "fullnet_filter,outbox", ["tasks.max"] = "1", ["snapshot.mode"] = "no_data", ["database.user"] = "test-source-user",
+        ["transforms.fullnet_filter.type"] = "net.full.connect.FullNetOutboxStreamFilter",
+        ["transforms.fullnet_filter.event.type"] = EventType,
+        ["transforms.fullnet_filter.schema.version"] = "1",
+        ["transforms.fullnet_filter.source.topic"] = "fullnet.test.source." + database
+            + (provider == DatabaseProvider.SqlServer ? ".dbo." : ".")
+            + (shadow ? "fn_messaging_shadow_event" : "fn_messaging_outbox_event"),
         ["transforms.outbox.type"] = "io.debezium.transforms.outbox.EventRouter",
         ["transforms.outbox.table.field.event.id"] = "Id", ["transforms.outbox.table.field.event.key"] = "PartitionKey",
         ["transforms.outbox.table.field.event.type"] = "MessageType", ["transforms.outbox.table.field.event.payload"] = "Payload",
@@ -295,6 +302,7 @@ public sealed class MessagingDeliveryControlTests
         };
         // 与真实模板保持相同的提供程序时标约束，SQL Server 不提供整数事件时间列。
         if (provider == DatabaseProvider.MySql) configuration["transforms.outbox.table.field.event.timestamp"] = "OccurredAtUtc";
+        else configuration["heartbeat.action.query"] = "UPDATE dbo.fn_messaging_cdc_heartbeat SET UpdatedAtUtc = SYSUTCDATETIME() WHERE Id = '01941f29-7c00-7000-8000-000000000001'";
         return configuration;
     }
 
@@ -355,6 +363,8 @@ public sealed class MessagingDeliveryControlTests
 
     private sealed class ProbeState : IEventDeliveryCutoverProbe
     {
+        public Task<CdcKafkaDeliveryBinding?> ReadDeliveryBindingAsync(string eventType, int schemaVersion, string expectedFingerprint,
+            CancellationToken cancellationToken = default) => Task.FromResult<CdcKafkaDeliveryBinding?>(EventDeliveryPilotTestSupport.TestDeliveryBinding());
         internal string Fingerprint { get; set; } = "test-resource-fingerprint";
         public Task<string?> ReadTargetFingerprintAsync(string eventType, int schemaVersion, CancellationToken cancellationToken = default) => Task.FromResult<string?>(Fingerprint);
         public Task<string?> CompareShadowAsync(string eventType, int schemaVersion, IReadOnlyList<CutoverShadowEvent> expected,
@@ -373,7 +383,7 @@ public sealed class MessagingDeliveryControlTests
     private sealed class ModeledReadinessReader(IEventDeliveryRollbackJournal journal, ControlState state) : IEventDeliveryRollbackReadinessReader
     {
         public async Task<EventDeliveryRollbackReadiness> PrepareAsync(string eventType, int schemaVersion, Guid rollbackGeneration,
-            CancellationToken cancellationToken = default)
+            EventDeliveryControlLease lease, CancellationToken cancellationToken = default)
         {
             state.Generation = rollbackGeneration;
             Assert.IsTrue(await journal.BindResourcesAsync(rollbackGeneration, "{\"modeled\":true}", cancellationToken));
@@ -383,7 +393,7 @@ public sealed class MessagingDeliveryControlTests
             if (state.FailPrepare) throw new InvalidOperationException("暂停后排空失败");
             return new(rollbackGeneration, true, true, true, "{\"fence\":true}", "{\"captured\":true}", rollbackGeneration.ToString("N"), null, DateTimeOffset.UtcNow);
         }
-        public Task AbortAsync(string eventType, int schemaVersion, Guid rollbackGeneration, CancellationToken cancellationToken = default)
+        public Task AbortAsync(string eventType, int schemaVersion, Guid rollbackGeneration, EventDeliveryControlLease lease, CancellationToken cancellationToken = default)
         {
             state.ResumeCalls++;
             if (state.FailResume) throw new InvalidOperationException("恢复未确认");

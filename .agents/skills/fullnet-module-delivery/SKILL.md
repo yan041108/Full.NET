@@ -100,9 +100,9 @@ Full.NET 当前基线保持强化型模块化单体。微服务、分片和多�
 
 | 检查项 | 要求 |
 | --- | --- |
-| 数据归属 | 生产 SQL 只读写当前模块拥有的 `fn_<module>_*` 表；禁止跨模块外键、视图、同义词或隐藏 JOIN。已知债务登记 `module-cross-foreign-key-debt.json`。 |
-| 读取模式 | 立即读取使用消费方最小 Port；列表/分页对同一所有者数据一次批量读取（参考 `IHostUserDisplayDirectory.FindHostUsersAsync`），禁止逐行回退查询。 |
-| 事务归属 | 本地事务只写入本模块表；事务内禁止同步调用其他模块 Contract。已知债务登记 `module-local-transaction-debt.json`。 |
+| 数据归属 | 写 SQL 只访问本模块表；后台列表、搜索、报表允许受控跨模块只读 JOIN，按 [读取依赖规范](../../../contracts/architecture/module-read-queries.md) 登记；禁止跨模块写表、外键和隐藏访问。 |
+| 读取模式 | 后台组合查询集中在 Queries/*Sql.cs，返回业务 DTO，登记 Statement/SQL 摘要与模块/表/列依赖，必需所有者纳入运行时 Dependencies 闭包；业务操作与权威判断使用最小 Port，少量对象组合使用批量契约（参考 `IHostUserDisplayDirectory.FindHostUsersAsync`），禁止 N+1。 |
+| 事务归属 | 受控 JOIN 不参与命令事务或锁定读；本地事务只写入本模块表，禁止跨模块事务；事务内禁止同步调用其他模块 Contract。已知债务登记 `module-local-transaction-debt.json`。 |
 | 失败语义 | 写入后可能返回 `Result.Failure` 的路径使用 `ICommandTransaction.ExecuteResultAsync`，不得让失败 Result 仍提交。 |
 | 一致性 SLA | 声明最终一致或强一致类别；强不变量由唯一模块拥有，不依赖跨模块本地事务快照。 |
 | 幂等键 | 事件消费、Outbox Handler 和投影写入必须可幂等重放。 |
@@ -110,7 +110,9 @@ Full.NET 当前基线保持强化型模块化单体。微服务、分片和多�
 | 远程适配 | 同进程内优先 Contract；只有真实跨进程消费者且经 ADR 批准才引入 HTTP/gRPC/Broker。 |
 | 领域参数 | 业务不变量不得存入通用 Settings `ConfigEntry`；其他模块禁止引用 ConfigEntry CRUD 契约或查询 `fn_settings_config_entry`。平台策略在 Settings 内强类型实现（如 DiagnosticPolicy）。 |
 
-相关门禁：`ModuleLocalTransactionBoundaryTests`、`ModuleCrossForeignKeyBoundaryTests`、`OrganizationHostUserBatchReadBoundaryTests`、`DomainParameterOwnershipTests`。计划见 `docs/superpowers/plans/2026-08-07-module-data-access-and-consistency-hardening.md`。
+低成本演进准备：列表与导出复用集中 Query；接口/页面使用查询 DTO，不泄漏持久化实体；表结构变更按读取目录检查消费者；区分当前信息与交易时历史快照；未来仅替换真实拆分边界上的查询，处理回填、传播延迟及失败语义，不提前为所有 JOIN 建投影。查询安全必须显式覆盖租户/成员关系、数据范围、软删除和敏感字段，不能用后台身份或 Global 登记代替授权。
+
+相关门禁：`ModuleTableOwnershipTests`、`ControlledModuleReadQueryTests`、`ModuleLocalTransactionBoundaryTests`、`ModuleCrossForeignKeyBoundaryTests`、`OrganizationHostUserBatchReadBoundaryTests`、`DomainParameterOwnershipTests`。计划见 `docs/superpowers/plans/2026-08-07-module-data-access-and-consistency-hardening.md`。
 
 ## 5. 保持 API 与兼容边界
 
@@ -148,7 +150,8 @@ Full.NET 当前基线保持强化型模块化单体。微服务、分片和多�
 | 新数据库结构 | SQL Server/MySQL DbUp 迁移与回归测试 | 单库迁移或运行时自动建表 |
 | 新数据库/API/消息命名 | Naming Profile、`Full.NET.Data.CodeGeneration`、`pnpm test:naming` | 自行截断、通配债务或复制存量旧名称 |
 | 跨模块可靠通知 | Contract 事件、MemoryPack、事务 Outbox、Handler | 事务提交前直接推送；缓存/Audit/日志 Outbox |
-| 跨模块立即读取 | 消费方 Port、批量目录接口、Architecture 批量读取门禁 | 事务内 Contract、逐行 `FindActiveHostUserAsync`、跨模块 SQL |
+| 后台列表/搜索/报表 | 专用 Query、DTO、module-read-queries.json 精确登记、运行时依赖、权限和双库场景 | Command 中散落 JOIN、跨模块写表/事务、无需求投影 |
+| 跨模块业务读取 | 消费方 Port、批量目录接口、Architecture 批量读取门禁 | 事务内 Contract、逐行 `FindActiveHostUserAsync`、用查表复制业务规则 |
 | 跨模块写入后失败 | `ExecuteResultAsync` 与事务回滚测试 | `ExecuteAsync` 返回失败 `Result` 仍提交 |
 | 领域参数 | 所有者模块强类型策略/表 + Outbox（经计划批准） | Settings `ConfigEntry` CRUD 或其他模块直查 `fn_settings_config_entry` |
 | 高频读且有失效点 | FusionCache 键、分类策略、提交后直接删 L1/L2 与 Backplane、多实例验证 | 没有失效策略的永久缓存；缓存 Outbox |

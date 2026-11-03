@@ -27,4 +27,10 @@
   <data name="document.recycle.not_found" xml:space="preserve"><value>The recycled document item was not found.</value></data>
   <data name="document.host.share.password_not_supported_yet" xml:space="preserve"><value>This version does not yet support creating password-protected share links.</value></data>
   <data name="document.host_document.access_denied" xml:space="preserve"><value>Document access denied.</value></data>
+  <data name="document.preview.attempts_exhausted" xml:space="preserve"><value>Preview task attempt limit reached</value></data>
+  <data name="document.preview.cancelled" xml:space="preserve"><value>Preview task cancelled</value></data>
+  <data name="document.preview.lease_expired" xml:space="preserve"><value>Preview execution lease expired</value></data>
+  <data name="document.preview.reference_released" xml:space="preserve"><value>Preview reference released</value></data>
+  <data name="document.preview.result_not_committed" xml:space="preserve"><value>Preview result could not be committed</value></data>
+  <data name="document.preview.lifecycle_upgrade_required" xml:space="preserve"><value>Preview task must be recreated after lifecycle upgrade</value></data>
 </root>

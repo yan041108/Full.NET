@@ -41,7 +41,8 @@ internal sealed class AiKnowledgeIndexWorkerCoordinator(IQueryExecutor query, ID
             Guard(token);
             if (row.TaskId == Guid.Empty || row.KnowledgeBaseId == Guid.Empty || row.DocumentId == Guid.Empty || row.VersionId == Guid.Empty
                 || row.OwnerUserId == Guid.Empty || row.TenantId == Guid.Empty || row.DocumentVersion <= 0 || row.KnowledgeBaseVersion <= 0
-                || !(documents.Supports(row.ContentType) || pdf.Supports(row.ContentType) || docx.Enabled && row.ContentType == Domain.AiKnowledgeFilePolicy.DocxContentType)) continue;
+                || (row.FaqRevisionId.HasValue ? row.ContentType != "text/plain" || row.ParsingPolicyKey != Domain.AiKnowledgeFaqIndexContent.FormatKey
+                    : AiKnowledgeDocumentFormats.Policy(row.ContentType, row.ParsingPolicyKey) is null)) continue;
             // 候选来自固定服务端扫描；每个任务重新创建上下文，不能污染父级或复用另一租户的 DbSession。
             await using var scope = scopes.CreateAsyncScope();
             var provider = scope.ServiceProvider;
@@ -60,12 +61,18 @@ internal sealed class AiKnowledgeIndexWorkerCoordinator(IQueryExecutor query, ID
             using var correlation = provider.GetRequiredService<AiBackgroundLogCorrelation>().BeginCapture();
             try
             {
-                // 格式只决定消费者；消费者仍从当前权威来源复核，扫描行不授予模型派发资格。
-                var completed = documents.Supports(row.ContentType)
+                // 扫描只引导作用域；领取后从权威任务读取冻结身份，人工输入不能被 MIME 路由送回原文解析。
+                var source = await tasks.ReadDispatchAsync(binding, row.TaskId, leaseToken, token).ConfigureAwait(false);
+                Guard(token, childTransactions);
+                var completed = false;
+                if (source is not null && source.ContentType == row.ContentType && source.ParsingPolicyKey == row.ParsingPolicyKey && source.FaqRevisionId == row.FaqRevisionId)
+                    completed = source.CorrectionRevisionId.HasValue
+                    ? await provider.GetRequiredService<AiKnowledgeCorrectionPersistenceService>().ExecuteGenerationAsync(binding, row.TaskId, leaseToken, token).ConfigureAwait(false)
+                    : documents.Supports(source.ContentType)
                     ? await provider.GetRequiredService<AiKnowledgeIndexDocumentPersistenceService>().ExecuteGenerationAsync(binding, row.TaskId, leaseToken, token).ConfigureAwait(false)
-                    : row.ContentType == "application/pdf"
+                    : source.ContentType == "application/pdf"
                     ? await provider.GetRequiredService<AiKnowledgeIndexPdfPersistenceService>().ExecuteGenerationAsync(binding, row.TaskId, leaseToken, token).ConfigureAwait(false)
-                    : row.ContentType == Domain.AiKnowledgeFilePolicy.DocxContentType
+                    : source.ContentType == Domain.AiKnowledgeFilePolicy.DocxContentType
                     ? await provider.GetRequiredService<AiKnowledgeIndexDocumentPersistenceService>().ExecuteGenerationAsync(binding, row.TaskId, leaseToken, token).ConfigureAwait(false)
                     : await provider.GetRequiredService<AiKnowledgeIndexPersistenceService>().ExecuteTextGenerationAsync(binding, row.TaskId, leaseToken, token).ConfigureAwait(false);
                 Guard(token, childTransactions);

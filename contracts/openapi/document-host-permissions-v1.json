@@ -25,19 +25,32 @@
           "responseSchema": "HostDocumentPermissionResponseList"
         }
       ]
+    },
+    {
+      "path": "/api/v1/document/host/permissions/context/{documentId}",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": "document.host_permissions.read",
+          "successStatus": 200,
+          "responseSchema": "HostDocumentPermissionContext"
+        }
+      ]
     }
   ],
   "schemas": {
     "HostDocumentPermissionEntry": {
       "properties": [
         "userId",
-        "permissionLevel"
+        "actions"
       ]
     },
     "SetHostDocumentPermissionsRequest": {
       "properties": [
         "documentId",
-        "permissions"
+        "permissions",
+        "visibilityMode",
+        "version"
       ]
     },
     "HostDocumentPermissionResponse": {
@@ -45,13 +58,22 @@
         "id",
         "documentId",
         "userId",
-        "permissionLevel",
+        "actions",
         "createdAtUtc"
       ]
     },
     "HostDocumentPermissionResponseList": {
       "properties": [],
       "itemSchema": "HostDocumentPermissionResponse"
+    },
+    "HostDocumentPermissionContext": {
+      "properties": [
+        "documentId",
+        "title",
+        "documentNo",
+        "visibilityMode",
+        "version"
+      ]
     }
   }
 }

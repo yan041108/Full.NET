@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { readdirSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import test from 'node:test';
 
 import {
@@ -12,12 +12,42 @@ import {
   mainIntegrationPartitionsJson
 } from '../../scripts/testing/print-test-matrix.mjs';
 
+test('Workflow Native Kafka重型入口不能进入默认基础或完整分片', () => {
+  const matrix = loadTestMatrix();
+  for (const key of ['infrastructure', 'full'])
+    assert.ok(matrix.integration.shards[key].filter.split('&').includes('TestCategory!=WorkflowNativeKafka'), key);
+  const selections = matrix.dotnetSuites.workflowActivityIntegration.selections;
+  const methods = new Set();
+  for (const key of ['workflow-native-kafka-sql-server', 'workflow-native-kafka-my-sql',
+    'workflow-native-kafka-combinations-sql-server', 'workflow-native-kafka-combinations-my-sql',
+    'workflow-native-kafka-reconciliation-sql-server', 'workflow-native-kafka-reconciliation-my-sql']) {
+    assert.equal(selections[key].minimum, 1);
+    assert.match(selections[key].filter, /^FullyQualifiedName=Full\.NET\.IntegrationTests\.Workflow\.WorkflowCollaborationRequestApiTests\.Collaboration_native_(?:physical_kafka|kafka_combinations|kafka_reconciliation)_with_(?:sql_server|mysql)$/);
+    methods.add(selections[key].filter);
+  }
+  assert.equal(methods.size, 6);
+});
+
+test('知识发布分批验证完整覆盖聚合集且不降低最低发现数', () => {
+  const shards = loadTestMatrix().integration.shards;
+  const combined = shards['ai-knowledge-publication'];
+  const batches = ['lifecycle', 'sqlserver', 'mysql'].map(key => shards[`ai-knowledge-publication-${key}`]);
+  const filters = batches.flatMap(batch => batch.filter.split('|')).sort();
+  assert.equal(new Set(filters).size, filters.length);
+  assert.deepEqual(filters, combined.filter.split('|').sort());
+  assert.equal(batches.reduce((sum, batch) => sum + batch.minimum, 0), combined.minimum);
+  assert.ok(batches.every(batch => batch.timeout === '10m'));
+  assert.deepEqual(shards['ai-knowledge-publication-native'], {
+    filter: 'FullyQualifiedName~NativeKnowledgePublicationE2ETests', minimum: 2, timeout: '10m'
+  });
+});
+
 test('快速套件支持校验式构建复用但不能与手动 no-build 混用', () => {
   assert.equal(parseSuiteOptions(['--reuse-build']).reuseBuild, true);
   assert.throws(() => parseSuiteOptions(['--reuse-build', '--no-build']), /不能/);
 });
 
-test('测试矩阵集中定义三个快速套件和完整 Integration 分片', () => {
+test('测试矩阵包含默认快速套件并允许登记聚焦套件和 Integration 分片', () => {
   const matrix = loadTestMatrix();
   const recoveryMigrationNumbers = readdirSync(
     new URL('../Full.NET.IntegrationTests/Migrations/', import.meta.url)
@@ -26,11 +56,11 @@ test('测试矩阵集中定义三个快速套件和完整 Integration 分片', (
     .filter(Boolean)
     .sort();
 
-  assert.deepEqual(Object.keys(matrix.dotnetSuites), [
+  for (const requiredSuite of [
     'unit',
     'compatibility',
     'architecture'
-  ]);
+  ]) assert.ok(matrix.dotnetSuites[requiredSuite], `缺少默认套件 ${requiredSuite}`);
   for (const suite of Object.values(matrix.dotnetSuites)) {
     assert.ok(Number.isInteger(suite.minimum) && suite.minimum > 0);
     assert.match(suite.project, /\.csproj$/);
@@ -63,8 +93,31 @@ test('测试矩阵集中定义三个快速套件和完整 Integration 分片', (
   for (const selection of Object.values(
     matrix.integration.migrationSelections
   )) {
-    assert.match(selection.filter, /MySql/);
-    assert.match(selection.filter, /SqlServer/);
+    if (selection.filter.includes('MySql') && selection.filter.includes('SqlServer')) continue;
+    // DataRow 共用同一完整方法名，不能要求提供程序名出现在过滤器；必须核对实际测试属性。
+    const target = /^FullyQualifiedName~(\w+)(?:\.(\w+))?$/.exec(selection.filter);
+    assert.ok(target, `无法验证双库过滤器 ${selection.filter}`);
+    const root = new URL('../Full.NET.IntegrationTests/', import.meta.url);
+    const files = readdirSync(root, { recursive: true }).filter(file =>
+      file.replaceAll('\\', '/').split('/').at(-1) === `${target[1]}.cs`);
+    assert.equal(files.length, 1);
+    const source = readFileSync(new URL(files[0].replaceAll('\\', '/'), root), 'utf8');
+    const methods = [...source.matchAll(/((?:\[[^\]]+\]\s*)+)public\s+(?:async\s+)?Task(?:<[^>]+>)?\s+(\w+)\s*\(/g)]
+      .filter(match => match[1].includes('[TestMethod]') && (!target[2] || match[2] === target[2]));
+    assert.ok(methods.length > 0, `未找到测试方法 ${selection.filter}`);
+    assert.ok(selection.minimum >= methods.length * 2);
+    for (const method of methods) {
+      if (method[1].includes('[DataRow(true)]') && method[1].includes('[DataRow(false)]')) {
+        // 布尔用例必须实际分支创建双库，不能把任意 true/false 当成双提供程序证据。
+        const body = source.slice(method.index + method[0].length).split('[TestMethod]')[0];
+        const parameter = /^bool\s+(\w+)\s*\)/.exec(body)?.[1];
+        assert.ok(parameter, `无法识别双库布尔参数 ${selection.filter}.${method[2]}`);
+        assert.match(body, new RegExp(`\\b${parameter}\\s*\\?\\s*await\\s+SharedDatabaseFixture\\.CreateSqlServerDatabaseAsync\\(\\)\\s*:\\s*await\\s+SharedDatabaseFixture\\.CreateMySqlDatabaseAsync\\(\\)`));
+        continue;
+      }
+      assert.match(method[1], /\[DataRow\(DatabaseProvider\.SqlServer\)\]/);
+      assert.match(method[1], /\[DataRow\(DatabaseProvider\.MySql\)\]/);
+    }
   }
   for (const migrationNumber of ['114', '115', '116', '117', '118']) {
     const filter = matrix.integration.migrationSelections[migrationNumber].filter;

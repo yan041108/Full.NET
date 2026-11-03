@@ -54,6 +54,8 @@ public sealed class TenantContextMutationBoundaryTests
         "src/Modules/Full.NET.Modules.DataApproval/Execution/DataApprovalRequestApplicationRecoveryBatchProcessor.cs",
         "src/Modules/Full.NET.Modules.DataApproval/Execution/DataApprovalRequestRecoveryBatchProcessor.cs",
         "src/Modules/Full.NET.Modules.Document/Configuration/DocumentVersionRetentionSettingsBootstrap.cs",
+        // 分享会话清理仅在 Worker 独立 Host 作用域访问 Document 自有表，finally 清除。
+        "src/Modules/Full.NET.Modules.Document/Features/ManageHostDocumentShares/DocumentShareSessionCleanup.cs",
         "src/Modules/Full.NET.Modules.Document/PreviewTasks/DocumentPreviewTaskHostedProcessor.cs",
         "src/Modules/Full.NET.Modules.Document/Retention/DocumentVersionRetentionHostedProcessor.cs",
         "src/Modules/Full.NET.Modules.Files/Cleanup/DeletedHostFileBlobCleanupHostedProcessor.cs",
@@ -69,13 +71,24 @@ public sealed class TenantContextMutationBoundaryTests
         // 单次请求内临时 Host 作用域，执行 HostOnly SQL 后恢复租户上下文。
         "src/Modules/Full.NET.Modules.Identity/Features/IdentityHostExecutionScope.cs",
         "src/Modules/Full.NET.Modules.Identity/Features/ManageTenantMembers/TenantMemberProvisionService.cs",
+        // 自助同意仅以已验证 sub 访问 Identity Host 授权，操作结束恢复上下文。
+        "src/Modules/Full.NET.Modules.Identity/Features/MyOidcAuthorizations/Endpoint.cs",
         "src/Modules/Full.NET.Modules.Identity/Features/SelfServiceProfile/SelfServiceProfileMediaService.cs",
         "src/Modules/Full.NET.Modules.Identity/Features/SelfServiceProfile/SelfServiceProfileService.cs",
         "src/Modules/Full.NET.Modules.Identity/Middleware/IdentityOidcHostContextMiddleware.cs",
+        // BFF 票据仅在 Identity 自有 Host 数据上编排，并在 finally 恢复调用方上下文。
+        "src/Modules/Full.NET.Modules.Identity/Oidc/IdentityBrowserSession.cs",
         "src/Modules/Full.NET.Modules.Identity/Oidc/IdentityOidcAccessSessionValidator.cs",
+        // 账号安全操作在 Identity 自有 Host 数据上编排，并在 finally 恢复调用方上下文。
+        "src/Modules/Full.NET.Modules.Identity/Oidc/IdentityOidcAccountService.cs",
         // OIDC 登出在 Host 作用域撤销跨租户会话和授权记录，然后恢复原租户。
         "src/Modules/Full.NET.Modules.Identity/Oidc/IdentityOidcAuthorizationService.cs",
-        "src/Modules/Full.NET.Modules.Identity/Oidc/IdentityOidcClientRegistrar.cs",
+        // 签名退役状态直接查权威库，必须在 finally 恢复 Bearer 调用方的可信上下文。
+        "src/Modules/Full.NET.Modules.Identity/Oidc/IdentityOidcKeyGovernance.cs",
+        // 退出投递 Worker 每批建立独立 Host 作用域，不从外部通知输入建立租户。
+        "src/Modules/Full.NET.Modules.Identity/Oidc/IdentityOidcLogoutDelivery.cs",
+        // 签名就绪探针在独立 DI 作用域读取 Host 权威并登记短期节点租约。
+        "src/Modules/Full.NET.Modules.Identity/Oidc/IdentityOidcSigningReadiness.cs",
         "src/Modules/Full.NET.Modules.Identity/Retention/AuthenticationEventRetentionHostedProcessor.cs",
         // 临时认证状态回收在独立作用域固定 Host，不接收用户租户输入，finally 清除。
         "src/Modules/Full.NET.Modules.Identity/Retention/IdentityEphemeralStateRetentionHostedService.cs",

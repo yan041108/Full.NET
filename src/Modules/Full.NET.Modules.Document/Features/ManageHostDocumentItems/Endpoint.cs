@@ -20,21 +20,40 @@ internal static class Endpoint
         var group = endpoints.MapGroup("/api/v1/document/host/items")
             .WithTags("DocumentHostItems");
 
+        foreach (var state in new[] { ("publish", HostDocumentStatus.Published, HostDocumentPermissions.Publish),
+            ("archive", HostDocumentStatus.Archived, HostDocumentPermissions.Archive),
+            ("unarchive", HostDocumentStatus.Draft, HostDocumentPermissions.Unarchive) })
+        {
+            group.MapPost("/{itemId:guid}/" + state.Item1, async (Guid itemId, ChangeHostDocumentStatusRequest request,
+                HostDocumentItemManagementService service, IApiResultMapper mapper, HttpContext context, CancellationToken token) =>
+            {
+                if (!TryResolveUserId(context, out var actor)) return Results.Unauthorized();
+                return mapper.Map(await service.ChangeStatusAsync(itemId, actor, request, state.Item2, token).ConfigureAwait(false), context);
+            }).WithName("documentHostItem" + state.Item1)
+              .Produces<HostDocumentItemResponse>().ProducesProblem(400).ProducesProblem(401).ProducesProblem(403).ProducesProblem(404).ProducesProblem(409)
+              .RequireAuthorization(FullNetPermissionPolicies.For(state.Item3));
+        }
         group.MapGet("/", async (
             int? page,
             int? pageSize,
             Guid? tagId,
+            string? keyword,
+            Guid? categoryId,
+            HostDocumentStatus? status,
+            HostDocumentType? documentType,
             HostDocumentItemQueryService queries,
             IApiResultMapper mapper,
             HttpContext httpContext,
             CancellationToken cancellationToken) =>
         {
-            var result = await queries.ListAsync(page ?? 1, pageSize ?? 20, tagId, cancellationToken)
+            var result = await queries.ListAsync(page ?? 1, pageSize ?? 20, tagId, cancellationToken,
+                keyword, categoryId, status, documentType)
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
         .WithName("documentHostListItems")
         .Produces<PagedResult<HostDocumentItemResponse>>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
         .ProducesProblem(StatusCodes.Status401Unauthorized)
         .ProducesProblem(StatusCodes.Status403Forbidden)
         .RequireAuthorization(FullNetPermissionPolicies.For(HostDocumentPermissions.Read));
@@ -155,6 +174,7 @@ internal static class Endpoint
         group.MapPost("/{itemId:guid}/versions/upload", async (
             Guid itemId,
             IFormFile? file,
+            [Microsoft.AspNetCore.Mvc.FromForm] Guid requestKey,
             HostDocumentItemManagementService service,
             IApiResultMapper mapper,
             HttpContext httpContext,
@@ -183,7 +203,8 @@ internal static class Endpoint
                     file.ContentType,
                     stream,
                     file.Length,
-                    cancellationToken)
+                    cancellationToken,
+                    requestKey)
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
@@ -199,16 +220,19 @@ internal static class Endpoint
 
         group.MapGet("/{itemId:guid}/preview", async (
             Guid itemId,
+            Guid? requestKey,
             HostDocumentItemQueryService queries,
             IApiResultMapper mapper,
             HttpContext httpContext,
             CancellationToken cancellationToken) =>
         {
+            if (httpContext.Request.Headers.ContainsKey("Range") && (requestKey is null || requestKey == Guid.Empty))
+                return Results.Problem(statusCode: 400, title: "Range requires a nonempty requestKey.");
             _ = TryResolveUserId(httpContext, out var userId);
             var observation = CreateAuthenticatedObservation(
                 httpContext,
                 userId,
-                HostDocumentAccessTypeKeys.Preview);
+                HostDocumentAccessTypeKeys.Preview, requestKey);
             var result = await queries
                 .OpenVersionPreviewAsync(itemId, null, observation, cancellationToken)
                 .ConfigureAwait(false);
@@ -216,6 +240,7 @@ internal static class Endpoint
         })
         .WithName("documentHostPreviewItemContent")
         .Produces<Stream>(StatusCodes.Status200OK, "application/octet-stream")
+        .ProducesProblem(StatusCodes.Status400BadRequest)
         .ProducesProblem(StatusCodes.Status401Unauthorized)
         .ProducesProblem(StatusCodes.Status403Forbidden)
         .ProducesProblem(StatusCodes.Status404NotFound)
@@ -224,16 +249,19 @@ internal static class Endpoint
         group.MapGet("/{itemId:guid}/versions/{versionId:guid}/preview", async (
             Guid itemId,
             Guid versionId,
+            Guid? requestKey,
             HostDocumentItemQueryService queries,
             IApiResultMapper mapper,
             HttpContext httpContext,
             CancellationToken cancellationToken) =>
         {
+            if (httpContext.Request.Headers.ContainsKey("Range") && (requestKey is null || requestKey == Guid.Empty))
+                return Results.Problem(statusCode: 400, title: "Range requires a nonempty requestKey.");
             _ = TryResolveUserId(httpContext, out var userId);
             var observation = CreateAuthenticatedObservation(
                 httpContext,
                 userId,
-                HostDocumentAccessTypeKeys.Preview);
+                HostDocumentAccessTypeKeys.Preview, requestKey);
             var result = await queries
                 .OpenVersionPreviewAsync(itemId, versionId, observation, cancellationToken)
                 .ConfigureAwait(false);
@@ -241,6 +269,7 @@ internal static class Endpoint
         })
         .WithName("documentHostPreviewItemVersionContent")
         .Produces<Stream>(StatusCodes.Status200OK, "application/octet-stream")
+        .ProducesProblem(StatusCodes.Status400BadRequest)
         .ProducesProblem(StatusCodes.Status401Unauthorized)
         .ProducesProblem(StatusCodes.Status403Forbidden)
         .ProducesProblem(StatusCodes.Status404NotFound)
@@ -248,16 +277,19 @@ internal static class Endpoint
 
         group.MapGet("/{itemId:guid}/content", async (
             Guid itemId,
+            Guid? requestKey,
             HostDocumentItemQueryService queries,
             IApiResultMapper mapper,
             HttpContext httpContext,
             CancellationToken cancellationToken) =>
         {
+            if (httpContext.Request.Headers.ContainsKey("Range") && (requestKey is null || requestKey == Guid.Empty))
+                return Results.Problem(statusCode: 400, title: "Range requires a nonempty requestKey.");
             _ = TryResolveUserId(httpContext, out var userId);
             var observation = CreateAuthenticatedObservation(
                 httpContext,
                 userId,
-                HostDocumentAccessTypeKeys.Download);
+                HostDocumentAccessTypeKeys.Download, requestKey);
             var result = await queries
                 .OpenCurrentVersionContentAsync(itemId, observation, cancellationToken)
                 .ConfigureAwait(false);
@@ -277,6 +309,7 @@ internal static class Endpoint
         })
         .WithName("documentHostDownloadItemContent")
         .Produces<Stream>(StatusCodes.Status200OK, "application/octet-stream")
+        .ProducesProblem(StatusCodes.Status400BadRequest)
         .ProducesProblem(StatusCodes.Status401Unauthorized)
         .ProducesProblem(StatusCodes.Status403Forbidden)
         .ProducesProblem(StatusCodes.Status404NotFound)
@@ -410,13 +443,14 @@ internal static class Endpoint
     private static DocumentAccessObservation CreateAuthenticatedObservation(
         HttpContext httpContext,
         Guid userId,
-        string accessTypeKey) =>
+        string accessTypeKey, Guid? requestKey) =>
         new(
             userId == Guid.Empty ? null : userId,
             HttpOperationLogSanitizer.FingerprintClientIp(
                 httpContext.Connection.RemoteIpAddress?.ToString()),
             accessTypeKey,
-            HostDocumentAccessSourceKeys.Authenticated);
+            HostDocumentAccessSourceKeys.Authenticated,
+            requestKey);
 
     private static IResult MapPreviewResult(
         Result<HostFileContent> result,

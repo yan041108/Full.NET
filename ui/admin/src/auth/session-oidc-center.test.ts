@@ -1,151 +1,24 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createPinia, setActivePinia } from 'pinia';
 import { configureAuthentication } from '../api/http';
-import { useAdminI18n } from '../i18n/adminI18n';
 import { useSessionStore } from './session';
-
-vi.mock('../api/http', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../api/http')>();
-  return {
-    ...actual,
-    apiBaseUrl: 'http://localhost:5149'
-  };
+import { browserFixture, csrf, tenantId, userSessionId } from './browser-session-test-fixture';
+vi.mock('../config/identity-auth', () => ({ adminIdentityAuthMode: 'oidc-center', resolveAdminOidcClientId: () => 'fullnet-admin-bff' }));
+beforeEach(() => { setActivePinia(createPinia()); sessionStorage.clear(); });
+afterEach(() => { configureAuthentication(); vi.unstubAllGlobals(); vi.restoreAllMocks(); });
+describe('BFF local session boundaries', () => {
+ it('invalidates local state without minting or revoking tokens', async () => {
+  const fetch = browserFixture(); const session = useSessionStore(); await session.restore(); const count = fetch.mock.calls.length;
+  session.invalidateLocalSession(); expect(session.state).toBe('anonymous'); expect(fetch).toHaveBeenCalledTimes(count);
+ });
+ it('changes a password with CSRF then requires fresh login', async () => {
+  const fetch = browserFixture(); const session = useSessionStore(); await session.restore(); await session.changePassword('old-password', 'new-password');
+  const call = fetch.mock.calls.find(([url]) => String(url).endsWith('/browser/password'))!;
+  expect(new Headers(call[1]?.headers).get('X-CSRF-Token')).toBe(csrf); expect(session.state).toBe('anonymous');
+ });
+ it('rejects injecting SPA tokens into the BFF controller', async () => {
+  browserFixture(); const session = useSessionStore();
+  await expect(session.completeOidcAuthorization({ accessToken: 'injected', tokenType: 'Bearer', expiresAtUtc: '2030-01-01T00:00:00Z' }))
+   .rejects.toThrow('identity.browser_interactive_login_required');
+ });
 });
-
-vi.mock('../config/identity-auth', () => ({
-  adminIdentityAuthMode: 'oidc-center',
-  resolveAdminOidcClientId: () => 'admin-spa'
-}));
-
-beforeEach(() => {
-  setActivePinia(createPinia());
-  useAdminI18n().setLocale('zh-CN');
-  sessionStorage.clear();
-});
-
-afterEach(() => {
-  configureAuthentication();
-  sessionStorage.clear();
-  vi.unstubAllGlobals();
-  vi.restoreAllMocks();
-});
-
-describe('oidc-center session logout', () => {
-  it('refreshes an idle access token before a single identity-bound center logout', async () => {
-    const fetchMock = vi.fn()
-      .mockResolvedValueOnce(jsonResponse(currentUser()))
-      .mockResolvedValueOnce(jsonResponse(navigation()))
-      .mockResolvedValueOnce(jsonResponse([]))
-      .mockResolvedValueOnce(jsonResponse({ access_token: 'fresh-logout-token', token_type: 'Bearer', expires_in: 300 }))
-      .mockResolvedValueOnce(new Response(null, { status: 204 }))
-      .mockResolvedValueOnce(new Response(null, { status: 204 }));
-    vi.stubGlobal('fetch', fetchMock);
-    sessionStorage.setItem('fullnet.admin.oidc.refresh', JSON.stringify({
-      refreshToken: 'refresh-token',
-      clientId: 'admin-spa'
-    }));
-    const session = useSessionStore();
-    await session.completeOidcAuthorization(tokenResponse('oidc-access-token'));
-    expect(session.state).toBe('authenticated');
-
-    await session.logout();
-
-    expect(session.state).toBe('anonymous');
-    expect(sessionStorage.getItem('fullnet.admin.oidc.refresh')).toBeNull();
-    expect(fetchMock.mock.calls.map(call => call[0])).toEqual([
-      '/api/v1/me',
-      '/api/v1/navigation',
-      '/api/v1/tenancy/available',
-      'http://localhost:5149/connect/token',
-      'http://localhost:5149/api/v1/identity/oidc/logout',
-      'http://localhost:5149/api/v1/identity/oidc/logout/application'
-    ]);
-    const [, centerLogoutInit] = fetchMock.mock.calls[4] as [string, RequestInit];
-    expect(centerLogoutInit.headers).toEqual(expect.objectContaining({
-      authorization: 'Bearer fresh-logout-token'
-    }));
-    expect(centerLogoutInit.credentials).toBe('include');
-    expect(centerLogoutInit.method).toBe('POST');
-    const [, applicationLogoutInit] = fetchMock.mock.calls[5] as [string, RequestInit];
-    expect(applicationLogoutInit.headers).toEqual(expect.objectContaining({
-      authorization: 'Bearer oidc-access-token'
-    }));
-    expect(applicationLogoutInit.credentials).toBe('include');
-    expect(applicationLogoutInit.method).toBe('POST');
-  });
-});
-
-describe('oidc-center invalidateLocalSession', () => {
-  it('clears refresh credentials without calling logout endpoints', async () => {
-    const fetchMock = vi.fn()
-      .mockResolvedValueOnce(jsonResponse(currentUser()))
-      .mockResolvedValueOnce(jsonResponse(navigation()))
-      .mockResolvedValueOnce(jsonResponse([]));
-    vi.stubGlobal('fetch', fetchMock);
-    sessionStorage.setItem('fullnet.admin.oidc.refresh', JSON.stringify({
-      refreshToken: 'refresh-token',
-      clientId: 'admin-spa'
-    }));
-    const session = useSessionStore();
-    await session.completeOidcAuthorization(tokenResponse('oidc-access-token'));
-    expect(session.state).toBe('authenticated');
-
-    session.invalidateLocalSession();
-
-    expect(session.state).toBe('anonymous');
-    expect(sessionStorage.getItem('fullnet.admin.oidc.refresh')).toBeNull();
-    expect(fetchMock.mock.calls.map(call => call[0])).toEqual([
-      '/api/v1/me',
-      '/api/v1/navigation',
-      '/api/v1/tenancy/available'
-    ]);
-  });
-});
-
-function jsonResponse(body: unknown) {
-  return new Response(JSON.stringify(body), {
-    status: 200,
-    headers: { 'content-type': 'application/json' }
-  });
-}
-
-function tokenResponse(accessToken: string) {
-  return {
-    accessToken,
-    tokenType: 'Bearer' as const,
-    expiresAtUtc: '2026-07-17T04:00:00Z'
-  };
-}
-
-function currentUser() {
-  return {
-    id: '01936c8a-7b3e-7c5d-9f2a-1b2c3d4e5f60',
-    username: 'admin',
-    displayName: '系统管理员',
-    tenantId: null,
-    actorScope: 'host',
-    scope: 'host',
-    isSuperAdministrator: true,
-    passwordChangeRequired: false,
-    permissions: ['tenancy.tenants.read'],
-    sessionId: '01936c8a-7b3e-7c5d-9f2a-1b2c3d4e5f61',
-    preferredLocale: 'zh-CN',
-    profileVersion: 1
-  };
-}
-
-function navigation() {
-  return [{
-    id: 'overview',
-    parentId: null,
-    routeName: 'overview',
-    path: '/',
-    componentKey: 'overview',
-    title: '工作台',
-    caption: '平台运行概览',
-    icon: 'dashboard',
-    order: 10,
-    requiredPermission: 'platform.dashboard.read',
-    children: []
-  }];
-}

@@ -104,10 +104,10 @@ export function mergeCommentOverrides(catalog, repositoryRootPath = repositoryRo
   return catalog;
 }
 
-/** 生成并写入 contracts/database/object-comments.json。 */
+/** 生成对象注释目录；测试可指定独立输出，默认仍写入仓库的正式目录。 */
 export function generateObjectCommentsCatalog(options = {}) {
   const root = path.resolve(options.repositoryRoot ?? repositoryRoot);
-  const outputPath = path.join(root, 'contracts/database/object-comments.json');
+  const outputPath = path.resolve(options.outputPath ?? path.join(root, 'contracts/database/object-comments.json'));
   const schema = normalizeSchema(extractSchemaFromMigrations());
   const catalog = mergeCommentOverrides(buildCommentCatalog(schema), root);
   fs.mkdirSync(path.dirname(outputPath), { recursive: true });

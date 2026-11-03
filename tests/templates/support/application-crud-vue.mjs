@@ -2,13 +2,14 @@ import assert from 'node:assert/strict';
 import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { CRUD_ARTIFACTS } from './application-crud-generation.mjs';
+import { CRUD_ARTIFACTS, applicationCrudArtifactPath } from './application-crud-generation.mjs';
+import { assertHostIntegrationReceipt } from './application-crud-module.mjs';
 
 const generatedNames = ['guards.generated.ts', 'index.generated.ts', 'models.generated.ts', 'operations.generated.ts'];
 const vueSources = new Map([
-  ['clients/vue/products-page.generated.ts', 'ui/admin/src/views/products-page.generated.ts'],
-  ['clients/vue/products.generated.ts', 'ui/admin/src/views/products.generated.ts'],
-  ['clients/vue/productsView.vue', 'ui/admin/src/views/CatalogProductsView.vue'],
+  [applicationCrudArtifactPath('clients/vue/products-page.generated.ts'), 'ui/admin/src/views/products-page.generated.ts'],
+  [applicationCrudArtifactPath('clients/vue/products.generated.ts'), 'ui/admin/src/views/products.generated.ts'],
+  [applicationCrudArtifactPath('clients/vue/productsView.vue'), 'ui/admin/src/views/CatalogProductsView.vue'],
 ]);
 const clientRoot = 'packages/client-contracts/src/application-generated/catalog-product';
 const navigationCatalogPath = 'packages/client-contracts/src/navigation-catalog.ts';
@@ -94,7 +95,7 @@ export function verifyApplicationCrudVueRegeneration(appRoot, {
 } = {}) {
   mkdirSync(reportDirectory, { recursive: true });
   const adoptedPath = 'ui/admin/src/views/CatalogProductsView.vue';
-  const generatedPath = 'clients/vue/productsView.vue';
+  const generatedPath = applicationCrudArtifactPath('clients/vue/productsView.vue');
   const originalAdopted = readFileSync(join(appRoot, adoptedPath), 'utf8');
   const scriptAnchor = '<script setup lang="ts">';
   assert.ok(originalAdopted.includes(scriptAnchor), 'adopted Vue page has no safe manual extension point');
@@ -116,13 +117,19 @@ export function verifyApplicationCrudVueRegeneration(appRoot, {
     }, null, 2));
     assert.equal(result.error, undefined, stage + ' process failed');
     assert.equal(result.status, expectedStatus, stage + ' returned an unexpected status');
+    if (stage === 'adopted-drift') assert.ok((result.stderr ?? '').includes(adoptedPath), 'missing exact adopted file conflict');
     return result.stdout ?? '';
   };
-  const repeat = execute('regenerate', 0).split(/\r?\n/u).filter(Boolean).sort();
+  execute('adopted-drift', 2);
+  assert.deepEqual(capture(), customized, 'owned adopted customization was overwritten');
+  // 只撤销本验收追加的页面注释，不能自动更新清单来认领人工漂移。
+  writeFileSync(join(appRoot, adoptedPath), originalAdopted);
+  const clean = capture();
+  const repeat = execute('regenerate', 0).split(/\r?\n/u).filter(line => line && !line.startsWith('Applied Operation ')).sort();
   assert.deepEqual(repeat, CRUD_ARTIFACTS.map(path => 'Unchanged ' + path).sort(),
     'repeat generation changed its owned source plan');
-  assert.deepEqual(capture(), customized, 'repeat generation changed generated or adopted content');
-  const generated = customized.get(generatedPath);
+  assert.deepEqual(capture(), clean, 'repeat generation changed generated or adopted content');
+  const generated = clean.get(generatedPath);
   writeFileSync(join(appRoot, generatedPath), Buffer.concat([generated,
     Buffer.from('\n<!-- 人工修改生成源，必须拒绝覆盖。 -->\n')]));
   const conflicted = capture();
@@ -131,7 +138,7 @@ export function verifyApplicationCrudVueRegeneration(appRoot, {
     'missing exact Vue source conflict');
   assert.deepEqual(capture(), conflicted, 'conflict changed generated or adopted content');
   writeFileSync(join(appRoot, generatedPath), generated);
-  assert.deepEqual(capture(), customized, 'Vue source restoration changed application content');
+  assert.deepEqual(capture(), clean, 'Vue source restoration changed application content');
   return { repeatUnchanged: true, manualPreserved: true, conflictRejected: true };
 }
 
@@ -158,13 +165,13 @@ export function verifyApplicationCrudVue(appRoot, {
     return result.stdout ?? '';
   };
   const cli = join(appRoot, 'framework/fullnet/src/Tools/Full.NET.CodeGeneration.Cli/bin/Release/net10.0/Full.NET.CodeGeneration.Cli.dll');
-  const routeArgs = ['exec', cli, 'apply-client-route-integration', '--schema',
+  const routeArgs = ['exec', cli, 'apply-host-integration', '--schema',
     join(appRoot, 'verification/CrudGeneration/schema.json'), '--repository', appRoot, '--target', target];
-  assert.match(execute('route', 'dotnet', routeArgs), /Update ui\/admin\/src\/router\/index\.ts/u);
+  assertHostIntegrationReceipt(execute('route', 'dotnet', routeArgs), 'src/Demo.Modules.Catalog/Demo.Modules.Catalog.csproj');
   const routed = readFileSync(router);
   assert.match(routed.toString('utf8'), /name: 'm7-catalog-products'/u);
   assert.match(routed.toString('utf8'), /path: '\/catalog\/products'/u);
-  assert.match(execute('route-repeat', 'dotnet', routeArgs), /Unchanged ui\/admin\/src\/router\/index\.ts/u);
+  assertHostIntegrationReceipt(execute('route-repeat', 'dotnet', routeArgs), 'src/Demo.Modules.Catalog/Demo.Modules.Catalog.csproj');
   assert.deepEqual(readFileSync(router), routed, 'repeat route integration changed the router');
   const contributor = readFileSync(join(appRoot, 'src/Demo.Modules.Catalog/CatalogAuthorizationContributor.cs'), 'utf8');
   assert.match(contributor, /new NavigationDefinition\(\s*"m7-catalog-products",\s*null,\s*"m7-catalog-products",\s*"\/catalog\/products",\s*"m7-catalog-products"/u,

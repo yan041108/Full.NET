@@ -5,15 +5,19 @@ namespace Full.NET.Modules.Document.Persistence;
 /// <summary>文档访问日志相关 SQL。</summary>
 internal static class DocumentAccessLogSql
 {
+    public static readonly SqlStatement LockItem = new("document.host_access_log.lock_item",
+        "UPDATE fn_document_item SET AccessCount = AccessCount WHERE Id = @DocumentItemId AND TenantId IS NULL AND IsDeleted = 0", SqlDataScope.HostOnly);
+
     public static readonly SqlStatement Insert = new(
         "document.host_access_log.insert",
         """
         INSERT INTO fn_document_access_log
             (Id, DocumentItemId, DocumentTitle, AccessTypeKey, SourceKey,
-             ActorUserId, OccurredAtUtc, ClientIpFingerprint, CorrelationJson)
-        VALUES
-            (@Id, @DocumentItemId, @DocumentTitle, @AccessTypeKey, @SourceKey,
-             @ActorUserId, @OccurredAtUtc, @ClientIpFingerprint, @CorrelationJson)
+             ActorUserId, OccurredAtUtc, ClientIpFingerprint, CorrelationJson, OperationKey)
+        SELECT @Id, @DocumentItemId, @DocumentTitle, @AccessTypeKey, @SourceKey,
+             @ActorUserId, @OccurredAtUtc, @ClientIpFingerprint, @CorrelationJson, @OperationKey
+        WHERE @OperationKey IS NULL OR NOT EXISTS (
+            SELECT 1 FROM fn_document_access_log WHERE OperationKey = @OperationKey)
         """,
         SqlDataScope.HostOnly);
 
@@ -36,7 +40,7 @@ internal static class DocumentAccessLogSql
         FROM fn_document_access_log AS log
         INNER JOIN fn_document_item AS item ON item.Id = log.DocumentItemId
         WHERE item.TenantId IS NULL
-          AND {{DocumentPermissionSql.ReadPredicate.Replace("i.Id", "item.Id", StringComparison.Ordinal)}}
+          AND {{DocumentPermissionSql.RelatedReadPredicate("item.Id")}}
           AND (@DocumentItemId IS NULL OR log.DocumentItemId = @DocumentItemId)
           AND (@AccessTypeKey IS NULL OR log.AccessTypeKey = @AccessTypeKey)
           AND (@SourceKey IS NULL OR log.SourceKey = @SourceKey);
@@ -47,7 +51,7 @@ internal static class DocumentAccessLogSql
         FROM fn_document_access_log AS log
         INNER JOIN fn_document_item AS item ON item.Id = log.DocumentItemId
         WHERE item.TenantId IS NULL
-          AND {{DocumentPermissionSql.ReadPredicate.Replace("i.Id", "item.Id", StringComparison.Ordinal)}}
+          AND {{DocumentPermissionSql.RelatedReadPredicate("item.Id")}}
           AND (@DocumentItemId IS NULL OR log.DocumentItemId = @DocumentItemId)
           AND (@AccessTypeKey IS NULL OR log.AccessTypeKey = @AccessTypeKey)
           AND (@SourceKey IS NULL OR log.SourceKey = @SourceKey)
@@ -63,7 +67,7 @@ internal static class DocumentAccessLogSql
         FROM fn_document_access_log AS log
         INNER JOIN fn_document_item AS item ON item.Id = log.DocumentItemId
         WHERE item.TenantId IS NULL
-          AND {{DocumentPermissionSql.ReadPredicate.Replace("i.Id", "item.Id", StringComparison.Ordinal)}}
+          AND {{DocumentPermissionSql.RelatedReadPredicate("item.Id")}}
           AND (@DocumentItemId IS NULL OR log.DocumentItemId = @DocumentItemId)
           AND (@AccessTypeKey IS NULL OR log.AccessTypeKey = @AccessTypeKey)
           AND (@SourceKey IS NULL OR log.SourceKey = @SourceKey);
@@ -74,7 +78,7 @@ internal static class DocumentAccessLogSql
         FROM fn_document_access_log AS log
         INNER JOIN fn_document_item AS item ON item.Id = log.DocumentItemId
         WHERE item.TenantId IS NULL
-          AND {{DocumentPermissionSql.ReadPredicate.Replace("i.Id", "item.Id", StringComparison.Ordinal)}}
+          AND {{DocumentPermissionSql.RelatedReadPredicate("item.Id")}}
           AND (@DocumentItemId IS NULL OR log.DocumentItemId = @DocumentItemId)
           AND (@AccessTypeKey IS NULL OR log.AccessTypeKey = @AccessTypeKey)
           AND (@SourceKey IS NULL OR log.SourceKey = @SourceKey)

@@ -126,7 +126,7 @@ Full.NET/
 3. **性能相关任务**使用 [fullnet-performance-hardening Skill](../.agents/skills/fullnet-performance-hardening/SKILL.md)
 4. **Host.Api/Worker Native AOT** 可达代码或依赖变更必须遵守 [Native AOT 规则](../rules/native-aot.md)，并按 ADR-0008/0009 精确范围声明能力状态
 5. 所有数据库对象、公共标识符、稳定机器码必须遵循 [命名规范](./naming-conventions-summary.md)
-6. 业务模块禁止直接访问其他模块的内部表，跨模块通信只能通过公开 Contracts
+6. 业务操作通过公开 Contracts；后台列表、搜索、报表可按 [ADR-0014](../docs/architecture/adr/ADR-0014-controlled-cross-module-read-queries.md) 使用精确登记的只读 JOIN，禁止跨模块写表与事务
 
 ## 相关链接
 

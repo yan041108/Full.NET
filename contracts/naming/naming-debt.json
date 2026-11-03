@@ -5,6 +5,62 @@
     {
       "kind": "dynamic_sql",
       "value": "dynamic_sql",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/359_ReportingExportTaskCancellation.sql",
+      "reason": "仅按固定状态约束元数据选择固定 SELECT 1 或两条字面 ALTER TABLE，不接受外部标识符；真实迁移库验证约束缺失与重放，避免 API 模板克隆的 CHECK 重命名。MySQL 支持直接可恢复约束替换后移除 PREPARE。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "dynamic_sql",
+      "value": "dynamic_sql",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/358_ImportTaskCancellation.sql",
+      "reason": "只按固定状态检查约束元数据选择固定 SELECT 1 或两条固定 ALTER TABLE，不接受外部输入或对象名拼接；双库取消验证覆盖约束缺失及重复执行恢复。MySQL 支持直接可恢复约束替换后移除 PREPARE。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "dynamic_sql",
+      "value": "dynamic_sql",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/357_ImportProfilesAndInputSnapshots.sql",
+      "reason": "只按 columns/table_constraints 存在性选择固定 SELECT 1 或四条固定 ALTER TABLE 字面量，列名、检查与表均不接受外部输入；新增表完整创建，任务输入列和约束分步重入。双库导入配置验收覆盖部分完成恢复；MySQL 支持直接可恢复 DDL 后移除 PREPARE。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "dynamic_sql",
+      "value": "dynamic_sql",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/356_DocumentRecentSearchIndex.sql",
+      "reason": "仅由 statistics 存在性选择固定 SELECT 1 或固定文档近期索引 CREATE INDEX，无外部输入或对象名拼接；双库近期搜索验证覆盖重跑恢复。MySQL 支持直接可恢复索引 DDL 后移除 PREPARE。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "dynamic_sql",
+      "value": "dynamic_sql",
+      "file": "samples/enterprise-request/src/Full.NET.Modules.EnterpriseRequest/Migrations/MySql/004_EnterpriseRequestRecentSearchIndex.sql",
+      "reason": "样例索引恢复只选择固定 SELECT 1 或固定 CREATE INDEX，运行时不拼接对象名且不接受业务输入；双库搜索验证覆盖重复执行。MySQL 支持直接可恢复索引 DDL 后移除 PREPARE。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "dynamic_sql",
+      "value": "dynamic_sql",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/354_OwnTaskCursorIndexes.sql",
+      "reason": "仅按 information_schema.statistics 存在性选择固定 SELECT 1 或两条固定 CREATE INDEX 字面量；无外部输入及对象名拼接。本人任务双库场景检查部分索引已完成时的完整重跑及重复执行；验收以产品化计划 §8.22 为准。移除条件为 MySQL 可恢复固定 DDL 不再需要 PREPARE。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "dynamic_sql",
+      "value": "dynamic_sql",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/353_ReportingTenantPublication.sql",
+      "reason": "仅按 information_schema.COLUMNS 存在性选择固定 SELECT 1 或固定 ADD ActorSessionBindingJson DDL；无请求、配置或业务数据进入 SQL，对象及列名固定。报表租户发布双库验证已覆盖新结构，历史空绑定失败关闭；移除条件为 MySQL 可恢复固定 DDL 不再需要 PREPARE。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "dynamic_sql",
+      "value": "dynamic_sql",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/292_CodeGenerationRunSource.sql",
+      "reason": "来源约束恢复仅依据 INFORMATION_SCHEMA 拼接两个固定 DROP CHECK 字面量与同一固定 ADD CONSTRAINT 正文，以单条原子 ALTER 保证脏数据失败保留旧约束；无请求、配置或业务数据进入对象名/SQL。部分缺失和未记账重跑由 Migration292CodeGenerationRunSourceRecoveryTests 覆盖，实际结果以整改计划为准。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "dynamic_sql",
+      "value": "dynamic_sql",
       "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/272_AiKnowledgeIndexGrants.sql",
       "reason": "增量收费授权的可恢复迁移仅依据 INFORMATION_SCHEMA 选择固定字面量约束或索引 DDL；对象名及语句不接受业务输入，逐项恢复由 Migration272AiKnowledgeIndexGrantsRecoveryTests 覆盖，实际双库结果以本批集中验收为准。",
       "removalMilestone": "M1.0"
@@ -2758,6 +2814,69 @@
       "value": "dynamic_sql",
       "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/285_NotificationsMessageLifecycle.sql",
       "reason": "284 仅根据 INFORMATION_SCHEMA 列存在性选择固定生命周期列定义，标识符均为常量，不接受业务输入；恢复集固定 283/284 上界。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "dynamic_sql",
+      "value": "dynamic_sql",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/SqlServer/286_DocumentAccessLifecycle.sql",
+      "reason": "286 仅以固定字面量将旧 ACL 转为动作集合并删除旧列；对象名和表达式不接受外部输入。迁移 286/287 的双库未记账重跑测试覆盖结构恢复与数据映射。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "unsupported_sql",
+      "value": "unsupported_ddl",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/SqlServer/286_DocumentAccessLifecycle.sql",
+      "reason": "286 仅以固定字面量将旧 ACL 转为动作集合并删除旧列；对象名和表达式不接受外部输入。迁移 286/287 的双库未记账重跑测试覆盖结构恢复与数据映射。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "dynamic_sql",
+      "value": "dynamic_sql",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/286_DocumentAccessLifecycle.sql",
+      "reason": "286 仅以固定字面量将旧 ACL 转为动作集合并删除旧列；对象名和表达式不接受外部输入。迁移 286/287 的双库未记账重跑测试覆盖结构恢复与数据映射。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "unsupported_sql",
+      "value": "unsupported_ddl",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/286_DocumentAccessLifecycle.sql",
+      "reason": "286 仅以固定字面量将旧 ACL 转为动作集合并删除旧列；对象名和表达式不接受外部输入。迁移 286/287 的双库未记账重跑测试覆盖结构恢复与数据映射。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "dynamic_sql",
+      "value": "dynamic_sql",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/327_AiKnowledgePublication.sql",
+      "reason": "327 仅按 information_schema 探测六个固定 AI 索引，并 PREPARE 固定 CREATE INDEX 字面量或 SELECT 1，以恢复 MySQL DDL 部分提交；不接受外部对象名。静态主键已显式命名；迁移重跑场景已编码，最新双库运行被 Windows 企业签名策略阻断，验收完成前不得标记通过。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "dynamic_sql",
+      "value": "dynamic_sql",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/331_AiKnowledgeCorrections.sql",
+      "reason": "仅依据 INFORMATION_SCHEMA 选择四个固定索引 DDL，支持未记账或部分索引丢失重跑；对象名与 SQL 不接受业务输入。AiKnowledgeCorrectionPersistenceTests 在 SQL Server/MySQL 实际验证移除四个索引及两次未记账重跑，保留原解析、修订和 CAS 头。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "dynamic_sql",
+      "value": "dynamic_sql",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/332_AiKnowledgeIndexCorrection.sql",
+      "reason": "仅按固定元数据探测执行五个固定列及一个固定约束 DDL，不接受外部对象名；分别恢复列、说明和约束启用。双库部分完成及未记账恢复由本批定向集成验证。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "dynamic_sql",
+      "value": "dynamic_sql",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/334_AiKnowledgeCorrectionManifest.sql",
+      "reason": "仅按固定元数据探测新增、启用和替换清单格式约束的固定 DDL；不接受业务对象名或 SQL。中断重跑与原载荷保留由人工清单双库定向测试验证，未执行不得标记通过。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "dynamic_sql",
+      "value": "dynamic_sql",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/335_AiKnowledgeCorrectionVectors.sql",
+      "reason": "仅执行新增、启用与替换固定人工向量格式约束的字面量 DDL；支持 DDL 成功但未记账恢复，不接受外部对象名。双库约束恢复与向量不变由本批定向验证，未执行不计通过。",
       "removalMilestone": "M1.0"
     }
   ]

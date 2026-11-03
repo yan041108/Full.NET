@@ -16,6 +16,14 @@ using Microsoft.Extensions.Options;
 using Full.NET.Modules.Organization.Contracts;
 namespace Full.NET.Modules.EnterpriseRequest.Generated;
 
+/// <summary>在本模块命令事务内检查业务不变量；仅访问本模块数据，禁止跨模块调用及外部副作用。</summary>
+internal interface IEnterpriseRequestMutationPolicy
+{
+    Task<Error?> ValidateCreateAsync(CreateEnterpriseRequestRequest request, Guid actorUserId, Guid? organizationUnitId, CancellationToken cancellationToken);
+    Task<Error?> ValidateUpdateAsync(Guid id, UpdateEnterpriseRequestRequest request, Guid actorUserId, CancellationToken cancellationToken);
+    Task<Error?> ValidateDeleteAsync(Guid id, Guid actorUserId, CancellationToken cancellationToken);
+}
+
 internal sealed class EnterpriseRequestQueryService(
     IQueryExecutor queryExecutor,
     IOptions<DatabaseOptions> databaseOptions,
@@ -28,8 +36,12 @@ internal sealed class EnterpriseRequestQueryService(
                 bool isSuperAdministrator,
                 int page,
                 int pageSize,
-                CancellationToken cancellationToken = default)
+                CancellationToken cancellationToken = default,
+                EnterpriseRequestListQuery? query = null)
             {
+                    query ??= new();
+                if (query.Validate() is { } queryError)
+                    return Result<PagedResult<EnterpriseRequestResponse>>.Failure(queryError);
                 page = Math.Max(page, 1);
                 pageSize = Math.Clamp(pageSize, 1, 100);
                 var offset = (long)(page - 1) * pageSize;
@@ -42,15 +54,20 @@ internal sealed class EnterpriseRequestQueryService(
                     scope,
                     "OrganizationUnitId",
                     currentUserId);
+                var countBase = databaseOptions.Value.Provider switch
+                {
+                    DatabaseProvider.SqlServer => EnterpriseRequestSql.QueryCountSqlServerStatement,
+                    DatabaseProvider.MySql => EnterpriseRequestSql.QueryCountMySqlStatement,
+                    _ => throw new InvalidOperationException("The configured database provider is not supported."),
+                };
+                // 计数与分页共用固定租户条件追加范围，不依赖 WHERE 前导项或排版。
                 var countStatement = GeneratedTenantDataScopeComposer.ApplyDataScopeFilter(
-                    EnterpriseRequestSql.CountStatement,
+                    countBase,
                     filter,
-                    "WHERE TenantId = @TenantId");
+                    "AND TenantId = @TenantId");
                 var total = await queryExecutor.QuerySingleOrDefaultAsync<long>(
                         countStatement,
-                        GeneratedTenantDataScopeComposer.MergeParameters(
-                            null,
-                            filter),
+                        GeneratedTenantDataScopeComposer.MergeParameters(query.Parameters(offset, pageSize), filter),
                         cancellationToken)
                     .ConfigureAwait(false);
                 var baseStatement = databaseOptions.Value.Provider switch
@@ -65,12 +82,12 @@ internal sealed class EnterpriseRequestQueryService(
                 var listStatement = GeneratedTenantDataScopeComposer.ApplyDataScopeFilter(
                     baseStatement,
                     filter,
-                    "WHERE 1 = 1\n            AND TenantId = @TenantId");
+                    "AND TenantId = @TenantId");
                 var rows = await queryExecutor
                     .QueryAsync<EnterpriseRequestRecord>(
                         listStatement,
                         GeneratedTenantDataScopeComposer.MergeParameters(
-                            new Dictionary<string, object?> { ["Offset"] = offset, ["PageSize"] = pageSize },
+                            query.Parameters(offset, pageSize),
                             filter),
                         cancellationToken)
                     .ConfigureAwait(false);
@@ -155,10 +172,10 @@ internal sealed class EnterpriseRequestQueryService(
     private static class GeneratedTenantDataScopeComposer
     {
         private const string CountTenantWhereAnchor =
-            "WHERE TenantId = @TenantId";
+            "WHERE 1 = 1";
 
         private const string ListTenantWhereAnchor =
-            "WHERE 1 = 1\n            AND TenantId = @TenantId";
+            "WHERE 1 = 1";
 
         internal static SqlStatement ApplyDataScopeFilter(
             SqlStatement statement,
@@ -241,14 +258,30 @@ internal sealed class EnterpriseRequestManagementService(
     ICurrentTenant currentTenant,
     IClock clock,
     IIdGenerator idGenerator,
+    IEnterpriseRequestMutationPolicy mutationPolicy,
     IOrganizationOwnedEntityWriteAuthorizer writeAuthorizer)
 {
+    private async Task<Result<EnterpriseRequestResponse>> ExecuteWriteAsync(
+        Func<CancellationToken, Task<Result<EnterpriseRequestResponse>>> action,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            return await transaction.ExecuteResultAsync(action, cancellationToken).ConfigureAwait(false);
+        }
+        catch (DataCommandException exception) when (exception.Kind == DataCommandFailureKind.UniqueConstraint)
+        {
+            return Result<EnterpriseRequestResponse>.Failure(new Error(
+                "enterprise_request.enterprise_requests.unique_conflict",
+                "The unique field value already exists.", ErrorType.Conflict));
+        }
+    }
     public Task<Result<EnterpriseRequestResponse>> CreateAsync(
         CreateEnterpriseRequestRequest request,
 Guid actorUserId,
 Guid organizationUnitId,
 CancellationToken cancellationToken = default) =>
-        transaction.ExecuteAsync(
+        ExecuteWriteAsync(
             token => CreateCoreAsync(
                 request,
                 actorUserId,
@@ -270,39 +303,29 @@ CancellationToken cancellationToken = default)
                             actorUserId,
                             cancellationToken)
                         .ConfigureAwait(false);
-                    if (!authorization.IsSuccess)
+                    if (!authorization.IsSuccess || !authorization.Value)
                     {
-                        return Result<EnterpriseRequestResponse>.Failure(authorization.Error!);
+                        return Result<EnterpriseRequestResponse>.Failure(authorization.Error ?? new Error(
+                            OrganizationErrorCodes.WriteAccessDenied, "Write access to the organization unit was denied.", ErrorType.Forbidden));
                     }        var validationError = ValidateWriteRequest(
             request.RequestNumber,
             request.Title,
-            request.Status);
+            request.Status,
+            request.TotalAmount,
+            request.ApplicantUserId);
         if (validationError is not null)
         {
             return validationError;
         }
 
+        var mutationError = await mutationPolicy.ValidateCreateAsync(request, actorUserId, organizationUnitId, cancellationToken).ConfigureAwait(false);
+        if (mutationError is not null) return Result<EnterpriseRequestResponse>.Failure(mutationError);
+
         var enterpriseRequestId = idGenerator.NewId();
+
         var affectedRows = await commandExecutor.ExecuteAsync(
                 EnterpriseRequestSql.InsertStatement,
-                new
-                {
-                    Id = enterpriseRequestId,
-                    OrganizationUnitId = organizationUnitId,
-                    request.RequestNumber,
-                    request.Title,
-                    request.Status,
-                    request.TotalAmount,
-                    request.ApplicantUserId,
-                    Version = 1L,
-                    CreatedAtUtc = clock.UtcNow,
-                    CreatedById = actorUserId,
-                    UpdatedAtUtc = (DateTimeOffset?)null,
-                    UpdatedById = (Guid?)null,
-                    IsDeleted = false,
-                    DeletedAtUtc = (DateTimeOffset?)null,
-                    DeletedById = (Guid?)null
-                },
+                new Dictionary<string, object?> { ["Id"] = enterpriseRequestId, ["OrganizationUnitId"] = organizationUnitId, ["RequestNumber"] = request.RequestNumber, ["Title"] = request.Title, ["Status"] = request.Status, ["TotalAmount"] = request.TotalAmount, ["ApplicantUserId"] = request.ApplicantUserId, ["Version"] = 1L, ["CreatedAtUtc"] = clock.UtcNow, ["CreatedById"] = actorUserId, ["UpdatedAtUtc"] = (DateTimeOffset?)null, ["UpdatedById"] = (Guid?)null, ["IsDeleted"] = false, ["DeletedAtUtc"] = (DateTimeOffset?)null, ["DeletedById"] = (Guid?)null },
                 cancellationToken)
             .ConfigureAwait(false);
         if (affectedRows != 1)
@@ -323,7 +346,7 @@ CancellationToken cancellationToken = default)
         UpdateEnterpriseRequestRequest request,
         Guid actorUserId,
         CancellationToken cancellationToken = default) =>
-        transaction.ExecuteAsync(
+        ExecuteWriteAsync(
             token => UpdateCoreAsync(
                 enterpriseRequestId,
                 request,
@@ -354,32 +377,27 @@ CancellationToken cancellationToken = default)
                         actorUserId,
                         cancellationToken)
                     .ConfigureAwait(false);
-                if (!authorization.IsSuccess)
+                if (!authorization.IsSuccess || !authorization.Value)
                 {
-                    return Result<EnterpriseRequestResponse>.Failure(authorization.Error!);
+                    return Result<EnterpriseRequestResponse>.Failure(authorization.Error ?? new Error(
+                        OrganizationErrorCodes.WriteAccessDenied, "Write access to the organization unit was denied.", ErrorType.Forbidden));
                 }    var validationError = ValidateWriteRequest(
         request.RequestNumber,
         request.Title,
-        request.Status);
+        request.Status,
+        request.TotalAmount,
+        request.ApplicantUserId);
     if (validationError is not null)
     {
         return validationError;
     }
 
+        var mutationError = await mutationPolicy.ValidateUpdateAsync(enterpriseRequestId, request, actorUserId, cancellationToken).ConfigureAwait(false);
+        if (mutationError is not null) return Result<EnterpriseRequestResponse>.Failure(mutationError);
+
         var affectedRows = await commandExecutor.ExecuteAsync(
                 EnterpriseRequestSql.UpdateStatement,
-                new
-                {
-                    Id = enterpriseRequestId,
-                    request.RequestNumber,
-                    request.Title,
-                    request.Status,
-                    request.TotalAmount,
-                    request.ApplicantUserId,
-                    UpdatedAtUtc = clock.UtcNow,
-                    UpdatedById = actorUserId,
-                    request.Version
-                },
+                new Dictionary<string, object?> { ["Id"] = enterpriseRequestId, ["RequestNumber"] = request.RequestNumber, ["Title"] = request.Title, ["Status"] = request.Status, ["TotalAmount"] = request.TotalAmount, ["ApplicantUserId"] = request.ApplicantUserId, ["UpdatedAtUtc"] = clock.UtcNow, ["UpdatedById"] = actorUserId, ["Version"] = request.Version },
                 cancellationToken)
             .ConfigureAwait(false);
         if (affectedRows != 1)
@@ -401,7 +419,7 @@ CancellationToken cancellationToken = default)
             DeleteEnterpriseRequestRequest request,
         Guid actorUserId,
         CancellationToken cancellationToken = default) =>
-        transaction.ExecuteAsync(
+        ExecuteWriteAsync(
             token => DeleteCoreAsync(
                 enterpriseRequestId, request,
                 actorUserId,
@@ -431,23 +449,22 @@ CancellationToken cancellationToken = default)
                             actorUserId,
                             cancellationToken)
                         .ConfigureAwait(false);
-                    if (!authorization.IsSuccess)
+                    if (!authorization.IsSuccess || !authorization.Value)
                     {
-                        return Result<EnterpriseRequestResponse>.Failure(authorization.Error!);
+                        return Result<EnterpriseRequestResponse>.Failure(authorization.Error ?? new Error(
+                            OrganizationErrorCodes.WriteAccessDenied, "Write access to the organization unit was denied.", ErrorType.Forbidden));
                     }
-            await CascadeDeleteDependentsAsync(
-            enterpriseRequestId,
+        var mutationError = await mutationPolicy.ValidateDeleteAsync(enterpriseRequestId, actorUserId, cancellationToken).ConfigureAwait(false);
+        if (mutationError is not null) return Result<EnterpriseRequestResponse>.Failure(mutationError);
+
+        await CascadeDeleteDependentsAsync(
+            existing.Value!,
+            actorUserId,
             cancellationToken)
             .ConfigureAwait(false);
                 var affectedRows = await commandExecutor.ExecuteAsync(
                 EnterpriseRequestSql.DeleteStatement,
-                new
-                {
-                    Id = enterpriseRequestId,
-                    DeletedAtUtc = clock.UtcNow,
-                    DeletedById = actorUserId,
-                    request.Version
-                },
+                new Dictionary<string, object?> { ["Id"] = enterpriseRequestId, ["DeletedAtUtc"] = clock.UtcNow, ["DeletedById"] = actorUserId, ["Version"] = request.Version },
                 cancellationToken)
             .ConfigureAwait(false);
         if (affectedRows != 1)
@@ -472,23 +489,35 @@ CancellationToken cancellationToken = default)
     }
 
     private static Result<EnterpriseRequestResponse>? ValidateWriteRequest(
-        string? requestNumber,
-        string? title,
-        string? status)
+        string requestNumber,
+        string title,
+        string status,
+        decimal totalAmount,
+        Guid applicantUserId)
     {
-        if (requestNumber is null || requestNumber.Length > 64)
+        if (string.IsNullOrWhiteSpace(requestNumber) || requestNumber is { Length: > 64 })
         {
             return ValidationFailure("RequestNumber");
         }
 
-        if (title is null || title.Length > 200)
+        if (string.IsNullOrWhiteSpace(title) || title is { Length: > 200 })
         {
             return ValidationFailure("Title");
         }
 
-        if (status is null || status.Length > 32)
+        if (string.IsNullOrWhiteSpace(status) || status is { Length: > 32 })
         {
             return ValidationFailure("Status");
+        }
+
+        if ((totalAmount is decimal totalAmountValue && (decimal.Round(totalAmountValue, 2) != totalAmountValue || totalAmountValue <= -10000000000000000m || totalAmountValue >= 10000000000000000m)))
+        {
+            return ValidationFailure("TotalAmount");
+        }
+
+        if (applicantUserId == Guid.Empty)
+        {
+            return ValidationFailure("ApplicantUserId");
         }
         return null;
     }
@@ -502,7 +531,7 @@ CancellationToken cancellationToken = default)
             new Dictionary<string, string[]>(StringComparer.Ordinal)
             {
                 [field] = ["The field value is invalid."],
-            }));
+            }, null, new[] { new ValidationViolation(field, "enterprise_request.enterprise_requests.invalid_field", new Dictionary<string, object?>()) }));
 
     private async Task<Result<EnterpriseRequestResponse>> ResolveWriteFailureAsync(
         Guid enterpriseRequestId,
@@ -523,20 +552,17 @@ CancellationToken cancellationToken = default)
             "The resource was updated concurrently.",
             ErrorType.Conflict));
                 private async Task CascadeDeleteDependentsAsync(
-                    Guid enterpriseRequestId,
+                    EnterpriseRequestResponse principal,
+                    Guid actorUserId,
                     CancellationToken cancellationToken)
                 {
         await commandExecutor.ExecuteAsync(
                 new SqlStatement(
-                    "enterprise_request.cascade_delete_enterprise_request_line",
-                    "DELETE FROM demo_enterprise_request_enterprise_request_line WHERE RequestId = @Id AND TenantId = @TenantId",
+                    "enterprise_request.cascade_delete_enterprise_request_line_requestId",
+                    "UPDATE demo_enterprise_request_enterprise_request_line SET IsDeleted = 1, DeletedAtUtc = @DeletedAtUtc, DeletedById = @DeletedById, Version = Version + 1 WHERE RequestId = @Id AND TenantId = @TenantId AND IsDeleted = 0 AND OrganizationUnitId = @OrganizationUnitId",
                     SqlDataScope.TenantRequired,
                     SqlTenantBinding.CurrentTenantId),
-                new
-                {
-                    Id = enterpriseRequestId,
-                                    TenantId = currentTenant.Id!.Value,
-                },
+                new Dictionary<string, object?> { ["Id"] = principal.Id, ["TenantId"] = currentTenant.Id!.Value, ["OrganizationUnitId"] = principal.OrganizationUnitId, ["DeletedAtUtc"] = clock.UtcNow, ["DeletedById"] = actorUserId },
                 cancellationToken)
             .ConfigureAwait(false);
                 }

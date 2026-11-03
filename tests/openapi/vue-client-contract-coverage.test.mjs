@@ -21,6 +21,14 @@ test('Vue/OpenAPI/共享 TypeScript 契约覆盖门禁通过', async () => {
   assert.deepEqual(violations, []);
 });
 
+test('330协作授权的Vue适配器具有共享契约和生成绑定覆盖', async () => {
+  const module = 'ui/admin/src/api/workflow-collaboration-grants.ts';
+  const modules = await collectProductionApiModules();
+  assert.ok(modules.includes(module));
+  const violations = await validateVueClientContractCoverage();
+  assert.deepEqual(violations.filter(value => value.includes(module)), []);
+});
+
 async function sharedConsumerFixture(sharedModule) {
   const { mkdtemp, mkdir, writeFile } = await import('node:fs/promises');
   const { tmpdir } = await import('node:os');

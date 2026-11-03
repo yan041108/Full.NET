@@ -6,6 +6,10 @@ public interface IEventDeliveryCutoverProbe
     /// <summary>读取当前 Connector、环境配置及全部订阅实例的资源摘要；未知返回 null。</summary>
     Task<string?> ReadTargetFingerprintAsync(string eventType, int schemaVersion, CancellationToken cancellationToken = default);
 
+    /// <summary>在目标仍匹配已批准证明时冻结完整正式/重试拓扑；缺证据返回 null。</summary>
+    Task<CdcKafkaDeliveryBinding?> ReadDeliveryBindingAsync(string eventType, int schemaVersion, string expectedFingerprint,
+        CancellationToken cancellationToken = default);
+
     /// <summary>完整扫描配置的影子 Topic 固定高水位，并与权威快照逐条比对；不完整返回 null。</summary>
     Task<string?> CompareShadowAsync(string eventType, int schemaVersion, IReadOnlyList<CutoverShadowEvent> expected,
         CancellationToken cancellationToken = default);
@@ -19,6 +23,9 @@ public sealed record CutoverShadowEvent(Guid Id, string PartitionKey, byte[] Pay
 /// <summary>未装配真实目标链路时保持失败关闭。</summary>
 public sealed class FailClosedEventDeliveryCutoverProbe : IEventDeliveryCutoverProbe
 {
+    /// <inheritdoc/>
+    public Task<CdcKafkaDeliveryBinding?> ReadDeliveryBindingAsync(string eventType, int schemaVersion, string expectedFingerprint,
+        CancellationToken cancellationToken = default) => Task.FromResult<CdcKafkaDeliveryBinding?>(null);
     /// <inheritdoc/>
     public Task<string?> ReadTargetFingerprintAsync(string eventType, int schemaVersion, CancellationToken cancellationToken = default) => Task.FromResult<string?>(null);
     /// <inheritdoc/>

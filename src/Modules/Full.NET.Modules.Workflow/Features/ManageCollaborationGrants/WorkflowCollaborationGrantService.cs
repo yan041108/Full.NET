@@ -113,8 +113,14 @@ internal sealed class WorkflowCollaborationGrantService(IQueryExecutor query,ICo
         if(await FindAsync(id,scope.TenantScopeKey,token).ConfigureAwait(false) is null) return Fail(ErrorType.NotFound);
         // 撤销是收紧已有许可，即使功能套餐失效也必须允许双方终止自己的同意。
         return await MutateAsync(id,actor,scope,"revoke",request.IdempotencyKey,hash,
-            inner=>command.ExecuteAsync(WorkflowCollaborationGrantSql.Revoke,P(("Id",id),("ActorUserId",actor),("TenantScopeKey",scope.TenantScopeKey),
-                ("Revision",request.ExpectedRevision),("Reason",reason),("Now",Now())),inner),token).ConfigureAwait(false);
+            async inner=>
+            {
+                var changed=await command.ExecuteAsync(WorkflowCollaborationGrantSql.Revoke,P(("Id",id),("ActorUserId",actor),("TenantScopeKey",scope.TenantScopeKey),
+                    ("Revision",request.ExpectedRevision),("Reason",reason),("Now",Now())),inner).ConfigureAwait(false);
+                if(changed==1)await command.ExecuteAsync(WorkflowCollaborationControlSql.CloseGrant,
+                    P(("GrantId",id),("TenantScopeKey",scope.TenantScopeKey),("Now",Now())),inner).ConfigureAwait(false);
+                return changed;
+            },token).ConfigureAwait(false);
     }
 
     private async Task<Result<WorkflowCollaborationGrantResponse>> MutateAsync(Guid id,Guid actor,WorkflowManagementScope scope,string operation,string key,string hash,
@@ -169,6 +175,11 @@ internal sealed class WorkflowCollaborationGrantService(IQueryExecutor query,ICo
     }
     private static WorkflowCollaborationTargetSummary? Summary(WorkflowDefinitionVersionRecord version,WorkflowDefinitionRecord definition,WorkflowFormVersionRecord form,WorkflowCollaborationAcceptancePolicy acceptance)
     {
+        // 目标及子代只能消费既定协作切片，不能把协作源定义选作目标来隐式再分配跨根预算。
+        WorkflowDefinitionDraft? draft;
+        try { draft=JsonSerializer.Deserialize(version.CanonicalJson,WorkflowJsonSerializerContext.Default.WorkflowDefinitionDraft); }
+        catch(JsonException) { return null; }
+        if(draft is null || draft.Nodes.Any(node=>node.NodeTypeKey==WorkflowCollaborationCallPolicy.NodeType)) return null;
         var schema=JsonSerializer.Deserialize(form.FormSchemaJson,WorkflowJsonSerializerContext.Default.WorkflowFormSchema);
         if(schema is null) return null;
         var fields=schema.Sections.SelectMany(section=>section.Fields).ToDictionary(field=>field.FieldKey,field=>field.FieldTypeKey,StringComparer.Ordinal);

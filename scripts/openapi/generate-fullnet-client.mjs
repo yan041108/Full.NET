@@ -286,6 +286,15 @@ function renderOperation(operation, schemas) {
   ];
   lines.push(...renderPath(operation));
   lines.push(...renderRequestInitialization(operation, schemas));
+  const headerParameters = operation.parameters.filter(parameter => parameter.in === 'header');
+  if (headerParameters.length > 0) {
+    lines.push('  const headers = new Headers(init.headers);');
+    for (const parameter of headerParameters) {
+      const access = `parameters[${JSON.stringify(parameter.name)}]`;
+      lines.push(`  if (${access} !== undefined) headers.set(${JSON.stringify(parameter.name)}, String(${access}));`);
+    }
+    lines.push('  init.headers = headers;');
+  }
   if (operation.response.kind === 'blob') {
     lines.push('  return options === undefined');
     lines.push('    ? await http.requestBlob(path, init, signal)');
@@ -453,7 +462,7 @@ function describeRequest(requestBody, schemas) {
     return {
       kind: 'multipart',
       required: requestBody.required === true,
-      schema: content['multipart/form-data'].schema
+      schema: multipartObjectSchema(content['multipart/form-data'].schema, schemas)
     };
   }
   const mediaTypes = Object.keys(content).sort(compareText);
@@ -461,6 +470,29 @@ function describeRequest(requestBody, schemas) {
     return { kind: 'binary', required: requestBody.required === true, mediaTypes };
   }
   throw new Error('客户端生成器遇到不支持的 requestBody media type。');
+}
+
+/** ASP.NET 多表单参数通过 allOf 导出；必须合并字段和必填约束，不能生成空 FormData。 */
+function multipartObjectSchema(schema, schemas, references = new Set()) {
+  if (isReference(schema)) {
+    const name = referenceName(schema);
+    if (references.has(name) || !schemas[name]) throw new Error('multipart Schema 引用无效或循环。');
+    return multipartObjectSchema(schemas[name], schemas, new Set([...references, name]));
+  }
+  if (!schema || schema.oneOf || schema.anyOf) throw new Error('multipart 需要确定的对象 Schema。');
+  const properties = { ...schema.properties };
+  const required = new Set(schema.required ?? []);
+  for (const part of schema.allOf ?? []) {
+    const child = multipartObjectSchema(part, schemas, references);
+    for (const [name, value] of Object.entries(child.properties)) {
+      if (properties[name] && JSON.stringify(properties[name]) !== JSON.stringify(value))
+        throw new Error(`multipart 字段定义冲突：${name}`);
+      properties[name] = value;
+    }
+    for (const name of child.required) required.add(name);
+  }
+  if (Object.keys(properties).length === 0) throw new Error('multipart Schema 不得缺少可编码字段。');
+  return { type: 'object', properties, required: [...required] };
 }
 
 function describeResponse(responses, context = {}) {

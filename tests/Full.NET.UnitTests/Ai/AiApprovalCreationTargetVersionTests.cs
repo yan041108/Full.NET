@@ -96,7 +96,7 @@ public sealed partial class AiApprovalCurrentAdmissionTests
         var rename = new RenameChatSessionToolHandler(null!, sessions, f.Consumption, transaction, f.Tenant);
         var remote = Substitute.For<IRemoteAgentToolDefinitionSource>();
         remote.BuildDefinitionsAsync(Arg.Any<CancellationToken>()).Returns(Array.Empty<AgentToolDefinition>());
-        var tools = new AgentToolRegistryFactory(new PingToolHandler(), null!, null!, rename, remote);
+        var tools = new AgentToolRegistryFactory(new PingToolHandler(), null!, null!, null!, rename, remote);
         return new AiAgentApprovalService(f.Queries, f.Commands, runs, sessions, null!, tools, f.Consumption, f.Gate,
             null!, f.Tenant, f.Clock, ids, Options.Create(new AiAgentRuntimeOptions()));
     }

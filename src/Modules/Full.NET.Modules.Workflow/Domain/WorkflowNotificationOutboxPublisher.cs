@@ -103,7 +103,7 @@ internal sealed class WorkflowNotificationOutboxPublisher(IOutboxWriter outboxWr
         string businessId,
         DateTimeOffset occurredAtUtc,
         CancellationToken cancellationToken = default) =>
-        businessType == WorkflowChildStartContext.BusinessType ? Task.CompletedTask : outboxWriter.AddAsync(
+        businessType is WorkflowChildStartContext.BusinessType or WorkflowCollaborationStartContext.BusinessType ? Task.CompletedTask : outboxWriter.AddAsync(
             WorkflowNotificationIntegrationEventTypes.InstanceCompleted,
             SchemaVersion,
             new WorkflowInstanceCompletedIntegrationEvent(
@@ -125,7 +125,7 @@ internal sealed class WorkflowNotificationOutboxPublisher(IOutboxWriter outboxWr
         string businessId,
         DateTimeOffset occurredAtUtc,
         CancellationToken cancellationToken = default) =>
-        businessType == WorkflowChildStartContext.BusinessType ? Task.CompletedTask : outboxWriter.AddAsync(
+        businessType is WorkflowChildStartContext.BusinessType or WorkflowCollaborationStartContext.BusinessType ? Task.CompletedTask : outboxWriter.AddAsync(
             WorkflowNotificationIntegrationEventTypes.InstanceRejected,
             SchemaVersion,
             new WorkflowInstanceRejectedIntegrationEvent(
@@ -147,7 +147,7 @@ internal sealed class WorkflowNotificationOutboxPublisher(IOutboxWriter outboxWr
         string businessId,
         DateTimeOffset occurredAtUtc,
         CancellationToken cancellationToken = default) =>
-        businessType == WorkflowChildStartContext.BusinessType ? Task.CompletedTask : outboxWriter.AddAsync(
+        businessType is WorkflowChildStartContext.BusinessType or WorkflowCollaborationStartContext.BusinessType ? Task.CompletedTask : outboxWriter.AddAsync(
             WorkflowNotificationIntegrationEventTypes.InstanceCancelled,
             SchemaVersion,
             new WorkflowInstanceCancelledIntegrationEvent(

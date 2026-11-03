@@ -1,6 +1,6 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { createHash, randomUUID } from 'node:crypto';
-import { mkdir, mkdtemp, open, readFile, realpath, rm, unlink, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, open, readFile, realpath, rm, stat, unlink, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
@@ -41,27 +41,56 @@ export async function runConcentratedAcceptance(testContext, action, options = {
 
 async function acquire(file, { signal, deadline, onWait, metadata = {} }) {
   let announced = false;
+  let uncertainCreateRetries = 0;
   const token = randomUUID();
   while (true) {
     signal?.throwIfAborted();
     if (Date.now() >= deadline) throw new Error(`等待测试资源超时：${file}`);
+    let handle;
     try {
-      const handle = await open(file, 'wx');
+      handle = await open(file, 'wx');
+    } catch (error) {
+      if (error.code !== 'EEXIST') {
+        if (process.platform !== 'win32' || !['EPERM', 'EACCES', 'EBUSY'].includes(error.code)) throw error;
+        let existing;
+        try { existing = await stat(file); }
+        catch (probeError) {
+          // 锁刚删除时独占创建可能短暂返回权限错误；只做少量重试，持续拒绝必须原样失败。
+          if (probeError.code === 'ENOENT' && uncertainCreateRetries++ < 2) {
+            await delay(Math.min(100, Math.max(1, deadline - Date.now())), undefined, { signal });
+            continue;
+          }
+          throw error;
+        }
+        if (!existing.isFile()) throw error;
+      }
+    }
+    if (handle) {
       try { await handle.writeFile(JSON.stringify({ ...metadata, pid: process.pid, token })); }
       catch (error) { await unlink(file); throw error; }
       finally { await handle.close(); }
       return async () => {
-        // 只释放本进程拥有的锁，不能删除另一个运行后来创建的锁。
-        const owner = JSON.parse(await readFile(file, 'utf8'));
-        if (owner.token !== token) throw new Error('测试资源锁所有者已改变。');
-        await unlink(file);
+        // Windows只读检查可能短暂阻止删除；仅重试EBUSY，每次重新核对归属，不接管孤立锁或重试权限拒绝。
+        for (let attempt = 0; ; attempt++) {
+          try {
+            const owner = JSON.parse(await readFile(file, 'utf8'));
+            if (owner.token !== token || owner.pid !== process.pid) throw new Error('测试资源锁所有者已改变。');
+            await unlink(file);
+            return;
+          } catch (error) {
+            if (process.platform !== 'win32' || error.code !== 'EBUSY' || attempt >= 10) throw error;
+            await delay(100);
+          }
+        }
       };
-    } catch (error) {
-      if (error.code !== 'EEXIST') throw error;
     }
     let owner;
     try { owner = JSON.parse(await readFile(file, 'utf8')); }
-    catch (error) { if (error.code !== 'ENOENT' && !(error instanceof SyntaxError)) throw error; }
+    catch (error) {
+      // Windows 删除/关闭竞争中的锁文件可能暂时拒绝读取；未确认所有者时只等待，绝不释放或抢占。
+      const temporarilyUnreadable = process.platform === 'win32' && ['EPERM', 'EACCES', 'EBUSY'].includes(error.code);
+      if (error.code !== 'ENOENT' && !(error instanceof SyntaxError) && !temporarilyUnreadable) throw error;
+    }
     if (owner?.pid) {
       try { process.kill(owner.pid, 0); }
       catch (error) {

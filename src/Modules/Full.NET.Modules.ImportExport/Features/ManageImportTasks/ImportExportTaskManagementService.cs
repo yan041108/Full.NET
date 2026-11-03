@@ -18,6 +18,7 @@ internal sealed class ImportExportTaskManagementService(
     ITenantResourceFileStore resourceFiles,
     IQueryExecutor queryExecutor,
     ICommandExecutor commandExecutor,
+    ImportTaskAuthority authority,
     ICurrentTenant currentTenant,
     IClock clock,
     IIdGenerator idGenerator,
@@ -56,12 +57,18 @@ internal sealed class ImportExportTaskManagementService(
         }
 
         var definition = handler.GetDefinition();
+        if (previewContext.RequestedByUserId != requestedByUserId) return Result<ImportExportTaskDetailResponse>.Failure(ImportTaskAuthority.Denied());
+        var authorityError = await authority.ValidateCreationAsync(definition, previewContext, cancellationToken).ConfigureAwait(false);
+        if (authorityError is not null) return Result<ImportExportTaskDetailResponse>.Failure(authorityError);
         if (!definition.Worksheets.Any(worksheet =>
                 string.Equals(worksheet.WorksheetKey, worksheetKey, StringComparison.Ordinal)))
         {
             return Result<ImportExportTaskDetailResponse>.Failure(WorksheetNotFoundError());
         }
 
+        var mapping = ImportColumnMappingSnapshots.Capture(definition, worksheetKey, previewContext.ColumnMapping);
+        if (!mapping.IsSuccess) return Result<ImportExportTaskDetailResponse>.Failure(mapping.Error!);
+        previewContext = previewContext with { ColumnMapping = mapping.Value!.Configuration };
         var taskId = idGenerator.NewId();
         var upload = await resourceFiles
             .UploadAsync(
@@ -97,6 +104,10 @@ internal sealed class ImportExportTaskManagementService(
                     previewContext,
                     cancellationToken)
                 .ConfigureAwait(false);
+        }
+        catch (StaticImportHeaderMappingException)
+        {
+            previewResult = Result<StaticImportPreviewResult>.Failure(ImportColumnMappingSnapshots.Invalid());
         }
         catch (InvalidDataException)
         {
@@ -165,7 +176,9 @@ internal sealed class ImportExportTaskManagementService(
                     ("SucceededRowCount", 0),
                     ("ExecutionFailedRowCount", 0),
                     ("NextLineNumber", 0),
-                    ("ExecutionRowsJson", null),
+                    ("ExecutionRowsJson", ImportExportTaskMapper.SerializeExecutionState(new ImportExportExecutionStateDocument(
+                        previewContext.CapabilityFlags.ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.Ordinal), []))),
+                    ("ColumnMappingJson", mapping.Value.Json),
                     ("ErrorReceiptFileId", null),
                     ("ExecutionStartedAtUtc", null),
                     ("ExecutionCompletedAtUtc", null),

@@ -6,6 +6,9 @@ public interface IEventDeliveryRollbackJournal
     /// <summary>读取不可跨代次复用的控制面记录。</summary>
     Task<EventDeliveryRollbackOperation?> FindAsync(Guid generation, CancellationToken cancellationToken = default);
 
+    /// <summary>仅返回所有权行直接关联且生产者 fence 已清除的当前终态；不依赖时钟排序。</summary>
+    Task<EventDeliveryRollbackOperation?> FindCurrentTerminalAsync(string eventType, int schemaVersion, CancellationToken cancellationToken = default);
+
     /// <summary>仅在准备态绑定一次资源快照；已有快照不可覆盖。</summary>
     Task<bool> BindResourcesAsync(Guid generation, string resourcesJson, CancellationToken cancellationToken = default);
 

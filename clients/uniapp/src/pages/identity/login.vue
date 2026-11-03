@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onShow } from '@dcloudio/uni-app';
+import { onLoad, onShow } from '@dcloudio/uni-app';
 import { ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import {
@@ -7,6 +7,7 @@ import {
   isBusinessRuntimeAvailable,
   restoreIdentitySession
 } from '../../features/identity/application-session';
+import { readWorkflowResourceTarget, workflowResourceUrl, type WorkflowResourceTarget } from '../../features/workflow/workflow-resource-links';
 
 const { t } = useI18n();
 const username = ref('');
@@ -14,6 +15,9 @@ const password = ref('');
 const submitting = ref(false);
 const failed = ref(false);
 const loginAvailable = isBusinessRuntimeAvailable;
+let returnTarget: WorkflowResourceTarget | undefined;
+onLoad(query => { returnTarget = readWorkflowResourceTarget(query); });
+function authenticatedUrl(): string { return returnTarget ? workflowResourceUrl(returnTarget) : '/pages/workflow/todos'; }
 
 onShow(() => {
   if (!loginAvailable) {
@@ -26,7 +30,7 @@ async function routeAuthenticatedSession(): Promise<void> {
   const authenticated = identitySession.snapshot().state === 'authenticated'
     || await restoreIdentitySession();
   if (authenticated) {
-    await uni.reLaunch({ url: '/pages/workflow/todos' });
+    await uni.reLaunch({ url: authenticatedUrl() });
   }
 }
 
@@ -39,7 +43,7 @@ async function submit(): Promise<void> {
   try {
     await identitySession.login(username.value.trim(), password.value);
     password.value = '';
-    await uni.reLaunch({ url: '/pages/workflow/todos' });
+    await uni.reLaunch({ url: authenticatedUrl() });
   } catch {
     password.value = '';
     failed.value = true;

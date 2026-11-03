@@ -30,7 +30,7 @@ describe('document-shares contracts', () => {
 
 describe('document-statistics contracts', () => {
   const sample = {
-    summary: {
+    summary: { totalSizeBytes: 1537, historySizeBytes: 512,
       totalItems: 1,
       totalVersions: 1,
       totalSizeKb: 12,
@@ -39,7 +39,7 @@ describe('document-statistics contracts', () => {
     byType: [{ extension: '.pdf', count: 1, totalSizeKb: 12 }],
     byCategory: [{ categoryId: null, categoryName: null, count: 1 }],
     shareCount: 0,
-    todayAccessCount: 0,
+    todayPreviewCount: 0, todayShareAccessCount: 0, todayAccessCount: 0,
     todayDownloadCount: 0,
     todayCreatedCount: 0,
     recycleBinCount: 0

@@ -15,6 +15,42 @@ namespace Full.NET.UnitTests.Tenancy;
 public sealed class TenantResolverTests
 {
     [TestMethod]
+    public async Task Batch_authority_returns_only_requested_active_tenants_without_single_row_lookups()
+    {
+        var first = CreateSummary(); var second = CreateSummary(); var foreign = CreateSummary(); var query = Substitute.For<IQueryExecutor>();
+        query.QueryAsync<TenantResolutionRecord>(TenantSql.FindActiveByIds, Arg.Any<object?>(), Arg.Any<CancellationToken>())
+            .Returns([ToRecord(first), ToRecord(second) with { IsActive = false }, ToRecord(foreign)]);
+        var result = await new TenantResolver(query).ResolveActiveByIdsAsync([first.Id, second.Id, first.Id]);
+        Assert.HasCount(1, result); Assert.IsTrue(result.ContainsKey(first.Id));
+        await query.Received(1).QueryAsync<TenantResolutionRecord>(TenantSql.FindActiveByIds,
+            Arg.Is<Dictionary<string, object?>>(p => p != null && ((Guid[])p["TenantIds"]!).Length == 2), Arg.Any<CancellationToken>());
+        await query.DidNotReceive().QuerySingleOrDefaultAsync<TenantResolutionRecord>(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>());
+    }
+
+    [TestMethod]
+    public async Task Batch_authority_never_reuses_a_previous_success_on_disable_or_source_failure()
+    {
+        var tenant = CreateSummary(); var query = Substitute.For<IQueryExecutor>(); var failure = new InvalidOperationException("authority unavailable");
+        query.QueryAsync<TenantResolutionRecord>(TenantSql.FindActiveByIds, Arg.Any<object?>(), Arg.Any<CancellationToken>())
+            .Returns(_ => Task.FromResult<IReadOnlyList<TenantResolutionRecord>>([ToRecord(tenant)]),
+                _ => Task.FromResult<IReadOnlyList<TenantResolutionRecord>>([]), _ => Task.FromException<IReadOnlyList<TenantResolutionRecord>>(failure));
+        var resolver = new TenantResolver(query);
+        Assert.HasCount(1, await resolver.ResolveActiveByIdsAsync([tenant.Id]));
+        Assert.HasCount(0, await resolver.ResolveActiveByIdsAsync([tenant.Id]));
+        Assert.AreSame(failure, await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => resolver.ResolveActiveByIdsAsync([tenant.Id])));
+    }
+
+    [TestMethod]
+    [DataRow("empty")][DataRow("overflow")][DataRow("cancelled")]
+    public async Task Batch_authority_rejects_invalid_or_cancelled_input_before_query(string defect)
+    {
+        var query = Substitute.For<IQueryExecutor>(); var resolver = new TenantResolver(query);
+        using var cancellation = new CancellationTokenSource(); if (defect == "cancelled") cancellation.Cancel();
+        if (defect == "cancelled") await Assert.ThrowsExactlyAsync<OperationCanceledException>(() => resolver.ResolveActiveByIdsAsync([Guid.CreateVersion7()], cancellation.Token));
+        else await Assert.ThrowsExactlyAsync<ArgumentOutOfRangeException>(() => resolver.ResolveActiveByIdsAsync(defect == "empty" ? [Guid.Empty] : Enumerable.Range(0, 257).Select(_ => Guid.CreateVersion7()).ToArray()));
+        Assert.AreEqual(0, query.ReceivedCalls().Count());
+    }
+    [TestMethod]
     [DataRow("active")]
     [DataRow("domain")]
     public async Task Authority_failure_after_success_never_returns_previous_active_state(string path)

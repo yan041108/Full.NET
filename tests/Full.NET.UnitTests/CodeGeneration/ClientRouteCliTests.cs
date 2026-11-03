@@ -9,41 +9,36 @@ namespace Full.NET.UnitTests.CodeGeneration;
 public sealed class ClientRouteCliTests
 {
     [TestMethod]
-    public async Task Vue_only_route_reports_missing_prerequisites_without_writing()
+    public async Task Partial_route_writer_is_retired_without_writing()
     {
         using var fixture = new RouteFixture();
         var result = await fixture.ApplyAsync();
-        Assert.AreEqual(2, result.Code);
-        StringAssert.Contains(result.Error, "不存在");
+        Assert.AreEqual(64, result.Code);
+        StringAssert.Contains(result.Error, "分步接入写盘已移除");
         Assert.AreEqual(0, Directory.GetFiles(fixture.Repository, "*", SearchOption.AllDirectories).Length);
     }
 
     [TestMethod]
-    public async Task Vue_only_route_requires_owned_registry_without_writing()
+    public async Task Retired_route_writer_preserves_unowned_files()
     {
         using var fixture = new RouteFixture();
         fixture.WritePrerequisites(ownedRegistry: false);
         var before = fixture.Capture();
         var result = await fixture.ApplyAsync();
-        Assert.AreEqual(2, result.Code);
-        StringAssert.Contains(result.Error, "生成清单拥有");
+        Assert.AreEqual(64, result.Code);
+        StringAssert.Contains(result.Error, "分步接入写盘已移除");
         CollectionAssert.AreEquivalent(before, fixture.Capture());
     }
 
     [TestMethod]
-    public async Task Vue_only_route_updates_router_and_second_apply_is_idempotent()
+    public async Task Retired_route_writer_preserves_router_and_owned_registry()
     {
         using var fixture = new RouteFixture();
         fixture.WritePrerequisites(ownedRegistry: true);
-        var first = await fixture.ApplyAsync();
-        Assert.AreEqual(0, first.Code, first.Error);
-        StringAssert.Contains(first.Output, "Update ui/admin/src/router/index.ts");
-        Assert.IsFalse(first.Output.Contains("layui", StringComparison.OrdinalIgnoreCase));
-        StringAssert.Contains(File.ReadAllText(Path.Combine(fixture.Repository, "ui/admin/src/router/index.ts")), "name: 'catalog-products'");
         var after = fixture.Capture();
         var second = await fixture.ApplyAsync();
-        Assert.AreEqual(0, second.Code, second.Error);
-        StringAssert.Contains(second.Output, "Unchanged ui/admin/src/router/index.ts");
+        Assert.AreEqual(64, second.Code, second.Error);
+        StringAssert.Contains(second.Error, "分步接入写盘已移除");
         CollectionAssert.AreEquivalent(after, fixture.Capture());
         Assert.IsFalse(Directory.Exists(Path.Combine(fixture.Repository, "ui/admin-layui")));
     }

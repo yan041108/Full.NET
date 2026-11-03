@@ -1,0 +1,35 @@
+import { expect, test } from '@playwright/test';
+import AxeBuilder from '@axe-core/playwright';
+import path from 'node:path';
+import { loginAsHostAdmin, enterDevelopmentTenant, clickMainNavLink } from './support/real-stack-auth.mjs';
+
+test('保存并恢复个人映射，上传工作簿并执行冻结输入', async ({ page }) => {
+  test.setTimeout(150_000); const evidence = process.env.FULLNET_IMPORT_PROFILES_UI_EVIDENCE;
+  await page.addInitScript(() => localStorage.setItem('fullnet.admin.locale', 'zh-CN'));
+  await page.setViewportSize({ width: 1440, height: 1000 }); await loginAsHostAdmin(page); await enterDevelopmentTenant(page, 'Acme Corporation');
+  await clickMainNavLink(page, /导入任务/); await page.getByTestId('import-export-task-create').click();
+  const dialog = page.getByRole('dialog', { name: '提交导入', exact: true }); await expect(dialog).toBeVisible();
+  await dialog.getByTestId('import-profile-custom').check();
+  const aliases = ['编号', '名称', '顺序', '单位', '级别'];
+  for (let index = 0; index < aliases.length; index++) await dialog.getByTestId(`import-profile-header-${index}`).fill(aliases[index]);
+  await dialog.getByTestId('import-profile-name').fill('浏览器供应商格式');
+  const savedResponse = page.waitForResponse(response => response.request().method() === 'POST' && response.url().includes('/me/import-profiles/'));
+  await dialog.getByTestId('import-profile-save').click(); const saved = await savedResponse; expect(saved.status(), await saved.text()).toBe(201);
+  await page.keyboard.press('Escape'); await expect(dialog).not.toBeVisible();
+  await page.getByTestId('import-export-task-create').click(); await dialog.getByTestId('import-profile-custom').check();
+  await dialog.getByTestId('import-profile-select').click(); await page.getByRole('option', { name: '浏览器供应商格式', exact: true }).click();
+  await expect(dialog.getByTestId('import-profile-header-0')).toHaveValue('编号');
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+  const axe = await new AxeBuilder({ page }).include('.import-task-form').withTags(['wcag2a', 'wcag2aa', 'wcag21aa']).analyze();
+  expect(axe.violations.filter(item => ['critical', 'serious'].includes(item.impact))).toEqual([]);
+  await page.screenshot({ path: path.join(evidence, 'import-profile-mobile.png') });
+  await dialog.getByTestId('import-task-file').setInputFiles(path.join(evidence, 'mapped.xlsx'));
+  const createdResponse = page.waitForResponse(response => response.request().method() === 'POST' && new URL(response.url()).pathname.replace(/\/$/, '') === '/api/v1/import-export/tasks');
+  await dialog.getByTestId('import-task-submit').click(); const created = await createdResponse; expect(created.status(), await created.text()).toBe(201);
+  await expect(dialog).not.toBeVisible(); const mapping = page.getByTestId('import-task-frozen-mapping'); await expect(mapping).toContainText('编号');
+  await page.screenshot({ path: path.join(evidence, 'import-task-frozen.png') });
+  const executeResponse = page.waitForResponse(response => response.request().method() === 'POST' && /\/tasks\/[^/]+\/execute$/.test(new URL(response.url()).pathname));
+  await page.getByTestId('import-export-task-execute').click(); const executed = await executeResponse;
+  expect(executed.status(), await executed.text()).toBe(200); expect((await executed.json()).statusKey).toBe('execution_succeeded');
+});

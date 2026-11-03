@@ -602,6 +602,7 @@ public sealed partial class OpenApiOperationIdentityRulesTests
         new("POST", "/api/v1/jobs/host-schedules/{scheduleId}/delete", "jobsDeleteHostJobSchedule", JobsHostJobSchedulesTag),
         new("GET", "/api/v1/jobs/host-health", "jobsGetHostJobHealth", JobsHostJobHealthTag),
         new("GET", "/api/v1/calendar/my-personal-schedules", "calendarListMyPersonalSchedules", CalendarMyPersonalSchedulesTag),
+        new("POST", "/api/v1/ai/personal-schedule-assistant/sources/preview", "aiPreviewPersonalScheduleSources", "AiPersonalScheduleAssistant"),
         new("GET", "/api/v1/calendar/my-personal-schedules/{scheduleId}", "calendarGetMyPersonalSchedule", CalendarMyPersonalSchedulesTag),
         new("POST", "/api/v1/calendar/my-personal-schedules", "calendarCreateMyPersonalSchedule", CalendarMyPersonalSchedulesTag),
         new("PUT", "/api/v1/calendar/my-personal-schedules/{scheduleId}", "calendarUpdateMyPersonalSchedule", CalendarMyPersonalSchedulesTag),

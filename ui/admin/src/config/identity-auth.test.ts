@@ -6,10 +6,10 @@ describe('resolveAdminOidcClientId', () => {
     vi.resetModules();
   });
 
-  it('defaults to admin-spa when client id is unset', async () => {
+  it('defaults to fullnet-admin-bff when client id is unset', async () => {
     vi.unstubAllEnvs();
     const { resolveAdminOidcClientId } = await import('./identity-auth');
-    expect(resolveAdminOidcClientId()).toBe('admin-spa');
+    expect(resolveAdminOidcClientId()).toBe('fullnet-admin-bff');
   });
 
   it('honors configured VITE_IDENTITY_OIDC_CLIENT_ID', async () => {

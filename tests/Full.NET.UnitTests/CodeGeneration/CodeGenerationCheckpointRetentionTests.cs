@@ -5,6 +5,11 @@ using Full.NET.Modules.CodeGeneration;
 using Full.NET.Modules.CodeGeneration.Configuration;
 using Full.NET.Modules.CodeGeneration.Persistence;
 using Full.NET.Modules.CodeGeneration.Retention;
+using Full.NET.Modules.CodeGeneration.Git;
+using Full.NET.Modules.CodeGeneration.Features.ManageHostRuns;
+using Full.NET.Modules.CodeGeneration.Serialization;
+using System.Text.Json;
+using NSubstitute;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
@@ -25,6 +30,7 @@ public sealed class CodeGenerationCheckpointRetentionTests
         var options = defaults.GetRequiredService<
             IOptions<CodeGenerationCheckpointRetentionOptions>>().Value;
 
+        Assert.IsNotNull(defaults.GetRequiredService<CodeGenerationApplyGate>());
         Assert.IsFalse(options.Enabled);
         Assert.AreEqual(7, options.RetentionDays);
         Assert.AreEqual(3600, options.PollSeconds);
@@ -67,11 +73,7 @@ public sealed class CodeGenerationCheckpointRetentionTests
     public async Task Runner_deletes_eligible_checkpoint_when_workspace_matches_previous_manifest()
     {
         using var workspace = new RetentionWorkspace();
-        var plan = await workspace.CreateCheckpointPlanAsync();
-        await GenerationRollbackCheckpointStore.CreateAsync(
-            workspace.Path,
-            ApplyRunId,
-            plan);
+        await workspace.CreateCheckpointAsync(ApplyRunId);
 
         var query = new RecordingQueryExecutor(
             new Dictionary<string, IReadOnlyList<CodeGenerationCheckpointCleanupCandidate>>
@@ -81,6 +83,7 @@ public sealed class CodeGenerationCheckpointRetentionTests
                     new CodeGenerationCheckpointCleanupCandidate
                     {
                         ApplyRunId = ApplyRunId,
+                        RollbackRunId = workspace.Rollbacks[ApplyRunId],
                     },
                 ],
             });
@@ -105,11 +108,7 @@ public sealed class CodeGenerationCheckpointRetentionTests
     public async Task Runner_skips_when_workspace_manifest_drifted_after_rollback()
     {
         using var workspace = new RetentionWorkspace();
-        var plan = await workspace.CreateCheckpointPlanAsync();
-        await GenerationRollbackCheckpointStore.CreateAsync(
-            workspace.Path,
-            ApplyRunId,
-            plan);
+        await workspace.CreateCheckpointAsync(ApplyRunId);
         workspace.Write(
             GenerationWorkspaceStore.ManifestRelativePath,
             GenerationManifest.Create(
@@ -128,6 +127,7 @@ public sealed class CodeGenerationCheckpointRetentionTests
                     new CodeGenerationCheckpointCleanupCandidate
                     {
                         ApplyRunId = ApplyRunId,
+                        RollbackRunId = workspace.Rollbacks[ApplyRunId],
                     },
                 ],
             });
@@ -168,6 +168,7 @@ public sealed class CodeGenerationCheckpointRetentionTests
                     new CodeGenerationCheckpointCleanupCandidate
                     {
                         ApplyRunId = olderApplyRunId,
+                        RollbackRunId = workspace.Rollbacks[olderApplyRunId],
                     },
                 ],
             });
@@ -188,6 +189,45 @@ public sealed class CodeGenerationCheckpointRetentionTests
         Assert.IsTrue(Directory.Exists(workspace.GetCheckpointPath(newerApplyRunId)));
     }
 
+    [TestMethod]
+    public async Task Pending_publication_keeps_the_rolled_back_checkpoint_until_its_original_commit_is_resolved()
+    {
+        using var workspace = new RetentionWorkspace();
+        await workspace.CreateCheckpointAsync(ApplyRunId);
+        var rollbackId = workspace.Rollbacks[ApplyRunId];
+        var path = $".fullnet/codegeneration-git-publications/{rollbackId:N}.json";
+        var saved = CodeGenerationGitWorkspaceService.ParsePublication((await GenerationWorkspaceMetadata.ReadAsync(workspace.Path, path))!);
+        var pending = saved with { Status = "pending", Branch = "codex/generated", BaselineSha = new string('a', 40), LocalCommitSha = new string('b', 40) };
+        await GenerationWorkspaceMetadata.WriteAsync(workspace.Path, path, JsonSerializer.Serialize(pending, CodeGenerationJsonSerializerContext.Default.CodeGenerationGitPublication));
+        var query = new RecordingQueryExecutor(new Dictionary<string, IReadOnlyList<CodeGenerationCheckpointCleanupCandidate>>
+        { [CodeGenerationRunSql.ListEligibleCheckpointCleanupSqlServer.Name] = [new() { ApplyRunId = ApplyRunId, RollbackRunId = rollbackId }] });
+        var result = await CreateRunner(query, true, workspace.Path).RunOnceAsync(new() { Enabled = true, RetentionDays = 1 }, default);
+        Assert.AreEqual(1, result.Skipped);
+        Assert.AreEqual(0, result.Deleted);
+        Assert.IsTrue(Directory.Exists(workspace.GetCheckpointPath(ApplyRunId)));
+    }
+
+    [TestMethod]
+    public async Task Pending_file_operation_prevents_cleanup_queries_and_preserves_all_evidence()
+    {
+        using var workspace = new RetentionWorkspace();
+        await workspace.CreateCheckpointAsync(ApplyRunId);
+        await using (var lease = await GenerationWorkspaceLease.TryAcquireAsync(workspace.Path))
+        {
+            Assert.IsNotNull(lease);
+            GeneratedArtifact[] artifacts = [new("next.g.cs", GeneratedArtifactKind.Backend, "next")];
+            var snapshot = await GenerationWorkspaceStore.CaptureAsync(workspace.Path, artifacts);
+            var id = Guid.CreateVersion7();
+            await GenerationWorkspaceJournal.PrepareAsync(lease, id, id, "apply", "cli", null,
+                GenerationWritePlanner.Plan(artifacts, snapshot.ExistingFiles, snapshot.PreviousManifest));
+        }
+        var query = new RecordingQueryExecutor(new Dictionary<string, IReadOnlyList<CodeGenerationCheckpointCleanupCandidate>>());
+        var result = await CreateRunner(query, true, workspace.Path).RunOnceAsync(new() { Enabled = true }, default);
+        Assert.AreEqual(0, result.Scanned);
+        Assert.AreEqual(0, query.Statements.Count);
+        Assert.IsTrue(Directory.Exists(workspace.GetCheckpointPath(ApplyRunId)));
+    }
+
     private static CodeGenerationCheckpointRetentionRunner CreateRunner(
         IQueryExecutor query,
         bool enabledApply,
@@ -203,7 +243,8 @@ public sealed class CodeGenerationCheckpointRetentionTests
             {
                 Provider = DatabaseProvider.SqlServer,
             }),
-            new FixedClock());
+            new FixedClock(),
+            CodeGenerationApplyGateTestSupport.CreateLocalGate(workspaceRoot));
 
     private static ServiceProvider CreateProvider(
         IReadOnlyDictionary<string, string?> values)
@@ -212,6 +253,7 @@ public sealed class CodeGenerationCheckpointRetentionTests
             .AddInMemoryCollection(values)
             .Build();
         var services = new ServiceCollection();
+        services.AddSingleton(Substitute.For<IDatabaseSessionLock>());
         new CodeGenerationModule().AddBackgroundServices(services, configuration);
         return services.BuildServiceProvider();
     }
@@ -258,6 +300,8 @@ public sealed class CodeGenerationCheckpointRetentionTests
             System.IO.Path.GetTempPath(),
             "fullnet-codegen-retention-" + Guid.NewGuid().ToString("N"));
 
+        public Dictionary<Guid, Guid> Rollbacks { get; } = [];
+
         public RetentionWorkspace()
         {
             Directory.CreateDirectory(Path);
@@ -300,6 +344,20 @@ public sealed class CodeGenerationCheckpointRetentionTests
                 Path,
                 applyRunId,
                 plan);
+            await using var lease = await GenerationWorkspaceLease.TryAcquireAsync(Path) ?? throw new InvalidOperationException();
+            var git = CodeGenerationGitWorkspaceTestSupport.CreateDisabled(Path);
+            await GenerationWorkspaceJournal.PrepareAsync(lease, applyRunId, applyRunId, "apply", "host", null, plan);
+            await GenerationWorkspaceJournal.CommitAsync(lease);
+            await git.PublishAsync(applyRunId, "retention apply", plan, default);
+            await GenerationWorkspaceJournal.CompleteAsync(lease);
+            var checkpoint = await GenerationRollbackCheckpointStore.ReadAsync(Path, applyRunId);
+            var undo = await GenerationRollbackWorkspace.PlanAsync(Path, checkpoint);
+            var rollbackId = Guid.CreateVersion7();
+            Rollbacks.Add(applyRunId, rollbackId);
+            await GenerationWorkspaceJournal.PrepareAsync(lease, rollbackId, rollbackId, "rollback", "host", null, undo, sourceApplyId: applyRunId);
+            await GenerationWorkspaceJournal.CommitAsync(lease);
+            await git.PublishAsync(rollbackId, "retention rollback", undo, default);
+            await GenerationWorkspaceJournal.CompleteAsync(lease);
         }
 
         public void Write(string relativePath, string content)

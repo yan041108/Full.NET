@@ -1,4 +1,8 @@
 import {
+  documentHostGetPreviewCapabilities,
+  documentHostCancelPreviewTask,
+  documentHostRetryPreviewTask,
+  type DocumentPreviewCapabilities,
   documentHostCreateDocumentPreviewTask,
   documentHostDownloadDocumentPreviewTaskContent,
   documentHostGetDocumentPreviewTask,
@@ -70,6 +74,7 @@ export async function openDocumentPreviewTaskContent(
   signal?: AbortSignal
 ): Promise<void> {
   const blob = await documentHostDownloadDocumentPreviewTaskContent(http, { taskId }, signal);
+  if (signal?.aborted) return;
   openDocumentBlob(blob);
 }
 
@@ -78,3 +83,21 @@ export type {
   HostDocumentPreviewTaskPage,
   HostDocumentPreviewTaskResponse
 };
+
+/** 能力来自服务端，未知或请求失败时页面不开放转换入口。 */
+export function getDocumentPreviewCapabilities(signal?: AbortSignal): Promise<DocumentPreviewCapabilities> {
+  return documentHostGetPreviewCapabilities(http, {}, signal, { retryUnauthorized: false, skipAuthentication: true });
+}
+/** 取消携带页面读取的版本，避免误取消并发完成任务。 */
+export async function cancelDocumentPreviewTask(task: HostDocumentPreviewTaskResponse, signal?: AbortSignal): Promise<HostDocumentPreviewTaskResponse> {
+  const value = await documentHostCancelPreviewTask(http, { taskId: task.id, body: { version: task.version } }, signal);
+  if (!isHostDocumentPreviewTaskResponse(value) || value.id.toLowerCase() !== task.id.toLowerCase()
+    || value.statusKey !== 'cancelled' || value.version < task.version) throw new Error('client.invalid_document_preview_task');
+  return value;
+}
+/** 人工重试产生新任务与新上传身份。 */
+export async function retryDocumentPreviewTask(taskId: string, signal?: AbortSignal): Promise<HostDocumentPreviewTaskResponse> {
+  const value = await documentHostRetryPreviewTask(http, { taskId }, signal);
+  if (!isHostDocumentPreviewTaskResponse(value) || value.id.toLowerCase() === taskId.toLowerCase()) throw new Error('client.invalid_document_preview_task');
+  return value;
+}

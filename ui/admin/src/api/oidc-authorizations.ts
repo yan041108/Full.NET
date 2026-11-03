@@ -56,6 +56,17 @@ export async function getOidcAuthorization(
   return value;
 }
 
+/** 自助授权不使用管理权限，主体由服务端从当前身份解析。 */
+export async function listMyOidcAuthorizations(): Promise<OidcAuthorization[]> {
+  const value = await request<unknown>('/api/v1/me/oidc-authorizations', { method: 'GET' });
+  if (!Array.isArray(value) || !value.every(isOidcAuthorization)) throw new Error('client.invalid_oidc_authorization');
+  return value;
+}
+
+export async function revokeMyOidcAuthorization(id: string): Promise<void> {
+  await request<unknown>(`/api/v1/me/oidc-authorizations/${encodeURIComponent(id)}/revoke`, { method: 'POST' });
+}
+
 export async function revokeOidcAuthorization(
   id: string,
   signal?: AbortSignal

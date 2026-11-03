@@ -15,6 +15,13 @@ internal static class Endpoint
         var group = endpoints.MapGroup("/api/v1/document/host/permissions")
             .WithTags("DocumentHostPermissions");
 
+        group.MapGet("/context/{documentId:guid}", async (Guid documentId, HostDocumentPermissionQueryService queries,
+            IApiResultMapper mapper, HttpContext context, CancellationToken token) =>
+            mapper.Map(await queries.GetContextAsync(documentId, token).ConfigureAwait(false), context))
+            .WithName("documentHostGetPermissionContext").Produces<HostDocumentPermissionContext>()
+            .ProducesProblem(401).ProducesProblem(403).ProducesProblem(404)
+            .RequireAuthorization(FullNetPermissionPolicies.For(HostDocumentPermissionManagementPermissions.Read));
+
         group.MapGet("/by-document/{documentId:guid}", async (
             Guid documentId,
             HostDocumentPermissionQueryService queries,
@@ -50,6 +57,7 @@ internal static class Endpoint
         .ProducesProblem(StatusCodes.Status401Unauthorized)
         .ProducesProblem(StatusCodes.Status403Forbidden)
         .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status409Conflict)
         .RequireAuthorization(FullNetPermissionPolicies.For(HostDocumentPermissionManagementPermissions.Set));
     }
 }

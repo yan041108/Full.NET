@@ -9,6 +9,7 @@ import {
   organizationUpdateTenantUserPosition,
   type OrganizationAssignableUserPage,
   type OrganizationUserPosition,
+  type OrganizationListTenantUserPositionsParameters,
   type OrganizationUserPositionPage
 } from '@fullnet/client-contracts';
 import { http } from './http';
@@ -33,13 +34,12 @@ export async function listAssignableOrganizationUserPositionUsers(
 
 /** 分页查询用户岗位关系列表，并对响应页做失败关闭校验。 */
 export async function listOrganizationUserPositions(
-  page = 1,
-  pageSize = 20,
+  query: OrganizationListTenantUserPositionsParameters = {},
   signal?: AbortSignal
 ): Promise<OrganizationUserPositionPage> {
   const value = await organizationListTenantUserPositions(
     http,
-    { page, pageSize },
+    { ...query, page: query.page ?? 1, pageSize: query.pageSize ?? 20 },
     signal
   );
   if (!isOrganizationUserPositionPage(value)) {

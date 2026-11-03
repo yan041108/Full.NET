@@ -6,15 +6,18 @@ internal static class ArchitectureRepositoryRoot
 {
     public static string Find()
     {
-        var directory = new DirectoryInfo(AppContext.BaseDirectory);
-        while (directory is not null)
+        // 聚焦Linux验收复用系统临时输出，源码根必须优先采用经过解决方案标记核对的只读原工作区。
+        foreach (var origin in new[] { Environment.GetEnvironmentVariable("FULLNET_TEST_REPOSITORY_ROOT"), AppContext.BaseDirectory })
         {
-            if (File.Exists(Path.Combine(directory.FullName, "Full.NET.slnx")))
+            if (string.IsNullOrWhiteSpace(origin)) continue;
+            var directory = new DirectoryInfo(origin);
+            while (directory is not null)
             {
-                return directory.FullName;
+                if (File.Exists(Path.Combine(directory.FullName, "Full.NET.slnx"))
+                    && Directory.Exists(Path.Combine(directory.FullName, "src", "Modules")))
+                    return directory.FullName;
+                directory = directory.Parent;
             }
-
-            directory = directory.Parent;
         }
 
         throw new DirectoryNotFoundException("Could not locate the repository root.");

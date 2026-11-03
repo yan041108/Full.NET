@@ -46,7 +46,7 @@ public sealed partial class AiKnowledgeIndexPdfActivationTests
         var f = new Fixture(tenant); Assert.IsTrue(await f.Activate());
         var row = ReadRow(f); f.ReadRow = row; f.Denied = true;
         var authorizations = f.Authorizations;
-        Assert.IsTrue(await f.Store.IsReadyForReadAsync(row, new(), default));
+        Assert.IsTrue(await f.Store.IsReadyForReadAsync(row, new() { ["OwnerUserId"] = f.Binding.OwnerUserId }, default));
         Assert.AreEqual(authorizations, f.Authorizations);
     }
     [TestMethod] [DataRow("visibility")] [DataRow("payload")] [DataRow("manifest")]
@@ -56,14 +56,14 @@ public sealed partial class AiKnowledgeIndexPdfActivationTests
         if (fault == "visibility") f.ReadRow = null;
         if (fault == "payload") f.Payloads[0].Payload[0] ^= 1;
         if (fault == "manifest") f.ManifestRow = f.ManifestRow with { Payload = new byte[8] };
-        Assert.IsFalse(await f.Store.IsReadyForReadAsync(row, new(), default));
+        Assert.IsFalse(await f.Store.IsReadyForReadAsync(row, new() { ["OwnerUserId"] = f.Binding.OwnerUserId }, default));
     }
     [TestMethod]
     public async Task Pdf_reader_rechecks_visibility_after_evidence_wait()
     {
         var f = new Fixture(false); Assert.IsTrue(await f.Activate()); var row = ReadRow(f); f.ReadRow = row;
         f.AtRead = () => f.ReadRow = row with { KnowledgeBaseVersion = 2 };
-        Assert.IsFalse(await f.Store.IsReadyForReadAsync(row, new(), default));
+        Assert.IsFalse(await f.Store.IsReadyForReadAsync(row, new() { ["OwnerUserId"] = f.Binding.OwnerUserId }, default));
     }
     private static AiKnowledgeIndexStatusRecord ReadRow(Fixture f) => new()
     {

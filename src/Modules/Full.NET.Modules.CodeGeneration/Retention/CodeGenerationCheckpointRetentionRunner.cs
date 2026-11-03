@@ -3,6 +3,8 @@ using Full.NET.Data.Abstractions;
 using Full.NET.Data.CodeGeneration.Generation;
 using Full.NET.Modules.CodeGeneration.Configuration;
 using Full.NET.Modules.CodeGeneration.Persistence;
+using Full.NET.Modules.CodeGeneration.Features.ManageHostRuns;
+using Full.NET.Modules.CodeGeneration.Git;
 using Microsoft.Extensions.Options;
 
 namespace Full.NET.Modules.CodeGeneration.Retention;
@@ -14,7 +16,8 @@ internal sealed class CodeGenerationCheckpointRetentionRunner(
     IQueryExecutor queryExecutor,
     IOptions<CodeGenerationApplyOptions> applyOptions,
     IOptions<DatabaseOptions> databaseOptions,
-    IClock clock)
+    IClock clock,
+    CodeGenerationApplyGate applyGate)
 {
     /// <summary>
     /// 执行一次清理：先按 RetentionDays 删除过冷却期的检查点，再按 MaxCheckpointCount 处理容量溢出；两阶段共享 MaxDeletesPerRun 预算并按 ApplyRunId 去重。
@@ -23,6 +26,23 @@ internal sealed class CodeGenerationCheckpointRetentionRunner(
     public async Task<CodeGenerationCheckpointRetentionResult> RunOnceAsync(
         CodeGenerationCheckpointRetentionOptions options,
         CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+        if (!options.Enabled || !applyOptions.Value.Enabled || string.IsNullOrWhiteSpace(applyOptions.Value.WorkspaceRoot))
+            return CodeGenerationCheckpointRetentionResult.Empty;
+        if (!await applyGate.TryEnterAsync(cancellationToken).ConfigureAwait(false))
+            return CodeGenerationCheckpointRetentionResult.Empty;
+        try
+        {
+            if (await GenerationWorkspaceJournal.ReadPendingAsync(applyGate.Lease, cancellationToken).ConfigureAwait(false) is not null)
+                return CodeGenerationCheckpointRetentionResult.Empty;
+            return await RunCoreAsync(options, cancellationToken).ConfigureAwait(false);
+        }
+        finally { await applyGate.ReleaseAsync().ConfigureAwait(false); }
+    }
+
+    private async Task<CodeGenerationCheckpointRetentionResult> RunCoreAsync(
+        CodeGenerationCheckpointRetentionOptions options, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(options);
         if (!options.Enabled || !applyOptions.Value.Enabled)
@@ -137,7 +157,7 @@ internal sealed class CodeGenerationCheckpointRetentionRunner(
             .ConfigureAwait(false);
     }
 
-    private static async Task<(
+    private async Task<(
         int Scanned,
         int Deleted,
         int Skipped,
@@ -169,6 +189,8 @@ internal sealed class CodeGenerationCheckpointRetentionRunner(
             scanned++;
             try
             {
+                if (!await CanReleaseEvidenceAsync(workspaceRoot, candidate, cancellationToken).ConfigureAwait(false))
+                { skipped++; continue; }
                 var checkpoint = await GenerationRollbackCheckpointStore.ReadMetadataAsync(
                     workspaceRoot,
                     candidate.ApplyRunId,
@@ -208,6 +230,50 @@ internal sealed class CodeGenerationCheckpointRetentionRunner(
 
         return (scanned, deleted, skipped, failed, remainingBudget);
     }
+
+    private async Task<bool> CanReleaseEvidenceAsync(string root, CodeGenerationCheckpointCleanupCandidate candidate, CancellationToken token)
+    {
+        if (candidate.RollbackRunId == Guid.Empty) return false;
+        var apply = await GenerationWorkspaceJournal.ReadOperationAsync(applyGate.Lease, candidate.ApplyRunId, token).ConfigureAwait(false);
+        var rollback = await GenerationWorkspaceJournal.ReadOperationAsync(applyGate.Lease, candidate.RollbackRunId, token).ConfigureAwait(false);
+        if (apply is not { Kind: "apply", Phase: "completed" } || rollback is not { Kind: "rollback", Phase: "completed" }
+            || rollback.PreviousHead.TipOperationId != candidate.ApplyRunId) return false;
+        var head = await GenerationWorkspaceJournal.ReadHeadAsync(applyGate.Lease, token).ConfigureAwait(false);
+        var live = head.TipOperationId;
+        var visited = new HashSet<Guid>();
+        while (live is { } id)
+        {
+            if (id == candidate.ApplyRunId) return false;
+            if (!visited.Add(id) || visited.Count > 8192) throw new IOException("回滚链损坏，禁止清理证据。");
+            var operation = await GenerationWorkspaceJournal.ReadOperationAsync(applyGate.Lease, id, token).ConfigureAwait(false);
+            if (operation is not { Kind: "apply", Phase: "completed" }) return false;
+            live = operation.PreviousHead.TipOperationId;
+        }
+        foreach (var id in new[] { candidate.ApplyRunId, candidate.RollbackRunId })
+        {
+            var json = await GenerationWorkspaceMetadata.ReadAsync(root, $".fullnet/codegeneration-git-publications/{id:N}.json", token).ConfigureAwait(false);
+            if (json is null) return false;
+            var publication = CodeGenerationGitWorkspaceService.ParsePublication(json);
+            if (publication.RunId != id || publication.Status is not ("disabled" or "local_only" or "published")) return false;
+        }
+        // 清单相同不代表人工正文未变；恢复后的新增、恢复与删除路径也必须保持原后态。
+        var paths = rollback.Files.Where(file => file.RelativePath != GenerationWorkspaceStore.ManifestRelativePath).Select(file => file.RelativePath)
+            .Concat(rollback.Checks.Select(check => check.RelativePath));
+        var snapshot = await GenerationWorkspaceStore.CapturePathsAsync(root, paths, token).ConfigureAwait(false);
+        foreach (var file in rollback.Files.Where(file => file.RelativePath != GenerationWorkspaceStore.ManifestRelativePath))
+        {
+            snapshot.ExistingFiles.TryGetValue(file.RelativePath, out var content);
+            if (Hash(content) != Hash(file.After)) return false;
+        }
+        foreach (var check in rollback.Checks)
+        {
+            snapshot.ExistingFiles.TryGetValue(check.RelativePath, out var content);
+            if (Hash(content) != check.Sha256) return false;
+        }
+        return true;
+    }
+
+    private static string? Hash(string? content) => content is null ? null : GenerationContentHash.Compute(content);
 
     private static int CountCheckpointDirectories(string workspaceRoot)
     {

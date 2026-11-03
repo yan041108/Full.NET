@@ -3,6 +3,16 @@ import {
   buildCodeGenerationRollbackApplyRunIds,
 
   codeGenerationApplyRun,
+  codeGenerationPrepareApplyPlan,
+  codeGenerationGetWorkspaceState,
+  codeGenerationRecoverWorkspace,
+  isCodeGenerationWorkspaceStateResponse,
+  type CodeGenerationWorkspaceStateResponse,
+  type CodeGenerationWorkspaceRecoveryRequest,
+  isCodeGenerationRunApplyPlanResponse,
+  type CodeGenerationRunApplyPlanRequest,
+  type CodeGenerationRunApplyPlanResponse,
+  codeGenerationRetryRunPublication,
 
   codeGenerationDownloadRunArtifacts,
 
@@ -15,6 +25,8 @@ import {
   codeGenerationRollbackRunChain,
 
   isCodeGenerationRunApplyResponse,
+  isCodeGenerationRunPublicationResponse,
+  type CodeGenerationRunPublicationResponse,
 
   isCodeGenerationRunPage,
 
@@ -50,6 +62,21 @@ import {
 
 import { http } from './http';
 
+/** 读取工作区全局顺序和未完成操作，不以运行目录的时间排序推断恢复资格。 */
+export async function getCodeGenerationWorkspaceState(signal?: AbortSignal): Promise<CodeGenerationWorkspaceStateResponse> {
+  const value = await codeGenerationGetWorkspaceState(http, {}, signal);
+  if (!isCodeGenerationWorkspaceStateResponse(value)) throw new Error('client.invalid_code_generation_workspace_state');
+  return value;
+}
+
+/** 恢复指定的持久化操作；不重新规划或创建 Apply。 */
+export async function recoverCodeGenerationWorkspace(input: CodeGenerationWorkspaceRecoveryRequest,
+  signal?: AbortSignal): Promise<CodeGenerationWorkspaceStateResponse> {
+  const value = await codeGenerationRecoverWorkspace(http, { body: input }, signal);
+  if (!isCodeGenerationWorkspaceStateResponse(value)) throw new Error('client.invalid_code_generation_workspace_state');
+  return value;
+}
+
 
 
 /** 生成带追踪信息的代码预览，并对返回结构做失败关闭校验。 */
@@ -81,7 +108,16 @@ export async function previewTrackedCodeGeneration(
 
 
 
-/** 应用一次带追踪信息的代码生成执行。 */
+/** 先取得完整文件计划供审查，不能把内存产物预览直接当作写盘确认。 */
+export async function prepareTrackedCodeGenerationApply(input: CodeGenerationRunApplyPlanRequest,
+  signal?: AbortSignal): Promise<CodeGenerationRunApplyPlanResponse> {
+  const value = await codeGenerationPrepareApplyPlan(http,
+    { body: input as unknown as Parameters<typeof codeGenerationPrepareApplyPlan>[1]['body'] }, signal);
+  if (!isCodeGenerationRunApplyPlanResponse(value)) throw new Error('client.invalid_code_generation_apply_plan');
+  return value;
+}
+
+/** 按已审查计划和固定幂等键提交，响应丢失后重试相同请求。 */
 export async function applyTrackedCodeGeneration(
 
   input: CodeGenerationRunApplyRequest,
@@ -229,6 +265,13 @@ export async function listCodeGenerationRuns(
 }
 
 
+
+/** 只重试同一运行的发布，不重新生成或应用文件。 */
+export async function retryCodeGenerationPublication(runId: string, signal?: AbortSignal): Promise<CodeGenerationRunPublicationResponse> {
+  const value = await codeGenerationRetryRunPublication(http, { runId }, signal);
+  if (!isCodeGenerationRunPublicationResponse(value)) throw new Error('client.invalid_code_generation_publication');
+  return value;
+}
 
 /** 下载某次代码生成运行产物。 */
 export async function downloadCodeGenerationArtifacts(

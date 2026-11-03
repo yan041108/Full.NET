@@ -2,6 +2,7 @@ import {
   workflowCreateDefinition,
   workflowDeleteDefinitionVersion,
   workflowGetDefinition,
+  workflowGetDefinitionVersion,
   workflowGetNodeTypeCatalog,
   workflowListRecipientCandidates,
   workflowListPositionCandidates,
@@ -18,6 +19,11 @@ import {
   type WorkflowRecipientCandidateResponse
 } from '@fullnet/client-contracts';
 import { http } from './http';
+
+/** 比较与选择发布资产时重读精确版本，不能把列表缓存当作当前读取授权。 */
+export function getWorkflowDefinitionVersion(versionId: string, signal?: AbortSignal): Promise<WorkflowDefinitionVersionResponse> {
+  return workflowGetDefinitionVersion(http, { versionId }, signal);
+}
 
 export type WorkflowCandidate = {
   readonly id: string;

@@ -8,4 +8,6 @@ internal sealed class CodeGenerationCheckpointCleanupCandidate
 {
     /// <summary>本次清理候选对应的成功 Apply/Rollback 运行 Id；与磁盘检查点目录名一致。</summary>
     public Guid ApplyRunId { get; init; }
+    /// <summary>已成功回滚的运行标识；必须同时核对其文件收据与发布状态。</summary>
+    public Guid RollbackRunId { get; init; }
 }

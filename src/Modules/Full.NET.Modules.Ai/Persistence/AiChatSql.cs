@@ -167,7 +167,9 @@ internal static class AiChatSql
         WHERE Id = @MessageId
           AND SessionId = @SessionId
           AND EXISTS (SELECT 1 FROM fn_ai_chat_session
-                      WHERE Id = @SessionId AND GenerationId = @GenerationId)
+                      WHERE Id = @SessionId AND GenerationId = @GenerationId
+                        AND (@RequiresLiveLease = 0 OR (IsGenerating = 1
+                             AND GenerationCancellationRequested = 0 AND GenerationExpiresAtUtc > @Now)))
         """,
         SqlDataScope.Global);
 

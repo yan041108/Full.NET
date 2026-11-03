@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { flushPromises, mount } from '@vue/test-utils';
 import { createPinia, setActivePinia } from 'pinia';
 import PersonalSchedulesView from './PersonalSchedulesView.vue';
@@ -12,6 +12,10 @@ vi.mock('../api/personal-schedules', () => ({
   setPersonalScheduleStatus: vi.fn(),
   updatePersonalSchedule: vi.fn()
 }));
+vi.mock('../components/AiPersonalScheduleSourceDialog.vue', () => ({ __esModule: true, default: {
+  name: 'AiPersonalScheduleSourceDialog', emits: ['close', 'invalidated'],
+  template: '<button data-testid="source-invalidated" @click="$emit(\'invalidated\')">来源失效</button>'
+} }));
 
 const listMock = vi.mocked(listPersonalSchedules);
 
@@ -49,6 +53,7 @@ function mountWithPermissions(permissions: string[]) {
 }
 
 describe('Vue 个人日程页', () => {
+  afterEach(() => { vi.useRealTimers(); });
   beforeEach(() => {
     listMock.mockReset().mockResolvedValue({
       items: [pendingSchedule],
@@ -78,5 +83,24 @@ describe('Vue 个人日程页', () => {
 
     expect(wrapper.find('[data-testid="personal-schedules-create"]').exists()).toBe(true);
     expect(wrapper.find('[data-testid="personal-schedules-edit"]').exists()).toBe(false);
+  });
+
+  it('真实日程行仅在独立助手用途和读取权限同时具备时显示来源入口', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] }); vi.setSystemTime(new Date('2026-09-06T04:00:00Z'));
+    const wrapper = mountWithPermissions(['calendar.personal_schedules.read', 'calendar.personal_schedules.assistant_read']);
+    await flushPromises();
+    expect(wrapper.find('[data-testid="personal-schedules-assistant-source"]').exists()).toBe(true);
+    wrapper.unmount();
+    const reader = mountWithPermissions(['calendar.personal_schedules.read']); await flushPromises();
+    expect(reader.find('[data-testid="personal-schedules-assistant-source"]').exists()).toBe(false); reader.unmount();
+  });
+
+  it('来源失效同时清除普通列表中的旧正文', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] }); vi.setSystemTime(new Date('2026-09-06T04:00:00Z'));
+    const wrapper = mountWithPermissions(['calendar.personal_schedules.read', 'calendar.personal_schedules.assistant_read']); await flushPromises();
+    await wrapper.get('[data-testid="personal-schedules-assistant-source"]').trigger('click'); await flushPromises();
+    await wrapper.get('[data-testid="source-invalidated"]').trigger('click'); await flushPromises();
+    expect(wrapper.findAll('.personal-schedules-day-list__item')).toHaveLength(0); expect(wrapper.text()).not.toContain(pendingSchedule.content);
+    wrapper.unmount();
   });
 });

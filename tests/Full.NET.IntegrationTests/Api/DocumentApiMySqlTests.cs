@@ -72,7 +72,11 @@ public sealed class DocumentApiMySqlTests
     {
         using var factory = new FullNetApiFactory(
             DatabaseProvider.MySql,
-            await SharedDatabaseFixture.CreateMySqlDatabaseAsync());
+            await SharedDatabaseFixture.CreateMySqlDatabaseAsync(), new Dictionary<string, string?> {
+                ["Document:OfficePreviewConversion:Enabled"] = "true",
+                ["Document:OfficePreviewConversion:ProviderKey"] = "external_http",
+                ["Document:OfficePreviewConversion:ExternalHttp:BaseUrl"] = "https://example.test/convert"
+            });
 
         await DocumentShareSecurityAssertions.VerifyAsync(factory);
     }

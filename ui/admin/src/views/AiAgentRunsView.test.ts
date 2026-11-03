@@ -94,7 +94,7 @@ describe('AiAgentRunsView', () => {
 
   async function fillCreate(wrapper: VueWrapper, prompt = 'First request') {
     await flushPromises();
-    await wrapper.findAllComponents({ name: 'ElInput' })[1]!.setValue('22222222-2222-2222-2222-222222222222');
+    await wrapper.get('[data-testid="ai-agent-runs-create-model"]').setValue('22222222-2222-2222-2222-222222222222');
     await wrapper.get('[data-testid="ai-agent-runs-create-prompt"]').setValue(prompt);
   }
   async function create(wrapper: VueWrapper) {
@@ -125,7 +125,7 @@ describe('AiAgentRunsView', () => {
   it.each(['model', 'definition'])('更改 %s 后创建新的请求身份', async field => {
     createRunMock.mockRejectedValue(new Error('network'));
     const wrapper = mountView(true); await fillCreate(wrapper); await create(wrapper);
-    if (field === 'model') await wrapper.findAllComponents({ name: 'ElInput' })[1]!.setValue('44444444-4444-4444-4444-444444444444');
+    if (field === 'model') await wrapper.get('[data-testid="ai-agent-runs-create-model"]').setValue('44444444-4444-4444-4444-444444444444');
     else wrapper.getComponent({ name: 'ElSelect' }).vm.$emit('update:modelValue', 'fullnet-readonly-tool-loop-v1');
     await create(wrapper);
     expect(createRunMock.mock.calls[1]![0].clientRequestId).not.toBe(createRunMock.mock.calls[0]![0].clientRequestId);
@@ -228,5 +228,19 @@ describe('AiAgentRunsView', () => {
     const cancel = wrapper.get('[data-testid="ai-agent-runs-cancel"]'); expect(cancel.attributes('disabled')).toBeUndefined();
     vi.mocked(cancelAiAgentRun).mockResolvedValue(false); await cancel.trigger('click'); await flushPromises();
     expect(cancelAiAgentRun).toHaveBeenCalledTimes(1);
+  });
+
+  it('stream admission denial clears owned data and prevents a quiet refresh', async () => {
+    getRunMock.mockResolvedValue({ ...run, statusKey: 'reconciliation_required' });
+    streamMock.mockImplementation(async (_id, handlers) => {
+      handlers.onEvent({ eventType: 'CUSTOM', payload: { value: 'PRIVATE_OWNED_EVENT' } });
+      handlers.onEvent({ eventType: 'RUN_ERROR', payload: { type: 'RUN_ERROR', code: 'authorization.permission_denied' } });
+    });
+    const wrapper = mountView(); await readRun(wrapper);
+    expect((wrapper.get('[data-testid="ai-agent-runs-id"]').element as HTMLInputElement).value).toBe('');
+    expect(wrapper.find('[data-testid="test-reconciliation"]').exists()).toBe(false);
+    expect(wrapper.text()).not.toContain('PRIVATE_OWNED_EVENT');
+    expect(wrapper.find('.art-page-alert').exists()).toBe(true);
+    expect(getRunMock).toHaveBeenCalledTimes(1);
   });
 });

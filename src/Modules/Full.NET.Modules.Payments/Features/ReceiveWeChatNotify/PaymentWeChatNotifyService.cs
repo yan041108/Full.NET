@@ -9,6 +9,7 @@ using Full.NET.Modules.Payments.Contracts;
 using Full.NET.Modules.Payments.Domain;
 using Full.NET.Modules.Payments.Persistence;
 using Full.NET.Modules.Payments.Security;
+using Full.NET.Modules.Payments.Features.SubscriptionBilling;
 
 namespace Full.NET.Modules.Payments.Features.ReceiveWeChatNotify;
 
@@ -27,7 +28,8 @@ internal sealed partial class PaymentWeChatNotifyService(
     PaymentSecretProtector secretProtector,
     IWeChatPayPlatformCertificateResolver certificateResolver,
     IClock clock,
-    IIdGenerator idGenerator)
+    IIdGenerator idGenerator,
+    PaymentFinancialFactPublisher facts)
 {
     private const int MaxPayloadSummaryLength = 480;
 
@@ -293,6 +295,8 @@ internal sealed partial class PaymentWeChatNotifyService(
             {
                 return FailAck("Payment order concurrency conflict.");
             }
+            if (mappedState == PaymentTradeStateKeys.Succeeded)
+                await facts.PaidAsync(order, transactionPayload.TransactionId, paidAtUtc!.Value, cancellationToken).ConfigureAwait(false);
         }
 
         await InsertReceiptAsync(

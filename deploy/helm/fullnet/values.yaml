@@ -203,6 +203,16 @@ worker:
   databaseCapacityBackoffMilliseconds: 1000
   messaging:
     mode: LegacyPolling
+    # 只读 CDC 观测默认关闭；显式启用前配置数据库读取权限和专用控制面映射。
+    cdcMonitoring:
+      enabled: false
+      pollSeconds: 30
+      sampleTimeoutSeconds: 10
+      maximumSampleAgeSeconds: 120
+      retentionTimeTopicId: ""
+      # 多流按目录Topic机器码分别确认不可变ID，不能把单流ID复用于其它流。
+      retentionTimeTopics: {}
+      maximumBrokerClockSkewSeconds: 5
     kafka:
       bootstrapSecretName: ""
       bootstrapSecretKey: bootstrapServers
@@ -272,12 +282,19 @@ networkPolicy:
   ingressPodSelector:
     app.kubernetes.io/name: ingress-nginx
 
-# Host 代码生成 Apply/Rollback 工作区。代码默认禁用；生产 Release 可通过
-# enabledWhenProduction 自动注入 Enabled=true，但仍须 RWX 工作区卷。
+# Host 代码生成 Apply/Rollback 默认关闭；所有环境均须显式启用并配置工作区卷。
+# 业务运行镜像不携带 SDK/Git，涉及编译或提交时使用受控开发/构建环境的 CLI。
 codeGeneration:
+  # 归档独立于 Apply；启用受跟踪预览前显式提供具有一致文件锁语义的共享 PVC。
+  artifacts:
+    enabled: false
+    existingClaimName: ""
+    rootDirectory: /var/fullnet/codegeneration-artifacts
+    retentionDays: 30
+    maximumBytes: 536870912
+    maximumPackages: 4096
   apply:
     enabled: false
-    enabledWhenProduction: true
     workspaceRoot: /var/fullnet/codegeneration
     distributedGateEnabled: true
     maxRollbackChainLength: 16

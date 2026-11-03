@@ -23,7 +23,8 @@ internal sealed class AccessSessionValidator(
 
     public async Task<bool> IsValidAsync(
         ClaimsPrincipal principal,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        string? expectedOidcAudience = null)
     {
         ArgumentNullException.ThrowIfNull(principal);
         var issuer = principal.FindFirstValue(JwtRegisteredClaimNames.Iss);
@@ -31,9 +32,12 @@ internal sealed class AccessSessionValidator(
             && !string.IsNullOrWhiteSpace(_oidcOptions.Issuer)
             && string.Equals(issuer, _oidcOptions.Issuer, StringComparison.Ordinal))
         {
-            return await oidcSessionValidator.IsValidAsync(principal, cancellationToken)
+            return await oidcSessionValidator.IsValidAsync(principal, cancellationToken, expectedOidcAudience)
                 .ConfigureAwait(false);
         }
+
+        // 专用资源方案只信任 OIDC，不接受普通 Identity 令牌。
+        if (expectedOidcAudience is not null) return false;
 
         if (!TryReadRequiredClaims(
                 principal,

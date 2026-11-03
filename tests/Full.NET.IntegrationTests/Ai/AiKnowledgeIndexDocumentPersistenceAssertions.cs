@@ -286,6 +286,7 @@ internal static class AiKnowledgeIndexDocumentPersistenceAssertions
                 charged = checked(charged + await AiKnowledgeRetrievalAssertions.VerifyAsync(retrievalScope.ServiceProvider, db, binding, factory));
             }
             // 生产 Worker DI、双库格式扫描及 Retry 条件 UPDATE：已结算完整数据恢复不再次读取文件或派发模型。
+            await AiKnowledgePublishedFixture.PrepareActivationRecoveryAsync(db, taskId);
             await db.ExecuteAsync("UPDATE fn_ai_knowledge_index_task SET StateKey='failed',AttemptCount=0,LeaseToken=NULL,LeaseExpiresAtUtc=NULL WHERE Id=@TaskId", p);
             if (probe is null)
                 Assert.IsTrue((await Use(a => a.Retry.RetryAsync(binding.KnowledgeBaseId, binding.DocumentId, binding.VersionId, taskId, session, default))).IsSuccess);
@@ -297,7 +298,7 @@ internal static class AiKnowledgeIndexDocumentPersistenceAssertions
             Assert.AreNotEqual(lease, recoveredLease);
             Assert.IsTrue(await Use(a => a.Activations.IsActiveAsync(binding, taskId, recoveredLease, default)));
             Assert.AreEqual(charged, await db.QuerySingleAsync<long>("SELECT SUM(ChargedTokens) FROM fn_ai_operation_budget WHERE ModelConfigId=@Id", new { Id = model.Id }));
-            // 真实退役清理必须锁定并证明后继代次；错误所有者和损坏后继不能删除旧清单。
+            // 退役只回收无发布/读取引用的过期旧载荷；当前候选损坏仍拒绝读，不误删其载荷。
             var oldTask = Guid.CreateVersion7();
             await db.ExecuteAsync("UPDATE fn_ai_knowledge_document SET Version=2 WHERE Id=@DocumentId", p);
             await db.ExecuteAsync("UPDATE fn_ai_knowledge_index_task SET DocumentVersion=2 WHERE Id=@TaskId", p);
@@ -311,10 +312,11 @@ internal static class AiKnowledgeIndexDocumentPersistenceAssertions
             Assert.IsTrue(await Use(a => a.Activations.IsReadyForReadAsync(successorStatus, readParameters, default)));
             await Retire(Guid.CreateVersion7()); Assert.AreEqual(1L, await OldManifestCount());
             await db.ExecuteAsync("UPDATE fn_ai_knowledge_index_vector SET Payload=@Broken WHERE Id=@Id", new { Broken = new byte[8], Id = operations[0] });
-            await Retire(binding.OwnerUserId); Assert.AreEqual(1L, await OldManifestCount());
-            await db.ExecuteAsync("UPDATE fn_ai_knowledge_index_vector SET Payload=@Payload WHERE Id=@Id", new { Payload = firstPayload, Id = operations[0] });
+            Assert.IsFalse(await Use(a => a.Activations.IsReadyForReadAsync(successorStatus, readParameters, default)));
             auth.DeniedPermission = "ai.knowledge_documents.index_enqueue";
             await Retire(binding.OwnerUserId); Assert.AreEqual(0L, await OldManifestCount()); auth.DeniedPermission = null;
+            await db.ExecuteAsync("UPDATE fn_ai_knowledge_index_vector SET Payload=@Payload WHERE Id=@Id", new { Payload = firstPayload, Id = operations[0] });
+            Assert.IsTrue(await Use(a => a.Activations.IsReadyForReadAsync(successorStatus, readParameters, default)));
             Assert.AreEqual(taskId, await db.QuerySingleAsync<Guid>("SELECT IndexTaskId FROM fn_ai_knowledge_active_generation WHERE DocumentId=@DocumentId", p));
             Assert.AreEqual(1L, await db.QuerySingleAsync<long>("SELECT COUNT(*) FROM fn_ai_knowledge_document_manifest WHERE Id=@TaskId", p));
             Task<long> OldManifestCount() => db.QuerySingleAsync<long>("SELECT COUNT(*) FROM fn_ai_knowledge_document_manifest WHERE Id=@Id", new { Id = oldTask });
@@ -352,7 +354,7 @@ internal static class AiKnowledgeIndexDocumentPersistenceAssertions
                 return await action(new(tasks, sessions, new(query, command, transaction, state, tenant, clock, tasks, sessions, auth, options),
                     new(query, expire ? new ExpireAfterInsert(command, clock) : command, transaction, state, tenant, clock, tasks, sessions, auth, options),
                     new(query, command, tasks, ids, options), query, services.GetRequiredService<IAiOperationBudgetStore>(), services.GetRequiredService<AiKnowledgeIndexCleanupStore>(),
-                    new(query, failActivation ? new RejectActivationInsert(command) : command, transaction, state, tenant, clock, ids, tasks, auth, options),
+                    new(query, failActivation ? new RejectActivationInsert(command) : command, transaction, state, tenant, clock, ids, tasks.Scope, auth, options),
                     new(query, command, state, tenant, clock, tasks, auth, docx: Options.Create(new AiKnowledgeDocxRuntimeOptions { Enabled = true }))));
             }
         }

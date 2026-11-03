@@ -22,6 +22,7 @@ test.beforeEach(() => {
 });
 
 function assertAppliedWorkspaceArtifact(relativePath) {
+  relativePath = `generated/acme/catalog/product/${relativePath}`;
   if (process.env.FULLNET_E2E_SKIP_BOOTSTRAP === '1') {
     return;
   }
@@ -334,10 +335,13 @@ test('Host 管理员可通过双管理端持久化、更新并软删除生成模
     response.request().method() === 'POST'
     && response.url().endsWith('/api/v1/code-generation/runs/apply')
   );
-  await previewView.getByRole('button', {
-    name: '应用已审查预览',
-    exact: true
-  }).click();
+  if (clientKind === 'vue') {
+    await previewView.getByTestId('codegen-apply').click();
+    await expect(previewView.getByTestId('codegen-apply-plan')).toContainText('generated/acme/catalog/product/');
+    await previewView.getByTestId('codegen-apply-plan-confirm').click();
+  } else {
+    await previewView.getByRole('button', { name: '应用已审查预览', exact: true }).click();
+  }
   await confirmApply(page, clientKind);
   const appliedResponse = await applyResponse;
   expect(appliedResponse.ok()).toBeTruthy();
@@ -590,7 +594,9 @@ test('受限 Host 账号不能读取模板 API 且双端导航保持裁剪', asy
     `${apiBaseUrl}/api/v1/code-generation/runs/apply`,
     {
       data: {
-        previewRunId: '018f0f0e-7c36-7b25-8d3a-b2bd5a34d001'
+        planId: '018f0f0e-7c36-7b25-8d3a-b2bd5a34d001',
+        planSha256: 'a'.repeat(64),
+        idempotencyKey: '018f0f0e-7c36-7b25-8d3a-b2bd5a34d002'
       },
       headers: {
         Authorization: `Bearer ${accessToken}`,

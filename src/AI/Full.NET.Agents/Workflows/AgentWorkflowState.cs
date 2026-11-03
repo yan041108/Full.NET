@@ -15,6 +15,14 @@ public sealed class AgentWorkflowState
     /// <summary>关联会话标识。</summary>
     public Guid SessionId { get; set; }
 
+    /// <summary>目标聊天会话与登录会话分开；运行入口必须从可信主体核对所有权。</summary>
+    public Guid? TargetChatSessionId { get; set; }
+
+    /// <summary>静态业务图的明确资源身份；不能作为登录、聊天或文档身份。</summary>
+    public Guid? TargetResourceId { get; set; }
+    /// <summary>静态业务图批准的准确资源版本；恢复不得改写。</summary>
+    public int? TargetResourceVersion { get; set; }
+
     /// <summary>累计输入 Token。</summary>
     public long? InputTokens { get; set; }
 
@@ -29,6 +37,9 @@ public sealed class AgentWorkflowState
 
     /// <summary>已持久化的派发意图；存在时恢复必须对账，不能推断尚未调用。</summary>
     public AgentWorkflowNodeReceipt? PendingNode { get; set; }
+
+    /// <summary>并行阶段尚未确定结果的持久派发意图；恢复不得当作未调用。</summary>
+    public List<AgentWorkflowNodeReceipt> ParallelPendingNodes { get; set; } = [];
 
     /// <summary>累计节点尝试步数，包含审批拒绝；旧检查点缺失时保持未知，不推算为零。</summary>
     public int? ExecutionSteps { get; set; }
@@ -61,7 +72,16 @@ internal sealed record WorkflowRenameSessionArguments(
     [property: JsonPropertyName("sessionId")] Guid SessionId,
     [property: JsonPropertyName("title")] string Title);
 
+/// <summary>静态目标元数据工具只接收已在根运行冻结的资源身份。</summary>
+internal sealed record WorkflowChatSessionArguments([property: JsonPropertyName("sessionId")] Guid SessionId);
+
+/// <summary>唯一完成工具的闭合参数，主体、租户、批准均由服务器绑定。</summary>
+internal sealed record WorkflowScheduleCompletionArguments([property: JsonPropertyName("scheduleId")] Guid ScheduleId,
+    [property: JsonPropertyName("expectedVersion")] int ExpectedVersion);
+
 [JsonSerializable(typeof(AgentWorkflowState))]
 [JsonSerializable(typeof(WorkflowRenameSessionArguments))]
+[JsonSerializable(typeof(WorkflowChatSessionArguments))]
+[JsonSerializable(typeof(WorkflowScheduleCompletionArguments))]
 [JsonSerializable(typeof(AgentValidationResult))]
 internal sealed partial class AgentWorkflowJsonContext : JsonSerializerContext;

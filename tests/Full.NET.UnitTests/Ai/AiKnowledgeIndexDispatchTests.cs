@@ -117,6 +117,9 @@ public sealed class AiKnowledgeIndexDispatchTests
         foreach (var column in new[] { "DataClassification", "ModelProviderKey", "ModelId", "ModelEndpointBaseUrl", "ModelOrganizationId" }) table.Columns.Add(column, typeof(string));
         table.Columns.Add("SizeBytes", typeof(long)); table.Columns.Add("LeaseExpiresAtUtc", mysql ? typeof(DateTime) : typeof(DateTimeOffset));
         table.Columns.Add("GrantExpiresAtUtc", mysql ? typeof(DateTime) : typeof(DateTimeOffset));
+        foreach (var column in new[] { "CorrectionSourceId", "CorrectionRevisionId" }) table.Columns.Add(column, typeof(Guid));
+        table.Columns.Add("CorrectionHeadVersion", typeof(int));
+        foreach (var column in new[] { "CorrectionSourceHash", "CorrectionPayloadHash" }) table.Columns.Add(column, typeof(string));
         var data = table.NewRow();
         foreach (var column in new[] { "TaskId", "DocumentId", "VersionId", "ModelConfigId", "LeaseToken", "FileId" }) data[column] = Guid.CreateVersion7();
         data["DocumentVersion"] = 9; data["KnowledgeBaseVersion"] = 6; data["ModelConfigVersion"] = 3;
@@ -164,7 +167,9 @@ public sealed class AiKnowledgeIndexDispatchTests
             ["DocumentVersion"] = 1, ["KnowledgeBaseVersion"] = 1, ["ModelConfigVersion"] = 1,
             ["ContentHash"] = "hash", ["ContentType"] = "application/pdf", ["ParsingPolicyKey"] = "default", ["SizeBytes"] = 123L, ["LeaseExpiresAtUtc"] = Now,
             ["DataClassification"] = "internal", ["ModelProviderKey"] = "openai_compatible", ["ModelId"] = "text-embedding-3-small",
-            ["ModelEndpointBaseUrl"] = "https://api.openai.com/v1", ["ModelOrganizationId"] = DBNull.Value, ["GrantExpiresAtUtc"] = DBNull.Value
+            ["ModelEndpointBaseUrl"] = "https://api.openai.com/v1", ["ModelOrganizationId"] = DBNull.Value, ["GrantExpiresAtUtc"] = DBNull.Value,
+            ["CorrectionSourceId"] = Guid.CreateVersion7(), ["CorrectionRevisionId"] = Guid.CreateVersion7(), ["CorrectionHeadVersion"] = 2,
+            ["CorrectionSourceHash"] = new string('a', 64), ["CorrectionPayloadHash"] = new string('b', 64)
         };
         using var table = new DataTable(); foreach (var column in columns) table.Columns.Add(column, typeof(object));
         var data = table.NewRow(); foreach (var column in columns) data[column] = values[column]; table.Rows.Add(data);
@@ -172,6 +177,8 @@ public sealed class AiKnowledgeIndexDispatchTests
         var row = AiBudgetRowReaders.ReadKnowledgeIndexDispatch(reader);
         Assert.AreEqual("internal", row.DataClassification); Assert.AreEqual("https://api.openai.com/v1", row.ModelEndpointBaseUrl);
         Assert.AreEqual("openai_compatible", row.ModelProviderKey); Assert.AreEqual("text-embedding-3-small", row.ModelId); Assert.IsNull(row.ModelOrganizationId);
+        Assert.AreEqual(values["CorrectionSourceId"], row.CorrectionSourceId); Assert.AreEqual(values["CorrectionRevisionId"], row.CorrectionRevisionId);
+        Assert.AreEqual(2, row.CorrectionHeadVersion); Assert.AreEqual(new string('a', 64), row.CorrectionSourceHash); Assert.AreEqual(new string('b', 64), row.CorrectionPayloadHash);
     }
 
     private static AiKnowledgeIndexDispatchRecord Snapshot(AiKnowledgeIndexTaskBinding binding, Guid task, Guid lease, string invalid = "") => new()

@@ -4,10 +4,12 @@ import { http } from './http';
 
 import {
   applyTrackedCodeGeneration,
+  prepareTrackedCodeGenerationApply,
   executeTrackedCodeGenerationRollback,
   listCodeGenerationRuns,
   previewTrackedCodeGeneration,
   rollbackTrackedCodeGeneration,
+  retryCodeGenerationPublication,
   type CodeGenerationRunResponse
 } from './code-generation-runs';
 
@@ -59,7 +61,9 @@ const runSummary = {
 
   finishedAtUtc: '2026-07-31T05:00:01Z',
 
-  sourceApplyRunId: null
+  sourceApplyRunId: null,
+  publicationStatus: 'unavailable',
+  commitSha: null
 
 };
 
@@ -70,6 +74,26 @@ describe('code-generation-runs api', () => {
   beforeEach(() => requestMock.mockReset());
 
 
+
+  it('retries publication through its own endpoint', async () => {
+    const runId = '0198f36e-f7a7-7c52-9cbb-774e67411213';
+    requestMock.mockResolvedValueOnce({ runId, publicationStatus: 'published', commitSha: 'a'.repeat(40) });
+    expect((await retryCodeGenerationPublication(runId)).publicationStatus).toBe('published');
+    expect(requestMock).toHaveBeenCalledWith(`/api/v1/code-generation/runs/${runId}/publication/retry`,
+      expect.objectContaining({ method: 'POST' }), undefined);
+  });
+
+  it('审查计划使用独立接口并验证全文件摘要', async () => {
+    const id = '0198f36e-f7a7-7c52-9cbb-774e67411212';
+    const plan = { planId: id, previewRunId: id, workspaceId: id, workspaceRevision: 0, generatorVersion: '2026.10.24.1',
+      planSha256: 'a'.repeat(64), expiresAtUtc: '2099-01-01T00:00:00Z', files: [
+        { relativePath: '.fullnet/codegeneration-manifest.json', kind: 'manifest', beforeSha256: null, afterSha256: 'b'.repeat(64) }]
+    };
+    requestMock.mockResolvedValueOnce(plan);
+    expect(await prepareTrackedCodeGenerationApply({ previewRunId: id })).toEqual(plan);
+    expect(requestMock).toHaveBeenCalledWith('/api/v1/code-generation/runs/apply-plan',
+      expect.objectContaining({ method: 'POST', body: JSON.stringify({ previewRunId: id }) }), undefined);
+  });
 
   it('applies tracked preview with strict summary validation', async () => {
 
@@ -85,13 +109,18 @@ describe('code-generation-runs api', () => {
 
       changedArtifactCount: 3,
 
+      publicationStatus: 'disabled',
+
+      commitSha: null,
+
       manifestSha256: 'b'.repeat(64)
 
     });
 
 
 
-    await applyTrackedCodeGeneration({ previewRunId });
+    const request = { planId: previewRunId, planSha256: 'a'.repeat(64), idempotencyKey: previewRunId };
+    await applyTrackedCodeGeneration(request);
 
 
 
@@ -103,7 +132,7 @@ describe('code-generation-runs api', () => {
 
         method: 'POST',
 
-        body: JSON.stringify({ previewRunId })
+        body: JSON.stringify(request)
 
       }),
 
@@ -209,6 +238,10 @@ describe('code-generation-runs api', () => {
 
       changedArtifactCount: 2,
 
+      publicationStatus: 'disabled',
+
+      commitSha: null,
+
       manifestSha256: 'c'.repeat(64)
 
     });
@@ -259,6 +292,10 @@ describe('code-generation-runs api', () => {
 
           changedArtifactCount: 1,
 
+          publicationStatus: 'disabled',
+
+          commitSha: null,
+
           manifestSha256: 'd'.repeat(64)
 
         },
@@ -272,6 +309,10 @@ describe('code-generation-runs api', () => {
           artifactCount: 0,
 
           changedArtifactCount: 1,
+
+          publicationStatus: 'disabled',
+
+          commitSha: null,
 
           manifestSha256: 'c'.repeat(64)
 

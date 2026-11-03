@@ -33,4 +33,9 @@
     <PackageReference Include="Testcontainers.MsSql" />
     <PackageReference Include="Testcontainers.MySql" />
   </ItemGroup>
+  <ItemGroup>
+    <!-- 固定部署模板随 Runner 分发；隔离构建和独立运行不能依赖源码目录层级。 -->
+    <EmbeddedResource Include="../../deploy/messaging/connectors/mysql-outbox-capacity.json" LogicalName="Full.NET.Benchmarks.Kafka.Connectors.mysql-outbox-capacity.json" />
+    <EmbeddedResource Include="../../deploy/messaging/connectors/sqlserver-outbox-capacity.json" LogicalName="Full.NET.Benchmarks.Kafka.Connectors.sqlserver-outbox-capacity.json" />
+  </ItemGroup>
 </Project>

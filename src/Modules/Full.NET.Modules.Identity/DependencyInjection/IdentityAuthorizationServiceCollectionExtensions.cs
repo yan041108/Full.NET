@@ -42,11 +42,7 @@ internal static class IdentityAuthorizationServiceCollectionExtensions
         services.TryAddEnumerable(ServiceDescriptor.Singleton<
             IHostedService,
             AuthorizationCatalogValidator>());
-        services.TryAddScoped<IUserDataScopeResolver, UserDataScopeResolver>();
-        services.TryAddSingleton<RoleDataScopeProjection>();
-        services.TryAddSingleton<
-            IDataScopeSqlFilterBuilder,
-            DataScopeSqlFilterBuilder>();
+        services.AddIdentityDataScope();
         services.AddAuthorization();
         ReplaceAuthorizationServiceIfNeeded<
             IAuthorizationPolicyProvider,
@@ -55,6 +51,15 @@ internal static class IdentityAuthorizationServiceCollectionExtensions
             IAuthorizationMiddlewareResultHandler,
             FullNetAuthorizationResultHandler>(services);
 
+        return services;
+    }
+
+    /// <summary>API 与后台查询共用权威数据范围，不为 Worker 引入 HTTP 授权中间件。</summary>
+    internal static IServiceCollection AddIdentityDataScope(this IServiceCollection services)
+    {
+        services.TryAddScoped<IUserDataScopeResolver, UserDataScopeResolver>();
+        services.TryAddSingleton<RoleDataScopeProjection>();
+        services.TryAddSingleton<IDataScopeSqlFilterBuilder, DataScopeSqlFilterBuilder>();
         return services;
     }
 

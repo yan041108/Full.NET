@@ -10,6 +10,14 @@ internal sealed class AiAgentRunCompletion(
     AiAgentRunStore store,
     IAiOperationBudgetStore budget)
 {
+    /// <summary>原静态定义证明无模型，模型账本不存在；只提交AI运行事实，不伪造费用或补零未知模型用量。</summary>
+    internal async Task<bool> CommitModelFreeScheduleAsync(AgentRunProgressCommit progress, CancellationToken token)
+    {
+        var run = await store.FindByIdAsync(progress.Lease.RunId, token).ConfigureAwait(false);
+        if (run is null || !Full.NET.Agents.Workflows.AgentWorkflowRegistry.IsModelFreeSchedule(run.DefinitionKey, run.DefinitionVersion))
+            throw new InvalidOperationException("Only the static model-free schedule graph can commit without a model ledger.");
+        return await store.CommitProgressAsync(progress, token).ConfigureAwait(false);
+    }
     /// <summary>只接受成功终态；失租不结算，结算失败连同状态、步骤、检查点和事件一起回滚。</summary>
     internal Task<bool> CommitAsync(AgentRunProgressCommit progress, AiOperationUsage usage, CancellationToken cancellationToken)
     {

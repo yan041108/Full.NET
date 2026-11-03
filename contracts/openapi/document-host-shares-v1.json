@@ -159,7 +159,10 @@
     },
     "AccessHostDocumentShareRequest": {
       "properties": [
-        "password"
+        "password",
+        "previewGrant",
+        "requestKey",
+        "accessTypeKey"
       ]
     },
     "HostDocumentShareResponse": {
@@ -195,7 +198,8 @@
         "mimeType",
         "fileSizeBytes",
         "hasPassword",
-        "accessCountRemaining"
+        "accessCountRemaining",
+        "previewGrant"
       ]
     },
     "HostDocumentPreviewTaskResponse": {

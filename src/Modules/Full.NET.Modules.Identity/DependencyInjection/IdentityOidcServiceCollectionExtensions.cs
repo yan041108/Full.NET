@@ -42,7 +42,6 @@ internal static class IdentityOidcServiceCollectionExtensions
         services.TryAddSingleton<IdentityOidcPrincipalFactory>();
         services.TryAddScoped<IdentityOidcAccessSessionValidator>();
         services.AddOptions<IdentityOidcOptions>()
-            .Bind(configuration.GetSection(IdentityOidcOptions.SectionName))
             .ValidateOnStart();
         services.TryAddEnumerable(ServiceDescriptor.Singleton<
             IValidateOptions<IdentityOidcOptions>,
@@ -52,12 +51,19 @@ internal static class IdentityOidcServiceCollectionExtensions
         var oidcOptions = configuration
             .GetSection(IdentityOidcOptions.SectionName)
             .Get<IdentityOidcOptions>() ?? new IdentityOidcOptions();
+        var identitySettings = configuration.GetSection(IdentityOptions.SectionName).Get<IdentityOptions>() ?? new();
         if (!oidcOptions.Enable)
         {
             return services;
         }
+        if (string.Equals(identitySettings.Issuer, oidcOptions.Issuer, StringComparison.Ordinal))
+            throw new InvalidOperationException("Legacy Identity and OIDC token issuers must be distinct.");
 
         services.TryAddSingleton<IdentityOidcSigningKeyRing>();
+        services.TryAddSingleton<IdentityOidcProtocolRequestLimiter>();
+        services.TryAddSingleton(new IdentityOidcSigningNodeIdentity("api"));
+        services.TryAddScoped<IdentityOidcKeyGovernance>();
+        services.AddHealthChecks().AddCheck<IdentityOidcSigningReadiness>("identity-oidc-signing", tags: ["ready"]);
         services.TryAddEnumerable(ServiceDescriptor.Singleton<
             IConfigureOptions<OpenIddictServerOptions>,
             IdentityOidcServerOptionsConfigurer>());
@@ -67,6 +73,9 @@ internal static class IdentityOidcServiceCollectionExtensions
         services.TryAddScoped<IdentityOidcScopeStore>();
         services.TryAddScoped<IdentityOidcTokenStore>();
         services.TryAddScoped<IdentityOidcCenterLoginService>();
+        services.TryAddScoped<IdentityOidcMfaVerifier>();
+        services.TryAddScoped<IdentityOidcConsentService>();
+        services.TryAddScoped<IdentityOidcAccountService>();
         services.TryAddScoped<OidcAuthenticationEventWriter>();
         services.TryAddScoped<IdentityOidcAuthorizationService>();
         services.TryAddScoped<IdentityOidcContextAccessTokenIssuer>();
@@ -86,9 +95,13 @@ internal static class IdentityOidcServiceCollectionExtensions
         services.TryAddSingleton<IOptionsChangeTokenSource<OpenIddictServerOptions>>(provider =>
             provider.GetRequiredService<IdentityOidcOpenIddictServerOptionsReloadTokenSource>());
         services.TryAddSingleton<IdentityOidcOpenIddictSigningCredentialSynchronizer>();
-        services.TryAddEnumerable(ServiceDescriptor.Singleton<IHostedService, IdentityOidcClientRegistrar>());
+        services.TryAddScoped<IdentityOidcSigningPolicy>();
         services.TryAddEnumerable(ServiceDescriptor.Singleton<IExceptionHandler, IdentityOidcProtocolExceptionHandler>());
 
+        // 测试环境允许回环明文；生产始终保留 OpenIddict 传输安全校验。
+        services.AddOptions<OpenIddict.Server.AspNetCore.OpenIddictServerAspNetCoreOptions>()
+            .Configure<IHostEnvironment>((options, environment) =>
+                options.DisableTransportSecurityRequirement = environment.IsDevelopment() || environment.IsEnvironment("Testing"));
         services.AddAntiforgery();
         services.AddAuthentication()
             .AddCookie(
@@ -97,6 +110,7 @@ internal static class IdentityOidcServiceCollectionExtensions
                 {
                     options.Cookie.Name = IdentityOidcCenterAuthenticationDefaults.CookieName;
                     options.Cookie.HttpOnly = true;
+                    options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
                     options.Cookie.SameSite = SameSiteMode.Lax;
                     options.LoginPath = "/connect/authorize";
                     options.SlidingExpiration = true;
@@ -104,30 +118,29 @@ internal static class IdentityOidcServiceCollectionExtensions
                 });
 
         services.AddOpenIddict()
-            .AddCore(options =>
-            {
-                options.SetDefaultApplicationEntity<IdentityOidcApplication>();
-                options.SetDefaultAuthorizationEntity<IdentityOidcAuthorization>();
-                options.SetDefaultScopeEntity<IdentityOidcScope>();
-                options.SetDefaultTokenEntity<IdentityOidcToken>();
-
-                options.ReplaceApplicationStore<IdentityOidcApplication, IdentityOidcApplicationStore>();
-                options.ReplaceAuthorizationStore<IdentityOidcAuthorization, IdentityOidcAuthorizationStore>();
-                options.ReplaceScopeStore<IdentityOidcScope, IdentityOidcScopeStore>();
-                options.ReplaceTokenStore<IdentityOidcToken, IdentityOidcTokenStore>();
-            })
             .AddServer(options =>
             {
-                options.SetIssuer(new Uri(oidcOptions.Issuer, UriKind.Absolute));
+                var issuer = new Uri(oidcOptions.Issuer, UriKind.Absolute);
+                options.SetIssuer(issuer);
                 options.SetAuthorizationEndpointUris("/connect/authorize")
                     .SetTokenEndpointUris("/connect/token")
                     .SetUserInfoEndpointUris("/connect/userinfo")
-                    .SetConfigurationEndpointUris("/.well-known/openid-configuration")
+                    .SetEndSessionEndpointUris("/connect/logout")
+                    // issuer 含路径时，标准客户端从该路径派生 Discovery；根入口仍支持显式 Metadata 地址。
+                    .SetConfigurationEndpointUris(new[] { issuer.AbsolutePath.TrimEnd('/') + "/.well-known/openid-configuration",
+                        "/.well-known/openid-configuration" }.Distinct(StringComparer.Ordinal).ToArray())
                     .SetJsonWebKeySetEndpointUris("/.well-known/jwks");
                 options.RegisterScopes(Scopes.OpenId, Scopes.Profile, Scopes.OfflineAccess);
+                var mcpResource = configuration["FullNet:Ai:Mcp:ResourceIdentifier"];
+                if (Uri.TryCreate(mcpResource, UriKind.Absolute, out _)) options.RegisterResources(mcpResource!);
                 options.AllowAuthorizationCodeFlow()
                     .AllowRefreshTokenFlow()
                     .RequireProofKeyForCodeExchange();
+                // 协议令牌与权威应用会话采用相同的显式生命周期，避免 JWT 尚有效但会话已到期。
+                options.SetAccessTokenLifetime(TimeSpan.FromMinutes(identitySettings.AccessTokenMinutes));
+                options.SetIdentityTokenLifetime(TimeSpan.FromMinutes(identitySettings.AccessTokenMinutes));
+                options.SetAuthorizationCodeLifetime(TimeSpan.FromMinutes(5));
+                options.SetRefreshTokenLifetime(TimeSpan.FromDays(identitySettings.RefreshTokenDays));
                 // 治理测试 V09 要求同一 refresh_token 二次兑换立即失败；默认 30 秒复用宽限期会掩盖重放。
                 options.SetRefreshTokenReuseLeeway(TimeSpan.Zero);
                 options.DisableAccessTokenEncryption();
@@ -141,16 +154,52 @@ internal static class IdentityOidcServiceCollectionExtensions
                     options.AddEphemeralEncryptionKey();
                 }
                 options.AddEventHandler(IdentityOidcSignInHandler.Descriptor);
+                options.AddEventHandler(IdentityOidcClientScopeHandler.Descriptor);
+                options.AddEventHandler(IdentityOidcEndSessionHintHandler.Descriptor);
+                options.AddEventHandler<OpenIddictServerEvents.HandleConfigurationRequestContext>(builder =>
+                    builder.UseInlineHandler(context =>
+                    {
+                        context.Metadata["backchannel_logout_supported"] = true;
+                        context.Metadata["backchannel_logout_session_supported"] = true;
+                        return default;
+                    }));
                 options.AddEventHandler(IdentityOidcProtocolSessionAuthorityHandler.Descriptor);
                 options.AddEventHandler(IdentityOidcRefreshTokenReuseHandler.Descriptor);
+                options.AddEventHandler(IdentityOidcProtocolRejectionAuditHandler.Descriptor);
+                options.AddEventHandler(IdentityOidcProtocolRateLimitHandler.Descriptor);
                 options.UseAspNetCore(aspNetCore =>
                 {
                     aspNetCore.EnableAuthorizationEndpointPassthrough();
                     aspNetCore.EnableTokenEndpointPassthrough();
                     aspNetCore.EnableUserInfoEndpointPassthrough();
-                    aspNetCore.EnableStatusCodePagesIntegration();
-                    aspNetCore.DisableTransportSecurityRequirement();
+                    aspNetCore.EnableEndSessionEndpointPassthrough();
+                    // OIDC 错误由 OpenIddict 写出标准 OAuth 响应，不能被通用状态页替换。
                 });
+            });
+
+        services.AddOptions<JwtBearerOptions>(Full.NET.Modules.Identity.Contracts.McpResourceAuthentication.Scheme)
+            .Configure<IdentityOidcSigningKeyRing, IOptions<IdentityOidcOptions>>((jwt, keyRing, options) =>
+            {
+                var resource = configuration["FullNet:Ai:Mcp:ResourceIdentifier"] ?? "fullnet://ai/mcp";
+                jwt.MapInboundClaims = false;
+                jwt.EventsType = typeof(Security.FullNetJwtBearerEvents);
+                jwt.TokenValidationParameters = new TokenValidationParameters
+                {
+                    ValidateIssuerSigningKey = true,
+                    IssuerSigningKeyResolver = (_, token, kid, _) => token.Issuer == options.Value.Issuer
+                        ? (string.IsNullOrEmpty(kid) ? keyRing.ValidationKeys : keyRing.ValidationKeys.Where(key => key.KeyId == kid))
+                        : [],
+                    TryAllIssuerSigningKeys = false,
+                    ValidateIssuer = true,
+                    ValidIssuer = options.Value.Issuer,
+                    ValidateAudience = true,
+                    ValidAudience = resource,
+                    ValidateLifetime = true,
+                    RequireExpirationTime = true,
+                    RequireSignedTokens = true,
+                    ClockSkew = TimeSpan.FromSeconds(30),
+                    NameClaimType = Microsoft.IdentityModel.JsonWebTokens.JwtRegisteredClaimNames.Name,
+                };
             });
 
         services.AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme)
@@ -162,23 +211,23 @@ internal static class IdentityOidcServiceCollectionExtensions
                         return;
                     }
 
-                    var identitySettings = identityOptionsAccessor.Value;
-                    var validationKeys = identityKeyRing.ValidationKeys.ToList();
-                    foreach (var key in oidcKeyRing.ValidationKeys)
+                    var identityTrust = identityOptionsAccessor.Value;
+                    // 按 issuer 隔离信任集，并逐次读取活动验签集合；退役不依赖 JwtBearer Options 重建。
+                    jwt.TokenValidationParameters.IssuerSigningKey = null;
+                    jwt.TokenValidationParameters.IssuerSigningKeys = [];
+                    jwt.TokenValidationParameters.TryAllIssuerSigningKeys = false;
+                    jwt.TokenValidationParameters.IssuerSigningKeyResolver = (_, token, kid, _) =>
                     {
-                        if (!validationKeys.Any(existing =>
-                                string.Equals(existing.KeyId, key.KeyId, StringComparison.Ordinal)))
-                        {
-                            validationKeys.Add(key);
-                        }
-                    }
-
-                    jwt.TokenValidationParameters.IssuerSigningKeys = validationKeys;
+                        IEnumerable<SecurityKey> source = token.Issuer == oidcOptionsAccessor.Value.Issuer ? oidcKeyRing.ValidationKeys
+                            : token.Issuer == identityTrust.Issuer ? identityKeyRing.ValidationKeys : [];
+                        return string.IsNullOrEmpty(kid) ? source : source.Where(key => key.KeyId == kid);
+                    };
                     jwt.TokenValidationParameters.ValidIssuers =
                     [
-                        identitySettings.Issuer,
+                        identityTrust.Issuer,
                         oidcOptionsAccessor.Value.Issuer,
                     ];
+
                 });
 
         return services;

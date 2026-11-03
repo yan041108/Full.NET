@@ -144,7 +144,7 @@ internal sealed class AiKnowledgeDocumentPlanningService(IQueryExecutor query, I
         Check(token);
         if (!tasks.IsTenant)
         {
-            var file = await BoundAsync(ct => references.GetReadyReferenceAsync(source.FileId, ct), token).ConfigureAwait(false);
+            var file = await BoundAsync(ct => references.GetReadyReferenceAsync(AiKnowledgeFileSource.RequireFileId(source), ct), token).ConfigureAwait(false);
             return file is not null && file.FileId == source.FileId && file.SizeBytes == source.SizeBytes
                 && string.Equals(file.ContentHash, source.ContentHash, StringComparison.OrdinalIgnoreCase);
         }
@@ -162,7 +162,7 @@ internal sealed class AiKnowledgeDocumentPlanningService(IQueryExecutor query, I
         if (await BoundAsync(ct => sessions.ReadHeldAsync(binding, taskId, leaseToken, ct), token).ConfigureAwait(false) != session
             || !await AuthorizedAsync(binding, session, token).ConfigureAwait(false)) return null;
         var source = await BoundAsync(ct => tasks.ReadDispatchAsync(binding, taskId, leaseToken, ct), token).ConfigureAwait(false);
-        if (source is null) return null;
+        if (source is null || source.CorrectionRevisionId.HasValue) return null;
         var state = await ReadStateAsync(binding, source, token).ConfigureAwait(false);
         if (state is null) return null;
         if (await BoundAsync(ct => sessions.ReadHeldAsync(binding, taskId, leaseToken, ct), token).ConfigureAwait(false) != session
@@ -234,7 +234,7 @@ internal sealed class AiKnowledgeDocumentPlanningService(IQueryExecutor query, I
         Check(token);
         if (!tasks.IsTenant)
         {
-            var reference = await BoundAsync(ct => references.GetReadyReferenceAsync(state.Source.FileId, ct), token).ConfigureAwait(false);
+            var reference = await BoundAsync(ct => references.GetReadyReferenceAsync(AiKnowledgeFileSource.RequireFileId(state.Source), ct), token).ConfigureAwait(false);
             Check(token);
             if (reference is null || reference.FileId != state.Source.FileId || reference.SizeBytes != state.Source.SizeBytes
                 || !string.Equals(reference.ContentHash, state.Source.ContentHash, StringComparison.OrdinalIgnoreCase)
@@ -246,10 +246,10 @@ internal sealed class AiKnowledgeDocumentPlanningService(IQueryExecutor query, I
         {
             if (scoped)
             {
-                var result = await tenantFiles.OpenReadyContentAsync("ai", binding.VersionId, state.Source.FileId, ct).ConfigureAwait(false);
+                var result = await tenantFiles.OpenReadyContentAsync("ai", binding.VersionId, AiKnowledgeFileSource.RequireFileId(state.Source), ct).ConfigureAwait(false);
                 return result.IsSuccess ? new Opened(result.Value!.Content, result.Value.ContentType) : null;
             }
-            var host = await hostFiles.OpenReadyContentAsync(state.Source.FileId, ct).ConfigureAwait(false);
+            var host = await hostFiles.OpenReadyContentAsync(AiKnowledgeFileSource.RequireFileId(state.Source), ct).ConfigureAwait(false);
             return host.IsSuccess ? new Opened(host.Value!.Content, host.Value.ContentType) : null;
         }, token, result => result is null ? Task.CompletedTask : CloseAsync(result.Content)).ConfigureAwait(false);
     }

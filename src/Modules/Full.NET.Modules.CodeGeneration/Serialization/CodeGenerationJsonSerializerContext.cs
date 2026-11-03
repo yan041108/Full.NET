@@ -2,6 +2,9 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using Full.NET.Abstractions.Results;
 using Full.NET.Modules.CodeGeneration.Contracts;
+using Full.NET.Modules.CodeGeneration.Git;
+using Full.NET.Modules.CodeGeneration.Features.ManageHostRuns;
+using Full.NET.Modules.CodeGeneration.Persistence;
 
 namespace Full.NET.Modules.CodeGeneration.Serialization;
 
@@ -9,6 +12,7 @@ namespace Full.NET.Modules.CodeGeneration.Serialization;
 /// 为代码生成预览 HTTP 契约提供 AOT 友好的 System.Text.Json 元数据。
 /// </summary>
 [JsonSourceGenerationOptions(JsonSerializerDefaults.Web)]
+[JsonSerializable(typeof(IReadOnlyList<CodeGenerationCatalogObjectResponse>))]
 [JsonSerializable(typeof(CodeGenerationPreviewColumnRequest))]
 [JsonSerializable(typeof(CodeGenerationPreviewColumnUiRequest))]
 [JsonSerializable(typeof(CodeGenerationCatalogTableResponse))]
@@ -31,6 +35,10 @@ namespace Full.NET.Modules.CodeGeneration.Serialization;
 [JsonSerializable(typeof(CodeGenerationRunPreviewRequest))]
 [JsonSerializable(typeof(CodeGenerationRunPreviewResponse))]
 [JsonSerializable(typeof(CodeGenerationRunApplyRequest))]
+[JsonSerializable(typeof(CodeGenerationRunApplyPlanRequest))]
+[JsonSerializable(typeof(CodeGenerationRunApplyPlanResponse))]
+[JsonSerializable(typeof(CodeGenerationWorkspaceStateResponse))]
+[JsonSerializable(typeof(CodeGenerationWorkspaceRecoveryRequest))]
 [JsonSerializable(typeof(CodeGenerationIntegrationTargetRequest))]
 [JsonSerializable(typeof(CodeGenerationClientRouteTargetRequest))]
 [JsonSerializable(typeof(CodeGenerationRunApplyResponse))]
@@ -42,6 +50,10 @@ namespace Full.NET.Modules.CodeGeneration.Serialization;
 [JsonSerializable(typeof(PagedResult<CodeGenerationRunResponse>))]
 [JsonSerializable(typeof(CodeGenerationRelationshipRequest))]
 [JsonSerializable(typeof(UpdateCodeGenerationTemplateRequest))]
+[JsonSerializable(typeof(CodeGenerationGitPublication))]
+[JsonSerializable(typeof(CodeGenerationRunPublicationResponse))]
+[JsonSerializable(typeof(CodeGenerationWorkspaceRunContext))]
+[JsonSerializable(typeof(CodeGenerationRunRecord))]
 /// <summary>CodeGeneration 模块 JSON 源生成上下文；Native AOT 绑定已审计契约，禁止反射序列化。</summary>
 internal partial class CodeGenerationJsonSerializerContext
     : JsonSerializerContext;

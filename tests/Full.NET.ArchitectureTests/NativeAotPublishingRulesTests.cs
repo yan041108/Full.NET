@@ -4,8 +4,7 @@ using System.Text.RegularExpressions;
 namespace Full.NET.ArchitectureTests;
 
 /// <summary>
-/// 验证 Native AOT 发布边界：仅已批准的 API/Worker 宿主可在显式发布模式下设置 SDK <c>PublishAot</c>，
-/// 且静态分析通过自有 <c>FullNetAotAnalysis</c> 属性启用，不污染 Migrator 与 netstandard2.0 生成器项目。
+/// 验证 Native AOT 发布边界：已批准角色只在显式模式下设置 SDK PublishAot，生成器不继承发布开关。
 /// </summary>
 [TestClass]
 public sealed class NativeAotPublishingRulesTests
@@ -13,8 +12,17 @@ public sealed class NativeAotPublishingRulesTests
     private static readonly string[] ProjectsThatMustNotPublishAot =
     [
         "src/Generators/Full.NET.Messaging.Generators/Full.NET.Messaging.Generators.csproj",
-        "src/Hosts/Full.NET.Host.Migrator/Full.NET.Host.Migrator.csproj",
     ];
+
+    [TestMethod]
+    [DataRow("Migrator")]
+    [DataRow("LogConsumer")]
+    public void Independent_hosts_require_explicit_native_publish_mode(string host)
+    {
+        var project = $"src/Hosts/Full.NET.Host.{host}/Full.NET.Host.{host}.csproj";
+        Assert.IsFalse(IsTruthyMsBuildValue(EvaluateMsBuildProperty(project, "PublishAot")));
+        Assert.IsTrue(IsTruthyMsBuildValue(EvaluateMsBuildProperty(project, "PublishAot", [("-p:FullNetPublishMode=NativeAot", null)])));
+    }
 
     [TestMethod]
     public void ApiHost_DefaultPublishMode_DoesNotEnableSdkPublishAot()

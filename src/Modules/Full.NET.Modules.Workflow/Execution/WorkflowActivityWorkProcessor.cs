@@ -21,7 +21,7 @@ internal sealed partial class WorkflowActivityWorkProcessor(IQueryExecutor query
     IOptions<WorkflowRecoveryWorkerOptions> options, WorkflowRuntimeTransitionExecutor executor,
     WorkflowNotificationOutboxPublisher notifications, ICurrentTenantContextWriter tenantWriter,
     WorkflowHumanActivityPreparation approvalPreparation, WorkflowBranchStateCoordinator branchStates,
-    WorkflowAutomaticOutputCoordinator outputs, WorkflowRouteDecisionExecutor routes)
+    WorkflowAutomaticOutputCoordinator outputs, WorkflowRouteDecisionExecutor routes, IActiveTenantContextResolver activeTenants)
 {
     public async Task<int> ProcessPendingAsync(CancellationToken token)
     {
@@ -67,6 +67,9 @@ internal sealed partial class WorkflowActivityWorkProcessor(IQueryExecutor query
             instance.TenantScopeKey != (instance.TenantId is { } tenantId ? $"tenant:{tenantId:N}" : "host") ||
             instance.ScopeKey != (instance.TenantId is null ? "host" : "tenant")) return PreparedActivityWork.Empty;
         using var tenantScope = new ExecutionTenantScope(tenantWriter, instance.TenantId);
+        if (!await WorkflowCollaborationRuntimeGate.AllowsAsync(instance.Id,
+                new(instance.TenantId, instance.ScopeKey, instance.TenantScopeKey), null, clock.UtcNow, query, token, tenants: activeTenants).ConfigureAwait(false))
+            return PreparedActivityWork.Empty;
         if (!await ValidateSourceAsync(work,token).ConfigureAwait(false))
             return new(WorkflowPreparedHumanActivities.Empty,null,false,InvalidSource:true);
         if (!await ValidateAsyncResumeAsync(work,token).ConfigureAwait(false))
@@ -129,6 +132,8 @@ internal sealed partial class WorkflowActivityWorkProcessor(IQueryExecutor query
             WorkflowSqlParameters.Create(("Id", instance.Id), ("TenantScopeKey", instance.TenantScopeKey),
                 ("Revision", instance.Revision)), token).ConfigureAwait(false);
         if (locked != 1) return Invalid();
+        if (!await WorkflowCollaborationRuntimeGate.AllowsAsync(instance.Id,
+                new(instance.TenantId, instance.ScopeKey, instance.TenantScopeKey), null, clock.UtcNow, query, token, command).ConfigureAwait(false)) return Invalid();
         // 准备与提交之间代次可能关闭；必须在根锁内、任何字段或活动写入前重新核对。
         if (!await WorkflowExecutionFrameScope.IsValidAsync(query, instance, work.ExecutionEpochId, work.ParallelJoinId, work.ParallelBranchKey, token).ConfigureAwait(false)) return Invalid();
         if (prepared.InvalidSource || !await ValidateSourceAsync(work,token).ConfigureAwait(false))
@@ -182,7 +187,7 @@ internal sealed partial class WorkflowActivityWorkProcessor(IQueryExecutor query
         if (transition.AutomaticNodes.Count == 0 && transition.AutomaticWait is WorkflowRouteWaitPlan routeWait && routeWait.NodeKey == work.NodeKey)
         {
             var route = await routes.ActivateAsync(instance, work, plan.DynamicRoutes, routeWait.Configuration, values,
-                workTrace, sequence, clock.UtcNow, token, plan.HasSubprocess).ConfigureAwait(false);
+                workTrace, sequence, clock.UtcNow, token, plan.RequiresExecutionBudget).ConfigureAwait(false);
             var exhausted = route.FailureKey == "workflow.activity.budget_exhausted";
             if (!exhausted && !route.DecisionUnknown && (route.FailureKey is not null || !route.Applied)) return Invalid();
             var suspended = route.DecisionUnknown || exhausted;

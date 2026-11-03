@@ -17,6 +17,9 @@ using Full.NET.Modules.Ai.Runtime;
 using Full.NET.Modules.Ai.Serialization;
 using Full.NET.Modules.Identity.Contracts;
 using Microsoft.Extensions.Options;
+using Full.NET.Modules.Calendar.Contracts;
+using Full.NET.Modules.Ai.Features.CompletePersonalSchedules;
+using Full.NET.Agents.Workflows;
 
 namespace Full.NET.Modules.Ai.Features.ManageAgentApprovals;
 
@@ -34,7 +37,8 @@ internal sealed class AiAgentApprovalService(
     ICurrentTenant tenant,
     IClock clock,
     IIdGenerator ids,
-    IOptions<AiAgentRuntimeOptions> runtimeOptions)
+    IOptions<AiAgentRuntimeOptions> runtimeOptions,
+    IPersonalScheduleCompletion? calendar = null)
 {
     public async Task<Result<CreateAiAgentApprovalResponse>> CreateAsync(
         CreateAiAgentApprovalRequest request,
@@ -47,6 +51,10 @@ internal sealed class AiAgentApprovalService(
         {
             return Invalid<CreateAiAgentApprovalResponse>();
         }
+
+        if (!SupportsScope(request.ToolName, tenant))
+            return Result<CreateAiAgentApprovalResponse>.Failure(new Error(AiErrorCodes.AgentApprovalNotAuthorized,
+                "Only personal schedule completion approvals are available in a tenant scope.", ErrorType.Forbidden));
 
         var tools = await toolRegistryFactory.CreateAsync(cancellationToken).ConfigureAwait(false);
         cancellationToken.ThrowIfCancellationRequested();
@@ -71,7 +79,16 @@ internal sealed class AiAgentApprovalService(
             return Invalid<CreateAiAgentApprovalResponse>();
         }
 
-        var presentation = await BuildPresentationAsync(tool.Name, arguments.RootElement, binding.UserId, cancellationToken)
+        if (tool.Name == PersonalScheduleCompletionKeys.Tool)
+        {
+            var args = ScheduleCompletionArguments.Parse(arguments.RootElement);
+            var snapshot = JsonSerializer.Deserialize(run.BudgetJson, AiJsonSerializerContext.Default.AgentRunBudgetSnapshot);
+            if (args is null || !AiScheduleCompletionService.RunMatches(run, binding) || run.StatusKey != "awaiting_approval"
+                || request.OperationId != AgentWorkflowNodeReceipt.ResolveOperationId(run.Id, "complete_schedule")
+                || snapshot?.PersonalScheduleTarget != new AiPersonalScheduleCompletionTarget(args.ScheduleId, args.ExpectedVersion))
+                return Invalid<CreateAiAgentApprovalResponse>();
+        }
+        var presentation = await BuildPresentationAsync(tool.Name, arguments.RootElement, binding, cancellationToken)
             .ConfigureAwait(false);
         cancellationToken.ThrowIfCancellationRequested();
         if (presentation is null)
@@ -161,6 +178,7 @@ internal sealed class AiAgentApprovalService(
             }
         }
 
+        if (!SupportsScope(record.ToolName, tenant)) return NotFound<AiAgentApprovalResponse>();
         return Result<AiAgentApprovalResponse>.Success(Map(record));
     }
 
@@ -198,6 +216,18 @@ internal sealed class AiAgentApprovalService(
                 AiErrorCodes.AgentApprovalNotAuthorized,
                 "The current user is not authorized to decide this approval.",
                 ErrorType.Forbidden));
+        }
+
+        if (record.ToolName == PersonalScheduleCompletionKeys.Tool)
+        {
+            var run = await runs.FindOwnedAsync(record.RunId, ResolveScope(), record.RequestedBy, cancellationToken).ConfigureAwait(false);
+            using var arguments = JsonDocument.Parse(record.ArgumentsProtected);
+            var schedule = ScheduleCompletionArguments.Parse(arguments.RootElement);
+            if (run is null || schedule is null || calendar is null || run.StatusKey != "awaiting_approval"
+                || record.OperationId != AgentWorkflowNodeReceipt.ResolveOperationId(run.Id, "complete_schedule")
+                || !await calendar.CanCompleteAsync(schedule.ScheduleId, schedule.ExpectedVersion,
+                    new SessionBindingSnapshot(run.ActorUserId, run.TenantId, run.SessionId, run.SecurityStamp, run.ActorScope, run.EffectiveScope, run.SessionKind), cancellationToken).ConfigureAwait(false))
+                return Invalid<AiAgentApprovalResponse>();
         }
 
         var decision = request.Approve ? AgentApprovalDecisionKeys.Approved : AgentApprovalDecisionKeys.Denied;
@@ -241,7 +271,7 @@ internal sealed class AiAgentApprovalService(
     private async Task<AiAgentApprovalPresentation?> BuildPresentationAsync(
         string toolName,
         JsonElement arguments,
-        Guid ownerUserId,
+        SessionBindingSnapshot binding,
         CancellationToken cancellationToken)
     {
         if (string.Equals(toolName, "ai.chat.sessions.rename", StringComparison.Ordinal))
@@ -253,7 +283,7 @@ internal sealed class AiAgentApprovalService(
             }
 
             var scope = AiChatScope.Resolve(tenant);
-            var session = await sessions.FindOwnedSessionAsync(scope, parsed.SessionId, ownerUserId, cancellationToken)
+            var session = await sessions.FindOwnedSessionAsync(scope, parsed.SessionId, binding.UserId, cancellationToken)
                 .ConfigureAwait(false);
             cancellationToken.ThrowIfCancellationRequested();
             if (session is null || session.Version <= 0)
@@ -270,6 +300,13 @@ internal sealed class AiAgentApprovalService(
                 null,
                 session.Version);
         }
+
+        if (toolName == PersonalScheduleCompletionKeys.Tool && calendar is not null
+            && ScheduleCompletionArguments.Parse(arguments) is { } schedule
+            && await calendar.CanCompleteAsync(schedule.ScheduleId, schedule.ExpectedVersion, binding, cancellationToken).ConfigureAwait(false))
+            return new("Complete own personal schedule", schedule.ScheduleId.ToString("D"),
+                schedule.ChangeSummary,
+                "Owned personal schedule; independent approval required", null, null, schedule.ExpectedVersion);
 
         return null;
     }
@@ -303,6 +340,8 @@ internal sealed class AiAgentApprovalService(
         AiAgentApprovalRecord record,
         CancellationToken cancellationToken)
     {
+        if (!SupportsScope(record.ToolName, tenant)) return false;
+        if (record.ToolName == PersonalScheduleCompletionKeys.Tool && record.RequestedBy == approverUserId) return false;
         if (await sessionAuthorization.AuthorizeAsync(AiAgentApprovalPermissions.Decide, cancellationToken).ConfigureAwait(false)
             is { UserId: var userId } && userId == approverUserId)
         {
@@ -316,6 +355,11 @@ internal sealed class AiAgentApprovalService(
             AiAgentApprovalPermissions.Decide,
             cancellationToken).ConfigureAwait(false);
     }
+
+    /// <summary>租户只开放本组闭合日程审批，不借通用审批权限扩大聊天或其它工具写入。</summary>
+    internal static bool SupportsScope(string tool, ICurrentTenant context) =>
+        context.IsHost && context.Id is null || !context.IsHost && context.IsAvailable && context.Id is not null
+            && tool == PersonalScheduleCompletionKeys.Tool;
 
     private string ResolveScope() => tenant.Id is { } id ? id.ToString("N") : tenant.IsHost ? "host"
         : throw new InvalidOperationException("Tenant scope is required for agent approvals.");

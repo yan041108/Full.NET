@@ -150,12 +150,16 @@ internal sealed class OpenAccessClientAccessSupport(
             Truncate(httpContext.Connection.RemoteIpAddress?.ToString(), 64),
             Truncate(httpContext.Request.Headers.UserAgent.ToString(), 512),
             null,
-            clock.UtcNow);
-        await commandExecutor.ExecuteAsync(
+            clock.UtcNow,
+            ActorUserId: succeeded ? userId : null,
+            TraceId: System.Diagnostics.Activity.Current?.TraceId.ToString(),
+            AuthenticationMethod: "api_key");
+        var affected = await commandExecutor.ExecuteAsync(
                 IdentitySql.InsertAuthAudit,
                 audit,
                 cancellationToken)
             .ConfigureAwait(false);
+        if (affected != 1) throw new InvalidOperationException("Open access audit did not persist exactly one row.");
     }
 
     private static string? Truncate(string? value, int maxLength)

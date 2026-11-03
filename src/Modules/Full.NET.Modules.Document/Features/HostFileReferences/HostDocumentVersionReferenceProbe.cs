@@ -1,11 +1,12 @@
 using Full.NET.Data.Abstractions;
+using Full.NET.Abstractions.Time;
 using Full.NET.Modules.Document.Persistence;
 using Full.NET.Modules.Files.Contracts;
 
 namespace Full.NET.Modules.Document.Features.HostFileReferences;
 
 /// <summary>为 Files claim 对账提供 Document 版本精确引用探测。</summary>
-internal sealed class HostDocumentVersionReferenceProbe(IQueryExecutor queryExecutor)
+internal sealed class HostDocumentVersionReferenceProbe(IQueryExecutor queryExecutor, IClock clock)
     : IHostFileReferenceClaimProbe
 {
     public string ConsumerModule => HostFileReferenceClaimConsumerModules.Document;
@@ -23,6 +24,8 @@ internal sealed class HostDocumentVersionReferenceProbe(IQueryExecutor queryExec
                     DocumentSqlParameters.Create(("VersionId", consumerReferenceId), ("FileId", fileId)),
                     cancellationToken)
                 .ConfigureAwait(false);
+            if (exists != 1) exists = await queryExecutor.QuerySingleOrDefaultAsync<int>(DocumentPreviewReferenceSql.Exists,
+                DocumentSqlParameters.Create(("ReferenceId", consumerReferenceId), ("FileId", fileId), ("Now", clock.UtcNow)), cancellationToken).ConfigureAwait(false);
             return new HostFileReferenceClaimProbeResult(
                 exists == 1
                     ? HostFileReferenceClaimProbeOutcome.Exists

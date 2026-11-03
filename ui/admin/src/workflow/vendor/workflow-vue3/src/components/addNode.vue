@@ -52,6 +52,7 @@
           <button v-if="enabledNodeTypes.has('integration.trigger')" type="button" class="add-node-popover-item condition" @click="addType(NodeType.Trigger)"><span>{{ t('workflowDesigner.connector.title') }}</span></button>
           <button v-if="enabledNodeTypes.has('control.route')" type="button" class="add-node-popover-item condition" @click="addType(NodeType.DynamicRoute)"><span>{{ t('workflowDesigner.route.title') }}</span></button>
           <button v-if="enabledNodeTypes.has('business.command')" type="button" class="add-node-popover-item condition" @click="addType(NodeType.BusinessCommand)"><span>{{ t('workflowDesigner.businessCommand.title') }}</span></button>
+          <button v-if="enabledNodeTypes.has('process.collaboration')" type="button" class="add-node-popover-item approver" data-testid="workflow-add-collaboration" @click="addType(NodeType.CrossTenantApprover)"><span>{{ t('workflowDesigner.collaboration.title') }}</span></button>
           <button v-if="enabledNodeTypes.has('integration.async_trigger')" type="button" class="add-node-popover-item condition" @click="addType(NodeType.AsyncTrigger)"><span>{{ t('workflowDesigner.connector.asyncTitle') }}</span></button>
         </div>
         <template #reference>
@@ -93,6 +94,11 @@ const createNodeId = () => {
 }
 
 const addType = (type) => {
+  if (type === NodeType.CrossTenantApprover) {
+    if (!enabledNodeTypes.value.has('process.collaboration')) return
+    emit('update:childNodeP', { id: createNodeId(), nodeName: t('workflowDesigner.collaboration.title'), type, childNode: props.childNodeP }); visible.value = false;
+    return
+  }
   if (type === NodeType.BusinessCommand) {
     emit('update:childNodeP', { id: createNodeId(), nodeName: t('workflowDesigner.businessCommand.title'), type, childNode: props.childNodeP }); visible.value = false;
     return;

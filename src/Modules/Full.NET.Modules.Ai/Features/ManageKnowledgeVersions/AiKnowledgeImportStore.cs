@@ -147,6 +147,13 @@ internal sealed class AiKnowledgeImportStore(IQueryExecutor query, ICommandExecu
         return query.QueryAsync<AiKnowledgeImportRecord>(sql, parameters, token);
     }
 
+    internal async Task<bool> CanReleaseSourceAsync(Dictionary<string, object?> parameters, CancellationToken token)
+    {
+        parameters["Now"] = clock.UtcNow;
+        return await query.QuerySingleOrDefaultAsync<Guid>(IsTenant ? AiKnowledgePublicationSql.SourceReleaseTenant : AiKnowledgePublicationSql.SourceReleaseHost,
+            parameters, token).ConfigureAwait(false) == (Guid)parameters["DocumentId"]!;
+    }
+
     internal static AiKnowledgeImportResponse Map(AiKnowledgeImportRecord row) =>
         new(row.Id, row.DocumentId, row.VersionId, row.StateKey, row.FailureCode, row.CreatedAtUtc, row.UpdatedAtUtc);
     internal static Result<T> NotFound<T>() => Failure<T>(AiKnowledgeErrorCodes.DocumentNotFound, "The document or operation was not found.", ErrorType.NotFound);

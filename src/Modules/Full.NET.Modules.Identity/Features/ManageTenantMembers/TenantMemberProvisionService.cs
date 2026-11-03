@@ -11,6 +11,9 @@ using Full.NET.Modules.Identity.Features.AccountChallenges;
 using Full.NET.Modules.Identity.Features.ManageTenantMembers.Persistence;
 using Full.NET.Modules.Identity.Persistence;
 using Full.NET.Modules.Identity.Security;
+using Full.NET.Modules.Identity.Features.TenantSeatOperations;
+using System.Security.Cryptography;
+using System.Text;
 using IdentityUser = Full.NET.Modules.Identity.Domain.IdentityUser;
 
 /// <summary>Identity 模块应用服务；编排事务、权限与持久化。</summary>
@@ -23,11 +26,11 @@ internal sealed class TenantMemberProvisionService(
     ICurrentTenant currentTenant,
     ICurrentTenantContextWriter currentTenantWriter,
     IIdentityActiveTenantDirectory activeTenants,
-    ITenantMemberSeatQuotaPort seatQuotaPort,
     TenantMembershipQueryService queries,
     Microsoft.AspNetCore.Identity.IPasswordHasher<IdentityUser> passwordHasher,
     IClock clock,
-    IIdGenerator idGenerator)
+    IIdGenerator idGenerator,
+    TenantSeatOperationProcessor seatOperations)
 {
     private const string HostScope = "host";
 
@@ -103,12 +106,47 @@ internal sealed class TenantMemberProvisionService(
                         ("NormalizedUsername", normalizedUsername)),
                     cancellationToken))
             .ConfigureAwait(false);
+        var requestKey = "provision:" + Hash(normalizedUsername);
+        var requestHash = Hash(string.Join("|", new[] { normalizedUsername, displayName, role,
+            AccountChallengeService.NormalizeEmail(request.Email ?? string.Empty) ?? string.Empty }.Select(Uri.EscapeDataString)));
         if (existingUser is not null)
         {
-            return Result<TenantMemberResponse>.Failure(new Error(
-                IdentityErrorCodes.UsernameExists,
-                "A host user with this username already exists.",
-                ErrorType.Conflict));
+            var operation = await seatOperations.FindRequestAsync(tenantId, requestKey, cancellationToken).ConfigureAwait(false);
+            var account = new IdentityUser(existingUser.Id, existingUser.TenantId, existingUser.ScopeKey, existingUser.Username,
+                existingUser.NormalizedUsername, existingUser.DisplayName, existingUser.PasswordHash, existingUser.IsActive,
+                existingUser.FailedLoginCount, existingUser.LockoutEndUtc, existingUser.SecurityStamp, existingUser.CreatedAtUtc,
+                existingUser.UpdatedAtUtc, existingUser.Version);
+            if (operation is null || operation.UserId != existingUser.Id || operation.RequestHash != requestHash
+                || passwordHasher.VerifyHashedPassword(account, existingUser.PasswordHash, password) == Microsoft.AspNetCore.Identity.PasswordVerificationResult.Failed)
+                return Result<TenantMemberResponse>.Failure(new Error(IdentityErrorCodes.UsernameExists,
+                    "A host user with this username already exists.", ErrorType.Conflict));
+            if (operation.Phase == TenantSeatPhases.Cancelled)
+            {
+                if (operation.ErrorCode is "identity.seat_operation.member_removed" or "identity.seat_operation.member_changed")
+                    return Result<TenantMemberResponse>.Failure(new Error(IdentityErrorCodes.TenantMemberVersionConflict,
+                        "The original membership was terminated or changed.", ErrorType.Conflict));
+                var previous = await queryExecutor.QuerySingleOrDefaultAsync<TenantMemberListRow>(TenantMembershipSql.FindMemberById,
+                    IdentitySqlParameters.Create(("MemberId", operation.MemberId)), cancellationToken).ConfigureAwait(false);
+                if (previous is null || previous.Status == TenantMemberStatuses.Active || previous.MemberRole == TenantMemberRoles.Owner)
+                    return Result<TenantMemberResponse>.Failure(new Error(IdentityErrorCodes.TenantMemberVersionConflict,
+                        "The previous member cannot be activated by this creation request.", ErrorType.Conflict));
+                var restarted = await transaction.ExecuteResultAsync(async local =>
+                {
+                    if (await commandExecutor.ExecuteAsync(TenantMembershipSql.UpdateMember,
+                        IdentitySqlParameters.Create(("MemberId", operation.MemberId), ("MemberRole", role),
+                            ("Status", TenantMemberStatuses.Pending), ("UpdatedAtUtc", clock.UtcNow), ("Version", previous.Version)), local).ConfigureAwait(false) != 1)
+                        return Result<bool>.Failure(new Error(IdentityErrorCodes.TenantMemberVersionConflict, "The member changed.", ErrorType.Conflict));
+                    var affected = await IdentityHostExecutionScope.RunAsync(currentTenantWriter, () => commandExecutor.ExecuteAsync(TenantSeatOperationSql.Retry,
+                        IdentitySqlParameters.Create(("Id", operation.Id), ("TenantId", tenantId), ("MemberVersion", previous.Version + 1),
+                            ("Version", operation.Version), ("Now", clock.UtcNow)), local)).ConfigureAwait(false);
+                    return affected == 1 ? Result<bool>.Success(true)
+                        : Result<bool>.Failure(new Error(IdentityErrorCodes.TenantMemberVersionConflict, "The activation changed.", ErrorType.Conflict));
+                }, cancellationToken).ConfigureAwait(false);
+                if (!restarted.IsSuccess) return Result<TenantMemberResponse>.Failure(restarted.Error!);
+            }
+            var replay = await seatOperations.ProcessAsync(operation.Id, cancellationToken).ConfigureAwait(false);
+            return replay.IsSuccess ? await queries.GetMemberByIdAsync(operation.MemberId, cancellationToken).ConfigureAwait(false)
+                : Result<TenantMemberResponse>.Failure(replay.Error!);
         }
 
         var email = request.Email?.Trim();
@@ -168,20 +206,8 @@ internal sealed class TenantMemberProvisionService(
             user.MustChangePassword,
             user.PasswordChangedAtUtc);
 
-        var operationId = idGenerator.NewId().ToString("D");
-        var reserveResult = await IdentityHostExecutionScope.RunAsync(
-                currentTenantWriter,
-                () => seatQuotaPort.TryReserveAsync(
-                    tenantId,
-                    operationId,
-                    cancellationToken))
-            .ConfigureAwait(false);
-        if (!reserveResult.IsSuccess)
-        {
-            return Result<TenantMemberResponse>.Failure(reserveResult.Error!);
-        }
-
         var memberId = idGenerator.NewId();
+        var operationId = idGenerator.NewId();
         var writeResult = await transaction.ExecuteResultAsync(
             async token =>
             {
@@ -214,62 +240,30 @@ internal sealed class TenantMemberProvisionService(
                         })
                     .ConfigureAwait(false);
 
-                await commandExecutor.ExecuteAsync(
+                var memberAffected = await commandExecutor.ExecuteAsync(
                         TenantMembershipSql.InsertMember,
                         IdentitySqlParameters.Create(
                             ("Id", memberId),
                             ("UserId", userId),
                             ("MemberRole", role),
-                            ("Status", TenantMemberStatuses.Active),
+                            ("Status", TenantMemberStatuses.Pending),
                             ("CreatedAtUtc", now),
                             ("UpdatedAtUtc", now),
                             ("Version", 1)),
                         token)
                     .ConfigureAwait(false);
+                if (memberAffected != 1)
+                    throw new InvalidOperationException("Tenant member insert did not persist exactly one row.");
+
+                await seatOperations.EnlistAsync(new TenantSeatOperation(operationId, requestKey, tenantId, userId, memberId,
+                    null, null, null, 1, null, TenantSeatPhases.Requested, requestHash, null, now, now, null, null, 1, 1), token).ConfigureAwait(false);
 
                 return Result<Guid>.Success(memberId);
             },
             cancellationToken).ConfigureAwait(false);
-        if (!writeResult.IsSuccess)
-        {
-            await IdentityHostExecutionScope.RunAsync(
-                    currentTenantWriter,
-                    () => seatQuotaPort.ReleaseAsync(tenantId, operationId, cancellationToken))
-                .ConfigureAwait(false);
-            return Result<TenantMemberResponse>.Failure(writeResult.Error!);
-        }
-
-        var confirmResult = await IdentityHostExecutionScope.RunAsync(
-                currentTenantWriter,
-                () => seatQuotaPort.ConfirmAsync(
-                    tenantId,
-                    operationId,
-                    cancellationToken))
-            .ConfigureAwait(false);
-        if (!confirmResult.IsSuccess)
-        {
-            await transaction.ExecuteAsync(
-                async token =>
-                {
-                    await commandExecutor.ExecuteAsync(
-                            TenantMembershipSql.UpdateMember,
-                            IdentitySqlParameters.Create(
-                                ("MemberId", memberId),
-                                ("MemberRole", role),
-                                ("Status", TenantMemberStatuses.Removed),
-                                ("UpdatedAtUtc", clock.UtcNow),
-                                ("Version", 1)),
-                            token)
-                        .ConfigureAwait(false);
-                    return true;
-                },
-                cancellationToken).ConfigureAwait(false);
-            await IdentityHostExecutionScope.RunAsync(
-                    currentTenantWriter,
-                    () => seatQuotaPort.ReleaseAsync(tenantId, operationId, cancellationToken))
-                .ConfigureAwait(false);
-            return Result<TenantMemberResponse>.Failure(confirmResult.Error!);
-        }
+        if (!writeResult.IsSuccess) return Result<TenantMemberResponse>.Failure(writeResult.Error!);
+        var activation = await seatOperations.ProcessAsync(operationId, cancellationToken).ConfigureAwait(false);
+        if (!activation.IsSuccess) return Result<TenantMemberResponse>.Failure(activation.Error!);
 
         var row = await queryExecutor.QuerySingleOrDefaultAsync<TenantMemberListRow>(
                 TenantMembershipSql.FindMemberListRowByTenantAndUser,
@@ -294,4 +288,5 @@ internal sealed class TenantMemberProvisionService(
             row.UpdatedAtUtc,
             row.Version));
     }
+    private static string Hash(string value) => Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(value)));
 }

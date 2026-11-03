@@ -22,7 +22,8 @@ internal sealed partial class WorkflowRuntimeTransitionExecutor(
     ICommandExecutor commandExecutor,
     WorkflowActivityScheduler activityScheduler,
     WorkflowBranchStateCoordinator branchStates, WorkflowConnectorCatalog connectors, WorkflowHumanActivityCompletionCoordinator callbacks,
-    WorkflowBusinessCommandActivationWriter businessCommands, WorkflowSubprocessActivationWriter subprocesses, WorkflowReturnRoundCoordinator returnRounds)
+    WorkflowBusinessCommandActivationWriter businessCommands, WorkflowSubprocessActivationWriter subprocesses, WorkflowReturnRoundCoordinator returnRounds,
+    WorkflowCollaborationActivationWriter collaborations)
 {
     /// <summary>执行一次闭合审批迁移并返回首个新待办标识（若存在）。</summary>
     /// <param name="instance">当前实例。</param>
@@ -58,6 +59,9 @@ internal sealed partial class WorkflowRuntimeTransitionExecutor(
     {
         if (scope.TenantId != instance.TenantId || scope.ScopeKey != instance.ScopeKey || scope.TenantScopeKey != instance.TenantScopeKey)
             return Result<WorkflowTransitionExecutionResult>.Failure(WorkflowTransitionExecutionErrors.InvalidTransition());
+        if (!await WorkflowCollaborationRuntimeGate.AllowsAsync(instance.Id, scope, null, now, queryExecutor,
+                cancellationToken, commandExecutor).ConfigureAwait(false))
+            return Result<WorkflowTransitionExecutionResult>.Failure(WorkflowTransitionExecutionErrors.InvalidTransition());
         if (trace is null && sourceStepId is { } source && source!=Guid.Empty)
             trace=new(source,activeParallelJoinId,activeParallelBranchKey);
         if (trace is null) return Result<WorkflowTransitionExecutionResult>.Failure(WorkflowTransitionExecutionErrors.InvalidTransition());
@@ -66,7 +70,7 @@ internal sealed partial class WorkflowRuntimeTransitionExecutor(
             var count = await queryExecutor.QuerySingleOrDefaultAsync<int>(WorkflowActivitySql.CountActivations,
                 WorkflowSqlParameters.Create(("InstanceId", instance.Id)), cancellationToken).ConfigureAwait(false);
             budget ??= new WorkflowDispatchBudget();
-            budget.TotalRemaining = await WorkflowExecutionBudgetPolicy.ReadRemainingAsync(instance, runtimePlan.HasSubprocess, count,
+            budget.TotalRemaining = await WorkflowExecutionBudgetPolicy.ReadRemainingAsync(instance, runtimePlan.RequiresExecutionBudget, count,
                 queryExecutor, cancellationToken).ConfigureAwait(false);
             if (budget.TotalRemaining < 0) return Result<WorkflowTransitionExecutionResult>.Failure(WorkflowTransitionExecutionErrors.InvalidTransition());
         }
@@ -125,6 +129,9 @@ internal sealed partial class WorkflowRuntimeTransitionExecutor(
 
         if (transition.CompletesInstance)
         {
+            if (runtimePlan.HasCollaboration && await queryExecutor.QuerySingleOrDefaultAsync<int>(WorkflowCollaborationControlSql.CountUnsettledSource,
+                    WorkflowSqlParameters.Create(("InstanceId", instance.Id), ("TenantScopeKey", scope.TenantScopeKey)), cancellationToken).ConfigureAwait(false) != 0)
+                return Result<WorkflowTransitionExecutionResult>.Failure(WorkflowTransitionExecutionErrors.InvalidTransition());
             // 共同End可能是退回轮次出口；先持久化真实End，再用原收据恢复外层，根终态仍只有一次。
             var terminalReturn = await returnRounds.TryExitAsync(instance, executionEpochId, runtimePlan, trace, budget,
                 activeParallelJoinId, activeParallelBranchKey, values, sequence, now, cancellationToken).ConfigureAwait(false);
@@ -180,6 +187,13 @@ internal sealed partial class WorkflowRuntimeTransitionExecutor(
             {
                 var activation = await subprocesses.ActivateAsync(instance, scope, budget.ExecutionEpochId, subprocessWait, values, revision.Value, sequence,
                     activeParallelJoinId, activeParallelBranchKey, now, cancellationToken, trace: trace).ConfigureAwait(false);
+                if (!activation.IsSuccess) return Result<WorkflowTransitionExecutionResult>.Failure(activation.Error!);
+                budget.TotalRemaining -= activation.Value;
+            }
+            else if (automaticWait is WorkflowCollaborationWaitPlan collaborationWait)
+            {
+                var activation = await collaborations.ActivateAsync(instance, scope, budget.ExecutionEpochId, collaborationWait, values, revision.Value,
+                    sequence, activeParallelJoinId, activeParallelBranchKey, now, cancellationToken, trace).ConfigureAwait(false);
                 if (!activation.IsSuccess) return Result<WorkflowTransitionExecutionResult>.Failure(activation.Error!);
                 budget.TotalRemaining -= activation.Value;
             }

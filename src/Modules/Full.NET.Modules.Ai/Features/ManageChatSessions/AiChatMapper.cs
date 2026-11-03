@@ -47,9 +47,21 @@ internal static class AiChatMapper
             IsKnowledgeAnswer = derived,
             KnowledgeUnavailableCode = derived && !available ? AiErrorCodes.KnowledgeAnswerUnavailable : null,
             Citations = available ? verified!.References.Select(reference => new AiKnowledgeCitationResponse(reference.Id,
-                reference.DocumentId, reference.VersionId, reference.Sequence, reference.PageNumber, reference.Offset, reference.Length) { DocxLocation = reference.DocxLocation, SourceLocation = reference.SourceLocation }).ToArray() : [],
+                reference.DocumentId, reference.VersionId, reference.Sequence, reference.PageNumber, reference.Offset, reference.Length)
+                { DocxLocation = reference.DocxLocation, SourceLocation = reference.SourceLocation, Correction = AiKnowledgeCorrectionCitations.Capture(reference.Correction),
+                    FaqSource = FaqCitation(verified.Dependencies.Single(value => value.DocumentId == reference.DocumentId)) }).ToArray() : [],
+            PersonalScheduleCitations = available ? (verified!.PersonalScheduleReferences ?? []).Select(reference =>
+            {
+                var source = verified.PersonalSchedules!.Single(value => value.Id == reference.ScheduleId);
+                return new AiPersonalScheduleCitationResponse(reference.Id, source.Kind, source.Purpose, source.Id, source.Version, source.ProjectionHash);
+            }).ToArray() : [],
         };
     }
+
+    private static AiKnowledgeFaqCitationResponse? FaqCitation(AiKnowledgeAnswerDependency source) => source.Faq is { } faq
+        ? new(new(source.KnowledgeBaseId, source.KnowledgeBaseVersion, source.DocumentId, source.DocumentVersion, source.VersionId,
+            source.PublicationId ?? throw new InvalidDataException(), source.TaskId, source.ManifestHash)
+            { SourceKind = "faq-revision-v1", FaqRevisionId = faq.RevisionId, FaqId = faq.FaqId }, faq.ModelConfigId, faq.ModelConfigVersion) : null;
 
     /// <summary>映射会话详情。</summary>
     /// <param name="row">持久化会话。</param>

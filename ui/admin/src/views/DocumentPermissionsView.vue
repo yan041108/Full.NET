@@ -8,6 +8,8 @@ import {
   ElForm,
   ElFormItem,
   ElInput,
+  ElSelect,
+  ElOption,
   ElMessage,
   ElPagination,
   ElTable,
@@ -28,6 +30,7 @@ import { useSessionStore } from '../auth/session';
 import { useAdminI18n } from '../i18n/adminI18n';
 import { listDocumentItems } from '../api/host-document-items';
 import {
+  getDocumentPermissionContext,
   getDocumentPermissionsByDocument,
   setDocumentPermissions
 } from '../api/document-permissions';
@@ -47,10 +50,12 @@ const total = ref(0);
 const searchKeyword = ref('');
 const appliedKeyword = ref('');
 const permissionDialogOpen = ref(false);
-const activeDocument = ref<HostDocumentItemResponse | null>(null);
+const activeDocument = ref<Pick<HostDocumentItemResponse, 'id' | 'title' | 'documentNo' | 'visibilityMode' | 'version'> | null>(null);
+const governanceId = ref('');
 const permissions = ref<HostDocumentPermissionResponse[]>([]);
 const userId = ref('');
-const permissionLevel = ref('read');
+const permissionActions = ref<('read' | 'write' | 'delete' | 'share')[]>(['read']);
+const visibilityMode = ref<'host' | 'restricted'>('restricted');
 
 const {
   tableMainRef,
@@ -67,18 +72,7 @@ const canReadDocuments = computed(() => session.can('document.host_documents.rea
 const canReadPermissions = () => session.can('document.host_permissions.read');
 const canSet = () => session.can('document.host_permissions.set');
 
-const displayItems = computed(() => {
-  const keyword = appliedKeyword.value.trim().toLowerCase();
-  if (!keyword) {
-    return items.value;
-  }
-  return items.value.filter(
-    item =>
-      item.title.toLowerCase().includes(keyword) ||
-      item.documentNo.toLowerCase().includes(keyword) ||
-      item.id.toLowerCase().includes(keyword)
-  );
-});
+const displayItems = computed(() => items.value);
 
 const rowIndex = computed(() => (index: number) => (page.value - 1) * pageSize.value + index + 1);
 
@@ -91,7 +85,7 @@ async function loadDocuments() {
   loading.value = true;
   problem.value = undefined;
   try {
-    const result = await listDocumentItems(page.value, pageSize.value);
+    const result = await listDocumentItems(page.value, pageSize.value, { keyword: appliedKeyword.value });
     items.value = result.items;
     page.value = result.page;
     pageSize.value = result.pageSize;
@@ -106,7 +100,8 @@ async function loadDocuments() {
 
 function handleQuery() {
   appliedKeyword.value = searchKeyword.value;
-  void syncTableLayout();
+  page.value = 1;
+  void loadDocuments();
 }
 
 function resetQuery() {
@@ -116,11 +111,12 @@ function resetQuery() {
   void loadDocuments();
 }
 
-async function openPermissionDialog(row: HostDocumentItemResponse) {
+async function openPermissionDialog(row: Pick<HostDocumentItemResponse, 'id' | 'title' | 'documentNo' | 'visibilityMode' | 'version'>) {
   activeDocument.value = row;
   permissionDialogOpen.value = true;
   userId.value = '';
-  permissionLevel.value = 'read';
+  permissionActions.value = ['read'];
+  visibilityMode.value = row.visibilityMode;
   if (!canReadPermissions()) {
     permissions.value = [];
     return;
@@ -143,8 +139,16 @@ function closePermissionDialog() {
   permissions.value = [];
 }
 
+async function openGovernanceDocument(): Promise<void> {
+  try {
+    const context = await getDocumentPermissionContext(governanceId.value.trim());
+    if (context.visibilityMode !== 'host' && context.visibilityMode !== 'restricted') throw new Error('client.invalid_document_visibility');
+    await openPermissionDialog({ ...context, id: context.documentId, visibilityMode: context.visibilityMode });
+  } catch (error) { problem.value = toProblem(error); }
+}
+
 async function savePermission() {
-  if (!activeDocument.value || !userId.value.trim()) {
+  if (!activeDocument.value) {
     return;
   }
   saving.value = true;
@@ -152,14 +156,16 @@ async function savePermission() {
   try {
     permissions.value = await setDocumentPermissions({
       documentId: activeDocument.value.id,
+      visibilityMode: visibilityMode.value,
+      version: activeDocument.value.version,
       permissions: [
-        {
-          userId: userId.value.trim(),
-          permissionLevel: permissionLevel.value.trim()
-        }
+        ...permissions.value.filter(entry => entry.userId !== userId.value.trim()).map(entry => ({ userId: entry.userId, actions: entry.actions })),
+        ...(userId.value.trim() ? [{ userId: userId.value.trim(), actions: [...permissionActions.value] }] : [])
       ]
     });
     ElMessage.success(t('documentPermissions.saveSuccess'));
+    closePermissionDialog();
+    await loadDocuments();
   } catch (error) {
     problem.value = toProblem(error, 'documentPermissions.operationFailed');
   } finally {
@@ -182,6 +188,10 @@ onMounted(loadDocuments);
 
 <template>
   <section class="document-permissions-view document-module-page art-page-stack art-full-height" :aria-busy="loading">
+    <el-form v-if="canReadPermissions()" inline @submit.prevent="openGovernanceDocument">
+      <el-form-item :label="t('documentPermissions.documentId')"><el-input v-model="governanceId" /></el-form-item>
+      <el-button @click="openGovernanceDocument">{{ t('documentPermissions.load') }}</el-button>
+    </el-form>
     <h1 class="art-sr-heading" data-route-heading tabindex="-1">{{ t('documentPermissions.title') }}</h1>
 
     <el-alert
@@ -287,6 +297,13 @@ onMounted(loadDocuments);
       <p v-if="activeDocument" class="document-permissions-view__active-doc" translate="no">
         {{ activeDocument.title }} · {{ activeDocument.documentNo }}
       </p>
+      <el-alert :title="t('documentPermissions.governanceNotice')" type="info" :closable="false" />
+      <el-form-item :label="t('documentPermissions.visibilityMode')">
+        <el-select v-model="visibilityMode">
+          <el-option value="host" :label="t('documentPermissions.hostVisibility')" />
+          <el-option value="restricted" :label="t('documentPermissions.restrictedVisibility')" />
+        </el-select>
+      </el-form-item>
       <el-table
         :loading="permissionsLoading"
         :data="permissions"
@@ -294,8 +311,11 @@ onMounted(loadDocuments);
         class="art-crud-data-table document-permissions-view__perm-table"
       >
         <el-table-column :label="t('documentPermissions.userId')" prop="userId" min-width="240" />
-        <el-table-column :label="t('documentPermissions.permissionLevel')" prop="permissionLevel" min-width="120" />
+        <el-table-column :label="t('documentPermissions.permissionLevel')" prop="actions" min-width="120" />
         <template #empty>{{ t('documentPermissions.emptyDirectory') }}</template>
+        <el-table-column v-if="canSet()" width="80">
+          <template #default="{ row }"><el-button @click="permissions = permissions.filter(entry => entry.userId !== row.userId)">{{ t('documentPermissions.remove') }}</el-button></template>
+        </el-table-column>
       </el-table>
       <el-form
         v-if="canSet()"
@@ -307,7 +327,9 @@ onMounted(loadDocuments);
           <el-input v-model="userId" autocomplete="off" />
         </el-form-item>
         <el-form-item :label="t('documentPermissions.permissionLevel')">
-          <el-input v-model="permissionLevel" autocomplete="off" />
+          <el-select v-model="permissionActions" multiple>
+            <el-option v-for="action in ['read', 'write', 'delete', 'share']" :key="action" :value="action" :label="action" />
+          </el-select>
         </el-form-item>
       </el-form>
       <PermissionGate code="document.host_permissions.read">

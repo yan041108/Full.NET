@@ -16,7 +16,7 @@ namespace Full.NET.Modules.Workflow.Features.ManageMyTodos;
 internal sealed class WorkflowTodoQueryService(
     IQueryExecutor queryExecutor,
     ICurrentTenant currentTenant,
-    IOptions<DatabaseOptions> databaseOptions)
+    IOptions<DatabaseOptions> databaseOptions, WorkflowCollaborationListAuthorization authorization)
 {
     /// <summary>分页列出当前用户的活动待办。</summary>
     /// <param name="actorUserId">可信当前用户标识。</param>
@@ -117,7 +117,7 @@ internal sealed class WorkflowTodoQueryService(
             return Failure(WorkflowErrorCodes.SchemaInvalid, ErrorType.Validation);
         }
 
-        page = Math.Max(page, 1);
+        page = Math.Clamp(page, 1, 100_000);
         pageSize = Math.Clamp(pageSize, 1, 100);
         var offset = (page - 1) * pageSize;
         var scope = WorkflowManagementScope.Resolve(currentTenant);
@@ -134,9 +134,15 @@ internal sealed class WorkflowTodoQueryService(
             ("Offset", offset),
             ("PageSize", pageSize));
 
-        var countStatement = isHistory
-            ? WorkflowSql.CountHistoryTodosFiltered
-            : WorkflowSql.CountPendingTodosFiltered;
+        var proof = await authorization.PrepareAsync(isHistory ? "history" : "pending", actorUserId, parameters, cancellationToken).ConfigureAwait(false);
+        if (!proof.IsSuccess) return Result<PagedResult<WorkflowTodoListItemResponse>>.Failure(proof.Error!);
+        parameters["CollaborationProofs"] = proof.Value;
+
+        var countStatement = (databaseOptions.Value.Provider == DatabaseProvider.SqlServer, isHistory) switch
+        {
+            (true, true) => WorkflowSql.CountHistoryTodosFilteredSqlServer, (false, true) => WorkflowSql.CountHistoryTodosFilteredMySql,
+            (true, false) => WorkflowSql.CountPendingTodosFilteredSqlServer, _ => WorkflowSql.CountPendingTodosFilteredMySql
+        };
         var total = await queryExecutor.QuerySingleOrDefaultAsync<long>(
                 countStatement,
                 parameters,

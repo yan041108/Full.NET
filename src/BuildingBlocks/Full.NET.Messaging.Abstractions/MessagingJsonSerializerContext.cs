@@ -9,6 +9,7 @@ namespace Full.NET.Messaging.Abstractions;
     PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase,
     DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull)]
 [JsonSerializable(typeof(CdcDeliveryPosition))]
+[JsonSerializable(typeof(CdcKafkaDeliveryBinding))]
 [JsonSerializable(typeof(MySqlBinlogCoordinates))]
 [JsonSerializable(typeof(SqlServerCdcLsnCoordinates))]
 internal partial class MessagingJsonSerializerContext : JsonSerializerContext;

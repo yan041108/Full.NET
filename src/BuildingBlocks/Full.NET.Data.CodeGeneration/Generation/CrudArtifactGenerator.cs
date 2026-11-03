@@ -10,6 +10,8 @@ namespace Full.NET.Data.CodeGeneration.Generation;
 /// </summary>
 public static class CrudArtifactGenerator
 {
+    /// <summary>冻结到预览与下载摘要的内置模板版本，模板行为变化时显式演进。</summary>
+    public const string GeneratorVersion = "2026.11.03.1";
     private static readonly JsonSerializerOptions ReportJsonOptions = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
@@ -32,13 +34,14 @@ public static class CrudArtifactGenerator
     {
         ArgumentNullException.ThrowIfNull(schema);
         EnsureSupportedExplicitCapabilities(schema);
+        _ = CrudUniqueKeyGenerator.Keys(schema);
 
         var artifacts = new List<GeneratedArtifact>
         {
             new GeneratedArtifact(
                 $"backend/{schema.ClrTypeName}Contracts.g.cs",
                 GeneratedArtifactKind.Backend,
-                GenerateContracts(schema)),
+                (GenerateContracts(schema) + "\n" + CrudListQueryGenerator.Contracts(schema) + "\n" + CrudAggregateGenerator.Contracts(schema) + "\n" + CrudRelationshipLookupGenerator.Contracts(schema)).TrimEnd() + "\n"),
             new GeneratedArtifact(
                 $"backend/{schema.ClrTypeName}Sql.g.cs",
                 GeneratedArtifactKind.Backend,
@@ -111,6 +114,8 @@ public static class CrudArtifactGenerator
                 CrudMigrationTemplateGenerator.GenerateIntegrationTest(schema)));
         }
 
+        artifacts.AddRange(CrudAggregateGenerator.Artifacts(schema));
+        artifacts.AddRange(CrudRelationshipLookupGenerator.Artifacts(schema));
         return Array.AsReadOnly(artifacts
             .OrderBy(artifact => artifact.RelativePath, StringComparer.Ordinal)
             .ToArray());
@@ -177,7 +182,8 @@ public static class CrudArtifactGenerator
 
         var projection = string.Join(
             ",\n            ",
-            schema.Columns.Select(column => column.DatabaseName));
+            schema.Columns.Select(column => column.DatabaseName == column.ClrPropertyName
+                ? column.DatabaseName : $"{column.DatabaseName} AS {column.ClrPropertyName}"));
         var tenantFilter = schema.IsTenantScoped
             ? "\n            AND TenantId = @TenantId"
             : string.Empty;
@@ -189,7 +195,7 @@ public static class CrudArtifactGenerator
             schema.Columns.Select(column => column.DatabaseName));
         var insertParameters = string.Join(
             ", ",
-            schema.Columns.Select(column => $"@{column.ClrPropertyName}"));
+            schema.Columns.Select(column => $"@{column.DatabaseName}"));
         var mutableColumns = MutableColumns(schema).ToArray();
         if (mutableColumns.Length == 0)
         {
@@ -201,7 +207,7 @@ public static class CrudArtifactGenerator
         var updateAssignments = string.Join(
             ",\n            ",
             mutableColumns.Select(column =>
-                $"{column.DatabaseName} = @{column.ClrPropertyName}")
+                $"{column.DatabaseName} = @{column.DatabaseName}")
                 .Concat(schema.HasVersion ? ["Version = Version + 1"] : []));
         var versionFilter = schema.HasVersion
             ? "\n            AND Version = @Version"
@@ -213,7 +219,7 @@ public static class CrudArtifactGenerator
             ? "using Full.NET.Data.Abstractions;\n\n"
             : string.Empty;
         var tenantStatements =
-            CrudBackendFeatureGenerator.GenerateSqlStatementMembers(schema);
+            CrudListQueryGenerator.Sql(schema, projection) + CrudBackendFeatureGenerator.GenerateSqlStatementMembers(schema);
 
         return Normalize(
             $$""""
@@ -284,7 +290,17 @@ public static class CrudArtifactGenerator
     private static string GenerateVueClient(FullNetCrudSchema schema) =>
         GenerateOpenApiVueClient(schema);
 
-    private static string GenerateOpenApiVueClient(FullNetCrudSchema schema)
+    /// <summary>生成消费应用自有 OpenAPI 客户端的 Vue 薄适配器，不改写共享包入口。</summary>
+    /// <param name="schema">已确认的业务 Schema，用于操作命名和页面能力。</param>
+    /// <param name="clientModuleSpecifier">从适配器位置解析的静态业务客户端模块，须导出所需操作和模型。</param>
+    /// <returns>沿用共享 HTTP 运行时、从指定模块读取业务契约的适配器源码。</returns>
+    public static string GenerateVueClient(FullNetCrudSchema schema, string clientModuleSpecifier)
+    {
+        ArgumentNullException.ThrowIfNull(schema);
+        return GenerateOpenApiVueClient(schema, TypeScriptModuleSpecifier.Validate(clientModuleSpecifier));
+    }
+
+    private static string GenerateOpenApiVueClient(FullNetCrudSchema schema, string? clientModuleSpecifier = null)
     {
         var entity = schema.ClrTypeName;
         var resource = HttpSegmentToPascalCase(schema.ApiResourceName);
@@ -294,7 +310,7 @@ public static class CrudArtifactGenerator
         var actionMember = schema.UsesLegacyEntityCapabilities ? "disable" : "delete";
         var operationImports = new List<string>
         {
-            $"{operationPrefix}Create{entity}",
+            $"{operationPrefix}Create{entity}{(CrudAggregateGenerator.Enabled(schema) ? "Aggregate" : string.Empty)}",
             $"{operationPrefix}List{resource}",
         };
         var typeImports = new List<string>
@@ -303,9 +319,19 @@ public static class CrudArtifactGenerator
             "HttpClient",
             $"{entity}Response",
         };
+        if (CrudAggregateGenerator.Enabled(schema))
+        {
+            operationImports.Add($"{operationPrefix}Get{entity}Aggregate");
+            typeImports.AddRange([$"{entity}DetailInput", $"{entity}DetailEdit", $"{entity}DetailRemoval", $"{entity}DetailResponse", $"{entity}AggregateResponse"]);
+        }
+        if (CrudRelationshipLookupGenerator.Enabled(schema))
+        {
+            operationImports.AddRange([$"{operationPrefix}List{entity}SourceOptions", $"{operationPrefix}List{entity}TargetOptions"]);
+            typeImports.Add($"{entity}RelationOption");
+        }
         if (schema.EntityCapabilities.CanUpdate)
         {
-            operationImports.Add($"{operationPrefix}Update{entity}");
+            operationImports.Add($"{operationPrefix}Update{entity}{(CrudAggregateGenerator.Enabled(schema) ? "Aggregate" : string.Empty)}");
             typeImports.Add($"Update{entity}Request");
         }
         if (schema.EntityCapabilities.CanDelete)
@@ -320,7 +346,7 @@ public static class CrudArtifactGenerator
         var imports = string.Join(",\n", operationImports
             .OrderBy(value => value, StringComparer.Ordinal)
             .Select(value => $"  {value}")
-            .Concat(typeImports
+            .Concat(typeImports.Where(value => clientModuleSpecifier is null || value != "HttpClient")
                 .OrderBy(value => value, StringComparer.Ordinal)
                 .Select(value => $"  type {value}")));
         var exportedTypes = string.Join(",\n", typeImports
@@ -329,10 +355,10 @@ public static class CrudArtifactGenerator
             .Select(value => $"  type {value}"));
         var updateMember = schema.EntityCapabilities.CanUpdate
             ? $$"""
-            update: (id: string, input: Update{{entity}}Request) =>
-              {{operationPrefix}}Update{{entity}}(
+            update: (id: string, input: Update{{entity}}Request{{(CrudAggregateGenerator.Enabled(schema) ? $", changes: {entity}DetailChanges" : string.Empty)}}) =>
+              {{operationPrefix}}Update{{entity}}{{(CrudAggregateGenerator.Enabled(schema) ? "Aggregate" : string.Empty)}}(
                 http,
-                { {{LowerFirst(entity)}}Id: id, body: input }
+                { {{LowerFirst(entity)}}Id: id, body: {{(CrudAggregateGenerator.Enabled(schema) ? "{ master: input, added: [...changes.added], updated: [...changes.updated], removed: [...changes.removed] }" : "input")}} }
               )
             """
             : string.Empty;
@@ -349,7 +375,10 @@ public static class CrudArtifactGenerator
               )
             """
             : string.Empty;
-        var additionalMembers = new[] { updateMember, deleteMember }
+        var aggregateRead = CrudAggregateGenerator.Enabled(schema) ? $"getAggregate: (id: string) => {operationPrefix}Get{entity}Aggregate(http, {{ {LowerFirst(entity)}Id: id }})" : string.Empty;
+        var lookupMembers = CrudRelationshipLookupGenerator.Enabled(schema) ? string.Join(",\n", Enumerable.Range(0, 2).Select(index =>
+            $"{CrudRelationshipLookupGenerator.Segment(index)}Options: (search = '', page = 1, selected?: string{(CrudOrganizationOwnershipGenerator.IsOrganizationUnitOwned(schema) ? ", organizationUnitId?: string" : string.Empty)}) => {operationPrefix}List{entity}{CrudRelationshipLookupGenerator.Side(index)}Options(http, {{ search, page, pageSize: 20, selected{(CrudOrganizationOwnershipGenerator.IsOrganizationUnitOwned(schema) ? ", organizationUnitId" : string.Empty)} }})")) : string.Empty;
+        var additionalMembers = new[] { updateMember, deleteMember, aggregateRead, lookupMembers }
             .Where(value => value.Length > 0)
             .ToArray();
         var renderedAdditionalMembers = additionalMembers.Length == 0
@@ -368,17 +397,23 @@ public static class CrudArtifactGenerator
               write: '{{schema.WritePermission}}'
             """;
 
-        return Normalize(
+        var clientModule = clientModuleSpecifier ?? "@fullnet/client-contracts";
+        var runtimeImport = clientModuleSpecifier is null ? string.Empty
+            : "import type { HttpClient } from '@fullnet/client-contracts';\n";
+        return runtimeImport + Normalize(
             $$"""
             import {
             {{imports}}
-            } from '@fullnet/client-contracts';
+            } from '{{clientModule}}';
 
             export {
             {{exportedTypes}}
-            } from '@fullnet/client-contracts';
+            } from '{{clientModule}}';
 
             export type GeneratedRequest = HttpClient;
+
+            {{CrudListQueryGenerator.ClientOptions(schema)}}
+            {{(CrudAggregateGenerator.Enabled(schema) ? $"export interface {entity}DetailChanges {{ added: readonly {entity}DetailInput[]; updated: readonly {entity}DetailEdit[]; removed: readonly {entity}DetailRemoval[] }}" : string.Empty)}}
 
             export const {{LowerFirst(entity)}}Permissions = {
             {{permissionMembers}}
@@ -388,10 +423,10 @@ public static class CrudArtifactGenerator
               http: GeneratedRequest
             ) {
               return {
-                list: (page = 1, pageSize = 20) =>
-                  {{operationPrefix}}List{{resource}}(http, { page, pageSize }),
-                create: (input: Create{{entity}}Request) =>
-                  {{operationPrefix}}Create{{entity}}(http, { body: input }){{renderedAdditionalMembers}}
+                list: (page = 1, pageSize = 20, query: {{entity}}ListOptions = {}) =>
+                  {{operationPrefix}}List{{resource}}(http, { page, pageSize, ...query }),
+                create: (input: Create{{entity}}Request{{(CrudAggregateGenerator.Enabled(schema) ? $", details: readonly {entity}DetailInput[]" : string.Empty)}}{{(CrudOrganizationOwnershipGenerator.IsOrganizationUnitOwned(schema) ? ", organizationUnitId: string" : string.Empty)}}) =>
+                  {{operationPrefix}}Create{{entity}}{{(CrudAggregateGenerator.Enabled(schema) ? "Aggregate" : string.Empty)}}(http, { body: {{(CrudAggregateGenerator.Enabled(schema) ? "{ master: input, details: [...details] }" : "input")}}{{(CrudOrganizationOwnershipGenerator.IsOrganizationUnitOwned(schema) ? ", 'X-FullNet-Organization-Unit-Id': organizationUnitId" : string.Empty)}} }){{renderedAdditionalMembers}}
               };
             }
             """);
@@ -569,6 +604,7 @@ public static class CrudArtifactGenerator
     {
         var report = new JsonObject
         {
+            ["generatorVersion"] = GeneratorVersion,
             ["ownerKey"] = schema.OwnerKey,
             ["moduleKey"] = schema.ModuleKey,
             ["entityKey"] = schema.EntityKey,
@@ -631,6 +667,8 @@ public static class CrudArtifactGenerator
                 ["ownershipMode"] = FullNetCrudWireValues.ToWireValue(
                     schema.EntityCapabilities.OwnershipMode),
             };
+            if (schema.EntityCapabilities.HasMutationPolicy)
+                report["entityCapabilities"]!["hasMutationPolicy"] = true;
         }
 
         report["migrationTemplateGenerated"] =
@@ -654,6 +692,9 @@ public static class CrudArtifactGenerator
                 })
                 .ToArray());
         report["columns"] = columns;
+        report["importExportGenerated"] = false;
+        report["diagnostics"] = new JsonArray(schema.Columns.Where(column => column.Ui?.IncludeInImportExport == true).Select(column => (JsonNode)new JsonObject
+        { ["code"] = "codegen.import_export_not_generated", ["level"] = "warning", ["column"] = column.DatabaseName }).ToArray());
 
         return Normalize(report.ToJsonString(ReportJsonOptions));
     }
@@ -719,7 +760,8 @@ public static class CrudArtifactGenerator
     {
         var projection = string.Join(
             ",\n            ",
-            schema.Columns.Select(column => column.DatabaseName));
+            schema.Columns.Select(column => column.DatabaseName == column.ClrPropertyName
+                ? column.DatabaseName : $"{column.DatabaseName} AS {column.ClrPropertyName}"));
         var tenantPredicate = schema.IsTenantScoped
             ? "\n            AND TenantId = @TenantId"
             : string.Empty;
@@ -750,7 +792,7 @@ public static class CrudArtifactGenerator
             schema.Columns.Select(column => column.DatabaseName));
         var insertParameters = string.Join(
             ", ",
-            schema.Columns.Select(column => $"@{column.ClrPropertyName}"));
+            schema.Columns.Select(column => $"@{column.DatabaseName}"));
         const string orderBy = "Id";
         var updateSql = GenerateExplicitUpdateSql(
             schema,
@@ -764,7 +806,7 @@ public static class CrudArtifactGenerator
             ? "using Full.NET.Data.Abstractions;\n\n"
             : string.Empty;
         var statements =
-            CrudBackendFeatureGenerator.GenerateSqlStatementMembers(schema);
+            CrudListQueryGenerator.Sql(schema, projection) + CrudBackendFeatureGenerator.GenerateSqlStatementMembers(schema);
 
         return Normalize(
             $$""""
@@ -830,7 +872,7 @@ public static class CrudArtifactGenerator
 
         var assignments = WritableColumns(schema)
             .Select(column =>
-                $"{column.DatabaseName} = @{column.ClrPropertyName}")
+                $"{column.DatabaseName} = @{column.DatabaseName}")
             .ToList();
         if (schema.EntityCapabilities.HasUpdatedAudit)
         {
@@ -1131,6 +1173,9 @@ public static class CrudArtifactGenerator
             and not "DeletedById"
             and not "OrganizationUnitId");
 
+    internal static IReadOnlyList<FullNetColumn> FormRequestColumns(FullNetCrudSchema schema) =>
+        (schema.UsesLegacyEntityCapabilities ? MutableColumns(schema) : WritableColumns(schema)).ToArray();
+
     /// <summary>
     /// 按数据库列名精确取列；缺失时由 Single 抛出 InvalidOperationException，表示 Schema 违反版本/审计字段不变量。
     /// </summary>
@@ -1172,16 +1217,18 @@ public static class CrudArtifactGenerator
                 "不支持的 CRUD 标量类型。"),
         };
 
-    private static string CSharpSerializationAttributes(FullNetColumn column)
+    internal static string CSharpSerializationAttributes(FullNetColumn column)
     {
-        var numberHandling = column.ScalarType is FullNetScalarType.Int64
-            or FullNetScalarType.Decimal
-            ? ", JsonNumberHandling("
-                + "JsonNumberHandling.AllowReadingFromString | "
-                + "JsonNumberHandling.WriteAsString)"
-            : string.Empty;
+        var converter = column.ScalarType switch
+        {
+            FullNetScalarType.Int64 => column.IsNullable ? "NullableStringInt64JsonConverter" : "StringInt64JsonConverter",
+            FullNetScalarType.Decimal => column.IsNullable ? "NullableStringDecimalJsonConverter" : "StringDecimalJsonConverter",
+            FullNetScalarType.DateTimeUtc => column.IsNullable ? "NullableUtcDateTimeJsonConverter" : "UtcDateTimeJsonConverter",
+            _ => null,
+        };
+        var conversion = converter is null ? string.Empty : $", JsonConverter(typeof(Full.NET.Hosting.Serialization.{converter}))";
         return $"[property: JsonPropertyName(\"{column.JsonPropertyName}\")"
-            + $"{numberHandling}]";
+            + (column.IsNullable ? string.Empty : ", JsonRequired") + $"{conversion}]";
     }
 
     private static string HttpSegmentToPascalCase(string value) =>
@@ -1263,6 +1310,7 @@ public static class CrudArtifactGenerator
                 throw new NotSupportedException(
                     "关系场景必须等待聚合事务、复合键和级联语义显式声明后再生成可执行产物。");
             }
+            FullNetCrudRelationshipResolver.Validate(schema, relationship);
         }
     }
 }

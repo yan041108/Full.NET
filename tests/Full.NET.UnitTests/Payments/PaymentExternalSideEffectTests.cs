@@ -10,6 +10,7 @@ using Full.NET.Modules.Payments.Contracts;
 using Full.NET.Modules.Payments.Features.ManageOrders;
 using Full.NET.Modules.Payments.Features.ManageRefunds;
 using Full.NET.Modules.Payments.Persistence;
+using Full.NET.Modules.Payments.Features.SubscriptionBilling;
 using Microsoft.Extensions.Options;
 using NSubstitute;
 
@@ -287,10 +288,11 @@ public sealed class PaymentExternalSideEffectTests
             new PaymentOrderManagementService(
                 store, store, transaction, orderQueries, weChat, alipay, tenants, clock, ids, options),
             new PaymentRefundManagementService(
-                store, store, transaction, refundQueries, weChat, clock, ids),
+                store, store, transaction, refundQueries, weChat, clock, ids, new PaymentFinancialFactPublisher(Substitute.For<IOutboxWriter>())),
             new PaymentOrderReconciliationService(
                 store, store, transaction, orderQueries, weChat, alipay, clock,
-                new PaymentRefundReconciliationService(store, store, transaction, weChat, clock)));
+                new PaymentRefundReconciliationService(store, store, transaction, weChat, clock, new PaymentFinancialFactPublisher(Substitute.For<IOutboxWriter>())),
+                new PaymentFinancialFactPublisher(Substitute.For<IOutboxWriter>())));
     }
 
     /// <summary>构造合法创建请求。</summary>
@@ -316,6 +318,7 @@ public sealed class PaymentExternalSideEffectTests
             AmountMinor = 100,
             Currency = "CNY",
             Subject = "paid",
+            ProviderTransactionId = "wx-original-payment",
             Version = 1,
             PaidAtUtc = new DateTimeOffset(2026, 9, 7, 1, 0, 0, TimeSpan.Zero),
         };

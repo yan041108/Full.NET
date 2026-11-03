@@ -44,6 +44,31 @@ describe('code-generation preview contracts', () => {
     ]
   };
 
+  it('accepts leaf relationship snapshots and rejects nested snapshots', () => {
+    const { hasVersion: _, ...base } = request;
+    const leaf = {
+      ...base,
+      entityCapabilities: {
+        deleteMode: 'soft.delete', hasCreatedAudit: false, hasUpdatedAudit: false,
+        hasDeletedAudit: false, hasVersion: true, ownershipMode: 'none'
+      },
+      scene: 'single', relationships: []
+    };
+    const relation = {
+      principalEntityKey: 'product', principalColumnName: 'Id', principalDataScope: 'tenant.required',
+      dependentEntityKey: 'product_tag', dependentColumnName: 'ProductId', dependentDataScope: 'tenant.required',
+      compositeKeyColumnNames: ['ProductId', 'TagId'], cascadeDelete: false, principalSchema: leaf
+    };
+    const input = { ...leaf, scene: 'many.to.many', relationships: [relation] };
+    expect(isCodeGenerationPreviewRequest(input)).toBe(true);
+    expect(isCodeGenerationPreviewRequest({
+      ...input, relationships: [{ ...relation, principalSchema: input }]
+    })).toBe(false);
+    expect(isCodeGenerationPreviewRequest({
+      ...input, relationships: [{ ...relation, cascadeDelete: 'true' }]
+    })).toBe(false);
+  });
+
   it('accepts explicit schema inputs and stable artifact responses', () => {
     expect(isCodeGenerationPreviewRequest(request)).toBe(true);
     expect(isCodeGenerationPreviewResponse(response)).toBe(true);

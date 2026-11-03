@@ -28,7 +28,9 @@ import ArtAdminShell from './framework/art-design/layout/ArtAdminShell.vue';
 import ReleaseNoteUnreadPrompt from './components/ReleaseNoteUnreadPrompt.vue';
 import { buildShellNavigation } from './framework/art-design/adapters/fullNetShellAdapter';
 import { localNavigationFor } from './navigation/catalog';
+import { createObjectSearchSources } from './search/objectSearchSources';
 import {
+  canAccessGoViewDetailRoute,
   isDocumentPublicShareHash,
   isDocumentPublicShareRoute,
   selfServicePaths
@@ -71,6 +73,15 @@ const pageComponentKey = computed(() => {
   return `${route.path}#${version}`;
 });
 const { locale, setLocale, setPageTitle, t } = useAdminI18n();
+const objectSearchContext = computed(() => [session.currentUser?.id, session.currentUser?.tenantId,
+  session.currentUser?.sessionId, session.currentUser?.permissions.join('|'), session.switching].join('|'));
+const objectSearchSources = computed(() => {
+  const user = session.currentUser;
+  if (!user || session.switching) return [];
+  const routes = new Set(buildShellNavigation({ navigation: session.navigation, translate: t }).map(item => item.routeName));
+  return createObjectSearchSources({ tenantId: user.tenantId, permissions: user.permissions, routes,
+    documentLabel: t('objectSearch.documents'), requestLabel: t('objectSearch.requests') });
+});
 const elementLocaleController = createElementLocaleController({
   onFallback: setLocale
 });
@@ -292,13 +303,14 @@ watch(
 );
 
 watch(
-  () => [session.state, session.navigation, route.path] as const,
+  () => [session.state, session.navigation, session.currentUser?.permissions, route.path] as const,
   () => {
     if (!session.isAuthenticated || statusPaths.has(route.path)) {
       return;
     }
 
-    if (selfServicePaths.has(route.path) || isPasswordChangeGateActive() || isPublicShareRoute.value) {
+    if (selfServicePaths.has(route.path) || isPasswordChangeGateActive() || isPublicShareRoute.value
+      || canAccessGoViewDetailRoute(route, session.navigation, permission => session.can(permission))) {
       return;
     }
 
@@ -353,6 +365,9 @@ watch(
     <ArtAdminShell
       v-else
       :navigation-tree="session.navigation"
+      :object-sources="objectSearchSources"
+      :object-context="objectSearchContext"
+      :shortcut-scope="session.currentUser ? { userId: session.currentUser.id, tenantId: session.currentUser.tenantId } : undefined"
       :translate="t"
       :element-locale-name="elementLocale?.name"
       :selected-context="selectedContext"

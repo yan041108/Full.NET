@@ -124,14 +124,24 @@ public sealed class AiKnowledgeIndexStatusTests
             roles.ListActiveRoleIdsForUserAsync(Actor, Arg.Any<CancellationToken>()).Returns(_ => { Assert.IsFalse(Transactions.HasTransaction); RoleReads++; return Array.Empty<Guid>(); });
             orgs.ListActiveUnitIdsForUserAsync(Actor, Arg.Any<CancellationToken>()).Returns(_ => { Assert.IsFalse(Transactions.HasTransaction); OrgReads++; return Array.Empty<Guid>(); });
             var command = Substitute.For<ICommandExecutor>(); var clock = Substitute.For<IClock>(); var ids = Substitute.For<IIdGenerator>();
+            clock.UtcNow.Returns(DateTimeOffset.Parse("2026-10-29T00:00:00Z")); ids.NewId().Returns(_ => Guid.CreateVersion7());
+            command.ExecuteAsync(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(1);
+            // 完成证明现在先持有真实读取租约；夹具必须执行事务回调，才能到达等待后撤权的故障注入点。
+            var transaction = Substitute.For<ICommandTransaction>();
+            transaction.ExecuteAsync(Arg.Any<Func<CancellationToken, Task<bool>>>(), Arg.Any<CancellationToken>())
+                .Returns(call => call.ArgAt<Func<CancellationToken, Task<bool>>>(0)(call.ArgAt<CancellationToken>(1)));
+            transaction.ExecuteAsync(Arg.Any<Func<CancellationToken, Task<int>>>(), Arg.Any<CancellationToken>())
+                .Returns(call => call.ArgAt<Func<CancellationToken, Task<int>>>(0)(call.ArgAt<CancellationToken>(1)));
             var options = Options.Create(new DatabaseOptions { Provider = DatabaseProvider.SqlServer });
-            var activation = new AiKnowledgeIndexActivationStore(this, command, Substitute.For<ICommandTransaction>(), Transactions, Tenant, clock,
-                ids, new(this, command, Tenant, clock, ids), Substitute.For<IBackgroundSessionAuthorization>(), options);
+            var activation = new AiKnowledgeIndexActivationStore(this, command, transaction, Transactions, Tenant, clock,
+                ids, new AiKnowledgeIndexTaskScope(Tenant, clock), Substitute.For<IBackgroundSessionAuthorization>(), options);
             service = new(this, Transactions, Tenant, new(roles, orgs, Tenant), new(auth, Substitute.For<IHttpContextAccessor>(), Substitute.For<ICurrentApiKeyAuthorization>()), activation, options);
         }
         internal Task<Result<AiKnowledgeIndexStatusResponse>> Run(CancellationToken token = default) => service.ReadAsync(Knowledge, Document, Version, Actor, token);
         public Task<T?> QuerySingleOrDefaultAsync<T>(SqlStatement sql, object? parameters = null, CancellationToken cancellationToken = default)
         {
+            if (typeof(T) == typeof(Guid)) return Task.FromResult((T?)(object)Document);
+            if (typeof(T) == typeof(AiKnowledgeLeaseDeadline)) return Task.FromResult((T?)(object)new AiKnowledgeLeaseDeadline(DateTimeOffset.Parse("2026-10-29T00:00:25Z")));
             if (typeof(T) == typeof(AiKnowledgeIndexActivationRecord)) { AfterProof?.Invoke(); return Task.FromResult(default(T)); }
             Assert.AreEqual(typeof(AiKnowledgeIndexStatusRecord), typeof(T)); Assert.IsFalse(Transactions.HasTransaction);
             Assert.AreEqual(Tenant.IsHost ? SqlDataScope.HostOnly : SqlDataScope.TenantRequired, sql.Scope);

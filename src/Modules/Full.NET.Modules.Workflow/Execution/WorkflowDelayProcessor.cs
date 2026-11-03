@@ -2,6 +2,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using Full.NET.Abstractions.Ids;
+using Full.NET.Abstractions.Tenancy;
 using Full.NET.Abstractions.Messaging;
 using Full.NET.Abstractions.Results;
 using Full.NET.Abstractions.Time;
@@ -16,7 +17,7 @@ namespace Full.NET.Modules.Workflow.Execution;
 /// <summary>延时唤醒只执行短本地事务；崩溃回滚或重复扫描均不能重复产生后继工作。</summary>
 internal sealed class WorkflowDelayProcessor(IQueryExecutor query, ICommandExecutor commands,
     ICommandTransaction transaction, IClock clock, IIdGenerator ids, IOptions<DatabaseOptions> database,
-    IOptions<WorkflowRecoveryWorkerOptions> options, WorkflowActivityScheduler scheduler)
+    IOptions<WorkflowRecoveryWorkerOptions> options, WorkflowActivityScheduler scheduler, IActiveTenantContextResolver tenants)
 {
     public async Task<int> ProcessPendingAsync(CancellationToken token)
     {
@@ -31,6 +32,10 @@ internal sealed class WorkflowDelayProcessor(IQueryExecutor query, ICommandExecu
         var fired = 0;
         foreach (var row in rows)
         {
+            var instance = await query.QuerySingleOrDefaultAsync<WorkflowInstanceRecord>(WorkflowSql.FindInstanceById,
+                WorkflowSqlParameters.Create(("Id", row.InstanceId), ("TenantScopeKey", row.TenantScopeKey)), token).ConfigureAwait(false);
+            if (instance is null || !await WorkflowCollaborationRuntimeGate.AllowsAsync(instance.Id,
+                    new(instance.TenantId, instance.ScopeKey, instance.TenantScopeKey), null, clock.UtcNow, query, token, tenants: tenants).ConfigureAwait(false)) continue;
             var result = await transaction.ExecuteResultAsync(inner => FireAsync(row, inner), token).ConfigureAwait(false);
             if (result.IsSuccess && result.Value) fired++;
         }
@@ -48,6 +53,8 @@ internal sealed class WorkflowDelayProcessor(IQueryExecutor query, ICommandExecu
                 WorkflowSqlParameters.Create(("Id", instance.Id), ("TenantScopeKey", delay.TenantScopeKey), ("Revision", instance.Revision)), token).ConfigureAwait(false) != 1)
             return Invalid();
         var now = clock.UtcNow;
+        if (!await WorkflowCollaborationRuntimeGate.AllowsAsync(instance.Id,
+                new(instance.TenantId, instance.ScopeKey, instance.TenantScopeKey), null, clock.UtcNow, query, token, commands).ConfigureAwait(false)) return Invalid();
         if (await commands.ExecuteAsync(WorkflowDelaySql.Fire,
                 WorkflowSqlParameters.Create(("Id", delay.Id), ("InstanceId", instance.Id), ("TenantScopeKey", delay.TenantScopeKey),
                     ("Revision", delay.Revision), ("Now", now)), token).ConfigureAwait(false) != 1) return Invalid();

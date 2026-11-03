@@ -7,6 +7,7 @@ using Full.NET.IntegrationTests.Api;
 using Microsoft.Extensions.DependencyInjection;
 using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Identity.Oidc;
+using Full.NET.Modules.Identity.Security;
 
 namespace Full.NET.IntegrationTests.Identity;
 
@@ -50,7 +51,7 @@ internal static class IdentityOidcGovernanceAuditAssertions
             OidcManagementAuditWriter.ClientCreatedEventType,
             cancellationToken);
         Assert.IsNotNull(createAudit);
-        StringAssert.Contains(createAudit!, clientId);
+        Assert.AreEqual(TokenHash.Compute("client:" + clientId), createAudit);
 
         using var disableRequest = new HttpRequestMessage(
             HttpMethod.Post,
@@ -64,7 +65,7 @@ internal static class IdentityOidcGovernanceAuditAssertions
             OidcManagementAuditWriter.ClientDisabledEventType,
             cancellationToken);
         Assert.IsNotNull(disableAudit);
-        StringAssert.Contains(disableAudit!, clientId);
+        Assert.AreEqual(TokenHash.Compute("client:" + clientId), disableAudit);
     }
 
     private static async Task<string?> ReadLatestAuditAsync(

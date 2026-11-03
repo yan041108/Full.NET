@@ -35,7 +35,7 @@
 以下约束始终有效；具体实现、例外和验证按链接读取。
 
 - 1.0 保持强化型模块化单体，API、Worker、Migrator 分离，AppHost 只负责编排；业务模块默认一个主项目，拆分须有真实消费者与证据。见 [架构与模块边界](rules/development-quality.md#3-架构与模块边界)。
-- 模块内可 JOIN 并维护本地事务；跨模块不得读写对方表或建立外键、跨模块本地事务。权威读取走最小 Contract Port，跨模块写入走 Outbox、幂等、补偿与对账。见 [ADR-0002](docs/architecture/adr/ADR-0002-modular-monolith-evolution.md)。
+- 模块内可 JOIN 并维护本地事务；后台列表、搜索、报表及同语义导出允许集中在查询侧、精确登记依赖的跨模块只读 JOIN。业务操作与权威判断走 Contract，禁止跨模块写表、外键和事务；可靠状态推进使用 Outbox、幂等、补偿与对账。查询返回 DTO，保留租户和数据权限，登记表/列依赖，区分当前信息与历史快照，按需替换查询以支持未来拆分。见 [ADR-0014](docs/architecture/adr/ADR-0014-controlled-cross-module-read-queries.md) 与 [ADR-0002](docs/architecture/adr/ADR-0002-modular-monolith-evolution.md)。
 - 业务数据访问使用 Dapper 与显式 SQL，经 Full.NET 自有执行与事务边界访问；禁止模块直连数据库、通用 Repository、自动 CRUD 或未经决策引入 EF Core。见 [数据规则](rules/development-quality.md#5-dapper事务与双数据库)。
 - SQL Server 与 MySQL 为正式提供程序，数据行为变更必须成对实现与验证；当前阶段可直接调整目标结构，仍须保证部署与失败恢复正确。见 [数据规则](rules/development-quality.md#5-dapper事务与双数据库)。
 - 官方逻辑主键采用应用端 UUID v7，C# 使用 `Guid`；表按 `{owner}_{module}_{entity}` 命名，官方 owner 为 `fn`，`sys` 保留，列为 PascalCase，禁止运行时动态前缀。见 [命名规范](rules/naming-conventions.md)。

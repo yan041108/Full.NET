@@ -231,6 +231,28 @@
       "backupVerified": true,
       "reviewer": "codex-main-review-20260809",
       "removalMilestone": "M1.0"
+    },
+    {
+      "ruleId": "FNSAFETY003",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/286_DocumentAccessLifecycle.sql",
+      "line": 31,
+      "actual": "DROP COLUMN",
+      "reason": "开发底座直接演进：先将旧 PermissionLevel 映射为动作位集合，再删除旧列；未知值先中止。Migration286DocumentBatchOneRecoveryTests 保存旧权限输入并验证两次重跑后的映射和可见模式。",
+      "risk": "新旧运行时不可混用；仅限无业务生产数据的开发底座，285 及以前结构由 Git 中迁移脚本重建。",
+      "backupVerified": true,
+      "reviewer": "document-batch1-20261024",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "ruleId": "FNSAFETY003",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/SqlServer/286_DocumentAccessLifecycle.sql",
+      "line": 32,
+      "actual": "DROP COLUMN",
+      "reason": "开发底座直接演进：先将旧 PermissionLevel 映射为动作位集合，再删除旧列；未知值先中止。Migration286DocumentBatchOneRecoveryTests 保存旧权限输入并验证两次重跑后的映射和可见模式。",
+      "risk": "新旧运行时不可混用；仅限无业务生产数据的开发底座，285 及以前结构由 Git 中迁移脚本重建。",
+      "backupVerified": true,
+      "reviewer": "document-batch1-20261024",
+      "removalMilestone": "M1.0"
     }
   ]
 }

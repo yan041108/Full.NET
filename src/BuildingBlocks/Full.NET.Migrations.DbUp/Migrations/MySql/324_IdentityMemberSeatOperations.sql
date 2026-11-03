@@ -1,0 +1,25 @@
+-- 原子建表携带全部索引，DDL 重跑保留已有恢复阶段与租约。
+CREATE TABLE IF NOT EXISTS fn_identity_member_seat_operation (
+    Id binary(16) NOT NULL COMMENT '工作项逻辑 UUID v7',
+    RequestKey varchar(128) CHARACTER SET ascii COLLATE ascii_bin NOT NULL COMMENT '租户内稳定请求身份',
+    TenantId binary(16) NOT NULL COMMENT '可信目标租户标识',
+    UserId binary(16) NOT NULL COMMENT '待激活账号标识',
+    MemberId binary(16) NOT NULL COMMENT '本模块成员关系标识',
+    InvitationId binary(16) NULL COMMENT '可空的原始邀请标识',
+    PreviousRole varchar(32) NULL COMMENT '激活失败时的原始成员角色',
+    PreviousStatus varchar(32) NULL COMMENT '激活失败时的原始成员状态',
+    MemberVersion int NOT NULL COMMENT '待激活成员的冻结并发版本',
+    InvitationVersion int NULL COMMENT '接受邀请后的冻结并发版本',
+    Phase varchar(32) CHARACTER SET ascii COLLATE ascii_bin NOT NULL COMMENT '席位恢复阶段',
+    RequestHash varchar(64) CHARACTER SET ascii COLLATE ascii_bin NULL COMMENT '不含密码的创建请求摘要',
+    ErrorCode varchar(128) CHARACTER SET ascii COLLATE ascii_bin NULL COMMENT '稳定失败机器码',
+    CreatedAtUtc datetime(6) NOT NULL COMMENT '工作项创建时间 UTC',
+    DueAtUtc datetime(6) NOT NULL COMMENT '下次恢复时间 UTC',
+    LeaseId binary(16) NULL COMMENT '当前执行租约身份',
+    LeaseUntilUtc datetime(6) NULL COMMENT '当前执行租约截止 UTC',
+    Version int NOT NULL COMMENT '工作项乐观并发版本',
+    Attempt int NOT NULL COMMENT '已取消后的新业务尝试序号，不复用旧配额消费键',
+    CONSTRAINT PK_fn_identity_member_seat_operation PRIMARY KEY (Id),
+    UNIQUE KEY UX_fn_identity_member_seat_operation_TenantId_RequestKey (TenantId,RequestKey),
+    KEY IX_fn_identity_member_seat_operation_Phase_DueAtUtc (Phase,DueAtUtc)
+) COMMENT='成员席位激活与取消的持久恢复工作项' ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin;

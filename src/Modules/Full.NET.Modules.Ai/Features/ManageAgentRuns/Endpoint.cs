@@ -70,6 +70,17 @@ internal static class Endpoint
         .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAuthorization(FullNetPermissionPolicies.For(AiAgentRunPermissions.Read));
 
+        group.MapGet("/{runId:guid}/workflow-proposal", async (Guid runId, AiAgentRunManagementService service,
+            ICurrentTenant tenant, IApiResultMapper mapper, HttpContext context, CancellationToken token) =>
+        {
+            if (!AgentRunHttpBinding.TryCreate(context, tenant.Id, out var binding)) return Results.Unauthorized();
+            context.Response.Headers.CacheControl = "no-store";
+            return mapper.Map(await service.ProposalAsync(runId, binding, token).ConfigureAwait(false), context);
+        }).WithName("aiGetAgentWorkflowProposal").Produces<AiAgentWorkflowProposalResponse>()
+            .ProducesProblem(StatusCodes.Status401Unauthorized).ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status404NotFound).ProducesProblem(StatusCodes.Status409Conflict)
+            .RequireAuthorization(FullNetPermissionPolicies.For(AiAgentRunPermissions.Read), FullNetPermissionPolicies.For(AiAgentApprovalPermissions.Request));
+
         group.MapPost("/{runId:guid}/cancel", async (
             Guid runId,
             AiAgentRunManagementService service,

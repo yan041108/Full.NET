@@ -102,11 +102,14 @@ internal sealed class ModuleClientRouteTargetDocument
 
     public string? LayuiControllerExport { get; init; }
 
+    public string? ClientModuleSpecifier { get; init; }
+
     public ModuleClientRouteTarget ToTarget() =>
         ModuleClientRouteTarget.Create(
             RoutePath,
             VueRouteName,
             VueComponentPath,
             LayuiControllerPath,
-            LayuiControllerExport);
+            LayuiControllerExport,
+            ClientModuleSpecifier);
 }

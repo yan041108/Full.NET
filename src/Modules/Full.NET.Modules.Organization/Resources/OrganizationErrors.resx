@@ -27,4 +27,5 @@
   <data name="organization.reporting_lines.revision_conflict" xml:space="preserve"><value>直属汇报关系已变化，请刷新后重试。</value></data>
   <data name="organization.reporting_lines.cycle_or_depth" xml:space="preserve"><value>汇报关系形成环或超过64级上限。</value></data>
   <data name="organization.reporting_lines.scope_denied" xml:space="preserve"><value>配置直属汇报关系需要完整组织数据范围。</value></data>
+  <data name="import_export.task.authority_denied" xml:space="preserve"><value>导入会话或本行业务所需权限已失效，请检查权限后由原上传者重试。</value></data>
 </root>

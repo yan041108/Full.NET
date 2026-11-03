@@ -47,12 +47,13 @@ public static class HostFileReferenceClaimIdempotencyKeys
     /// <summary>同一知识库版本始终使用相同引用键，客户端不能指定文件引用。</summary>
     /// <param name="versionId">服务端生成的版本标识。</param>
     public static string AiKnowledgeVersion(Guid versionId) => $"ai-knowledge-version:{versionId:D}";
-    /// <summary>
-    /// 为 Document 模块的某个版本生成稳定幂等键；同一 versionId 多次调用返回值相同。
-    /// </summary>
+    /// <summary>文档版本的不可复用引用键，同一版本重放保持不变。</summary>
     /// <param name="versionId">文档版本标识。</param>
-    /// <returns>形如 "document-version:xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" 的幂等键。</returns>
     public static string DocumentVersion(Guid versionId) => $"document-version:{versionId:D}";
+
+    /// <summary>预览源/输出意图独立于版本，重领只复用同一持久化意图。</summary>
+    /// <param name="referenceId">不可复用的意图标识。</param>
+    public static string DocumentPreview(Guid referenceId) => $"document-preview:{referenceId:D}";
 
     /// <summary>
     /// 为 Workflow 表单提交附件生成稳定幂等键；同一提交与文件组合多次调用返回值相同。

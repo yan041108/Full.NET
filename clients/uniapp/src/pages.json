@@ -31,6 +31,10 @@
       "root": "pages/workflow",
       "pages": [
         {
+          "path": "instance-detail",
+          "style": { "navigationBarTitleText": "%workflow.resource.instanceTitle%" }
+        },
+        {
           "path": "todos",
           "style": {
             "navigationBarTitleText": "%workflow.todos.title%"

@@ -1,3 +1,4 @@
+import 'workflow_form_fixture.dart';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -19,6 +20,8 @@ Map<String, dynamic> vote({String kind = 'text'}) => {
       'statusKey': 'active',
       'revision': 1,
       'submissionRevision': 4,
+      'formSchema': workflowTestFormSchema,
+      'fieldPolicies': <String, String>{},
       'submission': <String, dynamic>{},
       'activityKindKey': 'human.vote',
       'allowedActions': ['vote'],
@@ -145,6 +148,8 @@ void main() {
         await tester.tap(find.text('Submit ballot'));
         await tester.pumpAndSettle();
         expect(bodies.length, 1);
+        await tester.ensureVisible(find.text('Submit ballot'));
+        await tester.pumpAndSettle();
         await tester.tap(find.text('Submit ballot'));
         await tester.pumpAndSettle();
         expect(bodies.length, 2);

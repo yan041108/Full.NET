@@ -50,6 +50,16 @@ public sealed class ModuleIntegrationTargetDocumentTests
         await Assert.ThrowsExactlyAsync<JsonException>(() => fixture.LoadAsync());
     }
 
+    [TestMethod]
+    public async Task Vue_target_preserves_explicit_business_client_module()
+    {
+        using var fixture = new TargetFixture();
+        fixture.Document["clientRoute"] = JsonNode.Parse(
+            """{"routePath":"/catalog-products","vueRouteName":"catalog-products","vueComponentPath":"ui/admin/src/views/CatalogProductsView.vue","clientModuleSpecifier":"./catalog-client/index.generated.js"}""");
+        var target = await fixture.LoadAsync();
+        Assert.AreEqual("./catalog-client/index.generated.js", target.ClientRoute!.ClientModuleSpecifier);
+    }
+
     private sealed class TargetFixture : IDisposable
     {
         private readonly string _root = Path.Combine(Path.GetTempPath(), $"fullnet-target-{Guid.NewGuid():N}");

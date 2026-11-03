@@ -6,6 +6,8 @@ namespace Full.NET.Modules.Ai.Knowledge;
 internal sealed record AiKnowledgeRetrievalChunk(AiKnowledgeIndexStatusRecord Source, int Sequence, int? PageNumber,
     int Offset, int Length, int TokenCount, string Text, ReadOnlyMemory<float> Vector)
 {
+    /// <summary>人工命中片段的完整来源集合；Offset/Length 仅为修订内分块信息，不能对外作为原文位置。</summary>
+    public Full.NET.Modules.Ai.Contracts.AiKnowledgeCorrectionCitationResponse? Correction { get; init; }
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     public Full.NET.Modules.Ai.Contracts.AiKnowledgeDocxLocationResponse? DocxLocation { get; init; }
     /// <summary>服务器核对的统一来源位置；旧答案未保存此字段时省略。</summary>

@@ -90,7 +90,8 @@ public sealed class PaymentNotifyBindingTests
         clock.UtcNow.Returns(DateTimeOffset.UtcNow);
         var ids = Substitute.For<IIdGenerator>();
         ids.NewId().Returns(_ => Guid.NewGuid());
-        var service = new PaymentWeChatNotifyService(queries, commands, transaction, protector, certificates, clock, ids);
+        var service = new PaymentWeChatNotifyService(queries, commands, transaction, protector, certificates, clock, ids,
+            new Full.NET.Modules.Payments.Features.SubscriptionBilling.PaymentFinancialFactPublisher(Substitute.For<IOutboxWriter>()));
 
         var plaintext = JsonSerializer.Serialize(new
         {

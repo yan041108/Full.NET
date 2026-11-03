@@ -12,6 +12,12 @@ internal sealed class SettingsAuthorizationContributor
 
     public IReadOnlyCollection<PermissionDefinition> Permissions { get; } =
     [
+        new(QuerySchemePermissions.Read, "读取可见查询方案", AuthorizationScope.Host | AuthorizationScope.Tenant),
+        new(QuerySchemePermissions.Create, "创建本人查询方案", AuthorizationScope.Host | AuthorizationScope.Tenant),
+        new(QuerySchemePermissions.Update, "修改本人查询方案", AuthorizationScope.Host | AuthorizationScope.Tenant),
+        new(QuerySchemePermissions.Delete, "删除本人查询方案", AuthorizationScope.Host | AuthorizationScope.Tenant),
+        new(QuerySchemePermissions.SetDefault, "选择个人默认查询方案", AuthorizationScope.Host | AuthorizationScope.Tenant),
+        new(QuerySchemePermissions.Share, "共享或撤销本人查询方案", AuthorizationScope.Tenant),
         new PermissionDefinition(
             DictTypeManagementPermissions.Read,
             "查询数据字典",

@@ -15,7 +15,7 @@ public static class GenerationRollbackCheckpointStore
     public const string RootRelativePath =
         ".fullnet/codegeneration-rollback-checkpoints";
 
-    private const int CurrentSchemaVersion = 1;
+    private const int CurrentSchemaVersion = 2;
     private const string MetadataFileName = "checkpoint.json";
     private const string ContentsDirectoryName = "contents";
     private static readonly UTF8Encoding StrictUtf8 = new(
@@ -247,11 +247,6 @@ public static class GenerationRollbackCheckpointStore
         }
         var expectedEntries = previousManifest?.Artifacts
             ?? Array.Empty<GenerationManifestEntry>();
-        if (document.PreviousArtifacts.Length < expectedEntries.Count)
-        {
-            throw new ArgumentException("回滚检查点旧内容目录与旧清单不一致。");
-        }
-
         var previousContents = new Dictionary<string, string>(
             StringComparer.Ordinal);
         var metadataByPath = document.PreviousArtifacts.ToDictionary(item => item.RelativePath
@@ -259,18 +254,28 @@ public static class GenerationRollbackCheckpointStore
         foreach (var entry in expectedEntries)
         {
             var metadata = metadataByPath.GetValueOrDefault(entry.RelativePath);
-            if (metadata is null
-                || !StringComparer.Ordinal.Equals(
+            if (metadata is null && appliedManifest.TryGetSha256(entry.RelativePath, out var unchangedSha)
+                && unchangedSha == entry.Sha256) continue;
+            if (metadata is null || !StringComparer.Ordinal.Equals(
                     metadata.Sha256,
                     entry.Sha256))
             {
                 throw new ArgumentException("回滚检查点旧内容摘要与旧清单不一致。");
             }
+        }
+
+        foreach (var metadata in document.PreviousArtifacts)
+        {
+            var relativePath = GenerationArtifactPath.Validate(metadata.RelativePath!, nameof(metadata.RelativePath));
+            if (!GenerationContentHash.IsValid(metadata.Sha256)
+                || (!expectedEntries.Any(entry => entry.RelativePath == relativePath)
+                    && !appliedManifest.TryGetSha256(relativePath, out _)))
+                throw new ArgumentException("回滚检查点包含不属于前后计划的旧文件。");
 
             var contentPath = GenerationWorkspacePath.Resolve(
                 fullRoot,
                 $"{checkpointRelativePath}/{ContentsDirectoryName}/"
-                + $"{entry.Sha256}.txt");
+                + $"{metadata.Sha256}.txt");
             if (!includeContents) continue;
             var content = await File.ReadAllTextAsync(
                 contentPath,
@@ -278,27 +283,12 @@ public static class GenerationRollbackCheckpointStore
                 cancellationToken);
             if (!StringComparer.Ordinal.Equals(
                     GenerationContentHash.Compute(content),
-                    entry.Sha256))
+                    metadata.Sha256))
             {
                 throw new ArgumentException("回滚检查点旧内容已发生变化。");
             }
 
-            previousContents.Add(entry.RelativePath, content);
-        }
-
-        foreach (var metadata in document.PreviousArtifacts.Where(item =>
-                     !expectedEntries.Any(entry => entry.RelativePath == item.RelativePath)))
-        {
-            var relative = GenerationArtifactPath.Validate(metadata.RelativePath!, nameof(metadata.RelativePath));
-            if (!appliedManifest.TryGetSha256(relative, out _) || !GenerationContentHash.IsValid(metadata.Sha256))
-                throw new ArgumentException("检查点包含未受计划管理的原文件。");
-            if (!includeContents) continue;
-            var path = GenerationWorkspacePath.Resolve(fullRoot,
-                $"{checkpointRelativePath}/{ContentsDirectoryName}/{metadata.Sha256}.txt");
-            var content = await File.ReadAllTextAsync(path, StrictUtf8, cancellationToken);
-            if (GenerationContentHash.Compute(content) != metadata.Sha256)
-                throw new ArgumentException("检查点原文件摘要已变化。");
-            previousContents.Add(relative, content);
+            previousContents.Add(relativePath, content);
         }
 
         return new GenerationRollbackCheckpoint(
@@ -350,12 +340,17 @@ public static class GenerationRollbackCheckpointStore
             CancellationToken cancellationToken)
     {
         var contents = new Dictionary<string, string>(StringComparer.Ordinal);
-        // 首次接入的手写文件同样保留原文。
+        // 首次纳入的手写入口不在旧清单中，同样必须保存原文；回滚后恢复为未受管文件。
         var entries = (plan.PreviousManifest?.Artifacts ?? [])
             .Concat(plan.Actions.Where(action => action.ExistingSha256 is not null)
                 .Select(action => new GenerationManifestEntry(action.RelativePath, action.ExistingSha256!)))
             .GroupBy(entry => entry.RelativePath, StringComparer.Ordinal)
-            .Select(group => group.First());
+            .Select(group =>
+            {
+                if (group.Select(entry => entry.Sha256).Distinct(StringComparer.Ordinal).Count() != 1)
+                    throw new GenerationWorkspaceConflictException("前置摘要与整链计划不一致。", group.Key);
+                return group.First();
+            });
         foreach (var entry in entries)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -382,7 +377,10 @@ public static class GenerationRollbackCheckpointStore
                     entry.RelativePath);
             }
 
-            contents.Add(entry.RelativePath, content);
+            if ((plan.PreviousManifest is null || !plan.PreviousManifest.TryGetSha256(entry.RelativePath, out _))
+                || plan.Actions.Any(action => action.RelativePath == entry.RelativePath
+                    && action.Kind is GenerationWriteActionKind.Update or GenerationWriteActionKind.Delete))
+                contents.Add(entry.RelativePath, content);
         }
 
         return contents;

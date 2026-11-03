@@ -3,6 +3,7 @@ using Full.NET.Modules.Identity.Persistence;
 using System.Text.Json.Serialization;
 using Full.NET.Abstractions.Results;
 using Full.NET.Modules.Identity.Contracts;
+using Full.NET.Modules.Identity.Oidc;
 
 // Identity 模块 Native AOT 友好的 System.Text.Json 源生成上下文；仅注册已审计的契约类型。
 namespace Full.NET.Modules.Identity.Serialization;
@@ -10,6 +11,9 @@ namespace Full.NET.Modules.Identity.Serialization;
 [JsonSourceGenerationOptions(JsonSerializerDefaults.Web)]
 [JsonSerializable(typeof(LoginRequest))]
 [JsonSerializable(typeof(TokenResponse))]
+[JsonSerializable(typeof(IdentityBrowserTicket))]
+[JsonSerializable(typeof(IdentityBrowserSessionResponse))]
+[JsonSerializable(typeof(Features.ManageOidcLogoutDeliveries.IdentityOidcLogoutDeliveryResponse[]))]
 [JsonSerializable(typeof(CurrentUserResponse))]
 [JsonSerializable(typeof(UpdateLocaleRequest))]
 [JsonSerializable(typeof(LocalePreferenceResponse))]
@@ -29,6 +33,10 @@ namespace Full.NET.Modules.Identity.Serialization;
 [JsonSerializable(typeof(ConfirmTotpEnrollmentRequest))]
 [JsonSerializable(typeof(TotpEnrollmentStatusResponse))]
 [JsonSerializable(typeof(SuperAdministratorResponse[]))]
+[JsonSerializable(typeof(IReadOnlyList<SuperAdministratorResponse>))]
+[JsonSerializable(typeof(IReadOnlyList<SuperAdministratorAuditResponse>))]
+[JsonSerializable(typeof(IReadOnlyCollection<FieldProjectionResourceDefinition>))]
+[JsonSerializable(typeof(IReadOnlyList<HostMenuPermissionOptionResponse>))]
 [JsonSerializable(typeof(SuperAdministratorAuditResponse[]))]
 [JsonSerializable(typeof(SuperAdministratorChangeResponse))]
 [JsonSerializable(typeof(CreateHostUserRequest))]
@@ -169,6 +177,7 @@ namespace Full.NET.Modules.Identity.Serialization;
 [JsonSerializable(typeof(CreateOidcClientResponse))]
 [JsonSerializable(typeof(RotateOidcClientSecretResponse))]
 [JsonSerializable(typeof(OidcAuthorizationResponse))]
+[JsonSerializable(typeof(OidcAuthorizationResponse[]))]
 [JsonSerializable(typeof(PagedResult<OidcAuthorizationResponse>))]
 [JsonSerializable(typeof(IReadOnlyList<string>))]
 [JsonSerializable(typeof(TenantMemberResponse))]

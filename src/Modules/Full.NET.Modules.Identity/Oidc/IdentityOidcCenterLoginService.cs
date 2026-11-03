@@ -3,6 +3,7 @@ using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Identity.Configuration;
 using Full.NET.Modules.Identity.Domain;
 using Full.NET.Modules.Identity.Persistence;
+using Full.NET.Modules.Identity.Security;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Options;
 using IdentityUser = Full.NET.Modules.Identity.Domain.IdentityUser;
@@ -13,7 +14,9 @@ internal sealed record IdentityOidcCenterLoginResult(
     Guid UserId,
     string Username,
     string DisplayName,
-    string SecurityStamp);
+    string SecurityStamp,
+    string[]? AuthenticationMethods = null,
+    bool PasswordChangeRequired = false);
 
 /// <summary>内部认证结果；仅用于安全审计，对外仍返回统一的凭据拒绝。</summary>
 internal sealed record IdentityOidcCenterLoginAttempt(
@@ -27,7 +30,8 @@ internal sealed class IdentityOidcCenterLoginService(
     ICommandExecutor commandExecutor,
     IPasswordHasher<IdentityUser> passwordHasher,
     IClock clock,
-    IOptions<Full.NET.Modules.Identity.Configuration.IdentityOptions> identityOptions)
+    IOptions<Full.NET.Modules.Identity.Configuration.IdentityOptions> identityOptions,
+    IdentityOidcMfaVerifier? mfa = null)
 {
     private const string HostScope = "host";
     private static readonly (IdentityUser User, string PasswordHash) TimingDefenseCredential =
@@ -44,8 +48,12 @@ internal sealed class IdentityOidcCenterLoginService(
     public async Task<IdentityOidcCenterLoginAttempt> AuthenticateWithOutcomeAsync(
         string username,
         string password,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        string? secondFactor = null)
     {
+        if (string.IsNullOrWhiteSpace(username) || username.Length > 128 || string.IsNullOrEmpty(password)
+            || password.Length > 1024 || secondFactor?.Length > 128)
+            return new IdentityOidcCenterLoginAttempt(null, null, "identity.invalid-credentials");
         var normalizedUsername = username.Trim().ToUpperInvariant();
         // 与旧登录入口保持有界乐观重试；每次冲突后重读账号并重新验证密码。
         for (var attempt = 0; attempt < 32; attempt++)
@@ -80,7 +88,16 @@ internal sealed class IdentityOidcCenterLoginService(
                 user,
                 user.PasswordHash,
                 password);
-            if (verification == PasswordVerificationResult.Failed)
+            string[]? methods = ["pwd"];
+            if (verification != PasswordVerificationResult.Failed)
+            {
+                var enrollment = await queryExecutor.QuerySingleOrDefaultAsync<IdentityUserTotpRecord>(
+                    IdentitySql.FindUserTotpByUserId, IdentitySqlParameters.Create(("UserId", user.Id)), cancellationToken)
+                    .ConfigureAwait(false);
+                if (enrollment is { IsEnabled: true })
+                    methods = mfa is null ? null : await mfa.VerifyAsync(enrollment, secondFactor, cancellationToken).ConfigureAwait(false);
+            }
+            if (verification == PasswordVerificationResult.Failed || methods is null)
             {
                 var failedLoginCount = user.FailedLoginCount + 1;
                 var lockoutEnd = failedLoginCount >= _identityOptions.LockoutThreshold
@@ -100,7 +117,8 @@ internal sealed class IdentityOidcCenterLoginService(
                 {
                     continue;
                 }
-                return new IdentityOidcCenterLoginAttempt(null, user.Id, "identity.invalid-password");
+                return new IdentityOidcCenterLoginAttempt(null, user.Id,
+                    verification == PasswordVerificationResult.Failed ? "identity.invalid-password" : "identity.mfa_invalid");
             }
 
             var passwordHash = verification == PasswordVerificationResult.SuccessRehashNeeded
@@ -113,6 +131,7 @@ internal sealed class IdentityOidcCenterLoginService(
                 .ConfigureAwait(false);
             if (successRows == 0)
             {
+                if (methods.Length > 1) return new IdentityOidcCenterLoginAttempt(null, user.Id, "identity.login-contention");
                 continue;
             }
             if (successRows != 1)
@@ -122,7 +141,9 @@ internal sealed class IdentityOidcCenterLoginService(
 
             return new IdentityOidcCenterLoginAttempt(
                 new IdentityOidcCenterLoginResult(
-                    user.Id, user.Username, user.DisplayName, user.SecurityStamp),
+                    user.Id, user.Username, user.DisplayName, user.SecurityStamp, methods,
+                    PasswordChangeRequirementEvaluator.IsRequired(user.MustChangePassword, user.PasswordChangedAtUtc,
+                        clock.UtcNow, _identityOptions.PasswordExpirationDays)),
                 user.Id,
                 "identity.oidc_center_login_succeeded");
         }

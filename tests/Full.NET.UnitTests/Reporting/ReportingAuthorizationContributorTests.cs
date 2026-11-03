@@ -1,6 +1,9 @@
 using Full.NET.Modules.Identity.Authorization;
 using Full.NET.Modules.Reporting;
 using Full.NET.Modules.Reporting.Contracts;
+using Full.NET.Modules.Identity.Contracts;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Full.NET.UnitTests.Reporting;
 
@@ -8,6 +11,19 @@ namespace Full.NET.UnitTests.Reporting;
 [TestClass]
 public sealed class ReportingAuthorizationContributorTests
 {
+    [TestMethod]
+    public void Worker_registers_tenant_export_permissions_without_granting_host_management()
+    {
+        var services = new ServiceCollection();
+        new ReportingModule().AddBackgroundServices(services, new ConfigurationBuilder().Build());
+        using var provider = services.BuildServiceProvider();
+        var catalog = AuthorizationCatalog.Create(provider.GetServices<IAuthorizationCatalogContributor>());
+        Assert.AreEqual(AuthorizationScope.Tenant, catalog.Permissions.Single(item => item.Code == ReportingExportTaskPermissions.Create).Scope);
+        Assert.AreEqual(AuthorizationScope.Tenant, catalog.Permissions.Single(item => item.Code == ReportingExportTaskPermissions.Cancel).Scope);
+        Assert.AreEqual(AuthorizationScope.Tenant, catalog.Permissions.Single(item => item.Code == ReportingDefinitionGrantPermissions.PublishedRead).Scope);
+        Assert.AreEqual(AuthorizationScope.Host, catalog.Permissions.Single(item => item.Code == ReportingDefinitionGrantPermissions.Manage).Scope);
+        Assert.IsTrue(catalog.Permissions.Single(item => item.Code == ReportingExecutionPermissions.ColumnSchemaName).Scope.HasFlag(AuthorizationScope.Tenant));
+    }
     [TestMethod]
     public void Contributor_publishes_reporting_permissions_and_navigation()
     {
@@ -26,6 +42,9 @@ public sealed class ReportingAuthorizationContributorTests
                 ReportingGroupPermissions.Update,
                 ReportingGroupPermissions.Delete,
                 ReportingDefinitionPermissions.Read,
+                ReportingDefinitionGrantPermissions.Read,
+                ReportingDefinitionGrantPermissions.Manage,
+                ReportingDefinitionGrantPermissions.PublishedRead,
                 ReportingDefinitionPermissions.Create,
                 ReportingDefinitionPermissions.Update,
                 ReportingDefinitionPermissions.Delete,
@@ -36,6 +55,7 @@ public sealed class ReportingAuthorizationContributorTests
                 ReportingExportTaskPermissions.Create,
                 ReportingExportTaskPermissions.Read,
                 ReportingExportTaskPermissions.Download,
+                ReportingExportTaskPermissions.Cancel,
             },
             catalog.Permissions.Select(permission => permission.Code).ToArray());
 
@@ -54,6 +74,7 @@ public sealed class ReportingAuthorizationContributorTests
         var exportTasks = catalog.Navigation.Single(item => item.Id == "reporting-export-tasks");
         Assert.AreEqual(ReportingExportTaskPermissions.Read, exportTasks.RequiredPermission);
         Assert.AreEqual("/reporting/export-tasks", exportTasks.Path);
+        Assert.AreEqual(ReportingExportTaskPermissions.Cancel, catalog.Actions.Single(item => item.NavigationId == "reporting-export-tasks" && item.ClientActionKey == "cancel").PermissionCode);
 
         CollectionAssert.AreEquivalent(
             new Dictionary<string, string>(StringComparer.Ordinal)

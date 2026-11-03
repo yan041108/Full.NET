@@ -122,8 +122,7 @@ public sealed class TenantUserPositionManagementServiceTests
         var positionQueries = new TenantPositionQueryService(query, databaseOptions);
         var assignmentQueries = new TenantUserPositionQueryService(
             query,
-            Substitute.For<IHostUserDisplayDirectory>(),
-            databaseOptions);
+            Substitute.For<IHostUserDisplayDirectory>());
         return new TenantUserPositionManagementService(
             query,
             command,

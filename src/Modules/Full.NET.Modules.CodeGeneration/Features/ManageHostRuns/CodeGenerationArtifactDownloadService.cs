@@ -1,99 +1,36 @@
 using Full.NET.Abstractions.Results;
 using Full.NET.Data.Abstractions;
-using Full.NET.Data.CodeGeneration.Generation;
-using Full.NET.Data.CodeGeneration.Packaging;
 using Full.NET.Modules.CodeGeneration.Contracts;
-using Full.NET.Modules.CodeGeneration.Features.ManageHostTemplates;
-using Full.NET.Modules.CodeGeneration.Features.NormalizeCrudSchema;
 using Full.NET.Modules.CodeGeneration.Persistence;
 
 namespace Full.NET.Modules.CodeGeneration.Features.ManageHostRuns;
 
-/// <summary>
-/// 仅对已成功 Preview/Apply 的运行重新生成产物并打包，不落盘 wwwroot。
-/// </summary>
-internal sealed class CodeGenerationArtifactDownloadService(
-    IQueryExecutor queryExecutor,
-    CodeGenerationTemplateQueryService templateQueries,
-    CodeGenerationSchemaNormalizer schemaNormalizer)
+/// <summary>鉴权入口只读取当次不可变包，模板变动、删除或成功回滚不改变历史下载。</summary>
+internal sealed class CodeGenerationArtifactDownloadService(IQueryExecutor queries, CodeGenerationArtifactStore archives)
 {
-    /// <summary>
-    /// 仅对已成功 Preview/Apply 的运行重新生成产物并打包为内存 zip；重算 Manifest 摘要与持久化值不一致时返回 StaleApplyPreview，禁止落盘 wwwroot 或暴露为公共 URL。
-    /// </summary>
-    public async Task<Result<CodeGenerationArtifactZipResponse>> DownloadAsync(
-        Guid runId,
-        CancellationToken cancellationToken = default)
+    public async Task<Result<CodeGenerationArtifactZipResponse>> DownloadAsync(Guid runId, CancellationToken token = default)
     {
-        var run = await queryExecutor
-            .QuerySingleOrDefaultAsync<CodeGenerationRunRecord>(
-                CodeGenerationRunSql.FindById,
-                CodeGenerationSqlParameters.Create(("Id", runId)),
-                cancellationToken)
-            .ConfigureAwait(false);
-        if (run is null)
+        var run = await queries.QuerySingleOrDefaultAsync<CodeGenerationRunRecord>(CodeGenerationRunSql.FindById,
+            CodeGenerationSqlParameters.Create(("Id", runId)), token).ConfigureAwait(false);
+        if (run is null) return Failure(CodeGenerationRunErrorCodes.NotFound, ErrorType.NotFound);
+        if (run.Status != "succeeded" || run.OperationKind is not ("preview" or "apply") || run.ManifestSha256 is null)
+            return Failure(CodeGenerationRunErrorCodes.InvalidDownloadRun, ErrorType.Validation);
+        try
         {
-            return Failure(
-                CodeGenerationRunErrorCodes.NotFound,
-                "The code generation run was not found.",
-                ErrorType.NotFound);
+            var archive = await archives.ReadAsync(runId, token).ConfigureAwait(false);
+            if (archive.Record.SchemaSha256 != run.SchemaSha256 || archive.Record.ManifestSha256 != run.ManifestSha256)
+                return Failure(CodeGenerationRunErrorCodes.ArchiveCorrupt, ErrorType.Conflict);
+            return Result<CodeGenerationArtifactZipResponse>.Success(new(archive.Record.FileName, archive.Bytes));
         }
-
-        if (run.Status != CodeGenerationRunStatuses.Succeeded
-            || (run.OperationKind != CodeGenerationRunOperationKinds.Preview
-                && run.OperationKind != CodeGenerationRunOperationKinds.Apply)
-            || !run.TemplateId.HasValue
-            || run.ManifestSha256 is null)
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
         {
-            return Failure(
-                CodeGenerationRunErrorCodes.InvalidDownloadRun,
-                "Only succeeded preview or apply runs can be downloaded.",
-                ErrorType.Validation);
+            return Failure(exception is CodeGenerationArchiveException archive ? archive.Code : CodeGenerationRunErrorCodes.ArchiveUnavailable, ErrorType.Conflict);
         }
-
-        var template = await templateQueries.GetByIdAsync(
-                run.TemplateId.Value,
-                cancellationToken)
-            .ConfigureAwait(false);
-        if (!template.IsSuccess)
-        {
-            return Result<CodeGenerationArtifactZipResponse>.Failure(
-                template.Error!);
-        }
-
-        var normalized = schemaNormalizer.Normalize(template.Value!.Schema);
-        if (!normalized.IsSuccess)
-        {
-            return Result<CodeGenerationArtifactZipResponse>.Failure(
-                normalized.Error!);
-        }
-
-        var artifacts = CrudArtifactGenerator.Generate(normalized.Value!.Schema);
-        var manifestSha256 = CodeGenerationRunSummary.ComputeManifestSha256(
-            artifacts);
-        if (!StringComparer.Ordinal.Equals(manifestSha256, run.ManifestSha256))
-        {
-            return Failure(
-                CodeGenerationRunErrorCodes.StaleApplyPreview,
-                "The reviewed code generation preview is stale.",
-                ErrorType.Conflict);
-        }
-
-        var bytes = GeneratedArtifactZip.Create(artifacts);
-        var fileName =
-            $"{normalized.Value.Schema.ModuleKey}-{normalized.Value.Schema.EntityKey}-{runId:N}.zip";
-        return Result<CodeGenerationArtifactZipResponse>.Success(
-            new CodeGenerationArtifactZipResponse(fileName, bytes));
     }
 
-    private static Result<CodeGenerationArtifactZipResponse> Failure(
-        string code,
-        string message,
-        ErrorType type) =>
-        Result<CodeGenerationArtifactZipResponse>.Failure(
-            new Error(code, message, type));
+    private static Result<CodeGenerationArtifactZipResponse> Failure(string code, ErrorType type) =>
+        Result<CodeGenerationArtifactZipResponse>.Failure(new Error(code, "The saved code generation artifact is unavailable.", type));
 }
 
-/// <summary>内存 zip 与下载文件名；调用方不得把它写成公共 URL。</summary>
-internal sealed record CodeGenerationArtifactZipResponse(
-    string FileName,
-    byte[] Content);
+/// <summary>不可变 zip 与安全文件名，不发布公共静态地址。</summary>
+internal sealed record CodeGenerationArtifactZipResponse(string FileName, byte[] Content);

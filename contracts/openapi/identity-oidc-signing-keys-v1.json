@@ -14,10 +14,22 @@
       "operations": [
         { "method": "POST", "permission": "identity.oidc_signing_keys.activate", "successStatus": 200, "responseSchema": "OidcSigningKeyListResponse" }
       ]
+    },
+    {
+      "path": "/api/v1/identity/oidc-signing-keys/{keyId}/publish",
+      "operations": [
+        { "method": "POST", "permission": "identity.oidc_signing_keys.publish", "successStatus": 200, "responseSchema": "OidcSigningKeyListResponse" }
+      ]
+    },
+    {
+      "path": "/api/v1/identity/oidc-signing-keys/{keyId}/retire",
+      "operations": [
+        { "method": "POST", "permission": "identity.oidc_signing_keys.retire", "successStatus": 200, "responseSchema": "OidcSigningKeyListResponse" }
+      ]
     }
   ],
   "schemas": {
-    "OidcSigningKeyResponse": { "properties": ["keyId", "isActive", "hasPrivateKey", "algorithm", "publicKeyPem"] },
+    "OidcSigningKeyResponse": { "properties": ["keyId", "isActive", "hasPrivateKey", "algorithm", "publicKeyPem", "lifecycleState", "publicKeyHash", "publishedAtUtc", "retireAfterUtc", "isActivationReady", "isRetirementReady"] },
     "OidcSigningKeyListResponse": { "properties": ["activeSigningKeyId", "usesEphemeralDevelopmentKey", "keys"] }
   }
 }

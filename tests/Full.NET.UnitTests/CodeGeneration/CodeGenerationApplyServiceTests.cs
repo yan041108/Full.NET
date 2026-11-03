@@ -1,5 +1,3 @@
-using System.Security.Cryptography;
-using System.Text;
 using Full.NET.Abstractions.Ids;
 using Full.NET.Abstractions.Time;
 using Full.NET.Data.Abstractions;
@@ -15,512 +13,333 @@ using NSubstitute;
 
 namespace Full.NET.UnitTests.CodeGeneration;
 
-/// <summary>单元测试（代码生成）：Code Generation Apply Service。</summary>
+/// <summary>审查完整计划后只提交冻结正文；幂等、漂移和数据库故障不能产生第二次 Apply。</summary>
 [TestClass]
 public sealed class CodeGenerationApplyServiceTests
 {
-    private static readonly Guid ActorUserId = Guid.Parse(
-        "0198f36e-f7a7-7c52-9cbb-774e67411211");
-    private static readonly Guid PreviewRunId = Guid.Parse(
-        "0198f36e-f7a7-7c52-9cbb-774e67411212");
-    private static readonly Guid ApplyRunId = Guid.Parse(
-        "0198f36e-f7a7-7c52-9cbb-774e67411213");
-    private static readonly Guid TemplateId = Guid.Parse(
-        "0198f36e-f7a7-7c52-9cbb-774e67411214");
-    private static readonly DateTimeOffset Now = new(
-        2026,
-        7,
-        31,
-        8,
-        0,
-        0,
-        TimeSpan.Zero);
-
     [TestMethod]
-    public async Task Reviewed_template_preview_applies_real_workspace_and_persists_summary()
+    public async Task Maintenance_reads_the_actual_phase_and_recovers_the_existing_operation_without_a_second_apply()
     {
-        using var workspace = new TemporaryDirectory();
-        var command = Substitute.For<ICommandExecutor>();
-        command.ExecuteAsync(
-                CodeGenerationRunSql.Insert,
-                Arg.Any<object?>(),
-                Arg.Any<CancellationToken>())
-            .Returns(1);
-        command.ExecuteAsync(
-                CodeGenerationRunSql.CompleteApply,
-                Arg.Any<object?>(),
-                Arg.Any<CancellationToken>())
-            .Returns(1);
-        var fixture = CreateService(workspace.Path, command);
-
-        var result = await fixture.Service.ApplyAsync(
-            ActorUserId,
-            new CodeGenerationRunApplyRequest(PreviewRunId));
-
-        Assert.IsTrue(result.IsSuccess, result.Error?.Code);
-        Assert.AreEqual(ApplyRunId, result.Value!.RunId);
-        Assert.AreEqual(PreviewRunId, result.Value.PreviewRunId);
-        Assert.AreEqual(fixture.ArtifactCount, result.Value.ArtifactCount);
-        Assert.IsTrue(result.Value.ChangedArtifactCount > 0);
-        Assert.IsTrue(File.Exists(Path.Combine(
-            workspace.Path,
-            GenerationWorkspaceStore.ManifestRelativePath)));
-        var checkpoint = await GenerationRollbackCheckpointStore.ReadAsync(
-            workspace.Path,
-            ApplyRunId);
-        Assert.AreEqual(ApplyRunId, checkpoint.ApplyRunId);
-        Assert.AreEqual(CodeGenerationRunSummary.ComputeManifestSha256(checkpoint.AppliedManifest), result.Value.ManifestSha256);
-        Assert.IsNull(checkpoint.PreviousManifest);
-        Assert.AreEqual(
-            GenerationManifest.Parse(await File.ReadAllTextAsync(Path.Combine(
-                workspace.Path,
-                GenerationWorkspaceStore.ManifestRelativePath))).ToJson(),
-            checkpoint.AppliedManifest.ToJson());
-        await command.Received(1).ExecuteAsync(
-            CodeGenerationRunSql.Insert,
-            Arg.Is<object>(parameters =>
-                parameters != null
-                && Read<string>(parameters, "OperationKind")
-                    == CodeGenerationRunOperationKinds.Apply
-                && Read<string>(parameters, "Status")
-                    == CodeGenerationRunStatuses.Running
-                && Read<Guid?>(parameters, "TemplateId") == TemplateId
-                && Read<long?>(parameters, "TemplateVersion") == 3
-                && Read<string>(parameters, "ManifestSha256")
-                    == fixture.ManifestSha256
-                && Read<string?>(parameters, "ErrorCode") == null
-                && Read<Guid>(parameters, "RequestedByUserId")
-                    == ActorUserId),
-            Arg.Any<CancellationToken>());
-        await command.Received(1).ExecuteAsync(
-            CodeGenerationRunSql.CompleteApply,
-            Arg.Is<object>(parameters =>
-                parameters != null
-                && Read<Guid>(parameters, "Id") == ApplyRunId
-                && Read<int>(parameters, "ArtifactCount") == checkpoint.AppliedManifest.Artifacts.Count
-                && Read<string>(parameters, "ManifestSha256") == result.Value.ManifestSha256),
-            Arg.Any<CancellationToken>());
+        using var fixture = new Fixture();
+        var plan = await fixture.Prepare();
+        fixture.FailCompletion = true;
+        Assert.IsFalse((await fixture.Service.ApplyAsync(fixture.Actor, new(plan.PlanId, plan.PlanSha256, Guid.CreateVersion7()))).IsSuccess);
+        var state = await fixture.Workspace.GetAsync();
+        Assert.IsTrue(state.IsSuccess, state.Error?.Code);
+        Assert.AreEqual(plan.PlanId, state.Value!.PendingOperationId);
+        Assert.AreEqual("locally_applied", state.Value.Phase);
+        var wrong = await fixture.Workspace.RecoverAsync(new(Guid.CreateVersion7()));
+        Assert.AreEqual(CodeGenerationRunErrorCodes.InvalidRecoveryOperation, wrong.Error!.Code);
+        fixture.FailCompletion = false;
+        var recovered = await fixture.Workspace.RecoverAsync(new(plan.PlanId));
+        Assert.IsTrue(recovered.IsSuccess, recovered.Error?.Code);
+        Assert.AreEqual("idle", recovered.Value!.Phase);
+        Assert.IsNull(recovered.Value.PendingOperationId);
+        Assert.AreEqual(1, fixture.Inserts);
+        Assert.IsTrue((await fixture.Workspace.RecoverAsync(new(plan.PlanId))).IsSuccess);
+        Assert.AreEqual(1, fixture.Completions);
     }
 
     [TestMethod]
-    public async Task Failed_run_insert_restores_the_original_workspace()
+    public async Task Maintenance_refuses_unknown_receipts_and_does_not_turn_CLI_work_into_a_Host_operation()
     {
-        using var workspace = new TemporaryDirectory();
-        var command = Substitute.For<ICommandExecutor>();
-        command.ExecuteAsync(
-                CodeGenerationRunSql.Insert,
-                Arg.Any<object?>(),
-                Arg.Any<CancellationToken>())
-            .Returns(0);
-        var fixture = CreateService(workspace.Path, command);
+        using var fixture = new Fixture();
+        var unknown = await fixture.Workspace.RecoverAsync(new(Guid.CreateVersion7()));
+        Assert.AreEqual(CodeGenerationRunErrorCodes.InvalidRecoveryOperation, unknown.Error!.Code);
+        var id = Guid.CreateVersion7();
+        await using (var lease = await fixture.Acquire())
+        {
+            GeneratedArtifact[] artifacts = [new("cli.txt", GeneratedArtifactKind.Backend, "cli")];
+            var snapshot = await GenerationWorkspaceStore.CaptureAsync(fixture.Root, artifacts);
+            await GenerationWorkspaceJournal.PrepareAsync(lease, id, id, "apply", "cli", null,
+                GenerationWritePlanner.Plan(artifacts, snapshot.ExistingFiles, snapshot.PreviousManifest));
+        }
+        var rejected = await fixture.Workspace.RecoverAsync(new(id));
+        Assert.AreEqual(CodeGenerationRunErrorCodes.InvalidRecoveryOperation, rejected.Error!.Code);
+        Assert.IsFalse(File.Exists(Path.Combine(fixture.Root, "cli.txt")));
+        Assert.AreEqual(0, fixture.Inserts);
+    }
 
+    [TestMethod]
+    public async Task Reserved_receipt_without_active_pointer_resumes_the_same_key_after_process_interruption()
+    {
+        using var fixture = new Fixture();
+        var plan = await fixture.Prepare();
+        var key = Guid.CreateVersion7();
+        await using (var lease = await fixture.Acquire())
+        {
+            var json = await GenerationWorkspaceMetadata.ReadAsync(fixture.Root, $".fullnet/codegeneration-plans/{plan.PlanId:N}.json");
+            var frozen = GenerationWorkspaceJournal.ParsePlan(lease, json!) with { IdempotencyKey = key };
+            await GenerationWorkspaceJournal.ActivateAsync(lease, frozen);
+            GenerationWorkspaceMetadata.Delete(fixture.Root, ".fullnet/codegeneration-active-operation.json");
+        }
+        Assert.IsFalse(File.Exists(Path.Combine(fixture.Root, GenerationWorkspaceStore.ManifestRelativePath)));
+        var resumed = await fixture.Service.ApplyAsync(fixture.Actor, new(plan.PlanId, plan.PlanSha256, key));
+        Assert.IsTrue(resumed.IsSuccess, resumed.Error?.Code);
+        Assert.AreEqual(plan.PlanId, resumed.Value!.RunId);
+        Assert.AreEqual(1, fixture.Inserts);
+    }
+
+    [TestMethod]
+    public async Task Preparing_full_plan_exposes_all_hashes_without_inserting_run_or_writing_product_files()
+    {
+        using var fixture = new Fixture();
+        var plan = await fixture.Prepare();
+        Assert.AreEqual(64, plan.PlanSha256.Length);
+        Assert.AreEqual(0L, plan.WorkspaceRevision);
+        Assert.IsTrue(plan.Files.Any(file => file.RelativePath == GenerationWorkspaceStore.ManifestRelativePath));
+        Assert.IsTrue(plan.Files.All(file => file.BeforeSha256 is null && file.AfterSha256 is { Length: 64 }));
+        Assert.AreEqual(0, fixture.Inserts);
+        Assert.IsFalse(File.Exists(Path.Combine(fixture.Root, GenerationWorkspaceStore.ManifestRelativePath)));
+        await using var lease = await fixture.Acquire();
+        Assert.IsNull(await GenerationWorkspaceJournal.ReadPendingAsync(lease));
+    }
+
+    [TestMethod]
+    public async Task Confirmed_plan_commits_once_and_same_key_returns_original_result_after_response_loss()
+    {
+        using var fixture = new Fixture();
+        var plan = await fixture.Prepare();
+        var request = new CodeGenerationRunApplyRequest(plan.PlanId, plan.PlanSha256, Guid.CreateVersion7());
+        var first = await fixture.Service.ApplyAsync(fixture.Actor, request);
+        Assert.IsTrue(first.IsSuccess, first.Error?.Code);
+        var replay = await fixture.Service.ApplyAsync(fixture.Actor, request);
+        Assert.IsTrue(replay.IsSuccess, replay.Error?.Code);
+        Assert.AreEqual(first.Value, replay.Value);
+        Assert.AreEqual(1, fixture.Inserts);
+        Assert.AreEqual(1, fixture.Completions);
+        Assert.AreEqual("disabled", first.Value!.PublicationStatus);
+        var checkpoint = await GenerationRollbackCheckpointStore.ReadAsync(fixture.Root, plan.PlanId);
+        Assert.AreEqual(CodeGenerationRunSummary.ComputeManifestSha256(checkpoint.AppliedManifest), first.Value.ManifestSha256);
+    }
+
+    [TestMethod]
+    public async Task Same_key_different_plan_and_different_key_same_plan_are_rejected()
+    {
+        using var fixture = new Fixture();
+        var first = await fixture.Prepare();
+        var second = await fixture.Prepare();
+        var key = Guid.CreateVersion7();
+        Assert.IsTrue((await fixture.Service.ApplyAsync(fixture.Actor, new(first.PlanId, first.PlanSha256, key))).IsSuccess);
+        var otherPlan = await fixture.Service.ApplyAsync(fixture.Actor, new(second.PlanId, second.PlanSha256, key));
+        var otherKey = await fixture.Service.ApplyAsync(fixture.Actor, new(first.PlanId, first.PlanSha256, Guid.CreateVersion7()));
+        Assert.AreEqual(CodeGenerationRunErrorCodes.ApplyConflict, otherPlan.Error!.Code);
+        Assert.AreEqual(CodeGenerationRunErrorCodes.ApplyConflict, otherKey.Error!.Code);
+        Assert.AreEqual(1, fixture.Inserts);
+    }
+
+    [TestMethod]
+    public async Task Later_workspace_revision_invalidates_an_older_plan_even_with_identical_generated_content()
+    {
+        using var fixture = new Fixture();
+        var first = await fixture.Prepare();
+        var stale = await fixture.Prepare();
+        Assert.IsTrue((await fixture.Service.ApplyAsync(fixture.Actor, new(first.PlanId, first.PlanSha256, Guid.CreateVersion7()))).IsSuccess);
+        var rejected = await fixture.Service.ApplyAsync(fixture.Actor, new(stale.PlanId, stale.PlanSha256, Guid.CreateVersion7()));
+        Assert.AreEqual(CodeGenerationRunErrorCodes.ApplyConflict, rejected.Error!.Code);
+        Assert.AreEqual(1, fixture.Inserts);
+    }
+
+    [TestMethod]
+    public async Task Human_drift_after_review_is_preserved_before_run_insert()
+    {
+        using var fixture = new Fixture();
+        var plan = await fixture.Prepare();
+        var path = Path.Combine(fixture.Root, plan.Files.First(file => file.Kind == "create").RelativePath);
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        await File.WriteAllTextAsync(path, "human-source");
+        var result = await fixture.Service.ApplyAsync(fixture.Actor, new(plan.PlanId, plan.PlanSha256, Guid.CreateVersion7()));
+        Assert.AreEqual(CodeGenerationRunErrorCodes.ApplyConflict, result.Error!.Code);
+        Assert.AreEqual("human-source", await File.ReadAllTextAsync(path));
+        Assert.AreEqual(0, fixture.Inserts);
+    }
+
+    [TestMethod]
+    public async Task Reviewed_bytes_do_not_depend_on_a_mutable_or_deleted_template_at_execution_time()
+    {
+        using var fixture = new Fixture();
+        var plan = await fixture.Prepare();
+        fixture.Query.QuerySingleOrDefaultAsync<CodeGenerationTemplateRecord>(CodeGenerationTemplateSql.FindById,
+            Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns((CodeGenerationTemplateRecord?)null);
+        var result = await fixture.Service.ApplyAsync(fixture.Actor, new(plan.PlanId, plan.PlanSha256, Guid.CreateVersion7()));
+        Assert.IsTrue(result.IsSuccess, result.Error?.Code);
+        Assert.AreEqual(1, fixture.Inserts);
+    }
+
+    [TestMethod]
+    public async Task Expired_plan_or_different_reviewer_cannot_start_an_operation()
+    {
+        using var fixture = new Fixture();
+        var plan = await fixture.Prepare();
+        var other = await fixture.Service.ApplyAsync(Guid.CreateVersion7(), new(plan.PlanId, plan.PlanSha256, Guid.CreateVersion7()));
+        Assert.AreEqual(CodeGenerationRunErrorCodes.StaleApplyPreview, other.Error!.Code);
+        fixture.Clock.UtcNow = fixture.Clock.UtcNow.AddMinutes(16);
+        var expired = await fixture.Service.ApplyAsync(fixture.Actor, new(plan.PlanId, plan.PlanSha256, Guid.CreateVersion7()));
+        Assert.AreEqual(CodeGenerationRunErrorCodes.StaleApplyPreview, expired.Error!.Code);
+        Assert.AreEqual(0, fixture.Inserts);
+    }
+
+    [TestMethod]
+    public async Task Database_terminal_failure_keeps_running_evidence_and_same_key_recovers_without_second_insert()
+    {
+        using var fixture = new Fixture();
+        var plan = await fixture.Prepare();
+        var request = new CodeGenerationRunApplyRequest(plan.PlanId, plan.PlanSha256, Guid.CreateVersion7());
+        fixture.FailCompletion = true;
+        var interrupted = await fixture.Service.ApplyAsync(fixture.Actor, request);
+        Assert.IsFalse(interrupted.IsSuccess);
+        Assert.AreEqual(CodeGenerationRunErrorCodes.RecoveryRequired, interrupted.Error!.Code);
+        Assert.IsTrue(File.Exists(Path.Combine(fixture.Root, GenerationWorkspaceStore.ManifestRelativePath)));
+        Assert.AreEqual("running", fixture.Runs[plan.PlanId].Status);
+        await using (var lease = await fixture.Acquire()) Assert.IsNotNull(await GenerationWorkspaceJournal.ReadPendingAsync(lease));
+        fixture.FailCompletion = false;
+        var recovered = await fixture.Service.ApplyAsync(fixture.Actor, request);
+        Assert.IsTrue(recovered.IsSuccess, recovered.Error?.Code);
+        Assert.AreEqual(plan.PlanId, recovered.Value!.RunId);
+        Assert.AreEqual(1, fixture.Inserts);
+        await using var after = await fixture.Acquire();
+        Assert.IsNull(await GenerationWorkspaceJournal.ReadPendingAsync(after));
+    }
+
+    [TestMethod]
+    public async Task Missing_database_row_after_insert_failure_is_recreated_from_the_same_durable_operation()
+    {
+        using var fixture = new Fixture();
+        var plan = await fixture.Prepare();
+        var request = new CodeGenerationRunApplyRequest(plan.PlanId, plan.PlanSha256, Guid.CreateVersion7());
+        fixture.FailInsert = true;
+        Assert.IsFalse((await fixture.Service.ApplyAsync(fixture.Actor, request)).IsSuccess);
+        Assert.IsFalse(File.Exists(Path.Combine(fixture.Root, GenerationWorkspaceStore.ManifestRelativePath)));
+        fixture.FailInsert = false;
+        Assert.IsTrue((await fixture.Service.ApplyAsync(fixture.Actor, request)).IsSuccess);
+        Assert.AreEqual(1, fixture.Inserts);
+        Assert.AreEqual(1, fixture.Runs.Count(run => run.Value.OperationKind == "apply"));
+    }
+
+    [TestMethod]
+    public async Task Disabled_or_busy_workspace_rejects_before_product_changes()
+    {
+        using var fixture = new Fixture();
+        fixture.Options.Enabled = false;
+        var disabled = await fixture.Service.PrepareAsync(fixture.Actor, new(fixture.PreviewId));
+        Assert.AreEqual(CodeGenerationRunErrorCodes.ApplyDisabled, disabled.Error!.Code);
+        fixture.Options.Enabled = true;
+        Assert.IsTrue(await fixture.Gate.TryEnterAsync(CancellationToken.None));
         try
         {
-            await fixture.Service.ApplyAsync(
-                ActorUserId,
-                new CodeGenerationRunApplyRequest(PreviewRunId));
+            var busy = await fixture.Service.PrepareAsync(fixture.Actor, new(fixture.PreviewId));
+            Assert.AreEqual(CodeGenerationRunErrorCodes.ApplyBusy, busy.Error!.Code);
+            Assert.AreEqual(0, fixture.Inserts);
         }
-        catch (InvalidOperationException)
+        finally { await fixture.Gate.ReleaseAsync(); }
+    }
+
+    private sealed class Fixture : IDisposable
+    {
+        internal string Root { get; } = Directory.CreateTempSubdirectory("fullnet-codegeneration-reviewed-").FullName;
+        internal Guid Actor { get; } = Guid.CreateVersion7();
+        internal Guid PreviewId { get; } = Guid.CreateVersion7();
+        internal Dictionary<Guid, CodeGenerationRunRecord> Runs { get; } = [];
+        internal IQueryExecutor Query { get; } = Substitute.For<IQueryExecutor>();
+        internal CodeGenerationApplyOptions Options { get; }
+        internal CodeGenerationApplyGate Gate { get; }
+        internal CodeGenerationApplyService Service { get; }
+        internal CodeGenerationWorkspaceService Workspace { get; }
+        internal MutableClock Clock { get; } = new();
+        internal CodeGenerationArtifactTestStore Archives { get; }
+        private string _schemaJson = string.Empty;
+        private IReadOnlyList<GeneratedArtifact> _artifacts = [];
+        internal bool FailInsert { get; set; }
+        internal bool FailCompletion { get; set; }
+        internal int Inserts { get; private set; }
+        internal int Completions { get; private set; }
+
+        internal Fixture()
         {
-            // 摘要失败允许向上传播，但磁盘补偿不变量必须独立成立。
-        }
-
-        Assert.IsFalse(File.Exists(Path.Combine(
-            workspace.Path,
-            GenerationWorkspaceStore.ManifestRelativePath)));
-        Assert.IsEmpty(Directory.EnumerateFiles(
-            workspace.Path,
-            "*",
-            SearchOption.AllDirectories));
-    }
-
-    [TestMethod]
-    public async Task Missing_workspace_after_startup_marks_running_attempt_failed()
-    {
-        using var workspace = new TemporaryDirectory();
-        var command = Substitute.For<ICommandExecutor>();
-        command.ExecuteAsync(
-                CodeGenerationRunSql.Insert,
-                Arg.Any<object?>(),
-                Arg.Any<CancellationToken>())
-            .Returns(1);
-        command.ExecuteAsync(
-                CodeGenerationRunSql.FailApply,
-                Arg.Any<object?>(),
-                Arg.Any<CancellationToken>())
-            .Returns(1);
-        var fixture = CreateService(workspace.Path, command);
-        Directory.Delete(workspace.Path, recursive: true);
-
-        var result = await fixture.Service.ApplyAsync(
-            ActorUserId,
-            new CodeGenerationRunApplyRequest(PreviewRunId));
-
-        Assert.IsFalse(result.IsSuccess);
-        Assert.AreEqual(
-            CodeGenerationRunErrorCodes.ApplyFailed,
-            result.Error!.Code);
-        await command.Received(1).ExecuteAsync(
-            CodeGenerationRunSql.FailApply,
-            Arg.Is<object>(parameters =>
-                parameters != null
-                && Read<Guid>(parameters, "Id") == ApplyRunId
-                && Read<string>(parameters, "ErrorCode")
-                    == CodeGenerationRunErrorCodes.ApplyFailed),
-            Arg.Any<CancellationToken>());
-    }
-
-    [TestMethod]
-    public async Task Cancellation_after_running_insert_marks_attempt_failed()
-    {
-        using var workspace = new TemporaryDirectory();
-        using var cancellation = new CancellationTokenSource();
-        var command = Substitute.For<ICommandExecutor>();
-        command.ExecuteAsync(
-                CodeGenerationRunSql.Insert,
-                Arg.Any<object?>(),
-                Arg.Any<CancellationToken>())
-            .Returns(_ =>
+            var normalizer = new CodeGenerationSchemaNormalizer();
+            var normalized = normalizer.Normalize(new("acme", "catalog", "product", "acme_catalog_product", "Acme.Modules.Catalog", "Product",
+                "products", "products", "HostOnly", true, [new("Id", "Id", "id", "Uuid", false, null, null, null),
+                    new("Name", "Name", "name", "String", false, 200, null, null), new("IsActive", "IsActive", "isActive", "Boolean", false, null, null, null),
+                    new("Version", "Version", "version", "Int64", false, null, null, null)]));
+            Assert.IsTrue(normalized.IsSuccess);
+            Archives = new(Clock);
+            _schemaJson = normalized.Value!.CanonicalJson;
+            var templateId = Guid.CreateVersion7();
+            var artifacts = CrudArtifactGenerator.Generate(normalized.Value!.Schema);
+            _artifacts = artifacts;
+            Runs[PreviewId] = new() { Id = PreviewId, TemplateId = templateId, TemplateVersion = 3, OperationKind = "preview", Status = "succeeded",
+                ModuleKey = "catalog", EntityKey = "product", SchemaSha256 = normalized.Value.SchemaSha256, ArtifactCount = artifacts.Count,
+                ManifestSha256 = CodeGenerationRunSummary.ComputeManifestSha256(artifacts), RequestedByUserId = Actor };
+            Query.QuerySingleOrDefaultAsync<CodeGenerationRunRecord>(CodeGenerationRunSql.FindById, Arg.Any<object?>(), Arg.Any<CancellationToken>())
+                .Returns(call => Runs.GetValueOrDefault(ReadSqlParameter<Guid>(call.ArgAt<object>(1), "Id")));
+            Query.QuerySingleOrDefaultAsync<CodeGenerationTemplateRecord>(CodeGenerationTemplateSql.FindById, Arg.Any<object?>(), Arg.Any<CancellationToken>())
+                .Returns(new CodeGenerationTemplateRecord { Id = templateId, Name = "Product", Version = 3, SchemaJson = normalized.Value.CanonicalJson,
+                    SchemaSha256 = normalized.Value.SchemaSha256, CreatedAtUtc = Clock.UtcNow, CreatedByUserId = Actor });
+            var command = Substitute.For<ICommandExecutor>();
+            command.ExecuteAsync(CodeGenerationRunSql.Insert, Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(call =>
             {
-                cancellation.Cancel();
+                if (FailInsert) throw new IOException("模拟数据库插入暂时不可用。");
+                var parameter = call.ArgAt<object>(1);
+                var run = new CodeGenerationRunRecord { Id = ReadSqlParameter<Guid>(parameter, "Id"), TemplateId = ReadSqlParameter<Guid?>(parameter, "TemplateId"),
+                    TemplateVersion = ReadSqlParameter<long?>(parameter, "TemplateVersion"), SourceApplyRunId = ReadSqlParameter<Guid?>(parameter, "SourceApplyRunId"),
+                    OperationKind = ReadSqlParameter<string>(parameter, "OperationKind"), Status = ReadSqlParameter<string>(parameter, "Status"),
+                    ModuleKey = ReadSqlParameter<string>(parameter, "ModuleKey"), EntityKey = ReadSqlParameter<string>(parameter, "EntityKey"),
+                    SchemaSha256 = ReadSqlParameter<string>(parameter, "SchemaSha256"), ArtifactCount = ReadSqlParameter<int>(parameter, "ArtifactCount"),
+                    ManifestSha256 = ReadSqlParameter<string>(parameter, "ManifestSha256"), RequestedByUserId = ReadSqlParameter<Guid>(parameter, "RequestedByUserId"),
+                    StartedAtUtc = ReadSqlParameter<DateTimeOffset>(parameter, "StartedAtUtc"), FinishedAtUtc = ReadSqlParameter<DateTimeOffset>(parameter, "FinishedAtUtc") };
+                Runs.Add(run.Id, run);
+                Inserts++;
                 return 1;
             });
-        command.ExecuteAsync(
-                CodeGenerationRunSql.FailApply,
-                Arg.Any<object?>(),
-                Arg.Any<CancellationToken>())
-            .Returns(1);
-        var fixture = CreateService(workspace.Path, command);
-
-        await Assert.ThrowsExactlyAsync<OperationCanceledException>(
-            () => fixture.Service.ApplyAsync(
-                ActorUserId,
-                new CodeGenerationRunApplyRequest(PreviewRunId),
-                cancellation.Token));
-
-        await command.Received(1).ExecuteAsync(
-            CodeGenerationRunSql.FailApply,
-            Arg.Is<object>(parameters =>
-                parameters != null
-                && Read<Guid>(parameters, "Id") == ApplyRunId
-                && Read<string>(parameters, "ErrorCode")
-                    == CodeGenerationRunErrorCodes.ApplyFailed),
-            Arg.Is<CancellationToken>(token => !token.CanBeCanceled));
-        Assert.IsFalse(File.Exists(Path.Combine(
-            workspace.Path,
-            GenerationWorkspaceStore.ManifestRelativePath)));
-    }
-
-    [TestMethod]
-    public async Task Deleted_template_marks_reviewed_preview_stale_without_writing()
-    {
-        using var workspace = new TemporaryDirectory();
-        var command = Substitute.For<ICommandExecutor>();
-        var fixture = CreateService(workspace.Path, command);
-        fixture.Query.QuerySingleOrDefaultAsync<CodeGenerationTemplateRecord>(
-                CodeGenerationTemplateSql.FindById,
-                Arg.Any<object?>(),
-                Arg.Any<CancellationToken>())
-            .Returns((CodeGenerationTemplateRecord?)null);
-
-        var result = await fixture.Service.ApplyAsync(
-            ActorUserId,
-            new CodeGenerationRunApplyRequest(PreviewRunId));
-
-        Assert.IsFalse(result.IsSuccess);
-        Assert.AreEqual(
-            CodeGenerationRunErrorCodes.StaleApplyPreview,
-            result.Error!.Code);
-        await command.DidNotReceive().ExecuteAsync(
-            Arg.Any<SqlStatement>(),
-            Arg.Any<object?>(),
-            Arg.Any<CancellationToken>());
-        Assert.IsEmpty(Directory.EnumerateFiles(
-            workspace.Path,
-            "*",
-            SearchOption.AllDirectories));
-    }
-
-    [TestMethod]
-    public async Task Workspace_conflict_marks_running_attempt_failed_with_stable_code()
-    {
-        using var workspace = new TemporaryDirectory();
-        var command = Substitute.For<ICommandExecutor>();
-        command.ExecuteAsync(
-                CodeGenerationRunSql.Insert,
-                Arg.Any<object?>(),
-                Arg.Any<CancellationToken>())
-            .Returns(1);
-        command.ExecuteAsync(
-                CodeGenerationRunSql.FailApply,
-                Arg.Any<object?>(),
-                Arg.Any<CancellationToken>())
-            .Returns(1);
-        var fixture = CreateService(workspace.Path, command);
-        var conflictPath = Path.Combine(
-            workspace.Path,
-            fixture.Artifacts[0].RelativePath.Replace('/', Path.DirectorySeparatorChar));
-        Directory.CreateDirectory(Path.GetDirectoryName(conflictPath)!);
-        await File.WriteAllTextAsync(conflictPath, "user-owned-content");
-
-        var result = await fixture.Service.ApplyAsync(
-            ActorUserId,
-            new CodeGenerationRunApplyRequest(PreviewRunId));
-
-        Assert.IsFalse(result.IsSuccess);
-        Assert.AreEqual(
-            CodeGenerationRunErrorCodes.ApplyConflict,
-            result.Error!.Code);
-        Assert.AreEqual(
-            "user-owned-content",
-            await File.ReadAllTextAsync(conflictPath));
-        await command.Received(1).ExecuteAsync(
-            CodeGenerationRunSql.FailApply,
-            Arg.Is<object>(parameters =>
-                parameters != null
-                && Read<string>(parameters, "ErrorCode")
-                    == CodeGenerationRunErrorCodes.ApplyConflict),
-            Arg.Any<CancellationToken>());
-    }
-
-    [TestMethod]
-    public async Task Concurrent_apply_is_rejected_before_run_or_workspace_mutation()
-    {
-        using var workspace = new TemporaryDirectory();
-        var command = Substitute.For<ICommandExecutor>();
-        var fixture = CreateService(workspace.Path, command);
-        Assert.IsTrue(await fixture.Gate.TryEnterAsync(CancellationToken.None));
-
-        try
-        {
-            var result = await fixture.Service.ApplyAsync(
-                ActorUserId,
-                new CodeGenerationRunApplyRequest(PreviewRunId));
-
-            Assert.IsFalse(result.IsSuccess);
-            Assert.AreEqual(
-                CodeGenerationRunErrorCodes.ApplyBusy,
-                result.Error!.Code);
-            await command.DidNotReceive().ExecuteAsync(
-                Arg.Any<SqlStatement>(),
-                Arg.Any<object?>(),
-                Arg.Any<CancellationToken>());
-            Assert.IsEmpty(Directory.EnumerateFiles(
-                workspace.Path,
-                "*",
-                SearchOption.AllDirectories));
-        }
-        finally
-        {
-            await fixture.Gate.ReleaseAsync();
-        }
-    }
-
-    [TestMethod]
-    public async Task Existing_checkpoint_fails_running_attempt_before_workspace_mutation()
-    {
-        using var workspace = new TemporaryDirectory();
-        var command = Substitute.For<ICommandExecutor>();
-        command.ExecuteAsync(
-                CodeGenerationRunSql.Insert,
-                Arg.Any<object?>(),
-                Arg.Any<CancellationToken>())
-            .Returns(1);
-        command.ExecuteAsync(
-                CodeGenerationRunSql.FailApply,
-                Arg.Any<object?>(),
-                Arg.Any<CancellationToken>())
-            .Returns(1);
-        var fixture = CreateService(workspace.Path, command);
-        Directory.CreateDirectory(Path.Combine(
-            workspace.Path,
-            GenerationRollbackCheckpointStore.RootRelativePath.Replace(
-                '/',
-                Path.DirectorySeparatorChar),
-            ApplyRunId.ToString("N")));
-
-        var result = await fixture.Service.ApplyAsync(
-            ActorUserId,
-            new CodeGenerationRunApplyRequest(PreviewRunId));
-
-        Assert.IsFalse(result.IsSuccess);
-        Assert.AreEqual(
-            CodeGenerationRunErrorCodes.ApplyFailed,
-            result.Error!.Code);
-        Assert.IsFalse(File.Exists(Path.Combine(
-            workspace.Path,
-            GenerationWorkspaceStore.ManifestRelativePath)));
-        await command.Received(1).ExecuteAsync(
-            CodeGenerationRunSql.FailApply,
-            Arg.Is<object>(parameters =>
-                parameters != null
-                && Read<string>(parameters, "ErrorCode")
-                    == CodeGenerationRunErrorCodes.ApplyFailed),
-            Arg.Any<CancellationToken>());
-    }
-
-    private static ApplyFixture CreateService(
-        string workspaceRoot,
-        ICommandExecutor command)
-    {
-        var normalizer = new CodeGenerationSchemaNormalizer();
-        var normalized = normalizer.Normalize(CreateSchema());
-        Assert.IsTrue(
-            normalized.IsSuccess,
-            normalized.Error?.Code ?? "missing error code");
-        var artifacts = CrudArtifactGenerator.Generate(normalized.Value!.Schema);
-        var manifestSha256 = ComputeManifestSha256(artifacts);
-        var query = Substitute.For<IQueryExecutor>();
-        query.QuerySingleOrDefaultAsync<CodeGenerationRunRecord>(
-                CodeGenerationRunSql.FindById,
-                Arg.Any<object?>(),
-                Arg.Any<CancellationToken>())
-            .Returns(new CodeGenerationRunRecord
+            command.ExecuteAsync(CodeGenerationRunSql.CompleteApply, Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(_ =>
             {
-                Id = PreviewRunId,
-                TemplateId = TemplateId,
-                TemplateVersion = 3,
-                OperationKind = CodeGenerationRunOperationKinds.Preview,
-                Status = CodeGenerationRunStatuses.Succeeded,
-                ModuleKey = "catalog",
-                EntityKey = "product",
-                SchemaSha256 = normalized.Value.SchemaSha256,
-                ArtifactCount = artifacts.Count,
-                ManifestSha256 = manifestSha256,
-                RequestedByUserId = ActorUserId,
-                StartedAtUtc = Now.AddMinutes(-1),
-                FinishedAtUtc = Now.AddSeconds(-30),
+                if (FailCompletion) throw new IOException("模拟数据库终态暂时不可用。");
+                Completions++;
+                return 1;
             });
-        query.QuerySingleOrDefaultAsync<CodeGenerationTemplateRecord>(
-                CodeGenerationTemplateSql.FindById,
-                Arg.Any<object?>(),
-                Arg.Any<CancellationToken>())
-            .Returns(new CodeGenerationTemplateRecord
-            {
-                Id = TemplateId,
-                Name = "Product CRUD",
-                SchemaJson = normalized.Value.CanonicalJson,
-                SchemaSha256 = normalized.Value.SchemaSha256,
-                CreatedAtUtc = Now.AddDays(-1),
-                CreatedByUserId = ActorUserId,
-                Version = 3,
-            });
-        var applyGate = CodeGenerationApplyGateTestSupport.CreateLocalGate(workspaceRoot);
-        var service = new CodeGenerationApplyService(
-            command,
-            query,
-            new CodeGenerationTemplateQueryService(
-                query,
-                Substitute.For<IMultiResultQueryExecutor>(),
-                normalizer,
-                Options.Create(new DatabaseOptions
-                {
-                    Provider = DatabaseProvider.SqlServer,
-                })),
-            normalizer,
-            Options.Create(new CodeGenerationApplyOptions
-            {
-                Enabled = true,
-                WorkspaceRoot = workspaceRoot,
-            }),
-            applyGate,
-            CodeGenerationGitWorkspaceTestSupport.CreateDisabled(workspaceRoot),
-            new FixedClock(Now),
-            new FixedIdGenerator(ApplyRunId));
-        return new ApplyFixture(
-            service,
-            artifacts,
-            manifestSha256,
-            query,
-            applyGate);
-    }
-
-    private static string ComputeManifestSha256(
-        IReadOnlyList<GeneratedArtifact> artifacts)
-    {
-        var manifest = string.Concat(artifacts
-            .OrderBy(artifact => artifact.RelativePath, StringComparer.Ordinal)
-            .Select(artifact =>
-                $"{artifact.RelativePath}\n{ToMachineCode(artifact.Kind)}\n"
-                + $"{GenerationContentHash.Compute(artifact.Content)}\n"));
-        return Convert.ToHexString(SHA256.HashData(
-                new UTF8Encoding(false, true).GetBytes(manifest)))
-            .ToLowerInvariant();
-    }
-
-    private static string ToMachineCode(GeneratedArtifactKind kind) =>
-        kind switch
-        {
-            GeneratedArtifactKind.Backend => "backend",
-            GeneratedArtifactKind.VueClient => "vue_client",
-            GeneratedArtifactKind.LayuiClient => "layui_client",
-            GeneratedArtifactKind.Report => "report",
-            GeneratedArtifactKind.MigrationTemplate => "migration_template",
-            GeneratedArtifactKind.IntegrationTestTemplate =>
-                "integration_test_template",
-            GeneratedArtifactKind.VueView => "vue_view",
-            GeneratedArtifactKind.OpenApiContract => "openapi_contract",
-            _ => throw new ArgumentOutOfRangeException(nameof(kind)),
-        };
-
-    private static CodeGenerationPreviewRequest CreateSchema() =>
-        new(
-            "acme",
-            "catalog",
-            "product",
-            "acme_catalog_product",
-            "Acme.Modules.Catalog",
-            "Product",
-            "products",
-            "products",
-            "HostOnly",
-            true,
-            [
-                new("Id", "Id", "id", "Uuid", false, null, null, null),
-                new("Name", "Name", "displayName", "String", false, 200, null, null),
-                new("IsActive", "IsActive", "isActive", "Boolean", false, null, null, null),
-                new("Version", "Version", "version", "Int64", false, null, null, null),
-            ]);
-
-    private static T Read<T>(object parameters, string name) =>
-        ReadSqlParameter<T>(parameters, name);
-
-    private sealed class FixedClock(DateTimeOffset utcNow) : IClock
-    {
-        public DateTimeOffset UtcNow => utcNow;
-    }
-
-    private sealed class FixedIdGenerator(Guid id) : IIdGenerator
-    {
-        public Guid NewId() => id;
-    }
-
-    private sealed record ApplyFixture(
-        CodeGenerationApplyService Service,
-        IReadOnlyList<GeneratedArtifact> Artifacts,
-        string ManifestSha256,
-        IQueryExecutor Query,
-        CodeGenerationApplyGate Gate)
-    {
-        public int ArtifactCount => Artifacts.Count;
-    }
-
-    private sealed class TemporaryDirectory : IDisposable
-    {
-        public TemporaryDirectory()
-        {
-            Path = Directory.CreateTempSubdirectory(
-                "fullnet-codegeneration-apply-").FullName;
+            Options = new() { Enabled = true, WorkspaceRoot = Root };
+            Gate = CodeGenerationApplyGateTestSupport.CreateLocalGate(Root);
+            var ids = Substitute.For<IIdGenerator>();
+            ids.NewId().Returns(_ => Guid.CreateVersion7());
+            Service = new(command, Query, normalizer,
+                Microsoft.Extensions.Options.Options.Create(Options), Gate, CodeGenerationGitWorkspaceTestSupport.CreateDisabled(Root), Clock, ids, Archives.Store);
+            Workspace = new(command, Query, Microsoft.Extensions.Options.Options.Create(Options), Gate,
+                CodeGenerationGitWorkspaceTestSupport.CreateDisabled(Root), Clock, Archives.Store);
         }
 
-        public string Path { get; }
-
-        public void Dispose()
+        internal async Task<CodeGenerationRunApplyPlanResponse> Prepare()
         {
-            if (Directory.Exists(Path))
-            {
-                Directory.Delete(Path, recursive: true);
-            }
+            await Archives.Store.SaveAsync(PreviewId, _schemaJson, CrudArtifactGenerator.GeneratorVersion, Runs[PreviewId].ManifestSha256!,
+                Clock.UtcNow, "preview.zip", _artifacts, default);
+            var result = await Service.PrepareAsync(Actor, new(PreviewId));
+            Assert.IsTrue(result.IsSuccess, result.Error?.Code);
+            return result.Value!;
         }
+        internal async Task<GenerationWorkspaceLease> Acquire() => await GenerationWorkspaceLease.TryAcquireAsync(Root) ?? throw new InvalidOperationException();
+        public void Dispose() { Archives.Dispose(); Directory.Delete(Root, recursive: true); }
+    }
+
+    [TestMethod]
+    public async Task Inline_archived_preview_can_be_planned_after_template_deletion_and_expiry_is_explicit()
+    {
+        using var fixture = new Fixture();
+        await fixture.Prepare();
+        var preview = fixture.Runs[fixture.PreviewId];
+        fixture.Runs[fixture.PreviewId] = new() { Id = preview.Id, OperationKind = "preview", Status = "succeeded", TemplateId = null, TemplateVersion = null,
+            ModuleKey = preview.ModuleKey, EntityKey = preview.EntityKey, SchemaSha256 = preview.SchemaSha256,
+            ArtifactCount = preview.ArtifactCount, ManifestSha256 = preview.ManifestSha256, RequestedByUserId = preview.RequestedByUserId };
+        fixture.Query.QuerySingleOrDefaultAsync<CodeGenerationTemplateRecord>(CodeGenerationTemplateSql.FindById,
+            Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns((CodeGenerationTemplateRecord?)null);
+        var plan = await fixture.Service.PrepareAsync(fixture.Actor, new(fixture.PreviewId));
+        Assert.IsTrue(plan.IsSuccess, plan.Error?.Code);
+        fixture.Clock.UtcNow = fixture.Clock.UtcNow.AddDays(31);
+        var expired = await fixture.Service.PrepareAsync(fixture.Actor, new(fixture.PreviewId));
+        Assert.AreEqual(CodeGenerationRunErrorCodes.ArchiveExpired, expired.Error!.Code);
+        Assert.AreEqual(0, fixture.Inserts);
+    }
+
+    private sealed class MutableClock : IClock
+    {
+        public DateTimeOffset UtcNow { get; set; } = new(2026, 10, 26, 0, 0, 0, TimeSpan.Zero);
     }
 }

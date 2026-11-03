@@ -306,11 +306,11 @@ public sealed class MessagingCutoverRollbackDebeziumTests
         return (await response.Content.ReadFromJsonAsync<T>())!;
     }
     private static ChangeDeliveryOwnerRequest Change(EventDeliveryOwner owner) => new(EventType, 1, owner, "real full-chain verification");
-    private static async Task<Dictionary<string, string>> ConnectorAsync(DatabaseOptions options, CdcDebeziumPipelineEnvironment pipeline, bool useFormal) =>
+    internal static async Task<Dictionary<string, string>> ConnectorAsync(DatabaseOptions options, CdcDebeziumPipelineEnvironment pipeline, bool useFormal) =>
         new(options.Provider == DatabaseProvider.SqlServer
             ? await DebeziumConnectorTemplateFactory.CreateSqlServerShadowConfigAsync(options.ConnectionString, pipeline.HostGateway, pipeline.InternalKafkaBootstrapServers, useFormalOutbox: useFormal)
             : await DebeziumConnectorTemplateFactory.CreateMySqlShadowConfigAsync(options.ConnectionString, pipeline.HostGateway, pipeline.InternalKafkaBootstrapServers, useFormalOutbox: useFormal), StringComparer.Ordinal);
-    private static Dictionary<string, string?> Settings(CdcDebeziumPipelineEnvironment pipeline, string source, string formal, string shadow, string worker) => new()
+    internal static Dictionary<string, string?> Settings(CdcDebeziumPipelineEnvironment pipeline, string source, string formal, string shadow, string worker) => new()
     {
         // 控制端与租户业务端各持有真实会话；第二次登录不能按默认单会话策略撤销第一个令牌。
         ["Identity:SessionLoginPolicy"] = "AllowMultiple",
@@ -349,9 +349,9 @@ public sealed class MessagingCutoverRollbackDebeziumTests
     /// <summary>只在生产证明返回后暂停测试推进，不制造或改写任何就绪字段。</summary>
     private sealed class PausedGateReader(KafkaConnectEventDeliveryRollbackReadinessReader inner, PauseAuditFault fault) : IEventDeliveryRollbackReadinessReader
     {
-        public async Task<EventDeliveryRollbackReadiness> PrepareAsync(string type, int version, Guid generation, CancellationToken token = default)
+        public async Task<EventDeliveryRollbackReadiness> PrepareAsync(string type, int version, Guid generation, EventDeliveryControlLease lease, CancellationToken token = default)
         {
-            var proof = await inner.PrepareAsync(type, version, generation, token);
+            var proof = await inner.PrepareAsync(type, version, generation, lease, token);
             if (fault.Armed)
             {
                 Assert.IsTrue(proof.ConnectorStopped && proof.BrokerMessagesDrainedOrIsolated && proof.SourcePositionCoversProducerFence);
@@ -359,7 +359,7 @@ public sealed class MessagingCutoverRollbackDebeziumTests
             }
             return proof;
         }
-        public Task AbortAsync(string type, int version, Guid generation, CancellationToken token = default) => inner.AbortAsync(type, version, generation, token);
+        public Task AbortAsync(string type, int version, Guid generation, EventDeliveryControlLease lease, CancellationToken token = default) => inner.AbortAsync(type, version, generation, lease, token);
     }
     private sealed class AuditFaultWriter(MessagingDomainAuditWriter inner, PauseAuditFault fault) : ITransactionalDomainAuditWriter<MessagingDomainAuditWrite>
     {

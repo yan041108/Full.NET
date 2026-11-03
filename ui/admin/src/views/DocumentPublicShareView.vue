@@ -12,8 +12,9 @@ import {
   loadDocumentShareContentByCode,
   loadDocumentSharePreviewTaskContentByCode
 } from '../api/document-shares';
+import { getDocumentPreviewCapabilities } from '../api/document-preview-tasks';
 import { useBlobPreview } from '../composables/useBlobPreview';
-import { openDocumentBlob } from '../api/host-document-items';
+import { openDocumentBlob, safeDocumentPreviewBlob } from '../api/host-document-items';
 
 defineOptions({ name: 'DocumentPublicShareView' });
 
@@ -23,6 +24,7 @@ const loading = ref(false);
 const contentLoading = ref(false);
 const initialLoaded = ref(false);
 const password = ref('');
+const requestKey = ref(crypto.randomUUID());
 const access = ref<HostDocumentShareAccessResponse>();
 const problem = ref<FullNetProblemDetails>();
 const contentProblem = ref<FullNetProblemDetails>();
@@ -45,20 +47,11 @@ const isText = computed(() => mimeType.value.startsWith('text/'));
 
 const canInlinePreview = computed(() => isImage.value || isPdf.value || isText.value);
 
-const needsOfficePreview = computed(() => {
-  if (!mimeType.value || canInlinePreview.value) {
-    return false;
-  }
-  return (
-    mimeType.value.includes('officedocument') ||
-    mimeType.value.includes('msword') ||
-    mimeType.value.includes('spreadsheet') ||
-    mimeType.value.includes('presentation')
-  );
-});
+const officeCapability = ref<{ enabled: boolean; allowedMimeTypes: readonly string[]; maxInputBytes: number }>();
+const needsOfficePreview = computed(() => Boolean(officeCapability.value?.enabled && officeCapability.value.allowedMimeTypes.includes(mimeType.value) && (access.value?.fileSizeBytes ?? 0) <= officeCapability.value.maxInputBytes));
 
 function shareAccessBody() {
-  return { password: password.value.trim() || null };
+  return { previewGrant: access.value?.previewGrant, requestKey: requestKey.value, accessTypeKey: 'preview' as const };
 }
 
 let previewController: AbortController | undefined;
@@ -82,7 +75,7 @@ async function loadOfficePreview(generation: number, code: string): Promise<void
   // 取消不保证已完成请求的 continuation 不再执行；旧任务不能触发共享预览的清理或替换。
   const isCurrent = () => !controller.signal.aborted && generation === shareGeneration && code === shareCode.value;
   const task = await createDocumentSharePreviewTaskByCode(code,
-    { ...shareAccessBody(), previewGrant: access.value?.previewGrant }, controller.signal);
+    { previewGrant: access.value?.previewGrant }, controller.signal);
   if (!isCurrent()) return;
   if (!task.previewGrant || !task.previewPollUntilUtc) throw new Error('document.public_share.preview_grant_missing');
   const until = Date.parse(task.previewPollUntilUtc);
@@ -91,7 +84,7 @@ async function loadOfficePreview(generation: number, code: string): Promise<void
     try {
       const status = await getDocumentSharePreviewTaskByCode(code, task.id, body, controller.signal);
       if (!isCurrent()) return;
-      if (status.statusKey === 'failed') throw new Error('document.public_share.preview_task_failed');
+      if (status.statusKey === 'failed' || status.statusKey === 'cancelled') throw new Error('document.public_share.preview_task_failed');
       if (status.statusKey === 'succeeded') {
         await loadPreview(() => loadDocumentSharePreviewTaskContentByCode(code, task.id, body, controller.signal));
         return;
@@ -123,10 +116,19 @@ async function loadContent(generation = shareGeneration, code = shareCode.value,
   contentLoading.value = true;
   contentProblem.value = undefined;
   try {
+    if (!canInlinePreview.value) {
+      const capability = await getDocumentPreviewCapabilities(signal);
+      if (generation !== shareGeneration || signal?.aborted) return;
+      officeCapability.value = capability;
+    }
     if (needsOfficePreview.value) {
       await loadOfficePreview(generation, code);
-    } else {
-      await loadPreview(() => loadDocumentShareContentByCode(code, shareAccessBody(), signal));
+    } else if (canInlinePreview.value) {
+      await loadPreview(async () => {
+        const blob = await loadDocumentShareContentByCode(code, shareAccessBody(), signal);
+        // SVG 在 img 中使用浏览器的受限图像模式；文本才进入纯文本 iframe。
+        return isImage.value ? blob : safeDocumentPreviewBlob(blob);
+      });
     }
   } catch (error) {
     if (generation !== shareGeneration || signal?.aborted) return;
@@ -151,7 +153,7 @@ function downloadContent() {
   void (async () => {
     try {
       const blob = await loadDocumentShareContentByCode(shareCode.value, {
-        password: password.value.trim() || null
+        previewGrant: access.value?.previewGrant, requestKey: crypto.randomUUID(), accessTypeKey: 'download'
       });
       openDocumentBlob(blob);
     } catch (error) {
@@ -170,7 +172,7 @@ async function submitAccess() {
   clearPreview();
   if (!password.value.trim()) passwordRequired.value = false;
   try {
-    const value = await accessDocumentShareByCode(code, { password: password.value.trim() || null }, controller.signal);
+    const value = await accessDocumentShareByCode(code, { password: password.value.trim() || null, requestKey: requestKey.value }, controller.signal);
     if (generation !== shareGeneration || code !== shareCode.value) return;
     access.value = value; passwordRequired.value = false;
     await loadContent(generation, code, controller.signal);
@@ -192,7 +194,7 @@ watch(
     if (!code) return;
     shareGeneration += 1; accessController?.abort(); previewController?.abort();
     loading.value = false; contentLoading.value = false; initialLoaded.value = false;
-    access.value = undefined; password.value = ''; clearPreview();
+    access.value = undefined; password.value = ''; requestKey.value = crypto.randomUUID(); clearPreview();
     void submitAccess();
   },
   { immediate: true }

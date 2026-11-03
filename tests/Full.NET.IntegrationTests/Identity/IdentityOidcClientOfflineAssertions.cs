@@ -34,6 +34,8 @@ internal static class IdentityOidcClientOfflineAssertions
         using var factory = CreateFactory(provider, connectionString, publisher);
         await factory.InitializeAsync(cancellationToken);
         using var client = factory.CreateClientForHost("localhost");
+        // Secure 中心 Cookie 必须经 HTTPS 回送，才能验证同一浏览器的 SSO 与退出。
+        client.BaseAddress = new Uri("https://localhost");
 
         var flow = await IdentityOidcRelyingPartyFixture.RunAuthorizationCodeFlowAsync(
             client,
@@ -84,6 +86,8 @@ internal static class IdentityOidcClientOfflineAssertions
         using var factory = CreateFactory(provider, connectionString, publisher);
         await factory.InitializeAsync(cancellationToken);
         using var client = factory.CreateClientForHost("localhost");
+        // Secure 中心 Cookie 必须经 HTTPS 回送，才能验证同一浏览器的 SSO 与退出。
+        client.BaseAddress = new Uri("https://localhost");
 
         var flow = await IdentityOidcRelyingPartyFixture.RunAuthorizationCodeFlowAsync(
             client,
@@ -134,6 +138,8 @@ internal static class IdentityOidcClientOfflineAssertions
         using var factory = CreateFactory(provider, connectionString, publisher);
         await factory.InitializeAsync(cancellationToken);
         using var client = factory.CreateClientForHost("localhost");
+        // Secure 中心 Cookie 必须经 HTTPS 回送，才能验证同一浏览器的 SSO 与退出。
+        client.BaseAddress = new Uri("https://localhost");
 
         var publicFlow = await IdentityOidcRelyingPartyFixture.RunAuthorizationCodeFlowAsync(
             client,
@@ -163,6 +169,7 @@ internal static class IdentityOidcClientOfflineAssertions
             {
                 clientId = IdentityOidcRelyingPartyFixture.PublicClientId,
             });
+        logoutRequest.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", publicFlow.AccessToken);
         using var logoutResponse = await client.SendAsync(logoutRequest, cancellationToken);
         Assert.AreEqual(HttpStatusCode.NoContent, logoutResponse.StatusCode);
         Assert.IsTrue(
@@ -191,6 +198,8 @@ internal static class IdentityOidcClientOfflineAssertions
         using var factory = CreateFactory(provider, connectionString, publisher);
         await factory.InitializeAsync(cancellationToken);
         using var client = factory.CreateClientForHost("localhost");
+        // Secure 中心 Cookie 必须经 HTTPS 回送，才能验证同一浏览器的 SSO 与退出。
+        client.BaseAddress = new Uri("https://localhost");
 
         var publicFlow = await IdentityOidcRelyingPartyFixture.RunAuthorizationCodeFlowAsync(
             client,

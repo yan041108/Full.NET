@@ -9,4 +9,6 @@
   <data name="calendar.personal_schedule_invalid_status" xml:space="preserve"><value>个人日程状态无效。</value></data>
   <data name="calendar.personal_schedule_concurrency_conflict" xml:space="preserve"><value>个人日程已被其他操作更新，请刷新后重试。</value></data>
   <data name="calendar.personal_schedule_invalid_content" xml:space="preserve"><value>个人日程内容无效。</value></data>
+  <data name="calendar.personal_schedule_source_invalid" xml:space="preserve"><value>请选择最多八个不重复的本人日程。</value></data>
+  <data name="calendar.personal_schedule_source_unavailable" xml:space="preserve"><value>日程来源已变化或不可读取，请刷新后重新选择。</value></data>
 </root>

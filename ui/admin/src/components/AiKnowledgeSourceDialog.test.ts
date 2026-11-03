@@ -11,7 +11,7 @@ vi.mock('../api/ai-knowledge', () => ({ downloadKnowledgeSource: vi.fn(), listKn
 let wrappers: VueWrapper[] = [];
 function render(allow = true) {
   const pinia = createPinia(); setActivePinia(pinia); vi.spyOn(useSessionStore(), 'can').mockReturnValue(allow);
-  const wrapper = mount(AiKnowledgeSourceDialog, { props: { open: true, knowledgeBaseId: 'base', documentId: 'doc', versionId: 'version' }, global: { plugins: [pinia], stubs: { ArtFormDialog: { template: '<div><slot /></div>' }, AiKnowledgeBaseSelect: true } } }); wrappers.push(wrapper); return wrapper;
+  const wrapper = mount(AiKnowledgeSourceDialog, { props: { open: true, knowledgeBaseId: 'base', documentId: 'doc', versionId: 'version' }, global: { plugins: [pinia], stubs: {Teleport:true, ArtFormDialog: { template: '<div><slot /></div>' }, AiKnowledgeBaseSelect: true } } }); wrappers.push(wrapper); return wrapper;
 }
 function textBlob(text: string) { const blob = new Blob([text], { type: 'text/plain' }); Object.defineProperty(blob, 'arrayBuffer', { value: async () => new TextEncoder().encode(text).buffer }); return blob; }
 afterEach(() => { wrappers.forEach(w => w.unmount()); wrappers = []; vi.clearAllMocks(); vi.restoreAllMocks(); });
@@ -70,4 +70,28 @@ it('PDF 精确版本来源交给画布预览，并在换源时卸载', async () 
   expect(wrapper.findComponent({ name: 'AiKnowledgePdfPreview' }).exists()).toBe(true);
   expect(wrapper.findComponent({ name: 'AiKnowledgePdfPreview' }).props('initialPage')).toBe(2);
   await wrapper.setProps({ versionId: 'other' }); expect(wrapper.findComponent({ name: 'AiKnowledgePdfPreview' }).exists()).toBe(false);
+});
+
+it('跨页人工引用可逐一选择真实上下文，补写不产生定位按钮且换引用清空正文', async () => {
+  vi.mocked(downloadKnowledgeSource).mockResolvedValue(textBlob('pdf'));
+  const wrapper = render();
+  const location = (pageNumber: number) => ({ blockSequence: pageNumber - 1, kind: 'pdf_page', pageNumber, paragraphNumber: null,
+    tableNumber: null, rowNumber: null, cellNumber: null, grid: null, slide: null, htmlPath: null, image: null });
+  await wrapper.setProps({ version: { id: 'version', documentId: 'doc', contentHash: 'hash', contentType: 'application/pdf', originalFileName: 'file.pdf', sizeBytes: 3, versionNumber: 1, processingStatus: 'ready', createdAtUtc: 'now' },
+    citation: { id: 'chunk', documentId: 'doc', versionId: 'version', sequence: 0, pageNumber: null, offset: null, length: null,
+      correction: { revisionId: 'revision', textLength: 8, spans: [
+        { contentKind: 'original', textOffset: 0, textLength: 2, sourceLocation: location(1), sourceOffset: 0, sourceLength: 2 },
+        { contentKind: 'corrected', textOffset: 3, textLength: 2, sourceLocation: location(3), sourceOffset: 0, sourceLength: 20 },
+        { contentKind: 'supplement', textOffset: 6, textLength: 2, sourceLocation: null, sourceOffset: null, sourceLength: null }
+      ] } } });
+  await wrapper.get('[data-testid="knowledge-source-read"]').trigger('click'); await flushPromises();
+  expect(wrapper.findComponent({ name: 'AiKnowledgePdfPreview' }).props('initialPage')).toBe(1);
+  const contexts = wrapper.findAll('[data-testid="knowledge-source-context"]'); expect(contexts).toHaveLength(2);
+  await contexts[1]!.trigger('click'); await flushPromises();
+  expect(contexts[1]!.attributes('aria-pressed')).toBe('true');
+  expect(wrapper.findComponent({ name: 'AiKnowledgePdfPreview' }).props('initialPage')).toBe(3);
+  expect(downloadKnowledgeSource).toHaveBeenCalledTimes(1);
+  await wrapper.setProps({ citation: undefined });
+  expect(wrapper.findComponent({ name: 'AiKnowledgePdfPreview' }).exists()).toBe(false);
+  expect(wrapper.find('[data-testid="knowledge-source-context"]').exists()).toBe(false);
 });

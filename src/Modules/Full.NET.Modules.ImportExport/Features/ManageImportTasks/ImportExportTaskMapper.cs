@@ -2,6 +2,7 @@ using System.Text.Json;
 using Full.NET.Modules.ImportExport.Contracts;
 using Full.NET.Modules.ImportExport.Persistence;
 using Full.NET.Modules.ImportExport.Serialization;
+using Full.NET.Modules.ImportExport.Domain;
 
 namespace Full.NET.Modules.ImportExport.Features.ManageImportTasks;
 
@@ -19,6 +20,33 @@ internal static class ImportExportTaskMapper
     private static readonly ImportExportJsonSerializerContext RowSerializerContext = new(new JsonSerializerOptions(JsonSerializerDefaults.Web));
 
     public static ImportExportTaskResponse MapSummary(ImportExportTaskRecord record) =>
+        new(
+            record.Id,
+            record.TenantId,
+            record.SchemaKey,
+            record.SchemaDisplayName,
+            record.WorksheetKey,
+            record.SourceFileId,
+            record.SourceFileName,
+            record.StatusKey,
+            record.TotalRows,
+            record.ValidRowCount,
+            record.InvalidRowCount,
+            record.ErrorCode,
+            record.RequestedByUserId,
+            record.CreatedAtUtc,
+            record.PreviewCompletedAtUtc,
+            record.ProcessedRowCount,
+            record.SucceededRowCount,
+            record.ExecutionFailedRowCount,
+            record.NextLineNumber,
+            record.ExecutionStartedAtUtc,
+            record.ExecutionCompletedAtUtc,
+            record.ErrorReceiptFileId is not null,
+            record.Version);
+
+    /// <summary>将不含正文的本人任务投影映射为原有摘要契约。</summary>
+    public static ImportExportTaskResponse MapSummary(ImportExportTaskListRecord record) =>
         new(
             record.Id,
             record.TenantId,
@@ -69,7 +97,7 @@ internal static class ImportExportTaskMapper
             record.ExecutionCompletedAtUtc,
             record.ErrorReceiptFileId is not null,
             DeserializePreviewRows(record.PreviewRowsJson),
-            record.Version);
+            record.Version) { ColumnMappings = ImportColumnMappingSnapshots.Display(record.ColumnMappingJson) };
 
     /// <summary>使用静态元数据保存导入行预览快照。</summary>
     /// <param name="rows">需保存的逐行结果。</param>

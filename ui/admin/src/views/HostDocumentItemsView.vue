@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue';
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { Plus } from '@element-plus/icons-vue';
 import {
@@ -9,6 +9,8 @@ import {
   ElForm,
   ElFormItem,
   ElInput,
+  ElInputNumber,
+  ElAlert,
   ElMessage,
   ElMessageBox,
   ElPagination,
@@ -28,10 +30,14 @@ import type {
 import { isFullNetProblemDetails } from '@fullnet/client-contracts';
 import ArtFormDialog from '../framework/art-design/components/ArtFormDialog.vue';
 import ArtSearchBar, { type ArtSearchBarItem } from '../framework/art-design/components/ArtSearchBar.vue';
+import ArtTableActionGroup from '../framework/art-design/components/ArtTableActionGroup.vue';
+import ArtTableActionButton from '../framework/art-design/components/ArtTableActionButton.vue';
+import { ART_TABLE_ACTION_COLUMN_WIDTH } from '../framework/art-design/components/artTableActions';
 import ArtTableHeader from '../framework/art-design/components/ArtTableHeader.vue';
 import { useArtClientPagination } from '../framework/art-design/composables/useArtCrudTableLayout';
 import { useArtPagedTableInCard } from '../framework/art-design/composables/useArtPagedTableInCard';
 import PermissionGate from '../components/PermissionGate.vue';
+import DocumentSearchDetail from '../components/DocumentSearchDetail.vue';
 import { useSessionStore } from '../auth/session';
 import { useAdminI18n } from '../i18n/adminI18n';
 import {
@@ -46,9 +52,10 @@ import {
   rollbackDocumentVersion,
   deleteDocumentVersion,
   updateDocumentItem,
-  uploadDocumentVersion
+  uploadDocumentVersion,
+  changeDocumentStatus
 } from '../api/host-document-items';
-import { createDocumentPreviewTask } from '../api/document-preview-tasks';
+import { getDocumentPreviewCapabilities, createDocumentPreviewTask } from '../api/document-preview-tasks';
 import { listDocumentCategories } from '../api/host-document-categories';
 import type { HostDocumentCategoryResponse, HostDocumentShareResponse } from '@fullnet/client-contracts';
 import DocumentShareCreateDialog from '../components/DocumentShareCreateDialog.vue';
@@ -64,6 +71,8 @@ interface CategoryTreeNode {
 
 interface AppliedFilters {
   title: string;
+  status?: string;
+  documentType?: string;
 }
 
 interface DeletedDocumentEntry {
@@ -82,12 +91,17 @@ const createTitleError = ref('');
 const editTitle = ref('');
 const editDescription = ref('');
 const editTitleError = ref('');
+const editCategoryId = ref<string | null>(null);
+const editThumbnail = ref('');
+const editSort = ref(0);
 const hotTags = ref<HostDocumentTagResponse[]>([]);
 const allTags = ref<HostDocumentTagResponse[]>([]);
 const createTagIds = ref<string[]>([]);
 const editTagIds = ref<string[]>([]);
 const selectedTagFilterId = ref<string | null>(null);
 const loading = ref(false);
+const compactLayout = ref(window.innerWidth < 768);
+function syncViewport(): void { compactLayout.value = window.innerWidth < 768; }
 const changing = ref(false);
 const problem = ref<FullNetProblemDetails>();
 const versionFile = ref<File | null>(null);
@@ -113,6 +127,7 @@ const canRestore = computed(() => session.can('document.host_documents.restore')
 const canRollbackVersion = computed(() => session.can('document.host_documents.rollback_version'));
 const canDeleteVersion = computed(() => session.can('document.host_documents.delete_version'));
 const canDownload = computed(() => session.can('document.host_documents.download'));
+const previewCapability = ref<{ enabled: boolean; allowedMimeTypes: readonly string[]; maxInputBytes: number }>();
 const canCreatePreviewTask = computed(() => session.can('document.host_preview_tasks.create'));
 const canCreateShare = computed(() => session.can('document.host_shares.create'));
 const canRead = computed(() => session.can('document.host_documents.read'));
@@ -173,19 +188,14 @@ const categoryTree = computed<CategoryTreeNode[]>(() => {
   ];
 });
 
-const filteredItems = computed(() => {
-  let list = items.value;
-  if (selectedCategoryId.value) {
-    list = list.filter(item => item.categoryId === selectedCategoryId.value);
-  }
-  const keyword = appliedFilters.value.title.trim().toLowerCase();
-  if (!keyword) {
-    return list;
-  }
-  return list.filter(item => item.title.toLowerCase().includes(keyword));
-});
-
-const { page, pageSize, total, pagedItems, resetPage } = useArtClientPagination(filteredItems);
+const page = ref(1);
+const pageSize = ref(20);
+const total = ref(0);
+const pagedItems = computed(() => items.value);
+function resetPage(): void { page.value = 1; }
+let loadController: AbortController | undefined;
+let loadGeneration = 0;
+onUnmounted(() => { loadGeneration += 1; loadController?.abort(); window.removeEventListener('resize', syncViewport); });
 
 const deletedItems = computed(() => recentlyDeleted.value.map(entry => entry.item));
 const {
@@ -200,14 +210,20 @@ const searchItems = computed<ArtSearchBarItem[]>(() => [
     key: 'title',
     label: t('hostDocumentItems.titleLabel'),
     placeholder: t('hostDocumentItems.searchPlaceholder')
-  }
+  },
+  { key: 'status', label: t('hostDocumentItems.statusFilter'), type: 'select', options:
+    [0, 1, 2].map(value => ({ value: String(value), label: statusLabel(value) })) },
+  { key: 'documentType', label: t('hostDocumentItems.typeFilter'), type: 'select', options:
+    [0, 1, 2, 3, 4, 5, 99].map(value => ({ value: String(value), label: typeLabel(value) })) }
 ]);
 
-watch([filteredItems, page, pageSize], () => {
+watch([items, page, pageSize], () => {
   void syncTableLayout();
 });
 
 onMounted(() => {
+  window.addEventListener('resize', syncViewport);
+  void getDocumentPreviewCapabilities().then(value => { previewCapability.value = value; }).catch(() => { previewCapability.value = undefined; });
   void load();
   void loadCategories();
   void loadHotTags();
@@ -253,7 +269,7 @@ async function loadCategories(): Promise<void> {
 function onCategorySelected(node: CategoryTreeNode): void {
   selectedCategoryId.value = node.id === ALL_CATEGORIES_NODE_ID ? null : node.id;
   resetPage();
-  void syncTableLayout();
+  void load();
 }
 
 function openShareDialog(item: HostDocumentItem): void {
@@ -267,7 +283,8 @@ function openBatchShareDialog(): void {
     return;
   }
   shareTarget.value = null;
-  shareBatchTargets.value = [...selectedItems.value];
+  shareBatchTargets.value = selectedItems.value.filter(item => item.status === 1);
+  if (!shareBatchTargets.value.length) return;
   shareDialogOpen.value = true;
 }
 
@@ -311,31 +328,55 @@ function deletedRowIndex(index: number): number {
 }
 
 async function load(): Promise<void> {
+  const generation = ++loadGeneration;
+  loadController?.abort();
+  const controller = new AbortController(); loadController = controller;
   loading.value = true;
   problem.value = undefined;
+  selectedItems.value = [];
   try {
-    const pageResult = await listDocumentItems(1, 100, {
-      tagId: selectedTagFilterId.value
-    });
-    items.value = pageResult.items;
+    const result = await listDocumentItems(page.value, pageSize.value, {
+      tagId: selectedTagFilterId.value, categoryId: selectedCategoryId.value,
+      keyword: appliedFilters.value.title,
+      status: appliedFilters.value.status === undefined ? undefined : Number(appliedFilters.value.status),
+      documentType: appliedFilters.value.documentType === undefined ? undefined : Number(appliedFilters.value.documentType)
+    }, controller.signal);
+    if (generation !== loadGeneration) return;
+    items.value = result.items;
+    total.value = result.total;
+    // 删除最后一页或筛选变化后回到仍存在的服务端页。
+    const lastPage = Math.max(1, Math.ceil(result.total / pageSize.value));
+    if (page.value > lastPage) { page.value = lastPage; void load(); }
   } catch (error: unknown) {
+    if (generation !== loadGeneration || controller.signal.aborted) return;
+    items.value = []; total.value = 0;
     problem.value = toProblem(error);
   } finally {
-    loading.value = false;
-    void syncTableLayout();
+    if (generation === loadGeneration) { loading.value = false; void syncTableLayout(); }
   }
 }
 
+function statusLabel(value: number): string {
+  return value === 0 ? t('hostDocumentItems.draft') : value === 1 ? t('hostDocumentItems.published') : t('hostDocumentItems.archived');
+}
+function typeLabel(value: number): string {
+  const labels: Record<number, string> = { 0: t('hostDocumentItems.typeUnknown'), 1: t('hostDocumentItems.typeDocument'),
+    2: t('hostDocumentItems.typeImage'), 3: t('hostDocumentItems.typeVideo'), 4: t('hostDocumentItems.typeAudio'),
+    5: t('hostDocumentItems.typeArchive'), 99: t('hostDocumentItems.typeOther') };
+  return labels[value] ?? labels[0]!;
+}
+function changePageSize(): void { resetPage(); void load(); }
+
 function handleSearch(params: Record<string, string | undefined>): void {
-  appliedFilters.value = { title: params.title ?? '' };
+  appliedFilters.value = { title: params.title ?? '', status: params.status, documentType: params.documentType };
   resetPage();
-  void syncTableLayout();
+  void load();
 }
 
 function resetSearch(): void {
   appliedFilters.value = { title: '' };
   resetPage();
-  void syncTableLayout();
+  void load();
 }
 
 async function confirmEdit(): Promise<void> {
@@ -478,6 +519,9 @@ function startEdit(item: HostDocumentItem): void {
   editingId.value = item.id;
   editTitle.value = item.title;
   editDescription.value = item.description ?? '';
+  editCategoryId.value = item.categoryId;
+  editThumbnail.value = item.thumbnail ?? '';
+  editSort.value = item.sort;
   editTitleError.value = '';
   editTagIds.value = item.tags?.map(tag => tag.tagId) ?? [];
 }
@@ -498,7 +542,7 @@ async function saveEdit(item: HostDocumentItem): Promise<void> {
   problem.value = undefined;
   try {
     await updateDocumentItem(item, editTitle.value.trim(), editDescription.value.trim() || null, {
-      tagIds: editTagIds.value
+      tagIds: editTagIds.value, categoryId: editCategoryId.value, thumbnail: editThumbnail.value.trim() || null, sort: editSort.value
     });
     editingId.value = undefined;
     editTitle.value = '';
@@ -571,8 +615,16 @@ async function previewFile(item: HostDocumentItem, versionId?: string): Promise<
   }
 }
 
+async function transitionStatus(item: HostDocumentItem, action: 'publish' | 'archive' | 'unarchive'): Promise<void> {
+  changing.value = true;
+  try { await changeDocumentStatus(item, action); await load(); } catch (error) { problem.value = toProblem(error); }
+  finally { changing.value = false; }
+}
+
 function canSubmitOfficePreview(item: HostDocumentItem): boolean {
-  return Boolean(item.currentVersion);
+  const capability = previewCapability.value;
+  const version = item.currentVersion;
+  return Boolean(capability?.enabled && version && capability.allowedMimeTypes.includes(item.mimeType?.split(';', 1)[0]?.trim().toLowerCase() ?? '') && version.sizeBytes <= capability.maxInputBytes);
 }
 
 async function submitOfficePreviewTask(item: HostDocumentItem): Promise<void> {
@@ -711,6 +763,7 @@ function toProblem(
 
 <template>
   <section class="host-document-items-view document-module-page art-page-stack art-full-height" :aria-busy="loading">
+    <DocumentSearchDetail />
     <h1 class="art-sr-heading" data-route-heading tabindex="-1">{{ t('hostDocumentItems.title') }}</h1>
 
     <div v-if="problem" class="art-inline-alert" role="alert">
@@ -827,7 +880,7 @@ function toProblem(
               width="48"
               reserve-selection
             />
-            <el-table-column :label="t('users.columnIndex')" width="72" align="center">
+            <el-table-column v-if="!compactLayout" :label="t('users.columnIndex')" width="72" align="center">
               <template #default="{ $index }">{{ rowIndex($index) }}</template>
             </el-table-column>
 
@@ -849,6 +902,8 @@ function toProblem(
               </template>
             </el-table-column>
 
+            <el-table-column :label="t('hostDocumentItems.statusFilter')" width="100"><template #default="{ row }"><el-tag>{{ statusLabel(row.status) }}</el-tag></template></el-table-column>
+            <el-table-column :label="t('hostDocumentItems.typeFilter')" width="90"><template #default="{ row }">{{ typeLabel(row.documentType) }}</template></el-table-column>
             <el-table-column :label="t('hostDocumentItems.tagsLabel')" min-width="160">
               <template #default="{ row }">
                 <span v-if="!row.tags?.length" class="host-document-items-view__no-tags">—</span>
@@ -865,72 +920,27 @@ function toProblem(
               </template>
             </el-table-column>
 
-            <el-table-column :label="t('users.columnActions')" width="580" fixed="right" align="center">
+            <el-table-column :label="t('users.columnActions')" :width="compactLayout ? 92 : ART_TABLE_ACTION_COLUMN_WIDTH" fixed="right" align="center">
               <template #default="{ row }">
-                <div class="art-crud-table-actions">
-                  <PermissionGate v-if="row.currentVersion" code="document.host_documents.read">
-                    <el-button plain size="small" data-testid="host-document-item-preview" :disabled="changing" @click="previewFile(row as HostDocumentItem)">
-                      {{ t('hostDocumentItems.preview') }}
-                    </el-button>
-                  </PermissionGate>
-                  <PermissionGate code="document.host_documents.read">
-                    <el-button plain size="small" data-testid="host-document-item-version-history" :disabled="changing" @click="openVersionHistory(row as HostDocumentItem)">
-                      {{ t('hostDocumentItems.versionHistory') }}
-                    </el-button>
-                  </PermissionGate>
-                  <PermissionGate v-if="row.currentVersion" code="document.host_documents.download">
-                    <el-button plain size="small" data-testid="host-document-item-download" :disabled="changing" @click="downloadFile(row.id)">
-                      {{ t('hostDocumentItems.download') }}
-                    </el-button>
-                  </PermissionGate>
-                  <PermissionGate v-if="canSubmitOfficePreview(row as HostDocumentItem)" code="document.host_preview_tasks.create">
-                    <el-button
-                      plain
-                      size="small"
-                      data-testid="host-document-item-create-preview-task"
-                      :disabled="changing"
-                      @click="submitOfficePreviewTask(row as HostDocumentItem)"
-                    >
-                      {{ t('hostDocumentItems.submitOfficePreview') }}
-                    </el-button>
-                  </PermissionGate>
-                  <PermissionGate code="document.host_documents.update">
-              <el-button plain size="small" data-testid="host-document-item-edit" @click="startEdit(row as HostDocumentItem)">
-                      {{ t('hostDocumentItems.edit') }}
-                    </el-button>
-                  </PermissionGate>
-                  <PermissionGate code="document.host_shares.create">
-                    <el-button
-                      plain
-                      size="small"
-                      data-testid="host-document-item-share"
-                      :disabled="changing"
-                      @click="openShareDialog(row as HostDocumentItem)"
-                    >
-                      {{ t('hostDocumentItems.share') }}
-                    </el-button>
-                  </PermissionGate>
-                  <PermissionGate v-if="canAddVersion" code="document.host_documents.add_version">
-                    <label class="host-document-items-view__version-input">
+                <ArtTableActionGroup :max-visible="compactLayout ? 1 : 4">
+                  <ArtTableActionButton :disabled="changing" v-if="canUpdate && row.status !== 2" type="edit" :title="t('hostDocumentItems.edit')" test-id="host-document-item-edit" @click="startEdit(row as HostDocumentItem)" />
+                  <ArtTableActionButton :disabled="changing" v-if="canRead && row.currentVersion" type="view" :title="t('hostDocumentItems.preview')" test-id="host-document-item-preview" @click="previewFile(row as HostDocumentItem)" />
+                  <ArtTableActionButton :disabled="changing" v-if="row.status === 0 && row.currentVersion && session.can('document.host_documents.publish')" type="add" :title="t('hostDocumentItems.publish')" test-id="host-document-item-publish" @click="transitionStatus(row as HostDocumentItem, 'publish')" />
+                  <ArtTableActionButton :disabled="changing" v-if="row.status === 1 && session.can('document.host_documents.archive')" type="view" :title="t('hostDocumentItems.archive')" test-id="host-document-item-archive" @click="transitionStatus(row as HostDocumentItem, 'archive')" />
+                  <ArtTableActionButton :disabled="changing" v-if="row.status === 2 && session.can('document.host_documents.unarchive')" type="edit" :title="t('hostDocumentItems.unarchive')" test-id="host-document-item-unarchive" @click="transitionStatus(row as HostDocumentItem, 'unarchive')" />
+                  <ArtTableActionButton :disabled="changing" v-if="canRead" type="view" :title="t('hostDocumentItems.versionHistory')" test-id="host-document-item-version-history" @click="openVersionHistory(row as HostDocumentItem)" />
+                  <ArtTableActionButton :disabled="changing" v-if="canDownload && row.currentVersion" type="view" :title="t('hostDocumentItems.download')" test-id="host-document-item-download" @click="downloadFile(row.id)" />
+                  <ArtTableActionButton :disabled="changing" v-if="canCreatePreviewTask && canSubmitOfficePreview(row as HostDocumentItem)" type="view" :title="t('hostDocumentItems.submitOfficePreview')" test-id="host-document-item-create-preview-task" @click="submitOfficePreviewTask(row as HostDocumentItem)" />
+                  <ArtTableActionButton :disabled="changing" v-if="canCreateShare && row.status === 1" type="add" :title="t('hostDocumentItems.share')" test-id="host-document-item-share" @click="openShareDialog(row as HostDocumentItem)" />
+                  <div v-if="canAddVersion && row.status !== 2" class="host-document-items-view__version-input">
+                    <label>
                       <span class="art-sr-heading">{{ t('hostDocumentItems.chooseVersionFile') }}</span>
                       <input type="file" data-testid="host-document-item-version-file" @change="onVersionFileSelected($event, row.id)" />
                     </label>
-                    <el-button
-                      plain
-                      size="small"
-                      data-testid="host-document-item-upload-version"
-                      :disabled="changing || !versionFile || versionTargetId !== row.id"
-                  @click="uploadVersion(row as HostDocumentItem)"
-                    >
-                      {{ t('hostDocumentItems.uploadVersion') }}
-                    </el-button>
-                  </PermissionGate>
-                  <PermissionGate code="document.host_documents.delete">
-              <el-button type="danger" plain size="small" data-testid="host-document-item-delete" :disabled="changing" @click="remove(row as HostDocumentItem)">
-                      {{ t('hostDocumentItems.delete') }}
-                    </el-button>
-                  </PermissionGate>
-                </div>
+                    <el-button size="small" data-testid="host-document-item-upload-version" :disabled="changing || !versionFile || versionTargetId !== row.id" @click="uploadVersion(row as HostDocumentItem)">{{ t('hostDocumentItems.uploadVersion') }}</el-button>
+                  </div>
+                  <ArtTableActionButton :disabled="changing" v-if="canDelete" type="delete" :title="t('hostDocumentItems.delete')" test-id="host-document-item-delete" @click="remove(row as HostDocumentItem)" />
+                </ArtTableActionGroup>
               </template>
             </el-table-column>
 
@@ -942,9 +952,13 @@ function toProblem(
           v-model:current-page="page"
           v-model:page-size="pageSize"
           class="art-table-pagination center custom-pagination"
+          @current-change="load()"
+          @size-change="changePageSize"
           :total="total"
           background
-          layout="total, sizes, prev, pager, next, jumper"
+          :layout="compactLayout ? 'total, prev, pager, next' : 'total, sizes, prev, pager, next, jumper'"
+          :small="compactLayout"
+          :pager-count="compactLayout ? 5 : 7"
           :page-sizes="[10, 20, 50, 100]"
         />
       </div>
@@ -1086,6 +1100,14 @@ function toProblem(
         <el-form-item :label="t('hostDocumentItems.descriptionLabel')">
           <el-input v-model="editDescription" data-testid="host-document-item-edit-description" type="textarea" :rows="3" />
         </el-form-item>
+        <el-alert :title="t('hostDocumentItems.clearMetadataHint')" type="info" :closable="false" />
+        <el-form-item :label="t('hostDocumentItems.categoryLabel')">
+          <el-select v-model="editCategoryId" clearable data-testid="host-document-item-edit-category" @clear="editCategoryId = null">
+            <el-option v-for="category in categories" :key="category.id" :label="category.name" :value="category.id" />
+          </el-select>
+        </el-form-item>
+        <el-form-item :label="t('hostDocumentItems.thumbnailLabel')"><el-input v-model="editThumbnail" clearable data-testid="host-document-item-edit-thumbnail" /></el-form-item>
+        <el-form-item :label="t('hostDocumentItems.sortLabel')"><el-input-number v-model="editSort" :precision="0" :min="-2147483648" :max="2147483647" data-testid="host-document-item-edit-sort" /></el-form-item>
         <el-form-item :label="t('hostDocumentItems.tagsLabel')">
           <el-select
             v-model="editTagIds"
@@ -1154,7 +1176,7 @@ function toProblem(
             </PermissionGate>
             <PermissionGate code="document.host_documents.rollback_version">
               <el-button
-                v-if="versionHistoryItem && !isCurrentVersion(versionHistoryItem, row)"
+                v-if="versionHistoryItem && versionHistoryItem.status !== 2 && !isCurrentVersion(versionHistoryItem, row)"
                 plain
                 size="small"
                 type="warning"
@@ -1201,6 +1223,7 @@ function toProblem(
 .host-document-items-view {
   flex: 1;
   min-height: 0;
+  min-width: 0;
 }
 
 .host-document-items-view :deep(.art-table-card) {
@@ -1220,6 +1243,7 @@ function toProblem(
   flex: 1;
   flex-direction: column;
   min-height: 0;
+  min-width: 0;
 }
 
 .host-document-items-view__deleted {
@@ -1237,6 +1261,7 @@ function toProblem(
   flex: 1;
   flex-direction: column;
   min-height: 0;
+  min-width: 0;
 }
 
 .host-document-items-view__version-input {
@@ -1273,5 +1298,11 @@ function toProblem(
 
 .host-document-items-view__tag-select {
   width: 100%;
+}
+.host-document-items-view .document-module-split { min-width: 0; }
+.host-document-items-view__version-input input { width: 130px; }
+@media (max-width: 1100px) {
+  .host-document-items-view .document-module-split { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
+  .host-document-items-view .document-module-split__aside { max-height: 150px; min-width: 0; }
 }
 </style>

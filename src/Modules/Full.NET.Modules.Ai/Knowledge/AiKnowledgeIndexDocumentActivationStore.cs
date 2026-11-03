@@ -16,13 +16,20 @@ namespace Full.NET.Modules.Ai.Knowledge;
 
 /// <summary>多格式文档内部活动代次的原子提交；外部授权不进入 AI 本地事务。</summary>
 internal sealed class AiKnowledgeIndexDocumentActivationStore(IQueryExecutor query, ICommandExecutor command, ICommandTransaction transaction,
-    IDataTransactionState transactions, ICurrentTenant tenant, IClock clock, IIdGenerator ids, AiKnowledgeIndexTaskStore tasks,
+    IDataTransactionState transactions, ICurrentTenant tenant, IClock clock, IIdGenerator ids, AiKnowledgeIndexTaskScope tasks,
     IBackgroundSessionAuthorization authorization, IOptions<DatabaseOptions> database)
 {
     private readonly ICommandTransaction proofTransactions = AiKnowledgeIndexPdfAuthorityBoundary.TrackTransactions(transaction);
+    /// <summary>完整证明期间持有有界资产引用；当前权限由调用者和最终查询分别重验。</summary>
+    internal async Task<bool> IsReadyForReadAsync(AiKnowledgeIndexStatusRecord source, Dictionary<string, object?> parameters, CancellationToken token)
+    {
+        if (transactions.HasTransaction || !parameters.TryGetValue("OwnerUserId", out var rawActor) || rawActor is not Guid actor) return false;
+        await using var lease = await AiKnowledgeGenerationLease.AcquireAsync(source, actor, query, command, transaction, tenant, clock, ids, database, token).ConfigureAwait(false);
+        return lease is not null && await IsReadyForReadCoreAsync(source, parameters, lease.Token).ConfigureAwait(false) && lease.IsValid;
+    }
     internal const int MaxReceiptBytes = 1048576;
     /// <summary>当前读取者由外层独立授权；原写入会话离线不影响已完成内容。</summary>
-    internal Task<bool> IsReadyForReadAsync(AiKnowledgeIndexStatusRecord expected, Dictionary<string, object?> parameters, CancellationToken token)
+    private Task<bool> IsReadyForReadCoreAsync(AiKnowledgeIndexStatusRecord expected, Dictionary<string, object?> parameters, CancellationToken token)
         => ReadGenerationAsync(expected, parameters, null, token);
 
     /// <summary>完整证明与旧载荷删除共享 AI 锁事务；拒绝或取消必须回滚。</summary>
@@ -92,7 +99,8 @@ internal sealed class AiKnowledgeIndexDocumentActivationStore(IQueryExecutor que
         p["Completed"] = 1;
         var proven = await proofTransactions.ExecuteAsync<AiKnowledgeIndexDispatchRecord?>(async cancellation =>
         {
-            var source = await ValidateLockedAsync(binding, p, session, new(manifest, pointer.ManifestHash), receipts, null, cancellation).ConfigureAwait(false);
+            if (await query.QuerySingleOrDefaultAsync<Guid>(AiKnowledgePublicationSql.LockFor(database.Value.Provider, tasks.IsTenant), p, cancellation).ConfigureAwait(false) != binding.DocumentId) return null;
+                var source = await ValidateLockedAsync(binding, p, session, new(manifest, pointer.ManifestHash), receipts, null, cancellation).ConfigureAwait(false);
             if (source is null) return null;
             var current = await query.QuerySingleOrDefaultAsync<AiKnowledgeIndexActivationRecord>(Choose(AiKnowledgeIndexActivationSql.PointerHost,
                 AiKnowledgeIndexActivationSql.PointerTenant), p, cancellation).ConfigureAwait(false);
@@ -102,7 +110,8 @@ internal sealed class AiKnowledgeIndexDocumentActivationStore(IQueryExecutor que
             {
                 // 只查询 AI 可见性；角色/机构关系与当前权限由外层在证明之后重新读取。
                 var visible = await query.QuerySingleOrDefaultAsync<AiKnowledgeIndexStatusRecord>(
-                    AiKnowledgeIndexStatusSql.ForActive(database.Value.Provider, tasks.IsTenant), readParameters, cancellation).ConfigureAwait(false);
+                    AiKnowledgePublishedSourceSql.ForGeneration(database.Value.Provider, tasks.IsTenant),
+                new Dictionary<string, object?>(readParameters!) { ["TaskId"] = taskId, ["PublicationId"] = expected.PublicationId }, cancellation).ConfigureAwait(false);
                 cancellation.ThrowIfCancellationRequested();
                 if (visible != expected || expected.ActiveManifestHash != pointer.ManifestHash || expected.ActivePlanHash != pointer.PlanHash
                     || expected.ActiveReceiptHash != pointer.ReceiptHash) return null;
@@ -123,6 +132,7 @@ internal sealed class AiKnowledgeIndexDocumentActivationStore(IQueryExecutor que
         return await proofTransactions.ExecuteAsync(async cancellation =>
         {
             cancellation.ThrowIfCancellationRequested(); p["Now"] = clock.UtcNow;
+            if (await query.QuerySingleOrDefaultAsync<Guid>(AiKnowledgePublicationSql.LockFor(database.Value.Provider, tasks.IsTenant), p, cancellation).ConfigureAwait(false) != binding.DocumentId) return false;
             var currentSource = await query.QuerySingleOrDefaultAsync<AiKnowledgeIndexDispatchRecord>(Choose(
                 AiKnowledgeIndexDocumentActivationSql.AuthoritySqlServerHost, AiKnowledgeIndexDocumentActivationSql.AuthoritySqlServerTenant,
                 AiKnowledgeIndexDocumentActivationSql.AuthorityMySqlHost, AiKnowledgeIndexDocumentActivationSql.AuthorityMySqlTenant), p, cancellation).ConfigureAwait(false);
@@ -154,6 +164,7 @@ internal sealed class AiKnowledgeIndexDocumentActivationStore(IQueryExecutor que
         {
             _ = await proofTransactions.ExecuteAsync(async cancellation =>
             {
+                if (await query.QuerySingleOrDefaultAsync<Guid>(AiKnowledgePublicationSql.LockFor(database.Value.Provider, tasks.IsTenant), p, cancellation).ConfigureAwait(false) != binding.DocumentId) return false;
                 var source = await ValidateLockedAsync(binding, p, proof.Session, manifest, receipts, proof.Source, cancellation).ConfigureAwait(false);
                 if (source is null) return false;
                 var previous = await query.QuerySingleOrDefaultAsync<AiKnowledgeIndexActivationRecord>(Choose(AiKnowledgeIndexActivationSql.ExistingPointerHost,
@@ -168,6 +179,8 @@ internal sealed class AiKnowledgeIndexDocumentActivationStore(IQueryExecutor que
                 var count = await command.ExecuteAsync(statement, p, cancellation).ConfigureAwait(false);
                 cancellation.ThrowIfCancellationRequested();
                 if (count != 1 || source.LeaseExpiresAtUtc <= clock.UtcNow) throw new ActivationRejectedException();
+                if (await command.ExecuteAsync(Choose(AiKnowledgePublicationSql.ArchiveHost, AiKnowledgePublicationSql.ArchiveTenant), p, cancellation).ConfigureAwait(false) != 1)
+                    throw new ActivationRejectedException();
                 return true;
             }, token).ConfigureAwait(false);
             // 竞争者可能已经完成；幂等恢复走完成态专用复核，不复用 running 授权。

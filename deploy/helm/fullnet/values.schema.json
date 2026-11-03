@@ -205,6 +205,29 @@
               "type": "string",
               "enum": ["LegacyPolling", "ShadowCdc", "HybridKafka"]
             },
+              "cdcMonitoring": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["enabled", "pollSeconds", "sampleTimeoutSeconds", "maximumSampleAgeSeconds"],
+                "properties": {
+                  "enabled": { "type": "boolean" },
+                  "pollSeconds": { "type": "integer", "minimum": 10, "maximum": 300 },
+                  "sampleTimeoutSeconds": { "type": "integer", "minimum": 5, "maximum": 60 },
+                  "maximumSampleAgeSeconds": { "type": "integer", "minimum": 15, "maximum": 900 },
+                  "retentionTimeTopicId": { "type": "string", "maxLength": 64 },
+                  "retentionTimeTopics": {
+                    "type": "object",
+                    "maxProperties": 64,
+                    "propertyNames": { "pattern": "^[a-z][a-z0-9]*(?:\\.[a-z][a-z0-9_-]*)*\\.v[1-9][0-9]*$" },
+                    "additionalProperties": { "type": "string", "minLength": 1, "maxLength": 64 }
+                  },
+                  "maximumBrokerClockSkewSeconds": { "type": "integer", "minimum": 0, "maximum": 30 }
+                },
+                "allOf": [{
+                  "if": { "required": ["retentionTimeTopicId"], "properties": { "retentionTimeTopicId": { "minLength": 1 } } },
+                  "then": { "properties": { "retentionTimeTopics": { "maxProperties": 0 } } }
+                }]
+              },
             "kafka": {
               "type": "object",
               "properties": {

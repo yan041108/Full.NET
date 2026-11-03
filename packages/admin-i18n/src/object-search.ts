@@ -1,0 +1,35 @@
+export const objectSearchZh = {
+  'objectSearch.title': '业务对象',
+  'objectSearch.menus': '菜单',
+  'objectSearch.documents': 'Host 文档',
+  'objectSearch.requests': '当前租户企业申请',
+  'objectSearch.window': '检索最近 90 个 UTC 自然日的标题或编号（区分大小写），每个来源最多 100 项。更早记录请到来源页面查询。',
+  'objectSearch.minimum': '输入 2–64 个字符搜索业务对象。',
+  'objectSearch.loading': '正在查询当前授权范围…',
+  'objectSearch.failed': '此来源暂时不可用，未能取得结果。',
+  'objectSearch.retry': '重试读取',
+  'objectSearch.empty': '当前授权范围内没有匹配对象。',
+  'objectSearch.truncated': '已达到 100 项上限，请细化关键词或前往来源页面查询。',
+  'objectSearch.previous': '上一页',
+  'objectSearch.next': '下一页',
+  'objectSearch.page': '第 {page} 页',
+  'objectSearch.detail': '对象详情',
+  'objectSearch.number': '编号',
+  'objectSearch.titleLabel': '标题',
+  'objectSearch.close': '关闭详情',
+  'objectSearch.detailFailed': '无法读取此对象，可能已删除或当前访问资格已变化。'
+} as const;
+export const objectSearchEn: Record<keyof typeof objectSearchZh, string> = {
+  'objectSearch.title': 'Business objects', 'objectSearch.menus': 'Menus', 'objectSearch.documents': 'Host documents',
+  'objectSearch.requests': 'Current tenant requests',
+  'objectSearch.window': 'Case-sensitive title or number search across the last 90 UTC calendar days, up to 100 results per source. Use the source page for older records.',
+  'objectSearch.minimum': 'Enter 2–64 characters to search business objects.', 'objectSearch.loading': 'Searching your authorized scope…',
+  'objectSearch.failed': 'This source is unavailable; results could not be retrieved.', 'objectSearch.retry': 'Retry read',
+  'objectSearch.empty': 'No matching objects in your current authorized scope.',
+  'objectSearch.truncated': 'The 100-result limit was reached. Refine the query or use the source page.',
+  'objectSearch.previous': 'Previous', 'objectSearch.next': 'Next', 'objectSearch.page': 'Page {page}',
+  'objectSearch.detail': 'Object details', 'objectSearch.close': 'Close details',
+  'objectSearch.number': 'Number',
+  'objectSearch.titleLabel': 'Title',
+  'objectSearch.detailFailed': 'This object could not be read. It may have been deleted or your access may have changed.'
+};

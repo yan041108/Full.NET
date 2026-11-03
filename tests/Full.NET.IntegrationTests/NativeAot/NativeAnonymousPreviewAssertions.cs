@@ -8,6 +8,15 @@ namespace Full.NET.IntegrationTests.NativeAot;
 /// <summary>原生 HTTP 真实写入并读取匿名任务的 NULL 发起人，覆盖凭据重试与静态物化闭包。</summary>
 internal static class NativeAnonymousPreviewAssertions
 {
+    // 只验任务受理/轮询及 NULL 发起人；API 不执行转换，保留的回环端点也不代表转换器验收通过。
+    internal static IReadOnlyDictionary<string, string?> TaskQueueSettings { get; } =
+        new Dictionary<string, string?>
+        {
+            ["Document:OfficePreviewConversion:Enabled"] = "true",
+            ["Document:OfficePreviewConversion:ProviderKey"] = "external_http",
+            ["Document:OfficePreviewConversion:ExternalHttp:BaseUrl"] = "http://127.0.0.1:1/native-task-contract-only"
+        };
+
     internal static async Task VerifyAsync(HttpClient client, string token, Guid documentId, string shareCode,
         CancellationToken cancellationToken)
     {
@@ -15,6 +24,7 @@ internal static class NativeAnonymousPreviewAssertions
         var file = new ByteArrayContent("native-preview-input"u8.ToArray());
         file.Headers.ContentType = new MediaTypeHeaderValue("application/vnd.openxmlformats-officedocument.wordprocessingml.document");
         upload.Add(file, "file", "native.docx");
+        upload.Add(new StringContent(Guid.CreateVersion7().ToString("D")), "requestKey");
         using var request = new HttpRequestMessage(HttpMethod.Post, $"/api/v1/document/host/items/{documentId:D}/versions/upload")
             { Content = upload };
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
@@ -25,7 +35,7 @@ internal static class NativeAnonymousPreviewAssertions
         Assert.IsNotNull(item.CurrentVersion);
         await NativeFileListAssertions.VerifyAsync(client, token, item.CurrentVersion.FileId, cancellationToken);
         var path = $"/api/v1/document/public/shares/{shareCode}";
-        using var accessResponse = await client.PostAsJsonAsync(path + "/access", new AccessHostDocumentShareRequest(null), cancellationToken);
+        using var accessResponse = await client.PostAsJsonAsync(path + "/access", new AccessHostDocumentShareRequest(null) { RequestKey = Guid.CreateVersion7() }, cancellationToken);
         Assert.AreEqual(HttpStatusCode.OK, accessResponse.StatusCode, await accessResponse.Content.ReadAsStringAsync(cancellationToken));
         var access = await accessResponse.Content.ReadFromJsonAsync<HostDocumentShareAccessResponse>(cancellationToken);
         Assert.IsNotNull(access);

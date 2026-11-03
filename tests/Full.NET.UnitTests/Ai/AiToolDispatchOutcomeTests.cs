@@ -141,7 +141,7 @@ public sealed class AiToolDispatchOutcomeTests
         remote.BuildDefinitionsAsync(Arg.Any<CancellationToken>()).Returns(
             new AgentToolDefinition[] { new("remote", 1, "permission", "read", true, new Handler("success", cancellation)) },
             Array.Empty<AgentToolDefinition>());
-        var source = new AgentToolRegistrySource(new AgentToolRegistryFactory(null!, null!, null!, null!, remote));
+        var source = new AgentToolRegistrySource(new AgentToolRegistryFactory(null!, null!, null!, null!, null!, remote));
         Assert.IsNotNull((await source.GetRegistryAsync()).Find("remote"));
         Assert.IsNull((await source.GetRegistryAsync()).Find("remote"), "同一作用域不能继续使用撤回前的目录。");
     }

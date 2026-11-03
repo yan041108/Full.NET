@@ -163,7 +163,11 @@ internal sealed class WorkflowRecoveryBatchProcessor(
             .ConfigureAwait(false);
         var activeTodo = await FindActiveTodoAsync(task, cancellationToken).ConfigureAwait(false);
         var attemptNumber = task.AttemptCount + 1;
-        var category = Classify(instance, activeTodo);
+        var durableWait = task.KindKey == WorkflowRecoveryKinds.StuckInstance && instance?.StatusKey == "active" &&
+            await queryExecutor.QuerySingleOrDefaultAsync<int>(databaseOptions.Value.Provider == DatabaseProvider.SqlServer
+                    ? WorkflowRecoverySql.HasDurableWaitSqlServer : WorkflowRecoverySql.HasDurableWaitMySql,
+                WorkflowSqlParameters.Create(("InstanceId", task.InstanceId), ("TenantScopeKey", task.TenantScopeKey)), cancellationToken).ConfigureAwait(false) == 1;
+        var category = durableWait ? WorkflowRecoveryRetry.Succeeded : Classify(instance, activeTodo);
         var (status, nextAttempt, suspendInstance) = WorkflowRecoveryRetry.ResolveOutcome(
             category,
             attemptNumber,
@@ -233,8 +237,8 @@ internal sealed class WorkflowRecoveryBatchProcessor(
                     ("CreatedAtUtc", now)),
                 cancellationToken)
             .ConfigureAwait(false);
-        await commandExecutor.ExecuteAsync(
-                WorkflowSql.InsertDomainAudit,
+        var auditRows = await commandExecutor.ExecuteAsync(
+                WorkflowRecoverySql.InsertSystemAudit,
                 WorkflowSqlParameters.Create(
                     ("CorrelationJson", Full.NET.Abstractions.Observability.LogCorrelationContext.Capture().ToJson()),
                     ("Id", idGenerator.NewId()),
@@ -246,10 +250,12 @@ internal sealed class WorkflowRecoveryBatchProcessor(
                     ("ResourceTypeKey", "recovery_task"),
                     ("ResourceId", task.Id),
                     ("OutcomeKey", status),
-                    ("DetailJson", lastError),
+                    ("TenantScopeKey", task.TenantScopeKey), ("KindKey", task.KindKey), ("LeaseGeneration", task.LeaseGeneration), ("AttemptCount", attemptNumber),
+                    ("DetailJson", WorkflowRecoveryAuditDetail.Create(task, attemptNumber, lastError)),
                     ("CreatedAtUtc", now)),
                 cancellationToken)
             .ConfigureAwait(false);
+        if (auditRows != 1) throw new InvalidOperationException("The recovery audit lost its completed task identity.");
         return true;
     }
 

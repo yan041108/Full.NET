@@ -48,9 +48,9 @@ public static class CodeGenerationErrorCodes
 /// <param name="DataScope">显式数据作用域机器码。</param>
 /// <param name="HasVersion">是否生成乐观并发契约。</param>
 /// <param name="Columns">显式字段集合。</param>
-/// <param name="EntityCapabilities">实体生命周期能力声明；null 时按模块默认推断。</param>
-/// <param name="Scene">生成场景稳定机器码，用于区分管理端、租户端等模板变体；null 使用默认场景。</param>
-/// <param name="Relationships">跨实体关系声明集合；null 表示不生成关联导航与外键约束。</param>
+/// <param name="EntityCapabilities">显式实体生命周期能力；与 HasVersion 二选一，使用时必须同时提供 Scene 和 Relationships。</param>
+/// <param name="Scene">显式生成场景稳定机器码，如 single、tree；仅 HasVersion 旧模型必须为空。</param>
+/// <param name="Relationships">显式关系集合；无关系传空数组，仅 HasVersion 旧模型必须为空。关系仅限模块内。</param>
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 public sealed record CodeGenerationPreviewRequest(
     string OwnerKey,
@@ -107,6 +107,8 @@ public sealed record CodeGenerationEntityCapabilitiesRequest(
 /// <param name="DependentDataScope">从端实体的数据作用域机器码，必须与主端一致或为其子集。</param>
 /// <param name="CompositeKeyColumnNames">复合主键的列名有序列表；当主端使用复合主键时必填。</param>
 /// <param name="CascadeDelete">是否启用级联删除；null 表示保留数据库默认，true 明确启用，false 明确禁用。</param>
+/// <param name="PrincipalSchema">非当前主端的冻结单实体定义。</param>
+/// <param name="DependentSchema">非当前从端的冻结单实体定义。</param>
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 public sealed record CodeGenerationRelationshipRequest(
     string PrincipalEntityKey,
@@ -118,7 +120,11 @@ public sealed record CodeGenerationRelationshipRequest(
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     IReadOnlyList<string>? CompositeKeyColumnNames = null,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    bool? CascadeDelete = null);
+    bool? CascadeDelete = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    CodeGenerationPreviewRequest? PrincipalSchema = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    CodeGenerationPreviewRequest? DependentSchema = null);
 
 /// <summary>
 /// 表示预览请求中的一个显式字段。
@@ -162,8 +168,8 @@ public sealed record CodeGenerationPreviewColumnRequest(
 /// <param name="Sortable">列表列是否允许点击排序。</param>
 /// <param name="Queryable">是否出现在高级筛选条件面板中。</param>
 /// <param name="QueryKind">查询比较方式稳定机器码，如 contains/equals/range/multi_select 等。</param>
-/// <param name="Unique">前端表单是否启用异步唯一性校验（结合作用域）。</param>
-/// <param name="IncludeInImportExport">是否参与导入导出模板字段列表。</param>
+/// <param name="Unique">是否生成独立唯一预检查与同作用域双库约束。</param>
+/// <param name="IncludeInImportExport">保留的导入导出元数据；当前不生成执行入口。</param>
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 public sealed record CodeGenerationPreviewColumnUiRequest(
     string ControlKind,

@@ -64,6 +64,20 @@ public sealed class LogoutHandlerTests
             Arg.Any<CancellationToken>());
     }
 
+    [TestMethod]
+    public async Task Repeated_logout_without_new_revocation_does_not_record_another_success()
+    {
+        var query = Substitute.For<IQueryExecutor>();
+        query.QuerySingleOrDefaultAsync<RefreshSessionRecord>(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>())
+            .Returns(CreateRecord());
+        var command = Substitute.For<ICommandExecutor>();
+        command.ExecuteAsync(IdentitySql.RevokeRefreshFamily, Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(0);
+        var handler = new Handler(query, command, new FixedClock(), new FixedIdGenerator());
+        var result = await handler.HandleAsync(new Command("presented-token", new ClientRequestContext(null, null)), default);
+        Assert.IsTrue(result.IsSuccess);
+        await command.DidNotReceive().ExecuteAsync(IdentitySql.InsertAuthAudit, Arg.Any<object?>(), Arg.Any<CancellationToken>());
+    }
+
     private static RefreshSessionRecord CreateRecord() => new()
     {
         SessionId = SessionId,

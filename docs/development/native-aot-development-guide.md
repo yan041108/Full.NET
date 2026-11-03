@@ -44,6 +44,21 @@ API/Worker 的发布契约统一使用 SDK `10.0.402`、带版本身份的 `full
 
 `test:aot:native:e2e` 与 `test:aot:worker:native:e2e` 每轮写入独立名称的 TRX，保留前轮结果。Linux 只有在实际进程退出 0、完整报告零失败/跳过、计数一致且测试 UID 精确覆盖本轮发现集合后才返回成功；缺失、截断、重复或不匹配的报告均拒绝。Windows 保持发现及允许跳过的本地检查行为，不能据此声明原生运行已验收。专项 Provider 入口仍按自己的范围验收。
 
+### 2.3 Migrator / LogConsumer 独立角色
+
+两个角色按 [ADR-0015](../architecture/adr/ADR-0015-migrator-log-consumer-native-aot.md) 独立实施及验收，默认构建和现有部署镜像继续使用 JIT。显式 Native 发布复用 API/Worker 的 SDK 与运行时版本、输入冻结、实际 ILC 输入和精确告警门禁；输出必须指定仓库外的任务系统临时目录：
+
+```powershell
+node scripts/testing/run-messaging-native-publish.mjs --host migrator --output "$env:TEMP/fullnet-role-native"
+node scripts/testing/run-messaging-native-publish.mjs --host log-consumer --output "$env:TEMP/fullnet-role-native"
+```
+
+发布入口分别写入 `latest-migrator.json`、`latest-log-consumer.json`。每次启动先冻结实际发布工具版本，准入后及链接后再次核对；工具在排队或发布期间变化时拒绝成功证明，不能给旧进程补打新策略摘要。
+
+复验入口 `test:aot:migrator:native:e2e`、`test:aot:log-consumer:native:e2e` 只接受 Linux 和已经准备的独立控制器，不自动构建，也不以 Windows discovery/skip 代替原生运行。调用方先取得隔离资源窗口，再传入 `--assembly`、`--artifact`、`--manifest`、`--source-input`、`--results`；其中 source-input 必须来自相同发布 attempt，不能仅因两次 ELF 摘要相同而混用。入口核对 ELF、发布身份、冻结输入和机器矩阵的精确 UID，保留原始进程日志及 TRX，并复核运行闭包未变。
+
+Migrator 场景直接在独享空库运行 ELF，验证双库迁移、显式播种、幂等重跑和失败门禁；其他 API/Worker 用例原有的 JIT Migrator 前置不算此角色的 Native 证据。LogConsumer 场景直接运行独立 ELF，验证真实 TLS、确认后提交、失败不提交、重启重放及停机。可选认证机制、实际满批大小和外部容量只按各次报告的实际范围声明；本机记录见 [剩余角色验收报告](../verification/2026-10-31-native-remaining-hosts.md)。
+
 ## 3. JSON：类型必须进入静态元数据闭包
 
 ### 3.1 推荐模式

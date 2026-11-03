@@ -26,6 +26,8 @@ public static class AgentExecutionTelemetry
             or "knowledge_answer" or "knowledge_embedding" or "knowledge_retrieval" or "knowledge_generation"
             or "knowledge_validation" or "knowledge_delivery" or "knowledge_rerank" or "knowledge_context"
             or "knowledge_index_text" or "knowledge_index_pdf" or "knowledge_index_docx" or "knowledge_index_document"
+            or "knowledge_correction_batch" or "knowledge_correction_restore" or "knowledge_correction_embedding"
+            or "knowledge_correction_persist" or "knowledge_correction_proof" or "knowledge_correction_current" or "knowledge_correction_authority"
             or "chat" or "embedding_test" or "knowledge_chunk_text" or "knowledge_chunk_pdf" or "knowledge_chunk_docx" or "knowledge_chunk_document"
             or "knowledge_parse_text" or "knowledge_parse_pdf" or "knowledge_parse_docx" or "knowledge_parse_document" ? stage : "other",
             operationId, stepIndex, cancellationToken);

@@ -47,7 +47,7 @@ public sealed class IdentityModule : IFullNetModule
     /// <summary>
     /// 浏览器管理端使用的精确来源 CORS 策略名称。
     /// </summary>
-    public const string BrowserCorsPolicy = "FullNET.Identity.BrowserClients";
+    public const string BrowserCorsPolicy = IdentityBrowserCorsPolicy.Name;
 
     /// <summary>模块名称，固定为 Identity，用于模块目录与依赖解析。</summary>
     public string Name => "Identity";
@@ -70,6 +70,7 @@ public sealed class IdentityModule : IFullNetModule
         AddMigrationServices(services, configuration);
         services.AddIdentityAuthentication(configuration);
         services.AddIdentityOidc(configuration);
+        services.AddIdentityBrowser(configuration);
         services.AddAuthenticationEventRetention(configuration);
         services.AddIdentityAuthorization(configuration);
         services.AddIdentityDomainServices(configuration);
@@ -90,6 +91,10 @@ public sealed class IdentityModule : IFullNetModule
         IServiceCollection services,
         IConfiguration configuration)
     {
+#if FULLNET_AOT_COMPILE
+        Persistence.IdentityDapperAotMaterializerContributor.RegisterMigrationMaterializers(new DapperAotMaterializerRegistrar());
+#endif
+        services.AddIdentityOidcPersistence(configuration);
         services.AddOptions<IdentityOptions>()
             .Bind(configuration.GetSection(IdentityOptions.SectionName))
             .ValidateOnStart();
@@ -145,20 +150,30 @@ public sealed class IdentityModule : IFullNetModule
         var configuration = endpoints.ServiceProvider.GetRequiredService<IConfiguration>();
         var oidcOptions = configuration.GetSection(IdentityOidcOptions.SectionName)
             .Get<IdentityOidcOptions>() ?? new IdentityOidcOptions();
+        var browserOptions = configuration.GetSection(IdentityBrowserOptions.SectionName)
+            .Get<IdentityBrowserOptions>() ?? new IdentityBrowserOptions();
         if (oidcOptions.Enable)
         {
             Features.OidcAuthorization.Endpoint.Map(endpoints, oidcOptions);
             Features.OidcToken.Endpoint.Map(endpoints, oidcOptions);
             Features.OidcUserInfo.Endpoint.Map(endpoints, oidcOptions);
             Features.OidcSession.Endpoint.Map(endpoints, oidcOptions);
+            Features.OidcEndSession.Endpoint.Map(endpoints);
+            Features.OidcAccountRecovery.Endpoint.Map(endpoints);
+            Features.BrowserSession.Endpoint.Map(endpoints, browserOptions);
             Features.ManageOidcClients.Endpoint.Map(endpoints);
+            Features.ManageOidcLogoutDeliveries.Endpoint.Map(endpoints);
             Features.ManageOidcAuthorizations.Endpoint.Map(endpoints);
+            Features.MyOidcAuthorizations.Endpoint.Map(endpoints);
             Features.ManageOidcSigningKeys.Endpoint.Map(endpoints);
         }
 
         var group = endpoints.MapGroup("/api/v1/auth").WithTags("IdentityAuthSession");
-        Features.Login.Endpoint.Map(group);
-        Features.RefreshSession.Endpoint.Map(group);
+        if (!browserOptions.Enable)
+        {
+            Features.Login.Endpoint.Map(group);
+            Features.RefreshSession.Endpoint.Map(group);
+        }
         Features.Logout.Endpoint.Map(group);
         Features.RegisterAccount.Endpoint.Map(group);
         Features.RegisterAccount.SendEmailChallengeEndpoint.Map(group);
@@ -166,7 +181,7 @@ public sealed class IdentityModule : IFullNetModule
         Features.RegistrationInvitations.Endpoint.Map(group);
         Features.GetCurrentUser.Endpoint.Map(endpoints);
         Features.UpdateLocale.Endpoint.Map(endpoints);
-        Features.ChangePassword.Endpoint.Map(endpoints);
+        if (!browserOptions.Enable) Features.ChangePassword.Endpoint.Map(endpoints);
         Features.SelfServiceProfile.GetEndpoint.Map(endpoints);
         Features.SelfServiceProfile.UpdateEndpoint.Map(endpoints);
         Features.SelfServiceProfile.MediaEndpoints.Map(endpoints);
@@ -190,7 +205,7 @@ public sealed class IdentityModule : IFullNetModule
         Features.ManageMyTenantInvitations.Endpoint.Map(endpoints);
         Features.ManageLdapConnections.Endpoint.Map(endpoints);
         Features.ManageOAuthProviders.Endpoint.Map(endpoints);
-        Features.OAuthFlow.Endpoint.Map(endpoints);
+        if (!browserOptions.Enable) Features.OAuthFlow.Endpoint.Map(endpoints);
         Features.ManageOAuthLinks.Endpoint.Map(endpoints);
         Features.PublicRegistrationWays.Endpoint.Map(endpoints);
         Features.QueryHostModuleCatalog.Endpoint.Map(endpoints);
@@ -210,6 +225,7 @@ public sealed class IdentityModule : IFullNetModule
         if (stage == ModulePipelineStage.BeforeAuthentication)
         {
             app.UseMiddleware<Middleware.IdentityOidcHostContextMiddleware>();
+            app.UseMiddleware<Middleware.IdentityBrowserMiddleware>();
         }
 
         if (stage == ModulePipelineStage.BeforeAuthorization)
@@ -235,6 +251,9 @@ public sealed class IdentityModule : IFullNetModule
                 new global::Full.NET.Data.Dapper.DapperAotMaterializerRegistrar());
 #endif
         RegisterOrganizationUnitChangedTopic(services);
+        services.AddIdentityOidcLogout(configuration, workerHost);
+        services.TryAddScoped<Features.TenantSeatOperations.TenantSeatOperationProcessor>();
+        services.TryAddScoped<ITenantMemberSeatQuotaPort, Features.AcceptTenantInvitation.NullTenantMemberSeatQuotaPort>();
         AddOrganizationUnitProjection(services);
         // Workflow 通知事件必须按可信 Host/Tenant 作用域批量校验收件人，只注册所需目录而不装配完整 HTTP 身份域。
         services.AddNotificationRecipientDirectories();
@@ -269,11 +288,15 @@ public sealed class IdentityModule : IFullNetModule
         services.TryAddScoped<IHostUserSelectionDirectory>(provider =>
             provider.GetRequiredService<HostUsers.HostUserSelectionDirectory>());
         services.TryAddScoped<IWorkflowRoleMemberDirectory, Workflow.WorkflowRoleMemberDirectory>();
+        // FAQ 后台核证当前原会话的完整角色授予，只公开既有只读目录。
+        services.TryAddScoped<IActiveRoleDirectory, Roles.ActiveRoleDirectory>();
         services.TryAddScoped<Contracts.IBackgroundSessionBindingValidator, BackgroundSessionBindingValidator>();
         services.TryAddScoped<Contracts.IBackgroundSessionAuthorization, BackgroundSessionAuthorization>();
+        services.AddIdentityDataScope();
         services.AddIdentityOidcRetentionBackgroundService(configuration);
         if (workerHost)
         {
+            services.AddHostedService<Features.TenantSeatOperations.TenantSeatRecoveryWorker>();
             services.AddHostedService<Retention.IdentityEphemeralStateRetentionHostedService>();
             services.AddAuthenticationEventRetentionBackgroundService(configuration);
         }

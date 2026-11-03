@@ -36,6 +36,15 @@ const validDetail = {
 };
 
 describe('workflow todo runtime guards', () => {
+  it('共享附件名称接受有界字符串映射，缺失时保留不透明引用，错误类型失败关闭', () => {
+    expect(isWorkflowTodoDetail({ ...validDetail, attachmentNames: { opaque: '资料.png' } })).toBe(true);
+    expect(isWorkflowTodoDetail(validDetail)).toBe(true);
+    expect(isWorkflowTodoDetail({ ...validDetail, attachmentNames: null })).toBe(true);
+    expect(isWorkflowTodoDetail({ ...validDetail, attachmentNames: { opaque: 1 } })).toBe(false);
+    expect(isWorkflowTodoDetail({ ...validDetail, attachmentNames: { opaque: '' } })).toBe(false);
+    expect(isWorkflowTodoDetail({ ...validDetail, attachmentNames: { opaque: 'x'.repeat(261) } })).toBe(false);
+    expect(isWorkflowTodoDetail({ ...validDetail, attachmentNames: '资料.png' })).toBe(false);
+  });
   it('领取办理必须携带独立池修订且不能伪造审批、任务成员或选票', () => {
     const claim = { ...validDetail, activityKindKey: 'human.claim', approvalModeKey: 'none', requiredApprovalCount: 0,
       approvedCount: 0, rejectedCount: 0, pendingCount: 0, allowedActions: ['complete', 'release', 'transfer'],

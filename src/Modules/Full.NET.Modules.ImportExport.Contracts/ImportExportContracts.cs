@@ -16,6 +16,9 @@ public static class ImportExportPermissions
 
     /// <summary>允许将预校验成功的导入任务排队执行、恢复或重试。</summary>
     public const string ImportTasksExecute = "import_export.import_tasks.execute";
+
+    /// <summary>允许取消本人尚未被 Worker 领取或等待恢复的导入任务。</summary>
+    public const string ImportTasksCancel = "import_export.import_tasks.cancel";
 }
 
 /// <summary>内置静态导入 Schema 稳定键。</summary>
@@ -60,6 +63,9 @@ public static class ImportExportTaskStatusKeys
     /// <summary>执行阶段失败，无成功行或任务级失败。</summary>
     public const string ExecutionFailed = "execution_failed";
 
+    /// <summary>本人已停止后续执行；已经写入的业务行和原任务输入仍保留。</summary>
+    public const string Canceled = "canceled";
+
     /// <summary>已发布的全部状态键。</summary>
     public static IReadOnlyList<string> All { get; } = Array.AsReadOnly(
     [
@@ -71,6 +77,7 @@ public static class ImportExportTaskStatusKeys
         ExecutionSucceeded,
         ExecutionPartial,
         ExecutionFailed,
+        Canceled,
     ]);
 }
 
@@ -114,6 +121,12 @@ public sealed record StaticImportPreviewContext(
 
     /// <summary>处理器持久化的纯数据执行计划；不保存授权结果。</summary>
     public string? PreparedPlanJson { get; init; }
+
+    /// <summary>由创建任务时的不可变输入快照提供；为空时使用标准固定模板，不从当前个人配置补读。</summary>
+    public ImportColumnMappingRequest? ColumnMapping { get; init; }
+
+    /// <summary>受信任创建/排队请求或 Worker 持久快照提供的会话；行写入前仍逐次复核当前权限。</summary>
+    public Full.NET.Modules.Identity.Contracts.SessionBindingSnapshot? SessionBinding { get; init; }
 }
 
 /// <summary>单行预校验结果。</summary>
@@ -311,4 +324,8 @@ public sealed record ImportExportTaskDetailResponse(
     DateTimeOffset? ExecutionCompletedAtUtc,
     bool HasErrorReceipt,
     IReadOnlyList<StaticImportRowPreviewResult> PreviewRows,
-    long Version);
+    long Version)
+{
+    /// <summary>创建任务时使用的字面映射；为空表示标准模板，不返回内部快照 JSON 或个人配置身份。</summary>
+    public IReadOnlyList<ImportColumnMapping>? ColumnMappings { get; init; }
+}

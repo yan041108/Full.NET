@@ -5,6 +5,13 @@ namespace Full.NET.Modules.Identity.Contracts;
 /// </summary>
 public interface ITenantActiveMemberCountPort
 {
+    /// <summary>读取尚未完成席位激活或取消的租户；对账须在读取成员数前后各读一次，跳过任一集合中的租户。</summary>
+    /// <param name="tenantIds">最多 100 个显式租户。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>存在未收敛席位操作的租户。</returns>
+    Task<IReadOnlyList<Guid>> FindUnsettledSeatTenantsAsync(
+        IReadOnlyCollection<Guid> tenantIds, CancellationToken cancellationToken = default);
+
     /// <summary>批量读取最多 100 个租户的权威用量；没有记录的租户返回零。</summary>
     /// <param name="tenantIds">显式租户集合。</param>
     /// <param name="cancellationToken">取消令牌。</param>

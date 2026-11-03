@@ -10,19 +10,17 @@ internal static class IdentityOidcSigningCredentialSync
     {
         options.SigningCredentials.Clear();
         options.SigningCredentials.Add(keyRing.SigningCredentials);
-        foreach (var pair in keyRing.Entries)
+        foreach (var key in keyRing.ValidationKeys)
         {
-            if (string.Equals(pair.Key, keyRing.ActiveSigningKeyId, StringComparison.Ordinal))
+            if (string.Equals(key.KeyId, keyRing.ActiveSigningKeyId, StringComparison.Ordinal))
             {
                 continue;
             }
 
-            // 仅将无私钥的退役公钥暴露到 JWKS；多把私钥同时注册时 OpenIddict 可能选错活跃 kid。
-            if (!pair.Value.HasPrivateKey)
-            {
-                options.SigningCredentials.Add(
-                    new SigningCredentials(pair.Value.SecurityKey, SecurityAlgorithms.RsaSha256));
-            }
+            // 候选密钥必须提前发布公钥；不把候选私钥注册为签发凭据，避免组件选错活动 kid。
+            var rsaKey = (RsaSecurityKey)key;
+            var publicKey = new RsaSecurityKey(rsaKey.Rsa.ExportParameters(false)) { KeyId = key.KeyId };
+            options.SigningCredentials.Add(new SigningCredentials(publicKey, SecurityAlgorithms.RsaSha256));
         }
     }
 }

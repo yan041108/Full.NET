@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Sockets;
 using DotNet.Testcontainers.Builders;
+using DotNet.Testcontainers.Configurations;
 using DotNet.Testcontainers.Containers;
 using DotNet.Testcontainers.Networks;
 using Full.NET.IntegrationTests.Api;
@@ -19,6 +20,7 @@ public sealed class CdcDebeziumPipelineEnvironment : IAsyncDisposable
     private const string KafkaAlias = "kafka";
     private const ushort KafkaInternalPort = 9092;
     private const ushort KafkaExternalPort = 9094;
+    private const ushort KafkaContainerClientPort = 9095;
 
     private readonly INetwork _network;
     private readonly IContainer _kafka;
@@ -52,14 +54,53 @@ public sealed class CdcDebeziumPipelineEnvironment : IAsyncDisposable
     /// <summary>Connect 容器内访问 Kafka 的 bootstrap（schema history 等）。</summary>
     public string InternalKafkaBootstrapServers { get; }
 
-    public static async Task<CdcDebeziumPipelineEnvironment> StartAsync()
+    /// <summary>本测试环境独占的实际 Broker 映射端口，仅供回环故障代理转发。</summary>
+    internal ushort KafkaMappedPort { get; private init; }
+    internal string ContainerClientBootstrapServers { get; private init; } = "";
+    internal IReadOnlyList<string> OwnedContainerIds => [_kafka.Id, _connect.Id];
+
+    /// <summary>创建独立CDC链路；紧凑档只用于小样本功能验收，不能作为容量证据。</summary>
+    /// <param name="compactResources">将每个组件限制为1GiB、最大堆512MiB，为堆外及插件扫描保留余量；默认使用标准档。</param>
+    public static async Task<CdcDebeziumPipelineEnvironment> StartAsync(ushort? advertisedHostPort = null, bool dockerReachableProxy = false, bool automaticTtl = false,
+        bool compactResources = false, ushort? connectProxyPort = null, Action<ushort>? onKafkaStarted = null)
     {
-        var network = new NetworkBuilder().Build();
+        if (connectProxyPort is not null && (!dockerReachableProxy || advertisedHostPort != connectProxyPort || onKafkaStarted is null))
+            throw new ArgumentException("Connect 故障代理必须使用该代理的容器可达监听地址。");
+        var filterJar = Environment.GetEnvironmentVariable("FULLNET_KAFKA_STREAM_FILTER_JAR");
+        var filterHash = Environment.GetEnvironmentVariable("FULLNET_KAFKA_STREAM_FILTER_SHA256");
+        if (!string.IsNullOrEmpty(filterJar))
+        {
+            if (!Path.IsPathFullyQualified(filterJar) || !File.Exists(filterJar) ||
+                (File.GetAttributes(filterJar) & FileAttributes.ReparsePoint) != 0 ||
+                !string.Equals(Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(File.ReadAllBytes(filterJar))), filterHash, StringComparison.OrdinalIgnoreCase))
+                throw new InvalidOperationException("Kafka流过滤插件路径或摘要无效。");
+        }
+        else if (!string.IsNullOrEmpty(filterHash)) throw new InvalidOperationException("Kafka流过滤插件路径缺失。");
+        var networkBuilder = new NetworkBuilder();
+        if (SharedDatabaseFixture.BoundedContainers)
+        {
+            // 外层会话也拥有网络，进程中断时不能只回收容器而遗留桥接资源。
+            var labels = new Dictionary<string, string>();
+            SharedDatabaseFixture.ApplyBoundedOwnership(labels);
+            foreach (var (key, value) in labels) networkBuilder = networkBuilder.WithLabel(key, value);
+        }
+        var network = networkBuilder.Build();
         await network.CreateAsync().ConfigureAwait(false);
         var kafkaExternalHostPort = AllocateAvailableHostPort();
+        var containerHostPort = dockerReachableProxy ? AllocateAvailableHostPort() : kafkaExternalHostPort;
+        // Windows 观察端保留回环；容器走独立 Listener 和同一真实 Broker，避免依赖 Windows 的网关别名解析。
+        var observerPort = dockerReachableProxy ? kafkaExternalHostPort : advertisedHostPort ?? kafkaExternalHostPort;
+        var containerListener = dockerReachableProxy ? $",NATIVE://0.0.0.0:{KafkaContainerClientPort}" : "";
+        var containerAdvertised = dockerReachableProxy ? $",NATIVE://host.docker.internal:{advertisedHostPort ?? containerHostPort}" : "";
 
-        var kafka = new ContainerBuilder(KafkaImage)
-            .WithCreateParameterModifier(parameters => SharedDatabaseFixture.ApplyMessagingContainerResources(parameters, "kafka"))
+        var kafkaBuilder = new ContainerBuilder(KafkaImage)
+            .WithCreateParameterModifier(parameters =>
+            {
+                SharedDatabaseFixture.ApplyMessagingContainerResources(parameters, "kafka");
+                if (compactResources) { parameters.HostConfig!.Memory = 1L << 30; parameters.HostConfig.MemorySwap = parameters.HostConfig.Memory; }
+            })
+            .WithLabel("fullnet.cdc.resource-profile", compactResources ? "functional-compact" : "standard")
+            .WithEnvironment("KAFKA_HEAP_OPTS", "-Xms256M -Xmx512M")
             .WithNetwork(network)
             .WithNetworkAliases(KafkaAlias)
             .WithPortBinding(kafkaExternalHostPort, KafkaExternalPort)
@@ -67,14 +108,14 @@ public sealed class CdcDebeziumPipelineEnvironment : IAsyncDisposable
             .WithEnvironment("KAFKA_PROCESS_ROLES", "broker,controller")
             .WithEnvironment(
                 "KAFKA_LISTENERS",
-                $"PLAINTEXT://0.0.0.0:{KafkaInternalPort},EXTERNAL://0.0.0.0:{KafkaExternalPort},CONTROLLER://0.0.0.0:9093")
+                $"PLAINTEXT://0.0.0.0:{KafkaInternalPort},EXTERNAL://0.0.0.0:{KafkaExternalPort},CONTROLLER://0.0.0.0:9093{containerListener}")
             .WithEnvironment(
                 "KAFKA_ADVERTISED_LISTENERS",
-                $"PLAINTEXT://{KafkaAlias}:{KafkaInternalPort},EXTERNAL://127.0.0.1:{kafkaExternalHostPort}")
+                $"PLAINTEXT://{KafkaAlias}:{KafkaInternalPort},EXTERNAL://127.0.0.1:{observerPort}{containerAdvertised}")
             .WithEnvironment("KAFKA_CONTROLLER_LISTENER_NAMES", "CONTROLLER")
             .WithEnvironment(
                 "KAFKA_LISTENER_SECURITY_PROTOCOL_MAP",
-                "CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,EXTERNAL:PLAINTEXT")
+                "CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,EXTERNAL:PLAINTEXT" + (dockerReachableProxy ? ",NATIVE:PLAINTEXT" : ""))
             .WithEnvironment("KAFKA_CONTROLLER_QUORUM_VOTERS", $"1@{KafkaAlias}:9093")
             .WithEnvironment("KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR", "1")
             .WithEnvironment("KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR", "1")
@@ -83,19 +124,29 @@ public sealed class CdcDebeziumPipelineEnvironment : IAsyncDisposable
             .WithEnvironment("KAFKA_AUTO_CREATE_TOPICS_ENABLE", "true")
             .WithEnvironment("CLUSTER_ID", "fullnet-cdc-e2e-kafka-cluster")
             .WithWaitStrategy(Wait.ForUnixContainer()
-                .UntilMessageIsLogged("Kafka Server started"))
-            .Build();
+                .UntilMessageIsLogged("Kafka Server started"));
+        if (dockerReachableProxy) kafkaBuilder = kafkaBuilder.WithPortBinding(containerHostPort, KafkaContainerClientPort);
+        // 仅独立 TTL 验收加速真实后台清理，普通场景保留镜像默认周期。
+        if (automaticTtl) kafkaBuilder = kafkaBuilder.WithEnvironment("KAFKA_LOG_RETENTION_CHECK_INTERVAL_MS", "1000");
+        var kafka = kafkaBuilder.Build();
 
         var javaCryptoPolicy = ResolveJavaCryptoPolicyPath();
-        var connect = new ContainerBuilder(DebeziumImage)
-            .WithCreateParameterModifier(parameters => SharedDatabaseFixture.ApplyMessagingContainerResources(parameters, "connect"))
+        var connectBuilder = new ContainerBuilder(DebeziumImage)
+            .WithCreateParameterModifier(parameters =>
+            {
+                SharedDatabaseFixture.ApplyMessagingContainerResources(parameters, "connect");
+                if (compactResources) { parameters.HostConfig!.Memory = 1L << 30; parameters.HostConfig.MemorySwap = parameters.HostConfig.Memory; }
+            })
+            .WithLabel("fullnet.cdc.resource-profile", compactResources ? "functional-compact" : "standard")
+            // 镜像默认 Xmx2G 与容器 2 GiB 上限冲突；为元空间、线程栈和插件扫描保留真实余量。
+            .WithEnvironment("HEAP_OPTS", compactResources ? "-Xms256M -Xmx512M" : "-Xms256M -Xmx768M")
             .WithNetwork(network)
             .WithExtraHost("host.docker.internal", "host-gateway")
             .WithPortBinding(8083, true)
             .WithBindMount(
                 javaCryptoPolicy,
                 "/etc/crypto-policies/back-ends/java.config")
-            .WithEnvironment("BOOTSTRAP_SERVERS", $"{KafkaAlias}:{KafkaInternalPort}")
+            .WithEnvironment("BOOTSTRAP_SERVERS", connectProxyPort is null ? $"{KafkaAlias}:{KafkaInternalPort}" : $"host.docker.internal:{connectProxyPort}")
             .WithEnvironment("GROUP_ID", "fullnet-debezium-connect-test")
             .WithEnvironment("CONFIG_STORAGE_TOPIC", "fullnet.dev.shadow.internal.connect-config")
             .WithEnvironment("OFFSET_STORAGE_TOPIC", "fullnet.dev.shadow.internal.connect-offsets")
@@ -108,12 +159,17 @@ public sealed class CdcDebeziumPipelineEnvironment : IAsyncDisposable
             .WithEnvironment("KEY_CONVERTER_SCHEMAS_ENABLE", "false")
             .WithEnvironment("VALUE_CONVERTER_SCHEMAS_ENABLE", "false")
             .WithWaitStrategy(Wait.ForUnixContainer()
-                .UntilMessageIsLogged("Kafka Connect started"))
-            .Build();
+                .UntilMessageIsLogged("Kafka Connect started"));
+        // 紧凑功能档仍提交真实Offset，缩短无数据快照就绪时的串行等待，不替代来源证明。
+        if (compactResources) connectBuilder = connectBuilder.WithEnvironment("OFFSET_FLUSH_INTERVAL_MS", "1000");
+        if (!string.IsNullOrEmpty(filterJar))
+            connectBuilder = connectBuilder.WithBindMount(filterJar, "/kafka/connect/fullnet-stream-filter/fullnet-outbox-stream-filter.jar", AccessMode.ReadOnly);
+        var connect = connectBuilder.Build();
 
         try
         {
             await kafka.StartAsync().ConfigureAwait(false);
+            onKafkaStarted?.Invoke(containerHostPort);
             await connect.StartAsync().ConfigureAwait(false);
         }
         catch
@@ -128,20 +184,36 @@ public sealed class CdcDebeziumPipelineEnvironment : IAsyncDisposable
             network,
             kafka,
             connect,
-            bootstrapServers: $"127.0.0.1:{kafkaExternalHostPort}",
+            bootstrapServers: $"127.0.0.1:{observerPort}",
             connectBaseUri: new Uri($"http://127.0.0.1:{connect.GetMappedPublicPort(8083)}/"),
             hostGateway: "host.docker.internal",
-            internalKafkaBootstrapServers: $"{KafkaAlias}:{KafkaInternalPort}");
+            internalKafkaBootstrapServers: $"{KafkaAlias}:{KafkaInternalPort}")
+        {
+            KafkaMappedPort = containerHostPort,
+            ContainerClientBootstrapServers = $"host.docker.internal:{advertisedHostPort ?? containerHostPort}",
+        };
     }
 
     public KafkaConnectAdminClient CreateConnectAdminClient() =>
         new(ConnectBaseUri);
 
-    public async Task InterruptBrokerAsync()
+    public async Task InterruptBrokerAsync(TimeSpan? duration = null, CancellationToken cancellationToken = default,
+        Func<CancellationToken, Task>? observeWhilePaused = null)
     {
-        await _kafka.PauseAsync().ConfigureAwait(false);
-        await Task.Delay(TimeSpan.FromSeconds(1)).ConfigureAwait(false);
-        await _kafka.UnpauseAsync().ConfigureAwait(false);
+        var pause = duration ?? TimeSpan.FromSeconds(1);
+        if (pause <= TimeSpan.Zero || pause > TimeSpan.FromSeconds(60)) throw new ArgumentOutOfRangeException(nameof(duration));
+        await _kafka.PauseAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            if (observeWhilePaused is null) await Task.Delay(pause, cancellationToken).ConfigureAwait(false);
+            else
+            {
+                await Task.Delay(pause / 2, cancellationToken).ConfigureAwait(false);
+                await observeWhilePaused(cancellationToken).ConfigureAwait(false);
+                await Task.Delay(pause / 2, cancellationToken).ConfigureAwait(false);
+            }
+        }
+        finally { await _kafka.UnpauseAsync(CancellationToken.None).ConfigureAwait(false); }
     }
 
     public async ValueTask DisposeAsync()

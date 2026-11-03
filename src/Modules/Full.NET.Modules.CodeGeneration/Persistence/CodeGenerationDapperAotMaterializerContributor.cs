@@ -17,6 +17,7 @@ internal sealed class CodeGenerationDapperAotMaterializerContributor : IDapperAo
         registrar.Register<CodeGenerationCatalogColumnRow>(ReadCatalogColumnRow);
         registrar.Register<CodeGenerationTemplateRecord>(ReadTemplate);
         registrar.Register<CodeGenerationRunRecord>(ReadRun);
+        registrar.Register<CodeGenerationArchiveRecord>(ReadArchive);
         registrar.Register<CodeGenerationCheckpointCleanupCandidate>(ReadCheckpointCleanupCandidate);
     }
 
@@ -71,10 +72,19 @@ internal sealed class CodeGenerationDapperAotMaterializerContributor : IDapperAo
         SourceApplyRunId = ReadNullableGuid(reader, "SourceApplyRunId"),
     };
 
+    private static CodeGenerationArchiveRecord ReadArchive(DbDataReader reader) => new()
+    {
+        Id = ReadGuid(reader, "Id"), SchemaJson = ReadString(reader, "SchemaJson"), SchemaSha256 = ReadString(reader, "SchemaSha256"),
+        GeneratorVersion = ReadString(reader, "GeneratorVersion"), ManifestSha256 = ReadString(reader, "ManifestSha256"),
+        ZipSha256 = ReadString(reader, "ZipSha256"), FileName = ReadString(reader, "FileName"), ByteLength = ReadInt64(reader, "ByteLength"),
+        ExpiresAtUtc = ReadDateTimeOffset(reader, "ExpiresAtUtc"),
+    };
+
     private static CodeGenerationCheckpointCleanupCandidate ReadCheckpointCleanupCandidate(
         DbDataReader reader) => new()
     {
         ApplyRunId = ReadGuid(reader, "ApplyRunId"),
+        RollbackRunId = ReadGuid(reader, "RollbackRunId"),
     };
 
     private static Guid ReadGuid(DbDataReader reader, string name) =>

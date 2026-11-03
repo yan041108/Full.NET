@@ -5,6 +5,7 @@ import { pathToFileURL } from 'node:url';
 
 import { loadTestMatrix } from './run-dotnet-test-suite.mjs';
 import { renderSummary, summarizeTrxOutcomes } from './summarize-trx-outcomes.mjs';
+import { prepareMessagingShardHosts } from './messaging-shard-hosts.mjs';
 
 const matrix = loadTestMatrix();
 const assembly = matrix.integration.assembly;
@@ -52,17 +53,21 @@ function reportTrxOutcomes(shardName) {
   }
 }
 
-function run(shardName) {
+async function run(shardName) {
+  const hosts = ['messaging-heavy', 'full'].includes(shardName) ? await prepareMessagingShardHosts(process.cwd()) : null;
   const child = spawn('dotnet', argumentsFor(shardName), {
     cwd: process.cwd(),
     stdio: 'inherit',
-    shell: false
+    shell: false,
+    env: hosts?.env ?? process.env
   });
   child.on('error', error => {
     process.stderr.write(`无法启动 dotnet：${error.message}\n`);
     process.exitCode = 1;
   });
-  child.on('exit', (code, signal) => {
+  child.on('exit', async (code, signal) => {
+    try { await hosts?.verify(); }
+    catch (error) { process.stderr.write(`${error.message}\n`); process.exitCode = 1; return; }
     if (signal) {
       process.stderr.write(`Integration 分片被信号 ${signal} 终止。\n`);
       process.exitCode = 1;
@@ -86,7 +91,7 @@ if (
   && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href
 ) {
   try {
-    run(process.argv[2] ?? '');
+    await run(process.argv[2] ?? '');
   } catch (error) {
     process.stderr.write(`${error.message}\n`);
     process.exitCode = 1;

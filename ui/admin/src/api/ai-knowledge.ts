@@ -1,4 +1,13 @@
 import {
+  aiEditKnowledgeCorrection, type AiEditKnowledgeCorrectionParameters,
+  aiRestoreKnowledgeCorrection, type AiRestoreKnowledgeCorrectionParameters,
+  aiListKnowledgeCorrectionRevisions, type AiListKnowledgeCorrectionRevisionsParameters,
+  validateKnowledgeCorrectionRevision, validateKnowledgeCorrectionHistory,
+  aiPrepareKnowledgeCorrection, type AiPrepareKnowledgeCorrectionParameters,
+  aiGetKnowledgeCorrectionPreparation, type AiGetKnowledgeCorrectionPreparationParameters,
+  aiGetLatestKnowledgeCorrectionPreparation, type AiGetLatestKnowledgeCorrectionPreparationParameters,
+  aiGetKnowledgeCorrectionWorkspace, type AiGetKnowledgeCorrectionWorkspaceParameters,
+  validateKnowledgeCorrectionPreparation, validateKnowledgeCorrectionWorkspace,
   aiListKnowledgeIndexChanges, type AiListKnowledgeIndexChangesParameters,
   aiRecoverKnowledgeIndexChanges, type AiRecoverKnowledgeIndexChangesParameters,
   aiGetKnowledgeIndexReconciliation, type AiGetKnowledgeIndexReconciliationParameters,
@@ -39,6 +48,35 @@ import {
   aiListKnowledgeDocumentOrganizationCandidates, type AiListKnowledgeDocumentOrganizationCandidatesParameters,
 } from '@fullnet/client-contracts';
 import { http } from './http';
+
+/** 人工操作和恢复的回执绑定原 CAS、父修订及来源，未知响应不能被页面当成保存成功。 */
+export async function editKnowledgeCorrection(parameters: AiEditKnowledgeCorrectionParameters, signal?: AbortSignal) {
+  return validateKnowledgeCorrectionRevision(await aiEditKnowledgeCorrection(http, parameters, signal), parameters.versionId,
+    { expected: parameters.body.expected, sourceId: parameters.body.expected.sourceId, reason: parameters.body.reason });
+}
+export async function restoreKnowledgeCorrection(parameters: AiRestoreKnowledgeCorrectionParameters, signal?: AbortSignal) {
+  return validateKnowledgeCorrectionRevision(await aiRestoreKnowledgeCorrection(http, parameters, signal), parameters.versionId,
+    { expected: parameters.body.expected, sourceId: parameters.body.targetSourceId, reason: parameters.body.reason });
+}
+export async function listKnowledgeCorrectionRevisions(parameters: AiListKnowledgeCorrectionRevisionsParameters, signal?: AbortSignal) {
+  return validateKnowledgeCorrectionHistory(await aiListKnowledgeCorrectionRevisions(http, parameters, signal), parameters.versionId, parameters.beforeHeadVersion);
+}
+
+/** 工作台准备只入队；生成守卫后按原版本、任务及逐块来源不变量验收响应。 */
+export async function prepareKnowledgeCorrection(parameters: AiPrepareKnowledgeCorrectionParameters, signal?: AbortSignal) {
+  const result = validateKnowledgeCorrectionPreparation(await aiPrepareKnowledgeCorrection(http, parameters, signal), parameters.versionId);
+  if (result.documentVersion !== parameters.body.documentVersion) throw new Error('client.invalid_knowledge_correction');
+  return result;
+}
+export async function getKnowledgeCorrectionPreparation(parameters: AiGetKnowledgeCorrectionPreparationParameters, signal?: AbortSignal) {
+  return validateKnowledgeCorrectionPreparation(await aiGetKnowledgeCorrectionPreparation(http, parameters, signal), parameters.versionId, parameters.preparationId);
+}
+export async function getLatestKnowledgeCorrectionPreparation(parameters: AiGetLatestKnowledgeCorrectionPreparationParameters, signal?: AbortSignal) {
+  return validateKnowledgeCorrectionPreparation(await aiGetLatestKnowledgeCorrectionPreparation(http, parameters, signal), parameters.versionId);
+}
+export async function getKnowledgeCorrectionWorkspace(parameters: AiGetKnowledgeCorrectionWorkspaceParameters, signal?: AbortSignal) {
+  return validateKnowledgeCorrectionWorkspace(await aiGetKnowledgeCorrectionWorkspace(http, parameters, signal), parameters);
+}
 
 /** 生成守卫校验线格式，业务边界再约束分页及来源身份。 */
 export async function listKnowledgeIndexChanges(parameters: AiListKnowledgeIndexChangesParameters, signal?: AbortSignal) {

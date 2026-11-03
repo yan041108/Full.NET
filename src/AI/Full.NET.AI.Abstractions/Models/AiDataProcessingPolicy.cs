@@ -5,7 +5,7 @@ namespace Full.NET.AI.Abstractions.Models;
 /// <summary>宿主冻结的数据分类去向策略；不替代业务授权、精确模型批准或实际连接地址检查。</summary>
 public sealed class AiDataProcessingPolicy
 {
-    private static readonly string[] Stages = ["chat", "embedding", "rerank", "context", "telemetry", "connectivity", "mcp"];
+    private static readonly string[] Stages = ["chat", "embedding", "rerank", "context", "telemetry", "connectivity", "mcp", "export"];
     private readonly FrozenDictionary<string, FrozenSet<string>> allowed;
     private readonly FrozenSet<string> privateClasses;
 

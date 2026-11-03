@@ -32,6 +32,7 @@ const messagingFiles = [
   'deploy/messaging/connectors/sqlserver-outbox-shadow.json',
   'deploy/messaging/connectors/mysql-outbox-shadow.json',
   'deploy/messaging/sqlserver/enable-outbox-cdc.sql',
+  'deploy/messaging/sqlserver/enable-heartbeat-cdc.sql',
   'deploy/messaging/sqlserver/disable-outbox-cdc.sql',
   'deploy/messaging/mysql/verify-binlog.sql',
 ];
@@ -46,6 +47,10 @@ for (const provider of ['mysql', 'sqlserver']) {
       assert.equal(config['topic.heartbeat.prefix'], `fullnet.${profile === 'shadow' ? 'dev.shadow' : 'capacity'}.internal.heartbeat.${provider}`);
       assert.equal(config['heartbeat.topics.prefix'], undefined);
       if (provider === 'mysql') assert.equal(config['heartbeat.interval.ms'], '1000');
+      if (provider === 'sqlserver') {
+        assert.equal(config['heartbeat.action.query'], "UPDATE dbo.fn_messaging_cdc_heartbeat SET UpdatedAtUtc = SYSUTCDATETIME() WHERE Id = '01941f29-7c00-7000-8000-000000000001'");
+        assert.doesNotMatch(config['table.include.list'], /fn_messaging_cdc_heartbeat/);
+      } else assert.equal(config['heartbeat.action.query'], undefined);
     });
   }
 }

@@ -19,6 +19,15 @@ export {
 
 export type GeneratedRequest = HttpClient;
 
+export interface ProductListOptions {
+  sortBy?: 'id' | 'displayName' | 'description' | 'isActive';
+  descending?: boolean;
+  filterName?: string;
+  filterDescription?: string;
+  filterIsActive?: boolean;
+}
+
+
 export const productPermissions = {
   read: 'catalog.products.read',
   write: 'catalog.products.write'
@@ -28,8 +37,8 @@ export function createProductsApi(
   http: GeneratedRequest
 ) {
   return {
-    list: (page = 1, pageSize = 20) =>
-      catalogListProducts(http, { page, pageSize }),
+    list: (page = 1, pageSize = 20, query: ProductListOptions = {}) =>
+      catalogListProducts(http, { page, pageSize, ...query }),
     create: (input: CreateProductRequest) =>
       catalogCreateProduct(http, { body: input }),
     update: (id: string, input: UpdateProductRequest) =>

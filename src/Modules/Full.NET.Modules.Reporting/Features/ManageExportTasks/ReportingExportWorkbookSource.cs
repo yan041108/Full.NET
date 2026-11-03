@@ -29,7 +29,8 @@ internal interface IReportingExportWorkbookSource
 /// <summary>使用定义查询与执行服务生成 Excel 工作簿。</summary>
 /// <param name="executionService">受控查询执行。</param>
 internal sealed class ReportingExportWorkbookSource(
-    ReportingDefinitionExecutionService executionService) : IReportingExportWorkbookSource
+    ReportingDefinitionExecutionService executionService,
+    IReportingExportTaskAuthority authority) : IReportingExportWorkbookSource
 {
     private const string WorkbookContentTypeHint = "xlsx";
 
@@ -43,7 +44,7 @@ internal sealed class ReportingExportWorkbookSource(
             task.VersionNumber,
             ReportingExportTaskMapper.DeserializeParameters(task.ParametersJson));
         var collectOutcome = await CollectExportRowsAsync(
-                task.DefinitionId,
+                task,
                 executeRequest,
                 principal,
                 cancellationToken)
@@ -80,7 +81,7 @@ internal sealed class ReportingExportWorkbookSource(
     /// <param name="principal">列权限主体。</param>
     /// <param name="cancellationToken">取消令牌。</param>
     private async Task<ExportCollectOutcome> CollectExportRowsAsync(
-        Guid definitionId,
+        ReportingExportTaskRecord task,
         ExecuteReportingDefinitionRequest request,
         ClaimsPrincipal principal,
         CancellationToken cancellationToken)
@@ -91,8 +92,10 @@ internal sealed class ReportingExportWorkbookSource(
         var page = 1;
         while (allRows.Count < ReportingExportPolicy.MaxExportRows)
         {
+            if (await authority.ValidateAsync(task, cancellationToken).ConfigureAwait(false) is { } denied)
+                return ExportCollectOutcome.Failed(denied.Code, denied.Message, allRows.Count);
             var pageResult = await executionService.ExecuteAsync(
-                    definitionId,
+                    task.DefinitionId,
                     request,
                     page,
                     ReportingExportPolicy.FetchPageSize,

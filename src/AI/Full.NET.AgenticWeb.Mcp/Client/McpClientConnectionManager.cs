@@ -1,4 +1,6 @@
 using System.Net.Http.Headers;
+using System.Security.Cryptography;
+using System.Text;
 using Full.NET.AI.Abstractions.Models;
 using ModelContextProtocol.Client;
 using Microsoft.Extensions.Options;
@@ -10,7 +12,7 @@ public sealed class McpClientConnectionManager : IAsyncDisposable
 {
     private static readonly TimeSpan ConnectionTimeout = TimeSpan.FromSeconds(30);
     private readonly object sync = new();
-    private readonly Dictionary<Guid, Task<OwnedClient>> clients = new();
+    private readonly Dictionary<Guid, ClientBinding> clients = new();
     private readonly CancellationTokenSource shutdown = new();
     private Task? disposeTask;
     private bool disposed;
@@ -46,15 +48,24 @@ public sealed class McpClientConnectionManager : IAsyncDisposable
         dataPolicy.Require("mcp", "restricted");
         endpointPolicy.ValidateEndpoint(endpoint);
         using var diagnosticScope = BeginDiagnosticScope();
+        var tokenDigest = SHA256.HashData(Encoding.UTF8.GetBytes(serviceAccessToken));
         Task<OwnedClient> pending;
         lock (sync)
         {
             ObjectDisposedException.ThrowIf(disposed, this);
             // 创建也在锁内，避免 GetOrAdd 工厂重复启动后丢失未入选客户端的所有权。
-            if (!clients.TryGetValue(connectionId, out pending!) || pending.IsFaulted || pending.IsCanceled)
+            if (!clients.TryGetValue(connectionId, out var binding) || binding.Pending.IsFaulted || binding.Pending.IsCanceled)
             {
                 pending = ConnectAsync(endpoint, serviceAccessToken);
-                clients[connectionId] = pending;
+                clients[connectionId] = new ClientBinding(endpoint.AbsoluteUri, tokenDigest, pending);
+            }
+            else
+            {
+                // 同一作用域不能将已连接的服务凭据或目标悄然替换为另一份配置。
+                if (!string.Equals(binding.Endpoint, endpoint.AbsoluteUri, StringComparison.Ordinal)
+                    || !CryptographicOperations.FixedTimeEquals(binding.TokenDigest, tokenDigest))
+                    throw new InvalidOperationException("MCP connection configuration changed within the current scope.");
+                pending = binding.Pending;
             }
         }
         try
@@ -67,7 +78,7 @@ public sealed class McpClientConnectionManager : IAsyncDisposable
             {
                 // 仅删除失败的这一代；单个等待方取消不能丢弃仍在初始化的连接。
                 if ((pending.IsFaulted || pending.IsCanceled)
-                    && clients.TryGetValue(connectionId, out var current) && ReferenceEquals(current, pending))
+                    && clients.TryGetValue(connectionId, out var current) && ReferenceEquals(current.Pending, pending))
                     clients.Remove(connectionId);
             }
             throw;
@@ -81,7 +92,7 @@ public sealed class McpClientConnectionManager : IAsyncDisposable
         {
             if (disposeTask is not null) return new ValueTask(disposeTask);
             disposed = true;
-            var owned = clients.Values.ToArray();
+            var owned = clients.Values.Select(binding => binding.Pending).ToArray();
             clients.Clear();
             disposeTask = DisposeClientsAsync(owned);
             return new ValueTask(disposeTask);
@@ -138,6 +149,7 @@ public sealed class McpClientConnectionManager : IAsyncDisposable
         }
     }
 
+    private sealed record ClientBinding(string Endpoint, byte[] TokenDigest, Task<OwnedClient> Pending);
     private sealed record OwnedClient(McpClient Client, HttpClientTransport Transport);
 }
 

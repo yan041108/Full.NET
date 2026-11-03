@@ -30,15 +30,17 @@ internal static class AiKnowledgeRetrievalAssertions
         var state = services.GetRequiredService<IDataTransactionState>(); var options = services.GetRequiredService<IOptions<DatabaseOptions>>();
         var ids = services.GetRequiredService<IIdGenerator>(); var clock = services.GetRequiredService<IClock>();
         var command = services.GetRequiredService<ICommandExecutor>(); var transaction = services.GetRequiredService<ICommandTransaction>();
+        await AiKnowledgePublishedFixture.SeedAsync(db, binding, clock.UtcNow);
         var reader = new Reader(binding.OwnerUserId, tenant.Id, state);
         var relationships = new Relationships(state);
         var access = new AiKnowledgeReadAccess(relationships, relationships, tenant);
         var permission = new AiKnowledgePermissionGuard(reader, new HttpContextAccessor(), new ApiKeyAuthorization());
         var tasks = new AiKnowledgeIndexTaskStore(query, command, tenant, clock, ids); var offlineWriter = new OfflineWriter();
         var service = new AiKnowledgeRetrievalService(query, state, tenant, access, permission,
-            new(query, command, transaction, state, tenant, clock, ids, tasks, offlineWriter, options),
-            new(query, command, transaction, state, tenant, clock, ids, tasks, offlineWriter, options), options,
-            new(query, command, transaction, state, tenant, clock, ids, tasks, offlineWriter, options));
+            new(query, command, transaction, state, tenant, clock, ids, tasks.Scope, offlineWriter, options),
+            new(query, command, transaction, state, tenant, clock, ids, tasks.Scope, offlineWriter, options), options,
+            new(query, command, transaction, state, tenant, clock, ids, tasks.Scope, offlineWriter, options),
+            generationLeases: new(query, command, transaction, tenant, clock, ids, options));
         var modelId = await db.QuerySingleAsync<Guid>("SELECT EmbeddingModelConfigId FROM fn_ai_knowledge_base WHERE Id=@Id", new { Id = binding.KnowledgeBaseId });
         var model = await query.QuerySingleOrDefaultAsync<AiModelConfigRecord>(tenant.Id.HasValue ? AiModelConfigSql.FindAvailableForTenantChat : AiModelConfigSql.FindAvailableForHostChat,
             new Dictionary<string, object?> { ["ModelConfigId"] = modelId }); Assert.IsNotNull(model);
@@ -59,9 +61,9 @@ internal static class AiKnowledgeRetrievalAssertions
         var bytes = Encoding.UTF8.GetBytes($$"""{"answer":"测试答案","citationIds":["{{prepared.Context.Citations[0].Id}}"],"refusal":false}""");
         var accepted = await pipeline.AcceptAsync(prepared, bytes, default); Assert.AreEqual("测试答案", accepted.Text);
         var historyGuard = new AiKnowledgeAnswerHistoryGuard(query, state, tenant, options, access, permission,
-            new AiKnowledgeAnswerSourceProof(new(query, command, transaction, state, tenant, clock, ids, tasks, offlineWriter, options),
-                new(query, command, transaction, state, tenant, clock, ids, tasks, offlineWriter, options),
-                new(query, command, transaction, state, tenant, clock, ids, tasks, offlineWriter, options)));
+            new AiKnowledgeAnswerSourceProof(new(query, command, transaction, state, tenant, clock, ids, tasks.Scope, offlineWriter, options),
+                new(query, command, transaction, state, tenant, clock, ids, tasks.Scope, offlineWriter, options),
+                new(query, command, transaction, state, tenant, clock, ids, tasks.Scope, offlineWriter, options)));
         var lineage = AiKnowledgeAnswerLineageCodec.Create(new(prepared, accepted, ids.NewId(), ids.NewId()), ids.NewId(), ids.NewId());
         var lineageJson = AiKnowledgeAnswerLineageCodec.Encode(lineage);
         var stored = await AiKnowledgeAnswerStoreAssertions.VerifyAsync(db, query, command, transaction, tenant, clock, options, historyGuard, prepared, accepted);
@@ -73,8 +75,14 @@ internal static class AiKnowledgeRetrievalAssertions
         Assert.IsNotNull(await historyGuard.AuthorizeAsync(lineageJson, lineage.MessageId, lineage.SessionId, reader.Actor, true, default));
         var receipt = await db.QuerySingleAsync<string>("SELECT ReceiptJson FROM fn_ai_knowledge_active_generation WHERE DocumentId=@Id", new { Id = binding.DocumentId });
         await db.ExecuteAsync("UPDATE fn_ai_knowledge_active_generation SET ReceiptJson='[]' WHERE DocumentId=@Id", new { Id = binding.DocumentId });
-        try { Assert.IsNull(await historyGuard.AuthorizeAsync(lineageJson, lineage.MessageId, lineage.SessionId, reader.Actor, false, default)); }
+        // 草稿候选不再是正式发布的证明来源；候选变化不能破坏仍有效的发布代次。
+        try { Assert.IsNotNull(await historyGuard.AuthorizeAsync(lineageJson, lineage.MessageId, lineage.SessionId, reader.Actor, false, default)); }
         finally { await db.ExecuteAsync("UPDATE fn_ai_knowledge_active_generation SET ReceiptJson=@Receipt WHERE DocumentId=@Id", new { Id = binding.DocumentId, Receipt = receipt }); }
+        var generation = result.Sources[0].TaskId!.Value;
+        var archivedReceipt = await db.QuerySingleAsync<string>("SELECT ReceiptJson FROM fn_ai_knowledge_generation WHERE Id=@Id", new { Id = generation });
+        await db.ExecuteAsync("UPDATE fn_ai_knowledge_generation SET ReceiptJson='[]' WHERE Id=@Id", new { Id = generation });
+        try { Assert.IsNull(await historyGuard.AuthorizeAsync(lineageJson, lineage.MessageId, lineage.SessionId, reader.Actor, false, default)); }
+        finally { await db.ExecuteAsync("UPDATE fn_ai_knowledge_generation SET ReceiptJson=@Receipt WHERE Id=@Id", new { Id = generation, Receipt = archivedReceipt }); }
         reader.Denied = true;
         Assert.IsNull(await historyGuard.AuthorizeAsync(lineageJson, lineage.MessageId, lineage.SessionId, reader.Actor, false, default));
         var deniedHistory = await new AiChatSessionQueryService(query, tenant, options, clock, historyGuard).GetByIdAsync(stored.SessionId, reader.Actor);

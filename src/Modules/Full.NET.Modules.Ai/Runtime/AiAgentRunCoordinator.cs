@@ -26,7 +26,7 @@ using Microsoft.Extensions.Options;
 namespace Full.NET.Modules.Ai.Runtime;
 
 /// <summary>Worker 领取运行、重验会话与恢复状态后执行静态 Agent 或工作流。</summary>
-internal sealed class AiAgentRunCoordinator(
+internal sealed partial class AiAgentRunCoordinator(
     IServiceScopeFactory scopeFactory,
     AiAgentRunStore store,
     AiAgentWorkerHeartbeatService heartbeat,
@@ -125,8 +125,10 @@ internal sealed class AiAgentRunCoordinator(
             try
             {
                 var progress = await prepare().ConfigureAwait(false);
-                return await scope.ServiceProvider.GetRequiredService<AiAgentRunCompletion>()
-                    .RejectAsync(progress, cancellationToken).ConfigureAwait(false);
+                var completion = scope.ServiceProvider.GetRequiredService<AiAgentRunCompletion>();
+                return AgentWorkflowRegistry.IsModelFreeSchedule(record.DefinitionKey, record.DefinitionVersion)
+                    ? await completion.CommitModelFreeScheduleAsync(progress, cancellationToken).ConfigureAwait(false)
+                    : await completion.RejectAsync(progress, cancellationToken).ConfigureAwait(false);
             }
             catch (OperationCanceledException) when (callerCancellationToken.IsCancellationRequested) { throw; }
             catch (Exception exception)
@@ -188,7 +190,7 @@ internal sealed class AiAgentRunCoordinator(
             executionContext.SetBinding(binding);
             logCorrelation = new AiBackgroundLogCorrelation().BeginValidatedScope(binding);
 
-            var isWorkflow = record.DefinitionKey == AgentWorkflowRegistry.ChatRenameWorkflowKey;
+            var isWorkflow = AgentWorkflowRegistry.IsWorkflowKey(record.DefinitionKey);
             if (isWorkflow
                 ? AgentWorkflowRegistry.Resolve(record.DefinitionKey, record.DefinitionVersion) is null
                 : AgentDefinitionRegistry.Resolve(record.DefinitionKey, record.DefinitionVersion) is null)
@@ -203,7 +205,7 @@ internal sealed class AiAgentRunCoordinator(
                 {
                     return await FailAsync("ai.agent_run.checkpoint_incompatible").ConfigureAwait(false);
                 }
-                if (workflowState.PendingNode is not null)
+                if (workflowState.PendingNode is not null || workflowState.ParallelPendingNodes.Count != 0)
                 {
                     // 派发意图存在但没有完成凭证，创建客户端前停止，不能重发结果不明的模型或工具调用。
                     if (!await PrepareCommitAsync().ConfigureAwait(false)) return false;
@@ -218,6 +220,40 @@ internal sealed class AiAgentRunCoordinator(
             if (snapshot is null)
             {
                 return await FailAsync("ai.agent_run.invalid_payload").ConfigureAwait(false);
+            }
+            if (workflowState is not null)
+            {
+                if (record.DefinitionKey == AgentWorkflowRegistry.ScheduleCompletionWorkflowKey)
+                {
+                    if (await scope.ServiceProvider.GetRequiredService<IBackgroundSessionAuthorization>()
+                        .AuthorizeAsync(binding, AiAgentRunPermissions.Create, cancellationToken).ConfigureAwait(false) is null)
+                        return await FailAsync("authorization.permission_denied").ConfigureAwait(false);
+                    if (snapshot.TargetChatSessionId is not null || snapshot.PersonalScheduleTarget is not { } schedule
+                        || schedule.Id == Guid.Empty || schedule.Version is < 1 or int.MaxValue)
+                        return await FailAsync("ai.agent_run.target_unavailable").ConfigureAwait(false);
+                    if (workflowState.Binding is null && workflowState.NextNodeIndex == 0 && workflowState.Outputs.Count == 0)
+                    {
+                        workflowState.TargetResourceId = schedule.Id; workflowState.TargetResourceVersion = schedule.Version;
+                        // 该可信静态定义没有模型节点，零用量来自定义证明，不改写其它图的未知历史。
+                        workflowState.InputTokens = 0; workflowState.OutputTokens = 0;
+                    }
+                    if (workflowState.TargetChatSessionId is not null || workflowState.TargetResourceId != schedule.Id || workflowState.TargetResourceVersion != schedule.Version)
+                        return await FailAsync("ai.agent_run.checkpoint_incompatible").ConfigureAwait(false);
+                    if (!await scope.ServiceProvider.GetRequiredService<AiWorkflowTargetAdmission>().AuthorizeAsync(snapshot, binding, cancellationToken).ConfigureAwait(false))
+                        return await FailAsync("ai.agent_run.target_unavailable").ConfigureAwait(false);
+                }
+                else
+                {
+                if (snapshot.PersonalScheduleTarget is not null || snapshot.TargetChatSessionId is not { } target || target == Guid.Empty)
+                    return await FailAsync("ai.agent_run.target_unavailable").ConfigureAwait(false);
+                if (workflowState.TargetChatSessionId is null && workflowState.NextNodeIndex == 0
+                    && workflowState.NodeReceipts.Count == 0 && workflowState.Outputs.Count == 0)
+                    workflowState.TargetChatSessionId = target;
+                if (workflowState.TargetChatSessionId != target)
+                    return await FailAsync("ai.agent_run.checkpoint_incompatible").ConfigureAwait(false);
+                if (!await scope.ServiceProvider.GetRequiredService<AiWorkflowTargetAdmission>().AuthorizeAsync(target, binding, cancellationToken).ConfigureAwait(false))
+                    return await FailAsync("ai.agent_run.target_unavailable").ConfigureAwait(false);
+                }
             }
             if (record.DefinitionKey is AgentDefinitionRegistry.SingleTextKey or AgentDefinitionRegistry.ReadOnlyToolLoopKey)
             {
@@ -314,30 +350,45 @@ internal sealed class AiAgentRunCoordinator(
             var factories = scope.ServiceProvider.GetServices<IAiModelClientFactory>();
             var factory = factories.FirstOrDefault(item => item.ProviderKey == model.ProviderKey)
                 ?? throw new InvalidOperationException("AI model provider is not registered.");
-            var bindingModel = credentialScope.Create(model);
-            using var client = await factory.CreateChatClientAsync(bindingModel, cancellationToken).ConfigureAwait(false);
+            // 静态完成图只使用批准模型的版本元数据，不能为它解密凭据或创建可外发的模型客户端。
+            using Microsoft.Extensions.AI.IChatClient client = record.DefinitionKey == AgentWorkflowRegistry.ScheduleCompletionWorkflowKey
+                ? new AiStaticToolOnlyClient()
+                : await factory.CreateChatClientAsync(credentialScope.Create(model), cancellationToken).ConfigureAwait(false);
             // 客户端工厂可能忽略令牌；取消后仍须释放已创建资源并阻止任何节点派发。
             cancellationToken.ThrowIfCancellationRequested();
             // 三类运行共用累计输入回执／输出额度；恢复先扣减已确认用量，未知历史不补零。
             using var exactInput = AiChatInputBudgetScope.Begin(snapshot.InputTokenLimit, async check =>
             {
                 check.ThrowIfCancellationRequested();
-                if (!leaseWatch.IsActive || !await bindingValidator.IsValidAsync(binding, check).ConfigureAwait(false))
+                // 并行模型派发不得复用根查询连接；每次权威复核建立独立可信作用域。
+                await using var checkScope = scopeFactory.CreateAsyncScope();
+                var checks = checkScope.ServiceProvider;
+                var checkTenant = checks.GetRequiredService<ICurrentTenantContextWriter>();
+                if (binding.TenantId is { } tenantId) checkTenant.SetTenant(new TenantContext(tenantId, record.ScopeKey, record.ScopeKey));
+                else checkTenant.SetHost();
+                try
+                {
+                if (!leaseWatch.IsActive || !await checks.GetRequiredService<IBackgroundSessionBindingValidator>().IsValidAsync(binding, check).ConfigureAwait(false))
                     throw new UnauthorizedAccessException("AI execution identity is no longer available.");
-                var authorized = await scope.ServiceProvider.GetRequiredService<IBackgroundSessionAuthorization>()
+                var authorized = await checks.GetRequiredService<IBackgroundSessionAuthorization>()
                     .AuthorizeAsync(binding, AiAgentRunPermissions.Create, check).ConfigureAwait(false);
                 if (authorized?.UserId != binding.UserId || authorized.TenantId != binding.TenantId || authorized.SessionId != binding.SessionId)
                     throw new UnauthorizedAccessException("AI execution authorization is no longer available.");
-                var currentModel = await queries.QuerySingleOrDefaultAsync<AiModelConfigRecord>(record.TenantId.HasValue
+                if (snapshot.TargetChatSessionId is { } target
+                    && !await checks.GetRequiredService<AiWorkflowTargetAdmission>().AuthorizeAsync(target, binding, check).ConfigureAwait(false))
+                    throw new UnauthorizedAccessException("AI target chat authorization changed.");
+                var currentModel = await checks.GetRequiredService<IQueryExecutor>().QuerySingleOrDefaultAsync<AiModelConfigRecord>(record.TenantId.HasValue
                     ? AiModelConfigSql.FindAvailableForTenantChat : AiModelConfigSql.FindAvailableForHostChat,
                     AiSqlParameters.Create(("ModelConfigId", snapshot.ModelConfigId)), check).ConfigureAwait(false);
                 if (currentModel is null || currentModel.Id != model.Id || currentModel.Version != model.Version || !currentModel.IsEnabled
                     || currentModel.ProviderKey != model.ProviderKey || currentModel.ModelId != model.ModelId || currentModel.EndpointBaseUrl != model.EndpointBaseUrl)
                     throw new UnauthorizedAccessException("AI execution model binding changed.");
-                if (snapshot.PromptBinding is not null && !(await scope.ServiceProvider.GetRequiredService<AiPromptRunResolver>()
+                if (snapshot.PromptBinding is not null && !(await checks.GetRequiredService<AiPromptRunResolver>()
                     .ExecutionAsync(snapshot, record.DefinitionKey, binding, model, check).ConfigureAwait(false)).IsSuccess)
                     throw new UnauthorizedAccessException("AI execution prompt binding changed.");
                 check.ThrowIfCancellationRequested();
+                }
+                finally { checkTenant.Clear(); }
             });
             var executionClient = new AiRunOutputLimitClient(client, snapshot.OutputTokenLimit, consumedOutputTokens,
                 snapshot.InputTokenLimit, consumedInputTokens);
@@ -361,6 +412,10 @@ internal sealed class AiAgentRunCoordinator(
                     toolRegistry,
                     nodeKey => AgentWorkflowNodeReceipt.ResolveOperationId(runId, nodeKey))
                 {
+                    InputTokenLimit = snapshot.InputTokenLimit,
+                    OutputTokenLimit = snapshot.OutputTokenLimit,
+                    ModelClientFactory = allocation => new AiRunOutputLimitClient(client, allocation.OutputTokenLimit,
+                        inputTokenLimit: allocation.InputTokenLimit),
                     PersistNodeAsync = (receipt, state, _) => leaseWatch.CommitNodeAsync((currentLease, token) =>
                         CommitWorkflowProgressAsync(store, currentLease, runId, record, state, "running",
                             receipt.OutputDigest is null ? """{"phase":"node_started"}""" : """{"phase":"node_completed"}""",
@@ -369,6 +424,11 @@ internal sealed class AiAgentRunCoordinator(
                                 receipt.InputTokens, receipt.OutputTokens, null, null, null, receipt.InputDigest, null), token,
                             receipt.OutputDigest is null ? "run.node_started" : "run.node_completed")),
                 }, cancellationToken).ConfigureAwait(false);
+                if (record.DefinitionKey != AgentWorkflowRegistry.ScheduleCompletionWorkflowKey
+                    && (workflowResult.Status is AgentWorkflowRunStatus.Completed or AgentWorkflowRunStatus.AwaitingApproval)
+                    && !await scope.ServiceProvider.GetRequiredService<AiWorkflowTargetAdmission>()
+                        .AuthorizeAsync(snapshot.TargetChatSessionId!.Value, binding, cancellationToken).ConfigureAwait(false))
+                    return await FailAsync("ai.agent_run.target_unavailable").ConfigureAwait(false);
                 if (!await PrepareCommitAsync().ConfigureAwait(false)) return false;
                 if (workflowResult.Status == AgentWorkflowRunStatus.AwaitingApproval)
                 {
@@ -423,8 +483,10 @@ internal sealed class AiAgentRunCoordinator(
                     new(workflowStepId, "workflow.complete", 1, runId, "committed", model.Version, null, null,
                         result.InputTokens, result.OutputTokens, null, null, null, null, null),
                     cancellationToken).ConfigureAwait(false);
-                var workflowCommitted = await scope.ServiceProvider.GetRequiredService<AiAgentRunCompletion>()
-                    .CommitAsync(completion, new(result.InputTokens, result.OutputTokens), cancellationToken).ConfigureAwait(false);
+                var finisher = scope.ServiceProvider.GetRequiredService<AiAgentRunCompletion>();
+                var workflowCommitted = AgentWorkflowRegistry.IsModelFreeSchedule(record.DefinitionKey, record.DefinitionVersion)
+                    ? await finisher.CommitModelFreeScheduleAsync(completion, cancellationToken).ConfigureAwait(false)
+                    : await finisher.CommitAsync(completion, new(result.InputTokens, result.OutputTokens), cancellationToken).ConfigureAwait(false);
                 if (!workflowCommitted)
                 {
                     AiFailureLog.Write(logger, LogLevel.Warning, AiFailureStage.AgentWorkflowCommit, null, runId);
@@ -616,7 +678,7 @@ internal sealed class AiAgentRunCoordinator(
                 return await CommitModelProgressAsync(lease, record, modelState, "reconciliation_required",
                     "run.reconciliation_required", null, cancellationToken).ConfigureAwait(false);
             }
-            if (workflowState?.PendingNode is not null)
+            if (workflowState is not null && (workflowState.PendingNode is not null || workflowState.ParallelPendingNodes.Count != 0))
             {
                 // 已持久化意图后的网络异常与提供者独立超时无法证明未执行，预算预留保留待对账。
                 if (!await PrepareCommitAsync().ConfigureAwait(false)) return false;

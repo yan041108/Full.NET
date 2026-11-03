@@ -20,16 +20,16 @@ function runner(root, failure, calls) {
       }
     }
     if (stage === 'preview' && failure === 'preview-writes') {
-      mkdirSync(join(root, 'backend'), { recursive: true });
-      writeFileSync(join(root, 'backend/ProductSql.g.cs'), 'unexpected preview write');
+      mkdirSync(dirname(join(root, 'generated/acme/catalog/product/backend/ProductSql.g.cs')), { recursive: true });
+      writeFileSync(join(root, 'generated/acme/catalog/product/backend/ProductSql.g.cs'), 'unexpected preview write');
     }
     if (stage === 'repeat' && failure === 'repeat-mutates') {
       writeFileSync(join(root, 'backend/Product.manual.cs'), 'manual file lost');
     }
     if (stage === 'conflict') {
-      if (failure === 'conflict-mutates') writeFileSync(join(root, 'backend/ProductSql.g.cs'), 'customization lost');
+      if (failure === 'conflict-mutates') writeFileSync(join(root, 'generated/acme/catalog/product/backend/ProductSql.g.cs'), 'customization lost');
       return { status: failure === 'conflict-accepted' ? 0 : 2,
-        stdout: failure === 'wrong-conflict' ? 'Conflict backend/Other.g.cs\n' : 'Conflict backend/ProductSql.g.cs\n', stderr: '' };
+        stdout: failure === 'wrong-conflict' ? 'Conflict backend/Other.g.cs\n' : 'Conflict generated/acme/catalog/product/backend/ProductSql.g.cs\n', stderr: '' };
     }
     return { status: 0, stdout: CRUD_ARTIFACTS.map((path) => `${stage === 'repeat' ? 'Unchanged' : 'Create'} ${path}`).join('\n'), stderr: '' };
   };
@@ -71,8 +71,8 @@ test('generated application CRUD acceptance runs its own CLI and protects regene
     assert.equal(calls[1].args.includes('--apply'), false);
     assert.equal(calls[2].args.includes('--apply'), true);
     assert.match(readFileSync(join(root, 'backend/Product.manual.cs'), 'utf8'), /人工业务文件/);
-    assert.equal(readFileSync(join(root, 'backend/ProductSql.g.cs'), 'utf8'),
-      'backend/ProductSql.g.cs\n', 'acceptance test comment leaked into later application stages');
+    assert.equal(readFileSync(join(root, 'generated/acme/catalog/product/backend/ProductSql.g.cs'), 'utf8'),
+      'generated/acme/catalog/product/backend/ProductSql.g.cs\n', 'acceptance test comment leaked into later application stages');
     assert.equal(JSON.parse(readFileSync(join(root, 'evidence/conflict.json'), 'utf8')).status, 2);
   } finally {
     rmSync(root, { recursive: true, force: true });

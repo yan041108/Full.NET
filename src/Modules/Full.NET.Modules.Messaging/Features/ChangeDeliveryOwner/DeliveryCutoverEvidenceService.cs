@@ -67,6 +67,9 @@ internal sealed class DeliveryCutoverEvidenceService(IQueryExecutor query, IComm
         return IsFreshCompleteSample(samples) && samples.Count == evidence.SampleCount && Digest(samples) == evidence.SourceDigest;
     }
 
+    internal Task<CdcKafkaDeliveryBinding?> ReadDeliveryBindingAsync(CutoverEvidenceRow evidence, CancellationToken cancellationToken) =>
+        probe.ReadDeliveryBindingAsync(evidence.EventType, evidence.SchemaVersion, evidence.ResourceFingerprint, cancellationToken);
+
     private async Task<IReadOnlyList<CutoverShadowEvent>> LoadSamplesAsync(string eventType, int schemaVersion, CancellationToken cancellationToken) =>
         await query.QueryAsync<CutoverShadowEvent>(databaseOptions.Value.Provider == DatabaseProvider.SqlServer
                 ? CutoverEvidenceSql.SamplesSqlServer : CutoverEvidenceSql.SamplesMySql,

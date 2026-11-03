@@ -275,6 +275,8 @@ internal sealed class IdentitySessionContextService(
 
                 var resolvedClient = await clientConfigResolver.ResolveAsync(clientId, ct)
                     .ConfigureAwait(false);
+                if (resolvedClient?.RequireMfa == true && principal.FindFirstValue("acr") != "urn:fullnet:acr:mfa")
+                    return SessionNotActive();
                 var audience = string.IsNullOrWhiteSpace(resolvedClient?.ResourceAudience)
                     ? _identityOptions.Audience
                     : resolvedClient!.ResourceAudience!;
@@ -295,7 +297,10 @@ internal sealed class IdentitySessionContextService(
                     authorization.IsSuperAdministrator,
                     validation!.UserSecurityStamp,
                     isExternalClient,
-                    audience);
+                    audience,
+                    long.TryParse(principal.FindFirstValue("auth_time"), System.Globalization.NumberStyles.None,
+                        System.Globalization.CultureInfo.InvariantCulture, out var authenticatedAt) ? authenticatedAt : null,
+                    principal.FindFirstValue("acr"), principal.FindAll("amr").Select(claim => claim.Value).ToArray());
                 var issued = oidcContextAccessTokenIssuer.Issue(issueRequest);
                 await oidcGrantRevocationService.RevokeRefreshTokensByUserAndClientAsync(
                         userId,

@@ -14,11 +14,11 @@ internal static class AiKnowledgeIndexRebuildSql
         + " LEFT JOIN fn_ai_knowledge_index_task AS prior ON prior.DocumentId=document.Id LEFT JOIN fn_ai_knowledge_index_batch AS batch ON batch.IndexTaskId=prior.Id LEFT JOIN fn_ai_operation_budget AS ledger ON ledger.Id=batch.Id";
     private const string Previous = " AND predecessor.DocumentVersion=@DocumentVersion AND predecessor.KnowledgeBaseVersion=@KnowledgeBaseVersion AND predecessor.ModelConfigId=@ModelConfigId AND predecessor.ModelConfigVersion=@ModelConfigVersion AND predecessor.StateKey IN ('failed','cancelled','completed') AND predecessor.Generation<2147483647 AND newerTask.Id IS NULL";
     // 已取消任务也可能存在外部未知结果；检查文档全部历史任务，不能换代次释放预留或绕过对账。
-    private const string KnownCharges = " GROUP BY document.Id,version.Id,document.Version,knowledge.Version,model.Id,model.Version,predecessor.Generation HAVING MAX(CASE WHEN batch.Id IS NOT NULL AND (ledger.Id IS NULL OR ledger.SettledAtUtc IS NULL OR ledger.UsageStatus<>'known' OR ledger.Outcome NOT IN ('succeeded','failed','cancelled')) THEN 1 ELSE 0 END)=0";
+    private const string KnownCharges = " GROUP BY document.Id,version.Id,document.Version,knowledge.Version,model.Id,model.Version,predecessor.Generation" + AiKnowledgeIndexCorrectionSql.Group + " HAVING MAX(CASE WHEN batch.Id IS NOT NULL AND (ledger.Id IS NULL OR ledger.SettledAtUtc IS NULL OR ledger.UsageStatus<>'known' OR ledger.Outcome NOT IN ('succeeded','failed','cancelled')) THEN 1 ELSE 0 END)=0";
     private static string Create(SqlStatement basis) => basis.Text
         .Replace("ModelConfigVersion, StateKey", "ModelConfigVersion, Generation, RebuildRequestId, RebuildPreviousTaskId, StateKey", StringComparison.Ordinal)
         .Replace("model.Version, 'queued'", "model.Version, CASE WHEN predecessor.Generation<2147483647 THEN predecessor.Generation+1 ELSE NULL END, @RebuildRequestId, @ExpectedTaskId, 'queued'", StringComparison.Ordinal)
-        .Replace(" AS model ON model.Id = knowledge.EmbeddingModelConfigId WHERE ", " AS model ON model.Id = knowledge.EmbeddingModelConfigId" + GenerationJoins + " WHERE ", StringComparison.Ordinal)
+        .Replace(" AS model ON model.Id = knowledge.EmbeddingModelConfigId", " AS model ON model.Id = knowledge.EmbeddingModelConfigId" + GenerationJoins, StringComparison.Ordinal)
         + " AND model.Id=@ModelConfigId AND model.Version=@ModelConfigVersion" + Previous + KnownCharges;
     private static string Locked(SqlStatement basis, bool mysql) => mysql ? basis.Text + " FOR UPDATE"
         : basis.Text.Replace(" AS document ", " AS document WITH(UPDLOCK,HOLDLOCK) ", StringComparison.Ordinal)

@@ -28,8 +28,20 @@ internal sealed class HostDocumentItemQueryService(
         int page,
         int pageSize,
         Guid? tagId = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        string? keyword = null,
+        Guid? categoryId = null,
+        HostDocumentStatus? status = null,
+        HostDocumentType? documentType = null)
     {
+        if (keyword?.Length > 256 || status.HasValue && !Enum.IsDefined(status.Value)
+            || documentType.HasValue && !Enum.IsDefined(documentType.Value))
+            return Result<PagedResult<HostDocumentItemResponse>>.Failure(
+                new Error(DocumentErrorCodes.Invalid, "Document filters are invalid.", ErrorType.Validation));
+        // LIKE 转义使通配符成为普通检索文字，避免两库对方括号的解释差异。
+        var pattern = string.IsNullOrWhiteSpace(keyword) ? null : "%" + keyword.Trim()
+            .Replace("~", "~~", StringComparison.Ordinal).Replace("%", "~%", StringComparison.Ordinal)
+            .Replace("_", "~_", StringComparison.Ordinal).Replace("[", "~[", StringComparison.Ordinal) + "%";
         page = Math.Max(page, 1);
         pageSize = Math.Clamp(pageSize, 1, 100);
         var offset = ((long)page - 1) * pageSize;
@@ -45,7 +57,9 @@ internal sealed class HostDocumentItemQueryService(
                     ("ActorUserId", accessPolicy.ActorUserId),
                     ("Offset", offset),
                     ("PageSize", pageSize),
-                    ("TagId", tagId)),
+                    ("TagId", tagId), ("Keyword", pattern), ("CategoryId", categoryId),
+                    ("Status", status is null ? null : (int)status),
+                    ("DocumentType", documentType is null ? null : (int)documentType)),
                 async (reader, _) =>
                 {
                     var total = await reader.ReadSingleOrDefaultAsync<long>().ConfigureAwait(false);
@@ -138,8 +152,7 @@ internal sealed class HostDocumentItemQueryService(
             return contentResult;
         }
 
-        await TryRecordAccessAsync(record, accessObservation, cancellationToken).ConfigureAwait(false);
-        return contentResult;
+        return await RevalidateContentAsync(itemId, contentResult, accessObservation, cancellationToken).ConfigureAwait(false);
     }
 
     public Task<Result<PagedResult<HostDocumentVersionResponse>>> ListVersionsAsync(
@@ -226,8 +239,7 @@ internal sealed class HostDocumentItemQueryService(
             return Result<HostFileContent>.Failure(PreviewNotSupportedError());
         }
 
-        await TryRecordAccessAsync(item, accessObservation, cancellationToken).ConfigureAwait(false);
-        return contentResult;
+        return await RevalidateContentAsync(itemId, contentResult, accessObservation, cancellationToken).ConfigureAwait(false);
     }
 
     private async Task<Result<Guid>> ResolvePreviewFileIdAsync(
@@ -270,6 +282,25 @@ internal sealed class HostDocumentItemQueryService(
         return Result<Guid>.Success(version.FileId);
     }
 
+    /// <summary>文件读取可能等待外部存储；移交流前重查撤权与删除，拒绝或异常时本层负责释放。</summary>
+    private async Task<Result<HostFileContent>> RevalidateContentAsync(Guid itemId,
+        Result<HostFileContent> content, DocumentAccessObservation? observation, CancellationToken token)
+    {
+        var transferred = false;
+        try
+        {
+            if (await accessPolicy.CheckAsync(itemId, DocumentOperation.Read, token).ConfigureAwait(false) is { } denied)
+                return Result<HostFileContent>.Failure(denied);
+            var current = await queryExecutor.QuerySingleOrDefaultAsync<DocumentItemDetailRecord>(DocumentItemSql.FindActiveById,
+                DocumentSqlParameters.Create(("Id", itemId)), token).ConfigureAwait(false);
+            if (current is null) return Result<HostFileContent>.Failure(NotFoundError());
+            await TryRecordAccessAsync(current, observation, token).ConfigureAwait(false);
+            transferred = true;
+            return content;
+        }
+        finally { if (!transferred) await content.Value!.Content.DisposeAsync().ConfigureAwait(false); }
+    }
+
     private Task TryRecordAccessAsync(
         DocumentItemDetailRecord item,
         DocumentAccessObservation? accessObservation,
@@ -287,7 +318,7 @@ internal sealed class HostDocumentItemQueryService(
             accessObservation.SourceKey,
             accessObservation.ActorUserId,
             accessObservation.ClientIpFingerprint,
-            cancellationToken);
+            cancellationToken, accessObservation.RequestKey);
     }
 
     private static bool IsPreviewSupportedMime(string contentType)

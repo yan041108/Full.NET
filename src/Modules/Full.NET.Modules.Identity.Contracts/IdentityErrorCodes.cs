@@ -200,6 +200,18 @@ public static class IdentityErrorCodes
 
     /// <summary>OIDC 签名密钥无法激活（缺失、未知或无私钥材料）。</summary>
     public const string OidcSigningKeyNotActivatable = "identity.oidc_signing_keys.not_activatable";
+    /// <summary>签名材料、节点就绪或保留窗口不允许当前生命周期操作。</summary>
+    public const string OidcSigningKeyLifecycleConflict = "identity.oidc_signing_keys.lifecycle_conflict";
+    /// <summary>浏览器 Cookie 请求来源不可信。</summary>
+    public const string BrowserOriginRejected = "identity.browser_origin_rejected";
+    /// <summary>浏览器写操作缺少有效防伪证明。</summary>
+    public const string BrowserCsrfRejected = "identity.browser_csrf_rejected";
+    /// <summary>浏览器 Cookie 会话必须使用不返回原始凭据的端点。</summary>
+    public const string BrowserEndpointRequired = "identity.browser_endpoint_required";
+    /// <summary>浏览器票据已失效或暂时无法安全恢复。</summary>
+    public const string BrowserSessionUnavailable = "identity.browser_session_unavailable";
+    /// <summary>退出通知不处于可人工重试的失败终态。</summary>
+    public const string OidcDeliveryNotFailed = "identity.oidc_delivery_not_failed";
 
     /// <summary>目标 OpenAccess 接入方应用不存在或已停用。</summary>
     public const string OpenAccessClientNotFound = "identity.open_access_clients.not_found";
@@ -539,6 +551,12 @@ public static class IdentityErrorCodes
         OidcClientDisabled,
         OidcAuthorizationNotFound,
         OidcSigningKeyNotActivatable,
+        OidcSigningKeyLifecycleConflict,
+        BrowserOriginRejected,
+        BrowserCsrfRejected,
+        BrowserEndpointRequired,
+        BrowserSessionUnavailable,
+        OidcDeliveryNotFailed,
         OpenAccessClientNotFound,
         OpenAccessClientVersionConflict,
         OpenAccessClientQuotaExceeded,

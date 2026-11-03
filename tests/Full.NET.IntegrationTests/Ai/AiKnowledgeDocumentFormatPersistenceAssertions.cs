@@ -59,7 +59,7 @@ internal static class AiKnowledgeDocumentFormatPersistenceAssertions
             var sessions = new AiKnowledgeIndexSessionService(query, command, transaction, state, tenant, clock, ids, tasks, authorization);
             var manifests = new AiKnowledgeIndexDocumentManifestStore(query, command, transaction, state, tenant, clock, tasks, sessions, authorization, options);
             var vectors = new AiKnowledgeIndexDocumentVectorStore(query, command, transaction, state, tenant, clock, tasks, sessions, authorization, options);
-            var activations = new AiKnowledgeIndexDocumentActivationStore(query, command, transaction, state, tenant, clock, ids, tasks, authorization, options);
+            var activations = new AiKnowledgeIndexDocumentActivationStore(query, command, transaction, state, tenant, clock, ids, (tasks).Scope, authorization, options);
             var model = new AiModelConfigRecord { Id = (Guid)p["ModelConfigId"]!, Version = 1, IsEnabled = true, TenantId = session.TenantId, ProviderKey = "openai_compatible", ModelId = "text-embedding-3-small", EndpointBaseUrl = "https://api.openai.com/v1" };
             var input = AiKnowledgeDocumentModelChunker.Chunk(new() { Id = binding.KnowledgeBaseId, Version = 1, IsEnabled = true, TenantId = session.TenantId, DataClassification = "internal", EmbeddingModelConfigId = model.Id, EmbeddingModelVersion = model.Version }, model, parsed, new(), default);
             Assert.IsTrue(input.IsSuccess, filename); var plan = AiKnowledgeDocumentPlan.Create(input.Output! with { ParserRuntimeId = runtime }, default); Assert.IsNotNull(plan);

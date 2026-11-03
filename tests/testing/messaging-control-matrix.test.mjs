@@ -4,7 +4,7 @@ import { loadTestMatrix } from '../../scripts/testing/run-dotnet-test-suite.mjs'
 
 test('消息控制面单元选择锁定直接边界与最低发现数', () => {
   const selection = loadTestMatrix().dotnetSuites.unit.selections['messaging-control'];
-  assert.equal(selection.minimum, 60);
+  assert.equal(selection.minimum, 70);
   for (const name of ['KafkaDeliveryControlTests', 'KafkaCutoverShadowProbeTests', 'CdcDeliveryPositionTests', 'KafkaConnectAdminClientTests', 'KafkaConsumerLagObserverTests'])
     assert.ok(selection.filter.includes(`FullyQualifiedName~${name}`));
 });

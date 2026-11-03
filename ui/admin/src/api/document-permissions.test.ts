@@ -19,7 +19,7 @@ const permission = {
   id: '01912345-6789-7abc-8def-0123456789ad',
   documentId,
   userId,
-  permissionLevel: 'read',
+  actions: ['read' as const],
   createdAtUtc: '2026-08-02T00:00:00Z'
 };
 
@@ -42,7 +42,9 @@ describe('document-permissions api', () => {
     requestMock.mockResolvedValueOnce([permission]);
     const req = {
       documentId,
-      permissions: [{ userId, permissionLevel: 'read' }]
+      visibilityMode: 'restricted' as const,
+      version: 1,
+      permissions: [{ userId, actions: ['read' as const] }]
     };
 
     const permissions = await setDocumentPermissions(req);

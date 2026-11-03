@@ -45,9 +45,9 @@ public sealed class CrudGenerationWorkspaceTests
         Assert.IsTrue(plan.Actions.All(
             action => action.Kind == GenerationWriteActionKind.Create));
         Assert.IsTrue(plan.Actions.Any(
-            action => action.RelativePath == "backend/ProductContracts.g.cs"));
+            action => action.RelativePath == "generated/acme/catalog/product/backend/ProductContracts.g.cs"));
         Assert.IsTrue(plan.Actions.Any(
-            action => action.RelativePath == "backend/OrderContracts.g.cs"));
+            action => action.RelativePath == "generated/acme/sales/order/backend/OrderContracts.g.cs"));
         Assert.AreEqual(
             0,
             Directory.GetFiles(
@@ -105,7 +105,7 @@ public sealed class CrudGenerationWorkspaceTests
     public async Task Apply_multiple_schemas_with_conflict_writes_nothing_else()
     {
         using var workspace = TemporaryWorkspace.Create();
-        const string handwrittenPath = "backend/ProductContracts.g.cs";
+        const string handwrittenPath = "generated/acme/catalog/product/backend/ProductContracts.g.cs";
         workspace.Write(handwrittenPath, "handwritten");
         var product = FullNetCrudSchemaTests.CreateProductSchema();
         var order = CreateOrderSchema(product);
@@ -157,7 +157,7 @@ public sealed class CrudGenerationWorkspaceTests
         {
             Assert.AreEqual(
                 artifact.Content,
-                workspace.Read(artifact.RelativePath));
+                workspace.Read(CrudGenerationWorkspace.ArtifactPrefix(schema) + artifact.RelativePath));
         }
 
         Assert.AreEqual(
@@ -172,7 +172,7 @@ public sealed class CrudGenerationWorkspaceTests
     public async Task Apply_handwritten_conflict_returns_plan_without_writes()
     {
         using var workspace = TemporaryWorkspace.Create();
-        const string handwrittenPath = "backend/ProductContracts.g.cs";
+        const string handwrittenPath = "generated/acme/catalog/product/backend/ProductContracts.g.cs";
         workspace.Write(handwrittenPath, "handwritten");
 
         var plan = await CrudGenerationWorkspace.ApplyAsync(
@@ -193,6 +193,41 @@ public sealed class CrudGenerationWorkspaceTests
                 workspace.RootPath,
                 "*",
                 SearchOption.AllDirectories).Length);
+    }
+
+    [TestMethod]
+    public async Task Apply_A_then_B_then_update_A_preserves_B_and_its_original_ownership()
+    {
+        using var workspace = TemporaryWorkspace.Create();
+        var product = FullNetCrudSchemaTests.CreateProductSchema();
+        var order = CreateOrderSchema(product);
+        await CrudGenerationWorkspace.ApplyAsync(workspace.RootPath, product);
+        await CrudGenerationWorkspace.ApplyAsync(workspace.RootPath, order);
+        var orderPath = CrudGenerationWorkspace.ArtifactPrefix(order) + "backend/OrderContracts.g.cs";
+        var owned = GenerationManifest.Parse(workspace.Read(GenerationWorkspaceStore.ManifestRelativePath));
+        var original = owned.Artifacts.Single(entry => entry.RelativePath == orderPath);
+        workspace.Write(orderPath, "人工修改，应由 B 的后续生成自行发现");
+        var update = await CrudGenerationWorkspace.ApplyAsync(workspace.RootPath, product);
+        Assert.IsTrue(update.CanApply);
+        Assert.IsFalse(update.Actions.Any(action => action.RelativePath.StartsWith(CrudGenerationWorkspace.ArtifactPrefix(order), StringComparison.Ordinal)));
+        Assert.AreEqual("人工修改，应由 B 的后续生成自行发现", workspace.Read(orderPath));
+        Assert.AreEqual(original, update.NextManifest!.Artifacts.Single(entry => entry.RelativePath == orderPath));
+        Assert.IsFalse((await CrudGenerationWorkspace.PlanAsync(workspace.RootPath, order)).CanApply);
+    }
+
+    [TestMethod]
+    public async Task Same_CLR_name_in_another_module_uses_a_distinct_ownership_path()
+    {
+        using var workspace = TemporaryWorkspace.Create();
+        var first = FullNetCrudSchemaTests.CreateProductSchema();
+        var second = FullNetCrudSchema.CreateProject("acme", "sales", "product", "acme_sales_product",
+            "Acme.Modules.Sales", "Product", "products", "products", first.DataScope, first.HasVersion, first.Columns);
+        await CrudGenerationWorkspace.ApplyAsync(workspace.RootPath, first);
+        var applied = await CrudGenerationWorkspace.ApplyAsync(workspace.RootPath, second);
+        Assert.IsTrue(applied.CanApply);
+        Assert.IsTrue(File.Exists(Path.Combine(workspace.RootPath, CrudGenerationWorkspace.ArtifactPrefix(first), "backend/ProductContracts.g.cs")));
+        Assert.IsTrue(File.Exists(Path.Combine(workspace.RootPath, CrudGenerationWorkspace.ArtifactPrefix(second), "backend/ProductContracts.g.cs")));
+        Assert.HasCount(28, applied.NextManifest!.Artifacts);
     }
 
     private static FullNetCrudSchema CreateOrderSchema(

@@ -11,7 +11,7 @@ namespace Full.NET.Modules.Notifications.Features.ManageMyInboxMessages;
 internal static class Endpoint
 {
     /// <summary>
-    /// 注册当前用户收件箱路由组，包含列表、未读计数、单条标记已读与全部标记已读操作。
+    /// 注册当前用户收件箱路由组，包含列表、精确详情、未读计数及显式已读操作。
     /// </summary>
     /// <remarks>
     /// 收件箱按当前认证用户过滤，收件人标识来自可信 <c>sub</c> 声明而非请求体；
@@ -22,6 +22,15 @@ internal static class Endpoint
     {
         var group = endpoints.MapGroup("/api/v1/notifications/my-inbox-messages")
             .WithTags("NotificationsMyInboxMessages");
+
+        group.MapGet("/{messageId:guid}", async (Guid messageId,
+            MyInboxQueryService queries, IApiResultMapper mapper, HttpContext context, CancellationToken token) =>
+        {
+            if (!TryResolveUserId(context, out var userId)) return Results.Unauthorized();
+            return mapper.Map(await queries.GetAsync(userId, messageId, token).ConfigureAwait(false), context);
+        }).WithName("notificationsGetMyInboxMessage")
+        .Produces<InboxMessageResponse>().ProducesProblem(401).ProducesProblem(403).ProducesProblem(404)
+        .RequireAuthorization(FullNetPermissionPolicies.For(InboxPermissions.Read));
 
         group.MapGet("/", async (
             int? page,

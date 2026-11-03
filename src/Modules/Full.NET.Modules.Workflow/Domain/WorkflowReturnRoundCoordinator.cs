@@ -40,7 +40,7 @@ internal sealed class WorkflowReturnRoundCoordinator(IQueryExecutor query, IComm
         }
         var count = await query.QuerySingleOrDefaultAsync<int>(WorkflowActivitySql.CountActivations,
             WorkflowSqlParameters.Create(("InstanceId", instance.Id)), token).ConfigureAwait(false);
-        if (await WorkflowExecutionBudgetPolicy.ReadRemainingAsync(instance, plan.HasSubprocess, count, query, token).ConfigureAwait(false) < 1) return Invalid<Guid>();
+        if (await WorkflowExecutionBudgetPolicy.ReadRemainingAsync(instance, plan.RequiresExecutionBudget, count, query, token).ConfigureAwait(false) < 1) return Invalid<Guid>();
         var regionJson = RegionJson(region); var regionHash = Hash(regionJson);
         var regionKey = "return." + regionHash[..40];
         var scope = WorkflowSqlParameters.Create(("InstanceId", instance.Id), ("TenantScopeKey", instance.TenantScopeKey),
@@ -135,6 +135,8 @@ internal sealed class WorkflowReturnRoundCoordinator(IQueryExecutor query, IComm
             await commands.ExecuteAsync(WorkflowRegionSql.CloseEpoch,
                 WorkflowSqlParameters.Create(("ExecutionEpochId", epoch.Id), ("InstanceId", instance.Id), ("TenantScopeKey", instance.TenantScopeKey),
                     ("RegionKey", epoch.RegionKey), ("Revision", epoch.Revision), ("Now", now)), token).ConfigureAwait(false) != 1) throw Conflict();
+        await commands.ExecuteAsync(WorkflowCollaborationRelaySql.CloseInvalidated,
+            WorkflowSqlParameters.Create(("InstanceId", instance.Id), ("TenantScopeKey", instance.TenantScopeKey), ("Now", now)), token).ConfigureAwait(false);
         if (await commands.ExecuteAsync(WorkflowReturnRoundSql.InsertWork,
                 WorkflowSqlParameters.Create(("ReturnRoundId", round.Id), ("InstanceId", instance.Id), ("TenantScopeKey", instance.TenantScopeKey),
                     ("WorkId", workId), ("ExecutionEpochId", parent.Id), ("SourceStepId", source.Id), ("NodeKey", round.NextNodeKey),

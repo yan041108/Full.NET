@@ -4,6 +4,12 @@ export interface OidcSigningKey {
   hasPrivateKey: boolean;
   algorithm: string;
   publicKeyPem: string;
+  lifecycleState?: 'unregistered' | 'prepublished' | 'active' | 'retained' | 'retired';
+  publicKeyHash?: string | null;
+  publishedAtUtc?: string | null;
+  retireAfterUtc?: string | null;
+  isActivationReady?: boolean;
+  isRetirementReady?: boolean;
 }
 
 export interface OidcSigningKeyList {
@@ -22,7 +28,13 @@ export function isOidcSigningKey(value: unknown): value is OidcSigningKey {
     && typeof value.isActive === 'boolean'
     && typeof value.hasPrivateKey === 'boolean'
     && typeof value.algorithm === 'string'
-    && typeof value.publicKeyPem === 'string';
+    && typeof value.publicKeyPem === 'string'
+    && (value.lifecycleState === undefined || typeof value.lifecycleState === 'string' && ['unregistered', 'prepublished', 'active', 'retained', 'retired'].includes(value.lifecycleState))
+    && (value.publicKeyHash == null || typeof value.publicKeyHash === 'string')
+    && (value.publishedAtUtc == null || typeof value.publishedAtUtc === 'string')
+    && (value.retireAfterUtc == null || typeof value.retireAfterUtc === 'string')
+    && (value.isActivationReady === undefined || typeof value.isActivationReady === 'boolean')
+    && (value.isRetirementReady === undefined || typeof value.isRetirementReady === 'boolean');
 }
 
 export function isOidcSigningKeyList(value: unknown): value is OidcSigningKeyList {

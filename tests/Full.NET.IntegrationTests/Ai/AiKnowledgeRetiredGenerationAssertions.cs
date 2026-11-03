@@ -15,6 +15,7 @@ using Full.NET.Modules.Ai.Persistence;
 using Full.NET.Modules.Ai.Budgets;
 using Full.NET.AI.Abstractions.Budgets;
 using Full.NET.IntegrationTests.NativeAot;
+using Full.NET.Modules.Identity.Contracts;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -73,6 +74,27 @@ internal static class AiKnowledgeRetiredGenerationAssertions
             var model = new AiKnowledgeIndexEmbeddingAssertions.ControlledFactory { InputTokens = 7 };
             var generation = AiKnowledgeIndexStatusApiAssertions.Generation(services, tasks, files, model);
             var oldTask = await Generate(1); var oldPointer = await Pointer();
+            // K01 删除授权取发布引用与真实读取租约；复用既有受控身份/Files 的 JIT 发布准备，不预置发布头。
+            var actor = new SessionBindingSnapshot(owner.UserId, scoped ? tenant.Id : null, Guid.CreateVersion7(),
+                "retirement-fixture", scoped ? "tenant" : "host", SessionBindingKinds.Refresh);
+            var publication = new AiKnowledgePublicationTests.Fixture(services, files, actor);
+            var reviewer = actor with { UserId = Guid.CreateVersion7(), SessionId = Guid.CreateVersion7() };
+            // 匿名参数也须保留 Guid 静态类型；object 属性在 SqlClient 会绑定为 sql_variant。
+            await db.ExecuteAsync("INSERT INTO fn_ai_knowledge_member (Id,KnowledgeBaseId,UserId,CreatedAtUtc) VALUES (@Id,@Base,@Actor,@Now)",
+                new { Id = Guid.CreateVersion7(), Base = (Guid)row["KnowledgeBaseId"]!, Actor = reviewer.UserId, Now = DateTimeOffset.UtcNow });
+            await db.ExecuteAsync("INSERT INTO fn_ai_knowledge_document_member (Id,DocumentId,UserId,CreatedAtUtc) VALUES (@Id,@Doc,@Actor,@Now)",
+                new { Id = Guid.CreateVersion7(), Doc = (Guid)row["DocumentId"]!, Actor = reviewer.UserId, Now = DateTimeOffset.UtcNow });
+            var proposed = await publication.Publications.RequestAsync((Guid)row["KnowledgeBaseId"]!, (Guid)row["DocumentId"]!,
+                new(Guid.CreateVersion7(), (Guid)row["VersionId"]!, 0, DateTimeOffset.UtcNow.AddMinutes(-1), DateTimeOffset.UtcNow.AddDays(1)), actor, default);
+            Assert.IsTrue(proposed.IsSuccess, proposed.Error?.Code); var proposal = proposed.Value!;
+            publication.Identity.Current = reviewer;
+            var reviewed = await publication.Publications.ReviewAsync((Guid)row["KnowledgeBaseId"]!, (Guid)row["DocumentId"]!, proposal.Id,
+                new(true, proposal.Version, proposal.SnapshotHash), reviewer, default);
+            Assert.IsTrue(reviewed.IsSuccess, reviewed.Error?.Code); proposal = reviewed.Value!;
+            publication.Identity.Current = actor;
+            var published = await publication.Publications.PublishAsync((Guid)row["KnowledgeBaseId"]!, (Guid)row["DocumentId"]!, proposal.Id,
+                new(proposal.Version, proposal.SnapshotHash), actor, default);
+            Assert.IsTrue(published.IsSuccess, published.Error?.Code);
             await db.ExecuteAsync("UPDATE fn_ai_knowledge_document SET Version=Version+1 WHERE Id=@DocumentId", row);
             var newTask = await Generate(2); Assert.AreNotEqual(oldTask, newTask);
             Assert.AreEqual(newTask, (await Pointer()).IndexTaskId);
@@ -85,6 +107,30 @@ internal static class AiKnowledgeRetiredGenerationAssertions
                 new { Now = DateTime.UtcNow, DocumentId = row["DocumentId"] });
             Assert.AreEqual(0, await Run());
             await AgePointer();
+            Assert.AreEqual(0, await Run()); Assert.AreEqual(2, await Payload(oldTask), "正式发布引用保护旧代次。");
+            var readModel = await publication.Query.QuerySingleOrDefaultAsync<AiModelConfigRecord>(scoped
+                ? AiModelConfigSql.FindAvailableForTenantChat : AiModelConfigSql.FindAvailableForHostChat,
+                AiSqlParameters.Create(("ModelConfigId", row["ModelConfigId"])), default);
+            Assert.IsNotNull(readModel); var queryVector = new float[1536]; queryVector[0] = 1;
+            var readable = await publication.Retrieval.RetrieveAsync([(Guid)row["KnowledgeBaseId"]!], owner.UserId, readModel, queryVector, default);
+            Assert.AreEqual(proposal.Id, readable.Sources.Single().PublicationId);
+            await using (var held = await AiKnowledgeGenerationLease.AcquireAsync(readable.Sources.Single(), owner.UserId,
+                publication.Query, publication.Command, publication.Transaction, publication.Tenant, publication.Clock,
+                publication.Ids, publication.Options, default))
+            {
+                Assert.IsNotNull(held);
+                var head = await publication.Publications.ReadHeadAsync((Guid)row["KnowledgeBaseId"]!, (Guid)row["DocumentId"]!, actor, default);
+                Assert.IsTrue(head.IsSuccess);
+                var withdrawn = await publication.Publications.WithdrawAsync((Guid)row["KnowledgeBaseId"]!, (Guid)row["DocumentId"]!,
+                    new(head.Value!.Version, proposal.Id), actor, default);
+                Assert.IsTrue(withdrawn.IsSuccess, withdrawn.Error?.Code);
+                Assert.AreEqual(0, await Run()); Assert.AreEqual(2, await Payload(oldTask));
+                // 只移动临时库中真实发布证据的保留时间；租约仍必须阻止物理删除。
+                await AgePublication();
+                Assert.AreEqual(0, await Run()); Assert.IsTrue(held.IsValid);
+                Assert.AreEqual(2, await Payload(oldTask), "证据保留期已过时仍保护在途读取。");
+            }
+            Assert.AreEqual(0, await db.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM fn_ai_knowledge_read_lease WHERE GenerationId=@Id", new { Id = oldTask }));
             var cleanup = services.GetRequiredService<AiKnowledgeIndexCleanupStore>();
             var cutoff = DateTimeOffset.UtcNow.AddHours(-24);
             await cleanup.CleanupRetiredTaskAsync((Guid)row["KnowledgeBaseId"]!, (Guid)row["DocumentId"]!, Guid.CreateVersion7(), oldTask, cutoff, default);
@@ -101,28 +147,16 @@ internal static class AiKnowledgeRetiredGenerationAssertions
             Assert.AreEqual(0, await Run()); Assert.AreEqual(2, await Payload(oldTask));
             await db.ExecuteAsync("UPDATE fn_ai_knowledge_index_task SET StateKey='completed',LeaseToken=NULL,LeaseExpiresAtUtc=NULL WHERE Id=@Id", new { Id = oldTask });
 
-            // 完成状态不能代替后继的真实清单、向量、回执、来源和模型证明。
-            var vectorHash = await db.QuerySingleAsync<string>("SELECT PayloadHash FROM fn_ai_knowledge_index_vector WHERE Id IN (SELECT Id FROM fn_ai_knowledge_index_batch WHERE IndexTaskId=@Id)", new { Id = newTask });
-            await db.ExecuteAsync("UPDATE fn_ai_knowledge_index_vector SET PayloadHash=@Hash WHERE Id IN (SELECT Id FROM fn_ai_knowledge_index_batch WHERE IndexTaskId=@Id)", new { Hash = new string('0', 64), Id = newTask });
-            Assert.AreEqual(1, await Run()); Assert.AreEqual(2, await Payload(oldTask), "损坏后继向量时保留旧载荷"); Assert.AreEqual(0, await Run());
-            await db.ExecuteAsync("UPDATE fn_ai_knowledge_index_vector SET PayloadHash=@Hash WHERE Id IN (SELECT Id FROM fn_ai_knowledge_index_batch WHERE IndexTaskId=@Id)", new { Hash = vectorHash, Id = newTask });
-            var manifestHash = await db.QuerySingleAsync<string>("SELECT PayloadHash FROM fn_ai_knowledge_text_manifest WHERE Id=@Id", new { Id = newTask });
-            await Protect("UPDATE fn_ai_knowledge_text_manifest SET PayloadHash=@Value WHERE Id=@Id", newTask, new string('0', 64), manifestHash);
-            var receiptHash = (await Pointer()).ReceiptHash;
-            await Protect("UPDATE fn_ai_knowledge_active_generation SET ReceiptHash=@Value WHERE DocumentId=@Id", (Guid)row["DocumentId"]!, new string('0', 64), receiptHash);
-            await Protect("UPDATE fn_ai_model_config SET Version=@Value WHERE Id=@Id", (Guid)row["ModelConfigId"]!, 2, 1);
-            await Protect("UPDATE fn_ai_knowledge_import SET StateKey=@Value WHERE VersionId=@Id", (Guid)row["VersionId"]!, "failed", "completed");
-
-            // 来源在扫描后改变时，完整证明仍必须在执行事务内拒绝清理。
+            // 扫描后延长真实发布证据保留期，锁内必须按新资产授权重新拒绝清理。
             faults.RetirementScanned = new(TaskCreationOptions.RunContinuationsAsynchronously);
             faults.ContinueRetirement = new(TaskCreationOptions.RunContinuationsAsynchronously);
             var sourceRace = Run(); await faults.RetirementScanned.Task.WaitAsync(TimeSpan.FromSeconds(20));
-            await db.ExecuteAsync("UPDATE fn_ai_knowledge_version SET ContentHash=@Hash WHERE Id=@Id", new { Hash = new string('0', 64), Id = row["VersionId"] });
+            await db.ExecuteAsync("UPDATE fn_ai_knowledge_publication SET UpdatedAtUtc=@Now WHERE Id=@Id", new { Now = DateTimeOffset.UtcNow, Id = proposal.Id });
             faults.ContinueRetirement.TrySetResult(true);
             Assert.AreEqual(1, await sourceRace); Assert.AreEqual(2, await Payload(oldTask));
             faults.RetirementScanned = null; faults.ContinueRetirement = null;
             Assert.AreEqual(0, await Run());
-            await db.ExecuteAsync("UPDATE fn_ai_knowledge_version SET ContentHash=@Hash WHERE Id=@Id", new { Hash = hash, Id = row["VersionId"] });
+            await AgePublication();
 
             // 中途异常与取消均回滚向量和清单，游标继续推进后可重放。
             faults.InterruptCleanup = true;
@@ -265,12 +299,6 @@ internal static class AiKnowledgeRetiredGenerationAssertions
                 }
                 return id;
             }
-            async Task Protect(string sql, Guid id, object corrupt, object original)
-            {
-                await db.ExecuteAsync(sql, new { Id = id, Value = corrupt });
-                Assert.AreEqual(1, await Run()); Assert.AreEqual(2, await Payload(oldTask)); Assert.AreEqual(0, await Run());
-                await db.ExecuteAsync(sql, new { Id = id, Value = original });
-            }
             async Task<int> Run()
             {
                 await using var request = factory.Services.CreateAsyncScope();
@@ -280,6 +308,7 @@ internal static class AiKnowledgeRetiredGenerationAssertions
             }
             async Task<int> Payload(Guid id) => await db.QuerySingleAsync<int>("SELECT (SELECT COUNT(*) FROM fn_ai_knowledge_text_manifest WHERE Id=@Id)+(SELECT COUNT(*) FROM fn_ai_knowledge_index_vector WHERE Id IN (SELECT Id FROM fn_ai_knowledge_index_batch WHERE IndexTaskId=@Id))", new { Id = id });
             Task AgePointer() => db.ExecuteAsync("UPDATE fn_ai_knowledge_active_generation SET ActivatedAtUtc=@Before WHERE DocumentId=@DocumentId", new { Before = DateTime.UtcNow.AddHours(-25), DocumentId = row["DocumentId"] });
+            Task AgePublication() => db.ExecuteAsync("UPDATE fn_ai_knowledge_publication SET UpdatedAtUtc=@Before WHERE Id=@Id", new { Before = DateTime.UtcNow.AddHours(-25), Id = proposal.Id });
             Task<AiKnowledgeIndexActivationRecord> Pointer() => db.QuerySingleAsync<AiKnowledgeIndexActivationRecord>("SELECT Id,DocumentId,IndexTaskId,VersionId,PlanHash,ManifestHash,ReceiptHash,ReceiptJson,LeaseToken,ActivatedAtUtc FROM fn_ai_knowledge_active_generation WHERE DocumentId=@DocumentId", row);
             Task Restore(AiKnowledgeIndexActivationRecord pointer) => db.ExecuteAsync("UPDATE fn_ai_knowledge_active_generation SET IndexTaskId=@IndexTaskId,VersionId=@VersionId,PlanHash=@PlanHash,ManifestHash=@ManifestHash,ReceiptHash=@ReceiptHash,ReceiptJson=@ReceiptJson,LeaseToken=@LeaseToken,ActivatedAtUtc=@ActivatedAtUtc WHERE DocumentId=@DocumentId", pointer);
             async Task<string> Audit()

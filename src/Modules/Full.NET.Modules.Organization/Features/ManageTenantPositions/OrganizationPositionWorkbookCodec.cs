@@ -4,6 +4,7 @@ using System.Text;
 using System.Xml;
 using System.Xml.Linq;
 using Full.NET.Modules.Organization.Contracts;
+using Full.NET.Modules.ImportExport.Contracts;
 
 namespace Full.NET.Modules.Organization.Features.ManageTenantPositions;
 
@@ -82,6 +83,15 @@ internal static class OrganizationPositionWorkbookCodec
         Stream source,
         long declaredLength,
         CancellationToken cancellationToken)
+        => (await ParseImportRowsAsync(source, declaredLength, cancellationToken).ConfigureAwait(false))
+            .Select(row => row.Row).ToArray();
+
+    /// <summary>持久任务保留物理行号，列映射只改变取值位置，不改变恢复幂等标识。</summary>
+    internal static async Task<IReadOnlyList<ParsedPositionWorkbookRow>> ParseImportRowsAsync(
+        Stream source,
+        long declaredLength,
+        CancellationToken cancellationToken,
+        ImportColumnMappingRequest? columnMapping = null)
     {
         ArgumentNullException.ThrowIfNull(source);
         if (declaredLength is <= 0 or > MaximumUploadBytes)
@@ -118,9 +128,10 @@ internal static class OrganizationPositionWorkbookCodec
         buffered.Position = 0;
         using var archive = new ZipArchive(buffered, ZipArchiveMode.Read, leaveOpen: true);
         ValidateArchive(archive);
-        var sharedStrings = ReadSharedStrings(archive);
+        var columnBudget = columnMapping is null ? ImportHeaders.Length : StaticImportHeaderMapping.MaximumSourceColumns;
+        var sharedStrings = ReadSharedStrings(archive, columnBudget);
         var worksheet = ReadXmlEntry(archive, WorksheetPath, required: true);
-        return ParseRows(worksheet, sharedStrings, cancellationToken);
+        return ParseRows(worksheet, sharedStrings, columnBudget, columnMapping, cancellationToken);
     }
 
     private static byte[] CreateWorkbook(
@@ -249,7 +260,7 @@ internal static class OrganizationPositionWorkbookCodec
         }
     }
 
-    private static IReadOnlyList<string> ReadSharedStrings(ZipArchive archive)
+    private static IReadOnlyList<string> ReadSharedStrings(ZipArchive archive, int columnBudget)
     {
         var document = ReadXmlEntry(archive, SharedStringsPath, required: false);
         if (document.Root is null)
@@ -262,7 +273,7 @@ internal static class OrganizationPositionWorkbookCodec
             .Select(item => string.Concat(
                 item.Descendants(SpreadsheetNamespace + "t").Select(text => text.Value)))
             .ToArray();
-        if (values.Length > (MaximumDataRows + 1) * ImportHeaders.Length)
+        if (values.Length > (MaximumDataRows + 1) * columnBudget)
         {
             throw new InvalidDataException("职位导入工作簿共享字符串数量超过上限。");
         }
@@ -270,32 +281,45 @@ internal static class OrganizationPositionWorkbookCodec
         return values;
     }
 
-    private static IReadOnlyList<ImportOrganizationPositionRow> ParseRows(
+    private static IReadOnlyList<ParsedPositionWorkbookRow> ParseRows(
         XDocument worksheet,
         IReadOnlyList<string> sharedStrings,
+        int columnBudget,
+        ImportColumnMappingRequest? columnMapping,
         CancellationToken cancellationToken)
     {
         var rows = worksheet
             .Descendants(SpreadsheetNamespace + "row")
             .ToArray();
-        if (rows.Length == 0)
+        if (rows.Length == 0 || rows.Length > MaximumDataRows + 1)
         {
             throw new InvalidDataException("职位导入工作簿缺少表头。");
         }
 
-        var headers = ReadRow(rows[0], sharedStrings);
-        if (headers.Count != ImportHeaders.Length
-            || !headers.SequenceEqual(ImportHeaders, StringComparer.Ordinal))
+        var headerLine = RowNumber(rows[0], 1);
+        if (headerLine != 1) throw new InvalidDataException("职位导入表头必须位于第一行。");
+        var headers = ReadRow(rows[0], sharedStrings, columnBudget, headerLine);
+        IReadOnlyList<int> layout;
+        if (columnMapping is not null)
+            layout = StaticImportHeaderMapping.Bind(ImportHeaders, headers, columnMapping);
+        else if (!headers.SequenceEqual(ImportHeaders, StringComparer.Ordinal))
         {
             throw new InvalidDataException(
                 $"职位导入工作簿表头必须严格为：{string.Join(", ", ImportHeaders)}。");
         }
+        else layout = Enumerable.Range(0, ImportHeaders.Length).ToArray();
 
-        var requests = new List<ImportOrganizationPositionRow>(Math.Min(rows.Length - 1, MaximumDataRows));
+        var requests = new List<ParsedPositionWorkbookRow>(Math.Min(rows.Length - 1, MaximumDataRows));
+        var previousLine = 1;
         foreach (var row in rows.Skip(1))
         {
             cancellationToken.ThrowIfCancellationRequested();
-            var cells = ReadRow(row, sharedStrings);
+            var physicalLine = RowNumber(row, previousLine + 1);
+            if (physicalLine <= previousLine || physicalLine > MaximumDataRows + 1)
+                throw new InvalidDataException("职位导入工作簿行号无效或超过上限。");
+            previousLine = physicalLine;
+            var sourceCells = ReadRow(row, sharedStrings, columnBudget, physicalLine);
+            var cells = layout.Select(index => sourceCells[index]).ToArray();
             if (cells.All(string.IsNullOrWhiteSpace))
             {
                 continue;
@@ -306,12 +330,12 @@ internal static class OrganizationPositionWorkbookCodec
                 throw new InvalidDataException($"职位导入工作簿最多允许 {MaximumDataRows} 行数据。");
             }
 
-            requests.Add(new ImportOrganizationPositionRow(
+            requests.Add(new ParsedPositionWorkbookRow(physicalLine, new ImportOrganizationPositionRow(
                 Cell(cells, 0),
                 Cell(cells, 1),
                 ParseDisplayOrder(Cell(cells, 2)),
                 NullIfEmpty(Cell(cells, 3)),
-                NullIfEmpty(Cell(cells, 4))));
+                NullIfEmpty(Cell(cells, 4)))));
         }
 
         return requests;
@@ -338,9 +362,12 @@ internal static class OrganizationPositionWorkbookCodec
 
     private static IReadOnlyList<string> ReadRow(
         XElement row,
-        IReadOnlyList<string> sharedStrings)
+        IReadOnlyList<string> sharedStrings,
+        int columnBudget,
+        int physicalLine)
     {
-        var values = new string[ImportHeaders.Length];
+        var values = Enumerable.Repeat(string.Empty, columnBudget).ToArray();
+        var seen = new HashSet<int>();
         foreach (var cell in row.Elements(SpreadsheetNamespace + "c"))
         {
             if (cell.Element(SpreadsheetNamespace + "f") is not null)
@@ -349,17 +376,8 @@ internal static class OrganizationPositionWorkbookCodec
             }
 
             var reference = (string?)cell.Attribute("r") ?? string.Empty;
-            var columnIndex = ColumnIndex(reference);
-            if (columnIndex < 0 || columnIndex >= ImportHeaders.Length)
-            {
-                var extraValue = ReadCellValue(cell, sharedStrings);
-                if (!string.IsNullOrWhiteSpace(extraValue))
-                {
-                    throw new InvalidDataException("职位导入工作簿包含未知列。");
-                }
-
-                continue;
-            }
+            var columnIndex = ColumnIndex(reference, columnBudget, physicalLine);
+            if (!seen.Add(columnIndex)) throw new InvalidDataException("职位导入工作簿包含重复单元格。");
 
             values[columnIndex] = ReadCellValue(cell, sharedStrings);
         }
@@ -468,7 +486,7 @@ internal static class OrganizationPositionWorkbookCodec
     private static string CellReference(int columnIndex, int rowNumber) =>
         $"{(char)('A' + columnIndex)}{rowNumber}";
 
-    private static int ColumnIndex(string reference)
+    private static int ColumnIndex(string reference, int columnBudget, int expectedRow)
     {
         var index = 0;
         var column = 0;
@@ -486,14 +504,14 @@ internal static class OrganizationPositionWorkbookCodec
                 break;
             }
 
-            // 固定模板只有五列；先限制列序号，避免恶意超长引用触发整数溢出。
-            if (column >= ImportHeaders.Length)
+            // 在乘法前限制宽度，映射模式也不能用超长引用绕过有界解析。
+            if (column >= columnBudget || index >= 2)
             {
                 throw new InvalidDataException("职位导入工作簿包含非法单元格引用。");
             }
 
             column = (column * 26) + ordinal;
-            if (column > ImportHeaders.Length)
+            if (column > columnBudget)
             {
                 throw new InvalidDataException("职位导入工作簿包含未知列。");
             }
@@ -513,7 +531,7 @@ internal static class OrganizationPositionWorkbookCodec
                 NumberStyles.None,
                 CultureInfo.InvariantCulture,
                 out var rowNumber)
-            || rowNumber < 1)
+            || rowNumber != expectedRow)
         {
             throw new InvalidDataException("职位导入工作簿包含非法单元格引用。");
         }
@@ -523,4 +541,12 @@ internal static class OrganizationPositionWorkbookCodec
 
     private static string Cell(IReadOnlyList<string> cells, int index) =>
         index < cells.Count ? cells[index] : string.Empty;
+
+    private static int RowNumber(XElement row, int fallback) =>
+        row.Attribute("r") is not { } attribute ? fallback :
+        int.TryParse(attribute.Value, NumberStyles.None, CultureInfo.InvariantCulture, out var number) && number > 0
+            ? number : throw new InvalidDataException("职位导入工作簿包含非法行号。");
 }
+
+/// <summary>物理行号在列重排及跳过空白行后仍保持稳定。</summary>
+internal sealed record ParsedPositionWorkbookRow(int LineNumber, ImportOrganizationPositionRow Row);

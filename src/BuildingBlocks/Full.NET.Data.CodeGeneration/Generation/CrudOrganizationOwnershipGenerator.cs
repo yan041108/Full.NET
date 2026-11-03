@@ -35,10 +35,10 @@ internal static class CrudOrganizationOwnershipGenerator
             private static class GeneratedTenantDataScopeComposer
             {
                 private const string CountTenantWhereAnchor =
-                    "WHERE TenantId = @TenantId";
+                    "WHERE 1 = 1";
 
                 private const string ListTenantWhereAnchor =
-                    "WHERE 1 = 1\n            AND TenantId = @TenantId";
+                    "WHERE 1 = 1";
 
                 internal static SqlStatement ApplyDataScopeFilter(
                     SqlStatement statement,
@@ -121,8 +121,10 @@ internal static class CrudOrganizationOwnershipGenerator
                     bool isSuperAdministrator,
                     int page,
                     int pageSize,
-                    CancellationToken cancellationToken = default)
+                    CancellationToken cancellationToken = default,
+                    {{schema.ClrTypeName}}ListQuery? query = null)
                 {
+            {{CrudListQueryGenerator.ServiceValidation(schema)}}
                     page = Math.Max(page, 1);
                     pageSize = Math.Clamp(pageSize, 1, 100);
                     var offset = (long)(page - 1) * pageSize;
@@ -135,15 +137,20 @@ internal static class CrudOrganizationOwnershipGenerator
                         scope,
                         "OrganizationUnitId",
                         currentUserId);
+                    var countBase = databaseOptions.Value.Provider switch
+                    {
+                        DatabaseProvider.SqlServer => {{schema.ClrTypeName}}Sql.QueryCountSqlServerStatement,
+                        DatabaseProvider.MySql => {{schema.ClrTypeName}}Sql.QueryCountMySqlStatement,
+                        _ => throw new InvalidOperationException("The configured database provider is not supported."),
+                    };
+                    // 计数与分页共用固定租户条件追加范围，不依赖 WHERE 前导项或排版。
                     var countStatement = GeneratedTenantDataScopeComposer.ApplyDataScopeFilter(
-                        {{schema.ClrTypeName}}Sql.CountStatement,
+                        countBase,
                         filter,
-                        "WHERE TenantId = @TenantId");
+                        "AND TenantId = @TenantId");
                     var total = await queryExecutor.QuerySingleOrDefaultAsync<long>(
                             countStatement,
-                            GeneratedTenantDataScopeComposer.MergeParameters(
-                                null,
-                                filter),
+                            GeneratedTenantDataScopeComposer.MergeParameters(query.Parameters(offset, pageSize), filter),
                             cancellationToken)
                         .ConfigureAwait(false);
                     var baseStatement = databaseOptions.Value.Provider switch
@@ -158,12 +165,12 @@ internal static class CrudOrganizationOwnershipGenerator
                     var listStatement = GeneratedTenantDataScopeComposer.ApplyDataScopeFilter(
                         baseStatement,
                         filter,
-                        "WHERE 1 = 1\n            AND TenantId = @TenantId");
+                        "AND TenantId = @TenantId");
                     var rows = await queryExecutor
                         .QueryAsync<{{schema.ClrTypeName}}Record>(
                             listStatement,
                             GeneratedTenantDataScopeComposer.MergeParameters(
-                                new Dictionary<string, object?> { ["Offset"] = offset, ["PageSize"] = pageSize },
+                                query.Parameters(offset, pageSize),
                                 filter),
                             cancellationToken)
                         .ConfigureAwait(false);
@@ -221,9 +228,10 @@ internal static class CrudOrganizationOwnershipGenerator
                             actorUserId,
                             cancellationToken)
                         .ConfigureAwait(false);
-                    if (!authorization.IsSuccess)
+                    if (!authorization.IsSuccess || !authorization.Value)
                     {
-                        return Result<{{schema.ClrTypeName}}Response>.Failure(authorization.Error!);
+                        return Result<{{schema.ClrTypeName}}Response>.Failure(authorization.Error ?? new Error(
+                            OrganizationErrorCodes.WriteAccessDenied, "Write access to the organization unit was denied.", ErrorType.Forbidden));
                     }
         """;
 
@@ -247,9 +255,10 @@ internal static class CrudOrganizationOwnershipGenerator
                             actorUserId,
                             cancellationToken)
                         .ConfigureAwait(false);
-                    if (!authorization.IsSuccess)
+                    if (!authorization.IsSuccess || !authorization.Value)
                     {
-                        return Result<{{schema.ClrTypeName}}Response>.Failure(authorization.Error!);
+                        return Result<{{schema.ClrTypeName}}Response>.Failure(authorization.Error ?? new Error(
+                            OrganizationErrorCodes.WriteAccessDenied, "Write access to the organization unit was denied.", ErrorType.Forbidden));
                     }
         """;
 
@@ -262,9 +271,10 @@ internal static class CrudOrganizationOwnershipGenerator
                             actorUserId,
                             cancellationToken)
                         .ConfigureAwait(false);
-                    if (!authorization.IsSuccess)
+                    if (!authorization.IsSuccess || !authorization.Value)
                     {
-                        return Result<{{schema.ClrTypeName}}Response>.Failure(authorization.Error!);
+                        return Result<{{schema.ClrTypeName}}Response>.Failure(authorization.Error ?? new Error(
+                            OrganizationErrorCodes.WriteAccessDenied, "Write access to the organization unit was denied.", ErrorType.Forbidden));
                     }
         """;
 
@@ -315,7 +325,7 @@ internal static class CrudOrganizationOwnershipGenerator
                     return Guid.TryParse(
                         httpContext.Request.Headers[
                             OrganizationRequestHeaders.OrganizationUnitId],
-                        out organizationUnitId);
+                        out organizationUnitId) && organizationUnitId != Guid.Empty;
                 }
         """;
 }

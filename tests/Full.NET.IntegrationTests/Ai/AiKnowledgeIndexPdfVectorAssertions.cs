@@ -264,6 +264,7 @@ internal static class AiKnowledgeIndexPdfVectorAssertions
             Assert.IsFalse(await Use(a => a.Activations.IsReadyForReadAsync(status, readParameters, default)));
             await db.ExecuteAsync("UPDATE fn_ai_knowledge_index_vector SET Payload=@Payload WHERE Id=@Id", new { Payload = activePayload, Id = operations[0] });
             // 一轮生产 Worker DI、格式扫描、领取与 PDF 恢复；完整持久数据不调用文件或模型。
+            await AiKnowledgePublishedFixture.PrepareActivationRecoveryAsync(db, taskId);
             await db.ExecuteAsync("UPDATE fn_ai_knowledge_index_task SET StateKey='queued',AttemptCount=0,LeaseToken=NULL,LeaseExpiresAtUtc=NULL WHERE Id=@Id", new { Id = taskId });
             if (probe is null)
             {
@@ -311,7 +312,7 @@ internal static class AiKnowledgeIndexPdfVectorAssertions
                 return await action(new(tasks, sessions, new(query, command, transaction, state, tenant, clock, tasks, sessions, auth, options),
                     new(query, expire ? new ExpireAfterInsert(command, clock) : command, transaction, state, tenant, clock, tasks, sessions, auth, options),
                     new(query, command, tasks, ids, options), new(query, command, transaction, state, tenant, clock, tasks, sessions, auth, options),
-                    new(query, rejectActivation ? new RejectActivationPointer(command) : command, transaction, state, tenant, clock, ids, tasks, auth, options),
+                    new(query, rejectActivation ? new RejectActivationPointer(command) : command, transaction, state, tenant, clock, ids, tasks.Scope, auth, options),
                     query, services.GetRequiredService<IAiOperationBudgetStore>(), services.GetRequiredService<AiKnowledgeIndexCleanupStore>(),
                     new(query, command, state, tenant, clock, tasks, auth, Options.Create(new AiKnowledgePdfRuntimeOptions { Enabled = true }))));
             }

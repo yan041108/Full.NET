@@ -1,6 +1,8 @@
 using Full.NET.Agents.Tools;
 using Full.NET.Modules.Ai.Contracts;
 using Full.NET.Modules.Ai.Features.ManageAgentTools.Handlers;
+using Full.NET.Modules.Ai.Features.CompletePersonalSchedules;
+using Full.NET.Modules.Calendar.Contracts;
 
 namespace Full.NET.Modules.Ai.Features.ManageAgentTools;
 
@@ -9,8 +11,10 @@ internal sealed class AgentToolRegistryFactory(
     PingToolHandler ping,
     ListModelsToolHandler listModels,
     ListChatSessionsToolHandler listSessions,
+    GetChatSessionMetadataToolHandler metadata,
     RenameChatSessionToolHandler renameSession,
-    IRemoteAgentToolDefinitionSource remoteAdapter)
+    IRemoteAgentToolDefinitionSource remoteAdapter,
+    ScheduleCompletionToolHandler? completeSchedule = null)
 {
     internal async Task<AgentToolRegistry> CreateAsync(CancellationToken cancellationToken)
     {
@@ -19,7 +23,9 @@ internal sealed class AgentToolRegistryFactory(
             new("ai.tools.ping", 1, AiAgentToolPermissions.CatalogRead, "none", true, ping),
             new("ai.models.list", 1, AiModelPermissions.Read, "read", true, listModels),
             new("ai.chat.sessions.list", 1, AiChatPermissions.Read, "read", true, listSessions),
+            new(GetChatSessionMetadataToolHandler.ToolName, 1, AiChatPermissions.Read, "read", true, metadata),
             new(RenameChatSessionToolHandler.ToolName, RenameChatSessionToolHandler.ToolVersion, AiChatPermissions.Update, "write", true, renameSession),
+            new(PersonalScheduleCompletionKeys.Tool, 1, PersonalScheduleCompletionKeys.Permission, "write", completeSchedule is not null, completeSchedule),
         };
         var remote = await remoteAdapter.BuildDefinitionsAsync(cancellationToken).ConfigureAwait(false);
         return new AgentToolRegistry(local.Concat(remote));

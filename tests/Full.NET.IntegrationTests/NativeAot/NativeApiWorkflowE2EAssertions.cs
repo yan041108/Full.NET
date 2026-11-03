@@ -85,6 +85,18 @@ internal static class NativeApiWorkflowE2EAssertions
         using var started = JsonDocument.Parse(
             await startResponse.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false));
         var firstTodoId = started.RootElement.GetProperty("activeTodoId").GetGuid();
+        var firstRevisions = await ReadRuntimeRevisionsAsync(client, token, firstTodoId, nativeLogFilePath, cancellationToken).ConfigureAwait(false);
+        using (var missingFormRevision = await client.SendAsync(AuthorizedJson(HttpMethod.Post,
+                   $"/api/v1/workflow/todos/{firstTodoId:D}/approve", token,
+                   new { expectedRevision = firstRevisions.Todo, fieldPatch = new { decision = "first-approved" },
+                       idempotencyKey = $"missing-form-revision-{Guid.CreateVersion7():N}" }), cancellationToken).ConfigureAwait(false))
+        {
+            await NativeApiE2EAssertions.AssertStatusAsync(missingFormRevision, HttpStatusCode.BadRequest,
+                "Missing Workflow form revision remains rejected", cancellationToken, nativeLogFilePath).ConfigureAwait(false);
+            using var problem = JsonDocument.Parse(await missingFormRevision.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false));
+            Assert.AreEqual("workflow.schema.invalid", problem.RootElement.GetProperty("code").GetString());
+        }
+        Assert.AreEqual(firstRevisions, await ReadRuntimeRevisionsAsync(client, token, firstTodoId, nativeLogFilePath, cancellationToken).ConfigureAwait(false));
 
         using var firstApproveResponse = await client.SendAsync(
             AuthorizedJson(
@@ -93,7 +105,8 @@ internal static class NativeApiWorkflowE2EAssertions
                 token,
                 new
                 {
-                    expectedRevision = 1,
+                    expectedRevision = firstRevisions.Todo,
+                    expectedFormRevision = firstRevisions.Form,
                     fieldPatch = new { decision = "first-approved" },
                     comment = "Native first stage",
                     idempotencyKey = $"approve-{Guid.NewGuid():N}",
@@ -102,13 +115,14 @@ internal static class NativeApiWorkflowE2EAssertions
                 firstApproveResponse,
                 HttpStatusCode.OK,
                 "Advance Workflow to second approval in Native Host.Api",
-                cancellationToken)
+                cancellationToken, nativeLogFilePath)
             .ConfigureAwait(false);
         using var advanced = JsonDocument.Parse(
             await firstApproveResponse.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false));
         Assert.AreEqual("active", advanced.RootElement.GetProperty("statusKey").GetString());
         var secondTodoId = advanced.RootElement.GetProperty("activeTodoId").GetGuid();
         Assert.AreNotEqual(firstTodoId, secondTodoId);
+        var secondRevisions = await ReadRuntimeRevisionsAsync(client, token, secondTodoId, nativeLogFilePath, cancellationToken).ConfigureAwait(false);
 
         using var secondApproveResponse = await client.SendAsync(
             AuthorizedJson(
@@ -117,7 +131,8 @@ internal static class NativeApiWorkflowE2EAssertions
                 token,
                 new
                 {
-                    expectedRevision = 1,
+                    expectedRevision = secondRevisions.Todo,
+                    expectedFormRevision = secondRevisions.Form,
                     fieldPatch = new { decision = "final-approved" },
                     comment = "Native final stage",
                     idempotencyKey = $"approve-{Guid.NewGuid():N}",
@@ -126,7 +141,7 @@ internal static class NativeApiWorkflowE2EAssertions
                 secondApproveResponse,
                 HttpStatusCode.OK,
                 "Complete Workflow in Native Host.Api",
-                cancellationToken)
+                cancellationToken, nativeLogFilePath)
             .ConfigureAwait(false);
         using var completed = JsonDocument.Parse(
             await secondApproveResponse.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false));
@@ -160,6 +175,7 @@ internal static class NativeApiWorkflowE2EAssertions
         using var started = JsonDocument.Parse(
             await startResponse.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false));
         var todoId = started.RootElement.GetProperty("activeTodoId").GetGuid();
+        var revisions = await ReadRuntimeRevisionsAsync(client, token, todoId, nativeLogFilePath, cancellationToken).ConfigureAwait(false);
 
         using var rejectResponse = await client.SendAsync(
             AuthorizedJson(
@@ -168,7 +184,8 @@ internal static class NativeApiWorkflowE2EAssertions
                 token,
                 new
                 {
-                    expectedRevision = 1,
+                    expectedRevision = revisions.Todo,
+                    expectedFormRevision = revisions.Form,
                     fieldPatch = new { decision = "rejected" },
                     comment = "Native terminal rejection",
                     idempotencyKey = $"reject-{Guid.NewGuid():N}",
@@ -177,12 +194,25 @@ internal static class NativeApiWorkflowE2EAssertions
                 rejectResponse,
                 HttpStatusCode.OK,
                 "Reject Workflow in Native Host.Api",
-                cancellationToken)
+                cancellationToken, nativeLogFilePath)
             .ConfigureAwait(false);
         using var rejected = JsonDocument.Parse(
             await rejectResponse.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false));
         Assert.AreEqual("rejected", rejected.RootElement.GetProperty("statusKey").GetString());
         Assert.AreEqual(JsonValueKind.Null, rejected.RootElement.GetProperty("activeTodoId").ValueKind);
+    }
+
+    private static async Task<(long Todo, long Form)> ReadRuntimeRevisionsAsync(HttpClient client, string token,
+        Guid todoId, string? logFilePath, CancellationToken cancellationToken)
+    {
+        // 待办和表单独立并发控制；每次动作读取服务器版本，不沿用初始值或前一节点的提交修订。
+        using var request = new HttpRequestMessage(HttpMethod.Get, $"/api/v1/workflow/todos/{todoId:D}/runtime");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        using var response = await client.SendAsync(request, cancellationToken).ConfigureAwait(false);
+        await NativeApiE2EAssertions.AssertStatusAsync(response, HttpStatusCode.OK,
+            "Read current Workflow action revisions", cancellationToken, logFilePath).ConfigureAwait(false);
+        using var runtime = JsonDocument.Parse(await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false));
+        return (runtime.RootElement.GetProperty("revision").GetInt64(), runtime.RootElement.GetProperty("submissionRevision").GetInt64());
     }
 
     private static async Task<PublishedWorkflowAssets> PublishAssetsAsync(

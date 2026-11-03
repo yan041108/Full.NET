@@ -1,3 +1,4 @@
+using Full.NET.Abstractions.Messaging;
 using Full.NET.Abstractions.Tenancy;
 using Full.NET.Abstractions.Time;
 using Full.NET.Data.Abstractions;
@@ -30,7 +31,7 @@ public sealed class WorkflowCcManagementServiceTests
             command,
             tenant,
             clock,
-            Options.Create(new DatabaseOptions { Provider = DatabaseProvider.SqlServer }));
+            Options.Create(new DatabaseOptions { Provider = DatabaseProvider.SqlServer }), Substitute.For<ICommandTransaction>(), Substitute.For<IActiveTenantContextResolver>());
 
         var result = await service.MarkReadAsync(Guid.CreateVersion7(), Guid.CreateVersion7());
 
@@ -60,7 +61,7 @@ public sealed class WorkflowCcManagementServiceTests
             command,
             tenant,
             clock,
-            Options.Create(new DatabaseOptions { Provider = DatabaseProvider.SqlServer }));
+            Options.Create(new DatabaseOptions { Provider = DatabaseProvider.SqlServer }), Substitute.For<ICommandTransaction>(), Substitute.For<IActiveTenantContextResolver>());
 
         var result = await service.MarkReadAsync(ccId, actorId);
 

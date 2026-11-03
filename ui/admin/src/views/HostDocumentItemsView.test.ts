@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { flushPromises, mount } from '@vue/test-utils';
 import { createPinia, setActivePinia } from 'pinia';
 import HostDocumentItemsView from './HostDocumentItemsView.vue';
+import { getDocumentPreviewCapabilities } from '../api/document-preview-tasks';
 import { useSessionStore } from '../auth/session';
 import {
   createDocumentItem,
@@ -14,6 +15,7 @@ import {
   uploadDocumentVersion
 } from '../api/host-document-items';
 
+vi.mock('../api/document-preview-tasks', () => ({ getDocumentPreviewCapabilities: vi.fn().mockResolvedValue({ enabled: true, allowedMimeTypes: ['application/msword'], maxInputBytes: 52428800 }), createDocumentPreviewTask: vi.fn() }));
 vi.mock('../api/host-document-categories', () => ({
   listDocumentCategories: vi.fn().mockResolvedValue([])
 }));
@@ -34,6 +36,7 @@ const downloadMock = vi.mocked(downloadDocumentContent);
 const openBlobMock = vi.mocked(openDocumentBlob);
 const item = {
   id: '0198f36e-f7a7-7c52-9cbb-774e67411205',
+  visibilityMode: 'host' as const,
   documentNo: 'DOC-000001',
   title: 'Spec',
   description: 'integration',
@@ -45,7 +48,7 @@ const item = {
   documentType: 99,
   sizeKb: 0,
   thumbnail: null,
-  status: 2,
+  status: 1,
   accessCount: 0,
   sort: 0,
   lastAccessTime: null,
@@ -145,6 +148,16 @@ describe('Vue Host 文档库页', () => {
     expect(wrapper.find('[data-testid="host-document-item-create"]').exists()).toBe(false);
   });
 
+  it('归档文档隐藏编辑、追加版本与分享，只展示恢复编辑命令', async () => {
+    listMock.mockResolvedValueOnce({ items: [{ ...item, status: 2 }], page: 1, pageSize: 20, total: 1 });
+    const wrapper = mountWithPermissions(['document.host_documents.read', 'document.host_documents.update',
+      'document.host_documents.add_version', 'document.host_shares.create', 'document.host_documents.unarchive']);
+    await flushPromises();
+    for (const action of ['edit', 'upload-version', 'share'])
+      expect(wrapper.find(`[data-testid="host-document-item-${action}"]`).exists()).toBe(false);
+    expect(wrapper.find('[data-testid="host-document-item-unarchive"]').exists()).toBe(true);
+  });
+
   it('add_version 权限即可显示上传新版本按钮', async () => {
     const wrapper = mountWithPermissions([
       'document.host_documents.read',
@@ -170,4 +183,64 @@ describe('Vue Host 文档库页', () => {
     expect(wrapper.find('[data-testid="host-document-item-delete"]').exists()).toBe(true);
     expect(wrapper.find('[data-testid="host-document-item-restore"]').exists()).toBe(false);
   });
+  it('使用服务端总数分页，组合筛选会发送新请求并回到第一页', async () => {
+    listMock.mockResolvedValue({ items: [item], page: 1, pageSize: 20, total: 123 });
+    const wrapper = mountWithPermissions(['document.host_documents.read']);
+    await flushPromises();
+    const pagination = wrapper.findComponent({ name: 'ElPagination' });
+    expect(pagination.props('total')).toBe(123);
+    pagination.vm.$emit('update:current-page', 2);
+    pagination.vm.$emit('current-change', 2);
+    await flushPromises();
+    expect(listMock).toHaveBeenLastCalledWith(2, 20, expect.any(Object), expect.any(AbortSignal));
+    wrapper.findComponent({ name: 'ArtSearchBar' }).vm.$emit('search', { title: '第 101 条', status: '0', documentType: '2' });
+    await flushPromises();
+    expect(listMock).toHaveBeenLastCalledWith(1, 20,
+      expect.objectContaining({ keyword: '第 101 条', status: 0, documentType: 2 }), expect.any(AbortSignal));
+  });
+
+  it('晚返回的旧查询不能覆盖新筛选结果', async () => {
+    let resolveOld!: (value: Awaited<ReturnType<typeof listDocumentItems>>) => void;
+    listMock.mockImplementationOnce(() => new Promise(resolve => { resolveOld = resolve; }));
+    const wrapper = mountWithPermissions(['document.host_documents.read']);
+    await flushPromises();
+    listMock.mockResolvedValueOnce({ items: [], page: 1, pageSize: 20, total: 0 });
+    wrapper.findComponent({ name: 'ArtSearchBar' }).vm.$emit('search', { title: 'empty' });
+    await flushPromises();
+    resolveOld({ items: [item], page: 1, pageSize: 20, total: 99 });
+    await flushPromises();
+    expect(wrapper.findComponent({ name: 'ElPagination' }).props('total')).toBe(0);
+    expect(wrapper.findComponent({ name: 'ElTable' }).props('data')).toEqual([]);
+  });
+
+  it('编辑支持显式清空分类和缩略图，描述及标签为空时提交清空值', async () => {
+    const wrapper = mountWithPermissions(['document.host_documents.read', 'document.host_documents.update']);
+    await flushPromises();
+    await wrapper.get('[data-testid="host-document-item-edit"]').trigger('click');
+    await flushPromises();
+    wrapper.findComponent({ name: 'ArtFormDialog' }).findComponent({ name: 'ElSelect' }).vm.$emit('update:modelValue', null);
+    const inputs = wrapper.findComponent({ name: 'ArtFormDialog' }).findAllComponents({ name: 'ElInput' });
+    inputs.find(input => input.props('type') === 'textarea')!.vm.$emit('update:modelValue', '');
+    inputs.find(input => input.props('clearable'))!.vm.$emit('update:modelValue', '');
+    await flushPromises();
+    wrapper.findComponent({ name: 'ArtFormDialog' }).vm.$emit('confirm');
+    await flushPromises();
+    expect(updateDocumentItem).toHaveBeenLastCalledWith(item, 'Spec', null,
+      { tagIds: [], categoryId: null, thumbnail: null, sort: 0 });
+  });
+
+  it.each([
+    ['APPLICATION/MSWORD; charset=utf-8', true, 8, true],
+    ['application/pdf', true, 8, false],
+    ['application/vnd.ms-excel', true, 8, false],
+    ['application/msword', false, 8, false],
+    ['application/msword', true, 52428801, false]
+  ])('Office 入口依据服务端 MIME、启用状态和大小：%s/%s/%s', async (mimeType, enabled, sizeBytes, visible) => {
+    vi.mocked(getDocumentPreviewCapabilities).mockResolvedValueOnce({ enabled: enabled as boolean, allowedMimeTypes: ['application/msword'], maxInputBytes: 52428800, maxAttempts: 3, providerKey: 'external_http' });
+    listMock.mockResolvedValueOnce({ items: [{ ...item, mimeType: mimeType as string, currentVersion: { ...item.currentVersion, sizeBytes: sizeBytes as number } }], page: 1, pageSize: 20, total: 1 });
+    const wrapper = mountWithPermissions(['document.host_documents.read', 'document.host_preview_tasks.create']); await flushPromises();
+    expect(wrapper.find('[data-testid="host-document-item-create-preview-task"]').exists()).toBe(visible);
+    wrapper.unmount();
+  });
+
 });

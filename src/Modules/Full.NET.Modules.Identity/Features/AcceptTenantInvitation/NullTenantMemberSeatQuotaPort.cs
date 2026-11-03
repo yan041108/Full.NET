@@ -6,6 +6,9 @@ namespace Full.NET.Modules.Identity.Features.AcceptTenantInvitation;
 
 internal sealed class NullTenantMemberSeatQuotaPort : ITenantMemberSeatQuotaPort
 {
+    public Task<Result<bool>> CancelConsumptionAsync(Guid tenantId, string operationId, CancellationToken cancellationToken = default) =>
+        Task.FromResult(Result<bool>.Success(true));
+
     public Task<Result<bool>> TryReserveAsync(
         Guid tenantId,
         string operationId,

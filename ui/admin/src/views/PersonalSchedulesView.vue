@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue';
+import { computed, defineAsyncComponent, onMounted, ref, watch } from 'vue';
 import {
   ElButton,
   ElCard,
@@ -20,6 +20,8 @@ import {
 import PermissionGate from '../components/PermissionGate.vue';
 import { useSessionStore } from '../auth/session';
 import { useAdminI18n } from '../i18n/adminI18n';
+import { personalScheduleAssistantText } from '../i18n/personal-schedule-assistant';
+import { personalScheduleCompletionText } from '../i18n/personal-schedule-completion';
 import {
   createPersonalSchedule,
   deletePersonalSchedule,
@@ -52,6 +54,21 @@ const formContent = ref('');
 const formStartAtUtc = ref('');
 const formEndAtUtc = ref('');
 const filterStatus = ref<'' | PersonalSchedule['status']>('');
+const sourceSchedule = ref<Pick<PersonalSchedule, 'id' | 'version'>>();
+const SourceDialog = defineAsyncComponent(() => import('../components/AiPersonalScheduleSourceDialog.vue'));
+const CompletionDialog = defineAsyncComponent(() => import('../components/AiPersonalScheduleCompletionDialog.vue'));
+const completionSchedule = ref<Pick<PersonalSchedule, 'id' | 'version'>>();
+const completionRuns = ref<Record<string, string>>({});
+const canCompleteAssistant = computed(() => !session.switching && ['calendar.personal_schedules.read', 'calendar.personal_schedules.set_status',
+  'calendar.personal_schedules.assistant_complete', 'ai.agent_runs.create', 'ai.agent_runs.read', 'ai.agent_runs.resume',
+  'ai.agent_approvals.read', 'ai.agent_approvals.request', 'ai.models.read'].every(code => session.can(code)));
+watch(() => [session.currentUser, session.currentContextName, session.switching], () => { completionSchedule.value = undefined; completionRuns.value = {}; }, { deep: true, flush: 'sync' });
+const canReadAssistant = computed(() => !session.switching && session.can('calendar.personal_schedules.read') && session.can('calendar.personal_schedules.assistant_read'));
+watch(() => [session.currentUser, session.currentContextName, session.switching, canReadAssistant.value], () => { sourceSchedule.value = undefined; }, { deep: true, flush: 'sync' });
+function invalidateSourceRow() {
+  // 来源拒读后，普通列表也不能继续显示该旧正文；打开的来源窗口仅保留身份及刷新提示。
+  if (sourceSchedule.value) schedules.value = schedules.value.filter(row => row.id !== sourceSchedule.value!.id);
+}
 
 const canCreate = computed(() => session.can('calendar.personal_schedules.create'));
 const canUpdate = computed(() => session.can('calendar.personal_schedules.update'));
@@ -194,6 +211,7 @@ function statusTagType(status: PersonalSchedule['status']): 'success' | 'info' {
 }
 
 async function loadMonthSchedules(): Promise<void> {
+  sourceSchedule.value = undefined;
   loading.value = true;
   problem.value = undefined;
   try {
@@ -457,6 +475,12 @@ function toProblem(
               <el-tag :type="statusTagType(schedule.status)">{{ statusLabel(schedule.status) }}</el-tag>
             </div>
             <div class="personal-schedules-day-list__actions">
+              <el-button v-if="canCompleteAssistant && schedule.status === 'pending'" link data-testid="personal-schedules-assistant-complete" @click="completionSchedule = { id: schedule.id, version: schedule.version }">
+                {{ personalScheduleCompletionText(locale, 'open') }}
+              </el-button>
+              <el-button v-if="canReadAssistant" link data-testid="personal-schedules-assistant-source" @click="sourceSchedule = { id: schedule.id, version: schedule.version }">
+                {{ personalScheduleAssistantText(locale, 'open') }}
+              </el-button>
               <PermissionGate code="calendar.personal_schedules.update">
                 <el-button
                   link
@@ -496,6 +520,11 @@ function toProblem(
       </el-card>
     </div>
 
+    <SourceDialog v-if="sourceSchedule && canReadAssistant" :schedule-id="sourceSchedule.id" :expected-version="sourceSchedule.version" @invalidated="invalidateSourceRow" @close="sourceSchedule = undefined" />
+    <CompletionDialog v-if="completionSchedule && canCompleteAssistant" :schedule-id="completionSchedule.id" :expected-version="completionSchedule.version"
+      :original-run-id="completionRuns[completionSchedule.id + ':' + completionSchedule.version]"
+      @accepted="id => { if (completionSchedule) completionRuns[completionSchedule.id + ':' + completionSchedule.version] = id; }"
+      @changed="loadMonthSchedules" @close="completionSchedule = undefined" />
     <el-dialog
       v-model="dialogVisible"
       :title="editingSchedule ? t('personalSchedules.editTitle') : t('personalSchedules.createTitle')"
@@ -585,7 +614,7 @@ function toProblem(
 
 .personal-schedules-calendar__weekdays {
   margin-bottom: 8px;
-  color: var(--el-text-color-secondary);
+  color: var(--el-text-color-regular);
   font-size: 12px;
   text-align: center;
 }
@@ -604,7 +633,8 @@ function toProblem(
 }
 
 .personal-schedules-calendar__cell.is-other-month {
-  opacity: 0.45;
+  color: var(--el-text-color-regular);
+  background: var(--el-fill-color-light);
 }
 
 .personal-schedules-calendar__cell.is-today {
@@ -617,6 +647,7 @@ function toProblem(
 
 .personal-schedules-calendar__day {
   font-weight: 600;
+  white-space: nowrap;
 }
 
 .personal-schedules-calendar__count {
@@ -638,7 +669,7 @@ function toProblem(
 
 .personal-schedules-day-list__empty {
   margin: 0;
-  color: var(--el-text-color-secondary);
+  color: var(--el-text-color-regular);
 }
 
 .personal-schedules-day-list__items {
@@ -661,6 +692,8 @@ function toProblem(
 
 .personal-schedules-day-list__content {
   display: flex;
+  min-width: 0;
+  overflow-wrap: anywhere;
   flex-direction: column;
   gap: 6px;
 }
@@ -672,9 +705,40 @@ function toProblem(
   align-items: flex-start;
 }
 
+.personal-schedules-day-list :deep(.el-tag) {
+  --el-tag-text-color: var(--el-text-color-primary);
+}
+
+.personal-schedules-day-list__actions :deep(.el-button--danger) {
+  --el-button-text-color: var(--fullnet-color-danger);
+  --el-button-hover-text-color: var(--fullnet-color-danger);
+  --el-button-active-text-color: var(--fullnet-color-danger);
+}
+
 @media (max-width: 960px) {
   .personal-schedules-layout {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .personal-schedules-calendar__weekdays,
+  .personal-schedules-calendar__grid {
+    gap: 4px;
+  }
+
+  .personal-schedules-calendar__cell {
+    min-height: 56px;
+    padding: 4px 2px;
+    align-items: center;
+  }
+
+  .personal-schedules-calendar__day {
+    font-size: 14px;
+  }
+
+  .personal-schedules-day-list__item {
+    flex-direction: column;
   }
 }
 </style>

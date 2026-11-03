@@ -60,6 +60,24 @@ public static class DocumentErrorCodes
     /// <summary>Office 预览转换执行失败。</summary>
     public const string OfficePreviewConversionFailed = "document.office_preview.conversion_failed";
 
+    /// <summary>预览任务已达到自动领取次数上限。</summary>
+    public const string PreviewAttemptsExhausted = "document.preview.attempts_exhausted";
+
+    /// <summary>预览任务已取消。</summary>
+    public const string PreviewCancelled = "document.preview.cancelled";
+
+    /// <summary>预览执行租约已过期。</summary>
+    public const string PreviewLeaseExpired = "document.preview.lease_expired";
+
+    /// <summary>预览引用已释放。</summary>
+    public const string PreviewReferenceReleased = "document.preview.reference_released";
+
+    /// <summary>预览结果未能提交。</summary>
+    public const string PreviewResultNotCommitted = "document.preview.result_not_committed";
+
+    /// <summary>旧预览任务需重新创建。</summary>
+    public const string PreviewLifecycleUpgradeRequired = "document.preview.lifecycle_upgrade_required";
+
     /// <summary>源文件不是受支持的 Office 类型。</summary>
     public const string OfficePreviewUnsupportedSource = "document.office_preview.unsupported_source";
 
@@ -169,6 +187,13 @@ public static class DocumentErrorCodes
         PreviewTaskNotReady,
         OfficePreviewProviderDisabled,
         OfficePreviewConversionFailed,
+        PreviewAttemptsExhausted,
+        PreviewCancelled,
+        PreviewLeaseExpired,
+        PreviewReferenceReleased,
+        PreviewResultNotCommitted,
+        PreviewLifecycleUpgradeRequired,
+
         OfficePreviewUnsupportedSource,
         OfficePreviewInputTooLarge,
         CategoryInvalid,

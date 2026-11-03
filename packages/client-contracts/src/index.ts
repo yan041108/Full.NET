@@ -326,6 +326,7 @@ export {
   isCreateOidcClientResult,
   isOidcClient,
   isOidcClientPage,
+  isOidcLogoutDelivery,
   isRotateOidcClientSecretResult
 } from './oidc-clients.js';
 
@@ -335,6 +336,7 @@ export type {
   OidcClient,
   OidcClientListQuery,
   OidcClientPage,
+  OidcLogoutDelivery,
   RotateOidcClientSecretResult,
   UpdateOidcClientRequest
 } from './oidc-clients.js';
@@ -664,12 +666,15 @@ export type {
 export {
   isAiChatSession,
   isAiChatSessionPage,
-  isAskAiKnowledgeResponse
+  isAskAiKnowledgeResponse,
+  isAiKnowledgeCorrectionCitation
 } from './ai-chat.js';
 
 export type {
   AiChatMessage,
   AiKnowledgeCitation,
+  AiPersonalScheduleCitation,
+  AiKnowledgeCorrectionCitation,
   AskAiKnowledgeRequest,
   AskAiKnowledgeResponse,
   AiChatSession,
@@ -1630,6 +1635,8 @@ export {
 export {
   isCodeGenerationRunApplyRequest,
   isCodeGenerationRunApplyResponse,
+  isCodeGenerationRunApplyPlanResponse,
+  isCodeGenerationWorkspaceStateResponse,
   isCodeGenerationRunPage,
   isCodeGenerationRunPreviewRequest,
   isCodeGenerationRunPreviewResponse,
@@ -1637,7 +1644,8 @@ export {
   isCodeGenerationRunRollbackRequest,
   isCodeGenerationRunRollbackResponse,
   isCodeGenerationRunRollbackChainRequest,
-  isCodeGenerationRunRollbackChainResponse
+  isCodeGenerationRunRollbackChainResponse,
+  isCodeGenerationRunPublicationResponse
 } from './code-generation-runs.js';
 
 export type {
@@ -1645,6 +1653,12 @@ export type {
   CodeGenerationIntegrationTarget,
   CodeGenerationRunApplyRequest,
   CodeGenerationRunApplyResponse,
+  CodeGenerationRunApplyPlanRequest,
+  CodeGenerationRunApplyPlanResponse,
+  CodeGenerationApplyPlanFileResponse,
+  CodeGenerationWorkspaceStateResponse,
+  CodeGenerationWorkspaceRecoveryRequest,
+  CodeGenerationWorkspacePhase,
   CodeGenerationRunOperationKind,
   CodeGenerationRunPage,
   CodeGenerationRunPreviewRequest,
@@ -1654,7 +1668,9 @@ export type {
   CodeGenerationRunRollbackResponse,
   CodeGenerationRunRollbackChainRequest,
   CodeGenerationRunRollbackChainResponse,
-  CodeGenerationRunStatus
+  CodeGenerationRunStatus,
+  CodeGenerationPublicationStatus,
+  CodeGenerationRunPublicationResponse
 } from './code-generation-runs.js';
 
 export type {
@@ -1736,9 +1752,28 @@ export type { ReportingDefinitionSummary, ReportingDefinitionVersionSummary } fr
 export { knowledgeFileContentTypes, knowledgeFileAccept } from './ai-knowledge-formats.js';
 
 export type { AiKnowledgeSourceLocation } from './ai-knowledge-location.js';
+export * from './ai-knowledge-correction-workspace.js';
+export * from './ai-knowledge-search.js';
+export * from './ai-knowledge-search-comparison.js';
 
 export * from './messaging-operations.js';
 
 export * from './workflow-claims.js';
 export * from './workflow-delegations.js';
 export * from './workflow-human-management.js';
+export * from './workflow-collaboration-grants.js';
+export { validateKnowledgeSearchRelations, type AiKnowledgeSearchRelationsResult } from './ai-knowledge-relations.js';
+export { validateKnowledgeSearchRefinement, type AiKnowledgeSearchRefinementResult } from './ai-knowledge-refinement.js';
+export * from './ai-knowledge-faq-drafts.js';
+export * from './ai-knowledge-faq-lifecycle.js';
+export { knowledgeFaqCitation } from './ai-knowledge-source-identity.js';
+export * from './ai-knowledge-faq-transfer.js';
+
+export * from './ai-knowledge-operations.js';
+export * from './ai-knowledge-evaluation.js';
+export * from './ai-knowledge-evaluation-runs.js';
+export * from './ai-personal-schedule-sources.js';
+export * from './ai-personal-schedule-completion.js';
+export * from './reporting-publications.js';
+export * from './cursor-page.js';
+export * from './query-schemes.js';

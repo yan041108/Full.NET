@@ -13,7 +13,7 @@ function fixture(action) {
   put(`${host}/Program.cs`, `using Demo.Composition;\n${anchor}\nreturn 0;\n`);
   put(`${host}/Demo.Host.Migrator.csproj`, '<Project Sdk="Microsoft.NET.Sdk">\n</Project>\n');
   put('verification/CrudGeneration/schema.json', readFileSync(new URL('./support/fixtures/application-crud-schema.json', import.meta.url)));
-  for (const provider of ['SqlServer', 'MySql']) put(`templates/migrations/${provider}/CreateProduct.sql.template`, `-- ${provider}\nCREATE TABLE acme_catalog_product (Id INT);\n`);
+  for (const provider of ['SqlServer', 'MySql']) put(`generated/acme/catalog/product/templates/migrations/${provider}/CreateProduct.sql.template`, `-- ${provider}\nCREATE TABLE acme_catalog_product (Id INT);\n`);
   put('framework/fullnet/manual.txt', 'protected framework');
   put('backend/Product.manual.cs', '// 必须保留的人工文件。');
   const capture = () => {
@@ -39,7 +39,7 @@ test('adopts exactly one reviewed draft per provider and preserves application a
     if (!path.startsWith(host + '/')) assert.equal(after[path], bytes, path);
   }
   for (const provider of ['SqlServer', 'MySql']) {
-    assert.equal(readFileSync(join(root, `${host}/Migrations/${provider}/001_CreateProduct.sql`), 'utf8'), readFileSync(join(root, `templates/migrations/${provider}/CreateProduct.sql.template`), 'utf8'));
+    assert.equal(readFileSync(join(root, `${host}/Migrations/${provider}/001_CreateProduct.sql`), 'utf8'), readFileSync(join(root, `generated/acme/catalog/product/templates/migrations/${provider}/CreateProduct.sql.template`), 'utf8'));
     assert.ok(readFileSync(join(root, `${host}/Demo.Host.Migrator.csproj`), 'utf8').includes(`LogicalName="acme.catalog.Migrations.${provider}.001_CreateProduct.sql"`));
   }
   assert.ok(readFileSync(join(root, `${host}/Program.cs`), 'utf8').includes('ApplicationMigrationRunner'));
@@ -48,7 +48,7 @@ test('adopts exactly one reviewed draft per provider and preserves application a
 }));
 
 test('missing provider draft fails before any writes', () => fixture(({ root, capture }) => {
-  rmSync(join(root, 'templates/migrations/MySql/CreateProduct.sql.template'));
+  rmSync(join(root, 'generated/acme/catalog/product/templates/migrations/MySql/CreateProduct.sql.template'));
   const before = capture();
   assert.throws(() => prepareApplicationBusinessMigrations(root));
   assert.deepEqual(capture(), before);
@@ -81,7 +81,7 @@ test('manual Program drift after adoption is protected', () => fixture(({ root, 
 }));
 test('changed source draft cannot rewrite an adopted migration', () => fixture(({ root, put, capture }) => {
   prepareApplicationBusinessMigrations(root);
-  put('templates/migrations/SqlServer/CreateProduct.sql.template', '-- 新草稿不能覆盖已登记版本。');
+  put('generated/acme/catalog/product/templates/migrations/SqlServer/CreateProduct.sql.template', '-- 新草稿不能覆盖已登记版本。');
   const before = capture();
   assert.throws(() => prepareApplicationBusinessMigrations(root));
   assert.deepEqual(capture(), before);

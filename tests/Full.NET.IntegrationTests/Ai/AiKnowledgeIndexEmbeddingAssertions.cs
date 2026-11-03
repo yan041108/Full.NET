@@ -25,14 +25,15 @@ namespace Full.NET.IntegrationTests.Ai;
 internal static class AiKnowledgeIndexEmbeddingAssertions
 {
     internal static async Task VerifyAsync(FullNetApiFactory factory, AiOperationBudgetAssertions.TestClock clock, bool wholeGeneration = false, bool activateGeneration = false, bool executeGeneration = false,
-        AiKnowledgeIndexWorkerAssertions.Controls? worker = null)
+        AiKnowledgeIndexWorkerAssertions.Controls? worker = null,
+        Func<IServiceProvider, System.Data.Common.DbConnection, AiKnowledgeIndexTaskBinding, ControlledFiles, SessionBindingSnapshot, Task>? publication = null)
     {
         await factory.InitializeAsync();
         if (!wholeGeneration && worker is null)
             await AiKnowledgeIndexPolicySnapshotAssertions.VerifyAsync(factory, clock);
         await using var db = AiOperationBudgetAssertions.Connection(factory);
         foreach (var tenant in new[] { false, true })
-        foreach (var scenario in worker is not null ? new[] { "known", "unmetered", "denied", "lost", "shutdown" } : wholeGeneration ? new[] { "known", "unmetered" } : new[] { "known", "lost", "zero", "revoked", "unmetered", "ambient", "settled_revoked", "settled_expired" })
+        foreach (var scenario in publication is not null ? new[] { "known" } : worker is not null ? new[] { "known", "unmetered", "denied", "lost", "shutdown" } : wholeGeneration ? new[] { "known", "unmetered" } : new[] { "known", "lost", "zero", "revoked", "unmetered", "ambient", "settled_revoked", "settled_expired" })
         {
             var p = await Migration246AiKnowledgeIndexTaskRecoveryTests.SeedAsync(db, tenant);
             clock.UtcNow = new DateTimeOffset((DateTime)p["Now"]!, TimeSpan.Zero);
@@ -123,7 +124,7 @@ internal static class AiKnowledgeIndexEmbeddingAssertions
                             services.GetRequiredService<IIdGenerator>(), heldTasks, authorization);
                         return new AiKnowledgeIndexPersistenceService(execution, VectorStore(services, heldTasks), ManifestStore(services, heldTasks),
                             new(query, command, services.GetRequiredService<ICommandTransaction>(), services.GetRequiredService<IDataTransactionState>(),
-                                services.GetRequiredService<ICurrentTenant>(), clock, services.GetRequiredService<IIdGenerator>(), heldTasks, authorization,
+                                services.GetRequiredService<ICurrentTenant>(), clock, services.GetRequiredService<IIdGenerator>(), heldTasks.Scope, authorization,
                                 services.GetRequiredService<IOptions<DatabaseOptions>>()), sessions)
                             .ExecuteTextGenerationAsync(binding, task.Id, held.LeaseToken.Value, token);
                     }),
@@ -131,10 +132,10 @@ internal static class AiKnowledgeIndexEmbeddingAssertions
                         VectorStore(services, tasks), ManifestStore(services, tasks), new(services.GetRequiredService<IQueryExecutor>(),
                             services.GetRequiredService<ICommandExecutor>(), services.GetRequiredService<ICommandTransaction>(),
                             services.GetRequiredService<IDataTransactionState>(), services.GetRequiredService<ICurrentTenant>(), clock,
-                            services.GetRequiredService<IIdGenerator>(), tasks, authorization, services.GetRequiredService<IOptions<DatabaseOptions>>()),
+                            services.GetRequiredService<IIdGenerator>(), tasks.Scope, authorization, services.GetRequiredService<IOptions<DatabaseOptions>>()),
                         SessionService(services, tasks)).ExecuteTextGenerationAsync(binding, task.Id, lease, default)),
                     () => provider.Calls, () => files.Opens, authorization, clock, held.LeaseExpiresAtUtc!.Value, scenario == "known");
-                await Use(async (_, _, services) => { await AiKnowledgeRetrievalAssertions.VerifyAsync(services, db, binding, factory); return true; });
+                await Use(async (_, _, services) => { if (publication is not null) { clock.UtcNow = DateTimeOffset.UtcNow; await publication(services, db, binding, files, session); } else await AiKnowledgeRetrievalAssertions.VerifyAsync(services, db, binding, factory); return true; });
                 continue;
             }
             if (wholeGeneration)
@@ -160,7 +161,7 @@ internal static class AiKnowledgeIndexEmbeddingAssertions
                                         : new AiKnowledgeIndexActivationAssertions.CommandHook(services.GetRequiredService<ICommandExecutor>(), hook),
                                     services.GetRequiredService<ICommandTransaction>(), services.GetRequiredService<IDataTransactionState>(),
                                     services.GetRequiredService<ICurrentTenant>(), services.GetRequiredService<IClock>(), services.GetRequiredService<IIdGenerator>(),
-                                    tasks, authorization, services.GetRequiredService<IOptions<DatabaseOptions>>()))
+                                    tasks.Scope, authorization, services.GetRequiredService<IOptions<DatabaseOptions>>()))
                                 .ActivateTextGenerationAsync(binding, task.Id, lease, default)), () => provider.Calls, authorization,
                             clock, held.LeaseExpiresAtUtc.Value, previousPointer);
                     if (activateGeneration && generation == 0)

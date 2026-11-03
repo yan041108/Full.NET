@@ -46,12 +46,15 @@ public sealed class OrganizationApiMySqlTests
     [TestMethod]
     public async Task Tenant_user_unit_management_follows_contract_with_mysql()
     {
+        var transactionProbe = new OrganizationAssignmentTransactionBoundaryProbe();
         using var factory = new FullNetApiFactory(
             DatabaseProvider.MySql,
-            await SharedDatabaseFixture.CreateMySqlDatabaseAsync());
+            await SharedDatabaseFixture.CreateMySqlDatabaseAsync(),
+            configureTestServices: transactionProbe.Configure);
 
         await OrganizationUserUnitManagementAssertions
             .VerifyTenantUserUnitManagementContractAsync(factory);
+        transactionProbe.AssertObserved();
     }
 
     [TestMethod]
@@ -68,11 +71,14 @@ public sealed class OrganizationApiMySqlTests
     [TestMethod]
     public async Task Tenant_user_position_management_follows_contract_with_mysql()
     {
+        var transactionProbe = new OrganizationAssignmentTransactionBoundaryProbe();
         using var factory = new FullNetApiFactory(
             DatabaseProvider.MySql,
-            await SharedDatabaseFixture.CreateMySqlDatabaseAsync());
+            await SharedDatabaseFixture.CreateMySqlDatabaseAsync(),
+            configureTestServices: transactionProbe.Configure);
 
         await OrganizationUserPositionManagementAssertions
             .VerifyTenantUserPositionManagementContractAsync(factory);
+        transactionProbe.AssertObserved();
     }
 }

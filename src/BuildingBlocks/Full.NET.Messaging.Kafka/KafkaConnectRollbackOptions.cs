@@ -54,9 +54,16 @@ internal sealed class KafkaConnectRollbackOptionsValidator : IValidateOptions<Ka
                 && (!MessagingNames.TopicCodePattern.IsMatch(item.ShadowTopicName) || item.ShadowTopicName == item.TopicName
                     || string.IsNullOrWhiteSpace(item.ShadowConnectorName) || item.ShadowConnectorName == item.ConnectorName || item.ShadowConnectorName.Length > 128
                     || item.ShadowConnectorName.Any(character => !char.IsAsciiLetterOrDigit(character) && character is not ('-' or '_' or '.'))))
-            || options.Streams.Select(item => (item.EventType, item.SchemaVersion)).Distinct().Count() != options.Streams.Length)
+            || options.Streams.Select(item => (item.EventType, item.SchemaVersion)).Distinct().Count() != options.Streams.Length
+            || Duplicated(options.Streams.SelectMany(item => new[] { item.ConnectorName, item.ShadowConnectorName }))
+            || Duplicated(options.Streams.SelectMany(item => new[] { item.TopicName, item.ShadowTopicName })))
             return ValidateOptionsResult.Fail("回退映射必须完整、有效且事件流不可重复。");
         return ValidateOptionsResult.Success;
+        static bool Duplicated(IEnumerable<string> values)
+        {
+            var entries = values.Where(value => !string.IsNullOrEmpty(value)).ToArray();
+            return entries.Distinct(StringComparer.Ordinal).Count() != entries.Length;
+        }
     }
 }
 

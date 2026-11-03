@@ -52,7 +52,7 @@ public static class KafkaCapacityConnectorTemplateFactory
     {
         var builder = new SqlConnectionStringBuilder(connectionString);
         var template = await LoadTemplateAsync(
-                "deploy/messaging/connectors/sqlserver-outbox-capacity.json",
+                "sqlserver-outbox-capacity.json",
                 cancellationToken)
             .ConfigureAwait(false);
         var replacements = new Dictionary<string, string>(StringComparer.Ordinal)
@@ -77,7 +77,7 @@ public static class KafkaCapacityConnectorTemplateFactory
     {
         var builder = new MySqlConnectionStringBuilder(connectionString);
         var template = await LoadTemplateAsync(
-                "deploy/messaging/connectors/mysql-outbox-capacity.json",
+                "mysql-outbox-capacity.json",
                 cancellationToken)
             .ConfigureAwait(false);
         var port = builder.Port > 0 ? builder.Port : 3306;
@@ -99,15 +99,13 @@ public static class KafkaCapacityConnectorTemplateFactory
     }
 
     private static async Task<ConnectorTemplateDocument> LoadTemplateAsync(
-        string relativePath,
+        string templateName,
         CancellationToken cancellationToken)
     {
-        var repositoryRoot = Path.GetFullPath(
-            Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", ".."));
-        var absolutePath = Path.Combine(
-            repositoryRoot,
-            relativePath.Replace('/', Path.DirectorySeparatorChar));
-        await using var stream = File.OpenRead(absolutePath);
+        // 与程序集一起冻结既定部署模板，禁止从运行目录猜测仓库位置或加载另一版本的配置。
+        await using var stream = typeof(KafkaCapacityConnectorTemplateFactory).Assembly.GetManifestResourceStream(
+            "Full.NET.Benchmarks.Kafka.Connectors." + templateName)
+            ?? throw new InvalidDataException("connector_template_resource_missing");
         return await JsonSerializer.DeserializeAsync<ConnectorTemplateDocument>(
                 stream,
                 JsonOptions,

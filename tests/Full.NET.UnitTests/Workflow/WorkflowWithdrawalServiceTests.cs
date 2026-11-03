@@ -98,7 +98,8 @@ public sealed class WorkflowWithdrawalServiceTests
             WorkflowTodoManagementTestDependencies.CreateTransitionExecutor(query, command, ids, outbox),
             WorkflowTodoManagementTestDependencies.CreateParallelJoinCoordinator(query, command, ids),
             WorkflowTodoManagementTestDependencies.CreateAttachmentCoordinator(), Substitute.For<ITenantFeatureEntitlementPort>(),
-            new(WorkflowTodoManagementTestDependencies.CreateAssigneeCoordinator(), query, WorkflowTodoManagementTestDependencies.CreateStarterSelectionPreparation()));
+            new(WorkflowTodoManagementTestDependencies.CreateAssigneeCoordinator(), query, WorkflowTodoManagementTestDependencies.CreateStarterSelectionPreparation()),
+            WorkflowTodoManagementTestDependencies.CreateRemoteFiles(query, tenant, clock));
         return new(service, query, command, outbox, instance);
     }
     private sealed record Fixture(WorkflowInstanceManagementService Service, IQueryExecutor Query, ICommandExecutor Command, IOutboxWriter Outbox, WorkflowInstanceRecord Instance);

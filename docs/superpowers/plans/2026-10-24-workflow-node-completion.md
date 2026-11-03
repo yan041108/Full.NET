@@ -1079,3 +1079,37 @@ Deferred_return_work实际双库2/2、0跳过（2m35.530s，SQL1m35.638s/MySQL2m
 用户要求提交当前全部代码并交给其它电脑接续，本机停止继续功能开发。中断后台已实际结束：sessions轮Integration Release0警告0错误（1m08.01s），真实双库0/2、0跳过（2m34.332s；SQL1m24.093s/MySQL2m33.965s，fullnet-workflow-collaboration-grant-databases-sessions-20261027.log/.trx，上下文0aAdr3）。夹具再次以同admin/client登录第三租户，使目标会话在AssetAsync(target)创建表单时401 identity.session_not_active（VerifyAsync第51行）；默认IdentityOptions.SessionLoginPolicy=SingleSessionPerClient，下一步必须独立真实用户或确实受支持的独立客户端，禁止放宽生产会话保护。尚未到授权业务断言，不计330通过。
 
 完整接续入口、有效证据、未验证项、边界和可复制执行指令已保存于2026-10-28-workflow-cross-machine-handoff.md；原系统临时driver/原始日志不随Git移动，接收方使用本机正式入口重建必要证据。331只同步拟用编号，尚未创建；迁移最高330。330公开契约导出/客户端生成、增量架构/AOT及独立审查缺口保留。
+
+### 2026-10-28 本机接续：330真实会话与扩展双库
+
+基线main/75be6fc0，保护本机既有改动并创建workflow-330-resume-20261028快照。目标及第三租户执行身份均改为独立真实用户，经正式邀请和接受进入租户；生产SingleSessionPerClient、活动成员和精确权限判断保持。原两项控制面双库2/2通过后，扩展Tenant↔Tenant场景先暴露管理员并非目标活动成员，再暴露带租户认证客户端不能用于Host用户登录，两轮均0/2；修正夹具后最终双库2/2、0跳过（38.948s，SQL35.557s/MySQL38.674s，fullnet-workflow-330-expanded-isolated.log及fullnet-workflow-330-resume.trx）。新增到期/禁用方、四权限拒绝及失效后的撤销，恢复Runner只允许330脚本并核对执行数1/0，不再随未来迁移扩围。
+
+直接架构8项7通过/1失败（46.111s）：全局SQL目录报告既有DocumentPurgeSql构造计数及workflow.connector.defer_inactive_tenant漏登记，保留失败；新增330精确目录门禁1/1通过（12.373s）不替代全局结果。本机11:01:50重启中断AOT，随后恢复Docker/backend doctor，清理仅属于本批死亡进程的资源锁并恢复NuGet输出，AOT最终结果待补。完整事实与后续清单见[交接入口的本机接续结果](2026-10-28-workflow-cross-machine-handoff.md#2026-10-28-本机接续结果)；330协议/客户端/UI、协作执行/可靠投递、Files及WF-R5仍未完成。
+
+重启恢复后的最终Host.Api AOT/Trim分析0警告0错误（8m58.38s，fullnet-workflow-330-aot-final.log），随后默认JIT还原成功且外层退出0。只计330增量Aot-analysis-clean，未执行原生发布。双库和精确目录新证据不消除全局门禁既有失败，也不覆盖尚未建设的协作执行及客户端。
+
+### 330协议与管理页建设、下一批调用链核对
+
+330四接口已加入客户端生成清单，实际SQL Server/MySQL规范导出各1/1、零跳过且规范一致，生成产物零漂移；Vue管理页、服务端精确页面/动作及共享可信导航已接线。当前共享政策5项、页面/导航13项、API3项、中英文目录9项、生成清单/就绪25项及330精确覆盖1项通过，Edge模拟API2/2、类型检查与生产构建通过。服务端目录/错误资源用例先2通过/2失败，补齐330四权限的All枚举和已有路由读取动作后4/4、0跳过（1.678s）通过。真实双方会话UI仍待本机重型资源，未把模拟结果算成真实后端通过；集成项目曾被并行新增Messaging Native用例的缺失命名空间阻挡，仅补该using，保留其余在途改动。新BrowserUi场景具有独立矩阵选择器，并从现有基础设施/普通聚合集合排除；选择器和排除边界结构检查通过。详见[接续记录](2026-10-28-workflow-cross-machine-handoff.md#330-协议与管理页接续2026-10-28真实-ui-已通过)。VForm仅许可文本枚举顺序导致摘要不稳定，已稳定排序并保留校验，实际资产篡改/排序3项通过；不能把此证据外推到历史绑定或新原生输入。
+
+下一批真实调用链核对（以下为实施前记录，最新333请求阶段见文末）：
+
+1. `WorkflowSubprocessActivationWriter`和`WorkflowActivityScheduler`提供真实Step/Epoch/输入修订及绑定写入的参考落点；协作调用必须独立保存自己的授权修订/摘要及投影，不能冒充同作用域子流程。`WorkflowInstanceManagementService.StartAsync`当前只接受普通或真实父项上下文，需增加受持久投递事实保护的内部协作来源，并在第一次激活前保存目标来源和预算。
+2. `IntegrationEventContext`没有发送模块字段，`IOutboxWriter.AddAsync`也不返回MessageId。协议应另有Workflow自己预先持久化的逻辑投递身份及载荷摘要，Handler同时核对信封租户与此事实；不能把载荷自报发送方或政策摘要当签名，也不能为取得任意Tenant上下文而修改通用消息基础设施。请求、创建、结果、取消分别保留唯一发布事实和Inbox去重。
+3. `WorkflowExecutionTenantScope`会切换同一作用域中的上下文，不适合作为跨租户Relay。Relay必须在事务外创建独立DI作用域；目标与源各自完成本地事务，不能复用消费者已有事务或`DbSession`。`WorkflowSubprocessProcessor`仅能作为同作用域协调参考，不直接承接跨租户消息。
+4. 目标及其后代的协作来源需要贯穿实例、活动、办理和终态发布；仅添加Root表关联或一次启动校验不够。复用子流程时必须把原根预算切片继续传递，不能把每个目标实例重新当作4096额度和深度8的新根。结果接纳复用`WorkflowAutomaticOutputCoordinator`的固定输入/字段冲突语义，原根仍是业务最终结果唯一发布者。
+5. 迁移331已经被AI知识纠正占用，创建协作迁移前重新核对下一编号。以上仅为实际调用链与实施边界确认，不计协作执行、可靠投递或Files已实现；公开节点20继续关闭。
+
+### 333源请求与本地可靠收件增量（双库已通过）
+
+330真实UI收尾：隔离根修正后首轮源提出成功，但目标管理员导航含既有领取池组件，共享白名单漏项导致登录失败（1m52.698s）；补精确组件/路由/路径并保留拒绝错误路径，Vue导航4/4、共享导航3/3通过。开发态VForm改用独立系统临时输出。最终真实SQL Server/Kestrel/Vue/Edge双方提出、接受、刷新、撤销和重读 **1/1、0跳过（1m02.725s）**。该结果只收口330管理UI，不能升级协作执行、Files或整体WF-R4状态。详见[330协议与管理页](2026-10-28-workflow-cross-machine-handoff.md#330-协议与管理页接续2026-10-28真实-ui-已通过)。
+
+复核331、332已被AI占用后，创建成对333迁移。普通源根现保存真实活动/Epoch/Fork、输入修订、固定授权与目标版本、标量投影及预算切片，并在同一本地事务写Outbox；收件Handler核对认证信封与持久摘要，只写源作用域的自然幂等交付事实。协作投影加入实际异步前置等待边界。附件/明细、子根来源传播、目标Relay/独立根、实时守卫、结果/取消和Files尚未完成，公共类型20继续关闭。
+
+本批最后的有效证据：Unit43/43、0跳过（855ms）；精确SQL目录1/1、0跳过（1m21.039s）；真实SQL Server1/1（35.010s）、MySQL1/1（48.051s），均0跳过，每库Host↔Tenant。修复过不可变版本夹具、实际异步字段读取分支缺失和夹具误用409；故障命中计数与实例/调用/Outbox无残留共同证明失败Result回滚，不以更早拒绝假通过。双库还验证真实Step/Epoch、128字符节点键、固定投影/预算、启动重放、实际Outbox/MemoryPack、并发本地收件、外信封拒绝、撤销及333单脚本恢复1/0保留事实。原始记录在系统临时目录`fullnet-workflow-333-async-boundary-fixed.log`、`fullnet-workflow-333-rollback-proof-fixed.log`；容器/网络/卷确认清理。此时增量AOT仍在分析中，未记NativeVerified；本地Handler收件通过不等于Broker/Relay/独立目标执行完成。
+
+最终增量AOT补记：首轮0/0编译5m44.69s期间Messaging源码变化，登记未完成，JIT还原又遇MSBuild子节点退出，不计通过。串行恢复后第二轮Host.Api AOT/Trim **0警告0错误（6m25.16s）**，正式登记成功，默认JIT还原与外层退出均0（`fullnet-workflow-333-aot-recovered.log`），独立锁已释放，只计`Aot-analysis-clean`，无原生发布或Worker原生证据。旧临时目录及本批历史`dist/runtime-53901`的归属检查清理命令被自动审批以`blocked by policy`拒绝，未执行删除或换工具绕过；保留原件，不声称文件清理全部完成。目标Relay、实时授权、结果/取消、Files、客户端剩余项及WF-R5继续保留未完成，公共类型20仍关闭。
+
+336目标批次接续：最小共享准入、独立源/目标作用域和本地事务、真实目标根/预算/来源、创建确认重试、目标/后代成员约束及部分实时守卫已实施。Unit97/97、精确14条SQL目录1/1，真实SQL Server1/1（37.501s）、MySQL1/1（52.039s），均0跳过；每库Host↔Tenant、目标实际审批、回滚/并发重试、源取消读取拒绝及336部分结构恢复。首轮SQL Server系统审计约束失败、第二轮夹具表单修订字段名失败均保留；本次AOT尚在执行，不引用333旧结果替代。列表/候选、后台及恢复实时守卫、结果/取消完整协议和Files仍未闭合。详见[336目标Relay接续](2026-10-28-workflow-cross-machine-handoff.md#336目标relay接续2026-10-28运行验收中)。
+
+已增加纯规则/收件/运行边界Unit、精确SQL目录及Host↔Tenant真实双库场景；未运行或未通过不能算验收。命名首轮34/37，修复注释目录与MySQL恢复辅助过程后37/37、0跳过（2.563s）。共享构建曾因其他在途源码变化被正式入口拒绝登记，未使用旧DLL绕过。用户要求自行创建资源后，采用正式隔离输出、限额独立容器、动态端口及扣除外部占用的硬件准入，相关复用脚本13/13通过。独立Unit首轮Roslyn内部空引用崩溃（3m33.42s），后续构建0/0未复现，暂不判定根因。Integration两次独立构建0/0登记后，真实UI首轮因MTP输出目录找不到源码根而1失败、0跳过（326ms），已接入显式验证的测试根。14:26:22再次重启中断恢复构建；backend doctor/Docker恢复，本批死亡锁按token清理，损坏外部锁保留并保守扣除预算。真实330 UI及333双库仍待，334/335已由AI占用。详见[交接入口](2026-10-28-workflow-cross-machine-handoff.md#2-协作调用与可靠投递333请求阶段双库已通过)。

@@ -4,9 +4,11 @@ using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Identity.Features.ManageHostOnlineSessions;
 using Full.NET.Modules.Identity.Oidc;
 using Full.NET.Modules.Identity.Security;
+using Full.NET.Abstractions.Messaging;
 using OpenIddict.Abstractions;
 using static OpenIddict.Abstractions.OpenIddictConstants;
 using static OpenIddict.Abstractions.OpenIddictExceptions;
+using Microsoft.Extensions.Options;
 
 namespace Full.NET.Modules.Identity.Features.ManageOidcClients;
 
@@ -18,7 +20,9 @@ internal sealed class OidcClientManagementService(
     IdentityOidcGrantRevocationService grantRevocationService,
     IdentityOidcSessionService sessionService,
     IdentitySessionRealtimeDelivery sessionRealtimeDelivery,
-    OidcManagementAuditWriter auditWriter)
+    ICommandTransaction transaction,
+    OidcManagementAuditWriter auditWriter,
+    IOptions<IdentityOidcOptions>? oidcOptions = null)
 {
     internal const int MaxClientIdLength = 128;
     internal const int MaxDisplayNameLength = 128;
@@ -30,6 +34,8 @@ internal sealed class OidcClientManagementService(
         OidcManagementActorContext actor,
         CancellationToken cancellationToken = default)
     {
+        if (!IdentityOidcBackchannelPolicy.IsAllowed(request.BackchannelLogoutUri, oidcOptions?.Value.BackchannelAllowedOrigins ?? []))
+            return Result<CreateOidcClientResponse>.Failure(ValidationCreateFailure("The backchannel URI is not deployment-approved.").Error!);
         var validation = ValidateCreateRequest(request);
         if (!validation.IsSuccess)
         {
@@ -63,7 +69,7 @@ internal sealed class OidcClientManagementService(
                 normalized.PostLogoutRedirectUris,
                 normalized.Scopes,
                 request.IsFirstParty,
-                normalized.ResourceAudience));
+                normalized.ResourceAudience, false, request.RequireMfa, request.BackchannelLogoutUri));
         await applicationManager.CreateAsync(descriptor, cancellationToken).ConfigureAwait(false);
         var created = await applicationManager.FindByClientIdAsync(normalized.ClientId, cancellationToken)
             .ConfigureAwait(false);
@@ -102,6 +108,8 @@ internal sealed class OidcClientManagementService(
         OidcManagementActorContext actor,
         CancellationToken cancellationToken = default)
     {
+        if (!IdentityOidcBackchannelPolicy.IsAllowed(request.BackchannelLogoutUri, oidcOptions?.Value.BackchannelAllowedOrigins ?? []))
+            return Result<OidcClientResponse>.Failure(ValidationUpdateFailure("The backchannel URI is not deployment-approved.").Error!);
         var application = await FindActiveApplicationAsync(clientId, cancellationToken).ConfigureAwait(false);
         if (!application.IsSuccess)
         {
@@ -122,6 +130,13 @@ internal sealed class OidcClientManagementService(
         var normalized = validation.Value!;
         var descriptor = await PopulateDescriptorAsync(application.Value!.Entity, cancellationToken)
             .ConfigureAwait(false);
+        var oldScopes = descriptor.Permissions.Where(permission => permission.StartsWith(Permissions.Prefixes.Scope, StringComparison.Ordinal))
+            .Select(permission => permission[Permissions.Prefixes.Scope.Length..]).ToHashSet(StringComparer.Ordinal);
+        var policyChanged = !oldScopes.SetEquals(normalized.Scopes)
+            || !descriptor.RedirectUris.Select(uri => uri.AbsoluteUri).ToHashSet(StringComparer.Ordinal).SetEquals(normalized.RedirectUris)
+            || application.Value.IsFirstParty != request.IsFirstParty
+            || application.Value.RequireMfa != request.RequireMfa
+            || !string.Equals(application.Value.ResourceAudience, normalized.ResourceAudience, StringComparison.Ordinal);
         descriptor.DisplayName = normalized.DisplayName;
         descriptor.RedirectUris.Clear();
         foreach (var redirectUri in normalized.RedirectUris)
@@ -136,9 +151,12 @@ internal sealed class OidcClientManagementService(
         }
 
         var allowedScopes = new HashSet<string>(normalized.Scopes, StringComparer.OrdinalIgnoreCase);
-        allowedScopes.Add(Scopes.OpenId);
-        allowedScopes.Add(Scopes.Profile);
-        allowedScopes.Add(Scopes.OfflineAccess);
+        // 策略收紧同时关闭刷新授权；不保留上一次描述符隐式授予的能力。
+        descriptor.Permissions.Remove(Permissions.GrantTypes.RefreshToken);
+        if (allowedScopes.Contains(Scopes.OfflineAccess))
+        {
+            descriptor.Permissions.Add(Permissions.GrantTypes.RefreshToken);
+        }
         descriptor.Permissions.RemoveWhere(permission =>
             permission.StartsWith(Permissions.Prefixes.Scope, StringComparison.Ordinal));
         foreach (var scope in allowedScopes)
@@ -150,11 +168,21 @@ internal sealed class OidcClientManagementService(
             descriptor,
             request.IsFirstParty,
             normalized.ResourceAudience,
-            false);
+            false, request.RequireMfa, request.BackchannelLogoutUri ?? string.Empty);
         try
         {
-            await applicationManager.UpdateAsync(application.Value!.Entity, descriptor, cancellationToken)
-                .ConfigureAwait(false);
+            await transaction.ExecuteAsync(async token =>
+            {
+                await applicationManager.UpdateAsync(application.Value!.Entity, descriptor, token).ConfigureAwait(false);
+                if (policyChanged)
+                {
+                    // 策略更新与旧授权失效共用事务，不能留下继续持有旧权限的活动会话。
+                    await grantRevocationService.RevokeByApplicationIdAsync(clientId, token).ConfigureAwait(false);
+                    var protocolClientId = await applicationManager.GetClientIdAsync(application.Value.Entity, token).ConfigureAwait(false);
+                    await sessionService.RevokeAllActiveApplicationSessionsByClientIdAsync(protocolClientId!, token).ConfigureAwait(false);
+                }
+                return true;
+            }, cancellationToken).ConfigureAwait(false);
         }
         catch (ConcurrencyException)
         {
@@ -407,7 +435,7 @@ internal sealed class OidcClientManagementService(
             row.Value!.IsFirstParty,
             row.Value!.ResourceAudience,
             row.Value!.IsDisabled,
-            row.Value!.Version));
+            row.Value!.Version, row.Value.RequireMfa));
     }
 
     private async Task<Result<LoadedApplication>> FindActiveApplicationAsync(
@@ -527,5 +555,6 @@ internal sealed class OidcClientManagementService(
         bool IsFirstParty,
         string? ResourceAudience,
         bool IsDisabled,
-        int Version);
+        int Version,
+        bool RequireMfa);
 }

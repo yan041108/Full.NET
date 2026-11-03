@@ -1,5 +1,7 @@
 import {
   importExportCreateImportTask,
+  importExportCancelImportTask,
+  importExportDownloadStaticSchemaTemplate,
   importExportDownloadImportTaskErrorReceipt,
   importExportExecuteImportTask,
   importExportGetImportTask,
@@ -11,10 +13,18 @@ import {
   isImportExportTaskPage,
   isStaticImportSchemaDefinition,
   type ImportExportTaskDetailResponse,
+  type ImportColumnMappingRequest,
   type ImportExportTaskPage,
   type StaticImportSchemaDefinition
 } from '@fullnet/client-contracts';
 import { http } from './http';
+
+/** 下载当前静态 Schema 的真实 XLSX 模板，复用统一认证与二进制请求边界。 */
+export async function downloadStaticImportTemplate(schemaKey: string, worksheetKey: string, signal?: AbortSignal): Promise<Blob> {
+  const value = await importExportDownloadStaticSchemaTemplate(http, { schemaKey, worksheetKey }, signal);
+  if (!(value instanceof Blob)) throw new Error('client.invalid_static_import_template');
+  return value;
+}
 
 /** 列出已注册的静态导入 Schema。 */
 export async function listStaticImportSchemas(
@@ -62,11 +72,12 @@ export async function createImportExportTask(
   schemaKey: string,
   worksheetKey: string,
   file: File,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  columnMapping?: ImportColumnMappingRequest
 ): Promise<ImportExportTaskDetailResponse> {
   const value = await importExportCreateImportTask(
     http,
-    { schemaKey, worksheetKey, file },
+    { schemaKey, worksheetKey, file, ...(columnMapping ? { columnMapping: JSON.stringify(columnMapping) } : {}) },
     signal
   );
   if (!isImportExportTaskDetailResponse(value)) {
@@ -108,6 +119,14 @@ export async function retryImportExportTask(
   if (!isImportExportTaskDetailResponse(value)) {
     throw new Error('client.invalid_import_export_task');
   }
+  return value;
+}
+
+/** 取消携带详情版本；服务端只停止原上传者尚未领取的工作，不回滚已经写入的业务行。 */
+export async function cancelImportExportTask(taskId: string, version: number, signal?: AbortSignal): Promise<ImportExportTaskDetailResponse> {
+  const value = await importExportCancelImportTask(http, { taskId, body: { version } }, signal);
+  if (!isImportExportTaskDetailResponse(value) || value.id.toLowerCase() !== taskId.toLowerCase()
+    || value.statusKey !== 'canceled' || value.version < version) throw new Error('client.invalid_import_export_task');
   return value;
 }
 

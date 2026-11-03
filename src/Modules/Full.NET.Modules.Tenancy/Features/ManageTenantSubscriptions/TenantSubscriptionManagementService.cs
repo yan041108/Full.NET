@@ -6,6 +6,7 @@ using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Tenancy.Contracts;
 using Full.NET.Modules.Tenancy.Features.ManageHostTenants;
 using Full.NET.Modules.Tenancy.Features.ManageTenantSubscriptions.Persistence;
+using Full.NET.Modules.Tenancy.Features.SubscriptionBilling;
 
 /// <summary>Tenancy 模块应用服务；编排事务、权限与持久化。</summary>
 namespace Full.NET.Modules.Tenancy.Features.ManageTenantSubscriptions;
@@ -16,7 +17,8 @@ internal sealed class TenantSubscriptionManagementService(
     ICommandTransaction transaction,
     IClock clock,
     IIdGenerator idGenerator,
-    TenantHostPackageBinder packageBinder)
+    TenantHostPackageBinder packageBinder,
+    TenantSubscriptionWriteBoundary boundary)
 {
     private static readonly HashSet<string> AllowedStatuses = new(StringComparer.Ordinal)
     {
@@ -29,7 +31,7 @@ internal sealed class TenantSubscriptionManagementService(
         Guid tenantId,
         CreateTenantSubscriptionRequest request,
         CancellationToken cancellationToken = default) =>
-        transaction.ExecuteAsync(
+        transaction.ExecuteResultAsync(
             token => CreateCoreAsync(tenantId, request, token),
             cancellationToken);
 
@@ -38,7 +40,7 @@ internal sealed class TenantSubscriptionManagementService(
         Guid subscriptionId,
         CancelTenantSubscriptionRequest request,
         CancellationToken cancellationToken = default) =>
-        transaction.ExecuteAsync(
+        transaction.ExecuteResultAsync(
             token => CancelCoreAsync(tenantId, subscriptionId, request, token),
             cancellationToken);
 
@@ -75,6 +77,8 @@ internal sealed class TenantSubscriptionManagementService(
                 ErrorType.Validation));
         }
 
+        if (!await boundary.EnterAsync(tenantId, cancellationToken).ConfigureAwait(false))
+            return Result<TenantSubscriptionResponse>.Failure(new Error(TenancyErrorCodes.NotFound, "Tenant was not found or is inactive.", ErrorType.NotFound));
         var existingActive = await queryExecutor.QuerySingleOrDefaultAsync<long>(
             TenantSubscriptionSql.CountActive,
             Tenancy.Persistence.TenancySqlParameters.Create(("TenantId", tenantId)), cancellationToken).ConfigureAwait(false) > 0;
@@ -135,6 +139,9 @@ internal sealed class TenantSubscriptionManagementService(
         CancelTenantSubscriptionRequest request,
         CancellationToken cancellationToken)
     {
+        if (!await boundary.EnterAsync(tenantId, cancellationToken, requireActive: false).ConfigureAwait(false))
+            return Result<TenantSubscriptionResponse>.Failure(new Error(TenancyErrorCodes.NotFound,
+                "Tenant was not found.", ErrorType.NotFound));
         var existing = await queryExecutor.QuerySingleOrDefaultAsync<TenantSubscriptionRecord>(
             TenantSubscriptionSql.FindById,
             Tenancy.Persistence.TenancySqlParameters.Create(("TenantId", tenantId), ("Id", subscriptionId)),
@@ -147,6 +154,11 @@ internal sealed class TenantSubscriptionManagementService(
                 ErrorType.NotFound));
         }
 
+        if (existing.Status == TenantSubscriptionStatuses.Cancelled)
+            return Result<TenantSubscriptionResponse>.Success(new(existing.Id, existing.TenantId, existing.PackageId, existing.Status,
+                existing.TrialEndsAtUtc, existing.CurrentPeriodStartUtc, existing.CurrentPeriodEndUtc, existing.CancelledAtUtc, existing.Version));
+        if (existing.Status == TenantSubscriptionStatuses.Expired)
+            return Result<TenantSubscriptionResponse>.Failure(new Error(TenancyErrorCodes.SubscriptionStatusInvalid, "The subscription has expired.", ErrorType.Conflict));
         if (existing.Version != request.Version)
         {
             return Result<TenantSubscriptionResponse>.Failure(new Error(

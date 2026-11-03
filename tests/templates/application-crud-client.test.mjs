@@ -14,14 +14,14 @@ async function fixture(action) {
     for (const name of ['generate-fullnet-client.mjs', 'validate-client-generation-readiness.mjs']) {
       cpSync(new URL('../../scripts/openapi/' + name, import.meta.url), join(appRoot, '.fullnet-tools/openapi', name));
     }
-    mkdirSync(join(appRoot, 'contracts/openapi'), { recursive: true });
+    mkdirSync(join(appRoot, 'generated/acme/catalog/product/contracts/openapi'), { recursive: true });
     const document = JSON.parse(readFileSync(new URL('../Full.NET.UnitTests/CodeGeneration/Fixtures/CatalogProduct/contracts/openapi/products.generated.openapi.json', import.meta.url), 'utf8'));
     // 黄金样例为旧禁用模式；独立应用明确采用 hard.delete，操作名和路由须与现代生成器一致。
     const deletion = document.paths['/api/v1/catalog/products/{productId}/disable'];
     deletion.post.operationId = 'catalogDeleteProduct';
     document.paths['/api/v1/catalog/products/{productId}/delete'] = deletion;
     delete document.paths['/api/v1/catalog/products/{productId}/disable'];
-    writeFileSync(join(appRoot, 'contracts/openapi/products.generated.openapi.json'), JSON.stringify(document));
+    writeFileSync(join(appRoot, 'generated/acme/catalog/product/contracts/openapi/products.generated.openapi.json'), JSON.stringify(document));
     cpSync(new URL('../../packages/client-contracts/src', import.meta.url), join(appRoot, 'packages/client-contracts/src'), { recursive: true });
     return await action(appRoot);
   } finally { rmSync(appRoot, { recursive: true, force: true }); }

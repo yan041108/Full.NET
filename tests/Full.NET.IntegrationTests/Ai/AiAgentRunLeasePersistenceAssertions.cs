@@ -18,6 +18,30 @@ namespace Full.NET.IntegrationTests.Ai;
 /// <summary>生产 IAgentRunStore 与双库租约 SQL 验证并发领取、fencing 与到期重领。</summary>
 internal static class AiAgentRunLeasePersistenceAssertions
 {
+    /// <summary>等待数据库行锁跨越租约期限时，旧版本不得提交进度。</summary>
+    internal static async Task VerifyLeaseExpiryDuringLockWaitAsync(FullNetApiFactory factory)
+    {
+        await factory.InitializeAsync();
+        var runId = await SeedQueuedRunAsync(factory, DateTimeOffset.UtcNow);
+        var lease = (await AcquireAsync(factory, runId, "a06-lock-wait", DateTimeOffset.UtcNow))!;
+        await using DbConnection blocker = factory.Provider == DatabaseProvider.SqlServer
+            ? new SqlConnection(factory.ConnectionString)
+            : new MySqlConnection(MySqlConnectionStringPolicy.Create(factory.ConnectionString, MySqlGuidStorageMode.Binary16, allowUserVariables: false));
+        await blocker.OpenAsync();
+        await using var transaction = await blocker.BeginTransactionAsync();
+        var expires = DateTime.UtcNow.AddSeconds(5);
+        await blocker.ExecuteAsync("UPDATE fn_ai_agent_run SET LeaseExpiresAtUtc=@Expires WHERE Id=@RunId",
+            new { RunId = runId, Expires = expires }, transaction);
+        var committing = UseStoreAsync(factory, async store =>
+            await store.CommitProgressAsync(new(lease, "completed", null, null, null)));
+        await Task.Delay(TimeSpan.FromSeconds(1));
+        Assert.IsFalse(committing.IsCompleted, "提交必须实际等待独立连接持有的行锁。");
+        await Task.Delay(TimeSpan.FromSeconds(6));
+        await transaction.CommitAsync();
+        Assert.IsFalse(await committing, "锁等待期间租约已经到期，旧所有者不得提交终态。");
+        Assert.AreEqual("running", await StatusAsync(factory, runId));
+    }
+
     internal static async Task VerifyAsync(FullNetApiFactory factory)
     {
         await factory.InitializeAsync();

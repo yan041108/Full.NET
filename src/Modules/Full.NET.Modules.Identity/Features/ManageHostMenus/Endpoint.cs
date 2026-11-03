@@ -68,7 +68,7 @@ internal static class Endpoint
             HostNavigationCatalogSyncService catalogSync,
             CancellationToken cancellationToken) =>
         {
-            var (created, skipped, reparented) = await catalogSync
+            var (created, skipped, reparented, _) = await catalogSync
                 .SyncMissingCatalogEntriesAsync(cancellationToken)
                 .ConfigureAwait(false);
             return Results.Ok(new HostNavigationCatalogSyncResponse(created, skipped, reparented));

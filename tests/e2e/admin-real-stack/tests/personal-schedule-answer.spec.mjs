@@ -1,0 +1,53 @@
+import { test, expect } from '@playwright/test';
+import AxeBuilder from '@axe-core/playwright';
+import { readFileSync, writeFileSync, renameSync } from 'node:fs';
+import path from 'node:path';
+import { loginAsHostUser } from './support/real-stack-auth.mjs';
+const ready = process.env.FULLNET_K06_ANSWER_BROWSER_READY;
+if (!ready) throw Error('Missing new mixed schedule answer bridge');
+const fixture = JSON.parse(readFileSync(ready, 'utf8')); const bridge = path.dirname(ready);
+const marker = (name, value) => { const file = path.join(bridge, name + '.writing'); writeFileSync(file, JSON.stringify(value)); renameSync(file, path.join(bridge, name + '.json')); };
+test.afterEach(async ({}, info) => { if (info.status !== info.expectedStatus) marker('failed', { passed: false }); });
+for (const [index, viewport] of [{ width: 1440, height: 1000 }, { width: 390, height: 844 }].entries())
+  test(`本人日程混合知识问答、引用与持久历史 ${viewport.width}`, async ({ page }, info) => {
+    test.setTimeout(240_000); page.setDefaultTimeout(15_000); const user = fixture.users[index]; const errors = []; let calls = 0;
+    page.on('pageerror', error => errors.push(error.message));
+    page.on('request', request => { if (request.method() === 'POST' && request.url().endsWith('/knowledge/ask')) calls++; });
+    await page.setViewportSize({ width: 1440, height: 1000 }); await loginAsHostUser(page, user.username, fixture.password); await page.setViewportSize(viewport);
+    await page.goto('/#/calendar/personal-schedules'); await page.getByTestId('personal-schedules-assistant-source').focus(); await page.keyboard.press('Enter');
+    const source = page.getByRole('dialog', { name: '本人日程来源', exact: true }); const panel = source.getByTestId('schedule-ask-panel');
+    await expect(panel).toBeVisible(); await panel.getByTestId('knowledge-bases-select').click();
+    await page.getByRole('option', { name: fixture.knowledgeName, exact: true }).click(); await page.keyboard.press('Escape');
+    await panel.getByTestId('schedule-ask-model').click(); await page.getByRole('option', { name: '人工原生向量', exact: true }).click();
+    await panel.getByTestId('schedule-ask-question').fill('结合知识库与本人日程回答'); expect(calls).toBe(0);
+    await panel.getByTestId('schedule-ask-prepare').focus(); await page.keyboard.press('Space');
+    const answer = page.getByTestId('search-answer-dialog'); await expect(answer).toBeVisible();
+    await answer.getByTestId('answer-session').click(); await page.getByRole('option', { name: '本人日程与知识问答 · ' + user.modelName, exact: true }).click();
+    expect(calls).toBe(0); await answer.getByTestId('answer-confirm').focus();
+    // 实际问答串联多个独立25秒阶段，等待当前唯一HTTP响应，不把默认5秒DOM断言当作API期限。
+    const completed = page.waitForResponse(value => value.request().method() === 'POST' && value.url().endsWith('/knowledge/ask'), { timeout: 90_000 });
+    await page.keyboard.press('Enter'); expect((await completed).status()).toBe(200);
+    await expect(answer.getByTestId('search-answer-text')).toHaveText('原生完整生成验证', { timeout: 30_000 }); expect(calls).toBe(1);
+    await expect(answer.getByTestId('answer-confirm')).toBeDisabled();
+    await answer.getByTestId('answer-history').focus(); await page.keyboard.press('Enter'); await expect(answer.getByTestId('search-answer-text')).toHaveText('原生完整生成验证', { timeout: 30_000 });
+    expect(calls).toBe(1); await answer.getByTestId('answer-schedule-preview').focus(); await page.keyboard.press('Enter');
+    const citedSource = page.getByRole('dialog', { name: '本人日程来源', exact: true }).last();
+    await expect(citedSource.getByTestId('personal-schedule-source')).toContainText(user.content);
+    await page.evaluate(async () => { await Promise.all(document.getAnimations().filter(value => Number.isFinite(value.effect?.getComputedTiming().endTime)).map(value => value.finished.catch(() => {}))); });
+    expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1)).toBe(true);
+    await page.screenshot({ path: info.outputPath('mixed-answer-source.png') });
+    await page.evaluate(async value => {
+      const api = await import('/src/api/personal-schedules.ts');
+      await api.updatePersonalSchedule(value.scheduleId, { content: '已改变的本人日程', startAtUtc: value.startAtUtc, endAtUtc: value.endAtUtc, version: value.version });
+    }, user);
+    await citedSource.getByRole('button', { name: '重新读取', exact: true }).focus(); await page.keyboard.press('Enter');
+    await expect(page.getByTestId('search-answer-text')).toHaveCount(0); await expect(page.getByTestId('personal-schedule-source')).toHaveCount(0);
+    const history = await page.evaluate(async sessionId => { const api = await import('/src/api/ai-chat.ts'); return api.getAiChatSession(sessionId); }, user.sessionId);
+    const messages = history.messages.filter(message => message.isKnowledgeAnswer); expect(messages).toHaveLength(1);
+    expect(messages[0].content).toBe(''); expect(messages[0].knowledgeUnavailableCode).toBe('ai.knowledge.answer_unavailable');
+    expect(messages[0].personalScheduleCitations).toEqual([]); expect(calls).toBe(1);
+    expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+    await page.screenshot({ path: info.outputPath('mixed-answer-invalidated.png') }); expect(errors).toEqual([]);
+    marker('complete-' + viewport.width, { passed: true });
+  });

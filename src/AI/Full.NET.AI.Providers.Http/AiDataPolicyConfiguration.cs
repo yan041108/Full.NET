@@ -15,7 +15,7 @@ internal static class AiDataPolicyConfiguration
         foreach (var child in section.GetChildren())
         {
             if (child.Key == "PrivateClassifications") privateClasses = ReadList(child);
-            else if (child.Key is "chat" or "embedding" or "rerank" or "context" or "telemetry" or "connectivity" or "mcp") stages.Add(child.Key, ReadList(child));
+            else if (child.Key is "chat" or "embedding" or "rerank" or "context" or "telemetry" or "connectivity" or "mcp" or "export") stages.Add(child.Key, ReadList(child));
             else throw new InvalidOperationException("AI data policy contains an unsupported setting.");
         }
         return new(stages, privateClasses);

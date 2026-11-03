@@ -17,7 +17,70 @@ internal sealed class HostNavigationCatalogSyncService(
 {
     private const string HostScope = "host";
 
-    public async Task<(int Created, int Skipped, int Reparented)> SyncMissingCatalogEntriesAsync(
+    // Platform 的本人任务和更新页面向租户，模块容器不要求 Host 更新日志管理权限。
+    internal static readonly SqlStatement RepairPlatformDirectoryPermission = new("identity.navigation.repair_platform_directory_permission", """
+        UPDATE fn_identity_navigation SET RequiredPermission=@RequiredPermission, UpdatedAtUtc=@Now, Version=Version+1
+        WHERE ScopeKey='host' AND TenantId IS NULL AND IsSystem=1 AND MenuType='directory'
+            AND RouteName='module-platform' AND Path='/modules/platform' AND RequiredPermission LIKE 'platform.%'
+        """, SqlDataScope.HostOnly);
+
+    // 配置页以读取资格进入，发布与预览仍是独立动作；只修框架原始系统节点，不改自定义菜单。
+    internal static readonly SqlStatement RepairPrintingTemplatePermission = new("identity.navigation.repair_printing_template_permission", """
+        UPDATE fn_identity_navigation SET RequiredPermission=@RequiredPermission,UpdatedAtUtc=@Now,Version=Version+1
+        WHERE ScopeKey='host' AND TenantId IS NULL AND IsSystem=1 AND RequiredPermission='printing.templates.preview'
+            AND ((MenuType='directory' AND RouteName='module-printing' AND Path='/modules/printing')
+                OR (MenuType='menu' AND RouteName='printing-preview' AND Path='/printing/preview' AND ComponentKey='printing-preview'))
+        """, SqlDataScope.HostOnly);
+
+    // 导航资格是独立的基础权限，移除早期误挂到工作台的系统按钮，保留权限和用户自定义项。
+    internal static readonly SqlStatement RemoveObsoleteNavigationAction = new("identity.navigation.remove_obsolete_navigation_action", """
+        DELETE FROM fn_identity_navigation WHERE ScopeKey='host' AND TenantId IS NULL AND IsSystem=1 AND MenuType='button'
+            AND RouteName='identity-navigation-read' AND ComponentKey='read-navigation' AND RequiredPermission=@RequiredPermission
+        """, SqlDataScope.HostOnly);
+
+    // 领域分组只要求导航资格；只修复本框架原有的系统目录，不改自定义目录或页面权限。
+    internal static readonly SqlStatement RepairDomainDirectoryPermission = new("identity.navigation.repair_domain_directory_permission", """
+        UPDATE fn_identity_navigation SET RequiredPermission=@RequiredPermission, UpdatedAtUtc=@Now, Version=Version+1
+        WHERE ScopeKey='host' AND TenantId IS NULL AND IsSystem=1 AND MenuType='directory'
+            AND RequiredPermission=@PreviousPermission AND (
+                (RouteName='domain-overview-platform' AND Path='/domains/overview-platform') OR
+                (RouteName='domain-tenancy-commerce' AND Path='/domains/tenancy-commerce') OR
+                (RouteName='domain-collaboration' AND Path='/domains/collaboration') OR
+                (RouteName='domain-data-intelligence' AND Path='/domains/data-intelligence') OR
+                (RouteName='domain-integration-dev' AND Path='/domains/integration-dev') OR
+                (RouteName='domain-operations-security' AND Path='/domains/operations-security') OR
+                (RouteName='domain-other' AND Path='/domains/other'))
+        """, SqlDataScope.HostOnly);
+
+    // 租户导出与 Host 定义管理共用目录，容器本身不能要求 Host 数据源权限。
+    internal static readonly SqlStatement RepairReportingDirectoryPermission = new("identity.navigation.repair_reporting_directory_permission", """
+        UPDATE fn_identity_navigation SET RequiredPermission=@RequiredPermission, UpdatedAtUtc=@Now, Version=Version+1
+        WHERE ScopeKey='host' AND TenantId IS NULL AND IsSystem=1 AND MenuType='directory'
+            AND RouteName='module-reporting' AND Path='/modules/reporting' AND RequiredPermission LIKE 'reporting.%'
+        """, SqlDataScope.HostOnly);
+
+    // 工作流目录只承载分组，不能让本人待办隐式依赖定义管理或协作授权管理权限；叶子仍逐项精确授权。
+    internal static readonly SqlStatement RepairWorkflowDirectoryPermission = new("identity.navigation.repair_workflow_directory_permission", """
+        UPDATE fn_identity_navigation SET RequiredPermission=@RequiredPermission, UpdatedAtUtc=@Now, Version=Version+1
+        WHERE ScopeKey='host' AND TenantId IS NULL AND IsSystem=1 AND MenuType='directory'
+            AND RouteName='module-workflow' AND Path='/modules/workflow' AND RequiredPermission LIKE 'workflow.%'
+        """, SqlDataScope.HostOnly);
+
+    // AI 审核者不需要模型配置读取权限；分组只要求导航资格，具体页面仍各自授权。
+    internal static readonly SqlStatement RepairAiDirectoryPermission = new("identity.navigation.repair_ai_directory_permission", """
+        UPDATE fn_identity_navigation SET RequiredPermission=@RequiredPermission, UpdatedAtUtc=@Now, Version=Version+1
+        WHERE ScopeKey='host' AND TenantId IS NULL AND IsSystem=1 AND MenuType='directory'
+            AND RouteName='module-ai' AND Path='/modules/ai' AND RequiredPermission LIKE 'ai.%'
+        """, SqlDataScope.HostOnly);
+
+    // 站内信支持租户会话，容器不能继承 Host 公告管理权限并隐藏已授权收件箱。
+    internal static readonly SqlStatement RepairNotificationsDirectoryPermission = new("identity.navigation.repair_notifications_directory_permission", """
+        UPDATE fn_identity_navigation SET RequiredPermission=@RequiredPermission, UpdatedAtUtc=@Now, Version=Version+1
+        WHERE ScopeKey='host' AND TenantId IS NULL AND IsSystem=1 AND MenuType='directory'
+            AND RouteName='module-notifications' AND Path='/modules/notifications' AND RequiredPermission LIKE 'notifications.%'
+        """, SqlDataScope.HostOnly);
+
+    public async Task<(int Created, int Skipped, int Reparented, int PermissionUpdated)> SyncMissingCatalogEntriesAsync(
         CancellationToken cancellationToken = default)
     {
         var routeNameIndex = await LoadRouteNameIndexAsync(cancellationToken)
@@ -26,6 +89,24 @@ internal sealed class HostNavigationCatalogSyncService(
                 routeNameIndex,
                 cancellationToken)
             .ConfigureAwait(false);
+        var permissionUpdated = await commandExecutor.ExecuteAsync(RemoveObsoleteNavigationAction,
+            new Dictionary<string, object?> { ["RequiredPermission"] = IdentityAuthorizationContributor.NavigationRead }, cancellationToken).ConfigureAwait(false);
+        permissionUpdated += await commandExecutor.ExecuteAsync(RepairDomainDirectoryPermission,
+            new Dictionary<string, object?> { ["RequiredPermission"] = IdentityAuthorizationContributor.NavigationRead,
+                ["PreviousPermission"] = IdentityAuthorizationContributor.DashboardRead, ["Now"] = clock.UtcNow }, cancellationToken).ConfigureAwait(false);
+        permissionUpdated += await commandExecutor.ExecuteAsync(RepairWorkflowDirectoryPermission,
+            new Dictionary<string, object?> { ["RequiredPermission"] = IdentityAuthorizationContributor.NavigationRead, ["Now"] = clock.UtcNow }, cancellationToken).ConfigureAwait(false);
+        permissionUpdated += await commandExecutor.ExecuteAsync(RepairAiDirectoryPermission,
+            new Dictionary<string, object?> { ["RequiredPermission"] = IdentityAuthorizationContributor.NavigationRead, ["Now"] = clock.UtcNow }, cancellationToken).ConfigureAwait(false);
+        permissionUpdated += await commandExecutor.ExecuteAsync(RepairNotificationsDirectoryPermission,
+            new Dictionary<string, object?> { ["RequiredPermission"] = IdentityAuthorizationContributor.NavigationRead, ["Now"] = clock.UtcNow }, cancellationToken).ConfigureAwait(false);
+        permissionUpdated += await commandExecutor.ExecuteAsync(RepairReportingDirectoryPermission,
+            new Dictionary<string, object?> { ["RequiredPermission"] = IdentityAuthorizationContributor.NavigationRead, ["Now"] = clock.UtcNow }, cancellationToken).ConfigureAwait(false);
+        permissionUpdated += await commandExecutor.ExecuteAsync(RepairPlatformDirectoryPermission,
+            new Dictionary<string, object?> { ["RequiredPermission"] = IdentityAuthorizationContributor.NavigationRead, ["Now"] = clock.UtcNow }, cancellationToken).ConfigureAwait(false);
+        if (authorizationCatalog.Navigation.Any(item => item.Id == "printing-preview" && item.RequiredPermission == "printing.templates.read"))
+            permissionUpdated += await commandExecutor.ExecuteAsync(RepairPrintingTemplatePermission,
+                new Dictionary<string, object?> { ["RequiredPermission"] = "printing.templates.read", ["Now"] = clock.UtcNow }, cancellationToken).ConfigureAwait(false);
         var navigationCreated = await SyncMissingNavigationEntriesAsync(
                 routeNameIndex,
                 cancellationToken)
@@ -53,7 +134,8 @@ internal sealed class HostNavigationCatalogSyncService(
         return (
             created,
             totalDefinitions - navigationCreated - buttonCreated,
-            reparented + domainReparented);
+            reparented + domainReparented,
+            permissionUpdated);
     }
 
     private async Task<int> SyncModuleDirectoriesAsync(
@@ -489,6 +571,9 @@ internal sealed class HostNavigationCatalogSyncService(
 
     private string ResolveModuleDirectoryPermission(string moduleKey)
     {
+        if (moduleKey == "workflow") return IdentityAuthorizationContributor.NavigationRead;
+        if (moduleKey == "ai") return IdentityAuthorizationContributor.NavigationRead;
+        if (moduleKey is "notifications" or "reporting" or "platform") return IdentityAuthorizationContributor.NavigationRead;
         foreach (var navigation in authorizationCatalog.Navigation)
         {
             if (authorizationCatalog.NavigationModuleKeys.TryGetValue(navigation.Id, out var mappedModuleKey)

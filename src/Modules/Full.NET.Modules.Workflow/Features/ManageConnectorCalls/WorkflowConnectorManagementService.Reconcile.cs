@@ -28,14 +28,21 @@ internal sealed partial class WorkflowConnectorManagementService
         var instance=await InstanceAsync(instanceId,scope.TenantScopeKey,token).ConfigureAwait(false);
         var call=await CallAsync(id,scope.TenantScopeKey,token).ConfigureAwait(false);
         if (instance is null || call?.InstanceId!=instanceId) return NotFound<WorkflowConnectorResolutionResponse>();
+        var live=await WorkflowCollaborationRuntimeGate.AllowsAsync(instanceId,scope,actorId,clock.UtcNow,query,token).ConfigureAwait(false);
+        var closing=!live && (request.ActionKey is "confirm_no_effect" or "accept_result") &&
+            await WorkflowCollaborationClosingGate.AllowsAsync(instanceId,scope,query,token).ConfigureAwait(false);
+        if(!live && !closing)return Failure<WorkflowConnectorResolutionResponse>(WorkflowErrorCodes.InstanceForbidden,ErrorType.Forbidden);
         if (await ReplayAsync(call,actorId,request.IdempotencyKey,hash,token).ConfigureAwait(false) is { } replay) return replay;
-        if (await WorkflowTenantFeatureEntitlementGate.TryGetDenialAsync(scope,entitlements,token).ConfigureAwait(false) is { } denial)
+        if (!closing && await WorkflowTenantFeatureEntitlementGate.TryGetDenialAsync(scope,entitlements,token).ConfigureAwait(false) is { } denial)
             return WorkflowTenantFeatureEntitlementGate.Deny<WorkflowConnectorResolutionResponse>(denial);
         var result=await transaction.ExecuteResultAsync(async inner=>
         {
             var current=await InstanceAsync(instanceId,scope.TenantScopeKey,inner).ConfigureAwait(false);
             if (current is null || await commands.ExecuteAsync(WorkflowConnectorSql.LockInstance,Params(("Id",instanceId),("TenantScopeKey",scope.TenantScopeKey),("Revision",current.Revision)),inner).ConfigureAwait(false)!=1)
                 return Conflict();
+            if(!await WorkflowCollaborationRuntimeGate.AllowsAsync(instanceId,scope,actorId,clock.UtcNow,query,inner,commands).ConfigureAwait(false) &&
+                (!(request.ActionKey is "confirm_no_effect" or "accept_result") || !await WorkflowCollaborationClosingGate.AllowsAsync(instanceId,scope,query,inner,commands).ConfigureAwait(false)))
+                return Failure<WorkflowConnectorResolutionResponse>(WorkflowErrorCodes.InstanceForbidden,ErrorType.Forbidden);
             var active=await CallAsync(id,scope.TenantScopeKey,inner).ConfigureAwait(false);
             if (active?.InstanceId!=instanceId) return NotFound<WorkflowConnectorResolutionResponse>();
             if (await ReplayAsync(active,actorId,request.IdempotencyKey,hash,inner).ConfigureAwait(false) is { } committed) return committed;

@@ -107,16 +107,18 @@ onMounted(() => {
 <template>
   <div class="goview-projects-view">
     <ArtTableHeader :title="t('goviewProjects.title')">
-      <PermissionGate code="goview.projects.create">
-        <ElButton
-          data-testid="goview-project-create"
-          type="primary"
-          :icon="Plus"
-          @click="openCreate"
-        >
-          {{ t('goviewProjects.addProject') }}
-        </ElButton>
-      </PermissionGate>
+      <template #left>
+        <PermissionGate code="goview.projects.create">
+          <ElButton
+            data-testid="goview-project-create"
+            type="primary"
+            :icon="Plus"
+            @click="openCreate"
+          >
+            {{ t('goviewProjects.addProject') }}
+          </ElButton>
+        </PermissionGate>
+      </template>
     </ArtTableHeader>
 
     <ElAlert

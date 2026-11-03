@@ -42,7 +42,7 @@ internal sealed partial class WorkflowInstanceManagementService(
     WorkflowParallelJoinCoordinator parallelJoinCoordinator,
     WorkflowFormAttachmentCoordinator attachmentCoordinator,
     ITenantFeatureEntitlementPort featureEntitlements,
-    WorkflowHumanActivityPreparation approvalPreparation)
+    WorkflowHumanActivityPreparation approvalPreparation, WorkflowRemoteFileService remoteFiles)
 {
     /// <summary>按已发布版本启动实例；允许直接完成或进入没有人工待办的等待状态。</summary>
     /// <param name="actorUserId">发起人的稳定用户标识。</param>
@@ -56,13 +56,17 @@ internal sealed partial class WorkflowInstanceManagementService(
         StartWorkflowInstanceRequest request,
         CancellationToken cancellationToken = default,
         bool requireApproval = false,
-        WorkflowChildStartContext? childContext = null)
+        WorkflowChildStartContext? childContext = null,
+        WorkflowCollaborationStartContext? collaborationContext = null)
     {
         if (!IsValid(request) || !WorkflowStarterSelectionPreparation.TryNormalize(request.AssigneeSelections, out var selections))
         {
             return Failure(WorkflowErrorCodes.SchemaInvalid, ErrorType.Validation);
         }
         if ((request.BusinessType.Trim() == WorkflowChildStartContext.BusinessType) != (childContext is not null))
+            return Failure(WorkflowErrorCodes.BusinessOwnerRequired, ErrorType.Forbidden);
+        if ((request.BusinessType.Trim() == WorkflowCollaborationStartContext.BusinessType) != (collaborationContext is not null) ||
+            childContext is not null && collaborationContext is not null)
             return Failure(WorkflowErrorCodes.BusinessOwnerRequired, ErrorType.Forbidden);
 
         request = request with { AssigneeSelections = selections };
@@ -128,6 +132,11 @@ internal sealed partial class WorkflowInstanceManagementService(
         var preparedAssignees = await approvalPreparation.PrepareAsync(startTransition, scope, actorUserId, cancellationToken, initialValues, starterSelections: selectedSnapshot,
             flowAdministratorUserIds: runtimePlan.FlowAdministratorUserIds)
             .ConfigureAwait(false);
+        if (collaborationContext is not null)
+            preparedAssignees = preparedAssignees.RestrictTo(collaborationContext.Acceptance.AllowedUserIds);
+        if (childContext is not null && await WorkflowCollaborationOriginPolicy.ReadMembersAsync(childContext.ParentInstanceId, scope,
+                queryExecutor, cancellationToken).ConfigureAwait(false) is { } allowed)
+            preparedAssignees = preparedAssignees.RestrictTo(allowed);
         var instanceId = idGenerator.NewId();
         var submissionId = idGenerator.NewId();
         var now = clock.UtcNow;
@@ -138,18 +147,30 @@ internal sealed partial class WorkflowInstanceManagementService(
                 scope.TenantScopeKey, formSchema, queryExecutor, cancellationToken).ConfigureAwait(false);
             if (inputSources is null) return Failure(WorkflowErrorCodes.FormAttachmentInvalid, ErrorType.Validation);
         }
+        WorkflowRemoteAttachmentContext? remoteInput = null;
+        if (collaborationContext is not null)
+        {
+            remoteInput = await remoteFiles.PrepareInputAsync(collaborationContext, formSchema, initialValues, cancellationToken).ConfigureAwait(false);
+            if (remoteInput is null) return Failure(WorkflowErrorCodes.FormAttachmentInvalid, ErrorType.Validation);
+        }
         var prepared = await attachmentCoordinator.PrepareInitialAsync(actorUserId, submissionId, instanceId,
-            scope.TenantScopeKey, formSchema, initialValues, cancellationToken, inputSources).ConfigureAwait(false);
+            scope.TenantScopeKey, formSchema, initialValues, cancellationToken, inputSources, remoteInput).ConfigureAwait(false);
         if (!prepared.IsSuccess) return Result<WorkflowInstanceResponse>.Failure(prepared.Error!);
         try
         {
             var result = await transaction.ExecuteResultAsync(async token =>
             {
                 WorkflowSubprocessStartReservation? childReservation = null;
+                if (collaborationContext is not null)
+                {
+                    var admission = await WorkflowCollaborationStartGuard.AcquireAsync(collaborationContext, request, actorUserId, asset,
+                        scope, queryExecutor, commandExecutor, now, token).ConfigureAwait(false);
+                    if (!admission.IsSuccess) return Result<WorkflowInstanceResponse>.Failure(admission.Error!);
+                }
                 if (childContext is not null)
                 {
                     var admission = await WorkflowSubprocessStartGuard.AcquireAsync(childContext, request, actorUserId, asset, formSchema,
-                        scope, queryExecutor, commandExecutor, token).ConfigureAwait(false);
+                        scope, queryExecutor, commandExecutor, clock.UtcNow, token).ConfigureAwait(false);
                     if (!admission.IsSuccess) return Result<WorkflowInstanceResponse>.Failure(admission.Error!);
                     childReservation = admission.Value;
                 }
@@ -172,7 +193,13 @@ internal sealed partial class WorkflowInstanceManagementService(
                 await WorkflowActivationBindingWriter.BindAsync(commandExecutor,instanceId,scope.TenantScopeKey,instanceId,instanceId,now,token).ConfigureAwait(false);
                 if (childReservation is not null)
                 {
-                    var linked = await WorkflowSubprocessStartGuard.LinkCreatedAsync(childReservation, instanceId, scope, now, commandExecutor, token).ConfigureAwait(false);
+                    var linked = await WorkflowSubprocessStartGuard.LinkCreatedAsync(childReservation, instanceId, scope, now, queryExecutor, commandExecutor, token).ConfigureAwait(false);
+                    if (!linked.IsSuccess) return Result<WorkflowInstanceResponse>.Failure(linked.Error!);
+                }
+                if (collaborationContext is not null)
+                {
+                    var linked = await WorkflowCollaborationStartGuard.LinkAsync(collaborationContext, instanceId, scope, now,
+                        commandExecutor, token).ConfigureAwait(false);
                     if (!linked.IsSuccess) return Result<WorkflowInstanceResponse>.Failure(linked.Error!);
                 }
                 await commandExecutor.ExecuteAsync(WorkflowSql.InsertFormSubmission,
@@ -228,7 +255,7 @@ internal sealed partial class WorkflowInstanceManagementService(
                     else
                         await notificationPublisher.PublishInstanceCompletedAsync(instanceId, actorUserId, instance.BusinessType, instance.BusinessId, now, token).ConfigureAwait(false);
                 }
-                if (childReservation is null) await commandExecutor.ExecuteAsync(WorkflowSql.InsertActionRecord,
+                if (childReservation is null && collaborationContext is null) await commandExecutor.ExecuteAsync(WorkflowSql.InsertActionRecord,
                     Parameters(("Id", idGenerator.NewId()), ("InstanceId", instanceId),
                         ("StepId", firstStepId), ("TodoId", firstTodoId), ("ActionKey", "start"),
                         ("ActorUserId", actorUserId), ("InstanceRevision", revision),
@@ -243,10 +270,11 @@ internal sealed partial class WorkflowInstanceManagementService(
                 if (childReservation is null) await commandExecutor.ExecuteAsync(WorkflowSql.InsertDomainAudit,
                     Parameters(("CorrelationJson", Full.NET.Abstractions.Observability.LogCorrelationContext.Capture().ToJson()), ("Id", idGenerator.NewId()), ("TenantId", scope.TenantId),
                         ("ScopeKey", scope.ScopeKey), ("InstanceId", instanceId),
-                        ("OperationKey", "instance.start"), ("ActorUserId", actorUserId),
+                        ("OperationKey", "instance.start"), ("ActorUserId", collaborationContext is null ? actorUserId : (Guid?)null),
                         ("ResourceTypeKey", "instance"), ("ResourceId", instanceId),
                         ("OutcomeKey", "succeeded"),
-                        ("DetailJson", $"{{\"definitionVersionId\":\"{asset.DefinitionVersionId:D}\"}}"),
+                        ("DetailJson", collaborationContext is null ? $"{{\"definitionVersionId\":\"{asset.DefinitionVersionId:D}\"}}" :
+                            $"{{\"sourceKey\":\"collaboration_relay\",\"callId\":\"{collaborationContext.Binding.CallId:D}\",\"starterUserId\":\"{actorUserId:D}\"}}"),
                         ("CreatedAtUtc", now)), token).ConfigureAwait(false);
                 else
                 {
@@ -649,6 +677,9 @@ internal sealed partial class WorkflowInstanceManagementService(
         if (actionKey == "resume" && await queryExecutor.QuerySingleOrDefaultAsync<int>(WorkflowRouteSql.CountUnknown,
             Parameters(("InstanceId", instanceId), ("TenantScopeKey", scope.TenantScopeKey)), token).ConfigureAwait(false) > 0)
             return Failure(WorkflowErrorCodes.InvalidTransition, ErrorType.Conflict);
+        if (actionKey == "resume" && await queryExecutor.QuerySingleOrDefaultAsync<int>(WorkflowCollaborationControlSql.CountBlockedSource,
+            Parameters(("InstanceId", instanceId), ("TenantScopeKey", scope.TenantScopeKey)), token).ConfigureAwait(false) > 0)
+            return Failure(WorkflowErrorCodes.InvalidTransition, ErrorType.Conflict);
         if (actionKey == "resume" && await queryExecutor.QuerySingleOrDefaultAsync<int>(WorkflowVoteSql.CountUnresolved,
             Parameters(("InstanceId", instanceId), ("TenantScopeKey", scope.TenantScopeKey)), token).ConfigureAwait(false) > 0)
             return Failure(WorkflowErrorCodes.InvalidTransition, ErrorType.Conflict);
@@ -680,7 +711,9 @@ internal sealed partial class WorkflowInstanceManagementService(
             await queryExecutor.QuerySingleOrDefaultAsync<int>(WorkflowBusinessCommandSql.CountRecoverable,
                 Parameters(("InstanceId", instanceId), ("TenantScopeKey", scope.TenantScopeKey)), token).ConfigureAwait(false) == 0 &&
             await queryExecutor.QuerySingleOrDefaultAsync<int>(WorkflowSubprocessSql.CountRecoverable,
-                Parameters(("InstanceId", instanceId), ("TenantScopeKey", scope.TenantScopeKey)), token).ConfigureAwait(false) == 0)
+                Parameters(("InstanceId", instanceId), ("TenantScopeKey", scope.TenantScopeKey)), token).ConfigureAwait(false) == 0 &&
+            await queryExecutor.QuerySingleOrDefaultAsync<int>(WorkflowCollaborationControlSql.CountRecoverableSource,
+                Parameters(("InstanceId", instanceId), ("TenantScopeKey", scope.TenantScopeKey), ("Now", clock.UtcNow)), token).ConfigureAwait(false) == 0)
             return Failure(WorkflowErrorCodes.InvalidTransition, ErrorType.Conflict);
 
         var statement = requiredStatus == "active"
@@ -837,7 +870,7 @@ internal sealed partial class WorkflowInstanceManagementService(
         WorkflowManagementScope scope,
         string requestHash,
         CancellationToken token,
-        WorkflowChildStartContext? systemContext = null)
+        WorkflowChildStartContext? systemContext = null, WorkflowCollaborationCancellationContext? collaborationContext = null)
     {
         var instance = await queryExecutor.QuerySingleOrDefaultAsync<WorkflowInstanceRecord>(
             WorkflowSql.FindInstanceById,
@@ -848,7 +881,12 @@ internal sealed partial class WorkflowInstanceManagementService(
             return Failure(WorkflowErrorCodes.VersionNotPublished, ErrorType.NotFound);
         }
 
-        if (!await CanReadAsync(instance, actorUserId, scope, token).ConfigureAwait(false))
+        if (collaborationContext is not null && (systemContext is not null || collaborationContext.TargetInstanceId != instance.Id ||
+                instance.BusinessType != WorkflowCollaborationStartContext.BusinessType || instance.BusinessId != collaborationContext.CallId.ToString("D")))
+            return Failure(WorkflowErrorCodes.InstanceForbidden, ErrorType.Forbidden);
+        // 内部关闭入口已经在根锁内验证持久来源；撤销不能阻止它收敛目标及后代。
+        var systemCancellation = systemContext is not null || collaborationContext is not null;
+        if (!systemCancellation && !await CanReadAsync(instance, actorUserId, scope, token).ConfigureAwait(false))
         {
             return Failure(WorkflowErrorCodes.InstanceForbidden, ErrorType.Forbidden);
         }
@@ -884,7 +922,7 @@ internal sealed partial class WorkflowInstanceManagementService(
         var instanceUpdated = await commandExecutor.ExecuteAsync(
             WorkflowSql.CancelInstanceWithRevision,
             Parameters(("Id", instanceId), ("TenantScopeKey", scope.TenantScopeKey),
-                ("CancelledById", systemContext is null ? actorUserId : (Guid?)null), ("CancelledAtUtc", now),
+                ("CancelledById", systemCancellation ? (Guid?)null : actorUserId), ("CancelledAtUtc", now),
                 ("CancellationReason", NormalizeReason(request.Reason)),
                 ("Revision", request.ExpectedRevision)), token).ConfigureAwait(false);
         if (instanceUpdated != 1)
@@ -892,6 +930,7 @@ internal sealed partial class WorkflowInstanceManagementService(
             return Failure(WorkflowErrorCodes.RevisionConflict, ErrorType.Conflict);
         }
 
+        // 先关闭共享准入；目标创建与源取消在同一准入行上决定先后，不跨租户写目标业务根。
         await WorkflowHumanActivityLifecycle.CancelAsync(commandExecutor, instanceId, scope.TenantScopeKey, now, token).ConfigureAwait(false);
         await commandExecutor.ExecuteAsync(WorkflowActivitySql.CancelApprovalSlots,
             Parameters(("InstanceId", instanceId), ("Now", now)), token).ConfigureAwait(false);
@@ -910,7 +949,7 @@ internal sealed partial class WorkflowInstanceManagementService(
         await parallelJoinCoordinator.CancelWaitingJoinsAsync(instanceId, now, token)
             .ConfigureAwait(false);
 
-        if (systemContext is null) await commandExecutor.ExecuteAsync(WorkflowSql.InsertActionRecord,
+        if (!systemCancellation) await commandExecutor.ExecuteAsync(WorkflowSql.InsertActionRecord,
             Parameters(("Id", idGenerator.NewId()), ("InstanceId", instanceId),
                 ("StepId", activeWork?.StepId), ("TodoId", activeWork?.TodoId),
                 ("ActionKey", "cancel"), ("ActorUserId", actorUserId),
@@ -927,10 +966,12 @@ internal sealed partial class WorkflowInstanceManagementService(
         await commandExecutor.ExecuteAsync(WorkflowSql.InsertDomainAudit,
             Parameters(("CorrelationJson", Full.NET.Abstractions.Observability.LogCorrelationContext.Capture().ToJson()), ("Id", idGenerator.NewId()), ("TenantId", scope.TenantId),
                 ("ScopeKey", scope.ScopeKey), ("InstanceId", instanceId),
-                ("OperationKey", "instance.cancel"), ("ActorUserId", systemContext is null ? actorUserId : (Guid?)null),
+                ("OperationKey", "instance.cancel"), ("ActorUserId", systemCancellation ? (Guid?)null : actorUserId),
                 ("ResourceTypeKey", "instance"), ("ResourceId", instanceId),
                 ("OutcomeKey", "succeeded"),
-                ("DetailJson", systemContext is null ? $"{{\"previousRevision\":{request.ExpectedRevision}}}" :
+                ("DetailJson", collaborationContext is not null ?
+                    $"{{\"sourceKey\":\"collaboration_cancel\",\"callId\":\"{collaborationContext.CallId:D}\",\"starterUserId\":\"{instance.StartedById:D}\"}}" :
+                    systemContext is null ? $"{{\"previousRevision\":{request.ExpectedRevision}}}" :
                     $"{{\"sourceKey\":\"parent_subprocess\",\"parentInstanceId\":\"{systemContext.ParentInstanceId:D}\",\"parentStepId\":\"{systemContext.CallId:D}\"}}"),
                 ("CreatedAtUtc", now)), token).ConfigureAwait(false);
 
@@ -1042,6 +1083,8 @@ internal sealed partial class WorkflowInstanceManagementService(
         WorkflowManagementScope scope,
         CancellationToken cancellationToken)
     {
+        if (!await WorkflowCollaborationRuntimeGate.AllowsAsync(instance.Id, scope, actorUserId, clock.UtcNow,
+                queryExecutor, cancellationToken, commandExecutor).ConfigureAwait(false)) return false;
         if (instance.StartedById == actorUserId)
         {
             return true;

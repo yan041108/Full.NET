@@ -16,6 +16,37 @@ internal sealed class TenantQuotaReservationService(
     IClock clock,
     IIdGenerator idGenerator) : ITenantQuotaReservationService
 {
+    public Task<Result<TenantQuotaMetricResponse>> CancelConsumptionAsync(Guid tenantId, string metricCode, string operationId,
+        CancellationToken cancellationToken = default) => transaction.ExecuteResultAsync(async token =>
+    {
+        if (tenantId == Guid.Empty || string.IsNullOrWhiteSpace(metricCode) || metricCode.Length > 64
+            || string.IsNullOrWhiteSpace(operationId) || operationId.Length > 128)
+            return MetricFailure(TenancyErrorCodes.QuotaRequestInvalid, ErrorType.Validation);
+        var reservation = await queryExecutor.QuerySingleOrDefaultAsync<TenantQuotaReservationRecord>(
+            TenantQuotaSql.FindReservationByOperation,
+            Tenancy.Persistence.TenancySqlParameters.Create(("TenantId", tenantId), ("MetricCode", metricCode), ("OperationId", operationId)), token).ConfigureAwait(false);
+        if (reservation is null)
+            return MetricFailure(TenancyErrorCodes.QuotaReservationNotFound, ErrorType.NotFound);
+        if (reservation.MetricId is null)
+            return MetricFailure(TenancyErrorCodes.QuotaMetricNotFound, ErrorType.NotFound);
+        var metric = await FindBoundMetricAsync(tenantId, reservation, token).ConfigureAwait(false);
+        if (metric is null) return MetricFailure(TenancyErrorCodes.QuotaMetricNotFound, ErrorType.NotFound);
+        if (reservation.Status is TenantQuotaReservationStatuses.Cancelled or TenantQuotaReservationStatuses.Released or TenantQuotaReservationStatuses.Expired)
+            return Result<TenantQuotaMetricResponse>.Success(MapMetric(metric));
+        if (reservation.Status != TenantQuotaReservationStatuses.Confirmed)
+            return MetricFailure(TenancyErrorCodes.QuotaReservationNotFound, ErrorType.Conflict);
+        var parameters = Tenancy.Persistence.TenancySqlParameters.Create(("TenantId", tenantId), ("MetricCode", metricCode),
+            ("MetricId", metric.Id), ("Amount", reservation.Amount), ("Version", metric.Version), ("UpdatedAtUtc", clock.UtcNow));
+        if (await commandExecutor.ExecuteAsync(TenantQuotaSql.CancelConsumedMetric, parameters, token).ConfigureAwait(false) != 1)
+            return MetricFailure(TenancyErrorCodes.QuotaExceeded, ErrorType.Conflict);
+        if (await commandExecutor.ExecuteAsync(TenantQuotaSql.CancelConsumption,
+            Tenancy.Persistence.TenancySqlParameters.Create(("TenantId", tenantId), ("MetricCode", metricCode),
+                ("ReservationId", reservation.Id), ("Version", reservation.Version), ("Status", TenantQuotaReservationStatuses.Cancelled),
+                ("ExpectedStatus", TenantQuotaReservationStatuses.Confirmed), ("UpdatedAtUtc", clock.UtcNow)), token).ConfigureAwait(false) != 1)
+            return MetricFailure(TenancyErrorCodes.QuotaReservationNotFound, ErrorType.Conflict);
+        return Result<TenantQuotaMetricResponse>.Success(MapMetric(metric with { UsedValue = metric.UsedValue - reservation.Amount, Version = metric.Version + 1 }));
+    }, cancellationToken);
+
     // 预留记录与额度、终态与用量是同一事务；后续 CAS 失败不得提交前一条写入。
     public Task<Result<ReserveTenantQuotaResponse>> ReserveAsync(
         Guid tenantId,

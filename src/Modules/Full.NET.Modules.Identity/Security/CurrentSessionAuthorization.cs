@@ -39,7 +39,8 @@ internal sealed class CurrentSessionAuthorization(
             || principal.FindFirstValue(FullNetIdentityClaimTypes.PasswordChangeRequired) == "true"
             || !long.TryParse(principal.FindFirstValue("exp"), out var expires)
             || expires <= clock.UtcNow.ToUnixTimeSeconds()
-            || !await sessions.IsValidAsync(principal, cancellationToken).ConfigureAwait(false)) return null;
+            || !await sessions.IsValidAsync(principal, cancellationToken,
+                http.HttpContext?.Items[FullNetJwtBearerEvents.McpAudienceKey] as string).ConfigureAwait(false)) return null;
         if (!Guid.TryParse(principal.FindFirstValue(FullNetIdentityClaimTypes.Subject), out var userId)
             || !IdentityAccessSessionIdReader.TryRead(principal, _oidcOptions, out var sessionId)) return null;
         var tenantClaim = principal.FindFirstValue(FullNetIdentityClaimTypes.TenantId);
@@ -48,6 +49,8 @@ internal sealed class CurrentSessionAuthorization(
         if (tenantId is { } id && await tenants.ResolveActiveByIdAsync(id, cancellationToken).ConfigureAwait(false) is null) return null;
         var snapshot = await permissions.ReadAsync(userId,
             principal.FindFirstValue(FullNetIdentityClaimTypes.ActorScope)!, tenantId, cancellationToken).ConfigureAwait(false);
+        // 权威会话和权限读取可能等待到 JWT 到期，交付授权前必须再次检查原令牌时间。
+        if (expires <= clock.UtcNow.ToUnixTimeSeconds()) return null;
         return required.All(code => snapshot.Permissions.Contains(code, StringComparer.Ordinal))
             ? new(userId, tenantId, sessionId) : null;
     }

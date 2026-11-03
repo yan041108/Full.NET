@@ -53,7 +53,10 @@ internal static class AiKnowledgeIndexActivationAssertions
         await db.ExecuteAsync("UPDATE fn_ai_model_config SET IsEnabled=1 WHERE Id=@Id", new { Id = model });
         Assert.IsTrue(await activate(lease, null));
         await db.ExecuteAsync("UPDATE fn_ai_knowledge_document SET Version=Version+1 WHERE Id=@DocumentId", p);
-        Assert.IsFalse(await activate(lease, null)); Assert.AreEqual(before, calls());
+        // 新草稿不撤销已归档的完整代次证明；幂等读取也不能改写草稿版本或活动指针。
+        Assert.IsTrue(await activate(lease, null)); Assert.AreEqual(before, calls());
+        Assert.AreEqual(binding.DocumentVersion + 1, await db.QuerySingleAsync<int>("SELECT Version FROM fn_ai_knowledge_document WHERE Id=@DocumentId", p));
+        Assert.AreEqual(taskId, await db.QuerySingleAsync<Guid>("SELECT IndexTaskId FROM fn_ai_knowledge_active_generation WHERE DocumentId=@DocumentId", p));
 
         async Task AssertRunning()
         {

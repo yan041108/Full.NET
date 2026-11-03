@@ -37,6 +37,7 @@ public sealed class WorkflowRecoveryScanBudgetTests
         services.AddSingleton(Substitute.For<ICommandExecutor>());
         services.AddSingleton(Substitute.For<ICommandTransaction>());
         services.AddSingleton(clock);
+        services.AddSingleton(Substitute.For<IActiveTenantContextResolver>());
         services.AddSingleton(Substitute.For<IIdGenerator>());
         services.AddSingleton(options);
         services.AddSingleton(Options.Create(new DatabaseOptions { Provider = DatabaseProvider.SqlServer }));
@@ -63,7 +64,8 @@ public sealed class WorkflowRecoveryScanBudgetTests
             new WorkflowRouteDecisionExecutor(queries, provider.GetRequiredService<ICommandExecutor>(), provider.GetRequiredService<IIdGenerator>(),
                 new WorkflowActivityScheduler(provider.GetRequiredService<ICommandExecutor>(), provider.GetRequiredService<IIdGenerator>()),
                 new WorkflowBranchStateCoordinator(queries, provider.GetRequiredService<ICommandExecutor>()),
-                new WorkflowRegionEpochCoordinator(queries, provider.GetRequiredService<ICommandExecutor>(), provider.GetRequiredService<IIdGenerator>()))));
+                new WorkflowRegionEpochCoordinator(queries, provider.GetRequiredService<ICommandExecutor>(), provider.GetRequiredService<IIdGenerator>())),
+            Substitute.For<IActiveTenantContextResolver>()));
         await using var provider = services.BuildServiceProvider();
         var hosted = new WorkflowRecoveryHostedProcessor(provider.GetRequiredService<IServiceScopeFactory>(), clock, options,
             NullLogger<WorkflowRecoveryHostedProcessor>.Instance);

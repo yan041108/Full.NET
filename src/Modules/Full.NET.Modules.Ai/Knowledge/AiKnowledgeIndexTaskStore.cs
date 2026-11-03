@@ -15,9 +15,10 @@ internal enum AiKnowledgeIndexFailure { ParsingFailed, ModelUnavailable, IndexUn
 
 /// <summary>仅负责 AI 本地持久化；领取成功不是外部派发授权或索引 ready 证明。</summary>
 internal sealed class AiKnowledgeIndexTaskStore(IQueryExecutor query, ICommandExecutor command,
-    ICurrentTenant tenant, IClock clock, IIdGenerator ids, AiKnowledgeIndexGrantStore? grants = null)
+    ICurrentTenant tenant, IClock clock, IIdGenerator ids, AiKnowledgeIndexGrantStore? grants = null, AiKnowledgeFaqIndexInput? faqInput = null)
 {
-    internal bool IsTenant => AiKnowledgeScope.IsTenant(tenant);
+    internal AiKnowledgeIndexTaskScope Scope { get; } = new(tenant, clock);
+    internal bool IsTenant => Scope.IsTenant;
 
     /// <summary>在下一次外部文件读取或模型派发前，读取仍持有有效租约的精确来源和模型绑定。</summary>
     /// <returns>权威条件失效、绑定不符或读取期间到期时返回空；取消及基础设施故障传播。</returns>
@@ -30,8 +31,11 @@ internal sealed class AiKnowledgeIndexTaskStore(IQueryExecutor query, ICommandEx
             (grants is null ? IsTenant ? AiKnowledgeIndexTaskSql.DispatchTenant : AiKnowledgeIndexTaskSql.DispatchHost
                 : IsTenant ? AiKnowledgeIndexTaskSql.DispatchWithGrantTenant : AiKnowledgeIndexTaskSql.DispatchWithGrantHost), parameters, token).ConfigureAwait(false);
         token.ThrowIfCancellationRequested();
+        if (row?.FaqRevisionId is { } faqRevision && (row.FileId is not null || faqInput is null
+            || !await faqInput.CheckDispatchBindingAsync(binding, faqRevision, row.ContentHash, row.SizeBytes, row.DataClassification, taskId, leaseToken, token).ConfigureAwait(false))) return null;
+        if (row is not null && row.FaqRevisionId is null && (row.FileId is null || row.FileId == Guid.Empty)) return null;
         // SQL 使用读取开始时的时钟；等待期间失效的租约不能继续下一步，也不接受另一个代次的返回值。
-        return row is not null && row.TaskId == taskId && row.DocumentId == binding.DocumentId
+        return row is not null && AiKnowledgeIndexCorrectionInput.IsValid(row) && row.TaskId == taskId && row.DocumentId == binding.DocumentId
             && row.VersionId == binding.VersionId && row.DocumentVersion == binding.DocumentVersion
             && row.KnowledgeBaseVersion == binding.KnowledgeBaseVersion && row.LeaseToken == leaseToken
             && row.LeaseExpiresAtUtc > clock.UtcNow && (row.GrantExpiresAtUtc is null || row.GrantExpiresAtUtc > clock.UtcNow) ? row : null;
@@ -67,7 +71,8 @@ internal sealed class AiKnowledgeIndexTaskStore(IQueryExecutor query, ICommandEx
         parameters["LeaseExpiresAtUtc"] = ((DateTimeOffset)parameters["Now"]!).AddSeconds(leaseSeconds);
         if (await command.ExecuteAsync(IsTenant ? AiKnowledgeIndexTaskSql.AcquireTenant : AiKnowledgeIndexTaskSql.AcquireHost, parameters, token).ConfigureAwait(false) != 1)
             return null;
-        var row = await FindAsync(binding, taskId, token).ConfigureAwait(false);
+        var row = await FindAsync(binding, taskId, token).ConfigureAwait(false)
+            ?? await query.QuerySingleOrDefaultAsync<AiKnowledgeIndexTaskRecord>(IsTenant ? AiKnowledgeIndexTaskSql.FindFaqTenant : AiKnowledgeIndexTaskSql.FindFaqHost, parameters, token).ConfigureAwait(false);
         // 领取与读取之间可能被取消或接替；不把旧确认返回为可执行租约。
         return row is { StateKey: "running" } && row.LeaseToken == leaseToken && row.LeaseExpiresAtUtc > clock.UtcNow ? row : null;
     }
@@ -108,36 +113,7 @@ internal sealed class AiKnowledgeIndexTaskStore(IQueryExecutor query, ICommandEx
     private async Task<bool> WriteAsync(SqlStatement sql, Dictionary<string, object?> parameters, CancellationToken token) =>
         await command.ExecuteAsync(sql, parameters, token).ConfigureAwait(false) == 1;
 
-    private Dictionary<string, object?> Parameters(AiKnowledgeIndexTaskBinding binding, CancellationToken token)
-    {
-        token.ThrowIfCancellationRequested();
-        ArgumentNullException.ThrowIfNull(binding);
-        if (binding.KnowledgeBaseId == Guid.Empty || binding.DocumentId == Guid.Empty || binding.VersionId == Guid.Empty
-            || binding.OwnerUserId == Guid.Empty || binding.DocumentVersion <= 0 || binding.KnowledgeBaseVersion <= 0)
-            throw new ArgumentException("Invalid knowledge index binding.", nameof(binding));
-        _ = IsTenant;
-        return new(StringComparer.Ordinal)
-        {
-            ["KnowledgeBaseId"] = binding.KnowledgeBaseId, ["DocumentId"] = binding.DocumentId,
-            ["VersionId"] = binding.VersionId, ["DocumentVersion"] = binding.DocumentVersion,
-            ["KnowledgeBaseVersion"] = binding.KnowledgeBaseVersion, ["OwnerUserId"] = binding.OwnerUserId,
-            ["Now"] = clock.UtcNow,
-        };
-    }
-
-    internal Dictionary<string, object?> TaskParameters(AiKnowledgeIndexTaskBinding binding, Guid taskId, CancellationToken token)
-    {
-        var parameters = Parameters(binding, token);
-        if (taskId == Guid.Empty) throw new ArgumentException("An index task ID is required.", nameof(taskId));
-        parameters["TaskId"] = taskId;
-        return parameters;
-    }
-
-    internal Dictionary<string, object?> HeldParameters(AiKnowledgeIndexTaskBinding binding, Guid taskId, Guid leaseToken, CancellationToken token)
-    {
-        var parameters = TaskParameters(binding, taskId, token);
-        if (leaseToken == Guid.Empty) throw new ArgumentException("A lease token is required.", nameof(leaseToken));
-        parameters["LeaseToken"] = leaseToken;
-        return parameters;
-    }
+    private Dictionary<string, object?> Parameters(AiKnowledgeIndexTaskBinding binding, CancellationToken token) => Scope.Parameters(binding, token);
+    internal Dictionary<string, object?> TaskParameters(AiKnowledgeIndexTaskBinding binding, Guid id, CancellationToken token) => Scope.TaskParameters(binding, id, token);
+    internal Dictionary<string, object?> HeldParameters(AiKnowledgeIndexTaskBinding binding, Guid id, Guid lease, CancellationToken token) => Scope.HeldParameters(binding, id, lease, token);
 }

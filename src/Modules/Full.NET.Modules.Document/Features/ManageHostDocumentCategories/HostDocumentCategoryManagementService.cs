@@ -20,7 +20,8 @@ internal sealed class HostDocumentCategoryManagementService(
     ICommandTransaction transaction,
     HostDocumentCategoryQueryService queries,
     IClock clock,
-    IIdGenerator idGenerator)
+    IIdGenerator idGenerator,
+    DocumentCategoryGuard categoryGuard)
 {
     public Task<Result<HostDocumentCategoryResponse>> CreateAsync(
         CreateHostDocumentCategoryRequest request,
@@ -32,7 +33,7 @@ internal sealed class HostDocumentCategoryManagementService(
         }
 
         // 修复：传递新字段 Code/Icon/Color/Description 到 CreateCoreAsync，确保写入SQL时不丢失数据
-        return transaction.ExecuteAsync(
+        return transaction.ExecuteResultAsync(
             token => CreateCoreAsync(request.ParentId, name, request.SortOrder, request.Code, request.Icon, request.Color, request.Description, token),
             cancellationToken);
     }
@@ -48,7 +49,7 @@ internal sealed class HostDocumentCategoryManagementService(
         }
 
         // 修复：传递新字段 Code/Icon/Color/Description 到 UpdateCoreAsync，确保更新SQL时同步写入
-        return transaction.ExecuteAsync(
+        return transaction.ExecuteResultAsync(
             token => UpdateCoreAsync(categoryId, request.ParentId, name, request.SortOrder, request.Code, request.Icon, request.Color, request.Description, request.Version, token),
             cancellationToken);
     }
@@ -64,7 +65,7 @@ internal sealed class HostDocumentCategoryManagementService(
             return Task.FromResult(Result<bool>.Failure(InvalidError()));
         }
 
-        return transaction.ExecuteAsync(
+        return transaction.ExecuteResultAsync(
             token => DeleteCoreAsync(categoryId, actorUserId, request.Version, token),
             cancellationToken);
     }
@@ -80,6 +81,7 @@ internal sealed class HostDocumentCategoryManagementService(
         string? description,
         CancellationToken cancellationToken)
     {
+        await categoryGuard.LockAsync(cancellationToken).ConfigureAwait(false);
         if (parentId is not null)
         {
             var parent = await queryExecutor
@@ -93,6 +95,11 @@ internal sealed class HostDocumentCategoryManagementService(
                 return InvalidParent();
             }
         }
+
+        var rows = await queryExecutor.QueryAsync<DocumentCategoryRecord>(DocumentCategorySql.ListActive, null, cancellationToken).ConfigureAwait(false);
+        var parents = rows.ToDictionary(row => row.Id, row => row.ParentId);
+        parents[Guid.Empty] = parentId;
+        if (!IsValidTree(parents)) return InvalidParent();
 
         if (await FindNameConflictAsync(parentId, name, null, cancellationToken).ConfigureAwait(false))
         {
@@ -124,29 +131,16 @@ internal sealed class HostDocumentCategoryManagementService(
         long version,
         CancellationToken cancellationToken)
     {
+        await categoryGuard.LockAsync(cancellationToken).ConfigureAwait(false);
         if (await queries.GetByIdAsync(categoryId, cancellationToken).ConfigureAwait(false) is { IsSuccess: false })
         {
             return NotFound();
         }
 
-        if (parentId == categoryId)
-        {
-            return InvalidParent();
-        }
-
-        if (parentId is not null)
-        {
-            var parent = await queryExecutor
-                .QuerySingleOrDefaultAsync<DocumentCategoryRecord>(
-                    DocumentCategorySql.FindActiveById,
-                    DocumentSqlParameters.Create(("Id", parentId.Value)),
-                    cancellationToken)
-                .ConfigureAwait(false);
-            if (parent is null)
-            {
-                return InvalidParent();
-            }
-        }
+        var rows = await queryExecutor.QueryAsync<DocumentCategoryRecord>(DocumentCategorySql.ListActive, null, cancellationToken).ConfigureAwait(false);
+        var parents = rows.ToDictionary(row => row.Id, row => row.ParentId);
+        parents[categoryId] = parentId;
+        if (!IsValidTree(parents)) return InvalidParent();
 
         if (await FindNameConflictAsync(parentId, name, categoryId, cancellationToken).ConfigureAwait(false))
         {
@@ -174,6 +168,7 @@ internal sealed class HostDocumentCategoryManagementService(
         long version,
         CancellationToken cancellationToken)
     {
+        await categoryGuard.LockAsync(cancellationToken).ConfigureAwait(false);
         if (await queries.GetByIdAsync(categoryId, cancellationToken).ConfigureAwait(false) is { IsSuccess: false })
         {
             return Result<bool>.Failure(NotFoundError());
@@ -207,6 +202,21 @@ internal sealed class HostDocumentCategoryManagementService(
         return affected == 1
             ? Result<bool>.Success(true)
             : Result<bool>.Failure(VersionConflictError());
+    }
+
+    // 验证整棵树也覆盖移动后子树深度，拒绝缺失父节点和已有损坏环。
+    private static bool IsValidTree(Dictionary<Guid, Guid?> parents)
+    {
+        foreach (var id in parents.Keys)
+        {
+            var seen = new HashSet<Guid>();
+            Guid? next = id;
+            while (next.HasValue)
+            {
+                if (!seen.Add(next.Value) || seen.Count > 128 || !parents.TryGetValue(next.Value, out next)) return false;
+            }
+        }
+        return true;
     }
 
     private async Task<bool> FindNameConflictAsync(

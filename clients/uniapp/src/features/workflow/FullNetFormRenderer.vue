@@ -5,7 +5,12 @@ import type {
   WorkflowFormSchema,
   WorkflowSubmission
 } from '@fullnet/client-contracts';
-import { ref, watch } from 'vue';
+import { readWorkflowSubtableConstraints } from '@fullnet/client-contracts';
+import { useI18n } from 'vue-i18n';
+import { onBeforeUnmount, ref, watch } from 'vue';
+// #ifdef H5
+import { useWorkflowControlAccessibility } from './workflow-control-accessibility';
+// #endif
 import {
   createWorkflowFormModel,
   type WorkflowFormState
@@ -15,7 +20,20 @@ const props = defineProps<{
   schema: WorkflowFormSchema;
   submission?: WorkflowSubmission;
   policies?: WorkflowFieldPolicies;
+  attachmentNames?: Readonly<Record<string, string>> | null;
+  attachmentCandidates?: readonly { fileId: string; name: string }[];
+  uploadAttachment?: (fieldKey: string) => Promise<{ fileId: string; fileName: string } | undefined>;
+  downloadAttachment?: (fileId: string, name: string) => Promise<void>;
 }>();
+const { t } = useI18n();
+const formRoot = ref<unknown>();
+// #ifdef H5
+useWorkflowControlAccessibility(formRoot);
+// #endif
+const uploading = ref(false);
+const localNames = ref<Record<string, string>>({});
+let contextEpoch = 0;
+onBeforeUnmount(() => { contextEpoch++; });
 
 const emit = defineEmits<{
   'update:patch': [patch: WorkflowSubmission];
@@ -32,6 +50,9 @@ const state = ref<WorkflowFormState>(model.state);
 watch(
   () => [props.schema, props.submission, props.policies] as const,
   () => {
+    contextEpoch++;
+    uploading.value = false;
+    localNames.value = {};
     model = createWorkflowFormModel(
       props.schema,
       props.submission ?? {},
@@ -57,6 +78,55 @@ function updateSelect(field: WorkflowFormField, event: unknown): void {
   if (Number.isInteger(index) && options[index] !== undefined) {
     updateField(field.fieldKey, { detail: { value: options[index] } });
   }
+}
+
+function rows(field: WorkflowFormField): readonly Record<string, unknown>[] {
+  const value = fieldValue(field.fieldKey);
+  return Array.isArray(value) ? value : [];
+}
+function rowSchema(field: WorkflowFormField): WorkflowFormSchema {
+  const table = readWorkflowSubtableConstraints(field)!;
+  return { schemaVersion: 1, adapterVersion: 1, sections: [{ sectionKey: field.fieldKey,
+    fields: table.columns.map(column => ({ ...column, fieldKey: column.columnKey })) }] };
+}
+function rowPolicies(field: WorkflowFormField, readOnly: boolean): WorkflowFieldPolicies {
+  return Object.fromEntries((readWorkflowSubtableConstraints(field)?.columns ?? []).map(column =>
+    [column.columnKey, readOnly ? 'readOnly' : column.required ? 'required' : 'editable']));
+}
+function updateRow(field: WorkflowFormField, index: number, patch: WorkflowSubmission): void {
+  if (Object.keys(patch).length === 0) return;
+  updateField(field.fieldKey, { detail: { value: rows(field).map((row, current) => current === index ? { ...row, ...patch } : row) } });
+}
+function changeRows(field: WorkflowFormField, index?: number): void {
+  const value = [...rows(field)];
+  if (index === undefined) value.push({}); else value.splice(index, 1);
+  updateField(field.fieldKey, { detail: { value } });
+}
+function attachments(field: WorkflowFormField): readonly string[] {
+  const value = fieldValue(field.fieldKey);
+  return Array.isArray(value) ? value : [];
+}
+function attachmentName(id: string): string { return localNames.value[id] ?? props.attachmentNames?.[id] ?? t('workflow.form.attachment'); }
+function removeAttachment(field: WorkflowFormField, id: string): void {
+  updateField(field.fieldKey, { detail: { value: attachments(field).filter(value => value !== id) } });
+}
+function reuseAttachment(field: WorkflowFormField, id: string): void {
+  if (!props.attachmentCandidates?.some(candidate => candidate.fileId === id) || attachments(field).includes(id)) return;
+  updateField(field.fieldKey, { detail: { value: [...attachments(field), id] } });
+}
+async function upload(field: WorkflowFormField): Promise<void> {
+  if (!props.uploadAttachment || uploading.value) return;
+  const epoch = contextEpoch;
+  uploading.value = true;
+  try {
+    const result = await props.uploadAttachment(field.fieldKey);
+    if (!result || epoch !== contextEpoch) return;
+    if (model.updateValue(field.fieldKey, [...attachments(field), result.fileId])) {
+      localNames.value[result.fileId] = result.fileName;
+      state.value = model.state;
+      emit('update:patch', state.value.patch);
+    }
+  } finally { if (epoch === contextEpoch) uploading.value = false; }
 }
 
 function validate(): Readonly<Record<string, 'required'>> {
@@ -98,11 +168,11 @@ function isOptionSelected(fieldKey: string, option: string): boolean {
   return Array.isArray(value) && value.includes(option);
 }
 
-defineExpose({ validate });
+defineExpose({ validate, isUploading: () => uploading.value });
 </script>
 
 <template>
-  <view class="fullnet-workflow-form">
+  <view ref="formRoot" class="fullnet-workflow-form">
     <view
       v-for="section in state.sections"
       :key="section.sectionKey"
@@ -113,6 +183,7 @@ defineExpose({ validate });
       <view
         v-for="field in section.fields"
         :key="field.fieldKey"
+        :data-field-key="field.fieldKey"
         class="fullnet-workflow-form__field"
       >
         <text class="fullnet-workflow-form__label">
@@ -120,6 +191,7 @@ defineExpose({ validate });
         </text>
 
         <input
+          :aria-label="field.fieldKey"
           v-if="field.fieldTypeKey === 'text'"
           :value="String(fieldValue(field.fieldKey) ?? '')"
           :disabled="field.readOnly"
@@ -127,6 +199,7 @@ defineExpose({ validate });
           @input="updateField(field.fieldKey, $event)"
         />
         <textarea
+          :aria-label="field.fieldKey"
           v-else-if="field.fieldTypeKey === 'textarea'"
           :value="String(fieldValue(field.fieldKey) ?? '')"
           :disabled="field.readOnly"
@@ -134,6 +207,7 @@ defineExpose({ validate });
           @input="updateField(field.fieldKey, $event)"
         />
         <input
+          :aria-label="field.fieldKey"
           v-else-if="field.fieldTypeKey === 'integer'"
           type="number"
           :value="String(fieldValue(field.fieldKey) ?? '')"
@@ -141,6 +215,7 @@ defineExpose({ validate });
           @input="updateField(field.fieldKey, $event)"
         />
         <input
+          :aria-label="field.fieldKey"
           v-else-if="field.fieldTypeKey === 'decimal'"
           type="digit"
           :value="String(fieldValue(field.fieldKey) ?? '')"
@@ -148,6 +223,7 @@ defineExpose({ validate });
           @input="updateField(field.fieldKey, $event)"
         />
         <input
+          :aria-label="field.fieldKey"
           v-else-if="field.fieldTypeKey === 'money'"
           type="digit"
           :value="String(fieldValue(field.fieldKey) ?? '')"
@@ -155,6 +231,7 @@ defineExpose({ validate });
           @input="updateField(field.fieldKey, $event)"
         />
         <picker
+          :aria-label="field.fieldKey"
           v-else-if="field.fieldTypeKey === 'date'"
           mode="date"
           :value="String(fieldValue(field.fieldKey) ?? '')"
@@ -164,6 +241,7 @@ defineExpose({ validate });
           <view>{{ fieldValue(field.fieldKey) || '-' }}</view>
         </picker>
         <picker
+          :aria-label="field.fieldKey"
           v-else-if="field.fieldTypeKey === 'time'"
           mode="time"
           :value="String(fieldValue(field.fieldKey) ?? '')"
@@ -173,12 +251,14 @@ defineExpose({ validate });
           <view>{{ fieldValue(field.fieldKey) || '-' }}</view>
         </picker>
         <input
+          :aria-label="field.fieldKey"
           v-else-if="field.fieldTypeKey === 'datetime'"
           :value="String(fieldValue(field.fieldKey) ?? '')"
           :disabled="field.readOnly"
           @input="updateField(field.fieldKey, $event)"
         />
         <radio-group
+          :aria-label="field.fieldKey"
           v-else-if="field.fieldTypeKey === 'radio'"
           @change="updateField(field.fieldKey, $event)"
         >
@@ -192,6 +272,7 @@ defineExpose({ validate });
           </label>
         </radio-group>
         <checkbox-group
+          :aria-label="field.fieldKey"
           v-else-if="field.fieldTypeKey === 'checkbox'"
           @change="updateField(field.fieldKey, $event)"
         >
@@ -205,6 +286,7 @@ defineExpose({ validate });
           </label>
         </checkbox-group>
         <picker
+          :aria-label="field.fieldKey"
           v-else-if="field.fieldTypeKey === 'select'"
           :range="fieldOptions(field)"
           :disabled="field.readOnly"
@@ -213,11 +295,34 @@ defineExpose({ validate });
           <view>{{ fieldValue(field.fieldKey) || '-' }}</view>
         </picker>
         <switch
+          :aria-label="field.fieldKey"
           v-else-if="field.fieldTypeKey === 'switch'"
           :checked="fieldValue(field.fieldKey) === true"
           :disabled="field.readOnly"
           @change="updateField(field.fieldKey, $event)"
         />
+        <view v-else-if="field.fieldTypeKey === 'attachment'" class="fullnet-workflow-form__files">
+          <view v-for="id in attachments(field)" :key="id" class="fullnet-workflow-form__file">
+            <button size="mini" :disabled="!downloadAttachment" @click="downloadAttachment?.(id, attachmentName(id))">{{ attachmentName(id) }}</button>
+            <button v-if="!field.readOnly" size="mini" @click="removeAttachment(field, id)">{{ t('workflow.form.remove') }}</button>
+          </view>
+          <button v-if="!field.readOnly && uploadAttachment" size="mini"
+            :disabled="uploading || attachments(field).length >= Number(field.constraints.maxCount)" @click="upload(field)">{{ t('workflow.form.upload') }}</button>
+          <template v-if="!field.readOnly">
+            <button v-for="candidate in attachmentCandidates" :key="candidate.fileId" size="mini"
+              :data-reuse-file-id="candidate.fileId" :disabled="attachments(field).includes(candidate.fileId) || attachments(field).length >= Number(field.constraints.maxCount)"
+              @click="reuseAttachment(field, candidate.fileId)">{{ t('workflow.form.reuse', { name: candidate.name }) }}</button>
+          </template>
+        </view>
+        <view v-else-if="field.fieldTypeKey === 'subtable'" class="fullnet-workflow-form__rows">
+          <view v-for="(row, index) in rows(field)" :key="index" :data-row-index="index" class="fullnet-workflow-form__row">
+            <FullNetFormRenderer :schema="rowSchema(field)" :submission="row" :policies="rowPolicies(field, field.readOnly)"
+              @update:patch="updateRow(field, index, $event)" />
+            <button v-if="!field.readOnly" size="mini" @click="changeRows(field, index)">{{ t('workflow.form.removeRow') }}</button>
+          </view>
+          <button v-if="!field.readOnly" size="mini" :disabled="rows(field).length >= (readWorkflowSubtableConstraints(field)?.maxRows ?? 0)"
+            @click="changeRows(field)">{{ t('workflow.form.addRow') }}</button>
+        </view>
       </view>
     </view>
   </view>
@@ -249,4 +354,7 @@ defineExpose({ validate });
 .fullnet-workflow-form__required {
   color: #d03050;
 }
+.fullnet-workflow-form__file { display: flex; flex-wrap: wrap; gap: 12rpx; }
+.fullnet-workflow-form__file button { max-width: 100%; overflow-wrap: anywhere; }
+.fullnet-workflow-form__row { border: 1px solid #dcdfe6; padding: 16rpx; margin-bottom: 16rpx; }
 </style>

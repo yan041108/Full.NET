@@ -1,10 +1,14 @@
 import { isRecord, isInteger, type PagedResult } from '@fullnet/client-contracts';
 import {
   documentHostAddItemVersion,
+  documentHostItempublish,
+  documentHostItemarchive,
+  documentHostItemunarchive,
   documentHostCreateItem,
   documentHostDeleteItem,
   documentHostDownloadItemContent,
   documentHostListItems,
+  documentHostGetItem,
   documentHostListItemVersions,
   documentHostPreviewItemContent,
   documentHostPreviewItemVersionContent,
@@ -22,8 +26,29 @@ import {
 } from '@fullnet/client-contracts';
 import { http } from './http';
 
+// 同一文件对象的失败重试保留操作身份，重新选择文件会获得新的身份。
+const uploadKeys = new WeakMap<File, Map<string, string>>();
+function uploadRequestKey(itemId: string, file: File): string {
+  let keys = uploadKeys.get(file);
+  if (!keys) { keys = new Map(); uploadKeys.set(file, keys); }
+  let key = keys.get(itemId);
+  if (!key) { key = crypto.randomUUID(); keys.set(itemId, key); }
+  return key;
+}
+
 export interface ListDocumentItemsOptions {
+  readonly keyword?: string;
+  readonly categoryId?: string | null;
+  readonly status?: number;
+  readonly documentType?: number;
   readonly tagId?: string | null;
+}
+
+/** 搜索详情直接按对象重新读取，不能依赖上一次列表中的授权或对象快照。 */
+export async function getDocumentItem(itemId: string, signal?: AbortSignal): Promise<HostDocumentItemResponse> {
+  const value = await documentHostGetItem(http, { itemId }, signal);
+  if (!isHostDocumentItemResponse(value) || value.id.toLowerCase() !== itemId.toLowerCase()) throw new Error('client.invalid_document_item');
+  return value;
 }
 
 /** 分页查询文档项列表，并对响应页做失败关闭校验。 */
@@ -38,7 +63,9 @@ export async function listDocumentItems(
     {
       page,
       pageSize,
-      tagId: options.tagId ?? undefined
+      tagId: options.tagId ?? undefined,
+      keyword: options.keyword || undefined, categoryId: options.categoryId ?? undefined,
+      status: options.status, documentType: options.documentType
     },
     signal
   );
@@ -66,7 +93,7 @@ export async function createDocumentItem(
     categoryId: options.categoryId ?? null,
     documentType: 1,
     sort: 0,
-    status: 1,
+    status: 0,
     tagIds: options.tagIds ? [...options.tagIds] : null,
     thumbnail: null
   };
@@ -78,6 +105,9 @@ export async function createDocumentItem(
 }
 
 export interface UpdateDocumentItemOptions {
+  readonly categoryId?: string | null;
+  readonly thumbnail?: string | null;
+  readonly sort?: number;
   readonly tagIds?: readonly string[] | null;
 }
 
@@ -93,11 +123,10 @@ export async function updateDocumentItem(
     title,
     description,
     version: item.version,
-    categoryId: item.categoryId,
-    sort: item.sort,
-    status: item.status,
-    thumbnail: item.thumbnail,
-    tagIds: options.tagIds ? [...options.tagIds] : null
+    categoryId: options.categoryId === undefined ? item.categoryId : options.categoryId,
+    sort: options.sort ?? item.sort,
+    thumbnail: options.thumbnail === undefined ? item.thumbnail : options.thumbnail,
+    tagIds: options.tagIds ? [...options.tagIds] : item.tags.map(tag => tag.tagId)
   };
   const value = await documentHostUpdateItem(
     http,
@@ -121,7 +150,7 @@ export async function uploadDocumentVersion(
 ): Promise<HostDocumentItemResponse> {
   const value = await documentHostUploadItemVersion(
     http,
-    { itemId, file },
+    { itemId, file, requestKey: uploadRequestKey(itemId, file) },
     signal
   );
   if (!isHostDocumentItemResponse(value)) {
@@ -135,7 +164,7 @@ export async function downloadDocumentContent(
   itemId: string,
   signal?: AbortSignal
 ): Promise<Blob> {
-  return documentHostDownloadItemContent(http, { itemId }, signal);
+  return documentHostDownloadItemContent(http, { itemId, requestKey: crypto.randomUUID() }, signal);
 }
 
 /** 查询文档项的历史版本分页。 */
@@ -159,23 +188,33 @@ export async function previewDocumentContent(
   if (versionId) {
     return documentHostPreviewItemVersionContent(
       http,
-      { itemId, versionId },
+      { itemId, versionId, requestKey: crypto.randomUUID() },
       signal
     );
   }
 
-  return documentHostPreviewItemContent(http, { itemId }, signal);
+  return documentHostPreviewItemContent(http, { itemId, requestKey: crypto.randomUUID() }, signal);
 }
 
-/** 将已下载 Blob 以短生命周期对象 URL 打开，并在窗口关闭后回收。 */
-export function openDocumentBlob(blob: Blob): void {
-  const url = URL.createObjectURL(blob);
-  const opened = window.open(url, '_blank', 'noopener,noreferrer');
-  if (!opened) {
-    URL.revokeObjectURL(url);
-    return;
-  }
+/** 活动文本与 SVG 仅按纯文本展示，不能在后台同源 Blob 中执行脚本。 */
+export function safeDocumentPreviewBlob(blob: Blob): Blob {
+  const mime = blob.type.split(';', 1)[0]?.trim().toLowerCase() ?? '';
+  return mime.startsWith('text/') || mime === 'image/svg+xml' || mime === 'application/xhtml+xml'
+    ? blob.slice(0, blob.size, 'text/plain') : blob;
+}
 
+/** 预览安全格式，其余格式直接下载；对象 URL 保留到浏览器完成导航后再回收。 */
+export function openDocumentBlob(blob: Blob): void {
+  const safe = safeDocumentPreviewBlob(blob);
+  const url = URL.createObjectURL(safe);
+  const link = document.createElement('a');
+  link.href = url;
+  link.target = '_blank';
+  link.rel = 'noopener noreferrer';
+  if (!safe.type.startsWith('image/') && !safe.type.startsWith('text/plain') && safe.type !== 'application/pdf') {
+    link.download = 'document';
+  }
+  link.click();
   window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
 }
 
@@ -187,6 +226,7 @@ export async function addDocumentVersion(
 ): Promise<HostDocumentItemResponse> {
   const body: Parameters<typeof documentHostAddItemVersion>[1]['body'] = {
     fileId,
+    requestKey: crypto.randomUUID(),
     changeDescription: null
   };
   const value = await documentHostAddItemVersion(
@@ -285,3 +325,11 @@ export async function deleteDocumentVersion(
 
 /** 导出文档项分页、详情与版本模型，供列表页、版本侧栏与内容预览流程共享同一契约。 */
 export type { HostDocumentItemPage, HostDocumentItemResponse, HostDocumentVersionResponse };
+
+/** 显式状态命令由服务端按精确权限及并发版本验证。 */
+export async function changeDocumentStatus(item: HostDocumentItemResponse, action: 'publish' | 'archive' | 'unarchive'): Promise<HostDocumentItemResponse> {
+  const command = { publish: documentHostItempublish, archive: documentHostItemarchive, unarchive: documentHostItemunarchive }[action];
+  const value = await command(http, { itemId: item.id, body: { version: item.version } });
+  if (!isHostDocumentItemResponse(value)) throw new Error('client.invalid_document_item');
+  return value;
+}

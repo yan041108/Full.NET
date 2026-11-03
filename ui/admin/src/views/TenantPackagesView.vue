@@ -27,6 +27,7 @@ import {
   useArtCrudTableLayout
 } from '../framework/art-design/composables/useArtCrudTableLayout';
 import PermissionGate from '../components/PermissionGate.vue';
+import PackageOfferEditor from '../components/PackageOfferEditor.vue';
 import { useSessionStore } from '../auth/session';
 import { useAdminI18n } from '../i18n/adminI18n';
 import {
@@ -546,12 +547,13 @@ function toProblem(
 
             <el-table-column
               :label="t('users.columnActions')"
-              width="120"
+              width="220"
               fixed="right"
               align="center"
             >
               <template #default="{ row }">
                 <ArtTableActionGroup>
+                  <PackageOfferEditor v-if="row.isActive" :package-id="row.id" />
                   <PermissionGate code="tenancy.tenant_packages.update">
                     <ArtTableActionButton
                       type="edit"

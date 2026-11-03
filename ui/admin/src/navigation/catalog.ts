@@ -288,6 +288,10 @@ const messageKeys = new Map<string, Pick<LocalNavigationDefinition, 'titleKey' |
     titleKey: 'navigation.myReleaseNotes.title',
     captionKey: 'navigation.myReleaseNotes.caption'
   }],
+  ['my-tasks', {
+    titleKey: 'navigation.myTasks.title',
+    captionKey: 'navigation.myTasks.caption'
+  }],
   ['administrative-regions', {
     titleKey: 'navigation.administrativeRegions.title',
     captionKey: 'navigation.administrativeRegions.caption'
@@ -381,6 +385,7 @@ const messageKeys = new Map<string, Pick<LocalNavigationDefinition, 'titleKey' |
     titleKey: 'navigation.workflowForms.title',
     captionKey: 'navigation.workflowForms.caption'
   }],
+  ['workflow-collaboration-grants', { titleKey: 'navigation.workflowCollaboration.title', captionKey: 'navigation.workflowCollaboration.caption' }],
   ['workflow-calendars', {
     titleKey: 'navigation.workflowCalendars.title',
     captionKey: 'navigation.workflowCalendars.caption'
@@ -395,6 +400,11 @@ const messageKeys = new Map<string, Pick<LocalNavigationDefinition, 'titleKey' |
   }],
   ['ai-knowledge-bases', { titleKey: 'knowledge.title', captionKey: 'knowledge.caption' }],
   ['ai-knowledge-documents', { titleKey: 'knowledge.documents', captionKey: 'knowledge.documentsCaption' }],
+  ['ai-knowledge-search', { titleKey: 'knowledge.search', captionKey: 'knowledge.searchCaption' }],
+  ['ai-knowledge-operations', { titleKey: 'knowledge.operations', captionKey: 'knowledge.operationsCaption' }],
+  ['ai-knowledge-evaluation-sets', { titleKey: 'knowledge.evaluationSets', captionKey: 'knowledge.evaluationSetsCaption' }],
+  ['ai-knowledge-finance', { titleKey: 'knowledge.finance', captionKey: 'knowledge.financeCaption' }],
+  ['ai-knowledge-faqs', { titleKey: 'knowledge.faqs', captionKey: 'knowledge.faqsCaption' }],
   ['ai-agent-runs', {
     titleKey: 'navigation.aiAgentRuns.title',
     captionKey: 'navigation.aiAgentRuns.caption'

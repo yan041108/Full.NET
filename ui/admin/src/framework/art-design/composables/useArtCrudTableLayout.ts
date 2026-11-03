@@ -40,7 +40,8 @@ export function useArtCrudTableLayout(options: ArtCrudTableLayoutOptions = {}) {
 
   /** 为分页下拉补齐无障碍名称，避免 Element Plus 输入框仅靠视觉上下文。 */
   function labelPaginationComboboxes(): void {
-    const container = tableMainRef.value;
+    // 分页补标与高度测量必须使用同一个原生根节点，ElCard ref 本身没有 DOM 查询方法。
+    const container = resolveLayoutElement(tableMainRef.value);
     if (!container) {
       return;
     }

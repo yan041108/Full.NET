@@ -18,15 +18,8 @@ public sealed class McpClientInteropSqlServerTests
     [TestMethod]
     public async Task Approved_remote_ping_executes_via_unified_executor_async()
     {
-        using var factory = new FullNetApiFactory(
-            DatabaseProvider.SqlServer,
-            await SharedDatabaseFixture.CreateSqlServerDatabaseAsync(),
-            settingsOverrides: new Dictionary<string, string?>
-            {
-                ["FullNet:Ai:Network:PrivateOnly"] = "true",
-                ["FullNet:Ai:Mcp:Client:ApprovedOrigins:0"] = "http://localhost",
-            },
-            configureTestServices: McpLoopbackHttpClientTestSupport.ConfigureServices);
+        using var factory = await McpOidcInteropFixture.CreateAsync(DatabaseProvider.SqlServer,
+            McpLoopbackHttpClientTestSupport.ConfigureServices);
         await McpClientInteropAssertions.VerifyAsync(factory);
     }
 }
@@ -38,15 +31,8 @@ public sealed class McpClientInteropMySqlTests
     [TestMethod]
     public async Task Approved_remote_ping_executes_via_unified_executor_async()
     {
-        using var factory = new FullNetApiFactory(
-            DatabaseProvider.MySql,
-            await SharedDatabaseFixture.CreateMySqlDatabaseAsync(),
-            settingsOverrides: new Dictionary<string, string?>
-            {
-                ["FullNet:Ai:Network:PrivateOnly"] = "true",
-                ["FullNet:Ai:Mcp:Client:ApprovedOrigins:0"] = "http://localhost",
-            },
-            configureTestServices: McpLoopbackHttpClientTestSupport.ConfigureServices);
+        using var factory = await McpOidcInteropFixture.CreateAsync(DatabaseProvider.MySql,
+            McpLoopbackHttpClientTestSupport.ConfigureServices);
         await McpClientInteropAssertions.VerifyAsync(factory);
     }
 }
@@ -75,9 +61,10 @@ internal static class McpClientInteropAssertions
         }
         var serviceIdentity = await factory.CreateHostIdentityAsync(
             $"mcp-service-{Guid.NewGuid():N}",
-            [AiAgentToolPermissions.CatalogRead, AiMcpPermissions.RemoteInvoke]);
+            [AiAgentToolPermissions.CatalogRead, AiMcpPermissions.RemoteInvoke], password: FullNetApiFactory.TestPassword);
+        var serviceToken = await McpOidcInteropFixture.IssueAsync(factory, serviceIdentity.Username);
         var endpoint = new Uri($"{factory.Server.BaseAddress}api/v1/ai/mcp");
-        await SeedRemotePingAsync(factory, serviceIdentity.AccessToken, endpoint).ConfigureAwait(false);
+        await SeedRemotePingAsync(factory, serviceToken, endpoint).ConfigureAwait(false);
 
         var localName = McpRemoteCapabilityPolicy.BuildLocalToolName("loopback", "ai.tools.ping");
         using var empty = JsonDocument.Parse("{}");

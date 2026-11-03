@@ -8,6 +8,58 @@ import { createRequire, stripTypeScriptTypes } from 'node:module';
 
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 
+test('组织归属头按 OpenAPI 精确发送并保留 JSON Content-Type', async () => {
+  const { renderGeneratedFiles } = await import('../../scripts/openapi/generate-fullnet-client.mjs');
+  const document = { openapi: '3.1.0', paths: { '/items': { post: { operationId: 'testOrganizationCreate',
+    parameters: [{ in: 'header', name: 'X-FullNet-Organization-Unit-Id', required: true, schema: { type: 'string', format: 'uuid' } }],
+    requestBody: { required: true, content: { 'application/json': { schema: { type: 'object', properties: {} } } } },
+    responses: { 204: { description: 'No Content' } } } } }, components: { schemas: {} } };
+  const files = renderGeneratedFiles(document);
+  const source = stripTypeScriptTypes(files['operations.generated.ts']);
+  const operations = await import(`data:text/javascript;base64,${Buffer.from(source).toString('base64')}`);
+  const id = '01912345-6789-7abc-8def-0123456789ab';
+  let called = false;
+  await operations.testOrganizationCreate({ request: async (url, init) => {
+    called = true;
+    assert.equal(url, '/items');
+    const headers = new Headers(init.headers);
+    assert.equal(headers.get('X-FullNet-Organization-Unit-Id'), id);
+    assert.equal(headers.get('content-type'), 'application/json');
+    assert.equal(init.body, '{}');
+  } }, { 'X-FullNet-Organization-Unit-Id': id, body: {} });
+  assert.equal(called, true);
+});
+
+test('multipart allOf 保留文件、引用字段与必填键并实际编码 FormData', async () => {
+  const { renderGeneratedFiles } = await import('../../scripts/openapi/generate-fullnet-client.mjs');
+  const document = { openapi: '3.1.0', paths: { '/upload': { post: {
+    operationId: 'testUpload', requestBody: { required: true, content: { 'multipart/form-data': { schema: {
+      type: 'object', allOf: [
+        { type: 'object', required: ['file'], properties: { file: { $ref: '#/components/schemas/IFormFile' } } },
+        { $ref: '#/components/schemas/UploadIdentity' }
+      ]
+    } } } }, responses: { 204: { description: 'No Content' } }
+  } } }, components: { schemas: {
+    IFormFile: { type: 'string', format: 'binary' },
+    UploadIdentity: { type: 'object', required: ['requestKey'], properties: { requestKey: { type: 'string', format: 'uuid' } } }
+  } } };
+  const files = renderGeneratedFiles(document);
+  assert.match(files['operations.generated.ts'], /readonly file: IFormFile/u);
+  assert.match(files['operations.generated.ts'], /readonly requestKey: string/u);
+  const operations = await import(`data:text/javascript;base64,${Buffer.from(stripTypeScriptTypes(files['operations.generated.ts'])).toString('base64')}`);
+  const file = new File(['content'], 'document.txt');
+  const key = '01912345-6789-7abc-8def-0123456789ab';
+  await operations.testUpload({ request: async (url, init) => {
+    assert.equal(url, '/upload');
+    assert.equal(await init.body.get('file').text(), 'content');
+    assert.equal(init.body.get('requestKey'), key);
+  } }, { file, requestKey: key });
+  document.paths['/upload'].post.requestBody.content['multipart/form-data'].schema = {
+    oneOf: [{ type: 'object', properties: { file: { type: 'string', format: 'binary' } } }]
+  };
+  assert.throws(() => renderGeneratedFiles(document), /multipart 需要确定的对象 Schema/u);
+});
+
 test('浮点数字字符串保留表示并执行实际模式约束，不接受非数字或溢出', async () => {
   const { renderGeneratedFiles } = await import('../../scripts/openapi/generate-fullnet-client.mjs');
   const files = renderGeneratedFiles({ openapi: '3.1.0', paths: {}, components: { schemas: {

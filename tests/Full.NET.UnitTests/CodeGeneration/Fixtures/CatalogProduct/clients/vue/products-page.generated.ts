@@ -1,4 +1,4 @@
-import { computed, readonly, ref } from 'vue';
+import { computed, reactive, readonly, ref } from 'vue';
 import {
   createProductsApi,
   productPermissions
@@ -6,6 +6,7 @@ import {
 import type {
   CreateProductRequest,
   GeneratedRequest,
+  ProductListOptions,
   ProductResponse,
   UpdateProductRequest
 } from './products.generated';
@@ -30,6 +31,7 @@ export function useProductPage(
 ) {
   const api = createProductsApi(dependencies.request);
   const items = ref<ProductResponse[]>([]);
+  const query = reactive<ProductListOptions>({});
   const page = ref(1);
   const pageSize = ref(20);
   const total = ref(0);
@@ -49,7 +51,7 @@ export function useProductPage(
     if (!canRead.value || loading.value) return false;
     loading.value = true;
     try {
-      const result = await api.list(nextPage, nextPageSize);
+      const result = await api.list(nextPage, nextPageSize, { ...query });
       items.value = result.items;
       page.value = result.page;
       pageSize.value = result.pageSize;
@@ -133,6 +135,7 @@ export function useProductPage(
   }
 
   return {
+    query,
     items: readonly(items),
     page: readonly(page),
     pageSize: readonly(pageSize),

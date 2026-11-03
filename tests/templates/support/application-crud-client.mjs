@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { applicationCrudArtifactPath } from './application-crud-generation.mjs';
 import { spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -238,7 +239,7 @@ export function verifyApplicationCrudClient(appRoot, {
 } = {}) {
   const verificationRoot = join(appRoot, 'verification/ClientGeneration');
   assert.equal(existsSync(verificationRoot), false, 'requires unused application path: ' + verificationRoot);
-  const inputPath = join(appRoot, 'contracts/openapi/products.generated.openapi.json');
+  const inputPath = join(appRoot, applicationCrudArtifactPath('contracts/openapi/products.generated.openapi.json'));
   const sharedRoot = join(appRoot, 'packages/client-contracts/src');
   const preservedPaths = [inputPath, join(sharedRoot, 'http.ts'), ...fileNames.map((name) => join(sharedRoot, 'generated', name))];
   const preserved = new Map(preservedPaths.map((name) => [name, readFileSync(name)]));

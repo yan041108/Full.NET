@@ -433,7 +433,9 @@ async function loadTodoDetail(id: string, listItem?: WorkflowTodoListItemRespons
     delegation.value = grant;
   } catch (error: unknown) {
     if (epoch === detailEpoch) {
-      problem.value = toProblem(error, 'workflowTodos.loadFailed');
+      const current = toProblem(error, 'workflowTodos.loadFailed');
+      if ([401, 403, 404].includes(current.status ?? 0)) closeDetail();
+      problem.value = current;
       selectedListItem.value = undefined;
     }
   } finally {
@@ -495,6 +497,7 @@ async function executeAction(execute: () => Promise<unknown>, successKey: Messag
     if (!isCurrent()) return;
     const actionProblem = toProblem(error, 'workflowTodos.operationFailed');
     problem.value = actionProblem;
+    if ([401, 403, 404].includes(actionProblem.status ?? 0)) { closeDetail(); problem.value = actionProblem; return; }
     if (refreshOnConflict && actionProblem.status === 409) {
       closeDetail();
       const refreshDetail = detailEpoch;
@@ -528,8 +531,11 @@ function closeDetail(): void {
   delegateAssigneeId.value = ''; delegation.value = null;
 }
 
+function businessDetailRoute(businessType: string | null | undefined) {
+  return session.switching ? undefined : findWorkflowBusinessDetailRoute(businessType, session.can);
+}
 function openBusinessDetail(businessType: string, businessId: string): void {
-  const route = findWorkflowBusinessDetailRoute(businessType);
+  const route = businessDetailRoute(businessType);
   if (route === undefined) {
     return;
   }
@@ -706,7 +712,7 @@ function toProblem(
               {{ t(activeTab === 'history' ? 'workflowTodos.view' : 'workflowTodos.open') }}
             </el-button>
             <el-button
-              v-if="findWorkflowBusinessDetailRoute(row.businessType)"
+              v-if="businessDetailRoute(row.businessType)"
               link
               type="primary"
               size="small"
@@ -785,12 +791,16 @@ function toProblem(
         <WorkflowFormRenderer v-else
           :schema="selected.formSchema"
           :submission="selected.submission"
+          :attachment-names="selected.attachmentNames"
           :instance-id="selected.instanceId"
           :todo-id="selected.id"
+          :upload-context="{ kind: 'todo', todoId: selected.id, expectedRevision: selected.revision, formKindKey: 'main' }"
+          :can-upload-attachments="!detailReadOnly && can('workflow.attachments.upload')"
           :field-policies="detailReadOnly
             ? Object.fromEntries(Object.keys(selected.fieldPolicies).map(key => [key, 'readOnly']))
             : selected.fieldPolicies"
           @update:patch="fieldPatch = $event"
+          @authorization-lost="closeDetail"
         />
 
         <section v-if="selected.voteForm && selected.voteProgress" data-testid="workflow-vote-private-form">
@@ -803,7 +813,9 @@ function toProblem(
             :submission="selected.voteForm.values" :field-policies="selected.voteForm.fieldPolicies"
             @update:patch="voteValues = { ...selected.voteForm!.values, ...$event }" @availability="voteRendererReady = $event" />
           <WorkflowFormRenderer v-else :schema="selected.voteForm.formSchema" :submission="selected.voteForm.values" :instance-id="selected.instanceId" :todo-id="selected.id"
-            :field-policies="selected.voteForm.fieldPolicies" @update:patch="voteValues = { ...selected.voteForm!.values, ...$event }" />
+            :field-policies="selected.voteForm.fieldPolicies" :upload-context="{ kind: 'todo', todoId: selected.id, expectedRevision: selected.revision, formKindKey: 'vote' }"
+            :can-upload-attachments="!detailReadOnly && !selected.voteForm.readOnly && can('workflow.attachments.upload')"
+            @update:patch="voteValues = { ...selected.voteForm!.values, ...$event }" @authorization-lost="closeDetail" />
           <label><span>{{ t('workflowTodos.voteChoice') }}</span>
             <select v-model="voteChoice" data-testid="workflow-vote-choice" :disabled="detailReadOnly || selected.voteForm.readOnly || acting">
               <option :value="undefined" disabled>{{ t('workflowTodos.voteChoice') }}</option>
@@ -1073,7 +1085,7 @@ function toProblem(
 .workflow-todos td small {
   display: block;
   margin-top: 0.25rem;
-  color: var(--el-text-color-secondary);
+  color: var(--el-text-color-regular);
   font-size: 0.75rem;
 }
 
@@ -1179,5 +1191,23 @@ function toProblem(
   margin-top: 1.25rem;
   padding-top: 1rem;
   border-top: 1px solid var(--el-border-color-lighter);
+}
+
+/* 浅色危险操作仍需足够的文字对比度，保留现有危险边框和交互背景。 */
+.workflow-todos__decision-bar :deep(.el-button--danger.is-plain) {
+  --el-button-text-color: var(--fullnet-color-danger);
+  --el-button-hover-text-color: var(--fullnet-color-panel);
+  --el-button-hover-bg-color: var(--fullnet-color-danger);
+  --el-button-hover-border-color: var(--fullnet-color-danger);
+  --el-button-active-bg-color: var(--fullnet-color-danger);
+  --el-button-active-border-color: var(--fullnet-color-danger);
+}
+.workflow-todos__decision-bar :deep(.el-button--warning.is-plain) {
+  --el-button-text-color: var(--fullnet-color-signal);
+  --el-button-hover-text-color: var(--fullnet-color-panel);
+  --el-button-hover-bg-color: var(--fullnet-color-signal);
+  --el-button-hover-border-color: var(--fullnet-color-signal);
+  --el-button-active-bg-color: var(--fullnet-color-signal);
+  --el-button-active-border-color: var(--fullnet-color-signal);
 }
 </style>

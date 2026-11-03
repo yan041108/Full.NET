@@ -10,6 +10,7 @@ export function readStackState() {
 }
 
 export function readAppliedWorkspaceArtifact(relativePath) {
+  relativePath = `generated/acme/catalog/product/${relativePath}`;
   const state = readStackState();
   expect(state.codeGenerationWorkspaceRoot).toBeTruthy();
 

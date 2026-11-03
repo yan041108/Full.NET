@@ -39,21 +39,23 @@ public sealed class CdcDeliveryPosition
     /// </summary>
     public SqlServerCdcLsnCoordinates? Lsn { get; init; }
 
+
     /// <summary>
     /// 构造 MySQL Binlog 格式的 CDC 位点快照。
     /// </summary>
     /// <param name="lastEventId">该位点前最后处理的集成事件 ID。</param>
     /// <param name="file">Binlog 文件名，如 mysql-bin.000123。</param>
     /// <param name="position">Binlog 文件内的字节偏移。</param>
+    /// <param name="completedGtidSet">Connect 持久化的已完成事务 GTID 集；仅用于可选时间观测，不参与文件位点覆盖判断。</param>
     public static CdcDeliveryPosition ForMySql(
         Guid? lastEventId,
         string file,
-        long position) =>
+        long position, string? completedGtidSet = null) =>
         new()
         {
             Provider = MySqlProvider,
             LastEventId = lastEventId,
-            Binlog = new MySqlBinlogCoordinates(file, position),
+            Binlog = new MySqlBinlogCoordinates(file, position) { CompletedGtidSet = completedGtidSet },
         };
 
     /// <summary>
@@ -61,14 +63,16 @@ public sealed class CdcDeliveryPosition
     /// </summary>
     /// <param name="lastEventId">该位点前最后处理的集成事件 ID。</param>
     /// <param name="commitLsn">三段式十六进制 LSN 字符串。</param>
+    /// <param name="changeLsn">Connector 已提交的事务内位置；可空。</param>
+    /// <param name="eventSerialNo">同一事务内位置的事件序号；可空。</param>
     public static CdcDeliveryPosition ForSqlServer(
         Guid? lastEventId,
-        string commitLsn) =>
+        string commitLsn, string? changeLsn = null, long? eventSerialNo = null) =>
         new()
         {
             Provider = SqlServerProvider,
             LastEventId = lastEventId,
-            Lsn = new SqlServerCdcLsnCoordinates(commitLsn),
+            Lsn = new SqlServerCdcLsnCoordinates(commitLsn) { ChangeLsn = changeLsn, EventSerialNo = eventSerialNo },
         };
 
     /// <summary>
@@ -160,6 +164,9 @@ public sealed class CdcDeliveryPosition
 /// <param name="Position">Binlog 文件内的字节偏移；非负整数。</param>
 public sealed record MySqlBinlogCoordinates(string File, long Position)
 {
+    /// <summary>Connect 重启检查点中的已完成事务 GTID 集；缺失时不猜测时间 lag。</summary>
+    public string? CompletedGtidSet { get; init; }
+
     /// <summary>
     /// 校验文件名非空且偏移非负。
     /// </summary>
@@ -225,6 +232,12 @@ public sealed record MySqlBinlogCoordinates(string File, long Position)
 /// <param name="CommitLsn">三段式十六进制 LSN 字符串，格式为 AAAAAAAA:BBBBBBBB:CCCC。</param>
 public sealed record SqlServerCdcLsnCoordinates(string CommitLsn)
 {
+    /// <summary>Connector 已提交的事务内位置；缺失时不得用相同提交 LSN 推断覆盖。</summary>
+    public string? ChangeLsn { get; init; }
+
+    /// <summary>同一事务内位置的事件序号。</summary>
+    public long? EventSerialNo { get; init; }
+
     /// <summary>
     /// 校验 LSN 字符串是否符合三段式十六进制格式。
     /// </summary>
@@ -254,7 +267,8 @@ public sealed record SqlServerCdcLsnCoordinates(string CommitLsn)
         SqlServerCdcLsnCoordinates connector) =>
         TryParseLsn(producerFence.CommitLsn, out var fence)
         && TryParseLsn(connector.CommitLsn, out var observed)
-        && observed.CompareTo(fence) >= 0;
+        // 同一提交LSN可包含多条变更；只有提交位置越过屏障，才能排除仍未读取的同事务后续记录。
+        && observed.CompareTo(fence) > 0;
 
     private static bool TryParseLsn(string value, out SqlServerLsn parsed)
     {

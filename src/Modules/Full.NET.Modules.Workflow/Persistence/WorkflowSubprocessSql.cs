@@ -43,7 +43,8 @@ internal static class WorkflowSubprocessSql
         AND EXISTS (SELECT 1 FROM fn_workflow_instance AS instance WHERE instance.Id=@InstanceId AND instance.TenantScopeKey=@TenantScopeKey)
         """, SqlDataScope.Global);
     public static readonly SqlStatement FindDepth = new("workflow.subprocess.find_depth", """
-        SELECT MAX(callState.Depth) FROM fn_workflow_subprocess_item AS item
+        SELECT COALESCE((SELECT origin.Depth FROM fn_workflow_collaboration_origin AS origin WHERE origin.Id=@InstanceId AND origin.TenantScopeKey=@TenantScopeKey),MAX(callState.Depth))
+        FROM fn_workflow_subprocess_item AS item
         INNER JOIN fn_workflow_subprocess_call AS callState ON callState.Id=item.CallId AND callState.InstanceId=item.InstanceId
         WHERE item.ChildInstanceId=@InstanceId AND item.TenantScopeKey=@TenantScopeKey AND callState.TenantScopeKey=@TenantScopeKey
         """, SqlDataScope.Global);
@@ -57,10 +58,8 @@ internal static class WorkflowSubprocessSql
         WHERE step.Id=@Id AND step.InstanceId=@InstanceId AND instance.TenantScopeKey=@TenantScopeKey AND step.NodeTypeKey='process.subprocess'
         """, SqlDataScope.Global);
     public static readonly SqlStatement CountChildUncertainEffects = new("workflow.subprocess.count_child_uncertain_effects", """
-        SELECT COUNT(*) FROM fn_workflow_connector_call AS connector WHERE connector.InstanceId=@InstanceId AND connector.TenantScopeKey=@TenantScopeKey
-        AND (connector.StatusKey='outcome_unknown' OR EXISTS (SELECT 1 FROM fn_workflow_connector_attempt AS attempt
-            WHERE attempt.CallId=connector.Id AND attempt.TenantScopeKey=@TenantScopeKey AND (attempt.StatusKey='inflight' OR attempt.OutcomeKey='outcome_unknown')))
-        """, SqlDataScope.Global);
+        SELECT COUNT(*) FROM fn_workflow_connector_call AS connector WHERE connector.InstanceId=@InstanceId AND connector.TenantScopeKey=@TenantScopeKey AND
+        """ + WorkflowConnectorSettlementSql.Unresolved, SqlDataScope.Global);
     public static readonly SqlStatement InsertStep = new("workflow.subprocess.insert_step", """
         INSERT INTO fn_workflow_step (Id,InstanceId, ExecutionEpochId,NodeKey,NodeTypeKey,StatusKey,AssignedUserId,DueAtUtc,AttemptCount,
             Revision,ExecutionSequence,StartedAtUtc,CompletedAtUtc,ParallelJoinId,ParallelBranchKey)

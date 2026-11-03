@@ -86,6 +86,12 @@ internal static class TenantEntitlementSql
           AND catalog.IsActive = 1
           AND binding.EffectiveFromUtc <= @NowUtc
           AND (binding.EffectiveToUtc IS NULL OR binding.EffectiveToUtc > @NowUtc)
+          AND (binding.SourceSubscriptionId IS NULL OR EXISTS (
+              SELECT 1 FROM fn_tenancy_tenant_subscription subscription
+              INNER JOIN fn_tenancy_subscription_invoice invoice ON invoice.Id=subscription.Id AND invoice.TenantId=subscription.TenantId
+              WHERE subscription.Id=binding.SourceSubscriptionId AND subscription.TenantId=binding.TenantId
+                AND invoice.Phase='Applied' AND subscription.Status IN ('Active','Cancelled')
+                AND subscription.CurrentPeriodStartUtc<=@NowUtc AND subscription.CurrentPeriodEndUtc>@NowUtc))
         """,
         SqlDataScope.HostOnly);
 
@@ -100,7 +106,13 @@ internal static class TenantEntitlementSql
               FROM fn_tenancy_tenant_entitlement_binding AS binding
               WHERE binding.TenantId = tenant.Id
                 AND binding.EffectiveFromUtc <= @NowUtc
-                AND (binding.EffectiveToUtc IS NULL OR binding.EffectiveToUtc > @NowUtc))
+                AND (binding.EffectiveToUtc IS NULL OR binding.EffectiveToUtc > @NowUtc)
+                AND (binding.SourceSubscriptionId IS NULL OR EXISTS (
+                    SELECT 1 FROM fn_tenancy_tenant_subscription subscription
+                    INNER JOIN fn_tenancy_subscription_invoice invoice ON invoice.Id=subscription.Id AND invoice.TenantId=subscription.TenantId
+                    WHERE subscription.Id=binding.SourceSubscriptionId AND subscription.TenantId=binding.TenantId
+                      AND invoice.Phase='Applied' AND subscription.Status IN ('Active','Cancelled')
+                      AND subscription.CurrentPeriodStartUtc<=@NowUtc AND subscription.CurrentPeriodEndUtc>@NowUtc)))
         ORDER BY tenant.Id
         """,
         SqlDataScope.HostOnly);

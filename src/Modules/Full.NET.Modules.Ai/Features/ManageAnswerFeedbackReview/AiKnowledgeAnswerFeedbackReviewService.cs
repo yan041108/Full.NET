@@ -160,7 +160,7 @@ internal sealed class AiKnowledgeAnswerFeedbackReviewService(IQueryExecutor quer
     private async Task<Dictionary<string, object?>?> CurrentParametersAsync(IReadOnlyList<AiKnowledgeAnswerFeedbackReviewRecord> rows,
         IReadOnlyDictionary<Guid, AiKnowledgeAnswerLineage> proven, Guid actor, CancellationToken token)
     {
-        var parameters = await history.CurrentReviewParametersAsync(actor, token).ConfigureAwait(false);
+        var parameters = await history.CurrentReviewParametersAsync(actor, token, proven.Values.SelectMany(lineage => lineage.Dependencies).Distinct().ToArray()).ConfigureAwait(false);
         if (parameters is null) return null;
         var bindings = rows.Where(row => proven.ContainsKey(row.MessageId)).SelectMany(row => proven[row.MessageId].Dependencies
             .Select(dependency => new AiKnowledgeAnswerFeedbackReviewBinding(row.FeedbackId, row.MessageId, dependency))).ToArray();

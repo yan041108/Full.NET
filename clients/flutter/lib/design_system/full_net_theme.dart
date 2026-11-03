@@ -35,7 +35,7 @@ ThemeData buildFullNetTheme({required Brightness brightness}) {
         borderRadius: BorderRadius.circular(FullNetTokens.radiusSm),
       ),
     ),
-    cardTheme: CardTheme(
+    cardTheme: CardThemeData(
       color: colorScheme.surface,
       elevation: 0,
       shape: RoundedRectangleBorder(

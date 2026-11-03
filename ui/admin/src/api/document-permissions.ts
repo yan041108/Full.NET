@@ -1,5 +1,6 @@
 import {
   documentHostListDocumentPermissions,
+  documentHostGetPermissionContext,
   documentHostSetDocumentPermissions,
   isHostDocumentPermissionResponseList,
   isSetHostDocumentPermissionsRequest,
@@ -45,3 +46,8 @@ export async function setDocumentPermissions(
 
 /** 导出文档权限明细与写入请求模型，供权限页列表与整量保存表单共享同一契约。 */
 export type { HostDocumentPermissionResponse, SetHostDocumentPermissionsRequest };
+
+/** 治理读取不要求预先拥有文档内容权限；不返回文件信息。 */
+export async function getDocumentPermissionContext(documentId: string) {
+  return documentHostGetPermissionContext(http, { documentId });
+}

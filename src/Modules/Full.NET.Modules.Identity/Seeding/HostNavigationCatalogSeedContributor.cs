@@ -13,7 +13,8 @@ internal sealed class HostNavigationCatalogSeedContributor(
 {
     public string Name => "identity.host_navigation_catalog";
 
-    public int Version => 2;
+    // 版本推进使既有 Baseline 在 Migrator 重跑目录修复，API 与 Worker 不播种。
+    public int Version => 5;
 
     public IReadOnlySet<SeedProfile> Profiles { get; } =
         new HashSet<SeedProfile> { SeedProfile.Baseline };
@@ -29,12 +30,13 @@ internal sealed class HostNavigationCatalogSeedContributor(
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(context);
-        var (created, skipped, reparented) = await catalogSyncService
+        var (created, skipped, reparented, permissionUpdated) = await catalogSyncService
             .SyncMissingCatalogEntriesAsync(cancellationToken)
             .ConfigureAwait(false);
-        if (created > 0 || reparented > 0)
+        if (created > 0 || reparented > 0 || permissionUpdated > 0)
         {
-            return new SeedContributionResult(created + reparented, 0, skipped, "seeding.data.created");
+            return new SeedContributionResult(created, reparented + permissionUpdated, skipped,
+                created > 0 ? "seeding.data.created" : "seeding.data.updated");
         }
 
         return new SeedContributionResult(0, 0, skipped, "seeding.data.skipped");

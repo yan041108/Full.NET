@@ -28,7 +28,7 @@ internal sealed class WorkflowRecoveryTaskService(
     ICurrentTenant currentTenant,
     IClock clock,
     IIdGenerator idGenerator,
-    IOptions<DatabaseOptions> databaseOptions)
+    IOptions<DatabaseOptions> databaseOptions, WorkflowCollaborationListAuthorization authorization)
 {
     /// <summary>分页列出当前作用域内的恢复任务。</summary>
     /// <param name="page">页码，从 1 开始。</param>
@@ -36,17 +36,22 @@ internal sealed class WorkflowRecoveryTaskService(
     /// <param name="cancellationToken">取消当前查询的令牌。</param>
     /// <returns>当前页任务或稳定业务错误。</returns>
     public async Task<Result<PagedResult<WorkflowRecoveryTaskResponse>>> ListAsync(
+        Guid actorUserId,
         int page,
         int pageSize,
         CancellationToken cancellationToken)
     {
         var scope = WorkflowManagementScope.Resolve(currentTenant);
-        page = Math.Max(page, 1);
+        page = Math.Clamp(page, 1, 100_000);
         pageSize = Math.Clamp(pageSize, 1, 100);
         var offset = (page - 1) * pageSize;
+        var parameters = WorkflowSqlParameters.Create(("TenantScopeKey", scope.TenantScopeKey), ("Offset", offset), ("PageSize", pageSize));
+        var proof = await authorization.PrepareAsync("recovery", actorUserId, parameters, cancellationToken).ConfigureAwait(false);
+        if (!proof.IsSuccess) return Result<PagedResult<WorkflowRecoveryTaskResponse>>.Failure(proof.Error!);
+        parameters["CollaborationProofs"] = proof.Value;
         var total = await queryExecutor.QuerySingleOrDefaultAsync<long>(
-                WorkflowRecoverySql.CountTasksForScope,
-                WorkflowSqlParameters.Create(("TenantScopeKey", scope.TenantScopeKey)),
+                databaseOptions.Value.Provider == DatabaseProvider.SqlServer ? WorkflowRecoverySql.CountTasksForScopeSqlServer : WorkflowRecoverySql.CountTasksForScopeMySql,
+                parameters,
                 cancellationToken)
             .ConfigureAwait(false);
         var statement = databaseOptions.Value.Provider == DatabaseProvider.MySql
@@ -54,10 +59,7 @@ internal sealed class WorkflowRecoveryTaskService(
             : WorkflowRecoverySql.ListTasksForScopeSqlServer;
         var rows = await queryExecutor.QueryAsync<WorkflowRecoveryTaskRecord>(
                 statement,
-                WorkflowSqlParameters.Create(
-                    ("TenantScopeKey", scope.TenantScopeKey),
-                    ("Offset", offset),
-                    ("PageSize", pageSize)),
+                parameters,
                 cancellationToken)
             .ConfigureAwait(false);
         return Result<PagedResult<WorkflowRecoveryTaskResponse>>.Success(
@@ -153,8 +155,17 @@ internal sealed class WorkflowRecoveryTaskService(
         try
         {
             var result = await transaction.ExecuteResultAsync(
-                    token => core(
-                        taskId, actorUserId, expectedRevision, reason, normalizedKey, requestHash, scope, token),
+                    async token =>
+                    {
+                        var resource = await FindAsync(taskId, token).ConfigureAwait(false);
+                        if (resource is null) return NotFound();
+                        if (await commandExecutor.ExecuteAsync(WorkflowSql.LockInstanceForTodoAction,
+                                WorkflowSqlParameters.Create(("Id", resource.InstanceId), ("TenantScopeKey", scope.TenantScopeKey)), token).ConfigureAwait(false) != 1 ||
+                            !await WorkflowCollaborationRuntimeGate.AllowsAsync(resource.InstanceId, scope, actorUserId, clock.UtcNow,
+                                queryExecutor, token, commandExecutor).ConfigureAwait(false))
+                            return Failure(WorkflowErrorCodes.InstanceForbidden, ErrorType.Forbidden);
+                        return await core(taskId, actorUserId, expectedRevision, reason, normalizedKey, requestHash, scope, token).ConfigureAwait(false);
+                    },
                     cancellationToken)
                 .ConfigureAwait(false);
             return !result.IsSuccess && result.Error?.Code == WorkflowErrorCodes.RevisionConflict

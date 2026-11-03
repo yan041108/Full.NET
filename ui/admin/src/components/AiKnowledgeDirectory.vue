@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import AiKnowledgeGovernancePanel from './AiKnowledgeGovernancePanel.vue';
+import { knowledgeGovernanceText } from '../i18n/ai-knowledge-governance';
 import { translateKnowledgeFormats, translateKnowledgeIndexChanges, translateKnowledgeDocx, translateKnowledgeProcessing, translateKnowledgeRecovery } from '@fullnet/admin-i18n';
 import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
@@ -16,6 +18,8 @@ import { ART_TABLE_ACTION_COLUMN_WIDTH } from '../framework/art-design/component
 import { useArtPagedTableInCard } from '../framework/art-design/composables/useArtPagedTableInCard';
 import AiKnowledgeBaseSelect from './AiKnowledgeBaseSelect.vue';
 import AiKnowledgeSourceDialog from './AiKnowledgeSourceDialog.vue';
+import AiKnowledgeCorrectionDialog from './AiKnowledgeCorrectionDialog.vue';
+import { knowledgeCorrectionText } from '../i18n/ai-knowledge-corrections';
 import AiKnowledgePolicyDialog from './AiKnowledgePolicyDialog.vue';
 import AiKnowledgeGrantsDialog from './AiKnowledgeGrantsDialog.vue';
 import AiKnowledgeIndexDialog from './AiKnowledgeIndexDialog.vue';
@@ -39,12 +43,15 @@ watch(parseOptions, () => { uploadKey = ''; uploadVersion = 0; }); let uploadKey
 const sourceOpen = ref(false); const sourceVersion = ref<AiKnowledgeVersionResponse>();
 const policyOpen = ref(false); const grantsOpen = ref(false); const accessRow = ref<Row>();
 const indexOpen = ref(false); const indexVersion = ref<AiKnowledgeVersionResponse>();
+const correctionOpen = ref(false); const correctionVersion = ref<AiKnowledgeVersionResponse>(); const latestVersionId = ref<string>();
 const { tableMainRef, tableHeight, tableHeaderCellStyle, syncTableLayout } = useArtPagedTableInCard(loading);
 const prefix = computed(() => props.documents ? 'ai.knowledge_documents' : 'ai.knowledge_bases');
 const canRead = computed(() => !session.switching && session.can('ai.knowledge_bases.read') && (!props.documents || session.can('ai.knowledge_documents.read')));
 const can = (action: string) => canRead.value && session.can(`${prefix.value}.${action}`);
 const canVersion = computed(() => canRead.value && session.can('ai.knowledge_documents.versions_read'));
+const canCorrection = computed(() => canVersion.value && session.can('ai.knowledge_documents.source_read') && session.can('ai.knowledge_corrections.read'));
 const changesOpen = ref(false);
+const governanceOpen = ref(false);
 const canChanges = computed(() => props.documents && canVersion.value && session.can('ai.knowledge_documents.index_read') && session.can('ai.knowledge_documents.index_changes_read'));
 const canRecover = computed(() => props.documents && canVersion.value && session.can('ai.knowledge_documents.index_read') && session.can('ai.knowledge_documents.index_recover'));
 const recoveryCursor = ref<string>(); const recoveryReceipt = ref(''); let recoveryController: AbortController | undefined;
@@ -118,6 +125,7 @@ async function loadVersions(next = 1) {
     const result = await api.listKnowledgeVersions({ knowledgeBaseId: baseId.value, documentId: documentRow.value.id, page: next, pageSize: 20 }, versionController.signal);
     if (current !== versionEpoch || scope !== epoch || !versionOpen.value) return;
     versions.value = result.items; versionPage.value = next; versionTotal.value = result.total;
+    if (next === 1) latestVersionId.value = result.items[0]?.id;
   } catch (error) { if (current === versionEpoch && scope === epoch) showProblem(error, t('common.loadFailed')); }
   finally { if (current === versionEpoch && scope === epoch) versionsLoading.value = false; }
 }
@@ -174,6 +182,11 @@ function openIndex(id: string) {
   if (!row || busy.value || !canRead.value || !session.can('ai.knowledge_documents.index_read')) return;
   indexVersion.value = row; indexOpen.value = true;
 }
+function openCorrection(id: string) {
+  const row = versions.value.find(item => item.id === id);
+  if (!row || row.id !== latestVersionId.value || !canCorrection.value || busy.value) return;
+  correctionVersion.value = row; correctionOpen.value = true;
+}
 async function recoverSources() {
   if (!canRecover.value || !guid.test(baseId.value) || busy.value) return;
   const scope = epoch; const selectedBase = baseId.value; busy.value = true;
@@ -198,8 +211,9 @@ function reset() {
   ++epoch; ++listEpoch; ++versionEpoch; controller?.abort(); versionController?.abort(); rows.value = []; versions.value = [];
   recoveryController?.abort(); recoveryCursor.value = undefined; recoveryReceipt.value = '';
   editorOpen.value = false; versionOpen.value = false; sourceOpen.value = false; editing.value = undefined; documentRow.value = undefined;
-  policyOpen.value = false; grantsOpen.value = false; accessRow.value = undefined;
+  policyOpen.value = false; grantsOpen.value = false; governanceOpen.value = false; accessRow.value = undefined;
   indexOpen.value = false; indexVersion.value = undefined;
+  correctionOpen.value = false; correctionVersion.value = undefined; latestVersionId.value = undefined;
   sourceVersion.value = undefined; importOperation.value = undefined; file.value = undefined; uploadKey = ''; operationId.value = ''; total.value = 0; loading.value = false; busy.value = false; versionsLoading.value = false;
 }
 watch(() => route.query.knowledgeBaseId, value => { baseId.value = typeof value === 'string' ? value : ''; });
@@ -217,6 +231,7 @@ onMounted(() => void load(1)); onUnmounted(reset);
       <div ref="tableMainRef" class="art-crud-table-main">
         <div class="knowledge-toolbar">
           <AiKnowledgeBaseSelect v-if="documents" v-model="baseId" :disabled="busy" />
+          <el-button v-if="documents && canRead" :disabled="busy || !guid.test(baseId)" data-testid="knowledge-governance-open" @click="governanceOpen = true">{{ knowledgeGovernanceText(locale, 'title') }}</el-button>
           <el-button :disabled="loading || busy" @click="load()">{{ t('common.refresh') }}</el-button>
           <el-button v-if="canChanges" data-testid="knowledge-changes" :disabled="busy || !guid.test(baseId)" @click="changesOpen = true">{{ translateKnowledgeIndexChanges(locale, 'title') }}</el-button>
           <el-button v-if="canRecover" data-testid="knowledge-recover" :disabled="busy || !baseId" @click="recoverSources">{{ translateKnowledgeRecovery(locale, recoveryCursor ? 'continueRecovery' : 'recover') }}</el-button>
@@ -249,7 +264,7 @@ onMounted(() => void load(1)); onUnmounted(reset);
         <el-form-item v-if="editing && !documents" :label="t('knowledge.enabled')"><el-switch v-model="form.isEnabled" :disabled="busy" /></el-form-item>
       </el-form>
     </ArtFormDialog>
-    <ArtFormDialog :open="versionOpen" :title="t('knowledge.versions')" width="860px" :show-confirm="false" :cancel-label="t('common.cancel')" @update:open="value => { if (!busy) { versionOpen = value; if (!value) { ++versionEpoch; versionController?.abort(); versions = []; sourceOpen = false; indexOpen = false; } } }">
+    <ArtFormDialog :open="versionOpen" :title="t('knowledge.versions')" width="860px" :show-confirm="false" :cancel-label="t('common.cancel')" @update:open="value => { if (!busy) { versionOpen = value; if (!value) { ++versionEpoch; versionController?.abort(); versions = []; sourceOpen = false; indexOpen = false; correctionOpen = false; } } }">
       <template v-if="documentRow">
         <p>{{ documentRow.title }}</p><p>{{ translateKnowledgeFormats(locale, 'fileHint') }}</p>
         <div v-if="session.can('ai.knowledge_documents.upload')" class="knowledge-toolbar">
@@ -276,6 +291,7 @@ onMounted(() => void load(1)); onUnmounted(reset);
           <el-table-column v-if="session.can('ai.knowledge_documents.source_read') || session.can('ai.knowledge_documents.index_read')" :label="t('knowledge.actions')" :width="ART_TABLE_ACTION_COLUMN_WIDTH"><template #default="{ row }"><ArtTableActionGroup>
             <ArtTableActionButton v-if="session.can('ai.knowledge_documents.source_read')" type="view" :title="t('knowledge.source')" test-id="knowledge-source" @click="openSource(row.id)" />
             <ArtTableActionButton v-if="session.can('ai.knowledge_documents.index_read')" type="view" :title="t('knowledge.index')" test-id="knowledge-index" @click="openIndex(row.id)" />
+            <ArtTableActionButton v-if="canCorrection && row.id === latestVersionId" type="view" :title="knowledgeCorrectionText(locale, 'title')" test-id="knowledge-correction" @click="openCorrection(row.id)" />
           </ArtTableActionGroup></template></el-table-column>
         </el-table>
         <el-pagination :current-page="versionPage" :page-size="20" :total="versionTotal" :disabled="versionsLoading || busy" layout="total, prev, pager, next" @current-change="loadVersions($event)" />
@@ -292,8 +308,10 @@ onMounted(() => void load(1)); onUnmounted(reset);
     </ArtFormDialog>
     <AiKnowledgeIndexChangesDialog v-if="documents && canChanges" v-model:open="changesOpen" :knowledge-base-id="baseId" />
     <AiKnowledgeIndexGrantPanel v-if="documents && baseId" :knowledge-base-id="baseId" />
+    <AiKnowledgeGovernancePanel v-if="documents && baseId" v-model:open="governanceOpen" :knowledge-base-id="baseId" />
     <AiKnowledgeSourceDialog v-if="sourceVersion && documentRow" v-model:open="sourceOpen" :knowledge-base-id="baseId" :document-id="documentRow.id" :version-id="sourceVersion.id" :version="sourceVersion" />
     <AiKnowledgeIndexDialog v-if="indexVersion && documentRow" v-model:open="indexOpen" :knowledge-base-id="documentRow.knowledgeBaseId" :document-id="documentRow.id" :version-id="indexVersion.id" />
+    <AiKnowledgeCorrectionDialog v-if="correctionVersion && documentRow && canCorrection" v-model:open="correctionOpen" :knowledge-base-id="documentRow.knowledgeBaseId" :document-id="documentRow.id" :version-id="correctionVersion.id" :document-version="documentRow.version" :version="correctionVersion" @saved="value => { if (documentRow) documentRow = { ...documentRow, version: value }; }" />
   </section>
 </template>
 <style scoped>

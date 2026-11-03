@@ -26,7 +26,8 @@ export interface EnterpriseRequestPageDependencies {
 export function useEnterpriseRequestPage(
   dependencies: EnterpriseRequestPageDependencies
 ) {
-  const api = createEnterpriseRequestsApi(dependencies.request);
+  let generation = 0, cancellation = new AbortController();
+  const api = createEnterpriseRequestsApi(dependencies.request, () => cancellation.signal);
   const items = ref<EnterpriseRequestResponse[]>([]);
   const page = ref(1);
   const pageSize = ref(20);
@@ -46,49 +47,46 @@ export function useEnterpriseRequestPage(
     dependencies.hasPermission(enterpriseRequestPermissions.disable)
   );
   const canWrite = canUpdate;
+  const canSubmit = computed(() =>
+    dependencies.hasPermission(enterpriseRequestPermissions.submit)
+  );
+
+  /** 会话切换作废所有在途读写结果；取消请求不等于撤销已经提交到服务端的业务。 */
+  function reset(): void {
+    generation++; cancellation.abort(); cancellation = new AbortController();
+    items.value = []; page.value = 1; total.value = 0; loading.value = false; changing.value = false;
+  }
 
   async function load(
     nextPage = page.value,
     nextPageSize = pageSize.value
   ): Promise<boolean> {
     if (!canRead.value || loading.value) return false;
+    const current = generation;
     loading.value = true;
     try {
       const result = await api.list(nextPage, nextPageSize);
+      if (current !== generation) return false;
       items.value = result.items;
       page.value = result.page;
       pageSize.value = result.pageSize;
       total.value = result.total;
       return true;
     } catch (problem: unknown) {
-      dependencies.onProblem(
+      if (current === generation) dependencies.onProblem(
         problem,
         'client.enterprise_request_enterprise_requests_load_failed'
       );
       return false;
     } finally {
-      loading.value = false;
+      if (current === generation) loading.value = false;
     }
   }
 
   async function create(
     input: CreateEnterpriseRequestInput
   ): Promise<boolean> {
-    if (!canCreate.value || changing.value) return false;
-    changing.value = true;
-    try {
-      await api.create(input);
-      await load();
-      return true;
-    } catch (problem: unknown) {
-      dependencies.onProblem(
-        problem,
-        'client.enterprise_request_enterprise_requests_operation_failed'
-      );
-      return false;
-    } finally {
-      changing.value = false;
-    }
+    return change(canCreate.value, () => api.create(input));
   }
 
 
@@ -96,66 +94,39 @@ export function useEnterpriseRequestPage(
     item: EnterpriseRequestResponse,
     input: EnterpriseRequestPageUpdate
   ): Promise<boolean> {
-    if (!canUpdate.value || changing.value) return false;
-    changing.value = true;
-    try {
-      await api.update(item.id, {
-        ...input,
-        version: item.version
-      });
-      await load();
-      return true;
-    } catch (problem: unknown) {
-      dependencies.onProblem(
-        problem,
-        'client.enterprise_request_enterprise_requests_operation_failed'
-      );
-      return false;
-    } finally {
-      changing.value = false;
-    }
+    return change(canUpdate.value, () => api.update(item.id, { ...input, version: item.version }));
   }
 
   async function submitForApproval(
     item: EnterpriseRequestResponse
   ): Promise<boolean> {
-    if (!canUpdate.value || changing.value) return false;
     if (item.status !== 'Draft') return false;
-    changing.value = true;
-    try {
-      await api.submitForApproval(item.id);
-      await load();
-      return true;
-    } catch (problem: unknown) {
-      dependencies.onProblem(
-        problem,
-        'client.enterprise_request_enterprise_requests_operation_failed'
-      );
-      return false;
-    } finally {
-      changing.value = false;
-    }
+    return change(canSubmit.value, () => api.submitForApproval(item.id));
   }
 
   async function remove(
     item: EnterpriseRequestResponse
   ): Promise<boolean> {
-    if (!canDisable.value || changing.value) return false;
+    return change(canDisable.value, () => api.delete(item.id, { version: item.version }));
+  }
+
+  async function change(allowed: boolean, action: () => Promise<unknown>): Promise<boolean> {
+    if (!allowed || changing.value) return false;
+    const current = generation;
     changing.value = true;
     try {
-      await api.delete(item.id, {
-        version: item.version
-      });
+      await action();
+      if (current !== generation) return false;
       await load();
-      return true;
+      return current === generation;
     } catch (problem: unknown) {
-      dependencies.onProblem(
+      if (current === generation) dependencies.onProblem(
         problem,
         'client.enterprise_request_enterprise_requests_operation_failed'
       );
       return false;
     } finally {
-      changing.value = false;
+      if (current === generation) changing.value = false;
     }
   }
 
@@ -171,6 +142,8 @@ export function useEnterpriseRequestPage(
     canUpdate,
     canDisable,
     canWrite,
+    canSubmit,
+    reset,
     load,
     create,
     update,

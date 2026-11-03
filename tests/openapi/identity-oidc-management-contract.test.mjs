@@ -9,10 +9,19 @@ for (const [fixture, source] of [
 ]) {
   test(`${fixture} 的 Schema 引用完整且字段与服务端一致`, async () => {
     const contract = JSON.parse(await readFile(new URL(`../../contracts/openapi/${fixture}`, import.meta.url), 'utf8'));
-    const code = await readFile(new URL(`../../src/Modules/Full.NET.Modules.Identity.Contracts/${source}`, import.meta.url), 'utf8');
+    let code = await readFile(new URL(`../../src/Modules/Full.NET.Modules.Identity.Contracts/${source}`, import.meta.url), 'utf8');
+    if (fixture === 'identity-oidc-clients-v1.json') {
+      code += await readFile(new URL('../../src/Modules/Full.NET.Modules.Identity/Features/ManageOidcLogoutDeliveries/Endpoint.cs', import.meta.url), 'utf8');
+    }
     for (const entry of contract.paths) {
       for (const operation of entry.operations) {
-        assert.ok(code.includes(`"${operation.permission}"`));
+        if (operation.permission) assert.ok(code.includes(`"${operation.permission}"`));
+        else {
+          assert.equal(operation.authorization, 'authenticated-self');
+          const endpoint = await readFile(new URL('../../src/Modules/Full.NET.Modules.Identity/Features/MyOidcAuthorizations/Endpoint.cs', import.meta.url), 'utf8');
+          assert.match(endpoint, /MapGroup\("\/api\/v1\/me\/oidc-authorizations"\)\.RequireAuthorization\(\)/u);
+          assert.match(endpoint, /ownOnly: true/u);
+        }
         for (const name of [operation.requestSchema, operation.responseSchema].filter(Boolean)) {
           assert.ok(contract.schemas?.[name], `缺少 Schema：${name}`);
         }
@@ -26,7 +35,7 @@ for (const [fixture, source] of [
       const record = code.match(new RegExp(`record ${name}\\(([^;]+)\\);`));
       assert.ok(record, `缺少服务端记录：${name}`);
       const properties = record[1].split(',').map(parameter => {
-        const property = parameter.trim().split(/\s+/u).at(-1);
+        const property = parameter.split('=')[0].trim().split(/\s+/u).at(-1);
         return property[0].toLowerCase() + property.slice(1);
       });
       assert.deepEqual(schema.properties, properties);

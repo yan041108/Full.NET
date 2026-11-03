@@ -17,6 +17,11 @@ internal sealed class AiAgentRunStore(
     IClock clock,
     IOptions<DatabaseOptions> database) : IAgentRunStore
 {
+    /// <summary>已提交的准确目标版本只能沿原操作核对，不能通过创建新Run绕过unknown。</summary>
+    internal Task<Guid> FindBoundScheduleAsync(string scopeKey, Guid actorUserId, Guid scheduleId, int expectedVersion, CancellationToken token) =>
+        queries.QuerySingleOrDefaultAsync<Guid>(AiScheduleCompletionSql.FindBoundTarget, AiSqlParameters.Create(
+            ("ScopeKey", scopeKey), ("OwnerUserId", actorUserId), ("ScheduleId", scheduleId), ("ExpectedVersion", expectedVersion)), token);
+
     public async ValueTask<Guid> CreateOrGetAsync(AgentRunDraft draft, CancellationToken cancellationToken = default)
     {
         ValidateDraft(draft);
@@ -177,6 +182,11 @@ internal sealed class AiAgentRunStore(
 
         async Task<bool> WriteAsync(CancellationToken token)
         {
+            // 同一事务持有运行根锁，锁等待结束后才采样 @Now；零行仍由条件更新失败关闭。
+            var lockRun = database.Value.Provider == DatabaseProvider.MySql
+                ? AiAgentRunSql.LockRunMySql : AiAgentRunSql.LockRunSqlServer;
+            await queries.QuerySingleOrDefaultAsync<Guid>(lockRun,
+                AiSqlParameters.Create(("RunId", commit.Lease.RunId)), token).ConfigureAwait(false);
             var affected = await commands.ExecuteAsync(
                 AiAgentRunSql.UpdateRunStatus,
                 AiSqlParameters.Create(
@@ -303,6 +313,8 @@ internal sealed class AiAgentRunStore(
             statement,
             AiSqlParameters.Create(("BatchSize", batchSize), ("Now", now),
                 ("WorkflowKey", Full.NET.Agents.Workflows.AgentWorkflowRegistry.ChatRenameWorkflowKey),
+                ("ParallelWorkflowKey", Full.NET.Agents.Workflows.AgentWorkflowRegistry.ChatReviewWorkflowKey),
+                ("ScheduleWorkflowKey", Full.NET.Agents.Workflows.AgentWorkflowRegistry.ScheduleCompletionWorkflowKey),
                 ("SingleModelKey", Full.NET.Agents.Definitions.AgentDefinitionRegistry.SingleTextKey),
                 ("ToolLoopKey", Full.NET.Agents.Definitions.AgentDefinitionRegistry.ReadOnlyToolLoopKey)),
             cancellationToken).ConfigureAwait(false);

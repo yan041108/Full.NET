@@ -50,25 +50,23 @@ internal sealed class SeedExecutionLease(
                     @LockTimeout = @TimeoutMilliseconds;
                 SELECT @Result;
                 """;
+            var parameters = new DynamicParameters();
+            parameters.Add("Resource", ResourceName);
+            parameters.Add("TimeoutMilliseconds", _seedOptions.LockTimeoutSeconds * 1000);
             var result = await connection.ExecuteScalarAsync<int>(new CommandDefinition(
                 sql,
-                new
-                {
-                    Resource = ResourceName,
-                    TimeoutMilliseconds = _seedOptions.LockTimeoutSeconds * 1000,
-                },
+                parameters,
                 cancellationToken: cancellationToken));
             return result >= 0;
         }
 
         const string mySql = "SELECT GET_LOCK(@Resource, @TimeoutSeconds);";
+        var mySqlParameters = new DynamicParameters();
+        mySqlParameters.Add("Resource", ResourceName);
+        mySqlParameters.Add("TimeoutSeconds", _seedOptions.LockTimeoutSeconds);
         var acquired = await connection.ExecuteScalarAsync<int?>(new CommandDefinition(
             mySql,
-            new
-            {
-                Resource = ResourceName,
-                TimeoutSeconds = _seedOptions.LockTimeoutSeconds,
-            },
+            mySqlParameters,
             cancellationToken: cancellationToken));
         return acquired == 1;
     }
@@ -91,9 +89,12 @@ internal sealed class SeedExecutionLease(
                 var releaseSql = provider == DatabaseProvider.SqlServer
                     ? "EXEC sys.sp_releaseapplock @Resource = @Resource, @LockOwner = 'Session';"
                     : "SELECT RELEASE_LOCK(@Resource);";
+                // 释放也必须静态绑定；即使上游失败，原生进程仍应优先主动释放会话锁。
+                var parameters = new DynamicParameters();
+                parameters.Add("Resource", ResourceName);
                 await connection.ExecuteAsync(new CommandDefinition(
                     releaseSql,
-                    new { Resource = ResourceName },
+                    parameters,
                     cancellationToken: CancellationToken.None));
             }
             catch

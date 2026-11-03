@@ -1,3 +1,4 @@
+import 'workflow_form_fixture.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
@@ -29,6 +30,8 @@ Map<String, dynamic> detail() => {
       'statusKey': 'active',
       'revision': 1,
       'submissionRevision': 1,
+      'formSchema': workflowTestFormSchema,
+      'fieldPolicies': <String, String>{},
       'submission': {'document': 'old-identity-secret'},
       'allowedActions': ['approve'],
       'activityKindKey': 'human.approval',

@@ -31,6 +31,8 @@ internal static class IdentityOidcRevokeIdempotencyAssertions
             });
         await factory.InitializeAsync(cancellationToken);
         using var client = factory.CreateClientForHost("localhost");
+        // Secure 中心 Cookie 必须经 HTTPS 回送，才能验证同一浏览器的 SSO 与退出。
+        client.BaseAddress = new Uri("https://localhost");
         await VerifyDuplicateSingleRevokeIsIdempotentAsync(client, publisher, cancellationToken);
         await VerifyDuplicateRevokeAllIsIdempotentAsync(factory, publisher, cancellationToken);
         await VerifyDuplicateApplicationLogoutIsIdempotentAsync(client, publisher, cancellationToken);
@@ -199,6 +201,7 @@ internal static class IdentityOidcRevokeIdempotencyAssertions
             {
                 clientId = IdentityOidcRelyingPartyFixture.PublicClientId,
             });
+        firstLogoutRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", flow.AccessToken);
         using var firstLogoutResponse = await client.SendAsync(firstLogoutRequest, cancellationToken);
         Assert.AreEqual(HttpStatusCode.NoContent, firstLogoutResponse.StatusCode);
 
@@ -209,8 +212,10 @@ internal static class IdentityOidcRevokeIdempotencyAssertions
             {
                 clientId = IdentityOidcRelyingPartyFixture.PublicClientId,
             });
+        secondLogoutRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", flow.AccessToken);
         using var secondLogoutResponse = await client.SendAsync(secondLogoutRequest, cancellationToken);
-        Assert.AreEqual(HttpStatusCode.NoContent, secondLogoutResponse.StatusCode);
+        // 已撤销令牌不能再次认证，重复请求仍不能触发第二次撤销副作用。
+        Assert.AreEqual(HttpStatusCode.Unauthorized, secondLogoutResponse.StatusCode);
         Assert.AreEqual(
             1,
             publisher.PublishAttempts,

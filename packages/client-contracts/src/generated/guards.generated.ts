@@ -2,6 +2,7 @@
 // 内容：OpenAPI 运行时响应守卫。
 
 import type {
+  AcceptWorkflowCollaborationGrantRequest,
   AccessHostDocumentShareRequest,
   AccessLogCursorPageResponse,
   AccessLogResponse,
@@ -18,6 +19,7 @@ import type {
   AiAgentRunResponse,
   AiAgentToolCallListItem,
   AiAgentToolCatalogItem,
+  AiAgentWorkflowProposalResponse,
   AiChatMessageResponse,
   AiChatSessionListItem,
   AiChatSessionResponse,
@@ -32,9 +34,64 @@ import type {
   AiKnowledgeAnswerFeedbackStateResponse,
   AiKnowledgeBaseResponse,
   AiKnowledgeCitationResponse,
+  AiKnowledgeCorrectionBlockResponse,
+  AiKnowledgeCorrectionCitationResponse,
+  AiKnowledgeCorrectionEditOperation,
+  AiKnowledgeCorrectionEditRequest,
+  AiKnowledgeCorrectionHeadRequest,
+  AiKnowledgeCorrectionPartResponse,
+  AiKnowledgeCorrectionPreparationResponse,
+  AiKnowledgeCorrectionPrepareRequest,
+  AiKnowledgeCorrectionRestoreRequest,
+  AiKnowledgeCorrectionRevisionPageResponse,
+  AiKnowledgeCorrectionRevisionResponse,
+  AiKnowledgeCorrectionSpanResponse,
+  AiKnowledgeCorrectionWorkspaceResponse,
+  AiKnowledgeDirectoryItemResult,
+  AiKnowledgeDirectoryResponse,
   AiKnowledgeDocumentMembersResponse,
   AiKnowledgeDocumentResponse,
   AiKnowledgeDocxLocationResponse,
+  AiKnowledgeEvaluationCase,
+  AiKnowledgeEvaluationCaseInput,
+  AiKnowledgeEvaluationCaseResult,
+  AiKnowledgeEvaluationCaseState,
+  AiKnowledgeEvaluationEntry,
+  AiKnowledgeEvaluationEntryPage,
+  AiKnowledgeEvaluationModel,
+  AiKnowledgeEvaluationMutation,
+  AiKnowledgeEvaluationOperation,
+  AiKnowledgeEvaluationPage,
+  AiKnowledgeEvaluationPreparedFeedback,
+  AiKnowledgeEvaluationRevision,
+  AiKnowledgeEvaluationRun,
+  AiKnowledgeEvaluationRunAdmission,
+  AiKnowledgeEvaluationStrategy,
+  AiKnowledgeEvaluationWorkspace,
+  AiKnowledgeFaqCitationResponse,
+  AiKnowledgeFaqContent,
+  AiKnowledgeFaqDocumentSelection,
+  AiKnowledgeFaqDraftMutation,
+  AiKnowledgeFaqDraftPage,
+  AiKnowledgeFaqDraftRevision,
+  AiKnowledgeFaqDraftRevisionPage,
+  AiKnowledgeFaqDraftWorkspace,
+  AiKnowledgeFaqFeedbackDraftInput,
+  AiKnowledgeFaqFeedbackPreview,
+  AiKnowledgeFaqFeedbackSource,
+  AiKnowledgeFaqImportItemResult,
+  AiKnowledgeFaqImportReport,
+  AiKnowledgeFaqIndexAdmission,
+  AiKnowledgeFaqLifecycle,
+  AiKnowledgeFaqPublication,
+  AiKnowledgeFaqPublishedContent,
+  AiKnowledgeFaqSourceGraph,
+  AiKnowledgeFaqSourceNode,
+  AiKnowledgeFaqTransferItem,
+  AiKnowledgeFaqTransferPackage,
+  AiKnowledgeFinanceBucket,
+  AiKnowledgeFinanceReport,
+  AiKnowledgeFolderResponse,
   AiKnowledgeGridLocationResponse,
   AiKnowledgeImageLocationResponse,
   AiKnowledgeImportResponse,
@@ -48,10 +105,29 @@ import type {
   AiKnowledgeIndexReconciliationResponse,
   AiKnowledgeIndexStatusResponse,
   AiKnowledgeMembersResponse,
+  AiKnowledgeOperationItem,
+  AiKnowledgeOperationsPage,
   AiKnowledgeOrganizationCandidateResponse,
   AiKnowledgeOrganizationGrantsResponse,
+  AiKnowledgePublicationHeadResponse,
+  AiKnowledgePublicationResponse,
+  AiKnowledgeQualityObservation,
   AiKnowledgeRoleCandidateResponse,
   AiKnowledgeRoleGrantsResponse,
+  AiKnowledgeSearchAnswerScope,
+  AiKnowledgeSearchComparisonRanking,
+  AiKnowledgeSearchComparisonResponse,
+  AiKnowledgeSearchComparisonUsage,
+  AiKnowledgeSearchContextBlock,
+  AiKnowledgeSearchContextResponse,
+  AiKnowledgeSearchDiagnostics,
+  AiKnowledgeSearchHit,
+  AiKnowledgeSearchRefinementOperation,
+  AiKnowledgeSearchRefinementResponse,
+  AiKnowledgeSearchRelation,
+  AiKnowledgeSearchRelationsResponse,
+  AiKnowledgeSearchResponse,
+  AiKnowledgeSearchSource,
   AiKnowledgeSlideLocationResponse,
   AiKnowledgeSourceLocationResponse,
   AiKnowledgeVersionResponse,
@@ -61,6 +137,13 @@ import type {
   AiMcpRemoteToolApprovalItem,
   AiModelConfigListItem,
   AiModelConfigResponse,
+  AiPersonalScheduleCitationResponse,
+  AiPersonalScheduleCompletionProposal,
+  AiPersonalScheduleCompletionStatus,
+  AiPersonalScheduleCompletionTarget,
+  AiPersonalScheduleSource,
+  AiPersonalScheduleSourcePreview,
+  AiPersonalScheduleSourceSelection,
   AiPromptBody,
   AiPromptExecutionBinding,
   AiPromptResponse,
@@ -105,9 +188,15 @@ import type {
   CacheInvalidationResult,
   CachePolicySummary,
   CancelDataApprovalRequestBody,
+  CancelDocumentPreviewTaskRequest,
+  CancelEnterpriseRequestReportRequest,
+  CancelImportExportTaskRequest,
+  CancelReportingExportTaskRequest,
   CancelWorkflowInstanceRequest,
   CancelWorkflowTodoCountersignRequest,
+  CaptureAiKnowledgeEvaluationStrategy,
   ChangeDeliveryOwnerRequest,
+  ChangeHostDocumentStatusRequest,
   ChangeHostJobScheduleStateRequest,
   ChangeKafkaReplayOperationRequest,
   ChangePasswordRequest,
@@ -115,6 +204,7 @@ import type {
   ChangeSerialNumberRuleStatusRequest,
   ClaimWorkflowPoolRequest,
   CloseShadowCaptureRequest,
+  CodeGenerationApplyPlanFileResponse,
   CodeGenerationCatalogColumnListResponse,
   CodeGenerationCatalogColumnSyncRequest,
   CodeGenerationCatalogColumnSyncResponse,
@@ -133,20 +223,28 @@ import type {
   CodeGenerationPreviewRequest,
   CodeGenerationPreviewResponse,
   CodeGenerationRelationshipRequest,
+  CodeGenerationRunApplyPlanRequest,
+  CodeGenerationRunApplyPlanResponse,
   CodeGenerationRunApplyRequest,
   CodeGenerationRunApplyResponse,
   CodeGenerationRunPreviewRequest,
   CodeGenerationRunPreviewResponse,
+  CodeGenerationRunPublicationResponse,
   CodeGenerationRunResponse,
   CodeGenerationRunRollbackChainRequest,
   CodeGenerationRunRollbackChainResponse,
   CodeGenerationRunRollbackRequest,
   CodeGenerationRunRollbackResponse,
   CodeGenerationTemplateResponse,
+  CodeGenerationWorkspaceRecoveryRequest,
+  CodeGenerationWorkspaceStateResponse,
+  CompareAiKnowledgeSearchRequest,
   ConfigEntryResponse,
   ConfigValueUpdate,
   ConfirmOcrIdCardTaskRequest,
   ConfirmTotpEnrollmentRequest,
+  CopyAiKnowledgeEvaluationSet,
+  CopyAiKnowledgeFaqDraft,
   CopyHostRoleRequest,
   CountersignWorkflowTodoRequest,
   CreateAdministrativeRegionRequest,
@@ -159,6 +257,11 @@ import type {
   CreateAiChatSessionRequest,
   CreateAiKnowledgeBaseRequest,
   CreateAiKnowledgeDocumentRequest,
+  CreateAiKnowledgeEvaluationRun,
+  CreateAiKnowledgeFaqDerivedDraft,
+  CreateAiKnowledgeFaqDocumentDraft,
+  CreateAiKnowledgeFaqFeedbackDraft,
+  CreateAiKnowledgeFaqIndependentDraft,
   CreateAiKnowledgeIndexGrantRequest,
   CreateAiMcpRemoteConnectionRequest,
   CreateAiModelConfigRequest,
@@ -168,6 +271,7 @@ import type {
   CreateDataApprovalRequestBody,
   CreateDictItemRequest,
   CreateDictTypeRequest,
+  CreateEnterpriseRequestReportRequest,
   CreateEnterpriseRequestRequest,
   CreateGoViewProjectRequest,
   CreateHostAnnouncementRequest,
@@ -201,6 +305,7 @@ import type {
   CreateOrganizationUnitRequest,
   CreateOrganizationUserPositionRequest,
   CreateOrganizationUserUnitRequest,
+  CreatePaidTenantSubscriptionRequest,
   CreatePaymentMerchantConfigRequest,
   CreatePaymentOrderRequest,
   CreatePaymentRefundRequest,
@@ -215,18 +320,24 @@ import type {
   CreateWorkflowFormRequest,
   CreateWorkflowWorkCalendarRequest,
   CurrentUserResponse,
+  CursorPageOfImportExportTaskResponse,
+  CursorPageOfQuerySchemeSummary,
+  CursorPageOfReportingExportTaskResponse,
   CutoverEvidenceResponse,
   DataApprovalRequestResponse,
   DataApprovalScenarioResponse,
   DeactivateAiPromptRequest,
   DecideAiAgentApprovalRequest,
+  DefaultQuerySchemeResponse,
   DelegateWorkflowTodoRequest,
   DeleteAdministrativeRegionRequest,
   DeleteAiKnowledgeDocumentRequest,
+  DeleteAiKnowledgeFolder,
   DeleteCodeGenerationTemplateRequest,
   DeleteConfigEntryRequest,
   DeleteDictItemRequest,
   DeleteDictTypeRequest,
+  DeleteEnterpriseRequestAttachmentRequest,
   DeleteEnterpriseRequestRequest,
   DeleteHostDocumentCategoryRequest,
   DeleteHostDocumentItemRequest,
@@ -235,6 +346,8 @@ import type {
   DeleteHostFolderRequest,
   DeleteHostJobDefinitionRequest,
   DeleteHostReleaseNoteRequest,
+  DeleteImportProfileRequest,
+  DeleteQuerySchemeRequest,
   DeliveryCutoverResponse,
   DeliveryRollbackResponse,
   DeliveryStatusResponse,
@@ -244,7 +357,13 @@ import type {
   DictItemResponse,
   DictTypeResponse,
   DisableHostJobDefinitionRequest,
+  DocumentPreviewCapabilities,
+  EnterpriseRequestAttachmentResponse,
+  EnterpriseRequestPrintResponse,
+  EnterpriseRequestReportResponse,
   EnterpriseRequestResponse,
+  EnterpriseRequestSearchHit,
+  EnterpriseRequestSearchPage,
   EnumCatalogDetail,
   EnumCatalogDictGenerationItemPreview,
   EnumCatalogDictGenerationPreview,
@@ -256,7 +375,9 @@ import type {
   EventDeliveryRollbackPhase,
   EventStreamStatusResponse,
   ExceptionLogResponse,
+  ExecuteAiKnowledgeEvaluationCase,
   ExecuteReportingDefinitionRequest,
+  ExportAiKnowledgeFaqs,
   FieldProjectionDefaultVisibility,
   FieldProjectionFieldDefinition,
   FieldProjectionResourceDefinition,
@@ -267,6 +388,7 @@ import type {
   GoViewProjectVersionResponse,
   GoViewProjectVersionSummaryResponse,
   GrantSuperAdministratorRequest,
+  GridColumnPreference,
   HostAnnouncementReadReceiptResponse,
   HostAnnouncementReadStatsResponse,
   HostAnnouncementResponse,
@@ -281,9 +403,12 @@ import type {
   HostDocumentAccessLogResponse,
   HostDocumentCategoryResponse,
   HostDocumentItemResponse,
+  HostDocumentPermissionContext,
   HostDocumentPermissionEntry,
   HostDocumentPermissionResponse,
   HostDocumentPreviewTaskResponse,
+  HostDocumentSearchHit,
+  HostDocumentSearchPage,
   HostDocumentShareAccessResponse,
   HostDocumentShareResponse,
   HostDocumentStatisticsCategoryItem,
@@ -342,6 +467,9 @@ import type {
   ImportAdministrativeRegionsPreviewResponse,
   ImportAdministrativeRegionsRequest,
   ImportAdministrativeRegionUpdatedSummary,
+  ImportAiKnowledgeFaqs,
+  ImportColumnMapping,
+  ImportColumnMappingRequest,
   ImportExportTaskDetailResponse,
   ImportExportTaskResponse,
   ImportHostUserRowResult,
@@ -351,8 +479,11 @@ import type {
   ImportOrganizationPositionRowResult,
   ImportOrganizationPositionsRequest,
   ImportOrganizationPositionsResponse,
+  ImportProfileDetail,
+  ImportProfileSummary,
   InboxMessageResponse,
   InboxUnreadCountResponse,
+  IndexAiKnowledgeFaqRevision,
   JsonElement,
   K3CloudConnectionConfigResponse,
   K3CloudDocumentSyncResponse,
@@ -420,6 +551,7 @@ import type {
   PagedResultOfAiAgentToolCallListItem,
   PagedResultOfAiChatSessionListItem,
   PagedResultOfAiKnowledgeBaseResponse,
+  PagedResultOfAiKnowledgeDirectoryResponse,
   PagedResultOfAiKnowledgeDocumentResponse,
   PagedResultOfAiKnowledgeOrganizationCandidateResponse,
   PagedResultOfAiKnowledgeRoleCandidateResponse,
@@ -434,6 +566,8 @@ import type {
   PagedResultOfDataApprovalRequestResponse,
   PagedResultOfDictItemResponse,
   PagedResultOfDictTypeResponse,
+  PagedResultOfEnterpriseRequestAttachmentResponse,
+  PagedResultOfEnterpriseRequestReportResponse,
   PagedResultOfEnterpriseRequestResponse,
   PagedResultOfExceptionLogResponse,
   PagedResultOfGoViewProjectSummaryResponse,
@@ -488,8 +622,10 @@ import type {
   PagedResultOfReceivedHostAnnouncementListItemResponse,
   PagedResultOfReportingDataSourceListItem,
   PagedResultOfReportingDefinitionSummaryResponse,
+  PagedResultOfReportingDefinitionTenantGrantResponse,
   PagedResultOfReportingDefinitionVersionSummaryResponse,
   PagedResultOfReportingExportTaskResponse,
+  PagedResultOfReportingPublishedDefinitionResponse,
   PagedResultOfSerialNumberRuleResponse,
   PagedResultOfTenantPackageSummary,
   PagedResultOfTenantSummary,
@@ -505,6 +641,10 @@ import type {
   PaymentRefundResponse,
   PersonalScheduleResponse,
   PrepareAiFeedbackEvaluationRequest,
+  PrepareAiKnowledgeEvaluationFeedback,
+  PreviewAiKnowledgeFaqFeedback,
+  PreviewAiKnowledgeFaqImport,
+  PreviewAiPersonalScheduleSources,
   PreviewGoViewProjectRequest,
   PreviewPrintingTemplateRequest,
   PreviewSerialNumberRequest,
@@ -517,7 +657,9 @@ import type {
   PrintingTemplateVersionResponse,
   PrintingTemplateVersionSummaryResponse,
   ProblemDetails,
+  ProposeWorkflowCollaborationGrantRequest,
   ProvisionTenantRequest,
+  PublishAiKnowledgePublication,
   PublishGoViewProjectRequest,
   PublishHostAnnouncementRequest,
   PublishHostReleaseNoteRequest,
@@ -529,6 +671,14 @@ import type {
   PublishWorkflowDefinitionRequest,
   PublishWorkflowFormRequest,
   PublishWorkflowWorkCalendarRequest,
+  QuerySchemeConfiguration,
+  QuerySchemeDefinition,
+  QuerySchemeDetail,
+  QuerySchemeFilter,
+  QuerySchemeFilterDefinition,
+  QuerySchemeSummary,
+  ReadAiKnowledgeSearchContextRequest,
+  ReadAiKnowledgeSearchRelationsRequest,
   ReassignWorkflowInstanceRequest,
   RecallWorkflowTodoDelegationRequest,
   ReceivedHostAnnouncementDetailResponse,
@@ -543,6 +693,7 @@ import type {
   RecoverDeadLetterResponse,
   RecoverRollbackRequest,
   RecoverWorkflowInstanceRequest,
+  RefineAiKnowledgeSearchRequest,
   ReleaseWorkflowTodoRequest,
   ReplaceHostRoleFieldGrantsRequest,
   ReplaceHostRoleMembersRequest,
@@ -552,6 +703,7 @@ import type {
   ReportingDataSourceResponse,
   ReportingDefinitionResponse,
   ReportingDefinitionSummaryResponse,
+  ReportingDefinitionTenantGrantResponse,
   ReportingDefinitionVersionResponse,
   ReportingDefinitionVersionSummaryResponse,
   ReportingExecutionColumnDefinition,
@@ -562,10 +714,15 @@ import type {
   ReportingExportTaskResponse,
   ReportingGroupResponse,
   ReportingParameterSchemaEntry,
+  ReportingPublishedDefinitionResponse,
   ReportingQueryPortDefinition,
   ReportingQueryPortParameterDefinition,
+  RequestAiKnowledgeFaqPublication,
+  RequestAiKnowledgePublication,
   RequestWorkflowManualReminder,
   ResetHostUserPasswordRequest,
+  RestoreAiKnowledgeEvaluationSet,
+  RestoreAiKnowledgeFaqDraft,
   RestoreDiagnosticPolicyRequest,
   RestoreHostDocumentItemRequest,
   ResumeWorkflowInstanceRequest,
@@ -577,14 +734,24 @@ import type {
   RevealHostUserProfileFieldsRequest,
   RevealHostUserProfileFieldsResponse,
   ReviewAiKnowledgeAnswerFeedbackRequest,
+  ReviewAiKnowledgeEvaluationResult,
+  ReviewAiKnowledgeEvaluationSet,
+  ReviewAiKnowledgePublication,
   RevokeAiAgentDelegationRequest,
   RevokeAiKnowledgeIndexGrantRequest,
   RevokeAllHostUserSessionsResponse,
   RevokeNotificationIntentRequest,
   RevokeSuperAdministratorRequest,
+  RevokeWorkflowCollaborationGrantRequest,
   RollbackHostDocumentVersionRequest,
   RollbackOperationResponse,
+  SaveAiKnowledgeEvaluationSet,
+  SaveAiKnowledgeFaqDraft,
+  SaveAiKnowledgeFolder,
+  SaveImportProfileRequest,
+  SaveQuerySchemeRequest,
   SaveWorkflowDesignerAssetRequest,
+  SearchAiKnowledgeRequest,
   SelectAiPromptVersionRequest,
   SelfServiceProfileResponse,
   SendHostInboxMessageRequest,
@@ -602,10 +769,13 @@ import type {
   ServerRuntimeMetric,
   ServerRuntimeSnapshot,
   SetAiKnowledgeAnswerFeedbackRequest,
+  SetAiKnowledgeDirectoryBatch,
+  SetAiKnowledgeDirectoryItem,
   SetAiKnowledgeDocumentMembersRequest,
   SetAiKnowledgeMembersRequest,
   SetAiKnowledgeOrganizationGrantsRequest,
   SetAiKnowledgeRoleGrantsRequest,
+  SetDefaultQuerySchemeRequest,
   SetHostDocumentPermissionsRequest,
   SetNotificationProducerSceneEnabledRequest,
   SetNotificationProviderProfileEnabledRequest,
@@ -613,10 +783,13 @@ import type {
   SetOrganizationReportingLineRequest,
   SetOrganizationUnitLeadershipRequest,
   SetPersonalScheduleStatusRequest,
+  SetReportingDefinitionTenantGrantRequest,
   SetWorkflowDefinitionStatusRequest,
   SetWorkflowFormStatusRequest,
   ShadowCapturePolicyResponse,
   ShadowCaptureResponse,
+  ShareQuerySchemeRequest,
+  SimulateWorkflowDefinitionRequest,
   StartShadowCaptureRequest,
   StartWorkflowInstanceRequest,
   StaticImportRowPreviewResult,
@@ -626,12 +799,17 @@ import type {
   StreamAiChatMessageRequest,
   SubmitSerialRuleDisableApprovalRequest,
   SubmitSerialRuleUpdateApprovalRequest,
+  SubscriptionCheckoutResponse,
+  SubscriptionFulfillmentStatusResponse,
   SuperAdministratorAuditResponse,
   SuperAdministratorChangeResponse,
   SuperAdministratorResponse,
   TenantBrandingResponse,
+  TenantEntitlementCatalogResponse,
+  TenantPackageOfferResponse,
   TenantPackageSummary,
   TenantRuntimeBrandingResponse,
+  TenantSubscriptionPaymentTerms,
   TenantSummary,
   TestAiModelConfigResult,
   TestAiModelEmbeddingRequest,
@@ -701,9 +879,11 @@ import type {
   UpdateWorkflowDefinitionDraftRequest,
   UpdateWorkflowFormDraftRequest,
   UpdateWorkflowWorkCalendarRequest,
+  UpsertTenantPackageOfferRequest,
   VerifyCutoverRequest,
   VerifyRecipientEndpointCodeRequest,
   VoteWorkflowTodoRequest,
+  WithdrawAiKnowledgePublication,
   WithdrawWorkflowInstanceRequest,
   WorkflowApprovalGroupProgressResponse,
   WorkflowAssigneePreviewResponse,
@@ -714,6 +894,7 @@ import type {
   WorkflowClaimPoolPageResponse,
   WorkflowClaimPoolResponse,
   WorkflowClaimProgressResponse,
+  WorkflowCollaborationGrantResponse,
   WorkflowConnectorAttemptResponse,
   WorkflowConnectorCallPageResponse,
   WorkflowConnectorCallResponse,
@@ -726,6 +907,7 @@ import type {
   WorkflowDefinitionVersionResponse,
   WorkflowDesignerAssetResponse,
   WorkflowExecutionLogResponse,
+  WorkflowFormAttachmentUploadResponse,
   WorkflowFormComponentCatalogResponse,
   WorkflowFormComponentResponse,
   WorkflowFormField,
@@ -743,6 +925,10 @@ import type {
   WorkflowNodeDraft,
   WorkflowNodeTypeCatalogResponse,
   WorkflowNodeTypeResponse,
+  WorkflowOperationsBacklogResponse,
+  WorkflowOperationsStepResponse,
+  WorkflowOperationsStepsResponse,
+  WorkflowOperationsWorkResponse,
   WorkflowPositionCandidatePageResponse,
   WorkflowPositionCandidateResponse,
   WorkflowRecipientCandidatePageResponse,
@@ -752,6 +938,9 @@ import type {
   WorkflowRouteResolutionResponse,
   WorkflowRouteTargetResponse,
   WorkflowSignatureUploadResponse,
+  WorkflowSimulationResponse,
+  WorkflowSimulationSelectionsResponse,
+  WorkflowSimulationTraceResponse,
   WorkflowStarterSelectionDescriptorResponse,
   WorkflowStarterSelectionsResponse,
   WorkflowTaskProgressResponse,
@@ -778,12 +967,21 @@ import type {
   WorkflowWorkCalendarWeekday
 } from './models.generated.js';
 
+export function readAcceptWorkflowCollaborationGrantRequest(value: unknown): AcceptWorkflowCollaborationGrantRequest {
+  const normalizedValue = normalizeAcceptWorkflowCollaborationGrantRequestIntegerJson(value);
+  return requireValidResponse(normalizedValue, isAcceptWorkflowCollaborationGrantRequest(normalizedValue), 'accept_workflow_collaboration_grant_request') as AcceptWorkflowCollaborationGrantRequest;
+}
+
+function isAcceptWorkflowCollaborationGrantRequest(value: unknown): value is AcceptWorkflowCollaborationGrantRequest {
+  return isRecord(value) && (isJsonElement(value["acceptance"])) && (typeof value["expectedRevision"] === 'number' && Number.isSafeInteger(value["expectedRevision"])) && (typeof value["idempotencyKey"] === 'string');
+}
+
 export function readAccessHostDocumentShareRequest(value: unknown): AccessHostDocumentShareRequest {
   return requireValidResponse(value, isAccessHostDocumentShareRequest(value), 'access_host_document_share_request') as AccessHostDocumentShareRequest;
 }
 
 function isAccessHostDocumentShareRequest(value: unknown): value is AccessHostDocumentShareRequest {
-  return isRecord(value) && (value["password"] === undefined || ((value["password"] === null) || (typeof value["password"] === 'string'))) && (value["previewGrant"] === undefined || ((value["previewGrant"] === null) || (typeof value["previewGrant"] === 'string')));
+  return isRecord(value) && (value["accessTypeKey"] === undefined || ((value["accessTypeKey"] === null) || (typeof value["accessTypeKey"] === 'string'))) && (value["password"] === undefined || ((value["password"] === null) || (typeof value["password"] === 'string'))) && (value["previewGrant"] === undefined || ((value["previewGrant"] === null) || (typeof value["previewGrant"] === 'string'))) && (value["requestKey"] === undefined || (typeof value["requestKey"] === 'string' && guidPattern.test(value["requestKey"])));
 }
 
 export function readAccessLogCursorPageResponse(value: unknown): AccessLogCursorPageResponse {
@@ -818,7 +1016,7 @@ export function readAddHostDocumentVersionRequest(value: unknown): AddHostDocume
 }
 
 function isAddHostDocumentVersionRequest(value: unknown): value is AddHostDocumentVersionRequest {
-  return isRecord(value) && ((value["changeDescription"] === null) || (typeof value["changeDescription"] === 'string')) && (typeof value["fileId"] === 'string' && guidPattern.test(value["fileId"]));
+  return isRecord(value) && ((value["changeDescription"] === null) || (typeof value["changeDescription"] === 'string')) && (typeof value["fileId"] === 'string' && guidPattern.test(value["fileId"])) && (typeof value["requestKey"] === 'string' && guidPattern.test(value["requestKey"]));
 }
 
 export function readAdministrativeRegionChildResponse(value: unknown): AdministrativeRegionChildResponse {
@@ -918,13 +1116,22 @@ function isAiAgentToolCatalogItem(value: unknown): value is AiAgentToolCatalogIt
   return isRecord(value) && (typeof value["description"] === 'string') && (typeof value["displayName"] === 'string') && (typeof value["inputSchemaJson"] === 'string') && (typeof value["isEnabled"] === 'boolean') && (typeof value["mcpExposureKey"] === 'string') && (typeof value["outputSchemaJson"] === 'string') && (typeof value["permissionCode"] === 'string') && (typeof value["sideEffectKey"] === 'string') && (typeof value["toolName"] === 'string');
 }
 
+export function readAiAgentWorkflowProposalResponse(value: unknown): AiAgentWorkflowProposalResponse {
+  const normalizedValue = normalizeAiAgentWorkflowProposalResponseIntegerJson(value);
+  return requireValidResponse(normalizedValue, isAiAgentWorkflowProposalResponse(normalizedValue), 'ai_agent_workflow_proposal_response') as AiAgentWorkflowProposalResponse;
+}
+
+function isAiAgentWorkflowProposalResponse(value: unknown): value is AiAgentWorkflowProposalResponse {
+  return isRecord(value) && (typeof value["argumentsJson"] === 'string') && (typeof value["currentTitle"] === 'string') && (typeof value["operationId"] === 'string' && guidPattern.test(value["operationId"])) && (typeof value["proposedTitle"] === 'string') && (typeof value["runId"] === 'string' && guidPattern.test(value["runId"])) && (typeof value["targetChatSessionId"] === 'string' && guidPattern.test(value["targetChatSessionId"])) && (typeof value["targetVersion"] === 'number' && Number.isSafeInteger(value["targetVersion"])) && (typeof value["toolName"] === 'string') && (typeof value["toolVersion"] === 'number' && Number.isSafeInteger(value["toolVersion"]));
+}
+
 export function readAiChatMessageResponse(value: unknown): AiChatMessageResponse {
   const normalizedValue = normalizeAiChatMessageResponseIntegerJson(value);
   return requireValidResponse(normalizedValue, isAiChatMessageResponse(normalizedValue), 'ai_chat_message_response') as AiChatMessageResponse;
 }
 
 function isAiChatMessageResponse(value: unknown): value is AiChatMessageResponse {
-  return isRecord(value) && (value["citations"] === undefined || (Array.isArray(value["citations"]) && value["citations"].every(item18 => isAiKnowledgeCitationResponse(item18)))) && ((value["completionTokens"] === null) || (typeof value["completionTokens"] === 'number' && Number.isSafeInteger(value["completionTokens"]))) && (typeof value["content"] === 'string') && (typeof value["createdAtUtc"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (value["isKnowledgeAnswer"] === undefined || (typeof value["isKnowledgeAnswer"] === 'boolean')) && (value["knowledgeUnavailableCode"] === undefined || ((value["knowledgeUnavailableCode"] === null) || (typeof value["knowledgeUnavailableCode"] === 'string'))) && ((value["promptTokens"] === null) || (typeof value["promptTokens"] === 'number' && Number.isSafeInteger(value["promptTokens"]))) && (typeof value["roleKey"] === 'string') && (typeof value["sessionId"] === 'string' && guidPattern.test(value["sessionId"])) && (typeof value["statusKey"] === 'string');
+  return isRecord(value) && (value["citations"] === undefined || (Array.isArray(value["citations"]) && value["citations"].every(item18 => isAiKnowledgeCitationResponse(item18)))) && ((value["completionTokens"] === null) || (typeof value["completionTokens"] === 'number' && Number.isSafeInteger(value["completionTokens"]))) && (typeof value["content"] === 'string') && (typeof value["createdAtUtc"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (value["isKnowledgeAnswer"] === undefined || (typeof value["isKnowledgeAnswer"] === 'boolean')) && (value["knowledgeUnavailableCode"] === undefined || ((value["knowledgeUnavailableCode"] === null) || (typeof value["knowledgeUnavailableCode"] === 'string'))) && (value["personalScheduleCitations"] === undefined || (Array.isArray(value["personalScheduleCitations"]) && value["personalScheduleCitations"].every(item34 => isAiPersonalScheduleCitationResponse(item34)))) && ((value["promptTokens"] === null) || (typeof value["promptTokens"] === 'number' && Number.isSafeInteger(value["promptTokens"]))) && (typeof value["roleKey"] === 'string') && (typeof value["sessionId"] === 'string' && guidPattern.test(value["sessionId"])) && (typeof value["statusKey"] === 'string');
 }
 
 export function readAiChatSessionListItem(value: unknown): AiChatSessionListItem {
@@ -1039,7 +1246,142 @@ export function readAiKnowledgeCitationResponse(value: unknown): AiKnowledgeCita
 }
 
 function isAiKnowledgeCitationResponse(value: unknown): value is AiKnowledgeCitationResponse {
-  return isRecord(value) && (typeof value["documentId"] === 'string' && guidPattern.test(value["documentId"])) && (value["docxLocation"] === undefined || ((value["docxLocation"] === null) || (isAiKnowledgeDocxLocationResponse(value["docxLocation"])))) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["length"] === 'number' && Number.isSafeInteger(value["length"])) && (typeof value["offset"] === 'number' && Number.isSafeInteger(value["offset"])) && ((value["pageNumber"] === null) || (typeof value["pageNumber"] === 'number' && Number.isSafeInteger(value["pageNumber"]))) && (typeof value["sequence"] === 'number' && Number.isSafeInteger(value["sequence"])) && (value["sourceLocation"] === undefined || ((value["sourceLocation"] === null) || (isAiKnowledgeSourceLocationResponse(value["sourceLocation"])))) && (typeof value["versionId"] === 'string' && guidPattern.test(value["versionId"]));
+  return isRecord(value) && (value["correction"] === undefined || ((value["correction"] === null) || (isAiKnowledgeCorrectionCitationResponse(value["correction"])))) && (typeof value["documentId"] === 'string' && guidPattern.test(value["documentId"])) && (value["docxLocation"] === undefined || ((value["docxLocation"] === null) || (isAiKnowledgeDocxLocationResponse(value["docxLocation"])))) && (value["faqSource"] === undefined || ((value["faqSource"] === null) || (isAiKnowledgeFaqCitationResponse(value["faqSource"])))) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && ((value["length"] === null) || (typeof value["length"] === 'number' && Number.isSafeInteger(value["length"]))) && ((value["offset"] === null) || (typeof value["offset"] === 'number' && Number.isSafeInteger(value["offset"]))) && ((value["pageNumber"] === null) || (typeof value["pageNumber"] === 'number' && Number.isSafeInteger(value["pageNumber"]))) && (typeof value["sequence"] === 'number' && Number.isSafeInteger(value["sequence"])) && (value["sourceLocation"] === undefined || ((value["sourceLocation"] === null) || (isAiKnowledgeSourceLocationResponse(value["sourceLocation"])))) && (typeof value["versionId"] === 'string' && guidPattern.test(value["versionId"]));
+}
+
+export function readAiKnowledgeCorrectionBlockResponse(value: unknown): AiKnowledgeCorrectionBlockResponse {
+  const normalizedValue = normalizeAiKnowledgeCorrectionBlockResponseIntegerJson(value);
+  return requireValidResponse(normalizedValue, isAiKnowledgeCorrectionBlockResponse(normalizedValue), 'ai_knowledge_correction_block_response') as AiKnowledgeCorrectionBlockResponse;
+}
+
+function isAiKnowledgeCorrectionBlockResponse(value: unknown): value is AiKnowledgeCorrectionBlockResponse {
+  return isRecord(value) && (typeof value["excluded"] === 'boolean') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (Array.isArray(value["parts"]) && value["parts"].every(item14 => isAiKnowledgeCorrectionPartResponse(item14))) && (typeof value["separator"] === 'string');
+}
+
+export function readAiKnowledgeCorrectionCitationResponse(value: unknown): AiKnowledgeCorrectionCitationResponse {
+  const normalizedValue = normalizeAiKnowledgeCorrectionCitationResponseIntegerJson(value);
+  return requireValidResponse(normalizedValue, isAiKnowledgeCorrectionCitationResponse(normalizedValue), 'ai_knowledge_correction_citation_response') as AiKnowledgeCorrectionCitationResponse;
+}
+
+function isAiKnowledgeCorrectionCitationResponse(value: unknown): value is AiKnowledgeCorrectionCitationResponse {
+  return isRecord(value) && (typeof value["revisionId"] === 'string' && guidPattern.test(value["revisionId"])) && (Array.isArray(value["spans"]) && value["spans"].every(item14 => isAiKnowledgeCorrectionSpanResponse(item14))) && (typeof value["textLength"] === 'number' && Number.isSafeInteger(value["textLength"]));
+}
+
+export function readAiKnowledgeCorrectionEditOperation(value: unknown): AiKnowledgeCorrectionEditOperation {
+  const normalizedValue = normalizeAiKnowledgeCorrectionEditOperationIntegerJson(value);
+  return requireValidResponse(normalizedValue, isAiKnowledgeCorrectionEditOperation(normalizedValue), 'ai_knowledge_correction_edit_operation') as AiKnowledgeCorrectionEditOperation;
+}
+
+function isAiKnowledgeCorrectionEditOperation(value: unknown): value is AiKnowledgeCorrectionEditOperation {
+  return isRecord(value) && (typeof value["blockId"] === 'string' && guidPattern.test(value["blockId"])) && ((value["excluded"] === null) || (typeof value["excluded"] === 'boolean')) && (typeof value["kind"] === 'string') && ((value["offset"] === null) || (typeof value["offset"] === 'number' && Number.isSafeInteger(value["offset"]))) && ((value["partId"] === null) || (typeof value["partId"] === 'string' && guidPattern.test(value["partId"]))) && ((value["text"] === null) || (typeof value["text"] === 'string'));
+}
+
+export function readAiKnowledgeCorrectionEditRequest(value: unknown): AiKnowledgeCorrectionEditRequest {
+  const normalizedValue = normalizeAiKnowledgeCorrectionEditRequestIntegerJson(value);
+  return requireValidResponse(normalizedValue, isAiKnowledgeCorrectionEditRequest(normalizedValue), 'ai_knowledge_correction_edit_request') as AiKnowledgeCorrectionEditRequest;
+}
+
+function isAiKnowledgeCorrectionEditRequest(value: unknown): value is AiKnowledgeCorrectionEditRequest {
+  return isRecord(value) && (isAiKnowledgeCorrectionHeadRequest(value["expected"])) && (isAiKnowledgeCorrectionEditOperation(value["operation"])) && (typeof value["reason"] === 'string') && (typeof value["requestKey"] === 'string' && guidPattern.test(value["requestKey"]));
+}
+
+export function readAiKnowledgeCorrectionHeadRequest(value: unknown): AiKnowledgeCorrectionHeadRequest {
+  const normalizedValue = normalizeAiKnowledgeCorrectionHeadRequestIntegerJson(value);
+  return requireValidResponse(normalizedValue, isAiKnowledgeCorrectionHeadRequest(normalizedValue), 'ai_knowledge_correction_head_request') as AiKnowledgeCorrectionHeadRequest;
+}
+
+function isAiKnowledgeCorrectionHeadRequest(value: unknown): value is AiKnowledgeCorrectionHeadRequest {
+  return isRecord(value) && (typeof value["documentVersion"] === 'number' && Number.isSafeInteger(value["documentVersion"])) && (typeof value["headVersion"] === 'number' && Number.isSafeInteger(value["headVersion"])) && (typeof value["payloadHash"] === 'string') && ((value["revisionId"] === null) || (typeof value["revisionId"] === 'string' && guidPattern.test(value["revisionId"]))) && (typeof value["sourceHash"] === 'string') && (typeof value["sourceId"] === 'string' && guidPattern.test(value["sourceId"]));
+}
+
+export function readAiKnowledgeCorrectionPartResponse(value: unknown): AiKnowledgeCorrectionPartResponse {
+  const normalizedValue = normalizeAiKnowledgeCorrectionPartResponseIntegerJson(value);
+  return requireValidResponse(normalizedValue, isAiKnowledgeCorrectionPartResponse(normalizedValue), 'ai_knowledge_correction_part_response') as AiKnowledgeCorrectionPartResponse;
+}
+
+function isAiKnowledgeCorrectionPartResponse(value: unknown): value is AiKnowledgeCorrectionPartResponse {
+  return isRecord(value) && ((value["anchorId"] === null) || (typeof value["anchorId"] === 'string' && guidPattern.test(value["anchorId"]))) && (typeof value["contentKind"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && ((value["originalText"] === null) || (typeof value["originalText"] === 'string')) && (typeof value["prefix"] === 'string') && ((value["sourceLength"] === null) || (typeof value["sourceLength"] === 'number' && Number.isSafeInteger(value["sourceLength"]))) && ((value["sourceLocation"] === null) || (isAiKnowledgeSourceLocationResponse(value["sourceLocation"]))) && ((value["sourceOffset"] === null) || (typeof value["sourceOffset"] === 'number' && Number.isSafeInteger(value["sourceOffset"]))) && (typeof value["text"] === 'string');
+}
+
+export function readAiKnowledgeCorrectionPreparationResponse(value: unknown): AiKnowledgeCorrectionPreparationResponse {
+  const normalizedValue = normalizeAiKnowledgeCorrectionPreparationResponseIntegerJson(value);
+  return requireValidResponse(normalizedValue, isAiKnowledgeCorrectionPreparationResponse(normalizedValue), 'ai_knowledge_correction_preparation_response') as AiKnowledgeCorrectionPreparationResponse;
+}
+
+function isAiKnowledgeCorrectionPreparationResponse(value: unknown): value is AiKnowledgeCorrectionPreparationResponse {
+  return isRecord(value) && (typeof value["attemptCount"] === 'number' && Number.isSafeInteger(value["attemptCount"])) && (typeof value["createdAtUtc"] === 'string') && (typeof value["documentVersion"] === 'number' && Number.isSafeInteger(value["documentVersion"])) && ((value["failureCode"] === null) || (typeof value["failureCode"] === 'string')) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && ((value["sourceId"] === null) || (typeof value["sourceId"] === 'string' && guidPattern.test(value["sourceId"]))) && (typeof value["state"] === 'string') && (typeof value["updatedAtUtc"] === 'string') && (typeof value["versionId"] === 'string' && guidPattern.test(value["versionId"]));
+}
+
+export function readAiKnowledgeCorrectionPrepareRequest(value: unknown): AiKnowledgeCorrectionPrepareRequest {
+  const normalizedValue = normalizeAiKnowledgeCorrectionPrepareRequestIntegerJson(value);
+  return requireValidResponse(normalizedValue, isAiKnowledgeCorrectionPrepareRequest(normalizedValue), 'ai_knowledge_correction_prepare_request') as AiKnowledgeCorrectionPrepareRequest;
+}
+
+function isAiKnowledgeCorrectionPrepareRequest(value: unknown): value is AiKnowledgeCorrectionPrepareRequest {
+  return isRecord(value) && (typeof value["documentVersion"] === 'number' && Number.isSafeInteger(value["documentVersion"])) && (typeof value["requestKey"] === 'string' && guidPattern.test(value["requestKey"]));
+}
+
+export function readAiKnowledgeCorrectionRestoreRequest(value: unknown): AiKnowledgeCorrectionRestoreRequest {
+  const normalizedValue = normalizeAiKnowledgeCorrectionRestoreRequestIntegerJson(value);
+  return requireValidResponse(normalizedValue, isAiKnowledgeCorrectionRestoreRequest(normalizedValue), 'ai_knowledge_correction_restore_request') as AiKnowledgeCorrectionRestoreRequest;
+}
+
+function isAiKnowledgeCorrectionRestoreRequest(value: unknown): value is AiKnowledgeCorrectionRestoreRequest {
+  return isRecord(value) && (isAiKnowledgeCorrectionHeadRequest(value["expected"])) && (typeof value["reason"] === 'string') && (typeof value["requestKey"] === 'string' && guidPattern.test(value["requestKey"])) && ((value["targetRevisionId"] === null) || (typeof value["targetRevisionId"] === 'string' && guidPattern.test(value["targetRevisionId"]))) && (typeof value["targetSourceId"] === 'string' && guidPattern.test(value["targetSourceId"]));
+}
+
+export function readAiKnowledgeCorrectionRevisionPageResponse(value: unknown): AiKnowledgeCorrectionRevisionPageResponse {
+  const normalizedValue = normalizeAiKnowledgeCorrectionRevisionPageResponseIntegerJson(value);
+  return requireValidResponse(normalizedValue, isAiKnowledgeCorrectionRevisionPageResponse(normalizedValue), 'ai_knowledge_correction_revision_page_response') as AiKnowledgeCorrectionRevisionPageResponse;
+}
+
+function isAiKnowledgeCorrectionRevisionPageResponse(value: unknown): value is AiKnowledgeCorrectionRevisionPageResponse {
+  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isAiKnowledgeCorrectionRevisionResponse(item14))) && ((value["nextHeadVersion"] === null) || (typeof value["nextHeadVersion"] === 'number' && Number.isSafeInteger(value["nextHeadVersion"])));
+}
+
+export function readAiKnowledgeCorrectionRevisionResponse(value: unknown): AiKnowledgeCorrectionRevisionResponse {
+  const normalizedValue = normalizeAiKnowledgeCorrectionRevisionResponseIntegerJson(value);
+  return requireValidResponse(normalizedValue, isAiKnowledgeCorrectionRevisionResponse(normalizedValue), 'ai_knowledge_correction_revision_response') as AiKnowledgeCorrectionRevisionResponse;
+}
+
+function isAiKnowledgeCorrectionRevisionResponse(value: unknown): value is AiKnowledgeCorrectionRevisionResponse {
+  return isRecord(value) && (typeof value["createdAtUtc"] === 'string') && (typeof value["documentVersion"] === 'number' && Number.isSafeInteger(value["documentVersion"])) && (typeof value["headVersion"] === 'number' && Number.isSafeInteger(value["headVersion"])) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && ((value["parentId"] === null) || (typeof value["parentId"] === 'string' && guidPattern.test(value["parentId"]))) && (typeof value["payloadHash"] === 'string') && (typeof value["reason"] === 'string') && (typeof value["sourceId"] === 'string' && guidPattern.test(value["sourceId"])) && (typeof value["versionId"] === 'string' && guidPattern.test(value["versionId"]));
+}
+
+export function readAiKnowledgeCorrectionSpanResponse(value: unknown): AiKnowledgeCorrectionSpanResponse {
+  const normalizedValue = normalizeAiKnowledgeCorrectionSpanResponseIntegerJson(value);
+  return requireValidResponse(normalizedValue, isAiKnowledgeCorrectionSpanResponse(normalizedValue), 'ai_knowledge_correction_span_response') as AiKnowledgeCorrectionSpanResponse;
+}
+
+function isAiKnowledgeCorrectionSpanResponse(value: unknown): value is AiKnowledgeCorrectionSpanResponse {
+  return isRecord(value) && (typeof value["contentKind"] === 'string') && ((value["sourceLength"] === null) || (typeof value["sourceLength"] === 'number' && Number.isSafeInteger(value["sourceLength"]))) && ((value["sourceLocation"] === null) || (isAiKnowledgeSourceLocationResponse(value["sourceLocation"]))) && ((value["sourceOffset"] === null) || (typeof value["sourceOffset"] === 'number' && Number.isSafeInteger(value["sourceOffset"]))) && (typeof value["textLength"] === 'number' && Number.isSafeInteger(value["textLength"])) && (typeof value["textOffset"] === 'number' && Number.isSafeInteger(value["textOffset"]));
+}
+
+export function readAiKnowledgeCorrectionWorkspaceResponse(value: unknown): AiKnowledgeCorrectionWorkspaceResponse {
+  const normalizedValue = normalizeAiKnowledgeCorrectionWorkspaceResponseIntegerJson(value);
+  return requireValidResponse(normalizedValue, isAiKnowledgeCorrectionWorkspaceResponse(normalizedValue), 'ai_knowledge_correction_workspace_response') as AiKnowledgeCorrectionWorkspaceResponse;
+}
+
+function isAiKnowledgeCorrectionWorkspaceResponse(value: unknown): value is AiKnowledgeCorrectionWorkspaceResponse {
+  return isRecord(value) && (isAiKnowledgeCorrectionBlockResponse(value["block"])) && (typeof value["blockIndex"] === 'number' && Number.isSafeInteger(value["blockIndex"])) && (typeof value["contentType"] === 'string') && (typeof value["documentVersion"] === 'number' && Number.isSafeInteger(value["documentVersion"])) && (typeof value["headVersion"] === 'number' && Number.isSafeInteger(value["headVersion"])) && (typeof value["isSourceView"] === 'boolean') && (typeof value["originalFileName"] === 'string') && (typeof value["parserRuntimeId"] === 'string') && (typeof value["payloadHash"] === 'string') && ((value["revisionId"] === null) || (typeof value["revisionId"] === 'string' && guidPattern.test(value["revisionId"]))) && (typeof value["sourceHash"] === 'string') && (typeof value["sourceId"] === 'string' && guidPattern.test(value["sourceId"])) && (typeof value["totalBlocks"] === 'number' && Number.isSafeInteger(value["totalBlocks"])) && (typeof value["versionId"] === 'string' && guidPattern.test(value["versionId"]));
+}
+
+export function readAiKnowledgeDirectoryItemResult(value: unknown): AiKnowledgeDirectoryItemResult {
+  const normalizedValue = normalizeAiKnowledgeDirectoryItemResultIntegerJson(value);
+  return requireValidResponse(normalizedValue, isAiKnowledgeDirectoryItemResult(normalizedValue), 'ai_knowledge_directory_item_result') as AiKnowledgeDirectoryItemResult;
+}
+
+function isAiKnowledgeDirectoryItemResult(value: unknown): value is AiKnowledgeDirectoryItemResult {
+  return isRecord(value) && (typeof value["documentId"] === 'string' && guidPattern.test(value["documentId"])) && ((value["errorCode"] === null) || (typeof value["errorCode"] === 'string')) && (typeof value["requestKey"] === 'string' && guidPattern.test(value["requestKey"])) && (typeof value["succeeded"] === 'boolean') && ((value["version"] === null) || (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"])));
+}
+
+export function readAiKnowledgeDirectoryResponse(value: unknown): AiKnowledgeDirectoryResponse {
+  const normalizedValue = normalizeAiKnowledgeDirectoryResponseIntegerJson(value);
+  return requireValidResponse(normalizedValue, isAiKnowledgeDirectoryResponse(normalizedValue), 'ai_knowledge_directory_response') as AiKnowledgeDirectoryResponse;
+}
+
+function isAiKnowledgeDirectoryResponse(value: unknown): value is AiKnowledgeDirectoryResponse {
+  return isRecord(value) && ((value["candidateVersionId"] === null) || (typeof value["candidateVersionId"] === 'string' && guidPattern.test(value["candidateVersionId"]))) && (typeof value["documentVersion"] === 'number' && Number.isSafeInteger(value["documentVersion"])) && ((value["folderId"] === null) || (typeof value["folderId"] === 'string' && guidPattern.test(value["folderId"]))) && (typeof value["headVersion"] === 'number' && Number.isSafeInteger(value["headVersion"])) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && ((value["pendingPublicationId"] === null) || (typeof value["pendingPublicationId"] === 'string' && guidPattern.test(value["pendingPublicationId"]))) && ((value["publicationId"] === null) || (typeof value["publicationId"] === 'string' && guidPattern.test(value["publicationId"]))) && (typeof value["publicationState"] === 'string') && ((value["responsibleUserId"] === null) || (typeof value["responsibleUserId"] === 'string' && guidPattern.test(value["responsibleUserId"]))) && (Array.isArray(value["tags"]) && value["tags"].every(item13 => typeof item13 === 'string')) && (typeof value["title"] === 'string') && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
 }
 
 export function readAiKnowledgeDocumentMembersResponse(value: unknown): AiKnowledgeDocumentMembersResponse {
@@ -1067,6 +1409,359 @@ export function readAiKnowledgeDocxLocationResponse(value: unknown): AiKnowledge
 
 function isAiKnowledgeDocxLocationResponse(value: unknown): value is AiKnowledgeDocxLocationResponse {
   return isRecord(value) && (typeof value["blockSequence"] === 'number' && Number.isSafeInteger(value["blockSequence"])) && ((value["cellNumber"] === null) || (typeof value["cellNumber"] === 'number' && Number.isSafeInteger(value["cellNumber"]))) && (typeof value["paragraphNumber"] === 'number' && Number.isSafeInteger(value["paragraphNumber"])) && ((value["rowNumber"] === null) || (typeof value["rowNumber"] === 'number' && Number.isSafeInteger(value["rowNumber"]))) && ((value["tableNumber"] === null) || (typeof value["tableNumber"] === 'number' && Number.isSafeInteger(value["tableNumber"])));
+}
+
+export function readAiKnowledgeEvaluationCase(value: unknown): AiKnowledgeEvaluationCase {
+  return requireValidResponse(value, isAiKnowledgeEvaluationCase(value), 'ai_knowledge_evaluation_case') as AiKnowledgeEvaluationCase;
+}
+
+function isAiKnowledgeEvaluationCase(value: unknown): value is AiKnowledgeEvaluationCase {
+  return isRecord(value) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && ((value["independentBasis"] === null) || (typeof value["independentBasis"] === 'string')) && (isAiFeedbackEvaluationSample(value["sample"])) && ((value["sourceKey"] === null) || (typeof value["sourceKey"] === 'string'));
+}
+
+export function readAiKnowledgeEvaluationCaseInput(value: unknown): AiKnowledgeEvaluationCaseInput {
+  return requireValidResponse(value, isAiKnowledgeEvaluationCaseInput(value), 'ai_knowledge_evaluation_case_input') as AiKnowledgeEvaluationCaseInput;
+}
+
+function isAiKnowledgeEvaluationCaseInput(value: unknown): value is AiKnowledgeEvaluationCaseInput {
+  return isRecord(value) && ((value["feedbackCandidateToken"] === null) || (typeof value["feedbackCandidateToken"] === 'string')) && ((value["id"] === null) || (typeof value["id"] === 'string' && guidPattern.test(value["id"]))) && ((value["independentBasis"] === null) || (typeof value["independentBasis"] === 'string')) && (isAiFeedbackEvaluationSample(value["sample"]));
+}
+
+export function readAiKnowledgeEvaluationCaseResult(value: unknown): AiKnowledgeEvaluationCaseResult {
+  const normalizedValue = normalizeAiKnowledgeEvaluationCaseResultIntegerJson(value);
+  return requireValidResponse(normalizedValue, isAiKnowledgeEvaluationCaseResult(normalizedValue), 'ai_knowledge_evaluation_case_result') as AiKnowledgeEvaluationCaseResult;
+}
+
+function isAiKnowledgeEvaluationCaseResult(value: unknown): value is AiKnowledgeEvaluationCaseResult {
+  return isRecord(value) && ((value["baseline"] === null) || (isAiKnowledgeSearchComparisonRanking(value["baseline"]))) && ((value["candidate"] === null) || (isAiKnowledgeSearchComparisonRanking(value["candidate"]))) && (isAiKnowledgeEvaluationCaseState(value["case"])) && (value["effectiveQuery"] === undefined || ((value["effectiveQuery"] === null) || (typeof value["effectiveQuery"] === 'string'))) && (typeof value["financeState"] === 'string') && (typeof value["measurementProtocol"] === 'string') && ((value["operations"] === null) || (Array.isArray(value["operations"]) && value["operations"].every(item19 => isAiKnowledgeEvaluationOperation(item19)))) && ((value["refinementRefused"] === null) || (typeof value["refinementRefused"] === 'boolean')) && (isAiFeedbackEvaluationSample(value["sample"]));
+}
+
+export function readAiKnowledgeEvaluationCaseState(value: unknown): AiKnowledgeEvaluationCaseState {
+  const normalizedValue = normalizeAiKnowledgeEvaluationCaseStateIntegerJson(value);
+  return requireValidResponse(normalizedValue, isAiKnowledgeEvaluationCaseState(normalizedValue), 'ai_knowledge_evaluation_case_state') as AiKnowledgeEvaluationCaseState;
+}
+
+function isAiKnowledgeEvaluationCaseState(value: unknown): value is AiKnowledgeEvaluationCaseState {
+  return isRecord(value) && ((value["baselineSupportsReference"] === null) || (typeof value["baselineSupportsReference"] === 'boolean')) && ((value["candidateSupportsReference"] === null) || (typeof value["candidateSupportsReference"] === 'boolean')) && ((value["durationMs"] === null) || (typeof value["durationMs"] === 'number' && Number.isFinite(value["durationMs"])) || (typeof value["durationMs"] === 'string' && new RegExp("^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?(?:[eE][+-]?\\d+)?$").test(value["durationMs"]) && Number.isFinite(Number(value["durationMs"])))) && ((value["finishedAtUtc"] === null) || (typeof value["finishedAtUtc"] === 'string')) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && ((value["reasonCode"] === null) || (typeof value["reasonCode"] === 'string')) && (typeof value["sampleId"] === 'string' && guidPattern.test(value["sampleId"])) && (typeof value["sequence"] === 'number' && Number.isSafeInteger(value["sequence"])) && ((value["startedAtUtc"] === null) || (typeof value["startedAtUtc"] === 'string')) && (typeof value["state"] === 'string') && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+}
+
+export function readAiKnowledgeEvaluationEntry(value: unknown): AiKnowledgeEvaluationEntry {
+  const normalizedValue = normalizeAiKnowledgeEvaluationEntryIntegerJson(value);
+  return requireValidResponse(normalizedValue, isAiKnowledgeEvaluationEntry(normalizedValue), 'ai_knowledge_evaluation_entry') as AiKnowledgeEvaluationEntry;
+}
+
+function isAiKnowledgeEvaluationEntry(value: unknown): value is AiKnowledgeEvaluationEntry {
+  return isRecord(value) && (typeof value["createdAtUtc"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["revisionId"] === 'string' && guidPattern.test(value["revisionId"])) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+}
+
+export function readAiKnowledgeEvaluationEntryPage(value: unknown): AiKnowledgeEvaluationEntryPage {
+  const normalizedValue = normalizeAiKnowledgeEvaluationEntryPageIntegerJson(value);
+  return requireValidResponse(normalizedValue, isAiKnowledgeEvaluationEntryPage(normalizedValue), 'ai_knowledge_evaluation_entry_page') as AiKnowledgeEvaluationEntryPage;
+}
+
+function isAiKnowledgeEvaluationEntryPage(value: unknown): value is AiKnowledgeEvaluationEntryPage {
+  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isAiKnowledgeEvaluationEntry(item14))) && ((value["nextAfterId"] === null) || (typeof value["nextAfterId"] === 'string' && guidPattern.test(value["nextAfterId"])));
+}
+
+export function readAiKnowledgeEvaluationModel(value: unknown): AiKnowledgeEvaluationModel {
+  const normalizedValue = normalizeAiKnowledgeEvaluationModelIntegerJson(value);
+  return requireValidResponse(normalizedValue, isAiKnowledgeEvaluationModel(normalizedValue), 'ai_knowledge_evaluation_model') as AiKnowledgeEvaluationModel;
+}
+
+function isAiKnowledgeEvaluationModel(value: unknown): value is AiKnowledgeEvaluationModel {
+  return isRecord(value) && (typeof value["destinationHash"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["purpose"] === 'string') && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+}
+
+export function readAiKnowledgeEvaluationMutation(value: unknown): AiKnowledgeEvaluationMutation {
+  const normalizedValue = normalizeAiKnowledgeEvaluationMutationIntegerJson(value);
+  return requireValidResponse(normalizedValue, isAiKnowledgeEvaluationMutation(normalizedValue), 'ai_knowledge_evaluation_mutation') as AiKnowledgeEvaluationMutation;
+}
+
+function isAiKnowledgeEvaluationMutation(value: unknown): value is AiKnowledgeEvaluationMutation {
+  return isRecord(value) && (typeof value["deliveryState"] === 'string') && (typeof value["replayed"] === 'boolean') && (typeof value["savedRevisionId"] === 'string' && guidPattern.test(value["savedRevisionId"])) && ((value["workspace"] === null) || (isAiKnowledgeEvaluationWorkspace(value["workspace"])));
+}
+
+export function readAiKnowledgeEvaluationOperation(value: unknown): AiKnowledgeEvaluationOperation {
+  return requireValidResponse(value, isAiKnowledgeEvaluationOperation(value), 'ai_knowledge_evaluation_operation') as AiKnowledgeEvaluationOperation;
+}
+
+function isAiKnowledgeEvaluationOperation(value: unknown): value is AiKnowledgeEvaluationOperation {
+  return isRecord(value) && ((value["currency"] === null) || (typeof value["currency"] === 'string')) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["month"] === 'string') && ((value["priceVersionId"] === null) || (typeof value["priceVersionId"] === 'string' && guidPattern.test(value["priceVersionId"]))) && ((value["recordedCost"] === null) || (typeof value["recordedCost"] === 'string')) && ((value["reservedCost"] === null) || (typeof value["reservedCost"] === 'string')) && (typeof value["stage"] === 'string') && (typeof value["state"] === 'string') && (typeof value["usageStatus"] === 'string');
+}
+
+export function readAiKnowledgeEvaluationPage(value: unknown): AiKnowledgeEvaluationPage {
+  const normalizedValue = normalizeAiKnowledgeEvaluationPageIntegerJson(value);
+  return requireValidResponse(normalizedValue, isAiKnowledgeEvaluationPage(normalizedValue), 'ai_knowledge_evaluation_page') as AiKnowledgeEvaluationPage;
+}
+
+function isAiKnowledgeEvaluationPage(value: unknown): value is AiKnowledgeEvaluationPage {
+  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isAiKnowledgeEvaluationWorkspace(item14))) && ((value["nextAfterId"] === null) || (typeof value["nextAfterId"] === 'string' && guidPattern.test(value["nextAfterId"])));
+}
+
+export function readAiKnowledgeEvaluationPreparedFeedback(value: unknown): AiKnowledgeEvaluationPreparedFeedback {
+  return requireValidResponse(value, isAiKnowledgeEvaluationPreparedFeedback(value), 'ai_knowledge_evaluation_prepared_feedback') as AiKnowledgeEvaluationPreparedFeedback;
+}
+
+function isAiKnowledgeEvaluationPreparedFeedback(value: unknown): value is AiKnowledgeEvaluationPreparedFeedback {
+  return isRecord(value) && (typeof value["expiresAtUtc"] === 'string') && (typeof value["persistenceToken"] === 'string') && (typeof value["sampleHash"] === 'string') && (typeof value["sourceHash"] === 'string');
+}
+
+export function readAiKnowledgeEvaluationRevision(value: unknown): AiKnowledgeEvaluationRevision {
+  const normalizedValue = normalizeAiKnowledgeEvaluationRevisionIntegerJson(value);
+  return requireValidResponse(normalizedValue, isAiKnowledgeEvaluationRevision(normalizedValue), 'ai_knowledge_evaluation_revision') as AiKnowledgeEvaluationRevision;
+}
+
+function isAiKnowledgeEvaluationRevision(value: unknown): value is AiKnowledgeEvaluationRevision {
+  return isRecord(value) && (Array.isArray(value["cases"]) && value["cases"].every(item14 => isAiKnowledgeEvaluationCase(item14))) && (typeof value["contentHash"] === 'string') && (typeof value["createdAtUtc"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["name"] === 'string') && (typeof value["number"] === 'number' && Number.isSafeInteger(value["number"])) && ((value["restoredFromRevisionId"] === null) || (typeof value["restoredFromRevisionId"] === 'string' && guidPattern.test(value["restoredFromRevisionId"]))) && (typeof value["sourceCount"] === 'number' && Number.isSafeInteger(value["sourceCount"])) && (typeof value["sourceHash"] === 'string') && (typeof value["state"] === 'string');
+}
+
+export function readAiKnowledgeEvaluationRun(value: unknown): AiKnowledgeEvaluationRun {
+  const normalizedValue = normalizeAiKnowledgeEvaluationRunIntegerJson(value);
+  return requireValidResponse(normalizedValue, isAiKnowledgeEvaluationRun(normalizedValue), 'ai_knowledge_evaluation_run') as AiKnowledgeEvaluationRun;
+}
+
+function isAiKnowledgeEvaluationRun(value: unknown): value is AiKnowledgeEvaluationRun {
+  return isRecord(value) && (Array.isArray(value["cases"]) && value["cases"].every(item14 => isAiKnowledgeEvaluationCaseState(item14))) && (typeof value["createdAtUtc"] === 'string') && (typeof value["failed"] === 'number' && Number.isSafeInteger(value["failed"])) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["knowledgeBaseId"] === 'string' && guidPattern.test(value["knowledgeBaseId"])) && ((value["meanDurationMs"] === null) || (typeof value["meanDurationMs"] === 'number' && Number.isFinite(value["meanDurationMs"])) || (typeof value["meanDurationMs"] === 'string' && new RegExp("^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?(?:[eE][+-]?\\d+)?$").test(value["meanDurationMs"]) && Number.isFinite(Number(value["meanDurationMs"])))) && (typeof value["measured"] === 'number' && Number.isSafeInteger(value["measured"])) && (typeof value["notRun"] === 'number' && Number.isSafeInteger(value["notRun"])) && ((value["p95DurationMs"] === null) || (typeof value["p95DurationMs"] === 'number' && Number.isFinite(value["p95DurationMs"])) || (typeof value["p95DurationMs"] === 'string' && new RegExp("^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?(?:[eE][+-]?\\d+)?$").test(value["p95DurationMs"]) && Number.isFinite(Number(value["p95DurationMs"])))) && (typeof value["running"] === 'number' && Number.isSafeInteger(value["running"])) && (typeof value["setRevisionId"] === 'string' && guidPattern.test(value["setRevisionId"])) && (typeof value["skipped"] === 'number' && Number.isSafeInteger(value["skipped"])) && (typeof value["state"] === 'string') && (typeof value["strategyId"] === 'string' && guidPattern.test(value["strategyId"])) && (typeof value["strategyRevisionId"] === 'string' && guidPattern.test(value["strategyRevisionId"])) && (typeof value["succeeded"] === 'number' && Number.isSafeInteger(value["succeeded"])) && (typeof value["total"] === 'number' && Number.isSafeInteger(value["total"])) && (typeof value["unknown"] === 'number' && Number.isSafeInteger(value["unknown"])) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+}
+
+export function readAiKnowledgeEvaluationRunAdmission(value: unknown): AiKnowledgeEvaluationRunAdmission {
+  const normalizedValue = normalizeAiKnowledgeEvaluationRunAdmissionIntegerJson(value);
+  return requireValidResponse(normalizedValue, isAiKnowledgeEvaluationRunAdmission(normalizedValue), 'ai_knowledge_evaluation_run_admission') as AiKnowledgeEvaluationRunAdmission;
+}
+
+function isAiKnowledgeEvaluationRunAdmission(value: unknown): value is AiKnowledgeEvaluationRunAdmission {
+  return isRecord(value) && (typeof value["budgetPolicy"] === 'string') && (typeof value["caseCount"] === 'number' && Number.isSafeInteger(value["caseCount"])) && (typeof value["digest"] === 'string') && (typeof value["maximumModelCalls"] === 'number' && Number.isSafeInteger(value["maximumModelCalls"])) && (typeof value["measurementProtocol"] === 'string') && (typeof value["setRevisionId"] === 'string' && guidPattern.test(value["setRevisionId"])) && (typeof value["strategyId"] === 'string' && guidPattern.test(value["strategyId"])) && (typeof value["strategyRevisionId"] === 'string' && guidPattern.test(value["strategyRevisionId"])) && (typeof value["strategyVersion"] === 'number' && Number.isSafeInteger(value["strategyVersion"]));
+}
+
+export function readAiKnowledgeEvaluationStrategy(value: unknown): AiKnowledgeEvaluationStrategy {
+  const normalizedValue = normalizeAiKnowledgeEvaluationStrategyIntegerJson(value);
+  return requireValidResponse(normalizedValue, isAiKnowledgeEvaluationStrategy(normalizedValue), 'ai_knowledge_evaluation_strategy') as AiKnowledgeEvaluationStrategy;
+}
+
+function isAiKnowledgeEvaluationStrategy(value: unknown): value is AiKnowledgeEvaluationStrategy {
+  return isRecord(value) && (typeof value["baseline"] === 'string') && (typeof value["candidate"] === 'string') && (typeof value["createdAtUtc"] === 'string') && (typeof value["definitionHash"] === 'string') && (isAiKnowledgeEvaluationModel(value["embeddingModel"])) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["knowledgeBaseId"] === 'string' && guidPattern.test(value["knowledgeBaseId"])) && (typeof value["name"] === 'string') && ((value["processingModel"] === null) || (isAiKnowledgeEvaluationModel(value["processingModel"]))) && (typeof value["protocol"] === 'string') && (typeof value["revisionId"] === 'string' && guidPattern.test(value["revisionId"])) && (typeof value["setApprovalId"] === 'string' && guidPattern.test(value["setApprovalId"])) && (typeof value["setContentHash"] === 'string') && (typeof value["setId"] === 'string' && guidPattern.test(value["setId"])) && (typeof value["setRevisionId"] === 'string' && guidPattern.test(value["setRevisionId"])) && (typeof value["setSourceHash"] === 'string') && (typeof value["setVersion"] === 'number' && Number.isSafeInteger(value["setVersion"])) && (Array.isArray(value["sources"]) && value["sources"].every(item16 => isAiKnowledgeSearchSource(item16))) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+}
+
+export function readAiKnowledgeEvaluationWorkspace(value: unknown): AiKnowledgeEvaluationWorkspace {
+  const normalizedValue = normalizeAiKnowledgeEvaluationWorkspaceIntegerJson(value);
+  return requireValidResponse(normalizedValue, isAiKnowledgeEvaluationWorkspace(normalizedValue), 'ai_knowledge_evaluation_workspace') as AiKnowledgeEvaluationWorkspace;
+}
+
+function isAiKnowledgeEvaluationWorkspace(value: unknown): value is AiKnowledgeEvaluationWorkspace {
+  return isRecord(value) && ((value["approvalId"] === null) || (typeof value["approvalId"] === 'string' && guidPattern.test(value["approvalId"]))) && (typeof value["approvalState"] === 'string') && (typeof value["canIndependentlyApprove"] === 'boolean') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["knowledgeBaseId"] === 'string' && guidPattern.test(value["knowledgeBaseId"])) && (isAiKnowledgeEvaluationRevision(value["revision"])) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+}
+
+export function readAiKnowledgeFaqCitationResponse(value: unknown): AiKnowledgeFaqCitationResponse {
+  const normalizedValue = normalizeAiKnowledgeFaqCitationResponseIntegerJson(value);
+  return requireValidResponse(normalizedValue, isAiKnowledgeFaqCitationResponse(normalizedValue), 'ai_knowledge_faq_citation_response') as AiKnowledgeFaqCitationResponse;
+}
+
+function isAiKnowledgeFaqCitationResponse(value: unknown): value is AiKnowledgeFaqCitationResponse {
+  return isRecord(value) && (typeof value["embeddingModelConfigId"] === 'string' && guidPattern.test(value["embeddingModelConfigId"])) && (typeof value["embeddingModelVersion"] === 'number' && Number.isSafeInteger(value["embeddingModelVersion"])) && (isAiKnowledgeSearchSource(value["source"]));
+}
+
+export function readAiKnowledgeFaqContent(value: unknown): AiKnowledgeFaqContent {
+  return requireValidResponse(value, isAiKnowledgeFaqContent(value), 'ai_knowledge_faq_content') as AiKnowledgeFaqContent;
+}
+
+function isAiKnowledgeFaqContent(value: unknown): value is AiKnowledgeFaqContent {
+  return isRecord(value) && (Array.isArray(value["aliases"]) && value["aliases"].every(item16 => typeof item16 === 'string')) && (typeof value["answer"] === 'string') && (typeof value["category"] === 'string') && ((value["expiresAtUtc"] === null) || (typeof value["expiresAtUtc"] === 'string')) && (typeof value["question"] === 'string') && ((value["validFromUtc"] === null) || (typeof value["validFromUtc"] === 'string'));
+}
+
+export function readAiKnowledgeFaqDocumentSelection(value: unknown): AiKnowledgeFaqDocumentSelection {
+  const normalizedValue = normalizeAiKnowledgeFaqDocumentSelectionIntegerJson(value);
+  return requireValidResponse(normalizedValue, isAiKnowledgeFaqDocumentSelection(normalizedValue), 'ai_knowledge_faq_document_selection') as AiKnowledgeFaqDocumentSelection;
+}
+
+function isAiKnowledgeFaqDocumentSelection(value: unknown): value is AiKnowledgeFaqDocumentSelection {
+  return isRecord(value) && (typeof value["embeddingModelConfigId"] === 'string' && guidPattern.test(value["embeddingModelConfigId"])) && (typeof value["embeddingModelVersion"] === 'number' && Number.isSafeInteger(value["embeddingModelVersion"])) && (value["personalSchedules"] === undefined || ((value["personalSchedules"] === null) || (Array.isArray(value["personalSchedules"]) && value["personalSchedules"].every(item26 => isAiPersonalScheduleSourceSelection(item26))))) && (Array.isArray(value["sources"]) && value["sources"].every(item16 => isAiKnowledgeSearchSource(item16)));
+}
+
+export function readAiKnowledgeFaqDraftMutation(value: unknown): AiKnowledgeFaqDraftMutation {
+  const normalizedValue = normalizeAiKnowledgeFaqDraftMutationIntegerJson(value);
+  return requireValidResponse(normalizedValue, isAiKnowledgeFaqDraftMutation(normalizedValue), 'ai_knowledge_faq_draft_mutation') as AiKnowledgeFaqDraftMutation;
+}
+
+function isAiKnowledgeFaqDraftMutation(value: unknown): value is AiKnowledgeFaqDraftMutation {
+  return isRecord(value) && (typeof value["replayed"] === 'boolean') && (typeof value["savedRevisionId"] === 'string' && guidPattern.test(value["savedRevisionId"])) && (isAiKnowledgeFaqDraftWorkspace(value["workspace"]));
+}
+
+export function readAiKnowledgeFaqDraftPage(value: unknown): AiKnowledgeFaqDraftPage {
+  const normalizedValue = normalizeAiKnowledgeFaqDraftPageIntegerJson(value);
+  return requireValidResponse(normalizedValue, isAiKnowledgeFaqDraftPage(normalizedValue), 'ai_knowledge_faq_draft_page') as AiKnowledgeFaqDraftPage;
+}
+
+function isAiKnowledgeFaqDraftPage(value: unknown): value is AiKnowledgeFaqDraftPage {
+  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isAiKnowledgeFaqDraftWorkspace(item14))) && ((value["nextAfterId"] === null) || (typeof value["nextAfterId"] === 'string' && guidPattern.test(value["nextAfterId"])));
+}
+
+export function readAiKnowledgeFaqDraftRevision(value: unknown): AiKnowledgeFaqDraftRevision {
+  const normalizedValue = normalizeAiKnowledgeFaqDraftRevisionIntegerJson(value);
+  return requireValidResponse(normalizedValue, isAiKnowledgeFaqDraftRevision(normalizedValue), 'ai_knowledge_faq_draft_revision') as AiKnowledgeFaqDraftRevision;
+}
+
+function isAiKnowledgeFaqDraftRevision(value: unknown): value is AiKnowledgeFaqDraftRevision {
+  return isRecord(value) && (isAiKnowledgeFaqContent(value["content"])) && (typeof value["contentHash"] === 'string') && (typeof value["createdAtUtc"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["number"] === 'number' && Number.isSafeInteger(value["number"])) && ((value["restoredFromRevisionId"] === null) || (typeof value["restoredFromRevisionId"] === 'string' && guidPattern.test(value["restoredFromRevisionId"])));
+}
+
+export function readAiKnowledgeFaqDraftRevisionPage(value: unknown): AiKnowledgeFaqDraftRevisionPage {
+  const normalizedValue = normalizeAiKnowledgeFaqDraftRevisionPageIntegerJson(value);
+  return requireValidResponse(normalizedValue, isAiKnowledgeFaqDraftRevisionPage(normalizedValue), 'ai_knowledge_faq_draft_revision_page') as AiKnowledgeFaqDraftRevisionPage;
+}
+
+function isAiKnowledgeFaqDraftRevisionPage(value: unknown): value is AiKnowledgeFaqDraftRevisionPage {
+  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isAiKnowledgeFaqDraftRevision(item14))) && ((value["nextAfterId"] === null) || (typeof value["nextAfterId"] === 'string' && guidPattern.test(value["nextAfterId"])));
+}
+
+export function readAiKnowledgeFaqDraftWorkspace(value: unknown): AiKnowledgeFaqDraftWorkspace {
+  const normalizedValue = normalizeAiKnowledgeFaqDraftWorkspaceIntegerJson(value);
+  return requireValidResponse(normalizedValue, isAiKnowledgeFaqDraftWorkspace(normalizedValue), 'ai_knowledge_faq_draft_workspace') as AiKnowledgeFaqDraftWorkspace;
+}
+
+function isAiKnowledgeFaqDraftWorkspace(value: unknown): value is AiKnowledgeFaqDraftWorkspace {
+  return isRecord(value) && ((value["basis"] === null) || (typeof value["basis"] === 'string')) && (value["feedback"] === undefined || ((value["feedback"] === null) || (isAiKnowledgeFaqFeedbackSource(value["feedback"])))) && (value["graph"] === undefined || ((value["graph"] === null) || (isAiKnowledgeFaqSourceGraph(value["graph"])))) && (typeof value["headVersion"] === 'number' && Number.isSafeInteger(value["headVersion"])) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["knowledgeBaseId"] === 'string' && guidPattern.test(value["knowledgeBaseId"])) && (typeof value["origin"] === 'string') && (value["personalSchedules"] === undefined || ((value["personalSchedules"] === null) || (Array.isArray(value["personalSchedules"]) && value["personalSchedules"].every(item26 => isAiPersonalScheduleSourceSelection(item26))))) && (typeof value["reservedDocumentId"] === 'string' && guidPattern.test(value["reservedDocumentId"])) && (isAiKnowledgeFaqDraftRevision(value["revision"])) && (typeof value["sourceHash"] === 'string') && (Array.isArray(value["sources"]) && value["sources"].every(item16 => isAiKnowledgeSearchSource(item16))) && (typeof value["state"] === 'string');
+}
+
+export function readAiKnowledgeFaqFeedbackDraftInput(value: unknown): AiKnowledgeFaqFeedbackDraftInput {
+  return requireValidResponse(value, isAiKnowledgeFaqFeedbackDraftInput(value), 'ai_knowledge_faq_feedback_draft_input') as AiKnowledgeFaqFeedbackDraftInput;
+}
+
+function isAiKnowledgeFaqFeedbackDraftInput(value: unknown): value is AiKnowledgeFaqFeedbackDraftInput {
+  return isRecord(value) && (Array.isArray(value["aliases"]) && value["aliases"].every(item16 => typeof item16 === 'string')) && (typeof value["category"] === 'string') && ((value["expiresAtUtc"] === null) || (typeof value["expiresAtUtc"] === 'string')) && (typeof value["question"] === 'string') && ((value["validFromUtc"] === null) || (typeof value["validFromUtc"] === 'string'));
+}
+
+export function readAiKnowledgeFaqFeedbackPreview(value: unknown): AiKnowledgeFaqFeedbackPreview {
+  const normalizedValue = normalizeAiKnowledgeFaqFeedbackPreviewIntegerJson(value);
+  return requireValidResponse(normalizedValue, isAiKnowledgeFaqFeedbackPreview(normalizedValue), 'ai_knowledge_faq_feedback_preview') as AiKnowledgeFaqFeedbackPreview;
+}
+
+function isAiKnowledgeFaqFeedbackPreview(value: unknown): value is AiKnowledgeFaqFeedbackPreview {
+  return isRecord(value) && (typeof value["answer"] === 'string') && (typeof value["digest"] === 'string') && (isAiKnowledgeFaqFeedbackSource(value["feedback"])) && ((value["graph"] === null) || (isAiKnowledgeFaqSourceGraph(value["graph"]))) && (value["personalSchedules"] === undefined || ((value["personalSchedules"] === null) || (Array.isArray(value["personalSchedules"]) && value["personalSchedules"].every(item26 => isAiPersonalScheduleSourceSelection(item26))))) && (typeof value["sourceHash"] === 'string') && (Array.isArray(value["sources"]) && value["sources"].every(item16 => isAiKnowledgeSearchSource(item16)));
+}
+
+export function readAiKnowledgeFaqFeedbackSource(value: unknown): AiKnowledgeFaqFeedbackSource {
+  const normalizedValue = normalizeAiKnowledgeFaqFeedbackSourceIntegerJson(value);
+  return requireValidResponse(normalizedValue, isAiKnowledgeFaqFeedbackSource(normalizedValue), 'ai_knowledge_faq_feedback_source') as AiKnowledgeFaqFeedbackSource;
+}
+
+function isAiKnowledgeFaqFeedbackSource(value: unknown): value is AiKnowledgeFaqFeedbackSource {
+  return isRecord(value) && (typeof value["answerHash"] === 'string') && (typeof value["feedbackId"] === 'string' && guidPattern.test(value["feedbackId"])) && (typeof value["feedbackVersion"] === 'number' && Number.isSafeInteger(value["feedbackVersion"])) && (typeof value["lineageHash"] === 'string') && (typeof value["messageId"] === 'string' && guidPattern.test(value["messageId"])) && (typeof value["reviewId"] === 'string' && guidPattern.test(value["reviewId"])) && (typeof value["reviewVersion"] === 'number' && Number.isSafeInteger(value["reviewVersion"]));
+}
+
+export function readAiKnowledgeFaqImportItemResult(value: unknown): AiKnowledgeFaqImportItemResult {
+  const normalizedValue = normalizeAiKnowledgeFaqImportItemResultIntegerJson(value);
+  return requireValidResponse(normalizedValue, isAiKnowledgeFaqImportItemResult(normalizedValue), 'ai_knowledge_faq_import_item_result') as AiKnowledgeFaqImportItemResult;
+}
+
+function isAiKnowledgeFaqImportItemResult(value: unknown): value is AiKnowledgeFaqImportItemResult {
+  return isRecord(value) && ((value["faqId"] === null) || (typeof value["faqId"] === 'string' && guidPattern.test(value["faqId"]))) && (typeof value["index"] === 'number' && Number.isSafeInteger(value["index"])) && ((value["savedRevisionId"] === null) || (typeof value["savedRevisionId"] === 'string' && guidPattern.test(value["savedRevisionId"]))) && (typeof value["status"] === 'string');
+}
+
+export function readAiKnowledgeFaqImportReport(value: unknown): AiKnowledgeFaqImportReport {
+  const normalizedValue = normalizeAiKnowledgeFaqImportReportIntegerJson(value);
+  return requireValidResponse(normalizedValue, isAiKnowledgeFaqImportReport(normalizedValue), 'ai_knowledge_faq_import_report') as AiKnowledgeFaqImportReport;
+}
+
+function isAiKnowledgeFaqImportReport(value: unknown): value is AiKnowledgeFaqImportReport {
+  return isRecord(value) && (typeof value["digest"] === 'string') && (Array.isArray(value["items"]) && value["items"].every(item14 => isAiKnowledgeFaqImportItemResult(item14)));
+}
+
+export function readAiKnowledgeFaqIndexAdmission(value: unknown): AiKnowledgeFaqIndexAdmission {
+  return requireValidResponse(value, isAiKnowledgeFaqIndexAdmission(value), 'ai_knowledge_faq_index_admission') as AiKnowledgeFaqIndexAdmission;
+}
+
+function isAiKnowledgeFaqIndexAdmission(value: unknown): value is AiKnowledgeFaqIndexAdmission {
+  return isRecord(value) && (typeof value["faqId"] === 'string' && guidPattern.test(value["faqId"])) && (typeof value["replayed"] === 'boolean') && (typeof value["revisionId"] === 'string' && guidPattern.test(value["revisionId"])) && (typeof value["state"] === 'string') && (typeof value["taskId"] === 'string' && guidPattern.test(value["taskId"])) && (typeof value["versionId"] === 'string' && guidPattern.test(value["versionId"]));
+}
+
+export function readAiKnowledgeFaqLifecycle(value: unknown): AiKnowledgeFaqLifecycle {
+  const normalizedValue = normalizeAiKnowledgeFaqLifecycleIntegerJson(value);
+  return requireValidResponse(normalizedValue, isAiKnowledgeFaqLifecycle(normalizedValue), 'ai_knowledge_faq_lifecycle') as AiKnowledgeFaqLifecycle;
+}
+
+function isAiKnowledgeFaqLifecycle(value: unknown): value is AiKnowledgeFaqLifecycle {
+  return isRecord(value) && (typeof value["documentId"] === 'string' && guidPattern.test(value["documentId"])) && ((value["effectiveFromUtc"] === null) || (typeof value["effectiveFromUtc"] === 'string')) && ((value["effectiveToUtc"] === null) || (typeof value["effectiveToUtc"] === 'string')) && (typeof value["faqId"] === 'string' && guidPattern.test(value["faqId"])) && (typeof value["headVersion"] === 'number' && Number.isSafeInteger(value["headVersion"])) && (typeof value["indexState"] === 'string') && ((value["pendingPublicationId"] === null) || (typeof value["pendingPublicationId"] === 'string' && guidPattern.test(value["pendingPublicationId"]))) && ((value["publicationId"] === null) || (typeof value["publicationId"] === 'string' && guidPattern.test(value["publicationId"]))) && (typeof value["publicationState"] === 'string') && (typeof value["publicationVersion"] === 'number' && Number.isSafeInteger(value["publicationVersion"])) && ((value["publishedRevisionId"] === null) || (typeof value["publishedRevisionId"] === 'string' && guidPattern.test(value["publishedRevisionId"]))) && (typeof value["revisionId"] === 'string' && guidPattern.test(value["revisionId"])) && ((value["taskId"] === null) || (typeof value["taskId"] === 'string' && guidPattern.test(value["taskId"]))) && ((value["versionId"] === null) || (typeof value["versionId"] === 'string' && guidPattern.test(value["versionId"])));
+}
+
+export function readAiKnowledgeFaqPublication(value: unknown): AiKnowledgeFaqPublication {
+  const normalizedValue = normalizeAiKnowledgeFaqPublicationIntegerJson(value);
+  return requireValidResponse(normalizedValue, isAiKnowledgeFaqPublication(normalizedValue), 'ai_knowledge_faq_publication') as AiKnowledgeFaqPublication;
+}
+
+function isAiKnowledgeFaqPublication(value: unknown): value is AiKnowledgeFaqPublication {
+  return isRecord(value) && ((value["basis"] === null) || (typeof value["basis"] === 'string')) && (isAiKnowledgeFaqContent(value["content"])) && (typeof value["current"] === 'boolean') && (typeof value["effectiveFromUtc"] === 'string') && (typeof value["effectiveToUtc"] === 'string') && (typeof value["expectedPublicationVersion"] === 'number' && Number.isSafeInteger(value["expectedPublicationVersion"])) && (typeof value["faqId"] === 'string' && guidPattern.test(value["faqId"])) && (value["feedback"] === undefined || ((value["feedback"] === null) || (isAiKnowledgeFaqFeedbackSource(value["feedback"])))) && (typeof value["generationId"] === 'string' && guidPattern.test(value["generationId"])) && (value["graph"] === undefined || ((value["graph"] === null) || (isAiKnowledgeFaqSourceGraph(value["graph"])))) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["origin"] === 'string') && (value["personalSchedules"] === undefined || ((value["personalSchedules"] === null) || (Array.isArray(value["personalSchedules"]) && value["personalSchedules"].every(item26 => isAiPersonalScheduleSourceSelection(item26))))) && (typeof value["requestedByUserId"] === 'string' && guidPattern.test(value["requestedByUserId"])) && ((value["reviewedByUserId"] === null) || (typeof value["reviewedByUserId"] === 'string' && guidPattern.test(value["reviewedByUserId"]))) && (typeof value["revisionId"] === 'string' && guidPattern.test(value["revisionId"])) && (typeof value["snapshotHash"] === 'string') && (typeof value["sourceHash"] === 'string') && (Array.isArray(value["sources"]) && value["sources"].every(item16 => isAiKnowledgeSearchSource(item16))) && (typeof value["state"] === 'string') && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"])) && (typeof value["versionId"] === 'string' && guidPattern.test(value["versionId"]));
+}
+
+export function readAiKnowledgeFaqPublishedContent(value: unknown): AiKnowledgeFaqPublishedContent {
+  const normalizedValue = normalizeAiKnowledgeFaqPublishedContentIntegerJson(value);
+  return requireValidResponse(normalizedValue, isAiKnowledgeFaqPublishedContent(normalizedValue), 'ai_knowledge_faq_published_content') as AiKnowledgeFaqPublishedContent;
+}
+
+function isAiKnowledgeFaqPublishedContent(value: unknown): value is AiKnowledgeFaqPublishedContent {
+  return isRecord(value) && ((value["basis"] === null) || (typeof value["basis"] === 'string')) && (isAiKnowledgeFaqContent(value["content"])) && (typeof value["effectiveFromUtc"] === 'string') && (typeof value["effectiveToUtc"] === 'string') && (typeof value["faqId"] === 'string' && guidPattern.test(value["faqId"])) && (value["feedback"] === undefined || ((value["feedback"] === null) || (isAiKnowledgeFaqFeedbackSource(value["feedback"])))) && (value["graph"] === undefined || ((value["graph"] === null) || (isAiKnowledgeFaqSourceGraph(value["graph"])))) && (typeof value["origin"] === 'string') && (value["personalSchedules"] === undefined || ((value["personalSchedules"] === null) || (Array.isArray(value["personalSchedules"]) && value["personalSchedules"].every(item26 => isAiPersonalScheduleSourceSelection(item26))))) && (typeof value["publicationId"] === 'string' && guidPattern.test(value["publicationId"])) && (typeof value["revisionId"] === 'string' && guidPattern.test(value["revisionId"])) && (typeof value["sourceHash"] === 'string') && (Array.isArray(value["sources"]) && value["sources"].every(item16 => isAiKnowledgeSearchSource(item16)));
+}
+
+export function readAiKnowledgeFaqSourceGraph(value: unknown): AiKnowledgeFaqSourceGraph {
+  const normalizedValue = normalizeAiKnowledgeFaqSourceGraphIntegerJson(value);
+  return requireValidResponse(normalizedValue, isAiKnowledgeFaqSourceGraph(normalizedValue), 'ai_knowledge_faq_source_graph') as AiKnowledgeFaqSourceGraph;
+}
+
+function isAiKnowledgeFaqSourceGraph(value: unknown): value is AiKnowledgeFaqSourceGraph {
+  return isRecord(value) && (Array.isArray(value["nodes"]) && value["nodes"].every(item14 => isAiKnowledgeFaqSourceNode(item14))) && (Array.isArray(value["roots"]) && value["roots"].every(item14 => typeof item14 === 'string' && guidPattern.test(item14)));
+}
+
+export function readAiKnowledgeFaqSourceNode(value: unknown): AiKnowledgeFaqSourceNode {
+  const normalizedValue = normalizeAiKnowledgeFaqSourceNodeIntegerJson(value);
+  return requireValidResponse(normalizedValue, isAiKnowledgeFaqSourceNode(normalizedValue), 'ai_knowledge_faq_source_node') as AiKnowledgeFaqSourceNode;
+}
+
+function isAiKnowledgeFaqSourceNode(value: unknown): value is AiKnowledgeFaqSourceNode {
+  return isRecord(value) && (Array.isArray(value["parentDocumentIds"]) && value["parentDocumentIds"].every(item26 => typeof item26 === 'string' && guidPattern.test(item26))) && (isAiKnowledgeSearchSource(value["source"]));
+}
+
+export function readAiKnowledgeFaqTransferItem(value: unknown): AiKnowledgeFaqTransferItem {
+  const normalizedValue = normalizeAiKnowledgeFaqTransferItemIntegerJson(value);
+  return requireValidResponse(normalizedValue, isAiKnowledgeFaqTransferItem(normalizedValue), 'ai_knowledge_faq_transfer_item') as AiKnowledgeFaqTransferItem;
+}
+
+function isAiKnowledgeFaqTransferItem(value: unknown): value is AiKnowledgeFaqTransferItem {
+  return isRecord(value) && ((value["basis"] === null) || (typeof value["basis"] === 'string')) && (isAiKnowledgeFaqContent(value["content"])) && (typeof value["contentHash"] === 'string') && (typeof value["faqId"] === 'string' && guidPattern.test(value["faqId"])) && (value["feedback"] === undefined || ((value["feedback"] === null) || (isAiKnowledgeFaqFeedbackSource(value["feedback"])))) && (value["graph"] === undefined || ((value["graph"] === null) || (isAiKnowledgeFaqSourceGraph(value["graph"])))) && (typeof value["headVersion"] === 'number' && Number.isSafeInteger(value["headVersion"])) && (typeof value["knowledgeBaseId"] === 'string' && guidPattern.test(value["knowledgeBaseId"])) && (typeof value["origin"] === 'string') && (value["personalSchedules"] === undefined || ((value["personalSchedules"] === null) || (Array.isArray(value["personalSchedules"]) && value["personalSchedules"].every(item26 => isAiPersonalScheduleSourceSelection(item26))))) && (typeof value["revisionId"] === 'string' && guidPattern.test(value["revisionId"])) && (typeof value["sourceHash"] === 'string') && (Array.isArray(value["sources"]) && value["sources"].every(item16 => isAiKnowledgeSearchSource(item16)));
+}
+
+export function readAiKnowledgeFaqTransferPackage(value: unknown): AiKnowledgeFaqTransferPackage {
+  const normalizedValue = normalizeAiKnowledgeFaqTransferPackageIntegerJson(value);
+  return requireValidResponse(normalizedValue, isAiKnowledgeFaqTransferPackage(normalizedValue), 'ai_knowledge_faq_transfer_package') as AiKnowledgeFaqTransferPackage;
+}
+
+function isAiKnowledgeFaqTransferPackage(value: unknown): value is AiKnowledgeFaqTransferPackage {
+  return isRecord(value) && (typeof value["format"] === 'string') && (Array.isArray(value["items"]) && value["items"].every(item14 => isAiKnowledgeFaqTransferItem(item14)));
+}
+
+export function readAiKnowledgeFinanceBucket(value: unknown): AiKnowledgeFinanceBucket {
+  const normalizedValue = normalizeAiKnowledgeFinanceBucketIntegerJson(value);
+  return requireValidResponse(normalizedValue, isAiKnowledgeFinanceBucket(normalizedValue), 'ai_knowledge_finance_bucket') as AiKnowledgeFinanceBucket;
+}
+
+function isAiKnowledgeFinanceBucket(value: unknown): value is AiKnowledgeFinanceBucket {
+  return isRecord(value) && (typeof value["attribution"] === 'string') && ((value["conservativeReservation"] === null) || (typeof value["conservativeReservation"] === 'string')) && ((value["currency"] === null) || (typeof value["currency"] === 'string')) && ((value["knowledgeBaseId"] === null) || (typeof value["knowledgeBaseId"] === 'string' && guidPattern.test(value["knowledgeBaseId"]))) && (typeof value["known"] === 'number' && Number.isSafeInteger(value["known"])) && (typeof value["missingCost"] === 'number' && Number.isSafeInteger(value["missingCost"])) && (typeof value["month"] === 'string') && ((value["priceVersionId"] === null) || (typeof value["priceVersionId"] === 'string' && guidPattern.test(value["priceVersionId"]))) && ((value["recordedCost"] === null) || (typeof value["recordedCost"] === 'string')) && (typeof value["requests"] === 'number' && Number.isSafeInteger(value["requests"])) && (typeof value["reserved"] === 'number' && Number.isSafeInteger(value["reserved"])) && (typeof value["unknown"] === 'number' && Number.isSafeInteger(value["unknown"]));
+}
+
+export function readAiKnowledgeFinanceReport(value: unknown): AiKnowledgeFinanceReport {
+  const normalizedValue = normalizeAiKnowledgeFinanceReportIntegerJson(value);
+  return requireValidResponse(normalizedValue, isAiKnowledgeFinanceReport(normalizedValue), 'ai_knowledge_finance_report') as AiKnowledgeFinanceReport;
+}
+
+function isAiKnowledgeFinanceReport(value: unknown): value is AiKnowledgeFinanceReport {
+  return isRecord(value) && (typeof value["fromUtc"] === 'string') && (Array.isArray(value["items"]) && value["items"].every(item14 => isAiKnowledgeFinanceBucket(item14))) && (typeof value["measurementState"] === 'string') && (typeof value["toUtc"] === 'string');
+}
+
+export function readAiKnowledgeFolderResponse(value: unknown): AiKnowledgeFolderResponse {
+  const normalizedValue = normalizeAiKnowledgeFolderResponseIntegerJson(value);
+  return requireValidResponse(normalizedValue, isAiKnowledgeFolderResponse(normalizedValue), 'ai_knowledge_folder_response') as AiKnowledgeFolderResponse;
+}
+
+function isAiKnowledgeFolderResponse(value: unknown): value is AiKnowledgeFolderResponse {
+  return isRecord(value) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["knowledgeBaseId"] === 'string' && guidPattern.test(value["knowledgeBaseId"])) && (typeof value["name"] === 'string') && ((value["parentId"] === null) || (typeof value["parentId"] === 'string' && guidPattern.test(value["parentId"]))) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
 }
 
 export function readAiKnowledgeGridLocationResponse(value: unknown): AiKnowledgeGridLocationResponse {
@@ -1183,6 +1878,24 @@ function isAiKnowledgeMembersResponse(value: unknown): value is AiKnowledgeMembe
   return isRecord(value) && (typeof value["knowledgeBaseId"] === 'string' && guidPattern.test(value["knowledgeBaseId"])) && (Array.isArray(value["userIds"]) && value["userIds"].every(item16 => typeof item16 === 'string' && guidPattern.test(item16))) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
 }
 
+export function readAiKnowledgeOperationItem(value: unknown): AiKnowledgeOperationItem {
+  const normalizedValue = normalizeAiKnowledgeOperationItemIntegerJson(value);
+  return requireValidResponse(normalizedValue, isAiKnowledgeOperationItem(normalizedValue), 'ai_knowledge_operation_item') as AiKnowledgeOperationItem;
+}
+
+function isAiKnowledgeOperationItem(value: unknown): value is AiKnowledgeOperationItem {
+  return isRecord(value) && (typeof value["attemptCount"] === 'number' && Number.isSafeInteger(value["attemptCount"])) && (typeof value["createdAtUtc"] === 'string') && (typeof value["documentId"] === 'string' && guidPattern.test(value["documentId"])) && ((value["effectiveFromUtc"] === null) || (typeof value["effectiveFromUtc"] === 'string')) && ((value["effectiveToUtc"] === null) || (typeof value["effectiveToUtc"] === 'string')) && ((value["failureCode"] === null) || (typeof value["failureCode"] === 'string')) && ((value["faqId"] === null) || (typeof value["faqId"] === 'string' && guidPattern.test(value["faqId"]))) && (typeof value["hasActiveGeneration"] === 'boolean') && (typeof value["knowledgeBaseId"] === 'string' && guidPattern.test(value["knowledgeBaseId"])) && (typeof value["preparationState"] === 'string') && ((value["publicationId"] === null) || (typeof value["publicationId"] === 'string' && guidPattern.test(value["publicationId"]))) && (typeof value["publicationState"] === 'string') && ((value["publicationVersionId"] === null) || (typeof value["publicationVersionId"] === 'string' && guidPattern.test(value["publicationVersionId"]))) && (typeof value["reviewState"] === 'string') && (typeof value["sourceKind"] === 'string') && ((value["taskId"] === null) || (typeof value["taskId"] === 'string' && guidPattern.test(value["taskId"]))) && (typeof value["taskState"] === 'string') && ((value["taskUpdatedAtUtc"] === null) || (typeof value["taskUpdatedAtUtc"] === 'string')) && (typeof value["versionId"] === 'string' && guidPattern.test(value["versionId"])) && (typeof value["versionNumber"] === 'number' && Number.isSafeInteger(value["versionNumber"]));
+}
+
+export function readAiKnowledgeOperationsPage(value: unknown): AiKnowledgeOperationsPage {
+  const normalizedValue = normalizeAiKnowledgeOperationsPageIntegerJson(value);
+  return requireValidResponse(normalizedValue, isAiKnowledgeOperationsPage(normalizedValue), 'ai_knowledge_operations_page') as AiKnowledgeOperationsPage;
+}
+
+function isAiKnowledgeOperationsPage(value: unknown): value is AiKnowledgeOperationsPage {
+  return isRecord(value) && (typeof value["fromUtc"] === 'string') && (Array.isArray(value["items"]) && value["items"].every(item14 => isAiKnowledgeOperationItem(item14))) && ((value["nextAfterId"] === null) || (typeof value["nextAfterId"] === 'string' && guidPattern.test(value["nextAfterId"]))) && (typeof value["toUtc"] === 'string') && (typeof value["view"] === 'string');
+}
+
 export function readAiKnowledgeOrganizationCandidateResponse(value: unknown): AiKnowledgeOrganizationCandidateResponse {
   return requireValidResponse(value, isAiKnowledgeOrganizationCandidateResponse(value), 'ai_knowledge_organization_candidate_response') as AiKnowledgeOrganizationCandidateResponse;
 }
@@ -1200,6 +1913,33 @@ function isAiKnowledgeOrganizationGrantsResponse(value: unknown): value is AiKno
   return isRecord(value) && (Array.isArray(value["organizationUnitIds"]) && value["organizationUnitIds"].every(item28 => typeof item28 === 'string' && guidPattern.test(item28))) && (typeof value["resourceId"] === 'string' && guidPattern.test(value["resourceId"])) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
 }
 
+export function readAiKnowledgePublicationHeadResponse(value: unknown): AiKnowledgePublicationHeadResponse {
+  const normalizedValue = normalizeAiKnowledgePublicationHeadResponseIntegerJson(value);
+  return requireValidResponse(normalizedValue, isAiKnowledgePublicationHeadResponse(normalizedValue), 'ai_knowledge_publication_head_response') as AiKnowledgePublicationHeadResponse;
+}
+
+function isAiKnowledgePublicationHeadResponse(value: unknown): value is AiKnowledgePublicationHeadResponse {
+  return isRecord(value) && (typeof value["documentId"] === 'string' && guidPattern.test(value["documentId"])) && ((value["publicationId"] === null) || (typeof value["publicationId"] === 'string' && guidPattern.test(value["publicationId"]))) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+}
+
+export function readAiKnowledgePublicationResponse(value: unknown): AiKnowledgePublicationResponse {
+  const normalizedValue = normalizeAiKnowledgePublicationResponseIntegerJson(value);
+  return requireValidResponse(normalizedValue, isAiKnowledgePublicationResponse(normalizedValue), 'ai_knowledge_publication_response') as AiKnowledgePublicationResponse;
+}
+
+function isAiKnowledgePublicationResponse(value: unknown): value is AiKnowledgePublicationResponse {
+  return isRecord(value) && (typeof value["actorUserId"] === 'string' && guidPattern.test(value["actorUserId"])) && (typeof value["createdAtUtc"] === 'string') && (typeof value["documentId"] === 'string' && guidPattern.test(value["documentId"])) && (typeof value["effectiveFromUtc"] === 'string') && (typeof value["effectiveToUtc"] === 'string') && (typeof value["expectedHeadVersion"] === 'number' && Number.isSafeInteger(value["expectedHeadVersion"])) && (typeof value["generationId"] === 'string' && guidPattern.test(value["generationId"])) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["policyVersion"] === 'number' && Number.isSafeInteger(value["policyVersion"])) && ((value["reviewedAtUtc"] === null) || (typeof value["reviewedAtUtc"] === 'string')) && ((value["reviewerUserId"] === null) || (typeof value["reviewerUserId"] === 'string' && guidPattern.test(value["reviewerUserId"]))) && (typeof value["snapshotHash"] === 'string') && (typeof value["stateKey"] === 'string') && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"])) && (typeof value["versionId"] === 'string' && guidPattern.test(value["versionId"]));
+}
+
+export function readAiKnowledgeQualityObservation(value: unknown): AiKnowledgeQualityObservation {
+  const normalizedValue = normalizeAiKnowledgeQualityObservationIntegerJson(value);
+  return requireValidResponse(normalizedValue, isAiKnowledgeQualityObservation(normalizedValue), 'ai_knowledge_quality_observation') as AiKnowledgeQualityObservation;
+}
+
+function isAiKnowledgeQualityObservation(value: unknown): value is AiKnowledgeQualityObservation {
+  return isRecord(value) && (typeof value["currentNegativeFeedback"] === 'number' && Number.isSafeInteger(value["currentNegativeFeedback"])) && ((value["firstRecordedAtUtc"] === null) || (typeof value["firstRecordedAtUtc"] === 'string')) && (typeof value["fromUtc"] === 'string') && (typeof value["historicalCoverage"] === 'string') && (typeof value["knowledgeBaseId"] === 'string' && guidPattern.test(value["knowledgeBaseId"])) && ((value["meanPipelineMs"] === null) || (typeof value["meanPipelineMs"] === 'number' && Number.isFinite(value["meanPipelineMs"])) || (typeof value["meanPipelineMs"] === 'string' && new RegExp("^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?(?:[eE][+-]?\\d+)?$").test(value["meanPipelineMs"]) && Number.isFinite(Number(value["meanPipelineMs"])))) && (typeof value["measured"] === 'number' && Number.isSafeInteger(value["measured"])) && (typeof value["measurementProtocol"] === 'string') && (typeof value["recordedAnswers"] === 'number' && Number.isSafeInteger(value["recordedAnswers"])) && (typeof value["refused"] === 'number' && Number.isSafeInteger(value["refused"])) && (typeof value["toUtc"] === 'string');
+}
+
 export function readAiKnowledgeRoleCandidateResponse(value: unknown): AiKnowledgeRoleCandidateResponse {
   return requireValidResponse(value, isAiKnowledgeRoleCandidateResponse(value), 'ai_knowledge_role_candidate_response') as AiKnowledgeRoleCandidateResponse;
 }
@@ -1215,6 +1955,130 @@ export function readAiKnowledgeRoleGrantsResponse(value: unknown): AiKnowledgeRo
 
 function isAiKnowledgeRoleGrantsResponse(value: unknown): value is AiKnowledgeRoleGrantsResponse {
   return isRecord(value) && (typeof value["resourceId"] === 'string' && guidPattern.test(value["resourceId"])) && (Array.isArray(value["roleIds"]) && value["roleIds"].every(item16 => typeof item16 === 'string' && guidPattern.test(item16))) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+}
+
+export function readAiKnowledgeSearchAnswerScope(value: unknown): AiKnowledgeSearchAnswerScope {
+  const normalizedValue = normalizeAiKnowledgeSearchAnswerScopeIntegerJson(value);
+  return requireValidResponse(normalizedValue, isAiKnowledgeSearchAnswerScope(normalizedValue), 'ai_knowledge_search_answer_scope') as AiKnowledgeSearchAnswerScope;
+}
+
+function isAiKnowledgeSearchAnswerScope(value: unknown): value is AiKnowledgeSearchAnswerScope {
+  return isRecord(value) && (Array.isArray(value["documentIds"]) && value["documentIds"].every(item20 => typeof item20 === 'string' && guidPattern.test(item20))) && (typeof value["embeddingModelVersion"] === 'number' && Number.isSafeInteger(value["embeddingModelVersion"])) && (Array.isArray(value["sources"]) && value["sources"].every(item16 => isAiKnowledgeSearchSource(item16)));
+}
+
+export function readAiKnowledgeSearchComparisonRanking(value: unknown): AiKnowledgeSearchComparisonRanking {
+  const normalizedValue = normalizeAiKnowledgeSearchComparisonRankingIntegerJson(value);
+  return requireValidResponse(normalizedValue, isAiKnowledgeSearchComparisonRanking(normalizedValue), 'ai_knowledge_search_comparison_ranking') as AiKnowledgeSearchComparisonRanking;
+}
+
+function isAiKnowledgeSearchComparisonRanking(value: unknown): value is AiKnowledgeSearchComparisonRanking {
+  return isRecord(value) && (typeof value["hasMore"] === 'boolean') && (Array.isArray(value["hits"]) && value["hits"].every(item13 => isAiKnowledgeSearchHit(item13))) && (typeof value["scoreKind"] === 'string') && (typeof value["strategy"] === 'string');
+}
+
+export function readAiKnowledgeSearchComparisonResponse(value: unknown): AiKnowledgeSearchComparisonResponse {
+  const normalizedValue = normalizeAiKnowledgeSearchComparisonResponseIntegerJson(value);
+  return requireValidResponse(normalizedValue, isAiKnowledgeSearchComparisonResponse(normalizedValue), 'ai_knowledge_search_comparison_response') as AiKnowledgeSearchComparisonResponse;
+}
+
+function isAiKnowledgeSearchComparisonResponse(value: unknown): value is AiKnowledgeSearchComparisonResponse {
+  return isRecord(value) && ((value["diagnostics"] === null) || (isAiKnowledgeSearchDiagnostics(value["diagnostics"]))) && (isAiKnowledgeSearchComparisonRanking(value["keyword"])) && (typeof value["query"] === 'string') && (Array.isArray(value["sources"]) && value["sources"].every(item16 => isAiKnowledgeSearchSource(item16))) && (typeof value["strategy"] === 'string') && (isAiKnowledgeSearchComparisonUsage(value["usage"])) && (isAiKnowledgeSearchComparisonRanking(value["vector"]));
+}
+
+export function readAiKnowledgeSearchComparisonUsage(value: unknown): AiKnowledgeSearchComparisonUsage {
+  return requireValidResponse(value, isAiKnowledgeSearchComparisonUsage(value), 'ai_knowledge_search_comparison_usage') as AiKnowledgeSearchComparisonUsage;
+}
+
+function isAiKnowledgeSearchComparisonUsage(value: unknown): value is AiKnowledgeSearchComparisonUsage {
+  return isRecord(value) && (typeof value["operationId"] === 'string' && guidPattern.test(value["operationId"])) && (typeof value["status"] === 'string');
+}
+
+export function readAiKnowledgeSearchContextBlock(value: unknown): AiKnowledgeSearchContextBlock {
+  const normalizedValue = normalizeAiKnowledgeSearchContextBlockIntegerJson(value);
+  return requireValidResponse(normalizedValue, isAiKnowledgeSearchContextBlock(normalizedValue), 'ai_knowledge_search_context_block') as AiKnowledgeSearchContextBlock;
+}
+
+function isAiKnowledgeSearchContextBlock(value: unknown): value is AiKnowledgeSearchContextBlock {
+  return isRecord(value) && ((value["correction"] === null) || (isAiKnowledgeCorrectionCitationResponse(value["correction"]))) && ((value["docxLocation"] === null) || (isAiKnowledgeDocxLocationResponse(value["docxLocation"]))) && ((value["length"] === null) || (typeof value["length"] === 'number' && Number.isSafeInteger(value["length"]))) && ((value["offset"] === null) || (typeof value["offset"] === 'number' && Number.isSafeInteger(value["offset"]))) && ((value["pageNumber"] === null) || (typeof value["pageNumber"] === 'number' && Number.isSafeInteger(value["pageNumber"]))) && (typeof value["sequence"] === 'number' && Number.isSafeInteger(value["sequence"])) && ((value["sourceLocation"] === null) || (isAiKnowledgeSourceLocationResponse(value["sourceLocation"]))) && (typeof value["text"] === 'string');
+}
+
+export function readAiKnowledgeSearchContextResponse(value: unknown): AiKnowledgeSearchContextResponse {
+  const normalizedValue = normalizeAiKnowledgeSearchContextResponseIntegerJson(value);
+  return requireValidResponse(normalizedValue, isAiKnowledgeSearchContextResponse(normalizedValue), 'ai_knowledge_search_context_response') as AiKnowledgeSearchContextResponse;
+}
+
+function isAiKnowledgeSearchContextResponse(value: unknown): value is AiKnowledgeSearchContextResponse {
+  return isRecord(value) && (typeof value["anchorSequence"] === 'number' && Number.isSafeInteger(value["anchorSequence"])) && (Array.isArray(value["blocks"]) && value["blocks"].every(item15 => isAiKnowledgeSearchContextBlock(item15))) && (typeof value["documentMetadataVersion"] === 'number' && Number.isSafeInteger(value["documentMetadataVersion"])) && (typeof value["documentTitle"] === 'string') && (typeof value["hasNextBlocks"] === 'boolean') && (typeof value["hasPreviousBlocks"] === 'boolean') && (typeof value["radius"] === 'number' && Number.isSafeInteger(value["radius"])) && (isAiKnowledgeSearchSource(value["source"])) && (typeof value["strategy"] === 'string');
+}
+
+export function readAiKnowledgeSearchDiagnostics(value: unknown): AiKnowledgeSearchDiagnostics {
+  const normalizedValue = normalizeAiKnowledgeSearchDiagnosticsIntegerJson(value);
+  return requireValidResponse(normalizedValue, isAiKnowledgeSearchDiagnostics(normalizedValue), 'ai_knowledge_search_diagnostics') as AiKnowledgeSearchDiagnostics;
+}
+
+function isAiKnowledgeSearchDiagnostics(value: unknown): value is AiKnowledgeSearchDiagnostics {
+  return isRecord(value) && (typeof value["candidateCount"] === 'number' && Number.isSafeInteger(value["candidateCount"])) && (typeof value["scoreKind"] === 'string') && (typeof value["sourceCount"] === 'number' && Number.isSafeInteger(value["sourceCount"]));
+}
+
+export function readAiKnowledgeSearchHit(value: unknown): AiKnowledgeSearchHit {
+  const normalizedValue = normalizeAiKnowledgeSearchHitIntegerJson(value);
+  return requireValidResponse(normalizedValue, isAiKnowledgeSearchHit(normalizedValue), 'ai_knowledge_search_hit') as AiKnowledgeSearchHit;
+}
+
+function isAiKnowledgeSearchHit(value: unknown): value is AiKnowledgeSearchHit {
+  return isRecord(value) && ((value["correction"] === null) || (isAiKnowledgeCorrectionCitationResponse(value["correction"]))) && (typeof value["documentMetadataVersion"] === 'number' && Number.isSafeInteger(value["documentMetadataVersion"])) && (typeof value["documentTitle"] === 'string') && ((value["docxLocation"] === null) || (isAiKnowledgeDocxLocationResponse(value["docxLocation"]))) && ((value["length"] === null) || (typeof value["length"] === 'number' && Number.isSafeInteger(value["length"]))) && ((value["offset"] === null) || (typeof value["offset"] === 'number' && Number.isSafeInteger(value["offset"]))) && ((value["pageNumber"] === null) || (typeof value["pageNumber"] === 'number' && Number.isSafeInteger(value["pageNumber"]))) && ((typeof value["score"] === 'number' && Number.isFinite(value["score"])) || (typeof value["score"] === 'string' && new RegExp("^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?(?:[eE][+-]?\\d+)?$").test(value["score"]) && Number.isFinite(Number(value["score"])))) && (typeof value["sequence"] === 'number' && Number.isSafeInteger(value["sequence"])) && (isAiKnowledgeSearchSource(value["source"])) && ((value["sourceLocation"] === null) || (isAiKnowledgeSourceLocationResponse(value["sourceLocation"]))) && (typeof value["text"] === 'string');
+}
+
+export function readAiKnowledgeSearchRefinementOperation(value: unknown): AiKnowledgeSearchRefinementOperation {
+  return requireValidResponse(value, isAiKnowledgeSearchRefinementOperation(value), 'ai_knowledge_search_refinement_operation') as AiKnowledgeSearchRefinementOperation;
+}
+
+function isAiKnowledgeSearchRefinementOperation(value: unknown): value is AiKnowledgeSearchRefinementOperation {
+  return isRecord(value) && (typeof value["operationId"] === 'string' && guidPattern.test(value["operationId"])) && (typeof value["stage"] === 'string') && (typeof value["status"] === 'string');
+}
+
+export function readAiKnowledgeSearchRefinementResponse(value: unknown): AiKnowledgeSearchRefinementResponse {
+  const normalizedValue = normalizeAiKnowledgeSearchRefinementResponseIntegerJson(value);
+  return requireValidResponse(normalizedValue, isAiKnowledgeSearchRefinementResponse(normalizedValue), 'ai_knowledge_search_refinement_response') as AiKnowledgeSearchRefinementResponse;
+}
+
+function isAiKnowledgeSearchRefinementResponse(value: unknown): value is AiKnowledgeSearchRefinementResponse {
+  return isRecord(value) && ((value["diagnostics"] === null) || (isAiKnowledgeSearchDiagnostics(value["diagnostics"]))) && (typeof value["effectiveQuery"] === 'string') && (typeof value["mode"] === 'string') && (Array.isArray(value["operations"]) && value["operations"].every(item19 => isAiKnowledgeSearchRefinementOperation(item19))) && (isAiKnowledgeSearchComparisonRanking(value["originalKeyword"])) && (isAiKnowledgeSearchComparisonRanking(value["originalVector"])) && (typeof value["processingModelConfigId"] === 'string' && guidPattern.test(value["processingModelConfigId"])) && (typeof value["processingModelVersion"] === 'number' && Number.isSafeInteger(value["processingModelVersion"])) && (typeof value["query"] === 'string') && ((value["refusedStage"] === null) || (typeof value["refusedStage"] === 'string')) && ((value["rerankCandidateCount"] === null) || (typeof value["rerankCandidateCount"] === 'number' && Number.isSafeInteger(value["rerankCandidateCount"]))) && ((value["reranked"] === null) || (isAiKnowledgeSearchComparisonRanking(value["reranked"]))) && ((value["rewrittenKeyword"] === null) || (isAiKnowledgeSearchComparisonRanking(value["rewrittenKeyword"]))) && ((value["rewrittenVector"] === null) || (isAiKnowledgeSearchComparisonRanking(value["rewrittenVector"]))) && (Array.isArray(value["sources"]) && value["sources"].every(item16 => isAiKnowledgeSearchSource(item16))) && (typeof value["strategy"] === 'string');
+}
+
+export function readAiKnowledgeSearchRelation(value: unknown): AiKnowledgeSearchRelation {
+  const normalizedValue = normalizeAiKnowledgeSearchRelationIntegerJson(value);
+  return requireValidResponse(normalizedValue, isAiKnowledgeSearchRelation(normalizedValue), 'ai_knowledge_search_relation') as AiKnowledgeSearchRelation;
+}
+
+function isAiKnowledgeSearchRelation(value: unknown): value is AiKnowledgeSearchRelation {
+  return isRecord(value) && (isAiKnowledgeSourceLocationResponse(value["childLocation"])) && (typeof value["childSequence"] === 'number' && Number.isSafeInteger(value["childSequence"])) && (isAiKnowledgeSourceLocationResponse(value["parentLocation"])) && ((value["parentSequence"] === null) || (typeof value["parentSequence"] === 'number' && Number.isSafeInteger(value["parentSequence"])));
+}
+
+export function readAiKnowledgeSearchRelationsResponse(value: unknown): AiKnowledgeSearchRelationsResponse {
+  const normalizedValue = normalizeAiKnowledgeSearchRelationsResponseIntegerJson(value);
+  return requireValidResponse(normalizedValue, isAiKnowledgeSearchRelationsResponse(normalizedValue), 'ai_knowledge_search_relations_response') as AiKnowledgeSearchRelationsResponse;
+}
+
+function isAiKnowledgeSearchRelationsResponse(value: unknown): value is AiKnowledgeSearchRelationsResponse {
+  return isRecord(value) && (typeof value["anchorSequence"] === 'number' && Number.isSafeInteger(value["anchorSequence"])) && (Array.isArray(value["blocks"]) && value["blocks"].every(item15 => isAiKnowledgeSearchContextBlock(item15))) && (typeof value["documentMetadataVersion"] === 'number' && Number.isSafeInteger(value["documentMetadataVersion"])) && (typeof value["documentTitle"] === 'string') && (Array.isArray(value["relations"]) && value["relations"].every(item18 => isAiKnowledgeSearchRelation(item18))) && (typeof value["relationState"] === 'string') && (isAiKnowledgeSearchSource(value["source"])) && (typeof value["strategy"] === 'string');
+}
+
+export function readAiKnowledgeSearchResponse(value: unknown): AiKnowledgeSearchResponse {
+  const normalizedValue = normalizeAiKnowledgeSearchResponseIntegerJson(value);
+  return requireValidResponse(normalizedValue, isAiKnowledgeSearchResponse(normalizedValue), 'ai_knowledge_search_response') as AiKnowledgeSearchResponse;
+}
+
+function isAiKnowledgeSearchResponse(value: unknown): value is AiKnowledgeSearchResponse {
+  return isRecord(value) && ((value["diagnostics"] === null) || (isAiKnowledgeSearchDiagnostics(value["diagnostics"]))) && (Array.isArray(value["hits"]) && value["hits"].every(item13 => isAiKnowledgeSearchHit(item13))) && (Array.isArray(value["sources"]) && value["sources"].every(item16 => isAiKnowledgeSearchSource(item16))) && (typeof value["strategy"] === 'string') && (typeof value["totalMatches"] === 'number' && Number.isSafeInteger(value["totalMatches"]));
+}
+
+export function readAiKnowledgeSearchSource(value: unknown): AiKnowledgeSearchSource {
+  const normalizedValue = normalizeAiKnowledgeSearchSourceIntegerJson(value);
+  return requireValidResponse(normalizedValue, isAiKnowledgeSearchSource(normalizedValue), 'ai_knowledge_search_source') as AiKnowledgeSearchSource;
+}
+
+function isAiKnowledgeSearchSource(value: unknown): value is AiKnowledgeSearchSource {
+  return isRecord(value) && (typeof value["documentId"] === 'string' && guidPattern.test(value["documentId"])) && (typeof value["documentVersion"] === 'number' && Number.isSafeInteger(value["documentVersion"])) && (value["faqId"] === undefined || ((value["faqId"] === null) || (typeof value["faqId"] === 'string' && guidPattern.test(value["faqId"])))) && (value["faqRevisionId"] === undefined || ((value["faqRevisionId"] === null) || (typeof value["faqRevisionId"] === 'string' && guidPattern.test(value["faqRevisionId"])))) && (typeof value["generationId"] === 'string' && guidPattern.test(value["generationId"])) && (typeof value["knowledgeBaseId"] === 'string' && guidPattern.test(value["knowledgeBaseId"])) && (typeof value["knowledgeBaseVersion"] === 'number' && Number.isSafeInteger(value["knowledgeBaseVersion"])) && (typeof value["manifestHash"] === 'string') && (typeof value["publicationId"] === 'string' && guidPattern.test(value["publicationId"])) && (value["sourceKind"] === undefined || (typeof value["sourceKind"] === 'string')) && (typeof value["versionId"] === 'string' && guidPattern.test(value["versionId"]));
 }
 
 export function readAiKnowledgeSlideLocationResponse(value: unknown): AiKnowledgeSlideLocationResponse {
@@ -1297,6 +2161,69 @@ function isAiModelConfigResponse(value: unknown): value is AiModelConfigResponse
   return isRecord(value) && (typeof value["createdAtUtc"] === 'string') && (typeof value["endpointBaseUrl"] === 'string') && (typeof value["hasApiKey"] === 'boolean') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["isDefault"] === 'boolean') && (typeof value["isEnabled"] === 'boolean') && ((value["lastTestedAtUtc"] === null) || (typeof value["lastTestedAtUtc"] === 'string')) && ((value["lastTestMessage"] === null) || (typeof value["lastTestMessage"] === 'string')) && ((value["lastTestStatusKey"] === null) || (typeof value["lastTestStatusKey"] === 'string')) && (typeof value["modelId"] === 'string') && (typeof value["name"] === 'string') && ((value["organizationId"] === null) || (typeof value["organizationId"] === 'string')) && (typeof value["providerKey"] === 'string') && ((value["tenantId"] === null) || (typeof value["tenantId"] === 'string' && guidPattern.test(value["tenantId"]))) && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
 }
 
+export function readAiPersonalScheduleCitationResponse(value: unknown): AiPersonalScheduleCitationResponse {
+  const normalizedValue = normalizeAiPersonalScheduleCitationResponseIntegerJson(value);
+  return requireValidResponse(normalizedValue, isAiPersonalScheduleCitationResponse(normalizedValue), 'ai_personal_schedule_citation_response') as AiPersonalScheduleCitationResponse;
+}
+
+function isAiPersonalScheduleCitationResponse(value: unknown): value is AiPersonalScheduleCitationResponse {
+  return isRecord(value) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["kind"] === 'string') && (typeof value["projectionHash"] === 'string') && (typeof value["purpose"] === 'string') && (typeof value["scheduleId"] === 'string' && guidPattern.test(value["scheduleId"])) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+}
+
+export function readAiPersonalScheduleCompletionProposal(value: unknown): AiPersonalScheduleCompletionProposal {
+  const normalizedValue = normalizeAiPersonalScheduleCompletionProposalIntegerJson(value);
+  return requireValidResponse(normalizedValue, isAiPersonalScheduleCompletionProposal(normalizedValue), 'ai_personal_schedule_completion_proposal') as AiPersonalScheduleCompletionProposal;
+}
+
+function isAiPersonalScheduleCompletionProposal(value: unknown): value is AiPersonalScheduleCompletionProposal {
+  return isRecord(value) && (typeof value["argumentsJson"] === 'string') && (typeof value["expectedVersion"] === 'number' && Number.isSafeInteger(value["expectedVersion"])) && (typeof value["operationId"] === 'string' && guidPattern.test(value["operationId"])) && (typeof value["runId"] === 'string' && guidPattern.test(value["runId"])) && (typeof value["scheduleId"] === 'string' && guidPattern.test(value["scheduleId"])) && (typeof value["toolName"] === 'string') && (typeof value["toolVersion"] === 'number' && Number.isSafeInteger(value["toolVersion"]));
+}
+
+export function readAiPersonalScheduleCompletionStatus(value: unknown): AiPersonalScheduleCompletionStatus {
+  const normalizedValue = normalizeAiPersonalScheduleCompletionStatusIntegerJson(value);
+  return requireValidResponse(normalizedValue, isAiPersonalScheduleCompletionStatus(normalizedValue), 'ai_personal_schedule_completion_status') as AiPersonalScheduleCompletionStatus;
+}
+
+function isAiPersonalScheduleCompletionStatus(value: unknown): value is AiPersonalScheduleCompletionStatus {
+  return isRecord(value) && ((value["actualVersion"] === null) || (typeof value["actualVersion"] === 'number' && Number.isSafeInteger(value["actualVersion"]))) && ((value["completedAtUtc"] === null) || (typeof value["completedAtUtc"] === 'string')) && (typeof value["expectedVersion"] === 'number' && Number.isSafeInteger(value["expectedVersion"])) && (typeof value["operationId"] === 'string' && guidPattern.test(value["operationId"])) && ((value["reason"] === null) || (typeof value["reason"] === 'string')) && (typeof value["runId"] === 'string' && guidPattern.test(value["runId"])) && (typeof value["scheduleId"] === 'string' && guidPattern.test(value["scheduleId"])) && (typeof value["state"] === 'string');
+}
+
+export function readAiPersonalScheduleCompletionTarget(value: unknown): AiPersonalScheduleCompletionTarget {
+  const normalizedValue = normalizeAiPersonalScheduleCompletionTargetIntegerJson(value);
+  return requireValidResponse(normalizedValue, isAiPersonalScheduleCompletionTarget(normalizedValue), 'ai_personal_schedule_completion_target') as AiPersonalScheduleCompletionTarget;
+}
+
+function isAiPersonalScheduleCompletionTarget(value: unknown): value is AiPersonalScheduleCompletionTarget {
+  return isRecord(value) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+}
+
+export function readAiPersonalScheduleSource(value: unknown): AiPersonalScheduleSource {
+  const normalizedValue = normalizeAiPersonalScheduleSourceIntegerJson(value);
+  return requireValidResponse(normalizedValue, isAiPersonalScheduleSource(normalizedValue), 'ai_personal_schedule_source') as AiPersonalScheduleSource;
+}
+
+function isAiPersonalScheduleSource(value: unknown): value is AiPersonalScheduleSource {
+  return isRecord(value) && (typeof value["content"] === 'string') && (typeof value["endAtUtc"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["kind"] === 'string') && (typeof value["projectionHash"] === 'string') && (typeof value["purpose"] === 'string') && (typeof value["startAtUtc"] === 'string') && (typeof value["status"] === 'string') && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+}
+
+export function readAiPersonalScheduleSourcePreview(value: unknown): AiPersonalScheduleSourcePreview {
+  const normalizedValue = normalizeAiPersonalScheduleSourcePreviewIntegerJson(value);
+  return requireValidResponse(normalizedValue, isAiPersonalScheduleSourcePreview(normalizedValue), 'ai_personal_schedule_source_preview') as AiPersonalScheduleSourcePreview;
+}
+
+function isAiPersonalScheduleSourcePreview(value: unknown): value is AiPersonalScheduleSourcePreview {
+  return isRecord(value) && (typeof value["classification"] === 'string') && (Array.isArray(value["sources"]) && value["sources"].every(item16 => isAiPersonalScheduleSource(item16)));
+}
+
+export function readAiPersonalScheduleSourceSelection(value: unknown): AiPersonalScheduleSourceSelection {
+  const normalizedValue = normalizeAiPersonalScheduleSourceSelectionIntegerJson(value);
+  return requireValidResponse(normalizedValue, isAiPersonalScheduleSourceSelection(normalizedValue), 'ai_personal_schedule_source_selection') as AiPersonalScheduleSourceSelection;
+}
+
+function isAiPersonalScheduleSourceSelection(value: unknown): value is AiPersonalScheduleSourceSelection {
+  return isRecord(value) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["projectionHash"] === 'string') && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+}
+
 export function readAiPromptBody(value: unknown): AiPromptBody {
   const normalizedValue = normalizeAiPromptBodyIntegerJson(value);
   return requireValidResponse(normalizedValue, isAiPromptBody(normalizedValue), 'ai_prompt_body') as AiPromptBody;
@@ -1377,11 +2304,12 @@ function isArchiveInboxMessagesRequest(value: unknown): value is ArchiveInboxMes
 }
 
 export function readAskAiKnowledgeRequest(value: unknown): AskAiKnowledgeRequest {
-  return requireValidResponse(value, isAskAiKnowledgeRequest(value), 'ask_ai_knowledge_request') as AskAiKnowledgeRequest;
+  const normalizedValue = normalizeAskAiKnowledgeRequestIntegerJson(value);
+  return requireValidResponse(normalizedValue, isAskAiKnowledgeRequest(normalizedValue), 'ask_ai_knowledge_request') as AskAiKnowledgeRequest;
 }
 
 function isAskAiKnowledgeRequest(value: unknown): value is AskAiKnowledgeRequest {
-  return isRecord(value) && (typeof value["embeddingModelConfigId"] === 'string' && guidPattern.test(value["embeddingModelConfigId"])) && (Array.isArray(value["knowledgeBaseIds"]) && value["knowledgeBaseIds"].every(item25 => typeof item25 === 'string' && guidPattern.test(item25))) && (typeof value["question"] === 'string');
+  return isRecord(value) && (typeof value["embeddingModelConfigId"] === 'string' && guidPattern.test(value["embeddingModelConfigId"])) && (Array.isArray(value["knowledgeBaseIds"]) && value["knowledgeBaseIds"].every(item25 => typeof item25 === 'string' && guidPattern.test(item25))) && (value["personalSchedules"] === undefined || ((value["personalSchedules"] === null) || (Array.isArray(value["personalSchedules"]) && value["personalSchedules"].every(item26 => isAiPersonalScheduleSourceSelection(item26))))) && (typeof value["question"] === 'string') && (value["searchScope"] === undefined || ((value["searchScope"] === null) || (isAiKnowledgeSearchAnswerScope(value["searchScope"]))));
 }
 
 export function readAskAiKnowledgeResponse(value: unknown): AskAiKnowledgeResponse {
@@ -1676,6 +2604,41 @@ function isCancelDataApprovalRequestBody(value: unknown): value is CancelDataApp
   return isRecord(value) && (typeof value["idempotencyKey"] === 'string');
 }
 
+export function readCancelDocumentPreviewTaskRequest(value: unknown): CancelDocumentPreviewTaskRequest {
+  const normalizedValue = normalizeCancelDocumentPreviewTaskRequestIntegerJson(value);
+  return requireValidResponse(normalizedValue, isCancelDocumentPreviewTaskRequest(normalizedValue), 'cancel_document_preview_task_request') as CancelDocumentPreviewTaskRequest;
+}
+
+function isCancelDocumentPreviewTaskRequest(value: unknown): value is CancelDocumentPreviewTaskRequest {
+  return isRecord(value) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+}
+
+export function readCancelEnterpriseRequestReportRequest(value: unknown): CancelEnterpriseRequestReportRequest {
+  return requireValidResponse(value, isCancelEnterpriseRequestReportRequest(value), 'cancel_enterprise_request_report_request') as CancelEnterpriseRequestReportRequest;
+}
+
+function isCancelEnterpriseRequestReportRequest(value: unknown): value is CancelEnterpriseRequestReportRequest {
+  return isRecord(value) && (typeof value["version"] === 'string');
+}
+
+export function readCancelImportExportTaskRequest(value: unknown): CancelImportExportTaskRequest {
+  const normalizedValue = normalizeCancelImportExportTaskRequestIntegerJson(value);
+  return requireValidResponse(normalizedValue, isCancelImportExportTaskRequest(normalizedValue), 'cancel_import_export_task_request') as CancelImportExportTaskRequest;
+}
+
+function isCancelImportExportTaskRequest(value: unknown): value is CancelImportExportTaskRequest {
+  return isRecord(value) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+}
+
+export function readCancelReportingExportTaskRequest(value: unknown): CancelReportingExportTaskRequest {
+  const normalizedValue = normalizeCancelReportingExportTaskRequestIntegerJson(value);
+  return requireValidResponse(normalizedValue, isCancelReportingExportTaskRequest(normalizedValue), 'cancel_reporting_export_task_request') as CancelReportingExportTaskRequest;
+}
+
+function isCancelReportingExportTaskRequest(value: unknown): value is CancelReportingExportTaskRequest {
+  return isRecord(value) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+}
+
 export function readCancelWorkflowInstanceRequest(value: unknown): CancelWorkflowInstanceRequest {
   const normalizedValue = normalizeCancelWorkflowInstanceRequestIntegerJson(value);
   return requireValidResponse(normalizedValue, isCancelWorkflowInstanceRequest(normalizedValue), 'cancel_workflow_instance_request') as CancelWorkflowInstanceRequest;
@@ -1694,6 +2657,15 @@ function isCancelWorkflowTodoCountersignRequest(value: unknown): value is Cancel
   return isRecord(value) && ((value["comment"] === null) || (typeof value["comment"] === 'string')) && (typeof value["expectedRevision"] === 'number' && Number.isSafeInteger(value["expectedRevision"])) && (typeof value["idempotencyKey"] === 'string');
 }
 
+export function readCaptureAiKnowledgeEvaluationStrategy(value: unknown): CaptureAiKnowledgeEvaluationStrategy {
+  const normalizedValue = normalizeCaptureAiKnowledgeEvaluationStrategyIntegerJson(value);
+  return requireValidResponse(normalizedValue, isCaptureAiKnowledgeEvaluationStrategy(normalizedValue), 'capture_ai_knowledge_evaluation_strategy') as CaptureAiKnowledgeEvaluationStrategy;
+}
+
+function isCaptureAiKnowledgeEvaluationStrategy(value: unknown): value is CaptureAiKnowledgeEvaluationStrategy {
+  return isRecord(value) && (typeof value["baseline"] === 'string') && (typeof value["candidate"] === 'string') && (Array.isArray(value["documentIds"]) && value["documentIds"].every(item20 => typeof item20 === 'string' && guidPattern.test(item20))) && (typeof value["embeddingModelConfigId"] === 'string' && guidPattern.test(value["embeddingModelConfigId"])) && (typeof value["embeddingModelVersion"] === 'number' && Number.isSafeInteger(value["embeddingModelVersion"])) && (Array.isArray(value["expectedSources"]) && value["expectedSources"].every(item24 => isAiKnowledgeSearchSource(item24))) && (typeof value["expectedVersion"] === 'number' && Number.isSafeInteger(value["expectedVersion"])) && (typeof value["name"] === 'string') && ((value["processingModelConfigId"] === null) || (typeof value["processingModelConfigId"] === 'string' && guidPattern.test(value["processingModelConfigId"]))) && ((value["processingModelVersion"] === null) || (typeof value["processingModelVersion"] === 'number' && Number.isSafeInteger(value["processingModelVersion"]))) && (typeof value["requestKey"] === 'string' && guidPattern.test(value["requestKey"])) && (typeof value["setApprovalId"] === 'string' && guidPattern.test(value["setApprovalId"])) && (typeof value["setId"] === 'string' && guidPattern.test(value["setId"])) && (typeof value["setRevisionId"] === 'string' && guidPattern.test(value["setRevisionId"])) && (typeof value["setVersion"] === 'number' && Number.isSafeInteger(value["setVersion"]));
+}
+
 export function readChangeDeliveryOwnerRequest(value: unknown): ChangeDeliveryOwnerRequest {
   const normalizedValue = normalizeChangeDeliveryOwnerRequestIntegerJson(value);
   return requireValidResponse(normalizedValue, isChangeDeliveryOwnerRequest(normalizedValue), 'change_delivery_owner_request') as ChangeDeliveryOwnerRequest;
@@ -1701,6 +2673,15 @@ export function readChangeDeliveryOwnerRequest(value: unknown): ChangeDeliveryOw
 
 function isChangeDeliveryOwnerRequest(value: unknown): value is ChangeDeliveryOwnerRequest {
   return isRecord(value) && (typeof value["eventType"] === 'string') && (typeof value["reason"] === 'string') && (typeof value["schemaVersion"] === 'number' && Number.isSafeInteger(value["schemaVersion"])) && (isEventDeliveryOwner(value["targetOwner"]));
+}
+
+export function readChangeHostDocumentStatusRequest(value: unknown): ChangeHostDocumentStatusRequest {
+  const normalizedValue = normalizeChangeHostDocumentStatusRequestIntegerJson(value);
+  return requireValidResponse(normalizedValue, isChangeHostDocumentStatusRequest(normalizedValue), 'change_host_document_status_request') as ChangeHostDocumentStatusRequest;
+}
+
+function isChangeHostDocumentStatusRequest(value: unknown): value is ChangeHostDocumentStatusRequest {
+  return isRecord(value) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
 }
 
 export function readChangeHostJobScheduleStateRequest(value: unknown): ChangeHostJobScheduleStateRequest {
@@ -1761,6 +2742,14 @@ export function readCloseShadowCaptureRequest(value: unknown): CloseShadowCaptur
 
 function isCloseShadowCaptureRequest(value: unknown): value is CloseShadowCaptureRequest {
   return isRecord(value) && (typeof value["reason"] === 'string');
+}
+
+export function readCodeGenerationApplyPlanFileResponse(value: unknown): CodeGenerationApplyPlanFileResponse {
+  return requireValidResponse(value, isCodeGenerationApplyPlanFileResponse(value), 'code_generation_apply_plan_file_response') as CodeGenerationApplyPlanFileResponse;
+}
+
+function isCodeGenerationApplyPlanFileResponse(value: unknown): value is CodeGenerationApplyPlanFileResponse {
+  return isRecord(value) && ((value["afterSha256"] === null) || (typeof value["afterSha256"] === 'string')) && ((value["beforeSha256"] === null) || (typeof value["beforeSha256"] === 'string')) && (typeof value["kind"] === 'string') && (typeof value["relativePath"] === 'string');
 }
 
 export function readCodeGenerationCatalogColumnListResponse(value: unknown): CodeGenerationCatalogColumnListResponse {
@@ -1907,11 +2896,29 @@ function isCodeGenerationPreviewResponse(value: unknown): value is CodeGeneratio
 }
 
 export function readCodeGenerationRelationshipRequest(value: unknown): CodeGenerationRelationshipRequest {
-  return requireValidResponse(value, isCodeGenerationRelationshipRequest(value), 'code_generation_relationship_request') as CodeGenerationRelationshipRequest;
+  const normalizedValue = normalizeCodeGenerationRelationshipRequestIntegerJson(value);
+  return requireValidResponse(normalizedValue, isCodeGenerationRelationshipRequest(normalizedValue), 'code_generation_relationship_request') as CodeGenerationRelationshipRequest;
 }
 
 function isCodeGenerationRelationshipRequest(value: unknown): value is CodeGenerationRelationshipRequest {
-  return isRecord(value) && (value["cascadeDelete"] === undefined || ((value["cascadeDelete"] === null) || (typeof value["cascadeDelete"] === 'boolean'))) && (value["compositeKeyColumnNames"] === undefined || ((value["compositeKeyColumnNames"] === null) || (Array.isArray(value["compositeKeyColumnNames"]) && value["compositeKeyColumnNames"].every(item32 => typeof item32 === 'string')))) && (typeof value["dependentColumnName"] === 'string') && (typeof value["dependentDataScope"] === 'string') && (typeof value["dependentEntityKey"] === 'string') && (typeof value["principalColumnName"] === 'string') && (typeof value["principalDataScope"] === 'string') && (typeof value["principalEntityKey"] === 'string');
+  return isRecord(value) && (value["cascadeDelete"] === undefined || ((value["cascadeDelete"] === null) || (typeof value["cascadeDelete"] === 'boolean'))) && (value["compositeKeyColumnNames"] === undefined || ((value["compositeKeyColumnNames"] === null) || (Array.isArray(value["compositeKeyColumnNames"]) && value["compositeKeyColumnNames"].every(item32 => typeof item32 === 'string')))) && (typeof value["dependentColumnName"] === 'string') && (typeof value["dependentDataScope"] === 'string') && (typeof value["dependentEntityKey"] === 'string') && (value["dependentSchema"] === undefined || ((value["dependentSchema"] === null) || (isCodeGenerationPreviewRequest(value["dependentSchema"])))) && (typeof value["principalColumnName"] === 'string') && (typeof value["principalDataScope"] === 'string') && (typeof value["principalEntityKey"] === 'string') && (value["principalSchema"] === undefined || ((value["principalSchema"] === null) || (isCodeGenerationPreviewRequest(value["principalSchema"]))));
+}
+
+export function readCodeGenerationRunApplyPlanRequest(value: unknown): CodeGenerationRunApplyPlanRequest {
+  return requireValidResponse(value, isCodeGenerationRunApplyPlanRequest(value), 'code_generation_run_apply_plan_request') as CodeGenerationRunApplyPlanRequest;
+}
+
+function isCodeGenerationRunApplyPlanRequest(value: unknown): value is CodeGenerationRunApplyPlanRequest {
+  return isRecord(value) && (value["integrationTarget"] === undefined || ((value["integrationTarget"] === null) || (isCodeGenerationIntegrationTargetRequest(value["integrationTarget"])))) && (typeof value["previewRunId"] === 'string' && guidPattern.test(value["previewRunId"]));
+}
+
+export function readCodeGenerationRunApplyPlanResponse(value: unknown): CodeGenerationRunApplyPlanResponse {
+  const normalizedValue = normalizeCodeGenerationRunApplyPlanResponseIntegerJson(value);
+  return requireValidResponse(normalizedValue, isCodeGenerationRunApplyPlanResponse(normalizedValue), 'code_generation_run_apply_plan_response') as CodeGenerationRunApplyPlanResponse;
+}
+
+function isCodeGenerationRunApplyPlanResponse(value: unknown): value is CodeGenerationRunApplyPlanResponse {
+  return isRecord(value) && (typeof value["expiresAtUtc"] === 'string') && (Array.isArray(value["files"]) && value["files"].every(item14 => isCodeGenerationApplyPlanFileResponse(item14))) && (typeof value["generatorVersion"] === 'string') && (typeof value["planId"] === 'string' && guidPattern.test(value["planId"])) && (typeof value["planSha256"] === 'string') && (typeof value["previewRunId"] === 'string' && guidPattern.test(value["previewRunId"])) && (typeof value["workspaceId"] === 'string' && guidPattern.test(value["workspaceId"])) && (typeof value["workspaceRevision"] === 'number' && Number.isSafeInteger(value["workspaceRevision"]));
 }
 
 export function readCodeGenerationRunApplyRequest(value: unknown): CodeGenerationRunApplyRequest {
@@ -1919,7 +2926,7 @@ export function readCodeGenerationRunApplyRequest(value: unknown): CodeGeneratio
 }
 
 function isCodeGenerationRunApplyRequest(value: unknown): value is CodeGenerationRunApplyRequest {
-  return isRecord(value) && (value["integrationTarget"] === undefined || ((value["integrationTarget"] === null) || (isCodeGenerationIntegrationTargetRequest(value["integrationTarget"])))) && (typeof value["previewRunId"] === 'string' && guidPattern.test(value["previewRunId"]));
+  return isRecord(value) && (typeof value["idempotencyKey"] === 'string' && guidPattern.test(value["idempotencyKey"])) && (typeof value["planId"] === 'string' && guidPattern.test(value["planId"])) && (typeof value["planSha256"] === 'string');
 }
 
 export function readCodeGenerationRunApplyResponse(value: unknown): CodeGenerationRunApplyResponse {
@@ -1928,7 +2935,7 @@ export function readCodeGenerationRunApplyResponse(value: unknown): CodeGenerati
 }
 
 function isCodeGenerationRunApplyResponse(value: unknown): value is CodeGenerationRunApplyResponse {
-  return isRecord(value) && (typeof value["artifactCount"] === 'number' && Number.isSafeInteger(value["artifactCount"])) && (typeof value["changedArtifactCount"] === 'number' && Number.isSafeInteger(value["changedArtifactCount"])) && (typeof value["manifestSha256"] === 'string') && (typeof value["previewRunId"] === 'string' && guidPattern.test(value["previewRunId"])) && (typeof value["runId"] === 'string' && guidPattern.test(value["runId"]));
+  return isRecord(value) && (typeof value["artifactCount"] === 'number' && Number.isSafeInteger(value["artifactCount"])) && (typeof value["changedArtifactCount"] === 'number' && Number.isSafeInteger(value["changedArtifactCount"])) && (value["commitSha"] === undefined || ((value["commitSha"] === null) || (typeof value["commitSha"] === 'string'))) && (typeof value["manifestSha256"] === 'string') && (typeof value["previewRunId"] === 'string' && guidPattern.test(value["previewRunId"])) && (value["publicationStatus"] === undefined || (typeof value["publicationStatus"] === 'string')) && (typeof value["runId"] === 'string' && guidPattern.test(value["runId"]));
 }
 
 export function readCodeGenerationRunPreviewRequest(value: unknown): CodeGenerationRunPreviewRequest {
@@ -1948,13 +2955,21 @@ function isCodeGenerationRunPreviewResponse(value: unknown): value is CodeGenera
   return isRecord(value) && (isCodeGenerationPreviewResponse(value["preview"])) && (typeof value["runId"] === 'string' && guidPattern.test(value["runId"]));
 }
 
+export function readCodeGenerationRunPublicationResponse(value: unknown): CodeGenerationRunPublicationResponse {
+  return requireValidResponse(value, isCodeGenerationRunPublicationResponse(value), 'code_generation_run_publication_response') as CodeGenerationRunPublicationResponse;
+}
+
+function isCodeGenerationRunPublicationResponse(value: unknown): value is CodeGenerationRunPublicationResponse {
+  return isRecord(value) && ((value["commitSha"] === null) || (typeof value["commitSha"] === 'string')) && (typeof value["publicationStatus"] === 'string') && (typeof value["runId"] === 'string' && guidPattern.test(value["runId"]));
+}
+
 export function readCodeGenerationRunResponse(value: unknown): CodeGenerationRunResponse {
   const normalizedValue = normalizeCodeGenerationRunResponseIntegerJson(value);
   return requireValidResponse(normalizedValue, isCodeGenerationRunResponse(normalizedValue), 'code_generation_run_response') as CodeGenerationRunResponse;
 }
 
 function isCodeGenerationRunResponse(value: unknown): value is CodeGenerationRunResponse {
-  return isRecord(value) && (typeof value["artifactCount"] === 'number' && Number.isSafeInteger(value["artifactCount"])) && ((value["entityKey"] === null) || (typeof value["entityKey"] === 'string')) && ((value["errorCode"] === null) || (typeof value["errorCode"] === 'string')) && (typeof value["finishedAtUtc"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && ((value["manifestSha256"] === null) || (typeof value["manifestSha256"] === 'string')) && ((value["moduleKey"] === null) || (typeof value["moduleKey"] === 'string')) && (typeof value["operationKind"] === 'string') && (typeof value["requestedByUserId"] === 'string' && guidPattern.test(value["requestedByUserId"])) && ((value["schemaSha256"] === null) || (typeof value["schemaSha256"] === 'string')) && ((value["sourceApplyRunId"] === null) || (typeof value["sourceApplyRunId"] === 'string' && guidPattern.test(value["sourceApplyRunId"]))) && (typeof value["startedAtUtc"] === 'string') && (typeof value["status"] === 'string') && ((value["templateId"] === null) || (typeof value["templateId"] === 'string' && guidPattern.test(value["templateId"]))) && ((value["templateVersion"] === null) || (typeof value["templateVersion"] === 'number' && Number.isSafeInteger(value["templateVersion"])));
+  return isRecord(value) && (typeof value["artifactCount"] === 'number' && Number.isSafeInteger(value["artifactCount"])) && (value["commitSha"] === undefined || ((value["commitSha"] === null) || (typeof value["commitSha"] === 'string'))) && ((value["entityKey"] === null) || (typeof value["entityKey"] === 'string')) && ((value["errorCode"] === null) || (typeof value["errorCode"] === 'string')) && (typeof value["finishedAtUtc"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && ((value["manifestSha256"] === null) || (typeof value["manifestSha256"] === 'string')) && ((value["moduleKey"] === null) || (typeof value["moduleKey"] === 'string')) && (typeof value["operationKind"] === 'string') && (value["publicationStatus"] === undefined || (typeof value["publicationStatus"] === 'string')) && (typeof value["requestedByUserId"] === 'string' && guidPattern.test(value["requestedByUserId"])) && ((value["schemaSha256"] === null) || (typeof value["schemaSha256"] === 'string')) && ((value["sourceApplyRunId"] === null) || (typeof value["sourceApplyRunId"] === 'string' && guidPattern.test(value["sourceApplyRunId"]))) && (typeof value["startedAtUtc"] === 'string') && (typeof value["status"] === 'string') && ((value["templateId"] === null) || (typeof value["templateId"] === 'string' && guidPattern.test(value["templateId"]))) && ((value["templateVersion"] === null) || (typeof value["templateVersion"] === 'number' && Number.isSafeInteger(value["templateVersion"])));
 }
 
 export function readCodeGenerationRunRollbackChainRequest(value: unknown): CodeGenerationRunRollbackChainRequest {
@@ -1988,7 +3003,7 @@ export function readCodeGenerationRunRollbackResponse(value: unknown): CodeGener
 }
 
 function isCodeGenerationRunRollbackResponse(value: unknown): value is CodeGenerationRunRollbackResponse {
-  return isRecord(value) && (typeof value["applyRunId"] === 'string' && guidPattern.test(value["applyRunId"])) && (typeof value["artifactCount"] === 'number' && Number.isSafeInteger(value["artifactCount"])) && (typeof value["changedArtifactCount"] === 'number' && Number.isSafeInteger(value["changedArtifactCount"])) && (typeof value["manifestSha256"] === 'string') && (typeof value["runId"] === 'string' && guidPattern.test(value["runId"]));
+  return isRecord(value) && (typeof value["applyRunId"] === 'string' && guidPattern.test(value["applyRunId"])) && (typeof value["artifactCount"] === 'number' && Number.isSafeInteger(value["artifactCount"])) && (typeof value["changedArtifactCount"] === 'number' && Number.isSafeInteger(value["changedArtifactCount"])) && (value["commitSha"] === undefined || ((value["commitSha"] === null) || (typeof value["commitSha"] === 'string'))) && (typeof value["manifestSha256"] === 'string') && (value["publicationStatus"] === undefined || (typeof value["publicationStatus"] === 'string')) && (typeof value["runId"] === 'string' && guidPattern.test(value["runId"]));
 }
 
 export function readCodeGenerationTemplateResponse(value: unknown): CodeGenerationTemplateResponse {
@@ -1998,6 +3013,32 @@ export function readCodeGenerationTemplateResponse(value: unknown): CodeGenerati
 
 function isCodeGenerationTemplateResponse(value: unknown): value is CodeGenerationTemplateResponse {
   return isRecord(value) && (typeof value["createdAtUtc"] === 'string') && (typeof value["createdByUserId"] === 'string' && guidPattern.test(value["createdByUserId"])) && ((value["description"] === null) || (typeof value["description"] === 'string')) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["name"] === 'string') && (isCodeGenerationPreviewRequest(value["schema"])) && (typeof value["schemaSha256"] === 'string') && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && ((value["updatedByUserId"] === null) || (typeof value["updatedByUserId"] === 'string' && guidPattern.test(value["updatedByUserId"]))) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+}
+
+export function readCodeGenerationWorkspaceRecoveryRequest(value: unknown): CodeGenerationWorkspaceRecoveryRequest {
+  return requireValidResponse(value, isCodeGenerationWorkspaceRecoveryRequest(value), 'code_generation_workspace_recovery_request') as CodeGenerationWorkspaceRecoveryRequest;
+}
+
+function isCodeGenerationWorkspaceRecoveryRequest(value: unknown): value is CodeGenerationWorkspaceRecoveryRequest {
+  return isRecord(value) && (typeof value["operationId"] === 'string' && guidPattern.test(value["operationId"]));
+}
+
+export function readCodeGenerationWorkspaceStateResponse(value: unknown): CodeGenerationWorkspaceStateResponse {
+  const normalizedValue = normalizeCodeGenerationWorkspaceStateResponseIntegerJson(value);
+  return requireValidResponse(normalizedValue, isCodeGenerationWorkspaceStateResponse(normalizedValue), 'code_generation_workspace_state_response') as CodeGenerationWorkspaceStateResponse;
+}
+
+function isCodeGenerationWorkspaceStateResponse(value: unknown): value is CodeGenerationWorkspaceStateResponse {
+  return isRecord(value) && ((value["lastOperationId"] === null) || (typeof value["lastOperationId"] === 'string' && guidPattern.test(value["lastOperationId"]))) && ((value["pendingClient"] === null) || (typeof value["pendingClient"] === 'string')) && ((value["pendingKind"] === null) || (typeof value["pendingKind"] === 'string')) && ((value["pendingOperationId"] === null) || (typeof value["pendingOperationId"] === 'string' && guidPattern.test(value["pendingOperationId"]))) && (typeof value["phase"] === 'string') && (typeof value["revision"] === 'number' && Number.isSafeInteger(value["revision"])) && ((value["tipOperationId"] === null) || (typeof value["tipOperationId"] === 'string' && guidPattern.test(value["tipOperationId"]))) && (typeof value["workspaceId"] === 'string' && guidPattern.test(value["workspaceId"]));
+}
+
+export function readCompareAiKnowledgeSearchRequest(value: unknown): CompareAiKnowledgeSearchRequest {
+  const normalizedValue = normalizeCompareAiKnowledgeSearchRequestIntegerJson(value);
+  return requireValidResponse(normalizedValue, isCompareAiKnowledgeSearchRequest(normalizedValue), 'compare_ai_knowledge_search_request') as CompareAiKnowledgeSearchRequest;
+}
+
+function isCompareAiKnowledgeSearchRequest(value: unknown): value is CompareAiKnowledgeSearchRequest {
+  return isRecord(value) && (typeof value["embeddingModelConfigId"] === 'string' && guidPattern.test(value["embeddingModelConfigId"])) && (typeof value["includeDiagnostics"] === 'boolean') && (Array.isArray(value["knowledgeBaseIds"]) && value["knowledgeBaseIds"].every(item25 => typeof item25 === 'string' && guidPattern.test(item25))) && (typeof value["limit"] === 'number' && Number.isSafeInteger(value["limit"])) && (typeof value["query"] === 'string') && (isAiKnowledgeSearchAnswerScope(value["searchScope"]));
 }
 
 export function readConfigEntryResponse(value: unknown): ConfigEntryResponse {
@@ -2032,6 +3073,24 @@ export function readConfirmTotpEnrollmentRequest(value: unknown): ConfirmTotpEnr
 
 function isConfirmTotpEnrollmentRequest(value: unknown): value is ConfirmTotpEnrollmentRequest {
   return isRecord(value) && (typeof value["totpCode"] === 'string');
+}
+
+export function readCopyAiKnowledgeEvaluationSet(value: unknown): CopyAiKnowledgeEvaluationSet {
+  const normalizedValue = normalizeCopyAiKnowledgeEvaluationSetIntegerJson(value);
+  return requireValidResponse(normalizedValue, isCopyAiKnowledgeEvaluationSet(normalizedValue), 'copy_ai_knowledge_evaluation_set') as CopyAiKnowledgeEvaluationSet;
+}
+
+function isCopyAiKnowledgeEvaluationSet(value: unknown): value is CopyAiKnowledgeEvaluationSet {
+  return isRecord(value) && (typeof value["expectedRevisionId"] === 'string' && guidPattern.test(value["expectedRevisionId"])) && (typeof value["expectedVersion"] === 'number' && Number.isSafeInteger(value["expectedVersion"])) && (typeof value["requestKey"] === 'string' && guidPattern.test(value["requestKey"]));
+}
+
+export function readCopyAiKnowledgeFaqDraft(value: unknown): CopyAiKnowledgeFaqDraft {
+  const normalizedValue = normalizeCopyAiKnowledgeFaqDraftIntegerJson(value);
+  return requireValidResponse(normalizedValue, isCopyAiKnowledgeFaqDraft(normalizedValue), 'copy_ai_knowledge_faq_draft') as CopyAiKnowledgeFaqDraft;
+}
+
+function isCopyAiKnowledgeFaqDraft(value: unknown): value is CopyAiKnowledgeFaqDraft {
+  return isRecord(value) && (typeof value["expectedHeadVersion"] === 'number' && Number.isSafeInteger(value["expectedHeadVersion"])) && (typeof value["expectedRevisionId"] === 'string' && guidPattern.test(value["expectedRevisionId"])) && (typeof value["requestKey"] === 'string' && guidPattern.test(value["requestKey"]));
 }
 
 export function readCopyHostRoleRequest(value: unknown): CopyHostRoleRequest {
@@ -2099,7 +3158,7 @@ export function readCreateAiAgentRunRequest(value: unknown): CreateAiAgentRunReq
 }
 
 function isCreateAiAgentRunRequest(value: unknown): value is CreateAiAgentRunRequest {
-  return isRecord(value) && (typeof value["clientRequestId"] === 'string' && guidPattern.test(value["clientRequestId"])) && (typeof value["definitionKey"] === 'string') && (typeof value["inputTokenLimit"] === 'number' && Number.isSafeInteger(value["inputTokenLimit"])) && (typeof value["modelConfigId"] === 'string' && guidPattern.test(value["modelConfigId"])) && (typeof value["outputTokenLimit"] === 'number' && Number.isSafeInteger(value["outputTokenLimit"])) && (typeof value["prompt"] === 'string') && (value["promptVersionId"] === undefined || ((value["promptVersionId"] === null) || (typeof value["promptVersionId"] === 'string' && guidPattern.test(value["promptVersionId"]))));
+  return isRecord(value) && (typeof value["clientRequestId"] === 'string' && guidPattern.test(value["clientRequestId"])) && (typeof value["definitionKey"] === 'string') && (typeof value["inputTokenLimit"] === 'number' && Number.isSafeInteger(value["inputTokenLimit"])) && (typeof value["modelConfigId"] === 'string' && guidPattern.test(value["modelConfigId"])) && (typeof value["outputTokenLimit"] === 'number' && Number.isSafeInteger(value["outputTokenLimit"])) && (value["personalScheduleTarget"] === undefined || ((value["personalScheduleTarget"] === null) || (isAiPersonalScheduleCompletionTarget(value["personalScheduleTarget"])))) && (typeof value["prompt"] === 'string') && (value["promptVersionId"] === undefined || ((value["promptVersionId"] === null) || (typeof value["promptVersionId"] === 'string' && guidPattern.test(value["promptVersionId"])))) && (value["targetChatSessionId"] === undefined || ((value["targetChatSessionId"] === null) || (typeof value["targetChatSessionId"] === 'string' && guidPattern.test(value["targetChatSessionId"]))));
 }
 
 export function readCreateAiAgentRunResponse(value: unknown): CreateAiAgentRunResponse {
@@ -2132,6 +3191,48 @@ export function readCreateAiKnowledgeDocumentRequest(value: unknown): CreateAiKn
 
 function isCreateAiKnowledgeDocumentRequest(value: unknown): value is CreateAiKnowledgeDocumentRequest {
   return isRecord(value) && ((value["description"] === null) || (typeof value["description"] === 'string')) && (typeof value["title"] === 'string');
+}
+
+export function readCreateAiKnowledgeEvaluationRun(value: unknown): CreateAiKnowledgeEvaluationRun {
+  return requireValidResponse(value, isCreateAiKnowledgeEvaluationRun(value), 'create_ai_knowledge_evaluation_run') as CreateAiKnowledgeEvaluationRun;
+}
+
+function isCreateAiKnowledgeEvaluationRun(value: unknown): value is CreateAiKnowledgeEvaluationRun {
+  return isRecord(value) && (typeof value["admissionDigest"] === 'string') && (typeof value["confirmPaidModelCalls"] === 'boolean') && (typeof value["requestKey"] === 'string' && guidPattern.test(value["requestKey"])) && (typeof value["strategyRevisionId"] === 'string' && guidPattern.test(value["strategyRevisionId"]));
+}
+
+export function readCreateAiKnowledgeFaqDerivedDraft(value: unknown): CreateAiKnowledgeFaqDerivedDraft {
+  const normalizedValue = normalizeCreateAiKnowledgeFaqDerivedDraftIntegerJson(value);
+  return requireValidResponse(normalizedValue, isCreateAiKnowledgeFaqDerivedDraft(normalizedValue), 'create_ai_knowledge_faq_derived_draft') as CreateAiKnowledgeFaqDerivedDraft;
+}
+
+function isCreateAiKnowledgeFaqDerivedDraft(value: unknown): value is CreateAiKnowledgeFaqDerivedDraft {
+  return isRecord(value) && (isAiKnowledgeFaqContent(value["content"])) && (typeof value["requestKey"] === 'string' && guidPattern.test(value["requestKey"])) && (isAiKnowledgeFaqDocumentSelection(value["selection"]));
+}
+
+export function readCreateAiKnowledgeFaqDocumentDraft(value: unknown): CreateAiKnowledgeFaqDocumentDraft {
+  const normalizedValue = normalizeCreateAiKnowledgeFaqDocumentDraftIntegerJson(value);
+  return requireValidResponse(normalizedValue, isCreateAiKnowledgeFaqDocumentDraft(normalizedValue), 'create_ai_knowledge_faq_document_draft') as CreateAiKnowledgeFaqDocumentDraft;
+}
+
+function isCreateAiKnowledgeFaqDocumentDraft(value: unknown): value is CreateAiKnowledgeFaqDocumentDraft {
+  return isRecord(value) && (isAiKnowledgeFaqContent(value["content"])) && (typeof value["requestKey"] === 'string' && guidPattern.test(value["requestKey"])) && (isAiKnowledgeFaqDocumentSelection(value["selection"]));
+}
+
+export function readCreateAiKnowledgeFaqFeedbackDraft(value: unknown): CreateAiKnowledgeFaqFeedbackDraft {
+  return requireValidResponse(value, isCreateAiKnowledgeFaqFeedbackDraft(value), 'create_ai_knowledge_faq_feedback_draft') as CreateAiKnowledgeFaqFeedbackDraft;
+}
+
+function isCreateAiKnowledgeFaqFeedbackDraft(value: unknown): value is CreateAiKnowledgeFaqFeedbackDraft {
+  return isRecord(value) && (isAiKnowledgeFaqFeedbackDraftInput(value["content"])) && (typeof value["digest"] === 'string') && (typeof value["feedbackId"] === 'string' && guidPattern.test(value["feedbackId"])) && (typeof value["requestKey"] === 'string' && guidPattern.test(value["requestKey"]));
+}
+
+export function readCreateAiKnowledgeFaqIndependentDraft(value: unknown): CreateAiKnowledgeFaqIndependentDraft {
+  return requireValidResponse(value, isCreateAiKnowledgeFaqIndependentDraft(value), 'create_ai_knowledge_faq_independent_draft') as CreateAiKnowledgeFaqIndependentDraft;
+}
+
+function isCreateAiKnowledgeFaqIndependentDraft(value: unknown): value is CreateAiKnowledgeFaqIndependentDraft {
+  return isRecord(value) && (typeof value["basis"] === 'string') && (isAiKnowledgeFaqContent(value["content"])) && (typeof value["requestKey"] === 'string' && guidPattern.test(value["requestKey"]));
 }
 
 export function readCreateAiKnowledgeIndexGrantRequest(value: unknown): CreateAiKnowledgeIndexGrantRequest {
@@ -2212,12 +3313,20 @@ function isCreateDictTypeRequest(value: unknown): value is CreateDictTypeRequest
   return isRecord(value) && (typeof value["code"] === 'string') && ((value["description"] === null) || (typeof value["description"] === 'string')) && (typeof value["displayOrder"] === 'number' && Number.isSafeInteger(value["displayOrder"])) && (typeof value["name"] === 'string');
 }
 
+export function readCreateEnterpriseRequestReportRequest(value: unknown): CreateEnterpriseRequestReportRequest {
+  return requireValidResponse(value, isCreateEnterpriseRequestReportRequest(value), 'create_enterprise_request_report_request') as CreateEnterpriseRequestReportRequest;
+}
+
+function isCreateEnterpriseRequestReportRequest(value: unknown): value is CreateEnterpriseRequestReportRequest {
+  return isRecord(value) && (typeof value["idempotencyKey"] === 'string' && guidPattern.test(value["idempotencyKey"])) && (typeof value["requestVersion"] === 'string');
+}
+
 export function readCreateEnterpriseRequestRequest(value: unknown): CreateEnterpriseRequestRequest {
   return requireValidResponse(value, isCreateEnterpriseRequestRequest(value), 'create_enterprise_request_request') as CreateEnterpriseRequestRequest;
 }
 
 function isCreateEnterpriseRequestRequest(value: unknown): value is CreateEnterpriseRequestRequest {
-  return isRecord(value) && (typeof value["applicantUserId"] === 'string' && guidPattern.test(value["applicantUserId"])) && (typeof value["requestNumber"] === 'string') && (typeof value["status"] === 'string') && (typeof value["title"] === 'string') && ((typeof value["totalAmount"] === 'number' && Number.isFinite(value["totalAmount"])) || (typeof value["totalAmount"] === 'string' && new RegExp("^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$").test(value["totalAmount"]) && Number.isFinite(Number(value["totalAmount"]))));
+  return isRecord(value) && (typeof value["applicantUserId"] === 'string' && guidPattern.test(value["applicantUserId"])) && (typeof value["requestNumber"] === 'string') && (typeof value["status"] === 'string') && (typeof value["title"] === 'string') && (typeof value["totalAmount"] === 'string');
 }
 
 export function readCreateGoViewProjectRequest(value: unknown): CreateGoViewProjectRequest {
@@ -2491,6 +3600,15 @@ function isCreateOrganizationUserUnitRequest(value: unknown): value is CreateOrg
   return isRecord(value) && (typeof value["isPrimary"] === 'boolean') && (typeof value["unitId"] === 'string' && guidPattern.test(value["unitId"])) && (typeof value["userId"] === 'string' && guidPattern.test(value["userId"]));
 }
 
+export function readCreatePaidTenantSubscriptionRequest(value: unknown): CreatePaidTenantSubscriptionRequest {
+  const normalizedValue = normalizeCreatePaidTenantSubscriptionRequestIntegerJson(value);
+  return requireValidResponse(normalizedValue, isCreatePaidTenantSubscriptionRequest(normalizedValue), 'create_paid_tenant_subscription_request') as CreatePaidTenantSubscriptionRequest;
+}
+
+function isCreatePaidTenantSubscriptionRequest(value: unknown): value is CreatePaidTenantSubscriptionRequest {
+  return isRecord(value) && (typeof value["effectiveFromUtc"] === 'string') && (typeof value["idempotencyKey"] === 'string' && guidPattern.test(value["idempotencyKey"])) && (typeof value["offerVersion"] === 'number' && Number.isSafeInteger(value["offerVersion"])) && (typeof value["packageId"] === 'string' && guidPattern.test(value["packageId"]));
+}
+
 export function readCreatePaymentMerchantConfigRequest(value: unknown): CreatePaymentMerchantConfigRequest {
   return requireValidResponse(value, isCreatePaymentMerchantConfigRequest(value), 'create_payment_merchant_config_request') as CreatePaymentMerchantConfigRequest;
 }
@@ -2613,6 +3731,33 @@ function isCurrentUserResponse(value: unknown): value is CurrentUserResponse {
   return isRecord(value) && (typeof value["actorScope"] === 'string') && (typeof value["displayName"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["isSuperAdministrator"] === 'boolean') && (typeof value["passwordChangeRequired"] === 'boolean') && (Array.isArray(value["permissions"]) && value["permissions"].every(item20 => typeof item20 === 'string')) && (typeof value["preferredLocale"] === 'string') && (typeof value["profileVersion"] === 'number' && Number.isSafeInteger(value["profileVersion"])) && (typeof value["scope"] === 'string') && (typeof value["sessionId"] === 'string' && guidPattern.test(value["sessionId"])) && ((value["tenantId"] === null) || (typeof value["tenantId"] === 'string' && guidPattern.test(value["tenantId"]))) && (typeof value["username"] === 'string');
 }
 
+export function readCursorPageOfImportExportTaskResponse(value: unknown): CursorPageOfImportExportTaskResponse {
+  const normalizedValue = normalizeCursorPageOfImportExportTaskResponseIntegerJson(value);
+  return requireValidResponse(normalizedValue, isCursorPageOfImportExportTaskResponse(normalizedValue), 'cursor_page_of_import_export_task_response') as CursorPageOfImportExportTaskResponse;
+}
+
+function isCursorPageOfImportExportTaskResponse(value: unknown): value is CursorPageOfImportExportTaskResponse {
+  return isRecord(value) && (typeof value["hasMore"] === 'boolean') && (Array.isArray(value["items"]) && value["items"].every(item14 => isImportExportTaskResponse(item14))) && ((value["nextCursor"] === null) || (typeof value["nextCursor"] === 'string'));
+}
+
+export function readCursorPageOfQuerySchemeSummary(value: unknown): CursorPageOfQuerySchemeSummary {
+  const normalizedValue = normalizeCursorPageOfQuerySchemeSummaryIntegerJson(value);
+  return requireValidResponse(normalizedValue, isCursorPageOfQuerySchemeSummary(normalizedValue), 'cursor_page_of_query_scheme_summary') as CursorPageOfQuerySchemeSummary;
+}
+
+function isCursorPageOfQuerySchemeSummary(value: unknown): value is CursorPageOfQuerySchemeSummary {
+  return isRecord(value) && (typeof value["hasMore"] === 'boolean') && (Array.isArray(value["items"]) && value["items"].every(item14 => isQuerySchemeSummary(item14))) && ((value["nextCursor"] === null) || (typeof value["nextCursor"] === 'string'));
+}
+
+export function readCursorPageOfReportingExportTaskResponse(value: unknown): CursorPageOfReportingExportTaskResponse {
+  const normalizedValue = normalizeCursorPageOfReportingExportTaskResponseIntegerJson(value);
+  return requireValidResponse(normalizedValue, isCursorPageOfReportingExportTaskResponse(normalizedValue), 'cursor_page_of_reporting_export_task_response') as CursorPageOfReportingExportTaskResponse;
+}
+
+function isCursorPageOfReportingExportTaskResponse(value: unknown): value is CursorPageOfReportingExportTaskResponse {
+  return isRecord(value) && (typeof value["hasMore"] === 'boolean') && (Array.isArray(value["items"]) && value["items"].every(item14 => isReportingExportTaskResponse(item14))) && ((value["nextCursor"] === null) || (typeof value["nextCursor"] === 'string'));
+}
+
 export function readCutoverEvidenceResponse(value: unknown): CutoverEvidenceResponse {
   const normalizedValue = normalizeCutoverEvidenceResponseIntegerJson(value);
   return requireValidResponse(normalizedValue, isCutoverEvidenceResponse(normalizedValue), 'cutover_evidence_response') as CutoverEvidenceResponse;
@@ -2658,6 +3803,15 @@ function isDecideAiAgentApprovalRequest(value: unknown): value is DecideAiAgentA
   return isRecord(value) && (typeof value["approve"] === 'boolean') && (typeof value["expectedVersion"] === 'number' && Number.isSafeInteger(value["expectedVersion"]));
 }
 
+export function readDefaultQuerySchemeResponse(value: unknown): DefaultQuerySchemeResponse {
+  const normalizedValue = normalizeDefaultQuerySchemeResponseIntegerJson(value);
+  return requireValidResponse(normalizedValue, isDefaultQuerySchemeResponse(normalizedValue), 'default_query_scheme_response') as DefaultQuerySchemeResponse;
+}
+
+function isDefaultQuerySchemeResponse(value: unknown): value is DefaultQuerySchemeResponse {
+  return isRecord(value) && (typeof value["isUnavailable"] === 'boolean') && ((value["scheme"] === null) || (isQuerySchemeDetail(value["scheme"]))) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+}
+
 export function readDelegateWorkflowTodoRequest(value: unknown): DelegateWorkflowTodoRequest {
   const normalizedValue = normalizeDelegateWorkflowTodoRequestIntegerJson(value);
   return requireValidResponse(normalizedValue, isDelegateWorkflowTodoRequest(normalizedValue), 'delegate_workflow_todo_request') as DelegateWorkflowTodoRequest;
@@ -2682,6 +3836,15 @@ export function readDeleteAiKnowledgeDocumentRequest(value: unknown): DeleteAiKn
 }
 
 function isDeleteAiKnowledgeDocumentRequest(value: unknown): value is DeleteAiKnowledgeDocumentRequest {
+  return isRecord(value) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+}
+
+export function readDeleteAiKnowledgeFolder(value: unknown): DeleteAiKnowledgeFolder {
+  const normalizedValue = normalizeDeleteAiKnowledgeFolderIntegerJson(value);
+  return requireValidResponse(normalizedValue, isDeleteAiKnowledgeFolder(normalizedValue), 'delete_ai_knowledge_folder') as DeleteAiKnowledgeFolder;
+}
+
+function isDeleteAiKnowledgeFolder(value: unknown): value is DeleteAiKnowledgeFolder {
   return isRecord(value) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
 }
 
@@ -2721,13 +3884,20 @@ function isDeleteDictTypeRequest(value: unknown): value is DeleteDictTypeRequest
   return isRecord(value) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
 }
 
+export function readDeleteEnterpriseRequestAttachmentRequest(value: unknown): DeleteEnterpriseRequestAttachmentRequest {
+  return requireValidResponse(value, isDeleteEnterpriseRequestAttachmentRequest(value), 'delete_enterprise_request_attachment_request') as DeleteEnterpriseRequestAttachmentRequest;
+}
+
+function isDeleteEnterpriseRequestAttachmentRequest(value: unknown): value is DeleteEnterpriseRequestAttachmentRequest {
+  return isRecord(value) && (typeof value["attachmentVersion"] === 'string') && (typeof value["requestVersion"] === 'string');
+}
+
 export function readDeleteEnterpriseRequestRequest(value: unknown): DeleteEnterpriseRequestRequest {
-  const normalizedValue = normalizeDeleteEnterpriseRequestRequestIntegerJson(value);
-  return requireValidResponse(normalizedValue, isDeleteEnterpriseRequestRequest(normalizedValue), 'delete_enterprise_request_request') as DeleteEnterpriseRequestRequest;
+  return requireValidResponse(value, isDeleteEnterpriseRequestRequest(value), 'delete_enterprise_request_request') as DeleteEnterpriseRequestRequest;
 }
 
 function isDeleteEnterpriseRequestRequest(value: unknown): value is DeleteEnterpriseRequestRequest {
-  return isRecord(value) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+  return isRecord(value) && (typeof value["version"] === 'string');
 }
 
 export function readDeleteHostDocumentCategoryRequest(value: unknown): DeleteHostDocumentCategoryRequest {
@@ -2790,6 +3960,24 @@ export function readDeleteHostReleaseNoteRequest(value: unknown): DeleteHostRele
 }
 
 function isDeleteHostReleaseNoteRequest(value: unknown): value is DeleteHostReleaseNoteRequest {
+  return isRecord(value) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+}
+
+export function readDeleteImportProfileRequest(value: unknown): DeleteImportProfileRequest {
+  const normalizedValue = normalizeDeleteImportProfileRequestIntegerJson(value);
+  return requireValidResponse(normalizedValue, isDeleteImportProfileRequest(normalizedValue), 'delete_import_profile_request') as DeleteImportProfileRequest;
+}
+
+function isDeleteImportProfileRequest(value: unknown): value is DeleteImportProfileRequest {
+  return isRecord(value) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+}
+
+export function readDeleteQuerySchemeRequest(value: unknown): DeleteQuerySchemeRequest {
+  const normalizedValue = normalizeDeleteQuerySchemeRequestIntegerJson(value);
+  return requireValidResponse(normalizedValue, isDeleteQuerySchemeRequest(normalizedValue), 'delete_query_scheme_request') as DeleteQuerySchemeRequest;
+}
+
+function isDeleteQuerySchemeRequest(value: unknown): value is DeleteQuerySchemeRequest {
   return isRecord(value) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
 }
 
@@ -2874,13 +4062,63 @@ function isDisableHostJobDefinitionRequest(value: unknown): value is DisableHost
   return isRecord(value) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
 }
 
+export function readDocumentPreviewCapabilities(value: unknown): DocumentPreviewCapabilities {
+  const normalizedValue = normalizeDocumentPreviewCapabilitiesIntegerJson(value);
+  return requireValidResponse(normalizedValue, isDocumentPreviewCapabilities(normalizedValue), 'document_preview_capabilities') as DocumentPreviewCapabilities;
+}
+
+function isDocumentPreviewCapabilities(value: unknown): value is DocumentPreviewCapabilities {
+  return isRecord(value) && (Array.isArray(value["allowedMimeTypes"]) && value["allowedMimeTypes"].every(item25 => typeof item25 === 'string')) && (typeof value["enabled"] === 'boolean') && (typeof value["maxAttempts"] === 'number' && Number.isSafeInteger(value["maxAttempts"])) && (typeof value["maxInputBytes"] === 'number' && Number.isSafeInteger(value["maxInputBytes"])) && (typeof value["providerKey"] === 'string');
+}
+
+export function readEnterpriseRequestAttachmentResponse(value: unknown): EnterpriseRequestAttachmentResponse {
+  return requireValidResponse(value, isEnterpriseRequestAttachmentResponse(value), 'enterprise_request_attachment_response') as EnterpriseRequestAttachmentResponse;
+}
+
+function isEnterpriseRequestAttachmentResponse(value: unknown): value is EnterpriseRequestAttachmentResponse {
+  return isRecord(value) && (typeof value["contentType"] === 'string') && (typeof value["createdAtUtc"] === 'string') && (typeof value["fileName"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["phase"] === 'string') && (typeof value["requestId"] === 'string' && guidPattern.test(value["requestId"])) && (typeof value["sizeBytes"] === 'string') && (typeof value["version"] === 'string');
+}
+
+export function readEnterpriseRequestPrintResponse(value: unknown): EnterpriseRequestPrintResponse {
+  return requireValidResponse(value, isEnterpriseRequestPrintResponse(value), 'enterprise_request_print_response') as EnterpriseRequestPrintResponse;
+}
+
+function isEnterpriseRequestPrintResponse(value: unknown): value is EnterpriseRequestPrintResponse {
+  return isRecord(value) && (typeof value["generatedAtUtc"] === 'string') && (typeof value["html"] === 'string') && (typeof value["includesAmounts"] === 'boolean') && (typeof value["requestId"] === 'string' && guidPattern.test(value["requestId"])) && (typeof value["requestVersion"] === 'string');
+}
+
+export function readEnterpriseRequestReportResponse(value: unknown): EnterpriseRequestReportResponse {
+  const normalizedValue = normalizeEnterpriseRequestReportResponseIntegerJson(value);
+  return requireValidResponse(normalizedValue, isEnterpriseRequestReportResponse(normalizedValue), 'enterprise_request_report_response') as EnterpriseRequestReportResponse;
+}
+
+function isEnterpriseRequestReportResponse(value: unknown): value is EnterpriseRequestReportResponse {
+  return isRecord(value) && (typeof value["attempt"] === 'number' && Number.isSafeInteger(value["attempt"])) && (typeof value["createdAtUtc"] === 'string') && ((value["errorCode"] === null) || (typeof value["errorCode"] === 'string')) && (typeof value["expiresAtUtc"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["includesAmounts"] === 'boolean') && (typeof value["phase"] === 'string') && (typeof value["requestId"] === 'string' && guidPattern.test(value["requestId"])) && (typeof value["version"] === 'string');
+}
+
 export function readEnterpriseRequestResponse(value: unknown): EnterpriseRequestResponse {
-  const normalizedValue = normalizeEnterpriseRequestResponseIntegerJson(value);
-  return requireValidResponse(normalizedValue, isEnterpriseRequestResponse(normalizedValue), 'enterprise_request_response') as EnterpriseRequestResponse;
+  return requireValidResponse(value, isEnterpriseRequestResponse(value), 'enterprise_request_response') as EnterpriseRequestResponse;
 }
 
 function isEnterpriseRequestResponse(value: unknown): value is EnterpriseRequestResponse {
-  return isRecord(value) && (typeof value["applicantUserId"] === 'string' && guidPattern.test(value["applicantUserId"])) && (typeof value["createdAtUtc"] === 'string') && (typeof value["createdById"] === 'string' && guidPattern.test(value["createdById"])) && ((value["deletedAtUtc"] === null) || (typeof value["deletedAtUtc"] === 'string')) && ((value["deletedById"] === null) || (typeof value["deletedById"] === 'string' && guidPattern.test(value["deletedById"]))) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["isDeleted"] === 'boolean') && (typeof value["organizationUnitId"] === 'string' && guidPattern.test(value["organizationUnitId"])) && (typeof value["requestNumber"] === 'string') && (typeof value["status"] === 'string') && (typeof value["tenantId"] === 'string' && guidPattern.test(value["tenantId"])) && (typeof value["title"] === 'string') && ((typeof value["totalAmount"] === 'number' && Number.isFinite(value["totalAmount"])) || (typeof value["totalAmount"] === 'string' && new RegExp("^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$").test(value["totalAmount"]) && Number.isFinite(Number(value["totalAmount"])))) && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && ((value["updatedById"] === null) || (typeof value["updatedById"] === 'string' && guidPattern.test(value["updatedById"]))) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+  return isRecord(value) && (typeof value["applicantUserId"] === 'string' && guidPattern.test(value["applicantUserId"])) && (typeof value["createdAtUtc"] === 'string') && (typeof value["createdById"] === 'string' && guidPattern.test(value["createdById"])) && ((value["deletedAtUtc"] === null) || (typeof value["deletedAtUtc"] === 'string')) && ((value["deletedById"] === null) || (typeof value["deletedById"] === 'string' && guidPattern.test(value["deletedById"]))) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["isDeleted"] === 'boolean') && (typeof value["organizationUnitId"] === 'string' && guidPattern.test(value["organizationUnitId"])) && (typeof value["requestNumber"] === 'string') && (typeof value["status"] === 'string') && (typeof value["tenantId"] === 'string' && guidPattern.test(value["tenantId"])) && (typeof value["title"] === 'string') && (typeof value["totalAmount"] === 'string') && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && ((value["updatedById"] === null) || (typeof value["updatedById"] === 'string' && guidPattern.test(value["updatedById"]))) && (typeof value["version"] === 'string');
+}
+
+export function readEnterpriseRequestSearchHit(value: unknown): EnterpriseRequestSearchHit {
+  return requireValidResponse(value, isEnterpriseRequestSearchHit(value), 'enterprise_request_search_hit') as EnterpriseRequestSearchHit;
+}
+
+function isEnterpriseRequestSearchHit(value: unknown): value is EnterpriseRequestSearchHit {
+  return isRecord(value) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["number"] === 'string') && (typeof value["title"] === 'string');
+}
+
+export function readEnterpriseRequestSearchPage(value: unknown): EnterpriseRequestSearchPage {
+  const normalizedValue = normalizeEnterpriseRequestSearchPageIntegerJson(value);
+  return requireValidResponse(normalizedValue, isEnterpriseRequestSearchPage(normalizedValue), 'enterprise_request_search_page') as EnterpriseRequestSearchPage;
+}
+
+function isEnterpriseRequestSearchPage(value: unknown): value is EnterpriseRequestSearchPage {
+  return isRecord(value) && (typeof value["hasMore"] === 'boolean') && (typeof value["isTruncated"] === 'boolean') && (Array.isArray(value["items"]) && value["items"].every(item14 => isEnterpriseRequestSearchHit(item14))) && (typeof value["page"] === 'number' && Number.isSafeInteger(value["page"])) && (typeof value["windowDays"] === 'number' && Number.isSafeInteger(value["windowDays"]));
 }
 
 export function readEnumCatalogDetail(value: unknown): EnumCatalogDetail {
@@ -2978,6 +4216,15 @@ function isExceptionLogResponse(value: unknown): value is ExceptionLogResponse {
   return isRecord(value) && ((value["clientIpFingerprint"] === null) || (typeof value["clientIpFingerprint"] === 'string')) && (typeof value["exceptionType"] === 'string') && ((value["httpMethod"] === null) || (typeof value["httpMethod"] === 'string')) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["message"] === 'string') && (typeof value["occurredAtUtc"] === 'string') && ((value["requestPath"] === null) || (typeof value["requestPath"] === 'string')) && ((value["stackTrace"] === null) || (typeof value["stackTrace"] === 'string')) && ((value["tenantId"] === null) || (typeof value["tenantId"] === 'string' && guidPattern.test(value["tenantId"]))) && ((value["traceId"] === null) || (typeof value["traceId"] === 'string')) && ((value["userId"] === null) || (typeof value["userId"] === 'string' && guidPattern.test(value["userId"])));
 }
 
+export function readExecuteAiKnowledgeEvaluationCase(value: unknown): ExecuteAiKnowledgeEvaluationCase {
+  const normalizedValue = normalizeExecuteAiKnowledgeEvaluationCaseIntegerJson(value);
+  return requireValidResponse(normalizedValue, isExecuteAiKnowledgeEvaluationCase(normalizedValue), 'execute_ai_knowledge_evaluation_case') as ExecuteAiKnowledgeEvaluationCase;
+}
+
+function isExecuteAiKnowledgeEvaluationCase(value: unknown): value is ExecuteAiKnowledgeEvaluationCase {
+  return isRecord(value) && (typeof value["expectedVersion"] === 'number' && Number.isSafeInteger(value["expectedVersion"])) && (typeof value["requestKey"] === 'string' && guidPattern.test(value["requestKey"]));
+}
+
 export function readExecuteReportingDefinitionRequest(value: unknown): ExecuteReportingDefinitionRequest {
   const normalizedValue = normalizeExecuteReportingDefinitionRequestIntegerJson(value);
   return requireValidResponse(normalizedValue, isExecuteReportingDefinitionRequest(normalizedValue), 'execute_reporting_definition_request') as ExecuteReportingDefinitionRequest;
@@ -2985,6 +4232,14 @@ export function readExecuteReportingDefinitionRequest(value: unknown): ExecuteRe
 
 function isExecuteReportingDefinitionRequest(value: unknown): value is ExecuteReportingDefinitionRequest {
   return isRecord(value) && (Array.isArray(value["parameters"]) && value["parameters"].every(item19 => isReportingExecutionParameterValue(item19))) && ((value["versionNumber"] === null) || (typeof value["versionNumber"] === 'number' && Number.isSafeInteger(value["versionNumber"])));
+}
+
+export function readExportAiKnowledgeFaqs(value: unknown): ExportAiKnowledgeFaqs {
+  return requireValidResponse(value, isExportAiKnowledgeFaqs(value), 'export_ai_knowledge_faqs') as ExportAiKnowledgeFaqs;
+}
+
+function isExportAiKnowledgeFaqs(value: unknown): value is ExportAiKnowledgeFaqs {
+  return isRecord(value) && (Array.isArray(value["faqIds"]) && value["faqIds"].every(item15 => typeof item15 === 'string' && guidPattern.test(item15)));
 }
 
 export function readFieldProjectionDefaultVisibility(value: unknown): FieldProjectionDefaultVisibility {
@@ -3070,6 +4325,15 @@ export function readGrantSuperAdministratorRequest(value: unknown): GrantSuperAd
 
 function isGrantSuperAdministratorRequest(value: unknown): value is GrantSuperAdministratorRequest {
   return isRecord(value) && (typeof value["currentPassword"] === 'string') && (value["totpCode"] === undefined || ((value["totpCode"] === null) || (typeof value["totpCode"] === 'string'))) && (typeof value["username"] === 'string');
+}
+
+export function readGridColumnPreference(value: unknown): GridColumnPreference {
+  const normalizedValue = normalizeGridColumnPreferenceIntegerJson(value);
+  return requireValidResponse(normalizedValue, isGridColumnPreference(normalizedValue), 'grid_column_preference') as GridColumnPreference;
+}
+
+function isGridColumnPreference(value: unknown): value is GridColumnPreference {
+  return isRecord(value) && (typeof value["columnKey"] === 'string') && ((value["fixed"] === null) || (typeof value["fixed"] === 'string')) && (typeof value["order"] === 'number' && Number.isSafeInteger(value["order"])) && (typeof value["visible"] === 'boolean') && ((value["width"] === null) || (typeof value["width"] === 'number' && Number.isSafeInteger(value["width"])));
 }
 
 export function readHostAnnouncementReadReceiptResponse(value: unknown): HostAnnouncementReadReceiptResponse {
@@ -3190,7 +4454,16 @@ export function readHostDocumentItemResponse(value: unknown): HostDocumentItemRe
 }
 
 function isHostDocumentItemResponse(value: unknown): value is HostDocumentItemResponse {
-  return isRecord(value) && (typeof value["accessCount"] === 'number' && Number.isSafeInteger(value["accessCount"])) && ((value["categoryColor"] === null) || (typeof value["categoryColor"] === 'string')) && ((value["categoryId"] === null) || (typeof value["categoryId"] === 'string' && guidPattern.test(value["categoryId"]))) && ((value["categoryName"] === null) || (typeof value["categoryName"] === 'string')) && (typeof value["createdAtUtc"] === 'string') && (typeof value["createdByUserId"] === 'string' && guidPattern.test(value["createdByUserId"])) && ((value["currentVersion"] === null) || (isHostDocumentVersionResponse(value["currentVersion"]))) && ((value["deletedAtUtc"] === null) || (typeof value["deletedAtUtc"] === 'string')) && ((value["deletedByUserId"] === null) || (typeof value["deletedByUserId"] === 'string' && guidPattern.test(value["deletedByUserId"]))) && ((value["description"] === null) || (typeof value["description"] === 'string')) && (typeof value["documentNo"] === 'string') && (isHostDocumentType(value["documentType"])) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && ((value["lastAccessTime"] === null) || (typeof value["lastAccessTime"] === 'string')) && (typeof value["sizeKb"] === 'number' && Number.isSafeInteger(value["sizeKb"])) && (typeof value["sort"] === 'number' && Number.isSafeInteger(value["sort"])) && (isHostDocumentStatus(value["status"])) && (Array.isArray(value["tags"]) && value["tags"].every(item13 => isHostDocumentTagAssignmentResponse(item13))) && ((value["thumbnail"] === null) || (typeof value["thumbnail"] === 'string')) && (typeof value["title"] === 'string') && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && ((value["updatedByUserId"] === null) || (typeof value["updatedByUserId"] === 'string' && guidPattern.test(value["updatedByUserId"]))) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+  return isRecord(value) && (typeof value["accessCount"] === 'number' && Number.isSafeInteger(value["accessCount"])) && (value["appliedVersionId"] === undefined || ((value["appliedVersionId"] === null) || (typeof value["appliedVersionId"] === 'string' && guidPattern.test(value["appliedVersionId"])))) && ((value["categoryColor"] === null) || (typeof value["categoryColor"] === 'string')) && ((value["categoryId"] === null) || (typeof value["categoryId"] === 'string' && guidPattern.test(value["categoryId"]))) && ((value["categoryName"] === null) || (typeof value["categoryName"] === 'string')) && (typeof value["createdAtUtc"] === 'string') && (typeof value["createdByUserId"] === 'string' && guidPattern.test(value["createdByUserId"])) && ((value["currentVersion"] === null) || (isHostDocumentVersionResponse(value["currentVersion"]))) && ((value["deletedAtUtc"] === null) || (typeof value["deletedAtUtc"] === 'string')) && ((value["deletedByUserId"] === null) || (typeof value["deletedByUserId"] === 'string' && guidPattern.test(value["deletedByUserId"]))) && ((value["description"] === null) || (typeof value["description"] === 'string')) && (typeof value["documentNo"] === 'string') && (isHostDocumentType(value["documentType"])) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && ((value["lastAccessTime"] === null) || (typeof value["lastAccessTime"] === 'string')) && (value["mimeType"] === undefined || ((value["mimeType"] === null) || (typeof value["mimeType"] === 'string'))) && (typeof value["sizeKb"] === 'number' && Number.isSafeInteger(value["sizeKb"])) && (typeof value["sort"] === 'number' && Number.isSafeInteger(value["sort"])) && (isHostDocumentStatus(value["status"])) && (Array.isArray(value["tags"]) && value["tags"].every(item13 => isHostDocumentTagAssignmentResponse(item13))) && ((value["thumbnail"] === null) || (typeof value["thumbnail"] === 'string')) && (typeof value["title"] === 'string') && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && ((value["updatedByUserId"] === null) || (typeof value["updatedByUserId"] === 'string' && guidPattern.test(value["updatedByUserId"]))) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"])) && (value["visibilityMode"] === undefined || (typeof value["visibilityMode"] === 'string'));
+}
+
+export function readHostDocumentPermissionContext(value: unknown): HostDocumentPermissionContext {
+  const normalizedValue = normalizeHostDocumentPermissionContextIntegerJson(value);
+  return requireValidResponse(normalizedValue, isHostDocumentPermissionContext(normalizedValue), 'host_document_permission_context') as HostDocumentPermissionContext;
+}
+
+function isHostDocumentPermissionContext(value: unknown): value is HostDocumentPermissionContext {
+  return isRecord(value) && (typeof value["documentId"] === 'string' && guidPattern.test(value["documentId"])) && (typeof value["documentNo"] === 'string') && (typeof value["title"] === 'string') && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"])) && (typeof value["visibilityMode"] === 'string');
 }
 
 export function readHostDocumentPermissionEntry(value: unknown): HostDocumentPermissionEntry {
@@ -3198,7 +4471,7 @@ export function readHostDocumentPermissionEntry(value: unknown): HostDocumentPer
 }
 
 function isHostDocumentPermissionEntry(value: unknown): value is HostDocumentPermissionEntry {
-  return isRecord(value) && (typeof value["permissionLevel"] === 'string') && (typeof value["userId"] === 'string' && guidPattern.test(value["userId"]));
+  return isRecord(value) && (Array.isArray(value["actions"]) && value["actions"].every(item16 => typeof item16 === 'string')) && (typeof value["userId"] === 'string' && guidPattern.test(value["userId"]));
 }
 
 export function readHostDocumentPermissionResponse(value: unknown): HostDocumentPermissionResponse {
@@ -3206,7 +4479,7 @@ export function readHostDocumentPermissionResponse(value: unknown): HostDocument
 }
 
 function isHostDocumentPermissionResponse(value: unknown): value is HostDocumentPermissionResponse {
-  return isRecord(value) && (typeof value["createdAtUtc"] === 'string') && (typeof value["documentId"] === 'string' && guidPattern.test(value["documentId"])) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["permissionLevel"] === 'string') && (typeof value["userId"] === 'string' && guidPattern.test(value["userId"]));
+  return isRecord(value) && (Array.isArray(value["actions"]) && value["actions"].every(item16 => typeof item16 === 'string')) && (typeof value["createdAtUtc"] === 'string') && (typeof value["documentId"] === 'string' && guidPattern.test(value["documentId"])) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["userId"] === 'string' && guidPattern.test(value["userId"]));
 }
 
 export function readHostDocumentPreviewTaskResponse(value: unknown): HostDocumentPreviewTaskResponse {
@@ -3215,7 +4488,24 @@ export function readHostDocumentPreviewTaskResponse(value: unknown): HostDocumen
 }
 
 function isHostDocumentPreviewTaskResponse(value: unknown): value is HostDocumentPreviewTaskResponse {
-  return isRecord(value) && ((value["completedAtUtc"] === null) || (typeof value["completedAtUtc"] === 'string')) && (typeof value["createdAtUtc"] === 'string') && (typeof value["documentItemId"] === 'string' && guidPattern.test(value["documentItemId"])) && (typeof value["documentTitle"] === 'string') && ((value["errorCode"] === null) || (typeof value["errorCode"] === 'string')) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && ((value["outputFileId"] === null) || (typeof value["outputFileId"] === 'string' && guidPattern.test(value["outputFileId"]))) && (value["previewGrant"] === undefined || ((value["previewGrant"] === null) || (typeof value["previewGrant"] === 'string'))) && (value["previewPollUntilUtc"] === undefined || ((value["previewPollUntilUtc"] === null) || (typeof value["previewPollUntilUtc"] === 'string'))) && (typeof value["providerKey"] === 'string') && ((value["requestedByUserId"] === null) || (typeof value["requestedByUserId"] === 'string' && guidPattern.test(value["requestedByUserId"]))) && (typeof value["sourceFileId"] === 'string' && guidPattern.test(value["sourceFileId"])) && ((value["startedAtUtc"] === null) || (typeof value["startedAtUtc"] === 'string')) && (typeof value["statusKey"] === 'string') && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"])) && ((value["versionId"] === null) || (typeof value["versionId"] === 'string' && guidPattern.test(value["versionId"])));
+  return isRecord(value) && (value["attemptCount"] === undefined || (typeof value["attemptCount"] === 'number' && Number.isSafeInteger(value["attemptCount"]))) && ((value["completedAtUtc"] === null) || (typeof value["completedAtUtc"] === 'string')) && (typeof value["createdAtUtc"] === 'string') && (typeof value["documentItemId"] === 'string' && guidPattern.test(value["documentItemId"])) && (typeof value["documentTitle"] === 'string') && ((value["errorCode"] === null) || (typeof value["errorCode"] === 'string')) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (value["nextAttemptAtUtc"] === undefined || ((value["nextAttemptAtUtc"] === null) || (typeof value["nextAttemptAtUtc"] === 'string'))) && ((value["outputFileId"] === null) || (typeof value["outputFileId"] === 'string' && guidPattern.test(value["outputFileId"]))) && (value["previewGrant"] === undefined || ((value["previewGrant"] === null) || (typeof value["previewGrant"] === 'string'))) && (value["previewPollUntilUtc"] === undefined || ((value["previewPollUntilUtc"] === null) || (typeof value["previewPollUntilUtc"] === 'string'))) && (typeof value["providerKey"] === 'string') && ((value["requestedByUserId"] === null) || (typeof value["requestedByUserId"] === 'string' && guidPattern.test(value["requestedByUserId"]))) && (typeof value["sourceFileId"] === 'string' && guidPattern.test(value["sourceFileId"])) && ((value["startedAtUtc"] === null) || (typeof value["startedAtUtc"] === 'string')) && (typeof value["statusKey"] === 'string') && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"])) && ((value["versionId"] === null) || (typeof value["versionId"] === 'string' && guidPattern.test(value["versionId"])));
+}
+
+export function readHostDocumentSearchHit(value: unknown): HostDocumentSearchHit {
+  return requireValidResponse(value, isHostDocumentSearchHit(value), 'host_document_search_hit') as HostDocumentSearchHit;
+}
+
+function isHostDocumentSearchHit(value: unknown): value is HostDocumentSearchHit {
+  return isRecord(value) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && ((value["number"] === null) || (typeof value["number"] === 'string')) && (typeof value["title"] === 'string');
+}
+
+export function readHostDocumentSearchPage(value: unknown): HostDocumentSearchPage {
+  const normalizedValue = normalizeHostDocumentSearchPageIntegerJson(value);
+  return requireValidResponse(normalizedValue, isHostDocumentSearchPage(normalizedValue), 'host_document_search_page') as HostDocumentSearchPage;
+}
+
+function isHostDocumentSearchPage(value: unknown): value is HostDocumentSearchPage {
+  return isRecord(value) && (typeof value["hasMore"] === 'boolean') && (typeof value["isTruncated"] === 'boolean') && (Array.isArray(value["items"]) && value["items"].every(item14 => isHostDocumentSearchHit(item14))) && (typeof value["page"] === 'number' && Number.isSafeInteger(value["page"])) && (typeof value["windowDays"] === 'number' && Number.isSafeInteger(value["windowDays"]));
 }
 
 export function readHostDocumentShareAccessResponse(value: unknown): HostDocumentShareAccessResponse {
@@ -3251,7 +4541,7 @@ export function readHostDocumentStatisticsResponse(value: unknown): HostDocument
 }
 
 function isHostDocumentStatisticsResponse(value: unknown): value is HostDocumentStatisticsResponse {
-  return isRecord(value) && (Array.isArray(value["byCategory"]) && value["byCategory"].every(item19 => isHostDocumentStatisticsCategoryItem(item19))) && (Array.isArray(value["byType"]) && value["byType"].every(item15 => isHostDocumentStatisticsTypeItem(item15))) && (typeof value["recycleBinCount"] === 'number' && Number.isSafeInteger(value["recycleBinCount"])) && (typeof value["shareCount"] === 'number' && Number.isSafeInteger(value["shareCount"])) && (isHostDocumentStatisticsSummaryResponse(value["summary"])) && (typeof value["todayAccessCount"] === 'number' && Number.isSafeInteger(value["todayAccessCount"])) && (typeof value["todayCreatedCount"] === 'number' && Number.isSafeInteger(value["todayCreatedCount"])) && (typeof value["todayDownloadCount"] === 'number' && Number.isSafeInteger(value["todayDownloadCount"]));
+  return isRecord(value) && (Array.isArray(value["byCategory"]) && value["byCategory"].every(item19 => isHostDocumentStatisticsCategoryItem(item19))) && (Array.isArray(value["byType"]) && value["byType"].every(item15 => isHostDocumentStatisticsTypeItem(item15))) && (typeof value["recycleBinCount"] === 'number' && Number.isSafeInteger(value["recycleBinCount"])) && (typeof value["shareCount"] === 'number' && Number.isSafeInteger(value["shareCount"])) && (isHostDocumentStatisticsSummaryResponse(value["summary"])) && (typeof value["todayAccessCount"] === 'number' && Number.isSafeInteger(value["todayAccessCount"])) && (typeof value["todayCreatedCount"] === 'number' && Number.isSafeInteger(value["todayCreatedCount"])) && (typeof value["todayDownloadCount"] === 'number' && Number.isSafeInteger(value["todayDownloadCount"])) && (value["todayPreviewCount"] === undefined || (typeof value["todayPreviewCount"] === 'number' && Number.isSafeInteger(value["todayPreviewCount"]))) && (value["todayShareAccessCount"] === undefined || (typeof value["todayShareAccessCount"] === 'number' && Number.isSafeInteger(value["todayShareAccessCount"])));
 }
 
 export function readHostDocumentStatisticsSummaryResponse(value: unknown): HostDocumentStatisticsSummaryResponse {
@@ -3260,7 +4550,7 @@ export function readHostDocumentStatisticsSummaryResponse(value: unknown): HostD
 }
 
 function isHostDocumentStatisticsSummaryResponse(value: unknown): value is HostDocumentStatisticsSummaryResponse {
-  return isRecord(value) && (typeof value["totalItems"] === 'number' && Number.isSafeInteger(value["totalItems"])) && (typeof value["totalSizeInfo"] === 'string') && (typeof value["totalSizeKb"] === 'number' && Number.isSafeInteger(value["totalSizeKb"])) && (typeof value["totalVersions"] === 'number' && Number.isSafeInteger(value["totalVersions"]));
+  return isRecord(value) && (value["historySizeBytes"] === undefined || (typeof value["historySizeBytes"] === 'number' && Number.isSafeInteger(value["historySizeBytes"]))) && (typeof value["totalItems"] === 'number' && Number.isSafeInteger(value["totalItems"])) && (value["totalSizeBytes"] === undefined || (typeof value["totalSizeBytes"] === 'number' && Number.isSafeInteger(value["totalSizeBytes"]))) && (typeof value["totalSizeInfo"] === 'string') && (typeof value["totalSizeKb"] === 'number' && Number.isSafeInteger(value["totalSizeKb"])) && (typeof value["totalVersions"] === 'number' && Number.isSafeInteger(value["totalVersions"]));
 }
 
 export function readHostDocumentStatisticsTypeItem(value: unknown): HostDocumentStatisticsTypeItem {
@@ -3269,7 +4559,7 @@ export function readHostDocumentStatisticsTypeItem(value: unknown): HostDocument
 }
 
 function isHostDocumentStatisticsTypeItem(value: unknown): value is HostDocumentStatisticsTypeItem {
-  return isRecord(value) && (typeof value["count"] === 'number' && Number.isSafeInteger(value["count"])) && ((value["extension"] === null) || (typeof value["extension"] === 'string')) && (typeof value["totalSizeKb"] === 'number' && Number.isSafeInteger(value["totalSizeKb"]));
+  return isRecord(value) && (typeof value["count"] === 'number' && Number.isSafeInteger(value["count"])) && ((value["extension"] === null) || (typeof value["extension"] === 'string')) && (value["totalSizeBytes"] === undefined || (typeof value["totalSizeBytes"] === 'number' && Number.isSafeInteger(value["totalSizeBytes"]))) && (typeof value["totalSizeKb"] === 'number' && Number.isSafeInteger(value["totalSizeKb"]));
 }
 
 export function readHostDocumentStatus(value: unknown): HostDocumentStatus {
@@ -3721,13 +5011,38 @@ function isImportAdministrativeRegionUpdatedSummary(value: unknown): value is Im
   return isRecord(value) && (Array.isArray(value["changedFields"]) && value["changedFields"].every(item22 => typeof item22 === 'string')) && (typeof value["code"] === 'string') && (typeof value["name"] === 'string');
 }
 
+export function readImportAiKnowledgeFaqs(value: unknown): ImportAiKnowledgeFaqs {
+  const normalizedValue = normalizeImportAiKnowledgeFaqsIntegerJson(value);
+  return requireValidResponse(normalizedValue, isImportAiKnowledgeFaqs(normalizedValue), 'import_ai_knowledge_faqs') as ImportAiKnowledgeFaqs;
+}
+
+function isImportAiKnowledgeFaqs(value: unknown): value is ImportAiKnowledgeFaqs {
+  return isRecord(value) && (typeof value["expectedDigest"] === 'string') && (isAiKnowledgeFaqTransferPackage(value["package"])) && (Array.isArray(value["requestKeys"]) && value["requestKeys"].every(item20 => typeof item20 === 'string' && guidPattern.test(item20)));
+}
+
+export function readImportColumnMapping(value: unknown): ImportColumnMapping {
+  return requireValidResponse(value, isImportColumnMapping(value), 'import_column_mapping') as ImportColumnMapping;
+}
+
+function isImportColumnMapping(value: unknown): value is ImportColumnMapping {
+  return isRecord(value) && (typeof value["sourceHeader"] === 'string') && (typeof value["targetColumn"] === 'string');
+}
+
+export function readImportColumnMappingRequest(value: unknown): ImportColumnMappingRequest {
+  return requireValidResponse(value, isImportColumnMappingRequest(value), 'import_column_mapping_request') as ImportColumnMappingRequest;
+}
+
+function isImportColumnMappingRequest(value: unknown): value is ImportColumnMappingRequest {
+  return isRecord(value) && (Array.isArray(value["columns"]) && value["columns"].every(item16 => isImportColumnMapping(item16))) && (Array.isArray(value["headerColumns"]) && value["headerColumns"].every(item22 => typeof item22 === 'string'));
+}
+
 export function readImportExportTaskDetailResponse(value: unknown): ImportExportTaskDetailResponse {
   const normalizedValue = normalizeImportExportTaskDetailResponseIntegerJson(value);
   return requireValidResponse(normalizedValue, isImportExportTaskDetailResponse(normalizedValue), 'import_export_task_detail_response') as ImportExportTaskDetailResponse;
 }
 
 function isImportExportTaskDetailResponse(value: unknown): value is ImportExportTaskDetailResponse {
-  return isRecord(value) && (typeof value["createdAtUtc"] === 'string') && ((value["errorCode"] === null) || (typeof value["errorCode"] === 'string')) && ((value["executionCompletedAtUtc"] === null) || (typeof value["executionCompletedAtUtc"] === 'string')) && (typeof value["executionFailedRowCount"] === 'number' && Number.isSafeInteger(value["executionFailedRowCount"])) && ((value["executionStartedAtUtc"] === null) || (typeof value["executionStartedAtUtc"] === 'string')) && (typeof value["hasErrorReceipt"] === 'boolean') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["invalidRowCount"] === 'number' && Number.isSafeInteger(value["invalidRowCount"])) && (typeof value["nextLineNumber"] === 'number' && Number.isSafeInteger(value["nextLineNumber"])) && ((value["previewCompletedAtUtc"] === null) || (typeof value["previewCompletedAtUtc"] === 'string')) && (Array.isArray(value["previewRows"]) && value["previewRows"].every(item20 => isStaticImportRowPreviewResult(item20))) && (typeof value["processedRowCount"] === 'number' && Number.isSafeInteger(value["processedRowCount"])) && (typeof value["requestedByUserId"] === 'string' && guidPattern.test(value["requestedByUserId"])) && (typeof value["schemaDisplayName"] === 'string') && (typeof value["schemaKey"] === 'string') && (typeof value["sourceFileId"] === 'string' && guidPattern.test(value["sourceFileId"])) && ((value["sourceFileName"] === null) || (typeof value["sourceFileName"] === 'string')) && (typeof value["statusKey"] === 'string') && (typeof value["succeededRowCount"] === 'number' && Number.isSafeInteger(value["succeededRowCount"])) && (typeof value["tenantId"] === 'string' && guidPattern.test(value["tenantId"])) && (typeof value["totalRows"] === 'number' && Number.isSafeInteger(value["totalRows"])) && (typeof value["validRowCount"] === 'number' && Number.isSafeInteger(value["validRowCount"])) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"])) && (typeof value["worksheetKey"] === 'string');
+  return isRecord(value) && (value["columnMappings"] === undefined || ((value["columnMappings"] === null) || (Array.isArray(value["columnMappings"]) && value["columnMappings"].every(item23 => isImportColumnMapping(item23))))) && (typeof value["createdAtUtc"] === 'string') && ((value["errorCode"] === null) || (typeof value["errorCode"] === 'string')) && ((value["executionCompletedAtUtc"] === null) || (typeof value["executionCompletedAtUtc"] === 'string')) && (typeof value["executionFailedRowCount"] === 'number' && Number.isSafeInteger(value["executionFailedRowCount"])) && ((value["executionStartedAtUtc"] === null) || (typeof value["executionStartedAtUtc"] === 'string')) && (typeof value["hasErrorReceipt"] === 'boolean') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["invalidRowCount"] === 'number' && Number.isSafeInteger(value["invalidRowCount"])) && (typeof value["nextLineNumber"] === 'number' && Number.isSafeInteger(value["nextLineNumber"])) && ((value["previewCompletedAtUtc"] === null) || (typeof value["previewCompletedAtUtc"] === 'string')) && (Array.isArray(value["previewRows"]) && value["previewRows"].every(item20 => isStaticImportRowPreviewResult(item20))) && (typeof value["processedRowCount"] === 'number' && Number.isSafeInteger(value["processedRowCount"])) && (typeof value["requestedByUserId"] === 'string' && guidPattern.test(value["requestedByUserId"])) && (typeof value["schemaDisplayName"] === 'string') && (typeof value["schemaKey"] === 'string') && (typeof value["sourceFileId"] === 'string' && guidPattern.test(value["sourceFileId"])) && ((value["sourceFileName"] === null) || (typeof value["sourceFileName"] === 'string')) && (typeof value["statusKey"] === 'string') && (typeof value["succeededRowCount"] === 'number' && Number.isSafeInteger(value["succeededRowCount"])) && (typeof value["tenantId"] === 'string' && guidPattern.test(value["tenantId"])) && (typeof value["totalRows"] === 'number' && Number.isSafeInteger(value["totalRows"])) && (typeof value["validRowCount"] === 'number' && Number.isSafeInteger(value["validRowCount"])) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"])) && (typeof value["worksheetKey"] === 'string');
 }
 
 export function readImportExportTaskResponse(value: unknown): ImportExportTaskResponse {
@@ -3802,6 +5117,24 @@ function isImportOrganizationPositionsResponse(value: unknown): value is ImportO
   return isRecord(value) && (Array.isArray(value["results"]) && value["results"].every(item16 => isImportOrganizationPositionRowResult(item16))) && (typeof value["succeededCount"] === 'number' && Number.isSafeInteger(value["succeededCount"]));
 }
 
+export function readImportProfileDetail(value: unknown): ImportProfileDetail {
+  const normalizedValue = normalizeImportProfileDetailIntegerJson(value);
+  return requireValidResponse(normalizedValue, isImportProfileDetail(normalizedValue), 'import_profile_detail') as ImportProfileDetail;
+}
+
+function isImportProfileDetail(value: unknown): value is ImportProfileDetail {
+  return isRecord(value) && ((value["configuration"] === null) || (isImportColumnMappingRequest(value["configuration"]))) && (isImportProfileSummary(value["summary"]));
+}
+
+export function readImportProfileSummary(value: unknown): ImportProfileSummary {
+  const normalizedValue = normalizeImportProfileSummaryIntegerJson(value);
+  return requireValidResponse(normalizedValue, isImportProfileSummary(normalizedValue), 'import_profile_summary') as ImportProfileSummary;
+}
+
+function isImportProfileSummary(value: unknown): value is ImportProfileSummary {
+  return isRecord(value) && (typeof value["createdAtUtc"] === 'string') && (typeof value["headerFingerprint"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["isCompatible"] === 'boolean') && (typeof value["name"] === 'string') && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+}
+
 export function readInboxMessageResponse(value: unknown): InboxMessageResponse {
   return requireValidResponse(value, isInboxMessageResponse(value), 'inbox_message_response') as InboxMessageResponse;
 }
@@ -3817,6 +5150,15 @@ export function readInboxUnreadCountResponse(value: unknown): InboxUnreadCountRe
 
 function isInboxUnreadCountResponse(value: unknown): value is InboxUnreadCountResponse {
   return isRecord(value) && (typeof value["unreadCount"] === 'number' && Number.isSafeInteger(value["unreadCount"]));
+}
+
+export function readIndexAiKnowledgeFaqRevision(value: unknown): IndexAiKnowledgeFaqRevision {
+  const normalizedValue = normalizeIndexAiKnowledgeFaqRevisionIntegerJson(value);
+  return requireValidResponse(normalizedValue, isIndexAiKnowledgeFaqRevision(normalizedValue), 'index_ai_knowledge_faq_revision') as IndexAiKnowledgeFaqRevision;
+}
+
+function isIndexAiKnowledgeFaqRevision(value: unknown): value is IndexAiKnowledgeFaqRevision {
+  return isRecord(value) && (typeof value["confirmCost"] === 'boolean') && (typeof value["expectedHeadVersion"] === 'number' && Number.isSafeInteger(value["expectedHeadVersion"])) && (typeof value["expectedRevisionId"] === 'string' && guidPattern.test(value["expectedRevisionId"])) && (typeof value["requestKey"] === 'string' && guidPattern.test(value["requestKey"]));
 }
 
 export function readJsonElement(value: unknown): JsonElement {
@@ -4402,6 +5744,15 @@ function isPagedResultOfAiKnowledgeBaseResponse(value: unknown): value is PagedR
   return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isAiKnowledgeBaseResponse(item14))) && (typeof value["page"] === 'number' && Number.isSafeInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isSafeInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isSafeInteger(value["total"]));
 }
 
+export function readPagedResultOfAiKnowledgeDirectoryResponse(value: unknown): PagedResultOfAiKnowledgeDirectoryResponse {
+  const normalizedValue = normalizePagedResultOfAiKnowledgeDirectoryResponseIntegerJson(value);
+  return requireValidResponse(normalizedValue, isPagedResultOfAiKnowledgeDirectoryResponse(normalizedValue), 'paged_result_of_ai_knowledge_directory_response') as PagedResultOfAiKnowledgeDirectoryResponse;
+}
+
+function isPagedResultOfAiKnowledgeDirectoryResponse(value: unknown): value is PagedResultOfAiKnowledgeDirectoryResponse {
+  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isAiKnowledgeDirectoryResponse(item14))) && (typeof value["page"] === 'number' && Number.isSafeInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isSafeInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isSafeInteger(value["total"]));
+}
+
 export function readPagedResultOfAiKnowledgeDocumentResponse(value: unknown): PagedResultOfAiKnowledgeDocumentResponse {
   const normalizedValue = normalizePagedResultOfAiKnowledgeDocumentResponseIntegerJson(value);
   return requireValidResponse(normalizedValue, isPagedResultOfAiKnowledgeDocumentResponse(normalizedValue), 'paged_result_of_ai_knowledge_document_response') as PagedResultOfAiKnowledgeDocumentResponse;
@@ -4526,6 +5877,24 @@ export function readPagedResultOfDictTypeResponse(value: unknown): PagedResultOf
 
 function isPagedResultOfDictTypeResponse(value: unknown): value is PagedResultOfDictTypeResponse {
   return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isDictTypeResponse(item14))) && (typeof value["page"] === 'number' && Number.isSafeInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isSafeInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isSafeInteger(value["total"]));
+}
+
+export function readPagedResultOfEnterpriseRequestAttachmentResponse(value: unknown): PagedResultOfEnterpriseRequestAttachmentResponse {
+  const normalizedValue = normalizePagedResultOfEnterpriseRequestAttachmentResponseIntegerJson(value);
+  return requireValidResponse(normalizedValue, isPagedResultOfEnterpriseRequestAttachmentResponse(normalizedValue), 'paged_result_of_enterprise_request_attachment_response') as PagedResultOfEnterpriseRequestAttachmentResponse;
+}
+
+function isPagedResultOfEnterpriseRequestAttachmentResponse(value: unknown): value is PagedResultOfEnterpriseRequestAttachmentResponse {
+  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isEnterpriseRequestAttachmentResponse(item14))) && (typeof value["page"] === 'number' && Number.isSafeInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isSafeInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isSafeInteger(value["total"]));
+}
+
+export function readPagedResultOfEnterpriseRequestReportResponse(value: unknown): PagedResultOfEnterpriseRequestReportResponse {
+  const normalizedValue = normalizePagedResultOfEnterpriseRequestReportResponseIntegerJson(value);
+  return requireValidResponse(normalizedValue, isPagedResultOfEnterpriseRequestReportResponse(normalizedValue), 'paged_result_of_enterprise_request_report_response') as PagedResultOfEnterpriseRequestReportResponse;
+}
+
+function isPagedResultOfEnterpriseRequestReportResponse(value: unknown): value is PagedResultOfEnterpriseRequestReportResponse {
+  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isEnterpriseRequestReportResponse(item14))) && (typeof value["page"] === 'number' && Number.isSafeInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isSafeInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isSafeInteger(value["total"]));
 }
 
 export function readPagedResultOfEnterpriseRequestResponse(value: unknown): PagedResultOfEnterpriseRequestResponse {
@@ -5014,6 +6383,15 @@ function isPagedResultOfReportingDefinitionSummaryResponse(value: unknown): valu
   return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isReportingDefinitionSummaryResponse(item14))) && (typeof value["page"] === 'number' && Number.isSafeInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isSafeInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isSafeInteger(value["total"]));
 }
 
+export function readPagedResultOfReportingDefinitionTenantGrantResponse(value: unknown): PagedResultOfReportingDefinitionTenantGrantResponse {
+  const normalizedValue = normalizePagedResultOfReportingDefinitionTenantGrantResponseIntegerJson(value);
+  return requireValidResponse(normalizedValue, isPagedResultOfReportingDefinitionTenantGrantResponse(normalizedValue), 'paged_result_of_reporting_definition_tenant_grant_response') as PagedResultOfReportingDefinitionTenantGrantResponse;
+}
+
+function isPagedResultOfReportingDefinitionTenantGrantResponse(value: unknown): value is PagedResultOfReportingDefinitionTenantGrantResponse {
+  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isReportingDefinitionTenantGrantResponse(item14))) && (typeof value["page"] === 'number' && Number.isSafeInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isSafeInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isSafeInteger(value["total"]));
+}
+
 export function readPagedResultOfReportingDefinitionVersionSummaryResponse(value: unknown): PagedResultOfReportingDefinitionVersionSummaryResponse {
   const normalizedValue = normalizePagedResultOfReportingDefinitionVersionSummaryResponseIntegerJson(value);
   return requireValidResponse(normalizedValue, isPagedResultOfReportingDefinitionVersionSummaryResponse(normalizedValue), 'paged_result_of_reporting_definition_version_summary_response') as PagedResultOfReportingDefinitionVersionSummaryResponse;
@@ -5030,6 +6408,15 @@ export function readPagedResultOfReportingExportTaskResponse(value: unknown): Pa
 
 function isPagedResultOfReportingExportTaskResponse(value: unknown): value is PagedResultOfReportingExportTaskResponse {
   return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isReportingExportTaskResponse(item14))) && (typeof value["page"] === 'number' && Number.isSafeInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isSafeInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isSafeInteger(value["total"]));
+}
+
+export function readPagedResultOfReportingPublishedDefinitionResponse(value: unknown): PagedResultOfReportingPublishedDefinitionResponse {
+  const normalizedValue = normalizePagedResultOfReportingPublishedDefinitionResponseIntegerJson(value);
+  return requireValidResponse(normalizedValue, isPagedResultOfReportingPublishedDefinitionResponse(normalizedValue), 'paged_result_of_reporting_published_definition_response') as PagedResultOfReportingPublishedDefinitionResponse;
+}
+
+function isPagedResultOfReportingPublishedDefinitionResponse(value: unknown): value is PagedResultOfReportingPublishedDefinitionResponse {
+  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isReportingPublishedDefinitionResponse(item14))) && (typeof value["page"] === 'number' && Number.isSafeInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isSafeInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isSafeInteger(value["total"]));
 }
 
 export function readPagedResultOfSerialNumberRuleResponse(value: unknown): PagedResultOfSerialNumberRuleResponse {
@@ -5167,6 +6554,39 @@ function isPrepareAiFeedbackEvaluationRequest(value: unknown): value is PrepareA
   return isRecord(value) && (typeof value["feedbackVersion"] === 'number' && Number.isSafeInteger(value["feedbackVersion"])) && (typeof value["reviewVersion"] === 'number' && Number.isSafeInteger(value["reviewVersion"])) && (isAiFeedbackEvaluationSample(value["sample"]));
 }
 
+export function readPrepareAiKnowledgeEvaluationFeedback(value: unknown): PrepareAiKnowledgeEvaluationFeedback {
+  return requireValidResponse(value, isPrepareAiKnowledgeEvaluationFeedback(value), 'prepare_ai_knowledge_evaluation_feedback') as PrepareAiKnowledgeEvaluationFeedback;
+}
+
+function isPrepareAiKnowledgeEvaluationFeedback(value: unknown): value is PrepareAiKnowledgeEvaluationFeedback {
+  return isRecord(value) && (typeof value["candidateToken"] === 'string');
+}
+
+export function readPreviewAiKnowledgeFaqFeedback(value: unknown): PreviewAiKnowledgeFaqFeedback {
+  return requireValidResponse(value, isPreviewAiKnowledgeFaqFeedback(value), 'preview_ai_knowledge_faq_feedback') as PreviewAiKnowledgeFaqFeedback;
+}
+
+function isPreviewAiKnowledgeFaqFeedback(value: unknown): value is PreviewAiKnowledgeFaqFeedback {
+  return isRecord(value) && (typeof value["feedbackId"] === 'string' && guidPattern.test(value["feedbackId"]));
+}
+
+export function readPreviewAiKnowledgeFaqImport(value: unknown): PreviewAiKnowledgeFaqImport {
+  const normalizedValue = normalizePreviewAiKnowledgeFaqImportIntegerJson(value);
+  return requireValidResponse(normalizedValue, isPreviewAiKnowledgeFaqImport(normalizedValue), 'preview_ai_knowledge_faq_import') as PreviewAiKnowledgeFaqImport;
+}
+
+function isPreviewAiKnowledgeFaqImport(value: unknown): value is PreviewAiKnowledgeFaqImport {
+  return isRecord(value) && (isAiKnowledgeFaqTransferPackage(value["package"]));
+}
+
+export function readPreviewAiPersonalScheduleSources(value: unknown): PreviewAiPersonalScheduleSources {
+  return requireValidResponse(value, isPreviewAiPersonalScheduleSources(value), 'preview_ai_personal_schedule_sources') as PreviewAiPersonalScheduleSources;
+}
+
+function isPreviewAiPersonalScheduleSources(value: unknown): value is PreviewAiPersonalScheduleSources {
+  return isRecord(value) && (Array.isArray(value["scheduleIds"]) && value["scheduleIds"].every(item20 => typeof item20 === 'string' && guidPattern.test(item20)));
+}
+
 export function readPreviewGoViewProjectRequest(value: unknown): PreviewGoViewProjectRequest {
   const normalizedValue = normalizePreviewGoViewProjectRequestIntegerJson(value);
   return requireValidResponse(normalizedValue, isPreviewGoViewProjectRequest(normalizedValue), 'preview_go_view_project_request') as PreviewGoViewProjectRequest;
@@ -5272,12 +6692,29 @@ function isProblemDetails(value: unknown): value is ProblemDetails {
   return isRecord(value) && (value["detail"] === undefined || ((value["detail"] === null) || (typeof value["detail"] === 'string'))) && (value["instance"] === undefined || ((value["instance"] === null) || (typeof value["instance"] === 'string'))) && (value["status"] === undefined || ((value["status"] === null) || (typeof value["status"] === 'number' && Number.isSafeInteger(value["status"])))) && (value["title"] === undefined || ((value["title"] === null) || (typeof value["title"] === 'string'))) && (value["type"] === undefined || ((value["type"] === null) || (typeof value["type"] === 'string')));
 }
 
+export function readProposeWorkflowCollaborationGrantRequest(value: unknown): ProposeWorkflowCollaborationGrantRequest {
+  return requireValidResponse(value, isProposeWorkflowCollaborationGrantRequest(value), 'propose_workflow_collaboration_grant_request') as ProposeWorkflowCollaborationGrantRequest;
+}
+
+function isProposeWorkflowCollaborationGrantRequest(value: unknown): value is ProposeWorkflowCollaborationGrantRequest {
+  return isRecord(value) && (typeof value["idempotencyKey"] === 'string') && (isJsonElement(value["offer"])) && (typeof value["targetScopeKey"] === 'string') && ((value["targetTenantId"] === null) || (typeof value["targetTenantId"] === 'string' && guidPattern.test(value["targetTenantId"])));
+}
+
 export function readProvisionTenantRequest(value: unknown): ProvisionTenantRequest {
   return requireValidResponse(value, isProvisionTenantRequest(value), 'provision_tenant_request') as ProvisionTenantRequest;
 }
 
 function isProvisionTenantRequest(value: unknown): value is ProvisionTenantRequest {
   return isRecord(value) && (typeof value["domain"] === 'string') && (typeof value["identifier"] === 'string') && (typeof value["name"] === 'string') && (value["tenantPackageId"] === undefined || ((value["tenantPackageId"] === null) || (typeof value["tenantPackageId"] === 'string' && guidPattern.test(value["tenantPackageId"]))));
+}
+
+export function readPublishAiKnowledgePublication(value: unknown): PublishAiKnowledgePublication {
+  const normalizedValue = normalizePublishAiKnowledgePublicationIntegerJson(value);
+  return requireValidResponse(normalizedValue, isPublishAiKnowledgePublication(normalizedValue), 'publish_ai_knowledge_publication') as PublishAiKnowledgePublication;
+}
+
+function isPublishAiKnowledgePublication(value: unknown): value is PublishAiKnowledgePublication {
+  return isRecord(value) && (typeof value["snapshotHash"] === 'string') && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
 }
 
 export function readPublishGoViewProjectRequest(value: unknown): PublishGoViewProjectRequest {
@@ -5377,6 +6814,77 @@ export function readPublishWorkflowWorkCalendarRequest(value: unknown): PublishW
 
 function isPublishWorkflowWorkCalendarRequest(value: unknown): value is PublishWorkflowWorkCalendarRequest {
   return isRecord(value) && (typeof value["expectedRevision"] === 'number' && Number.isSafeInteger(value["expectedRevision"]));
+}
+
+export function readQuerySchemeConfiguration(value: unknown): QuerySchemeConfiguration {
+  const normalizedValue = normalizeQuerySchemeConfigurationIntegerJson(value);
+  return requireValidResponse(normalizedValue, isQuerySchemeConfiguration(normalizedValue), 'query_scheme_configuration') as QuerySchemeConfiguration;
+}
+
+function isQuerySchemeConfiguration(value: unknown): value is QuerySchemeConfiguration {
+  return isRecord(value) && (Array.isArray(value["columns"]) && value["columns"].every(item16 => isGridColumnPreference(item16))) && (typeof value["descending"] === 'boolean') && (Array.isArray(value["filters"]) && value["filters"].every(item16 => isQuerySchemeFilter(item16))) && (typeof value["sortBy"] === 'string');
+}
+
+export function readQuerySchemeDefinition(value: unknown): QuerySchemeDefinition {
+  const normalizedValue = normalizeQuerySchemeDefinitionIntegerJson(value);
+  return requireValidResponse(normalizedValue, isQuerySchemeDefinition(normalizedValue), 'query_scheme_definition') as QuerySchemeDefinition;
+}
+
+function isQuerySchemeDefinition(value: unknown): value is QuerySchemeDefinition {
+  return isRecord(value) && (Array.isArray(value["columnKeys"]) && value["columnKeys"].every(item19 => typeof item19 === 'string')) && (Array.isArray(value["filters"]) && value["filters"].every(item16 => isQuerySchemeFilterDefinition(item16))) && (typeof value["gridKey"] === 'string') && (typeof value["readPermission"] === 'string') && (typeof value["schemaVersion"] === 'number' && Number.isSafeInteger(value["schemaVersion"])) && (Array.isArray(value["sortKeys"]) && value["sortKeys"].every(item17 => typeof item17 === 'string')) && (typeof value["supportsHost"] === 'boolean') && (typeof value["supportsTenant"] === 'boolean');
+}
+
+export function readQuerySchemeDetail(value: unknown): QuerySchemeDetail {
+  const normalizedValue = normalizeQuerySchemeDetailIntegerJson(value);
+  return requireValidResponse(normalizedValue, isQuerySchemeDetail(normalizedValue), 'query_scheme_detail') as QuerySchemeDetail;
+}
+
+function isQuerySchemeDetail(value: unknown): value is QuerySchemeDetail {
+  return isRecord(value) && ((value["configuration"] === null) || (isQuerySchemeConfiguration(value["configuration"]))) && (isQuerySchemeSummary(value["summary"]));
+}
+
+export function readQuerySchemeFilter(value: unknown): QuerySchemeFilter {
+  return requireValidResponse(value, isQuerySchemeFilter(value), 'query_scheme_filter') as QuerySchemeFilter;
+}
+
+function isQuerySchemeFilter(value: unknown): value is QuerySchemeFilter {
+  return isRecord(value) && (typeof value["fieldKey"] === 'string') && (typeof value["operatorKey"] === 'string') && (typeof value["value"] === 'string');
+}
+
+export function readQuerySchemeFilterDefinition(value: unknown): QuerySchemeFilterDefinition {
+  const normalizedValue = normalizeQuerySchemeFilterDefinitionIntegerJson(value);
+  return requireValidResponse(normalizedValue, isQuerySchemeFilterDefinition(normalizedValue), 'query_scheme_filter_definition') as QuerySchemeFilterDefinition;
+}
+
+function isQuerySchemeFilterDefinition(value: unknown): value is QuerySchemeFilterDefinition {
+  return isRecord(value) && (typeof value["fieldKey"] === 'string') && (typeof value["maxLength"] === 'number' && Number.isSafeInteger(value["maxLength"]));
+}
+
+export function readQuerySchemeSummary(value: unknown): QuerySchemeSummary {
+  const normalizedValue = normalizeQuerySchemeSummaryIntegerJson(value);
+  return requireValidResponse(normalizedValue, isQuerySchemeSummary(normalizedValue), 'query_scheme_summary') as QuerySchemeSummary;
+}
+
+function isQuerySchemeSummary(value: unknown): value is QuerySchemeSummary {
+  return isRecord(value) && (typeof value["createdAtUtc"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["isCompatible"] === 'boolean') && (typeof value["isShared"] === 'boolean') && (typeof value["name"] === 'string') && (typeof value["ownerUserId"] === 'string' && guidPattern.test(value["ownerUserId"])) && (typeof value["schemaVersion"] === 'number' && Number.isSafeInteger(value["schemaVersion"])) && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+}
+
+export function readReadAiKnowledgeSearchContextRequest(value: unknown): ReadAiKnowledgeSearchContextRequest {
+  const normalizedValue = normalizeReadAiKnowledgeSearchContextRequestIntegerJson(value);
+  return requireValidResponse(normalizedValue, isReadAiKnowledgeSearchContextRequest(normalizedValue), 'read_ai_knowledge_search_context_request') as ReadAiKnowledgeSearchContextRequest;
+}
+
+function isReadAiKnowledgeSearchContextRequest(value: unknown): value is ReadAiKnowledgeSearchContextRequest {
+  return isRecord(value) && (typeof value["anchorSequence"] === 'number' && Number.isSafeInteger(value["anchorSequence"])) && (typeof value["embeddingModelConfigId"] === 'string' && guidPattern.test(value["embeddingModelConfigId"])) && (typeof value["embeddingModelVersion"] === 'number' && Number.isSafeInteger(value["embeddingModelVersion"])) && (typeof value["radius"] === 'number' && Number.isSafeInteger(value["radius"])) && (isAiKnowledgeSearchSource(value["source"]));
+}
+
+export function readReadAiKnowledgeSearchRelationsRequest(value: unknown): ReadAiKnowledgeSearchRelationsRequest {
+  const normalizedValue = normalizeReadAiKnowledgeSearchRelationsRequestIntegerJson(value);
+  return requireValidResponse(normalizedValue, isReadAiKnowledgeSearchRelationsRequest(normalizedValue), 'read_ai_knowledge_search_relations_request') as ReadAiKnowledgeSearchRelationsRequest;
+}
+
+function isReadAiKnowledgeSearchRelationsRequest(value: unknown): value is ReadAiKnowledgeSearchRelationsRequest {
+  return isRecord(value) && (typeof value["anchorSequence"] === 'number' && Number.isSafeInteger(value["anchorSequence"])) && (typeof value["embeddingModelConfigId"] === 'string' && guidPattern.test(value["embeddingModelConfigId"])) && (typeof value["embeddingModelVersion"] === 'number' && Number.isSafeInteger(value["embeddingModelVersion"])) && (isAiKnowledgeSearchSource(value["source"]));
 }
 
 export function readReassignWorkflowInstanceRequest(value: unknown): ReassignWorkflowInstanceRequest {
@@ -5499,6 +7007,15 @@ function isRecoverWorkflowInstanceRequest(value: unknown): value is RecoverWorkf
   return isRecord(value) && (typeof value["expectedRevision"] === 'number' && Number.isSafeInteger(value["expectedRevision"])) && (typeof value["idempotencyKey"] === 'string') && (typeof value["reason"] === 'string');
 }
 
+export function readRefineAiKnowledgeSearchRequest(value: unknown): RefineAiKnowledgeSearchRequest {
+  const normalizedValue = normalizeRefineAiKnowledgeSearchRequestIntegerJson(value);
+  return requireValidResponse(normalizedValue, isRefineAiKnowledgeSearchRequest(normalizedValue), 'refine_ai_knowledge_search_request') as RefineAiKnowledgeSearchRequest;
+}
+
+function isRefineAiKnowledgeSearchRequest(value: unknown): value is RefineAiKnowledgeSearchRequest {
+  return isRecord(value) && (typeof value["embeddingModelConfigId"] === 'string' && guidPattern.test(value["embeddingModelConfigId"])) && (typeof value["includeDiagnostics"] === 'boolean') && (Array.isArray(value["knowledgeBaseIds"]) && value["knowledgeBaseIds"].every(item25 => typeof item25 === 'string' && guidPattern.test(item25))) && (typeof value["limit"] === 'number' && Number.isSafeInteger(value["limit"])) && (typeof value["mode"] === 'string') && (typeof value["processingModelConfigId"] === 'string' && guidPattern.test(value["processingModelConfigId"])) && (typeof value["processingModelVersion"] === 'number' && Number.isSafeInteger(value["processingModelVersion"])) && (typeof value["query"] === 'string') && (isAiKnowledgeSearchAnswerScope(value["searchScope"]));
+}
+
 export function readReleaseWorkflowTodoRequest(value: unknown): ReleaseWorkflowTodoRequest {
   const normalizedValue = normalizeReleaseWorkflowTodoRequestIntegerJson(value);
   return requireValidResponse(normalizedValue, isReleaseWorkflowTodoRequest(normalizedValue), 'release_workflow_todo_request') as ReleaseWorkflowTodoRequest;
@@ -5580,6 +7097,15 @@ function isReportingDefinitionSummaryResponse(value: unknown): value is Reportin
   return isRecord(value) && (typeof value["createdAtUtc"] === 'string') && (typeof value["dataSourceId"] === 'string' && guidPattern.test(value["dataSourceId"])) && (typeof value["definitionKey"] === 'string') && ((value["description"] === null) || (typeof value["description"] === 'string')) && (typeof value["groupId"] === 'string' && guidPattern.test(value["groupId"])) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["isEnabled"] === 'boolean') && (typeof value["latestPublishedVersionNumber"] === 'number' && Number.isSafeInteger(value["latestPublishedVersionNumber"])) && (typeof value["name"] === 'string') && (typeof value["queryPortKey"] === 'string') && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
 }
 
+export function readReportingDefinitionTenantGrantResponse(value: unknown): ReportingDefinitionTenantGrantResponse {
+  const normalizedValue = normalizeReportingDefinitionTenantGrantResponseIntegerJson(value);
+  return requireValidResponse(normalizedValue, isReportingDefinitionTenantGrantResponse(normalizedValue), 'reporting_definition_tenant_grant_response') as ReportingDefinitionTenantGrantResponse;
+}
+
+function isReportingDefinitionTenantGrantResponse(value: unknown): value is ReportingDefinitionTenantGrantResponse {
+  return isRecord(value) && (typeof value["createdAtUtc"] === 'string') && (typeof value["definitionId"] === 'string' && guidPattern.test(value["definitionId"])) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["isEnabled"] === 'boolean') && (typeof value["tenantId"] === 'string' && guidPattern.test(value["tenantId"])) && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+}
+
 export function readReportingDefinitionVersionResponse(value: unknown): ReportingDefinitionVersionResponse {
   const normalizedValue = normalizeReportingDefinitionVersionResponseIntegerJson(value);
   return requireValidResponse(normalizedValue, isReportingDefinitionVersionResponse(normalizedValue), 'reporting_definition_version_response') as ReportingDefinitionVersionResponse;
@@ -5637,7 +7163,7 @@ export function readReportingExportTaskDetailResponse(value: unknown): Reporting
 }
 
 function isReportingExportTaskDetailResponse(value: unknown): value is ReportingExportTaskDetailResponse {
-  return isRecord(value) && ((value["completedAtUtc"] === null) || (typeof value["completedAtUtc"] === 'string')) && (typeof value["createdAtUtc"] === 'string') && (typeof value["definitionId"] === 'string' && guidPattern.test(value["definitionId"])) && (typeof value["definitionKey"] === 'string') && (typeof value["definitionName"] === 'string') && ((value["errorCode"] === null) || (typeof value["errorCode"] === 'string')) && ((value["errorMessage"] === null) || (typeof value["errorMessage"] === 'string')) && (typeof value["formatKey"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && ((value["outputFileId"] === null) || (typeof value["outputFileId"] === 'string' && guidPattern.test(value["outputFileId"]))) && ((value["outputFileName"] === null) || (typeof value["outputFileName"] === 'string')) && (Array.isArray(value["parameters"]) && value["parameters"].every(item19 => isReportingExecutionParameterValue(item19))) && (typeof value["requestedByUserId"] === 'string' && guidPattern.test(value["requestedByUserId"])) && (typeof value["rowCount"] === 'number' && Number.isSafeInteger(value["rowCount"])) && (typeof value["statusKey"] === 'string') && (typeof value["versionNumber"] === 'number' && Number.isSafeInteger(value["versionNumber"]));
+  return isRecord(value) && ((value["completedAtUtc"] === null) || (typeof value["completedAtUtc"] === 'string')) && (typeof value["createdAtUtc"] === 'string') && (typeof value["definitionId"] === 'string' && guidPattern.test(value["definitionId"])) && (typeof value["definitionKey"] === 'string') && (typeof value["definitionName"] === 'string') && ((value["errorCode"] === null) || (typeof value["errorCode"] === 'string')) && ((value["errorMessage"] === null) || (typeof value["errorMessage"] === 'string')) && (typeof value["formatKey"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && ((value["outputFileId"] === null) || (typeof value["outputFileId"] === 'string' && guidPattern.test(value["outputFileId"]))) && ((value["outputFileName"] === null) || (typeof value["outputFileName"] === 'string')) && (Array.isArray(value["parameters"]) && value["parameters"].every(item19 => isReportingExecutionParameterValue(item19))) && (typeof value["requestedByUserId"] === 'string' && guidPattern.test(value["requestedByUserId"])) && (typeof value["rowCount"] === 'number' && Number.isSafeInteger(value["rowCount"])) && (typeof value["statusKey"] === 'string') && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"])) && (typeof value["versionNumber"] === 'number' && Number.isSafeInteger(value["versionNumber"]));
 }
 
 export function readReportingExportTaskResponse(value: unknown): ReportingExportTaskResponse {
@@ -5666,6 +7192,15 @@ function isReportingParameterSchemaEntry(value: unknown): value is ReportingPara
   return isRecord(value) && (typeof value["dataTypeKey"] === 'string') && ((value["defaultValue"] === null) || (typeof value["defaultValue"] === 'string')) && (typeof value["displayName"] === 'string') && (typeof value["isRequired"] === 'boolean') && (typeof value["parameterKey"] === 'string');
 }
 
+export function readReportingPublishedDefinitionResponse(value: unknown): ReportingPublishedDefinitionResponse {
+  const normalizedValue = normalizeReportingPublishedDefinitionResponseIntegerJson(value);
+  return requireValidResponse(normalizedValue, isReportingPublishedDefinitionResponse(normalizedValue), 'reporting_published_definition_response') as ReportingPublishedDefinitionResponse;
+}
+
+function isReportingPublishedDefinitionResponse(value: unknown): value is ReportingPublishedDefinitionResponse {
+  return isRecord(value) && (typeof value["definitionKey"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["name"] === 'string') && (Array.isArray(value["parameterSchema"]) && value["parameterSchema"].every(item24 => isReportingParameterSchemaEntry(item24))) && (typeof value["versionNumber"] === 'number' && Number.isSafeInteger(value["versionNumber"]));
+}
+
 export function readReportingQueryPortDefinition(value: unknown): ReportingQueryPortDefinition {
   const normalizedValue = normalizeReportingQueryPortDefinitionIntegerJson(value);
   return requireValidResponse(normalizedValue, isReportingQueryPortDefinition(normalizedValue), 'reporting_query_port_definition') as ReportingQueryPortDefinition;
@@ -5684,6 +7219,24 @@ function isReportingQueryPortParameterDefinition(value: unknown): value is Repor
   return isRecord(value) && (typeof value["dataTypeKey"] === 'string') && ((value["defaultValue"] === null) || (typeof value["defaultValue"] === 'string')) && (typeof value["displayName"] === 'string') && (typeof value["isRequired"] === 'boolean') && ((value["maximum"] === null) || (typeof value["maximum"] === 'number' && Number.isSafeInteger(value["maximum"]))) && ((value["minimum"] === null) || (typeof value["minimum"] === 'number' && Number.isSafeInteger(value["minimum"]))) && (typeof value["parameterKey"] === 'string');
 }
 
+export function readRequestAiKnowledgeFaqPublication(value: unknown): RequestAiKnowledgeFaqPublication {
+  const normalizedValue = normalizeRequestAiKnowledgeFaqPublicationIntegerJson(value);
+  return requireValidResponse(normalizedValue, isRequestAiKnowledgeFaqPublication(normalizedValue), 'request_ai_knowledge_faq_publication') as RequestAiKnowledgeFaqPublication;
+}
+
+function isRequestAiKnowledgeFaqPublication(value: unknown): value is RequestAiKnowledgeFaqPublication {
+  return isRecord(value) && (typeof value["effectiveFromUtc"] === 'string') && (typeof value["effectiveToUtc"] === 'string') && (typeof value["expectedHeadVersion"] === 'number' && Number.isSafeInteger(value["expectedHeadVersion"])) && (typeof value["expectedPublicationVersion"] === 'number' && Number.isSafeInteger(value["expectedPublicationVersion"])) && (typeof value["expectedRevisionId"] === 'string' && guidPattern.test(value["expectedRevisionId"])) && (typeof value["requestKey"] === 'string' && guidPattern.test(value["requestKey"])) && (typeof value["versionId"] === 'string' && guidPattern.test(value["versionId"]));
+}
+
+export function readRequestAiKnowledgePublication(value: unknown): RequestAiKnowledgePublication {
+  const normalizedValue = normalizeRequestAiKnowledgePublicationIntegerJson(value);
+  return requireValidResponse(normalizedValue, isRequestAiKnowledgePublication(normalizedValue), 'request_ai_knowledge_publication') as RequestAiKnowledgePublication;
+}
+
+function isRequestAiKnowledgePublication(value: unknown): value is RequestAiKnowledgePublication {
+  return isRecord(value) && (typeof value["effectiveFromUtc"] === 'string') && (typeof value["effectiveToUtc"] === 'string') && (typeof value["expectedHeadVersion"] === 'number' && Number.isSafeInteger(value["expectedHeadVersion"])) && (typeof value["requestKey"] === 'string' && guidPattern.test(value["requestKey"])) && (typeof value["versionId"] === 'string' && guidPattern.test(value["versionId"]));
+}
+
 export function readRequestWorkflowManualReminder(value: unknown): RequestWorkflowManualReminder {
   const normalizedValue = normalizeRequestWorkflowManualReminderIntegerJson(value);
   return requireValidResponse(normalizedValue, isRequestWorkflowManualReminder(normalizedValue), 'request_workflow_manual_reminder') as RequestWorkflowManualReminder;
@@ -5699,6 +7252,24 @@ export function readResetHostUserPasswordRequest(value: unknown): ResetHostUserP
 
 function isResetHostUserPasswordRequest(value: unknown): value is ResetHostUserPasswordRequest {
   return isRecord(value) && (typeof value["password"] === 'string');
+}
+
+export function readRestoreAiKnowledgeEvaluationSet(value: unknown): RestoreAiKnowledgeEvaluationSet {
+  const normalizedValue = normalizeRestoreAiKnowledgeEvaluationSetIntegerJson(value);
+  return requireValidResponse(normalizedValue, isRestoreAiKnowledgeEvaluationSet(normalizedValue), 'restore_ai_knowledge_evaluation_set') as RestoreAiKnowledgeEvaluationSet;
+}
+
+function isRestoreAiKnowledgeEvaluationSet(value: unknown): value is RestoreAiKnowledgeEvaluationSet {
+  return isRecord(value) && (typeof value["expectedRevisionId"] === 'string' && guidPattern.test(value["expectedRevisionId"])) && (typeof value["expectedVersion"] === 'number' && Number.isSafeInteger(value["expectedVersion"])) && (typeof value["requestKey"] === 'string' && guidPattern.test(value["requestKey"])) && (typeof value["revisionId"] === 'string' && guidPattern.test(value["revisionId"]));
+}
+
+export function readRestoreAiKnowledgeFaqDraft(value: unknown): RestoreAiKnowledgeFaqDraft {
+  const normalizedValue = normalizeRestoreAiKnowledgeFaqDraftIntegerJson(value);
+  return requireValidResponse(normalizedValue, isRestoreAiKnowledgeFaqDraft(normalizedValue), 'restore_ai_knowledge_faq_draft') as RestoreAiKnowledgeFaqDraft;
+}
+
+function isRestoreAiKnowledgeFaqDraft(value: unknown): value is RestoreAiKnowledgeFaqDraft {
+  return isRecord(value) && (typeof value["expectedHeadVersion"] === 'number' && Number.isSafeInteger(value["expectedHeadVersion"])) && (typeof value["expectedRevisionId"] === 'string' && guidPattern.test(value["expectedRevisionId"])) && (typeof value["requestKey"] === 'string' && guidPattern.test(value["requestKey"])) && (typeof value["revisionId"] === 'string' && guidPattern.test(value["revisionId"]));
 }
 
 export function readRestoreDiagnosticPolicyRequest(value: unknown): RestoreDiagnosticPolicyRequest {
@@ -5798,6 +7369,33 @@ function isReviewAiKnowledgeAnswerFeedbackRequest(value: unknown): value is Revi
   return isRecord(value) && (typeof value["decisionKey"] === 'string') && (typeof value["feedbackVersion"] === 'number' && Number.isSafeInteger(value["feedbackVersion"])) && (typeof value["reviewVersion"] === 'number' && Number.isSafeInteger(value["reviewVersion"]));
 }
 
+export function readReviewAiKnowledgeEvaluationResult(value: unknown): ReviewAiKnowledgeEvaluationResult {
+  const normalizedValue = normalizeReviewAiKnowledgeEvaluationResultIntegerJson(value);
+  return requireValidResponse(normalizedValue, isReviewAiKnowledgeEvaluationResult(normalizedValue), 'review_ai_knowledge_evaluation_result') as ReviewAiKnowledgeEvaluationResult;
+}
+
+function isReviewAiKnowledgeEvaluationResult(value: unknown): value is ReviewAiKnowledgeEvaluationResult {
+  return isRecord(value) && (typeof value["baselineSupportsReference"] === 'boolean') && (typeof value["candidateSupportsReference"] === 'boolean') && (typeof value["confirmHumanReview"] === 'boolean') && (typeof value["expectedVersion"] === 'number' && Number.isSafeInteger(value["expectedVersion"])) && (typeof value["requestKey"] === 'string' && guidPattern.test(value["requestKey"]));
+}
+
+export function readReviewAiKnowledgeEvaluationSet(value: unknown): ReviewAiKnowledgeEvaluationSet {
+  const normalizedValue = normalizeReviewAiKnowledgeEvaluationSetIntegerJson(value);
+  return requireValidResponse(normalizedValue, isReviewAiKnowledgeEvaluationSet(normalizedValue), 'review_ai_knowledge_evaluation_set') as ReviewAiKnowledgeEvaluationSet;
+}
+
+function isReviewAiKnowledgeEvaluationSet(value: unknown): value is ReviewAiKnowledgeEvaluationSet {
+  return isRecord(value) && (typeof value["confirmIndependentRedactionReview"] === 'boolean') && (typeof value["decision"] === 'string') && (typeof value["expectedRevisionId"] === 'string' && guidPattern.test(value["expectedRevisionId"])) && (typeof value["expectedVersion"] === 'number' && Number.isSafeInteger(value["expectedVersion"])) && (typeof value["requestKey"] === 'string' && guidPattern.test(value["requestKey"]));
+}
+
+export function readReviewAiKnowledgePublication(value: unknown): ReviewAiKnowledgePublication {
+  const normalizedValue = normalizeReviewAiKnowledgePublicationIntegerJson(value);
+  return requireValidResponse(normalizedValue, isReviewAiKnowledgePublication(normalizedValue), 'review_ai_knowledge_publication') as ReviewAiKnowledgePublication;
+}
+
+function isReviewAiKnowledgePublication(value: unknown): value is ReviewAiKnowledgePublication {
+  return isRecord(value) && (typeof value["approve"] === 'boolean') && (typeof value["snapshotHash"] === 'string') && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+}
+
 export function readRevokeAiAgentDelegationRequest(value: unknown): RevokeAiAgentDelegationRequest {
   const normalizedValue = normalizeRevokeAiAgentDelegationRequestIntegerJson(value);
   return requireValidResponse(normalizedValue, isRevokeAiAgentDelegationRequest(normalizedValue), 'revoke_ai_agent_delegation_request') as RevokeAiAgentDelegationRequest;
@@ -5842,6 +7440,15 @@ function isRevokeSuperAdministratorRequest(value: unknown): value is RevokeSuper
   return isRecord(value) && (typeof value["currentPassword"] === 'string') && (value["totpCode"] === undefined || ((value["totpCode"] === null) || (typeof value["totpCode"] === 'string')));
 }
 
+export function readRevokeWorkflowCollaborationGrantRequest(value: unknown): RevokeWorkflowCollaborationGrantRequest {
+  const normalizedValue = normalizeRevokeWorkflowCollaborationGrantRequestIntegerJson(value);
+  return requireValidResponse(normalizedValue, isRevokeWorkflowCollaborationGrantRequest(normalizedValue), 'revoke_workflow_collaboration_grant_request') as RevokeWorkflowCollaborationGrantRequest;
+}
+
+function isRevokeWorkflowCollaborationGrantRequest(value: unknown): value is RevokeWorkflowCollaborationGrantRequest {
+  return isRecord(value) && (typeof value["expectedRevision"] === 'number' && Number.isSafeInteger(value["expectedRevision"])) && (typeof value["idempotencyKey"] === 'string') && (typeof value["reason"] === 'string');
+}
+
 export function readRollbackHostDocumentVersionRequest(value: unknown): RollbackHostDocumentVersionRequest {
   const normalizedValue = normalizeRollbackHostDocumentVersionRequestIntegerJson(value);
   return requireValidResponse(normalizedValue, isRollbackHostDocumentVersionRequest(normalizedValue), 'rollback_host_document_version_request') as RollbackHostDocumentVersionRequest;
@@ -5860,6 +7467,51 @@ function isRollbackOperationResponse(value: unknown): value is RollbackOperation
   return isRecord(value) && (typeof value["createdAtUtc"] === 'string') && (typeof value["eventType"] === 'string') && (typeof value["generation"] === 'string' && guidPattern.test(value["generation"])) && (isEventDeliveryRollbackPhase(value["phase"])) && (typeof value["schemaVersion"] === 'number' && Number.isSafeInteger(value["schemaVersion"])) && (typeof value["updatedAtUtc"] === 'string');
 }
 
+export function readSaveAiKnowledgeEvaluationSet(value: unknown): SaveAiKnowledgeEvaluationSet {
+  const normalizedValue = normalizeSaveAiKnowledgeEvaluationSetIntegerJson(value);
+  return requireValidResponse(normalizedValue, isSaveAiKnowledgeEvaluationSet(normalizedValue), 'save_ai_knowledge_evaluation_set') as SaveAiKnowledgeEvaluationSet;
+}
+
+function isSaveAiKnowledgeEvaluationSet(value: unknown): value is SaveAiKnowledgeEvaluationSet {
+  return isRecord(value) && (Array.isArray(value["cases"]) && value["cases"].every(item14 => isAiKnowledgeEvaluationCaseInput(item14))) && (typeof value["confirmManualRedaction"] === 'boolean') && ((value["expectedRevisionId"] === null) || (typeof value["expectedRevisionId"] === 'string' && guidPattern.test(value["expectedRevisionId"]))) && (typeof value["expectedVersion"] === 'number' && Number.isSafeInteger(value["expectedVersion"])) && (typeof value["freeze"] === 'boolean') && (typeof value["name"] === 'string') && (typeof value["requestKey"] === 'string' && guidPattern.test(value["requestKey"]));
+}
+
+export function readSaveAiKnowledgeFaqDraft(value: unknown): SaveAiKnowledgeFaqDraft {
+  const normalizedValue = normalizeSaveAiKnowledgeFaqDraftIntegerJson(value);
+  return requireValidResponse(normalizedValue, isSaveAiKnowledgeFaqDraft(normalizedValue), 'save_ai_knowledge_faq_draft') as SaveAiKnowledgeFaqDraft;
+}
+
+function isSaveAiKnowledgeFaqDraft(value: unknown): value is SaveAiKnowledgeFaqDraft {
+  return isRecord(value) && (isAiKnowledgeFaqContent(value["content"])) && (typeof value["expectedHeadVersion"] === 'number' && Number.isSafeInteger(value["expectedHeadVersion"])) && (typeof value["expectedRevisionId"] === 'string' && guidPattern.test(value["expectedRevisionId"])) && (typeof value["requestKey"] === 'string' && guidPattern.test(value["requestKey"]));
+}
+
+export function readSaveAiKnowledgeFolder(value: unknown): SaveAiKnowledgeFolder {
+  const normalizedValue = normalizeSaveAiKnowledgeFolderIntegerJson(value);
+  return requireValidResponse(normalizedValue, isSaveAiKnowledgeFolder(normalizedValue), 'save_ai_knowledge_folder') as SaveAiKnowledgeFolder;
+}
+
+function isSaveAiKnowledgeFolder(value: unknown): value is SaveAiKnowledgeFolder {
+  return isRecord(value) && (typeof value["name"] === 'string') && ((value["parentId"] === null) || (typeof value["parentId"] === 'string' && guidPattern.test(value["parentId"]))) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+}
+
+export function readSaveImportProfileRequest(value: unknown): SaveImportProfileRequest {
+  const normalizedValue = normalizeSaveImportProfileRequestIntegerJson(value);
+  return requireValidResponse(normalizedValue, isSaveImportProfileRequest(normalizedValue), 'save_import_profile_request') as SaveImportProfileRequest;
+}
+
+function isSaveImportProfileRequest(value: unknown): value is SaveImportProfileRequest {
+  return isRecord(value) && (isImportColumnMappingRequest(value["configuration"])) && (typeof value["name"] === 'string') && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+}
+
+export function readSaveQuerySchemeRequest(value: unknown): SaveQuerySchemeRequest {
+  const normalizedValue = normalizeSaveQuerySchemeRequestIntegerJson(value);
+  return requireValidResponse(normalizedValue, isSaveQuerySchemeRequest(normalizedValue), 'save_query_scheme_request') as SaveQuerySchemeRequest;
+}
+
+function isSaveQuerySchemeRequest(value: unknown): value is SaveQuerySchemeRequest {
+  return isRecord(value) && (isQuerySchemeConfiguration(value["configuration"])) && (typeof value["name"] === 'string') && (typeof value["schemaVersion"] === 'number' && Number.isSafeInteger(value["schemaVersion"])) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+}
+
 export function readSaveWorkflowDesignerAssetRequest(value: unknown): SaveWorkflowDesignerAssetRequest {
   const normalizedValue = normalizeSaveWorkflowDesignerAssetRequestIntegerJson(value);
   return requireValidResponse(normalizedValue, isSaveWorkflowDesignerAssetRequest(normalizedValue), 'save_workflow_designer_asset_request') as SaveWorkflowDesignerAssetRequest;
@@ -5867,6 +7519,15 @@ export function readSaveWorkflowDesignerAssetRequest(value: unknown): SaveWorkfl
 
 function isSaveWorkflowDesignerAssetRequest(value: unknown): value is SaveWorkflowDesignerAssetRequest {
   return isRecord(value) && (isJsonElement(value["designerJson"])) && (typeof value["expectedRevision"] === 'number' && Number.isSafeInteger(value["expectedRevision"])) && (typeof value["formatVersion"] === 'number' && Number.isSafeInteger(value["formatVersion"])) && (typeof value["sourceCommit"] === 'string');
+}
+
+export function readSearchAiKnowledgeRequest(value: unknown): SearchAiKnowledgeRequest {
+  const normalizedValue = normalizeSearchAiKnowledgeRequestIntegerJson(value);
+  return requireValidResponse(normalizedValue, isSearchAiKnowledgeRequest(normalizedValue), 'search_ai_knowledge_request') as SearchAiKnowledgeRequest;
+}
+
+function isSearchAiKnowledgeRequest(value: unknown): value is SearchAiKnowledgeRequest {
+  return isRecord(value) && (Array.isArray(value["documentIds"]) && value["documentIds"].every(item20 => typeof item20 === 'string' && guidPattern.test(item20))) && (typeof value["embeddingModelConfigId"] === 'string' && guidPattern.test(value["embeddingModelConfigId"])) && (typeof value["embeddingModelVersion"] === 'number' && Number.isSafeInteger(value["embeddingModelVersion"])) && ((value["expectedSources"] === null) || (Array.isArray(value["expectedSources"]) && value["expectedSources"].every(item24 => isAiKnowledgeSearchSource(item24)))) && (typeof value["includeDiagnostics"] === 'boolean') && (Array.isArray(value["knowledgeBaseIds"]) && value["knowledgeBaseIds"].every(item25 => typeof item25 === 'string' && guidPattern.test(item25))) && (typeof value["limit"] === 'number' && Number.isSafeInteger(value["limit"])) && (typeof value["query"] === 'string');
 }
 
 export function readSelectAiPromptVersionRequest(value: unknown): SelectAiPromptVersionRequest {
@@ -6015,6 +7676,24 @@ function isSetAiKnowledgeAnswerFeedbackRequest(value: unknown): value is SetAiKn
   return isRecord(value) && (Array.isArray(value["citationIds"]) && value["citationIds"].every(item20 => typeof item20 === 'string' && guidPattern.test(item20))) && (typeof value["ratingKey"] === 'string') && (typeof value["reasonKey"] === 'string') && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
 }
 
+export function readSetAiKnowledgeDirectoryBatch(value: unknown): SetAiKnowledgeDirectoryBatch {
+  const normalizedValue = normalizeSetAiKnowledgeDirectoryBatchIntegerJson(value);
+  return requireValidResponse(normalizedValue, isSetAiKnowledgeDirectoryBatch(normalizedValue), 'set_ai_knowledge_directory_batch') as SetAiKnowledgeDirectoryBatch;
+}
+
+function isSetAiKnowledgeDirectoryBatch(value: unknown): value is SetAiKnowledgeDirectoryBatch {
+  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isSetAiKnowledgeDirectoryItem(item14)));
+}
+
+export function readSetAiKnowledgeDirectoryItem(value: unknown): SetAiKnowledgeDirectoryItem {
+  const normalizedValue = normalizeSetAiKnowledgeDirectoryItemIntegerJson(value);
+  return requireValidResponse(normalizedValue, isSetAiKnowledgeDirectoryItem(normalizedValue), 'set_ai_knowledge_directory_item') as SetAiKnowledgeDirectoryItem;
+}
+
+function isSetAiKnowledgeDirectoryItem(value: unknown): value is SetAiKnowledgeDirectoryItem {
+  return isRecord(value) && (typeof value["documentId"] === 'string' && guidPattern.test(value["documentId"])) && ((value["folderId"] === null) || (typeof value["folderId"] === 'string' && guidPattern.test(value["folderId"]))) && (typeof value["requestKey"] === 'string' && guidPattern.test(value["requestKey"])) && ((value["responsibleUserId"] === null) || (typeof value["responsibleUserId"] === 'string' && guidPattern.test(value["responsibleUserId"]))) && (Array.isArray(value["tags"]) && value["tags"].every(item13 => typeof item13 === 'string')) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+}
+
 export function readSetAiKnowledgeDocumentMembersRequest(value: unknown): SetAiKnowledgeDocumentMembersRequest {
   const normalizedValue = normalizeSetAiKnowledgeDocumentMembersRequestIntegerJson(value);
   return requireValidResponse(normalizedValue, isSetAiKnowledgeDocumentMembersRequest(normalizedValue), 'set_ai_knowledge_document_members_request') as SetAiKnowledgeDocumentMembersRequest;
@@ -6051,12 +7730,22 @@ function isSetAiKnowledgeRoleGrantsRequest(value: unknown): value is SetAiKnowle
   return isRecord(value) && (Array.isArray(value["roleIds"]) && value["roleIds"].every(item16 => typeof item16 === 'string' && guidPattern.test(item16))) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
 }
 
+export function readSetDefaultQuerySchemeRequest(value: unknown): SetDefaultQuerySchemeRequest {
+  const normalizedValue = normalizeSetDefaultQuerySchemeRequestIntegerJson(value);
+  return requireValidResponse(normalizedValue, isSetDefaultQuerySchemeRequest(normalizedValue), 'set_default_query_scheme_request') as SetDefaultQuerySchemeRequest;
+}
+
+function isSetDefaultQuerySchemeRequest(value: unknown): value is SetDefaultQuerySchemeRequest {
+  return isRecord(value) && ((value["schemeId"] === null) || (typeof value["schemeId"] === 'string' && guidPattern.test(value["schemeId"]))) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+}
+
 export function readSetHostDocumentPermissionsRequest(value: unknown): SetHostDocumentPermissionsRequest {
-  return requireValidResponse(value, isSetHostDocumentPermissionsRequest(value), 'set_host_document_permissions_request') as SetHostDocumentPermissionsRequest;
+  const normalizedValue = normalizeSetHostDocumentPermissionsRequestIntegerJson(value);
+  return requireValidResponse(normalizedValue, isSetHostDocumentPermissionsRequest(normalizedValue), 'set_host_document_permissions_request') as SetHostDocumentPermissionsRequest;
 }
 
 function isSetHostDocumentPermissionsRequest(value: unknown): value is SetHostDocumentPermissionsRequest {
-  return isRecord(value) && (typeof value["documentId"] === 'string' && guidPattern.test(value["documentId"])) && (Array.isArray(value["permissions"]) && value["permissions"].every(item20 => isHostDocumentPermissionEntry(item20)));
+  return isRecord(value) && (typeof value["documentId"] === 'string' && guidPattern.test(value["documentId"])) && (Array.isArray(value["permissions"]) && value["permissions"].every(item20 => isHostDocumentPermissionEntry(item20))) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"])) && (typeof value["visibilityMode"] === 'string');
 }
 
 export function readSetNotificationProducerSceneEnabledRequest(value: unknown): SetNotificationProducerSceneEnabledRequest {
@@ -6113,6 +7802,15 @@ function isSetPersonalScheduleStatusRequest(value: unknown): value is SetPersona
   return isRecord(value) && (typeof value["status"] === 'string') && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
 }
 
+export function readSetReportingDefinitionTenantGrantRequest(value: unknown): SetReportingDefinitionTenantGrantRequest {
+  const normalizedValue = normalizeSetReportingDefinitionTenantGrantRequestIntegerJson(value);
+  return requireValidResponse(normalizedValue, isSetReportingDefinitionTenantGrantRequest(normalizedValue), 'set_reporting_definition_tenant_grant_request') as SetReportingDefinitionTenantGrantRequest;
+}
+
+function isSetReportingDefinitionTenantGrantRequest(value: unknown): value is SetReportingDefinitionTenantGrantRequest {
+  return isRecord(value) && (typeof value["expectedVersion"] === 'number' && Number.isSafeInteger(value["expectedVersion"])) && (typeof value["isEnabled"] === 'boolean');
+}
+
 export function readSetWorkflowDefinitionStatusRequest(value: unknown): SetWorkflowDefinitionStatusRequest {
   const normalizedValue = normalizeSetWorkflowDefinitionStatusRequestIntegerJson(value);
   return requireValidResponse(normalizedValue, isSetWorkflowDefinitionStatusRequest(normalizedValue), 'set_workflow_definition_status_request') as SetWorkflowDefinitionStatusRequest;
@@ -6147,6 +7845,24 @@ export function readShadowCaptureResponse(value: unknown): ShadowCaptureResponse
 
 function isShadowCaptureResponse(value: unknown): value is ShadowCaptureResponse {
   return isRecord(value) && (typeof value["capturedBytes"] === 'number' && Number.isSafeInteger(value["capturedBytes"])) && (typeof value["capturedCount"] === 'number' && Number.isSafeInteger(value["capturedCount"])) && ((value["closedAtUtc"] === null) || (typeof value["closedAtUtc"] === 'string')) && ((value["endReason"] === null) || (typeof value["endReason"] === 'string')) && (typeof value["eventType"] === 'string') && (typeof value["expiresAtUtc"] === 'string') && (typeof value["generation"] === 'string' && guidPattern.test(value["generation"])) && (typeof value["maxEvents"] === 'number' && Number.isSafeInteger(value["maxEvents"])) && (typeof value["maxPayloadBytes"] === 'number' && Number.isSafeInteger(value["maxPayloadBytes"])) && (typeof value["missingMetadataCount"] === 'number' && Number.isSafeInteger(value["missingMetadataCount"])) && (typeof value["schemaVersion"] === 'number' && Number.isSafeInteger(value["schemaVersion"])) && (typeof value["startedAtUtc"] === 'string') && (typeof value["state"] === 'string');
+}
+
+export function readShareQuerySchemeRequest(value: unknown): ShareQuerySchemeRequest {
+  const normalizedValue = normalizeShareQuerySchemeRequestIntegerJson(value);
+  return requireValidResponse(normalizedValue, isShareQuerySchemeRequest(normalizedValue), 'share_query_scheme_request') as ShareQuerySchemeRequest;
+}
+
+function isShareQuerySchemeRequest(value: unknown): value is ShareQuerySchemeRequest {
+  return isRecord(value) && (typeof value["isShared"] === 'boolean') && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+}
+
+export function readSimulateWorkflowDefinitionRequest(value: unknown): SimulateWorkflowDefinitionRequest {
+  const normalizedValue = normalizeSimulateWorkflowDefinitionRequestIntegerJson(value);
+  return requireValidResponse(normalizedValue, isSimulateWorkflowDefinitionRequest(normalizedValue), 'simulate_workflow_definition_request') as SimulateWorkflowDefinitionRequest;
+}
+
+function isSimulateWorkflowDefinitionRequest(value: unknown): value is SimulateWorkflowDefinitionRequest {
+  return isRecord(value) && (value["assigneeSelections"] === undefined || ((value["assigneeSelections"] === null) || (isRecord(value["assigneeSelections"])))) && (typeof value["expectedRevision"] === 'number' && Number.isSafeInteger(value["expectedRevision"])) && (typeof value["formVersionId"] === 'string' && guidPattern.test(value["formVersionId"])) && (isJsonElement(value["values"]));
 }
 
 export function readStartShadowCaptureRequest(value: unknown): StartShadowCaptureRequest {
@@ -6225,6 +7941,24 @@ function isSubmitSerialRuleUpdateApprovalRequest(value: unknown): value is Submi
   return isRecord(value) && (typeof value["idempotencyKey"] === 'string') && (isUpdateSerialNumberRuleRequest(value["update"]));
 }
 
+export function readSubscriptionCheckoutResponse(value: unknown): SubscriptionCheckoutResponse {
+  const normalizedValue = normalizeSubscriptionCheckoutResponseIntegerJson(value);
+  return requireValidResponse(normalizedValue, isSubscriptionCheckoutResponse(normalizedValue), 'subscription_checkout_response') as SubscriptionCheckoutResponse;
+}
+
+function isSubscriptionCheckoutResponse(value: unknown): value is SubscriptionCheckoutResponse {
+  return isRecord(value) && ((value["errorCode"] === null) || (typeof value["errorCode"] === 'string')) && (typeof value["fulfillmentStateKey"] === 'string') && (isPaymentOrderResponse(value["order"])) && (typeof value["subscriptionId"] === 'string' && guidPattern.test(value["subscriptionId"]));
+}
+
+export function readSubscriptionFulfillmentStatusResponse(value: unknown): SubscriptionFulfillmentStatusResponse {
+  const normalizedValue = normalizeSubscriptionFulfillmentStatusResponseIntegerJson(value);
+  return requireValidResponse(normalizedValue, isSubscriptionFulfillmentStatusResponse(normalizedValue), 'subscription_fulfillment_status_response') as SubscriptionFulfillmentStatusResponse;
+}
+
+function isSubscriptionFulfillmentStatusResponse(value: unknown): value is SubscriptionFulfillmentStatusResponse {
+  return isRecord(value) && (typeof value["attempt"] === 'number' && Number.isSafeInteger(value["attempt"])) && (typeof value["beneficiaryTenantId"] === 'string' && guidPattern.test(value["beneficiaryTenantId"])) && ((value["errorCode"] === null) || (typeof value["errorCode"] === 'string')) && ((value["paymentOrderId"] === null) || (typeof value["paymentOrderId"] === 'string' && guidPattern.test(value["paymentOrderId"]))) && (typeof value["stateKey"] === 'string') && (typeof value["subscriptionId"] === 'string' && guidPattern.test(value["subscriptionId"])) && (typeof value["updatedAtUtc"] === 'string');
+}
+
 export function readSuperAdministratorAuditResponse(value: unknown): SuperAdministratorAuditResponse {
   return requireValidResponse(value, isSuperAdministratorAuditResponse(value), 'super_administrator_audit_response') as SuperAdministratorAuditResponse;
 }
@@ -6258,6 +7992,24 @@ function isTenantBrandingResponse(value: unknown): value is TenantBrandingRespon
   return isRecord(value) && ((value["contactAddress"] === null) || (typeof value["contactAddress"] === 'string')) && ((value["contactEmail"] === null) || (typeof value["contactEmail"] === 'string')) && ((value["contactPhone"] === null) || (typeof value["contactPhone"] === 'string')) && ((value["copyright"] === null) || (typeof value["copyright"] === 'string')) && ((value["logoFileId"] === null) || (typeof value["logoFileId"] === 'string' && guidPattern.test(value["logoFileId"]))) && ((value["systemTitle"] === null) || (typeof value["systemTitle"] === 'string')) && (typeof value["tenantId"] === 'string' && guidPattern.test(value["tenantId"])) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
 }
 
+export function readTenantEntitlementCatalogResponse(value: unknown): TenantEntitlementCatalogResponse {
+  const normalizedValue = normalizeTenantEntitlementCatalogResponseIntegerJson(value);
+  return requireValidResponse(normalizedValue, isTenantEntitlementCatalogResponse(normalizedValue), 'tenant_entitlement_catalog_response') as TenantEntitlementCatalogResponse;
+}
+
+function isTenantEntitlementCatalogResponse(value: unknown): value is TenantEntitlementCatalogResponse {
+  return isRecord(value) && (typeof value["code"] === 'string') && ((value["description"] === null) || (typeof value["description"] === 'string')) && (typeof value["entitlementType"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["isActive"] === 'boolean') && (typeof value["name"] === 'string') && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+}
+
+export function readTenantPackageOfferResponse(value: unknown): TenantPackageOfferResponse {
+  const normalizedValue = normalizeTenantPackageOfferResponseIntegerJson(value);
+  return requireValidResponse(normalizedValue, isTenantPackageOfferResponse(normalizedValue), 'tenant_package_offer_response') as TenantPackageOfferResponse;
+}
+
+function isTenantPackageOfferResponse(value: unknown): value is TenantPackageOfferResponse {
+  return isRecord(value) && (typeof value["amountMinor"] === 'number' && Number.isSafeInteger(value["amountMinor"])) && (typeof value["currency"] === 'string') && (typeof value["durationDays"] === 'number' && Number.isSafeInteger(value["durationDays"])) && (Array.isArray(value["entitlementIds"]) && value["entitlementIds"].every(item23 => typeof item23 === 'string' && guidPattern.test(item23))) && (typeof value["isActive"] === 'boolean') && (typeof value["merchantConfigId"] === 'string' && guidPattern.test(value["merchantConfigId"])) && (typeof value["packageId"] === 'string' && guidPattern.test(value["packageId"])) && (typeof value["paymentTenantId"] === 'string' && guidPattern.test(value["paymentTenantId"])) && (typeof value["seatLimit"] === 'number' && Number.isSafeInteger(value["seatLimit"])) && (typeof value["storageLimit"] === 'number' && Number.isSafeInteger(value["storageLimit"])) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+}
+
 export function readTenantPackageSummary(value: unknown): TenantPackageSummary {
   const normalizedValue = normalizeTenantPackageSummaryIntegerJson(value);
   return requireValidResponse(normalizedValue, isTenantPackageSummary(normalizedValue), 'tenant_package_summary') as TenantPackageSummary;
@@ -6273,6 +8025,15 @@ export function readTenantRuntimeBrandingResponse(value: unknown): TenantRuntime
 
 function isTenantRuntimeBrandingResponse(value: unknown): value is TenantRuntimeBrandingResponse {
   return isRecord(value) && ((value["contactAddress"] === null) || (typeof value["contactAddress"] === 'string')) && ((value["contactEmail"] === null) || (typeof value["contactEmail"] === 'string')) && ((value["contactPhone"] === null) || (typeof value["contactPhone"] === 'string')) && ((value["copyright"] === null) || (typeof value["copyright"] === 'string')) && (typeof value["hasLogo"] === 'boolean') && ((value["systemTitle"] === null) || (typeof value["systemTitle"] === 'string'));
+}
+
+export function readTenantSubscriptionPaymentTerms(value: unknown): TenantSubscriptionPaymentTerms {
+  const normalizedValue = normalizeTenantSubscriptionPaymentTermsIntegerJson(value);
+  return requireValidResponse(normalizedValue, isTenantSubscriptionPaymentTerms(normalizedValue), 'tenant_subscription_payment_terms') as TenantSubscriptionPaymentTerms;
+}
+
+function isTenantSubscriptionPaymentTerms(value: unknown): value is TenantSubscriptionPaymentTerms {
+  return isRecord(value) && (typeof value["amountMinor"] === 'number' && Number.isSafeInteger(value["amountMinor"])) && (typeof value["currency"] === 'string') && (typeof value["effectiveFromUtc"] === 'string') && (typeof value["effectiveToUtc"] === 'string') && (typeof value["merchantConfigId"] === 'string' && guidPattern.test(value["merchantConfigId"])) && (typeof value["offerVersion"] === 'number' && Number.isSafeInteger(value["offerVersion"])) && (typeof value["packageId"] === 'string' && guidPattern.test(value["packageId"])) && (typeof value["paymentOperationId"] === 'string' && guidPattern.test(value["paymentOperationId"])) && (typeof value["paymentTenantId"] === 'string' && guidPattern.test(value["paymentTenantId"])) && (typeof value["subject"] === 'string') && (typeof value["subscriptionId"] === 'string' && guidPattern.test(value["subscriptionId"])) && (typeof value["tenantId"] === 'string' && guidPattern.test(value["tenantId"]));
 }
 
 export function readTenantSummary(value: unknown): TenantSummary {
@@ -6485,12 +8246,11 @@ function isUpdateDictTypeRequest(value: unknown): value is UpdateDictTypeRequest
 }
 
 export function readUpdateEnterpriseRequestRequest(value: unknown): UpdateEnterpriseRequestRequest {
-  const normalizedValue = normalizeUpdateEnterpriseRequestRequestIntegerJson(value);
-  return requireValidResponse(normalizedValue, isUpdateEnterpriseRequestRequest(normalizedValue), 'update_enterprise_request_request') as UpdateEnterpriseRequestRequest;
+  return requireValidResponse(value, isUpdateEnterpriseRequestRequest(value), 'update_enterprise_request_request') as UpdateEnterpriseRequestRequest;
 }
 
 function isUpdateEnterpriseRequestRequest(value: unknown): value is UpdateEnterpriseRequestRequest {
-  return isRecord(value) && (typeof value["applicantUserId"] === 'string' && guidPattern.test(value["applicantUserId"])) && (typeof value["requestNumber"] === 'string') && (typeof value["status"] === 'string') && (typeof value["title"] === 'string') && ((typeof value["totalAmount"] === 'number' && Number.isFinite(value["totalAmount"])) || (typeof value["totalAmount"] === 'string' && new RegExp("^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$").test(value["totalAmount"]) && Number.isFinite(Number(value["totalAmount"])))) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+  return isRecord(value) && (typeof value["applicantUserId"] === 'string' && guidPattern.test(value["applicantUserId"])) && (typeof value["requestNumber"] === 'string') && (typeof value["status"] === 'string') && (typeof value["title"] === 'string') && (typeof value["totalAmount"] === 'string') && (typeof value["version"] === 'string');
 }
 
 export function readUpdateGoViewProjectRequest(value: unknown): UpdateGoViewProjectRequest {
@@ -6526,7 +8286,7 @@ export function readUpdateHostDocumentItemRequest(value: unknown): UpdateHostDoc
 }
 
 function isUpdateHostDocumentItemRequest(value: unknown): value is UpdateHostDocumentItemRequest {
-  return isRecord(value) && ((value["categoryId"] === null) || (typeof value["categoryId"] === 'string' && guidPattern.test(value["categoryId"]))) && ((value["description"] === null) || (typeof value["description"] === 'string')) && ((value["sort"] === null) || (typeof value["sort"] === 'number' && Number.isSafeInteger(value["sort"]))) && ((value["status"] === null) || (isHostDocumentStatus(value["status"]))) && ((value["tagIds"] === null) || (Array.isArray(value["tagIds"]) && value["tagIds"].every(item15 => typeof item15 === 'string' && guidPattern.test(item15)))) && ((value["thumbnail"] === null) || (typeof value["thumbnail"] === 'string')) && (typeof value["title"] === 'string') && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+  return isRecord(value) && ((value["categoryId"] === null) || (typeof value["categoryId"] === 'string' && guidPattern.test(value["categoryId"]))) && ((value["description"] === null) || (typeof value["description"] === 'string')) && (typeof value["sort"] === 'number' && Number.isSafeInteger(value["sort"])) && (Array.isArray(value["tagIds"]) && value["tagIds"].every(item15 => typeof item15 === 'string' && guidPattern.test(item15))) && ((value["thumbnail"] === null) || (typeof value["thumbnail"] === 'string')) && (typeof value["title"] === 'string') && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
 }
 
 export function readUpdateHostDocumentShareStatusRequest(value: unknown): UpdateHostDocumentShareStatusRequest {
@@ -6888,6 +8648,15 @@ function isUpdateWorkflowWorkCalendarRequest(value: unknown): value is UpdateWor
   return isRecord(value) && (typeof value["displayName"] === 'string') && (isWorkflowWorkCalendarDraft(value["draft"])) && (typeof value["expectedRevision"] === 'number' && Number.isSafeInteger(value["expectedRevision"]));
 }
 
+export function readUpsertTenantPackageOfferRequest(value: unknown): UpsertTenantPackageOfferRequest {
+  const normalizedValue = normalizeUpsertTenantPackageOfferRequestIntegerJson(value);
+  return requireValidResponse(normalizedValue, isUpsertTenantPackageOfferRequest(normalizedValue), 'upsert_tenant_package_offer_request') as UpsertTenantPackageOfferRequest;
+}
+
+function isUpsertTenantPackageOfferRequest(value: unknown): value is UpsertTenantPackageOfferRequest {
+  return isRecord(value) && (typeof value["amountMinor"] === 'number' && Number.isSafeInteger(value["amountMinor"])) && (typeof value["currency"] === 'string') && (typeof value["durationDays"] === 'number' && Number.isSafeInteger(value["durationDays"])) && (Array.isArray(value["entitlementIds"]) && value["entitlementIds"].every(item23 => typeof item23 === 'string' && guidPattern.test(item23))) && (typeof value["isActive"] === 'boolean') && (typeof value["merchantConfigId"] === 'string' && guidPattern.test(value["merchantConfigId"])) && (typeof value["paymentTenantId"] === 'string' && guidPattern.test(value["paymentTenantId"])) && (typeof value["seatLimit"] === 'number' && Number.isSafeInteger(value["seatLimit"])) && (typeof value["storageLimit"] === 'number' && Number.isSafeInteger(value["storageLimit"])) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+}
+
 export function readVerifyCutoverRequest(value: unknown): VerifyCutoverRequest {
   const normalizedValue = normalizeVerifyCutoverRequestIntegerJson(value);
   return requireValidResponse(normalizedValue, isVerifyCutoverRequest(normalizedValue), 'verify_cutover_request') as VerifyCutoverRequest;
@@ -6912,6 +8681,15 @@ export function readVoteWorkflowTodoRequest(value: unknown): VoteWorkflowTodoReq
 
 function isVoteWorkflowTodoRequest(value: unknown): value is VoteWorkflowTodoRequest {
   return isRecord(value) && (typeof value["choiceKey"] === 'string') && ((value["comment"] === null) || (typeof value["comment"] === 'string')) && (typeof value["expectedBallotRevision"] === 'number' && Number.isSafeInteger(value["expectedBallotRevision"])) && (typeof value["expectedRevision"] === 'number' && Number.isSafeInteger(value["expectedRevision"])) && (typeof value["idempotencyKey"] === 'string') && (value["signatureFileId"] === undefined || ((value["signatureFileId"] === null) || (typeof value["signatureFileId"] === 'string' && guidPattern.test(value["signatureFileId"])))) && (isJsonElement(value["values"]));
+}
+
+export function readWithdrawAiKnowledgePublication(value: unknown): WithdrawAiKnowledgePublication {
+  const normalizedValue = normalizeWithdrawAiKnowledgePublicationIntegerJson(value);
+  return requireValidResponse(normalizedValue, isWithdrawAiKnowledgePublication(normalizedValue), 'withdraw_ai_knowledge_publication') as WithdrawAiKnowledgePublication;
+}
+
+function isWithdrawAiKnowledgePublication(value: unknown): value is WithdrawAiKnowledgePublication {
+  return isRecord(value) && (typeof value["expectedHeadVersion"] === 'number' && Number.isSafeInteger(value["expectedHeadVersion"])) && (typeof value["publicationId"] === 'string' && guidPattern.test(value["publicationId"]));
 }
 
 export function readWithdrawWorkflowInstanceRequest(value: unknown): WithdrawWorkflowInstanceRequest {
@@ -6999,6 +8777,15 @@ export function readWorkflowClaimProgressResponse(value: unknown): WorkflowClaim
 
 function isWorkflowClaimProgressResponse(value: unknown): value is WorkflowClaimProgressResponse {
   return isRecord(value) && (typeof value["allowRelease"] === 'boolean') && (typeof value["claimCycle"] === 'number' && Number.isSafeInteger(value["claimCycle"])) && (typeof value["poolRevision"] === 'number' && Number.isSafeInteger(value["poolRevision"])) && (typeof value["poolStatusKey"] === 'string');
+}
+
+export function readWorkflowCollaborationGrantResponse(value: unknown): WorkflowCollaborationGrantResponse {
+  const normalizedValue = normalizeWorkflowCollaborationGrantResponseIntegerJson(value);
+  return requireValidResponse(normalizedValue, isWorkflowCollaborationGrantResponse(normalizedValue), 'workflow_collaboration_grant_response') as WorkflowCollaborationGrantResponse;
+}
+
+function isWorkflowCollaborationGrantResponse(value: unknown): value is WorkflowCollaborationGrantResponse {
+  return isRecord(value) && ((value["acceptance"] === null) || (isJsonElement(value["acceptance"]))) && ((value["acceptedAtUtc"] === null) || (typeof value["acceptedAtUtc"] === 'string')) && (typeof value["createdAtUtc"] === 'string') && (typeof value["expiresAtUtc"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (isJsonElement(value["offer"])) && ((value["policyHash"] === null) || (typeof value["policyHash"] === 'string')) && (typeof value["revision"] === 'number' && Number.isSafeInteger(value["revision"])) && ((value["revokedAtUtc"] === null) || (typeof value["revokedAtUtc"] === 'string')) && ((value["revokedById"] === null) || (typeof value["revokedById"] === 'string' && guidPattern.test(value["revokedById"]))) && ((value["revokedByScopeKey"] === null) || (typeof value["revokedByScopeKey"] === 'string')) && (typeof value["sourceActorId"] === 'string' && guidPattern.test(value["sourceActorId"])) && (typeof value["sourceTenantScopeKey"] === 'string') && (typeof value["statusKey"] === 'string') && ((value["targetActorId"] === null) || (typeof value["targetActorId"] === 'string' && guidPattern.test(value["targetActorId"]))) && ((value["targetSummary"] === null) || (isJsonElement(value["targetSummary"]))) && (typeof value["targetTenantScopeKey"] === 'string');
 }
 
 export function readWorkflowConnectorAttemptResponse(value: unknown): WorkflowConnectorAttemptResponse {
@@ -7105,6 +8892,15 @@ export function readWorkflowExecutionLogResponse(value: unknown): WorkflowExecut
 
 function isWorkflowExecutionLogResponse(value: unknown): value is WorkflowExecutionLogResponse {
   return isRecord(value) && (typeof value["createdAtUtc"] === 'string') && ((value["fromStatusKey"] === null) || (typeof value["fromStatusKey"] === 'string')) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["instanceId"] === 'string' && guidPattern.test(value["instanceId"])) && ((value["stepId"] === null) || (typeof value["stepId"] === 'string' && guidPattern.test(value["stepId"]))) && (typeof value["toStatusKey"] === 'string') && (typeof value["transitionKey"] === 'string');
+}
+
+export function readWorkflowFormAttachmentUploadResponse(value: unknown): WorkflowFormAttachmentUploadResponse {
+  const normalizedValue = normalizeWorkflowFormAttachmentUploadResponseIntegerJson(value);
+  return requireValidResponse(normalizedValue, isWorkflowFormAttachmentUploadResponse(normalizedValue), 'workflow_form_attachment_upload_response') as WorkflowFormAttachmentUploadResponse;
+}
+
+function isWorkflowFormAttachmentUploadResponse(value: unknown): value is WorkflowFormAttachmentUploadResponse {
+  return isRecord(value) && ((value["contentHash"] === null) || (typeof value["contentHash"] === 'string')) && (typeof value["contentType"] === 'string') && (typeof value["fileId"] === 'string' && guidPattern.test(value["fileId"])) && (typeof value["originalFileName"] === 'string') && (typeof value["sizeBytes"] === 'number' && Number.isSafeInteger(value["sizeBytes"]));
 }
 
 export function readWorkflowFormComponentCatalogResponse(value: unknown): WorkflowFormComponentCatalogResponse {
@@ -7255,6 +9051,42 @@ function isWorkflowNodeTypeResponse(value: unknown): value is WorkflowNodeTypeRe
   return isRecord(value) && (value["configurationProperties"] === undefined || (Array.isArray(value["configurationProperties"]) && value["configurationProperties"].every(item32 => typeof item32 === 'string'))) && (typeof value["designable"] === 'boolean') && (typeof value["executable"] === 'boolean') && (value["hasDefaultBranch"] === undefined || ((value["hasDefaultBranch"] === null) || (typeof value["hasDefaultBranch"] === 'boolean'))) && (value["maximumBranches"] === undefined || ((value["maximumBranches"] === null) || (typeof value["maximumBranches"] === 'number' && Number.isSafeInteger(value["maximumBranches"])))) && (value["minimumBranches"] === undefined || ((value["minimumBranches"] === null) || (typeof value["minimumBranches"] === 'number' && Number.isSafeInteger(value["minimumBranches"])))) && (typeof value["nodeSchemaVersion"] === 'number' && Number.isSafeInteger(value["nodeSchemaVersion"])) && (typeof value["nodeTypeKey"] === 'string') && (typeof value["publishable"] === 'boolean') && (typeof value["supportsFieldPolicies"] === 'boolean');
 }
 
+export function readWorkflowOperationsBacklogResponse(value: unknown): WorkflowOperationsBacklogResponse {
+  const normalizedValue = normalizeWorkflowOperationsBacklogResponseIntegerJson(value);
+  return requireValidResponse(normalizedValue, isWorkflowOperationsBacklogResponse(normalizedValue), 'workflow_operations_backlog_response') as WorkflowOperationsBacklogResponse;
+}
+
+function isWorkflowOperationsBacklogResponse(value: unknown): value is WorkflowOperationsBacklogResponse {
+  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isWorkflowOperationsWorkResponse(item14))) && (typeof value["observedAtUtc"] === 'string') && (typeof value["page"] === 'number' && Number.isSafeInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isSafeInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isSafeInteger(value["total"]));
+}
+
+export function readWorkflowOperationsStepResponse(value: unknown): WorkflowOperationsStepResponse {
+  const normalizedValue = normalizeWorkflowOperationsStepResponseIntegerJson(value);
+  return requireValidResponse(normalizedValue, isWorkflowOperationsStepResponse(normalizedValue), 'workflow_operations_step_response') as WorkflowOperationsStepResponse;
+}
+
+function isWorkflowOperationsStepResponse(value: unknown): value is WorkflowOperationsStepResponse {
+  return isRecord(value) && (typeof value["definitionKey"] === 'string') && (typeof value["definitionVersionId"] === 'string' && guidPattern.test(value["definitionVersionId"])) && ((value["dueAtUtc"] === null) || (typeof value["dueAtUtc"] === 'string')) && (typeof value["dwellSeconds"] === 'number' && Number.isSafeInteger(value["dwellSeconds"])) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["instanceId"] === 'string' && guidPattern.test(value["instanceId"])) && (typeof value["instanceStatusKey"] === 'string') && (typeof value["isOverdue"] === 'boolean') && (typeof value["nodeKey"] === 'string') && (typeof value["nodeTypeKey"] === 'string') && ((value["pausedAtUtc"] === null) || (typeof value["pausedAtUtc"] === 'string')) && ((value["slaStatusKey"] === null) || (typeof value["slaStatusKey"] === 'string')) && (typeof value["startedAtUtc"] === 'string') && (typeof value["statusKey"] === 'string');
+}
+
+export function readWorkflowOperationsStepsResponse(value: unknown): WorkflowOperationsStepsResponse {
+  const normalizedValue = normalizeWorkflowOperationsStepsResponseIntegerJson(value);
+  return requireValidResponse(normalizedValue, isWorkflowOperationsStepsResponse(normalizedValue), 'workflow_operations_steps_response') as WorkflowOperationsStepsResponse;
+}
+
+function isWorkflowOperationsStepsResponse(value: unknown): value is WorkflowOperationsStepsResponse {
+  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isWorkflowOperationsStepResponse(item14))) && (typeof value["observedAtUtc"] === 'string') && (typeof value["page"] === 'number' && Number.isSafeInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isSafeInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isSafeInteger(value["total"]));
+}
+
+export function readWorkflowOperationsWorkResponse(value: unknown): WorkflowOperationsWorkResponse {
+  const normalizedValue = normalizeWorkflowOperationsWorkResponseIntegerJson(value);
+  return requireValidResponse(normalizedValue, isWorkflowOperationsWorkResponse(normalizedValue), 'workflow_operations_work_response') as WorkflowOperationsWorkResponse;
+}
+
+function isWorkflowOperationsWorkResponse(value: unknown): value is WorkflowOperationsWorkResponse {
+  return isRecord(value) && (typeof value["attemptCount"] === 'number' && Number.isSafeInteger(value["attemptCount"])) && (typeof value["definitionKey"] === 'string') && (typeof value["definitionVersionId"] === 'string' && guidPattern.test(value["definitionVersionId"])) && (typeof value["dueAtUtc"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["instanceId"] === 'string' && guidPattern.test(value["instanceId"])) && (typeof value["instanceStatusKey"] === 'string') && (typeof value["isReady"] === 'boolean') && ((value["leaseExpiresAtUtc"] === null) || (typeof value["leaseExpiresAtUtc"] === 'string')) && (typeof value["nodeKey"] === 'string') && (typeof value["statusKey"] === 'string');
+}
+
 export function readWorkflowPositionCandidatePageResponse(value: unknown): WorkflowPositionCandidatePageResponse {
   const normalizedValue = normalizeWorkflowPositionCandidatePageResponseIntegerJson(value);
   return requireValidResponse(normalizedValue, isWorkflowPositionCandidatePageResponse(normalizedValue), 'workflow_position_candidate_page_response') as WorkflowPositionCandidatePageResponse;
@@ -7333,6 +9165,33 @@ function isWorkflowSignatureUploadResponse(value: unknown): value is WorkflowSig
   return isRecord(value) && ((value["contentHash"] === null) || (typeof value["contentHash"] === 'string')) && (typeof value["fileId"] === 'string' && guidPattern.test(value["fileId"])) && (typeof value["sizeBytes"] === 'number' && Number.isSafeInteger(value["sizeBytes"]));
 }
 
+export function readWorkflowSimulationResponse(value: unknown): WorkflowSimulationResponse {
+  const normalizedValue = normalizeWorkflowSimulationResponseIntegerJson(value);
+  return requireValidResponse(normalizedValue, isWorkflowSimulationResponse(normalizedValue), 'workflow_simulation_response') as WorkflowSimulationResponse;
+}
+
+function isWorkflowSimulationResponse(value: unknown): value is WorkflowSimulationResponse {
+  return isRecord(value) && (typeof value["compiledContentHash"] === 'string') && (typeof value["definitionId"] === 'string' && guidPattern.test(value["definitionId"])) && (typeof value["draftContentHash"] === 'string') && (typeof value["draftRevision"] === 'number' && Number.isSafeInteger(value["draftRevision"])) && (typeof value["evaluatedAtUtc"] === 'string') && (typeof value["formContentHash"] === 'string') && (typeof value["formVersionId"] === 'string' && guidPattern.test(value["formVersionId"])) && (typeof value["reachesEnd"] === 'boolean') && (typeof value["sampleContentHash"] === 'string') && (Array.isArray(value["trace"]) && value["trace"].every(item14 => isWorkflowSimulationTraceResponse(item14)));
+}
+
+export function readWorkflowSimulationSelectionsResponse(value: unknown): WorkflowSimulationSelectionsResponse {
+  const normalizedValue = normalizeWorkflowSimulationSelectionsResponseIntegerJson(value);
+  return requireValidResponse(normalizedValue, isWorkflowSimulationSelectionsResponse(normalizedValue), 'workflow_simulation_selections_response') as WorkflowSimulationSelectionsResponse;
+}
+
+function isWorkflowSimulationSelectionsResponse(value: unknown): value is WorkflowSimulationSelectionsResponse {
+  return isRecord(value) && (typeof value["definitionId"] === 'string' && guidPattern.test(value["definitionId"])) && (typeof value["draftRevision"] === 'number' && Number.isSafeInteger(value["draftRevision"])) && (typeof value["formVersionId"] === 'string' && guidPattern.test(value["formVersionId"])) && (Array.isArray(value["items"]) && value["items"].every(item14 => isWorkflowStarterSelectionDescriptorResponse(item14)));
+}
+
+export function readWorkflowSimulationTraceResponse(value: unknown): WorkflowSimulationTraceResponse {
+  const normalizedValue = normalizeWorkflowSimulationTraceResponseIntegerJson(value);
+  return requireValidResponse(normalizedValue, isWorkflowSimulationTraceResponse(normalizedValue), 'workflow_simulation_trace_response') as WorkflowSimulationTraceResponse;
+}
+
+function isWorkflowSimulationTraceResponse(value: unknown): value is WorkflowSimulationTraceResponse {
+  return isRecord(value) && ((value["branchKey"] === null) || (typeof value["branchKey"] === 'string')) && ((value["errorCode"] === null) || (typeof value["errorCode"] === 'string')) && ((value["fixedDefinitionVersionId"] === null) || (typeof value["fixedDefinitionVersionId"] === 'string' && guidPattern.test(value["fixedDefinitionVersionId"]))) && (typeof value["memberCount"] === 'number' && Number.isSafeInteger(value["memberCount"])) && (typeof value["nodeKey"] === 'string') && (typeof value["nodeTypeKey"] === 'string') && (typeof value["outcomeKey"] === 'string');
+}
+
 export function readWorkflowStarterSelectionDescriptorResponse(value: unknown): WorkflowStarterSelectionDescriptorResponse {
   const normalizedValue = normalizeWorkflowStarterSelectionDescriptorResponseIntegerJson(value);
   return requireValidResponse(normalizedValue, isWorkflowStarterSelectionDescriptorResponse(normalizedValue), 'workflow_starter_selection_descriptor_response') as WorkflowStarterSelectionDescriptorResponse;
@@ -7402,7 +9261,7 @@ export function readWorkflowTodoDetailResponse(value: unknown): WorkflowTodoDeta
 }
 
 function isWorkflowTodoDetailResponse(value: unknown): value is WorkflowTodoDetailResponse {
-  return isRecord(value) && (value["activityKindKey"] === undefined || (typeof value["activityKindKey"] === 'string')) && (value["allowedActions"] === undefined || (Array.isArray(value["allowedActions"]) && value["allowedActions"].every(item23 => typeof item23 === 'string'))) && (value["approvalGroups"] === undefined || (Array.isArray(value["approvalGroups"]) && value["approvalGroups"].every(item23 => isWorkflowApprovalGroupProgressResponse(item23)))) && (typeof value["approvalModeKey"] === 'string') && (typeof value["approvedCount"] === 'number' && Number.isSafeInteger(value["approvedCount"])) && (typeof value["assigneeUserId"] === 'string' && guidPattern.test(value["assigneeUserId"])) && (value["claimProgress"] === undefined || ((value["claimProgress"] === null) || (isWorkflowClaimProgressResponse(value["claimProgress"])))) && (value["commentRequired"] === undefined || (typeof value["commentRequired"] === 'boolean')) && (isRecord(value["fieldPolicies"])) && (isJsonElement(value["formSchema"])) && (typeof value["formVersionId"] === 'string' && guidPattern.test(value["formVersionId"])) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["instanceId"] === 'string' && guidPattern.test(value["instanceId"])) && (typeof value["pendingCount"] === 'number' && Number.isSafeInteger(value["pendingCount"])) && (typeof value["rejectedCount"] === 'number' && Number.isSafeInteger(value["rejectedCount"])) && (typeof value["requiredApprovalCount"] === 'number' && Number.isSafeInteger(value["requiredApprovalCount"])) && (typeof value["revision"] === 'number' && Number.isSafeInteger(value["revision"])) && (value["signRequired"] === undefined || (typeof value["signRequired"] === 'boolean')) && (typeof value["statusKey"] === 'string') && (typeof value["stepId"] === 'string' && guidPattern.test(value["stepId"])) && (isJsonElement(value["submission"])) && (typeof value["submissionRevision"] === 'number' && Number.isSafeInteger(value["submissionRevision"])) && (value["taskProgress"] === undefined || ((value["taskProgress"] === null) || (isWorkflowTaskProgressResponse(value["taskProgress"])))) && (value["voteForm"] === undefined || ((value["voteForm"] === null) || (isWorkflowVoteFormResponse(value["voteForm"])))) && (value["voteProgress"] === undefined || ((value["voteProgress"] === null) || (isWorkflowVoteProgressResponse(value["voteProgress"]))));
+  return isRecord(value) && (value["activityKindKey"] === undefined || (typeof value["activityKindKey"] === 'string')) && (value["allowedActions"] === undefined || (Array.isArray(value["allowedActions"]) && value["allowedActions"].every(item23 => typeof item23 === 'string'))) && (value["approvalGroups"] === undefined || (Array.isArray(value["approvalGroups"]) && value["approvalGroups"].every(item23 => isWorkflowApprovalGroupProgressResponse(item23)))) && (typeof value["approvalModeKey"] === 'string') && (typeof value["approvedCount"] === 'number' && Number.isSafeInteger(value["approvedCount"])) && (typeof value["assigneeUserId"] === 'string' && guidPattern.test(value["assigneeUserId"])) && (value["attachmentNames"] === undefined || ((value["attachmentNames"] === null) || (isRecord(value["attachmentNames"])))) && (value["claimProgress"] === undefined || ((value["claimProgress"] === null) || (isWorkflowClaimProgressResponse(value["claimProgress"])))) && (value["commentRequired"] === undefined || (typeof value["commentRequired"] === 'boolean')) && (isRecord(value["fieldPolicies"])) && (isJsonElement(value["formSchema"])) && (typeof value["formVersionId"] === 'string' && guidPattern.test(value["formVersionId"])) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["instanceId"] === 'string' && guidPattern.test(value["instanceId"])) && (typeof value["pendingCount"] === 'number' && Number.isSafeInteger(value["pendingCount"])) && (typeof value["rejectedCount"] === 'number' && Number.isSafeInteger(value["rejectedCount"])) && (typeof value["requiredApprovalCount"] === 'number' && Number.isSafeInteger(value["requiredApprovalCount"])) && (typeof value["revision"] === 'number' && Number.isSafeInteger(value["revision"])) && (value["signRequired"] === undefined || (typeof value["signRequired"] === 'boolean')) && (typeof value["statusKey"] === 'string') && (typeof value["stepId"] === 'string' && guidPattern.test(value["stepId"])) && (isJsonElement(value["submission"])) && (typeof value["submissionRevision"] === 'number' && Number.isSafeInteger(value["submissionRevision"])) && (value["taskProgress"] === undefined || ((value["taskProgress"] === null) || (isWorkflowTaskProgressResponse(value["taskProgress"])))) && (value["voteForm"] === undefined || ((value["voteForm"] === null) || (isWorkflowVoteFormResponse(value["voteForm"])))) && (value["voteProgress"] === undefined || ((value["voteProgress"] === null) || (isWorkflowVoteProgressResponse(value["voteProgress"]))));
 }
 
 export function readWorkflowTodoListItemResponse(value: unknown): WorkflowTodoListItemResponse {
@@ -7428,7 +9287,7 @@ export function readWorkflowTodoRuntimeResponse(value: unknown): WorkflowTodoRun
 }
 
 function isWorkflowTodoRuntimeResponse(value: unknown): value is WorkflowTodoRuntimeResponse {
-  return isRecord(value) && (value["activityKindKey"] === undefined || (typeof value["activityKindKey"] === 'string')) && (value["allowedActions"] === undefined || (Array.isArray(value["allowedActions"]) && value["allowedActions"].every(item23 => typeof item23 === 'string'))) && (value["approvalGroups"] === undefined || (Array.isArray(value["approvalGroups"]) && value["approvalGroups"].every(item23 => isWorkflowApprovalGroupProgressResponse(item23)))) && (typeof value["approvalModeKey"] === 'string') && (typeof value["approvedCount"] === 'number' && Number.isSafeInteger(value["approvedCount"])) && (typeof value["assigneeUserId"] === 'string' && guidPattern.test(value["assigneeUserId"])) && (value["claimProgress"] === undefined || ((value["claimProgress"] === null) || (isWorkflowClaimProgressResponse(value["claimProgress"])))) && (value["commentRequired"] === undefined || (typeof value["commentRequired"] === 'boolean')) && (isRecord(value["fieldPolicies"])) && (isJsonElement(value["formSchema"])) && (typeof value["formSchemaHash"] === 'string') && (typeof value["formVersionId"] === 'string' && guidPattern.test(value["formVersionId"])) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["instanceId"] === 'string' && guidPattern.test(value["instanceId"])) && (typeof value["pendingCount"] === 'number' && Number.isSafeInteger(value["pendingCount"])) && (typeof value["rejectedCount"] === 'number' && Number.isSafeInteger(value["rejectedCount"])) && (typeof value["requiredApprovalCount"] === 'number' && Number.isSafeInteger(value["requiredApprovalCount"])) && (typeof value["revision"] === 'number' && Number.isSafeInteger(value["revision"])) && (value["signRequired"] === undefined || (typeof value["signRequired"] === 'boolean')) && (typeof value["statusKey"] === 'string') && (typeof value["stepId"] === 'string' && guidPattern.test(value["stepId"])) && (isJsonElement(value["submission"])) && (typeof value["submissionRevision"] === 'number' && Number.isSafeInteger(value["submissionRevision"])) && (value["taskProgress"] === undefined || ((value["taskProgress"] === null) || (isWorkflowTaskProgressResponse(value["taskProgress"])))) && (value["voteForm"] === undefined || ((value["voteForm"] === null) || (isWorkflowVoteFormResponse(value["voteForm"])))) && (value["voteProgress"] === undefined || ((value["voteProgress"] === null) || (isWorkflowVoteProgressResponse(value["voteProgress"])))) && (value["webRenderJson"] === undefined || ((value["webRenderJson"] === null) || (isJsonElement(value["webRenderJson"]))));
+  return isRecord(value) && (value["activityKindKey"] === undefined || (typeof value["activityKindKey"] === 'string')) && (value["allowedActions"] === undefined || (Array.isArray(value["allowedActions"]) && value["allowedActions"].every(item23 => typeof item23 === 'string'))) && (value["approvalGroups"] === undefined || (Array.isArray(value["approvalGroups"]) && value["approvalGroups"].every(item23 => isWorkflowApprovalGroupProgressResponse(item23)))) && (typeof value["approvalModeKey"] === 'string') && (typeof value["approvedCount"] === 'number' && Number.isSafeInteger(value["approvedCount"])) && (typeof value["assigneeUserId"] === 'string' && guidPattern.test(value["assigneeUserId"])) && (value["attachmentNames"] === undefined || ((value["attachmentNames"] === null) || (isRecord(value["attachmentNames"])))) && (value["claimProgress"] === undefined || ((value["claimProgress"] === null) || (isWorkflowClaimProgressResponse(value["claimProgress"])))) && (value["commentRequired"] === undefined || (typeof value["commentRequired"] === 'boolean')) && (isRecord(value["fieldPolicies"])) && (isJsonElement(value["formSchema"])) && (typeof value["formSchemaHash"] === 'string') && (typeof value["formVersionId"] === 'string' && guidPattern.test(value["formVersionId"])) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["instanceId"] === 'string' && guidPattern.test(value["instanceId"])) && (typeof value["pendingCount"] === 'number' && Number.isSafeInteger(value["pendingCount"])) && (typeof value["rejectedCount"] === 'number' && Number.isSafeInteger(value["rejectedCount"])) && (typeof value["requiredApprovalCount"] === 'number' && Number.isSafeInteger(value["requiredApprovalCount"])) && (typeof value["revision"] === 'number' && Number.isSafeInteger(value["revision"])) && (value["signRequired"] === undefined || (typeof value["signRequired"] === 'boolean')) && (typeof value["statusKey"] === 'string') && (typeof value["stepId"] === 'string' && guidPattern.test(value["stepId"])) && (isJsonElement(value["submission"])) && (typeof value["submissionRevision"] === 'number' && Number.isSafeInteger(value["submissionRevision"])) && (value["taskProgress"] === undefined || ((value["taskProgress"] === null) || (isWorkflowTaskProgressResponse(value["taskProgress"])))) && (value["voteForm"] === undefined || ((value["voteForm"] === null) || (isWorkflowVoteFormResponse(value["voteForm"])))) && (value["voteProgress"] === undefined || ((value["voteProgress"] === null) || (isWorkflowVoteProgressResponse(value["voteProgress"])))) && (value["webRenderJson"] === undefined || ((value["webRenderJson"] === null) || (isJsonElement(value["webRenderJson"]))));
 }
 
 export function readWorkflowVoteFormResponse(value: unknown): WorkflowVoteFormResponse {
@@ -7562,6 +9421,10 @@ export function readAiDeleteChatSessionResponse(value: unknown): boolean {
   return requireValidResponse(value, typeof value === 'boolean', 'ai_delete_chat_session_response') as boolean;
 }
 
+export function readAiDeleteKnowledgeFolderResponse(value: unknown): boolean {
+  return requireValidResponse(value, typeof value === 'boolean', 'ai_delete_knowledge_folder_response') as boolean;
+}
+
 export function readAiDiscoverMcpRemoteToolsResponse(value: unknown): Array<AiMcpRemoteDiscoveredToolItem> {
   return requireValidResponse(value, Array.isArray(value) && value.every(item5 => isAiMcpRemoteDiscoveredToolItem(item5)), 'ai_discover_mcp_remote_tools_response') as Array<AiMcpRemoteDiscoveredToolItem>;
 }
@@ -7578,6 +9441,11 @@ export function readAiListAgentDelegationsResponse(value: unknown): Array<AiAgen
 
 export function readAiListAgentToolsResponse(value: unknown): Array<AiAgentToolCatalogItem> {
   return requireValidResponse(value, Array.isArray(value) && value.every(item5 => isAiAgentToolCatalogItem(item5)), 'ai_list_agent_tools_response') as Array<AiAgentToolCatalogItem>;
+}
+
+export function readAiListKnowledgeFoldersResponse(value: unknown): Array<AiKnowledgeFolderResponse> {
+  const normalizedValue = (Array.isArray(value) ? value.map((item5: unknown) => normalizeAiKnowledgeFolderResponseIntegerJson(item5)) : value);
+  return requireValidResponse(normalizedValue, Array.isArray(normalizedValue) && normalizedValue.every(item15 => isAiKnowledgeFolderResponse(item15)), 'ai_list_knowledge_folders_response') as Array<AiKnowledgeFolderResponse>;
 }
 
 export function readAiListKnowledgeIndexGrantsResponse(value: unknown): Array<AiKnowledgeIndexGrantResponse> {
@@ -7601,6 +9469,11 @@ export function readAiReconcileAgentRunResponse(value: unknown): boolean {
 
 export function readAiResumeAgentRunResponse(value: unknown): boolean {
   return requireValidResponse(value, typeof value === 'boolean', 'ai_resume_agent_run_response') as boolean;
+}
+
+export function readAiSetKnowledgeDirectoryBatchResponse(value: unknown): Array<AiKnowledgeDirectoryItemResult> {
+  const normalizedValue = (Array.isArray(value) ? value.map((item5: unknown) => normalizeAiKnowledgeDirectoryItemResultIntegerJson(item5)) : value);
+  return requireValidResponse(normalizedValue, Array.isArray(normalizedValue) && normalizedValue.every(item15 => isAiKnowledgeDirectoryItemResult(item15)), 'ai_set_knowledge_directory_batch_response') as Array<AiKnowledgeDirectoryItemResult>;
 }
 
 export function readCodeGenerationListCatalogObjectsResponse(value: unknown): Array<CodeGenerationCatalogObjectResponse> {
@@ -7654,6 +9527,10 @@ export function readDocumentHostSetDocumentPermissionsResponse(value: unknown): 
   return requireValidResponse(value, Array.isArray(value) && value.every(item5 => isHostDocumentPermissionResponse(item5)), 'document_host_set_document_permissions_response') as Array<HostDocumentPermissionResponse>;
 }
 
+export function readEnterpriseRequestDeleteAttachmentResponse(value: unknown): boolean {
+  return requireValidResponse(value, typeof value === 'boolean', 'enterprise_request_delete_attachment_response') as boolean;
+}
+
 export function readFilesGetHostFolderTreeResponse(value: unknown): Array<HostFolderTreeNode> {
   const normalizedValue = (Array.isArray(value) ? value.map((item5: unknown) => normalizeHostFolderTreeNodeIntegerJson(item5)) : value);
   return requireValidResponse(normalizedValue, Array.isArray(normalizedValue) && normalizedValue.every(item15 => isHostFolderTreeNode(item15)), 'files_get_host_folder_tree_response') as Array<HostFolderTreeNode>;
@@ -7692,6 +9569,15 @@ export function readIdentityListSuperAdministratorAuditsResponse(value: unknown)
 
 export function readIdentityListSuperAdministratorsResponse(value: unknown): Array<SuperAdministratorResponse> {
   return requireValidResponse(value, Array.isArray(value) && value.every(item5 => isSuperAdministratorResponse(item5)), 'identity_list_super_administrators_response') as Array<SuperAdministratorResponse>;
+}
+
+export function readImportExportDeleteMyImportProfileResponse(value: unknown): boolean {
+  return requireValidResponse(value, typeof value === 'boolean', 'import_export_delete_my_import_profile_response') as boolean;
+}
+
+export function readImportExportListMyImportProfilesResponse(value: unknown): Array<ImportProfileSummary> {
+  const normalizedValue = (Array.isArray(value) ? value.map((item5: unknown) => normalizeImportProfileSummaryIntegerJson(item5)) : value);
+  return requireValidResponse(normalizedValue, Array.isArray(normalizedValue) && normalizedValue.every(item15 => isImportProfileSummary(item15)), 'import_export_list_my_import_profiles_response') as Array<ImportProfileSummary>;
 }
 
 export function readImportExportListStaticSchemasResponse(value: unknown): Array<StaticImportSchemaDefinition> {
@@ -7787,6 +9673,10 @@ export function readSettingsBatchUpdateHostConfigEntryValuesResponse(value: unkn
   return requireValidResponse(value, typeof value === 'boolean', 'settings_batch_update_host_config_entry_values_response') as boolean;
 }
 
+export function readSettingsDeleteQuerySchemeResponse(value: unknown): boolean {
+  return requireValidResponse(value, typeof value === 'boolean', 'settings_delete_query_scheme_response') as boolean;
+}
+
 export function readSettingsListAllHostConfigEntriesResponse(value: unknown): Array<ConfigEntryResponse> {
   const normalizedValue = (Array.isArray(value) ? value.map((item5: unknown) => normalizeConfigEntryResponseIntegerJson(item5)) : value);
   return requireValidResponse(normalizedValue, Array.isArray(normalizedValue) && normalizedValue.every(item15 => isConfigEntryResponse(item15)), 'settings_list_all_host_config_entries_response') as Array<ConfigEntryResponse>;
@@ -7821,6 +9711,11 @@ export function readSettingsListTenantDictItemsByTypeCodeResponse(value: unknown
   return requireValidResponse(normalizedValue, Array.isArray(normalizedValue) && normalizedValue.every(item15 => isDictItemResponse(item15)), 'settings_list_tenant_dict_items_by_type_code_response') as Array<DictItemResponse>;
 }
 
+export function readTenancyListEntitlementCatalogResponse(value: unknown): Array<TenantEntitlementCatalogResponse> {
+  const normalizedValue = (Array.isArray(value) ? value.map((item5: unknown) => normalizeTenantEntitlementCatalogResponseIntegerJson(item5)) : value);
+  return requireValidResponse(normalizedValue, Array.isArray(normalizedValue) && normalizedValue.every(item15 => isTenantEntitlementCatalogResponse(item15)), 'tenancy_list_entitlement_catalog_response') as Array<TenantEntitlementCatalogResponse>;
+}
+
 export function readWorkflowListDefinitionsResponse(value: unknown): Array<WorkflowDefinitionResponse> {
   const normalizedValue = (Array.isArray(value) ? value.map((item5: unknown) => normalizeWorkflowDefinitionResponseIntegerJson(item5)) : value);
   return requireValidResponse(normalizedValue, Array.isArray(normalizedValue) && normalizedValue.every(item15 => isWorkflowDefinitionResponse(item15)), 'workflow_list_definitions_response') as Array<WorkflowDefinitionResponse>;
@@ -7851,6 +9746,10 @@ export function readWorkflowListMyCcResponse(value: unknown): Array<WorkflowCcRe
 
 export function readWorkflowListTodoReturnTargetsResponse(value: unknown): Array<WorkflowTodoReturnTargetResponse> {
   return requireValidResponse(value, Array.isArray(value) && value.every(item5 => isWorkflowTodoReturnTargetResponse(item5)), 'workflow_list_todo_return_targets_response') as Array<WorkflowTodoReturnTargetResponse>;
+}
+
+function normalizeAcceptWorkflowCollaborationGrantRequestIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "expectedRevision") ? { ["expectedRevision"]: normalizeWireInteger(value["expectedRevision"]) } : {}) } : value);
 }
 
 function normalizeAccessLogCursorPageResponseIntegerJson(value: unknown): unknown {
@@ -7901,8 +9800,12 @@ function normalizeAiAgentToolCallListItemIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "durationMs") ? { ["durationMs"]: normalizeWireInteger(value["durationMs"]) } : {}) } : value);
 }
 
+function normalizeAiAgentWorkflowProposalResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "targetVersion") ? { ["targetVersion"]: normalizeWireInteger(value["targetVersion"]) } : {}), ...(Object.hasOwn(value, "toolVersion") ? { ["toolVersion"]: normalizeWireInteger(value["toolVersion"]) } : {}) } : value);
+}
+
 function normalizeAiChatMessageResponseIntegerJson(value: unknown): unknown {
-  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "citations") ? { ["citations"]: (Array.isArray(value["citations"]) ? value["citations"].map((item18: unknown) => normalizeAiKnowledgeCitationResponseIntegerJson(item18)) : value["citations"]) } : {}), ...(Object.hasOwn(value, "completionTokens") ? { ["completionTokens"]: normalizeWireInteger(value["completionTokens"]) } : {}), ...(Object.hasOwn(value, "promptTokens") ? { ["promptTokens"]: normalizeWireInteger(value["promptTokens"]) } : {}) } : value);
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "citations") ? { ["citations"]: (Array.isArray(value["citations"]) ? value["citations"].map((item18: unknown) => normalizeAiKnowledgeCitationResponseIntegerJson(item18)) : value["citations"]) } : {}), ...(Object.hasOwn(value, "completionTokens") ? { ["completionTokens"]: normalizeWireInteger(value["completionTokens"]) } : {}), ...(Object.hasOwn(value, "personalScheduleCitations") ? { ["personalScheduleCitations"]: (Array.isArray(value["personalScheduleCitations"]) ? value["personalScheduleCitations"].map((item34: unknown) => normalizeAiPersonalScheduleCitationResponseIntegerJson(item34)) : value["personalScheduleCitations"]) } : {}), ...(Object.hasOwn(value, "promptTokens") ? { ["promptTokens"]: normalizeWireInteger(value["promptTokens"]) } : {}) } : value);
 }
 
 function normalizeAiChatSessionListItemIntegerJson(value: unknown): unknown {
@@ -7946,7 +9849,67 @@ function normalizeAiKnowledgeBaseResponseIntegerJson(value: unknown): unknown {
 }
 
 function normalizeAiKnowledgeCitationResponseIntegerJson(value: unknown): unknown {
-  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "docxLocation") ? { ["docxLocation"]: normalizeIntegerUnion(value["docxLocation"], [{ matches: (value: unknown) => value === null, normalize: (value: unknown) => value }, { matches: (value: unknown) => isAiKnowledgeDocxLocationResponse(value), normalize: (value: unknown) => normalizeAiKnowledgeDocxLocationResponseIntegerJson(value) }]) } : {}), ...(Object.hasOwn(value, "length") ? { ["length"]: normalizeWireInteger(value["length"]) } : {}), ...(Object.hasOwn(value, "offset") ? { ["offset"]: normalizeWireInteger(value["offset"]) } : {}), ...(Object.hasOwn(value, "pageNumber") ? { ["pageNumber"]: normalizeWireInteger(value["pageNumber"]) } : {}), ...(Object.hasOwn(value, "sequence") ? { ["sequence"]: normalizeWireInteger(value["sequence"]) } : {}), ...(Object.hasOwn(value, "sourceLocation") ? { ["sourceLocation"]: normalizeIntegerUnion(value["sourceLocation"], [{ matches: (value: unknown) => value === null, normalize: (value: unknown) => value }, { matches: (value: unknown) => isAiKnowledgeSourceLocationResponse(value), normalize: (value: unknown) => normalizeAiKnowledgeSourceLocationResponseIntegerJson(value) }]) } : {}) } : value);
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "correction") ? { ["correction"]: normalizeIntegerUnion(value["correction"], [{ matches: (value: unknown) => value === null, normalize: (value: unknown) => value }, { matches: (value: unknown) => isAiKnowledgeCorrectionCitationResponse(value), normalize: (value: unknown) => normalizeAiKnowledgeCorrectionCitationResponseIntegerJson(value) }]) } : {}), ...(Object.hasOwn(value, "docxLocation") ? { ["docxLocation"]: normalizeIntegerUnion(value["docxLocation"], [{ matches: (value: unknown) => value === null, normalize: (value: unknown) => value }, { matches: (value: unknown) => isAiKnowledgeDocxLocationResponse(value), normalize: (value: unknown) => normalizeAiKnowledgeDocxLocationResponseIntegerJson(value) }]) } : {}), ...(Object.hasOwn(value, "faqSource") ? { ["faqSource"]: normalizeIntegerUnion(value["faqSource"], [{ matches: (value: unknown) => value === null, normalize: (value: unknown) => value }, { matches: (value: unknown) => isAiKnowledgeFaqCitationResponse(value), normalize: (value: unknown) => normalizeAiKnowledgeFaqCitationResponseIntegerJson(value) }]) } : {}), ...(Object.hasOwn(value, "length") ? { ["length"]: normalizeWireInteger(value["length"]) } : {}), ...(Object.hasOwn(value, "offset") ? { ["offset"]: normalizeWireInteger(value["offset"]) } : {}), ...(Object.hasOwn(value, "pageNumber") ? { ["pageNumber"]: normalizeWireInteger(value["pageNumber"]) } : {}), ...(Object.hasOwn(value, "sequence") ? { ["sequence"]: normalizeWireInteger(value["sequence"]) } : {}), ...(Object.hasOwn(value, "sourceLocation") ? { ["sourceLocation"]: normalizeIntegerUnion(value["sourceLocation"], [{ matches: (value: unknown) => value === null, normalize: (value: unknown) => value }, { matches: (value: unknown) => isAiKnowledgeSourceLocationResponse(value), normalize: (value: unknown) => normalizeAiKnowledgeSourceLocationResponseIntegerJson(value) }]) } : {}) } : value);
+}
+
+function normalizeAiKnowledgeCorrectionBlockResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "parts") ? { ["parts"]: (Array.isArray(value["parts"]) ? value["parts"].map((item14: unknown) => normalizeAiKnowledgeCorrectionPartResponseIntegerJson(item14)) : value["parts"]) } : {}) } : value);
+}
+
+function normalizeAiKnowledgeCorrectionCitationResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "spans") ? { ["spans"]: (Array.isArray(value["spans"]) ? value["spans"].map((item14: unknown) => normalizeAiKnowledgeCorrectionSpanResponseIntegerJson(item14)) : value["spans"]) } : {}), ...(Object.hasOwn(value, "textLength") ? { ["textLength"]: normalizeWireInteger(value["textLength"]) } : {}) } : value);
+}
+
+function normalizeAiKnowledgeCorrectionEditOperationIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "offset") ? { ["offset"]: normalizeWireInteger(value["offset"]) } : {}) } : value);
+}
+
+function normalizeAiKnowledgeCorrectionEditRequestIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "expected") ? { ["expected"]: normalizeAiKnowledgeCorrectionHeadRequestIntegerJson(value["expected"]) } : {}), ...(Object.hasOwn(value, "operation") ? { ["operation"]: normalizeAiKnowledgeCorrectionEditOperationIntegerJson(value["operation"]) } : {}) } : value);
+}
+
+function normalizeAiKnowledgeCorrectionHeadRequestIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "documentVersion") ? { ["documentVersion"]: normalizeWireInteger(value["documentVersion"]) } : {}), ...(Object.hasOwn(value, "headVersion") ? { ["headVersion"]: normalizeWireInteger(value["headVersion"]) } : {}) } : value);
+}
+
+function normalizeAiKnowledgeCorrectionPartResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "sourceLength") ? { ["sourceLength"]: normalizeWireInteger(value["sourceLength"]) } : {}), ...(Object.hasOwn(value, "sourceLocation") ? { ["sourceLocation"]: normalizeIntegerUnion(value["sourceLocation"], [{ matches: (value: unknown) => value === null, normalize: (value: unknown) => value }, { matches: (value: unknown) => isAiKnowledgeSourceLocationResponse(value), normalize: (value: unknown) => normalizeAiKnowledgeSourceLocationResponseIntegerJson(value) }]) } : {}), ...(Object.hasOwn(value, "sourceOffset") ? { ["sourceOffset"]: normalizeWireInteger(value["sourceOffset"]) } : {}) } : value);
+}
+
+function normalizeAiKnowledgeCorrectionPreparationResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "attemptCount") ? { ["attemptCount"]: normalizeWireInteger(value["attemptCount"]) } : {}), ...(Object.hasOwn(value, "documentVersion") ? { ["documentVersion"]: normalizeWireInteger(value["documentVersion"]) } : {}) } : value);
+}
+
+function normalizeAiKnowledgeCorrectionPrepareRequestIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "documentVersion") ? { ["documentVersion"]: normalizeWireInteger(value["documentVersion"]) } : {}) } : value);
+}
+
+function normalizeAiKnowledgeCorrectionRestoreRequestIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "expected") ? { ["expected"]: normalizeAiKnowledgeCorrectionHeadRequestIntegerJson(value["expected"]) } : {}) } : value);
+}
+
+function normalizeAiKnowledgeCorrectionRevisionPageResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "items") ? { ["items"]: (Array.isArray(value["items"]) ? value["items"].map((item14: unknown) => normalizeAiKnowledgeCorrectionRevisionResponseIntegerJson(item14)) : value["items"]) } : {}), ...(Object.hasOwn(value, "nextHeadVersion") ? { ["nextHeadVersion"]: normalizeWireInteger(value["nextHeadVersion"]) } : {}) } : value);
+}
+
+function normalizeAiKnowledgeCorrectionRevisionResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "documentVersion") ? { ["documentVersion"]: normalizeWireInteger(value["documentVersion"]) } : {}), ...(Object.hasOwn(value, "headVersion") ? { ["headVersion"]: normalizeWireInteger(value["headVersion"]) } : {}) } : value);
+}
+
+function normalizeAiKnowledgeCorrectionSpanResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "sourceLength") ? { ["sourceLength"]: normalizeWireInteger(value["sourceLength"]) } : {}), ...(Object.hasOwn(value, "sourceLocation") ? { ["sourceLocation"]: normalizeIntegerUnion(value["sourceLocation"], [{ matches: (value: unknown) => value === null, normalize: (value: unknown) => value }, { matches: (value: unknown) => isAiKnowledgeSourceLocationResponse(value), normalize: (value: unknown) => normalizeAiKnowledgeSourceLocationResponseIntegerJson(value) }]) } : {}), ...(Object.hasOwn(value, "sourceOffset") ? { ["sourceOffset"]: normalizeWireInteger(value["sourceOffset"]) } : {}), ...(Object.hasOwn(value, "textLength") ? { ["textLength"]: normalizeWireInteger(value["textLength"]) } : {}), ...(Object.hasOwn(value, "textOffset") ? { ["textOffset"]: normalizeWireInteger(value["textOffset"]) } : {}) } : value);
+}
+
+function normalizeAiKnowledgeCorrectionWorkspaceResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "block") ? { ["block"]: normalizeAiKnowledgeCorrectionBlockResponseIntegerJson(value["block"]) } : {}), ...(Object.hasOwn(value, "blockIndex") ? { ["blockIndex"]: normalizeWireInteger(value["blockIndex"]) } : {}), ...(Object.hasOwn(value, "documentVersion") ? { ["documentVersion"]: normalizeWireInteger(value["documentVersion"]) } : {}), ...(Object.hasOwn(value, "headVersion") ? { ["headVersion"]: normalizeWireInteger(value["headVersion"]) } : {}), ...(Object.hasOwn(value, "totalBlocks") ? { ["totalBlocks"]: normalizeWireInteger(value["totalBlocks"]) } : {}) } : value);
+}
+
+function normalizeAiKnowledgeDirectoryItemResultIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
+}
+
+function normalizeAiKnowledgeDirectoryResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "documentVersion") ? { ["documentVersion"]: normalizeWireInteger(value["documentVersion"]) } : {}), ...(Object.hasOwn(value, "headVersion") ? { ["headVersion"]: normalizeWireInteger(value["headVersion"]) } : {}), ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
 }
 
 function normalizeAiKnowledgeDocumentMembersResponseIntegerJson(value: unknown): unknown {
@@ -7959,6 +9922,138 @@ function normalizeAiKnowledgeDocumentResponseIntegerJson(value: unknown): unknow
 
 function normalizeAiKnowledgeDocxLocationResponseIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "blockSequence") ? { ["blockSequence"]: normalizeWireInteger(value["blockSequence"]) } : {}), ...(Object.hasOwn(value, "cellNumber") ? { ["cellNumber"]: normalizeWireInteger(value["cellNumber"]) } : {}), ...(Object.hasOwn(value, "paragraphNumber") ? { ["paragraphNumber"]: normalizeWireInteger(value["paragraphNumber"]) } : {}), ...(Object.hasOwn(value, "rowNumber") ? { ["rowNumber"]: normalizeWireInteger(value["rowNumber"]) } : {}), ...(Object.hasOwn(value, "tableNumber") ? { ["tableNumber"]: normalizeWireInteger(value["tableNumber"]) } : {}) } : value);
+}
+
+function normalizeAiKnowledgeEvaluationCaseResultIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "baseline") ? { ["baseline"]: normalizeIntegerUnion(value["baseline"], [{ matches: (value: unknown) => value === null, normalize: (value: unknown) => value }, { matches: (value: unknown) => isAiKnowledgeSearchComparisonRanking(value), normalize: (value: unknown) => normalizeAiKnowledgeSearchComparisonRankingIntegerJson(value) }]) } : {}), ...(Object.hasOwn(value, "candidate") ? { ["candidate"]: normalizeIntegerUnion(value["candidate"], [{ matches: (value: unknown) => value === null, normalize: (value: unknown) => value }, { matches: (value: unknown) => isAiKnowledgeSearchComparisonRanking(value), normalize: (value: unknown) => normalizeAiKnowledgeSearchComparisonRankingIntegerJson(value) }]) } : {}), ...(Object.hasOwn(value, "case") ? { ["case"]: normalizeAiKnowledgeEvaluationCaseStateIntegerJson(value["case"]) } : {}) } : value);
+}
+
+function normalizeAiKnowledgeEvaluationCaseStateIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "sequence") ? { ["sequence"]: normalizeWireInteger(value["sequence"]) } : {}), ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
+}
+
+function normalizeAiKnowledgeEvaluationEntryIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
+}
+
+function normalizeAiKnowledgeEvaluationEntryPageIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "items") ? { ["items"]: (Array.isArray(value["items"]) ? value["items"].map((item14: unknown) => normalizeAiKnowledgeEvaluationEntryIntegerJson(item14)) : value["items"]) } : {}) } : value);
+}
+
+function normalizeAiKnowledgeEvaluationModelIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
+}
+
+function normalizeAiKnowledgeEvaluationMutationIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "workspace") ? { ["workspace"]: normalizeIntegerUnion(value["workspace"], [{ matches: (value: unknown) => value === null, normalize: (value: unknown) => value }, { matches: (value: unknown) => isAiKnowledgeEvaluationWorkspace(value), normalize: (value: unknown) => normalizeAiKnowledgeEvaluationWorkspaceIntegerJson(value) }]) } : {}) } : value);
+}
+
+function normalizeAiKnowledgeEvaluationPageIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "items") ? { ["items"]: (Array.isArray(value["items"]) ? value["items"].map((item14: unknown) => normalizeAiKnowledgeEvaluationWorkspaceIntegerJson(item14)) : value["items"]) } : {}) } : value);
+}
+
+function normalizeAiKnowledgeEvaluationRevisionIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "number") ? { ["number"]: normalizeWireInteger(value["number"]) } : {}), ...(Object.hasOwn(value, "sourceCount") ? { ["sourceCount"]: normalizeWireInteger(value["sourceCount"]) } : {}) } : value);
+}
+
+function normalizeAiKnowledgeEvaluationRunIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "cases") ? { ["cases"]: (Array.isArray(value["cases"]) ? value["cases"].map((item14: unknown) => normalizeAiKnowledgeEvaluationCaseStateIntegerJson(item14)) : value["cases"]) } : {}), ...(Object.hasOwn(value, "failed") ? { ["failed"]: normalizeWireInteger(value["failed"]) } : {}), ...(Object.hasOwn(value, "measured") ? { ["measured"]: normalizeWireInteger(value["measured"]) } : {}), ...(Object.hasOwn(value, "notRun") ? { ["notRun"]: normalizeWireInteger(value["notRun"]) } : {}), ...(Object.hasOwn(value, "running") ? { ["running"]: normalizeWireInteger(value["running"]) } : {}), ...(Object.hasOwn(value, "skipped") ? { ["skipped"]: normalizeWireInteger(value["skipped"]) } : {}), ...(Object.hasOwn(value, "succeeded") ? { ["succeeded"]: normalizeWireInteger(value["succeeded"]) } : {}), ...(Object.hasOwn(value, "total") ? { ["total"]: normalizeWireInteger(value["total"]) } : {}), ...(Object.hasOwn(value, "unknown") ? { ["unknown"]: normalizeWireInteger(value["unknown"]) } : {}), ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
+}
+
+function normalizeAiKnowledgeEvaluationRunAdmissionIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "caseCount") ? { ["caseCount"]: normalizeWireInteger(value["caseCount"]) } : {}), ...(Object.hasOwn(value, "maximumModelCalls") ? { ["maximumModelCalls"]: normalizeWireInteger(value["maximumModelCalls"]) } : {}), ...(Object.hasOwn(value, "strategyVersion") ? { ["strategyVersion"]: normalizeWireInteger(value["strategyVersion"]) } : {}) } : value);
+}
+
+function normalizeAiKnowledgeEvaluationStrategyIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "embeddingModel") ? { ["embeddingModel"]: normalizeAiKnowledgeEvaluationModelIntegerJson(value["embeddingModel"]) } : {}), ...(Object.hasOwn(value, "processingModel") ? { ["processingModel"]: normalizeIntegerUnion(value["processingModel"], [{ matches: (value: unknown) => value === null, normalize: (value: unknown) => value }, { matches: (value: unknown) => isAiKnowledgeEvaluationModel(value), normalize: (value: unknown) => normalizeAiKnowledgeEvaluationModelIntegerJson(value) }]) } : {}), ...(Object.hasOwn(value, "setVersion") ? { ["setVersion"]: normalizeWireInteger(value["setVersion"]) } : {}), ...(Object.hasOwn(value, "sources") ? { ["sources"]: (Array.isArray(value["sources"]) ? value["sources"].map((item16: unknown) => normalizeAiKnowledgeSearchSourceIntegerJson(item16)) : value["sources"]) } : {}), ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
+}
+
+function normalizeAiKnowledgeEvaluationWorkspaceIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "revision") ? { ["revision"]: normalizeAiKnowledgeEvaluationRevisionIntegerJson(value["revision"]) } : {}), ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
+}
+
+function normalizeAiKnowledgeFaqCitationResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "embeddingModelVersion") ? { ["embeddingModelVersion"]: normalizeWireInteger(value["embeddingModelVersion"]) } : {}), ...(Object.hasOwn(value, "source") ? { ["source"]: normalizeAiKnowledgeSearchSourceIntegerJson(value["source"]) } : {}) } : value);
+}
+
+function normalizeAiKnowledgeFaqDocumentSelectionIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "embeddingModelVersion") ? { ["embeddingModelVersion"]: normalizeWireInteger(value["embeddingModelVersion"]) } : {}), ...(Object.hasOwn(value, "personalSchedules") ? { ["personalSchedules"]: (Array.isArray(value["personalSchedules"]) ? value["personalSchedules"].map((item26: unknown) => normalizeAiPersonalScheduleSourceSelectionIntegerJson(item26)) : value["personalSchedules"]) } : {}), ...(Object.hasOwn(value, "sources") ? { ["sources"]: (Array.isArray(value["sources"]) ? value["sources"].map((item16: unknown) => normalizeAiKnowledgeSearchSourceIntegerJson(item16)) : value["sources"]) } : {}) } : value);
+}
+
+function normalizeAiKnowledgeFaqDraftMutationIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "workspace") ? { ["workspace"]: normalizeAiKnowledgeFaqDraftWorkspaceIntegerJson(value["workspace"]) } : {}) } : value);
+}
+
+function normalizeAiKnowledgeFaqDraftPageIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "items") ? { ["items"]: (Array.isArray(value["items"]) ? value["items"].map((item14: unknown) => normalizeAiKnowledgeFaqDraftWorkspaceIntegerJson(item14)) : value["items"]) } : {}) } : value);
+}
+
+function normalizeAiKnowledgeFaqDraftRevisionIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "number") ? { ["number"]: normalizeWireInteger(value["number"]) } : {}) } : value);
+}
+
+function normalizeAiKnowledgeFaqDraftRevisionPageIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "items") ? { ["items"]: (Array.isArray(value["items"]) ? value["items"].map((item14: unknown) => normalizeAiKnowledgeFaqDraftRevisionIntegerJson(item14)) : value["items"]) } : {}) } : value);
+}
+
+function normalizeAiKnowledgeFaqDraftWorkspaceIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "feedback") ? { ["feedback"]: normalizeIntegerUnion(value["feedback"], [{ matches: (value: unknown) => value === null, normalize: (value: unknown) => value }, { matches: (value: unknown) => isAiKnowledgeFaqFeedbackSource(value), normalize: (value: unknown) => normalizeAiKnowledgeFaqFeedbackSourceIntegerJson(value) }]) } : {}), ...(Object.hasOwn(value, "graph") ? { ["graph"]: normalizeIntegerUnion(value["graph"], [{ matches: (value: unknown) => value === null, normalize: (value: unknown) => value }, { matches: (value: unknown) => isAiKnowledgeFaqSourceGraph(value), normalize: (value: unknown) => normalizeAiKnowledgeFaqSourceGraphIntegerJson(value) }]) } : {}), ...(Object.hasOwn(value, "headVersion") ? { ["headVersion"]: normalizeWireInteger(value["headVersion"]) } : {}), ...(Object.hasOwn(value, "personalSchedules") ? { ["personalSchedules"]: (Array.isArray(value["personalSchedules"]) ? value["personalSchedules"].map((item26: unknown) => normalizeAiPersonalScheduleSourceSelectionIntegerJson(item26)) : value["personalSchedules"]) } : {}), ...(Object.hasOwn(value, "revision") ? { ["revision"]: normalizeAiKnowledgeFaqDraftRevisionIntegerJson(value["revision"]) } : {}), ...(Object.hasOwn(value, "sources") ? { ["sources"]: (Array.isArray(value["sources"]) ? value["sources"].map((item16: unknown) => normalizeAiKnowledgeSearchSourceIntegerJson(item16)) : value["sources"]) } : {}) } : value);
+}
+
+function normalizeAiKnowledgeFaqFeedbackPreviewIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "feedback") ? { ["feedback"]: normalizeAiKnowledgeFaqFeedbackSourceIntegerJson(value["feedback"]) } : {}), ...(Object.hasOwn(value, "graph") ? { ["graph"]: normalizeIntegerUnion(value["graph"], [{ matches: (value: unknown) => value === null, normalize: (value: unknown) => value }, { matches: (value: unknown) => isAiKnowledgeFaqSourceGraph(value), normalize: (value: unknown) => normalizeAiKnowledgeFaqSourceGraphIntegerJson(value) }]) } : {}), ...(Object.hasOwn(value, "personalSchedules") ? { ["personalSchedules"]: (Array.isArray(value["personalSchedules"]) ? value["personalSchedules"].map((item26: unknown) => normalizeAiPersonalScheduleSourceSelectionIntegerJson(item26)) : value["personalSchedules"]) } : {}), ...(Object.hasOwn(value, "sources") ? { ["sources"]: (Array.isArray(value["sources"]) ? value["sources"].map((item16: unknown) => normalizeAiKnowledgeSearchSourceIntegerJson(item16)) : value["sources"]) } : {}) } : value);
+}
+
+function normalizeAiKnowledgeFaqFeedbackSourceIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "feedbackVersion") ? { ["feedbackVersion"]: normalizeWireInteger(value["feedbackVersion"]) } : {}), ...(Object.hasOwn(value, "reviewVersion") ? { ["reviewVersion"]: normalizeWireInteger(value["reviewVersion"]) } : {}) } : value);
+}
+
+function normalizeAiKnowledgeFaqImportItemResultIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "index") ? { ["index"]: normalizeWireInteger(value["index"]) } : {}) } : value);
+}
+
+function normalizeAiKnowledgeFaqImportReportIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "items") ? { ["items"]: (Array.isArray(value["items"]) ? value["items"].map((item14: unknown) => normalizeAiKnowledgeFaqImportItemResultIntegerJson(item14)) : value["items"]) } : {}) } : value);
+}
+
+function normalizeAiKnowledgeFaqLifecycleIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "headVersion") ? { ["headVersion"]: normalizeWireInteger(value["headVersion"]) } : {}), ...(Object.hasOwn(value, "publicationVersion") ? { ["publicationVersion"]: normalizeWireInteger(value["publicationVersion"]) } : {}) } : value);
+}
+
+function normalizeAiKnowledgeFaqPublicationIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "expectedPublicationVersion") ? { ["expectedPublicationVersion"]: normalizeWireInteger(value["expectedPublicationVersion"]) } : {}), ...(Object.hasOwn(value, "feedback") ? { ["feedback"]: normalizeIntegerUnion(value["feedback"], [{ matches: (value: unknown) => value === null, normalize: (value: unknown) => value }, { matches: (value: unknown) => isAiKnowledgeFaqFeedbackSource(value), normalize: (value: unknown) => normalizeAiKnowledgeFaqFeedbackSourceIntegerJson(value) }]) } : {}), ...(Object.hasOwn(value, "graph") ? { ["graph"]: normalizeIntegerUnion(value["graph"], [{ matches: (value: unknown) => value === null, normalize: (value: unknown) => value }, { matches: (value: unknown) => isAiKnowledgeFaqSourceGraph(value), normalize: (value: unknown) => normalizeAiKnowledgeFaqSourceGraphIntegerJson(value) }]) } : {}), ...(Object.hasOwn(value, "personalSchedules") ? { ["personalSchedules"]: (Array.isArray(value["personalSchedules"]) ? value["personalSchedules"].map((item26: unknown) => normalizeAiPersonalScheduleSourceSelectionIntegerJson(item26)) : value["personalSchedules"]) } : {}), ...(Object.hasOwn(value, "sources") ? { ["sources"]: (Array.isArray(value["sources"]) ? value["sources"].map((item16: unknown) => normalizeAiKnowledgeSearchSourceIntegerJson(item16)) : value["sources"]) } : {}), ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
+}
+
+function normalizeAiKnowledgeFaqPublishedContentIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "feedback") ? { ["feedback"]: normalizeIntegerUnion(value["feedback"], [{ matches: (value: unknown) => value === null, normalize: (value: unknown) => value }, { matches: (value: unknown) => isAiKnowledgeFaqFeedbackSource(value), normalize: (value: unknown) => normalizeAiKnowledgeFaqFeedbackSourceIntegerJson(value) }]) } : {}), ...(Object.hasOwn(value, "graph") ? { ["graph"]: normalizeIntegerUnion(value["graph"], [{ matches: (value: unknown) => value === null, normalize: (value: unknown) => value }, { matches: (value: unknown) => isAiKnowledgeFaqSourceGraph(value), normalize: (value: unknown) => normalizeAiKnowledgeFaqSourceGraphIntegerJson(value) }]) } : {}), ...(Object.hasOwn(value, "personalSchedules") ? { ["personalSchedules"]: (Array.isArray(value["personalSchedules"]) ? value["personalSchedules"].map((item26: unknown) => normalizeAiPersonalScheduleSourceSelectionIntegerJson(item26)) : value["personalSchedules"]) } : {}), ...(Object.hasOwn(value, "sources") ? { ["sources"]: (Array.isArray(value["sources"]) ? value["sources"].map((item16: unknown) => normalizeAiKnowledgeSearchSourceIntegerJson(item16)) : value["sources"]) } : {}) } : value);
+}
+
+function normalizeAiKnowledgeFaqSourceGraphIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "nodes") ? { ["nodes"]: (Array.isArray(value["nodes"]) ? value["nodes"].map((item14: unknown) => normalizeAiKnowledgeFaqSourceNodeIntegerJson(item14)) : value["nodes"]) } : {}) } : value);
+}
+
+function normalizeAiKnowledgeFaqSourceNodeIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "source") ? { ["source"]: normalizeAiKnowledgeSearchSourceIntegerJson(value["source"]) } : {}) } : value);
+}
+
+function normalizeAiKnowledgeFaqTransferItemIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "feedback") ? { ["feedback"]: normalizeIntegerUnion(value["feedback"], [{ matches: (value: unknown) => value === null, normalize: (value: unknown) => value }, { matches: (value: unknown) => isAiKnowledgeFaqFeedbackSource(value), normalize: (value: unknown) => normalizeAiKnowledgeFaqFeedbackSourceIntegerJson(value) }]) } : {}), ...(Object.hasOwn(value, "graph") ? { ["graph"]: normalizeIntegerUnion(value["graph"], [{ matches: (value: unknown) => value === null, normalize: (value: unknown) => value }, { matches: (value: unknown) => isAiKnowledgeFaqSourceGraph(value), normalize: (value: unknown) => normalizeAiKnowledgeFaqSourceGraphIntegerJson(value) }]) } : {}), ...(Object.hasOwn(value, "headVersion") ? { ["headVersion"]: normalizeWireInteger(value["headVersion"]) } : {}), ...(Object.hasOwn(value, "personalSchedules") ? { ["personalSchedules"]: (Array.isArray(value["personalSchedules"]) ? value["personalSchedules"].map((item26: unknown) => normalizeAiPersonalScheduleSourceSelectionIntegerJson(item26)) : value["personalSchedules"]) } : {}), ...(Object.hasOwn(value, "sources") ? { ["sources"]: (Array.isArray(value["sources"]) ? value["sources"].map((item16: unknown) => normalizeAiKnowledgeSearchSourceIntegerJson(item16)) : value["sources"]) } : {}) } : value);
+}
+
+function normalizeAiKnowledgeFaqTransferPackageIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "items") ? { ["items"]: (Array.isArray(value["items"]) ? value["items"].map((item14: unknown) => normalizeAiKnowledgeFaqTransferItemIntegerJson(item14)) : value["items"]) } : {}) } : value);
+}
+
+function normalizeAiKnowledgeFinanceBucketIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "known") ? { ["known"]: normalizeWireInteger(value["known"]) } : {}), ...(Object.hasOwn(value, "missingCost") ? { ["missingCost"]: normalizeWireInteger(value["missingCost"]) } : {}), ...(Object.hasOwn(value, "requests") ? { ["requests"]: normalizeWireInteger(value["requests"]) } : {}), ...(Object.hasOwn(value, "reserved") ? { ["reserved"]: normalizeWireInteger(value["reserved"]) } : {}), ...(Object.hasOwn(value, "unknown") ? { ["unknown"]: normalizeWireInteger(value["unknown"]) } : {}) } : value);
+}
+
+function normalizeAiKnowledgeFinanceReportIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "items") ? { ["items"]: (Array.isArray(value["items"]) ? value["items"].map((item14: unknown) => normalizeAiKnowledgeFinanceBucketIntegerJson(item14)) : value["items"]) } : {}) } : value);
+}
+
+function normalizeAiKnowledgeFolderResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
 }
 
 function normalizeAiKnowledgeGridLocationResponseIntegerJson(value: unknown): unknown {
@@ -8001,12 +10096,80 @@ function normalizeAiKnowledgeMembersResponseIntegerJson(value: unknown): unknown
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
 }
 
+function normalizeAiKnowledgeOperationItemIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "attemptCount") ? { ["attemptCount"]: normalizeWireInteger(value["attemptCount"]) } : {}), ...(Object.hasOwn(value, "versionNumber") ? { ["versionNumber"]: normalizeWireInteger(value["versionNumber"]) } : {}) } : value);
+}
+
+function normalizeAiKnowledgeOperationsPageIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "items") ? { ["items"]: (Array.isArray(value["items"]) ? value["items"].map((item14: unknown) => normalizeAiKnowledgeOperationItemIntegerJson(item14)) : value["items"]) } : {}) } : value);
+}
+
 function normalizeAiKnowledgeOrganizationGrantsResponseIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
 }
 
+function normalizeAiKnowledgePublicationHeadResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
+}
+
+function normalizeAiKnowledgePublicationResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "expectedHeadVersion") ? { ["expectedHeadVersion"]: normalizeWireInteger(value["expectedHeadVersion"]) } : {}), ...(Object.hasOwn(value, "policyVersion") ? { ["policyVersion"]: normalizeWireInteger(value["policyVersion"]) } : {}), ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
+}
+
+function normalizeAiKnowledgeQualityObservationIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "currentNegativeFeedback") ? { ["currentNegativeFeedback"]: normalizeWireInteger(value["currentNegativeFeedback"]) } : {}), ...(Object.hasOwn(value, "measured") ? { ["measured"]: normalizeWireInteger(value["measured"]) } : {}), ...(Object.hasOwn(value, "recordedAnswers") ? { ["recordedAnswers"]: normalizeWireInteger(value["recordedAnswers"]) } : {}), ...(Object.hasOwn(value, "refused") ? { ["refused"]: normalizeWireInteger(value["refused"]) } : {}) } : value);
+}
+
 function normalizeAiKnowledgeRoleGrantsResponseIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
+}
+
+function normalizeAiKnowledgeSearchAnswerScopeIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "embeddingModelVersion") ? { ["embeddingModelVersion"]: normalizeWireInteger(value["embeddingModelVersion"]) } : {}), ...(Object.hasOwn(value, "sources") ? { ["sources"]: (Array.isArray(value["sources"]) ? value["sources"].map((item16: unknown) => normalizeAiKnowledgeSearchSourceIntegerJson(item16)) : value["sources"]) } : {}) } : value);
+}
+
+function normalizeAiKnowledgeSearchComparisonRankingIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "hits") ? { ["hits"]: (Array.isArray(value["hits"]) ? value["hits"].map((item13: unknown) => normalizeAiKnowledgeSearchHitIntegerJson(item13)) : value["hits"]) } : {}) } : value);
+}
+
+function normalizeAiKnowledgeSearchComparisonResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "diagnostics") ? { ["diagnostics"]: normalizeIntegerUnion(value["diagnostics"], [{ matches: (value: unknown) => value === null, normalize: (value: unknown) => value }, { matches: (value: unknown) => isAiKnowledgeSearchDiagnostics(value), normalize: (value: unknown) => normalizeAiKnowledgeSearchDiagnosticsIntegerJson(value) }]) } : {}), ...(Object.hasOwn(value, "keyword") ? { ["keyword"]: normalizeAiKnowledgeSearchComparisonRankingIntegerJson(value["keyword"]) } : {}), ...(Object.hasOwn(value, "sources") ? { ["sources"]: (Array.isArray(value["sources"]) ? value["sources"].map((item16: unknown) => normalizeAiKnowledgeSearchSourceIntegerJson(item16)) : value["sources"]) } : {}), ...(Object.hasOwn(value, "vector") ? { ["vector"]: normalizeAiKnowledgeSearchComparisonRankingIntegerJson(value["vector"]) } : {}) } : value);
+}
+
+function normalizeAiKnowledgeSearchContextBlockIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "correction") ? { ["correction"]: normalizeIntegerUnion(value["correction"], [{ matches: (value: unknown) => value === null, normalize: (value: unknown) => value }, { matches: (value: unknown) => isAiKnowledgeCorrectionCitationResponse(value), normalize: (value: unknown) => normalizeAiKnowledgeCorrectionCitationResponseIntegerJson(value) }]) } : {}), ...(Object.hasOwn(value, "docxLocation") ? { ["docxLocation"]: normalizeIntegerUnion(value["docxLocation"], [{ matches: (value: unknown) => value === null, normalize: (value: unknown) => value }, { matches: (value: unknown) => isAiKnowledgeDocxLocationResponse(value), normalize: (value: unknown) => normalizeAiKnowledgeDocxLocationResponseIntegerJson(value) }]) } : {}), ...(Object.hasOwn(value, "length") ? { ["length"]: normalizeWireInteger(value["length"]) } : {}), ...(Object.hasOwn(value, "offset") ? { ["offset"]: normalizeWireInteger(value["offset"]) } : {}), ...(Object.hasOwn(value, "pageNumber") ? { ["pageNumber"]: normalizeWireInteger(value["pageNumber"]) } : {}), ...(Object.hasOwn(value, "sequence") ? { ["sequence"]: normalizeWireInteger(value["sequence"]) } : {}), ...(Object.hasOwn(value, "sourceLocation") ? { ["sourceLocation"]: normalizeIntegerUnion(value["sourceLocation"], [{ matches: (value: unknown) => value === null, normalize: (value: unknown) => value }, { matches: (value: unknown) => isAiKnowledgeSourceLocationResponse(value), normalize: (value: unknown) => normalizeAiKnowledgeSourceLocationResponseIntegerJson(value) }]) } : {}) } : value);
+}
+
+function normalizeAiKnowledgeSearchContextResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "anchorSequence") ? { ["anchorSequence"]: normalizeWireInteger(value["anchorSequence"]) } : {}), ...(Object.hasOwn(value, "blocks") ? { ["blocks"]: (Array.isArray(value["blocks"]) ? value["blocks"].map((item15: unknown) => normalizeAiKnowledgeSearchContextBlockIntegerJson(item15)) : value["blocks"]) } : {}), ...(Object.hasOwn(value, "documentMetadataVersion") ? { ["documentMetadataVersion"]: normalizeWireInteger(value["documentMetadataVersion"]) } : {}), ...(Object.hasOwn(value, "radius") ? { ["radius"]: normalizeWireInteger(value["radius"]) } : {}), ...(Object.hasOwn(value, "source") ? { ["source"]: normalizeAiKnowledgeSearchSourceIntegerJson(value["source"]) } : {}) } : value);
+}
+
+function normalizeAiKnowledgeSearchDiagnosticsIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "candidateCount") ? { ["candidateCount"]: normalizeWireInteger(value["candidateCount"]) } : {}), ...(Object.hasOwn(value, "sourceCount") ? { ["sourceCount"]: normalizeWireInteger(value["sourceCount"]) } : {}) } : value);
+}
+
+function normalizeAiKnowledgeSearchHitIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "correction") ? { ["correction"]: normalizeIntegerUnion(value["correction"], [{ matches: (value: unknown) => value === null, normalize: (value: unknown) => value }, { matches: (value: unknown) => isAiKnowledgeCorrectionCitationResponse(value), normalize: (value: unknown) => normalizeAiKnowledgeCorrectionCitationResponseIntegerJson(value) }]) } : {}), ...(Object.hasOwn(value, "documentMetadataVersion") ? { ["documentMetadataVersion"]: normalizeWireInteger(value["documentMetadataVersion"]) } : {}), ...(Object.hasOwn(value, "docxLocation") ? { ["docxLocation"]: normalizeIntegerUnion(value["docxLocation"], [{ matches: (value: unknown) => value === null, normalize: (value: unknown) => value }, { matches: (value: unknown) => isAiKnowledgeDocxLocationResponse(value), normalize: (value: unknown) => normalizeAiKnowledgeDocxLocationResponseIntegerJson(value) }]) } : {}), ...(Object.hasOwn(value, "length") ? { ["length"]: normalizeWireInteger(value["length"]) } : {}), ...(Object.hasOwn(value, "offset") ? { ["offset"]: normalizeWireInteger(value["offset"]) } : {}), ...(Object.hasOwn(value, "pageNumber") ? { ["pageNumber"]: normalizeWireInteger(value["pageNumber"]) } : {}), ...(Object.hasOwn(value, "sequence") ? { ["sequence"]: normalizeWireInteger(value["sequence"]) } : {}), ...(Object.hasOwn(value, "source") ? { ["source"]: normalizeAiKnowledgeSearchSourceIntegerJson(value["source"]) } : {}), ...(Object.hasOwn(value, "sourceLocation") ? { ["sourceLocation"]: normalizeIntegerUnion(value["sourceLocation"], [{ matches: (value: unknown) => value === null, normalize: (value: unknown) => value }, { matches: (value: unknown) => isAiKnowledgeSourceLocationResponse(value), normalize: (value: unknown) => normalizeAiKnowledgeSourceLocationResponseIntegerJson(value) }]) } : {}) } : value);
+}
+
+function normalizeAiKnowledgeSearchRefinementResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "diagnostics") ? { ["diagnostics"]: normalizeIntegerUnion(value["diagnostics"], [{ matches: (value: unknown) => value === null, normalize: (value: unknown) => value }, { matches: (value: unknown) => isAiKnowledgeSearchDiagnostics(value), normalize: (value: unknown) => normalizeAiKnowledgeSearchDiagnosticsIntegerJson(value) }]) } : {}), ...(Object.hasOwn(value, "originalKeyword") ? { ["originalKeyword"]: normalizeAiKnowledgeSearchComparisonRankingIntegerJson(value["originalKeyword"]) } : {}), ...(Object.hasOwn(value, "originalVector") ? { ["originalVector"]: normalizeAiKnowledgeSearchComparisonRankingIntegerJson(value["originalVector"]) } : {}), ...(Object.hasOwn(value, "processingModelVersion") ? { ["processingModelVersion"]: normalizeWireInteger(value["processingModelVersion"]) } : {}), ...(Object.hasOwn(value, "rerankCandidateCount") ? { ["rerankCandidateCount"]: normalizeWireInteger(value["rerankCandidateCount"]) } : {}), ...(Object.hasOwn(value, "reranked") ? { ["reranked"]: normalizeIntegerUnion(value["reranked"], [{ matches: (value: unknown) => value === null, normalize: (value: unknown) => value }, { matches: (value: unknown) => isAiKnowledgeSearchComparisonRanking(value), normalize: (value: unknown) => normalizeAiKnowledgeSearchComparisonRankingIntegerJson(value) }]) } : {}), ...(Object.hasOwn(value, "rewrittenKeyword") ? { ["rewrittenKeyword"]: normalizeIntegerUnion(value["rewrittenKeyword"], [{ matches: (value: unknown) => value === null, normalize: (value: unknown) => value }, { matches: (value: unknown) => isAiKnowledgeSearchComparisonRanking(value), normalize: (value: unknown) => normalizeAiKnowledgeSearchComparisonRankingIntegerJson(value) }]) } : {}), ...(Object.hasOwn(value, "rewrittenVector") ? { ["rewrittenVector"]: normalizeIntegerUnion(value["rewrittenVector"], [{ matches: (value: unknown) => value === null, normalize: (value: unknown) => value }, { matches: (value: unknown) => isAiKnowledgeSearchComparisonRanking(value), normalize: (value: unknown) => normalizeAiKnowledgeSearchComparisonRankingIntegerJson(value) }]) } : {}), ...(Object.hasOwn(value, "sources") ? { ["sources"]: (Array.isArray(value["sources"]) ? value["sources"].map((item16: unknown) => normalizeAiKnowledgeSearchSourceIntegerJson(item16)) : value["sources"]) } : {}) } : value);
+}
+
+function normalizeAiKnowledgeSearchRelationIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "childLocation") ? { ["childLocation"]: normalizeAiKnowledgeSourceLocationResponseIntegerJson(value["childLocation"]) } : {}), ...(Object.hasOwn(value, "childSequence") ? { ["childSequence"]: normalizeWireInteger(value["childSequence"]) } : {}), ...(Object.hasOwn(value, "parentLocation") ? { ["parentLocation"]: normalizeAiKnowledgeSourceLocationResponseIntegerJson(value["parentLocation"]) } : {}), ...(Object.hasOwn(value, "parentSequence") ? { ["parentSequence"]: normalizeWireInteger(value["parentSequence"]) } : {}) } : value);
+}
+
+function normalizeAiKnowledgeSearchRelationsResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "anchorSequence") ? { ["anchorSequence"]: normalizeWireInteger(value["anchorSequence"]) } : {}), ...(Object.hasOwn(value, "blocks") ? { ["blocks"]: (Array.isArray(value["blocks"]) ? value["blocks"].map((item15: unknown) => normalizeAiKnowledgeSearchContextBlockIntegerJson(item15)) : value["blocks"]) } : {}), ...(Object.hasOwn(value, "documentMetadataVersion") ? { ["documentMetadataVersion"]: normalizeWireInteger(value["documentMetadataVersion"]) } : {}), ...(Object.hasOwn(value, "relations") ? { ["relations"]: (Array.isArray(value["relations"]) ? value["relations"].map((item18: unknown) => normalizeAiKnowledgeSearchRelationIntegerJson(item18)) : value["relations"]) } : {}), ...(Object.hasOwn(value, "source") ? { ["source"]: normalizeAiKnowledgeSearchSourceIntegerJson(value["source"]) } : {}) } : value);
+}
+
+function normalizeAiKnowledgeSearchResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "diagnostics") ? { ["diagnostics"]: normalizeIntegerUnion(value["diagnostics"], [{ matches: (value: unknown) => value === null, normalize: (value: unknown) => value }, { matches: (value: unknown) => isAiKnowledgeSearchDiagnostics(value), normalize: (value: unknown) => normalizeAiKnowledgeSearchDiagnosticsIntegerJson(value) }]) } : {}), ...(Object.hasOwn(value, "hits") ? { ["hits"]: (Array.isArray(value["hits"]) ? value["hits"].map((item13: unknown) => normalizeAiKnowledgeSearchHitIntegerJson(item13)) : value["hits"]) } : {}), ...(Object.hasOwn(value, "sources") ? { ["sources"]: (Array.isArray(value["sources"]) ? value["sources"].map((item16: unknown) => normalizeAiKnowledgeSearchSourceIntegerJson(item16)) : value["sources"]) } : {}), ...(Object.hasOwn(value, "totalMatches") ? { ["totalMatches"]: normalizeWireInteger(value["totalMatches"]) } : {}) } : value);
+}
+
+function normalizeAiKnowledgeSearchSourceIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "documentVersion") ? { ["documentVersion"]: normalizeWireInteger(value["documentVersion"]) } : {}), ...(Object.hasOwn(value, "knowledgeBaseVersion") ? { ["knowledgeBaseVersion"]: normalizeWireInteger(value["knowledgeBaseVersion"]) } : {}) } : value);
 }
 
 function normalizeAiKnowledgeSlideLocationResponseIntegerJson(value: unknown): unknown {
@@ -8041,6 +10204,34 @@ function normalizeAiModelConfigResponseIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
 }
 
+function normalizeAiPersonalScheduleCitationResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
+}
+
+function normalizeAiPersonalScheduleCompletionProposalIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "expectedVersion") ? { ["expectedVersion"]: normalizeWireInteger(value["expectedVersion"]) } : {}), ...(Object.hasOwn(value, "toolVersion") ? { ["toolVersion"]: normalizeWireInteger(value["toolVersion"]) } : {}) } : value);
+}
+
+function normalizeAiPersonalScheduleCompletionStatusIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "actualVersion") ? { ["actualVersion"]: normalizeWireInteger(value["actualVersion"]) } : {}), ...(Object.hasOwn(value, "expectedVersion") ? { ["expectedVersion"]: normalizeWireInteger(value["expectedVersion"]) } : {}) } : value);
+}
+
+function normalizeAiPersonalScheduleCompletionTargetIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
+}
+
+function normalizeAiPersonalScheduleSourceIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
+}
+
+function normalizeAiPersonalScheduleSourcePreviewIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "sources") ? { ["sources"]: (Array.isArray(value["sources"]) ? value["sources"].map((item16: unknown) => normalizeAiPersonalScheduleSourceIntegerJson(item16)) : value["sources"]) } : {}) } : value);
+}
+
+function normalizeAiPersonalScheduleSourceSelectionIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
+}
+
 function normalizeAiPromptBodyIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "execution") ? { ["execution"]: normalizeIntegerUnion(value["execution"], [{ matches: (value: unknown) => value === null, normalize: (value: unknown) => value }, { matches: (value: unknown) => isAiPromptExecutionBinding(value), normalize: (value: unknown) => normalizeAiPromptExecutionBindingIntegerJson(value) }]) } : {}), ...(Object.hasOwn(value, "inputTokenLimit") ? { ["inputTokenLimit"]: normalizeWireInteger(value["inputTokenLimit"]) } : {}), ...(Object.hasOwn(value, "outputTokenLimit") ? { ["outputTokenLimit"]: normalizeWireInteger(value["outputTokenLimit"]) } : {}) } : value);
 }
@@ -8067,6 +10258,10 @@ function normalizeAiTenantQuotaResponseIntegerJson(value: unknown): unknown {
 
 function normalizeAppendAiPromptVersionRequestIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "body") ? { ["body"]: normalizeAiPromptBodyIntegerJson(value["body"]) } : {}), ...(Object.hasOwn(value, "revision") ? { ["revision"]: normalizeWireInteger(value["revision"]) } : {}) } : value);
+}
+
+function normalizeAskAiKnowledgeRequestIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "personalSchedules") ? { ["personalSchedules"]: (Array.isArray(value["personalSchedules"]) ? value["personalSchedules"].map((item26: unknown) => normalizeAiPersonalScheduleSourceSelectionIntegerJson(item26)) : value["personalSchedules"]) } : {}), ...(Object.hasOwn(value, "searchScope") ? { ["searchScope"]: normalizeIntegerUnion(value["searchScope"], [{ matches: (value: unknown) => value === null, normalize: (value: unknown) => value }, { matches: (value: unknown) => isAiKnowledgeSearchAnswerScope(value), normalize: (value: unknown) => normalizeAiKnowledgeSearchAnswerScopeIntegerJson(value) }]) } : {}) } : value);
 }
 
 function normalizeAskAiKnowledgeResponseIntegerJson(value: unknown): unknown {
@@ -8149,6 +10344,18 @@ function normalizeCachePolicySummaryIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "l1DurationSeconds") ? { ["l1DurationSeconds"]: normalizeWireInteger(value["l1DurationSeconds"]) } : {}), ...(Object.hasOwn(value, "l2DurationSeconds") ? { ["l2DurationSeconds"]: normalizeWireInteger(value["l2DurationSeconds"]) } : {}), ...(Object.hasOwn(value, "maxSerializedBytes") ? { ["maxSerializedBytes"]: normalizeWireInteger(value["maxSerializedBytes"]) } : {}) } : value);
 }
 
+function normalizeCancelDocumentPreviewTaskRequestIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
+}
+
+function normalizeCancelImportExportTaskRequestIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
+}
+
+function normalizeCancelReportingExportTaskRequestIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
+}
+
 function normalizeCancelWorkflowInstanceRequestIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "expectedRevision") ? { ["expectedRevision"]: normalizeWireInteger(value["expectedRevision"]) } : {}) } : value);
 }
@@ -8157,8 +10364,16 @@ function normalizeCancelWorkflowTodoCountersignRequestIntegerJson(value: unknown
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "expectedRevision") ? { ["expectedRevision"]: normalizeWireInteger(value["expectedRevision"]) } : {}) } : value);
 }
 
+function normalizeCaptureAiKnowledgeEvaluationStrategyIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "embeddingModelVersion") ? { ["embeddingModelVersion"]: normalizeWireInteger(value["embeddingModelVersion"]) } : {}), ...(Object.hasOwn(value, "expectedSources") ? { ["expectedSources"]: (Array.isArray(value["expectedSources"]) ? value["expectedSources"].map((item24: unknown) => normalizeAiKnowledgeSearchSourceIntegerJson(item24)) : value["expectedSources"]) } : {}), ...(Object.hasOwn(value, "expectedVersion") ? { ["expectedVersion"]: normalizeWireInteger(value["expectedVersion"]) } : {}), ...(Object.hasOwn(value, "processingModelVersion") ? { ["processingModelVersion"]: normalizeWireInteger(value["processingModelVersion"]) } : {}), ...(Object.hasOwn(value, "setVersion") ? { ["setVersion"]: normalizeWireInteger(value["setVersion"]) } : {}) } : value);
+}
+
 function normalizeChangeDeliveryOwnerRequestIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "schemaVersion") ? { ["schemaVersion"]: normalizeWireInteger(value["schemaVersion"]) } : {}) } : value);
+}
+
+function normalizeChangeHostDocumentStatusRequestIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
 }
 
 function normalizeChangeHostJobScheduleStateRequestIntegerJson(value: unknown): unknown {
@@ -8202,7 +10417,15 @@ function normalizeCodeGenerationPreviewColumnRequestIntegerJson(value: unknown):
 }
 
 function normalizeCodeGenerationPreviewRequestIntegerJson(value: unknown): unknown {
-  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "columns") ? { ["columns"]: (Array.isArray(value["columns"]) ? value["columns"].map((item16: unknown) => normalizeCodeGenerationPreviewColumnRequestIntegerJson(item16)) : value["columns"]) } : {}), ...(Object.hasOwn(value, "entityCapabilities") ? { ["entityCapabilities"]: normalizeIntegerUnion(value["entityCapabilities"], [{ matches: (value: unknown) => value === null, normalize: (value: unknown) => value }, { matches: (value: unknown) => isCodeGenerationEntityCapabilitiesRequest(value), normalize: (value: unknown) => value }]) } : {}) } : value);
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "columns") ? { ["columns"]: (Array.isArray(value["columns"]) ? value["columns"].map((item16: unknown) => normalizeCodeGenerationPreviewColumnRequestIntegerJson(item16)) : value["columns"]) } : {}), ...(Object.hasOwn(value, "entityCapabilities") ? { ["entityCapabilities"]: normalizeIntegerUnion(value["entityCapabilities"], [{ matches: (value: unknown) => value === null, normalize: (value: unknown) => value }, { matches: (value: unknown) => isCodeGenerationEntityCapabilitiesRequest(value), normalize: (value: unknown) => value }]) } : {}), ...(Object.hasOwn(value, "relationships") ? { ["relationships"]: (Array.isArray(value["relationships"]) ? value["relationships"].map((item22: unknown) => normalizeCodeGenerationRelationshipRequestIntegerJson(item22)) : value["relationships"]) } : {}) } : value);
+}
+
+function normalizeCodeGenerationRelationshipRequestIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "dependentSchema") ? { ["dependentSchema"]: normalizeIntegerUnion(value["dependentSchema"], [{ matches: (value: unknown) => value === null, normalize: (value: unknown) => value }, { matches: (value: unknown) => isCodeGenerationPreviewRequest(value), normalize: (value: unknown) => normalizeCodeGenerationPreviewRequestIntegerJson(value) }]) } : {}), ...(Object.hasOwn(value, "principalSchema") ? { ["principalSchema"]: normalizeIntegerUnion(value["principalSchema"], [{ matches: (value: unknown) => value === null, normalize: (value: unknown) => value }, { matches: (value: unknown) => isCodeGenerationPreviewRequest(value), normalize: (value: unknown) => normalizeCodeGenerationPreviewRequestIntegerJson(value) }]) } : {}) } : value);
+}
+
+function normalizeCodeGenerationRunApplyPlanResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "workspaceRevision") ? { ["workspaceRevision"]: normalizeWireInteger(value["workspaceRevision"]) } : {}) } : value);
 }
 
 function normalizeCodeGenerationRunApplyResponseIntegerJson(value: unknown): unknown {
@@ -8229,12 +10452,28 @@ function normalizeCodeGenerationTemplateResponseIntegerJson(value: unknown): unk
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "schema") ? { ["schema"]: normalizeCodeGenerationPreviewRequestIntegerJson(value["schema"]) } : {}), ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
 }
 
+function normalizeCodeGenerationWorkspaceStateResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "revision") ? { ["revision"]: normalizeWireInteger(value["revision"]) } : {}) } : value);
+}
+
+function normalizeCompareAiKnowledgeSearchRequestIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "limit") ? { ["limit"]: normalizeWireInteger(value["limit"]) } : {}), ...(Object.hasOwn(value, "searchScope") ? { ["searchScope"]: normalizeAiKnowledgeSearchAnswerScopeIntegerJson(value["searchScope"]) } : {}) } : value);
+}
+
 function normalizeConfigEntryResponseIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "displayOrder") ? { ["displayOrder"]: normalizeWireInteger(value["displayOrder"]) } : {}), ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
 }
 
 function normalizeConfirmOcrIdCardTaskRequestIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
+}
+
+function normalizeCopyAiKnowledgeEvaluationSetIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "expectedVersion") ? { ["expectedVersion"]: normalizeWireInteger(value["expectedVersion"]) } : {}) } : value);
+}
+
+function normalizeCopyAiKnowledgeFaqDraftIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "expectedHeadVersion") ? { ["expectedHeadVersion"]: normalizeWireInteger(value["expectedHeadVersion"]) } : {}) } : value);
 }
 
 function normalizeCountersignWorkflowTodoRequestIntegerJson(value: unknown): unknown {
@@ -8250,7 +10489,15 @@ function normalizeCreateAiAgentApprovalRequestIntegerJson(value: unknown): unkno
 }
 
 function normalizeCreateAiAgentRunRequestIntegerJson(value: unknown): unknown {
-  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "inputTokenLimit") ? { ["inputTokenLimit"]: normalizeWireInteger(value["inputTokenLimit"]) } : {}), ...(Object.hasOwn(value, "outputTokenLimit") ? { ["outputTokenLimit"]: normalizeWireInteger(value["outputTokenLimit"]) } : {}) } : value);
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "inputTokenLimit") ? { ["inputTokenLimit"]: normalizeWireInteger(value["inputTokenLimit"]) } : {}), ...(Object.hasOwn(value, "outputTokenLimit") ? { ["outputTokenLimit"]: normalizeWireInteger(value["outputTokenLimit"]) } : {}), ...(Object.hasOwn(value, "personalScheduleTarget") ? { ["personalScheduleTarget"]: normalizeIntegerUnion(value["personalScheduleTarget"], [{ matches: (value: unknown) => value === null, normalize: (value: unknown) => value }, { matches: (value: unknown) => isAiPersonalScheduleCompletionTarget(value), normalize: (value: unknown) => normalizeAiPersonalScheduleCompletionTargetIntegerJson(value) }]) } : {}) } : value);
+}
+
+function normalizeCreateAiKnowledgeFaqDerivedDraftIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "selection") ? { ["selection"]: normalizeAiKnowledgeFaqDocumentSelectionIntegerJson(value["selection"]) } : {}) } : value);
+}
+
+function normalizeCreateAiKnowledgeFaqDocumentDraftIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "selection") ? { ["selection"]: normalizeAiKnowledgeFaqDocumentSelectionIntegerJson(value["selection"]) } : {}) } : value);
 }
 
 function normalizeCreateAiKnowledgeIndexGrantRequestIntegerJson(value: unknown): unknown {
@@ -8337,6 +10584,10 @@ function normalizeCreateOrganizationUnitRequestIntegerJson(value: unknown): unkn
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "displayOrder") ? { ["displayOrder"]: normalizeWireInteger(value["displayOrder"]) } : {}) } : value);
 }
 
+function normalizeCreatePaidTenantSubscriptionRequestIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "offerVersion") ? { ["offerVersion"]: normalizeWireInteger(value["offerVersion"]) } : {}) } : value);
+}
+
 function normalizeCreatePaymentOrderRequestIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "amountMinor") ? { ["amountMinor"]: normalizeWireInteger(value["amountMinor"]) } : {}) } : value);
 }
@@ -8377,6 +10628,18 @@ function normalizeCurrentUserResponseIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "profileVersion") ? { ["profileVersion"]: normalizeWireInteger(value["profileVersion"]) } : {}) } : value);
 }
 
+function normalizeCursorPageOfImportExportTaskResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "items") ? { ["items"]: (Array.isArray(value["items"]) ? value["items"].map((item14: unknown) => normalizeImportExportTaskResponseIntegerJson(item14)) : value["items"]) } : {}) } : value);
+}
+
+function normalizeCursorPageOfQuerySchemeSummaryIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "items") ? { ["items"]: (Array.isArray(value["items"]) ? value["items"].map((item14: unknown) => normalizeQuerySchemeSummaryIntegerJson(item14)) : value["items"]) } : {}) } : value);
+}
+
+function normalizeCursorPageOfReportingExportTaskResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "items") ? { ["items"]: (Array.isArray(value["items"]) ? value["items"].map((item14: unknown) => normalizeReportingExportTaskResponseIntegerJson(item14)) : value["items"]) } : {}) } : value);
+}
+
 function normalizeCutoverEvidenceResponseIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "sampleCount") ? { ["sampleCount"]: normalizeWireInteger(value["sampleCount"]) } : {}), ...(Object.hasOwn(value, "schemaVersion") ? { ["schemaVersion"]: normalizeWireInteger(value["schemaVersion"]) } : {}) } : value);
 }
@@ -8397,6 +10660,10 @@ function normalizeDecideAiAgentApprovalRequestIntegerJson(value: unknown): unkno
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "expectedVersion") ? { ["expectedVersion"]: normalizeWireInteger(value["expectedVersion"]) } : {}) } : value);
 }
 
+function normalizeDefaultQuerySchemeResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "scheme") ? { ["scheme"]: normalizeIntegerUnion(value["scheme"], [{ matches: (value: unknown) => value === null, normalize: (value: unknown) => value }, { matches: (value: unknown) => isQuerySchemeDetail(value), normalize: (value: unknown) => normalizeQuerySchemeDetailIntegerJson(value) }]) } : {}), ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
+}
+
 function normalizeDelegateWorkflowTodoRequestIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "expectedFormRevision") ? { ["expectedFormRevision"]: normalizeWireInteger(value["expectedFormRevision"]) } : {}), ...(Object.hasOwn(value, "expectedRevision") ? { ["expectedRevision"]: normalizeWireInteger(value["expectedRevision"]) } : {}) } : value);
 }
@@ -8406,6 +10673,10 @@ function normalizeDeleteAdministrativeRegionRequestIntegerJson(value: unknown): 
 }
 
 function normalizeDeleteAiKnowledgeDocumentRequestIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
+}
+
+function normalizeDeleteAiKnowledgeFolderIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
 }
 
@@ -8422,10 +10693,6 @@ function normalizeDeleteDictItemRequestIntegerJson(value: unknown): unknown {
 }
 
 function normalizeDeleteDictTypeRequestIntegerJson(value: unknown): unknown {
-  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
-}
-
-function normalizeDeleteEnterpriseRequestRequestIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
 }
 
@@ -8454,6 +10721,14 @@ function normalizeDeleteHostJobDefinitionRequestIntegerJson(value: unknown): unk
 }
 
 function normalizeDeleteHostReleaseNoteRequestIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
+}
+
+function normalizeDeleteImportProfileRequestIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
+}
+
+function normalizeDeleteQuerySchemeRequestIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
 }
 
@@ -8493,8 +10768,16 @@ function normalizeDisableHostJobDefinitionRequestIntegerJson(value: unknown): un
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
 }
 
-function normalizeEnterpriseRequestResponseIntegerJson(value: unknown): unknown {
-  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
+function normalizeDocumentPreviewCapabilitiesIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "maxAttempts") ? { ["maxAttempts"]: normalizeWireInteger(value["maxAttempts"]) } : {}), ...(Object.hasOwn(value, "maxInputBytes") ? { ["maxInputBytes"]: normalizeWireInteger(value["maxInputBytes"]) } : {}) } : value);
+}
+
+function normalizeEnterpriseRequestReportResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "attempt") ? { ["attempt"]: normalizeWireInteger(value["attempt"]) } : {}) } : value);
+}
+
+function normalizeEnterpriseRequestSearchPageIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "page") ? { ["page"]: normalizeWireInteger(value["page"]) } : {}), ...(Object.hasOwn(value, "windowDays") ? { ["windowDays"]: normalizeWireInteger(value["windowDays"]) } : {}) } : value);
 }
 
 function normalizeEnumCatalogDetailIntegerJson(value: unknown): unknown {
@@ -8525,6 +10808,10 @@ function normalizeEventStreamStatusResponseIntegerJson(value: unknown): unknown 
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "deliveryOwner") ? { ["deliveryOwner"]: normalizeIntegerUnion(value["deliveryOwner"], [{ matches: (value: unknown) => value === null, normalize: (value: unknown) => value }, { matches: (value: unknown) => isEventDeliveryOwner(value), normalize: (value: unknown) => value }]) } : {}), ...(Object.hasOwn(value, "kafkaProjectedDeadLetterCount") ? { ["kafkaProjectedDeadLetterCount"]: normalizeWireInteger(value["kafkaProjectedDeadLetterCount"]) } : {}), ...(Object.hasOwn(value, "legacyBacklog") ? { ["legacyBacklog"]: normalizeIntegerUnion(value["legacyBacklog"], [{ matches: (value: unknown) => value === null, normalize: (value: unknown) => value }, { matches: (value: unknown) => isOutboxBacklogSummaryResponse(value), normalize: (value: unknown) => normalizeOutboxBacklogSummaryResponseIntegerJson(value) }]) } : {}), ...(Object.hasOwn(value, "retainedEventCount") ? { ["retainedEventCount"]: normalizeWireInteger(value["retainedEventCount"]) } : {}), ...(Object.hasOwn(value, "schemaVersion") ? { ["schemaVersion"]: normalizeWireInteger(value["schemaVersion"]) } : {}) } : value);
 }
 
+function normalizeExecuteAiKnowledgeEvaluationCaseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "expectedVersion") ? { ["expectedVersion"]: normalizeWireInteger(value["expectedVersion"]) } : {}) } : value);
+}
+
 function normalizeExecuteReportingDefinitionRequestIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "versionNumber") ? { ["versionNumber"]: normalizeWireInteger(value["versionNumber"]) } : {}) } : value);
 }
@@ -8547,6 +10834,10 @@ function normalizeGoViewProjectVersionResponseIntegerJson(value: unknown): unkno
 
 function normalizeGoViewProjectVersionSummaryResponseIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "versionNumber") ? { ["versionNumber"]: normalizeWireInteger(value["versionNumber"]) } : {}) } : value);
+}
+
+function normalizeGridColumnPreferenceIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "order") ? { ["order"]: normalizeWireInteger(value["order"]) } : {}), ...(Object.hasOwn(value, "width") ? { ["width"]: normalizeWireInteger(value["width"]) } : {}) } : value);
 }
 
 function normalizeHostAnnouncementReadStatsResponseIntegerJson(value: unknown): unknown {
@@ -8585,8 +10876,16 @@ function normalizeHostDocumentItemResponseIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "accessCount") ? { ["accessCount"]: normalizeWireInteger(value["accessCount"]) } : {}), ...(Object.hasOwn(value, "currentVersion") ? { ["currentVersion"]: normalizeIntegerUnion(value["currentVersion"], [{ matches: (value: unknown) => value === null, normalize: (value: unknown) => value }, { matches: (value: unknown) => isHostDocumentVersionResponse(value), normalize: (value: unknown) => normalizeHostDocumentVersionResponseIntegerJson(value) }]) } : {}), ...(Object.hasOwn(value, "sizeKb") ? { ["sizeKb"]: normalizeWireInteger(value["sizeKb"]) } : {}), ...(Object.hasOwn(value, "sort") ? { ["sort"]: normalizeWireInteger(value["sort"]) } : {}), ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
 }
 
-function normalizeHostDocumentPreviewTaskResponseIntegerJson(value: unknown): unknown {
+function normalizeHostDocumentPermissionContextIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
+}
+
+function normalizeHostDocumentPreviewTaskResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "attemptCount") ? { ["attemptCount"]: normalizeWireInteger(value["attemptCount"]) } : {}), ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
+}
+
+function normalizeHostDocumentSearchPageIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "page") ? { ["page"]: normalizeWireInteger(value["page"]) } : {}), ...(Object.hasOwn(value, "windowDays") ? { ["windowDays"]: normalizeWireInteger(value["windowDays"]) } : {}) } : value);
 }
 
 function normalizeHostDocumentShareAccessResponseIntegerJson(value: unknown): unknown {
@@ -8602,15 +10901,15 @@ function normalizeHostDocumentStatisticsCategoryItemIntegerJson(value: unknown):
 }
 
 function normalizeHostDocumentStatisticsResponseIntegerJson(value: unknown): unknown {
-  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "byCategory") ? { ["byCategory"]: (Array.isArray(value["byCategory"]) ? value["byCategory"].map((item19: unknown) => normalizeHostDocumentStatisticsCategoryItemIntegerJson(item19)) : value["byCategory"]) } : {}), ...(Object.hasOwn(value, "byType") ? { ["byType"]: (Array.isArray(value["byType"]) ? value["byType"].map((item15: unknown) => normalizeHostDocumentStatisticsTypeItemIntegerJson(item15)) : value["byType"]) } : {}), ...(Object.hasOwn(value, "recycleBinCount") ? { ["recycleBinCount"]: normalizeWireInteger(value["recycleBinCount"]) } : {}), ...(Object.hasOwn(value, "shareCount") ? { ["shareCount"]: normalizeWireInteger(value["shareCount"]) } : {}), ...(Object.hasOwn(value, "summary") ? { ["summary"]: normalizeHostDocumentStatisticsSummaryResponseIntegerJson(value["summary"]) } : {}), ...(Object.hasOwn(value, "todayAccessCount") ? { ["todayAccessCount"]: normalizeWireInteger(value["todayAccessCount"]) } : {}), ...(Object.hasOwn(value, "todayCreatedCount") ? { ["todayCreatedCount"]: normalizeWireInteger(value["todayCreatedCount"]) } : {}), ...(Object.hasOwn(value, "todayDownloadCount") ? { ["todayDownloadCount"]: normalizeWireInteger(value["todayDownloadCount"]) } : {}) } : value);
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "byCategory") ? { ["byCategory"]: (Array.isArray(value["byCategory"]) ? value["byCategory"].map((item19: unknown) => normalizeHostDocumentStatisticsCategoryItemIntegerJson(item19)) : value["byCategory"]) } : {}), ...(Object.hasOwn(value, "byType") ? { ["byType"]: (Array.isArray(value["byType"]) ? value["byType"].map((item15: unknown) => normalizeHostDocumentStatisticsTypeItemIntegerJson(item15)) : value["byType"]) } : {}), ...(Object.hasOwn(value, "recycleBinCount") ? { ["recycleBinCount"]: normalizeWireInteger(value["recycleBinCount"]) } : {}), ...(Object.hasOwn(value, "shareCount") ? { ["shareCount"]: normalizeWireInteger(value["shareCount"]) } : {}), ...(Object.hasOwn(value, "summary") ? { ["summary"]: normalizeHostDocumentStatisticsSummaryResponseIntegerJson(value["summary"]) } : {}), ...(Object.hasOwn(value, "todayAccessCount") ? { ["todayAccessCount"]: normalizeWireInteger(value["todayAccessCount"]) } : {}), ...(Object.hasOwn(value, "todayCreatedCount") ? { ["todayCreatedCount"]: normalizeWireInteger(value["todayCreatedCount"]) } : {}), ...(Object.hasOwn(value, "todayDownloadCount") ? { ["todayDownloadCount"]: normalizeWireInteger(value["todayDownloadCount"]) } : {}), ...(Object.hasOwn(value, "todayPreviewCount") ? { ["todayPreviewCount"]: normalizeWireInteger(value["todayPreviewCount"]) } : {}), ...(Object.hasOwn(value, "todayShareAccessCount") ? { ["todayShareAccessCount"]: normalizeWireInteger(value["todayShareAccessCount"]) } : {}) } : value);
 }
 
 function normalizeHostDocumentStatisticsSummaryResponseIntegerJson(value: unknown): unknown {
-  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "totalItems") ? { ["totalItems"]: normalizeWireInteger(value["totalItems"]) } : {}), ...(Object.hasOwn(value, "totalSizeKb") ? { ["totalSizeKb"]: normalizeWireInteger(value["totalSizeKb"]) } : {}), ...(Object.hasOwn(value, "totalVersions") ? { ["totalVersions"]: normalizeWireInteger(value["totalVersions"]) } : {}) } : value);
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "historySizeBytes") ? { ["historySizeBytes"]: normalizeWireInteger(value["historySizeBytes"]) } : {}), ...(Object.hasOwn(value, "totalItems") ? { ["totalItems"]: normalizeWireInteger(value["totalItems"]) } : {}), ...(Object.hasOwn(value, "totalSizeBytes") ? { ["totalSizeBytes"]: normalizeWireInteger(value["totalSizeBytes"]) } : {}), ...(Object.hasOwn(value, "totalSizeKb") ? { ["totalSizeKb"]: normalizeWireInteger(value["totalSizeKb"]) } : {}), ...(Object.hasOwn(value, "totalVersions") ? { ["totalVersions"]: normalizeWireInteger(value["totalVersions"]) } : {}) } : value);
 }
 
 function normalizeHostDocumentStatisticsTypeItemIntegerJson(value: unknown): unknown {
-  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "count") ? { ["count"]: normalizeWireInteger(value["count"]) } : {}), ...(Object.hasOwn(value, "totalSizeKb") ? { ["totalSizeKb"]: normalizeWireInteger(value["totalSizeKb"]) } : {}) } : value);
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "count") ? { ["count"]: normalizeWireInteger(value["count"]) } : {}), ...(Object.hasOwn(value, "totalSizeBytes") ? { ["totalSizeBytes"]: normalizeWireInteger(value["totalSizeBytes"]) } : {}), ...(Object.hasOwn(value, "totalSizeKb") ? { ["totalSizeKb"]: normalizeWireInteger(value["totalSizeKb"]) } : {}) } : value);
 }
 
 function normalizeHostDocumentTagResponseIntegerJson(value: unknown): unknown {
@@ -8745,6 +11044,10 @@ function normalizeImportAdministrativeRegionsRequestIntegerJson(value: unknown):
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "items") ? { ["items"]: (Array.isArray(value["items"]) ? value["items"].map((item14: unknown) => normalizeImportAdministrativeRegionItemIntegerJson(item14)) : value["items"]) } : {}) } : value);
 }
 
+function normalizeImportAiKnowledgeFaqsIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "package") ? { ["package"]: normalizeAiKnowledgeFaqTransferPackageIntegerJson(value["package"]) } : {}) } : value);
+}
+
 function normalizeImportExportTaskDetailResponseIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "executionFailedRowCount") ? { ["executionFailedRowCount"]: normalizeWireInteger(value["executionFailedRowCount"]) } : {}), ...(Object.hasOwn(value, "invalidRowCount") ? { ["invalidRowCount"]: normalizeWireInteger(value["invalidRowCount"]) } : {}), ...(Object.hasOwn(value, "nextLineNumber") ? { ["nextLineNumber"]: normalizeWireInteger(value["nextLineNumber"]) } : {}), ...(Object.hasOwn(value, "previewRows") ? { ["previewRows"]: (Array.isArray(value["previewRows"]) ? value["previewRows"].map((item20: unknown) => normalizeStaticImportRowPreviewResultIntegerJson(item20)) : value["previewRows"]) } : {}), ...(Object.hasOwn(value, "processedRowCount") ? { ["processedRowCount"]: normalizeWireInteger(value["processedRowCount"]) } : {}), ...(Object.hasOwn(value, "succeededRowCount") ? { ["succeededRowCount"]: normalizeWireInteger(value["succeededRowCount"]) } : {}), ...(Object.hasOwn(value, "totalRows") ? { ["totalRows"]: normalizeWireInteger(value["totalRows"]) } : {}), ...(Object.hasOwn(value, "validRowCount") ? { ["validRowCount"]: normalizeWireInteger(value["validRowCount"]) } : {}), ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
 }
@@ -8781,8 +11084,20 @@ function normalizeImportOrganizationPositionsResponseIntegerJson(value: unknown)
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "results") ? { ["results"]: (Array.isArray(value["results"]) ? value["results"].map((item16: unknown) => normalizeImportOrganizationPositionRowResultIntegerJson(item16)) : value["results"]) } : {}), ...(Object.hasOwn(value, "succeededCount") ? { ["succeededCount"]: normalizeWireInteger(value["succeededCount"]) } : {}) } : value);
 }
 
+function normalizeImportProfileDetailIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "configuration") ? { ["configuration"]: normalizeIntegerUnion(value["configuration"], [{ matches: (value: unknown) => value === null, normalize: (value: unknown) => value }, { matches: (value: unknown) => isImportColumnMappingRequest(value), normalize: (value: unknown) => value }]) } : {}), ...(Object.hasOwn(value, "summary") ? { ["summary"]: normalizeImportProfileSummaryIntegerJson(value["summary"]) } : {}) } : value);
+}
+
+function normalizeImportProfileSummaryIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
+}
+
 function normalizeInboxUnreadCountResponseIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "unreadCount") ? { ["unreadCount"]: normalizeWireInteger(value["unreadCount"]) } : {}) } : value);
+}
+
+function normalizeIndexAiKnowledgeFaqRevisionIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "expectedHeadVersion") ? { ["expectedHeadVersion"]: normalizeWireInteger(value["expectedHeadVersion"]) } : {}) } : value);
 }
 
 function normalizeK3CloudConnectionConfigResponseIntegerJson(value: unknown): unknown {
@@ -8973,6 +11288,10 @@ function normalizePagedResultOfAiKnowledgeBaseResponseIntegerJson(value: unknown
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "items") ? { ["items"]: (Array.isArray(value["items"]) ? value["items"].map((item14: unknown) => normalizeAiKnowledgeBaseResponseIntegerJson(item14)) : value["items"]) } : {}), ...(Object.hasOwn(value, "page") ? { ["page"]: normalizeWireInteger(value["page"]) } : {}), ...(Object.hasOwn(value, "pageSize") ? { ["pageSize"]: normalizeWireInteger(value["pageSize"]) } : {}), ...(Object.hasOwn(value, "total") ? { ["total"]: normalizeWireInteger(value["total"]) } : {}) } : value);
 }
 
+function normalizePagedResultOfAiKnowledgeDirectoryResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "items") ? { ["items"]: (Array.isArray(value["items"]) ? value["items"].map((item14: unknown) => normalizeAiKnowledgeDirectoryResponseIntegerJson(item14)) : value["items"]) } : {}), ...(Object.hasOwn(value, "page") ? { ["page"]: normalizeWireInteger(value["page"]) } : {}), ...(Object.hasOwn(value, "pageSize") ? { ["pageSize"]: normalizeWireInteger(value["pageSize"]) } : {}), ...(Object.hasOwn(value, "total") ? { ["total"]: normalizeWireInteger(value["total"]) } : {}) } : value);
+}
+
 function normalizePagedResultOfAiKnowledgeDocumentResponseIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "items") ? { ["items"]: (Array.isArray(value["items"]) ? value["items"].map((item14: unknown) => normalizeAiKnowledgeDocumentResponseIntegerJson(item14)) : value["items"]) } : {}), ...(Object.hasOwn(value, "page") ? { ["page"]: normalizeWireInteger(value["page"]) } : {}), ...(Object.hasOwn(value, "pageSize") ? { ["pageSize"]: normalizeWireInteger(value["pageSize"]) } : {}), ...(Object.hasOwn(value, "total") ? { ["total"]: normalizeWireInteger(value["total"]) } : {}) } : value);
 }
@@ -9029,8 +11348,16 @@ function normalizePagedResultOfDictTypeResponseIntegerJson(value: unknown): unkn
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "items") ? { ["items"]: (Array.isArray(value["items"]) ? value["items"].map((item14: unknown) => normalizeDictTypeResponseIntegerJson(item14)) : value["items"]) } : {}), ...(Object.hasOwn(value, "page") ? { ["page"]: normalizeWireInteger(value["page"]) } : {}), ...(Object.hasOwn(value, "pageSize") ? { ["pageSize"]: normalizeWireInteger(value["pageSize"]) } : {}), ...(Object.hasOwn(value, "total") ? { ["total"]: normalizeWireInteger(value["total"]) } : {}) } : value);
 }
 
+function normalizePagedResultOfEnterpriseRequestAttachmentResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "page") ? { ["page"]: normalizeWireInteger(value["page"]) } : {}), ...(Object.hasOwn(value, "pageSize") ? { ["pageSize"]: normalizeWireInteger(value["pageSize"]) } : {}), ...(Object.hasOwn(value, "total") ? { ["total"]: normalizeWireInteger(value["total"]) } : {}) } : value);
+}
+
+function normalizePagedResultOfEnterpriseRequestReportResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "items") ? { ["items"]: (Array.isArray(value["items"]) ? value["items"].map((item14: unknown) => normalizeEnterpriseRequestReportResponseIntegerJson(item14)) : value["items"]) } : {}), ...(Object.hasOwn(value, "page") ? { ["page"]: normalizeWireInteger(value["page"]) } : {}), ...(Object.hasOwn(value, "pageSize") ? { ["pageSize"]: normalizeWireInteger(value["pageSize"]) } : {}), ...(Object.hasOwn(value, "total") ? { ["total"]: normalizeWireInteger(value["total"]) } : {}) } : value);
+}
+
 function normalizePagedResultOfEnterpriseRequestResponseIntegerJson(value: unknown): unknown {
-  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "items") ? { ["items"]: (Array.isArray(value["items"]) ? value["items"].map((item14: unknown) => normalizeEnterpriseRequestResponseIntegerJson(item14)) : value["items"]) } : {}), ...(Object.hasOwn(value, "page") ? { ["page"]: normalizeWireInteger(value["page"]) } : {}), ...(Object.hasOwn(value, "pageSize") ? { ["pageSize"]: normalizeWireInteger(value["pageSize"]) } : {}), ...(Object.hasOwn(value, "total") ? { ["total"]: normalizeWireInteger(value["total"]) } : {}) } : value);
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "page") ? { ["page"]: normalizeWireInteger(value["page"]) } : {}), ...(Object.hasOwn(value, "pageSize") ? { ["pageSize"]: normalizeWireInteger(value["pageSize"]) } : {}), ...(Object.hasOwn(value, "total") ? { ["total"]: normalizeWireInteger(value["total"]) } : {}) } : value);
 }
 
 function normalizePagedResultOfExceptionLogResponseIntegerJson(value: unknown): unknown {
@@ -9245,12 +11572,20 @@ function normalizePagedResultOfReportingDefinitionSummaryResponseIntegerJson(val
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "items") ? { ["items"]: (Array.isArray(value["items"]) ? value["items"].map((item14: unknown) => normalizeReportingDefinitionSummaryResponseIntegerJson(item14)) : value["items"]) } : {}), ...(Object.hasOwn(value, "page") ? { ["page"]: normalizeWireInteger(value["page"]) } : {}), ...(Object.hasOwn(value, "pageSize") ? { ["pageSize"]: normalizeWireInteger(value["pageSize"]) } : {}), ...(Object.hasOwn(value, "total") ? { ["total"]: normalizeWireInteger(value["total"]) } : {}) } : value);
 }
 
+function normalizePagedResultOfReportingDefinitionTenantGrantResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "items") ? { ["items"]: (Array.isArray(value["items"]) ? value["items"].map((item14: unknown) => normalizeReportingDefinitionTenantGrantResponseIntegerJson(item14)) : value["items"]) } : {}), ...(Object.hasOwn(value, "page") ? { ["page"]: normalizeWireInteger(value["page"]) } : {}), ...(Object.hasOwn(value, "pageSize") ? { ["pageSize"]: normalizeWireInteger(value["pageSize"]) } : {}), ...(Object.hasOwn(value, "total") ? { ["total"]: normalizeWireInteger(value["total"]) } : {}) } : value);
+}
+
 function normalizePagedResultOfReportingDefinitionVersionSummaryResponseIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "items") ? { ["items"]: (Array.isArray(value["items"]) ? value["items"].map((item14: unknown) => normalizeReportingDefinitionVersionSummaryResponseIntegerJson(item14)) : value["items"]) } : {}), ...(Object.hasOwn(value, "page") ? { ["page"]: normalizeWireInteger(value["page"]) } : {}), ...(Object.hasOwn(value, "pageSize") ? { ["pageSize"]: normalizeWireInteger(value["pageSize"]) } : {}), ...(Object.hasOwn(value, "total") ? { ["total"]: normalizeWireInteger(value["total"]) } : {}) } : value);
 }
 
 function normalizePagedResultOfReportingExportTaskResponseIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "items") ? { ["items"]: (Array.isArray(value["items"]) ? value["items"].map((item14: unknown) => normalizeReportingExportTaskResponseIntegerJson(item14)) : value["items"]) } : {}), ...(Object.hasOwn(value, "page") ? { ["page"]: normalizeWireInteger(value["page"]) } : {}), ...(Object.hasOwn(value, "pageSize") ? { ["pageSize"]: normalizeWireInteger(value["pageSize"]) } : {}), ...(Object.hasOwn(value, "total") ? { ["total"]: normalizeWireInteger(value["total"]) } : {}) } : value);
+}
+
+function normalizePagedResultOfReportingPublishedDefinitionResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "items") ? { ["items"]: (Array.isArray(value["items"]) ? value["items"].map((item14: unknown) => normalizeReportingPublishedDefinitionResponseIntegerJson(item14)) : value["items"]) } : {}), ...(Object.hasOwn(value, "page") ? { ["page"]: normalizeWireInteger(value["page"]) } : {}), ...(Object.hasOwn(value, "pageSize") ? { ["pageSize"]: normalizeWireInteger(value["pageSize"]) } : {}), ...(Object.hasOwn(value, "total") ? { ["total"]: normalizeWireInteger(value["total"]) } : {}) } : value);
 }
 
 function normalizePagedResultOfSerialNumberRuleResponseIntegerJson(value: unknown): unknown {
@@ -9313,6 +11648,10 @@ function normalizePrepareAiFeedbackEvaluationRequestIntegerJson(value: unknown):
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "feedbackVersion") ? { ["feedbackVersion"]: normalizeWireInteger(value["feedbackVersion"]) } : {}), ...(Object.hasOwn(value, "reviewVersion") ? { ["reviewVersion"]: normalizeWireInteger(value["reviewVersion"]) } : {}) } : value);
 }
 
+function normalizePreviewAiKnowledgeFaqImportIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "package") ? { ["package"]: normalizeAiKnowledgeFaqTransferPackageIntegerJson(value["package"]) } : {}) } : value);
+}
+
 function normalizePreviewGoViewProjectRequestIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "versionNumber") ? { ["versionNumber"]: normalizeWireInteger(value["versionNumber"]) } : {}) } : value);
 }
@@ -9347,6 +11686,10 @@ function normalizePrintingTemplateVersionSummaryResponseIntegerJson(value: unkno
 
 function normalizeProblemDetailsIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "status") ? { ["status"]: normalizeWireInteger(value["status"]) } : {}) } : value);
+}
+
+function normalizePublishAiKnowledgePublicationIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
 }
 
 function normalizePublishGoViewProjectRequestIntegerJson(value: unknown): unknown {
@@ -9393,6 +11736,34 @@ function normalizePublishWorkflowWorkCalendarRequestIntegerJson(value: unknown):
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "expectedRevision") ? { ["expectedRevision"]: normalizeWireInteger(value["expectedRevision"]) } : {}) } : value);
 }
 
+function normalizeQuerySchemeConfigurationIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "columns") ? { ["columns"]: (Array.isArray(value["columns"]) ? value["columns"].map((item16: unknown) => normalizeGridColumnPreferenceIntegerJson(item16)) : value["columns"]) } : {}) } : value);
+}
+
+function normalizeQuerySchemeDefinitionIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "filters") ? { ["filters"]: (Array.isArray(value["filters"]) ? value["filters"].map((item16: unknown) => normalizeQuerySchemeFilterDefinitionIntegerJson(item16)) : value["filters"]) } : {}), ...(Object.hasOwn(value, "schemaVersion") ? { ["schemaVersion"]: normalizeWireInteger(value["schemaVersion"]) } : {}) } : value);
+}
+
+function normalizeQuerySchemeDetailIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "configuration") ? { ["configuration"]: normalizeIntegerUnion(value["configuration"], [{ matches: (value: unknown) => value === null, normalize: (value: unknown) => value }, { matches: (value: unknown) => isQuerySchemeConfiguration(value), normalize: (value: unknown) => normalizeQuerySchemeConfigurationIntegerJson(value) }]) } : {}), ...(Object.hasOwn(value, "summary") ? { ["summary"]: normalizeQuerySchemeSummaryIntegerJson(value["summary"]) } : {}) } : value);
+}
+
+function normalizeQuerySchemeFilterDefinitionIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "maxLength") ? { ["maxLength"]: normalizeWireInteger(value["maxLength"]) } : {}) } : value);
+}
+
+function normalizeQuerySchemeSummaryIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "schemaVersion") ? { ["schemaVersion"]: normalizeWireInteger(value["schemaVersion"]) } : {}), ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
+}
+
+function normalizeReadAiKnowledgeSearchContextRequestIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "anchorSequence") ? { ["anchorSequence"]: normalizeWireInteger(value["anchorSequence"]) } : {}), ...(Object.hasOwn(value, "embeddingModelVersion") ? { ["embeddingModelVersion"]: normalizeWireInteger(value["embeddingModelVersion"]) } : {}), ...(Object.hasOwn(value, "radius") ? { ["radius"]: normalizeWireInteger(value["radius"]) } : {}), ...(Object.hasOwn(value, "source") ? { ["source"]: normalizeAiKnowledgeSearchSourceIntegerJson(value["source"]) } : {}) } : value);
+}
+
+function normalizeReadAiKnowledgeSearchRelationsRequestIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "anchorSequence") ? { ["anchorSequence"]: normalizeWireInteger(value["anchorSequence"]) } : {}), ...(Object.hasOwn(value, "embeddingModelVersion") ? { ["embeddingModelVersion"]: normalizeWireInteger(value["embeddingModelVersion"]) } : {}), ...(Object.hasOwn(value, "source") ? { ["source"]: normalizeAiKnowledgeSearchSourceIntegerJson(value["source"]) } : {}) } : value);
+}
+
 function normalizeReassignWorkflowInstanceRequestIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "expectedRevision") ? { ["expectedRevision"]: normalizeWireInteger(value["expectedRevision"]) } : {}), ...(Object.hasOwn(value, "expectedTodoRevision") ? { ["expectedTodoRevision"]: normalizeWireInteger(value["expectedTodoRevision"]) } : {}) } : value);
 }
@@ -9423,6 +11794,10 @@ function normalizeReconcileWorkflowRouteRequestIntegerJson(value: unknown): unkn
 
 function normalizeRecoverWorkflowInstanceRequestIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "expectedRevision") ? { ["expectedRevision"]: normalizeWireInteger(value["expectedRevision"]) } : {}) } : value);
+}
+
+function normalizeRefineAiKnowledgeSearchRequestIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "limit") ? { ["limit"]: normalizeWireInteger(value["limit"]) } : {}), ...(Object.hasOwn(value, "processingModelVersion") ? { ["processingModelVersion"]: normalizeWireInteger(value["processingModelVersion"]) } : {}), ...(Object.hasOwn(value, "searchScope") ? { ["searchScope"]: normalizeAiKnowledgeSearchAnswerScopeIntegerJson(value["searchScope"]) } : {}) } : value);
 }
 
 function normalizeReleaseWorkflowTodoRequestIntegerJson(value: unknown): unknown {
@@ -9461,6 +11836,10 @@ function normalizeReportingDefinitionSummaryResponseIntegerJson(value: unknown):
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "latestPublishedVersionNumber") ? { ["latestPublishedVersionNumber"]: normalizeWireInteger(value["latestPublishedVersionNumber"]) } : {}), ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
 }
 
+function normalizeReportingDefinitionTenantGrantResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
+}
+
 function normalizeReportingDefinitionVersionResponseIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "versionNumber") ? { ["versionNumber"]: normalizeWireInteger(value["versionNumber"]) } : {}) } : value);
 }
@@ -9474,7 +11853,7 @@ function normalizeReportingExecutionPageResponseIntegerJson(value: unknown): unk
 }
 
 function normalizeReportingExportTaskDetailResponseIntegerJson(value: unknown): unknown {
-  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "rowCount") ? { ["rowCount"]: normalizeWireInteger(value["rowCount"]) } : {}), ...(Object.hasOwn(value, "versionNumber") ? { ["versionNumber"]: normalizeWireInteger(value["versionNumber"]) } : {}) } : value);
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "rowCount") ? { ["rowCount"]: normalizeWireInteger(value["rowCount"]) } : {}), ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}), ...(Object.hasOwn(value, "versionNumber") ? { ["versionNumber"]: normalizeWireInteger(value["versionNumber"]) } : {}) } : value);
 }
 
 function normalizeReportingExportTaskResponseIntegerJson(value: unknown): unknown {
@@ -9485,6 +11864,10 @@ function normalizeReportingGroupResponseIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "sortOrder") ? { ["sortOrder"]: normalizeWireInteger(value["sortOrder"]) } : {}), ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
 }
 
+function normalizeReportingPublishedDefinitionResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "versionNumber") ? { ["versionNumber"]: normalizeWireInteger(value["versionNumber"]) } : {}) } : value);
+}
+
 function normalizeReportingQueryPortDefinitionIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "parameters") ? { ["parameters"]: (Array.isArray(value["parameters"]) ? value["parameters"].map((item19: unknown) => normalizeReportingQueryPortParameterDefinitionIntegerJson(item19)) : value["parameters"]) } : {}) } : value);
 }
@@ -9493,8 +11876,24 @@ function normalizeReportingQueryPortParameterDefinitionIntegerJson(value: unknow
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "maximum") ? { ["maximum"]: normalizeWireInteger(value["maximum"]) } : {}), ...(Object.hasOwn(value, "minimum") ? { ["minimum"]: normalizeWireInteger(value["minimum"]) } : {}) } : value);
 }
 
+function normalizeRequestAiKnowledgeFaqPublicationIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "expectedHeadVersion") ? { ["expectedHeadVersion"]: normalizeWireInteger(value["expectedHeadVersion"]) } : {}), ...(Object.hasOwn(value, "expectedPublicationVersion") ? { ["expectedPublicationVersion"]: normalizeWireInteger(value["expectedPublicationVersion"]) } : {}) } : value);
+}
+
+function normalizeRequestAiKnowledgePublicationIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "expectedHeadVersion") ? { ["expectedHeadVersion"]: normalizeWireInteger(value["expectedHeadVersion"]) } : {}) } : value);
+}
+
 function normalizeRequestWorkflowManualReminderIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "expectedInstanceRevision") ? { ["expectedInstanceRevision"]: normalizeWireInteger(value["expectedInstanceRevision"]) } : {}), ...(Object.hasOwn(value, "expectedStepRevision") ? { ["expectedStepRevision"]: normalizeWireInteger(value["expectedStepRevision"]) } : {}) } : value);
+}
+
+function normalizeRestoreAiKnowledgeEvaluationSetIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "expectedVersion") ? { ["expectedVersion"]: normalizeWireInteger(value["expectedVersion"]) } : {}) } : value);
+}
+
+function normalizeRestoreAiKnowledgeFaqDraftIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "expectedHeadVersion") ? { ["expectedHeadVersion"]: normalizeWireInteger(value["expectedHeadVersion"]) } : {}) } : value);
 }
 
 function normalizeRestoreDiagnosticPolicyRequestIntegerJson(value: unknown): unknown {
@@ -9533,6 +11932,18 @@ function normalizeReviewAiKnowledgeAnswerFeedbackRequestIntegerJson(value: unkno
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "feedbackVersion") ? { ["feedbackVersion"]: normalizeWireInteger(value["feedbackVersion"]) } : {}), ...(Object.hasOwn(value, "reviewVersion") ? { ["reviewVersion"]: normalizeWireInteger(value["reviewVersion"]) } : {}) } : value);
 }
 
+function normalizeReviewAiKnowledgeEvaluationResultIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "expectedVersion") ? { ["expectedVersion"]: normalizeWireInteger(value["expectedVersion"]) } : {}) } : value);
+}
+
+function normalizeReviewAiKnowledgeEvaluationSetIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "expectedVersion") ? { ["expectedVersion"]: normalizeWireInteger(value["expectedVersion"]) } : {}) } : value);
+}
+
+function normalizeReviewAiKnowledgePublicationIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
+}
+
 function normalizeRevokeAiAgentDelegationRequestIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "expectedVersion") ? { ["expectedVersion"]: normalizeWireInteger(value["expectedVersion"]) } : {}) } : value);
 }
@@ -9549,6 +11960,10 @@ function normalizeRevokeNotificationIntentRequestIntegerJson(value: unknown): un
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "revision") ? { ["revision"]: normalizeWireInteger(value["revision"]) } : {}) } : value);
 }
 
+function normalizeRevokeWorkflowCollaborationGrantRequestIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "expectedRevision") ? { ["expectedRevision"]: normalizeWireInteger(value["expectedRevision"]) } : {}) } : value);
+}
+
 function normalizeRollbackHostDocumentVersionRequestIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
 }
@@ -9557,8 +11972,32 @@ function normalizeRollbackOperationResponseIntegerJson(value: unknown): unknown 
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "schemaVersion") ? { ["schemaVersion"]: normalizeWireInteger(value["schemaVersion"]) } : {}) } : value);
 }
 
+function normalizeSaveAiKnowledgeEvaluationSetIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "expectedVersion") ? { ["expectedVersion"]: normalizeWireInteger(value["expectedVersion"]) } : {}) } : value);
+}
+
+function normalizeSaveAiKnowledgeFaqDraftIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "expectedHeadVersion") ? { ["expectedHeadVersion"]: normalizeWireInteger(value["expectedHeadVersion"]) } : {}) } : value);
+}
+
+function normalizeSaveAiKnowledgeFolderIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
+}
+
+function normalizeSaveImportProfileRequestIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
+}
+
+function normalizeSaveQuerySchemeRequestIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "configuration") ? { ["configuration"]: normalizeQuerySchemeConfigurationIntegerJson(value["configuration"]) } : {}), ...(Object.hasOwn(value, "schemaVersion") ? { ["schemaVersion"]: normalizeWireInteger(value["schemaVersion"]) } : {}), ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
+}
+
 function normalizeSaveWorkflowDesignerAssetRequestIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "expectedRevision") ? { ["expectedRevision"]: normalizeWireInteger(value["expectedRevision"]) } : {}), ...(Object.hasOwn(value, "formatVersion") ? { ["formatVersion"]: normalizeWireInteger(value["formatVersion"]) } : {}) } : value);
+}
+
+function normalizeSearchAiKnowledgeRequestIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "embeddingModelVersion") ? { ["embeddingModelVersion"]: normalizeWireInteger(value["embeddingModelVersion"]) } : {}), ...(Object.hasOwn(value, "expectedSources") ? { ["expectedSources"]: (Array.isArray(value["expectedSources"]) ? value["expectedSources"].map((item24: unknown) => normalizeAiKnowledgeSearchSourceIntegerJson(item24)) : value["expectedSources"]) } : {}), ...(Object.hasOwn(value, "limit") ? { ["limit"]: normalizeWireInteger(value["limit"]) } : {}) } : value);
 }
 
 function normalizeSelectAiPromptVersionRequestIntegerJson(value: unknown): unknown {
@@ -9601,6 +12040,14 @@ function normalizeSetAiKnowledgeAnswerFeedbackRequestIntegerJson(value: unknown)
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
 }
 
+function normalizeSetAiKnowledgeDirectoryBatchIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "items") ? { ["items"]: (Array.isArray(value["items"]) ? value["items"].map((item14: unknown) => normalizeSetAiKnowledgeDirectoryItemIntegerJson(item14)) : value["items"]) } : {}) } : value);
+}
+
+function normalizeSetAiKnowledgeDirectoryItemIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
+}
+
 function normalizeSetAiKnowledgeDocumentMembersRequestIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
 }
@@ -9614,6 +12061,14 @@ function normalizeSetAiKnowledgeOrganizationGrantsRequestIntegerJson(value: unkn
 }
 
 function normalizeSetAiKnowledgeRoleGrantsRequestIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
+}
+
+function normalizeSetDefaultQuerySchemeRequestIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
+}
+
+function normalizeSetHostDocumentPermissionsRequestIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
 }
 
@@ -9641,6 +12096,10 @@ function normalizeSetPersonalScheduleStatusRequestIntegerJson(value: unknown): u
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
 }
 
+function normalizeSetReportingDefinitionTenantGrantRequestIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "expectedVersion") ? { ["expectedVersion"]: normalizeWireInteger(value["expectedVersion"]) } : {}) } : value);
+}
+
 function normalizeSetWorkflowDefinitionStatusRequestIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "expectedVersion") ? { ["expectedVersion"]: normalizeWireInteger(value["expectedVersion"]) } : {}) } : value);
 }
@@ -9655,6 +12114,14 @@ function normalizeShadowCapturePolicyResponseIntegerJson(value: unknown): unknow
 
 function normalizeShadowCaptureResponseIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "capturedBytes") ? { ["capturedBytes"]: normalizeWireInteger(value["capturedBytes"]) } : {}), ...(Object.hasOwn(value, "capturedCount") ? { ["capturedCount"]: normalizeWireInteger(value["capturedCount"]) } : {}), ...(Object.hasOwn(value, "maxEvents") ? { ["maxEvents"]: normalizeWireInteger(value["maxEvents"]) } : {}), ...(Object.hasOwn(value, "maxPayloadBytes") ? { ["maxPayloadBytes"]: normalizeWireInteger(value["maxPayloadBytes"]) } : {}), ...(Object.hasOwn(value, "missingMetadataCount") ? { ["missingMetadataCount"]: normalizeWireInteger(value["missingMetadataCount"]) } : {}), ...(Object.hasOwn(value, "schemaVersion") ? { ["schemaVersion"]: normalizeWireInteger(value["schemaVersion"]) } : {}) } : value);
+}
+
+function normalizeShareQuerySchemeRequestIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
+}
+
+function normalizeSimulateWorkflowDefinitionRequestIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "expectedRevision") ? { ["expectedRevision"]: normalizeWireInteger(value["expectedRevision"]) } : {}) } : value);
 }
 
 function normalizeStartShadowCaptureRequestIntegerJson(value: unknown): unknown {
@@ -9673,12 +12140,32 @@ function normalizeSubmitSerialRuleUpdateApprovalRequestIntegerJson(value: unknow
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "update") ? { ["update"]: normalizeUpdateSerialNumberRuleRequestIntegerJson(value["update"]) } : {}) } : value);
 }
 
+function normalizeSubscriptionCheckoutResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "order") ? { ["order"]: normalizePaymentOrderResponseIntegerJson(value["order"]) } : {}) } : value);
+}
+
+function normalizeSubscriptionFulfillmentStatusResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "attempt") ? { ["attempt"]: normalizeWireInteger(value["attempt"]) } : {}) } : value);
+}
+
 function normalizeTenantBrandingResponseIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
 }
 
+function normalizeTenantEntitlementCatalogResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
+}
+
+function normalizeTenantPackageOfferResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "amountMinor") ? { ["amountMinor"]: normalizeWireInteger(value["amountMinor"]) } : {}), ...(Object.hasOwn(value, "durationDays") ? { ["durationDays"]: normalizeWireInteger(value["durationDays"]) } : {}), ...(Object.hasOwn(value, "seatLimit") ? { ["seatLimit"]: normalizeWireInteger(value["seatLimit"]) } : {}), ...(Object.hasOwn(value, "storageLimit") ? { ["storageLimit"]: normalizeWireInteger(value["storageLimit"]) } : {}), ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
+}
+
 function normalizeTenantPackageSummaryIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "assignedTenantCount") ? { ["assignedTenantCount"]: normalizeWireInteger(value["assignedTenantCount"]) } : {}), ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
+}
+
+function normalizeTenantSubscriptionPaymentTermsIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "amountMinor") ? { ["amountMinor"]: normalizeWireInteger(value["amountMinor"]) } : {}), ...(Object.hasOwn(value, "offerVersion") ? { ["offerVersion"]: normalizeWireInteger(value["offerVersion"]) } : {}) } : value);
 }
 
 function normalizeTenantSummaryIntegerJson(value: unknown): unknown {
@@ -9749,10 +12236,6 @@ function normalizeUpdateDictTypeRequestIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "displayOrder") ? { ["displayOrder"]: normalizeWireInteger(value["displayOrder"]) } : {}), ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
 }
 
-function normalizeUpdateEnterpriseRequestRequestIntegerJson(value: unknown): unknown {
-  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
-}
-
 function normalizeUpdateGoViewProjectRequestIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
 }
@@ -9766,7 +12249,7 @@ function normalizeUpdateHostDocumentCategoryRequestIntegerJson(value: unknown): 
 }
 
 function normalizeUpdateHostDocumentItemRequestIntegerJson(value: unknown): unknown {
-  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "sort") ? { ["sort"]: normalizeWireInteger(value["sort"]) } : {}), ...(Object.hasOwn(value, "status") ? { ["status"]: normalizeIntegerUnion(value["status"], [{ matches: (value: unknown) => value === null, normalize: (value: unknown) => value }, { matches: (value: unknown) => isHostDocumentStatus(value), normalize: (value: unknown) => value }]) } : {}), ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "sort") ? { ["sort"]: normalizeWireInteger(value["sort"]) } : {}), ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
 }
 
 function normalizeUpdateHostDocumentShareStatusRequestIntegerJson(value: unknown): unknown {
@@ -9925,12 +12408,20 @@ function normalizeUpdateWorkflowWorkCalendarRequestIntegerJson(value: unknown): 
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "draft") ? { ["draft"]: normalizeWorkflowWorkCalendarDraftIntegerJson(value["draft"]) } : {}), ...(Object.hasOwn(value, "expectedRevision") ? { ["expectedRevision"]: normalizeWireInteger(value["expectedRevision"]) } : {}) } : value);
 }
 
+function normalizeUpsertTenantPackageOfferRequestIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "amountMinor") ? { ["amountMinor"]: normalizeWireInteger(value["amountMinor"]) } : {}), ...(Object.hasOwn(value, "durationDays") ? { ["durationDays"]: normalizeWireInteger(value["durationDays"]) } : {}), ...(Object.hasOwn(value, "seatLimit") ? { ["seatLimit"]: normalizeWireInteger(value["seatLimit"]) } : {}), ...(Object.hasOwn(value, "storageLimit") ? { ["storageLimit"]: normalizeWireInteger(value["storageLimit"]) } : {}), ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
+}
+
 function normalizeVerifyCutoverRequestIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "schemaVersion") ? { ["schemaVersion"]: normalizeWireInteger(value["schemaVersion"]) } : {}) } : value);
 }
 
 function normalizeVoteWorkflowTodoRequestIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "expectedBallotRevision") ? { ["expectedBallotRevision"]: normalizeWireInteger(value["expectedBallotRevision"]) } : {}), ...(Object.hasOwn(value, "expectedRevision") ? { ["expectedRevision"]: normalizeWireInteger(value["expectedRevision"]) } : {}) } : value);
+}
+
+function normalizeWithdrawAiKnowledgePublicationIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "expectedHeadVersion") ? { ["expectedHeadVersion"]: normalizeWireInteger(value["expectedHeadVersion"]) } : {}) } : value);
 }
 
 function normalizeWithdrawWorkflowInstanceRequestIntegerJson(value: unknown): unknown {
@@ -9959,6 +12450,10 @@ function normalizeWorkflowClaimPoolResponseIntegerJson(value: unknown): unknown 
 
 function normalizeWorkflowClaimProgressResponseIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "claimCycle") ? { ["claimCycle"]: normalizeWireInteger(value["claimCycle"]) } : {}), ...(Object.hasOwn(value, "poolRevision") ? { ["poolRevision"]: normalizeWireInteger(value["poolRevision"]) } : {}) } : value);
+}
+
+function normalizeWorkflowCollaborationGrantResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "acceptance") ? { ["acceptance"]: normalizeIntegerUnion(value["acceptance"], [{ matches: (value: unknown) => value === null, normalize: (value: unknown) => value }, { matches: (value: unknown) => isJsonElement(value), normalize: (value: unknown) => value }]) } : {}), ...(Object.hasOwn(value, "revision") ? { ["revision"]: normalizeWireInteger(value["revision"]) } : {}), ...(Object.hasOwn(value, "targetSummary") ? { ["targetSummary"]: normalizeIntegerUnion(value["targetSummary"], [{ matches: (value: unknown) => value === null, normalize: (value: unknown) => value }, { matches: (value: unknown) => isJsonElement(value), normalize: (value: unknown) => value }]) } : {}) } : value);
 }
 
 function normalizeWorkflowConnectorAttemptResponseIntegerJson(value: unknown): unknown {
@@ -9999,6 +12494,10 @@ function normalizeWorkflowDefinitionVersionResponseIntegerJson(value: unknown): 
 
 function normalizeWorkflowDesignerAssetResponseIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "draftRevision") ? { ["draftRevision"]: normalizeWireInteger(value["draftRevision"]) } : {}), ...(Object.hasOwn(value, "formatVersion") ? { ["formatVersion"]: normalizeWireInteger(value["formatVersion"]) } : {}) } : value);
+}
+
+function normalizeWorkflowFormAttachmentUploadResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "sizeBytes") ? { ["sizeBytes"]: normalizeWireInteger(value["sizeBytes"]) } : {}) } : value);
 }
 
 function normalizeWorkflowFormComponentCatalogResponseIntegerJson(value: unknown): unknown {
@@ -10049,6 +12548,22 @@ function normalizeWorkflowNodeTypeResponseIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "maximumBranches") ? { ["maximumBranches"]: normalizeWireInteger(value["maximumBranches"]) } : {}), ...(Object.hasOwn(value, "minimumBranches") ? { ["minimumBranches"]: normalizeWireInteger(value["minimumBranches"]) } : {}), ...(Object.hasOwn(value, "nodeSchemaVersion") ? { ["nodeSchemaVersion"]: normalizeWireInteger(value["nodeSchemaVersion"]) } : {}) } : value);
 }
 
+function normalizeWorkflowOperationsBacklogResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "items") ? { ["items"]: (Array.isArray(value["items"]) ? value["items"].map((item14: unknown) => normalizeWorkflowOperationsWorkResponseIntegerJson(item14)) : value["items"]) } : {}), ...(Object.hasOwn(value, "page") ? { ["page"]: normalizeWireInteger(value["page"]) } : {}), ...(Object.hasOwn(value, "pageSize") ? { ["pageSize"]: normalizeWireInteger(value["pageSize"]) } : {}), ...(Object.hasOwn(value, "total") ? { ["total"]: normalizeWireInteger(value["total"]) } : {}) } : value);
+}
+
+function normalizeWorkflowOperationsStepResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "dwellSeconds") ? { ["dwellSeconds"]: normalizeWireInteger(value["dwellSeconds"]) } : {}) } : value);
+}
+
+function normalizeWorkflowOperationsStepsResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "items") ? { ["items"]: (Array.isArray(value["items"]) ? value["items"].map((item14: unknown) => normalizeWorkflowOperationsStepResponseIntegerJson(item14)) : value["items"]) } : {}), ...(Object.hasOwn(value, "page") ? { ["page"]: normalizeWireInteger(value["page"]) } : {}), ...(Object.hasOwn(value, "pageSize") ? { ["pageSize"]: normalizeWireInteger(value["pageSize"]) } : {}), ...(Object.hasOwn(value, "total") ? { ["total"]: normalizeWireInteger(value["total"]) } : {}) } : value);
+}
+
+function normalizeWorkflowOperationsWorkResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "attemptCount") ? { ["attemptCount"]: normalizeWireInteger(value["attemptCount"]) } : {}) } : value);
+}
+
 function normalizeWorkflowPositionCandidatePageResponseIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "page") ? { ["page"]: normalizeWireInteger(value["page"]) } : {}), ...(Object.hasOwn(value, "pageSize") ? { ["pageSize"]: normalizeWireInteger(value["pageSize"]) } : {}), ...(Object.hasOwn(value, "total") ? { ["total"]: normalizeWireInteger(value["total"]) } : {}) } : value);
 }
@@ -10071,6 +12586,18 @@ function normalizeWorkflowRouteTargetResponseIntegerJson(value: unknown): unknow
 
 function normalizeWorkflowSignatureUploadResponseIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "sizeBytes") ? { ["sizeBytes"]: normalizeWireInteger(value["sizeBytes"]) } : {}) } : value);
+}
+
+function normalizeWorkflowSimulationResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "draftRevision") ? { ["draftRevision"]: normalizeWireInteger(value["draftRevision"]) } : {}), ...(Object.hasOwn(value, "trace") ? { ["trace"]: (Array.isArray(value["trace"]) ? value["trace"].map((item14: unknown) => normalizeWorkflowSimulationTraceResponseIntegerJson(item14)) : value["trace"]) } : {}) } : value);
+}
+
+function normalizeWorkflowSimulationSelectionsResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "draftRevision") ? { ["draftRevision"]: normalizeWireInteger(value["draftRevision"]) } : {}), ...(Object.hasOwn(value, "items") ? { ["items"]: (Array.isArray(value["items"]) ? value["items"].map((item14: unknown) => normalizeWorkflowStarterSelectionDescriptorResponseIntegerJson(item14)) : value["items"]) } : {}) } : value);
+}
+
+function normalizeWorkflowSimulationTraceResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "memberCount") ? { ["memberCount"]: normalizeWireInteger(value["memberCount"]) } : {}) } : value);
 }
 
 function normalizeWorkflowStarterSelectionDescriptorResponseIntegerJson(value: unknown): unknown {

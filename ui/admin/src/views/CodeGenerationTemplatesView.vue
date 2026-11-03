@@ -61,6 +61,14 @@ function isModernPreviewRequest(
 const session = useSessionStore();
 const router = useRouter();
 const { t } = useAdminI18n();
+function isControlAllowed(scalar: string, control: string): boolean {
+  const type = scalar.toLowerCase().replaceAll('.', '');
+  if (type === 'string') return control === 'text' || control === 'textarea';
+  if (type === 'boolean') return control === 'switch';
+  if (type === 'datetimeutc') return control === 'datetime';
+  if (type === 'uuid') return control === 'uuid';
+  return ['int32', 'int64', 'decimal'].includes(type) && control === 'number';
+}
 const activeTab = ref('basics');
 
 const defaultSchema = (): CodeGenerationPreviewRequest => ({
@@ -147,7 +155,7 @@ const defaultSchema = (): CodeGenerationPreviewRequest => ({
         queryable: true,
         queryKind: 'contains',
         unique: false,
-        includeInImportExport: true
+        includeInImportExport: false
       }
     },
     {
@@ -169,7 +177,7 @@ const defaultSchema = (): CodeGenerationPreviewRequest => ({
         queryable: true,
         queryKind: 'equals',
         unique: false,
-        includeInImportExport: true
+        includeInImportExport: false
       }
     },
     {
@@ -818,12 +826,12 @@ function readProblem(
             <ElTableColumn :label="t('codeGenerationTemplates.controlKind')" min-width="120">
               <template #default="{ row }">
                 <ElSelect v-if="row.ui" v-model="row.ui.controlKind">
-                  <ElOption label="text" value="text" />
-                  <ElOption label="textarea" value="textarea" />
-                  <ElOption label="number" value="number" />
-                  <ElOption label="switch" value="switch" />
-                  <ElOption label="datetime" value="datetime" />
-                  <ElOption label="uuid" value="uuid" />
+                  <ElOption label="text" value="text" :disabled="!isControlAllowed(row.scalarType, 'text')" />
+                  <ElOption label="textarea" value="textarea" :disabled="!isControlAllowed(row.scalarType, 'textarea')" />
+                  <ElOption label="number" value="number" :disabled="!isControlAllowed(row.scalarType, 'number')" />
+                  <ElOption label="switch" value="switch" :disabled="!isControlAllowed(row.scalarType, 'switch')" />
+                  <ElOption label="datetime" value="datetime" :disabled="!isControlAllowed(row.scalarType, 'datetime')" />
+                  <ElOption label="uuid" value="uuid" :disabled="!isControlAllowed(row.scalarType, 'uuid')" />
                 </ElSelect>
               </template>
             </ElTableColumn>
@@ -874,10 +882,11 @@ function readProblem(
             </ElTableColumn>
             <ElTableColumn :label="t('codeGenerationTemplates.includeInImportExport')" width="90">
               <template #default="{ row }">
-                <ElSwitch v-if="row.ui" v-model="row.ui.includeInImportExport" data-testid="codegen-column-import-export" />
+                <ElSwitch v-if="row.ui" v-model="row.ui.includeInImportExport" disabled :title="t('codeGenerationTemplates.importExportUnavailable')" data-testid="codegen-column-import-export" />
               </template>
             </ElTableColumn>
           </ElTable>
+          <p>{{ t('codeGenerationTemplates.importExportUnavailable') }}</p>
         </ElTabPane>
 
         <ElTabPane

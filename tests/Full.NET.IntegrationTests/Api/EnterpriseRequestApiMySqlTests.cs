@@ -7,6 +7,21 @@ namespace Full.NET.IntegrationTests.Api;
 [TestClass]
 public sealed class EnterpriseRequestApiMySqlTests
 {
+    [TestMethod]
+    public async Task Detail_write_parent_lock_serializes_workflow_submit()
+    {
+        await EnterpriseRequestMutationConcurrencyAssertions.VerifyAsync(DatabaseProvider.MySql,
+            await SharedDatabaseFixture.CreateMySqlDatabaseAsync());
+    }
+
+    [TestMethod]
+    public async Task Draft_mutations_are_frozen_after_submit()
+    {
+        using var factory = new FullNetApiFactory(DatabaseProvider.MySql,
+            await SharedDatabaseFixture.CreateMySqlDatabaseAsync(), includeEnterpriseRequest: true);
+        await EnterpriseRequestDraftMutationAssertions.VerifyAsync(factory);
+    }
+
     private static readonly IReadOnlyDictionary<string, string?> ImportExportSyncSettings =
         new Dictionary<string, string?>
         {
@@ -34,13 +49,13 @@ public sealed class EnterpriseRequestApiMySqlTests
     }
 
     [TestMethod]
-    public async Task Tenant_demo_enterprise_requests_csv_import()
+    public async Task Tenant_demo_enterprise_requests_xlsx_import()
     {
         using var factory = new FullNetApiFactory(
             DatabaseProvider.MySql,
             await SharedDatabaseFixture.CreateMySqlDatabaseAsync(),
             ImportExportSyncSettings, includeEnterpriseRequest: true);
 
-        await EnterpriseRequestAssertions.VerifyTenantDemoEnterpriseRequestsCsvImportAsync(factory);
+        await EnterpriseRequestAssertions.VerifyTenantDemoEnterpriseRequestsXlsxImportAsync(factory);
     }
 }

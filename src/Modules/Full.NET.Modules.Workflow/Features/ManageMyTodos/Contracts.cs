@@ -2,6 +2,7 @@
 namespace Full.NET.Modules.Workflow.Features.ManageMyTodos;
 
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 /// <summary>本人采集的签名文件引用；仅在实际办理成功并绑定证据后成为动作事实。</summary>
 internal sealed record WorkflowSignatureUploadResponse(Guid FileId, long SizeBytes, string? ContentHash);
@@ -204,6 +205,9 @@ internal sealed record WorkflowTodoDetailResponse(
     IReadOnlyDictionary<string, string> FieldPolicies,
     long SubmissionRevision)
 {
+    /// <summary>仅本次可见共享附件的安全名称快照；不包含外部原文件身份，不授予内容读取权。</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public IReadOnlyDictionary<string, string>? AttachmentNames { get; init; }
     /// <summary>分组节点的实际组进度；普通节点为空，组数与成员票数分开显示。</summary>
     /// <summary>固定活动类型决定可执行动作，办理不使用审批计数。</summary>
     public string ActivityKindKey { get; init; } = "human.approval";
@@ -250,6 +254,9 @@ internal sealed record WorkflowTodoRuntimeResponse(
     IReadOnlyDictionary<string, string> FieldPolicies,
     long SubmissionRevision)
 {
+    /// <summary>随当前授权字段视图返回的共享附件名称；无共享附件时省略。</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public IReadOnlyDictionary<string, string>? AttachmentNames { get; init; }
     /// <summary>经过本人待办及可信作用域授权的有界组进度。</summary>
     /// <summary>固定活动类型决定可执行动作，办理不使用审批计数。</summary>
     public string ActivityKindKey { get; init; } = "human.approval";

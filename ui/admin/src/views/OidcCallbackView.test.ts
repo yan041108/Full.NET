@@ -17,6 +17,9 @@ vi.mock('../config/identity-auth', () => ({
   resolveAdminOidcClientId: () => 'admin-spa'
 }));
 vi.mock('../auth/oidc-center-login', () => ({
+  adminBrowserSession: undefined,
+  clearAdminOidcSessionCredentials: vi.fn(),
+  readAdminBrowserCsrfToken: () => undefined,
   completeAdminOidcCallback: vi.fn()
 }));
 
@@ -25,12 +28,6 @@ import { completeAdminOidcCallback } from '../auth/oidc-center-login';
 import { useSessionStore } from '../auth/session';
 import { useAdminI18n } from '../i18n/adminI18n';
 
-const tokenResponse = {
-  accessToken: 'oidc-access-token',
-  tokenType: 'Bearer' as const,
-  expiresAtUtc: '2026-07-17T04:00:00Z'
-};
-
 describe('OidcCallbackView', () => {
   beforeEach(() => {
     identityAuth.mode = 'oidc-center';
@@ -38,7 +35,7 @@ describe('OidcCallbackView', () => {
     useAdminI18n().setLocale('zh-CN');
     replaceMock.mockClear();
     vi.mocked(completeAdminOidcCallback).mockReset();
-    vi.mocked(completeAdminOidcCallback).mockResolvedValue(tokenResponse);
+    vi.mocked(completeAdminOidcCallback).mockResolvedValue(undefined);
     vi.spyOn(ElMessage, 'success').mockImplementation(() => ({ close: vi.fn() }));
     vi.spyOn(ElMessage, 'error').mockImplementation(() => ({ close: vi.fn() }));
   });
@@ -47,7 +44,7 @@ describe('OidcCallbackView', () => {
     identityAuth.mode = 'legacy';
     const pinia = createPinia();
     setActivePinia(pinia);
-    const completeSpy = vi.spyOn(useSessionStore(), 'completeOidcAuthorization');
+    const completeSpy = vi.spyOn(useSessionStore(), 'restore');
 
     mount(OidcCallbackView, { global: { plugins: [pinia] } });
     await flushPromises();
@@ -60,14 +57,14 @@ describe('OidcCallbackView', () => {
   it('oidc-center 成功时建立会话并提示成功', async () => {
     const pinia = createPinia();
     setActivePinia(pinia);
-    const completeSpy = vi.spyOn(useSessionStore(), 'completeOidcAuthorization')
-      .mockResolvedValue(undefined);
+    const session = useSessionStore();
+    const completeSpy = vi.spyOn(session, 'restore').mockImplementation(async () => { session.$patch({ state: 'authenticated' }); });
 
     const wrapper = mount(OidcCallbackView, { global: { plugins: [pinia] } });
     await flushPromises();
 
     expect(completeAdminOidcCallback).toHaveBeenCalledOnce();
-    expect(completeSpy).toHaveBeenCalledWith(tokenResponse);
+    expect(completeSpy).toHaveBeenCalledWith();
     expect(ElMessage.success).toHaveBeenCalledWith('身份中心登录成功');
     expect(replaceMock).toHaveBeenCalledWith('/');
     expect(wrapper.text()).toContain('正在返回控制台');

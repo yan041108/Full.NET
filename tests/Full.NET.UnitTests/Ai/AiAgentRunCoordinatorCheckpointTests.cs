@@ -118,6 +118,7 @@ public sealed partial class AiAgentRunCoordinatorTests
     {
         var outputs = new Dictionary<string, string> { ["read_sessions"] = "[]", ["summarize"] = "Title", ["validate"] = """{"decision":"approved"}""", ["rename"] = "true" };
         var state = AgentWorkflowState.Create(sessionId);
+        state.TargetChatSessionId = sessionId;
         state.NextNodeIndex = next;
         state.ExecutionSteps = next;
         foreach (var entry in outputs.Take(next)) state.Outputs.Add(entry.Key, entry.Value);

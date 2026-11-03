@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Net.Http.Headers;
 using Full.NET.Abstractions.Messaging;
 using Full.NET.Abstractions.Results;
 using Full.NET.Abstractions.Tenancy;
@@ -22,7 +23,7 @@ internal static class DocumentAnonymousPreviewExecutionAssertions
 {
     internal static async Task VerifyAsync(FullNetApiFactory factory, HttpClient client,
         HostDocumentItemResponse document, Guid taskId, string statusPath,
-        AccessHostDocumentShareRequest grant, CancellationToken cancellationToken)
+        AccessHostDocumentShareRequest grant, string accessToken, CancellationToken cancellationToken)
     {
         await using var scope = factory.Services.CreateAsyncScope();
         var services = scope.ServiceProvider;
@@ -34,7 +35,8 @@ internal static class DocumentAnonymousPreviewExecutionAssertions
             services.GetRequiredService<ICommandTransaction>(), services.GetRequiredService<IHostFileContentReader>(),
             services.GetRequiredService<IHostFileUploadWriter>(),
             new DocumentOfficePreviewConversionProviderResolver([new PdfConverter()], monitor),
-            services.GetRequiredService<IClock>(), services.GetRequiredService<IOptions<DatabaseOptions>>(), monitor);
+            services.GetRequiredService<IClock>(), services.GetRequiredService<IOptions<DatabaseOptions>>(), monitor, services.GetRequiredService<DocumentPreviewLifecycle>(),
+            services.GetRequiredService<Full.NET.Abstractions.Ids.IIdGenerator>());
         Assert.AreEqual(1, await runner.ProcessPendingAsync(cancellationToken));
         var task = await query.QuerySingleOrDefaultAsync<DocumentPreviewTaskRecord>(DocumentPreviewTaskSql.FindById,
             new Dictionary<string, object?> { ["Id"] = taskId }, cancellationToken);
@@ -46,9 +48,26 @@ internal static class DocumentAnonymousPreviewExecutionAssertions
             "SELECT CreatedByUserId FROM fn_files_file WHERE TenantId IS NULL AND Id=@Id", SqlDataScope.HostOnly),
             new Dictionary<string, object?> { ["Id"] = task.OutputFileId }, cancellationToken);
         Assert.AreEqual(document.CreatedByUserId, owner, "匿名派生文件继承文档归属，不能伪造发起用户。");
-        using var response = await client.PostAsJsonAsync(statusPath + "/content", grant, cancellationToken);
-        Assert.AreEqual(HttpStatusCode.OK, response.StatusCode, await response.Content.ReadAsStringAsync(cancellationToken));
-        CollectionAssert.AreEqual(PdfConverter.Bytes, await response.Content.ReadAsByteArrayAsync(cancellationToken));
+        for (var replay = 0; replay < 2; replay++)
+        {
+            using var response = await client.PostAsJsonAsync(statusPath + "/content", grant, cancellationToken);
+            Assert.AreEqual(HttpStatusCode.OK, response.StatusCode, await response.Content.ReadAsStringAsync(cancellationToken));
+            CollectionAssert.AreEqual(PdfConverter.Bytes, await response.Content.ReadAsByteArrayAsync(cancellationToken));
+            using var request = new HttpRequestMessage(HttpMethod.Get, $"/api/v1/document/host/preview-tasks/{taskId}/content");
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+            using var authenticated = await client.SendAsync(request, cancellationToken);
+            Assert.AreEqual(HttpStatusCode.OK, authenticated.StatusCode, await authenticated.Content.ReadAsStringAsync(cancellationToken));
+            CollectionAssert.AreEqual(PdfConverter.Bytes, await authenticated.Content.ReadAsByteArrayAsync(cancellationToken));
+        }
+        // 轮询与重放不产生新逻辑预览，匿名会话和已认证访问者分别记一次。
+        foreach (var source in new[] { HostDocumentAccessSourceKeys.Share, HostDocumentAccessSourceKeys.Authenticated })
+        {
+            var count = await query.QuerySingleOrDefaultAsync<long>(new SqlStatement("test.document_preview.logical_count",
+                "SELECT COUNT(1) FROM fn_document_access_log WHERE DocumentItemId=@Id AND AccessTypeKey='preview' AND SourceKey=@Source",
+                SqlDataScope.HostOnly), new Dictionary<string, object?> { ["Id"] = document.Id, ["Source"] = source }, cancellationToken);
+            Assert.AreEqual(1L, count);
+        }
+
     }
 
     private sealed class PdfConverter : IDocumentOfficePreviewConversionProvider

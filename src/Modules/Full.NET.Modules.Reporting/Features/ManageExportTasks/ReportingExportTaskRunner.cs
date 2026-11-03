@@ -1,6 +1,7 @@
 using Full.NET.Hosting.Background;
 using Microsoft.Extensions.DependencyInjection;
 using System.Security.Claims;
+using System.Text.Json;
 using Full.NET.Abstractions.Ids;
 using Full.NET.Abstractions.Messaging;
 using Full.NET.Abstractions.Results;
@@ -34,6 +35,7 @@ internal sealed class ReportingExportTaskRunner(
     ICommandTransaction transaction,
     ITenantResourceFileStore resourceFiles,
     IReportingExportWorkbookSource workbookSource,
+    IReportingExportTaskAuthority authority,
     IActiveTenantContextResolver tenantResolver,
     ICurrentTenantContextWriter currentTenant,
     IClock clock,
@@ -61,7 +63,8 @@ internal sealed class ReportingExportTaskRunner(
             return;
         }
 
-        await ExecuteClaimedAsync(claimed, principal, cancellationToken).ConfigureAwait(false);
+        // 即使同一请求恢复执行，也只使用持久化的列权限快照，不能借新权限扩大旧任务输出。
+        await ExecuteClaimedAsync(claimed, RebuildPrincipal(claimed), cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>按租户目录领取过期或排队的导出任务并恢复执行。</summary>
@@ -177,6 +180,7 @@ internal sealed class ReportingExportTaskRunner(
         var cancellationToken = lease.Token;
         try
         {
+            if (!await EnsureAuthorityAsync(task, lease, cancellationToken).ConfigureAwait(false)) return;
             var existing = await TryAttachExistingOutputAsync(task, lease, cancellationToken).ConfigureAwait(false);
             if (existing)
             {
@@ -199,6 +203,7 @@ internal sealed class ReportingExportTaskRunner(
             }
 
             var file = generated.Value!;
+            if (!await EnsureAuthorityAsync(task, lease, cancellationToken).ConfigureAwait(false)) return;
             await using var uploadStream = new MemoryStream(file.Content, writable: false);
             var uploadResult = await resourceFiles
                 .UploadAsync(
@@ -295,6 +300,7 @@ internal sealed class ReportingExportTaskRunner(
         int rowCount,
         CancellationToken cancellationToken)
     {
+        if (!await EnsureAuthorityAsync(task, lease, cancellationToken).ConfigureAwait(false)) return true;
         var affected = await ExecuteHeldLeaseAsync(lease,
                 databaseOptions.Value.Provider == DatabaseProvider.SqlServer
                     ? ReportingExportTaskSql.CompleteSucceededSqlServer
@@ -354,6 +360,15 @@ internal sealed class ReportingExportTaskRunner(
                     ("CompletedAtUtc", clock.UtcNow)),
                 cancellationToken)
             .ConfigureAwait(false);
+    }
+
+    /// <summary>撤权是业务终态，不能留在租约队列中反复恢复并重新取数。</summary>
+    private async Task<bool> EnsureAuthorityAsync(ReportingExportTaskRecord task, ExecutionLeaseMonitor lease, CancellationToken token)
+    {
+        var error = await authority.ValidateAsync(task, token).ConfigureAwait(false);
+        if (error is null) return true;
+        await CompleteFailedAsync(task, lease, 0, error.Code, error.Message, token).ConfigureAwait(false);
+        return false;
     }
 
     /// <summary>领取指定排队任务，供创建请求避免与 Worker 双跑。</summary>
@@ -436,7 +451,10 @@ internal sealed class ReportingExportTaskRunner(
     {
         var identity = new ClaimsIdentity("reporting-export-recovery");
         identity.AddClaim(new Claim(FullNetIdentityClaimTypes.Subject, task.RequestedByUserId.ToString("D")));
-        foreach (var code in ReportingExportTaskMapper.DeserializePermissionCodes(task.ActorPermissionCodesJson))
+        IReadOnlyList<string> permissions;
+        try { permissions = ReportingExportTaskMapper.DeserializePermissionCodes(task.ActorPermissionCodesJson); }
+        catch (JsonException) { permissions = []; }
+        foreach (var code in permissions)
         {
             if (!string.IsNullOrWhiteSpace(code))
             {

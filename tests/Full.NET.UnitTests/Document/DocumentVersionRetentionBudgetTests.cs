@@ -25,7 +25,9 @@ public sealed class DocumentVersionRetentionBudgetTests
         var options = new DocumentVersionRetentionOptions { BatchSize = 3, MinimumRetainedVersionsPerItem = minimum, MaximumRetainedHistoryVersions = 1 };
         var monitor = Substitute.For<IOptionsMonitor<DocumentVersionRetentionOptions>>(); monitor.CurrentValue.Returns(options);
         var deletion = new DocumentVersionDeletionService(queries, Substitute.For<ICommandExecutor>(), new PassThroughTransaction(),
-            Substitute.For<IHostFileReferenceClaimService>(), monitor, Substitute.For<IClock>(), Substitute.For<IIdGenerator>(), new TestDocumentAccessPolicy());
+            new Full.NET.Modules.Document.Features.DocumentReferenceReleasePublisher(Substitute.For<IOutboxWriter>()),
+            monitor, Substitute.For<IClock>(), Substitute.For<IIdGenerator>(), new TestDocumentAccessPolicy(),
+            new Full.NET.Modules.Document.Features.DocumentMutationGuard(queries, Options.Create(new DatabaseOptions())));
         var runner = new DocumentVersionRetentionRunner(queries, deletion, Options.Create(new DatabaseOptions()));
         var result = await runner.RunOnceAsync(options, CancellationToken.None);
         Assert.AreEqual(0, result.VersionsDeleted);
@@ -53,7 +55,7 @@ public sealed class DocumentVersionRetentionBudgetTests
         }
         public Task<T?> QuerySingleOrDefaultAsync<T>(SqlStatement statement, object? parameters = null, CancellationToken cancellationToken = default)
         {
-            Assert.AreEqual(DocumentItemSql.FindActiveById, statement); Attempts++;
+            Assert.IsTrue(statement == DocumentItemSql.LockSqlServer || statement == DocumentItemSql.LockMySql); Attempts++;
             return Task.FromResult(default(T));
         }
     }

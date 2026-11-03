@@ -16,6 +16,22 @@ namespace Full.NET.UnitTests.Workflow;
 [TestClass]
 public sealed class WorkflowTodoTimeoutProcessorTests
 {
+    /// <summary>首次扫描和尾页回绕都不能把 Guid.Empty 作为 SQL 参数传入持久化层。</summary>
+    [TestMethod]
+    public async Task Initial_scan_and_tail_wrap_bind_null_cursor_id()
+    {
+        var fixture = CreateFixture(CreateCandidate(escalateNow: false));
+
+        await fixture.Processor.ProcessDueAsync(TestContext.CancellationToken);
+        await fixture.Processor.ProcessDueAsync(TestContext.CancellationToken);
+
+        await fixture.Query.Received(2).QueryAsync<WorkflowTodoTimeoutCandidateRecord>(
+            WorkflowTodoTimeoutSql.ScanDueSqlServer,
+            Arg.Is<object?>(value => Has(value, "HasAfter", 0) &&
+                Has(value, "AfterTodoId", null)),
+            TestContext.CancellationToken);
+    }
+
     /// <summary>催办应发送给扫描时的当前办理人，改派不会重置策略时钟。</summary>
     [TestMethod]
     public async Task Due_reminder_is_committed_and_published_to_current_assignee()
@@ -174,7 +190,7 @@ public sealed class WorkflowTodoTimeoutProcessorTests
             Options.Create(new DatabaseOptions { Provider = DatabaseProvider.SqlServer }),
             resolver, currentTenant, new WorkflowNotificationOutboxPublisher(outbox),
             new WorkflowTodoTimeoutScanCursor());
-        return new(processor, command, outbox, candidate);
+        return new(processor, query, command, outbox, candidate);
     }
 
     private static WorkflowTodoTimeoutCandidateRecord CreateCandidate(bool escalateNow)
@@ -187,7 +203,7 @@ public sealed class WorkflowTodoTimeoutProcessorTests
             now.AddMinutes(-1));
     }
 
-    private static bool Has(object? value, string name, object expected) =>
+    private static bool Has(object? value, string name, object? expected) =>
         value is IReadOnlyDictionary<string, object?> values &&
         values.TryGetValue(name, out var actual) && Equals(actual, expected);
 
@@ -201,6 +217,7 @@ public sealed class WorkflowTodoTimeoutProcessorTests
 
     private sealed record TimeoutFixture(
         WorkflowTodoTimeoutProcessor Processor,
+        IQueryExecutor Query,
         ICommandExecutor Command,
         IOutboxWriter Outbox,
         WorkflowTodoTimeoutCandidateRecord Candidate);

@@ -6,6 +6,7 @@ import { readdirSync, readFileSync, existsSync } from 'node:fs';
 import path from 'node:path';
 import { writeFile } from 'node:fs/promises';
 import { createRuntimeRelease } from './runtime-release.mjs';
+import { renderRuntimeNotices } from './runtime-notices.mjs';
 const here = path.dirname(fileURLToPath(import.meta.url));
 const upstream = path.join(here, 'vendor/vform3/upstream/src');
 function svgFiles(dir) { return readdirSync(dir, { withFileTypes: true }).flatMap(e => e.isDirectory() ? svgFiles(path.join(dir, e.name)) : e.name.endsWith('.svg') ? [path.join(dir, e.name)] : []); }
@@ -27,7 +28,7 @@ export default defineConfig({
         return `const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');svg.style.display='none';svg.innerHTML=${JSON.stringify(symbols)};document.body.append(svg);`;
       },
       generateBundle() {
-        const seen = new Set(); const notices = [readFileSync(path.join(here, 'vendor/vform3/upstream/license.txt'), 'utf8')];
+        const seen = new Set(); const notices = [];
         for (const id of this.getModuleIds()) {
           if (!id.includes('node_modules') || id.startsWith('\0')) continue;
           let directory = path.dirname(id.split('?')[0]);
@@ -36,10 +37,11 @@ export default defineConfig({
           seen.add(directory);
           const pkg = JSON.parse(readFileSync(path.join(directory, 'package.json'), 'utf8'));
           for (const file of readdirSync(directory).filter(file => /^(LICENSE|COPYING|NOTICE)(\.|$)/i.test(file)))
-            notices.push(`${pkg.name}@${pkg.version}\n${readFileSync(path.join(directory, file), 'utf8')}`);
+            notices.push({ name: pkg.name, version: pkg.version, file, text: readFileSync(path.join(directory, file), 'utf8') });
         }
-        notices.push(readFileSync(path.join(here, 'vendor/vform3/upstream/lib/vuedraggable/LICENSE'), 'utf8'));
-        this.emitFile({ type: 'asset', fileName: 'THIRD-PARTY-NOTICES.txt', source: notices.join('\n\n') });
+        this.emitFile({ type: 'asset', fileName: 'THIRD-PARTY-NOTICES.txt', source: renderRuntimeNotices(
+          readFileSync(path.join(here, 'vendor/vform3/upstream/license.txt'), 'utf8'), notices,
+          readFileSync(path.join(here, 'vendor/vform3/upstream/lib/vuedraggable/LICENSE'), 'utf8')) });
         this.emitFile({ type: 'asset', fileName: 'LICENSE.txt', source: readFileSync(path.join(here, 'vendor/vform3/upstream/license.txt')) });
         const ace = path.dirname(fileURLToPath(import.meta.resolve('ace-builds/src-min-noconflict/ace.js')));
         for (const file of ['worker-javascript.js', 'worker-json.js', 'worker-css.js', 'worker-html.js', 'mode-html.js'])

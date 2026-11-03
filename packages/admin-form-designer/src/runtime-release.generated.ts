@@ -1,2 +1,2 @@
 // 由 scripts/workflow/vform-runtime-release.mjs 生成，禁止手工改写。
-export const VFORM_RUNTIME_HASH = '7ca67d3198b8d7ddf9aff977f3fe94c8327fb1158194bf995610b10d15bfb6e3';
+export const VFORM_RUNTIME_HASH = '8451002ae92eb02ba93686d08c935e6551f630a8ccc8e1d6cad73862be8ca29f';

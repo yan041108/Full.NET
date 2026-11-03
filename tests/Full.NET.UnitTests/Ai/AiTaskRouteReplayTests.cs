@@ -40,7 +40,7 @@ public sealed class AiTaskRouteReplayTests
         var tenant = Substitute.For<ICurrentTenant>(); tenant.IsHost.Returns(true);
         var database = Options.Create(new DatabaseOptions()); var runtime = Options.Create(new AiAgentRuntimeOptions { AcceptsNewRuns = true });
         var request = new CreateAiAgentRunRequest(Guid.CreateVersion7(), AiAgentRunManagementService.ChatRenameWorkflowDefinitionKey,
-            Guid.CreateVersion7(), "", 100, 100);
+            Guid.CreateVersion7(), "", 100, 100, TargetChatSessionId: Guid.CreateVersion7());
         var binding = new SessionBindingSnapshot(Guid.CreateVersion7(), null, Guid.CreateVersion7(), "stamp", "host", "host");
         queries.QuerySingleOrDefaultAsync<Guid>(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>())
             .Returns(race ? Guid.Empty : winner, winner);
@@ -48,7 +48,8 @@ public sealed class AiTaskRouteReplayTests
         queries.QuerySingleOrDefaultAsync<AiModelConfigRecord>(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>())
             .Returns(new AiModelConfigRecord { Id = request.ModelConfigId, IsEnabled = true, ProviderKey = "ollama", ModelId = "model" });
         var snapshot = new AgentRunBudgetSnapshot(fault == "model" ? Guid.CreateVersion7() : request.ModelConfigId,
-            fault == "prompt" ? "other" : request.Prompt, fault == "input" ? 101 : 100, fault == "output" ? 101 : 100);
+            fault == "prompt" ? "other" : request.Prompt, fault == "input" ? 101 : 100, fault == "output" ? 101 : 100,
+            TargetChatSessionId: request.TargetChatSessionId);
         var row = new AiAgentRunRecord { Id = winner,
             DefinitionKey = fault == "definition" ? AiAgentRunManagementService.ReadOnlyToolLoopDefinitionKey : request.DefinitionKey,
             DefinitionVersion = fault == "version" ? 1 : 2,
@@ -57,8 +58,14 @@ public sealed class AiTaskRouteReplayTests
         var store = new AiAgentRunStore(queries, commands, transaction, ids, clock, database);
         var heartbeat = new AiAgentWorkerHeartbeatService(Substitute.For<IServiceScopeFactory>(), clock, database, runtime);
         var budget = Substitute.For<IAiOperationBudgetStore>();
+        var authorization = Substitute.For<IBackgroundSessionAuthorization>();
+        authorization.AuthorizeAllAsync(binding, Arg.Any<IReadOnlyCollection<string>>(), Arg.Any<CancellationToken>())
+            .Returns(new AuthorizedSessionActor(binding.UserId, binding.TenantId, binding.SessionId));
+        queries.QuerySingleOrDefaultAsync<AiChatSessionRecord>(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>())
+            .Returns(new AiChatSessionRecord { Id = request.TargetChatSessionId!.Value, OwnerUserId = binding.UserId, Title = "Original", Version = 1 });
+        var targets = new AiWorkflowTargetAdmission(authorization, new(queries, tenant, database, clock), tenant);
         var service = new AiAgentRunManagementService(store, new(queries, clock, runtime, heartbeat), null!, new(queries, database),
-            null!, null!, budget, tenant, clock, ids, runtime, transaction);
+            null!, null!, budget, tenant, clock, ids, runtime, transaction, targets);
         var result = await service.CreateRoutedAsync(request, binding);
         Assert.AreEqual(fault == "valid", result.IsSuccess);
         if (result.IsSuccess) Assert.AreEqual(winner, result.Value!.RunId);

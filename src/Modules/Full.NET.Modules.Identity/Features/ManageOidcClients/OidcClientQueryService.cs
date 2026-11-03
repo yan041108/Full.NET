@@ -96,7 +96,7 @@ internal sealed class OidcClientQueryService(
             metadata.ResourceAudience,
             metadata.IsDisabled,
             row.CreatedAtUtc,
-            (int)row.Version);
+            (int)row.Version, metadata.RequireMfa, metadata.BackchannelLogoutUri);
     }
 
     private static string? NormalizeFilter(string? value)

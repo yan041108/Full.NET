@@ -3,6 +3,7 @@ using Full.NET.Abstractions.Time;
 using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Identity.Domain;
 using Full.NET.Modules.Identity.Persistence;
+using Full.NET.Modules.Identity.Security;
 
 namespace Full.NET.Modules.Identity.Oidc;
 
@@ -31,14 +32,17 @@ internal sealed class OidcManagementAuditWriter(
             idGenerator.NewId(),
             actorUserId,
             null,
-            Truncate(resourceFingerprint, 128),
+            TokenHash.Compute(resourceFingerprint),
             eventType,
-            resourceFingerprint,
+            eventType + ".succeeded",
             true,
             Truncate(ipAddress, 64),
             Truncate(userAgent, 512),
             null,
-            clock.UtcNow);
+            clock.UtcNow,
+            ActorUserId: actorUserId,
+            TraceId: System.Diagnostics.Activity.Current?.TraceId.ToString(),
+            AuthenticationMethod: "admin");
         var affectedRows = await commandExecutor.ExecuteAsync(
                 IdentitySql.InsertAuthAudit,
                 audit,

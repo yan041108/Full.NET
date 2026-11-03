@@ -26,7 +26,7 @@ internal static class EventStreamOwnershipMapper
             row.RollbackBoundaryEventId,
             row.RollbackOccurredAtUtc,
             row.CreatedAtUtc,
-            row.UpdatedAtUtc);
+            row.UpdatedAtUtc) { CdcKafkaBindingJson = row.CdcKafkaBindingJson };
 
     public static EventStreamOwnershipPersistenceRow ToPersistenceRow(
         EventStreamOwnershipRecord record) =>
@@ -40,6 +40,7 @@ internal static class EventStreamOwnershipMapper
             CutoffEventId = record.CutoffEventId,
             CutoffOccurredAtUtc = record.CutoffOccurredAtUtc,
             CdcSourcePositionJson = record.CdcSourcePositionJson,
+            CdcKafkaBindingJson = record.CdcKafkaBindingJson,
             OperatorUserId = record.OperatorUserId,
             Reason = record.Reason,
             RollbackBoundaryEventId = record.RollbackBoundaryEventId,

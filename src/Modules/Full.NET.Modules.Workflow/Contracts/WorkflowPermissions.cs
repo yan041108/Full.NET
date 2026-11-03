@@ -3,6 +3,8 @@ namespace Full.NET.Modules.Workflow.Contracts;
 /// <summary>工作流管理页面与业务操作使用的精确权限码。</summary>
 public static class WorkflowPermissions
 {
+    /// <summary>在获准启动或本人可编辑待办字段内上传本地附件。</summary>
+    public const string FormAttachmentsUpload = "workflow.attachments.upload";
     /// <summary>读取自己参与的双边协作授权。</summary>
     public const string CollaborationGrantsRead="workflow.collaboration_grants.read";
     /// <summary>以当前可信作用域提出协作同意。</summary>
@@ -35,6 +37,10 @@ public static class WorkflowPermissions
     public const string DefinitionsUpdate = "workflow.definitions.update";
     /// <summary>发布工作流版本。</summary>
     public const string DefinitionsPublish = "workflow.definitions.publish";
+    /// <summary>对当前作用域已保存草稿执行只读发布前仿真。</summary>
+    public const string DefinitionsSimulate = "workflow.definitions.simulate";
+    /// <summary>读取当前作用域节点停留、SLA及耐久调度积压。</summary>
+    public const string OperationsRead = "workflow.operations.read";
     /// <summary>变更工作流定义启停或归档状态。</summary>
     public const string DefinitionsManageStatus = "workflow.definitions.manage_status";
     /// <summary>删除未被运行实例引用的工作流定义版本。</summary>
@@ -113,6 +119,11 @@ public static class WorkflowPermissions
     /// <summary>获取当前模块全部精确权限码，供授权目录与测试枚举。</summary>
     public static IReadOnlyList<string> All { get; } = Array.AsReadOnly(
     [
+        FormAttachmentsUpload,
+        CollaborationGrantsRead,
+        CollaborationGrantsPropose,
+        CollaborationGrantsAccept,
+        CollaborationGrantsRevoke,
         CalendarsRead,
         CalendarsCreate,
         CalendarsUpdate,
@@ -125,6 +136,8 @@ public static class WorkflowPermissions
         DefinitionsCreate,
         DefinitionsUpdate,
         DefinitionsPublish,
+        DefinitionsSimulate,
+        OperationsRead,
         DefinitionsManageStatus,
         DefinitionsDeleteVersion,
         FormsRead,

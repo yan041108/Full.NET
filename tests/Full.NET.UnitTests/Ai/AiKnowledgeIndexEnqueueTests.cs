@@ -207,8 +207,11 @@ public sealed partial class AiKnowledgeIndexEnqueueTests
             var command = Substitute.For<ICommandExecutor>();
             command.ExecuteAsync(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(call =>
             {
-                Assert.IsTrue(State.HasTransaction); Writes++;
+                Assert.IsTrue(State.HasTransaction);
                 var p = (Dictionary<string, object?>)call[1]!; Assert.AreEqual(3, p["DocumentVersion"]); Assert.AreEqual(4, p["KnowledgeBaseVersion"]);
+                // 根锁不改变任何业务字段；原断言继续计算任务和原会话两次业务写入。
+                if (((SqlStatement)call[0]!).Name.StartsWith("ai.knowledge_index_correction.lock_", StringComparison.Ordinal)) return 1;
+                Writes++;
                 Persisted = new() { Id = Guid.CreateVersion7(), IndexTaskId = Task, ActorUserId = Session.UserId, TenantId = Session.TenantId,
                     SessionId = Session.SessionId, SessionKind = Session.SessionKind, SecurityStamp = Session.SecurityStamp, ActorScope = Session.ActorScope, EffectiveScope = Session.EffectiveScope };
                 return 1;

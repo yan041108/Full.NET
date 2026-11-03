@@ -110,7 +110,7 @@ internal static class CodeGenerationRunAssertions
                 readerCannotDownload.StatusCode);
         }
 
-        using (var inlinePreviewCannotDownload = await client.SendAsync(
+        using (var inlinePreviewDownload = await client.SendAsync(
                    Authorized(
                        HttpMethod.Get,
                        $"{RunsPath}/{tracked.RunId:D}/artifacts.zip",
@@ -118,8 +118,8 @@ internal static class CodeGenerationRunAssertions
                    cancellationToken))
         {
             Assert.AreEqual(
-                HttpStatusCode.BadRequest,
-                inlinePreviewCannotDownload.StatusCode);
+                HttpStatusCode.OK,
+                inlinePreviewDownload.StatusCode);
         }
 
         await VerifyApplyAsync(
@@ -319,8 +319,7 @@ internal static class CodeGenerationRunAssertions
                        HttpMethod.Post,
                        $"{RunsPath}/apply",
                        executor.AccessToken,
-                       new CodeGenerationRunApplyRequest(
-                           reviewedPreview.RunId)),
+                       new CodeGenerationRunApplyRequest(reviewedPreview.RunId, new string('a', 64), Guid.CreateVersion7())),
                    cancellationToken))
         {
             Assert.AreEqual(
@@ -351,8 +350,7 @@ internal static class CodeGenerationRunAssertions
                        HttpMethod.Post,
                        $"{RunsPath}/apply",
                        applier.AccessToken,
-                       new CodeGenerationRunApplyRequest(
-                           reviewedPreview.RunId)),
+                       await PrepareApplyAsync(client, applier.AccessToken, reviewedPreview.RunId, cancellationToken)),
                    cancellationToken))
         {
             Assert.AreEqual(HttpStatusCode.OK, apply.StatusCode);
@@ -387,12 +385,12 @@ internal static class CodeGenerationRunAssertions
             await File.ReadAllTextAsync(manifestPath, cancellationToken),
             checkpoint.AppliedManifest.ToJson());
         Assert.AreEqual(
-            applied.ArtifactCount + 2,
+            applied.ArtifactCount,
             Directory.EnumerateFiles(
                     workspaceRoot,
                     "*",
                     SearchOption.AllDirectories)
-                .Count());
+                .Count(path => !Path.GetRelativePath(workspaceRoot, path).Replace('\\', '/').StartsWith(".fullnet/", StringComparison.Ordinal)));
 
         using (var getApply = await client.SendAsync(
                    Authorized(
@@ -439,17 +437,15 @@ internal static class CodeGenerationRunAssertions
         using var invalid = await client.SendAsync(
             AuthorizedJson(
                 HttpMethod.Post,
-                $"{RunsPath}/apply",
+                $"{RunsPath}/apply-plan",
                 applier.AccessToken,
-                new CodeGenerationRunApplyRequest(inlinePreviewRunId)),
+                new CodeGenerationRunApplyPlanRequest(inlinePreviewRunId)),
             cancellationToken);
-        Assert.AreEqual(HttpStatusCode.BadRequest, invalid.StatusCode);
+        Assert.AreEqual(HttpStatusCode.OK, invalid.StatusCode);
         var invalidBody = await invalid.Content.ReadAsStringAsync(
             cancellationToken);
         using var invalidJson = JsonDocument.Parse(invalidBody);
-        Assert.AreEqual(
-            CodeGenerationRunErrorCodes.InvalidApplyPreview,
-            invalidJson.RootElement.GetProperty("code").GetString());
+        Assert.IsTrue(invalidJson.RootElement.GetProperty("files").GetArrayLength() > 0);
         Assert.IsFalse(
             invalidBody.Contains(workspaceRoot, StringComparison.OrdinalIgnoreCase),
             "Apply 错误不得暴露服务器工作区路径。");
@@ -524,8 +520,7 @@ internal static class CodeGenerationRunAssertions
                        HttpMethod.Post,
                        $"{RunsPath}/apply",
                        applier.AccessToken,
-                       new CodeGenerationRunApplyRequest(
-                           secondPreview.RunId)),
+                       await PrepareApplyAsync(client, applier.AccessToken, secondPreview.RunId, cancellationToken)),
                    cancellationToken))
         {
             var applyBody = await apply.Content.ReadAsStringAsync(cancellationToken);
@@ -563,7 +558,7 @@ internal static class CodeGenerationRunAssertions
                            [firstApplied.RunId, secondApplied.RunId])),
                    cancellationToken))
         {
-            Assert.AreEqual(HttpStatusCode.BadRequest, invalidOrder.StatusCode);
+            Assert.AreEqual(HttpStatusCode.Conflict, invalidOrder.StatusCode);
             Assert.AreEqual(
                 CodeGenerationRunErrorCodes.InvalidRollbackChain,
                 await ReadCodeAsync(invalidOrder, cancellationToken));
@@ -778,6 +773,18 @@ internal static class CodeGenerationRunAssertions
                     null,
                     null),
             ]);
+    private static async Task<CodeGenerationRunApplyRequest> PrepareApplyAsync(HttpClient client, string accessToken,
+        Guid previewId, CancellationToken token)
+    {
+        using var response = await client.SendAsync(AuthorizedJson(HttpMethod.Post, $"{RunsPath}/apply-plan", accessToken,
+            new CodeGenerationRunApplyPlanRequest(previewId)), token);
+        var body = await response.Content.ReadAsStringAsync(token);
+        Assert.AreEqual(HttpStatusCode.OK, response.StatusCode, body);
+        var plan = JsonSerializer.Deserialize<CodeGenerationRunApplyPlanResponse>(body, new JsonSerializerOptions(JsonSerializerDefaults.Web))!;
+        Assert.IsNotNull(plan);
+        Assert.IsTrue(plan.Files.Any(file => file.RelativePath == GenerationWorkspaceStore.ManifestRelativePath));
+        return new(plan.PlanId, plan.PlanSha256, Guid.CreateVersion7());
+    }
 }
 
 /// <summary>
@@ -788,14 +795,17 @@ internal sealed class CodeGenerationApplyTestWorkspace : IDisposable
     private CodeGenerationApplyTestWorkspace(string rootPath)
     {
         RootPath = rootPath;
+        ArchiveRoot = Directory.CreateTempSubdirectory("fullnet-codegeneration-api-archives-").FullName;
         Settings = new Dictionary<string, string?>
         {
             ["CodeGeneration:Apply:Enabled"] = "true",
             ["CodeGeneration:Apply:WorkspaceRoot"] = rootPath,
+            ["CodeGeneration:Artifacts:RootDirectory"] = ArchiveRoot,
         };
     }
 
     public string RootPath { get; }
+    public string ArchiveRoot { get; }
 
     public IReadOnlyDictionary<string, string?> Settings { get; }
 
@@ -805,6 +815,7 @@ internal sealed class CodeGenerationApplyTestWorkspace : IDisposable
 
     public void Dispose()
     {
+        Directory.Delete(ArchiveRoot, recursive: true);
         if (Directory.Exists(RootPath))
         {
             Directory.Delete(RootPath, recursive: true);

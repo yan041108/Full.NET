@@ -94,9 +94,6 @@ public sealed class MessagingCdcObservabilityTelemetryTests
             "fullnet.identity.organization-unit",
             lagMessages: 42,
             lagRetentionRatio: 0.85d);
-        KafkaMessagingTelemetry.UpdateCdcPlatformHealth(
-            sqlServerCaptureJobRunning: false,
-            mySqlBinlogRetentionHours: 12d);
 
         capture.Listener.RecordObservableInstruments();
 
@@ -114,10 +111,10 @@ public sealed class MessagingCdcObservabilityTelemetryTests
             item.Name == "fullnet.messaging.ownership.wait"
             && Math.Abs(item.Value - 30d) < 0.0001d));
         Assert.IsTrue(capture.Measurements.Exists(item =>
-            item.Name == "fullnet.messaging.kafka.consumer.lag"
+            item.Name == "fullnet.messaging.kafka.observed_topics.lag"
             && item.Value == 42d));
         Assert.IsTrue(capture.Measurements.Exists(item =>
-            item.Name == "fullnet.messaging.kafka.lag_retention_ratio"
+            item.Name == "fullnet.messaging.kafka.observed_topics.lag_retention_ratio"
             && Math.Abs(item.Value - 0.85d) < 0.0001d));
         Assert.IsTrue(capture.Measurements.Exists(item =>
             item.Name == "fullnet.messaging.connector.lag"
@@ -125,12 +122,6 @@ public sealed class MessagingCdcObservabilityTelemetryTests
         Assert.IsTrue(capture.Measurements.Exists(item =>
             item.Name == "fullnet.messaging.connector.offset.unrecoverable"
             && item.Value == 1d));
-        Assert.IsTrue(capture.Measurements.Exists(item =>
-            item.Name == "fullnet.messaging.cdc.sqlserver.capture_job_running"
-            && item.Value == 0d));
-        Assert.IsTrue(capture.Measurements.Exists(item =>
-            item.Name == "fullnet.messaging.cdc.mysql.binlog_retention_hours"
-            && Math.Abs(item.Value - 12d) < 0.0001d));
 
         foreach (var sample in capture.TaggedMeasurements)
         {
@@ -145,9 +136,6 @@ public sealed class MessagingCdcObservabilityTelemetryTests
         }
 
         KafkaMessagingTelemetry.RemoveConsumerState("fullnet.identity.organization-unit");
-        KafkaMessagingTelemetry.UpdateCdcPlatformHealth(
-            sqlServerCaptureJobRunning: true,
-            mySqlBinlogRetentionHours: 168d);
     }
 
     [TestMethod]

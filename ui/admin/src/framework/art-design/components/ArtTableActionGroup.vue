@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, useSlots } from 'vue';
+import { useSlots } from 'vue';
 import { ElDropdown, ElIcon } from 'element-plus';
 import { MoreFilled } from '@element-plus/icons-vue';
 import { useAdminI18n } from '../../../i18n/adminI18n';
@@ -18,19 +18,20 @@ const props = withDefaults(defineProps<{
 const { t } = useAdminI18n();
 const slots = useSlots();
 
-const actionNodes = computed(() => flattenSlotVNodes(slots.default?.() ?? []));
-const visibleNodes = computed(() => actionNodes.value.slice(0, props.maxVisible));
-const overflowNodes = computed(() => actionNodes.value.slice(props.maxVisible));
+// 父级替换行对象时插槽函数会改变，却不会使 computed 自动失效；每轮渲染须读取当前操作与回调。
+const actionNodes = () => flattenSlotVNodes(slots.default?.() ?? []);
+const visibleNodes = () => actionNodes().slice(0, props.maxVisible);
+const overflowNodes = () => actionNodes().slice(props.maxVisible);
 </script>
 
 <template>
   <div class="art-table-action-group" data-testid="art-table-action-group">
-    <template v-for="(node, index) in visibleNodes" :key="`visible-${index}`">
+    <template v-for="(node, index) in visibleNodes()" :key="`visible-${index}`">
       <component :is="node" />
     </template>
 
     <ElDropdown
-      v-if="overflowNodes.length > 0"
+      v-if="overflowNodes().length > 0"
       trigger="click"
       placement="bottom-end"
       :teleported="true"
@@ -47,7 +48,7 @@ const overflowNodes = computed(() => actionNodes.value.slice(props.maxVisible));
       </button>
       <template #dropdown>
         <div class="art-table-action-group__overflow-panel" role="menu">
-          <template v-for="(node, index) in overflowNodes" :key="`overflow-${index}`">
+          <template v-for="(node, index) in overflowNodes()" :key="`overflow-${index}`">
             <component :is="node" />
           </template>
         </div>

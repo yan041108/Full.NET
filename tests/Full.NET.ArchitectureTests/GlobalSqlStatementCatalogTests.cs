@@ -12,6 +12,8 @@ public sealed class GlobalSqlStatementCatalogTests
     private static readonly Assembly[] SqlStatementAssemblies =
     [
         .. ProductionAssemblies.All,
+        // 应用样例不进入官方发布闭包，其后台全局扫描仍必须接受同一精确目录守卫。
+        typeof(Full.NET.Modules.EnterpriseRequest.EnterpriseRequestModule).Assembly,
     ];
 
     private static readonly HashSet<string> AllowedCategories =
@@ -71,6 +73,141 @@ public sealed class GlobalSqlStatementCatalogTests
             .OrderBy(value => value, StringComparer.Ordinal)
             .ToArray();
 
+        Assert.HasCount(0, violations, string.Join(Environment.NewLine, violations));
+    }
+
+    [TestMethod]
+    public void Workflow_collaboration_grant_global_sql_is_exactly_cataloged()
+    {
+        // 独立检查共享授权控制面；保留全局门禁，其他模块失败不能掩盖本次目录漂移。
+        const string file = "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowCollaborationGrantSql.cs";
+        var root = FindRepositoryRoot();
+        var declarations = ReadProductionGlobalStatements(root).Where(item => item.File == file).ToArray();
+        var document = JsonSerializer.Deserialize<GlobalSqlCatalogDocument>(
+            File.ReadAllText(Path.Combine(root, "contracts", "architecture", "global-sql-statements.json")), JsonOptions);
+        Assert.IsNotNull(document);
+        Assert.AreEqual(1, document.SchemaVersion);
+        var entries = (document.Entries ?? []).Where(item => item.File == file).ToArray();
+        Assert.HasCount(8, declarations);
+        Assert.HasCount(8, entries);
+        var violations = Analyze(declarations, entries).ToArray();
+        Assert.HasCount(0, violations, string.Join(Environment.NewLine, violations));
+    }
+
+    [TestMethod]
+    public void Workflow_operations_global_sql_is_exactly_cataloged()
+    {
+        const string file = "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowOperationsSql.cs";
+        var root = FindRepositoryRoot();
+        var declarations = ReadProductionGlobalStatements(root).Where(item => item.File == file).ToArray();
+        var document = JsonSerializer.Deserialize<GlobalSqlCatalogDocument>(File.ReadAllText(Path.Combine(root,
+            "contracts", "architecture", "global-sql-statements.json")), JsonOptions)!;
+        var entries = document.Entries!.Where(item => item.File == file).ToArray();
+        Assert.HasCount(8, declarations); Assert.HasCount(8, entries);
+        var violations = Analyze(declarations, entries).ToArray();
+        Assert.HasCount(0, violations, string.Join(Environment.NewLine, violations));
+    }
+
+    [TestMethod]
+    public void Workflow_collaboration_request_global_sql_is_exactly_cataloged()
+    {
+        const string file = "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowCollaborationCallSql.cs";
+        var root = FindRepositoryRoot();
+        var declarations = ReadProductionGlobalStatements(root).Where(item => item.File == file).ToArray();
+        var document = JsonSerializer.Deserialize<GlobalSqlCatalogDocument>(
+            File.ReadAllText(Path.Combine(root, "contracts", "architecture", "global-sql-statements.json")), JsonOptions)!;
+        var entries = document.Entries!.Where(item => item.File == file).ToArray();
+        Assert.HasCount(6, declarations); Assert.HasCount(6, entries);
+        var violations = Analyze(declarations, entries).ToArray();
+        Assert.HasCount(0, violations, string.Join(Environment.NewLine, violations));
+    }
+
+    [TestMethod]
+    public void Workflow_collaboration_target_global_sql_is_exactly_cataloged()
+    {
+        const string file = "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowCollaborationRelaySql.cs";
+        var root = FindRepositoryRoot();
+        var type = typeof(global::Full.NET.Modules.Workflow.WorkflowModule).Assembly.GetType("Full.NET.Modules.Workflow.Persistence.WorkflowCollaborationRelaySql", throwOnError: true)!;
+        var declarations = ReadSqlStatements(root, type).Where(item => item.Statement.Scope == SqlDataScope.Global).ToArray();
+        var document = JsonSerializer.Deserialize<GlobalSqlCatalogDocument>(File.ReadAllText(Path.Combine(root, "contracts", "architecture", "global-sql-statements.json")), JsonOptions)!;
+        var entries = document.Entries!.Where(item => item.File == file).ToArray();
+        Assert.HasCount(15, declarations); Assert.HasCount(15, entries);
+        var violations = Analyze(declarations, entries).ToArray();
+        Assert.HasCount(0, violations, string.Join(Environment.NewLine, violations));
+    }
+
+    [TestMethod]
+    public void Workflow_collaboration_control_global_sql_is_exactly_cataloged()
+    {
+        const string file = "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowCollaborationControlSql.cs";
+        var root = FindRepositoryRoot();
+        var type = typeof(global::Full.NET.Modules.Workflow.WorkflowModule).Assembly.GetType("Full.NET.Modules.Workflow.Persistence.WorkflowCollaborationControlSql", throwOnError: true)!;
+        var declarations = ReadSqlStatements(root, type).Where(item => item.Statement.Scope == SqlDataScope.Global).ToArray();
+        var document = JsonSerializer.Deserialize<GlobalSqlCatalogDocument>(File.ReadAllText(Path.Combine(root, "contracts", "architecture", "global-sql-statements.json")), JsonOptions)!;
+        var entries = document.Entries!.Where(item => item.File == file).ToArray();
+        Assert.HasCount(21, declarations); Assert.HasCount(21, entries);
+        var violations = Analyze(declarations, entries).ToArray();
+        Assert.HasCount(0, violations, string.Join(Environment.NewLine, violations));
+    }
+
+    [TestMethod]
+    [DataRow("Workflow", "WorkflowCollaborationFileSql", 12)]
+    [DataRow("Files", "WorkflowFileReadCapabilitySql", 8)]
+    public void Workflow_file_capability_global_sql_is_exactly_cataloged(string module, string name, int count)
+    {
+        var root = FindRepositoryRoot();
+        var assembly = module == "Workflow" ? typeof(global::Full.NET.Modules.Workflow.WorkflowModule).Assembly : typeof(global::Full.NET.Modules.Files.FilesModule).Assembly;
+        var type = assembly.GetType($"Full.NET.Modules.{module}.Persistence.{name}", throwOnError: true)!;
+        var file = $"src/Modules/Full.NET.Modules.{module}/Persistence/{name}.cs";
+        var declarations = ReadSqlStatements(root, type).Where(item => item.Statement.Scope == SqlDataScope.Global).ToArray();
+        var document = JsonSerializer.Deserialize<GlobalSqlCatalogDocument>(File.ReadAllText(Path.Combine(root, "contracts", "architecture", "global-sql-statements.json")), JsonOptions)!;
+        var entries = document.Entries!.Where(item => item.File == file).ToArray();
+        Assert.HasCount(count, declarations); Assert.HasCount(count, entries);
+        var violations = Analyze(declarations, entries).ToArray();
+        Assert.HasCount(0, violations, string.Join(Environment.NewLine, violations));
+    }
+
+    [TestMethod]
+    [DataRow("Workflow", "WorkflowCollaborationListSql", "", 3)]
+    [DataRow("Workflow", "WorkflowSql", "filtered", 12)]
+    [DataRow("Workflow", "WorkflowClaimSql", "mine", 4)]
+    [DataRow("Workflow", "WorkflowRecoverySql", "for_scope", 4)]
+    [DataRow("Tenancy", "TenantSql", "find_active_by_explicit_ids", 1)]
+    public void Collaboration_pagination_and_tenant_batch_sql_is_exactly_cataloged(string module, string name, string part, int count)
+    {
+        var root = FindRepositoryRoot();
+        var assembly = module == "Workflow" ? typeof(global::Full.NET.Modules.Workflow.WorkflowModule).Assembly : typeof(global::Full.NET.Modules.Tenancy.TenancyModule).Assembly;
+        var type = assembly.GetType($"Full.NET.Modules.{module}.Persistence.{name}", throwOnError: true)!;
+        var file = $"src/Modules/Full.NET.Modules.{module}/Persistence/{name}.cs";
+        var declarations = ReadSqlStatements(root, type).Where(item => item.Statement.Scope == SqlDataScope.Global && item.Statement.Name.Contains(part, StringComparison.Ordinal)).ToArray();
+        var names = declarations.Select(item => item.Declaration).ToHashSet(StringComparer.Ordinal);
+        var document = JsonSerializer.Deserialize<GlobalSqlCatalogDocument>(File.ReadAllText(Path.Combine(root, "contracts", "architecture", "global-sql-statements.json")), JsonOptions)!;
+        var entries = document.Entries!.Where(item => item.File == file && names.Contains(item.Declaration!)).ToArray();
+        Assert.HasCount(count, declarations); Assert.HasCount(count, entries);
+        var violations = Analyze(declarations, entries).ToArray(); Assert.HasCount(0, violations, string.Join(Environment.NewLine, violations));
+    }
+
+    [TestMethod]
+    [DataRow("system_audit", 1)][DataRow("has_durable_wait", 2)]
+    public void Workflow_recovery_worker_sql_is_exactly_cataloged(string part, int count) =>
+        Collaboration_pagination_and_tenant_batch_sql_is_exactly_cataloged("Workflow", "WorkflowRecoverySql", part, count);
+
+    [TestMethod]
+    public void Workflow_visible_attachment_names_sql_is_exactly_cataloged() =>
+        Collaboration_pagination_and_tenant_batch_sql_is_exactly_cataloged("Workflow", "WorkflowCollaborationFileSql", "visible_names", 1);
+
+    [TestMethod]
+    public void Application_sample_global_scans_are_exactly_cataloged()
+    {
+        var root = FindRepositoryRoot();
+        var assembly = typeof(Full.NET.Modules.EnterpriseRequest.EnterpriseRequestModule).Assembly;
+        var declarations = GetLoadableTypes(assembly).SelectMany(type => ReadSqlStatements(root, type))
+            .Where(item => item.Statement.Scope == SqlDataScope.Global).ToArray();
+        var document = JsonSerializer.Deserialize<GlobalSqlCatalogDocument>(File.ReadAllText(
+            Path.Combine(root, "contracts", "architecture", "global-sql-statements.json")), JsonOptions)!;
+        var entries = document.Entries!.Where(entry => entry.File?.StartsWith("samples/enterprise-request/", StringComparison.Ordinal) == true).ToArray();
+        var violations = Analyze(declarations, entries).Concat(SqlStatementConstructionScanner.FindViolations([assembly], [])).ToArray();
+        Assert.HasCount(2, declarations);
         Assert.HasCount(0, violations, string.Join(Environment.NewLine, violations));
     }
 
@@ -424,15 +561,16 @@ public sealed class GlobalSqlStatementCatalogTests
 
     private static string FindRepositoryRoot()
     {
-        var directory = new DirectoryInfo(AppContext.BaseDirectory);
-        while (directory is not null)
+        // MTP可能切换到隔离输出；显式根仍由解决方案标记验证，不把输出路径当源码目录。
+        foreach (var origin in new[] { Environment.GetEnvironmentVariable("FULLNET_TEST_REPOSITORY_ROOT"), AppContext.BaseDirectory, Directory.GetCurrentDirectory() })
         {
-            if (File.Exists(Path.Combine(directory.FullName, "Full.NET.slnx")))
+            if (string.IsNullOrWhiteSpace(origin)) continue;
+            var directory = new DirectoryInfo(origin);
+            while (directory is not null)
             {
-                return directory.FullName;
+                if (File.Exists(Path.Combine(directory.FullName, "Full.NET.slnx"))) return directory.FullName;
+                directory = directory.Parent;
             }
-
-            directory = directory.Parent;
         }
 
         throw new DirectoryNotFoundException("Could not locate the repository root.");

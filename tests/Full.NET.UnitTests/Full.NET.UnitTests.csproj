@@ -1,8 +1,12 @@
 <Project Sdk="MSTest.Sdk">
   <ItemGroup>
+    <!-- 直接复用消息故障代理源码，验证帧转发和 Gate，避免测试替身偏离真实验收链。 -->
+    <Compile Include="../Full.NET.IntegrationTests/Messaging/MessagingKafkaFaultProxy.cs" Link="Messaging/Fixtures/MessagingKafkaFaultProxy.cs" />
     <Compile Include="../templates/support/fixtures/application-migration-runner.cs.fixture" Link="Hosting/ApplicationMigrationRunner.cs" />
     <Compile Include="../ai-evaluation/probe/ProbeVectorSearch.cs" Link="Ai/Evaluation/ProbeVectorSearch.cs" />
     <Compile Include="../Shared/CodeGeneration/GeneratedMigrationRecoveryFixture.cs" Link="CodeGeneration/GeneratedMigrationRecoveryFixture.cs" />
+    <Compile Include="../Shared/CodeGeneration/CodeGenerationRemediationSchemas.cs" Link="CodeGeneration/CodeGenerationRemediationSchemas.cs" />
+    <Compile Include="../Shared/CodeGeneration/Remediation/*.g.cs" Link="CodeGeneration/Remediation/%(Filename)%(Extension)" />
   </ItemGroup>
   <!-- 直接验证原生读取源文件，避免为 JIT 业务模块开放 ADO.NET 依赖。 -->
   <PropertyGroup>
@@ -10,6 +14,8 @@
   </PropertyGroup>
   <ItemGroup Condition="'$(FullNetAotAnalysis)' != 'true' and '$(FullNetPublishMode)' != 'NativeAot' and '$(PublishAot)' != 'true'">
     <Compile Include="../../src/Modules/Full.NET.Modules.Ai/Persistence/AiBudgetRowReaders.cs" Link="Ai/AiBudgetRowReaders.cs" />
+    <Compile Include="../../src/Modules/Full.NET.Modules.Ai/Persistence/AiAgUiRowReaders.cs" Link="Ai/AiAgUiRowReaders.cs" />
+    <Compile Include="../../src/Modules/Full.NET.Modules.Ai/Persistence/AiKnowledgeEvaluationRunRowReaders.cs" Link="Ai/AiKnowledgeEvaluationRunRowReaders.cs" />
   </ItemGroup>
   <PropertyGroup>
     <IsPackable>false</IsPackable>
@@ -95,5 +101,16 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="../../samples/enterprise-request/src/Full.NET.Modules.EnterpriseRequest/Full.NET.Modules.EnterpriseRequest.csproj" />
+  </ItemGroup>
+  <!-- 单独验证Connector路由与资源身份，不为这条边界编译或执行其它模块用例。 -->
+  <ItemGroup Condition="'$(FullNetKafkaConnectorContractFocused)' == 'true' Or '$(FullNetKafkaMonitoringFocused)' == 'true'">
+    <Compile Remove="@(Compile)" />
+    <Compile Include="Messaging/KafkaConnectorDeploymentContractTests.cs" />
+    <Compile Include="Messaging/KafkaDeliveryControlTests.cs" />
+    <Compile Include="Messaging/KafkaConsumerLagObserverTests.cs" Condition="'$(FullNetKafkaMonitoringFocused)' == 'true'" />
+    <Compile Include="Messaging/MessagingRuntimeObservationTests.cs" Condition="'$(FullNetKafkaMonitoringFocused)' == 'true'" />
+    <Compile Include="Messaging/MessagingRuntimeObservationTests.MultiStream.cs" Condition="'$(FullNetKafkaMonitoringFocused)' == 'true'" />
+    <ProjectReference Remove="@(ProjectReference)" />
+    <ProjectReference Include="../../src/BuildingBlocks/Full.NET.Messaging.Kafka/Full.NET.Messaging.Kafka.csproj" />
   </ItemGroup>
 </Project>

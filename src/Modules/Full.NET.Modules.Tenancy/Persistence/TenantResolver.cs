@@ -11,6 +11,18 @@ namespace Full.NET.Modules.Tenancy.Persistence;
 /// </summary>
 internal sealed class TenantResolver(IQueryExecutor queryExecutor) : ITenantResolver, IActiveTenantContextResolver
 {
+    public async Task<IReadOnlyDictionary<Guid, TenantContext>> ResolveActiveByIdsAsync(
+        IReadOnlyCollection<Guid> tenantIds, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(tenantIds); cancellationToken.ThrowIfCancellationRequested();
+        if (tenantIds.Count > 256 || tenantIds.Any(id => id == Guid.Empty)) throw new ArgumentOutOfRangeException(nameof(tenantIds));
+        var selected = tenantIds.Distinct().ToHashSet(); if (selected.Count == 0) return new Dictionary<Guid, TenantContext>();
+        var rows = await queryExecutor.QueryAsync<TenantResolutionRecord>(TenantSql.FindActiveByIds,
+            TenancySqlParameters.Create(("TenantIds", selected.ToArray())), cancellationToken).ConfigureAwait(false);
+        return rows.Where(row => row.IsActive && selected.Contains(row.Id)).ToDictionary(row => row.Id,
+            row => new TenantContext(row.Id, row.Identifier, row.Name));
+    }
+
     public async Task<TenantSummary?> ResolveByDomainAsync(
         string domain,
         CancellationToken cancellationToken = default)

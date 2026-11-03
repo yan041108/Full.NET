@@ -60,7 +60,7 @@ public sealed class WorkflowTodoQueryServiceTests
             "approve");
         var query = Substitute.For<IQueryExecutor>();
         query.QuerySingleOrDefaultAsync<long>(
-                WorkflowSql.CountPendingTodosFiltered, Arg.Any<object?>(), Arg.Any<CancellationToken>())
+                WorkflowSql.CountPendingTodosFilteredSqlServer, Arg.Any<object?>(), Arg.Any<CancellationToken>())
             .Returns(1L);
         query.QueryAsync<WorkflowTodoListRecord>(
                 WorkflowSql.PagePendingTodosFilteredSqlServer, Arg.Any<object?>(), Arg.Any<CancellationToken>())
@@ -100,7 +100,7 @@ public sealed class WorkflowTodoQueryServiceTests
         return new WorkflowTodoQueryService(
             query,
             tenant,
-            Options.Create(new DatabaseOptions { Provider = DatabaseProvider.SqlServer }));
+            Options.Create(new DatabaseOptions { Provider = DatabaseProvider.SqlServer }), WorkflowTodoManagementTestDependencies.CreateListAuthorization(query, tenant));
     }
 
     private static async Task AssertEndpointPermissionAsync(string route, string permission, string operationName)

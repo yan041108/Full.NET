@@ -164,11 +164,13 @@ onMounted(() => {
 <template>
   <div class="k3cloud-connection-configs-view">
     <ArtTableHeader :title="t('k3cloudConnections.title')">
-      <PermissionGate code="k3cloud.connections.create">
-        <ElButton data-testid="k3cloud-connection-create" type="primary" :icon="Plus" @click="openCreate">
-          {{ t('k3cloudConnections.addConnection') }}
-        </ElButton>
-      </PermissionGate>
+      <template #left>
+        <PermissionGate code="k3cloud.connections.create">
+          <ElButton data-testid="k3cloud-connection-create" type="primary" :icon="Plus" @click="openCreate">
+            {{ t('k3cloudConnections.addConnection') }}
+          </ElButton>
+        </PermissionGate>
+      </template>
     </ArtTableHeader>
 
     <ElAlert v-if="problem" type="error" :title="problem.title" show-icon class="mb-4" />

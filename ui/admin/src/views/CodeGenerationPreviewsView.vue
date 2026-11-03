@@ -1,9 +1,11 @@
 <script setup lang="ts">
-import { computed, onActivated, onMounted, ref, watch } from 'vue';
+import { computed, nextTick, onActivated, onMounted, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import { ElButton, ElCard, ElInput, ElMessageBox, ElSwitch, ElTag } from 'element-plus';
 import {
   isCodeGenerationPreviewRequest,
+  isCodeGenerationRunApplyPlanResponse,
+  isCodeGenerationRunApplyRequest,
   isFullNetProblemDetails,
   isPendingCodeGenerationRollbackApply,
   buildCodeGenerationRollbackApplyRunIds,
@@ -12,6 +14,11 @@ import {
   type CodeGenerationPreviewRequest,
   type CodeGenerationPreviewResponse,
   type CodeGenerationRunResponse,
+  type CodeGenerationRunApplyPlanResponse,
+  type CodeGenerationRunApplyRequest,
+  type CodeGenerationWorkspaceStateResponse,
+  type CodeGenerationRunPublicationResponse,
+  type CodeGenerationPublicationStatus,
   type CodeGenerationTemplateResponse,
   type FullNetProblemDetails
 } from '@fullnet/client-contracts';
@@ -20,10 +27,14 @@ import { useAdminI18n } from '../i18n/adminI18n';
 import PermissionGate from '../components/PermissionGate.vue';
 import {
   applyTrackedCodeGeneration,
+  prepareTrackedCodeGenerationApply,
+  getCodeGenerationWorkspaceState,
+  recoverCodeGenerationWorkspace,
   downloadCodeGenerationArtifacts,
   executeTrackedCodeGenerationRollback,
   listCodeGenerationRuns,
-  previewTrackedCodeGeneration
+  previewTrackedCodeGeneration,
+  retryCodeGenerationPublication
 } from '../api/code-generation-runs';
 import {
   getCodeGenerationTemplate,
@@ -109,11 +120,31 @@ const templateLoading = ref(false);
 const runs = ref<CodeGenerationRunResponse[]>([]);
 const runLoading = ref(false);
 const applying = ref(false);
+const reviewedPlan = ref<CodeGenerationRunApplyPlanResponse>();
+const pendingApply = ref<CodeGenerationRunApplyRequest>();
+const applyAttempted = ref(false);
 const rollingBackId = ref<string>();
+const publishingId = ref<string>();
+const lastPublication = ref<CodeGenerationRunPublicationResponse>();
+const workspaceState = ref<CodeGenerationWorkspaceStateResponse>();
+const recoveringWorkspace = ref(false);
+const workspaceRecovered = ref(false);
+const workspacePhaseLabels = {
+  idle: 'codeGeneration.workspacePhase.idle', prepared: 'codeGeneration.workspacePhase.prepared',
+  committing: 'codeGeneration.workspacePhase.committing', locally_applied: 'codeGeneration.workspacePhase.locally_applied',
+  recovery_required: 'codeGeneration.workspacePhase.recovery_required', recovered: 'codeGeneration.workspacePhase.recovered',
+  completed: 'codeGeneration.workspacePhase.completed'
+} as const;
+const publicationLabels = {
+  disabled: 'codeGeneration.publication.disabled',
+  local_only: 'codeGeneration.publication.local_only',
+  pending: 'codeGeneration.publication.pending',
+  published: 'codeGeneration.publication.published',
+  unavailable: 'codeGeneration.publication.unavailable'
+} as const;
+const publicationLabel = (status: CodeGenerationPublicationStatus): string => t(publicationLabels[status]);
 const reviewedPreview = ref<{
   runId: string;
-  templateId: string;
-  templateVersion: number;
   artifactCount: number;
 }>();
 const integrationEnabled = ref(false);
@@ -150,6 +181,7 @@ const selectedArtifact = computed<CodeGenerationPreviewArtifact | undefined>(
 );
 
 onMounted(() => {
+  restoreApplyReview();
   void loadTemplates().then(() => loadTemplateFromQuery());
   void loadRuns();
 });
@@ -174,11 +206,40 @@ async function loadRuns(): Promise<void> {
   runLoading.value = true;
   try {
     runs.value = (await listCodeGenerationRuns()).items;
+    await loadWorkspaceState();
   } catch (error: unknown) {
     problem.value = readProblem(error, 'client.codegen_run_list_failed');
   } finally {
     runLoading.value = false;
   }
+}
+
+async function loadWorkspaceState(): Promise<void> {
+  if (!canReadRuns.value || !canApplyRuns.value || !canRollbackRuns.value) return;
+  try {
+    workspaceState.value = await getCodeGenerationWorkspaceState();
+    if (workspaceState.value.pendingOperationId) workspaceRecovered.value = false;
+  } catch (error: unknown) {
+    if (isFullNetProblemDetails(error) && ['codegen.run.apply_disabled', 'codegen.run.apply_busy'].includes(error.code)) return;
+    problem.value = readProblem(error, 'client.codegen_workspace_state_failed');
+  }
+}
+
+async function recoverWorkspace(): Promise<void> {
+  const operationId = workspaceState.value?.pendingOperationId;
+  if (!canApplyRuns.value || !canRollbackRuns.value || !operationId || workspaceState.value?.pendingClient !== 'host' || recoveringWorkspace.value) return;
+  try {
+    await ElMessageBox.confirm(t('codeGeneration.workspaceRecoverConfirm', { id: operationId }), t('codeGeneration.workspaceRecover'), {
+      type: 'warning', confirmButtonText: t('codeGeneration.workspaceRecover'), cancelButtonText: t('status.back')
+    });
+  } catch { return; }
+  recoveringWorkspace.value = true;
+  try {
+    workspaceState.value = await recoverCodeGenerationWorkspace({ operationId });
+    workspaceRecovered.value = true;
+    await loadRuns();
+  } catch (error: unknown) { problem.value = readProblem(error, 'client.codegen_workspace_recovery_failed'); }
+  finally { recoveringWorkspace.value = false; }
 }
 
 async function loadTemplates(): Promise<void> {
@@ -308,20 +369,11 @@ async function generatePreview(): Promise<void> {
       : { schema: input };
     const tracked = await previewTrackedCodeGeneration(source);
     preview.value = tracked.preview;
-    if ('templateId' in source && source.templateId) {
-      reviewedPreview.value = {
-        runId: tracked.runId,
-        templateId: source.templateId,
-        templateVersion: source.templateVersion,
-        artifactCount: tracked.preview.artifacts.length
-      };
-    }
+    reviewedPreview.value = { runId: tracked.runId, artifactCount: tracked.preview.artifacts.length };
     selectedPath.value = preview.value.artifacts[0]?.path ?? '';
     await loadRuns();
   } catch (error: unknown) {
-    problem.value = isFullNetProblemDetails(error)
-      ? error
-      : clientProblem('client.codegen_preview_failed');
+    problem.value = readProblem(error, 'client.codegen_preview_failed');
   } finally {
     loading.value = false;
   }
@@ -329,6 +381,35 @@ async function generatePreview(): Promise<void> {
 
 function invalidateReviewedPreview(): void {
   reviewedPreview.value = undefined;
+  if (!applyAttempted.value) clearApplyReview();
+}
+
+function applyStorageKey(): string {
+  return `fullnet.codegen.reviewed-apply.${session.currentUser?.id ?? 'unknown'}`;
+}
+
+function saveApplyReview(): void {
+  sessionStorage.setItem(applyStorageKey(), JSON.stringify({ plan: reviewedPlan.value, request: pendingApply.value, attempted: applyAttempted.value }));
+}
+
+function restoreApplyReview(): void {
+  if (!canApplyRuns.value) return;
+  try {
+    const saved: unknown = JSON.parse(sessionStorage.getItem(applyStorageKey()) ?? 'null');
+    if (!saved || typeof saved !== 'object' || !('plan' in saved) || !('request' in saved) || !('attempted' in saved)
+      || !isCodeGenerationRunApplyPlanResponse(saved.plan) || !isCodeGenerationRunApplyRequest(saved.request)
+      || typeof saved.attempted !== 'boolean' || saved.request.planId !== saved.plan.planId || saved.request.planSha256 !== saved.plan.planSha256) return;
+    reviewedPlan.value = saved.plan;
+    pendingApply.value = saved.request;
+    applyAttempted.value = saved.attempted;
+  } catch { sessionStorage.removeItem(applyStorageKey()); }
+}
+
+function clearApplyReview(): void {
+  reviewedPlan.value = undefined;
+  pendingApply.value = undefined;
+  applyAttempted.value = false;
+  sessionStorage.removeItem(applyStorageKey());
 }
 
 async function previewCatalogColumnSync(): Promise<void> {
@@ -389,23 +470,33 @@ function hasCatalogSyncChanges(
 
 async function applyReviewedPreview(): Promise<void> {
   const reviewed = reviewedPreview.value;
-  const selected = selectedTemplate.value;
   if (!canApplyRuns.value
     || applying.value
-    || !reviewed
-    || !selected
-    || selected.id !== reviewed.templateId
-    || selected.version !== reviewed.templateVersion) {
+    || reviewedPlan.value
+    || !reviewed) {
     return;
   }
 
+  applying.value = true;
+  problem.value = undefined;
+  try {
+    reviewedPlan.value = await prepareTrackedCodeGenerationApply({ previewRunId: reviewed.runId, integrationTarget: buildIntegrationTarget() });
+    pendingApply.value = { planId: reviewedPlan.value.planId, planSha256: reviewedPlan.value.planSha256, idempotencyKey: crypto.randomUUID() };
+    applyAttempted.value = false;
+    saveApplyReview();
+    await nextTick();
+    document.getElementById('codegen-reviewed-plan')?.scrollIntoView?.({ behavior: 'smooth', block: 'start' });
+  } catch (error: unknown) {
+    problem.value = readProblem(error, 'client.codegen_apply_plan_failed');
+  } finally { applying.value = false; }
+}
+
+async function confirmReviewedPlan(): Promise<void> {
+  if (!canApplyRuns.value || applying.value || !reviewedPlan.value || !pendingApply.value) return;
+  const request = pendingApply.value;
   try {
     await ElMessageBox.confirm(
-      t('codeGeneration.applyConfirm', {
-        name: selected.name,
-        version: selected.version,
-        count: reviewed.artifactCount
-      }),
+      t('codeGeneration.applyPlanConfirm', { count: reviewedPlan.value.files.length }),
       t('codeGeneration.apply'),
       {
         type: 'warning',
@@ -422,36 +513,54 @@ async function applyReviewedPreview(): Promise<void> {
   applying.value = true;
   problem.value = undefined;
   try {
-    await applyTrackedCodeGeneration({
-      previewRunId: reviewed.runId,
-      integrationTarget: buildIntegrationTarget()
-    });
+    applyAttempted.value = true;
+    saveApplyReview();
+    lastPublication.value = await applyTrackedCodeGeneration(request);
+    clearApplyReview();
     invalidateReviewedPreview();
     await loadRuns();
   } catch (error: unknown) {
     problem.value = readProblem(error, 'client.codegen_apply_failed');
+    if (['codegen.run.stale_apply_preview', 'codegen.run.invalid_apply_preview', 'codegen.run.apply_conflict'].includes(problem.value.code))
+      clearApplyReview();
   } finally {
     applying.value = false;
   }
 }
 
-async function downloadReviewedArtifacts(): Promise<void> {
-  const reviewed = reviewedPreview.value;
-  if (!canDownloadRuns.value || !reviewed) {
-    return;
-  }
-
+async function retryPublication(runId: string): Promise<void> {
+  if (!canApplyRuns.value || publishingId.value) return;
+  publishingId.value = runId;
+  problem.value = undefined;
   try {
-    const blob = await downloadCodeGenerationArtifacts(reviewed.runId);
+    lastPublication.value = await retryCodeGenerationPublication(runId);
+    await loadRuns();
+  } catch (error: unknown) {
+    problem.value = readProblem(error, 'client.codegen_publication_failed');
+  } finally {
+    publishingId.value = undefined;
+  }
+}
+
+const downloadingRunId = ref<string>();
+async function downloadReviewedArtifacts(): Promise<void> {
+  if (reviewedPreview.value) await downloadArtifacts(reviewedPreview.value.runId);
+}
+async function downloadArtifacts(runId: string): Promise<void> {
+  if (!canDownloadRuns.value || downloadingRunId.value) return;
+  downloadingRunId.value = runId;
+  problem.value = undefined;
+  try {
+    const blob = await downloadCodeGenerationArtifacts(runId);
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `codegen-${reviewed.runId}.zip`;
+    link.download = `codegen-${runId}.zip`;
     link.click();
     URL.revokeObjectURL(url);
   } catch (error: unknown) {
     problem.value = readProblem(error, 'client.codegen_preview_failed');
-  }
+  } finally { downloadingRunId.value = undefined; }
 }
 
 async function rollbackApply(run: CodeGenerationRunResponse): Promise<void> {
@@ -517,9 +626,16 @@ function readProblem(
   error: unknown,
   fallbackCode: string
 ): FullNetProblemDetails {
-  return isFullNetProblemDetails(error)
-    ? error
-    : clientProblem(fallbackCode);
+  if (!isFullNetProblemDetails(error)) return clientProblem(fallbackCode);
+  const labels = {
+    'codegen.run.archive_expired': 'codeGeneration.archiveExpired',
+    'codegen.run.archive_unavailable': 'codeGeneration.archiveUnavailable',
+    'codegen.run.archive_corrupt': 'codeGeneration.archiveCorrupt',
+    'codegen.run.archive_capacity': 'codeGeneration.archiveCapacity',
+    'codegen.run.archive_busy': 'codeGeneration.archiveBusy'
+  } as const;
+  const label = labels[error.code as keyof typeof labels];
+  return label ? { ...error, title: t(label) } : error;
 }
 </script>
 
@@ -548,6 +664,16 @@ function readProblem(
       <span>{{ problem.title }}</span>
       <code v-if="problem.traceId" translate="no">{{ problem.traceId }}</code>
     </div>
+
+    <div v-if="workspaceState?.pendingOperationId" role="status" data-testid="codegen-workspace-recovery">
+      <h2>{{ t('codeGeneration.workspacePending') }}</h2>
+      <p>{{ t(workspacePhaseLabels[workspaceState.phase]) }} · <code translate="no">{{ workspaceState.pendingOperationId }}</code></p>
+      <p v-if="workspaceState.pendingClient === 'cli'">{{ t('codeGeneration.workspaceCliRecovery') }}</p>
+      <ElButton v-if="canApplyRuns && canRollbackRuns && workspaceState.pendingClient === 'host'" type="warning"
+        data-testid="codegen-workspace-recover" :loading="recoveringWorkspace" @click="recoverWorkspace">{{ t('codeGeneration.workspaceRecover') }}</ElButton>
+      <ElButton :disabled="recoveringWorkspace" @click="loadWorkspaceState">{{ t('codeGeneration.workspaceRefresh') }}</ElButton>
+    </div>
+    <p v-if="workspaceRecovered" role="status" data-testid="codegen-workspace-recovered">{{ t('codeGeneration.workspaceRecovered') }}</p>
 
     <ElCard
       v-if="canReadTemplates"
@@ -687,10 +813,10 @@ function readProblem(
               plain
               data-testid="codegen-apply"
               :loading="applying"
-              :disabled="!reviewedPreview || applying"
+              :disabled="!reviewedPreview || applying || !!reviewedPlan"
               @click="applyReviewedPreview"
             >
-              {{ t('codeGeneration.apply') }}
+              {{ t('codeGeneration.reviewApplyPlan') }}
             </ElButton>
           </PermissionGate>
           <PermissionGate code="codegen.runs.download">
@@ -702,6 +828,15 @@ function readProblem(
             >
               {{ t('codeGeneration.download') }}
             </ElButton>
+          </PermissionGate>
+        </div>
+        <div v-if="lastPublication" role="status" data-testid="codegen-publication-status">
+          {{ publicationLabel(lastPublication.publicationStatus) }}
+          <code v-if="lastPublication.commitSha" translate="no">{{ lastPublication.commitSha.slice(0, 12) }}</code>
+          <PermissionGate code="codegen.runs.apply">
+            <ElButton v-if="lastPublication.publicationStatus === 'pending'" data-testid="codegen-retry-publication"
+              :loading="publishingId === lastPublication.runId" :disabled="!!publishingId"
+              @click="retryPublication(lastPublication.runId)">{{ t('codeGeneration.retryPublication') }}</ElButton>
           </PermissionGate>
         </div>
         <div
@@ -821,6 +956,28 @@ function readProblem(
       </ElCard>
     </div>
 
+      <ElCard v-if="reviewedPlan" id="codegen-reviewed-plan" shadow="never" class="codegen-workbench__plan" data-testid="codegen-apply-plan">
+        <template #header><h2>{{ t('codeGeneration.reviewApplyPlan') }}</h2></template>
+        <p>{{ t('codeGeneration.applyPlanWorkspace') }} <code translate="no">{{ reviewedPlan.workspaceId }}</code> · {{ reviewedPlan.workspaceRevision }}</p>
+        <p>{{ t('codeGeneration.applyPlanExpires') }} {{ reviewedPlan.expiresAtUtc }} · {{ reviewedPlan.generatorVersion }}</p>
+        <code translate="no">{{ reviewedPlan.planSha256 }}</code>
+        <div class="codegen-workbench__plan-files" tabindex="0" role="region" :aria-label="t('codeGeneration.reviewApplyPlan')">
+          <table>
+            <thead><tr><th>{{ t('codeGeneration.applyPlanPath') }}</th><th>{{ t('codeGeneration.applyPlanAction') }}</th><th>{{ t('codeGeneration.applyPlanBefore') }}</th><th>{{ t('codeGeneration.applyPlanAfter') }}</th></tr></thead>
+            <tbody><tr v-for="file in reviewedPlan.files" :key="file.relativePath">
+              <td><code translate="no">{{ file.relativePath }}</code></td><td>{{ t(`codeGeneration.applyPlanAction.${file.kind}`) }}</td>
+              <td><code translate="no">{{ file.beforeSha256 ?? '—' }}</code></td><td><code translate="no">{{ file.afterSha256 ?? '—' }}</code></td>
+            </tr></tbody>
+          </table>
+        </div>
+        <PermissionGate code="codegen.runs.apply">
+          <ElButton type="primary" data-testid="codegen-apply-plan-confirm" :disabled="applying" @click="confirmReviewedPlan">
+            {{ t(applyAttempted ? 'codeGeneration.retryReviewedApply' : 'codeGeneration.confirmReviewedApply') }}
+          </ElButton>
+          <ElButton v-if="!applyAttempted" :disabled="applying" @click="clearApplyReview">{{ t('status.back') }}</ElButton>
+        </PermissionGate>
+      </ElCard>
+
     <ElCard
       v-if="canReadRuns"
       shadow="never"
@@ -845,6 +1002,12 @@ function readProblem(
             {{ run.moduleKey ?? '—' }} / {{ run.entityKey ?? '—' }}
           </strong>
           <span translate="no">{{ run.status }} · {{ run.operationKind }}</span>
+          <span v-if="run.operationKind !== 'preview'">{{ publicationLabel(run.publicationStatus) }}</span>
+          <PermissionGate code="codegen.runs.apply">
+            <ElButton v-if="run.status === 'succeeded' && run.publicationStatus === 'pending'" data-testid="codegen-retry-history-publication"
+              :loading="publishingId === run.id" :disabled="!!publishingId"
+              @click="retryPublication(run.id)">{{ t('codeGeneration.retryPublication') }}</ElButton>
+          </PermissionGate>
           <code translate="no">{{ run.id }}</code>
           <small>
             {{ run.artifactCount }} · {{ run.startedAtUtc }}
@@ -856,6 +1019,11 @@ function readProblem(
           <small translate="no">
             {{ run.requestedByUserId }} · {{ run.finishedAtUtc }}
           </small>
+          <PermissionGate code="codegen.runs.download">
+            <ElButton v-if="run.status === 'succeeded' && (run.operationKind === 'preview' || run.operationKind === 'apply')"
+              size="small" plain data-testid="codegen-history-download" :disabled="!!downloadingRunId"
+              :loading="downloadingRunId === run.id" @click="downloadArtifacts(run.id)">{{ t('codeGeneration.download') }}</ElButton>
+          </PermissionGate>
           <PermissionGate code="codegen.runs.rollback">
             <ElButton
               v-if="canRollbackRuns
@@ -878,6 +1046,12 @@ function readProblem(
 </template>
 
 <style scoped>
+.codegen-workbench__plan { grid-column: 1 / -1; min-width: 0; }
+.codegen-workbench__plan-files { max-height: 22rem; overflow: auto; margin: 1rem 0; }
+.codegen-workbench__plan-files th, .codegen-workbench__plan-files td { padding: 0.5rem; text-align: left; }
+.codegen-workbench__plan-files table { min-width: 100%; width: max-content; }
+.codegen-workbench__plan-files th, .codegen-workbench__plan-files code { white-space: nowrap; }
+.codegen-workbench__plan-files:focus-visible { outline: 2px solid var(--el-color-primary); outline-offset: 2px; }
 .codegen-workbench {
   --codegen-ink: #172027;
   --codegen-grid: rgb(23 32 39 / 7%);

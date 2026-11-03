@@ -8,6 +8,47 @@ import 'package:fullnet_client/features/workflow/workflow_todo_client.dart';
 
 const id = '01912345-6789-7abc-8def-0123456789ab';
 void main() {
+  test('附件上传绑定当前Todo/字段/选票，保留实时凭据与正式响应形态', () async {
+    var calls = 0;
+    final transport = FullNetHttpClient(
+        apiBaseUrl: 'https://api.example.test',
+        accessToken: 'current',
+        inner: MockClient((request) async {
+          calls++;
+          expect(request.url.path,
+              '/api/v1/workflow/todos/$id/attachment-uploads');
+          expect(request.url.queryParameters,
+              {'expectedRevision': '3', 'fieldKey': 'files', 'scope': 'vote'});
+          expect(request.headers['Authorization'], 'Bearer current');
+          expect(request.headers['content-type'],
+              startsWith('multipart/form-data'));
+          return http.Response(
+              jsonEncode({
+                'fileId': id,
+                'originalFileName': 'target.png',
+                'contentType': 'image/png',
+                'sizeBytes': 4,
+                'contentHash': null
+              }),
+              200);
+        }));
+    final client = WorkflowTodoClient(transport);
+    expect(
+        (await client.uploadAttachment(
+                id, 3, 'files', [1, 2, 3, 4], 'target.png', 'image/png',
+                vote: true))
+            .fileId,
+        id);
+    await expectLater(
+        client.uploadAttachment(id, 0, 'files', [1], 'a.png', 'image/png'),
+        throwsArgumentError);
+    await expectLater(
+        client.uploadAttachment(
+            id, 3, '../external', [1], 'a.png', 'image/png'),
+        throwsArgumentError);
+    expect(calls, 1);
+    transport.close();
+  });
   test('个人附件保留字节并使用当前凭据与语言', () async {
     final transport = FullNetHttpClient(
         apiBaseUrl: 'https://api.example.test',

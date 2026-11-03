@@ -383,16 +383,22 @@ public sealed partial class AiAgentRunCoordinatorTests
         Action<RecordingDbTransactionCoordinator>? transactionCreated)
     {
         var services = new ServiceCollection();
-        var tenant = new CurrentTenantAccessor();
-        services.AddSingleton<ICurrentTenantContextWriter>(tenant);
-        services.AddSingleton<Full.NET.Abstractions.Tenancy.ICurrentTenant>(tenant);
+        services.AddScoped<CurrentTenantAccessor>();
+        services.AddScoped<ICurrentTenantContextWriter>(provider => provider.GetRequiredService<CurrentTenantAccessor>());
+        services.AddScoped<Full.NET.Abstractions.Tenancy.ICurrentTenant>(provider => provider.GetRequiredService<CurrentTenantAccessor>());
         var authorization = Substitute.For<IBackgroundSessionAuthorization>();
         authorization.AuthorizeAsync(Arg.Any<SessionBindingSnapshot>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(new AuthorizedSessionActor(record.ActorUserId, record.TenantId, record.SessionId));
+        authorization.AuthorizeAllAsync(Arg.Any<SessionBindingSnapshot>(), Arg.Any<IReadOnlyCollection<string>>(), Arg.Any<CancellationToken>())
             .Returns(new AuthorizedSessionActor(record.ActorUserId, record.TenantId, record.SessionId));
         services.AddSingleton(authorization);
         services.AddSingleton(Substitute.For<IDataTransactionState>());
         services.AddScoped<Full.NET.Modules.Ai.Features.ManagePromptVersions.AiPromptReader>();
         services.AddScoped<AiPromptRunResolver>();
+        services.AddScoped<AiWorkflowTargetAdmission>();
+        services.AddScoped<Full.NET.Modules.Ai.Features.ManageChatSessions.AiChatSessionQueryService>();
+        queries.QuerySingleOrDefaultAsync<AiChatSessionRecord>(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>())
+            .Returns(new AiChatSessionRecord { Id = record.SessionId, OwnerUserId = record.ActorUserId, Title = "Original", Version = 1 });
         services.AddSingleton(binding);
         services.AddSingleton(queries);
         services.AddSingleton(commands);
@@ -410,10 +416,11 @@ public sealed partial class AiAgentRunCoordinatorTests
         services.AddSingleton(ids);
         services.AddSingleton(toolExecutor);
         services.AddSingleton<IAgentRunExecutionContext, AgentRunExecutionContext>();
-        AgentToolDefinition[] tools = definitionKey == AgentWorkflowRegistry.ChatRenameWorkflowKey
+        AgentToolDefinition[] tools = AgentWorkflowRegistry.IsWorkflowKey(definitionKey)
             ?
             [
                 new AgentToolDefinition("ai.chat.sessions.list", 1, "ai.chat.read", "read", true, null),
+                new AgentToolDefinition("ai.chat.sessions.metadata", 1, "ai.chat.sessions.read", "read", true, null),
                 new AgentToolDefinition("ai.chat.sessions.rename", 1, "ai.chat.write", "write", true, null),
             ]
             : [new AgentToolDefinition("ai.tools.ping", 1, "permission", "none", true, null)];
@@ -458,15 +465,17 @@ public sealed partial class AiAgentRunCoordinatorTests
 
     private static AiAgentRunRecord CreateRecord(Guid runId, Guid modelId, string definitionKey, Guid? sessionId = null, AiPromptRunBinding? promptBinding = null)
     {
+        var authenticatedSession = sessionId ?? Guid.CreateVersion7();
         var budgetJson = JsonSerializer.Serialize(
-            new AgentRunBudgetSnapshot(modelId, "hello", 100, 100, promptBinding),
+            new AgentRunBudgetSnapshot(modelId, "hello", 100, 100, promptBinding,
+                AgentWorkflowRegistry.IsWorkflowKey(definitionKey) ? authenticatedSession : null),
             AiJsonSerializerContext.Default.AgentRunBudgetSnapshot);
         return new AiAgentRunRecord
         {
             Id = runId,
             ScopeKey = "host",
             ActorUserId = Guid.CreateVersion7(),
-            SessionId = sessionId ?? Guid.CreateVersion7(),
+            SessionId = authenticatedSession,
             SecurityStamp = Guid.NewGuid().ToString("N"),
             ActorScope = "host-admin",
             EffectiveScope = "host",

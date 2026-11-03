@@ -54,12 +54,16 @@ internal sealed class IdentityOidcSignInHandler(
 
         identity.SetClaim(JwtRegisteredClaimNames.Iss, oidcOptions.Value.Issuer);
         identity.SetClaim(JwtRegisteredClaimNames.Aud, audience);
+        // 标准 sid 指向当前中心浏览器会话，不能使用用户 Id 代替设备会话。
+        identity.SetClaim("sid", principalRequest.CenterSessionId.ToString("D"));
         identity.SetDestinations(static claim => claim.Type switch
         {
             Claims.Name or Claims.PreferredUsername => claim.Subject!.HasScope(Scopes.Profile)
                 ? [Destinations.AccessToken, Destinations.IdentityToken] : [],
             Claims.Subject => [Destinations.AccessToken, Destinations.IdentityToken],
-            Claims.AuthenticationTime => [Destinations.IdentityToken],
+            Claims.AuthenticationTime => [Destinations.AccessToken, Destinations.IdentityToken],
+            "sid" => [Destinations.IdentityToken],
+            "amr" or "acr" => [Destinations.AccessToken, Destinations.IdentityToken],
             "fullnet_is_first_party" or "fullnet_permissions" or "fullnet_oauth_scopes" or "fullnet_is_super_admin" => [],
             JwtRegisteredClaimNames.Aud or JwtRegisteredClaimNames.Iss => [Destinations.AccessToken, Destinations.IdentityToken],
             FullNetIdentityClaimTypes.TokenUse => claim.Value?.ToString() == IdentityOidcPrincipalFactory.TokenUseId

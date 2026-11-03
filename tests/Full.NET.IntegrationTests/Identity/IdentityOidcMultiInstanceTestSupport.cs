@@ -103,7 +103,7 @@ internal static class IdentityOidcMultiInstanceTestSupport
         string certificatePath)
     {
         var settings = new Dictionary<string, string?>(
-            IdentityOidcSigningKeyRotationAssertions.BuildDualKeySettings(keyA, keyB, activeKeyId))
+            IdentityOidcSigningKeyRotationAssertions.BuildDualPrivateKeySettings(keyA, keyB, activeKeyId))
         {
             ["Identity:Oidc:EncryptionKeyBase64"] = SharedEncryptionKeyBase64,
             ["DataProtection:ApplicationName"] = "Full.NET.MultiInstance",

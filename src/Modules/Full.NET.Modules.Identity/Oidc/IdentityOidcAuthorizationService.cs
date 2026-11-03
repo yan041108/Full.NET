@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using System.Collections.Immutable;
 using Full.NET.Abstractions.Messaging;
 using Full.NET.Abstractions.Tenancy;
 using Full.NET.Abstractions.Time;
@@ -35,22 +36,59 @@ internal sealed class IdentityOidcAuthorizationService(
     IClock clock,
     IOptions<IdentityOptions> identityOptions,
     IOptions<IdentityOidcOptions> oidcOptions,
-    ICurrentTenantContextWriter tenantContextWriter)
+    ICurrentTenantContextWriter tenantContextWriter,
+    IActiveTenantContextResolver? activeTenants = null,
+    IOptions<DatabaseOptions>? databaseOptions = null)
 {
     private const string HostScope = "host";
+    private static readonly SqlStatement LockHostAuthorizationSqlServer = new(
+        "identity.oidc.lock_host_authorization.sql_server",
+        """
+        SELECT permission.PermissionCode, roleObject.IsSuperAdministrator
+        FROM fn_identity_user_role AS userRole WITH (UPDLOCK, HOLDLOCK)
+        INNER JOIN fn_identity_role AS roleObject WITH (UPDLOCK, HOLDLOCK) ON roleObject.Id = userRole.RoleId
+        INNER JOIN fn_identity_user AS identityUser WITH (UPDLOCK, HOLDLOCK) ON identityUser.Id = userRole.UserId
+        LEFT JOIN fn_identity_role_permission AS permission WITH (UPDLOCK, HOLDLOCK) ON permission.RoleId = roleObject.Id
+        WHERE userRole.UserId = @UserId AND identityUser.ScopeKey = 'host'
+          AND identityUser.TenantId IS NULL AND identityUser.IsActive = 1 AND roleObject.ScopeKey = 'host'
+          AND roleObject.TenantId IS NULL AND roleObject.IsActive = 1
+        ORDER BY roleObject.Id, permission.PermissionCode
+        """, SqlDataScope.HostOnly);
+    private static readonly SqlStatement LockHostAuthorizationMySql = new(
+        "identity.oidc.lock_host_authorization.mysql",
+        """
+        SELECT permission.PermissionCode, roleObject.IsSuperAdministrator
+        FROM fn_identity_user_role AS userRole
+        INNER JOIN fn_identity_role AS roleObject ON roleObject.Id = userRole.RoleId
+        INNER JOIN fn_identity_user AS identityUser ON identityUser.Id = userRole.UserId
+        LEFT JOIN fn_identity_role_permission AS permission ON permission.RoleId = roleObject.Id
+        WHERE userRole.UserId = @UserId AND identityUser.ScopeKey = 'host'
+          AND identityUser.TenantId IS NULL AND identityUser.IsActive = 1 AND roleObject.ScopeKey = 'host'
+          AND roleObject.TenantId IS NULL AND roleObject.IsActive = 1
+        ORDER BY roleObject.Id, permission.PermissionCode FOR UPDATE
+        """, SqlDataScope.HostOnly);
+    private static readonly SqlStatement LockCenterSessionSqlServer = new(
+        "identity.oidc.lock_center.sql_server",
+        "SELECT Id, UserId, SecurityStamp, CreatedAtUtc, ExpiresAtUtc, RevokedAtUtc, Version, UpdatedAtUtc FROM fn_identity_oidc_center_session WITH (UPDLOCK, HOLDLOCK) WHERE Id = @Id",
+        SqlDataScope.HostOnly);
+    private static readonly SqlStatement LockCenterSessionMySql = new(
+        "identity.oidc.lock_center.mysql",
+        "SELECT Id, UserId, SecurityStamp, CreatedAtUtc, ExpiresAtUtc, RevokedAtUtc, Version, UpdatedAtUtc FROM fn_identity_oidc_center_session WHERE Id = @Id FOR UPDATE",
+        SqlDataScope.HostOnly);
     private readonly IdentityOptions _identityOptions = identityOptions.Value;
     private readonly IdentityOidcOptions _oidcOptions = oidcOptions.Value;
 
     public async Task<AuthenticateResult> SignInCenterAsync(
         string username,
         string password,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        string? secondFactor = null)
     {
         // 凭据状态、中心会话和对应事件共用 Identity 本地事务。
         var (login, centerSession) = await transaction.ExecuteAsync(async token =>
         {
             var attempt = await centerLoginService.AuthenticateWithOutcomeAsync(
-                    username, password, token)
+                    username, password, token, secondFactor)
                 .ConfigureAwait(false);
             var authenticated = attempt.Login;
             if (authenticated is null)
@@ -58,12 +96,18 @@ internal sealed class IdentityOidcAuthorizationService(
                 await authenticationEvents.WriteAsync(
                     attempt.UserId, username.Trim().ToUpperInvariant(),
                     OidcAuthenticationEventWriter.CenterLogin,
-                    attempt.ResultCode, false, token)
+                    attempt.ResultCode, false, token, authenticationMethod: attempt.ResultCode == "identity.mfa_invalid" ? "mfa" : "password")
                     .ConfigureAwait(false);
                 return (Login: (IdentityOidcCenterLoginResult?)null,
                     Session: (IdentityOidcCenterSession?)null);
             }
 
+            if (authenticated.PasswordChangeRequired)
+            {
+                await authenticationEvents.WriteAsync(authenticated.UserId, username.Trim().ToUpperInvariant(),
+                    OidcAuthenticationEventWriter.CenterLogin, "identity.password_change_required", false, token).ConfigureAwait(false);
+                return (Login: (IdentityOidcCenterLoginResult?)authenticated, Session: (IdentityOidcCenterSession?)null);
+            }
             var session = await sessionService.CreateCenterSessionAsync(
                     authenticated.UserId,
                     authenticated.SecurityStamp,
@@ -74,11 +118,12 @@ internal sealed class IdentityOidcAuthorizationService(
                 authenticated.UserId, username.Trim().ToUpperInvariant(),
                 OidcAuthenticationEventWriter.CenterLogin,
                 "identity.oidc_center_login_succeeded", true, token,
-                session.Id)
+                session.Id, authenticationMethod: authenticated.AuthenticationMethods?.Length > 1 ? "mfa" : "password")
                 .ConfigureAwait(false);
             return (Login: (IdentityOidcCenterLoginResult?)authenticated,
                 Session: (IdentityOidcCenterSession?)session);
         }, cancellationToken).ConfigureAwait(false);
+        if (login?.PasswordChangeRequired == true) return AuthenticateResult.Fail("password_change_required");
         if (login is null || centerSession is null)
         {
             return AuthenticateResult.Fail("Invalid credentials.");
@@ -103,6 +148,9 @@ internal sealed class IdentityOidcAuthorizationService(
         identity.AddClaim(new Claim(ClaimTypes.Name, login.DisplayName));
         // 使用中心会话的创建时间，滑动 Cookie 续期不得重置原始认证时间。
         identity.SetClaim(Claims.AuthenticationTime, centerSession.CreatedAtUtc.ToUnixTimeSeconds());
+        identity.SetClaims("amr", (login.AuthenticationMethods ?? ["pwd"]).ToImmutableArray());
+        identity.SetClaim("acr", (login.AuthenticationMethods?.Contains("otp") == true
+            || login.AuthenticationMethods?.Contains("urn:fullnet:amr:recovery-code") == true) ? "urn:fullnet:acr:mfa" : "urn:fullnet:acr:password");
         var principal = new ClaimsPrincipal(identity);
         return AuthenticateResult.Success(
             new AuthenticationTicket(
@@ -110,10 +158,36 @@ internal sealed class IdentityOidcAuthorizationService(
                 IdentityOidcCenterAuthenticationDefaults.AuthenticationScheme));
     }
 
+    public async Task<bool> IsCenterPrincipalActiveAsync(ClaimsPrincipal principal, CancellationToken token)
+    {
+        if (!TryReadCenterClaims(principal, out var sessionId, out var userId, out var stamp)) return false;
+        return await RunInHostScopeAsync(async ct =>
+        {
+            var session = await sessionService.FindActiveCenterSessionAsync(sessionId, ct).ConfigureAwait(false);
+            return session is not null && session.UserId == userId && session.SecurityStamp == stamp
+                && await IsUserEligibleForAuthorizationAsync(userId, stamp, ct).ConfigureAwait(false);
+        }, token).ConfigureAwait(false);
+    }
+
+    /// <summary>在展示租户前重核中心会话及 Host 切换权限，避免未授权枚举租户。</summary>
+    public async Task<TenantContext?> ResolveTenantForConsentAsync(
+        ClaimsPrincipal centerPrincipal, Guid tenantId, CancellationToken cancellationToken)
+    {
+        if (tenantId == Guid.Empty || activeTenants is null
+            || !TryReadCenterClaims(centerPrincipal, out _, out var userId, out _)
+            || !await IsCenterPrincipalActiveAsync(centerPrincipal, cancellationToken).ConfigureAwait(false))
+            return null;
+        var host = await permissionSnapshotReader.ReadAsync(userId, HostScope, null, cancellationToken).ConfigureAwait(false);
+        if (!host.IsSuperAdministrator && !host.Permissions.Contains("tenancy.tenants.switch", StringComparer.Ordinal))
+            return null;
+        return await activeTenants.ResolveActiveByIdAsync(tenantId, cancellationToken).ConfigureAwait(false);
+    }
+
     public async Task<ClaimsPrincipal?> CreateAuthorizationPrincipalAsync(
         ClaimsPrincipal centerPrincipal,
         OpenIddictRequest request,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        Guid? approvedTenantId = null)
     {
         ArgumentNullException.ThrowIfNull(centerPrincipal);
         ArgumentNullException.ThrowIfNull(request);
@@ -122,7 +196,8 @@ internal sealed class IdentityOidcAuthorizationService(
             return await CreateAuthorizationPrincipalCoreAsync(
                     centerPrincipal,
                     request,
-                    cancellationToken)
+                    cancellationToken,
+                    approvedTenantId)
                 .ConfigureAwait(false);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -138,7 +213,8 @@ internal sealed class IdentityOidcAuthorizationService(
     private async Task<ClaimsPrincipal?> CreateAuthorizationPrincipalCoreAsync(
         ClaimsPrincipal centerPrincipal,
         OpenIddictRequest request,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        Guid? approvedTenantId)
     {
         if (!TryReadCenterClaims(centerPrincipal, out var centerSessionId, out var userId, out var securityStamp))
         {
@@ -186,25 +262,61 @@ internal sealed class IdentityOidcAuthorizationService(
         var audience = string.IsNullOrWhiteSpace(resolvedClient?.ResourceAudience)
             ? _identityOptions.Audience
             : resolvedClient!.ResourceAudience!;
-        var authorization = await permissionSnapshotReader.ReadAsync(
+        var hostAuthorization = await permissionSnapshotReader.ReadAsync(
                 userId,
                 HostScope,
                 null,
                 cancellationToken)
             .ConfigureAwait(false);
-        var applicationSession = await transaction.ExecuteAsync(async token =>
+        if (approvedTenantId is { } tenantId)
         {
+            // 目标只能来自已验证的交互同意；发行时仍须重核 Host 权限和租户活动状态。
+            if (tenantId == Guid.Empty || activeTenants is null
+                || (!hostAuthorization.IsSuperAdministrator && !hostAuthorization.Permissions.Contains("tenancy.tenants.switch", StringComparer.Ordinal))
+                || await activeTenants.ResolveActiveByIdAsync(tenantId, cancellationToken).ConfigureAwait(false) is null)
+                return null;
+        }
+        var effectiveScope = approvedTenantId is { } selectedTenant ? $"tenant:{selectedTenant:N}" : HostScope;
+        var authorization = approvedTenantId is null ? hostAuthorization : await permissionSnapshotReader.ReadAsync(
+                userId, HostScope, approvedTenantId, cancellationToken).ConfigureAwait(false);
+        var applicationSession = await transaction.ExecuteAsync<IdentityOidcApplicationSession?>(async token =>
+        {
+            if (approvedTenantId is not null)
+            {
+                // 角色和权限行保持锁定至会话提交，避免撤权在快照读取后先于发行提交。
+                var lockedAuthorization = await queryExecutor.QueryAsync<IdentityAuthorizationRow>(
+                    databaseOptions?.Value.Provider == DatabaseProvider.MySql
+                        ? LockHostAuthorizationMySql : LockHostAuthorizationSqlServer,
+                    IdentitySqlParameters.Create(("UserId", userId)), token).ConfigureAwait(false);
+                if (!lockedAuthorization.Any(row => row.IsSuperAdministrator
+                    || string.Equals(row.PermissionCode, "tenancy.tenants.switch", StringComparison.Ordinal)))
+                    return null;
+
+                // 与中心会话撤销串行化，并在持锁后再次检查用户安全状态。
+                var lockedCenter = await queryExecutor.QuerySingleOrDefaultAsync<IdentityOidcCenterSessionRow>(
+                    databaseOptions?.Value.Provider == DatabaseProvider.MySql
+                        ? LockCenterSessionMySql : LockCenterSessionSqlServer,
+                    IdentitySqlParameters.Create(("Id", centerSessionId)), token).ConfigureAwait(false);
+                if (lockedCenter is null || lockedCenter.UserId != userId || lockedCenter.RevokedAtUtc.HasValue
+                    || lockedCenter.ExpiresAtUtc <= clock.UtcNow
+                    || !string.Equals(lockedCenter.SecurityStamp, securityStamp, StringComparison.Ordinal)
+                    || !await IsUserEligibleForAuthorizationAsync(userId, securityStamp, token).ConfigureAwait(false))
+                    return null;
+            }
             var session = await sessionService.CreateApplicationSessionAsync(
                     centerSessionId,
                     applicationId,
                     request.ClientId!,
                     userId,
                     HostScope,
-                    HostScope,
-                    null,
+                    effectiveScope,
+                    approvedTenantId,
                     clock.UtcNow.AddMinutes(_identityOptions.AccessTokenMinutes),
                     token)
                 .ConfigureAwait(false);
+            await authenticationEvents.WriteAsync(userId, null, OidcAuthenticationEventWriter.CenterSessionReused,
+                "identity.oidc_center_session_reused", true, token, centerSessionId, request.ClientId, session.Id,
+                authenticationMethod: "sso").ConfigureAwait(false);
             await authenticationEvents.WriteAsync(
                 userId, null,
                 OidcAuthenticationEventWriter.ApplicationSessionCreated,
@@ -213,6 +325,7 @@ internal sealed class IdentityOidcAuthorizationService(
                 .ConfigureAwait(false);
             return session;
         }, cancellationToken).ConfigureAwait(false);
+        if (applicationSession is null) return null;
         var scopes = (request.Scope ?? string.Empty)
             .Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
             .Distinct(StringComparer.Ordinal)
@@ -232,13 +345,17 @@ internal sealed class IdentityOidcAuthorizationService(
         identity.SetClaim(Claims.Name, displayName);
         identity.SetClaim(Claims.PreferredUsername, username);
         identity.SetClaim(Claims.AuthenticationTime, centerSession.CreatedAtUtc.ToUnixTimeSeconds());
+        identity.SetClaims("amr", centerPrincipal.GetClaims("amr"));
+        identity.SetClaim("acr", centerPrincipal.GetClaim("acr"));
         identity.SetClaim(FullNetIdentityClaimTypes.CenterSessionId, centerSessionId.ToString("D"));
         identity.SetClaim(
             FullNetIdentityClaimTypes.ApplicationSessionId,
             applicationSession.Id.ToString("D"));
         identity.SetClaim(FullNetIdentityClaimTypes.OidcClientId, request.ClientId!);
         identity.SetClaim(IdentityClaimTypes.ActorScope, HostScope);
-        identity.SetClaim(IdentityClaimTypes.Scope, HostScope);
+        identity.SetClaim(IdentityClaimTypes.Scope, effectiveScope);
+        if (approvedTenantId is { } selectedId)
+            identity.SetClaim(IdentityClaimTypes.TenantId, selectedId.ToString("D"));
         identity.SetClaim(JwtRegisteredClaimNames.Aud, audience);
         identity.SetClaim("fullnet_is_first_party", resolvedClient?.IsFirstParty ?? true);
         identity.SetClaim("fullnet_security_stamp", securityStamp);
@@ -259,51 +376,87 @@ internal sealed class IdentityOidcAuthorizationService(
     public async Task<bool> SignOutApplicationAsync(
         HttpContext httpContext,
         string clientId,
-        Guid? authenticatedAccessUserId = null,
+        Guid authenticatedAccessUserId,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(httpContext);
         ArgumentException.ThrowIfNullOrWhiteSpace(clientId);
-        var userId = authenticatedAccessUserId ?? await TryReadAuthenticatedCenterUserAsync(httpContext, cancellationToken)
-            .ConfigureAwait(false);
-        if (userId is null || userId == Guid.Empty)
+        var userId = authenticatedAccessUserId;
+        if (userId == Guid.Empty || !Guid.TryParse(httpContext.User.FindFirstValue(FullNetIdentityClaimTypes.ApplicationSessionId), out var sessionId)
+            || sessionId == Guid.Empty || httpContext.User.FindFirstValue(FullNetIdentityClaimTypes.OidcClientId) != clientId)
         {
             return false;
         }
 
         return await RunInHostScopeAsync(async token =>
         {
-            var revokedSessionIds = await transaction.ExecuteAsync(async transactionToken =>
+            var change = await transaction.ExecuteAsync<(bool Allowed, IReadOnlyList<Guid> Ids)>(async transactionToken =>
             {
-                var ids = await sessionService.RevokeActiveApplicationSessionsByUserAndClientAsync(
-                        userId.Value, clientId, transactionToken)
-                    .ConfigureAwait(false);
+                var application = await queryExecutor.QuerySingleOrDefaultAsync<IdentityOidcApplicationSessionRow>(
+                    IdentityOidcSessionSql.FindApplicationSessionById, IdentitySqlParameters.Create(("Id", sessionId)), transactionToken).ConfigureAwait(false);
+                if (application is null || application.UserId != userId || application.ClientId != clientId) return (false, []);
+                var revoked = await sessionService.RevokeApplicationSessionAsync(sessionId, transactionToken).ConfigureAwait(false);
+                IReadOnlyList<Guid> ids = revoked ? [sessionId] : [];
                 if (ids.Count > 0)
                 {
-                    await grantRevocationService.RevokeByUserAndClientAsync(
-                            userId.Value, clientId, transactionToken)
-                        .ConfigureAwait(false);
+                    // 当前应用退出不撤回永久同意或同客户端的其他设备；旧凭据由该应用会话的权威状态拒绝。
                     await authenticationEvents.WriteAsync(
-                        userId.Value, null,
+                        userId, null,
                         OidcAuthenticationEventWriter.ApplicationLogout,
                         "identity.oidc_application_logout_succeeded", true, transactionToken,
-                        clientId: clientId)
+                        centerSessionId: application.CenterSessionId, clientId: clientId, applicationSessionId: sessionId)
                         .ConfigureAwait(false);
                 }
 
-                return ids;
+                return (true, ids);
             }, token).ConfigureAwait(false);
-            if (revokedSessionIds.Count > 0)
+            if (!change.Allowed) return false;
+            if (change.Ids.Count > 0)
             {
                 await sessionRealtimeDelivery.PublishSessionsRevokedAsync(
-                        userId.Value,
-                        revokedSessionIds,
+                        userId,
+                        change.Ids,
                         token)
                     .ConfigureAwait(false);
             }
 
             return true;
         }, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>标准浏览器退出仅撤销当前中心会话；其他设备的授权仍由各自会话决定。</summary>
+    public async Task SignOutCurrentCenterAsync(HttpContext httpContext, CancellationToken cancellationToken)
+    {
+        var authentication = await httpContext.AuthenticateAsync(
+            IdentityOidcCenterAuthenticationDefaults.AuthenticationScheme).ConfigureAwait(false);
+        if (authentication.Principal?.Identity?.IsAuthenticated == true
+            && TryReadCenterLogoutClaims(authentication.Principal, out var centerSessionId, out var userId))
+        {
+            var sessionIds = await RunInHostScopeAsync(token => transaction.ExecuteAsync(async transactionToken =>
+            {
+                var center = await queryExecutor.QuerySingleOrDefaultAsync<IdentityOidcCenterSessionRow>(
+                    IdentityOidcSessionSql.FindCenterSessionById,
+                    IdentitySqlParameters.Create(("Id", centerSessionId)), transactionToken).ConfigureAwait(false);
+                if (center is null || center.UserId != userId || center.RevokedAtUtc.HasValue)
+                    return Array.Empty<Guid>();
+                var ids = await queryExecutor.QueryAsync<Guid>(
+                    IdentityOidcSessionSql.ListApplicationSessionIdsByCenterSession,
+                    IdentitySqlParameters.Create(("CenterSessionId", centerSessionId), ("UserId", userId)),
+                    transactionToken).ConfigureAwait(false);
+                // 授权码/刷新兑换及资源 API 均检查权威会话，不能按用户撤销所有设备的 grant。
+                await sessionService.RevokeCenterSessionAsync(centerSessionId, transactionToken).ConfigureAwait(false);
+                await authenticationEvents.WriteAsync(userId, null, OidcAuthenticationEventWriter.CenterLogout,
+                    "identity.oidc_center_logout_succeeded", true, transactionToken, centerSessionId)
+                    .ConfigureAwait(false);
+                return ids.ToArray();
+            }, token), cancellationToken).ConfigureAwait(false);
+            if (sessionIds.Length > 0)
+                await sessionRealtimeDelivery.PublishSessionsRevokedAsync(userId, sessionIds, cancellationToken)
+                    .ConfigureAwait(false);
+        }
+
+        await httpContext.SignOutAsync(IdentityOidcCenterAuthenticationDefaults.AuthenticationScheme)
+            .ConfigureAwait(false);
     }
 
     public async Task SignOutCenterAsync(

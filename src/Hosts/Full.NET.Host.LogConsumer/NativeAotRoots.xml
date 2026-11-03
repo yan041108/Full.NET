@@ -1,0 +1,10 @@
+<Directives xmlns="http://schemas.microsoft.com/netfx/2013/01/metadata">
+  <Application>
+    <Assembly Name="Confluent.Kafka">
+      <!-- 独立日志消费者的 librdkafka 反射绑定；按 Linux 实际候选类型保留，不扩大到整个程序集。 -->
+      <Type Name="Confluent.Kafka.Impl.NativeMethods.NativeMethods" Dynamic="Required All" />
+      <Type Name="Confluent.Kafka.Impl.NativeMethods.NativeMethods_Centos8" Dynamic="Required All" />
+      <Type Name="Confluent.Kafka.Impl.NativeMethods.NativeMethods_Alpine" Dynamic="Required All" />
+    </Assembly>
+  </Application>
+</Directives>

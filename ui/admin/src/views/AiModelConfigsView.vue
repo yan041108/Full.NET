@@ -407,12 +407,12 @@ onMounted(load);
     <el-card class="art-page-card art-full-height-card" shadow="never">
       <el-tabs v-model="activeTab" @tab-change="load">
         <el-tab-pane :label="t('aiModelConfigs.tabModels')" name="models">
+          <ArtSearchBar
+            v-model="searchForm"
+            :items="searchItems"
+            @search="applySearch"
+          />
           <ArtTableHeader>
-            <ArtSearchBar
-              v-model="searchForm"
-              :items="searchItems"
-              @search="applySearch"
-            />
             <template #left>
               <PermissionGate code="ai.models.create">
                 <el-button

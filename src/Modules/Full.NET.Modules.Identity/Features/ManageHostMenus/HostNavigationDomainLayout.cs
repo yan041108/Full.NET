@@ -10,7 +10,7 @@ internal static class HostNavigationDomainLayout
     internal const string OtherDomainKey = "other";
 
     internal const string DomainDirectoryPermission =
-        IdentityAuthorizationContributor.DashboardRead;
+        IdentityAuthorizationContributor.NavigationRead;
 
     internal sealed record DomainDefinition(
         string Key,

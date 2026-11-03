@@ -28,6 +28,12 @@ internal sealed class DataApprovalRequestRecoveryHostedProcessor(
             {
                 break;
             }
+            catch (Exception exception) when (stoppingToken.IsCancellationRequested)
+            {
+                // 数据库驱动停机取消也可能返回非OCE异常；停止轮询，不将正常收尾误报为恢复失败。
+                logger.LogDebug("DataApproval request recovery stopped with {ExceptionType} after host cancellation.", exception.GetType().FullName);
+                break;
+            }
             catch (Exception exception)
             {
                 logger.LogError(exception, "DataApproval request recovery worker iteration failed.");

@@ -23,7 +23,7 @@ internal sealed class HostFileManagementService(
     FileStorageProviderRegistry storageProviders,
     IClock clock,
     IIdGenerator idGenerator,
-    IOptions<LocalFileStorageOptions> storageOptions)
+    IOptions<LocalFileStorageOptions> storageOptions, IQueryExecutor? uploadQueries = null)
 {
     public async Task<Result<HostFileResponse>> UploadAsync(
         Guid createdByUserId,
@@ -32,8 +32,10 @@ internal sealed class HostFileManagementService(
         Stream content,
         long contentLength,
         Guid? folderId = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default, string? uploadOperationKey = null, Guid? reservedFileId = null)
     {
+        if (uploadOperationKey is not null && (uploadOperationKey.Length is < 1 or > 128 || uploadQueries is null))
+            return InvalidUpload("Invalid upload operation key.");
         var normalizedName = NormalizeFileName(originalFileName);
         if (normalizedName.Length == 0)
         {
@@ -69,7 +71,8 @@ internal sealed class HostFileManagementService(
                 ErrorType.Validation));
         }
 
-        var fileId = idGenerator.NewId();
+        var fileId = reservedFileId ?? idGenerator.NewId();
+        if (fileId == Guid.Empty || (reservedFileId.HasValue && uploadOperationKey is null)) return InvalidUpload("Reserved file identity requires an upload operation.");
         var now = clock.UtcNow;
         var storageKey = BuildStorageKey(fileId, now);
         var storageProvider = storageProviders.DefaultProvider;
@@ -99,10 +102,18 @@ internal sealed class HostFileManagementService(
             var contentHash = await ComputeSha256HexAsync(buffered, cancellationToken)
                 .ConfigureAwait(false);
             buffered.Position = 0;
+            if (uploadOperationKey is not null)
+            {
+                var existing = await ReplayUploadAsync(uploadOperationKey, createdByUserId, normalizedName,
+                    normalizedContentType, actualContentLength, contentHash, cancellationToken, reservedFileId).ConfigureAwait(false);
+                if (existing is not null) return existing.IsSuccess && reservedFileId.HasValue && existing.Value!.Id != reservedFileId.Value
+                    ? InvalidUpload("Reserved upload identity mismatch.") : existing;
+            }
             IReadOnlyDictionary<string, object?> insertParameters =
                 new Dictionary<string, object?>
                 {
                     ["Id"] = fileId,
+                    ["UploadOperationKey"] = uploadOperationKey,
                     ["FolderId"] = folderId,
                     ["OriginalFileName"] = normalizedName,
                     ["ContentType"] = normalizedContentType,
@@ -115,11 +126,13 @@ internal sealed class HostFileManagementService(
                 };
 
             // 必须先提交不可见的 pending 元数据；若提交结果不确定，此时尚未发布 Blob。
+            try
+            {
             await transaction.ExecuteAsync(
                     async token =>
                     {
                         var affectedRows = await commandExecutor.ExecuteAsync(
-                                HostFileSql.Insert,
+                                uploadOperationKey is null ? HostFileSql.Insert : HostFileUploadOperationSql.Insert,
                                 insertParameters,
                                 token)
                             .ConfigureAwait(false);
@@ -133,6 +146,14 @@ internal sealed class HostFileManagementService(
                     },
                     cancellationToken)
                 .ConfigureAwait(false);
+
+            }
+            catch (DataCommandException exception) when (uploadOperationKey is not null && exception.Kind == DataCommandFailureKind.UniqueConstraint)
+            {
+                return (await ReplayUploadAsync(uploadOperationKey, createdByUserId, normalizedName,
+                    normalizedContentType, actualContentLength, contentHash, cancellationToken, reservedFileId).ConfigureAwait(false))
+                    ?? throw new InvalidOperationException("Concurrent upload operation was not persisted.");
+            }
 
             await transaction.ExecuteAsync(
                     async token =>
@@ -641,4 +662,17 @@ internal sealed class HostFileManagementService(
         Result<HostFileResponse> Result,
         IFileStorageProvider? StorageProvider,
         string? StorageKey);
+    /// <summary>已发布返回同一文件；发布中的未知结果拒绝重传，由既有状态机对账。</summary>
+    private async Task<Result<HostFileResponse>?> ReplayUploadAsync(string key, Guid actor, string name,
+        string mime, long size, string hash, CancellationToken token, Guid? reservedFileId)
+    {
+        var previous = await uploadQueries!.QuerySingleOrDefaultAsync<HostFileUploadOperationRecord>(HostFileUploadOperationSql.Find,
+            new Dictionary<string, object?> { ["UploadOperationKey"] = key }, token).ConfigureAwait(false);
+        if (previous is null) return null;
+        if ((reservedFileId.HasValue && previous.Id != reservedFileId.Value) || previous.CreatedByUserId != actor || previous.OriginalFileName != name || previous.ContentType != mime ||
+            previous.SizeBytes != size || !string.Equals(previous.ContentHash, hash, StringComparison.OrdinalIgnoreCase) || previous.IsDeleted || previous.StorageState != "ready")
+            return Result<HostFileResponse>.Failure(new Error("files.upload.operation_conflict", "Upload operation conflicts or is still being reconciled.", ErrorType.Conflict));
+        return await fileQueries.GetByIdAsync(previous.Id, token).ConfigureAwait(false);
+    }
+
 }

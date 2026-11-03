@@ -135,10 +135,10 @@ internal static class Endpoint
         }
 
         var accessUserId = await TryReadBearerUserIdAsync(httpContext).ConfigureAwait(false);
-        if (accessUserId == Guid.Empty
-            || (accessUserId is not null && !string.Equals(
+        if (accessUserId is null || accessUserId == Guid.Empty
+            || !string.Equals(
                 httpContext.User.FindFirstValue(FullNetIdentityClaimTypes.OidcClientId),
-                request.ClientId, StringComparison.Ordinal)))
+                request.ClientId, StringComparison.Ordinal))
         {
             return Results.Unauthorized();
         }
@@ -146,7 +146,7 @@ internal static class Endpoint
         var signedOut = await authorizationService.SignOutApplicationAsync(
                 httpContext,
                 request.ClientId,
-                accessUserId,
+                accessUserId.Value,
                 cancellationToken)
             .ConfigureAwait(false);
         return signedOut ? Results.NoContent() : Results.Unauthorized();

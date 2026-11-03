@@ -78,8 +78,9 @@ public static class McpRemoteCapabilityPolicy
             return false;
         }
 
-        if (liveSchemaHash is not null
-            && !string.Equals(liveSchemaHash, tool.InputSchemaHash, StringComparison.Ordinal))
+        // 远端工具消失或没有可核验的 Schema 时，同样不能沿用历史批准执行。
+        if (liveSchemaHash is null
+            || !string.Equals(liveSchemaHash, tool.InputSchemaHash, StringComparison.Ordinal))
         {
             rejection = "ai.mcp.remote_schema_drift";
             return false;

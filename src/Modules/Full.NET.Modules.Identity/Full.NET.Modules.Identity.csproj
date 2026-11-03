@@ -25,6 +25,8 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" />
     <PackageReference Include="OpenIddict.Core" />
+    <PackageReference Include="OpenIddict.Client.AspNetCore" />
+    <PackageReference Include="OpenIddict.Client.SystemNetHttp" />
     <PackageReference Include="OpenIddict.Server.AspNetCore" />
     <PackageReference Include="System.DirectoryServices.Protocols" />
   </ItemGroup>

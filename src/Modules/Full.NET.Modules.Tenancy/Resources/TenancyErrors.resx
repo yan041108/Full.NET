@@ -39,4 +39,20 @@
   <data name="tenancy.tenant_subscription.not_found" xml:space="preserve"><value>订阅不存在。</value></data>
   <data name="tenancy.tenant_subscription.version_conflict" xml:space="preserve"><value>订阅记录已被其他操作更新，请刷新后重试。</value></data>
   <data name="tenancy.quota.usage_baseline_unsupported_metric" xml:space="preserve"><value>该配额指标不支持从权威资源重建用量基线。</value></data>
+  <data name="tenancy.package_offer.invalid" xml:space="preserve"><value>报价字段无效。</value></data>
+  <data name="tenancy.package_offer.not_found" xml:space="preserve"><value>尚未发布套餐报价。</value></data>
+  <data name="tenancy.package_offer.version_conflict" xml:space="preserve"><value>报价已变更，请重新读取并确认。</value></data>
+  <data name="tenancy.subscription_billing.invalid" xml:space="preserve"><value>付费订阅请求无效。</value></data>
+  <data name="tenancy.subscription_billing.request_conflict" xml:space="preserve"><value>此请求标识已用于不同的订阅条款。</value></data>
+  <data name="tenancy.subscription_billing.enforcement_required" xml:space="preserve"><value>付费订阅要求启用权益强制执行。</value></data>
+  <data name="tenancy.subscription_billing.quota_baseline_required" xml:space="preserve"><value>请先完成席位和存储用量基线对账。</value></data>
+  <data name="tenancy.subscription_billing.not_found" xml:space="preserve"><value>未找到该订阅账单。</value></data>
+  <data name="tenancy.subscription_billing.closed" xml:space="preserve"><value>账单已关闭，不能执行付款履约。</value></data>
+  <data name="tenancy.subscription_billing.not_effective" xml:space="preserve"><value>订阅尚未到生效时间。</value></data>
+  <data name="tenancy.subscription_billing.expired" xml:space="preserve"><value>订阅已经过期，请核对原付款。</value></data>
+  <data name="tenancy.subscription_billing.receipt_invalid" xml:space="preserve"><value>付款事实不完整。</value></data>
+  <data name="tenancy.subscription_billing.receipt_mismatch" xml:space="preserve"><value>付款归属与冻结账单不匹配。</value></data>
+  <data name="tenancy.subscription_billing.refund_invalid" xml:space="preserve"><value>退款事实无效。</value></data>
+  <data name="tenancy.subscription_billing.quota_conflict" xml:space="preserve"><value>配额已被并发更新，将按原付款重试。</value></data>
+  <data name="tenancy.subscription_billing.version_conflict" xml:space="preserve"><value>订阅账单已变更，请核对当前状态。</value></data>
 </root>

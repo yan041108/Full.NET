@@ -151,6 +151,7 @@ internal sealed class CodeGenerationSchemaNormalizer
             input.HasDeletedAudit,
             input.HasVersion,
             ownershipMode);
+        if (request.Relationships!.Count > 2) return Failure();
         var relationships =
             new FullNetCrudRelationship[request.Relationships!.Count];
         var canonicalRelationships =
@@ -169,6 +170,9 @@ internal sealed class CodeGenerationSchemaNormalizer
                 return Failure();
             }
 
+            var principal = NormalizeRelated(relationship.PrincipalSchema);
+            var dependent = NormalizeRelated(relationship.DependentSchema);
+            if (!principal.IsSuccess || !dependent.IsSuccess) return Failure();
             relationships[index] = new FullNetCrudRelationship(
                 relationship.PrincipalEntityKey,
                 relationship.PrincipalColumnName,
@@ -177,11 +181,17 @@ internal sealed class CodeGenerationSchemaNormalizer
                 relationship.DependentColumnName,
                 dependentDataScope,
                 relationship.CompositeKeyColumnNames,
-                relationship.CascadeDelete);
+                relationship.CascadeDelete,
+                principal.Value?.Schema,
+                dependent.Value?.Schema);
             canonicalRelationships[index] = relationship with
             {
                 PrincipalDataScope = ToWireValue(principalDataScope),
                 DependentDataScope = ToWireValue(dependentDataScope),
+                CompositeKeyColumnNames = relationship.CompositeKeyColumnNames is null
+                    ? null : Array.AsReadOnly(relationship.CompositeKeyColumnNames.ToArray()),
+                PrincipalSchema = principal.Value?.CanonicalRequest,
+                DependentSchema = dependent.Value?.CanonicalRequest,
             };
         }
 
@@ -213,6 +223,18 @@ internal sealed class CodeGenerationSchemaNormalizer
             Relationships = canonicalRelationships,
         };
         return Success(schema, canonicalRequest);
+    }
+
+    // 关系只携带一层单实体快照；禁止递归关系膨胀与运行时目录猜测。
+    private static Result<NormalizedCodeGenerationSchema?> NormalizeRelated(CodeGenerationPreviewRequest? request)
+    {
+        if (request is null) return Result<NormalizedCodeGenerationSchema?>.Success(null);
+        if (request.Relationships is { Count: > 0 }
+            || request.Scene is not (null or "single" or "Single"))
+            return Result<NormalizedCodeGenerationSchema?>.Failure(InvalidSchema);
+        var result = new CodeGenerationSchemaNormalizer().Normalize(request);
+        return result.IsSuccess ? Result<NormalizedCodeGenerationSchema?>.Success(result.Value)
+            : Result<NormalizedCodeGenerationSchema?>.Failure(result.Error!);
     }
 
     private static Result<NormalizedCodeGenerationSchema> Success(

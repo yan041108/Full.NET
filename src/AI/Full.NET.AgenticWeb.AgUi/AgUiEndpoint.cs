@@ -40,7 +40,8 @@ public static class AgUiEndpoint
                 afterSequence ?? 0,
                 httpContext,
                 cancellationToken).ConfigureAwait(false);
-            return result.IsSuccess ? Results.Empty : mapper.Map(result, httpContext);
+            // SSE已经开始后只能结束协议流，不能追加另一种ProblemDetails JSON响应。
+            return result.IsSuccess || httpContext.Response.HasStarted ? Results.Empty : mapper.Map(result, httpContext);
         })
         .WithName("aiStreamAgentRunEvents")
         .Produces(StatusCodes.Status200OK, contentType: "text/event-stream")

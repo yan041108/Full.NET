@@ -54,11 +54,18 @@ public sealed class NativeWorkerKnowledgeGenerationE2ETests
         await factory.InitializeAsync();
         var username = $"native-generation-{Guid.CreateVersion7():N}";
         string[] permissions = [AiModelPermissions.Read, AiModelPermissions.Create, AiKnowledgePermissions.Read, AiKnowledgePermissions.Create,
-            AiKnowledgePermissions.PolicyUpdate, AiKnowledgeDocumentPermissions.Read, AiKnowledgeDocumentPermissions.Create,
+            AiKnowledgePermissions.PolicyUpdate, AiKnowledgePermissions.MembersUpdate,
+            AiKnowledgeDocumentPermissions.MembersUpdate, AiKnowledgeDocumentPermissions.Read, AiKnowledgeDocumentPermissions.Create,
             AiKnowledgeDocumentPermissions.Upload, AiKnowledgeDocumentPermissions.SourceRead, AiKnowledgeDocumentPermissions.VersionsRead,
             AiKnowledgeDocumentPermissions.IndexEnqueue, AiKnowledgeDocumentPermissions.IndexRead, AiKnowledgeDocumentPermissions.IndexRetry,
+            AiKnowledgePublicationPermissions.Read, AiKnowledgePublicationPermissions.Request, AiKnowledgePublicationPermissions.Publish,
             AiChatPermissions.Read, AiChatPermissions.Create, AiChatPermissions.Send];
         await factory.CreateHostIdentityAsync(username, permissions, password: FullNetApiFactory.TestPassword);
+        var reviewerName = $"native-generation-review-{Guid.CreateVersion7():N}";
+        var reviewer = await factory.CreateHostIdentityAsync(reviewerName,
+            [AiKnowledgePermissions.Read, AiKnowledgeDocumentPermissions.Read, AiKnowledgeDocumentPermissions.SourceRead,
+                AiKnowledgeDocumentPermissions.IndexRead, AiKnowledgePublicationPermissions.Read, AiKnowledgePublicationPermissions.Review],
+            password: FullNetApiFactory.TestPassword);
         await using var api = await NativeApiProcessHost.StartAsync(apiArtifact, provider, connection, settings, NativeAotTestTimeouts.ProcessStartup);
         using var client = api.CreateClient();
         using var loginRequest = new HttpRequestMessage(HttpMethod.Post, "/api/v1/auth/login") { Content = JsonContent.Create(new LoginRequest(username, FullNetApiFactory.TestPassword)) };
@@ -66,6 +73,9 @@ public sealed class NativeWorkerKnowledgeGenerationE2ETests
         using var login = await client.SendAsync(loginRequest); await Require(login, HttpStatusCode.OK);
         var token = (await login.Content.ReadFromJsonAsync<TokenResponse>())!;
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token.AccessToken);
+        using var reviewerClient = api.CreateClient();
+        var reviewerToken = await IntegrationTestAuthHelper.LoginAsHostUserAsync(reviewerClient, reviewerName);
+        reviewerClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", reviewerToken);
         await using var db = Migration246AiKnowledgeIndexTaskRecoveryTests.Connection(provider == DatabaseProvider.SqlServer, connection);
         var embedding = await CreateModel("text-embedding-3-small"); var generation = await CreateModel("gpt-4.1-mini");
         var examples = new (string Name, string Mime, byte[] Bytes, bool Recover)[]
@@ -83,9 +93,16 @@ public sealed class NativeWorkerKnowledgeGenerationE2ETests
             var root = $"/api/v1/ai/knowledge-bases/{knowledge.Id}";
             using var policy = await client.PutAsJsonAsync(root + "/policy", new UpdateAiKnowledgePolicyRequest("internal", embedding.Id, embedding.Version, generation.Id, generation.Version, knowledge.Version));
             await Require(policy, HttpStatusCode.OK);
+            var currentKnowledge = (await policy.Content.ReadFromJsonAsync<AiKnowledgeBaseResponse>())!;
+            using var membership = await client.PutAsJsonAsync(root + "/members", new SetAiKnowledgeMembersRequest([reviewer.UserId], currentKnowledge.Version));
+            await Require(membership, HttpStatusCode.OK);
             using var documentResponse = await client.PostAsJsonAsync(root + "/documents", new CreateAiKnowledgeDocumentRequest(example.Name, null));
             await Require(documentResponse, HttpStatusCode.Created); var document = (await documentResponse.Content.ReadFromJsonAsync<AiKnowledgeDocumentResponse>())!;
             var path = root + $"/documents/{document.Id}";
+            using var documentMembership = await client.PutAsJsonAsync(path + "/members", new SetAiKnowledgeDocumentMembersRequest([reviewer.UserId], document.Version));
+            await Require(documentMembership, HttpStatusCode.OK);
+            using var currentDocument = await client.GetAsync(path); await Require(currentDocument, HttpStatusCode.OK);
+            document = (await currentDocument.Content.ReadFromJsonAsync<AiKnowledgeDocumentResponse>())!;
             using var bytes = new ByteArrayContent(example.Bytes); bytes.Headers.ContentType = new MediaTypeHeaderValue(example.Mime);
             using var upload = await client.PostAsync(path + $"/versions?version={document.Version}&requestKey={Guid.CreateVersion7()}&fileName={example.Name}", bytes);
             await Require(upload, HttpStatusCode.Accepted); var imported = (await upload.Content.ReadFromJsonAsync<AiKnowledgeImportResponse>())!;
@@ -126,6 +143,32 @@ public sealed class NativeWorkerKnowledgeGenerationE2ETests
             Assert.AreEqual(1L, await db.QuerySingleAsync<long>("SELECT COUNT(*) FROM fn_ai_knowledge_active_generation WHERE IndexTaskId=@Id", new { Id = taskId }));
             using var chatResponse = await client.PostAsJsonAsync("/api/v1/ai/chat/sessions", new CreateAiChatSessionRequest(generation.Id, "原生完整生成"));
             await Require(chatResponse, HttpStatusCode.Created); var chat = (await chatResponse.Content.ReadFromJsonAsync<AiChatSessionResponse>())!;
+            // 完整索引仅产生草稿候选；先实际证明未发布时拒绝，再经独立审核人的真实 HTTP 发布。
+            var callsBeforePublication = modelServer.ChatCalls;
+            using (var draftAsk = await client.PostAsJsonAsync($"/api/v1/ai/chat/sessions/{chat.Id}/knowledge/ask", new AskAiKnowledgeRequest([knowledge.Id], embedding.Id, "知识库解析测试说明")))
+            {
+                await Require(draftAsk, HttpStatusCode.Conflict);
+                using var problem = JsonDocument.Parse(await draftAsk.Content.ReadAsStringAsync());
+                Assert.AreEqual(AiErrorCodes.KnowledgeAnswerUnavailable, problem.RootElement.GetProperty("code").GetString());
+                Assert.AreEqual(callsBeforePublication, modelServer.ChatCalls, "未发布草稿不能派发生成请求。");
+            }
+            var publications = root + $"/documents/{document.Id}/publications";
+            using var proposalResponse = await client.PostAsJsonAsync(publications, new RequestAiKnowledgePublication(
+                Guid.CreateVersion7(), imported.VersionId, 0, DateTimeOffset.UtcNow.AddMinutes(-1), DateTimeOffset.UtcNow.AddDays(1)));
+            await Require(proposalResponse, HttpStatusCode.Created);
+            var proposal = (await proposalResponse.Content.ReadFromJsonAsync<AiKnowledgePublicationResponse>())!;
+            using var reviewed = await reviewerClient.PostAsJsonAsync(publications + $"/{proposal.Id}/review",
+                new ReviewAiKnowledgePublication(true, proposal.Version, proposal.SnapshotHash));
+            await Require(reviewed, HttpStatusCode.OK);
+            proposal = (await reviewed.Content.ReadFromJsonAsync<AiKnowledgePublicationResponse>())!;
+            Assert.AreEqual(reviewer.UserId, proposal.ReviewerUserId);
+            using var published = await client.PostAsJsonAsync(publications + $"/{proposal.Id}/publish",
+                new PublishAiKnowledgePublication(proposal.Version, proposal.SnapshotHash));
+            await Require(published, HttpStatusCode.OK);
+            proposal = (await published.Content.ReadFromJsonAsync<AiKnowledgePublicationResponse>())!;
+            Assert.AreEqual("published", proposal.StateKey);
+            using var head = await client.GetAsync(publications + "/head"); await Require(head, HttpStatusCode.OK);
+            Assert.AreEqual(proposal.Id, (await head.Content.ReadFromJsonAsync<AiKnowledgePublicationHeadResponse>())!.PublicationId);
             using var ask = await client.PostAsJsonAsync($"/api/v1/ai/chat/sessions/{chat.Id}/knowledge/ask", new AskAiKnowledgeRequest([knowledge.Id], embedding.Id, "知识库解析测试说明"));
             await Require(ask, HttpStatusCode.OK); var answer = (await ask.Content.ReadFromJsonAsync<AskAiKnowledgeResponse>())!;
             Assert.IsFalse(answer.Refused); Assert.AreEqual("原生完整生成验证", answer.Message.Content);
@@ -133,20 +176,53 @@ public sealed class NativeWorkerKnowledgeGenerationE2ETests
             var lineage = await db.QuerySingleAsync<string>("SELECT KnowledgeLineage FROM fn_ai_chat_message WHERE Id=@Id", new { Id = answer.Message.Id });
             using var lineageJson = JsonDocument.Parse(lineage);
             Assert.AreEqual(3, lineageJson.RootElement.GetProperty("version").GetInt32());
+            Assert.AreEqual(proposal.Id, lineageJson.RootElement.GetProperty("dependencies").EnumerateArray().Single().GetProperty("publicationId").GetGuid());
             Console.WriteLine(JsonSerializer.Serialize(new { nativeGeneration = true, provider = provider.ToString(), format = example.Mime, batches = budgets.Length, chargedTokens = budgets.Sum(x => x.ChargedTokens), citations = answer.Message.Citations.Count }));
 
             async Task RunWorker(IReadOnlyDictionary<string, string?> configuration, string expected)
             {
                 await using var worker = await NativeWorkerProcessHost.StartAsync(workerArtifact, provider, connection, NativeAotTestTimeouts.ProcessStartup, additionalSettings: configuration);
-                var timer = Stopwatch.StartNew(); string? state = null;
+                var timer = Stopwatch.StartNew(); string? state = null; AiKnowledgeIndexStatusResponse? observed = null;
                 while (timer.Elapsed < TimeSpan.FromMinutes(3))
                 {
                     using var status = await client.GetAsync(path); await Require(status, HttpStatusCode.OK);
-                    state = (await status.Content.ReadFromJsonAsync<AiKnowledgeIndexStatusResponse>())!.State;
+                    observed = await status.Content.ReadFromJsonAsync<AiKnowledgeIndexStatusResponse>();
+                    state = observed!.State;
                     if (state == expected || state == "failed") break;
                     await Task.Delay(200);
                 }
-                Assert.AreEqual(expected, state, await File.ReadAllTextAsync(worker.LogFilePath));
+                // 失败先记录安全失败码与持久阶段计数，避免只剩 ready/failed 而看不出具体原生边界。
+                var phase = "";
+                if (state != expected)
+                {
+                    try
+                    {
+                        var counts = await db.QuerySingleAsync<(int Batches, int Vectors, int Generations, int Documents)>(
+                            "SELECT (SELECT COUNT(*) FROM fn_ai_knowledge_index_batch WHERE IndexTaskId=@Id)," +
+                            "(SELECT COUNT(*) FROM fn_ai_knowledge_index_vector WHERE Id IN (SELECT Id FROM fn_ai_knowledge_index_batch WHERE IndexTaskId=@Id))," +
+                            "(SELECT COUNT(*) FROM fn_ai_knowledge_generation WHERE Id=@Id)," +
+                            "(SELECT COUNT(*) FROM fn_ai_knowledge_document_manifest WHERE Id=@Id)", new { Id = taskId });
+                        var ledger = await db.QueryAsync<(string Outcome, string UsageStatus, long ChargedTokens)>(
+                            "SELECT budget.Outcome,budget.UsageStatus,budget.ChargedTokens FROM fn_ai_operation_budget AS budget " +
+                            "INNER JOIN fn_ai_knowledge_index_batch AS batch ON batch.Id=budget.Id WHERE batch.IndexTaskId=@Id ORDER BY batch.BatchOrdinal", new { Id = taskId });
+                        phase = $"batches={counts.Batches}, vectors={counts.Vectors}, generations={counts.Generations}, documents={counts.Documents}, ledger=" +
+                                JsonSerializer.Serialize(ledger.Select(item => new { item.Outcome, item.UsageStatus, item.ChargedTokens }));
+                        var taskState = await db.QuerySingleAsync<(string StateKey, string? FailureCode)>(
+                            "SELECT StateKey,FailureCode FROM fn_ai_knowledge_index_task WHERE Id=@Id", new { Id = taskId });
+                        var active = await db.QuerySingleAsync<int>(
+                            "SELECT COUNT(*) FROM fn_ai_knowledge_active_generation WHERE IndexTaskId=@Id", new { Id = taskId });
+                        phase += $", taskState={taskState.StateKey}, taskFailure={taskState.FailureCode}, active={active}";
+                        if (provider == DatabaseProvider.SqlServer)
+                        {
+                            var capacity = await db.QuerySingleAsync<(int Vector, int Document)>(
+                                "SELECT COALESCE(COL_LENGTH('dbo.fn_ai_knowledge_index_vector','FormatKey'),-1)," +
+                                "COALESCE(COL_LENGTH('dbo.fn_ai_knowledge_document_manifest','FormatKey'),-1)");
+                            phase += $", formatColumnBytes={capacity.Vector}/{capacity.Document}";
+                        }
+                    }
+                    catch (Exception error) { phase = "diagnostic-read-failed:" + error.GetType().Name; }
+                }
+                Assert.AreEqual(expected, state, $"Format={example.Mime}; failure={observed?.FailureCode}; {phase}. " + await File.ReadAllTextAsync(worker.LogFilePath));
                 await worker.StopGracefullyAsync(TimeSpan.FromSeconds(30)); worker.AssertNoFatalMarkersInLogs(); Assert.AreEqual(0, worker.ExitCode);
             }
             async Task ActivationFault(bool install)

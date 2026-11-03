@@ -9,6 +9,9 @@ using Full.NET.Modules.Payments.Features.ManageRefunds;
 using Full.NET.Modules.Payments.Features.ReceiveWeChatNotify;
 using Full.NET.Modules.Payments.Security;
 using Full.NET.Modules.Payments.Serialization;
+using Full.NET.Modules.Payments.Features.SubscriptionBilling;
+using Full.NET.Abstractions.Messaging;
+using Full.NET.Messaging.Abstractions;
 using Full.NET.Modules.Identity.Contracts;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Routing;
@@ -36,6 +39,9 @@ public sealed class PaymentsModule : IFullNetModule
     /// <param name="configuration">宿主配置。</param>
     public void AddServices(IServiceCollection services, IConfiguration configuration)
     {
+        AddFinancialServices(services);
+        services.TryAddScoped<SubscriptionCheckoutService>();
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<IErrorResourceSource, Resources.PaymentsBillingErrorResourceSource>());
         services.TryAddEnumerable(ServiceDescriptor.Singleton<
             IAuthorizationCatalogContributor,
             PaymentsAuthorizationContributor>());
@@ -83,5 +89,32 @@ public sealed class PaymentsModule : IFullNetModule
         Features.ManageOrders.Endpoint.Map(endpoints);
         Features.ManageRefunds.Endpoint.Map(endpoints);
         Features.ReceiveWeChatNotify.Endpoint.Map(endpoints);
+        Features.SubscriptionBilling.Endpoint.Map(endpoints);
+    }
+
+    /// <summary>Worker 只处理已验证事实和履约恢复，不装配渠道下单或 HTTP 认证入口。</summary>
+    /// <param name="services">服务容器。</param>
+    /// <param name="configuration">宿主配置。</param>
+    public void AddBackgroundServices(IServiceCollection services, IConfiguration configuration)
+    {
+        AddFinancialServices(services);
+        services.AddHostedService<SubscriptionFulfillmentWorker>();
+    }
+
+    private static void AddFinancialServices(IServiceCollection services)
+    {
+        services.TryAddSingleton<IClock, SystemClock>();
+        services.TryAddScoped<PaymentFinancialFactPublisher>();
+        services.TryAddScoped<SubscriptionFulfillmentProcessor>();
+        services.TryAddEnumerable(ServiceDescriptor.Scoped<IIntegrationEventHandler, PaymentPaidFactHandler>());
+        services.TryAddEnumerable(ServiceDescriptor.Scoped<IIntegrationEventHandler, PaymentRefundFactHandler>());
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<IIntegrationEventHandlerRegistry, global::Full.NET.Generated.IntegrationEventHandlerRegistry>());
+        foreach (var (topicCode, eventType) in new[] { ("payments.order-paid.v1", PaymentSucceededFact.EventType),
+                     ("payments.refund-succeeded.v1", PaymentRefundSucceededFact.EventType) })
+            if (!services.Any(d => d.ImplementationInstance is IntegrationEventTopicDefinition t && t.TopicCode == topicCode))
+                services.AddSingleton(IntegrationEventTopicDefinition.Create(topicCode, eventType, 1, EventDeliveryOwner.LegacyPolling));
+#if FULLNET_AOT_COMPILE
+        new Persistence.PaymentsDapperAotMaterializerContributor().RegisterMaterializers(new global::Full.NET.Data.Dapper.DapperAotMaterializerRegistrar());
+#endif
     }
 }

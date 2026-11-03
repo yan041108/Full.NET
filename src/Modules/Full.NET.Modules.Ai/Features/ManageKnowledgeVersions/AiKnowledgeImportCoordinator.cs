@@ -205,6 +205,8 @@ internal sealed class AiKnowledgeImportCoordinator(AiKnowledgeImportStore store,
     private async Task<Result<AiKnowledgeImportResponse>> CleanupAsync(AiKnowledgeImportRecord row,
         Dictionary<string, object?> parameters, CancellationToken token)
     {
+        // 墓碑先阻断新引用，已有读取排空后才允许事务外释放原文件。
+        if (!await store.CanReleaseSourceAsync(parameters, token).ConfigureAwait(false)) return Result<AiKnowledgeImportResponse>.Success(Map(row));
         try
         {
             if (store.IsTenant)

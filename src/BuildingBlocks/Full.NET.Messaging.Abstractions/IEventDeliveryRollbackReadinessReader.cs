@@ -12,13 +12,14 @@ public interface IEventDeliveryRollbackReadinessReader
     /// <param name="eventType">需要回退的事件类型标识。</param>
     /// <param name="schemaVersion">事件契约 Schema 版本；必须为正整数。</param>
     /// <param name="rollbackGeneration">本次回退的世代标识，用于关联 Prepare 与 Abort。</param>
+    /// <param name="lease">原控制会话的持锁校验能力，不能重新获取锁来延续旧执行者。</param>
     /// <param name="cancellationToken">取消令牌。</param>
     /// <returns>控制面返回的回退就绪证明；未装配适配器时返回 <see cref="EventDeliveryRollbackReadiness.Unavailable"/>。</returns>
     Task<EventDeliveryRollbackReadiness> PrepareAsync(
         string eventType,
         int schemaVersion,
         Guid rollbackGeneration,
-        CancellationToken cancellationToken = default);
+        EventDeliveryControlLease lease, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// 最终所有权切换失败时撤销同一 generation 的控制面 fence。
@@ -27,12 +28,13 @@ public interface IEventDeliveryRollbackReadinessReader
     /// <param name="eventType">需要回退的事件类型标识。</param>
     /// <param name="schemaVersion">事件契约 Schema 版本；必须为正整数。</param>
     /// <param name="rollbackGeneration">与 PrepareAsync 相同的世代标识。</param>
+    /// <param name="lease">原控制会话的持锁校验能力。</param>
     /// <param name="cancellationToken">取消令牌。</param>
     Task AbortAsync(
         string eventType,
         int schemaVersion,
         Guid rollbackGeneration,
-        CancellationToken cancellationToken = default);
+        EventDeliveryControlLease lease, CancellationToken cancellationToken = default);
 }
 
 /// <summary>事件流回退时由外部控制面证明的安全边界。</summary>
@@ -85,7 +87,7 @@ public sealed class FailClosedEventDeliveryRollbackReadinessReader
         string eventType,
         int schemaVersion,
         Guid rollbackGeneration,
-        CancellationToken cancellationToken = default)
+        EventDeliveryControlLease lease, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(eventType);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(schemaVersion);
@@ -97,7 +99,7 @@ public sealed class FailClosedEventDeliveryRollbackReadinessReader
         string eventType,
         int schemaVersion,
         Guid rollbackGeneration,
-        CancellationToken cancellationToken = default)
+        EventDeliveryControlLease lease, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(eventType);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(schemaVersion);

@@ -52,4 +52,18 @@ public sealed class TenantPositionImportPreviewServiceTests
         Assert.AreEqual(1, result.InvalidRowCount);
         Assert.AreEqual(CommonErrorCodes.PermissionDenied, result.Rows[0].ErrorCode);
     }
+
+    [TestMethod]
+    public void Assignment_requires_both_field_write_and_reference_read_capabilities()
+    {
+        foreach (var unit in new[] { true, false })
+        {
+            var flags = new Dictionary<string, bool> { [unit ? OrganizationPositionManagementPermissions.AssignUnit : OrganizationPositionManagementPermissions.AssignPositionLevel] = true };
+            var context = new StaticImportPreviewContext(Guid.CreateVersion7(), flags);
+            var row = new ImportOrganizationPositionRow("engineer", "工程师", 10, unit ? "sales" : null, unit ? null : "senior");
+            Assert.AreEqual(0, _service.Preview([row], context).ValidRowCount);
+            flags[unit ? OrganizationUnitManagementPermissions.Read : OrganizationPositionLevelManagementPermissions.Read] = true;
+            Assert.AreEqual(1, _service.Preview([row], context).ValidRowCount);
+        }
+    }
 }

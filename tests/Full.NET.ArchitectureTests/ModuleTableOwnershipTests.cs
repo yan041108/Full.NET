@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.RegularExpressions;
+using Full.NET.Modularity.Modules;
 
 namespace Full.NET.ArchitectureTests;
 
@@ -15,7 +16,19 @@ public sealed partial class ModuleTableOwnershipTests
     public void Production_module_table_access_is_owned_or_exactly_registered()
     {
         var root = ArchitectureRepositoryRoot.Find();
-        var accesses = ScanProductionAccesses(root);
+        var sources = Directory.EnumerateFiles(Path.Combine(root, "src", "Modules"), "*.cs", SearchOption.AllDirectories)
+            .Where(path => !IsBuildOutputPath(path))
+            .ToDictionary(path => Path.GetRelativePath(root, path).Replace('\\', '/'), File.ReadAllText);
+        var catalog = ControlledModuleReadQueryScanner.Load(root);
+        // 只读目录是正式查询依赖，不复用历史债务的文件级豁免。
+        var dependencies = catalog.Entries.Length == 0
+            ? new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase)
+            : ProductionAssemblies.BusinessModules.SelectMany(assembly => assembly.GetTypes())
+                .Where(type => !type.IsAbstract && typeof(IFullNetModule).IsAssignableFrom(type))
+                .Select(type => (IFullNetModule)Activator.CreateInstance(type)!)
+                .ToDictionary(module => module.Name, module => module.Dependencies.ToArray(), StringComparer.OrdinalIgnoreCase);
+        var queries = ControlledModuleReadQueryScanner.Analyze(catalog, sources, dependencies);
+        var accesses = ScanProductionAccesses(root, queries.Allowed);
         var debtPath = Path.Combine(
             root,
             "contracts",
@@ -27,7 +40,10 @@ public sealed partial class ModuleTableOwnershipTests
                 JsonOptions)?.Entries ?? []
             : [];
 
-        var violations = Analyze(accesses, debt);
+        var violations = Analyze(accesses, debt).Concat(queries.Violations)
+            .Concat(sources.SelectMany(pair => ControlledModuleReadQueryScanner.FindForbiddenSql(
+                ModuleDirectoryRegex().Match(pair.Key).Groups["module"].Value.ToLowerInvariant(), pair.Key, pair.Value)))
+            .ToArray();
 
         Assert.HasCount(0, violations, string.Join(Environment.NewLine, violations));
     }
@@ -60,13 +76,13 @@ public sealed partial class ModuleTableOwnershipTests
                 [exactDebt with { SourceModule = null }]));
     }
 
-    private static TableAccess[] ScanProductionAccesses(string root)
+    private static TableAccess[] ScanProductionAccesses(string root, ControlledModuleReadQueryScanner.AllowedRead[] allowed)
     {
         var modulesRoot = Path.Combine(root, "src", "Modules");
         return Directory
             .EnumerateFiles(modulesRoot, "*.cs", SearchOption.AllDirectories)
             .Where(path => !IsBuildOutputPath(path))
-            .SelectMany(path => ScanFile(root, path))
+            .SelectMany(path => ScanFile(root, path, allowed))
             .Distinct()
             .OrderBy(access => access.SourceModule, StringComparer.Ordinal)
             .ThenBy(access => access.Table, StringComparer.Ordinal)
@@ -74,7 +90,7 @@ public sealed partial class ModuleTableOwnershipTests
             .ToArray();
     }
 
-    private static IEnumerable<TableAccess> ScanFile(string root, string path)
+    private static IEnumerable<TableAccess> ScanFile(string root, string path, ControlledModuleReadQueryScanner.AllowedRead[] allowed)
     {
         var relativePath = Path.GetRelativePath(root, path).Replace('\\', '/');
         var moduleMatch = ModuleDirectoryRegex().Match(relativePath);
@@ -87,7 +103,8 @@ public sealed partial class ModuleTableOwnershipTests
         foreach (Match match in TableNameRegex().Matches(File.ReadAllText(path)))
         {
             var table = match.Value;
-            if (!OwnsTable(sourceModule, table))
+            if (!OwnsTable(sourceModule, table)
+                && !allowed.Any(read => read.File == relativePath && read.Span.Contains(match.Index)))
             {
                 yield return new TableAccess(sourceModule, table, relativePath);
             }
@@ -164,7 +181,7 @@ public sealed partial class ModuleTableOwnershipTests
     /// 目录名与表名前缀不完全相同的官方模块：Payments 表是 <c>fn_payment_*</c>，
     /// ImportExport 表是 <c>fn_import_export_*</c>（扫描器只取首段 <c>import</c>）。
     /// </summary>
-    private static bool OwnsTable(string sourceModule, string table)
+    internal static bool OwnsTable(string sourceModule, string table)
     {
         var owner = TableOwnerRegex().Match(table).Groups["owner"].Value;
         if (string.Equals(sourceModule, owner, StringComparison.OrdinalIgnoreCase))

@@ -219,6 +219,7 @@ internal static class AiWorkflowCheckpointAssertions
             state.Binding = new(run.Id, run.DefinitionKey, run.DefinitionVersion, AgentWorkflowNodeReceipt.DigestDefinition(definition),
                 Guid.Parse("00000000-0000-0000-0000-000000000001"), 1);
             state.NextNodeIndex = scenario is "finished-unknown" or "finished-input-unknown" ? 3 : 2;
+            state.ExecutionSteps = state.NextNodeIndex;
             state.InputTokens = scenario switch { "input-exhausted" => 100, "input-unknown" or "finished-input-unknown" => null,
                 "input-zero" => 0, _ => state.NextNodeIndex == 3 ? 8 : 7 };
             var knownOutput = scenario is "known" or "known-drift" or "input-exhausted" or "input-unknown" or "input-zero";

@@ -6,4 +6,6 @@ internal sealed record AgentRunBudgetSnapshot(
     string Prompt,
     long InputTokenLimit,
     long OutputTokenLimit,
-    AiPromptRunBinding? PromptBinding = null);
+    AiPromptRunBinding? PromptBinding = null,
+    Guid? TargetChatSessionId = null,
+    Full.NET.Modules.Ai.Contracts.AiPersonalScheduleCompletionTarget? PersonalScheduleTarget = null);

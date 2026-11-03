@@ -46,12 +46,15 @@ public sealed class OrganizationApiSqlServerTests
     [TestMethod]
     public async Task Tenant_user_unit_management_follows_contract_with_sql_server()
     {
+        var transactionProbe = new OrganizationAssignmentTransactionBoundaryProbe();
         using var factory = new FullNetApiFactory(
             DatabaseProvider.SqlServer,
-            await SharedDatabaseFixture.CreateSqlServerDatabaseAsync());
+            await SharedDatabaseFixture.CreateSqlServerDatabaseAsync(),
+            configureTestServices: transactionProbe.Configure);
 
         await OrganizationUserUnitManagementAssertions
             .VerifyTenantUserUnitManagementContractAsync(factory);
+        transactionProbe.AssertObserved();
     }
 
     [TestMethod]
@@ -68,11 +71,14 @@ public sealed class OrganizationApiSqlServerTests
     [TestMethod]
     public async Task Tenant_user_position_management_follows_contract_with_sql_server()
     {
+        var transactionProbe = new OrganizationAssignmentTransactionBoundaryProbe();
         using var factory = new FullNetApiFactory(
             DatabaseProvider.SqlServer,
-            await SharedDatabaseFixture.CreateSqlServerDatabaseAsync());
+            await SharedDatabaseFixture.CreateSqlServerDatabaseAsync(),
+            configureTestServices: transactionProbe.Configure);
 
         await OrganizationUserPositionManagementAssertions
             .VerifyTenantUserPositionManagementContractAsync(factory);
+        transactionProbe.AssertObserved();
     }
 }

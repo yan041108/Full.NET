@@ -59,13 +59,19 @@ internal sealed class TenantQuotaUsageBaselineService(
             parameters, cancellationToken).ConfigureAwait(false);
         var metrics = window.Take(pageSize).ToArray();
         var tenantIds = metrics.Where(metric => metric.ReservedValue == 0).Select(metric => metric.TenantId).Distinct().ToArray();
+        // 成员计数前后均探测工作项，覆盖激活完成与移除开始两个方向；新消费另由指标版本 CAS 保护。
+        var unsettled = string.Equals(metricCode, TenantQuotaMetricCodes.IdentitySeats, StringComparison.Ordinal)
+            ? (await activeMemberCount.FindUnsettledSeatTenantsAsync(tenantIds, cancellationToken).ConfigureAwait(false)).ToHashSet()
+            : [];
         var usages = string.Equals(metricCode, TenantQuotaMetricCodes.IdentitySeats, StringComparison.Ordinal)
             ? await activeMemberCount.CountActiveMembersByTenantsAsync(tenantIds, cancellationToken).ConfigureAwait(false)
             : await storageUsage!.SumReadyStorageBytesByTenantsAsync(tenantIds, cancellationToken).ConfigureAwait(false);
+        if (string.Equals(metricCode, TenantQuotaMetricCodes.IdentitySeats, StringComparison.Ordinal))
+            unsettled.UnionWith(await activeMemberCount.FindUnsettledSeatTenantsAsync(tenantIds, cancellationToken).ConfigureAwait(false));
         foreach (var metric in metrics)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            if (metric.ReservedValue != 0) continue;
+            if (metric.ReservedValue != 0 || unsettled.Contains(metric.TenantId)) continue;
             var authoritative = usages[metric.TenantId];
             var missing = metric.Id is null;
             if (!missing && metric.UsedValue == authoritative) continue;

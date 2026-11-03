@@ -12,6 +12,13 @@ public static class FilesErrorCodes
     /// <summary>Files 模块所有错误码的统一前缀。</summary>
     public const string Prefix = "files.";
 
+    /// <summary>读取能力的调用、方向、字段、接收方或期限无效。</summary>
+    public const string ReadCapabilityInvalid = "files.read_capability.invalid";
+    /// <summary>能力已失效、越出接收作用域或原文件不再被持有。</summary>
+    public const string ReadCapabilityNotFound = "files.read_capability.not_found";
+    /// <summary>同一能力签发身份的固定载荷不一致。</summary>
+    public const string ReadCapabilityConflict = "files.read_capability.conflict";
+
     /// <summary>目标文件元数据不存在或已软删除。</summary>
     public const string FileNotFound = "files.file.not_found";
 

@@ -3,6 +3,7 @@ import { readProblemDetails } from './problem-details.js';
 export interface AuthenticationBridge {
   getAccessToken: () => string | undefined;
   refresh: () => Promise<boolean>;
+  getCsrfToken?: () => string | undefined;
 }
 
 export interface RequestOptions {
@@ -171,6 +172,10 @@ export function createHttpClient(apiBaseUrl = ''): HttpClient {
     headers.set('accept-language', requestLocale?.() ?? 'zh-CN');
 
     if (!options.skipAuthentication) {
+      const csrf = authentication?.getCsrfToken?.();
+      if (csrf && !['GET', 'HEAD', 'OPTIONS'].includes((init.method ?? 'GET').toUpperCase())) {
+        headers.set('X-CSRF-Token', csrf);
+      }
       const accessToken = authentication?.getAccessToken();
       if (accessToken && !headers.has('authorization')) {
         headers.set('authorization', `Bearer ${accessToken}`);

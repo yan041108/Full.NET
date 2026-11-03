@@ -69,5 +69,5 @@ public sealed class WorkflowTodoAttachmentAccessTests
         return files;
     }
     private static WorkflowFormAttachmentAccessService Service(IQueryExecutor query, IHostFileContentReader files, DatabaseProvider provider) =>
-        new(query, files, Options.Create(new DatabaseOptions { Provider = provider }), Substitute.For<ITenantResourceFileStore>());
+        new(query, files, Options.Create(new DatabaseOptions { Provider = provider }), Substitute.For<ITenantResourceFileStore>(), WorkflowTodoManagementTestDependencies.CreateRemoteFiles(query));
 }

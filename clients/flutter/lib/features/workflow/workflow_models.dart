@@ -1,6 +1,7 @@
 import 'workflow_claim_models.dart';
 export 'workflow_claim_models.dart';
 import 'workflow_vote_models.dart';
+import 'workflow_form_projection.dart';
 export 'workflow_vote_models.dart';
 
 final RegExp _guidPattern = RegExp(
@@ -63,6 +64,7 @@ class WorkflowTodoDetail {
     required this.signRequired,
     required this.commentRequired,
     required this.activityKindKey,
+    required this.form,
     this.taskProgress,
     this.voteForm,
     this.voteProgress,
@@ -82,6 +84,7 @@ class WorkflowTodoDetail {
   final bool signRequired;
   final bool commentRequired;
   final String activityKindKey;
+  final WorkflowFormProjection form;
   final WorkflowTaskProgress? taskProgress;
   final WorkflowVoteForm? voteForm;
   final WorkflowVoteProgress? voteProgress;
@@ -206,6 +209,10 @@ class WorkflowTodoDetail {
       signRequired: json['signRequired'] as bool,
       commentRequired: json['commentRequired'] as bool,
       activityKindKey: kind,
+      form: WorkflowFormProjection.parse(
+          json['formSchema'], submission, json['fieldPolicies'],
+          readOnly: json['statusKey'] != 'active',
+          attachmentNames: json['attachmentNames']),
       taskProgress: progress,
       voteForm: voteForm,
       voteProgress: voteProgress,

@@ -18,6 +18,7 @@ using Microsoft.Extensions.Options;
 using Microsoft.Extensions.DependencyInjection;
 using Full.NET.AI.Abstractions.Models;
 using Full.NET.Modules.Identity.Contracts;
+using Full.NET.Modules.Ai.Knowledge;
 
 namespace Full.NET.Modules.Ai.Features.ManageChatSessions;
 
@@ -36,6 +37,7 @@ namespace Full.NET.Modules.Ai.Features.ManageChatSessions;
 /// <param name="clock">统一 UTC 时钟。</param>
 /// <param name="idGenerator">消息及生成标识生成器。</param>
 /// <param name="currentAuthorization">精确计数等待后复核原交互会话；旧内部消费者未提供时不能进入精确协议。</param>
+/// <param name="continuationGate">在原收费通道重新核证全部业务历史，不隐式携带派生正文。</param>
 internal sealed class AiChatStreamService(
     IQueryExecutor queryExecutor,
     ICommandExecutor commandExecutor,
@@ -50,7 +52,7 @@ internal sealed class AiChatStreamService(
     IOptions<DatabaseOptions> databaseOptions,
     IClock clock,
     IIdGenerator idGenerator,
-    ICurrentSessionAuthorization? currentAuthorization = null)
+    ICurrentSessionAuthorization? currentAuthorization = null, AiPersonalScheduleContinuationGate? continuationGate = null)
 {
     /// <summary>原子获取生成槽位后发送有界 SSE，所有异常路径均收敛自身租约。</summary>
     /// <param name="sessionId">已授权的会话标识。</param>
@@ -115,9 +117,11 @@ internal sealed class AiChatStreamService(
         int? completionTokens = null;
         var assistantBuffer = new StringBuilder();
         Error? failure = null;
+        IReadOnlyList<AiKnowledgeAnswerHistoryEntry> businessHistory = [];
 
         try
         {
+            if (continuationGate is not null) businessHistory = await continuationGate.CaptureAsync(sessionId, ownerUserId, requestBudget.Token).ConfigureAwait(false);
             // 槽位获取与两条消息写入在同一短事务；任何中途失败都回滚，外部流不占用事务。
             acquired = await transaction.ExecuteAsync(async token =>
             {
@@ -165,6 +169,7 @@ internal sealed class AiChatStreamService(
             var linkedToken = generationRegistry.Register(sessionId, assistantMessageId, requestBudget.Token);
             monitor = leaseMonitor.WatchAsync(scope, sessionId, ownerUserId, assistantMessageId, now + AiChatGenerationLeaseMonitor.LeaseDuration, requestBudget, monitorStop.Token);
             var history = await LoadRecentMessagesAsync(sessionId, linkedToken).ConfigureAwait(false);
+            if (continuationGate is not null) businessHistory = await continuationGate.CaptureAsync(sessionId, ownerUserId, linkedToken).ConfigureAwait(false);
             var chatBudgetRequest = AiChatBudgetRequest.Create(assistantMessageId, model, history);
             try
             {
@@ -206,15 +211,19 @@ internal sealed class AiChatStreamService(
                     throw new OperationCanceledException("AI generation ownership was lost before dispatch.", check);
                 var finalActor = await currentAuthorization.AuthorizeAsync(AiChatPermissions.Send, check).ConfigureAwait(false);
                 if (finalActor != exactActor || AiChatScope.Resolve(currentTenant) != scope) throw new UnauthorizedAccessException();
+                if (continuationGate is not null) await continuationGate.RevalidateAsync(businessHistory, sessionId, ownerUserId, check).ConfigureAwait(false);
                 check.ThrowIfCancellationRequested();
             });
+            if (continuationGate is not null) await continuationGate.RevalidateAsync(businessHistory, sessionId, ownerUserId, linkedToken).ConfigureAwait(false);
             var result = await completionStreamer.StreamAsync(
                     model,
                     history,
-                    delta => output.WriteDeltaAsync(delta, linkedToken),
+                    delta => businessHistory.Count > 0 ? Task.CompletedTask : output.WriteDeltaAsync(delta, linkedToken),
                     linkedToken,
                     assistantBuffer, streamingReceipt)
                 .ConfigureAwait(false);
+
+            if (continuationGate is not null) await continuationGate.RevalidateAsync(businessHistory, sessionId, ownerUserId, linkedToken).ConfigureAwait(false);
 
             linkedToken.ThrowIfCancellationRequested();
             if (!await leaseMonitor.RenewOnceAsync(scope, sessionId, ownerUserId, assistantMessageId, linkedToken).WaitAsync(linkedToken).ConfigureAwait(false))
@@ -226,25 +235,42 @@ internal sealed class AiChatStreamService(
                 ? AiChatMessageStatusKeys.Cancelled
                 : AiChatMessageStatusKeys.Completed;
 
-            await UpdateMessageAsync(
-                    assistantMessageId,
-                    sessionId,
-                    assistantContent,
-                    statusKey,
-                    promptTokens,
-                    completionTokens,
-                    requestBudget.Token)
-                .ConfigureAwait(false);
+            // 与取消/接替串行化：先锁当前会话，再写本代消息，最后用数据库当前时间复核租约。
+            // 写消息等待期间若跨越期限，抛错回滚整笔完成写入，不能只依靠锁前的续租结果。
+            await transaction.ExecuteAsync(async token =>
+            {
+                var parameters = AiSqlParameters.Create(("MessageId", assistantMessageId), ("SessionId", sessionId),
+                    ("OwnerUserId", ownerUserId), ("TenantId", scope.TenantId), ("Now", clock.UtcNow));
+                var scoped = scope.TenantId.HasValue;
+                if (AiChatScope.Resolve(currentTenant) != scope ||
+                    await queryExecutor.QuerySingleOrDefaultAsync<Guid>(AiKnowledgeAnswerSql.LockFor(databaseOptions.Value.Provider, scoped), parameters, token).ConfigureAwait(false) != assistantMessageId)
+                    throw new OperationCanceledException("AI generation ownership was lost before completion.", token);
+                await UpdateMessageAsync(assistantMessageId, sessionId, assistantContent, statusKey,
+                    promptTokens, completionTokens, token).ConfigureAwait(false);
+                parameters = AiSqlParameters.Create(("MessageId", assistantMessageId), ("SessionId", sessionId),
+                    ("OwnerUserId", ownerUserId), ("TenantId", scope.TenantId), ("Now", clock.UtcNow));
+                if (AiChatScope.Resolve(currentTenant) != scope ||
+                    await queryExecutor.QuerySingleOrDefaultAsync<Guid>(AiKnowledgeAnswerSql.CurrentFor(databaseOptions.Value.Provider, scoped), parameters, token).ConfigureAwait(false) != assistantMessageId)
+                    throw new OperationCanceledException("AI generation ownership expired during completion.", token);
+                return true;
+            }, linkedToken).ConfigureAwait(false);
 
+        }
+        catch (AiPersonalScheduleContinuationUnavailableException)
+        {
+            assistantBuffer.Clear(); statusKey = AiChatMessageStatusKeys.Cancelled;
+            failure = new Error(AiErrorCodes.KnowledgeAnswerUnavailable, "The business sources are unavailable for this conversation.", ErrorType.Conflict);
         }
         catch (OperationCanceledException)
         {
+            if (businessHistory.Count > 0) assistantBuffer.Clear();
             statusKey = AiChatMessageStatusKeys.Cancelled;
             failure = new Error(AiErrorCodes.ChatGenerationNotActive,
                 "The AI generation was cancelled or lost ownership.", ErrorType.Conflict);
         }
         catch (Exception)
         {
+            if (businessHistory.Count > 0) assistantBuffer.Clear();
             statusKey = AiChatMessageStatusKeys.Failed;
             failure ??= ExecutionFailure();
         }
@@ -273,6 +299,12 @@ internal sealed class AiChatStreamService(
         }
 
         cancellationToken.ThrowIfCancellationRequested();
+        if (failure is null && businessHistory.Count > 0 && continuationGate is not null)
+        {
+            try { await continuationGate.RevalidateAsync(businessHistory, sessionId, ownerUserId, cancellationToken).ConfigureAwait(false); }
+            catch (Exception) when (!cancellationToken.IsCancellationRequested)
+            { assistantBuffer.Clear(); failure = new Error(AiErrorCodes.KnowledgeAnswerUnavailable, "The business sources are unavailable for this conversation.", ErrorType.Conflict); }
+        }
         if (!output.HasStarted)
             return Result<bool>.Failure(failure ?? ExecutionFailure());
         // 终态在收尾后发送，避免持久化或结算失败却向客户端报告成功。
@@ -281,7 +313,10 @@ internal sealed class AiChatStreamService(
         if (failure is not null)
             await output.WriteErrorAsync(failure.Message, notification.Token).ConfigureAwait(false);
         else
+        {
+            if (businessHistory.Count > 0) await output.WriteDeltaAsync(assistantBuffer.ToString(), notification.Token).ConfigureAwait(false);
             await output.WriteDoneAsync(assistantMessageId, promptTokens, completionTokens, notification.Token).ConfigureAwait(false);
+        }
         if (failure is null) observation.Outcome = "completed";
         else if (observation.Outcome != "budget_rejected") observation.Outcome = AiOperationTelemetry.Outcome(failure);
         return Result<bool>.Success(true);
@@ -341,7 +376,11 @@ internal sealed class AiChatStreamService(
         foreach (var row in rows.OrderByDescending(item => item.CreatedAtUtc).ThenByDescending(item => item.Id))
         {
             // 普通聊天尚未传递完整来源依赖，必须在字符预算前排除派生答案，防止产生无依赖的新消息。
-            if (row.IsKnowledgeAnswer || row.KnowledgeLineage is not null) continue;
+            if (row.IsKnowledgeAnswer || row.KnowledgeLineage is not null)
+            {
+                if (continuationGate is null) throw new AiPersonalScheduleContinuationUnavailableException();
+                continue;
+            }
             if (characters + (long)row.Content.Length > AiChatContentPolicy.MaxHistoryCharacters) break;
             history.Add((row.RoleKey, row.Content));
             characters += row.Content.Length;
@@ -420,7 +459,9 @@ internal sealed class AiChatStreamService(
                     ("Content", content),
                     ("StatusKey", statusKey),
                     ("PromptTokens", promptTokens),
-                    ("CompletionTokens", completionTokens)),
+                    ("CompletionTokens", completionTokens),
+                    ("RequiresLiveLease", statusKey == AiChatMessageStatusKeys.Completed ? 1 : 0),
+                    ("Now", clock.UtcNow)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (affected != 1) throw new InvalidOperationException("AI generation ownership was lost during message persistence.");

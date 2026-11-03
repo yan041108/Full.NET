@@ -29,4 +29,16 @@ test('Host 文档预览任务 OpenAPI 夹具与 C# 契约和端点一致', async
   assert.match(contractsSource, /record HostDocumentPreviewTaskResponse/u);
   assert.match(contractsSource, /document\.host_preview_tasks\.read/u);
   assert.match(contractsSource, /document\.host_preview_tasks\.create/u);
+  const runtime = JSON.parse(await readFile(path.join(repositoryRoot, 'contracts/openapi/fullnet-client-v1.openapi.json'), 'utf8'));
+  for (const entry of contract.paths) {
+    const runtimePath = Object.keys(runtime.paths).find(value => value.replace(/\/$/u, '') === entry.path);
+    assert.ok(runtimePath, entry.path);
+    for (const operation of entry.operations) assert.ok(runtime.paths[runtimePath][operation.method.toLowerCase()]);
+  }
+  assert.deepEqual(runtime.paths['/api/v1/document/public/preview-capabilities'].get.security, []);
+  for (const schemaName of ['DocumentPreviewCapabilities', 'CancelDocumentPreviewTaskRequest', 'HostDocumentPreviewTaskResponse']) {
+    const properties = runtime.components.schemas[schemaName].properties;
+    for (const field of contract.schemas[schemaName].properties) assert.ok(Object.hasOwn(properties, field), `${schemaName}.${field}`);
+  }
+
 });

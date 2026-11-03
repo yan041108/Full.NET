@@ -54,7 +54,7 @@ internal static class IdentityOidcSessionSql
         """
         UPDATE fn_identity_oidc_center_session
         SET RevokedAtUtc = @RevokedAtUtc, UpdatedAtUtc = @UpdatedAtUtc, Version = Version + 1
-        WHERE Id = @Id AND RevokedAtUtc IS NULL AND Version = @Version
+        WHERE Id = @Id AND RevokedAtUtc IS NULL
         """,
         SqlDataScope.HostOnly);
 
@@ -70,6 +70,14 @@ internal static class IdentityOidcSessionSql
     public static readonly SqlStatement FindCenterSessionById = new(
         "identity.find_oidc_center_session_by_id",
         $"SELECT {CenterSessionColumns} FROM fn_identity_oidc_center_session AS center WHERE center.Id = @Id",
+        SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement ListApplicationSessionIdsByCenterSession = new(
+        "identity.list_oidc_application_session_ids_by_center_session",
+        """
+        SELECT Id FROM fn_identity_oidc_application_session
+        WHERE CenterSessionId = @CenterSessionId AND UserId = @UserId AND RevokedAtUtc IS NULL
+        """,
         SqlDataScope.HostOnly);
 
     public static readonly SqlStatement FindActiveCenterSessionById = new(

@@ -66,6 +66,9 @@ internal static class OpenApiCodeGenerationRunsContractAssertions
     private static void AssertPilotOperations(JsonElement document)
     {
         const string tag = "CodeGenerationRuns";
+        OpenApiPilotContractAssertions.AssertOperation(document,
+            "/api/v1/code-generation/runs/apply-plan", HttpMethod.Post,
+            "codeGenerationPrepareApplyPlan", tag, 200, "application/json");
         OpenApiPilotContractAssertions.AssertOperation(
             document,
             "/api/v1/code-generation/runs/preview",

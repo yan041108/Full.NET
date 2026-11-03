@@ -15,14 +15,7 @@ import { http } from '../api/http';
 import { adminIdentityAuthMode } from '../config/identity-auth';
 import { useAdminI18n } from '../i18n/adminI18n';
 import { isSupportedNavigationTree } from '../navigation/catalog';
-import {
-  clearAdminOidcSessionCredentials,
-  refreshAdminOidcAccessToken,
-  revokeAdminOidcApplicationSession,
-  revokeAdminOidcCenterSession
-} from './oidc-center-login';
-import { resolveAdminOidcClientId } from '../config/identity-auth';
-import { writeOidcRefreshCredential } from './oidc-session-credentials';
+import { adminBrowserSession, clearAdminOidcSessionCredentials, readAdminBrowserCsrfToken } from './oidc-center-login';
 import { sessionRefreshCoordinator } from './session-refresh-coordinator';
 import { shouldLogoutOnSessionRevoke } from './sessionRevokePolicy';
 
@@ -51,19 +44,7 @@ export const useSessionStore = defineStore('identity-session', () => {
         },
         isSupportedNavigationTree,
         sessionRefreshCoordinator,
-        externalRefreshAccessToken: adminIdentityAuthMode === 'oidc-center'
-          ? async () => refreshAdminOidcAccessToken()
-          : undefined,
-        onTenantContextTokenResponse: adminIdentityAuthMode === 'oidc-center'
-          ? response => {
-              if (response.refreshToken !== undefined) {
-                writeOidcRefreshCredential({
-                  refreshToken: response.refreshToken,
-                  clientId: resolveAdminOidcClientId()
-                });
-              }
-            }
-          : undefined
+        browserSession: adminIdentityAuthMode === 'oidc-center' ? adminBrowserSession : undefined
       });
       controller.subscribe(snapshot => {
         state.value = snapshot.state;
@@ -125,37 +106,6 @@ export const useSessionStore = defineStore('identity-session', () => {
 
   /** 退出当前会话，并清空受认证状态保护的本地快照。 */
   async function logout(): Promise<void> {
-    if (adminIdentityAuthMode === 'oidc-center') {
-      try {
-        await sessionRefreshCoordinator.runExclusive(async () => {
-          try {
-            // 闲置后的 access 可能过期；刷新与退出共用串行边界，避免 refresh 重放。
-            const staleAccessToken = getController().readAccessToken();
-            const refreshed = await refreshAdminOidcAccessToken();
-            const accessToken = refreshed?.accessToken ?? staleAccessToken;
-            // 中心退出已覆盖应用会话，不能先撤销当前应用再使用已失效凭据退出中心。
-            if (accessToken !== undefined) {
-              await revokeAdminOidcCenterSession(accessToken);
-            }
-            // 切租户后 refresh 可能已轮换 application session；再撤销探针/旧 access，避免孤儿会话仍可调用 API。
-            if (staleAccessToken !== undefined) {
-              await revokeAdminOidcApplicationSession(staleAccessToken);
-            }
-          } finally {
-            // 在释放刷新锁前清理，防止排队恢复操作读到退出前的 refresh。
-            clearAdminOidcSessionCredentials();
-            getController().invalidateLocalSession();
-          }
-        });
-      } catch {
-        // 本地清理不依赖网络成功，服务端仍由 grant 撤销与会话过期兜底。
-      }
-
-      clearAdminOidcSessionCredentials();
-      getController().invalidateLocalSession();
-      return;
-    }
-
     await getController().logout();
   }
 
@@ -241,6 +191,7 @@ export const useSessionStore = defineStore('identity-session', () => {
     handleRemoteSessionRevoke,
     snapshot,
     subscribe,
-    readAccessToken
+    readAccessToken,
+    readCsrfToken: readAdminBrowserCsrfToken
   };
 });

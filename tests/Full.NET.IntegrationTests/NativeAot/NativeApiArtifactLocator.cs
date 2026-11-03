@@ -74,15 +74,16 @@ internal static class NativeApiArtifactLocator
 
     public static string FindRepositoryRoot()
     {
-        var directory = new DirectoryInfo(AppContext.BaseDirectory);
-        while (directory is not null)
+        // 隔离构建的程序集位于系统临时目录，仓库只读挂载与输出目录不能假定同一祖先。
+        foreach (var candidate in new[] { Environment.GetEnvironmentVariable("FULLNET_TEST_REPOSITORY_ROOT"), Directory.GetCurrentDirectory(), AppContext.BaseDirectory })
         {
-            if (File.Exists(Path.Combine(directory.FullName, "Full.NET.slnx")))
+            var directory = string.IsNullOrWhiteSpace(candidate) ? null : new DirectoryInfo(candidate);
+            while (directory is not null)
             {
-                return directory.FullName;
-            }
+                if (File.Exists(Path.Combine(directory.FullName, "Full.NET.slnx"))) return directory.FullName;
 
-            directory = directory.Parent;
+                directory = directory.Parent;
+            }
         }
 
         throw new DirectoryNotFoundException(

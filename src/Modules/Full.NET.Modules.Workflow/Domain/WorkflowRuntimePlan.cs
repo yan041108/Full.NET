@@ -73,6 +73,8 @@ internal sealed class WorkflowRuntimePlan
     public IReadOnlyList<Guid> FlowAdministratorUserIds { get; }
     public bool HasBusinessCommands { get; }
     public bool HasSubprocess { get; }
+    public bool HasCollaboration { get; }
+    public bool RequiresExecutionBudget => HasSubprocess || HasCollaboration;
 
     /// <summary>使用已验证节点、出口和网关条件创建不可变运行计划。</summary>
     /// <param name="nodes">按稳定节点键索引的定义节点。</param>
@@ -109,6 +111,7 @@ internal sealed class WorkflowRuntimePlan
         FlowAdministratorUserIds = flowAdministratorUserIds;
         HasBusinessCommands = nodes.Values.Any(node => node.NodeTypeKey == "business.command");
         HasSubprocess = nodes.Values.Any(node => node.NodeTypeKey == WorkflowSubprocessPolicy.NodeType);
+        HasCollaboration = nodes.Values.Any(node => node.NodeTypeKey == WorkflowCollaborationCallPolicy.NodeType);
     }
 
     /// <summary>从定义草稿构造结构闭合的运行计划。</summary>
@@ -132,11 +135,7 @@ internal sealed class WorkflowRuntimePlan
         if (draft is null || draft.Nodes is null || draft.Nodes.Any(node => node is null || !WorkflowNodeKeyValidator.IsValid(node.NodeKey)) ||
             draft.SchemaVersion != WorkflowNodeTypeCatalog.Current.DefinitionSchemaVersion ||
             draft.WorkflowKindKey is not ("approval" or "automation") ||
-            draft.Nodes.Any(node => !WorkflowNodeTypeCatalog.TryGet(node.NodeTypeKey, out var type) ||
-                node.NodeSchemaVersion != type!.NodeSchemaVersion || !WorkflowNodeTypeCatalog.SupportsConfiguration(node) ||
-                !WorkflowSlaPolicy.TryRead(node.Config, node.NodeTypeKey, out _) ||
-                !WorkflowResultCallbackPolicy.TryRead(node.NodeTypeKey, node.Config, formSchema, out _) ||
-                !WorkflowActivityListenerPolicy.TryRead(node.NodeTypeKey, node.Config, out _)) ||
+            draft.Nodes.Any(node => !ValidRuntimeNode(node, formSchema)) ||
             draft.Nodes.Any(node => !WorkflowBusinessCommandPolicy.TryRead(node.NodeTypeKey, node.Config, out _)) ||
             draft.Nodes.Count < 2 || draft.Nodes.Count > WorkflowDefinitionCompiler.MaximumNodes ||
             draft.Nodes.GroupBy(node => node.NodeKey, StringComparer.Ordinal).Any(group => group.Count() > 1))
@@ -215,6 +214,14 @@ internal sealed class WorkflowRuntimePlan
             startNextNodeKey!, flowAdministrators, formSchema, asynchronousWaits, dynamicRoutes!);
         return true;
     }
+
+    /// <summary>所有节点共用公开目录；结构编译可未绑定表单，实际协作等待仍要求固定表单。</summary>
+    private static bool ValidRuntimeNode(WorkflowNodeDraft node, WorkflowFormSchema? schema) =>
+        (node.NodeTypeKey != WorkflowCollaborationCallPolicy.NodeType || WorkflowCollaborationCallPolicy.TryRead(node.Config, out _)) &&
+                WorkflowNodeTypeCatalog.TryGet(node.NodeTypeKey, out var type) && node.NodeSchemaVersion == type!.NodeSchemaVersion &&
+                WorkflowNodeTypeCatalog.SupportsConfiguration(node) && WorkflowSlaPolicy.TryRead(node.Config, node.NodeTypeKey, out _) &&
+                WorkflowResultCallbackPolicy.TryRead(node.NodeTypeKey, node.Config, schema, out _) &&
+                WorkflowActivityListenerPolicy.TryRead(node.NodeTypeKey, node.Config, out _);
 
     /// <summary>解析不含条件网关的兼容启动迁移。</summary>
     /// <param name="transition">启动迁移。</param>
@@ -406,6 +413,12 @@ internal sealed class WorkflowRuntimePlan
                         !TryReadSingleNext(node.Config, out var childNext)) return false;
                     transition = new WorkflowRuntimeTransition(null, false, automaticNodes,
                         automaticWait: new WorkflowSubprocessWaitPlan(node.NodeKey, childNext!, childPolicy, childBound, formSchema, node.Config.Clone()));
+                    return true;
+                case WorkflowCollaborationCallPolicy.NodeType:
+                    if (formSchema is null || !WorkflowCollaborationCallPolicy.TryRead(node.Config, out var collaboration) ||
+                        !TryReadSingleNext(node.Config, out var collaborationNext)) return false;
+                    transition = new WorkflowRuntimeTransition(null, false, automaticNodes,
+                        automaticWait: new WorkflowCollaborationWaitPlan(node.NodeKey, collaborationNext!, collaboration!, formSchema));
                     return true;
                 case "business.command":
                     if (!WorkflowBusinessCommandPolicy.TryRead(node.NodeTypeKey, node.Config, out var businessPolicy) || businessPolicy is null ||
@@ -767,6 +780,10 @@ internal sealed class WorkflowRuntimePlan
     {
         switch (node.NodeTypeKey)
         {
+            case WorkflowCollaborationCallPolicy.NodeType:
+                if (!TryReadSingleNext(node.Config, out var collaborationNext) ||
+                    !WorkflowCollaborationCallPolicy.TryRead(node.Config, out _)) return false;
+                outgoing.Add(node.NodeKey, [collaborationNext!]); return true;
             case WorkflowDynamicRoutePolicy.NodeType:
                 if (!TryReadSingleNext(node.Config, out var routeNext) || !WorkflowDynamicRoutePolicy.TryRead(node.Config, formSchema, out _)) return false;
                 outgoing.Add(node.NodeKey, [routeNext!]); return true;

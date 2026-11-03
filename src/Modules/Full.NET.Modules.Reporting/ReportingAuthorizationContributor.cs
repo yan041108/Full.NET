@@ -20,6 +20,9 @@ internal sealed class ReportingAuthorizationContributor : IAuthorizationCatalogC
         new(ReportingGroupPermissions.Create, "创建报表分组", AuthorizationScope.Host),
         new(ReportingGroupPermissions.Update, "更新报表分组", AuthorizationScope.Host),
         new(ReportingGroupPermissions.Delete, "删除报表分组", AuthorizationScope.Host),
+        new(ReportingDefinitionGrantPermissions.Read, "读取发布租户授权", AuthorizationScope.Host),
+        new(ReportingDefinitionGrantPermissions.Manage, "管理发布租户授权", AuthorizationScope.Host),
+        new(ReportingDefinitionGrantPermissions.PublishedRead, "读取租户已授权发布报表", AuthorizationScope.Tenant),
         new(ReportingDefinitionPermissions.Read, "读取报表定义", AuthorizationScope.Host),
         new(ReportingDefinitionPermissions.Create, "创建报表定义", AuthorizationScope.Host),
         new(ReportingDefinitionPermissions.Update, "更新报表定义", AuthorizationScope.Host),
@@ -27,10 +30,11 @@ internal sealed class ReportingAuthorizationContributor : IAuthorizationCatalogC
         new(ReportingDefinitionPermissions.Publish, "发布报表定义", AuthorizationScope.Host),
         new(ReportingQueryPortPermissions.Read, "读取静态 Query Port 目录", AuthorizationScope.Host),
         new(ReportingExecutionPermissions.Run, "执行已发布报表", AuthorizationScope.Host),
-        new(ReportingExecutionPermissions.ColumnSchemaName, "读取 Schema 清单列", AuthorizationScope.Host),
-        new(ReportingExportTaskPermissions.Create, "创建报表导出任务", AuthorizationScope.Host),
-        new(ReportingExportTaskPermissions.Read, "读取报表导出任务", AuthorizationScope.Host),
-        new(ReportingExportTaskPermissions.Download, "下载报表导出文件", AuthorizationScope.Host),
+        new(ReportingExecutionPermissions.ColumnSchemaName, "读取 Schema 清单列", AuthorizationScope.Host | AuthorizationScope.Tenant),
+        new(ReportingExportTaskPermissions.Create, "创建报表导出任务", AuthorizationScope.Tenant),
+        new(ReportingExportTaskPermissions.Read, "读取报表导出任务", AuthorizationScope.Tenant),
+        new(ReportingExportTaskPermissions.Download, "下载报表导出文件", AuthorizationScope.Tenant),
+        new(ReportingExportTaskPermissions.Cancel, "取消本人待执行报表导出", AuthorizationScope.Tenant),
     ];
 
     public IReadOnlyCollection<NavigationDefinition> Navigation { get; } =
@@ -83,6 +87,8 @@ internal sealed class ReportingAuthorizationContributor : IAuthorizationCatalogC
 
     public IReadOnlyCollection<AuthorizationActionDefinition> Actions { get; } =
     [
+        new AuthorizationActionDefinition("reporting.export_tasks.cancel", "reporting-export-tasks",
+            ReportingExportTaskPermissions.Cancel, "取消待执行导出", "cancel", 30),
         new AuthorizationActionDefinition(
             "reporting.data_sources.create",
             "reporting-data-sources",

@@ -3,7 +3,6 @@ using System.Net;
 using System.Net.Http;
 using System.Net.Sockets;
 using System.Text;
-using System.Text.RegularExpressions;
 using Full.NET.Data.Abstractions;
 
 namespace Full.NET.IntegrationTests.NativeAot;
@@ -13,10 +12,6 @@ namespace Full.NET.IntegrationTests.NativeAot;
 /// </summary>
 internal sealed class NativeApiProcessHost : IAsyncDisposable
 {
-    private static readonly Regex ListeningUrlRegex = new(
-        @"Now listening on:\s*(?<url>https?://[^\s\}""]+)|""address""\s*:\s*""(?<url>https?://[^""]+)""",
-        RegexOptions.Compiled | RegexOptions.CultureInvariant);
-
     private static readonly string[] FatalLogMarkers =
     [
         "MissingMethodException",
@@ -57,6 +52,15 @@ internal sealed class NativeApiProcessHost : IAsyncDisposable
     public string LogFilePath => _logFilePath;
 
     public int? ExitCode => _process.HasExited ? _process.ExitCode : null;
+    internal int ProcessId => _process.Id;
+
+    /// <summary>仅终止此夹具创建的进程，用于验证未执行优雅收尾的崩溃恢复。</summary>
+    internal async Task CrashAsync(CancellationToken cancellationToken = default)
+    {
+        if (_process.HasExited) throw new InvalidOperationException("待模拟崩溃的原生进程已退出。");
+        _process.Kill(entireProcessTree: true);
+        await _process.WaitForExitAsync(cancellationToken).ConfigureAwait(false);
+    }
 
     public static async Task<NativeApiProcessHost> StartAsync(
         NativeApiArtifact artifact,
@@ -64,21 +68,22 @@ internal sealed class NativeApiProcessHost : IAsyncDisposable
         string connectionString,
         IReadOnlyDictionary<string, string?> settings,
         TimeSpan startupTimeout,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        Uri? listenAddress = null,
+        string? certificateThumbprint = null)
     {
         var listenPort = GetFreeTcpPort();
-        var baseAddress = new Uri($"http://127.0.0.1:{listenPort}/");
+        var listenBaseAddress = listenAddress ?? new Uri($"http://127.0.0.1:{listenPort}/");
+        // 通配地址用于容器对外监听；HTTP 客户端必须访问实际回环地址，不能向未指定地址发送请求。
+        var baseAddress = listenBaseAddress.Host is "0.0.0.0" or "::" or "[::]"
+            ? new UriBuilder(listenBaseAddress) { Host = listenBaseAddress.Host == "0.0.0.0" ? "127.0.0.1" : "::1" }.Uri
+            : listenBaseAddress;
         var contentRoot = Path.Combine(
             artifact.RepositoryRoot,
             "src",
             "Hosts",
             "Full.NET.Host.Api");
-        var logDirectory = Path.Combine(
-            artifact.RepositoryRoot,
-            "artifacts",
-            "native-aot",
-            "linux-x64",
-            "test-logs");
+        var logDirectory = Path.Combine(Path.GetTempPath(), "fullnet-native-api-logs");
         Directory.CreateDirectory(logDirectory);
         var logFilePath = Path.Combine(
             logDirectory,
@@ -88,7 +93,7 @@ internal sealed class NativeApiProcessHost : IAsyncDisposable
             provider,
             connectionString,
             settings,
-            baseAddress,
+            listenBaseAddress,
             contentRoot);
 
         var startInfo = new ProcessStartInfo
@@ -138,7 +143,7 @@ internal sealed class NativeApiProcessHost : IAsyncDisposable
                 logFilePath,
                 baseAddress,
                 startupTimeout,
-                cancellationToken).ConfigureAwait(false);
+                cancellationToken, certificateThumbprint).ConfigureAwait(false);
             AssertNoFatalMarkersInLog(logFilePath);
             return new NativeApiProcessHost(
                 process,
@@ -162,7 +167,7 @@ internal sealed class NativeApiProcessHost : IAsyncDisposable
         }
     }
 
-    public HttpClient CreateClient(string hostHeader = "localhost")
+    public HttpClient CreateClient(string hostHeader = "localhost", string? certificateThumbprint = null)
     {
         // 与 FullNetApiFactory 一致：OIDC 授权码流返回外部 redirect_uri，禁止自动跟跳。
         var handler = new HttpClientHandler
@@ -171,6 +176,12 @@ internal sealed class NativeApiProcessHost : IAsyncDisposable
             UseCookies = true,
             CookieContainer = new CookieContainer(),
         };
+        if (certificateThumbprint is not null)
+        {
+            // 仅测试夹具按精确证书绑定自签 TLS；不关闭产品的证书或主机验证。
+            handler.ServerCertificateCustomValidationCallback = (_, certificate, _, _) => certificate is not null
+                && string.Equals(certificate.Thumbprint, certificateThumbprint, StringComparison.OrdinalIgnoreCase);
+        }
         var client = new HttpClient(handler)
         {
             BaseAddress = BaseAddress,
@@ -275,6 +286,9 @@ internal sealed class NativeApiProcessHost : IAsyncDisposable
                 Path.GetTempPath(),
                 "fullnet-files-native-aot",
                 Guid.NewGuid().ToString("N")),
+            // 跟踪预览需要显式归档存储；验收目录独占且位于临时区，源码和发布目录保持只读。
+            ["CodeGeneration__Artifacts__RootDirectory"] =
+                Directory.CreateTempSubdirectory("fullnet-native-codegen-archives-").FullName,
         };
 
         foreach (var pair in settings)
@@ -318,9 +332,14 @@ internal sealed class NativeApiProcessHost : IAsyncDisposable
         string logFilePath,
         Uri expectedBaseAddress,
         TimeSpan timeout,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        string? certificateThumbprint = null)
     {
-        using var httpClient = new HttpClient
+        using var handler = new HttpClientHandler();
+        if (certificateThumbprint is not null)
+            handler.ServerCertificateCustomValidationCallback = (_, certificate, _, _) => certificate is not null
+                && string.Equals(certificate.Thumbprint, certificateThumbprint, StringComparison.OrdinalIgnoreCase);
+        using var httpClient = new HttpClient(handler)
         {
             Timeout = TimeSpan.FromSeconds(3),
         };
@@ -353,16 +372,7 @@ internal sealed class NativeApiProcessHost : IAsyncDisposable
             {
             }
 
-            if (File.Exists(logFilePath))
-            {
-                var content = await File.ReadAllTextAsync(logFilePath, cancellationToken)
-                    .ConfigureAwait(false);
-                if (ListeningUrlRegex.IsMatch(content))
-                {
-                    // 结构化 Serilog 可能已写出监听地址，但 /health/live 仍不可达时继续轮询。
-                }
-            }
-
+            // 就绪仅由真实健康请求确认；反复读取仍在写入的挂载日志既不推进判断，也会产生短暂 I/O 失败。
             await Task.Delay(TimeSpan.FromMilliseconds(250), cancellationToken)
                 .ConfigureAwait(false);
         }

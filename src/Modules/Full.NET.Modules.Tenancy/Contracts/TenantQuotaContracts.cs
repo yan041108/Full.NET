@@ -119,6 +119,9 @@ public static class TenantQuotaReservationStatuses
 
     /// <summary>已过期；预留到达 TTL 未确认，由后台任务回收并释放配额。</summary>
     public const string Expired = "Expired";
+
+    /// <summary>业务已撤销实际占用；不得用原操作键重新预留或确认。</summary>
+    public const string Cancelled = "Cancelled";
 }
 
 /// <summary>租户配额指标的只读响应；描述某指标在某周期内的限额与占用情况。</summary>
@@ -212,6 +215,15 @@ public sealed record ListTenantQuotaMetricsResponse(
 /// </remarks>
 public interface ITenantQuotaReservationService
 {
+    /// <summary>按原始消费身份幂等撤销已确认用量；只归还该次消费，不影响当前周期或其他操作。</summary>
+    /// <param name="tenantId">可信目标租户。</param>
+    /// <param name="metricCode">原始指标编码。</param>
+    /// <param name="operationId">原始消费操作键。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>撤销后的原始指标；同向重试不重复返还。</returns>
+    Task<Abstractions.Results.Result<TenantQuotaMetricResponse>> CancelConsumptionAsync(
+        Guid tenantId, string metricCode, string operationId, CancellationToken cancellationToken = default);
+
     /// <summary>
     /// 对指定租户的配额发起预留；同一 OperationId 重复提交返回既有预留，视为幂等成功。
     /// </summary>

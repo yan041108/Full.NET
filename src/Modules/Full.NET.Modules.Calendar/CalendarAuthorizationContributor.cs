@@ -39,6 +39,11 @@ internal sealed class CalendarAuthorizationContributor
             CalendarPermissions.SetStatus,
             "切换个人日程状态",
             PlatformScopes),
+        new PermissionDefinition(
+            PersonalScheduleKnowledgePermissions.Read,
+            "读取本人日程助手来源",
+            PlatformScopes),
+        new PermissionDefinition(PersonalScheduleCompletionKeys.Permission, "批准后完成本人日程", PlatformScopes),
     ];
 
     /// <summary>Calendar 模块导航定义。</summary>
@@ -88,5 +93,14 @@ internal sealed class CalendarAuthorizationContributor
             "切换状态",
             "set-status",
             40),
+        new AuthorizationActionDefinition(
+            PersonalScheduleKnowledgePermissions.Read,
+            "personal-schedules",
+            PersonalScheduleKnowledgePermissions.Read,
+            "读取助手来源",
+            "assistant-read",
+            50),
+        new AuthorizationActionDefinition(PersonalScheduleCompletionKeys.Permission, "personal-schedules",
+            PersonalScheduleCompletionKeys.Permission, "独立审批后完成本人日程", "assistant-complete", 60),
     ];
 }

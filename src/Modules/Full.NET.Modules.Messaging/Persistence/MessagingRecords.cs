@@ -30,6 +30,7 @@ internal sealed class EventStreamOwnershipPersistenceRow
     public Guid CutoffEventId { get; init; }
     public DateTimeOffset CutoffOccurredAtUtc { get; init; }
     public string? CdcSourcePositionJson { get; init; }
+    public string? CdcKafkaBindingJson { get; init; }
     public Guid? OperatorUserId { get; init; }
     public string Reason { get; init; } = string.Empty;
     public Guid? RollbackBoundaryEventId { get; init; }

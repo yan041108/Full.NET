@@ -1,18 +1,5 @@
 namespace Full.NET.Modules.Tenancy.Contracts;
 
-/// <summary>租户订阅查询与管理的权限码字符串常量。</summary>
-/// <remarks>
-/// 权限码字符串发布后不可改名或删除；新增权限只能追加到本类末尾。订阅状态变更须与支付履行模块协作，避免状态不一致。
-/// </remarks>
-public static class TenancyTenantSubscriptionPermissions
-{
-    /// <summary>读取租户订阅详情与状态；面向管理后台与计费链路。</summary>
-    public const string Read = "tenancy.tenant_subscriptions.read";
-
-    /// <summary>管理租户订阅（创建、取消、状态变更）；影响权益与配额生效。</summary>
-    public const string Manage = "tenancy.tenant_subscriptions.manage";
-}
-
 /// <summary>租户订阅状态常量；描述订阅的生命周期阶段。</summary>
 /// <remarks>
 /// 状态字符串值发布后不可改名或删除；新增状态只能追加到本类末尾。状态迁移须遵循：Trial 可转 Active 或 PastDue，PastDue 为支付逾期中间态，Cancelled 与 Expired 为终态。

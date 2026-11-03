@@ -1,9 +1,17 @@
 // 此文件由 OpenAPI 快照确定性生成，禁止手工修改。
 // 内容：OpenAPI 数据模型。
 
+export interface AcceptWorkflowCollaborationGrantRequest {
+  readonly acceptance: JsonElement;
+  readonly expectedRevision: number;
+  readonly idempotencyKey: string;
+}
+
 export interface AccessHostDocumentShareRequest {
+  readonly accessTypeKey?: null | string;
   readonly password?: null | string;
   readonly previewGrant?: null | string;
+  readonly requestKey?: string;
 }
 
 export interface AccessLogCursorPageResponse {
@@ -38,6 +46,7 @@ export interface ActWorkflowTodoRequest {
 export interface AddHostDocumentVersionRequest {
   readonly changeDescription: null | string;
   readonly fileId: string;
+  readonly requestKey: string;
 }
 
 export interface AdministrativeRegionChildResponse {
@@ -181,6 +190,18 @@ export interface AiAgentToolCatalogItem {
   readonly toolName: string;
 }
 
+export interface AiAgentWorkflowProposalResponse {
+  readonly argumentsJson: string;
+  readonly currentTitle: string;
+  readonly operationId: string;
+  readonly proposedTitle: string;
+  readonly runId: string;
+  readonly targetChatSessionId: string;
+  readonly targetVersion: number;
+  readonly toolName: string;
+  readonly toolVersion: number;
+}
+
 export interface AiChatMessageResponse {
   readonly citations?: Array<AiKnowledgeCitationResponse>;
   readonly completionTokens: null | number;
@@ -189,6 +210,7 @@ export interface AiChatMessageResponse {
   readonly id: string;
   readonly isKnowledgeAnswer?: boolean;
   readonly knowledgeUnavailableCode?: null | string;
+  readonly personalScheduleCitations?: Array<AiPersonalScheduleCitationResponse>;
   readonly promptTokens: null | number;
   readonly roleKey: string;
   readonly sessionId: string;
@@ -307,15 +329,158 @@ export interface AiKnowledgeBaseResponse {
 }
 
 export interface AiKnowledgeCitationResponse {
+  readonly correction?: null | AiKnowledgeCorrectionCitationResponse;
   readonly documentId: string;
   readonly docxLocation?: null | AiKnowledgeDocxLocationResponse;
+  readonly faqSource?: null | AiKnowledgeFaqCitationResponse;
   readonly id: string;
-  readonly length: number;
-  readonly offset: number;
+  readonly length: null | number;
+  readonly offset: null | number;
   readonly pageNumber: null | number;
   readonly sequence: number;
   readonly sourceLocation?: null | AiKnowledgeSourceLocationResponse;
   readonly versionId: string;
+}
+
+export interface AiKnowledgeCorrectionBlockResponse {
+  readonly excluded: boolean;
+  readonly id: string;
+  readonly parts: Array<AiKnowledgeCorrectionPartResponse>;
+  readonly separator: string;
+}
+
+export interface AiKnowledgeCorrectionCitationResponse {
+  readonly revisionId: string;
+  readonly spans: Array<AiKnowledgeCorrectionSpanResponse>;
+  readonly textLength: number;
+}
+
+export interface AiKnowledgeCorrectionEditOperation {
+  readonly blockId: string;
+  readonly excluded: null | boolean;
+  readonly kind: string;
+  readonly offset: null | number;
+  readonly partId: null | string;
+  readonly text: null | string;
+}
+
+export interface AiKnowledgeCorrectionEditRequest {
+  readonly expected: AiKnowledgeCorrectionHeadRequest;
+  readonly operation: AiKnowledgeCorrectionEditOperation;
+  readonly reason: string;
+  readonly requestKey: string;
+}
+
+export interface AiKnowledgeCorrectionHeadRequest {
+  readonly documentVersion: number;
+  readonly headVersion: number;
+  readonly payloadHash: string;
+  readonly revisionId: null | string;
+  readonly sourceHash: string;
+  readonly sourceId: string;
+}
+
+export interface AiKnowledgeCorrectionPartResponse {
+  readonly anchorId: null | string;
+  readonly contentKind: string;
+  readonly id: string;
+  readonly originalText: null | string;
+  readonly prefix: string;
+  readonly sourceLength: null | number;
+  readonly sourceLocation: null | AiKnowledgeSourceLocationResponse;
+  readonly sourceOffset: null | number;
+  readonly text: string;
+}
+
+export interface AiKnowledgeCorrectionPreparationResponse {
+  readonly attemptCount: number;
+  readonly createdAtUtc: string;
+  readonly documentVersion: number;
+  readonly failureCode: null | string;
+  readonly id: string;
+  readonly sourceId: null | string;
+  readonly state: string;
+  readonly updatedAtUtc: string;
+  readonly versionId: string;
+}
+
+export interface AiKnowledgeCorrectionPrepareRequest {
+  readonly documentVersion: number;
+  readonly requestKey: string;
+}
+
+export interface AiKnowledgeCorrectionRestoreRequest {
+  readonly expected: AiKnowledgeCorrectionHeadRequest;
+  readonly reason: string;
+  readonly requestKey: string;
+  readonly targetRevisionId: null | string;
+  readonly targetSourceId: string;
+}
+
+export interface AiKnowledgeCorrectionRevisionPageResponse {
+  readonly items: Array<AiKnowledgeCorrectionRevisionResponse>;
+  readonly nextHeadVersion: null | number;
+}
+
+export interface AiKnowledgeCorrectionRevisionResponse {
+  readonly createdAtUtc: string;
+  readonly documentVersion: number;
+  readonly headVersion: number;
+  readonly id: string;
+  readonly parentId: null | string;
+  readonly payloadHash: string;
+  readonly reason: string;
+  readonly sourceId: string;
+  readonly versionId: string;
+}
+
+export interface AiKnowledgeCorrectionSpanResponse {
+  readonly contentKind: string;
+  readonly sourceLength: null | number;
+  readonly sourceLocation: null | AiKnowledgeSourceLocationResponse;
+  readonly sourceOffset: null | number;
+  readonly textLength: number;
+  readonly textOffset: number;
+}
+
+export interface AiKnowledgeCorrectionWorkspaceResponse {
+  readonly block: AiKnowledgeCorrectionBlockResponse;
+  readonly blockIndex: number;
+  readonly contentType: string;
+  readonly documentVersion: number;
+  readonly headVersion: number;
+  readonly isSourceView: boolean;
+  readonly originalFileName: string;
+  readonly parserRuntimeId: string;
+  readonly payloadHash: string;
+  readonly revisionId: null | string;
+  readonly sourceHash: string;
+  readonly sourceId: string;
+  readonly totalBlocks: number;
+  readonly versionId: string;
+}
+
+export interface AiKnowledgeDirectoryItemResult {
+  readonly documentId: string;
+  readonly errorCode: null | string;
+  readonly requestKey: string;
+  readonly succeeded: boolean;
+  readonly version: null | number;
+}
+
+export interface AiKnowledgeDirectoryResponse {
+  readonly candidateVersionId: null | string;
+  readonly documentVersion: number;
+  readonly folderId: null | string;
+  readonly headVersion: number;
+  readonly id: string;
+  readonly pendingPublicationId: null | string;
+  readonly publicationId: null | string;
+  readonly publicationState: string;
+  readonly responsibleUserId: null | string;
+  readonly tags: Array<string>;
+  readonly title: string;
+  readonly version: number;
 }
 
 export interface AiKnowledgeDocumentMembersResponse {
@@ -341,6 +506,406 @@ export interface AiKnowledgeDocxLocationResponse {
   readonly paragraphNumber: number;
   readonly rowNumber: null | number;
   readonly tableNumber: null | number;
+}
+
+export interface AiKnowledgeEvaluationCase {
+  readonly id: string;
+  readonly independentBasis: null | string;
+  readonly sample: AiFeedbackEvaluationSample;
+  readonly sourceKey: null | string;
+}
+
+export interface AiKnowledgeEvaluationCaseInput {
+  readonly feedbackCandidateToken: null | string;
+  readonly id: null | string;
+  readonly independentBasis: null | string;
+  readonly sample: AiFeedbackEvaluationSample;
+}
+
+export interface AiKnowledgeEvaluationCaseResult {
+  readonly baseline: null | AiKnowledgeSearchComparisonRanking;
+  readonly candidate: null | AiKnowledgeSearchComparisonRanking;
+  readonly case: AiKnowledgeEvaluationCaseState;
+  readonly effectiveQuery?: null | string;
+  readonly financeState: string;
+  readonly measurementProtocol: string;
+  readonly operations: null | Array<AiKnowledgeEvaluationOperation>;
+  readonly refinementRefused: null | boolean;
+  readonly sample: AiFeedbackEvaluationSample;
+}
+
+export interface AiKnowledgeEvaluationCaseState {
+  readonly baselineSupportsReference: null | boolean;
+  readonly candidateSupportsReference: null | boolean;
+  readonly durationMs: null | number | string;
+  readonly finishedAtUtc: null | string;
+  readonly id: string;
+  readonly reasonCode: null | string;
+  readonly sampleId: string;
+  readonly sequence: number;
+  readonly startedAtUtc: null | string;
+  readonly state: string;
+  readonly version: number;
+}
+
+export interface AiKnowledgeEvaluationEntry {
+  readonly createdAtUtc: string;
+  readonly id: string;
+  readonly revisionId: string;
+  readonly version: number;
+}
+
+export interface AiKnowledgeEvaluationEntryPage {
+  readonly items: Array<AiKnowledgeEvaluationEntry>;
+  readonly nextAfterId: null | string;
+}
+
+export interface AiKnowledgeEvaluationModel {
+  readonly destinationHash: string;
+  readonly id: string;
+  readonly purpose: string;
+  readonly version: number;
+}
+
+export interface AiKnowledgeEvaluationMutation {
+  readonly deliveryState: string;
+  readonly replayed: boolean;
+  readonly savedRevisionId: string;
+  readonly workspace: null | AiKnowledgeEvaluationWorkspace;
+}
+
+export interface AiKnowledgeEvaluationOperation {
+  readonly currency: null | string;
+  readonly id: string;
+  readonly month: string;
+  readonly priceVersionId: null | string;
+  readonly recordedCost: null | string;
+  readonly reservedCost: null | string;
+  readonly stage: string;
+  readonly state: string;
+  readonly usageStatus: string;
+}
+
+export interface AiKnowledgeEvaluationPage {
+  readonly items: Array<AiKnowledgeEvaluationWorkspace>;
+  readonly nextAfterId: null | string;
+}
+
+export interface AiKnowledgeEvaluationPreparedFeedback {
+  readonly expiresAtUtc: string;
+  readonly persistenceToken: string;
+  readonly sampleHash: string;
+  readonly sourceHash: string;
+}
+
+export interface AiKnowledgeEvaluationRevision {
+  readonly cases: Array<AiKnowledgeEvaluationCase>;
+  readonly contentHash: string;
+  readonly createdAtUtc: string;
+  readonly id: string;
+  readonly name: string;
+  readonly number: number;
+  readonly restoredFromRevisionId: null | string;
+  readonly sourceCount: number;
+  readonly sourceHash: string;
+  readonly state: string;
+}
+
+export interface AiKnowledgeEvaluationRun {
+  readonly cases: Array<AiKnowledgeEvaluationCaseState>;
+  readonly createdAtUtc: string;
+  readonly failed: number;
+  readonly id: string;
+  readonly knowledgeBaseId: string;
+  readonly meanDurationMs: null | number | string;
+  readonly measured: number;
+  readonly notRun: number;
+  readonly p95DurationMs: null | number | string;
+  readonly running: number;
+  readonly setRevisionId: string;
+  readonly skipped: number;
+  readonly state: string;
+  readonly strategyId: string;
+  readonly strategyRevisionId: string;
+  readonly succeeded: number;
+  readonly total: number;
+  readonly unknown: number;
+  readonly version: number;
+}
+
+export interface AiKnowledgeEvaluationRunAdmission {
+  readonly budgetPolicy: string;
+  readonly caseCount: number;
+  readonly digest: string;
+  readonly maximumModelCalls: number;
+  readonly measurementProtocol: string;
+  readonly setRevisionId: string;
+  readonly strategyId: string;
+  readonly strategyRevisionId: string;
+  readonly strategyVersion: number;
+}
+
+export interface AiKnowledgeEvaluationStrategy {
+  readonly baseline: string;
+  readonly candidate: string;
+  readonly createdAtUtc: string;
+  readonly definitionHash: string;
+  readonly embeddingModel: AiKnowledgeEvaluationModel;
+  readonly id: string;
+  readonly knowledgeBaseId: string;
+  readonly name: string;
+  readonly processingModel: null | AiKnowledgeEvaluationModel;
+  readonly protocol: string;
+  readonly revisionId: string;
+  readonly setApprovalId: string;
+  readonly setContentHash: string;
+  readonly setId: string;
+  readonly setRevisionId: string;
+  readonly setSourceHash: string;
+  readonly setVersion: number;
+  readonly sources: Array<AiKnowledgeSearchSource>;
+  readonly version: number;
+}
+
+export interface AiKnowledgeEvaluationWorkspace {
+  readonly approvalId: null | string;
+  readonly approvalState: string;
+  readonly canIndependentlyApprove: boolean;
+  readonly id: string;
+  readonly knowledgeBaseId: string;
+  readonly revision: AiKnowledgeEvaluationRevision;
+  readonly version: number;
+}
+
+export interface AiKnowledgeFaqCitationResponse {
+  readonly embeddingModelConfigId: string;
+  readonly embeddingModelVersion: number;
+  readonly source: AiKnowledgeSearchSource;
+}
+
+export interface AiKnowledgeFaqContent {
+  readonly aliases: Array<string>;
+  readonly answer: string;
+  readonly category: string;
+  readonly expiresAtUtc: null | string;
+  readonly question: string;
+  readonly validFromUtc: null | string;
+}
+
+export interface AiKnowledgeFaqDocumentSelection {
+  readonly embeddingModelConfigId: string;
+  readonly embeddingModelVersion: number;
+  readonly personalSchedules?: null | Array<AiPersonalScheduleSourceSelection>;
+  readonly sources: Array<AiKnowledgeSearchSource>;
+}
+
+export interface AiKnowledgeFaqDraftMutation {
+  readonly replayed: boolean;
+  readonly savedRevisionId: string;
+  readonly workspace: AiKnowledgeFaqDraftWorkspace;
+}
+
+export interface AiKnowledgeFaqDraftPage {
+  readonly items: Array<AiKnowledgeFaqDraftWorkspace>;
+  readonly nextAfterId: null | string;
+}
+
+export interface AiKnowledgeFaqDraftRevision {
+  readonly content: AiKnowledgeFaqContent;
+  readonly contentHash: string;
+  readonly createdAtUtc: string;
+  readonly id: string;
+  readonly number: number;
+  readonly restoredFromRevisionId: null | string;
+}
+
+export interface AiKnowledgeFaqDraftRevisionPage {
+  readonly items: Array<AiKnowledgeFaqDraftRevision>;
+  readonly nextAfterId: null | string;
+}
+
+export interface AiKnowledgeFaqDraftWorkspace {
+  readonly basis: null | string;
+  readonly feedback?: null | AiKnowledgeFaqFeedbackSource;
+  readonly graph?: null | AiKnowledgeFaqSourceGraph;
+  readonly headVersion: number;
+  readonly id: string;
+  readonly knowledgeBaseId: string;
+  readonly origin: string;
+  readonly personalSchedules?: null | Array<AiPersonalScheduleSourceSelection>;
+  readonly reservedDocumentId: string;
+  readonly revision: AiKnowledgeFaqDraftRevision;
+  readonly sourceHash: string;
+  readonly sources: Array<AiKnowledgeSearchSource>;
+  readonly state: string;
+}
+
+export interface AiKnowledgeFaqFeedbackDraftInput {
+  readonly aliases: Array<string>;
+  readonly category: string;
+  readonly expiresAtUtc: null | string;
+  readonly question: string;
+  readonly validFromUtc: null | string;
+}
+
+export interface AiKnowledgeFaqFeedbackPreview {
+  readonly answer: string;
+  readonly digest: string;
+  readonly feedback: AiKnowledgeFaqFeedbackSource;
+  readonly graph: null | AiKnowledgeFaqSourceGraph;
+  readonly personalSchedules?: null | Array<AiPersonalScheduleSourceSelection>;
+  readonly sourceHash: string;
+  readonly sources: Array<AiKnowledgeSearchSource>;
+}
+
+export interface AiKnowledgeFaqFeedbackSource {
+  readonly answerHash: string;
+  readonly feedbackId: string;
+  readonly feedbackVersion: number;
+  readonly lineageHash: string;
+  readonly messageId: string;
+  readonly reviewId: string;
+  readonly reviewVersion: number;
+}
+
+export interface AiKnowledgeFaqImportItemResult {
+  readonly faqId: null | string;
+  readonly index: number;
+  readonly savedRevisionId: null | string;
+  readonly status: string;
+}
+
+export interface AiKnowledgeFaqImportReport {
+  readonly digest: string;
+  readonly items: Array<AiKnowledgeFaqImportItemResult>;
+}
+
+export interface AiKnowledgeFaqIndexAdmission {
+  readonly faqId: string;
+  readonly replayed: boolean;
+  readonly revisionId: string;
+  readonly state: string;
+  readonly taskId: string;
+  readonly versionId: string;
+}
+
+export interface AiKnowledgeFaqLifecycle {
+  readonly documentId: string;
+  readonly effectiveFromUtc: null | string;
+  readonly effectiveToUtc: null | string;
+  readonly faqId: string;
+  readonly headVersion: number;
+  readonly indexState: string;
+  readonly pendingPublicationId: null | string;
+  readonly publicationId: null | string;
+  readonly publicationState: string;
+  readonly publicationVersion: number;
+  readonly publishedRevisionId: null | string;
+  readonly revisionId: string;
+  readonly taskId: null | string;
+  readonly versionId: null | string;
+}
+
+export interface AiKnowledgeFaqPublication {
+  readonly basis: null | string;
+  readonly content: AiKnowledgeFaqContent;
+  readonly current: boolean;
+  readonly effectiveFromUtc: string;
+  readonly effectiveToUtc: string;
+  readonly expectedPublicationVersion: number;
+  readonly faqId: string;
+  readonly feedback?: null | AiKnowledgeFaqFeedbackSource;
+  readonly generationId: string;
+  readonly graph?: null | AiKnowledgeFaqSourceGraph;
+  readonly id: string;
+  readonly origin: string;
+  readonly personalSchedules?: null | Array<AiPersonalScheduleSourceSelection>;
+  readonly requestedByUserId: string;
+  readonly reviewedByUserId: null | string;
+  readonly revisionId: string;
+  readonly snapshotHash: string;
+  readonly sourceHash: string;
+  readonly sources: Array<AiKnowledgeSearchSource>;
+  readonly state: string;
+  readonly version: number;
+  readonly versionId: string;
+}
+
+export interface AiKnowledgeFaqPublishedContent {
+  readonly basis: null | string;
+  readonly content: AiKnowledgeFaqContent;
+  readonly effectiveFromUtc: string;
+  readonly effectiveToUtc: string;
+  readonly faqId: string;
+  readonly feedback?: null | AiKnowledgeFaqFeedbackSource;
+  readonly graph?: null | AiKnowledgeFaqSourceGraph;
+  readonly origin: string;
+  readonly personalSchedules?: null | Array<AiPersonalScheduleSourceSelection>;
+  readonly publicationId: string;
+  readonly revisionId: string;
+  readonly sourceHash: string;
+  readonly sources: Array<AiKnowledgeSearchSource>;
+}
+
+export interface AiKnowledgeFaqSourceGraph {
+  readonly nodes: Array<AiKnowledgeFaqSourceNode>;
+  readonly roots: Array<string>;
+}
+
+export interface AiKnowledgeFaqSourceNode {
+  readonly parentDocumentIds: Array<string>;
+  readonly source: AiKnowledgeSearchSource;
+}
+
+export interface AiKnowledgeFaqTransferItem {
+  readonly basis: null | string;
+  readonly content: AiKnowledgeFaqContent;
+  readonly contentHash: string;
+  readonly faqId: string;
+  readonly feedback?: null | AiKnowledgeFaqFeedbackSource;
+  readonly graph?: null | AiKnowledgeFaqSourceGraph;
+  readonly headVersion: number;
+  readonly knowledgeBaseId: string;
+  readonly origin: string;
+  readonly personalSchedules?: null | Array<AiPersonalScheduleSourceSelection>;
+  readonly revisionId: string;
+  readonly sourceHash: string;
+  readonly sources: Array<AiKnowledgeSearchSource>;
+}
+
+export interface AiKnowledgeFaqTransferPackage {
+  readonly format: string;
+  readonly items: Array<AiKnowledgeFaqTransferItem>;
+}
+
+export interface AiKnowledgeFinanceBucket {
+  readonly attribution: string;
+  readonly conservativeReservation: null | string;
+  readonly currency: null | string;
+  readonly knowledgeBaseId: null | string;
+  readonly known: number;
+  readonly missingCost: number;
+  readonly month: string;
+  readonly priceVersionId: null | string;
+  readonly recordedCost: null | string;
+  readonly requests: number;
+  readonly reserved: number;
+  readonly unknown: number;
+}
+
+export interface AiKnowledgeFinanceReport {
+  readonly fromUtc: string;
+  readonly items: Array<AiKnowledgeFinanceBucket>;
+  readonly measurementState: string;
+  readonly toUtc: string;
+}
+
+export interface AiKnowledgeFolderResponse {
+  readonly id: string;
+  readonly knowledgeBaseId: string;
+  readonly name: string;
+  readonly parentId: null | string;
+  readonly version: number;
 }
 
 export interface AiKnowledgeGridLocationResponse {
@@ -448,6 +1013,37 @@ export interface AiKnowledgeMembersResponse {
   readonly version: number;
 }
 
+export interface AiKnowledgeOperationItem {
+  readonly attemptCount: number;
+  readonly createdAtUtc: string;
+  readonly documentId: string;
+  readonly effectiveFromUtc: null | string;
+  readonly effectiveToUtc: null | string;
+  readonly failureCode: null | string;
+  readonly faqId: null | string;
+  readonly hasActiveGeneration: boolean;
+  readonly knowledgeBaseId: string;
+  readonly preparationState: string;
+  readonly publicationId: null | string;
+  readonly publicationState: string;
+  readonly publicationVersionId: null | string;
+  readonly reviewState: string;
+  readonly sourceKind: string;
+  readonly taskId: null | string;
+  readonly taskState: string;
+  readonly taskUpdatedAtUtc: null | string;
+  readonly versionId: string;
+  readonly versionNumber: number;
+}
+
+export interface AiKnowledgeOperationsPage {
+  readonly fromUtc: string;
+  readonly items: Array<AiKnowledgeOperationItem>;
+  readonly nextAfterId: null | string;
+  readonly toUtc: string;
+  readonly view: string;
+}
+
 export interface AiKnowledgeOrganizationCandidateResponse {
   readonly code: string;
   readonly id: string;
@@ -460,6 +1056,44 @@ export interface AiKnowledgeOrganizationGrantsResponse {
   readonly version: number;
 }
 
+export interface AiKnowledgePublicationHeadResponse {
+  readonly documentId: string;
+  readonly publicationId: null | string;
+  readonly version: number;
+}
+
+export interface AiKnowledgePublicationResponse {
+  readonly actorUserId: string;
+  readonly createdAtUtc: string;
+  readonly documentId: string;
+  readonly effectiveFromUtc: string;
+  readonly effectiveToUtc: string;
+  readonly expectedHeadVersion: number;
+  readonly generationId: string;
+  readonly id: string;
+  readonly policyVersion: number;
+  readonly reviewedAtUtc: null | string;
+  readonly reviewerUserId: null | string;
+  readonly snapshotHash: string;
+  readonly stateKey: string;
+  readonly version: number;
+  readonly versionId: string;
+}
+
+export interface AiKnowledgeQualityObservation {
+  readonly currentNegativeFeedback: number;
+  readonly firstRecordedAtUtc: null | string;
+  readonly fromUtc: string;
+  readonly historicalCoverage: string;
+  readonly knowledgeBaseId: string;
+  readonly meanPipelineMs: null | number | string;
+  readonly measured: number;
+  readonly measurementProtocol: string;
+  readonly recordedAnswers: number;
+  readonly refused: number;
+  readonly toUtc: string;
+}
+
 export interface AiKnowledgeRoleCandidateResponse {
   readonly code: string;
   readonly id: string;
@@ -470,6 +1104,143 @@ export interface AiKnowledgeRoleGrantsResponse {
   readonly resourceId: string;
   readonly roleIds: Array<string>;
   readonly version: number;
+}
+
+export interface AiKnowledgeSearchAnswerScope {
+  readonly documentIds: Array<string>;
+  readonly embeddingModelVersion: number;
+  readonly sources: Array<AiKnowledgeSearchSource>;
+}
+
+export interface AiKnowledgeSearchComparisonRanking {
+  readonly hasMore: boolean;
+  readonly hits: Array<AiKnowledgeSearchHit>;
+  readonly scoreKind: string;
+  readonly strategy: string;
+}
+
+export interface AiKnowledgeSearchComparisonResponse {
+  readonly diagnostics: null | AiKnowledgeSearchDiagnostics;
+  readonly keyword: AiKnowledgeSearchComparisonRanking;
+  readonly query: string;
+  readonly sources: Array<AiKnowledgeSearchSource>;
+  readonly strategy: string;
+  readonly usage: AiKnowledgeSearchComparisonUsage;
+  readonly vector: AiKnowledgeSearchComparisonRanking;
+}
+
+export interface AiKnowledgeSearchComparisonUsage {
+  readonly operationId: string;
+  readonly status: string;
+}
+
+export interface AiKnowledgeSearchContextBlock {
+  readonly correction: null | AiKnowledgeCorrectionCitationResponse;
+  readonly docxLocation: null | AiKnowledgeDocxLocationResponse;
+  readonly length: null | number;
+  readonly offset: null | number;
+  readonly pageNumber: null | number;
+  readonly sequence: number;
+  readonly sourceLocation: null | AiKnowledgeSourceLocationResponse;
+  readonly text: string;
+}
+
+export interface AiKnowledgeSearchContextResponse {
+  readonly anchorSequence: number;
+  readonly blocks: Array<AiKnowledgeSearchContextBlock>;
+  readonly documentMetadataVersion: number;
+  readonly documentTitle: string;
+  readonly hasNextBlocks: boolean;
+  readonly hasPreviousBlocks: boolean;
+  readonly radius: number;
+  readonly source: AiKnowledgeSearchSource;
+  readonly strategy: string;
+}
+
+export interface AiKnowledgeSearchDiagnostics {
+  readonly candidateCount: number;
+  readonly scoreKind: string;
+  readonly sourceCount: number;
+}
+
+export interface AiKnowledgeSearchHit {
+  readonly correction: null | AiKnowledgeCorrectionCitationResponse;
+  readonly documentMetadataVersion: number;
+  readonly documentTitle: string;
+  readonly docxLocation: null | AiKnowledgeDocxLocationResponse;
+  readonly length: null | number;
+  readonly offset: null | number;
+  readonly pageNumber: null | number;
+  readonly score: number | string;
+  readonly sequence: number;
+  readonly source: AiKnowledgeSearchSource;
+  readonly sourceLocation: null | AiKnowledgeSourceLocationResponse;
+  readonly text: string;
+}
+
+export interface AiKnowledgeSearchRefinementOperation {
+  readonly operationId: string;
+  readonly stage: string;
+  readonly status: string;
+}
+
+export interface AiKnowledgeSearchRefinementResponse {
+  readonly diagnostics: null | AiKnowledgeSearchDiagnostics;
+  readonly effectiveQuery: string;
+  readonly mode: string;
+  readonly operations: Array<AiKnowledgeSearchRefinementOperation>;
+  readonly originalKeyword: AiKnowledgeSearchComparisonRanking;
+  readonly originalVector: AiKnowledgeSearchComparisonRanking;
+  readonly processingModelConfigId: string;
+  readonly processingModelVersion: number;
+  readonly query: string;
+  readonly refusedStage: null | string;
+  readonly rerankCandidateCount: null | number;
+  readonly reranked: null | AiKnowledgeSearchComparisonRanking;
+  readonly rewrittenKeyword: null | AiKnowledgeSearchComparisonRanking;
+  readonly rewrittenVector: null | AiKnowledgeSearchComparisonRanking;
+  readonly sources: Array<AiKnowledgeSearchSource>;
+  readonly strategy: string;
+}
+
+export interface AiKnowledgeSearchRelation {
+  readonly childLocation: AiKnowledgeSourceLocationResponse;
+  readonly childSequence: number;
+  readonly parentLocation: AiKnowledgeSourceLocationResponse;
+  readonly parentSequence: null | number;
+}
+
+export interface AiKnowledgeSearchRelationsResponse {
+  readonly anchorSequence: number;
+  readonly blocks: Array<AiKnowledgeSearchContextBlock>;
+  readonly documentMetadataVersion: number;
+  readonly documentTitle: string;
+  readonly relations: Array<AiKnowledgeSearchRelation>;
+  readonly relationState: string;
+  readonly source: AiKnowledgeSearchSource;
+  readonly strategy: string;
+}
+
+export interface AiKnowledgeSearchResponse {
+  readonly diagnostics: null | AiKnowledgeSearchDiagnostics;
+  readonly hits: Array<AiKnowledgeSearchHit>;
+  readonly sources: Array<AiKnowledgeSearchSource>;
+  readonly strategy: string;
+  readonly totalMatches: number;
+}
+
+export interface AiKnowledgeSearchSource {
+  readonly documentId: string;
+  readonly documentVersion: number;
+  readonly faqId?: null | string;
+  readonly faqRevisionId?: null | string;
+  readonly generationId: string;
+  readonly knowledgeBaseId: string;
+  readonly knowledgeBaseVersion: number;
+  readonly manifestHash: string;
+  readonly publicationId: string;
+  readonly sourceKind?: string;
+  readonly versionId: string;
 }
 
 export interface AiKnowledgeSlideLocationResponse {
@@ -588,6 +1359,64 @@ export interface AiModelConfigResponse {
   readonly version: number;
 }
 
+export interface AiPersonalScheduleCitationResponse {
+  readonly id: string;
+  readonly kind: string;
+  readonly projectionHash: string;
+  readonly purpose: string;
+  readonly scheduleId: string;
+  readonly version: number;
+}
+
+export interface AiPersonalScheduleCompletionProposal {
+  readonly argumentsJson: string;
+  readonly expectedVersion: number;
+  readonly operationId: string;
+  readonly runId: string;
+  readonly scheduleId: string;
+  readonly toolName: string;
+  readonly toolVersion: number;
+}
+
+export interface AiPersonalScheduleCompletionStatus {
+  readonly actualVersion: null | number;
+  readonly completedAtUtc: null | string;
+  readonly expectedVersion: number;
+  readonly operationId: string;
+  readonly reason: null | string;
+  readonly runId: string;
+  readonly scheduleId: string;
+  readonly state: string;
+}
+
+export interface AiPersonalScheduleCompletionTarget {
+  readonly id: string;
+  readonly version: number;
+}
+
+export interface AiPersonalScheduleSource {
+  readonly content: string;
+  readonly endAtUtc: string;
+  readonly id: string;
+  readonly kind: string;
+  readonly projectionHash: string;
+  readonly purpose: string;
+  readonly startAtUtc: string;
+  readonly status: string;
+  readonly version: number;
+}
+
+export interface AiPersonalScheduleSourcePreview {
+  readonly classification: string;
+  readonly sources: Array<AiPersonalScheduleSource>;
+}
+
+export interface AiPersonalScheduleSourceSelection {
+  readonly id: string;
+  readonly projectionHash: string;
+  readonly version: number;
+}
+
 export interface AiPromptBody {
   readonly execution?: null | AiPromptExecutionBinding;
   readonly inputTokenLimit: number;
@@ -683,7 +1512,9 @@ export interface ArchiveInboxMessagesRequest {
 export interface AskAiKnowledgeRequest {
   readonly embeddingModelConfigId: string;
   readonly knowledgeBaseIds: Array<string>;
+  readonly personalSchedules?: null | Array<AiPersonalScheduleSourceSelection>;
   readonly question: string;
+  readonly searchScope?: null | AiKnowledgeSearchAnswerScope;
 }
 
 export interface AskAiKnowledgeResponse {
@@ -907,6 +1738,22 @@ export interface CancelDataApprovalRequestBody {
   readonly idempotencyKey: string;
 }
 
+export interface CancelDocumentPreviewTaskRequest {
+  readonly version: number;
+}
+
+export interface CancelEnterpriseRequestReportRequest {
+  readonly version: string;
+}
+
+export interface CancelImportExportTaskRequest {
+  readonly version: number;
+}
+
+export interface CancelReportingExportTaskRequest {
+  readonly version: number;
+}
+
 export interface CancelWorkflowInstanceRequest {
   readonly expectedRevision: number;
   readonly idempotencyKey: string;
@@ -919,11 +1766,33 @@ export interface CancelWorkflowTodoCountersignRequest {
   readonly idempotencyKey: string;
 }
 
+export interface CaptureAiKnowledgeEvaluationStrategy {
+  readonly baseline: string;
+  readonly candidate: string;
+  readonly documentIds: Array<string>;
+  readonly embeddingModelConfigId: string;
+  readonly embeddingModelVersion: number;
+  readonly expectedSources: Array<AiKnowledgeSearchSource>;
+  readonly expectedVersion: number;
+  readonly name: string;
+  readonly processingModelConfigId: null | string;
+  readonly processingModelVersion: null | number;
+  readonly requestKey: string;
+  readonly setApprovalId: string;
+  readonly setId: string;
+  readonly setRevisionId: string;
+  readonly setVersion: number;
+}
+
 export interface ChangeDeliveryOwnerRequest {
   readonly eventType: string;
   readonly reason: string;
   readonly schemaVersion: number;
   readonly targetOwner: EventDeliveryOwner;
+}
+
+export interface ChangeHostDocumentStatusRequest {
+  readonly version: number;
 }
 
 export interface ChangeHostJobScheduleStateRequest {
@@ -954,6 +1823,13 @@ export interface ClaimWorkflowPoolRequest {
 
 export interface CloseShadowCaptureRequest {
   readonly reason: string;
+}
+
+export interface CodeGenerationApplyPlanFileResponse {
+  readonly afterSha256: null | string;
+  readonly beforeSha256: null | string;
+  readonly kind: string;
+  readonly relativePath: string;
 }
 
 export interface CodeGenerationCatalogColumnListResponse {
@@ -1106,21 +1982,42 @@ export interface CodeGenerationRelationshipRequest {
   readonly dependentColumnName: string;
   readonly dependentDataScope: string;
   readonly dependentEntityKey: string;
+  readonly dependentSchema?: null | CodeGenerationPreviewRequest;
   readonly principalColumnName: string;
   readonly principalDataScope: string;
   readonly principalEntityKey: string;
+  readonly principalSchema?: null | CodeGenerationPreviewRequest;
+}
+
+export interface CodeGenerationRunApplyPlanRequest {
+  readonly integrationTarget?: null | CodeGenerationIntegrationTargetRequest;
+  readonly previewRunId: string;
+}
+
+export interface CodeGenerationRunApplyPlanResponse {
+  readonly expiresAtUtc: string;
+  readonly files: Array<CodeGenerationApplyPlanFileResponse>;
+  readonly generatorVersion: string;
+  readonly planId: string;
+  readonly planSha256: string;
+  readonly previewRunId: string;
+  readonly workspaceId: string;
+  readonly workspaceRevision: number;
 }
 
 export interface CodeGenerationRunApplyRequest {
-  readonly integrationTarget?: null | CodeGenerationIntegrationTargetRequest;
-  readonly previewRunId: string;
+  readonly idempotencyKey: string;
+  readonly planId: string;
+  readonly planSha256: string;
 }
 
 export interface CodeGenerationRunApplyResponse {
   readonly artifactCount: number;
   readonly changedArtifactCount: number;
+  readonly commitSha?: null | string;
   readonly manifestSha256: string;
   readonly previewRunId: string;
+  readonly publicationStatus?: string;
   readonly runId: string;
 }
 
@@ -1135,8 +2032,15 @@ export interface CodeGenerationRunPreviewResponse {
   readonly runId: string;
 }
 
+export interface CodeGenerationRunPublicationResponse {
+  readonly commitSha: null | string;
+  readonly publicationStatus: string;
+  readonly runId: string;
+}
+
 export interface CodeGenerationRunResponse {
   readonly artifactCount: number;
+  readonly commitSha?: null | string;
   readonly entityKey: null | string;
   readonly errorCode: null | string;
   readonly finishedAtUtc: string;
@@ -1144,6 +2048,7 @@ export interface CodeGenerationRunResponse {
   readonly manifestSha256: null | string;
   readonly moduleKey: null | string;
   readonly operationKind: string;
+  readonly publicationStatus?: string;
   readonly requestedByUserId: string;
   readonly schemaSha256: null | string;
   readonly sourceApplyRunId: null | string;
@@ -1169,7 +2074,9 @@ export interface CodeGenerationRunRollbackResponse {
   readonly applyRunId: string;
   readonly artifactCount: number;
   readonly changedArtifactCount: number;
+  readonly commitSha?: null | string;
   readonly manifestSha256: string;
+  readonly publicationStatus?: string;
   readonly runId: string;
 }
 
@@ -1184,6 +2091,30 @@ export interface CodeGenerationTemplateResponse {
   readonly updatedAtUtc: null | string;
   readonly updatedByUserId: null | string;
   readonly version: number;
+}
+
+export interface CodeGenerationWorkspaceRecoveryRequest {
+  readonly operationId: string;
+}
+
+export interface CodeGenerationWorkspaceStateResponse {
+  readonly lastOperationId: null | string;
+  readonly pendingClient: null | string;
+  readonly pendingKind: null | string;
+  readonly pendingOperationId: null | string;
+  readonly phase: string;
+  readonly revision: number;
+  readonly tipOperationId: null | string;
+  readonly workspaceId: string;
+}
+
+export interface CompareAiKnowledgeSearchRequest {
+  readonly embeddingModelConfigId: string;
+  readonly includeDiagnostics: boolean;
+  readonly knowledgeBaseIds: Array<string>;
+  readonly limit: number;
+  readonly query: string;
+  readonly searchScope: AiKnowledgeSearchAnswerScope;
 }
 
 export interface ConfigEntryResponse {
@@ -1219,6 +2150,18 @@ export interface ConfirmOcrIdCardTaskRequest {
 
 export interface ConfirmTotpEnrollmentRequest {
   readonly totpCode: string;
+}
+
+export interface CopyAiKnowledgeEvaluationSet {
+  readonly expectedRevisionId: string;
+  readonly expectedVersion: number;
+  readonly requestKey: string;
+}
+
+export interface CopyAiKnowledgeFaqDraft {
+  readonly expectedHeadVersion: number;
+  readonly expectedRevisionId: string;
+  readonly requestKey: string;
 }
 
 export interface CopyHostRoleRequest {
@@ -1280,8 +2223,10 @@ export interface CreateAiAgentRunRequest {
   readonly inputTokenLimit: number;
   readonly modelConfigId: string;
   readonly outputTokenLimit: number;
+  readonly personalScheduleTarget?: null | AiPersonalScheduleCompletionTarget;
   readonly prompt: string;
   readonly promptVersionId?: null | string;
+  readonly targetChatSessionId?: null | string;
 }
 
 export interface CreateAiAgentRunResponse {
@@ -1301,6 +2246,38 @@ export interface CreateAiKnowledgeBaseRequest {
 export interface CreateAiKnowledgeDocumentRequest {
   readonly description: null | string;
   readonly title: string;
+}
+
+export interface CreateAiKnowledgeEvaluationRun {
+  readonly admissionDigest: string;
+  readonly confirmPaidModelCalls: boolean;
+  readonly requestKey: string;
+  readonly strategyRevisionId: string;
+}
+
+export interface CreateAiKnowledgeFaqDerivedDraft {
+  readonly content: AiKnowledgeFaqContent;
+  readonly requestKey: string;
+  readonly selection: AiKnowledgeFaqDocumentSelection;
+}
+
+export interface CreateAiKnowledgeFaqDocumentDraft {
+  readonly content: AiKnowledgeFaqContent;
+  readonly requestKey: string;
+  readonly selection: AiKnowledgeFaqDocumentSelection;
+}
+
+export interface CreateAiKnowledgeFaqFeedbackDraft {
+  readonly content: AiKnowledgeFaqFeedbackDraftInput;
+  readonly digest: string;
+  readonly feedbackId: string;
+  readonly requestKey: string;
+}
+
+export interface CreateAiKnowledgeFaqIndependentDraft {
+  readonly basis: string;
+  readonly content: AiKnowledgeFaqContent;
+  readonly requestKey: string;
 }
 
 export interface CreateAiKnowledgeIndexGrantRequest {
@@ -1375,12 +2352,17 @@ export interface CreateDictTypeRequest {
   readonly name: string;
 }
 
+export interface CreateEnterpriseRequestReportRequest {
+  readonly idempotencyKey: string;
+  readonly requestVersion: string;
+}
+
 export interface CreateEnterpriseRequestRequest {
   readonly applicantUserId: string;
   readonly requestNumber: string;
   readonly status: string;
   readonly title: string;
-  readonly totalAmount: number | string;
+  readonly totalAmount: string;
 }
 
 export interface CreateGoViewProjectRequest {
@@ -1641,6 +2623,13 @@ export interface CreateOrganizationUserUnitRequest {
   readonly userId: string;
 }
 
+export interface CreatePaidTenantSubscriptionRequest {
+  readonly effectiveFromUtc: string;
+  readonly idempotencyKey: string;
+  readonly offerVersion: number;
+  readonly packageId: string;
+}
+
 export interface CreatePaymentMerchantConfigRequest {
   readonly apiV3Key: null | string;
   readonly appId: string;
@@ -1771,6 +2760,24 @@ export interface CurrentUserResponse {
   readonly username: string;
 }
 
+export interface CursorPageOfImportExportTaskResponse {
+  readonly hasMore: boolean;
+  readonly items: Array<ImportExportTaskResponse>;
+  readonly nextCursor: null | string;
+}
+
+export interface CursorPageOfQuerySchemeSummary {
+  readonly hasMore: boolean;
+  readonly items: Array<QuerySchemeSummary>;
+  readonly nextCursor: null | string;
+}
+
+export interface CursorPageOfReportingExportTaskResponse {
+  readonly hasMore: boolean;
+  readonly items: Array<ReportingExportTaskResponse>;
+  readonly nextCursor: null | string;
+}
+
 export interface CutoverEvidenceResponse {
   readonly eventType: string;
   readonly expiresAtUtc: string;
@@ -1825,6 +2832,12 @@ export interface DecideAiAgentApprovalRequest {
   readonly expectedVersion: number;
 }
 
+export interface DefaultQuerySchemeResponse {
+  readonly isUnavailable: boolean;
+  readonly scheme: null | QuerySchemeDetail;
+  readonly version: number;
+}
+
 export interface DelegateWorkflowTodoRequest {
   readonly assigneeUserId: string;
   readonly comment: null | string;
@@ -1839,6 +2852,10 @@ export interface DeleteAdministrativeRegionRequest {
 }
 
 export interface DeleteAiKnowledgeDocumentRequest {
+  readonly version: number;
+}
+
+export interface DeleteAiKnowledgeFolder {
   readonly version: number;
 }
 
@@ -1858,8 +2875,13 @@ export interface DeleteDictTypeRequest {
   readonly version: number;
 }
 
+export interface DeleteEnterpriseRequestAttachmentRequest {
+  readonly attachmentVersion: string;
+  readonly requestVersion: string;
+}
+
 export interface DeleteEnterpriseRequestRequest {
-  readonly version: number;
+  readonly version: string;
 }
 
 export interface DeleteHostDocumentCategoryRequest {
@@ -1887,6 +2909,14 @@ export interface DeleteHostJobDefinitionRequest {
 }
 
 export interface DeleteHostReleaseNoteRequest {
+  readonly version: number;
+}
+
+export interface DeleteImportProfileRequest {
+  readonly version: number;
+}
+
+export interface DeleteQuerySchemeRequest {
   readonly version: number;
 }
 
@@ -1983,6 +3013,45 @@ export interface DisableHostJobDefinitionRequest {
   readonly version: number;
 }
 
+export interface DocumentPreviewCapabilities {
+  readonly allowedMimeTypes: Array<string>;
+  readonly enabled: boolean;
+  readonly maxAttempts: number;
+  readonly maxInputBytes: number;
+  readonly providerKey: string;
+}
+
+export interface EnterpriseRequestAttachmentResponse {
+  readonly contentType: string;
+  readonly createdAtUtc: string;
+  readonly fileName: string;
+  readonly id: string;
+  readonly phase: string;
+  readonly requestId: string;
+  readonly sizeBytes: string;
+  readonly version: string;
+}
+
+export interface EnterpriseRequestPrintResponse {
+  readonly generatedAtUtc: string;
+  readonly html: string;
+  readonly includesAmounts: boolean;
+  readonly requestId: string;
+  readonly requestVersion: string;
+}
+
+export interface EnterpriseRequestReportResponse {
+  readonly attempt: number;
+  readonly createdAtUtc: string;
+  readonly errorCode: null | string;
+  readonly expiresAtUtc: string;
+  readonly id: string;
+  readonly includesAmounts: boolean;
+  readonly phase: string;
+  readonly requestId: string;
+  readonly version: string;
+}
+
 export interface EnterpriseRequestResponse {
   readonly applicantUserId: string;
   readonly createdAtUtc: string;
@@ -1996,10 +3065,24 @@ export interface EnterpriseRequestResponse {
   readonly status: string;
   readonly tenantId: string;
   readonly title: string;
-  readonly totalAmount: number | string;
+  readonly totalAmount: string;
   readonly updatedAtUtc: null | string;
   readonly updatedById: null | string;
-  readonly version: number;
+  readonly version: string;
+}
+
+export interface EnterpriseRequestSearchHit {
+  readonly id: string;
+  readonly number: string;
+  readonly title: string;
+}
+
+export interface EnterpriseRequestSearchPage {
+  readonly hasMore: boolean;
+  readonly isTruncated: boolean;
+  readonly items: Array<EnterpriseRequestSearchHit>;
+  readonly page: number;
+  readonly windowDays: number;
 }
 
 export interface EnumCatalogDetail {
@@ -2093,9 +3176,18 @@ export interface ExceptionLogResponse {
   readonly userId: null | string;
 }
 
+export interface ExecuteAiKnowledgeEvaluationCase {
+  readonly expectedVersion: number;
+  readonly requestKey: string;
+}
+
 export interface ExecuteReportingDefinitionRequest {
   readonly parameters: Array<ReportingExecutionParameterValue>;
   readonly versionNumber: null | number;
+}
+
+export interface ExportAiKnowledgeFaqs {
+  readonly faqIds: Array<string>;
 }
 
 export type FieldProjectionDefaultVisibility = number;
@@ -2171,6 +3263,14 @@ export interface GrantSuperAdministratorRequest {
   readonly currentPassword: string;
   readonly totpCode?: null | string;
   readonly username: string;
+}
+
+export interface GridColumnPreference {
+  readonly columnKey: string;
+  readonly fixed: null | string;
+  readonly order: number;
+  readonly visible: boolean;
+  readonly width: null | number;
 }
 
 export interface HostAnnouncementReadReceiptResponse {
@@ -2291,6 +3391,7 @@ export interface HostDocumentCategoryResponse {
 
 export interface HostDocumentItemResponse {
   readonly accessCount: number;
+  readonly appliedVersionId?: null | string;
   readonly categoryColor: null | string;
   readonly categoryId: null | string;
   readonly categoryName: null | string;
@@ -2304,6 +3405,7 @@ export interface HostDocumentItemResponse {
   readonly documentType: HostDocumentType;
   readonly id: string;
   readonly lastAccessTime: null | string;
+  readonly mimeType?: null | string;
   readonly sizeKb: number;
   readonly sort: number;
   readonly status: HostDocumentStatus;
@@ -2313,28 +3415,39 @@ export interface HostDocumentItemResponse {
   readonly updatedAtUtc: null | string;
   readonly updatedByUserId: null | string;
   readonly version: number;
+  readonly visibilityMode?: string;
+}
+
+export interface HostDocumentPermissionContext {
+  readonly documentId: string;
+  readonly documentNo: string;
+  readonly title: string;
+  readonly version: number;
+  readonly visibilityMode: string;
 }
 
 export interface HostDocumentPermissionEntry {
-  readonly permissionLevel: string;
+  readonly actions: Array<string>;
   readonly userId: string;
 }
 
 export interface HostDocumentPermissionResponse {
+  readonly actions: Array<string>;
   readonly createdAtUtc: string;
   readonly documentId: string;
   readonly id: string;
-  readonly permissionLevel: string;
   readonly userId: string;
 }
 
 export interface HostDocumentPreviewTaskResponse {
+  readonly attemptCount?: number;
   readonly completedAtUtc: null | string;
   readonly createdAtUtc: string;
   readonly documentItemId: string;
   readonly documentTitle: string;
   readonly errorCode: null | string;
   readonly id: string;
+  readonly nextAttemptAtUtc?: null | string;
   readonly outputFileId: null | string;
   readonly previewGrant?: null | string;
   readonly previewPollUntilUtc?: null | string;
@@ -2345,6 +3458,20 @@ export interface HostDocumentPreviewTaskResponse {
   readonly statusKey: string;
   readonly version: number;
   readonly versionId: null | string;
+}
+
+export interface HostDocumentSearchHit {
+  readonly id: string;
+  readonly number: null | string;
+  readonly title: string;
+}
+
+export interface HostDocumentSearchPage {
+  readonly hasMore: boolean;
+  readonly isTruncated: boolean;
+  readonly items: Array<HostDocumentSearchHit>;
+  readonly page: number;
+  readonly windowDays: number;
 }
 
 export interface HostDocumentShareAccessResponse {
@@ -2388,10 +3515,14 @@ export interface HostDocumentStatisticsResponse {
   readonly todayAccessCount: number;
   readonly todayCreatedCount: number;
   readonly todayDownloadCount: number;
+  readonly todayPreviewCount?: number;
+  readonly todayShareAccessCount?: number;
 }
 
 export interface HostDocumentStatisticsSummaryResponse {
+  readonly historySizeBytes?: number;
   readonly totalItems: number;
+  readonly totalSizeBytes?: number;
   readonly totalSizeInfo: string;
   readonly totalSizeKb: number;
   readonly totalVersions: number;
@@ -2400,6 +3531,7 @@ export interface HostDocumentStatisticsSummaryResponse {
 export interface HostDocumentStatisticsTypeItem {
   readonly count: number;
   readonly extension: null | string;
+  readonly totalSizeBytes?: number;
   readonly totalSizeKb: number;
 }
 
@@ -2896,7 +4028,24 @@ export interface ImportAdministrativeRegionUpdatedSummary {
   readonly name: string;
 }
 
+export interface ImportAiKnowledgeFaqs {
+  readonly expectedDigest: string;
+  readonly package: AiKnowledgeFaqTransferPackage;
+  readonly requestKeys: Array<string>;
+}
+
+export interface ImportColumnMapping {
+  readonly sourceHeader: string;
+  readonly targetColumn: string;
+}
+
+export interface ImportColumnMappingRequest {
+  readonly columns: Array<ImportColumnMapping>;
+  readonly headerColumns: Array<string>;
+}
+
 export interface ImportExportTaskDetailResponse {
+  readonly columnMappings?: null | Array<ImportColumnMapping>;
   readonly createdAtUtc: string;
   readonly errorCode: null | string;
   readonly executionCompletedAtUtc: null | string;
@@ -2991,6 +4140,21 @@ export interface ImportOrganizationPositionsResponse {
   readonly succeededCount: number;
 }
 
+export interface ImportProfileDetail {
+  readonly configuration: null | ImportColumnMappingRequest;
+  readonly summary: ImportProfileSummary;
+}
+
+export interface ImportProfileSummary {
+  readonly createdAtUtc: string;
+  readonly headerFingerprint: string;
+  readonly id: string;
+  readonly isCompatible: boolean;
+  readonly name: string;
+  readonly updatedAtUtc: null | string;
+  readonly version: number;
+}
+
 export interface InboxMessageResponse {
   readonly archivedAtUtc?: null | string;
   readonly content: string;
@@ -3009,6 +4173,13 @@ export interface InboxMessageResponse {
 
 export interface InboxUnreadCountResponse {
   readonly unreadCount: number;
+}
+
+export interface IndexAiKnowledgeFaqRevision {
+  readonly confirmCost: boolean;
+  readonly expectedHeadVersion: number;
+  readonly expectedRevisionId: string;
+  readonly requestKey: string;
 }
 
 export type JsonElement = unknown;
@@ -3695,6 +4866,13 @@ export interface PagedResultOfAiKnowledgeBaseResponse {
   readonly total: number;
 }
 
+export interface PagedResultOfAiKnowledgeDirectoryResponse {
+  readonly items: Array<AiKnowledgeDirectoryResponse>;
+  readonly page: number;
+  readonly pageSize: number;
+  readonly total: number;
+}
+
 export interface PagedResultOfAiKnowledgeDocumentResponse {
   readonly items: Array<AiKnowledgeDocumentResponse>;
   readonly page: number;
@@ -3788,6 +4966,20 @@ export interface PagedResultOfDictItemResponse {
 
 export interface PagedResultOfDictTypeResponse {
   readonly items: Array<DictTypeResponse>;
+  readonly page: number;
+  readonly pageSize: number;
+  readonly total: number;
+}
+
+export interface PagedResultOfEnterpriseRequestAttachmentResponse {
+  readonly items: Array<EnterpriseRequestAttachmentResponse>;
+  readonly page: number;
+  readonly pageSize: number;
+  readonly total: number;
+}
+
+export interface PagedResultOfEnterpriseRequestReportResponse {
+  readonly items: Array<EnterpriseRequestReportResponse>;
   readonly page: number;
   readonly pageSize: number;
   readonly total: number;
@@ -4171,6 +5363,13 @@ export interface PagedResultOfReportingDefinitionSummaryResponse {
   readonly total: number;
 }
 
+export interface PagedResultOfReportingDefinitionTenantGrantResponse {
+  readonly items: Array<ReportingDefinitionTenantGrantResponse>;
+  readonly page: number;
+  readonly pageSize: number;
+  readonly total: number;
+}
+
 export interface PagedResultOfReportingDefinitionVersionSummaryResponse {
   readonly items: Array<ReportingDefinitionVersionSummaryResponse>;
   readonly page: number;
@@ -4180,6 +5379,13 @@ export interface PagedResultOfReportingDefinitionVersionSummaryResponse {
 
 export interface PagedResultOfReportingExportTaskResponse {
   readonly items: Array<ReportingExportTaskResponse>;
+  readonly page: number;
+  readonly pageSize: number;
+  readonly total: number;
+}
+
+export interface PagedResultOfReportingPublishedDefinitionResponse {
+  readonly items: Array<ReportingPublishedDefinitionResponse>;
   readonly page: number;
   readonly pageSize: number;
   readonly total: number;
@@ -4366,6 +5572,22 @@ export interface PrepareAiFeedbackEvaluationRequest {
   readonly sample: AiFeedbackEvaluationSample;
 }
 
+export interface PrepareAiKnowledgeEvaluationFeedback {
+  readonly candidateToken: string;
+}
+
+export interface PreviewAiKnowledgeFaqFeedback {
+  readonly feedbackId: string;
+}
+
+export interface PreviewAiKnowledgeFaqImport {
+  readonly package: AiKnowledgeFaqTransferPackage;
+}
+
+export interface PreviewAiPersonalScheduleSources {
+  readonly scheduleIds: Array<string>;
+}
+
 export interface PreviewGoViewProjectRequest {
   readonly versionNumber: null | number;
 }
@@ -4464,11 +5686,23 @@ export interface ProblemDetails {
   readonly type?: null | string;
 }
 
+export interface ProposeWorkflowCollaborationGrantRequest {
+  readonly idempotencyKey: string;
+  readonly offer: JsonElement;
+  readonly targetScopeKey: string;
+  readonly targetTenantId: null | string;
+}
+
 export interface ProvisionTenantRequest {
   readonly domain: string;
   readonly identifier: string;
   readonly name: string;
   readonly tenantPackageId?: null | string;
+}
+
+export interface PublishAiKnowledgePublication {
+  readonly snapshotHash: string;
+  readonly version: number;
 }
 
 export interface PublishGoViewProjectRequest {
@@ -4521,6 +5755,67 @@ export interface PublishWorkflowFormRequest {
 
 export interface PublishWorkflowWorkCalendarRequest {
   readonly expectedRevision: number;
+}
+
+export interface QuerySchemeConfiguration {
+  readonly columns: Array<GridColumnPreference>;
+  readonly descending: boolean;
+  readonly filters: Array<QuerySchemeFilter>;
+  readonly sortBy: string;
+}
+
+export interface QuerySchemeDefinition {
+  readonly columnKeys: Array<string>;
+  readonly filters: Array<QuerySchemeFilterDefinition>;
+  readonly gridKey: string;
+  readonly readPermission: string;
+  readonly schemaVersion: number;
+  readonly sortKeys: Array<string>;
+  readonly supportsHost: boolean;
+  readonly supportsTenant: boolean;
+}
+
+export interface QuerySchemeDetail {
+  readonly configuration: null | QuerySchemeConfiguration;
+  readonly summary: QuerySchemeSummary;
+}
+
+export interface QuerySchemeFilter {
+  readonly fieldKey: string;
+  readonly operatorKey: string;
+  readonly value: string;
+}
+
+export interface QuerySchemeFilterDefinition {
+  readonly fieldKey: string;
+  readonly maxLength: number;
+}
+
+export interface QuerySchemeSummary {
+  readonly createdAtUtc: string;
+  readonly id: string;
+  readonly isCompatible: boolean;
+  readonly isShared: boolean;
+  readonly name: string;
+  readonly ownerUserId: string;
+  readonly schemaVersion: number;
+  readonly updatedAtUtc: null | string;
+  readonly version: number;
+}
+
+export interface ReadAiKnowledgeSearchContextRequest {
+  readonly anchorSequence: number;
+  readonly embeddingModelConfigId: string;
+  readonly embeddingModelVersion: number;
+  readonly radius: number;
+  readonly source: AiKnowledgeSearchSource;
+}
+
+export interface ReadAiKnowledgeSearchRelationsRequest {
+  readonly anchorSequence: number;
+  readonly embeddingModelConfigId: string;
+  readonly embeddingModelVersion: number;
+  readonly source: AiKnowledgeSearchSource;
 }
 
 export interface ReassignWorkflowInstanceRequest {
@@ -4629,6 +5924,18 @@ export interface RecoverWorkflowInstanceRequest {
   readonly reason: string;
 }
 
+export interface RefineAiKnowledgeSearchRequest {
+  readonly embeddingModelConfigId: string;
+  readonly includeDiagnostics: boolean;
+  readonly knowledgeBaseIds: Array<string>;
+  readonly limit: number;
+  readonly mode: string;
+  readonly processingModelConfigId: string;
+  readonly processingModelVersion: number;
+  readonly query: string;
+  readonly searchScope: AiKnowledgeSearchAnswerScope;
+}
+
 export interface ReleaseWorkflowTodoRequest {
   readonly comment?: null | string;
   readonly expectedFormRevision: number;
@@ -4731,6 +6038,16 @@ export interface ReportingDefinitionSummaryResponse {
   readonly version: number;
 }
 
+export interface ReportingDefinitionTenantGrantResponse {
+  readonly createdAtUtc: string;
+  readonly definitionId: string;
+  readonly id: string;
+  readonly isEnabled: boolean;
+  readonly tenantId: string;
+  readonly updatedAtUtc: null | string;
+  readonly version: number;
+}
+
 export interface ReportingDefinitionVersionResponse {
   readonly changeNote: null | string;
   readonly dataSourceId: string;
@@ -4801,6 +6118,7 @@ export interface ReportingExportTaskDetailResponse {
   readonly requestedByUserId: string;
   readonly rowCount: number;
   readonly statusKey: string;
+  readonly version: number;
   readonly versionNumber: number;
 }
 
@@ -4840,6 +6158,14 @@ export interface ReportingParameterSchemaEntry {
   readonly parameterKey: string;
 }
 
+export interface ReportingPublishedDefinitionResponse {
+  readonly definitionKey: string;
+  readonly id: string;
+  readonly name: string;
+  readonly parameterSchema: Array<ReportingParameterSchemaEntry>;
+  readonly versionNumber: number;
+}
+
 export interface ReportingQueryPortDefinition {
   readonly description: string;
   readonly displayName: string;
@@ -4858,6 +6184,24 @@ export interface ReportingQueryPortParameterDefinition {
   readonly parameterKey: string;
 }
 
+export interface RequestAiKnowledgeFaqPublication {
+  readonly effectiveFromUtc: string;
+  readonly effectiveToUtc: string;
+  readonly expectedHeadVersion: number;
+  readonly expectedPublicationVersion: number;
+  readonly expectedRevisionId: string;
+  readonly requestKey: string;
+  readonly versionId: string;
+}
+
+export interface RequestAiKnowledgePublication {
+  readonly effectiveFromUtc: string;
+  readonly effectiveToUtc: string;
+  readonly expectedHeadVersion: number;
+  readonly requestKey: string;
+  readonly versionId: string;
+}
+
 export interface RequestWorkflowManualReminder {
   readonly expectedInstanceRevision: number;
   readonly expectedStepRevision: number;
@@ -4867,6 +6211,20 @@ export interface RequestWorkflowManualReminder {
 
 export interface ResetHostUserPasswordRequest {
   readonly password: string;
+}
+
+export interface RestoreAiKnowledgeEvaluationSet {
+  readonly expectedRevisionId: string;
+  readonly expectedVersion: number;
+  readonly requestKey: string;
+  readonly revisionId: string;
+}
+
+export interface RestoreAiKnowledgeFaqDraft {
+  readonly expectedHeadVersion: number;
+  readonly expectedRevisionId: string;
+  readonly requestKey: string;
+  readonly revisionId: string;
 }
 
 export interface RestoreDiagnosticPolicyRequest {
@@ -4926,6 +6284,28 @@ export interface ReviewAiKnowledgeAnswerFeedbackRequest {
   readonly reviewVersion: number;
 }
 
+export interface ReviewAiKnowledgeEvaluationResult {
+  readonly baselineSupportsReference: boolean;
+  readonly candidateSupportsReference: boolean;
+  readonly confirmHumanReview: boolean;
+  readonly expectedVersion: number;
+  readonly requestKey: string;
+}
+
+export interface ReviewAiKnowledgeEvaluationSet {
+  readonly confirmIndependentRedactionReview: boolean;
+  readonly decision: string;
+  readonly expectedRevisionId: string;
+  readonly expectedVersion: number;
+  readonly requestKey: string;
+}
+
+export interface ReviewAiKnowledgePublication {
+  readonly approve: boolean;
+  readonly snapshotHash: string;
+  readonly version: number;
+}
+
 export interface RevokeAiAgentDelegationRequest {
   readonly expectedVersion: number;
 }
@@ -4951,6 +6331,12 @@ export interface RevokeSuperAdministratorRequest {
   readonly totpCode?: null | string;
 }
 
+export interface RevokeWorkflowCollaborationGrantRequest {
+  readonly expectedRevision: number;
+  readonly idempotencyKey: string;
+  readonly reason: string;
+}
+
 export interface RollbackHostDocumentVersionRequest {
   readonly version: number;
 }
@@ -4964,11 +6350,58 @@ export interface RollbackOperationResponse {
   readonly updatedAtUtc: string;
 }
 
+export interface SaveAiKnowledgeEvaluationSet {
+  readonly cases: Array<AiKnowledgeEvaluationCaseInput>;
+  readonly confirmManualRedaction: boolean;
+  readonly expectedRevisionId: null | string;
+  readonly expectedVersion: number;
+  readonly freeze: boolean;
+  readonly name: string;
+  readonly requestKey: string;
+}
+
+export interface SaveAiKnowledgeFaqDraft {
+  readonly content: AiKnowledgeFaqContent;
+  readonly expectedHeadVersion: number;
+  readonly expectedRevisionId: string;
+  readonly requestKey: string;
+}
+
+export interface SaveAiKnowledgeFolder {
+  readonly name: string;
+  readonly parentId: null | string;
+  readonly version: number;
+}
+
+export interface SaveImportProfileRequest {
+  readonly configuration: ImportColumnMappingRequest;
+  readonly name: string;
+  readonly version: number;
+}
+
+export interface SaveQuerySchemeRequest {
+  readonly configuration: QuerySchemeConfiguration;
+  readonly name: string;
+  readonly schemaVersion: number;
+  readonly version: number;
+}
+
 export interface SaveWorkflowDesignerAssetRequest {
   readonly designerJson: JsonElement;
   readonly expectedRevision: number;
   readonly formatVersion: number;
   readonly sourceCommit: string;
+}
+
+export interface SearchAiKnowledgeRequest {
+  readonly documentIds: Array<string>;
+  readonly embeddingModelConfigId: string;
+  readonly embeddingModelVersion: number;
+  readonly expectedSources: null | Array<AiKnowledgeSearchSource>;
+  readonly includeDiagnostics: boolean;
+  readonly knowledgeBaseIds: Array<string>;
+  readonly limit: number;
+  readonly query: string;
 }
 
 export interface SelectAiPromptVersionRequest {
@@ -5114,6 +6547,19 @@ export interface SetAiKnowledgeAnswerFeedbackRequest {
   readonly version: number;
 }
 
+export interface SetAiKnowledgeDirectoryBatch {
+  readonly items: Array<SetAiKnowledgeDirectoryItem>;
+}
+
+export interface SetAiKnowledgeDirectoryItem {
+  readonly documentId: string;
+  readonly folderId: null | string;
+  readonly requestKey: string;
+  readonly responsibleUserId: null | string;
+  readonly tags: Array<string>;
+  readonly version: number;
+}
+
 export interface SetAiKnowledgeDocumentMembersRequest {
   readonly userIds: Array<string>;
   readonly version: number;
@@ -5134,9 +6580,16 @@ export interface SetAiKnowledgeRoleGrantsRequest {
   readonly version: number;
 }
 
+export interface SetDefaultQuerySchemeRequest {
+  readonly schemeId: null | string;
+  readonly version: number;
+}
+
 export interface SetHostDocumentPermissionsRequest {
   readonly documentId: string;
   readonly permissions: Array<HostDocumentPermissionEntry>;
+  readonly version: number;
+  readonly visibilityMode: string;
 }
 
 export interface SetNotificationProducerSceneEnabledRequest {
@@ -5167,6 +6620,11 @@ export interface SetOrganizationUnitLeadershipRequest {
 export interface SetPersonalScheduleStatusRequest {
   readonly status: string;
   readonly version: number;
+}
+
+export interface SetReportingDefinitionTenantGrantRequest {
+  readonly expectedVersion: number;
+  readonly isEnabled: boolean;
 }
 
 export interface SetWorkflowDefinitionStatusRequest {
@@ -5202,6 +6660,18 @@ export interface ShadowCaptureResponse {
   readonly schemaVersion: number;
   readonly startedAtUtc: string;
   readonly state: string;
+}
+
+export interface ShareQuerySchemeRequest {
+  readonly isShared: boolean;
+  readonly version: number;
+}
+
+export interface SimulateWorkflowDefinitionRequest {
+  readonly assigneeSelections?: null | Readonly<Record<string, unknown>>;
+  readonly expectedRevision: number;
+  readonly formVersionId: string;
+  readonly values: JsonElement;
 }
 
 export interface StartShadowCaptureRequest {
@@ -5261,6 +6731,23 @@ export interface SubmitSerialRuleUpdateApprovalRequest {
   readonly update: UpdateSerialNumberRuleRequest;
 }
 
+export interface SubscriptionCheckoutResponse {
+  readonly errorCode: null | string;
+  readonly fulfillmentStateKey: string;
+  readonly order: PaymentOrderResponse;
+  readonly subscriptionId: string;
+}
+
+export interface SubscriptionFulfillmentStatusResponse {
+  readonly attempt: number;
+  readonly beneficiaryTenantId: string;
+  readonly errorCode: null | string;
+  readonly paymentOrderId: null | string;
+  readonly stateKey: string;
+  readonly subscriptionId: string;
+  readonly updatedAtUtc: string;
+}
+
 export interface SuperAdministratorAuditResponse {
   readonly actorUserId: null | string;
   readonly eventType: string;
@@ -5294,6 +6781,30 @@ export interface TenantBrandingResponse {
   readonly version: number;
 }
 
+export interface TenantEntitlementCatalogResponse {
+  readonly code: string;
+  readonly description: null | string;
+  readonly entitlementType: string;
+  readonly id: string;
+  readonly isActive: boolean;
+  readonly name: string;
+  readonly version: number;
+}
+
+export interface TenantPackageOfferResponse {
+  readonly amountMinor: number;
+  readonly currency: string;
+  readonly durationDays: number;
+  readonly entitlementIds: Array<string>;
+  readonly isActive: boolean;
+  readonly merchantConfigId: string;
+  readonly packageId: string;
+  readonly paymentTenantId: string;
+  readonly seatLimit: number;
+  readonly storageLimit: number;
+  readonly version: number;
+}
+
 export interface TenantPackageSummary {
   readonly assignedTenantCount?: number;
   readonly code: string;
@@ -5311,6 +6822,21 @@ export interface TenantRuntimeBrandingResponse {
   readonly copyright: null | string;
   readonly hasLogo: boolean;
   readonly systemTitle: null | string;
+}
+
+export interface TenantSubscriptionPaymentTerms {
+  readonly amountMinor: number;
+  readonly currency: string;
+  readonly effectiveFromUtc: string;
+  readonly effectiveToUtc: string;
+  readonly merchantConfigId: string;
+  readonly offerVersion: number;
+  readonly packageId: string;
+  readonly paymentOperationId: string;
+  readonly paymentTenantId: string;
+  readonly subject: string;
+  readonly subscriptionId: string;
+  readonly tenantId: string;
 }
 
 export interface TenantSummary {
@@ -5504,8 +7030,8 @@ export interface UpdateEnterpriseRequestRequest {
   readonly requestNumber: string;
   readonly status: string;
   readonly title: string;
-  readonly totalAmount: number | string;
-  readonly version: number;
+  readonly totalAmount: string;
+  readonly version: string;
 }
 
 export interface UpdateGoViewProjectRequest {
@@ -5539,9 +7065,8 @@ export interface UpdateHostDocumentCategoryRequest {
 export interface UpdateHostDocumentItemRequest {
   readonly categoryId: null | string;
   readonly description: null | string;
-  readonly sort: null | number;
-  readonly status: null | HostDocumentStatus;
-  readonly tagIds: null | Array<string>;
+  readonly sort: number;
+  readonly tagIds: Array<string>;
   readonly thumbnail: null | string;
   readonly title: string;
   readonly version: number;
@@ -5866,6 +7391,19 @@ export interface UpdateWorkflowWorkCalendarRequest {
   readonly expectedRevision: number;
 }
 
+export interface UpsertTenantPackageOfferRequest {
+  readonly amountMinor: number;
+  readonly currency: string;
+  readonly durationDays: number;
+  readonly entitlementIds: Array<string>;
+  readonly isActive: boolean;
+  readonly merchantConfigId: string;
+  readonly paymentTenantId: string;
+  readonly seatLimit: number;
+  readonly storageLimit: number;
+  readonly version: number;
+}
+
 export interface VerifyCutoverRequest {
   readonly eventType: string;
   readonly reason: string;
@@ -5884,6 +7422,11 @@ export interface VoteWorkflowTodoRequest {
   readonly idempotencyKey: string;
   readonly signatureFileId?: null | string;
   readonly values: JsonElement;
+}
+
+export interface WithdrawAiKnowledgePublication {
+  readonly expectedHeadVersion: number;
+  readonly publicationId: string;
 }
 
 export interface WithdrawWorkflowInstanceRequest {
@@ -5968,6 +7511,26 @@ export interface WorkflowClaimProgressResponse {
   readonly claimCycle: number;
   readonly poolRevision: number;
   readonly poolStatusKey: string;
+}
+
+export interface WorkflowCollaborationGrantResponse {
+  readonly acceptance: null | JsonElement;
+  readonly acceptedAtUtc: null | string;
+  readonly createdAtUtc: string;
+  readonly expiresAtUtc: string;
+  readonly id: string;
+  readonly offer: JsonElement;
+  readonly policyHash: null | string;
+  readonly revision: number;
+  readonly revokedAtUtc: null | string;
+  readonly revokedById: null | string;
+  readonly revokedByScopeKey: null | string;
+  readonly sourceActorId: string;
+  readonly sourceTenantScopeKey: string;
+  readonly statusKey: string;
+  readonly targetActorId: null | string;
+  readonly targetSummary: null | JsonElement;
+  readonly targetTenantScopeKey: string;
 }
 
 export interface WorkflowConnectorAttemptResponse {
@@ -6090,6 +7653,14 @@ export interface WorkflowExecutionLogResponse {
   readonly stepId: null | string;
   readonly toStatusKey: string;
   readonly transitionKey: string;
+}
+
+export interface WorkflowFormAttachmentUploadResponse {
+  readonly contentHash: null | string;
+  readonly contentType: string;
+  readonly fileId: string;
+  readonly originalFileName: string;
+  readonly sizeBytes: number;
 }
 
 export interface WorkflowFormComponentCatalogResponse {
@@ -6258,6 +7829,53 @@ export interface WorkflowNodeTypeResponse {
   readonly supportsFieldPolicies: boolean;
 }
 
+export interface WorkflowOperationsBacklogResponse {
+  readonly items: Array<WorkflowOperationsWorkResponse>;
+  readonly observedAtUtc: string;
+  readonly page: number;
+  readonly pageSize: number;
+  readonly total: number;
+}
+
+export interface WorkflowOperationsStepResponse {
+  readonly definitionKey: string;
+  readonly definitionVersionId: string;
+  readonly dueAtUtc: null | string;
+  readonly dwellSeconds: number;
+  readonly id: string;
+  readonly instanceId: string;
+  readonly instanceStatusKey: string;
+  readonly isOverdue: boolean;
+  readonly nodeKey: string;
+  readonly nodeTypeKey: string;
+  readonly pausedAtUtc: null | string;
+  readonly slaStatusKey: null | string;
+  readonly startedAtUtc: string;
+  readonly statusKey: string;
+}
+
+export interface WorkflowOperationsStepsResponse {
+  readonly items: Array<WorkflowOperationsStepResponse>;
+  readonly observedAtUtc: string;
+  readonly page: number;
+  readonly pageSize: number;
+  readonly total: number;
+}
+
+export interface WorkflowOperationsWorkResponse {
+  readonly attemptCount: number;
+  readonly definitionKey: string;
+  readonly definitionVersionId: string;
+  readonly dueAtUtc: string;
+  readonly id: string;
+  readonly instanceId: string;
+  readonly instanceStatusKey: string;
+  readonly isReady: boolean;
+  readonly leaseExpiresAtUtc: null | string;
+  readonly nodeKey: string;
+  readonly statusKey: string;
+}
+
 export interface WorkflowPositionCandidatePageResponse {
   readonly items: Array<WorkflowPositionCandidateResponse>;
   readonly page: number;
@@ -6341,6 +7959,36 @@ export interface WorkflowSignatureUploadResponse {
   readonly sizeBytes: number;
 }
 
+export interface WorkflowSimulationResponse {
+  readonly compiledContentHash: string;
+  readonly definitionId: string;
+  readonly draftContentHash: string;
+  readonly draftRevision: number;
+  readonly evaluatedAtUtc: string;
+  readonly formContentHash: string;
+  readonly formVersionId: string;
+  readonly reachesEnd: boolean;
+  readonly sampleContentHash: string;
+  readonly trace: Array<WorkflowSimulationTraceResponse>;
+}
+
+export interface WorkflowSimulationSelectionsResponse {
+  readonly definitionId: string;
+  readonly draftRevision: number;
+  readonly formVersionId: string;
+  readonly items: Array<WorkflowStarterSelectionDescriptorResponse>;
+}
+
+export interface WorkflowSimulationTraceResponse {
+  readonly branchKey: null | string;
+  readonly errorCode: null | string;
+  readonly fixedDefinitionVersionId: null | string;
+  readonly memberCount: number;
+  readonly nodeKey: string;
+  readonly nodeTypeKey: string;
+  readonly outcomeKey: string;
+}
+
 export interface WorkflowStarterSelectionDescriptorResponse {
   readonly maximumUsers: number;
   readonly modeKey: string;
@@ -6402,6 +8050,7 @@ export interface WorkflowTodoDetailResponse {
   readonly approvalModeKey: string;
   readonly approvedCount: number;
   readonly assigneeUserId: string;
+  readonly attachmentNames?: null | Readonly<Record<string, unknown>>;
   readonly claimProgress?: null | WorkflowClaimProgressResponse;
   readonly commentRequired?: boolean;
   readonly fieldPolicies: Readonly<Record<string, unknown>>;
@@ -6454,6 +8103,7 @@ export interface WorkflowTodoRuntimeResponse {
   readonly approvalModeKey: string;
   readonly approvedCount: number;
   readonly assigneeUserId: string;
+  readonly attachmentNames?: null | Readonly<Record<string, unknown>>;
   readonly claimProgress?: null | WorkflowClaimProgressResponse;
   readonly commentRequired?: boolean;
   readonly fieldPolicies: Readonly<Record<string, unknown>>;

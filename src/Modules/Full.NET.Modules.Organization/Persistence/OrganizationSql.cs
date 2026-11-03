@@ -211,61 +211,6 @@ internal static class OrganizationSql
         """,
         SqlDataScope.Global);
 
-    public static readonly SqlStatement CountUserUnits = new(
-        "organization.count_user_units",
-        """
-        SELECT COUNT(1)
-        FROM fn_organization_user_unit AS assignment
-        INNER JOIN fn_organization_unit AS unitObject
-            ON unitObject.Id = assignment.UnitId
-           AND unitObject.TenantId = assignment.TenantId
-        WHERE assignment.TenantId = @TenantId
-          AND (@UserId IS NULL OR assignment.UserId = @UserId)
-          AND (@UnitId IS NULL OR assignment.UnitId = @UnitId)
-        """,
-        SqlDataScope.TenantRequired,
-        SqlTenantBinding.CurrentTenantId);
-
-    public static readonly SqlStatement ListUserUnitsSqlServer = new(
-        "organization.list_user_units.sql_server",
-        """
-        SELECT assignment.Id, assignment.UserId,
-               assignment.UnitId, unitObject.Code AS UnitCode, unitObject.Name AS UnitName,
-               assignment.IsPrimary, assignment.IsActive,
-               assignment.CreatedAtUtc, assignment.UpdatedAtUtc, assignment.Version
-        FROM fn_organization_user_unit AS assignment
-        INNER JOIN fn_organization_unit AS unitObject
-            ON unitObject.Id = assignment.UnitId
-           AND unitObject.TenantId = assignment.TenantId
-        WHERE assignment.TenantId = @TenantId
-          AND (@UserId IS NULL OR assignment.UserId = @UserId)
-          AND (@UnitId IS NULL OR assignment.UnitId = @UnitId)
-        ORDER BY assignment.IsPrimary DESC, unitObject.DisplayOrder, unitObject.Code
-        OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY
-        """,
-        SqlDataScope.TenantRequired,
-        SqlTenantBinding.CurrentTenantId);
-
-    public static readonly SqlStatement ListUserUnitsMySql = new(
-        "organization.list_user_units.mysql",
-        """
-        SELECT assignment.Id, assignment.UserId,
-               assignment.UnitId, unitObject.Code AS UnitCode, unitObject.Name AS UnitName,
-               assignment.IsPrimary, assignment.IsActive,
-               assignment.CreatedAtUtc, assignment.UpdatedAtUtc, assignment.Version
-        FROM fn_organization_user_unit AS assignment
-        INNER JOIN fn_organization_unit AS unitObject
-            ON unitObject.Id = assignment.UnitId
-           AND unitObject.TenantId = assignment.TenantId
-        WHERE assignment.TenantId = @TenantId
-          AND (@UserId IS NULL OR assignment.UserId = @UserId)
-          AND (@UnitId IS NULL OR assignment.UnitId = @UnitId)
-        ORDER BY assignment.IsPrimary DESC, unitObject.DisplayOrder, unitObject.Code
-        LIMIT @PageSize OFFSET @Offset
-        """,
-        SqlDataScope.TenantRequired,
-        SqlTenantBinding.CurrentTenantId);
-
     public static readonly SqlStatement FindUserUnitById = new(
         "organization.find_user_unit_by_id",
         """
@@ -371,21 +316,6 @@ internal static class OrganizationSql
         SqlDataScope.TenantRequired,
         SqlTenantBinding.CurrentTenantId);
 
-    public static readonly SqlStatement CountUserPositions = new(
-        "organization.count_user_positions",
-        """
-        SELECT COUNT(1)
-        FROM fn_organization_user_position AS assignment
-        INNER JOIN fn_organization_position AS positionObject
-            ON positionObject.Id = assignment.PositionId
-           AND positionObject.TenantId = assignment.TenantId
-        WHERE assignment.TenantId = @TenantId
-          AND (@UserId IS NULL OR assignment.UserId = @UserId)
-          AND (@PositionId IS NULL OR assignment.PositionId = @PositionId)
-        """,
-        SqlDataScope.TenantRequired,
-        SqlTenantBinding.CurrentTenantId);
-
     public static readonly SqlStatement ListUserPositionsSqlServer = new(
         "organization.list_user_positions.sql_server",
         """
@@ -402,26 +332,6 @@ internal static class OrganizationSql
           AND (@PositionId IS NULL OR assignment.PositionId = @PositionId)
         ORDER BY assignment.IsPrimary DESC, positionObject.DisplayOrder, positionObject.Code
         OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY
-        """,
-        SqlDataScope.TenantRequired,
-        SqlTenantBinding.CurrentTenantId);
-
-    public static readonly SqlStatement ListUserPositionsMySql = new(
-        "organization.list_user_positions.mysql",
-        """
-        SELECT assignment.Id, assignment.UserId,
-               assignment.PositionId, positionObject.Code AS PositionCode, positionObject.Name AS PositionName,
-               assignment.IsPrimary, assignment.IsActive,
-               assignment.CreatedAtUtc, assignment.UpdatedAtUtc, assignment.Version
-        FROM fn_organization_user_position AS assignment
-        INNER JOIN fn_organization_position AS positionObject
-            ON positionObject.Id = assignment.PositionId
-           AND positionObject.TenantId = assignment.TenantId
-        WHERE assignment.TenantId = @TenantId
-          AND (@UserId IS NULL OR assignment.UserId = @UserId)
-          AND (@PositionId IS NULL OR assignment.PositionId = @PositionId)
-        ORDER BY assignment.IsPrimary DESC, positionObject.DisplayOrder, positionObject.Code
-        LIMIT @PageSize OFFSET @Offset
         """,
         SqlDataScope.TenantRequired,
         SqlTenantBinding.CurrentTenantId);

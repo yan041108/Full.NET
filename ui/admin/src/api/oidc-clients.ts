@@ -3,11 +3,13 @@ import {
   isOidcClient,
   isOidcClientPage,
   isRotateOidcClientSecretResult,
+  isOidcLogoutDelivery,
   type CreateOidcClientRequest,
   type CreateOidcClientResult,
   type OidcClient,
   type OidcClientListQuery,
   type OidcClientPage,
+  type OidcLogoutDelivery,
   type RotateOidcClientSecretResult,
   type UpdateOidcClientRequest
 } from '@fullnet/client-contracts';
@@ -120,6 +122,18 @@ export type {
   OidcClient,
   OidcClientListQuery,
   OidcClientPage,
+  OidcLogoutDelivery,
   RotateOidcClientSecretResult,
   UpdateOidcClientRequest
 };
+
+export async function listOidcLogoutDeliveries(): Promise<OidcLogoutDelivery[]> {
+  const value = await request<unknown>('/api/v1/identity/oidc-logout-deliveries');
+  if (!Array.isArray(value) || !value.every(isOidcLogoutDelivery)) {
+    throw new Error('client.invalid_oidc_logout_deliveries');
+  }
+  return value;
+}
+export async function retryOidcLogoutDelivery(id: string): Promise<void> {
+  await request('/api/v1/identity/oidc-logout-deliveries/' + encodeURIComponent(id) + '/retry', { method: 'POST' });
+}

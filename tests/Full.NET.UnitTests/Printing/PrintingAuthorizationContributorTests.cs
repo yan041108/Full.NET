@@ -26,7 +26,7 @@ public sealed class PrintingAuthorizationContributorTests
             catalog.Permissions.Select(permission => permission.Code).ToArray());
 
         var preview = catalog.Navigation.Single(item => item.Id == "printing-preview");
-        Assert.AreEqual(PrintingTemplatePermissions.Preview, preview.RequiredPermission);
+        Assert.AreEqual(PrintingTemplatePermissions.Read, preview.RequiredPermission);
         Assert.AreEqual("/printing/preview", preview.Path);
     }
 }

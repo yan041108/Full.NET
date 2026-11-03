@@ -1,0 +1,27 @@
+-- 本地校对准备持久化；原会话在 Worker 重验，表中不保存原文或模型调用。
+CREATE TABLE IF NOT EXISTS fn_ai_knowledge_correction_preparation (
+    Id binary(16) NOT NULL COMMENT '准备任务 UUID v7',
+    VersionId binary(16) NOT NULL COMMENT '被冻结的原文件版本',
+    DocumentVersion int NOT NULL COMMENT '入队时文档维护版本',
+    RequestKey binary(16) NOT NULL COMMENT '客户端原请求重试身份',
+    RequestHash varchar(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL COMMENT '完整资源及原会话请求摘要',
+    ActorUserId binary(16) NOT NULL COMMENT '原交互操作者',
+    SessionId binary(16) NOT NULL COMMENT '原交互会话，不接受接管',
+    SessionKind varchar(32) NOT NULL COMMENT '原交互会话类型',
+    SecurityStamp varchar(128) NOT NULL COMMENT '原会话安全戳，不进入公开响应',
+    ActorScope varchar(64) NOT NULL COMMENT '原会话声明范围',
+    EffectiveScope varchar(64) NOT NULL COMMENT '原会话有效范围',
+    StateKey varchar(16) NOT NULL COMMENT 'queued running completed failed cancelled',
+    AttemptCount int NOT NULL COMMENT '领取次数，最多三次',
+    LeaseToken binary(16) NULL COMMENT '当前领取身份',
+    LeaseExpiresAtUtc datetime(6) NULL COMMENT '租约到期时间 UTC',
+    ParserRuntimeId varchar(128) NULL COMMENT '首次领取冻结的服务端解析运行时',
+    SourceId binary(16) NULL COMMENT '同一事务完成的原解析快照',
+    FailureCode varchar(96) NULL COMMENT '受控失败机器码',
+    CreatedAtUtc datetime(6) NOT NULL COMMENT '入队时间 UTC',
+    UpdatedAtUtc datetime(6) NOT NULL COMMENT '最近状态变化时间 UTC',
+    CONSTRAINT PK_fn_ai_knowledge_correction_preparation PRIMARY KEY (Id),
+    CONSTRAINT CK_fn_ai_knowledge_correction_preparation_Bounds CHECK (DocumentVersion>0 AND AttemptCount BETWEEN 0 AND 3 AND StateKey IN ('queued','running','completed','failed','cancelled') AND ((StateKey='running' AND LeaseToken IS NOT NULL AND LeaseExpiresAtUtc IS NOT NULL AND ParserRuntimeId IS NOT NULL AND AttemptCount>0) OR (StateKey<>'running' AND LeaseToken IS NULL AND LeaseExpiresAtUtc IS NULL)) AND ((StateKey='completed' AND SourceId IS NOT NULL AND ParserRuntimeId IS NOT NULL AND AttemptCount>0) OR (StateKey<>'completed' AND SourceId IS NULL)) AND ((StateKey IN ('failed','cancelled') AND FailureCode IS NOT NULL) OR (StateKey NOT IN ('failed','cancelled') AND FailureCode IS NULL))),
+    UNIQUE INDEX UX_fn_ai_knowledge_correction_preparation_VersionId_RequestKey (VersionId,RequestKey),
+    INDEX IX_fn_ai_knowledge_correction_preparation_StateKey_Leas_e302433e (StateKey,LeaseExpiresAtUtc,CreatedAtUtc,Id)
+) COMMENT='本地校对来源准备队列，仅解析不收费不发布' ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

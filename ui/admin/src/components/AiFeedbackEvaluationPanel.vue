@@ -5,8 +5,10 @@ import type { AiFeedbackEvaluationCandidate, AiKnowledgeAnswerFeedbackReviewItem
 import { useSessionStore } from '../auth/session';
 import { useAdminI18n } from '../i18n/adminI18n';
 import { feedbackEvaluationText } from '../i18n/feedback-evaluation';
-import { showProblem, showSuccess } from '../feedback/fullNetMessage';
+import { knowledgeEvaluationText } from '../i18n/ai-knowledge-evaluation';
+import { showProblem, showSuccess, showWarning } from '../feedback/fullNetMessage';
 import * as api from '../api/ai-feedback-evaluation';
+import AiKnowledgeEvaluationWorkbench from './AiKnowledgeEvaluationWorkbench.vue';
 
 const props = defineProps<{ feedback: AiKnowledgeAnswerFeedbackReviewItem }>();
 const session = useSessionStore(); const { locale, t } = useAdminI18n();
@@ -16,6 +18,9 @@ const canPrepare = computed(() => !session.switching && session.can('ai.chat.ses
 const canAdmit = computed(() => canPrepare.value && session.can('ai.knowledge_answer_feedback.evaluation_admit'));
 const open = ref(false); const busy = ref(false); const candidate = ref<AiFeedbackEvaluationCandidate>();
 const question = ref(''); const answer = ref(''); const evidence = ref(''); const language = ref('zh-CN'); const refuse = ref(false);
+function persisted(revisionId:string,deliveryState:string){if(deliveryState==='available')candidate.value=undefined;else reset();
+  (deliveryState==='available'?showSuccess:showWarning)(knowledgeEvaluationText(locale.value,deliveryState==='available'?'saved':'recorded')+' '+revisionId);}
+function persistenceUnavailable(){reset();showWarning(knowledgeEvaluationText(locale.value,'unavailable'));}
 let controller: AbortController | undefined; let epoch = 0; let confirmationOpen = false;
 function reset() {
   ++epoch; controller?.abort(); controller = undefined;
@@ -71,6 +76,7 @@ async function admit() {
       <ElCheckbox v-model="refuse" :disabled="busy">{{ text('refuse') }}</ElCheckbox>
     </ElForm>
     <p v-if="candidate">SHA256: {{ candidate.sampleHash }} · {{ candidate.expiresAtUtc }}</p><p>{{ text('changed') }}</p>
+    <AiKnowledgeEvaluationWorkbench v-if="candidate&&canAdmit" :candidate="{token:candidate.candidateToken,sample:{languageTag:language,question,expectedAnswer:answer,evidence,shouldRefuse:refuse}}" @persisted="persisted" @unavailable="persistenceUnavailable"/>
     <template #footer>
       <ElButton @click="reset">{{ text('close') }}</ElButton>
       <ElButton v-if="canPrepare" :disabled="busy || !question.trim() || !answer.trim() || !evidence.trim()" data-testid="evaluation-prepare" @click="prepare">{{ text('prepare') }}</ElButton>

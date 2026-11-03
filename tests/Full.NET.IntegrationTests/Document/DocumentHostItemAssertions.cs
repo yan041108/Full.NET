@@ -112,6 +112,7 @@ internal static class DocumentHostItemAssertions
         var fileContent = new ByteArrayContent(payload);
         fileContent.Headers.ContentType = new MediaTypeHeaderValue("text/plain");
         uploadContent.Add(fileContent, "file", "document.txt");
+        uploadContent.Add(new StringContent(Guid.CreateVersion7().ToString("D")), "requestKey");
         using var uploadRequest = new HttpRequestMessage(
             HttpMethod.Post,
             $"{ItemsPath}/{itemId:D}/versions/upload")
@@ -189,7 +190,7 @@ internal static class DocumentHostItemAssertions
                        HttpMethod.Post,
                        $"{ItemsPath}/{created.Id:D}/versions",
                        readOnly.AccessToken,
-                       new AddHostDocumentVersionRequest(Guid.CreateVersion7())),
+                       new AddHostDocumentVersionRequest(Guid.CreateVersion7()) { RequestKey = Guid.CreateVersion7() }),
                    cancellationToken))
         {
             Assert.AreEqual(HttpStatusCode.Forbidden, forbiddenUpload.StatusCode);
@@ -208,7 +209,7 @@ internal static class DocumentHostItemAssertions
                 HttpMethod.Post,
                 $"{ItemsPath}/{itemId:D}/versions",
                 token,
-                new AddHostDocumentVersionRequest(fileId)),
+                new AddHostDocumentVersionRequest(fileId) { RequestKey = Guid.CreateVersion7() }),
             cancellationToken);
         Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
         var updated = await response.Content.ReadFromJsonAsync<HostDocumentItemResponse>(cancellationToken);
@@ -281,6 +282,7 @@ internal static class DocumentHostItemAssertions
         officeFile.Headers.ContentType = new MediaTypeHeaderValue(
             "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
         officeUpload.Add(officeFile, "file", "document.docx");
+        officeUpload.Add(new StringContent(Guid.CreateVersion7().ToString("D")), "requestKey");
         using var officeUploadRequest = new HttpRequestMessage(
             HttpMethod.Post,
             $"{ItemsPath}/{item.Id:D}/versions/upload")
@@ -335,7 +337,7 @@ internal static class DocumentHostItemAssertions
                 HttpMethod.Post,
                 $"{ItemsPath}/{itemId:D}/versions",
                 token,
-                new AddHostDocumentVersionRequest(Guid.CreateVersion7())),
+                new AddHostDocumentVersionRequest(Guid.CreateVersion7()) { RequestKey = Guid.CreateVersion7() }),
             cancellationToken);
         Assert.AreEqual(HttpStatusCode.BadRequest, response.StatusCode);
         using var problem = JsonDocument.Parse(await response.Content.ReadAsStringAsync(cancellationToken));
@@ -494,6 +496,7 @@ internal static class DocumentHostItemAssertions
         var fileContent = new ByteArrayContent(payload);
         fileContent.Headers.ContentType = new MediaTypeHeaderValue("text/plain");
         uploadContent.Add(fileContent, "file", fileName);
+        uploadContent.Add(new StringContent(Guid.CreateVersion7().ToString("D")), "requestKey");
         using var uploadRequest = new HttpRequestMessage(
             HttpMethod.Post,
             $"{ItemsPath}/{itemId:D}/versions/upload")

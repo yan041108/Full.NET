@@ -47,6 +47,15 @@ internal sealed class MinioTestEnvironment : IAsyncDisposable
         }
 
         var container = new ContainerBuilder(image.Trim())
+            .WithCreateParameterModifier(parameters =>
+            {
+                // 原生 Provider 验收只创建本轮实例，限额和回收归属在 create 前固定，避免占用共享任务资源。
+                var limits = parameters.HostConfig ??= new();
+                limits.Memory = 1L << 30;
+                limits.MemorySwap = limits.Memory;
+                limits.NanoCPUs = 1_000_000_000;
+                if (SharedDatabaseFixture.BoundedContainers) SharedDatabaseFixture.ApplyBoundedOwnership(parameters.Labels);
+            })
             .WithCommand("server", "/data", "--console-address", ":9001")
             .WithEnvironment("MINIO_ROOT_USER", RootUser)
             .WithEnvironment("MINIO_ROOT_PASSWORD", RootPassword)

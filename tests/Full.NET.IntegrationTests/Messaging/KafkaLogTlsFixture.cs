@@ -25,6 +25,7 @@ internal sealed class KafkaLogTlsFixture : IAsyncDisposable
     private readonly string _caPath;
     private readonly bool _useSasl;
     private readonly bool _useAcls;
+    private SaslMechanism _saslMechanism = SaslMechanism.Plain;
 
     private KafkaLogTlsFixture(IContainer container, string caPath, string bootstrapServers, bool useSasl, bool useAcls,
         NativeContainerResourceProfile.Lease? resourceLease)
@@ -48,7 +49,7 @@ internal sealed class KafkaLogTlsFixture : IAsyncDisposable
     public string? SaslPassword => _useSasl ? SaslPasswordValue : null;
 
     public static async Task<KafkaLogTlsFixture> StartAsync(bool useSasl = false, bool useAcls = false, CancellationToken cancellationToken = default,
-        bool enableCollectorListener = false)
+        bool enableCollectorListener = false, SaslMechanism saslMechanism = SaslMechanism.Plain)
     {
         if (useAcls && !useSasl)
         {
@@ -146,7 +147,11 @@ internal sealed class KafkaLogTlsFixture : IAsyncDisposable
                     "/etc/kafka/secrets/broker_jaas.conf", 1000, 1000)
                 .WithEnvironment("KAFKA_OPTS",
                     "-Djava.security.auth.login.config=/etc/kafka/secrets/broker_jaas.conf")
-                .WithEnvironment("KAFKA_SASL_ENABLED_MECHANISMS", "PLAIN");
+                .WithEnvironment("KAFKA_SASL_ENABLED_MECHANISMS", "PLAIN,SCRAM-SHA-256,SCRAM-SHA-512")
+                .WithEnvironment("KAFKA_LISTENER_NAME_SASL__SSL_SCRAM___SHA___256_SASL_JAAS_CONFIG",
+                    "org.apache.kafka.common.security.scram.ScramLoginModule required;")
+                .WithEnvironment("KAFKA_LISTENER_NAME_SASL__SSL_SCRAM___SHA___512_SASL_JAAS_CONFIG",
+                    "org.apache.kafka.common.security.scram.ScramLoginModule required;");
             if (useAcls)
             {
                 // 内部明文监听仅供单节点复制和控制器使用；外部受限账号只能经 SASL_SSL 进入。
@@ -183,7 +188,21 @@ internal sealed class KafkaLogTlsFixture : IAsyncDisposable
         {
             await container.StartAsync(cancellationToken).ConfigureAwait(false);
             if (resourceLease is not null) await resourceLease.CaptureAsync(container.Id).ConfigureAwait(false);
-            return new KafkaLogTlsFixture(container, caPath, bootstrap, useSasl, useAcls, resourceLease);
+            var fixture = new KafkaLogTlsFixture(container, caPath, bootstrap, useSasl, useAcls, resourceLease);
+            if (useSasl && saslMechanism is SaslMechanism.ScramSha256 or SaslMechanism.ScramSha512)
+            {
+                // 通过已认证的 PLAIN 管理连接建立临时 SCRAM 用户，再切换到待验收机制。
+                using var admin = fixture.CreateAdminClient();
+                var mechanism = saslMechanism == SaslMechanism.ScramSha256
+                    ? Confluent.Kafka.Admin.ScramMechanism.ScramSha256 : Confluent.Kafka.Admin.ScramMechanism.ScramSha512;
+                await admin.AlterUserScramCredentialsAsync([new UserScramCredentialUpsertion
+                {
+                    User = SaslUser, Password = Encoding.UTF8.GetBytes(SaslPasswordValue),
+                    ScramCredentialInfo = new ScramCredentialInfo { Mechanism = mechanism, Iterations = 4096 },
+                }]).WaitAsync(TimeSpan.FromSeconds(30), cancellationToken).ConfigureAwait(false);
+                fixture._saslMechanism = saslMechanism;
+            }
+            return fixture;
         }
         catch
         {
@@ -253,7 +272,7 @@ internal sealed class KafkaLogTlsFixture : IAsyncDisposable
         };
         if (_useSasl)
         {
-            config.SaslMechanism = SaslMechanism.Plain;
+            config.SaslMechanism = _saslMechanism;
             config.SaslUsername = _useAcls ? AdminUser : SaslUser;
             config.SaslPassword = _useAcls ? AdminPassword : SaslPasswordValue;
         }
@@ -288,7 +307,7 @@ internal sealed class KafkaLogTlsFixture : IAsyncDisposable
         };
         if (_useSasl)
         {
-            config.SaslMechanism = SaslMechanism.Plain;
+            config.SaslMechanism = _saslMechanism;
             config.SaslUsername = _useAcls ? AdminUser : SaslUser;
             config.SaslPassword = _useAcls ? AdminPassword : SaslPasswordValue;
         }

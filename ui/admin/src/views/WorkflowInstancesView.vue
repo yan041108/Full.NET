@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import WorkflowOperations from '../workflow/WorkflowOperations.vue';
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import {
@@ -256,8 +257,11 @@ async function selectListItem(item: WorkflowInstanceListItemResponse): Promise<v
   await load();
 }
 
+function businessDetailRoute(businessType: string | null | undefined) {
+  return session.switching ? undefined : findWorkflowBusinessDetailRoute(businessType, session.can);
+}
 function openBusinessDetail(businessType: string, businessId: string): void {
-  const route = findWorkflowBusinessDetailRoute(businessType);
+  const route = businessDetailRoute(businessType);
   if (route === undefined) {
     return;
   }
@@ -517,6 +521,7 @@ function toProblem(
   <section class="workflow-instances art-page-stack art-full-height" :aria-busy="loading">
     <h1 class="art-sr-heading" data-route-heading tabindex="-1">{{ t('workflowInstances.title') }}</h1>
     <p class="art-sr-heading">{{ t('workflowInstances.caption') }}</p>
+    <WorkflowOperations />
 
     <div v-if="instance" class="workflow-instances__toolbar">
       <div class="workflow-instances__actions">
@@ -708,7 +713,7 @@ function toProblem(
           <span>{{ t('workflowInstances.business') }}</span>
           <strong>{{ formatWorkflowBusinessLabel(instance.businessTitle, instance.businessType, instance.businessId) }}</strong>
           <el-button
-            v-if="findWorkflowBusinessDetailRoute(instance.businessType)"
+            v-if="businessDetailRoute(instance.businessType)"
             type="primary"
             link
             data-testid="workflow-instance-open-business"

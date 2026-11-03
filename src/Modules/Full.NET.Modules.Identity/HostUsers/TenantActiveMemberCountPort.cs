@@ -8,6 +8,15 @@ namespace Full.NET.Modules.Identity.HostUsers;
 /// <summary>Host 范围读取租户活动成员数，供 Tenancy 配额用量基线对账。</summary>
 internal sealed class TenantActiveMemberCountPort(IQueryExecutor queryExecutor) : ITenantActiveMemberCountPort
 {
+    public async Task<IReadOnlyList<Guid>> FindUnsettledSeatTenantsAsync(
+        IReadOnlyCollection<Guid> tenantIds, CancellationToken cancellationToken = default)
+    {
+        if (tenantIds.Count > 100) throw new ArgumentOutOfRangeException(nameof(tenantIds));
+        if (tenantIds.Count == 0) return [];
+        return await queryExecutor.QueryAsync<Guid>(TenantMembershipSql.FindUnsettledSeatTenants,
+            IdentitySqlParameters.Create(("TenantIds", tenantIds.Distinct().ToArray())), cancellationToken).ConfigureAwait(false);
+    }
+
     public async Task<IReadOnlyDictionary<Guid, long>> CountActiveMembersByTenantsAsync(
         IReadOnlyCollection<Guid> tenantIds, CancellationToken cancellationToken = default)
     {

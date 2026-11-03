@@ -64,6 +64,12 @@ internal static class TenantSql
         """,
         SqlDataScope.Global);
 
+    /// <summary>安全关键批量准入只读取显式Id，不复用后台可用租户全目录。</summary>
+    public static readonly SqlStatement FindActiveByIds = new("tenancy.find_active_by_explicit_ids", """
+        SELECT Id, Identifier, Name, Domain, IsActive, Version, DefaultLocale
+        FROM fn_tenancy_tenant WHERE Id IN @TenantIds AND IsActive=1
+        """, SqlDataScope.Global);
+
     public static readonly SqlStatement Insert = new(
         "tenancy.insert",
         """

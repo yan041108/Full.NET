@@ -10,6 +10,16 @@ public static class AgUiEventMapper
 {
     private static readonly AgUiJsonSerializerContext SerializerContext = new(new JsonSerializerOptions(JsonSerializerDefaults.Web));
 
+    // 历史阶段边界保留准确事件游标和已公开的安全映射，不在同一连接中提前终止标准客户端。
+    internal static AgUiMappedEvent CreateHistoricalBoundary(AgentRunAgUiSnapshot snapshot, AgentRunPersistedEvent persisted, AgUiMappedEvent boundary) =>
+        new(AgUiProtocolEventTypes.Custom,
+            new AgUiCustomPayload(AgUiProtocolEventTypes.Custom, persisted.EventType,
+                new AgUiPersistedEventValue(snapshot.RunId, persisted.Sequence, persisted.PayloadVersion,
+                    JsonSerializer.Serialize(boundary.Payload, boundary.TypeInfo))), SerializerContext.AgUiCustomPayload);
+
+    internal static AgUiMappedEvent CreateReadFailure(string code) => new(AgUiProtocolEventTypes.RunError,
+        new AgUiRunErrorPayload(AgUiProtocolEventTypes.RunError, code, code), SerializerContext.AgUiRunErrorPayload);
+
     /// <summary>
     /// 构造 AG-UI run.started 事件，携带会话与运行标识。
     /// </summary>
@@ -168,6 +178,11 @@ public static class AgUiEventMapper
                         "interrupt",
                         [new AgUiRunInterrupt("approval", "tool_approval_required")])),
                 SerializerContext.AgUiRunFinishedPayload),
+            "reconciliation_required" => new AgUiMappedEvent(AgUiProtocolEventTypes.RunFinished,
+                new AgUiRunFinishedPayload(AgUiProtocolEventTypes.RunFinished, snapshot.SessionId.ToString("D"), snapshot.RunId.ToString("D"),
+                    new AgUiRunFinishedOutcome("interrupt", [new AgUiRunInterrupt("reconciliation", "tool_receipt_unknown")])),
+                SerializerContext.AgUiRunFinishedPayload),
+            "authorization_required" => CreateReadFailure("authorization.permission_denied"),
             _ => null
         };
     }
@@ -191,6 +206,8 @@ public static class AgUiEventMapper
         {
         }
 
+        // 标准客户端的可选字符串不接受null；失败回执没有机器码时仍使用稳定通用码。
+        if (string.IsNullOrWhiteSpace(code)) code = "ai.agent_run.failed";
         return new AgUiMappedEvent(
             AgUiProtocolEventTypes.RunError,
             new AgUiRunErrorPayload(

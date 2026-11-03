@@ -8,13 +8,16 @@ namespace Full.NET.UnitTests.CodeGeneration;
 [TestClass]
 public sealed class CodeGenerationApplyGateTests
 {
+    private string _workspaceRoot = null!;
+    [TestInitialize] public void Initialize() => _workspaceRoot = Directory.CreateTempSubdirectory("fullnet-codegen-gate-").FullName;
+    [TestCleanup] public void Cleanup() => Directory.Delete(_workspaceRoot, recursive: true);
     [TestMethod]
     public async Task Failed_acquisition_does_not_strand_local_gate()
     {
         var backend = new FailingOnceBackend();
         var gate = new CodeGenerationApplyGate(Options.Create(new CodeGenerationApplyOptions
         {
-            WorkspaceRoot = @"C:\workspaces\codegen", DistributedGateEnabled = true,
+            WorkspaceRoot = _workspaceRoot, DistributedGateEnabled = true,
         }), backend);
         await Assert.ThrowsExactlyAsync<IOException>(() => gate.TryEnterAsync(CancellationToken.None));
         Assert.IsTrue(await gate.TryEnterAsync(CancellationToken.None));
@@ -74,8 +77,8 @@ public sealed class CodeGenerationApplyGateTests
         await gate.ReleaseAsync();
     }
 
-    private static CodeGenerationApplyGate CreateDistributedGate(ICodeGenerationWorkspaceLockBackend backend) =>
-        new(Options.Create(new CodeGenerationApplyOptions { WorkspaceRoot = @"C:\workspaces\codegen", DistributedGateEnabled = true }), backend);
+    private CodeGenerationApplyGate CreateDistributedGate(ICodeGenerationWorkspaceLockBackend backend) =>
+        new(Options.Create(new CodeGenerationApplyOptions { WorkspaceRoot = _workspaceRoot, DistributedGateEnabled = true }), backend);
 
     private sealed class DelegateBackend(Func<Task<IAsyncDisposable?>> acquire) : ICodeGenerationWorkspaceLockBackend
     {
@@ -88,10 +91,11 @@ public sealed class CodeGenerationApplyGateTests
     }
 
     [TestMethod]
-    public void Workspace_lock_resource_is_stable_for_normalized_paths()
+    public void Workspace_lock_resource_is_stable_for_persistent_identity()
     {
-        var first = CodeGenerationWorkspaceLockResource.Create(@"C:\workspaces\codegen");
-        var second = CodeGenerationWorkspaceLockResource.Create(@"C:\workspaces\codegen\");
+        var identity = Guid.CreateVersion7();
+        var first = CodeGenerationWorkspaceLockResource.Create(identity);
+        var second = CodeGenerationWorkspaceLockResource.Create(identity);
         Assert.AreEqual(first, second);
         StringAssert.StartsWith(first, "fn:codegeneration:workspace:");
     }
@@ -99,10 +103,38 @@ public sealed class CodeGenerationApplyGateTests
     [TestMethod]
     public async Task Local_gate_rejects_second_concurrent_enter()
     {
-        var gate = CodeGenerationApplyGateTestSupport.CreateLocalGate(@"C:\workspaces\codegen");
+        var gate = CodeGenerationApplyGateTestSupport.CreateLocalGate(_workspaceRoot);
         Assert.IsTrue(await gate.TryEnterAsync(CancellationToken.None));
         Assert.IsFalse(await gate.TryEnterAsync(CancellationToken.None));
         await gate.ReleaseAsync();
+    }
+
+    [TestMethod]
+    public async Task Independent_instances_share_file_lease_and_keep_identity_after_release()
+    {
+        var first = CodeGenerationApplyGateTestSupport.CreateLocalGate(_workspaceRoot);
+        var second = CodeGenerationApplyGateTestSupport.CreateLocalGate(_workspaceRoot);
+        Assert.IsTrue(await first.TryEnterAsync(CancellationToken.None));
+        var identity = first.WorkspaceId;
+        Assert.IsFalse(await second.TryEnterAsync(CancellationToken.None));
+        await first.ReleaseAsync();
+        Assert.IsTrue(await second.TryEnterAsync(CancellationToken.None));
+        Assert.AreEqual(identity, second.WorkspaceId);
+        await second.ReleaseAsync();
+    }
+
+    [TestMethod]
+    public async Task Losing_database_lease_does_not_grant_a_second_writer_while_file_lease_is_held()
+    {
+        var lease = new AsyncLease(() => ValueTask.CompletedTask);
+        var first = CreateDistributedGate(new DelegateBackend(() => Task.FromResult<IAsyncDisposable?>(lease)));
+        var second = CodeGenerationApplyGateTestSupport.CreateLocalGate(_workspaceRoot);
+        Assert.IsTrue(await first.TryEnterAsync(CancellationToken.None));
+        await lease.DisposeAsync();
+        Assert.IsFalse(await second.TryEnterAsync(CancellationToken.None));
+        await first.ReleaseAsync();
+        Assert.IsTrue(await second.TryEnterAsync(CancellationToken.None));
+        await second.ReleaseAsync();
     }
 
     [TestMethod]
@@ -112,7 +144,7 @@ public sealed class CodeGenerationApplyGateTests
             Options.Create(new CodeGenerationApplyOptions
             {
                 Enabled = true,
-                WorkspaceRoot = @"C:\workspaces\codegen",
+                WorkspaceRoot = _workspaceRoot,
                 DistributedGateEnabled = true,
             }),
             new RejectingWorkspaceLockBackend());
@@ -127,7 +159,7 @@ public sealed class CodeGenerationApplyGateTests
             Options.Create(new CodeGenerationApplyOptions
             {
                 Enabled = true,
-                WorkspaceRoot = @"C:\workspaces\codegen",
+                WorkspaceRoot = _workspaceRoot,
                 DistributedGateEnabled = true,
             }),
             backend);

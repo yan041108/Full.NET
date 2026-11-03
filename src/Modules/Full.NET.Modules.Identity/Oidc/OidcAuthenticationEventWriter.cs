@@ -18,6 +18,7 @@ internal sealed class OidcAuthenticationEventWriter(
     internal const string ApplicationSessionCreated = "oidc.application_session_created";
     internal const string CenterLogout = "oidc.center_logout";
     internal const string ApplicationLogout = "oidc.application_logout";
+    internal const string CenterSessionReused = "oidc.center_session_reused";
 
     public async Task WriteAsync(
         Guid? userId,
@@ -28,7 +29,8 @@ internal sealed class OidcAuthenticationEventWriter(
         CancellationToken cancellationToken,
         Guid? centerSessionId = null,
         string? clientId = null,
-        Guid? applicationSessionId = null)
+        Guid? applicationSessionId = null,
+        string? authenticationMethod = null)
     {
         var audit = new AuthAuditEvent(
             idGenerator.NewId(),
@@ -45,8 +47,8 @@ internal sealed class OidcAuthenticationEventWriter(
             clock.UtcNow,
             succeeded ? userId : null,
             Activity.Current?.TraceId.ToString(),
-            eventType == CenterLogin ? "password"
-                : eventType == ApplicationSessionCreated ? "sso" : "session",
+            authenticationMethod ?? (eventType == CenterLogin ? "password"
+                : eventType is ApplicationSessionCreated or CenterSessionReused ? "sso" : "session"),
             clientId,
             centerSessionId,
             applicationSessionId);

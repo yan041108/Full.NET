@@ -3,6 +3,26 @@ namespace Full.NET.Modules.Reporting.Contracts;
 /// <summary>Reporting 模块稳定业务错误码。</summary>
 public static class ReportingErrorCodes
 {
+    /// <summary>导出原会话、发布授权或精确权限已失效。</summary>
+    public const string ExportAuthorityDenied = "reporting.export_authority_denied";
+    /// <summary>发布授权请求参数无效。</summary>
+    public const string GrantInvalid = "reporting.grant.invalid";
+    /// <summary>目标活动租户不存在。</summary>
+    public const string GrantTenantNotFound = "reporting.grant.tenant_not_found";
+    /// <summary>发布数据源已停用或属于其他租户。</summary>
+    public const string GrantSourceUnavailable = "reporting.grant.source_unavailable";
+    /// <summary>定义或目标授权不存在。</summary>
+    public const string GrantNotFound = "reporting.grant.not_found";
+    /// <summary>发布授权版本已改变。</summary>
+    public const string GrantVersionConflict = "reporting.grant.version_conflict";
+    /// <summary>管理发布授权要求 Host 上下文。</summary>
+    public const string GrantHostRequired = "reporting.grant.host_required";
+    /// <summary>发布目录筛选无效。</summary>
+    public const string PublishedInvalidFilter = "reporting.published.invalid_filter";
+    /// <summary>当前租户无权读取该发布。</summary>
+    public const string PublishedNotFound = "reporting.published.not_found";
+    /// <summary>导出要求可信租户上下文。</summary>
+    public const string ExportTenantRequired = "reporting.export_tenant_required";
     /// <summary>报表数据源不存在。</summary>
     public const string DataSourceNotFound = "reporting.data_source.not_found";
 

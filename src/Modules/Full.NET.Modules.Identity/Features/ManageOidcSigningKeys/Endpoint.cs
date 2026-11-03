@@ -17,12 +17,28 @@ internal static class Endpoint
         var group = endpoints.MapGroup("/api/v1/identity/oidc-signing-keys")
             .WithTags("IdentityOidcSigningKeys");
 
-        group.MapGet("/", (
+        group.MapPost("/{keyId}/publish", async (string keyId, OidcSigningKeyManagementService service,
+            IApiResultMapper mapper, HttpContext context, CancellationToken token) =>
+        {
+            if (!OidcManagementEndpointSupport.TryResolveActor(context, out var actor)) return Results.Unauthorized();
+            return mapper.Map(await service.PublishAsync(keyId, actor, token).ConfigureAwait(false), context);
+        }).WithName("identityPublishOidcSigningKey").Produces<OidcSigningKeyListResponse>()
+            .RequireFullNetPermission(IdentityOidcSigningKeyPermissions.Publish);
+        group.MapPost("/{keyId}/retire", async (string keyId, OidcSigningKeyManagementService service,
+            IApiResultMapper mapper, HttpContext context, CancellationToken token) =>
+        {
+            if (!OidcManagementEndpointSupport.TryResolveActor(context, out var actor)) return Results.Unauthorized();
+            return mapper.Map(await service.RetireAsync(keyId, actor, token).ConfigureAwait(false), context);
+        }).WithName("identityRetireOidcSigningKey").Produces<OidcSigningKeyListResponse>()
+            .RequireFullNetPermission(IdentityOidcSigningKeyPermissions.Retire);
+
+        group.MapGet("/", async (
             OidcSigningKeyQueryService queries,
             IApiResultMapper mapper,
-            HttpContext httpContext) =>
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
         {
-            var result = queries.List();
+            var result = await queries.ListAsync(cancellationToken).ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
         .WithName("identityListOidcSigningKeys")
@@ -52,6 +68,7 @@ internal static class Endpoint
         .ProducesProblem(StatusCodes.Status401Unauthorized)
         .ProducesProblem(StatusCodes.Status403Forbidden)
         .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status409Conflict)
         .RequireFullNetPermission(IdentityOidcSigningKeyPermissions.Activate);
     }
 }

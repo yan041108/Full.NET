@@ -263,12 +263,15 @@ public sealed class CodeGenerationRollbackServiceTests
         using var workspace = new TemporaryDirectory();
         var emptyManifestSha = CodeGenerationRunSummary.ComputeManifestSha256(
             GenerationManifest.Create([]));
-        Directory.CreateDirectory(Path.Combine(workspace.Path, ".fullnet"));
-        await File.WriteAllTextAsync(
-            Path.Combine(
-                workspace.Path,
-                GenerationWorkspaceStore.ManifestRelativePath),
-            GenerationManifest.Create([]).ToJson());
+        await CreateApplyEvidenceWithoutCheckpointAsync(workspace.Path);
+        await using (var lease = await GenerationWorkspaceLease.TryAcquireAsync(workspace.Path) ?? throw new InvalidOperationException())
+        {
+            var snapshot = await GenerationWorkspaceStore.CaptureAsync(workspace.Path, []);
+            var reverse = GenerationWritePlanner.Plan([], snapshot.ExistingFiles, snapshot.PreviousManifest);
+            await GenerationWorkspaceJournal.PrepareAsync(lease, RollbackRunId, RollbackRunId, "rollback", "host", null, reverse, ApplyRunId);
+            await GenerationWorkspaceJournal.CommitAsync(lease);
+            await GenerationWorkspaceJournal.CompleteAsync(lease);
+        }
 
         var command = Substitute.For<ICommandExecutor>();
         var query = Substitute.For<IQueryExecutor>();
@@ -421,6 +424,7 @@ public sealed class CodeGenerationRollbackServiceTests
     public async Task Missing_checkpoint_is_rejected_before_run_insert()
     {
         using var workspace = new TemporaryDirectory();
+        await CreateApplyEvidenceWithoutCheckpointAsync(workspace.Path);
         var command = Substitute.For<ICommandExecutor>();
         var query = Substitute.For<IQueryExecutor>();
         query.QuerySingleOrDefaultAsync<CodeGenerationRunRecord>(
@@ -475,7 +479,7 @@ public sealed class CodeGenerationRollbackServiceTests
                 Arg.Any<object?>(),
                 Arg.Any<CancellationToken>())
             .Returns((CodeGenerationRunRecord?)null);
-        var gate = CodeGenerationApplyGateTestSupport.CreateLocalGate(@"C:\workspaces\codegen");
+        var gate = CodeGenerationApplyGateTestSupport.CreateLocalGate(workspace.Path);
         Assert.IsTrue(await gate.TryEnterAsync(CancellationToken.None));
         var service = CreateService(workspace.Path, command, query, gate);
 
@@ -569,7 +573,7 @@ public sealed class CodeGenerationRollbackServiceTests
             workspaceRoot,
             ApplyRunId,
             plan);
-        await GenerationWorkspaceStore.ApplyAsync(workspaceRoot, plan);
+        await ApplyJournalAsync(workspaceRoot, ApplyRunId, plan);
 
         var query = queryOverride ?? Substitute.For<IQueryExecutor>();
         if (queryOverride is null)
@@ -621,7 +625,7 @@ public sealed class CodeGenerationRollbackServiceTests
             workspaceRoot,
             ApplyRunId,
             firstPlan);
-        await GenerationWorkspaceStore.ApplyAsync(workspaceRoot, firstPlan);
+        await ApplyJournalAsync(workspaceRoot, ApplyRunId, firstPlan);
 
         var secondArtifacts = new[]
         {
@@ -642,7 +646,7 @@ public sealed class CodeGenerationRollbackServiceTests
             workspaceRoot,
             ApplyRunId2,
             secondPlan);
-        await GenerationWorkspaceStore.ApplyAsync(workspaceRoot, secondPlan);
+        await ApplyJournalAsync(workspaceRoot, ApplyRunId2, secondPlan);
 
         var query = Substitute.For<IQueryExecutor>();
         query.QuerySingleOrDefaultAsync<CodeGenerationRunRecord>(
@@ -698,11 +702,26 @@ public sealed class CodeGenerationRollbackServiceTests
                 WorkspaceRoot = workspaceRoot,
             }),
             Options.Create(retention ?? new CodeGenerationCheckpointRetentionOptions()),
-            gate ?? CodeGenerationApplyGateTestSupport.CreateLocalGate(@"C:\workspaces\codegen"),
+            gate ?? CodeGenerationApplyGateTestSupport.CreateLocalGate(workspaceRoot),
             CodeGenerationGitWorkspaceTestSupport.CreateDisabled(workspaceRoot),
             new FixedClock(Now),
             idGenerator ?? new FixedIdGenerator(RollbackRunId),
-            NullLogger<CodeGenerationRollbackService>.Instance);
+            NullLogger<CodeGenerationRollbackService>.Instance, new(commands: command, queries: query, options: Options.Create(new CodeGenerationArtifactOptions()), clock: new FixedClock(Now)));
+
+    private static async Task ApplyJournalAsync(string root, Guid id, GenerationWritePlan plan)
+    {
+        await using var lease = await GenerationWorkspaceLease.TryAcquireAsync(root) ?? throw new InvalidOperationException("测试工作区占用。");
+        await GenerationWorkspaceJournal.PrepareAsync(lease, id, id, "apply", "host", null, plan);
+        await GenerationWorkspaceJournal.CommitAsync(lease);
+        await GenerationWorkspaceJournal.CompleteAsync(lease);
+    }
+
+    private static async Task CreateApplyEvidenceWithoutCheckpointAsync(string root)
+    {
+        var artifacts = new[] { new GeneratedArtifact("Backend/Product.g.cs", GeneratedArtifactKind.Backend, "applied-product\n") };
+        var snapshot = await GenerationWorkspaceStore.CaptureAsync(root, artifacts);
+        await ApplyJournalAsync(root, ApplyRunId, GenerationWritePlanner.Plan(artifacts, snapshot.ExistingFiles, snapshot.PreviousManifest));
+    }
 
     private static CodeGenerationRunRecord CreateSucceededApplyRecord(
         Guid id,

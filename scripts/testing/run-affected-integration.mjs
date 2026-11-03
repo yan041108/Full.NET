@@ -13,6 +13,7 @@ import { argumentsFor } from './run-integration-shard.mjs';
 import { loadTestMatrix } from './run-dotnet-test-suite.mjs';
 import { prepareTestBuild } from './test-build-reuse.mjs';
 import { enterHeavyTestPhase, testRunEnvironment, withTestRun } from './test-run-context.mjs';
+import { prepareMessagingShardHosts } from './messaging-shard-hosts.mjs';
 
 const execFileAsync = promisify(execFile);
 const testMatrix = loadTestMatrix();
@@ -1149,6 +1150,12 @@ function runProcess(command, args, cwd, env = testRunEnvironment()) {
   });
 }
 
+async function runIntegrationWithHosts(args, cwd, required) {
+  const hosts = required ? await prepareMessagingShardHosts(cwd, testRunEnvironment()) : null;
+  try { await runProcess('dotnet', args, cwd, hosts?.env ?? testRunEnvironment()); }
+  finally { await hosts?.verify(); }
+}
+
 async function discover(filter, cwd) {
   const { stdout } = await execFileAsync(
     'dotnet',
@@ -1312,7 +1319,7 @@ async function runCli(args, cwd = process.cwd()) {
   );
   for (const target of shardTargets) {
     if (target.kind === 'shard') {
-      await runProcess('dotnet', argumentsFor(target.name), cwd);
+      await runIntegrationWithHosts(argumentsFor(target.name), cwd, ['full', 'messaging-heavy'].includes(target.name));
     }
   }
 
@@ -1338,8 +1345,7 @@ async function runCli(args, cwd = process.cwd()) {
       `${combined.targetNames.join(', ')} 聚焦发现：`
       + `${combined.discoveredCount} 项（UID 去重），${providerNote}\n`
     );
-    await runProcess(
-      'dotnet',
+    await runIntegrationWithHosts(
       argumentsForFocused(
         {
           kind: 'filter',
@@ -1350,7 +1356,8 @@ async function runCli(args, cwd = process.cwd()) {
         },
         combined.discoveredCount
       ),
-      cwd
+      cwd,
+      combined.filter.includes('MessagingMultiProcessRecoveryTests')
     );
   }
   });

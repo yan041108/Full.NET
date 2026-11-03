@@ -179,7 +179,7 @@ internal static class CodeGenerationRunSql
     public static readonly SqlStatement ListEligibleCheckpointCleanupSqlServer = new(
         "codegen.run.list_eligible_checkpoint_cleanup.sql_server",
         """
-        SELECT TOP (@Take) a.Id AS ApplyRunId
+        SELECT TOP (@Take) a.Id AS ApplyRunId, r.Id AS RollbackRunId
         FROM fn_codegeneration_run a
         INNER JOIN fn_codegeneration_run r
             ON r.SourceApplyRunId = a.Id
@@ -195,7 +195,7 @@ internal static class CodeGenerationRunSql
     public static readonly SqlStatement ListEligibleCheckpointCleanupMySql = new(
         "codegen.run.list_eligible_checkpoint_cleanup.my_sql",
         """
-        SELECT a.Id AS ApplyRunId
+        SELECT a.Id AS ApplyRunId, r.Id AS RollbackRunId
         FROM fn_codegeneration_run a
         INNER JOIN fn_codegeneration_run r
             ON r.SourceApplyRunId = a.Id
@@ -212,7 +212,7 @@ internal static class CodeGenerationRunSql
     public static readonly SqlStatement ListCapacityOverflowCheckpointCleanupSqlServer = new(
         "codegen.run.list_capacity_overflow_checkpoint_cleanup.sql_server",
         """
-        SELECT TOP (@Take) a.Id AS ApplyRunId
+        SELECT TOP (@Take) a.Id AS ApplyRunId, r.Id AS RollbackRunId
         FROM fn_codegeneration_run a
         INNER JOIN fn_codegeneration_run r
             ON r.SourceApplyRunId = a.Id
@@ -227,7 +227,7 @@ internal static class CodeGenerationRunSql
     public static readonly SqlStatement ListCapacityOverflowCheckpointCleanupMySql = new(
         "codegen.run.list_capacity_overflow_checkpoint_cleanup.my_sql",
         """
-        SELECT a.Id AS ApplyRunId
+        SELECT a.Id AS ApplyRunId, r.Id AS RollbackRunId
         FROM fn_codegeneration_run a
         INNER JOIN fn_codegeneration_run r
             ON r.SourceApplyRunId = a.Id

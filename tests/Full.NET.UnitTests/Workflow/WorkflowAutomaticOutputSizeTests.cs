@@ -24,7 +24,7 @@ public sealed class WorkflowAutomaticOutputSizeTests
         query.QuerySingleOrDefaultAsync<WorkflowFormSubmissionRecord>(WorkflowSql.FindFormSubmissionByInstance, Arg.Any<object?>(), Arg.Any<CancellationToken>())
             .Returns(new WorkflowFormSubmissionRecord(Guid.CreateVersion7(), instanceId, Guid.CreateVersion7(), "{}", "Internal", 1, actor, now));
         var attachment = new WorkflowFormAttachmentCoordinator(claims, descriptors, query, command, Substitute.For<IClock>(), Substitute.For<IIdGenerator>(),
-            NullLogger<WorkflowFormAttachmentCoordinator>.Instance, tenant, Substitute.For<ITenantResourceFileDescriptorReader>());
+            NullLogger<WorkflowFormAttachmentCoordinator>.Instance, tenant, Substitute.For<ITenantResourceFileDescriptorReader>(), WorkflowTodoManagementTestDependencies.CreateRemoteFiles(query, tenant));
         var service = new WorkflowAutomaticOutputCoordinator(query, command, Substitute.For<IClock>(), new(query, command), attachment);
         var instance = new WorkflowInstanceRecord(instanceId, null, "host", "host", Guid.CreateVersion7(), Guid.CreateVersion7(), "test", "one", null, "active", 1, actor, now, null, null, null, null, null, null);
         var file = Guid.CreateVersion7();

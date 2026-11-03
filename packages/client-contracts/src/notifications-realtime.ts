@@ -29,12 +29,14 @@ export interface NotificationsHubConnectionOptions {
   hubPath: string;
   accessTokenFactory: () => string | undefined;
   reconnectDelays: readonly number[];
+  headers?: Record<string, string>;
 }
 
 export interface NotificationsRealtimeSession {
   snapshot(): IdentitySessionSnapshot;
   subscribe(listener: (snapshot: IdentitySessionSnapshot) => void): () => void;
   readAccessToken(): string | undefined;
+  readCsrfToken?(): string | undefined;
 }
 
 export interface NotificationsRealtimeOptions {
@@ -116,6 +118,7 @@ export function createNotificationsRealtimeController(
       connection = await connectionFactory({
         hubPath: options.hubPath ?? '/hubs/notifications',
         accessTokenFactory: () => options.session.readAccessToken(),
+        headers: options.session.readCsrfToken?.() ? { 'X-CSRF-Token': options.session.readCsrfToken!()! } : undefined,
         reconnectDelays
       });
     } catch {

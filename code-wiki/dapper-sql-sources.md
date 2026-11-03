@@ -7,7 +7,7 @@
 | 来源 | 何时使用 | 产物位置 | 门禁 |
 | --- | --- | --- | --- |
 | **手写 SQL** | 模块内 CRUD、查询、事务 | `Features/*Sql.cs`、`Persistence/*Sql.cs` | Architecture scope/binding；`SqlDataScope` 租户过滤 |
-| **Global 目录** | 跨模块/Global 语句（极少） | [`contracts/architecture/global-sql-statements.json`](file:///G:/wwwroot/github_fork/Full.NET/contracts/architecture/global-sql-statements.json) | [`GlobalSqlStatementCatalogTests`](file:///G:/wwwroot/github_fork/Full.NET/tests/Full.NET.ArchitectureTests/GlobalSqlStatementCatalogTests.cs) 精确匹配 |
+| **Global 目录** | 实际标为 SqlDataScope.Global 的语句 | [`contracts/architecture/global-sql-statements.json`](file:///G:/wwwroot/github_fork/Full.NET/contracts/architecture/global-sql-statements.json) | [`GlobalSqlStatementCatalogTests`](file:///G:/wwwroot/github_fork/Full.NET/tests/Full.NET.ArchitectureTests/GlobalSqlStatementCatalogTests.cs) 精确匹配 |
 | **CodeGeneration** | Admin.NET 对标 CRUD 批量导入 | `*Sql.g.cs`、迁移模板 | 生成后仍受 Architecture 与 `SqlDataScope` 约束 |
 
 ## 手写 SQL（默认）
@@ -20,7 +20,8 @@
 
 > 文件：[`contracts/architecture/global-sql-statements.json`](file:///G:/wwwroot/github_fork/Full.NET/contracts/architecture/global-sql-statements.json)（约 300 KB；包含 `schemaVersion`、`statements` 与 `categories`）
 
-- 仅登记 **真正 Global** 或跨模块只读语句；禁止把模块内 SQL 抄进 catalog 逃避所有权扫描。
+- 仅登记实际 `SqlDataScope.Global` 语句；跨模块 JOIN 不等于 Global，不能更改 scope 逃避租户或所有权检查。
+- 后台组合查询另按 [读取依赖规范](../contracts/architecture/module-read-queries.md) 登记在 `module-read-queries.json`。SQL 集中在 Queries/*Sql.cs，返回 DTO，明确模块/表/列、SQL 摘要和安全说明；业务操作走契约，禁止跨模块写表与事务。
 - 允许的 `categories` 在测试硬编码：`cross_context_audit_write`、`reliable_event_sink`、`host_catalog`、`verified_identity`、`tenant_resolution`、`host_tenant_catalog`、`explicit_tenant_anchor`。
 - 变更必须同时更新 JSON 与 `GlobalSqlStatementCatalogTests` 期望；测试精确匹配文件路径、行号、`actual` 文本。
 - 运行时克隆方法（如 `TenantScopedSqlComposer.ApplyDataScopeFilter`）必须显式登记到测试 `AllowedRuntimeCloneMethods`，禁止目录级或通配豁免。
@@ -62,8 +63,9 @@
 
 | 文件 | 职责 |
 |------|------|
-| `global-sql-statements.json` | 跨模块 Global SQL 语句精确登记 |
-| `module-table-access-debt.json` | 跨模块表访问债务登记 |
+| `global-sql-statements.json` | 实际 Global SQL 语句精确登记 |
+| `module-read-queries.json` | 正式后台跨模块只读查询及其表/列依赖登记 |
+| `module-table-access-debt.json` | 既有表访问债务；不得用来新增后台查询许可 |
 | `module-cross-foreign-key-debt.json` | 跨模块外键债务登记 |
 | `module-local-transaction-debt.json` | 跨模块本地事务债务登记 |
 

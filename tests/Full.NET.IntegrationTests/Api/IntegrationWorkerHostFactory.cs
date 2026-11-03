@@ -10,11 +10,13 @@ using Full.NET.Hosting.Api;
 using Full.NET.IntegrationTests.Migrations;
 using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Organization.Contracts;
+using Full.NET.Modularity.Modules;
 using Full.NET.Realtime.SignalR;
 using Full.NET.Serialization.MemoryPack;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 
 namespace Full.NET.IntegrationTests.Api;
@@ -28,13 +30,21 @@ internal static class IntegrationWorkerHostFactory
     /// <param name="workerSettings">目标 Worker 与数据库的覆盖配置。</param>
     /// <param name="applicationName">宿主诊断名称。</param>
     /// <param name="hostedServiceName">唯一保留的 HostedService 实现类型名。</param>
+    /// <param name="fileRootPath">可选的本例文件根路径。</param>
+    /// <param name="additionalHostedServiceNames">同一关联场景需保留的其他生产后台循环。</param>
+    /// <param name="configureServices">补充本例需要的生产服务注册，不改变默认单循环夹具。</param>
+    /// <param name="applicationModules">与 API 同源的应用静态模块，避免测试绕过真实 Worker 装配。</param>
     /// <returns>尚未启动的 Worker 宿主。</returns>
     public static async Task<IHost> BuildAsync(
         DatabaseProvider provider,
         string connectionString,
         IReadOnlyDictionary<string, string?> workerSettings,
         string applicationName,
-        string hostedServiceName)
+        string hostedServiceName,
+        string? fileRootPath = null,
+        IReadOnlyCollection<string>? additionalHostedServiceNames = null,
+        Action<IServiceCollection>? configureServices = null,
+        IReadOnlyList<IFullNetModule>? applicationModules = null)
     {
         var redisConnectionString = await SharedDatabaseFixture.GetRedisConnectionStringAsync()
             .ConfigureAwait(false);
@@ -48,7 +58,7 @@ internal static class IntegrationWorkerHostFactory
             ["Realtime:RedisBackplaneConnectionString"] = redisConnectionString,
             ["Realtime:AllowSharedRedisInDevelopment"] = "true",
             ["ConnectionStrings:redis"] = redisConnectionString,
-            ["Files:Local:RootPath"] = Path.Combine(
+            ["Files:Local:RootPath"] = fileRootPath ?? Path.Combine(
                 Path.GetTempPath(),
                 "fullnet-files-integration",
                 $"worker-{Guid.NewGuid():N}"),
@@ -73,23 +83,22 @@ internal static class IntegrationWorkerHostFactory
         builder.Services.AddSingleton<IClock, SystemClock>();
         builder.Services.AddSingleton<IIdGenerator, GuidV7IdGenerator>();
         builder.Services.AddSingleton<IApiResultMapper, NonHttpApiResultMapper>();
-        builder.Services.AddSingleton<
-            ITenantOrganizationUnitDirectory,
-            EmptyTenantOrganizationUnitDirectory>();
-        builder.Services.AddSingleton<
-            IIdentityOrganizationUnitDirectory,
-            EmptyIdentityOrganizationUnitDirectory>();
         builder.Services.AddFullNetDapper(configuration, "Testing");
         builder.Services.AddFullNetMemoryPack();
         builder.Services.AddFullNetCaching(configuration, "Testing");
         builder.Services.AddFullNetRealtimePublisher(configuration, "Testing");
-        builder.Services.AddFullNetApplicationModules(configuration, FullNetHostProfile.Worker);
+        builder.Services.AddFullNetApplicationModules(configuration, FullNetHostProfile.Worker, applicationModules ?? []);
+        // 未装配组织模块时才提供失败关闭的端口；实际模块的权威目录必须优先。
+        builder.Services.TryAddSingleton<ITenantOrganizationUnitDirectory, EmptyTenantOrganizationUnitDirectory>();
+        builder.Services.TryAddSingleton<IIdentityOrganizationUnitDirectory, EmptyIdentityOrganizationUnitDirectory>();
+        configureServices?.Invoke(builder.Services);
         foreach (var descriptor in builder.Services
                      .Where(descriptor => descriptor.ServiceType == typeof(IHostedService)
                          && !string.Equals(
                              descriptor.ImplementationType?.Name,
                              hostedServiceName,
-                             StringComparison.Ordinal))
+                             StringComparison.Ordinal)
+                         && additionalHostedServiceNames?.Contains(descriptor.ImplementationType?.Name ?? "", StringComparer.Ordinal) != true)
                      .ToArray())
         {
             builder.Services.Remove(descriptor);

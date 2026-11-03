@@ -44,7 +44,7 @@ internal static class CrudMigrationTemplateGenerator
             {{IndentLines(RenderColumns(schema, DatabaseMetadataProvider.SqlServer), 8)}},
                     CONSTRAINT {{primaryKeyName}} PRIMARY KEY {{primaryKeyKind}} (Id)
                 );
-            END;{{tenantIndex}}
+            END;{{tenantIndex}}{{GenerateUniqueIndexes(schema, DatabaseMetadataProvider.SqlServer)}}{{CrudTreeGenerator.Migration(schema, false)}}{{(CrudAggregateGenerator.Enabled(schema) ? GenerateSqlServer(CrudAggregateGenerator.Detail(schema)) : string.Empty)}}
             """");
     }
 
@@ -66,7 +66,7 @@ internal static class CrudMigrationTemplateGenerator
             (
             {{IndentLines(RenderColumns(schema, DatabaseMetadataProvider.MySql), 4)}},
                 CONSTRAINT {{primaryKeyName}} PRIMARY KEY (Id){{tenantIndex}}
-            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;{{GenerateUniqueIndexes(schema, DatabaseMetadataProvider.MySql)}}{{CrudTreeGenerator.Migration(schema, true)}}{{(CrudAggregateGenerator.Enabled(schema) ? GenerateMySql(CrudAggregateGenerator.Detail(schema)) : string.Empty)}}
             """);
     }
 
@@ -134,8 +134,14 @@ internal static class CrudMigrationTemplateGenerator
         string.Join(
             ",\n",
             schema.Columns.Select(column =>
-                $"{column.DatabaseName} {RenderType(column, provider)} "
+                $"{column.DatabaseName} {RenderType(column, provider)}{UniqueCollation(schema, column, provider)} "
                 + (column.IsNullable ? "NULL" : "NOT NULL")));
+
+    // 唯一文本显式使用区分大小写的二进制排序，避免由两个数据库的默认排序规则决定业务。
+    private static string UniqueCollation(FullNetCrudSchema schema, FullNetColumn column, DatabaseMetadataProvider provider) =>
+        column.ScalarType == FullNetScalarType.String && CrudUniqueKeyGenerator.Keys(schema).Any(key => key.Contains(column.DatabaseName))
+            ? provider == DatabaseMetadataProvider.SqlServer ? " COLLATE Latin1_General_100_BIN2" : " COLLATE utf8mb4_bin"
+            : string.Empty;
 
     private static string RenderType(
         FullNetColumn column,
@@ -171,6 +177,66 @@ internal static class CrudMigrationTemplateGenerator
     private static string TenantIndexName(FullNetCrudSchema schema) =>
         DatabaseObjectNameBuilder.Build(
             $"IX_{schema.DatabaseTableName}_TenantId_Id");
+
+    // 索引独立探测，覆盖表已创建但 DbUp 尚未记账的重跑；NULL 不参与唯一性。
+    private static string GenerateUniqueIndexes(FullNetCrudSchema schema, DatabaseMetadataProvider provider) =>
+        string.Concat(CrudUniqueKeyGenerator.Keys(schema).Select(key =>
+        {
+            var name = CrudUniqueKeyGenerator.Name(schema, key);
+            var columns = string.Join(", ", key);
+            var textColumns = key.Where(column => schema.Columns.Single(item => item.DatabaseName == column).ScalarType == FullNetScalarType.String).ToArray();
+            if (provider == DatabaseMetadataProvider.SqlServer)
+            {
+                var nullable = key.Where(column => schema.Columns.Single(item => item.DatabaseName == column).IsNullable).ToArray();
+                var filter = nullable.Length == 0 ? string.Empty
+                    : " WHERE " + string.Join(" AND ", nullable.Select(column => column + " IS NOT NULL"));
+                var collationGuard = textColumns.Length == 0 ? string.Empty : $$"""
+
+                    IF EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID(N'dbo.{{schema.DatabaseTableName}}', N'U')
+                        AND name IN ({{string.Join(", ", textColumns.Select(column => "N'" + column + "'"))}}) AND collation_name <> N'Latin1_General_100_BIN2')
+                        THROW 51000, 'Generated unique key collation mismatch.', 1;
+                    """;
+                return collationGuard + $$"""
+
+                    IF NOT EXISTS (SELECT 1 FROM sys.indexes
+                        WHERE object_id = OBJECT_ID(N'dbo.{{schema.DatabaseTableName}}', N'U') AND name = N'{{name}}'
+                          AND is_unique = 1 AND is_disabled = 0 AND ignore_dup_key = 0
+                          AND (SELECT COUNT(*) FROM sys.index_columns c WHERE c.object_id = sys.indexes.object_id
+                               AND c.index_id = sys.indexes.index_id AND c.key_ordinal > 0) = {{key.Count}}
+                          {{string.Join("\n                          ", key.Select((column, index) => $"AND EXISTS (SELECT 1 FROM sys.index_columns c INNER JOIN sys.columns v ON v.object_id = c.object_id AND v.column_id = c.column_id WHERE c.object_id = sys.indexes.object_id AND c.index_id = sys.indexes.index_id AND c.key_ordinal = {index + 1} AND v.name = N'{column}')"))}}
+                          AND {{(nullable.Length == 0 ? "filter_definition IS NULL" : "REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(filter_definition, '[', ''), ']', ''), '(', ''), ')', ''), ' ', '') = N'" + string.Join("AND", nullable.Select(column => column + "ISNOTNULL")) + "'")}})
+                    BEGIN
+                        CREATE UNIQUE NONCLUSTERED INDEX {{name}} ON dbo.{{schema.DatabaseTableName}} ({{columns}}){{filter}};
+                    END;
+                    """;
+            }
+
+            var mysqlGuard = textColumns.Length == 0 ? string.Empty : $$"""
+
+                -- 标量子查询在排序规则漂移时返回两行并失败，禁止沿用提供程序默认唯一语义。
+                SET @fullnet_codegen_shape_guard = (SELECT Value FROM (
+                    SELECT 1 AS Value UNION ALL SELECT 1 WHERE EXISTS (
+                        SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE()
+                          AND TABLE_NAME = '{{schema.DatabaseTableName}}'
+                          AND COLUMN_NAME IN ({{string.Join(", ", textColumns.Select(column => "'" + column + "'"))}})
+                          AND COLLATION_NAME <> 'utf8mb4_bin'
+                    )
+                ) AS fullnet_codegen_shape);
+                """;
+            return mysqlGuard + $$"""
+
+                SET @fullnet_codegen_index_sql = IF(EXISTS (
+                    SELECT 1 FROM INFORMATION_SCHEMA.STATISTICS
+                    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = '{{schema.DatabaseTableName}}' AND INDEX_NAME = '{{name}}'
+                    GROUP BY INDEX_NAME HAVING MIN(NON_UNIQUE) = 0
+                        AND GROUP_CONCAT(COLUMN_NAME ORDER BY SEQ_IN_INDEX SEPARATOR ',') = '{{string.Join(",", key)}}'
+                        AND SUM(SUB_PART IS NOT NULL) = 0
+                ), 'SELECT 1', 'CREATE UNIQUE INDEX {{name}} ON {{schema.DatabaseTableName}} ({{columns}})');
+                PREPARE fullnet_codegen_index_statement FROM @fullnet_codegen_index_sql;
+                EXECUTE fullnet_codegen_index_statement;
+                DEALLOCATE PREPARE fullnet_codegen_index_statement;
+                """;
+        }));
 
     private static void EnsureExplicitScope(FullNetCrudSchema schema)
     {

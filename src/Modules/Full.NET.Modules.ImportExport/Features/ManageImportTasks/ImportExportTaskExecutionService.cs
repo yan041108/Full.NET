@@ -6,6 +6,9 @@ using Full.NET.Modules.ImportExport.Configuration;
 using Full.NET.Modules.ImportExport.Contracts;
 using Full.NET.Modules.ImportExport.ImportTasks;
 using Full.NET.Modules.ImportExport.Persistence;
+using Full.NET.Modules.ImportExport.Domain;
+using Full.NET.Modules.ImportExport.Serialization;
+using System.Text.Json;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 
@@ -17,6 +20,7 @@ internal sealed class ImportExportTaskExecutionService(
     ICommandExecutor commandExecutor,
     ITenantResourceFileStore resourceFiles,
     ICurrentTenant currentTenant,
+    ImportTaskAuthority authority,
     IServiceScopeFactory scopeFactory,
     IOptionsMonitor<ImportExportOptions> options)
 {
@@ -38,6 +42,8 @@ internal sealed class ImportExportTaskExecutionService(
             return Result<ImportExportTaskDetailResponse>.Failure(StatusInvalidError());
         }
 
+        var permission = await authority.ValidateQueueAsync(task, executionContext, cancellationToken).ConfigureAwait(false);
+        if (!permission.IsSuccess) return Result<ImportExportTaskDetailResponse>.Failure(permission.Error!);
         var updated = await TransitionAsync(
                 task,
                 ImportExportTaskStatusKeys.PreviewSucceeded,
@@ -72,6 +78,9 @@ internal sealed class ImportExportTaskExecutionService(
         {
             return Result<ImportExportTaskDetailResponse>.Failure(StatusInvalidError());
         }
+
+        var permission = await authority.ValidateQueueAsync(task, executionContext, cancellationToken).ConfigureAwait(false);
+        if (!permission.IsSuccess) return Result<ImportExportTaskDetailResponse>.Failure(permission.Error!);
 
         var updated = await TransitionAsync(
                 task,
@@ -108,6 +117,9 @@ internal sealed class ImportExportTaskExecutionService(
         {
             return Result<ImportExportTaskDetailResponse>.Failure(StatusInvalidError());
         }
+
+        var permission = await authority.ValidateQueueAsync(task, executionContext, cancellationToken).ConfigureAwait(false);
+        if (!permission.IsSuccess) return Result<ImportExportTaskDetailResponse>.Failure(permission.Error!);
 
         var updated = await TransitionAsync(
                 task,
@@ -206,28 +218,12 @@ internal sealed class ImportExportTaskExecutionService(
         StaticImportPreviewContext executionContext,
         CancellationToken cancellationToken)
     {
-        string? executionRowsJson;
-        if (resetExecution)
-        {
-            executionRowsJson = ImportExportTaskMapper.SerializeExecutionState(
-                new ImportExportExecutionStateDocument(
-                    executionContext.CapabilityFlags.ToDictionary(
-                        pair => pair.Key,
-                        pair => pair.Value,
-                        StringComparer.Ordinal),
-                    []));
-        }
-        else
-        {
-            var state = ImportExportTaskMapper.DeserializeExecutionState(task.ExecutionRowsJson);
-            executionRowsJson = ImportExportTaskMapper.SerializeExecutionState(
-                new ImportExportExecutionStateDocument(
-                    executionContext.CapabilityFlags.ToDictionary(
-                        pair => pair.Key,
-                        pair => pair.Value,
-                        StringComparer.Ordinal),
-                    state.Rows));
-        }
+        var state = ImportExportTaskMapper.DeserializeExecutionState(task.ExecutionRowsJson);
+        // 本人明确恢复可以重绑当前有效会话；原输入、能力上限与纯数据计划不能被新请求扩大或丢弃。
+        var executionRowsJson = ImportExportTaskMapper.SerializeExecutionState(new ImportExportExecutionStateDocument(
+            state.CapabilityFlags ?? new Dictionary<string, bool>(StringComparer.Ordinal),
+            resetExecution ? [] : state.Rows) { PreparedPlanJson = state.PreparedPlanJson });
+        var bindingJson = JsonSerializer.Serialize(executionContext.SessionBinding!, ImportExportJsonSerializerContext.Default.SessionBindingSnapshot);
 
         var affected = await commandExecutor.ExecuteAsync(
                 ImportExportTaskSql.QueueExecution,
@@ -240,6 +236,7 @@ internal sealed class ImportExportTaskExecutionService(
                     ("SucceededRowCount", resetExecution ? 0 : task.SucceededRowCount),
                     ("ExecutionFailedRowCount", resetExecution ? 0 : task.ExecutionFailedRowCount),
                     ("ExecutionRowsJson", executionRowsJson),
+                    ("ActorSessionBindingJson", bindingJson),
                     ("ErrorReceiptFileId", resetExecution ? null : task.ErrorReceiptFileId),
                     ("ExecutionStartedAtUtc", resetExecution ? null : task.ExecutionStartedAtUtc),
                     ("ExecutionCompletedAtUtc", resetExecution ? null : task.ExecutionCompletedAtUtc),

@@ -25,7 +25,8 @@ internal sealed class AiKnowledgeIndexBudgetService(IQueryExecutor query, AiKnow
         var frozen = inputs.ToArray();
         if (AiEmbeddingContentPolicy.ValidateInputs(frozen) is not null) throw new ArgumentException("Invalid knowledge embedding batch.", nameof(inputs));
         var source = await tasks.ReadDispatchAsync(binding, taskId, leaseToken, token).ConfigureAwait(false);
-        if (source is null || !AiKnowledgePolicy.IsKnownClassification(source.DataClassification)) return null;
+        // 人工任务必须通过包含修订身份的独立指纹准入，不能借用原文计费路径。
+        if (source is null || source.CorrectionRevisionId.HasValue || !AiKnowledgePolicy.IsKnownClassification(source.DataClassification)) return null;
         var model = await query.QuerySingleOrDefaultAsync<AiModelConfigRecord>(tasks.IsTenant
                 ? AiModelConfigSql.FindAvailableForTenantChat : AiModelConfigSql.FindAvailableForHostChat,
             AiSqlParameters.Create(("ModelConfigId", source.ModelConfigId)), token).ConfigureAwait(false);

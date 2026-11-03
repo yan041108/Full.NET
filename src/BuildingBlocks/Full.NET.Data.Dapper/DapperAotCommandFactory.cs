@@ -44,7 +44,7 @@ internal sealed class DapperAotCommandFactory : CommandFactory<DynamicParameters
         {
             var parameter = command.CreateParameter();
             parameter.ParameterName = name;
-            parameter.Value = AsValue(args.Get<object>(name));
+            SetValue(parameter, args.Get<object>(name));
             command.Parameters.Add(parameter);
         }
     }
@@ -55,9 +55,19 @@ internal sealed class DapperAotCommandFactory : CommandFactory<DynamicParameters
     {
         for (var index = 0; index < _parameterNames.Length; index++)
         {
-            command.Parameters[index].Value = AsValue(
-                args.Get<object>(_parameterNames[index]));
+            SetValue(command.Parameters[index], args.Get<object>(_parameterNames[index]));
         }
+    }
+
+    private static void SetValue(DbParameter parameter, object? value)
+    {
+        // AOT 直接创建参数，必须与字典执行路径一致保留游标的微秒精度。
+        if (value is DateTime)
+        {
+            parameter.DbType = DbType.DateTime2;
+        }
+
+        parameter.Value = AsValue(value);
     }
 
     public override bool TryRecycle(DbCommand command)

@@ -108,7 +108,8 @@ internal static class WorkflowSubprocessBindings
         try { child = JsonSerializer.Deserialize(asset.CanonicalJson, WorkflowJsonSerializerContext.Default.WorkflowDefinitionDraft);
             schema = JsonSerializer.Deserialize(asset.FormSchemaJson, WorkflowJsonSerializerContext.Default.WorkflowFormSchema); }
         catch (JsonException) { return false; }
-        if (child is null || schema is null || child.Nodes.Any(node => node.NodeTypeKey == "business.command") ||
+        // 协作预算目前只授予普通源根，不能把协作源定义作为子流程再取得新的跨根切片。
+        if (child is null || schema is null || child.Nodes.Any(node => node.NodeTypeKey is "business.command" or WorkflowCollaborationCallPolicy.NodeType) ||
             !WorkflowRuntimePlan.TryCreate(child, schema, out _) || !policy.MatchesSchemas(parent, schema) || !TryReadBudget(child, out var budget, out var depth)) return false;
         bound = new(asset.DefinitionVersionId, asset.FormVersionId, Hash(asset.CanonicalJson), Hash(asset.FormSchemaJson), budget, depth, child.WorkflowKindKey == "approval"); return true;
     }

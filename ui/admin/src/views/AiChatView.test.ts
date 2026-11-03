@@ -173,6 +173,25 @@ describe('公开 Ask、拒答与取消', () => {
       expect(getAiChatSession).toHaveBeenCalledTimes(3); await wrapper.get('textarea').setValue('继续'); expect(wrapper.get('.ai-chat-composer button').attributes('disabled')).toBeUndefined();
     } finally { wrapper.unmount(); vi.useRealTimers(); }
   });
+  it('FAQ 来源失效先清空全部知识正文，未引用的完整依赖不能按展示引用猜测', async () => {
+    const source = { knowledgeBaseId: baseId, knowledgeBaseVersion: 1, documentId: baseId, documentVersion: 1, versionId: modelId,
+      publicationId: answerId, generationId: answerId, manifestHash: 'A'.repeat(64), sourceKind: 'faq-revision-v1', faqId: baseId, faqRevisionId: modelId };
+    const citation = { id: answerId, documentId: baseId, versionId: modelId, sequence: 0, pageNumber: null, offset: 0, length: 2,
+      faqSource: { source, embeddingModelConfigId: modelId, embeddingModelVersion: 1 } };
+    const messages = [{ ...answer, content: '有 FAQ 引用的知识回答', isKnowledgeAnswer: true, citations: [citation] },
+      { ...answer, id: baseId, content: '没有显示 FAQ 引用的完整依赖回答', isKnowledgeAnswer: true, citations: [] },
+      { ...answer, id: modelId, content: '普通聊天保持可见', isKnowledgeAnswer: false, citations: [] }];
+    vi.mocked(getAiChatSession).mockResolvedValueOnce({ ...session, messages });
+    const wrapper = await ready();
+    try {
+      await wrapper.get('[data-testid="knowledge-citation"]').trigger('click'); await flushPromises();
+      vi.mocked(getAiChatSession).mockReturnValueOnce(new Promise(() => {}));
+      wrapper.getComponent(AiKnowledgeSourceDialog).vm.$emit('unavailable'); await flushPromises();
+      expect(wrapper.text()).not.toContain('有 FAQ 引用的知识回答'); expect(wrapper.text()).not.toContain('没有显示 FAQ 引用的完整依赖回答');
+      expect(wrapper.text()).toContain('普通聊天保持可见'); expect(wrapper.findAll('[data-testid="knowledge-answer-unavailable"]')).toHaveLength(2);
+      expect(askAiKnowledge).not.toHaveBeenCalled();
+    } finally { wrapper.unmount(); }
+  });
   it('卸载页面中止等待并丢弃迟到回答', async () => {
     let finish!: (value: { message: typeof answer; refused: boolean }) => void;
     vi.mocked(askAiKnowledge).mockImplementation(() => new Promise(resolve => { finish = resolve; }));

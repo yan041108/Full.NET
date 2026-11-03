@@ -9,6 +9,8 @@ data:
   DOTNET_ENVIRONMENT: {{ .Values.dotnetEnvironment | quote }}
   ASPNETCORE_ENVIRONMENT: {{ .Values.dotnetEnvironment | quote }}
   Database__Provider: {{ .Values.database.provider | quote }}
+  # 轮转至少等待生产基线的 API 最小副本数就绪，不以单节点成功代表整个集群。
+  Identity__Oidc__MinimumReadyApiNodes: {{ ternary .Values.api.hpa.minReplicas .Values.api.replicaCount .Values.api.hpa.enabled | quote }}
 {{- if .Values.roles.api }}
   DatabaseCapacity__Enabled: "true"
   DatabaseCapacity__HostRole: "Api"
@@ -53,6 +55,15 @@ data:
   OutboxWorker__MaxConcurrency: {{ .Values.worker.maxConcurrency | quote }}
   OutboxWorker__DatabaseCapacityBackoffMilliseconds: {{ .Values.worker.databaseCapacityBackoffMilliseconds | quote }}
   Messaging__Worker__Mode: {{ .Values.worker.messaging.mode | quote }}
+  Messaging__CdcMonitoring__Enabled: {{ .Values.worker.messaging.cdcMonitoring.enabled | quote }}
+  Messaging__CdcMonitoring__PollSeconds: {{ .Values.worker.messaging.cdcMonitoring.pollSeconds | quote }}
+  Messaging__CdcMonitoring__SampleTimeoutSeconds: {{ .Values.worker.messaging.cdcMonitoring.sampleTimeoutSeconds | quote }}
+  Messaging__CdcMonitoring__MaximumSampleAgeSeconds: {{ .Values.worker.messaging.cdcMonitoring.maximumSampleAgeSeconds | quote }}
+  Messaging__CdcMonitoring__RetentionTimeTopicId: {{ .Values.worker.messaging.cdcMonitoring.retentionTimeTopicId | quote }}
+{{- range $topic, $id := .Values.worker.messaging.cdcMonitoring.retentionTimeTopics }}
+  Messaging__CdcMonitoring__RetentionTimeTopics__{{ $topic }}: {{ $id | quote }}
+{{- end }}
+  Messaging__CdcMonitoring__MaximumBrokerClockSkewSeconds: {{ .Values.worker.messaging.cdcMonitoring.maximumBrokerClockSkewSeconds | quote }}
 {{- if eq .Values.worker.messaging.mode "ShadowCdc" }}
   Messaging__ShadowComparison__Enabled: "true"
 {{- else }}
@@ -63,6 +74,12 @@ data:
 {{- end }}
   RateLimiting__GlobalApiPermitLimitPerMinute: {{ .Values.applicationRateLimiting.globalApiPermitLimitPerMinutePerReplica | quote }}
   FULLNET_CAPACITY_STATUS: "Capacity-not-verified"
+{{- if .Values.codeGeneration.artifacts.enabled }}
+  CodeGeneration__Artifacts__RootDirectory: {{ .Values.codeGeneration.artifacts.rootDirectory | quote }}
+  CodeGeneration__Artifacts__RetentionDays: {{ .Values.codeGeneration.artifacts.retentionDays | quote }}
+  CodeGeneration__Artifacts__MaximumBytes: {{ .Values.codeGeneration.artifacts.maximumBytes | quote }}
+  CodeGeneration__Artifacts__MaximumPackages: {{ .Values.codeGeneration.artifacts.maximumPackages | quote }}
+{{- end }}
 {{- if eq (include "fullnet.codeGenerationApplyEnabled" .) "true" }}
   CodeGeneration__Apply__Enabled: "true"
   CodeGeneration__Apply__WorkspaceRoot: {{ .Values.codeGeneration.apply.workspaceRoot | quote }}

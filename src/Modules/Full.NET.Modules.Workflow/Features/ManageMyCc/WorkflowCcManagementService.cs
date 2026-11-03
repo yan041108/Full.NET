@@ -1,8 +1,10 @@
+using Full.NET.Abstractions.Messaging;
 using Full.NET.Abstractions.Results;
 using Full.NET.Abstractions.Tenancy;
 using Full.NET.Abstractions.Time;
 using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Workflow.Contracts;
+using Full.NET.Modules.Workflow.Domain;
 using Full.NET.Modules.Workflow.Persistence;
 using Microsoft.Extensions.Options;
 
@@ -19,7 +21,7 @@ internal sealed class WorkflowCcManagementService(
     ICommandExecutor commandExecutor,
     ICurrentTenant currentTenant,
     IClock clock,
-    IOptions<DatabaseOptions> databaseOptions)
+    IOptions<DatabaseOptions> databaseOptions, ICommandTransaction transaction, IActiveTenantContextResolver tenants)
 {
     /// <summary>读取当前用户最近 100 条抄送记录。</summary>
     /// <param name="actorUserId">可信当前用户标识。</param>
@@ -44,7 +46,11 @@ internal sealed class WorkflowCcManagementService(
                 ("RecipientUserId", actorUserId),
                 ("Take", 100)),
             cancellationToken).ConfigureAwait(false);
-        return Result<IReadOnlyList<WorkflowCcResponse>>.Success(rows.Select(Map).ToArray());
+        var visible = new List<WorkflowCcResponse>(rows.Count);
+        foreach (var row in rows)
+            if (await WorkflowCollaborationRuntimeGate.AllowsAsync(row.InstanceId, scope, actorUserId, clock.UtcNow, queryExecutor,
+                    cancellationToken, tenants: tenants).ConfigureAwait(false)) visible.Add(Map(row));
+        return Result<IReadOnlyList<WorkflowCcResponse>>.Success(visible);
     }
 
     /// <summary>幂等标记当前用户自己的抄送记录为已读。</summary>
@@ -56,6 +62,23 @@ internal sealed class WorkflowCcManagementService(
         Guid ccId,
         Guid actorUserId,
         CancellationToken cancellationToken = default)
+    {
+        var scope = WorkflowManagementScope.Resolve(currentTenant);
+        var owned = await queryExecutor.QuerySingleOrDefaultAsync<WorkflowCcRecord>(WorkflowSql.FindOwnCcById,
+            WorkflowSqlParameters.Create(("Id", ccId), ("RecipientUserId", actorUserId), ("TenantScopeKey", scope.TenantScopeKey)), cancellationToken).ConfigureAwait(false);
+        if (owned is null || !await WorkflowCollaborationRuntimeGate.AllowsAsync(owned.InstanceId, scope, actorUserId, clock.UtcNow,
+                queryExecutor, cancellationToken, tenants: tenants).ConfigureAwait(false)) return NotFound();
+        if (owned.ReadAtUtc is { } readAt) return Result<WorkflowCcReadResponse>.Success(new(owned.Id, readAt));
+        return await transaction.ExecuteResultAsync(async inner =>
+        {
+            if (await commandExecutor.ExecuteAsync(WorkflowSql.LockInstanceForTodoAction,
+                    WorkflowSqlParameters.Create(("Id", owned.InstanceId), ("TenantScopeKey", scope.TenantScopeKey)), inner).ConfigureAwait(false) != 1 ||
+                !await WorkflowCollaborationRuntimeGate.AllowsAsync(owned.InstanceId, scope, actorUserId, clock.UtcNow, queryExecutor, inner, commandExecutor).ConfigureAwait(false)) return NotFound();
+            return await MarkReadCoreAsync(ccId, actorUserId, inner).ConfigureAwait(false);
+        }, cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task<Result<WorkflowCcReadResponse>> MarkReadCoreAsync(Guid ccId, Guid actorUserId, CancellationToken cancellationToken)
     {
         var scope = WorkflowManagementScope.Resolve(currentTenant);
         var parameters = WorkflowSqlParameters.Create(

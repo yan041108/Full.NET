@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <data name="reporting.export_authority_denied" xml:space="preserve"><value>原导出会话、发布授权或所需权限已失效。</value></data>
+  <data name="reporting.grant.invalid" xml:space="preserve"><value>发布授权请求无效。</value></data>
+  <data name="reporting.grant.tenant_not_found" xml:space="preserve"><value>未找到活动目标租户。</value></data>
+  <data name="reporting.grant.not_found" xml:space="preserve"><value>未找到报表定义或授权。</value></data>
+  <data name="reporting.grant.version_conflict" xml:space="preserve"><value>发布授权已改变，请刷新后重试。</value></data>
+  <data name="reporting.grant.host_required" xml:space="preserve"><value>管理发布授权需要 Host 上下文。</value></data>
+  <data name="reporting.published.invalid_filter" xml:space="preserve"><value>发布目录筛选无效。</value></data>
+  <data name="reporting.published.not_found" xml:space="preserve"><value>未找到当前租户已授权的报表发布。</value></data>
+  <data name="reporting.export_tenant_required" xml:space="preserve"><value>导出报表需要租户上下文。</value></data>
+  <data name="reporting.definition.not_published" xml:space="preserve"><value>请先启用并发布报表定义。</value></data>
+  <data name="reporting.grant.source_unavailable" xml:space="preserve"><value>发布的数据源已停用或不属于目标租户。</value></data>
+  <data name="reporting.export_task.cancel_conflict" xml:space="preserve"><value>任务已变更或正在生成，请刷新详情。处理中任务不能取消。</value></data>
+</root>

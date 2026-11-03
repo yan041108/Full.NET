@@ -45,6 +45,8 @@ internal sealed class WorkflowBusinessCommandProcessor(IQueryExecutor query, ICo
                     if (tenant is null) continue; tenantWriter.SetTenant(tenant);
                 } else tenantWriter.SetHost();
                 try {
+                    if (!compensating && !await WorkflowCollaborationRuntimeGate.AllowsAsync(instance.Id,
+                            new(instance.TenantId, instance.ScopeKey, instance.TenantScopeKey), null, clock.UtcNow, query, token, tenants: tenants).ConfigureAwait(false)) continue;
                     var result = await transaction.ExecuteResultAsync(inner => ExecuteAsync(row, compensating, inner), token).ConfigureAwait(false);
                     if (result.IsSuccess && result.Value) processed++;
                 } finally { tenantWriter.Clear(); }
@@ -63,6 +65,8 @@ internal sealed class WorkflowBusinessCommandProcessor(IQueryExecutor query, ICo
         var row = await query.QuerySingleOrDefaultAsync<WorkflowBusinessCommandRecord>(WorkflowBusinessCommandSql.Find,
             WorkflowSqlParameters.Create(("Id", candidate.Id), ("InstanceId", candidate.InstanceId), ("TenantScopeKey", candidate.TenantScopeKey)), token).ConfigureAwait(false);
         if (instance is null || row is null) return Invalid();
+        if (!compensating && !await WorkflowCollaborationRuntimeGate.AllowsAsync(instance.Id,
+                new(instance.TenantId, instance.ScopeKey, instance.TenantScopeKey), null, clock.UtcNow, query, token, commands).ConfigureAwait(false)) return Invalid();
         if (compensating ? instance.StatusKey is not ("rejected" or "cancelled") || row.CompensationRequested || row.StatusKey is "cancelled" or "compensated" or "declined"
             : instance.StatusKey != "active" || row.StatusKey != "result_ready") return Result<bool>.Success(false);
         var binding = WorkflowBusinessCommandValidation.Read(row, instance, catalog);

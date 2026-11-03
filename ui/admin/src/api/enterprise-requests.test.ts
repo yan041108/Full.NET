@@ -5,21 +5,27 @@ import { createEnterpriseRequestsApi } from './enterprise-requests';
 const id = '019bc2b1-2a40-7cc3-8992-a80de51bf330';
 const unitId = '019bc2b1-2a40-7cc3-8992-a80de51bf331';
 const requestBody = {
-  requestNumber: 'REQ-E2E', title: 'Request probe', status: 'Draft', totalAmount: 12.5,
+  requestNumber: 'REQ-E2E', title: 'Request probe', status: 'Draft', totalAmount: '12.5',
   applicantUserId: id
 };
 const response = {
-  ...requestBody, id, tenantId: id, organizationUnitId: unitId, version: 1,
+  ...requestBody, id, tenantId: id, organizationUnitId: unitId, version: '1',
   createdAtUtc: '2026-09-26T00:00:00Z', createdById: id, updatedAtUtc: null,
   updatedById: null, isDeleted: false, deletedAtUtc: null, deletedById: null
 };
 
 describe('企业样例请求适配', () => {
-  it('读取服务端字符串版本后保持客户端并发版本为安全整数', async () => {
+  it('提交审批使用完整生成响应校验并保留服务端状态及版本', async () => {
+    const request = vi.fn().mockResolvedValue({ ...response, status: 'Submitted', version: '2' });
+    const result = await createEnterpriseRequestsApi({ request } as unknown as HttpClient).submitForApproval(id);
+    expect(result.status).toBe('Submitted'); expect(result.version).toBe('2');
+  });
+  it('精确保留服务端 Int64 字符串版本与金额，不经浮点转换', async () => {
     const request = vi.fn().mockResolvedValue({ ...response, version: '1' });
     const result = await createEnterpriseRequestsApi({ request } as unknown as HttpClient)
       .create({ ...requestBody, organizationUnitId: unitId });
-    expect(result.version).toBe(1);
+    expect(result.version).toBe('1');
+    expect(result.totalAmount).toBe('12.5');
   });
   it('将机构上下文放入约定请求头，JSON 只发送可写业务字段', async () => {
     const request = vi.fn().mockResolvedValue(response);

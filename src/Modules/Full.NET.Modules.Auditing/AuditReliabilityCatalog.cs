@@ -32,6 +32,10 @@ public sealed class AuditReliabilityCatalog
     [
         new("tenancy.host_tenant.disable", AuditReliabilityClass.DomainTransactional),
         new("tenancy.host_tenant.enable", AuditReliabilityClass.DomainTransactional),
+        new("tenancy.package_offer.updated", AuditReliabilityClass.DomainTransactional),
+        new("tenancy.subscription.invoice_created", AuditReliabilityClass.DomainTransactional),
+        new("tenancy.subscription.payment_applied", AuditReliabilityClass.DomainTransactional),
+        new("tenancy.subscription.refund_applied", AuditReliabilityClass.DomainTransactional),
         new("settings.logging-diagnostic-policy.updated", AuditReliabilityClass.DomainTransactional),
         new("messaging.dead_letter.replay", AuditReliabilityClass.DomainTransactional),
         new("messaging.delivery.cutover", AuditReliabilityClass.DomainTransactional),

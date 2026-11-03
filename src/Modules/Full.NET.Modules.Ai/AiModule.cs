@@ -28,6 +28,7 @@ using Full.NET.Modules.Ai.Features.ManageTenantQuotas;
 using Full.NET.Modules.Ai.Security;
 using Full.NET.Modules.Ai.Serialization;
 using Full.NET.AgenticWeb.AgUi;
+using Full.NET.AgenticWeb.Mcp;
 using Full.NET.AgenticWeb.Mcp.Client;
 using Full.NET.AgenticWeb.Mcp.Server;
 using Full.NET.Agents.Mcp;
@@ -54,7 +55,7 @@ public sealed class AiModule : IFullNetModule
     public string Name => "Ai";
 
     /// <summary>
-    /// Ai 模块依赖 Identity、Tenancy、Files 与 Organization，文件版本仅经权威契约访问。
+    /// Ai 模块依赖 Identity、Tenancy、Files、Organization 与 Calendar；来源仅经所有者权威契约访问。
     /// </summary>
     public IReadOnlyCollection<string> Dependencies =>
     [
@@ -62,6 +63,7 @@ public sealed class AiModule : IFullNetModule
         "Tenancy",
         "Files",
         "Organization",
+        "Calendar",
     ];
 
     /// <summary>注册 Ai 模块的模型配置、连通性测试、聊天会话、配额预算、Agent 运行、MCP 与 AgUI 等服务。</summary>
@@ -75,7 +77,10 @@ public sealed class AiModule : IFullNetModule
             AiAuthorizationContributor>());
         services.TryAddSingleton<IClock, SystemClock>();
         services.TryAddEnumerable(ServiceDescriptor.Singleton<IErrorResourceSource, Resources.AiKnowledgeErrorResourceSource>());
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<IErrorResourceSource, Resources.AiKnowledgeEvaluationSetErrorResourceSource>());
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<IErrorResourceSource, Resources.AiKnowledgeEvaluationRunErrorResourceSource>());
         services.TryAddEnumerable(ServiceDescriptor.Singleton<IErrorResourceSource, Resources.AiPromptErrorResourceSource>());
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<IErrorResourceSource, Resources.AiAgentRunErrorResourceSource>());
         services.TryAddSingleton<IIdGenerator, GuidV7IdGenerator>();
         services.TryAddScoped<AiModelBindingScope>();
         services.TryAddScoped<IProtectedModelCredentialStore>(provider => provider.GetRequiredService<AiModelBindingScope>());
@@ -113,14 +118,48 @@ public sealed class AiModule : IFullNetModule
         services.TryAddScoped<Features.ManageKnowledgeIndexing.AiKnowledgeIndexEnqueueService>();
         services.TryAddScoped<Features.ManageKnowledgeIndexing.AiKnowledgeIndexRetryService>();
         services.TryAddScoped<Features.ManageKnowledgeIndexing.AiKnowledgeIndexStatusService>();
+        services.TryAddScoped<Features.ManageKnowledgeOperations.AiKnowledgeOperationsService>();
+        services.TryAddScoped<Features.ManageKnowledgeEvaluationSets.AiKnowledgeEvaluationService>();
+        services.TryAddScoped<Features.ManageKnowledgeEvaluationSets.AiKnowledgeEvaluationRunService>();
+        services.TryAddScoped<Features.ManageKnowledgeOperations.AiKnowledgeQualityService>();
+        services.TryAddScoped<Features.ManageKnowledgeEvaluationSets.AiKnowledgeEvaluationRunAccess>();
+        services.TryAddScoped<Knowledge.AiPersonalScheduleSourceReader>();
+        services.TryAddScoped<Knowledge.AiPersonalScheduleContinuationGate>();
+        services.TryAddScoped<Knowledge.AiKnowledgeEvaluationOperationScope>();
+        services.TryAddScoped<Knowledge.AiKnowledgeEvaluationSourceAuthority>();
+        services.TryAddScoped<Domain.AiKnowledgeEvaluationCandidateToken>();
         services.TryAddScoped<Features.ManageKnowledgeIndexing.AiKnowledgeIndexReconciliationService>();
         services.TryAddScoped<Knowledge.AiKnowledgeIndexActivationStore>();
         RegisterKnowledgePdfServices(services, worker: false);
         RegisterKnowledgeDocxServices(services, worker: false);
         RegisterKnowledgeDocumentServices(services, worker: false);
         services.TryAddScoped<Knowledge.IAiKnowledgeAnswerSourceProof, Knowledge.AiKnowledgeAnswerSourceProof>();
+        services.TryAddScoped<Knowledge.AiKnowledgeCorrectionActivationStore>();
         services.TryAddScoped<Knowledge.AiKnowledgeAnswerHistoryGuard>();
+        services.TryAddScoped<Knowledge.AiKnowledgeCorrectionStore>();
+        services.TryAddScoped<Knowledge.AiKnowledgeCorrectionAuthority>();
+        services.TryAddScoped<Knowledge.AiKnowledgeCorrectionWorkspaceReader>();
+        services.TryAddScoped<Knowledge.AiKnowledgeCorrectionWorkbenchService>();
+        services.TryAddScoped<Knowledge.AiKnowledgeCorrectionEditService>();
+        services.TryAddScoped<Knowledge.AiKnowledgeCorrectionPreparationQueue>();
+        services.TryAddScoped<Features.ManageKnowledgePublications.AiKnowledgePublicationService>();
+        services.TryAddScoped<Features.ManageKnowledgePublications.AiKnowledgeDirectoryService>();
+        services.TryAddScoped<Knowledge.AiKnowledgeGenerationLeases>();
         services.TryAddScoped<Knowledge.AiKnowledgeRetrievalService>();
+        services.TryAddScoped<Knowledge.AiKnowledgeFaqPublishedSourceReader>();
+        services.TryAddScoped<Features.ManageKnowledgeFaqs.AiKnowledgeFaqDraftService>();
+        services.TryAddScoped<Knowledge.AiKnowledgeFaqFeedbackPreparation>();
+        services.TryAddScoped<Features.ManageKnowledgeFaqs.AiKnowledgeFaqLifecycleAccess>();
+        services.TryAddScoped<Features.ManageKnowledgeFaqs.AiKnowledgeFaqIndexService>();
+        services.TryAddScoped<Features.ManageKnowledgeFaqs.AiKnowledgeFaqPublicationService>();
+        services.TryAddScoped<Knowledge.AiKnowledgeFaqClassification>();
+        services.TryAddScoped<Knowledge.AiKnowledgeFaqNodeReader>();
+        services.TryAddScoped<Knowledge.AiKnowledgeFaqDraftSourceGuard>();
+        services.TryAddScoped<Features.SearchKnowledge.AiKnowledgeSearchService>();
+        services.TryAddScoped<Features.SearchKnowledge.AiKnowledgeSearchContextService>();
+        services.TryAddScoped<Features.SearchKnowledge.AiKnowledgeSearchRelationsService>();
+        services.TryAddScoped<Features.SearchKnowledge.AiKnowledgeSearchRefinementService>();
+        services.TryAddScoped<Features.SearchKnowledge.AiKnowledgeSearchComparisonService>();
         services.TryAddScoped<Knowledge.AiKnowledgeAnswerPipeline>();
         services.TryAddScoped<Knowledge.AiKnowledgePaidAnswerService>();
         services.TryAddScoped<Knowledge.AiKnowledgeAnswerStore>();
@@ -133,6 +172,14 @@ public sealed class AiModule : IFullNetModule
         services.TryAddScoped<Features.ManagePromptVersions.AiPromptManagementService>();
         services.TryAddScoped<Features.ManagePromptVersions.AiPromptReader>();
         services.TryAddScoped<AiPromptRunResolver>();
+        services.TryAddScoped<Knowledge.AiKnowledgeIndexTaskScope>();
+        services.TryAddScoped<Features.AiKnowledgeReadAccess>();
+        services.TryAddScoped<Features.AiKnowledgePermissionGuard>();
+        services.TryAddScoped<Knowledge.IAiKnowledgeAnswerSourceProof, Knowledge.AiKnowledgeAnswerSourceProof>();
+        services.TryAddScoped<Knowledge.AiKnowledgeFaqClassification>();
+        services.TryAddScoped<Knowledge.AiKnowledgeFaqNodeReader>();
+        services.TryAddScoped<Knowledge.AiKnowledgeFaqDraftSourceGuard>();
+        services.TryAddScoped<Knowledge.AiKnowledgeFaqIndexInput>();
         services.TryAddScoped<Knowledge.AiKnowledgeIndexTaskStore>();
         services.TryAddScoped<Diagnostics.AiBackgroundLogCorrelation>();
         services.TryAddScoped<Knowledge.AiKnowledgeIndexSessionService>();
@@ -184,7 +231,10 @@ public sealed class AiModule : IFullNetModule
     public void UseModuleMiddleware(IApplicationBuilder app, ModulePipelineStage stage)
     {
         if (stage == ModulePipelineStage.BeforeExceptionHandler)
+        {
+            app.UseMcpOriginAdmission();
             app.UseMiddleware<AiDataObservationMiddleware>();
+        }
     }
 
     /// <inheritdoc />
@@ -192,12 +242,24 @@ public sealed class AiModule : IFullNetModule
     {
         Features.ManageModelConfigs.Endpoint.Map(endpoints);
         Features.ManageKnowledgeBases.Endpoint.Map(endpoints);
+        Features.ManageKnowledgePublications.Endpoint.Map(endpoints);
+        Features.ManageKnowledgePublications.DirectoryEndpoint.Map(endpoints);
         Features.ManageKnowledgeRoleCandidates.Endpoint.Map(endpoints);
         Features.ManageKnowledgeOrganizationCandidates.Endpoint.Map(endpoints);
         Features.ManageKnowledgeOrganizations.Endpoint.Map(endpoints);
         Features.ManageKnowledgeRoles.Endpoint.Map(endpoints);
         Features.ManageKnowledgeDocuments.Endpoint.Map(endpoints);
         Features.ManageKnowledgeVersions.Endpoint.Map(endpoints);
+        Features.ManageKnowledgeCorrections.Endpoint.Map(endpoints);
+        Features.ManageKnowledgeFaqs.Endpoint.Map(endpoints);
+        Features.ManageKnowledgeOperations.Endpoint.Map(endpoints);
+        Features.ManageKnowledgeEvaluationSets.Endpoint.Map(endpoints);
+        Features.ManageKnowledgeEvaluationSets.RunEndpoint.Map(endpoints);
+        Features.PersonalScheduleAssistant.SourceEndpoint.Map(endpoints);
+        Features.ManageKnowledgeOperations.QualityEndpoint.Map(endpoints);
+        Features.ManageKnowledgeFaqs.LifecycleEndpoint.Map(endpoints);
+        Features.ManageKnowledgeFaqs.TransferEndpoint.Map(endpoints);
+        Features.SearchKnowledge.Endpoint.Map(endpoints);
         Features.ManageKnowledgeIndexing.Endpoint.Map(endpoints);
         Features.IncrementalKnowledgeIndexing.Endpoint.Map(endpoints);
         Features.TestEmbeddings.Endpoint.Map(endpoints);
@@ -210,6 +272,7 @@ public sealed class AiModule : IFullNetModule
         Features.ManagePromptVersions.Endpoint.Map(endpoints);
         Features.ManageAgentTools.Endpoint.Map(endpoints);
         Features.ManageAgentRuns.Endpoint.Map(endpoints);
+        Features.CompletePersonalSchedules.Endpoint.Map(endpoints);
         Features.ManageAgentRuns.ReconciliationEndpoint.Map(endpoints);
         Features.RouteTasks.Endpoint.Map(endpoints);
         AgUiEndpoint.Map(endpoints);
@@ -221,6 +284,8 @@ public sealed class AiModule : IFullNetModule
     /// <summary>只在 Worker 注册领取循环；Provider 由 Composition 在 Worker Profile 装配。</summary>
     public void AddBackgroundServices(IServiceCollection services, IConfiguration configuration)
     {
+        // FAQ完整业务来源在后台仍通过源模块原会话契约核证，不借用或伪造HttpContext。
+        services.TryAddScoped<Knowledge.AiPersonalScheduleSourceReader>();
         RegisterKnowledgeGrantServices(services);
         services.TryAddScoped<Features.ManageKnowledgeIndexing.AiKnowledgeIndexEnqueueService>();
         services.AddHostedService<Knowledge.AiKnowledgeIndexGrantProcessor>();
@@ -251,9 +316,28 @@ public sealed class AiModule : IFullNetModule
             .Validate(options => options.PollMilliseconds is >= 250 and <= 60000, "PollMilliseconds must be between 250 and 60000.")
             .ValidateOnStart();
         services.TryAddScoped<Diagnostics.AiBackgroundLogCorrelation>();
+        services.TryAddScoped<Knowledge.AiKnowledgeIndexTaskScope>();
+        // 后台完整来源核证只使用任务原会话与现有目录 Port，不装配交互 HTTP 授权栈。
+        services.TryAddScoped<Features.AiKnowledgeReadAccess>();
+        services.TryAddScoped<Knowledge.IAiKnowledgeAnswerSourceProof, Knowledge.AiKnowledgeAnswerSourceProof>();
+        services.TryAddScoped<Knowledge.AiKnowledgeFaqClassification>();
+        services.TryAddScoped<Knowledge.AiKnowledgeFaqNodeReader>();
+        services.TryAddScoped<Knowledge.AiKnowledgeFaqDraftSourceGuard>();
+        services.TryAddScoped<Knowledge.AiKnowledgeFaqIndexInput>();
         services.TryAddScoped<Knowledge.AiKnowledgeIndexTaskStore>();
         services.TryAddScoped<Knowledge.AiKnowledgeIndexSessionService>();
         services.TryAddScoped<Knowledge.AiKnowledgeIndexBatchStore>();
+        services.TryAddScoped<Knowledge.AiKnowledgeCorrectionStore>();
+        services.TryAddScoped<Knowledge.AiKnowledgeCorrectionAuthority>();
+        services.TryAddScoped<Knowledge.AiKnowledgeCorrectionPreparationService>();
+        services.TryAddScoped<Knowledge.AiKnowledgeCorrectionPreparationQueue>();
+        services.TryAddScoped<Knowledge.AiKnowledgeCorrectionPreparationCoordinator>();
+        services.TryAddScoped<Knowledge.AiKnowledgeCorrectionIndexService>();
+        services.TryAddScoped<Knowledge.AiKnowledgeCorrectionBudgetService>();
+        services.TryAddScoped<Knowledge.AiKnowledgeCorrectionEmbeddingService>();
+        services.TryAddScoped<Knowledge.AiKnowledgeCorrectionVectorStore>();
+        services.TryAddScoped<Knowledge.AiKnowledgeCorrectionPersistenceService>();
+        services.TryAddScoped<Knowledge.AiKnowledgeCorrectionActivationStore>();
         services.TryAddScoped<Knowledge.AiKnowledgeIndexBudgetService>();
         services.TryAddScoped<Knowledge.AiKnowledgeIndexEmbeddingService>();
         services.TryAddScoped<Knowledge.AiKnowledgeIndexVectorStore>();
@@ -273,6 +357,7 @@ public sealed class AiModule : IFullNetModule
             .ValidateOnStart();
         services.TryAddSingleton<Knowledge.AiKnowledgeCleanupCursor>();
         services.TryAddScoped<Knowledge.AiKnowledgeCleanupWorkerCoordinator>();
+        services.TryAddScoped<Knowledge.AiKnowledgeCorrectionCleanupStore>();
         services.TryAddScoped<Knowledge.AiKnowledgeIndexCleanupStore>();
         services.TryAddScoped<Features.ManageKnowledgeVersions.AiKnowledgeImportStore>();
         services.TryAddScoped<Features.ManageKnowledgeVersions.AiKnowledgeImportCoordinator>();
@@ -297,6 +382,10 @@ public sealed class AiModule : IFullNetModule
         RegisterAgentToolExecution(services, forWorker: true);
         services.AddFullNetMcpClient(configuration, services.LastOrDefault(descriptor =>
             descriptor.ServiceType == typeof(AiDataProcessingPolicy))?.ImplementationInstance as AiDataProcessingPolicy);
+        // 工具执行器逐次重建目录；后台必须自行闭合依赖，不能依赖仅在 API 注册的服务。
+        // 目录仍经原运行会话的后台授权 Port 过滤，不引入交互 HTTP 权限或 MCP 服务端。
+        services.TryAddScoped<IMcpRemoteToolCatalog, AiMcpRemoteToolCatalog>();
+        services.TryAddScoped<AiMcpRemoteTokenProtector>();
         services.TryAddScoped<AiAgentRunApprovalGate>();
         services.TryAddScoped<AiAgentApprovalConsumption>();
         services.TryAddScoped<AiAgentApprovalService>();
@@ -398,12 +487,25 @@ public sealed class AiModule : IFullNetModule
 
     private static void RegisterAgentToolExecution(IServiceCollection services, bool forWorker)
     {
+        services.TryAddScoped<AiWorkflowTargetAdmission>();
+        services.TryAddScoped<IAgentRunExecutionContext, AgentRunExecutionContext>();
+        services.TryAddScoped<Features.CompletePersonalSchedules.AiScheduleCompletionService>();
+        services.TryAddScoped<Features.CompletePersonalSchedules.ScheduleCompletionToolHandler>();
+        services.TryAddEnumerable(ServiceDescriptor.Scoped<Full.NET.Abstractions.Messaging.IIntegrationEventHandler,
+            Features.CompletePersonalSchedules.AiScheduleCompletionRequestedHandler>());
+        var completionTopic = global::Full.NET.Messaging.Abstractions.IntegrationEventTopicDefinition.Create(
+            "ai.schedule-completion-requested.v1", Features.CompletePersonalSchedules.AiScheduleCompletionRequested.EventType, 1,
+            global::Full.NET.Messaging.Abstractions.EventDeliveryOwner.LegacyPolling);
+        if (!services.Any(d => d.ServiceType == typeof(global::Full.NET.Messaging.Abstractions.IntegrationEventTopicDefinition)
+            && d.ImplementationInstance is global::Full.NET.Messaging.Abstractions.IntegrationEventTopicDefinition t && t.TopicCode == completionTopic.TopicCode))
+            services.AddSingleton(completionTopic);
         services.TryAddScoped<IAgentToolApprovalBindingReader, AgentToolApprovalBindingReader>();
         services.TryAddScoped<AiAgentToolCallAuditWriter>();
         services.TryAddScoped<AiAgentToolCatalogService>();
         services.TryAddScoped<PingToolHandler>();
         services.TryAddScoped<ListModelsToolHandler>();
         services.TryAddScoped<ListChatSessionsToolHandler>();
+        services.TryAddScoped<GetChatSessionMetadataToolHandler>();
         services.TryAddScoped<RenameChatSessionToolHandler>();
         services.TryAddScoped<AgentToolRegistryFactory>();
         services.TryAddScoped<IAgentToolRegistrySource, AgentToolRegistrySource>();

@@ -1,6 +1,12 @@
 <Project Sdk="MSTest.Sdk">
-  <ItemGroup>
+  <Target Name="ValidateNativeFocusedHostSelection" BeforeTargets="PrepareForBuild"
+          Condition="('$(FullNetWorkflowNativeFocused)' == 'true' and '$(FullNetIndependentHostNativeFocused)' == 'true') or ('$(FullNetCorrectionReadFocused)' == 'true' and ('$(FullNetWorkflowNativeFocused)' == 'true' or '$(FullNetIndependentHostNativeFocused)' == 'true')) or ('$(FullNetCorrectionWorkerNativeFocused)' == 'true' and ('$(FullNetWorkflowNativeFocused)' == 'true' or '$(FullNetIndependentHostNativeFocused)' == 'true' or '$(FullNetCorrectionReadFocused)' == 'true'))">
+    <Error Text="控制器聚焦模式只能选择一个，不能混合 Workflow、独立角色与校对读取。" />
+  </Target>
+  <ItemGroup Condition="'$(FullNetWorkflowNativeFocused)' != 'true' and '$(FullNetIndependentHostNativeFocused)' != 'true' and '$(FullNetCorrectionReadFocused)' != 'true' and '$(FullNetCorrectionWorkerNativeFocused)' != 'true'">
     <Compile Include="../Shared/CodeGeneration/GeneratedMigrationRecoveryFixture.cs" Link="CodeGeneration/GeneratedMigrationRecoveryFixture.cs" />
+    <Compile Include="../Shared/CodeGeneration/CodeGenerationRemediationSchemas.cs" Link="CodeGeneration/CodeGenerationRemediationSchemas.cs" />
+    <Compile Include="../Shared/CodeGeneration/Remediation/*.g.cs" Link="CodeGeneration/Remediation/%(Filename)%(Extension)" />
   </ItemGroup>
   <PropertyGroup>
     <IsPackable>false</IsPackable>
@@ -8,6 +14,39 @@
     <!-- 集成测试直接使用 JIT Dapper；禁止 Dapper.AOT 顾问规则误伤 TreatWarningsAsErrors。 -->
     <NoWarn>$(NoWarn);DAP005;DAP018;DAP200;DAP223;DAP224;DAP230;DAP241;DAP025;DAP037</NoWarn>
   </PropertyGroup>
+  <!-- 原生Workflow验收仅编译控制器及其直接夹具；默认集成测试源码集合保持不变。 -->
+  <PropertyGroup Condition="'$(FullNetWorkflowNativeFocused)' == 'true' or '$(FullNetIndependentHostNativeFocused)' == 'true' or '$(FullNetCorrectionReadFocused)' == 'true' or '$(FullNetCorrectionWorkerNativeFocused)' == 'true'">
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+  </PropertyGroup>
+  <!-- 两个新角色只编译直接控制器和共用服务夹具，既有 Workflow 聚焦模式保持独立。 -->
+  <ItemGroup Condition="'$(FullNetIndependentHostNativeFocused)' == 'true' or '$(FullNetCorrectionReadFocused)' == 'true' or '$(FullNetCorrectionWorkerNativeFocused)' == 'true'">
+    <Compile Include="*.cs" />
+    <Compile Include="Api/FullNetApiFactory.cs;Api/IntegrationTestAuthHelper.cs;Api/IntegrationTestTenantContextHelper.cs;Api/IntegrationWorkerHostFactory.cs" />
+    <Compile Include="Infrastructure/NativeContainerResourceProfile.cs" />
+    <Compile Include="Messaging/KafkaFixture.cs;Messaging/CdcDebeziumPipelineFixture.cs;Messaging/MessagingHttpFaultProxy.cs" />
+    <Compile Include="Messaging/CdcDebeziumConnectorTestSupport.cs;Messaging/SqlServerCdcTestSupport.cs" />
+    <Compile Include="Migrations/Migration114To126RecoveryTestSupport.cs;Migrations/Migration111WorkflowTodoTimeoutPolicyRecoveryTests.cs;Migrations/NamingExpandTestMigrationRunner.cs;Migrations/MigrationContractOptionFactory.cs" />
+    <Compile Include="Messaging/KafkaLogTlsFixture.cs;Messaging/PausedElasticsearchBulkProxy.cs;Messaging/KafkaLogConsumerElasticsearchTlsTests.cs;Messaging/KafkaLogConsumerDeliveryTests.cs"
+             Condition="'$(FullNetIndependentHostNativeFocused)' == 'true'" />
+    <Compile Include="NativeAot/NativeIndependentHostProcess.cs;NativeAot/NativeMigratorE2ETests.cs;NativeAot/NativeLogConsumerE2ETests.cs"
+             Condition="'$(FullNetIndependentHostNativeFocused)' == 'true'" />
+    <Compile Include="Ai/AiKnowledgeCorrectionManifestTests.cs;Ai/AiKnowledgeCorrectionVectorTests.cs;Migrations/Migration246AiKnowledgeIndexTaskRecoveryTests.cs;Migrations/ReviewFixMigrationRecoverySupport.cs;Migrations/AiKnowledgeAutomaticIndexSql.cs"
+             Condition="'$(FullNetCorrectionReadFocused)' == 'true'" />
+    <Compile Include="NativeAot/NativeWorkerCorrectionGenerationE2ETests.cs;NativeAot/NativeApiProcessHost.cs;NativeAot/NativeWorkerProcessHost.cs;NativeAot/NativeApiArtifactLocator.cs;NativeAot/NativeWorkerArtifactLocator.cs;NativeAot/NativeAotTestTimeouts.cs;NativeAot/NativeKnowledgeModelServer.cs;NativeAot/KnowledgeRefinementReply.cs;Migrations/Migration246AiKnowledgeIndexTaskRecoveryTests.cs;Migrations/ReviewFixMigrationRecoverySupport.cs;Migrations/AiKnowledgeAutomaticIndexSql.cs"
+             Condition="'$(FullNetCorrectionWorkerNativeFocused)' == 'true'" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(FullNetWorkflowNativeFocused)' == 'true'">
+    <Compile Include="*.cs" />
+    <Compile Include="Api/FullNetApiFactory.cs;Api/IntegrationTestAuthHelper.cs;Api/IntegrationTestTenantContextHelper.cs;Api/IntegrationWorkerHostFactory.cs" />
+    <Compile Include="Infrastructure/NativeContainerResourceProfile.cs" />
+    <Compile Include="Messaging/KafkaFixture.cs;Messaging/CdcDebeziumPipelineFixture.cs" />
+    <Compile Include="Messaging/MessagingHttpFaultProxy.cs;Messaging/MessagingKafkaFaultProxy.cs" />
+    <Compile Include="Messaging/CdcDebeziumConnectorTestSupport.cs;Messaging/SqlServerCdcTestSupport.cs" />
+    <Compile Include="Migrations/Migration114To126RecoveryTestSupport.cs;Migrations/Migration111WorkflowTodoTimeoutPolicyRecoveryTests.cs;Migrations/NamingExpandTestMigrationRunner.cs;Migrations/MigrationContractOptionFactory.cs" />
+    <Compile Include="Workflow/WorkflowCollaborationRequestApiTests*.cs" />
+    <Compile Include="Messaging/EventDeliveryCutoverTests.cs;Messaging/EventDeliveryRollbackTests.cs;Messaging/MessagingDeliveryControlTests.cs;Messaging/EventDeliveryPilotTestSupport.cs;Messaging/MessagingOutboxTestSupport.cs"
+             Condition="'$(FullNetMessagingCutoverFocused)' == 'true'" />
+  </ItemGroup>
   <!-- 容量实验只在显式配置中编译；日常发现不运行长时压力，也不以跳过冒充通过。 -->
   <ItemGroup Condition="'$(FullNetLoggingCapacity)' != 'true'">
     <Compile Remove="Auditing/AuditingSustainedCapacityTests.cs;Messaging/KafkaLogRouteCapacityTests.cs" />

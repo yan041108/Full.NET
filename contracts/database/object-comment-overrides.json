@@ -409,7 +409,8 @@
         "Id": "逻辑主键",
         "CreatedAtUtc": "创建时间(UTC)",
         "UpdatedAtUtc": "更新时间(UTC)",
-        "Version": "乐观并发版本号"
+        "Version": "乐观并发版本号",
+        "SourceSubscriptionId": "自动授权的来源订阅；空值为独立人工授权"
       }
     },
     "fn_tenancy_settings": {
@@ -433,7 +434,8 @@
         "Id": "逻辑主键",
         "CreatedAtUtc": "创建时间(UTC)",
         "UpdatedAtUtc": "更新时间(UTC)",
-        "Version": "乐观并发版本号"
+        "Version": "乐观并发版本号",
+        "SourceSubscriptionId": "提供本限额的来源订阅；空值为独立人工配置"
       }
     },
     "fn_tenancy_quota_reservation": {
@@ -693,6 +695,13 @@
         "FileId": "签名文件标识",
         "FileHash": "实际签名文件内容摘要",
         "CreatedAtUtc": "证据创建时间UTC"
+      }
+    },
+    "fn_messaging_cdc_heartbeat": {
+      "comment": "CDC 基础设施心跳，不承载业务事件",
+      "columns": {
+        "Id": "固定 UUID v7 心跳身份",
+        "UpdatedAtUtc": "基础设施心跳更新时间"
       }
     },
     "fn_messaging_rollback_operation": {
@@ -1193,6 +1202,142 @@
         "CreatedAtUtc": "首次固化选择UTC时间"
       }
     },
+    "fn_document_share_session": {
+      "comment": "文档分享访问会话表",
+      "columns": {
+        "Id": "应用生成的分享会话标识",
+        "ShareId": "分享标识",
+        "DocumentId": "文档标识",
+        "VersionId": "固定文件版本标识",
+        "RequestKey": "一次打开的请求幂等键",
+        "AccessRevision": "文档授权修订",
+        "PolicyRevision": "分享策略修订",
+        "CreatedAtUtc": "首次扣次时间",
+        "ExpiresAtUtc": "不可延长的会话到期时间"
+      }
+    },
+    "fn_document_version_operation": {
+      "comment": "文档版本幂等操作表",
+      "columns": {
+        "Id": "应用生成的操作标识",
+        "RequestKey": "调用者提供的请求幂等键",
+        "DocumentId": "文档标识",
+        "ActorUserId": "受信调用者",
+        "VersionId": "已提交版本标识",
+        "FileId": "输入文件标识",
+        "ChangeDescription": "版本变更说明",
+        "CreatedAtUtc": "提交时间"
+      }
+    },
+    "fn_document_permission_audit": {
+      "comment": "文档权限治理审计表",
+      "columns": {
+        "Id": "应用生成的治理审计标识",
+        "DocumentId": "文档标识，不级联删除审计",
+        "ActorUserId": "受信任治理操作者",
+        "PreviousMode": "变更前可见模式",
+        "NewMode": "变更后可见模式",
+        "BeforeActionsJson": "变更前动作集合",
+        "AfterActionsJson": "变更后动作集合",
+        "CreatedAtUtc": "治理提交时间"
+      }
+    },
+    "fn_document_item": {
+      "columns": {
+        "VisibilityMode": "文档可见模式，host 或 restricted",
+        "AccessRevision": "文档访问修订号，撤销历史分享会话",
+        "LastVersionNumber": "已提交版本最大编号，删除后不回退",
+        "IsPurging": "永久删除正在分批清理，禁止恢复"
+      }
+    },
+    "fn_document_permission": {
+      "columns": {
+        "Actions": "用户动作位集合，读写删分享独立组合"
+      }
+    },
+    "fn_document_share": {
+      "columns": {
+        "PolicyRevision": "分享策略修订号，不随访问计数变化"
+      }
+    },
+    "fn_files_file": {
+      "columns": {
+        "UploadOperationKey": "受控上传操作幂等键，未知发布结果禁止盲目重传"
+      }
+    },
+    "fn_document_category_guard": {
+      "comment": "文档分类树事务闸门表",
+      "columns": {
+        "Id": "预生成的 UUID v7 Host 闸门标识",
+        "Version": "取得锁时递增的闸门版本"
+      }
+    },
+    "fn_document_access_log": {
+      "columns": {
+        "OperationKey": "逻辑访问身份，重试与 Range 请求归并"
+      }
+    },
+    "fn_document_preview_reference": {
+      "comment": "文档预览源及输出的独立引用意图",
+      "columns": {
+        "Id": "不可复用的应用 UUID v7 引用标识",
+        "DocumentId": "文档标识，无级联关系",
+        "TaskId": "预览任务标识",
+        "FileId": "源或预留输出文件标识",
+        "Purpose": "source 或 output",
+        "StateKey": "preparing claimed 或 released",
+        "ReleaseAfterUtc": "有效租约保护截止时间",
+        "CreatedAtUtc": "意图创建时间"
+      }
+    },
+    "fn_document_preview_attempt": {
+      "comment": "文档预览领取尝试事实",
+      "columns": {
+        "Id": "应用 UUID v7 尝试标识",
+        "TaskId": "预览任务标识",
+        "ClaimVersion": "领取版本，用于拒绝迟到执行者",
+        "StartedAtUtc": "本次领取时间",
+        "CompletedAtUtc": "本次结束时间",
+        "ErrorCode": "稳定终止原因"
+      }
+    },
+    "fn_document_deletion_fact": {
+      "comment": "文档永久删除最小事实，独立于父文档保留",
+      "columns": {
+        "Id": "应用 UUID v7 审计标识",
+        "DocumentId": "被删除资源标识",
+        "ActorUserId": "永久删除操作者",
+        "OccurredAtUtc": "开始永久删除时间",
+        "RetainUntilUtc": "最小事实保留截止时间",
+        "ReasonKey": "删除原因机器码",
+        "VersionCount": "开始删除时版本数量",
+        "PreviewTaskCount": "开始删除时预览任务数量"
+      }
+    },
+    "fn_document_preview_task": {
+      "columns": {
+        "SourceReferenceId": "源文件独立引用意图",
+        "OutputReferenceId": "输出文件独立引用意图",
+        "OutputOwnerId": "固定的文档创建者",
+        "AttemptCount": "已领取次数，含崩溃重领",
+        "NextAttemptAtUtc": "失败退避后可领取时间",
+        "LeaseExpiresAtUtc": "领取时固定的租约截止，热配置不提前回收"
+      }
+    },
+    "fn_codegeneration_run_archive": {
+      "comment": "代码生成不可变下载包元数据及独立保留期限",
+      "columns": {
+        "Id": "与生成运行相同的应用 UUID v7",
+        "SchemaJson": "当次规范 Schema，包含冻结关系输入",
+        "SchemaSha256": "规范 Schema 摘要",
+        "GeneratorVersion": "生成器版本",
+        "ManifestSha256": "当次产物或完整工作区清单摘要",
+        "ZipSha256": "保存的精确 zip 字节摘要",
+        "FileName": "鉴权下载的安全文件名",
+        "ByteLength": "原始 zip 字节数",
+        "ExpiresAtUtc": "冻结的到期时刻，到期只删除包"
+      }
+    },
     "fn_identity_user_totp": {
       "columns": {
         "LastAcceptedCounter": "最近接受的中心登录 TOTP 步长，阻止重放"
@@ -1406,6 +1551,284 @@
         "ResultRevision": "首次成功响应修订",
         "ResultStatusKey": "首次成功响应状态",
         "CreatedAtUtc": "收据提交时间"
+      }
+    },
+    "fn_identity_member_seat_operation": {
+      "comment": "成员席位激活与取消的持久恢复工作项",
+      "columns": {
+        "Attempt": "已取消后的新业务尝试序号，不复用旧配额消费键",
+        "CreatedAtUtc": "工作项创建时间 UTC",
+        "DueAtUtc": "下次恢复时间 UTC",
+        "ErrorCode": "稳定失败机器码",
+        "Id": "工作项逻辑 UUID v7",
+        "InvitationId": "可空的原始邀请标识",
+        "InvitationVersion": "接受邀请后的冻结并发版本",
+        "LeaseId": "当前执行租约身份",
+        "LeaseUntilUtc": "当前执行租约截止 UTC",
+        "MemberId": "本模块成员关系标识",
+        "MemberVersion": "待激活成员的冻结并发版本",
+        "Phase": "席位恢复阶段",
+        "PreviousRole": "激活失败时的原始成员角色",
+        "PreviousStatus": "激活失败时的原始成员状态",
+        "RequestHash": "不含密码的创建请求摘要",
+        "RequestKey": "租户内稳定请求身份",
+        "TenantId": "可信目标租户标识",
+        "UserId": "待激活账号标识",
+        "Version": "工作项乐观并发版本"
+      }
+    },
+    "fn_tenancy_package_offer": {
+      "comment": "可发布的套餐收款报价与限额",
+      "columns": {
+        "AmountMinor": "最小货币单位金额",
+        "CreatedAtUtc": "创建时间 UTC",
+        "Currency": "规范大写币种",
+        "Id": "复用套餐逻辑主键",
+        "IsActive": "是否允许创建新报价",
+        "MerchantConfigId": "冻结收款商户配置",
+        "PaymentTenantId": "拥有收款商户的租户",
+        "SeatLimit": "席位限额",
+        "StorageLimit": "存储字节限额",
+        "UpdatedAtUtc": "最近更新时间 UTC",
+        "Version": "报价乐观并发版本",
+        "DurationDays": "价格对应的有效天数"
+      }
+    },
+    "fn_tenancy_offer_entitlement": {
+      "comment": "报价允许授予的功能目录映射",
+      "columns": {
+        "CreatedAtUtc": "创建时间 UTC",
+        "EntitlementId": "受控权益目录标识",
+        "Id": "映射逻辑 UUID v7",
+        "OfferId": "报价所属套餐"
+      }
+    },
+    "fn_tenancy_subscription_invoice": {
+      "comment": "订阅不可变报价及资金事实接收状态",
+      "columns": {
+        "AmountMinor": "冻结最小单位金额",
+        "CreatedAtUtc": "创建时间 UTC",
+        "Currency": "冻结规范币种",
+        "EffectiveFromUtc": "权益生效时间 UTC",
+        "EffectiveToUtc": "权益到期时间 UTC",
+        "Id": "复用订阅逻辑主键",
+        "LastRefundId": "最近已接收的成功退款身份",
+        "MerchantConfigId": "冻结收款商户",
+        "OfferVersion": "冻结报价版本",
+        "PackageId": "冻结套餐标识",
+        "PackageVersion": "冻结套餐元数据版本",
+        "PaymentOperationId": "原始支付创建幂等身份",
+        "PaymentOrderId": "已验证的实际支付订单",
+        "PaymentTenantId": "拥有收款商户的租户",
+        "Phase": "待付款已履约退款或核对阶段",
+        "ProviderTransactionId": "已验证的渠道交易标识",
+        "RefundAmountMinor": "最近已验证退款金额",
+        "SeatLimit": "冻结席位限额",
+        "StorageLimit": "冻结存储限额",
+        "TenantId": "权益受益租户",
+        "UpdatedAtUtc": "最近更新时间 UTC",
+        "Version": "接收状态乐观并发版本",
+        "RequestId": "调用方固定创建身份",
+        "RequestHash": "冻结购买输入摘要",
+        "Subject": "冻结商品名称"
+      }
+    },
+    "fn_tenancy_invoice_entitlement": {
+      "comment": "报价时冻结的功能权益快照",
+      "columns": {
+        "CreatedAtUtc": "创建时间 UTC",
+        "EntitlementCode": "冻结稳定功能码",
+        "EntitlementId": "冻结权益目录标识",
+        "Id": "快照逻辑 UUID v7",
+        "InvoiceId": "原始订阅报价"
+      }
+    },
+    "fn_payment_subscription_fulfillment": {
+      "comment": "Payments 自有订阅履约恢复与资金绑定",
+      "columns": {
+        "AmountMinor": "冻结最小单位金额",
+        "Attempt": "连续恢复次数",
+        "BeneficiaryTenantId": "权益受益租户",
+        "CreatedAtUtc": "创建时间 UTC",
+        "Currency": "冻结规范币种",
+        "DueAtUtc": "下次恢复时间 UTC",
+        "EffectiveFromUtc": "权益最早生效 UTC",
+        "EffectiveToUtc": "权益最晚生效 UTC",
+        "ErrorCode": "最近稳定失败码",
+        "Id": "支付创建幂等身份 UUID v7",
+        "LastRefundId": "最近成功退款身份",
+        "LeaseId": "当前恢复租约身份",
+        "LeaseUntilUtc": "当前租约到期 UTC",
+        "MerchantConfigId": "冻结收款商户",
+        "PaidAtUtc": "已验证支付时间 UTC",
+        "PaymentOrderId": "实际资金订单",
+        "Phase": "创建付款履约退款或核对阶段",
+        "ProviderTransactionId": "已验证渠道交易标识",
+        "RefundAmountMinor": "最近已验证退款金额",
+        "SubscriptionId": "Tenancy 原始订阅",
+        "TenantId": "支付收款租户",
+        "UpdatedAtUtc": "最近更新时间 UTC",
+        "Version": "工作项乐观并发版本"
+      }
+    },
+    "demo_enterprise_request_delivery": {
+      "comment": "企业申请附件和报表交付恢复日记",
+      "columns": {
+        "Id": "应用生成的交付身份 UUID v7",
+        "TenantId": "可信租户",
+        "RequestId": "所属申请单",
+        "RequestKey": "调用方幂等请求标识",
+        "Kind": "Attachment 或 Report",
+        "RequestedVersion": "冻结主单版本",
+        "ActorUserId": "原始申请主体",
+        "SessionId": "原始会话",
+        "SecurityStamp": "冻结安全戳",
+        "ActorScope": "原始主体作用域",
+        "EffectiveScope": "冻结有效租户作用域",
+        "SessionKind": "刷新或 OIDC 应用会话",
+        "SourceDigest": "内容或已授权单据快照摘要",
+        "IncludesAmounts": "是否包含获授权金额",
+        "LocaleCode": "生成文案的规范语言标签",
+        "FileId": "绑定的 Files 文件",
+        "FileName": "安全下载文件名",
+        "ContentType": "固定或经验证的媒体类型",
+        "SizeBytes": "实际文件字节数",
+        "ContentHash": "待绑定产物内容摘要",
+        "Phase": "持久化交付及清理状态",
+        "ErrorCode": "稳定失败码",
+        "LeaseId": "本轮恢复租约",
+        "LeaseUntilUtc": "租约截止时间",
+        "Attempt": "实际领取次数",
+        "DueAtUtc": "下一轮可执行时间",
+        "ExpiresAtUtc": "上传意图或报表结果截止时间",
+        "CreatedAtUtc": "创建时间",
+        "UpdatedAtUtc": "最后状态更新时间",
+        "Version": "单调并发版本"
+      }
+    },
+    "fn_workflow_collaboration_call": {
+      "comment": "工作流源协作调用及固定输入证明",
+      "columns": {
+        "Id": "真实协作Step及调用UUID v7",
+        "InstanceId": "本地源实例",
+        "ExecutionEpochId": "实际源执行代次",
+        "TenantScopeKey": "可信源作用域",
+        "NodeKey": "固定源节点键",
+        "ContinuationNodeKey": "固定唯一后继",
+        "GrantId": "已接受的双边授权",
+        "DeliveryId": "独立逻辑请求投递UUID v7",
+        "BindingJson": "真实源活动及固定授权版本证明",
+        "BindingHash": "绑定证明SHA256",
+        "InputJson": "不可变源输入",
+        "InputHash": "原输入SHA256",
+        "InputFormRevision": "原输入修订",
+        "ProjectionJson": "仅含获准映射的固定投影",
+        "ProjectionHash": "固定投影SHA256",
+        "ReservedActivities": "从源全局预算预留的目标切片",
+        "StatusKey": "请求生命周期",
+        "Revision": "本地CAS修订",
+        "CreatedAtUtc": "源事务提交意图时间",
+        "UpdatedAtUtc": "本地状态推进时间"
+      }
+    },
+    "fn_workflow_collaboration_delivery": {
+      "comment": "工作流源信封本地收件事实；目标Relay另建作用域",
+      "columns": {
+        "Id": "逻辑请求投递身份",
+        "CallId": "原本地源调用",
+        "TenantScopeKey": "由可信消息信封确定的作用域",
+        "EnvelopeMessageId": "首次接收的物理消息身份",
+        "BindingHash": "已核对的持久绑定摘要",
+        "StatusKey": "收件与Relay生命周期",
+        "Revision": "本地收件CAS修订",
+        "ReceivedAtUtc": "首次收件时间"
+      }
+    },
+    "fn_workflow_collaboration_admission": {
+      "comment": "工作流双方共享调用准入事实，仅协调创建与关闭",
+      "columns": {
+        "Id": "调用UUID v7",
+        "SourceTenantScopeKey": "可信源作用域",
+        "TargetTenantScopeKey": "获准目标作用域",
+        "DeliveryId": "源逻辑投递身份",
+        "GrantId": "双边共享授权",
+        "BindingJson": "固定调用绑定，不含源私有正文",
+        "BindingHash": "固定绑定SHA256",
+        "ProjectionJson": "仅含获准字段的最小投影",
+        "ProjectionHash": "投影SHA256",
+        "StatusKey": "创建与关闭准入状态",
+        "TargetInstanceId": "目标提交的独立实例身份",
+        "Revision": "共享准入CAS修订",
+        "CreatedAtUtc": "源提交时间",
+        "UpdatedAtUtc": "最近推进时间"
+      }
+    },
+    "fn_workflow_collaboration_origin": {
+      "comment": "工作流目标和后代的真实协作来源",
+      "columns": {
+        "Id": "本地实例UUID v7",
+        "CallId": "共享调用准入身份",
+        "RootInstanceId": "本地独立目标根",
+        "TenantScopeKey": "可信目标作用域",
+        "Depth": "实际全局调用深度"
+      }
+    },
+    "fn_workflow_collaboration_control": {
+      "comment": "工作流创建结果取消的最小耐久协议事实",
+      "columns": {
+        "Id": "协议回执UUID v7",
+        "CallId": "唯一共享调用准入",
+        "SourceTenantScopeKey": "可信原源作用域",
+        "TargetTenantScopeKey": "可信目标发布作用域",
+        "KindKey": "创建、完成或关闭确认种类",
+        "BodyJson": "固定绑定及最小结果正文",
+        "BodyHash": "不可变正文SHA256",
+        "EnvelopeMessageId": "首次认证物理信封身份",
+        "StatusKey": "发布、收件或已接纳状态",
+        "Revision": "协议状态CAS修订",
+        "CreatedAtUtc": "唯一发布UTC时间",
+        "ReceivedAtUtc": "首次收件UTC时间"
+      }
+    },
+    "fn_files_read_capability": {
+      "comment": "Workflow关联的不透明文件读取能力，接收方不获得原文件身份",
+      "columns": {
+        "Id": "不透明读取能力UUID v7",
+        "CallId": "固定Workflow调用身份，无跨模块外键",
+        "IssuerTenantId": "签发租户，空表示Host",
+        "IssuerScopeKey": "可信签发作用域",
+        "RecipientTenantId": "接收租户，空表示Host",
+        "RecipientScopeKey": "固定可信接收作用域",
+        "DirectionKey": "input或result协议方向",
+        "FieldKey": "最初接收方字段键",
+        "SourceFileId": "Files内部原文件身份，不返回接收方",
+        "OwnerReferenceId": "本地活动引用或租户资源所有权身份",
+        "OriginalFileName": "安全下载名快照",
+        "ContentType": "内容类型快照",
+        "SizeBytes": "实际文件字节数快照",
+        "ContentHash": "固定小写SHA256内容摘要",
+        "StatusKey": "active或revoked状态",
+        "ExpiresAtUtc": "不可延长的读取截止UTC",
+        "CreatedAtUtc": "能力首次签发UTC",
+        "RevokedAtUtc": "撤销或到期收敛UTC",
+        "Revision": "单调修订号"
+      }
+    },
+    "fn_workflow_file_read_reference": {
+      "comment": "本作用域Workflow附件的不透明能力引用，无外租户原文件身份",
+      "columns": {
+        "Id": "本地附件历史引用身份",
+        "InstanceId": "本作用域真实实例",
+        "CallId": "固定协作调用身份",
+        "TenantScopeKey": "本地可信作用域",
+        "CapabilityId": "Files不透明能力，不是外租户FileId",
+        "DirectionKey": "原input或result方向",
+        "CapabilityFieldKey": "原始能力接收字段",
+        "OriginalFileName": "安全下载名快照",
+        "ContentType": "内容类型快照",
+        "SizeBytes": "实际字节数快照",
+        "ContentHash": "固定内容摘要",
+        "ExpiresAtUtc": "读取期限UTC"
       }
     }
   }

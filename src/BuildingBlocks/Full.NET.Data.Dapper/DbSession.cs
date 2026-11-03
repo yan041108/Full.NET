@@ -27,6 +27,7 @@ internal sealed class DbSession(
 {
     private DbTransaction? _transaction;
     private DbSessionConnectionLease? _transactionConnectionLease;
+    private DbSessionConnectionLease? _pinnedConnectionLease;
 
     /// <summary>
     /// 获取当前活动的数据库事务；若未开启事务则为 null。
@@ -58,6 +59,9 @@ internal sealed class DbSession(
                 _transaction);
         }
 
+        if (_pinnedConnectionLease is not null)
+            return DbSessionConnectionLease.CreateBorrowed(_pinnedConnectionLease.Connection, null);
+
         return await OpenOwnedConnectionAsync(cancellationToken).ConfigureAwait(false);
     }
 
@@ -73,8 +77,9 @@ internal sealed class DbSession(
             throw new InvalidOperationException("A database transaction is already active.");
         }
 
-        var connectionLease = await OpenOwnedConnectionAsync(cancellationToken)
-            .ConfigureAwait(false);
+        var connectionLease = _pinnedConnectionLease is null
+            ? await OpenOwnedConnectionAsync(cancellationToken).ConfigureAwait(false)
+            : DbSessionConnectionLease.CreateBorrowed(_pinnedConnectionLease.Connection, null);
         try
         {
             var transaction = await connectionLease.Connection
@@ -167,8 +172,31 @@ internal sealed class DbSession(
         }
         finally
         {
-            await ReleaseTransactionConnectionAsync().ConfigureAwait(false);
+            try { await ReleaseTransactionConnectionAsync().ConfigureAwait(false); }
+            finally
+            {
+                var pinned = _pinnedConnectionLease;
+                _pinnedConnectionLease = null;
+                if (pinned is not null) await pinned.DisposeAsync().ConfigureAwait(false);
+            }
         }
+    }
+
+    internal async Task<DbSessionConnectionLease> PinConnectionAsync(CancellationToken cancellationToken)
+    {
+        if (_transaction is not null || _pinnedConnectionLease is not null)
+            throw new InvalidOperationException("控制锁必须在无事务且未固定连接的作用域获取。");
+        var lease = await OpenOwnedConnectionAsync(cancellationToken).ConfigureAwait(false);
+        _pinnedConnectionLease = lease;
+        return lease;
+    }
+
+    internal async ValueTask ReleasePinnedConnectionAsync(DbSessionConnectionLease lease)
+    {
+        if (!ReferenceEquals(_pinnedConnectionLease, lease)) throw new InvalidOperationException("控制锁连接归属不匹配。");
+        if (_transaction is not null) await RollbackAsync(CancellationToken.None).ConfigureAwait(false);
+        _pinnedConnectionLease = null;
+        await lease.DisposeAsync().ConfigureAwait(false);
     }
 
     private async Task<DbSessionConnectionLease> OpenOwnedConnectionAsync(

@@ -7,6 +7,7 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { buildSourceBundle } from './build-source-bundle.mjs';
 import { copyApplicationClientTools } from './application-client-tools.mjs';
+import { createApplicationPackage } from './application-package.mjs';
 
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(SCRIPT_DIR, '..', '..');
@@ -37,12 +38,17 @@ export function buildAppTemplate({ output = DEFAULT_OUTPUT } = {}) {
     'packages/admin-i18n',
     'packages/admin-form-designer',
     'packages/design-tokens',
+    'packages/braces',
+    'patches',
   ]) {
     cpSync(join(bundleRoot, relative), join(templateRoot, relative), { recursive: true, force: false });
   }
   for (const relative of ['package.json', 'pnpm-lock.yaml', 'pnpm-workspace.yaml']) {
     copyFileSync(join(bundleRoot, relative), join(templateRoot, relative));
   }
+  writeFileSync(join(templateRoot, 'package.json'), JSON.stringify(createApplicationPackage(
+    JSON.parse(readFileSync(join(bundleRoot, 'package.json'), 'utf8')),
+    JSON.parse(readFileSync(join(bundleRoot, 'templates/fullnet-app/package.json'), 'utf8'))), null, 2) + '\n');
 
   const configTemplate = join(templateRoot, 'appsettings.json.template');
   copyFileSync(configTemplate, join(templateRoot, 'appsettings.json'));
@@ -55,7 +61,7 @@ export function buildAppTemplate({ output = DEFAULT_OUTPUT } = {}) {
   rmSync(configTemplate);
   const toolRoot = join(templateRoot, '.fullnet-tools');
   mkdirSync(toolRoot);
-  for (const tool of ['create-app.mjs', 'framework-manifest-utils.mjs', 'migration-script-modules.mjs', 'preset-modules.mjs', 'project-preset-composition.mjs', 'verify-created-app.mjs', 'upgrade-framework.mjs', 'framework-upgrade-integrity.mjs', 'framework-upgrade-store.mjs']) {
+  for (const tool of ['create-app.mjs', 'application-package.mjs', 'framework-manifest-utils.mjs', 'migration-script-modules.mjs', 'preset-modules.mjs', 'project-preset-composition.mjs', 'verify-created-app.mjs', 'upgrade-framework.mjs', 'framework-upgrade-integrity.mjs', 'framework-upgrade-store.mjs']) {
     copyFileSync(join(SCRIPT_DIR, tool), join(toolRoot, tool));
   }
   copyApplicationClientTools(bundleRoot, templateRoot);

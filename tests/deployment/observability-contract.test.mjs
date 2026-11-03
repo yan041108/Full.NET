@@ -255,7 +255,7 @@ test('Prometheus rules cover required high-concurrency alerts', async () => {
   assert.match(text, /fullnet_messaging_cdc_sqlserver_capture_job_running/);
   assert.match(text, /fullnet_messaging_cdc_mysql_binlog_retention_hours/);
   assert.match(text, /fullnet_messaging_connector_offset_unrecoverable/);
-  assert.match(text, /fullnet_messaging_kafka_lag_retention_ratio/);
+  assert.match(text, /fullnet_messaging_kafka_observed_topics_lag_retention_ratio/);
   assert.match(text, /fullnet_db_connection_wait_seconds_bucket/);
   assert.match(text, /by\s*\(le,\s*provider,\s*host_role\)/);
   assert.match(text, /fullnet_db_connection_acquire_total\{outcome="timeout"\}/);

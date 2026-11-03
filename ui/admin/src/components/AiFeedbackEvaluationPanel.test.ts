@@ -5,8 +5,10 @@ import { ElMessageBox, type MessageBoxData } from 'element-plus';
 import Panel from './AiFeedbackEvaluationPanel.vue';
 import { useSessionStore } from '../auth/session';
 import * as api from '../api/ai-feedback-evaluation';
+import AiKnowledgeEvaluationWorkbench from './AiKnowledgeEvaluationWorkbench.vue';
+import {showSuccess,showWarning} from '../feedback/fullNetMessage';
 vi.mock('../api/ai-feedback-evaluation', () => ({ prepareFeedbackEvaluation: vi.fn(), admitFeedbackEvaluation: vi.fn() }));
-vi.mock('../feedback/fullNetMessage', () => ({ showProblem: vi.fn(), showSuccess: vi.fn() }));
+vi.mock('../feedback/fullNetMessage', () => ({ showProblem: vi.fn(), showSuccess: vi.fn(),showWarning:vi.fn() }));
 const feedback = { feedbackId: 'feedback', ratingKey: 'unhelpful', reasonKey: 'unsupported', citationCount: 1, feedbackVersion: 2, reviewVersion: 3, reviewStateKey: 'approved' };
 const candidate = { candidateToken: 'encrypted', sampleHash: 'a'.repeat(64), expiresAtUtc: '2026-10-17T03:00:00Z' };
 const wrappers: VueWrapper[] = [];
@@ -55,3 +57,8 @@ it('取消人工准入确认不会发送准入请求', async () => {
   await w.get('[data-testid="evaluation-admit"]').trigger('click'); await flushPromises();
   expect(api.admitFeedbackEvaluation).not.toHaveBeenCalled();
 });
+
+it('持久保存后清除旧候选并显示明确保存身份',async()=>{const w=render();await fill(w);await w.get('[data-testid="evaluation-prepare"]').trigger('click');await flushPromises();w.findComponent(AiKnowledgeEvaluationWorkbench).vm.$emit('persisted','saved-revision','available');await flushPromises();expect(showSuccess).toHaveBeenCalledWith(expect.stringContaining('saved-revision'));expect(w.text()).not.toContain(candidate.sampleHash);});
+it('已提交但来源失效使用警告收据，不伪报原候选仍可下载',async()=>{const w=render();await fill(w);await w.get('[data-testid="evaluation-prepare"]').trigger('click');await flushPromises();w.findComponent(AiKnowledgeEvaluationWorkbench).vm.$emit('persisted','saved-revision','source_unavailable');await flushPromises();expect(showWarning).toHaveBeenCalledWith(expect.stringContaining('操作已提交'));expect(w.text()).not.toContain(candidate.sampleHash);});
+
+it('持久来源拒绝同步清空外层人工正文与候选',async()=>{const w=render();await fill(w);await w.get('[data-testid="evaluation-prepare"]').trigger('click');await flushPromises();w.findComponent(AiKnowledgeEvaluationWorkbench).vm.$emit('unavailable');await flushPromises();expect(w.find('[data-testid="evaluation-question"]').exists()).toBe(false);expect(w.text()).not.toContain(candidate.sampleHash);expect(showWarning).toHaveBeenCalledWith(expect.stringContaining('旧正文已清空'));});

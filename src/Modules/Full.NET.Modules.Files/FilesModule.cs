@@ -35,6 +35,9 @@ public sealed class FilesModule : IFullNetModule
     /// <summary>获取 Files 模块所需依赖；Identity 提供授权目录与 Host 用户解析。</summary>
     public IReadOnlyCollection<string> Dependencies => ["Identity"];
 
+    /// <summary>仅消费文档引用释放事件；Document 未启用时仍可独立提供文件能力。</summary>
+    public IReadOnlyCollection<string> OptionalContractDependencies => ["Document"];
+
     /// <summary>
     /// 注册 Files 模块在 API 与 Worker 共用的 Host 文件/目录查询与管理服务、存储 Provider 目录、跨模块引用端口与 TenantResourceFileStore；
     /// 存储适配器（Local/S3/Oss）按配置注册到默认 Provider 集合，未配置凭据的 Provider 仍可注册但运行时拒绝写入。
@@ -103,6 +106,7 @@ public sealed class FilesModule : IFullNetModule
             IValidateOptions<PendingTenantResourceFileReconciliationOptions>,
             PendingTenantResourceFileReconciliationOptionsValidator>());
         services.TryAddScoped<DeletedHostFileBlobCleanupRunner>();
+        services.AddHostedService<Features.WorkflowReadCapabilities.WorkflowFileReadCapabilityCleanupHostedProcessor>();
         services.TryAddScoped<PendingHostFileReconciliationRunner>();
         services.TryAddScoped<PendingHostFileReferenceClaimReconciliationRunner>();
         services.TryAddSingleton<HostFileScanCursor<PendingHostFileReconciliationRunner>>();
@@ -134,6 +138,8 @@ public sealed class FilesModule : IFullNetModule
         services.AddScoped<ITenantResourceFileStorageUsagePort, Features.TenantResourceFiles.TenantResourceFileStorageUsagePort>();
         services.TryAddScoped<ITenantResourceFileStore, Features.TenantResourceFiles.TenantResourceFileStore>();
         services.TryAddScoped<ITenantResourceFileDescriptorReader, Features.TenantResourceFiles.TenantResourceFileDescriptorReader>();
+        services.TryAddScoped<Features.WorkflowReadCapabilities.WorkflowFileReadCapabilityStore>();
+        services.TryAddScoped<IWorkflowFileReadCapabilityStore>(provider => provider.GetRequiredService<Features.WorkflowReadCapabilities.WorkflowFileReadCapabilityStore>());
         services.TryAddScoped<ITenantResourceFileCleanup, Features.TenantResourceFiles.TenantResourceFileStore>();
     }
 
@@ -142,6 +148,7 @@ public sealed class FilesModule : IFullNetModule
     {
         services.TryAddEnumerable(ServiceDescriptor.Scoped<Full.NET.Abstractions.Messaging.IIntegrationEventHandler,
             Features.HostFileReferenceClaims.HostFileReferenceReleaseRequestedHandler>());
+        services.TryAddEnumerable(ServiceDescriptor.Scoped<Full.NET.Abstractions.Messaging.IIntegrationEventHandler, Features.HostFileReferenceClaims.DocumentFileReferenceReleasedHandler>());
         services.TryAddScoped<IHostFileReferenceReader, Features.HostFileReferences.HostFileReferenceReader>();
         services.TryAddScoped<IHostFileDescriptorReader, Features.HostFileReferences.HostFileDescriptorReader>();
         services.TryAddScoped<IHostFileContentReader, Features.HostFileReferences.HostFileContentReader>();

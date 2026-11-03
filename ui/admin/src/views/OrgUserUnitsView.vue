@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, onMounted, reactive, ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue';
 import {
   ElButton,
   ElCard,
@@ -30,10 +30,7 @@ import ArtSearchBar, { type ArtSearchBarItem } from '../framework/art-design/com
 import ArtTableActionButton from '../framework/art-design/components/ArtTableActionButton.vue';
 import ArtTableActionGroup from '../framework/art-design/components/ArtTableActionGroup.vue';
 import ArtTableHeader, { type ArtTableColumnOption } from '../framework/art-design/components/ArtTableHeader.vue';
-import {
-  useArtClientPagination,
-  useArtCrudTableLayout
-} from '../framework/art-design/composables/useArtCrudTableLayout';
+import { useArtPagedTableInCard } from '../framework/art-design/composables/useArtPagedTableInCard';
 import PermissionGate from '../components/PermissionGate.vue';
 import OrgReportingLineDialog from '../organization/OrgReportingLineDialog.vue';
 import { useSessionStore } from '../auth/session';
@@ -70,7 +67,11 @@ interface AppliedFilters {
 const session = useSessionStore();
 const reportingEmployee = ref<{ id: string; name: string }>();
 const { t } = useAdminI18n();
-const allAssignments = ref<OrganizationUserUnit[]>([]);
+const assignments = ref<OrganizationUserUnit[]>([]);
+const page = ref(1);
+const pageSize = ref(20);
+const total = ref(0);
+let listRequest: AbortController | undefined;
 const users = ref<OrganizationAssignableUser[]>([]);
 const units = ref<OrganizationUnit[]>([]);
 const loading = ref(false);
@@ -104,9 +105,8 @@ const {
   tableBorder,
   tableHeaderBackground,
   tableHeaderCellStyle,
-  updateTableHeight,
-  watchLoading
-} = useArtCrudTableLayout();
+  syncTableLayout
+} = useArtPagedTableInCard(loading);
 
 const canCreate = computed(() => session.can('organization.user_units.create'));
 const canUpdate = computed(() => session.can('organization.user_units.update'));
@@ -117,38 +117,6 @@ const unitTreeOptions = computed(() =>
   mapUnitTreeOptions(buildOrganizationUnitTree(units.value))
 );
 
-const filteredAssignments = computed(() => {
-  let rows = allAssignments.value;
-  const filters = appliedFilters.value;
-
-  if (filters.user.trim()) {
-    const keyword = filters.user.trim().toLowerCase();
-    rows = rows.filter(
-      assignment =>
-        assignment.username.toLowerCase().includes(keyword)
-        || assignment.displayName.toLowerCase().includes(keyword)
-    );
-  }
-
-  if (filters.unit.trim()) {
-    const keyword = filters.unit.trim().toLowerCase();
-    rows = rows.filter(
-      assignment =>
-        assignment.unitCode.toLowerCase().includes(keyword)
-        || assignment.unitName.toLowerCase().includes(keyword)
-    );
-  }
-
-  if (filters.status === 'active') {
-    rows = rows.filter(assignment => assignment.isActive);
-  } else if (filters.status === 'inactive') {
-    rows = rows.filter(assignment => !assignment.isActive);
-  }
-
-  return rows;
-});
-
-const { page, pageSize, total, pagedItems: pagedAssignments, resetPage } = useArtClientPagination(filteredAssignments);
 
 const tableColumns = computed<ArtTableColumnOption[]>({
   get: () => [
@@ -189,11 +157,12 @@ const searchItems = computed<ArtSearchBarItem[]>(() => [
   }
 ]);
 
-watchLoading(loading);
-
 onMounted(() => {
   void load();
+  if (canCreate.value) void loadOptions();
 });
+
+onBeforeUnmount(() => listRequest?.abort());
 
 function isColumnVisible(key: AssignmentTableColumnKey): boolean {
   return columnVisibility.value[key];
@@ -250,42 +219,65 @@ async function fetchAllUnits(): Promise<OrganizationUnit[]> {
 }
 
 async function load(): Promise<void> {
+  listRequest?.abort();
+  const request = new AbortController();
+  listRequest = request;
   loading.value = true;
   problem.value = undefined;
   try {
-    const [assignmentPage, unitItems, assignableUserPage] = await Promise.all([
-      listOrganizationUserUnits(),
+    const result = await listOrganizationUserUnits({
+      page: page.value,
+      pageSize: pageSize.value,
+      userSearch: appliedFilters.value.user.trim() || undefined,
+      unitSearch: appliedFilters.value.unit.trim() || undefined,
+      isActive: appliedFilters.value.status === '' ? undefined : appliedFilters.value.status === 'active'
+    }, request.signal);
+    // 快速切换筛选或页码时，仅最后一次请求允许更新列表。
+    if (request !== listRequest || request.signal.aborted) return;
+    assignments.value = result.items;
+    total.value = result.total;
+    page.value = result.page;
+    pageSize.value = result.pageSize;
+  } catch (error: unknown) {
+    if (request !== listRequest || request.signal.aborted) return;
+    assignments.value = [];
+    total.value = 0;
+    page.value = 1;
+    problem.value = toProblem(error, 'orgUserUnits.loadFailed');
+  } finally {
+    if (request === listRequest) {
+      loading.value = false;
+      void syncTableLayout();
+    }
+  }
+}
+
+async function loadOptions(): Promise<void> {
+  try {
+    const [unitOptions, assignableUserPage] = await Promise.all([
       fetchAllUnits(),
-      canCreate.value
-        ? listAssignableOrganizationUserUnitUsers().catch(error => {
-          if (isForbidden(error)) {
-            return {
-              items: [] as OrganizationAssignableUser[],
-              page: 1,
-              pageSize: 100,
-              total: 0
-            };
-          }
-          throw error;
-        })
-        : Promise.resolve({
-          items: [] as OrganizationAssignableUser[],
-          page: 1,
-          pageSize: 100,
-          total: 0
-        })
+      listAssignableOrganizationUserUnitUsers()
     ]);
-    allAssignments.value = assignmentPage.items;
+    units.value = unitOptions;
     users.value = assignableUserPage.items;
     userPage.value = assignableUserPage.page;
     userTotal.value = assignableUserPage.total;
-    units.value = unitItems;
-    await nextTick(updateTableHeight);
   } catch (error: unknown) {
-    problem.value = toProblem(error, 'orgUserUnits.loadFailed');
-  } finally {
-    loading.value = false;
+    if (!isForbidden(error)) problem.value = toProblem(error, 'orgUserUnits.loadFailed');
   }
+}
+
+function handlePageChange(nextPage: number): void {
+  if (page.value === nextPage) return;
+  page.value = nextPage;
+  void load();
+}
+
+function handlePageSizeChange(nextPageSize: number): void {
+  if (pageSize.value === nextPageSize) return;
+  page.value = 1;
+  pageSize.value = nextPageSize;
+  void load();
 }
 
 async function loadMoreUsers(): Promise<void> {
@@ -316,12 +308,14 @@ function handleSearch(params: Record<string, string | undefined>): void {
     unit: params.unit ?? '',
     status: (params.status as AppliedFilters['status']) ?? ''
   };
-  resetPage();
+  page.value = 1;
+  void load();
 }
 
 function resetSearch(): void {
   appliedFilters.value = { user: '', unit: '', status: '' };
-  resetPage();
+  page.value = 1;
+  void load();
 }
 
 function openCreate(): void {
@@ -476,10 +470,10 @@ function appendUniqueUsers(
           </template>
         </ArtTableHeader>
 
-        <div class="art-table" :class="{ 'is-empty': pagedAssignments.length === 0 }">
+        <div class="art-table" :class="{ 'is-empty': assignments.length === 0 }">
           <el-table
             v-loading="loading"
-            :data="pagedAssignments"
+            :data="assignments"
             :height="tableHeight"
             :size="tableSize"
             :stripe="tableZebra"
@@ -578,17 +572,18 @@ function appendUniqueUsers(
             <template #empty>{{ t('orgUserUnits.emptyDirectory') }}</template>
           </el-table>
 
-          <div class="art-table__pagination center custom-pagination">
-            <el-pagination
-              v-model:current-page="page"
-              v-model:page-size="pageSize"
-              :total="total"
-              background
-              layout="total, sizes, prev, pager, next, jumper"
-              :page-sizes="[10, 20, 50, 100]"
-            />
-          </div>
         </div>
+        <el-pagination
+          class="art-table-pagination"
+          :current-page="page"
+          :page-size="pageSize"
+          :total="total"
+          background
+          layout="total, sizes, prev, pager, next, jumper"
+          :page-sizes="[10, 20, 50, 100]"
+          @update:current-page="handlePageChange"
+          @update:page-size="handlePageSizeChange"
+        />
       </div>
     </el-card>
 

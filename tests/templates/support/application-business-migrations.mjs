@@ -17,7 +17,7 @@ export function prepareApplicationBusinessMigrations(appRoot) {
   const outputs = {};
   const sources = {};
   for (const provider of providers) {
-    const path = `templates/migrations/${provider}/CreateProduct.sql.template`;
+    const path = `generated/acme/catalog/product/templates/migrations/${provider}/CreateProduct.sql.template`;
     const bytes = readFileSync(join(appRoot, path));
     assert.ok(bytes.toString('utf8').trim(), 'empty migration draft: ' + path);
     sources[path] = hash(bytes);

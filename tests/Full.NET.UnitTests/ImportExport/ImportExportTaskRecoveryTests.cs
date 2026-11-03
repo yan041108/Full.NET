@@ -13,6 +13,9 @@ using Full.NET.Modules.ImportExport.ImportTasks;
 using Full.NET.Modules.ImportExport.Persistence;
 using Microsoft.Extensions.Options;
 using NSubstitute;
+using System.Text.Json;
+using Full.NET.Modules.Identity.Contracts;
+using Full.NET.Modules.ImportExport.Serialization;
 
 namespace Full.NET.UnitTests.ImportExport;
 
@@ -177,6 +180,11 @@ public sealed class ImportExportTaskRecoveryTests
         var store = new ImportTaskStore(currentTenant);
         var handler = Substitute.For<IStaticImportSchemaHandler>();
         handler.SchemaKey.Returns("organization.tenant_positions");
+        handler.GetDefinition().Returns(new StaticImportSchemaDefinition("organization.tenant_positions", "positions", StaticImportSchemaScopeKeys.Tenant,
+            "organization.tenant_positions.import", [new("positions", "positions", ["code"])]));
+        var sessions = Substitute.For<IBackgroundSessionAuthorization>();
+        sessions.AuthorizeAllAsync(Arg.Any<SessionBindingSnapshot>(), Arg.Any<IReadOnlyCollection<string>>(), Arg.Any<CancellationToken>())
+            .Returns(call => { var binding = call.Arg<SessionBindingSnapshot>()!; return new AuthorizedSessionActor(binding.UserId, binding.TenantId, binding.SessionId); });
         var invocations = 0;
         handler.ExecuteBatchAsync(
                 Arg.Any<Stream>(),
@@ -215,6 +223,7 @@ public sealed class ImportExportTaskRecoveryTests
             new DapperCommandTransaction(new RecordingDbTransactionCoordinator()),
             files,
             new StaticImportSchemaRegistry([handler]),
+            new ImportTaskAuthority(new StaticImportSchemaRegistry([handler]), sessions, currentTenant),
             resolver,
             currentTenant,
             clock,
@@ -275,8 +284,11 @@ public sealed class ImportExportTaskRecoveryTests
         int succeededRowCount,
         Guid? leaseId,
         DateTimeOffset? leaseExpiresAtUtc,
-        int validRowCount = 2, Guid? tenantId = null) =>
-        new()
+        int validRowCount = 2, Guid? tenantId = null)
+    {
+        var userId = Guid.CreateVersion7();
+        var ownerTenant = tenantId ?? fixture.TenantId;
+        return new()
         {
             Id = taskId,
             TenantId = tenantId ?? fixture.TenantId,
@@ -288,7 +300,8 @@ public sealed class ImportExportTaskRecoveryTests
             StatusKey = statusKey,
             TotalRows = validRowCount,
             ValidRowCount = validRowCount,
-            RequestedByUserId = Guid.NewGuid(),
+            RequestedByUserId = userId,
+            ActorSessionBindingJson = JsonSerializer.Serialize(new SessionBindingSnapshot(userId, ownerTenant, Guid.CreateVersion7(), "stamp", "host", $"tenant:{ownerTenant:N}"), ImportExportJsonSerializerContext.Default.SessionBindingSnapshot),
             CreatedAtUtc = fixture.Clock.UtcNow.AddMinutes(-10),
             ProcessedRowCount = nextLineNumber,
             SucceededRowCount = succeededRowCount,
@@ -297,6 +310,7 @@ public sealed class ImportExportTaskRecoveryTests
             LeaseExpiresAtUtc = leaseExpiresAtUtc,
             Version = 1,
         };
+    }
 
     private sealed class Fixture(
         ImportTaskStore store,
@@ -425,6 +439,8 @@ public sealed class ImportExportTaskRecoveryTests
                     WorksheetKey = current.WorksheetKey,
                     SourceFileId = current.SourceFileId,
                     SourceFileName = current.SourceFileName,
+                ColumnMappingJson = current.ColumnMappingJson,
+                ActorSessionBindingJson = current.ActorSessionBindingJson,
                     StatusKey = current.StatusKey,
                     TotalRows = current.TotalRows,
                     ValidRowCount = current.ValidRowCount,
@@ -495,6 +511,8 @@ public sealed class ImportExportTaskRecoveryTests
                 WorksheetKey = candidate.WorksheetKey,
                 SourceFileId = candidate.SourceFileId,
                 SourceFileName = candidate.SourceFileName,
+                ColumnMappingJson = candidate.ColumnMappingJson,
+                ActorSessionBindingJson = candidate.ActorSessionBindingJson,
                 StatusKey = ImportExportTaskStatusKeys.Executing,
                 TotalRows = candidate.TotalRows,
                 ValidRowCount = candidate.ValidRowCount,
@@ -543,6 +561,8 @@ public sealed class ImportExportTaskRecoveryTests
                 WorksheetKey = current.WorksheetKey,
                 SourceFileId = current.SourceFileId,
                 SourceFileName = current.SourceFileName,
+                ColumnMappingJson = current.ColumnMappingJson,
+                ActorSessionBindingJson = current.ActorSessionBindingJson,
                 StatusKey = statusKey,
                 TotalRows = current.TotalRows,
                 ValidRowCount = current.ValidRowCount,
@@ -579,6 +599,8 @@ public sealed class ImportExportTaskRecoveryTests
                 WorksheetKey = current.WorksheetKey,
                 SourceFileId = current.SourceFileId,
                 SourceFileName = current.SourceFileName,
+                ColumnMappingJson = current.ColumnMappingJson,
+                ActorSessionBindingJson = current.ActorSessionBindingJson,
                 StatusKey = ImportExportTaskStatusKeys.ExecutionFailed,
                 TotalRows = current.TotalRows,
                 ValidRowCount = current.ValidRowCount,

@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms</value></resheader>
+  <data name="printing.template.invalid" xml:space="preserve"><value>Invalid template input. Names are limited to 128 characters, machine keys to 128 ASCII letters, digits, dots, underscores or hyphens, and version notes to 512 characters.</value></data>
+  <data name="printing.template.not_found" xml:space="preserve"><value>The print template does not exist or is not accessible.</value></data>
+  <data name="printing.template.key_conflict" xml:space="preserve"><value>The template machine key already exists. Check the saved templates first.</value></data>
+  <data name="printing.template.concurrency_conflict" xml:space="preserve"><value>The template version changed. Reload the draft before acting.</value></data>
+  <data name="printing.form_schema.not_found" xml:space="preserve"><value>The print form schema was not found.</value></data>
+  <data name="printing.template_version.not_found" xml:space="preserve"><value>The published print version was not found.</value></data>
+  <data name="printing.template.not_published" xml:space="preserve"><value>The template has not been published. Publish a version explicitly first.</value></data>
+  <data name="printing.layout_html.invalid" xml:space="preserve"><value>The print layout is invalid or exceeds 65536 characters.</value></data>
+  <data name="printing.binding.failed" xml:space="preserve"><value>Print data cannot be bound in the current authorized context.</value></data>
+</root>

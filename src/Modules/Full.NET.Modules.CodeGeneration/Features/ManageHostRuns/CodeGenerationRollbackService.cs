@@ -25,7 +25,8 @@ internal sealed class CodeGenerationRollbackService(
     CodeGenerationGitWorkspaceService gitWorkspace,
     IClock clock,
     IIdGenerator idGenerator,
-    ILogger<CodeGenerationRollbackService> logger)
+    ILogger<CodeGenerationRollbackService> logger,
+    CodeGenerationArtifactStore archives)
 {
     /// <summary>
     /// 回滚单次已成功 Apply：以 DB 成功 Apply 为资格权威，拒绝 running 回滚并对已 succeeded 的回滚按幂等重放；
@@ -49,6 +50,15 @@ internal sealed class CodeGenerationRollbackService(
                 ErrorType.Conflict);
         }
 
+        if (!Directory.Exists(options.Value.WorkspaceRoot))
+            return Failure(CodeGenerationRunErrorCodes.RollbackCheckpointMissing, "The configured workspace is unavailable.", ErrorType.Conflict);
+
+        if (!await applyGate.TryEnterAsync(cancellationToken).ConfigureAwait(false))
+            return Failure(CodeGenerationRunErrorCodes.RollbackBusy, "Another code generation operation is in progress.", ErrorType.Conflict);
+        try
+        {
+        await CodeGenerationWorkspaceRecovery.RecoverAsync(applyGate.Lease, options.Value.WorkspaceRoot, commandExecutor, queryExecutor,
+            gitWorkspace, clock, archives, cancellationToken).ConfigureAwait(false);
         var apply = await queryExecutor
             .QuerySingleOrDefaultAsync<CodeGenerationRunRecord>(
                 CodeGenerationRunSql.FindById,
@@ -96,17 +106,6 @@ internal sealed class CodeGenerationRollbackService(
                 .ConfigureAwait(false);
         }
 
-        if (!await applyGate.TryEnterAsync(cancellationToken)
-                .ConfigureAwait(false))
-        {
-            return Failure(
-                CodeGenerationRunErrorCodes.RollbackBusy,
-                "Another code generation apply or rollback is in progress.",
-                ErrorType.Conflict);
-        }
-
-        try
-        {
             var syncError = await gitWorkspace
                 .SynchronizeAsync(cancellationToken)
                 .ConfigureAwait(false);
@@ -145,6 +144,8 @@ internal sealed class CodeGenerationRollbackService(
     {
         ArgumentNullException.ThrowIfNull(request);
         cancellationToken.ThrowIfCancellationRequested();
+        if (options.Value.Enabled && !Directory.Exists(options.Value.WorkspaceRoot))
+            return FailureChain(CodeGenerationRunErrorCodes.RollbackCheckpointMissing, "The configured workspace is unavailable.", ErrorType.Conflict);
         if (!options.Value.Enabled)
         {
             return FailureChain(
@@ -153,6 +154,12 @@ internal sealed class CodeGenerationRollbackService(
                 ErrorType.Conflict);
         }
 
+        if (!await applyGate.TryEnterAsync(cancellationToken).ConfigureAwait(false))
+            return FailureChain(CodeGenerationRunErrorCodes.RollbackBusy, "Another code generation operation is in progress.", ErrorType.Conflict);
+        try
+        {
+        await CodeGenerationWorkspaceRecovery.RecoverAsync(applyGate.Lease, options.Value.WorkspaceRoot, commandExecutor, queryExecutor,
+            gitWorkspace, clock, archives, cancellationToken).ConfigureAwait(false);
         var validation = await ValidateRollbackChainAsync(
                 request.ApplyRunIds,
                 cancellationToken)
@@ -180,17 +187,8 @@ internal sealed class CodeGenerationRollbackService(
             }
         }
 
-        if (!await applyGate.TryEnterAsync(cancellationToken)
-                .ConfigureAwait(false))
-        {
-            return FailureChain(
-                CodeGenerationRunErrorCodes.RollbackBusy,
-                "Another code generation apply or rollback is in progress.",
-                ErrorType.Conflict);
-        }
-
-        try
-        {
+            var chainError = await ValidateWorkspaceChainAsync(request.ApplyRunIds, cancellationToken).ConfigureAwait(false);
+            if (chainError is not null) return FailureChain(CodeGenerationRunErrorCodes.InvalidRollbackChain, chainError, ErrorType.Conflict);
             var syncError = await gitWorkspace
                 .SynchronizeAsync(cancellationToken)
                 .ConfigureAwait(false);
@@ -214,17 +212,9 @@ internal sealed class CodeGenerationRollbackService(
                     .ConfigureAwait(false);
                 if (existingRollback is not null)
                 {
-                    var replay = await TryReplaySucceededRollbackAsync(
-                            existingRollback,
-                            cancellationToken)
-                        .ConfigureAwait(false);
-                    if (!replay.IsSuccess)
-                    {
-                        return Result<CodeGenerationRunRollbackChainResponse>.Failure(
-                            replay.Error!);
-                    }
-
-                    rollbacks.Add(replay.Value!);
+                    var publication = await gitWorkspace.GetSavedPublicationAsync(existingRollback.Id, cancellationToken).ConfigureAwait(false);
+                    rollbacks.Add(ToResponse(existingRollback.Id, apply.Id, existingRollback.ArtifactCount, 0,
+                        existingRollback.ManifestSha256!) with { PublicationStatus = publication.Status, CommitSha = publication.CommitSha });
                     continue;
                 }
 
@@ -241,6 +231,7 @@ internal sealed class CodeGenerationRollbackService(
                 }
 
                 rollbacks.Add(step.Value!);
+                if (step.Value!.PublicationStatus == "pending") break;
             }
 
             return Result<CodeGenerationRunRollbackChainResponse>.Success(
@@ -250,6 +241,34 @@ internal sealed class CodeGenerationRollbackService(
         {
             await applyGate.ReleaseAsync().ConfigureAwait(false);
         }
+    }
+
+    private async Task<string?> ValidateWorkspaceChainAsync(IReadOnlyList<Guid> ids, CancellationToken cancellationToken)
+    {
+        var head = await GenerationWorkspaceJournal.ReadHeadAsync(applyGate.Lease, cancellationToken).ConfigureAwait(false);
+        var tip = head.TipOperationId;
+        var hasPending = false;
+        Guid? lastReplay = null;
+        foreach (var id in ids)
+        {
+            var replay = await queryExecutor.QuerySingleOrDefaultAsync<CodeGenerationRunRecord>(
+                CodeGenerationRunSql.FindSucceededRollbackBySourceApplyRunId,
+                CodeGenerationSqlParameters.Create(("SourceApplyRunId", id)), cancellationToken).ConfigureAwait(false);
+            if (replay is not null)
+            {
+                if (hasPending) return "Completed rollbacks must form a prefix of the requested chain.";
+                lastReplay = replay.Id;
+                continue;
+            }
+            if (!hasPending && lastReplay.HasValue && lastReplay != head.LastOperationId)
+                return "A later workspace operation prevents replaying this chain.";
+            hasPending = true;
+            if (tip != id) return "The rollback chain is not the global workspace LIFO chain.";
+            var operation = await GenerationWorkspaceJournal.ReadOperationAsync(applyGate.Lease, id, cancellationToken).ConfigureAwait(false);
+            if (operation is not { Kind: "apply", Phase: "completed" }) return "The rollback chain lacks completed workspace evidence.";
+            tip = operation.PreviousHead.TipOperationId;
+        }
+        return !hasPending && lastReplay != head.LastOperationId ? "A later workspace operation prevents replaying this chain." : null;
     }
 
     private async Task<Result<IReadOnlyList<CodeGenerationRunRecord>>>
@@ -298,35 +317,7 @@ internal sealed class CodeGenerationRollbackService(
             applies.Add(apply);
         }
 
-        var moduleKey = applies[0].ModuleKey!;
-        var entityKey = applies[0].EntityKey!;
-        if (!applies.All(item =>
-                item.ModuleKey == moduleKey
-                && item.EntityKey == entityKey))
-        {
-            return InvalidChain(
-                "The rollback chain must target a single module and entity.");
-        }
-
-        var pendingApplyRunIds = (await queryExecutor
-                .QueryAsync<Guid>(
-                    CodeGenerationRunSql.ListPendingRollbackApplies,
-                    CodeGenerationSqlParameters.Create(
-                        ("ModuleKey", moduleKey),
-                        ("EntityKey", entityKey)),
-                    cancellationToken)
-                .ConfigureAwait(false))
-            .ToList();
-        for (var index = 0; index < applyRunIds.Count; index++)
-        {
-            if (index >= pendingApplyRunIds.Count
-                || pendingApplyRunIds[index] != applyRunIds[index])
-            {
-                return InvalidChain(
-                    "The rollback chain is not in the required LIFO order.");
-            }
-        }
-
+        // 真正的顺序由租约内的持久化工作区链逐步检查，不能从 DB 时间或实体过滤推断。
         return Result<IReadOnlyList<CodeGenerationRunRecord>>.Success(applies);
     }
 
@@ -336,6 +327,9 @@ internal sealed class CodeGenerationRollbackService(
         Guid applyRunId,
         CancellationToken cancellationToken)
     {
+        var head = await GenerationWorkspaceJournal.ReadHeadAsync(applyGate.Lease, cancellationToken).ConfigureAwait(false);
+        if (head.TipOperationId != applyRunId)
+            return Failure(CodeGenerationRunErrorCodes.RollbackConflict, "The selected apply is not the current workspace tip.", ErrorType.Conflict);
         // 目标摘要在写盘前即可由检查点 PreviousManifest 确定；插入后再 Restore。
         GenerationRollbackCheckpoint checkpoint;
         try
@@ -396,7 +390,7 @@ internal sealed class CodeGenerationRollbackService(
         GenerationWritePlan plan;
         try
         {
-            plan = await GenerationRollbackWorkspace.RestoreAsync(
+            plan = await GenerationRollbackWorkspace.PlanAsync(
                     options.Value.WorkspaceRoot,
                     checkpoint,
                     cancellationToken)
@@ -454,6 +448,12 @@ internal sealed class CodeGenerationRollbackService(
                 ErrorType.Conflict);
         }
 
+        var commitMessage = $"codegen(rollback): {apply.ModuleKey}/{apply.EntityKey} apply {applyRunId:N}";
+        var publicationContext = gitWorkspace.CapturePublicationContext(runId, commitMessage, plan);
+        await GenerationWorkspaceJournal.PrepareAsync(applyGate.Lease, runId, runId, "rollback", "host", CodeGenerationWorkspaceRecovery.SerializeContext(new(1, new CodeGenerationRunRecord { Id = runId, SourceApplyRunId = applyRunId, OperationKind = "rollback", Status = "running", ModuleKey = apply.ModuleKey, EntityKey = apply.EntityKey, SchemaSha256 = apply.SchemaSha256, ArtifactCount = targetManifest.Artifacts.Count, ManifestSha256 = manifestSha256, RequestedByUserId = actorUserId, StartedAtUtc = startedAtUtc, FinishedAtUtc = startedAtUtc }, null, DateTimeOffset.MaxValue, CrudArtifactGenerator.GeneratorVersion, null, null, publicationContext)),
+            plan, sourceApplyId: applyRunId, cancellationToken: cancellationToken).ConfigureAwait(false);
+        await GenerationWorkspaceJournal.CommitAsync(applyGate.Lease, cancellationToken).ConfigureAwait(false);
+
         var completedRows = await commandExecutor.ExecuteAsync(
                 CodeGenerationRunSql.CompleteRollback,
                 CodeGenerationSqlParameters.Create(
@@ -463,11 +463,13 @@ internal sealed class CodeGenerationRollbackService(
             .ConfigureAwait(false);
         EnsureAffectedOne(completedRows, "completion");
 
-        await gitWorkspace.PublishAsync(
-                $"codegen(rollback): {apply.ModuleKey}/{apply.EntityKey} "
-                + $"apply {applyRunId:N}",
+        var publication = await gitWorkspace.PublishAsync(
+                runId,
+                commitMessage,
+                plan,
                 CancellationToken.None)
             .ConfigureAwait(false);
+        await GenerationWorkspaceJournal.CompleteAsync(applyGate.Lease, CancellationToken.None).ConfigureAwait(false);
 
         await TryDeleteCheckpointAfterSucceededRollbackAsync(
                 applyRunId,
@@ -482,7 +484,7 @@ internal sealed class CodeGenerationRollbackService(
                 applyRunId,
                 targetManifest.Artifacts.Count,
                 changedCount,
-                manifestSha256));
+                manifestSha256) with { PublicationStatus = publication.Status, CommitSha = publication.CommitSha });
     }
 
     private static Result<IReadOnlyList<CodeGenerationRunRecord>> InvalidChain(
@@ -504,6 +506,9 @@ internal sealed class CodeGenerationRollbackService(
         CodeGenerationRunRecord existingRollback,
         CancellationToken cancellationToken)
     {
+        var head = await GenerationWorkspaceJournal.ReadHeadAsync(applyGate.Lease, cancellationToken).ConfigureAwait(false);
+        if (head.LastOperationId != existingRollback.Id)
+            return Failure(CodeGenerationRunErrorCodes.RollbackConflict, "A later workspace operation prevents replay of this rollback.", ErrorType.Conflict);
         if (existingRollback.SourceApplyRunId is null
             || existingRollback.ManifestSha256 is null)
         {
@@ -551,13 +556,14 @@ internal sealed class CodeGenerationRollbackService(
                 ErrorType.Conflict);
         }
 
+        var publication = await gitWorkspace.GetSavedPublicationAsync(existingRollback.Id, cancellationToken).ConfigureAwait(false);
         return Result<CodeGenerationRunRollbackResponse>.Success(
             ToResponse(
                 existingRollback.Id,
                 existingRollback.SourceApplyRunId.Value,
                 existingRollback.ArtifactCount,
                 changedArtifactCount: 0,
-                existingRollback.ManifestSha256));
+                existingRollback.ManifestSha256) with { PublicationStatus = publication.Status, CommitSha = publication.CommitSha });
     }
 
     private async Task TryDeleteCheckpointAfterSucceededRollbackAsync(

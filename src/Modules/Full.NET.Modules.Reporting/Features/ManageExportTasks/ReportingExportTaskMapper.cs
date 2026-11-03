@@ -28,7 +28,25 @@ internal static class ReportingExportTaskMapper
             record.RowCount,
             record.OutputFileName,
             record.ErrorCode,
-            record.ErrorMessage,
+            Resources.ReportingPublicationErrorResourceSource.Message(record.ErrorCode, record.ErrorMessage),
+            record.RequestedByUserId,
+            record.CreatedAtUtc,
+            record.CompletedAtUtc);
+
+    /// <summary>映射不含执行参数及会话绑定的本人任务摘要。</summary>
+    public static ReportingExportTaskResponse MapSummary(ReportingExportTaskListRecord record) =>
+        new(
+            record.Id,
+            record.DefinitionId,
+            record.DefinitionKey,
+            record.DefinitionName,
+            record.VersionNumber,
+            record.FormatKey,
+            record.StatusKey,
+            record.RowCount,
+            record.OutputFileName,
+            record.ErrorCode,
+            Resources.ReportingPublicationErrorResourceSource.Message(record.ErrorCode, record.ErrorMessage),
             record.RequestedByUserId,
             record.CreatedAtUtc,
             record.CompletedAtUtc);
@@ -47,11 +65,12 @@ internal static class ReportingExportTaskMapper
             record.OutputFileId,
             record.OutputFileName,
             record.ErrorCode,
-            record.ErrorMessage,
+            Resources.ReportingPublicationErrorResourceSource.Message(record.ErrorCode, record.ErrorMessage),
             DeserializeParameters(record.ParametersJson),
             record.RequestedByUserId,
             record.CreatedAtUtc,
-            record.CompletedAtUtc);
+            record.CompletedAtUtc,
+            record.Version);
 
     /// <summary>序列化执行参数为 JSON。</summary>
     /// <param name="parameters">按协议传递的参数集合。</param>

@@ -1,6 +1,8 @@
 using Full.NET.AI.Abstractions.Models;
 using Full.NET.Abstractions.Ids;
 using Full.NET.Modules.Ai.Persistence;
+using Full.NET.Modules.Ai.Contracts;
+using Full.NET.Modules.Calendar.Contracts;
 
 namespace Full.NET.Modules.Ai.Knowledge;
 
@@ -12,21 +14,24 @@ internal sealed class AiKnowledgeAnswerPipeline(AiKnowledgeRetrievalService retr
 {
     /// <summary>准备有界问答数据包，不派发模型；上下文构造后仍重新核对读取资格。</summary>
     internal Task<AiKnowledgePreparedAnswer> PrepareAsync(IReadOnlyList<Guid> knowledgeBaseIds, Guid actor, AiModelConfigRecord model,
-        ReadOnlyMemory<float> vector, string question, CancellationToken token, AiModelConfigRecord? generationModel = null) =>
+        ReadOnlyMemory<float> vector, string question, CancellationToken token, AiModelConfigRecord? generationModel = null,
+        AiKnowledgeSearchAnswerScope? searchScope = null, IReadOnlyList<PersonalScheduleKnowledgeSnapshot>? schedules = null) =>
         AiKnowledgeTelemetry.RunAsync("knowledge_retrieval", () => PrepareCoreAsync(knowledgeBaseIds, actor, model,
-            vector, question, token, generationModel), token);
+            vector, question, token, generationModel, searchScope, schedules), token);
 
     private async Task<AiKnowledgePreparedAnswer> PrepareCoreAsync(IReadOnlyList<Guid> knowledgeBaseIds, Guid actor, AiModelConfigRecord model,
-        ReadOnlyMemory<float> vector, string question, CancellationToken token, AiModelConfigRecord? generationModel = null)
+        ReadOnlyMemory<float> vector, string question, CancellationToken token, AiModelConfigRecord? generationModel = null,
+        AiKnowledgeSearchAnswerScope? searchScope = null, IReadOnlyList<PersonalScheduleKnowledgeSnapshot>? schedules = null)
     {
         token.ThrowIfCancellationRequested();
         if (string.IsNullOrWhiteSpace(question) || question.Length > 4096) throw new InvalidDataException("问题超过上下文边界。");
-        var snapshot = await retrieval.RetrieveAsync(knowledgeBaseIds, actor, model, vector, token, generationModel).ConfigureAwait(false);
+        var snapshot = await retrieval.RetrieveAsync(knowledgeBaseIds, actor, model, vector, token, generationModel, searchScope, schedules).ConfigureAwait(false);
         (dataPolicy ?? AiDataProcessingPolicy.Default).Require("context",
             AiDataProcessingPolicy.Strongest(snapshot.Sources.Select(source => source.DataClassification), "restricted"));
-        var context = AiKnowledgeAnswerContext.Create(question, snapshot.Chunks, ids, token);
+        var context = AiKnowledgeAnswerContext.Create(question, snapshot.Chunks, ids, token, snapshot.PersonalSchedules);
+        var prepared = new AiKnowledgePreparedAnswer(snapshot, context); AiKnowledgeAnswerLineageCodec.EnsureFits(prepared);
         // 同步词表初始化和上下文构造也可能等待，准备完成前再确认全部依赖。
-        await retrieval.RevalidateAsync(snapshot, token).ConfigureAwait(false); return new(snapshot, context);
+        await retrieval.RevalidateAsync(snapshot, token).ConfigureAwait(false); return prepared;
     }
     /// <summary>仅在严格引用校验与全部来源复核成功后返回正文，拒绝或取消不得泄漏部分答案。</summary>
     internal Task<AiKnowledgeAnswer> AcceptAsync(AiKnowledgePreparedAnswer prepared, ReadOnlyMemory<byte> response, CancellationToken token) =>

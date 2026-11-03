@@ -18,6 +18,9 @@ vi.mock('./config/identity-auth', () => ({
   resolveAdminOidcClientId: () => 'admin-spa'
 }));
 vi.mock('./auth/oidc-center-login', () => ({
+  adminBrowserSession: undefined,
+  clearAdminOidcSessionCredentials: vi.fn(),
+  readAdminBrowserCsrfToken: () => undefined,
   completeAdminOidcCallback: oidcMocks.completeAdminOidcCallback,
   beginAdminOidcCenterLogin: vi.fn()
 }));

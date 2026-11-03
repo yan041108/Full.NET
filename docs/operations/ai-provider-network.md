@@ -133,7 +133,7 @@ OpenAI 兼容协议不代表支持所有可选字段。默认不发送 `stream_o
 
 ## 分阶段数据分类策略（R11u，已实现、待集中验收）
 
-宿主启动时冻结 FullNet:Ai:DataPolicy。阶段仅接受 chat、embedding、rerank、context、telemetry、connectivity、mcp；每个阶段的数组仅接受 public、internal、restricted，大小写精确。缺省阶段允许这三个已知分类，显式空数组拒绝该阶段；未知键、未知分类、标量或非连续数组使装配失败。PrivateClassifications 指定必须进入私网闭包的分类，缺省为空。修改配置后重启宿主，不能由模型或请求扩大范围。
+宿主启动时冻结 FullNet:Ai:DataPolicy。阶段仅接受 chat、embedding、rerank、context、telemetry、connectivity、mcp、export；每个阶段的数组仅接受 public、internal、restricted，大小写精确。缺省阶段允许这三个已知分类，显式空数组拒绝该阶段；未知键、未知分类、标量或非连续数组使装配失败。PrivateClassifications 指定必须进入私网闭包的分类，缺省为空。修改配置后重启宿主，不能由模型或请求扩大范围。FAQ 导出额外检查 export 阶段，分类取当前根与全部文档叶的最严格值；最后来源查询同时绑定根分类及版本。此本地导出不调用供应商模型，也不授予新的来源读取资格。
 
 知识索引使用来源的权威分类；完整检索来源取最严格分类，用户问题、聊天历史、Agent 和 MCP 参数缺少低敏证明时按 restricted 处理。阶段拒绝先于凭据读取与派发。PrivateClassifications 只收紧实际 DNS/套接字边界，仍沿用已批准 Ollama 源；它不为 OpenAI/Azure 或任意私网地址增加网络批准，失败不自动改用公网 Provider。
 

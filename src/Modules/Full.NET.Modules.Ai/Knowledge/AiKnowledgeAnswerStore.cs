@@ -5,6 +5,8 @@ using Full.NET.Modules.Ai.Features;
 using Full.NET.Modules.Ai.Persistence;
 using Full.NET.Abstractions.Messaging;
 using Microsoft.Extensions.Options;
+using System.Text.Json;
+using Full.NET.Modules.Ai.Serialization;
 
 namespace Full.NET.Modules.Ai.Knowledge;
 
@@ -27,9 +29,11 @@ internal sealed class AiKnowledgeAnswerStore(ICommandExecutor commands, IQueryEx
         var json = AiKnowledgeAnswerLineageCodec.Encode(lineage);
         if (lineage.ActorUserId != actor || lineage.TenantId != tenantId || answer.Answer.Text.Length > 16000
             || await guard.AuthorizeAsync(json, messageId, sessionId, actor, true, token).ConfigureAwait(false) is null || !SameScope()) return false;
-        var parameters = AiSqlParameters.Create(
+        var parameters = new Dictionary<string,object?>(AiSqlParameters.Create(
             ("MessageId", messageId), ("SessionId", sessionId), ("OwnerUserId", actor),
-            ("Content", answer.Answer.Text), ("KnowledgeLineage", json), ("Now", clock.UtcNow));
+            ("Content", answer.Answer.Text), ("KnowledgeLineage", json), ("Now", clock.UtcNow)));
+        parameters["KnowledgeBaseIdsJson"]=JsonSerializer.Serialize(answer.Prepared.Retrieval.KnowledgeBaseIds.Distinct().ToArray(),AiJsonSerializerContext.Default.GuidArray);
+        parameters["Refused"]=answer.Answer.Refused;parameters["DurationMs"]=answer.DurationMs;
         try
         {
             await transaction.ExecuteAsync(async work =>
@@ -40,6 +44,10 @@ internal sealed class AiKnowledgeAnswerStore(ICommandExecutor commands, IQueryEx
                 var current = await query.QuerySingleOrDefaultAsync<Guid>(AiKnowledgeAnswerSql.CurrentFor(database.Value.Provider, scoped), parameters, work).ConfigureAwait(false);
                 // 持有会话锁后，数据库时间仍可能在消息锁等待中跨越期限；抛错让正文和依赖一起回滚。
                 if (changed != 1 || current != messageId || !SameScope()) throw new LostLeaseException();
+                // 与原答案同一事务保存最小结果观测，不复制问题/答案/用户身份，也不推测旧消息的拒答状态。
+                if(await commands.ExecuteAsync(AiKnowledgeObservationSql.InsertFor(scoped),parameters,work).ConfigureAwait(false)!=1)throw new LostLeaseException();
+                current=await query.QuerySingleOrDefaultAsync<Guid>(AiKnowledgeAnswerSql.CurrentFor(database.Value.Provider,scoped),parameters,work).ConfigureAwait(false);
+                if(current!=messageId||!SameScope())throw new LostLeaseException();
                 return true;
             }, token).ConfigureAwait(false);
         }

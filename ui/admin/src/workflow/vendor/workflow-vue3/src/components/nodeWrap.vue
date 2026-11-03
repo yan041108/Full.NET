@@ -126,6 +126,8 @@ const fullnetFieldPresentation = inject('fullnetWorkflowFieldPresentation', unde
 const fullnetConnectorPresentation = inject('fullnetWorkflowConnectorPresentation', undefined)
 const fullnetSubprocessPresentation = inject('fullnetWorkflowSubprocessPresentation', undefined)
 const fullnetRoutePresentation = inject('fullnetWorkflowRoutePresentation', undefined)
+const fullnetCollaborationPresentation = inject('fullnetWorkflowCollaborationPresentation', undefined)
+const fullnetEditCollaboration = inject('fullnetWorkflowEditCollaboration', undefined)
 const fullnetDependencies = inject('fullnetWorkflowEditDependencies', undefined)
 const dependencyTypes = inject('fullnetWorkflowEnabledNodeTypes', computed(() => new Set()))
 const dependencyLabel = inject('fullnetWorkflowDependencyLabel', '')
@@ -375,6 +377,7 @@ let defaultText = computed(() => {
     return nodeTypeMeta.value.label
 });
 let showText = computed(() => {
+    if (normalizeType(props.nodeConfig.type) === NodeType.CrossTenantApprover) return fullnetCollaborationPresentation?.(props.nodeConfig).text || ''
     // 业务规则变更：空节点作为占位节点展示固定说明文案，不需要配置
     if (normalizeType(props.nodeConfig.type) == NodeType.Empty) return '默认执行通过'
     if (isApproverLike(props.nodeConfig.type) && fullnetApprovalPresentation) return fullnetApprovalPresentation(props.nodeConfig).text
@@ -698,7 +701,11 @@ const refreshNodeError = () => {
     let nextError = false
     let nextTip = ''
 
-    if (isApproverLike(cfg.type)) {
+    if (normalizeType(cfg.type) === NodeType.CrossTenantApprover) {
+        const presentation = fullnetCollaborationPresentation?.(cfg)
+        cfg.error = presentation?.error ?? true; cfg.errorTip = presentation?.tip ?? ''; cfg.placeHolder = presentation?.text ?? ''
+        return
+    } else if (isApproverLike(cfg.type)) {
         const presentation = fullnetApprovalPresentation?.(cfg)
         const requiredTip = presentation ? presentation.tip : calcApproverRequiredError(cfg)
         const listenerTip = calcApproverListenerError(cfg)
@@ -1018,6 +1025,10 @@ const reData = (data, addData) => {
 };
 const setPerson = (priorityLevel) => {
     const normalizedType = normalizeType(props.nodeConfig?.type)
+    if (normalizedType === NodeType.CrossTenantApprover) {
+        fullnetEditCollaboration?.(props.nodeConfig, value => emits('update:nodeConfig', value))
+        return
+    }
     if (normalizedType == NodeType.Starter) {
         setPromoter(true);
         setFlowPermission({

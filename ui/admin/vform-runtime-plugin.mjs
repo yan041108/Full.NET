@@ -1,9 +1,9 @@
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
-import { readFile, stat } from 'node:fs/promises';
+import os from 'node:os';
+import { mkdtemp, readFile, rm, stat } from 'node:fs/promises';
 import { buildRuntimeOutput, verifyRuntimeRelease } from '../../packages/admin-form-designer/runtime-release.mjs';
 const configFile = fileURLToPath(new URL('../../packages/admin-form-designer/vite.runtime.config.mjs', import.meta.url));
-const runtimeOutput = fileURLToPath(new URL('../../packages/admin-form-designer/dist/runtime', import.meta.url));
 const mime = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.txt': 'text/plain', '.png': 'image/png', '.svg': 'image/svg+xml', '.ttf': 'font/ttf' };
 async function buildRuntime(outDir) {
   await buildRuntimeOutput(configFile, outDir);
@@ -26,16 +26,26 @@ function serveRuntime(directory) {
 }
 // 开发与正式包使用同一隔离产物；避免把 Vite HMR/源码服务器权限带进执行设计脚本的帧。
 export function vformRuntimePlugin() {
-  let output;
+  let output, servedOutput, development = false;
+  async function disposeRuntime() {
+    if (!servedOutput) return;
+    const directory = servedOutput; servedOutput = undefined;
+    await rm(directory, { recursive: true, force: true });
+  }
   return { name: 'fullnet-vform-runtime',
     configResolved(config) { output = path.resolve(config.root, config.build.outDir, 'vform3'); },
     async configureServer(server) {
-      // 每个开发端口持有自己的产物，避免并行浏览器栈覆盖同一个输出目录。
-      const servedOutput = path.join(path.dirname(runtimeOutput), 'runtime-' + server.config.server.port);
-      await buildRuntime(servedOutput);
+      // 每个服务持有独立系统临时产物，既不覆盖并行栈，也不在仓库按端口长期积累。
+      development = true;
+      servedOutput = await mkdtemp(path.join(os.tmpdir(), 'fullnet-vform-runtime-'));
+      try { await buildRuntime(servedOutput); }
+      catch (error) { await disposeRuntime(); throw error; }
       server.middlewares.use(serveRuntime(servedOutput));
     },
     async configurePreviewServer(server) { await verifyRuntimeRelease(output); server.middlewares.use(serveRuntime(output)); },
-    async closeBundle() { if (!this.meta.watchMode && output) await buildRuntime(output); }
+    async closeBundle() {
+      if (development) { await disposeRuntime(); return; }
+      if (!this.meta.watchMode && output) await buildRuntime(output);
+    }
   };
 }

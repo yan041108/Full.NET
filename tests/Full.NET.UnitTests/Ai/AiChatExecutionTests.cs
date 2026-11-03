@@ -32,6 +32,7 @@ public sealed class AiChatExecutionTests
     [DataRow("settle")]
     [DataRow("release")]
     [DataRow("lost_lease")]
+    [DataRow("final_expired")]
     [DataRow("disconnect")]
     public async Task Generation_preserves_preflight_and_cleanup_boundaries_async(string scenario)
     {
@@ -45,6 +46,11 @@ public sealed class AiChatExecutionTests
         var ids = Substitute.For<IIdGenerator>();
         ids.NewId().Returns(Guid.NewGuid(), generationId);
         var queries = Substitute.For<IQueryExecutor>();
+        queries.QuerySingleOrDefaultAsync<Guid>(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>())
+            .Returns(generationId);
+        if (scenario == "final_expired")
+            queries.QuerySingleOrDefaultAsync<Guid>(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>())
+                .Returns(generationId, Guid.Empty);
         queries.QuerySingleOrDefaultAsync<AiChatSessionRecord>(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>())
             .Returns(new AiChatSessionRecord { Id = Guid.NewGuid(), ModelConfigId = Guid.NewGuid() });
         queries.QuerySingleOrDefaultAsync<AiModelConfigRecord>(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>())
@@ -91,7 +97,8 @@ public sealed class AiChatExecutionTests
             }
             return 1;
         });
-        var transaction = new DapperCommandTransaction(new RecordingDbTransactionCoordinator());
+        var coordinator = new RecordingDbTransactionCoordinator();
+        var transaction = new DapperCommandTransaction(coordinator);
         var resolver = Substitute.For<IActiveTenantContextResolver>();
         resolver.ResolveActiveByIdAsync(tenantContext.Id, Arg.Any<CancellationToken>()).Returns(tenantContext);
         var budget = Substitute.For<IAiOperationBudgetStore>();
@@ -141,6 +148,13 @@ public sealed class AiChatExecutionTests
                 Assert.AreEqual(403, StandardApiResultMapper.ToStatusCode(result.Error.Type));
                 http.DidNotReceive().CreateClient(Arg.Any<string>());
             }
+            else if (scenario == "knowledge_history")
+            {
+                Assert.IsFalse(output.HasStarted); Assert.IsFalse(result.IsSuccess);
+                Assert.AreEqual(AiErrorCodes.KnowledgeAnswerUnavailable, result.Error!.Code);
+                await budget.DidNotReceive().ReserveAsync(Arg.Any<AiOperationRequest>(), Arg.Any<CancellationToken>());
+                http.DidNotReceive().CreateClient(Arg.Any<string>());
+            }
             else if (scenario == "lost_lease")
             {
                 Assert.IsFalse(output.HasStarted);
@@ -150,22 +164,20 @@ public sealed class AiChatExecutionTests
             else
             {
                 Assert.IsTrue(result.IsSuccess, "流启动后的失败通过语义事件交付。");
-                Assert.AreEqual(scenario is "success" or "host" or "knowledge_history", output.Done);
-                Assert.AreEqual(scenario is not ("success" or "host" or "knowledge_history"), output.Error is not null);
+                Assert.AreEqual(scenario is "success" or "host", output.Done);
+                Assert.AreEqual(scenario is not ("success" or "host"), output.Error is not null);
                 Assert.DoesNotContain("private", output.Error ?? "", StringComparison.Ordinal);
             }
         }
         if (scenario == "host")
             await commands.Received(1).ExecuteAsync(AiQuotaReservationSql.Reserve, Arg.Any<object?>(), Arg.Any<CancellationToken>());
         Assert.IsTrue(released);
+        if (scenario == "final_expired") Assert.AreEqual(1, coordinator.RollbackCount, "末次权威复核失败必须回滚完成写入。");
         Assert.IsFalse(registry.TryCancel(sessionId, generationId));
         if (scenario == "knowledge_history")
         {
-            Assert.IsNotNull(providerInput);
-            using var payload = System.Text.Json.JsonDocument.Parse(providerInput);
-            var contents = payload.RootElement.GetProperty("messages").EnumerateArray().Select(message => message.GetProperty("content").GetString()).ToArray();
-            Assert.IsTrue(contents.Contains("普通上下文"));
-            Assert.IsFalse(contents.Any(content => content!.Contains('秘') || content.Contains("损坏知识正文", StringComparison.Ordinal)));
+            // 未配置来源门禁的旧内部消费者不能把损坏的派生历史当作普通续谈收费。
+            Assert.IsNull(providerInput);
         }
     }
 

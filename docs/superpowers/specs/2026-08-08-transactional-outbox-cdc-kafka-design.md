@@ -321,6 +321,8 @@ Trace Span 至少覆盖 `outbox.append`、`cdc.capture`（从 Connector 指标�
 - 旧 Worker 排空、停止单流所有权、记录 CDC 位点、启动正式 Relay/Consumer。
 - 切换中任一门禁失败自动停止，不出现旧 Worker 与正式 Relay 双发布。
 - 回退演练证明不会从不明确位点重复外部副作用。
+- Workflow协作的多条流仍逐条取得影子证明和切流基线；同一环境、Connect及Kafka集群内，正式Connector和正式/重试Topic必须互不重叠，正式/影子配置也不得交叉复用名称。共享消费组不表示共享发布所有权。
+- 同表多流的专用Connector只允许规范事件类型投影及固定Topic白名单，白名单保留本Connector的精确心跳Topic以持久提交空闲位点；两库模板均显式启用1000ms心跳，仅声明Topic不会启用心跳（[Debezium 3.4 SQL Server配置](https://debezium.io/documentation/reference/3.4/connectors/sqlserver.html#sqlserver-property-heartbeat-interval-ms)）。映射、过滤及谓词共同参与资源指纹。回退一条流不得暂停其它流的发布者。多流采集现支持逐流独立健康与共享消费组映射正式流汇总，使用目录Topic码及最多64条显式映射；关联55项单测及Helm专项已通过；2026-10-31新Native API/Worker的Workflow组合双库2/2、零跳过，实际OTLP采集四流并汇总共享组映射正式流，持有真实控制会话锁时单Connector暂停触发现行两分钟生产告警、其它三流健康且恢复后告警解除。后续多流迟到REST纠偏按激活基线独占校验已通过当时版本Native双库2/2；缺失基线和资源复用继续失败关闭，不证明容量或生产HA，见Workflow交接清单。
 
 ## 12. 分阶段完成定义
 

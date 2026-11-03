@@ -45,6 +45,12 @@ internal sealed class ImportExportTaskRecord
 
     public string? ExecutionRowsJson { get; init; }
 
+    /// <summary>创建时固化的列映射；执行、恢复和重试均不能由当前个人配置替换。</summary>
+    public string? ColumnMappingJson { get; init; }
+
+    /// <summary>本人显式排队操作绑定的会话；后台每批与行写入前重新确认其当前授权。</summary>
+    public string? ActorSessionBindingJson { get; init; }
+
     public Guid? ErrorReceiptFileId { get; init; }
 
     public DateTimeOffset? ExecutionStartedAtUtc { get; init; }

@@ -1,5 +1,6 @@
 import {
   isWorkflowFormSchema,
+  readWorkflowSubtableConstraints,
   type WorkflowFieldPolicies,
   type WorkflowFieldPolicy,
   type WorkflowFormField,
@@ -55,6 +56,10 @@ export function createWorkflowFormModel(
   const fieldMap = new Map<string, WorkflowFormField>();
   for (const section of schema.sections) {
     for (const field of section.fields) {
+      if (field.fieldTypeKey === 'subtable' && !readWorkflowSubtableConstraints(field) ||
+        field.fieldTypeKey === 'attachment' && (!Number.isSafeInteger(field.constraints.maxCount) || Number(field.constraints.maxCount) < 1)) {
+        throw new Error('workflow.form.unsupported-schema');
+      }
       fieldMap.set(field.fieldKey, field);
     }
   }
@@ -144,6 +149,12 @@ export function createWorkflowFormModel(
             && isEmpty(currentValues[field.fieldKey])) {
             errors[field.fieldKey] = 'required';
           }
+          if (policy !== 'hidden' && field.fieldTypeKey === 'subtable') {
+            const table = readWorkflowSubtableConstraints(field);
+            const rows = currentValues[field.fieldKey];
+            if (table && Array.isArray(rows) && rows.some(row => table.columns.some(column =>
+              column.required && isEmpty(row[column.columnKey])))) errors[field.fieldKey] = 'required';
+          }
         }
       }
       return errors;
@@ -157,11 +168,37 @@ interface NormalizedValue {
 }
 
 function normalizeValue(field: WorkflowFormField, value: unknown): NormalizedValue {
+  if (value === '' && (field.fieldTypeKey === 'attachment' || field.fieldTypeKey === 'subtable')) return { accepted: false };
   if (value === null || value === undefined || value === '') {
     return { accepted: true, value: value === '' ? '' : null };
   }
 
   switch (field.fieldTypeKey) {
+    case 'attachment': {
+      const maximum = field.constraints.maxCount;
+      if (!Array.isArray(value) || typeof maximum !== 'number' || value.length > maximum ||
+        value.some(id => typeof id !== 'string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id)) ||
+        new Set(value).size !== value.length) return { accepted: false };
+      return { accepted: true, value: [...value] };
+    }
+    case 'subtable': {
+      const table = readWorkflowSubtableConstraints(field);
+      if (!table || !Array.isArray(value) || value.length > table.maxRows) return { accepted: false };
+      const rows: Record<string, unknown>[] = [];
+      for (const row of value) {
+        if (typeof row !== 'object' || row === null || Array.isArray(row) ||
+          Object.keys(row).some(key => !table.columns.some(column => column.columnKey === key))) return { accepted: false };
+        const normalized: Record<string, unknown> = {};
+        for (const column of table.columns) {
+          if (!Object.hasOwn(row, column.columnKey)) continue;
+          const cell = normalizeValue({ ...column, fieldKey: column.columnKey }, row[column.columnKey]);
+          if (!cell.accepted) return { accepted: false };
+          normalized[column.columnKey] = cell.value;
+        }
+        rows.push(normalized);
+      }
+      return { accepted: true, value: rows };
+    }
     case 'integer': {
       const integer = typeof value === 'number' ? value : Number(value);
       return Number.isSafeInteger(integer)
@@ -261,5 +298,8 @@ function cloneRecord(record: Readonly<Record<string, unknown>>): WorkflowSubmiss
 }
 
 function cloneValue(value: unknown): unknown {
-  return Array.isArray(value) ? [...value] : value;
+  // 明细行及复选单元格必须逐层复制，外部状态不能绕过字段策略修改内部快照。
+  if (Array.isArray(value)) return value.map(cloneValue);
+  if (typeof value === 'object' && value !== null) return Object.fromEntries(Object.entries(value).map(([key, cell]) => [key, cloneValue(cell)]));
+  return value;
 }

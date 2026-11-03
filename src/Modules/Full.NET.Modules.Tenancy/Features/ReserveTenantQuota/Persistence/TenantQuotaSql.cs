@@ -5,6 +5,26 @@ namespace Full.NET.Modules.Tenancy.Features.ReserveTenantQuota.Persistence;
 
 internal static class TenantQuotaSql
 {
+    /// <summary>归还原消费的已用额度；版本和下界共同防止并发超扣。</summary>
+    public static readonly SqlStatement CancelConsumedMetric = new(
+        "tenancy.quota.cancel_consumed_metric",
+        """
+        UPDATE fn_tenancy_quota_metric
+        SET UsedValue = UsedValue - @Amount, UpdatedAtUtc = @UpdatedAtUtc, Version = Version + 1
+        WHERE Id = @MetricId AND TenantId = @TenantId AND MetricCode = @MetricCode
+          AND UsedValue >= @Amount AND Version = @Version
+        """, SqlDataScope.HostOnly);
+
+    /// <summary>只有原始 Confirmed 消费能进入 Cancelled；迟到确认不得复活已撤销消费。</summary>
+    public static readonly SqlStatement CancelConsumption = new(
+        "tenancy.quota.cancel_consumption",
+        """
+        UPDATE fn_tenancy_quota_reservation
+        SET Status = @Status, UpdatedAtUtc = @UpdatedAtUtc, Version = Version + 1
+        WHERE Id = @ReservationId AND TenantId = @TenantId AND MetricCode = @MetricCode
+          AND Status = @ExpectedStatus AND Version = @Version
+        """, SqlDataScope.HostOnly);
+
     public static readonly SqlStatement ListBaselinePageSqlServer = new(
         "tenancy.quota.baseline_page.sqlserver",
         """
@@ -46,7 +66,7 @@ internal static class TenantQuotaSql
     public static readonly SqlStatement FindMetric = new(
         "tenancy.quota.find_metric",
         """
-        SELECT Id, TenantId, MetricCode, PeriodKey, LimitValue, UsedValue, ReservedValue, Version
+        SELECT Id, TenantId, MetricCode, PeriodKey, LimitValue, UsedValue, ReservedValue, Version, SourceSubscriptionId
         FROM fn_tenancy_quota_metric
         WHERE TenantId = @TenantId
           AND MetricCode = @MetricCode
@@ -58,7 +78,7 @@ internal static class TenantQuotaSql
     public static readonly SqlStatement FindBoundMetric = new(
         "tenancy.quota.find_bound_metric",
         """
-        SELECT Id, TenantId, MetricCode, PeriodKey, LimitValue, UsedValue, ReservedValue, Version
+        SELECT Id, TenantId, MetricCode, PeriodKey, LimitValue, UsedValue, ReservedValue, Version, SourceSubscriptionId
         FROM fn_tenancy_quota_metric
         WHERE Id = @MetricId AND TenantId = @TenantId AND MetricCode = @MetricCode
         """,
@@ -67,7 +87,7 @@ internal static class TenantQuotaSql
     public static readonly SqlStatement ListMetricsByTenant = new(
         "tenancy.quota.list_metrics_by_tenant",
         """
-        SELECT Id, TenantId, MetricCode, PeriodKey, LimitValue, UsedValue, ReservedValue, Version
+        SELECT Id, TenantId, MetricCode, PeriodKey, LimitValue, UsedValue, ReservedValue, Version, SourceSubscriptionId
         FROM fn_tenancy_quota_metric
         WHERE TenantId = @TenantId
         ORDER BY MetricCode, PeriodKey, Id
@@ -79,6 +99,7 @@ internal static class TenantQuotaSql
         """
         UPDATE fn_tenancy_quota_metric
         SET LimitValue = @LimitValue,
+            SourceSubscriptionId = NULL,
             UpdatedAtUtc = @UpdatedAtUtc,
             Version = Version + 1
         WHERE Id = @MetricId
@@ -89,7 +110,7 @@ internal static class TenantQuotaSql
     public static readonly SqlStatement ListMetricsByMetricCode = new(
         "tenancy.quota.list_metrics_by_metric_code",
         """
-        SELECT Id, TenantId, MetricCode, PeriodKey, LimitValue, UsedValue, ReservedValue, Version
+        SELECT Id, TenantId, MetricCode, PeriodKey, LimitValue, UsedValue, ReservedValue, Version, SourceSubscriptionId
         FROM fn_tenancy_quota_metric
         WHERE MetricCode = @MetricCode
           AND PeriodKey = @PeriodKey
@@ -149,6 +170,12 @@ internal static class TenantQuotaSql
         WHERE Id = @MetricId
           AND UsedValue + ReservedValue + @Amount <= LimitValue
           AND Version = @Version
+          AND (SourceSubscriptionId IS NULL OR EXISTS (
+              SELECT 1 FROM fn_tenancy_tenant_subscription subscription
+              INNER JOIN fn_tenancy_subscription_invoice invoice ON invoice.Id=subscription.Id AND invoice.TenantId=subscription.TenantId
+              WHERE subscription.Id=fn_tenancy_quota_metric.SourceSubscriptionId AND subscription.TenantId=fn_tenancy_quota_metric.TenantId
+                AND invoice.Phase='Applied' AND subscription.Status IN ('Active','Cancelled')
+                AND subscription.CurrentPeriodStartUtc<=@UpdatedAtUtc AND subscription.CurrentPeriodEndUtc>@UpdatedAtUtc))
         """,
         SqlDataScope.HostOnly);
 
@@ -163,6 +190,12 @@ internal static class TenantQuotaSql
         WHERE Id = @MetricId
           AND ReservedValue >= @Amount
           AND Version = @Version
+          AND (SourceSubscriptionId IS NULL OR EXISTS (
+              SELECT 1 FROM fn_tenancy_tenant_subscription subscription
+              INNER JOIN fn_tenancy_subscription_invoice invoice ON invoice.Id=subscription.Id AND invoice.TenantId=subscription.TenantId
+              WHERE subscription.Id=fn_tenancy_quota_metric.SourceSubscriptionId AND subscription.TenantId=fn_tenancy_quota_metric.TenantId
+                AND invoice.Phase='Applied' AND subscription.Status IN ('Active','Cancelled')
+                AND subscription.CurrentPeriodStartUtc<=@UpdatedAtUtc AND subscription.CurrentPeriodEndUtc>@UpdatedAtUtc))
         """,
         SqlDataScope.HostOnly);
 
@@ -276,7 +309,8 @@ internal sealed record TenantQuotaMetricRecord(
     long LimitValue,
     long UsedValue,
     long ReservedValue,
-    int Version);
+    int Version,
+    Guid? SourceSubscriptionId = null);
 
 /// <summary>对账读取投影；指标尚未供给时 Id 为 null，不用空 UUID 冒充已分配的持久化标识。</summary>
 internal sealed record TenantQuotaUsageBaselineRecord(

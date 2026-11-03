@@ -39,6 +39,11 @@ internal sealed class AiKnowledgeAskService(IQueryExecutor query, ICommandExecut
             || request.Question is null || request.Question.Length > 4096 || AiChatContentPolicy.ValidateUserMessage(request.Question) is not null)
             return Fail(AiKnowledgeErrorCodes.InputInvalid, ErrorType.BusinessRule);
         var sourceIds = Array.AsReadOnly(request.KnowledgeBaseIds.ToArray());
+        AiKnowledgeSearchAnswerScope? searchScope;
+        IReadOnlyList<AiPersonalScheduleSourceSelection>? schedules;
+        try { searchScope = AiKnowledgeSearchAnswerSelection.Freeze(request.SearchScope, sourceIds, token);
+            schedules = AiPersonalScheduleAnswerSources.Freeze(request.PersonalSchedules); }
+        catch (InvalidDataException) { return Fail(AiKnowledgeErrorCodes.InputInvalid, ErrorType.BusinessRule); }
         var question = request.Question;
         var scope = AiChatScope.Resolve(tenant);
         var originalTenant = scope.TenantId is { } tenantId ? new TenantContext(tenantId, tenant.Identifier!, tenant.Name!) : null;
@@ -55,6 +60,8 @@ internal sealed class AiKnowledgeAskService(IQueryExecutor query, ICommandExecut
         {
             if (!await permissions.IsAuthorizedAsync(RequiredPermissions, actor, budget.Token).ConfigureAwait(false) || !SameScope())
                 return Fail("authorization.permission_denied", ErrorType.Forbidden);
+            if (searchScope is not null && (!await permissions.IsAuthorizedAsync([AiKnowledgeSearchPermissions.Read], actor, budget.Token).ConfigureAwait(false) || !SameScope()))
+                return Fail("authorization.permission_denied", ErrorType.Forbidden);
             var session = await sessions.FindOwnedSessionAsync(scope, sessionId, actor, budget.Token).ConfigureAwait(false);
             if (session is null || !SameScope()) return Fail(AiErrorCodes.ChatSessionNotFound, ErrorType.NotFound);
             var modelSql = scope.TenantId.HasValue ? AiModelConfigSql.FindAvailableForTenantChat : AiModelConfigSql.FindAvailableForHostChat;
@@ -66,6 +73,8 @@ internal sealed class AiKnowledgeAskService(IQueryExecutor query, ICommandExecut
             if (!SameScope()) return Fail("authorization.permission_denied", ErrorType.Forbidden);
             if (generationModel is not { IsEnabled: true } || embedding is not { IsEnabled: true })
                 return Fail(AiKnowledgeErrorCodes.ModelUnavailable, ErrorType.BusinessRule);
+            if (searchScope is not null && searchScope.EmbeddingModelVersion != embedding.Version)
+                return Fail(AiKnowledgeErrorCodes.SearchSourceChanged, ErrorType.Conflict);
             now = clock.UtcNow; attempted = true;
             acquired = await transaction.ExecuteAsync(async work =>
             {
@@ -88,7 +97,7 @@ internal sealed class AiKnowledgeAskService(IQueryExecutor query, ICommandExecut
             executionToken = workToken;
             monitor = leases.WatchAsync(scope, sessionId, actor, generation, now + AiChatGenerationLeaseMonitor.LeaseDuration, budget, monitorStop.Token);
             if (!await leases.RenewOnceAsync(scope, sessionId, actor, generation, workToken).WaitAsync(workToken).ConfigureAwait(false)) throw new OperationCanceledException();
-            answer = await paid.ExecuteAsync(sourceIds, actor, embedding, generationModel, question, workToken).ConfigureAwait(false);
+            answer = await paid.ExecuteAsync(sourceIds, actor, embedding, generationModel, question, workToken, searchScope, schedules).ConfigureAwait(false);
             if (!SameScope() || !await store.CompleteAsync(answer, generation, sessionId, actor, workToken).ConfigureAwait(false))
                 throw new UnauthorizedAccessException();
             completed = true;
@@ -106,6 +115,7 @@ internal sealed class AiKnowledgeAskService(IQueryExecutor query, ICommandExecut
         {
             status = AiChatMessageStatusKeys.Cancelled; failure = Fail(AiErrorCodes.ChatGenerationNotActive, ErrorType.Conflict);
         }
+        catch (AiKnowledgeSearchSourceChangedException) { failure = Fail(AiKnowledgeErrorCodes.SearchSourceChanged, ErrorType.Conflict); }
         catch (UnauthorizedAccessException) { failure = Fail("authorization.permission_denied", ErrorType.Forbidden); }
         catch (InvalidDataException) { failure = Fail(AiErrorCodes.KnowledgeAnswerUnavailable, ErrorType.Conflict); }
         catch (Exception) { failure = Fail(AiErrorCodes.ChatGenerationFailed, ErrorType.Unexpected); }
@@ -154,6 +164,7 @@ internal sealed class AiKnowledgeAskService(IQueryExecutor query, ICommandExecut
                 CreatedAtUtc = now, IsKnowledgeAnswer = true, KnowledgeLineage = json }, verified);
             return Result<AskAiKnowledgeResponse>.Success(new(message, answer.Answer.Refused));
         }
+        catch (AiKnowledgeSearchSourceChangedException) { return Fail(AiKnowledgeErrorCodes.SearchSourceChanged, ErrorType.Conflict); }
         catch (OperationCanceledException) { token.ThrowIfCancellationRequested(); return Fail(AiErrorCodes.ChatGenerationNotActive, ErrorType.Conflict); }
         catch (Exception) { return Fail(AiErrorCodes.KnowledgeAnswerUnavailable, ErrorType.Conflict); }
 

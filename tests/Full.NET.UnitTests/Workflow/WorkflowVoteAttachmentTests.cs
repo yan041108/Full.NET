@@ -87,7 +87,7 @@ public sealed class WorkflowVoteAttachmentTests
             Arg.Is<object?>(p => ((IReadOnlyDictionary<string, object?>)p!)["ActorUserId"]!.Equals(f.Actor)), Arg.Any<CancellationToken>())
             .Returns([new(null, schema, "{\"choiceKey\":\"yes\",\"values\":" + values + "}")]);
         var result = await new WorkflowFormAttachmentAccessService(f.Query, contents, Options.Create(new DatabaseOptions { Provider = DatabaseProvider.SqlServer }),
-            Substitute.For<ITenantResourceFileStore>()).OpenInstanceAttachmentAsync(f.Instance, f.File, f.Actor, "host");
+            Substitute.For<ITenantResourceFileStore>(), WorkflowTodoManagementTestDependencies.CreateRemoteFiles(f.Query)).OpenInstanceAttachmentAsync(f.Instance, f.File, f.Actor, "host");
         Assert.AreEqual(ownOutput, result.IsSuccess);
         Assert.AreEqual(ownOutput ? 1 : 0, contents.ReceivedCalls().Count());
     }

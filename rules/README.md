@@ -11,6 +11,7 @@
 | 咨询、只读审查 | [§2 范围](development-quality.md#2-任务开始与范围控制)；再读取被审查领域，不执行实施任务的快照、构建和文档流程 |
 | 任何实际修改 | [§2 范围](development-quality.md#2-任务开始与范围控制)、[§11 验证](development-quality.md#11-测试与验证)、[§13 Git](development-quality.md#13-git编码与跨平台) |
 | 模块、依赖、DI、宿主或架构 | [§3 架构](development-quality.md#3-架构与模块边界) |
+| 后台跨模块 JOIN、列表/搜索/报表、读取依赖 | [受控后台查询](development-quality.md#r-20261027-controlled-module-read后台组合查询受控开放)、[ADR-0014](../docs/architecture/adr/ADR-0014-controlled-cross-module-read-queries.md)；同时读取 §4 安全、§5 数据 |
 | 认证、授权、租户、上传、代理或敏感数据 | [§4 安全](development-quality.md#4-安全权限与租户隔离) |
 | 超级管理员、引导账号或最后一名保护 | [超级管理员边界](development-quality.md#r-20260718-super-administrator-boundary超级管理员是受保护角色不是授权旁路)，并读 §4 |
 | SQL、事务、迁移或数据作用域 | [§5 数据](development-quality.md#5-dapper事务与双数据库)；租户过滤同时读 §4 |

@@ -668,14 +668,14 @@ public sealed class FullNetCrudSchemaTests
                 FullNetCrudDataScope.TenantRequired,
                 "product",
                 "CategoryId",
-                FullNetCrudDataScope.TenantRequired),
+                FullNetCrudDataScope.TenantRequired, ["CategoryId", "TagId"], false),
             new(
                 "tag",
                 "Id",
                 FullNetCrudDataScope.TenantRequired,
                 "product",
                 "TagId",
-                FullNetCrudDataScope.TenantRequired),
+                FullNetCrudDataScope.TenantRequired, ["CategoryId", "TagId"], false),
         ];
         FullNetColumn[] columns =
         [
@@ -707,6 +707,10 @@ public sealed class FullNetCrudSchemaTests
 
         Assert.AreEqual(FullNetCrudScene.ManyToMany, schema.Scene);
         Assert.HasCount(2, schema.Relationships);
+        Assert.ThrowsExactly<ArgumentException>(() => CreateCapabilitySchema(capabilities, columns, FullNetCrudScene.ManyToMany,
+            [relationships[0], relationships[1] with { DependentColumnName = "CategoryId" }]));
+        Assert.ThrowsExactly<ArgumentException>(() => CreateCapabilitySchema(capabilities, columns, FullNetCrudScene.ManyToMany,
+            [relationships[0], relationships[1] with { CompositeKeyColumnNames = ["CategoryId", "Id"] }]));
     }
 
     internal static FullNetCrudSchema CreateProductSchema(

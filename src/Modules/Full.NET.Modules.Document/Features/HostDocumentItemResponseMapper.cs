@@ -18,7 +18,7 @@ internal static class HostDocumentItemResponseMapper
             record.CategoryName,
             record.CategoryColor,
             (HostDocumentType)record.DocumentType,
-            record.SizeKb,
+            record.FileSizeBytes.GetValueOrDefault() / 1024,
             record.Thumbnail,
             (HostDocumentStatus)record.Status,
             record.AccessCount,
@@ -32,7 +32,7 @@ internal static class HostDocumentItemResponseMapper
             record.UpdatedByUserId,
             record.DeletedAtUtc,
             record.DeletedByUserId,
-            record.Version);
+            record.Version) { VisibilityMode = record.VisibilityMode, MimeType = record.MimeType };
 
     internal static HostDocumentVersionResponse MapVersion(DocumentVersionRecord record) =>
         new(

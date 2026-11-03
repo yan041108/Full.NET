@@ -110,6 +110,8 @@ internal sealed class WorkflowTodoHandoffWriter(IQueryExecutor query, ICommandEx
     {
         if (plan.TodoId != todo.Id || plan.InstanceId != instance.Id || plan.FromUserId != todo.AssigneeUserId || formRevision < 1 ||
             instance.TenantScopeKey != scope.TenantScopeKey) return WriteConflict();
+        if (!await WorkflowCollaborationRuntimeGate.AllowsAsync(instance.Id, scope, plan.ActorUserId, now, query, token,
+                command, selectedUser: plan.ToUserId).ConfigureAwait(false)) return WriteConflict();
         if (todo.NodeTypeKey == WorkflowHumanActivityKinds.Vote && (plan.VoteBallot is null ||
             plan.ApprovalSlot is not null || plan.TaskMember is not null || plan.VoteClosesAtUtc <= now)) return WriteConflict();
         if (todo.NodeTypeKey == WorkflowHumanActivityKinds.Claim && (plan.ClaimAttempt is null || plan.ClaimPool is null ||

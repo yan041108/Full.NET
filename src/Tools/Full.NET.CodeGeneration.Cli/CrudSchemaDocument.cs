@@ -112,7 +112,7 @@ internal sealed class CrudSchemaDocument
         return document.ToSchema();
     }
 
-    private FullNetCrudSchema ToSchema()
+    internal FullNetCrudSchema ToSchema()
     {
         ArgumentNullException.ThrowIfNull(Columns);
         var columns = Columns.Select(column =>
@@ -233,6 +233,8 @@ internal static class StableCrudJsonConverters
 {
     internal static void AddTo(JsonSerializerOptions options)
     {
+        options.Converters.Add(new StableWireEnumJsonConverter<FullNetColumnControlKind>(FullNetCrudWireValues.TryParse, FullNetCrudWireValues.ToWireValue));
+        options.Converters.Add(new StableWireEnumJsonConverter<FullNetColumnQueryKind>(FullNetCrudWireValues.TryParse, FullNetCrudWireValues.ToWireValue));
         options.Converters.Add(
             new StableWireEnumJsonConverter<FullNetCrudScene>(
                 FullNetCrudWireValues.TryParse,
@@ -319,6 +321,10 @@ internal sealed class CrudRelationshipDocument
 
     public bool? CascadeDelete { get; init; }
 
+    public CrudSchemaDocument? PrincipalSchema { get; init; }
+
+    public CrudSchemaDocument? DependentSchema { get; init; }
+
     public FullNetCrudRelationship ToRelationship() =>
         new(
             PrincipalEntityKey,
@@ -328,7 +334,18 @@ internal sealed class CrudRelationshipDocument
             DependentColumnName,
             DependentDataScope,
             CompositeKeyColumnNames,
-            CascadeDelete);
+            CascadeDelete,
+            RelatedSchema(PrincipalSchema),
+            RelatedSchema(DependentSchema));
+
+    // 快照必须是叶子输入，避免反序列化后的递归调用消耗不受控资源。
+    private static FullNetCrudSchema? RelatedSchema(CrudSchemaDocument? document)
+    {
+        if (document is null) return null;
+        if (document.Relationships is { Count: > 0 } || document.Scene != FullNetCrudScene.Single)
+            throw new JsonException("关系快照必须是无嵌套关系的单实体。");
+        return document.ToSchema();
+    }
 }
 
 /// <summary>
@@ -348,6 +365,8 @@ internal sealed class CrudEntityCapabilitiesDocument
 
     public required FullNetCrudOwnershipMode OwnershipMode { get; init; }
 
+    public bool HasMutationPolicy { get; init; }
+
     public FullNetCrudEntityCapabilities ToCapabilities() =>
         new(
             DeleteMode,
@@ -355,7 +374,8 @@ internal sealed class CrudEntityCapabilitiesDocument
             HasUpdatedAudit,
             HasDeletedAudit,
             HasVersion,
-            OwnershipMode);
+            OwnershipMode,
+            HasMutationPolicy);
 }
 
 /// <summary>
@@ -379,6 +399,8 @@ internal sealed class CrudColumnDocument
 
     public int? NumericScale { get; init; }
 
+    public CrudColumnUiDocument? Ui { get; init; }
+
     public FullNetColumn ToColumn()
     {
         return new FullNetColumn(
@@ -389,6 +411,24 @@ internal sealed class CrudColumnDocument
             IsNullable,
             MaxLength,
             NumericPrecision,
-            NumericScale);
+            NumericScale,
+            Ui?.ToUi());
     }
+}
+
+/// <summary>CLI 与 Host 使用相同字段元数据；显式声明时不得用缺省布尔值掩盖遗漏。</summary>
+internal sealed record CrudColumnUiDocument(
+    [property: JsonRequired] FullNetColumnControlKind ControlKind,
+    [property: JsonRequired] bool ShowInList,
+    [property: JsonRequired] bool IncludeInCreate,
+    [property: JsonRequired] bool IncludeInUpdate,
+    [property: JsonRequired] bool Required,
+    [property: JsonRequired] bool Sortable,
+    [property: JsonRequired] bool Queryable,
+    [property: JsonRequired] FullNetColumnQueryKind QueryKind,
+    [property: JsonRequired] bool Unique,
+    [property: JsonRequired] bool IncludeInImportExport)
+{
+    internal FullNetColumnUi ToUi() => new(ControlKind, ShowInList, IncludeInCreate, IncludeInUpdate, Required,
+        Sortable, Queryable, QueryKind, Unique, IncludeInImportExport);
 }

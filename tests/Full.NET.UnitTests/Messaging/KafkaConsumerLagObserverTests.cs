@@ -9,6 +9,33 @@ namespace Full.NET.UnitTests.Messaging;
 public sealed class KafkaConsumerLagObserverTests
 {
     [TestMethod]
+    public void Topic_snapshot_identity_rejects_recreation_and_partition_changes()
+    {
+        (string Name, string Id, int[] Partitions)[] initial = [("events", "old-id", [0, 1])];
+        Assert.IsTrue(KafkaLagQueryClient.SameTopicIdentities(initial, [("events", "old-id", [1, 0])]));
+        Assert.IsFalse(KafkaLagQueryClient.SameTopicIdentities(initial, [("events", "new-id", [0, 1])]));
+        Assert.IsFalse(KafkaLagQueryClient.SameTopicIdentities(initial, [("events", "old-id", [0, 1, 2])]));
+        Assert.IsFalse(KafkaLagQueryClient.SameTopicIdentities(initial, [("other", "old-id", [0, 1])]));
+    }
+
+    [TestMethod]
+    public async Task Optional_time_query_failure_preserves_count_but_never_supplies_a_ratio()
+    {
+        var client = Substitute.For<IKafkaLagQueryClient>();
+        var partition = new TopicPartition("topic", 0);
+        client.ReadPartitionsAsync("topic").Returns(new[] { partition });
+        client.ReadCommittedOffsetsAsync("group", Arg.Any<IReadOnlyList<TopicPartition>>()).Returns(new Dictionary<TopicPartition, long> { [partition] = 3 });
+        client.ReadEndOffsetsAsync(Arg.Any<IReadOnlyList<TopicPartition>>()).Returns(new Dictionary<TopicPartition, long> { [partition] = 10 });
+        client.ReadLagRetentionRatioAsync("topic", Arg.Any<IReadOnlyDictionary<TopicPartition, long>>(),
+            Arg.Any<IReadOnlyDictionary<TopicPartition, long>>(), Arg.Any<KafkaRetentionTimeProbe>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromException<double?>(new IOException("缺少配置读取权限")));
+        var sample = await new KafkaConsumerLagObserver(_ => client).ObserveLagAsync(new(), "topic", "group", default, new("known-id", 5));
+        Assert.AreEqual(7L, sample!.TotalLagMessages);
+        Assert.IsNull(sample.LagRetentionRatio);
+        Assert.IsTrue(sample.RetentionTimeFailed);
+        client.Received(1).Dispose();
+    }
+    [TestMethod]
     public async Task Delayed_query_is_awaited_and_client_is_owned_until_completion()
     {
         var pending = new TaskCompletionSource<IReadOnlyList<TopicPartition>>(TaskCreationOptions.RunContinuationsAsynchronously);

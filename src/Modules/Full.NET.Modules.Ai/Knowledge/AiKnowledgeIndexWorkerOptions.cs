@@ -6,6 +6,8 @@ internal sealed class AiKnowledgeIndexWorkerOptions
     internal const string SectionName = "FullNet:Ai:KnowledgeIndexWorker";
     /// <summary>只控制后台扫描，不声明 API 可接受索引或公开 ready。</summary>
     public bool Enabled { get; set; }
+    /// <summary>只控制本地校对来源准备；无需开启收费索引扫描，默认关闭。</summary>
+    public bool CorrectionPreparationEnabled { get; set; }
     /// <summary>每轮候选上限，范围 1–32。</summary>
     public int BatchSize { get; set; } = 4;
     /// <summary>未满批时的轮询间隔，范围 250–60000 毫秒。</summary>

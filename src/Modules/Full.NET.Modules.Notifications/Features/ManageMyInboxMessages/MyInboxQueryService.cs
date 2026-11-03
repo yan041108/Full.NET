@@ -13,6 +13,21 @@ internal sealed class MyInboxQueryService(
     ICurrentTenant currentTenant,
     IOptions<DatabaseOptions> databaseOptions)
 {
+    /// <summary>精确读取本人当前作用域的消息；深链不依赖分页位置，也不隐式改变已读状态。</summary>
+    public async Task<Result<InboxMessageResponse>> GetAsync(
+        Guid recipientUserId, Guid messageId, CancellationToken cancellationToken = default)
+    {
+        var scope = NotificationInboxScope.Resolve(currentTenant);
+        var row = await queryExecutor.QuerySingleOrDefaultAsync<InboxMessageRecord>(
+            InboxMessageSql.FindForRecipientById,
+            NotificationPlatformSqlParameters.Create(("Id", messageId), ("RecipientUserId", recipientUserId),
+                ("TenantScopeKey", scope.TenantScopeKey)), cancellationToken).ConfigureAwait(false);
+        return row is null
+            ? Result<InboxMessageResponse>.Failure(new Error(NotificationsErrorCodes.InboxMessageNotFound,
+                "The inbox message was not found.", ErrorType.NotFound))
+            : Result<InboxMessageResponse>.Success(Map(row));
+    }
+
     /// <summary>
     /// 按收件人与当前作用域分页查询站内信，按创建时间倒序排列。
     /// </summary>

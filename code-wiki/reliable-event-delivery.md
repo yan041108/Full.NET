@@ -262,7 +262,7 @@ Kafka 路径把临时故障送到有上限的分级 Retry Topic。契约错误�
 | 诊断日志、Trace、Metrics | 日志管道与 OpenTelemetry |
 | 同进程命令和查询 | `ICommandDispatcher` / `IQueryDispatcher` |
 
-跨模块需要当下权威答案时，使用消费方定义的最小只读 Port。高频列表和事务内读取使用本地投影，由本节的集成事件维护。禁止 JOIN 其他模块的表，也禁止跨模块共享一个数据库事务。
+跨模块需要当下权威答案时，使用消费方定义的最小只读 Port。后台列表、搜索、报表可按 [ADR-0014](../docs/architecture/adr/ADR-0014-controlled-cross-module-read-queries.md) 使用受控跨模块只读 JOIN，无需仅为查询引入事件。确有隔离、负载或事务内引用事实需求时采用本地投影，由本节的集成事件维护。业务操作走契约，禁止跨模块写表或共享数据库事务。
 
 ## 14. 排障时先看哪一层
 

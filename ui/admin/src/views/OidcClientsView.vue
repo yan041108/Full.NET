@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import 'element-plus/theme-chalk/el-switch.css';
 import { computed, onMounted, reactive, ref } from 'vue';
 import {
   ElButton,
@@ -26,6 +27,9 @@ import { useArtCrudTableLayout } from '../framework/art-design/composables/useAr
 import PermissionGate from '../components/PermissionGate.vue';
 import { useAdminI18n } from '../i18n/adminI18n';
 import {
+  listOidcLogoutDeliveries,
+  retryOidcLogoutDelivery,
+  type OidcLogoutDelivery,
   createOidcClient,
   disableOidcClient,
   listOidcClients,
@@ -39,6 +43,20 @@ type EditorMode = 'create' | 'edit';
 
 const { t } = useAdminI18n();
 const items = ref<OidcClient[]>([]);
+const deliveries = ref<OidcLogoutDelivery[]>([]);
+function deliveryStatusLabel(status: string): string {
+  const key = status === 'delivered' ? 'oidcClients.deliveryStatus.delivered' : status === 'failed' ? 'oidcClients.deliveryStatus.failed' : 'oidcClients.deliveryStatus.pending';
+  return t(key);
+}
+const deliveryProblem = ref(false);
+async function loadDeliveries(): Promise<void> {
+  try { deliveries.value = await listOidcLogoutDeliveries(); deliveryProblem.value = false; }
+  catch { deliveryProblem.value = true; }
+}
+async function retryDelivery(id: string): Promise<void> {
+  try { await retryOidcLogoutDelivery(id); await loadDeliveries(); }
+  catch { deliveryProblem.value = true; }
+}
 const total = ref(0);
 const page = ref(1);
 const pageSize = ref(20);
@@ -57,8 +75,10 @@ const editorForm = reactive({
   postLogoutRedirectUrisText: '',
   scopesText: 'openid profile offline_access',
   isConfidential: true,
-  isFirstParty: true,
-  resourceAudience: ''
+  isFirstParty: false,
+  resourceAudience: '',
+  requireMfa: false,
+  backchannelLogoutUri: ''
 });
 const secret = ref('');
 
@@ -142,8 +162,10 @@ function openCreate() {
   editorForm.postLogoutRedirectUrisText = '';
   editorForm.scopesText = 'openid\nprofile\noffline_access';
   editorForm.isConfidential = true;
-  editorForm.isFirstParty = true;
+  editorForm.isFirstParty = false;
   editorForm.resourceAudience = '';
+  editorForm.requireMfa = false;
+  editorForm.backchannelLogoutUri = '';
   editorOpen.value = true;
 }
 
@@ -156,6 +178,8 @@ function openEdit(row: OidcClient) {
   editorForm.scopesText = row.scopes.join('\n');
   editorForm.isFirstParty = row.isFirstParty;
   editorForm.resourceAudience = row.resourceAudience ?? '';
+  editorForm.requireMfa = row.requireMfa ?? false;
+  editorForm.backchannelLogoutUri = row.backchannelLogoutUri ?? '';
   editorOpen.value = true;
 }
 
@@ -176,6 +200,8 @@ async function submitEditor() {
         scopes,
         isConfidential: editorForm.isConfidential,
         isFirstParty: editorForm.isFirstParty,
+        requireMfa: editorForm.requireMfa,
+        backchannelLogoutUri: editorForm.backchannelLogoutUri.trim() || null,
         resourceAudience
       });
       secret.value = created.secret ?? '';
@@ -187,6 +213,8 @@ async function submitEditor() {
         postLogoutRedirectUris: postLogoutRedirectUris.length > 0 ? postLogoutRedirectUris : null,
         scopes,
         isFirstParty: editorForm.isFirstParty,
+        requireMfa: editorForm.requireMfa,
+        backchannelLogoutUri: editorForm.backchannelLogoutUri.trim() || null,
         resourceAudience,
         version: editingClient.value.version
       });
@@ -255,6 +283,7 @@ function toProblem(
 
 onMounted(() => {
   void load();
+  void loadDeliveries();
 });
 </script>
 
@@ -386,6 +415,20 @@ onMounted(() => {
       </div>
     </el-card>
 
+    <el-card shadow="never">
+      <h2>{{ t('oidcClients.deliveries') }}</h2>
+      <el-button @click="loadDeliveries">{{ t('oidcClients.refreshDeliveries') }}</el-button>
+      <p v-if="deliveryProblem" role="alert">{{ t('oidcClients.deliveryLoadFailed') }}</p>
+      <el-table :data="deliveries">
+        <el-table-column prop="clientId" :label="t('oidcClients.fieldClientId')" />
+        <el-table-column :label="t('oidcClients.status')"><template #default="{ row }">{{ deliveryStatusLabel(row.statusKey) }}</template></el-table-column>
+        <el-table-column prop="attemptCount" :label="t('oidcClients.deliveryAttempts')" />
+        <el-table-column prop="lastErrorCode" :label="t('oidcClients.deliveryError')" />
+        <el-table-column :label="t('users.columnActions')"><template #default="{ row }">
+          <PermissionGate code="identity.oidc_clients.update"><el-button v-if="row.statusKey === 'failed'" @click="retryDelivery(row.id)">{{ t('oidcClients.retryDelivery') }}</el-button></PermissionGate>
+        </template></el-table-column>
+      </el-table>
+    </el-card>
     <ArtFormDialog
       v-model:open="editorOpen"
       :title="editorMode === 'create' ? t('oidcClients.createTitle') : t('oidcClients.editTitle')"
@@ -416,6 +459,8 @@ onMounted(() => {
         <el-form-item :label="t('oidcClients.fieldIsFirstParty')">
           <el-switch v-model="editorForm.isFirstParty" />
         </el-form-item>
+        <el-form-item :label="t('oidcClients.requireMfa')"><el-switch v-model="editorForm.requireMfa" /></el-form-item>
+        <el-form-item :label="t('oidcClients.backchannelLogoutUri')"><el-input v-model="editorForm.backchannelLogoutUri" translate="no" /></el-form-item>
         <el-form-item :label="t('oidcClients.fieldResourceAudience')">
           <el-input v-model="editorForm.resourceAudience" translate="no" />
         </el-form-item>

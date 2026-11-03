@@ -9,6 +9,62 @@ namespace Full.NET.UnitTests.Messaging;
 [TestClass]
 public sealed class KafkaConsumerPartitionCoordinatorTests
 {
+    /// <summary>八项预取仍以单槽顺序执行；占满后拒绝第九项，必须排空才恢复拉取。</summary>
+    [TestMethod]
+    public async Task Eight_item_prefetch_keeps_mixed_keys_serial_bounded_and_resumes_only_when_empty()
+    {
+        var partition = new TopicPartition("fullnet.test.events.v1", 18);
+        var consumer = CreateConsumer(partition);
+        var started = Enumerable.Range(0, 8).Select(_ => NewSignal()).ToArray();
+        var releases = Enumerable.Range(0, 8).Select(_ => NewSignal()).ToArray();
+        var order = new System.Collections.Concurrent.ConcurrentQueue<long>();
+        var active = 0; var concurrent = 0;
+        var options = new KafkaMessagingOptions
+        {
+            PartitionBufferHighWatermark = 8, PartitionBufferLowWatermark = 0,
+            PartitionKeyConcurrencySlots = 1, OffsetCommitMode = KafkaOffsetCommitMode.PerMessage,
+        };
+        await using var scheduler = new KafkaPartitionWorkScheduler(async (message, token) =>
+        {
+            var index = checked((int)message.Offset.Value);
+            if (Interlocked.Increment(ref active) > 1) Interlocked.Exchange(ref concurrent, 1);
+            try
+            {
+                order.Enqueue(index); started[index].TrySetResult();
+                await releases[index].Task.WaitAsync(token); return true;
+            }
+            finally { Interlocked.Decrement(ref active); }
+        }, options);
+        var coordinator = CreateCoordinator(consumer, scheduler, options, DateTimeOffset.UtcNow);
+        coordinator.OnAssigned([partition]);
+        try
+        {
+            for (var index = 0; index < 8; index++)
+                Assert.IsTrue(coordinator.TryDispatch(CreateResult(partition, index, "different-key-" + index)));
+            await started[0].Task.WaitAsync(TimeSpan.FromSeconds(2));
+            Assert.AreEqual(8, scheduler.InFlightCount);
+            Assert.IsFalse(coordinator.TryDispatch(CreateResult(partition, 8, "ninth-key")));
+            consumer.Received(1).Pause(Arg.Is<IEnumerable<TopicPartition>>(items => items != null && items.SequenceEqual(new[] { partition })));
+            for (var index = 0; index < 7; index++)
+            {
+                releases[index].TrySetResult();
+                await started[index + 1].Task.WaitAsync(TimeSpan.FromSeconds(2));
+                await WaitForAnyCompletionAsync(scheduler);
+                coordinator.ProcessCompletions(DateTimeOffset.UtcNow);
+                Assert.AreEqual(7 - index, scheduler.InFlightCount);
+                consumer.DidNotReceiveWithAnyArgs().Resume(default(IEnumerable<TopicPartition>)!);
+            }
+            releases[7].TrySetResult();
+            await WaitForCompletionAsync(scheduler);
+            coordinator.ProcessCompletions(DateTimeOffset.UtcNow);
+            CollectionAssert.AreEqual(Enumerable.Range(0, 8).Select(value => (long)value).ToArray(), order.ToArray());
+            Assert.AreEqual(0, concurrent);
+            consumer.Received(1).Resume(Arg.Is<IEnumerable<TopicPartition>>(items => items != null && items.SequenceEqual(new[] { partition })));
+            consumer.Received().Commit(Arg.Is<IEnumerable<TopicPartitionOffset>>(items => items != null && items.SequenceEqual(new[] { new TopicPartitionOffset(partition, 8) })));
+        }
+        finally { foreach (var release in releases) release.TrySetResult(); }
+    }
+
     [TestMethod]
     public async Task Partition_resumes_only_after_buffer_reaches_low_watermark()
     {

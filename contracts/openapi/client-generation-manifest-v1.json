@@ -13,9 +13,70 @@
     "paymentsWeChatNativeNotify",
     "tenancyGetRuntimeBranding",
     "tenancyGetCurrentBrandingLogoContent",
-    "tenancyGetHostTenantBrandingLogoContent"
+    "tenancyGetHostTenantBrandingLogoContent",
+    "documentHostGetPreviewCapabilities"
   ],
   "entries": [
+    {
+      "operationId": "reportingCancelExportTask",
+      "apiModule": "ui/admin/src/api/reporting-export-tasks.ts",
+      "generatedGroup": "reporting-export-tasks",
+      "status": "generated"
+    },
+    {
+      "operationId": "importExportCancelImportTask",
+      "apiModule": "ui/admin/src/api/import-export-tasks.ts",
+      "generatedGroup": "import-export-tasks",
+      "status": "generated"
+    },
+    {
+      "operationId": "importExportListMyImportProfiles",
+      "apiModule": "ui/admin/src/api/import-profiles.ts",
+      "generatedGroup": "import-profiles",
+      "status": "generated"
+    },
+    {
+      "operationId": "importExportGetMyImportProfile",
+      "apiModule": "ui/admin/src/api/import-profiles.ts",
+      "generatedGroup": "import-profiles",
+      "status": "generated"
+    },
+    {
+      "operationId": "importExportCreateMyImportProfile",
+      "apiModule": "ui/admin/src/api/import-profiles.ts",
+      "generatedGroup": "import-profiles",
+      "status": "generated"
+    },
+    {
+      "operationId": "importExportUpdateMyImportProfile",
+      "apiModule": "ui/admin/src/api/import-profiles.ts",
+      "generatedGroup": "import-profiles",
+      "status": "generated"
+    },
+    {
+      "operationId": "importExportDeleteMyImportProfile",
+      "apiModule": "ui/admin/src/api/import-profiles.ts",
+      "generatedGroup": "import-profiles",
+      "status": "generated"
+    },
+    {
+      "operationId": "documentHostGetItem",
+      "apiModule": "ui/admin/src/api/host-document-items.ts",
+      "generatedGroup": "document-host-items",
+      "status": "generated"
+    },
+    {
+      "operationId": "documentHostSearchItems",
+      "apiModule": "ui/admin/src/api/object-search.ts",
+      "generatedGroup": "document-host-items",
+      "status": "generated"
+    },
+    {
+      "operationId": "enterpriseRequestSearchRequests",
+      "apiModule": "ui/admin/src/api/object-search.ts",
+      "generatedGroup": "enterprise-requests",
+      "status": "generated"
+    },
     {
       "operationId": "workflowGetBusinessActionCatalog",
       "apiModule": "ui/admin/src/api/workflow-business-actions.ts",
@@ -1967,6 +2028,12 @@
       "status": "generated"
     },
     {
+      "operationId": "notificationsGetMyInboxMessage",
+      "apiModule": "clients/uniapp/src/features/notifications/inbox-messages-client.ts",
+      "generatedGroup": "notifications-inbox-messages",
+      "status": "generated"
+    },
+    {
       "operationId": "notificationsGetMyInboxUnreadCount",
       "apiModule": "ui/admin/src/api/inbox-messages.ts",
       "generatedGroup": "notifications-inbox-messages",
@@ -2795,6 +2862,24 @@
       "status": "manual"
     },
     {
+      "operationId": "reportingListDefinitionTenantGrants",
+      "apiModule": "ui/admin/src/api/reporting-publications.ts",
+      "generatedGroup": "reporting-publications",
+      "status": "generated"
+    },
+    {
+      "operationId": "reportingSetDefinitionTenantGrant",
+      "apiModule": "ui/admin/src/api/reporting-publications.ts",
+      "generatedGroup": "reporting-publications",
+      "status": "generated"
+    },
+    {
+      "operationId": "reportingListPublishedDefinitions",
+      "apiModule": "ui/admin/src/api/reporting-publications.ts",
+      "generatedGroup": "reporting-publications",
+      "status": "generated"
+    },
+    {
       "operationId": "reportingCreateExportTask",
       "apiModule": "ui/admin/src/api/reporting-export-tasks.ts",
       "generatedGroup": "reporting-export-tasks",
@@ -3080,19 +3165,19 @@
       "operationId": "aiCreateAgentApproval",
       "apiModule": "ui/admin/src/api/ai-agent-approvals.ts",
       "generatedGroup": "ai-agent-approvals",
-      "status": "manual"
+      "status": "generated"
     },
     {
       "operationId": "aiGetAgentApproval",
       "apiModule": "ui/admin/src/api/ai-agent-approvals.ts",
       "generatedGroup": "ai-agent-approvals",
-      "status": "manual"
+      "status": "generated"
     },
     {
       "operationId": "aiDecideAgentApproval",
       "apiModule": "ui/admin/src/api/ai-agent-approvals.ts",
       "generatedGroup": "ai-agent-approvals",
-      "status": "manual"
+      "status": "generated"
     },
     {
       "operationId": "aiCreateAgentDelegation",
@@ -4280,6 +4365,750 @@
       "operationId": "workflowReconcileRouteDecision",
       "apiModule": "ui/admin/src/api/workflow-routes.ts",
       "generatedGroup": "workflow-routes",
+      "status": "generated"
+    },
+    {
+      "operationId": "codeGenerationRecoverWorkspace",
+      "apiModule": "ui/admin/src/api/code-generation-runs.ts",
+      "generatedGroup": "code-generation-runs",
+      "status": "generated"
+    },
+    {
+      "operationId": "codeGenerationGetWorkspaceState",
+      "apiModule": "ui/admin/src/api/code-generation-runs.ts",
+      "generatedGroup": "code-generation-runs",
+      "status": "generated"
+    },
+    {
+      "operationId": "codeGenerationPrepareApplyPlan",
+      "apiModule": "ui/admin/src/api/code-generation-runs.ts",
+      "generatedGroup": "code-generation-runs",
+      "status": "generated"
+    },
+    {
+      "operationId": "codeGenerationRetryRunPublication",
+      "apiModule": "ui/admin/src/api/code-generation-runs.ts",
+      "generatedGroup": "code-generation-runs",
+      "status": "generated"
+    },
+    {
+      "operationId": "documentHostGetPreviewCapabilities",
+      "apiModule": "ui/admin/src/api/document-preview-tasks.ts",
+      "generatedGroup": "document-host-preview-tasks",
+      "status": "generated"
+    },
+    {
+      "operationId": "documentHostCancelPreviewTask",
+      "apiModule": "ui/admin/src/api/document-preview-tasks.ts",
+      "generatedGroup": "document-host-preview-tasks",
+      "status": "generated"
+    },
+    {
+      "operationId": "documentHostRetryPreviewTask",
+      "apiModule": "ui/admin/src/api/document-preview-tasks.ts",
+      "generatedGroup": "document-host-preview-tasks",
+      "status": "generated"
+    },
+    {
+      "operationId": "documentHostItempublish",
+      "apiModule": "ui/admin/src/api/host-document-items.ts",
+      "generatedGroup": "document-host-items",
+      "status": "generated"
+    },
+    {
+      "operationId": "documentHostItemarchive",
+      "apiModule": "ui/admin/src/api/host-document-items.ts",
+      "generatedGroup": "document-host-items",
+      "status": "generated"
+    },
+    {
+      "operationId": "documentHostItemunarchive",
+      "apiModule": "ui/admin/src/api/host-document-items.ts",
+      "generatedGroup": "document-host-items",
+      "status": "generated"
+    },
+    {
+      "operationId": "documentHostGetPermissionContext",
+      "apiModule": "ui/admin/src/api/document-permissions.ts",
+      "generatedGroup": "document-host-permissions",
+      "status": "generated"
+    },
+    {
+      "operationId": "tenancyGetPackageOffer",
+      "apiModule": "ui/admin/src/api/subscription-billing.ts",
+      "generatedGroup": "subscription-billing",
+      "status": "generated"
+    },
+    {
+      "operationId": "tenancySavePackageOffer",
+      "apiModule": "ui/admin/src/api/subscription-billing.ts",
+      "generatedGroup": "subscription-billing",
+      "status": "generated"
+    },
+    {
+      "operationId": "tenancyCreatePaidSubscription",
+      "apiModule": "ui/admin/src/api/subscription-billing.ts",
+      "generatedGroup": "subscription-billing",
+      "status": "generated"
+    },
+    {
+      "operationId": "paymentsCheckoutSubscription",
+      "apiModule": "ui/admin/src/api/subscription-billing.ts",
+      "generatedGroup": "subscription-billing",
+      "status": "generated"
+    },
+    {
+      "operationId": "paymentsGetSubscriptionFulfillment",
+      "apiModule": "ui/admin/src/api/subscription-billing.ts",
+      "generatedGroup": "subscription-billing",
+      "status": "generated"
+    },
+    {
+      "operationId": "paymentsRetrySubscriptionFulfillment",
+      "apiModule": "ui/admin/src/api/subscription-billing.ts",
+      "generatedGroup": "subscription-billing",
+      "status": "generated"
+    },
+    {
+      "operationId": "tenancyListEntitlementCatalog",
+      "apiModule": "ui/admin/src/api/subscription-billing.ts",
+      "generatedGroup": "subscription-billing",
+      "status": "generated"
+    },
+    {
+      "operationId": "enterpriseRequestListAttachments",
+      "apiModule": "ui/admin/src/api/enterprise-request-delivery.ts",
+      "generatedGroup": "enterprise-request-delivery",
+      "status": "generated"
+    },
+    {
+      "operationId": "enterpriseRequestUploadAttachment",
+      "apiModule": "ui/admin/src/api/enterprise-request-delivery.ts",
+      "generatedGroup": "enterprise-request-delivery",
+      "status": "generated"
+    },
+    {
+      "operationId": "enterpriseRequestDeleteAttachment",
+      "apiModule": "ui/admin/src/api/enterprise-request-delivery.ts",
+      "generatedGroup": "enterprise-request-delivery",
+      "status": "generated"
+    },
+    {
+      "operationId": "enterpriseRequestDownloadAttachment",
+      "apiModule": "ui/admin/src/api/enterprise-request-delivery.ts",
+      "generatedGroup": "enterprise-request-delivery",
+      "status": "generated"
+    },
+    {
+      "operationId": "enterpriseRequestListReports",
+      "apiModule": "ui/admin/src/api/enterprise-request-delivery.ts",
+      "generatedGroup": "enterprise-request-delivery",
+      "status": "generated"
+    },
+    {
+      "operationId": "enterpriseRequestCreateReport",
+      "apiModule": "ui/admin/src/api/enterprise-request-delivery.ts",
+      "generatedGroup": "enterprise-request-delivery",
+      "status": "generated"
+    },
+    {
+      "operationId": "enterpriseRequestCancelReport",
+      "apiModule": "ui/admin/src/api/enterprise-request-delivery.ts",
+      "generatedGroup": "enterprise-request-delivery",
+      "status": "generated"
+    },
+    {
+      "operationId": "enterpriseRequestDownloadReport",
+      "apiModule": "ui/admin/src/api/enterprise-request-delivery.ts",
+      "generatedGroup": "enterprise-request-delivery",
+      "status": "generated"
+    },
+    {
+      "operationId": "enterpriseRequestPrintDocument",
+      "apiModule": "ui/admin/src/api/enterprise-request-delivery.ts",
+      "generatedGroup": "enterprise-request-delivery",
+      "status": "generated"
+    },
+    {
+      "operationId": "aiGetAgentWorkflowProposal",
+      "apiModule": "ui/admin/src/api/ai-agent-approvals.ts",
+      "generatedGroup": "ai-agent-workflow",
+      "status": "generated"
+    },
+    {
+      "operationId": "aiGetKnowledgePublicationHead",
+      "apiModule": "ui/admin/src/api/ai-knowledge-governance.ts",
+      "generatedGroup": "ai-knowledge-governance",
+      "status": "generated"
+    },
+    {
+      "operationId": "aiGetKnowledgePublication",
+      "apiModule": "ui/admin/src/api/ai-knowledge-governance.ts",
+      "generatedGroup": "ai-knowledge-governance",
+      "status": "generated"
+    },
+    {
+      "operationId": "aiRequestKnowledgePublication",
+      "apiModule": "ui/admin/src/api/ai-knowledge-governance.ts",
+      "generatedGroup": "ai-knowledge-governance",
+      "status": "generated"
+    },
+    {
+      "operationId": "aiReviewKnowledgePublication",
+      "apiModule": "ui/admin/src/api/ai-knowledge-governance.ts",
+      "generatedGroup": "ai-knowledge-governance",
+      "status": "generated"
+    },
+    {
+      "operationId": "aiPublishKnowledgePublication",
+      "apiModule": "ui/admin/src/api/ai-knowledge-governance.ts",
+      "generatedGroup": "ai-knowledge-governance",
+      "status": "generated"
+    },
+    {
+      "operationId": "aiWithdrawKnowledgePublication",
+      "apiModule": "ui/admin/src/api/ai-knowledge-governance.ts",
+      "generatedGroup": "ai-knowledge-governance",
+      "status": "generated"
+    },
+    {
+      "operationId": "aiListKnowledgeFolders",
+      "apiModule": "ui/admin/src/api/ai-knowledge-governance.ts",
+      "generatedGroup": "ai-knowledge-governance",
+      "status": "generated"
+    },
+    {
+      "operationId": "aiCreateKnowledgeFolder",
+      "apiModule": "ui/admin/src/api/ai-knowledge-governance.ts",
+      "generatedGroup": "ai-knowledge-governance",
+      "status": "generated"
+    },
+    {
+      "operationId": "aiUpdateKnowledgeFolder",
+      "apiModule": "ui/admin/src/api/ai-knowledge-governance.ts",
+      "generatedGroup": "ai-knowledge-governance",
+      "status": "generated"
+    },
+    {
+      "operationId": "aiDeleteKnowledgeFolder",
+      "apiModule": "ui/admin/src/api/ai-knowledge-governance.ts",
+      "generatedGroup": "ai-knowledge-governance",
+      "status": "generated"
+    },
+    {
+      "operationId": "aiListKnowledgeDirectory",
+      "apiModule": "ui/admin/src/api/ai-knowledge-governance.ts",
+      "generatedGroup": "ai-knowledge-governance",
+      "status": "generated"
+    },
+    {
+      "operationId": "aiSetKnowledgeDirectoryBatch",
+      "apiModule": "ui/admin/src/api/ai-knowledge-governance.ts",
+      "generatedGroup": "ai-knowledge-governance",
+      "status": "generated"
+    },
+    {
+      "operationId": "workflowGetCollaborationGrant",
+      "apiModule": "ui/admin/src/api/workflow-collaboration-grants.ts",
+      "generatedGroup": "workflow-collaboration-grants",
+      "status": "generated"
+    },
+    {
+      "operationId": "workflowProposeCollaborationGrant",
+      "apiModule": "ui/admin/src/api/workflow-collaboration-grants.ts",
+      "generatedGroup": "workflow-collaboration-grants",
+      "status": "generated"
+    },
+    {
+      "operationId": "workflowAcceptCollaborationGrant",
+      "apiModule": "ui/admin/src/api/workflow-collaboration-grants.ts",
+      "generatedGroup": "workflow-collaboration-grants",
+      "status": "generated"
+    },
+    {
+      "operationId": "workflowRevokeCollaborationGrant",
+      "apiModule": "ui/admin/src/api/workflow-collaboration-grants.ts",
+      "generatedGroup": "workflow-collaboration-grants",
+      "status": "generated"
+    },
+    {
+      "operationId": "workflowUploadStartFormAttachment",
+      "apiModule": "ui/admin/src/workflow/workflow-form-attachments.ts",
+      "generatedGroup": "workflow-todos",
+      "status": "generated"
+    },
+    {
+      "operationId": "workflowUploadTodoFormAttachment",
+      "apiModule": "ui/admin/src/workflow/workflow-form-attachments.ts",
+      "generatedGroup": "workflow-todos",
+      "status": "generated"
+    },
+    {
+      "operationId": "aiPrepareKnowledgeCorrection",
+      "apiModule": "ui/admin/src/api/ai-knowledge.ts",
+      "generatedGroup": "ai-knowledge-corrections",
+      "status": "generated"
+    },
+    {
+      "operationId": "aiGetKnowledgeCorrectionPreparation",
+      "apiModule": "ui/admin/src/api/ai-knowledge.ts",
+      "generatedGroup": "ai-knowledge-corrections",
+      "status": "generated"
+    },
+    {
+      "operationId": "aiGetLatestKnowledgeCorrectionPreparation",
+      "apiModule": "ui/admin/src/api/ai-knowledge.ts",
+      "generatedGroup": "ai-knowledge-corrections",
+      "status": "generated"
+    },
+    {
+      "operationId": "aiGetKnowledgeCorrectionWorkspace",
+      "apiModule": "ui/admin/src/api/ai-knowledge.ts",
+      "generatedGroup": "ai-knowledge-corrections",
+      "status": "generated"
+    },
+    {
+      "operationId": "aiEditKnowledgeCorrection",
+      "apiModule": "ui/admin/src/api/ai-knowledge.ts",
+      "generatedGroup": "ai-knowledge-corrections",
+      "status": "generated"
+    },
+    {
+      "operationId": "aiRestoreKnowledgeCorrection",
+      "apiModule": "ui/admin/src/api/ai-knowledge.ts",
+      "generatedGroup": "ai-knowledge-corrections",
+      "status": "generated"
+    },
+    {
+      "operationId": "aiListKnowledgeCorrectionRevisions",
+      "apiModule": "ui/admin/src/api/ai-knowledge.ts",
+      "generatedGroup": "ai-knowledge-corrections",
+      "status": "generated"
+    },
+    {
+      "operationId": "aiSearchKnowledge",
+      "apiModule": "ui/admin/src/api/ai-knowledge-search.ts",
+      "generatedGroup": "ai-knowledge-search",
+      "status": "generated"
+    },
+    {
+      "operationId": "aiReadKnowledgeSearchContext",
+      "apiModule": "ui/admin/src/api/ai-knowledge-search.ts",
+      "generatedGroup": "ai-knowledge-search",
+      "status": "generated"
+    },
+    {
+      "operationId": "aiCompareKnowledgeSearch",
+      "apiModule": "ui/admin/src/api/ai-knowledge-search.ts",
+      "generatedGroup": "ai-knowledge-search",
+      "status": "generated"
+    },
+    {
+      "operationId": "aiReadKnowledgeSearchRelations",
+      "apiModule": "ui/admin/src/api/ai-knowledge-search.ts",
+      "generatedGroup": "ai-knowledge-search",
+      "status": "generated"
+    },
+    {
+      "operationId": "aiRefineKnowledgeSearch",
+      "apiModule": "ui/admin/src/api/ai-knowledge-search.ts",
+      "generatedGroup": "ai-knowledge-search",
+      "status": "generated"
+    },
+    {
+      "operationId": "aiListKnowledgeFaqDrafts",
+      "apiModule": "ui/admin/src/api/ai-knowledge-faqs.ts",
+      "generatedGroup": "ai-knowledge-faqs",
+      "status": "generated"
+    },
+    {
+      "operationId": "aiGetKnowledgeFaqDraft",
+      "apiModule": "ui/admin/src/api/ai-knowledge-faqs.ts",
+      "generatedGroup": "ai-knowledge-faqs",
+      "status": "generated"
+    },
+    {
+      "operationId": "aiCreateIndependentKnowledgeFaqDraft",
+      "apiModule": "ui/admin/src/api/ai-knowledge-faqs.ts",
+      "generatedGroup": "ai-knowledge-faqs",
+      "status": "generated"
+    },
+    {
+      "operationId": "aiCreateDocumentKnowledgeFaqDraft",
+      "apiModule": "ui/admin/src/api/ai-knowledge-faqs.ts",
+      "generatedGroup": "ai-knowledge-faqs",
+      "status": "generated"
+    },
+    {
+      "operationId": "aiSaveKnowledgeFaqDraft",
+      "apiModule": "ui/admin/src/api/ai-knowledge-faqs.ts",
+      "generatedGroup": "ai-knowledge-faqs",
+      "status": "generated"
+    },
+    {
+      "operationId": "aiRestoreKnowledgeFaqDraft",
+      "apiModule": "ui/admin/src/api/ai-knowledge-faqs.ts",
+      "generatedGroup": "ai-knowledge-faqs",
+      "status": "generated"
+    },
+    {
+      "operationId": "aiCopyKnowledgeFaqDraft",
+      "apiModule": "ui/admin/src/api/ai-knowledge-faqs.ts",
+      "generatedGroup": "ai-knowledge-faqs",
+      "status": "generated"
+    },
+    {
+      "operationId": "aiListKnowledgeFaqDraftRevisions",
+      "apiModule": "ui/admin/src/api/ai-knowledge-faqs.ts",
+      "generatedGroup": "ai-knowledge-faqs",
+      "status": "generated"
+    },
+    {
+      "operationId": "workflowSimulateDefinition",
+      "apiModule": "ui/admin/src/api/workflow-observability.ts",
+      "generatedGroup": "workflow-observability",
+      "status": "generated"
+    },
+    {
+      "operationId": "workflowListOperationsSteps",
+      "apiModule": "ui/admin/src/api/workflow-observability.ts",
+      "generatedGroup": "workflow-observability",
+      "status": "generated"
+    },
+    {
+      "operationId": "workflowListOperationsBacklog",
+      "apiModule": "ui/admin/src/api/workflow-observability.ts",
+      "generatedGroup": "workflow-observability",
+      "status": "generated"
+    },
+    {
+      "operationId": "aiIndexKnowledgeFaqRevision",
+      "apiModule": "ui/admin/src/api/ai-knowledge-faq-lifecycle.ts",
+      "generatedGroup": "ai-knowledge-faq-lifecycle",
+      "status": "generated"
+    },
+    {
+      "operationId": "aiGetKnowledgeFaqLifecycle",
+      "apiModule": "ui/admin/src/api/ai-knowledge-faq-lifecycle.ts",
+      "generatedGroup": "ai-knowledge-faq-lifecycle",
+      "status": "generated"
+    },
+    {
+      "operationId": "aiRequestKnowledgeFaqPublication",
+      "apiModule": "ui/admin/src/api/ai-knowledge-faq-lifecycle.ts",
+      "generatedGroup": "ai-knowledge-faq-lifecycle",
+      "status": "generated"
+    },
+    {
+      "operationId": "aiGetKnowledgeFaqPublication",
+      "apiModule": "ui/admin/src/api/ai-knowledge-faq-lifecycle.ts",
+      "generatedGroup": "ai-knowledge-faq-lifecycle",
+      "status": "generated"
+    },
+    {
+      "operationId": "aiReviewKnowledgeFaqPublication",
+      "apiModule": "ui/admin/src/api/ai-knowledge-faq-lifecycle.ts",
+      "generatedGroup": "ai-knowledge-faq-lifecycle",
+      "status": "generated"
+    },
+    {
+      "operationId": "aiPublishKnowledgeFaqPublication",
+      "apiModule": "ui/admin/src/api/ai-knowledge-faq-lifecycle.ts",
+      "generatedGroup": "ai-knowledge-faq-lifecycle",
+      "status": "generated"
+    },
+    {
+      "operationId": "aiWithdrawKnowledgeFaqPublication",
+      "apiModule": "ui/admin/src/api/ai-knowledge-faq-lifecycle.ts",
+      "generatedGroup": "ai-knowledge-faq-lifecycle",
+      "status": "generated"
+    },
+    {
+      "operationId": "aiGetPublishedKnowledgeFaq",
+      "apiModule": "ui/admin/src/api/ai-knowledge-faq-lifecycle.ts",
+      "generatedGroup": "ai-knowledge-faq-lifecycle",
+      "status": "generated"
+    },
+    {
+      "operationId": "aiExportKnowledgeFaqs",
+      "apiModule": "ui/admin/src/api/ai-knowledge-faq-transfer.ts",
+      "generatedGroup": "ai-knowledge-faq-transfer",
+      "status": "generated"
+    },
+    {
+      "operationId": "aiPreviewKnowledgeFaqImport",
+      "apiModule": "ui/admin/src/api/ai-knowledge-faq-transfer.ts",
+      "generatedGroup": "ai-knowledge-faq-transfer",
+      "status": "generated"
+    },
+    {
+      "operationId": "aiImportKnowledgeFaqs",
+      "apiModule": "ui/admin/src/api/ai-knowledge-faq-transfer.ts",
+      "generatedGroup": "ai-knowledge-faq-transfer",
+      "status": "generated"
+    },
+    {
+      "operationId": "aiCreateDerivedKnowledgeFaqDraft",
+      "apiModule": "ui/admin/src/api/ai-knowledge-faqs.ts",
+      "generatedGroup": "ai-knowledge-faqs",
+      "status": "generated"
+    },
+    {
+      "operationId": "aiPreviewKnowledgeFaqFeedback",
+      "apiModule": "ui/admin/src/api/ai-knowledge-faq-feedback.ts",
+      "generatedGroup": "ai-knowledge-faqs",
+      "status": "generated"
+    },
+    {
+      "operationId": "aiCreateFeedbackKnowledgeFaqDraft",
+      "apiModule": "ui/admin/src/api/ai-knowledge-faq-feedback.ts",
+      "generatedGroup": "ai-knowledge-faqs",
+      "status": "generated"
+    },
+    {
+      "operationId": "workflowGetSimulationStarterSelections",
+      "apiModule": "ui/admin/src/api/workflow-observability.ts",
+      "generatedGroup": "workflow-observability",
+      "status": "generated"
+    },
+    {
+      "operationId": "workflowListSimulationStarterSelectionCandidates",
+      "apiModule": "ui/admin/src/api/workflow-observability.ts",
+      "generatedGroup": "workflow-observability",
+      "status": "generated"
+    },
+    {
+      "operationId": "aiListKnowledgeOperations",
+      "apiModule": "ui/admin/src/api/ai-knowledge-operations.ts",
+      "generatedGroup": "ai-knowledge-operations",
+      "status": "generated"
+    },
+    {
+      "operationId": "aiListKnowledgeEvaluationSets",
+      "apiModule": "ui/admin/src/api/ai-knowledge-evaluation.ts",
+      "generatedGroup": "ai-knowledge-evaluation-sets",
+      "status": "generated"
+    },
+    {
+      "operationId": "aiGetKnowledgeEvaluationSet",
+      "apiModule": "ui/admin/src/api/ai-knowledge-evaluation.ts",
+      "generatedGroup": "ai-knowledge-evaluation-sets",
+      "status": "generated"
+    },
+    {
+      "operationId": "aiCreateKnowledgeEvaluationSet",
+      "apiModule": "ui/admin/src/api/ai-knowledge-evaluation.ts",
+      "generatedGroup": "ai-knowledge-evaluation-sets",
+      "status": "generated"
+    },
+    {
+      "operationId": "aiAppendKnowledgeEvaluationSet",
+      "apiModule": "ui/admin/src/api/ai-knowledge-evaluation.ts",
+      "generatedGroup": "ai-knowledge-evaluation-sets",
+      "status": "generated"
+    },
+    {
+      "operationId": "aiRestoreKnowledgeEvaluationSet",
+      "apiModule": "ui/admin/src/api/ai-knowledge-evaluation.ts",
+      "generatedGroup": "ai-knowledge-evaluation-sets",
+      "status": "generated"
+    },
+    {
+      "operationId": "aiCopyKnowledgeEvaluationSet",
+      "apiModule": "ui/admin/src/api/ai-knowledge-evaluation.ts",
+      "generatedGroup": "ai-knowledge-evaluation-sets",
+      "status": "generated"
+    },
+    {
+      "operationId": "aiApproveKnowledgeEvaluationSet",
+      "apiModule": "ui/admin/src/api/ai-knowledge-evaluation.ts",
+      "generatedGroup": "ai-knowledge-evaluation-sets",
+      "status": "generated"
+    },
+    {
+      "operationId": "aiWithdrawKnowledgeEvaluationSet",
+      "apiModule": "ui/admin/src/api/ai-knowledge-evaluation.ts",
+      "generatedGroup": "ai-knowledge-evaluation-sets",
+      "status": "generated"
+    },
+    {
+      "operationId": "aiPrepareKnowledgeEvaluationFeedback",
+      "apiModule": "ui/admin/src/api/ai-knowledge-evaluation.ts",
+      "generatedGroup": "ai-knowledge-evaluation-sets",
+      "status": "generated"
+    },
+    {
+      "operationId": "aiGetKnowledgeFinance",
+      "apiModule": "ui/admin/src/api/ai-knowledge-evaluation-runs.ts",
+      "generatedGroup": "ai-knowledge-evaluation-runs",
+      "status": "generated"
+    },
+    {
+      "operationId": "aiGetKnowledgeQualityObservations",
+      "apiModule": "ui/admin/src/api/ai-knowledge-evaluation-runs.ts",
+      "generatedGroup": "ai-knowledge-evaluation-runs",
+      "status": "generated"
+    },
+    {
+      "operationId": "aiListKnowledgeEvaluationStrategies",
+      "apiModule": "ui/admin/src/api/ai-knowledge-evaluation-runs.ts",
+      "generatedGroup": "ai-knowledge-evaluation-runs",
+      "status": "generated"
+    },
+    {
+      "operationId": "aiCaptureKnowledgeEvaluationStrategy",
+      "apiModule": "ui/admin/src/api/ai-knowledge-evaluation-runs.ts",
+      "generatedGroup": "ai-knowledge-evaluation-runs",
+      "status": "generated"
+    },
+    {
+      "operationId": "aiGetKnowledgeEvaluationStrategy",
+      "apiModule": "ui/admin/src/api/ai-knowledge-evaluation-runs.ts",
+      "generatedGroup": "ai-knowledge-evaluation-runs",
+      "status": "generated"
+    },
+    {
+      "operationId": "aiPreviewKnowledgeEvaluationRun",
+      "apiModule": "ui/admin/src/api/ai-knowledge-evaluation-runs.ts",
+      "generatedGroup": "ai-knowledge-evaluation-runs",
+      "status": "generated"
+    },
+    {
+      "operationId": "aiCreateKnowledgeEvaluationRun",
+      "apiModule": "ui/admin/src/api/ai-knowledge-evaluation-runs.ts",
+      "generatedGroup": "ai-knowledge-evaluation-runs",
+      "status": "generated"
+    },
+    {
+      "operationId": "aiListKnowledgeEvaluationRuns",
+      "apiModule": "ui/admin/src/api/ai-knowledge-evaluation-runs.ts",
+      "generatedGroup": "ai-knowledge-evaluation-runs",
+      "status": "generated"
+    },
+    {
+      "operationId": "aiGetKnowledgeEvaluationRun",
+      "apiModule": "ui/admin/src/api/ai-knowledge-evaluation-runs.ts",
+      "generatedGroup": "ai-knowledge-evaluation-runs",
+      "status": "generated"
+    },
+    {
+      "operationId": "aiGetKnowledgeEvaluationCase",
+      "apiModule": "ui/admin/src/api/ai-knowledge-evaluation-runs.ts",
+      "generatedGroup": "ai-knowledge-evaluation-runs",
+      "status": "generated"
+    },
+    {
+      "operationId": "aiExecuteKnowledgeEvaluationCase",
+      "apiModule": "ui/admin/src/api/ai-knowledge-evaluation-runs.ts",
+      "generatedGroup": "ai-knowledge-evaluation-runs",
+      "status": "generated"
+    },
+    {
+      "operationId": "aiSkipKnowledgeEvaluationCase",
+      "apiModule": "ui/admin/src/api/ai-knowledge-evaluation-runs.ts",
+      "generatedGroup": "ai-knowledge-evaluation-runs",
+      "status": "generated"
+    },
+    {
+      "operationId": "aiCloseUnknownKnowledgeEvaluationCase",
+      "apiModule": "ui/admin/src/api/ai-knowledge-evaluation-runs.ts",
+      "generatedGroup": "ai-knowledge-evaluation-runs",
+      "status": "generated"
+    },
+    {
+      "operationId": "aiReviewKnowledgeEvaluationCase",
+      "apiModule": "ui/admin/src/api/ai-knowledge-evaluation-runs.ts",
+      "generatedGroup": "ai-knowledge-evaluation-runs",
+      "status": "generated"
+    },
+    {
+      "operationId": "aiPreviewPersonalScheduleSources",
+      "apiModule": "ui/admin/src/api/ai-personal-schedule-assistant.ts",
+      "generatedGroup": "ai-personal-schedule-assistant",
+      "status": "generated"
+    },
+    {
+      "operationId": "aiGetPersonalScheduleCompletionProposal",
+      "apiModule": "ui/admin/src/api/ai-personal-schedule-completion.ts",
+      "generatedGroup": "ai-personal-schedule-completion",
+      "status": "generated"
+    },
+    {
+      "operationId": "aiGetPersonalScheduleCompletionStatus",
+      "apiModule": "ui/admin/src/api/ai-personal-schedule-completion.ts",
+      "generatedGroup": "ai-personal-schedule-completion",
+      "status": "generated"
+    },
+    {
+      "operationId": "aiReconcilePersonalScheduleCompletion",
+      "apiModule": "ui/admin/src/api/ai-personal-schedule-completion.ts",
+      "generatedGroup": "ai-personal-schedule-completion",
+      "status": "generated"
+    },
+    {
+      "operationId": "importExportListMyImportTasks",
+      "apiModule": "ui/admin/src/api/my-tasks.ts",
+      "generatedGroup": "my-tasks",
+      "status": "generated"
+    },
+    {
+      "operationId": "reportingListMyExportTasks",
+      "apiModule": "ui/admin/src/api/my-tasks.ts",
+      "generatedGroup": "my-tasks",
+      "status": "generated"
+    },
+    {
+      "operationId": "settingsGetQuerySchemeSchema",
+      "apiModule": "ui/admin/src/api/query-schemes.ts",
+      "generatedGroup": "query-schemes",
+      "status": "generated"
+    },
+    {
+      "operationId": "settingsListQuerySchemes",
+      "apiModule": "ui/admin/src/api/query-schemes.ts",
+      "generatedGroup": "query-schemes",
+      "status": "generated"
+    },
+    {
+      "operationId": "settingsGetQueryScheme",
+      "apiModule": "ui/admin/src/api/query-schemes.ts",
+      "generatedGroup": "query-schemes",
+      "status": "generated"
+    },
+    {
+      "operationId": "settingsCreateQueryScheme",
+      "apiModule": "ui/admin/src/api/query-schemes.ts",
+      "generatedGroup": "query-schemes",
+      "status": "generated"
+    },
+    {
+      "operationId": "settingsUpdateQueryScheme",
+      "apiModule": "ui/admin/src/api/query-schemes.ts",
+      "generatedGroup": "query-schemes",
+      "status": "generated"
+    },
+    {
+      "operationId": "settingsDeleteQueryScheme",
+      "apiModule": "ui/admin/src/api/query-schemes.ts",
+      "generatedGroup": "query-schemes",
+      "status": "generated"
+    },
+    {
+      "operationId": "settingsShareQueryScheme",
+      "apiModule": "ui/admin/src/api/query-schemes.ts",
+      "generatedGroup": "query-schemes",
+      "status": "generated"
+    },
+    {
+      "operationId": "settingsGetDefaultQueryScheme",
+      "apiModule": "ui/admin/src/api/query-schemes.ts",
+      "generatedGroup": "query-schemes",
+      "status": "generated"
+    },
+    {
+      "operationId": "settingsSetDefaultQueryScheme",
+      "apiModule": "ui/admin/src/api/query-schemes.ts",
+      "generatedGroup": "query-schemes",
       "status": "generated"
     }
   ]

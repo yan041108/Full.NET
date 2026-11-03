@@ -1,3 +1,4 @@
+import 'workflow_form_fixture.dart';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -37,6 +38,8 @@ Map<String, dynamic> detail({bool history = false}) => {
       'statusKey': history ? 'completed' : 'active',
       'revision': 3,
       'submissionRevision': 4,
+      'formSchema': workflowTestFormSchema,
+      'fieldPolicies': <String, String>{},
       'submission': <String, dynamic>{},
       'allowedActions': ['approve', 'delegate'],
       'activityKindKey': 'human.approval',

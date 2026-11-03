@@ -755,7 +755,7 @@ describe('WorkflowTodosView', () => {
     await flushPromises();
   });
 
-  it.each([403, 422])('服务端返回 %s 时保留详情并展示 ProblemDetails', async status => {
+  it.each([403, 422])('服务端返回 %s 时保留错误，撤权清除详情而字段校验允许修正', async status => {
     vi.mocked(approveWorkflowTodo).mockRejectedValue({
       status,
       code: `workflow.test_${status}`,
@@ -773,7 +773,7 @@ describe('WorkflowTodosView', () => {
     await flushPromises();
 
     expect(wrapper.get('[role="alert"]').text()).toContain(`workflow.test_${status}`);
-    expect(wrapper.find('[data-testid="workflow-todo-approve"]').exists()).toBe(true);
+    expect(wrapper.find('[data-testid="workflow-todo-approve"]').exists()).toBe(status === 422);
   });
 
   it('旧修订冲突后刷新权威待办并关闭已经失效的动作', async () => {

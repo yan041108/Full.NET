@@ -105,6 +105,17 @@ public sealed class AiAgentRunCancellationTests
         await f.Commands.DidNotReceive().ExecuteAsync(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>());
     }
 
+    [TestMethod]
+    public async Task Model_free_schedule_cancellation_does_not_create_or_settle_a_model_ledger()
+    {
+        var f = new Fixture();
+        f.Queries.QuerySingleOrDefaultAsync<AiAgentRunRecord>(AiAgentRunSql.FindOwned, Arg.Any<object?>(), Arg.Any<CancellationToken>())
+            .Returns(new AiAgentRunRecord { DefinitionKey = Full.NET.Agents.Workflows.AgentWorkflowRegistry.ScheduleCompletionWorkflowKey, DefinitionVersion = 1 });
+        Assert.IsTrue((await f.Service.CancelAsync(f.RunId, f.UserId)).IsSuccess);
+        await f.Budget.DidNotReceive().SettleAsync(Arg.Any<Guid>(), Arg.Any<AiOperationUsage>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
+        Assert.AreEqual(1, f.Coordinator.CommitCount);
+    }
+
     private static bool Matches(object? parameters, string key, object value) =>
         parameters is IReadOnlyDictionary<string, object?> map && map.TryGetValue(key, out var actual) && Equals(actual, value);
 
@@ -129,8 +140,10 @@ public sealed class AiAgentRunCancellationTests
             var transaction = new DapperCommandTransaction(Coordinator);
             Commands.ExecuteAsync(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(1);
             Queries.QuerySingleOrDefaultAsync<long>(AiAgentRunSql.FindLatestEventSequence, Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(7L);
+            Queries.QuerySingleOrDefaultAsync<AiAgentRunRecord>(AiAgentRunSql.FindOwned, Arg.Any<object?>(), Arg.Any<CancellationToken>())
+                .Returns(new AiAgentRunRecord { DefinitionKey = "fullnet-single-text-v1", DefinitionVersion = 1 });
             var store = new AiAgentRunStore(Queries, Commands, transaction, ids, clock, Options.Create(new DatabaseOptions()));
-            Service = new(store, null!, null!, null!, null!, null!, Budget, tenant, clock, ids, Options.Create(new AiAgentRuntimeOptions()), transaction);
+            Service = new(store, null!, null!, null!, null!, null!, Budget, tenant, clock, ids, Options.Create(new AiAgentRuntimeOptions()), transaction, null!);
         }
     }
 }

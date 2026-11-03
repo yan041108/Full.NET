@@ -12,13 +12,15 @@ public sealed record ModuleClientRouteTarget
         string vueRouteName,
         string vueComponentPath,
         string? layuiControllerPath,
-        string? layuiControllerExport)
+        string? layuiControllerExport,
+        string? clientModuleSpecifier)
     {
         RoutePath = routePath;
         VueRouteName = vueRouteName;
         VueComponentPath = vueComponentPath;
         LayuiControllerPath = layuiControllerPath;
         LayuiControllerExport = layuiControllerExport;
+        ClientModuleSpecifier = clientModuleSpecifier;
     }
 
     /// <summary>
@@ -37,6 +39,9 @@ public sealed record ModuleClientRouteTarget
     /// </summary>
     public string VueComponentPath { get; }
 
+    /// <summary>应用自有 OpenAPI 客户端的静态模块标识；省略时使用共享客户端包。</summary>
+    public string? ClientModuleSpecifier { get; }
+
     /// <summary>
     /// Layui 管理端使用的 controller 文件相对路径；Layui 未启用时为空。存在时必须以 ".js" 结尾且不得与 Vue 路径重复。
     /// </summary>
@@ -51,12 +56,19 @@ public sealed record ModuleClientRouteTarget
     /// <summary>
     /// 创建经过稳定机器码和仓库相对路径校验的路由映射；Layui 两端必须同时缺省或同时提供。
     /// </summary>
+    /// <param name="routePath">可信浏览器路由路径。</param>
+    /// <param name="vueRouteName">稳定路由名。</param>
+    /// <param name="vueComponentPath">工作区内 Vue 页面路径。</param>
+    /// <param name="layuiControllerPath">经单独授权维护的存量 Layui 控制器路径。</param>
+    /// <param name="layuiControllerExport">存量控制器导出名。</param>
+    /// <param name="clientModuleSpecifier">应用业务客户端模块；空值使用共享包，空字符串拒绝。</param>
     public static ModuleClientRouteTarget Create(
         string routePath,
         string vueRouteName,
         string vueComponentPath,
         string? layuiControllerPath = null,
-        string? layuiControllerExport = null)
+        string? layuiControllerExport = null,
+        string? clientModuleSpecifier = null)
     {
         if (!IsRoutePath(routePath))
         {
@@ -112,7 +124,8 @@ public sealed record ModuleClientRouteTarget
             vueRouteName,
             vuePath,
             layuiPath,
-            hasLayuiExport ? layuiControllerExport : null);
+            hasLayuiExport ? layuiControllerExport : null,
+            clientModuleSpecifier is null ? null : TypeScriptModuleSpecifier.Validate(clientModuleSpecifier));
     }
 
     private static bool IsRoutePath(string value)
@@ -320,6 +333,10 @@ public sealed record ModuleIntegrationTarget
                 pathList.Add(clientRoute.LayuiControllerPath);
             }
         }
+
+        if (pathList.Any(path => path.Split('/').Any(segment => segment.Equals(".git", StringComparison.OrdinalIgnoreCase)
+                || segment.Equals(".fullnet", StringComparison.OrdinalIgnoreCase))))
+            throw new ArgumentException("模块接入目标不得读写 Git 或生成器内部元数据目录。");
 
         if (pathList.Distinct(StringComparer.OrdinalIgnoreCase).Count()
             != pathList.Count)

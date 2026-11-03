@@ -87,6 +87,7 @@ internal sealed class MessagingDapperAotMaterializerContributor : IDapperAotMate
             RollbackPreparedAtUtc = AotDataReaderExtensions.ReadNullableDateTimeOffset(reader, 14),
             CreatedAtUtc = AotDataReaderExtensions.ReadDateTimeOffset(reader, 15),
             UpdatedAtUtc = AotDataReaderExtensions.ReadDateTimeOffset(reader, 16),
+            CdcKafkaBindingJson = AotDataReaderExtensions.ReadNullableString(reader, 17),
         };
 
     private static RollbackPreparationRecord ReadRollbackPreparationRecord(DbDataReader reader) =>

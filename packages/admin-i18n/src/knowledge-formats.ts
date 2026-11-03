@@ -4,6 +4,11 @@ const messages = {
   "zh-CN": {
     "fileHint": "支持文本、PDF、Word、表格、演示文稿、HTML 和图片。DOCX 上限 5 MiB，其他格式上限 8 MiB；上传后仍需完成索引。",
     "encoding": "文本编码",
+    "original": "原文",
+    "corrected": "人工校对（定位原始上下文）",
+    "supplement": "人工补写（无原文位置）",
+    "revisionRange": "修订片段 {offset} + {length}",
+    "chooseContext": "查看第 {number} 处原始上下文",
     "noText": "未提取到可索引文字，请检查原文件。",
     "lowConfidence": "识别文字置信度不足，整份文件未进入索引。",
     "delimiter": "CSV 分隔符",
@@ -22,6 +27,11 @@ const messages = {
   "en-US": {
     "fileHint": "Text, PDF, Word, spreadsheets, presentations, HTML and images. DOCX: up to 5 MiB; other formats: up to 8 MiB. Indexing is required after upload.",
     "encoding": "Text encoding",
+    "original": "Original text",
+    "corrected": "Human reviewed (original context)",
+    "supplement": "Human supplement (no source location)",
+    "revisionRange": "Revision excerpt {offset} + {length}",
+    "chooseContext": "View original context {number}",
     "noText": "No indexable text was extracted. Check the source file.",
     "lowConfidence": "OCR confidence is insufficient. The whole file was excluded from the index.",
     "delimiter": "CSV delimiter",

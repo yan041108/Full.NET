@@ -19,6 +19,10 @@ public interface IEventDeliveryProducerFencePositionReader
         int schemaVersion,
         Guid rollbackGeneration,
         CancellationToken cancellationToken = default);
+
+    /// <summary>在相同提交 LSN 下，仅以数据库实际 CDC 记录证明 Connector 已覆盖流内最后变更。</summary>
+    Task<bool> IsSameTransactionCoveredAsync(string eventType, int schemaVersion, Guid rollbackGeneration,
+        CdcDeliveryPosition producerFence, CdcDeliveryPosition connector, CancellationToken cancellationToken = default);
 }
 
 /// <summary>数据库侧 producer fence 快照；不含 Broker/Connector 控制面状态。</summary>

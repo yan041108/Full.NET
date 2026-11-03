@@ -20,10 +20,13 @@ services:
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      KAFKA_LOG_CLEANUP_POLICY: "delete"
       CLUSTER_ID: fullnet-dev-kafka-cluster-01
 
   connect:
-    image: quay.io/debezium/connect:3.4.3.Final
+    image: fullnet-debezium-connect:3.4.3-filter-1
+    build:
+      context: ./connect-filter
     hostname: connect
     ports:
       - "8083:8083"

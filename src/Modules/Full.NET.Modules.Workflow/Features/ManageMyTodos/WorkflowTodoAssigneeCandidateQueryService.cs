@@ -1,5 +1,6 @@
 using Full.NET.Abstractions.Results;
 using Full.NET.Abstractions.Tenancy;
+using Full.NET.Abstractions.Time;
 using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Workflow.Contracts;
@@ -11,7 +12,7 @@ namespace Full.NET.Modules.Workflow.Features.ManageMyTodos;
 
 /// <summary>先验证本人的活动动作资源，再开放可信作用域内的最小候选投影。</summary>
 internal sealed class WorkflowTodoAssigneeCandidateQueryService(IQueryExecutor query, ICurrentTenant tenant,
-    IHostUserSelectionDirectory hostUsers, ITenantMemberSelectionDirectory tenantUsers)
+    IHostUserSelectionDirectory hostUsers, ITenantMemberSelectionDirectory tenantUsers, IHostUserBatchSelectionDirectory hostBatch, IClock clock)
 {
     public Task<Result<WorkflowRecipientCandidatePageResponse>> ListCountersignAsync(Guid todoId, Guid actorId,
         int page, int pageSize, CancellationToken token = default) => ListAsync(todoId, actorId, page, pageSize, "countersign", token);
@@ -38,6 +39,8 @@ internal sealed class WorkflowTodoAssigneeCandidateQueryService(IQueryExecutor q
         var instance = await query.QuerySingleOrDefaultAsync<WorkflowInstanceRecord>(WorkflowSql.FindInstanceById,
             WorkflowSqlParameters.Create(("Id", todo.InstanceId), ("TenantScopeKey", scope.TenantScopeKey)), token).ConfigureAwait(false);
         if (instance?.StatusKey != "active") return Failure(WorkflowErrorCodes.InvalidTransition, ErrorType.Conflict);
+        if (!await WorkflowCollaborationRuntimeGate.AllowsAsync(instance.Id, scope, actorId, clock.UtcNow, query, token).ConfigureAwait(false))
+            return Failure(WorkflowErrorCodes.TodoForbidden, ErrorType.Forbidden);
         var asset = await query.QuerySingleOrDefaultAsync<WorkflowRuntimeAssetRecord>(WorkflowSql.FindRuntimeAsset,
             WorkflowSqlParameters.Create(("DefinitionVersionId", instance.DefinitionVersionId), ("TenantScopeKey", scope.TenantScopeKey)), token).ConfigureAwait(false);
         if (asset is null || !WorkflowHumanActionPolicy.TryResolve(asset.CanonicalJson, todo.NodeKey, out var policy))
@@ -55,6 +58,17 @@ internal sealed class WorkflowTodoAssigneeCandidateQueryService(IQueryExecutor q
                 WorkflowSqlParameters.Create(("OriginTodoId", todoId), ("TenantScopeKey", scope.TenantScopeKey)), token).ConfigureAwait(false) is not null)
             return Result<WorkflowRecipientCandidatePageResponse>.Success(new([], page, pageSize, 0));
         // 查询目录不代表授权办理；提交加签时仍重新验证全部候选、修订和原待办状态。
+        var acceptedMembers = await WorkflowCollaborationOriginPolicy.ReadMembersAsync(instance.Id, scope, query, token).ConfigureAwait(false);
+        if (acceptedMembers is not null)
+        {
+            // 先按固定同意集合批量核对当前活动身份，再分页；总数不能包含外部成员。
+            var allowed = scope.TenantId is not null
+                ? (await tenantUsers.FindActiveTenantMembersAsync(acceptedMembers, token).ConfigureAwait(false)).Values
+                    .Select(x => new WorkflowRecipientCandidateResponse(x.Id, x.Username, x.DisplayName)).ToArray()
+                : (await hostBatch.FindActiveHostUsersAsync(acceptedMembers, token).ConfigureAwait(false)).Values
+                    .Select(x => new WorkflowRecipientCandidateResponse(x.Id, x.Username, x.DisplayName)).ToArray();
+            return Result<WorkflowRecipientCandidatePageResponse>.Success(new(allowed.OrderBy(x => x.Id).Skip((page - 1) * pageSize).Take(pageSize).ToArray(), page, pageSize, allowed.Length));
+        }
         if (scope.TenantId is not null)
         {
             var users = await tenantUsers.ListActiveTenantMembersAsync(page, pageSize, token).ConfigureAwait(false);

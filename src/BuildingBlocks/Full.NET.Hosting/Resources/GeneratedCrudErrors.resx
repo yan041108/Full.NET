@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms</value></resheader>
+  <data name="not_found" xml:space="preserve"><value>未找到该记录。</value></data>
+  <data name="version_conflict" xml:space="preserve"><value>记录已被修改，请刷新后重试。</value></data>
+  <data name="unique_conflict" xml:space="preserve"><value>唯一字段或关联组合已存在。</value></data>
+  <data name="invalid_parent" xml:space="preserve"><value>父节点不存在或不在当前数据范围内。</value></data>
+  <data name="parent_cycle" xml:space="preserve"><value>此父节点会导致循环关系。</value></data>
+  <data name="parent_has_children" xml:space="preserve"><value>请先移除或移动子节点。</value></data>
+  <data name="principal_not_found" xml:space="preserve"><value>关联实体不存在或不在当前数据范围内。</value></data>
+  <data name="invalid_query" xml:space="preserve"><value>查询条件、排序或字段格式无效。</value></data>
+  <data name="invalid_organization" xml:space="preserve"><value>请选择有效的组织单元。</value></data>
+  <data name="invalid_aggregate" xml:space="preserve"><value>主从请求无效或明细超过 128 行。</value></data>
+  <data name="invalid_field" xml:space="preserve"><value>字段值不符合类型、长度或精度约束。</value></data>
+</root>

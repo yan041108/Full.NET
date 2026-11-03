@@ -7,6 +7,7 @@ using Full.NET.Modules.Payments.Connectivity;
 using Full.NET.Modules.Payments.Contracts;
 using Full.NET.Modules.Payments.Domain;
 using Full.NET.Modules.Payments.Persistence;
+using Full.NET.Modules.Payments.Features.SubscriptionBilling;
 
 namespace Full.NET.Modules.Payments.Features.ManageRefunds;
 
@@ -25,7 +26,8 @@ internal sealed class PaymentRefundManagementService(
     PaymentRefundQueryService queries,
     IWeChatNativePayClient weChatNativePayClient,
     IClock clock,
-    IIdGenerator idGenerator)
+    IIdGenerator idGenerator,
+    PaymentFinancialFactPublisher facts)
 {
     /// <summary>为指定订单创建退款并调用微信退款 API。</summary>
     /// <param name="orderId">订单标识。</param>
@@ -228,7 +230,9 @@ internal sealed class PaymentRefundManagementService(
             order.Currency,
             reason,
             order.ProviderTransactionId,
-            order.PaidAtUtc));
+            order.PaidAtUtc,
+            order.TenantId,
+            order.IdempotencyKey));
     }
 
     /// <summary>恢复退款中订单上尚未完成的意图；租约未过期时拒绝并发调用。</summary>
@@ -294,7 +298,9 @@ internal sealed class PaymentRefundManagementService(
             refund.Currency,
             refund.Reason,
             order.ProviderTransactionId,
-            order.PaidAtUtc));
+            order.PaidAtUtc,
+            order.TenantId,
+            order.IdempotencyKey));
     }
 
     /// <summary>用独立短事务回写退款结果，并在明确失败时把订单从退款中释放回成功。</summary>
@@ -353,6 +359,10 @@ internal sealed class PaymentRefundManagementService(
                         token)
                     .ConfigureAwait(false);
                 if (orderUpdated != 1) throw new InvalidOperationException("Refund order changed during completion.");
+                if (refundStateKey == PaymentRefundStateKeys.Succeeded)
+                    await facts.RefundedAsync(new(new(intent.OrderId, intent.PaymentTenantId, intent.MerchantConfig.Id,
+                        intent.CreationKey, intent.OrderAmountMinor, intent.Currency, intent.ProviderTransactionId ?? string.Empty,
+                        intent.PaidAtUtc ?? default), intent.RefundId, intent.AmountMinor), token).ConfigureAwait(false);
                 return true;
             },
             cancellationToken);
@@ -422,5 +432,7 @@ internal sealed class PaymentRefundManagementService(
         string Currency,
         string Reason,
         string? ProviderTransactionId,
-        DateTimeOffset? PaidAtUtc);
+        DateTimeOffset? PaidAtUtc,
+        Guid PaymentTenantId,
+        Guid? CreationKey);
 }

@@ -75,7 +75,7 @@ function selectFile(event: Event): void {
 
 <style scoped>
 .workflow-signature { margin: 0; border: 1px solid var(--el-border-color); border-radius: 8px; padding: 16px; }
-.workflow-signature p { color: var(--el-text-color-secondary); margin: 8px 0; }
+.workflow-signature p { color: var(--el-text-color-regular); margin: 8px 0; }
 .workflow-signature canvas { display: block; width: 100%; max-width: 480px; height: 180px; background: #fff; border: 1px solid var(--el-border-color); touch-action: none; }
 .workflow-signature__actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 12px; }
 .workflow-signature__actions label { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }

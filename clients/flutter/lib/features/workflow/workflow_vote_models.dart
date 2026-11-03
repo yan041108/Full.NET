@@ -1,3 +1,5 @@
+import 'workflow_form_projection.dart';
+
 /// 独立票据的静态客户端契约；个人修订和答案不能借用主表单。
 class WorkflowVoteForm {
   const WorkflowVoteForm(
@@ -19,6 +21,9 @@ class WorkflowVoteForm {
   final String? choiceKey;
   final bool readOnly;
   final bool allowAbstain;
+  WorkflowFormProjection get projection =>
+      WorkflowFormProjection.parse(schema, values, fieldPolicies,
+          readOnly: readOnly);
 
   factory WorkflowVoteForm.fromJson(Map<String, dynamic> json) {
     final version = json['formVersionId'];
@@ -98,11 +103,13 @@ class WorkflowVoteForm {
                 : !{'required', 'editable'}.contains(entry.value)))) {
       throw const FormatException('Invalid private ballot field policy');
     }
+    final projection = WorkflowFormProjection.parse(schema, values, policies,
+        readOnly: readOnly);
     return WorkflowVoteForm(
         formVersionId: version,
         formSchemaHash: hash,
-        schema: Map.unmodifiable(schema),
-        values: Map.unmodifiable(values),
+        schema: projection.schema,
+        values: projection.values,
         fieldPolicies: Map.unmodifiable(policies.cast<String, String>()),
         revision: revision,
         choiceKey: choice as String?,

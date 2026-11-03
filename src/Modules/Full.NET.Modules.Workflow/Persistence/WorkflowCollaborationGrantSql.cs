@@ -5,6 +5,12 @@ namespace Full.NET.Modules.Workflow.Persistence;
 /// <summary>显式双边控制面只允许当前可信参与方；业务实例和待办仍使用各自租户过滤。</summary>
 internal static class WorkflowCollaborationGrantSql
 {
+    // 发布绑定只接受当前源作用域中的精确授权集合，不能以目标参与方身份借用别人的源流程授权。
+    public static readonly SqlStatement SourceBindings = new("workflow.collaboration_grant.source_bindings", """
+        SELECT grantRow.Id,grantRow.SourceTenantId,grantRow.TargetTenantId,grantRow.SourceTenantScopeKey,grantRow.TargetTenantScopeKey,grantRow.Revision,grantRow.StatusKey,grantRow.SourceActorId,grantRow.TargetActorId,grantRow.OfferJson,grantRow.AcceptanceJson,grantRow.PolicyHash,grantRow.ExpiresAtUtc,grantRow.CreatedAtUtc,grantRow.AcceptedAtUtc,grantRow.RevokedAtUtc,grantRow.RevokedById,grantRow.RevokedByScopeKey,grantRow.SourceDefinitionId,grantRow.SourceFormVersionId,grantRow.TargetDefinitionVersionId,grantRow.TargetSummaryJson,grantRow.TargetSummaryHash
+        FROM fn_workflow_collaboration_grant AS grantRow
+        WHERE grantRow.Id IN @GrantIds AND grantRow.SourceTenantScopeKey=@TenantScopeKey
+        """, SqlDataScope.Global);
     public static readonly SqlStatement Find=new("workflow.collaboration_grant.find","""
         SELECT grantRow.Id,grantRow.SourceTenantId,grantRow.TargetTenantId,grantRow.SourceTenantScopeKey,grantRow.TargetTenantScopeKey,grantRow.Revision,grantRow.StatusKey,grantRow.SourceActorId,grantRow.TargetActorId,grantRow.OfferJson,grantRow.AcceptanceJson,grantRow.PolicyHash,grantRow.ExpiresAtUtc,grantRow.CreatedAtUtc,grantRow.AcceptedAtUtc,grantRow.RevokedAtUtc,grantRow.RevokedById,grantRow.RevokedByScopeKey,grantRow.SourceDefinitionId,grantRow.SourceFormVersionId,grantRow.TargetDefinitionVersionId,grantRow.TargetSummaryJson,grantRow.TargetSummaryHash
          FROM fn_workflow_collaboration_grant AS grantRow WHERE grantRow.Id=@Id

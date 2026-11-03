@@ -200,6 +200,7 @@ public sealed partial class AiKnowledgeIndexDocumentActivationTests
     {
         internal readonly Guid TaskId = Guid.CreateVersion7(), Lease = Guid.CreateVersion7();
         internal readonly DateTimeOffset Now = DateTimeOffset.UtcNow;
+        internal readonly AiKnowledgeGenerationLeases Leases;
         internal readonly IClock Clock = Substitute.For<IClock>();
         internal readonly IDataTransactionState Transactions = Substitute.For<IDataTransactionState>();
         internal readonly AiKnowledgeIndexTaskBinding Binding;
@@ -261,6 +262,8 @@ public sealed partial class AiKnowledgeIndexDocumentActivationTests
             Proof = new(Source, session, Manifest, Array.AsReadOnly(Receipts.ToArray()));
             Clock.UtcNow.Returns(Now); var query = Substitute.For<IQueryExecutor>(); var command = Substitute.For<ICommandExecutor>();
             var ids = Substitute.For<IIdGenerator>(); ids.NewId().Returns(Guid.CreateVersion7());
+            query.QuerySingleOrDefaultAsync<Guid>(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(Binding.DocumentId);
+            query.QuerySingleOrDefaultAsync<AiKnowledgeLeaseDeadline>(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(_ => new AiKnowledgeLeaseDeadline(Clock.UtcNow.AddSeconds(25)));
             query.QuerySingleOrDefaultAsync<AiKnowledgeIndexActivationRecord>(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(_ => Pointer);
             query.QuerySingleOrDefaultAsync<AiKnowledgeIndexVectorRecord>(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>())
                 .Returns(call => { PayloadReads++; AtPayload?.Invoke(); return Payloads.SingleOrDefault(row => row.BatchOrdinal == (int)((Dictionary<string, object?>)call[1]!)["BatchOrdinal"]!); });
@@ -273,7 +276,12 @@ public sealed partial class AiKnowledgeIndexDocumentActivationTests
                 return Denied || call.ArgAt<IReadOnlyCollection<string>>(1).Contains(DeniedPermission!) ? null : new AuthorizedSessionActor(session.UserId, tenantId, session.SessionId); });
             command.ExecuteAsync(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(call =>
             {
-                Assert.IsTrue(Transactions.HasTransaction); Writes++; var sql = (SqlStatement)call[0]!; var p = (Dictionary<string, object?>)call[1]!;
+                var sql = (SqlStatement)call[0]!; var p = (Dictionary<string, object?>)call[1]!;
+                if (sql.Name.Contains("knowledge_publication.", StringComparison.Ordinal)) {
+                    if (sql.Name.Contains("archive", StringComparison.Ordinal)) { Assert.IsTrue(Transactions.HasTransaction); Assert.IsTrue(Completed); Assert.IsNotNull(Pointer); }
+                    return 1;
+                }
+                Assert.IsTrue(Transactions.HasTransaction); Writes++;
                 if (sql.Name.Contains("complete", StringComparison.Ordinal)) { Completed = true; return 1; }
                 if (sql.Name.Contains("update", StringComparison.Ordinal)) return 0;
                 AtInsert?.Invoke(); if (InsertCount != 1) return InsertCount;
@@ -285,7 +293,8 @@ public sealed partial class AiKnowledgeIndexDocumentActivationTests
             query.QuerySingleOrDefaultAsync<AiModelConfigRecord>(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(model);
             var collections = new CollectionQuery(query, this); Query = collections; var transaction = new Transaction(this);
             var options = Options.Create(new DatabaseOptions { Provider = DatabaseProvider.SqlServer });
-            Store = new(collections, command, transaction, Transactions, tenant, Clock, ids, tasks, auth, options);
+            Leases = new(collections, command, transaction, tenant, Clock, ids, options);
+            Store = new(collections, command, transaction, Transactions, tenant, Clock, ids, (tasks).Scope, auth, options);
             var sessions = new AiKnowledgeIndexSessionService(collections, command, transaction, Transactions, tenant, Clock, ids, tasks, auth);
             var manifests = new AiKnowledgeIndexDocumentManifestStore(collections, command, transaction, Transactions, tenant, Clock, tasks, sessions, auth);
             var vectors = new AiKnowledgeIndexDocumentVectorStore(collections, command, transaction, Transactions, tenant, Clock, tasks, sessions, auth, options);

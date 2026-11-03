@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue';
-import { useRoute, useRouter } from 'vue-router';
+import { useRouter } from 'vue-router';
 import { ElMessage } from 'element-plus';
 import { useSessionStore } from '../auth/session';
 import { adminIdentityAuthMode } from '../config/identity-auth';
@@ -10,7 +10,6 @@ import { translateRuntimeMessage } from '../i18n/runtimeMessage';
 
 defineOptions({ name: 'OidcCallbackView' });
 
-const route = useRoute();
 const router = useRouter();
 const session = useSessionStore();
 const { t } = useAdminI18n();
@@ -23,8 +22,9 @@ onMounted(async () => {
   }
 
   try {
-    const token = await completeAdminOidcCallback(route.query);
-    await session.completeOidcAuthorization(token);
+    await completeAdminOidcCallback();
+    await session.restore();
+    if (!session.isAuthenticated) throw new Error('oidc_invalid_callback');
     ElMessage.success(t('oidcCallback.success'));
   } catch (error: unknown) {
     const code = error instanceof Error ? error.message : 'oidc_callback_failed';

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
-import { mkdtemp, rm, stat } from 'node:fs/promises';
+import { mkdtemp, rm, stat, readFile, writeFile, unlink } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
@@ -52,6 +52,127 @@ test('共享重型锁跨工作区串行且失败后释放', async t => {
   const results = await Promise.allSettled([first, second]);
   assert.equal(results.filter(item => item.status === 'rejected').length, 1);
   assert.deepEqual(events, ['first', 'release', 'second']);
+});
+
+test('Windows锁所有者暂时不可读时等待且不抢占', { skip: process.platform !== 'win32', timeout: 10_000 }, async t => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'fullnet-lock-read-race-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const lockRoot = path.join(root, 'locks');
+  const { mkdir } = await import('node:fs/promises');
+  await mkdir(lockRoot);
+  const lockFile = path.join(lockRoot, 'heavy.lock');
+  const owner = { pid: process.pid, token: 'fixture-owner' };
+  await writeFile(lockFile, JSON.stringify(owner));
+  const holderCommand = '& { param([string]$lockPath) $held = [System.IO.File]::Open($lockPath, [System.IO.FileMode]::Open, [System.IO.FileAccess]::ReadWrite, [System.IO.FileShare]::None); try { [Console]::Out.WriteLine("held"); Start-Sleep -Milliseconds 500 } finally { $held.Dispose() } } ';
+  const holder = spawn('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', holderCommand + "'" + lockFile.replaceAll("'", "''") + "'"], { windowsHide: true });
+  t.after(() => { if (holder.exitCode === null) holder.kill(); });
+  let ready;
+  const held = new Promise(resolve => { ready = resolve; });
+  holder.stdout.on('data', value => { if (value.toString().includes('held')) ready(); });
+  let holderError = '';
+  holder.stderr.on('data', value => { holderError += value.toString(); });
+  const completed = new Promise((resolve, reject) => {
+    holder.on('error', reject);
+    holder.on('close', code => code === 0 ? resolve() : reject(new Error('holder exit ' + code + ': ' + holderError)));
+  });
+  await held;
+  const { withTestRun } = await import('../../scripts/testing/test-run-context.mjs');
+  let ran = false, waited = false;
+  // 先捕获异常，避免旧实现提前失败时产生未处理的Promise拒绝。
+  const contender = withTestRun({ cwd: path.join(root, 'contender'), heavy: true, lockRoot, timeoutMs: 4000,
+    onWait: () => { waited = true; } }, async () => { ran = true; }).then(() => null, error => error);
+  await completed;
+  assert.equal(ran, false);
+  assert.deepEqual(JSON.parse(await readFile(lockFile, 'utf8')), owner);
+  await unlink(lockFile);
+  assert.equal(await contender, null);
+  assert.equal(waited, true);
+  assert.equal(ran, true);
+});
+
+test('Windows独占创建遇已有锁的EPERM会等待，锁不存在的EPERM仍失败', { skip: process.platform !== 'win32', timeout: 15_000 }, async t => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'fullnet-lock-create-eperm-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const { mkdir } = await import('node:fs/promises');
+  const preload = path.join(root, 'fault.cjs');
+  await writeFile(preload, `const fs=require('node:fs/promises');const {syncBuiltinESMExports}=require('node:module');
+    const original=fs.open;let injected=false;
+    fs.open=async (...args)=>{if((!injected || process.env.FULLNET_TEST_FAULT_MODE==='persist') && args[0]===process.env.FULLNET_TEST_FAULT_LOCK && args[1]==='wx'){
+      injected=true;const error=new Error('simulated Windows collision');error.code='EPERM';throw error;}return original(...args)};
+    syncBuiltinESMExports();`);
+  const module = new URL('../../scripts/testing/test-run-context.mjs', import.meta.url).href;
+  const code = `import {withTestRun} from ${JSON.stringify(module)};
+    await withTestRun({cwd:process.argv[1],lockRoot:process.argv[2],heavy:true,timeoutMs:4000,onWait:()=>process.stdout.write('WAIT\\n')},
+      async()=>process.stdout.write('ENTER\\n'));`;
+  const lockRoot = path.join(root, 'locks'); await mkdir(lockRoot);
+  const lockFile = path.join(lockRoot, 'heavy.lock');
+  const owner = { pid: process.pid, token: 'test-owned-existing-lock' };
+  await writeFile(lockFile, JSON.stringify(owner));
+  function start(cwd, locks, file, mode = 'once') {
+    return spawn(process.execPath, ['--require', preload, '--input-type=module', '-e', code, cwd, locks],
+      {env:{...process.env,FULLNET_TEST_FAULT_LOCK:file,FULLNET_TEST_FAULT_MODE:mode},windowsHide:true});
+  }
+  const child = start(path.join(root, 'existing'), lockRoot, lockFile);
+  t.after(() => { if (child.exitCode === null) child.kill(); });
+  let stdout = '', stderr = '', resolveWait;
+  const waited = new Promise(resolve => { resolveWait = resolve; });
+  child.stdout.on('data', value => { stdout += value; if (stdout.includes('WAIT\n')) resolveWait(); });
+  child.stderr.on('data', value => { stderr += value; });
+  const done = new Promise((resolve,reject)=>{child.on('error',reject);child.on('close',resolve);});
+  await Promise.race([waited, new Promise((_,reject)=>setTimeout(()=>reject(new Error('contender did not wait: '+stderr)),5000))]);
+  assert.doesNotMatch(stdout, /ENTER/);
+  assert.deepEqual(JSON.parse(await readFile(lockFile, 'utf8')), owner);
+  await unlink(lockFile);
+  assert.equal(await done, 0, stderr);
+  assert.match(stdout, /ENTER/);
+  const deniedRoot = path.join(root, 'denied'); await mkdir(deniedRoot);
+  const denied = start(path.join(root, 'denied-cwd'), deniedRoot, path.join(deniedRoot, 'heavy.lock'), 'persist');
+  t.after(() => { if (denied.exitCode === null) denied.kill(); });
+  let deniedErr=''; denied.stderr.on('data', value => { deniedErr += value; });
+  const deniedCode = await new Promise((resolve,reject)=>{denied.on('error',reject);denied.on('close',resolve);});
+  assert.notEqual(deniedCode, 0);
+  assert.match(deniedErr, /EPERM/);
+  await assert.rejects(stat(path.join(deniedRoot, 'heavy.lock')), {code:'ENOENT'});
+});
+
+test('Windows自有准入锁被只读句柄短暂占用时有界重试释放', { skip: process.platform !== 'win32', timeout: 10_000 }, async t => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'fullnet-lock-release-race-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const lockRoot = path.join(root, 'locks');
+  const { withTestRun } = await import('../../scripts/testing/test-run-context.mjs');
+  let heldAt, holderCompleted;
+  await withTestRun({ cwd: path.join(root, 'runner'), heavy: true, lockRoot }, async () => {
+    const file = path.join(lockRoot, 'heavy.lock');
+    const command = '& { param([string]$lockPath) $held = [System.IO.File]::Open($lockPath, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, [System.IO.FileShare]::Read); try { [Console]::Out.WriteLine("held"); Start-Sleep -Milliseconds 400 } finally { $held.Dispose() } } ';
+    const holder = spawn('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', command + "'" + file.replaceAll("'", "''") + "'"], { windowsHide: true });
+    const held = new Promise((resolve, reject) => {
+      holder.once('error', reject);
+      holder.stdout.on('data', value => { if (value.toString().includes('held')) resolve(); });
+    });
+    holderCompleted = new Promise((resolve, reject) => {
+      holder.once('error', reject);
+      holder.once('close', code => code === 0 ? resolve() : reject(new Error('Read holder exit ' + code)));
+    });
+    await held;
+    heldAt = Date.now();
+  });
+  await holderCompleted;
+  assert.ok(Date.now() - heldAt >= 350, '应等待真实文件共享句柄释放');
+  await assert.rejects(stat(path.join(lockRoot, 'heavy.lock')), { code: 'ENOENT' });
+  // 新运行必须还能正常准入；不能只是隐藏释放错误后报告成功。
+  await withTestRun({ cwd: path.join(root, 'next'), heavy: true, lockRoot }, async () => {});
+});
+
+test('释放自有锁时所有者改变必须失败且保留新所有者记录', async t => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'fullnet-lock-release-owner-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const lockRoot = path.join(root, 'locks'), file = path.join(lockRoot, 'heavy.lock');
+  const replacement = { pid: process.pid, token: 'replacement-owner' };
+  const { withTestRun } = await import('../../scripts/testing/test-run-context.mjs');
+  await assert.rejects(withTestRun({ cwd: path.join(root, 'runner'), heavy: true, lockRoot }, async () => {
+    await writeFile(file, JSON.stringify(replacement));
+  }), /所有者已改变/);
+  assert.deepEqual(JSON.parse(await readFile(file, 'utf8')), replacement);
 });
 
 test('等待资源可取消，不能开始被取消的验收', async t => {

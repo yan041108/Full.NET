@@ -17,7 +17,9 @@ internal static class IdentityOidcClientDescriptorFactory
         IReadOnlyList<string> Scopes,
         bool IsFirstParty,
         string? ResourceAudience,
-        bool IsDisabled = false);
+        bool IsDisabled = false,
+        bool RequireMfa = false,
+        string? BackchannelLogoutUri = null);
 
     internal static OpenIddictApplicationDescriptor Build(Input input)
     {
@@ -53,20 +55,21 @@ internal static class IdentityOidcClientDescriptorFactory
         var allowedScopes = new HashSet<string>(
             input.Scopes.Count > 0 ? input.Scopes : ["openid", "profile"],
             StringComparer.OrdinalIgnoreCase);
-        allowedScopes.Add(Scopes.OpenId);
-        allowedScopes.Add(Scopes.Profile);
-        allowedScopes.Add(Scopes.OfflineAccess);
         foreach (var scope in allowedScopes)
         {
             descriptor.Permissions.Add(Permissions.Prefixes.Scope + scope);
         }
 
-        descriptor.Permissions.Add(Permissions.GrantTypes.RefreshToken);
+        // 离线续期必须由客户端策略显式授予，不能因注册交互登录自动开放。
+        if (allowedScopes.Contains(Scopes.OfflineAccess))
+        {
+            descriptor.Permissions.Add(Permissions.GrantTypes.RefreshToken);
+        }
         IdentityOidcClientMetadata.Write(
             descriptor,
             input.IsFirstParty,
             input.ResourceAudience,
-            input.IsDisabled);
+            input.IsDisabled, input.RequireMfa, input.BackchannelLogoutUri);
         return descriptor;
     }
 
@@ -79,5 +82,6 @@ internal static class IdentityOidcClientDescriptorFactory
             client.PostLogoutRedirectUris,
             client.Scopes.Length > 0 ? client.Scopes : ["openid", "profile"],
             client.IsFirstParty,
-            string.IsNullOrWhiteSpace(client.ResourceAudience) ? null : client.ResourceAudience));
+            string.IsNullOrWhiteSpace(client.ResourceAudience) ? null : client.ResourceAudience,
+            false, client.RequireMfa, client.BackchannelLogoutUri));
 }

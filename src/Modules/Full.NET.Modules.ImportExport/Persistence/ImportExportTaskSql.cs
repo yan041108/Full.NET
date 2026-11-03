@@ -11,11 +11,11 @@ internal static class ImportExportTaskSql
         RequestedByUserId, CreatedAtUtc, PreviewCompletedAtUtc,
         ProcessedRowCount, SucceededRowCount, ExecutionFailedRowCount, NextLineNumber,
         ExecutionRowsJson, ErrorReceiptFileId, ExecutionStartedAtUtc, ExecutionCompletedAtUtc,
-        LeaseId, LeaseExpiresAtUtc, Version
+        LeaseId, LeaseExpiresAtUtc, Version, ColumnMappingJson, ActorSessionBindingJson
         """;
 
     private const string InsertedColumns = """
-        inserted.Id, inserted.TenantId, inserted.SchemaKey, inserted.SchemaDisplayName, inserted.WorksheetKey, inserted.SourceFileId, inserted.SourceFileName, inserted.StatusKey, inserted.TotalRows, inserted.ValidRowCount, inserted.InvalidRowCount, inserted.PreviewRowsJson, inserted.ErrorCode, inserted.RequestedByUserId, inserted.CreatedAtUtc, inserted.PreviewCompletedAtUtc, inserted.ProcessedRowCount, inserted.SucceededRowCount, inserted.ExecutionFailedRowCount, inserted.NextLineNumber, inserted.ExecutionRowsJson, inserted.ErrorReceiptFileId, inserted.ExecutionStartedAtUtc, inserted.ExecutionCompletedAtUtc, inserted.LeaseId, inserted.LeaseExpiresAtUtc, inserted.Version
+        inserted.Id, inserted.TenantId, inserted.SchemaKey, inserted.SchemaDisplayName, inserted.WorksheetKey, inserted.SourceFileId, inserted.SourceFileName, inserted.StatusKey, inserted.TotalRows, inserted.ValidRowCount, inserted.InvalidRowCount, inserted.PreviewRowsJson, inserted.ErrorCode, inserted.RequestedByUserId, inserted.CreatedAtUtc, inserted.PreviewCompletedAtUtc, inserted.ProcessedRowCount, inserted.SucceededRowCount, inserted.ExecutionFailedRowCount, inserted.NextLineNumber, inserted.ExecutionRowsJson, inserted.ErrorReceiptFileId, inserted.ExecutionStartedAtUtc, inserted.ExecutionCompletedAtUtc, inserted.LeaseId, inserted.LeaseExpiresAtUtc, inserted.Version, inserted.ColumnMappingJson, inserted.ActorSessionBindingJson
         """;
 
     /// <summary>可领取条件：排队中，或执行中但租约已到期/缺失（升级前崩溃行）。</summary>
@@ -61,7 +61,7 @@ internal static class ImportExportTaskSql
              @RequestedByUserId, @CreatedAtUtc, @PreviewCompletedAtUtc,
              @ProcessedRowCount, @SucceededRowCount, @ExecutionFailedRowCount, @NextLineNumber,
              @ExecutionRowsJson, @ErrorReceiptFileId, @ExecutionStartedAtUtc, @ExecutionCompletedAtUtc,
-             @LeaseId, @LeaseExpiresAtUtc, @Version)
+             @LeaseId, @LeaseExpiresAtUtc, @Version, @ColumnMappingJson, NULL)
         """,
         SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
 
@@ -73,6 +73,20 @@ internal static class ImportExportTaskSql
         WHERE TenantId = @TenantId AND Id = @Id
         """,
         SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
+
+    /// <summary>只有原上传者的当前租户任务参与取消判断；无正文投影也避免从其他任务泄露状态。</summary>
+    public static readonly SqlStatement FindOwnedCancellationState = new("import_export.task.cancel_state", """
+        SELECT Id,StatusKey,Version FROM fn_import_export_task
+        WHERE TenantId=@TenantId AND RequestedByUserId=@UserId AND Id=@Id
+        """, SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
+
+    /// <summary>与 Worker 领取竞争同一行；版本或状态先被推进时返回零，不撤销可能已提交的业务行。</summary>
+    public static readonly SqlStatement CancelOwnedPending = new("import_export.task.cancel_pending", """
+        UPDATE fn_import_export_task SET StatusKey='canceled',ExecutionCompletedAtUtc=@Now,
+            LeaseId=NULL,LeaseExpiresAtUtc=NULL,Version=Version+1
+        WHERE TenantId=@TenantId AND RequestedByUserId=@UserId AND Id=@Id AND Version=@Version
+            AND StatusKey IN ('preview_succeeded','queued','execution_partial') AND LeaseId IS NULL
+        """, SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
 
     public static readonly SqlStatement PageSqlServer = new(
         "import_export.task.page.sqlserver",
@@ -114,6 +128,7 @@ internal static class ImportExportTaskSql
             SucceededRowCount = @SucceededRowCount,
             ExecutionFailedRowCount = @ExecutionFailedRowCount,
             ExecutionRowsJson = @ExecutionRowsJson,
+            ActorSessionBindingJson = @ActorSessionBindingJson,
             ErrorReceiptFileId = @ErrorReceiptFileId,
             ExecutionStartedAtUtc = @ExecutionStartedAtUtc,
             ExecutionCompletedAtUtc = @ExecutionCompletedAtUtc,
@@ -228,5 +243,39 @@ internal static class ImportExportTaskSql
         SET LeaseExpiresAtUtc = @LeaseExpiresAtUtc
         WHERE TenantId = @TenantId AND Id = @Id AND StatusKey = 'executing'
           AND LeaseId = @LeaseId AND LeaseExpiresAtUtc > @NowUtc
+        """, SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
+
+    // 首/后续页分别使用固定 SQL，让时间边界直接成为查询范围；不读取正文或会话 JSON。
+    public static readonly SqlStatement MineFirstSqlServer = new("import_export.task.mine.first.sqlserver", """
+        SELECT TOP (@Take) Id, TenantId, SchemaKey, SchemaDisplayName, WorksheetKey, SourceFileId, SourceFileName, StatusKey, TotalRows, ValidRowCount, InvalidRowCount, ErrorCode, RequestedByUserId, CreatedAtUtc, PreviewCompletedAtUtc, ProcessedRowCount, SucceededRowCount, ExecutionFailedRowCount, NextLineNumber, ErrorReceiptFileId, ExecutionStartedAtUtc, ExecutionCompletedAtUtc, Version
+        FROM fn_import_export_task
+        WHERE TenantId=@TenantId AND RequestedByUserId=@RequestedByUserId
+            AND (@StatusKey IS NULL OR StatusKey=@StatusKey)
+        ORDER BY CreatedAtUtc DESC,Id DESC
+        """, SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
+    public static readonly SqlStatement MineAfterSqlServer = new("import_export.task.mine.after.sqlserver", """
+        SELECT TOP (@Take) Id, TenantId, SchemaKey, SchemaDisplayName, WorksheetKey, SourceFileId, SourceFileName, StatusKey, TotalRows, ValidRowCount, InvalidRowCount, ErrorCode, RequestedByUserId, CreatedAtUtc, PreviewCompletedAtUtc, ProcessedRowCount, SucceededRowCount, ExecutionFailedRowCount, NextLineNumber, ErrorReceiptFileId, ExecutionStartedAtUtc, ExecutionCompletedAtUtc, Version
+        FROM fn_import_export_task
+        WHERE TenantId=@TenantId AND RequestedByUserId=@RequestedByUserId
+            AND (@StatusKey IS NULL OR StatusKey=@StatusKey)
+            AND CreatedAtUtc<=@BeforeCreatedAtUtc AND (CreatedAtUtc<@BeforeCreatedAtUtc OR Id<@BeforeId)
+        ORDER BY CreatedAtUtc DESC,Id DESC
+        """, SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
+    public static readonly SqlStatement MineFirstMySql = new("import_export.task.mine.first.mysql", """
+        SELECT Id, TenantId, SchemaKey, SchemaDisplayName, WorksheetKey, SourceFileId, SourceFileName, StatusKey, TotalRows, ValidRowCount, InvalidRowCount, ErrorCode, RequestedByUserId, CreatedAtUtc, PreviewCompletedAtUtc, ProcessedRowCount, SucceededRowCount, ExecutionFailedRowCount, NextLineNumber, ErrorReceiptFileId, ExecutionStartedAtUtc, ExecutionCompletedAtUtc, Version
+        FROM fn_import_export_task
+        WHERE TenantId=@TenantId AND RequestedByUserId=@RequestedByUserId
+            AND (@StatusKey IS NULL OR StatusKey=@StatusKey)
+        ORDER BY CreatedAtUtc DESC,Id DESC
+        LIMIT @Take
+        """, SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
+    public static readonly SqlStatement MineAfterMySql = new("import_export.task.mine.after.mysql", """
+        SELECT Id, TenantId, SchemaKey, SchemaDisplayName, WorksheetKey, SourceFileId, SourceFileName, StatusKey, TotalRows, ValidRowCount, InvalidRowCount, ErrorCode, RequestedByUserId, CreatedAtUtc, PreviewCompletedAtUtc, ProcessedRowCount, SucceededRowCount, ExecutionFailedRowCount, NextLineNumber, ErrorReceiptFileId, ExecutionStartedAtUtc, ExecutionCompletedAtUtc, Version
+        FROM fn_import_export_task
+        WHERE TenantId=@TenantId AND RequestedByUserId=@RequestedByUserId
+            AND (@StatusKey IS NULL OR StatusKey=@StatusKey)
+            AND CreatedAtUtc<=@BeforeCreatedAtUtc AND (CreatedAtUtc<@BeforeCreatedAtUtc OR Id<@BeforeId)
+        ORDER BY CreatedAtUtc DESC,Id DESC
+        LIMIT @Take
         """, SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
 }

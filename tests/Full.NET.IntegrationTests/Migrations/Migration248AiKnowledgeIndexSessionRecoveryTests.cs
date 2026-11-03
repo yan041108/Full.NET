@@ -41,14 +41,14 @@ public sealed class Migration248AiKnowledgeIndexSessionRecoveryTests
         })
         {
             var p = await Migration246AiKnowledgeIndexTaskRecoveryTests.SeedAsync(db, tenant);
-            Assert.AreEqual(1, await db.ExecuteAsync((tenant ? AiKnowledgeIndexTaskSql.EnqueueTenant : AiKnowledgeIndexTaskSql.EnqueueHost).Text, p));
+            Assert.AreEqual(1, await db.ExecuteAsync((tenant ? AiKnowledgeIndexTaskSql.EnqueueTenant : AiKnowledgeIndexTaskSql.EnqueueHost).AutomaticSql(), p));
             p["SessionRecordId"] = Guid.CreateVersion7(); p["SessionId"] = Guid.CreateVersion7(); p["SessionKind"] = "refresh"; p["SecurityStamp"] = "stamp"; p["ActorScope"] = "host"; p["EffectiveScope"] = tenant ? $"tenant:{(Guid)p["TenantId"]!:N}" : "host";
-            var prepare = (tenant ? AiKnowledgeIndexSessionSql.InsertTenant : AiKnowledgeIndexSessionSql.InsertHost).Text;
-            var find = (tenant ? AiKnowledgeIndexSessionSql.HeldTenant : AiKnowledgeIndexSessionSql.HeldHost).Text;
+            var prepare = (tenant ? AiKnowledgeIndexSessionSql.InsertTenant : AiKnowledgeIndexSessionSql.InsertHost).AutomaticSql();
+            var find = (tenant ? AiKnowledgeIndexSessionSql.HeldTenant : AiKnowledgeIndexSessionSql.HeldHost).AutomaticSql();
             var denied = new Dictionary<string, object?>(p) { ["OwnerUserId"] = Guid.CreateVersion7() };
             Assert.AreEqual(0, await db.ExecuteAsync(prepare, denied));
             Assert.AreEqual(1, await db.ExecuteAsync(prepare, p));
-            Assert.AreEqual(1, await db.ExecuteAsync((tenant ? AiKnowledgeIndexTaskSql.AcquireTenant : AiKnowledgeIndexTaskSql.AcquireHost).Text, p));
+            Assert.AreEqual(1, await db.ExecuteAsync((tenant ? AiKnowledgeIndexTaskSql.AcquireTenant : AiKnowledgeIndexTaskSql.AcquireHost).AutomaticSql(), p));
             Assert.IsNotNull(await db.QuerySingleOrDefaultAsync(find, p));
             Assert.IsNull(await db.QuerySingleOrDefaultAsync(find, denied));
             denied = new(p) { ["LeaseToken"] = Guid.CreateVersion7() };
@@ -59,7 +59,7 @@ public sealed class Migration248AiKnowledgeIndexSessionRecoveryTests
             {
                 denied = new(p) { ["TenantId"] = Guid.CreateVersion7() };
                 Assert.IsNull(await db.QuerySingleOrDefaultAsync(find, denied));
-                Assert.IsNull(await db.QuerySingleOrDefaultAsync(AiKnowledgeIndexSessionSql.HeldHost.Text, p));
+                Assert.IsNull(await db.QuerySingleOrDefaultAsync(AiKnowledgeIndexSessionSql.HeldHost.AutomaticSql(), p));
             }
             await db.ExecuteAsync(mutation, p);
             Assert.IsNull(await db.QuerySingleOrDefaultAsync(find, p), mutation);
@@ -73,7 +73,7 @@ public sealed class Migration248AiKnowledgeIndexSessionRecoveryTests
         Replay(sqlServer, connectionString);
         await using var db = Migration246AiKnowledgeIndexTaskRecoveryTests.Connection(sqlServer, connectionString);
         var p = await Migration246AiKnowledgeIndexTaskRecoveryTests.SeedAsync(db);
-        Assert.AreEqual(1, await db.ExecuteAsync(AiKnowledgeIndexTaskSql.EnqueueHost.Text, p));
+        Assert.AreEqual(1, await db.ExecuteAsync(AiKnowledgeIndexTaskSql.EnqueueHost.AutomaticSql(), p));
         p["SessionRecordId"] = Guid.CreateVersion7(); p["SessionId"] = Guid.CreateVersion7();
         await db.ExecuteAsync("INSERT INTO fn_ai_knowledge_index_session (Id,IndexTaskId,ActorUserId,TenantId,SessionId,SessionKind,SecurityStamp,ActorScope,EffectiveScope,CreatedAtUtc) VALUES (@SessionRecordId,@TaskId,@OwnerUserId,NULL,@SessionId,'refresh','stamp','host','host',@Now)", p);
         // InnoDB 使用唯一索引支撑外键；缺失唯一约束场景仍须保留本地外键支撑索引。

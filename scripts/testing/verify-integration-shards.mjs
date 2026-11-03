@@ -81,20 +81,9 @@ async function discover(filter, selectedAssembly = assembly) {
 async function runCli() {
   const selectedAssembly = parseAssemblyArguments(process.argv.slice(2));
   const fullTests = await discover(shards.full.filter, selectedAssembly);
-  if (fullTests.length !== shards.full.minimum) {
-    throw new Error(
-      `全量发现 ${fullTests.length} 项，与 canonical ${shards.full.minimum} 不一致。`
-    );
-  }
-
   const partitions = {};
   for (const name of partitionNames) {
     const tests = await discover(shards[name].filter, selectedAssembly);
-    if (tests.length !== shards[name].minimum) {
-      throw new Error(
-        `${name} 发现 ${tests.length} 项，与配置 ${shards[name].minimum} 不一致。`
-      );
-    }
     partitions[name] = tests;
   }
 
@@ -107,6 +96,10 @@ async function runCli() {
     verifyFocusedDiscovery(migrationGroups[group], { phase: 'merge' });
   }
   verifyPartitionSets(partitions.migrations, migrationGroups);
+  // 先证明集合完整互斥，再统一报告计数漂移；避免首个旧数字遮蔽真实遗漏或重复。
+  const counts = { full: fullTests.length, ...Object.fromEntries(Object.entries(partitions).map(([name, tests]) => [name, tests.length])) };
+  const drift = Object.entries(counts).filter(([name, count]) => count !== shards[name].minimum);
+  if (drift.length) throw new Error(`分片集合已验证，但计数漂移：${drift.map(([name, count]) => `${name}=${count}，配置=${shards[name].minimum}`).join('；')}。`);
   for (const [name, tests] of Object.entries(migrationGroups)) {
     process.stdout.write(`${name}: ${tests.length}\n`);
   }

@@ -17,20 +17,20 @@ internal sealed class WorkflowFormAttachmentCoordinator(
     IHostFileReferenceClaimService claims, IHostFileDescriptorReader descriptors,
     IQueryExecutor query, ICommandExecutor command, IClock clock, IIdGenerator ids,
     ILogger<WorkflowFormAttachmentCoordinator> logger, ICurrentTenant tenant,
-    ITenantResourceFileDescriptorReader tenantDescriptors)
+    ITenantResourceFileDescriptorReader tenantDescriptors, WorkflowRemoteFileService remoteFiles)
 {
     public Task<Result<WorkflowAttachmentPlan>> PrepareInitialAsync(Guid actorId, Guid submissionId,
         Guid instanceId, string tenantScopeKey, WorkflowFormSchema schema,
         IReadOnlyDictionary<string, JsonElement> values, CancellationToken token,
-        IReadOnlyDictionary<Guid, WorkflowAttachmentReuseSource>? reuseSources = null) =>
+        IReadOnlyDictionary<Guid, WorkflowAttachmentReuseSource>? reuseSources = null, WorkflowRemoteAttachmentContext? remoteContext = null) =>
         PrepareAsync(actorId, submissionId, instanceId, tenantScopeKey, schema,
-            new Dictionary<string, JsonElement>(), values, new HashSet<Guid>(), 0, Serialize(values), token, reuseSources);
+            new Dictionary<string, JsonElement>(), values, new HashSet<Guid>(), 0, Serialize(values), token, reuseSources, remoteContext);
 
     /// <summary>重新加入历史文件也须验证当前可见复用范围；旧引用存在本身不构成授权。</summary>
     public async Task<Result<WorkflowAttachmentPlan>> PrepareAsync(Guid actorId, Guid submissionId, Guid instanceId,
         string tenantScopeKey, WorkflowFormSchema schema, IReadOnlyDictionary<string, JsonElement> previous,
         IReadOnlyDictionary<string, JsonElement> next, IReadOnlySet<Guid> visibleFiles, long revision,
-        string nextJson, CancellationToken token, IReadOnlyDictionary<Guid, WorkflowAttachmentReuseSource>? reuseSources = null)
+        string nextJson, CancellationToken token, IReadOnlyDictionary<Guid, WorkflowAttachmentReuseSource>? reuseSources = null, WorkflowRemoteAttachmentContext? remoteContext = null)
     {
         if (WorkflowManagementScope.Resolve(tenant).TenantScopeKey != tenantScopeKey) return InvalidPlan();
         var oldFiles = WorkflowFormAttachmentValueRules.ExtractAttachmentFields(schema, previous);
@@ -52,8 +52,12 @@ internal sealed class WorkflowFormAttachmentCoordinator(
                         ("TenantScopeKey", tenantScopeKey), ("FieldKey", fieldKey), ("FileIds", added)), token).ConfigureAwait(false);
                 foreach (var fileId in added)
                 {
-                    var descriptor = await ReadAuthorizedDescriptorAsync(actorId, instanceId, tenantScopeKey,
-                        fileId, visibleFiles.Contains(fileId), token, reuseSources?.GetValueOrDefault(fileId)).ConfigureAwait(false);
+                    var remote = remoteContext?.Find(fieldKey, fileId);
+                    if (remote is not null && (remote.TenantScopeKey != tenantScopeKey || remote.LocalFieldKey != fieldKey || remote.Capability.Id != fileId))
+                    { await FinishAsync(plan, token).ConfigureAwait(false); return InvalidPlan(); }
+                    var descriptor = remote is not null ? new AttachmentDescriptor(remote.Capability.OriginalFileName, remote.Capability.SizeBytes, null, remote) :
+                        await ReadAuthorizedDescriptorAsync(actorId, instanceId, tenantScopeKey,
+                            fieldKey, fileId, visibleFiles.Contains(fileId), token, reuseSources?.GetValueOrDefault(fileId)).ConfigureAwait(false);
                     if (descriptor is null || !WorkflowFormAttachmentConstraints.TryRead(fields[fieldKey], out _, out var maximum, out var extensions) ||
                         descriptor.SizeBytes <= 0 || descriptor.SizeBytes > maximum ||
                         !WorkflowFormAttachmentValueRules.MatchesAllowedExtension(descriptor.Name, extensions))
@@ -62,8 +66,8 @@ internal sealed class WorkflowFormAttachmentCoordinator(
                         return InvalidPlan();
                     }
                     if (existing.Any(row => row.FileId == fileId)) continue;
-                    var reference = new WorkflowPreparedAttachment(ids.NewId(), fieldKey, fileId, descriptor.OwnerResourceId);
-                    if (tenantScopeKey == "host")
+                    var reference = new WorkflowPreparedAttachment(ids.NewId(), fieldKey, fileId, descriptor.OwnerResourceId, descriptor.Remote);
+                    if (tenantScopeKey == "host" && descriptor.Remote is null)
                     {
                         var result = await claims.ClaimAsync(new(
                             HostFileReferenceClaimIdempotencyKeys.WorkflowFormSubmissionAttachment(reference.Id, fileId),
@@ -117,6 +121,14 @@ internal sealed class WorkflowFormAttachmentCoordinator(
             // 两个分支可以准备相同字段/文件，后取得实例锁的一方不插入重复事实，也不消费自己的临时 claim。
             if (await query.QuerySingleOrDefaultAsync<int>(WorkflowFormSubmissionAttachmentSql.ExistsForFieldFile, parameters, token).ConfigureAwait(false) == 1) continue;
             await command.ExecuteAsync(WorkflowFormSubmissionAttachmentSql.Insert, parameters, token).ConfigureAwait(false);
+            if (reference.Remote is { } remote)
+            {
+                parameters["CallId"] = remote.CallId; parameters["DirectionKey"] = remote.Capability.DirectionKey; parameters["CapabilityFieldKey"] = remote.Capability.FieldKey;
+                parameters["OriginalFileName"] = remote.Capability.OriginalFileName; parameters["ContentType"] = remote.Capability.ContentType;
+                parameters["SizeBytes"] = remote.Capability.SizeBytes; parameters["ContentHash"] = remote.Capability.ContentHash; parameters["ExpiresAtUtc"] = remote.Capability.ExpiresAtUtc;
+                if (await command.ExecuteAsync(WorkflowCollaborationFileSql.InsertRemote, parameters, token).ConfigureAwait(false) != 1)
+                    throw new InvalidOperationException("The local remote-file reference could not be committed.");
+            }
         }
     }
 
@@ -125,6 +137,7 @@ internal sealed class WorkflowFormAttachmentCoordinator(
         if (plan is null || plan.TenantScopeKey != "host") return;
         foreach (var reference in plan.Attachments)
         {
+            if (reference.Remote is not null) continue;
             var key = HostFileReferenceClaimIdempotencyKeys.WorkflowFormSubmissionAttachment(reference.Id, reference.FileId);
             try
             {
@@ -142,8 +155,13 @@ internal sealed class WorkflowFormAttachmentCoordinator(
     }
 
     private async Task<AttachmentDescriptor?> ReadAuthorizedDescriptorAsync(Guid actorId, Guid instanceId, string scope,
-        Guid fileId, bool canReuse, CancellationToken token, WorkflowAttachmentReuseSource? source = null)
+        string fieldKey, Guid fileId, bool canReuse, CancellationToken token, WorkflowAttachmentReuseSource? source = null)
     {
+        if (source is not null || canReuse)
+        {
+            var remote = await remoteFiles.ReadForReuseAsync(source?.InstanceId ?? instanceId, source?.FieldKey, fieldKey, fileId, scope, token).ConfigureAwait(false);
+            if (remote is not null) return new(remote.Capability.OriginalFileName, remote.Capability.SizeBytes, null, remote);
+        }
         WorkflowAttachmentFileOwnerRecord? projectedOwner = null;
         if (source is not null)
         {
@@ -183,11 +201,11 @@ internal sealed class WorkflowFormAttachmentCoordinator(
         Serialization.WorkflowJsonSerializerContext.Default.DictionaryStringJsonElement);
     private static Error InvalidError() => new(WorkflowErrorCodes.FormAttachmentInvalid, "The workflow attachment is invalid or unauthorized.", ErrorType.Validation);
     private static Result<WorkflowAttachmentPlan> InvalidPlan() => Result<WorkflowAttachmentPlan>.Failure(InvalidError());
-    private sealed record AttachmentDescriptor(string Name, long SizeBytes, Guid? OwnerResourceId);
+    private sealed record AttachmentDescriptor(string Name, long SizeBytes, Guid? OwnerResourceId, WorkflowPreparedRemoteAttachment? Remote = null);
 }
 
 /// <summary>事务外准备的单次文件持有身份，不能由客户端提供或跨办理复用。</summary>
-internal sealed record WorkflowPreparedAttachment(Guid Id, string FieldKey, Guid FileId, Guid? OwnerResourceId);
+internal sealed record WorkflowPreparedAttachment(Guid Id, string FieldKey, Guid FileId, Guid? OwnerResourceId, WorkflowPreparedRemoteAttachment? Remote = null);
 
 /// <summary>仅由内核从真实父子关联及明确字段映射派生；不属于HTTP输入，仍逐项核对同作用域历史引用。</summary>
 internal sealed record WorkflowAttachmentReuseSource(Guid InstanceId, string FieldKey);

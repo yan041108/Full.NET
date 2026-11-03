@@ -110,6 +110,7 @@ internal sealed class OutboxProcessor(
                                             store,
                                             ownerResolver,
                                             databasePriority,
+                                            currentTenant,
                                             batchCancellationToken)
                                         .ConfigureAwait(false);
                                 }
@@ -225,6 +226,7 @@ internal sealed class OutboxProcessor(
         IOutboxStore store,
         IEffectiveEventDeliveryOwnerResolver? ownerResolver,
         IDatabaseAdmissionPriorityScope? databasePriority,
+        ICurrentTenantContextWriter currentTenant,
         CancellationToken cancellationToken)
     {
         try
@@ -281,9 +283,19 @@ internal sealed class OutboxProcessor(
                 message.TenantId,
                 message.TraceId,
                 message.OccurredAtUtc);
-            await matchingHandlers[0]
-                .HandleAsync(context, message.Payload, cancellationToken)
-                .ConfigureAwait(false);
+            // 路由校验完成后才从事务Outbox信封恢复业务租户；队列领取/确认始终回到Host，不能把下一条消息带入旧租户。
+            if (message.TenantId == Guid.Empty) throw new InvalidDataException("Outbox envelope tenant id cannot be empty.");
+            if (message.TenantId is { } tenantId)
+            {
+                var identifier = tenantId.ToString("D");
+                currentTenant.SetTenant(new TenantContext(tenantId, identifier, identifier));
+            }
+            else currentTenant.SetHost();
+            try
+            {
+                await matchingHandlers[0].HandleAsync(context, message.Payload, cancellationToken).ConfigureAwait(false);
+            }
+            finally { currentTenant.SetHost(); }
             using (databasePriority?.EnterCritical())
             {
                 await store
@@ -561,6 +573,7 @@ internal sealed class OutboxProcessor(
                     store,
                     ownerResolver,
                     databasePriority,
+                    currentTenant,
                     cancellationToken)
                 .ConfigureAwait(false);
         }

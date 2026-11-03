@@ -7,6 +7,10 @@ using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Ai.Contracts;
 using Full.NET.Modules.Ai.Persistence;
 using Microsoft.Extensions.Options;
+using Full.NET.Modules.Calendar.Contracts;
+using Full.NET.Modules.Ai.Features.CompletePersonalSchedules;
+using Full.NET.Modules.Ai.Runtime;
+using Full.NET.Modules.Identity.Contracts;
 
 namespace Full.NET.Modules.Ai.Features.ManageAgentApprovals;
 
@@ -16,7 +20,9 @@ internal sealed class AiAgentRunApprovalGate(
     ICurrentTenant tenant,
     IClock clock,
     IToolAuthorizationPort authorization,
-    IOptions<DatabaseOptions> databaseOptions)
+    IOptions<DatabaseOptions> databaseOptions,
+    AiAgentRunStore? runs = null,
+    IPersonalScheduleCompletion? calendar = null)
 {
     private const int MaximumCandidates = 32;
 
@@ -50,7 +56,14 @@ internal sealed class AiAgentRunApprovalGate(
                 var actor = new ToolActor(actorUserId, tenant.Id, record.SessionId);
                 if (!AiAgentApprovalConsumption.Matches(record, invocation, actor, tenant, clock.UtcNow)
                     || !await AiAgentApprovalConsumption.TargetMatchesAsync(queries, record, invocation, actor, tenant, cancellationToken).ConfigureAwait(false)) continue;
-                var current = await authorization.AuthorizeAsync(AiChatPermissions.Update, cancellationToken).ConfigureAwait(false);
+                if (invocation.ToolName == PersonalScheduleCompletionKeys.Tool)
+                {
+                    var run = runs is null ? null : await runs.FindOwnedAsync(runId, scope, actorUserId, cancellationToken).ConfigureAwait(false);
+                    var args = ScheduleCompletionArguments.Parse(invocation.Arguments);
+                    if (run is null || args is null || calendar is null || !await calendar.CanCompleteAsync(args.ScheduleId, args.ExpectedVersion,
+                        new SessionBindingSnapshot(run.ActorUserId, run.TenantId, run.SessionId, run.SecurityStamp, run.ActorScope, run.EffectiveScope, run.SessionKind), cancellationToken).ConfigureAwait(false)) continue;
+                }
+                var current = await authorization.AuthorizeAsync(AiAgentApprovalConsumption.PermissionFor(invocation.ToolName), cancellationToken).ConfigureAwait(false);
                 cancellationToken.ThrowIfCancellationRequested();
                 if (current == actor && ResolveScope() == scope
                     && AiAgentApprovalConsumption.Matches(record, invocation, actor, tenant, clock.UtcNow)) return true;

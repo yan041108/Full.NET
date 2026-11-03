@@ -15,7 +15,7 @@ internal enum AiFailureStage
     AgentRun, AgentRunIteration, AgentRejection, AgentCompletion, AgentLease, AgentBudgetRepair,
     AgentApprovalCommit, AgentReconciliationCommit, AgentWorkflowCommit,
     ChatLease, ChatCleanup, KnowledgeIndex, KnowledgeIndexIteration,
-    KnowledgeCleanupIndex, KnowledgeCleanupImport, KnowledgeCleanupRetired, KnowledgeCleanupIteration,
+    KnowledgeCleanupIndex, KnowledgeCleanupImport, KnowledgeCleanupRetired, KnowledgeCleanupCorrection, KnowledgeCleanupIteration,
     KnowledgeIncrementalRecovery, KnowledgeIncrementalRecoveryIteration,
 }
 
@@ -69,6 +69,7 @@ internal static class AiFailureLog
         AiFailureStage.ChatCleanup => "chat_cleanup", AiFailureStage.KnowledgeIndex => "knowledge_index",
         AiFailureStage.KnowledgeIndexIteration => "knowledge_index_iteration", AiFailureStage.KnowledgeCleanupIndex => "knowledge_cleanup_index",
         AiFailureStage.KnowledgeCleanupImport => "knowledge_cleanup_import", AiFailureStage.KnowledgeCleanupRetired => "knowledge_cleanup_retired",
+        AiFailureStage.KnowledgeCleanupCorrection => "knowledge_cleanup_correction",
         AiFailureStage.KnowledgeCleanupIteration => "knowledge_cleanup_iteration",
         AiFailureStage.KnowledgeIncrementalRecovery => "knowledge_incremental_recovery",
         AiFailureStage.KnowledgeIncrementalRecoveryIteration => "knowledge_incremental_recovery_iteration", _ => "other",

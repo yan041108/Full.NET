@@ -7,6 +7,13 @@ namespace Full.NET.Data.CodeGeneration.Generation;
 /// </summary>
 public static class CrudGenerationWorkspace
 {
+    /// <summary>将 owner/module/entity 所有权编码进工作区路径，避免同名 CLR 实体碰撞。</summary>
+    public static string ArtifactPrefix(FullNetCrudSchema schema)
+    {
+        ArgumentNullException.ThrowIfNull(schema);
+        return $"generated/{schema.OwnerKey}/{schema.ModuleKey}/{schema.EntityKey}/";
+    }
+
     /// <summary>
     /// 只读取目标工作区并生成可审查的写盘计划。
     /// </summary>
@@ -39,17 +46,33 @@ public static class CrudGenerationWorkspace
             .SelectMany(schema =>
             {
                 ArgumentNullException.ThrowIfNull(schema);
-                return CrudArtifactGenerator.Generate(schema);
+                return CrudArtifactGenerator.Generate(schema).Select(artifact => artifact with
+                {
+                    RelativePath = ArtifactPrefix(schema) + artifact.RelativePath,
+                });
             })
             .ToArray();
         var snapshot = await GenerationWorkspaceStore.CaptureAsync(
             workspaceRoot,
             artifacts,
             cancellationToken);
-        return GenerationWritePlanner.Plan(
+        var owners = schemas.Select(ArtifactPrefix).ToArray();
+        bool IsOwned(GenerationManifestEntry entry) => owners.Any(prefix => entry.RelativePath.StartsWith(prefix, StringComparison.Ordinal));
+        var ownedManifest = snapshot.PreviousManifest is null ? null : GenerationManifest.Create(
+            snapshot.PreviousManifest.Artifacts.Where(IsOwned));
+        var scoped = GenerationWritePlanner.Plan(
             artifacts,
             snapshot.ExistingFiles,
-            snapshot.PreviousManifest);
+            ownedManifest);
+        // 未参与本次生成的实体保留原有摘要；不得把人工漂移重新认领成生成结果。
+        var next = scoped.NextManifest is null ? null : GenerationManifest.Create(
+            (snapshot.PreviousManifest?.Artifacts.Where(entry => !IsOwned(entry)) ?? [])
+            .Concat(scoped.NextManifest.Artifacts.Select(entry => entry with
+            {
+                Owner = schemas.Select(schema => new { Prefix = ArtifactPrefix(schema), Key = $"{schema.OwnerKey}/{schema.ModuleKey}/{schema.EntityKey}" })
+                    .Single(owner => entry.RelativePath.StartsWith(owner.Prefix, StringComparison.Ordinal)).Key,
+            })));
+        return new GenerationWritePlan(scoped.Actions, snapshot.PreviousManifest, next);
     }
 
     /// <summary>

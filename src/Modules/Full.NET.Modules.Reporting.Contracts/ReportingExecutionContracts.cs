@@ -1,6 +1,8 @@
+using System.Text.Json.Serialization;
+
 namespace Full.NET.Modules.Reporting.Contracts;
 
-/// <remarks>权限码字符串发布后不可改名或删除；新增权限只能追加到本类末尾，避免破坏既有角色分配与策略缓存。ColumnSchemaName 为细分列权限，须与 Run 组合授权。</remarks>
+/// <remarks>ColumnSchemaName 为细分列权限，与 Host 的 Run 或显式授权的租户导出权限组合使用。</remarks>
 /// <summary>报表执行权限码。</summary>
 public static class ReportingExecutionPermissions
 {
@@ -47,7 +49,7 @@ public sealed record ReportingExecutionColumnDefinition(
 /// <summary>报表执行结果行。</summary>
 /// <param name="Values">按列键索引的单元格文本值。</param>
 public sealed record ReportingExecutionRow(
-    IReadOnlyDictionary<string, string?> Values);
+    [property: JsonConverter(typeof(ReportingCellValuesJsonConverter))] IReadOnlyDictionary<string, string?> Values);
 
 /// <remarks>
 /// 机器码稳定性：字段顺序与权限码/错误码字符串发布后不可改名或删除，新增只能追加。TotalRows 受 topN 等上限约束，仅为估计值，调用方不应据此计算总页数做严格校验。

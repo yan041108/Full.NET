@@ -11,12 +11,12 @@ internal static class DocumentShareSql
     /// <summary>分享投影字段；包含 PasswordHash 但服务层 Map 时强制置空，确保响应永不回显。</summary>
     private const string Projection = """
         Id, DocumentId, ShareCode, CreatedAtUtc, ExpireTime,
-        PasswordHash, MaxAccessCount, AccessCount, IsEnabled, Version
+        PasswordHash, MaxAccessCount, AccessCount, IsEnabled, Version, PolicyRevision
         """;
 
     private static readonly string PageFilterWhere = $$"""
         WHERE TenantId IS NULL
-          AND {{DocumentPermissionSql.ReadPredicate.Replace("i.Id", "fn_document_share.DocumentId", StringComparison.Ordinal)}}
+          AND {{DocumentPermissionSql.RelatedReadPredicate("fn_document_share.DocumentId")}}
           AND (@IsEnabled IS NULL OR IsEnabled = @IsEnabled)
           AND (@ShareCodePattern IS NULL OR ShareCode LIKE @ShareCodePattern)
           AND (@DocumentIdPattern IS NULL OR CAST(DocumentId AS VARCHAR(36)) LIKE @DocumentIdPattern)
@@ -28,7 +28,7 @@ internal static class DocumentShareSql
 
     private static readonly string PageFilterWhereMySql = $$"""
         WHERE TenantId IS NULL
-          AND {{DocumentPermissionSql.ReadPredicate.Replace("i.Id", "fn_document_share.DocumentId", StringComparison.Ordinal)}}
+          AND {{DocumentPermissionSql.RelatedReadPredicate("fn_document_share.DocumentId")}}
           AND (@IsEnabled IS NULL OR IsEnabled = @IsEnabled)
           AND (@ShareCodePattern IS NULL OR ShareCode LIKE @ShareCodePattern)
           AND (@DocumentIdPattern IS NULL OR CAST(DocumentId AS CHAR(36)) LIKE @DocumentIdPattern)
@@ -142,10 +142,10 @@ internal static class DocumentShareSql
         """
         INSERT INTO fn_document_share
             (Id, TenantId, DocumentId, ShareCode, CreatedAtUtc, ExpireTime,
-             PasswordHash, MaxAccessCount, AccessCount, IsEnabled, Version)
+             PasswordHash, MaxAccessCount, AccessCount, IsEnabled, Version, PolicyRevision)
         VALUES
             (@Id, NULL, @DocumentId, @ShareCode, @CreatedAtUtc, @ExpireTime,
-             @PasswordHash, @MaxAccessCount, 0, 1, @Version)
+             @PasswordHash, @MaxAccessCount, 0, 1, @Version, 1)
         """,
         SqlDataScope.HostOnly);
 
@@ -158,6 +158,7 @@ internal static class DocumentShareSql
         """
         UPDATE fn_document_share
         SET IsEnabled = @IsEnabled,
+            PolicyRevision = PolicyRevision + 1,
             Version = Version + 1
         WHERE Id = @Id
           AND TenantId IS NULL

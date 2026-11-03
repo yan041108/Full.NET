@@ -20,13 +20,15 @@ internal static class WorkflowSubprocessStartGuard
 {
     public static async Task<Result<WorkflowSubprocessStartReservation>> AcquireAsync(WorkflowChildStartContext context,
         StartWorkflowInstanceRequest request, Guid actorId, WorkflowRuntimeAssetRecord childAsset, WorkflowFormSchema childSchema,
-        WorkflowManagementScope scope, IQueryExecutor query, ICommandExecutor commands, CancellationToken token)
+        WorkflowManagementScope scope, IQueryExecutor query, ICommandExecutor commands, DateTimeOffset now, CancellationToken token)
     {
         if (context.ParentInstanceId == Guid.Empty || context.CallId == Guid.Empty || context.ItemId == Guid.Empty || context.InputHash is not { Length: 64 } ||
             request.BusinessType != WorkflowChildStartContext.BusinessType || request.BusinessId != context.ItemId.ToString("D") ||
             request.IdempotencyKey != "workflow-child-" + context.ItemId.ToString("N") || request.BusinessTitle is not null) return Invalid();
         if (await commands.ExecuteAsync(WorkflowSql.LockInstanceForTodoAction, WorkflowSqlParameters.Create(("Id", context.ParentInstanceId),
                 ("TenantScopeKey", scope.TenantScopeKey)), token).ConfigureAwait(false) != 1) return Invalid();
+        if (!await WorkflowCollaborationRuntimeGate.AllowsAsync(context.ParentInstanceId, scope, actorId, now, query, token, commands).ConfigureAwait(false))
+            return Invalid();
         var root = await query.QuerySingleOrDefaultAsync<WorkflowInstanceRecord>(WorkflowSql.FindInstanceById,
             WorkflowSqlParameters.Create(("Id", context.ParentInstanceId), ("TenantScopeKey", scope.TenantScopeKey)), token).ConfigureAwait(false);
         var call = await query.QuerySingleOrDefaultAsync<WorkflowSubprocessCallRecord>(WorkflowSubprocessSql.Find,
@@ -77,7 +79,7 @@ internal static class WorkflowSubprocessStartGuard
     }
 
     public static async Task<Result<bool>> LinkCreatedAsync(WorkflowSubprocessStartReservation reservation, Guid childId,
-        WorkflowManagementScope scope, DateTimeOffset now, ICommandExecutor commands, CancellationToken token)
+        WorkflowManagementScope scope, DateTimeOffset now, IQueryExecutor query, ICommandExecutor commands, CancellationToken token)
     {
         var call = reservation.Call; var item = reservation.Item;
         if (await commands.ExecuteAsync(WorkflowSubprocessSql.LinkChild, WorkflowSqlParameters.Create(("Id", item.Id), ("CallId", call.Id),
@@ -87,6 +89,11 @@ internal static class WorkflowSubprocessStartGuard
                 ("TenantScopeKey", scope.TenantScopeKey), ("Granted", call.ChildActivityBudget)), token).ConfigureAwait(false) != 1) return InvalidLink();
         if (call.StatusKey == "requested" && await commands.ExecuteAsync(WorkflowSubprocessSql.MarkRunning, WorkflowSqlParameters.Create(("Id", call.Id),
                 ("InstanceId", call.InstanceId), ("TenantScopeKey", scope.TenantScopeKey), ("Revision", call.Revision), ("Now", now)), token).ConfigureAwait(false) != 1) return InvalidLink();
+        var origin = await query.QuerySingleOrDefaultAsync<WorkflowCollaborationOriginRecord>(WorkflowCollaborationRelaySql.FindOrigin,
+            WorkflowSqlParameters.Create(("InstanceId", call.InstanceId), ("TenantScopeKey", scope.TenantScopeKey)), token).ConfigureAwait(false);
+        if (origin is not null && await commands.ExecuteAsync(WorkflowCollaborationRelaySql.InsertOrigin,
+                WorkflowSqlParameters.Create(("InstanceId", childId), ("CallId", origin.CallId), ("RootInstanceId", origin.RootInstanceId),
+                    ("TenantScopeKey", scope.TenantScopeKey), ("Depth", call.Depth)), token).ConfigureAwait(false) != 1) return InvalidLink();
         return Result<bool>.Success(true);
     }
     private static Result<WorkflowSubprocessStartReservation> Invalid() => Result<WorkflowSubprocessStartReservation>.Failure(new(

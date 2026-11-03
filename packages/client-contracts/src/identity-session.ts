@@ -65,6 +65,15 @@ export interface IdentitySessionOptions {
   };
   isSupportedNavigationTree: (navigation: readonly NavigationNode[]) => boolean;
   sessionRefreshCoordinator?: SessionRefreshCoordinator;
+  /** 浏览器 Cookie 会话不接收 TokenResponse；所有 OAuth 凭据由同源 BFF 保管。 */
+  browserSession?: {
+    restore(): Promise<boolean>;
+    getCsrfToken(): string | undefined;
+    switchTenant(tenantId: string | null): Promise<void>;
+    changePassword(currentPassword: string, newPassword: string): Promise<void>;
+    logout(): Promise<void>;
+    clear(): void;
+  };
   /** 替代默认 Cookie 刷新路径，供 OIDC 中心等外部令牌续签使用。 */
   externalRefreshAccessToken?: (
     operationGeneration: number
@@ -89,6 +98,7 @@ export function createIdentitySession(
     i18n,
     isSupportedNavigationTree,
     sessionRefreshCoordinator,
+    browserSession,
     externalRefreshAccessToken,
     onTenantContextTokenResponse
   } = options;
@@ -119,11 +129,13 @@ export function createIdentitySession(
 
   http.configureAuthentication({
     getAccessToken: () => token?.accessToken,
+    getCsrfToken: () => browserSession?.getCsrfToken(),
     refresh: refreshAccessToken
   });
   http.configureRequestLocale(() => i18n.getLocale());
 
   async function login(username: string, password: string): Promise<void> {
+    if (browserSession) throw new Error('identity.browser_interactive_login_required');
     const operationGeneration = ++sessionGeneration;
     const value = await identityLogin(
       http,
@@ -161,6 +173,7 @@ export function createIdentitySession(
   async function completeOidcAuthorization(
     accessTokenResponse: TokenResponse
   ): Promise<void> {
+    if (browserSession) throw new Error('identity.browser_interactive_login_required');
     const operationGeneration = ++sessionGeneration;
     if (!isTokenResponse(accessTokenResponse)) {
       throw new TypeError('OIDC token response不符合 TokenResponse 契约。');
@@ -210,7 +223,7 @@ export function createIdentitySession(
   }
 
   async function reloadAuthenticatedContext(): Promise<void> {
-    if (state !== 'authenticated' || token === undefined) {
+    if (state !== 'authenticated' || (token === undefined && browserSession === undefined)) {
       return;
     }
 
@@ -234,6 +247,12 @@ export function createIdentitySession(
     const execute = async (): Promise<boolean> => {
       const tokenBeforeRefresh = token;
       try {
+        if (browserSession) {
+          const valid = await browserSession.restore();
+          if (operationGeneration !== sessionGeneration) return false;
+          if (!valid) clearLocal();
+          return valid;
+        }
         if (externalRefreshAccessToken !== undefined) {
           const value = await externalRefreshAccessToken(operationGeneration);
           if (operationGeneration !== sessionGeneration) {
@@ -382,6 +401,11 @@ export function createIdentitySession(
     }
 
     const operationGeneration = sessionGeneration;
+    if (browserSession) {
+      await browserSession.changePassword(currentPassword, newPassword);
+      if (operationGeneration === sessionGeneration) clearLocal();
+      return;
+    }
     const value = await changePasswordRequest(
       http,
       currentPassword,
@@ -399,6 +423,18 @@ export function createIdentitySession(
     tenantId: string | null,
     operationGeneration: number
   ): Promise<void> {
+    if (browserSession) {
+      try {
+        await browserSession.switchTenant(tenantId);
+        if (operationGeneration !== sessionGeneration) return;
+        if (!await loadAuthenticatedSnapshot(operationGeneration)) return;
+        state = 'authenticated'; notify(); return;
+      } catch (error) {
+        if (operationGeneration === sessionGeneration
+          && !(isFullNetProblemDetails(error) && error.code === contextConflictCode)) clearLocal();
+        throw error;
+      }
+    }
     const value = await http.request<unknown>('/api/v1/tenancy/context', {
       method: 'PUT',
       headers: { 'content-type': 'application/json' },
@@ -433,6 +469,13 @@ export function createIdentitySession(
   }
 
   async function logout(): Promise<void> {
+    if (browserSession) {
+      // 防伪材料在请求发出后清理；先推进代际，阻止在途响应恢复本地身份。
+      sessionGeneration++;
+      try { await browserSession.logout(); }
+      finally { clearLocal(); sessionRefreshCoordinator?.notifySessionCleared(); }
+      return;
+    }
     const headers = readCsrfHeaders();
     // Logout 立即推进代际，避免在途 Refresh 或上下文切换重新写回旧令牌。
     clearLocal();
@@ -520,6 +563,7 @@ export function createIdentitySession(
   function clearLocal(): void {
     sessionGeneration++;
     token = undefined;
+    browserSession?.clear();
     currentUser = undefined;
     navigation = [];
     availableTenants = [];

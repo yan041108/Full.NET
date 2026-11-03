@@ -1,0 +1,181 @@
+{
+  "schemaVersion": 1,
+  "entries": [
+    {
+      "sourceModule": "Organization",
+      "file": "src/Modules/Full.NET.Modules.Organization/Features/ManageTenantUserUnits/Queries/TenantUserUnitListSql.cs",
+      "member": "TenantUserUnitListSql.CountSqlServer",
+      "statementName": "organization.count_user_units.admin.sql_server",
+      "sqlSha256": "214c13f74e78a28b04d4274ccddd05ee7e2785ff0098c8742ba496c463431929",
+      "purpose": "admin-search",
+      "dependencies": [
+        {
+          "module": "Identity",
+          "table": "fn_identity_user",
+          "columns": [
+            "Id",
+            "ScopeKey",
+            "TenantId",
+            "Username",
+            "DisplayName"
+          ]
+        }
+      ],
+      "securityNotes": "仅经 organization.user_units.read 授权的后台查询；assignment.TenantId 由可信上下文绑定，关联对象 TenantId 与隶属一致。Identity 仅限 ScopeKey=host 且 TenantId IS NULL，展示当前 Username/DisplayName，不读取凭据且不排除停用用户；失效用户关联在 COUNT 和分页前一致排除。机构数据范围继续由 Identity 契约解析并在本模块求值，静态 JOIN 以可见机构 JSON 集合约束；空集合拒绝所有行。列表 SQL 不参与业务事务。"
+    },
+    {
+      "sourceModule": "Organization",
+      "file": "src/Modules/Full.NET.Modules.Organization/Features/ManageTenantUserUnits/Queries/TenantUserUnitListSql.cs",
+      "member": "TenantUserUnitListSql.ListSqlServer",
+      "statementName": "organization.list_user_units.admin.sql_server",
+      "sqlSha256": "623d0da278b506b923e8fbab496dbdfdb1f16181a6db684367abbcfa7866ccb6",
+      "purpose": "admin-search",
+      "dependencies": [
+        {
+          "module": "Identity",
+          "table": "fn_identity_user",
+          "columns": [
+            "Id",
+            "ScopeKey",
+            "TenantId",
+            "Username",
+            "DisplayName"
+          ]
+        }
+      ],
+      "securityNotes": "仅经 organization.user_units.read 授权的后台查询；assignment.TenantId 由可信上下文绑定，关联对象 TenantId 与隶属一致。Identity 仅限 ScopeKey=host 且 TenantId IS NULL，展示当前 Username/DisplayName，不读取凭据且不排除停用用户；失效用户关联在 COUNT 和分页前一致排除。机构数据范围继续由 Identity 契约解析并在本模块求值，静态 JOIN 以可见机构 JSON 集合约束；空集合拒绝所有行。列表 SQL 不参与业务事务。"
+    },
+    {
+      "sourceModule": "Organization",
+      "file": "src/Modules/Full.NET.Modules.Organization/Features/ManageTenantUserUnits/Queries/TenantUserUnitListSql.cs",
+      "member": "TenantUserUnitListSql.CountMySql",
+      "statementName": "organization.count_user_units.admin.mysql",
+      "sqlSha256": "40e1888c121704f57a7279e4db467808e91a79bb94729af8cbf7f1eef4115b49",
+      "purpose": "admin-search",
+      "dependencies": [
+        {
+          "module": "Identity",
+          "table": "fn_identity_user",
+          "columns": [
+            "Id",
+            "ScopeKey",
+            "TenantId",
+            "Username",
+            "DisplayName"
+          ]
+        }
+      ],
+      "securityNotes": "仅经 organization.user_units.read 授权的后台查询；assignment.TenantId 由可信上下文绑定，关联对象 TenantId 与隶属一致。Identity 仅限 ScopeKey=host 且 TenantId IS NULL，展示当前 Username/DisplayName，不读取凭据且不排除停用用户；失效用户关联在 COUNT 和分页前一致排除。机构数据范围继续由 Identity 契约解析并在本模块求值，静态 JOIN 以可见机构 JSON 集合约束；空集合拒绝所有行。列表 SQL 不参与业务事务。"
+    },
+    {
+      "sourceModule": "Organization",
+      "file": "src/Modules/Full.NET.Modules.Organization/Features/ManageTenantUserUnits/Queries/TenantUserUnitListSql.cs",
+      "member": "TenantUserUnitListSql.ListMySql",
+      "statementName": "organization.list_user_units.admin.mysql",
+      "sqlSha256": "17737cc2584223279091d7fabde3aefe8b805ec108b241e47980f366ed24610c",
+      "purpose": "admin-search",
+      "dependencies": [
+        {
+          "module": "Identity",
+          "table": "fn_identity_user",
+          "columns": [
+            "Id",
+            "ScopeKey",
+            "TenantId",
+            "Username",
+            "DisplayName"
+          ]
+        }
+      ],
+      "securityNotes": "仅经 organization.user_units.read 授权的后台查询；assignment.TenantId 由可信上下文绑定，关联对象 TenantId 与隶属一致。Identity 仅限 ScopeKey=host 且 TenantId IS NULL，展示当前 Username/DisplayName，不读取凭据且不排除停用用户；失效用户关联在 COUNT 和分页前一致排除。机构数据范围继续由 Identity 契约解析并在本模块求值，静态 JOIN 以可见机构 JSON 集合约束；空集合拒绝所有行。列表 SQL 不参与业务事务。"
+    },
+    {
+      "sourceModule": "Organization",
+      "file": "src/Modules/Full.NET.Modules.Organization/Features/ManageTenantUserPositions/Queries/TenantUserPositionListSql.cs",
+      "member": "TenantUserPositionListSql.CountSqlServer",
+      "statementName": "organization.count_user_positions.admin.sql_server",
+      "sqlSha256": "8557d423ed1f0d2f8c8cab2afc027b1f21e93aac5e245d5d312afe82d2516b4f",
+      "purpose": "admin-search",
+      "dependencies": [
+        {
+          "module": "Identity",
+          "table": "fn_identity_user",
+          "columns": [
+            "Id",
+            "ScopeKey",
+            "TenantId",
+            "Username",
+            "DisplayName"
+          ]
+        }
+      ],
+      "securityNotes": "仅经 organization.user_positions.read 授权的后台查询；assignment.TenantId 由可信上下文绑定，关联对象 TenantId 与隶属一致。Identity 仅限 ScopeKey=host 且 TenantId IS NULL，展示当前 Username/DisplayName，不读取凭据且不排除停用用户；失效用户关联在 COUNT 和分页前一致排除。保留租户内目录级读取语义，不额外施加机构数据范围。列表 SQL 不参与业务事务。"
+    },
+    {
+      "sourceModule": "Organization",
+      "file": "src/Modules/Full.NET.Modules.Organization/Features/ManageTenantUserPositions/Queries/TenantUserPositionListSql.cs",
+      "member": "TenantUserPositionListSql.ListSqlServer",
+      "statementName": "organization.list_user_positions.admin.sql_server",
+      "sqlSha256": "2b36511e0b781c1663fb19b742469c12ba6ac633e68b17455e66e1f69134f891",
+      "purpose": "admin-search",
+      "dependencies": [
+        {
+          "module": "Identity",
+          "table": "fn_identity_user",
+          "columns": [
+            "Id",
+            "ScopeKey",
+            "TenantId",
+            "Username",
+            "DisplayName"
+          ]
+        }
+      ],
+      "securityNotes": "仅经 organization.user_positions.read 授权的后台查询；assignment.TenantId 由可信上下文绑定，关联对象 TenantId 与隶属一致。Identity 仅限 ScopeKey=host 且 TenantId IS NULL，展示当前 Username/DisplayName，不读取凭据且不排除停用用户；失效用户关联在 COUNT 和分页前一致排除。保留租户内目录级读取语义，不额外施加机构数据范围。列表 SQL 不参与业务事务。"
+    },
+    {
+      "sourceModule": "Organization",
+      "file": "src/Modules/Full.NET.Modules.Organization/Features/ManageTenantUserPositions/Queries/TenantUserPositionListSql.cs",
+      "member": "TenantUserPositionListSql.CountMySql",
+      "statementName": "organization.count_user_positions.admin.mysql",
+      "sqlSha256": "8557d423ed1f0d2f8c8cab2afc027b1f21e93aac5e245d5d312afe82d2516b4f",
+      "purpose": "admin-search",
+      "dependencies": [
+        {
+          "module": "Identity",
+          "table": "fn_identity_user",
+          "columns": [
+            "Id",
+            "ScopeKey",
+            "TenantId",
+            "Username",
+            "DisplayName"
+          ]
+        }
+      ],
+      "securityNotes": "仅经 organization.user_positions.read 授权的后台查询；assignment.TenantId 由可信上下文绑定，关联对象 TenantId 与隶属一致。Identity 仅限 ScopeKey=host 且 TenantId IS NULL，展示当前 Username/DisplayName，不读取凭据且不排除停用用户；失效用户关联在 COUNT 和分页前一致排除。保留租户内目录级读取语义，不额外施加机构数据范围。列表 SQL 不参与业务事务。"
+    },
+    {
+      "sourceModule": "Organization",
+      "file": "src/Modules/Full.NET.Modules.Organization/Features/ManageTenantUserPositions/Queries/TenantUserPositionListSql.cs",
+      "member": "TenantUserPositionListSql.ListMySql",
+      "statementName": "organization.list_user_positions.admin.mysql",
+      "sqlSha256": "675531ec11bab1cb6d4267156860a18db98b150aae80ff7ea975b8a562456f51",
+      "purpose": "admin-search",
+      "dependencies": [
+        {
+          "module": "Identity",
+          "table": "fn_identity_user",
+          "columns": [
+            "Id",
+            "ScopeKey",
+            "TenantId",
+            "Username",
+            "DisplayName"
+          ]
+        }
+      ],
+      "securityNotes": "仅经 organization.user_positions.read 授权的后台查询；assignment.TenantId 由可信上下文绑定，关联对象 TenantId 与隶属一致。Identity 仅限 ScopeKey=host 且 TenantId IS NULL，展示当前 Username/DisplayName，不读取凭据且不排除停用用户；失效用户关联在 COUNT 和分页前一致排除。保留租户内目录级读取语义，不额外施加机构数据范围。列表 SQL 不参与业务事务。"
+    }
+  ]
+}

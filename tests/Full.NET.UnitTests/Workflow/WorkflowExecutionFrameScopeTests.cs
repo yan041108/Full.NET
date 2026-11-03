@@ -10,6 +10,17 @@ namespace Full.NET.UnitTests.Workflow;
 public sealed class WorkflowExecutionFrameScopeTests
 {
     [TestMethod]
+    public async Task Suspended_root_retains_its_real_frame_without_authorizing_business_progress()
+    {
+        var data = Create(); var paused = data.Instance with { StatusKey = "suspended" };
+        Assert.IsFalse(await WorkflowExecutionFrameScope.IsValidAsync(data.Query, paused, data.Leaf, data.Fork.Id, "left", default));
+        Assert.IsTrue(await WorkflowExecutionFrameScope.IsRetainedAsync(data.Query, paused, data.Leaf, data.Fork.Id, "left", default));
+        data.Epochs[data.Parent] = data.Epochs[data.Parent] with { StatusKey = "closed", ClosedAtUtc = DateTimeOffset.UtcNow };
+        Assert.IsFalse(await WorkflowExecutionFrameScope.IsRetainedAsync(data.Query, paused, data.Leaf, data.Fork.Id, "left", default));
+        Assert.IsFalse(await WorkflowExecutionFrameScope.IsRetainedAsync(data.Query, paused with { StatusKey = "cancelled" }, paused.Id, null, null, default));
+    }
+
+    [TestMethod]
     public async Task Root_without_a_branch_needs_no_invented_region_frame()
     {
         var data = Create();

@@ -28,4 +28,10 @@
   <data name="document.recycle.not_found" xml:space="preserve"><value>回收站文档不存在。</value></data>
   <data name="document.host.share.password_not_supported_yet" xml:space="preserve"><value>当前版本尚不支持创建带口令的分享链接。</value></data>
   <data name="document.host_document.access_denied" xml:space="preserve"><value>没有此文档的操作权限。</value></data>
+  <data name="document.preview.attempts_exhausted" xml:space="preserve"><value>预览任务已达到自动领取次数上限</value></data>
+  <data name="document.preview.cancelled" xml:space="preserve"><value>预览任务已取消</value></data>
+  <data name="document.preview.lease_expired" xml:space="preserve"><value>预览执行租约已过期</value></data>
+  <data name="document.preview.reference_released" xml:space="preserve"><value>预览引用已释放</value></data>
+  <data name="document.preview.result_not_committed" xml:space="preserve"><value>预览结果未能提交</value></data>
+  <data name="document.preview.lifecycle_upgrade_required" xml:space="preserve"><value>旧预览任务需重新创建</value></data>
 </root>

@@ -15,7 +15,8 @@
     "hasUpdatedAudit": true,
     "hasDeletedAudit": true,
     "hasVersion": true,
-    "ownershipMode": "organization.unit"
+    "ownershipMode": "organization.unit",
+    "hasMutationPolicy": true
   },
   "relationships": [
     {
@@ -25,8 +26,146 @@
       "dependentEntityKey": "enterprise_request_line",
       "dependentColumnName": "RequestId",
       "dependentDataScope": "tenant.required",
-      "compositeKeyColumnNames": ["RequestId"],
-      "cascadeDelete": true
+      "compositeKeyColumnNames": [
+        "RequestId",
+        "Id"
+      ],
+      "cascadeDelete": true,
+      "dependentSchema": {
+        "ownerKey": "demo",
+        "moduleKey": "enterprise_request",
+        "entityKey": "enterprise_request_line",
+        "databaseTableName": "demo_enterprise_request_enterprise_request_line",
+        "rootNamespace": "Full.NET.Modules.EnterpriseRequest",
+        "clrTypeName": "EnterpriseRequestLine",
+        "apiResourceName": "enterprise-request-lines",
+        "permissionResourceName": "enterprise_request_lines",
+        "dataScope": "tenant.required",
+        "entityCapabilities": {
+          "deleteMode": "soft.delete",
+          "hasCreatedAudit": true,
+          "hasUpdatedAudit": true,
+          "hasDeletedAudit": true,
+          "hasVersion": true,
+          "ownershipMode": "organization.unit",
+          "hasMutationPolicy": true
+        },
+        "columns": [
+          {
+            "databaseName": "Id",
+            "clrPropertyName": "Id",
+            "jsonPropertyName": "id",
+            "scalarType": "Uuid"
+          },
+          {
+            "databaseName": "TenantId",
+            "clrPropertyName": "TenantId",
+            "jsonPropertyName": "tenantId",
+            "scalarType": "Uuid"
+          },
+          {
+            "databaseName": "OrganizationUnitId",
+            "clrPropertyName": "OrganizationUnitId",
+            "jsonPropertyName": "organizationUnitId",
+            "scalarType": "Uuid"
+          },
+          {
+            "databaseName": "RequestId",
+            "clrPropertyName": "RequestId",
+            "jsonPropertyName": "requestId",
+            "scalarType": "Uuid"
+          },
+          {
+            "databaseName": "LineNumber",
+            "clrPropertyName": "LineNumber",
+            "jsonPropertyName": "lineNumber",
+            "scalarType": "Int32"
+          },
+          {
+            "databaseName": "ItemDescription",
+            "clrPropertyName": "ItemDescription",
+            "jsonPropertyName": "itemDescription",
+            "scalarType": "String",
+            "maxLength": 200
+          },
+          {
+            "databaseName": "Quantity",
+            "clrPropertyName": "Quantity",
+            "jsonPropertyName": "quantity",
+            "scalarType": "Decimal",
+            "numericPrecision": 18,
+            "numericScale": 4
+          },
+          {
+            "databaseName": "UnitPrice",
+            "clrPropertyName": "UnitPrice",
+            "jsonPropertyName": "unitPrice",
+            "scalarType": "Decimal",
+            "numericPrecision": 18,
+            "numericScale": 2
+          },
+          {
+            "databaseName": "LineAmount",
+            "clrPropertyName": "LineAmount",
+            "jsonPropertyName": "lineAmount",
+            "scalarType": "Decimal",
+            "numericPrecision": 18,
+            "numericScale": 2
+          },
+          {
+            "databaseName": "Version",
+            "clrPropertyName": "Version",
+            "jsonPropertyName": "version",
+            "scalarType": "Int64"
+          },
+          {
+            "databaseName": "CreatedAtUtc",
+            "clrPropertyName": "CreatedAtUtc",
+            "jsonPropertyName": "createdAtUtc",
+            "scalarType": "DateTimeUtc"
+          },
+          {
+            "databaseName": "CreatedById",
+            "clrPropertyName": "CreatedById",
+            "jsonPropertyName": "createdById",
+            "scalarType": "Uuid"
+          },
+          {
+            "databaseName": "UpdatedAtUtc",
+            "clrPropertyName": "UpdatedAtUtc",
+            "jsonPropertyName": "updatedAtUtc",
+            "scalarType": "DateTimeUtc",
+            "isNullable": true
+          },
+          {
+            "databaseName": "UpdatedById",
+            "clrPropertyName": "UpdatedById",
+            "jsonPropertyName": "updatedById",
+            "scalarType": "Uuid",
+            "isNullable": true
+          },
+          {
+            "databaseName": "IsDeleted",
+            "clrPropertyName": "IsDeleted",
+            "jsonPropertyName": "isDeleted",
+            "scalarType": "Boolean"
+          },
+          {
+            "databaseName": "DeletedAtUtc",
+            "clrPropertyName": "DeletedAtUtc",
+            "jsonPropertyName": "deletedAtUtc",
+            "scalarType": "DateTimeUtc",
+            "isNullable": true
+          },
+          {
+            "databaseName": "DeletedById",
+            "clrPropertyName": "DeletedById",
+            "jsonPropertyName": "deletedById",
+            "scalarType": "Uuid",
+            "isNullable": true
+          }
+        ]
+      }
     }
   ],
   "columns": [

@@ -43,7 +43,7 @@
 | 精确同步/取消边界 | 原因与限制 | 退出条件/验证 |
 | --- | --- | --- |
 | `GenerationRollbackCheckpointStore.MovePendingDirectoryAsync` 内 `Directory.Move` | OS 没有对应异步原子目录重命名；同卷发布不得替换成复制。单次 OS 调用不可取消；最多 8 次尝试，等待可取消，总退避 700ms（不含 OS 调用耗时），受工作区 Apply Gate 串行化 | .NET 提供等价异步原子操作时替换；检查点与回滚测试覆盖一致性 |
-| `KafkaLagQueryClient` 三个 `Read*Async` 与 `Dispose` | 查询使用原生异步接口，但 SDK 无 CancellationToken；各请求 RequestTimeout 为 10 秒，每采样串行最多一个在途请求。取消后不再发起下一请求，等待在途结束再同步释放 Admin native handle；释放无可配置硬超时，不声称整体截止时间是硬 SLA | SDK 支持取消/异步释放时复审；延迟、取消、失败关闭及真实 Kafka 专项验证 |
+| `KafkaLagQueryClient` 的 `Read*Async` 与 `Dispose` | 查询使用原生异步接口，但 SDK 无 CancellationToken；计数/集群请求上限 10 秒，可选时间索引/配置请求上限 2 秒，至多 32 分区、22 轮二分、单轮采样串行最多一个在途请求。取消后不再发起下一请求，等待在途结束再同步释放 Admin native handle；释放无可配置硬超时，不声称整体截止时间是硬 SLA | SDK 支持取消/异步释放时复审；延迟、取消、失败关闭及真实 Kafka 专项验证 |
 
 ## 3. 安全、Audit 与缓存
 

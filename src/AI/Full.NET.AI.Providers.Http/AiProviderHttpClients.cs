@@ -2,6 +2,7 @@ using System.Net;
 using Full.NET.AI.Abstractions.Models;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Http.Resilience;
 
 namespace Full.NET.AI.Providers.Http;
 
@@ -84,6 +85,15 @@ public static class AiProviderHttpClients
                     ? new AiProviderTelemetryHandler(key, stage) { InnerHandler = CreateHandler(selectedPolicy, ollama) }
                     : new AiSilentHttpHandler { InnerHandler = CreateHandler(selectedPolicy, ollama, true) });
                 if (!emitTelemetry) registration.RemoveAllLoggers();
+                // 收费通道的发送结果可能未知，继承宿主重试会重复计费；保留限流、超时及熔断。
+                if (stage != "connectivity")
+                    registration.ConfigureAdditionalHttpMessageHandlers(static (handlers, _) =>
+                    {
+                        // 使用稳定的处理器配置 API，只替换韧性层，不能移除来源/目的地及遥测边界。
+                        for (var index = handlers.Count - 1; index >= 0; index--)
+                            if (handlers[index] is ResilienceHandler) handlers.RemoveAt(index);
+                    }).AddStandardResilienceHandler(options =>
+                        options.Retry.ShouldHandle = static _ => ValueTask.FromResult(false));
             }
         }
     }

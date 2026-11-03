@@ -1,0 +1,60 @@
+import {test,expect} from '@playwright/test';
+import AxeBuilder from '@axe-core/playwright';
+import {readFileSync,writeFileSync,existsSync} from 'node:fs';
+import path from 'node:path';
+import {loginAsHostUser} from './support/real-stack-auth.mjs';
+const ready=process.env.FULLNET_K05_EVALUATION_BROWSER_READY;
+const fixture=JSON.parse(readFileSync(ready,'utf8'));const bridge=path.dirname(ready);
+if(!fixture.username||!fixture.reviewer||!fixture.knowledgeBaseId)throw Error('Missing exact evaluation Native fixture');
+for(const viewport of [{width:1440,height:1000},{width:390,height:844}])test(`人工脱敏冻结与独立批准 ${viewport.width}`,async({page},testInfo)=>{
+  test.setTimeout(180_000);const errors=[];let paid=0;
+  page.on('pageerror',error=>errors.push(error.message));
+  page.on('request',request=>{if(request.method()==='POST'&&/\/(ask|index|compare|refine|rebuild|retry|publication-requests)$/.test(request.url()))paid++;});
+  async function enter(username){
+    await page.setViewportSize({width:1440,height:1000});await loginAsHostUser(page,username,fixture.password);await page.setViewportSize(viewport);
+    await page.goto('/#/ai/knowledge-evaluation-sets');await page.getByRole('button',{name:'管理评估集',exact:true}).first().click();
+    const dialog=page.getByRole('dialog',{name:'冻结评估集',exact:true});await expect(dialog).toBeVisible();
+    await dialog.getByTestId('knowledge-base-select').click();await page.getByRole('option',{name:'K05 独立评估验收',exact:true}).click();
+    const response=page.waitForResponse(value=>value.request().method()==='GET'&&value.url().endsWith('/evaluation-sets'));
+    await dialog.getByTestId('evaluation-sets-refresh').focus();await page.keyboard.press('Enter');expect((await response).status()).toBe(200);return dialog;
+  }
+  let dialog=await enter(fixture.username);await dialog.getByRole('button',{name:'新建独立评估集',exact:true}).click();
+  const title='浏览器人工脱敏评估 '+viewport.width+' '+Date.now();
+  await dialog.getByLabel('评估集名称',{exact:true}).fill(title);
+  await dialog.getByLabel('人工脱敏问题',{exact:true}).fill('人工脱敏的验收问题');
+  await dialog.getByLabel('人工参考答案',{exact:true}).fill('人工参考答案，不来自生产回答');
+  await dialog.getByLabel('人工评估依据',{exact:true}).fill('人工核验依据');
+  await dialog.getByLabel('独立人工编写依据',{exact:true}).fill('测试人员独立编写');
+  const confirm=dialog.getByRole('checkbox',{name:'我已人工移除个人信息、凭据和生产机密，并核对全部样例',exact:true});
+  await confirm.focus();await page.keyboard.press('Space');await expect(confirm).toBeChecked();
+  const saved=page.waitForResponse(value=>value.request().method()==='POST'&&value.url().endsWith('/evaluation-sets'));
+  await dialog.getByRole('button',{name:'保存并显式冻结',exact:true}).focus();await page.keyboard.press('Enter');
+  const response=await saved;expect(response.status()).toBe(200);const mutation=await response.json();expect(mutation.deliveryState).toBe('available');
+  const workspace=dialog.getByTestId('evaluation-workspace');await expect(workspace).toContainText(title);await expect(workspace).toContainText('未批准');
+  await expect(dialog.getByRole('button',{name:'独立批准冻结修订',exact:true})).toHaveCount(0);
+  await page.evaluate(async()=>{await Promise.all(document.getAnimations().filter(a=>Number.isFinite(a.effect?.getComputedTiming().endTime)).map(a=>a.finished.catch(()=>{})));});
+  expect((await new AxeBuilder({page}).include('[role="dialog"]').analyze()).violations).toEqual([]);
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=document.documentElement.clientWidth+1)).toBe(true);
+  await page.screenshot({path:testInfo.outputPath('evaluation-frozen.png')});
+  dialog=await enter(fixture.reviewer);
+  const row=dialog.locator('.set-row').filter({hasText:title});await row.getByRole('button',{name:'管理评估集',exact:true}).click();
+  const independent=dialog.getByRole('checkbox',{name:'我已独立核对脱敏内容与依据，且没有参与该正文的编写',exact:true});
+  await independent.focus();await page.keyboard.press('Space');
+  const approved=page.waitForResponse(value=>value.request().method()==='POST'&&value.url().endsWith('/approvals'));
+  await dialog.getByRole('button',{name:'独立批准冻结修订',exact:true}).focus();await page.keyboard.press('Enter');
+  expect((await approved).status()).toBe(200);await expect(dialog.getByTestId('evaluation-workspace')).toContainText('存在批准记录');
+  await page.keyboard.press('Tab');expect(await page.evaluate(()=>!!document.activeElement?.closest('[role="dialog"]'))).toBe(true);
+  await page.evaluate(async()=>{await Promise.all(document.getAnimations().filter(a=>Number.isFinite(a.effect?.getComputedTiming().endTime)).map(a=>a.finished.catch(()=>{})));});
+  expect((await new AxeBuilder({page}).include('[role="dialog"]').analyze()).violations).toEqual([]);
+  expect(await dialog.evaluate(element=>element.scrollWidth<=element.clientWidth+1)).toBe(true);
+  await page.screenshot({path:testInfo.outputPath('evaluation-approved.png')});
+  if(viewport.width===390){
+    writeFileSync(path.join(bridge,'advance.json'),'{}');await expect.poll(()=>existsSync(path.join(bridge,'changed.json')),{timeout:60_000}).toBe(true);
+    const denied=page.waitForResponse(value=>value.request().method()==='GET'&&value.url().endsWith('/evaluation-sets'));
+    await dialog.getByTestId('evaluation-sets-refresh').click();expect([403,404,409]).toContain((await denied).status());
+    await expect(dialog.getByTestId('evaluation-workspace')).toHaveCount(0);await expect(dialog).not.toContainText('人工脱敏的验收问题');
+    await expect(dialog).toContainText('旧正文已清空');await page.screenshot({path:testInfo.outputPath('evaluation-cleared.png')});
+    writeFileSync(path.join(bridge,'complete.json'),'{}');
+  }
+  expect(paid).toBe(0);expect(errors).toEqual([]);
+});

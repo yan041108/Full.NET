@@ -6,7 +6,7 @@ internal sealed class AiKnowledgeCleanupWorkerOptions
     internal const string SectionName = "FullNet:Ai:KnowledgeCleanupWorker";
     /// <summary>是否自动恢复已提交的删除意图。</summary>
     public bool Enabled { get; set; }
-    /// <summary>每轮最多处理的任务或文件操作，范围 1–32。</summary>
+    /// <summary>每轮最多处理的任务、文件操作或校对来源，范围 1–32；来源内的修订另有独立批次上限。</summary>
     public int BatchSize { get; set; } = 4;
     /// <summary>每轮结束均等待，范围 250–60000 毫秒。</summary>
     public int PollMilliseconds { get; set; } = 1000;

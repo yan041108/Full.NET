@@ -12,6 +12,10 @@ internal static class DocumentItemSql
     /// <summary>文档项列表投影字段；不含版本关联列，仅用于轻量列表场景。</summary>
     private const string ItemProjection = """
         i.Id, i.Title, i.Description, i.CategoryId, i.CurrentVersionId,
+        i.DocumentNo, i.DocumentType, i.Status, i.Sort, i.Thumbnail, i.AccessCount, i.LastAccessTime,
+        i.VisibilityMode, i.AccessRevision, i.LastVersionNumber, i.IsPurging,
+        (SELECT c.Name FROM fn_document_category c WHERE c.Id = i.CategoryId) AS CategoryName,
+        (SELECT c.Color FROM fn_document_category c WHERE c.Id = i.CategoryId) AS CategoryColor,
         i.CreatedAtUtc, i.CreatedByUserId, i.UpdatedAtUtc, i.UpdatedByUserId, i.Version,
         i.DeletedAtUtc, i.DeletedByUserId
         """;
@@ -22,10 +26,14 @@ internal static class DocumentItemSql
     /// </summary>
     private const string DetailProjection = """
         i.Id, i.Title, i.Description, i.CategoryId, i.CurrentVersionId,
+        i.DocumentNo, i.DocumentType, i.Status, i.Sort, i.Thumbnail, i.AccessCount, i.LastAccessTime,
+        i.VisibilityMode, i.AccessRevision, i.LastVersionNumber, i.IsPurging,
+        (SELECT c.Name FROM fn_document_category c WHERE c.Id = i.CategoryId) AS CategoryName,
+        (SELECT c.Color FROM fn_document_category c WHERE c.Id = i.CategoryId) AS CategoryColor,
         i.CreatedAtUtc, i.CreatedByUserId, i.UpdatedAtUtc, i.UpdatedByUserId, i.Version,
         v.Id AS VersionId, v.VersionNumber, v.FileId, v.ContentHash, v.SizeBytes,
         v.CreatedAtUtc AS VersionCreatedAtUtc, v.UploadedByUserId,
-        v.FileName, v.MimeType, v.Extension, v.SizeBytes AS FileSizeBytes,
+        v.FileName, v.MimeType, v.Extension, v.ChangeDescription, v.SizeBytes AS FileSizeBytes,
         i.DeletedAtUtc, i.DeletedByUserId
         """;
 
@@ -33,7 +41,11 @@ internal static class DocumentItemSql
     /// 活动文档项分页（SQL Server）：先 COUNT 再分页详情，按 UpdatedAtUtc/CreatedAtUtc 取最近变更优先；
     /// OFFSET/FETCH NEXT 语法仅在 SQL Server 中支持，过滤条件显式 TenantId IS NULL AND IsDeleted = 0。
     /// </summary>
-    private const string PageTagFilter = """
+    private const string PageFilter = """
+          AND (@Keyword IS NULL OR i.Title LIKE @Keyword ESCAPE '~' OR i.DocumentNo LIKE @Keyword ESCAPE '~')
+          AND (@Status IS NULL OR i.Status = @Status)
+          AND (@DocumentType IS NULL OR i.DocumentType = @DocumentType)
+          AND (@CategoryId IS NULL OR i.CategoryId IN (SELECT Id FROM category_tree))
           AND (@TagId IS NULL OR EXISTS (
               SELECT 1
               FROM fn_document_tag_assignment AS assignment
@@ -42,23 +54,37 @@ internal static class DocumentItemSql
           ))
         """;
 
+    // 深度上限与写入守卫一致；旧数据含环时仍能终止，IN 不重复文档。
+    private const string CategoryTree = """
+        category_tree AS (
+            SELECT Id, 0 AS Depth FROM fn_document_category
+            WHERE Id = @CategoryId AND TenantId IS NULL AND IsDeleted = 0
+            UNION ALL
+            SELECT c.Id, tree.Depth + 1 FROM fn_document_category c
+            INNER JOIN category_tree tree ON c.ParentId = tree.Id
+            WHERE c.TenantId IS NULL AND c.IsDeleted = 0 AND tree.Depth < 128
+        )
+        """;
+
     public static readonly SqlStatement PageSqlServer = new(
         "document.host_item.page.sql_server",
         $$"""
+        WITH {{CategoryTree}}
         SELECT COUNT(1)
         FROM fn_document_item AS i
         WHERE i.TenantId IS NULL AND i.IsDeleted = 0
         AND {{DocumentPermissionSql.ReadPredicate}}
-        {{PageTagFilter}};
+        {{PageFilter}} OPTION (MAXRECURSION 128);
 
+        WITH {{CategoryTree}}
         SELECT {{DetailProjection}}
         FROM fn_document_item AS i
         LEFT JOIN fn_document_version AS v ON v.Id = i.CurrentVersionId
         WHERE i.TenantId IS NULL AND i.IsDeleted = 0
         AND {{DocumentPermissionSql.ReadPredicate}}
-        {{PageTagFilter}}
+        {{PageFilter}}
         ORDER BY COALESCE(i.UpdatedAtUtc, i.CreatedAtUtc) DESC, i.Id
-        OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY
+        OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY OPTION (MAXRECURSION 128)
         """,
         SqlDataScope.HostOnly);
 
@@ -69,18 +95,20 @@ internal static class DocumentItemSql
     public static readonly SqlStatement PageMySql = new(
         "document.host_item.page.my_sql",
         $$"""
+        WITH RECURSIVE {{CategoryTree}}
         SELECT COUNT(1)
         FROM fn_document_item AS i
         WHERE i.TenantId IS NULL AND i.IsDeleted = 0
         AND {{DocumentPermissionSql.ReadPredicate}}
-        {{PageTagFilter}};
+        {{PageFilter}};
 
+        WITH RECURSIVE {{CategoryTree}}
         SELECT {{DetailProjection}}
         FROM fn_document_item AS i
         LEFT JOIN fn_document_version AS v ON v.Id = i.CurrentVersionId
         WHERE i.TenantId IS NULL AND i.IsDeleted = 0
         AND {{DocumentPermissionSql.ReadPredicate}}
-        {{PageTagFilter}}
+        {{PageFilter}}
         ORDER BY COALESCE(i.UpdatedAtUtc, i.CreatedAtUtc) DESC, i.Id
         LIMIT @PageSize OFFSET @Offset
         """,
@@ -186,12 +214,12 @@ internal static class DocumentItemSql
         "document.host_item.insert",
         """
         INSERT INTO fn_document_item
-            (Id, TenantId, CategoryId, CurrentVersionId, Title, Description,
+            (Id, TenantId, CategoryId, CurrentVersionId, Title, Description, DocumentNo,
              DocumentType, Status, Sort, Thumbnail,
              IsDeleted, DeletedAtUtc, DeletedByUserId,
              CreatedAtUtc, CreatedByUserId, UpdatedAtUtc, UpdatedByUserId, Version)
         VALUES
-            (@Id, NULL, @CategoryId, NULL, @Title, @Description,
+            (@Id, NULL, @CategoryId, NULL, @Title, @Description, @DocumentNo,
              @DocumentType, @Status, @Sort, @Thumbnail,
              0, NULL, NULL,
              @CreatedAtUtc, @CreatedByUserId, NULL, NULL, @Version)
@@ -210,7 +238,6 @@ internal static class DocumentItemSql
             Description = @Description,
             CategoryId = @CategoryId,
             Thumbnail = @Thumbnail,
-            Status = @Status,
             Sort = @Sort,
             UpdatedAtUtc = @UpdatedAtUtc,
             UpdatedByUserId = @UpdatedByUserId,
@@ -231,6 +258,7 @@ internal static class DocumentItemSql
         """
         UPDATE fn_document_item
         SET CurrentVersionId = @CurrentVersionId,
+            AccessRevision = AccessRevision + 1,
             UpdatedAtUtc = @UpdatedAtUtc,
             UpdatedByUserId = @UpdatedByUserId,
             Version = Version + 1
@@ -250,6 +278,7 @@ internal static class DocumentItemSql
         """
         UPDATE fn_document_item
         SET IsDeleted = 1,
+            AccessRevision = AccessRevision + 1,
             DeletedAtUtc = @DeletedAtUtc,
             DeletedByUserId = @DeletedByUserId,
             Version = Version + 1
@@ -269,6 +298,8 @@ internal static class DocumentItemSql
         """
         UPDATE fn_document_item
         SET IsDeleted = 0,
+            Status = 0,
+            AccessRevision = AccessRevision + 1,
             DeletedAtUtc = NULL,
             DeletedByUserId = NULL,
             UpdatedAtUtc = @UpdatedAtUtc,
@@ -276,7 +307,7 @@ internal static class DocumentItemSql
             Version = Version + 1
         WHERE Id = @Id
           AND TenantId IS NULL
-          AND IsDeleted = 1
+          AND IsDeleted = 1 AND IsPurging = 0
           AND Version = @Version
         """,
         SqlDataScope.HostOnly);
@@ -300,32 +331,8 @@ internal static class DocumentItemSql
         SqlDataScope.HostOnly);
 
     /// <summary>
-    /// 物理删除回收站文档项的全部依赖行；必须在删除文档项前执行以解除 FK 约束。
-    /// permission/share 等表已声明 ON DELETE CASCADE，此处仅覆盖无级联的子表。
-    /// </summary>
-    public static readonly SqlStatement PurgeDependents = new(
-        "document.host_recycle_bin.purge_dependents",
-        """
-        DELETE FROM fn_document_preview_task
-        WHERE DocumentItemId = @DocumentItemId;
-
-        DELETE FROM fn_document_access_log
-        WHERE DocumentItemId = @DocumentItemId;
-
-        DELETE FROM fn_document_tag_assignment
-        WHERE DocumentItemId = @DocumentItemId;
-
-        DELETE FROM fn_document_version_deletion_audit
-        WHERE DocumentItemId = @DocumentItemId;
-
-        DELETE FROM fn_document_version
-        WHERE DocumentItemId = @DocumentItemId;
-        """,
-        SqlDataScope.HostOnly);
-
-    /// <summary>
     /// 物理删除回收站文档项：仅对 IsDeleted = 1 的行执行，不可逆；
-    /// 上层调用方必须先解除文件引用 Claim，否则会留下孤儿文件引用。
+    /// 上层调用方须先在版本删除事务写入可靠释放事实，不能依赖提交后的同步回调。
     /// </summary>
     public static readonly SqlStatement Purge = new(
         "document.host_recycle_bin.purge",
@@ -344,9 +351,7 @@ internal static class DocumentItemSql
     public static readonly SqlStatement NextVersionNumber = new(
         "document.host_item.next_version_number",
         """
-        SELECT COALESCE(MAX(VersionNumber), 0) + 1
-        FROM fn_document_version
-        WHERE DocumentItemId = @DocumentItemId
+        SELECT LastVersionNumber + 1 FROM fn_document_item WHERE Id = @DocumentItemId AND TenantId IS NULL
         """,
         SqlDataScope.HostOnly);
 
@@ -359,10 +364,10 @@ internal static class DocumentItemSql
         """
         INSERT INTO fn_document_version
             (Id, DocumentItemId, FileId, VersionNumber, ContentHash, SizeBytes,
-             UploadedByUserId, CreatedAtUtc)
+             ChangeDescription, FileName, MimeType, Extension, UploadedByUserId, CreatedAtUtc)
         VALUES
             (@Id, @DocumentItemId, @FileId, @VersionNumber, @ContentHash, @SizeBytes,
-             @UploadedByUserId, @CreatedAtUtc)
+             @ChangeDescription, @FileName, @MimeType, @Extension, @UploadedByUserId, @CreatedAtUtc)
         """,
         SqlDataScope.HostOnly);
 
@@ -397,102 +402,37 @@ internal static class DocumentItemSql
         """,
         SqlDataScope.HostOnly);
 
-    /// <summary>
-    /// 统计概览（SQL Server）：返回文档总数、版本总数与总大小(KB)；
-    /// 使用 ISNULL 处理 SUM NULL，过滤条件统一为 TenantId IS NULL AND IsDeleted = 0。
-    /// </summary>
+    // 看板共享 Published 与当前 ACL 范围，无版本文档仍计入总量；聚合字节后由 C# 换算。
+    private static readonly string StatisticsScope =
+        "i.TenantId IS NULL AND i.IsDeleted = 0 AND i.Status = 1 AND " + DocumentPermissionSql.ReadPredicate;
+
     public static readonly SqlStatement StatisticsSummarySqlServer = new(
         "document.host_statistics.summary.sql_server",
-        $$"""
+        $"""
         SELECT
-            (SELECT COUNT(1) FROM fn_document_item i WHERE i.TenantId IS NULL AND i.IsDeleted = 0 AND {{DocumentPermissionSql.ReadPredicate}}) AS TotalItems,
-            (SELECT COUNT(1) FROM fn_document_version v
-             INNER JOIN fn_document_item i ON i.Id = v.DocumentItemId
-             WHERE i.TenantId IS NULL AND i.IsDeleted = 0
-          AND {{DocumentPermissionSql.ReadPredicate}}) AS TotalVersions,
-            ISNULL((SELECT SUM(v.SizeBytes) / 1024 FROM fn_document_version v
-             INNER JOIN fn_document_item i ON i.Id = v.DocumentItemId
-             WHERE i.TenantId IS NULL AND i.IsDeleted = 0
-          AND {{DocumentPermissionSql.ReadPredicate}}), 0) AS TotalSizeKb;
-        """,
-        SqlDataScope.HostOnly);
-
-    /// <summary>
-    /// 统计概览（MySQL）：与 SQL Server 版本语义等价，使用 IFNULL 替代 ISNULL；
-    /// 两库函数语义一致，但语法不同因此必须成对维护。
-    /// </summary>
+            (SELECT COUNT(1) FROM fn_document_item i WHERE {StatisticsScope}) AS TotalItems,
+            (SELECT COUNT(1) FROM fn_document_version v INNER JOIN fn_document_item i ON i.Id = v.DocumentItemId WHERE {StatisticsScope}) AS TotalVersions,
+            (SELECT COALESCE(SUM(v.SizeBytes), 0) FROM fn_document_item i INNER JOIN fn_document_version v ON v.Id = i.CurrentVersionId WHERE {StatisticsScope}) AS TotalSizeBytes,
+            (SELECT COALESCE(SUM(v.SizeBytes), 0) FROM fn_document_item i INNER JOIN fn_document_version v ON v.DocumentItemId = i.Id AND v.Id <> i.CurrentVersionId WHERE {StatisticsScope}) AS HistorySizeBytes
+        """, SqlDataScope.HostOnly);
     public static readonly SqlStatement StatisticsSummaryMySql = new(
-        "document.host_statistics.summary.my_sql",
-        $$"""
-        SELECT
-            (SELECT COUNT(1) FROM fn_document_item i WHERE i.TenantId IS NULL AND i.IsDeleted = 0 AND {{DocumentPermissionSql.ReadPredicate}}) AS TotalItems,
-            (SELECT COUNT(1) FROM fn_document_version v
-             INNER JOIN fn_document_item i ON i.Id = v.DocumentItemId
-             WHERE i.TenantId IS NULL AND i.IsDeleted = 0
-          AND {{DocumentPermissionSql.ReadPredicate}}) AS TotalVersions,
-            IFNULL((SELECT SUM(v.SizeBytes) / 1024 FROM fn_document_version v
-             INNER JOIN fn_document_item i ON i.Id = v.DocumentItemId
-             WHERE i.TenantId IS NULL AND i.IsDeleted = 0
-          AND {{DocumentPermissionSql.ReadPredicate}}), 0) AS TotalSizeKb;
-        """,
-        SqlDataScope.HostOnly);
-
-    /// <summary>
-    /// 按文件扩展名统计（SQL Server）：聚合版本大小，使用 ISNULL 处理空 SUM；
-    /// 用于按类型展示的存储分布视图。
-    /// </summary>
+        "document.host_statistics.summary.my_sql", StatisticsSummarySqlServer.Text, SqlDataScope.HostOnly);
     public static readonly SqlStatement StatisticsByTypeSqlServer = new(
         "document.host_statistics.by_type.sql_server",
-        $$"""
-        SELECT
-            v.Extension,
-            COUNT(1) AS Count,
-            ISNULL(SUM(v.SizeBytes) / 1024, 0) AS TotalSizeKb
-        FROM fn_document_version v
-        INNER JOIN fn_document_item i ON i.Id = v.DocumentItemId
-        WHERE i.TenantId IS NULL AND i.IsDeleted = 0
-          AND {{DocumentPermissionSql.ReadPredicate}}
-        GROUP BY v.Extension
-        ORDER BY Count DESC;
-        """,
-        SqlDataScope.HostOnly);
-
-    /// <summary>按文件扩展名统计（MySQL）：与 SQL Server 版本语义等价，使用 IFNULL。</summary>
+        $"""
+        SELECT v.Extension, COUNT(1) AS Count, COALESCE(SUM(v.SizeBytes), 0) AS TotalSizeBytes
+        FROM fn_document_item i INNER JOIN fn_document_version v ON v.Id = i.CurrentVersionId
+        WHERE {StatisticsScope} GROUP BY v.Extension ORDER BY Count DESC, v.Extension
+        """, SqlDataScope.HostOnly);
     public static readonly SqlStatement StatisticsByTypeMySql = new(
-        "document.host_statistics.by_type.my_sql",
-        $$"""
-        SELECT
-            v.Extension,
-            COUNT(1) AS Count,
-            IFNULL(SUM(v.SizeBytes) / 1024, 0) AS TotalSizeKb
-        FROM fn_document_version v
-        INNER JOIN fn_document_item i ON i.Id = v.DocumentItemId
-        WHERE i.TenantId IS NULL AND i.IsDeleted = 0
-          AND {{DocumentPermissionSql.ReadPredicate}}
-        GROUP BY v.Extension
-        ORDER BY Count DESC;
-        """,
-        SqlDataScope.HostOnly);
-
-    /// <summary>
-    /// 按分类统计文档数量；LEFT JOIN 容忍未分类文档，按 Count DESC 排序。
-    /// 此查询无 Provider 分歧，单语句兼容 SQL Server 与 MySQL。
-    /// </summary>
+        "document.host_statistics.by_type.my_sql", StatisticsByTypeSqlServer.Text, SqlDataScope.HostOnly);
     public static readonly SqlStatement StatisticsByCategory = new(
         "document.host_statistics.by_category",
-        $$"""
-        SELECT
-            i.CategoryId,
-            c.Name AS CategoryName,
-            COUNT(1) AS Count
-        FROM fn_document_item i
-        LEFT JOIN fn_document_category c ON c.Id = i.CategoryId
-        WHERE i.TenantId IS NULL AND i.IsDeleted = 0
-          AND {{DocumentPermissionSql.ReadPredicate}}
-        GROUP BY i.CategoryId, c.Name
-        ORDER BY Count DESC;
-        """,
-        SqlDataScope.HostOnly);
+        $"""
+        SELECT i.CategoryId, c.Name AS CategoryName, COUNT(1) AS Count
+        FROM fn_document_item i LEFT JOIN fn_document_category c ON c.Id = i.CategoryId
+        WHERE {StatisticsScope} GROUP BY i.CategoryId, c.Name ORDER BY Count DESC, i.CategoryId
+        """, SqlDataScope.HostOnly);
 
     /// <summary>
     /// 列出文档项的全部版本；按 VersionNumber DESC 倒序，最近版本在前。
@@ -524,47 +464,40 @@ internal static class DocumentItemSql
         """,
         SqlDataScope.HostOnly);
 
-    /// <summary>
-    /// 分享与访问统计（SQL Server）：聚合分享总数、今日访问/下载/创建/回收站数量；
-    /// 使用 GETUTCDATE() 与 CAST(... AS DATE) 做当日对齐，确保 Host 行边界统一。
-    /// </summary>
+    // IClock 提供 UTC 半开日区间，重试和 Range 的去重在访问事实写入时完成。
     public static readonly SqlStatement StatisticsShareCountSqlServer = new(
         "document.host_statistics.share_count.sql_server",
-        $$"""
+        $"""
         SELECT
-            (SELECT COUNT(1) FROM fn_document_share s WHERE s.TenantId IS NULL AND {{DocumentPermissionSql.ReadPredicate.Replace("i.Id", "s.DocumentId", StringComparison.Ordinal)}}) AS ShareCount,
-            (SELECT ISNULL(SUM(s.AccessCount), 0) FROM fn_document_share s
-             WHERE s.TenantId IS NULL AND {{DocumentPermissionSql.ReadPredicate.Replace("i.Id", "s.DocumentId", StringComparison.Ordinal)}} AND CAST(s.CreatedAtUtc AS DATE) = CAST(GETUTCDATE() AS DATE)) AS TodayAccessCount,
-            (SELECT COUNT(1) FROM fn_document_item i
-             WHERE i.TenantId IS NULL AND i.IsDeleted = 0 AND {{DocumentPermissionSql.ReadPredicate}}
-               AND i.LastAccessTime IS NOT NULL
-               AND CAST(i.LastAccessTime AS DATE) = CAST(GETUTCDATE() AS DATE)) AS TodayDownloadCount,
-            (SELECT COUNT(1) FROM fn_document_share s
-             WHERE s.TenantId IS NULL AND {{DocumentPermissionSql.ReadPredicate.Replace("i.Id", "s.DocumentId", StringComparison.Ordinal)}} AND CAST(s.CreatedAtUtc AS DATE) = CAST(GETUTCDATE() AS DATE)) AS TodayCreatedCount,
-            (SELECT COUNT(1) FROM fn_document_item i WHERE i.TenantId IS NULL AND i.IsDeleted = 1 AND {{DocumentPermissionSql.ReadPredicate}}) AS RecycleBinCount;
-        """,
-        SqlDataScope.HostOnly);
-
-    /// <summary>
-    /// 分享与访问统计（MySQL）：与 SQL Server 版本语义等价，使用 UTC_DATE() 与 DATE() 做当日对齐；
-    /// 日期函数差异是两库分叉的关键点，禁止合并为单语句。
-    /// </summary>
+            (SELECT COUNT(1) FROM fn_document_share s INNER JOIN fn_document_item i ON i.Id = s.DocumentId
+             WHERE {StatisticsScope} AND s.TenantId IS NULL AND s.IsEnabled = 1 AND s.ExpireTime > @Now
+               AND (s.MaxAccessCount IS NULL OR s.AccessCount < s.MaxAccessCount)) AS ShareCount,
+            (SELECT COUNT(1) FROM fn_document_access_log log INNER JOIN fn_document_item i ON i.Id = log.DocumentItemId
+             WHERE {StatisticsScope} AND log.OccurredAtUtc >= @DayStart AND log.OccurredAtUtc < @DayEnd) AS TodayAccessCount,
+            (SELECT COUNT(1) FROM fn_document_access_log log INNER JOIN fn_document_item i ON i.Id = log.DocumentItemId
+             WHERE {StatisticsScope} AND log.AccessTypeKey = 'download' AND log.OccurredAtUtc >= @DayStart AND log.OccurredAtUtc < @DayEnd) AS TodayDownloadCount,
+            (SELECT COUNT(1) FROM fn_document_access_log log INNER JOIN fn_document_item i ON i.Id = log.DocumentItemId
+             WHERE {StatisticsScope} AND log.AccessTypeKey = 'preview' AND log.OccurredAtUtc >= @DayStart AND log.OccurredAtUtc < @DayEnd) AS TodayPreviewCount,
+            (SELECT COUNT(1) FROM fn_document_access_log log INNER JOIN fn_document_item i ON i.Id = log.DocumentItemId
+             WHERE {StatisticsScope} AND log.AccessTypeKey = 'share_access' AND log.OccurredAtUtc >= @DayStart AND log.OccurredAtUtc < @DayEnd) AS TodayShareAccessCount,
+            (SELECT COUNT(1) FROM fn_document_item i WHERE {StatisticsScope}
+             AND i.CreatedAtUtc >= @DayStart AND i.CreatedAtUtc < @DayEnd) AS TodayCreatedCount,
+            (SELECT COUNT(1) FROM fn_document_item i WHERE i.TenantId IS NULL AND i.IsDeleted = 1 AND {DocumentPermissionSql.ReadPredicate}) AS RecycleBinCount
+        """, SqlDataScope.HostOnly);
     public static readonly SqlStatement StatisticsShareCountMySql = new(
-        "document.host_statistics.share_count.my_sql",
-        $$"""
-        SELECT
-            (SELECT COUNT(1) FROM fn_document_share s WHERE s.TenantId IS NULL AND {{DocumentPermissionSql.ReadPredicate.Replace("i.Id", "s.DocumentId", StringComparison.Ordinal)}}) AS ShareCount,
-            (SELECT IFNULL(SUM(s.AccessCount), 0) FROM fn_document_share s
-             WHERE s.TenantId IS NULL AND {{DocumentPermissionSql.ReadPredicate.Replace("i.Id", "s.DocumentId", StringComparison.Ordinal)}} AND DATE(s.CreatedAtUtc) = UTC_DATE()) AS TodayAccessCount,
-            (SELECT COUNT(1) FROM fn_document_item i
-             WHERE i.TenantId IS NULL AND i.IsDeleted = 0 AND {{DocumentPermissionSql.ReadPredicate}}
-               AND i.LastAccessTime IS NOT NULL
-               AND DATE(i.LastAccessTime) = UTC_DATE()) AS TodayDownloadCount,
-            (SELECT COUNT(1) FROM fn_document_share s
-             WHERE s.TenantId IS NULL AND {{DocumentPermissionSql.ReadPredicate.Replace("i.Id", "s.DocumentId", StringComparison.Ordinal)}} AND DATE(s.CreatedAtUtc) = UTC_DATE()) AS TodayCreatedCount,
-            (SELECT COUNT(1) FROM fn_document_item i WHERE i.TenantId IS NULL AND i.IsDeleted = 1 AND {{DocumentPermissionSql.ReadPredicate}}) AS RecycleBinCount;
-        """,
-        SqlDataScope.HostOnly);
+        "document.host_statistics.share_count.my_sql", StatisticsShareCountSqlServer.Text, SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement MarkPurging = new("document.host_item.mark_purging",
+        "UPDATE fn_document_item SET IsPurging = 1, AccessRevision = AccessRevision + 1 WHERE Id = @Id AND TenantId IS NULL AND IsDeleted = 1 AND IsPurging = 0", SqlDataScope.HostOnly);
+    public static readonly SqlStatement PurgeVersionsSqlServer = new("document.host_item.purge_versions.sql_server", """
+        SELECT TOP (100) Id, DocumentItemId, FileId, VersionNumber, ContentHash, SizeBytes, ChangeDescription, UploadedByUserId, CreatedAtUtc
+        FROM fn_document_version WHERE DocumentItemId = @DocumentItemId ORDER BY Id
+        """, SqlDataScope.HostOnly);
+    public static readonly SqlStatement PurgeVersionsMySql = new("document.host_item.purge_versions.my_sql", """
+        SELECT Id, DocumentItemId, FileId, VersionNumber, ContentHash, SizeBytes, ChangeDescription, UploadedByUserId, CreatedAtUtc
+        FROM fn_document_version WHERE DocumentItemId = @DocumentItemId ORDER BY Id LIMIT 100
+        """, SqlDataScope.HostOnly);
+
     public static readonly SqlStatement CountVersionsByItemId = new(
         "document.host_item.versions.count",
         "SELECT COUNT(1) FROM fn_document_version WHERE DocumentItemId = @DocumentItemId", SqlDataScope.HostOnly);
@@ -574,4 +507,18 @@ internal static class DocumentItemSql
     public static readonly SqlStatement ListVersionsPageMySql = new(
         "document.host_item.versions.page.mysql",
         ListVersionsByItemId.Text + " LIMIT @PageSize OFFSET @Offset", SqlDataScope.HostOnly);
+
+    /// <summary>写用例必须先取得根行锁，避免版本、ACL、状态和保留策略竞争。</summary>
+    public static readonly SqlStatement LockSqlServer = new("document.host_item.lock.sql_server",
+        FindAnyById.Text.Replace("FROM fn_document_item AS i", "FROM fn_document_item AS i WITH (UPDLOCK, ROWLOCK)", StringComparison.Ordinal), SqlDataScope.HostOnly);
+    public static readonly SqlStatement LockMySql = new("document.host_item.lock.my_sql",
+        FindAnyById.Text + " FOR UPDATE", SqlDataScope.HostOnly);
+    public static readonly SqlStatement AllocateVersion = new("document.host_item.allocate_version",
+        "UPDATE fn_document_item SET LastVersionNumber = LastVersionNumber + 1 WHERE Id = @Id AND TenantId IS NULL", SqlDataScope.HostOnly);
+    public static readonly SqlStatement ChangeStatus = new("document.host_item.change_status",
+        "UPDATE fn_document_item SET Status = @Status, AccessRevision = AccessRevision + 1, Version = Version + 1, UpdatedAtUtc = @Now, UpdatedByUserId = @ActorUserId WHERE Id = @Id AND TenantId IS NULL AND Version = @Version AND IsDeleted = 0", SqlDataScope.HostOnly);
+    public static readonly SqlStatement DisableShares = new("document.host_item.disable_shares",
+        "UPDATE fn_document_share SET IsEnabled = 0, PolicyRevision = PolicyRevision + 1, Version = Version + 1 WHERE DocumentId = @Id AND TenantId IS NULL", SqlDataScope.HostOnly);
+    public static readonly SqlStatement SetVisibility = new("document.host_item.set_visibility",
+        "UPDATE fn_document_item SET VisibilityMode = @VisibilityMode, AccessRevision = AccessRevision + 1, Version = Version + 1 WHERE Id = @Id AND TenantId IS NULL AND Version = @Version", SqlDataScope.HostOnly);
 }

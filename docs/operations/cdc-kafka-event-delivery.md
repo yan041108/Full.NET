@@ -1,6 +1,12 @@
 # CDC Kafka 事件交付运维与试点切流
 
+> 2026-10-30 最新续办：完整Messaging Native控制/Worker CDC双库2/2之外，默认预取1和显式预取8/低水位0/单槽1的Native双Worker每库60分钟长稳均双库2/2；正式/首个重试Topic自动TTL双库各2/2，实际Low推进后保留原资源、激活及fence，拒绝回退恢复。旧offset首次重放拒绝且正式组位点/投影不变。预取8短时5/10档、最终单帧10档及默认1的10档失败保留各自输入，不能以HTTP输入率认证生产容量。原迟到REST、告警及分片发现证据保持原范围，未跑全量，保持Pilot/Capacity-not-verified，正式切流默认关闭，见[最新记录](../verification/2026-10-28-messaging-reliability-continuation.md#2026-10-30预取8长稳与自动ttl续办)。
+
+> 2026-10-29 续办：时间观测已有条件性真实来源，未知/错误继续失败关闭；迁移 342 保存切流时不可变 Kafka 资源基线，拒绝同名 Topic 重建、原窗口裁剪及重试阶段减少。授权独立静态复核完成，最终双库故障2/2、重放2/2、策略/真实ACL2/2、原十分钟告警1/1及最新Native双库HTTP2/2均通过；最新API/Worker AOT分析零警告错误。精确结果与历史失败见[本机续办记录](../verification/2026-10-28-messaging-reliability-continuation.md#2026-10-29时间观测与不可变回滚基线续办)。下方日期记录保留当时范围，正式切流默认关闭。
+
 本文记录 Full.NET 事务 Outbox + CDC + Kafka 试点流的运维边界、切流/回退流程与生产门禁。权威架构决策见 [`ADR-0006`](../architecture/adr/ADR-0006-transactional-outbox-cdc-kafka-event-delivery.md)。
+
+> 2026-10-28 本机续办：两个独立API/两个独立Worker的双库故障恢复2/2、平台采集2/2、原阈值告警1/1及源窗口告警2/2通过；三Broker单节点恢复1/1、每库60分钟/7200条的独享Soak 2/2及Native配置/认证/运维只读片段2/2通过。恢复控制面在resume前及任务RUNNING后核对真实源窗口，未知或丢失时保留fence。独立复核未完成，时间指标仍有明确unknown，正式切流默认关闭，保持Pilot / Capacity-not-verified。范围、原始结果及失败事实见[本机记录](../verification/2026-10-28-messaging-reliability-continuation.md)。下方2026-10-25记录保留当时的单进程组件边界。
 
 > 2026-10-25：MySQL Binlog 与独享 SQL Server Agent 的完整真实切流/回退场景均已通过（2 通过、0 失败、0 跳过）。真实业务 HTTP 经 Legacy 采集、影子证明、HTTP 切流、Debezium/Kafka 与 Inbox 交付，再验证暂停期间业务回滚、最终审计失败后的 Connector 恢复和成功回退。实际命令、修复及边界见[完整链路记录](../superpowers/plans/2026-10-25-messaging-real-cutover-rollback.md)。生产 Worker 组件在同一测试进程中运行；多进程、断网、Soak、容量和独立复核未验证，正式切流默认关闭。
 
@@ -28,6 +34,7 @@
 - `CutoffEventId` / `CutoffOccurredAtUtc`（Legacy 排空后的切流边界）
 - `RollbackBoundaryEventId` / `RollbackOccurredAtUtc`（回退边界）
 - `Reason`、`CdcSourcePositionJson`（可选 CDC 位点）
+- `CdcKafkaBindingJson`（迁移 342；切流时 Cluster/Connector/配置、消费组/重试阶段、Topic ID/分区与原始窗口；与提交源坐标分离，旧行不补造）
 
 运行时有效所有权 = 持久化记录（若存在）否则 Topic 目录默认值。
 
@@ -73,7 +80,7 @@
 
 SQL Server producer fence 使用 CT 中指定冻结流的完整插入集及其最大提交 LSN，不能用全库旧 max LSN 替代。若 CT 保留期已清除仍留在 Outbox 的历史行，无法建立完整证明，回退失败关闭；须按授权恢复/对账处置，禁止强改所有权或清 fence。
 
-上述 API 只是控制面实现，不代表当前已满足生产切流条件。MySQL E2E 的历史通过不覆盖当前工作区；SQL Server 需具备 Agent/CDC 的可用环境及实际通过记录。相关恢复、Soak、lag、N+1/DR 门禁完成前必须保持开关关闭。
+上述 API 不代表当前已满足生产切流条件。2026-10-25 已有 SQL Server Agent 与 MySQL Binlog 的真实完整链路记录，证据仅覆盖当时固定输入；本机当前工作区须按本次实际运行单独验收。多进程恢复、断网、告警、Soak、lag、N+1/DR 门禁完成前必须保持开关关闭。
 
 ## Worker 模式
 
@@ -102,14 +109,14 @@ Capability 状态见 [`capability-status.md`](../roadmap/capability-status.md)�
 
 运行时及 Helm 统一使用 `LegacyPolling / ShadowCdc / HybridKafka`，不再接受 Worker 模式旧字符串 `CdcKafka`；`EventDeliveryOwner.CdcKafka` 仍表示按流正式所有权。Chart 的 Schema、Kafka 开关、Secret 条件与 CI values 使用同一模式名。部署前按目标模式重新渲染 Chart，不把改 Worker 模式当作所有权切换。
 
-范围重放改用持久操作记录，提供创建、查询、执行/继续与取消，详情见 [拓扑与操作接口](messaging-runtime-topology.md#持久范围重放与分区检查点) 和 [Runbook](../runbooks/cdc-kafka-cutover-rollback.md#持久范围重放操作)。每次执行的计数和固定分区位点可恢复；未知结果经 Inbox 确认，不以 HTTP 成功冒充全范围完成。API 与 Worker 仍不自动播种影子载荷；受控影子采集必须和正式发布目的分离，现有样本验证不能替代自动采集流程。
+范围重放改用持久操作记录，提供创建、查询、执行/继续与取消，详情见 [拓扑与操作接口](messaging-runtime-topology.md#持久范围重放与分区检查点) 和 [Runbook](../runbooks/cdc-kafka-cutover-rollback.md#持久范围重放操作)。每次执行的计数和固定分区位点可恢复；未知结果经 Inbox 确认，不以 HTTP 成功冒充全范围完成。API 与 Worker 不自动播种影子载荷；显式启用策略并开始采集代次后，真实 Legacy 业务事务会将匹配信封写入独立影子表，正式追加表不受影子采集写入。
 
 ## 持久范围重放与浏览器恢复
 
-迁移 293 的操作日志记录 UUID v7、可信操作者、创建请求键、理由、真实 Cluster/Topic 身份、固定分区窗口、检查点、执行意图、租约与状态。`POST /api/v1/messaging/kafka/replay-operations/` 先创建并返回 201，再调用 `/{operationId}/execute`。查询列表/单项要求 `messaging.events.read`；创建/执行/取消要求 `messaging.kafka.range-replay`。界面始终保留服务端 operationId；取消 HTTP 请求不代表业务操作已取消，`/{operationId}/cancel` 只记录取消意图，不能撤销已提交副作用。
+迁移 293 的操作日志记录 UUID v7、可信操作者、创建请求键、理由、真实 Cluster/Topic 身份、固定分区窗口、检查点、执行意图、租约与状态。`POST /api/v1/messaging/kafka/replay-operations/` 先创建并返回 201，再调用 `/{operationId}/execute`。查询列表/单项要求 `messaging.events.read`；创建/执行/取消要求 `messaging.kafka.range_replay`。界面始终保留服务端 operationId；取消 HTTP 请求不代表业务操作已取消，`/{operationId}/cancel` 只记录取消意图，不能撤销已提交副作用。
 
 `partial`、`result_unknown` 与 `cancel_requested` 不能当作完成。Inbox 提交后检查点失败时，恢复同一操作，通过原订阅幂等确认未确认消息，再推进位点；绝不跳过未知副作用。恢复拒绝真实资源/保留窗口变化，不延长原有高水位、不改变正式消费组位点。时间上界为排他上界，消息上限跨所选分区合计。原同步范围接口也落入同一持久协议，不再创建无可查询的匿名执行。
 
 第三批实施与实际验收范围见 [记录](../superpowers/plans/2026-10-24-messaging-operations-batch3.md)。本地 Broker 与故障模型不能替代真实 Connector/Agent、多进程断网或容量验证。
 
-2026-10-25 的[受控影子 CDC 验收](../superpowers/plans/2026-10-25-messaging-real-cdc-validation.md)仅证明影子观察范围；后续[完整链路验收](../superpowers/plans/2026-10-25-messaging-real-cutover-rollback.md)已通过两库真实业务 HTTP、正式 CDC/Inbox、失败补偿及成功回退。四份模板统一 BinaryDataConverter + JSON delegate，MySQL 以 1000ms 心跳推进静默期已读位点，使用 `topic.heartbeat.prefix`；SQL Server 正式及影子路由均拒绝将 ZonedTimestamp 当作整数事件时间。配置参与严格校验和资源摘要，完整性与源位点门禁不放宽。多进程和容量仍未验证，采集与正式切流默认关闭。
+2026-10-25 的[受控影子 CDC 验收](../superpowers/plans/2026-10-25-messaging-real-cdc-validation.md)仅证明影子观察范围；后续[完整链路验收](../superpowers/plans/2026-10-25-messaging-real-cutover-rollback.md)已通过两库真实业务 HTTP、正式 CDC/Inbox、失败补偿及成功回退。四份模板统一 BinaryDataConverter + JSON delegate，MySQL 以 1000ms 心跳推进静默期已读位点，使用 `topic.heartbeat.prefix`；SQL Server 正式及影子路由均拒绝将 ZonedTimestamp 当作整数事件时间。配置参与严格校验和资源摘要，完整性与源位点门禁不放宽。2026-10-28 本机又实际通过双库、两个 API/两个 Worker 的恢复与网络故障场景，范围见[续办记录](../verification/2026-10-28-messaging-reliability-continuation.md)；Soak/容量未认证，采集与正式切流默认关闭。

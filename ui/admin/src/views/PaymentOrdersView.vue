@@ -22,6 +22,7 @@ import ArtFormDialog from '../framework/art-design/components/ArtFormDialog.vue'
 import ArtTableHeader from '../framework/art-design/components/ArtTableHeader.vue';
 import { useArtCrudTableLayout } from '../framework/art-design/composables/useArtCrudTableLayout';
 import PermissionGate from '../components/PermissionGate.vue';
+import SubscriptionFulfillmentAction from '../components/SubscriptionFulfillmentAction.vue';
 import { useAdminI18n } from '../i18n/adminI18n';
 import { createPaymentOrder, listPaymentOrders, reconcilePaymentOrder, createPaymentRefund } from '../api/payment-orders';
 
@@ -254,6 +255,7 @@ onMounted(() => {
                   {{ t('paymentOrders.refund') }}
                 </el-button>
               </PermissionGate>
+              <SubscriptionFulfillmentAction :order-id="row.id" />
             </template>
           </el-table-column>
         </el-table>

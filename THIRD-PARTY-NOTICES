@@ -14,6 +14,9 @@ the complete license texts.
   https://github.com/microsoft/agent-framework
 - Model Context Protocol SDK for C# (ModelContextProtocol / ModelContextProtocol.AspNetCore) 2.2.0 — MIT
   https://github.com/modelcontextprotocol/csharp-sdk
+- AG-UI TypeScript client (@ag-ui/client / @ag-ui/core) 1.0.3 — MIT (standard protocol interoperability tests only)
+  https://github.com/ag-ui-protocol/ag-ui
+  Complete upstream license texts remain in the resolved npm packages; not bundled into the admin application.
 - Microsoft.ML.Tokenizers 2.0.0 — MIT
   https://github.com/dotnet/machinelearning
 - cl100k_base vocabulary and tokenizer pattern — MIT, OpenAI / .NET Foundation and Contributors
@@ -51,7 +54,7 @@ the complete license texts.
   https://github.com/qdrant/qdrant/blob/v1.19.1/LICENSE
 - Testcontainers for .NET — MIT
   https://github.com/testcontainers/testcontainers-dotnet
-- OpenIddict 7.7.0 (OpenIddict.Abstractions / OpenIddict.Core / OpenIddict.Server / OpenIddict.Server.AspNetCore) — Apache-2.0
+- OpenIddict 7.7.0 (OpenIddict.Abstractions / OpenIddict.Core / OpenIddict.Server / OpenIddict.Server.AspNetCore / OpenIddict.Client / OpenIddict.Client.AspNetCore / OpenIddict.Client.SystemNetHttp) — Apache-2.0
   https://github.com/openiddict/openiddict-core
 - NetArchTest — MIT
   https://github.com/BenMorris/NetArchTest
@@ -135,9 +138,19 @@ the complete license texts.
   librsvg (LGPL-2.1-or-later), libjxl (BSD-3-Clause), Noto CJK fonts (SIL Open Font License 1.1) and their dependencies.
   Distribution copyright/license files remain in /usr/share/doc; exact installed package versions are captured in /app/assets/debian-packages.txt.
   https://openjdk.org/legal/ https://www.libreoffice.org/about-us/licenses/ https://github.com/libjxl/libjxl https://github.com/notofonts/noto-cjk
+- Flutter file_selector 1.1.0 and its platform implementations — BSD-3-Clause
+  https://pub.dev/packages/file_selector https://github.com/flutter/packages/tree/main/packages/file_selector
+- cross_file 0.3.5+5 and plugin_platform_interface 2.1.8 — BSD-3-Clause (Flutter file_selector dependencies)
+  https://pub.dev/packages/cross_file https://pub.dev/packages/plugin_platform_interface
 - TypeScript — Apache-2.0
   https://github.com/microsoft/TypeScript
 - Playwright — Apache-2.0
   https://github.com/microsoft/playwright
+- openid-client 6.8.8 — MIT (independent OIDC interoperability test fixture only)
+  https://github.com/panva/openid-client
+- jose 6.2.12 — MIT (independent RP logout token validation in tests only)
+  https://github.com/panva/jose
+- oauth4webapi 3.8.8 — MIT (openid-client transitive dependency in tests only)
+  https://github.com/panva/oauth4webapi
 - @axe-core/playwright — MPL-2.0 (development and CI testing only; not shipped)
   https://github.com/dequelabs/axe-core-npm

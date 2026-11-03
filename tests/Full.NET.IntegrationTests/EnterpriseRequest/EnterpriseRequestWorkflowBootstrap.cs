@@ -15,7 +15,8 @@ internal static class EnterpriseRequestWorkflowBootstrap
     public static async Task PublishDemoApprovalDefinitionInTenantAsync(
         HttpClient client,
         string tenantToken,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        bool withReturnStage = false)
     {
         var formVersionId = await CreateAndPublishFormAsync(client, tenantToken, cancellationToken);
         await CreateAndPublishDefinitionAsync(
@@ -23,7 +24,8 @@ internal static class EnterpriseRequestWorkflowBootstrap
             tenantToken,
             formVersionId,
             EnterpriseRequestWorkflowConstants.DefinitionKey,
-            cancellationToken);
+            cancellationToken,
+            withReturnStage);
     }
 
     private static async Task<Guid> CreateAndPublishFormAsync(
@@ -76,8 +78,17 @@ internal static class EnterpriseRequestWorkflowBootstrap
         string token,
         Guid formVersionId,
         string definitionKey,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        bool withReturnStage)
     {
+        var nodes = new List<object>
+        {
+            new { nodeKey = "start", nodeTypeKey = "start", nodeSchemaVersion = 1, config = new { nextNodeKeys = new[] { "approve" } } },
+            new { nodeKey = "approve", nodeTypeKey = "human.approval", nodeSchemaVersion = 1, config = new { nextNodeKeys = new[] { withReturnStage ? "final_approve" : "end" } } }
+        };
+        // 只为退回旅程增加第二级，原单级审批与驳回夹具保持原执行语义。
+        if (withReturnStage) nodes.Add(new { nodeKey = "final_approve", nodeTypeKey = "human.approval", nodeSchemaVersion = 1, config = new { nextNodeKeys = new[] { "end" } } });
+        nodes.Add(new { nodeKey = "end", nodeTypeKey = "end", nodeSchemaVersion = 1, config = new { nextNodeKeys = Array.Empty<string>() } });
         using var create = await client.SendAsync(
             AuthorizedJson(HttpMethod.Post, DefinitionsPath, token, new
             {
@@ -85,30 +96,7 @@ internal static class EnterpriseRequestWorkflowBootstrap
                 draft = new
                 {
                     schemaVersion = 1,
-                    nodes = new object[]
-                    {
-                        new
-                        {
-                            nodeKey = "start",
-                            nodeTypeKey = "start",
-                            nodeSchemaVersion = 1,
-                            config = new { nextNodeKeys = new[] { "approve" } },
-                        },
-                        new
-                        {
-                            nodeKey = "approve",
-                            nodeTypeKey = "human.approval",
-                            nodeSchemaVersion = 1,
-                            config = new { nextNodeKeys = new[] { "end" } },
-                        },
-                        new
-                        {
-                            nodeKey = "end",
-                            nodeTypeKey = "end",
-                            nodeSchemaVersion = 1,
-                            config = new { nextNodeKeys = Array.Empty<string>() },
-                        },
-                    },
+                    nodes,
                 },
             }),
             cancellationToken);

@@ -17,7 +17,7 @@ public sealed class AiKnowledgeAnswerLineageTests
         ActiveManifestHash = new string('C', 64), ActivePlanHash = new string('D', 64), ContentType = "application/pdf"
     };
     internal static AiKnowledgeAnswerDependency Dependency(AiKnowledgeIndexStatusRecord source) => new(source.KnowledgeBaseId,
-        source.DocumentId, source.VersionId, source.DocumentVersion, source.KnowledgeBaseVersion, source.FileId,
+        source.DocumentId, source.VersionId, source.DocumentVersion, source.KnowledgeBaseVersion, AiKnowledgeFileSource.RequireFileId(source),
         source.ContentHash, source.TaskId!.Value, source.ActiveReceiptHash!, source.ActiveManifestHash!, source.ActivePlanHash!);
     internal static AiKnowledgeAnswerLineage Lineage(Guid? tenant = null)
     {
@@ -35,6 +35,20 @@ public sealed class AiKnowledgeAnswerLineageTests
         Assert.HasCount(2, read.Dependencies); Assert.HasCount(1, read.References);
         foreach (var forbidden in new[] { "apiKey", "endpoint", "vector", "text", "leaseToken" })
             Assert.IsFalse(encoded.Contains(forbidden, StringComparison.OrdinalIgnoreCase));
+    }
+    [TestMethod] [DataRow(1)] [DataRow(2)] [DataRow(3)] [DataRow(4)]
+    public void File_hash_keeps_actual_casing_without_rewriting_source_identity(int version)
+    {
+        var data = Lineage() with { Version = version };
+        var source = data.Dependencies[0] with { ContentHash = new string('a', 64) };
+        data = data with { Dependencies = [source, data.Dependencies[1]] };
+        var read = AiKnowledgeAnswerLineageCodec.Decode(AiKnowledgeAnswerLineageCodec.Encode(data), data.MessageId, data.SessionId, data.ActorUserId, null);
+        Assert.AreEqual(source.ContentHash, read.Dependencies[0].ContentHash);
+        var row = Source() with { KnowledgeBaseId = source.KnowledgeBaseId, DocumentId = source.DocumentId, VersionId = source.VersionId,
+            DocumentVersion = source.DocumentVersion, KnowledgeBaseVersion = source.KnowledgeBaseVersion, FileId = source.FileId,
+            TaskId = source.TaskId, ActiveTaskId = source.TaskId, ActiveReceiptHash = source.ReceiptHash, ActiveManifestHash = source.ManifestHash, ActivePlanHash = source.PlanHash };
+        Assert.IsFalse(AiKnowledgeAnswerLineageCodec.Matches(source, row));
+        Assert.IsTrue(AiKnowledgeAnswerLineageCodec.Matches(source, row with { ContentHash = source.ContentHash }));
     }
     [TestMethod] [DataRow(false)] [DataRow(true)]
     public void New_answers_use_version_three_for_legacy_and_unified_dependencies(bool unified)
@@ -87,7 +101,7 @@ public sealed class AiKnowledgeAnswerLineageTests
         var data = Lineage(); var json = JsonNode.Parse(AiKnowledgeAnswerLineageCodec.Encode(data))!.AsObject();
         switch (fault)
         {
-            case "version": json["version"] = 4; break;
+            case "version": json["version"] = 99; break;
             case "unknown": json["vector"] = "secret"; break;
             case "empty": json["dependencies"] = new JsonArray(); break;
             case "duplicate": json["dependencies"]!.AsArray().Add(json["dependencies"]![0]!.DeepClone()); break;

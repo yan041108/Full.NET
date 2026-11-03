@@ -74,8 +74,8 @@ public sealed partial class AiKnowledgeIndexEmbeddingTests
             Assert.IsTrue(f.Authorization.ReceivedCalls().Any(call => call.GetArguments()[1] is IReadOnlyCollection<string> batch && batch.Contains(permission)));
         f.Generator.LastVector![0] = 99;
         Assert.AreEqual(1f, result.Chunks[0].Vector.Span[0]);
-        if (tenant) await f.TenantFiles.Received(1).OpenReadyContentAsync("ai", f.Binding.VersionId, f.Source.FileId, Arg.Any<CancellationToken>());
-        else await f.HostFiles.Received(1).OpenReadyContentAsync(f.Source.FileId, Arg.Any<CancellationToken>());
+        if (tenant) await f.TenantFiles.Received(1).OpenReadyContentAsync("ai", f.Binding.VersionId, AiKnowledgeFileSource.RequireFileId(f.Source), Arg.Any<CancellationToken>());
+        else await f.HostFiles.Received(1).OpenReadyContentAsync(AiKnowledgeFileSource.RequireFileId(f.Source), Arg.Any<CancellationToken>());
     }
 
     [TestMethod]

@@ -3,6 +3,8 @@ import { spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
+export const CRUD_ARTIFACT_PREFIX = 'generated/acme/catalog/product/';
+export const applicationCrudArtifactPath = (path) => CRUD_ARTIFACT_PREFIX + path;
 export const CRUD_ARTIFACTS = [
   'backend/ProductContracts.g.cs',
   'backend/ProductSql.g.cs',
@@ -18,7 +20,7 @@ export const CRUD_ARTIFACTS = [
   'templates/migrations/MySql/CreateProduct.sql.template',
   'templates/migrations/SqlServer/CreateProduct.sql.template',
   'templates/tests/ProductMigrationIntegrationTests.cs.template',
-];
+].map(applicationCrudArtifactPath);
 
 // 只在隔离的独立应用内运行其自带 CLI，不编译生成业务，也不修改受管框架源码。
 export function verifyApplicationCrudGeneration(appRoot, {
@@ -53,7 +55,7 @@ export function verifyApplicationCrudGeneration(appRoot, {
   const args = ['exec', join(cliRoot, 'bin/Release/net10.0/Full.NET.CodeGeneration.Cli.dll'),
     '--schema', schemaPath, '--workspace', appRoot];
   const expectActions = (stdout, kind) => {
-    const lines = stdout.split(/\r?\n/u).filter(Boolean).sort();
+    const lines = stdout.split(/\r?\n/u).filter(line => line && !line.startsWith('Applied Operation ')).sort();
     assert.deepEqual(lines, CRUD_ARTIFACTS.map((path) => kind + ' ' + path).sort(), 'incomplete CRUD generation plan');
   };
   expectActions(execute('preview', args), 'Create');
@@ -65,7 +67,7 @@ export function verifyApplicationCrudGeneration(appRoot, {
   assert.equal(generated.get(manualPath).toString('utf8'), manual);
   expectActions(execute('repeat', [...args, '--apply']), 'Unchanged');
   assert.deepEqual(capture(), generated, 'repeat changed generated or manual content');
-  const sqlPath = 'backend/ProductSql.g.cs';
+  const sqlPath = applicationCrudArtifactPath('backend/ProductSql.g.cs');
   writeFileSync(join(appRoot, sqlPath), Buffer.concat([generated.get(sqlPath), Buffer.from('\n// 人工修改，必须拒绝覆盖。\n')]));
   const customized = capture();
   const conflict = execute('conflict', [...args, '--apply'], 2);

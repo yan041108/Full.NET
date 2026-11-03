@@ -41,7 +41,7 @@ test('API：导出任务列表、拒绝非 Excel 格式与下载授权（清单 
       parameters: []
     }
   );
-  expect(unsupportedFormat.status()).toBe(422);
+  expect(unsupportedFormat.status()).toBe(400);
 
   const { response: missingDefinition } = await createReportingExportTaskViaApi(
     request,

@@ -31,7 +31,7 @@ internal sealed class PrintingAuthorizationContributor : IAuthorizationCatalogCo
             "Printing Preview",
             "printer",
             10,
-            PrintingTemplatePermissions.Preview),
+            PrintingTemplatePermissions.Read),
     ];
 
     public IReadOnlyCollection<AuthorizationActionDefinition> Actions { get; } =

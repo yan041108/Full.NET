@@ -9,6 +9,7 @@ using Full.NET.Modules.Identity.Http;
 using Full.NET.Modules.Identity.OAuth;
 using Full.NET.Modules.Identity.Persistence;
 using Full.NET.Modules.Identity.Security;
+using Full.NET.Modules.Identity.Domain;
 using Microsoft.IdentityModel.JsonWebTokens;
 
 namespace Full.NET.Modules.Identity.Features.OAuthFlow;
@@ -23,7 +24,8 @@ internal sealed class OAuthFlowService(
     IOidcClient oidcClient,
     OAuthClientSecretProtector clientSecretProtector,
     OAuthReturnUrlValidator returnUrlValidator,
-    IdentityOAuthLoginSessionService loginSessionService)
+    IdentityOAuthLoginSessionService loginSessionService,
+    AuthenticationSecurityEventWriter audit)
 {
     private static readonly TimeSpan StateLifetime = TimeSpan.FromMinutes(10);
 
@@ -154,7 +156,7 @@ internal sealed class OAuthFlowService(
     {
         if (!Guid.TryParse(state, out var stateId))
         {
-            return InvalidStateResult("/");
+            return await InvalidStateResultAsync("/", cancellationToken).ConfigureAwait(false);
         }
 
         var authorizationState = await queryExecutor
@@ -166,7 +168,7 @@ internal sealed class OAuthFlowService(
         if (authorizationState is null || authorizationState.ExpiresAtUtc <= clock.UtcNow)
         {
             await DeleteStateAsync(stateId, cancellationToken).ConfigureAwait(false);
-            return InvalidStateResult("/");
+            return await InvalidStateResultAsync("/", cancellationToken).ConfigureAwait(false);
         }
 
         var returnUrl = authorizationState.ReturnUrl;
@@ -178,7 +180,7 @@ internal sealed class OAuthFlowService(
         if (provider is null || !provider.IsEnabled)
         {
             await DeleteStateAsync(stateId, cancellationToken).ConfigureAwait(false);
-            return ErrorRedirect(returnUrl, OAuthCallbackErrorCodes.ProviderUnavailable);
+            return await ErrorRedirectAsync(returnUrl, OAuthCallbackErrorCodes.ProviderUnavailable, cancellationToken).ConfigureAwait(false);
         }
 
         OidcExternalIdentityClaims externalClaims;
@@ -203,7 +205,7 @@ internal sealed class OAuthFlowService(
         catch
         {
             await DeleteStateAsync(stateId, cancellationToken).ConfigureAwait(false);
-            return ErrorRedirect(returnUrl, OAuthCallbackErrorCodes.TokenExchangeFailed);
+            return await ErrorRedirectAsync(returnUrl, OAuthCallbackErrorCodes.TokenExchangeFailed, cancellationToken).ConfigureAwait(false);
         }
 
         await DeleteStateAsync(stateId, cancellationToken).ConfigureAwait(false);
@@ -246,7 +248,7 @@ internal sealed class OAuthFlowService(
             .ConfigureAwait(false);
         if (link is null)
         {
-            return ErrorRedirect(returnUrl, OAuthCallbackErrorCodes.AccountNotLinked);
+            return await ErrorRedirectAsync(returnUrl, OAuthCallbackErrorCodes.AccountNotLinked, cancellationToken).ConfigureAwait(false);
         }
 
         var userRecord = await queryExecutor.QuerySingleOrDefaultAsync<IdentityUserRecord>(
@@ -256,7 +258,7 @@ internal sealed class OAuthFlowService(
             .ConfigureAwait(false);
         if (userRecord is null || !userRecord.IsActive)
         {
-            return ErrorRedirect(returnUrl, OAuthCallbackErrorCodes.AccountNotLinked);
+            return await ErrorRedirectAsync(returnUrl, OAuthCallbackErrorCodes.AccountNotLinked, cancellationToken).ConfigureAwait(false);
         }
 
         await commandExecutor.ExecuteAsync(
@@ -276,7 +278,7 @@ internal sealed class OAuthFlowService(
             .ConfigureAwait(false);
         if (!sessionResult.IsSuccess)
         {
-            return ErrorRedirect(returnUrl, OAuthCallbackErrorCodes.TokenExchangeFailed);
+            return await ErrorRedirectAsync(returnUrl, OAuthCallbackErrorCodes.TokenExchangeFailed, cancellationToken).ConfigureAwait(false);
         }
 
         return Result<OAuthCallbackResult>.Success(new OAuthCallbackResult(
@@ -292,9 +294,9 @@ internal sealed class OAuthFlowService(
     {
         if (!authorizationState.UserId.HasValue)
         {
-            return ErrorRedirect(
+            return await ErrorRedirectAsync(
                 authorizationState.ReturnUrl,
-                OAuthCallbackErrorCodes.InvalidState);
+                OAuthCallbackErrorCodes.InvalidState, cancellationToken).ConfigureAwait(false);
         }
 
         var existingBySubject = await queryExecutor
@@ -308,9 +310,9 @@ internal sealed class OAuthFlowService(
         if (existingBySubject is not null
             && existingBySubject.UserId != authorizationState.UserId.Value)
         {
-            return ErrorRedirect(
+            return await ErrorRedirectAsync(
                 authorizationState.ReturnUrl,
-                OAuthCallbackErrorCodes.AccountConflict);
+                OAuthCallbackErrorCodes.AccountConflict, cancellationToken).ConfigureAwait(false);
         }
 
         var existingByUser = await queryExecutor.QuerySingleOrDefaultAsync<OAuthUserLinkRecord>(
@@ -434,15 +436,17 @@ internal sealed class OAuthFlowService(
             "The OAuth provider is not available.",
             ErrorType.NotFound));
 
-    private static Result<OAuthCallbackResult> InvalidStateResult(string returnUrl) =>
-        Result<OAuthCallbackResult>.Success(new OAuthCallbackResult(
-            OAuthReturnUrlValidator.AppendQuery(returnUrl, "oauth_error", OAuthCallbackErrorCodes.InvalidState),
-            null));
+    private Task<Result<OAuthCallbackResult>> InvalidStateResultAsync(string returnUrl, CancellationToken token) =>
+        ErrorRedirectAsync(returnUrl, OAuthCallbackErrorCodes.InvalidState, token);
 
-    private static Result<OAuthCallbackResult> ErrorRedirect(string returnUrl, string errorCode) =>
-        Result<OAuthCallbackResult>.Success(new OAuthCallbackResult(
+    private async Task<Result<OAuthCallbackResult>> ErrorRedirectAsync(string returnUrl, string errorCode, CancellationToken token)
+    {
+        await audit.WriteAsync(null, null, AuthenticationEventCatalog.OAuthCallbackRejected,
+            "identity.oauth_callback." + errorCode, false, "oauth", token).ConfigureAwait(false);
+        return Result<OAuthCallbackResult>.Success(new OAuthCallbackResult(
             OAuthReturnUrlValidator.AppendQuery(returnUrl, "oauth_error", errorCode),
             null));
+    }
 }
 
 /// <summary>OAuth 回调处理结果。</summary>

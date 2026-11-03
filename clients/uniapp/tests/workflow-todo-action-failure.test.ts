@@ -10,7 +10,8 @@ describe('workflow todo action failure', () => {
     }))).toEqual({
       feedbackKey: 'workflow.todo.revisionConflict',
       refreshTodo: true,
-      retainIdempotencyKey: false
+      retainIdempotencyKey: false,
+       clearTodo: false
     });
   });
 
@@ -21,7 +22,8 @@ describe('workflow todo action failure', () => {
     }))).toEqual({
       feedbackKey: 'workflow.todo.denied',
       refreshTodo: false,
-      retainIdempotencyKey: false
+      retainIdempotencyKey: false,
+       clearTodo: true
     });
   });
 
@@ -32,7 +34,8 @@ describe('workflow todo action failure', () => {
     }))).toEqual({
       feedbackKey: 'workflow.todo.retryable',
       refreshTodo: false,
-      retainIdempotencyKey: true
+      retainIdempotencyKey: true,
+       clearTodo: false
     });
     expect(classifyWorkflowTodoActionFailure(new HttpProblem({
       status: 503,
@@ -42,5 +45,9 @@ describe('workflow todo action failure', () => {
       status: 422,
       code: 'workflow.form.submission.invalid'
     })).retainIdempotencyKey).toBe(false);
+  });
+  it('会话或待办读取资格丢失时销毁上下文，普通校验失败保留草稿', () => {
+    for (const status of [401, 403, 404]) expect(classifyWorkflowTodoActionFailure(new HttpProblem({ status })).clearTodo).toBe(true);
+    for (const status of [400, 422, 503]) expect(classifyWorkflowTodoActionFailure(new HttpProblem({ status })).clearTodo).toBe(false);
   });
 });

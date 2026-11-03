@@ -18,6 +18,8 @@ internal sealed class EventStreamOwnershipStore(
     ICommandExecutor commandExecutor,
     IOptions<DatabaseOptions> databaseOptions) : IEventStreamOwnershipStore
 {
+    public async Task<bool> IsRollbackActiveAsync(string messageType, int schemaVersion, CancellationToken cancellationToken = default) =>
+        (await FindRollbackPreparationAsync(messageType, schemaVersion, cancellationToken).ConfigureAwait(false))?.RollbackState != 0;
     /// <summary>
     /// 按事件类型与版本查找当前持久化的所有权记录；不存在时返回 null。
     /// </summary>
@@ -53,9 +55,15 @@ internal sealed class EventStreamOwnershipStore(
     /// 已有记录时执行以 <c>CurrentOwner = PreviousOwner</c> 为守卫的 UPDATE，影响行数为 0 即并发冲突；
     /// 调用方应捕获该异常并翻译为可重试的 conflict 错误，不得静默重试或覆盖。
     /// </remarks>
-    public async Task UpsertAsync(
+    public Task UpsertAsync(
         EventStreamOwnershipRecord record,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default) => UpsertCoreAsync(record, null, cancellationToken);
+
+    /// <summary>终态与原代次一同保存；后续切流的普通 Upsert 会清除关联，禁止跨激活重放旧控制目标。</summary>
+    internal Task CompleteRollbackAsync(EventStreamOwnershipRecord record, Guid generation, CancellationToken cancellationToken) =>
+        UpsertCoreAsync(record, generation, cancellationToken);
+
+    private async Task UpsertCoreAsync(EventStreamOwnershipRecord record, Guid? terminalGeneration, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(record);
         var persistenceRow = EventStreamOwnershipMapper.ToPersistenceRow(record);
@@ -66,14 +74,14 @@ internal sealed class EventStreamOwnershipStore(
         {
             affected = await commandExecutor.ExecuteAsync(
                 EventStreamOwnershipSql.Insert,
-                CreatePersistenceParameters(persistenceRow),
+                CreatePersistenceParameters(persistenceRow, terminalGeneration),
                 cancellationToken).ConfigureAwait(false);
         }
         else
         {
             affected = await commandExecutor.ExecuteAsync(
                 EventStreamOwnershipSql.Update,
-                CreatePersistenceParameters(persistenceRow),
+                CreatePersistenceParameters(persistenceRow, terminalGeneration),
                 cancellationToken).ConfigureAwait(false);
             if (affected == 0)
             {
@@ -182,7 +190,7 @@ internal sealed class EventStreamOwnershipStore(
         };
 
     private static IReadOnlyDictionary<string, object?> CreatePersistenceParameters(
-        EventStreamOwnershipPersistenceRow row) =>
+        EventStreamOwnershipPersistenceRow row, Guid? terminalGeneration = null) =>
         new Dictionary<string, object?>
         {
             ["MessageType"] = row.MessageType,
@@ -193,12 +201,13 @@ internal sealed class EventStreamOwnershipStore(
             ["CutoffEventId"] = row.CutoffEventId,
             ["CutoffOccurredAtUtc"] = row.CutoffOccurredAtUtc,
             ["CdcSourcePositionJson"] = row.CdcSourcePositionJson,
+            ["CdcKafkaBindingJson"] = row.CdcKafkaBindingJson,
             ["OperatorUserId"] = row.OperatorUserId,
             ["Reason"] = row.Reason,
             ["RollbackBoundaryEventId"] = row.RollbackBoundaryEventId,
             ["RollbackOccurredAtUtc"] = row.RollbackOccurredAtUtc,
             ["RollbackState"] = row.RollbackState,
-            ["RollbackGeneration"] = row.RollbackGeneration,
+            ["RollbackGeneration"] = terminalGeneration ?? row.RollbackGeneration,
             ["RollbackPreparedAtUtc"] = row.RollbackPreparedAtUtc,
             ["CreatedAtUtc"] = row.CreatedAtUtc,
             ["UpdatedAtUtc"] = row.UpdatedAtUtc,

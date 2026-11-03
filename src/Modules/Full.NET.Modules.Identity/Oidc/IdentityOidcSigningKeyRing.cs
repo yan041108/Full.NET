@@ -19,6 +19,8 @@ internal sealed class IdentityOidcSigningKeyRing : IDisposable
     private readonly List<RSA> _ownedKeys = [];
     private readonly Dictionary<string, OidcSigningKeyEntry> _entries = new(StringComparer.Ordinal);
     private string _activeKeyId;
+    private HashSet<string> _retired = new(StringComparer.Ordinal);
+    private bool _governanceLoaded;
 
     public IdentityOidcSigningKeyRing(
         IOptions<IdentityOidcOptions> options,
@@ -101,6 +103,8 @@ internal sealed class IdentityOidcSigningKeyRing : IDisposable
     }
 
     public bool UsesEphemeralDevelopmentKey { get; }
+    internal bool GovernanceLoaded { get { lock (_sync) return UsesEphemeralDevelopmentKey || _governanceLoaded; } }
+    internal void MarkGovernanceLoaded() { lock (_sync) _governanceLoaded = true; }
 
     public string ActiveSigningKeyId
     {
@@ -130,8 +134,8 @@ internal sealed class IdentityOidcSigningKeyRing : IDisposable
         {
             lock (_sync)
             {
-                return _entries.Values
-                    .Select(entry => entry.SecurityKey)
+                return _entries.Where(entry => !_retired.Contains(entry.Key))
+                    .Select(entry => entry.Value.SecurityKey)
                     .ToArray();
             }
         }
@@ -161,12 +165,14 @@ internal sealed class IdentityOidcSigningKeyRing : IDisposable
 
         lock (_sync)
         {
+            if (_retired.Contains(keyId))
+                return Result<string>.Failure(new Error(IdentityErrorCodes.OidcSigningKeyNotActivatable, "The signing key has been retired.", ErrorType.Validation));
             if (string.Equals(_activeKeyId, keyId, StringComparison.Ordinal))
             {
                 return Result<string>.Success(_activeKeyId);
             }
 
-            if (!_entries.TryGetValue(keyId, out var entry) || !entry.HasPrivateKey)
+            if (_retired.Contains(keyId) || !_entries.TryGetValue(keyId, out var entry) || !entry.HasPrivateKey)
             {
                 return Result<string>.Failure(new Error(
                     IdentityErrorCodes.OidcSigningKeyNotActivatable,
@@ -176,6 +182,17 @@ internal sealed class IdentityOidcSigningKeyRing : IDisposable
 
             _activeKeyId = keyId;
             return Result<string>.Success(_activeKeyId);
+        }
+    }
+
+    internal bool ApplyRetired(IEnumerable<string> keyIds)
+    {
+        lock (_sync)
+        {
+            var next = keyIds.ToHashSet(StringComparer.Ordinal);
+            if (next.Contains(_activeKeyId)) throw new InvalidOperationException("An active signing key cannot be retired.");
+            if (_retired.SetEquals(next)) return false;
+            _retired = next; return true;
         }
     }
 

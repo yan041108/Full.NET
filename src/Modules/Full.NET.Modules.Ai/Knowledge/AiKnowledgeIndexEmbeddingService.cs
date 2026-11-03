@@ -30,7 +30,7 @@ internal sealed record AiKnowledgeIndexEmbeddingBatch(Guid OperationId, int Batc
 internal sealed class AiKnowledgeIndexEmbeddingService(IQueryExecutor query, ICurrentTenant tenant, IDataTransactionState transactions, AiKnowledgeIndexTaskStore tasks,
     AiKnowledgeIndexSessionService sessions, AiKnowledgeIndexBudgetService admission, IAiOperationBudgetStore budget, IBackgroundSessionAuthorization authorization,
     IHostFileReferenceReader references, IHostFileContentReader hostFiles, ITenantResourceFileStore tenantFiles,
-    IEnumerable<IAiModelClientFactory> factories, AiModelBindingScope bindings, AiBackgroundLogCorrelation? logCorrelation = null)
+    IEnumerable<IAiModelClientFactory> factories, AiModelBindingScope bindings, AiBackgroundLogCorrelation? logCorrelation = null, AiKnowledgeFaqIndexInput? faqInput = null)
 {
     private static readonly AiKnowledgeChunkOptions ChunkOptions = new();
     private static readonly string[] Permissions = [AiKnowledgePermissions.Read, AiKnowledgeDocumentPermissions.Read,
@@ -101,7 +101,8 @@ internal sealed class AiKnowledgeIndexEmbeddingService(IQueryExecutor query, ICu
             using (var generator = await factory.CreateEmbeddingGeneratorAsync(bindings.Create(state.Model, state.Source.DataClassification, "embedding"), bounded).ConfigureAwait(false))
             {
                 // 创建客户端或读取凭据也会等待，最终门禁之后才进入可能计费的调用。
-                if (!await StillCurrentAsync(state, binding, taskId, leaseToken, session, bounded).ConfigureAwait(false))
+                if (!await RecheckFaqPayloadsAsync(state, binding, taskId, leaseToken, bounded).ConfigureAwait(false)
+                    || !await StillCurrentAsync(state, binding, taskId, leaseToken, session, bounded).ConfigureAwait(false))
                 { outcome = "cancelled"; return null; }
                 NoTransaction(); bounded.ThrowIfCancellationRequested(); usage = new(null, null);
                 var generated = await generator.GenerateAsync(Array.AsReadOnly(inputs), cancellationToken: bounded).ConfigureAwait(false);
@@ -116,7 +117,8 @@ internal sealed class AiKnowledgeIndexEmbeddingService(IQueryExecutor query, ICu
                 vectors = CopyVectors(generated, selected, state.Model.ModelId == "text-embedding-3-small" ? 1536 : 3072, bounded);
             }
             bounded.ThrowIfCancellationRequested();
-            if (!await StillCurrentAsync(state, binding, taskId, leaseToken, session, bounded).ConfigureAwait(false))
+            if (!await RecheckFaqPayloadsAsync(state, binding, taskId, leaseToken, bounded).ConfigureAwait(false)
+                || !await StillCurrentAsync(state, binding, taskId, leaseToken, session, bounded).ConfigureAwait(false))
             { outcome = "cancelled"; return null; }
             outcome = "succeeded";
             completed = new(admitted.Request.OperationId, batchOrdinal, state.Source, chunks.Chunks.ParserVersion,
@@ -132,8 +134,13 @@ internal sealed class AiKnowledgeIndexEmbeddingService(IQueryExecutor query, ICu
         // 结算也是异步等待；收费事实已提交后仍可取消、撤权或到期，不能交付等待前的授权结果。
         // 拒绝返回不重写已完成的模型操作计量，也不再次结算或派发。
         bounded.ThrowIfCancellationRequested();
-        return await StillCurrentAsync(state, binding, taskId, leaseToken, session, bounded).ConfigureAwait(false) ? completed : null;
+        return await RecheckFaqPayloadsAsync(state, binding, taskId, leaseToken, bounded).ConfigureAwait(false)
+            && await StillCurrentAsync(state, binding, taskId, leaseToken, session, bounded).ConfigureAwait(false) ? completed : null;
     }
+
+    private async Task<bool> RecheckFaqPayloadsAsync(State state, AiKnowledgeIndexTaskBinding binding, Guid taskId, Guid leaseToken, CancellationToken token) =>
+        state.Source.FaqRevisionId is not { } revision || faqInput is not null
+        && await faqInput.ReadAsync(binding, revision, state.Source.ContentHash, state.Source.SizeBytes, state.Source.DataClassification, taskId, leaseToken, token).ConfigureAwait(false) is not null;
 
     private async Task<State?> CurrentAsync(AiKnowledgeIndexTaskBinding binding, Guid taskId, Guid leaseToken, SessionBindingSnapshot session, CancellationToken token)
     {
@@ -141,7 +148,7 @@ internal sealed class AiKnowledgeIndexEmbeddingService(IQueryExecutor query, ICu
         if (await sessions.ReadHeldAsync(binding, taskId, leaseToken, token).ConfigureAwait(false) != session) return null;
         if (!await AuthorizedAsync(binding, session, token).ConfigureAwait(false)) return null;
         var source = await tasks.ReadDispatchAsync(binding, taskId, leaseToken, token).ConfigureAwait(false);
-        if (source is null) return null;
+        if (source is null || source.CorrectionRevisionId.HasValue) return null;
         var knowledge = await query.QuerySingleOrDefaultAsync<AiKnowledgeBaseRecord>(tasks.IsTenant ? AiKnowledgeSql.FindTenant : AiKnowledgeSql.FindHost,
             AiSqlParameters.Create(("Id", binding.KnowledgeBaseId), ("OwnerUserId", binding.OwnerUserId)), token).ConfigureAwait(false);
         var model = await query.QuerySingleOrDefaultAsync<AiModelConfigRecord>(tasks.IsTenant ? AiModelConfigSql.FindAvailableForTenantChat : AiModelConfigSql.FindAvailableForHostChat,
@@ -183,20 +190,27 @@ internal sealed class AiKnowledgeIndexEmbeddingService(IQueryExecutor query, ICu
     private async Task<Stream?> OpenAsync(State state, AiKnowledgeIndexTaskBinding binding, Guid taskId, Guid leaseToken, SessionBindingSnapshot session, CancellationToken token)
     {
         NoTransaction(); Stream stream; string contentType;
+        if (state.Source.FaqRevisionId is { } revision)
+        {
+            if (state.Source.FileId is not null || faqInput is null) return null;
+            var content = await faqInput.ReadAsync(binding, revision, state.Source.ContentHash, state.Source.SizeBytes, state.Source.DataClassification, taskId, leaseToken, token).ConfigureAwait(false);
+            return content?.Open();
+        }
+        if (state.Source.FileId is not { } fileId || fileId == Guid.Empty) return null;
         if (tasks.IsTenant)
         {
-            var opened = await tenantFiles.OpenReadyContentAsync("ai", binding.VersionId, state.Source.FileId, token).ConfigureAwait(false);
+            var opened = await tenantFiles.OpenReadyContentAsync("ai", binding.VersionId, fileId, token).ConfigureAwait(false);
             if (!opened.IsSuccess) return null;
             stream = opened.Value!.Content; contentType = opened.Value.ContentType;
         }
         else
         {
-            var reference = await references.GetReadyReferenceAsync(state.Source.FileId, token).ConfigureAwait(false);
+            var reference = await references.GetReadyReferenceAsync(fileId, token).ConfigureAwait(false);
             if (reference is null || reference.FileId != state.Source.FileId || reference.SizeBytes != state.Source.SizeBytes
                 || !string.Equals(reference.ContentHash, state.Source.ContentHash, StringComparison.OrdinalIgnoreCase)
                 || !await StillCurrentAsync(state, binding, taskId, leaseToken, session, token).ConfigureAwait(false)) return null;
             NoTransaction();
-            var opened = await hostFiles.OpenReadyContentAsync(state.Source.FileId, token).ConfigureAwait(false);
+            var opened = await hostFiles.OpenReadyContentAsync(fileId, token).ConfigureAwait(false);
             if (!opened.IsSuccess) return null;
             stream = opened.Value!.Content; contentType = opened.Value.ContentType;
         }
@@ -225,13 +239,16 @@ internal sealed class AiKnowledgeIndexEmbeddingService(IQueryExecutor query, ICu
     internal static bool SameSource(AiKnowledgeIndexDispatchRecord expected, AiKnowledgeIndexDispatchRecord current) =>
         expected.TaskId == current.TaskId && expected.VersionId == current.VersionId && expected.DocumentId == current.DocumentId
         && expected.DocumentVersion == current.DocumentVersion && expected.KnowledgeBaseVersion == current.KnowledgeBaseVersion
-        && expected.LeaseToken == current.LeaseToken && expected.FileId == current.FileId && expected.ContentHash == current.ContentHash
+        && expected.LeaseToken == current.LeaseToken && expected.FileId == current.FileId && expected.FaqRevisionId == current.FaqRevisionId && expected.ContentHash == current.ContentHash
         && expected.SizeBytes == current.SizeBytes && expected.ContentType == current.ContentType && expected.ParsingPolicyKey == current.ParsingPolicyKey
         && expected.ModelConfigId == current.ModelConfigId && expected.ModelConfigVersion == current.ModelConfigVersion
         // 分类与目的地同样冻结；租约有效期可由原持有者续期，不作为内容或策略身份。
         && expected.DataClassification == current.DataClassification && expected.ModelProviderKey == current.ModelProviderKey
         && expected.ModelId == current.ModelId && expected.ModelEndpointBaseUrl == current.ModelEndpointBaseUrl
-        && expected.ModelOrganizationId == current.ModelOrganizationId;
+        && expected.ModelOrganizationId == current.ModelOrganizationId
+        && expected.CorrectionSourceId == current.CorrectionSourceId && expected.CorrectionRevisionId == current.CorrectionRevisionId
+        && expected.CorrectionHeadVersion == current.CorrectionHeadVersion && expected.CorrectionSourceHash == current.CorrectionSourceHash
+        && expected.CorrectionPayloadHash == current.CorrectionPayloadHash;
     private void NoTransaction()
     { if (transactions.HasTransaction) throw new InvalidOperationException("Knowledge embedding execution cannot hold a database transaction."); }
     private sealed record State(AiKnowledgeIndexDispatchRecord Source, AiKnowledgeBaseRecord Knowledge, AiModelConfigRecord Model);

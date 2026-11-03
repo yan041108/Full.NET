@@ -4,6 +4,8 @@ import {
   readPagedResultOfWorkflowTodoListItemResponse,
   readWorkflowInstanceResponse,
   readWorkflowSignatureUpload,
+  readWorkflowFormAttachmentUploadResponse,
+  type WorkflowFormAttachmentUploadResponse,
   readWorkflowVoteRequest,
   readWorkflowClaimPoolPage,
   readWorkflowClaimRequest,
@@ -55,6 +57,7 @@ export interface WorkflowTodoClient {
   delegate(todoId: string, request: DelegateWorkflowTodoRequest): Promise<WorkflowInstanceResponse>;
   recallDelegation(todoId: string, request: RecallWorkflowTodoDelegationRequest): Promise<WorkflowInstanceResponse>;
   downloadAttachment(todoId: string, fileId: string): Promise<ArrayBuffer>;
+  uploadAttachment(todoId: string, expectedRevision: number, fieldKey: string, formKindKey: 'main' | 'vote', filePath: string): Promise<WorkflowFormAttachmentUploadResponse>;
   listClaims(): Promise<readonly WorkflowClaimPool[]>;
   claim(poolId: string, request: WorkflowClaimRequest): Promise<WorkflowInstanceResponse>;
   release(todoId: string, request: WorkflowReleaseRequest): Promise<WorkflowInstanceResponse>;
@@ -171,6 +174,17 @@ export function createWorkflowTodoClient(
       if (!http.upload) throw new TypeError('workflow.todo.signature-upload-unavailable');
       return readWorkflowSignatureUpload(await http.upload<unknown>({
         path: `/api/v1/workflow/todos/${id}/signature-uploads?expectedRevision=${expectedRevision}`, filePath
+      }));
+    },
+    async uploadAttachment(todoId, expectedRevision, fieldKey, formKindKey, filePath) {
+      const id = requireTodoId(todoId);
+      if (!http.upload || !Number.isSafeInteger(expectedRevision) || expectedRevision < 1 ||
+        !/^[A-Za-z][A-Za-z0-9_.-]{0,63}$/.test(fieldKey) || !['main', 'vote'].includes(formKindKey) || !filePath) {
+        throw new TypeError('workflow.todo.invalid-attachment-upload');
+      }
+      const query = new URLSearchParams({ expectedRevision: String(expectedRevision), fieldKey, formKindKey });
+      return readWorkflowFormAttachmentUploadResponse(await http.upload<unknown>({
+        path: `/api/v1/workflow/todos/${id}/attachment-uploads?${query}`, filePath
       }));
     },
     async listMine() {

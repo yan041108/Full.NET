@@ -5,22 +5,36 @@ namespace Full.NET.Modules.Reporting.Persistence;
 /// <summary>报表导出任务 SQL 语句。</summary>
 internal static class ReportingExportTaskSql
 {
+    /// <summary>所有权和租户在 SQL 中判断，不对他人的任务先读取参数正文。</summary>
+    internal static readonly SqlStatement FindOwnedCancellationState = new("reporting.export_task.cancel_state", """
+        SELECT Id,StatusKey,Version FROM fn_reporting_export_task
+        WHERE TenantId=@TenantId AND RequestedByUserId=@UserId AND Id=@Id
+        """, SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
+
+    /// <summary>只与领取竞争排队版本，原参数、会话、发布版本和文件引用均不改写。</summary>
+    internal static readonly SqlStatement CancelOwnedQueued = new("reporting.export_task.cancel_queued", """
+        UPDATE fn_reporting_export_task SET StatusKey='canceled',CompletedAtUtc=@Now,Version=Version+1,
+            LeaseId=NULL,LeaseExpiresAtUtc=NULL
+        WHERE TenantId=@TenantId AND RequestedByUserId=@UserId AND Id=@Id AND Version=@Version
+            AND StatusKey='queued' AND LeaseId IS NULL
+        """, SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
+
     private const string SelectColumns = """
         Id, TenantId, DefinitionId, VersionNumber, DefinitionKey, DefinitionName, FormatKey,
         ParametersJson, StatusKey, OutputFileId, OutputFileName, RowCount, ErrorCode, ErrorMessage,
         RequestedByUserId, CreatedAtUtc, CompletedAtUtc, LeaseId, LeaseExpiresAtUtc,
-        ActorPermissionCodesJson, Version
+        ActorPermissionCodesJson, ActorSessionBindingJson, Version
         """;
 
     private const string SelectColumnsSqlServer = """
         Id, TenantId, DefinitionId, VersionNumber, DefinitionKey, DefinitionName, FormatKey,
         ParametersJson, StatusKey, OutputFileId, OutputFileName, [RowCount], ErrorCode, ErrorMessage,
         RequestedByUserId, CreatedAtUtc, CompletedAtUtc, LeaseId, LeaseExpiresAtUtc,
-        ActorPermissionCodesJson, Version
+        ActorPermissionCodesJson, ActorSessionBindingJson, Version
         """;
 
     private const string InsertedColumnsSqlServer = """
-        inserted.Id, inserted.TenantId, inserted.DefinitionId, inserted.VersionNumber, inserted.DefinitionKey, inserted.DefinitionName, inserted.FormatKey, inserted.ParametersJson, inserted.StatusKey, inserted.OutputFileId, inserted.OutputFileName, inserted.[RowCount], inserted.ErrorCode, inserted.ErrorMessage, inserted.RequestedByUserId, inserted.CreatedAtUtc, inserted.CompletedAtUtc, inserted.LeaseId, inserted.LeaseExpiresAtUtc, inserted.ActorPermissionCodesJson, inserted.Version
+        inserted.Id, inserted.TenantId, inserted.DefinitionId, inserted.VersionNumber, inserted.DefinitionKey, inserted.DefinitionName, inserted.FormatKey, inserted.ParametersJson, inserted.StatusKey, inserted.OutputFileId, inserted.OutputFileName, inserted.[RowCount], inserted.ErrorCode, inserted.ErrorMessage, inserted.RequestedByUserId, inserted.CreatedAtUtc, inserted.CompletedAtUtc, inserted.LeaseId, inserted.LeaseExpiresAtUtc, inserted.ActorPermissionCodesJson, inserted.ActorSessionBindingJson, inserted.Version
         """;
 
     /// <summary>可领取条件：排队中，或处理中但租约已到期/缺失。</summary>
@@ -64,7 +78,7 @@ internal static class ReportingExportTaskSql
             (@Id, @TenantId, @DefinitionId, @VersionNumber, @DefinitionKey, @DefinitionName, @FormatKey,
              @ParametersJson, @StatusKey, @OutputFileId, @OutputFileName, @RowCount, @ErrorCode, @ErrorMessage,
              @RequestedByUserId, @CreatedAtUtc, @CompletedAtUtc, @LeaseId, @LeaseExpiresAtUtc,
-             @ActorPermissionCodesJson, @Version)
+             @ActorPermissionCodesJson, @ActorSessionBindingJson, @Version)
         """,
         SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
 
@@ -77,7 +91,7 @@ internal static class ReportingExportTaskSql
             (@Id, @TenantId, @DefinitionId, @VersionNumber, @DefinitionKey, @DefinitionName, @FormatKey,
              @ParametersJson, @StatusKey, @OutputFileId, @OutputFileName, @RowCount, @ErrorCode, @ErrorMessage,
              @RequestedByUserId, @CreatedAtUtc, @CompletedAtUtc, @LeaseId, @LeaseExpiresAtUtc,
-             @ActorPermissionCodesJson, @Version)
+             @ActorPermissionCodesJson, @ActorSessionBindingJson, @Version)
         """,
         SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
 
@@ -314,5 +328,39 @@ internal static class ReportingExportTaskSql
         SET LeaseExpiresAtUtc = @LeaseExpiresAtUtc
         WHERE TenantId = @TenantId AND Id = @Id AND StatusKey = 'processing'
           AND LeaseId = @LeaseId AND LeaseExpiresAtUtc > @NowUtc
+        """, SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
+
+    // 首/后续页分别使用固定 SQL，让时间边界直接成为查询范围；不读取正文或会话 JSON。
+    public static readonly SqlStatement MineFirstSqlServer = new("reporting.export_task.mine.first.sqlserver", """
+        SELECT TOP (@Take) Id, DefinitionId, VersionNumber, DefinitionKey, DefinitionName, FormatKey, StatusKey, OutputFileName, [RowCount], ErrorCode, ErrorMessage, RequestedByUserId, CreatedAtUtc, CompletedAtUtc
+        FROM fn_reporting_export_task
+        WHERE TenantId=@TenantId AND RequestedByUserId=@RequestedByUserId
+            AND (@StatusKey IS NULL OR StatusKey=@StatusKey)
+        ORDER BY CreatedAtUtc DESC,Id DESC
+        """, SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
+    public static readonly SqlStatement MineAfterSqlServer = new("reporting.export_task.mine.after.sqlserver", """
+        SELECT TOP (@Take) Id, DefinitionId, VersionNumber, DefinitionKey, DefinitionName, FormatKey, StatusKey, OutputFileName, [RowCount], ErrorCode, ErrorMessage, RequestedByUserId, CreatedAtUtc, CompletedAtUtc
+        FROM fn_reporting_export_task
+        WHERE TenantId=@TenantId AND RequestedByUserId=@RequestedByUserId
+            AND (@StatusKey IS NULL OR StatusKey=@StatusKey)
+            AND CreatedAtUtc<=@BeforeCreatedAtUtc AND (CreatedAtUtc<@BeforeCreatedAtUtc OR Id<@BeforeId)
+        ORDER BY CreatedAtUtc DESC,Id DESC
+        """, SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
+    public static readonly SqlStatement MineFirstMySql = new("reporting.export_task.mine.first.mysql", """
+        SELECT Id, DefinitionId, VersionNumber, DefinitionKey, DefinitionName, FormatKey, StatusKey, OutputFileName, RowCount, ErrorCode, ErrorMessage, RequestedByUserId, CreatedAtUtc, CompletedAtUtc
+        FROM fn_reporting_export_task
+        WHERE TenantId=@TenantId AND RequestedByUserId=@RequestedByUserId
+            AND (@StatusKey IS NULL OR StatusKey=@StatusKey)
+        ORDER BY CreatedAtUtc DESC,Id DESC
+        LIMIT @Take
+        """, SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
+    public static readonly SqlStatement MineAfterMySql = new("reporting.export_task.mine.after.mysql", """
+        SELECT Id, DefinitionId, VersionNumber, DefinitionKey, DefinitionName, FormatKey, StatusKey, OutputFileName, RowCount, ErrorCode, ErrorMessage, RequestedByUserId, CreatedAtUtc, CompletedAtUtc
+        FROM fn_reporting_export_task
+        WHERE TenantId=@TenantId AND RequestedByUserId=@RequestedByUserId
+            AND (@StatusKey IS NULL OR StatusKey=@StatusKey)
+            AND CreatedAtUtc<=@BeforeCreatedAtUtc AND (CreatedAtUtc<@BeforeCreatedAtUtc OR Id<@BeforeId)
+        ORDER BY CreatedAtUtc DESC,Id DESC
+        LIMIT @Take
         """, SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
 }

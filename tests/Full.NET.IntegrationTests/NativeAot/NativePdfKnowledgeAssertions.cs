@@ -78,6 +78,7 @@ internal static class NativePdfKnowledgeAssertions
             if (!nativeWorker && !historyChecked)
             {
                 historyChecked = true;
+                await AiKnowledgePublishedFixture.SeedAsync(db, b, clock.UtcNow);
                 // 使用同一已结算来源 夹具验证真实 Native 历史读取；正文由夹具种入，不宣称云模型生成。
                 await VerifyHistoryAsync(b);
             }
@@ -90,6 +91,7 @@ internal static class NativePdfKnowledgeAssertions
             parameters["KnowledgeBaseId"] = b.KnowledgeBaseId; parameters["DocumentId"] = b.DocumentId; parameters["VersionId"] = b.VersionId;
             var source = await services.GetRequiredService<IQueryExecutor>().QuerySingleOrDefaultAsync<AiKnowledgeIndexStatusRecord>(
                 AiKnowledgeIndexStatusSql.For(provider, false), parameters, cancellation); Assert.IsNotNull(source);
+            source = source with { PublicationId = await db.QuerySingleAsync<Guid>("SELECT PublicationId FROM fn_ai_knowledge_publication_head WHERE Id=@Id", new { Id = b.DocumentId }) };
             using var create = new HttpRequestMessage(HttpMethod.Post, "/api/v1/ai/chat/sessions");
             create.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
             create.Content = JsonContent.Create(new CreateAiChatSessionRequest(source.ModelConfigId!.Value, "原生来源历史"));
@@ -115,9 +117,10 @@ internal static class NativePdfKnowledgeAssertions
                 await db.ExecuteAsync("UPDATE fn_ai_model_config SET EndpointBaseUrl=@Endpoint WHERE Id=@Id", new { Id = source.ModelConfigId, Endpoint = destination });
             }
             var messageId = Guid.CreateVersion7(); var citationId = Guid.CreateVersion7();
+            // 此夹具保留既有 PDF/轻量 DOCX 引用协议，但必须同时绑定新发布身份。
             var lineage = new AiKnowledgeAnswerLineage(docx ? 2 : 1, messageId, chat.Id, session.UserId, null,
                 [new(source.KnowledgeBaseId, source.DocumentId, source.VersionId, source.DocumentVersion, source.KnowledgeBaseVersion,
-                    source.FileId, source.ContentHash, source.TaskId!.Value, source.ActiveReceiptHash!, source.ActiveManifestHash!, source.ActivePlanHash!)],
+                    AiKnowledgeFileSource.RequireFileId(source), source.ContentHash, source.TaskId!.Value, source.ActiveReceiptHash!, source.ActiveManifestHash!, source.ActivePlanHash!, source.PublicationId)],
                 [new(citationId, source.DocumentId, source.VersionId, 0, docx ? null : 1, 0, 1) { DocxLocation = docx ? new(0, 1, null, null, null) : null }]);
             var json = AiKnowledgeAnswerLineageCodec.Encode(lineage);
             var ids = new[] { messageId, Guid.CreateVersion7(), Guid.CreateVersion7() };
@@ -148,8 +151,8 @@ internal static class NativePdfKnowledgeAssertions
             foreach (var id in ids.Skip(1))
             { var hidden = readable.Messages.Single(message => message.Id == id); Assert.AreEqual("", hidden.Content);
                 Assert.AreEqual(AiErrorCodes.KnowledgeAnswerUnavailable, hidden.KnowledgeUnavailableCode); Assert.HasCount(0, hidden.Citations); }
-            var receipt = await db.QuerySingleAsync<string>("SELECT ReceiptJson FROM fn_ai_knowledge_active_generation WHERE DocumentId=@Id", new { Id = b.DocumentId });
-            await db.ExecuteAsync("UPDATE fn_ai_knowledge_active_generation SET ReceiptJson='[]' WHERE DocumentId=@Id", new { Id = b.DocumentId });
+            var receipt = await db.QuerySingleAsync<string>("SELECT ReceiptJson FROM fn_ai_knowledge_generation WHERE Id=@Id", new { Id = source.TaskId });
+            await db.ExecuteAsync("UPDATE fn_ai_knowledge_generation SET ReceiptJson='[]' WHERE Id=@Id", new { Id = source.TaskId });
             try
             { var hidden = (await ReadHistory()).Messages.Single(message => message.Id == messageId); Assert.AreEqual("", hidden.Content);
                 Assert.AreEqual(AiErrorCodes.KnowledgeAnswerUnavailable, hidden.KnowledgeUnavailableCode); Assert.HasCount(0, hidden.Citations);
@@ -159,7 +162,7 @@ internal static class NativePdfKnowledgeAssertions
                 var clear = await state.Content.ReadFromJsonAsync<AiKnowledgeAnswerFeedbackStateResponse>(cancellation); Assert.IsNotNull(clear); Assert.AreEqual(feedback.Version, clear.Version);
                 using var withdrawn = await FeedbackSend(HttpMethod.Delete, feedbackPath + $"?version={clear.Version}", null); await Require(withdrawn, HttpStatusCode.OK);
             }
-            finally { await db.ExecuteAsync("UPDATE fn_ai_knowledge_active_generation SET ReceiptJson=@Receipt WHERE DocumentId=@Id", new { Id = b.DocumentId, Receipt = receipt }); }
+            finally { await db.ExecuteAsync("UPDATE fn_ai_knowledge_generation SET ReceiptJson=@Receipt WHERE Id=@Id", new { Id = source.TaskId, Receipt = receipt }); }
         }
         async Task<Guid> Enqueue(AiKnowledgeIndexTaskBinding b)
         {

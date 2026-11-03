@@ -16,5 +16,6 @@ namespace Full.NET.Modules.DataApproval.Serialization;
 [JsonSerializable(typeof(UpdateDataApprovalScenarioBindingBody))]
 [JsonSerializable(typeof(PagedResult<DataApprovalRequestResponse>))]
 [JsonSerializable(typeof(DataApprovalScenarioResponse[]))]
+[JsonSerializable(typeof(IReadOnlyList<DataApprovalScenarioResponse>))]
 /// <summary>DataApproval 模块 JSON 源生成上下文；Native AOT 绑定已审计契约，禁止反射序列化。</summary>
 internal partial class DataApprovalJsonSerializerContext : JsonSerializerContext;

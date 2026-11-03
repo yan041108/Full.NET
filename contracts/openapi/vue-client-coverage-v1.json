@@ -1105,7 +1105,8 @@
     },
     {
       "routePrefixes": [
-        "/api/v1/identity/oidc-clients"
+        "/api/v1/identity/oidc-clients",
+        "/api/v1/identity/oidc-logout-deliveries"
       ],
       "openApiFixture": "contracts/openapi/identity-oidc-clients-v1.json",
       "apiModule": "ui/admin/src/api/oidc-clients.ts",
@@ -1115,7 +1116,8 @@
     },
     {
       "routePrefixes": [
-        "/api/v1/identity/oidc-authorizations"
+        "/api/v1/identity/oidc-authorizations",
+        "/api/v1/me/oidc-authorizations"
       ],
       "openApiFixture": "contracts/openapi/identity-oidc-authorizations-v1.json",
       "apiModule": "ui/admin/src/api/oidc-authorizations.ts",
@@ -1189,7 +1191,9 @@
     },
     {
       "clientContractModules": [
-        "packages/client-contracts/src/ai-knowledge.ts"
+        "packages/client-contracts/src/ai-knowledge.ts",
+        "packages/client-contracts/src/ai-knowledge-correction-workspace.ts",
+        "packages/client-contracts/src/generated/index.generated.ts"
       ],
       "openApiFixture": "contracts/openapi/fullnet-client-v1.openapi.json",
       "apiModule": "ui/admin/src/api/ai-knowledge.ts",
@@ -1256,6 +1260,118 @@
       "openApiFixture": "contracts/openapi/fullnet-client-v1.openapi.json",
       "routePrefixes": [
         "/api/v1/auditing/timeline"
+      ]
+    },
+    {
+      "apiModule": "ui/admin/src/api/subscription-billing.ts",
+      "clientContractModules": [
+        "packages/client-contracts/src/generated/index.generated.ts"
+      ],
+      "openApiFixture": "contracts/openapi/fullnet-client-v1.openapi.json",
+      "routePrefixes": [
+        "/api/v1/tenancy/tenant-packages",
+        "/api/v1/tenancy/tenants",
+        "/api/v1/tenancy/entitlements",
+        "/api/v1/payments/subscriptions",
+        "/api/v1/payments/orders"
+      ]
+    },
+    {
+      "clientContractModules": [
+        "packages/client-contracts/src/generated/index.generated.ts"
+      ],
+      "openApiFixture": "contracts/openapi/fullnet-client-v1.openapi.json",
+      "apiModule": "ui/admin/src/api/enterprise-request-delivery.ts",
+      "routePrefixes": [
+        "/api/v1/enterprise_request/enterprise-requests/"
+      ]
+    },
+    {
+      "clientContractModules": [
+        "packages/client-contracts/src/generated/index.generated.ts"
+      ],
+      "openApiFixture": "contracts/openapi/fullnet-client-v1.openapi.json",
+      "apiModule": "ui/admin/src/api/ai-agent-approvals.ts",
+      "routePrefixes": [
+        "/api/v1/ai/agent/approvals",
+        "/api/v1/ai/agent/runs"
+      ]
+    },
+    {
+      "clientContractModules": [
+        "packages/client-contracts/src/generated/index.generated.ts"
+      ],
+      "openApiFixture": "contracts/openapi/fullnet-client-v1.openapi.json",
+      "apiModule": "ui/admin/src/api/ai-knowledge-governance.ts",
+      "routePrefixes": [
+        "/api/v1/ai/knowledge-bases"
+      ]
+    },
+    {
+      "apiModule": "ui/admin/src/api/workflow-collaboration-grants.ts",
+      "clientContractModules": [
+        "packages/client-contracts/src/generated/index.generated.ts",
+        "packages/client-contracts/src/workflow-collaboration-grants.ts"
+      ],
+      "openApiFixture": "contracts/openapi/fullnet-client-v1.openapi.json",
+      "routePrefixes": [
+        "/api/v1/workflow/collaboration-grants"
+      ]
+    },
+    {
+      "clientContractModules": [
+        "packages/client-contracts/src/generated/index.generated.ts"
+      ],
+      "openApiFixture": "contracts/openapi/fullnet-client-v1.openapi.json",
+      "apiModule": "ui/admin/src/workflow/workflow-form-attachments.ts",
+      "routePrefixes": [
+        "/api/v1/workflow/instances",
+        "/api/v1/workflow/todos",
+        "/api/v1/workflow/definition-versions"
+      ]
+    },
+    {
+      "clientContractModules": [
+        "packages/client-contracts/src/generated/index.generated.ts"
+      ],
+      "openApiFixture": "contracts/openapi/fullnet-client-v1.openapi.json",
+      "apiModule": "ui/admin/src/api/workflow-observability.ts",
+      "routePrefixes": [
+        "/api/v1/workflow/operations",
+        "/api/v1/workflow/definitions/{definitionId}/simulate"
+      ]
+    },
+    {
+      "clientContractModules": [
+        "packages/client-contracts/src/ai-knowledge-faq-drafts.ts",
+        "packages/client-contracts/src/generated/index.generated.ts"
+      ],
+      "openApiFixture": "contracts/openapi/fullnet-client-v1.openapi.json",
+      "apiModule": "ui/admin/src/api/ai-knowledge-faqs.ts",
+      "routePrefixes": [
+        "/api/v1/ai/knowledge-bases"
+      ]
+    },
+    {
+      "clientContractModules": [
+        "packages/client-contracts/src/ai-knowledge-faq-lifecycle.ts",
+        "packages/client-contracts/src/generated/index.generated.ts"
+      ],
+      "openApiFixture": "contracts/openapi/fullnet-client-v1.openapi.json",
+      "apiModule": "ui/admin/src/api/ai-knowledge-faq-lifecycle.ts",
+      "routePrefixes": [
+        "/api/v1/ai/knowledge-bases"
+      ]
+    },
+    {
+      "clientContractModules": [
+        "packages/client-contracts/src/generated/index.generated.ts",
+        "packages/client-contracts/src/ai-personal-schedule-completion.ts"
+      ],
+      "openApiFixture": "contracts/openapi/fullnet-client-v1.openapi.json",
+      "apiModule": "ui/admin/src/api/ai-personal-schedule-completion.ts",
+      "routePrefixes": [
+        "/api/v1/ai/agent/runs"
       ]
     }
   ],
@@ -1414,7 +1530,8 @@
     {
       "apiModule": "ui/admin/src/api/ai-chat.ts",
       "consumers": [
-        "ui/admin/src/views/AiChatView.vue"
+        "ui/admin/src/views/AiChatView.vue",
+        "ui/admin/src/components/AiWorkflowTargetPicker.vue"
       ]
     },
     {
@@ -1936,7 +2053,8 @@
     {
       "apiModule": "ui/admin/src/api/oidc-authorizations.ts",
       "consumers": [
-        "ui/admin/src/views/OidcAuthorizationsView.vue"
+        "ui/admin/src/views/OidcAuthorizationsView.vue",
+        "ui/admin/src/views/SecuritySettingsView.vue"
       ]
     },
     {
@@ -2024,6 +2142,53 @@
       "apiModule": "ui/admin/src/api/log-timeline.ts",
       "consumers": [
         "ui/admin/src/views/LogTimelineView.vue"
+      ]
+    },
+    {
+      "apiModule": "ui/admin/src/api/subscription-billing.ts",
+      "consumers": [
+        "ui/admin/src/components/PackageOfferEditor.vue",
+        "ui/admin/src/components/PaidSubscriptionPurchase.vue",
+        "ui/admin/src/components/SubscriptionCheckoutAction.vue",
+        "ui/admin/src/components/SubscriptionFulfillmentAction.vue"
+      ]
+    },
+    {
+      "apiModule": "ui/admin/src/api/enterprise-request-delivery.ts",
+      "consumers": [
+        "ui/admin/src/components/EnterpriseRequestDelivery.vue"
+      ]
+    },
+    {
+      "apiModule": "ui/admin/src/api/ai-agent-approvals.ts",
+      "consumers": [
+        "ui/admin/src/components/AiWorkflowApprovalPanel.vue"
+      ]
+    },
+    {
+      "apiModule": "ui/admin/src/api/ai-knowledge-governance.ts",
+      "consumers": [
+        "ui/admin/src/components/AiKnowledgeGovernancePanel.vue",
+        "ui/admin/src/components/AiKnowledgePublicationPanel.vue"
+      ]
+    },
+    {
+      "apiModule": "ui/admin/src/api/workflow-collaboration-grants.ts",
+      "consumers": [
+        "ui/admin/src/views/WorkflowCollaborationGrantsView.vue"
+      ]
+    },
+    {
+      "apiModule": "ui/admin/src/workflow/workflow-form-attachments.ts",
+      "consumers": [
+        "ui/admin/src/workflow/WorkflowFormRenderer.vue"
+      ]
+    },
+    {
+      "apiModule": "ui/admin/src/api/ai-personal-schedule-completion.ts",
+      "consumers": [
+        "ui/admin/src/components/AiPersonalScheduleCompletionDialog.vue",
+        "ui/admin/src/components/AiPersonalScheduleCompletionReceiptPanel.vue"
       ]
     }
   ]

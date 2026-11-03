@@ -30,6 +30,8 @@ public static class KafkaMessagingTelemetry
         "result",
         "reason_code",
         "connector_code",
+        "component",
+        "resource_code",
     ];
 
     /// <summary>明确禁止进入指标标签的键名片段（大小写不敏感匹配）。</summary>
@@ -52,8 +54,6 @@ public static class KafkaMessagingTelemetry
     private static readonly ConcurrentDictionary<string, ConnectorState> ConnectorStates =
         new(StringComparer.Ordinal);
     private static long _compatibilityProcessingSequence;
-    private static long _sqlServerCaptureJobRunning = 1;
-    private static double _mySqlBinlogRetentionHours = 168d;
 
     private static readonly Counter<long> ConsumeResults =
         Meter.CreateCounter<long>("fullnet.messaging.kafka.consume.results");
@@ -90,11 +90,11 @@ public static class KafkaMessagingTelemetry
         "fullnet.messaging.kafka.ownership.revoked",
         () => Observe(state => state.OwnershipRevoked ? 1 : 0));
     private static readonly ObservableGauge<long> ConsumerLag = Meter.CreateObservableGauge(
-        "fullnet.messaging.kafka.consumer.lag",
-        () => Observe(state => state.ConsumerLag),
+        "fullnet.messaging.kafka.observed_topics.lag",
+        () => Observe(state => state.ConsumerLag, requireFreshLag: true),
         unit: "{message}");
     private static readonly ObservableGauge<double> LagRetentionRatio = Meter.CreateObservableGauge(
-        "fullnet.messaging.kafka.lag_retention_ratio",
+        "fullnet.messaging.kafka.observed_topics.lag_retention_ratio",
         () => ObserveRatio(state => state.LagRetentionRatio),
         unit: "1");
     private static readonly ObservableGauge<double> ConnectorLag = Meter.CreateObservableGauge(
@@ -105,15 +105,6 @@ public static class KafkaMessagingTelemetry
         Meter.CreateObservableGauge(
             "fullnet.messaging.connector.offset.unrecoverable",
             () => ObserveConnectorUnrecoverable());
-    private static readonly ObservableGauge<long> SqlServerCaptureJobRunning =
-        Meter.CreateObservableGauge(
-            "fullnet.messaging.cdc.sqlserver.capture_job_running",
-            ObserveSqlServerCaptureJobRunning);
-    private static readonly ObservableGauge<double> MySqlBinlogRetentionHours =
-        Meter.CreateObservableGauge(
-            "fullnet.messaging.cdc.mysql.binlog_retention_hours",
-            ObserveMySqlBinlogRetentionHours,
-            unit: "h");
 
     /// <summary>
     /// 启动 Kafka 消费 Span，尝试从 traceParent 恢复父上下文；
@@ -215,8 +206,8 @@ public static class KafkaMessagingTelemetry
                     pausedPartitions,
                     ownershipRevoked ?? false,
                     ProcessingSequence: 0,
-                    ConsumerLag: 0,
-                    LagRetentionRatio: 0d),
+                    ConsumerLag: -1,
+                    LagRetentionRatio: double.NaN),
                 (_, current) => current with
                 {
                     Provider = provider,
@@ -238,14 +229,15 @@ public static class KafkaMessagingTelemetry
         string provider,
         string consumerCode,
         long lagMessages,
-        double lagRetentionRatio)
+        double? lagRetentionRatio,
+        TimeSpan? maximumAge = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(provider);
         ArgumentException.ThrowIfNullOrWhiteSpace(consumerCode);
+        if (maximumAge is { } age && age <= TimeSpan.Zero) throw new ArgumentOutOfRangeException(nameof(maximumAge));
         if (lagMessages < 0
             || lagRetentionRatio < 0d
-            || double.IsNaN(lagRetentionRatio)
-            || double.IsInfinity(lagRetentionRatio))
+            || (lagRetentionRatio is { } ratio && !double.IsFinite(ratio)))
         {
             throw new ArgumentOutOfRangeException(nameof(lagMessages));
         }
@@ -270,18 +262,28 @@ public static class KafkaMessagingTelemetry
                     OwnershipRevoked: false,
                     ProcessingSequence: 0,
                     ConsumerLag: lagMessages,
-                    LagRetentionRatio: lagRetentionRatio),
+                    LagRetentionRatio: lagRetentionRatio ?? double.NaN) { LagObservedAt = Environment.TickCount64, LagMaximumAgeMilliseconds = (maximumAge ?? TimeSpan.FromMinutes(2)).TotalMilliseconds },
                 (_, current) => current with
                 {
                     Provider = provider,
                     ConsumerLag = lagMessages,
-                    LagRetentionRatio = lagRetentionRatio,
+                    LagRetentionRatio = lagRetentionRatio ?? double.NaN,
+                    LagObservedAt = Environment.TickCount64,
+                    LagMaximumAgeMilliseconds = (maximumAge ?? TimeSpan.FromMinutes(2)).TotalMilliseconds,
                 });
         }
         catch (Exception)
         {
             // lag 采样失败不得阻断排空或回退证明。
         }
+    }
+
+    /// <summary>采样失败立即撤下旧 lag；查询失败不得继续报告上次零积压或零保留占比。</summary>
+    /// <param name="consumerCode">已登记消费组机器码。</param>
+    public static void InvalidateConsumerLag(string consumerCode)
+    {
+        if (ConsumerStates.TryGetValue(consumerCode, out var state))
+            ConsumerStates.TryUpdate(consumerCode, state with { ConsumerLag = -1, LagRetentionRatio = double.NaN }, state);
     }
 
     /// <summary>
@@ -587,20 +589,28 @@ public static class KafkaMessagingTelemetry
     }
 
     /// <summary>
-    /// 更新或写入 Connector 滞后与位点不可恢复占位状态；生产采集器可定期调用。
+    /// 更新实际 Connector 源观测；未知字段不输出数值，过期样本不能继续证明健康。
     /// </summary>
+    /// <param name="provider">固定提供程序码。</param>
+    /// <param name="connectorCode">固定的已登记观测资源机器码，不使用原始 Connector 名。</param>
+    /// <param name="lagSeconds">可证明的源提交时间差；未知时为 null。</param>
+    /// <param name="offsetUnrecoverable">坐标已超出实际日志窗口；未知时为 null。</param>
+    /// <param name="maximumAge">观测过期预算，默认 120 秒，最大 15 分钟。</param>
     public static void UpdateConnectorHealth(
         string provider,
         string connectorCode,
-        double lagSeconds,
-        bool offsetUnrecoverable)
+        double? lagSeconds,
+        bool? offsetUnrecoverable,
+        TimeSpan? maximumAge = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(provider);
         ArgumentException.ThrowIfNullOrWhiteSpace(connectorCode);
-        if (lagSeconds < 0d || double.IsNaN(lagSeconds) || double.IsInfinity(lagSeconds))
+        if (lagSeconds < 0d || (lagSeconds is { } lag && !double.IsFinite(lag)))
         {
             throw new ArgumentOutOfRangeException(nameof(lagSeconds));
         }
+        var age = maximumAge ?? TimeSpan.FromSeconds(120);
+        if (age <= TimeSpan.Zero || age > TimeSpan.FromMinutes(15)) throw new ArgumentOutOfRangeException(nameof(maximumAge));
 
         try
         {
@@ -614,13 +624,17 @@ public static class KafkaMessagingTelemetry
                 provider,
                 connectorCode,
                 lagSeconds,
-                offsetUnrecoverable);
+                offsetUnrecoverable, Environment.TickCount64, age.TotalMilliseconds);
         }
         catch (Exception)
         {
-            // Connector 占位指标失败不得影响 Connect REST 控制面。
+            // 观测旁路失败不得影响 Connect REST 控制面。
         }
     }
+
+    /// <summary>采集失败时撤下同一资源的旧源位点和 lag 数值。</summary>
+    /// <param name="connectorCode">固定的已登记观测资源机器码。</param>
+    public static void InvalidateConnectorHealth(string connectorCode) => ConnectorStates.TryRemove(connectorCode, out _);
 
     /// <summary>累计 Connector 错误次数；原因码必须稳定且不得包含异常文本。</summary>
     public static void RecordConnectorError(
@@ -647,27 +661,6 @@ public static class KafkaMessagingTelemetry
         {
             // Connector 错误计数失败不得改变连接器启停语义。
         }
-    }
-
-    /// <summary>
-    /// 写入 SQL Server CDC Capture Job 与 MySQL Binlog 保留窗口占位值。
-    /// 正式环境应由平台采集器填充；缺省 Job=运行中、Binlog=7 天，避免误报阻断开发。
-    /// </summary>
-    public static void UpdateCdcPlatformHealth(
-        bool sqlServerCaptureJobRunning,
-        double mySqlBinlogRetentionHours)
-    {
-        if (mySqlBinlogRetentionHours < 0d
-            || double.IsNaN(mySqlBinlogRetentionHours)
-            || double.IsInfinity(mySqlBinlogRetentionHours))
-        {
-            throw new ArgumentOutOfRangeException(nameof(mySqlBinlogRetentionHours));
-        }
-
-        Volatile.Write(
-            ref _sqlServerCaptureJobRunning,
-            sqlServerCaptureJobRunning ? 1L : 0L);
-        Volatile.Write(ref _mySqlBinlogRetentionHours, mySqlBinlogRetentionHours);
     }
 
     private static void RecordSimple(
@@ -739,23 +732,12 @@ public static class KafkaMessagingTelemetry
         }
     }
 
-    private static IEnumerable<Measurement<long>> ObserveSqlServerCaptureJobRunning()
-    {
-        yield return new Measurement<long>(
-            Volatile.Read(ref _sqlServerCaptureJobRunning));
-    }
-
-    private static IEnumerable<Measurement<double>> ObserveMySqlBinlogRetentionHours()
-    {
-        yield return new Measurement<double>(
-            Volatile.Read(ref _mySqlBinlogRetentionHours));
-    }
-
     private static IEnumerable<Measurement<long>> Observe(
-        Func<ConsumerState, long> valueSelector)
+        Func<ConsumerState, long> valueSelector, bool requireFreshLag = false)
     {
         foreach (var state in ConsumerStates.Values)
         {
+            if (requireFreshLag && (state.ConsumerLag < 0 || !LagSampleFresh(state.LagObservedAt, state.LagMaximumAgeMilliseconds, Environment.TickCount64))) continue;
             yield return new Measurement<long>(
                 valueSelector(state),
                 new KeyValuePair<string, object?>("provider", state.Provider),
@@ -768,6 +750,7 @@ public static class KafkaMessagingTelemetry
     {
         foreach (var state in ConsumerStates.Values)
         {
+            if (!double.IsFinite(state.LagRetentionRatio) || !LagSampleFresh(state.LagObservedAt, state.LagMaximumAgeMilliseconds, Environment.TickCount64)) continue;
             yield return new Measurement<double>(
                 valueSelector(state),
                 new KeyValuePair<string, object?>("provider", state.Provider),
@@ -775,12 +758,16 @@ public static class KafkaMessagingTelemetry
         }
     }
 
+    internal static bool LagSampleFresh(long observedAt, double maximumAgeMilliseconds, long now) =>
+        now - observedAt <= maximumAgeMilliseconds;
+
     private static IEnumerable<Measurement<double>> ObserveConnectorLag()
     {
         foreach (var state in ConnectorStates.Values)
         {
+            if (state.LagSeconds is not { } lag || !ConnectorSampleFresh(state)) continue;
             yield return new Measurement<double>(
-                state.LagSeconds,
+                lag,
                 new KeyValuePair<string, object?>("provider", state.Provider),
                 new KeyValuePair<string, object?>("connector_code", state.ConnectorCode));
         }
@@ -790,11 +777,18 @@ public static class KafkaMessagingTelemetry
     {
         foreach (var state in ConnectorStates.Values)
         {
+            if (state.OffsetUnrecoverable is not { } unavailable || !ConnectorSampleFresh(state)) continue;
             yield return new Measurement<long>(
-                state.OffsetUnrecoverable ? 1 : 0,
+                unavailable ? 1 : 0,
                 new KeyValuePair<string, object?>("provider", state.Provider),
                 new KeyValuePair<string, object?>("connector_code", state.ConnectorCode));
         }
+    }
+
+    private static bool ConnectorSampleFresh(ConnectorState state)
+    {
+        var elapsed = Environment.TickCount64 - state.ObservedAt;
+        return elapsed >= 0 && elapsed <= state.MaximumAgeMilliseconds;
     }
 
     private sealed record ConsumerState(
@@ -807,11 +801,17 @@ public static class KafkaMessagingTelemetry
         bool OwnershipRevoked,
         long ProcessingSequence,
         long ConsumerLag,
-        double LagRetentionRatio);
+        double LagRetentionRatio)
+    {
+        internal long LagObservedAt { get; init; }
+        internal double LagMaximumAgeMilliseconds { get; init; }
+    }
 
     private sealed record ConnectorState(
         string Provider,
         string ConnectorCode,
-        double LagSeconds,
-        bool OffsetUnrecoverable);
+        double? LagSeconds,
+        bool? OffsetUnrecoverable,
+        long ObservedAt,
+        double MaximumAgeMilliseconds);
 }

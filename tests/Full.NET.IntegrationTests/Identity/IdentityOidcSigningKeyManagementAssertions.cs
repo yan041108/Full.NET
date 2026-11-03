@@ -28,7 +28,25 @@ internal static class IdentityOidcSigningKeyManagementAssertions
         using var client = factory.CreateClientForHost("localhost");
         await VerifyListRequiresReadPermissionAsync(factory, client, cancellationToken);
         await VerifyListsConfiguredKeysWithoutPrivateMaterialAsync(client, cancellationToken);
+        await VerifyLifecyclePermissionsAndActiveKeyProtectionAsync(factory, client, cancellationToken);
         await VerifyActivateSwitchesActiveSigningKeyAsync(client, cancellationToken);
+    }
+
+    private static async Task VerifyLifecyclePermissionsAndActiveKeyProtectionAsync(FullNetApiFactory factory, HttpClient client, CancellationToken token)
+    {
+        var reader = await factory.CreateHostAccessTokenAsync([IdentityOidcSigningKeyPermissions.Read], token);
+        var admin = await IntegrationTestAuthHelper.LoginAsHostUserAsync(client, "admin", FullNetApiFactory.TestPassword, token);
+        foreach (var operation in new[] { "publish", "retire" })
+        {
+            using var denied = new HttpRequestMessage(HttpMethod.Post, $"/api/v1/identity/oidc-signing-keys/{IdentityOidcSigningKeyRotationAssertions.KeyBId}/{operation}");
+            denied.Headers.Authorization = new AuthenticationHeaderValue("Bearer", reader);
+            using var response = await client.SendAsync(denied, token);
+            Assert.AreEqual(HttpStatusCode.Forbidden, response.StatusCode);
+        }
+        using var active = new HttpRequestMessage(HttpMethod.Post, $"/api/v1/identity/oidc-signing-keys/{IdentityOidcSigningKeyRotationAssertions.KeyBId}/retire");
+        active.Headers.Authorization = new AuthenticationHeaderValue("Bearer", admin);
+        using var conflict = await client.SendAsync(active, token);
+        Assert.AreEqual(HttpStatusCode.Conflict, conflict.StatusCode);
     }
 
     private static async Task VerifyListRequiresReadPermissionAsync(

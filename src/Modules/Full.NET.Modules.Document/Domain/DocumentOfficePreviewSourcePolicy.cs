@@ -13,6 +13,8 @@ internal static class DocumentOfficePreviewSourcePolicy
         "application/vnd.openxmlformats-officedocument.presentationml.presentation",
     };
 
+    internal static IReadOnlyList<string> AllowedMimeTypes => OfficeMimeTypes.Order(StringComparer.Ordinal).ToArray();
+
     /// <summary>规范化 Content-Type 并判断是否为 Office 文档。</summary>
     /// <param name="contentType">原始 MIME 类型，可包含 charset 等参数。</param>
     public static bool IsOfficeMime(string? contentType)

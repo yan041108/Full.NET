@@ -6,6 +6,39 @@ import { previewWorkflowAssignees } from '../api/workflow-definitions';
 import WorkflowVue3Designer from './WorkflowVue3Designer.vue';
 import WorkflowConditionEditor from './WorkflowConditionEditor.vue';
 import WorkflowAssigneeHandlingEditor from './WorkflowAssigneeHandlingEditor.vue';
+import WorkflowCollaborationEditor from './WorkflowCollaborationEditor.vue';
+import { useStore as useWorkflowDesignerStore } from './vendor/workflow-vue3/src/stores/index.js';
+
+describe('公共协作设计器接线', () => {
+  const id = '11111111-1111-4111-8111-111111111111'; const form = '22222222-2222-4222-8222-222222222222';
+  const policy = { schemaVersion: 1, grantId: id, grantRevision: 2, policyHash: 'a'.repeat(64) };
+  const model = () => ({ id: 'start', type: 0, workflowKindKey: 'automation', childNode: { id: 'collaboration', type: 20, collaborationPolicy: policy, childNode: null } });
+  it('类型20使用专用抽屉并保存固定引用，不进入审批人配置', async () => {
+    const wrapper = mount(WorkflowVue3Designer, { props: { modelValue: model(), definitionId: id, formVersionId: form,
+      canReadCollaboration: true, disabled: false, enabledNodeTypes: ['start', 'process.collaboration', 'end'] }, global: { plugins: [createPinia()] } });
+    try {
+      await flushPromises(); await wrapper.findAll('.node-wrap-box').at(1)!.trigger('click'); await flushPromises();
+      expect(wrapper.findComponent(WorkflowCollaborationEditor).exists()).toBe(true);
+      // 测试抽屉替身会渲染隐藏插槽；核对真实开关，不能把DOM存在误认为审批抽屉被打开。
+      expect(useWorkflowDesignerStore().approverDrawer).toBe(false);
+      wrapper.getComponent(WorkflowCollaborationEditor).vm.$emit('save', { collaborationPolicy: { ...policy, grantId: form } }); await flushPromises();
+      expect(wrapper.emitted('update:modelValue')).toBeDefined();
+      const draft = (wrapper.vm as unknown as { readDraft(): { nodes: { nodeTypeKey: string; config: unknown }[] } }).readDraft();
+      expect(draft.nodes.find(node => node.nodeTypeKey === 'process.collaboration')?.config).toMatchObject({ collaborationPolicy: { ...policy, grantId: form } });
+    } finally { wrapper.unmount(); }
+  });
+  it.each(['readonly', 'context'])('资源或权限改变后旧抽屉不能写回：%s', async reason => {
+    const wrapper = mount(WorkflowVue3Designer, { props: { modelValue: model(), definitionId: id, formVersionId: form,
+      canReadCollaboration: true, disabled: false, enabledNodeTypes: ['start', 'process.collaboration', 'end'] }, global: { plugins: [createPinia()] } });
+    try {
+      await flushPromises(); await wrapper.findAll('.node-wrap-box').at(1)!.trigger('click'); await flushPromises();
+      const old = wrapper.getComponent(WorkflowCollaborationEditor); const before = wrapper.emitted('update:modelValue')?.length ?? 0;
+      await wrapper.setProps(reason === 'readonly' ? { canReadCollaboration: false } : { definitionId: form });
+      old.vm.$emit('save', { collaborationPolicy: { ...policy, grantId: form } }); await flushPromises();
+      expect(wrapper.emitted('update:modelValue')?.length ?? 0).toBe(before);
+    } finally { wrapper.unmount(); }
+  });
+});
 
 describe('活动截止设计配置', () => {
   it('监听器通过实际抽屉添加保存，禁用后不能继续改写', async () => {

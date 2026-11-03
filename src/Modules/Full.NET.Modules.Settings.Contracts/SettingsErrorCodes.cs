@@ -8,6 +8,15 @@ public static class SettingsErrorCodes
     /// <summary>Settings 错误码前缀。</summary>
     public const string Prefix = "settings.";
 
+    /// <summary>方案不符合当前业务 Schema 或输入预算。</summary>
+    public const string QuerySchemeInvalid = "settings.query_scheme.invalid";
+    /// <summary>方案或业务 Schema 不可见。</summary>
+    public const string QuerySchemeNotFound = "settings.query_scheme.not_found";
+    /// <summary>方案或个人默认选择的并发版本已变化。</summary>
+    public const string QuerySchemeVersionConflict = "settings.query_scheme.version_conflict";
+    /// <summary>当前用户、上下文及 Grid 已达到个人方案上限。</summary>
+    public const string QuerySchemeLimitReached = "settings.query_scheme.limit_reached";
+
     /// <summary>字典类型编码在 Host 全局已存在。</summary>
     public const string DictTypeCodeExists = "settings.dict_type.code_exists";
 

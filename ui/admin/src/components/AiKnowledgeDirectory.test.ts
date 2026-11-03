@@ -18,7 +18,7 @@ async function render(documents = false, allow: (code: string) => boolean = () =
   const pinia = createPinia(); setActivePinia(pinia); vi.spyOn(useSessionStore(), 'can').mockImplementation(allow);
   const router = createRouter({ history: createMemoryHistory(), routes: [{ path: '/ai/knowledge-documents', name: 'ai-knowledge-documents', component: { template: '<div />' } }, { path: '/', component: { template: '<div />' } }] });
   await router.push({ path: '/', query: documents ? { knowledgeBaseId: baseId } : {} }); await router.isReady();
-  const wrapper = mount(AiKnowledgeDirectory, { props: { documents }, global: { plugins: [pinia, router], stubs: { ArtFormDialog: dialog, AiKnowledgeSourceDialog: true, AiKnowledgePolicyDialog: true, AiKnowledgeGrantsDialog: true, AiKnowledgeIndexDialog: true } } });
+  const wrapper = mount(AiKnowledgeDirectory, { props: { documents }, global: { plugins: [pinia, router], stubs: { ArtFormDialog: dialog, AiKnowledgeSourceDialog: true, AiKnowledgeCorrectionDialog: true, AiKnowledgePolicyDialog: true, AiKnowledgeGrantsDialog: true, AiKnowledgeIndexDialog: true } } });
   wrappers.push(wrapper); await flushPromises(); return wrapper;
 }
 async function selectUpload(wrapper: VueWrapper, file = new File(['hello'], 'hello.txt', { type: 'text/plain' })) {
@@ -33,6 +33,15 @@ beforeEach(() => {
 });
 afterEach(() => { wrappers.forEach(wrapper => wrapper.unmount()); wrappers = []; vi.restoreAllMocks(); });
 describe('知识目录与文件交付', () => {
+  it('仅最新文件版本在精确校对读取权限下提供工作台入口', async () => {
+    const latest = { id: '01900000-0000-7000-8000-000000000010', documentId: docId, versionNumber: 2, originalFileName: 'source.txt', contentType: 'text/plain', contentHash: 'a'.repeat(64), sizeBytes: 20, processingStatus: 'pending_processing', createdAtUtc: '2026-10-28T00:00:00Z' };
+    vi.mocked(api.listKnowledgeVersions).mockResolvedValue(page([latest, { ...latest, id: '01900000-0000-7000-8000-000000000011', versionNumber: 1 }]));
+    const wrapper = await render(true); await wrapper.get('[data-testid="knowledge-versions"]').trigger('click'); await flushPromises();
+    expect(wrapper.findAll('[data-testid="knowledge-correction"]')).toHaveLength(1);
+    const denied = await render(true, code => code !== 'ai.knowledge_corrections.read');
+    await denied.get('[data-testid="knowledge-versions"]').trigger('click'); await flushPromises();
+    expect(denied.find('[data-testid="knowledge-correction"]').exists()).toBe(false);
+  });
   it.each(['ai.knowledge_bases.read', 'ai.knowledge_documents.read', 'ai.knowledge_documents.versions_read', 'ai.knowledge_documents.index_read', 'ai.knowledge_documents.index_changes_read'])('已确认来源入口缺少 %s 时不渲染', async code => {
     const wrapper = await render(true, permission => permission !== code);
     expect(wrapper.find('[data-testid="knowledge-changes"]').exists()).toBe(false);

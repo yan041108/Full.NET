@@ -113,7 +113,7 @@
 | 微信生态 | WeChat | Official Module + Provider | M5+ | Mapped |
 | Kafka / CDC Relay / EventBus 事件集成 | EventDelivery Provider | Provider | 提前实施计划 | **Build-verified / Pilot**（Organization 真实 CDC E2E + 故障矩阵；MySQL Pass；SQL Server 依赖外部 Agent/nightly；**默认不切流**；见 [`cdc-kafka-pilot-2026-08-08.md`](../verification/cdc-kafka-pilot-2026-08-08.md)、[`ADR-0006`](../architecture/adr/ADR-0006-transactional-outbox-cdc-kafka-event-delivery.md)） |
 | 国密 SM2/SM3/SM4 | Cryptography.GM | Provider | M5+ | Mapped |
-| 数据导入导出工具 | ImportExport | Official Module | M5+ | Mapped |
+| 数据导入导出工具 | ImportExport | Official Module | M5+ | Implemented（职位/企业申请真实 XLSX、本人列映射、冻结输入、会话复核及待执行取消已通过双库与真实页面聚焦验收；其余来源差集见总计划 §8.25–8.26） |
 | 服务器硬件与运行时信息 | Observability Admin | Official Module | M5+ | Mapped |
 | System.Text.Json 源生成与序列化基准 | Serialization | Core | M0-M1 | **Build-verified**（Architecture 门禁从生产 Endpoint 元数据枚举请求、响应、分页项与 ProblemDetails 类型并验证模块源生成上下文覆盖；生成式客户端 SDK 属于独立演进项） |
 | MemoryPack 可靠事件载荷 | Messaging + Outbox | Core | M1 | **Build-verified**（具体 MemoryPack Integration Event、版本路由、Outbox/Inbox 与 Native AOT 静态契约已有构建和测试门禁；首个真实非加法版本升级演练仍待真实事件触发） |
@@ -238,18 +238,25 @@ uni-app 与 Flutter 不复制完整后台管理能力：uni-app 负责 H5/微信
 
 本队列来自项目所有者确认的 Full.NET 产品定位，不等于 Admin.NET.Pro 已具有或必须原样对标这些功能。统一执行入口为[底座完善开发计划](../superpowers/plans/2026-09-16-foundation-productization.md)，设计边界见[总体规格 §24.1](../superpowers/specs/2026-07-17-fullnet-architecture-design.md#241-企业应用与-saas-底座完善2026-09-16)。
 
+2026-10-29 已将快速开发底座剩余缺口合并到[总计划 §8](../superpowers/plans/2026-09-16-foundation-productization.md#8-当前剩余工作队列2026-10-29)。该节是当前排期入口，先完成独立应用生成链路和完整业务样板，再按依赖收口企业自助、数据交付及选装能力。B01–B08 的已交付部分直接复用；历史状态不因本次规划重新认证，未勾选的初始清单不再代表全部未实现。Workflow、通知、AI 等专项保留原实施所有权。
+
+2026-11-02 复审后，当前执行依据为同一总计划 §8.2 的依赖排序及 §8.14 的首批基线；下面优先级已按剩余增量对齐。状态列仍保留已交付范围，不因排期修订升级整项状态。F11 必需的数据交付修复随样板同批，企业自助/真实邮件/支付渠道及全部 Workflow 新节点不构成首条样板的默认前置。
+
 以下状态只描述新增增量；复用模块已有实现保持其原状态。初始均为 `Mapped`，代码、双库、浏览器、原生和生产证据分别记录，不能以规划批准升级。
 
 | 编号 | 能力增量 | 归属与交付形态 | 优先级/任务 | 状态 |
 | --- | --- | --- | --- | --- |
-| B01 | 空目录创建应用、模块预设、环境诊断、CRUD 教程、版本升级 | Templates + CodeGeneration + Composition；Template/Tooling | P0；F01/F02/F15 | Build-verified |
-| B02 | 企业开通、邀请/接受、成员管理、所有者交接、退出/停用 | Identity + Tenancy + Organization；Core + Client | P0；F05/F06 | Implemented |
-| B03 | 套餐绑定、功能权益、席位/存储配额、幂等占用与对账 | Tenancy；Core，按预设启用 | P0；F07/F08 | Build-verified |
-| B04 | 注册政策到实际注册、邮箱验证、密码/MFA 恢复 | Identity + Notifications；Core + Provider + Client | P0；F03/F04 | Implemented |
+| B01 | 空目录创建应用、模块预设、环境诊断、CRUD 教程、版本升级 | Templates + CodeGeneration + Composition；Template/Tooling | P0：F02-R；F01 已交付复用，升级余项归 P1 F15-R | Build-verified |
+| B02 | 企业开通、邀请/接受、成员管理、所有者交接、退出/停用 | Identity + Tenancy + Organization；Core + Client | P1；F05/F06 剩余用户旅程 | Implemented |
+| B03 | 套餐绑定、功能权益、席位/存储配额、幂等占用与对账 | Tenancy；Core，按预设启用 | 复用 F07/F08；选装消费者差集随 F12-R 验收 | Build-verified |
+| B04 | 注册政策到实际注册、邮箱验证、密码/MFA 恢复 | Identity + Notifications；Core + Provider + Client | P1；F03/F04 剩余用户旅程及所选邮件渠道 | Implemented |
 | B05 | 试用、订阅期限、续期/取消、支付驱动权益、对账 | Tenancy + Payments；可选官方能力 | P1；F12 | Implemented |
 | B06 | 事件订阅、Webhook 签名/重试/重放、SDK/接入样例 | Webhooks + Identity + OpenAPI；Official Module + Sample | P1；F13/F14 | Implemented |
-| B07 | 单据贯通主子表、附件、数据权限、审批、通知、导入报表打印 | 项目业务 Sample + 既有模块 | P1；F09/F10/F11 | Implemented |
+| B07 | 单据贯通主子表、附件、数据权限、审批、通知、导入报表打印 | 项目业务 Sample + 既有模块 | P0；F09–F11-R。11-02 已补真实 XLSX、行幂等双库及 Vue 上传入口、Worker 注册；其余范围见总计划 §8.16 | Implemented |
 | B08 | 版本支持矩阵、发布清单、升级/备份恢复演练 | Templates + Deployment + Operations | P1，发布必需；F15/F16 | Build-verified |
+| B09 | 跨业务统一搜索：首批文档与业务单据，按当前权限返回摘要与跳转 | Document/应用所有者 + Vue 静态适配 | P2；F17 | Implemented；文档/申请首版双库与真实页面聚焦验收通过，整体门禁差集见总计划 §8.24 |
+| B10 | 保存筛选/排序查询方案、受控共享及个人常用入口 | Settings/Client Preferences + Vue | P2；F18 | Implemented；企业申请首个消费者、共享/默认及浏览器常用入口聚焦验收通过，见总计划 §8.23 |
+| B11 | 统一本人后台任务入口：首批导入和报表，操作回到原模块 | 来源任务模块 + Vue 本人入口 | P2；F19 | Implemented；ImportExport/Reporting 本人查询及真实操作跳转验收通过，整体门禁差集见总计划 §8.22 |
 
 ### 已有模块的收口重点
 
@@ -267,4 +274,4 @@ uni-app 与 Flutter 不复制完整后台管理能力：uni-app 负责 H5/微信
 
 优先完成可创建与升级的核心预设，再完成企业自主使用，随后推进 SaaS 运营和外部接入。未选择的可选模块不阻塞核心发布，已选择模块的安全、数据与恢复门禁不能跳过。
 
-审查修订后的执行边界：B01 首版使用固定提交和摘要的源码分发包，包含实际框架依赖闭包及升级 manifest；B02/B04 覆盖无账号受邀者验证、注册、待入驻和激活，既有账号保留原认证/MFA；B03 在 F07 完成存量权益回填及 Compatibility/Shadow/Enforced 切换，并按 F05 → F08b、F07 → F08a → F08b 的无环顺序接入配额。基础预设可明确不启用配额，限额/SaaS 预设须在 F08b 后启用，故障不能降级为无限额。以上仍为计划要求，不构成完成证据。
+审查修订后的执行边界：B01 复用固定提交和摘要的源码分发包及升级 manifest；B02/B04 补齐无账号入驻的剩余旅程，既有账号保留原认证/MFA；B03 复用已交付权益/配额与持久席位恢复，实际消费者按变更补验，不从旧 F07/F08 清单重新建设。基础预设可明确不启用配额，限额/SaaS 预设按权威权益和用量失败关闭，不为假定历史部署新增兼容阶段。当前开发底座直接演进，部署、恢复和验证要求继续有效；计划修订不构成运行时通过证据。

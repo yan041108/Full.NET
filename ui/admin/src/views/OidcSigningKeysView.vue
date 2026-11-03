@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import 'element-plus/theme-chalk/el-descriptions.css';
 import { computed, onMounted, ref } from 'vue';
 import {
   ElAlert,
@@ -20,7 +21,7 @@ import ArtTableHeader from '../framework/art-design/components/ArtTableHeader.vu
 import { useArtCrudTableLayout } from '../framework/art-design/composables/useArtCrudTableLayout';
 import PermissionGate from '../components/PermissionGate.vue';
 import { useAdminI18n } from '../i18n/adminI18n';
-import { activateOidcSigningKey, listOidcSigningKeys } from '../api/oidc-signing-keys';
+import { activateOidcSigningKey, changeOidcSigningKeyLifecycle, listOidcSigningKeys } from '../api/oidc-signing-keys';
 
 defineOptions({ name: 'OidcSigningKeysView' });
 
@@ -57,7 +58,28 @@ const sortedKeys = computed(() =>
 );
 
 function canActivate(row: OidcSigningKey) {
-  return !row.isActive && row.hasPrivateKey && !usesEphemeralDevelopmentKey.value;
+  return !row.isActive && row.hasPrivateKey && row.isActivationReady === true && !usesEphemeralDevelopmentKey.value;
+}
+
+function lifecycleLabel(value: unknown): string {
+  switch (value) {
+    case 'prepublished': return t('oidcSigningKeys.lifecycle.prepublished');
+    case 'active': return t('oidcSigningKeys.lifecycle.active');
+    case 'retained': return t('oidcSigningKeys.lifecycle.retained');
+    case 'retired': return t('oidcSigningKeys.lifecycle.retired');
+    default: return t('oidcSigningKeys.lifecycle.unregistered');
+  }
+}
+
+async function changeLifecycle(row: OidcSigningKey, operation: 'publish' | 'retire'): Promise<void> {
+  await ElMessageBox.confirm(t(operation === 'publish' ? 'oidcSigningKeys.confirmPublish' : 'oidcSigningKeys.confirmRetire', { keyId: row.keyId }), { type: 'warning' });
+  changing.value = true;
+  try {
+    const result = await changeOidcSigningKeyLifecycle(row.keyId, operation);
+    keys.value = result.keys; usesEphemeralDevelopmentKey.value = result.usesEphemeralDevelopmentKey;
+    detailOpen.value = false; ElMessage.success(t('oidcSigningKeys.lifecycleSuccess'));
+  } catch (error) { problem.value = toProblem(error); }
+  finally { changing.value = false; }
 }
 
 async function load() {
@@ -148,6 +170,7 @@ onMounted(() => {
         <el-table
           v-loading="loading"
           :data="sortedKeys"
+          row-key="keyId"
           :height="tableHeight"
           :size="tableSize"
           :stripe="tableZebra"
@@ -189,6 +212,14 @@ onMounted(() => {
                     @click="confirmActivate(row as OidcSigningKey)"
                   />
                 </PermissionGate>
+                <PermissionGate code="identity.oidc_signing_keys.publish">
+                  <ArtTableActionButton v-if="row.lifecycleState === 'unregistered' && !usesEphemeralDevelopmentKey" type="add"
+                    :title="t('oidcSigningKeys.publish')" test-id="oidc-signing-keys-action-publish" @click="changeLifecycle(row as OidcSigningKey, 'publish')" />
+                </PermissionGate>
+                <PermissionGate code="identity.oidc_signing_keys.retire">
+                  <ArtTableActionButton v-if="row.isRetirementReady === true" type="delete"
+                    :title="t('oidcSigningKeys.retire')" test-id="oidc-signing-keys-action-retire" @click="changeLifecycle(row as OidcSigningKey, 'retire')" />
+                </PermissionGate>
               </ArtTableActionGroup>
             </template>
           </el-table-column>
@@ -199,7 +230,7 @@ onMounted(() => {
     <el-drawer
       v-model="detailOpen"
       :title="t('oidcSigningKeys.detailTitle')"
-      size="40%"
+      size="min(680px, 100vw)"
       destroy-on-close
     >
       <template v-if="detailItem">
@@ -216,8 +247,11 @@ onMounted(() => {
           <el-descriptions-item :label="t('oidcSigningKeys.fieldHasPrivateKey')">
             {{ detailItem.hasPrivateKey ? t('oidcSigningKeys.yes') : t('oidcSigningKeys.no') }}
           </el-descriptions-item>
+          <el-descriptions-item :label="t('oidcSigningKeys.lifecycleTitle')">{{ lifecycleLabel(detailItem.lifecycleState) }}</el-descriptions-item>
+          <el-descriptions-item :label="t('oidcSigningKeys.publicKeyHash')"><code class="oidc-signing-keys-hash" translate="no">{{ detailItem.publicKeyHash }}</code></el-descriptions-item>
+          <el-descriptions-item :label="t('oidcSigningKeys.retireAfter')">{{ detailItem.retireAfterUtc ?? '—' }}</el-descriptions-item>
           <el-descriptions-item :label="t('oidcSigningKeys.fieldPublicKeyPem')">
-            <pre class="oidc-signing-keys-pem">{{ detailItem.publicKeyPem }}</pre>
+            <pre class="oidc-signing-keys-pem" translate="no">{{ detailItem.publicKeyPem }}</pre>
           </el-descriptions-item>
         </el-descriptions>
         <PermissionGate code="identity.oidc_signing_keys.activate">
@@ -248,6 +282,10 @@ onMounted(() => {
   word-break: break-all;
   font-family: var(--art-font-mono, monospace);
   font-size: 12px;
+}
+
+.oidc-signing-keys-hash {
+  overflow-wrap: anywhere;
 }
 
 .oidc-signing-keys-drawer-actions {

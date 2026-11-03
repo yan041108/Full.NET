@@ -3,6 +3,7 @@ import {
   isCreateOidcClientResult,
   isOidcClient,
   isOidcClientPage,
+  isOidcLogoutDelivery,
   isRotateOidcClientSecretResult
 } from '../src/oidc-clients';
 
@@ -20,6 +21,17 @@ const sampleClient = {
   createdAtUtc: '2026-07-26T00:00:00Z',
   version: 1
 };
+
+it('退出投递拒绝未知状态、无效标识、时间和尝试次数', () => {
+  const row = { id: sampleClient.id, clientId: 'rp', statusKey: 'failed', attemptCount: 8,
+    nextAttemptAtUtc: '2026-10-27T00:00:00Z', lastErrorCode: 'http_failure',
+    createdAtUtc: '2026-10-27T00:00:00Z', deliveredAtUtc: null };
+  expect(isOidcLogoutDelivery(row)).toBe(true);
+  for (const change of [{ id: 'bad' }, { statusKey: 'unknown' }, { attemptCount: -1 },
+    { attemptCount: 1.5 }, { nextAttemptAtUtc: 'bad' }, { deliveredAtUtc: 'bad' }, { lastErrorCode: 42 }]) {
+    expect(isOidcLogoutDelivery({ ...row, ...change })).toBe(false);
+  }
+});
 
 describe('OIDC client contracts', () => {
   it('识别뿯宽户뿯窽뿯宽体', () => {

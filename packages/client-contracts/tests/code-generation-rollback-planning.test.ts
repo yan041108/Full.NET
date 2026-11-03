@@ -23,7 +23,9 @@ const apply = (
   requestedByUserId: '0198f36e-f7a7-7c52-9cbb-774e67411211',
   startedAtUtc,
   finishedAtUtc: startedAtUtc,
-  sourceApplyRunId: null
+  sourceApplyRunId: null,
+  publicationStatus: 'unavailable',
+  commitSha: null
 });
 
 describe('code-generation rollback planning', () => {

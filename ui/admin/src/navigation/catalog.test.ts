@@ -56,6 +56,16 @@ describe('Vue 本地导航目录', () => {
   });
 
   it('只从本地可信目录返回导航消息键', () => {
+    expect(localNavigationFor('workflow-claim-pools')).toMatchObject({
+      path: '/workflow/claim-pools', titleKey: 'workflowTodos.claimPools', captionKey: 'workflowTodos.claimPools'
+    });
+    expect(isSupportedNavigationTree([createNode('workflow-claim-pools', { path: '/workflow/claim-pools' })])).toBe(true);
+    expect(isSupportedNavigationTree([createNode('workflow-claim-pools', { path: '/workflow/todos' })])).toBe(false);
+    expect(localNavigationFor('workflow-collaboration-grants')).toMatchObject({
+      path: '/workflow/collaboration-grants', titleKey: 'navigation.workflowCollaboration.title', captionKey: 'navigation.workflowCollaboration.caption'
+    });
+    expect(isSupportedNavigationTree([createNode('workflow-collaboration-grants', { path: '/workflow/collaboration-grants' })])).toBe(true);
+    expect(isSupportedNavigationTree([createNode('workflow-collaboration-grants', { path: '/workflow/instances' })])).toBe(false);
     expect(localNavigationFor('workflow-calendars')).toMatchObject({
       path: '/workflow/calendars', titleKey: 'navigation.workflowCalendars.title', captionKey: 'navigation.workflowCalendars.caption'
     });
@@ -118,6 +128,9 @@ describe('Vue 本地导航目录', () => {
 });
 
 it('知识库页面只接受精确白名单路径', () => {
+  expect(localNavigationFor('ai-knowledge-faqs')).toMatchObject({ path: '/ai/knowledge-faqs', titleKey: 'knowledge.faqs' });
+  expect(isSupportedNavigationTree([createNode('ai-knowledge-faqs', { path: '/ai/knowledge-faqs' })])).toBe(true);
+  expect(isSupportedNavigationTree([createNode('ai-knowledge-faqs', { path: '/ai/knowledge-search' })])).toBe(false);
   expect(localNavigationFor('ai-knowledge-bases')).toMatchObject({ path: '/ai/knowledge-bases', titleKey: 'knowledge.title' });
   expect(localNavigationFor('ai-knowledge-documents')).toMatchObject({ path: '/ai/knowledge-documents', titleKey: 'knowledge.documents' });
   expect(isSupportedNavigationTree([createNode('ai-knowledge-bases', { path: '/ai/knowledge-bases' })])).toBe(true);

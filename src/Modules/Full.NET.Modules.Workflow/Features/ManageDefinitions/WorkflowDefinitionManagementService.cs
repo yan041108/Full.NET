@@ -384,13 +384,24 @@ internal sealed class WorkflowDefinitionManagementService(
     private async Task<Result<WorkflowDefinitionVersionResponse>> PublishCoreAsync(
         Guid id, Guid actorUserId, PublishWorkflowDefinitionRequest request, CancellationToken token)
     {
+        var prepared = await PreparePublicationAsync(id, request, token).ConfigureAwait(false);
+        if (!prepared.IsSuccess) return Result<WorkflowDefinitionVersionResponse>.Failure(prepared.Error!);
+        var input = prepared.Value!;
+        return await transaction.ExecuteResultAsync(transactionToken => PersistPublishedVersionAsync(id, actorUserId,
+            request, input.Scope, input.Definition, input.Model, input.Artifact, input.VoteForms, transactionToken), token).ConfigureAwait(false);
+    }
+
+    /// <summary>发布与仿真共享同一只读准备链；只有发布调用方可进入认领和落库阶段。</summary>
+    internal async Task<Result<PreparedPublication>> PreparePublicationAsync(
+        Guid id, PublishWorkflowDefinitionRequest request, CancellationToken token)
+    {
         if (request.ExpectedRevision < 1 || request.FormVersionId == Guid.Empty)
         {
-            return Invalid<WorkflowDefinitionVersionResponse>();
+            return Invalid<PreparedPublication>();
         }
 
         var scope = WorkflowManagementScope.Resolve(currentTenant);
-        if (await TryDenyTenantMutationAsync<WorkflowDefinitionVersionResponse>(scope, token).ConfigureAwait(false)
+        if (await TryDenyTenantMutationAsync<PreparedPublication>(scope, token).ConfigureAwait(false)
             is { } publishDenied)
         {
             return publishDenied;
@@ -399,20 +410,20 @@ internal sealed class WorkflowDefinitionManagementService(
         var definition = await FindDefinitionAsync(id, scope, token).ConfigureAwait(false);
         if (definition is null)
         {
-            return NotFound<WorkflowDefinitionVersionResponse>();
+            return NotFound<PreparedPublication>();
         }
 
         if (!WorkflowDefinitionLifecycleRules.AllowsPublish(definition.StatusKey))
         {
             return definition.StatusKey == WorkflowDefinitionStatusKeys.Archived
-                ? Failure<WorkflowDefinitionVersionResponse>(WorkflowErrorCodes.DefinitionArchived, ErrorType.Conflict)
-                : Failure<WorkflowDefinitionVersionResponse>(WorkflowErrorCodes.DefinitionDisabled, ErrorType.Conflict);
+                ? Failure<PreparedPublication>(WorkflowErrorCodes.DefinitionArchived, ErrorType.Conflict)
+                : Failure<PreparedPublication>(WorkflowErrorCodes.DefinitionDisabled, ErrorType.Conflict);
         }
 
         var draft = await FindDraftAsync(id, scope, token).ConfigureAwait(false);
         if (draft is null || draft.DraftRevision != request.ExpectedRevision)
         {
-            return RevisionConflict<WorkflowDefinitionVersionResponse>();
+            return RevisionConflict<PreparedPublication>();
         }
 
         var formVersion = await queryExecutor.QuerySingleOrDefaultAsync<WorkflowFormVersionRecord>(
@@ -420,7 +431,7 @@ internal sealed class WorkflowDefinitionManagementService(
             Parameters(("Id", request.FormVersionId), ("TenantScopeKey", scope.TenantScopeKey)), token).ConfigureAwait(false);
         if (formVersion is null)
         {
-            return Failure<WorkflowDefinitionVersionResponse>(WorkflowErrorCodes.VersionNotPublished, ErrorType.Validation);
+            return Failure<PreparedPublication>(WorkflowErrorCodes.VersionNotPublished, ErrorType.Validation);
         }
 
         var formDefinition = await queryExecutor.QuerySingleOrDefaultAsync<WorkflowFormDefinitionRecord>(
@@ -430,14 +441,14 @@ internal sealed class WorkflowDefinitionManagementService(
             .ConfigureAwait(false);
         if (formDefinition is null)
         {
-            return Failure<WorkflowDefinitionVersionResponse>(WorkflowErrorCodes.FormNotFound, ErrorType.Validation);
+            return Failure<PreparedPublication>(WorkflowErrorCodes.FormNotFound, ErrorType.Validation);
         }
 
         if (!WorkflowFormLifecycleRules.AllowsPublish(formDefinition.StatusKey))
         {
             return formDefinition.StatusKey == WorkflowDefinitionStatusKeys.Archived
-                ? Failure<WorkflowDefinitionVersionResponse>(WorkflowErrorCodes.FormArchived, ErrorType.Conflict)
-                : Failure<WorkflowDefinitionVersionResponse>(WorkflowErrorCodes.FormDisabled, ErrorType.Conflict);
+                ? Failure<PreparedPublication>(WorkflowErrorCodes.FormArchived, ErrorType.Conflict)
+                : Failure<PreparedPublication>(WorkflowErrorCodes.FormDisabled, ErrorType.Conflict);
         }
 
         var model = Deserialize(draft.DraftJson);
@@ -447,22 +458,25 @@ internal sealed class WorkflowDefinitionManagementService(
         if (model is not null && formSchema is not null)
         {
             if (!connectors.TryBindDraft(scope.TenantScopeKey, model, formSchema, out var bound))
-                return Failure<WorkflowDefinitionVersionResponse>(WorkflowErrorCodes.DefinitionFieldPolicyInvalid, ErrorType.Validation);
+                return Failure<PreparedPublication>(WorkflowErrorCodes.DefinitionFieldPolicyInvalid, ErrorType.Validation);
             model = await WorkflowWorkCalendarBindings.BindAsync(bound!,queryExecutor,scope,token).ConfigureAwait(false);
-            if(model is null)return Failure<WorkflowDefinitionVersionResponse>(WorkflowErrorCodes.CalendarInvalid,ErrorType.Validation);
+            if(model is null)return Failure<PreparedPublication>(WorkflowErrorCodes.CalendarInvalid,ErrorType.Validation);
             var businessBinding = WorkflowBusinessCommandBindings.Bind(model, scope, businessActions);
-            if (!businessBinding.IsSuccess) return Result<WorkflowDefinitionVersionResponse>.Failure(businessBinding.Error!);
+            if (!businessBinding.IsSuccess) return Result<PreparedPublication>.Failure(businessBinding.Error!);
             model = businessBinding.Value;
             var subprocessBinding = await WorkflowSubprocessBindings.BindAsync(model!, formSchema, scope, queryExecutor, token, definition.Id).ConfigureAwait(false);
-            if (!subprocessBinding.IsSuccess) return Result<WorkflowDefinitionVersionResponse>.Failure(subprocessBinding.Error!);
+            if (!subprocessBinding.IsSuccess) return Result<PreparedPublication>.Failure(subprocessBinding.Error!);
             model = subprocessBinding.Value;
+            var collaborationBinding = await WorkflowCollaborationBindings.ValidateAsync(model!, definition.Id, formVersion.Id,
+                formSchema, scope, queryExecutor, clock.UtcNow, token).ConfigureAwait(false);
+            if (!collaborationBinding.IsSuccess) return Result<PreparedPublication>.Failure(collaborationBinding.Error!);
         }
         var compilation = model is null || formSchema is null
             ? null
             : WorkflowDefinitionCompiler.Compile(model, formSchema);
         if (compilation is null || !compilation.IsSuccess)
         {
-            return Failure<WorkflowDefinitionVersionResponse>(
+            return Failure<PreparedPublication>(
                 compilation?.ErrorCode ?? WorkflowErrorCodes.SchemaInvalid, ErrorType.Validation);
         }
 
@@ -501,14 +515,14 @@ internal sealed class WorkflowDefinitionManagementService(
 
         if (approvalUserIds.Any(userId => !validUserIds.Contains(userId)))
         {
-            return Failure<WorkflowDefinitionVersionResponse>(
+            return Failure<PreparedPublication>(
                 WorkflowErrorCodes.DefinitionApprovalPolicyInvalid,
                 ErrorType.Validation);
         }
 
         if (ccRecipientUserIds.Any(userId => !validUserIds.Contains(userId)))
         {
-            return Failure<WorkflowDefinitionVersionResponse>(
+            return Failure<PreparedPublication>(
                 WorkflowErrorCodes.DefinitionCcRecipientsInvalid,
                 ErrorType.Validation);
         }
@@ -517,16 +531,16 @@ internal sealed class WorkflowDefinitionManagementService(
         if (start is null || !WorkflowFlowAdministrators.TryRead(start.Config, out var flowAdministrators) ||
             flowAdministrators.Count > 0 && !await assigneePublishValidator.ValidateSourceAsync(
                 new(WorkflowAssigneePolicy.SpecifiedUsers, flowAdministrators, [], null, null), scope, token).ConfigureAwait(false))
-            return Failure<WorkflowDefinitionVersionResponse>(WorkflowErrorCodes.DefinitionAssigneePolicyInvalid, ErrorType.Validation);
+            return Failure<PreparedPublication>(WorkflowErrorCodes.DefinitionAssigneePolicyInvalid, ErrorType.Validation);
         foreach (var cc in model.Nodes.Where(node => node.NodeTypeKey == "notify.cc"))
         {
             if (!WorkflowCcNodeConfiguration.TryReadPolicy(cc.Config, out var recipients))
-                return Failure<WorkflowDefinitionVersionResponse>(WorkflowErrorCodes.DefinitionCcRecipientsInvalid, ErrorType.Validation);
+                return Failure<PreparedPublication>(WorkflowErrorCodes.DefinitionCcRecipientsInvalid, ErrorType.Validation);
             foreach (var source in recipients.Sources)
                 if (!WorkflowAssigneePublishValidator.IsScopeCompatible(source.ResolverKindKey, scope) ||
                     source.ResolverKindKey is not (WorkflowAssigneePolicy.SpecifiedUsers or WorkflowAssigneePolicy.FlowAdministrators) &&
                     !await assigneePublishValidator.ValidateSourceAsync(source, scope, token, allowEmpty: true, flowAdministratorUserIds: flowAdministrators).ConfigureAwait(false))
-                    return Failure<WorkflowDefinitionVersionResponse>(WorkflowErrorCodes.DefinitionCcRecipientsInvalid, ErrorType.Validation);
+                    return Failure<PreparedPublication>(WorkflowErrorCodes.DefinitionCcRecipientsInvalid, ErrorType.Validation);
         }
         foreach (var node in model.Nodes.Where(item => WorkflowHumanActivityKinds.IsFormActivity(item.NodeTypeKey)))
         {
@@ -534,52 +548,47 @@ internal sealed class WorkflowDefinitionManagementService(
             if (node.NodeTypeKey == WorkflowHumanActivityKinds.GroupApproval)
             {
                 if (!WorkflowGroupApprovalConfiguration.TryRead(node.Config, out var groups))
-                    return Failure<WorkflowDefinitionVersionResponse>(WorkflowErrorCodes.DefinitionAssigneePolicyInvalid, ErrorType.Validation);
+                    return Failure<PreparedPublication>(WorkflowErrorCodes.DefinitionAssigneePolicyInvalid, ErrorType.Validation);
                 // 已知显式身份不可跨组重复；动态来源仍在激活时按实际成员集合再次验证。
                 var explicitUsers = groups!.Groups.SelectMany(group => group.ApprovalPolicy?.ApproverUserIds ?? []).ToArray();
                 if (explicitUsers.Distinct().Count() != explicitUsers.Length)
-                    return Failure<WorkflowDefinitionVersionResponse>(WorkflowErrorCodes.DefinitionApprovalPolicyInvalid, ErrorType.Validation);
+                    return Failure<PreparedPublication>(WorkflowErrorCodes.DefinitionApprovalPolicyInvalid, ErrorType.Validation);
                 policies = groups.Groups.Select(group => group.AssigneePolicy).ToArray();
             }
             else
             {
                 if (!WorkflowAssigneePolicy.TryRead(node.Config, out var policy))
-                    return Failure<WorkflowDefinitionVersionResponse>(WorkflowErrorCodes.DefinitionAssigneePolicyInvalid, ErrorType.Validation);
+                    return Failure<PreparedPublication>(WorkflowErrorCodes.DefinitionAssigneePolicyInvalid, ErrorType.Validation);
                 policies = [policy!];
             }
             foreach (var policy in policies)
             {
                 if (!await assigneePublishValidator.ValidatePolicyAsync(policy, scope, token, flowAdministrators).ConfigureAwait(false))
-                    return Failure<WorkflowDefinitionVersionResponse>(WorkflowErrorCodes.DefinitionAssigneePolicyInvalid, ErrorType.Validation);
+                    return Failure<PreparedPublication>(WorkflowErrorCodes.DefinitionAssigneePolicyInvalid, ErrorType.Validation);
             }
         }
 
         foreach (var node in model.Nodes.Where(node => node.NodeTypeKey == WorkflowSubprocessPolicy.NodeType))
         {
             if (!WorkflowSubprocessPolicy.TryRead(node.Config, null, out var subprocess))
-                return Failure<WorkflowDefinitionVersionResponse>(WorkflowErrorCodes.DefinitionSubprocessInvalid, ErrorType.Validation);
+                return Failure<PreparedPublication>(WorkflowErrorCodes.DefinitionSubprocessInvalid, ErrorType.Validation);
             if (subprocess.Multi?.RoleId is { } roleId && !await assigneePublishValidator.ValidateSourceAsync(
                 new(WorkflowAssigneePolicy.RoleMembers, [], [roleId], null, null), scope, token, allowEmpty: true).ConfigureAwait(false))
-                return Failure<WorkflowDefinitionVersionResponse>(WorkflowErrorCodes.DefinitionSubprocessInvalid, ErrorType.Validation);
+                return Failure<PreparedPublication>(WorkflowErrorCodes.DefinitionSubprocessInvalid, ErrorType.Validation);
             if (subprocess.Starter?.UserId is { } starterId && !await assigneePublishValidator.ValidateSourceAsync(
                 new(WorkflowAssigneePolicy.SpecifiedUsers, [starterId], [], null, null), scope, token).ConfigureAwait(false))
-                return Failure<WorkflowDefinitionVersionResponse>(WorkflowErrorCodes.DefinitionSubprocessInvalid, ErrorType.Validation);
+                return Failure<PreparedPublication>(WorkflowErrorCodes.DefinitionSubprocessInvalid, ErrorType.Validation);
         }
         var voteForms = await PrepareVoteFormsAsync(model, scope, token).ConfigureAwait(false);
-        if (!voteForms.IsSuccess) return Result<WorkflowDefinitionVersionResponse>.Failure(voteForms.Error!);
-        return await transaction.ExecuteResultAsync(
-            transactionToken => PersistPublishedVersionAsync(
-                id,
-                actorUserId,
-                request,
-                scope,
-                definition,
-                model,
-                compilation.Value!,
-                voteForms.Value!,
-                transactionToken),
-            token).ConfigureAwait(false);
+        if (!voteForms.IsSuccess) return Result<PreparedPublication>.Failure(voteForms.Error!);
+        return Result<PreparedPublication>.Success(new(scope, definition, model, formVersion, formSchema!,
+            draft.DraftRevision, draft.ContentHash, compilation.Value!, voteForms.Value!));
     }
+
+    internal sealed record PreparedPublication(WorkflowManagementScope Scope, WorkflowDefinitionRecord Definition,
+        WorkflowDefinitionDraft Model, WorkflowFormVersionRecord FormVersion, WorkflowFormSchema FormSchema,
+        long DraftRevision, string DraftContentHash, WorkflowCompiledArtifact Artifact,
+        IReadOnlyList<WorkflowPreparedVoteFormBinding> VoteForms);
 
     /// <summary>在 Workflow 本地事务内认领草稿并写入不可变版本、最新指针和领域审计。</summary>
     /// <param name="id">工作流定义标识。</param>
@@ -759,7 +768,7 @@ internal sealed class WorkflowDefinitionManagementService(
     }
 
     /// <summary>传入本地发布事务的表单绑定只有固定版本和摘要，不携带不可信租户或临时设计内容。</summary>
-    private sealed record WorkflowPreparedVoteFormBinding(string NodeKey, Guid FormVersionId, string FormSchemaHash);
+    internal sealed record WorkflowPreparedVoteFormBinding(string NodeKey, Guid FormVersionId, string FormSchemaHash);
 
     private static string Serialize(WorkflowDefinitionDraft draft) =>
         JsonSerializer.Serialize(draft, WorkflowJsonSerializerContext.Default.WorkflowDefinitionDraft);

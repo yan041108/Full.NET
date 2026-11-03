@@ -75,4 +75,8 @@ public sealed record EventStreamOwnershipRecord(
     /// <summary>
     /// 记录最近更新的 UTC 时间戳；持久化层可据此做乐观并发检查（Compare-And-Swap）。
     /// </summary>
-    DateTimeOffset UpdatedAtUtc);
+    DateTimeOffset UpdatedAtUtc)
+{
+    /// <summary>进入 CDC 时冻结的 Kafka 资源身份；缺失时禁止自动回退，不与源日志坐标混存。</summary>
+    public string? CdcKafkaBindingJson { get; init; }
+}

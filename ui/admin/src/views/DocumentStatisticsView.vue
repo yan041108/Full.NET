@@ -234,6 +234,7 @@ onMounted(() => {
 
       <el-card v-loading="statisticsLoading" shadow="never" data-testid="document-statistics-panel">
         <template v-if="statistics">
+          <el-alert :title="t('documentStatistics.scopeHint')" type="info" :closable="false" />
           <el-row :gutter="16" class="document-statistics__summary">
             <el-col :xs="24" :sm="12" :md="8">
               <el-statistic :title="t('documentStatistics.totalItems')" :value="statistics.summary.totalItems" />
@@ -269,6 +270,9 @@ onMounted(() => {
                 :value="statistics.todayDownloadCount"
               />
             </el-col>
+            <el-col :xs="24" :sm="12" :md="8"><el-statistic :title="t('documentStatistics.historySize')" :value="statistics.summary.historySizeBytes" /></el-col>
+            <el-col :xs="24" :sm="12" :md="8"><el-statistic :title="t('documentStatistics.todayPreview')" :value="statistics.todayPreviewCount" /></el-col>
+            <el-col :xs="24" :sm="12" :md="8"><el-statistic :title="t('documentStatistics.todayShareAccess')" :value="statistics.todayShareAccessCount" /></el-col>
           </el-row>
 
           <h2 class="document-statistics__section-title">{{ t('documentStatistics.byTypeTitle') }}</h2>

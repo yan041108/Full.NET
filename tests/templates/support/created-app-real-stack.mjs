@@ -296,7 +296,7 @@ export async function verifyCreatedAppRealStack(databaseProviderKey) {
     apiProcess.stderr?.pipe(apiLogStream, { end: false });
     await waitForApi(apiUrl, 180_000, apiLogPath);
     await verifyApplicationModuleEndpoint(apiUrl, { logPath: join(logRoot, 'application-module-http.json') });
-    await verifyApplicationCrudOpenApi(apiUrl, { expectedPath: join(appRoot, 'contracts/openapi/products.generated.openapi.json'),
+    await verifyApplicationCrudOpenApi(apiUrl, { expectedPath: join(appRoot, 'generated/acme/catalog/product/contracts/openapi/products.generated.openapi.json'),
       logPath: join(logRoot, 'application-crud-openapi.json') });
     verifyApplicationCrudClient(appRoot, { reportDirectory: join(logRoot, 'application-crud-client') });
     verifyApplicationCrudVue(appRoot, { reportDirectory: join(logRoot, 'application-crud-vue') });

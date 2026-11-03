@@ -390,7 +390,8 @@ internal sealed class DapperSqlExecutor(
                 var mapped = new DynamicParameters();
                 foreach (var (key, value) in dictionary)
                 {
-                    mapped.Add(key, value);
+                    // SQL Server 默认 DateTime 参数会舍入到毫秒网格，破坏微秒时间戳游标的严格边界。
+                    mapped.Add(key, value, value is DateTime ? DbType.DateTime2 : null);
                 }
 
                 return mapped;

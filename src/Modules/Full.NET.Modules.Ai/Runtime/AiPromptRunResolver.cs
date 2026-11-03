@@ -61,14 +61,14 @@ internal sealed class AiPromptRunResolver(AiPromptReader reader, ICurrentTenant 
         // 再查权威模型，拒绝客户端建立期间模型修订变化；旧凭据身份不能执行新策略。
         if (model?.Id != body.ModelConfigId || !Matches(model, version) || boundModel.Id != body.ModelConfigId || !Matches(boundModel, version)
             || !await AuthorizedAsync(binding, token).ConfigureAwait(false)) return Failure<string>("ai.prompts.unavailable", ErrorType.NotFound);
-        return Result<string>.Success(definition == Full.NET.Agents.Workflows.AgentWorkflowRegistry.ChatRenameWorkflowKey
+        return Result<string>.Success(Full.NET.Agents.Workflows.AgentWorkflowRegistry.IsWorkflowKey(definition)
             ? string.Empty : AiPromptPolicy.Compose(body, snapshot.Prompt)!);
     }
 
     private static bool ValidInput(string definition, Guid model, string prompt, long input, long output, AiPromptBody body) =>
         definition == AiPromptExecutionPolicy.Definition(body) && model == body.ModelConfigId && AiPromptPolicy.IsValid(body)
         && input > 0 && input <= body.InputTokenLimit && output > 0 && output <= body.OutputTokenLimit
-        && (definition == Full.NET.Agents.Workflows.AgentWorkflowRegistry.ChatRenameWorkflowKey
+        && (Full.NET.Agents.Workflows.AgentWorkflowRegistry.IsWorkflowKey(definition)
             ? prompt == string.Empty : AiPromptPolicy.Compose(body, prompt) is not null);
     private static bool Matches(AiModelConfigRecord? model, AiPromptVersionRecord version) => model is { IsEnabled: true }
         && model.Version == version.ModelConfigVersion && model.ProviderKey == version.ProviderKey && model.ModelId == version.ModelId;

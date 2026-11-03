@@ -13,6 +13,10 @@ internal sealed class DeliveryRollbackJournal(IQueryExecutor query, ICommandExec
         query.QuerySingleOrDefaultAsync<EventDeliveryRollbackOperation>(DeliveryRollbackSql.Find,
             new Dictionary<string, object?> { ["Id"] = generation }, cancellationToken);
 
+    public Task<EventDeliveryRollbackOperation?> FindCurrentTerminalAsync(string eventType, int schemaVersion, CancellationToken cancellationToken = default) =>
+        query.QuerySingleOrDefaultAsync<EventDeliveryRollbackOperation>(DeliveryRollbackSql.FindCurrentTerminal,
+            new Dictionary<string, object?> { ["EventType"] = eventType, ["SchemaVersion"] = schemaVersion }, cancellationToken);
+
     internal Task<int> CreateAsync(Guid generation, string eventType, int schemaVersion, Guid operatorUserId, string reason, CancellationToken cancellationToken) =>
         command.ExecuteAsync(DeliveryRollbackSql.Insert, new Dictionary<string, object?>
         {
@@ -20,7 +24,7 @@ internal sealed class DeliveryRollbackJournal(IQueryExecutor query, ICommandExec
             ["OperatorUserId"] = operatorUserId, ["Reason"] = reason,
         }, cancellationToken);
 
-    internal Task<EventDeliveryRollbackOperation?> FindLatestAsync(string eventType, int schemaVersion, CancellationToken cancellationToken) =>
+    public Task<EventDeliveryRollbackOperation?> FindLatestAsync(string eventType, int schemaVersion, CancellationToken cancellationToken = default) =>
         query.QuerySingleOrDefaultAsync<EventDeliveryRollbackOperation>(databaseOptions.Value.Provider == DatabaseProvider.SqlServer
             ? DeliveryRollbackSql.FindLatestSqlServer : DeliveryRollbackSql.FindLatestMySql,
             new Dictionary<string, object?> { ["EventType"] = eventType, ["SchemaVersion"] = schemaVersion }, cancellationToken);
@@ -45,6 +49,17 @@ internal sealed class DeliveryRollbackJournal(IQueryExecutor query, ICommandExec
 /// <summary>Host 运维日志 SQL，不访问租户业务表。</summary>
 internal static class DeliveryRollbackSql
 {
+    // 两表的历史文本列排序规则不同；只按 UUID 关联，再分别与同一参数比较，避免 SQL Server 468。
+    internal static readonly SqlStatement FindCurrentTerminal = new("messaging.rollback_operation.find_current_terminal", """
+        SELECT operation.Id, operation.EventType, operation.SchemaVersion, operation.Phase, operation.ResourcesJson,
+            operation.CreatedAtUtc, operation.UpdatedAtUtc, operation.HasPauseIntent, operation.OperatorUserId, operation.Reason
+        FROM fn_messaging_rollback_operation operation
+        INNER JOIN fn_messaging_stream_ownership owner ON owner.RollbackGeneration=operation.Id
+            AND owner.SchemaVersion=operation.SchemaVersion
+        WHERE owner.MessageType=@EventType AND owner.SchemaVersion=@SchemaVersion
+            AND operation.EventType=@EventType
+            AND owner.RollbackState=0 AND operation.Phase IN (4,5)
+        """, SqlDataScope.Global);
     internal static readonly SqlStatement Find = new("messaging.rollback_operation.find", """
         SELECT Id, EventType, SchemaVersion, Phase, ResourcesJson, CreatedAtUtc, UpdatedAtUtc, HasPauseIntent, OperatorUserId, Reason
         FROM fn_messaging_rollback_operation WHERE Id = @Id

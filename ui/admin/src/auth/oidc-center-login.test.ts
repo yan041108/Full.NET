@@ -1,107 +1,28 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-
-vi.mock('../api/http', () => ({ apiBaseUrl: 'http://localhost:5149' }));
-import {
-  ADMIN_OIDC_PKCE_STORAGE_KEY,
-  clearAdminOidcPkcePending,
-  clearAdminOidcSessionCredentials,
-  completeAdminOidcCallback,
-  readAdminOidcPkcePending,
-  refreshAdminOidcAccessToken,
-  resolveAdminOidcRedirectUri,
-  revokeAdminOidcApplicationSession,
-  revokeAdminOidcCenterSession
-} from './oidc-center-login';
-import { readOidcRefreshCredential } from './oidc-session-credentials';
-
-describe('oidc center login helpers', () => {
-  beforeEach(() => {
-    sessionStorage.clear();
-  });
-
-  afterEach(() => {
-    vi.unstubAllGlobals();
-    vi.restoreAllMocks();
-  });
-
-  it('resolves redirect uri without fragment for OpenIddict', () => {
-    expect(resolveAdminOidcRedirectUri()).not.toContain('#');
-    expect(resolveAdminOidcRedirectUri()).toMatch(/\/$/u);
-  });
-
-  it('rejects callback when state does not match', async () => {
-    sessionStorage.setItem(ADMIN_OIDC_PKCE_STORAGE_KEY, JSON.stringify({
-      verifier: 'verifier',
-      state: 'expected',
-      nonce: 'nonce'
-    }));
-    await expect(completeAdminOidcCallback({
-      code: 'auth-code',
-      state: 'other'
-    })).rejects.toThrow('oidc_invalid_state');
-    expect(readAdminOidcPkcePending()).toBeUndefined();
-  });
-
-  it('clears pending pkce state after successful exchange', async () => {
-    sessionStorage.setItem(ADMIN_OIDC_PKCE_STORAGE_KEY, JSON.stringify({
-      verifier: 'verifier',
-      state: 'expected',
-      nonce: 'nonce'
-    }));
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({
-      access_token: 'oidc-access-token',
-      token_type: 'Bearer',
-      expires_in: 120,
-      refresh_token: 'oidc-refresh-token'
-    }), {
-      status: 200,
-      headers: { 'content-type': 'application/json' }
-    })));
-    const token = await completeAdminOidcCallback({
-      code: 'auth-code',
-      state: 'expected'
-    });
-    expect(token.accessToken).toBe('oidc-access-token');
-    expect(readOidcRefreshCredential()).toEqual({
-      refreshToken: 'oidc-refresh-token',
-      clientId: 'admin-spa'
-    });
-    expect(readAdminOidcPkcePending()).toBeUndefined();
-    clearAdminOidcPkcePending();
-  });
-
-  it('refreshes access token from persisted refresh credential', async () => {
-    sessionStorage.setItem('fullnet.admin.oidc.refresh', JSON.stringify({
-      refreshToken: 'stored-refresh-token',
-      clientId: 'admin-spa'
-    }));
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({
-      access_token: 'refreshed-access-token',
-      token_type: 'Bearer',
-      expires_in: 120,
-      refresh_token: 'rotated-refresh-token'
-    }), {
-      status: 200,
-      headers: { 'content-type': 'application/json' }
-    })));
-    const token = await refreshAdminOidcAccessToken();
-    expect(token?.accessToken).toBe('refreshed-access-token');
-    expect(readOidcRefreshCredential()).toEqual({
-      refreshToken: 'rotated-refresh-token',
-      clientId: 'admin-spa'
-    });
-    clearAdminOidcSessionCredentials();
-  });
-
-  it('revokes application session for admin client', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(null, { status: 204 })));
-    const revoked = await revokeAdminOidcApplicationSession();
-    expect(revoked).toBe(true);
-  });
-
-  it('revokes center session for admin', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(null, { status: 204 })));
-    const revoked = await revokeAdminOidcCenterSession();
-    expect(revoked).toBe(true);
-  });
+import { adminBrowserSession, clearAdminOidcSessionCredentials, completeAdminOidcCallback, readAdminBrowserCsrfToken } from './oidc-center-login';
+import { configureAuthentication } from '../api/http';
+import { browserFixture, csrf } from './browser-session-test-fixture';
+beforeEach(() => { clearAdminOidcSessionCredentials(); sessionStorage.clear(); });
+afterEach(() => { configureAuthentication(); vi.unstubAllGlobals(); });
+describe('BFF callback adapter', () => {
+ it('restores only the server session and CSRF material', async () => {
+  const fetch = browserFixture(); await completeAdminOidcCallback(); expect(readAdminBrowserCsrfToken()).toBe(csrf);
+  expect(fetch).toHaveBeenCalledOnce(); expect(String(fetch.mock.calls[0]![0])).toContain('/browser/session');
+ });
+ it('rejects a token-bearing response', async () => {
+  browserFixture(() => new Response(JSON.stringify({ csrfToken: csrf, accessToken: 'must-not-leak' })));
+  await expect(completeAdminOidcCallback()).rejects.toThrow('oidc_invalid_callback');
+ });
+ it('does not revive CSRF state from an in-flight restore after logout', async () => {
+  let finish!: (value: Response) => void;
+  browserFixture(() => new Promise<Response>(resolve => { finish = resolve; }));
+  const pending = adminBrowserSession.restore(); await Promise.resolve(); clearAdminOidcSessionCredentials();
+  finish(new Response(JSON.stringify({ csrfToken: csrf }))); expect(await pending).toBe(false);
+  expect(readAdminBrowserCsrfToken()).toBeUndefined();
+ });
+ it('removes old SPA credentials without reading them', () => {
+  sessionStorage.setItem('fullnet.admin.oidc.refresh', 'old-secret'); sessionStorage.setItem('fullnet.admin.oidc.pkce', 'old-pkce');
+  clearAdminOidcSessionCredentials(); expect(sessionStorage.getItem('fullnet.admin.oidc.refresh')).toBeNull();
+  expect(sessionStorage.getItem('fullnet.admin.oidc.pkce')).toBeNull();
+ });
 });

@@ -35,7 +35,15 @@ internal sealed class ReportingExportTaskHostedProcessor(
             }
 
             var delay = GetDelayAfterBatch(processed);
-            if (delay > TimeSpan.Zero) await Task.Delay(delay, stoppingToken).ConfigureAwait(false);
+            try
+            {
+                if (delay > TimeSpan.Zero) await Task.Delay(delay, stoppingToken).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+            {
+                // 正常关闭可以中断轮询等待，不把有意停止报告为后台故障。
+                break;
+            }
         }
     }
 

@@ -96,6 +96,17 @@ internal static class WorkflowCollaborationGrantPolicy
             accepted > now || grant.CreatedAtUtc > now || grant.RevokedAtUtc is not null || grant.RevokedById is not null || grant.RevokedByScopeKey is not null || grant.ExpiresAtUtc <= now ||
             trustedScope != (targetSide ? grant.TargetTenantScopeKey : grant.SourceTenantScopeKey) || grant.AcceptanceJson is null || grant.PolicyHash is null || grant.TargetSummaryJson is null || grant.TargetSummaryHash is null ||
             grant.OfferJson.Length > 32_768 || grant.AcceptanceJson.Length > 32_768 || grant.TargetSummaryJson.Length > 65_536) return false;
+        return TryReadAgreement(grant, out offer, out acceptance);
+    }
+
+    /// <summary>只验证不可变同意的完整性，供关闭与成员约束使用；成功不代表仍有运行许可。</summary>
+    internal static bool TryReadAgreement(WorkflowCollaborationGrantFact grant, out WorkflowCollaborationOfferPolicy? offer,
+        out WorkflowCollaborationAcceptancePolicy? acceptance)
+    {
+        offer = null; acceptance = null;
+        if (!Shape(grant) || grant.TargetActorId is not { } targetActor || targetActor == Guid.Empty ||
+            grant.AcceptanceJson is null || grant.TargetSummaryJson is null || grant.PolicyHash is null || grant.TargetSummaryHash is null ||
+            grant.OfferJson.Length > 32_768 || grant.AcceptanceJson.Length > 32_768 || grant.TargetSummaryJson.Length > 65_536) return false;
         try
         {
             using var proposed = JsonDocument.Parse(grant.OfferJson); using var confirmed = JsonDocument.Parse(grant.AcceptanceJson);

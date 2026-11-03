@@ -63,6 +63,7 @@
   <data name="identity.oidc_clients.disabled" xml:space="preserve"><value>OIDC 客户端已停用。</value></data>
   <data name="identity.oidc_authorizations.not_found" xml:space="preserve"><value>OIDC 授权授予不存在。</value></data>
   <data name="identity.oidc_signing_keys.not_activatable" xml:space="preserve"><value>OIDC 签名密钥无法激活。</value></data>
+  <data name="identity.oidc_signing_keys.lifecycle_conflict" xml:space="preserve"><value>签名密钥材料、节点就绪或保留窗口尚未满足操作条件。</value></data>
   <data name="identity.oidc_context_switch_not_supported" xml:space="preserve"><value>当前客户端不支持 OIDC 租户上下文切换。</value></data>
   <data name="identity.registration.disabled" xml:space="preserve"><value>注册功能已禁用。</value></data>
   <data name="identity.registration.email_already_exists" xml:space="preserve"><value>注册邮箱已被占用。</value></data>
@@ -147,4 +148,9 @@
   <data name="identity.oauth.invalid_return_url" xml:space="preserve"><value>OAuth 回调 returnUrl 无效。</value></data>
   <data name="identity.oauth.account_conflict" xml:space="preserve"><value>该外部身份已绑定其他用户。</value></data>
   <data name="identity.oauth.user_link_not_found" xml:space="preserve"><value>OAuth 用户绑定不存在。</value></data>
+  <data name="identity.browser_origin_rejected" xml:space="preserve"><value>浏览器请求来源不受信任。</value></data>
+  <data name="identity.browser_csrf_rejected" xml:space="preserve"><value>请求校验已失效，请刷新页面后重试。</value></data>
+  <data name="identity.browser_endpoint_required" xml:space="preserve"><value>此浏览器会话必须使用专用会话端点。</value></data>
+  <data name="identity.browser_session_unavailable" xml:space="preserve"><value>浏览器会话已失效或暂不可用，请重试或重新登录。</value></data>
+  <data name="identity.oidc_delivery_not_failed" xml:space="preserve"><value>退出通知尚未处于可重试的失败状态。</value></data>
 </root>

@@ -235,6 +235,7 @@ export async function bootstrapStack() {
     realtimeRedisContainer = realtimeRedis.container;
     realtimeRedisConnectionString = realtimeRedis.connectionString;
   }
+  const codeGenerationArchiveRoot = mkdtempSync(path.join(tmpdir(), 'fullnet-codegeneration-e2e-archives-'));
   const codeGenerationWorkspaceRoot = mkdtempSync(path.join(
     tmpdir(),
     'fullnet-codegeneration-e2e-'
@@ -284,6 +285,7 @@ export async function bootstrapStack() {
     OutboxWorker__PollMilliseconds: '100',
     CodeGeneration__Apply__Enabled: 'true',
     CodeGeneration__Apply__WorkspaceRoot: codeGenerationWorkspaceRoot,
+    CodeGeneration__Artifacts__RootDirectory: codeGenerationArchiveRoot,
     FullNet__ObservabilityAdmin__LogRootPath: observabilityLogRoot,
     DOTNET_ENVIRONMENT: isProductionTotp ? 'Production' : 'Development',
     ASPNETCORE_ENVIRONMENT: isProductionTotp ? 'Production' : 'Development',
@@ -448,6 +450,7 @@ export async function bootstrapStack() {
     cacheRedisConnectionString,
     realtimeRedisConnectionString,
     codeGenerationWorkspaceRoot,
+    codeGenerationArchiveRoot,
     observabilityLogRoot
   };
   writeFileSync(statePath, JSON.stringify({
@@ -464,6 +467,7 @@ export async function bootstrapStack() {
     cacheRedisConnectionString,
     realtimeRedisConnectionString,
     codeGenerationWorkspaceRoot,
+    codeGenerationArchiveRoot,
     observabilityLogRoot
   }, null, 2));
 
@@ -497,6 +501,9 @@ export async function teardownStack() {
     && activeStack.realtimeRedisContainer !== activeStack.redisContainer
   ) {
     await activeStack.realtimeRedisContainer.stop();
+  }
+  if (activeStack.codeGenerationArchiveRoot) {
+    rmSync(activeStack.codeGenerationArchiveRoot, { recursive: true, force: true });
   }
   if (activeStack.codeGenerationWorkspaceRoot) {
     rmSync(activeStack.codeGenerationWorkspaceRoot, {

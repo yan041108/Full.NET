@@ -16,6 +16,14 @@ namespace Full.NET.UnitTests.Ai;
 public sealed class AiKnowledgeIndexBudgetTests
 {
     [TestMethod]
+    public async Task Human_task_cannot_use_automatic_request_fingerprint_or_reserve_budget()
+    {
+        var fixture = new Fixture(false) { Human = true };
+        Assert.IsNull(await fixture.ReserveAsync());
+        Assert.IsFalse(fixture.Command.ReceivedCalls().Any()); Assert.IsFalse(fixture.Budget.ReceivedCalls().Any());
+    }
+
+    [TestMethod]
     [DataRow(false)]
     [DataRow(true)]
     public async Task New_reservation_uses_persisted_operation_and_trusted_model(bool tenantScope)
@@ -149,7 +157,7 @@ public sealed class AiKnowledgeIndexBudgetTests
         private readonly DateTimeOffset now = DateTimeOffset.UtcNow;
         private Dictionary<string, object?>? persisted;
         internal int DispatchReads;
-        internal bool LoseAuthority, WrongBatchHash, PersistedBeforeReserve;
+        internal bool LoseAuthority, WrongBatchHash, PersistedBeforeReserve, Human;
 
         internal Fixture(bool tenantScope)
         {
@@ -169,6 +177,9 @@ public sealed class AiKnowledgeIndexBudgetTests
                     LeaseToken = Lease, LeaseExpiresAtUtc = now.AddSeconds(30),
                     DataClassification = "internal", ModelProviderKey = Model.ProviderKey, ModelId = Model.ModelId,
                     ModelEndpointBaseUrl = Model.EndpointBaseUrl, ModelOrganizationId = Model.OrganizationId,
+                    CorrectionSourceId = Human ? TaskId : null, CorrectionRevisionId = Human ? OperationId : null,
+                    CorrectionHeadVersion = Human ? 1 : null, CorrectionSourceHash = Human ? new string('a', 64) : null,
+                    CorrectionPayloadHash = Human ? new string('b', 64) : null,
                 };
             });
             Query.QuerySingleOrDefaultAsync<AiModelConfigRecord>(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(Model);

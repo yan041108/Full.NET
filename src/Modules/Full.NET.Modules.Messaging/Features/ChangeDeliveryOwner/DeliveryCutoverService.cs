@@ -35,7 +35,7 @@ internal sealed class DeliveryCutoverService(
     ICommandTransaction transaction,
     ITransactionalDomainAuditWriter<MessagingDomainAuditWrite> domainAuditWriter,
     DeliveryCutoverEvidenceService evidenceService,
-    IDatabaseSessionLock sessionLock,
+    IDatabaseTransactionBoundSessionLock sessionLock,
     IEnumerable<IntegrationEventTopicDefinition> registeredTopics,
     Microsoft.AspNetCore.Http.IHttpContextAccessor? httpContextAccessor = null)
 {
@@ -79,17 +79,27 @@ internal sealed class DeliveryCutoverService(
         await using var control = await sessionLock.TryAcquireAsync(EventDeliveryControlResources.SessionLock, cancellationToken).ConfigureAwait(false);
         if (control is null) return Result<DeliveryCutoverResponse>.Failure(new Error(MessagingErrorCodes.CutoverPreconditionFailed,
             "Another delivery control operation is running.", ErrorType.Conflict));
+        await control.EnsureHeldAsync(cancellationToken).ConfigureAwait(false);
         // 外部探测在事务外执行；命令事务内只重验短期证明及权威数据摘要。
         var evidence = await evidenceService.FindReadyAsync(request.EventType, request.SchemaVersion, cancellationToken).ConfigureAwait(false);
         if (evidence is null) return Result<DeliveryCutoverResponse>.Failure(new Error(MessagingErrorCodes.CutoverPreconditionFailed,
             "Fresh durable shadow evidence and live target resources are required.", ErrorType.BusinessRule));
+        var sourceBinding = await evidenceService.ReadDeliveryBindingAsync(evidence, cancellationToken).ConfigureAwait(false);
+        if (sourceBinding is not { Topics.Length: > 0 }) return Result<DeliveryCutoverResponse>.Failure(new Error(MessagingErrorCodes.CutoverPreconditionFailed,
+            "The immutable delivery topology must match the approved evidence.", ErrorType.BusinessRule));
+        await control.EnsureHeldAsync(cancellationToken).ConfigureAwait(false);
         return await transaction.ExecuteResultAsync(
-            token => CutoverCoreAsync(request, evidence, token), cancellationToken).ConfigureAwait(false);
+            async token =>
+            {
+                await control.EnsureHeldAsync(token).ConfigureAwait(false);
+                return await CutoverCoreAsync(request, evidence, sourceBinding, token).ConfigureAwait(false);
+            }, cancellationToken).ConfigureAwait(false);
     }
 
     private async Task<Result<DeliveryCutoverResponse>> CutoverCoreAsync(
         ChangeDeliveryOwnerRequest request,
         CutoverEvidenceRow evidence,
+        CdcKafkaDeliveryBinding sourceBinding,
         CancellationToken cancellationToken)
     {
         if (!await ownershipGate.AcquireOwnershipChangeAsync(
@@ -126,13 +136,19 @@ internal sealed class DeliveryCutoverService(
                 ErrorType.BusinessRule));
         }
 
-        // 当前固定 Topic 的专用 Connector 协议只支持一个活动试点流，不能把共享 Outbox 的其他流一起路由。
+        // 历史激活的资源也保留归属：回退后仍可能有已接受但迟到的控制请求，不能将其复用于另一流。
         var declaredOwners = await ownerResolver.GetDeliveryOwnersAsync(registeredTopics.ToArray(), cancellationToken).ConfigureAwait(false);
         var persistedOwners = await ownershipStore.ListAsync(cancellationToken).ConfigureAwait(false);
-        if (declaredOwners.Any(item => item.Value == EventDeliveryOwner.CdcKafka && (item.Key.EventType != request.EventType || item.Key.SchemaVersion != request.SchemaVersion))
-            || persistedOwners.Any(item => item.CurrentOwner == EventDeliveryOwner.CdcKafka && (item.MessageType != request.EventType || item.SchemaVersion != request.SchemaVersion)))
+        var activatedBinding = sourceBinding with { ActivationId = idGenerator.NewId() };
+        var others = persistedOwners.Where(item => (item.MessageType != request.EventType || item.SchemaVersion != request.SchemaVersion)
+            && (item.CurrentOwner == EventDeliveryOwner.CdcKafka || item.PreviousOwner == EventDeliveryOwner.CdcKafka
+                || item.RollbackOccurredAtUtc is not null || !string.IsNullOrWhiteSpace(item.CdcKafkaBindingJson))).ToArray();
+        if (declaredOwners.Any(item => item.Value == EventDeliveryOwner.CdcKafka && (item.Key.EventType != request.EventType || item.Key.SchemaVersion != request.SchemaVersion)
+                && !others.Any(owner => owner.CurrentOwner == EventDeliveryOwner.CdcKafka && owner.MessageType == item.Key.EventType && owner.SchemaVersion == item.Key.SchemaVersion))
+            || others.Any(item => !CdcKafkaDeliveryBinding.TryParse(item.CdcKafkaBindingJson, out var baseline) || baseline is null
+                || !activatedBinding.IsIsolatedFrom(baseline)))
             return Result<DeliveryCutoverResponse>.Failure(new Error(MessagingErrorCodes.CutoverPreconditionFailed,
-                "The current dedicated connector protocol supports only one active CDC pilot stream.", ErrorType.BusinessRule));
+                "Active CDC streams require persisted, isolated connector and topic bindings.", ErrorType.BusinessRule));
 
         if (evidence.ExpiresAtUtc <= clock.UtcNow || !await evidenceService.IsSourceUnchangedAsync(evidence, cancellationToken).ConfigureAwait(false))
             return Result<DeliveryCutoverResponse>.Failure(new Error(MessagingErrorCodes.CutoverPreconditionFailed,
@@ -185,7 +201,7 @@ internal sealed class DeliveryCutoverService(
             null,
             null,
             now,
-            now);
+            now) { CdcKafkaBindingJson = activatedBinding.ToJson() };
         try
         {
             await ownershipStore.UpsertAsync(ownershipRecord, cancellationToken).ConfigureAwait(false);

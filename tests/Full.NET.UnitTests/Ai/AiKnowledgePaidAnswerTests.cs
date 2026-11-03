@@ -14,12 +14,73 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Full.NET.Modules.Ai.Contracts;
 using System.Net;
 using System.Text;
+using Full.NET.Modules.Calendar.Contracts;
 
 namespace Full.NET.UnitTests.Ai;
 
 /// <summary>单元测试分片：AiKnowledgeIndexPdfActivation。</summary>
 public sealed partial class AiKnowledgeIndexPdfActivationTests
 {
+    [TestMethod] [DataRow(false)] [DataRow(true)]
+    public async Task Personal_schedule_change_before_first_dispatch_has_zero_budget_and_zero_model_calls(bool scoped)
+    {
+        var port = Substitute.For<IPersonalScheduleKnowledgeSource>();
+        using var f = await PaidAnswerFixture.CreateAsync(scoped, schedules: port);
+        var source = AiPersonalScheduleAnswerTests.Schedule(f.R.Actor, f.R.F.Tenant.Id);
+        port.CaptureAsync(Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>()).Returns(new[] { source });
+        port.VerifyAsync(Arg.Any<IReadOnlyCollection<PersonalScheduleKnowledgeProof>>(), Arg.Any<CancellationToken>()).Returns(false);
+        await Assert.ThrowsExactlyAsync<UnauthorizedAccessException>(() => f.Service.ExecuteAsync([f.R.F.Binding.KnowledgeBaseId],
+            f.R.Actor, f.R.Model, f.Generation, "问题", default, schedules: [new(source.Proof.Id, source.Proof.Version, source.Proof.ProjectionHash)]));
+        Assert.HasCount(0, f.Budget.Requests); Assert.AreEqual(0, f.Factory.EmbeddingCalls); Assert.AreEqual(0, f.Factory.ChatCalls);
+    }
+
+    [TestMethod] [DataRow(false)] [DataRow(true)]
+    public async Task Personal_schedule_unreferenced_by_model_stays_in_frozen_answer_and_original_fee_path(bool scoped)
+    {
+        var port = Substitute.For<IPersonalScheduleKnowledgeSource>();
+        using var f = await PaidAnswerFixture.CreateAsync(scoped, schedules: port);
+        var source = AiPersonalScheduleAnswerTests.Schedule(f.R.Actor, f.R.F.Tenant.Id);
+        port.CaptureAsync(Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>()).Returns(new[] { source });
+        port.VerifyAsync(Arg.Any<IReadOnlyCollection<PersonalScheduleKnowledgeProof>>(), Arg.Any<CancellationToken>()).Returns(true);
+        var result = await f.Service.ExecuteAsync([f.R.F.Binding.KnowledgeBaseId], f.R.Actor, f.R.Model, f.Generation, "问题", default,
+            schedules: [new(source.Proof.Id, source.Proof.Version, source.Proof.ProjectionHash)]);
+        Assert.HasCount(1, result.Prepared.Retrieval.PersonalSchedules); Assert.HasCount(2, f.Budget.Requests); Assert.HasCount(2, f.Budget.Settlements);
+        var lineage = AiKnowledgeAnswerLineageCodec.Create(result, Guid.CreateVersion7(), Guid.CreateVersion7());
+        Assert.AreEqual(8, lineage.Version); Assert.AreEqual(source.Proof, lineage.PersonalSchedules![0]);
+    }
+
+    [TestMethod] [DataRow(false, false)] [DataRow(true, false)] [DataRow(false, true)] [DataRow(true, true)]
+    public async Task Personal_schedule_late_withdrawal_never_delivers_body_and_preserves_original_unknown_embedding_usage(bool scoped, bool dispatched)
+    {
+        var port = Substitute.For<IPersonalScheduleKnowledgeSource>(); var readable = true;
+        using var f = await PaidAnswerFixture.CreateAsync(scoped, schedules: port);
+        // 夹具空属性默认回退为已报告7 Token；显式空用量对象才表示未报告输入用量。
+        f.Factory.EmbeddingUsage = new UsageDetails();
+        var source = AiPersonalScheduleAnswerTests.Schedule(f.R.Actor, f.R.F.Tenant.Id);
+        port.CaptureAsync(Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>()).Returns(new[] { source });
+        port.VerifyAsync(Arg.Any<IReadOnlyCollection<PersonalScheduleKnowledgeProof>>(), Arg.Any<CancellationToken>()).Returns(_ => readable);
+        if (dispatched) f.Factory.BeforeReturn = kind => { if (kind == "chat") readable = false; };
+        else f.Factory.BeforeCreate = kind => { if (kind == "chat") readable = false; };
+        await Assert.ThrowsExactlyAsync<UnauthorizedAccessException>(() => f.Service.ExecuteAsync([f.R.F.Binding.KnowledgeBaseId],
+            f.R.Actor, f.R.Model, f.Generation, "问题", default, schedules: [new(source.Proof.Id, source.Proof.Version, source.Proof.ProjectionHash)]));
+        Assert.HasCount(2, f.Budget.Requests); Assert.HasCount(2, f.Budget.Settlements);
+        Assert.AreEqual(dispatched ? 1 : 0, f.Factory.ChatCalls);
+        Assert.IsNull(f.Budget.Settlements[0].Usage.InputTokens);
+        Assert.AreEqual(new AiOperationUsage(dispatched ? 7 : 0, dispatched ? 3 : 0), f.Budget.Settlements[1].Usage);
+        Assert.AreEqual("cancelled", f.Budget.Settlements[1].Outcome);
+        Assert.IsTrue(f.Budget.SettlementTenants.All(value => value == source.Proof.TenantId));
+    }
+    [TestMethod] [DataRow(false, "rerank")] [DataRow(true, "rerank")] [DataRow(false, "context")] [DataRow(true, "context")]
+    public async Task Paid_answer_host_policy_rejection_precedes_budget_and_model_dispatch(bool tenant, string stage)
+    {
+        var policy = new AiDataProcessingPolicy(new Dictionary<string, IReadOnlyList<string>> { [stage] = [] });
+        using var f = await PaidAnswerFixture.CreateAsync(tenant, policy); var before = f.R.F.PayloadReads;
+        f.Factory.EmbeddingUsage = new() { InputTokenCount = 5, OutputTokenCount = 0 };
+        await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => f.ExecuteAsync());
+        Assert.AreEqual(0, f.Budget.Requests.Count); Assert.AreEqual(0, f.Budget.Settlements.Count);
+        Assert.AreEqual(0, f.Factory.EmbeddingCalls); Assert.AreEqual(0, f.Factory.ChatCalls);
+        Assert.AreEqual(0, f.R.Query.VectorReads); Assert.AreEqual(before, f.R.F.PayloadReads);
+    }
     [TestMethod]
     public async Task Paid_answer_freezes_entry_scope_before_initial_shared_model_query_wait()
     {
@@ -215,23 +276,26 @@ public sealed partial class AiKnowledgeIndexPdfActivationTests
         internal PaidAnswerBudget Budget = new(); internal PaidAnswerFactory Factory = new();
         internal readonly AiModelBindingScope bindings = new(); internal AiKnowledgePaidAnswerService Service = null!;
         private ServiceProvider services = null!;
-        internal static async Task<PaidAnswerFixture> CreateAsync(bool tenant)
+        internal static async Task<PaidAnswerFixture> CreateAsync(bool tenant, AiDataProcessingPolicy? policy = null, IPersonalScheduleKnowledgeSource? schedules = null)
         {
-            var f = new PaidAnswerFixture { R = await RetrievalFixture.Create(tenant) };
+            var f = new PaidAnswerFixture { R = await RetrievalFixture.Create(tenant, policy, schedules) };
             f.Generation = Model(Guid.CreateVersion7()); f.R.Query.GenerationModel = f.Generation;
-            f.R.Query.Rows = [f.R.Query.Rows[0] with { GenerationModelConfigId = f.Generation.Id, GenerationModelVersion = f.Generation.Version }];
+            // 付费成功链路消费真实发布元数据；不能沿用仅供激活证明的缺省派生标记。
+            f.R.Query.Rows = [f.R.Query.Rows[0] with { GenerationModelConfigId = f.Generation.Id, GenerationModelVersion = f.Generation.Version, HasDerivedData = 1 }];
             f.R.F.ReadRow = f.R.Query.Rows[0];
             f.services = new ServiceCollection().AddScoped<CurrentTenantAccessor>()
                 .AddScoped<ICurrentTenantContextWriter>(s => s.GetRequiredService<CurrentTenantAccessor>())
                 .AddScoped<IAiOperationBudgetStore>(s => new PaidSettlementBudget(f.Budget, s.GetRequiredService<CurrentTenantAccessor>())).BuildServiceProvider();
-            f.UseFactories([f.Factory]); return f;
+            f.Schedules = schedules; f.UseFactories([f.Factory]); return f;
         }
+        private IPersonalScheduleKnowledgeSource? Schedules;
         internal void UseFactories(IEnumerable<IAiModelClientFactory> factories)
         {
             var ids = Substitute.For<IIdGenerator>(); ids.NewId().Returns(_ => Guid.CreateVersion7());
             Service = new(R.Service, new(R.Service, ids), R.Query, R.F.Transactions, R.F.Tenant,
                 R.Permissions, Budget, factories, bindings, ids,
-                new(services.GetRequiredService<IServiceScopeFactory>(), NullLogger<AiChatCleanupScope>.Instance));
+                new(services.GetRequiredService<IServiceScopeFactory>(), NullLogger<AiChatCleanupScope>.Instance),
+                personalSchedules: Schedules is null ? null : new(Schedules, R.F.Transactions, R.F.Tenant));
         }
         internal static AiModelConfigRecord Model(Guid id, string endpoint = "https://model.example/v1", string? credential = null) =>
             new() { Id = id, Version = 1, ProviderKey = "openai_compatible", ModelId = "gpt-4.1-mini", EndpointBaseUrl = endpoint, IsEnabled = true, ApiKeyProtected = credential };
@@ -276,6 +340,8 @@ public sealed partial class AiKnowledgeIndexPdfActivationTests
         internal string? BlockStage; internal TaskCompletionSource? BlockEntered; internal Task? BlockRelease;
         internal TaskCompletionSource LateDisposed = new(TaskCreationOptions.RunContinuationsAsynchronously);
         internal List<ChatMessage>? Messages; internal ChatOptions? Options;
+        internal Func<JsonElement, string>? RefinementReply;
+        internal List<string> EmbeddingTexts = [];
         public ValueTask<IEmbeddingGenerator<string, Embedding<float>>> CreateEmbeddingGeneratorAsync(ModelBinding binding, CancellationToken cancellationToken)
         { BeforeCreate?.Invoke("embedding"); if (ThrowKind == "embedding_create") throw new IOException("创建失败"); return ValueTask.FromResult<IEmbeddingGenerator<string, Embedding<float>>>(new Generator(this)); }
         public async ValueTask<IChatClient> CreateChatClientAsync(ModelBinding binding, CancellationToken cancellationToken)
@@ -287,7 +353,7 @@ public sealed partial class AiKnowledgeIndexPdfActivationTests
             public void Dispose() => f.EmbeddingDisposed = true;
             public Task<GeneratedEmbeddings<Embedding<float>>> GenerateAsync(IEnumerable<string> values, EmbeddingGenerationOptions? options = null, CancellationToken cancellationToken = default)
             {
-                cancellationToken.ThrowIfCancellationRequested(); f.EmbeddingCalls++; Assert.AreEqual(1, values.Count()); f.BeforeReturn?.Invoke("embedding");
+                cancellationToken.ThrowIfCancellationRequested(); f.EmbeddingCalls++; Assert.AreEqual(1, values.Count()); f.EmbeddingTexts.Add(values.Single()); f.BeforeReturn?.Invoke("embedding");
                 if (f.ThrowKind == "embedding") throw new IOException("模型失败");
                 var vector = AiKnowledgeRetrievalRuleTests.Vector(1, 0); if (f.Fault == "vectors") vector[0] = float.NaN;
                 return Task.FromResult(new GeneratedEmbeddings<Embedding<float>>([new(vector)])
@@ -308,7 +374,10 @@ public sealed partial class AiKnowledgeIndexPdfActivationTests
                 cancellationToken.ThrowIfCancellationRequested(); f.ChatCalls++; f.Messages = messages.ToList(); f.Options = options; f.BeforeReturn?.Invoke("chat");
                 if (f.ThrowKind == "chat") throw new IOException("模型失败");
                 if (f.BlockStage == "generate") { f.BlockEntered!.TrySetResult(); await f.BlockRelease!; }
-                using var json = JsonDocument.Parse(f.Messages[1].Text); var id = json.RootElement.GetProperty("sources")[0].GetProperty("citationId").GetGuid();
+                using var json = JsonDocument.Parse(f.Messages[1].Text);
+                if (json.RootElement.TryGetProperty("task", out _)) return new ChatResponse(new ChatMessage(ChatRole.Assistant,
+                    f.RefinementReply?.Invoke(json.RootElement) ?? throw new AssertFailedException("缺少受控搜索协议测试响应。"))) { Usage = f.Usage };
+                var id = json.RootElement.GetProperty("sources")[0].GetProperty("citationId").GetGuid();
                 var text = $$"""{"answer":"有依据的答案","citationIds":["{{(f.Fault == "citation" ? Guid.CreateVersion7() : id)}}"],"refusal":false}""";
                 if (f.Fault == "size") text = new string('x', 65537);
                 if (f.Fault == "refusal") text = "{\"answer\":\"\",\"citationIds\":[],\"refusal\":true}";

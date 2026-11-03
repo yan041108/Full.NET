@@ -5,6 +5,12 @@ namespace Full.NET.Modules.Document.Contracts;
 /// </summary>
 public static class HostDocumentPermissions
 {
+    /// <summary>发布已具备就绪版本的草稿。</summary>
+    public const string Publish = "document.host_documents.publish";
+    /// <summary>归档并撤销已有分享。</summary>
+    public const string Archive = "document.host_documents.archive";
+    /// <summary>将归档文档恢复为草稿。</summary>
+    public const string Unarchive = "document.host_documents.unarchive";
     /// <summary>允许读取主机文档列表、详情与版本列表。</summary>
     public const string Read = "document.host_documents.read";
 

@@ -1,0 +1,37 @@
+import { expect, test } from '@playwright/test';
+import { writeFile } from 'node:fs/promises';
+import path from 'node:path';
+import { loginAsHostUser } from './support/real-stack-auth.mjs';
+
+test('真实来源成员添加协作类型20、读取授权并保存发布', async ({ page }) => {
+  test.setTimeout(180_000);
+  const definition = process.env.FULLNET_E2E_PUBLIC_DEFINITION; const grant = process.env.FULLNET_E2E_PUBLIC_GRANT;
+  const form = process.env.FULLNET_E2E_PUBLIC_FORM; const directory = process.env.FULLNET_E2E_PUBLIC_DIRECTORY;
+  for (const id of [definition, grant, form]) expect(id).toMatch(/^[0-9a-f-]{36}$/iu);
+  expect(directory).toBeTruthy(); const errors = []; page.on('pageerror', error => errors.push(error.message));
+  await loginAsHostUser(page, process.env.FULLNET_E2E_PUBLIC_USERNAME, process.env.FULLNET_E2E_PASSWORD);
+  await page.goto('/#/workflow/definitions');
+  const row = page.locator('.el-table__row').filter({ hasText: process.env.FULLNET_E2E_PUBLIC_KEY });
+  await row.getByTestId('workflow-definition-edit').click();
+  await page.getByTestId('workflow-definition-form-version').selectOption(form);
+  await page.locator('.add-node-btn .btn').first().click();
+  await page.getByTestId('workflow-add-collaboration').click();
+  const card = page.locator('.node-wrap-box').filter({ hasText: '跨租户协作' });
+  await expect(card).toHaveCount(1); await card.click();
+  const editor = page.getByTestId('workflow-collaboration-editor'); await expect(editor).toBeVisible();
+  await editor.getByRole('textbox').fill(grant);
+  const loaded = page.waitForResponse(response => response.url().endsWith(`/collaboration-grants/${grant}`) && response.request().method() === 'GET');
+  await editor.getByTestId('workflow-collaboration-load').click(); expect((await loaded).status()).toBe(200);
+  await page.setViewportSize({ width: 390, height: 844 });
+  const saveGrant = editor.getByTestId('workflow-collaboration-save');
+  await expect.poll(async () => { const box = await saveGrant.boundingBox(); return box !== null && box.x >= 0 && box.x + box.width <= 390; }).toBe(true);
+  const checked = page.waitForResponse(response => response.url().endsWith(`/collaboration-grants/${grant}`) && response.request().method() === 'GET');
+  await saveGrant.click(); expect((await checked).status()).toBe(200); await expect(editor).toHaveCount(0);
+  await expect(card).toContainText(grant); await page.setViewportSize({ width: 1280, height: 900 });
+  const saved = page.waitForResponse(response => response.url().endsWith(`/definitions/${definition}/draft`) && response.request().method() === 'PUT');
+  await page.getByTestId('workflow-definition-save').click(); expect((await saved).status()).toBe(200);
+  const published = page.waitForResponse(response => response.url().endsWith(`/definitions/${definition}/publish`) && response.request().method() === 'POST');
+  await page.getByTestId('workflow-definition-publish').click(); const response = await published;
+  expect(response.status(), await response.text()).toBe(200); const version = await response.json();
+  expect(errors).toEqual([]); await writeFile(path.join(directory, 'result.json'), JSON.stringify({ versionId: version.id }));
+});

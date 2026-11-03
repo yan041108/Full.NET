@@ -1,0 +1,103 @@
+-- 不可变策略和实际运行原身份；只创建 AI 自有表，不自动调用模型或替换生产策略。
+CREATE TABLE IF NOT EXISTS fn_ai_knowledge_evaluation_strategy (
+        Id binary(16) NOT NULL COMMENT '应用端 UUID v7',
+        KnowledgeBaseId binary(16) NOT NULL COMMENT '所属知识库',
+        TenantId binary(16) NULL COMMENT '可信租户，Host为空',
+        CreatedById binary(16) NOT NULL COMMENT '策略原创建者',
+        Name varchar(160) NOT NULL COMMENT '人工命名',
+        HeadRevisionId binary(16) NOT NULL COMMENT '当前不可变策略版本',
+        HeadRevisionNo int NOT NULL COMMENT '当前策略版本序号',
+        Version int NOT NULL COMMENT '根并发版本',
+        CreatedAtUtc datetime(6) NOT NULL COMMENT '记录创建 UTC 时间',
+        CONSTRAINT PK_fn_ai_knowledge_evaluation_strategy PRIMARY KEY (Id),
+        CONSTRAINT CK_fn_ai_knowledge_evaluation_strategy_Bounds CHECK (HeadRevisionNo>0 AND Version>0),
+        INDEX IX_fn_ai_knowledge_evaluation_strategy_KnowledgeBaseId_Id (KnowledgeBaseId,Id)
+    ) COMMENT='知识评估策略根；只追加不可变版本' ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE IF NOT EXISTS fn_ai_knowledge_evaluation_strategy_revision (
+        Id binary(16) NOT NULL COMMENT '应用端 UUID v7',
+        StrategyId binary(16) NOT NULL COMMENT '所属策略根',
+        RevisionNo int NOT NULL COMMENT '策略版本次序',
+        RequestKey binary(16) NOT NULL COMMENT '原追加请求身份',
+        RequestHash varchar(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL COMMENT '绑定操作者和输入的请求摘要',
+        DefinitionJson mediumtext NOT NULL COMMENT '闭合策略和完整输入定义',
+        DefinitionHash varchar(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL COMMENT '规范定义摘要',
+        CreatedById binary(16) NOT NULL COMMENT '本版创建者',
+        CreatedAtUtc datetime(6) NOT NULL COMMENT '记录创建 UTC 时间',
+        CONSTRAINT PK_fn_ai_knowledge_evaluation_strategy_revision PRIMARY KEY (Id),
+        CONSTRAINT CK_fn_ai_knowledge_evaluation_strategy_revision_Bounds CHECK (RevisionNo>0),
+        UNIQUE INDEX UX_fn_ai_knowledge_evaluation_strategy_revision_Strateg_0eeedec4 (StrategyId,RevisionNo),
+        UNIQUE INDEX UX_fn_ai_knowledge_evaluation_strategy_revision_Strateg_3bfcea7d (StrategyId,RequestKey)
+    ) COMMENT='准确批准集合与完整来源的不可变策略版本' ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE IF NOT EXISTS fn_ai_knowledge_evaluation_run (
+        Id binary(16) NOT NULL COMMENT '应用端 UUID v7',
+        KnowledgeBaseId binary(16) NOT NULL COMMENT '所属知识库',
+        TenantId binary(16) NULL COMMENT '可信租户，Host为空',
+        StrategyId binary(16) NOT NULL COMMENT '准确策略根',
+        StrategyRevisionId binary(16) NOT NULL COMMENT '不可替换策略版本',
+        CreatedById binary(16) NOT NULL COMMENT '运行原操作者',
+        SessionId binary(16) NOT NULL COMMENT '执行必须复核的原交互会话',
+        RequestKey binary(16) NOT NULL COMMENT '创建运行原请求身份',
+        RequestHash varchar(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL COMMENT '原运行创建摘要',
+        PlanJson mediumtext NOT NULL COMMENT '调用前冻结的全样例和全部阶段身份',
+        PlanHash varchar(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL COMMENT '原操作计划摘要',
+        Version int NOT NULL COMMENT '运行并发版本',
+        CreatedAtUtc datetime(6) NOT NULL COMMENT '记录创建 UTC 时间',
+        CONSTRAINT PK_fn_ai_knowledge_evaluation_run PRIMARY KEY (Id),
+        CONSTRAINT CK_fn_ai_knowledge_evaluation_run_Bounds CHECK (Version>0),
+        UNIQUE INDEX UX_fn_ai_knowledge_evaluation_run_KnowledgeBaseId_RequestKey (KnowledgeBaseId,RequestKey),
+        INDEX IX_fn_ai_knowledge_evaluation_run_KnowledgeBaseId_Id (KnowledgeBaseId,Id)
+    ) COMMENT='绑定原会话和原操作计划的评估运行，不自动重派' ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE IF NOT EXISTS fn_ai_knowledge_evaluation_case (
+        Id binary(16) NOT NULL COMMENT '应用端 UUID v7',
+        RunId binary(16) NOT NULL COMMENT '所属实际运行',
+        SampleId binary(16) NOT NULL COMMENT '原冻结集合样例',
+        Sequence int NOT NULL COMMENT '从零开始的样例顺序',
+        Version int NOT NULL COMMENT '并发版本',
+        StateKey varchar(16) NOT NULL COMMENT 'not_run/running/succeeded/failed/unknown/skipped',
+        ReasonCode varchar(128) NULL COMMENT '安全机器原因码',
+        ExecutionToken binary(16) NULL COMMENT '本次领取令牌；终态不重新领取',
+        CloseRequestKey binary(16) NULL COMMENT '明确关闭未知的原请求身份',
+        CloseRequestHash varchar(64) CHARACTER SET ascii COLLATE ascii_bin NULL COMMENT '明确关闭未知的原请求摘要',
+        RequestKey binary(16) NULL COMMENT '原执行或跳过请求身份',
+        RequestHash varchar(64) CHARACTER SET ascii COLLATE ascii_bin NULL COMMENT '原执行请求摘要',
+        ResultJson mediumtext NULL COMMENT '实际输出的闭合协议',
+        ResultHash varchar(64) CHARACTER SET ascii COLLATE ascii_bin NULL COMMENT '原实际输出摘要',
+        DurationMs decimal(20,3) NULL COMMENT '单调时钟实际测量，缺失为空',
+        StartedAtUtc datetime(6) NULL COMMENT '实际领取时间',
+        FinishedAtUtc datetime(6) NULL COMMENT '实际结束时间',
+        ReviewId binary(16) NULL COMMENT '当前追加人工判断',
+        CreatedAtUtc datetime(6) NOT NULL COMMENT '记录创建 UTC 时间',
+        CONSTRAINT PK_fn_ai_knowledge_evaluation_case PRIMARY KEY (Id),
+        CONSTRAINT CK_fn_ai_knowledge_evaluation_case_Bounds CHECK (Sequence>=0 AND Sequence<8 AND Version>0 AND StateKey IN ('not_run','running','succeeded','failed','unknown','skipped') AND (DurationMs IS NULL OR DurationMs BETWEEN 0 AND 86400000)),
+        UNIQUE INDEX UX_fn_ai_knowledge_evaluation_case_RunId_Sequence (RunId,Sequence),
+        UNIQUE INDEX UX_fn_ai_knowledge_evaluation_case_RunId_SampleId (RunId,SampleId)
+    ) COMMENT='实际样例状态与原结果，失败和跳过保留在分母' ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE IF NOT EXISTS fn_ai_knowledge_evaluation_case_review (
+        Id binary(16) NOT NULL COMMENT '应用端 UUID v7',
+        RunId binary(16) NOT NULL COMMENT '所属运行',
+        CaseId binary(16) NOT NULL COMMENT '准确样例',
+        ResultHash varchar(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL COMMENT '被判断的实际输出摘要',
+        ReviewerUserId binary(16) NOT NULL COMMENT '人工判断者',
+        BaselineSupports tinyint(1) NOT NULL COMMENT '基线证据是否支持人工参考答案',
+        CandidateSupports tinyint(1) NOT NULL COMMENT '候选证据是否支持人工参考答案',
+        RequestKey binary(16) NOT NULL COMMENT '原人工判断请求身份',
+        RequestHash varchar(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL COMMENT '人工确认与版本摘要',
+        CreatedAtUtc datetime(6) NOT NULL COMMENT '记录创建 UTC 时间',
+        CONSTRAINT PK_fn_ai_knowledge_evaluation_case_review PRIMARY KEY (Id),
+        CONSTRAINT CK_fn_ai_knowledge_evaluation_case_review_Bounds CHECK (1=1),
+        UNIQUE INDEX UX_fn_ai_knowledge_evaluation_case_review_CaseId_RequestKey (CaseId,RequestKey)
+    ) COMMENT='准确实际结果的追加人工证据支持判断，不是模型评分' ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE IF NOT EXISTS fn_ai_knowledge_evaluation_operation (
+        Id binary(16) NOT NULL COMMENT '应用端 UUID v7',
+        RunId binary(16) NOT NULL COMMENT '所属运行',
+        CaseId binary(16) NOT NULL COMMENT '所属样例',
+        KnowledgeBaseId binary(16) NOT NULL COMMENT '服务器捕获的所属知识库',
+        TenantId binary(16) NULL COMMENT '原可信租户，Host为空',
+        StageKey varchar(48) NOT NULL COMMENT '服务器闭合阶段标识',
+        ModelConfigId binary(16) NOT NULL COMMENT '该阶段批准模型',
+        ModelConfigVersion int NOT NULL COMMENT '该阶段准确模型版本',
+        CreatedAtUtc datetime(6) NOT NULL COMMENT '记录创建 UTC 时间',
+        CONSTRAINT PK_fn_ai_knowledge_evaluation_operation PRIMARY KEY (Id),
+        CONSTRAINT CK_fn_ai_knowledge_evaluation_operation_Bounds CHECK (ModelConfigVersion>0),
+        UNIQUE INDEX UX_fn_ai_knowledge_evaluation_operation_CaseId_StageKey (CaseId,StageKey)
+    ) COMMENT='真实阶段原操作身份与运行及知识库显式归属，禁止按时间猜测' ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

@@ -11,6 +11,15 @@ internal static class TenancyDomainAuditActionKeys
 
     /// <summary>Host 管理员重新启用租户。</summary>
     public const string HostTenantEnable = "tenancy.host_tenant.enable";
+
+    /// <summary>更新服务端套餐报价及授权范围。</summary>
+    public const string PackageOfferUpdated = "tenancy.package_offer.updated";
+    /// <summary>创建不可变的付费订阅报价。</summary>
+    public const string SubscriptionInvoiceCreated = "tenancy.subscription.invoice_created";
+    /// <summary>已验证付款与权益在本地事务内完成。</summary>
+    public const string SubscriptionPaymentApplied = "tenancy.subscription.payment_applied";
+    /// <summary>原订阅成功退款并关闭自动授权。</summary>
+    public const string SubscriptionRefundApplied = "tenancy.subscription.refund_applied";
 }
 
 /// <summary>Tenancy 模块 B0 域内审计记录的固定结果取值。</summary>

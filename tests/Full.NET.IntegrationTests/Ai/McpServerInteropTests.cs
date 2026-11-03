@@ -17,9 +17,7 @@ public sealed class McpServerInteropSqlServerTests
     [TestMethod]
     public async Task Standard_client_can_list_call_and_read_async()
     {
-        using var factory = new FullNetApiFactory(
-            DatabaseProvider.SqlServer,
-            await SharedDatabaseFixture.CreateSqlServerDatabaseAsync());
+        using var factory = await McpOidcInteropFixture.CreateAsync(DatabaseProvider.SqlServer);
         await McpServerInteropAssertions.VerifyAsync(factory);
     }
 }
@@ -31,9 +29,7 @@ public sealed class McpServerInteropMySqlTests
     [TestMethod]
     public async Task Standard_client_can_list_call_and_read_async()
     {
-        using var factory = new FullNetApiFactory(
-            DatabaseProvider.MySql,
-            await SharedDatabaseFixture.CreateMySqlDatabaseAsync());
+        using var factory = await McpOidcInteropFixture.CreateAsync(DatabaseProvider.MySql);
         await McpServerInteropAssertions.VerifyAsync(factory);
     }
 }
@@ -52,7 +48,7 @@ internal static class McpServerInteropAssertions
             AiChatPermissions.Create,
             AiAgentToolPermissions.CatalogRead,
         ];
-        var owner = await factory.CreateHostIdentityAsync($"mcp-owner-{Guid.NewGuid():N}", permissions);
+        var owner = await factory.CreateHostIdentityAsync($"mcp-owner-{Guid.NewGuid():N}", permissions, password: FullNetApiFactory.TestPassword);
         var other = await factory.CreateHostIdentityAsync($"mcp-other-{Guid.NewGuid():N}", permissions);
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", owner.AccessToken);
 
@@ -74,7 +70,7 @@ internal static class McpServerInteropAssertions
         Assert.IsTrue(otherSessionResponse.IsSuccessStatusCode, await otherSessionResponse.Content.ReadAsStringAsync());
 
         var httpClient = factory.CreateClientForHost("localhost");
-        httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", owner.AccessToken);
+        httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", await McpOidcInteropFixture.IssueAsync(factory, owner.Username));
         var endpoint = new Uri(httpClient.BaseAddress!, "/api/v1/ai/mcp");
         await using var mcpClient = await McpClient.CreateAsync(new HttpClientTransport(
             new HttpClientTransportOptions { Endpoint = endpoint },

@@ -15,6 +15,7 @@ internal sealed class WorkflowAuthorizationContributor : IAuthorizationCatalogCo
     /// <summary>获取工作流精确权限目录，包含暂停与普通恢复。</summary>
     public IReadOnlyCollection<PermissionDefinition> Permissions { get; } =
     [
+        Permission(WorkflowPermissions.FormAttachmentsUpload, "上传获准表单字段的附件"),
         Permission(WorkflowPermissions.CollaborationGrantsRead,"读取双边协作授权"),
         Permission(WorkflowPermissions.CollaborationGrantsPropose,"提出双边协作同意"),
         Permission(WorkflowPermissions.CollaborationGrantsAccept,"接受双边协作同意"),
@@ -27,6 +28,8 @@ internal sealed class WorkflowAuthorizationContributor : IAuthorizationCatalogCo
         Permission(WorkflowPermissions.DefinitionsCreate, "创建工作流定义"),
         Permission(WorkflowPermissions.DefinitionsUpdate, "编辑工作流草稿"),
         Permission(WorkflowPermissions.DefinitionsPublish, "发布工作流版本"),
+        Permission(WorkflowPermissions.DefinitionsSimulate, "发布前仿真工作流草稿"),
+        Permission(WorkflowPermissions.OperationsRead, "读取工作流运营状态"),
         Permission(WorkflowPermissions.DefinitionsManageStatus, "变更工作流定义状态"),
         Permission(WorkflowPermissions.DefinitionsDeleteVersion, "删除工作流定义版本"),
         Permission(WorkflowPermissions.FormsRead, "查询表单定义与版本"),
@@ -72,6 +75,7 @@ internal sealed class WorkflowAuthorizationContributor : IAuthorizationCatalogCo
 
     public IReadOnlyCollection<NavigationDefinition> Navigation { get; } =
     [
+        NavigationItem("workflow-collaboration-grants", "/workflow/collaboration-grants", "协作授权", 65, WorkflowPermissions.CollaborationGrantsRead),
         NavigationItem("workflow-definitions", "/workflow/definitions", "工作流定义", 10, WorkflowPermissions.DefinitionsRead),
         NavigationItem("workflow-forms", "/workflow/forms", "工作流表单", 20, WorkflowPermissions.FormsRead),
         NavigationItem("workflow-calendars", "/workflow/calendars", "工作日历", 25, WorkflowPermissions.CalendarsRead),
@@ -85,6 +89,9 @@ internal sealed class WorkflowAuthorizationContributor : IAuthorizationCatalogCo
     /// <summary>获取实例页上的精确操作，暂停、恢复与强制恢复各自独立授权。</summary>
     public IReadOnlyCollection<AuthorizationActionDefinition> Actions { get; } =
     [
+        Action("workflow.collaboration_grants.propose", "workflow-collaboration-grants", WorkflowPermissions.CollaborationGrantsPropose, "提出协作授权", "propose", 10),
+        Action("workflow.collaboration_grants.accept", "workflow-collaboration-grants", WorkflowPermissions.CollaborationGrantsAccept, "接受协作授权", "accept", 20),
+        Action("workflow.collaboration_grants.revoke", "workflow-collaboration-grants", WorkflowPermissions.CollaborationGrantsRevoke, "撤销协作授权", "revoke", 30),
         Action("workflow.calendars.create","workflow-calendars",WorkflowPermissions.CalendarsCreate,"创建工作日历","create",10),
         Action("workflow.calendars.update","workflow-calendars",WorkflowPermissions.CalendarsUpdate,"编辑日历草稿","update",20),
         Action("workflow.calendars.publish","workflow-calendars",WorkflowPermissions.CalendarsPublish,"发布日历版本","publish",30),
@@ -92,6 +99,8 @@ internal sealed class WorkflowAuthorizationContributor : IAuthorizationCatalogCo
         Action("workflow.definitions.create", "workflow-definitions", WorkflowPermissions.DefinitionsCreate, "新建定义", "create", 10),
         Action("workflow.definitions.update", "workflow-definitions", WorkflowPermissions.DefinitionsUpdate, "编辑草稿", "update", 20),
         Action("workflow.definitions.publish", "workflow-definitions", WorkflowPermissions.DefinitionsPublish, "发布版本", "publish", 30),
+        Action("workflow.definitions.simulate", "workflow-definitions", WorkflowPermissions.DefinitionsSimulate, "发布前仿真", "simulate", 31),
+        Action("workflow.operations.read", "workflow-instances", WorkflowPermissions.OperationsRead, "读取运营状态", "operations", 32),
         Action("workflow.definitions.manage-status", "workflow-definitions", WorkflowPermissions.DefinitionsManageStatus, "管理定义状态", "manage-status", 40),
         Action("workflow.definitions.delete-version", "workflow-definitions", WorkflowPermissions.DefinitionsDeleteVersion, "删除版本", "delete-version", 50),
         Action("workflow.forms.create", "workflow-forms", WorkflowPermissions.FormsCreate, "新建表单", "create", 10),
@@ -114,6 +123,7 @@ internal sealed class WorkflowAuthorizationContributor : IAuthorizationCatalogCo
         Action("workflow.claim_pools.assign", "workflow-claim-pools", WorkflowPermissions.ClaimPoolsAssign, "分配候选任务", "assign", 62),
         Action("workflow.todos.release", "workflow-todos", WorkflowPermissions.TodosRelease, "释放领取任务", "release", 63),
         Action("workflow.todos.sign", "workflow-todos", WorkflowPermissions.TodosSign, "采集签名", "sign", 5),
+        Action("workflow.attachments.upload", "workflow-todos", WorkflowPermissions.FormAttachmentsUpload, "上传表单附件", "upload_attachment", 6),
         Action("workflow.todos.reject", "workflow-todos", WorkflowPermissions.TodosReject, "拒绝待办", "reject", 20),
         Action("workflow.todos.return", "workflow-todos", WorkflowPermissions.TodosReturn, "退回待办", "return", 30),
         Action("workflow.todos.countersign", "workflow-todos", WorkflowPermissions.TodosCountersign, "加签待办", "countersign", 40),
@@ -124,6 +134,7 @@ internal sealed class WorkflowAuthorizationContributor : IAuthorizationCatalogCo
         Action("workflow.recovery_tasks.retry", "workflow-recovery-tasks", WorkflowPermissions.RecoveryTasksRetry, "重试恢复任务", "retry", 10),
         Action("workflow.connector_calls.reconcile", "workflow-instances", WorkflowPermissions.ConnectorCallsReconcile, "对账连接器结果", "reconcile_connector", 80),
         Action("workflow.routes.reconcile", "workflow-instances", WorkflowPermissions.RoutesReconcile, "恢复路由选择", "reconcile_route", 81),
+        Action("workflow.routes.read", "workflow-instances", WorkflowPermissions.RoutesRead, "查询路由状态", "read_routes", 82),
         Action("workflow.recovery_tasks.reconcile", "workflow-recovery-tasks", WorkflowPermissions.RecoveryTasksReconcile, "对账恢复任务", "reconcile", 20),
     ];
 

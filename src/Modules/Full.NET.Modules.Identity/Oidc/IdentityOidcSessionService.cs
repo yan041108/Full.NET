@@ -8,7 +8,8 @@ namespace Full.NET.Modules.Identity.Oidc;
 internal sealed class IdentityOidcSessionService(
     IQueryExecutor queryExecutor,
     ICommandExecutor commandExecutor,
-    IClock clock)
+    IClock clock,
+    IdentityOidcLogoutPublisher? logout = null)
 {
     public async Task<IdentityOidcCenterSession> CreateCenterSessionAsync(
         Guid userId,
@@ -103,6 +104,11 @@ internal sealed class IdentityOidcSessionService(
         }
 
         var now = clock.UtcNow;
+        // 先撤销中心并持有写锁，阻断并发授权兑换；之后再冻结通知目的地。
+        var affectedRows = await commandExecutor.ExecuteAsync(IdentityOidcSessionSql.RevokeCenterSession,
+            IdentitySqlParameters.Create(("Id", centerSessionId), ("RevokedAtUtc", now), ("UpdatedAtUtc", now)),
+            cancellationToken).ConfigureAwait(false);
+        if (affectedRows == 0) return false;
         await commandExecutor.ExecuteAsync(
                 IdentityOidcSessionSql.RevokeApplicationSessionsByCenterSession,
                 IdentitySqlParameters.Create(
@@ -111,16 +117,9 @@ internal sealed class IdentityOidcSessionService(
                     ("UpdatedAtUtc", now)),
                 cancellationToken)
             .ConfigureAwait(false);
-        var affectedRows = await commandExecutor.ExecuteAsync(
-                IdentityOidcSessionSql.RevokeCenterSession,
-                IdentitySqlParameters.Create(
-                    ("Id", centerSessionId),
-                    ("RevokedAtUtc", now),
-                    ("UpdatedAtUtc", now),
-                    ("Version", record.Version)),
-                cancellationToken)
-            .ConfigureAwait(false);
-        return affectedRows > 0;
+        if (logout is not null) await logout.PublishAsync(IdentityOidcLogoutSql.TargetsByCenter,
+            IdentitySqlParameters.Create(("CenterSessionId", centerSessionId)), cancellationToken).ConfigureAwait(false);
+        return true;
     }
 
     public async Task<bool> RevokeApplicationSessionAsync(
@@ -246,9 +245,7 @@ internal sealed class IdentityOidcSessionService(
         CancellationToken cancellationToken = default)
     {
         var now = clock.UtcNow;
-        await RevokeAllApplicationSessionsByUserAsync(userId, cancellationToken)
-            .ConfigureAwait(false);
-        return await commandExecutor.ExecuteAsync(
+        var count = await commandExecutor.ExecuteAsync(
                 IdentityOidcSessionSql.RevokeAllCenterSessionsByUser,
                 IdentitySqlParameters.Create(
                     ("UserId", userId),
@@ -256,6 +253,10 @@ internal sealed class IdentityOidcSessionService(
                     ("UpdatedAtUtc", now)),
                 cancellationToken)
             .ConfigureAwait(false);
+        await RevokeAllApplicationSessionsByUserAsync(userId, cancellationToken).ConfigureAwait(false);
+        if (count > 0 && logout is not null) await logout.PublishAsync(IdentityOidcLogoutSql.TargetsByRevokedUser,
+            IdentitySqlParameters.Create(("UserId", userId), ("Now", now)), cancellationToken).ConfigureAwait(false);
+        return count;
     }
 
     public async Task<IdentityOidcCenterSession?> FindActiveCenterSessionAsync(

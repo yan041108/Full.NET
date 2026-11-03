@@ -10,9 +10,13 @@ namespace Full.NET.Data.CodeGeneration.Generation;
 /// </summary>
 /// <param name="RelativePath">工作区相对路径。</param>
 /// <param name="Sha256">UTF-8 内容的 SHA-256 小写十六进制摘要。</param>
+/// <param name="Owner">具体实体的 owner/module/entity；共享文件为空。</param>
+/// <param name="IntegrationSha256">接入目标绑定；禁止移动目标后遗留仍可执行的旧接线。</param>
 public sealed record GenerationManifestEntry(
     [property: JsonPropertyName("relativePath")] string RelativePath,
-    [property: JsonPropertyName("sha256")] string Sha256);
+    [property: JsonPropertyName("sha256")] string Sha256,
+    [property: JsonPropertyName("owner"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Owner = null,
+    [property: JsonPropertyName("integrationSha256"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? IntegrationSha256 = null);
 
 /// <summary>
 /// 表示可持久化的生成产物所有权清单。
@@ -140,7 +144,17 @@ public sealed class GenerationManifest
                 nameof(entry.Sha256));
         }
 
-        return new GenerationManifestEntry(relativePath, entry.Sha256);
+        if (entry.Owner is not null)
+        {
+            var segments = entry.Owner.Split('/');
+            if (segments.Length != 3 || segments.Any(segment => segment.Length == 0
+                    || segment[0] is < 'a' or > 'z'
+                    || segment.Any(character => character is not (>= 'a' and <= 'z') and not (>= '0' and <= '9') and not '_')))
+                throw new ArgumentException("生成清单所有者必须是 owner/module/entity 规范键。");
+        }
+        if (entry.IntegrationSha256 is not null && (entry.Owner is null || !GenerationContentHash.IsValid(entry.IntegrationSha256)))
+            throw new ArgumentException("接入绑定必须属于具体实体并使用 SHA-256 摘要。");
+        return new GenerationManifestEntry(relativePath, entry.Sha256, entry.Owner, entry.IntegrationSha256);
     }
 
     private static void EnsureUniquePaths(

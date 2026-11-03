@@ -48,6 +48,9 @@ internal sealed partial class WorkflowSubprocessProcessor(IQueryExecutor query, 
     {
         var call = await ReadCallAsync(candidate, token).ConfigureAwait(false);
         if (call is null || call.StatusKey is "applied" or "cancelled") return false;
+        // 撤销后的取消/补偿仍须处理；这里只拦截活跃父根的新业务推进。
+        if (parent.StatusKey == "active" && !call.CancellationRequested && !await WorkflowCollaborationRuntimeGate.AllowsAsync(parent.Id,
+                new(parent.TenantId, parent.ScopeKey, parent.TenantScopeKey), null, clock.UtcNow, query, token, tenants: tenants).ConfigureAwait(false)) return false;
         var context = await LoadAsync(parent, call, token).ConfigureAwait(false);
         if (context is null) return await FaultAsync(call, "workflow.subprocess.binding_invalid", token).ConfigureAwait(false);
         if (await ProcessTimeoutAsync(context, token).ConfigureAwait(false) is { } timed) return timed;

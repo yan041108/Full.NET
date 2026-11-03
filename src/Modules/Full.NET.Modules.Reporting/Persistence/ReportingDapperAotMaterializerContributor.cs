@@ -14,9 +14,15 @@ internal sealed class ReportingDapperAotMaterializerContributor
     {
         registrar.Register<ReportingDataSourceRecord>(ReadDataSource);
         registrar.Register<ReportingExportTaskRecord>(ReadExportTask);
+        registrar.Register<ReportingTaskCancellationState>(reader => new()
+        {
+            Id = reader.GetGuid(0), StatusKey = reader.GetString(1), Version = AotDataReaderExtensions.ReadInt64(reader, 2),
+        });
+        registrar.Register<ReportingExportTaskListRecord>(ReadMyTask);
         registrar.Register<ReportingGroupRecord>(ReadGroup);
         registrar.Register<ReportingDefinitionRecord>(ReadDefinition);
         registrar.Register<ReportingDefinitionVersionRecord>(ReadDefinitionVersion);
+        registrar.Register<ReportingDefinitionTenantGrantRecord>(ReadTenantGrant);
     }
 
     // 以下序号与分组、定义和版本的完整/摘要投影一致；摘要 SQL 不读取大正文列。
@@ -87,6 +93,24 @@ internal sealed class ReportingDapperAotMaterializerContributor
 
     /// <summary>读取导出任务行，列顺序与 SelectColumns 一致。</summary>
     /// <param name="reader">数据读取器。</param>
+    private static ReportingExportTaskListRecord ReadMyTask(DbDataReader reader) => new()
+    {
+        Id = ReadGuid(reader, "Id"),
+        DefinitionId = ReadGuid(reader, "DefinitionId"),
+        VersionNumber = ReadInt32(reader, "VersionNumber"),
+        DefinitionKey = ReadString(reader, "DefinitionKey"),
+        DefinitionName = ReadString(reader, "DefinitionName"),
+        FormatKey = ReadString(reader, "FormatKey"),
+        StatusKey = ReadString(reader, "StatusKey"),
+        OutputFileName = ReadNullableString(reader, "OutputFileName"),
+        RowCount = ReadInt32(reader, "RowCount"),
+        ErrorCode = ReadNullableString(reader, "ErrorCode"),
+        ErrorMessage = ReadNullableString(reader, "ErrorMessage"),
+        RequestedByUserId = ReadGuid(reader, "RequestedByUserId"),
+        CreatedAtUtc = ReadDateTimeOffset(reader, "CreatedAtUtc"),
+        CompletedAtUtc = ReadNullableDateTimeOffset(reader, "CompletedAtUtc"),
+    };
+
     private static ReportingExportTaskRecord ReadExportTask(DbDataReader reader) => new()
     {
         Id = ReadGuid(reader, "Id"),
@@ -109,7 +133,16 @@ internal sealed class ReportingDapperAotMaterializerContributor
         LeaseId = ReadNullableGuid(reader, "LeaseId"),
         LeaseExpiresAtUtc = ReadNullableDateTimeOffset(reader, "LeaseExpiresAtUtc"),
         ActorPermissionCodesJson = ReadNullableString(reader, "ActorPermissionCodesJson"),
+        ActorSessionBindingJson = ReadNullableString(reader, "ActorSessionBindingJson"),
         Version = Convert.ToInt64(reader.GetValue(RequiredOrdinal(reader, "Version")), CultureInfo.InvariantCulture),
+    };
+
+    private static ReportingDefinitionTenantGrantRecord ReadTenantGrant(DbDataReader reader) => new()
+    {
+        Id = ReadGuid(reader, "Id"), DefinitionId = ReadGuid(reader, "DefinitionId"), TenantId = ReadGuid(reader, "TenantId"),
+        IsEnabled = ReadBoolean(reader, "IsEnabled"), Version = ReadInt32(reader, "Version"),
+        CreatedAtUtc = ReadDateTimeOffset(reader, "CreatedAtUtc"), CreatedByUserId = ReadGuid(reader, "CreatedByUserId"),
+        UpdatedAtUtc = ReadNullableDateTimeOffset(reader, "UpdatedAtUtc"), UpdatedByUserId = ReadNullableGuid(reader, "UpdatedByUserId"),
     };
 
     private static int RequiredOrdinal(DbDataReader reader, string name) => reader.GetOrdinal(name);

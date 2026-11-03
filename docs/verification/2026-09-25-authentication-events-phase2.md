@@ -30,3 +30,13 @@
 - 多实例进程/网络级故障演练与完整认证事件目录尚未验收；保留任务的模拟数据库超时恢复只验证 runner 边界，不代替真实 Worker 故障演练。生产容量状态保持 `Capacity-not-verified`。
 
 验证中重启了本地开发 Aspire AppHost；其 SQL Server 使用无持久卷的临时容器。原开发容器被删除后，旧本地开发数据可能丢失。该操作不涉及任何生产数据库。新容器已重新完成迁移、Development Seed 和 API 登录检查，但不能据此声称旧开发数据已恢复。
+
+## 2026-10-27 接替开发聚焦验收
+
+输入为 main 的 2fe0d52bab8441c528b251ff28fa652b8dd76c7f 加当前任务差异，快照 non-workflow-development-20261027；保留既有共享工作区改动，不修改 Workflow 实现。开发范围与事件矩阵见活动认证事件计划的同日记录。
+
+- 单元过滤 MfaRecoveryCodeAuditTests、IdentityOidcProtocolRejectionAuditTests、IdentityOidcProtocolRateLimitTests、OidcManagementAuditWriterTests、LogoutHandlerTests、ApiKeyAuthenticationServiceTests、OidcAuthenticationEventWriterTests、AuthenticationSecurityEventWriterTests：29/29 通过。
+- 双库过滤 AuthenticationAuditRecoveryTests，以及 Mfa_recovery_codes_regenerate_and_consume_with、Host_signature_authentication_follows_contract_with、Oidc_governance_audit_writes_with、Oidc_application_revoke_preserves_center_sso_for_other_apps_with：10/10 通过；实际数据库故障后回滚/恢复、协议 429、敏感材料不落审计、SSO 关联和治理摘要均有断言。
+- Identity Release 与 FullNetAotAnalysis=true 构建均通过，零警告/错误，已恢复默认 JIT 依赖图；测试矩阵 Node 7/7 通过。
+
+未执行全量、真实浏览器重验、Linux Native AOT 发布或进程/网络级多实例演练。本轮不继承历史发布产物的运行认证，也不宣称生产容量通过。

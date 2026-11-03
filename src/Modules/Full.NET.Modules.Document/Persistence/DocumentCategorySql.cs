@@ -8,6 +8,9 @@ namespace Full.NET.Modules.Document.Persistence;
 /// </summary>
 internal static class DocumentCategorySql
 {
+    // 两库的事务行锁均由 UPDATE 持有到事务结束；递增保证 MySQL 受影响行数为一。
+    public static readonly SqlStatement LockTree = new("document.host_category.lock_tree",
+        "UPDATE fn_document_category_guard SET Version = Version + 1 WHERE Id = @Id", SqlDataScope.HostOnly);
     /// <summary>分类投影字段；包含 Code/Icon/Color/Description 展示列，与 DocumentCategoryRecord 顺序对齐。</summary>
     private const string Projection = """
         Id, ParentId, Name, SortOrder, Code, Icon, Color, Description, CreatedAtUtc, UpdatedAtUtc, Version
@@ -122,14 +125,13 @@ internal static class DocumentCategorySql
         """,
         SqlDataScope.HostOnly);
 
-    /// <summary>统计指定分类下未删除的文档项数量；用于删除前引用完整性校验，存在引用必须返回 InUse 错误。</summary>
+    /// <summary>统计指定分类下包含回收站的文档引用；保留引用必须阻止删除，避免恢复后指向已删除分类。</summary>
     public static readonly SqlStatement CountActiveItems = new(
         "document.host_category.count_active_items",
         """
         SELECT COUNT(1)
         FROM fn_document_item
         WHERE TenantId IS NULL
-          AND IsDeleted = 0
           AND CategoryId = @CategoryId
         """,
         SqlDataScope.HostOnly);

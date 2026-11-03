@@ -120,3 +120,13 @@ test('租户用户-职位隶属 OpenAPI 夹具与 C# 契约和端点源码一致
     }
   }
 });
+
+test('隶属列表搜索参数与生成客户端 OpenAPI 对齐', async () => {
+  const contract = await loadContract();
+  const definition = contract.paths.find(entry => entry.path === '/api/v1/organization/user-positions').operations.find(operation => operation.method === 'GET');
+  const snapshot = JSON.parse(await readFile(path.join(repositoryRoot, 'contracts/openapi/fullnet-client-v1.openapi.json'), 'utf8'));
+  const operation = snapshot.paths['/api/v1/organization/user-positions'].get;
+  assert.deepEqual(operation.parameters.map(parameter => parameter.name), definition.queryParameters);
+  assert.equal(operation.parameters.find(parameter => parameter.name === 'isActive').schema.type, 'boolean');
+  assert.ok(definition.errorStatuses.every(status => operation.responses[String(status)]));
+});

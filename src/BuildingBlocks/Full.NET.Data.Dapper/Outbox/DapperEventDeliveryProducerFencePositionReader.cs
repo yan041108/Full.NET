@@ -12,6 +12,23 @@ internal sealed class DapperEventDeliveryProducerFencePositionReader(
     IQueryExecutor queryExecutor,
     IOptions<DatabaseOptions> databaseOptions) : IEventDeliveryProducerFencePositionReader
 {
+    public async Task<bool> IsSameTransactionCoveredAsync(string eventType, int schemaVersion, Guid rollbackGeneration,
+        CdcDeliveryPosition producerFence, CdcDeliveryPosition connector, CancellationToken cancellationToken = default)
+    {
+        // 提交 LSN 相等不足以证明整个事务已消费；只接受能唯一映射到 CDC 原始行的已确认位置。
+        if (databaseOptions.Value.Provider != DatabaseProvider.SqlServer || producerFence.Provider != CdcDeliveryPosition.SqlServerProvider
+            || connector.Provider != CdcDeliveryPosition.SqlServerProvider || producerFence.Lsn is null || connector.Lsn is null
+            || !producerFence.Lsn.IsValid() || !connector.Lsn.IsValid() || connector.Lsn.EventSerialNo != 1
+            || !string.Equals(producerFence.Lsn.CommitLsn, connector.Lsn.CommitLsn, StringComparison.OrdinalIgnoreCase)
+            || connector.Lsn.ChangeLsn is not { } change || !new SqlServerCdcLsnCoordinates(change).IsValid()) return false;
+        var commitBytes = Convert.FromHexString(producerFence.Lsn.CommitLsn.Replace(":", "", StringComparison.Ordinal));
+        var changeBytes = Convert.FromHexString(change.Replace(":", "", StringComparison.Ordinal));
+        return await queryExecutor.QuerySingleOrDefaultAsync<int>(ProducerFenceSql.SqlServerSameTransactionCovered,
+            DapperSqlParameters.Create(("MessageType", eventType), ("SchemaVersion", schemaVersion),
+                ("RollbackGeneration", rollbackGeneration), ("CommitLsn", commitBytes), ("ChangeLsn", changeBytes)), cancellationToken)
+            .ConfigureAwait(false) == 1;
+    }
+
     public async Task<EventDeliveryProducerFenceSnapshot?> TryReadAsync(
         string eventType,
         int schemaVersion,
@@ -149,6 +166,41 @@ internal sealed class DapperEventDeliveryProducerFencePositionReader(
 
     private static class ProducerFenceSql
     {
+        // SQL Server 按 command_id 排序；Debezium 的函数读取模式还按 seqval 排序。
+        // 两种次序都不得存在后续目标行，同一命令的其他目标行按未知顺序保守拒绝。
+        public static readonly SqlStatement SqlServerSameTransactionCovered = new(
+            "messaging.producer_fence.same_transaction_covered.sql_server",
+            """
+            SELECT CASE WHEN EXISTS (
+                SELECT 1 FROM fn_messaging_stream_ownership
+                WHERE MessageType=@MessageType AND SchemaVersion=@SchemaVersion
+                  AND RollbackState=1 AND RollbackGeneration=@RollbackGeneration
+            ) AND (SELECT COUNT(*) FROM cdc.fullnet_fn_messaging_outbox_event_CT
+                   WHERE __$start_lsn=@CommitLsn AND __$seqval=@ChangeLsn)=1
+              AND EXISTS (
+                SELECT 1 FROM cdc.fullnet_fn_messaging_outbox_event_CT anchor
+                INNER JOIN fn_messaging_outbox_event source ON source.Id=anchor.Id
+                WHERE anchor.__$start_lsn=@CommitLsn AND anchor.__$seqval=@ChangeLsn AND anchor.__$operation=2
+                  AND anchor.__$command_id IS NOT NULL
+                  AND NOT EXISTS (
+                    SELECT 1 FROM cdc.fullnet_fn_messaging_outbox_event_CT later
+                    INNER JOIN fn_messaging_outbox_event other ON other.Id=later.Id
+                    WHERE later.__$start_lsn=@CommitLsn AND later.__$operation=2
+                      AND other.MessageType=@MessageType AND other.SchemaVersion=@SchemaVersion
+                      AND (later.__$command_id IS NULL OR later.__$seqval IS NULL OR later.__$command_id>anchor.__$command_id OR later.__$seqval>anchor.__$seqval OR
+                          (later.__$command_id=anchor.__$command_id AND later.Id<>anchor.Id))
+                  )
+              )
+              AND (SELECT COUNT(DISTINCT changes.Id) FROM cdc.fullnet_fn_messaging_outbox_event_CT changes
+                   INNER JOIN fn_messaging_outbox_event source ON source.Id=changes.Id
+                   WHERE source.MessageType=@MessageType AND source.SchemaVersion=@SchemaVersion AND changes.__$operation=2)
+                  = (SELECT COUNT(*) FROM fn_messaging_outbox_event WHERE MessageType=@MessageType AND SchemaVersion=@SchemaVersion)
+              AND (SELECT MAX(changes.__$start_lsn) FROM cdc.fullnet_fn_messaging_outbox_event_CT changes
+                   INNER JOIN fn_messaging_outbox_event source ON source.Id=changes.Id
+                   WHERE source.MessageType=@MessageType AND source.SchemaVersion=@SchemaVersion AND changes.__$operation=2)=@CommitLsn
+              THEN 1 ELSE 0 END
+            """, SqlDataScope.Global);
+
         public static readonly SqlStatement FindActivePreparation = new(
             "messaging.producer_fence.find_active_preparation",
             """

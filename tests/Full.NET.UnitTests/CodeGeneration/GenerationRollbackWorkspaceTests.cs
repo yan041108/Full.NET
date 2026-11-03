@@ -6,6 +6,32 @@ namespace Full.NET.UnitTests.CodeGeneration;
 [TestClass]
 public sealed class GenerationRollbackWorkspaceTests
 {
+    [TestMethod]
+    public async Task Checkpoint_stores_only_changed_originals_and_restores_identical_newly_adopted_files_without_ownership()
+    {
+        using var workspace = new TemporaryDirectory();
+        workspace.Write("owned.txt", "unchanged-owned");
+        workspace.Write("adopted.txt", "unchanged-human");
+        workspace.Write(GenerationWorkspaceStore.ManifestRelativePath, GenerationManifest.Create([
+            new("owned.txt", GenerationContentHash.Compute("unchanged-owned"))]).ToJson());
+        var artifacts = new[] { new GeneratedArtifact("owned.txt", GeneratedArtifactKind.Backend, "unchanged-owned"),
+            new GeneratedArtifact("adopted.txt", GeneratedArtifactKind.Backend, "unchanged-human"),
+            new GeneratedArtifact("created.txt", GeneratedArtifactKind.Backend, "new") };
+        var snapshot = await GenerationWorkspaceStore.CaptureAsync(workspace.Path, artifacts);
+        var plan = GenerationWritePlanner.Plan(artifacts, snapshot.ExistingFiles, snapshot.PreviousManifest);
+        await GenerationRollbackCheckpointStore.CreateAsync(workspace.Path, ApplyRunId, plan);
+        var checkpoint = await GenerationRollbackCheckpointStore.ReadAsync(workspace.Path, ApplyRunId);
+        Assert.IsFalse(checkpoint.PreviousContents.ContainsKey("owned.txt"));
+        Assert.AreEqual("unchanged-human", checkpoint.PreviousContents["adopted.txt"]);
+        await GenerationWorkspaceStore.ApplyAsync(workspace.Path, plan);
+        var reverse = await GenerationRollbackWorkspace.RestoreAsync(workspace.Path, checkpoint);
+        Assert.IsTrue(reverse.CanApply);
+        Assert.AreEqual("unchanged-owned", await File.ReadAllTextAsync(Path.Combine(workspace.Path, "owned.txt")));
+        Assert.AreEqual("unchanged-human", await File.ReadAllTextAsync(Path.Combine(workspace.Path, "adopted.txt")));
+        Assert.IsFalse(File.Exists(Path.Combine(workspace.Path, "created.txt")));
+        Assert.IsFalse(reverse.NextManifest!.TryGetSha256("adopted.txt", out _));
+    }
+
     private static readonly Guid ApplyRunId = Guid.Parse(
         "0198f7b3-34af-704c-8d2e-fc6aec9bf301");
 

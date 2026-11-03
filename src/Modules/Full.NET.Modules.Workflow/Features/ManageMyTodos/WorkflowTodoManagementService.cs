@@ -72,6 +72,9 @@ internal sealed partial class WorkflowTodoManagementService(
                         WorkflowSqlParameters.Create(("Id", instanceId),
                             ("TenantScopeKey", WorkflowManagementScope.Resolve(currentTenant).TenantScopeKey)), inner).ConfigureAwait(false) != 1)
                     return Failure(WorkflowErrorCodes.RevisionConflict, ErrorType.Conflict);
+                if (prepared.Value!.InstanceId is { } currentId && !await WorkflowCollaborationRuntimeGate.AllowsAsync(currentId,
+                        WorkflowManagementScope.Resolve(currentTenant), actorUserId, clock.UtcNow, queryExecutor, inner, commandExecutor).ConfigureAwait(false))
+                    return Failure(WorkflowErrorCodes.TodoForbidden, ErrorType.Forbidden);
                 return await execute(prepared.Value, inner).ConfigureAwait(false);
             }, token).ConfigureAwait(false);
         }
@@ -315,6 +318,7 @@ internal sealed partial class WorkflowTodoManagementService(
             visibleSchema, visibleSubmission, view.FieldPolicies,
             submission.Revision)
         {
+            AttachmentNames = await WorkflowAttachmentNameReader.ReadAsync(todo.InstanceId, scope, view.Schema, view.Values, queryExecutor, cancellationToken).ConfigureAwait(false),
             ActivityKindKey = todo.NodeTypeKey,
             TaskProgress = taskProgress,
             VoteForm = vote?.Form,
@@ -368,6 +372,7 @@ internal sealed partial class WorkflowTodoManagementService(
             HashUtf8(detail.FormSchema.GetRawText()), detail.FormSchema,
             detail.Submission, detail.FieldPolicies, detail.SubmissionRevision)
         {
+            AttachmentNames = detail.AttachmentNames,
             WebRenderJson = webRender,
             ApprovalGroups = detail.ApprovalGroups,
             AllowedActions = detail.AllowedActions,

@@ -1,5 +1,6 @@
 using Full.NET.Abstractions.Results;
 using Full.NET.Modules.Workflow.Domain;
+using Full.NET.Modules.Workflow.Features;
 using Full.NET.Modules.Workflow.Persistence;
 
 namespace Full.NET.Modules.Workflow.Execution.Connectors;
@@ -14,11 +15,14 @@ internal sealed partial class WorkflowConnectorProcessor
         var instance=await FindInstanceAsync(call,token).ConfigureAwait(false);
         if(!Trusted(instance,call) || instance!.StatusKey!="active")return false;
         using var tenantScope=new WorkflowExecutionTenantScope(tenants,instance.TenantId);
+        var collaborationScope = new WorkflowManagementScope(instance.TenantId, instance.ScopeKey, instance.TenantScopeKey);
+        if (!await WorkflowCollaborationRuntimeGate.AllowsAsync(instance.Id, collaborationScope, null, clock.UtcNow, query, token, tenants: activeTenants).ConfigureAwait(false)) return false;
         var owner=ids.NewId().ToString("N");
         var claimed=await transaction.ExecuteResultAsync(async inner=>{
             var current=await FindInstanceAsync(call,inner).ConfigureAwait(false);
             if(!Trusted(current,call) || current!.StatusKey!="active" || !await LockAsync(current,inner).ConfigureAwait(false) ||
-                !await OwnsBarrierAsync(barrier,inner).ConfigureAwait(false))return Invalid<bool>();
+                !await OwnsBarrierAsync(barrier,inner).ConfigureAwait(false) ||
+                !await WorkflowCollaborationRuntimeGate.AllowsAsync(current.Id, collaborationScope, null, clock.UtcNow, query, inner, commands).ConfigureAwait(false))return Invalid<bool>();
             return await commands.ExecuteAsync(WorkflowConnectorSql.ClaimApply,Parameters(("Id",call.Id),("InstanceId",call.InstanceId),
                 ("TenantScopeKey",call.TenantScopeKey),("Revision",call.Revision),("Owner",owner),("Expires",clock.UtcNow.AddSeconds(Math.Max(120,options.Value.LeaseSeconds))),
                 ("Now",clock.UtcNow)),inner).ConfigureAwait(false)==1?Result<bool>.Success(true):Invalid<bool>();
@@ -53,6 +57,7 @@ internal sealed partial class WorkflowConnectorProcessor
                 var current=await FindInstanceAsync(applying,inner).ConfigureAwait(false);
                 if(!Trusted(current,applying) || current!.StatusKey!="active" || !await LockAsync(current,inner).ConfigureAwait(false) ||
                     !await OwnsBarrierAsync(barrier,inner).ConfigureAwait(false) ||
+                    !await WorkflowCollaborationRuntimeGate.AllowsAsync(current.Id, collaborationScope, null, clock.UtcNow, query, inner, commands).ConfigureAwait(false) ||
                     !await outputs.CommitAsync(current,input,runtime.Schema,snapshot.Values,prepared,inner).ConfigureAwait(false))return Invalid<bool>();
                 var now=clock.UtcNow;var revision=snapshot.FormRevision+(prepared.Output.Matched?1:0);
                 if(await commands.ExecuteAsync(WorkflowSql.CompleteStepWithRevision,Parameters(("Id",applying.Id),("InstanceId",applying.InstanceId),

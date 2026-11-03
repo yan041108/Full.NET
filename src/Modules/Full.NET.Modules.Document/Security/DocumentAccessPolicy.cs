@@ -28,7 +28,7 @@ internal sealed class DocumentAccessPolicy(IQueryExecutor queries, IDocumentActo
         if (ActorUserId is null) return Denied();
         var allowed = await queries.QuerySingleOrDefaultAsync<long>(DocumentPermissionSql.CheckAccess,
             DocumentSqlParameters.Create(("DocumentId", documentId), ("ActorUserId", ActorUserId),
-                ("Operation", operation.ToString().ToLowerInvariant())), cancellationToken).ConfigureAwait(false);
+                ("OperationMask", operation switch { DocumentOperation.Read => 1, DocumentOperation.Write => 2, DocumentOperation.Delete => 4, _ => 8 })), cancellationToken).ConfigureAwait(false);
         return allowed == 0 ? Denied() : null;
     }
 

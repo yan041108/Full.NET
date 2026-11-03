@@ -11,6 +11,9 @@ public static class ReportingExportTaskPermissions
 
     /// <summary>下载已完成的报表导出文件。</summary>
     public const string Download = "reporting.export_tasks.download";
+
+    /// <summary>取消本人尚未被 Worker 领取的租户导出任务。</summary>
+    public const string Cancel = "reporting.export_tasks.cancel";
 }
 
 /// <summary>报表导出格式键。</summary>
@@ -34,6 +37,9 @@ public static class ReportingExportTaskStatusKeys
 
     /// <summary>导出失败。</summary>
     public const string Failed = "failed";
+
+    /// <summary>本人已停止后续调度，不存在可交付的导出结果。</summary>
+    public const string Canceled = "canceled";
 }
 
 /// <summary>创建报表导出任务请求。</summary>
@@ -97,6 +103,7 @@ public sealed record ReportingExportTaskResponse(
 /// <param name="RequestedByUserId">发起人用户标识。</param>
 /// <param name="CreatedAtUtc">任务创建时间（UTC）。</param>
 /// <param name="CompletedAtUtc">任务完成时间（UTC）；未完成时为空。</param>
+/// <param name="Version">任务并发版本，取消时须提交；与报表发布版本号独立。</param>
 public sealed record ReportingExportTaskDetailResponse(
     Guid Id,
     Guid DefinitionId,
@@ -113,4 +120,5 @@ public sealed record ReportingExportTaskDetailResponse(
     IReadOnlyList<ReportingExecutionParameterValue> Parameters,
     Guid RequestedByUserId,
     DateTimeOffset CreatedAtUtc,
-    DateTimeOffset? CompletedAtUtc);
+    DateTimeOffset? CompletedAtUtc,
+    long Version);

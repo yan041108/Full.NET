@@ -142,36 +142,39 @@ onMounted(() => {
 <template>
   <div class="goview-editor-view">
     <ArtTableHeader :title="t('goviewEditor.title')">
-      <PermissionGate code="goview.projects.preview">
-        <ElButton
-          data-testid="goview-editor-open-preview"
-          :disabled="!project || project.latestPublishedVersionNumber <= 0"
-          @click="openPreview"
-        >
-          {{ t('goviewEditor.openPreview') }}
-        </ElButton>
-      </PermissionGate>
-      <PermissionGate code="goview.projects.update">
-        <ElButton
-          data-testid="goview-editor-save"
-          type="primary"
-          :loading="saving"
-          @click="saveDraft"
-        >
-          {{ t('goviewEditor.saveDraft') }}
-        </ElButton>
-      </PermissionGate>
-      <PermissionGate code="goview.projects.publish">
-        <ElButton
-          v-if="session.can('goview.projects.publish')"
-          data-testid="goview-editor-publish"
-          type="success"
-          :loading="publishing"
-          @click="publish"
-        >
-          {{ t('goviewEditor.publish') }}
-        </ElButton>
-      </PermissionGate>
+      <template #left>
+        <PermissionGate code="goview.projects.preview">
+          <ElButton
+            data-testid="goview-editor-open-preview"
+            :disabled="!project || project.latestPublishedVersionNumber <= 0"
+            @click="openPreview"
+          >
+            {{ t('goviewEditor.openPreview') }}
+          </ElButton>
+        </PermissionGate>
+        <PermissionGate code="goview.projects.update">
+          <ElButton
+            data-testid="goview-editor-save"
+            type="primary"
+            :loading="saving"
+            @click="saveDraft"
+          >
+            {{ t('goviewEditor.saveDraft') }}
+          </ElButton>
+        </PermissionGate>
+        <PermissionGate code="goview.projects.publish">
+          <ElButton
+            v-if="session.can('goview.projects.publish')"
+            data-testid="goview-editor-publish"
+            class="goview-editor-publish"
+            type="success"
+            :loading="publishing"
+            @click="publish"
+          >
+            {{ t('goviewEditor.publish') }}
+          </ElButton>
+        </PermissionGate>
+      </template>
     </ArtTableHeader>
 
     <ElAlert
@@ -205,3 +208,15 @@ onMounted(() => {
     </ElCard>
   </div>
 </template>
+
+<style scoped>
+/* 发布按钮在常态及悬停时均使用可读的成功色，避免浅绿背景上的白字失去对比度。 */
+.goview-editor-publish {
+  --el-button-bg-color: var(--fullnet-color-success);
+  --el-button-border-color: var(--fullnet-color-success);
+  --el-button-hover-bg-color: var(--fullnet-color-success);
+  --el-button-hover-border-color: var(--fullnet-color-success);
+  --el-button-active-bg-color: var(--fullnet-color-success);
+  --el-button-active-border-color: var(--fullnet-color-success);
+}
+</style>

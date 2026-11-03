@@ -21,14 +21,17 @@
         "totalItems",
         "totalVersions",
         "totalSizeKb",
-        "totalSizeInfo"
+        "totalSizeInfo",
+        "totalSizeBytes",
+        "historySizeBytes"
       ]
     },
     "HostDocumentStatisticsTypeItem": {
       "properties": [
         "extension",
         "count",
-        "totalSizeKb"
+        "totalSizeKb",
+        "totalSizeBytes"
       ]
     },
     "HostDocumentStatisticsCategoryItem": {
@@ -47,7 +50,9 @@
         "todayAccessCount",
         "todayDownloadCount",
         "todayCreatedCount",
-        "recycleBinCount"
+        "recycleBinCount",
+        "todayPreviewCount",
+        "todayShareAccessCount"
       ]
     }
   }

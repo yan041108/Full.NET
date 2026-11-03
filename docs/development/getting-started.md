@@ -103,15 +103,51 @@ $env:VITE_API_BASE_URL = "http://localhost:5149"
 pnpm --filter @fullnet/admin dev
 ```
 
-启用身份中心 OIDC 登录（T08，可选；默认 `legacy` 用户名密码）时，需先在 Identity 注册对应公开客户端与回调 URI，再设置：
+启用身份中心 OIDC 登录（T08，可选；默认 `legacy` 用户名密码）时，Vue 使用同源 BFF 机密客户端，由服务端完成回调与令牌保管。后台不再注册 SPA 公开客户端；API 与首次初始化的 Migrator 必须使用同一组 BFF 配置。
+
+OIDC 客户端以数据库为唯一权威源。`Identity:Oidc:Clients` 仅由 Migrator 的 Baseline 初始化尚不存在的客户端；API 启动不注册或覆盖客户端。首次部署须向 Migrator 提供同一组显式 OIDC 初始化配置并执行受控 seed；后续策略、回调、停用与 secret 轮换通过管理 API 保存。API 可以不配置初始化客户端列表。需要离线续期的客户端必须显式允许 `offline_access`，只配置 `openid` 不会自动获得 `profile` 或 refresh grant。
+
+非 Development/Testing 环境启用中心时，Issuer 必须是 HTTPS，必须配置持久化签名材料及 32 字节协议加密密钥；缺失时启动失败。多实例共享必要的协议加密与 Data Protection 材料；签名、加密与 Cookie 密钥职责分开，秘密只由受控 Secret 注入。中心 Cookie 在生产强制 Secure；开发态 HTTP 例外不进入生产。
+
+签名轮换按以下顺序执行；`ActiveSigningKeyId` 用于 Migrator 首次初始化和节点启动材料检查，不能靠修改它覆盖已持久化的数据库活动指针。清理旧材料时，该配置仍须指向本节点具备私钥的已活动 `kid`。
+
+1. 向所有 API 和签发退出通知的 Worker 部署候选 RSA 材料，保留旧公钥；同一 `kid` 永远绑定同一公钥指纹。仅材料编码不同不构成新密钥，禁止复用退役 `kid`。
+2. 在签名密钥管理页发布候选公钥，核对各节点 JWKS，等待 `Identity:Oidc:SigningPrepublicationSeconds`（默认 300 秒，生产至少 60 秒）。实际窗口须匹配接入 RP 的 JWKS 缓存/未知 kid 刷新策略，默认值不是任意外部 RP 的无中断保证。`/health/ready` 登记 API 的 90 秒短租约，Worker 在投递循环登记；`/health/live` 不依赖数据库。Helm 将 `MinimumReadyApiNodes` 绑定最少 API 副本数，自行部署时也必须显式匹配。
+3. 只有存活节点的公开材料、协议加密指纹、令牌期限配置和策略版本一致，且每个节点具备候选私钥、API 数量达标，管理页才允许激活。治理 API 在事务内重新检查并 CAS 更新活动策略；失联节点的旧租约在到期前保守阻止轮换。未登记或已失联节点必须经 readiness 再接流量，不能绕过探针直接加入服务。
+4. 旧钥进入保留态。退役截止取配置完整令牌窗口和数据库现存合法令牌/中心会话最长到期时间的保守上界；到期后由有权限的操作员退役，不自动删除 Secret。探针同步后各节点 JWKS 移除旧钥；资源 API 直接查询权威退役状态，即使对端尚未同步、仍缓存旧公钥也拒绝旧 `kid`。核对各节点就绪与 JWKS 后，再将启动检查配置指向当前活动 `kid`、移除已退役材料并滚动重启；数据库活动指针保持权威。活动钥不能退役，退役不能撤销或重新发布；外部 RP 自身的缓存和离线 JWT 策略不会由本地退役操作自动改变。
+
+节点声明仅保存公开材料摘要、密钥标识和租约，不存储私钥。签发时缺少活动私钥或权威状态不可用即失败关闭；退役状态校验故障也不放行 Bearer。首次就绪后，已知 JWKS 可在数据库短暂不可用时继续提供。聚焦验证与尚未证明的生产范围见[唯一活动计划](../superpowers/plans/2026-09-13-identity-oidc-sso-evolution.md)。
+
+OIDC 浏览器定向验收使用 `pnpm test:e2e:real:oidc-center`（或 `node scripts/testing/run-identity-oidc-runtime.mjs`）：夹具自动准备双库、临时 HTTPS Vue 代理、双 Kestrel API、独立 HTTPS RP 和桌面/移动浏览器。Windows 需安装 Edge；其他平台需已安装 Playwright Chromium。Linux Native AOT 对应 `node scripts/testing/run-identity-oidc-runtime.mjs --native`，要求 Docker 和既定 `fullnet-native-aot-publish-sdk:10.0.402` 镜像，真实发布并运行 ELF，不以 Windows 跳过代替。Native 构建申请 12 GiB，资源门禁另预留 4 GiB，Linux guest 可用内存需至少 10 GiB；实际能否启动仍由门禁判断。源码只读挂载，运行目录位于系统 TEMP；成功自动清理，失败保留诊断记录，结束后清理可再生二进制。测试证书只用于本轮进程信任，不安装到机器根证书库。
+
+首次缺少发布 SDK 镜像时，使用仓库的 [Dockerfile](../../eng/docker/Dockerfile.api-native-aot-linux-sdk) 准备：`docker build -t fullnet-native-aot-publish-sdk:10.0.402 -f eng/docker/Dockerfile.api-native-aot-linux-sdk eng/docker`。这一步只准备 SDK 与原生链接工具，不运行业务验收。
+
+历史 HTTP `vue-admin-oidc-center` SPA 项目及其令牌读取夹具已退出活动 Playwright 配置；旧业务探针文件保留作场景追踪，不再是 BFF 验收入口，也不计入新入口的通过数量。普通 legacy 管理端与独立协议 RP 夹具仍由原真实栈入口维护。改造结论只覆盖本轮定向场景，不能据此声称历史全部业务探针已在 BFF 下重跑。
+
+标准 RP 退出地址由 Discovery 的 `end_session_endpoint` 取得（`/connect/logout`），支持 GET 和表单 POST。端点先展示确认页，用户确认且防伪校验通过后撤销当前浏览器中心会话及关联应用会话，并清除中心 Cookie；其他设备保持登录。`post_logout_redirect_uri` 必须精确注册，`state` 由协议组件返回；无效 `id_token_hint` 拒绝请求。配置 `BackchannelLogoutUri` 的客户端由 Worker 可靠投递标准退出通知；部署方须先在 `Identity:Oidc:BackchannelAllowedOrigins` 精确许可 HTTPS 来源，后台客户端页可查询失败及重试。中心和 BFF Cookie 始终为 Secure，浏览器登录/退出必须使用 HTTPS。
 
 ```powershell
 $env:VITE_IDENTITY_AUTH_MODE = "oidc-center"
-$env:VITE_IDENTITY_OIDC_CLIENT_ID = "admin-spa"
+$env:VITE_IDENTITY_OIDC_CLIENT_ID = "fullnet-admin-bff"
+$env:VITE_HTTPS_CERT = "<受信任开发证书 PEM 路径>"
+$env:VITE_HTTPS_KEY = "<开发证书私钥路径>"
+# BFF 不配置跨源 VITE_API_BASE_URL，后端代理目标由 VITE_API_PROXY_TARGET 指定。
+Remove-Item Env:VITE_API_BASE_URL -ErrorAction SilentlyContinue
+# 下列配置也须提供给 API 和 Migrator；秘密只由受控 Secret 注入。
+$env:Identity__Browser__Enable = "true"
+$env:Identity__Browser__PublicOrigin = "https://localhost:5173"
+$env:Identity__Browser__ClientId = "fullnet-admin-bff"
+$env:Identity__Browser__ClientSecret = "<由 Secret 注入>"
+$env:Identity__Browser__StateSigningKeyBase64 = "<独立持久化 32 字节 Base64 密钥>"
+$env:Identity__Browser__StateEncryptionKeyBase64 = "<另一独立持久化 32 字节 Base64 密钥>"
 pnpm --filter @fullnet/admin dev
 ```
 
-切回 `legacy` 并行入口（本地排障或回退演练）时，移除上述变量或删除 `ui/admin/.env.local` 中对应项后重启 Vite：
+`PublicOrigin` 必须精确等于浏览器来源，回调固定为该来源的 `/api/v1/identity/browser/callback`。浏览器状态密钥不得复用协议加密密钥，多节点共享必要的状态密钥和 Data Protection 材料。API 经可信代理接收 HTTPS 来源，BFF 自身须能访问同源 Discovery/JWKS 和令牌端点。生产反向代理的同源入口可替代 Vite 证书配置。
+
+启用 BFF 时旧密码登录/刷新与 legacy OAuth 回调不映射，JWT issuer 信任同步收敛，不能只改 Vite 变量作为服务端回退。切换前后端模式后已撤销会话仍保持撤销，不恢复旧浏览器令牌存储。
+
+仅运行原本未启用 BFF 的 `legacy` 开发环境时，移除 Vue OIDC 模式变量后重启 Vite：
 
 ```powershell
 Remove-Item Env:VITE_IDENTITY_AUTH_MODE -ErrorAction SilentlyContinue
@@ -123,7 +159,7 @@ pnpm --filter @fullnet/admin dev
 
 涉及 Refresh Cookie 时，浏览器与 API 应使用同一个 `localhost` 站点语义，不要混用 `localhost` 和 `127.0.0.1`，否则 `SameSite=Strict` Cookie 可能被浏览器按跨站请求拒绝。
 
-Vue 使用 `/api/v1`、标准 HTTP 状态码和 ProblemDetails，并从 `@fullnet/client-contracts` 消费共享契约。Access Token 与权限快照只保存在内存。`legacy` 模式通过 HttpOnly Refresh Cookie 恢复会话；`oidc-center` 模式仅在 `sessionStorage` 持久化 OIDC refresh token（不存 access token）。禁止将 access token 或权限快照写入 `localStorage`。
+Vue 使用 `/api/v1`、标准 HTTP 状态码和 ProblemDetails，并从 `@fullnet/client-contracts` 消费共享契约。`legacy` 模式仅在内存持有 access token，通过 HttpOnly Refresh Cookie 恢复会话；`oidc-center` 使用同源 BFF，浏览器不接收或持久化 OAuth 令牌，通过安全会话 Cookie 恢复，CSRF 值只留内存。权限快照只保存在内存，禁止把令牌或权限快照写入 `localStorage`/`sessionStorage`。
 
 无权限时 Vue 不创建对应页面或操作按钮，但前端隐藏只改善体验。所有受保护 Endpoint 仍必须使用同一稳定权限码重新授权，绕过前端直接调用必须返回 403。
 
@@ -143,7 +179,21 @@ pnpm test:e2e:real
 pnpm test:e2e:real:oidc-center
 ```
 
-套件会启动数据库、Migrator、真实 API 和 Vue，并验证 Cookie、CSRF、CORS、登录、刷新、租户切换、精确页面/操作权限、直接 API 403、退出和 ProblemDetails。真实栈测试禁止用 `page.route` Mock 替代后端行为。默认 `vue-admin` 项目（端口 25173）覆盖 legacy 登录与回退探针；`vue-admin-oidc-center`（端口 25175，`admin-oidc-center.spec.mjs`，**129** 项串行用例）覆盖身份中心 SPA 登录、刷新、§6 工具/审批/后台任务与 Agent Run 探针、在线会话撤销后 token 拒绝与强制下线。
+普通真实栈会启动数据库、Migrator、真实 API 和 Vue；默认 `vue-admin` 项目（端口 25173）覆盖 legacy 登录与回退探针。OIDC 专用入口独立运行双库、HTTPS BFF 与第二 RP，覆盖桌面/移动登录、回调跨 API、恢复、CSRF、租户切换、密钥发布/激活/详情和应用/中心退出；每库要求两个 Playwright 项目均实际通过，不允许跳过。真实栈禁止用 `page.route` Mock 替代后端行为。历史 `vue-admin-oidc-center` HTTP SPA 项目已退出活动配置，原 `admin-oidc-center.spec.mjs` 的 129 项业务探针保留为追踪清单，不能当作已在 BFF 下重验。
+
+独立成熟 RP 与真实 Worker 网络联调使用单独入口；在仓库根安装 pnpm 依赖并完成 .NET restore 后执行：
+
+```powershell
+pnpm test:identity:oidc:interop
+# 追加所开放 profile 的 OIDF 官方模块，并明确保存去敏度量。
+pnpm test:identity:oidc:interop --conformance --evidence docs/verification/2026-10-27-identity-oidc-interop-results.json
+```
+
+该入口需要 Docker Desktop Linux、.NET 10 SDK、Node 24、SQL Server/MySQL 测试镜像、`redis:8.6` 和已准备的 `fullnet-native-aot-publish-sdk:10.0.402`。官方模块额外需要 `mongo:6.0.13` 与研究报告 §16.7 所锁定的套件镜像，Docker 内须能通过 `host.docker.internal` 访问宿主临时 HTTPS 端口。证书仅信任于本轮 Node/JVM/.NET 客户端，私钥和客户端 secret 从系统 TEMP 文件加载，结束后清理；无需修改机器根证书或提供外部部署密钥。真实 Worker 使用本轮数据库和独立 Redis，Outbox 轮询 100 ms、最大空闲轮询 1000 ms；传播预算只用于此本地回归。
+
+issuer 含 `/identity` 时，默认 Discovery 为 `/identity/.well-known/openid-configuration`。当前应用退出 API 要求有效 Bearer，且 client 必须匹配该令牌，只撤销其应用会话；BFF 页面使用 Cookie/CSRF 退出入口。网络入口不进入普通 infrastructure/full 分片；所选官方模块通过不代表完整 profile 认证。结果与容量边界见[联调报告](../verification/2026-09-13-identity-oidc-sso-research-validation.md#167-2026-10-27-独立-rp真实网络与官方套件补验)。
+
+网络夹具在自有 API/RP/Worker 停止后，按其刚创建的完整随机库名清理本轮数据库及对应 MySQL 授权；不按前缀批量删除共享实例中的库，不结束其他任务的数据库进程。清理失败会使该轮失败并留下最小去敏定位记录。
 
 已有独立栈时可以跳过自动引导：
 
@@ -303,7 +353,7 @@ builder.Services.AddAdminNetCompatibility();
 
 模块内查询可以对本模块表使用参数化 `JOIN/LEFT JOIN`、批量查询和多结果集；模块内写入由一个 `ICommandTransaction` 原子维护本模块业务表、必要审计和 Outbox。
 
-跨模块禁止直接读写、JOIN 或外键关联对方表。立即权威读取使用消费方最小 Contract Port；高频读取使用所有者版本化事件和消费方本地投影；跨模块写入使用各模块本地事务、Outbox、幂等、补偿和对账。详细标准见 [`ADR-0002`](../architecture/adr/ADR-0002-modular-monolith-evolution.md#模块内模块间数据关联与事务标准)。
+后台列表、搜索、报表及同语义导出允许受控跨模块只读 JOIN：集中在 Queries/*Sql.cs，返回业务 DTO，按读取目录精确登记模块/表/列与 SQL 摘要，落实租户、数据权限和运行时依赖。业务操作和权威判断使用最小 Contract Port；禁止跨模块写表、外键与事务。可靠状态推进仍使用各模块本地事务、Outbox、幂等、补偿和对账。区分当前信息与历史快照，未来按实际拆分边界替换查询；不默认建设投影。见 [ADR-0014](../architecture/adr/ADR-0014-controlled-cross-module-read-queries.md) 和 [读取依赖规范](../../contracts/architecture/module-read-queries.md)。
 
 事务内禁止等待 HTTP、gRPC、Broker、Redis、对象存储或文件副作用。写入后可能返回失败 `Result` 的路径使用 `ICommandTransaction.ExecuteResultAsync`，避免失败结果仍提交。
 

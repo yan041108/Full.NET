@@ -36,7 +36,7 @@ internal static class ProjectReviewRemediationAssertions
         Assert.AreEqual(HttpStatusCode.Created, createdResponse.StatusCode);
         var document = (await createdResponse.Content.ReadFromJsonAsync<HostDocumentItemResponse>())!;
         using var setResponse = await SendAsync(client, alice.AccessToken, HttpMethod.Post, "/api/v1/document/host/permissions",
-            new SetHostDocumentPermissionsRequest(document.Id, [new(alice.UserId, "read")]));
+            new SetHostDocumentPermissionsRequest(document.Id, [new(alice.UserId, new[] { "read" })], "restricted", document.Version));
         Assert.AreEqual(HttpStatusCode.OK, setResponse.StatusCode);
         foreach (var suffix in new[] { "", "/content", "/preview", "/versions" })
         {
@@ -55,7 +55,7 @@ internal static class ProjectReviewRemediationAssertions
             new CreateHostDocumentShareRequest(document.Id, 1, null, null)))
             Assert.AreEqual(HttpStatusCode.Forbidden, deniedShare.StatusCode);
         using (var invalidLevel = await SendAsync(client, alice.AccessToken, HttpMethod.Post, "/api/v1/document/host/permissions",
-            new SetHostDocumentPermissionsRequest(document.Id, [new(alice.UserId, "anything")])))
+            new SetHostDocumentPermissionsRequest(document.Id, [new(alice.UserId, new[] { "anything" })], "restricted", document.Version)))
             Assert.AreEqual(HttpStatusCode.BadRequest, invalidLevel.StatusCode);
 
         await using var firstScope = factory.Services.CreateAsyncScope();
@@ -69,19 +69,20 @@ internal static class ProjectReviewRemediationAssertions
             ("Id", taskId), ("DocumentItemId", document.Id), ("VersionId", null), ("DocumentTitle", "Restricted"),
             ("SourceFileId", Guid.NewGuid()), ("SourceFileName", "test.docx"), ("SourceMimeType", "application/octet-stream"),
             ("OutputFileId", null), ("StatusKey", "pending"), ("ProviderKey", "disabled"), ("ErrorCode", null),
-            ("RequestedByUserId", alice.UserId), ("CreatedAtUtc", now), ("StartedAtUtc", null), ("CompletedAtUtc", null), ("Version", 1L)), default);
+            ("RequestedByUserId", alice.UserId), ("CreatedAtUtc", now), ("StartedAtUtc", null), ("CompletedAtUtc", null), ("Version", 1L), ("SourceReferenceId", Guid.CreateVersion7()), ("OutputReferenceId", Guid.CreateVersion7()),
+            ("OutputOwnerId", alice.UserId), ("AttemptCount", 0), ("NextAttemptAtUtc", null), ("LeaseExpiresAtUtc", null)), default);
         var runners = new[] { firstScope, secondScope }.Select(scope => ActivatorUtilities.CreateInstance<DocumentPreviewTaskRunner>(scope.ServiceProvider)).ToArray();
         var claims = await Task.WhenAll(runners.Select(runner => runner.ClaimAsync(1, default)));
         Assert.AreEqual(1, claims.Sum(batch => batch.Count));
         var oldTask = claims.SelectMany(batch => batch).Single();
-        await commands.ExecuteAsync(new SqlStatement("test.expire_preview", "UPDATE fn_document_preview_task SET StartedAtUtc = @Old WHERE Id = @Id", SqlDataScope.HostOnly),
+        await commands.ExecuteAsync(new SqlStatement("test.expire_preview", "UPDATE fn_document_preview_task SET StartedAtUtc = @Old, LeaseExpiresAtUtc = @Old WHERE Id = @Id", SqlDataScope.HostOnly),
             Parameters(("Old", now.AddHours(-2)), ("Id", taskId)), default);
         var recovered = (await runners[0].ClaimAsync(1, default)).Single();
         Assert.IsTrue(recovered.Version > oldTask.Version);
         Assert.AreEqual(0, await commands.ExecuteAsync(DocumentPreviewTaskSql.MarkSucceeded,
-            Parameters(("Id", taskId), ("OutputFileId", Guid.NewGuid()), ("Version", oldTask.Version), ("ExpiredBefore", now.AddHours(-1)), ("CompletedAtUtc", now)), default));
+            Parameters(("Id", taskId), ("OutputFileId", Guid.NewGuid()), ("Version", oldTask.Version), ("ExpiredBefore", now.AddHours(-1)), ("Now", now), ("CompletedAtUtc", now)), default));
         Assert.AreEqual(1, await commands.ExecuteAsync(DocumentPreviewTaskSql.MarkSucceeded,
-            Parameters(("Id", taskId), ("OutputFileId", Guid.NewGuid()), ("Version", recovered.Version), ("ExpiredBefore", now.AddHours(-1)), ("CompletedAtUtc", now)), default));
+            Parameters(("Id", taskId), ("OutputFileId", Guid.NewGuid()), ("Version", recovered.Version), ("ExpiredBefore", now.AddHours(-1)), ("Now", now), ("CompletedAtUtc", now)), default));
 
         var merchantId = Guid.NewGuid(); var orderId = Guid.NewGuid(); var refundId = Guid.NewGuid();
         await commands.ExecuteAsync(PaymentMerchantConfigSql.Insert, Parameters(("Id", merchantId), ("TenantId", null),
@@ -104,7 +105,8 @@ internal static class ProjectReviewRemediationAssertions
             ("CompletedAtUtc", null), ("Version", 1)), default);
         var refundReconciliation = new PaymentRefundReconciliationService(queryExecutor, commands,
             firstScope.ServiceProvider.GetRequiredService<ICommandTransaction>(), new RefundClient(),
-            firstScope.ServiceProvider.GetRequiredService<IClock>());
+            firstScope.ServiceProvider.GetRequiredService<IClock>(),
+            firstScope.ServiceProvider.GetRequiredService<Full.NET.Modules.Payments.Features.SubscriptionBilling.PaymentFinancialFactPublisher>());
         Assert.IsTrue((await refundReconciliation.ReconcileAsync(order, default)).IsSuccess);
         var finalOrder = (await queryExecutor.QuerySingleOrDefaultAsync<PaymentOrderRecord>(PaymentOrderSql.FindById,
             Parameters(("OrderId", orderId)), default))!;

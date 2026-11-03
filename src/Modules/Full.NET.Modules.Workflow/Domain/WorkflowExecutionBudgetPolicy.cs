@@ -9,11 +9,12 @@ internal static class WorkflowExecutionBudgetPolicy
     public static async Task<int> ReadRemainingAsync(WorkflowInstanceRecord instance, bool hasSubprocess,
         int usedCount, IQueryExecutor query, CancellationToken token)
     {
-        if (!hasSubprocess && instance.BusinessType != WorkflowChildStartContext.BusinessType)
+        var ownsSlice = instance.BusinessType is WorkflowChildStartContext.BusinessType or WorkflowCollaborationStartContext.BusinessType;
+        if (!hasSubprocess && !ownsSlice)
             return Math.Max(0, WorkflowActivityScheduler.InstanceActivityBudget - usedCount);
         var budget = await query.QuerySingleOrDefaultAsync<WorkflowExecutionBudgetRecord>(WorkflowSubprocessSql.FindBudget,
             WorkflowSqlParameters.Create(("InstanceId", instance.Id), ("TenantScopeKey", instance.TenantScopeKey)), token).ConfigureAwait(false);
-        if (budget is null) return instance.BusinessType == WorkflowChildStartContext.BusinessType ? -1 :
+        if (budget is null) return ownsSlice ? -1 :
             Math.Max(0, WorkflowActivityScheduler.InstanceActivityBudget - usedCount);
         if (budget.Granted is < 2 or > WorkflowActivityScheduler.InstanceActivityBudget || budget.Reserved < 0 ||
             budget.Reserved > budget.Granted || budget.Revision < 1) return -1;

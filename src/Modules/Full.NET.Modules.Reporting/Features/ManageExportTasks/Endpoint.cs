@@ -5,6 +5,7 @@ using Full.NET.Modules.Reporting.Contracts;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
+using Microsoft.AspNetCore.Mvc;
 
 namespace Full.NET.Modules.Reporting.Features.ManageExportTasks;
 
@@ -48,6 +49,20 @@ internal static class Endpoint
         .Produces<ReportingExportTaskDetailResponse>(StatusCodes.Status201Created)
         .RequireAuthorization(FullNetPermissionPolicies.For(ReportingExportTaskPermissions.Create));
 
+        // 本人查询不接受用户或租户参数；身份只来自已认证主体和可信上下文。
+        group.MapGet("/mine", async (int? pageSize, string? statusKey, string? cursor,
+            ReportingExportTaskQueryService queries, IApiResultMapper mapper, HttpContext httpContext, CancellationToken cancellationToken) =>
+        {
+            if (!TryResolveUserId(httpContext, out var userId) || userId == Guid.Empty)
+                return Results.Problem(statusCode: StatusCodes.Status401Unauthorized);
+            return mapper.Map(await queries.ListMineAsync(userId, pageSize ?? 20, statusKey, cursor, cancellationToken).ConfigureAwait(false), httpContext);
+        }).WithName("reportingListMyExportTasks")
+            .Produces<CursorPage<ReportingExportTaskResponse>>()
+            .ProducesProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .RequireAuthorization(FullNetPermissionPolicies.For(ReportingExportTaskPermissions.Read));
+
         group.MapGet("/", async (
             int? page,
             int? pageSize,
@@ -80,6 +95,14 @@ internal static class Endpoint
         .Produces<ReportingExportTaskDetailResponse>(StatusCodes.Status200OK)
         .RequireAuthorization(FullNetPermissionPolicies.For(ReportingExportTaskPermissions.Read));
 
+        group.MapPost("/{taskId:guid}/cancel", async (Guid taskId, CancelReportingExportTaskRequest request,
+            ReportingExportTaskCancellationService service, IApiResultMapper mapper, HttpContext http, CancellationToken token) =>
+            mapper.Map(await service.CancelAsync(taskId, request.Version, token).ConfigureAwait(false), http))
+            .WithName("reportingCancelExportTask").Produces<ReportingExportTaskDetailResponse>()
+            .ProducesProblem(400).ProducesProblem(401).ProducesProblem(403).ProducesProblem(404).ProducesProblem(409)
+            .WithMetadata(new RequestSizeLimitAttribute(1024))
+            .RequireAuthorization(FullNetPermissionPolicies.For(ReportingExportTaskPermissions.Cancel));
+
         group.MapGet("/{taskId:guid}/download", async (
             Guid taskId,
             ReportingExportTaskManagementService service,
@@ -87,7 +110,7 @@ internal static class Endpoint
             HttpContext httpContext,
             CancellationToken cancellationToken) =>
         {
-            var result = await service.OpenDownloadAsync(taskId, cancellationToken).ConfigureAwait(false);
+            var result = await service.OpenDownloadAsync(taskId, httpContext.User, cancellationToken).ConfigureAwait(false);
             if (!result.IsSuccess)
             {
                 return mapper.Map(result, httpContext);

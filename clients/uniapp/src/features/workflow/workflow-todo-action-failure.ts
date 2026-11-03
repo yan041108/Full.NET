@@ -10,6 +10,7 @@ export interface WorkflowTodoActionFailure {
   readonly feedbackKey: WorkflowTodoActionFeedbackKey;
   readonly refreshTodo: boolean;
   readonly retainIdempotencyKey: boolean;
+  readonly clearTodo: boolean;
 }
 
 /**
@@ -23,11 +24,12 @@ export function classifyWorkflowTodoActionFailure(error: unknown): WorkflowTodoA
     return {
       feedbackKey: 'workflow.todo.revisionConflict',
       refreshTodo: true,
-      retainIdempotencyKey: false
+      retainIdempotencyKey: false,
+      clearTodo: false
     };
   }
-  if (error.status === 403) {
-    return failure('workflow.todo.denied', false);
+  if ([401, 403, 404].includes(error.status)) {
+    return failure('workflow.todo.denied', false, true);
   }
   if (error.status === 0 || error.status >= 500) {
     return failure('workflow.todo.retryable', true);
@@ -37,11 +39,13 @@ export function classifyWorkflowTodoActionFailure(error: unknown): WorkflowTodoA
 
 function failure(
   feedbackKey: WorkflowTodoActionFeedbackKey,
-  retainIdempotencyKey: boolean
+  retainIdempotencyKey: boolean,
+  clearTodo = false
 ): WorkflowTodoActionFailure {
   return {
     feedbackKey,
     refreshTodo: false,
-    retainIdempotencyKey
+    retainIdempotencyKey,
+    clearTodo
   };
 }

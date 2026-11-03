@@ -14,11 +14,19 @@ internal sealed class AiKnowledgeIndexDispatchRecord
     public DateTimeOffset LeaseExpiresAtUtc { get; init; }
     /// <summary>最终查询时的原增量授权期限；手工任务为空，查询等待后仍须复核真实时钟。</summary>
     public DateTimeOffset? GrantExpiresAtUtc { get; init; }
-    public Guid FileId { get; init; }
+    /// <summary>真实文件引用；FAQ 数据库修订来源为空，禁止伪造文件。</summary>
+    public Guid? FileId { get; init; }
+    /// <summary>静态数据库修订来源，与 FileId 严格二选一。</summary>
+    public Guid? FaqRevisionId { get; init; }
     public string ContentHash { get; init; } = string.Empty;
     public string ContentType { get; init; } = string.Empty;
     public string ParsingPolicyKey { get; init; } = "default";
     public long SizeBytes { get; init; }
+    public Guid? CorrectionSourceId { get; init; }
+    public Guid? CorrectionRevisionId { get; init; }
+    public int? CorrectionHeadVersion { get; init; }
+    public string? CorrectionSourceHash { get; init; }
+    public string? CorrectionPayloadHash { get; init; }
     // 同一 AI 判定点投影分类和实际模型绑定，避免后续独立查询留下末尾漂移窗口；不含凭据。
     public string DataClassification { get; init; } = string.Empty;
     public string ModelProviderKey { get; init; } = string.Empty;

@@ -19,3 +19,17 @@ public interface IDatabaseSessionLock
         string resource,
         CancellationToken cancellationToken = default);
 }
+
+/// <summary>需要在长耗时控制操作中检查原数据库会话的锁句柄；无法确认必须停止执行。</summary>
+public interface IDatabaseSessionLockLease : IAsyncDisposable
+{
+    /// <summary>在持锁的同一专属连接校验；连接丢失后不得重连并重新获取锁。</summary>
+    Task EnsureHeldAsync(CancellationToken cancellationToken = default);
+}
+
+/// <summary>将会话锁与当前作用域后续命令事务绑定到同一物理连接；连接丢失时事务不能提交。</summary>
+public interface IDatabaseTransactionBoundSessionLock
+{
+    /// <summary>在无活动事务的作用域中获取专属锁和连接；句柄必须持续持有到事务结束。</summary>
+    Task<IDatabaseSessionLockLease?> TryAcquireAsync(string resource, CancellationToken cancellationToken = default);
+}

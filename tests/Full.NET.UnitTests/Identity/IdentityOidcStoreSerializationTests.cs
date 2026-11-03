@@ -51,4 +51,19 @@ public sealed class IdentityOidcStoreSerializationTests
         IdentityOidcClientMetadata.Write(descriptor, true, null, false);
         Assert.IsFalse(descriptor.Properties.ContainsKey(IdentityOidcClientMetadata.ResourceAudienceKey));
     }
+
+    [TestMethod]
+    public void Updating_resource_audience_removes_previous_resource_permission()
+    {
+        const string oldResource = "https://mcp.example.test/old";
+        const string newResource = "https://mcp.example.test/new";
+        var descriptor = new OpenIddictApplicationDescriptor();
+        IdentityOidcClientMetadata.Write(descriptor, false, oldResource, false);
+        Assert.IsTrue(descriptor.Permissions.Any(value => value.EndsWith(oldResource, StringComparison.Ordinal)));
+        IdentityOidcClientMetadata.Write(descriptor, false, newResource, false);
+        Assert.IsFalse(descriptor.Permissions.Any(value => value.EndsWith(oldResource, StringComparison.Ordinal)));
+        Assert.IsTrue(descriptor.Permissions.Any(value => value.EndsWith(newResource, StringComparison.Ordinal)));
+        IdentityOidcClientMetadata.Write(descriptor, false, null, false);
+        Assert.IsFalse(descriptor.Permissions.Any(value => value.EndsWith(newResource, StringComparison.Ordinal)));
+    }
 }

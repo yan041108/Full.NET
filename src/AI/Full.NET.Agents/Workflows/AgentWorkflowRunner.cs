@@ -7,7 +7,7 @@ using Microsoft.Extensions.AI;
 namespace Full.NET.Agents.Workflows;
 
 /// <summary>显式工作流执行器；节点顺序静态，子步骤共用根 RunId 与独立 OperationId。</summary>
-public sealed class AgentWorkflowRunner
+public sealed partial class AgentWorkflowRunner
 {
     /// <summary>同一工作流跨审批和恢复的节点尝试总上限；模型、工具及拒绝项共用额度。</summary>
     public const int MaximumExecutionSteps = 64;
@@ -68,13 +68,18 @@ public sealed class AgentWorkflowRunner
             return new(AgentWorkflowRunStatus.Failed, request.State, null, "ai.agent_run.definition_incompatible");
 
         var state = request.State;
-        if (state.PendingNode is not null)
+        if (state.NodeReceipts is null || state.ParallelPendingNodes is null || state.Outputs is null)
+            return new(AgentWorkflowRunStatus.Failed, state, null, "ai.agent_run.checkpoint_incompatible");
+        if (state.PendingNode is not null || state.ParallelPendingNodes.Count != 0)
             return new(AgentWorkflowRunStatus.ReconciliationRequired, state, null, "ai.tool.reconciliation_required");
         if (state.NextNodeIndex < 0 || state.NextNodeIndex > definition.Nodes.Count
             || state.InputTokens is < 0 || state.OutputTokens is < 0)
             return new(AgentWorkflowRunStatus.Failed, state, null, "ai.agent_run.checkpoint_incompatible");
+        var requiredPrefix = state.NextNodeIndex == definition.Nodes.Count ? definition.Nodes.Count : definition.InputPrefixIndex(state.NextNodeIndex);
+        if (definition.Nodes.Take(requiredPrefix).Any(node => !state.Outputs.ContainsKey(node.Key)))
+            return new(AgentWorkflowRunStatus.Failed, state, null, "ai.agent_run.checkpoint_incompatible");
         // 恢复到写入或结束位置仍需校验原始结果，不能把节点游标当作校验已通过的证据。
-        if (state.NextNodeIndex >= 3 && !HasValidRenameProposal(state))
+        if (definition.Nodes.Take(state.NextNodeIndex).Any(node => node.Key == "validate") && !HasValidRenameProposal(state))
             return new(AgentWorkflowRunStatus.Failed, state, null, "ai.agent_run.workflow_validation_failed");
         if (!HasExecutionBudget(state, definition.Nodes.Count))
             return new(AgentWorkflowRunStatus.Failed, state, null, "ai.agent_run.tool_budget_exceeded");
@@ -85,6 +90,13 @@ public sealed class AgentWorkflowRunner
         {
             cancellationToken.ThrowIfCancellationRequested();
             var node = definition.Nodes[index];
+            if (node.ParallelGroup is not null)
+            {
+                var stopped = await RunParallelStageAsync(request, definition, index, cancellationToken).ConfigureAwait(false);
+                if (stopped is not null) return stopped;
+                index = state.NextNodeIndex - 1;
+                continue;
+            }
             if (state.ExecutionSteps >= MaximumExecutionSteps)
                 return new(AgentWorkflowRunStatus.Failed, state, null, "ai.agent_run.tool_budget_exceeded");
             using var nodeObservation = AgentExecutionTelemetry.Start(request.RunId, "node", stepIndex: index,
@@ -92,11 +104,16 @@ public sealed class AgentWorkflowRunner
             // 先消耗额度，再与派发意图持久化；审批拒绝和取消不退款，恢复不得重置预算。
             state.ExecutionSteps = checked(state.ExecutionSteps!.Value + 1);
             AgentWorkflowNodeReceipt? intent = null;
+            var allocation = node.Kind == AgentWorkflowNodeKind.ModelText && request.ModelClientFactory is not null
+                ? ModelBudget(request, definition, 1) : null;
+            if (node.Kind == AgentWorkflowNodeKind.ModelText && request.ModelClientFactory is not null && allocation is null)
+                return new(AgentWorkflowRunStatus.Failed, state, null, "ai.budget.limit_exceeded");
             if (request.PersistNodeAsync is not null)
             {
                 intent = new(index, node.Key, request.ResolveOperationId(node.Key),
-                    AgentWorkflowNodeReceipt.Digest(AgentWorkflowNodeReceipt.BuildInput(node, state)), null,
-                    node.ToolName is null ? null : request.Registry.Find(node.ToolName)?.Version, null, null);
+                    AgentWorkflowNodeReceipt.Digest(AgentWorkflowNodeReceipt.BuildInput(definition, index, state)), null,
+                    node.ToolName is null ? null : request.Registry.Find(node.ToolName)?.Version, null, null,
+                    allocation?.InputTokenLimit, allocation?.OutputTokenLimit);
                 nodeObservation.SetOperationId(intent.OperationId);
                 cancellationToken.ThrowIfCancellationRequested();
                 state.PendingNode = intent;
@@ -114,7 +131,10 @@ public sealed class AgentWorkflowRunner
                 case AgentWorkflowNodeKind.ToolRead:
                 case AgentWorkflowNodeKind.ToolWrite:
                 {
-                    if (node.Kind == AgentWorkflowNodeKind.ToolWrite && !HasValidRenameProposal(state))
+                    if (node.Kind == AgentWorkflowNodeKind.ToolWrite && !(request.WorkflowKey == AgentWorkflowRegistry.ScheduleCompletionWorkflowKey
+                        ? state.TargetChatSessionId is null && state.TargetResourceId is { } target && target != Guid.Empty
+                            && state.TargetResourceVersion is > 0 and < int.MaxValue && node.ToolName == "calendar.personal_schedules.complete"
+                        : HasValidRenameProposal(state)))
                     {
                         nodeObservation.Outcome = "refused";
                         return new(AgentWorkflowRunStatus.Failed, state, null, "ai.agent_run.workflow_validation_failed");
@@ -151,15 +171,22 @@ public sealed class AgentWorkflowRunner
                 }
                 case AgentWorkflowNodeKind.ModelText:
                 {
-                    var prompt = AgentWorkflowNodeReceipt.BuildInput(node, state);
+                    var prompt = AgentWorkflowNodeReceipt.BuildInput(definition, index, state);
                     AgentModelResult modelResult;
                     using (var modelObservation = AgentExecutionTelemetry.Start(request.RunId, "model", intent?.OperationId, index, cancellationToken))
                     {
-                        try { modelResult = await request.ModelRunner.RunAsync(request.Client, prompt, cancellationToken).ConfigureAwait(false); }
+                        try
+                        {
+                            using var nodeClient = allocation is null ? null : request.ModelClientFactory!(allocation);
+                            modelResult = await request.ModelRunner.RunAsync(nodeClient ?? request.Client, prompt, cancellationToken).ConfigureAwait(false);
+                        }
                         catch (OperationCanceledException) { modelObservation.Outcome = "cancelled"; throw; }
                         modelObservation.Outcome = "succeeded";
                     }
                     cancellationToken.ThrowIfCancellationRequested();
+                    if (allocation is not null && (modelResult.InputTokens is < 0 || modelResult.OutputTokens is < 0
+                        || modelResult.InputTokens > allocation.InputTokenLimit || modelResult.OutputTokens > allocation.OutputTokenLimit))
+                        return new(AgentWorkflowRunStatus.ReconciliationRequired, state, null, "ai.tool.reconciliation_required");
                     // 恢复游标前已有模型节点时，空值代表未知累计量；不能把已发生调用当作首次计量。
                     var firstModelCall = !definition.Nodes.Take(index).Any(x => x.Kind == AgentWorkflowNodeKind.ModelText);
                     var inputTokens = AgentTokenUsage.Add(state.InputTokens, modelResult.InputTokens, firstModelCall);
@@ -236,7 +263,8 @@ public sealed class AgentWorkflowRunner
             return new(false, string.Empty, "ai.tool.unavailable", false, false, "denied");
         }
 
-        using var arguments = JsonDocument.Parse(AgentWorkflowNodeReceipt.BuildInput(node, state));
+        var definition = AgentWorkflowRegistry.Resolve(request.WorkflowKey, request.WorkflowVersion)!;
+        using var arguments = JsonDocument.Parse(AgentWorkflowNodeReceipt.BuildInput(definition, state.NextNodeIndex, state));
         var operationId = recordedOperationId ?? request.ResolveOperationId(node.Key);
         observation.SetOperationId(operationId);
         var invocation = new ToolInvocation(operationId, request.RunId, toolName, tool.Version, arguments.RootElement.Clone());
@@ -314,4 +342,18 @@ public sealed record AgentWorkflowRunRequest(
 {
     /// <summary>可选的节点事务提交回调；返回false后停止派发，调用方负责租约与恢复准入。</summary>
     public Func<AgentWorkflowNodeReceipt, AgentWorkflowState, CancellationToken, Task<bool>>? PersistNodeAsync { get; init; }
+
+    /// <summary>根输入额度；并行批次只从扣除全部已知用量后的余额分配互斥份额。</summary>
+    public long? InputTokenLimit { get; init; }
+
+    /// <summary>根输出额度，分支不创建独立父级账本或扩大预留。</summary>
+    public long? OutputTokenLimit { get; init; }
+
+    /// <summary>按冻结节点额度创建不拥有底层网络资源的预算外观；并行定义缺失时拒绝派发。</summary>
+    public Func<AgentWorkflowModelBudget, IChatClient>? ModelClientFactory { get; init; }
 }
+
+/// <summary>节点派发前从根余额分得的独占额度，不代表模型实际费用。</summary>
+/// <param name="InputTokenLimit">本节点输入上限。</param>
+/// <param name="OutputTokenLimit">本节点输出上限。</param>
+public sealed record AgentWorkflowModelBudget(long InputTokenLimit, long OutputTokenLimit);

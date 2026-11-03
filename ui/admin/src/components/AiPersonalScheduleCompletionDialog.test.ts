@@ -1,0 +1,51 @@
+import { mount, flushPromises, type VueWrapper } from '@vue/test-utils';
+import { createPinia, setActivePinia } from 'pinia';
+import { afterEach, beforeEach, expect, it, vi } from 'vitest';
+import { ElSelect } from 'element-plus';
+import Dialog from './AiPersonalScheduleCompletionDialog.vue';
+import { useSessionStore } from '../auth/session';
+import * as runs from '../api/ai-agent-runs';
+import * as approvals from '../api/ai-agent-approvals';
+import * as completion from '../api/ai-personal-schedule-completion';
+import * as models from '../api/ai-model-configs';
+vi.mock('../api/ai-agent-runs', () => ({ createAiAgentRun: vi.fn(), getAiAgentRun: vi.fn(), resumeAiAgentRun: vi.fn() }));
+vi.mock('../api/ai-agent-approvals', () => ({ createAgentApproval: vi.fn(), getAgentApproval: vi.fn() }));
+vi.mock('../api/ai-personal-schedule-completion', () => ({ getScheduleCompletionProposal: vi.fn(), getScheduleCompletionStatus: vi.fn(), reconcileScheduleCompletion: vi.fn() }));
+vi.mock('../api/ai-model-configs', () => ({ listAiModelConfigs: vi.fn() }));
+const id = (n: number) => `01900000-0000-7000-8000-${String(n).padStart(12, '0')}`;
+const run = { id: id(3), statusKey: 'awaiting_approval', definitionKey: 'fullnet-personal-schedule-complete-v1', definitionVersion: 1,
+  deadlineAtUtc: '2026-11-02T00:00:00Z', createdAtUtc: '2026-10-31T00:00:00Z', updatedAtUtc: '2026-10-31T00:00:00Z' };
+const receipt = { runId: id(3), operationId: id(4), scheduleId: id(1), expectedVersion: 2, state: 'accepted', reason: null, actualVersion: null, completedAtUtc: null };
+let wrapper: VueWrapper | undefined;
+beforeEach(() => { vi.resetAllMocks(); setActivePinia(createPinia()); vi.spyOn(useSessionStore(), 'can').mockReturnValue(true);
+  vi.mocked(models.listAiModelConfigs).mockResolvedValue({ items: [{ id: id(2), name: '批准运行配置', isEnabled: true }], page: 1, pageSize: 100, total: 1 } as Awaited<ReturnType<typeof models.listAiModelConfigs>>);
+  vi.mocked(runs.createAiAgentRun).mockResolvedValue({ runId: id(3) }); vi.mocked(runs.getAiAgentRun).mockResolvedValue(run);
+  vi.mocked(completion.getScheduleCompletionStatus).mockResolvedValue(receipt);
+});
+afterEach(() => { wrapper?.unmount(); wrapper = undefined; vi.restoreAllMocks(); });
+async function render(originalRunId?: string) { wrapper = mount(Dialog, { props: { scheduleId: id(1), expectedVersion: 2, originalRunId },
+  global: { stubs: { ElDialog: { template: '<div><slot /><slot name="footer" /></div>' }, RouterLink: { template: '<a><slot /></a>' } } } }); await flushPromises(); return wrapper; }
+async function create() { const w = wrapper!; w.findComponent(ElSelect).vm.$emit('update:modelValue', id(2)); await flushPromises(); await w.get('[data-testid="schedule-completion-create"]').trigger('click'); await flushPromises(); }
+it('没有完整精确权限不读配置、不显示完成建议', async () => { vi.mocked(useSessionStore().can).mockReturnValue(false); const w = await render();
+  expect(models.listAiModelConfigs).not.toHaveBeenCalled(); expect(w.find('[data-testid="schedule-completion-create"]').exists()).toBe(false); });
+it('只冻结准确目标和原请求键，不提交日程正文、主体或租户', async () => { await render(); await create(); const body = vi.mocked(runs.createAiAgentRun).mock.calls[0]![0];
+  expect(body.personalScheduleTarget).toEqual({ id: id(1), version: 2 }); expect(body.definitionKey).toBe('fullnet-personal-schedule-complete-v1');
+  expect(Object.keys(body).sort()).toEqual(['clientRequestId', 'definitionKey', 'inputTokenLimit', 'modelConfigId', 'outputTokenLimit', 'personalScheduleTarget', 'prompt']); expect(body.prompt).toBe('');
+  expect(wrapper!.emitted('accepted')?.[0]).toEqual([id(3)]); });
+it('创建响应未知时重试保留原请求身份，不能自动新建另一运行', async () => { vi.mocked(runs.createAiAgentRun).mockRejectedValueOnce(new Error('reply lost')).mockResolvedValueOnce({ runId: id(3) });
+  await render(); await create(); await wrapper!.get('[data-testid="schedule-completion-create"]').trigger('click'); await flushPromises();
+  const calls = vi.mocked(runs.createAiAgentRun).mock.calls; expect(calls).toHaveLength(2); expect(calls[0]![0]).toEqual(calls[1]![0]); });
+it('已知接受但后继读取失败仍保留原运行并关闭新建入口', async () => { vi.mocked(runs.getAiAgentRun).mockRejectedValue(new Error('read lost')); await render(); await create();
+  expect(wrapper!.text()).toContain(id(3)); expect(wrapper!.find('[data-testid="schedule-completion-create"]').exists()).toBe(false); expect(wrapper!.find('[data-testid="schedule-completion-refresh"]').exists()).toBe(true); });
+it('运行完成与意图accepted不能显示为日程已完成', async () => { vi.mocked(runs.getAiAgentRun).mockResolvedValue({ ...run, statusKey: 'completed' }); await render(id(3));
+  expect(wrapper!.get('[data-testid="schedule-completion-result"]').text()).toContain('尚未确认完成'); expect(wrapper!.text()).not.toContain('接收方已确认本操作完成'); expect(wrapper!.emitted('changed')).toBeUndefined(); });
+it('unknown只核对原操作回执，不重发创建或恢复；准确完成才刷新日程', async () => { vi.mocked(runs.getAiAgentRun).mockResolvedValue({ ...run, statusKey: 'completed' });
+  vi.mocked(completion.getScheduleCompletionStatus).mockResolvedValue({ ...receipt, state: 'unknown' });
+  vi.mocked(completion.reconcileScheduleCompletion).mockResolvedValue({ ...receipt, state: 'completed', actualVersion: 3, completedAtUtc: '2026-10-31T00:00:00Z' });
+  await render(id(3)); await wrapper!.get('[data-testid="schedule-completion-reconcile"]').trigger('click'); await flushPromises();
+  expect(completion.reconcileScheduleCompletion).toHaveBeenCalledWith(id(3), expect.any(AbortSignal)); expect(runs.createAiAgentRun).not.toHaveBeenCalled(); expect(runs.resumeAiAgentRun).not.toHaveBeenCalled(); expect(wrapper!.emitted('changed')).toHaveLength(1); });
+it('切换上下文中止请求并拒绝迟到原操作回执', async () => { let finish!: (value: typeof run) => void;
+  vi.mocked(runs.getAiAgentRun).mockReturnValue(new Promise(resolve => { finish = resolve; })); await render(id(3));
+  const signal = vi.mocked(runs.getAiAgentRun).mock.calls[0]![1]!; useSessionStore().currentContextName = 'Tenant B'; await flushPromises();
+  expect(signal.aborted).toBe(true); finish({ ...run, statusKey: 'completed' }); await flushPromises(); expect(wrapper!.text()).not.toContain(id(3)); expect(completion.getScheduleCompletionStatus).not.toHaveBeenCalled(); });
+it('重新打开同一原运行不产生新请求身份', async () => { await render(id(3)); expect(runs.createAiAgentRun).not.toHaveBeenCalled(); expect(runs.getAiAgentRun).toHaveBeenCalledWith(id(3), expect.any(AbortSignal)); });

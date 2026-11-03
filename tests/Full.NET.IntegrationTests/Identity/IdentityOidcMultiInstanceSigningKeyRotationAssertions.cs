@@ -23,7 +23,7 @@ internal static class IdentityOidcMultiInstanceSigningKeyRotationAssertions
             using var primaryFactory = new FullNetApiFactory(
                 provider,
                 connectionString,
-                IdentityOidcMultiInstanceTestSupport.BuildDualKeyFactorySettings(
+                IdentityOidcMultiInstanceTestSupport.BuildDualPrivateKeyFactorySettings(
                     keyA,
                     keyB,
                     IdentityOidcSigningKeyRotationAssertions.KeyAId,
@@ -32,7 +32,7 @@ internal static class IdentityOidcMultiInstanceSigningKeyRotationAssertions
             using var secondaryFactory = new FullNetApiFactory(
                 provider,
                 connectionString,
-                IdentityOidcMultiInstanceTestSupport.BuildDualKeyFactorySettings(
+                IdentityOidcMultiInstanceTestSupport.BuildDualPrivateKeyFactorySettings(
                     keyA,
                     keyB,
                     IdentityOidcSigningKeyRotationAssertions.KeyBId,
@@ -44,6 +44,7 @@ internal static class IdentityOidcMultiInstanceSigningKeyRotationAssertions
             using var primaryClient = primaryFactory.CreateClientForHost("localhost");
             using var secondaryClient = secondaryFactory.CreateClientForHost("localhost");
             await VerifyLegacyTokenValidOnRotatedSecondaryInstanceAsync(
+                primaryFactory,
                 primaryClient,
                 secondaryClient,
                 cancellationToken);
@@ -55,6 +56,7 @@ internal static class IdentityOidcMultiInstanceSigningKeyRotationAssertions
     }
 
     private static async Task VerifyLegacyTokenValidOnRotatedSecondaryInstanceAsync(
+        FullNetApiFactory primaryFactory,
         HttpClient primaryClient,
         HttpClient secondaryClient,
         CancellationToken cancellationToken)
@@ -83,6 +85,9 @@ internal static class IdentityOidcMultiInstanceSigningKeyRotationAssertions
         Assert.IsTrue(jwksKids.Contains(IdentityOidcSigningKeyRotationAssertions.KeyAId));
         Assert.IsTrue(jwksKids.Contains(IdentityOidcSigningKeyRotationAssertions.KeyBId));
 
+        // 两个节点的启动配置不得切换活动指针；通过持久化治理切换后对端自动收敛。
+        await IdentityOidcSigningKeyRotationAssertions.ActivatePersistedKeyAsync(primaryFactory,
+            IdentityOidcSigningKeyRotationAssertions.KeyBId, cancellationToken);
         var rotatedFlow = await IdentityOidcRelyingPartyFixture.RunAuthorizationCodeFlowAsync(
             secondaryClient,
             IdentityOidcRelyingPartyFixture.PublicClientId,

@@ -45,7 +45,9 @@ public sealed class AiKnowledgeIndexWorkerTests
         var services = new ServiceCollection(); new AiModule().AddBackgroundServices(services, new ConfigurationBuilder().Build());
         foreach (var type in new[] { typeof(AiBackgroundLogCorrelation), typeof(AiKnowledgeIndexWorkerCoordinator), typeof(AiKnowledgeIndexTaskStore), typeof(AiKnowledgeIndexSessionService),
             typeof(AiKnowledgeIndexBatchStore), typeof(AiKnowledgeIndexBudgetService), typeof(AiKnowledgeIndexEmbeddingService), typeof(AiKnowledgeIndexVectorStore),
-            typeof(AiKnowledgeIndexTextManifestStore), typeof(AiKnowledgeIndexActivationStore), typeof(AiKnowledgeIndexPersistenceService) })
+            typeof(AiKnowledgeIndexTextManifestStore), typeof(AiKnowledgeIndexActivationStore), typeof(AiKnowledgeIndexPersistenceService),
+            typeof(AiKnowledgeCorrectionIndexService), typeof(AiKnowledgeCorrectionEmbeddingService), typeof(AiKnowledgeCorrectionVectorStore),
+            typeof(AiKnowledgeCorrectionPersistenceService), typeof(AiKnowledgeCorrectionActivationStore) })
             Assert.IsTrue(services.Any(d => d.ServiceType == type && d.Lifetime == ServiceLifetime.Scoped), type.Name);
         Assert.IsTrue(services.Any(d => d.ServiceType == typeof(IHostedService) && d.ImplementationType == typeof(AiKnowledgeIndexHostedProcessor) && d.Lifetime == ServiceLifetime.Singleton));
         using var provider = services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });
@@ -121,6 +123,8 @@ public sealed class AiKnowledgeIndexWorkerTests
         foreach (var fragment in new[] { "fn_ai_knowledge_index_session", "binding.ActorUserId = knowledge.OwnerUserId", "binding.TenantId = knowledge.TenantId",
             "AttemptCount < 3", "LeaseExpiresAtUtc <= @Now", "'text/plain'", "'text/markdown'", "ORDER BY fn_ai_knowledge_index_task.CreatedAtUtc, fn_ai_knowledge_index_task.Id",
             mysql ? "LIMIT @BatchSize" : "TOP (@BatchSize)" }) Assert.IsTrue(sql.Text.Contains(fragment, StringComparison.Ordinal), fragment);
+        StringAssert.Contains(sql.Text, "fn_ai_knowledge_index_task.CorrectionRevisionId IS NOT NULL OR version.ContentType");
+        StringAssert.Contains(sql.Text, "@PdfEnabled=1"); StringAssert.Contains(sql.Text, "@DocumentsEnabled=1");
     }
 
     private static AiKnowledgeIndexWorkerCoordinator Coordinator(IQueryExecutor query, bool mysql, bool enabled, IDataTransactionState? state = null) =>
@@ -226,12 +230,49 @@ public sealed class AiKnowledgeIndexWorkerTests
 
     private sealed class ScopeDisposal(Action dispose) : IDisposable { public void Dispose() => dispose(); }
 
+    [TestMethod] [DataRow(false)] [DataRow(true)]
+    public async Task Acquired_candidate_rechecks_authority_and_rejects_changed_format_before_resolving_consumer(bool changedFormat)
+    {
+        var row = Row(null); var lease = Guid.CreateVersion7(); var now = DateTimeOffset.UtcNow; var dispatches = 0; var failures = 0; var resolutions = 0;
+        var query = new WorkerQuery { Scan = (_, _) => [row] };
+        query.Single = type =>
+        {
+            if (type == typeof(AiKnowledgeIndexTaskRecord)) return new AiKnowledgeIndexTaskRecord { Id = row.TaskId, StateKey = "running", LeaseToken = lease, LeaseExpiresAtUtc = now.AddSeconds(30) };
+            Assert.AreEqual(typeof(AiKnowledgeIndexDispatchRecord), type); dispatches++;
+            return changedFormat ? new AiKnowledgeIndexDispatchRecord { TaskId = row.TaskId, DocumentId = row.DocumentId, VersionId = row.VersionId,
+                DocumentVersion = 1, KnowledgeBaseVersion = 1, LeaseToken = lease, LeaseExpiresAtUtc = now.AddSeconds(30), ContentType = "text/markdown" } : null;
+        };
+        var clock = Substitute.For<IClock>(); clock.UtcNow.Returns(now); var ids = Substitute.For<IIdGenerator>(); ids.NewId().Returns(lease);
+        var services = new ServiceCollection(); services.AddScoped<CurrentTenantAccessor>();
+        services.AddScoped<ICurrentTenant>(p => p.GetRequiredService<CurrentTenantAccessor>());
+        services.AddScoped<ICurrentTenantContextWriter>(p => p.GetRequiredService<CurrentTenantAccessor>());
+        services.AddScoped(_ => Substitute.For<IDataTransactionState>()); services.AddScoped<AiBackgroundLogCorrelation>();
+        services.AddScoped(p =>
+        {
+            var command = Substitute.For<ICommandExecutor>();
+            command.ExecuteAsync(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(call =>
+            { if (((SqlStatement)call[0]!).Name == AiKnowledgeIndexTaskSql.FailHost.Name) failures++; else Assert.AreSame(AiKnowledgeIndexTaskSql.AcquireHost, call[0]); return 1; });
+            return new AiKnowledgeIndexTaskStore(query, command, p.GetRequiredService<ICurrentTenant>(), clock, ids);
+        });
+        // 拒绝夹具只记录解析企图；权威输入失效时不能越过该边界。
+        T Unexpected<T>(IServiceProvider _) { resolutions++; throw new AssertFailedException("Consumer must not be resolved."); }
+        services.AddScoped<AiKnowledgeIndexPersistenceService>(Unexpected<AiKnowledgeIndexPersistenceService>);
+        services.AddScoped<AiKnowledgeIndexPdfPersistenceService>(Unexpected<AiKnowledgeIndexPdfPersistenceService>);
+        services.AddScoped<AiKnowledgeIndexDocumentPersistenceService>(Unexpected<AiKnowledgeIndexDocumentPersistenceService>);
+        services.AddScoped<AiKnowledgeCorrectionPersistenceService>(Unexpected<AiKnowledgeCorrectionPersistenceService>);
+        using var provider = services.BuildServiceProvider();
+        var coordinator = new AiKnowledgeIndexWorkerCoordinator(query, Substitute.For<IDataTransactionState>(), provider.GetRequiredService<IServiceScopeFactory>(), clock,
+            Options.Create(new DatabaseOptions()), Options.Create(new AiKnowledgeIndexWorkerOptions { Enabled = true }), NullLogger<AiKnowledgeIndexWorkerCoordinator>.Instance);
+        Assert.AreEqual(1, await coordinator.ProcessPendingAsync(default)); Assert.AreEqual(1, dispatches); Assert.AreEqual(1, failures); Assert.AreEqual(0, resolutions);
+    }
+
     // 泛型内部投影不能由动态代理自动造值；夹具只替换执行器 Port，不扩大生产类型可见性。
     private sealed class WorkerQuery : IQueryExecutor
     {
         internal int Calls;
         internal Func<SqlStatement, object?, IReadOnlyList<AiKnowledgeIndexWorkerRecord>>? Scan;
         internal IReadOnlyList<IdentityAuthorizationRow>? Grants;
+        internal Func<Type, object?>? Single;
         public Task<IReadOnlyList<T>> QueryAsync<T>(SqlStatement statement, object? parameters = null, CancellationToken cancellationToken = default)
         {
             Calls++;
@@ -239,6 +280,7 @@ public sealed class AiKnowledgeIndexWorkerTests
             Assert.AreEqual(typeof(AiKnowledgeIndexWorkerRecord), typeof(T));
             return Task.FromResult((IReadOnlyList<T>)(object)(Scan?.Invoke(statement, parameters) ?? Array.Empty<AiKnowledgeIndexWorkerRecord>()));
         }
-        public Task<T?> QuerySingleOrDefaultAsync<T>(SqlStatement statement, object? parameters = null, CancellationToken cancellationToken = default) => throw new AssertFailedException("Contended acquisition must not read or resolve execution.");
+        public Task<T?> QuerySingleOrDefaultAsync<T>(SqlStatement statement, object? parameters = null, CancellationToken cancellationToken = default)
+            => Single is not null ? Task.FromResult((T?)Single(typeof(T))) : throw new AssertFailedException("Contended acquisition must not read or resolve execution.");
     }
 }

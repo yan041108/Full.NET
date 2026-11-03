@@ -5,6 +5,7 @@ build/
 .flutter-plugins-dependencies
 .pub-cache/
 .pub/
+*.iml
 **/doc/api/
 **/ios/Flutter/.last_build_id
 android/.gradle/

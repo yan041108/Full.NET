@@ -11,6 +11,14 @@ namespace Full.NET.Modules.Document.Features.ManageHostDocumentPermissions;
 /// </summary>
 internal sealed class HostDocumentPermissionQueryService(IQueryExecutor queryExecutor)
 {
+    public async Task<Result<HostDocumentPermissionContext>> GetContextAsync(Guid documentId, CancellationToken token)
+    {
+        var item = await queryExecutor.QuerySingleOrDefaultAsync<DocumentItemDetailRecord>(DocumentItemSql.FindAnyById,
+            DocumentSqlParameters.Create(("Id", documentId)), token).ConfigureAwait(false);
+        return item is null ? Result<HostDocumentPermissionContext>.Failure(new Error(DocumentErrorCodes.PermissionDocumentNotFound,
+            "Document was not found.", ErrorType.NotFound)) : Result<HostDocumentPermissionContext>.Success(
+                new(item.Id, item.Title, item.DocumentNo, item.VisibilityMode, item.Version));
+    }
     public async Task<Result<IReadOnlyList<HostDocumentPermissionResponse>>> ListByDocumentAsync(
         Guid documentId,
         CancellationToken cancellationToken = default)
@@ -31,6 +39,6 @@ internal sealed class HostDocumentPermissionQueryService(IQueryExecutor queryExe
             record.Id,
             record.DocumentId,
             record.UserId,
-            record.PermissionLevel,
+            DocumentPermissionActions.ToNames(record.Actions),
             record.CreatedAtUtc);
 }

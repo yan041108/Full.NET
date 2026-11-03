@@ -142,16 +142,20 @@ public sealed class KafkaCapacityRunner
         {
             return KafkaCapacityExitCode.InvalidConfiguration;
         }
-        catch (KafkaException)
+        catch (KafkaException exception)
         {
+            // 只输出有限协议错误码；异常文本可能包含 Broker、凭据或底层配置。
+            Console.Error.WriteLine($"dependency_failure:kafka:{exception.Error.Code}");
             return KafkaCapacityExitCode.DependencyOrIncomplete;
         }
         catch (IOException)
         {
+            Console.Error.WriteLine("dependency_failure:io");
             return KafkaCapacityExitCode.DependencyOrIncomplete;
         }
         catch (TimeoutException)
         {
+            Console.Error.WriteLine("dependency_failure:timeout");
             return KafkaCapacityExitCode.DependencyOrIncomplete;
         }
     }

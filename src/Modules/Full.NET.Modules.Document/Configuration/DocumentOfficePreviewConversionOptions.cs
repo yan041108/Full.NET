@@ -9,7 +9,7 @@ public sealed class DocumentOfficePreviewConversionOptions
     /// <summary>配置节名称。</summary>
     public const string SectionName = "Document:OfficePreviewConversion";
 
-    /// <summary>是否启用后台转换 Worker；关闭时任务仍可入队但不会自动处理。</summary>
+    /// <summary>是否启用后台转换 Worker；关闭时拒绝新任务，但仍维护引用和审计。</summary>
     public bool Enabled { get; set; }
 
     /// <summary>当前启用的 Provider 稳定键。</summary>
@@ -32,6 +32,18 @@ public sealed class DocumentOfficePreviewConversionOptions
 
     /// <summary>每轮最多领取任务数。</summary>
     public int BatchSize { get; set; } = 5;
+
+    /// <summary>单任务最多领取次数，含进程崩溃重领；人工重试建立新任务。</summary>
+    public int MaxAttempts { get; set; } = 3;
+
+    /// <summary>瞬时转换失败的退避基数秒数，按已领取次数递增。</summary>
+    public int RetryBackoffSeconds { get; set; } = 15;
+
+    /// <summary>永久删除最小事实保留天数，独立于原始访问日志。</summary>
+    public int DeletionFactRetentionDays { get; set; } = 90;
+
+    /// <summary>转换能力关闭条件由 API 和 Worker 共用。</summary>
+    public bool CanConvert => Enabled && ProviderKey != DocumentOfficePreviewConversionProviderKeys.Disabled;
 
     /// <summary>隔离临时目录根路径；为空时使用系统临时目录下的专用子目录。</summary>
     public string? TempRootPath { get; set; }
@@ -73,6 +85,9 @@ internal sealed class DocumentOfficePreviewConversionOptionsValidator
     public ValidateOptionsResult Validate(string? name, DocumentOfficePreviewConversionOptions options)
     {
         var failures = new List<string>();
+        ValidateRange("Document:OfficePreviewConversion:MaxAttempts", options.MaxAttempts, 1, 10, failures);
+        ValidateRange("Document:OfficePreviewConversion:RetryBackoffSeconds", options.RetryBackoffSeconds, 5, 3600, failures);
+        ValidateRange("Document:OfficePreviewConversion:DeletionFactRetentionDays", options.DeletionFactRetentionDays, 1, 3650, failures);
         ValidatePositive("Document:OfficePreviewConversion:MaxInputBytes", options.MaxInputBytes, failures);
         ValidatePositive("Document:OfficePreviewConversion:MaxOutputBytes", options.MaxOutputBytes, failures);
         ValidatePositive("Document:OfficePreviewConversion:MaxTemporaryBytes", options.MaxTemporaryBytes, failures);

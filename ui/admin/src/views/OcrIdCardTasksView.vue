@@ -158,19 +158,21 @@ onMounted(() => {
     />
     <ElCard v-loading="loading">
       <ArtTableHeader :title="t('ocrIdCardTasks.title')">
-        <PermissionGate code="ocr.id_card_tasks.create">
-          <ElUpload
-            data-testid="ocr-id-card-upload"
-            :show-file-list="false"
-            accept="image/jpeg,image/png,image/webp"
-            :auto-upload="false"
-            :on-change="(uploadFile) => uploadFile.raw && handleUpload(uploadFile.raw)"
-          >
-            <ElButton type="primary" :loading="uploading">
-              {{ t('ocrIdCardTasks.upload') }}
-            </ElButton>
-          </ElUpload>
-        </PermissionGate>
+        <template #left>
+          <PermissionGate code="ocr.id_card_tasks.create">
+            <ElUpload
+              data-testid="ocr-id-card-upload"
+              :show-file-list="false"
+              accept="image/jpeg,image/png,image/webp"
+              :auto-upload="false"
+              :on-change="(uploadFile) => uploadFile.raw && handleUpload(uploadFile.raw)"
+            >
+              <ElButton type="primary" :loading="uploading">
+                {{ t('ocrIdCardTasks.upload') }}
+              </ElButton>
+            </ElUpload>
+          </PermissionGate>
+          </template>
       </ArtTableHeader>
       <ElTable :data="items" row-key="id">
         <ElTableColumn prop="statusKey" :label="t('ocrIdCardTasks.fieldStatus')" width="120">

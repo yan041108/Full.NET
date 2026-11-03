@@ -32,6 +32,9 @@ internal static class IdentityOidcMultiInstanceLogoutPropagationAssertions
 
             using var primaryClient = primaryFactory.CreateClientForHost("localhost");
             using var secondaryClient = secondaryFactory.CreateClientForHost("localhost");
+            // Secure 中心 Cookie 必须由 HTTPS 回送，HTTP 不会形成可退出的同一浏览器中心会话。
+            primaryClient.BaseAddress = new Uri("https://localhost");
+            secondaryClient.BaseAddress = new Uri("https://localhost");
             await VerifyApplicationLogoutRevokesRefreshOnSecondaryInstanceAsync(
                 primaryClient,
                 secondaryClient,
@@ -76,6 +79,7 @@ internal static class IdentityOidcMultiInstanceLogoutPropagationAssertions
             {
                 clientId = IdentityOidcRelyingPartyFixture.PublicClientId,
             });
+        logoutRequest.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", publicFlow.AccessToken);
         using var logoutResponse = await primaryClient.SendAsync(logoutRequest, cancellationToken);
         Assert.AreEqual(HttpStatusCode.NoContent, logoutResponse.StatusCode);
 

@@ -85,6 +85,10 @@ internal static class IdentityAuthenticationServiceCollectionExtensions
                     {
                         var authorization =
                             context.Request.Headers.Authorization.ToString();
+                        // MCP 的专用受众必须在租户解析前认证；仅对精确 MCP 路径选择该方案。
+                        if (context.Request.Path.Equals("/api/v1/ai/mcp")
+                            && authorization.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
+                            return Full.NET.Modules.Identity.Contracts.McpResourceAuthentication.Scheme;
                         return authorization.StartsWith(
                                 "ApiKey ",
                                 StringComparison.OrdinalIgnoreCase)
@@ -93,6 +97,7 @@ internal static class IdentityAuthenticationServiceCollectionExtensions
                     };
                 })
             .AddJwtBearer(options => options.MapInboundClaims = false)
+            .AddJwtBearer(Full.NET.Modules.Identity.Contracts.McpResourceAuthentication.Scheme, options => options.MapInboundClaims = false)
             .AddScheme<AuthenticationSchemeOptions, ApiKeyAuthenticationHandler>(
                 ApiKeyAuthenticationDefaults.AuthenticationScheme,
                 _ => { })

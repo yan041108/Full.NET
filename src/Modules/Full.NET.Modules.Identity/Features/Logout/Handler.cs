@@ -37,10 +37,12 @@ internal sealed class Handler(
         }
 
         // Logout 必须撤销整个轮换 family；只撤销当前行会在 Refresh 并发获胜时遗留替代会话。
-        await commandExecutor.ExecuteAsync(
+        var revoked = await commandExecutor.ExecuteAsync(
             IdentitySql.RevokeRefreshFamily,
             IdentitySqlParameters.Create(("FamilyId", record.FamilyId), ("RevokedAtUtc", clock.UtcNow)),
             cancellationToken).ConfigureAwait(false);
+        // 重复退出与并发输家没有新的撤销事实，不能再写一次成功退出。
+        if (revoked == 0) return Result<LogoutResult>.Success(new LogoutResult());
 
         var audit = new AuthAuditEvent(
             idGenerator.NewId(),

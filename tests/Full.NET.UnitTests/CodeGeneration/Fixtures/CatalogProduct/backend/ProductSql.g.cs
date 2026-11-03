@@ -91,6 +91,86 @@ public static class ProductSql
             AND Version = @Version;
         """;
 
+    public const string QueryCountSqlServer = """
+        SELECT COUNT(1)
+        FROM acme_catalog_product
+        WHERE 1 = 1
+            AND TenantId = @TenantId
+            AND (@Query_Name IS NULL OR Name COLLATE Latin1_General_100_BIN2 LIKE @Query_Name ESCAPE '~')
+            AND (@Query_Description IS NULL OR Description COLLATE Latin1_General_100_BIN2 LIKE @Query_Description ESCAPE '~')
+            AND (@Query_IsActive IS NULL OR IsActive = @Query_IsActive);
+        """;
+    public const string QueryListSqlServer = """
+        SELECT
+            Id,
+            TenantId,
+            Name,
+            Description,
+            IsActive,
+            Version,
+            CreatedAtUtc
+        FROM acme_catalog_product
+        WHERE 1 = 1
+            AND TenantId = @TenantId
+            AND (@Query_Name IS NULL OR Name COLLATE Latin1_General_100_BIN2 LIKE @Query_Name ESCAPE '~')
+            AND (@Query_Description IS NULL OR Description COLLATE Latin1_General_100_BIN2 LIKE @Query_Description ESCAPE '~')
+            AND (@Query_IsActive IS NULL OR IsActive = @Query_IsActive)
+        ORDER BY CASE WHEN @CodegenSortBy = 'id' AND @CodegenDescending = 0 THEN Id END ASC,
+            CASE WHEN @CodegenSortBy = 'id' AND @CodegenDescending = 1 THEN Id END DESC,
+            CASE WHEN @CodegenSortBy = 'displayName' AND @CodegenDescending = 0 THEN Name COLLATE Latin1_General_100_BIN2 END ASC,
+            CASE WHEN @CodegenSortBy = 'displayName' AND @CodegenDescending = 1 THEN Name COLLATE Latin1_General_100_BIN2 END DESC,
+            CASE WHEN @CodegenSortBy = 'description' AND @CodegenDescending = 0 THEN Description COLLATE Latin1_General_100_BIN2 END ASC,
+            CASE WHEN @CodegenSortBy = 'description' AND @CodegenDescending = 1 THEN Description COLLATE Latin1_General_100_BIN2 END DESC,
+            CASE WHEN @CodegenSortBy = 'isActive' AND @CodegenDescending = 0 THEN IsActive END ASC,
+            CASE WHEN @CodegenSortBy = 'isActive' AND @CodegenDescending = 1 THEN IsActive END DESC,
+            Id ASC
+        OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY;
+        """;
+
+    public static readonly SqlStatement QueryCountSqlServerStatement = new(
+        "catalog.count_products_query.sql_server",
+        QueryCountSqlServer, SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
+
+    public const string QueryCountMySql = """
+        SELECT COUNT(1)
+        FROM acme_catalog_product
+        WHERE 1 = 1
+            AND TenantId = @TenantId
+            AND (@Query_Name IS NULL OR Name COLLATE utf8mb4_bin LIKE @Query_Name ESCAPE '~')
+            AND (@Query_Description IS NULL OR Description COLLATE utf8mb4_bin LIKE @Query_Description ESCAPE '~')
+            AND (@Query_IsActive IS NULL OR IsActive = @Query_IsActive);
+        """;
+    public const string QueryListMySql = """
+        SELECT
+            Id,
+            TenantId,
+            Name,
+            Description,
+            IsActive,
+            Version,
+            CreatedAtUtc
+        FROM acme_catalog_product
+        WHERE 1 = 1
+            AND TenantId = @TenantId
+            AND (@Query_Name IS NULL OR Name COLLATE utf8mb4_bin LIKE @Query_Name ESCAPE '~')
+            AND (@Query_Description IS NULL OR Description COLLATE utf8mb4_bin LIKE @Query_Description ESCAPE '~')
+            AND (@Query_IsActive IS NULL OR IsActive = @Query_IsActive)
+        ORDER BY CASE WHEN @CodegenSortBy = 'id' AND @CodegenDescending = 0 THEN Id END ASC,
+            CASE WHEN @CodegenSortBy = 'id' AND @CodegenDescending = 1 THEN Id END DESC,
+            CASE WHEN @CodegenSortBy = 'displayName' AND @CodegenDescending = 0 THEN Name COLLATE utf8mb4_bin END ASC,
+            CASE WHEN @CodegenSortBy = 'displayName' AND @CodegenDescending = 1 THEN Name COLLATE utf8mb4_bin END DESC,
+            CASE WHEN @CodegenSortBy = 'description' AND @CodegenDescending = 0 THEN Description COLLATE utf8mb4_bin END ASC,
+            CASE WHEN @CodegenSortBy = 'description' AND @CodegenDescending = 1 THEN Description COLLATE utf8mb4_bin END DESC,
+            CASE WHEN @CodegenSortBy = 'isActive' AND @CodegenDescending = 0 THEN IsActive END ASC,
+            CASE WHEN @CodegenSortBy = 'isActive' AND @CodegenDescending = 1 THEN IsActive END DESC,
+            Id ASC
+        LIMIT @PageSize OFFSET @Offset;
+        """;
+
+    public static readonly SqlStatement QueryCountMySqlStatement = new(
+        "catalog.count_products_query.my_sql",
+        QueryCountMySql, SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
+
     public static readonly SqlStatement FindByIdStatement = new(
         "catalog.find_product_by_id",
         FindById,
@@ -99,13 +179,13 @@ public static class ProductSql
 
     public static readonly SqlStatement PageSqlServerStatement = new(
         "catalog.list_products.sql_server",
-        Count + "\n" + ListSqlServer,
+        QueryCountSqlServer + "\n" + QueryListSqlServer,
         SqlDataScope.TenantRequired,
         SqlTenantBinding.CurrentTenantId);
 
     public static readonly SqlStatement PageMySqlStatement = new(
         "catalog.list_products.my_sql",
-        Count + "\n" + ListMySql,
+        QueryCountMySql + "\n" + QueryListMySql,
         SqlDataScope.TenantRequired,
         SqlTenantBinding.CurrentTenantId);
 

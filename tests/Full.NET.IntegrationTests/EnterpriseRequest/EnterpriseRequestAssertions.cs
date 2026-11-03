@@ -18,6 +18,7 @@ using Full.NET.Modules.EnterpriseRequest.Contracts;
 using Full.NET.Modules.EnterpriseRequest.Generated;
 using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.ImportExport.Contracts;
+using Full.NET.Modules.Reporting.Contracts;
 using Full.NET.Modules.Organization.Contracts;
 using Full.NET.Modules.Tenancy.Contracts;
 
@@ -141,7 +142,7 @@ internal static class EnterpriseRequestAssertions
         writer.Clear();
     }
 
-    public static async Task VerifyTenantDemoEnterpriseRequestsCsvImportAsync(
+    public static async Task VerifyTenantDemoEnterpriseRequestsXlsxImportAsync(
         FullNetApiFactory factory,
         CancellationToken cancellationToken = default)
     {
@@ -151,23 +152,23 @@ internal static class EnterpriseRequestAssertions
         var organizationUnitId = await CreateOrganizationUnitAsync(client, token, cancellationToken);
         var applicantUserId = Guid.NewGuid();
         var requestNumber = $"IMP-{Guid.NewGuid():N}".Substring(0, 16);
-        var csv = new StringBuilder()
-            .AppendLine("requestNumber,title,totalAmount,applicantUserId,organizationUnitId")
-            .Append(requestNumber)
-            .Append(",Imported row,12.5,")
-            .Append(applicantUserId.ToString("D", CultureInfo.InvariantCulture))
-            .Append(',')
-            .Append(organizationUnitId.ToString("D", CultureInfo.InvariantCulture))
-            .AppendLine()
-            .ToString();
-        var csvBytes = Encoding.UTF8.GetBytes(csv);
+        // 使用正式渲染契约生成 XLSX；不能把 CSV 改扩展名充当工作簿验收。
+        var renderer = factory.Services.GetRequiredService<IReportingWorkbookRenderer>();
+        string[] headers = ["requestNumber", "title", "totalAmount", "applicantUserId", "organizationUnitId"];
+        var workbook = renderer.Render(headers.Select(header => new ReportingExecutionColumnDefinition(header, header)).ToArray(),
+            [new ReportingExecutionRow(new Dictionary<string, string?>
+            {
+                ["requestNumber"] = requestNumber, ["title"] = "Imported row", ["totalAmount"] = "12.50",
+                ["applicantUserId"] = applicantUserId.ToString("D"), ["organizationUnitId"] = organizationUnitId.ToString("D"),
+            })]);
+        Assert.IsTrue(workbook.IsSuccess);
 
         using var createContent = new MultipartFormDataContent
         {
             { new StringContent(EnterpriseRequestImportSchemaKeys.EnterpriseRequests), "schemaKey" },
             { new StringContent("requests"), "worksheetKey" },
         };
-        var fileContent = new ByteArrayContent(csvBytes);
+        var fileContent = new ByteArrayContent(workbook.Value!);
         fileContent.Headers.ContentType = new MediaTypeHeaderValue(
             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
         createContent.Add(fileContent, "file", "demo-enterprise-requests.xlsx");
@@ -183,6 +184,9 @@ internal static class EnterpriseRequestAssertions
         Assert.IsNotNull(created);
         Assert.AreEqual(ImportExportTaskStatusKeys.PreviewSucceeded, created!.StatusKey);
         Assert.AreEqual(EnterpriseRequestImportSchemaKeys.EnterpriseRequests, created.SchemaKey);
+        Assert.AreEqual(1, created.TotalRows);
+        Assert.AreEqual(1, created.ValidRowCount);
+        Assert.AreEqual(0, created.InvalidRowCount);
 
         using var executeRequest = new HttpRequestMessage(HttpMethod.Post, $"{ImportTasksPath}/{created.Id:D}/execute");
         executeRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
@@ -193,6 +197,35 @@ internal static class EnterpriseRequestAssertions
         Assert.AreEqual(ImportExportTaskStatusKeys.ExecutionSucceeded, executed!.StatusKey);
         Assert.IsTrue(executed.SucceededRowCount >= 1);
 
+        // 模拟业务已提交但任务检查点丢失：以原可信任务/文件/主体直接重放处理器。
+        await using (var replayScope = factory.Services.CreateAsyncScope())
+        {
+            var tenantWriter = replayScope.ServiceProvider.GetRequiredService<ICurrentTenantContextWriter>();
+            var tenantResolver = replayScope.ServiceProvider.GetRequiredService<IActiveTenantContextResolver>();
+            tenantWriter.SetTenant((await tenantResolver.ResolveActiveByIdAsync(created.TenantId, cancellationToken))!);
+            var handler = replayScope.ServiceProvider.GetServices<IStaticImportSchemaHandler>()
+                .Single(value => value.SchemaKey == created.SchemaKey);
+            var replayContext = new StaticImportPreviewContext(created.RequestedByUserId, new Dictionary<string, bool>())
+            { TaskId = created.Id, SourceFileId = created.SourceFileId };
+            Guid? replayedId = null;
+            for (var iteration = 0; iteration < 2; iteration++)
+            {
+                using var input = new MemoryStream(workbook.Value!);
+                var replayed = await handler.ExecuteBatchAsync(input, input.Length, 0, 50, replayContext, cancellationToken);
+                Assert.IsTrue(replayed.IsSuccess);
+                Assert.AreEqual(1, replayed.Value!.Rows.Count);
+                Assert.IsTrue(replayed.Value.Rows[0].Succeeded);
+                replayedId ??= replayed.Value.Rows[0].EntityId;
+                Assert.AreEqual(replayedId, replayed.Value.Rows[0].EntityId);
+            }
+            using var changedInput = new MemoryStream(workbook.Value!);
+            var changed = await handler.ExecuteBatchAsync(changedInput, changedInput.Length, 0, 50,
+                replayContext with { SourceFileId = Guid.CreateVersion7() }, cancellationToken);
+            Assert.IsTrue(changed.IsSuccess);
+            Assert.IsFalse(changed.Value!.Rows[0].Succeeded);
+            Assert.AreEqual("enterprise_request.import.row_conflict", changed.Value.Rows[0].ErrorCode);
+        }
+
         using var listRequest = new HttpRequestMessage(HttpMethod.Get, $"{BasePath}?page=1&pageSize=50");
         listRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
         using var listResponse = await client.SendAsync(listRequest, cancellationToken);
@@ -200,11 +233,11 @@ internal static class EnterpriseRequestAssertions
         using var listJson = JsonDocument.Parse(await listResponse.Content.ReadAsStringAsync(cancellationToken));
         var found = listJson.RootElement.GetProperty("items")
             .EnumerateArray()
-            .Any(item => string.Equals(
+            .Count(item => string.Equals(
                 item.GetProperty("requestNumber").GetString(),
                 requestNumber,
                 StringComparison.Ordinal));
-        Assert.IsTrue(found, "Imported enterprise request should appear in tenant list.");
+        Assert.AreEqual(1, found, "Replayed import must leave exactly one enterprise request.");
     }
 
     private sealed class SubmissionEnvelope
@@ -214,7 +247,7 @@ internal static class EnterpriseRequestAssertions
         public byte[] Payload { get; set; } = [];
     }
 
-    private static async Task<Guid> CreateOrganizationUnitAsync(
+    internal static async Task<Guid> CreateOrganizationUnitAsync(
         HttpClient client,
         string token,
         CancellationToken cancellationToken)
@@ -234,7 +267,7 @@ internal static class EnterpriseRequestAssertions
         return unitId;
     }
 
-    private static async Task<Guid> GetCurrentUserIdAsync(
+    internal static async Task<Guid> GetCurrentUserIdAsync(
         HttpClient client,
         string token,
         CancellationToken cancellationToken)
@@ -263,7 +296,7 @@ internal static class EnterpriseRequestAssertions
         Assert.AreEqual(HttpStatusCode.Created, response.StatusCode, await response.Content.ReadAsStringAsync(cancellationToken));
     }
 
-    private static async Task<string> LoginAndEnterAcmeTenantAsync(
+    internal static async Task<string> LoginAndEnterAcmeTenantAsync(
         HttpClient client,
         CancellationToken cancellationToken)
     {

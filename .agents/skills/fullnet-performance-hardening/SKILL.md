@@ -38,6 +38,9 @@ Dapper 指标使用稳定 `StatementName`、Provider、操作类型和结果。O
 
 ### SQL 与分页
 
+- 后台列表、搜索、报表允许 [ADR-0014](../../../docs/architecture/adr/ADR-0014-controlled-cross-module-read-queries.md) 规定的受控跨模块只读 JOIN；集中 Query、返回 DTO，并按 [读取依赖规范](../../../contracts/architecture/module-read-queries.md) 登记表/列、SQL 摘要和运行时依赖。业务操作走契约，禁止跨模块写表、事务及权限绕过。不要仅因跨模块或高频就强制引入事件投影；先比较实际计划与负载。
+- 表结构/索引变化检查已登记的读取消费者；保持租户、数据范围、分页/总数与当前信息/历史快照语义，未来拆分只替换实际依赖边界。
+
 - COUNT 与列表需要同时返回时，优先评估 QueryMultiple 合并往返。
 - 大表深分页优先评估 `(时间, Id)` 等稳定游标分页；不得只把 OFFSET 换成更大的页大小。
 - contains 搜索必须有时间范围、专用索引或搜索设施；不能把全表扫描包装成“灵活查询”。

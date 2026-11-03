@@ -52,5 +52,20 @@ internal static class AiKnowledgeVectorRanker
         }
         if (sum <= 0 || !double.IsFinite(sum)) throw Invalid(); return sum;
     }
+    /// <summary>无查询向量的字面搜索仍须验证完整代次数值和块身份，不能绕过损坏向量检查。</summary>
+    internal static void ValidateCandidates(IReadOnlyList<AiKnowledgeRetrievalChunk> chunks, int dimensions, CancellationToken token)
+    {
+        token.ThrowIfCancellationRequested(); ArgumentNullException.ThrowIfNull(chunks);
+        if (chunks.Count is < 1 or > 256) throw Invalid();
+        var seen = new HashSet<(Guid, int)>();
+        foreach (var chunk in chunks)
+        {
+            token.ThrowIfCancellationRequested();
+            if (chunk is null || chunk.Source is null || !Domain.AiKnowledgePolicy.IsKnownClassification(chunk.Source.DataClassification)
+                || chunk.Source.TaskId is not { } task || task == Guid.Empty || chunk.Source.DocumentId == Guid.Empty
+                || chunk.Sequence < 0 || !seen.Add((task, chunk.Sequence))) throw Invalid();
+            _ = Norm(chunk.Vector.Span, dimensions, token);
+        }
+    }
     private static InvalidDataException Invalid() => new("检索向量或候选集合无效。");
 }

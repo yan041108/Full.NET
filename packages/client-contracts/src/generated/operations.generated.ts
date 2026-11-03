@@ -3,6 +3,7 @@
 
 import type { HttpClient, RequestOptions } from '../http.js';
 import type {
+  AcceptWorkflowCollaborationGrantRequest,
   AccessHostDocumentShareRequest,
   AccessLogCursorPageResponse,
   AccessLogResponse,
@@ -19,6 +20,7 @@ import type {
   AiAgentRunResponse,
   AiAgentToolCallListItem,
   AiAgentToolCatalogItem,
+  AiAgentWorkflowProposalResponse,
   AiChatMessageResponse,
   AiChatSessionListItem,
   AiChatSessionResponse,
@@ -33,9 +35,64 @@ import type {
   AiKnowledgeAnswerFeedbackStateResponse,
   AiKnowledgeBaseResponse,
   AiKnowledgeCitationResponse,
+  AiKnowledgeCorrectionBlockResponse,
+  AiKnowledgeCorrectionCitationResponse,
+  AiKnowledgeCorrectionEditOperation,
+  AiKnowledgeCorrectionEditRequest,
+  AiKnowledgeCorrectionHeadRequest,
+  AiKnowledgeCorrectionPartResponse,
+  AiKnowledgeCorrectionPreparationResponse,
+  AiKnowledgeCorrectionPrepareRequest,
+  AiKnowledgeCorrectionRestoreRequest,
+  AiKnowledgeCorrectionRevisionPageResponse,
+  AiKnowledgeCorrectionRevisionResponse,
+  AiKnowledgeCorrectionSpanResponse,
+  AiKnowledgeCorrectionWorkspaceResponse,
+  AiKnowledgeDirectoryItemResult,
+  AiKnowledgeDirectoryResponse,
   AiKnowledgeDocumentMembersResponse,
   AiKnowledgeDocumentResponse,
   AiKnowledgeDocxLocationResponse,
+  AiKnowledgeEvaluationCase,
+  AiKnowledgeEvaluationCaseInput,
+  AiKnowledgeEvaluationCaseResult,
+  AiKnowledgeEvaluationCaseState,
+  AiKnowledgeEvaluationEntry,
+  AiKnowledgeEvaluationEntryPage,
+  AiKnowledgeEvaluationModel,
+  AiKnowledgeEvaluationMutation,
+  AiKnowledgeEvaluationOperation,
+  AiKnowledgeEvaluationPage,
+  AiKnowledgeEvaluationPreparedFeedback,
+  AiKnowledgeEvaluationRevision,
+  AiKnowledgeEvaluationRun,
+  AiKnowledgeEvaluationRunAdmission,
+  AiKnowledgeEvaluationStrategy,
+  AiKnowledgeEvaluationWorkspace,
+  AiKnowledgeFaqCitationResponse,
+  AiKnowledgeFaqContent,
+  AiKnowledgeFaqDocumentSelection,
+  AiKnowledgeFaqDraftMutation,
+  AiKnowledgeFaqDraftPage,
+  AiKnowledgeFaqDraftRevision,
+  AiKnowledgeFaqDraftRevisionPage,
+  AiKnowledgeFaqDraftWorkspace,
+  AiKnowledgeFaqFeedbackDraftInput,
+  AiKnowledgeFaqFeedbackPreview,
+  AiKnowledgeFaqFeedbackSource,
+  AiKnowledgeFaqImportItemResult,
+  AiKnowledgeFaqImportReport,
+  AiKnowledgeFaqIndexAdmission,
+  AiKnowledgeFaqLifecycle,
+  AiKnowledgeFaqPublication,
+  AiKnowledgeFaqPublishedContent,
+  AiKnowledgeFaqSourceGraph,
+  AiKnowledgeFaqSourceNode,
+  AiKnowledgeFaqTransferItem,
+  AiKnowledgeFaqTransferPackage,
+  AiKnowledgeFinanceBucket,
+  AiKnowledgeFinanceReport,
+  AiKnowledgeFolderResponse,
   AiKnowledgeGridLocationResponse,
   AiKnowledgeImageLocationResponse,
   AiKnowledgeImportResponse,
@@ -49,10 +106,29 @@ import type {
   AiKnowledgeIndexReconciliationResponse,
   AiKnowledgeIndexStatusResponse,
   AiKnowledgeMembersResponse,
+  AiKnowledgeOperationItem,
+  AiKnowledgeOperationsPage,
   AiKnowledgeOrganizationCandidateResponse,
   AiKnowledgeOrganizationGrantsResponse,
+  AiKnowledgePublicationHeadResponse,
+  AiKnowledgePublicationResponse,
+  AiKnowledgeQualityObservation,
   AiKnowledgeRoleCandidateResponse,
   AiKnowledgeRoleGrantsResponse,
+  AiKnowledgeSearchAnswerScope,
+  AiKnowledgeSearchComparisonRanking,
+  AiKnowledgeSearchComparisonResponse,
+  AiKnowledgeSearchComparisonUsage,
+  AiKnowledgeSearchContextBlock,
+  AiKnowledgeSearchContextResponse,
+  AiKnowledgeSearchDiagnostics,
+  AiKnowledgeSearchHit,
+  AiKnowledgeSearchRefinementOperation,
+  AiKnowledgeSearchRefinementResponse,
+  AiKnowledgeSearchRelation,
+  AiKnowledgeSearchRelationsResponse,
+  AiKnowledgeSearchResponse,
+  AiKnowledgeSearchSource,
   AiKnowledgeSlideLocationResponse,
   AiKnowledgeSourceLocationResponse,
   AiKnowledgeVersionResponse,
@@ -62,6 +138,13 @@ import type {
   AiMcpRemoteToolApprovalItem,
   AiModelConfigListItem,
   AiModelConfigResponse,
+  AiPersonalScheduleCitationResponse,
+  AiPersonalScheduleCompletionProposal,
+  AiPersonalScheduleCompletionStatus,
+  AiPersonalScheduleCompletionTarget,
+  AiPersonalScheduleSource,
+  AiPersonalScheduleSourcePreview,
+  AiPersonalScheduleSourceSelection,
   AiPromptBody,
   AiPromptExecutionBinding,
   AiPromptResponse,
@@ -106,9 +189,15 @@ import type {
   CacheInvalidationResult,
   CachePolicySummary,
   CancelDataApprovalRequestBody,
+  CancelDocumentPreviewTaskRequest,
+  CancelEnterpriseRequestReportRequest,
+  CancelImportExportTaskRequest,
+  CancelReportingExportTaskRequest,
   CancelWorkflowInstanceRequest,
   CancelWorkflowTodoCountersignRequest,
+  CaptureAiKnowledgeEvaluationStrategy,
   ChangeDeliveryOwnerRequest,
+  ChangeHostDocumentStatusRequest,
   ChangeHostJobScheduleStateRequest,
   ChangeKafkaReplayOperationRequest,
   ChangePasswordRequest,
@@ -116,6 +205,7 @@ import type {
   ChangeSerialNumberRuleStatusRequest,
   ClaimWorkflowPoolRequest,
   CloseShadowCaptureRequest,
+  CodeGenerationApplyPlanFileResponse,
   CodeGenerationCatalogColumnListResponse,
   CodeGenerationCatalogColumnSyncRequest,
   CodeGenerationCatalogColumnSyncResponse,
@@ -134,20 +224,28 @@ import type {
   CodeGenerationPreviewRequest,
   CodeGenerationPreviewResponse,
   CodeGenerationRelationshipRequest,
+  CodeGenerationRunApplyPlanRequest,
+  CodeGenerationRunApplyPlanResponse,
   CodeGenerationRunApplyRequest,
   CodeGenerationRunApplyResponse,
   CodeGenerationRunPreviewRequest,
   CodeGenerationRunPreviewResponse,
+  CodeGenerationRunPublicationResponse,
   CodeGenerationRunResponse,
   CodeGenerationRunRollbackChainRequest,
   CodeGenerationRunRollbackChainResponse,
   CodeGenerationRunRollbackRequest,
   CodeGenerationRunRollbackResponse,
   CodeGenerationTemplateResponse,
+  CodeGenerationWorkspaceRecoveryRequest,
+  CodeGenerationWorkspaceStateResponse,
+  CompareAiKnowledgeSearchRequest,
   ConfigEntryResponse,
   ConfigValueUpdate,
   ConfirmOcrIdCardTaskRequest,
   ConfirmTotpEnrollmentRequest,
+  CopyAiKnowledgeEvaluationSet,
+  CopyAiKnowledgeFaqDraft,
   CopyHostRoleRequest,
   CountersignWorkflowTodoRequest,
   CreateAdministrativeRegionRequest,
@@ -160,6 +258,11 @@ import type {
   CreateAiChatSessionRequest,
   CreateAiKnowledgeBaseRequest,
   CreateAiKnowledgeDocumentRequest,
+  CreateAiKnowledgeEvaluationRun,
+  CreateAiKnowledgeFaqDerivedDraft,
+  CreateAiKnowledgeFaqDocumentDraft,
+  CreateAiKnowledgeFaqFeedbackDraft,
+  CreateAiKnowledgeFaqIndependentDraft,
   CreateAiKnowledgeIndexGrantRequest,
   CreateAiMcpRemoteConnectionRequest,
   CreateAiModelConfigRequest,
@@ -169,6 +272,7 @@ import type {
   CreateDataApprovalRequestBody,
   CreateDictItemRequest,
   CreateDictTypeRequest,
+  CreateEnterpriseRequestReportRequest,
   CreateEnterpriseRequestRequest,
   CreateGoViewProjectRequest,
   CreateHostAnnouncementRequest,
@@ -202,6 +306,7 @@ import type {
   CreateOrganizationUnitRequest,
   CreateOrganizationUserPositionRequest,
   CreateOrganizationUserUnitRequest,
+  CreatePaidTenantSubscriptionRequest,
   CreatePaymentMerchantConfigRequest,
   CreatePaymentOrderRequest,
   CreatePaymentRefundRequest,
@@ -216,18 +321,24 @@ import type {
   CreateWorkflowFormRequest,
   CreateWorkflowWorkCalendarRequest,
   CurrentUserResponse,
+  CursorPageOfImportExportTaskResponse,
+  CursorPageOfQuerySchemeSummary,
+  CursorPageOfReportingExportTaskResponse,
   CutoverEvidenceResponse,
   DataApprovalRequestResponse,
   DataApprovalScenarioResponse,
   DeactivateAiPromptRequest,
   DecideAiAgentApprovalRequest,
+  DefaultQuerySchemeResponse,
   DelegateWorkflowTodoRequest,
   DeleteAdministrativeRegionRequest,
   DeleteAiKnowledgeDocumentRequest,
+  DeleteAiKnowledgeFolder,
   DeleteCodeGenerationTemplateRequest,
   DeleteConfigEntryRequest,
   DeleteDictItemRequest,
   DeleteDictTypeRequest,
+  DeleteEnterpriseRequestAttachmentRequest,
   DeleteEnterpriseRequestRequest,
   DeleteHostDocumentCategoryRequest,
   DeleteHostDocumentItemRequest,
@@ -236,6 +347,8 @@ import type {
   DeleteHostFolderRequest,
   DeleteHostJobDefinitionRequest,
   DeleteHostReleaseNoteRequest,
+  DeleteImportProfileRequest,
+  DeleteQuerySchemeRequest,
   DeliveryCutoverResponse,
   DeliveryRollbackResponse,
   DeliveryStatusResponse,
@@ -245,7 +358,13 @@ import type {
   DictItemResponse,
   DictTypeResponse,
   DisableHostJobDefinitionRequest,
+  DocumentPreviewCapabilities,
+  EnterpriseRequestAttachmentResponse,
+  EnterpriseRequestPrintResponse,
+  EnterpriseRequestReportResponse,
   EnterpriseRequestResponse,
+  EnterpriseRequestSearchHit,
+  EnterpriseRequestSearchPage,
   EnumCatalogDetail,
   EnumCatalogDictGenerationItemPreview,
   EnumCatalogDictGenerationPreview,
@@ -257,7 +376,9 @@ import type {
   EventDeliveryRollbackPhase,
   EventStreamStatusResponse,
   ExceptionLogResponse,
+  ExecuteAiKnowledgeEvaluationCase,
   ExecuteReportingDefinitionRequest,
+  ExportAiKnowledgeFaqs,
   FieldProjectionDefaultVisibility,
   FieldProjectionFieldDefinition,
   FieldProjectionResourceDefinition,
@@ -268,6 +389,7 @@ import type {
   GoViewProjectVersionResponse,
   GoViewProjectVersionSummaryResponse,
   GrantSuperAdministratorRequest,
+  GridColumnPreference,
   HostAnnouncementReadReceiptResponse,
   HostAnnouncementReadStatsResponse,
   HostAnnouncementResponse,
@@ -282,9 +404,12 @@ import type {
   HostDocumentAccessLogResponse,
   HostDocumentCategoryResponse,
   HostDocumentItemResponse,
+  HostDocumentPermissionContext,
   HostDocumentPermissionEntry,
   HostDocumentPermissionResponse,
   HostDocumentPreviewTaskResponse,
+  HostDocumentSearchHit,
+  HostDocumentSearchPage,
   HostDocumentShareAccessResponse,
   HostDocumentShareResponse,
   HostDocumentStatisticsCategoryItem,
@@ -343,6 +468,9 @@ import type {
   ImportAdministrativeRegionsPreviewResponse,
   ImportAdministrativeRegionsRequest,
   ImportAdministrativeRegionUpdatedSummary,
+  ImportAiKnowledgeFaqs,
+  ImportColumnMapping,
+  ImportColumnMappingRequest,
   ImportExportTaskDetailResponse,
   ImportExportTaskResponse,
   ImportHostUserRowResult,
@@ -352,8 +480,11 @@ import type {
   ImportOrganizationPositionRowResult,
   ImportOrganizationPositionsRequest,
   ImportOrganizationPositionsResponse,
+  ImportProfileDetail,
+  ImportProfileSummary,
   InboxMessageResponse,
   InboxUnreadCountResponse,
+  IndexAiKnowledgeFaqRevision,
   JsonElement,
   K3CloudConnectionConfigResponse,
   K3CloudDocumentSyncResponse,
@@ -421,6 +552,7 @@ import type {
   PagedResultOfAiAgentToolCallListItem,
   PagedResultOfAiChatSessionListItem,
   PagedResultOfAiKnowledgeBaseResponse,
+  PagedResultOfAiKnowledgeDirectoryResponse,
   PagedResultOfAiKnowledgeDocumentResponse,
   PagedResultOfAiKnowledgeOrganizationCandidateResponse,
   PagedResultOfAiKnowledgeRoleCandidateResponse,
@@ -435,6 +567,8 @@ import type {
   PagedResultOfDataApprovalRequestResponse,
   PagedResultOfDictItemResponse,
   PagedResultOfDictTypeResponse,
+  PagedResultOfEnterpriseRequestAttachmentResponse,
+  PagedResultOfEnterpriseRequestReportResponse,
   PagedResultOfEnterpriseRequestResponse,
   PagedResultOfExceptionLogResponse,
   PagedResultOfGoViewProjectSummaryResponse,
@@ -489,8 +623,10 @@ import type {
   PagedResultOfReceivedHostAnnouncementListItemResponse,
   PagedResultOfReportingDataSourceListItem,
   PagedResultOfReportingDefinitionSummaryResponse,
+  PagedResultOfReportingDefinitionTenantGrantResponse,
   PagedResultOfReportingDefinitionVersionSummaryResponse,
   PagedResultOfReportingExportTaskResponse,
+  PagedResultOfReportingPublishedDefinitionResponse,
   PagedResultOfSerialNumberRuleResponse,
   PagedResultOfTenantPackageSummary,
   PagedResultOfTenantSummary,
@@ -506,6 +642,10 @@ import type {
   PaymentRefundResponse,
   PersonalScheduleResponse,
   PrepareAiFeedbackEvaluationRequest,
+  PrepareAiKnowledgeEvaluationFeedback,
+  PreviewAiKnowledgeFaqFeedback,
+  PreviewAiKnowledgeFaqImport,
+  PreviewAiPersonalScheduleSources,
   PreviewGoViewProjectRequest,
   PreviewPrintingTemplateRequest,
   PreviewSerialNumberRequest,
@@ -518,7 +658,9 @@ import type {
   PrintingTemplateVersionResponse,
   PrintingTemplateVersionSummaryResponse,
   ProblemDetails,
+  ProposeWorkflowCollaborationGrantRequest,
   ProvisionTenantRequest,
+  PublishAiKnowledgePublication,
   PublishGoViewProjectRequest,
   PublishHostAnnouncementRequest,
   PublishHostReleaseNoteRequest,
@@ -530,6 +672,14 @@ import type {
   PublishWorkflowDefinitionRequest,
   PublishWorkflowFormRequest,
   PublishWorkflowWorkCalendarRequest,
+  QuerySchemeConfiguration,
+  QuerySchemeDefinition,
+  QuerySchemeDetail,
+  QuerySchemeFilter,
+  QuerySchemeFilterDefinition,
+  QuerySchemeSummary,
+  ReadAiKnowledgeSearchContextRequest,
+  ReadAiKnowledgeSearchRelationsRequest,
   ReassignWorkflowInstanceRequest,
   RecallWorkflowTodoDelegationRequest,
   ReceivedHostAnnouncementDetailResponse,
@@ -544,6 +694,7 @@ import type {
   RecoverDeadLetterResponse,
   RecoverRollbackRequest,
   RecoverWorkflowInstanceRequest,
+  RefineAiKnowledgeSearchRequest,
   ReleaseWorkflowTodoRequest,
   ReplaceHostRoleFieldGrantsRequest,
   ReplaceHostRoleMembersRequest,
@@ -553,6 +704,7 @@ import type {
   ReportingDataSourceResponse,
   ReportingDefinitionResponse,
   ReportingDefinitionSummaryResponse,
+  ReportingDefinitionTenantGrantResponse,
   ReportingDefinitionVersionResponse,
   ReportingDefinitionVersionSummaryResponse,
   ReportingExecutionColumnDefinition,
@@ -563,10 +715,15 @@ import type {
   ReportingExportTaskResponse,
   ReportingGroupResponse,
   ReportingParameterSchemaEntry,
+  ReportingPublishedDefinitionResponse,
   ReportingQueryPortDefinition,
   ReportingQueryPortParameterDefinition,
+  RequestAiKnowledgeFaqPublication,
+  RequestAiKnowledgePublication,
   RequestWorkflowManualReminder,
   ResetHostUserPasswordRequest,
+  RestoreAiKnowledgeEvaluationSet,
+  RestoreAiKnowledgeFaqDraft,
   RestoreDiagnosticPolicyRequest,
   RestoreHostDocumentItemRequest,
   ResumeWorkflowInstanceRequest,
@@ -578,14 +735,24 @@ import type {
   RevealHostUserProfileFieldsRequest,
   RevealHostUserProfileFieldsResponse,
   ReviewAiKnowledgeAnswerFeedbackRequest,
+  ReviewAiKnowledgeEvaluationResult,
+  ReviewAiKnowledgeEvaluationSet,
+  ReviewAiKnowledgePublication,
   RevokeAiAgentDelegationRequest,
   RevokeAiKnowledgeIndexGrantRequest,
   RevokeAllHostUserSessionsResponse,
   RevokeNotificationIntentRequest,
   RevokeSuperAdministratorRequest,
+  RevokeWorkflowCollaborationGrantRequest,
   RollbackHostDocumentVersionRequest,
   RollbackOperationResponse,
+  SaveAiKnowledgeEvaluationSet,
+  SaveAiKnowledgeFaqDraft,
+  SaveAiKnowledgeFolder,
+  SaveImportProfileRequest,
+  SaveQuerySchemeRequest,
   SaveWorkflowDesignerAssetRequest,
+  SearchAiKnowledgeRequest,
   SelectAiPromptVersionRequest,
   SelfServiceProfileResponse,
   SendHostInboxMessageRequest,
@@ -603,10 +770,13 @@ import type {
   ServerRuntimeMetric,
   ServerRuntimeSnapshot,
   SetAiKnowledgeAnswerFeedbackRequest,
+  SetAiKnowledgeDirectoryBatch,
+  SetAiKnowledgeDirectoryItem,
   SetAiKnowledgeDocumentMembersRequest,
   SetAiKnowledgeMembersRequest,
   SetAiKnowledgeOrganizationGrantsRequest,
   SetAiKnowledgeRoleGrantsRequest,
+  SetDefaultQuerySchemeRequest,
   SetHostDocumentPermissionsRequest,
   SetNotificationProducerSceneEnabledRequest,
   SetNotificationProviderProfileEnabledRequest,
@@ -614,10 +784,13 @@ import type {
   SetOrganizationReportingLineRequest,
   SetOrganizationUnitLeadershipRequest,
   SetPersonalScheduleStatusRequest,
+  SetReportingDefinitionTenantGrantRequest,
   SetWorkflowDefinitionStatusRequest,
   SetWorkflowFormStatusRequest,
   ShadowCapturePolicyResponse,
   ShadowCaptureResponse,
+  ShareQuerySchemeRequest,
+  SimulateWorkflowDefinitionRequest,
   StartShadowCaptureRequest,
   StartWorkflowInstanceRequest,
   StaticImportRowPreviewResult,
@@ -627,12 +800,17 @@ import type {
   StreamAiChatMessageRequest,
   SubmitSerialRuleDisableApprovalRequest,
   SubmitSerialRuleUpdateApprovalRequest,
+  SubscriptionCheckoutResponse,
+  SubscriptionFulfillmentStatusResponse,
   SuperAdministratorAuditResponse,
   SuperAdministratorChangeResponse,
   SuperAdministratorResponse,
   TenantBrandingResponse,
+  TenantEntitlementCatalogResponse,
+  TenantPackageOfferResponse,
   TenantPackageSummary,
   TenantRuntimeBrandingResponse,
+  TenantSubscriptionPaymentTerms,
   TenantSummary,
   TestAiModelConfigResult,
   TestAiModelEmbeddingRequest,
@@ -702,9 +880,11 @@ import type {
   UpdateWorkflowDefinitionDraftRequest,
   UpdateWorkflowFormDraftRequest,
   UpdateWorkflowWorkCalendarRequest,
+  UpsertTenantPackageOfferRequest,
   VerifyCutoverRequest,
   VerifyRecipientEndpointCodeRequest,
   VoteWorkflowTodoRequest,
+  WithdrawAiKnowledgePublication,
   WithdrawWorkflowInstanceRequest,
   WorkflowApprovalGroupProgressResponse,
   WorkflowAssigneePreviewResponse,
@@ -715,6 +895,7 @@ import type {
   WorkflowClaimPoolPageResponse,
   WorkflowClaimPoolResponse,
   WorkflowClaimProgressResponse,
+  WorkflowCollaborationGrantResponse,
   WorkflowConnectorAttemptResponse,
   WorkflowConnectorCallPageResponse,
   WorkflowConnectorCallResponse,
@@ -727,6 +908,7 @@ import type {
   WorkflowDefinitionVersionResponse,
   WorkflowDesignerAssetResponse,
   WorkflowExecutionLogResponse,
+  WorkflowFormAttachmentUploadResponse,
   WorkflowFormComponentCatalogResponse,
   WorkflowFormComponentResponse,
   WorkflowFormField,
@@ -744,6 +926,10 @@ import type {
   WorkflowNodeDraft,
   WorkflowNodeTypeCatalogResponse,
   WorkflowNodeTypeResponse,
+  WorkflowOperationsBacklogResponse,
+  WorkflowOperationsStepResponse,
+  WorkflowOperationsStepsResponse,
+  WorkflowOperationsWorkResponse,
   WorkflowPositionCandidatePageResponse,
   WorkflowPositionCandidateResponse,
   WorkflowRecipientCandidatePageResponse,
@@ -753,6 +939,9 @@ import type {
   WorkflowRouteResolutionResponse,
   WorkflowRouteTargetResponse,
   WorkflowSignatureUploadResponse,
+  WorkflowSimulationResponse,
+  WorkflowSimulationSelectionsResponse,
+  WorkflowSimulationTraceResponse,
   WorkflowStarterSelectionDescriptorResponse,
   WorkflowStarterSelectionsResponse,
   WorkflowTaskProgressResponse,
@@ -787,11 +976,13 @@ import {
   readAiAgentReconciliationResponse,
   readAiAgentRunResponse,
   readAiAgentToolCatalogItem,
+  readAiAgentWorkflowProposalResponse,
   readAiCancelAgentRunResponse,
   readAiCancelChatGenerationResponse,
   readAiChatSessionResponse,
   readAiCleanupKnowledgeImportsResponse,
   readAiDeleteChatSessionResponse,
+  readAiDeleteKnowledgeFolderResponse,
   readAiDiscoverMcpRemoteToolsResponse,
   readAiFeedbackEvaluationAdmission,
   readAiFeedbackEvaluationCandidate,
@@ -802,8 +993,34 @@ import {
   readAiKnowledgeAnswerFeedbackReviewPage,
   readAiKnowledgeAnswerFeedbackStateResponse,
   readAiKnowledgeBaseResponse,
+  readAiKnowledgeCorrectionPreparationResponse,
+  readAiKnowledgeCorrectionRevisionPageResponse,
+  readAiKnowledgeCorrectionRevisionResponse,
+  readAiKnowledgeCorrectionWorkspaceResponse,
   readAiKnowledgeDocumentMembersResponse,
   readAiKnowledgeDocumentResponse,
+  readAiKnowledgeEvaluationCaseResult,
+  readAiKnowledgeEvaluationEntryPage,
+  readAiKnowledgeEvaluationMutation,
+  readAiKnowledgeEvaluationPage,
+  readAiKnowledgeEvaluationPreparedFeedback,
+  readAiKnowledgeEvaluationRun,
+  readAiKnowledgeEvaluationRunAdmission,
+  readAiKnowledgeEvaluationStrategy,
+  readAiKnowledgeEvaluationWorkspace,
+  readAiKnowledgeFaqDraftMutation,
+  readAiKnowledgeFaqDraftPage,
+  readAiKnowledgeFaqDraftRevisionPage,
+  readAiKnowledgeFaqDraftWorkspace,
+  readAiKnowledgeFaqFeedbackPreview,
+  readAiKnowledgeFaqImportReport,
+  readAiKnowledgeFaqIndexAdmission,
+  readAiKnowledgeFaqLifecycle,
+  readAiKnowledgeFaqPublication,
+  readAiKnowledgeFaqPublishedContent,
+  readAiKnowledgeFaqTransferPackage,
+  readAiKnowledgeFinanceReport,
+  readAiKnowledgeFolderResponse,
   readAiKnowledgeImportResponse,
   readAiKnowledgeIncrementalRecoveryResponse,
   readAiKnowledgeIndexChangePage,
@@ -812,19 +1029,33 @@ import {
   readAiKnowledgeIndexReconciliationResponse,
   readAiKnowledgeIndexStatusResponse,
   readAiKnowledgeMembersResponse,
+  readAiKnowledgeOperationsPage,
   readAiKnowledgeOrganizationGrantsResponse,
+  readAiKnowledgePublicationHeadResponse,
+  readAiKnowledgePublicationResponse,
+  readAiKnowledgeQualityObservation,
   readAiKnowledgeRoleGrantsResponse,
+  readAiKnowledgeSearchComparisonResponse,
+  readAiKnowledgeSearchContextResponse,
+  readAiKnowledgeSearchRefinementResponse,
+  readAiKnowledgeSearchRelationsResponse,
+  readAiKnowledgeSearchResponse,
   readAiListAgentDelegationsResponse,
   readAiListAgentToolsResponse,
+  readAiListKnowledgeFoldersResponse,
   readAiListKnowledgeIndexGrantsResponse,
   readAiListMcpRemoteConnectionsResponse,
   readAiListMcpRemoteToolApprovalsResponse,
   readAiMcpRemoteConnectionResponse,
   readAiMcpRemoteToolApprovalItem,
   readAiModelConfigResponse,
+  readAiPersonalScheduleCompletionProposal,
+  readAiPersonalScheduleCompletionStatus,
+  readAiPersonalScheduleSourcePreview,
   readAiPromptResponse,
   readAiReconcileAgentRunResponse,
   readAiResumeAgentRunResponse,
+  readAiSetKnowledgeDirectoryBatchResponse,
   readAiTenantQuotaResponse,
   readAskAiKnowledgeResponse,
   readAuthenticationEventCursorPage,
@@ -845,21 +1076,28 @@ import {
   readCodeGenerationListCatalogTablesResponse,
   readCodeGenerationListCatalogViewsResponse,
   readCodeGenerationPreviewResponse,
+  readCodeGenerationRunApplyPlanResponse,
   readCodeGenerationRunApplyResponse,
   readCodeGenerationRunPreviewResponse,
+  readCodeGenerationRunPublicationResponse,
   readCodeGenerationRunRollbackChainResponse,
   readCodeGenerationRunRollbackResponse,
   readCodeGenerationTemplateResponse,
+  readCodeGenerationWorkspaceStateResponse,
   readConfigEntryResponse,
   readCreateAiAgentApprovalResponse,
   readCreateAiAgentDelegationResponse,
   readCreateAiAgentRunResponse,
   readCreateHostApiKeyResponse,
   readCurrentUserResponse,
+  readCursorPageOfImportExportTaskResponse,
+  readCursorPageOfQuerySchemeSummary,
+  readCursorPageOfReportingExportTaskResponse,
   readCutoverEvidenceResponse,
   readDataApprovalRequestResponse,
   readDataApprovalScenarioResponse,
   readDataApprovalsListScenariosResponse,
+  readDefaultQuerySchemeResponse,
   readDeliveryCutoverResponse,
   readDeliveryRollbackResponse,
   readDeliveryStatusResponse,
@@ -874,7 +1112,13 @@ import {
   readDocumentHostListTagsResponse,
   readDocumentHostPurgeRecycleBinItemResponse,
   readDocumentHostSetDocumentPermissionsResponse,
+  readDocumentPreviewCapabilities,
+  readEnterpriseRequestAttachmentResponse,
+  readEnterpriseRequestDeleteAttachmentResponse,
+  readEnterpriseRequestPrintResponse,
+  readEnterpriseRequestReportResponse,
   readEnterpriseRequestResponse,
+  readEnterpriseRequestSearchPage,
   readEnumCatalogDetail,
   readEnumCatalogDictGenerationPreview,
   readEnumCatalogDictGenerationResult,
@@ -889,7 +1133,9 @@ import {
   readHostDashboardSummaryResponse,
   readHostDocumentCategoryResponse,
   readHostDocumentItemResponse,
+  readHostDocumentPermissionContext,
   readHostDocumentPreviewTaskResponse,
+  readHostDocumentSearchPage,
   readHostDocumentShareAccessResponse,
   readHostDocumentShareResponse,
   readHostDocumentStatisticsResponse,
@@ -927,10 +1173,13 @@ import {
   readIdentitySessionPolicyResponse,
   readImportAdministrativeRegionsApplyResponse,
   readImportAdministrativeRegionsPreviewResponse,
+  readImportExportDeleteMyImportProfileResponse,
+  readImportExportListMyImportProfilesResponse,
   readImportExportListStaticSchemasResponse,
   readImportExportTaskDetailResponse,
   readImportHostUsersResponse,
   readImportOrganizationPositionsResponse,
+  readImportProfileDetail,
   readInboxMessageResponse,
   readInboxUnreadCountResponse,
   readJobsListHostJobGroupsResponse,
@@ -979,6 +1228,7 @@ import {
   readPagedResultOfAiAgentToolCallListItem,
   readPagedResultOfAiChatSessionListItem,
   readPagedResultOfAiKnowledgeBaseResponse,
+  readPagedResultOfAiKnowledgeDirectoryResponse,
   readPagedResultOfAiKnowledgeDocumentResponse,
   readPagedResultOfAiKnowledgeOrganizationCandidateResponse,
   readPagedResultOfAiKnowledgeRoleCandidateResponse,
@@ -993,6 +1243,8 @@ import {
   readPagedResultOfDataApprovalRequestResponse,
   readPagedResultOfDictItemResponse,
   readPagedResultOfDictTypeResponse,
+  readPagedResultOfEnterpriseRequestAttachmentResponse,
+  readPagedResultOfEnterpriseRequestReportResponse,
   readPagedResultOfEnterpriseRequestResponse,
   readPagedResultOfExceptionLogResponse,
   readPagedResultOfGoViewProjectSummaryResponse,
@@ -1047,8 +1299,10 @@ import {
   readPagedResultOfReceivedHostAnnouncementListItemResponse,
   readPagedResultOfReportingDataSourceListItem,
   readPagedResultOfReportingDefinitionSummaryResponse,
+  readPagedResultOfReportingDefinitionTenantGrantResponse,
   readPagedResultOfReportingDefinitionVersionSummaryResponse,
   readPagedResultOfReportingExportTaskResponse,
+  readPagedResultOfReportingPublishedDefinitionResponse,
   readPagedResultOfSerialNumberRuleResponse,
   readPagedResultOfTenantPackageSummary,
   readPagedResultOfTenantSummary,
@@ -1064,6 +1318,8 @@ import {
   readPrintingTemplatePreviewResponse,
   readPrintingTemplateResponse,
   readPrintingTemplateVersionResponse,
+  readQuerySchemeDefinition,
+  readQuerySchemeDetail,
   readReceivedHostAnnouncementDetailResponse,
   readRecipientEndpointResponse,
   readRecoverDeadLetterResponse,
@@ -1071,6 +1327,7 @@ import {
   readRegionsListAdministrativeRegionChildrenResponse,
   readReportingDataSourceResponse,
   readReportingDefinitionResponse,
+  readReportingDefinitionTenantGrantResponse,
   readReportingDefinitionVersionResponse,
   readReportingDeleteDataSourceResponse,
   readReportingDeleteDefinitionResponse,
@@ -1094,6 +1351,7 @@ import {
   readSerialRuleUpdateApprovalSubmissionResponse,
   readServerRuntimeSnapshot,
   readSettingsBatchUpdateHostConfigEntryValuesResponse,
+  readSettingsDeleteQuerySchemeResponse,
   readSettingsListAllHostConfigEntriesResponse,
   readSettingsListAllHostDictTypesResponse,
   readSettingsListAllTenantDictTypesResponse,
@@ -1103,10 +1361,15 @@ import {
   readSettingsListTenantDictItemsByTypeCodeResponse,
   readShadowCaptureResponse,
   readStaticImportSchemaDefinition,
+  readSubscriptionCheckoutResponse,
+  readSubscriptionFulfillmentStatusResponse,
   readSuperAdministratorChangeResponse,
+  readTenancyListEntitlementCatalogResponse,
   readTenantBrandingResponse,
+  readTenantPackageOfferResponse,
   readTenantPackageSummary,
   readTenantRuntimeBrandingResponse,
+  readTenantSubscriptionPaymentTerms,
   readTenantSummary,
   readTestAiModelConfigResult,
   readTestAiModelEmbeddingResult,
@@ -1119,6 +1382,7 @@ import {
   readWorkflowBusinessActionCatalogResponse,
   readWorkflowCcReadResponse,
   readWorkflowClaimPoolPageResponse,
+  readWorkflowCollaborationGrantResponse,
   readWorkflowConnectorCallPageResponse,
   readWorkflowConnectorCallResponse,
   readWorkflowConnectorCatalogResponse,
@@ -1126,6 +1390,7 @@ import {
   readWorkflowDefinitionResponse,
   readWorkflowDefinitionVersionResponse,
   readWorkflowDesignerAssetResponse,
+  readWorkflowFormAttachmentUploadResponse,
   readWorkflowFormComponentCatalogResponse,
   readWorkflowFormResponse,
   readWorkflowFormVersionResponse,
@@ -1140,12 +1405,16 @@ import {
   readWorkflowManualReminderResponse,
   readWorkflowManualReminderTargetsResponse,
   readWorkflowNodeTypeCatalogResponse,
+  readWorkflowOperationsBacklogResponse,
+  readWorkflowOperationsStepsResponse,
   readWorkflowPositionCandidatePageResponse,
   readWorkflowRecipientCandidatePageResponse,
   readWorkflowRecoveryTaskResponse,
   readWorkflowRouteDecisionResponse,
   readWorkflowRouteResolutionResponse,
   readWorkflowSignatureUploadResponse,
+  readWorkflowSimulationResponse,
+  readWorkflowSimulationSelectionsResponse,
   readWorkflowStarterSelectionsResponse,
   readWorkflowTodoCountersignChainResponse,
   readWorkflowTodoDelegationStateResponse,
@@ -1186,6 +1455,30 @@ export async function aiAdmitFeedbackEvaluationCandidate(
   return readAiFeedbackEvaluationAdmission(value);
 }
 
+export interface AiAppendKnowledgeEvaluationSetParameters {
+  readonly knowledgeBaseId: string;
+  readonly setId: string;
+  readonly body: SaveAiKnowledgeEvaluationSet;
+}
+
+export async function aiAppendKnowledgeEvaluationSet(
+  http: HttpClient,
+  parameters: AiAppendKnowledgeEvaluationSetParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<AiKnowledgeEvaluationMutation> {
+  const path = `/api/v1/ai/knowledge-bases/${encodeURIComponent(String(parameters.knowledgeBaseId))}/evaluation-sets/${encodeURIComponent(String(parameters.setId))}`;
+  const init: RequestInit = {
+    method: 'PUT',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readAiKnowledgeEvaluationMutation(value);
+}
+
 export interface AiAppendPromptVersionParameters {
   readonly promptId: string;
   readonly body: AppendAiPromptVersionRequest;
@@ -1207,6 +1500,30 @@ export async function aiAppendPromptVersion(
     ? await http.request<unknown>(path, init, signal)
     : await http.request<unknown>(path, init, signal, options);
   return readAiPromptResponse(value);
+}
+
+export interface AiApproveKnowledgeEvaluationSetParameters {
+  readonly knowledgeBaseId: string;
+  readonly setId: string;
+  readonly body: ReviewAiKnowledgeEvaluationSet;
+}
+
+export async function aiApproveKnowledgeEvaluationSet(
+  http: HttpClient,
+  parameters: AiApproveKnowledgeEvaluationSetParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<AiKnowledgeEvaluationMutation> {
+  const path = `/api/v1/ai/knowledge-bases/${encodeURIComponent(String(parameters.knowledgeBaseId))}/evaluation-sets/${encodeURIComponent(String(parameters.setId))}/approvals`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readAiKnowledgeEvaluationMutation(value);
 }
 
 export interface AiApproveMcpRemoteToolParameters {
@@ -1291,6 +1608,30 @@ export async function aiCancelChatGeneration(
   return readAiCancelChatGenerationResponse(value);
 }
 
+export interface AiCaptureKnowledgeEvaluationStrategyParameters {
+  readonly knowledgeBaseId: string;
+  readonly strategyId: string;
+  readonly body: CaptureAiKnowledgeEvaluationStrategy;
+}
+
+export async function aiCaptureKnowledgeEvaluationStrategy(
+  http: HttpClient,
+  parameters: AiCaptureKnowledgeEvaluationStrategyParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<AiKnowledgeEvaluationStrategy> {
+  const path = `/api/v1/ai/knowledge-bases/${encodeURIComponent(String(parameters.knowledgeBaseId))}/evaluation-strategies/${encodeURIComponent(String(parameters.strategyId))}`;
+  const init: RequestInit = {
+    method: 'PUT',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readAiKnowledgeEvaluationStrategy(value);
+}
+
 export interface AiCleanupKnowledgeImportsParameters {
   readonly knowledgeBaseId: string;
   readonly documentId: string;
@@ -1308,6 +1649,101 @@ export async function aiCleanupKnowledgeImports(
     ? await http.request<unknown>(path, init, signal)
     : await http.request<unknown>(path, init, signal, options);
   return readAiCleanupKnowledgeImportsResponse(value);
+}
+
+export interface AiCloseUnknownKnowledgeEvaluationCaseParameters {
+  readonly knowledgeBaseId: string;
+  readonly runId: string;
+  readonly caseId: string;
+  readonly body: ExecuteAiKnowledgeEvaluationCase;
+}
+
+export async function aiCloseUnknownKnowledgeEvaluationCase(
+  http: HttpClient,
+  parameters: AiCloseUnknownKnowledgeEvaluationCaseParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<AiKnowledgeEvaluationCaseResult> {
+  const path = `/api/v1/ai/knowledge-bases/${encodeURIComponent(String(parameters.knowledgeBaseId))}/evaluation-runs/${encodeURIComponent(String(parameters.runId))}/cases/${encodeURIComponent(String(parameters.caseId))}/close-unknown`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readAiKnowledgeEvaluationCaseResult(value);
+}
+
+export interface AiCompareKnowledgeSearchParameters {
+  readonly body: CompareAiKnowledgeSearchRequest;
+}
+
+export async function aiCompareKnowledgeSearch(
+  http: HttpClient,
+  parameters: AiCompareKnowledgeSearchParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<AiKnowledgeSearchComparisonResponse> {
+  const path = `/api/v1/ai/knowledge-search/compare`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readAiKnowledgeSearchComparisonResponse(value);
+}
+
+export interface AiCopyKnowledgeEvaluationSetParameters {
+  readonly knowledgeBaseId: string;
+  readonly setId: string;
+  readonly body: CopyAiKnowledgeEvaluationSet;
+}
+
+export async function aiCopyKnowledgeEvaluationSet(
+  http: HttpClient,
+  parameters: AiCopyKnowledgeEvaluationSetParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<AiKnowledgeEvaluationMutation> {
+  const path = `/api/v1/ai/knowledge-bases/${encodeURIComponent(String(parameters.knowledgeBaseId))}/evaluation-sets/${encodeURIComponent(String(parameters.setId))}/copy`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readAiKnowledgeEvaluationMutation(value);
+}
+
+export interface AiCopyKnowledgeFaqDraftParameters {
+  readonly knowledgeBaseId: string;
+  readonly faqId: string;
+  readonly body: CopyAiKnowledgeFaqDraft;
+}
+
+export async function aiCopyKnowledgeFaqDraft(
+  http: HttpClient,
+  parameters: AiCopyKnowledgeFaqDraftParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<AiKnowledgeFaqDraftMutation> {
+  const path = `/api/v1/ai/knowledge-bases/${encodeURIComponent(String(parameters.knowledgeBaseId))}/faq-drafts/${encodeURIComponent(String(parameters.faqId))}/copy`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readAiKnowledgeFaqDraftMutation(value);
 }
 
 export interface AiCreateAgentApprovalParameters {
@@ -1398,6 +1834,98 @@ export async function aiCreateChatSession(
   return readAiChatSessionResponse(value);
 }
 
+export interface AiCreateDerivedKnowledgeFaqDraftParameters {
+  readonly knowledgeBaseId: string;
+  readonly body: CreateAiKnowledgeFaqDerivedDraft;
+}
+
+export async function aiCreateDerivedKnowledgeFaqDraft(
+  http: HttpClient,
+  parameters: AiCreateDerivedKnowledgeFaqDraftParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<AiKnowledgeFaqDraftMutation> {
+  const path = `/api/v1/ai/knowledge-bases/${encodeURIComponent(String(parameters.knowledgeBaseId))}/faq-drafts/from-sources`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readAiKnowledgeFaqDraftMutation(value);
+}
+
+export interface AiCreateDocumentKnowledgeFaqDraftParameters {
+  readonly knowledgeBaseId: string;
+  readonly body: CreateAiKnowledgeFaqDocumentDraft;
+}
+
+export async function aiCreateDocumentKnowledgeFaqDraft(
+  http: HttpClient,
+  parameters: AiCreateDocumentKnowledgeFaqDraftParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<AiKnowledgeFaqDraftMutation> {
+  const path = `/api/v1/ai/knowledge-bases/${encodeURIComponent(String(parameters.knowledgeBaseId))}/faq-drafts/from-documents`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readAiKnowledgeFaqDraftMutation(value);
+}
+
+export interface AiCreateFeedbackKnowledgeFaqDraftParameters {
+  readonly knowledgeBaseId: string;
+  readonly body: CreateAiKnowledgeFaqFeedbackDraft;
+}
+
+export async function aiCreateFeedbackKnowledgeFaqDraft(
+  http: HttpClient,
+  parameters: AiCreateFeedbackKnowledgeFaqDraftParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<AiKnowledgeFaqDraftMutation> {
+  const path = `/api/v1/ai/knowledge-bases/${encodeURIComponent(String(parameters.knowledgeBaseId))}/faq-drafts/from-feedback`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readAiKnowledgeFaqDraftMutation(value);
+}
+
+export interface AiCreateIndependentKnowledgeFaqDraftParameters {
+  readonly knowledgeBaseId: string;
+  readonly body: CreateAiKnowledgeFaqIndependentDraft;
+}
+
+export async function aiCreateIndependentKnowledgeFaqDraft(
+  http: HttpClient,
+  parameters: AiCreateIndependentKnowledgeFaqDraftParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<AiKnowledgeFaqDraftMutation> {
+  const path = `/api/v1/ai/knowledge-bases/${encodeURIComponent(String(parameters.knowledgeBaseId))}/faq-drafts/independent`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readAiKnowledgeFaqDraftMutation(value);
+}
+
 export interface AiCreateKnowledgeBaseParameters {
   readonly body: CreateAiKnowledgeBaseRequest;
 }
@@ -1441,6 +1969,76 @@ export async function aiCreateKnowledgeDocument(
     ? await http.request<unknown>(path, init, signal)
     : await http.request<unknown>(path, init, signal, options);
   return readAiKnowledgeDocumentResponse(value);
+}
+
+export interface AiCreateKnowledgeEvaluationRunParameters {
+  readonly knowledgeBaseId: string;
+  readonly strategyId: string;
+  readonly body: CreateAiKnowledgeEvaluationRun;
+}
+
+export async function aiCreateKnowledgeEvaluationRun(
+  http: HttpClient,
+  parameters: AiCreateKnowledgeEvaluationRunParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<AiKnowledgeEvaluationRun> {
+  const path = `/api/v1/ai/knowledge-bases/${encodeURIComponent(String(parameters.knowledgeBaseId))}/evaluation-strategies/${encodeURIComponent(String(parameters.strategyId))}/runs`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readAiKnowledgeEvaluationRun(value);
+}
+
+export interface AiCreateKnowledgeEvaluationSetParameters {
+  readonly knowledgeBaseId: string;
+  readonly body: SaveAiKnowledgeEvaluationSet;
+}
+
+export async function aiCreateKnowledgeEvaluationSet(
+  http: HttpClient,
+  parameters: AiCreateKnowledgeEvaluationSetParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<AiKnowledgeEvaluationMutation> {
+  const path = `/api/v1/ai/knowledge-bases/${encodeURIComponent(String(parameters.knowledgeBaseId))}/evaluation-sets`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readAiKnowledgeEvaluationMutation(value);
+}
+
+export interface AiCreateKnowledgeFolderParameters {
+  readonly knowledgeBaseId: string;
+  readonly body: SaveAiKnowledgeFolder;
+}
+
+export async function aiCreateKnowledgeFolder(
+  http: HttpClient,
+  parameters: AiCreateKnowledgeFolderParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<AiKnowledgeFolderResponse> {
+  const path = `/api/v1/ai/knowledge-bases/${encodeURIComponent(String(parameters.knowledgeBaseId))}/folders`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readAiKnowledgeFolderResponse(value);
 }
 
 export interface AiCreateKnowledgeIndexGrantParameters {
@@ -1621,6 +2219,30 @@ export async function aiDeleteKnowledgeDocument(
   }
 }
 
+export interface AiDeleteKnowledgeFolderParameters {
+  readonly knowledgeBaseId: string;
+  readonly folderId: string;
+  readonly body: DeleteAiKnowledgeFolder;
+}
+
+export async function aiDeleteKnowledgeFolder(
+  http: HttpClient,
+  parameters: AiDeleteKnowledgeFolderParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<boolean> {
+  const path = `/api/v1/ai/knowledge-bases/${encodeURIComponent(String(parameters.knowledgeBaseId))}/folders/${encodeURIComponent(String(parameters.folderId))}`;
+  const init: RequestInit = {
+    method: 'DELETE',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readAiDeleteKnowledgeFolderResponse(value);
+}
+
 export interface AiDisableModelConfigParameters {
   readonly modelConfigId: string;
 }
@@ -1679,6 +2301,31 @@ export async function aiDownloadKnowledgeSource(
     : await http.requestBlob(path, init, signal, options);
 }
 
+export interface AiEditKnowledgeCorrectionParameters {
+  readonly knowledgeBaseId: string;
+  readonly documentId: string;
+  readonly versionId: string;
+  readonly body: AiKnowledgeCorrectionEditRequest;
+}
+
+export async function aiEditKnowledgeCorrection(
+  http: HttpClient,
+  parameters: AiEditKnowledgeCorrectionParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<AiKnowledgeCorrectionRevisionResponse> {
+  const path = `/api/v1/ai/knowledge-bases/${encodeURIComponent(String(parameters.knowledgeBaseId))}/documents/${encodeURIComponent(String(parameters.documentId))}/versions/${encodeURIComponent(String(parameters.versionId))}/corrections/revisions`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readAiKnowledgeCorrectionRevisionResponse(value);
+}
+
 export interface AiEnqueueKnowledgeIndexParameters {
   readonly knowledgeBaseId: string;
   readonly documentId: string;
@@ -1699,6 +2346,31 @@ export async function aiEnqueueKnowledgeIndex(
   return readAiKnowledgeIndexEnqueueResponse(value);
 }
 
+export interface AiExecuteKnowledgeEvaluationCaseParameters {
+  readonly knowledgeBaseId: string;
+  readonly runId: string;
+  readonly caseId: string;
+  readonly body: ExecuteAiKnowledgeEvaluationCase;
+}
+
+export async function aiExecuteKnowledgeEvaluationCase(
+  http: HttpClient,
+  parameters: AiExecuteKnowledgeEvaluationCaseParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<AiKnowledgeEvaluationCaseResult> {
+  const path = `/api/v1/ai/knowledge-bases/${encodeURIComponent(String(parameters.knowledgeBaseId))}/evaluation-runs/${encodeURIComponent(String(parameters.runId))}/cases/${encodeURIComponent(String(parameters.caseId))}/execute`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readAiKnowledgeEvaluationCaseResult(value);
+}
+
 export interface AiExportKnowledgeAnswerFeedbackLabelsParameters {
 
 }
@@ -1715,6 +2387,29 @@ export async function aiExportKnowledgeAnswerFeedbackLabels(
     ? await http.request<unknown>(path, init, signal)
     : await http.request<unknown>(path, init, signal, options);
   return readAiKnowledgeAnswerFeedbackExportResponse(value);
+}
+
+export interface AiExportKnowledgeFaqsParameters {
+  readonly knowledgeBaseId: string;
+  readonly body: ExportAiKnowledgeFaqs;
+}
+
+export async function aiExportKnowledgeFaqs(
+  http: HttpClient,
+  parameters: AiExportKnowledgeFaqsParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<AiKnowledgeFaqTransferPackage> {
+  const path = `/api/v1/ai/knowledge-bases/${encodeURIComponent(String(parameters.knowledgeBaseId))}/faq-transfer/export`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readAiKnowledgeFaqTransferPackage(value);
 }
 
 export interface AiGetAgentApprovalParameters {
@@ -1787,6 +2482,24 @@ export async function aiGetAgentTool(
     ? await http.request<unknown>(path, init, signal)
     : await http.request<unknown>(path, init, signal, options);
   return readAiAgentToolCatalogItem(value);
+}
+
+export interface AiGetAgentWorkflowProposalParameters {
+  readonly runId: string;
+}
+
+export async function aiGetAgentWorkflowProposal(
+  http: HttpClient,
+  parameters: AiGetAgentWorkflowProposalParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<AiAgentWorkflowProposalResponse> {
+  const path = `/api/v1/ai/agent/runs/${encodeURIComponent(String(parameters.runId))}/workflow-proposal`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readAiAgentWorkflowProposalResponse(value);
 }
 
 export interface AiGetChatSessionParameters {
@@ -1894,6 +2607,60 @@ export async function aiGetKnowledgeBase(
   return readAiKnowledgeBaseResponse(value);
 }
 
+export interface AiGetKnowledgeCorrectionPreparationParameters {
+  readonly knowledgeBaseId: string;
+  readonly documentId: string;
+  readonly versionId: string;
+  readonly preparationId: string;
+}
+
+export async function aiGetKnowledgeCorrectionPreparation(
+  http: HttpClient,
+  parameters: AiGetKnowledgeCorrectionPreparationParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<AiKnowledgeCorrectionPreparationResponse> {
+  const path = `/api/v1/ai/knowledge-bases/${encodeURIComponent(String(parameters.knowledgeBaseId))}/documents/${encodeURIComponent(String(parameters.documentId))}/versions/${encodeURIComponent(String(parameters.versionId))}/corrections/preparations/${encodeURIComponent(String(parameters.preparationId))}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readAiKnowledgeCorrectionPreparationResponse(value);
+}
+
+export interface AiGetKnowledgeCorrectionWorkspaceParameters {
+  readonly knowledgeBaseId: string;
+  readonly documentId: string;
+  readonly versionId: string;
+  readonly sourceId?: string;
+  readonly revisionId?: string;
+  readonly block?: number;
+}
+
+export async function aiGetKnowledgeCorrectionWorkspace(
+  http: HttpClient,
+  parameters: AiGetKnowledgeCorrectionWorkspaceParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<AiKnowledgeCorrectionWorkspaceResponse> {
+  const query = new URLSearchParams();
+  if (parameters.sourceId !== undefined) {
+    query.set('sourceId', String(parameters.sourceId));
+  }
+  if (parameters.revisionId !== undefined) {
+    query.set('revisionId', String(parameters.revisionId));
+  }
+  if (parameters.block !== undefined) {
+    query.set('block', String(parameters.block));
+  }
+  const path = query.size === 0 ? `/api/v1/ai/knowledge-bases/${encodeURIComponent(String(parameters.knowledgeBaseId))}/documents/${encodeURIComponent(String(parameters.documentId))}/versions/${encodeURIComponent(String(parameters.versionId))}/corrections/workspace` : `/api/v1/ai/knowledge-bases/${encodeURIComponent(String(parameters.knowledgeBaseId))}/documents/${encodeURIComponent(String(parameters.documentId))}/versions/${encodeURIComponent(String(parameters.versionId))}/corrections/workspace?${query.toString()}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readAiKnowledgeCorrectionWorkspaceResponse(value);
+}
+
 export interface AiGetKnowledgeDocumentParameters {
   readonly knowledgeBaseId: string;
   readonly documentId: string;
@@ -1968,6 +2735,181 @@ export async function aiGetKnowledgeDocumentRoles(
     ? await http.request<unknown>(path, init, signal)
     : await http.request<unknown>(path, init, signal, options);
   return readAiKnowledgeRoleGrantsResponse(value);
+}
+
+export interface AiGetKnowledgeEvaluationCaseParameters {
+  readonly knowledgeBaseId: string;
+  readonly runId: string;
+  readonly caseId: string;
+}
+
+export async function aiGetKnowledgeEvaluationCase(
+  http: HttpClient,
+  parameters: AiGetKnowledgeEvaluationCaseParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<AiKnowledgeEvaluationCaseResult> {
+  const path = `/api/v1/ai/knowledge-bases/${encodeURIComponent(String(parameters.knowledgeBaseId))}/evaluation-runs/${encodeURIComponent(String(parameters.runId))}/cases/${encodeURIComponent(String(parameters.caseId))}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readAiKnowledgeEvaluationCaseResult(value);
+}
+
+export interface AiGetKnowledgeEvaluationRunParameters {
+  readonly knowledgeBaseId: string;
+  readonly runId: string;
+}
+
+export async function aiGetKnowledgeEvaluationRun(
+  http: HttpClient,
+  parameters: AiGetKnowledgeEvaluationRunParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<AiKnowledgeEvaluationRun> {
+  const path = `/api/v1/ai/knowledge-bases/${encodeURIComponent(String(parameters.knowledgeBaseId))}/evaluation-runs/${encodeURIComponent(String(parameters.runId))}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readAiKnowledgeEvaluationRun(value);
+}
+
+export interface AiGetKnowledgeEvaluationSetParameters {
+  readonly knowledgeBaseId: string;
+  readonly setId: string;
+  readonly revisionId?: string;
+}
+
+export async function aiGetKnowledgeEvaluationSet(
+  http: HttpClient,
+  parameters: AiGetKnowledgeEvaluationSetParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<AiKnowledgeEvaluationWorkspace> {
+  const query = new URLSearchParams();
+  if (parameters.revisionId !== undefined) {
+    query.set('revisionId', String(parameters.revisionId));
+  }
+  const path = query.size === 0 ? `/api/v1/ai/knowledge-bases/${encodeURIComponent(String(parameters.knowledgeBaseId))}/evaluation-sets/${encodeURIComponent(String(parameters.setId))}` : `/api/v1/ai/knowledge-bases/${encodeURIComponent(String(parameters.knowledgeBaseId))}/evaluation-sets/${encodeURIComponent(String(parameters.setId))}?${query.toString()}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readAiKnowledgeEvaluationWorkspace(value);
+}
+
+export interface AiGetKnowledgeEvaluationStrategyParameters {
+  readonly knowledgeBaseId: string;
+  readonly strategyId: string;
+  readonly revisionId?: string;
+}
+
+export async function aiGetKnowledgeEvaluationStrategy(
+  http: HttpClient,
+  parameters: AiGetKnowledgeEvaluationStrategyParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<AiKnowledgeEvaluationStrategy> {
+  const query = new URLSearchParams();
+  if (parameters.revisionId !== undefined) {
+    query.set('revisionId', String(parameters.revisionId));
+  }
+  const path = query.size === 0 ? `/api/v1/ai/knowledge-bases/${encodeURIComponent(String(parameters.knowledgeBaseId))}/evaluation-strategies/${encodeURIComponent(String(parameters.strategyId))}` : `/api/v1/ai/knowledge-bases/${encodeURIComponent(String(parameters.knowledgeBaseId))}/evaluation-strategies/${encodeURIComponent(String(parameters.strategyId))}?${query.toString()}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readAiKnowledgeEvaluationStrategy(value);
+}
+
+export interface AiGetKnowledgeFaqDraftParameters {
+  readonly knowledgeBaseId: string;
+  readonly faqId: string;
+}
+
+export async function aiGetKnowledgeFaqDraft(
+  http: HttpClient,
+  parameters: AiGetKnowledgeFaqDraftParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<AiKnowledgeFaqDraftWorkspace> {
+  const path = `/api/v1/ai/knowledge-bases/${encodeURIComponent(String(parameters.knowledgeBaseId))}/faq-drafts/${encodeURIComponent(String(parameters.faqId))}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readAiKnowledgeFaqDraftWorkspace(value);
+}
+
+export interface AiGetKnowledgeFaqLifecycleParameters {
+  readonly knowledgeBaseId: string;
+  readonly faqId: string;
+}
+
+export async function aiGetKnowledgeFaqLifecycle(
+  http: HttpClient,
+  parameters: AiGetKnowledgeFaqLifecycleParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<AiKnowledgeFaqLifecycle> {
+  const path = `/api/v1/ai/knowledge-bases/${encodeURIComponent(String(parameters.knowledgeBaseId))}/faq-drafts/${encodeURIComponent(String(parameters.faqId))}/lifecycle`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readAiKnowledgeFaqLifecycle(value);
+}
+
+export interface AiGetKnowledgeFaqPublicationParameters {
+  readonly knowledgeBaseId: string;
+  readonly faqId: string;
+  readonly publicationId: string;
+}
+
+export async function aiGetKnowledgeFaqPublication(
+  http: HttpClient,
+  parameters: AiGetKnowledgeFaqPublicationParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<AiKnowledgeFaqPublication> {
+  const path = `/api/v1/ai/knowledge-bases/${encodeURIComponent(String(parameters.knowledgeBaseId))}/faq-drafts/${encodeURIComponent(String(parameters.faqId))}/publications/${encodeURIComponent(String(parameters.publicationId))}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readAiKnowledgeFaqPublication(value);
+}
+
+export interface AiGetKnowledgeFinanceParameters {
+  readonly knowledgeBaseId?: string;
+  readonly fromUtc?: string;
+  readonly toUtc?: string;
+}
+
+export async function aiGetKnowledgeFinance(
+  http: HttpClient,
+  parameters: AiGetKnowledgeFinanceParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<AiKnowledgeFinanceReport> {
+  const query = new URLSearchParams();
+  if (parameters.knowledgeBaseId !== undefined) {
+    query.set('knowledgeBaseId', String(parameters.knowledgeBaseId));
+  }
+  if (parameters.fromUtc !== undefined) {
+    query.set('fromUtc', String(parameters.fromUtc));
+  }
+  if (parameters.toUtc !== undefined) {
+    query.set('toUtc', String(parameters.toUtc));
+  }
+  const path = query.size === 0 ? `/api/v1/ai/knowledge-finance` : `/api/v1/ai/knowledge-finance?${query.toString()}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readAiKnowledgeFinanceReport(value);
 }
 
 export interface AiGetKnowledgeImportParameters {
@@ -2066,6 +3008,72 @@ export async function aiGetKnowledgeOrganizations(
   return readAiKnowledgeOrganizationGrantsResponse(value);
 }
 
+export interface AiGetKnowledgePublicationParameters {
+  readonly knowledgeBaseId: string;
+  readonly documentId: string;
+  readonly publicationId: string;
+}
+
+export async function aiGetKnowledgePublication(
+  http: HttpClient,
+  parameters: AiGetKnowledgePublicationParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<AiKnowledgePublicationResponse> {
+  const path = `/api/v1/ai/knowledge-bases/${encodeURIComponent(String(parameters.knowledgeBaseId))}/documents/${encodeURIComponent(String(parameters.documentId))}/publications/${encodeURIComponent(String(parameters.publicationId))}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readAiKnowledgePublicationResponse(value);
+}
+
+export interface AiGetKnowledgePublicationHeadParameters {
+  readonly knowledgeBaseId: string;
+  readonly documentId: string;
+}
+
+export async function aiGetKnowledgePublicationHead(
+  http: HttpClient,
+  parameters: AiGetKnowledgePublicationHeadParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<AiKnowledgePublicationHeadResponse> {
+  const path = `/api/v1/ai/knowledge-bases/${encodeURIComponent(String(parameters.knowledgeBaseId))}/documents/${encodeURIComponent(String(parameters.documentId))}/publications/head`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readAiKnowledgePublicationHeadResponse(value);
+}
+
+export interface AiGetKnowledgeQualityObservationsParameters {
+  readonly knowledgeBaseId: string;
+  readonly fromUtc?: string;
+  readonly toUtc?: string;
+}
+
+export async function aiGetKnowledgeQualityObservations(
+  http: HttpClient,
+  parameters: AiGetKnowledgeQualityObservationsParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<AiKnowledgeQualityObservation> {
+  const query = new URLSearchParams();
+  if (parameters.fromUtc !== undefined) {
+    query.set('fromUtc', String(parameters.fromUtc));
+  }
+  if (parameters.toUtc !== undefined) {
+    query.set('toUtc', String(parameters.toUtc));
+  }
+  const path = query.size === 0 ? `/api/v1/ai/knowledge-bases/${encodeURIComponent(String(parameters.knowledgeBaseId))}/quality-observations` : `/api/v1/ai/knowledge-bases/${encodeURIComponent(String(parameters.knowledgeBaseId))}/quality-observations?${query.toString()}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readAiKnowledgeQualityObservation(value);
+}
+
 export interface AiGetKnowledgeRolesParameters {
   readonly knowledgeBaseId: string;
 }
@@ -2082,6 +3090,26 @@ export async function aiGetKnowledgeRoles(
     ? await http.request<unknown>(path, init, signal)
     : await http.request<unknown>(path, init, signal, options);
   return readAiKnowledgeRoleGrantsResponse(value);
+}
+
+export interface AiGetLatestKnowledgeCorrectionPreparationParameters {
+  readonly knowledgeBaseId: string;
+  readonly documentId: string;
+  readonly versionId: string;
+}
+
+export async function aiGetLatestKnowledgeCorrectionPreparation(
+  http: HttpClient,
+  parameters: AiGetLatestKnowledgeCorrectionPreparationParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<AiKnowledgeCorrectionPreparationResponse> {
+  const path = `/api/v1/ai/knowledge-bases/${encodeURIComponent(String(parameters.knowledgeBaseId))}/documents/${encodeURIComponent(String(parameters.documentId))}/versions/${encodeURIComponent(String(parameters.versionId))}/corrections/preparations/latest`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readAiKnowledgeCorrectionPreparationResponse(value);
 }
 
 export interface AiGetMcpRemoteConnectionParameters {
@@ -2118,6 +3146,42 @@ export async function aiGetModelConfig(
     ? await http.request<unknown>(path, init, signal)
     : await http.request<unknown>(path, init, signal, options);
   return readAiModelConfigResponse(value);
+}
+
+export interface AiGetPersonalScheduleCompletionProposalParameters {
+  readonly runId: string;
+}
+
+export async function aiGetPersonalScheduleCompletionProposal(
+  http: HttpClient,
+  parameters: AiGetPersonalScheduleCompletionProposalParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<AiPersonalScheduleCompletionProposal> {
+  const path = `/api/v1/ai/agent/runs/${encodeURIComponent(String(parameters.runId))}/schedule-completion/proposal`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readAiPersonalScheduleCompletionProposal(value);
+}
+
+export interface AiGetPersonalScheduleCompletionStatusParameters {
+  readonly runId: string;
+}
+
+export async function aiGetPersonalScheduleCompletionStatus(
+  http: HttpClient,
+  parameters: AiGetPersonalScheduleCompletionStatusParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<AiPersonalScheduleCompletionStatus> {
+  const path = `/api/v1/ai/agent/runs/${encodeURIComponent(String(parameters.runId))}/schedule-completion`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readAiPersonalScheduleCompletionStatus(value);
 }
 
 export interface AiGetPromptExecutionStrategiesParameters {
@@ -2165,6 +3229,25 @@ export async function aiGetPromptVersions(
   return readPagedResultOfAiPromptVersionResponse(value);
 }
 
+export interface AiGetPublishedKnowledgeFaqParameters {
+  readonly knowledgeBaseId: string;
+  readonly faqId: string;
+}
+
+export async function aiGetPublishedKnowledgeFaq(
+  http: HttpClient,
+  parameters: AiGetPublishedKnowledgeFaqParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<AiKnowledgeFaqPublishedContent> {
+  const path = `/api/v1/ai/knowledge-bases/${encodeURIComponent(String(parameters.knowledgeBaseId))}/faqs/${encodeURIComponent(String(parameters.faqId))}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readAiKnowledgeFaqPublishedContent(value);
+}
+
 export interface AiGetTenantQuotaParameters {
   readonly tenantId: string;
 }
@@ -2181,6 +3264,53 @@ export async function aiGetTenantQuota(
     ? await http.request<unknown>(path, init, signal)
     : await http.request<unknown>(path, init, signal, options);
   return readAiTenantQuotaResponse(value);
+}
+
+export interface AiImportKnowledgeFaqsParameters {
+  readonly knowledgeBaseId: string;
+  readonly body: ImportAiKnowledgeFaqs;
+}
+
+export async function aiImportKnowledgeFaqs(
+  http: HttpClient,
+  parameters: AiImportKnowledgeFaqsParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<AiKnowledgeFaqImportReport> {
+  const path = `/api/v1/ai/knowledge-bases/${encodeURIComponent(String(parameters.knowledgeBaseId))}/faq-transfer/import`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readAiKnowledgeFaqImportReport(value);
+}
+
+export interface AiIndexKnowledgeFaqRevisionParameters {
+  readonly knowledgeBaseId: string;
+  readonly faqId: string;
+  readonly body: IndexAiKnowledgeFaqRevision;
+}
+
+export async function aiIndexKnowledgeFaqRevision(
+  http: HttpClient,
+  parameters: AiIndexKnowledgeFaqRevisionParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<AiKnowledgeFaqIndexAdmission> {
+  const path = `/api/v1/ai/knowledge-bases/${encodeURIComponent(String(parameters.knowledgeBaseId))}/faq-drafts/${encodeURIComponent(String(parameters.faqId))}/index`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readAiKnowledgeFaqIndexAdmission(value);
 }
 
 export interface AiListAgentDelegationsParameters {
@@ -2309,6 +3439,74 @@ export async function aiListKnowledgeBases(
   return readPagedResultOfAiKnowledgeBaseResponse(value);
 }
 
+export interface AiListKnowledgeCorrectionRevisionsParameters {
+  readonly knowledgeBaseId: string;
+  readonly documentId: string;
+  readonly versionId: string;
+  readonly beforeHeadVersion?: number;
+}
+
+export async function aiListKnowledgeCorrectionRevisions(
+  http: HttpClient,
+  parameters: AiListKnowledgeCorrectionRevisionsParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<AiKnowledgeCorrectionRevisionPageResponse> {
+  const query = new URLSearchParams();
+  if (parameters.beforeHeadVersion !== undefined) {
+    query.set('beforeHeadVersion', String(parameters.beforeHeadVersion));
+  }
+  const path = query.size === 0 ? `/api/v1/ai/knowledge-bases/${encodeURIComponent(String(parameters.knowledgeBaseId))}/documents/${encodeURIComponent(String(parameters.documentId))}/versions/${encodeURIComponent(String(parameters.versionId))}/corrections/revisions` : `/api/v1/ai/knowledge-bases/${encodeURIComponent(String(parameters.knowledgeBaseId))}/documents/${encodeURIComponent(String(parameters.documentId))}/versions/${encodeURIComponent(String(parameters.versionId))}/corrections/revisions?${query.toString()}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readAiKnowledgeCorrectionRevisionPageResponse(value);
+}
+
+export interface AiListKnowledgeDirectoryParameters {
+  readonly knowledgeBaseId: string;
+  readonly folderId?: string;
+  readonly tag?: string;
+  readonly responsibleUserId?: string;
+  readonly state?: string;
+  readonly page?: number;
+  readonly pageSize?: number;
+}
+
+export async function aiListKnowledgeDirectory(
+  http: HttpClient,
+  parameters: AiListKnowledgeDirectoryParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<PagedResultOfAiKnowledgeDirectoryResponse> {
+  const query = new URLSearchParams();
+  if (parameters.folderId !== undefined) {
+    query.set('folderId', String(parameters.folderId));
+  }
+  if (parameters.tag !== undefined) {
+    query.set('tag', String(parameters.tag));
+  }
+  if (parameters.responsibleUserId !== undefined) {
+    query.set('responsibleUserId', String(parameters.responsibleUserId));
+  }
+  if (parameters.state !== undefined) {
+    query.set('state', String(parameters.state));
+  }
+  if (parameters.page !== undefined) {
+    query.set('page', String(parameters.page));
+  }
+  if (parameters.pageSize !== undefined) {
+    query.set('pageSize', String(parameters.pageSize));
+  }
+  const path = query.size === 0 ? `/api/v1/ai/knowledge-bases/${encodeURIComponent(String(parameters.knowledgeBaseId))}/directory` : `/api/v1/ai/knowledge-bases/${encodeURIComponent(String(parameters.knowledgeBaseId))}/directory?${query.toString()}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readPagedResultOfAiKnowledgeDirectoryResponse(value);
+}
+
 export interface AiListKnowledgeDocumentOrganizationCandidatesParameters {
   readonly knowledgeBaseId: string;
   readonly documentId: string;
@@ -2392,6 +3590,140 @@ export async function aiListKnowledgeDocuments(
   return readPagedResultOfAiKnowledgeDocumentResponse(value);
 }
 
+export interface AiListKnowledgeEvaluationRunsParameters {
+  readonly knowledgeBaseId: string;
+  readonly afterId?: string;
+}
+
+export async function aiListKnowledgeEvaluationRuns(
+  http: HttpClient,
+  parameters: AiListKnowledgeEvaluationRunsParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<AiKnowledgeEvaluationEntryPage> {
+  const query = new URLSearchParams();
+  if (parameters.afterId !== undefined) {
+    query.set('afterId', String(parameters.afterId));
+  }
+  const path = query.size === 0 ? `/api/v1/ai/knowledge-bases/${encodeURIComponent(String(parameters.knowledgeBaseId))}/evaluation-runs` : `/api/v1/ai/knowledge-bases/${encodeURIComponent(String(parameters.knowledgeBaseId))}/evaluation-runs?${query.toString()}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readAiKnowledgeEvaluationEntryPage(value);
+}
+
+export interface AiListKnowledgeEvaluationSetsParameters {
+  readonly knowledgeBaseId: string;
+  readonly afterId?: string;
+}
+
+export async function aiListKnowledgeEvaluationSets(
+  http: HttpClient,
+  parameters: AiListKnowledgeEvaluationSetsParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<AiKnowledgeEvaluationPage> {
+  const query = new URLSearchParams();
+  if (parameters.afterId !== undefined) {
+    query.set('afterId', String(parameters.afterId));
+  }
+  const path = query.size === 0 ? `/api/v1/ai/knowledge-bases/${encodeURIComponent(String(parameters.knowledgeBaseId))}/evaluation-sets` : `/api/v1/ai/knowledge-bases/${encodeURIComponent(String(parameters.knowledgeBaseId))}/evaluation-sets?${query.toString()}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readAiKnowledgeEvaluationPage(value);
+}
+
+export interface AiListKnowledgeEvaluationStrategiesParameters {
+  readonly knowledgeBaseId: string;
+  readonly afterId?: string;
+}
+
+export async function aiListKnowledgeEvaluationStrategies(
+  http: HttpClient,
+  parameters: AiListKnowledgeEvaluationStrategiesParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<AiKnowledgeEvaluationEntryPage> {
+  const query = new URLSearchParams();
+  if (parameters.afterId !== undefined) {
+    query.set('afterId', String(parameters.afterId));
+  }
+  const path = query.size === 0 ? `/api/v1/ai/knowledge-bases/${encodeURIComponent(String(parameters.knowledgeBaseId))}/evaluation-strategies` : `/api/v1/ai/knowledge-bases/${encodeURIComponent(String(parameters.knowledgeBaseId))}/evaluation-strategies?${query.toString()}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readAiKnowledgeEvaluationEntryPage(value);
+}
+
+export interface AiListKnowledgeFaqDraftRevisionsParameters {
+  readonly knowledgeBaseId: string;
+  readonly faqId: string;
+  readonly afterId?: string;
+}
+
+export async function aiListKnowledgeFaqDraftRevisions(
+  http: HttpClient,
+  parameters: AiListKnowledgeFaqDraftRevisionsParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<AiKnowledgeFaqDraftRevisionPage> {
+  const query = new URLSearchParams();
+  if (parameters.afterId !== undefined) {
+    query.set('afterId', String(parameters.afterId));
+  }
+  const path = query.size === 0 ? `/api/v1/ai/knowledge-bases/${encodeURIComponent(String(parameters.knowledgeBaseId))}/faq-drafts/${encodeURIComponent(String(parameters.faqId))}/revisions` : `/api/v1/ai/knowledge-bases/${encodeURIComponent(String(parameters.knowledgeBaseId))}/faq-drafts/${encodeURIComponent(String(parameters.faqId))}/revisions?${query.toString()}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readAiKnowledgeFaqDraftRevisionPage(value);
+}
+
+export interface AiListKnowledgeFaqDraftsParameters {
+  readonly knowledgeBaseId: string;
+  readonly afterId?: string;
+}
+
+export async function aiListKnowledgeFaqDrafts(
+  http: HttpClient,
+  parameters: AiListKnowledgeFaqDraftsParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<AiKnowledgeFaqDraftPage> {
+  const query = new URLSearchParams();
+  if (parameters.afterId !== undefined) {
+    query.set('afterId', String(parameters.afterId));
+  }
+  const path = query.size === 0 ? `/api/v1/ai/knowledge-bases/${encodeURIComponent(String(parameters.knowledgeBaseId))}/faq-drafts` : `/api/v1/ai/knowledge-bases/${encodeURIComponent(String(parameters.knowledgeBaseId))}/faq-drafts?${query.toString()}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readAiKnowledgeFaqDraftPage(value);
+}
+
+export interface AiListKnowledgeFoldersParameters {
+  readonly knowledgeBaseId: string;
+}
+
+export async function aiListKnowledgeFolders(
+  http: HttpClient,
+  parameters: AiListKnowledgeFoldersParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<Array<AiKnowledgeFolderResponse>> {
+  const path = `/api/v1/ai/knowledge-bases/${encodeURIComponent(String(parameters.knowledgeBaseId))}/folders`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readAiListKnowledgeFoldersResponse(value);
+}
+
 export interface AiListKnowledgeIndexChangesParameters {
   readonly knowledgeBaseId: string;
   readonly afterDocumentId?: string;
@@ -2440,6 +3772,44 @@ export async function aiListKnowledgeIndexGrants(
     ? await http.request<unknown>(path, init, signal)
     : await http.request<unknown>(path, init, signal, options);
   return readAiListKnowledgeIndexGrantsResponse(value);
+}
+
+export interface AiListKnowledgeOperationsParameters {
+  readonly knowledgeBaseId?: string;
+  readonly afterId?: string;
+  readonly view?: string;
+  readonly fromUtc?: string;
+  readonly toUtc?: string;
+}
+
+export async function aiListKnowledgeOperations(
+  http: HttpClient,
+  parameters: AiListKnowledgeOperationsParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<AiKnowledgeOperationsPage> {
+  const query = new URLSearchParams();
+  if (parameters.knowledgeBaseId !== undefined) {
+    query.set('knowledgeBaseId', String(parameters.knowledgeBaseId));
+  }
+  if (parameters.afterId !== undefined) {
+    query.set('afterId', String(parameters.afterId));
+  }
+  if (parameters.view !== undefined) {
+    query.set('view', String(parameters.view));
+  }
+  if (parameters.fromUtc !== undefined) {
+    query.set('fromUtc', String(parameters.fromUtc));
+  }
+  if (parameters.toUtc !== undefined) {
+    query.set('toUtc', String(parameters.toUtc));
+  }
+  const path = query.size === 0 ? `/api/v1/ai/knowledge-operations` : `/api/v1/ai/knowledge-operations?${query.toString()}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readAiKnowledgeOperationsPage(value);
 }
 
 export interface AiListKnowledgeOrganizationCandidatesParameters {
@@ -2677,6 +4047,194 @@ export async function aiPrepareFeedbackEvaluationCandidate(
   return readAiFeedbackEvaluationCandidate(value);
 }
 
+export interface AiPrepareKnowledgeCorrectionParameters {
+  readonly knowledgeBaseId: string;
+  readonly documentId: string;
+  readonly versionId: string;
+  readonly body: AiKnowledgeCorrectionPrepareRequest;
+}
+
+export async function aiPrepareKnowledgeCorrection(
+  http: HttpClient,
+  parameters: AiPrepareKnowledgeCorrectionParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<AiKnowledgeCorrectionPreparationResponse> {
+  const path = `/api/v1/ai/knowledge-bases/${encodeURIComponent(String(parameters.knowledgeBaseId))}/documents/${encodeURIComponent(String(parameters.documentId))}/versions/${encodeURIComponent(String(parameters.versionId))}/corrections/prepare`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readAiKnowledgeCorrectionPreparationResponse(value);
+}
+
+export interface AiPrepareKnowledgeEvaluationFeedbackParameters {
+  readonly knowledgeBaseId: string;
+  readonly body: PrepareAiKnowledgeEvaluationFeedback;
+}
+
+export async function aiPrepareKnowledgeEvaluationFeedback(
+  http: HttpClient,
+  parameters: AiPrepareKnowledgeEvaluationFeedbackParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<AiKnowledgeEvaluationPreparedFeedback> {
+  const path = `/api/v1/ai/knowledge-bases/${encodeURIComponent(String(parameters.knowledgeBaseId))}/evaluation-sets/feedback-candidates`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readAiKnowledgeEvaluationPreparedFeedback(value);
+}
+
+export interface AiPreviewKnowledgeEvaluationRunParameters {
+  readonly knowledgeBaseId: string;
+  readonly strategyId: string;
+  readonly revisionId: string;
+}
+
+export async function aiPreviewKnowledgeEvaluationRun(
+  http: HttpClient,
+  parameters: AiPreviewKnowledgeEvaluationRunParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<AiKnowledgeEvaluationRunAdmission> {
+  const query = new URLSearchParams();
+  query.set('revisionId', String(parameters.revisionId));
+  const path = query.size === 0 ? `/api/v1/ai/knowledge-bases/${encodeURIComponent(String(parameters.knowledgeBaseId))}/evaluation-strategies/${encodeURIComponent(String(parameters.strategyId))}/admission` : `/api/v1/ai/knowledge-bases/${encodeURIComponent(String(parameters.knowledgeBaseId))}/evaluation-strategies/${encodeURIComponent(String(parameters.strategyId))}/admission?${query.toString()}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readAiKnowledgeEvaluationRunAdmission(value);
+}
+
+export interface AiPreviewKnowledgeFaqFeedbackParameters {
+  readonly knowledgeBaseId: string;
+  readonly body: PreviewAiKnowledgeFaqFeedback;
+}
+
+export async function aiPreviewKnowledgeFaqFeedback(
+  http: HttpClient,
+  parameters: AiPreviewKnowledgeFaqFeedbackParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<AiKnowledgeFaqFeedbackPreview> {
+  const path = `/api/v1/ai/knowledge-bases/${encodeURIComponent(String(parameters.knowledgeBaseId))}/faq-drafts/feedback-preview`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readAiKnowledgeFaqFeedbackPreview(value);
+}
+
+export interface AiPreviewKnowledgeFaqImportParameters {
+  readonly knowledgeBaseId: string;
+  readonly body: PreviewAiKnowledgeFaqImport;
+}
+
+export async function aiPreviewKnowledgeFaqImport(
+  http: HttpClient,
+  parameters: AiPreviewKnowledgeFaqImportParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<AiKnowledgeFaqImportReport> {
+  const path = `/api/v1/ai/knowledge-bases/${encodeURIComponent(String(parameters.knowledgeBaseId))}/faq-transfer/preview`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readAiKnowledgeFaqImportReport(value);
+}
+
+export interface AiPreviewPersonalScheduleSourcesParameters {
+  readonly body: PreviewAiPersonalScheduleSources;
+}
+
+export async function aiPreviewPersonalScheduleSources(
+  http: HttpClient,
+  parameters: AiPreviewPersonalScheduleSourcesParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<AiPersonalScheduleSourcePreview> {
+  const path = `/api/v1/ai/personal-schedule-assistant/sources/preview`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readAiPersonalScheduleSourcePreview(value);
+}
+
+export interface AiPublishKnowledgeFaqPublicationParameters {
+  readonly knowledgeBaseId: string;
+  readonly faqId: string;
+  readonly publicationId: string;
+  readonly body: PublishAiKnowledgePublication;
+}
+
+export async function aiPublishKnowledgeFaqPublication(
+  http: HttpClient,
+  parameters: AiPublishKnowledgeFaqPublicationParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<AiKnowledgeFaqPublication> {
+  const path = `/api/v1/ai/knowledge-bases/${encodeURIComponent(String(parameters.knowledgeBaseId))}/faq-drafts/${encodeURIComponent(String(parameters.faqId))}/publications/${encodeURIComponent(String(parameters.publicationId))}/publish`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readAiKnowledgeFaqPublication(value);
+}
+
+export interface AiPublishKnowledgePublicationParameters {
+  readonly knowledgeBaseId: string;
+  readonly documentId: string;
+  readonly publicationId: string;
+  readonly body: PublishAiKnowledgePublication;
+}
+
+export async function aiPublishKnowledgePublication(
+  http: HttpClient,
+  parameters: AiPublishKnowledgePublicationParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<AiKnowledgePublicationResponse> {
+  const path = `/api/v1/ai/knowledge-bases/${encodeURIComponent(String(parameters.knowledgeBaseId))}/documents/${encodeURIComponent(String(parameters.documentId))}/publications/${encodeURIComponent(String(parameters.publicationId))}/publish`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readAiKnowledgePublicationResponse(value);
+}
+
 export interface AiPublishPromptVersionParameters {
   readonly promptId: string;
   readonly body: SelectAiPromptVersionRequest;
@@ -2698,6 +4256,50 @@ export async function aiPublishPromptVersion(
     ? await http.request<unknown>(path, init, signal)
     : await http.request<unknown>(path, init, signal, options);
   return readAiPromptResponse(value);
+}
+
+export interface AiReadKnowledgeSearchContextParameters {
+  readonly body: ReadAiKnowledgeSearchContextRequest;
+}
+
+export async function aiReadKnowledgeSearchContext(
+  http: HttpClient,
+  parameters: AiReadKnowledgeSearchContextParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<AiKnowledgeSearchContextResponse> {
+  const path = `/api/v1/ai/knowledge-search/context`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readAiKnowledgeSearchContextResponse(value);
+}
+
+export interface AiReadKnowledgeSearchRelationsParameters {
+  readonly body: ReadAiKnowledgeSearchRelationsRequest;
+}
+
+export async function aiReadKnowledgeSearchRelations(
+  http: HttpClient,
+  parameters: AiReadKnowledgeSearchRelationsParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<AiKnowledgeSearchRelationsResponse> {
+  const path = `/api/v1/ai/knowledge-search/relations`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readAiKnowledgeSearchRelationsResponse(value);
 }
 
 export interface AiRebuildKnowledgeIndexParameters {
@@ -2748,6 +4350,24 @@ export async function aiReconcileAgentRun(
   return readAiReconcileAgentRunResponse(value);
 }
 
+export interface AiReconcilePersonalScheduleCompletionParameters {
+  readonly runId: string;
+}
+
+export async function aiReconcilePersonalScheduleCompletion(
+  http: HttpClient,
+  parameters: AiReconcilePersonalScheduleCompletionParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<AiPersonalScheduleCompletionStatus> {
+  const path = `/api/v1/ai/agent/runs/${encodeURIComponent(String(parameters.runId))}/schedule-completion/reconcile`;
+  const init: RequestInit = { method: 'POST' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readAiPersonalScheduleCompletionStatus(value);
+}
+
 export interface AiRecoverKnowledgeIndexChangesParameters {
   readonly knowledgeBaseId: string;
   readonly body: AiKnowledgeIncrementalRecoveryRequest;
@@ -2769,6 +4389,149 @@ export async function aiRecoverKnowledgeIndexChanges(
     ? await http.request<unknown>(path, init, signal)
     : await http.request<unknown>(path, init, signal, options);
   return readAiKnowledgeIncrementalRecoveryResponse(value);
+}
+
+export interface AiRefineKnowledgeSearchParameters {
+  readonly body: RefineAiKnowledgeSearchRequest;
+}
+
+export async function aiRefineKnowledgeSearch(
+  http: HttpClient,
+  parameters: AiRefineKnowledgeSearchParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<AiKnowledgeSearchRefinementResponse> {
+  const path = `/api/v1/ai/knowledge-search/refine`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readAiKnowledgeSearchRefinementResponse(value);
+}
+
+export interface AiRequestKnowledgeFaqPublicationParameters {
+  readonly knowledgeBaseId: string;
+  readonly faqId: string;
+  readonly body: RequestAiKnowledgeFaqPublication;
+}
+
+export async function aiRequestKnowledgeFaqPublication(
+  http: HttpClient,
+  parameters: AiRequestKnowledgeFaqPublicationParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<AiKnowledgeFaqPublication> {
+  const path = `/api/v1/ai/knowledge-bases/${encodeURIComponent(String(parameters.knowledgeBaseId))}/faq-drafts/${encodeURIComponent(String(parameters.faqId))}/publication-requests`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readAiKnowledgeFaqPublication(value);
+}
+
+export interface AiRequestKnowledgePublicationParameters {
+  readonly knowledgeBaseId: string;
+  readonly documentId: string;
+  readonly body: RequestAiKnowledgePublication;
+}
+
+export async function aiRequestKnowledgePublication(
+  http: HttpClient,
+  parameters: AiRequestKnowledgePublicationParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<AiKnowledgePublicationResponse> {
+  const path = `/api/v1/ai/knowledge-bases/${encodeURIComponent(String(parameters.knowledgeBaseId))}/documents/${encodeURIComponent(String(parameters.documentId))}/publications`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readAiKnowledgePublicationResponse(value);
+}
+
+export interface AiRestoreKnowledgeCorrectionParameters {
+  readonly knowledgeBaseId: string;
+  readonly documentId: string;
+  readonly versionId: string;
+  readonly body: AiKnowledgeCorrectionRestoreRequest;
+}
+
+export async function aiRestoreKnowledgeCorrection(
+  http: HttpClient,
+  parameters: AiRestoreKnowledgeCorrectionParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<AiKnowledgeCorrectionRevisionResponse> {
+  const path = `/api/v1/ai/knowledge-bases/${encodeURIComponent(String(parameters.knowledgeBaseId))}/documents/${encodeURIComponent(String(parameters.documentId))}/versions/${encodeURIComponent(String(parameters.versionId))}/corrections/restore`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readAiKnowledgeCorrectionRevisionResponse(value);
+}
+
+export interface AiRestoreKnowledgeEvaluationSetParameters {
+  readonly knowledgeBaseId: string;
+  readonly setId: string;
+  readonly body: RestoreAiKnowledgeEvaluationSet;
+}
+
+export async function aiRestoreKnowledgeEvaluationSet(
+  http: HttpClient,
+  parameters: AiRestoreKnowledgeEvaluationSetParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<AiKnowledgeEvaluationMutation> {
+  const path = `/api/v1/ai/knowledge-bases/${encodeURIComponent(String(parameters.knowledgeBaseId))}/evaluation-sets/${encodeURIComponent(String(parameters.setId))}/restore`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readAiKnowledgeEvaluationMutation(value);
+}
+
+export interface AiRestoreKnowledgeFaqDraftParameters {
+  readonly knowledgeBaseId: string;
+  readonly faqId: string;
+  readonly body: RestoreAiKnowledgeFaqDraft;
+}
+
+export async function aiRestoreKnowledgeFaqDraft(
+  http: HttpClient,
+  parameters: AiRestoreKnowledgeFaqDraftParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<AiKnowledgeFaqDraftMutation> {
+  const path = `/api/v1/ai/knowledge-bases/${encodeURIComponent(String(parameters.knowledgeBaseId))}/faq-drafts/${encodeURIComponent(String(parameters.faqId))}/restore`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readAiKnowledgeFaqDraftMutation(value);
 }
 
 export interface AiResumeAgentRunParameters {
@@ -2853,6 +4616,81 @@ export async function aiReviewKnowledgeAnswerFeedback(
   return readAiKnowledgeAnswerFeedbackReviewItem(value);
 }
 
+export interface AiReviewKnowledgeEvaluationCaseParameters {
+  readonly knowledgeBaseId: string;
+  readonly runId: string;
+  readonly caseId: string;
+  readonly body: ReviewAiKnowledgeEvaluationResult;
+}
+
+export async function aiReviewKnowledgeEvaluationCase(
+  http: HttpClient,
+  parameters: AiReviewKnowledgeEvaluationCaseParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<AiKnowledgeEvaluationCaseResult> {
+  const path = `/api/v1/ai/knowledge-bases/${encodeURIComponent(String(parameters.knowledgeBaseId))}/evaluation-runs/${encodeURIComponent(String(parameters.runId))}/cases/${encodeURIComponent(String(parameters.caseId))}/reviews`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readAiKnowledgeEvaluationCaseResult(value);
+}
+
+export interface AiReviewKnowledgeFaqPublicationParameters {
+  readonly knowledgeBaseId: string;
+  readonly faqId: string;
+  readonly publicationId: string;
+  readonly body: ReviewAiKnowledgePublication;
+}
+
+export async function aiReviewKnowledgeFaqPublication(
+  http: HttpClient,
+  parameters: AiReviewKnowledgeFaqPublicationParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<AiKnowledgeFaqPublication> {
+  const path = `/api/v1/ai/knowledge-bases/${encodeURIComponent(String(parameters.knowledgeBaseId))}/faq-drafts/${encodeURIComponent(String(parameters.faqId))}/publications/${encodeURIComponent(String(parameters.publicationId))}/review`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readAiKnowledgeFaqPublication(value);
+}
+
+export interface AiReviewKnowledgePublicationParameters {
+  readonly knowledgeBaseId: string;
+  readonly documentId: string;
+  readonly publicationId: string;
+  readonly body: ReviewAiKnowledgePublication;
+}
+
+export async function aiReviewKnowledgePublication(
+  http: HttpClient,
+  parameters: AiReviewKnowledgePublicationParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<AiKnowledgePublicationResponse> {
+  const path = `/api/v1/ai/knowledge-bases/${encodeURIComponent(String(parameters.knowledgeBaseId))}/documents/${encodeURIComponent(String(parameters.documentId))}/publications/${encodeURIComponent(String(parameters.publicationId))}/review`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readAiKnowledgePublicationResponse(value);
+}
+
 export interface AiRevokeAgentDelegationParameters {
   readonly delegationId: string;
   readonly body: RevokeAiAgentDelegationRequest;
@@ -2923,6 +4761,52 @@ export async function aiRollbackPromptVersion(
   return readAiPromptResponse(value);
 }
 
+export interface AiSaveKnowledgeFaqDraftParameters {
+  readonly knowledgeBaseId: string;
+  readonly faqId: string;
+  readonly body: SaveAiKnowledgeFaqDraft;
+}
+
+export async function aiSaveKnowledgeFaqDraft(
+  http: HttpClient,
+  parameters: AiSaveKnowledgeFaqDraftParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<AiKnowledgeFaqDraftMutation> {
+  const path = `/api/v1/ai/knowledge-bases/${encodeURIComponent(String(parameters.knowledgeBaseId))}/faq-drafts/${encodeURIComponent(String(parameters.faqId))}`;
+  const init: RequestInit = {
+    method: 'PUT',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readAiKnowledgeFaqDraftMutation(value);
+}
+
+export interface AiSearchKnowledgeParameters {
+  readonly body: SearchAiKnowledgeRequest;
+}
+
+export async function aiSearchKnowledge(
+  http: HttpClient,
+  parameters: AiSearchKnowledgeParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<AiKnowledgeSearchResponse> {
+  const path = `/api/v1/ai/knowledge-search`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readAiKnowledgeSearchResponse(value);
+}
+
 export interface AiSetKnowledgeAnswerFeedbackParameters {
   readonly sessionId: string;
   readonly messageId: string;
@@ -2945,6 +4829,29 @@ export async function aiSetKnowledgeAnswerFeedback(
     ? await http.request<unknown>(path, init, signal)
     : await http.request<unknown>(path, init, signal, options);
   return readAiKnowledgeAnswerFeedbackResponse(value);
+}
+
+export interface AiSetKnowledgeDirectoryBatchParameters {
+  readonly knowledgeBaseId: string;
+  readonly body: SetAiKnowledgeDirectoryBatch;
+}
+
+export async function aiSetKnowledgeDirectoryBatch(
+  http: HttpClient,
+  parameters: AiSetKnowledgeDirectoryBatchParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<Array<AiKnowledgeDirectoryItemResult>> {
+  const path = `/api/v1/ai/knowledge-bases/${encodeURIComponent(String(parameters.knowledgeBaseId))}/directory/batch`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readAiSetKnowledgeDirectoryBatchResponse(value);
 }
 
 export interface AiSetKnowledgeDocumentMembersParameters {
@@ -3088,6 +4995,31 @@ export async function aiSetKnowledgeRoles(
   return readAiKnowledgeRoleGrantsResponse(value);
 }
 
+export interface AiSkipKnowledgeEvaluationCaseParameters {
+  readonly knowledgeBaseId: string;
+  readonly runId: string;
+  readonly caseId: string;
+  readonly body: ExecuteAiKnowledgeEvaluationCase;
+}
+
+export async function aiSkipKnowledgeEvaluationCase(
+  http: HttpClient,
+  parameters: AiSkipKnowledgeEvaluationCaseParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<AiKnowledgeEvaluationCaseResult> {
+  const path = `/api/v1/ai/knowledge-bases/${encodeURIComponent(String(parameters.knowledgeBaseId))}/evaluation-runs/${encodeURIComponent(String(parameters.runId))}/cases/${encodeURIComponent(String(parameters.caseId))}/skip`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readAiKnowledgeEvaluationCaseResult(value);
+}
+
 export interface AiTestModelConfigParameters {
   readonly modelConfigId: string;
 }
@@ -3197,6 +5129,30 @@ export async function aiUpdateKnowledgeDocument(
     ? await http.request<unknown>(path, init, signal)
     : await http.request<unknown>(path, init, signal, options);
   return readAiKnowledgeDocumentResponse(value);
+}
+
+export interface AiUpdateKnowledgeFolderParameters {
+  readonly knowledgeBaseId: string;
+  readonly folderId: string;
+  readonly body: SaveAiKnowledgeFolder;
+}
+
+export async function aiUpdateKnowledgeFolder(
+  http: HttpClient,
+  parameters: AiUpdateKnowledgeFolderParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<AiKnowledgeFolderResponse> {
+  const path = `/api/v1/ai/knowledge-bases/${encodeURIComponent(String(parameters.knowledgeBaseId))}/folders/${encodeURIComponent(String(parameters.folderId))}`;
+  const init: RequestInit = {
+    method: 'PUT',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readAiKnowledgeFolderResponse(value);
 }
 
 export interface AiUpdateKnowledgePolicyParameters {
@@ -3347,6 +5303,78 @@ export async function aiWithdrawKnowledgeAnswerFeedback(
     ? await http.request<unknown>(path, init, signal)
     : await http.request<unknown>(path, init, signal, options);
   return readAiKnowledgeAnswerFeedbackResponse(value);
+}
+
+export interface AiWithdrawKnowledgeEvaluationSetParameters {
+  readonly knowledgeBaseId: string;
+  readonly setId: string;
+  readonly body: ReviewAiKnowledgeEvaluationSet;
+}
+
+export async function aiWithdrawKnowledgeEvaluationSet(
+  http: HttpClient,
+  parameters: AiWithdrawKnowledgeEvaluationSetParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<AiKnowledgeEvaluationMutation> {
+  const path = `/api/v1/ai/knowledge-bases/${encodeURIComponent(String(parameters.knowledgeBaseId))}/evaluation-sets/${encodeURIComponent(String(parameters.setId))}/withdrawals`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readAiKnowledgeEvaluationMutation(value);
+}
+
+export interface AiWithdrawKnowledgeFaqPublicationParameters {
+  readonly knowledgeBaseId: string;
+  readonly faqId: string;
+  readonly body: WithdrawAiKnowledgePublication;
+}
+
+export async function aiWithdrawKnowledgeFaqPublication(
+  http: HttpClient,
+  parameters: AiWithdrawKnowledgeFaqPublicationParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<AiKnowledgePublicationHeadResponse> {
+  const path = `/api/v1/ai/knowledge-bases/${encodeURIComponent(String(parameters.knowledgeBaseId))}/faq-drafts/${encodeURIComponent(String(parameters.faqId))}/publications/withdraw`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readAiKnowledgePublicationHeadResponse(value);
+}
+
+export interface AiWithdrawKnowledgePublicationParameters {
+  readonly knowledgeBaseId: string;
+  readonly documentId: string;
+  readonly body: WithdrawAiKnowledgePublication;
+}
+
+export async function aiWithdrawKnowledgePublication(
+  http: HttpClient,
+  parameters: AiWithdrawKnowledgePublicationParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<AiKnowledgePublicationHeadResponse> {
+  const path = `/api/v1/ai/knowledge-bases/${encodeURIComponent(String(parameters.knowledgeBaseId))}/documents/${encodeURIComponent(String(parameters.documentId))}/publications/withdraw`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readAiKnowledgePublicationHeadResponse(value);
 }
 
 export interface AuditingGetHostOperationLogDetailsParameters {
@@ -3933,6 +5961,24 @@ export async function codeGenerationGetTemplate(
   return readCodeGenerationTemplateResponse(value);
 }
 
+export interface CodeGenerationGetWorkspaceStateParameters {
+
+}
+
+export async function codeGenerationGetWorkspaceState(
+  http: HttpClient,
+  parameters: CodeGenerationGetWorkspaceStateParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<CodeGenerationWorkspaceStateResponse> {
+  const path = `/api/v1/code-generation/runs/workspace`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readCodeGenerationWorkspaceStateResponse(value);
+}
+
 export interface CodeGenerationListCatalogColumnsParameters {
   readonly tableName: string;
 }
@@ -4069,6 +6115,28 @@ export async function codeGenerationListTemplates(
   return readPagedResultOfCodeGenerationTemplateResponse(value);
 }
 
+export interface CodeGenerationPrepareApplyPlanParameters {
+  readonly body: CodeGenerationRunApplyPlanRequest;
+}
+
+export async function codeGenerationPrepareApplyPlan(
+  http: HttpClient,
+  parameters: CodeGenerationPrepareApplyPlanParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<CodeGenerationRunApplyPlanResponse> {
+  const path = `/api/v1/code-generation/runs/apply-plan`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readCodeGenerationRunApplyPlanResponse(value);
+}
+
 export interface CodeGenerationPreviewCrudParameters {
   readonly body: CodeGenerationPreviewRequest;
 }
@@ -4111,6 +6179,46 @@ export async function codeGenerationPreviewRun(
     ? await http.request<unknown>(path, init, signal)
     : await http.request<unknown>(path, init, signal, options);
   return readCodeGenerationRunPreviewResponse(value);
+}
+
+export interface CodeGenerationRecoverWorkspaceParameters {
+  readonly body: CodeGenerationWorkspaceRecoveryRequest;
+}
+
+export async function codeGenerationRecoverWorkspace(
+  http: HttpClient,
+  parameters: CodeGenerationRecoverWorkspaceParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<CodeGenerationWorkspaceStateResponse> {
+  const path = `/api/v1/code-generation/runs/workspace/recover`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readCodeGenerationWorkspaceStateResponse(value);
+}
+
+export interface CodeGenerationRetryRunPublicationParameters {
+  readonly runId: string;
+}
+
+export async function codeGenerationRetryRunPublication(
+  http: HttpClient,
+  parameters: CodeGenerationRetryRunPublicationParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<CodeGenerationRunPublicationResponse> {
+  const path = `/api/v1/code-generation/runs/${encodeURIComponent(String(parameters.runId))}/publication/retry`;
+  const init: RequestInit = { method: 'POST' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readCodeGenerationRunPublicationResponse(value);
 }
 
 export interface CodeGenerationRollbackRunParameters {
@@ -4449,6 +6557,29 @@ export async function documentHostBatchCreateDocumentShares(
   return readBatchCreateHostDocumentSharesResponse(value);
 }
 
+export interface DocumentHostCancelPreviewTaskParameters {
+  readonly taskId: string;
+  readonly body: CancelDocumentPreviewTaskRequest;
+}
+
+export async function documentHostCancelPreviewTask(
+  http: HttpClient,
+  parameters: DocumentHostCancelPreviewTaskParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<HostDocumentPreviewTaskResponse> {
+  const path = `/api/v1/document/host/preview-tasks/${encodeURIComponent(String(parameters.taskId))}/cancel`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readHostDocumentPreviewTaskResponse(value);
+}
+
 export interface DocumentHostCreateCategoryParameters {
   readonly body: CreateHostDocumentCategoryRequest;
 }
@@ -4674,6 +6805,7 @@ export async function documentHostDownloadDocumentPreviewTaskContent(
 
 export interface DocumentHostDownloadItemContentParameters {
   readonly itemId: string;
+  readonly requestKey?: string;
 }
 
 export async function documentHostDownloadItemContent(
@@ -4682,7 +6814,11 @@ export async function documentHostDownloadItemContent(
   signal?: AbortSignal,
   options?: RequestOptions
 ): Promise<Blob> {
-  const path = `/api/v1/document/host/items/${encodeURIComponent(String(parameters.itemId))}/content`;
+  const query = new URLSearchParams();
+  if (parameters.requestKey !== undefined) {
+    query.set('requestKey', String(parameters.requestKey));
+  }
+  const path = query.size === 0 ? `/api/v1/document/host/items/${encodeURIComponent(String(parameters.itemId))}/content` : `/api/v1/document/host/items/${encodeURIComponent(String(parameters.itemId))}/content?${query.toString()}`;
   const init: RequestInit = {
     method: 'GET',
     headers: { accept: 'application/octet-stream' }
@@ -4728,6 +6864,60 @@ export async function documentHostGetDocumentStatistics(
   return readHostDocumentStatisticsResponse(value);
 }
 
+export interface DocumentHostGetItemParameters {
+  readonly itemId: string;
+}
+
+export async function documentHostGetItem(
+  http: HttpClient,
+  parameters: DocumentHostGetItemParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<HostDocumentItemResponse> {
+  const path = `/api/v1/document/host/items/${encodeURIComponent(String(parameters.itemId))}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readHostDocumentItemResponse(value);
+}
+
+export interface DocumentHostGetPermissionContextParameters {
+  readonly documentId: string;
+}
+
+export async function documentHostGetPermissionContext(
+  http: HttpClient,
+  parameters: DocumentHostGetPermissionContextParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<HostDocumentPermissionContext> {
+  const path = `/api/v1/document/host/permissions/context/${encodeURIComponent(String(parameters.documentId))}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readHostDocumentPermissionContext(value);
+}
+
+export interface DocumentHostGetPreviewCapabilitiesParameters {
+
+}
+
+export async function documentHostGetPreviewCapabilities(
+  http: HttpClient,
+  parameters: DocumentHostGetPreviewCapabilitiesParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<DocumentPreviewCapabilities> {
+  const path = `/api/v1/document/public/preview-capabilities`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readDocumentPreviewCapabilities(value);
+}
+
 export interface DocumentHostGetVersionRetentionSettingsParameters {
 
 }
@@ -4744,6 +6934,75 @@ export async function documentHostGetVersionRetentionSettings(
     ? await http.request<unknown>(path, init, signal)
     : await http.request<unknown>(path, init, signal, options);
   return readHostDocumentVersionRetentionSettingsResponse(value);
+}
+
+export interface DocumentHostItemarchiveParameters {
+  readonly itemId: string;
+  readonly body: ChangeHostDocumentStatusRequest;
+}
+
+export async function documentHostItemarchive(
+  http: HttpClient,
+  parameters: DocumentHostItemarchiveParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<HostDocumentItemResponse> {
+  const path = `/api/v1/document/host/items/${encodeURIComponent(String(parameters.itemId))}/archive`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readHostDocumentItemResponse(value);
+}
+
+export interface DocumentHostItempublishParameters {
+  readonly itemId: string;
+  readonly body: ChangeHostDocumentStatusRequest;
+}
+
+export async function documentHostItempublish(
+  http: HttpClient,
+  parameters: DocumentHostItempublishParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<HostDocumentItemResponse> {
+  const path = `/api/v1/document/host/items/${encodeURIComponent(String(parameters.itemId))}/publish`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readHostDocumentItemResponse(value);
+}
+
+export interface DocumentHostItemunarchiveParameters {
+  readonly itemId: string;
+  readonly body: ChangeHostDocumentStatusRequest;
+}
+
+export async function documentHostItemunarchive(
+  http: HttpClient,
+  parameters: DocumentHostItemunarchiveParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<HostDocumentItemResponse> {
+  const path = `/api/v1/document/host/items/${encodeURIComponent(String(parameters.itemId))}/unarchive`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readHostDocumentItemResponse(value);
 }
 
 export interface DocumentHostListCategoriesParameters {
@@ -4916,6 +7175,10 @@ export interface DocumentHostListItemsParameters {
   readonly page?: number;
   readonly pageSize?: number;
   readonly tagId?: string;
+  readonly keyword?: string;
+  readonly categoryId?: string;
+  readonly status?: HostDocumentStatus;
+  readonly documentType?: HostDocumentType;
 }
 
 export async function documentHostListItems(
@@ -4933,6 +7196,18 @@ export async function documentHostListItems(
   }
   if (parameters.tagId !== undefined) {
     query.set('tagId', String(parameters.tagId));
+  }
+  if (parameters.keyword !== undefined) {
+    query.set('keyword', String(parameters.keyword));
+  }
+  if (parameters.categoryId !== undefined) {
+    query.set('categoryId', String(parameters.categoryId));
+  }
+  if (parameters.status !== undefined) {
+    query.set('status', String(parameters.status));
+  }
+  if (parameters.documentType !== undefined) {
+    query.set('documentType', String(parameters.documentType));
   }
   const path = query.size === 0 ? `/api/v1/document/host/items` : `/api/v1/document/host/items?${query.toString()}`;
   const init: RequestInit = { method: 'GET' };
@@ -5023,6 +7298,7 @@ export async function documentHostListTags(
 
 export interface DocumentHostPreviewItemContentParameters {
   readonly itemId: string;
+  readonly requestKey?: string;
 }
 
 export async function documentHostPreviewItemContent(
@@ -5031,7 +7307,11 @@ export async function documentHostPreviewItemContent(
   signal?: AbortSignal,
   options?: RequestOptions
 ): Promise<Blob> {
-  const path = `/api/v1/document/host/items/${encodeURIComponent(String(parameters.itemId))}/preview`;
+  const query = new URLSearchParams();
+  if (parameters.requestKey !== undefined) {
+    query.set('requestKey', String(parameters.requestKey));
+  }
+  const path = query.size === 0 ? `/api/v1/document/host/items/${encodeURIComponent(String(parameters.itemId))}/preview` : `/api/v1/document/host/items/${encodeURIComponent(String(parameters.itemId))}/preview?${query.toString()}`;
   const init: RequestInit = {
     method: 'GET',
     headers: { accept: 'application/octet-stream' }
@@ -5044,6 +7324,7 @@ export async function documentHostPreviewItemContent(
 export interface DocumentHostPreviewItemVersionContentParameters {
   readonly itemId: string;
   readonly versionId: string;
+  readonly requestKey?: string;
 }
 
 export async function documentHostPreviewItemVersionContent(
@@ -5052,7 +7333,11 @@ export async function documentHostPreviewItemVersionContent(
   signal?: AbortSignal,
   options?: RequestOptions
 ): Promise<Blob> {
-  const path = `/api/v1/document/host/items/${encodeURIComponent(String(parameters.itemId))}/versions/${encodeURIComponent(String(parameters.versionId))}/preview`;
+  const query = new URLSearchParams();
+  if (parameters.requestKey !== undefined) {
+    query.set('requestKey', String(parameters.requestKey));
+  }
+  const path = query.size === 0 ? `/api/v1/document/host/items/${encodeURIComponent(String(parameters.itemId))}/versions/${encodeURIComponent(String(parameters.versionId))}/preview` : `/api/v1/document/host/items/${encodeURIComponent(String(parameters.itemId))}/versions/${encodeURIComponent(String(parameters.versionId))}/preview?${query.toString()}`;
   const init: RequestInit = {
     method: 'GET',
     headers: { accept: 'application/octet-stream' }
@@ -5126,6 +7411,24 @@ export async function documentHostRestoreRecycleBinItem(
   return readHostDocumentItemResponse(value);
 }
 
+export interface DocumentHostRetryPreviewTaskParameters {
+  readonly taskId: string;
+}
+
+export async function documentHostRetryPreviewTask(
+  http: HttpClient,
+  parameters: DocumentHostRetryPreviewTaskParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<HostDocumentPreviewTaskResponse> {
+  const path = `/api/v1/document/host/preview-tasks/${encodeURIComponent(String(parameters.taskId))}/retry`;
+  const init: RequestInit = { method: 'POST' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readHostDocumentPreviewTaskResponse(value);
+}
+
 export interface DocumentHostRollbackItemVersionParameters {
   readonly itemId: string;
   readonly versionId: string;
@@ -5148,6 +7451,32 @@ export async function documentHostRollbackItemVersion(
     ? await http.request<unknown>(path, init, signal)
     : await http.request<unknown>(path, init, signal, options);
   return readHostDocumentItemResponse(value);
+}
+
+export interface DocumentHostSearchItemsParameters {
+  readonly q?: string;
+  readonly page?: number;
+}
+
+export async function documentHostSearchItems(
+  http: HttpClient,
+  parameters: DocumentHostSearchItemsParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<HostDocumentSearchPage> {
+  const query = new URLSearchParams();
+  if (parameters.q !== undefined) {
+    query.set('q', String(parameters.q));
+  }
+  if (parameters.page !== undefined) {
+    query.set('page', String(parameters.page));
+  }
+  const path = query.size === 0 ? `/api/v1/document/host/items/search` : `/api/v1/document/host/items/search?${query.toString()}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readHostDocumentSearchPage(value);
 }
 
 export interface DocumentHostSetDocumentPermissionsParameters {
@@ -5289,6 +7618,7 @@ export async function documentHostUpdateVersionRetentionSettings(
 export interface DocumentHostUploadItemVersionParameters {
   readonly itemId: string;
   readonly file?: IFormFile;
+  readonly requestKey: string;
 }
 
 export async function documentHostUploadItemVersion(
@@ -5302,6 +7632,7 @@ export async function documentHostUploadItemVersion(
   if (parameters.file !== undefined) {
     body.append('file', parameters.file);
   }
+  body.append('requestKey', String(parameters.requestKey));
   const init: RequestInit = { method: 'POST', body };
   const value = options === undefined
     ? await http.request<unknown>(path, init, signal)
@@ -5424,6 +7755,30 @@ export async function documentPublicGetDocumentSharePreviewTask(
   return readHostDocumentPreviewTaskResponse(value);
 }
 
+export interface EnterpriseRequestCancelReportParameters {
+  readonly requestId: string;
+  readonly reportId: string;
+  readonly body: CancelEnterpriseRequestReportRequest;
+}
+
+export async function enterpriseRequestCancelReport(
+  http: HttpClient,
+  parameters: EnterpriseRequestCancelReportParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<EnterpriseRequestReportResponse> {
+  const path = `/api/v1/enterprise_request/enterprise-requests/${encodeURIComponent(String(parameters.requestId))}/reports/${encodeURIComponent(String(parameters.reportId))}/cancel`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readEnterpriseRequestReportResponse(value);
+}
+
 export interface EnterpriseRequestCreateEnterpriseRequestParameters {
   readonly body: CreateEnterpriseRequestRequest;
 }
@@ -5444,6 +7799,53 @@ export async function enterpriseRequestCreateEnterpriseRequest(
     ? await http.request<unknown>(path, init, signal)
     : await http.request<unknown>(path, init, signal, options);
   return readEnterpriseRequestResponse(value);
+}
+
+export interface EnterpriseRequestCreateReportParameters {
+  readonly requestId: string;
+  readonly body: CreateEnterpriseRequestReportRequest;
+}
+
+export async function enterpriseRequestCreateReport(
+  http: HttpClient,
+  parameters: EnterpriseRequestCreateReportParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<EnterpriseRequestReportResponse> {
+  const path = `/api/v1/enterprise_request/enterprise-requests/${encodeURIComponent(String(parameters.requestId))}/reports`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readEnterpriseRequestReportResponse(value);
+}
+
+export interface EnterpriseRequestDeleteAttachmentParameters {
+  readonly requestId: string;
+  readonly attachmentId: string;
+  readonly body: DeleteEnterpriseRequestAttachmentRequest;
+}
+
+export async function enterpriseRequestDeleteAttachment(
+  http: HttpClient,
+  parameters: EnterpriseRequestDeleteAttachmentParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<boolean> {
+  const path = `/api/v1/enterprise_request/enterprise-requests/${encodeURIComponent(String(parameters.requestId))}/attachments/${encodeURIComponent(String(parameters.attachmentId))}/delete`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readEnterpriseRequestDeleteAttachmentResponse(value);
 }
 
 export interface EnterpriseRequestDeleteEnterpriseRequestParameters {
@@ -5469,6 +7871,48 @@ export async function enterpriseRequestDeleteEnterpriseRequest(
   return readEnterpriseRequestResponse(value);
 }
 
+export interface EnterpriseRequestDownloadAttachmentParameters {
+  readonly requestId: string;
+  readonly attachmentId: string;
+}
+
+export async function enterpriseRequestDownloadAttachment(
+  http: HttpClient,
+  parameters: EnterpriseRequestDownloadAttachmentParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<Blob> {
+  const path = `/api/v1/enterprise_request/enterprise-requests/${encodeURIComponent(String(parameters.requestId))}/attachments/${encodeURIComponent(String(parameters.attachmentId))}/download`;
+  const init: RequestInit = {
+    method: 'GET',
+    headers: { accept: 'application/octet-stream' }
+  };
+  return options === undefined
+    ? await http.requestBlob(path, init, signal)
+    : await http.requestBlob(path, init, signal, options);
+}
+
+export interface EnterpriseRequestDownloadReportParameters {
+  readonly requestId: string;
+  readonly reportId: string;
+}
+
+export async function enterpriseRequestDownloadReport(
+  http: HttpClient,
+  parameters: EnterpriseRequestDownloadReportParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<Blob> {
+  const path = `/api/v1/enterprise_request/enterprise-requests/${encodeURIComponent(String(parameters.requestId))}/reports/${encodeURIComponent(String(parameters.reportId))}/download`;
+  const init: RequestInit = {
+    method: 'GET',
+    headers: { accept: 'application/octet-stream' }
+  };
+  return options === undefined
+    ? await http.requestBlob(path, init, signal)
+    : await http.requestBlob(path, init, signal, options);
+}
+
 export interface EnterpriseRequestGetEnterpriseRequestParameters {
   readonly enterpriseRequestId: string;
 }
@@ -5487,9 +7931,43 @@ export async function enterpriseRequestGetEnterpriseRequest(
   return readEnterpriseRequestResponse(value);
 }
 
+export interface EnterpriseRequestListAttachmentsParameters {
+  readonly requestId: string;
+  readonly page?: number;
+  readonly pageSize?: number;
+}
+
+export async function enterpriseRequestListAttachments(
+  http: HttpClient,
+  parameters: EnterpriseRequestListAttachmentsParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<PagedResultOfEnterpriseRequestAttachmentResponse> {
+  const query = new URLSearchParams();
+  if (parameters.page !== undefined) {
+    query.set('page', String(parameters.page));
+  }
+  if (parameters.pageSize !== undefined) {
+    query.set('pageSize', String(parameters.pageSize));
+  }
+  const path = query.size === 0 ? `/api/v1/enterprise_request/enterprise-requests/${encodeURIComponent(String(parameters.requestId))}/attachments` : `/api/v1/enterprise_request/enterprise-requests/${encodeURIComponent(String(parameters.requestId))}/attachments?${query.toString()}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readPagedResultOfEnterpriseRequestAttachmentResponse(value);
+}
+
 export interface EnterpriseRequestListEnterpriseRequestsParameters {
   readonly page?: number;
   readonly pageSize?: number;
+  readonly sortBy?: string;
+  readonly descending?: boolean;
+  readonly filterRequestNumber?: string;
+  readonly filterTitle?: string;
+  readonly filterStatus?: string;
+  readonly filterTotalAmount?: number | string;
+  readonly filterApplicantUserId?: string;
 }
 
 export async function enterpriseRequestListEnterpriseRequests(
@@ -5505,12 +7983,104 @@ export async function enterpriseRequestListEnterpriseRequests(
   if (parameters.pageSize !== undefined) {
     query.set('pageSize', String(parameters.pageSize));
   }
+  if (parameters.sortBy !== undefined) {
+    query.set('sortBy', String(parameters.sortBy));
+  }
+  if (parameters.descending !== undefined) {
+    query.set('descending', String(parameters.descending));
+  }
+  if (parameters.filterRequestNumber !== undefined) {
+    query.set('filterRequestNumber', String(parameters.filterRequestNumber));
+  }
+  if (parameters.filterTitle !== undefined) {
+    query.set('filterTitle', String(parameters.filterTitle));
+  }
+  if (parameters.filterStatus !== undefined) {
+    query.set('filterStatus', String(parameters.filterStatus));
+  }
+  if (parameters.filterTotalAmount !== undefined) {
+    query.set('filterTotalAmount', String(parameters.filterTotalAmount));
+  }
+  if (parameters.filterApplicantUserId !== undefined) {
+    query.set('filterApplicantUserId', String(parameters.filterApplicantUserId));
+  }
   const path = query.size === 0 ? `/api/v1/enterprise_request/enterprise-requests` : `/api/v1/enterprise_request/enterprise-requests?${query.toString()}`;
   const init: RequestInit = { method: 'GET' };
   const value = options === undefined
     ? await http.request<unknown>(path, init, signal)
     : await http.request<unknown>(path, init, signal, options);
   return readPagedResultOfEnterpriseRequestResponse(value);
+}
+
+export interface EnterpriseRequestListReportsParameters {
+  readonly requestId: string;
+  readonly page?: number;
+  readonly pageSize?: number;
+}
+
+export async function enterpriseRequestListReports(
+  http: HttpClient,
+  parameters: EnterpriseRequestListReportsParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<PagedResultOfEnterpriseRequestReportResponse> {
+  const query = new URLSearchParams();
+  if (parameters.page !== undefined) {
+    query.set('page', String(parameters.page));
+  }
+  if (parameters.pageSize !== undefined) {
+    query.set('pageSize', String(parameters.pageSize));
+  }
+  const path = query.size === 0 ? `/api/v1/enterprise_request/enterprise-requests/${encodeURIComponent(String(parameters.requestId))}/reports` : `/api/v1/enterprise_request/enterprise-requests/${encodeURIComponent(String(parameters.requestId))}/reports?${query.toString()}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readPagedResultOfEnterpriseRequestReportResponse(value);
+}
+
+export interface EnterpriseRequestPrintDocumentParameters {
+  readonly requestId: string;
+}
+
+export async function enterpriseRequestPrintDocument(
+  http: HttpClient,
+  parameters: EnterpriseRequestPrintDocumentParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<EnterpriseRequestPrintResponse> {
+  const path = `/api/v1/enterprise_request/enterprise-requests/${encodeURIComponent(String(parameters.requestId))}/print`;
+  const init: RequestInit = { method: 'POST' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readEnterpriseRequestPrintResponse(value);
+}
+
+export interface EnterpriseRequestSearchRequestsParameters {
+  readonly q?: string;
+  readonly page?: number;
+}
+
+export async function enterpriseRequestSearchRequests(
+  http: HttpClient,
+  parameters: EnterpriseRequestSearchRequestsParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<EnterpriseRequestSearchPage> {
+  const query = new URLSearchParams();
+  if (parameters.q !== undefined) {
+    query.set('q', String(parameters.q));
+  }
+  if (parameters.page !== undefined) {
+    query.set('page', String(parameters.page));
+  }
+  const path = query.size === 0 ? `/api/v1/enterprise_request/enterprise-requests/search` : `/api/v1/enterprise_request/enterprise-requests/search?${query.toString()}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readEnterpriseRequestSearchPage(value);
 }
 
 export interface EnterpriseRequestUpdateEnterpriseRequestParameters {
@@ -5534,6 +8104,34 @@ export async function enterpriseRequestUpdateEnterpriseRequest(
     ? await http.request<unknown>(path, init, signal)
     : await http.request<unknown>(path, init, signal, options);
   return readEnterpriseRequestResponse(value);
+}
+
+export interface EnterpriseRequestUploadAttachmentParameters {
+  readonly requestId: string;
+  readonly idempotencyKey: string;
+  readonly requestVersion: string;
+  readonly file?: IFormFile;
+}
+
+export async function enterpriseRequestUploadAttachment(
+  http: HttpClient,
+  parameters: EnterpriseRequestUploadAttachmentParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<EnterpriseRequestAttachmentResponse> {
+  const query = new URLSearchParams();
+  query.set('idempotencyKey', String(parameters.idempotencyKey));
+  query.set('requestVersion', String(parameters.requestVersion));
+  const path = query.size === 0 ? `/api/v1/enterprise_request/enterprise-requests/${encodeURIComponent(String(parameters.requestId))}/attachments` : `/api/v1/enterprise_request/enterprise-requests/${encodeURIComponent(String(parameters.requestId))}/attachments?${query.toString()}`;
+  const body = new FormData();
+  if (parameters.file !== undefined) {
+    body.append('file', parameters.file);
+  }
+  const init: RequestInit = { method: 'POST', body };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readEnterpriseRequestAttachmentResponse(value);
 }
 
 export interface FilesBatchDeleteHostFilesParameters {
@@ -7823,8 +10421,34 @@ export async function identityValidateModuleSelection(
   return readModuleSelectionAnalysisResponse(value);
 }
 
-export interface ImportExportCreateImportTaskParameters {
+export interface ImportExportCancelImportTaskParameters {
+  readonly taskId: string;
+  readonly body: CancelImportExportTaskRequest;
+}
 
+export async function importExportCancelImportTask(
+  http: HttpClient,
+  parameters: ImportExportCancelImportTaskParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<ImportExportTaskDetailResponse> {
+  const path = `/api/v1/import-export/tasks/${encodeURIComponent(String(parameters.taskId))}/cancel`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readImportExportTaskDetailResponse(value);
+}
+
+export interface ImportExportCreateImportTaskParameters {
+  readonly columnMapping?: string;
+  readonly file: IFormFile;
+  readonly schemaKey: string;
+  readonly worksheetKey: string;
 }
 
 export async function importExportCreateImportTask(
@@ -7835,11 +10459,66 @@ export async function importExportCreateImportTask(
 ): Promise<ImportExportTaskDetailResponse> {
   const path = `/api/v1/import-export/tasks`;
   const body = new FormData();
+  if (parameters.columnMapping !== undefined) {
+    body.append('columnMapping', String(parameters.columnMapping));
+  }
+  body.append('file', parameters.file);
+  body.append('schemaKey', String(parameters.schemaKey));
+  body.append('worksheetKey', String(parameters.worksheetKey));
   const init: RequestInit = { method: 'POST', body };
   const value = options === undefined
     ? await http.request<unknown>(path, init, signal)
     : await http.request<unknown>(path, init, signal, options);
   return readImportExportTaskDetailResponse(value);
+}
+
+export interface ImportExportCreateMyImportProfileParameters {
+  readonly schemaKey: string;
+  readonly worksheetKey: string;
+  readonly body: SaveImportProfileRequest;
+}
+
+export async function importExportCreateMyImportProfile(
+  http: HttpClient,
+  parameters: ImportExportCreateMyImportProfileParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<ImportProfileDetail> {
+  const path = `/api/v1/me/import-profiles/${encodeURIComponent(String(parameters.schemaKey))}/${encodeURIComponent(String(parameters.worksheetKey))}`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readImportProfileDetail(value);
+}
+
+export interface ImportExportDeleteMyImportProfileParameters {
+  readonly schemaKey: string;
+  readonly worksheetKey: string;
+  readonly profileId: string;
+  readonly body: DeleteImportProfileRequest;
+}
+
+export async function importExportDeleteMyImportProfile(
+  http: HttpClient,
+  parameters: ImportExportDeleteMyImportProfileParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<boolean> {
+  const path = `/api/v1/me/import-profiles/${encodeURIComponent(String(parameters.schemaKey))}/${encodeURIComponent(String(parameters.worksheetKey))}/${encodeURIComponent(String(parameters.profileId))}`;
+  const init: RequestInit = {
+    method: 'DELETE',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readImportExportDeleteMyImportProfileResponse(value);
 }
 
 export interface ImportExportDownloadImportTaskErrorReceiptParameters {
@@ -7919,6 +10598,26 @@ export async function importExportGetImportTask(
   return readImportExportTaskDetailResponse(value);
 }
 
+export interface ImportExportGetMyImportProfileParameters {
+  readonly schemaKey: string;
+  readonly worksheetKey: string;
+  readonly profileId: string;
+}
+
+export async function importExportGetMyImportProfile(
+  http: HttpClient,
+  parameters: ImportExportGetMyImportProfileParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<ImportProfileDetail> {
+  const path = `/api/v1/me/import-profiles/${encodeURIComponent(String(parameters.schemaKey))}/${encodeURIComponent(String(parameters.worksheetKey))}/${encodeURIComponent(String(parameters.profileId))}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readImportProfileDetail(value);
+}
+
 export interface ImportExportGetStaticSchemaParameters {
   readonly schemaKey: string;
 }
@@ -7965,6 +10664,55 @@ export async function importExportListImportTasks(
     ? await http.request<unknown>(path, init, signal)
     : await http.request<unknown>(path, init, signal, options);
   return readPagedResultOfImportExportTaskResponse(value);
+}
+
+export interface ImportExportListMyImportProfilesParameters {
+  readonly schemaKey: string;
+  readonly worksheetKey: string;
+}
+
+export async function importExportListMyImportProfiles(
+  http: HttpClient,
+  parameters: ImportExportListMyImportProfilesParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<Array<ImportProfileSummary>> {
+  const path = `/api/v1/me/import-profiles/${encodeURIComponent(String(parameters.schemaKey))}/${encodeURIComponent(String(parameters.worksheetKey))}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readImportExportListMyImportProfilesResponse(value);
+}
+
+export interface ImportExportListMyImportTasksParameters {
+  readonly pageSize?: number;
+  readonly statusKey?: string;
+  readonly cursor?: string;
+}
+
+export async function importExportListMyImportTasks(
+  http: HttpClient,
+  parameters: ImportExportListMyImportTasksParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<CursorPageOfImportExportTaskResponse> {
+  const query = new URLSearchParams();
+  if (parameters.pageSize !== undefined) {
+    query.set('pageSize', String(parameters.pageSize));
+  }
+  if (parameters.statusKey !== undefined) {
+    query.set('statusKey', String(parameters.statusKey));
+  }
+  if (parameters.cursor !== undefined) {
+    query.set('cursor', String(parameters.cursor));
+  }
+  const path = query.size === 0 ? `/api/v1/import-export/tasks/mine` : `/api/v1/import-export/tasks/mine?${query.toString()}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readCursorPageOfImportExportTaskResponse(value);
 }
 
 export interface ImportExportListStaticSchemasParameters {
@@ -8019,6 +10767,31 @@ export async function importExportRetryImportTask(
     ? await http.request<unknown>(path, init, signal)
     : await http.request<unknown>(path, init, signal, options);
   return readImportExportTaskDetailResponse(value);
+}
+
+export interface ImportExportUpdateMyImportProfileParameters {
+  readonly schemaKey: string;
+  readonly worksheetKey: string;
+  readonly profileId: string;
+  readonly body: SaveImportProfileRequest;
+}
+
+export async function importExportUpdateMyImportProfile(
+  http: HttpClient,
+  parameters: ImportExportUpdateMyImportProfileParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<ImportProfileDetail> {
+  const path = `/api/v1/me/import-profiles/${encodeURIComponent(String(parameters.schemaKey))}/${encodeURIComponent(String(parameters.worksheetKey))}/${encodeURIComponent(String(parameters.profileId))}`;
+  const init: RequestInit = {
+    method: 'PUT',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readImportProfileDetail(value);
 }
 
 export interface JobsBatchPauseHostJobSchedulesParameters {
@@ -9658,6 +12431,24 @@ export async function notificationsGetMyHostAnnouncementUnreadCount(
     ? await http.request<unknown>(path, init, signal)
     : await http.request<unknown>(path, init, signal, options);
   return readHostAnnouncementUnreadCountResponse(value);
+}
+
+export interface NotificationsGetMyInboxMessageParameters {
+  readonly messageId: string;
+}
+
+export async function notificationsGetMyInboxMessage(
+  http: HttpClient,
+  parameters: NotificationsGetMyInboxMessageParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<InboxMessageResponse> {
+  const path = `/api/v1/notifications/my-inbox-messages/${encodeURIComponent(String(parameters.messageId))}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readInboxMessageResponse(value);
 }
 
 export interface NotificationsGetMyInboxUnreadCountParameters {
@@ -11682,6 +14473,9 @@ export interface OrganizationListTenantUserPositionsParameters {
   readonly pageSize?: number;
   readonly userId?: string;
   readonly positionId?: string;
+  readonly userSearch?: string;
+  readonly positionSearch?: string;
+  readonly isActive?: boolean;
 }
 
 export async function organizationListTenantUserPositions(
@@ -11703,6 +14497,15 @@ export async function organizationListTenantUserPositions(
   if (parameters.positionId !== undefined) {
     query.set('positionId', String(parameters.positionId));
   }
+  if (parameters.userSearch !== undefined) {
+    query.set('userSearch', String(parameters.userSearch));
+  }
+  if (parameters.positionSearch !== undefined) {
+    query.set('positionSearch', String(parameters.positionSearch));
+  }
+  if (parameters.isActive !== undefined) {
+    query.set('isActive', String(parameters.isActive));
+  }
   const path = query.size === 0 ? `/api/v1/organization/user-positions` : `/api/v1/organization/user-positions?${query.toString()}`;
   const init: RequestInit = { method: 'GET' };
   const value = options === undefined
@@ -11716,6 +14519,9 @@ export interface OrganizationListTenantUserUnitsParameters {
   readonly pageSize?: number;
   readonly userId?: string;
   readonly unitId?: string;
+  readonly userSearch?: string;
+  readonly unitSearch?: string;
+  readonly isActive?: boolean;
 }
 
 export async function organizationListTenantUserUnits(
@@ -11736,6 +14542,15 @@ export async function organizationListTenantUserUnits(
   }
   if (parameters.unitId !== undefined) {
     query.set('unitId', String(parameters.unitId));
+  }
+  if (parameters.userSearch !== undefined) {
+    query.set('userSearch', String(parameters.userSearch));
+  }
+  if (parameters.unitSearch !== undefined) {
+    query.set('unitSearch', String(parameters.unitSearch));
+  }
+  if (parameters.isActive !== undefined) {
+    query.set('isActive', String(parameters.isActive));
   }
   const path = query.size === 0 ? `/api/v1/organization/user-units` : `/api/v1/organization/user-units?${query.toString()}`;
   const init: RequestInit = { method: 'GET' };
@@ -11958,6 +14773,25 @@ export async function organizationUpdateTenantUserUnit(
   return readOrganizationUserUnitResponse(value);
 }
 
+export interface PaymentsCheckoutSubscriptionParameters {
+  readonly tenantId: string;
+  readonly subscriptionId: string;
+}
+
+export async function paymentsCheckoutSubscription(
+  http: HttpClient,
+  parameters: PaymentsCheckoutSubscriptionParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<SubscriptionCheckoutResponse> {
+  const path = `/api/v1/payments/subscriptions/${encodeURIComponent(String(parameters.tenantId))}/${encodeURIComponent(String(parameters.subscriptionId))}/checkout`;
+  const init: RequestInit = { method: 'POST' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readSubscriptionCheckoutResponse(value);
+}
+
 export interface PaymentsCreateMerchantConfigParameters {
   readonly body: CreatePaymentMerchantConfigRequest;
 }
@@ -12097,6 +14931,24 @@ export async function paymentsGetRefund(
   return readPaymentRefundResponse(value);
 }
 
+export interface PaymentsGetSubscriptionFulfillmentParameters {
+  readonly orderId: string;
+}
+
+export async function paymentsGetSubscriptionFulfillment(
+  http: HttpClient,
+  parameters: PaymentsGetSubscriptionFulfillmentParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<SubscriptionFulfillmentStatusResponse> {
+  const path = `/api/v1/payments/orders/${encodeURIComponent(String(parameters.orderId))}/subscription-fulfillment`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readSubscriptionFulfillmentStatusResponse(value);
+}
+
 export interface PaymentsListMerchantConfigsParameters {
   readonly page?: number;
   readonly pageSize?: number;
@@ -12231,6 +15083,24 @@ export async function paymentsReconcileOrder(
     ? await http.request<unknown>(path, init, signal)
     : await http.request<unknown>(path, init, signal, options);
   return readPaymentOrderResponse(value);
+}
+
+export interface PaymentsRetrySubscriptionFulfillmentParameters {
+  readonly orderId: string;
+}
+
+export async function paymentsRetrySubscriptionFulfillment(
+  http: HttpClient,
+  parameters: PaymentsRetrySubscriptionFulfillmentParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<SubscriptionFulfillmentStatusResponse> {
+  const path = `/api/v1/payments/orders/${encodeURIComponent(String(parameters.orderId))}/subscription-fulfillment/retry`;
+  const init: RequestInit = { method: 'POST' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readSubscriptionFulfillmentStatusResponse(value);
 }
 
 export interface PaymentsUpdateMerchantConfigParameters {
@@ -12990,6 +15860,29 @@ export async function regionsUpdateAdministrativeRegion(
   return readAdministrativeRegionResponse(value);
 }
 
+export interface ReportingCancelExportTaskParameters {
+  readonly taskId: string;
+  readonly body: CancelReportingExportTaskRequest;
+}
+
+export async function reportingCancelExportTask(
+  http: HttpClient,
+  parameters: ReportingCancelExportTaskParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<ReportingExportTaskDetailResponse> {
+  const path = `/api/v1/reporting/export-tasks/${encodeURIComponent(String(parameters.taskId))}/cancel`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readReportingExportTaskDetailResponse(value);
+}
+
 export interface ReportingCreateDataSourceParameters {
   readonly body: CreateReportingDataSourceRequest;
 }
@@ -13383,6 +16276,33 @@ export async function reportingListDefinitions(
   return readPagedResultOfReportingDefinitionSummaryResponse(value);
 }
 
+export interface ReportingListDefinitionTenantGrantsParameters {
+  readonly definitionId: string;
+  readonly page?: number;
+  readonly pageSize?: number;
+}
+
+export async function reportingListDefinitionTenantGrants(
+  http: HttpClient,
+  parameters: ReportingListDefinitionTenantGrantsParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<PagedResultOfReportingDefinitionTenantGrantResponse> {
+  const query = new URLSearchParams();
+  if (parameters.page !== undefined) {
+    query.set('page', String(parameters.page));
+  }
+  if (parameters.pageSize !== undefined) {
+    query.set('pageSize', String(parameters.pageSize));
+  }
+  const path = query.size === 0 ? `/api/v1/reporting/definitions/${encodeURIComponent(String(parameters.definitionId))}/tenant-grants` : `/api/v1/reporting/definitions/${encodeURIComponent(String(parameters.definitionId))}/tenant-grants?${query.toString()}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readPagedResultOfReportingDefinitionTenantGrantResponse(value);
+}
+
 export interface ReportingListDefinitionVersionsParameters {
   readonly definitionId: string;
   readonly page?: number;
@@ -13458,6 +16378,66 @@ export async function reportingListGroups(
   return readReportingListGroupsResponse(value);
 }
 
+export interface ReportingListMyExportTasksParameters {
+  readonly pageSize?: number;
+  readonly statusKey?: string;
+  readonly cursor?: string;
+}
+
+export async function reportingListMyExportTasks(
+  http: HttpClient,
+  parameters: ReportingListMyExportTasksParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<CursorPageOfReportingExportTaskResponse> {
+  const query = new URLSearchParams();
+  if (parameters.pageSize !== undefined) {
+    query.set('pageSize', String(parameters.pageSize));
+  }
+  if (parameters.statusKey !== undefined) {
+    query.set('statusKey', String(parameters.statusKey));
+  }
+  if (parameters.cursor !== undefined) {
+    query.set('cursor', String(parameters.cursor));
+  }
+  const path = query.size === 0 ? `/api/v1/reporting/export-tasks/mine` : `/api/v1/reporting/export-tasks/mine?${query.toString()}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readCursorPageOfReportingExportTaskResponse(value);
+}
+
+export interface ReportingListPublishedDefinitionsParameters {
+  readonly nameContains?: string;
+  readonly page?: number;
+  readonly pageSize?: number;
+}
+
+export async function reportingListPublishedDefinitions(
+  http: HttpClient,
+  parameters: ReportingListPublishedDefinitionsParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<PagedResultOfReportingPublishedDefinitionResponse> {
+  const query = new URLSearchParams();
+  if (parameters.nameContains !== undefined) {
+    query.set('nameContains', String(parameters.nameContains));
+  }
+  if (parameters.page !== undefined) {
+    query.set('page', String(parameters.page));
+  }
+  if (parameters.pageSize !== undefined) {
+    query.set('pageSize', String(parameters.pageSize));
+  }
+  const path = query.size === 0 ? `/api/v1/reporting/published-definitions` : `/api/v1/reporting/published-definitions?${query.toString()}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readPagedResultOfReportingPublishedDefinitionResponse(value);
+}
+
 export interface ReportingListQueryPortsParameters {
 
 }
@@ -13497,6 +16477,30 @@ export async function reportingPublishDefinition(
     ? await http.request<unknown>(path, init, signal)
     : await http.request<unknown>(path, init, signal, options);
   return readReportingDefinitionVersionResponse(value);
+}
+
+export interface ReportingSetDefinitionTenantGrantParameters {
+  readonly definitionId: string;
+  readonly tenantId: string;
+  readonly body: SetReportingDefinitionTenantGrantRequest;
+}
+
+export async function reportingSetDefinitionTenantGrant(
+  http: HttpClient,
+  parameters: ReportingSetDefinitionTenantGrantParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<ReportingDefinitionTenantGrantResponse> {
+  const path = `/api/v1/reporting/definitions/${encodeURIComponent(String(parameters.definitionId))}/tenant-grants/${encodeURIComponent(String(parameters.tenantId))}`;
+  const init: RequestInit = {
+    method: 'PUT',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readReportingDefinitionTenantGrantResponse(value);
 }
 
 export interface ReportingTestDataSourceParameters {
@@ -13957,6 +16961,29 @@ export async function settingsCreateHostDictType(
   return readDictTypeResponse(value);
 }
 
+export interface SettingsCreateQuerySchemeParameters {
+  readonly gridKey: string;
+  readonly body: SaveQuerySchemeRequest;
+}
+
+export async function settingsCreateQueryScheme(
+  http: HttpClient,
+  parameters: SettingsCreateQuerySchemeParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<QuerySchemeDetail> {
+  const path = `/api/v1/me/query-schemes/${encodeURIComponent(String(parameters.gridKey))}`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readQuerySchemeDetail(value);
+}
+
 export interface SettingsCreateTenantDictItemParameters {
   readonly dictTypeId: string;
   readonly body: CreateDictItemRequest;
@@ -14072,6 +17099,30 @@ export async function settingsDeleteHostDictType(
   } else {
     await http.request<void>(path, init, signal, options);
   }
+}
+
+export interface SettingsDeleteQuerySchemeParameters {
+  readonly gridKey: string;
+  readonly schemeId: string;
+  readonly body: DeleteQuerySchemeRequest;
+}
+
+export async function settingsDeleteQueryScheme(
+  http: HttpClient,
+  parameters: SettingsDeleteQuerySchemeParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<boolean> {
+  const path = `/api/v1/me/query-schemes/${encodeURIComponent(String(parameters.gridKey))}/${encodeURIComponent(String(parameters.schemeId))}`;
+  const init: RequestInit = {
+    method: 'DELETE',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readSettingsDeleteQuerySchemeResponse(value);
 }
 
 export interface SettingsDeleteTenantDictItemParameters {
@@ -14230,6 +17281,24 @@ export async function settingsGenerateHostEnumCatalogDict(
   return readEnumCatalogDictGenerationResult(value);
 }
 
+export interface SettingsGetDefaultQuerySchemeParameters {
+  readonly gridKey: string;
+}
+
+export async function settingsGetDefaultQueryScheme(
+  http: HttpClient,
+  parameters: SettingsGetDefaultQuerySchemeParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<DefaultQuerySchemeResponse> {
+  const path = `/api/v1/me/query-schemes/${encodeURIComponent(String(parameters.gridKey))}/default`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readDefaultQuerySchemeResponse(value);
+}
+
 export interface SettingsGetHostConfigEntryParameters {
   readonly configEntryId: string;
 }
@@ -14318,6 +17387,43 @@ export async function settingsGetHostEnumCatalog(
     ? await http.request<unknown>(path, init, signal)
     : await http.request<unknown>(path, init, signal, options);
   return readEnumCatalogDetail(value);
+}
+
+export interface SettingsGetQuerySchemeParameters {
+  readonly gridKey: string;
+  readonly schemeId: string;
+}
+
+export async function settingsGetQueryScheme(
+  http: HttpClient,
+  parameters: SettingsGetQuerySchemeParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<QuerySchemeDetail> {
+  const path = `/api/v1/me/query-schemes/${encodeURIComponent(String(parameters.gridKey))}/${encodeURIComponent(String(parameters.schemeId))}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readQuerySchemeDetail(value);
+}
+
+export interface SettingsGetQuerySchemeSchemaParameters {
+  readonly gridKey: string;
+}
+
+export async function settingsGetQuerySchemeSchema(
+  http: HttpClient,
+  parameters: SettingsGetQuerySchemeSchemaParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<QuerySchemeDefinition> {
+  const path = `/api/v1/me/query-schemes/${encodeURIComponent(String(parameters.gridKey))}/schema`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readQuerySchemeDefinition(value);
 }
 
 export interface SettingsGetTenantDictItemParameters {
@@ -14565,6 +17671,37 @@ export async function settingsListHostEnumCatalogs(
   return readSettingsListHostEnumCatalogsResponse(value);
 }
 
+export interface SettingsListQuerySchemesParameters {
+  readonly gridKey: string;
+  readonly shared?: boolean;
+  readonly pageSize?: number;
+  readonly cursor?: string;
+}
+
+export async function settingsListQuerySchemes(
+  http: HttpClient,
+  parameters: SettingsListQuerySchemesParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<CursorPageOfQuerySchemeSummary> {
+  const query = new URLSearchParams();
+  if (parameters.shared !== undefined) {
+    query.set('shared', String(parameters.shared));
+  }
+  if (parameters.pageSize !== undefined) {
+    query.set('pageSize', String(parameters.pageSize));
+  }
+  if (parameters.cursor !== undefined) {
+    query.set('cursor', String(parameters.cursor));
+  }
+  const path = query.size === 0 ? `/api/v1/me/query-schemes/${encodeURIComponent(String(parameters.gridKey))}` : `/api/v1/me/query-schemes/${encodeURIComponent(String(parameters.gridKey))}?${query.toString()}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readCursorPageOfQuerySchemeSummary(value);
+}
+
 export interface SettingsListTenantDictItemsParameters {
   readonly dictTypeId: string;
   readonly page?: number;
@@ -14676,6 +17813,53 @@ export async function settingsRestoreHostDiagnosticPolicy(
   return readDiagnosticPolicyResponse(value);
 }
 
+export interface SettingsSetDefaultQuerySchemeParameters {
+  readonly gridKey: string;
+  readonly body: SetDefaultQuerySchemeRequest;
+}
+
+export async function settingsSetDefaultQueryScheme(
+  http: HttpClient,
+  parameters: SettingsSetDefaultQuerySchemeParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<DefaultQuerySchemeResponse> {
+  const path = `/api/v1/me/query-schemes/${encodeURIComponent(String(parameters.gridKey))}/default`;
+  const init: RequestInit = {
+    method: 'PUT',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readDefaultQuerySchemeResponse(value);
+}
+
+export interface SettingsShareQuerySchemeParameters {
+  readonly gridKey: string;
+  readonly schemeId: string;
+  readonly body: ShareQuerySchemeRequest;
+}
+
+export async function settingsShareQueryScheme(
+  http: HttpClient,
+  parameters: SettingsShareQuerySchemeParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<QuerySchemeDetail> {
+  const path = `/api/v1/me/query-schemes/${encodeURIComponent(String(parameters.gridKey))}/${encodeURIComponent(String(parameters.schemeId))}/sharing`;
+  const init: RequestInit = {
+    method: 'PUT',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readQuerySchemeDetail(value);
+}
+
 export interface SettingsUpdateHostConfigEntryParameters {
   readonly configEntryId: string;
   readonly body: UpdateConfigEntryRequest;
@@ -14765,6 +17949,30 @@ export async function settingsUpdateHostDictType(
     ? await http.request<unknown>(path, init, signal)
     : await http.request<unknown>(path, init, signal, options);
   return readDictTypeResponse(value);
+}
+
+export interface SettingsUpdateQuerySchemeParameters {
+  readonly gridKey: string;
+  readonly schemeId: string;
+  readonly body: SaveQuerySchemeRequest;
+}
+
+export async function settingsUpdateQueryScheme(
+  http: HttpClient,
+  parameters: SettingsUpdateQuerySchemeParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<QuerySchemeDetail> {
+  const path = `/api/v1/me/query-schemes/${encodeURIComponent(String(parameters.gridKey))}/${encodeURIComponent(String(parameters.schemeId))}`;
+  const init: RequestInit = {
+    method: 'PUT',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readQuerySchemeDetail(value);
 }
 
 export interface SettingsUpdateTenantDictItemParameters {
@@ -14878,6 +18086,29 @@ export async function tenancyCreateHostTenantPackage(
     ? await http.request<unknown>(path, init, signal)
     : await http.request<unknown>(path, init, signal, options);
   return readTenantPackageSummary(value);
+}
+
+export interface TenancyCreatePaidSubscriptionParameters {
+  readonly tenantId: string;
+  readonly body: CreatePaidTenantSubscriptionRequest;
+}
+
+export async function tenancyCreatePaidSubscription(
+  http: HttpClient,
+  parameters: TenancyCreatePaidSubscriptionParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<TenantSubscriptionPaymentTerms> {
+  const path = `/api/v1/tenancy/tenants/${encodeURIComponent(String(parameters.tenantId))}/subscriptions/paid`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readTenantSubscriptionPaymentTerms(value);
 }
 
 export interface TenancyDeleteCurrentBrandingLogoParameters {
@@ -15082,6 +18313,24 @@ export async function tenancyGetHostTenantPackage(
   return readTenantPackageSummary(value);
 }
 
+export interface TenancyGetPackageOfferParameters {
+  readonly packageId: string;
+}
+
+export async function tenancyGetPackageOffer(
+  http: HttpClient,
+  parameters: TenancyGetPackageOfferParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<TenantPackageOfferResponse> {
+  const path = `/api/v1/tenancy/tenant-packages/${encodeURIComponent(String(parameters.packageId))}/offer`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readTenantPackageOfferResponse(value);
+}
+
 export interface TenancyGetRuntimeBrandingParameters {
 
 }
@@ -15098,6 +18347,24 @@ export async function tenancyGetRuntimeBranding(
     ? await http.request<unknown>(path, init, signal)
     : await http.request<unknown>(path, init, signal, options);
   return readTenantRuntimeBrandingResponse(value);
+}
+
+export interface TenancyListEntitlementCatalogParameters {
+
+}
+
+export async function tenancyListEntitlementCatalog(
+  http: HttpClient,
+  parameters: TenancyListEntitlementCatalogParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<Array<TenantEntitlementCatalogResponse>> {
+  const path = `/api/v1/tenancy/entitlements/catalog`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readTenancyListEntitlementCatalogResponse(value);
 }
 
 export interface TenancyListHostTenantAdministratorsParameters {
@@ -15234,6 +18501,29 @@ export async function tenancyListHostTenants(
   return readPagedResultOfTenantSummary(value);
 }
 
+export interface TenancySavePackageOfferParameters {
+  readonly packageId: string;
+  readonly body: UpsertTenantPackageOfferRequest;
+}
+
+export async function tenancySavePackageOffer(
+  http: HttpClient,
+  parameters: TenancySavePackageOfferParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<TenantPackageOfferResponse> {
+  const path = `/api/v1/tenancy/tenant-packages/${encodeURIComponent(String(parameters.packageId))}/offer`;
+  const init: RequestInit = {
+    method: 'PUT',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readTenantPackageOfferResponse(value);
+}
+
 export interface TenancyUpdateCurrentBrandingParameters {
   readonly body: UpdateTenantBrandingRequest;
 }
@@ -15368,6 +18658,29 @@ export async function tenancyUploadHostTenantBrandingLogo(
     ? await http.request<unknown>(path, init, signal)
     : await http.request<unknown>(path, init, signal, options);
   return readTenantBrandingResponse(value);
+}
+
+export interface WorkflowAcceptCollaborationGrantParameters {
+  readonly grantId: string;
+  readonly body: AcceptWorkflowCollaborationGrantRequest;
+}
+
+export async function workflowAcceptCollaborationGrant(
+  http: HttpClient,
+  parameters: WorkflowAcceptCollaborationGrantParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<WorkflowCollaborationGrantResponse> {
+  const path = `/api/v1/workflow/collaboration-grants/${encodeURIComponent(String(parameters.grantId))}/accept`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readWorkflowCollaborationGrantResponse(value);
 }
 
 export interface WorkflowApproveTodoParameters {
@@ -15697,6 +19010,24 @@ export async function workflowGetBusinessActionCatalog(
   return readWorkflowBusinessActionCatalogResponse(value);
 }
 
+export interface WorkflowGetCollaborationGrantParameters {
+  readonly grantId: string;
+}
+
+export async function workflowGetCollaborationGrant(
+  http: HttpClient,
+  parameters: WorkflowGetCollaborationGrantParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<WorkflowCollaborationGrantResponse> {
+  const path = `/api/v1/workflow/collaboration-grants/${encodeURIComponent(String(parameters.grantId))}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readWorkflowCollaborationGrantResponse(value);
+}
+
 export interface WorkflowGetConnectorCallParameters {
   readonly instanceId: string;
   readonly callId: string;
@@ -15895,6 +19226,29 @@ export async function workflowGetRouteDecision(
     ? await http.request<unknown>(path, init, signal)
     : await http.request<unknown>(path, init, signal, options);
   return readWorkflowRouteDecisionResponse(value);
+}
+
+export interface WorkflowGetSimulationStarterSelectionsParameters {
+  readonly definitionId: string;
+  readonly expectedRevision: number;
+  readonly formVersionId: string;
+}
+
+export async function workflowGetSimulationStarterSelections(
+  http: HttpClient,
+  parameters: WorkflowGetSimulationStarterSelectionsParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<WorkflowSimulationSelectionsResponse> {
+  const query = new URLSearchParams();
+  query.set('expectedRevision', String(parameters.expectedRevision));
+  query.set('formVersionId', String(parameters.formVersionId));
+  const path = query.size === 0 ? `/api/v1/workflow/definitions/${encodeURIComponent(String(parameters.definitionId))}/simulation/starter-selections` : `/api/v1/workflow/definitions/${encodeURIComponent(String(parameters.definitionId))}/simulation/starter-selections?${query.toString()}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readWorkflowSimulationSelectionsResponse(value);
 }
 
 export interface WorkflowGetStarterSelectionsParameters {
@@ -16400,6 +19754,74 @@ export async function workflowListMyTodos(
   return readPagedResultOfWorkflowTodoListItemResponse(value);
 }
 
+export interface WorkflowListOperationsBacklogParameters {
+  readonly page?: number;
+  readonly pageSize?: number;
+  readonly definitionVersionId?: string;
+}
+
+export async function workflowListOperationsBacklog(
+  http: HttpClient,
+  parameters: WorkflowListOperationsBacklogParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<WorkflowOperationsBacklogResponse> {
+  const query = new URLSearchParams();
+  if (parameters.page !== undefined) {
+    query.set('page', String(parameters.page));
+  }
+  if (parameters.pageSize !== undefined) {
+    query.set('pageSize', String(parameters.pageSize));
+  }
+  if (parameters.definitionVersionId !== undefined) {
+    query.set('definitionVersionId', String(parameters.definitionVersionId));
+  }
+  const path = query.size === 0 ? `/api/v1/workflow/operations/backlog` : `/api/v1/workflow/operations/backlog?${query.toString()}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readWorkflowOperationsBacklogResponse(value);
+}
+
+export interface WorkflowListOperationsStepsParameters {
+  readonly page?: number;
+  readonly pageSize?: number;
+  readonly definitionVersionId?: string;
+  readonly minimumDwellSeconds?: number;
+  readonly onlyOverdue?: boolean;
+}
+
+export async function workflowListOperationsSteps(
+  http: HttpClient,
+  parameters: WorkflowListOperationsStepsParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<WorkflowOperationsStepsResponse> {
+  const query = new URLSearchParams();
+  if (parameters.page !== undefined) {
+    query.set('page', String(parameters.page));
+  }
+  if (parameters.pageSize !== undefined) {
+    query.set('pageSize', String(parameters.pageSize));
+  }
+  if (parameters.definitionVersionId !== undefined) {
+    query.set('definitionVersionId', String(parameters.definitionVersionId));
+  }
+  if (parameters.minimumDwellSeconds !== undefined) {
+    query.set('minimumDwellSeconds', String(parameters.minimumDwellSeconds));
+  }
+  if (parameters.onlyOverdue !== undefined) {
+    query.set('onlyOverdue', String(parameters.onlyOverdue));
+  }
+  const path = query.size === 0 ? `/api/v1/workflow/operations/steps` : `/api/v1/workflow/operations/steps?${query.toString()}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readWorkflowOperationsStepsResponse(value);
+}
+
 export interface WorkflowListPositionCandidatesParameters {
   readonly page?: number;
   readonly pageSize?: number;
@@ -16476,6 +19898,38 @@ export async function workflowListRecoveryTasks(
     ? await http.request<unknown>(path, init, signal)
     : await http.request<unknown>(path, init, signal, options);
   return readPagedResultOfWorkflowRecoveryTaskResponse(value);
+}
+
+export interface WorkflowListSimulationStarterSelectionCandidatesParameters {
+  readonly definitionId: string;
+  readonly expectedRevision: number;
+  readonly formVersionId: string;
+  readonly selectionKey: string;
+  readonly page?: number;
+  readonly pageSize?: number;
+}
+
+export async function workflowListSimulationStarterSelectionCandidates(
+  http: HttpClient,
+  parameters: WorkflowListSimulationStarterSelectionCandidatesParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<WorkflowRecipientCandidatePageResponse> {
+  const query = new URLSearchParams();
+  query.set('expectedRevision', String(parameters.expectedRevision));
+  query.set('formVersionId', String(parameters.formVersionId));
+  if (parameters.page !== undefined) {
+    query.set('page', String(parameters.page));
+  }
+  if (parameters.pageSize !== undefined) {
+    query.set('pageSize', String(parameters.pageSize));
+  }
+  const path = query.size === 0 ? `/api/v1/workflow/definitions/${encodeURIComponent(String(parameters.definitionId))}/simulation/starter-selections/${encodeURIComponent(String(parameters.selectionKey))}/candidates` : `/api/v1/workflow/definitions/${encodeURIComponent(String(parameters.definitionId))}/simulation/starter-selections/${encodeURIComponent(String(parameters.selectionKey))}/candidates?${query.toString()}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readWorkflowRecipientCandidatePageResponse(value);
 }
 
 export interface WorkflowListStarterSelectionCandidatesParameters {
@@ -16720,6 +20174,28 @@ export async function workflowPreviewAssignees(
     ? await http.request<unknown>(path, init, signal)
     : await http.request<unknown>(path, init, signal, options);
   return readWorkflowAssigneePreviewResponse(value);
+}
+
+export interface WorkflowProposeCollaborationGrantParameters {
+  readonly body: ProposeWorkflowCollaborationGrantRequest;
+}
+
+export async function workflowProposeCollaborationGrant(
+  http: HttpClient,
+  parameters: WorkflowProposeCollaborationGrantParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<WorkflowCollaborationGrantResponse> {
+  const path = `/api/v1/workflow/collaboration-grants`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readWorkflowCollaborationGrantResponse(value);
 }
 
 export interface WorkflowPublishDefinitionParameters {
@@ -17069,6 +20545,29 @@ export async function workflowReturnTodo(
   return readWorkflowInstanceResponse(value);
 }
 
+export interface WorkflowRevokeCollaborationGrantParameters {
+  readonly grantId: string;
+  readonly body: RevokeWorkflowCollaborationGrantRequest;
+}
+
+export async function workflowRevokeCollaborationGrant(
+  http: HttpClient,
+  parameters: WorkflowRevokeCollaborationGrantParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<WorkflowCollaborationGrantResponse> {
+  const path = `/api/v1/workflow/collaboration-grants/${encodeURIComponent(String(parameters.grantId))}/revoke`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readWorkflowCollaborationGrantResponse(value);
+}
+
 export interface WorkflowSaveDesignerAssetParameters {
   readonly formId: string;
   readonly body: SaveWorkflowDesignerAssetRequest;
@@ -17136,6 +20635,29 @@ export async function workflowSetFormStatus(
     ? await http.request<unknown>(path, init, signal)
     : await http.request<unknown>(path, init, signal, options);
   return readWorkflowFormResponse(value);
+}
+
+export interface WorkflowSimulateDefinitionParameters {
+  readonly definitionId: string;
+  readonly body: SimulateWorkflowDefinitionRequest;
+}
+
+export async function workflowSimulateDefinition(
+  http: HttpClient,
+  parameters: WorkflowSimulateDefinitionParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<WorkflowSimulationResponse> {
+  const path = `/api/v1/workflow/definitions/${encodeURIComponent(String(parameters.definitionId))}/simulate`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readWorkflowSimulationResponse(value);
 }
 
 export interface WorkflowStartInstanceParameters {
@@ -17250,6 +20772,64 @@ export async function workflowUpdateWorkCalendarDraft(
     ? await http.request<unknown>(path, init, signal)
     : await http.request<unknown>(path, init, signal, options);
   return readWorkflowWorkCalendarResponse(value);
+}
+
+export interface WorkflowUploadStartFormAttachmentParameters {
+  readonly versionId: string;
+  readonly fieldKey: string;
+  readonly file?: IFormFile;
+}
+
+export async function workflowUploadStartFormAttachment(
+  http: HttpClient,
+  parameters: WorkflowUploadStartFormAttachmentParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<WorkflowFormAttachmentUploadResponse> {
+  const query = new URLSearchParams();
+  query.set('fieldKey', String(parameters.fieldKey));
+  const path = query.size === 0 ? `/api/v1/workflow/definition-versions/${encodeURIComponent(String(parameters.versionId))}/attachment-uploads` : `/api/v1/workflow/definition-versions/${encodeURIComponent(String(parameters.versionId))}/attachment-uploads?${query.toString()}`;
+  const body = new FormData();
+  if (parameters.file !== undefined) {
+    body.append('file', parameters.file);
+  }
+  const init: RequestInit = { method: 'POST', body };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readWorkflowFormAttachmentUploadResponse(value);
+}
+
+export interface WorkflowUploadTodoFormAttachmentParameters {
+  readonly todoId: string;
+  readonly expectedRevision: number;
+  readonly fieldKey: string;
+  readonly formKindKey?: string;
+  readonly file?: IFormFile;
+}
+
+export async function workflowUploadTodoFormAttachment(
+  http: HttpClient,
+  parameters: WorkflowUploadTodoFormAttachmentParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<WorkflowFormAttachmentUploadResponse> {
+  const query = new URLSearchParams();
+  query.set('expectedRevision', String(parameters.expectedRevision));
+  query.set('fieldKey', String(parameters.fieldKey));
+  if (parameters.formKindKey !== undefined) {
+    query.set('formKindKey', String(parameters.formKindKey));
+  }
+  const path = query.size === 0 ? `/api/v1/workflow/todos/${encodeURIComponent(String(parameters.todoId))}/attachment-uploads` : `/api/v1/workflow/todos/${encodeURIComponent(String(parameters.todoId))}/attachment-uploads?${query.toString()}`;
+  const body = new FormData();
+  if (parameters.file !== undefined) {
+    body.append('file', parameters.file);
+  }
+  const init: RequestInit = { method: 'POST', body };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readWorkflowFormAttachmentUploadResponse(value);
 }
 
 export interface WorkflowUploadTodoSignatureParameters {

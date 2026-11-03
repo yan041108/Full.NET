@@ -154,7 +154,7 @@ public sealed class WorkflowAttachmentTransactionTests
             ["allowedExtensions"] = JsonSerializer.SerializeToElement(new[] { "png" }) })])]);
         var submission = new WorkflowFormSubmissionRecord(Guid.CreateVersion7(), Guid.CreateVersion7(), Guid.CreateVersion7(), "{}", "Internal", 1, actor, DateTimeOffset.UtcNow);
         return new(new(claims, descriptors, query, command, Substitute.For<IClock>(), ids,
-            NullLogger<WorkflowFormAttachmentCoordinator>.Instance, tenant, tenantDescriptors), actor, file, scope, schema, submission, query, command, claims, descriptors, tenantDescriptors);
+            NullLogger<WorkflowFormAttachmentCoordinator>.Instance, tenant, tenantDescriptors, WorkflowTodoManagementTestDependencies.CreateRemoteFiles(query, tenant)), actor, file, scope, schema, submission, query, command, claims, descriptors, tenantDescriptors);
     }
 
     private sealed record AttachmentFixture(WorkflowFormAttachmentCoordinator Service, Guid Actor, Guid File, string Scope,

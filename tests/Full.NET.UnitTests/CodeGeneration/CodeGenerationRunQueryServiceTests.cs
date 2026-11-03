@@ -25,7 +25,8 @@ public sealed class CodeGenerationRunQueryServiceTests
         var service = new CodeGenerationRunQueryService(
             Substitute.For<IQueryExecutor>(),
             executor,
-            Options.Create(new DatabaseOptions { Provider = provider }));
+            Options.Create(new DatabaseOptions { Provider = provider }),
+            CodeGenerationGitWorkspaceTestSupport.CreateDisabled(string.Empty));
 
         var result = await service.ListAsync(
             int.MaxValue,
@@ -57,7 +58,7 @@ public sealed class CodeGenerationRunQueryServiceTests
             Options.Create(new DatabaseOptions
             {
                 Provider = DatabaseProvider.SqlServer,
-            }));
+            }), CodeGenerationGitWorkspaceTestSupport.CreateDisabled(string.Empty));
 
         var result = await service.ListAsync(1, 20, "queued");
 
@@ -85,7 +86,7 @@ public sealed class CodeGenerationRunQueryServiceTests
             Options.Create(new DatabaseOptions
             {
                 Provider = DatabaseProvider.SqlServer,
-            }));
+            }), CodeGenerationGitWorkspaceTestSupport.CreateDisabled(string.Empty));
 
         var result = await service.ListAsync(
             1,
@@ -107,7 +108,7 @@ public sealed class CodeGenerationRunQueryServiceTests
             Options.Create(new DatabaseOptions
             {
                 Provider = DatabaseProvider.SqlServer,
-            }));
+            }), CodeGenerationGitWorkspaceTestSupport.CreateDisabled(string.Empty));
 
         var result = await service.GetByIdAsync(Guid.CreateVersion7());
 

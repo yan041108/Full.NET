@@ -111,6 +111,7 @@ var messagingWorkerMode = builder.Configuration
 
 if (commandLine.VersionRetirement is null)
 {
+    builder.Services.AddFullNetCdcMonitoring(builder.Configuration);
     // LegacyPolling、ShadowCdc、HybridKafka 在非退役命令下始终注册 Legacy Outbox 处理器。
     // HybridKafka 模式下，OutboxProcessor 内部通过 IEffectiveEventDeliveryOwnerResolver
     // 按流跳过所有权为 CdcKafka 的消息（抛出 LegacyOwnerRevoked 死信），保证只处理 Legacy 流。

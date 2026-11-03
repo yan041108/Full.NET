@@ -125,11 +125,13 @@ onMounted(() => {
 <template>
   <div class="k3cloud-document-syncs-view">
     <ArtTableHeader :title="t('k3cloudDocumentSyncs.title')">
-      <PermissionGate code="k3cloud.document_syncs.create">
-        <ElButton data-testid="k3cloud-document-sync-create" type="primary" :icon="Plus" @click="openCreate">
-          {{ t('k3cloudDocumentSyncs.createSync') }}
-        </ElButton>
-      </PermissionGate>
+      <template #left>
+        <PermissionGate code="k3cloud.document_syncs.create">
+          <ElButton data-testid="k3cloud-document-sync-create" type="primary" :icon="Plus" @click="openCreate">
+            {{ t('k3cloudDocumentSyncs.createSync') }}
+          </ElButton>
+        </PermissionGate>
+      </template>
     </ArtTableHeader>
 
     <ElAlert v-if="problem" type="error" :title="problem.title" show-icon class="mb-4" />

@@ -112,7 +112,8 @@ describe('OIDC token endpoint mapping', () => {
     vi.stubGlobal('fetch', fetchMock);
     const revoked = await revokeOidcApplicationSession({
       apiBase: 'http://localhost:5149',
-      clientId: 'admin-spa'
+      clientId: 'admin-spa',
+      accessToken: 'active-access-token'
     });
     expect(revoked).toBe(true);
     expect(fetchMock).toHaveBeenCalledWith(
@@ -125,7 +126,7 @@ describe('OIDC token endpoint mapping', () => {
     );
   });
 
-  it('binds application logout to the active access token when supplied', async () => {
+  it('binds application logout to the required active access token', async () => {
     const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 204 }));
     vi.stubGlobal('fetch', fetchMock);
     await revokeOidcApplicationSession({

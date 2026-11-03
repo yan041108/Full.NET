@@ -127,6 +127,7 @@ public sealed class IdentityModuleRegistrationTests
         module.AddMigrationServices(splitServices, configuration);
         splitServices.AddIdentityAuthentication(configuration);
         splitServices.AddIdentityOidc(configuration);
+        splitServices.AddIdentityBrowser(configuration);
         splitServices.AddAuthenticationEventRetention(configuration);
         splitServices.AddIdentityAuthorization(configuration);
         splitServices.AddIdentityDomainServices(configuration);
@@ -137,6 +138,7 @@ public sealed class IdentityModuleRegistrationTests
             SnapshotIdentityOwnedRegistrations(moduleServices),
             SnapshotIdentityOwnedRegistrations(splitServices.Where(descriptor =>
                 descriptor.ImplementationType != typeof(AuthenticationEventRetentionHostedProcessor)
+                && descriptor.ImplementationType != typeof(IdentityFeatures.TenantSeatOperations.TenantSeatRecoveryWorker)
                 && descriptor.ImplementationType != typeof(Full.NET.Modules.Identity.Retention.IdentityEphemeralStateRetentionHostedService))));
         CollectionAssert.AreEqual(
             ExpectedIdentityOwnedRegistrations(),
@@ -393,6 +395,7 @@ public sealed class IdentityModuleRegistrationTests
         RegistrationExpectation.Self<
             IdentityAuthenticationRegistrationMarker>(ServiceLifetime.Singleton),
         RegistrationExpectation.Self<AccessSessionValidator>(ServiceLifetime.Scoped),
+        RegistrationExpectation.Type<Full.NET.Realtime.IRealtimeConnectionAuthorizer, RealtimeConnectionAuthorizer>(ServiceLifetime.Scoped),
         RegistrationExpectation.Type<ICurrentSessionAuthorization, CurrentSessionAuthorization>(ServiceLifetime.Scoped),
         RegistrationExpectation.Type<IIndependentCurrentSessionAuthorization, IndependentCurrentSessionAuthorization>(ServiceLifetime.Scoped),
         RegistrationExpectation.Type<ICurrentApiKeyAuthorization, CurrentApiKeyAuthorization>(ServiceLifetime.Scoped),
@@ -431,6 +434,7 @@ public sealed class IdentityModuleRegistrationTests
         RegistrationExpectation.Type<IValidateOptions<IdentityOidcOptions>, IdentityOidcOptionsValidator>(ServiceLifetime.Singleton),
         RegistrationExpectation.Type<IValidateOptions<IdentityOidcRetentionOptions>, IdentityOidcRetentionOptionsValidator>(ServiceLifetime.Singleton),
         RegistrationExpectation.Self<IdentityOidcRetentionRunner>(ServiceLifetime.Scoped),
+        RegistrationExpectation.Type<IIdentityBrowserSession, NoIdentityBrowserSession>(ServiceLifetime.Singleton),
         RegistrationExpectation.Type<IValidateOptions<AuthenticationEventRetentionOptions>, AuthenticationEventRetentionOptionsValidator>(ServiceLifetime.Singleton),
         RegistrationExpectation.Self<AuthenticationEventRetentionRunner>(ServiceLifetime.Scoped),
 
@@ -553,6 +557,7 @@ public sealed class IdentityModuleRegistrationTests
         RegistrationExpectation.Self<IdentityFeatures.ManageMfaRecoveryCodes.MfaRecoveryCodeService>(ServiceLifetime.Scoped),
         RegistrationExpectation.Self<IdentityFeatures.ManageTenantMembers.TenantMemberProvisionService>(ServiceLifetime.Scoped),
         RegistrationExpectation.Self<IdentityFeatures.AcceptTenantInvitation.AcceptTenantInvitationService>(ServiceLifetime.Scoped),
+        RegistrationExpectation.Self<IdentityFeatures.TenantSeatOperations.TenantSeatOperationProcessor>(ServiceLifetime.Scoped),
         RegistrationExpectation.Self<IdentityFeatures.ManageMyTenantInvitations.MyTenantInvitationQueryService>(ServiceLifetime.Scoped),
         RegistrationExpectation.Self<PublicRegistrationWayQueryService>(
             ServiceLifetime.Scoped),

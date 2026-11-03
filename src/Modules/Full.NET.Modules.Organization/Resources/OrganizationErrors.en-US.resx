@@ -27,4 +27,5 @@
   <data name="organization.reporting_lines.revision_conflict" xml:space="preserve"><value>The reporting relationship changed. Refresh before updating.</value></data>
   <data name="organization.reporting_lines.cycle_or_depth" xml:space="preserve"><value>The reporting relationship forms a cycle or exceeds 64 levels.</value></data>
   <data name="organization.reporting_lines.scope_denied" xml:space="preserve"><value>Full organization data scope is required to manage reporting relationships.</value></data>
+  <data name="import_export.task.authority_denied" xml:space="preserve"><value>The import session or a permission required by this row is no longer valid. The original uploader must check access and retry.</value></data>
 </root>

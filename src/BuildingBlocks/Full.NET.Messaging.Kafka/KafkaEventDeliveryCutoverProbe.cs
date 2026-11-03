@@ -6,6 +6,7 @@ using Confluent.Kafka.Admin;
 using Full.NET.Messaging.Abstractions;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
+using Microsoft.Extensions.Logging;
 
 namespace Full.NET.Messaging.Kafka;
 
@@ -13,8 +14,36 @@ namespace Full.NET.Messaging.Kafka;
 internal sealed class KafkaEventDeliveryCutoverProbe(IOptions<KafkaConnectRollbackOptions> controlOptions,
     IOptions<KafkaMessagingOptions> kafkaOptions, IHostEnvironment environment,
     IIntegrationEventSubscriptionCatalog catalog, KafkaConnectAdminClient connect,
-    IKafkaReplayConsumerFactory consumers) : IEventDeliveryCutoverProbe
+    IKafkaReplayConsumerFactory consumers, ILogger<KafkaEventDeliveryCutoverProbe>? logger = null) : IEventDeliveryCutoverProbe
 {
+    public async Task<CdcKafkaDeliveryBinding?> ReadDeliveryBindingAsync(string eventType, int schemaVersion, string expectedFingerprint,
+        CancellationToken cancellationToken = default)
+    {
+        var binding = Resolve(eventType, schemaVersion);
+        if (binding is null || expectedFingerprint != await ReadTargetFingerprintAsync(eventType, schemaVersion, cancellationToken).ConfigureAwait(false)) return Unavailable("target_changed_before_binding");
+        var configuration = await connect.TryReadConnectorConfigurationAsync(binding.ConnectorName, cancellationToken).ConfigureAwait(false);
+        if (configuration is null) return Unavailable("configuration_unavailable");
+        var options = kafkaOptions.Value;
+        var names = new[] { binding.TopicName }.Concat(options.RetryStages.Select(stage => KafkaTopicNames.GetRetryTopic(binding.TopicName, stage))).ToArray();
+        var lag = new KafkaConsumerLagObserver();
+        var topics = await lag.ObserveTopicBindingsAsync(options, names, cancellationToken).ConfigureAwait(false);
+        var cluster = await lag.ObserveClusterIdAsync(options, cancellationToken).ConfigureAwait(false);
+        if (topics is null || cluster is null || cluster != await connect.TryReadKafkaClusterIdAsync(cancellationToken).ConfigureAwait(false)
+            || expectedFingerprint != await ReadTargetFingerprintAsync(eventType, schemaVersion, cancellationToken).ConfigureAwait(false)) return Unavailable("topology_or_cluster_changed");
+        var groups = catalog.GetAllSubscriptions().Where(item => item.EventType == eventType && item.SchemaVersion == schemaVersion)
+            .Select(item => item.ConsumerName).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToArray();
+        return new(cluster, binding.ConnectorName, KafkaConnectResourceIdentity.Compute(configuration), binding.TopicName,
+            groups, options.RetryStages.ToArray(), topics)
+        { ConnectBaseUri = new Uri(controlOptions.Value.ConnectBaseUri!).AbsoluteUri, EnvironmentName = environment.EnvironmentName,
+            ShadowConnectorName = binding.ShadowConnectorName, ShadowTopicName = binding.ShadowTopicName };
+
+        CdcKafkaDeliveryBinding? Unavailable(string reason)
+        {
+            logger?.LogWarning("CDC delivery binding rejected ({ReasonCode}).", reason);
+            return null;
+        }
+    }
+
     public async Task<string?> ReadTargetFingerprintAsync(string eventType, int schemaVersion, CancellationToken cancellationToken = default)
     {
         try { return await ReadTargetCoreAsync(eventType, schemaVersion, cancellationToken).ConfigureAwait(false); }

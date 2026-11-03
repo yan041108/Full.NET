@@ -171,10 +171,10 @@ public sealed class CrudArtifactGeneratorTests
         StringAssert.Contains(contracts, "public sealed record DisableProductRequest(");
         StringAssert.Contains(
             contracts,
-            """[property: JsonPropertyName("displayName")] string Name""");
+            """[property: JsonPropertyName("displayName"), JsonRequired] string Name""");
         StringAssert.Contains(
             contracts,
-            "JsonNumberHandling.AllowReadingFromString | JsonNumberHandling.WriteAsString");
+            "Full.NET.Hosting.Serialization.StringInt64JsonConverter");
         StringAssert.Contains(contracts, "public const string Read = \"catalog.products.read\";");
         StringAssert.Contains(contracts, "public const string Write = \"catalog.products.write\";");
 
@@ -636,10 +636,10 @@ public sealed class CrudArtifactGeneratorTests
             + "            DeletedById = @DeletedById,\n"
             + "            Version = Version + 1");
         StringAssert.Contains(sql, "AND IsDeleted = 0");
-        StringAssert.Contains(feature, "CreatedById = actorUserId");
-        StringAssert.Contains(feature, "UpdatedById = actorUserId");
-        StringAssert.Contains(feature, "DeletedById = actorUserId");
-        StringAssert.Contains(feature, "DeletedAtUtc = clock.UtcNow");
+        StringAssert.Contains(feature, "[\"CreatedById\"] = actorUserId");
+        StringAssert.Contains(feature, "[\"UpdatedById\"] = actorUserId");
+        StringAssert.Contains(feature, "[\"DeletedById\"] = actorUserId");
+        StringAssert.Contains(feature, "[\"DeletedAtUtc\"] = clock.UtcNow");
         StringAssert.Contains(endpoint, "ClaimsPrincipal principal");
         StringAssert.Contains(endpoint, "FullNetIdentityClaimTypes.Subject");
         StringAssert.Contains(endpoint, "MapPost(\"/{productId:guid}/delete\"");
@@ -762,8 +762,9 @@ public sealed class CrudArtifactGeneratorTests
         var vueView = Artifact(artifacts, "clients/vue/productsView.vue");
 
         StringAssert.Contains(vueView, ":data=\"[...items]\"");
-        StringAssert.Contains(vueView, "function openEdit(row: unknown): void");
-        StringAssert.Contains(vueView, "const item = items.value.find(candidate => candidate === row);");
+        StringAssert.Contains(vueView, "async function openEdit(row: unknown): Promise<void>");
+        StringAssert.Contains(vueView, "const item = resolveRow(row);");
+        StringAssert.Contains(vueView, "return items.value.find(candidate => candidate.id === row.id);");
         StringAssert.Contains(vueView, "function openDelete(row: unknown): void");
         StringAssert.Contains(vueView, "async function confirmDelete(): Promise<void>");
     }
@@ -827,17 +828,17 @@ public sealed class CrudArtifactGeneratorTests
 
         StringAssert.Contains(view, "const deleteOpen = ref(false);");
         StringAssert.Contains(view, "@click=\"openDelete(row)\"");
-        StringAssert.Contains(view, "<el-dialog v-model=\"deleteOpen\" title=\"确认删除\"");
+        StringAssert.Contains(view, "v-model=\"deleteOpen\" :title=\"t('generatedCrud.confirmRemove')\"");
         StringAssert.Contains(view, "--el-color-danger: #b42318");
         StringAssert.Contains(view, "@click=\"confirmDelete\"");
         if (mode == "hard-delete")
         {
-            StringAssert.Contains(view, "确定删除该条记录吗？此操作无法撤销。");
+            StringAssert.Contains(view, "t('generatedCrud.irreversibleRemove')");
         }
         else
         {
-            StringAssert.Contains(view, "确定删除该条记录吗？</p>");
-            Assert.IsFalse(view.Contains("此操作无法撤销", StringComparison.Ordinal));
+            StringAssert.Contains(view, "t('generatedCrud.removePrompt')");
+            Assert.IsFalse(view.Contains("t('generatedCrud.irreversibleRemove')", StringComparison.Ordinal));
         }
         Assert.IsFalse(view.Contains("@click=\"removeRow(row)\"", StringComparison.Ordinal));
     }
@@ -901,7 +902,8 @@ public sealed class CrudArtifactGeneratorTests
             DependentColumnName: "ProductId",
             DependentDataScope: FullNetCrudDataScope.TenantRequired,
             CompositeKeyColumnNames: ["ProductId"],
-            CascadeDelete: true);
+            CascadeDelete: true,
+            DependentSchema: Full.NET.Tests.CodeGeneration.CodeGenerationRemediationSchemas.ProductItem());
         var artifacts = GenerateWithLayui(
             CreateExplicitLifecycleSchema(
                 scene: FullNetCrudScene.MasterDetail,
@@ -959,10 +961,10 @@ public sealed class CrudArtifactGeneratorTests
         StringAssert.Contains(feature, "IOrganizationOwnedEntityWriteAuthorizer writeAuthorizer");
         StringAssert.Contains(feature, "IDataScopeSqlFilterBuilder dataScopeFilterBuilder");
         StringAssert.Contains(feature, "EnsureCanWriteAsync");
-        StringAssert.Contains(feature, "OrganizationUnitId = organizationUnitId");
+        StringAssert.Contains(feature, "[\"OrganizationUnitId\"] = organizationUnitId");
         StringAssert.Contains(feature, "BuildOrganizationUnitFilter");
         Assert.IsFalse(feature.Contains("GetProperties()", StringComparison.Ordinal));
-        StringAssert.Contains(feature, "new Dictionary<string, object?> { [\"Offset\"] = offset");
+        StringAssert.Contains(feature, "query.Parameters(offset, pageSize)");
         StringAssert.Contains(sql, "CountStatement");
         StringAssert.Contains(sql, "ListSqlServerStatement");
         StringAssert.Contains(endpoint, "OrganizationRequestHeaders.OrganizationUnitId");
@@ -1118,7 +1120,7 @@ public sealed class CrudArtifactGeneratorTests
             responseProperties.GetProperty("version").GetProperty("type").GetString());
         StringAssert.Contains(
             contracts,
-            """JsonNumberHandling.WriteAsString)] decimal Price""");
+            """JsonRequired, JsonConverter(typeof(Full.NET.Hosting.Serialization.StringDecimalJsonConverter))] decimal Price""");
         StringAssert.Contains(
             sqlServerMigration,
             "Price decimal(18, 2) NOT NULL");
@@ -1497,24 +1499,14 @@ public sealed class CrudArtifactGeneratorTests
     private static string SerializeArtifact(GeneratedArtifact artifact) =>
         $"{artifact.Kind}\n{artifact.RelativePath}\n{artifact.Content}";
 
-    private static T ReadParameter<T>(object parameters, string name) =>
-        (T)parameters.GetType().GetProperty(name)!.GetValue(parameters)!;
+    private static T ReadParameter<T>(object parameters, string name)
+    {
+        Assert.IsInstanceOfType<IReadOnlyDictionary<string, object?>>(parameters);
+        return (T)((IReadOnlyDictionary<string, object?>)parameters)[name]!;
+    }
 
     private static string FindRepositoryRoot()
-    {
-        var directory = new DirectoryInfo(AppContext.BaseDirectory);
-        while (directory is not null)
-        {
-            if (File.Exists(Path.Combine(directory.FullName, "Full.NET.slnx")))
-            {
-                return directory.FullName;
-            }
-
-            directory = directory.Parent;
-        }
-
-        throw new DirectoryNotFoundException("无法定位 Full.NET 仓库根目录。");
-    }
+        => Full.NET.Tests.CodeGeneration.CodeGenerationRemediationSchemas.RepositoryRoot();
 
     private sealed class CultureScope : IDisposable
     {

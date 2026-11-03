@@ -17,7 +17,7 @@ namespace Full.NET.Modules.Messaging.Features.RollbackDeliveryOwner;
 internal sealed class DeliveryRollbackRecoveryService(
     DeliveryRollbackJournal journal, EventStreamOwnershipStore ownershipStore,
     IEventStreamOwnershipGate gate, IEventDeliveryRollbackReadinessReader reader,
-    IDatabaseSessionLock sessionLock, ICommandTransaction transaction, IClock clock,
+    IDatabaseTransactionBoundSessionLock sessionLock, ICommandTransaction transaction, IClock clock,
     ITransactionalDomainAuditWriter<MessagingDomainAuditWrite> audit, IHttpContextAccessor httpContextAccessor)
 {
     internal async Task<Result<RollbackOperationResponse>> FindAsync(Guid generation, CancellationToken cancellationToken) =>
@@ -40,12 +40,14 @@ internal sealed class DeliveryRollbackRecoveryService(
             return Result<RollbackOperationResponse>.Failure(error);
         await using var control = await sessionLock.TryAcquireAsync(EventDeliveryControlResources.SessionLock, cancellationToken).ConfigureAwait(false);
         if (control is null) return Failure("Another delivery control operation is running.");
-        return await RecoverUnderLockAsync(generation, request.Reason, cancellationToken).ConfigureAwait(false);
+        var lease = new EventDeliveryControlLease(control.EnsureHeldAsync);
+        return await RecoverUnderLockAsync(generation, request.Reason, lease, cancellationToken).ConfigureAwait(false);
     }
 
-    internal async Task<Result<RollbackOperationResponse>> RecoverUnderLockAsync(Guid generation, string reason,
-        CancellationToken cancellationToken)
+    private async Task<Result<RollbackOperationResponse>> RecoverUnderLockAsync(Guid generation, string reason,
+        EventDeliveryControlLease lease, CancellationToken cancellationToken)
     {
+        await lease.EnsureHeldAsync(cancellationToken).ConfigureAwait(false);
         var prepared = await transaction.ExecuteResultAsync(async token =>
         {
             var operation = await journal.FindAsync(generation, token).ConfigureAwait(false);
@@ -75,9 +77,11 @@ internal sealed class DeliveryRollbackRecoveryService(
         // 外部调用不占用业务事务；异常、超时或无法确认 RUNNING 时保留 Recovering 和生产者 fence。
         var recovering = await journal.FindAsync(generation, cancellationToken).ConfigureAwait(false);
         if (recovering?.HasPauseIntent == true || recovering?.ResourcesJson is not null)
-            await reader.AbortAsync(active.EventType, active.SchemaVersion, generation, cancellationToken).ConfigureAwait(false);
+            await reader.AbortAsync(active.EventType, active.SchemaVersion, generation, lease, cancellationToken).ConfigureAwait(false);
+        await lease.EnsureHeldAsync(cancellationToken).ConfigureAwait(false);
         return await transaction.ExecuteResultAsync(async token =>
         {
+            await lease.EnsureHeldAsync(token).ConfigureAwait(false);
             if (!await gate.AcquireOwnershipChangeAsync(active.EventType, active.SchemaVersion, token).ConfigureAwait(false))
                 return Failure("Ownership is unavailable after external recovery.");
             if (!await ownershipStore.TryAbortRollbackPreparationAsync(active.EventType, active.SchemaVersion, generation, clock.UtcNow, token).ConfigureAwait(false)

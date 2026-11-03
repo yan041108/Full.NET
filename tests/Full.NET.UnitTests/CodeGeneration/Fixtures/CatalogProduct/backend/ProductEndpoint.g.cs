@@ -27,21 +27,29 @@ internal static class ProductEndpoint
         group.MapGet("/", async (
             int? page,
             int? pageSize,
+            [AsParameters] ProductListQuery query,
             ProductQueryService queries,
             IApiResultMapper mapper,
             HttpContext httpContext,
             CancellationToken cancellationToken) =>
         {
+                            foreach (var pair in httpContext.Request.Query)
+                {
+                    if (!ProductListQuery.QueryNames.Contains(pair.Key) || pair.Value.Count != 1
+                        || !ProductListQuery.IsWireValueValid(pair.Key, pair.Value[0]))
+                        return mapper.Map(Result<PagedResult<ProductResponse>>.Failure(ProductListQuery.Invalid()), httpContext);
+                }
             var result = await queries.ListAsync(
                     page ?? 1,
                     pageSize ?? 20,
-                    cancellationToken)
+                    cancellationToken, query)
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
         .WithName("catalogListProducts")
         .Produces<PagedResult<ProductResponse>>(
             StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
         .ProducesProblem(StatusCodes.Status401Unauthorized)
         .ProducesProblem(StatusCodes.Status403Forbidden)
         .RequireAuthorization(FullNetPermissionPolicies.For(
@@ -143,8 +151,13 @@ public static class ProductGeneratedFeatureExtensions
         this IServiceCollection services)
     {
         ArgumentNullException.ThrowIfNull(services);
+#if FULLNET_AOT_COMPILE
+        ProductGeneratedMaterializer.Register();
+#endif
         services.TryAddSingleton<IClock, SystemClock>();
         services.TryAddSingleton<IIdGenerator, GuidV7IdGenerator>();
+        if (!System.Linq.Enumerable.Any(services, descriptor => descriptor.ImplementationInstance is GeneratedCrudErrorResourceSource source && source.Prefix == "catalog.products."))
+            services.AddSingleton<IErrorResourceSource>(new GeneratedCrudErrorResourceSource("catalog.products."));
         services.TryAddScoped<ProductQueryService>();
         services.TryAddScoped<ProductManagementService>();
         services.ConfigureHttpJsonOptions(options =>

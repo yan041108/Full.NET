@@ -20,6 +20,28 @@ internal static class Endpoint
             .MapGroup("/api/v1/code-generation/runs")
             .WithTags("CodeGenerationRuns");
 
+        group.MapGet("/workspace", async (CodeGenerationWorkspaceService service, IApiResultMapper mapper,
+            HttpContext context, CancellationToken token) => mapper.Map(await service.GetAsync(token).ConfigureAwait(false), context))
+            .WithName("codeGenerationGetWorkspaceState")
+            .Produces<CodeGenerationWorkspaceStateResponse>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status401Unauthorized).ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status409Conflict)
+            .ProducesProblem(StatusCodes.Status500InternalServerError)
+            .RequireAuthorization(FullNetPermissionPolicies.For(CodeGenerationRunPermissions.Read));
+
+        group.MapPost("/workspace/recover", async (CodeGenerationWorkspaceRecoveryRequest request, CodeGenerationWorkspaceService service,
+            IApiResultMapper mapper, HttpContext context, CancellationToken token) =>
+        {
+            if (!TryResolveUserId(context, out _)) return Results.Unauthorized();
+            return mapper.Map(await service.RecoverAsync(request, token).ConfigureAwait(false), context);
+        })
+            .WithName("codeGenerationRecoverWorkspace")
+            .Produces<CodeGenerationWorkspaceStateResponse>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status400BadRequest).ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden).ProducesProblem(StatusCodes.Status409Conflict)
+            .ProducesProblem(StatusCodes.Status500InternalServerError)
+            .RequireAuthorization(FullNetPermissionPolicies.For(CodeGenerationRunPermissions.Apply), FullNetPermissionPolicies.For(CodeGenerationRunPermissions.Rollback));
+
         group.MapPost("/preview", async (
             CodeGenerationRunPreviewRequest request,
             CodeGenerationRunService service,
@@ -49,6 +71,26 @@ internal static class Endpoint
         .ProducesProblem(StatusCodes.Status500InternalServerError)
         .RequireAuthorization(FullNetPermissionPolicies.For(
             CodeGenerationRunPermissions.Execute));
+
+        group.MapPost("/apply-plan", async (
+            CodeGenerationRunApplyPlanRequest request,
+            CodeGenerationApplyService service,
+            IApiResultMapper mapper,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            if (!TryResolveUserId(httpContext, out var actorUserId)) return Results.Unauthorized();
+            return mapper.Map(await service.PrepareAsync(actorUserId, request, cancellationToken).ConfigureAwait(false), httpContext);
+        })
+        .WithName("codeGenerationPrepareApplyPlan")
+        .Produces<CodeGenerationRunApplyPlanResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status409Conflict)
+        .ProducesProblem(StatusCodes.Status500InternalServerError)
+        .RequireAuthorization(FullNetPermissionPolicies.For(CodeGenerationRunPermissions.Apply));
 
         group.MapPost("/apply", async (
             CodeGenerationRunApplyRequest request,
@@ -184,6 +226,25 @@ internal static class Endpoint
         .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAuthorization(FullNetPermissionPolicies.For(
             CodeGenerationRunPermissions.Read));
+
+        group.MapPost("/{runId:guid}/publication/retry", async (
+            Guid runId,
+            CodeGenerationPublicationRetryService publications,
+            IApiResultMapper mapper,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            if (!TryResolveUserId(httpContext, out _)) return Results.Unauthorized();
+            return mapper.Map(await publications.RetryAsync(runId, cancellationToken).ConfigureAwait(false), httpContext);
+        })
+        .WithName("codeGenerationRetryRunPublication")
+        .Produces<CodeGenerationRunPublicationResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status409Conflict)
+        .RequireAuthorization(FullNetPermissionPolicies.For(CodeGenerationRunPermissions.Apply));
 
         group.MapGet("/{runId:guid}/artifacts.zip", async (
             Guid runId,

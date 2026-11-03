@@ -21,7 +21,21 @@
           "method": "GET",
           "permission": "organization.user_units.read",
           "successStatus": 200,
-          "responseSchema": "OrganizationUserUnitResponsePage"
+          "responseSchema": "OrganizationUserUnitResponsePage",
+          "queryParameters": [
+            "page",
+            "pageSize",
+            "userId",
+            "unitId",
+            "userSearch",
+            "unitSearch",
+            "isActive"
+          ],
+          "errorStatuses": [
+            400,
+            401,
+            403
+          ]
         },
         {
           "method": "POST",

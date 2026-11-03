@@ -26,7 +26,8 @@ internal sealed class IdentityOidcAccessSessionValidator(
 
     public async Task<bool> IsValidAsync(
         ClaimsPrincipal principal,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        string? expectedAudience = null)
     {
         ArgumentNullException.ThrowIfNull(principal);
         if (!_oidcOptions.Enable
@@ -42,7 +43,7 @@ internal sealed class IdentityOidcAccessSessionValidator(
             return false;
         }
 
-        if (!IsAudienceValid(principal))
+        if (!IsAudienceValid(principal, expectedAudience ?? _identityOptions.Audience))
         {
             return false;
         }
@@ -116,7 +117,7 @@ internal sealed class IdentityOidcAccessSessionValidator(
             : string.IsNullOrEmpty(tenantClaim);
     }
 
-    private bool IsAudienceValid(ClaimsPrincipal principal)
+    private static bool IsAudienceValid(ClaimsPrincipal principal, string expectedAudience)
     {
         var audiences = principal.FindAll(JwtRegisteredClaimNames.Aud)
             .Select(claim => claim.Value)
@@ -132,7 +133,7 @@ internal sealed class IdentityOidcAccessSessionValidator(
         }
 
         return audiences.Any(audience =>
-            string.Equals(audience, _identityOptions.Audience, StringComparison.Ordinal));
+            string.Equals(audience, expectedAudience, StringComparison.Ordinal));
     }
 
     private static bool TryReadOidcClaims(

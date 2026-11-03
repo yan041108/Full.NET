@@ -11,6 +11,7 @@ using Microsoft.Extensions.Options;
 using NSubstitute;
 using Full.NET.Abstractions.Time;
 using Full.NET.Abstractions.Messaging;
+using Full.NET.Modules.Calendar.Contracts;
 
 namespace Full.NET.UnitTests.Ai;
 
@@ -109,7 +110,8 @@ public sealed class AiKnowledgeAnswerHistoryGuardTests
                 ? Guid.Empty : f.Data.MessageId), new InlineTransaction(), f.Tenant, clock, Options.Create(new DatabaseOptions()), f.Guard).CompleteAsync(answer,
             f.Data.MessageId, f.Data.SessionId, fault == "owner" ? Guid.CreateVersion7() : f.Data.ActorUserId, default);
         Assert.AreEqual(fault == "success", saved);
-        Assert.AreEqual(fault is "permission" or "scope" or "owner" ? 0 : 1, calls);
+        // K05 的最小结果观测与完成更新在同一事务；租约失效时不能继续写入观测。
+        Assert.AreEqual(fault is "permission" or "scope" or "owner" ? 0 : fault is "success" or "revoke" ? 2 : 1, calls);
         if (stored is not null)
         {
             var lineage = AiKnowledgeAnswerLineageCodec.Decode(stored, f.Data.MessageId, f.Data.SessionId, f.Data.ActorUserId, f.Data.TenantId);
@@ -192,7 +194,64 @@ public sealed class AiKnowledgeAnswerHistoryGuardTests
         if (fault == "owner") Assert.AreEqual(0, f.Queries);
     }
 
-    private sealed class Fixture
+    [TestMethod] [DataRow(false)] [DataRow(true)]
+    public async Task Business_history_and_continuation_revalidate_unreferenced_schedule_after_document_wait(bool scoped)
+    {
+        var calendar = Substitute.For<IPersonalScheduleKnowledgeSource>(); var current = true;
+        calendar.VerifyAsync(Arg.Any<IReadOnlyCollection<PersonalScheduleKnowledgeProof>>(), Arg.Any<CancellationToken>()).Returns(_ => current);
+        var f = new Fixture(scoped, calendar); var proof = AiPersonalScheduleAnswerTests.Schedule(f.Data.ActorUserId, f.Tenant.Id).Proof;
+        f.Data = f.Data with { Version = 8, PersonalSchedules = [proof], PersonalScheduleReferences = [] };
+        f.Json = AiKnowledgeAnswerLineageCodec.Encode(f.Data);
+        Assert.IsNotNull(await f.Read(model: true));
+        f.Queries = 0; f.BeforeProof = () => current = false;
+        Assert.IsNull(await f.Read(model: true));
+    }
+
+    [TestMethod] [DataRow(false)] [DataRow(true)]
+    public async Task Batch_business_denial_hides_derived_body_without_hiding_valid_document_only_answer(bool scoped)
+    {
+        var calendar = Substitute.For<IPersonalScheduleKnowledgeSource>();
+        calendar.VerifyAsync(Arg.Any<IReadOnlyCollection<PersonalScheduleKnowledgeProof>>(), Arg.Any<CancellationToken>()).Returns(false);
+        var f = new Fixture(scoped, calendar); var proof = AiPersonalScheduleAnswerTests.Schedule(f.Data.ActorUserId, f.Tenant.Id).Proof;
+        var derived = f.Data with { Version = 8, MessageId = Guid.CreateVersion7(), PersonalSchedules = [proof], PersonalScheduleReferences = [] };
+        var authorized = await f.Guard.AuthorizeBatchAsync([new(f.Data.MessageId, f.Data.SessionId, f.Json),
+            new(derived.MessageId, derived.SessionId, AiKnowledgeAnswerLineageCodec.Encode(derived))], f.Data.ActorUserId, default);
+        Assert.IsTrue(authorized.ContainsKey(f.Data.MessageId)); Assert.IsFalse(authorized.ContainsKey(derived.MessageId));
+        var response = Full.NET.Modules.Ai.Features.ManageChatSessions.AiChatMapper.MapMessage(new AiChatMessageRecord
+        { Id = derived.MessageId, SessionId = derived.SessionId, RoleKey = "assistant", StatusKey = "completed", Content = "私人答案", IsKnowledgeAnswer = true }, null);
+        Assert.AreEqual("", response.Content); Assert.HasCount(0, response.PersonalScheduleCitations);
+    }
+
+    [TestMethod]
+    public async Task Review_permission_does_not_borrow_schedule_owner_authority()
+    {
+        var calendar = Substitute.For<IPersonalScheduleKnowledgeSource>();
+        calendar.VerifyAsync(Arg.Any<IReadOnlyCollection<PersonalScheduleKnowledgeProof>>(), Arg.Any<CancellationToken>()).Returns(true);
+        var f = new Fixture(false, calendar); var proof = AiPersonalScheduleAnswerTests.Schedule(f.Data.ActorUserId).Proof;
+        var data = f.Data with { Version = 8, PersonalSchedules = [proof], PersonalScheduleReferences = [] };
+        var reviewer = Guid.CreateVersion7(); f.AuthorizingActor = reviewer;
+        var result = await f.Guard.AuthorizeFeedbackReviewBatchAsync([new(data.MessageId, data.SessionId, data.ActorUserId,
+            AiKnowledgeAnswerLineageCodec.Encode(data))], reviewer, default);
+        Assert.HasCount(0, result);
+        await calendar.DidNotReceive().VerifyAsync(Arg.Any<IReadOnlyCollection<PersonalScheduleKnowledgeProof>>(), Arg.Any<CancellationToken>());
+    }
+
+    [TestMethod]
+    public async Task Batch_deduplication_never_merges_different_schedule_owners_with_identical_object_metadata()
+    {
+        var calendar = Substitute.For<IPersonalScheduleKnowledgeSource>();
+        calendar.VerifyAsync(Arg.Any<IReadOnlyCollection<PersonalScheduleKnowledgeProof>>(), Arg.Any<CancellationToken>()).Returns(true);
+        var f = new Fixture(false, calendar); var proof = AiPersonalScheduleAnswerTests.Schedule(f.Data.ActorUserId).Proof;
+        var own = f.Data with { Version = 8, PersonalSchedules = [proof], PersonalScheduleReferences = [] };
+        var peer = own with { MessageId = Guid.CreateVersion7(), ActorUserId = Guid.CreateVersion7() };
+        peer = peer with { PersonalSchedules = [proof with { OwnerUserId = peer.ActorUserId }] };
+        var result = await f.Guard.AuthorizeFeedbackReviewBatchAsync([
+            new(own.MessageId, own.SessionId, own.ActorUserId, AiKnowledgeAnswerLineageCodec.Encode(own)),
+            new(peer.MessageId, peer.SessionId, peer.ActorUserId, AiKnowledgeAnswerLineageCodec.Encode(peer))], own.ActorUserId, default);
+        Assert.IsTrue(result.ContainsKey(own.MessageId)); Assert.IsFalse(result.ContainsKey(peer.MessageId));
+    }
+
+    internal sealed class Fixture
     {
         internal readonly CurrentTenantAccessor Tenant = new(); internal readonly IDataTransactionState Transactions = Substitute.For<IDataTransactionState>();
         internal AiKnowledgeAnswerLineage Data; internal AiKnowledgeIndexStatusRecord[] Rows; internal string? Json;
@@ -200,7 +259,7 @@ public sealed class AiKnowledgeAnswerHistoryGuardTests
         internal readonly List<string> Permissions = []; internal SqlStatement? LastSql; internal readonly AiKnowledgeAnswerHistoryGuard Guard;
         internal Action? BeforeProof; internal bool ProofReady = true; internal int ProofCalls;
         internal Guid AuthorizingActor; internal Guid? ExpectedReader;
-        internal Fixture(bool scoped = false)
+        internal Fixture(bool scoped = false, IPersonalScheduleKnowledgeSource? schedules = null)
         {
             if (scoped) Tenant.SetTenant(new(Guid.CreateVersion7(), "tenant", "当前租户")); else Tenant.SetHost();
             Rows = [AiKnowledgeAnswerLineageTests.Source(), AiKnowledgeAnswerLineageTests.Source()];
@@ -224,7 +283,8 @@ public sealed class AiKnowledgeAnswerHistoryGuardTests
             });
             Guard = new(query, Transactions, Tenant, Options.Create(new DatabaseOptions()), new(roles, units, Tenant),
                 new(auth, new HttpContextAccessor(), Substitute.For<ICurrentApiKeyAuthorization>()), new Proof(() =>
-                { ProofCalls++; BeforeProof?.Invoke(); return ProofReady; }, () => ExpectedReader));
+                { ProofCalls++; BeforeProof?.Invoke(); return ProofReady; }, () => ExpectedReader), personalSchedules:
+                schedules is null ? null : new(schedules, Transactions, Tenant));
         }
         internal Task<AiKnowledgeAnswerLineage?> Read(bool model = false, CancellationToken token = default) =>
             Guard.AuthorizeAsync(Json, Data.MessageId, Data.SessionId, Data.ActorUserId, model, token);

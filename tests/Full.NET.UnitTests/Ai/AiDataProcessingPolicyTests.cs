@@ -98,7 +98,8 @@ public sealed class AiDataProcessingPolicyTests
         foreach (var telemetry in new[] { false, true })
         {
             using var client = http.CreateClient(AiProviderHttpClients.Name(key, stage == "connectivity", stage == "embedding", privateData, telemetry));
-            Assert.AreEqual(stage == "connectivity" ? TimeSpan.FromSeconds(15) : TimeSpan.FromMinutes(3), client.Timeout);
+            // 收费客户端由韧性层统一限时；不能用 HttpClient 的并行期限恢复已移除的自动重试。
+            Assert.AreEqual(stage == "connectivity" ? TimeSpan.FromSeconds(15) : Timeout.InfiniteTimeSpan, client.Timeout);
         }
     }
 }

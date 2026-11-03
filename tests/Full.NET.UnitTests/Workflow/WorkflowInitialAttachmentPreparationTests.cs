@@ -33,7 +33,7 @@ public sealed class WorkflowInitialAttachmentPreparationTests
         claims.ConfirmAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(claimResult);
         var coordinator = new WorkflowFormAttachmentCoordinator(claims, reader, query, command,
             Substitute.For<IClock>(), ids, NullLogger<WorkflowFormAttachmentCoordinator>.Instance,
-            tenant, Substitute.For<ITenantResourceFileDescriptorReader>());
+            tenant, Substitute.For<ITenantResourceFileDescriptorReader>(), WorkflowTodoManagementTestDependencies.CreateRemoteFiles(query, tenant));
         var schema = new WorkflowFormSchema(1, 1, [new("main", [new("evidence", "attachment", false,
             new Dictionary<string, JsonElement> { ["maxCount"] = JsonSerializer.SerializeToElement(1),
                 ["maxSizeBytes"] = JsonSerializer.SerializeToElement(1024), ["allowedExtensions"] = JsonSerializer.SerializeToElement(new[] { "pdf" }) })])]);
@@ -65,7 +65,7 @@ public sealed class WorkflowInitialAttachmentPreparationTests
             new(Guid.CreateVersion7(), "active", new(Guid.CreateVersion7(), 100, null))));
         var coordinator = new WorkflowFormAttachmentCoordinator(claims, Substitute.For<IHostFileDescriptorReader>(),
             query, Substitute.For<ICommandExecutor>(), Substitute.For<IClock>(), Substitute.For<IIdGenerator>(),
-            NullLogger<WorkflowFormAttachmentCoordinator>.Instance, Substitute.For<ICurrentTenant>(), Substitute.For<ITenantResourceFileDescriptorReader>());
+            NullLogger<WorkflowFormAttachmentCoordinator>.Instance, Substitute.For<ICurrentTenant>(), Substitute.For<ITenantResourceFileDescriptorReader>(), WorkflowTodoManagementTestDependencies.CreateRemoteFiles(query));
         claims.ReleaseAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(Result<bool>.Success(true));
         await coordinator.FinishAsync(new(Guid.CreateVersion7(), Guid.CreateVersion7(), "host", Guid.CreateVersion7(), 1, "hash",
             [new(Guid.CreateVersion7(), "evidence", Guid.CreateVersion7(), null)]), default);

@@ -32,4 +32,20 @@
   <data name="ai.knowledge.index_rebuild_disabled" xml:space="preserve"><value>独立索引重建尚未启用。</value></data>
   <data name="ai.knowledge.no_extracted_text" xml:space="preserve"><value>未提取到可索引文字，请检查原文件。</value></data>
   <data name="ai.knowledge.ocr_low_confidence" xml:space="preserve"><value>识别文字置信度不足，整份文件未进入索引。</value></data>
+  <data name="ai.knowledge.publication_not_found" xml:space="preserve"><value>当前范围无法读取该发布提案。</value></data>
+  <data name="ai.knowledge.publication_invalid" xml:space="preserve"><value>发布身份、有效期或确认内容无效。</value></data>
+  <data name="ai.knowledge.publication_conflict" xml:space="preserve"><value>候选、审核或发布头已变化，请刷新后重新核对。</value></data>
+  <data name="ai.knowledge.directory_invalid" xml:space="preserve"><value>文件夹、标签、负责人或批量请求无效。</value></data>
+  <data name="ai.knowledge.directory_conflict" xml:space="preserve"><value>组织信息已变化，或文件夹仍有内容，请刷新后重试。</value></data>
+  <data name="ai.knowledge.search_unavailable" xml:space="preserve"><value>搜索来源不可用、不完整或超过当前有界范围，请核对已发布版本与索引空间。</value></data>
+  <data name="ai.knowledge.search_source_changed" xml:space="preserve"><value>搜索来源版本已变化，请核对后明确采用最新发布重新搜索。</value></data>
+  <data name="ai.knowledge.search_input_invalid" xml:space="preserve"><value>搜索词项、索引空间或来源选择无效。</value></data>
+  <data name="ai.knowledge_evaluation_sets.input_invalid" xml:space="preserve"><value>评估集输入、冻结身份或确认无效。</value></data>
+  <data name="ai.knowledge_evaluation_sets.not_found" xml:space="preserve"><value>当前范围内未找到该评估集。</value></data>
+  <data name="ai.knowledge_evaluation_sets.version_conflict" xml:space="preserve"><value>评估集或独立批准已变化，请重新核对。</value></data>
+  <data name="ai.knowledge_evaluation_sets.source_unavailable" xml:space="preserve"><value>评估集的完整来源已失效或不可用，请重新核对。</value></data>
+  <data name="ai.knowledge_evaluation_runs.input_invalid" xml:space="preserve"><value>评估策略、运行身份或收费确认无效。</value></data>
+  <data name="ai.knowledge_evaluation_runs.not_found" xml:space="preserve"><value>当前范围内未找到该评估策略或运行。</value></data>
+  <data name="ai.knowledge_evaluation_runs.version_conflict" xml:space="preserve"><value>评估策略或运行状态已变化，请核对原身份。</value></data>
+  <data name="ai.knowledge_evaluation_runs.source_unavailable" xml:space="preserve"><value>冻结评估来源已变化或不可用，旧结果已停止交付。</value></data>
 </root>

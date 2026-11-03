@@ -24,6 +24,13 @@ internal static class OpenApiClientSnapshotContractAssertions
         var rawDocument = await response.Content.ReadAsStringAsync(cancellationToken);
         AssertOmittablePropertiesAreOptional(rawDocument);
         AssertKnowledgeFileContract(rawDocument);
+        // 企业示例声明无损 Decimal 转换器时，客户端不能把金额推断成浮点数或任意 JSON。
+        using (var wireDocument = JsonDocument.Parse(rawDocument))
+        {
+            var schemas = wireDocument.RootElement.GetProperty("components").GetProperty("schemas");
+            if (schemas.TryGetProperty("EnterpriseRequestResponse", out var enterprise))
+                Assert.AreEqual("string", enterprise.GetProperty("properties").GetProperty("totalAmount").GetProperty("type").GetString());
+        }
 
         var exportPath = Environment.GetEnvironmentVariable(ExportPathEnvironmentVariable);
         if (!string.IsNullOrWhiteSpace(exportPath))
@@ -215,15 +222,7 @@ internal static class OpenApiClientSnapshotContractAssertions
 
     private static string FindRepositoryRoot()
     {
-        var directory = new DirectoryInfo(AppContext.BaseDirectory);
-        while (directory is not null)
-        {
-            if (File.Exists(Path.Combine(directory.FullName, "Full.NET.slnx")))
-            {
-                return directory.FullName;
-            }
-            directory = directory.Parent;
-        }
-        throw new InvalidOperationException("Repository root not found.");
+        // 与API夹具共用正式隔离构建的源码定位规则，不能假定程序集就在仓库树下。
+        return FullNetApiFactory.FindRepositoryRoot();
     }
 }

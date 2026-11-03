@@ -29,6 +29,7 @@ internal static class AiAgentRunApiAssertions
             AiAgentRunPermissions.Read,
             AiAgentRunPermissions.Create,
             AiAgentRunPermissions.Cancel,
+            AiChatPermissions.Create, AiChatPermissions.Read, AiChatPermissions.Update,
             AiPromptPermissions.Read, AiPromptPermissions.Create, AiPromptPermissions.Append,
             AiPromptPermissions.Publish, AiPromptPermissions.Deactivate, AiPromptPermissions.Rollback, AiPromptPermissions.Use,
             "tenancy.tenants.switch",
@@ -119,7 +120,10 @@ internal static class AiAgentRunApiAssertions
     private static async Task VerifyControlledToolRouteAsync(HttpClient client, Guid modelId, FullNetApiFactory factory)
     {
         const string path = "/api/v1/ai/tasks/authorized-tool-task";
-        var task = new CreateAiAgentRunRequest(Guid.CreateVersion7(), "fullnet-chat-rename-workflow-v1", modelId, "", 100, 100);
+        using var chatResponse = await client.PostAsJsonAsync("/api/v1/ai/chat/sessions", new CreateAiChatSessionRequest(modelId, "Route target"));
+        Assert.AreEqual(HttpStatusCode.Created, chatResponse.StatusCode, await chatResponse.Content.ReadAsStringAsync());
+        var target = (await chatResponse.Content.ReadFromJsonAsync<AiChatSessionResponse>())!.Id;
+        var task = new CreateAiAgentRunRequest(Guid.CreateVersion7(), "fullnet-chat-rename-workflow-v1", modelId, "", 100, 100, TargetChatSessionId: target);
         var request = new RouteAiTaskRequest("authorized_tool_task", ToolTask: task);
         foreach (var invalid in new[] { request with { IntentKey = "unknown" }, request with { SessionId = Guid.CreateVersion7() },
             request with { ToolTask = task with { DefinitionKey = DefinitionKey } },
@@ -144,7 +148,7 @@ internal static class AiAgentRunApiAssertions
         Assert.AreEqual(task.DefinitionKey, saved.DefinitionKey); Assert.AreEqual(2, saved.DefinitionVersion);
         using (var conflict = await client.PostAsJsonAsync(path, request with { ToolTask = task with { OutputTokenLimit = 101 } }))
             await AssertProblemAsync(conflict, HttpStatusCode.Conflict, "ai.routing.conflict");
-        var legacyRequest = task with { ClientRequestId = Guid.CreateVersion7(), DefinitionKey = DefinitionKey, Prompt = "legacy" };
+        var legacyRequest = task with { ClientRequestId = Guid.CreateVersion7(), DefinitionKey = DefinitionKey, Prompt = "legacy", TargetChatSessionId = null };
         using var legacy = await client.PostAsJsonAsync("/api/v1/ai/agent/runs", legacyRequest);
         Assert.AreEqual(HttpStatusCode.Accepted, legacy.StatusCode, await legacy.Content.ReadAsStringAsync());
         using var crossDefinition = await client.PostAsJsonAsync(path, request with { ToolTask = task with { ClientRequestId = legacyRequest.ClientRequestId } });

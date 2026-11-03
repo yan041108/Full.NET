@@ -45,7 +45,7 @@
     {
       "path": "THIRD-PARTY-NOTICES.txt",
       "bytes": 68410,
-      "sha256": "7d35c5bb88aa3ac56a74b6e6ce1c7f09213555ded944dce17fc6404720dc65a4"
+      "sha256": "c923d73ff9f4bfb88aed2fc857194b364911f1adff72f4fef71dad5800252d61"
     },
     {
       "path": "ace/mode-html.js",
@@ -173,5 +173,5 @@
       "sha256": "22bf19fd1117d39234cc29a1daf6c861a978176e0bc210f8368165452a2fce79"
     }
   ],
-  "contentHash": "7ca67d3198b8d7ddf9aff977f3fe94c8327fb1158194bf995610b10d15bfb6e3"
+  "contentHash": "8451002ae92eb02ba93686d08c935e6551f630a8ccc8e1d6cad73862be8ca29f"
 }

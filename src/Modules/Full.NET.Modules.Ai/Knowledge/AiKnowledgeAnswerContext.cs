@@ -1,32 +1,41 @@
 using Full.NET.Abstractions.Ids;
 using System.Text;
 using System.Text.Json;
+using Full.NET.Modules.Calendar.Contracts;
 
 namespace Full.NET.Modules.Ai.Knowledge;
 
 /// <summary>服务端引用携带已确认位置；模型只可选择标识，不能重写位置或来源。</summary>
 internal sealed record AiKnowledgeCitation(Guid Id, AiKnowledgeRetrievalChunk Chunk);
+/// <summary>业务引用独立绑定日程证明，不能冒充文档或文件位置。</summary>
+internal sealed record AiPersonalScheduleCitation(Guid Id, PersonalScheduleKnowledgeProof Proof);
 /// <summary>缓冲且校验过的模型结果，仍须经完整来源复核后交付。</summary>
-internal sealed record AiKnowledgeAnswer(string Text, IReadOnlyList<AiKnowledgeCitation> Citations, bool Refused);
+internal sealed record AiKnowledgeAnswer(string Text, IReadOnlyList<AiKnowledgeCitation> Citations, bool Refused)
+{
+    internal IReadOnlyList<AiPersonalScheduleCitation> PersonalScheduleCitations { get; init; } = [];
+}
 
 /// <summary>有界 JSON 将来源作为数据传递；只接受服务器分配的引用，不接受模型声明的文件位置。</summary>
 internal sealed class AiKnowledgeAnswerContext
 {
     internal string Json { get; private init; } = "";
     internal IReadOnlyList<AiKnowledgeCitation> Citations { get; private init; } = [];
+    internal IReadOnlyList<AiPersonalScheduleCitation> PersonalScheduleCitations { get; private init; } = [];
     /// <summary>选择能容纳的排名前缀完整块；整个 JSON 包限额，不裁剪正文或跳过高排名块。</summary>
     internal static AiKnowledgeAnswerContext Create(string question, IReadOnlyList<AiKnowledgeRankedChunk> chunks,
-        IIdGenerator ids, CancellationToken token)
+        IIdGenerator ids, CancellationToken token, IReadOnlyList<PersonalScheduleKnowledgeSnapshot>? schedules = null)
     {
         token.ThrowIfCancellationRequested(); ArgumentNullException.ThrowIfNull(chunks); ArgumentNullException.ThrowIfNull(ids);
         var count = chunks.Count;
         if (string.IsNullOrWhiteSpace(question) || question.Length > 4096 || count is < 1 or > 256) throw Invalid();
         var frozen = new AiKnowledgeRankedChunk[count];
         for (var i = 0; i < count; i++) { token.ThrowIfCancellationRequested(); frozen[i] = chunks[i]; }
-        return AiKnowledgeTelemetry.Run("knowledge_context", () => CreateCore(question, frozen, ids, token), token);
+        var selected = schedules is { Count: > 0 } ? AiPersonalScheduleAnswerSources.FreezeSnapshots(schedules,
+            schedules[0].Proof.OwnerUserId, schedules[0].Proof.TenantId) : [];
+        return AiKnowledgeTelemetry.Run("knowledge_context", () => CreateCore(question, frozen, ids, token, selected), token);
     }
     private static AiKnowledgeAnswerContext CreateCore(string question, IReadOnlyList<AiKnowledgeRankedChunk> chunks,
-        IIdGenerator ids, CancellationToken token)
+        IIdGenerator ids, CancellationToken token, IReadOnlyList<PersonalScheduleKnowledgeSnapshot> schedules)
     {
         // 未入选前八块的来源仍属于完整依赖；分类门禁早于词表、引用身份及任何正文序列化。
         foreach (var ranked in chunks)
@@ -35,27 +44,37 @@ internal sealed class AiKnowledgeAnswerContext
             if (ranked?.Chunk?.Source is not { } source || !Domain.AiKnowledgePolicy.IsKnownClassification(source.DataClassification)) throw Invalid();
         }
         var citations = new List<AiKnowledgeCitation>(); var seen = new HashSet<Guid>();
+        var scheduleCitations = schedules.Select(value =>
+        {
+            var id = ids.NewId(); if (id == Guid.Empty || id.Version != 7 || !seen.Add(id)) throw Invalid();
+            return new AiPersonalScheduleCitation(id, value.Proof);
+        }).ToArray();
         var tokenizer = AiKnowledgeCl100kTokenizer.Get(token); string? json = null;
         // 每个前缀重新计算元数据与问题开销；遇到第一块超限停止，依赖仍由完整检索快照保留。
-        foreach (var ranked in chunks.Take(8))
+        foreach (var ranked in chunks.Take(8 - schedules.Count))
         {
-            token.ThrowIfCancellationRequested(); var chunk = ranked.Chunk;
+            token.ThrowIfCancellationRequested(); var chunk = ranked.Chunk with { Correction = AiKnowledgeCorrectionCitations.Capture(ranked.Chunk.Correction) };
             if (!double.IsFinite(ranked.Score) || string.IsNullOrWhiteSpace(chunk.Text) || chunk.Text.Length > 8000
                 || !AiKnowledgeAnswerLineageCodec.ValidLocation(chunk.DocxLocation, chunk.PageNumber)
                 || !AiKnowledgeSourceLocations.Valid(chunk.SourceLocation)
-                || chunk.Source.ContentType != "application/pdf" && AiKnowledgeDocumentFormats.IsDocument(chunk.Source.ContentType) && chunk.DocxLocation is null && chunk.SourceLocation is null
+                || chunk.Correction is not null && (!AiKnowledgeCorrectionCitations.Valid(chunk.Correction) || chunk.Correction.RevisionId != chunk.Source.CorrectionRevisionId
+                    || chunk.Correction.TextLength != chunk.Text.Length || chunk.PageNumber is not null || chunk.SourceLocation is not null || chunk.DocxLocation is not null)
+                || chunk.Source.CorrectionRevisionId.HasValue != (chunk.Correction is not null)
+                || chunk.Correction is null && chunk.Source.ContentType != "application/pdf" && AiKnowledgeDocumentFormats.IsDocument(chunk.Source.ContentType) && chunk.DocxLocation is null && chunk.SourceLocation is null
                 || chunk.Offset < 0 || chunk.Length != chunk.Text.Length || chunk.Sequence < 0 || chunk.PageNumber is < 1) throw Invalid();
             var id = ids.NewId(); if (id == Guid.Empty || id.Version != 7 || !seen.Add(id)) throw Invalid();
             citations.Add(new(id, chunk with { Vector = chunk.Vector.ToArray() }));
-            var candidate = Serialize(question, citations, token);
+            var candidate = Serialize(question, citations, token, schedules, scheduleCitations);
             if (tokenizer.CountTokens(candidate, considerNormalization: false) > 4096)
             { citations.RemoveAt(citations.Count - 1); break; }
             json = candidate;
         }
         if (json is null || citations.Count == 0) throw Invalid();
-        token.ThrowIfCancellationRequested(); return new() { Json = json, Citations = citations.AsReadOnly() };
+        token.ThrowIfCancellationRequested(); return new() { Json = json, Citations = citations.AsReadOnly(),
+            PersonalScheduleCitations = Array.AsReadOnly(scheduleCitations) };
     }
-    private static string Serialize(string question, IReadOnlyList<AiKnowledgeCitation> citations, CancellationToken token)
+    private static string Serialize(string question, IReadOnlyList<AiKnowledgeCitation> citations, CancellationToken token,
+        IReadOnlyList<PersonalScheduleKnowledgeSnapshot> schedules, IReadOnlyList<AiPersonalScheduleCitation> scheduleCitations)
     {
         using var buffer = new MemoryStream();
         using (var writer = new Utf8JsonWriter(buffer))
@@ -66,6 +85,11 @@ internal sealed class AiKnowledgeAnswerContext
                 token.ThrowIfCancellationRequested(); var chunk = citation.Chunk;
                 writer.WriteStartObject(); writer.WriteString("citationId", citation.Id);
                 writer.WriteString("documentId", chunk.Source.DocumentId); writer.WriteString("versionId", chunk.Source.VersionId);
+                if (chunk.Source.FaqRevisionId is { } faqRevision)
+                {
+                    writer.WriteString("sourceKind", "faq-revision-v1");
+                    writer.WriteString("faqRevisionId", faqRevision);
+                }
                 if (chunk.PageNumber is { } page) writer.WriteNumber("page", page); else writer.WriteNull("page");
                 if (chunk.DocxLocation is { } location)
                 {
@@ -81,7 +105,24 @@ internal sealed class AiKnowledgeAnswerContext
                     writer.WritePropertyName("sourceLocation");
                     JsonSerializer.Serialize(writer, sourceLocation, AiKnowledgeAnswerLineageJsonContext.Default.AiKnowledgeSourceLocationResponse);
                 }
-                writer.WriteNumber("offset", chunk.Offset); writer.WriteNumber("length", chunk.Length); writer.WriteString("text", chunk.Text); writer.WriteEndObject();
+                if (chunk.Correction is { } correction)
+                {
+                    writer.WriteNull("offset"); writer.WriteNull("length"); writer.WritePropertyName("correction");
+                    JsonSerializer.Serialize(writer, correction, AiKnowledgeAnswerLineageJsonContext.Default.AiKnowledgeCorrectionCitationResponse);
+                }
+                else { writer.WriteNumber("offset", chunk.Offset); writer.WriteNumber("length", chunk.Length); }
+                writer.WriteString("text", chunk.Text); writer.WriteEndObject();
+            }
+            foreach (var source in schedules)
+            {
+                token.ThrowIfCancellationRequested();
+                var citation = scheduleCitations.Single(value => value.Proof == source.Proof);
+                writer.WriteStartObject(); writer.WriteString("citationId", citation.Id);
+                writer.WriteString("sourceKind", source.Proof.Kind); writer.WriteString("purpose", source.Proof.Purpose);
+                writer.WriteString("scheduleId", source.Proof.Id); writer.WriteNumber("version", source.Proof.Version);
+                writer.WriteString("projectionHash", source.Proof.ProjectionHash); writer.WriteString("text", source.Content);
+                writer.WriteString("startAtUtc", source.StartAtUtc.ToUniversalTime()); writer.WriteString("endAtUtc", source.EndAtUtc.ToUniversalTime());
+                writer.WriteString("status", source.Status); writer.WriteEndObject();
             }
             writer.WriteEndArray(); writer.WriteEndObject();
         }
@@ -106,15 +147,21 @@ internal sealed class AiKnowledgeAnswerContext
                 || root.GetProperty("refusal").ValueKind is not (JsonValueKind.True or JsonValueKind.False)) throw Invalid();
             var answer = root.GetProperty("answer").GetString()!; var refusal = root.GetProperty("refusal").GetBoolean();
             var refs = root.GetProperty("citationIds"); if (answer.Length > 16000 || refs.GetArrayLength() > 8) throw Invalid();
-            var accepted = new List<AiKnowledgeCitation>(); var seen = new HashSet<Guid>();
+            var accepted = new List<AiKnowledgeCitation>(); var acceptedSchedules = new List<AiPersonalScheduleCitation>(); var seen = new HashSet<Guid>();
             foreach (var item in refs.EnumerateArray())
             {
                 token.ThrowIfCancellationRequested();
                 if (item.ValueKind != JsonValueKind.String || !item.TryGetGuid(out var id) || !seen.Add(id)) throw Invalid();
-                var citation = Citations.SingleOrDefault(c => c.Id == id); if (citation is null) throw Invalid(); accepted.Add(citation);
+                var citation = Citations.SingleOrDefault(c => c.Id == id);
+                var schedule = PersonalScheduleCitations.SingleOrDefault(c => c.Id == id);
+                if (citation is not null && schedule is null) accepted.Add(citation);
+                else if (schedule is not null && citation is null) acceptedSchedules.Add(schedule);
+                else throw Invalid();
             }
-            if (refusal ? answer.Length != 0 || accepted.Count != 0 : string.IsNullOrWhiteSpace(answer) || accepted.Count == 0) throw Invalid();
-            token.ThrowIfCancellationRequested(); return new(answer, accepted.AsReadOnly(), refusal);
+            if (refusal ? answer.Length != 0 || accepted.Count + acceptedSchedules.Count != 0
+                : string.IsNullOrWhiteSpace(answer) || accepted.Count + acceptedSchedules.Count == 0) throw Invalid();
+            token.ThrowIfCancellationRequested(); return new(answer, accepted.AsReadOnly(), refusal)
+            { PersonalScheduleCitations = acceptedSchedules.AsReadOnly() };
         }
         catch (JsonException) { throw Invalid(); }
         catch (DecoderFallbackException) { throw Invalid(); }

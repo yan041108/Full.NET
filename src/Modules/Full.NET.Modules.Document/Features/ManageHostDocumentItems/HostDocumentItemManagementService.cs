@@ -12,28 +12,30 @@ using Full.NET.Modules.Files.Contracts;
 namespace Full.NET.Modules.Document.Features.ManageHostDocumentItems;
 
 /// <summary>
-/// Host 文档项与版本的管理服务。所有写操作必须在单一事务内完成，
-/// 并通过乐观并发 Version 字段防止跨客户端覆盖；新增版本时必须先 Claim Files 模块的文件引用，
-/// 写入失败回滚事务会同步释放引用，禁止在事务外做文件保留期回收以避免孤儿文件。
+/// Host 文档项与版本的管理服务。文档写入在根行锁和本地事务内串行化，
+/// 以 Version 防止跨客户端覆盖；Files Claim 在事务外申请，提交后确认，失败由补偿与对账释放。
 /// </summary>
 internal sealed class HostDocumentItemManagementService(
     IQueryExecutor queryExecutor,
     ICommandExecutor commandExecutor,
     ICommandTransaction transaction,
+    DocumentCategoryGuard categoryGuard,
     IHostFileReferenceClaimService hostFileReferenceClaimService,
     IHostFileUploadWriter hostFileUploadWriter,
     DocumentVersionDeletionService documentVersionDeletionService,
     DocumentItemTagAssignmentService documentItemTagAssignmentService,
     IClock clock,
     IIdGenerator idGenerator,
-    IDocumentAccessPolicy accessPolicy)
+    IDocumentAccessPolicy accessPolicy,
+    DocumentMutationGuard mutationGuard,
+    IHostFileDescriptorReader descriptorReader)
 {
     public Task<Result<HostDocumentItemResponse>> CreateAsync(
         Guid actorUserId,
         CreateHostDocumentItemRequest request,
         CancellationToken cancellationToken = default)
     {
-        if (string.IsNullOrWhiteSpace(request.Title))
+        if (string.IsNullOrWhiteSpace(request.Title) || request.Status != HostDocumentStatus.Draft || !Enum.IsDefined(request.DocumentType))
         {
             return Task.FromResult(Invalid());
         }
@@ -57,7 +59,7 @@ internal sealed class HostDocumentItemManagementService(
         UpdateHostDocumentItemRequest request,
         CancellationToken cancellationToken = default)
     {
-        if (string.IsNullOrWhiteSpace(request.Title) || request.Version < 1)
+        if (string.IsNullOrWhiteSpace(request.Title) || request.Version < 1 || request.TagIds is null)
         {
             return Task.FromResult(Invalid());
         }
@@ -81,7 +83,7 @@ internal sealed class HostDocumentItemManagementService(
         AddHostDocumentVersionRequest request,
         CancellationToken cancellationToken = default)
     {
-        if (request.FileId == Guid.Empty)
+        if (request.FileId == Guid.Empty || request.RequestKey == Guid.Empty)
         {
             return Invalid();
         }
@@ -92,6 +94,8 @@ internal sealed class HostDocumentItemManagementService(
                 actorUserId,
                 versionId,
                 request.FileId,
+                request.ChangeDescription,
+                request.RequestKey,
                 cancellationToken)
             .ConfigureAwait(false);
     }
@@ -103,9 +107,9 @@ internal sealed class HostDocumentItemManagementService(
         string contentType,
         Stream content,
         long contentLength,
-        CancellationToken cancellationToken = default) =>
+        CancellationToken cancellationToken = default, Guid requestKey = default) =>
         accessPolicy.AuthorizeAsync(itemId, DocumentOperation.Write,
-            () => AddVersionFromUploadAuthorizedAsync(itemId, actorUserId, originalFileName, contentType, content, contentLength, cancellationToken), cancellationToken);
+            () => AddVersionFromUploadAuthorizedAsync(itemId, actorUserId, originalFileName, contentType, content, contentLength, cancellationToken, requestKey), cancellationToken);
 
     private async Task<Result<HostDocumentItemResponse>> AddVersionFromUploadAuthorizedAsync(
         Guid itemId,
@@ -114,15 +118,22 @@ internal sealed class HostDocumentItemManagementService(
         string contentType,
         Stream content,
         long contentLength,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default, Guid requestKey = default)
     {
-        if (contentLength <= 0)
+        if (contentLength <= 0 || requestKey == Guid.Empty)
         {
             return Invalid();
         }
 
+        // 提前拒绝不可写状态，避免明知归档或删除仍发布外部文件；事务内仍须重查。
+        var item = await queryExecutor.QuerySingleOrDefaultAsync<DocumentItemDetailRecord>(DocumentItemSql.FindActiveById,
+            DocumentSqlParameters.Create(("Id", itemId)), cancellationToken).ConfigureAwait(false);
+        if (item is null || item.DeletedAtUtc is not null) return NotFound();
+        if (item.Status == (int)HostDocumentStatus.Archived) return StateConflict();
+
         var uploadResult = await hostFileUploadWriter
-            .UploadAsync(
+            .UploadIdempotentAsync(
+                $"document-version:{itemId:N}:{actorUserId:N}:{requestKey:N}",
                 actorUserId,
                 originalFileName,
                 contentType,
@@ -141,6 +152,8 @@ internal sealed class HostDocumentItemManagementService(
                 actorUserId,
                 versionId,
                 uploadResult.Value!.FileId,
+                null,
+                requestKey,
                 cancellationToken)
             .ConfigureAwait(false);
     }
@@ -263,6 +276,12 @@ internal sealed class HostDocumentItemManagementService(
         CreateHostDocumentItemRequest request,
         CancellationToken cancellationToken)
     {
+        await categoryGuard.LockAsync(cancellationToken).ConfigureAwait(false);
+        if (request.CategoryId is Guid category && await queryExecutor.QuerySingleOrDefaultAsync<DocumentCategoryRecord>(
+            DocumentCategorySql.FindActiveById, DocumentSqlParameters.Create(("Id", category)), cancellationToken).ConfigureAwait(false) is null)
+            return Result<HostDocumentItemResponse>.Failure(new Error(DocumentErrorCodes.CategoryInvalidParent,
+                "Category is unavailable.", ErrorType.Validation));
+
         if (await FindTitleConflictAsync(
                 request.Title.Trim(),
                 request.CategoryId,
@@ -287,6 +306,7 @@ internal sealed class HostDocumentItemManagementService(
                 DocumentItemSql.Insert,
                 DocumentSqlParameters.Create(
                     ("Id", id),
+                    ("DocumentNo", "DOC-" + id.ToString("N")),
                     ("CategoryId", request.CategoryId),
                     ("Title", request.Title.Trim()),
                     ("Description", request.Description?.Trim()),
@@ -316,13 +336,21 @@ internal sealed class HostDocumentItemManagementService(
         UpdateHostDocumentItemRequest request,
         CancellationToken cancellationToken)
     {
-        var existing = await FindActiveAsync(itemId, cancellationToken).ConfigureAwait(false);
-        if (existing is null)
+        await categoryGuard.LockAsync(cancellationToken).ConfigureAwait(false);
+        if (request.CategoryId is Guid category && await queryExecutor.QuerySingleOrDefaultAsync<DocumentCategoryRecord>(
+            DocumentCategorySql.FindActiveById, DocumentSqlParameters.Create(("Id", category)), cancellationToken).ConfigureAwait(false) is null)
+            return Result<HostDocumentItemResponse>.Failure(new Error(DocumentErrorCodes.CategoryInvalidParent,
+                "Category is unavailable.", ErrorType.Validation));
+
+        var existing = await mutationGuard.LockAsync(itemId, cancellationToken).ConfigureAwait(false);
+        if (await accessPolicy.CheckAsync(itemId, DocumentOperation.Write, cancellationToken).ConfigureAwait(false) is { } denied) return Result<HostDocumentItemResponse>.Failure(denied);
+        if (existing?.Status == (int)HostDocumentStatus.Archived) return StateConflict();
+        if (existing is null || existing.DeletedAtUtc is not null)
         {
             return NotFound();
         }
 
-        var categoryId = request.CategoryId ?? existing.CategoryId;
+        var categoryId = request.CategoryId;
         if (await FindTitleConflictAsync(
                 request.Title.Trim(),
                 categoryId,
@@ -351,9 +379,8 @@ internal sealed class HostDocumentItemManagementService(
                     ("Title", request.Title.Trim()),
                     ("Description", request.Description?.Trim()),
                     ("CategoryId", categoryId),
-                    ("Thumbnail", request.Thumbnail ?? existing.Thumbnail),
-                    ("Status", (int)(request.Status ?? (HostDocumentStatus)existing.Status)),
-                    ("Sort", request.Sort ?? existing.Sort),
+                    ("Thumbnail", request.Thumbnail),
+                    ("Sort", request.Sort),
                     ("UpdatedAtUtc", now),
                     ("UpdatedByUserId", actorUserId),
                     ("Version", request.Version)),
@@ -379,8 +406,18 @@ internal sealed class HostDocumentItemManagementService(
         Guid actorUserId,
         Guid versionId,
         Guid fileId,
+        string? changeDescription,
+        Guid requestKey,
         CancellationToken cancellationToken)
     {
+        var replay = await queryExecutor.QuerySingleOrDefaultAsync<DocumentVersionOperationRecord>(DocumentVersionOperationSql.Find,
+            DocumentSqlParameters.Create(("RequestKey", requestKey), ("DocumentId", itemId), ("ActorUserId", actorUserId)), cancellationToken).ConfigureAwait(false);
+        if (replay is not null)
+        {
+            if (replay.DocumentId != itemId || replay.ActorUserId != actorUserId || replay.FileId != fileId || replay.ChangeDescription != changeDescription) return VersionConflict();
+            var loaded = await ReloadActiveAsync(itemId, cancellationToken).ConfigureAwait(false);
+            return loaded.IsSuccess ? Result<HostDocumentItemResponse>.Success(loaded.Value! with { AppliedVersionId = replay.VersionId }) : loaded;
+        }
         var idempotencyKey = HostFileReferenceClaimIdempotencyKeys.DocumentVersion(versionId);
         var claimResult = await hostFileReferenceClaimService
             .ClaimAsync(
@@ -396,6 +433,9 @@ internal sealed class HostDocumentItemManagementService(
             return MapClaimFailure(claimResult.Error!);
         }
 
+        var descriptor = await descriptorReader.GetReadyDescriptorAsync(fileId, cancellationToken).ConfigureAwait(false);
+        if (descriptor is null || descriptor.SizeBytes != claimResult.Value!.FileReference.SizeBytes || descriptor.ContentHash != claimResult.Value.FileReference.ContentHash)
+            return InvalidFileReference();
         Result<HostDocumentItemResponse> writeResult;
         try
         {
@@ -405,6 +445,9 @@ internal sealed class HostDocumentItemManagementService(
                         actorUserId,
                         versionId,
                         claimResult.Value!.FileReference,
+                        descriptor,
+                        changeDescription,
+                        requestKey,
                         token),
                     cancellationToken)
                 .ConfigureAwait(false);
@@ -417,17 +460,14 @@ internal sealed class HostDocumentItemManagementService(
 
         if (!writeResult.IsSuccess)
         {
-            await hostFileReferenceClaimService
-                .ReleaseAsync(idempotencyKey, cancellationToken)
-                .ConfigureAwait(false);
+            // 无法证明未被并发提交时保留 Pending，由精确 Probe 对账处理。
             return writeResult;
         }
 
-        _ = await hostFileReferenceClaimService
-            .ConfirmAsync(idempotencyKey, cancellationToken)
-            .ConfigureAwait(false);
+        if (writeResult.Value!.AppliedVersionId is null || writeResult.Value.AppliedVersionId == versionId)
+            _ = await hostFileReferenceClaimService.ConfirmAsync(idempotencyKey, cancellationToken).ConfigureAwait(false);
 
-        return writeResult;
+        return writeResult.IsSuccess ? Result<HostDocumentItemResponse>.Success(writeResult.Value! with { AppliedVersionId = writeResult.Value.AppliedVersionId ?? versionId }) : writeResult;
     }
 
     private async Task<Result<HostDocumentItemResponse>> AddVersionCoreAsync(
@@ -435,26 +475,43 @@ internal sealed class HostDocumentItemManagementService(
         Guid actorUserId,
         Guid versionId,
         HostFileReference fileReference,
+        HostFileDescriptor descriptor,
+        string? changeDescription,
+        Guid requestKey,
         CancellationToken cancellationToken)
     {
-        var item = await FindActiveAsync(itemId, cancellationToken).ConfigureAwait(false);
-        if (item is null)
+        var item = await mutationGuard.LockAsync(itemId, cancellationToken).ConfigureAwait(false);
+        if (await accessPolicy.CheckAsync(itemId, DocumentOperation.Write, cancellationToken).ConfigureAwait(false) is { } denied) return Result<HostDocumentItemResponse>.Failure(denied);
+        if (item?.Status == (int)HostDocumentStatus.Archived) return StateConflict();
+        if (item is null || item.DeletedAtUtc is not null)
         {
             return NotFound();
         }
 
+        var replay = await queryExecutor.QuerySingleOrDefaultAsync<DocumentVersionOperationRecord>(DocumentVersionOperationSql.Find,
+            DocumentSqlParameters.Create(("RequestKey", requestKey), ("DocumentId", itemId), ("ActorUserId", actorUserId)), cancellationToken).ConfigureAwait(false);
+        if (replay is not null)
+        {
+            if (replay.DocumentId != itemId || replay.ActorUserId != actorUserId || replay.FileId != fileReference.FileId || replay.ChangeDescription != changeDescription) return VersionConflict();
+            var previous = await ReloadActiveAsync(itemId, cancellationToken).ConfigureAwait(false);
+            return previous.IsSuccess ? Result<HostDocumentItemResponse>.Success(previous.Value! with { AppliedVersionId = replay.VersionId }) : previous;
+        }
         var versionNumber = await queryExecutor.QuerySingleOrDefaultAsync<int>(
                 DocumentItemSql.NextVersionNumber,
                 DocumentSqlParameters.Create(("DocumentItemId", itemId)),
                 cancellationToken)
             .ConfigureAwait(false);
+        await commandExecutor.ExecuteAsync(DocumentItemSql.AllocateVersion, DocumentSqlParameters.Create(("Id", itemId)), cancellationToken).ConfigureAwait(false);
         var now = clock.UtcNow;
         await commandExecutor.ExecuteAsync(
                 DocumentItemSql.InsertVersion,
-                DocumentSqlParameters.Create(("Id", versionId), ("DocumentItemId", itemId), ("FileId", fileReference.FileId), ("VersionNumber", versionNumber), ("ContentHash", fileReference.ContentHash), ("SizeBytes", fileReference.SizeBytes), ("UploadedByUserId", actorUserId), ("CreatedAtUtc", now)),
+                DocumentSqlParameters.Create(("Id", versionId), ("DocumentItemId", itemId), ("FileId", fileReference.FileId), ("VersionNumber", versionNumber), ("ContentHash", fileReference.ContentHash), ("SizeBytes", fileReference.SizeBytes), ("FileName", descriptor.OriginalFileName), ("MimeType", descriptor.ContentType), ("Extension", Path.GetExtension(descriptor.OriginalFileName).ToLowerInvariant()), ("ChangeDescription", changeDescription), ("UploadedByUserId", actorUserId), ("CreatedAtUtc", now)),
                 cancellationToken)
             .ConfigureAwait(false);
 
+        await commandExecutor.ExecuteAsync(DocumentVersionOperationSql.Insert, DocumentSqlParameters.Create(
+            ("Id", idGenerator.NewId()), ("RequestKey", requestKey), ("DocumentId", itemId), ("ActorUserId", actorUserId), ("VersionId", versionId),
+            ("FileId", fileReference.FileId), ("ChangeDescription", changeDescription), ("CreatedAtUtc", now)), cancellationToken).ConfigureAwait(false);
         var affected = await commandExecutor.ExecuteAsync(
                 DocumentItemSql.SetCurrentVersion,
                 DocumentSqlParameters.Create(("Id", itemId), ("CurrentVersionId", versionId), ("UpdatedAtUtc", now), ("UpdatedByUserId", actorUserId), ("Version", item.Version)),
@@ -474,7 +531,9 @@ internal sealed class HostDocumentItemManagementService(
         long version,
         CancellationToken cancellationToken)
     {
-        if (await FindActiveAsync(itemId, cancellationToken).ConfigureAwait(false) is null)
+        var deleted = await mutationGuard.LockAsync(itemId, cancellationToken).ConfigureAwait(false);
+        if (await accessPolicy.CheckAsync(itemId, DocumentOperation.Delete, cancellationToken).ConfigureAwait(false) is { } denied) return Result<bool>.Failure(denied);
+        if (deleted is null || deleted.DeletedAtUtc is not null)
         {
             return Result<bool>.Failure(NotFoundError());
         }
@@ -495,13 +554,10 @@ internal sealed class HostDocumentItemManagementService(
         long version,
         CancellationToken cancellationToken)
     {
-        var existing = await queryExecutor
-            .QuerySingleOrDefaultAsync<DocumentItemDetailRecord>(
-                DocumentItemSql.FindAnyById,
-                DocumentSqlParameters.Create(("Id", itemId)),
-                cancellationToken)
-            .ConfigureAwait(false);
-        if (existing is null)
+        var existing = await mutationGuard.LockAsync(itemId, cancellationToken).ConfigureAwait(false);
+        if (await accessPolicy.CheckAsync(itemId, DocumentOperation.Write, cancellationToken).ConfigureAwait(false) is { } denied)
+            return Result<HostDocumentItemResponse>.Failure(denied);
+        if (existing is null || existing.DeletedAtUtc is null || existing.IsPurging)
         {
             return NotFound();
         }
@@ -527,8 +583,10 @@ internal sealed class HostDocumentItemManagementService(
         long version,
         CancellationToken cancellationToken)
     {
-        var item = await FindActiveAsync(itemId, cancellationToken).ConfigureAwait(false);
-        if (item is null)
+        var item = await mutationGuard.LockAsync(itemId, cancellationToken).ConfigureAwait(false);
+        if (await accessPolicy.CheckAsync(itemId, DocumentOperation.Write, cancellationToken).ConfigureAwait(false) is { } denied) return Result<HostDocumentItemResponse>.Failure(denied);
+        if (item?.Status == (int)HostDocumentStatus.Archived) return StateConflict();
+        if (item is null || item.DeletedAtUtc is not null)
         {
             return NotFound();
         }
@@ -617,6 +675,30 @@ internal sealed class HostDocumentItemManagementService(
         DocumentItemDetailRecord record,
         IReadOnlyList<HostDocumentTagAssignmentResponse>? tags = null) =>
         HostDocumentItemResponseMapper.Map(record, tags);
+
+    /// <summary>生命周期转换在根锁内提交并撤销旧分享会话。</summary>
+    public Task<Result<HostDocumentItemResponse>> ChangeStatusAsync(Guid itemId, Guid actorUserId,
+        ChangeHostDocumentStatusRequest request, HostDocumentStatus target, CancellationToken cancellationToken) =>
+        transaction.ExecuteResultAsync(async token =>
+        {
+            var item = await mutationGuard.LockAsync(itemId, token).ConfigureAwait(false);
+            if (item is null || item.DeletedAtUtc is not null) return NotFound();
+            if (await accessPolicy.CheckAsync(itemId, DocumentOperation.Write, token).ConfigureAwait(false) is { } denied)
+                return Result<HostDocumentItemResponse>.Failure(denied);
+            var expected = target switch { HostDocumentStatus.Published => HostDocumentStatus.Draft,
+                HostDocumentStatus.Archived => HostDocumentStatus.Published, _ => HostDocumentStatus.Archived };
+            if (item.Version != request.Version || item.Status != (int)expected ||
+                (target == HostDocumentStatus.Published && item.CurrentVersionId is null)) return StateConflict();
+            await commandExecutor.ExecuteAsync(DocumentItemSql.ChangeStatus,
+                DocumentSqlParameters.Create(("Id", itemId), ("Status", (int)target), ("Version", request.Version),
+                    ("Now", clock.UtcNow), ("ActorUserId", actorUserId)), token).ConfigureAwait(false);
+            if (target == HostDocumentStatus.Archived)
+                await commandExecutor.ExecuteAsync(DocumentItemSql.DisableShares, DocumentSqlParameters.Create(("Id", itemId)), token).ConfigureAwait(false);
+            return await ReloadActiveAsync(itemId, token).ConfigureAwait(false);
+        }, cancellationToken);
+
+    private static Result<HostDocumentItemResponse> StateConflict() => Result<HostDocumentItemResponse>.Failure(
+        new Error("document.host_document.state_conflict", "Document state does not allow this operation.", ErrorType.Conflict));
 
     private static Result<HostDocumentItemResponse> MapClaimFailure(Error error) =>
         string.Equals(error.Code, FilesErrorCodes.FileNotFound, StringComparison.Ordinal)

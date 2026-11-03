@@ -167,6 +167,25 @@ public sealed class MessagingReplayOperationTests
         if (database == DatabaseProvider.SqlServer) await connection.ExecuteAsync("DROP INDEX IX_fn_messaging_replay_operation_CreatedAtUtc_Id ON fn_messaging_replay_operation");
         await connection.ExecuteAsync(sql); await connection.ExecuteAsync(sql);
         Assert.AreEqual(8L, await connection.QuerySingleAsync<long>("SELECT COUNT(*) FROM fn_messaging_test_effect"));
+        // 独立 CDC 重放场景截断自身 Topic，不破坏多进程成功回退需要的原始窗口。
+        var unavailableWindow = await Create(first, first);
+        using (var committed = kafka.CreateConsumer(state.Consumer, "fullnet.replay.retention.formal"))
+        {
+            var partition = new TopicPartition(state.Topic, 0);
+            committed.Assign(partition);
+            committed.Commit([new TopicPartitionOffset(partition, offset + 1)]);
+            var committedBefore = committed.Committed([partition], TimeSpan.FromSeconds(10)).Single().Offset.Value;
+            using var broker = new AdminClientBuilder(new AdminClientConfig { BootstrapServers = kafka.BootstrapServers }).Build();
+            await broker.DeleteRecordsAsync([new TopicPartitionOffset(partition, first + 1)]);
+            using var blockedReplay = await client.PostAsJsonAsync($"{Route}/{unavailableWindow.OperationId}/execute",
+                new ChangeKafkaReplayOperationRequest("unavailable fixed window must stop"));
+            Assert.AreEqual(HttpStatusCode.Conflict, blockedReplay.StatusCode, await blockedReplay.Content.ReadAsStringAsync());
+            Assert.AreEqual("blocked", (await Get(unavailableWindow.OperationId)).State);
+            Assert.AreEqual(committedBefore, committed.Committed([partition], TimeSpan.FromSeconds(10)).Single().Offset.Value,
+                "窗口丢失不能移动正式消费组位点。");
+            Assert.AreEqual(8L, await connection.QuerySingleAsync<long>("SELECT COUNT(*) FROM fn_messaging_test_effect"),
+                "窗口丢失不能产生新的业务副作用。");
+        }
         var export = Environment.GetEnvironmentVariable("FULLNET_CLIENT_OPENAPI_EXPORT_PATH");
         if (!string.IsNullOrWhiteSpace(export)) await File.WriteAllTextAsync(export, await client.GetStringAsync("/openapi/v1.json"));
     }

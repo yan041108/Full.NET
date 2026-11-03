@@ -1,27 +1,7 @@
-export type HostDocumentType = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 99;
-
-export const HOST_DOCUMENT_TYPES = {
-  Word: 1 as HostDocumentType,
-  Excel: 2 as HostDocumentType,
-  Pdf: 3 as HostDocumentType,
-  Ppt: 4 as HostDocumentType,
-  Txt: 5 as HostDocumentType,
-  Video: 6 as HostDocumentType,
-  Audio: 7 as HostDocumentType,
-  Image: 8 as HostDocumentType,
-  Zip: 9 as HostDocumentType,
-  Rar: 10 as HostDocumentType,
-  Other: 99 as HostDocumentType,
-} as const;
-
-export type HostDocumentStatus = 1 | 2 | 3 | 4;
-
-export const HOST_DOCUMENT_STATUSES = {
-  Draft: 1 as HostDocumentStatus,
-  Published: 2 as HostDocumentStatus,
-  Archived: 3 as HostDocumentStatus,
-  Deleted: 4 as HostDocumentStatus,
-} as const;
+export type HostDocumentType = 0 | 1 | 2 | 3 | 4 | 5 | 99;
+export const HOST_DOCUMENT_TYPES = { Unknown: 0, Document: 1, Image: 2, Video: 3, Audio: 4, Archive: 5, Other: 99 } as const;
+export type HostDocumentStatus = 0 | 1 | 2;
+export const HOST_DOCUMENT_STATUSES = { Draft: 0, Published: 1, Archived: 2 } as const;
 
 export interface HostDocumentVersionResponse {
   id: string;
@@ -36,11 +16,13 @@ export interface HostDocumentVersionResponse {
 
 export interface HostDocumentTagAssignmentResponse {
   tagId: string;
-  name: string;
-  color: string | null;
+  tagName: string;
 }
 
 export interface HostDocumentItemResponse {
+  mimeType?: string | null;
+  visibilityMode: 'host' | 'restricted';
+  appliedVersionId?: string | null;
   id: string;
   documentNo: string;
   title: string;
@@ -86,16 +68,16 @@ export interface CreateHostDocumentItemRequest {
 
 export interface UpdateHostDocumentItemRequest {
   title: string;
-  description?: string | null;
-  categoryId?: string | null;
-  thumbnail?: string | null;
-  status?: number | null;
-  sort?: number | null;
-  tagIds?: string[] | null;
+  description: string | null;
+  categoryId: string | null;
+  thumbnail: string | null;
+  sort: number;
+  tagIds: string[];
   version: number;
 }
 
 export interface AddHostDocumentVersionRequest {
+  requestKey: string;
   fileId: string;
   changeDescription?: string | null;
 }
@@ -159,8 +141,7 @@ export function isHostDocumentVersionList(value: unknown): value is HostDocument
 export function isHostDocumentTagAssignmentResponse(value: unknown): value is HostDocumentTagAssignmentResponse {
   return isRecord(value)
     && isGuid(value.tagId)
-    && isNonEmptyString(value.name)
-    && isNullableString(value.color);
+    && isNonEmptyString(value.tagName);
 }
 
 export function isHostDocumentItemResponse(value: unknown): value is HostDocumentItemResponse {
@@ -212,15 +193,9 @@ export function isCreateHostDocumentItemRequest(value: unknown): value is Create
 }
 
 export function isUpdateHostDocumentItemRequest(value: unknown): value is UpdateHostDocumentItemRequest {
-  return isRecord(value)
-    && isNonEmptyString(value.title)
-    && (value.description === undefined || isNullableString(value.description))
-    && (value.categoryId === undefined || isNullableGuid(value.categoryId))
-    && (value.thumbnail === undefined || isNullableString(value.thumbnail))
-    && (value.status === undefined || value.status === null || Number.isInteger(value.status))
-    && (value.sort === undefined || value.sort === null || Number.isInteger(value.sort))
-    && (value.tagIds === undefined || value.tagIds === null || (Array.isArray(value.tagIds) && value.tagIds.every(isGuid)))
-    && Number.isInteger(value.version);
+  return isRecord(value) && isNonEmptyString(value.title) && isNullableString(value.description)
+    && isNullableGuid(value.categoryId) && isNullableString(value.thumbnail) && Number.isInteger(value.sort)
+    && Array.isArray(value.tagIds) && value.tagIds.every(isGuid) && Number.isInteger(value.version) && !('status' in value);
 }
 
 export function isAddHostDocumentVersionRequest(value: unknown): value is AddHostDocumentVersionRequest {

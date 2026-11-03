@@ -5,6 +5,7 @@ import {
   type RouterHistory
 } from 'vue-router';
 import type { Pinia } from 'pinia';
+import type { NavigationNode } from '@fullnet/client-contracts';
 import { useSessionStore } from '../auth/session';
 import { flattenNavigation } from '../navigation/catalog';
 import OverviewView from '../views/OverviewView.vue';
@@ -26,6 +27,19 @@ const publicAuthPaths = new Set([
   '/register',
   '/recover-password'
 ]);
+
+/** 大屏详情由可信父菜单及精确操作权限派生；路由进入与壳层持续校验共用同一判断。 */
+export function canAccessGoViewDetailRoute(
+  route: Pick<RouteLocationNormalized, 'name'>,
+  navigation: readonly NavigationNode[],
+  can: (permission: string) => boolean
+): boolean {
+  const permission = route.name === 'goview-editor' ? 'goview.projects.update'
+    : route.name === 'goview-preview' ? 'goview.projects.preview' : undefined;
+  return Boolean(permission && can('goview.projects.read') && can(permission)
+    && flattenNavigation(navigation).some(node => node.componentKey === 'goview-projects' && node.routeName === 'goview-projects'
+      && node.path === '/goview/projects' && can(node.requiredPermission)));
+}
 
 /** 文档外部分享页：不在导航目录中，但需独立直达（匿名可访问、已登录不重定向）。 */
 export function isDocumentPublicShareRoute(
@@ -361,6 +375,31 @@ export function createAppRouter(
         component: () => import('../views/AiKnowledgeDocumentsView.vue')
       },
       {
+        name: 'ai-knowledge-evaluation-sets',
+        path: '/ai/knowledge-evaluation-sets',
+        component: () => import('../views/AiKnowledgeEvaluationSetsView.vue')
+      },
+      {
+        name: 'ai-knowledge-finance',
+        path: '/ai/knowledge-finance',
+        component: () => import('../views/AiKnowledgeFinanceView.vue')
+      },
+      {
+        name: 'ai-knowledge-operations',
+        path: '/ai/knowledge-operations',
+        component: () => import('../views/AiKnowledgeOperationsView.vue')
+      },
+      {
+        name: 'ai-knowledge-faqs',
+        path: '/ai/knowledge-faqs',
+        component: () => import('../views/AiKnowledgeFaqsView.vue')
+      },
+      {
+        name: 'ai-knowledge-search',
+        path: '/ai/knowledge-search',
+        component: () => import('../views/AiKnowledgeSearchView.vue')
+      },
+      {
         name: 'ai-agent-tools',
         path: '/ai/agent-tools',
         component: () => import('../views/AiAgentToolsView.vue')
@@ -528,6 +567,11 @@ export function createAppRouter(
         component: () => import('../views/MyReleaseNotesView.vue')
       },
       {
+        name: 'my-tasks',
+        path: '/platform/my-tasks',
+        component: () => import('../views/MyTasksView.vue')
+      },
+      {
         name: 'backup-executor',
         path: '/platform/backup-executor',
         component: () => import('../views/BackupExecutorView.vue')
@@ -658,6 +702,11 @@ export function createAppRouter(
         component: () => import('../views/WorkflowFormsView.vue')
       },
       {
+        name: 'workflow-collaboration-grants',
+        path: '/workflow/collaboration-grants',
+        component: () => import('../views/WorkflowCollaborationGrantsView.vue')
+      },
+      {
         name: 'workflow-calendars',
         path: '/workflow/calendars',
         component: () => import('../views/WorkflowCalendarsView.vue')
@@ -696,9 +745,19 @@ export function createAppRouter(
       return true;
     }
 
-    return flattenNavigation(session.navigation).some(node => node.path === to.path)
-      ? true
-      : '/403';
+    const navigation = flattenNavigation(session.navigation);
+    if (navigation.some(node => node.path === to.path)) return true;
+    if (canAccessGoViewDetailRoute(to, session.navigation, permission => session.can(permission))) return true;
+    if (to.path === '/') {
+      // 登录与切换租户回到根路径时，进入当前可访问的本地页面，不隐式要求工作台权限。
+      const landing = navigation.find(node => node.path !== '/' && !('menuType' in node && node.menuType === 'directory')
+        && !('isHidden' in node && node.isHidden) && !('isEmbedded' in node && node.isEmbedded)
+        && !('linkUrl' in node && node.linkUrl) && session.can(node.requiredPermission)
+        && node.path.startsWith('/') && !node.path.startsWith('//') && !node.path.includes(':')
+        && router.getRoutes().some(route => route.name === node.routeName && route.path === node.path));
+      if (landing) return { path: landing.path, replace: true };
+    }
+    return '/403';
   });
 
   return router;

@@ -18,6 +18,24 @@ internal static class Endpoint
         var group = endpoints.MapGroup("/api/v1/document/host/preview-tasks")
             .WithTags("DocumentHostPreviewTasks");
 
+        endpoints.MapGet("/api/v1/document/public/preview-capabilities", (HostDocumentPreviewTaskManagementService service) => Results.Ok(service.Capabilities))
+            .WithTags("DocumentHostPreviewTasks").WithName("documentHostGetPreviewCapabilities").Produces<DocumentPreviewCapabilities>()
+            .AllowAnonymous();
+        group.MapPost("/{taskId:guid}/cancel", async (Guid taskId, CancelDocumentPreviewTaskRequest request,
+            HostDocumentPreviewTaskManagementService service, IApiResultMapper mapper, HttpContext context, CancellationToken token) =>
+                mapper.Map(await service.CancelAsync(taskId, request.Version, token).ConfigureAwait(false), context))
+            .WithName("documentHostCancelPreviewTask").Produces<HostDocumentPreviewTaskResponse>()
+            .ProducesProblem(400).ProducesProblem(401).ProducesProblem(403).ProducesProblem(404).ProducesProblem(409)
+            .RequireAuthorization(FullNetPermissionPolicies.For(HostDocumentPreviewTaskPermissions.Cancel));
+        group.MapPost("/{taskId:guid}/retry", async (Guid taskId, HostDocumentPreviewTaskManagementService service,
+            IApiResultMapper mapper, HttpContext context, CancellationToken token) =>
+        {
+            if (!TryResolveUserId(context, out var actor)) return Results.Problem(statusCode: 401);
+            return mapper.Map(await service.RetryAsync(taskId, actor, token).ConfigureAwait(false), context);
+        }).WithName("documentHostRetryPreviewTask").Produces<HostDocumentPreviewTaskResponse>()
+            .ProducesProblem(401).ProducesProblem(403).ProducesProblem(404).ProducesProblem(409).ProducesProblem(422)
+            .RequireAuthorization(FullNetPermissionPolicies.For(HostDocumentPreviewTaskPermissions.Retry));
+
         group.MapPost("/", async (
             CreateHostDocumentPreviewTaskRequest request,
             HostDocumentPreviewTaskManagementService service,

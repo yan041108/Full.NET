@@ -66,6 +66,8 @@ public sealed class SettingsModule : IFullNetModule
         services.TryAddSingleton<IClock, SystemClock>();
         services.TryAddSingleton<IIdGenerator, GuidV7IdGenerator>();
         services.TryAddSingleton<Catalogs.EnumCatalogRegistry>();
+        services.TryAddSingleton<Features.ManageQuerySchemes.QuerySchemeCatalog>();
+        services.TryAddScoped<Features.ManageQuerySchemes.QuerySchemeService>();
         services.TryAddScoped<HostDictTypeQueryService>();
         services.TryAddScoped<HostDictTypeManagementService>();
         services.TryAddScoped<Features.ManageHostDictItems.HostDictItemQueryService>();
@@ -112,6 +114,9 @@ public sealed class SettingsModule : IFullNetModule
         IServiceCollection services,
         IConfiguration configuration)
     {
+#if FULLNET_AOT_COMPILE
+        Persistence.SettingsDapperAotMaterializerContributor.RegisterMigrationMaterializers(new global::Full.NET.Data.Dapper.DapperAotMaterializerRegistrar());
+#endif
         services.TryAddSingleton<IClock, SystemClock>();
         services.TryAddSingleton<IIdGenerator, GuidV7IdGenerator>();
         services.TryAddEnumerable(ServiceDescriptor.Scoped<
@@ -132,6 +137,7 @@ public sealed class SettingsModule : IFullNetModule
         Features.ManageHostConfigEntries.Endpoint.Map(endpoints);
         Features.QueryHostEnumCatalogs.Endpoint.Map(endpoints);
         Features.ManageMyGridPreferences.Endpoint.Map(endpoints);
+        Features.ManageQuerySchemes.Endpoint.Map(endpoints);
         Features.ManageDiagnosticPolicy.Endpoint.Map(endpoints);
     }
 

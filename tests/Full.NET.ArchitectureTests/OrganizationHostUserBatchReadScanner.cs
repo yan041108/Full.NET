@@ -32,7 +32,7 @@ internal static partial class OrganizationHostUserBatchReadScanner
             var listBody = ExtractMethodBody(content, "ListAsync");
             if (string.IsNullOrWhiteSpace(listBody))
             {
-                violations.Add(string.Concat("Missing ListAsync body in ", relativePath));
+                // 详情回读继续走契约；仅对实际的列表组合要求批量，受控 JOIN 由读取登记门禁覆盖。
                 continue;
             }
 

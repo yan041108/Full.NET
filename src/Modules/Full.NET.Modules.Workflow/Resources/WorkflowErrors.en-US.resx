@@ -88,4 +88,8 @@
   <data name="workflow.definition.business_command_invalid" xml:space="preserve"><value>Select an available business action and place it directly after a root approval and before the end.</value></data>
   <data name="workflow.definition.subprocess_invalid" xml:space="preserve"><value>Select an available child version and check field mappings and execution limits.</value></data>
   <data name="workflow.subprocess.activation_invalid" xml:space="preserve"><value>The parent activity, fixed input, or remaining budget does not allow this child activation.</value></data>
+  <data name="workflow.collaboration_grant.invalid" xml:space="preserve"><value>The collaboration grant policy, version, members or field mappings are invalid.</value></data>
+  <data name="workflow.collaboration_grant.not_found" xml:space="preserve"><value>The collaboration grant was not found in the current scope.</value></data>
+  <data name="workflow.collaboration_grant.conflict" xml:space="preserve"><value>The collaboration grant changed, expired or no longer allows this operation. Read it again.</value></data>
+  <data name="workflow.collaboration_query.too_broad" xml:space="preserve"><value>The query covers too many collaboration calls. Use a more specific resource or filter.</value></data>
 </root>

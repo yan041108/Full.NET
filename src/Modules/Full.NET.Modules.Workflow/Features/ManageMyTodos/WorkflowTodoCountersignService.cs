@@ -81,6 +81,12 @@ internal sealed class WorkflowTodoCountersignService(
             if (await commandExecutor.ExecuteAsync(WorkflowSql.LockInstanceForTodoAction,
                 WorkflowSqlParameters.Create(("Id", todo.InstanceId), ("TenantScopeKey", scope.TenantScopeKey)), token).ConfigureAwait(false) != 1)
                 return InstanceFailure(WorkflowErrorCodes.RevisionConflict, ErrorType.Conflict);
+            if (!await WorkflowCollaborationRuntimeGate.AllowsAsync(todo.InstanceId, scope, actorUserId, clock.UtcNow,
+                    queryExecutor, token, commandExecutor).ConfigureAwait(false))
+                return InstanceFailure(WorkflowErrorCodes.TodoForbidden, ErrorType.Forbidden);
+            var allowedMembers = await WorkflowCollaborationOriginPolicy.ReadMembersAsync(todo.InstanceId, scope, queryExecutor, token).ConfigureAwait(false);
+            if (allowedMembers is not null && assignees.Any(id => !allowedMembers.Contains(id)))
+                return InstanceFailure(WorkflowErrorCodes.TodoForbidden, ErrorType.Forbidden);
             return await CountersignCoreAsync(todoId, actorUserId, request, validAssignees, token).ConfigureAwait(false);
         }, cancellationToken).ConfigureAwait(false);
     }
@@ -103,6 +109,9 @@ internal sealed class WorkflowTodoCountersignService(
             if (await commandExecutor.ExecuteAsync(WorkflowSql.LockInstanceForTodoAction,
                 WorkflowSqlParameters.Create(("Id", todo.InstanceId), ("TenantScopeKey", scope.TenantScopeKey)), token).ConfigureAwait(false) != 1)
                 return InstanceFailure(WorkflowErrorCodes.RevisionConflict, ErrorType.Conflict);
+            if (!await WorkflowCollaborationRuntimeGate.AllowsAsync(todo.InstanceId, scope, actorUserId, clock.UtcNow,
+                    queryExecutor, token, commandExecutor).ConfigureAwait(false))
+                return InstanceFailure(WorkflowErrorCodes.TodoForbidden, ErrorType.Forbidden);
             return await CancelCoreAsync(todoId, actorUserId, request, token).ConfigureAwait(false);
         }, cancellationToken).ConfigureAwait(false);
     }

@@ -2,7 +2,6 @@ import { expect, test } from '@playwright/test';
 import { randomUUID } from 'node:crypto';
 import {
   clickMainNavLink,
-  enterDevelopmentTenant,
   loginAsHostAdmin
 } from './support/real-stack-auth.mjs';
 import {
@@ -48,7 +47,7 @@ test('API：固定表单 Schema、模板列表与预览契约（清单 71）', a
 
   const { response: templatesResponse } = await listPrintingTemplatesViaApi(request, clientKind);
   expect(templatesResponse.ok()).toBeTruthy();
-  expect(Array.isArray(await templatesResponse.json())).toBeTruthy();
+  expect(Array.isArray((await templatesResponse.json()).items)).toBeTruthy();
 
   const { response: previewMissing } = await previewPrintingTemplateViaApi(
     request,
@@ -64,7 +63,6 @@ test('UI：打印预览页入口（清单 71）', async ({ page }, testInfo) => 
   test.setTimeout(90_000);
 
   await loginAsHostAdmin(page);
-  await enterDevelopmentTenant(page);
   await clickMainNavLink(page, /打印预览/);
 
   await expect(page.getByTestId('printing-preview-run')).toBeVisible({ timeout: 20_000 });

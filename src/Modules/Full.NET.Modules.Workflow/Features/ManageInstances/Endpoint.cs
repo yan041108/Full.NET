@@ -65,8 +65,9 @@ internal static class Endpoint
             IApiResultMapper mapper,
             HttpContext context,
             CancellationToken token) =>
-            mapper.Map(
+            TryGetActor(context, out var actorUserId) ? mapper.Map(
                 await service.ListAsync(
+                        actorUserId,
                         page ?? 1,
                         pageSize ?? 20,
                         statusKey,
@@ -76,7 +77,7 @@ internal static class Endpoint
                         startedToUtc,
                         token)
                     .ConfigureAwait(false),
-                context))
+                context) : Results.Unauthorized())
         .WithName("workflowListInstances")
         .WithTags("WorkflowInstances")
         .Produces<PagedResult<WorkflowInstanceListItemResponse>>()

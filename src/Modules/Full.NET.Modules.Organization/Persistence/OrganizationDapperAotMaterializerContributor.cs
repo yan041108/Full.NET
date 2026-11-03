@@ -1,6 +1,7 @@
 #if FULLNET_AOT_COMPILE
 using System.Data.Common;
 using Full.NET.Data.Dapper;
+using Full.NET.Modules.Organization.Contracts;
 using global::Dapper;
 
 namespace Full.NET.Modules.Organization.Persistence;
@@ -33,6 +34,18 @@ internal sealed class OrganizationDapperAotMaterializerContributor : IDapperAotM
         registrar.Register<OrganizationUserUnitListRow>(ReadOrganizationUserUnitListRow);
         registrar.Register<OrganizationUserPositionRecord>(ReadOrganizationUserPositionRecord);
         registrar.Register<OrganizationUserPositionListRow>(ReadOrganizationUserPositionListRow);
+        registrar.Register<OrganizationUserUnitResponse>(reader => new(
+            reader.GetGuid(0), reader.GetGuid(1), reader.GetString(2), reader.GetString(3),
+            reader.GetGuid(4), reader.GetString(5), reader.GetString(6),
+            AotDataReaderExtensions.ReadBoolean(reader, 7), AotDataReaderExtensions.ReadBoolean(reader, 8),
+            AotDataReaderExtensions.ReadDateTimeOffset(reader, 9), AotDataReaderExtensions.ReadNullableDateTimeOffset(reader, 10),
+            reader.GetInt32(11)));
+        registrar.Register<OrganizationUserPositionResponse>(reader => new(
+            reader.GetGuid(0), reader.GetGuid(1), reader.GetString(2), reader.GetString(3),
+            reader.GetGuid(4), reader.GetString(5), reader.GetString(6),
+            AotDataReaderExtensions.ReadBoolean(reader, 7), AotDataReaderExtensions.ReadBoolean(reader, 8),
+            AotDataReaderExtensions.ReadDateTimeOffset(reader, 9), AotDataReaderExtensions.ReadNullableDateTimeOffset(reader, 10),
+            reader.GetInt32(11)));
         registrar.Register<OrganizationPositionRecord>(ReadOrganizationPositionRecord);
         registrar.Register<OrganizationPositionListRow>(ReadOrganizationPositionListRow);
         registrar.Register<OrganizationPositionLevelRecord>(ReadOrganizationPositionLevelRecord);

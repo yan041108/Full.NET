@@ -11,6 +11,14 @@ internal sealed class EnterpriseRequestAuthorizationContributor : IAuthorization
 
     public IReadOnlyCollection<PermissionDefinition> Permissions { get; } =
     [
+        new(EnterpriseRequestDetailPermissions.Read, "读取企业申请明细", AuthorizationScope.Tenant),
+        new(Contracts.EnterpriseRequestDeliveryPermissions.AttachmentsRead, "读取企业申请附件", AuthorizationScope.Tenant),
+        new(Contracts.EnterpriseRequestDeliveryPermissions.AttachmentsManage, "管理企业申请附件", AuthorizationScope.Tenant),
+        new(Contracts.EnterpriseRequestDeliveryPermissions.ReportsCreate, "创建企业申请报表", AuthorizationScope.Tenant),
+        new(Contracts.EnterpriseRequestDeliveryPermissions.ReportsRead, "读取企业申请报表", AuthorizationScope.Tenant),
+        new(Contracts.EnterpriseRequestDeliveryPermissions.ReportsCancel, "取消企业申请报表", AuthorizationScope.Tenant),
+        new(Contracts.EnterpriseRequestDeliveryPermissions.Print, "打印企业申请", AuthorizationScope.Tenant),
+        new(Contracts.EnterpriseRequestDeliveryPermissions.AmountsRead, "读取企业申请交付金额", AuthorizationScope.Tenant),
         new PermissionDefinition(Contracts.EnterpriseRequestWorkflowConstants.SubmitPermission,
             "提交企业申请审批", AuthorizationScope.Tenant),
         new PermissionDefinition(

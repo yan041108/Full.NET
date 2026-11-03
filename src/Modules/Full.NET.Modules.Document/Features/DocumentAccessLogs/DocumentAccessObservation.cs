@@ -9,4 +9,5 @@ internal sealed record DocumentAccessObservation(
     Guid? ActorUserId,
     string? ClientIpFingerprint,
     string AccessTypeKey,
-    string SourceKey);
+    string SourceKey,
+    Guid? RequestKey = null);

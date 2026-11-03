@@ -28,5 +28,6 @@ internal static class WorkflowReturnClosure
         if (await commands.ExecuteAsync(WorkflowReturnClosureSql.InvalidateSteps, parameters, token).ConfigureAwait(false) != selected.InvalidatedStepIds.Count)
             throw new InvalidOperationException("workflow.return_scope.invalidation_conflict");
         await commands.ExecuteAsync(WorkflowReturnClosureSql.DeleteBindings, parameters, token).ConfigureAwait(false);
+        await commands.ExecuteAsync(WorkflowCollaborationRelaySql.CloseInvalidated, parameters, token).ConfigureAwait(false);
     }
 }

@@ -76,7 +76,7 @@ Full.NET 1.0 采用 **强化型模块化单体 (Reinforced Modular Monolith)** �
 ### 核心原则 (ADR-0002)
 
 1. **模块化而非微服务化**：Full.NET 1.0 不进行全面微服务化，局部模块只有满足 6 项拆分门禁后才能独立部署
-2. **明确的模块边界**：模块内部实现默认 `internal`，跨模块只依赖公开 Contracts；禁止直接访问其他模块内部表
+2. **明确的模块边界**：模块内部实现默认 `internal`，跨模块只依赖公开 Contracts；业务操作走契约、禁止跨模块写表和事务；后台列表/搜索/报表允许 [ADR-0014](../docs/architecture/adr/ADR-0014-controlled-cross-module-read-queries.md) 规定的集中、精确登记只读 JOIN
 3. **单一主项目原则**：每个业务模块默认只创建一个主项目；Contracts/Http/Worker 适配项目只能按真实消费者和隔离收益选择性增加
 4. **运行角色分离**：API、Worker、Migrator 三种宿主按职责分离，但不等于业务服务拆分
 5. **依赖方向**：Host/Module → BuildingBlocks（抽象与实现），抽象层不得反向依赖业务模块
@@ -206,10 +206,11 @@ src/
 | 模式 | 适用场景 | 实现方式 |
 |------|----------|----------|
 | 最小只读 Port | 请求当下必须获得权威答案，频次低 | 消费方 A 在自身 Contracts 定义最小 Port，B 实现适配 |
-| 版本化本地投影 | 高频读取、列表筛选搜索、事务内需要 | 所有者发布 Integration Event → 消费方维护本地投影表 |
+| 受控只读 JOIN | 后台列表、搜索、报表 | 集中 Query、DTO 与精确读取依赖登记 |
+| 版本化本地投影 | 有隔离/负载需求或事务内引用事实需要 | 所有者发布 Integration Event → 消费方维护本地投影表 |
 
 **禁止事项**：
-- ❌ 直接 SQL/JOIN/视图/同义词/存储过程读取其他模块表
+- ❌ 未登记的跨模块 SQL/JOIN，或通过视图/同义词/存储过程隐藏访问；业务操作不能借查询许可绕过契约
 - ❌ 跨模块数据库外键
 - ❌ 共享 DbSession / 跨模块本地事务
 
@@ -356,9 +357,9 @@ SqlDataScope + SqlTenantBinding 合法矩阵:
 
 ## 9. 代码生成内核
 
-> 项目：[`Full.NET.Data.CodeGeneration`](file:///G:/wwwroot/github_fork/Full.NET/src/BuildingBlocks/Full.NET.Data.CodeGeneration) + [`Full.NET.CodeGeneration.Cli`](file:///G:/wwwroot/github_fork/Full.NET/src/Tools/Full.NET.CodeGeneration.Cli) + 业务模块 [`Full.NET.Modules.CodeGeneration`](file:///G:/wwwroot/github_fork/Full.NET/src/Modules/Full.NET.Modules.CodeGeneration)
+> 项目：[`Full.NET.Data.CodeGeneration`](../src/BuildingBlocks/Full.NET.Data.CodeGeneration) + [`Full.NET.CodeGeneration.Cli`](../src/Tools/Full.NET.CodeGeneration.Cli) + 业务模块 [`Full.NET.Modules.CodeGeneration`](../src/Modules/Full.NET.Modules.CodeGeneration)
 
-代码生成内核按数据库 Schema 元数据驱动，自动产出 CRUD 后端 + Vue 前端 + 迁移脚本 + 集成装配代码，三阶段流水线分层：
+代码生成内核以经过确认的 Schema 驱动，产出 CRUD 后端骨架、Vue 页面、双库迁移草案和显式接入材料；`.template` 不进入 DbUp 自动执行，文件生成也不等于运行服务更新。三层职责如下：
 
 ```text
 Schema 层 (src/.../Schema/)
@@ -371,14 +372,14 @@ Generation 层 (src/.../Generation/)
   ├── CrudGenerationWorkspace       # 工作区：GenerationWorkspaceStore / Snapshot / Path / Conflict
   ├── GenerationWritePlanner        # 写入计划：GenerationWritePlan / WriteAction
   ├── CrudArtifactGenerator         # 产物分发：
-  │     ├── CrudBackendFeatureGenerator    # 后端 Command/Query/Handler/Endpoint
+  │     ├── CrudBackendFeatureGenerator    # 后端用例服务、Endpoint 与注册
   │     ├── CrudOpenApiContractGenerator    # OpenAPI 契约
   │     ├── CrudVueViewGenerator            # Vue 视图
   │     ├── CrudClientPageModelGenerator    # 前端页面模型
-  │     ├── CrudMigrationTemplateGenerator  # 迁移脚本
+  │     ├── CrudMigrationTemplateGenerator  # 双库迁移与测试草案
   │     ├── CrudOrganizationOwnershipGenerator # 组织归属
   │     ├── CrudAuthorizationContributorFragmentGenerator # 权限片段
-  │     └── CrudBackendFeatureGenerator    # 后端 Feature
+  │     └── CrudSceneGuardGenerator        # 树与关系写入守卫
   ├── GenerationManifest            # 清单：GenerationManifestDocument
   └── GenerationRollbackWorkspace   # 回滚：Checkpoint / Document / Store
 
@@ -399,11 +400,14 @@ Integration 层 (src/.../Integration/)
 ```
 
 **关键约束**：
-- 生成器不直接执行写盘，必须经 `GenerationWritePlanner` 产出 `GenerationWritePlan`，由 `GenerationWorkspaceStore` 原子落盘
-- 每次生成产生 `GenerationManifestDocument` 与 `GenerationRollbackCheckpointDocument`，支持 `GenerationRollbackWorkspace` 回滚
-- `CrudSceneGuard` 阻止非授权场景下的批量生成
-- 所有装配命令均为 `*ApplyCommand` 模式，可被宿主 `ModuleIntegrationHostOrchestrator` 编排为单一事务
-- 命名、主键、Schema 草稿由 `NamingProfile` / `PrimaryKeyProfile` / `FullNetCrudSchema` 强约束，避免运行时漂移
+
+- 内存生成与写盘分离；工作区产物经 `GenerationWritePlanner` 规划并由 `GenerationWorkspaceStore` 执行，冲突和恢复保护以对应计划/阶段为边界。
+- Preview 不创建回滚检查点；下载包进入独立归档。Host Apply 的完整计划包含产物与模块/Composition/Vue/授权接入，候选编译通过后才生成审查计划。
+- `GenerationWorkspaceLease`、`GenerationWorkspaceJournal` 统一文件租约、耐久阶段、工作区身份与全局 LIFO；确认时只执行冻结正文，人工漂移拒绝覆盖，数据库终态可从冻结上下文恢复。
+- `CrudSceneGuardGenerator`、`CrudTreeGenerator`、`CrudAggregateGenerator` 和 `CrudRelationshipLookupGenerator` 分别覆盖存在性/唯一/级联、树事务互斥、主从组合保存与有界候选；Endpoint 精确权限和可信租户/组织约束独立执行。
+- 命名、主键与 Schema 继续受既有 Profile 约束；SQL 生成静态参数与显式物化器。生成代码原生双库探针只证明其覆盖的服务路径，不外推整个 Host 的 AOT 发布状态。
+
+2026-10-27 最新[执行记录](../docs/superpowers/plans/2026-10-24-codegeneration-remediation.md)已使用当前工作区正常重建完整 Integration 项目依赖，保留组织测试；CodeGeneration HTTP/迁移及组织列表 16 项一次性全部通过，协议 HTTP 回归另 3 项通过，均零跳过。前次冻结依赖和 Compile 排除仅为历史，不再承担当前结论。正式数据库需迁移 290/292，生成器按需注入时钟，业务 API 空错误响应补全 ProblemDetails；Identity 协议客户端用稳定构建过滤接口移除隐式 HTTP 重试。旧临时目录 33 个已清理。生产 Apply 默认关闭，构建和本地聚焦验收不等同镜像部署、服务热加载、全量测试或整个宿主原生发布。
 
 
 示例模块 `samples/enterprise-request` 由应用组合根显式注册，不属于官方 Composition 或迁移闭包。Identity 挑战投递端口归属 Identity.Contracts，Notifications 提供实现；DataApproval 通过自身场景端口使用流水号适配器。事务命令默认对失败 Result 回滚，认证拒绝的计数、撤销和审计通过明确的拒绝提交策略保留。文档应用入口通过操作类型检查 ACL，HTTP 仅适配受信任身份。

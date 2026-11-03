@@ -17,7 +17,7 @@ const selectedId = ref(''); const head = computed(() => heads.value.find(h => h.
 const busy = ref(false); const refreshRequired = ref(false); const problem = ref('');
 const name = ref(''); const template = ref('{{input}}'); const languageTag = ref('zh-CN'); const modelId = ref(props.modelId ?? '');
 const strategies = ref<AiPromptExecutionBinding[]>([]); const strategyKey = ref('');
-const workflow = computed(() => strategyKey.value === 'fullnet-chat-rename-workflow-v1');
+const workflow = computed(() => ['fullnet-chat-rename-workflow-v1', 'fullnet-chat-review-workflow-v1'].includes(strategyKey.value));
 let epoch = 0; let controller: AbortController | undefined; let clientRequestId = '';
 let confirmationOpen = false;
 const body = computed<AiPromptBody>(() => ({ modelConfigId: modelId.value, languageTag: languageTag.value, template: workflow.value ? '{{input}}' : template.value, inputTokenLimit: 4096, outputTokenLimit: 4096,

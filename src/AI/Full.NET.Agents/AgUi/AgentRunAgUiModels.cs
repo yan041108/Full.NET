@@ -61,6 +61,14 @@ public sealed record AgentRunAgUiStepSummary(
 /// <summary>读取本人可访问运行的 AG-UI 重放数据；不得触发工具或模型执行。</summary>
 public interface IAgentRunAgUiReader
 {
+    /// <summary>按请求原会话、当前权限和可信作用域复核持续读取资格；等待后的交付必须重新调用。</summary>
+    /// <param name="runId">目标运行。</param>
+    /// <param name="scopeKey">可信作用域。</param>
+    /// <param name="actorUserId">请求主体。</param>
+    /// <param name="cancellationToken">当前读取取消令牌。</param>
+    /// <returns>当前仍允许读取时为真；失效或无法核证时为假。</returns>
+    ValueTask<bool> CanReadAsync(Guid runId, string scopeKey, Guid actorUserId, CancellationToken cancellationToken = default);
+
     /// <summary>
     /// 读取当前用户可访问运行的 AG-UI 重放快照；身份与作用域校验失败返回 <see langword="null"/>，不抛出越权异常。
     /// </summary>

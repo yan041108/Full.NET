@@ -4,6 +4,19 @@
   "description": "OIDC 客户端管理 HTTP 契约冻结夹具。",
   "paths": [
     {
+      "path": "/api/v1/identity/oidc-logout-deliveries",
+      "operations": [
+        { "method": "GET", "permission": "identity.oidc_clients.read", "successStatus": 200,
+          "responseSchema": "IdentityOidcLogoutDeliveryResponse", "responseIsArray": true }
+      ]
+    },
+    {
+      "path": "/api/v1/identity/oidc-logout-deliveries/{id}/retry",
+      "operations": [
+        { "method": "POST", "permission": "identity.oidc_clients.update", "successStatus": 204 }
+      ]
+    },
+    {
       "path": "/api/v1/identity/oidc-clients",
       "operations": [
         {
@@ -63,6 +76,9 @@
     }
   ],
   "schemas": {
+    "IdentityOidcLogoutDeliveryResponse": {
+      "properties": ["id", "clientId", "statusKey", "attemptCount", "nextAttemptAtUtc", "lastErrorCode", "createdAtUtc", "deliveredAtUtc"]
+    },
     "CreateOidcClientRequest": {
       "properties": [
         "clientId",
@@ -72,7 +88,9 @@
         "scopes",
         "isConfidential",
         "isFirstParty",
-        "resourceAudience"
+        "resourceAudience",
+        "requireMfa",
+        "backchannelLogoutUri"
       ]
     },
     "UpdateOidcClientRequest": {
@@ -83,7 +101,9 @@
         "scopes",
         "isFirstParty",
         "resourceAudience",
-        "version"
+        "version",
+        "requireMfa",
+        "backchannelLogoutUri"
       ]
     },
     "OidcClientResponse": {
@@ -99,7 +119,9 @@
         "resourceAudience",
         "isDisabled",
         "createdAtUtc",
-        "version"
+        "version",
+        "requireMfa",
+        "backchannelLogoutUri"
       ]
     },
     "CreateOidcClientResponse": {

@@ -97,7 +97,7 @@ public static partial class GenerationWorkspaceStore
     /// <summary>
     /// 按中立路径集合捕获工作区快照；供逆向回滚复用，避免伪造 GeneratedArtifactKind。
     /// </summary>
-    internal static async Task<GenerationWorkspaceSnapshot> CapturePathsAsync(
+    public static async Task<GenerationWorkspaceSnapshot> CapturePathsAsync(
         string workspaceRoot,
         IEnumerable<string> relativePaths,
         CancellationToken cancellationToken = default)

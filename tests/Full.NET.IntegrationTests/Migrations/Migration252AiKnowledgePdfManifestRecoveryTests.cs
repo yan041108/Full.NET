@@ -77,7 +77,7 @@ public sealed class Migration252AiKnowledgePdfManifestRecoveryTests
         async Task<Dictionary<string, object?>> Seed()
         {
             var p = await Migration246AiKnowledgeIndexTaskRecoveryTests.SeedAsync(db);
-            Assert.AreEqual(1, await db.ExecuteAsync(AiKnowledgeIndexTaskSql.EnqueueHost.Text, p)); return p;
+            Assert.AreEqual(1, await db.ExecuteAsync(AiKnowledgeIndexTaskSql.EnqueueHost.AutomaticSql(), p)); return p;
         }
     }
 

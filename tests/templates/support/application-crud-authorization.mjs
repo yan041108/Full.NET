@@ -3,9 +3,9 @@ import { spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { CRUD_ARTIFACTS } from './application-crud-generation.mjs';
-import { MODULE_ARTIFACTS } from './application-crud-module.mjs';
+import { MODULE_ARTIFACTS, assertHostIntegrationReceipt } from './application-crud-module.mjs';
 
-// 仅在本验收已接线的隔离模块注册授权贡献者，复用Host CLI的候选编译，不进入Vue或数据层。
+// 模块阶段已经完成授权与 DI 接入；这里只核对权威片段及人工漂移保护，不再重新认领受管入口。
 export function verifyApplicationCrudAuthorization(appRoot, {
   run = spawnSync,
   reportDirectory = join(process.cwd(), '.tmp/template-real-stack/application-crud-authorization'),
@@ -15,19 +15,17 @@ export function verifyApplicationCrudAuthorization(appRoot, {
   const entry = moduleRoot + '/CatalogModule.cs';
   const project = moduleRoot + '/Demo.Modules.Catalog.csproj';
   const target = 'verification/CrudGeneration/authorization-target.json';
-  for (const path of [contributor, target]) assert.equal(existsSync(join(appRoot, path)), false, 'authorization acceptance requires an unused path: ' + path);
+  assert.equal(existsSync(join(appRoot, contributor)), true, 'complete integration must have created the contributor');
+  assert.equal(existsSync(join(appRoot, target)), false, 'authorization acceptance requires an unused target path');
   const entrySource = readFileSync(join(appRoot, entry), 'utf8');
   const anchor = 'services.AddOptions();';
   assert.equal(entrySource.split(anchor).length - 1, 1, 'authorization acceptance requires one module registration anchor');
   const targetData = JSON.parse(readFileSync(join(appRoot, 'verification/CrudGeneration/module-target.json'), 'utf8'));
   assert.equal(Object.hasOwn(targetData, 'clientRoute'), false, 'authorization acceptance must not enter client routing');
-  writeFileSync(join(appRoot, contributor), readFileSync(new URL('./fixtures/application-catalog-authorization-contributor.cs.fixture', import.meta.url)));
-  // 权威目录由Singleton工厂物化；贡献者无请求状态，不能注册为Scoped再由根容器解析。
-  writeFileSync(join(appRoot, entry), entrySource.replace(anchor, anchor
-    + '\n        services.AddSingleton<Full.NET.Modules.Identity.Contracts.IAuthorizationCatalogContributor, CatalogAuthorizationContributor>();'));
+  assert.equal(entrySource.split('services.AddSingleton<Full.NET.Modules.Identity.Contracts.IAuthorizationCatalogContributor, CatalogAuthorizationContributor>();').length - 1, 1);
   writeFileSync(join(appRoot, target), JSON.stringify({ ...targetData, authorizationContributorPath: contributor }, null, 2));
   const protectedPaths = [...CRUD_ARTIFACTS, ...MODULE_ARTIFACTS.map((path) => moduleRoot + '/' + path),
-    moduleRoot + '/.fullnet/codegeneration-manifest.json', entry, project, moduleRoot + '/Product.manual.cs',
+    entry, project, moduleRoot + '/Product.manual.cs',
     'src/Demo.Composition/Demo.Composition.csproj', 'src/Demo.Composition/ApplicationModuleCatalog.cs',
     'src/Demo.Host.Api/Program.cs', 'src/Demo.Host.Api/Demo.Host.Api.csproj', 'src/Demo.Host.Api/appsettings.json',
     'ui/admin/src/router/index.ts', '.fullnet/codegeneration-manifest.json', 'backend/Product.manual.cs',
@@ -39,14 +37,15 @@ export function verifyApplicationCrudAuthorization(appRoot, {
   const cli = join(appRoot, 'framework/fullnet/src/Tools/Full.NET.CodeGeneration.Cli/bin/Release/net10.0/Full.NET.CodeGeneration.Cli.dll');
   const args = ['exec', cli, 'apply-host-integration', '--schema', join(appRoot, 'verification/CrudGeneration/schema.json'),
     '--repository', appRoot, '--target', join(appRoot, target)];
-  const execute = (stage) => {
+  const execute = (stage, expectedStatus = 0) => {
     const result = run('dotnet', args, { cwd: appRoot, encoding: 'utf8', timeout: 300_000, windowsHide: true });
     writeFileSync(join(reportDirectory, stage + '.json'), JSON.stringify({ args,
       status: result.status, signal: result.signal, error: result.error?.message, stdout: result.stdout, stderr: result.stderr,
     }, null, 2));
     assert.equal(result.error, undefined, stage + ' process failed');
-    assert.equal(result.status, 0, `${stage} failed: ${result.stderr ?? ''}\n${result.stdout ?? ''}`);
-    assert.deepEqual((result.stdout ?? '').split(/\r?\n/u).filter(Boolean), ['Applied HostIntegration ' + project], 'incomplete authorization result');
+    assert.equal(result.status, expectedStatus, `${stage} failed: ${result.stderr ?? ''}\n${result.stdout ?? ''}`);
+    if (expectedStatus === 0) assertHostIntegrationReceipt(result.stdout, project);
+    else assert.ok((result.stderr ?? '').includes(contributor), 'missing exact contributor conflict');
     assert.deepEqual(capture(protectedPaths), original, stage + ' changed protected application content');
   };
   execute('apply');
@@ -69,11 +68,14 @@ export function verifyApplicationCrudAuthorization(appRoot, {
   }
   assert.equal((block('navigation').match(/new NavigationDefinition\(/gu) ?? []).length, 1);
   assert.equal((block('actions').match(/new AuthorizationActionDefinition\(/gu) ?? []).length, 3);
-  // 追加本验收的人工内容，重复整链必须连同生成区块一起保持字节不变。
+  // 追加本验收的人工内容后必须拒绝整链写入；不得把保留注释误当作自动重新认领授权。
   writeFileSync(join(appRoot, contributor), content + '\n// 人工授权注释，重复接入不得改写。\n');
   const integrated = capture([...protectedPaths, contributor]);
-  execute('repeat');
+  execute('drift', 2);
   assert.deepEqual(capture([...protectedPaths, contributor]), integrated, 'repeat changed authorization or application content');
+  writeFileSync(join(appRoot, contributor), content);
+  execute('repeat');
+  assert.equal(readFileSync(join(appRoot, contributor), 'utf8'), content, 'repeat changed contributor');
   const result = { contributorIntegrated: true, repeatUnchanged: true };
   writeFileSync(join(reportDirectory, 'result.json'), JSON.stringify(result, null, 2));
   return result;

@@ -6,7 +6,7 @@ import { listKnowledgeBases } from '../api/ai-knowledge';
 import { useSessionStore } from '../auth/session';
 import { useAdminI18n } from '../i18n/adminI18n';
 import { showProblem } from '../feedback/fullNetMessage';
-const props = defineProps<{ modelValue: string; disabled?: boolean; candidateIds?: readonly string[]; teleported?: boolean }>();
+const props = defineProps<{ modelValue: string; disabled?: boolean; readonly?: boolean; candidateIds?: readonly string[]; teleported?: boolean }>();
 const emit = defineEmits<{ 'update:modelValue': [value: string] }>();
 const session = useSessionStore(); const { t } = useAdminI18n();
 const rows = ref<AiKnowledgeBaseResponse[]>([]); const page = ref(1); const total = ref(0); const loading = ref(false);
@@ -28,11 +28,14 @@ onMounted(() => void load()); onUnmounted(() => { ++epoch; controller?.abort(); 
 </script>
 <template>
   <div v-if="session.can('ai.knowledge_bases.read')" class="knowledge-select">
+    <output v-if="readonly" class="knowledge-readonly" :aria-label="t('knowledge.selectBase')" data-testid="knowledge-base-readonly">{{ rows.find(row => row.id === props.modelValue)?.name ?? props.modelValue }}</output>
+    <template v-else>
     <el-select :model-value="props.modelValue" :teleported="props.teleported ?? true" :disabled="disabled || loading" :loading="loading" :placeholder="t('knowledge.selectBase')" :aria-label="t('knowledge.selectBase')" data-testid="knowledge-base-select" @update:model-value="emit('update:modelValue', $event)">
       <el-option v-for="row in rows" :key="row.id" :value="row.id" :label="row.name" />
     </el-select>
     <el-button :disabled="disabled || loading || page <= 1" :aria-label="t('knowledge.previous')" @click="load(page - 1)">‹</el-button>
     <el-button :disabled="disabled || loading || page * 20 >= total" :aria-label="t('knowledge.next')" @click="load(page + 1)">›</el-button>
+    </template>
   </div>
 </template>
-<style scoped>.knowledge-select { display: flex; gap: 8px; align-items: center; } .el-select { flex: 1; min-width: 180px; }</style>
+<style scoped>.knowledge-select { display: flex; gap: 8px; align-items: center; } .el-select { flex: 1; min-width: 180px; } .knowledge-readonly { min-width: 0; overflow-wrap: anywhere; color: var(--el-text-color-primary); }</style>

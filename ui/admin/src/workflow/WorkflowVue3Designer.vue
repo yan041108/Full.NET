@@ -19,6 +19,8 @@ import WorkflowFieldMutationEditor from './WorkflowFieldMutationEditor.vue';
 import WorkflowConnectorEditor from './WorkflowConnectorEditor.vue';
 import WorkflowBusinessCommandEditor from './WorkflowBusinessCommandEditor.vue';
 import WorkflowSubprocessEditor from './WorkflowSubprocessEditor.vue';
+import WorkflowCollaborationEditor from './WorkflowCollaborationEditor.vue';
+import { readWorkflowCollaboration, type WorkflowCollaborationConfiguration } from './workflow-collaboration-node';
 import WorkflowRouteEditor from './WorkflowRouteEditor.vue';
 import { readWorkflowRoutePolicy, type WorkflowRoutePolicy } from './workflow-route';
 import { readWorkflowSubprocess, type WorkflowSubprocessConfiguration } from './workflow-subprocess';
@@ -44,9 +46,13 @@ const props = withDefaults(defineProps<{
   disabled: boolean;
   enabledNodeTypes?: readonly string[];
   gatewayFields?: readonly WorkflowFormField[];
+  definitionId?: string;
+  formVersionId?: string;
+  canReadCollaboration?: boolean;
 }>(), {
   enabledNodeTypes: () => ['start', 'human.approval', 'end'],
-  gatewayFields: () => []
+  gatewayFields: () => [],
+  canReadCollaboration: false
 });
 const emit = defineEmits<{
   'update:modelValue': [value: WorkflowVue3Node];
@@ -229,6 +235,23 @@ provide('fullnetWorkflowFieldPresentation', fieldPresentation);
 provide('fullnetWorkflowConnectorPresentation', connectorPresentation);
 provide('fullnetWorkflowSubprocessPresentation', subprocessPresentation);
 provide('fullnetWorkflowRoutePresentation', routePresentation);
+const collaborationNode = ref<WorkflowVue3Node>();
+let applyCollaboration: ((node: WorkflowVue3Node) => void) | undefined;
+provide('fullnetWorkflowCollaborationPresentation', collaborationPresentation);
+provide('fullnetWorkflowEditCollaboration', (node: WorkflowVue3Node, apply: (node: WorkflowVue3Node) => void) => {
+  if (props.disabled) return;
+  collaborationNode.value = cloneWorkflowTree(node); applyCollaboration = apply;
+});
+watch(() => [props.definitionId, props.formVersionId, props.disabled, props.canReadCollaboration], () => { collaborationNode.value = undefined; applyCollaboration = undefined; });
+function collaborationPresentation(node: WorkflowVue3Node): { text: string; error: boolean; tip: string } {
+  try { return { text: readWorkflowCollaboration(node).collaborationPolicy.grantId, error: false, tip: '' }; }
+  catch { const text = t('workflowDesigner.collaboration.invalid'); return { text, error: true, tip: text }; }
+}
+function saveCollaboration(value: WorkflowCollaborationConfiguration): void {
+  if (props.disabled || !props.canReadCollaboration || !collaborationNode.value || !applyCollaboration) return;
+  applyCollaboration({ ...collaborationNode.value, ...readWorkflowCollaboration(value) });
+  collaborationNode.value = undefined; applyCollaboration = undefined;
+}
 const nodeConfig = ref<WorkflowVue3Node>(cloneWorkflowTree(props.modelValue));
 const dependencyNodeKey = ref('');
 const dependencyKeys = ref<string[]>([]);
@@ -279,6 +302,7 @@ void nextTick(() => {
 watch(() => props.modelValue, value => {
   // v-model 原样回送刚发出的对象，不再克隆整树并重建所有递归节点的依赖。
   if (value === lastEmittedModel) return;
+  collaborationNode.value = undefined; applyCollaboration = undefined;
   dependencyNodeKey.value = '';
   syncingExternalModel = true;
   nodeConfig.value = cloneWorkflowTree(value);
@@ -1134,6 +1158,10 @@ defineExpose({ readDraft });
   <ElDrawer :model-value="store.dynamicRouteDrawer" :title="t('workflowDesigner.route.title')" size="min(760px, 94vw)" @update:model-value="store.setDynamicRoute($event)">
     <WorkflowRouteEditor v-if="store.dynamicRouteDrawer" :model-value="(store.dynamicRouteConfig1 as { value?: WorkflowVue3Node }).value?.routePolicy"
       :fields="gatewayFields" :nodes="routeTargets" :disabled="disabled" @save="saveRoute" @cancel="store.setDynamicRoute(false)" />
+  </ElDrawer>
+  <ElDrawer v-if="collaborationNode" :key="collaborationNode.id" :model-value="true" :title="t('workflowDesigner.collaboration.title')" size="min(680px, 94vw)" @close="collaborationNode = undefined">
+    <WorkflowCollaborationEditor v-if="collaborationNode" :model-value="collaborationNode" :definition-id="definitionId" :form-version-id="formVersionId"
+      :can-read="canReadCollaboration" :disabled="disabled" @save="saveCollaboration" @cancel="collaborationNode = undefined" />
   </ElDrawer>
   <ElDrawer :model-value="store.subProcessDrawer" :title="t('workflowDesigner.subprocess.title')" size="min(760px, 94vw)" @update:model-value="store.setSubProcess($event)">
     <WorkflowSubprocessEditor v-if="store.subProcessDrawer" :model-value="(store.subProcessConfig1 as { value?: WorkflowVue3Node }).value" :fields="gatewayFields" :targets="subprocessTimeoutTargets" :disabled="disabled" @save="saveSubprocess" @cancel="store.setSubProcess(false)" />

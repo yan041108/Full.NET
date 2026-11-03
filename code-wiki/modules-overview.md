@@ -264,7 +264,7 @@ Consumer Port 范例见 [`OrganizationUnitProjectionContracts.cs`](../src/Module
 | GoView | `goview` | `fn_goview_project`、`fn_goview_project_published` |
 | K3Cloud | `k3cloud` | `fn_k3cloud_connection_config`、`fn_k3cloud_document_sync` |
 | Ocr | `ocr` | `fn_ocr_provider`、`fn_ocr_id_card_task` |
-| CodeGeneration | `code_generation` | `fn_code_generation_template`、`fn_code_generation_run` |
+| CodeGeneration | `codegeneration` | `fn_codegeneration_template`、`fn_codegeneration_run`、`fn_codegeneration_run_archive` |
 | SerialNumbers | `serial_numbers` | `fn_serial_numbers_rule`、`fn_serial_numbers_allocation` |
 | DataApproval | `data_approval` | `fn_data_approval_request`、`fn_data_approval_scenario` |
 | ObservabilityAdmin | `observability_admin` | `fn_observability_admin_*` |
@@ -320,7 +320,8 @@ HTTP Request
 | 场景 | 推荐方式 | 禁止 |
 |------|----------|------|
 | **模块内 JOIN** | 直接 JOIN 本模块 `fn_mod_*` 表 | 为复用建立跨模块 Repository |
-| **跨模块低频同步读取** | 消费方最小 Port → 对方公开 Contract Service | 直接 SQL 读取对方表 |
-| **跨模块高频读取** | 所有者发布 Integration Event → 消费方本地投影表 | 逐条查所有者 + 用缓存冒充权威 |
+| **后台列表、搜索、报表** | 集中 Query + 精确登记的只读 JOIN + 查询 DTO | 跨模块写表/事务、租户和数据权限绕过 |
+| **跨模块业务同步读取** | 消费方最小 Port → 对方公开 Contract Service | 直接 SQL 读取对方表 |
+| **确需投影的跨模块读取** | 所有者发布 Integration Event → 消费方本地投影表 | 逐条查所有者 + 用缓存冒充权威 |
 | **模块内写入** | 单 `ICommandTransaction` 维护本模块表 + Outbox + 审计 | 事务内执行不可回滚 HTTP/Broker/Redis |
 | **跨模块写入** | Saga/Process Manager + Outbox + 幂等消费者 + 对账 | 共享 DbSession / 跨模块本地事务 / 分布式事务 |

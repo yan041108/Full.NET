@@ -5,6 +5,7 @@ using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Organization.Contracts;
 using Full.NET.Modules.Organization.Features.ListAssignableHostUsers;
 using Full.NET.Modules.Organization.Security;
+using Full.NET.Modules.Organization.Features.ManageTenantUserUnits.Queries;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
@@ -46,7 +47,10 @@ internal static class Endpoint
             int? pageSize,
             Guid? userId,
             Guid? unitId,
-            TenantUserUnitQueryService queries,
+            string? userSearch,
+            string? unitSearch,
+            bool? isActive,
+            TenantUserUnitListQueryService queries,
             IApiResultMapper mapper,
             HttpContext httpContext,
             CancellationToken cancellationToken) =>
@@ -66,12 +70,16 @@ internal static class Endpoint
                     pageSize ?? 20,
                     userId,
                     unitId,
+                    userSearch,
+                    unitSearch,
+                    isActive,
                     cancellationToken)
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
         .WithName("organizationListTenantUserUnits")
         .Produces<PagedResult<OrganizationUserUnitResponse>>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
         .ProducesProblem(StatusCodes.Status401Unauthorized)
         .ProducesProblem(StatusCodes.Status403Forbidden)
         .RequireAuthorization(FullNetPermissionPolicies.For(

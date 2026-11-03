@@ -373,10 +373,12 @@ public sealed class IdentitySessionContextServiceTests
             ICommandExecutor commandExecutor)
         {
             var clock = new FixedClock();
+            var options = Substitute.For<IOptionsMonitor<OpenIddictServerOptions>>();
+            options.CurrentValue.Returns(new OpenIddictServerOptions { Issuer = new Uri("https://localhost/identity") });
             return (
                 new IdentityOidcContextRefreshTokenIssuer(
                     Substitute.For<IOpenIddictServerDispatcher>(),
-                    Options.Create(new OpenIddictServerOptions()),
+                    options,
                     Substitute.For<ILogger<IdentityOidcContextRefreshTokenIssuer>>(),
                     clock),
                 new IdentityOidcGrantRevocationService(queryExecutor, commandExecutor, clock));
@@ -402,9 +404,14 @@ public sealed class IdentitySessionContextServiceTests
                 identityOptions,
                 new FixedClock(),
                 new FixedIdGenerator());
-            var clientResolver = new IdentityOidcClientConfigResolver(
-                oidcOptions,
-                Substitute.For<IOpenIddictApplicationManager>());
+            var applications = Substitute.For<IOpenIddictApplicationManager>();
+            var application = new object();
+            applications.FindByClientIdAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(application);
+            var descriptor = new OpenIddictApplicationDescriptor();
+            IdentityOidcClientMetadata.Write(descriptor, true, null, false);
+            applications.GetPropertiesAsync(application, Arg.Any<CancellationToken>())
+                .Returns(System.Collections.Immutable.ImmutableDictionary.CreateRange(descriptor.Properties));
+            var clientResolver = new IdentityOidcClientConfigResolver(applications);
             return (issuer, clientResolver);
         }
 

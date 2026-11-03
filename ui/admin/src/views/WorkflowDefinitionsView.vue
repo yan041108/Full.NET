@@ -34,6 +34,8 @@ import { useAdminI18n } from '../i18n/adminI18n';
 import WorkflowFormRenderer from '../workflow/WorkflowFormRenderer.vue';
 import WorkflowVue3Designer from '../workflow/WorkflowVue3Designer.vue';
 import WorkflowStarterSelectionPicker from '../workflow/WorkflowStarterSelectionPicker.vue';
+import WorkflowVersionCompare from '../workflow/WorkflowVersionCompare.vue';
+import WorkflowSimulation from '../workflow/WorkflowSimulation.vue';
 import type { WorkflowAssigneeSelections } from '../api/workflow-starter-selections';
 import {
   toWorkflowVue3Tree,
@@ -55,6 +57,7 @@ const selectedDefinition = ref<WorkflowDefinitionResponse>();
 const selectedVersion = ref<WorkflowDefinitionVersionResponse>();
 const startSchema = ref<WorkflowFormSchema>();
 const initialValues = ref<WorkflowSubmission>({});
+const emptyStartSubmission: WorkflowSubmission = Object.freeze({});
 const assigneeSelections = ref<WorkflowAssigneeSelections>({});
 const selectionsReady = ref(false);
 let identityEpoch = 0;
@@ -81,7 +84,7 @@ const publishedForms = ref<WorkflowFormResponse[]>([]);
 const businessTitleTemplate = ref('');
 const gatewayFields = ref<readonly WorkflowFormField[]>([]);
 const canLoadPublishForms = computed(() =>
-  session.can('workflow.definitions.publish') && session.can('workflow.forms.read'));
+  (session.can('workflow.definitions.publish') || session.can('workflow.definitions.simulate')) && session.can('workflow.forms.read'));
 
 const startPolicies = computed<WorkflowFieldPolicies>(() => {
   const fields = startSchema.value?.sections.flatMap(section => section.fields) ?? [];
@@ -536,6 +539,10 @@ function toProblem(
                     @click="openEditor(row as WorkflowDefinitionResponse)"
                   >{{ t('workflowDefinitions.edit') }}</el-button>
                 </PermissionGate>
+                <PermissionGate v-if="!session.can('workflow.definitions.update') && session.can('workflow.forms.read')" code="workflow.definitions.simulate">
+                  <el-button size="small" data-testid="workflow-definition-simulate" :disabled="loading || acting || definitionStatus(row as WorkflowDefinitionResponse) === 'archived'"
+                    @click="openEditor(row as WorkflowDefinitionResponse)">{{ t('workflowR5.simulation') }}</el-button>
+                </PermissionGate>
                 <el-button
                   size="small"
                   data-testid="workflow-definition-versions"
@@ -617,6 +624,7 @@ function toProblem(
             </div>
           </li>
         </ul>
+        <WorkflowVersionCompare v-if="selectedDefinitionId && versions.length >= 2" :key="selectedDefinitionId" :definition-id="selectedDefinitionId" :versions="versions" />
       </el-card>
     </div>
 
@@ -661,9 +669,12 @@ function toProblem(
       <WorkflowVue3Designer
         ref="definitionDesigner"
         v-model="workflowTree"
-        :disabled="acting"
-        :enabled-node-types="enabledNodeTypes"
+        :disabled="acting || !session.can('workflow.definitions.update')"
+        :enabled-node-types="enabledNodeTypes.filter(type => type !== 'process.collaboration' || session.can('workflow.collaboration_grants.read'))"
         :gateway-fields="gatewayFields"
+        :definition-id="editingDefinition?.id"
+        :form-version-id="publishFormVersionId"
+        :can-read-collaboration="session.can('workflow.collaboration_grants.read')"
         @validation-error="showDesignerError"
       />
       <div v-if="canLoadPublishForms" class="workflow-definitions__publish-row">
@@ -685,6 +696,8 @@ function toProblem(
             {{ t('workflowDefinitions.save') }}
           </el-button>
         </PermissionGate>
+        <WorkflowSimulation :definition-id="editingDefinition.id" :draft-revision="editingDefinition.draftRevision"
+          :form-version-id="publishFormVersionId" :draft-state="JSON.stringify(workflowTree)" />
         <PermissionGate v-if="canLoadPublishForms" code="workflow.definitions.publish">
           <el-button type="success" data-testid="workflow-definition-publish" :loading="acting" :disabled="!publishFormVersionId" @click="publishDefinition">
             {{ t('workflowDefinitions.publish') }}
@@ -712,11 +725,14 @@ function toProblem(
         </div>
         <WorkflowFormRenderer
           :schema="startSchema"
-          :submission="{}"
+          :submission="emptyStartSubmission"
           :field-policies="startPolicies"
+          :upload-context="selectedVersion ? { kind: 'start', versionId: selectedVersion.id } : undefined"
+          :can-upload-attachments="session.can('workflow.attachments.upload')"
           @update:patch="initialValues = $event"
+          @authorization-lost="closeStart"
         />
-        <WorkflowStarterSelectionPicker v-if="selectedVersion" :version-id="selectedVersion.id" v-model="assigneeSelections" @ready="selectionsReady = $event" />
+        <WorkflowStarterSelectionPicker v-if="selectedVersion" :source="{ kind: 'published', versionId: selectedVersion.id }" v-model="assigneeSelections" @ready="selectionsReady = $event" />
         <div class="workflow-definitions__decision-bar">
           <el-button :disabled="acting" @click="closeStart">
             {{ t('workflowDefinitions.close') }}

@@ -41,12 +41,12 @@ public sealed class Migration247AiKnowledgeIndexBatchRecoveryTests
         })
         {
             var p = await Migration246AiKnowledgeIndexTaskRecoveryTests.SeedAsync(db, tenant);
-            Assert.AreEqual(1, await db.ExecuteAsync((tenant ? AiKnowledgeIndexTaskSql.EnqueueTenant : AiKnowledgeIndexTaskSql.EnqueueHost).Text, p));
-            Assert.AreEqual(1, await db.ExecuteAsync((tenant ? AiKnowledgeIndexTaskSql.AcquireTenant : AiKnowledgeIndexTaskSql.AcquireHost).Text, p));
+            Assert.AreEqual(1, await db.ExecuteAsync((tenant ? AiKnowledgeIndexTaskSql.EnqueueTenant : AiKnowledgeIndexTaskSql.EnqueueHost).AutomaticSql(), p));
+            Assert.AreEqual(1, await db.ExecuteAsync((tenant ? AiKnowledgeIndexTaskSql.AcquireTenant : AiKnowledgeIndexTaskSql.AcquireHost).AutomaticSql(), p));
             p["OperationId"] = Guid.CreateVersion7(); p["BatchOrdinal"] = 0; p["RequestHash"] = new string('A', 64); p["InputCount"] = 2;
             var prepare = (sqlServer ? (tenant ? AiKnowledgeIndexBatchSql.PrepareSqlServerTenant : AiKnowledgeIndexBatchSql.PrepareSqlServerHost)
-                : (tenant ? AiKnowledgeIndexBatchSql.PrepareTenant : AiKnowledgeIndexBatchSql.PrepareHost)).Text;
-            var find = (tenant ? AiKnowledgeIndexBatchSql.FindTenant : AiKnowledgeIndexBatchSql.FindHost).Text;
+                : (tenant ? AiKnowledgeIndexBatchSql.PrepareTenant : AiKnowledgeIndexBatchSql.PrepareHost)).AutomaticSql();
+            var find = (tenant ? AiKnowledgeIndexBatchSql.FindTenant : AiKnowledgeIndexBatchSql.FindHost).AutomaticSql();
             Assert.AreEqual(1, await db.ExecuteAsync(prepare, p));
             Assert.IsNotNull(await db.QuerySingleOrDefaultAsync(find, p));
             var denied = new Dictionary<string, object?>(p) { ["OwnerUserId"] = Guid.CreateVersion7(), ["BatchOrdinal"] = 1 };
@@ -60,7 +60,7 @@ public sealed class Migration247AiKnowledgeIndexBatchRecoveryTests
             {
                 denied = new(p) { ["TenantId"] = Guid.CreateVersion7() };
                 Assert.IsNull(await db.QuerySingleOrDefaultAsync(find, denied));
-                Assert.IsNull(await db.QuerySingleOrDefaultAsync(AiKnowledgeIndexBatchSql.FindHost.Text, p));
+                Assert.IsNull(await db.QuerySingleOrDefaultAsync(AiKnowledgeIndexBatchSql.FindHost.AutomaticSql(), p));
             }
             await db.ExecuteAsync(mutation, p);
             Assert.IsNull(await db.QuerySingleOrDefaultAsync(find, p), mutation);
@@ -76,7 +76,7 @@ public sealed class Migration247AiKnowledgeIndexBatchRecoveryTests
         Replay(sqlServer, connectionString);
         await using var db = Migration246AiKnowledgeIndexTaskRecoveryTests.Connection(sqlServer, connectionString);
         var p = await Migration246AiKnowledgeIndexTaskRecoveryTests.SeedAsync(db);
-        Assert.AreEqual(1, await db.ExecuteAsync(AiKnowledgeIndexTaskSql.EnqueueHost.Text, p));
+        Assert.AreEqual(1, await db.ExecuteAsync(AiKnowledgeIndexTaskSql.EnqueueHost.AutomaticSql(), p));
         p["OperationId"] = Guid.CreateVersion7(); p["BatchOrdinal"] = 0; p["RequestHash"] = new string('A', 64); p["InputCount"] = 2;
         await db.ExecuteAsync("INSERT INTO fn_ai_knowledge_index_batch (Id,IndexTaskId,BatchOrdinal,RequestHash,InputCount,CreatedAtUtc) VALUES (@OperationId,@TaskId,@BatchOrdinal,@RequestHash,@InputCount,@Now)", p);
         // InnoDB 使用联合唯一索引支撑外键；缺失唯一约束场景仍须保留本地外键支撑索引。

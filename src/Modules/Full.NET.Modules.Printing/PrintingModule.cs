@@ -34,6 +34,7 @@ public sealed class PrintingModule : IFullNetModule
     /// <param name="configuration">宿主配置。</param>
     public void AddServices(IServiceCollection services, IConfiguration configuration)
     {
+        services.TryAddSingleton<IPrintingFormRenderer, Features.RenderForms.PrintingFormRenderer>();
 #if FULLNET_AOT_COMPILE
         new Persistence.PrintingDapperAotMaterializerContributor()
             .RegisterMaterializers(new global::Full.NET.Data.Dapper.DapperAotMaterializerRegistrar());
@@ -43,6 +44,7 @@ public sealed class PrintingModule : IFullNetModule
             PrintingAuthorizationContributor>());
         services.TryAddSingleton<IClock, SystemClock>();
         services.TryAddSingleton<IIdGenerator, GuidV7IdGenerator>();
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<IErrorResourceSource, Resources.PrintingErrorResourceSource>());
         services.TryAddSingleton<PrintingFormSchemaQueryService>();
         services.TryAddScoped<PrintingTemplateQueryService>();
         services.TryAddScoped<PrintingTemplateManagementService>();
@@ -62,4 +64,8 @@ public sealed class PrintingModule : IFullNetModule
         Features.ManageTemplates.Endpoint.Map(endpoints);
         Features.PreviewTemplates.Endpoint.Map(endpoints);
     }
+
+    /// <summary>Worker 仅注册纯渲染 Contract，不启动 HTTP 模板服务。</summary>
+    public void AddBackgroundServices(IServiceCollection services, IConfiguration configuration) =>
+        services.TryAddSingleton<IPrintingFormRenderer, Features.RenderForms.PrintingFormRenderer>();
 }

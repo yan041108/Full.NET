@@ -1,5 +1,12 @@
 {
   "@@locale": "zh",
+  "attachment": "附件",
+  "uploadAttachment": "上传附件",
+  "removeAttachment": "移除附件",
+  "reuseAttachment": "复用当前可见附件",
+  "addRow": "添加明细",
+  "removeRow": "移除明细",
+  "attachmentFailed": "文件不可用或当前平台无法打开此类型。",
   "appTitle": "Full.NET",
   "loginTitle": "登录 Full.NET",
   "loginDescription": "访问你的工作流待办与审批任务。",

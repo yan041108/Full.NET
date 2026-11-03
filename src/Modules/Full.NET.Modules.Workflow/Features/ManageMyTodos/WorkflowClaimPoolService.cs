@@ -23,7 +23,7 @@ internal sealed class WorkflowClaimPoolService(IQueryExecutor query, ICommandExe
     ICurrentTenant tenant, IClock clock, IIdGenerator ids, WorkflowClaimCandidateAuthorizer candidates,
     IHostUserBatchSelectionDirectory hosts, ITenantMemberSelectionDirectory members, WorkflowBranchStateCoordinator branches,
     WorkflowHumanActivityActivationWriter activation, WorkflowNotificationOutboxPublisher notifications,
-    IOptions<DatabaseOptions> database)
+    IOptions<DatabaseOptions> database, WorkflowCollaborationListAuthorization authorization)
 {
     public async Task<Result<WorkflowClaimPoolPageResponse>> ListAsync(Guid actor, int page, int pageSize, CancellationToken token)
     {
@@ -31,7 +31,11 @@ internal sealed class WorkflowClaimPoolService(IQueryExecutor query, ICommandExe
             return Fail<WorkflowClaimPoolPageResponse>(WorkflowErrorCodes.SchemaInvalid, ErrorType.Validation);
         var scope = WorkflowManagementScope.Resolve(tenant);
         var parameters = P(("ActorUserId", actor), ("TenantScopeKey", scope.TenantScopeKey), ("Offset", (page - 1) * pageSize), ("Take", pageSize));
-        var count = await query.QuerySingleOrDefaultAsync<int>(WorkflowClaimSql.CountMine, parameters, token).ConfigureAwait(false);
+        var proof = await authorization.PrepareAsync("claim", actor, parameters, token).ConfigureAwait(false);
+        if (!proof.IsSuccess) return Result<WorkflowClaimPoolPageResponse>.Failure(proof.Error!);
+        parameters["CollaborationProofs"] = proof.Value;
+        var count = await query.QuerySingleOrDefaultAsync<int>(database.Value.Provider == DatabaseProvider.SqlServer
+            ? WorkflowClaimSql.CountMineSqlServer : WorkflowClaimSql.CountMineMySql, parameters, token).ConfigureAwait(false);
         var rows = await query.QueryAsync<WorkflowClaimPoolListRecord>(database.Value.Provider == DatabaseProvider.SqlServer
             ? WorkflowClaimSql.ListMineSqlServer : WorkflowClaimSql.ListMineMySql, parameters, token).ConfigureAwait(false);
         return Result<WorkflowClaimPoolPageResponse>.Success(new(rows.Select(row => new WorkflowClaimPoolResponse(row.Id,
@@ -96,6 +100,9 @@ internal sealed class WorkflowClaimPoolService(IQueryExecutor query, ICommandExe
         {
             if (await command.ExecuteAsync(WorkflowSql.LockInstanceForTodoAction,
                 P(("Id", instance.Id), ("TenantScopeKey", scope.TenantScopeKey)), inner).ConfigureAwait(false) != 1) return Conflict();
+            if (!await WorkflowCollaborationRuntimeGate.AllowsAsync(instance.Id, scope, actor, clock.UtcNow,
+                    query, inner, command, selectedUser: target).ConfigureAwait(false))
+                return Fail<WorkflowInstanceResponse>(WorkflowErrorCodes.TodoForbidden, ErrorType.Forbidden);
             var actual = await FindPoolAsync(poolId, scope, inner).ConfigureAwait(false);
             var owned = await FindInstanceAsync(instance.Id, scope, inner).ConfigureAwait(false);
             if (actual is null || owned?.FormVersionId is null) return Conflict();
@@ -169,7 +176,7 @@ internal sealed class WorkflowClaimPoolService(IQueryExecutor query, ICommandExe
     private static string Hash(Guid pool, Guid actor, Guid target, ClaimWorkflowPoolRequest request, bool administrative) =>
         Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes($"{pool:D}|{actor:D}|{target:D}|{request.ExpectedRevision}|{administrative}|{request.IdempotencyKey}")));
     private static DateTimeOffset? Min(DateTimeOffset? left, DateTimeOffset? right) => left is null ? right : right is null ? left : left <= right ? left : right;
-    private static object P(params (string Name, object? Value)[] values) => WorkflowSqlParameters.Create(values);
+    private static Dictionary<string, object?> P(params (string Name, object? Value)[] values) => WorkflowSqlParameters.Create(values);
     private static Result<T> Fail<T>(string code, ErrorType type) => Result<T>.Failure(new Error(code, "The workflow pool action is not available.", type));
     private static Result<WorkflowInstanceResponse> Conflict() => Fail<WorkflowInstanceResponse>(WorkflowErrorCodes.RevisionConflict, ErrorType.Conflict);
     private static WorkflowInstanceResponse Map(WorkflowInstanceRecord instance, long revision, Guid? todo) =>

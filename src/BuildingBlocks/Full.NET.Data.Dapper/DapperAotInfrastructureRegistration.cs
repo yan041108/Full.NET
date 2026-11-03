@@ -67,6 +67,8 @@ internal static class DapperAotInfrastructureRegistration
                 ReadMySqlMasterStatusRow);
             DapperAotMaterializerRegistry.Register<DapperEventDeliveryProducerFencePositionReader.SqlServerMaxLsnRow>(
                 ReadSqlServerMaxLsnRow);
+            DapperAotMaterializerRegistry.Register<(string Name, long Size, string Encrypted)>(reader =>
+                (reader.GetString(0), AotDataReaderExtensions.ReadInt64(reader, 1), reader.GetString(2)));
 
             DapperAotParameterRegistry.Register<OutboxMessage>(BindOutboxMessage);
             DapperAotParameterRegistry.Register<AppendOnlyOutboxMessage>(

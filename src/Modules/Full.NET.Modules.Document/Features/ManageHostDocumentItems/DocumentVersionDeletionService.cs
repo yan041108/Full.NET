@@ -16,13 +16,13 @@ namespace Full.NET.Modules.Document.Features.ManageHostDocumentItems;
 
 /// <summary>
 /// 文档历史版本删除协调器：统一处理授权删除与保留策略裁剪，
-/// 在本地事务内写入删除审计并删除版本行；Files Claim 在事务提交后释放，
-/// 与新增版本“先 Claim、事务外 Confirm/Release”的边界一致。
+/// 在本地事务内写入删除审计、引用释放 Outbox 并删除版本行；Files 最终幂等消费，
+/// 提交后宕机不会丢失释放意图。
 /// </summary>
 /// <param name="queryExecutor">文档模块查询执行器。</param>
 /// <param name="commandExecutor">文档模块写入执行器。</param>
 /// <param name="transaction">版本删除短事务，不得包含 Files 合同调用。</param>
-/// <param name="hostFileReferenceClaimService">Files 引用 Claim 端口；仅在事务提交后释放。</param>
+/// <param name="releasePublisher">在当前 Document 事务中保存引用释放事实。</param>
 /// <param name="retentionOptions">版本保留策略选项。</param>
 /// <param name="clock">删除审计时钟。</param>
 /// <param name="idGenerator">删除审计标识生成器。</param>
@@ -30,11 +30,12 @@ internal sealed class DocumentVersionDeletionService(
     IQueryExecutor queryExecutor,
     ICommandExecutor commandExecutor,
     ICommandTransaction transaction,
-    IHostFileReferenceClaimService hostFileReferenceClaimService,
+    DocumentReferenceReleasePublisher releasePublisher,
     IOptionsMonitor<DocumentVersionRetentionOptions> retentionOptions,
     IClock clock,
     IIdGenerator idGenerator,
-    IDocumentAccessPolicy accessPolicy)
+    IDocumentAccessPolicy accessPolicy,
+    Full.NET.Modules.Document.Features.DocumentMutationGuard mutationGuard)
 {
     /// <summary>管理员授权删除单个历史版本，并要求文档项乐观并发版本匹配。</summary>
     /// <param name="itemId">文档项标识。</param>
@@ -79,7 +80,6 @@ internal sealed class DocumentVersionDeletionService(
             return Result<HostDocumentItemResponse>.Failure(deleteResult.Error!);
         }
 
-        await ReleaseDocumentVersionClaimAsync(versionId, cancellationToken).ConfigureAwait(false);
         return await ReloadActiveAsync(itemId, cancellationToken).ConfigureAwait(false);
     }
 
@@ -108,7 +108,6 @@ internal sealed class DocumentVersionDeletionService(
             return false;
         }
 
-        await ReleaseDocumentVersionClaimAsync(versionId, cancellationToken).ConfigureAwait(false);
         return true;
     }
 
@@ -128,13 +127,9 @@ internal sealed class DocumentVersionDeletionService(
         long? expectedItemVersion,
         CancellationToken cancellationToken)
     {
-        var item = await queryExecutor
-            .QuerySingleOrDefaultAsync<DocumentItemDetailRecord>(
-                DocumentItemSql.FindActiveById,
-                DocumentSqlParameters.Create(("Id", itemId)),
-                cancellationToken)
-            .ConfigureAwait(false);
-        if (item is null)
+        var item = await mutationGuard.LockAsync(itemId, cancellationToken).ConfigureAwait(false);
+        if (deletedByUserId is not null && await accessPolicy.CheckAsync(itemId, DocumentOperation.Delete, cancellationToken).ConfigureAwait(false) is { } denied) return Result<bool>.Failure(denied);
+        if (item is null || item.DeletedAtUtc is not null)
         {
             return NotFoundBool();
         }
@@ -209,6 +204,7 @@ internal sealed class DocumentVersionDeletionService(
                 cancellationToken)
             .ConfigureAwait(false);
 
+        await releasePublisher.PublishAsync(targetVersion.Id, targetVersion.FileId, cancellationToken).ConfigureAwait(false);
         var affected = await commandExecutor.ExecuteAsync(
                 DocumentVersionRetentionSql.DeleteVersionById,
                 DocumentSqlParameters.Create(
@@ -223,16 +219,6 @@ internal sealed class DocumentVersionDeletionService(
 
         return Result<bool>.Success(true);
     }
-
-    /// <summary>本地版本删除提交后再释放 Files Claim，避免跨模块共享本地事务。</summary>
-    /// <param name="versionId">已删除的文档版本标识。</param>
-    /// <param name="cancellationToken">取消令牌。</param>
-    private Task ReleaseDocumentVersionClaimAsync(
-        Guid versionId,
-        CancellationToken cancellationToken) =>
-        hostFileReferenceClaimService.ReleaseAsync(
-            HostFileReferenceClaimIdempotencyKeys.DocumentVersion(versionId),
-            cancellationToken);
 
     private Task<DocumentItemDetailRecord?> FindActiveAsync(
         Guid itemId,

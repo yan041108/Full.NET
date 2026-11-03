@@ -226,6 +226,8 @@ internal sealed class IdentityAuthorizationContributor
             IdentityOidcSigningKeyPermissions.Activate,
             "激活 OIDC 签名密钥",
             AuthorizationScope.Host),
+        new PermissionDefinition(IdentityOidcSigningKeyPermissions.Publish, "预发布 OIDC 签名公钥", AuthorizationScope.Host),
+        new PermissionDefinition(IdentityOidcSigningKeyPermissions.Retire, "退役 OIDC 签名密钥", AuthorizationScope.Host),
         new PermissionDefinition(
             IdentityOpenAccessClientPermissions.Read,
             "查看 OpenAccess 接入方应用",
@@ -551,13 +553,6 @@ internal sealed class IdentityAuthorizationContributor
     public IReadOnlyCollection<AuthorizationActionDefinition> Actions { get; } =
     [
         new AuthorizationActionDefinition(
-            "identity.navigation.read",
-            "overview",
-            NavigationRead,
-            "读取导航",
-            "read-navigation",
-            5),
-        new AuthorizationActionDefinition(
             "identity.users.create",
             "users",
             IdentityUserManagementPermissions.Create,
@@ -795,6 +790,9 @@ internal sealed class IdentityAuthorizationContributor
             "撤销 OIDC 授权",
             "revoke",
             10),
+        new AuthorizationActionDefinition(IdentityOidcSigningKeyPermissions.Activate, "oidc-signing-keys", IdentityOidcSigningKeyPermissions.Activate, "激活 OIDC 签名密钥", "activate", 10),
+        new AuthorizationActionDefinition(IdentityOidcSigningKeyPermissions.Publish, "oidc-signing-keys", IdentityOidcSigningKeyPermissions.Publish, "预发布 OIDC 签名公钥", "publish", 20),
+        new AuthorizationActionDefinition(IdentityOidcSigningKeyPermissions.Retire, "oidc-signing-keys", IdentityOidcSigningKeyPermissions.Retire, "退役 OIDC 签名密钥", "retire", 30),
         new AuthorizationActionDefinition(
             "identity.open_access_clients.create",
             "open-access-clients",

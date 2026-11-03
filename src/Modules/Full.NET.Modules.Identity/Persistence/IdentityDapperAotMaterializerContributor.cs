@@ -19,10 +19,20 @@ namespace Full.NET.Modules.Identity.Persistence;
 /// Host 用户列表与详情、字段投影裁剪档案列序并不固定，这些投影按列名读取；
 /// 其余 SQL 投影列序稳定，使用 ordinal。
 /// </remarks>
-internal sealed class IdentityDapperAotMaterializerContributor : IDapperAotMaterializerContributor
+internal sealed partial class IdentityDapperAotMaterializerContributor : IDapperAotMaterializerContributor
 {
     public void RegisterMaterializers(DapperAotMaterializerRegistrar registrar)
     {
+        RegisterMigrationMaterializers(registrar);
+        registrar.Register<Features.TenantSeatOperations.TenantSeatOperation>(reader => new(
+            reader.GetGuid(0), reader.GetString(1), reader.GetGuid(2), reader.GetGuid(3), reader.GetGuid(4),
+            AotDataReaderExtensions.ReadNullableGuid(reader, 5), AotDataReaderExtensions.ReadNullableString(reader, 6),
+            AotDataReaderExtensions.ReadNullableString(reader, 7), AotDataReaderExtensions.ReadInt32(reader, 8),
+            reader.IsDBNull(9) ? null : AotDataReaderExtensions.ReadInt32(reader, 9), reader.GetString(10),
+            AotDataReaderExtensions.ReadNullableString(reader, 11), AotDataReaderExtensions.ReadNullableString(reader, 12),
+            AotDataReaderExtensions.ReadDateTimeOffset(reader, 13), AotDataReaderExtensions.ReadDateTimeOffset(reader, 14),
+            AotDataReaderExtensions.ReadNullableGuid(reader, 15), AotDataReaderExtensions.ReadNullableDateTimeOffset(reader, 16),
+            AotDataReaderExtensions.ReadInt32(reader, 17), AotDataReaderExtensions.ReadInt32(reader, 18)));
         registrar.Register<WorkflowRoleMemberRow>(reader => new(reader.GetGuid(0), reader.GetGuid(1)));
         registrar.Register<WorkflowRoleUserRow>(reader => new(reader.GetGuid(0), reader.GetString(1), reader.GetString(2)));
         registrar.Register<WorkflowRoleListRow>(reader => new(reader.GetGuid(0), reader.GetString(1), reader.GetString(2)));
@@ -88,6 +98,22 @@ internal sealed class IdentityDapperAotMaterializerContributor : IDapperAotMater
         registrar.Register<IdentityOidcCountRow>(ReadIdentityOidcCountRow);
         registrar.Register<IdentityOidcCenterSessionRow>(ReadIdentityOidcCenterSessionRow);
         registrar.Register<IdentityOidcApplicationSessionRow>(ReadIdentityOidcApplicationSessionRow);
+        registrar.Register<IdentityBrowserSessionRow>(reader => new(reader.GetGuid(0), reader.GetString(1), reader.GetString(2),
+            AotDataReaderExtensions.ReadDateTimeOffset(reader, 3), reader.GetInt64(4),
+            AotDataReaderExtensions.ReadNullableGuid(reader, 5), AotDataReaderExtensions.ReadNullableDateTimeOffset(reader, 6)));
+        registrar.Register<IdentityOidcSigningKeyRow>(reader => new(reader.GetGuid(0), reader.GetString(1), reader.GetString(2),
+            AotDataReaderExtensions.ReadDateTimeOffset(reader, 3), AotDataReaderExtensions.ReadNullableDateTimeOffset(reader, 4),
+            AotDataReaderExtensions.ReadNullableDateTimeOffset(reader, 5), reader.GetBoolean(6), reader.GetInt32(7)));
+        registrar.Register<IdentityOidcSigningExpiryRow>(reader => new(AotDataReaderExtensions.ReadNullableDateTimeOffset(reader, 0)));
+        registrar.Register<IdentityOidcSigningNodeRow>(reader => new(reader.GetGuid(0), reader.GetString(1), reader.GetString(2), reader.GetString(3),
+            reader.GetString(4), reader.GetInt32(5), AotDataReaderExtensions.ReadDateTimeOffset(reader, 6), AotDataReaderExtensions.ReadDateTimeOffset(reader, 7)));
+        registrar.Register<IdentityOidcLogoutTargetRow>(reader => new(reader.GetGuid(0), reader.GetGuid(1), reader.GetString(2),
+            reader.IsDBNull(3) ? null : reader.GetString(3)));
+        registrar.Register<IdentityOidcLogoutDeliveryRow>(reader => new(reader.GetGuid(0), reader.GetGuid(1), reader.GetGuid(2),
+            reader.GetString(3), reader.GetString(4), reader.GetString(5), reader.GetInt32(6),
+            AotDataReaderExtensions.ReadDateTimeOffset(reader, 7), AotDataReaderExtensions.ReadNullableGuid(reader, 8),
+            AotDataReaderExtensions.ReadNullableDateTimeOffset(reader, 9), reader.IsDBNull(10) ? null : reader.GetString(10),
+            AotDataReaderExtensions.ReadDateTimeOffset(reader, 11), AotDataReaderExtensions.ReadNullableDateTimeOffset(reader, 12)));
         registrar.Register<IdentityOidcApplicationSessionValidationRecord>(
             ReadIdentityOidcApplicationSessionValidationRecord);
         registrar.Register<IdentityOidcActiveApplicationSessionOwnershipRow>(

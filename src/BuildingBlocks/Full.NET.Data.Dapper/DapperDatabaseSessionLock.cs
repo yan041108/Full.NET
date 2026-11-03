@@ -46,14 +46,14 @@ internal sealed class DapperDatabaseSessionLock(
     /// 会话锁必须钉在同一连接上，不能走 <see cref="IQueryExecutor"/>；
     /// 使用 <see cref="DynamicParameters"/> 避免匿名类型进入 Native AOT 执行路径。
     /// </summary>
-    private static DynamicParameters CreateResourceParameters(string resource)
+    internal static DynamicParameters CreateResourceParameters(string resource)
     {
         var parameters = new DynamicParameters();
         parameters.Add("Resource", resource);
         return parameters;
     }
 
-    private static async Task<bool> TryAcquireProviderLockAsync(
+    internal static async Task<bool> TryAcquireProviderLockAsync(
         DbConnection connection,
         DatabaseProvider provider,
         string resource,
@@ -89,9 +89,22 @@ internal sealed class DapperDatabaseSessionLock(
     private sealed class LeaseHandle(
         DbConnection connection,
         DatabaseProvider provider,
-        string resource) : IAsyncDisposable
+        string resource) : IDatabaseSessionLockLease
     {
         private int _disposed;
+
+        public async Task EnsureHeldAsync(CancellationToken cancellationToken = default)
+        {
+            if (Volatile.Read(ref _disposed) != 0 || connection.State != System.Data.ConnectionState.Open)
+                throw new InvalidOperationException("数据库控制会话锁已丢失。");
+            // 必须查询原连接；禁止用新连接的成功查询代替对旧执行者的持锁证明。
+            var sql = provider == DatabaseProvider.SqlServer
+                ? "SELECT CASE WHEN APPLOCK_MODE('public', @Resource, 'Session') = 'Exclusive' THEN 1 ELSE 0 END;"
+                : "SELECT CASE WHEN IS_USED_LOCK(@Resource) = CONNECTION_ID() THEN 1 ELSE 0 END;";
+            if (await connection.ExecuteScalarAsync<int>(new CommandDefinition(sql,
+                    CreateResourceParameters(resource), commandTimeout: 5, cancellationToken: cancellationToken)).ConfigureAwait(false) != 1)
+                throw new InvalidOperationException("数据库控制会话不再持有原锁。");
+        }
 
         public async ValueTask DisposeAsync()
         {

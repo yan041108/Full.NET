@@ -1,0 +1,20 @@
+import {describe,it,expect} from 'vitest';
+import {validateKnowledgeOperations} from './ai-knowledge-operations.js';
+import {aiListKnowledgeOperations} from './generated/operations.generated.js';
+import type {AiKnowledgeOperationsPage,AiKnowledgeOperationItem} from './generated/models.generated.js';
+import type {HttpClient} from './http.js';
+const id=(n:number)=>`01900000-0000-7000-8000-${String(n).padStart(12,'0')}`;
+type Mutable<T>={-readonly[K in keyof T]:T[K]};
+type Page=Omit<Mutable<AiKnowledgeOperationsPage>,'items'>&{items:Mutable<AiKnowledgeOperationItem>[]};
+const row=():Mutable<AiKnowledgeOperationItem>=>({knowledgeBaseId:id(1),documentId:id(2),versionId:id(3),versionNumber:1,sourceKind:'document-v1',faqId:null,preparationState:'completed',taskId:id(4),taskState:'completed',attemptCount:1,failureCode:null,createdAtUtc:'2026-10-29T00:00:00Z',taskUpdatedAtUtc:null,hasActiveGeneration:true,reviewState:'none',publicationId:null,publicationVersionId:null,publicationState:'none',effectiveFromUtc:null,effectiveToUtc:null});
+const page=():Page=>({items:[row()],nextAfterId:null,fromUtc:'2026-10-01T00:00:00Z',toUtc:'2026-10-30T00:00:00Z',view:'all'});
+describe('knowledge operations metadata',()=>{
+  it('keeps processing completion distinct from publication',()=>{const p=validateKnowledgeOperations(page(),{});expect(p.items[0]!.taskState).toBe('completed');expect(p.items[0]!.publicationState).toBe('none');});
+  it.each(['sourceKind','taskState','preparationState','reviewState','publicationState'] as const)('rejects unknown %s protocol',key=>{const p=page();(p.items[0] as unknown as Record<string,unknown>)[key]='injected';expect(()=>validateKnowledgeOperations(p,{})).toThrow();});
+  it('requires precise managed library and window',()=>{expect(()=>validateKnowledgeOperations(page(),{knowledgeBaseId:id(9)})).toThrow();expect(()=>validateKnowledgeOperations(page(),{toUtc:'2026-10-29T00:00:00Z'})).toThrow();});
+  it('rejects duplicate and mismatched source identities',()=>{const p=page();p.items.push(row());expect(()=>validateKnowledgeOperations(p,{})).toThrow();const q=page();q.items[0]!.faqId=id(9);expect(()=>validateKnowledgeOperations(q,{})).toThrow();});
+  it('requires explicit unknown failure and accurate publication pairing',()=>{const p=page();p.items[0]!.taskState='failed';expect(()=>validateKnowledgeOperations(p,{})).toThrow();p.items[0]!.failureCode='ai.knowledge.index_unavailable';expect(validateKnowledgeOperations(p,{})).toBe(p);p.items[0]!.publicationId=id(8);expect(()=>validateKnowledgeOperations(p,{})).toThrow();});
+  it('binds cursor to the last delivered row',()=>{const p=page();p.nextAfterId=id(8);expect(()=>validateKnowledgeOperations(p,{})).toThrow();});
+  it('uses the generated public GET and abort signal',async()=>{let captured='';const signal=new AbortController().signal;const http={request:async(path:string,init:RequestInit,s?:AbortSignal)=>{captured=path;expect(init.method).toBe('GET');expect(s).toBe(signal);return page();}} as HttpClient;
+    expect((await aiListKnowledgeOperations(http,{view:'failed',knowledgeBaseId:id(1)},signal)).items).toHaveLength(1);expect(captured).toContain('/api/v1/ai/knowledge-operations?');expect(captured).toContain('view=failed');});
+});

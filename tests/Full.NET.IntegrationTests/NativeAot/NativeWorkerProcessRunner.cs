@@ -27,13 +27,8 @@ internal static class NativeWorkerProcessRunner
         TimeSpan timeout,
         CancellationToken cancellationToken = default)
     {
-        var logDirectory = Path.Combine(
-            artifact.RepositoryRoot,
-            "artifacts",
-            "native-aot",
-            "worker",
-            "linux-x64",
-            "test-logs");
+        // 一次性 Worker 与常驻 Worker 共用控制器的临时日志边界，不向仓库根写 artifacts。
+        var logDirectory = Path.Combine(Path.GetTempPath(), "fullnet-native-worker-logs");
         Directory.CreateDirectory(logDirectory);
         var logPath = Path.Combine(
             logDirectory,

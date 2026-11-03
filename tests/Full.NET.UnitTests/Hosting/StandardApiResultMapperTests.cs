@@ -108,6 +108,21 @@ public sealed class StandardApiResultMapperTests
     }
 
     [TestMethod]
+    [DataRow(StatusCodes.Status400BadRequest)]
+    [DataRow(StatusCodes.Status413PayloadTooLarge)]
+    [DataRow(StatusCodes.Status415UnsupportedMediaType)]
+    public void Bad_http_request_preserves_client_status_without_exposing_exception(int status)
+    {
+        var context = new DefaultHttpContext();
+        var mapped = CreateMapper().MapException(new BadHttpRequestException("sensitive body", status), context);
+        Assert.AreEqual(status, ((IStatusCodeHttpResult)mapped).StatusCode);
+        var problem = (ProblemDetails?)((IValueHttpResult)mapped).Value;
+        Assert.IsNotNull(problem);
+        Assert.AreEqual(CommonErrorCodes.RequestInvalid, problem.Extensions["code"]);
+        Assert.DoesNotContain("sensitive body", problem.Title ?? string.Empty, StringComparison.Ordinal);
+    }
+
+    [TestMethod]
     public void Database_capacity_exception_maps_to_sanitized_503_with_retry_after()
     {
         var context = new DefaultHttpContext();

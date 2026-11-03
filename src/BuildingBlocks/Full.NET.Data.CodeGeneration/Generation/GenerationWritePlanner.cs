@@ -60,7 +60,9 @@ public static class GenerationWritePlanner
             desiredManifestEntries.Add(
                 new GenerationManifestEntry(
                     desired.RelativePath,
-                    desiredSha256));
+                    desiredSha256,
+                    previousManifest?.Artifacts.SingleOrDefault(entry => entry.RelativePath == desired.RelativePath)?.Owner,
+                    previousManifest?.Artifacts.SingleOrDefault(entry => entry.RelativePath == desired.RelativePath)?.IntegrationSha256));
 
             currentFiles.TryGetValue(
                 desired.RelativePath,

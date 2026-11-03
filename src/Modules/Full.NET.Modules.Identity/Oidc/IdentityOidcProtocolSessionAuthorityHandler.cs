@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using Full.NET.Abstractions.Time;
+using Full.NET.Abstractions.Tenancy;
 using Full.NET.Modules.Identity.Configuration;
 using Full.NET.Modules.Identity.Contracts;
 using Microsoft.Extensions.Options;
@@ -17,6 +18,8 @@ namespace Full.NET.Modules.Identity.Oidc;
 internal sealed class IdentityOidcProtocolSessionAuthorityHandler(
     IdentityOidcAccessSessionValidator sessionValidator,
     IdentityOidcSessionService sessionService,
+    IOpenIddictApplicationManager applications,
+    IActiveTenantContextResolver tenants,
     IClock clock,
     IOptions<IdentityOptions> identityOptions)
     : IOpenIddictServerHandler<OpenIddictServerEvents.ProcessSignInContext>
@@ -40,6 +43,55 @@ internal sealed class IdentityOidcProtocolSessionAuthorityHandler(
                 && !context.Request.IsRefreshTokenGrantType()))
         {
             return;
+        }
+
+        // 换码与刷新必须重验当前客户端策略，不能使用收紧前授权码里的旧 scope。
+        var application = await applications.FindByClientIdAsync(context.Request.ClientId ?? string.Empty,
+            context.CancellationToken).ConfigureAwait(false);
+        if (application is null) { context.Reject(Errors.InvalidGrant); return; }
+        var client = IdentityOidcClientMetadata.Read(await applications.GetPropertiesAsync(application,
+            context.CancellationToken).ConfigureAwait(false));
+        if (client.IsDisabled) { context.Reject(Errors.InvalidGrant); return; }
+        if (!IdentityOidcResourceIndicator.IsAllowed(context.Request, client.ResourceAudience, _identityOptions.Audience))
+        { context.Reject("invalid_target", "The requested resource is not allowed for this client."); return; }
+        if (client.RequireMfa && context.Principal.GetClaim("acr") != "urn:fullnet:acr:mfa")
+        { context.Reject(Errors.InvalidGrant, "The client requires multifactor authentication."); return; }
+        foreach (var scope in context.Principal.GetScopes())
+        {
+            if (!await applications.HasPermissionAsync(application, Permissions.Prefixes.Scope + scope,
+                    context.CancellationToken).ConfigureAwait(false))
+            {
+                context.Reject(Errors.InvalidGrant, "The client authorization policy has changed.");
+                return;
+            }
+        }
+
+        // 令牌中的租户必须仍由权威租户服务判定为活动，不能只比较会话中的旧 TenantId。
+        var tenantClaim = context.Principal.FindFirstValue(FullNetIdentityClaimTypes.TenantId);
+        if (!string.IsNullOrEmpty(tenantClaim))
+        {
+            if (!Guid.TryParse(tenantClaim, out var tenantId) || tenantId == Guid.Empty)
+            {
+                context.Reject(Errors.InvalidGrant, "The user session is no longer active.");
+                return;
+            }
+            try
+            {
+                if (await tenants.ResolveActiveByIdAsync(tenantId, context.CancellationToken).ConfigureAwait(false) is null)
+                {
+                    context.Reject(Errors.InvalidGrant, "The user session is no longer active.");
+                    return;
+                }
+            }
+            catch (OperationCanceledException) when (context.CancellationToken.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (Exception)
+            {
+                context.Reject(Errors.InvalidGrant, "The user session is no longer active.");
+                return;
+            }
         }
 
         if (context.Request.IsRefreshTokenGrantType()
@@ -66,7 +118,11 @@ internal sealed class IdentityOidcProtocolSessionAuthorityHandler(
             }
         }
 
-        if (!await sessionValidator.IsValidAsync(context.Principal, context.CancellationToken).ConfigureAwait(false))
+        // 换码和刷新以当前注册客户端的资源受众为准，普通 API 校验仍使用自己的受众。
+        var expectedAudience = string.IsNullOrWhiteSpace(client.ResourceAudience)
+            ? _identityOptions.Audience
+            : client.ResourceAudience;
+        if (!await sessionValidator.IsValidAsync(context.Principal, context.CancellationToken, expectedAudience).ConfigureAwait(false))
         {
             context.Reject(
                 error: Errors.InvalidGrant,

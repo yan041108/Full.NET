@@ -22,7 +22,7 @@ internal static class EventStreamOwnershipSql
                    CutoffEventId, CutoffOccurredAtUtc, CdcSourcePositionJson, OperatorUserId,
                    Reason, RollbackBoundaryEventId, RollbackOccurredAtUtc,
                    RollbackState, RollbackGeneration, RollbackPreparedAtUtc,
-                   CreatedAtUtc, UpdatedAtUtc
+                   CreatedAtUtc, UpdatedAtUtc, CdcKafkaBindingJson
             FROM fn_messaging_stream_ownership
             WHERE MessageType = @MessageType
               AND SchemaVersion = @SchemaVersion
@@ -37,7 +37,7 @@ internal static class EventStreamOwnershipSql
                    CutoffEventId, CutoffOccurredAtUtc, CdcSourcePositionJson, OperatorUserId,
                    Reason, RollbackBoundaryEventId, RollbackOccurredAtUtc,
                    RollbackState, RollbackGeneration, RollbackPreparedAtUtc,
-                   CreatedAtUtc, UpdatedAtUtc
+                   CreatedAtUtc, UpdatedAtUtc, CdcKafkaBindingJson
             FROM fn_messaging_stream_ownership
             ORDER BY MessageType, SchemaVersion
             """,
@@ -53,7 +53,7 @@ internal static class EventStreamOwnershipSql
                 CutoffEventId, CutoffOccurredAtUtc, CdcSourcePositionJson, OperatorUserId,
                 Reason, RollbackBoundaryEventId, RollbackOccurredAtUtc,
                 RollbackState, RollbackGeneration, RollbackPreparedAtUtc,
-                CreatedAtUtc, UpdatedAtUtc
+                CreatedAtUtc, UpdatedAtUtc, CdcKafkaBindingJson
             )
             VALUES
             (
@@ -61,7 +61,7 @@ internal static class EventStreamOwnershipSql
                 @CutoffEventId, @CutoffOccurredAtUtc, @CdcSourcePositionJson, @OperatorUserId,
                 @Reason, @RollbackBoundaryEventId, @RollbackOccurredAtUtc,
                 @RollbackState, @RollbackGeneration, @RollbackPreparedAtUtc,
-                @CreatedAtUtc, @UpdatedAtUtc
+                @CreatedAtUtc, @UpdatedAtUtc, @CdcKafkaBindingJson
             )
             """,
             SqlDataScope.Global);
@@ -77,6 +77,7 @@ internal static class EventStreamOwnershipSql
                 CutoffEventId = @CutoffEventId,
                 CutoffOccurredAtUtc = @CutoffOccurredAtUtc,
                 CdcSourcePositionJson = @CdcSourcePositionJson,
+                CdcKafkaBindingJson = @CdcKafkaBindingJson,
                 OperatorUserId = @OperatorUserId,
                 Reason = @Reason,
                 RollbackBoundaryEventId = @RollbackBoundaryEventId,
@@ -136,7 +137,6 @@ internal static class EventStreamOwnershipSql
             """
             UPDATE fn_messaging_stream_ownership
             SET RollbackState = 0,
-                RollbackGeneration = NULL,
                 RollbackPreparedAtUtc = NULL,
                 UpdatedAtUtc = @UpdatedAtUtc
             WHERE MessageType = @MessageType

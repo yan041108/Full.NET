@@ -106,10 +106,14 @@ internal static class IdentityOidcMultiInstanceSigningKeyActivateAssertions
             requestOfflineAccess: false,
             cancellationToken: cancellationToken);
         Assert.AreEqual(
-            IdentityOidcSigningKeyRotationAssertions.KeyBId,
+            IdentityOidcSigningKeyRotationAssertions.KeyAId,
             IdentityOidcRelyingPartyFixture.ReadJwtHeaderValue(
                 secondaryBeforeActivateFlow.AccessToken,
                 "kid"));
+
+        // 对端签发必须已收敛权威活动指针；下一次治理前由真实 readiness 更新节点策略版本。
+        using (var readyA = await primaryClient.GetAsync("/health/ready", cancellationToken)) Assert.AreEqual(HttpStatusCode.OK, readyA.StatusCode);
+        using (var readyB = await secondaryClient.GetAsync("/health/ready", cancellationToken)) Assert.AreEqual(HttpStatusCode.OK, readyB.StatusCode);
 
         var secondaryAdminToken = await IntegrationTestAuthHelper.LoginAsHostUserAsync(
             secondaryClient,

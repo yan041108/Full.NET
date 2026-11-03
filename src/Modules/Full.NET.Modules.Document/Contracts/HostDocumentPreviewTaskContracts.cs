@@ -15,6 +15,10 @@ public static class HostDocumentPreviewTaskStatusKeys
 
     /// <summary>转换失败，可查看错误码。</summary>
     public const string Failed = "failed";
+    /// <summary>持久化引用意图已建立，等待源 Claim。</summary>
+    public const string Preparing = "preparing";
+    /// <summary>已取消；旧领取版本不能再提交。</summary>
+    public const string Cancelled = "cancelled";
 
     /// <summary>已发布的全部状态键。</summary>
     public static IReadOnlyList<string> All { get; } = Array.AsReadOnly(
@@ -23,6 +27,8 @@ public static class HostDocumentPreviewTaskStatusKeys
         Processing,
         Succeeded,
         Failed,
+        Preparing,
+        Cancelled,
     ]);
 }
 
@@ -49,6 +55,10 @@ public static class HostDocumentPreviewTaskPermissions
 
     /// <summary>允许为 Office 文档创建预览转换任务。</summary>
     public const string Create = "document.host_preview_tasks.create";
+    /// <summary>允许取消预览任务，仍须文档写权限。</summary>
+    public const string Cancel = "document.host_preview_tasks.cancel";
+    /// <summary>允许新建人工重试任务，仍须文档读取权限。</summary>
+    public const string Retry = "document.host_preview_tasks.retry";
 }
 
 /// <summary>创建 Host 文档预览转换任务请求。</summary>
@@ -63,7 +73,7 @@ public sealed record CreateHostDocumentPreviewTaskRequest(
 /// <param name="Id">预览转换任务唯一标识。</param>
 /// <param name="DocumentItemId">目标文档项标识。</param>
 /// <param name="DocumentTitle">文档标题快照。</param>
-/// <param name="VersionId">转换的历史版本标识；为空表示当前版本。</param>
+/// <param name="VersionId">创建时固定的实际版本标识；不会随当前版本变化。</param>
 /// <param name="SourceFileId">源文件标识。</param>
 /// <param name="OutputFileId">输出 PDF 文件标识；转换未完成或失败时为 <see langword="null"/>。</param>
 /// <param name="StatusKey">任务状态键，取值见 <see cref="HostDocumentPreviewTaskStatusKeys"/>。</param>
@@ -92,6 +102,21 @@ public sealed record HostDocumentPreviewTaskResponse(
 {
     /// <summary>仅供本次匿名分享任务状态与输出读取的短期凭据。</summary>
     public string? PreviewGrant { get; init; }
+    /// <summary>实际领取次数，包括崩溃重领。</summary>
+    public int AttemptCount { get; init; }
+    /// <summary>瞬时失败退避后的下次领取时间。</summary>
+    public DateTimeOffset? NextAttemptAtUtc { get; init; }
     /// <summary>服务端允许客户端等待的截止时间；超出后用户可显式重试。</summary>
     public DateTimeOffset? PreviewPollUntilUtc { get; init; }
 }
+
+/// <summary>服务端当前转换能力，不包含供应商密钥或本地路径。</summary>
+/// <param name="Enabled">当前是否允许提交新转换。</param>
+/// <param name="ProviderKey">稳定供应商键。</param>
+/// <param name="AllowedMimeTypes">允许转换的 MIME 白名单。</param>
+/// <param name="MaxInputBytes">输入字节上限。</param>
+/// <param name="MaxAttempts">自动领取次数上限。</param>
+public sealed record DocumentPreviewCapabilities(bool Enabled, string ProviderKey, IReadOnlyList<string> AllowedMimeTypes, long MaxInputBytes, int MaxAttempts);
+/// <summary>任务取消的并发前置条件。</summary>
+/// <param name="Version">页面读取的任务版本。</param>
+public sealed record CancelDocumentPreviewTaskRequest(long Version);

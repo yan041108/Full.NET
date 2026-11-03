@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <data name="reporting.export_authority_denied" xml:space="preserve"><value>The original export session, publication grant or required permissions are no longer valid.</value></data>
+  <data name="reporting.grant.invalid" xml:space="preserve"><value>The publication grant request is invalid.</value></data>
+  <data name="reporting.grant.tenant_not_found" xml:space="preserve"><value>The active target tenant was not found.</value></data>
+  <data name="reporting.grant.not_found" xml:space="preserve"><value>The reporting definition or grant was not found.</value></data>
+  <data name="reporting.grant.version_conflict" xml:space="preserve"><value>The publication grant changed. Refresh and try again.</value></data>
+  <data name="reporting.grant.host_required" xml:space="preserve"><value>Host context is required to manage publication grants.</value></data>
+  <data name="reporting.published.invalid_filter" xml:space="preserve"><value>The publication catalog filter is invalid.</value></data>
+  <data name="reporting.published.not_found" xml:space="preserve"><value>The granted report publication was not found for this tenant.</value></data>
+  <data name="reporting.export_tenant_required" xml:space="preserve"><value>Tenant context is required for reporting exports.</value></data>
+  <data name="reporting.definition.not_published" xml:space="preserve"><value>Enable and publish the reporting definition first.</value></data>
+  <data name="reporting.grant.source_unavailable" xml:space="preserve"><value>The published data source is disabled or unavailable to the target tenant.</value></data>
+  <data name="reporting.export_task.cancel_conflict" xml:space="preserve"><value>The task changed or is being generated. Refresh its details. Processing tasks cannot be canceled.</value></data>
+</root>

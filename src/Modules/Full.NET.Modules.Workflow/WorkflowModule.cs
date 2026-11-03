@@ -36,6 +36,8 @@ using Full.NET.Modules.Workflow.Domain;
 using Full.NET.Modules.Workflow.Features;
 using Full.NET.Modules.Workflow.Features.CrossModulePorts;
 using Microsoft.AspNetCore.Routing;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -89,11 +91,24 @@ public sealed class WorkflowModule : IFullNetModule
     /// <summary>Worker 恢复、超时与 DataApproval 跨模块启动共享的运行时闭包。</summary>
     private static void RegisterWorkerRuntimeClosure(IServiceCollection services)
     {
+        WorkflowCollaborationKafkaRegistration.Register(services);
         services.AddSingleton(new WorkflowBusinessTypeOwnership(WorkflowChildStartContext.BusinessType, "workflow"));
+        services.AddSingleton(new WorkflowBusinessTypeOwnership(WorkflowCollaborationStartContext.BusinessType, "workflow"));
         services.TryAddSingleton<WorkflowBusinessActionCatalog>();
         services.AddScoped<WorkflowBusinessCommandPublisher>();
         services.AddScoped<WorkflowBusinessCommandActivationWriter>();
         services.AddScoped<WorkflowSubprocessActivationWriter>();
+        services.AddScoped<WorkflowCollaborationActivationWriter>();
+        services.AddScoped<WorkflowCollaborationRelay>();
+        services.AddScoped<WorkflowCollaborationControlPublisher>();
+        services.AddScoped<WorkflowCollaborationSourceProcessor>();
+        services.AddScoped<WorkflowCollaborationControlInbox>();
+        services.AddScoped<WorkflowCollaborationFilePreparationProcessor>();
+        services.AddScoped<WorkflowRemoteFileService>();
+        services.TryAddSingleton<WorkflowCollaborationFileCursors>();
+        services.TryAddSingleton<WorkflowCollaborationScanCursor>();
+        services.AddScoped<WorkflowCollaborationAuthorizationFilter>();
+        services.AddScoped<WorkflowCollaborationListAuthorization>();
         services.AddScoped<WorkflowRegionEpochCoordinator>();
         services.AddScoped<WorkflowRouteDecisionExecutor>();
         services.AddScoped<WorkflowReturnRoundCoordinator>();
@@ -108,6 +123,8 @@ public sealed class WorkflowModule : IFullNetModule
         services.AddScoped<WorkflowFormManagementService>();
         services.AddScoped<WorkflowWorkCalendarService>();
         services.AddScoped<WorkflowDefinitionManagementService>();
+        services.AddScoped<WorkflowSimulationService>();
+        services.AddScoped<Features.ManageOperations.WorkflowOperationsService>();
         services.AddScoped<WorkflowConnectorManagementService>();
         services.AddScoped<WorkflowRouteManagementService>();
         services.AddScoped<Features.ManageCollaborationGrants.WorkflowCollaborationGrantService>();
@@ -131,6 +148,7 @@ public sealed class WorkflowModule : IFullNetModule
         services.AddScoped<WorkflowSignatureCoordinator>();
         services.AddScoped<WorkflowSignatureReadService>();
         services.AddScoped<WorkflowSignatureUploadService>();
+        services.AddScoped<WorkflowFormAttachmentUploadService>();
         services.TryAddEnumerable(ServiceDescriptor.Scoped<ITenantResourceFileOwner, WorkflowTenantFileOwner>());
         services.AddScoped<WorkflowInstanceManagementService>();
         services.AddScoped<WorkflowManualReminderService>();
@@ -175,6 +193,8 @@ public sealed class WorkflowModule : IFullNetModule
     /// <param name="endpoints">应用端点路由构建器。</param>
     public void MapEndpoints(IEndpointRouteBuilder endpoints)
     {
+        // 空前缀保留现有HTTP契约；全部资源入口共用实时协作守卫，目录及普通实例按原权限处理。
+        endpoints = endpoints.MapGroup("").AddEndpointFilter<WorkflowCollaborationAuthorizationFilter>();
         FormEndpoint.Map(endpoints);
         FormEndpoint.MapVersion(endpoints);
         FormEndpoint.MapVersionMutations(endpoints);
@@ -183,12 +203,14 @@ public sealed class WorkflowModule : IFullNetModule
         DefinitionEndpoint.MapVersionMutations(endpoints);
         InstanceEndpoint.Map(endpoints);
         TodoEndpoint.Map(endpoints);
+        WorkflowFormAttachmentUploadEndpoint.Map(endpoints);
         WorkflowClaimEndpoint.Map(endpoints);
         CcEndpoint.Map(endpoints);
         RecoveryEndpoint.Map(endpoints);
         ConnectorEndpoint.Map(endpoints);
         RouteEndpoint.Map(endpoints);
         Features.ManageCollaborationGrants.Endpoint.Map(endpoints);
+        Features.ManageOperations.Endpoint.Map(endpoints);
         CalendarEndpoint.Map(endpoints);
     }
 
@@ -224,8 +246,13 @@ public sealed class WorkflowModule : IFullNetModule
         services.AddHostedService<WorkflowSlaHostedProcessor>();
         services.AddHostedService<WorkflowBusinessCommandHostedProcessor>();
         services.AddHostedService<WorkflowSubprocessHostedProcessor>();
+        services.AddHostedService<WorkflowCollaborationHostedProcessor>();
         services.TryAddEnumerable(ServiceDescriptor.Scoped<IIntegrationEventHandler, WorkflowBusinessCommandRequestedHandler>());
         services.TryAddEnumerable(ServiceDescriptor.Scoped<IIntegrationEventHandler, WorkflowBusinessCommandResultHandler>());
+        services.TryAddEnumerable(ServiceDescriptor.Scoped<IIntegrationEventHandler, WorkflowCollaborationRequestedHandler>());
+        services.TryAddEnumerable(ServiceDescriptor.Scoped<IIntegrationEventHandler, WorkflowCollaborationCreatedHandler>());
+        services.TryAddEnumerable(ServiceDescriptor.Scoped<IIntegrationEventHandler, WorkflowCollaborationCompletedHandler>());
+        services.TryAddEnumerable(ServiceDescriptor.Scoped<IIntegrationEventHandler, WorkflowCollaborationCancelledHandler>());
         services.AddScoped<WorkflowNotificationOutboxPublisher>();
         services.AddSingleton<WorkflowTodoTimeoutScanCursor>();
         services.AddScoped<WorkflowTodoTimeoutProcessor>();

@@ -262,6 +262,49 @@ class WorkflowTodoClient {
         '/api/v1/workflow/todos/$todoId/form-attachments/$fileId/content');
   }
 
+  /// 不透明引用只绑定当前Todo、字段和主表单/选票作用域，响应正文按正式契约验证。
+  Future<({String fileId, String name})> uploadAttachment(
+      String todoId,
+      int revision,
+      String fieldKey,
+      List<int> bytes,
+      String name,
+      String contentType,
+      {bool vote = false}) async {
+    workflowClaimGuid(todoId);
+    if (revision < 1 ||
+        !RegExp(r'^[a-zA-Z][a-zA-Z0-9_]{0,63}$').hasMatch(fieldKey)) {
+      throw ArgumentError('Invalid attachment field');
+    }
+    final query = Uri(queryParameters: {
+      'expectedRevision': '$revision',
+      'fieldKey': fieldKey,
+      'scope': vote ? 'vote' : 'main'
+    }).query;
+    final value = await _http.postWorkflowAttachment(
+        '/api/v1/workflow/todos/$todoId/attachment-uploads?$query',
+        bytes,
+        name,
+        contentType);
+    if (value is! Map<String, dynamic> ||
+        value['fileId'] is! String ||
+        value['originalFileName'] is! String ||
+        value['contentType'] is! String ||
+        value['sizeBytes'] is! int ||
+        (value['sizeBytes'] as int) < 1 ||
+        value['contentHash'] != null &&
+            (value['contentHash'] is! String ||
+                !RegExp(r'^[0-9a-f]{64}$')
+                    .hasMatch(value['contentHash'] as String))) {
+      throw const FormatException('Invalid attachment upload response');
+    }
+    workflowClaimGuid(value['fileId'] as String);
+    return (
+      fileId: value['fileId'] as String,
+      name: value['originalFileName'] as String
+    );
+  }
+
   /// 采集成功只返回不透明文件标识，后续动作仍由服务端绑定实际证据。
   Future<String> uploadSignature(
       String todoId, int expectedRevision, List<int> bytes) async {

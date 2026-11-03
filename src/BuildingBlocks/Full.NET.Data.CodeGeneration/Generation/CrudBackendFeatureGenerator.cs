@@ -22,6 +22,7 @@ internal static class CrudBackendFeatureGenerator
 
             internal sealed record {{schema.ClrTypeName}}Record(
             {{RenderRecordParameters(schema.Columns)}});
+            {{CrudStaticSqlGenerator.Materializer(schema)}}
             """);
     }
 
@@ -38,7 +39,7 @@ internal static class CrudBackendFeatureGenerator
         var idParameter = $"{entity}Id";
         var mutableColumns = MutableColumns(schema).ToArray();
         var stringColumns = mutableColumns
-            .Where(column => column.ScalarType == FullNetScalarType.String)
+            .Where(NeedsValidation)
             .ToArray();
         var validationCall = stringColumns.Length == 0
             ? string.Empty
@@ -96,11 +97,9 @@ internal static class CrudBackendFeatureGenerator
                 or FullNetCrudDataScope.HostOnly
                 ? ["ICurrentTenant currentTenant"]
                 : [])
-            .Concat(
-            [
-                "IClock clock",
-                "IIdGenerator idGenerator",
-            ]));
+            .Concat(schema.Columns.Any(column => column.DatabaseName == "CreatedAtUtc")
+                ? ["IClock clock"] : [])
+            .Concat(["IIdGenerator idGenerator"]));
         var contextGuardLine = schema.DataScope switch
         {
             FullNetCrudDataScope.TenantRequired =>
@@ -194,8 +193,10 @@ internal static class CrudBackendFeatureGenerator
                 public async Task<Result<PagedResult<{{schema.ClrTypeName}}Response>>> ListAsync(
                     int page,
                     int pageSize,
-                    CancellationToken cancellationToken = default)
+                    CancellationToken cancellationToken = default,
+                    {{schema.ClrTypeName}}ListQuery? query = null)
                 {
+            {{CrudListQueryGenerator.ServiceValidation(schema)}}
                     page = Math.Max(page, 1);
                     pageSize = Math.Clamp(pageSize, 1, 100);
                     var offset = (long)(page - 1) * pageSize;
@@ -210,7 +211,7 @@ internal static class CrudBackendFeatureGenerator
                     };
                     var pageResult = await multiResultQueryExecutor.QueryMultipleAsync(
                             statement,
-                            new { Offset = offset, PageSize = pageSize },
+                            query.Parameters(offset, pageSize),
                             async (reader, _) =>
                             {
                                 var total = await reader.ReadSingleOrDefaultAsync<long>()
@@ -267,6 +268,7 @@ internal static class CrudBackendFeatureGenerator
             internal sealed class {{schema.ClrTypeName}}ManagementService(
             {{IndentLines(managementConstructorParameters, 4)}})
             {
+            {{IndentLines(GenerateTransactionMethod(schema), 4)}}
                 public Task<Result<{{schema.ClrTypeName}}Response>> CreateAsync(
                     Create{{schema.ClrTypeName}}Request request,
                     CancellationToken cancellationToken = default) =>
@@ -449,21 +451,24 @@ internal static class CrudBackendFeatureGenerator
                     group.MapGet("/", async (
                         int? page,
                         int? pageSize,
+                        [AsParameters] {{schema.ClrTypeName}}ListQuery query,
                         {{schema.ClrTypeName}}QueryService queries,
                         IApiResultMapper mapper,
                         HttpContext httpContext,
                         CancellationToken cancellationToken) =>
                     {
+                        {{CrudListQueryGenerator.EndpointValidation(schema)}}
                         var result = await queries.ListAsync(
                                 page ?? 1,
                                 pageSize ?? 20,
-                                cancellationToken)
+                                cancellationToken, query)
                             .ConfigureAwait(false);
                         return mapper.Map(result, httpContext);
                     })
                     .WithName("{{operationPrefix}}List{{resourceName}}")
                     .Produces<PagedResult<{{schema.ClrTypeName}}Response>>(
                         StatusCodes.Status200OK)
+                    .ProducesProblem(StatusCodes.Status400BadRequest)
                     .ProducesProblem(StatusCodes.Status401Unauthorized)
                     .ProducesProblem(StatusCodes.Status403Forbidden)
                     .RequireAuthorization(FullNetPermissionPolicies.For(
@@ -560,8 +565,13 @@ internal static class CrudBackendFeatureGenerator
                     this IServiceCollection services)
                 {
                     ArgumentNullException.ThrowIfNull(services);
+            #if FULLNET_AOT_COMPILE
+                    {{schema.ClrTypeName}}GeneratedMaterializer.Register();
+            #endif
                     services.TryAddSingleton<IClock, SystemClock>();
                     services.TryAddSingleton<IIdGenerator, GuidV7IdGenerator>();
+                    if (!System.Linq.Enumerable.Any(services, descriptor => descriptor.ImplementationInstance is GeneratedCrudErrorResourceSource source && source.Prefix == "{{schema.ModuleKey}}.{{schema.PermissionResourceName}}."))
+                        services.AddSingleton<IErrorResourceSource>(new GeneratedCrudErrorResourceSource("{{schema.ModuleKey}}.{{schema.PermissionResourceName}}."));
                     services.TryAddScoped<{{schema.ClrTypeName}}QueryService>();
                     services.TryAddScoped<{{schema.ClrTypeName}}ManagementService>();
                     services.ConfigureHttpJsonOptions(options =>
@@ -635,13 +645,13 @@ internal static class CrudBackendFeatureGenerator
 
             public static readonly SqlStatement PageSqlServerStatement = new(
                 "{{module}}.list_{{resources}}.sql_server",
-                Count + "\n" + ListSqlServer,
+                QueryCountSqlServer + "\n" + QueryListSqlServer,
                 {{statementScope}},
                 {{tenantBinding}});
 
             public static readonly SqlStatement PageMySqlStatement = new(
                 "{{module}}.list_{{resources}}.my_sql",
-                Count + "\n" + ListMySql,
+                QueryCountMySql + "\n" + QueryListMySql,
                 {{statementScope}},
                 {{tenantBinding}});
 
@@ -707,14 +717,12 @@ internal static class CrudBackendFeatureGenerator
         var parameters = string.Join(
             ",\n",
             columns.Select(column =>
-                $"string? {LowerFirst(column.ClrPropertyName)}"));
+                $"{CSharpType(column)} {LowerFirst(column.ClrPropertyName)}"));
         var checks = new List<string>();
         foreach (var column in columns)
         {
             var parameter = LowerFirst(column.ClrPropertyName);
-            var invalidCondition = column.IsNullable
-                ? $"{parameter} is {{ Length: > {column.MaxLength} }}"
-                : $"{parameter} is null || {parameter}.Length > {column.MaxLength}";
+            var invalidCondition = ValidationCondition(column, parameter);
             checks.Add(
                 $$"""
                 if ({{invalidCondition}})
@@ -742,7 +750,7 @@ internal static class CrudBackendFeatureGenerator
                     new Dictionary<string, string[]>(StringComparer.Ordinal)
                     {
                         [field] = ["The field value is invalid."],
-                    }));
+                    }, null, new[] { new ValidationViolation(field, "{{schema.ModuleKey}}.{{schema.PermissionResourceName}}.invalid_field", new Dictionary<string, object?>()) }));
         """;
     }
 
@@ -752,7 +760,7 @@ internal static class CrudBackendFeatureGenerator
         var idParameter = $"{entity}Id";
         var writableColumns = WritableColumns(schema).ToArray();
         var stringColumns = writableColumns
-            .Where(column => column.ScalarType == FullNetScalarType.String)
+            .Where(NeedsValidation)
             .ToArray();
         var validationCall = stringColumns.Length == 0
             ? string.Empty
@@ -861,14 +869,18 @@ internal static class CrudBackendFeatureGenerator
                 or FullNetCrudDataScope.HostOnly
                 ? ["ICurrentTenant currentTenant"]
                 : [])
-            .Concat(
-            [
-                "IClock clock",
-                "IIdGenerator idGenerator",
-            ])
+            .Concat(schema.EntityCapabilities.HasCreatedAudit
+                || schema.EntityCapabilities.HasUpdatedAudit
+                || schema.EntityCapabilities.HasDeletedAudit
+                || schema.Relationships.Any(relationship => relationship.CascadeDelete == true
+                    && relationship.PrincipalEntityKey == schema.EntityKey)
+                ? ["IClock clock"] : [])
+            .Concat(["IIdGenerator idGenerator"])
+            .Concat(schema.EntityCapabilities.HasMutationPolicy ? [$"I{schema.ClrTypeName}MutationPolicy mutationPolicy"] : [])
             .Concat(isOrganizationOwned
                 ? [CrudOrganizationOwnershipGenerator.ManagementConstructorParameters()]
-                : []));
+                : [])
+            .Concat(schema.Scene == FullNetCrudScene.Tree ? ["IOptions<DatabaseOptions> databaseOptions"] : []));
         var createAsyncParameters = isOrganizationOwned
             ? $"""
               Create{schema.ClrTypeName}Request request,
@@ -926,7 +938,7 @@ internal static class CrudBackendFeatureGenerator
             using Microsoft.Extensions.Options;
             {{organizationFeatureUsings}}
             namespace {{schema.RootNamespace}}.Generated;
-
+            {{CrudMutationPolicyGenerator.Contract(schema)}}
             internal sealed class {{schema.ClrTypeName}}QueryService(
             {{IndentLines(queryServiceConstructorParameters, 4)}})
             {
@@ -952,6 +964,7 @@ internal static class CrudBackendFeatureGenerator
             internal sealed class {{schema.ClrTypeName}}ManagementService(
             {{IndentLines(managementConstructorParameters, 4)}})
             {
+            {{IndentLines(GenerateTransactionMethod(schema), 4)}}
                 public Task<Result<{{schema.ClrTypeName}}Response>> CreateAsync(
                     {{createAsyncParameters}}) =>
                     transaction.ExecuteAsync(
@@ -966,10 +979,11 @@ internal static class CrudBackendFeatureGenerator
                     {{createCoreParameters}})
                 {
             {{contextGuardLine}}
-            {{IndentLines(createCoreAuthorization, 8)}}{{IndentLines(validationCall, 8)}}        var {{idParameter}} = idGenerator.NewId();
+            {{IndentLines(createCoreAuthorization, 8)}}{{IndentLines(validationCall, 8)}}{{IndentLines(CrudMutationPolicyGenerator.Call(schema, "Create"), 8)}}        var {{idParameter}} = idGenerator.NewId();
+            {{IndentLines(CrudRelationshipRestoreGenerator.Read(schema, idParameter), 8)}}
             {{IndentLines(
                 CrudSceneGuardGenerator.CreateGuardCall(schema, idParameter),
-                8)}}        var affectedRows = await commandExecutor.ExecuteAsync(
+                8)}}{{IndentLines(CrudRelationshipRestoreGenerator.Restore(schema, idParameter), 8)}}        var affectedRows = await commandExecutor.ExecuteAsync(
                             {{schema.ClrTypeName}}Sql.InsertStatement,
                             new
                             {
@@ -1014,8 +1028,10 @@ internal static class CrudBackendFeatureGenerator
                 public async Task<Result<PagedResult<{{schema.ClrTypeName}}Response>>> ListAsync(
                     int page,
                     int pageSize,
-                    CancellationToken cancellationToken = default)
+                    CancellationToken cancellationToken = default,
+                    {{schema.ClrTypeName}}ListQuery? query = null)
                 {
+            {{CrudListQueryGenerator.ServiceValidation(schema)}}
                     page = Math.Max(page, 1);
                     pageSize = Math.Clamp(pageSize, 1, 100);
                     var offset = (long)(page - 1) * pageSize;
@@ -1030,7 +1046,7 @@ internal static class CrudBackendFeatureGenerator
                     };
                     var pageResult = await multiResultQueryExecutor.QueryMultipleAsync(
                             statement,
-                            new { Offset = offset, PageSize = pageSize },
+                            query.Parameters(offset, pageSize),
                             async (reader, _) =>
                             {
                                 var total = await reader.ReadSingleOrDefaultAsync<long>()
@@ -1109,7 +1125,7 @@ internal static class CrudBackendFeatureGenerator
                 CancellationToken cancellationToken)
             {
         {{contextGuardLine}}
-        {{IndentLines(authorizationBlock, 4)}}{{IndentLines(validationCall, 4)}}{{IndentLines(
+        {{IndentLines(authorizationBlock, 4)}}{{IndentLines(validationCall, 4)}}{{IndentLines(CrudMutationPolicyGenerator.Call(schema, "Update", idParameter), 8)}}{{IndentLines(
             CrudSceneGuardGenerator.UpdateGuardCall(schema, idParameter),
             8)}}        var affectedRows = await commandExecutor.ExecuteAsync(
                         {{schema.ClrTypeName}}Sql.UpdateStatement,
@@ -1181,7 +1197,7 @@ internal static class CrudBackendFeatureGenerator
                 }
 
         {{IndentLines(authorizationBlock, 8)}}
-            {{IndentLines(
+        {{IndentLines(CrudMutationPolicyGenerator.Call(schema, "Delete", idParameter), 8)}}{{IndentLines(
                 CrudSceneGuardGenerator.DeleteGuardCall(schema, idParameter),
                 8)}}                var affectedRows = await commandExecutor.ExecuteAsync(
                         {{schema.ClrTypeName}}Sql.DeleteStatement,
@@ -1261,11 +1277,13 @@ internal static class CrudBackendFeatureGenerator
                         ClaimsPrincipal principal,
                         int? page,
                         int? pageSize,
+                        [AsParameters] {{schema.ClrTypeName}}ListQuery query,
                         {{schema.ClrTypeName}}QueryService queries,
                         IApiResultMapper mapper,
                         HttpContext httpContext,
                         CancellationToken cancellationToken) =>
                     {
+                        {{CrudListQueryGenerator.EndpointValidation(schema)}}
                         if (!TryResolveActor(
                                 principal,
                                 out var actorUserId,
@@ -1279,7 +1297,7 @@ internal static class CrudBackendFeatureGenerator
                                 isSuperAdministrator,
                                 page ?? 1,
                                 pageSize ?? 20,
-                                cancellationToken)
+                                cancellationToken, query)
                             .ConfigureAwait(false);
                         return mapper.Map(result, httpContext);
                     })
@@ -1288,15 +1306,17 @@ internal static class CrudBackendFeatureGenerator
                     group.MapGet("/", async (
                         int? page,
                         int? pageSize,
+                        [AsParameters] {{schema.ClrTypeName}}ListQuery query,
                         {{schema.ClrTypeName}}QueryService queries,
                         IApiResultMapper mapper,
                         HttpContext httpContext,
                         CancellationToken cancellationToken) =>
                     {
+                        {{CrudListQueryGenerator.EndpointValidation(schema)}}
                         var result = await queries.ListAsync(
                                 page ?? 1,
                                 pageSize ?? 20,
-                                cancellationToken)
+                                cancellationToken, query)
                             .ConfigureAwait(false);
                         return mapper.Map(result, httpContext);
                     })
@@ -1362,7 +1382,9 @@ internal static class CrudBackendFeatureGenerator
                                 httpContext,
                                 out var organizationUnitId))
                         {
-                            return Results.BadRequest();
+                            return mapper.Map(Result<{{schema.ClrTypeName}}Response>.Failure(
+                                new Full.NET.Abstractions.Results.Error("{{schema.ModuleKey}}.{{schema.PermissionResourceName}}.invalid_organization",
+                                    "A valid organization unit header is required.", Full.NET.Abstractions.Results.ErrorType.Validation)), httpContext);
                         }
 
                         var result = await service.CreateAsync(
@@ -1448,6 +1470,7 @@ internal static class CrudBackendFeatureGenerator
                     .WithName("{{operationPrefix}}List{{resourceName}}")
                     .Produces<PagedResult<{{schema.ClrTypeName}}Response>>(
                         StatusCodes.Status200OK)
+                    .ProducesProblem(StatusCodes.Status400BadRequest)
                     .ProducesProblem(StatusCodes.Status401Unauthorized)
                     .ProducesProblem(StatusCodes.Status403Forbidden)
                     .RequireAuthorization(FullNetPermissionPolicies.For(
@@ -1469,6 +1492,8 @@ internal static class CrudBackendFeatureGenerator
                     .RequireAuthorization(FullNetPermissionPolicies.For(
                         {{schema.ClrTypeName}}Permissions.Create));
             {{updateEndpoint}}{{deleteEndpoint}}
+            {{CrudAggregateGenerator.Endpoint(schema, idParameter)}}
+            {{CrudRelationshipLookupGenerator.Endpoint(schema)}}
                 }
 
                 private static bool TryResolveActorUserId(
@@ -1487,10 +1512,17 @@ internal static class CrudBackendFeatureGenerator
                     this IServiceCollection services)
                 {
                     ArgumentNullException.ThrowIfNull(services);
+            #if FULLNET_AOT_COMPILE
+                    {{schema.ClrTypeName}}GeneratedMaterializer.Register();
+            #endif
                     services.TryAddSingleton<IClock, SystemClock>();
                     services.TryAddSingleton<IIdGenerator, GuidV7IdGenerator>();
                     services.TryAddScoped<{{schema.ClrTypeName}}QueryService>();
                     services.TryAddScoped<{{schema.ClrTypeName}}ManagementService>();
+                    {{CrudAggregateGenerator.Registration(schema)}}
+                    if (!System.Linq.Enumerable.Any(services, descriptor => descriptor.ImplementationInstance is GeneratedCrudErrorResourceSource source && source.Prefix == "{{schema.ModuleKey}}.{{schema.PermissionResourceName}}."))
+                        services.AddSingleton<IErrorResourceSource>(new GeneratedCrudErrorResourceSource("{{schema.ModuleKey}}.{{schema.PermissionResourceName}}."));
+                    {{CrudRelationshipLookupGenerator.Registration(schema)}}
                     services.ConfigureHttpJsonOptions(options =>
                         options.SerializerOptions.TypeInfoResolverChain.Insert(
                             0,
@@ -1509,7 +1541,7 @@ internal static class CrudBackendFeatureGenerator
 
             [JsonSourceGenerationOptions(JsonSerializerDefaults.Web)]
             [JsonSerializable(typeof(Create{{schema.ClrTypeName}}Request))]
-            {{updateJson}}{{deleteJson}}[JsonSerializable(typeof({{schema.ClrTypeName}}Response))]
+            {{updateJson}}{{deleteJson}}{{CrudAggregateGenerator.JsonTypes(schema)}}{{CrudRelationshipLookupGenerator.JsonTypes(schema)}}[JsonSerializable(typeof({{schema.ClrTypeName}}Response))]
             [JsonSerializable(typeof(PagedResult<{{schema.ClrTypeName}}Response>))]
             internal partial class {{schema.ClrTypeName}}JsonSerializerContext
                 : JsonSerializerContext;
@@ -1618,27 +1650,27 @@ internal static class CrudBackendFeatureGenerator
 
             public static readonly SqlStatement ListSqlServerStatement = new(
                 "{{schema.ModuleKey}}.list_{{schema.PermissionResourceName}}.sql_server.rows",
-                ListSqlServer,
+                QueryListSqlServer,
                 {{statementScope}},
                 {{tenantBinding}});
 
             public static readonly SqlStatement ListMySqlStatement = new(
                 "{{schema.ModuleKey}}.list_{{schema.PermissionResourceName}}.my_sql.rows",
-                ListMySql,
+                QueryListMySql,
                 {{statementScope}},
                 {{tenantBinding}});
             """,
             $$"""
             public static readonly SqlStatement PageSqlServerStatement = new(
                 "{{schema.ModuleKey}}.list_{{schema.PermissionResourceName}}.sql_server",
-                Count + "\n" + ListSqlServer,
+                QueryCountSqlServer + "\n" + QueryListSqlServer,
                 {{statementScope}},
                 {{tenantBinding}});
             """,
             $$"""
             public static readonly SqlStatement PageMySqlStatement = new(
                 "{{schema.ModuleKey}}.list_{{schema.PermissionResourceName}}.my_sql",
-                Count + "\n" + ListMySql,
+                QueryCountMySql + "\n" + QueryListMySql,
                 {{statementScope}},
                 {{tenantBinding}});
             """,
@@ -1698,7 +1730,7 @@ internal static class CrudBackendFeatureGenerator
                     "DeletedById" => "DeletedById = (Guid?)null",
                     "OrganizationUnitId" => "OrganizationUnitId = organizationUnitId",
                     "Version" => $"Version = {InitialValue(column)}",
-                    _ => $"request.{column.ClrPropertyName}",
+                    _ => $"{column.DatabaseName} = {RequestValue(column)}",
                 }));
 
     private static string RenderExplicitUpdateValues(
@@ -1708,7 +1740,7 @@ internal static class CrudBackendFeatureGenerator
             ",\n",
             new[] { $"Id = {idParameter}" }
                 .Concat(WritableColumns(schema).Select(column =>
-                    $"request.{column.ClrPropertyName}"))
+                    $"{column.DatabaseName} = {RequestValue(column)}"))
                 .Concat(schema.EntityCapabilities.HasUpdatedAudit
                     ?
                     [
@@ -1745,7 +1777,7 @@ internal static class CrudBackendFeatureGenerator
                     "Id" => $"Id = {idParameter}",
                     "CreatedAtUtc" => "CreatedAtUtc = clock.UtcNow",
                     "Version" => $"Version = {InitialValue(column)}",
-                    _ => $"request.{column.ClrPropertyName}",
+                    _ => $"{column.DatabaseName} = {RequestValue(column)}",
                 }));
 
     private static string RenderUpdateValues(
@@ -1755,7 +1787,7 @@ internal static class CrudBackendFeatureGenerator
             ",\n",
             new[] { $"Id = {idParameter}" }
                 .Concat(MutableColumns(schema).Select(column =>
-                    $"request.{column.ClrPropertyName}"))
+                    $"{column.DatabaseName} = {RequestValue(column)}"))
                 .Concat(schema.HasVersion ? ["request.Version"] : []));
 
     private static string RenderDisableValues(
@@ -1865,10 +1897,75 @@ internal static class CrudBackendFeatureGenerator
 
     private static string Normalize(string content)
     {
+        content = CrudStaticSqlGenerator.StaticParameters(content)
+            .Replace("transaction.ExecuteAsync(", "ExecuteWriteAsync(", StringComparison.Ordinal);
         var builder = new StringBuilder(content.Length + 1);
-        builder.Append(content.Replace("\r\n", "\n", StringComparison.Ordinal)
+        builder.Append(string.Join("\n", content.Replace("\r\n", "\n", StringComparison.Ordinal)
+                .Split('\n').Select(line => line.TrimEnd(' ', '\t')))
             .TrimEnd('\r', '\n'));
         builder.Append('\n');
         return builder.ToString();
+    }
+
+    // 捕获约束异常放在事务边界外，确保先回滚，再向调用方返回稳定冲突。
+    private static string GenerateTransactionMethod(FullNetCrudSchema schema) => $$"""
+        private async Task<Result<{{schema.ClrTypeName}}Response>> ExecuteWriteAsync(
+            Func<CancellationToken, Task<Result<{{schema.ClrTypeName}}Response>>> action,
+            CancellationToken cancellationToken)
+        {
+            try
+            {
+                return await transaction.ExecuteResultAsync(action, cancellationToken).ConfigureAwait(false);
+            }
+            catch (DataCommandException exception) when (exception.Kind == DataCommandFailureKind.UniqueConstraint)
+            {
+                return Result<{{schema.ClrTypeName}}Response>.Failure(new Error(
+                    "{{schema.ModuleKey}}.{{schema.PermissionResourceName}}.unique_conflict",
+                    "The unique field value already exists.", ErrorType.Conflict));
+            }
+        }
+        """;
+
+    private static string RequestValue(FullNetColumn column) => "request." + column.ClrPropertyName
+        + (column.ScalarType == FullNetScalarType.DateTimeUtc ? column.IsNullable ? "?.ToUniversalTime()" : ".ToUniversalTime()" : string.Empty);
+
+    private static bool NeedsValidation(FullNetColumn column) =>
+        column.ScalarType is FullNetScalarType.String or FullNetScalarType.Decimal or FullNetScalarType.DateTimeUtc
+        || column.ResolvedUi.Required && (column.IsNullable || column.ScalarType == FullNetScalarType.Uuid);
+
+    private static string ValidationCondition(FullNetColumn column, string parameter)
+    {
+        if (column.ScalarType == FullNetScalarType.String)
+        {
+            var required = column.ResolvedUi.Required
+                ? $"string.IsNullOrWhiteSpace({parameter}) || "
+                : column.IsNullable ? string.Empty : $"{parameter} is null || ";
+            return required + $"{parameter} is {{ Length: > {column.MaxLength} }}";
+        }
+
+        if (column.ScalarType == FullNetScalarType.Decimal)
+        {
+            var scale = column.NumericScale!.Value;
+            var integerDigits = column.NumericPrecision!.Value - scale;
+            // Decimal 最多 28 位小数；SQL 可声明更高精度，不能为上界计算溢出。
+            var value = parameter + "Value";
+            var round = scale < 28 ? $"decimal.Round({value}, {scale}) != {value}" : "false";
+            var limit = integerDigits < 29
+                ? $" || {value} <= -1{new string('0', integerDigits)}m || {value} >= 1{new string('0', integerDigits)}m"
+                : string.Empty;
+            return (column.ResolvedUi.Required && column.IsNullable ? $"{parameter} is null || " : string.Empty)
+                + $"({parameter} is decimal {value} && ({round}{limit}))";
+        }
+
+        if (column.ScalarType == FullNetScalarType.DateTimeUtc)
+        {
+            var value = parameter + "Value";
+            return (column.ResolvedUi.Required && column.IsNullable ? $"{parameter} is null || " : string.Empty)
+                + $"({parameter} is DateTimeOffset {value} && ({value}.ToUniversalTime().Year < 1000 || {value}.UtcTicks % 10 != 0))";
+        }
+
+        return column.ScalarType == FullNetScalarType.Uuid
+            ? (column.IsNullable ? $"{parameter} is null || {parameter} == Guid.Empty" : $"{parameter} == Guid.Empty")
+            : $"{parameter} is null";
     }
 }

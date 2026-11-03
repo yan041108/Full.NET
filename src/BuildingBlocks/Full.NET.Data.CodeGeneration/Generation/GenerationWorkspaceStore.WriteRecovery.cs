@@ -1,5 +1,9 @@
 namespace Full.NET.Data.CodeGeneration.Generation;
 
+/// <summary>
+/// GenerationWorkspaceStore 的写入恢复部分：通过无覆盖 rename 记录产物声明、旧文件备份与清理证据，
+/// 使进程中断或清理失败时可回滚并阻断后续入口，不猜测磁盘与清单的关系。
+/// </summary>
 public static partial class GenerationWorkspaceStore
 {
     private const string WriteRecoveryDirectoryRelativePath = ".fullnet/codegeneration-write-recovery";

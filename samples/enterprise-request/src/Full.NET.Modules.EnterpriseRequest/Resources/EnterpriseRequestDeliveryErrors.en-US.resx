@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+<data name="enterprise_request.attachment_invalid" xml:space="preserve"><value>The attachment, length or version is invalid.</value></data>
+<data name="enterprise_request.attachment_limit_exceeded" xml:space="preserve"><value>Attachments must not exceed 10 MiB.</value></data>
+<data name="enterprise_request.delivery_invalid" xml:space="preserve"><value>The delivery request is invalid.</value></data>
+<data name="enterprise_request.delivery_forbidden" xml:space="preserve"><value>The current session cannot access or deliver this request.</value></data>
+<data name="enterprise_request.delivery_version_conflict" xml:space="preserve"><value>The request or task changed. Refresh before retrying.</value></data>
+<data name="enterprise_request.delivery_request_conflict" xml:space="preserve"><value>Retries must use the original request and file.</value></data>
+<data name="enterprise_request.delivery_state_invalid" xml:space="preserve"><value>The current state does not allow this delivery operation.</value></data>
+<data name="enterprise_request.delivery_limit_exceeded" xml:space="preserve"><value>The delivery count or row budget was exceeded.</value></data>
+<data name="enterprise_request.delivery_not_found" xml:space="preserve"><value>No deliverable task or file was found.</value></data>
+<data name="enterprise_request.delivery_content_mismatch" xml:space="preserve"><value>The file content does not match the durable intent.</value></data>
+<data name="enterprise_request.delivery_source_deleted" xml:space="preserve"><value>The source request was deleted.</value></data>
+<data name="enterprise_request.delivery_expired" xml:space="preserve"><value>The delivery expired.</value></data>
+<data name="enterprise_request.delivery_failed" xml:space="preserve"><value>Delivery failed repeatedly. Review the source request.</value></data>
+<data name="enterprise_request.print_limit_exceeded" xml:space="preserve"><value>Print supports up to 20 lines. Use a workbook for larger requests.</value></data>
+<data name="enterprise_request.import.row_invalid" xml:space="preserve"><value>The request row is invalid. Check the number, title, amount precision, applicant and organization identifiers.</value></data>
+<data name="enterprise_request.import.context_invalid" xml:space="preserve"><value>A trusted task, source file and tenant context are required.</value></data>
+<data name="enterprise_request.import.forbidden" xml:space="preserve"><value>The current organization scope does not permit this import row.</value></data>
+<data name="enterprise_request.import.row_conflict" xml:space="preserve"><value>The import row identity is bound to different content. Check the original task and source file.</value></data>
+<data name="enterprise_request.enterprise_requests.invalid_status" xml:space="preserve"><value>Only draft requests may be edited. Approval status must advance through business operations.</value></data>
+<data name="enterprise_request.enterprise_request_lines.parent_immutable" xml:space="preserve"><value>A request line cannot be moved to another request.</value></data>
+  <data name="import_export.task.authority_denied" xml:space="preserve"><value>The import session or a permission required by this row is no longer valid. The original uploader must check access and retry.</value></data>
+</root>

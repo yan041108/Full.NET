@@ -2,8 +2,23 @@
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
+    <FullNetPublishMode>Jit</FullNetPublishMode>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(FullNetPublishMode)' == 'NativeAot'">
+    <PublishAot>true</PublishAot>
+    <InvariantGlobalization>false</InvariantGlobalization>
+    <!-- 迁移与播种保留真实完整闭包；第三方告警由角色发布门禁逐项核对。 -->
+    <IlcTreatWarningsAsErrors>false</IlcTreatWarningsAsErrors>
+  </PropertyGroup>
+  <ItemGroup Condition="'$(FullNetPublishMode)' == 'NativeAot'">
+    <RuntimeHostConfigurationOption
+      Include="Microsoft.Data.SqlClient.EnableReflectionBasedAuthenticationProviderDiscovery"
+      Value="false"
+      Trim="true" />
+    <TrimmerRootAssembly Include="MemoryPack.Core" />
+  </ItemGroup>
   <ItemGroup>
+    <None Update="appsettings*.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
     <ProjectReference Include="..\..\Composition\Full.NET.Composition\Full.NET.Composition.csproj" />
     <ProjectReference Include="..\..\BuildingBlocks\Full.NET.Hosting.Migrator\Full.NET.Hosting.Migrator.csproj" />

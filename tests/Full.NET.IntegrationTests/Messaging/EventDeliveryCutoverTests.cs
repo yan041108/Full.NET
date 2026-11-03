@@ -1,5 +1,10 @@
 using Full.NET.Abstractions.Messaging;
 using Full.NET.Abstractions.Results;
+using Full.NET.Abstractions.Auditing;
+using Full.NET.Modules.Messaging.Auditing;
+using Dapper;
+using System.Data.Common;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Full.NET.Data.Abstractions;
 using Full.NET.Messaging.Abstractions;
 using Full.NET.Modules.Messaging.Contracts;
@@ -15,6 +20,140 @@ namespace Full.NET.IntegrationTests.Messaging;
 [TestClass]
 public sealed class EventDeliveryCutoverTests
 {
+    [TestMethod]
+    public async Task SqlServer_transaction_bound_lock_releases_after_commit() =>
+        await VerifyBoundLockLifecycleAsync(DatabaseProvider.SqlServer, await SharedDatabaseFixture.CreateSqlServerDatabaseAsync());
+
+    [TestMethod]
+    public async Task MySql_transaction_bound_lock_releases_after_commit() =>
+        await VerifyBoundLockLifecycleAsync(DatabaseProvider.MySql, await SharedDatabaseFixture.CreateMySqlDatabaseAsync());
+
+    private static async Task VerifyBoundLockLifecycleAsync(DatabaseProvider provider, string connectionString)
+    {
+        var options = new DatabaseOptions { Provider = provider, ConnectionString = connectionString, MySqlGuidStorageMode = MySqlGuidStorageMode.Binary16 };
+        await using var services = await EventDeliveryPilotTestSupport.BuildPilotServicesAsync(options);
+        await using var first = EventDeliveryPilotTestSupport.CreateHostScope(services);
+        await using var second = EventDeliveryPilotTestSupport.CreateHostScope(services);
+        var firstLock = first.ServiceProvider.GetRequiredService<IDatabaseTransactionBoundSessionLock>();
+        var secondLock = second.ServiceProvider.GetRequiredService<IDatabaseTransactionBoundSessionLock>();
+        await using (var held = await firstLock.TryAcquireAsync(EventDeliveryControlResources.SessionLock))
+        {
+            Assert.IsNotNull(held);
+            Assert.IsNull(await secondLock.TryAcquireAsync(EventDeliveryControlResources.SessionLock));
+            await first.ServiceProvider.GetRequiredService<ICommandTransaction>().ExecuteAsync(async token =>
+            {
+                await held.EnsureHeldAsync(token);
+                return 0;
+            }, CancellationToken.None);
+            await held.EnsureHeldAsync();
+        }
+        await using var reacquired = await secondLock.TryAcquireAsync(EventDeliveryControlResources.SessionLock);
+        Assert.IsNotNull(reacquired, "提交后释放的连接不能遗留命名锁阻塞其它请求。");
+        await reacquired.EnsureHeldAsync();
+    }
+
+    [TestMethod]
+    public async Task SqlServer_cutover_lost_control_connection_cannot_commit() =>
+        await VerifyCutoverSessionLossAsync(DatabaseProvider.SqlServer, await SharedDatabaseFixture.CreateSqlServerDatabaseAsync());
+
+    [TestMethod]
+    public async Task MySql_cutover_lost_control_connection_cannot_commit() =>
+        await VerifyCutoverSessionLossAsync(DatabaseProvider.MySql, await SharedDatabaseFixture.CreateMySqlDatabaseAsync());
+
+    private static async Task VerifyCutoverSessionLossAsync(DatabaseProvider provider, string connectionString)
+    {
+        var gate = new CutoverAuditGate();
+        var options = new DatabaseOptions { Provider = provider, ConnectionString = connectionString, MySqlGuidStorageMode = MySqlGuidStorageMode.Binary16 };
+        await using var services = await EventDeliveryPilotTestSupport.BuildPilotServicesAsync(options, configureServices: registrations =>
+        {
+            registrations.RemoveAll<ITransactionalDomainAuditWriter<MessagingDomainAuditWrite>>();
+            registrations.AddScoped<MessagingDomainAuditWriter>();
+            registrations.AddScoped<ITransactionalDomainAuditWriter<MessagingDomainAuditWrite>>(scope =>
+                new GatedCutoverAudit(scope.GetRequiredService<MessagingDomainAuditWriter>(), gate));
+        });
+        await using var oldScope = EventDeliveryPilotTestSupport.CreateHostScope(services);
+        var request = new ChangeDeliveryOwnerRequest(EventDeliveryPilotTestSupport.PilotEventType,
+            EventDeliveryPilotTestSupport.PilotSchemaVersion, EventDeliveryOwner.CdcKafka, "real control connection loss");
+        gate.Armed = 1;
+        var oldOperation = oldScope.ServiceProvider.GetRequiredService<DeliveryCutoverService>().CutoverAsync(request);
+        try
+        {
+            await gate.Reached.Task.WaitAsync(TimeSpan.FromMinutes(2));
+            await using DbConnection db = provider == DatabaseProvider.SqlServer
+                ? new Microsoft.Data.SqlClient.SqlConnection(connectionString) : new MySqlConnector.MySqlConnection(connectionString);
+            await db.OpenAsync();
+            var id = provider == DatabaseProvider.SqlServer
+                ? await db.QuerySingleAsync<int>("SELECT request_session_id FROM sys.dm_tran_locks WHERE resource_type='APPLICATION' AND request_owner_type='SESSION' AND resource_database_id=DB_ID() AND resource_description LIKE '%messaging.delivery_control%'")
+                : await db.QuerySingleAsync<int>("SELECT IS_USED_LOCK('messaging.delivery_control')");
+            Assert.IsGreaterThan(0, id);
+            await db.ExecuteAsync("KILL " + id.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            await using var freshScope = EventDeliveryPilotTestSupport.CreateHostScope(services);
+            var fresh = await freshScope.ServiceProvider.GetRequiredService<DeliveryCutoverService>().CutoverAsync(request);
+            Assert.IsTrue(fresh.IsSuccess, fresh.Error?.Message);
+            gate.Release.TrySetResult();
+            Exception? error = null;
+            try { await oldOperation; } catch (Exception exception) { error = exception; }
+            Assert.IsNotNull(error, "失去控制连接的事务不得提交。");
+            Assert.AreEqual(1, await db.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM fn_messaging_domain_audit WHERE ActionKey='messaging.delivery.cutover'"));
+        }
+        finally { gate.Release.TrySetResult(); }
+    }
+
+    private sealed class CutoverAuditGate
+    {
+        internal int Armed;
+        internal TaskCompletionSource Reached { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        internal TaskCompletionSource Release { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+    }
+
+    private sealed class GatedCutoverAudit(MessagingDomainAuditWriter inner, CutoverAuditGate gate)
+        : ITransactionalDomainAuditWriter<MessagingDomainAuditWrite>
+    {
+        public async Task WriteAsync(MessagingDomainAuditWrite value, CancellationToken cancellationToken)
+        {
+            await inner.WriteAsync(value, cancellationToken);
+            if (value.ActionKey == MessagingDomainAuditActionKeys.DeliveryCutover && Interlocked.Exchange(ref gate.Armed, 0) == 1)
+            {
+                gate.Reached.TrySetResult();
+                await gate.Release.Task.WaitAsync(cancellationToken);
+            }
+        }
+    }
+
+    [TestMethod]
+    public async Task SqlServer_retired_connector_cannot_be_reused_by_another_stream() =>
+        await VerifyRetiredConnectorIsolationAsync(DatabaseProvider.SqlServer, await SharedDatabaseFixture.CreateSqlServerDatabaseAsync());
+
+    [TestMethod]
+    public async Task MySql_retired_connector_cannot_be_reused_by_another_stream() =>
+        await VerifyRetiredConnectorIsolationAsync(DatabaseProvider.MySql, await SharedDatabaseFixture.CreateMySqlDatabaseAsync());
+
+    private static async Task VerifyRetiredConnectorIsolationAsync(DatabaseProvider provider, string connectionString)
+    {
+        var options = new DatabaseOptions { Provider = provider, ConnectionString = connectionString, MySqlGuidStorageMode = MySqlGuidStorageMode.Binary16 };
+        await using var services = await EventDeliveryPilotTestSupport.BuildPilotServicesAsync(options);
+        await using var scope = EventDeliveryPilotTestSupport.CreateHostScope(services);
+        var store = scope.ServiceProvider.GetRequiredService<EventStreamOwnershipStore>();
+        var now = DateTimeOffset.UtcNow;
+        var oldBinding = EventDeliveryPilotTestSupport.TestDeliveryBinding() with { ActivationId = Guid.CreateVersion7() };
+        var old = new EventStreamOwnershipRecord("fullnet.messaging.retired.changed", 1, "modeled-retired-topic",
+            EventDeliveryOwner.LegacyPolling, EventDeliveryOwner.CdcKafka, Guid.CreateVersion7(), now, null, null,
+            "retired", null, now, now, now) { CdcKafkaBindingJson = oldBinding.ToJson() };
+        await store.UpsertAsync(old);
+        var cutover = scope.ServiceProvider.GetRequiredService<DeliveryCutoverService>();
+        var request = new ChangeDeliveryOwnerRequest(EventDeliveryPilotTestSupport.PilotEventType,
+            EventDeliveryPilotTestSupport.PilotSchemaVersion, EventDeliveryOwner.CdcKafka, "test retained resource ownership");
+        var denied = await cutover.CutoverAsync(request);
+        Assert.IsFalse(denied.IsSuccess);
+        Assert.AreEqual(MessagingErrorCodes.CutoverPreconditionFailed, denied.Error?.Code);
+        var isolated = oldBinding with { ConnectorName = "other-connector", TopicName = "other-topic",
+            ShadowConnectorName = "other-shadow", ShadowTopicName = "other-shadow-topic",
+            Topics = [new("other-topic", "other-topic-id", [new(0, 0, 0)])] };
+        await store.UpsertAsync(old with { PreviousOwner = EventDeliveryOwner.LegacyPolling, CdcKafkaBindingJson = isolated.ToJson() });
+        var accepted = await cutover.CutoverAsync(request);
+        Assert.IsTrue(accepted.IsSuccess, accepted.Error?.Message);
+    }
+
     [TestMethod]
     public async Task Cutover_is_disabled_by_default_until_environment_readiness_is_explicit()
     {

@@ -42,7 +42,7 @@ export interface RefreshOidcAccessTokenOptions {
 export interface RevokeOidcApplicationSessionOptions {
   apiBase: string;
   clientId: string;
-  accessToken?: string;
+  accessToken: string;
 }
 
 export interface RevokeOidcCenterSessionOptions {
@@ -219,7 +219,7 @@ export async function refreshOidcAccessToken(
   return mapOidcTokenExchangeResult(payload);
 }
 
-/** 撤销当前用户在指定 OIDC 客户端下的应用会话；需携带中心登录 Cookie。 */
+/** 撤销访问令牌绑定的当前应用会话；其他设备及永久同意保持独立。 */
 export async function revokeOidcApplicationSession(
   options: RevokeOidcApplicationSessionOptions
 ): Promise<boolean> {
@@ -230,9 +230,7 @@ export async function revokeOidcApplicationSession(
     headers: {
       accept: 'application/json',
       'content-type': 'application/json',
-      ...(options.accessToken === undefined
-        ? {}
-        : { authorization: `Bearer ${options.accessToken}` })
+      authorization: `Bearer ${options.accessToken}`
     },
     body: JSON.stringify({ clientId: options.clientId })
   });

@@ -21,6 +21,7 @@ public sealed class TenantQuotaReplayTests
     [DataRow(TenantQuotaReservationStatuses.Confirmed, true, 1L, true)]
     [DataRow(TenantQuotaReservationStatuses.Confirmed, false, 2L, false)]
     [DataRow(TenantQuotaReservationStatuses.Expired, false, 1L, false)]
+    [DataRow(TenantQuotaReservationStatuses.Cancelled, false, 1L, false)]
     public async Task Reserve_replay_requires_same_amount_and_usable_reservation(
         string status, bool expired, long amount, bool success)
     {
@@ -53,6 +54,20 @@ public sealed class TenantQuotaReplayTests
         Assert.AreEqual(success ? 0 : 1, fixture.Coordinator.RollbackCount);
     }
 
+    [TestMethod]
+    [DataRow(TenantQuotaReservationStatuses.Confirmed, true, 2)]
+    [DataRow(TenantQuotaReservationStatuses.Cancelled, true, 0)]
+    [DataRow(TenantQuotaReservationStatuses.Released, true, 0)]
+    [DataRow(TenantQuotaReservationStatuses.Expired, true, 0)]
+    [DataRow(TenantQuotaReservationStatuses.Reserved, false, 0)]
+    public async Task Cancel_consumption_replays_terminal_states_without_second_refund(string status, bool success, int writes)
+    {
+        var fixture = new Fixture(status, true);
+        var result = await fixture.Service.CancelConsumptionAsync(fixture.TenantId, TenantQuotaMetricCodes.IdentitySeats, "operation-1");
+        Assert.AreEqual(success, result.IsSuccess);
+        await fixture.Command.Received(writes).ExecuteAsync(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>());
+    }
+
     private sealed class Fixture
     {
         public readonly Guid TenantId = Guid.NewGuid();
@@ -74,7 +89,7 @@ public sealed class TenantQuotaReplayTests
                     "operation-1", 1, status, now.AddMinutes(expired ? -1 : 5), 1, metricId));
             query.QuerySingleOrDefaultAsync<TenantQuotaMetricRecord>(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>())
                 .Returns(new TenantQuotaMetricRecord(metricId, TenantId, TenantQuotaMetricCodes.IdentitySeats,
-                    TenantQuotaDefaults.PeriodKey, 10, 0, 1, 1));
+                    TenantQuotaDefaults.PeriodKey, 10, 1, 1, 1));
             Command.ExecuteAsync(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(1);
             Service = new TenantQuotaReservationService(query, Command, new DapperCommandTransaction(Coordinator), clock, ids);
         }

@@ -1,6 +1,8 @@
 # Messaging 运行时拓扑（当前真实状态）
 
-> 更新时间：2026-10-24；第一批在 `main / a77902afd8` 基线上实施，验收记录见 [实施计划](../superpowers/plans/2026-10-24-messaging-operations-batch1.md)。本文是 **Legacy Outbox + Shadow CDC + HybridKafka 试点** 的单一拓扑视图；容量认证与正式切流边界仍以 [`capability-status.md`](../roadmap/capability-status.md) 与 [`ADR-0006`](../architecture/adr/ADR-0006-transactional-outbox-cdc-kafka-event-delivery.md) 为准。
+> 更新时间：2026-10-29；第一批在 `main / a77902afd8` 基线上实施，验收记录见 [实施计划](../superpowers/plans/2026-10-24-messaging-operations-batch1.md)，本次连续整改见 [计划](../superpowers/plans/2026-10-28-messaging-reliability-continuation.md)。本文是 **Legacy Outbox + Shadow CDC + HybridKafka 试点** 的单一拓扑视图；容量认证与正式切流边界仍以 [`capability-status.md`](../roadmap/capability-status.md) 与 [`ADR-0006`](../architecture/adr/ADR-0006-transactional-outbox-cdc-kafka-event-delivery.md) 为准。
+
+最新控制拓扑：HybridKafka Worker仅在实际物理偏差时竞争原会话锁，重验当前激活/代次及不可变资源后重申目标，不写owner或清fence。Linux Native API/Worker完整Messaging故障链及默认预取1、显式预取8/低水位0/单槽1的每库60分钟长稳均双库2/2通过；正式/首个重试Topic自动TTL各双库2/2，原窗口过期后保留fence且禁止resume，不自动重认领当前Low。预取8短时5/10档及最终单帧10档另有独立输入，原默认1的10档失败保留。远端CAS、生产容量和独立物理故障域未认证，见[最新记录](../verification/2026-10-28-messaging-reliability-continuation.md#2026-10-30预取8长稳与自动ttl续办)。
 
 ## 生产当前语义（默认）
 
@@ -9,7 +11,7 @@
 | Worker 默认模式 | `LegacyPolling` |
 | 正式 Kafka Consumer | **关闭**（`HybridKafka` 仅在运维显式启用且流所有权为 `CdcKafka` 时参与 Inbox） |
 | 切流开关 | `Messaging:DeliveryCutover:Enabled=false`（默认） |
-| CDC/Kafka 能力状态 | `Build-verified / Pilot`；已增加持久恢复与切流证明，本地定向验证不等于真实双库 Debezium 演练，**不得据此正式切流** |
+| CDC/Kafka 能力状态 | `Build-verified / Pilot`；完整Messaging Native控制面/Worker CDC双库2/2、默认预取1的Native每库60分钟长稳2/2及显式预取8的5/10档短时测量2/2已通过，原告警/分片证据保留各自输入。容量仍为`Capacity-not-verified`，**不得据此正式切流**，详见[续办记录](../verification/2026-10-28-messaging-reliability-continuation.md#2026-10-30本机-native-双-worker-长稳与有界负载) |
 | 管理页数据来源 | 默认 Legacy `fn_outbox_message` 死信；Kafka 页签查询真实 `.dlq` 的数据库投影 `fn_messaging_dead_letter` |
 | API 回退读取器 | 默认失败关闭；API/Worker 共用独立控制面注册，显式启用才装配真实读取器 |
 | 容量 Runner | 工具 `Build-verified`；测量结果 **`Capacity-not-verified`** |
@@ -84,7 +86,7 @@ flowchart TB
 | Inbox 事务 + Handler 调度 | `BuildingBlocks/Full.NET.Modularity/Messaging` | `IntegrationEventConsumerDispatcher` |
 | 流所有权、切流/回退、双来源死信、Kafka 重放 API | `Modules/Full.NET.Modules.Messaging` | Legacy 走基础设施运维端口；模块拥有 DLQ 投影，API 不启动常驻 Consumer |
 | DLQ 投影 Worker | `BuildingBlocks/Full.NET.Messaging.Kafka` | 消费已登记订阅 Topic 的 `.dlq`，经模块端口持久化后提交 Offset |
-| 宿主 Messaging DI | `Hosts/Full.NET.Host.Api/HostApiServiceRegistration.cs`、`Hosts/Full.NET.Host.Worker/Program.cs` | API 只注册范围重放；Worker HybridKafka 注册完整 Kafka Provider |
+| 宿主 Messaging DI | `Hosts/Full.NET.Host.Api/HostApiServiceRegistration.cs`、`Hosts/Full.NET.Host.Worker/Program.cs` | API 注册范围重放和专用控制面，无常驻消费者；Worker HybridKafka 注册完整 Kafka Provider |
 | Legacy 轮询 Worker | `Hosts/Full.NET.Host.Worker/OutboxProcessor.cs` | **当前生产主路径** |
 | Shadow 比对 | `Hosts/Full.NET.Host.Worker/ShadowEventComparisonProcessor.cs` | 非切流 |
 | HybridKafka Consumer | `Hosts/Full.NET.Host.Worker` + `KafkaConsumerWorker` | 仅 `CdcKafka` 所有权流 |
@@ -100,7 +102,7 @@ flowchart TB
 | 模式 | Outbox 来源 | 到达 Kafka | 进入 Inbox | 生产默认 |
 | --- | --- | --- | --- | --- |
 | Legacy 轮询 | 业务事务写 Legacy 表 | 否（Worker 直读 Outbox） | 否（走 Legacy Handler） | **是** |
-| Shadow CDC | Legacy 业务交付仍走旧表；追加表影子数据需独立准备 | Debezium 影子 Topic | 否（仅比对） | 试点/验证 |
+| Shadow CDC | Legacy 业务交付仍走旧表；显式有界采集同事务写独立影子表 | Debezium 影子 Topic | 否（仅比对） | 试点/验证 |
 | HybridKafka | CDC 拥有权的流 | 是 | 是 | **否**（开关关闭） |
 | Capacity Runner | 专用 DB + 合成/Outbox | 是（Scope A/B/C） | Scope B/C 是 | **否**（手动/CI） |
 

@@ -1,4 +1,5 @@
 using Full.NET.Modules.Document.Security;
+using Full.NET.Modules.Document.Features.DocumentAccessLogs;
 using Full.NET.Abstractions.Results;
 using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Document.Contracts;
@@ -16,7 +17,8 @@ internal sealed class HostDocumentPreviewTaskQueryService(
     IMultiResultQueryExecutor multiResultQueryExecutor,
     IHostFileContentReader hostFileContentReader,
     IOptions<DatabaseOptions> databaseOptions,
-    IDocumentAccessPolicy accessPolicy)
+    IDocumentAccessPolicy accessPolicy,
+    DocumentAccessLogRecorder logs)
 {
     public async Task<Result<PagedResult<HostDocumentPreviewTaskResponse>>> ListAsync(
         int page,
@@ -62,7 +64,8 @@ internal sealed class HostDocumentPreviewTaskQueryService(
     {
         var task = await queryExecutor.QuerySingleOrDefaultAsync<DocumentPreviewTaskRecord>(
             DocumentPreviewTaskSql.FindById, DocumentSqlParameters.Create(("Id", taskId)), cancellationToken).ConfigureAwait(false);
-        if (task is not null && await accessPolicy.CheckAsync(task.DocumentItemId, DocumentOperation.Read, cancellationToken).ConfigureAwait(false) is { } error)
+        if (task is null) return Result<HostDocumentPreviewTaskResponse>.Failure(TaskNotFoundError());
+        if (await accessPolicy.CheckAsync(task.DocumentItemId, DocumentOperation.Read, cancellationToken).ConfigureAwait(false) is { } error)
             return Result<HostDocumentPreviewTaskResponse>.Failure(error);
         return await GetAuthorizedAsync(taskId, cancellationToken).ConfigureAwait(false);
     }
@@ -88,9 +91,29 @@ internal sealed class HostDocumentPreviewTaskQueryService(
     {
         var task = await queryExecutor.QuerySingleOrDefaultAsync<DocumentPreviewTaskRecord>(
             DocumentPreviewTaskSql.FindById, DocumentSqlParameters.Create(("Id", taskId)), cancellationToken).ConfigureAwait(false);
-        if (task is not null && await accessPolicy.CheckAsync(task.DocumentItemId, DocumentOperation.Read, cancellationToken).ConfigureAwait(false) is { } error)
+        if (task is null) return Result<HostFileContent>.Failure(TaskNotFoundError());
+        if (await accessPolicy.CheckAsync(task.DocumentItemId, DocumentOperation.Read, cancellationToken).ConfigureAwait(false) is { } error)
             return Result<HostFileContent>.Failure(error);
-        return await OpenOutputContentAuthorizedAsync(taskId, cancellationToken).ConfigureAwait(false);
+        // 状态判断和打开文件使用同一已授权快照，避免完成竞态把旧空输出与新结果比较成 404。
+        var content = await OpenOutputSnapshotAsync(task, cancellationToken).ConfigureAwait(false);
+        if (!content.IsSuccess) return content;
+        var transferred = false;
+        try
+        {
+            if (await accessPolicy.CheckAsync(task.DocumentItemId, DocumentOperation.Read, cancellationToken).ConfigureAwait(false) is { } denied)
+                return Result<HostFileContent>.Failure(denied);
+            var item = await queryExecutor.QuerySingleOrDefaultAsync<DocumentItemDetailRecord>(DocumentItemSql.FindActiveById,
+                DocumentSqlParameters.Create(("Id", task.DocumentItemId)), cancellationToken).ConfigureAwait(false);
+            var current = await queryExecutor.QuerySingleOrDefaultAsync<DocumentPreviewTaskRecord>(DocumentPreviewTaskSql.FindById,
+                DocumentSqlParameters.Create(("Id", taskId)), cancellationToken).ConfigureAwait(false);
+            if (item is null || current?.StatusKey != HostDocumentPreviewTaskStatusKeys.Succeeded || current.OutputFileId != task.OutputFileId)
+                return Result<HostFileContent>.Failure(TaskNotFoundError());
+            await logs.RecordAsync(task.DocumentItemId, task.DocumentTitle, HostDocumentAccessTypeKeys.Preview,
+                HostDocumentAccessSourceKeys.Authenticated, accessPolicy.ActorUserId, null, cancellationToken, taskId).ConfigureAwait(false);
+            transferred = true;
+            return content;
+        }
+        finally { if (!transferred) await content.Value!.Content.DisposeAsync().ConfigureAwait(false); }
     }
 
     internal async Task<Result<HostFileContent>> OpenOutputContentAuthorizedAsync(
@@ -108,19 +131,23 @@ internal sealed class HostDocumentPreviewTaskQueryService(
             return Result<HostFileContent>.Failure(TaskNotFoundError());
         }
 
+        return await OpenOutputSnapshotAsync(record, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>只有已成功的固定输出快照可以打开；未就绪返回稳定业务错误，不能混用两次读取的字段。</summary>
+    private Task<Result<HostFileContent>> OpenOutputSnapshotAsync(DocumentPreviewTaskRecord record, CancellationToken cancellationToken)
+    {
         if (!string.Equals(record.StatusKey, HostDocumentPreviewTaskStatusKeys.Succeeded, StringComparison.Ordinal)
             || record.OutputFileId is null)
         {
-            return Result<HostFileContent>.Failure(
+            return Task.FromResult(Result<HostFileContent>.Failure(
                 new Error(
                     DocumentErrorCodes.PreviewTaskNotReady,
                     "Document preview task output is not ready.",
-                    ErrorType.BusinessRule));
+                    ErrorType.BusinessRule)));
         }
 
-        return await hostFileContentReader
-            .OpenReadyContentAsync(record.OutputFileId.Value, cancellationToken)
-            .ConfigureAwait(false);
+        return hostFileContentReader.OpenReadyContentAsync(record.OutputFileId.Value, cancellationToken);
     }
 
     private static Error TaskNotFoundError() =>

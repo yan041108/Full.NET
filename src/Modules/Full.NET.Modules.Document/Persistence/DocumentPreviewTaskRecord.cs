@@ -34,4 +34,12 @@ internal sealed class DocumentPreviewTaskRecord
     public DateTimeOffset? CompletedAtUtc { get; init; }
 
     public long Version { get; init; }
+    /// <summary>源与输出意图在任务创建时固定，人工重试使用新任务和新意图。</summary>
+    public Guid? SourceReferenceId { get; init; }
+    public Guid? OutputReferenceId { get; init; }
+    public Guid? OutputOwnerId { get; init; }
+    public int AttemptCount { get; init; }
+    public DateTimeOffset? NextAttemptAtUtc { get; init; }
+    /// <summary>持久化领取时的租约截止，配置热更新不得提前回收在途资源。</summary>
+    public DateTimeOffset? LeaseExpiresAtUtc { get; init; }
 }

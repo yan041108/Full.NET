@@ -3,6 +3,7 @@ using Full.NET.Modules.CodeGeneration.Contracts;
 using Full.NET.Modules.CodeGeneration.Git;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
+using Full.NET.Data.CodeGeneration.Generation;
 
 namespace Full.NET.UnitTests.CodeGeneration;
 
@@ -29,13 +30,18 @@ public sealed class CodeGenerationGitWorkspaceServiceTests
     }
 
     [TestMethod]
-    public async Task Synchronize_runs_fetch_and_reset_when_repository_exists()
+    public async Task Synchronize_inspects_the_working_branch_without_resetting_it()
     {
         using var workspace = new TemporaryDirectory();
         Directory.CreateDirectory(Path.Combine(workspace.Path, ".git"));
         var runner = new RecordingGitCommandRunner();
+        const string sha = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+        runner.Enqueue(new(0, "codex/test\n", ""));
         runner.Enqueue(GitCommandResultTestExtensions.Success());
         runner.Enqueue(GitCommandResultTestExtensions.Success());
+        runner.Enqueue(new(0, sha + "\n", ""));
+        runner.Enqueue(GitCommandResultTestExtensions.Success());
+        runner.Enqueue(new(0, sha + "\trefs/heads/codex/test\n", ""));
         var service = CreateService(
             workspace.Path,
             runner,
@@ -45,17 +51,15 @@ public sealed class CodeGenerationGitWorkspaceServiceTests
         var error = await service.SynchronizeAsync(CancellationToken.None);
 
         Assert.IsNull(error);
-        Assert.AreEqual(2, runner.Invocations.Count);
+        Assert.AreEqual(6, runner.Invocations.Count);
         CollectionAssert.AreEqual(
-            new[] { "fetch", "origin", "main" },
-            runner.Invocations[0].Arguments.ToArray());
-        CollectionAssert.AreEqual(
-            new[] { "reset", "--hard", "origin/main" },
-            runner.Invocations[1].Arguments.ToArray());
+            new[] { "fetch", "origin" },
+            runner.Invocations[4].Arguments.ToArray());
+        Assert.IsFalse(runner.Invocations.Any(invocation => invocation.Arguments.Contains("reset")));
     }
 
     [TestMethod]
-    public async Task Publish_skips_when_push_disabled()
+    public async Task Publish_skips_when_git_is_disabled()
     {
         using var workspace = new TemporaryDirectory();
         Directory.CreateDirectory(Path.Combine(workspace.Path, ".git"));
@@ -63,10 +67,11 @@ public sealed class CodeGenerationGitWorkspaceServiceTests
         var service = CreateService(
             workspace.Path,
             runner,
-            enabled: true,
+            enabled: false,
             pushEnabled: false);
 
-        await service.PublishAsync("codegen(apply): test", CancellationToken.None);
+        await service.PublishAsync(Guid.NewGuid(), "codegen(apply): test",
+            GenerationWritePlanner.Plan([], new Dictionary<string, string>()), CancellationToken.None);
 
         Assert.AreEqual(0, runner.Invocations.Count);
     }
@@ -81,6 +86,7 @@ public sealed class CodeGenerationGitWorkspaceServiceTests
             {
                 Enabled = enabled,
                 PushEnabled = pushEnabled,
+                WorkingBranch = "codex/test",
                 AuthorName = "Full.NET",
                 AuthorEmail = "codegen@fullnet.local",
             }),

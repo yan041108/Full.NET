@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onBeforeUnmount } from 'vue';
+import { ref, onBeforeUnmount, computed } from 'vue';
 import { reactive, watch } from 'vue';
 import type {
   WorkflowFieldPolicy,
@@ -9,6 +9,7 @@ import type {
   WorkflowSubtableColumnDefinition
 } from '@fullnet/client-contracts';
 import {
+  isFullNetProblemDetails,
   readSubtableRows,
   readWorkflowSubtableConstraints
 } from '@fullnet/client-contracts';
@@ -19,6 +20,7 @@ import {
   openWorkflowFormAttachmentBlob,
   uploadWorkflowFormAttachment
 } from './workflow-form-attachments';
+import type { WorkflowAttachmentUploadContext } from './workflow-form-attachments';
 
 const props = defineProps<{
   schema: WorkflowFormSchema;
@@ -26,10 +28,14 @@ const props = defineProps<{
   fieldPolicies: Readonly<Record<string, WorkflowFieldPolicy>>;
   instanceId?: string;
   todoId?: string;
+  uploadContext?: WorkflowAttachmentUploadContext;
+  canUploadAttachments?: boolean;
+  attachmentNames?: Readonly<Record<string, string>> | null;
 }>();
 
 const emit = defineEmits<{
   'update:patch': [patch: WorkflowSubmission];
+  'authorization-lost': [];
 }>();
 
 const { t } = useAdminI18n();
@@ -39,12 +45,20 @@ const uploadingFieldKey = ref<string>();
 const attachmentError = ref<string>();
 let downloadEpoch = 0;
 let downloadController: AbortController | undefined;
+let uploadEpoch = 0;
+let uploadController: AbortController | undefined;
+const attachmentNames = reactive<Record<string, string>>({});
+function attachmentName(fileId: string): string | undefined { return attachmentNames[fileId] ?? props.attachmentNames?.[fileId]; }
+const canUpload = computed(() => props.canUploadAttachments === true && props.uploadContext !== undefined);
+function cancelUpload(): void { uploadEpoch++; uploadController?.abort(); uploadingFieldKey.value = undefined; }
+watch(() => JSON.stringify([props.uploadContext, props.canUploadAttachments]), () => { cancelUpload(); replaceRecord(attachmentNames, {}); });
 watch(() => [props.todoId, props.instanceId], () => { downloadEpoch++; downloadController?.abort(); });
-onBeforeUnmount(() => { downloadEpoch++; downloadController?.abort(); });
+onBeforeUnmount(() => { cancelUpload(); downloadEpoch++; downloadController?.abort(); });
 
 watch(
   () => props.submission,
   submission => {
+    cancelUpload();
     replaceRecord(values, submission);
     replaceRecord(patch, {});
     attachmentError.value = undefined;
@@ -159,8 +173,34 @@ function stringArrayValue(fieldKey: string): string[] {
     : [];
 }
 
+/** 只复用本次待办已投影且当前可见的输入；能力Id原样提交，最终字段和授权仍由服务端核对。 */
+function reusableAttachments(field: WorkflowFormField): Array<{ fileId: string; sourceField: string }> {
+  if (props.todoId === undefined || isReadOnly(field) || policyFor(field) === 'hidden') return [];
+  const seen = new Set(stringArrayValue(field.fieldKey));
+  const choices: Array<{ fileId: string; sourceField: string }> = [];
+  for (const source of props.schema.sections.flatMap(section => section.fields)) {
+    if (source.fieldTypeKey !== 'attachment' || source.fieldKey === field.fieldKey || policyFor(source) === 'hidden') continue;
+    const files = props.submission[source.fieldKey];
+    if (!Array.isArray(files)) continue;
+    for (const fileId of files) {
+      if (typeof fileId !== 'string' || seen.has(fileId)) continue;
+      seen.add(fileId); choices.push({ fileId, sourceField: source.fieldKey });
+    }
+  }
+  return choices;
+}
+
+function reuseAttachment(field: WorkflowFormField, fileId: string): void {
+  if (uploadingFieldKey.value !== undefined || !reusableAttachments(field).some(item => item.fileId === fileId)) return;
+  const current = stringArrayValue(field.fieldKey);
+  if (current.length >= attachmentMaxCount(field)) {
+    attachmentError.value = t('workflowForms.attachment.maxCountReached'); return;
+  }
+  updateValue(field, [...current, fileId]);
+}
+
 async function onAttachmentSelected(field: WorkflowFormField, event: Event): Promise<void> {
-  if (isReadOnly(field)) {
+  if (isReadOnly(field) || !canUpload.value || uploadingFieldKey.value !== undefined) {
     return;
   }
 
@@ -187,13 +227,18 @@ async function onAttachmentSelected(field: WorkflowFormField, event: Event): Pro
 
   uploadingFieldKey.value = field.fieldKey;
   attachmentError.value = undefined;
+  uploadController?.abort(); uploadController = new AbortController(); const epoch = ++uploadEpoch;
   try {
-    const fileId = await uploadWorkflowFormAttachment(file);
-    updateValue(field, [...current, fileId]);
-  } catch {
+    const uploaded = await uploadWorkflowFormAttachment(file, field.fieldKey, props.uploadContext!, uploadController.signal);
+    if (epoch !== uploadEpoch) return;
+    attachmentNames[uploaded.fileId] = uploaded.originalFileName;
+    updateValue(field, [...current, uploaded.fileId]);
+  } catch (error) {
+    if (epoch !== uploadEpoch) return;
     attachmentError.value = t('workflowForms.attachment.uploadFailed');
+    if (isFullNetProblemDetails(error) && [401, 403, 404].includes(error.status ?? 0)) emit('authorization-lost');
   } finally {
-    uploadingFieldKey.value = undefined;
+    if (epoch === uploadEpoch) uploadingFieldKey.value = undefined;
   }
 }
 
@@ -214,10 +259,11 @@ async function openAttachment(fileId: string): Promise<void> {
     const blob = props.todoId !== undefined ? await downloadWorkflowTodoFormAttachment(props.todoId, fileId, downloadController.signal)
       : await downloadWorkflowFormAttachment(props.instanceId!, fileId, downloadController.signal);
     if (epoch !== downloadEpoch) return;
-    openWorkflowFormAttachmentBlob(blob);
-  } catch {
+    openWorkflowFormAttachmentBlob(blob, attachmentName(fileId));
+  } catch (error) {
     if (epoch !== downloadEpoch) return;
     attachmentError.value = t('workflowForms.attachment.downloadFailed');
+    if (isFullNetProblemDetails(error) && [401, 403, 404].includes(error.status ?? 0)) emit('authorization-lost');
   }
 }
 
@@ -354,8 +400,11 @@ function replaceRecord(target: Record<string, unknown>, source: WorkflowSubmissi
       <h3 class="workflow-form__section-title" translate="no">{{ section.sectionKey }}</h3>
 
       <template v-for="field in section.fields" :key="field.fieldKey">
-        <label
+        <component
           v-if="policyFor(field) !== 'hidden'"
+          :is="field.fieldTypeKey === 'attachment' || field.fieldTypeKey === 'subtable' ? 'div' : 'label'"
+          :role="field.fieldTypeKey === 'attachment' || field.fieldTypeKey === 'subtable' ? 'group' : undefined"
+          :aria-label="field.fieldTypeKey === 'attachment' || field.fieldTypeKey === 'subtable' ? field.fieldKey : undefined"
           class="workflow-form__field"
           :data-field-key="field.fieldKey"
         >
@@ -492,7 +541,7 @@ function replaceRecord(target: Record<string, unknown>, source: WorkflowSubmissi
                   :disabled="todoId === undefined && instanceId === undefined"
                   @click="openAttachment(fileId)"
                 >
-                  {{ fileId }}
+                  {{ attachmentName(fileId) ?? fileId }}
                 </button>
                 <button
                   v-if="!isReadOnly(field)"
@@ -506,12 +555,25 @@ function replaceRecord(target: Record<string, unknown>, source: WorkflowSubmissi
             </ul>
 
             <input
-              v-if="!isReadOnly(field)"
+              v-if="!isReadOnly(field) && canUpload"
               type="file"
+              :aria-label="field.fieldKey"
               :accept="attachmentExtensions(field).map(item => `.${item}`).join(',')"
-              :disabled="uploadingFieldKey === field.fieldKey"
+              :disabled="uploadingFieldKey !== undefined"
               @change="onAttachmentSelected(field, $event)"
             />
+            <div v-if="reusableAttachments(field).length > 0" class="workflow-form__attachment-reuse">
+              <span>{{ t('workflowForms.attachment.reuseVisible') }}</span>
+              <button
+                v-for="candidate in reusableAttachments(field)"
+                :key="candidate.fileId"
+                type="button"
+                class="workflow-form__attachment-link"
+                :data-reuse-file-id="candidate.fileId"
+                :disabled="uploadingFieldKey !== undefined || stringArrayValue(field.fieldKey).length >= attachmentMaxCount(field)"
+                @click="reuseAttachment(field, candidate.fileId)"
+              >{{ candidate.sourceField }} · {{ attachmentName(candidate.fileId) ?? candidate.fileId }}</button>
+            </div>
             <span v-if="uploadingFieldKey === field.fieldKey" class="workflow-form__hint">
               {{ t('workflowForms.attachment.uploading') }}
             </span>
@@ -590,7 +652,7 @@ function replaceRecord(target: Record<string, unknown>, source: WorkflowSubmissi
             :step="field.fieldTypeKey === 'datetime' ? 1 : undefined"
             @input="updateValue(field, ($event.target as HTMLInputElement).value)"
           />
-        </label>
+        </component>
       </template>
     </section>
   </div>
@@ -625,6 +687,7 @@ function replaceRecord(target: Record<string, unknown>, source: WorkflowSubmissi
 
 .workflow-form__field {
   display: grid;
+  min-width: 0;
   gap: 0.4rem;
 }
 
@@ -661,7 +724,22 @@ function replaceRecord(target: Record<string, unknown>, source: WorkflowSubmissi
 
 .workflow-form__attachments {
   display: grid;
+  min-width: 0;
   gap: 0.5rem;
+}
+
+.workflow-form__attachments input[type='file'] {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.workflow-form__attachment-reuse {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.35rem;
+  min-width: 0;
 }
 
 .workflow-form__attachment-list {
@@ -678,7 +756,12 @@ function replaceRecord(target: Record<string, unknown>, source: WorkflowSubmissi
   color: var(--el-color-primary);
   cursor: pointer;
   font: inherit;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  text-align: start;
 }
+
+.workflow-form__attachment-link:disabled { color: var(--el-text-color-disabled); cursor: default; }
 
 .workflow-form__attachment-remove {
   margin-left: 0.5rem;

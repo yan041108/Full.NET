@@ -34,6 +34,7 @@ internal sealed class ImportExportTaskRunner(
     ICommandTransaction transaction,
     ITenantResourceFileStore resourceFiles,
     StaticImportSchemaRegistry registry,
+    ImportTaskAuthority authority,
     IActiveTenantContextResolver tenantResolver,
     ICurrentTenantContextWriter currentTenant,
     IClock clock,
@@ -177,6 +178,12 @@ internal sealed class ImportExportTaskRunner(
                 return;
             }
 
+            var permission = await authority.ValidateStoredAsync(task, cancellationToken).ConfigureAwait(false);
+            if (!permission.IsSuccess)
+            {
+                await MarkExecutionFailedAsync(task, lease, permission.Error!.Code, clock.UtcNow, cancellationToken).ConfigureAwait(false);
+                return;
+            }
             var sourceResult = await resourceFiles
                 .OpenReadyContentAsync("import_export", task.Id, task.SourceFileId, cancellationToken)
                 .ConfigureAwait(false);
@@ -201,6 +208,7 @@ internal sealed class ImportExportTaskRunner(
                 ?? new Dictionary<string, bool>(StringComparer.Ordinal))
             {
                 TaskId = task.Id, SourceFileId = task.SourceFileId, PreparedPlanJson = executionState.PreparedPlanJson,
+                ColumnMapping = permission.Value!.ColumnMapping, SessionBinding = permission.Value.Binding,
             };
             Result<StaticImportBatchExecutionResult> batchResult;
             try
@@ -235,6 +243,14 @@ internal sealed class ImportExportTaskRunner(
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
             // 宿主取消不能写成失败；租约到期后由其他实例从检查点重领。
+        }
+        catch (StaticImportHeaderMappingException)
+        {
+            await MarkExecutionFailedAsync(task, lease, ImportColumnMappingErrorCodes.Invalid, clock.UtcNow, cancellationToken).ConfigureAwait(false);
+        }
+        catch (InvalidDataException)
+        {
+            await MarkExecutionFailedAsync(task, lease, ImportExportErrorCodes.FileInvalid, clock.UtcNow, cancellationToken).ConfigureAwait(false);
         }
         catch (Exception)
         {

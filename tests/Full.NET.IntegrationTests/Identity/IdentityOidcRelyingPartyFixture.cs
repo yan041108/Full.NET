@@ -47,7 +47,8 @@ internal static class IdentityOidcRelyingPartyFixture
         string? wrongCodeVerifier = null,
         string? wrongRedirectUri = null,
         string? scopes = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        string? resource = null)
     {
         var pending = await BeginAuthorizationCodeFlowAsync(
             client,
@@ -57,7 +58,7 @@ internal static class IdentityOidcRelyingPartyFixture
             password,
             requestOfflineAccess,
             scopes,
-            cancellationToken).ConfigureAwait(false);
+            cancellationToken, resource).ConfigureAwait(false);
         return await ExchangeAuthorizationCodeAsync(
             client,
             pending.Code,
@@ -68,7 +69,7 @@ internal static class IdentityOidcRelyingPartyFixture
             wrongCodeVerifier,
             pending.Nonce,
             wrongRedirectUri,
-            cancellationToken).ConfigureAwait(false);
+            cancellationToken, resource).ConfigureAwait(false);
     }
 
     public static async Task<IdentityOidcAuthorizationCodePending> BeginAuthorizationCodeFlowAsync(
@@ -79,7 +80,8 @@ internal static class IdentityOidcRelyingPartyFixture
         string password,
         bool requestOfflineAccess,
         string? scopes = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        string? resource = null)
     {
         var state = Guid.NewGuid().ToString("N");
         var nonce = Guid.NewGuid().ToString("N");
@@ -94,12 +96,26 @@ internal static class IdentityOidcRelyingPartyFixture
             + $"&nonce={Uri.EscapeDataString(nonce)}"
             + $"&code_challenge={Uri.EscapeDataString(challenge)}"
             + "&code_challenge_method=S256";
+        if (resource is not null) authorizeUrl += $"&resource={Uri.EscapeDataString(resource)}";
         using var authorizeGet = await client.GetAsync(authorizeUrl, cancellationToken)
             .ConfigureAwait(false);
+        var authorizationError = "";
+        if (!authorizeGet.IsSuccessStatusCode && authorizeGet.StatusCode != HttpStatusCode.Redirect)
+        {
+            var failure = await authorizeGet.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+            try
+            {
+                using var errorDocument = JsonDocument.Parse(failure);
+                if (errorDocument.RootElement.TryGetProperty("error", out var error)) authorizationError = error.GetString() ?? "";
+                else if (errorDocument.RootElement.TryGetProperty("detail", out var detail)) authorizationError = detail.GetString() ?? "";
+                else if (errorDocument.RootElement.TryGetProperty("title", out var title)) authorizationError = title.GetString() ?? "";
+            }
+            catch (JsonException) { authorizationError = "non-json error response"; }
+        }
         Assert.IsTrue(
             authorizeGet.StatusCode is HttpStatusCode.OK or HttpStatusCode.Redirect
                 or HttpStatusCode.Found or HttpStatusCode.SeeOther,
-            $"Authorize GET returned {authorizeGet.StatusCode}.");
+            $"Authorize GET returned {authorizeGet.StatusCode}: {authorizationError}.");
 
         string? code;
         if (authorizeGet.Headers.Location is not null)
@@ -116,15 +132,17 @@ internal static class IdentityOidcRelyingPartyFixture
             var tokenEnd = loginPage.IndexOf('"', tokenStart);
             var antiforgeryToken = WebUtility.HtmlDecode(loginPage[tokenStart..tokenEnd]);
             // 使用真实防伪服务证明跨站可构造的裸表单不能进入中心凭据处理。
-            using (var forgedResponse = await client.PostAsync("/connect/authorize",
-                new FormUrlEncodedContent(new Dictionary<string, string>
+            var forgedFields = new Dictionary<string, string>
                 {
                     ["client_id"] = clientId, ["redirect_uri"] = redirectUri,
                     ["response_type"] = "code", ["scope"] = scopes,
                     ["state"] = state, ["nonce"] = nonce,
                     ["code_challenge"] = challenge, ["code_challenge_method"] = "S256",
                     ["username"] = username, ["password"] = password,
-                }), cancellationToken).ConfigureAwait(false))
+                };
+            if (resource is not null) forgedFields["resource"] = resource;
+            using (var forgedResponse = await client.PostAsync("/connect/authorize",
+                new FormUrlEncodedContent(forgedFields), cancellationToken).ConfigureAwait(false))
             {
                 Assert.AreEqual(HttpStatusCode.BadRequest, forgedResponse.StatusCode,
                     "缺少防伪令牌的凭据表单必须拒绝，不能颁发授权码。");
@@ -147,6 +165,13 @@ internal static class IdentityOidcRelyingPartyFixture
                     ["__RequestVerificationToken"] = antiforgeryToken,
                 }),
             };
+            if (resource is not null || loginPage.Contains("name=\"consent\" value=\"accept\"", StringComparison.Ordinal))
+            {
+                // 真实第三方交互显式点击允许，不把测试夹具的登录等同于服务器自动授权。
+                var submitted = new Dictionary<string, string>(IdentityBrowserTestSupport.Hidden(loginPage))
+                { ["username"] = username, ["password"] = password, ["consent"] = "accept" };
+                authorizePost.Content = new FormUrlEncodedContent(submitted);
+            }
             using var authorizePostResponse = await client.SendAsync(
                     authorizePost,
                     cancellationToken)
@@ -175,7 +200,8 @@ internal static class IdentityOidcRelyingPartyFixture
         string? wrongCodeVerifier = null,
         string? expectedNonce = null,
         string? wrongRedirectUri = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        string? resource = null)
     {
         var tokenRequest = new Dictionary<string, string>
         {
@@ -189,6 +215,7 @@ internal static class IdentityOidcRelyingPartyFixture
         {
             tokenRequest["client_secret"] = clientSecret!;
         }
+        if (resource is not null) tokenRequest["resource"] = resource;
 
         using var tokenResponse = await client.PostAsync(
                 "/connect/token",

@@ -22,6 +22,8 @@
     "schema.history.internal.kafka.bootstrap.servers": "${FULLNET_KAFKA_BOOTSTRAP_SERVERS}",
     "schema.history.internal.kafka.topic.replication.factor": "1",
     "topic.heartbeat.prefix": "fullnet.dev.shadow.internal.heartbeat.sqlserver",
+    "heartbeat.interval.ms": "1000",
+    "heartbeat.action.query": "UPDATE dbo.fn_messaging_cdc_heartbeat SET UpdatedAtUtc = SYSUTCDATETIME() WHERE Id = '01941f29-7c00-7000-8000-000000000001'",
     "transforms": "outbox",
     "transforms.outbox.type": "io.debezium.transforms.outbox.EventRouter",
     "transforms.outbox.table.field.event.id": "Id",

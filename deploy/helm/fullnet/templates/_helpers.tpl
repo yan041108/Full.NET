@@ -63,6 +63,9 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end -}}
 
 {{- define "fullnet.validate" -}}
+{{- if lt (.Values.worker.messaging.cdcMonitoring.maximumSampleAgeSeconds | int) (add (.Values.worker.messaging.cdcMonitoring.pollSeconds | int) (.Values.worker.messaging.cdcMonitoring.sampleTimeoutSeconds | int)) -}}
+  {{- fail "CDC monitoring maximumSampleAgeSeconds must cover pollSeconds plus sampleTimeoutSeconds." -}}
+{{- end -}}
 {{- $roleCount := include "fullnet.roleCount" . | int -}}
 {{- if ne (gt (.Values.logging.indexRouteVersion | int) 0) (gt (.Values.logging.indexRetentionDays | int) 0) -}}
   {{- fail "logging.indexRouteVersion and logging.indexRetentionDays must be configured together." -}}
@@ -211,7 +214,10 @@ app.kubernetes.io/instance: {{ .Release.Name }}
   {{- end -}}
 {{- end -}}
 
-{{- $codegenEnabled := or .Values.codeGeneration.apply.enabled (and .Values.production .Values.codeGeneration.apply.enabledWhenProduction) -}}
+{{- $codegenEnabled := .Values.codeGeneration.apply.enabled -}}
+{{- if and .Values.roles.api .Values.codeGeneration.artifacts.enabled (empty .Values.codeGeneration.artifacts.existingClaimName) -}}
+  {{- fail "CodeGeneration archives require codeGeneration.artifacts.existingClaimName with shared durable storage and consistent file leases." -}}
+{{- end -}}
 {{- if and $codegenEnabled (or .Values.roles.api .Values.roles.worker) -}}
   {{- if and (eq .Values.codeGeneration.workspace.existingClaimName "") (not .Values.codeGeneration.workspace.persistence.create) -}}
     {{- fail "CodeGeneration Apply requires codeGeneration.workspace.existingClaimName or workspace.persistence.create with storageClassVerifiedRwxSnapshotBackup=true." -}}
@@ -231,7 +237,7 @@ true
 {{- end -}}
 
 {{- define "fullnet.codeGenerationApplyEnabled" -}}
-{{- if .Values.codeGeneration.apply.enabled -}}true{{- else if and .Values.production .Values.codeGeneration.apply.enabledWhenProduction -}}true{{- else -}}false{{- end -}}
+{{- if .Values.codeGeneration.apply.enabled -}}true{{- else -}}false{{- end -}}
 {{- end -}}
 
 {{- define "fullnet.codeGenerationWorkspaceClaimName" -}}

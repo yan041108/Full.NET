@@ -48,7 +48,7 @@ internal sealed class AiKnowledgeCleanupWorkerCoordinator(IQueryExecutor query, 
                 Guard(token);
                 try
                 {
-                    if (row.Id == Guid.Empty || row.Kind is < 0 or > 2 || (row.Kind == 2 && !configuration.RetiredGenerationCleanupEnabled) || row.KnowledgeBaseId == Guid.Empty
+                    if (row.Id == Guid.Empty || row.Kind is < 0 or > 3 || (row.Kind == 2 && !configuration.RetiredGenerationCleanupEnabled) || row.KnowledgeBaseId == Guid.Empty
                         || row.DocumentId == Guid.Empty || row.OwnerUserId == Guid.Empty || row.TenantId == Guid.Empty) continue;
                     // 每项独立恢复范围，不捕获父请求的身份或 DbSession；超时后让下一项得到处理机会。
                     using var deadline = CancellationTokenSource.CreateLinkedTokenSource(token);
@@ -65,9 +65,12 @@ internal sealed class AiKnowledgeCleanupWorkerCoordinator(IQueryExecutor query, 
                     else if (row.Kind == 1)
                         _ = await services.GetRequiredService<AiKnowledgeImportCoordinator>()
                             .RetryAsync(row.KnowledgeBaseId, row.DocumentId, row.Id, row.OwnerUserId, deadline.Token).ConfigureAwait(false);
-                    else
+                    else if (row.Kind == 2)
                         await services.GetRequiredService<AiKnowledgeIndexCleanupStore>()
                             .CleanupRetiredTaskAsync(row.KnowledgeBaseId, row.DocumentId, row.OwnerUserId, row.Id, retiredBefore, deadline.Token).ConfigureAwait(false);
+                    else
+                        await services.GetRequiredService<AiKnowledgeCorrectionCleanupStore>()
+                            .CleanupSourceAsync(row.KnowledgeBaseId, row.DocumentId, row.OwnerUserId, row.Id, deadline.Token).ConfigureAwait(false);
                     Guard(deadline.Token, services.GetRequiredService<IDataTransactionState>());
                 }
                 catch (OperationCanceledException) when (token.IsCancellationRequested) { throw; }
@@ -78,7 +81,7 @@ internal sealed class AiKnowledgeCleanupWorkerCoordinator(IQueryExecutor query, 
                     AiFailureLog.Write(logger, LogLevel.Warning, row.Kind switch
                     {
                         0 => AiFailureStage.KnowledgeCleanupIndex, 1 => AiFailureStage.KnowledgeCleanupImport,
-                        _ => AiFailureStage.KnowledgeCleanupRetired,
+                        2 => AiFailureStage.KnowledgeCleanupRetired, _ => AiFailureStage.KnowledgeCleanupCorrection,
                     }, exception, row.Id);
                 }
                 finally

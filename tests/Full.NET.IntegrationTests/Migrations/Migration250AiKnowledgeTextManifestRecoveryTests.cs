@@ -23,7 +23,7 @@ public sealed class Migration250AiKnowledgeTextManifestRecoveryTests
         Replay(sqlServer, connectionString);
         await using var db = Migration246AiKnowledgeIndexTaskRecoveryTests.Connection(sqlServer, connectionString);
         var p = await Migration246AiKnowledgeIndexTaskRecoveryTests.SeedAsync(db);
-        Assert.AreEqual(1, await db.ExecuteAsync(Full.NET.Modules.Ai.Persistence.AiKnowledgeIndexTaskSql.EnqueueHost.Text, p));
+        Assert.AreEqual(1, await db.ExecuteAsync(Full.NET.Modules.Ai.Persistence.AiKnowledgeIndexTaskSql.EnqueueHost.AutomaticSql(), p));
         // 恢复测试保存合成字节；真实清单编解码和消费由 Unit 与 Ai 双库路径分别验证。
         byte[] bytes = Enumerable.Range(0, 32).Select(n => (byte)n).ToArray();
         p["Payload"] = bytes; p["PayloadHash"] = Convert.ToHexString(SHA256.HashData(bytes));

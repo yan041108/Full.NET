@@ -47,7 +47,7 @@ internal static class AiPromptCreationRaceAssertions
                 });
                 var outer = new AiAgentRunManagementService(services.GetRequiredService<AiAgentRunStore>(), services.GetRequiredService<AiAgentRunReadiness>(),
                     services.GetRequiredService<AiAgentRunApprovalGate>(), services.GetRequiredService<AiModelConfigQueryService>(), services.GetRequiredService<IBackgroundSessionBindingValidator>(),
-                    services.GetRequiredService<AiPromptRunResolver>(), hook, services.GetRequiredService<ICurrentTenant>(), services.GetRequiredService<IClock>(), services.GetRequiredService<IIdGenerator>(), services.GetRequiredService<IOptions<AiAgentRuntimeOptions>>(), services.GetRequiredService<ICommandTransaction>());
+                    services.GetRequiredService<AiPromptRunResolver>(), hook, services.GetRequiredService<ICurrentTenant>(), services.GetRequiredService<IClock>(), services.GetRequiredService<IIdGenerator>(), services.GetRequiredService<IOptions<AiAgentRuntimeOptions>>(), services.GetRequiredService<ICommandTransaction>(), services.GetRequiredService<AiWorkflowTargetAdmission>());
                 // 外层已查过幂等键并完成预留，内层插入赢家；保证每次都生成且结算一个真实孤立预算。
                 var loserRequest = scenario == "unpriced_replay" ? request : request with { PromptVersionId = request.PromptVersionId.HasValue ? null : versionId };
                 var result = await outer.CreateAsync(loserRequest, binding);

@@ -6,6 +6,7 @@
 
   <ItemGroup>
     <InternalsVisibleTo Include="Full.NET.UnitTests" />
+    <InternalsVisibleTo Include="Full.NET.IntegrationTests" />
   </ItemGroup>
 
   <ItemGroup>
@@ -20,6 +21,9 @@
     <ProjectReference Include="../../../../src/Modules/Full.NET.Modules.Files.Contracts/Full.NET.Modules.Files.Contracts.csproj" />
     <ProjectReference Include="../../../../src/Modules/Full.NET.Modules.Workflow.Contracts/Full.NET.Modules.Workflow.Contracts.csproj" />
     <ProjectReference Include="../../../../src/Modules/Full.NET.Modules.ImportExport.Contracts/Full.NET.Modules.ImportExport.Contracts.csproj" />
+    <ProjectReference Include="../../../../src/Modules/Full.NET.Modules.Reporting.Contracts/Full.NET.Modules.Reporting.Contracts.csproj" />
+    <ProjectReference Include="../../../../src/Modules/Full.NET.Modules.Printing.Contracts/Full.NET.Modules.Printing.Contracts.csproj" />
+    <ProjectReference Include="../../../../src/Modules/Full.NET.Modules.Settings.Contracts/Full.NET.Modules.Settings.Contracts.csproj" />
   </ItemGroup>
 
   <ItemGroup>

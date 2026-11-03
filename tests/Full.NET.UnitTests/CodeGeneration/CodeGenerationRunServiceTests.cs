@@ -16,6 +16,9 @@ namespace Full.NET.UnitTests.CodeGeneration;
 [TestClass]
 public sealed class CodeGenerationRunServiceTests
 {
+    private readonly List<CodeGenerationArtifactTestStore> _stores = [];
+    [TestCleanup]
+    public void CleanupArchives() { foreach (var store in _stores) store.Dispose(); }
     private static readonly Guid ActorUserId = Guid.Parse(
         "0198f36e-f7a7-7c52-9cbb-774e67411211");
     private static readonly Guid RunId = Guid.Parse(
@@ -284,11 +287,13 @@ public sealed class CodeGenerationRunServiceTests
                     CreateSchema())));
     }
 
-    private static CodeGenerationRunService CreateService(
+    private CodeGenerationRunService CreateService(
         ICommandExecutor command,
         IQueryExecutor? query = null)
     {
         var normalizer = new CodeGenerationSchemaNormalizer();
+        var archives = new CodeGenerationArtifactTestStore(new FixedClock(Now));
+        _stores.Add(archives);
         return new CodeGenerationRunService(
             command,
             new CodeGenerationTemplateQueryService(
@@ -302,7 +307,22 @@ public sealed class CodeGenerationRunServiceTests
             new CodeGenerationPreviewService(normalizer),
             normalizer,
             new FixedClock(Now),
-            new FixedIdGenerator(RunId));
+            new FixedIdGenerator(RunId), archives.Store);
+    }
+
+    [TestMethod]
+    public async Task Archive_failure_persists_failed_summary_and_never_reports_a_downloadable_success()
+    {
+        var command = Substitute.For<ICommandExecutor>();
+        command.ExecuteAsync(CodeGenerationRunSql.Insert, Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(1);
+        var service = CreateService(command);
+        _stores.Single().Options.RootDirectory = string.Empty;
+        var result = await service.PreviewAsync(ActorUserId, new(null, null, CreateSchema()));
+        Assert.IsFalse(result.IsSuccess);
+        Assert.AreEqual(CodeGenerationRunErrorCodes.ArchiveUnavailable, result.Error!.Code);
+        await command.Received(1).ExecuteAsync(CodeGenerationRunSql.Insert,
+            Arg.Is<object>(p => p != null && Read<string>(p, "Status") == "failed" && Read<string>(p, "ErrorCode") == CodeGenerationRunErrorCodes.ArchiveUnavailable),
+            Arg.Any<CancellationToken>());
     }
 
     private static CodeGenerationTemplateRecord CreateTemplateRecord(

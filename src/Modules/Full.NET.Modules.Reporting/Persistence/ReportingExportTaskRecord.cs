@@ -26,5 +26,7 @@ internal sealed class ReportingExportTaskRecord
     public DateTimeOffset? LeaseExpiresAtUtc { get; set; }
     /// <summary>创建导出时主体权限码 JSON 快照，供崩溃恢复重建授权。</summary>
     public string? ActorPermissionCodesJson { get; set; }
+    /// <summary>创建时可信会话绑定；缺失的历史任务不得由后台猜测身份执行。</summary>
+    public string? ActorSessionBindingJson { get; set; }
     public long Version { get; set; }
 }

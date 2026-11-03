@@ -54,6 +54,7 @@ internal static class IdentityOidcLogoutPropagationAssertions
             {
                 clientId = IdentityOidcRelyingPartyFixture.PublicClientId,
             });
+        logoutRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", publicFlow.AccessToken);
         using var logoutResponse = await client.SendAsync(logoutRequest, cancellationToken);
         Assert.AreEqual(HttpStatusCode.NoContent, logoutResponse.StatusCode);
 

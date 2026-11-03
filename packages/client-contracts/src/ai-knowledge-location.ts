@@ -12,7 +12,7 @@ const integer = (value: unknown, min: number, max: number): value is number => t
 const optional = (value: unknown, min: number, max: number) => value === null || integer(value, min, max);
 
 /** HTTP 响应坐标按实际格式验收；只允许一层图片原文锚点，防止循环或无限递归。 */
-export function isAiKnowledgeSourceLocation(value: unknown, parent = false): value is AiKnowledgeSourceLocation {
+export function isAiKnowledgeSourceLocation(value: unknown, parent = false, reviewed = false): value is AiKnowledgeSourceLocation {
   if (!isRecord(value) || !integer(value.blockSequence, 0, 8191) || typeof value.kind !== 'string' || !kinds.includes(value.kind)) return false;
   const kind = kinds.indexOf(value.kind); const paragraph = [2, 3, 6, 7].includes(kind); const table = [3, 7].includes(kind);
   if (parent && kind === 11 || (value.pageNumber !== null) !== (kind === 1) || !optional(value.pageNumber, 1, 128)
@@ -38,9 +38,9 @@ export function isAiKnowledgeSourceLocation(value: unknown, parent = false): val
     const i = value.image;
     if (!isRecord(i) || !integer(i.frameNumber, 1, 128) || !integer(i.imageWidth, 1, 16384) || !integer(i.imageHeight, 1, 16384)
       || i.imageWidth*i.imageHeight > 40000000 || !integer(i.width, 1, i.imageWidth) || !integer(i.height, 1, i.imageHeight)
-      || !integer(i.x, 0, i.imageWidth-i.width) || !integer(i.y, 0, i.imageHeight-i.height) || typeof i.confidence !== 'number' || !Number.isFinite(i.confidence) || i.confidence < 0.8 || i.confidence > 1
+      || !integer(i.x, 0, i.imageWidth-i.width) || !integer(i.y, 0, i.imageHeight-i.height) || typeof i.confidence !== 'number' || !Number.isFinite(i.confidence) || i.confidence < (reviewed ? 0 : 0.8) || i.confidence > 1
       || (i.tableNumber === null ? i.rowNumber !== null || i.columnNumber !== null : !integer(i.tableNumber, 1, 128) || !integer(i.rowNumber, 1, 4096) || !integer(i.columnNumber, 1, 64))
-      || i.parent !== null && !isAiKnowledgeSourceLocation(i.parent, true)) return false;
+      || i.parent !== null && !isAiKnowledgeSourceLocation(i.parent, true, reviewed)) return false;
   }
   return true;
 }

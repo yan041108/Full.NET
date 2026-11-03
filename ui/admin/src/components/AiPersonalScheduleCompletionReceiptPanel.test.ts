@@ -1,0 +1,18 @@
+import { mount, flushPromises, type VueWrapper } from '@vue/test-utils';
+import { createPinia, setActivePinia } from 'pinia';
+import { afterEach, beforeEach, expect, it, vi } from 'vitest';
+import Panel from './AiPersonalScheduleCompletionReceiptPanel.vue';
+import { useSessionStore } from '../auth/session';
+import * as api from '../api/ai-personal-schedule-completion';
+vi.mock('../api/ai-personal-schedule-completion', () => ({ getScheduleCompletionStatus: vi.fn(), reconcileScheduleCompletion: vi.fn() }));
+const runId = '01900000-0000-7000-8000-000000000001';
+const receipt = { runId, operationId: runId, scheduleId: runId, expectedVersion: 1, state: 'unknown', reason: null, actualVersion: null, completedAtUtc: null };
+let wrapper: VueWrapper | undefined;
+beforeEach(() => { vi.resetAllMocks(); setActivePinia(createPinia()); vi.spyOn(useSessionStore(), 'can').mockReturnValue(true); vi.mocked(api.getScheduleCompletionStatus).mockResolvedValue(receipt); });
+afterEach(() => { wrapper?.unmount(); vi.restoreAllMocks(); });
+it('只读操作历史不要求创建或恢复权限，也不把运行完成当业务完成', async () => { vi.mocked(useSessionStore().can).mockImplementation(code => !['ai.agent_runs.create', 'ai.agent_runs.resume'].includes(code));
+  wrapper = mount(Panel, { props: { runId } }); await wrapper.find('button').trigger('click'); await flushPromises(); expect(wrapper.text()).toContain('实际结果未知'); expect(wrapper.text()).toContain('运行完成不代表日程完成'); });
+it('切换原运行立即清除旧准确回执', async () => { wrapper = mount(Panel, { props: { runId } }); await wrapper.find('button').trigger('click'); await flushPromises();
+  expect(wrapper.text()).toContain(runId); await wrapper.setProps({ runId: '01900000-0000-7000-8000-000000000002' }); expect(wrapper.text()).not.toContain(runId); });
+it('缺少窄用途不显示私人操作状态', () => { vi.mocked(useSessionStore().can).mockReturnValue(false); wrapper = mount(Panel, { props: { runId } });
+  expect(wrapper.find('[data-testid="schedule-completion-receipt-panel"]').exists()).toBe(false); expect(api.getScheduleCompletionStatus).not.toHaveBeenCalled(); });

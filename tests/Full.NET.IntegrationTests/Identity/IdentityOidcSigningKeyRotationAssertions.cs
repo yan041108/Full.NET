@@ -4,6 +4,9 @@ using System.Security.Cryptography;
 using System.Text.Json;
 using Full.NET.Data.Abstractions;
 using Full.NET.IntegrationTests.Api;
+using Full.NET.Abstractions.Tenancy;
+using Full.NET.Modules.Identity.Oidc;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Full.NET.IntegrationTests.Identity;
 
@@ -24,7 +27,7 @@ internal static class IdentityOidcSigningKeyRotationAssertions
         using var beforeFactory = new FullNetApiFactory(
             provider,
             connectionString,
-            BuildDualKeySettings(keyA, keyB, KeyAId));
+            BuildDualPrivateKeySettings(keyA, keyB, KeyAId));
         await beforeFactory.InitializeAsync(cancellationToken);
         using var beforeClient = beforeFactory.CreateClientForHost("localhost");
         var legacyFlow = await IdentityOidcRelyingPartyFixture.RunAuthorizationCodeFlowAsync(
@@ -40,6 +43,7 @@ internal static class IdentityOidcSigningKeyRotationAssertions
             KeyAId,
             IdentityOidcRelyingPartyFixture.ReadJwtHeaderValue(legacyFlow.AccessToken, "kid"));
 
+        await ActivatePersistedKeyAsync(beforeFactory, KeyBId, cancellationToken);
         using var afterFactory = new FullNetApiFactory(
             provider,
             connectionString,
@@ -93,6 +97,15 @@ internal static class IdentityOidcSigningKeyRotationAssertions
         }
 
         return settings;
+    }
+
+    /// <summary>切换使用权威管理操作，不能靠改变节点启动配置覆盖数据库状态。</summary>
+    internal static async Task ActivatePersistedKeyAsync(FullNetApiFactory factory, string keyId, CancellationToken cancellationToken)
+    {
+        await using var scope = factory.Services.CreateAsyncScope();
+        scope.ServiceProvider.GetRequiredService<CurrentTenantAccessor>().SetHost();
+        Assert.IsTrue(await scope.ServiceProvider.GetRequiredService<IdentityOidcSigningPolicy>()
+            .ActivateAsync(keyId, cancellationToken));
     }
 
     internal static IReadOnlyDictionary<string, string?> BuildDualPrivateKeySettings(

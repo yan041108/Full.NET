@@ -13,6 +13,7 @@ import ArtTopBar from './ArtTopBar.vue';
 import ArtTabs from './ArtTabs.vue';
 import ArtBreadcrumb from './ArtBreadcrumb.vue';
 import ArtGlobalSearch from './ArtGlobalSearch.vue';
+import type { ObjectSearchSource } from '../../../search/objectSearch';
 import ArtSettingsPanel from './ArtSettingsPanel.vue';
 import ArtHorizontalMenu from './ArtHorizontalMenu.vue';
 import ArtMixedMenu from './ArtMixedMenu.vue';
@@ -33,12 +34,16 @@ import {
 } from '../adapters/fullNetShellAdapter';
 import { useArtShellPreferences } from '../composables/useArtShellPreferences';
 import type { NavigationNode } from '@fullnet/client-contracts';
+import type { PersonalShortcutScope } from '../../../navigation/personal-shortcuts';
 import type { MessageKey, MessageParameters } from '@fullnet/admin-i18n';
 
 defineOptions({ name: 'ArtAdminShell' });
 
 const props = defineProps<{
   navigationTree: NavigationNode[];
+  shortcutScope?: PersonalShortcutScope;
+  objectSources?: readonly ObjectSearchSource[];
+  objectContext?: string;
   translate: (key: MessageKey, parameters?: MessageParameters) => string;
   elementLocaleName?: string;
   selectedContext: string;
@@ -483,6 +488,11 @@ watch(navigationGroups, () => {
     <ArtGlobalSearch
       ref="globalSearchRef"
       :navigation="navigation"
+      :shortcut-scope="shortcutScope"
+      :object-sources="objectSources"
+      :object-context="objectContext"
+      :menu-label="translate('objectSearch.menus')"
+      :switching="switching"
       :title="labels.searchTitle"
       :placeholder="labels.searchPlaceholder"
       :empty-label="labels.searchEmpty"

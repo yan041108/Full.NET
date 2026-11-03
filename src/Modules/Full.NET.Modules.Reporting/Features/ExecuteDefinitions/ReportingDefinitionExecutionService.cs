@@ -13,14 +13,12 @@ using Full.NET.Modules.Reporting.Security;
 namespace Full.NET.Modules.Reporting.Features.ExecuteDefinitions;
 
 /// <summary>对已发布报表定义执行受界 Query Port 并返回分页结果。</summary>
-/// <param name="queryExecutor">本模块查询执行器。</param>
 /// <param name="definitionQueries">报表定义查询。</param>
 /// <param name="secretProtector">数据源密码保护器。</param>
 /// <param name="connectionFactory">外部数据源连接工厂。</param>
 /// <param name="clock">时钟。</param>
 internal sealed class ReportingDefinitionExecutionService(
-    IQueryExecutor queryExecutor,
-    ReportingDefinitionQueryService definitionQueries,
+    ReportingExecutionCatalog definitionQueries,
     ReportingDataSourceSecretProtector secretProtector,
     ReportingDataSourceConnectionFactory connectionFactory,
     IClock clock)
@@ -97,10 +95,8 @@ internal sealed class ReportingDefinitionExecutionService(
             return InvalidParameters(bindOutcome.ErrorMessage!);
         }
 
-        var dataSource = await queryExecutor.QuerySingleOrDefaultAsync<ReportingDataSourceRecord>(
-                ReportingDataSourceSql.FindById,
-                ReportingSqlParameters.Create(("DataSourceId", version.DataSourceId)),
-                cancellationToken)
+        var dataSource = await definitionQueries.GetDataSourceAsync(
+                definitionId, versionNumber, version.DataSourceId, cancellationToken)
             .ConfigureAwait(false);
         if (dataSource is null || !dataSource.IsEnabled)
         {

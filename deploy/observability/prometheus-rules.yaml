@@ -312,15 +312,55 @@ groups:
         labels:
           severity: critical
         annotations:
-          summary: SQL Server CDC capture job appears stopped (fill via UpdateCdcPlatformHealth)
+          summary: SQL Server CDC capture job or Agent is stopped (actual database observation)
 
       - alert: FullNetMessagingMySqlBinlogRetentionLow
-        expr: min(fullnet_messaging_cdc_mysql_binlog_retention_hours) < 24
+        expr: fullnet_messaging_cdc_mysql_binlog_retention_hours > 0 and fullnet_messaging_cdc_mysql_binlog_retention_hours < 24
         for: 10m
         labels:
           severity: critical
         annotations:
           summary: MySQL binlog retention below 24h fail-closed threshold
+
+      - alert: FullNetMessagingObservationUnavailable
+        expr: fullnet_messaging_observation_status{result=~"unknown|error|stale"} == 1
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: Messaging observation is missing, failed or stale; do not infer healthy delivery
+
+      - alert: FullNetMessagingObservationExpired
+        expr: (time() - fullnet_messaging_observation_timestamp_seconds > fullnet_messaging_observation_maximum_age_seconds) or (fullnet_messaging_observation_timestamp_seconds > time() + 60)
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: Messaging observation timestamp is expired or in the future; cached OTLP values cannot prove health
+
+      - alert: FullNetMessagingExporterDown
+        expr: up{job="fullnet-messaging-cdc"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: Messaging metrics exporter target is unavailable
+
+      - alert: FullNetMessagingConnectorNotRunning
+        expr: fullnet_messaging_connector_running == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: Kafka Connect connector or task is not running
+
+      - alert: FullNetMessagingProducerFenceActive
+        expr: fullnet_messaging_producer_fenced == 1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: Messaging producer fence remains active; inspect the persisted rollback operation
 
       - alert: FullNetMessagingConnectorOffsetUnrecoverable
         expr: max(fullnet_messaging_connector_offset_unrecoverable) == 1
@@ -331,7 +371,7 @@ groups:
           summary: Debezium/Kafka Connect offset reported unrecoverable
 
       - alert: FullNetMessagingKafkaLagNearRetention
-        expr: max(fullnet_messaging_kafka_lag_retention_ratio) > 0.8
+        expr: max(fullnet_messaging_kafka_observed_topics_lag_retention_ratio) > 0.8
         for: 10m
         labels:
           severity: critical

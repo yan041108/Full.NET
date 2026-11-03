@@ -1,0 +1,43 @@
+const zh = {
+  title: '解析校对工作台', prepare: '准备原解析', reparse: '重新解析来源', refresh: '刷新权威状态', current: '当前人工工作台', prepared: '本次原解析',
+  hint: '准备只解析本地来源，不调用收费模型。重新解析另存来源，保留人工修订和现有发布；完成不表示已索引或发布。',
+  readonly: '当前权限允许逐块对照预览。',
+  editHint: '每次保存、拆合或恢复都写入新修订，不修改原文件、不自动索引或发布。操作说明必填。',
+  history: '修订历史', noHistory: '尚无人工修订', previewRevision: '预览修订', moreHistory: '更早修订',
+  historyView: '历史只读预览；恢复将比较上次读取的当前头版本', reason: '操作说明（必填）', restoreSelected: '采用所选内容写新修订',
+  savedDraft: '已保存草稿修订，尚未发布：', conflict: '版本已变化，本地草稿已保留。请刷新并核对最新内容，再明确保存。',
+  writeUnknown: '提交结果未确认，请保持原草稿并重试原请求。', retryWrite: '重试原提交', invalidEdit: '请检查说明、拆分位置和操作目标。',
+  editPart: '更正片段', splitPart: '拆分片段', confirmOcr: '确认识别内容', retarget: '将本地草稿应用到此片段',
+  localDraft: '本地草稿', splitOffset: '拆分位置（字符数）', saveDraft: '保存本次操作', discardDraft: '放弃本地草稿',
+  targetChanged: '原目标已变化；更正可明确选择新目标，拆分请重新选择当前片段。', append: '补写新块', merge: '与下一块合并',
+  excludeBlock: '排除本块', includeBlock: '重新纳入本块',
+  empty: '尚无可读工作台来源。可准备当前文件的原解析。', unavailable: '来源或当前权限不可用，请刷新文档状态后重试。',
+  queued: '等待 Worker 准备', running: '正在本地解析', completed: '原解析准备完成', failed: '准备失败，可发起新准备', cancelled: '原资源已变化，本次准备已取消',
+  unknown: '请求结果尚未确认。重试将保留原请求身份。', bounded: '自动查询已暂停，可手动刷新；后台任务继续。',
+  previous: '上一块', next: '下一块', block: '当前块', original: '原文', corrected: '人工更正', supplement: '人工补写',
+  originalContext: '完整原始上下文', currentText: '当前片段', excluded: '已排除，后续索引不使用', position: '实际来源位置',
+  preview: '预览此原始位置', noPosition: '补写没有原始位置', close: '关闭', loading: '正在读取来源', emptyCell: '空单元格',
+  sourceView: '独立原解析预览，未替换人工头', head: '人工头版本', documentVersion: '文档维护版本', confidence: '原识别置信度', unconfirmed: '低置信度原识别，尚未确认'
+};
+const en: Record<keyof typeof zh, string> = {
+  title: 'Parsing correction workspace', prepare: 'Prepare parsed source', reparse: 'Reparse source', refresh: 'Refresh authoritative state', current: 'Current workspace', prepared: 'This parsed source',
+  hint: 'Preparation parses a local source without paid model calls. Reparsing preserves human revisions and publication. Completion does not mean indexed or published.',
+  readonly: 'Current permissions allow block comparison.',
+  editHint: 'Every save, split, merge or restore creates a new revision. The original file stays unchanged; indexing and publication remain separate. A reason is required.',
+  history: 'Revision history', noHistory: 'No human revisions yet', previewRevision: 'Preview revision', moreHistory: 'Earlier revisions',
+  historyView: 'Readonly historical preview; restore compares the last read current head', reason: 'Reason (required)', restoreSelected: 'Create a revision from this selection',
+  savedDraft: 'Draft revision saved, not published:', conflict: 'The version changed. Your local draft is preserved. Refresh and review before explicitly saving again.',
+  writeUnknown: 'The outcome is unconfirmed. Keep the draft and retry the original request.', retryWrite: 'Retry original submission', invalidEdit: 'Check the reason, split position and operation target.',
+  editPart: 'Correct part', splitPart: 'Split part', confirmOcr: 'Confirm recognized content', retarget: 'Apply local draft to this part',
+  localDraft: 'Local draft', splitOffset: 'Split position (characters)', saveDraft: 'Save this operation', discardDraft: 'Discard local draft',
+  targetChanged: 'The target changed. Explicitly select a new correction target, or reselect the current part for splitting.', append: 'Append supplementary block', merge: 'Merge with next block',
+  excludeBlock: 'Exclude this block', includeBlock: 'Include this block again',
+  empty: 'No readable workspace source yet. Prepare the current file.', unavailable: 'The source or current authorization is unavailable. Refresh the document before retrying.',
+  queued: 'Waiting for preparation Worker', running: 'Parsing locally', completed: 'Parsed source prepared', failed: 'Preparation failed; a new request can be created', cancelled: 'The resource changed; preparation was cancelled',
+  unknown: 'The outcome is unconfirmed. Retry will preserve the request identity.', bounded: 'Automatic polling paused. Refresh manually; the background task continues.',
+  previous: 'Previous block', next: 'Next block', block: 'Block', original: 'Original', corrected: 'Human correction', supplement: 'Human supplement',
+  originalContext: 'Complete original context', currentText: 'Current part', excluded: 'Excluded from later indexing', position: 'Actual source position',
+  preview: 'Preview this original position', noPosition: 'Supplement has no original position', close: 'Close', loading: 'Reading source', emptyCell: 'Empty cell',
+  sourceView: 'Independent parsed preview; the human head is preserved', head: 'Human head version', documentVersion: 'Document maintenance version', confidence: 'Measured OCR confidence', unconfirmed: 'Low confidence original; not confirmed'
+};
+export const knowledgeCorrectionText = (locale: string, key: keyof typeof zh) => (locale.startsWith('en') ? en : zh)[key];

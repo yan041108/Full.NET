@@ -2,6 +2,56 @@ import { expect, test } from '@playwright/test';
 
 const tenantId = '019bc2b1-2a40-7cc3-8992-a80de51bf294';
 
+// 浏览器只提交筛选与分页，跨模块关联和总数由服务端负责。
+for (const entity of ['unit', 'position']) {
+  for (const viewport of [{ width: 1440, height: 1000 }, { width: 390, height: 844 }]) {
+    test(`隶属服务端分页搜索 ${entity} ${viewport.width}`, async ({ page }) => {
+      await page.setViewportSize({ width: 1440, height: 1000 });
+      await mockAuthenticatedSession(page, { initialTenantId: tenantId });
+      const requests = [];
+      const rows = Array.from({ length: 25 }, (_, index) => ({
+        id: `019bc2b1-2a40-7cc3-8992-${String(index + 1).padStart(12, '0')}`,
+        userId: '019bc2b1-2a40-7cc3-8992-a80de51bf295',
+        username: index === 24 ? 'late-user' : `page-user-${index + 1}`,
+        displayName: index === 24 ? '后续页目标用户' : `分页用户${index + 1}`,
+        [`${entity}Id`]: '019bc2b1-2a40-7cc3-8992-a80de51bfc03',
+        [`${entity}Code`]: 'joined', [`${entity}Name`]: '分页目标',
+        isPrimary: false, isActive: true, createdAtUtc: '2026-07-21T00:00:00Z', updatedAtUtc: null, version: 1
+      }));
+      await page.route('**/api/v1/organization/**', async route => {
+        const url = new URL(route.request().url());
+        if (url.pathname === `/api/v1/organization/user-${entity}s`) {
+          const query = Object.fromEntries(url.searchParams);
+          requests.push(query);
+          const pageNumber = Number(query.page ?? 1);
+          const size = Number(query.pageSize ?? 20);
+          const filtered = query.userSearch ? rows.filter(row => row.username.includes(query.userSearch)) : rows;
+          return route.fulfill({ json: { items: filtered.slice((pageNumber - 1) * size, pageNumber * size), page: pageNumber, pageSize: size, total: filtered.length } });
+        }
+        return route.fulfill({ json: { items: [], page: 1, pageSize: 100, total: 0 } });
+      });
+      await page.goto('/');
+      await openNavigationLink(page, entity === 'unit' ? /用户机构隶属/ : /用户职位隶属/);
+      await page.setViewportSize(viewport);
+      const view = page.locator(entity === 'unit' ? '.org-user-units-view' : '.org-user-positions-view');
+      await expect(view.getByText('page-user-1', { exact: true })).toBeVisible();
+      await view.locator('.el-pagination .btn-next').click();
+      await expect(view.getByText('late-user', { exact: true })).toBeVisible();
+      expect(requests.at(-1).page).toBe('2');
+      await view.locator('.art-search-bar input').first().fill('late-user');
+      await view.getByRole('button', { name: '查询', exact: true }).click();
+      await expect.poll(() => requests.at(-1).userSearch).toBe('late-user');
+      expect(requests.at(-1).page).toBe('1');
+      await expect(view.getByText('late-user', { exact: true })).toBeVisible();
+      await expect(view.getByText('page-user-1', { exact: true })).toHaveCount(0);
+      await view.getByRole('button', { name: '重置', exact: true }).click();
+      await expect(view.getByText('page-user-1', { exact: true })).toBeVisible();
+      expect(requests.at(-1).userSearch).toBeUndefined();
+      await expect(view.locator('.art-table-pagination')).toBeVisible();
+    });
+  }
+}
+
 async function clickUserAction(page, row, clientKind, testId, buttonName) {
   if (clientKind !== 'vue') {
     await row.getByRole('button', { name: buttonName, exact: true }).click();

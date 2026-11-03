@@ -11,6 +11,7 @@ using Full.NET.Modules.Identity.Features.ManageTenantMembers;
 using Full.NET.Modules.Identity.Features.ManageTenantMembers.Persistence;
 using Full.NET.Modules.Identity.Persistence;
 using Full.NET.Modules.Identity.Security;
+using Full.NET.Modules.Identity.Features.TenantSeatOperations;
 
 /// <summary>Identity 模块应用服务；编排事务、权限与持久化。</summary>
 namespace Full.NET.Modules.Identity.Features.AcceptTenantInvitation;
@@ -21,11 +22,11 @@ internal sealed class AcceptTenantInvitationService(
     ICommandTransaction transaction,
     ICurrentTenantContextWriter currentTenant,
     IActiveTenantContextResolver tenantResolver,
-    ITenantMemberSeatQuotaPort seatQuotaPort,
+    TenantSeatOperationProcessor seatOperations,
     IClock clock,
     IIdGenerator idGenerator)
 {
-    // 席位预留/确认在 Identity 本地事务外执行；成员与邀请状态仅在本地事务内写入，确认失败时补偿回滚。
+    // 先原子提交 Pending 成员及耐久工作项，再在事务外处理席位；崩溃后由 Worker 接续。
     public Task<Result<AcceptTenantInvitationResponse>> AcceptAsync(
         Guid userId,
         AcceptTenantInvitationRequest request,
@@ -78,8 +79,8 @@ internal sealed class AcceptTenantInvitationService(
         CancellationToken cancellationToken)
     {
         if (invitation is null
-            || invitation.Status != TenantInvitationStatuses.Pending
-            || invitation.ExpiresAtUtc <= clock.UtcNow)
+            || invitation.Status is not (TenantInvitationStatuses.Pending or TenantInvitationStatuses.Accepted)
+            || invitation.Status == TenantInvitationStatuses.Pending && invitation.ExpiresAtUtc <= clock.UtcNow)
         {
             return InvalidInvitation();
         }
@@ -96,7 +97,15 @@ internal sealed class AcceptTenantInvitationService(
             return InvalidInvitation();
         }
 
-        var operationId = invitation.Id.ToString("D");
+        if (invitation.Status == TenantInvitationStatuses.Accepted)
+        {
+            var previous = await IdentityHostExecutionScope.RunAsync(currentTenant,
+                () => queryExecutor.QuerySingleOrDefaultAsync<TenantSeatOperation>(TenantSeatOperationSql.FindInvitation,
+                    IdentitySqlParameters.Create(("TenantId", invitation.TenantId), ("InvitationId", invitation.Id),
+                        ("UserId", userId), ("InvitationVersion", invitation.Version)), cancellationToken)).ConfigureAwait(false);
+            return previous is null ? InvalidInvitation() : await CompleteAsync(previous, invitation.MemberRole, cancellationToken).ConfigureAwait(false);
+        }
+
         var existing = await IdentityTenantInvitationScope.RunAsync(
                 currentTenant,
                 tenant,
@@ -105,7 +114,8 @@ internal sealed class AcceptTenantInvitationService(
                     IdentitySqlParameters.Create(("UserId", userId)),
                     cancellationToken))
             .ConfigureAwait(false);
-        if (existing is { Status: TenantMemberStatuses.Active })
+        if (existing is { Status: TenantMemberStatuses.Active or TenantMemberStatuses.Pending }
+            || existing is { MemberRole: TenantMemberRoles.Owner })
         {
             return Result<AcceptTenantInvitationResponse>.Failure(new Error(
                 IdentityErrorCodes.TenantMemberAlreadyActive,
@@ -113,68 +123,24 @@ internal sealed class AcceptTenantInvitationService(
                 ErrorType.Conflict));
         }
 
-        var reserveResult = await IdentityHostExecutionScope.RunAsync(
-                currentTenant,
-                () => seatQuotaPort.TryReserveAsync(
-                    invitation.TenantId,
-                    operationId,
-                    cancellationToken))
-            .ConfigureAwait(false);
-        if (!reserveResult.IsSuccess)
-        {
-            return Result<AcceptTenantInvitationResponse>.Failure(reserveResult.Error!);
-        }
-
-        var memberResult = await IdentityTenantInvitationScope.RunAsync(
-            currentTenant,
-            tenant,
-            () => transaction.ExecuteResultAsync(
-                token => PersistAcceptedInvitationAsync(
-                    userId,
-                    invitation,
-                    existing,
-                    token),
-                cancellationToken)).ConfigureAwait(false);
-        if (!memberResult.IsSuccess)
-        {
-            await IdentityHostExecutionScope.RunAsync(
-                    currentTenant,
-                    () => seatQuotaPort.ReleaseAsync(
-                        invitation.TenantId,
-                        operationId,
-                        cancellationToken))
-                .ConfigureAwait(false);
-            return memberResult;
-        }
-
-        var confirmResult = await IdentityHostExecutionScope.RunAsync(
-                currentTenant,
-                () => seatQuotaPort.ConfirmAsync(
-                    invitation.TenantId,
-                    operationId,
-                    cancellationToken))
-            .ConfigureAwait(false);
-        if (!confirmResult.IsSuccess)
-        {
-            await CompensateFailedConfirmationAsync(
-                    userId,
-                    invitation,
-                    memberResult.Value!.MemberId,
-                    existing,
-                    cancellationToken)
-                .ConfigureAwait(false);
-            await IdentityHostExecutionScope.RunAsync(
-                    currentTenant,
-                    () => seatQuotaPort.ReleaseAsync(
-                        invitation.TenantId,
-                        operationId,
-                        cancellationToken))
-                .ConfigureAwait(false);
-            return Result<AcceptTenantInvitationResponse>.Failure(confirmResult.Error!);
-        }
-
-        return memberResult;
+        var memberResult = await IdentityTenantInvitationScope.RunAsync(currentTenant, tenant,
+            () => transaction.ExecuteResultAsync(token => PersistAcceptedInvitationAsync(userId, invitation, existing, token), cancellationToken)).ConfigureAwait(false);
+        if (!memberResult.IsSuccess) return memberResult;
+        var operation = await seatOperations.FindRequestAsync(invitation.TenantId, InvitationRequestKey(invitation), cancellationToken).ConfigureAwait(false)
+            ?? throw new InvalidOperationException("Committed invitation has no seat intent.");
+        return await CompleteAsync(operation, invitation.MemberRole, cancellationToken).ConfigureAwait(false);
     }
+
+    private async Task<Result<AcceptTenantInvitationResponse>> CompleteAsync(TenantSeatOperation operation, string role, CancellationToken token)
+    {
+        var result = await seatOperations.ProcessAsync(operation.Id, token).ConfigureAwait(false);
+        if (!result.IsSuccess) return Result<AcceptTenantInvitationResponse>.Failure(result.Error!);
+        return Result<AcceptTenantInvitationResponse>.Success(new(operation.MemberId, operation.TenantId, operation.UserId,
+            role, result.Value ? TenantMemberStatuses.Active : TenantMemberStatuses.Pending));
+    }
+
+    private static string InvitationRequestKey(TenantInvitationRecord invitation) =>
+        "invitation:" + invitation.Id.ToString("D") + ":" + invitation.Version.ToString(System.Globalization.CultureInfo.InvariantCulture);
 
     private async Task<Result<AcceptTenantInvitationResponse>> PersistAcceptedInvitationAsync(
         Guid userId,
@@ -184,15 +150,16 @@ internal sealed class AcceptTenantInvitationService(
     {
         var now = clock.UtcNow;
         var memberId = existing?.Id ?? idGenerator.NewId();
+        int memberAffected;
         if (existing is null)
         {
-            await commandExecutor.ExecuteAsync(
+            memberAffected = await commandExecutor.ExecuteAsync(
                     TenantMembershipSql.InsertMember,
                     IdentitySqlParameters.Create(
                         ("Id", memberId),
                         ("UserId", userId),
                         ("MemberRole", invitation.MemberRole),
-                        ("Status", TenantMemberStatuses.Active),
+                        ("Status", TenantMemberStatuses.Pending),
                         ("CreatedAtUtc", now),
                         ("UpdatedAtUtc", now),
                         ("Version", 1)),
@@ -201,17 +168,21 @@ internal sealed class AcceptTenantInvitationService(
         }
         else
         {
-            await commandExecutor.ExecuteAsync(
+            memberAffected = await commandExecutor.ExecuteAsync(
                     TenantMembershipSql.UpdateMember,
                     IdentitySqlParameters.Create(
                         ("MemberId", memberId),
                         ("MemberRole", invitation.MemberRole),
-                        ("Status", TenantMemberStatuses.Active),
+                        ("Status", TenantMemberStatuses.Pending),
                         ("UpdatedAtUtc", now),
                         ("Version", existing.Version)),
                     cancellationToken)
                 .ConfigureAwait(false);
         }
+
+        if (memberAffected != 1)
+            return Result<AcceptTenantInvitationResponse>.Failure(new Error(IdentityErrorCodes.TenantMemberVersionConflict,
+                "The tenant member was updated concurrently.", ErrorType.Conflict));
 
         var affected = await commandExecutor.ExecuteAsync(
                 TenantMembershipSql.UpdateInvitationStatus,
@@ -230,75 +201,17 @@ internal sealed class AcceptTenantInvitationService(
                 ErrorType.Conflict));
         }
 
+        await seatOperations.EnlistAsync(new TenantSeatOperation(idGenerator.NewId(), InvitationRequestKey(invitation), invitation.TenantId,
+            userId, memberId, invitation.Id, existing?.MemberRole, existing?.Status, (existing?.Version ?? 0) + 1,
+            invitation.Version + 1, TenantSeatPhases.Requested, null, null, now, now, null, null, 1, 1), cancellationToken).ConfigureAwait(false);
+
         return Result<AcceptTenantInvitationResponse>.Success(
             new AcceptTenantInvitationResponse(
                 memberId,
                 invitation.TenantId,
                 userId,
                 invitation.MemberRole,
-                TenantMemberStatuses.Active));
-    }
-
-    private async Task CompensateFailedConfirmationAsync(
-        Guid userId,
-        TenantInvitationRecord invitation,
-        Guid memberId,
-        TenantMemberRecord? existingBeforeAccept,
-        CancellationToken cancellationToken)
-    {
-        var tenant = await tenantResolver.ResolveActiveByIdAsync(invitation.TenantId, cancellationToken)
-            .ConfigureAwait(false);
-        if (tenant is null)
-        {
-            return;
-        }
-
-        await IdentityTenantInvitationScope.RunAsync(
-            currentTenant,
-            tenant,
-            () => transaction.ExecuteAsync(
-                async token =>
-                {
-                    var now = clock.UtcNow;
-                    if (existingBeforeAccept is null)
-                    {
-                        await commandExecutor.ExecuteAsync(
-                                TenantMembershipSql.UpdateMember,
-                                IdentitySqlParameters.Create(
-                                    ("MemberId", memberId),
-                                    ("MemberRole", invitation.MemberRole),
-                                    ("Status", TenantMemberStatuses.Removed),
-                                    ("UpdatedAtUtc", now),
-                                    ("Version", 1)),
-                                token)
-                            .ConfigureAwait(false);
-                    }
-                    else
-                    {
-                        await commandExecutor.ExecuteAsync(
-                                TenantMembershipSql.UpdateMember,
-                                IdentitySqlParameters.Create(
-                                    ("MemberId", memberId),
-                                    ("MemberRole", existingBeforeAccept.MemberRole),
-                                    ("Status", existingBeforeAccept.Status),
-                                    ("UpdatedAtUtc", now),
-                                    ("Version", existingBeforeAccept.Version + 1)),
-                                token)
-                            .ConfigureAwait(false);
-                    }
-
-                    await commandExecutor.ExecuteAsync(
-                            TenantMembershipSql.UpdateInvitationStatus,
-                            IdentitySqlParameters.Create(
-                                ("InvitationId", invitation.Id),
-                                ("Status", TenantInvitationStatuses.Pending),
-                                ("UpdatedAtUtc", now),
-                                ("Version", invitation.Version + 1)),
-                            token)
-                        .ConfigureAwait(false);
-                    return true;
-                },
-                cancellationToken)).ConfigureAwait(false);
+                TenantMemberStatuses.Pending));
     }
 
     private async Task<bool> MatchesInviteeAsync(

@@ -36,12 +36,22 @@ public static class GenerationRollbackWorkspace
             cancellationToken);
         EnsureAppliedManifestAligned(snapshot, checkpoint);
 
-        var inverse = GenerationWritePlanner.PlanFromDesiredContents(
-            checkpoint.PreviousContents,
+        var desired = new Dictionary<string, string>(checkpoint.PreviousContents, StringComparer.Ordinal);
+        foreach (var entry in checkpoint.PreviousManifest?.Artifacts ?? [])
+        {
+            if (desired.ContainsKey(entry.RelativePath)) continue;
+            // 未改动的文件在检查点内只保留摘要，回滚时从已验证的当前版本读取，避免每次复制整份历史。
+            if (!checkpoint.AppliedManifest.TryGetSha256(entry.RelativePath, out var appliedSha) || appliedSha != entry.Sha256
+                || !snapshot.ExistingFiles.TryGetValue(entry.RelativePath, out var content))
+                throw new GenerationWorkspaceConflictException("检查点缺少发生变化文件的旧内容。", entry.RelativePath);
+            desired.Add(entry.RelativePath, content);
+        }
+        var plan = GenerationWritePlanner.PlanFromDesiredContents(
+            desired,
             snapshot.ExistingFiles,
             checkpoint.AppliedManifest);
-        return new GenerationWritePlan(inverse.Actions, inverse.PreviousManifest,
-            inverse.CanApply ? checkpoint.PreviousManifest ?? GenerationManifest.Create([]) : null);
+        return new GenerationWritePlan(plan.Actions, plan.PreviousManifest,
+            plan.CanApply ? checkpoint.PreviousManifest ?? GenerationManifest.Create([]) : null);
     }
 
     /// <summary>

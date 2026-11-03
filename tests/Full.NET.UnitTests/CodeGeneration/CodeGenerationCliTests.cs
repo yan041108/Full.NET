@@ -12,6 +12,40 @@ namespace Full.NET.UnitTests.CodeGeneration;
 public sealed class CodeGenerationCliTests
 {
     [TestMethod]
+    [DataRow("apply-module-integration")]
+    [DataRow("apply-module-entry-integration")]
+    [DataRow("apply-composition-integration")]
+    [DataRow("apply-client-route-integration")]
+    public async Task Partial_integration_writers_are_retired_without_product_changes(string command)
+    {
+        using var fixture = CliFixture.Create();
+        var target = Path.Combine(fixture.RootPath, "target.json");
+        File.WriteAllText(target, ValidIntegrationTargetJson);
+        using var output = new StringWriter();
+        using var error = new StringWriter();
+        var result = await CodeGenerationCli.RunAsync(ModuleIntegrationArguments(fixture.SchemaPath, fixture.WorkspacePath, target, command), output, error);
+        Assert.AreEqual(64, result);
+        StringAssert.Contains(error.ToString(), "分步接入写盘已移除");
+        Assert.IsEmpty(Directory.EnumerateFiles(fixture.WorkspacePath, "*", SearchOption.AllDirectories));
+    }
+
+    [TestMethod]
+    public async Task Cli_apply_and_rollback_share_persistent_workspace_order_and_checkpoints()
+    {
+        using var fixture = CliFixture.Create();
+        using var output = new StringWriter();
+        using var error = new StringWriter();
+        Assert.AreEqual(0, await CodeGenerationCli.RunAsync(["--schema", fixture.SchemaPath, "--workspace", fixture.WorkspacePath, "--apply"], output, error), error.ToString());
+        Guid id;
+        await using (var lease = await GenerationWorkspaceLease.TryAcquireAsync(fixture.WorkspacePath) ?? throw new InvalidOperationException())
+            id = (await GenerationWorkspaceJournal.ReadHeadAsync(lease)).TipOperationId!.Value;
+        Assert.AreEqual(0, await CodeGenerationCli.RunAsync(["rollback", "--workspace", fixture.WorkspacePath, "--operation", id.ToString("D")], output, error), error.ToString());
+        await using var after = await GenerationWorkspaceLease.TryAcquireAsync(fixture.WorkspacePath) ?? throw new InvalidOperationException();
+        Assert.IsNull((await GenerationWorkspaceJournal.ReadHeadAsync(after)).TipOperationId);
+        Assert.IsEmpty((await GenerationWorkspaceStore.ReadManifestOrEmptyAsync(fixture.WorkspacePath)).Artifacts);
+    }
+
+    [TestMethod]
     [DataRow("missing")]
     [DataRow("null")]
     [DataRow("")]
@@ -29,32 +63,6 @@ public sealed class CodeGenerationCliTests
             fixture.WorkspacePath, targetPath, "apply-host-integration"), output, error);
         Assert.AreEqual(64, code);
         StringAssert.Contains(error.ToString(), "authorizationContributorPath");
-        Assert.AreEqual(string.Empty, output.ToString());
-    }
-
-    [TestMethod]
-    [DataRow("missing")]
-    [DataRow("composition-pending")]
-    [DataRow("authorization-pending")]
-    public async Task Host_cli_uses_shared_preflight_before_backend_reads(string kind)
-    {
-        using var fixture = CliFixture.Create();
-        var target = JsonNode.Parse(ValidIntegrationTargetJson)!.AsObject();
-        target["authorizationContributorPath"] = "authorization/CatalogAuthorizationContributor.cs";
-        var targetPath = Path.Combine(fixture.RootPath, "target.json");
-        File.WriteAllText(targetPath, target.ToJsonString());
-        if (kind != "missing")
-            fixture.WriteWorkspaceFile("authorization/CatalogAuthorizationContributor.cs", "human contributor\n");
-        if (kind == "composition-pending")
-            fixture.WriteWorkspaceFile(".fullnet/codegeneration-composition-recovery.pending", "pending review");
-        if (kind == "authorization-pending")
-            fixture.WriteWorkspaceFile("authorization/.fullnet-authorization-orphan.tmp", "pending review");
-        using var output = new StringWriter();
-        using var error = new StringWriter();
-        var code = await CodeGenerationCli.RunAsync(ModuleIntegrationArguments(fixture.SchemaPath,
-            fixture.WorkspacePath, targetPath, "apply-host-integration"), output, error);
-        Assert.AreEqual(2, code);
-        StringAssert.Contains(error.ToString(), kind == "missing" ? "AuthorizationContributor 文件不存在" : "待审查");
         Assert.AreEqual(string.Empty, output.ToString());
     }
 
@@ -249,14 +257,14 @@ public sealed class CodeGenerationCliTests
         Assert.AreEqual(0, exitCode);
         StringAssert.Contains(
             output.ToString(),
-            "Create backend/ProductContracts.g.cs");
+            "Create generated/acme/catalog/product/backend/ProductContracts.g.cs");
         Assert.AreEqual(string.Empty, error.ToString());
         Assert.AreEqual(
             0,
             Directory.GetFiles(
                 fixture.WorkspacePath,
                 "*",
-                SearchOption.AllDirectories).Length);
+                SearchOption.AllDirectories).Count(path => !Path.GetRelativePath(fixture.WorkspacePath, path).Replace('\\', '/').StartsWith(".fullnet/", StringComparison.Ordinal)));
     }
 
     [TestMethod]
@@ -291,7 +299,7 @@ public sealed class CodeGenerationCliTests
         Assert.AreEqual(0, previewExitCode);
         StringAssert.Contains(
             applyOutput.ToString(),
-            "Create backend/ProductContracts.g.cs");
+            "Create generated/acme/catalog/product/backend/ProductContracts.g.cs");
         Assert.AreEqual(
             14,
             previewOutput
@@ -305,11 +313,11 @@ public sealed class CodeGenerationCliTests
                         StringComparison.Ordinal)));
         Assert.IsTrue(File.Exists(Path.Combine(
             fixture.WorkspacePath,
-            "backend",
+            "generated/acme/catalog/product/backend",
             "ProductContracts.g.cs")));
         Assert.IsTrue(File.Exists(Path.Combine(
             fixture.WorkspacePath,
-            "templates",
+            "generated/acme/catalog/product/templates",
             "migrations",
             "SqlServer",
             "CreateProduct.sql.template")));
@@ -326,7 +334,7 @@ public sealed class CodeGenerationCliTests
     {
         using var fixture = CliFixture.Create();
         fixture.WriteWorkspaceFile(
-            "backend/ProductContracts.g.cs",
+            "generated/acme/catalog/product/backend/ProductContracts.g.cs",
             "handwritten");
         using var output = new StringWriter();
         using var error = new StringWriter();
@@ -345,17 +353,17 @@ public sealed class CodeGenerationCliTests
         Assert.AreEqual(2, exitCode);
         StringAssert.Contains(
             output.ToString(),
-            "Conflict backend/ProductContracts.g.cs");
+            "Conflict generated/acme/catalog/product/backend/ProductContracts.g.cs");
         Assert.AreEqual(
             "handwritten",
             fixture.ReadWorkspaceFile(
-                "backend/ProductContracts.g.cs"));
+                "generated/acme/catalog/product/backend/ProductContracts.g.cs"));
         Assert.AreEqual(
             1,
             Directory.GetFiles(
                 fixture.WorkspacePath,
                 "*",
-                SearchOption.AllDirectories).Length);
+                SearchOption.AllDirectories).Count(path => !Path.GetRelativePath(fixture.WorkspacePath, path).Replace('\\', '/').StartsWith(".fullnet/", StringComparison.Ordinal)));
         Assert.AreEqual(string.Empty, error.ToString());
     }
 
@@ -729,24 +737,6 @@ public sealed class CodeGenerationCliTests
     [DataRow("dangling", "plan-module-integration")]
     [DataRow("alias", "plan-module-integration")]
     [DataRow("directory", "plan-module-integration")]
-    [DataRow("root", "apply-module-integration")]
-    [DataRow("parent", "apply-module-integration")]
-    [DataRow("file", "apply-module-integration")]
-    [DataRow("dangling", "apply-module-integration")]
-    [DataRow("alias", "apply-module-integration")]
-    [DataRow("directory", "apply-module-integration")]
-    [DataRow("root", "apply-module-entry-integration")]
-    [DataRow("parent", "apply-module-entry-integration")]
-    [DataRow("file", "apply-module-entry-integration")]
-    [DataRow("dangling", "apply-module-entry-integration")]
-    [DataRow("alias", "apply-module-entry-integration")]
-    [DataRow("directory", "apply-module-entry-integration")]
-    [DataRow("root", "apply-composition-integration")]
-    [DataRow("parent", "apply-composition-integration")]
-    [DataRow("file", "apply-composition-integration")]
-    [DataRow("dangling", "apply-composition-integration")]
-    [DataRow("alias", "apply-composition-integration")]
-    [DataRow("directory", "apply-composition-integration")]
     [DataRow("root", "validate-module-integration")]
     [DataRow("parent", "validate-module-integration")]
     [DataRow("file", "validate-module-integration")]
@@ -812,56 +802,6 @@ public sealed class CodeGenerationCliTests
             if (directoryLink is not null) Directory.Delete(directoryLink);
         }
     }
-
-    [TestMethod]
-    [DataRow("apply-module-entry-integration", "src/Modules/Acme.Modules.Catalog/CatalogModule.cs", "file")]
-    [DataRow("apply-module-entry-integration", "src/Modules/Acme.Modules.Catalog/CatalogModule.cs", "dangling")]
-    [DataRow("apply-module-entry-integration", "src/Modules/Acme.Modules.Catalog/CatalogModule.cs", "alias")]
-    [DataRow("apply-module-entry-integration", "src/Modules/Acme.Modules.Catalog/CatalogModule.cs", "directory")]
-    [DataRow("apply-composition-integration", "src/Composition/Acme.Composition/Acme.Composition.csproj", "file")]
-    [DataRow("apply-composition-integration", "src/Composition/Acme.Composition/Acme.Composition.csproj", "dangling")]
-    [DataRow("apply-composition-integration", "src/Composition/Acme.Composition/Acme.Composition.csproj", "alias")]
-    [DataRow("apply-composition-integration", "src/Composition/Acme.Composition/Acme.Composition.csproj", "directory")]
-    [DataRow("apply-composition-integration", "src/Composition/Acme.Composition/ModuleCatalog.cs", "file")]
-    [DataRow("apply-composition-integration", "src/Composition/Acme.Composition/ModuleCatalog.cs", "dangling")]
-    [DataRow("apply-composition-integration", "src/Composition/Acme.Composition/ModuleCatalog.cs", "alias")]
-    [DataRow("apply-composition-integration", "src/Composition/Acme.Composition/ModuleCatalog.cs", "directory")]
-    public async Task Apply_integration_rejects_unsafe_handwritten_targets_before_prerequisite_reads(string command, string relativePath, string kind)
-    {
-        using var fixture = CliFixture.Create();
-        var repository = fixture.WorkspacePath;
-        var targetPath = Path.Combine(fixture.RootPath, "target.json");
-        File.WriteAllText(targetPath, ValidIntegrationTargetJson, new UTF8Encoding(false));
-        WriteRepositoryFile(repository, "src/Modules/Acme.Modules.Catalog/Acme.Modules.Catalog.csproj", "<Project />");
-        var outside = Path.Combine(fixture.RootPath, "protected.txt");
-        const string content = "仓库外手写内容";
-        File.WriteAllText(outside, content);
-        var destination = Path.Combine(repository, relativePath);
-        Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
-        if (kind is "file" or "dangling")
-        {
-            File.CreateSymbolicLink(destination, kind == "file" ? outside : outside + ".missing");
-        }
-        else if (kind == "alias")
-        {
-            File.WriteAllText(Path.Combine(Path.GetDirectoryName(destination)!, Path.GetFileName(destination).ToLowerInvariant()), content);
-        }
-        else
-        {
-            Directory.CreateDirectory(destination);
-        }
-
-        using var output = new StringWriter();
-        using var error = new StringWriter();
-        var code = await CodeGenerationCli.RunAsync(
-            ModuleIntegrationArguments(fixture.SchemaPath, repository, targetPath, command), output, error);
-        Assert.AreEqual(2, code, error.ToString());
-        Assert.AreEqual(string.Empty, output.ToString());
-        StringAssert.Contains(error.ToString(), "工作区冲突");
-        Assert.AreEqual(content, File.ReadAllText(outside));
-        Assert.IsFalse(Directory.Exists(Path.Combine(repository, ".fullnet")));
-    }
-
 
     [TestMethod]
     public async Task Plan_module_integration_honors_cancellation_when_all_targets_are_missing()
@@ -1172,162 +1112,6 @@ public sealed class CodeGenerationCliTests
     }
 
     [TestMethod]
-    public async Task Apply_module_integration_reports_missing_project_without_writes()
-    {
-        using var fixture = CliFixture.Create();
-        var repositoryPath = Path.Combine(fixture.RootPath, "repository");
-        var targetPath = Path.Combine(fixture.RootPath, "integration-target.json");
-        Directory.CreateDirectory(repositoryPath);
-        File.WriteAllText(
-            targetPath,
-            ValidIntegrationTargetJson,
-            new UTF8Encoding(false, true));
-        using var output = new StringWriter();
-        using var error = new StringWriter();
-
-        var exitCode = await CodeGenerationCli.RunAsync(
-            ModuleIntegrationArguments(
-                fixture.SchemaPath,
-                repositoryPath,
-                targetPath,
-                command: "apply-module-integration"),
-            output,
-            error);
-
-        Assert.AreEqual(2, exitCode);
-        StringAssert.Contains(error.ToString(), "模块项目不存在");
-        Assert.AreEqual(string.Empty, output.ToString());
-        Assert.AreEqual(
-            0,
-            Directory.GetFiles(
-                repositoryPath,
-                "*",
-                SearchOption.AllDirectories).Length);
-    }
-
-    [TestMethod]
-    public async Task Apply_composition_blocks_registered_recovery_before_reading_prerequisites()
-    {
-        using var fixture = CliFixture.Create();
-        var targetPath = Path.Combine(fixture.RootPath, "target.json");
-        File.WriteAllText(targetPath, ValidIntegrationTargetJson, new UTF8Encoding(false));
-        WriteRepositoryFile(fixture.WorkspacePath, ".fullnet/codegeneration-composition-recovery.pending", "待人工审查");
-        using var output = new StringWriter();
-        using var error = new StringWriter();
-        var code = await CodeGenerationCli.RunAsync(
-            ModuleIntegrationArguments(fixture.SchemaPath, fixture.WorkspacePath, targetPath, "apply-composition-integration"), output, error);
-        Assert.AreEqual(2, code);
-        Assert.AreEqual(string.Empty, output.ToString());
-        StringAssert.Contains(error.ToString(), "工作区冲突");
-        StringAssert.Contains(error.ToString(), "待审查");
-        Assert.AreEqual("待人工审查", File.ReadAllText(Path.Combine(fixture.WorkspacePath, ".fullnet/codegeneration-composition-recovery.pending")));
-    }
-
-    [TestMethod]
-    public async Task Apply_module_entry_integration_reports_missing_project_without_writes()
-    {
-        using var fixture = CliFixture.Create();
-        var repositoryPath = Path.Combine(fixture.RootPath, "repository");
-        var targetPath = Path.Combine(fixture.RootPath, "integration-target.json");
-        Directory.CreateDirectory(repositoryPath);
-        File.WriteAllText(
-            targetPath,
-            ValidIntegrationTargetJson,
-            new UTF8Encoding(false, true));
-        using var output = new StringWriter();
-        using var error = new StringWriter();
-
-        var exitCode = await CodeGenerationCli.RunAsync(
-            ModuleIntegrationArguments(
-                fixture.SchemaPath,
-                repositoryPath,
-                targetPath,
-                command: "apply-module-entry-integration"),
-            output,
-            error);
-
-        Assert.AreEqual(2, exitCode);
-        StringAssert.Contains(error.ToString(), "模块项目不存在");
-        Assert.AreEqual(string.Empty, output.ToString());
-        Assert.AreEqual(
-            0,
-            Directory.GetFiles(
-                repositoryPath,
-                "*",
-                SearchOption.AllDirectories).Length);
-    }
-
-    [TestMethod]
-    public async Task Apply_composition_integration_reports_missing_module_project_without_writes()
-    {
-        using var fixture = CliFixture.Create();
-        var repositoryPath = Path.Combine(fixture.RootPath, "repository");
-        var targetPath = Path.Combine(fixture.RootPath, "integration-target.json");
-        Directory.CreateDirectory(repositoryPath);
-        File.WriteAllText(
-            targetPath,
-            ValidIntegrationTargetJson,
-            new UTF8Encoding(false, true));
-        using var output = new StringWriter();
-        using var error = new StringWriter();
-
-        var exitCode = await CodeGenerationCli.RunAsync(
-            ModuleIntegrationArguments(
-                fixture.SchemaPath,
-                repositoryPath,
-                targetPath,
-                command: "apply-composition-integration"),
-            output,
-            error);
-
-        Assert.AreEqual(2, exitCode);
-        StringAssert.Contains(error.ToString(), "模块项目不存在");
-        Assert.AreEqual(string.Empty, output.ToString());
-        Assert.AreEqual(
-            0,
-            Directory.GetFiles(
-                repositoryPath,
-                "*",
-                SearchOption.AllDirectories).Length);
-    }
-
-    [TestMethod]
-    public async Task Apply_client_route_integration_requires_explicit_descriptor_without_writes()
-    {
-        using var fixture = CliFixture.Create();
-        var repositoryPath = Path.Combine(fixture.RootPath, "repository");
-        var targetPath = Path.Combine(
-            fixture.RootPath,
-            "integration-target.json");
-        Directory.CreateDirectory(repositoryPath);
-        File.WriteAllText(
-            targetPath,
-            ValidIntegrationTargetJson,
-            new UTF8Encoding(false, true));
-        using var output = new StringWriter();
-        using var error = new StringWriter();
-
-        var exitCode = await CodeGenerationCli.RunAsync(
-            ModuleIntegrationArguments(
-                fixture.SchemaPath,
-                repositoryPath,
-                targetPath,
-                command: "apply-client-route-integration"),
-            output,
-            error);
-
-        Assert.AreEqual(2, exitCode);
-        StringAssert.Contains(error.ToString(), "clientRoute");
-        Assert.AreEqual(string.Empty, output.ToString());
-        Assert.AreEqual(
-            0,
-            Directory.GetFiles(
-                repositoryPath,
-                "*",
-                SearchOption.AllDirectories).Length);
-    }
-
-    [TestMethod]
     public async Task Apply_module_integration_rejects_apply_switch()
     {
         using var fixture = CliFixture.Create();
@@ -1448,6 +1232,27 @@ public sealed class CodeGenerationCliTests
             CrudSchemaDocument.LoadAsync(
                 fixture.SchemaPath,
                 CancellationToken.None));
+    }
+
+    [TestMethod]
+    public async Task Explicit_column_ui_survives_cli_and_missing_or_unknown_metadata_is_rejected()
+    {
+        using var fixture = CliFixture.Create();
+        var root = JsonNode.Parse(ValidSchemaJson)!.AsObject();
+        var name = root["columns"]!.AsArray().Single(node => node!["databaseName"]!.GetValue<string>() == "Name")!.AsObject();
+        var ui = JsonNode.Parse("""{"controlKind":"textarea","showInList":true,"includeInCreate":true,"includeInUpdate":true,"required":true,"sortable":false,"queryable":true,"queryKind":"contains","unique":true,"includeInImportExport":false}""")!.AsObject();
+        name["ui"] = ui;
+        await File.WriteAllTextAsync(fixture.SchemaPath, root.ToJsonString());
+        var schema = await CrudSchemaDocument.LoadAsync(fixture.SchemaPath, CancellationToken.None);
+        Assert.AreEqual(FullNetColumnControlKind.Textarea, schema.Columns.Single(column => column.DatabaseName == "Name").Ui!.ControlKind);
+        Assert.IsTrue(schema.Columns.Single(column => column.DatabaseName == "Name").Ui!.Unique);
+        ui.Remove("required");
+        await File.WriteAllTextAsync(fixture.SchemaPath, root.ToJsonString());
+        await Assert.ThrowsExactlyAsync<JsonException>(() => CrudSchemaDocument.LoadAsync(fixture.SchemaPath, CancellationToken.None));
+        ui["required"] = true;
+        ui["queryKind"] = "raw.sql";
+        await File.WriteAllTextAsync(fixture.SchemaPath, root.ToJsonString());
+        await Assert.ThrowsExactlyAsync<JsonException>(() => CrudSchemaDocument.LoadAsync(fixture.SchemaPath, CancellationToken.None));
     }
 
     [TestMethod]
@@ -1818,7 +1623,7 @@ public sealed class CodeGenerationCliTests
 
         using var artifactFixture = CliFixture.Create();
         artifactFixture.WriteWorkspaceBytes(
-            "backend/ProductContracts.g.cs",
+            "generated/acme/catalog/product/backend/ProductContracts.g.cs",
             [0xC3, 0x28]);
         using var artifactOutput = new StringWriter();
         using var artifactError = new StringWriter();
@@ -1881,7 +1686,8 @@ public sealed class CodeGenerationCliTests
         Assert.AreEqual(string.Empty, ownershipOutput.ToString());
     }
 
-    private const string ValidSchemaJson =
+    // 整链 CLI 验证复用同一严格输入，防止另建一份与实际入口脱节的 Schema 样例。
+    internal const string ValidSchemaJson =
         """
         {
           "ownerKey": "acme",

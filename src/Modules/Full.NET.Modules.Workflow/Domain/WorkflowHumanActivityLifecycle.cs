@@ -28,6 +28,11 @@ internal static class WorkflowHumanActivityLifecycle
     }
     public static async Task CancelAsync(ICommandExecutor commands, Guid instanceId, string tenantScopeKey, DateTimeOffset now, CancellationToken token)
     {
+        // 取消、撤回与驳回都关闭源调用准入；目标自己的业务事务由Relay随后收敛。
+        await commands.ExecuteAsync(WorkflowCollaborationRelaySql.RequestCancellation,
+            WorkflowSqlParameters.Create(("InstanceId", instanceId), ("TenantScopeKey", tenantScopeKey), ("Now", now)), token).ConfigureAwait(false);
+        await commands.ExecuteAsync(WorkflowCollaborationControlSql.CloseTargetRoot,
+            WorkflowSqlParameters.Create(("InstanceId", instanceId), ("TenantScopeKey", tenantScopeKey), ("Now", now)), token).ConfigureAwait(false);
         var parameters = WorkflowSqlParameters.Create(("InstanceId", instanceId), ("TenantScopeKey", tenantScopeKey));
         await commands.ExecuteAsync(WorkflowSql.CancelCountersignItemsByInstance, parameters, token).ConfigureAwait(false);
         await commands.ExecuteAsync(WorkflowSql.CancelCountersignChainsByInstance, parameters, token).ConfigureAwait(false);

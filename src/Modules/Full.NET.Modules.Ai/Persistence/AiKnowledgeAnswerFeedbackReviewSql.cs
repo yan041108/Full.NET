@@ -19,7 +19,7 @@ internal static class AiKnowledgeAnswerFeedbackReviewSql
     // 来源与反馈在同一次最终读取中核对，不能在两笔异步查询之间释放旧资格。
     private static string Current(bool mysql, bool tenant)
     {
-        var fields = new[] { "KnowledgeBaseId", "DocumentId", "VersionId", "FileId", "TaskId" };
+        var fields = new[] { "KnowledgeBaseId", "DocumentId", "VersionId", "FileId", "TaskId", "PublicationId" };
         var strings = new[] { "ContentHash", "ReceiptHash", "ManifestHash", "PlanHash" };
         var definitions = new List<string> { mysql ? "FeedbackId CHAR(36) PATH '$.feedbackId'" : "FeedbackId uniqueidentifier '$.feedbackId'",
             mysql ? "MessageId CHAR(36) PATH '$.messageId'" : "MessageId uniqueidentifier '$.messageId'" };
@@ -29,19 +29,30 @@ internal static class AiKnowledgeAnswerFeedbackReviewSql
             : field + " varchar(64) '$.dependency." + char.ToLowerInvariant(field[0]) + field[1..] + "'");
         foreach (var field in new[] { "DocumentVersion", "KnowledgeBaseVersion" }) definitions.Add(mysql ? field + " INT PATH '$.dependency." + char.ToLowerInvariant(field[0]) + field[1..] + "'"
             : field + " int '$.dependency." + char.ToLowerInvariant(field[0]) + field[1..] + "'");
+        foreach (var pair in new[] { ("FaqId", "faqId"), ("FaqRevisionId", "revisionId"), ("FaqModelId", "modelConfigId") })
+            definitions.Add(mysql ? pair.Item1 + " CHAR(36) PATH '$.dependency.faq." + pair.Item2 + "'" : pair.Item1 + " uniqueidentifier '$.dependency.faq." + pair.Item2 + "'");
+        foreach (var pair in new[] { ("FaqSourceHash", "sourceHash"), ("FaqContentHash", "contentHash") })
+            definitions.Add(mysql ? pair.Item1 + " VARCHAR(64) PATH '$.dependency.faq." + pair.Item2 + "'" : pair.Item1 + " varchar(64) '$.dependency.faq." + pair.Item2 + "'");
+        definitions.Add(mysql ? "FaqModelVersion INT PATH '$.dependency.faq.modelConfigVersion'" : "FaqModelVersion int '$.dependency.faq.modelConfigVersion'");
         var bindings = mysql ? "JSON_TABLE(@ReviewBindingsJson,'$[*]' COLUMNS (" + string.Join(',', definitions) + ")) AS expected"
             : "OPENJSON(@ReviewBindingsJson) WITH (" + string.Join(',', definitions) + ") AS expected";
         string Id(string column) => mysql ? "UUID_TO_BIN(expected." + column + ",0)" : "expected." + column;
         // MySQL 的 JSON 字符串必须转回官方非交换 Binary16，不能比较隐式 UUID 排序或编码。
         var predicate = Id("FeedbackId") + "=feedback.Id AND " + Id("MessageId") + "=message.Id";
-        var match = string.Join(" AND ", fields.Select(field => "source." + field + "=" + Id(field)))
+        var match = string.Join(" AND ", fields.Where(field => field != "FileId").Select(field => "source." + field + "=" + Id(field)))
+            + " AND ((source.FileId=" + Id("FileId") + ") OR (source.FileId IS NULL AND " + Id("FileId") + " IS NULL))"
             + " AND source.DocumentVersion=expected.DocumentVersion AND source.KnowledgeBaseVersion=expected.KnowledgeBaseVersion AND source.ContentHash=expected.ContentHash"
             // 空租约是状态哨兵，不是持久化标识；使用提供程序常量，避免触发 Guid 参数的已分配标识门禁。
             + " AND source.ActiveTaskId=" + Id("TaskId") + " AND source.ActiveLeaseToken IS NOT NULL AND source.ActiveLeaseToken<>"
             + (mysql ? "X'00000000000000000000000000000000'" : "CONVERT(uniqueidentifier,'00000000-0000-0000-0000-000000000000')")
             + " AND source.ActiveReceiptHash=expected.ReceiptHash AND source.ActiveManifestHash=expected.ManifestHash AND source.ActivePlanHash=expected.PlanHash"
             + " AND source.IsDeleted=0 AND source.CleanupPending=0 AND source.IsCurrent=1 AND source.StateKey='completed' AND source.HasDerivedData=1";
-        var sources = AiKnowledgeIndexStatusSql.HistoryFor(mysql ? DatabaseProvider.MySql : DatabaseProvider.SqlServer, tenant).Text;
+        match += " AND ((expected.FaqId IS NULL AND source.FaqRevisionId IS NULL) OR (source.FaqRevisionId=" + Id("FaqRevisionId")
+            + " AND source.ModelConfigId=" + Id("FaqModelId") + " AND source.ModelConfigVersion=expected.FaqModelVersion"
+            + " AND EXISTS (SELECT 1 FROM fn_ai_knowledge_faq AS faqRoot INNER JOIN fn_ai_knowledge_faq_revision AS faqRevision ON faqRevision.FaqId=faqRoot.Id"
+            + " WHERE faqRoot.Id=" + Id("FaqId") + " AND faqRoot.ReservedDocumentId=source.DocumentId AND faqRoot.SourceHash=expected.FaqSourceHash"
+            + " AND faqRevision.Id=source.FaqRevisionId AND faqRevision.ContentHash=expected.FaqContentHash AND " + Scope(tenant, "faqRoot") + ")))";
+        var sources = AiKnowledgeRetrievalSql.CombinedHistoryFor(mysql ? DatabaseProvider.MySql : DatabaseProvider.SqlServer, tenant).Text;
         return "SELECT " + Columns + From(tenant) + " AND EXISTS (SELECT 1 FROM " + bindings + " WHERE " + predicate + ")"
             + " AND NOT EXISTS (SELECT 1 FROM " + bindings + " WHERE " + predicate + " AND NOT EXISTS (SELECT 1 FROM (" + sources + ") AS source WHERE " + match + "))";
     }

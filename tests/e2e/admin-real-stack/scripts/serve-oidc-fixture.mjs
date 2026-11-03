@@ -1,5 +1,6 @@
-import { createReadStream, existsSync, statSync } from 'node:fs';
+import { createReadStream, existsSync, statSync, readFileSync } from 'node:fs';
 import http from 'node:http';
+import https from 'node:https';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -15,7 +16,7 @@ const contentTypes = new Map([
   ['.css', 'text/css; charset=utf-8']
 ]);
 
-const server = http.createServer((request, response) => {
+const handler = (request, response) => {
   const requestPath = request.url?.split('?', 1)[0] ?? '/';
   const relativePath = requestPath === '/' ? '/index.html' : requestPath;
   const filePath = path.join(root, relativePath);
@@ -28,11 +29,19 @@ const server = http.createServer((request, response) => {
   const extension = path.extname(filePath).toLowerCase();
   response.writeHead(200, {
     'Content-Type': contentTypes.get(extension) ?? 'application/octet-stream',
+    'Referrer-Policy': 'no-referrer',
     'Cache-Control': 'no-store'
   });
   createReadStream(filePath).pipe(response);
-});
+};
 
-server.listen(port, 'localhost', () => {
-  console.log(`OIDC fixture listening on http://localhost:${port}`);
+const certificate = process.env.FULLNET_E2E_TLS_CERT;
+const privateKey = process.env.FULLNET_E2E_TLS_KEY;
+if (Boolean(certificate) !== Boolean(privateKey)) throw new Error('TLS certificate and key must be configured together.');
+const server = certificate
+  ? https.createServer({ cert: readFileSync(certificate), key: readFileSync(privateKey) }, handler)
+  : http.createServer(handler);
+
+server.listen(port, process.env.FULLNET_E2E_BIND_HOST ?? 'localhost', () => {
+  console.log(`OIDC fixture listening on ${certificate ? 'https' : 'http'} port ${port}`);
 });

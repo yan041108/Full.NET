@@ -9,6 +9,7 @@ import { useRouter } from 'vue-router';
 import { listMyWorkflowCc, markWorkflowCcRead, type WorkflowCcResponse } from '../api/workflow-cc';
 import PermissionGate from '../components/PermissionGate.vue';
 import { useAdminI18n } from '../i18n/adminI18n';
+import { useSessionStore } from '../auth/session';
 import {
   findWorkflowBusinessDetailRoute,
   formatWorkflowBusinessLabel
@@ -18,6 +19,7 @@ import { formatAdminDateTime } from '../workflow/workflowAdminFormat';
 import { useArtCrudTableLayout } from '../framework/art-design/composables/useArtCrudTableLayout';
 
 const { t, locale } = useAdminI18n();
+const session = useSessionStore();
 
 function formatDateTime(value: string): string {
   return formatAdminDateTime(locale.value, value);
@@ -80,8 +82,11 @@ function toProblem(error: unknown): FullNetProblemDetails {
 }
 
 /** 通过可信白名单路由打开业务单据详情。 */
+function businessDetailRoute(businessType: string | null | undefined) {
+  return session.switching ? undefined : findWorkflowBusinessDetailRoute(businessType, session.can);
+}
 function openBusinessDetail(businessType: string, businessId: string): void {
-  const route = findWorkflowBusinessDetailRoute(businessType);
+  const route = businessDetailRoute(businessType);
   if (route === undefined) {
     return;
   }
@@ -115,7 +120,7 @@ function openBusinessDetail(businessType: string, businessId: string): void {
             <div class="workflow-cc__business">
               <strong translate="no">{{ formatWorkflowBusinessLabel(row.businessTitle, row.businessType, row.businessId) }}</strong>
               <el-button
-                v-if="findWorkflowBusinessDetailRoute(row.businessType)"
+                v-if="businessDetailRoute(row.businessType)"
                 link
                 type="primary"
                 data-testid="workflow-cc-view-document"

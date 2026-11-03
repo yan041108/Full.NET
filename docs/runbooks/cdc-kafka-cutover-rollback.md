@@ -1,14 +1,22 @@
 # CDC / Kafka 切流、停止、Fence、排空、回退与 DLQ 重放 Runbook
 
+> 2026-10-30 补充：同两份Native应用在默认预取1及显式预取8/低水位0/单槽1下，双Worker每库60分钟长稳均双库2/2；正式/首个重试Topic自动TTL各双库2/2，实际Low推进后保留原资源/代次/fence且不发送resume，旧offset重放拒绝。预取8短时5/10档及最终单帧10档复验另有记录，默认1的10档失败保留。生产容量未验证，这些结果不授权正式切流、更新原保留基线或解除fence；按源事件、Inbox/DLQ独立对账后另行处理，不能把当前High追平当作旧窗口完整。配置与精确范围见[最新记录](../verification/2026-10-28-messaging-reliability-continuation.md#2026-10-30预取8长稳与自动ttl续办)。
+
+> 2026-10-29 验收：实际Linux Native API控制面与Worker HybridKafka/Debezium链路双库2/2、零跳过通过，含有限迟到pause/resume纠偏及每库两个Worker SIGTERM退出0；此前JIT双Worker60分钟长稳保留独立输入。运行范围、原失败与两份ELF身份见[当时记录](../verification/2026-10-28-messaging-reliability-continuation.md#2026-10-29分片发现与完整-native-控制链续办)。不授权正式切流，不证明远端CAS或生产容量。
+
 权威架构见 [`ADR-0006`](../architecture/adr/ADR-0006-transactional-outbox-cdc-kafka-event-delivery.md) 与运维概述 [`cdc-kafka-event-delivery.md`](../operations/cdc-kafka-event-delivery.md)。本 runbook 记录目标操作顺序、当前实现限制及**停止 / 回滚条件**；标记为待实现的步骤不能作为现有自动化能力执行。
 
-第二批已实现持久回退、跨实例恢复、API 专用控制面与短期影子证明；本地定向结果及未完成门禁见[第二批记录](../superpowers/plans/2026-10-24-messaging-operations-batch2.md)。本地 Broker/双库与 HTTP 故障模型不能替代真实 Debezium/Agent 切流回退演练。
+第二批已实现持久回退、跨实例恢复、API 专用控制面与短期影子证明；本地定向结果见[第二批记录](../superpowers/plans/2026-10-24-messaging-operations-batch2.md)。2026-10-25 已另行完成[双库真实 Debezium/Agent 链路](../superpowers/plans/2026-10-25-messaging-real-cutover-rollback.md)，历史同进程场景不证明多进程、断网、告警或容量；当前连续整改见[计划](../superpowers/plans/2026-10-28-messaging-reliability-continuation.md)。
 
 2026-10-25 已补齐[双库完整真实链路](../superpowers/plans/2026-10-25-messaging-real-cutover-rollback.md)：MySQL Binlog、独享 SQL Server Agent → Debezium/Kafka → Inbox，覆盖真实业务 HTTP 切流、实际暂停后的最终审计失败补偿、成功回退与 Completed 恢复幂等，2 通过、0 失败、0 跳过。该场景使用同进程的生产 Worker 组件；多进程重启、断网、Soak、容量及独立复核未验收。
 
 > **硬边界：**生产默认 Messaging:DeliveryCutover:Enabled=false。在当前代码的真实双库 CDC E2E、告警/恢复演练与容量门禁完成前，禁止正式切流，保持 Capacity-not-verified，不标记 Production-verified。
 
 ### 控制面配置与资源约束
+
+正式及全部重试业务 Topic 从创建起必须保持纯 `cleanup.policy=delete`，控制身份需要精确 Topic 的 `DESCRIBE_CONFIGS` 只读权限。有效策略继承为 compact、混合策略或不可读时，切流/回退/恢复均失败关闭；内部记录经 compaction 丢失可能不改变 Low，不能凭追平 offset 认定完整交付，也不能改回 delete 后复用有疑问的旧证据。Connect 内部 compact Topic 不受此限制。
+
+2026-10-29 起自动回退还要求迁移 342 与切流时持久保存的不可变 Kafka 拓扑。正式和全部重试 Topic 的原 ID、分区和保留起点必须仍匹配，High 不得倒退；当前消费组追平不能证明历史裁剪无损。未知旧基线、同名重建、阶段删除或窗口裁剪均失败关闭；禁止用当前资源回填旧基线来解除 producer fence。完整部署条件及人工对账边界见[不可变基线](../../deploy/messaging/README.md#immutable-cdc-delivery-baseline)。
 
 受理请求的 API 需配置 Messaging:Kafka:Enabled 和 Messaging:KafkaConnectRollback；API 使用专用注册，不启动常驻消费者。未启用时仍失败关闭。以下仅展示配置字段，Enabled 保持 false：
 
@@ -48,7 +56,7 @@
 
 ConsumerGroupId 必须取自实际订阅目录，WorkerClientId 必须匹配目标 Worker 的 Kafka ClientId 前缀；两者均不能凭示例猜测。Connect 与 API 观测的 Broker ClusterId 必须一致；URI 不允许凭据、子路径、查询串或片段。单次准备/排空超时各为 1～300 秒，轮询间隔 10～10000 毫秒。
 
-本协议只支持一个活动 CDC 试点流。目标 Connector 必须是正确源库/追加 Outbox 表的专用 SQL Server 或 MySQL Debezium Connector，tasks.max=1、snapshot.mode=no_data、仅 outbox EventRouter、显式 StringConverter key/ByteArrayConverter value、固定路由至 TopicName、仅插入事件及完整信封 Header。其他活动 CdcKafka 流（含目录默认值）、共享 Connector 映射和 producer.override.bootstrap.servers 均拒绝。仓库 *-outbox-shadow.json 是影子路由模板，不能直接当作已就绪正式 Connector；独立影子写入/捕获流程须提供同一受控源集的完整观察，不能靠请求布尔值或手工改状态制造通过。
+本协议只支持一个活动 CDC 试点流。目标 Connector 必须是正确源库/追加 Outbox 表的专用 SQL Server 或 MySQL Debezium Connector，tasks.max=1、snapshot.mode=no_data、仅 outbox EventRouter、显式 StringConverter key 与 BinaryDataConverter value（非二进制元数据委托给无 schema 的 JsonConverter）、固定路由至 TopicName、仅插入事件及完整信封 Header。其他活动 CdcKafka 流（含目录默认值）、共享 Connector 映射和 producer.override.bootstrap.servers 均拒绝。仓库 *-outbox-shadow.json 是影子路由模板，不能直接当作已就绪正式 Connector；独立影子写入/捕获流程须提供同一受控源集的完整观察，不能靠请求布尔值或手工改状态制造通过。
 
 LegacyPolling/ShadowCdc 的主发布路径写 Legacy 队列；只有显式部署策略及活动采集代次匹配时，才在同一业务事务把真实信封复制到独立 `fn_messaging_shadow_event`，不写正式追加表。空源、未关闭、元数据缺口、代次或行数/字节不完整时证明拒绝。总览中的开始/关闭入口要求 `messaging.delivery.cutover` 和理由；新代次会清理上一代诊断样本并使旧证明失效。所有生产者实例须配置同一策略，部署步骤见 [影子采集说明](../../deploy/messaging/README.md#bounded-real-legacy-capture)。本地双库/Broker 证据不能替代实际 Debezium/Agent 环境验收。
 
@@ -59,8 +67,8 @@ LegacyPolling/ShadowCdc 的主发布路径写 Legacy 队列；只有显式部署
 | `fullnet.outbox.backlog.oldest_age` → `fullnet_outbox_backlog_oldest_age_seconds` | Legacy 积压年龄 |
 | `fullnet.outbox.legacy.empty_poll.backoff` → `fullnet_outbox_legacy_empty_poll_backoff_seconds` | 空轮询退避 |
 | `fullnet.outbox.commit_to_capture` → `fullnet_outbox_commit_to_capture_seconds` | 提交到捕获延迟（影子路径或平台填充） |
-| `fullnet.messaging.kafka.consumer.lag` → `fullnet_messaging_kafka_consumer_lag` | Consumer 消息滞后 |
-| `fullnet.messaging.kafka.lag_retention_ratio` → `fullnet_messaging_kafka_lag_retention_ratio` | 滞后相对保留窗口占比 |
+| `fullnet.messaging.kafka.observed_topics.lag` → `fullnet_messaging_kafka_observed_topics_lag` | 已观测正式 Topic 消息滞后；不含未映射订阅或重试 Topic |
+| `fullnet.messaging.kafka.observed_topics.lag_retention_ratio` → `fullnet_messaging_kafka_observed_topics_lag_retention_ratio` | 已观测 Topic 的滞后相对保留窗口占比；不代表整个消费组 |
 | `fullnet.messaging.connector.lag` / `offset.unrecoverable` | Connector 滞后与位点不可恢复（可由 `UpdateConnectorHealth` 填充） |
 | `fullnet.messaging.cdc.sqlserver.capture_job_running` | SQL Server CDC Capture Job（平台填充） |
 | `fullnet.messaging.cdc.mysql.binlog_retention_hours` | MySQL Binlog 保留小时（平台填充） |
@@ -89,7 +97,7 @@ LegacyPolling/ShadowCdc 的主发布路径写 Legacy 队列；只有显式部署
 
 1. 将 `DeliveryCutover:Enabled` 置回 `false`（阻止新的切流 API）。
 2. 先确认受影响流、共享 Connector/Worker 和在途处理范围，通过部署层已有控制停止或隔离相关消费者；暂停 Connector 本身不能阻止消费者处理 Broker 中已有消息。当前没有已交付的通用单流紧急停止 API，不能据此假定可无影响地停止一个流。
-3. 按已确认范围暂停 Debezium Connector，验证 Connector/任务状态并保留 offsets Topic；需要中止新增业务事件时，另经授权限制对应生产入口。改变 Worker 模式不能代替数据库所有权回退或 producer fence；所有权仍为 CdcKafka 时，新事件继续写追加表，暂停 Connector 后会积压。紧急隔离不等于已经完成正常回退，后续恢复仍须重新取得有效位点和排空证明。
+3. 若使用直接 REST 人工保持暂停，先停止全部相关控制 Worker（或关闭其 KafkaConnectRollback 控制配置并重启），确认没有仍在执行的控制操作；CDC 当前目标仍为 RUNNING 时，自动纠偏会恢复直接 pause。然后按已确认范围暂停 Debezium Connector，验证 Connector/任务状态并保留 offsets Topic；需要中止新增业务事件时，另经授权限制对应生产入口。改变 Worker 模式不能代替数据库所有权回退或 producer fence；所有权仍为 CdcKafka 时，新事件继续写追加表，暂停 Connector 后会积压。紧急隔离不等于已经完成正常回退，后续恢复仍须重新取得有效位点和排空证明。
 4. 记录停止时刻的位点与告警快照。
 
 **停止条件：** 已满足“无新 CdcKafka 写入副作用”证明前，不得恢复切流开关。
@@ -121,6 +129,8 @@ Preparing 期间，受该流 producer fence 影响的业务 HTTP 写入返回 50
 
 **回滚条件（回退本身失败时）：** 先核对实际所有权与操作状态；若仍为 Preparing 且无法证明安全恢复，则保持保护，按第 2～3 节受控隔离。数据库已提交 Legacy 时不能假定仍在 Preparing；禁止强行改所有权或清除 fence。
 
+取消回退恢复 CDC 前，API 核对原 Connector 已提交坐标仍在真实源窗口内；resume 并确认所有任务 RUNNING 后再次检查。坐标丢失、读取权限不足或结果未知时保持 Recovering 和 producer fence。REST 成功或任务 RUNNING 不能替代这两次检查。日志已丢失时先停止、保存原操作与位点并对账，另行制定数据修复方案；禁止重建空基线后直接解除原保护。
+
 ## 5. DLQ 重放
 
 第一批已增加真实 `.dlq` 持久查询投影 `fn_messaging_dead_letter`，Vue Kafka 页签及 `/api/v1/messaging/kafka/dead-letters` 查询该表。历史 `/api/v1/messaging/dead-letters` 仍查询 Inbox failed 行，不作为真实 DLQ 来源。全部人工恢复要求可信操作者与必填理由；验收证据见 [第一批记录](../superpowers/plans/2026-10-24-messaging-operations-batch1.md)，Legacy 恢复见 [Outbox 运维说明](../operations/outbox-worker-topology.md)。
@@ -129,7 +139,7 @@ Preparing 期间，受该流 producer fence 影响的业务 HTTP 写入返回 50
 2. 使用页面或 `POST /api/v1/messaging/kafka/dead-letters/{id}/replay`（`messaging.dead_letters.replay`），请求体提供不超过 512 字符的 `reason`。仅当前 CdcKafka 所有权、信封完整且订阅仍匹配时允许执行，经保留信封与原订阅进入 Inbox；领域审计和业务/Inbox 事务共同提交。重复执行返回 `already_processed`，不能凭 HTTP 成功省略业务对账。
 3. 损坏信封按 Broker 位置定位，页面保留元数据但拒绝重放；原始字节只保留在受控数据库快照中，不经详情接口返回。禁止临时改业务 Consumer 自动订阅 DLQ。恢复不删除 Broker 记录或数据库快照，也不重置历史尝试次数。
 4. 观察 `dead_letter.published` 下降不得作为成功标准；以业务对账与 Inbox 结果为准。
-5. 范围重放应返回稳定 OperationId、可查询进度与部分完成/结果未知状态；这是待实现要求。当前 Requested/终态审计不能保证进程中断可恢复，也不能宣称跨消息消费与最终审计原子提交。
+5. 范围重放已返回稳定 OperationId，并持久化固定窗口、检查点、部分完成与结果未知状态；按下方“持久范围重放操作”继续同一操作。Inbox 提交与操作检查点分属事务，未知结果须经 Inbox 幂等确认；不能宣称跨消息业务副作用与最终审计原子提交。真实跨进程崩溃恢复仍须单独验收。
 
 **停止条件：** Payload 损坏、同 ID 不同 Hash、目标所有权不是预期 Owner。
 
@@ -140,14 +150,19 @@ Preparing 期间，受该流 producer fence 影响的业务 HTTP 写入返回 50
 
 **停止条件：** dry_run 显示不可解释缺口或跨租户差异。
 
-## 7. 告警与平台占位指标
+## 7. 告警与真实采集边界
 
-下列指标可由应用 `KafkaMessagingTelemetry.UpdateCdcPlatformHealth` / `UpdateConnectorHealth` 或外部 exporter 填充；缺省开发值不得当作生产健康证明：
+`Messaging:CdcMonitoring:Enabled=true` 后，Worker 通过 Full.NET 数据执行器读取当前库的实际 Capture Job/Agent、MySQL 自动过期配置和持久 producer fence；配置了专用试点控制面时还读取 Connect 全部任务与正式消费组 lag。默认关闭，不影响默认 Legacy 发布。删除了 Capture Job=1、Binlog=168h 的假健康默认值。采集失败撤下旧数值，超过新鲜度窗口标记 `stale`；`disabled`、`unknown`、`error` 与健康不同。配置、预算和权限见[部署说明](../../deploy/messaging/README.md#cdc-runtime-monitoring)。
 
 - SQL Server Capture Job 停止 → `FullNetMessagingSqlServerCdcCaptureJobStopped`
 - MySQL Binlog 保留不足 → `FullNetMessagingMySqlBinlogRetentionLow`
 - Connector Offset 不可恢复 → `FullNetMessagingConnectorOffsetUnrecoverable`
 - Kafka lag 近保留 → `FullNetMessagingKafkaLagNearRetention`
+- 观测未知/失败/陈旧 → `FullNetMessagingObservationUnavailable`
+- Connect/任务未运行 → `FullNetMessagingConnectorNotRunning`
+- producer fence 持续存在 → `FullNetMessagingProducerFenceActive`
+
+REST 运行状态及消息 lag 不等于源位点可恢复或时间 lag/保留占比。缺少这些平台源时采集器明确发布相应 `unknown`，不能据其余健康值批准切流。MySQL 过期配置 0 表示关闭自动过期，不是假定保留 7 天；手工 purge、磁盘空间和实际保留恢复仍须单独演练。Exporter/采集进程失联须按平台目标 `up` 和 OTLP 链路告警监控，不能依靠一条缺失的数值告警。
 
 规则文件：[`deploy/observability/prometheus-rules.yaml`](../../deploy/observability/prometheus-rules.yaml)。
 
@@ -163,3 +178,11 @@ Preparing 期间，受该流 producer fence 影响的业务 HTTP 写入返回 50
 5. `blocked` 时核对原 Cluster/Topic 身份和 Kafka 保留窗口。不能扩大原范围或修改持久 JSON 伪造恢复；涉及数据缺口另行对账。执行锁冲突或租约仍活动时先查询，等待原执行完成或租约失效。
 
 总览中的未知、读取失败、关闭与零计数有不同含义。API 配置开启不证明 Worker、Connector 或 Agent 就绪，当前总览不生成切流就绪证明。页面「验证影子证明」「切换至 CDC」「回退至 Legacy」「取消回退并恢复 CDC」仍使用原有服务端安全门禁；Completed 回退禁止恢复原 Connector。
+
+## 存活旧执行者失锁与迟到 REST
+
+发生数据库会话失锁时，旧执行者即使进程仍存活，也必须停止原控制操作与补偿。不要把重新获取锁视为原租约仍有效。已经发给 Connect 的请求可能迟到；当前实现由真实 HybridKafka Worker 按持久目标纠偏，精确条件与 EventId 1480/1481 见[部署边界](../../deploy/messaging/README.md#迟到-rest-与控制目标收敛)。
+
+先读取实际所有者、RollbackState、直接关联的回退代次与 Connector 状态。RollbackState=0 时非空 RollbackGeneration 可表示已完成终态，不是仍有 producer fence；不能仅凭 Generation 非空手工清表。RollbackState=1、配置/环境/端点变化、原 Topic/源日志不可恢复或未知时，自动纠偏停止，必须按原持久代次恢复，保留保护。观察到有限迟到动作后，确认 Worker 在原资源上重申目标，并同时核对 owner/fence/日志没有被后台改写；正常纠偏不会创建新的业务审计操作者。
+
+这不是 Connect 端的线性化 fencing，不允许无限重发旧请求、共享 Connector、多活动 CDC 流或重新认领被裁剪窗口。实测状态以[本机验证记录](../verification/2026-10-28-messaging-reliability-continuation.md)的最新输入为准。

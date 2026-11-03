@@ -125,6 +125,7 @@ internal static class ReportingExportTaskClaimPersistenceAssertions
             LeaseId = (Guid?)null,
             LeaseExpiresAtUtc = (DateTime?)null,
             ActorPermissionCodesJson = "[]",
+            ActorSessionBindingJson = (string?)null,
             Version = 1L,
         });
 

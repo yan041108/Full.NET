@@ -1798,12 +1798,23 @@ internal static class WorkflowSql
         """;
 
     /// <summary>统计当前作用域内满足筛选条件的实例总数。</summary>
-    public static readonly SqlStatement CountInstancesFiltered = new(
-        "workflow.instance.count_filtered",
+    public static readonly SqlStatement CountInstancesFilteredSqlServer = new(
+        "workflow.instance.count_filtered.sqlserver",
         $"""
         SELECT COUNT(1)
         {InstanceListJoinClause}
         {InstanceListFilterClause}
+          AND {WorkflowCollaborationListSql.AllowsSqlServer}
+        """,
+        SqlDataScope.Global);
+
+    public static readonly SqlStatement CountInstancesFilteredMySql = new(
+        "workflow.instance.count_filtered.mysql",
+        $"""
+        SELECT COUNT(1)
+        {InstanceListJoinClause}
+        {InstanceListFilterClause}
+          AND {WorkflowCollaborationListSql.AllowsMySql}
         """,
         SqlDataScope.Global);
 
@@ -1814,6 +1825,7 @@ internal static class WorkflowSql
         SELECT {InstanceListSelectColumns}
         {InstanceListJoinClause}
         {InstanceListFilterClause}
+          AND {WorkflowCollaborationListSql.AllowsSqlServer}
         ORDER BY instance.StartedAtUtc DESC, instance.Id ASC
         OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY
         """,
@@ -1826,6 +1838,7 @@ internal static class WorkflowSql
         SELECT {InstanceListSelectColumns}
         {InstanceListJoinClause}
         {InstanceListFilterClause}
+          AND {WorkflowCollaborationListSql.AllowsMySql}
         ORDER BY instance.StartedAtUtc DESC, instance.Id ASC
         LIMIT @PageSize OFFSET @Offset
         """,
@@ -1867,8 +1880,8 @@ internal static class WorkflowSql
         """;
 
     /// <summary>统计当前用户待办数量。</summary>
-    public static readonly SqlStatement CountPendingTodosFiltered = new(
-        "workflow.todo.count_pending_filtered",
+    public static readonly SqlStatement CountPendingTodosFilteredSqlServer = new(
+        "workflow.todo.count_pending_filtered.sqlserver",
         $"""
         SELECT COUNT(1)
         {TodoListJoinClause}
@@ -1877,6 +1890,21 @@ internal static class WorkflowSql
           {TodoListSharedFilterClause}
           AND (@ArrivedFromUtc IS NULL OR todo.ArrivedAtUtc >= @ArrivedFromUtc)
           AND (@ArrivedToUtc IS NULL OR todo.ArrivedAtUtc <= @ArrivedToUtc)
+          AND {WorkflowCollaborationListSql.AllowsSqlServer}
+        """,
+        SqlDataScope.Global);
+
+    public static readonly SqlStatement CountPendingTodosFilteredMySql = new(
+        "workflow.todo.count_pending_filtered.mysql",
+        $"""
+        SELECT COUNT(1)
+        {TodoListJoinClause}
+        WHERE todo.StatusKey IN ('active', 'before_countersign')
+          AND instance.StatusKey = 'active'
+          {TodoListSharedFilterClause}
+          AND (@ArrivedFromUtc IS NULL OR todo.ArrivedAtUtc >= @ArrivedFromUtc)
+          AND (@ArrivedToUtc IS NULL OR todo.ArrivedAtUtc <= @ArrivedToUtc)
+          AND {WorkflowCollaborationListSql.AllowsMySql}
         """,
         SqlDataScope.Global);
 
@@ -1891,6 +1919,7 @@ internal static class WorkflowSql
           {TodoListSharedFilterClause}
           AND (@ArrivedFromUtc IS NULL OR todo.ArrivedAtUtc >= @ArrivedFromUtc)
           AND (@ArrivedToUtc IS NULL OR todo.ArrivedAtUtc <= @ArrivedToUtc)
+          AND {WorkflowCollaborationListSql.AllowsSqlServer}
         ORDER BY todo.ArrivedAtUtc DESC, todo.Id ASC
         OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY
         """,
@@ -1907,14 +1936,15 @@ internal static class WorkflowSql
           {TodoListSharedFilterClause}
           AND (@ArrivedFromUtc IS NULL OR todo.ArrivedAtUtc >= @ArrivedFromUtc)
           AND (@ArrivedToUtc IS NULL OR todo.ArrivedAtUtc <= @ArrivedToUtc)
+          AND {WorkflowCollaborationListSql.AllowsMySql}
         ORDER BY todo.ArrivedAtUtc DESC, todo.Id ASC
         LIMIT @PageSize OFFSET @Offset
         """,
         SqlDataScope.Global);
 
     /// <summary>统计当前用户已办数量。</summary>
-    public static readonly SqlStatement CountHistoryTodosFiltered = new(
-        "workflow.todo.count_history_filtered",
+    public static readonly SqlStatement CountHistoryTodosFilteredSqlServer = new(
+        "workflow.todo.count_history_filtered.sqlserver",
         $"""
         SELECT COUNT(1)
         {TodoListJoinClause}
@@ -1923,6 +1953,21 @@ internal static class WorkflowSql
           {TodoListSharedFilterClause}
           AND (@CompletedFromUtc IS NULL OR todo.CompletedAtUtc >= @CompletedFromUtc)
           AND (@CompletedToUtc IS NULL OR todo.CompletedAtUtc <= @CompletedToUtc)
+          AND {WorkflowCollaborationListSql.AllowsSqlServer}
+        """,
+        SqlDataScope.Global);
+
+    public static readonly SqlStatement CountHistoryTodosFilteredMySql = new(
+        "workflow.todo.count_history_filtered.mysql",
+        $"""
+        SELECT COUNT(1)
+        {TodoListJoinClause}
+        WHERE todo.StatusKey IN ('completed', 'cancelled')
+          AND todo.CompletedAtUtc IS NOT NULL
+          {TodoListSharedFilterClause}
+          AND (@CompletedFromUtc IS NULL OR todo.CompletedAtUtc >= @CompletedFromUtc)
+          AND (@CompletedToUtc IS NULL OR todo.CompletedAtUtc <= @CompletedToUtc)
+          AND {WorkflowCollaborationListSql.AllowsMySql}
         """,
         SqlDataScope.Global);
 
@@ -1937,6 +1982,7 @@ internal static class WorkflowSql
           {TodoListSharedFilterClause}
           AND (@CompletedFromUtc IS NULL OR todo.CompletedAtUtc >= @CompletedFromUtc)
           AND (@CompletedToUtc IS NULL OR todo.CompletedAtUtc <= @CompletedToUtc)
+          AND {WorkflowCollaborationListSql.AllowsSqlServer}
         ORDER BY todo.CompletedAtUtc DESC, todo.Id ASC
         OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY
         """,
@@ -1953,6 +1999,7 @@ internal static class WorkflowSql
           {TodoListSharedFilterClause}
           AND (@CompletedFromUtc IS NULL OR todo.CompletedAtUtc >= @CompletedFromUtc)
           AND (@CompletedToUtc IS NULL OR todo.CompletedAtUtc <= @CompletedToUtc)
+          AND {WorkflowCollaborationListSql.AllowsMySql}
         ORDER BY todo.CompletedAtUtc DESC, todo.Id ASC
         LIMIT @PageSize OFFSET @Offset
         """,

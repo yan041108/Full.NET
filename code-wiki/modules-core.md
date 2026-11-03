@@ -209,26 +209,35 @@ DeletedHostFileBlobCleanupRunner（后台 Worker）
 
 ## 七、Document 文档模块
 
-> 项目：[`src/Modules/Full.NET.Modules.Document`](file:///G:/wwwroot/github_fork/Full.NET/src/Modules/Full.NET.Modules.Document)
-> 稳定模块键：`Document`
+> 主项目：[Full.NET.Modules.Document](../src/Modules/Full.NET.Modules.Document)；最小事件项目：[Document.Contracts](../src/Modules/Full.NET.Modules.Document.Contracts)，真实消费者为 Files。
+> 稳定模块键：Document。第一批实现与聚焦证据见[实施计划](../docs/superpowers/plans/2026-10-24-document-batch-one.md)，完整边界见[规格](../docs/superpowers/specs/2026-08-02-document-module-design.md)。
 
 ### 7.1 子功能
 
 | 子功能 | 说明 |
-|--------|------|
-| **Document Item** | 文档项：文件/文件夹、父级、所有者、扩展属性 |
-| **Category** | 文档分类：Code、Icon、Color、Description、UseCount |
-| **Tag** | 文档标签：字段同 Category，多对多关联 |
-| **Permissions** | 细粒度权限：按用户/角色设置读/写/删除/分享/管理 |
-| **Shares** | 分享链接：ShareCode(随机 16 进制)、有效期、访问次数 |
-| **Statistics** | 文档统计：数量、大小、类型分布、访问趋势 |
-| **Recycle Bin** | 回收站：软删除文档、恢复、永久删除 |
+| --- | --- |
+| **Document Item** | Host 文档元数据、分类/标签、版本链和当前版本指针；完整 PUT 明确缺字段与 null 语义，状态使用独立发布/归档/恢复编辑命令 |
+| **Category / Tag** | 分类、标签及多对多分配；服务端组合筛选、子孙分类分页和分类树事务闸门已通过第二批聚焦验收 |
+| **Permissions** | 显式 host/restricted 模式，read/write/delete/share 动作组合，批量活动 Host 主体验证和文档 Version 并发替换；治理为独立权限并留存变更前后审计 |
+| **Shares** | 12 位密码学随机分享码、PBKDF2 口令、额度与启停；持久化固定版本会话统一原文和 Office 匿名入口 |
+| **Statistics** | 当前可读发布文档的当前/历史大小分列，UTC 日按逻辑访问事实聚合；第二批聚焦验收通过 |
+| **Recycle Bin** | 软删除、恢复和永久删除；版本及关联记录有界清理，中断可继续；清理标记阻止恢复 |
+| **Preview Tasks** | 转换默认关闭且拒绝入队；服务端能力/MIME 白名单、固定版本及源/输出意图与 Claim、同键上传恢复、最多3次领取、取消/人工重试、租约与清理共用根锁 |
+| **Retention** | 最少保留规则、尝试预算和文档根锁共同保护裁剪；已删除版本编号不复用 |
 
-### 7.2 分享安全
+### 7.2 分享与引用安全
 
-- ShareCode：`RandomNumberGenerator.GetHexString(8)` 安全随机
-- **不支持分享密码**（密码请求返回 400）
-- ShareResponse 中 Password 字段 `[JsonIgnore]`，永不返回到客户端
+- 一次打开生成随机 RequestKey，服务端在根行锁及本地事务内扣次并保存会话；同键重试不重复扣次或记分享打开日志。
+- 会话绑定固定 VersionId、文档访问修订与分享策略修订，默认 15 分钟、到期后保留 24 小时幂等窗口。原文件、预览创建、轮询与输出均重查权威策略；修改 ACL/版本、归档或停用后旧会话失效。多实例需要共享 Key Ring 和应用名。
+- restricted 空名单拒绝内容访问；全局治理权限可通过最小上下文恢复授权，普通文档 write 不隐含治理。
+- 版本删除、保留裁剪及永久删除与精确引用释放事实同事务写入 Outbox，Files 幂等消费。重复交付不会释放同一文件的其他版本 Claim；Blob 是否回收仍由 Files 决定。
+- Files 提供持久化上传操作键：相同输入重试复用 ready 文件，pending/未知结果拒绝盲目发布第二份；第三批预览已预留输出 UUID 和操作键，按可信所有者恢复收据，上传成功后宕机不重复转换或新建文件。
+
+### 7.3 完成范围与证据
+
+第二批已接入服务端总数与组合筛选、统计事实和分类并发闸门；集中验收结果见 [第二批计划](../docs/superpowers/plans/2026-10-24-document-batch-two.md)。第三批也已完成源/输出意图与 Claim、上传收据恢复、租约重领上限、取消与权限化重试，以及独立最小删除事实默认90天保留，见[第三批计划](../docs/superpowers/plans/2026-10-24-document-batch-three.md)。原始访问日志与版本删除审计仍可随永久删除清理，不能宣称完整原始审计不可删。
+
+三批均仅按实际修改及必要边界验收；本地 Unit、双库 Integration、运行时契约、Vue、受控 HTTP 的 Edge 桌面/移动交互和 AOT 静态分析分别记录。未执行全量测试及原生发布，不外推为整个模块 Verified、Production-verified 或容量通过。Vue 为唯一持续交付线，Layui 保持冻结。
 
 ---
 
@@ -277,29 +286,41 @@ DeletedHostFileBlobCleanupRunner（后台 Worker）
 
 ## 九、CodeGeneration 代码生成模块
 
-> 项目：[`src/Modules/Full.NET.Modules.CodeGeneration`](file:///G:/wwwroot/github_fork/Full.NET/src/Modules/Full.NET.Modules.CodeGeneration)
+> 项目：[`src/Modules/Full.NET.Modules.CodeGeneration`](../src/Modules/Full.NET.Modules.CodeGeneration)
 > 稳定模块键：`CodeGeneration`
+> 2026-10-27 整改：生成、整链恢复、历史归档与关系工作台已实施；实际测试范围及未验证边界见[执行记录](../docs/superpowers/plans/2026-10-24-codegeneration-remediation.md)。
 
 ### 9.1 生命周期
 
+```text
+当前库只读目录 → Schema 模板 → 受跟踪预览（不写工作区）
+  → 独立历史归档 → 鉴权下载当次包（不重新生成）
+  → 可选 Host Apply：Gate → 完整计划/候选编译 → 审查计划摘要
+      → 确认计划与幂等键 → 工作区租约/耐久日志 → 文件与清单提交
+      → 数据库终态收敛 → 独立 Git 发布状态与重试
+  → 恢复：核对冻结日志、工作区 revision 和文件摘要，继续原操作
+  → 产品回滚：全局 LIFO → 前后摘要/检查点检查 → 同一日志协议逆向提交
 ```
-模板管理
-  → 预览（基于 Schema 元数据生成代码片段预览，不写文件）
-  → 执行：
-      1. 创建 GenerationManifest + Checkpoint
-      2. 声明所有权（Path + Hash → 对目标文件 claim → 无覆盖 rename）
-      3. 写入产物 + 更新墓碑
-      4. 提交 Manifest（最后）
-  → 回滚链（按 Checkpoint 逆向恢复）：
-      1. 每个 Checkpoint 记录写入前的原始状态
-      2. 回滚 = 恢复墓碑 → 删除新文件 → restore 原始
-```
+
+模板保存规范 Schema 和一层冻结关系定义，不执行任意用户代码模板。迁移和集成测试产物为 `.template` 草案，Apply 不执行 DbUp 或更新运行镜像。整链计划包含生成后端、模块项目依赖/入口、Composition、Vue、授权及清单，第一次业务写入前完成候选编译。文件提交不是跨数据库与文件系统的 ACID 事务；中断通过耐久阶段和摘要校验收敛。
+
+产物路径与清单采用 owner/module/entity 所有权，不删除其他实体。共享文件纳入同一检查点和全局顺序；人工漂移拒绝覆盖。历史包使用独立受限共享目录与归档元数据，不依赖模板、当前生成器或回滚检查点，默认保留 30 天。
 
 ### 9.2 Git 集成
 
-- 执行前：确保工作区干净或在专用分支
-- 执行后：自动 commit + push 到临时分支 → 创建 PR（可选）
-- 远程 Git 操作：专用 `ICodeGenerationGitCommandRunner` 抽象
+- 显式专用 WorkingBranch，限定冻结计划文件提交；禁止 reset、强推或 add -A。不会自动创建 PR。
+- 本地应用与发布状态独立，保存 commit SHA；disabled/local_only/pending/published/unavailable 进入运行历史。待发布重试继续同一提交，不执行第二次 Apply。
+- commit/push 响应丢失可从冻结基线和提交内容核对；计划外暂存、未发布结果或人工漂移阻止覆盖。
+- 命令执行通过 `ICodeGenerationGitCommandRunner`，依赖环境中的 Git。模块接入编译依赖 SDK；仓库生产镜像定义没有提供这套工具链。
+
+### 9.3 生成能力与整改顺序
+
+- 工作台已有目录、模板、预览、Apply、回滚及下载入口；列同步保留已有 UI 元数据，并不会自动保存模板或生成增量 ALTER。
+- 查询/排序贯通白名单、静态 SQL 与 Vue；Int64/decimal 使用字符串保持精度，日期明确时区，nullable 控件保留空值，中英文使用现有语言上下文。导入导出选项默认关闭并禁用，显式存量元数据仅给出未生成诊断。
+- Tree 提供层级展示、父节点选择及事务互斥；主从使用一次组合请求和本地事务保存；多对多提供有界最小候选查询、组合唯一约束及软删关联恢复。跨模块关系和不支持的能力组合明确拒绝。
+- 失败 Result 回滚，多唯一列分别约束，级联遵守从端生命周期；SQL 使用静态字典和显式物化器。生成代码专项原生双库验证通过，不能由此将整个 Host 升级为 Aot-published。
+- Apply 在 Helm 所有环境默认关闭；启用前配置工具链和独立归档目录。文件落入 PVC 不等于构建、部署或热加载；没有执行真实远程推送或生产部署。
+- 2026-10-27 当前工作区复验完成：完整 Integration 项目依赖重新构建通过，组织测试正常保留，一次执行 CodeGeneration HTTP/迁移及组织列表共 16 项全部通过；协议 HTTP 重试边界另 3 项通过，均零跳过。没有复用冻结依赖或排除组织测试，前次 12＋2 项仅为历史。生成器版本 `2026.10.27.1`，部署需双库 290/292；旧临时目录 33 个已清理。具体环境、修复及非全量边界见[执行记录](../docs/superpowers/plans/2026-10-24-codegeneration-remediation.md)。
 
 ---
 
@@ -1304,7 +1325,7 @@ DeletedHostFileBlobCleanupRunner（后台 Worker）
 | `Organization` | Identity, Tenancy | ImportExport |
 | `Settings` | Identity | （无） |
 | `Auditing` | Identity | （无） |
-| `Files` | Identity | （无） |
+| `Files` | Identity | Document（仅消费引用释放事件） |
 | `Document` | Identity, Files | （无） |
 | `Notifications` | Identity, Organization, Files | Workflow |
 | `Calendar` | Identity | （无） |

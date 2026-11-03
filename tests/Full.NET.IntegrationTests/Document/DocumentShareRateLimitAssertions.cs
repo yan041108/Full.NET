@@ -55,7 +55,7 @@ internal static class DocumentShareRateLimitAssertions
     {
         return client.PostAsJsonAsync(
             $"{PublicAccessPath}/{shareCode}/access",
-            new AccessHostDocumentShareRequest(null),
+            new AccessHostDocumentShareRequest(null) { RequestKey = Guid.CreateVersion7() },
             cancellationToken);
     }
 }

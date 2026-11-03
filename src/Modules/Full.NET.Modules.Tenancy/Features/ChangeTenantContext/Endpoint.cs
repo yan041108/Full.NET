@@ -24,6 +24,7 @@ internal static class Endpoint
                 ChangeTenantContextRequest request,
                 ClaimsPrincipal principal,
                 ICommandDispatcher dispatcher,
+                IIdentityBrowserSession browserSession,
                 IApiResultMapper mapper,
                 HttpContext httpContext,
                 CancellationToken cancellationToken) =>
@@ -34,8 +35,14 @@ internal static class Endpoint
                         new Command(request.TenantId, principal),
                         cancellationToken)
                     .ConfigureAwait(false);
+                if (result.IsSuccess && browserSession.IsActive)
+                {
+                    await browserSession.ReplaceCredentialsAsync(result.Value!, cancellationToken).ConfigureAwait(false);
+                    return Results.NoContent();
+                }
                 return mapper.Map(result, httpContext);
             })
+            .Produces(StatusCodes.Status204NoContent)
             .RequireAuthorization(FullNetPermissionPolicies.For(
                 TenancyAuthorizationContributor.TenantsSwitch));
     }

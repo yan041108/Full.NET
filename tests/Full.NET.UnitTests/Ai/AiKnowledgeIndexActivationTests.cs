@@ -27,7 +27,7 @@ public sealed class AiKnowledgeIndexActivationTests
         f.DeniedPermission = permission;
         Assert.IsFalse(await f.Store.IsActiveAsync(f.Binding, f.TaskId, f.Lease, default));
         // 已激活数据的读取继续使用当前读取者授权，不依赖已撤权的写入会话。
-        Assert.IsTrue(await f.Store.IsReadyForReadAsync(f.Status, [], default));
+        Assert.IsTrue(await f.Store.IsReadyForReadAsync(f.Status, new() { ["OwnerUserId"] = f.Binding.OwnerUserId }, default));
     }
 
     [TestMethod] [DataRow(false)] [DataRow(true)]
@@ -36,7 +36,7 @@ public sealed class AiKnowledgeIndexActivationTests
         var f = new Fixture(tenant); Assert.IsTrue(await f.Activate()); f.Denied = true;
         Assert.IsFalse(await f.Store.IsActiveAsync(f.Binding, f.TaskId, f.Lease, default));
         var calls = f.Authorizations;
-        Assert.IsTrue(await f.Store.IsReadyForReadAsync(f.Status, [], default));
+        Assert.IsTrue(await f.Store.IsReadyForReadAsync(f.Status, new() { ["OwnerUserId"] = f.Binding.OwnerUserId }, default));
         Assert.AreEqual(calls, f.Authorizations); Assert.AreEqual(2, f.Writes);
     }
 
@@ -51,7 +51,7 @@ public sealed class AiKnowledgeIndexActivationTests
             else if (fault == "receipt") f.Receipts = [];
             else f.ManifestRow = f.ManifestRow with { Payload = new byte[8] };
         };
-        Assert.IsFalse(await f.Store.IsReadyForReadAsync(expected, [], default)); Assert.AreEqual(2, f.Writes);
+        Assert.IsFalse(await f.Store.IsReadyForReadAsync(expected, new() { ["OwnerUserId"] = f.Binding.OwnerUserId }, default)); Assert.AreEqual(2, f.Writes);
     }
 
     [TestMethod]
@@ -161,7 +161,7 @@ public sealed class AiKnowledgeIndexActivationTests
             var chunks = AiKnowledgeIndexTextPlanTests.Source() with { TenantId = tenantId };
             Binding = new(chunks.KnowledgeBaseId, Guid.CreateVersion7(), Guid.CreateVersion7(), 1, 1, Guid.CreateVersion7());
             Status = new() { KnowledgeBaseId = Binding.KnowledgeBaseId, DocumentId = Binding.DocumentId, VersionId = Binding.VersionId,
-                OwnerUserId = Binding.OwnerUserId, DocumentVersion = 1, KnowledgeBaseVersion = 1, TaskId = TaskId, ActiveTaskId = TaskId, ActiveLeaseToken = Lease };
+                IsCurrent = 1, OwnerUserId = Binding.OwnerUserId, DocumentVersion = 1, KnowledgeBaseVersion = 1, TaskId = TaskId, ActiveTaskId = TaskId, ActiveLeaseToken = Lease };
             var plan = AiKnowledgeIndexTextPlan.Create(chunks, default)!; var bytes = AiKnowledgeIndexTextManifestCodec.Encode(plan, default);
             var hash = Convert.ToHexString(SHA256.HashData(bytes));
             Manifest = new(AiKnowledgeIndexTextManifestCodec.Decode(bytes, default), hash);
@@ -177,6 +177,8 @@ public sealed class AiKnowledgeIndexActivationTests
             Batches = [new() { Id = Receipts[0].Id, IndexTaskId = TaskId }]; Proof = new(source, session, Array.AsReadOnly(Receipts.ToArray()));
             Clock.UtcNow.Returns(Now); var query = Substitute.For<IQueryExecutor>(); var command = Substitute.For<ICommandExecutor>();
             var ids = Substitute.For<IIdGenerator>(); ids.NewId().Returns(Guid.CreateVersion7());
+            query.QuerySingleOrDefaultAsync<Guid>(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(Binding.DocumentId);
+            query.QuerySingleOrDefaultAsync<AiKnowledgeLeaseDeadline>(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(_ => new AiKnowledgeLeaseDeadline(Clock.UtcNow.AddSeconds(25)));
             query.QuerySingleOrDefaultAsync<AiKnowledgeIndexActivationRecord>(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(_ => Pointer);
             query.QuerySingleOrDefaultAsync<AiKnowledgeIndexStatusRecord>(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>())
                 .Returns(_ => { Assert.IsTrue(Transactions.HasTransaction); return ReadDenied ? null : Status; });
@@ -188,7 +190,12 @@ public sealed class AiKnowledgeIndexActivationTests
             { Assert.IsFalse(Transactions.HasTransaction); Authorizations += call.ArgAt<IReadOnlyCollection<string>>(1).Count; return Denied || call.ArgAt<IReadOnlyCollection<string>>(1).Contains(DeniedPermission!) ? null : new AuthorizedSessionActor(session.UserId, tenantId, session.SessionId); });
             command.ExecuteAsync(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(call =>
             {
-                Assert.IsTrue(Transactions.HasTransaction); Writes++; var sql = (SqlStatement)call[0]!; var p = (Dictionary<string, object?>)call[1]!;
+                var sql = (SqlStatement)call[0]!; var p = (Dictionary<string, object?>)call[1]!;
+                if (sql.Name.Contains("knowledge_publication.", StringComparison.Ordinal)) {
+                    if (sql.Name.Contains("archive", StringComparison.Ordinal)) { Assert.IsTrue(Transactions.HasTransaction); Assert.IsTrue(Completed); Assert.IsNotNull(Pointer); }
+                    return 1;
+                }
+                Assert.IsTrue(Transactions.HasTransaction); Writes++;
                 if (sql.Name.Contains("complete", StringComparison.Ordinal)) { Completed = true; return 1; }
                 if (sql.Name.Contains("update", StringComparison.Ordinal)) return 0;
                 AtInsert?.Invoke(); if (InsertCount != 1) return InsertCount;
@@ -197,7 +204,7 @@ public sealed class AiKnowledgeIndexActivationTests
                 return 1;
             });
             var tasks = new AiKnowledgeIndexTaskStore(query, command, tenant, Clock, ids);
-            Store = new(new CollectionQuery(query, this), command, new Transaction(this), Transactions, tenant, Clock, ids, tasks, auth, Options.Create(new DatabaseOptions { Provider = DatabaseProvider.SqlServer }));
+            Store = new(new CollectionQuery(query, this), command, new Transaction(this), Transactions, tenant, Clock, ids, (tasks).Scope, auth, Options.Create(new DatabaseOptions { Provider = DatabaseProvider.SqlServer }));
         }
         internal Task<bool> Activate(CancellationToken token = default) => Store.ActivateAsync(Binding, TaskId, Lease, Proof, Manifest, token);
         // 集合元素为 internal 行类型，不让动态代理尝试生成该泛型接口的默认代理。

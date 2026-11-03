@@ -50,7 +50,10 @@ public sealed class CodeGenerationModule : IFullNetModule
         services.TryAddScoped<CodeGenerationRunQueryService>();
         services.TryAddScoped<CodeGenerationApplyService>();
         services.TryAddScoped<CodeGenerationArtifactDownloadService>();
+        services.TryAddScoped<CodeGenerationArtifactStore>();
         services.TryAddScoped<CodeGenerationRollbackService>();
+        services.TryAddScoped<CodeGenerationPublicationRetryService>();
+        services.TryAddScoped<CodeGenerationWorkspaceService>();
         services.TryAddSingleton<ICodeGenerationWorkspaceLockBackend,
             SessionAppLockWorkspaceLockBackend>();
         services.TryAddSingleton<CodeGenerationApplyGate>();
@@ -64,6 +67,9 @@ public sealed class CodeGenerationModule : IFullNetModule
         services.TryAddEnumerable(ServiceDescriptor.Singleton<
             IValidateOptions<CodeGenerationApplyOptions>,
             CodeGenerationApplyOptionsValidator>());
+        services.AddOptions<CodeGenerationArtifactOptions>()
+            .Bind(configuration.GetSection(CodeGenerationArtifactOptions.SectionName)).ValidateOnStart();
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<IValidateOptions<CodeGenerationArtifactOptions>, CodeGenerationArtifactOptionsValidator>());
         services.AddOptions<CodeGenerationCheckpointRetentionOptions>()
             .Bind(configuration.GetSection(
                 CodeGenerationCheckpointRetentionOptions.SectionName))
@@ -108,6 +114,11 @@ public sealed class CodeGenerationModule : IFullNetModule
         IServiceCollection services,
         IConfiguration configuration)
     {
+        services.AddOptions<CodeGenerationApplyOptions>()
+            .Bind(configuration.GetSection(CodeGenerationApplyOptions.SectionName)).ValidateOnStart();
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<IValidateOptions<CodeGenerationApplyOptions>, CodeGenerationApplyOptionsValidator>());
+        services.TryAddSingleton<ICodeGenerationWorkspaceLockBackend, SessionAppLockWorkspaceLockBackend>();
+        services.TryAddSingleton<CodeGenerationApplyGate>();
 #if FULLNET_AOT_COMPILE
         new Persistence.CodeGenerationDapperAotMaterializerContributor()
             .RegisterMaterializers(

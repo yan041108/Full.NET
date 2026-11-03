@@ -95,7 +95,15 @@ public sealed class NativeWorkerPromptE2ETests
         CollectionAssert.AreEqual(new[] { 100 }, outputLimits.ToArray());
         using var strategiesResponse = await client.GetAsync("/api/v1/ai/prompts/execution-strategies");
         Assert.AreEqual(HttpStatusCode.OK, strategiesResponse.StatusCode, await strategiesResponse.Content.ReadAsStringAsync());
-        var strategies = (await strategiesResponse.Content.ReadFromJsonAsync<AiPromptExecutionBinding[]>())!; Assert.HasCount(3, strategies);
+        var strategies = (await strategiesResponse.Content.ReadFromJsonAsync<AiPromptExecutionBinding[]>())!;
+        // 校验现行静态目录的精确身份，覆盖新增的审阅工作流，避免沿用旧目录数量。
+        CollectionAssert.AreEquivalent(new[]
+        {
+            Full.NET.Agents.Definitions.AgentDefinitionRegistry.SingleTextKey,
+            Full.NET.Agents.Definitions.AgentDefinitionRegistry.ReadOnlyToolLoopKey,
+            Full.NET.Agents.Workflows.AgentWorkflowRegistry.ChatRenameWorkflowKey,
+            Full.NET.Agents.Workflows.AgentWorkflowRegistry.ChatReviewWorkflowKey,
+        }, strategies.Select(item => item.DefinitionKey).ToArray());
         var strategy = strategies.Single(item => item.DefinitionKey == "fullnet-readonly-tool-loop-v1");
         var staticHead = await WriteAsync("/api/v1/ai/prompts", new CreateAiPromptRequest(Guid.CreateVersion7(), "Native static strategy",
             new AiPromptBody(model.Id, "en-US", "Static {{input}}", 100, 100) { Execution = strategy }), HttpStatusCode.Created);

@@ -62,6 +62,8 @@ internal sealed class NativeWorkerProcessHost : IAsyncDisposable
 
     public string LogFilePath { get; }
 
+    public int ProcessId => _process.Id;
+
     public int? ExitCode => _process.HasExited ? _process.ExitCode : null;
 
     public static async Task<NativeWorkerProcessHost> StartAsync(
@@ -78,13 +80,8 @@ internal sealed class NativeWorkerProcessHost : IAsyncDisposable
     {
         var port = GetFreeTcpPort();
         var baseAddress = new Uri($"http://127.0.0.1:{port}/");
-        var logDirectory = Path.Combine(
-            artifact.RepositoryRoot,
-            "artifacts",
-            "native-aot",
-            "worker",
-            "linux-x64",
-            "test-logs");
+        // 日志由验收控制器的独立临时目录承载，源码只读挂载时也必须完整保留诊断。
+        var logDirectory = Path.Combine(Path.GetTempPath(), "fullnet-native-worker-logs");
         Directory.CreateDirectory(logDirectory);
         var logFilePath = Path.Combine(
             logDirectory,

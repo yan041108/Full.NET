@@ -3,6 +3,8 @@ export interface HostDocumentStatisticsSummaryResponse {
   totalVersions: number;
   totalSizeKb: number;
   totalSizeInfo: string;
+  totalSizeBytes: number;
+  historySizeBytes: number;
 }
 
 export interface HostDocumentStatisticsTypeItem {
@@ -23,6 +25,8 @@ export interface HostDocumentStatisticsResponse {
   byCategory: HostDocumentStatisticsCategoryItem[];
   shareCount: number;
   todayAccessCount: number;
+  todayPreviewCount: number;
+  todayShareAccessCount: number;
   todayDownloadCount: number;
   todayCreatedCount: number;
   recycleBinCount: number;
@@ -51,7 +55,8 @@ export function isHostDocumentStatisticsSummaryResponse(value: unknown): value i
     && Number.isInteger(value.totalItems)
     && Number.isInteger(value.totalVersions)
     && typeof value.totalSizeKb === 'number'
-    && typeof value.totalSizeInfo === 'string';
+    && typeof value.totalSizeInfo === 'string'
+    && Number.isSafeInteger(value.totalSizeBytes) && Number.isSafeInteger(value.historySizeBytes);
 }
 
 export function isHostDocumentStatisticsTypeItem(value: unknown): value is HostDocumentStatisticsTypeItem {
@@ -76,6 +81,7 @@ export function isHostDocumentStatisticsResponse(value: unknown): value is HostD
     && Array.isArray(value.byCategory)
     && value.byCategory.every(isHostDocumentStatisticsCategoryItem)
     && Number.isInteger(value.shareCount)
+    && Number.isInteger(value.todayPreviewCount) && Number.isInteger(value.todayShareAccessCount)
     && Number.isInteger(value.todayAccessCount)
     && Number.isInteger(value.todayDownloadCount)
     && Number.isInteger(value.todayCreatedCount)

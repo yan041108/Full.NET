@@ -7,6 +7,8 @@ export interface CreateOidcClientRequest {
   isConfidential: boolean;
   isFirstParty: boolean;
   resourceAudience: string | null;
+  requireMfa?: boolean;
+  backchannelLogoutUri?: string | null;
 }
 
 export interface UpdateOidcClientRequest {
@@ -16,6 +18,8 @@ export interface UpdateOidcClientRequest {
   scopes: string[];
   isFirstParty: boolean;
   resourceAudience: string | null;
+  requireMfa?: boolean;
+  backchannelLogoutUri?: string | null;
   version: number;
 }
 
@@ -29,6 +33,8 @@ export interface OidcClient {
   scopes: string[];
   isFirstParty: boolean;
   resourceAudience: string | null;
+  requireMfa?: boolean;
+  backchannelLogoutUri?: string | null;
   isDisabled: boolean;
   createdAtUtc: string;
   version: number;
@@ -72,6 +78,8 @@ export function isOidcClient(value: unknown): value is OidcClient {
     && Array.isArray(value.scopes)
     && value.scopes.every((scope) => typeof scope === 'string')
     && typeof value.isFirstParty === 'boolean'
+    && (value.requireMfa === undefined || typeof value.requireMfa === 'boolean')
+    && (value.backchannelLogoutUri === undefined || value.backchannelLogoutUri === null || typeof value.backchannelLogoutUri === 'string')
     && (value.resourceAudience === null || typeof value.resourceAudience === 'string')
     && typeof value.isDisabled === 'boolean'
     && typeof value.createdAtUtc === 'string'
@@ -100,6 +108,31 @@ export function isOidcClientPage(value: unknown): value is OidcClientPage {
     && Number.isInteger(value.page)
     && Number.isInteger(value.pageSize)
     && Number.isInteger(value.total);
+}
+
+/** 有界的退出投递状态；不包含用户、令牌或接收端秘密。 */
+export interface OidcLogoutDelivery {
+  id: string;
+  clientId: string;
+  statusKey: 'pending' | 'delivered' | 'failed';
+  attemptCount: number;
+  nextAttemptAtUtc: string;
+  lastErrorCode: string | null;
+  createdAtUtc: string;
+  deliveredAtUtc: string | null;
+}
+
+export function isOidcLogoutDelivery(value: unknown): value is OidcLogoutDelivery {
+  return isRecord(value) && isGuid(value.id) && typeof value.clientId === 'string'
+    && typeof value.statusKey === 'string' && ['pending', 'delivered', 'failed'].includes(value.statusKey)
+    && typeof value.attemptCount === 'number' && Number.isInteger(value.attemptCount) && value.attemptCount >= 0
+    && isTimestamp(value.nextAttemptAtUtc) && isTimestamp(value.createdAtUtc)
+    && (value.lastErrorCode === null || typeof value.lastErrorCode === 'string')
+    && (value.deliveredAtUtc === null || isTimestamp(value.deliveredAtUtc));
+}
+
+function isTimestamp(value: unknown): value is string {
+  return typeof value === 'string' && Number.isFinite(Date.parse(value));
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

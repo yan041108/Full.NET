@@ -51,7 +51,7 @@ internal sealed class DbSessionConnectionLease : IAsyncDisposable
 
     internal static DbSessionConnectionLease CreateBorrowed(
         DbConnection connection,
-        DbTransaction transaction) => new(
+        DbTransaction? transaction) => new(
             connection,
             transaction,
             admissionLease: null,

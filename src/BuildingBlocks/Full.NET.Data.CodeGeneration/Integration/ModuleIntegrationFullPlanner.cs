@@ -47,6 +47,19 @@ public static class ModuleIntegrationFullPlanner
         static string Edited(bool success, string text, IReadOnlyList<string> diagnostics) => success
             ? text : throw new ArgumentException(string.Join("\n", diagnostics));
 
+        var owner = $"{schema.OwnerKey}/{schema.ModuleKey}/{schema.EntityKey}";
+        var binding = GenerationContentHash.Compute(string.Concat(new[] { schema.RootNamespace, schema.ClrTypeName, target.ModuleName,
+            target.ModuleProjectPath, target.ModuleEntryPointPath, target.CompositionProjectPath, target.CompositionCatalogPath,
+            target.AuthorizationContributorPath }.Select(value => $"{value?.Length ?? -1}:{value}\n")));
+        string?[] routeBindingValues = [binding, target.VueRouterPath,
+            target.ClientRoute?.RoutePath, target.ClientRoute?.VueRouteName, target.ClientRoute?.VueComponentPath];
+        // 显式业务模块属于页面绑定；更换后须走原回滚入口，不能遗留指向另一契约的页面。
+        if (target.ClientRoute?.ClientModuleSpecifier is { } clientModuleBinding)
+            routeBindingValues = [.. routeBindingValues, clientModuleBinding];
+        var routeBinding = GenerationContentHash.Compute(string.Concat(routeBindingValues
+            .Select(value => $"{value?.Length ?? -1}:{value}\n")));
+        var entityPrefix = modulePrefix + $"Generated/{schema.ClrTypeName}/";
+        string BindingFor(string path) => path.StartsWith(entityPrefix, StringComparison.Ordinal) ? binding : routeBinding;
         foreach (var artifact in ModuleIntegrationBackendWorkspace.CreateArtifacts(schema))
             Set(modulePrefix + artifact.RelativePath, artifact.Content, shared: false);
         var entityNames = artifactsPlan.PreviousManifest?.Artifacts
@@ -55,6 +68,11 @@ public static class ModuleIntegrationFullPlanner
             .Select(entry => Path.GetFileName(entry.RelativePath)[..^"Feature.g.cs".Length]) ?? [];
         var registry = ModuleIntegrationBackendWorkspace.CreateRegistryArtifact(schema, entityNames.Append(schema.ClrTypeName));
         Set(modulePrefix + registry.RelativePath, registry.Content, shared: true);
+        if (CrudOrganizationOwnershipGenerator.IsOrganizationUnitOwned(schema))
+        {
+            var originalProject = await Read(target.ModuleProjectPath);
+            Set(target.ModuleProjectPath, ModuleIntegrationDependencies.AddOrganizationContract(originalProject, moduleProject), shared: true);
+        }
         var entry = ModuleEntryIntegrationEditor.Edit(await Read(target.ModuleEntryPointPath), schema.RootNamespace);
         Set(target.ModuleEntryPointPath, Edited(entry.Succeeded, entry.DesiredContent, entry.Diagnostics), shared: true);
         var project = CompositionProjectEditor.Edit(await Read(target.CompositionProjectPath), Resolve(target.CompositionProjectPath), moduleProject);
@@ -70,7 +88,10 @@ public static class ModuleIntegrationFullPlanner
             foreach (var artifact in CrudArtifactGenerator.Generate(schema).Where(artifact =>
                          artifact.Kind is GeneratedArtifactKind.VueView or GeneratedArtifactKind.VueClient))
                 Set(artifact.Kind == GeneratedArtifactKind.VueView ? route.VueComponentPath
-                    : directory + Path.GetFileName(artifact.RelativePath), artifact.Content, shared: false);
+                    : directory + Path.GetFileName(artifact.RelativePath),
+                    route.ClientModuleSpecifier is { } clientModule
+                        && artifact.RelativePath.EndsWith($"/{schema.ApiResourceName}.generated.ts", StringComparison.Ordinal)
+                        ? CrudArtifactGenerator.GenerateVueClient(schema, clientModule) : artifact.Content, shared: false);
             var router = VueRouteIntegrationEditor.Edit(await Read(target.VueRouterPath), target.VueRouterPath, route);
             Set(target.VueRouterPath, Edited(router.Succeeded, router.DesiredContent, router.Diagnostics), shared: true);
         }
@@ -86,38 +107,46 @@ public static class ModuleIntegrationFullPlanner
         var snapshot = await GenerationWorkspaceStore.CaptureAsync(root, candidates, cancellationToken);
         if (snapshot.PreviousManifest?.ToJson() != artifactsPlan.PreviousManifest?.ToJson())
             throw new GenerationWorkspaceConflictException("接入规划期间工作区清单已变化。", GenerationWorkspaceStore.ManifestRelativePath);
+        foreach (var previous in snapshot.PreviousManifest?.Artifacts ?? [])
+        {
+            if (previous.Owner != owner || previous.RelativePath.StartsWith(CrudGenerationWorkspace.ArtifactPrefix(schema), StringComparison.Ordinal)) continue;
+            // 移动入口、共享桥或页面会遗留仍可执行的旧接线，必须先按原操作回滚后重新接入。
+            if (previous.IntegrationSha256 != BindingFor(previous.RelativePath) || (!desired.ContainsKey(previous.RelativePath)
+                && !previous.RelativePath.StartsWith(entityPrefix, StringComparison.Ordinal)))
+                throw new GenerationWorkspaceConflictException("接入目标与原绑定不同，须先回滚原接入，禁止遗留旧入口或页面。", previous.RelativePath);
+        }
         foreach (var original in originals)
             if (!snapshot.ExistingFiles.TryGetValue(original.Key, out var actual) || actual != original.Value)
                 throw new GenerationWorkspaceConflictException("接入规划期间手写文件已变化。", original.Key);
 
         var actions = artifactsPlan.Actions.ToDictionary(action => action.RelativePath, StringComparer.Ordinal);
         var entries = artifactsPlan.NextManifest!.Artifacts.ToDictionary(item => item.RelativePath, StringComparer.Ordinal);
-        // 基础规划把未列入本次产物的旧文件视为删除；整链接入保留其它实体及共享入口。
-        foreach (var previous in snapshot.PreviousManifest?.Artifacts ?? [])
-        {
-            if (!actions.TryGetValue(previous.RelativePath, out var action) || action.Kind != GenerationWriteActionKind.Delete
-                || desired.ContainsKey(previous.RelativePath)) continue;
-            var existing = snapshot.ExistingFiles.GetValueOrDefault(previous.RelativePath);
-            if (existing is null || GenerationContentHash.Compute(existing) != previous.Sha256)
-                throw new GenerationWorkspaceConflictException("其它受管文件已漂移，禁止覆盖。", previous.RelativePath);
-            actions[previous.RelativePath] = new(previous.RelativePath, GenerationWriteActionKind.Unchanged, existing, previous.Sha256, previous.Sha256);
-            entries[previous.RelativePath] = previous;
-        }
         foreach (var candidate in desired)
         {
-            if (actions.TryGetValue(candidate.Key, out var priorAction) && priorAction.Kind != GenerationWriteActionKind.Delete)
-                throw new ArgumentException("接入目标不得覆盖基础生成产物。");
+            if (actions.ContainsKey(candidate.Key)) throw new ArgumentException("接入目标不得覆盖基础生成产物。");
             var existing = snapshot.ExistingFiles.GetValueOrDefault(candidate.Key);
             var oldHash = existing is null ? null : GenerationContentHash.Compute(existing);
             var newHash = GenerationContentHash.Compute(candidate.Value.Content);
             var previous = snapshot.PreviousManifest?.Artifacts.SingleOrDefault(item => item.RelativePath == candidate.Key);
-            if (previous is not null && (previous.Sha256 != oldHash))
+            if (previous is not null && (previous.Sha256 != oldHash
+                || (!candidate.Value.Shared && previous.Owner != owner)))
                 throw new GenerationWorkspaceConflictException("接入目标已发生人工漂移或属于另一实体。", candidate.Key);
             var mayEdit = originals.ContainsKey(candidate.Key) || (previous is not null && previous.Sha256 == oldHash);
             var kind = existing is null ? GenerationWriteActionKind.Create : oldHash == newHash
                 ? GenerationWriteActionKind.Unchanged : mayEdit ? GenerationWriteActionKind.Update : GenerationWriteActionKind.Conflict;
-            actions[candidate.Key] = new(candidate.Key, kind, candidate.Value.Content, oldHash, newHash);
-            entries[candidate.Key] = new(candidate.Key, newHash);
+            actions.Add(candidate.Key, new(candidate.Key, kind, candidate.Value.Content, oldHash, newHash));
+            entries[candidate.Key] = new(candidate.Key, newHash, candidate.Value.Shared ? null : owner, candidate.Value.Shared ? null : BindingFor(candidate.Key));
+        }
+        // 仅清理本实体在本目标模块的旧后端产物，共享桥与手写文件由显式编辑器维护。
+        foreach (var previous in snapshot.PreviousManifest?.Artifacts ?? [])
+        {
+            if (previous.Owner != owner || !previous.RelativePath.StartsWith(entityPrefix, StringComparison.Ordinal)
+                || desired.ContainsKey(previous.RelativePath)) continue;
+            var existing = snapshot.ExistingFiles.GetValueOrDefault(previous.RelativePath);
+            var hash = existing is null ? null : GenerationContentHash.Compute(existing);
+            if (existing is not null) actions[previous.RelativePath] = new(previous.RelativePath,
+                hash == previous.Sha256 ? GenerationWriteActionKind.Delete : GenerationWriteActionKind.Conflict, null, hash, null);
+            entries.Remove(previous.RelativePath);
         }
         var ordered = actions.Values.OrderBy(action => action.RelativePath, StringComparer.Ordinal).ToArray();
         return new GenerationWritePlan(ordered, artifactsPlan.PreviousManifest,

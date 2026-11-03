@@ -264,6 +264,8 @@ public sealed class KafkaMessagingOptions
             MaxPollIntervalMs = MaxPollIntervalMilliseconds,
             FetchMaxBytes = MessageMaxBytes,
             QueuedMinMessages = 1,
+            // 小预取队列会频繁触及阈值；显式限制默认的一秒抓取退避，保持串行/有界内存而不人为压低排空速度。
+            FetchQueueBackoffMs = 10,
             QueuedMaxMessagesKbytes = ConsumerQueueMaxMessagesKbytes,
             AutoOffsetReset = AutoOffsetReset.Earliest,
         };

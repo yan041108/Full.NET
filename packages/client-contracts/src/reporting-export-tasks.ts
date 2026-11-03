@@ -28,6 +28,7 @@ export interface ReportingExportTask {
 }
 
 export interface ReportingExportTaskDetail extends ReportingExportTask {
+  version: number;
   outputFileId: string | null;
   parameters: ReportingExportTaskParameterValue[];
 }
@@ -80,6 +81,7 @@ export function isReportingExportTask(value: unknown): value is ReportingExportT
 export function isReportingExportTaskDetail(value: unknown): value is ReportingExportTaskDetail {
   return isReportingExportTask(value)
     && isRecord(value)
+    && Number.isSafeInteger(value.version) && Number(value.version) > 0
     && (value.outputFileId === null || isGuid(value.outputFileId))
     && Array.isArray(value.parameters)
     && value.parameters.every(isReportingExportTaskParameterValue);

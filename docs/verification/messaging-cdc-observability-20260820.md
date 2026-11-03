@@ -1,5 +1,7 @@
 # Messaging CDC 可观测性（Scope C / Task 3）验证记录
 
+> 历史记录：下文是 2026-08-20 当时的实现与验收事实。2026-10-28 已移除 Capture Job/Binlog 的健康默认值，并增加真实数据库采集、Worker 观测状态及陈旧样本/出口故障告警；本机新结果和未通过项见[连续整改记录](2026-10-28-messaging-reliability-continuation.md)。不得把本文的静态/规则证据当作新实现的真实告警通过。
+
 - 日期：2026-08-20（Asia/Shanghai）
 - 仓库：`g:\wwwroot\github_fork\Full.NET`
 - 任务快照：`messaging-cdc-observability-20260820`

@@ -24,11 +24,12 @@ internal static class Endpoint
             WorkflowRecoveryTaskService service,
             IApiResultMapper mapper,
             HttpContext context,
-            CancellationToken token) => mapper.Map(
-                await service.ListAsync(page ?? 1, pageSize ?? 20, token).ConfigureAwait(false),
-                context))
+            CancellationToken token) => Guid.TryParse(context.User.FindFirst("sub")?.Value, out var actor)
+                ? mapper.Map(await service.ListAsync(actor, page ?? 1, pageSize ?? 20, token).ConfigureAwait(false), context)
+                : Results.Unauthorized())
         .WithName("workflowListRecoveryTasks")
         .Produces<PagedResult<WorkflowRecoveryTaskResponse>>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
         .ProducesProblem(StatusCodes.Status401Unauthorized)
         .ProducesProblem(StatusCodes.Status403Forbidden)
         .RequireAuthorization(FullNetPermissionPolicies.For(WorkflowPermissions.RecoveryTasksRead));

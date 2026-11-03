@@ -1,4 +1,4 @@
-using Full.NET.Modules.Document.Security;
+using Full.NET.Abstractions.Messaging;
 using Full.NET.Abstractions.Ids;
 using Full.NET.Abstractions.Results;
 using Full.NET.Abstractions.Time;
@@ -6,192 +6,124 @@ using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Document.Configuration;
 using Full.NET.Modules.Document.Contracts;
 using Full.NET.Modules.Document.Domain;
-using Full.NET.Modules.Document.Features;
 using Full.NET.Modules.Document.Persistence;
+using Full.NET.Modules.Document.PreviewTasks;
+using Full.NET.Modules.Document.Security;
 using Full.NET.Modules.Files.Contracts;
 using Microsoft.Extensions.Options;
 
 namespace Full.NET.Modules.Document.Features.ManageHostDocumentPreviewTasks;
 
-/// <summary>创建 Host 文档 Office 预览转换任务。</summary>
+/// <summary>创建时固定版本、文档归属及源/输出引用；所有 Files 调用都在本地事务外。</summary>
 internal sealed class HostDocumentPreviewTaskManagementService(
-    IQueryExecutor queryExecutor,
-    ICommandExecutor commandExecutor,
-    IHostFileContentReader hostFileContentReader,
-    IClock clock,
-    IIdGenerator idGenerator,
-    IOptionsMonitor<DocumentOfficePreviewConversionOptions> options,
-    IDocumentAccessPolicy accessPolicy)
+    IQueryExecutor queryExecutor, ICommandExecutor commandExecutor, ICommandTransaction transaction,
+    IHostFileContentReader hostFileContentReader, IClock clock, IIdGenerator idGenerator,
+    IOptionsMonitor<DocumentOfficePreviewConversionOptions> options, IDocumentAccessPolicy accessPolicy,
+    DocumentMutationGuard guard, DocumentPreviewLifecycle lifecycle)
 {
-    public Task<Result<HostDocumentPreviewTaskResponse>> CreateAsync(
-        CreateHostDocumentPreviewTaskRequest request,
-        Guid requestedByUserId,
-        CancellationToken cancellationToken = default) =>
-        accessPolicy.AuthorizeAsync(request.DocumentItemId, DocumentOperation.Read,
+    internal DocumentPreviewCapabilities Capabilities => new(options.CurrentValue.CanConvert, options.CurrentValue.ProviderKey,
+        DocumentOfficePreviewSourcePolicy.AllowedMimeTypes, options.CurrentValue.MaxInputBytes, options.CurrentValue.MaxAttempts);
+
+    public Task<Result<HostDocumentPreviewTaskResponse>> CreateAsync(CreateHostDocumentPreviewTaskRequest request, Guid requestedByUserId,
+        CancellationToken cancellationToken = default) => accessPolicy.AuthorizeAsync(request.DocumentItemId, DocumentOperation.Read,
             () => CreateAuthorizedAsync(request, requestedByUserId, cancellationToken), cancellationToken);
 
-    internal async Task<Result<HostDocumentPreviewTaskResponse>> CreateAuthorizedAsync(
-        CreateHostDocumentPreviewTaskRequest request,
-        Guid? requestedByUserId,
-        CancellationToken cancellationToken = default, Guid? creationTaskId = null)
+    internal async Task<Result<HostDocumentPreviewTaskResponse>> CreateAuthorizedAsync(CreateHostDocumentPreviewTaskRequest request,
+        Guid? requestedByUserId, CancellationToken cancellationToken = default, Guid? creationTaskId = null)
     {
-        if (creationTaskId is Guid replayId)
+        if (creationTaskId.HasValue && await lifecycle.FindAsync(creationTaskId.Value, cancellationToken).ConfigureAwait(false) is { } replay)
         {
-            var replay = await FindReplayAsync(replayId, request, requestedByUserId, cancellationToken).ConfigureAwait(false);
-            if (replay is not null) return Result<HostDocumentPreviewTaskResponse>.Success(replay);
+            if (replay.DocumentItemId != request.DocumentItemId || replay.RequestedByUserId != requestedByUserId ||
+                (request.VersionId.HasValue && replay.VersionId != request.VersionId)) return Conflict();
+            return Result<HostDocumentPreviewTaskResponse>.Success(HostDocumentPreviewTaskMapper.Map(replay));
         }
-        var item = await queryExecutor
-            .QuerySingleOrDefaultAsync<DocumentItemDetailRecord>(
-                DocumentItemSql.FindActiveById,
-                DocumentSqlParameters.Create(("Id", request.DocumentItemId)),
-                cancellationToken)
-            .ConfigureAwait(false);
-        if (item is null)
-        {
-            return Result<HostDocumentPreviewTaskResponse>.Failure(DocumentNotFoundError());
-        }
-
-        var fileIdResult = await ResolveFileIdAsync(request, cancellationToken).ConfigureAwait(false);
-        if (!fileIdResult.IsSuccess)
-        {
-            return Result<HostDocumentPreviewTaskResponse>.Failure(fileIdResult.Error!);
-        }
-
-        var contentProbe = await hostFileContentReader
-            .OpenReadyContentAsync(fileIdResult.Value, cancellationToken)
-            .ConfigureAwait(false);
-        if (!contentProbe.IsSuccess)
-        {
-            return Result<HostDocumentPreviewTaskResponse>.Failure(contentProbe.Error!);
-        }
-
-        var probe = contentProbe.Value!;
+        if (!options.CurrentValue.CanConvert) return Fail(DocumentErrorCodes.OfficePreviewProviderDisabled, ErrorType.BusinessRule);
+        var item = await queryExecutor.QuerySingleOrDefaultAsync<DocumentItemDetailRecord>(DocumentItemSql.FindActiveById,
+            DocumentSqlParameters.Create(("Id", request.DocumentItemId)), cancellationToken).ConfigureAwait(false);
+        if (item is null || item.IsPurging) return NotFound();
+        var versionId = request.VersionId ?? item.CurrentVersionId;
+        if (versionId is null) return Fail(DocumentErrorCodes.NoCurrentVersion, ErrorType.NotFound);
+        var version = await queryExecutor.QuerySingleOrDefaultAsync<DocumentVersionRecord>(DocumentItemSql.FindVersionById,
+            DocumentSqlParameters.Create(("VersionId", versionId.Value), ("DocumentItemId", item.Id)), cancellationToken).ConfigureAwait(false);
+        if (version is null) return NotFound();
+        var probe = await hostFileContentReader.OpenReadyContentAsync(version.FileId, cancellationToken).ConfigureAwait(false);
+        if (!probe.IsSuccess) return Result<HostDocumentPreviewTaskResponse>.Failure(probe.Error!);
+        await using var source = probe.Value!.Content;
+        if (!DocumentOfficePreviewSourcePolicy.IsOfficeMime(probe.Value.ContentType)) return Fail(DocumentErrorCodes.OfficePreviewUnsupportedSource, ErrorType.BusinessRule);
+        if (source.CanSeek && source.Length > options.CurrentValue.MaxInputBytes) return Fail(DocumentErrorCodes.OfficePreviewInputTooLarge, ErrorType.BusinessRule);
         var taskId = creationTaskId ?? idGenerator.NewId();
+        var sourceReferenceId = idGenerator.NewId();
+        var outputReferenceId = idGenerator.NewId();
+        var reservedOutputId = idGenerator.NewId();
         try
         {
-            if (!DocumentOfficePreviewSourcePolicy.IsOfficeMime(probe.ContentType))
+            var inserted = await transaction.ExecuteResultAsync(async ct =>
             {
-                return Result<HostDocumentPreviewTaskResponse>.Failure(
-                    new Error(
-                        DocumentErrorCodes.OfficePreviewUnsupportedSource,
-                        "Only Office documents can be submitted for preview conversion.",
-                        ErrorType.BusinessRule));
-            }
-
-            if (probe.Content.CanSeek && probe.Content.Length > options.CurrentValue.MaxInputBytes)
-            {
-                return Result<HostDocumentPreviewTaskResponse>.Failure(
-                    new Error(
-                        DocumentErrorCodes.OfficePreviewInputTooLarge,
-                        "Office preview conversion input exceeds configured size limit.",
-                        ErrorType.BusinessRule));
-            }
-
-            var sourceFileName = probe.OriginalFileName;
-            var sourceMimeType = probe.ContentType;
-            var now = clock.UtcNow;
-            var providerKey = options.CurrentValue.ProviderKey;
-            try
-            {
-            await commandExecutor.ExecuteAsync(
-                    DocumentPreviewTaskSql.Insert,
-                    DocumentSqlParameters.Create(
-                        ("Id", taskId),
-                        ("DocumentItemId", request.DocumentItemId),
-                        ("VersionId", request.VersionId),
-                        ("DocumentTitle", item.Title),
-                        ("SourceFileId", fileIdResult.Value),
-                        ("SourceFileName", sourceFileName),
-                        ("SourceMimeType", sourceMimeType),
-                        ("OutputFileId", null),
-                        ("StatusKey", HostDocumentPreviewTaskStatusKeys.Pending),
-                        ("ProviderKey", providerKey),
-                        ("ErrorCode", null),
-                        ("RequestedByUserId", requestedByUserId),
-                        ("CreatedAtUtc", now),
-                        ("StartedAtUtc", null),
-                        ("CompletedAtUtc", null),
-                        ("Version", 1L)),
-                    cancellationToken)
-                .ConfigureAwait(false);
-            }
-            catch (DataCommandException error) when (creationTaskId.HasValue && error.Kind == DataCommandFailureKind.UniqueConstraint)
-            {
-                var replay = await FindReplayAsync(taskId, request, requestedByUserId, cancellationToken).ConfigureAwait(false);
-                if (replay is null) throw;
-                return Result<HostDocumentPreviewTaskResponse>.Success(replay);
-            }
+                var locked = await guard.LockAsync(item.Id, ct).ConfigureAwait(false);
+                if (locked is null || locked.DeletedAtUtc is not null || locked.IsPurging) return NotFound();
+                if (requestedByUserId.HasValue && await accessPolicy.CheckAsync(item.Id, DocumentOperation.Read, ct).ConfigureAwait(false) is { } denied)
+                    return Result<HostDocumentPreviewTaskResponse>.Failure(denied);
+                if (!request.VersionId.HasValue && locked.CurrentVersionId != versionId) return Conflict();
+                var stillExists = await queryExecutor.QuerySingleOrDefaultAsync<DocumentVersionRecord>(DocumentItemSql.FindVersionById,
+                    DocumentSqlParameters.Create(("VersionId", versionId.Value), ("DocumentItemId", item.Id)), ct).ConfigureAwait(false);
+                if (stillExists is null || stillExists.FileId != version.FileId) return Conflict();
+                var now = clock.UtcNow;
+                foreach (var (id, file, purpose) in new[] { (sourceReferenceId, version.FileId, "source"), (outputReferenceId, reservedOutputId, "output") })
+                    await commandExecutor.ExecuteAsync(DocumentPreviewReferenceSql.Insert, DocumentSqlParameters.Create(("Id", id), ("DocumentId", item.Id),
+                        ("TaskId", taskId), ("FileId", file), ("Purpose", purpose), ("Now", now)), ct).ConfigureAwait(false);
+                await commandExecutor.ExecuteAsync(DocumentPreviewTaskSql.Insert, DocumentSqlParameters.Create(("Id", taskId), ("DocumentItemId", item.Id),
+                    ("VersionId", versionId.Value), ("DocumentTitle", locked.Title), ("SourceFileId", version.FileId),
+                    ("SourceFileName", probe.Value.OriginalFileName), ("SourceMimeType", probe.Value.ContentType), ("OutputFileId", null),
+                    ("StatusKey", "preparing"), ("ProviderKey", options.CurrentValue.ProviderKey), ("ErrorCode", null), ("RequestedByUserId", requestedByUserId),
+                    ("CreatedAtUtc", now), ("StartedAtUtc", null), ("CompletedAtUtc", null), ("Version", 1L),
+                    ("SourceReferenceId", sourceReferenceId), ("OutputReferenceId", outputReferenceId), ("OutputOwnerId", locked.CreatedByUserId),
+                    ("AttemptCount", 0), ("NextAttemptAtUtc", null), ("LeaseExpiresAtUtc", null)), ct).ConfigureAwait(false);
+                return Result<HostDocumentPreviewTaskResponse>.Success(HostDocumentPreviewTaskMapper.Map((await lifecycle.FindAsync(taskId, ct).ConfigureAwait(false))!));
+            }, cancellationToken).ConfigureAwait(false);
+            if (!inserted.IsSuccess) return inserted;
         }
-        finally
+        catch (DataCommandException error) when (creationTaskId.HasValue && error.Kind == DataCommandFailureKind.UniqueConstraint)
         {
-            await probe.Content.DisposeAsync().ConfigureAwait(false);
+            return await CreateAuthorizedAsync(request, requestedByUserId, cancellationToken, creationTaskId).ConfigureAwait(false);
         }
-
-        var created = await queryExecutor
-            .QuerySingleOrDefaultAsync<DocumentPreviewTaskRecord>(
-                DocumentPreviewTaskSql.FindById,
-                DocumentSqlParameters.Create(("Id", taskId)),
-                cancellationToken)
-            .ConfigureAwait(false);
-        return created is null
-            ? Result<HostDocumentPreviewTaskResponse>.Failure(TaskNotFoundError())
-            : Result<HostDocumentPreviewTaskResponse>.Success(HostDocumentPreviewTaskMapper.Map(created));
+        var task = await lifecycle.FindAsync(taskId, cancellationToken).ConfigureAwait(false);
+        if (task is null) return NotFound();
+        await lifecycle.PrepareAsync(task, cancellationToken).ConfigureAwait(false);
+        var current = await lifecycle.FindAsync(taskId, cancellationToken).ConfigureAwait(false);
+        return current is null ? NotFound() : Result<HostDocumentPreviewTaskResponse>.Success(HostDocumentPreviewTaskMapper.Map(current));
     }
 
-    private async Task<HostDocumentPreviewTaskResponse?> FindReplayAsync(Guid taskId,
-        CreateHostDocumentPreviewTaskRequest request, Guid? requestedByUserId, CancellationToken token)
+    internal async Task<Result<HostDocumentPreviewTaskResponse>> CancelAsync(Guid taskId, long version, CancellationToken token)
     {
-        var existing = await queryExecutor.QuerySingleOrDefaultAsync<DocumentPreviewTaskRecord>(
-            DocumentPreviewTaskSql.FindById, DocumentSqlParameters.Create(("Id", taskId)), token).ConfigureAwait(false);
-        if (existing is null) return null;
-        if (existing.DocumentItemId != request.DocumentItemId || existing.RequestedByUserId != requestedByUserId
-            || existing.VersionId != request.VersionId)
-            throw new InvalidOperationException("Preview creation operation identity is bound to another request.");
-        return HostDocumentPreviewTaskMapper.Map(existing);
+        var task = await lifecycle.FindAsync(taskId, token).ConfigureAwait(false);
+        if (task is null) return NotFound();
+        return await accessPolicy.AuthorizeAsync(task.DocumentItemId, DocumentOperation.Write, () => transaction.ExecuteResultAsync(async ct =>
+        {
+            var item = await guard.LockAsync(task.DocumentItemId, ct).ConfigureAwait(false);
+            if (item is null || item.DeletedAtUtc is not null || item.IsPurging) return NotFound();
+            if (await accessPolicy.CheckAsync(item.Id, DocumentOperation.Write, ct).ConfigureAwait(false) is { } denied) return Result<HostDocumentPreviewTaskResponse>.Failure(denied);
+            var current = await lifecycle.FindAsync(taskId, ct).ConfigureAwait(false);
+            if (current is null) return NotFound();
+            if (version < 1 || current.Version != version) return Conflict();
+            if (current.StatusKey == "cancelled") return Result<HostDocumentPreviewTaskResponse>.Success(HostDocumentPreviewTaskMapper.Map(current));
+            var changed = await commandExecutor.ExecuteAsync(DocumentPreviewTaskSql.Cancel, DocumentSqlParameters.Create(("Id", taskId), ("Version", version), ("Now", clock.UtcNow)), ct).ConfigureAwait(false);
+            if (changed != 1) return Conflict();
+            await lifecycle.ReleaseTaskAsync(current, true, ct).ConfigureAwait(false);
+            await lifecycle.FinishAttemptAsync(current, "document.preview.cancelled", ct).ConfigureAwait(false);
+            return Result<HostDocumentPreviewTaskResponse>.Success(HostDocumentPreviewTaskMapper.Map((await lifecycle.FindAsync(taskId, ct).ConfigureAwait(false))!));
+        }, token), token).ConfigureAwait(false);
     }
 
-    private async Task<Result<Guid>> ResolveFileIdAsync(
-        CreateHostDocumentPreviewTaskRequest request,
-        CancellationToken cancellationToken)
+    internal async Task<Result<HostDocumentPreviewTaskResponse>> RetryAsync(Guid taskId, Guid actor, CancellationToken token)
     {
-        if (request.VersionId is null)
-        {
-            var item = await queryExecutor
-                .QuerySingleOrDefaultAsync<DocumentItemDetailRecord>(
-                    DocumentItemSql.FindActiveById,
-                    DocumentSqlParameters.Create(("Id", request.DocumentItemId)),
-                    cancellationToken)
-                .ConfigureAwait(false);
-            if (item?.FileId is null)
-            {
-                return Result<Guid>.Failure(NoCurrentVersionError());
-            }
-
-            return Result<Guid>.Success(item.FileId.Value);
-        }
-
-        var version = await queryExecutor
-            .QuerySingleOrDefaultAsync<DocumentVersionRecord>(
-                DocumentItemSql.FindVersionById,
-                DocumentSqlParameters.Create(
-                    ("VersionId", request.VersionId.Value),
-                    ("DocumentItemId", request.DocumentItemId)),
-                cancellationToken)
-            .ConfigureAwait(false);
-        if (version is null)
-        {
-            return Result<Guid>.Failure(DocumentNotFoundError());
-        }
-
-        return Result<Guid>.Success(version.FileId);
+        var task = await lifecycle.FindAsync(taskId, token).ConfigureAwait(false);
+        if (task is null) return NotFound();
+        return await accessPolicy.AuthorizeAsync(task.DocumentItemId, DocumentOperation.Read, () =>
+            task.StatusKey is not ("failed" or "cancelled") ? Task.FromResult(Conflict())
+                : CreateAuthorizedAsync(new(task.DocumentItemId, task.VersionId), actor, token), token).ConfigureAwait(false);
     }
 
-    private static Error DocumentNotFoundError() =>
-        new(DocumentErrorCodes.NotFound, "Document item was not found.", ErrorType.NotFound);
-
-    private static Error TaskNotFoundError() =>
-        new(DocumentErrorCodes.PreviewTaskNotFound, "Document preview task was not found.", ErrorType.NotFound);
-
-    private static Error NoCurrentVersionError() =>
-        new(DocumentErrorCodes.NoCurrentVersion, "Document item has no downloadable version.", ErrorType.NotFound);
+    private static Result<HostDocumentPreviewTaskResponse> NotFound() => Fail(DocumentErrorCodes.PreviewTaskNotFound, ErrorType.NotFound);
+    private static Result<HostDocumentPreviewTaskResponse> Conflict() => Fail(DocumentErrorCodes.VersionConflict, ErrorType.Conflict);
+    private static Result<HostDocumentPreviewTaskResponse> Fail(string code, ErrorType type) => Result<HostDocumentPreviewTaskResponse>.Failure(new Error(code, "Document preview request cannot be completed.", type));
 }

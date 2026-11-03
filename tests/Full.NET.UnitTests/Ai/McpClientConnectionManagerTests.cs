@@ -13,6 +13,27 @@ public sealed class McpClientConnectionManagerTests
     private static readonly Uri Endpoint = new("https://unit.test/mcp");
 
     [TestMethod]
+    public async Task Changed_endpoint_or_service_token_cannot_reuse_an_existing_connection()
+    {
+        var factory = new ProtocolFactory(blockInitialization: true);
+        await using var manager = new McpClientConnectionManager(factory,
+            Options.Create(new McpClientOptions { ApprovedOrigins = ["https://unit.test", "https://other.test"] }));
+        var id = Guid.CreateVersion7();
+        var first = manager.GetClientAsync(id, Endpoint, "original-token", CancellationToken.None).AsTask();
+        await factory.Started.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+        await Assert.ThrowsExactlyAsync<InvalidOperationException>(() =>
+            manager.GetClientAsync(id, Endpoint, "rotated-token", CancellationToken.None).AsTask());
+        await Assert.ThrowsExactlyAsync<InvalidOperationException>(() =>
+            manager.GetClientAsync(id, new Uri("https://other.test/mcp"), "original-token", CancellationToken.None).AsTask());
+        factory.Release.TrySetResult();
+        await first.WaitAsync(TimeSpan.FromSeconds(5));
+        await Assert.ThrowsExactlyAsync<InvalidOperationException>(() =>
+            manager.GetClientAsync(id, Endpoint, "rotated-token", CancellationToken.None).AsTask());
+        Assert.AreEqual(1, factory.Clients.Count);
+    }
+
+    [TestMethod]
     public async Task Cancelling_first_waiter_does_not_cancel_shared_initialization()
     {
         var factory = new ProtocolFactory(blockInitialization: true);

@@ -2,6 +2,7 @@ using Full.NET.Abstractions.Results;
 using Full.NET.Data.Abstractions;
 using Full.NET.Modules.CodeGeneration.Contracts;
 using Full.NET.Modules.CodeGeneration.Persistence;
+using Full.NET.Modules.CodeGeneration.Git;
 using Microsoft.Extensions.Options;
 
 namespace Full.NET.Modules.CodeGeneration.Features.ManageHostRuns;
@@ -12,7 +13,8 @@ namespace Full.NET.Modules.CodeGeneration.Features.ManageHostRuns;
 internal sealed class CodeGenerationRunQueryService(
     IQueryExecutor queryExecutor,
     IMultiResultQueryExecutor multiResultQueryExecutor,
-    IOptions<DatabaseOptions> databaseOptions)
+    IOptions<DatabaseOptions> databaseOptions,
+    CodeGenerationGitWorkspaceService gitWorkspace)
 {
     /// <summary>
     /// 按当前数据库 Provider 选择成对分页 SQL，在一次往返中返回总数与稳定摘要；status 仅接受 running/succeeded/failed，其余返回 InvalidQuery。
@@ -56,9 +58,11 @@ internal sealed class CodeGenerationRunQueryService(
                 cancellationToken)
             .ConfigureAwait(false);
 
+        var responses = new List<CodeGenerationRunResponse>();
+        foreach (var row in pageResult.Rows) responses.Add(await MapAsync(row, cancellationToken).ConfigureAwait(false));
         return Result<PagedResult<CodeGenerationRunResponse>>.Success(
             new PagedResult<CodeGenerationRunResponse>(
-                pageResult.Rows.Select(Map).ToArray(),
+                responses,
                 page,
                 pageSize,
                 pageResult.Total));
@@ -82,7 +86,7 @@ internal sealed class CodeGenerationRunQueryService(
                 CodeGenerationRunErrorCodes.NotFound,
                 "The code generation run was not found.",
                 ErrorType.NotFound))
-            : Result<CodeGenerationRunResponse>.Success(Map(record));
+            : Result<CodeGenerationRunResponse>.Success(await MapAsync(record, cancellationToken).ConfigureAwait(false));
     }
 
     private SqlStatement ResolvePageStatement() =>
@@ -112,4 +116,12 @@ internal sealed class CodeGenerationRunQueryService(
             record.StartedAtUtc,
             record.FinishedAtUtc,
             record.SourceApplyRunId);
+
+    private async Task<CodeGenerationRunResponse> MapAsync(CodeGenerationRunRecord record, CancellationToken token)
+    {
+        var mapped = Map(record);
+        if (record.OperationKind == CodeGenerationRunOperationKinds.Preview) return mapped;
+        var publication = await gitWorkspace.GetSavedPublicationAsync(record.Id, token).ConfigureAwait(false);
+        return mapped with { PublicationStatus = publication.Status, CommitSha = publication.CommitSha };
+    }
 }

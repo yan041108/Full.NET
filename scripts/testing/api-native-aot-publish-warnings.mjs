@@ -13,7 +13,11 @@ const allowedWarnings = new Map([
 /**
  * 只接受 ADR-0008 已登记的第三方程序集级 ILC 告警；自有代码或新告警码必须失败关闭。
  */
-export function validatePublishWarnings(publishOutput) {
+export function validatePublishWarnings(publishOutput, host = 'api') {
+  if (!['api', 'worker', 'migrator', 'log-consumer'].includes(host)) throw new Error('未知 Native 发布告警范围。');
+  const scopedWarnings = host === 'log-consumer'
+    ? new Map([['Confluent.Kafka.dll', new Set(['IL2104'])]])
+    : host === 'migrator' ? new Map([...allowedWarnings].filter(([assembly]) => assembly !== 'Confluent.Kafka.dll')) : allowedWarnings;
   const warnings = [];
   const rejected = [];
   for (const line of publishOutput.split(/\r?\n/)) {
@@ -29,7 +33,7 @@ export function validatePublishWarnings(publishOutput) {
 
     const assembly = path.basename(match.groups.origin.replace(/\\/g, '/'));
     const code = match.groups.code;
-    const allowedCodes = allowedWarnings.get(assembly);
+    const allowedCodes = scopedWarnings.get(assembly);
     const warning = { assembly, code, line: line.trim() };
     warnings.push(warning);
     if (!allowedCodes?.has(code)) {

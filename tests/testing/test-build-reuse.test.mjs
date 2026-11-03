@@ -71,6 +71,19 @@ test('校验式 no-build 拒绝没有记录或输入已改变的程序集', asyn
   assert.equal(f.builds(), 1);
 });
 
+test('部署说明可在构建期间更新，部署配置仍使构建失效', async t => {
+  const f = await fixture(t);
+  await mkdir(path.join(f.cwd, 'deploy/messaging'), { recursive: true });
+  await writeFile(path.join(f.cwd, 'deploy/messaging/README.md'), '说明');
+  await f.run({ build: async () => {
+    await f.options.build();
+    await writeFile(path.join(f.cwd, 'deploy/messaging/README.md'), '修订部署说明');
+  } });
+  assert.equal((await f.run({ mode: 'verify' })).reused, true);
+  await writeFile(path.join(f.cwd, 'deploy/messaging/config.yaml'), 'enabled: true');
+  await assert.rejects(f.run({ mode: 'verify' }), /构建|输入/);
+});
+
 test('失败或构建中源码变化不产生可复用记录', async t => {
   const f = await fixture(t);
   await assert.rejects(f.run({ build: async () => { throw new Error('build failed'); } }), /build failed/);
@@ -96,6 +109,18 @@ test('嵌入资源与构建参数改变不能复用', async t => {
   await writeFile(path.join(f.cwd, 'src/resource.md'), 'embedded');
   assert.equal((await f.run()).reused, false);
   assert.equal((await f.run({ args: [...f.options.args, '-p:DefineConstants=CHANGED'] })).reused, false);
+});
+
+test('仓库外绝对程序集路径保持真实产物校验', async t => {
+  const f = await fixture(t);
+  const isolated = await mkdtemp(path.join(os.tmpdir(), 'fullnet-absolute-build-'));
+  t.after(() => rm(isolated, { recursive: true, force: true }));
+  const assembly = path.join(isolated, 'test.dll');
+  const build = async () => { await writeFile(assembly, 'compiled'); };
+  assert.equal((await f.run({ assembly, build })).reused, false);
+  assert.equal((await f.run({ assembly, build, mode: 'verify' })).reused, true);
+  await writeFile(assembly, 'changed');
+  await assert.rejects(f.run({ assembly, build, mode: 'verify' }), /构建|输入/);
 });
 
 test('自定义 MSBuild 环境属性变化必须失效，失败重建不能留下旧记录', async t => {
@@ -162,4 +187,94 @@ test('单次工具调用身份变化不重建，构建子进程不接收调用�
   assert.equal((await f.run()).reused,true);
   assert.equal(f.builds(),1);
  } finally {if(before===undefined)delete process.env.CODEX_TOOL_CALL_ID;else process.env.CODEX_TOOL_CALL_ID=before;}
+});
+
+async function frozenFixture(t) {
+  const f = await fixture(t);
+  await mkdir(path.join(f.cwd, 'tests/Focused'), { recursive: true });
+  await mkdir(path.join(f.cwd, '.tmp/references'), { recursive: true });
+  const selected = ['tests/Focused/Controller.cs'];
+  const artifacts = [path.join(f.cwd, '.tmp/references/Product.dll')];
+  await writeFile(path.join(f.cwd, selected[0]), 'class Controller {}');
+  await writeFile(path.join(f.cwd, 'tests/Other.cs'), 'class Other {}');
+  await writeFile(artifacts[0], 'frozen-product');
+  const options = { args: [...f.options.args, '-p:BuildProjectReferences=false'],
+    frozenDependencies: { testSources: async () => selected, artifacts: async () => artifacts } };
+  return { ...f, selected, artifacts, scoped: extra => f.run({ ...options, ...extra }), scopedOptions: options };
+}
+
+test('未启用固定依赖时保留原有可选构建参数边界', async t => {
+  const f = await fixture(t);
+  assert.equal((await f.run({ args: undefined })).reused, false);
+  assert.equal((await f.run({ args: undefined, mode: 'verify' })).reused, true);
+});
+
+test('固定项目引用时允许未编译 C# 变化，当前测试源码仍必须新鲜', async t => {
+  const f = await frozenFixture(t);
+  await f.scoped({ build: async () => {
+    await f.options.build();
+    await writeFile(path.join(f.cwd, 'tests/Other.cs'), 'class OtherChanged {}');
+    await writeFile(path.join(f.cwd, 'src/source.cs'), 'class FutureProduct {}');
+  } });
+  assert.equal((await f.scoped({ mode: 'verify' })).reused, true);
+  await writeFile(path.join(f.cwd, f.selected[0]), 'class NewController {}');
+  await assert.rejects(f.scoped({ mode: 'verify' }), /构建|输入/);
+});
+
+test('固定引用的实际 Compile 集合新增和删除不能复用旧记录', async t => {
+  const f = await frozenFixture(t);
+  await f.scoped();
+  f.selected.push('tests/Other.cs');
+  await assert.rejects(f.scoped({ mode: 'verify' }), /构建|输入/);
+  await f.scoped();
+  f.selected.pop();
+  await assert.rejects(f.scoped({ mode: 'verify' }), /构建|输入/);
+});
+
+test('固定依赖的 DLL 字节、新增集合和构建中变化均不能越过登记', async t => {
+  const f = await frozenFixture(t);
+  await f.scoped();
+  await writeFile(f.artifacts[0], 'changed-product');
+  await assert.rejects(f.scoped({ mode: 'verify' }), /构建|输入/);
+  await f.scoped();
+  f.artifacts.push(path.join(f.cwd, '.tmp/references/NewProduct.dll'));
+  await writeFile(f.artifacts[1], 'new-product');
+  await assert.rejects(f.scoped({ mode: 'verify' }), /构建|输入/);
+  await assert.rejects(f.scoped({ build: async () => {
+    await f.options.build();
+    await writeFile(f.artifacts[0], 'changed-during-build');
+  } }), /构建期间/);
+  await assert.rejects(f.scoped({ mode: 'verify' }), /构建|记录/);
+});
+
+test('固定引用模式仍校验项目、资源及默认模式的生产源码', async t => {
+  const f = await frozenFixture(t);
+  await f.scoped();
+  await writeFile(path.join(f.cwd, 'src/resource.sql'), 'SELECT 1;');
+  await assert.rejects(f.scoped({ mode: 'verify' }), /构建|输入/);
+  await f.scoped();
+  await writeFile(path.join(f.cwd, 'test.csproj.user'), '<Project />');
+  await assert.rejects(f.scoped({ mode: 'verify' }), /构建|输入/);
+  await f.run();
+  await writeFile(path.join(f.cwd, 'src/source.cs'), 'class LatestProduct {}');
+  await assert.rejects(f.run({ mode: 'verify' }), /构建|输入/);
+});
+
+test('固定引用的被 Git 忽略测试源码仍属于实际编译输入', async t => {
+  const f = await frozenFixture(t);
+  await writeFile(path.join(f.cwd, '.gitignore'), 'bin/\n.tmp/\ntests/Focused/\n');
+  await f.scoped();
+  await writeFile(path.join(f.cwd, f.selected[0]), 'class IgnoredButCompiled {}');
+  await assert.rejects(f.scoped({ mode: 'verify' }), /构建|输入/);
+});
+
+test('固定依赖必须禁用引用构建并拒绝空集合或仓库外测试源码', async t => {
+  const f = await frozenFixture(t);
+  await assert.rejects(f.scoped({ args: f.options.args }), /固定依赖模式/);
+  await assert.rejects(f.scoped({ args: [...f.scopedOptions.args, '-p:BuildProjectReferences=true'] }), /固定依赖模式/);
+  await assert.rejects(f.scoped({ args: [...f.scopedOptions.args, '@hidden.rsp'] }), /固定依赖模式/);
+  const bad = testSources => ({ ...f.scopedOptions.frozenDependencies, testSources });
+  await assert.rejects(f.scoped({ frozenDependencies: bad(async () => []) }), /非空|Compile/);
+  await assert.rejects(f.scoped({ frozenDependencies: bad(async () => ['../outside.cs']) }), /仓库内/);
+  await assert.rejects(f.scoped({ frozenDependencies: bad(async () => ['src/source.cs']) }), /仓库内/);
 });

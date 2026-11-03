@@ -29,7 +29,8 @@ internal sealed class AiPromptManagementService(AiPromptReader reader, IQueryExe
         {
             AiPromptExecutionPolicy.Resolve(Full.NET.Agents.Definitions.AgentDefinitionRegistry.SingleTextKey)!,
             AiPromptExecutionPolicy.Resolve(Full.NET.Agents.Definitions.AgentDefinitionRegistry.ReadOnlyToolLoopKey)!,
-            AiPromptExecutionPolicy.Resolve(Full.NET.Agents.Workflows.AgentWorkflowRegistry.ChatRenameWorkflowKey)!
+            AiPromptExecutionPolicy.Resolve(Full.NET.Agents.Workflows.AgentWorkflowRegistry.ChatRenameWorkflowKey)!,
+            AiPromptExecutionPolicy.Resolve(Full.NET.Agents.Workflows.AgentWorkflowRegistry.ChatReviewWorkflowKey)!
         });
     }
 

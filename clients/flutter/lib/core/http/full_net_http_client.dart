@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
 
@@ -65,6 +66,30 @@ class FullNetHttpClient {
   Future<dynamic> postJson(String path, {Map<String, dynamic>? body}) =>
       _send('POST', path, body: body);
 
+  /// 通用附件仍只能走精确Todo上传路径；调用者不能把当前凭据发给外部地址。
+  Future<dynamic> postWorkflowAttachment(
+      String path, List<int> bytes, String filename, String contentType) async {
+    if (!RegExp(r'^/api/v1/workflow/todos/[0-9a-fA-F-]+/attachment-uploads\?')
+            .hasMatch(path) ||
+        path.contains('//') ||
+        bytes.isEmpty ||
+        bytes.length > 20 * 1024 * 1024 ||
+        filename.isEmpty ||
+        filename.length > 256 ||
+        RegExp(r'[\r\n/\\]').hasMatch(filename)) {
+      throw ArgumentError('Invalid workflow attachment upload');
+    }
+    final request = http.MultipartRequest('POST', _resolveUri(path))
+      ..headers.addAll({
+        'Accept': 'application/json',
+        'Accept-Language': locale,
+        if (_accessToken != null) 'Authorization': 'Bearer $_accessToken'
+      })
+      ..files.add(http.MultipartFile.fromBytes('file', bytes,
+          filename: filename, contentType: MediaType.parse(contentType)));
+    return _readResponse(await _inner.send(request));
+  }
+
   /// 签名上传使用同一实时 Bearer 与语言，只接受应用内受控待办路径。
   Future<dynamic> postSignaturePng(String path, List<int> bytes) async {
     if (!path.startsWith('/api/v1/workflow/todos/') ||
@@ -94,6 +119,8 @@ class FullNetHttpClient {
       'Accept': 'application/json',
       'Accept-Language': locale,
       if (body != null) 'Content-Type': 'application/json',
+      // 原生端没有浏览器代填Origin；登录仍走服务端同源检查，不放宽其CSRF规则。
+      if (!kIsWeb && path == '/api/v1/auth/login') 'Origin': uri.origin,
       if (_accessToken != null) 'Authorization': 'Bearer $_accessToken',
     };
 

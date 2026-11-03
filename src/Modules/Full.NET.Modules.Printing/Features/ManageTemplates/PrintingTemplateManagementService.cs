@@ -6,6 +6,7 @@ using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Printing.Contracts;
 using Full.NET.Modules.Printing.Domain;
 using Full.NET.Modules.Printing.Persistence;
+using Microsoft.Extensions.Options;
 
 namespace Full.NET.Modules.Printing.Features.ManageTemplates;
 
@@ -16,25 +17,26 @@ internal sealed class PrintingTemplateManagementService(
     ICommandTransaction transaction,
     PrintingTemplateQueryService queries,
     IClock clock,
-    IIdGenerator idGenerator)
+    IIdGenerator idGenerator,
+    IOptions<DatabaseOptions> database)
 {
     public Task<Result<PrintingTemplateResponse>> CreateAsync(
         CreatePrintingTemplateRequest request,
         CancellationToken cancellationToken = default) =>
-        transaction.ExecuteAsync(token => CreateCoreAsync(request, token), cancellationToken);
+        transaction.ExecuteResultAsync(token => CreateCoreAsync(request, token), cancellationToken);
 
     public Task<Result<PrintingTemplateResponse>> UpdateAsync(
         Guid templateId,
         UpdatePrintingTemplateRequest request,
         CancellationToken cancellationToken = default) =>
-        transaction.ExecuteAsync(token => UpdateCoreAsync(templateId, request, token), cancellationToken);
+        transaction.ExecuteResultAsync(token => UpdateCoreAsync(templateId, request, token), cancellationToken);
 
     public Task<Result<PrintingTemplateVersionResponse>> PublishAsync(
         Guid templateId,
         Guid publishedByUserId,
         PublishPrintingTemplateRequest request,
         CancellationToken cancellationToken = default) =>
-        transaction.ExecuteAsync(
+        transaction.ExecuteResultAsync(
             token => PublishCoreAsync(templateId, publishedByUserId, request, token),
             cancellationToken);
 
@@ -87,6 +89,9 @@ internal sealed class PrintingTemplateManagementService(
         UpdatePrintingTemplateRequest request,
         CancellationToken cancellationToken)
     {
+        // 与两库现有列宽一致，先拒绝空名称和超限输入，避免将输入错误交给数据库变成 500。
+        if (string.IsNullOrWhiteSpace(request.Name) || request.Name.Trim().Length > 128)
+            return Result<PrintingTemplateResponse>.Failure(InvalidTemplate("The template name must contain 1 to 128 characters.").Error!);
         var layoutValidation = ValidateLayoutHtml(request.LayoutHtml);
         if (!layoutValidation.IsSuccess)
         {
@@ -94,7 +99,7 @@ internal sealed class PrintingTemplateManagementService(
         }
 
         var record = await queryExecutor.QuerySingleOrDefaultAsync<PrintingTemplateRecord>(
-                PrintingTemplateSql.FindTemplateById,
+                database.Value.Provider == DatabaseProvider.MySql ? PrintingTemplateSql.LockTemplateMySql : PrintingTemplateSql.LockTemplateSqlServer,
                 PrintingSqlParameters.Create([("TemplateId", templateId)]),
                 cancellationToken)
             .ConfigureAwait(false);
@@ -133,8 +138,10 @@ internal sealed class PrintingTemplateManagementService(
         PublishPrintingTemplateRequest request,
         CancellationToken cancellationToken)
     {
+        if (request.ChangeNote?.Trim().Length > 512)
+            return Result<PrintingTemplateVersionResponse>.Failure(InvalidTemplate("The publication note cannot exceed 512 characters.").Error!);
         var record = await queryExecutor.QuerySingleOrDefaultAsync<PrintingTemplateRecord>(
-                PrintingTemplateSql.FindTemplateById,
+                database.Value.Provider == DatabaseProvider.MySql ? PrintingTemplateSql.LockTemplateMySql : PrintingTemplateSql.LockTemplateSqlServer,
                 PrintingSqlParameters.Create([("TemplateId", templateId)]),
                 cancellationToken)
             .ConfigureAwait(false);
@@ -205,6 +212,10 @@ internal sealed class PrintingTemplateManagementService(
         {
             return InvalidTemplate("Template key and name are required.");
         }
+        // TemplateKey 在 SQL Server 是非 Unicode 机器码；双库均接受同一 ASCII 标识集合。
+        if (templateKey.Trim().Length > 128 || name.Trim().Length > 128
+            || !templateKey.Trim().All(static character => char.IsAsciiLetterOrDigit(character) || character is '.' or '_' or '-'))
+            return InvalidTemplate("The template key must be an ASCII machine key up to 128 characters, and the name must not exceed 128 characters.");
 
         if (PrintingFormSchemaCatalog.TryGet(formSchemaKey) is null)
         {

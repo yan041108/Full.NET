@@ -13,7 +13,7 @@ const requestMock = vi.mocked(http.request);
 describe('document-statistics api', () => {
   it('loads document statistics', async () => {
     requestMock.mockResolvedValueOnce({
-      summary: {
+      summary: { totalSizeBytes: 1537, historySizeBytes: 512,
         totalItems: 3,
         totalVersions: 4,
         totalSizeKb: 128,
@@ -22,7 +22,7 @@ describe('document-statistics api', () => {
       byType: [{ extension: '.pdf', count: 2, totalSizeKb: 96 }],
       byCategory: [{ categoryId: null, categoryName: 'Uncategorized', count: 3 }],
       shareCount: 1,
-      todayAccessCount: 0,
+      todayPreviewCount: 0, todayShareAccessCount: 0, todayAccessCount: 0,
       todayDownloadCount: 0,
       todayCreatedCount: 1,
       recycleBinCount: 0

@@ -1,0 +1,20 @@
+import { expect, it } from 'vitest';
+import { validateScheduleCompletionProposal, validateScheduleCompletionStatus } from './ai-personal-schedule-completion.js';
+const id=(n:number)=>`01900000-0000-7000-8000-${String(n).padStart(12,'0')}`;
+const status=()=>({runId:id(1),operationId:id(2),scheduleId:id(3),expectedVersion:2,state:'accepted',reason:null as string|null,actualVersion:null as number|null,completedAtUtc:null as string|null});
+it.each(['accepted','unknown','completed','rejected'])('只交付准确原运行的闭合状态 %s',state=>{const value=status();value.state=state;
+  if(state==='completed'){value.actualVersion=3;value.completedAtUtc='2026-10-31T00:00:00Z';}if(state==='rejected')value.reason='target_changed';
+  expect(validateScheduleCompletionStatus(value,id(1)).state).toBe(state);});
+it.each(['run','operation','schedule','version','state','zero','time','private','reason'])('拒绝不完整或降级原操作回执 %s',fault=>{
+  const value=status();if(fault==='run')value.runId=id(9);if(fault==='operation')value.operationId='';if(fault==='schedule')value.scheduleId='';
+  if(fault==='version')value.expectedVersion=0;if(fault==='state')value.state='succeeded';if(fault==='zero')value.actualVersion=0;
+  if(fault==='time')value.completedAtUtc='2026-10-31T00:00:00Z';if(fault==='private')Object.assign(value,{content:'不得释放私人正文'});if(fault==='reason')value.reason='raw_exception';
+  expect(()=>validateScheduleCompletionStatus(value,id(1))).toThrow();});
+it('拒绝伪完成和非UTC回执时间',()=>{const value={...status(),state:'completed',actualVersion:2,completedAtUtc:'2026-10-31T00:00:00Z'};
+  expect(()=>validateScheduleCompletionStatus(value,id(1))).toThrow();value.actualVersion=3;value.completedAtUtc='2026-10-31T08:00:00+08:00';expect(()=>validateScheduleCompletionStatus(value,id(1))).toThrow();});
+const proposal=()=>({runId:id(1),operationId:id(2),scheduleId:id(3),expectedVersion:2,toolName:'calendar.personal_schedules.complete',toolVersion:1,argumentsJson:JSON.stringify({scheduleId:id(3),expectedVersion:2})});
+it('提案参数与服务端准确身份一致且不包含正文或主体',()=>{expect(validateScheduleCompletionProposal(proposal(),id(1)).expectedVersion).toBe(2);});
+it.each(['run','tool','version','args','identity','body'])('拒绝提案重绑定或额外授权字段 %s',fault=>{const value=proposal();
+  if(fault==='run')value.runId=id(9);if(fault==='tool')value.toolName='calendar.delete';if(fault==='version')value.toolVersion=2;
+  if(fault==='args')value.argumentsJson=JSON.stringify({scheduleId:id(4),expectedVersion:2});if(fault==='identity')value.argumentsJson=JSON.stringify({scheduleId:id(3),expectedVersion:2,ownerUserId:id(9)});
+  if(fault==='body')Object.assign(value,{content:'私人正文'});expect(()=>validateScheduleCompletionProposal(value,id(1))).toThrow();});

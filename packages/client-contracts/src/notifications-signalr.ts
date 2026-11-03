@@ -10,6 +10,7 @@ export function createNotificationsSignalRConnection(
 ): NotificationsHubConnection {
   return new HubConnectionBuilder()
     .withUrl(options.hubPath, {
+      headers: options.headers,
       accessTokenFactory: async () => options.accessTokenFactory() ?? ''
     })
     .withAutomaticReconnect([...options.reconnectDelays])

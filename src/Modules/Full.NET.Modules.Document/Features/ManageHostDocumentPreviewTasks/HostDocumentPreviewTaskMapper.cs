@@ -21,5 +21,5 @@ internal static class HostDocumentPreviewTaskMapper
             record.CreatedAtUtc,
             record.StartedAtUtc,
             record.CompletedAtUtc,
-            record.Version);
+            record.Version) { AttemptCount = record.AttemptCount, NextAttemptAtUtc = record.NextAttemptAtUtc };
 }

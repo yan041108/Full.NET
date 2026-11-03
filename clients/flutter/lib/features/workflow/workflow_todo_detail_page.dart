@@ -12,6 +12,10 @@ import 'workflow_signature_capture.dart';
 import 'workflow_vote_form_editor.dart';
 import 'workflow_delegation_panel.dart';
 import 'workflow_human_management_panel.dart';
+import 'workflow_form_editor.dart';
+import 'workflow_form_projection.dart';
+import 'workflow_file_platform.dart';
+import '../../core/http/http_problem.dart';
 
 class WorkflowTodoDetailPage extends StatefulWidget {
   const WorkflowTodoDetailPage({
@@ -42,6 +46,11 @@ class _WorkflowTodoDetailPageState extends State<WorkflowTodoDetailPage> {
   var _initialized = false;
   final _voteFormKey = GlobalKey<FormState>();
   Map<String, dynamic> _voteValues = {};
+  final _mainFormKey = GlobalKey<FormState>();
+  Map<String, dynamic> _mainValues = {};
+  final _uploadedNames = <String, String>{};
+  VoidCallback? _closeAttachmentViewer;
+  var _attachmentBusy = false;
   String? _voteChoice;
   int _identityEpoch = 0;
 
@@ -54,6 +63,7 @@ class _WorkflowTodoDetailPageState extends State<WorkflowTodoDetailPage> {
   /// 会话或资源改变立即撤下旧投影；旧读写回执不能更新新身份页面。
   void _identityChanged() {
     _identityEpoch++;
+    _closeViewer();
     if (!mounted) return;
     setState(() {
       _detail = null;
@@ -62,6 +72,9 @@ class _WorkflowTodoDetailPageState extends State<WorkflowTodoDetailPage> {
       _idempotencyKey = null;
       _pendingSemantic = null;
       _voteValues = {};
+      _mainValues = {};
+      _uploadedNames.clear();
+      _attachmentBusy = false;
       _voteChoice = null;
       _submitting = false;
       _signatureUploading = false;
@@ -98,6 +111,7 @@ class _WorkflowTodoDetailPageState extends State<WorkflowTodoDetailPage> {
   @override
   void dispose() {
     _identityEpoch++;
+    _closeViewer();
     widget.session.removeListener(_identityChanged);
     _commentController.dispose();
     super.dispose();
@@ -106,10 +120,20 @@ class _WorkflowTodoDetailPageState extends State<WorkflowTodoDetailPage> {
   Future<void> _load() async {
     final l10n = AppLocalizations.of(context);
     final epoch = ++_identityEpoch;
+    _closeViewer();
     setState(() {
       _loading = true;
       _feedback = null;
       _detail = null;
+      _mainValues = {};
+      _uploadedNames.clear();
+      _voteValues = {};
+      _voteChoice = null;
+      _attachmentBusy = false;
+      _signatureFileId = null;
+      _idempotencyKey = null;
+      _pendingSemantic = null;
+      _commentController.clear();
       _submitting = false;
       _signatureUploading = false;
     });
@@ -121,6 +145,7 @@ class _WorkflowTodoDetailPageState extends State<WorkflowTodoDetailPage> {
       if (!mounted || epoch != _identityEpoch) return;
       setState(() {
         _detail = detail;
+        _mainValues = cloneWorkflowValues(detail.form.values);
         _idempotencyKey = null;
         _pendingSemantic = null;
         _signatureFileId = null;
@@ -145,6 +170,7 @@ class _WorkflowTodoDetailPageState extends State<WorkflowTodoDetailPage> {
     if (detail == null ||
         _submitting ||
         _signatureUploading ||
+        _attachmentBusy ||
         detail.statusKey != 'active' ||
         !detail.allowedActions.contains(action)) {
       return;
@@ -166,6 +192,14 @@ class _WorkflowTodoDetailPageState extends State<WorkflowTodoDetailPage> {
             detail.claimProgress?.allowRelease != true)) {
       return;
     }
+    if (action == 'release' && detail.form.hasChanges(_mainValues)) {
+      setState(() => _feedback = l10n.actionFailed);
+      return;
+    }
+    if (action != 'release' &&
+        !(_mainFormKey.currentState?.validate() ?? false)) {
+      return;
+    }
     if ((detail.commentRequired && _commentController.text.trim().isEmpty) ||
         (detail.signRequired && _signatureFileId == null)) {
       setState(() => _feedback = l10n.evidenceRequired);
@@ -178,7 +212,8 @@ class _WorkflowTodoDetailPageState extends State<WorkflowTodoDetailPage> {
       detail.submissionRevision,
       detail.claimProgress?.revision,
       _commentController.text.trim(),
-      _signatureFileId
+      _signatureFileId,
+      detail.form.patch(_mainValues)
     ]);
     if (_pendingSemantic != semantic) {
       _idempotencyKey = createIdempotencyKey();
@@ -187,7 +222,7 @@ class _WorkflowTodoDetailPageState extends State<WorkflowTodoDetailPage> {
     final request = ActWorkflowTodoRequest(
       expectedRevision: detail.revision,
       expectedFormRevision: detail.submissionRevision,
-      fieldPatch: const {},
+      fieldPatch: detail.form.patch(_mainValues),
       comment: _commentController.text.trim().isEmpty
           ? null
           : _commentController.text.trim(),
@@ -219,15 +254,118 @@ class _WorkflowTodoDetailPageState extends State<WorkflowTodoDetailPage> {
         return;
       }
       Navigator.of(context).pop();
-    } catch (_) {
+    } catch (error) {
       if (mounted && actionEpoch == _identityEpoch) {
-        setState(() => _feedback = l10n.actionFailed);
+        if (error is HttpProblem && {401, 403, 404}.contains(error.status)) {
+          _clearDeniedContext();
+        }
+        if (mounted) setState(() => _feedback = l10n.actionFailed);
       }
     } finally {
       if (mounted && actionEpoch == _identityEpoch) {
         setState(() => _submitting = false);
       }
     }
+  }
+
+  /// 授权丢失不保留旧草稿或回执，也不把旧资源自动重试成另一个身份的动作。
+  void _clearDeniedContext() {
+    _identityEpoch++;
+    _closeViewer();
+    setState(() {
+      _detail = null;
+      _mainValues = {};
+      _uploadedNames.clear();
+      _voteValues = {};
+      _voteChoice = null;
+      _commentController.clear();
+      _signatureFileId = null;
+      _idempotencyKey = null;
+      _pendingSemantic = null;
+      _submitting = false;
+      _attachmentBusy = false;
+      _signatureUploading = false;
+    });
+  }
+
+  Future<({String fileId, String name})?> _uploadAttachment(String key,
+      {bool vote = false}) async {
+    final detail = _detail;
+    final epoch = _identityEpoch;
+    final policies =
+        vote ? detail?.voteForm?.fieldPolicies : detail?.form.fieldPolicies;
+    if (detail == null ||
+        detail.statusKey != 'active' ||
+        _submitting ||
+        _attachmentBusy ||
+        _signatureUploading ||
+        !widget.session.can('workflow.attachments.upload') ||
+        !{'required', 'editable'}.contains(policies?[key]) ||
+        vote &&
+            (detail.voteForm?.readOnly != false ||
+                !widget.session.can('workflow.todos.vote'))) {
+      return null;
+    }
+    setState(() => _attachmentBusy = true);
+    try {
+      final picked = await pickWorkflowAttachment();
+      if (picked == null || !mounted || epoch != _identityEpoch) return null;
+      final uploaded = await widget.client.uploadAttachment(detail.id,
+          detail.revision, key, picked.bytes, picked.name, picked.contentType,
+          vote: vote);
+      if (!mounted || epoch != _identityEpoch) return null;
+      final name = safeWorkflowAttachmentName(uploaded.name);
+      setState(() => _uploadedNames[uploaded.fileId] = name);
+      return (fileId: uploaded.fileId, name: name);
+    } catch (error) {
+      if (mounted && epoch == _identityEpoch) {
+        if (error is HttpProblem && {401, 403, 404}.contains(error.status)) {
+          _clearDeniedContext();
+        }
+        setState(
+            () => _feedback = AppLocalizations.of(context).attachmentFailed);
+      }
+      return null;
+    } finally {
+      if (mounted && epoch == _identityEpoch) {
+        setState(() => _attachmentBusy = false);
+      }
+    }
+  }
+
+  Future<void> _downloadAttachment(String id, String name) async {
+    final detail = _detail;
+    final epoch = _identityEpoch;
+    if (detail == null) return;
+    try {
+      final bytes = await widget.client.downloadAttachment(detail.id, id);
+      if (!mounted || epoch != _identityEpoch) return;
+      await deliverWorkflowAttachment(context, bytes, name,
+          isCurrent: () =>
+              mounted && epoch == _identityEpoch && _detail?.id == detail.id,
+          onViewerOpened: (close) {
+            _closeViewer();
+            _closeAttachmentViewer = close;
+          },
+          onViewerClosed: (close) {
+            if (identical(_closeAttachmentViewer, close))
+              _closeAttachmentViewer = null;
+          });
+    } catch (error) {
+      if (mounted && epoch == _identityEpoch) {
+        if (error is HttpProblem && {401, 403, 404}.contains(error.status)) {
+          _clearDeniedContext();
+        }
+        setState(
+            () => _feedback = AppLocalizations.of(context).attachmentFailed);
+      }
+    }
+  }
+
+  void _closeViewer() {
+    final close = _closeAttachmentViewer;
+    _closeAttachmentViewer = null;
+    close?.call();
   }
 
   Future<void> _castVote() async {
@@ -240,12 +378,12 @@ class _WorkflowTodoDetailPageState extends State<WorkflowTodoDetailPage> {
         form == null ||
         choice == null ||
         form.readOnly ||
-        !WorkflowVoteFormEditor.supports(form) ||
         detail.statusKey != 'active' ||
         !detail.allowedActions.contains('vote') ||
         !widget.session.can('workflow.todos.vote') ||
         _submitting ||
         _signatureUploading ||
+        _attachmentBusy ||
         !(_voteFormKey.currentState?.validate() ?? false)) {
       return;
     }
@@ -287,8 +425,11 @@ class _WorkflowTodoDetailPageState extends State<WorkflowTodoDetailPage> {
       if (mounted && actionEpoch == _identityEpoch) {
         Navigator.of(context).pop();
       }
-    } catch (_) {
+    } catch (error) {
       if (mounted && actionEpoch == _identityEpoch) {
+        if (error is HttpProblem && {401, 403, 404}.contains(error.status)) {
+          _clearDeniedContext();
+        }
         setState(() => _feedback = l10n.actionFailed);
       }
     } finally {
@@ -304,6 +445,7 @@ class _WorkflowTodoDetailPageState extends State<WorkflowTodoDetailPage> {
     if (detail == null ||
         _submitting ||
         _signatureUploading ||
+        _attachmentBusy ||
         !widget.session.can('workflow.todos.sign')) {
       return;
     }
@@ -319,8 +461,11 @@ class _WorkflowTodoDetailPageState extends State<WorkflowTodoDetailPage> {
           _detail?.id == detail.id) {
         setState(() => _signatureFileId = fileId);
       }
-    } catch (_) {
+    } catch (error) {
       if (mounted && actionEpoch == _identityEpoch) {
+        if (error is HttpProblem && {401, 403, 404}.contains(error.status)) {
+          _clearDeniedContext();
+        }
         setState(() => _feedback = AppLocalizations.of(context).actionFailed);
       }
     } finally {
@@ -356,6 +501,12 @@ class _WorkflowTodoDetailPageState extends State<WorkflowTodoDetailPage> {
     final unsavedVote = detail?.voteForm != null &&
         (_voteChoice != detail!.voteForm!.choiceKey ||
             jsonEncode(_voteValues) != jsonEncode(detail.voteForm!.values));
+    final unsaved =
+        detail != null && (unsavedVote || detail.form.hasChanges(_mainValues));
+    final hasManagementAuthority = detail != null &&
+        ['return', 'transfer', 'countersign', 'remind'].any((action) =>
+            detail.allowedActions.contains(action) &&
+            widget.session.can('workflow.todos.$action'));
 
     return Scaffold(
       appBar: AppBar(title: Text(l10n.workflowTodoTitle), actions: [
@@ -363,8 +514,12 @@ class _WorkflowTodoDetailPageState extends State<WorkflowTodoDetailPage> {
           IconButton(
               key: const ValueKey('workflow-detail-refresh'),
               tooltip: l10n.refresh,
-              onPressed:
-                  _loading || _submitting || _signatureUploading ? null : _load,
+              onPressed: _loading ||
+                      _submitting ||
+                      _signatureUploading ||
+                      _attachmentBusy
+                  ? null
+                  : _load,
               icon: const Icon(Icons.refresh))
       ]),
       body: _loading
@@ -382,7 +537,41 @@ class _WorkflowTodoDetailPageState extends State<WorkflowTodoDetailPage> {
                             progress.requiredCompletionCount,
                             progress.pendingCount)),
                       const SizedBox(height: 16),
-                      Text(detail.submission.toString()),
+                      WorkflowFormEditor(
+                          key: ValueKey(
+                              '${detail.id}:${detail.revision}:${detail.submissionRevision}'),
+                          form: detail.form.withValues(_mainValues, names: {
+                            ...detail.form.attachmentNames,
+                            ..._uploadedNames
+                          }),
+                          formKey: _mainFormKey,
+                          enabled: detail.statusKey == 'active' &&
+                              (canApprove || canReject || canComplete) &&
+                              !_submitting &&
+                              !_attachmentBusy &&
+                              !_signatureUploading,
+                          onChanged: (values) =>
+                              setState(() => _mainValues = values),
+                          uploadAttachment:
+                              widget.session.can('workflow.attachments.upload')
+                                  ? (key) => _uploadAttachment(key)
+                                  : null,
+                          downloadAttachment: _downloadAttachment,
+                          attachmentCandidates: {
+                            for (final field in detail.form.fields.where(
+                                (field) =>
+                                    field['fieldTypeKey'] == 'attachment' &&
+                                    detail.form
+                                            .fieldPolicies[field['fieldKey']] !=
+                                        'hidden'))
+                              for (final id
+                                  in (_mainValues[field['fieldKey']] as List? ??
+                                          [])
+                                      .cast<String>())
+                                id: _uploadedNames[id] ??
+                                    detail.form.attachmentNames[id] ??
+                                    l10n.attachment
+                          }),
                       if (detail.voteForm case final form?) ...[
                         const SizedBox(height: 16),
                         Text(l10n.privateBallot,
@@ -393,8 +582,15 @@ class _WorkflowTodoDetailPageState extends State<WorkflowTodoDetailPage> {
                         WorkflowVoteFormEditor(
                             key: ValueKey('${detail.id}:ballot'),
                             form: form,
+                            values: _voteValues,
+                            attachmentNames: _uploadedNames,
                             formKey: _voteFormKey,
                             enabled: canVote && !_submitting,
+                            uploadAttachment: widget.session
+                                    .can('workflow.attachments.upload')
+                                ? (key) => _uploadAttachment(key, vote: true)
+                                : null,
+                            downloadAttachment: _downloadAttachment,
                             onChanged: (values) =>
                                 setState(() => _voteValues = values)),
                         DropdownButtonFormField<String>(
@@ -429,7 +625,9 @@ class _WorkflowTodoDetailPageState extends State<WorkflowTodoDetailPage> {
                           widget.session.can('workflow.todos.sign'))
                         WorkflowSignatureCapture(
                           key: ValueKey(detail.id),
-                          busy: _submitting || _signatureUploading,
+                          busy: _submitting ||
+                              _signatureUploading ||
+                              _attachmentBusy,
                           captured: _signatureFileId != null,
                           onCapture: _captureSignature,
                           onClear: () =>
@@ -449,8 +647,10 @@ class _WorkflowTodoDetailPageState extends State<WorkflowTodoDetailPage> {
                             session: widget.session,
                             comment: _commentController.text,
                             signatureFileId: _signatureFileId,
-                            busy: _submitting || _signatureUploading,
-                            unsaved: unsavedVote,
+                            busy: _submitting ||
+                                _signatureUploading ||
+                                _attachmentBusy,
+                            unsaved: unsaved,
                             onBusy: (busy) {
                               if (mounted) setState(() => _submitting = busy);
                             },
@@ -466,8 +666,10 @@ class _WorkflowTodoDetailPageState extends State<WorkflowTodoDetailPage> {
                           session: widget.session,
                           comment: _commentController.text,
                           signatureFileId: _signatureFileId,
-                          busy: _submitting || _signatureUploading,
-                          unsaved: unsavedVote,
+                          busy: _submitting ||
+                              _signatureUploading ||
+                              _attachmentBusy,
+                          unsaved: unsaved && hasManagementAuthority,
                           onBusy: (busy) {
                             if (mounted) setState(() => _submitting = busy);
                           },
@@ -486,7 +688,9 @@ class _WorkflowTodoDetailPageState extends State<WorkflowTodoDetailPage> {
                       const SizedBox(height: 16),
                       if (canReject)
                         OutlinedButton(
-                          onPressed: _submitting || _signatureUploading
+                          onPressed: _submitting ||
+                                  _signatureUploading ||
+                                  _attachmentBusy
                               ? null
                               : () => _act('reject'),
                           child: Text(l10n.reject),
@@ -494,7 +698,9 @@ class _WorkflowTodoDetailPageState extends State<WorkflowTodoDetailPage> {
                       if (canApprove) ...[
                         const SizedBox(height: 8),
                         FilledButton(
-                          onPressed: _submitting || _signatureUploading
+                          onPressed: _submitting ||
+                                  _signatureUploading ||
+                                  _attachmentBusy
                               ? null
                               : () => _act('approve'),
                           child: Text(
@@ -504,7 +710,9 @@ class _WorkflowTodoDetailPageState extends State<WorkflowTodoDetailPage> {
                       if (canComplete) ...[
                         const SizedBox(height: 8),
                         FilledButton(
-                          onPressed: _submitting || _signatureUploading
+                          onPressed: _submitting ||
+                                  _signatureUploading ||
+                                  _attachmentBusy
                               ? null
                               : () => _act('complete'),
                           child: Text(_submitting
@@ -519,7 +727,9 @@ class _WorkflowTodoDetailPageState extends State<WorkflowTodoDetailPage> {
                           widget.session.can('workflow.todos.release')) ...[
                         const SizedBox(height: 8),
                         OutlinedButton(
-                            onPressed: _submitting || _signatureUploading
+                            onPressed: _submitting ||
+                                    _signatureUploading ||
+                                    _attachmentBusy
                                 ? null
                                 : () => _act('release'),
                             child: Text(l10n.releaseTask)),
@@ -529,9 +739,9 @@ class _WorkflowTodoDetailPageState extends State<WorkflowTodoDetailPage> {
                         FilledButton(
                             onPressed: _submitting ||
                                     _signatureUploading ||
+                                    _attachmentBusy ||
                                     _voteChoice == null ||
-                                    !WorkflowVoteFormEditor.supports(
-                                        detail.voteForm!)
+                                    detail.voteForm!.readOnly
                                 ? null
                                 : _castVote,
                             child: Text(_submitting

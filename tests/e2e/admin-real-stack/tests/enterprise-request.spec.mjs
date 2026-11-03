@@ -68,7 +68,13 @@ test('租户管理员通过 Vue 创建、编辑和删除企业申请单', async 
 
   const deletedResponse = page.waitForResponse(response => new URL(response.url()).pathname === `${requestPath}/${created.id}/delete`
     && response.request().method() === 'POST');
-  await row.getByRole('button', { name: '删除', exact: true }).click();
+  const overflow = row.getByTestId('art-table-action-more');
+  if (await overflow.count()) {
+    await overflow.click();
+    await page.locator('.art-table-action-group__overflow-panel').getByRole('button', { name: '删除', exact: true }).click();
+  } else {
+    await row.getByRole('button', { name: '删除', exact: true }).click();
+  }
   expect((await deletedResponse).status()).toBe(200);
   await expect(row).toHaveCount(0);
   await expect(view.getByRole('alert')).toHaveCount(0);

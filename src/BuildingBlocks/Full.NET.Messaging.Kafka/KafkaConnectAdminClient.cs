@@ -67,7 +67,7 @@ public sealed class KafkaConnectAdminClient : IKafkaConnectAdminClient
     }
 
     /// <summary>
-    /// 向 Connect REST 端点 POST /connectors 提交连接器注册；
+    /// 向 Connect REST 端点 PUT /connectors/{name}/config 幂等创建或更新配置；
     /// 失败时抛出 InvalidOperationException，错误体不回显以避免泄露数据库口令。
     /// </summary>
     public async Task RegisterConnectorAsync(
@@ -77,12 +77,11 @@ public sealed class KafkaConnectAdminClient : IKafkaConnectAdminClient
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(connectorName);
         ArgumentNullException.ThrowIfNull(config);
-        var payload = new ConnectorRegistration(connectorName, config);
         using var response = await _httpClient
-            .PostAsJsonAsync(
-                "/connectors",
-                payload,
-                KafkaMessagingJsonSerializerContext.Default.ConnectorRegistration,
+            .PutAsJsonAsync(
+                $"/connectors/{Uri.EscapeDataString(connectorName)}/config",
+                new Dictionary<string, string>(config),
+                KafkaMessagingJsonSerializerContext.Default.DictionaryStringString,
                 cancellationToken)
             .ConfigureAwait(false);
         if (!response.IsSuccessStatusCode)
@@ -251,7 +250,8 @@ public sealed class KafkaConnectAdminClient : IKafkaConnectAdminClient
             var fileName = file.GetString();
             if (!string.IsNullOrWhiteSpace(fileName))
             {
-                return CdcDeliveryPosition.ForMySql(null, fileName, position);
+                var gtids = offset.TryGetValue("gtids", out var gtid) && gtid.ValueKind == JsonValueKind.String ? gtid.GetString() : null;
+                return CdcDeliveryPosition.ForMySql(null, fileName, position, gtids);
             }
         }
 
@@ -260,7 +260,12 @@ public sealed class KafkaConnectAdminClient : IKafkaConnectAdminClient
             var commitLsn = commitLsnElement.GetString();
             if (!string.IsNullOrWhiteSpace(commitLsn))
             {
-                return CdcDeliveryPosition.ForSqlServer(null, commitLsn);
+                var changeLsn = offset.TryGetValue("change_lsn", out var change) && change.ValueKind == JsonValueKind.String
+                    ? change.GetString() : null;
+                var serial = offset.TryGetValue("event_serial_no", out var serialElement)
+                    && serialElement.ValueKind == JsonValueKind.Number && serialElement.TryGetInt64(out var value)
+                    ? value : (long?)null;
+                return CdcDeliveryPosition.ForSqlServer(null, commitLsn, changeLsn, serial);
             }
         }
 

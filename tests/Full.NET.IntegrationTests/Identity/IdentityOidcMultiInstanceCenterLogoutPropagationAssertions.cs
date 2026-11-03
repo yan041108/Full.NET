@@ -30,6 +30,9 @@ internal static class IdentityOidcMultiInstanceCenterLogoutPropagationAssertions
 
             using var primaryClient = primaryFactory.CreateClientForHost("localhost");
             using var secondaryClient = secondaryFactory.CreateClientForHost("localhost");
+            // Secure Cookie 在真实 HTTPS 下复用中心，才能证明多应用退出传播。
+            primaryClient.BaseAddress = new Uri("https://localhost");
+            secondaryClient.BaseAddress = new Uri("https://localhost");
             await VerifyCenterLogoutRevokesAllRefreshOnSecondaryInstanceAsync(
                 primaryClient,
                 secondaryClient,

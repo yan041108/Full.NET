@@ -12,6 +12,38 @@ internal sealed class WorkflowDapperAotMaterializerContributor
     /// <param name="registrar">应用级 Dapper AOT 物化器注册表。</param>
     public void RegisterMaterializers(DapperAotMaterializerRegistrar registrar)
     {
+        registrar.Register<WorkflowOperationsStepRecord>(reader => new(reader.GetGuid(0), reader.GetGuid(1), reader.GetGuid(2),
+            reader.GetString(3), reader.GetString(4), reader.GetString(5), reader.GetString(6), reader.GetString(7),
+            AotDataReaderExtensions.ReadDateTimeOffset(reader, 8), AotDataReaderExtensions.ReadNullableDateTimeOffset(reader, 9),
+            AotDataReaderExtensions.ReadNullableDateTimeOffset(reader, 10), AotDataReaderExtensions.ReadNullableString(reader, 11)));
+        registrar.Register<WorkflowOperationsWorkRecord>(reader => new(reader.GetGuid(0), reader.GetGuid(1), reader.GetGuid(2),
+            reader.GetString(3), reader.GetString(4), reader.GetString(5), reader.GetString(6),
+            AotDataReaderExtensions.ReadDateTimeOffset(reader, 7), AotDataReaderExtensions.ReadNullableDateTimeOffset(reader, 8), reader.GetInt32(9)));
+        registrar.Register<WorkflowCollaborationListCandidate>(reader => new(reader.GetGuid(0), reader.GetString(1), reader.GetString(2),
+            reader.GetGuid(3), reader.GetGuid(4), reader.GetString(5), reader.GetString(6), reader.GetString(7), reader.GetString(8),
+            AotDataReaderExtensions.ReadNullableGuid(reader, 9), reader.GetInt64(10)));
+        registrar.Register<WorkflowRemoteFileRecord>(reader => new(reader.GetGuid(0), reader.GetGuid(1), reader.GetString(2), reader.GetGuid(3),
+            reader.GetString(4), reader.GetString(5), reader.GetString(6), reader.GetString(7), reader.GetInt64(8), reader.GetString(9), AotDataReaderExtensions.ReadDateTimeOffset(reader, 10)));
+        registrar.Register<WorkflowFileIssuingReference>(reader => new(reader.GetGuid(0), reader.GetString(1), AotDataReaderExtensions.ReadNullableGuid(reader, 2)));
+        registrar.Register<WorkflowCollaborationControlRecord>(reader => new(reader.GetGuid(0), reader.GetGuid(1), reader.GetString(2), reader.GetString(3),
+            reader.GetString(4), reader.GetString(5), reader.GetString(6), AotDataReaderExtensions.ReadNullableGuid(reader, 7), reader.GetString(8), reader.GetInt64(9),
+            AotDataReaderExtensions.ReadDateTimeOffset(reader, 10), reader.IsDBNull(11) ? null : AotDataReaderExtensions.ReadDateTimeOffset(reader, 11)));
+        registrar.Register<WorkflowCollaborationBudgetFacts>(reader => new(
+            Convert.ToInt32(reader.GetValue(0), System.Globalization.CultureInfo.InvariantCulture),
+            Convert.ToInt32(reader.GetValue(1), System.Globalization.CultureInfo.InvariantCulture),
+            Convert.ToInt32(reader.GetValue(2), System.Globalization.CultureInfo.InvariantCulture)));
+        registrar.Register<WorkflowCollaborationAdmissionRecord>(reader => new(reader.GetGuid(0), reader.GetString(1), reader.GetString(2),
+            reader.GetGuid(3), reader.GetGuid(4), reader.GetString(5), reader.GetString(6), reader.GetString(7), reader.GetString(8), reader.GetString(9),
+            AotDataReaderExtensions.ReadNullableGuid(reader, 10), reader.GetInt64(11), AotDataReaderExtensions.ReadDateTimeOffset(reader, 12), AotDataReaderExtensions.ReadDateTimeOffset(reader, 13)));
+        registrar.Register<WorkflowCollaborationOriginRecord>(reader => new(reader.GetGuid(0), reader.GetGuid(1), reader.GetGuid(2), reader.GetString(3), reader.GetInt32(4)));
+        registrar.Register<WorkflowRemoteAttachmentNameRecord>(reader => new(reader.GetGuid(0), reader.GetString(1)));
+        registrar.Register<WorkflowCollaborationRelayCandidate>(reader => new(reader.GetGuid(0), reader.GetString(1), reader.GetString(2), AotDataReaderExtensions.ReadDateTimeOffset(reader, 3)));
+        registrar.Register<WorkflowCollaborationCallRecord>(reader => new(reader.GetGuid(0), reader.GetGuid(1), reader.GetGuid(2), reader.GetString(3),
+            reader.GetString(4), reader.GetString(5), reader.GetGuid(6), reader.GetGuid(7), reader.GetString(8), reader.GetString(9), reader.GetString(10),
+            reader.GetString(11), reader.GetInt64(12), reader.GetString(13), reader.GetString(14), reader.GetInt32(15), reader.GetString(16), reader.GetInt64(17),
+            AotDataReaderExtensions.ReadDateTimeOffset(reader, 18), AotDataReaderExtensions.ReadDateTimeOffset(reader, 19)));
+        registrar.Register<WorkflowCollaborationDeliveryRecord>(reader => new(reader.GetGuid(0), reader.GetGuid(1), reader.GetString(2), reader.GetGuid(3),
+            reader.GetString(4), reader.GetString(5), reader.GetInt64(6), AotDataReaderExtensions.ReadDateTimeOffset(reader, 7)));
         registrar.Register<global::Full.NET.Modules.Workflow.Domain.WorkflowCollaborationGrantFact>(reader=>new(
             reader.GetGuid(0),AotDataReaderExtensions.ReadNullableGuid(reader,1),AotDataReaderExtensions.ReadNullableGuid(reader,2),reader.GetString(3),reader.GetString(4),reader.GetInt64(5),reader.GetString(6),reader.GetGuid(7),AotDataReaderExtensions.ReadNullableGuid(reader,8),
             reader.GetString(9),AotDataReaderExtensions.ReadNullableString(reader,10),AotDataReaderExtensions.ReadNullableString(reader,11),AotDataReaderExtensions.ReadDateTimeOffset(reader,12),AotDataReaderExtensions.ReadDateTimeOffset(reader,13),
@@ -186,6 +218,11 @@ internal sealed class WorkflowDapperAotMaterializerContributor
         registrar.Register<WorkflowSignatureEvidenceRecord>(reader => new(reader.GetGuid(0), reader.GetGuid(1), reader.GetGuid(2), reader.GetString(3),
             reader.GetGuid(4), reader.GetInt64(5), reader.GetString(6), reader.GetGuid(7), reader.GetString(8), AotDataReaderExtensions.ReadDateTimeOffset(reader, 9)));
         registrar.Register<WorkflowTodoRecord>(ReadTodo);
+        // 待办与已办分页共用14列投影，原生路径不能回退到Dapper反射物化。
+        registrar.Register<WorkflowTodoListRecord>(reader => new(reader.GetGuid(0), reader.GetGuid(1), reader.GetGuid(2),
+            reader.GetString(3), AotDataReaderExtensions.ReadDateTimeOffset(reader, 4), AotDataReaderExtensions.ReadNullableDateTimeOffset(reader, 5),
+            AotDataReaderExtensions.ReadNullableString(reader, 6), reader.GetInt64(7), reader.GetString(8), reader.GetString(9),
+            AotDataReaderExtensions.ReadNullableString(reader, 10), reader.GetString(11), reader.GetString(12), reader.GetString(13)));
         registrar.Register<WorkflowActiveWorkRecord>(ReadActiveWork);
         registrar.Register<WorkflowTodoRuntimeRecord>(ReadTodoRuntime);
         registrar.Register<WorkflowApprovalSlotRecord>(ReadApprovalSlot);

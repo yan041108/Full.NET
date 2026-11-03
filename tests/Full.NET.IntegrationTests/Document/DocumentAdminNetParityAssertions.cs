@@ -57,9 +57,12 @@ internal static class DocumentAdminNetParityAssertions
             delegateUser,
             document.Id,
             cancellationToken);
+        document = await DocumentLifecycleTestSupport.PublishAsync(client, manager.AccessToken,
+            await DocumentLifecycleTestSupport.ReadAsync(client, manager.AccessToken, document.Id, cancellationToken), cancellationToken);
         await VerifySharesAsync(client, manager.AccessToken, document.Id, cancellationToken);
         await VerifyStatisticsAsync(client, manager.AccessToken, cancellationToken);
         await VerifyPreviewTasksAsync(client, manager, document, cancellationToken);
+        document = await DocumentLifecycleTestSupport.ReadAsync(client, manager.AccessToken, document.Id, cancellationToken);
         await VerifyRecycleBinAsync(client, manager.AccessToken, document, cancellationToken);
         await OpenApiDocumentHostPermissionsContractAssertions.VerifyAsync(client, cancellationToken);
         await OpenApiDocumentHostRecycleBinContractAssertions.VerifyAsync(client, cancellationToken);
@@ -72,6 +75,7 @@ internal static class DocumentAdminNetParityAssertions
     [
         HostDocumentPermissions.Read,
         HostDocumentPermissions.Create,
+        HostDocumentPermissions.Publish,
         HostDocumentPermissions.Update,
         HostDocumentPermissions.AddVersion,
         HostDocumentPermissions.Delete,
@@ -117,9 +121,7 @@ internal static class DocumentAdminNetParityAssertions
                        HttpMethod.Post,
                        PermissionsPath,
                        readerToken,
-                       new SetHostDocumentPermissionsRequest(
-                           documentId,
-                           [new HostDocumentPermissionEntry(Guid.NewGuid(), "read")])),
+                       new SetHostDocumentPermissionsRequest(documentId, [new HostDocumentPermissionEntry(Guid.NewGuid(), new[] { "read" })], "restricted", 1L)),
                    cancellationToken))
         {
             Assert.AreEqual(HttpStatusCode.Forbidden, setResponse.StatusCode);
@@ -160,9 +162,7 @@ internal static class DocumentAdminNetParityAssertions
                        HttpMethod.Post,
                        PermissionsPath,
                        manager.AccessToken,
-                       new SetHostDocumentPermissionsRequest(
-                           documentId,
-                           [new HostDocumentPermissionEntry(delegateUser.UserId, "read"), new HostDocumentPermissionEntry(manager.UserId, "manage")])),
+                       new SetHostDocumentPermissionsRequest(documentId, [new HostDocumentPermissionEntry(delegateUser.UserId, new[] { "read" }), new HostDocumentPermissionEntry(manager.UserId, new[] { "read", "write", "delete", "share" })], "restricted", (await DocumentLifecycleTestSupport.ReadAsync(client, manager.AccessToken, documentId, cancellationToken)).Version)),
                    cancellationToken))
         {
             Assert.AreEqual(HttpStatusCode.OK, setResponse.StatusCode);
@@ -170,7 +170,7 @@ internal static class DocumentAdminNetParityAssertions
                 .ReadFromJsonAsync<IReadOnlyList<HostDocumentPermissionResponse>>(cancellationToken);
             Assert.IsNotNull(permissions);
             Assert.AreEqual(2, permissions.Count);
-            Assert.IsTrue(permissions.Any(permission => permission.UserId == delegateUser.UserId && permission.PermissionLevel == "read"));
+            Assert.IsTrue(permissions.Any(permission => permission.UserId == delegateUser.UserId && permission.Actions.SequenceEqual(["read"])));
 
         }
 
@@ -254,46 +254,10 @@ internal static class DocumentAdminNetParityAssertions
     {
         await UploadOfficeVersionAsync(client, manager.AccessToken, document.Id, cancellationToken);
 
-        HostDocumentPreviewTaskResponse task;
-        using (var createResponse = await client.SendAsync(
-                   AuthorizedJson(
-                       HttpMethod.Post,
-                       PreviewTasksPath,
-                       manager.AccessToken,
-                       new CreateHostDocumentPreviewTaskRequest(document.Id, null)),
-                   cancellationToken))
-        {
-            Assert.AreEqual(HttpStatusCode.Created, createResponse.StatusCode);
-            task = (await createResponse.Content.ReadFromJsonAsync<HostDocumentPreviewTaskResponse>(cancellationToken))!;
-            Assert.AreEqual(document.Id, task.DocumentItemId);
-            Assert.AreEqual(HostDocumentPreviewTaskStatusKeys.Pending, task.StatusKey);
-            Assert.AreEqual(DocumentOfficePreviewConversionProviderKeys.Disabled, task.ProviderKey);
-            Assert.AreEqual(manager.UserId, task.RequestedByUserId);
-        }
-
-        using (var getResponse = await client.SendAsync(
-                   Authorized(HttpMethod.Get, $"{PreviewTasksPath}/{task.Id:D}", manager.AccessToken),
-                   cancellationToken))
-        {
-            Assert.AreEqual(HttpStatusCode.OK, getResponse.StatusCode);
-            var loaded = await getResponse.Content.ReadFromJsonAsync<HostDocumentPreviewTaskResponse>(cancellationToken);
-            Assert.IsNotNull(loaded);
-            Assert.AreEqual(task.Id, loaded.Id);
-        }
-
-        using (var listResponse = await client.SendAsync(
-                   Authorized(
-                       HttpMethod.Get,
-                       $"{PreviewTasksPath}?page=1&pageSize=20&documentItemId={document.Id:D}",
-                       manager.AccessToken),
-                   cancellationToken))
-        {
-            Assert.AreEqual(HttpStatusCode.OK, listResponse.StatusCode);
-            var page = await listResponse.Content.ReadFromJsonAsync<PagedResult<HostDocumentPreviewTaskResponse>>(
-                cancellationToken);
-            Assert.IsNotNull(page);
-            Assert.IsTrue(page.Items.Any(entry => entry.Id == task.Id));
-        }
+        using var response = await client.SendAsync(AuthorizedJson(HttpMethod.Post, PreviewTasksPath,
+            manager.AccessToken, new CreateHostDocumentPreviewTaskRequest(document.Id, null)), cancellationToken);
+        Assert.AreEqual(HttpStatusCode.UnprocessableEntity, response.StatusCode);
+        StringAssert.Contains(await response.Content.ReadAsStringAsync(cancellationToken), DocumentErrorCodes.OfficePreviewProviderDisabled);
     }
 
     private static async Task UploadOfficeVersionAsync(
@@ -308,6 +272,7 @@ internal static class DocumentAdminNetParityAssertions
         fileContent.Headers.ContentType = new MediaTypeHeaderValue(
             "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
         uploadContent.Add(fileContent, "file", "preview.docx");
+        uploadContent.Add(new StringContent(Guid.CreateVersion7().ToString("D")), "requestKey");
         using var uploadRequest = new HttpRequestMessage(
             HttpMethod.Post,
             $"{ItemsPath}/{itemId:D}/versions/upload")

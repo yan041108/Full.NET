@@ -7,7 +7,7 @@ describe('document preview requester contracts', () => {
     id, documentItemId: id, documentTitle: 'Preview', versionId: null,
     sourceFileId: id, outputFileId: null, statusKey: 'pending', providerKey: 'disabled',
     errorCode: null, requestedByUserId: null, createdAtUtc: '2026-10-20T00:00:00Z',
-    startedAtUtc: null, completedAtUtc: null, version: 1,
+    attemptCount: 0, startedAtUtc: null, completedAtUtc: null, version: 1,
   };
 
   it('accepts anonymous and authenticated tasks in the same management page', () => {

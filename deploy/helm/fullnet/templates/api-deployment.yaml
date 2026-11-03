@@ -115,6 +115,10 @@ spec:
               mountPath: /var/fullnet/data-protection-keys
             - name: tmp
               mountPath: /tmp
+{{- if .Values.codeGeneration.artifacts.enabled }}
+            - name: codegeneration-artifacts
+              mountPath: {{ .Values.codeGeneration.artifacts.rootDirectory }}
+{{- end }}
 {{- if eq (include "fullnet.codeGenerationApplyEnabled" .) "true" }}
             - name: codegeneration-workspace
               mountPath: {{ .Values.codeGeneration.apply.workspaceRoot }}
@@ -161,6 +165,11 @@ spec:
         - name: codegeneration-workspace
           persistentVolumeClaim:
             claimName: {{ include "fullnet.codeGenerationWorkspaceClaimName" . }}
+{{- end }}
+{{- if .Values.codeGeneration.artifacts.enabled }}
+        - name: codegeneration-artifacts
+          persistentVolumeClaim:
+            claimName: {{ .Values.codeGeneration.artifacts.existingClaimName }}
 {{- end }}
       {{- if .Values.api.topologySpreadConstraints.enabled }}
       topologySpreadConstraints:

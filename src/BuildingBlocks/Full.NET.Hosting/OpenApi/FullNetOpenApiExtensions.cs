@@ -1,6 +1,7 @@
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 using Full.NET.Abstractions.OpenApi;
+using Full.NET.Hosting.Serialization;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.OpenApi;
@@ -42,6 +43,7 @@ public static class FullNetOpenApiExtensions
             options.AddOperationTransformer(ApplyOperationSecurityAsync);
             options.AddSchemaTransformer(ApplyJsonOmissionOptionalityAsync);
             options.AddSchemaTransformer(ApplyStableStringEnumAsync);
+            options.AddSchemaTransformer(ApplyWireScalarContractAsync);
         });
         return services;
     }
@@ -188,6 +190,30 @@ public static class FullNetOpenApiExtensions
                 .ToList();
         }
 
+        return Task.CompletedTask;
+    }
+
+    /// <summary>自定义无损转换器不提供默认数值 Schema，按实际字符串线格式补齐静态契约。</summary>
+    private static Task ApplyWireScalarContractAsync(OpenApiSchema schema,
+        OpenApiSchemaTransformerContext context, CancellationToken cancellationToken)
+    {
+        var converter = context.JsonPropertyInfo?.CustomConverter ?? context.JsonTypeInfo.Converter;
+        var nullable = converter is NullableStringDecimalJsonConverter or NullableStringInt64JsonConverter
+            or NullableUtcDateTimeJsonConverter;
+        if (converter is StringDecimalJsonConverter or NullableStringDecimalJsonConverter)
+        {
+            schema.Format = "decimal";
+            schema.Pattern = @"^-?(0|[1-9][0-9]*)(\.[0-9]+)?$";
+        }
+        else if (converter is StringInt64JsonConverter or NullableStringInt64JsonConverter)
+        {
+            schema.Format = "int64";
+            schema.Pattern = @"^-?(0|[1-9][0-9]*)$";
+        }
+        else if (converter is UtcDateTimeJsonConverter or NullableUtcDateTimeJsonConverter)
+            schema.Format = "date-time";
+        else return Task.CompletedTask;
+        schema.Type = nullable ? JsonSchemaType.String | JsonSchemaType.Null : JsonSchemaType.String;
         return Task.CompletedTask;
     }
 

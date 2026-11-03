@@ -227,6 +227,18 @@ internal static class IdentityOidcSql
         """,
         SqlDataScope.HostOnly);
 
+    private const string OwnPermanent = "FROM fn_identity_oidc_authorization AS auth LEFT JOIN fn_identity_oidc_application AS app ON app.Id = auth.ApplicationId WHERE auth.Subject = @Subject AND auth.Type = 'permanent' AND auth.Status = 'valid' ORDER BY auth.CreatedAtUtc DESC, auth.Id DESC";
+    public static readonly SqlStatement ListOwnPermanentSqlServer = new("identity.list_own_oidc_consent", $"SELECT TOP (100) {AuthorizationDetailColumns} {OwnPermanent}", SqlDataScope.HostOnly);
+    public static readonly SqlStatement ListOwnPermanentMySql = new("identity.list_own_oidc_consent_mysql", $"SELECT {AuthorizationDetailColumns} {OwnPermanent} LIMIT 100", SqlDataScope.HostOnly);
+    public static readonly SqlStatement RevokeOwnClientAuthorizations = new("identity.revoke_own_oidc_client_consent", """
+        UPDATE fn_identity_oidc_authorization SET Status = 'revoked', Version = Version + 1, UpdatedAtUtc = @Now
+        WHERE Subject = @Subject AND ApplicationId = @ApplicationId AND Status = 'valid'
+        """, SqlDataScope.HostOnly);
+    public static readonly SqlStatement RevokeOwnClientTokens = new("identity.revoke_own_oidc_client_tokens", """
+        UPDATE fn_identity_oidc_token SET Status = 'revoked', Version = Version + 1, UpdatedAtUtc = @Now
+        WHERE Subject = @Subject AND ApplicationId = @ApplicationId AND Status = 'valid'
+        """, SqlDataScope.HostOnly);
+
     public static readonly SqlStatement CountAuthorizationsFilteredSqlServer = new(
         "identity.count_oidc_authorizations_filtered.sql_server",
         """

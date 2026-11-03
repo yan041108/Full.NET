@@ -29,6 +29,10 @@ Phase 3 在不关闭模块、不替换为空实现的前提下，为 **Provider 
 
 ### 2.3 通用治理
 
+2026-10-29 项目所有者另行授权 Messaging 完整 Native 控制面及 Worker CDC 的定向验收，Worker 独立阶段见 [ADR-0010 Phase 8](ADR-0010-worker-native-aot-analysis-boundary.md#2026-10-29-独立-phase-8messaging-cdc-原生运行)。该实施授权不改变本 ADR 原有 Phase 3B 的历史证据范围；新的切流/回退/恢复、消费者/重放/DLQ 路径须由本轮真实 Linux ELF、双库及外部进程故障证据独立确认，不由 Replay 或分析通过外推。
+
+该独立Messaging范围现已用真实API/Worker ELF在双库原恢复方法中 **2/2、零跳过** 通过，包括原会话失锁后有限迟到pause/resume、真实恢复/重放/DLQ及Worker SIGTERM退出0。当前API ELF为167445072 bytes、SHA256 `889f78d6376f1a093af821f02c70021355e2f8c9bb97153af06dec53faab1e81`；不是全产品Native、Native长稳或生产容量证明，也不改变既有S3及其它Provider边界。详见[最终本机证据](../../verification/2026-10-28-messaging-reliability-continuation.md#2026-10-29分片发现与完整-native-控制链续办)。
+
 1. Provider 能力不得通过关闭 Identity/Tenancy/Files/CodeGeneration/SignalR 等模块换绿。
 2. 第三方 ILC 告警按 **程序集名 + IL 告警码** 精确登记；未观察到的告警禁止预先加入 allowlist。
 3. 禁止 `NoWarn=IL*`、通配 `TrimmerRootAssembly`、通配 linker descriptor、无依据 `UnconditionalSuppressMessage`。
@@ -65,3 +69,11 @@ Phase 3 在不关闭模块、不替换为空实现的前提下，为 **Provider 
 - S3：Native Host.Api + SQL Server/MySQL 元数据 + 真实 MinIO HTTP E2E 通过
 - Kafka Replay：Native Host.Api + SQL Server/MySQL + 真实 Kafka 范围重放 E2E 通过
 - 精确状态：`Native-provider-verified: s3`、`Native-provider-verified: kafka-replay`
+
+### 2026-10-30 Workflow 消费者定向切片
+
+Workflow 新增真实 Native API/Worker 协作附件的 S3 双库入口：`workflow-native-s3-my-sql`、`workflow-native-s3-sql-server`。两项实际2/2、零跳过，使用同机已核对的API ELF `c05a8dc8…893df8`、Worker ELF `b4b4d3dd…0c28c`；各自独立MinIO、数据库和回收会话。Native API实际上传/读取对象，夹具另核对独占桶内4个对象的真实字节；Worker真实执行协作能力、结果、取消及撤权链路。全部容器正常回收，发布二进制及冻结控制器前后摘要一致。
+
+该切片不证明Worker直接S3 Blob I/O、通用S3删除、AWS全部凭据链或物理Kafka链路，也不扩大上面的Provider状态；具体新鲜TRX、失败记录、资源预算及复用来源见[Workflow交接记录](../../superpowers/plans/2026-10-28-workflow-cross-machine-handoff.md)。
+
+2026-10-31 Workflow 物理 Kafka 基本协作补证：本批新 API ELF `cfd62580…208b7`（171929488 bytes）与新 Worker ELF `b7eb86bb…ff090`，已在 SQL Server/MySQL 各1例、零跳过通过。各例覆盖八条流程及四流逐次证明/切换、结果/取消、Broker暂停恢复、重复Offset、348重放和Requested单流回退。同一对ELF随后完成本地Files、两层子代、目标双实例、取消/撤权及停机续办组合双库2/2、零跳过，并由真实OTLP/Prometheus验证四流采集、共享组映射正式流汇总及现行两分钟生产告警触发/恢复。故障注入期间持有真实控制会话锁；后续新API和Worker已另行完成多流迟到REST纠偏Native双库2/2、零跳过。仅增加这些消费者切片的本机Linux原生运行证据，不扩大通用Provider、全产品Native、容量或SLO状态。冻结输入、原始291/302/305轮TRX、失败与复用边界见上述交接记录。

@@ -10,6 +10,7 @@ using Confluent.Kafka;
 using DotNet.Testcontainers.Builders;
 using DotNet.Testcontainers.Images;
 using Full.NET.LogConsumer;
+using Full.NET.IntegrationTests.NativeAot;
 
 namespace Full.NET.IntegrationTests.Messaging;
 
@@ -21,7 +22,10 @@ public sealed class KafkaLogConsumerElasticsearchTlsTests
     private const string TestPassword = "fullnet-es-tls-test-only";
 
     [TestMethod]
-    public async Task PrivateCaAndApiKeyAreRequiredForBulkConfirmation()
+    public Task PrivateCaAndApiKeyAreRequiredForBulkConfirmation() => VerifyAsync(null, 64);
+
+    /// <summary>复用真实 TLS 服务与原回放断言；传入 ELF 时只替换进程入口，不用 JIT 结果代替原生运行。</summary>
+    internal static async Task VerifyAsync(string? nativeExecutable, int batchMaxRecords, SaslMechanism mechanism = SaslMechanism.Plain)
     {
         using var caKey = RSA.Create(2048);
         var caRequest = new CertificateRequest(
@@ -190,7 +194,8 @@ public sealed class KafkaLogConsumerElasticsearchTlsTests
             using var body = JsonDocument.Parse(await count.Content.ReadAsStringAsync());
             Assert.AreEqual(3L, body.RootElement.GetProperty("count").GetInt64());
 
-            await using var kafka = await KafkaLogTlsFixture.StartAsync();
+            var useSasl = nativeExecutable is not null && batchMaxRecords == 64;
+            await using var kafka = await KafkaLogTlsFixture.StartAsync(useSasl: useSasl, saslMechanism: mechanism);
             var suffix = Guid.NewGuid().ToString("N");
             var source = "fullnet.integration.logging.es-tls-process." + suffix;
             var dlq = "fullnet.integration.logging.es-tls-dlq." + suffix;
@@ -203,7 +208,10 @@ public sealed class KafkaLogConsumerElasticsearchTlsTests
             using var producer = new ProducerBuilder<string, byte[]>(new ProducerConfig
             {
                 BootstrapServers = kafka.BootstrapServers,
-                SecurityProtocol = SecurityProtocol.Ssl,
+                SecurityProtocol = useSasl ? SecurityProtocol.SaslSsl : SecurityProtocol.Ssl,
+                SaslMechanism = useSasl ? mechanism : null,
+                SaslUsername = kafka.SaslUsername,
+                SaslPassword = kafka.SaslPassword,
                 SslCaLocation = kafka.CaPath,
                 Acks = Acks.All,
             }).Build();
@@ -213,17 +221,17 @@ public sealed class KafkaLogConsumerElasticsearchTlsTests
                 Value = Encoding.UTF8.GetBytes(processJson),
             });
             var hostDll = Path.Combine(AppContext.BaseDirectory, "Full.NET.Host.LogConsumer.dll");
-            Assert.IsTrue(File.Exists(hostDll));
-            var start = new ProcessStartInfo("dotnet")
+            if (nativeExecutable is null) Assert.IsTrue(File.Exists(hostDll));
+            var start = new ProcessStartInfo(nativeExecutable ?? "dotnet")
             {
                 UseShellExecute = false,
                 CreateNoWindow = true,
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
             };
-            start.ArgumentList.Add(hostDll);
+            if (nativeExecutable is null) start.ArgumentList.Add(hostDll);
             start.Environment["FULLNET_LOG_CONSUMER_EXPERIMENTAL"] = "true";
-            start.Environment["FULLNET_LOG_CONSUMER_BATCH_MAX_RECORDS"] = "64";
+            start.Environment["FULLNET_LOG_CONSUMER_BATCH_MAX_RECORDS"] = batchMaxRecords.ToString(System.Globalization.CultureInfo.InvariantCulture);
             start.Environment["FULLNET_LOG_CONSUMER_BOOTSTRAP_SERVERS"] = kafka.BootstrapServers;
             start.Environment["FULLNET_LOG_CONSUMER_TOPICS"] = source;
             start.Environment["FULLNET_LOG_CONSUMER_GROUP_ID"] = group;
@@ -235,8 +243,88 @@ public sealed class KafkaLogConsumerElasticsearchTlsTests
             start.Environment["FULLNET_LOG_CONSUMER_ES_CA_PATH"] = caPath;
             start.Environment["FULLNET_LOG_CONSUMER_ES_REVOCATION_MODE"] = "NoCheck";
             start.Environment["DOTNET_ENVIRONMENT"] = "Development";
-            start.Environment["FULLNET_LOG_CONSUMER_SECURITY_PROTOCOL"] = "Ssl";
+            start.Environment["FULLNET_LOG_CONSUMER_SECURITY_PROTOCOL"] = useSasl ? "SaslSsl" : "Ssl";
             start.Environment["FULLNET_LOG_CONSUMER_SSL_CA_LOCATION"] = kafka.CaPath;
+            if (useSasl)
+            {
+                start.Environment["FULLNET_LOG_CONSUMER_SASL_MECHANISM"] = mechanism.ToString();
+                start.Environment["FULLNET_LOG_CONSUMER_SASL_USERNAME"] = kafka.SaslUsername!;
+                start.Environment["FULLNET_LOG_CONSUMER_SASL_PASSWORD"] = kafka.SaslPassword!;
+            }
+            if (useSasl)
+            {
+                // 错误密码必须实际到达 Broker，且不能推进待处理消息的位点。
+                start.Environment["FULLNET_LOG_CONSUMER_ES_API_KEY"] = encodedKey;
+                start.Environment["FULLNET_LOG_CONSUMER_SASL_PASSWORD"] = "invalid-test-password";
+                using var rejected = Process.Start(start);
+                Assert.IsNotNull(rejected);
+                var output = rejected.StandardOutput.ReadToEndAsync();
+                var errors = rejected.StandardError.ReadToEndAsync();
+                try
+                {
+                    await Task.Delay(TimeSpan.FromSeconds(12));
+                    if (!rejected.HasExited) rejected.Kill(entireProcessTree: true);
+                    await rejected.WaitForExitAsync();
+                    StringAssert.Contains((await errors).ToLowerInvariant(), "authentication");
+                    using var reader = kafka.CreateReadbackConsumer(group);
+                    var offset = Offset.Unset;
+                    var queried = false;
+                    var authenticationOffsetDeadline = DateTimeOffset.UtcNow.AddSeconds(30);
+                    while (DateTimeOffset.UtcNow < authenticationOffsetDeadline)
+                    {
+                        try
+                        {
+                            offset = reader.Committed([new TopicPartition(source, new Partition(0))], TimeSpan.FromSeconds(5))[0].Offset;
+                            queried = true;
+                            break;
+                        }
+                        catch (KafkaException error) when (error.Error.Code is ErrorCode.GroupLoadInProgress
+                            or ErrorCode.GroupCoordinatorNotAvailable or ErrorCode.NotCoordinatorForGroup)
+                        {
+                            await Task.Delay(250);
+                        }
+                    }
+                    Assert.IsTrue(queried, "必须实际查询 Kafka 消费组位点。");
+                    Assert.IsTrue(offset.Value < 0, "错误 SASL 凭据不得提交来源位点。");
+                    using var missing = await http.GetAsync(new Uri(esUri, indexName + "/_doc/" + processId));
+                    Assert.AreEqual(HttpStatusCode.NotFound, missing.StatusCode);
+                    Console.WriteLine($"native-log-consumer-invalid-sasl-rejected mechanism={mechanism}");
+                }
+                finally
+                {
+                    if (!rejected.HasExited) rejected.Kill(entireProcessTree: true);
+                    await rejected.WaitForExitAsync();
+                    await NativeIndependentHostProcess.PreserveLogsAsync("log-consumer-invalid-sasl", output, errors);
+                    start.Environment["FULLNET_LOG_CONSUMER_SASL_PASSWORD"] = kafka.SaslPassword!;
+                    start.Environment["FULLNET_LOG_CONSUMER_ES_API_KEY"] = "invalid";
+                }
+            }
+            if (nativeExecutable is not null)
+            {
+                // 直接证明原生进程缺少私有 CA 时失败关闭；JIT 客户端的拒绝不能代替此路径。
+                start.Environment["FULLNET_LOG_CONSUMER_ES_API_KEY"] = encodedKey;
+                start.Environment.Remove("FULLNET_LOG_CONSUMER_ES_CA_PATH");
+                start.Environment.Remove("FULLNET_LOG_CONSUMER_ES_REVOCATION_MODE");
+                using var untrustedProcess = Process.Start(start);
+                Assert.IsNotNull(untrustedProcess);
+                var untrustedOutput = untrustedProcess.StandardOutput.ReadToEndAsync();
+                var untrustedErrors = untrustedProcess.StandardError.ReadToEndAsync();
+                try
+                {
+                    await untrustedProcess.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(45));
+                    Assert.AreEqual(1, untrustedProcess.ExitCode, "原生消费者不能信任未配置的私有 CA。");
+                    StringAssert.Contains(await untrustedErrors, "Log consumer stopped: HttpRequestException");
+                }
+                finally
+                {
+                    if (!untrustedProcess.HasExited) untrustedProcess.Kill(entireProcessTree: true);
+                    await untrustedProcess.WaitForExitAsync();
+                    await NativeIndependentHostProcess.PreserveLogsAsync("log-consumer-untrusted-ca", untrustedOutput, untrustedErrors);
+                }
+                start.Environment["FULLNET_LOG_CONSUMER_ES_API_KEY"] = "invalid";
+                start.Environment["FULLNET_LOG_CONSUMER_ES_CA_PATH"] = caPath;
+                start.Environment["FULLNET_LOG_CONSUMER_ES_REVOCATION_MODE"] = "NoCheck";
+            }
             using (var failedProcess = Process.Start(start))
             {
                 Assert.IsNotNull(failedProcess);
@@ -254,12 +342,16 @@ public sealed class KafkaLogConsumerElasticsearchTlsTests
                 {
                     if (!failedProcess.HasExited) failedProcess.Kill(entireProcessTree: true);
                     await failedProcess.WaitForExitAsync();
+                    if (nativeExecutable is not null) await NativeIndependentHostProcess.PreserveLogsAsync("log-consumer-api-key-rejected", failedOutput, failedErrors);
                 }
             }
             using (var beforeRestart = new ConsumerBuilder<byte[], byte[]>(new ConsumerConfig
                    {
                        BootstrapServers = kafka.BootstrapServers,
-                       SecurityProtocol = SecurityProtocol.Ssl,
+                       SecurityProtocol = useSasl ? SecurityProtocol.SaslSsl : SecurityProtocol.Ssl,
+                SaslMechanism = useSasl ? mechanism : null,
+                SaslUsername = kafka.SaslUsername,
+                SaslPassword = kafka.SaslPassword,
                        SslCaLocation = kafka.CaPath,
                        GroupId = group,
                        EnableAutoCommit = false,
@@ -305,7 +397,10 @@ public sealed class KafkaLogConsumerElasticsearchTlsTests
                 using var offsetReader = new ConsumerBuilder<byte[], byte[]>(new ConsumerConfig
                 {
                     BootstrapServers = kafka.BootstrapServers,
-                    SecurityProtocol = SecurityProtocol.Ssl,
+                    SecurityProtocol = useSasl ? SecurityProtocol.SaslSsl : SecurityProtocol.Ssl,
+                SaslMechanism = useSasl ? mechanism : null,
+                SaslUsername = kafka.SaslUsername,
+                SaslPassword = kafka.SaslPassword,
                     SslCaLocation = kafka.CaPath,
                     GroupId = group,
                     EnableAutoCommit = false,
@@ -347,6 +442,7 @@ public sealed class KafkaLogConsumerElasticsearchTlsTests
                     await process.WaitForExitAsync();
                     if (processOutput is not null) _ = await processOutput;
                     if (processErrors is not null) _ = await processErrors;
+                    if (nativeExecutable is not null) await NativeIndependentHostProcess.PreserveLogsAsync("log-consumer-confirmed", processOutput, processErrors);
                 }
             }
             using var processRefresh = await http.PostAsync(new Uri(esUri, indexName + "/_refresh"), null);
@@ -363,6 +459,16 @@ public sealed class KafkaLogConsumerElasticsearchTlsTests
                 Key = crashId,
                 Value = Encoding.UTF8.GetBytes(crashJson),
             });
+            var crashBatchCount = useSasl ? 64 : 1;
+            // 在启动消费者前填满同一分区，并以 ES 实际回执证明一次 Bulk 的条数。
+            for (var i = 1; i < crashBatchCount; i++)
+            {
+                var batchId = Guid.CreateVersion7().ToString("D");
+                var batchJson = $$"""
+                    {"@t":"{{occurred:O}}","@mt":"full-batch","LogEventId":"{{batchId}}","log.class":"diagnostic","OccurredAtUtc":"{{occurred:O}}","ExpiresAtUtc":"{{expiry:O}}","IndexRouteVersion":2}
+                    """;
+                await producer.ProduceAsync(source, new Message<string, byte[]> { Key = batchId, Value = Encoding.UTF8.GetBytes(batchJson) });
+            }
             using var ephemeralProxyCertificate = server.CopyWithPrivateKey(serverKey);
             // Windows Schannel 需要可取得的导入私钥句柄；不将测试私钥长期持久化。
             using var proxyCertificate = X509CertificateLoader.LoadPkcs12(
@@ -383,6 +489,8 @@ public sealed class KafkaLogConsumerElasticsearchTlsTests
                     Assert.AreEqual(HttpStatusCode.OK, forwarded.Status);
                     using var bulk = JsonDocument.Parse(forwarded.Body);
                     Assert.IsFalse(bulk.RootElement.GetProperty("errors").GetBoolean());
+                    Assert.AreEqual(crashBatchCount, bulk.RootElement.GetProperty("items").GetArrayLength(), "同一个真实 ES Bulk 回执必须包含预期数量的记录。");
+                    Console.WriteLine($"native-log-consumer-observed-bulk-items={bulk.RootElement.GetProperty("items").GetArrayLength()} sasl={useSasl}");
                     Assert.IsFalse(interrupted.HasExited,
                         "代理尚未返回 ES 回执时 Consumer 必须仍在等待。");
                     interrupted.Kill(entireProcessTree: true);
@@ -394,6 +502,7 @@ public sealed class KafkaLogConsumerElasticsearchTlsTests
                 {
                     if (!interrupted.HasExited) interrupted.Kill(entireProcessTree: true);
                     await interrupted.WaitForExitAsync();
+                    if (nativeExecutable is not null) await NativeIndependentHostProcess.PreserveLogsAsync("log-consumer-crashed-before-ack", interruptedOutput, interruptedErrors);
                 }
             }
             http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Basic",
@@ -401,7 +510,10 @@ public sealed class KafkaLogConsumerElasticsearchTlsTests
             using (var afterKill = new ConsumerBuilder<byte[], byte[]>(new ConsumerConfig
                    {
                        BootstrapServers = kafka.BootstrapServers,
-                       SecurityProtocol = SecurityProtocol.Ssl,
+                       SecurityProtocol = useSasl ? SecurityProtocol.SaslSsl : SecurityProtocol.Ssl,
+                SaslMechanism = useSasl ? mechanism : null,
+                SaslUsername = kafka.SaslUsername,
+                SaslPassword = kafka.SaslPassword,
                        SslCaLocation = kafka.CaPath,
                        GroupId = group,
                        EnableAutoCommit = false,
@@ -431,7 +543,10 @@ public sealed class KafkaLogConsumerElasticsearchTlsTests
                 using var replayReader = new ConsumerBuilder<byte[], byte[]>(new ConsumerConfig
                 {
                     BootstrapServers = kafka.BootstrapServers,
-                    SecurityProtocol = SecurityProtocol.Ssl,
+                    SecurityProtocol = useSasl ? SecurityProtocol.SaslSsl : SecurityProtocol.Ssl,
+                SaslMechanism = useSasl ? mechanism : null,
+                SaslUsername = kafka.SaslUsername,
+                SaslPassword = kafka.SaslPassword,
                     SslCaLocation = kafka.CaPath,
                     GroupId = group,
                     EnableAutoCommit = false,
@@ -452,13 +567,13 @@ public sealed class KafkaLogConsumerElasticsearchTlsTests
                         or ErrorCode.NotCoordinatorForGroup)
                     {
                     }
-                    if (replayOffset.Value == 2) break;
+                    if (replayOffset.Value == 1 + crashBatchCount) break;
                     await Task.Delay(250);
                 }
                 var replayState = resumed.HasExited
                     ? $"进程退出码 {resumed.ExitCode}；错误类型：{await resumedErrors}"
                     : "进程仍在运行，可能等待 Group 重新分配分区";
-                Assert.AreEqual(2L, replayOffset.Value,
+                Assert.AreEqual(1L + crashBatchCount, replayOffset.Value,
                     $"重启后必须重放原记录并提交 Offset 2；{replayState}。");
 
                 const int probeCount = 32;
@@ -487,11 +602,11 @@ public sealed class KafkaLogConsumerElasticsearchTlsTests
                     probeOffset = replayReader.Committed(
                         [new TopicPartition(source, new Partition(0))],
                         TimeSpan.FromSeconds(5))[0].Offset;
-                    if (probeOffset.Value == 2 + probeCount) break;
+                    if (probeOffset.Value == 1 + crashBatchCount + probeCount) break;
                     await Task.Delay(100);
                 }
                 probeClock.Stop();
-                Assert.AreEqual(2L + probeCount, probeOffset.Value,
+                Assert.AreEqual(1L + crashBatchCount + probeCount, probeOffset.Value,
                     "轻量探针全部记录均须完成 ES 写入与来源位点提交。");
                 resumed.Refresh();
                 var probeSeconds = probeClock.Elapsed.TotalSeconds;
@@ -508,12 +623,13 @@ public sealed class KafkaLogConsumerElasticsearchTlsTests
                 await resumed.WaitForExitAsync();
                 _ = await resumedOutput;
                 _ = await resumedErrors;
+                if (nativeExecutable is not null) await NativeIndependentHostProcess.PreserveLogsAsync("log-consumer-replayed", resumedOutput, resumedErrors);
             }
             using var replayRefresh = await http.PostAsync(new Uri(esUri, indexName + "/_refresh"), null);
             Assert.AreEqual(HttpStatusCode.OK, replayRefresh.StatusCode);
             using var replayCount = await http.GetAsync(new Uri(esUri, indexName + "/_count"));
             using var replayCountBody = JsonDocument.Parse(await replayCount.Content.ReadAsStringAsync());
-            Assert.AreEqual(37L, replayCountBody.RootElement.GetProperty("count").GetInt64(),
+            Assert.AreEqual(36L + crashBatchCount, replayCountBody.RootElement.GetProperty("count").GetInt64(),
                 "同一 LogEventId 重放后应仅保留一份文档。");
             using var replayDocument = await http.GetAsync(new Uri(esUri, indexName + "/_doc/" + crashId));
             Assert.AreEqual(HttpStatusCode.OK, replayDocument.StatusCode);
@@ -552,6 +668,7 @@ public sealed class KafkaLogConsumerElasticsearchTlsTests
             await process.WaitForExitAsync();
             _ = await output;
             _ = await errors;
+            await NativeIndependentHostProcess.PreserveLogsAsync("log-consumer-rejected-environment", output, errors);
         }
     }
 }

@@ -10,6 +10,9 @@ using Full.NET.Modules.Ai.Features;
 using Full.NET.Modules.Ai.Features.ManageChatSessions;
 using Full.NET.Modules.Ai.Features.ManageAgentTools.Handlers;
 using Full.NET.Modules.Ai.Serialization;
+using Full.NET.Modules.Ai.Features.CompletePersonalSchedules;
+using Full.NET.Modules.Ai.Runtime;
+using Full.NET.Modules.Calendar.Contracts;
 
 namespace Full.NET.Modules.Ai.Features.ManageAgentApprovals;
 
@@ -19,7 +22,9 @@ internal sealed class AiAgentApprovalConsumption(
     ICommandExecutor commands,
     IClock clock,
     ICurrentTenant tenant,
-    IToolAuthorizationPort authorization)
+    IToolAuthorizationPort authorization,
+    IPersonalScheduleCompletion? calendar = null,
+    IAgentRunExecutionContext? execution = null)
 {
     internal async ValueTask<AgentApprovalBinding?> FindBindingByOperationAsync(
         Guid operationId,
@@ -67,7 +72,14 @@ internal sealed class AiAgentApprovalConsumption(
         if (!Matches(record, invocation, actor, tenant, clock.UtcNow)
             || !await TargetMatchesAsync(queries, record, invocation, actor, tenant, cancellationToken).ConfigureAwait(false))
             return AgentApprovalExecutionStatus.Denied;
-        var current = await authorization.AuthorizeAsync(AiChatPermissions.Update, cancellationToken).ConfigureAwait(false);
+        if (invocation.ToolName == PersonalScheduleCompletionKeys.Tool)
+        {
+            var args = ScheduleCompletionArguments.Parse(invocation.Arguments);
+            if (args is null || execution?.Binding is not { } binding || calendar is null
+                || !await calendar.CanCompleteAsync(args.ScheduleId, args.ExpectedVersion, binding, cancellationToken).ConfigureAwait(false))
+                return AgentApprovalExecutionStatus.Denied;
+        }
+        var current = await authorization.AuthorizeAsync(PermissionFor(invocation.ToolName), cancellationToken).ConfigureAwait(false);
         cancellationToken.ThrowIfCancellationRequested();
         return current == actor && Matches(record, invocation, actor, tenant, clock.UtcNow)
             ? AgentApprovalExecutionStatus.Approved : AgentApprovalExecutionStatus.Denied;
@@ -88,17 +100,21 @@ internal sealed class AiAgentApprovalConsumption(
         && actor.UserId != Guid.Empty && actor.SessionId != Guid.Empty && record.SessionId == actor.SessionId
         && actor.TenantId == tenant.Id && (tenant.Id is not null || tenant.IsHost)
         && record.ScopeKey == (tenant.Id is { } id ? id.ToString("N") : "host")
-        && invocation.ToolName == RenameChatSessionToolHandler.ToolName
-        && invocation.ToolVersion == RenameChatSessionToolHandler.ToolVersion
-        && RenameChatSessionArgumentParser.Parse(invocation.Arguments) is not null
+        && (invocation.ToolName == RenameChatSessionToolHandler.ToolName
+            && invocation.ToolVersion == RenameChatSessionToolHandler.ToolVersion && RenameChatSessionArgumentParser.Parse(invocation.Arguments) is not null
+            || invocation.ToolName == PersonalScheduleCompletionKeys.Tool && invocation.ToolVersion == 1
+            && ScheduleCompletionArguments.Parse(invocation.Arguments) is not null
+            && record.ApproverId is { } approver && approver != Guid.Empty && approver != record.RequestedBy
+            && invocation.RunId is { } originalRun && invocation.OperationId == Full.NET.Agents.Workflows.AgentWorkflowNodeReceipt.ResolveOperationId(originalRun, "complete_schedule"))
         && AgentApprovalGate.TryValidateForConsume(ToBinding(record), invocation.OperationId, invocation.RunId,
             invocation.ToolName, invocation.ToolVersion, invocation.Arguments, actor.UserId, actor.TenantId, now, out _);
 
     internal static async ValueTask<bool> TargetMatchesAsync(IQueryExecutor queries, AiAgentApprovalRecord record,
         ToolInvocation invocation, ToolActor actor, ICurrentTenant tenant, CancellationToken cancellationToken)
     {
-        var parsed = RenameChatSessionArgumentParser.Parse(invocation.Arguments);
-        if (parsed is null || string.IsNullOrWhiteSpace(record.PresentationJson)) return false;
+        var schedule = invocation.ToolName == PersonalScheduleCompletionKeys.Tool ? ScheduleCompletionArguments.Parse(invocation.Arguments) : null;
+        var parsed = invocation.ToolName == RenameChatSessionToolHandler.ToolName ? RenameChatSessionArgumentParser.Parse(invocation.Arguments) : null;
+        if (parsed is null && schedule is null || string.IsNullOrWhiteSpace(record.PresentationJson)) return false;
         AiAgentApprovalPresentation? presentation;
         try
         {
@@ -111,7 +127,9 @@ internal sealed class AiAgentApprovalConsumption(
             presentation = JsonSerializer.Deserialize(document.RootElement, AiJsonSerializerContext.Default.AiAgentApprovalPresentation);
         }
         catch (JsonException) { return false; }
-        if (presentation is null || presentation.Target is null || presentation.Change != parsed.Title
+        if (schedule is not null) return presentation is not null && presentation.Target == schedule.ScheduleId.ToString("D")
+            && presentation.Change == schedule.ChangeSummary && presentation.TargetVersion == schedule.ExpectedVersion;
+        if (presentation is null || presentation.Target is null || presentation.Change != parsed!.Title
             || presentation.TargetVersion is not > 0) return false;
         var target = await queries.QuerySingleOrDefaultAsync<AiChatSessionRecord>(AiChatSql.FindSessionById,
             AiChatSessionQueryService.BuildScopeParameters(AiChatScope.Resolve(tenant), actor.UserId, ("SessionId", parsed.SessionId)),
@@ -122,6 +140,9 @@ internal sealed class AiAgentApprovalConsumption(
             && target.TenantId == actor.TenantId && target.Title == presentation.Target
             && target.Version == presentation.TargetVersion;
     }
+
+    internal static string PermissionFor(string tool) => tool == PersonalScheduleCompletionKeys.Tool
+        ? PersonalScheduleCompletionKeys.Permission : AiChatPermissions.Update;
 
     internal static AgentApprovalBinding ToBinding(AiAgentApprovalRecord record) => new(
         record.Id,

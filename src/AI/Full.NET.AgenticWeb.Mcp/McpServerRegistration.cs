@@ -1,4 +1,6 @@
 using Full.NET.AgenticWeb.Mcp;
+using Full.NET.Modules.Identity.Contracts;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Configuration;
@@ -69,7 +71,7 @@ public static class McpServerRegistration
     {
         McpProtectedResourceMetadataEndpoint.Map(endpoints);
         endpoints.MapMcp("/api/v1/ai/mcp")
-            .RequireAuthorization();
+            .RequireAuthorization(new AuthorizeAttribute { AuthenticationSchemes = McpResourceAuthentication.Scheme });
     }
 
     private static T ResolveScoped<T>(IServiceProvider? services) where T : notnull

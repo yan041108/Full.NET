@@ -8,12 +8,34 @@ using Full.NET.Modules.Ai.Contracts;
 namespace Full.NET.Modules.Ai.Persistence;
 
 /// <summary>仅进入原生编译闭包；测试链接同一源文件，普通业务模块不引入 ADO.NET 依赖。</summary>
-internal static class AiBudgetRowReaders
+internal static partial class AiBudgetRowReaders
 {
 #if FULLNET_AOT_COMPILE
     internal static void Register()
     {
         var registrar = new Full.NET.Data.Dapper.DapperAotMaterializerRegistrar();
+        registrar.Register<AiScheduleCompletionIntentRecord>(ReadScheduleCompletionIntent);
+        registrar.Register<AiKnowledgeEvaluationStrategyRow>(ReadEvaluationStrategy);
+        registrar.Register<AiKnowledgeEvaluationRunRow>(ReadEvaluationRun);
+        registrar.Register<AiKnowledgeEvaluationCaseRow>(ReadEvaluationCase);
+        registrar.Register<AiKnowledgeEvaluationOperationRow>(ReadEvaluationOperation);
+        registrar.Register<AiKnowledgeEvaluationCaseReviewRow>(ReadEvaluationCaseReview);
+        registrar.Register<AiKnowledgeEvaluationEntry>(ReadEvaluationEntry);
+        registrar.Register<AiKnowledgeFinanceRow>(ReadKnowledgeFinance);
+        registrar.Register<AiKnowledgeQualityObservationRow>(ReadKnowledgeQualityObservation);
+        registrar.Register<AiKnowledgeOperationRecord>(ReadKnowledgeOperation);
+        registrar.Register<AiKnowledgeEvaluationRow>(ReadKnowledgeEvaluation);
+        registrar.Register<AiKnowledgeEvaluationApprovalRow>(ReadKnowledgeEvaluationApproval);
+        registrar.Register<AiKnowledgeFaqDraftRecord>(ReadKnowledgeFaqDraft);
+        registrar.Register<AiKnowledgeFaqIndexSourceRecord>(ReadKnowledgeFaqIndexSource);
+        registrar.Register<AiKnowledgeFaqReleaseRecord>(ReadKnowledgeFaqRelease);
+        registrar.Register<AiKnowledgeFaqFeedbackRecord>(ReadKnowledgeFaqFeedback);
+        registrar.Register<AiKnowledgeCorrectionSourceRecord>(ReadCorrectionSource);
+        registrar.Register<AiKnowledgeCorrectionRevisionRecord>(ReadCorrectionRevision);
+        registrar.Register<AiKnowledgeCorrectionHeadRecord>(ReadCorrectionHead);
+        registrar.Register<AiKnowledgeCorrectionRevisionSummaryRecord>(ReadCorrectionRevisionSummary);
+        registrar.Register<AiKnowledgeCorrectionPreparationRecord>(ReadCorrectionPreparation);
+        registrar.Register<AiKnowledgeCorrectionPreparationCandidate>(ReadCorrectionPreparationCandidate);
         registrar.Register<AiOperationBudgetRecord>(ReadOperation);
         registrar.Register<AiOperationBudgetTotals>(ReadTotals);
         registrar.Register<AiModelPriceRecord>(ReadPrice);
@@ -21,8 +43,17 @@ internal static class AiBudgetRowReaders
         registrar.Register<AiMcpRemoteToolRecord>(ReadMcpRemoteTool);
         registrar.Register<AiAgentApprovalRecord>(ReadAgentApproval);
         registrar.Register<AiAgentRunRecord>(ReadAgentRun);
+        registrar.Register<AiAgentEventSequenceBounds>(ReadAgUiSequenceBounds);
+        registrar.Register<AiAgentEventRecord>(ReadAgUiEvent);
+        registrar.Register<AiAgentStepSummaryRecord>(ReadAgUiStep);
+        registrar.Register<AiAgentRunBudgetSummaryRecord>(ReadAgUiBudget);
         registrar.Register<AgentCheckpointRecord>(ReadAgentCheckpoint);
         registrar.Register<AiKnowledgeBaseRecord>(ReadKnowledgeBase);
+        registrar.Register<AiKnowledgePublicationRecord>(ReadKnowledgePublication);
+        registrar.Register<AiKnowledgeFolderResponse>(ReadKnowledgeFolder);
+        registrar.Register<AiKnowledgeDirectoryRecord>(ReadKnowledgeDirectory);
+        registrar.Register<Full.NET.Modules.Ai.Knowledge.AiKnowledgeLeaseDeadline>(ReadKnowledgeLeaseDeadline);
+        registrar.Register<AiKnowledgePublicationHeadRecord>(ReadKnowledgePublicationHead);
         registrar.Register<AiKnowledgeDocumentRecord>(ReadKnowledgeDocument);
         registrar.Register<AiKnowledgeImportRecord>(ReadKnowledgeImport);
         registrar.Register<AiKnowledgeVersionRecord>(ReadKnowledgeVersion);
@@ -51,6 +82,33 @@ internal static class AiBudgetRowReaders
         registrar.Register<AiChatSessionRecord>(ReadChatSession);
     }
 #endif
+
+    /// <summary>窄用途反馈投影只读取批准后的原回答，不读取原用户问题。</summary>
+    /// <summary>原意图投影列序固定；空回执与可信Host空租户不能转换为默认成功事实。</summary>
+    internal static AiScheduleCompletionIntentRecord ReadScheduleCompletionIntent(DbDataReader r) => new(r.GetGuid(0), r.IsDBNull(1) ? null : r.GetGuid(1),
+        r.GetGuid(2), r.GetGuid(3), r.GetGuid(4), r.GetString(5), r.GetString(6), r.GetString(7), r.IsDBNull(8) ? null : r.GetString(8), Convert.ToInt32(r.GetValue(9), CultureInfo.InvariantCulture));
+
+    internal static AiKnowledgeFaqFeedbackRecord ReadKnowledgeFaqFeedback(DbDataReader reader) => new()
+    {
+        FeedbackId = reader.GetGuid(reader.GetOrdinal("FeedbackId")), FeedbackVersion = checked((int)Integer(reader, "FeedbackVersion")),
+        ReviewId = reader.GetGuid(reader.GetOrdinal("ReviewId")), ReviewVersion = checked((int)Integer(reader, "ReviewVersion")),
+        MessageId = reader.GetGuid(reader.GetOrdinal("MessageId")), SessionId = reader.GetGuid(reader.GetOrdinal("SessionId")),
+        OwnerUserId = reader.GetGuid(reader.GetOrdinal("OwnerUserId")), TenantId = Null(reader, "TenantId") ? null : reader.GetGuid(reader.GetOrdinal("TenantId")),
+        LineageHash = Text(reader, "LineageHash"), KnowledgeLineage = Text(reader, "KnowledgeLineage"), Answer = Text(reader, "Answer")
+    };
+    /// <summary>草稿头与历史共用完整投影，原始来源和正文 JSON 原样保留；可空来源字段不能被默认值伪装。</summary>
+    internal static AiKnowledgeFaqDraftRecord ReadKnowledgeFaqDraft(DbDataReader reader) => new()
+    {
+        Id = reader.GetGuid(reader.GetOrdinal("Id")), KnowledgeBaseId = reader.GetGuid(reader.GetOrdinal("KnowledgeBaseId")),
+        ReservedDocumentId = reader.GetGuid(reader.GetOrdinal("ReservedDocumentId")), TenantId = Null(reader,"TenantId") ? null : reader.GetGuid(reader.GetOrdinal("TenantId")),
+        CreatedById = reader.GetGuid(reader.GetOrdinal("CreatedById")), CreateRequestKey = reader.GetGuid(reader.GetOrdinal("CreateRequestKey")),
+        CreateHash = Text(reader,"CreateHash"), OriginKey = Text(reader,"OriginKey"), Basis = Null(reader,"Basis") ? null : Text(reader,"Basis"),
+        SourceJson = Text(reader,"SourceJson"), SourceHash = Text(reader,"SourceHash"), HeadRevisionId = reader.GetGuid(reader.GetOrdinal("HeadRevisionId")),
+        HeadVersion = checked((int)Integer(reader,"HeadVersion")), RevisionNo = checked((int)Integer(reader,"RevisionNo")),
+        RevisionId = reader.GetGuid(reader.GetOrdinal("RevisionId")), RequestKey = reader.GetGuid(reader.GetOrdinal("RequestKey")), RequestHash = Text(reader,"RequestHash"),
+        ContentJson = Text(reader,"ContentJson"), ContentHash = Text(reader,"ContentHash"), CreatedAtUtc = Timestamp(reader,"CreatedAtUtc"), RevisionCreatedAtUtc = Timestamp(reader,"RevisionCreatedAtUtc"),
+        RestoredFromRevisionId = Null(reader,"RestoredFromRevisionId") ? null : reader.GetGuid(reader.GetOrdinal("RestoredFromRevisionId"))
+    };
 
     /// <summary>运行完整投影与领取租约的四列投影共用静态物化，保留作用域、代次和原始绑定快照。</summary>
     internal static AiAgentRunRecord ReadAgentRun(DbDataReader reader)
@@ -166,6 +224,7 @@ internal static class AiBudgetRowReaders
     // LEFT JOIN 的任务、模型和指针允许为空；分类与生成批准列供处理策略复核，不在这里做业务判定。
     internal static AiKnowledgeIndexStatusRecord ReadKnowledgeIndexStatus(DbDataReader reader) => new()
     {
+        PublicationId = Null(reader, "PublicationId") ? null : reader.GetGuid(reader.GetOrdinal("PublicationId")),
         KnowledgeBaseId = reader.GetGuid(reader.GetOrdinal("KnowledgeBaseId")), DocumentId = reader.GetGuid(reader.GetOrdinal("DocumentId")),
         VersionId = reader.GetGuid(reader.GetOrdinal("VersionId")), OwnerUserId = reader.GetGuid(reader.GetOrdinal("OwnerUserId")),
         DocumentVersion = checked((int)Integer(reader, "DocumentVersion")), KnowledgeBaseVersion = checked((int)Integer(reader, "KnowledgeBaseVersion")),
@@ -175,12 +234,14 @@ internal static class AiBudgetRowReaders
         IsDeleted = checked((int)Integer(reader, "IsDeleted")), CleanupPending = checked((int)Integer(reader, "CleanupPending")),
         HasDerivedData = checked((int)Integer(reader, "HasDerivedData")), IsCurrent = checked((int)Integer(reader, "IsCurrent")),
         TaskId = Null(reader, "TaskId") ? null : reader.GetGuid(reader.GetOrdinal("TaskId")), StateKey = Null(reader, "StateKey") ? null : Text(reader, "StateKey"),
+        CorrectionRevisionId = Null(reader, "CorrectionRevisionId") ? null : reader.GetGuid(reader.GetOrdinal("CorrectionRevisionId")),
         ActiveTaskId = Null(reader, "ActiveTaskId") ? null : reader.GetGuid(reader.GetOrdinal("ActiveTaskId")),
         ActiveLeaseToken = Null(reader, "ActiveLeaseToken") ? null : reader.GetGuid(reader.GetOrdinal("ActiveLeaseToken")),
         ActiveReceiptHash = Null(reader, "ActiveReceiptHash") ? null : Text(reader, "ActiveReceiptHash"),
         ActiveManifestHash = Null(reader, "ActiveManifestHash") ? null : Text(reader, "ActiveManifestHash"),
         ActivePlanHash = Null(reader, "ActivePlanHash") ? null : Text(reader, "ActivePlanHash"),
-        FileId = reader.GetGuid(reader.GetOrdinal("FileId")), ContentHash = Text(reader, "ContentHash"), ContentType = Text(reader, "ContentType"), ParsingPolicyKey = Text(reader, "ParsingPolicyKey"), SizeBytes = Integer(reader, "SizeBytes"),
+        FileId = Null(reader, "FileId") ? null : reader.GetGuid(reader.GetOrdinal("FileId")),
+        FaqRevisionId = Null(reader, "FaqRevisionId") ? null : reader.GetGuid(reader.GetOrdinal("FaqRevisionId")), ContentHash = Text(reader, "ContentHash"), ContentType = Text(reader, "ContentType"), ParsingPolicyKey = Text(reader, "ParsingPolicyKey"), SizeBytes = Integer(reader, "SizeBytes"),
         ModelConfigId = Null(reader, "ModelConfigId") ? null : reader.GetGuid(reader.GetOrdinal("ModelConfigId")),
         ModelConfigVersion = Null(reader, "ModelConfigVersion") ? null : checked((int)Integer(reader, "ModelConfigVersion")),
         ProviderKey = Null(reader, "ProviderKey") ? null : Text(reader, "ProviderKey"), ModelId = Null(reader, "ModelId") ? null : Text(reader, "ModelId"),
@@ -209,6 +270,7 @@ internal static class AiBudgetRowReaders
     internal static AiKnowledgeIndexWorkerRecord ReadKnowledgeWorker(DbDataReader reader) => new()
     {
         ContentType = Text(reader, "ContentType"), ParsingPolicyKey = Text(reader, "ParsingPolicyKey"),
+        FaqRevisionId = Null(reader, "FaqRevisionId") ? null : reader.GetGuid(reader.GetOrdinal("FaqRevisionId")),
         TaskId = reader.GetGuid(reader.GetOrdinal("TaskId")), TenantId = Null(reader, "TenantId") ? null : reader.GetGuid(reader.GetOrdinal("TenantId")),
         KnowledgeBaseId = reader.GetGuid(reader.GetOrdinal("KnowledgeBaseId")), DocumentId = reader.GetGuid(reader.GetOrdinal("DocumentId")),
         VersionId = reader.GetGuid(reader.GetOrdinal("VersionId")), OwnerUserId = reader.GetGuid(reader.GetOrdinal("OwnerUserId")),
@@ -288,11 +350,17 @@ internal static class AiBudgetRowReaders
         LeaseToken = reader.GetGuid(reader.GetOrdinal("LeaseToken")),
         LeaseExpiresAtUtc = Timestamp(reader, "LeaseExpiresAtUtc"),
         GrantExpiresAtUtc = Null(reader, "GrantExpiresAtUtc") ? null : Timestamp(reader, "GrantExpiresAtUtc"),
-        FileId = reader.GetGuid(reader.GetOrdinal("FileId")),
+        FileId = Null(reader, "FileId") ? null : reader.GetGuid(reader.GetOrdinal("FileId")),
+        FaqRevisionId = Null(reader, "FaqRevisionId") ? null : reader.GetGuid(reader.GetOrdinal("FaqRevisionId")),
         ContentHash = Text(reader, "ContentHash"),
         ContentType = Text(reader, "ContentType"), ParsingPolicyKey = Text(reader, "ParsingPolicyKey"),
         SizeBytes = Integer(reader, "SizeBytes"),
         DataClassification = Text(reader, "DataClassification"),
+        CorrectionSourceId = Null(reader, "CorrectionSourceId") ? null : reader.GetGuid(reader.GetOrdinal("CorrectionSourceId")),
+        CorrectionRevisionId = Null(reader, "CorrectionRevisionId") ? null : reader.GetGuid(reader.GetOrdinal("CorrectionRevisionId")),
+        CorrectionHeadVersion = Null(reader, "CorrectionHeadVersion") ? null : checked((int)Integer(reader, "CorrectionHeadVersion")),
+        CorrectionSourceHash = Null(reader, "CorrectionSourceHash") ? null : Text(reader, "CorrectionSourceHash"),
+        CorrectionPayloadHash = Null(reader, "CorrectionPayloadHash") ? null : Text(reader, "CorrectionPayloadHash"),
         ModelProviderKey = Text(reader, "ModelProviderKey"), ModelId = Text(reader, "ModelId"),
         ModelEndpointBaseUrl = Text(reader, "ModelEndpointBaseUrl"),
         ModelOrganizationId = Null(reader, "ModelOrganizationId") ? null : Text(reader, "ModelOrganizationId"),
@@ -416,6 +484,54 @@ internal static class AiBudgetRowReaders
         Version = checked((int)Integer(reader, "Version")),
     };
 
+    // 发布状态与 UUID 按固定列读取，原生路径不依赖反射物化。
+    internal static Full.NET.Modules.Ai.Knowledge.AiKnowledgeLeaseDeadline ReadKnowledgeLeaseDeadline(DbDataReader reader) => new(Timestamp(reader, "ExpiresAtUtc"));
+    internal static AiKnowledgeDirectoryRecord ReadKnowledgeDirectory(DbDataReader reader) => new()
+    { Id = reader.GetGuid(reader.GetOrdinal("Id")),
+      FolderId = Null(reader, "FolderId") ? null : reader.GetGuid(reader.GetOrdinal("FolderId")),
+      ResponsibleUserId = Null(reader, "ResponsibleUserId") ? null : reader.GetGuid(reader.GetOrdinal("ResponsibleUserId")),
+      LastRequestKey = Null(reader, "LastRequestKey") ? null : reader.GetGuid(reader.GetOrdinal("LastRequestKey")),
+      PublicationId = Null(reader, "PublicationId") ? null : reader.GetGuid(reader.GetOrdinal("PublicationId")),
+      CandidateVersionId = Null(reader, "CandidateVersionId") ? null : reader.GetGuid(reader.GetOrdinal("CandidateVersionId")),
+      PendingPublicationId = Null(reader, "PendingPublicationId") ? null : reader.GetGuid(reader.GetOrdinal("PendingPublicationId")),
+      Title = Text(reader, "Title"),
+      TagsJson = Text(reader, "TagsJson"),
+      PublicationState = Text(reader, "PublicationState"),
+      RequestHash = Null(reader, "RequestHash") ? null : Text(reader, "RequestHash"),
+      Version = checked((int)Integer(reader, "Version")),
+      DocumentVersion = checked((int)Integer(reader, "DocumentVersion")),
+      HeadVersion = checked((int)Integer(reader, "HeadVersion")), };
+    internal static AiKnowledgeFolderResponse ReadKnowledgeFolder(DbDataReader reader) => new(reader.GetGuid(reader.GetOrdinal("Id")), reader.GetGuid(reader.GetOrdinal("KnowledgeBaseId")), Null(reader, "ParentId") ? null : reader.GetGuid(reader.GetOrdinal("ParentId")), Text(reader, "Name"), checked((int)Integer(reader, "Version")));
+    internal static AiKnowledgePublicationRecord ReadKnowledgePublication(DbDataReader reader) => new()
+    {
+        Id = reader.GetGuid(reader.GetOrdinal("Id")),
+        DocumentId = reader.GetGuid(reader.GetOrdinal("DocumentId")),
+        GenerationId = reader.GetGuid(reader.GetOrdinal("GenerationId")),
+        VersionId = reader.GetGuid(reader.GetOrdinal("VersionId")),
+        RequestKey = reader.GetGuid(reader.GetOrdinal("RequestKey")),
+        ActorUserId = reader.GetGuid(reader.GetOrdinal("ActorUserId")),
+        SessionId = reader.GetGuid(reader.GetOrdinal("SessionId")),
+        SessionKind = Text(reader, "SessionKind"),
+        SecurityStamp = Text(reader, "SecurityStamp"),
+        ActorScope = Text(reader, "ActorScope"),
+        EffectiveScope = Text(reader, "EffectiveScope"),
+        SnapshotJson = Text(reader, "SnapshotJson"),
+        SnapshotHash = Text(reader, "SnapshotHash"),
+        StateKey = Text(reader, "StateKey"),
+        ExpectedHeadVersion = checked((int)Integer(reader, "ExpectedHeadVersion")),
+        DocumentVersion = checked((int)Integer(reader, "DocumentVersion")),
+        KnowledgeBaseVersion = checked((int)Integer(reader, "KnowledgeBaseVersion")),
+        Version = checked((int)Integer(reader, "Version")),
+        EffectiveFromUtc = Timestamp(reader, "EffectiveFromUtc"),
+        EffectiveToUtc = Timestamp(reader, "EffectiveToUtc"),
+        CreatedAtUtc = Timestamp(reader, "CreatedAtUtc"),
+        UpdatedAtUtc = Timestamp(reader, "UpdatedAtUtc"),
+        ReviewerUserId = Null(reader, "ReviewerUserId") ? null : reader.GetGuid(reader.GetOrdinal("ReviewerUserId")),
+        ReviewedAtUtc = Null(reader, "ReviewedAtUtc") ? null : Timestamp(reader, "ReviewedAtUtc"),
+    };
+    internal static AiKnowledgePublicationHeadRecord ReadKnowledgePublicationHead(DbDataReader reader) => new()
+    { Id = reader.GetGuid(reader.GetOrdinal("Id")), PublicationId = Null(reader, "PublicationId") ? null : reader.GetGuid(reader.GetOrdinal("PublicationId")), Version = checked((int)Integer(reader, "Version")) };
+
     internal static AiKnowledgeBaseRecord ReadKnowledgeBase(DbDataReader reader) => new()
     {
         Id = reader.GetGuid(reader.GetOrdinal("Id")),
@@ -520,6 +636,119 @@ internal static class AiBudgetRowReaders
     private static string Text(DbDataReader reader, string name) => reader.GetString(reader.GetOrdinal(name));
     private static long Integer(DbDataReader reader, string name) => Convert.ToInt64(reader.GetValue(reader.GetOrdinal(name)), CultureInfo.InvariantCulture);
     private static decimal Amount(DbDataReader reader, string name) => reader.GetDecimal(reader.GetOrdinal(name));
+    internal static AiKnowledgeCorrectionSourceRecord ReadCorrectionSource(DbDataReader reader) => new(
+        reader.GetGuid(reader.GetOrdinal("Id")), reader.GetGuid(reader.GetOrdinal("VersionId")), reader.GetGuid(reader.GetOrdinal("RequestKey")),
+        reader.GetString(reader.GetOrdinal("RequestHash")), reader.GetString(reader.GetOrdinal("FileHash")), reader.GetString(reader.GetOrdinal("ParserRuntimeId")),
+        reader.GetString(reader.GetOrdinal("SourceHash")), reader.GetFieldValue<byte[]>(reader.GetOrdinal("OriginalPayload")),
+        reader.GetFieldValue<byte[]>(reader.GetOrdinal("InitialPayload")), reader.GetString(reader.GetOrdinal("InitialPayloadHash")),
+        reader.GetGuid(reader.GetOrdinal("ActorUserId")), Timestamp(reader, "CreatedAtUtc"));
+
+    internal static AiKnowledgeCorrectionRevisionRecord ReadCorrectionRevision(DbDataReader reader) => new(
+        reader.GetGuid(reader.GetOrdinal("Id")), reader.GetGuid(reader.GetOrdinal("VersionId")), reader.GetGuid(reader.GetOrdinal("SourceId")),
+        reader.IsDBNull(reader.GetOrdinal("ParentId")) ? null : reader.GetGuid(reader.GetOrdinal("ParentId")),
+        reader.GetGuid(reader.GetOrdinal("RequestKey")), reader.GetString(reader.GetOrdinal("RequestHash")), reader.GetFieldValue<byte[]>(reader.GetOrdinal("Payload")),
+        reader.GetString(reader.GetOrdinal("PayloadHash")), reader.GetString(reader.GetOrdinal("ReasonText")), reader.GetGuid(reader.GetOrdinal("ActorUserId")),
+        Timestamp(reader, "CreatedAtUtc"), checked((int)Integer(reader, "DocumentVersion")), checked((int)Integer(reader, "HeadVersion")));
+
+    internal static AiKnowledgeCorrectionHeadRecord ReadCorrectionHead(DbDataReader reader) => new(
+        reader.GetGuid(reader.GetOrdinal("Id")), reader.GetGuid(reader.GetOrdinal("SourceId")),
+        reader.IsDBNull(reader.GetOrdinal("RevisionId")) ? null : reader.GetGuid(reader.GetOrdinal("RevisionId")), checked((int)Integer(reader, "Version")));
+    internal static AiKnowledgeCorrectionRevisionSummaryRecord ReadCorrectionRevisionSummary(DbDataReader reader) => new(
+        reader.GetGuid(reader.GetOrdinal("Id")), reader.GetGuid(reader.GetOrdinal("VersionId")), reader.GetGuid(reader.GetOrdinal("SourceId")),
+        Null(reader, "ParentId") ? null : reader.GetGuid(reader.GetOrdinal("ParentId")), checked((int)Integer(reader, "HeadVersion")),
+        checked((int)Integer(reader, "DocumentVersion")), Text(reader, "PayloadHash"), Text(reader, "ReasonText"), Timestamp(reader, "CreatedAtUtc"));
+
+    internal static AiKnowledgeCorrectionPreparationRecord ReadCorrectionPreparation(DbDataReader reader) => new()
+    {
+        Id = reader.GetGuid(reader.GetOrdinal("Id")),
+        VersionId = reader.GetGuid(reader.GetOrdinal("VersionId")),
+        DocumentVersion = checked((int)Integer(reader, "DocumentVersion")),
+        RequestKey = reader.GetGuid(reader.GetOrdinal("RequestKey")),
+        RequestHash = Text(reader, "RequestHash"),
+        ActorUserId = reader.GetGuid(reader.GetOrdinal("ActorUserId")),
+        SessionId = reader.GetGuid(reader.GetOrdinal("SessionId")),
+        SessionKind = Text(reader, "SessionKind"),
+        SecurityStamp = Text(reader, "SecurityStamp"),
+        ActorScope = Text(reader, "ActorScope"),
+        EffectiveScope = Text(reader, "EffectiveScope"),
+        StateKey = Text(reader, "StateKey"),
+        AttemptCount = checked((int)Integer(reader, "AttemptCount")),
+        LeaseToken = Null(reader, "LeaseToken") ? null : reader.GetGuid(reader.GetOrdinal("LeaseToken")),
+        LeaseExpiresAtUtc = Null(reader, "LeaseExpiresAtUtc") ? null : Timestamp(reader, "LeaseExpiresAtUtc"),
+        ParserRuntimeId = Null(reader, "ParserRuntimeId") ? null : Text(reader, "ParserRuntimeId"),
+        SourceId = Null(reader, "SourceId") ? null : reader.GetGuid(reader.GetOrdinal("SourceId")),
+        FailureCode = Null(reader, "FailureCode") ? null : Text(reader, "FailureCode"),
+        CreatedAtUtc = Timestamp(reader, "CreatedAtUtc"),
+        UpdatedAtUtc = Timestamp(reader, "UpdatedAtUtc"),
+        KnowledgeBaseId = reader.GetGuid(reader.GetOrdinal("KnowledgeBaseId")),
+        DocumentId = reader.GetGuid(reader.GetOrdinal("DocumentId")),
+        TenantId = Null(reader, "TenantId") ? null : reader.GetGuid(reader.GetOrdinal("TenantId")),
+        OwnerUserId = reader.GetGuid(reader.GetOrdinal("OwnerUserId")),
+        ContentType = Text(reader, "ContentType"),
+        IsCurrent = checked((int)Integer(reader, "IsCurrent")),
+    };
+
+    internal static AiKnowledgeCorrectionPreparationCandidate ReadCorrectionPreparationCandidate(DbDataReader reader) => new(
+        reader.GetGuid(reader.GetOrdinal("Id")), reader.GetGuid(reader.GetOrdinal("VersionId")), reader.GetGuid(reader.GetOrdinal("KnowledgeBaseId")), reader.GetGuid(reader.GetOrdinal("DocumentId")), reader.GetGuid(reader.GetOrdinal("OwnerUserId")),
+        Null(reader, "TenantId") ? null : reader.GetGuid(reader.GetOrdinal("TenantId")), checked((int)Integer(reader, "DocumentVersion")), Text(reader, "ContentType"));
+
+
+    internal static AiKnowledgeFaqReleaseRecord ReadKnowledgeFaqRelease(DbDataReader reader) => new()
+    {
+        Id = reader.GetGuid(reader.GetOrdinal("Id")), FaqId = reader.GetGuid(reader.GetOrdinal("FaqId")), RevisionId = reader.GetGuid(reader.GetOrdinal("RevisionId")),
+        VersionId = reader.GetGuid(reader.GetOrdinal("VersionId")), SourceHash = Text(reader, "SourceHash"), ContentHash = Text(reader, "ContentHash"),
+        RequestHash = Text(reader, "RequestHash"), CreatedAtUtc = Timestamp(reader, "CreatedAtUtc")
+    };
+
+    internal static AiKnowledgeFaqIndexSourceRecord ReadKnowledgeFaqIndexSource(DbDataReader reader) => new()
+    {
+        Id = reader.GetGuid(reader.GetOrdinal("Id")), FaqId = reader.GetGuid(reader.GetOrdinal("FaqId")), RevisionId = reader.GetGuid(reader.GetOrdinal("RevisionId")),
+        RevisionHash = Text(reader, "RevisionHash"), SourceHash = Text(reader, "SourceHash"), DataClassification = Text(reader, "DataClassification"),
+        KnowledgeBaseVersion = checked((int)Integer(reader, "KnowledgeBaseVersion")), ModelConfigId = reader.GetGuid(reader.GetOrdinal("ModelConfigId")),
+        ModelConfigVersion = checked((int)Integer(reader, "ModelConfigVersion")), ModelFingerprint = Text(reader, "ModelFingerprint"),
+        BodyText = Text(reader, "BodyText"), BodyHash = Text(reader, "BodyHash"), SizeBytes = Integer(reader, "SizeBytes"),
+        RequestKey = reader.GetGuid(reader.GetOrdinal("RequestKey")), RequestHash = Text(reader, "RequestHash"), ActorUserId = reader.GetGuid(reader.GetOrdinal("ActorUserId")), CreatedAtUtc = Timestamp(reader, "CreatedAtUtc")
+    };
+
+    /// <summary>运营投影不读取正文；空时间和双库整数按原样静态物化。</summary>
+    internal static AiKnowledgeOperationRecord ReadKnowledgeOperation(DbDataReader reader) => new()
+    {
+        KnowledgeBaseId = reader.GetGuid(reader.GetOrdinal("KnowledgeBaseId")), DocumentId = reader.GetGuid(reader.GetOrdinal("DocumentId")),
+        VersionId = reader.GetGuid(reader.GetOrdinal("VersionId")), VersionNumber = checked((int)Integer(reader,"VersionNumber")),
+        SourceKind = Text(reader,"SourceKind"), FaqId = Null(reader,"FaqId") ? null : reader.GetGuid(reader.GetOrdinal("FaqId")),
+        PreparationState = Null(reader,"PreparationState") ? null : Text(reader,"PreparationState"),
+        TaskId = Null(reader,"TaskId") ? null : reader.GetGuid(reader.GetOrdinal("TaskId")), TaskState = Null(reader,"TaskState") ? null : Text(reader,"TaskState"),
+        AttemptCount = checked((int)Integer(reader,"AttemptCount")), CreatedAtUtc = Timestamp(reader,"CreatedAtUtc"),
+        TaskUpdatedAtUtc = Null(reader,"TaskUpdatedAtUtc") ? null : Timestamp(reader,"TaskUpdatedAtUtc"),
+        TaskLeaseExpiresAtUtc = Null(reader,"TaskLeaseExpiresAtUtc") ? null : Timestamp(reader,"TaskLeaseExpiresAtUtc"), HasActiveGeneration = checked((int)Integer(reader,"HasActiveGeneration")),
+        ReviewState = Null(reader,"ReviewState") ? null : Text(reader,"ReviewState"),
+        PublicationId = Null(reader,"PublicationId") ? null : reader.GetGuid(reader.GetOrdinal("PublicationId")),
+        PublicationVersionId = Null(reader,"PublicationVersionId") ? null : reader.GetGuid(reader.GetOrdinal("PublicationVersionId")),
+        PublicationState = Null(reader,"PublicationState") ? null : Text(reader,"PublicationState"),
+        EffectiveFromUtc = Null(reader,"EffectiveFromUtc") ? null : Timestamp(reader,"EffectiveFromUtc"), EffectiveToUtc = Null(reader,"EffectiveToUtc") ? null : Timestamp(reader,"EffectiveToUtc")
+    };
+
+    /// <summary>评估根、不可变修订与审核均静态物化，空 UUID 和双库 UTC 时间显式处理。</summary>
+    internal static AiKnowledgeEvaluationRow ReadKnowledgeEvaluation(DbDataReader reader) => new()
+    {
+        Id = reader.GetGuid(reader.GetOrdinal("Id")), KnowledgeBaseId = reader.GetGuid(reader.GetOrdinal("KnowledgeBaseId")),
+        TenantId = Null(reader,"TenantId") ? null : reader.GetGuid(reader.GetOrdinal("TenantId")),
+        CreatedById = reader.GetGuid(reader.GetOrdinal("CreatedById")), CreateRequestKey = reader.GetGuid(reader.GetOrdinal("CreateRequestKey")),
+        CreateHash = Text(reader,"CreateHash"), HeadRevisionId = reader.GetGuid(reader.GetOrdinal("HeadRevisionId")),
+        HeadRevisionNo = checked((int)Integer(reader,"HeadRevisionNo")), Version = checked((int)Integer(reader,"Version")),
+        FootprintJson = Text(reader,"FootprintJson"), FootprintHash = Text(reader,"FootprintHash"),
+        ApprovalId = Null(reader,"ApprovalId") ? null : reader.GetGuid(reader.GetOrdinal("ApprovalId")),
+        ApprovalState = Null(reader,"ApprovalState") ? null : Text(reader,"ApprovalState"),
+        RevisionId = reader.GetGuid(reader.GetOrdinal("RevisionId")), RevisionNo = checked((int)Integer(reader,"RevisionNo")),
+        RequestKey = reader.GetGuid(reader.GetOrdinal("RequestKey")), RequestHash = Text(reader,"RequestHash"),
+        ContentJson = Text(reader,"ContentJson"), ContentHash = Text(reader,"ContentHash"), SourceJson = Text(reader,"SourceJson"), SourceHash = Text(reader,"SourceHash"),
+        EditorUserId = reader.GetGuid(reader.GetOrdinal("EditorUserId")), CreatedAtUtc = Timestamp(reader,"CreatedAtUtc"),
+        RestoredFromRevisionId = Null(reader,"RestoredFromRevisionId") ? null : reader.GetGuid(reader.GetOrdinal("RestoredFromRevisionId"))
+    };
+
+    internal static AiKnowledgeEvaluationApprovalRow ReadKnowledgeEvaluationApproval(DbDataReader reader) => new(
+        reader.GetGuid(reader.GetOrdinal("Id")), reader.GetGuid(reader.GetOrdinal("RevisionId")), Text(reader,"RequestHash"), Text(reader,"DecisionKey"));
+
     private static DateTimeOffset Timestamp(DbDataReader reader, string name) => reader.GetValue(reader.GetOrdinal(name)) switch
     {
         DateTimeOffset value => value,

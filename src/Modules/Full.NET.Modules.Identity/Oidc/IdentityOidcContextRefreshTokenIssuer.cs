@@ -16,12 +16,10 @@ namespace Full.NET.Modules.Identity.Oidc;
 /// <summary>在 OIDC 上下文切换后轮换 refresh token，避免客户端继续持有旧作用域的离线凭据。</summary>
 internal sealed class IdentityOidcContextRefreshTokenIssuer(
     IOpenIddictServerDispatcher dispatcher,
-    IOptions<OpenIddictServerOptions> serverOptions,
+    IOptionsMonitor<OpenIddictServerOptions> serverOptions,
     ILogger<IdentityOidcContextRefreshTokenIssuer> logger,
     IClock clock)
 {
-    private readonly OpenIddictServerOptions _serverOptions = serverOptions.Value;
-
     public async Task<string?> TryIssueAsync(
         ClaimsPrincipal sourcePrincipal,
         IdentityOidcContextAccessTokenIssueRequest issueRequest,
@@ -35,12 +33,18 @@ internal sealed class IdentityOidcContextRefreshTokenIssuer(
         }
 
         var principal = BuildRefreshPrincipal(issueRequest);
+        var options = serverOptions.CurrentValue;
+        // 手动 GenerateToken 不经过完整 SignIn 管线；必须补组件读取的私有 issuer，不能只设置公共 iss。
+        // 每次读取当前选项，避免密钥轮换后仍使用 IOptions 的首次缓存凭据。
+        principal.SetClaim(Claims.Private.Issuer, options.Issuer?.AbsoluteUri
+            ?? throw new InvalidOperationException("The OIDC refresh issuer must be explicitly configured."));
+        principal.SetAuthorizationId(sourcePrincipal.GetAuthorizationId());
         var createdAt = clock.UtcNow;
         principal.SetCreationDate(createdAt);
-        principal.SetExpirationDate(createdAt + (_serverOptions.RefreshTokenLifetime ?? TimeSpan.FromDays(7)));
+        principal.SetExpirationDate(createdAt + (options.RefreshTokenLifetime ?? TimeSpan.FromDays(7)));
         var transaction = new OpenIddictServerTransaction
         {
-            Options = _serverOptions,
+            Options = options,
             Logger = logger,
             Request = new OpenIddictRequest
             {
@@ -51,9 +55,9 @@ internal sealed class IdentityOidcContextRefreshTokenIssuer(
         var notification = new OpenIddictServerEvents.GenerateTokenContext(transaction)
         {
             ClientId = issueRequest.ClientId,
-            CreateTokenEntry = !_serverOptions.DisableTokenStorage,
-            IsReferenceToken = _serverOptions.UseReferenceRefreshTokens,
-            PersistTokenPayload = _serverOptions.UseReferenceRefreshTokens,
+            CreateTokenEntry = !options.DisableTokenStorage,
+            IsReferenceToken = options.UseReferenceRefreshTokens,
+            PersistTokenPayload = options.UseReferenceRefreshTokens,
             Principal = principal,
             TokenFormat = TokenFormats.Private.JsonWebToken,
             TokenType = TokenTypeIdentifiers.RefreshToken,
@@ -89,6 +93,9 @@ internal sealed class IdentityOidcContextRefreshTokenIssuer(
         }
 
         identity.SetClaim(JwtRegisteredClaimNames.Aud, issueRequest.Audience);
+        if (issueRequest.AuthenticationTime is long authenticatedAt) identity.SetClaim("auth_time", authenticatedAt);
+        identity.SetClaim("acr", issueRequest.AuthenticationContext);
+        identity.SetClaims("amr", (issueRequest.AuthenticationMethods ?? []).ToImmutableArray());
         identity.SetClaim("fullnet_is_first_party", !issueRequest.IsExternalClient);
         identity.SetClaim("fullnet_security_stamp", issueRequest.SecurityStamp);
         identity.SetClaim("fullnet_is_super_admin", issueRequest.IsSuperAdministrator);

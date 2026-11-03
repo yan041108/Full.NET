@@ -3,6 +3,15 @@
     <OutputType>Exe</OutputType>
     <FullNetPublishMode>Jit</FullNetPublishMode>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(FullNetPublishMode)' == 'NativeAot'">
+    <PublishAot>true</PublishAot>
+    <InvariantGlobalization>false</InvariantGlobalization>
+    <!-- 原生链接告警仍按独立角色的精确清单失败关闭，自有代码不允许抑制。 -->
+    <IlcTreatWarningsAsErrors>false</IlcTreatWarningsAsErrors>
+  </PropertyGroup>
+  <ItemGroup Condition="'$(FullNetPublishMode)' == 'NativeAot'">
+    <RdXmlFile Include="NativeAotRoots.xml" />
+  </ItemGroup>
   <ItemGroup>
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
     <PackageReference Include="Confluent.Kafka" />

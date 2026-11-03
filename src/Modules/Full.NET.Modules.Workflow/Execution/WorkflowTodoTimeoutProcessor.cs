@@ -54,7 +54,8 @@ internal sealed class WorkflowTodoTimeoutProcessor(
                     ("Now", now), ("Take", BatchSize),
                     ("HasAfter", cursor.SignalAtUtc is null ? 0 : 1),
                     ("AfterSignalAtUtc", cursor.SignalAtUtc ?? now),
-                    ("AfterTodoId", cursor.TodoId ?? Guid.Empty)),
+                    // 首轮与尾页回绕没有游标；用空值表达缺省，避免触发未分配标识的持久化门禁。
+                    ("AfterTodoId", cursor.TodoId)),
                 cancellationToken).ConfigureAwait(false);
         }
         finally

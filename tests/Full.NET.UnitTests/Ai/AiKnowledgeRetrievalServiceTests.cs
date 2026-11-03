@@ -38,7 +38,7 @@ public sealed partial class AiKnowledgeIndexPdfActivationTests
         var r = await RetrievalFixture.Create(false); var original = r.F.Payloads[0]; var changed = original.Payload.ToArray();
         System.Buffers.Binary.BinaryPrimitives.WriteSingleLittleEndian(changed.AsSpan(changed.Length - 4), 1);
         r.Query.Vectors = [original with { Payload = changed, PayloadHash = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(changed)) }, r.F.Payloads[1]];
-        Assert.IsTrue(await r.F.Store.IsReadyForReadAsync(r.F.ReadRow!, new(), default));
+        Assert.IsTrue(await r.F.Store.IsReadyForReadAsync(r.F.ReadRow!, new() { ["OwnerUserId"] = r.Actor }, default));
         await Assert.ThrowsExactlyAsync<InvalidDataException>(async () => await r.Read());
     }
     [TestMethod]
@@ -149,6 +149,100 @@ public sealed partial class AiKnowledgeIndexPdfActivationTests
         if (fault is "permission" or "scope") await Assert.ThrowsExactlyAsync<UnauthorizedAccessException>(() => r.Service.RevalidateAsync(snapshot, default));
         else await Assert.ThrowsExactlyAsync<InvalidDataException>(() => r.Service.RevalidateAsync(snapshot, default));
     }
+    [TestMethod] [DataRow(false)] [DataRow(true)]
+    public async Task Keyword_search_reads_complete_authorized_generation_without_query_embedding(bool scoped)
+    {
+        var r = await RetrievalFixture.Create(scoped); var baseline = await r.Read();
+        r.Query.GenerationModel = new AiModelConfigRecord { Id = Guid.CreateVersion7() };
+        r.Query.BeforeGenerationModel = _ => throw new InvalidOperationException("关键词搜索不能读取生成模型目的地。");
+        r.BeforePermission = code => Assert.AreNotEqual(Full.NET.Modules.Ai.Contracts.AiChatPermissions.Send, code);
+        var text = baseline.Chunks[0].Chunk.Text[..Math.Min(16, baseline.Chunks[0].Chunk.Text.Length)];
+        var captured = await r.Service.RetrieveKeywordAsync([r.F.Binding.KnowledgeBaseId], [r.F.Binding.DocumentId], r.Actor, r.Model, text, false, default);
+        Assert.AreEqual(baseline.Chunks.Count, captured.CandidateCount); Assert.IsTrue(captured.Chunks.Count > 0);
+        Assert.IsNotNull(captured.SearchDocumentIds); Assert.IsNull(captured.GenerationModel);
+    }
+    [TestMethod] [DataRow(false)] [DataRow(true)]
+    public async Task Keyword_search_rechecks_operation_and_diagnostics_after_payload_wait(bool diagnostics)
+    {
+        var r = await RetrievalFixture.Create(false);
+        r.Query.BeforeVectors = _ => { r.DeniedPermission = diagnostics ? Full.NET.Modules.Ai.Contracts.AiKnowledgeSearchPermissions.Diagnostics
+            : Full.NET.Modules.Ai.Contracts.AiKnowledgeSearchPermissions.Read; return Task.CompletedTask; };
+        await Assert.ThrowsExactlyAsync<UnauthorizedAccessException>(() => r.Service.RetrieveKeywordAsync([r.F.Binding.KnowledgeBaseId], [], r.Actor, r.Model, "事实", diagnostics, default));
+    }
+    [TestMethod]
+    public async Task Keyword_search_rejects_missing_selected_document_before_payload_read()
+    {
+        var r = await RetrievalFixture.Create(false);
+        await Assert.ThrowsExactlyAsync<InvalidDataException>(() => r.Service.RetrieveKeywordAsync([r.F.Binding.KnowledgeBaseId], [Guid.CreateVersion7()], r.Actor, r.Model, "事实", false, default));
+        Assert.AreEqual(0, r.Query.VectorReads);
+    }
+    [TestMethod] [DataRow(false, false)] [DataRow(false, true)] [DataRow(true, false)] [DataRow(true, true)]
+    public async Task Search_policy_denial_returns_conflict_before_body_or_vector_reads(bool scoped, bool diagnostics)
+    {
+        var policy = new Full.NET.AI.Abstractions.Models.AiDataProcessingPolicy(new Dictionary<string, IReadOnlyList<string>> { ["rerank"] = ["public", "internal"] });
+        var r = await RetrievalFixture.Create(scoped, policy); var before = r.F.PayloadReads;
+        var search = new Full.NET.Modules.Ai.Features.SearchKnowledge.AiKnowledgeSearchService(r.Query, r.F.Tenant, r.F.Transactions, r.Permissions, r.Service);
+        var result = await search.SearchAsync(new([r.F.Binding.KnowledgeBaseId], [], r.Model.Id, r.Model.Version, "事实", 2, diagnostics, null), r.Actor, default);
+        Assert.IsFalse(result.IsSuccess); Assert.IsNull(result.Value); Assert.IsNotNull(result.Error);
+        Assert.AreEqual(Full.NET.Modules.Ai.Contracts.AiKnowledgeErrorCodes.SearchUnavailable, result.Error.Code);
+        Assert.AreEqual(Full.NET.Abstractions.Results.ErrorType.Conflict, result.Error.Type);
+        Assert.AreEqual(0, r.Query.VectorReads); Assert.AreEqual(before, r.F.PayloadReads);
+    }
+    [TestMethod] [DataRow(false)] [DataRow(true)]
+    public async Task Search_policy_preserves_input_and_permission_failure_precedence(bool invalidInput)
+    {
+        var policy = new Full.NET.AI.Abstractions.Models.AiDataProcessingPolicy(new Dictionary<string, IReadOnlyList<string>> { ["rerank"] = [] });
+        var r = await RetrievalFixture.Create(false, policy); r.Denied = true;
+        var search = new Full.NET.Modules.Ai.Features.SearchKnowledge.AiKnowledgeSearchService(r.Query, r.F.Tenant, r.F.Transactions, r.Permissions, r.Service);
+        var result = await search.SearchAsync(new([r.F.Binding.KnowledgeBaseId], [], r.Model.Id, r.Model.Version, invalidInput ? " " : "事实", 2, false, null), r.Actor, default);
+        Assert.AreEqual(invalidInput ? Full.NET.Abstractions.Results.ErrorType.Validation : Full.NET.Abstractions.Results.ErrorType.Forbidden, result.Error!.Type);
+        Assert.AreEqual(0, r.Query.SourceReads); Assert.AreEqual(0, r.Query.VectorReads);
+    }
+    [TestMethod] [DataRow(false)] [DataRow(true)]
+    public async Task Retrieval_policy_rejection_preserves_internal_exception_before_payload_reads(bool scoped)
+    {
+        var policy = new Full.NET.AI.Abstractions.Models.AiDataProcessingPolicy(new Dictionary<string, IReadOnlyList<string>> { ["rerank"] = [] });
+        var r = await RetrievalFixture.Create(scoped, policy); var before = r.F.PayloadReads;
+        await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => r.Read());
+        Assert.AreEqual(0, r.Query.VectorReads); Assert.AreEqual(before, r.F.PayloadReads);
+    }
+    [TestMethod] [DataRow(false)] [DataRow(true)]
+    public async Task Context_reads_one_frozen_publication_without_model_dispatch_permissions(bool scoped)
+    {
+        var r = await RetrievalFixture.Create(scoped); var source = ContextSource(r.Query.Rows.Single());
+        r.BeforePermission = permission => Assert.AreNotEqual(Full.NET.Modules.Ai.Contracts.AiChatPermissions.Send, permission);
+        var result = await r.Service.RetrieveContextAsync(source, r.Actor, r.Model, 0, 1, default);
+        Assert.AreEqual(2, result.Context!.Blocks.Count); Assert.AreEqual(17, result.CandidateCount); Assert.AreEqual(0, result.Chunks.Count);
+        Assert.AreEqual(1, r.Query.VectorReads); Assert.IsFalse(result.Context.HasPrevious); Assert.IsTrue(result.Context.HasNext);
+    }
+    [TestMethod] [DataRow(false)] [DataRow(true)]
+    public async Task Context_source_replacement_is_rejected_before_any_payload_read(bool scoped)
+    {
+        var r = await RetrievalFixture.Create(scoped); var source = ContextSource(r.Query.Rows.Single()) with { PublicationId = Guid.CreateVersion7() };
+        var before = r.F.PayloadReads;
+        await Assert.ThrowsExactlyAsync<AiKnowledgeSearchSourceChangedException>(() => r.Service.RetrieveContextAsync(source, r.Actor, r.Model, 0, 1, default));
+        Assert.AreEqual(0, r.Query.VectorReads); Assert.AreEqual(before, r.F.PayloadReads);
+    }
+    [TestMethod] [DataRow(false)] [DataRow(true)]
+    public async Task Context_host_policy_denial_is_a_conflict_before_body_reads(bool scoped)
+    {
+        var policy = new Full.NET.AI.Abstractions.Models.AiDataProcessingPolicy(new Dictionary<string, IReadOnlyList<string>> { ["context"] = [] });
+        var r = await RetrievalFixture.Create(scoped, policy); var before = r.F.PayloadReads;
+        var service = new Full.NET.Modules.Ai.Features.SearchKnowledge.AiKnowledgeSearchContextService(r.Query, r.F.Tenant, r.F.Transactions, r.Permissions, r.Service);
+        var result = await service.ReadAsync(new(ContextSource(r.Query.Rows.Single()), r.Model.Id, r.Model.Version, 0, 1), r.Actor, default);
+        Assert.IsFalse(result.IsSuccess); Assert.AreEqual(Full.NET.Abstractions.Results.ErrorType.Conflict, result.Error!.Type);
+        Assert.AreEqual(0, r.Query.VectorReads); Assert.AreEqual(before, r.F.PayloadReads);
+    }
+    [TestMethod] [DataRow("permission")] [DataRow("publication")]
+    public async Task Context_late_revoke_or_publication_change_never_releases_buffered_window(string fault)
+    {
+        var r = await RetrievalFixture.Create(false); var source = ContextSource(r.Query.Rows.Single());
+        r.Query.BeforeVectors = _ => { if (fault == "permission") r.Denied = true; else r.Query.Rows = [r.Query.Rows[0] with { PublicationId = Guid.CreateVersion7() }]; return Task.CompletedTask; };
+        if (fault == "permission") await Assert.ThrowsExactlyAsync<UnauthorizedAccessException>(() => r.Service.RetrieveContextAsync(source, r.Actor, r.Model, 0, 1, default));
+        else await Assert.ThrowsExactlyAsync<AiKnowledgeSearchSourceChangedException>(() => r.Service.RetrieveContextAsync(source, r.Actor, r.Model, 0, 1, default));
+    }
+    private static Full.NET.Modules.Ai.Contracts.AiKnowledgeSearchSource ContextSource(AiKnowledgeIndexStatusRecord row) =>
+        new(row.KnowledgeBaseId, row.KnowledgeBaseVersion, row.DocumentId, row.DocumentVersion, row.VersionId, row.PublicationId!.Value, row.TaskId!.Value, row.ActiveManifestHash!);
     private sealed class RetrievalFixture
     {
         internal Fixture F = null!; internal RetrievalQuery Query = null!;
@@ -157,9 +251,10 @@ public sealed partial class AiKnowledgeIndexPdfActivationTests
         internal bool Denied; internal string? DeniedPermission; internal int PermissionCalls; internal Action? BeforeAuthorization;
         internal Action<string>? BeforePermission; internal Guid Actor;
         internal Guid[] RoleIds = [], OrganizationIds = [];
-        internal static async Task<RetrievalFixture> Create(bool scoped, Full.NET.AI.Abstractions.Models.AiDataProcessingPolicy? dataPolicy = null)
+        internal static async Task<RetrievalFixture> Create(bool scoped, Full.NET.AI.Abstractions.Models.AiDataProcessingPolicy? dataPolicy = null,
+            Full.NET.Modules.Calendar.Contracts.IPersonalScheduleKnowledgeSource? schedules = null)
         {
-            var r = new RetrievalFixture { F = new(scoped) }; var f = r.F; r.Actor = f.Binding.OwnerUserId; Assert.IsTrue(await f.Activate()); f.ReadRow = ReadRow(f);
+            var r = new RetrievalFixture { F = new(scoped) }; var f = r.F; r.Actor = f.Binding.OwnerUserId; Assert.IsTrue(await f.Activate()); f.ReadRow = ReadRow(f) with { PublicationId = Guid.CreateVersion7() };
             r.Model = await f.Query.QuerySingleOrDefaultAsync<AiModelConfigRecord>(AiModelConfigSql.FindAvailableForHostChat, new(), default) ?? throw new InvalidOperationException();
             r.Query = new(f.Query) { Rows = [f.ReadRow], Vectors = f.Payloads, Model = r.Model };
             var auth = Substitute.For<ICurrentSessionAuthorization>(); auth.UsePermissionSetChecks();
@@ -172,7 +267,8 @@ public sealed partial class AiKnowledgeIndexPdfActivationTests
             r.Permissions = new(auth, Substitute.For<IHttpContextAccessor>(), Substitute.For<ICurrentApiKeyAuthorization>());
             r.Service = new(r.Query, f.Transactions, f.Tenant, new(roles, orgs, f.Tenant),
                 r.Permissions, null!, f.Store,
-                Options.Create(new DatabaseOptions { Provider = DatabaseProvider.SqlServer }), dataPolicy: dataPolicy);
+                Options.Create(new DatabaseOptions { Provider = DatabaseProvider.SqlServer }), dataPolicy: dataPolicy, generationLeases: f.Leases,
+                personalSchedules: schedules is null ? null : new(schedules, f.Transactions, f.Tenant));
             return r;
         }
         internal Task<AiKnowledgeRetrievalSnapshot> Read() => Service.RetrieveAsync([F.Binding.KnowledgeBaseId], Actor, Model, AiKnowledgeRetrievalRuleTests.Vector(1, 0), default);
@@ -194,6 +290,8 @@ public sealed partial class AiKnowledgeIndexPdfActivationTests
         }
         public async Task<IReadOnlyList<T>> QueryAsync<T>(SqlStatement sql, object? p = null, CancellationToken token = default)
         {
+            if (typeof(T) == typeof(AiKnowledgeDocumentRecord)) return (IReadOnlyList<T>)(object)Rows.Select(row =>
+                new AiKnowledgeDocumentRecord { Id = row.DocumentId, KnowledgeBaseId = row.KnowledgeBaseId, Title = "测试知识", Version = row.DocumentVersion }).ToArray();
             if (typeof(T) == typeof(AiKnowledgeIndexStatusRecord))
             {
                 SourceReads++; var parameters = (Dictionary<string, object?>)p!;

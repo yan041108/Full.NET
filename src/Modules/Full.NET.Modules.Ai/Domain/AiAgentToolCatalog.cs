@@ -38,6 +38,16 @@ internal static class AiAgentToolCatalog
             true,
             "exposed"),
         new(
+            "ai.chat.sessions.metadata",
+            "Read target chat metadata",
+            "Reads only the selected owned chat identity, title and version.",
+            AiChatPermissions.Read,
+            AiAgentToolSideEffectKeys.Read,
+            """{"type":"object","additionalProperties":false,"required":["sessionId"],"properties":{"sessionId":{"type":"string","format":"uuid"}}}""",
+            """{"type":"object","required":["sessionId","title","version"],"properties":{"sessionId":{"type":"string"},"title":{"type":"string"},"version":{"type":"string"}}}""",
+            true,
+            "internal"),
+        new(
             "ai.chat.sessions.rename",
             "Rename AI chat session",
             "Renames a chat session owned by the current user after human approval.",

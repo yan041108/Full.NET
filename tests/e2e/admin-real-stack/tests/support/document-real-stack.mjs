@@ -1,4 +1,5 @@
 import { expect } from '@playwright/test';
+import { randomUUID } from 'node:crypto';
 import { adminOrigin, loginHostAdminAccessToken } from './real-stack-auth.mjs';
 
 const apiBaseUrl = process.env.FULLNET_E2E_API_URL ?? 'http://localhost:5149';
@@ -174,6 +175,7 @@ export async function uploadHostDocumentOfficeVersionViaApi(
       Origin: adminOrigin(clientKind)
     },
     multipart: {
+      requestKey: randomUUID(),
       file: {
         name: fileName,
         mimeType:

@@ -209,7 +209,10 @@ public sealed class KafkaLogConsumerDeliveryTests
     }
 
     [TestMethod]
-    public async Task IndependentProcessRetainsOffsetOnDlqFailureThenReplaysAfterRestart()
+    public Task IndependentProcessRetainsOffsetOnDlqFailureThenReplaysAfterRestart() => VerifyIndependentReplayAsync(null);
+
+    /// <summary>原位点、DLQ 确认、就绪与 SIGTERM 断言共用；原生角色必须由调用方核对 ELF 身份。</summary>
+    internal static async Task VerifyIndependentReplayAsync(string? nativeExecutable)
     {
         await using var kafka = await KafkaLogTlsFixture.StartAsync();
         var suffix = Guid.NewGuid().ToString("N");
@@ -228,15 +231,15 @@ public sealed class KafkaLogConsumerDeliveryTests
             new Message<string, byte[]> { Key = "invalid", Value = Encoding.UTF8.GetBytes("not-json") });
 
         var hostDll = Path.Combine(AppContext.BaseDirectory, "Full.NET.Host.LogConsumer.dll");
-        Assert.IsTrue(File.Exists(hostDll), "独立消费者程序集必须随测试构建输出。");
-        var start = new ProcessStartInfo("dotnet")
+        if (nativeExecutable is null) Assert.IsTrue(File.Exists(hostDll), "独立消费者程序集必须随测试构建输出。");
+        var start = new ProcessStartInfo(nativeExecutable ?? "dotnet")
         {
             UseShellExecute = false,
             CreateNoWindow = true,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
         };
-        start.ArgumentList.Add(hostDll);
+        if (nativeExecutable is null) start.ArgumentList.Add(hostDll);
         var healthPort = FreeHealthPort();
         start.Environment["FULLNET_LOG_CONSUMER_HEALTH_PORT"] = healthPort.ToString(System.Globalization.CultureInfo.InvariantCulture);
         start.Environment["FULLNET_LOG_CONSUMER_EXPERIMENTAL"] = "true";
@@ -368,6 +371,7 @@ public sealed class KafkaLogConsumerDeliveryTests
         await process.WaitForExitAsync();
         if (output is not null) _ = await output;
         if (errors is not null) _ = await errors;
+        await Full.NET.IntegrationTests.NativeAot.NativeIndependentHostProcess.PreserveLogsAsync("log-consumer-dlq", output, errors);
     }
 
     private static int FreeHealthPort()

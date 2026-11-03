@@ -24,4 +24,8 @@
   <data name="settings.grid_preference.invalid" xml:space="preserve"><value>Grid 偏好包含无效的展示值。</value></data>
   <data name="settings.grid_preference.schema_version_mismatch" xml:space="preserve"><value>Grid schema 版本与本地目录不再匹配。</value></data>
   <data name="settings.grid_preference.version_conflict" xml:space="preserve"><value>Grid 偏好已被其他操作更新，请刷新后重试。</value></data>
+  <data name="settings.query_scheme.invalid" xml:space="preserve"><value>查询方案不符合当前业务版本或输入限制，请修正后保存。</value></data>
+  <data name="settings.query_scheme.not_found" xml:space="preserve"><value>未找到可访问的查询方案或业务目录。</value></data>
+  <data name="settings.query_scheme.version_conflict" xml:space="preserve"><value>查询方案或默认选择已变化，请刷新后重试。</value></data>
+  <data name="settings.query_scheme.limit_reached" xml:space="preserve"><value>当前上下文的此业务列表已保存 32 个个人方案，请先删除不再需要的方案。</value></data>
 </root>

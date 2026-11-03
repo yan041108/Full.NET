@@ -21,6 +21,34 @@ internal static class Endpoint
         NodeTypeCatalogEndpoint.Map(group);
         BusinessActionCatalogEndpoint.Map(group);
 
+        group.MapPost("/{definitionId:guid}/simulate", async (Guid definitionId, SimulateWorkflowDefinitionRequest request,
+            WorkflowSimulationService service, IApiResultMapper mapper, HttpContext context, CancellationToken token) =>
+            TryGetActor(context, out var actor) ? mapper.Map(await service.SimulateAsync(definitionId, actor, request, token).ConfigureAwait(false), context)
+                : Results.Unauthorized())
+            .WithName("workflowSimulateDefinition")
+            .WithMetadata(new RequestSizeLimitAttribute(256 * 1024))
+            .Produces<WorkflowSimulationResponse>().ProducesProblem(400).ProducesProblem(401).ProducesProblem(403).ProducesProblem(404).ProducesProblem(409)
+            .RequireAuthorization(FullNetPermissionPolicies.For(WorkflowPermissions.DefinitionsSimulate),
+                FullNetPermissionPolicies.For(WorkflowPermissions.DefinitionsRead), FullNetPermissionPolicies.For(WorkflowPermissions.FormsRead));
+
+        group.MapGet("/{definitionId:guid}/simulation/starter-selections", async (Guid definitionId, long expectedRevision, Guid formVersionId,
+            WorkflowSimulationService service, IApiResultMapper mapper, HttpContext context, CancellationToken token) =>
+            mapper.Map(await service.GetSelectionsAsync(definitionId, expectedRevision, formVersionId, token).ConfigureAwait(false), context))
+            .WithName("workflowGetSimulationStarterSelections").Produces<WorkflowSimulationSelectionsResponse>()
+            .ProducesProblem(400).ProducesProblem(401).ProducesProblem(403).ProducesProblem(404).ProducesProblem(409)
+            .RequireAuthorization(FullNetPermissionPolicies.For(WorkflowPermissions.DefinitionsSimulate),
+                FullNetPermissionPolicies.For(WorkflowPermissions.DefinitionsRead), FullNetPermissionPolicies.For(WorkflowPermissions.FormsRead));
+
+        group.MapGet("/{definitionId:guid}/simulation/starter-selections/{selectionKey}/candidates", async (Guid definitionId,
+            long expectedRevision, Guid formVersionId, string selectionKey, int? page, int? pageSize,
+            WorkflowSimulationService service, IApiResultMapper mapper, HttpContext context, CancellationToken token) =>
+            mapper.Map(await service.ListSelectionCandidatesAsync(definitionId, expectedRevision, formVersionId, selectionKey,
+                page ?? 1, pageSize ?? 20, token).ConfigureAwait(false), context))
+            .WithName("workflowListSimulationStarterSelectionCandidates").Produces<WorkflowRecipientCandidatePageResponse>()
+            .ProducesProblem(400).ProducesProblem(401).ProducesProblem(403).ProducesProblem(404).ProducesProblem(409)
+            .RequireAuthorization(FullNetPermissionPolicies.For(WorkflowPermissions.DefinitionsSimulate),
+                FullNetPermissionPolicies.For(WorkflowPermissions.DefinitionsRead), FullNetPermissionPolicies.For(WorkflowPermissions.FormsRead));
+
         group.MapGet("/recipient-candidates", async (
             int? page,
             int? pageSize,

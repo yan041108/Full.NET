@@ -61,6 +61,22 @@ public sealed class StandardApiResultMapper(
     /// <inheritdoc />
     public IResult MapException(Exception exception, HttpContext httpContext)
     {
+        if (exception is BadHttpRequestException { StatusCode: >= 400 and < 500 } badRequest)
+        {
+            // 保留服务器对非法请求的权威状态，不暴露请求正文或异常原文。
+            var locale = localeContext.CurrentLocale;
+            var error = new Error(CommonErrorCodes.RequestInvalid, "The request is invalid.", ErrorType.Validation);
+            var problem = new ProblemDetails
+            {
+                Status = badRequest.StatusCode,
+                Title = localizer.Localize(error, CultureInfo.GetCultureInfo(locale)),
+                Type = $"https://full.net/errors/{error.Code}",
+            };
+            problem.Extensions["code"] = error.Code;
+            problem.Extensions["traceId"] = Activity.Current?.TraceId.ToString() ?? httpContext.TraceIdentifier;
+            LocalizationHttpHeaders.Apply(httpContext.Response, locale, varyByAcceptLanguage: true);
+            return Results.Problem(problem);
+        }
         if (exception is ServiceCapacityExceededException capacityException)
         {
             return MapDatabaseCapacityException(capacityException, httpContext);

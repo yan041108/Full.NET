@@ -72,6 +72,8 @@ internal sealed class WorkflowManualReminderService(IQueryExecutor query, IComma
         {
             if (await command.ExecuteAsync(WorkflowSql.LockInstanceForTodoAction,
                 WorkflowSqlParameters.Create(("Id", instanceId), ("TenantScopeKey", scope.TenantScopeKey)), inner).ConfigureAwait(false) != 1) return Conflict();
+            if (!await WorkflowCollaborationRuntimeGate.AllowsAsync(instanceId, scope, actor, clock.UtcNow, query, inner, command).ConfigureAwait(false))
+                return Conflict();
             var current = await InstanceAsync(instanceId, scope, inner).ConfigureAwait(false);
             if (current is null || current.StartedById != actor) return Conflict();
             var replay = await query.QuerySingleOrDefaultAsync<WorkflowManualReminderReceiptRecord>(WorkflowManualReminderSql.FindReceipt, parameters, inner).ConfigureAwait(false);

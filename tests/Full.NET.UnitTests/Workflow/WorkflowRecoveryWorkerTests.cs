@@ -263,6 +263,28 @@ public sealed class WorkflowRecoveryWorkerTests
             "/api/v1/workflow/recovery-tasks/{taskId:guid}/reconcile", WorkflowPermissions.RecoveryTasksReconcile);
     }
 
+    /// <summary>耐久等待只能关闭误排队的实例卡住任务，不能掩盖缺失人工步骤。</summary>
+    [TestMethod]
+    [DataRow(WorkflowRecoveryKinds.StuckInstance, true)]
+    [DataRow(WorkflowRecoveryKinds.IncompleteStep, false)]
+    public async Task Processor_preserves_durable_wait_without_hiding_missing_human_step(string kind, bool preserve)
+    {
+        var task = CreateTask(kind, 7); var query = Substitute.For<IQueryExecutor>();
+        query.QueryAsync<WorkflowRecoveryTaskRecord>(WorkflowRecoverySql.ClaimTasksSqlServer, Arg.Any<object?>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<IReadOnlyList<WorkflowRecoveryTaskRecord>>([task]));
+        query.QuerySingleOrDefaultAsync<WorkflowInstanceRecord>(WorkflowSql.FindInstanceById, Arg.Any<object?>(), Arg.Any<CancellationToken>())
+            .Returns(CreateInstance(task.InstanceId, "active", 1));
+        query.QuerySingleOrDefaultAsync<int>(WorkflowRecoverySql.HasDurableWaitSqlServer, Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(1);
+        var command = Substitute.For<ICommandExecutor>();
+        command.ExecuteAsync(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(1);
+        await CreateProcessor(query, command, 8).ProcessPendingAsync(default);
+        if (preserve) await command.DidNotReceive().ExecuteAsync(WorkflowSql.SuspendInstanceWithRevision, Arg.Any<object?>(), Arg.Any<CancellationToken>());
+        else await command.Received(1).ExecuteAsync(WorkflowSql.SuspendInstanceWithRevision, Arg.Any<object?>(), Arg.Any<CancellationToken>());
+        await command.Received(1).ExecuteAsync(WorkflowRecoverySql.CompleteTask,
+            Arg.Is<object?>(value => value is Dictionary<string, object?> && ((Dictionary<string, object?>)value)["StatusKey"]!.Equals(preserve ? "succeeded" : "dead_lettered")), Arg.Any<CancellationToken>());
+        await command.Received(1).ExecuteAsync(WorkflowRecoverySql.InsertSystemAudit, Arg.Any<object?>(), Arg.Any<CancellationToken>());
+    }
+
     private static WorkflowRecoveryBatchProcessor CreateProcessor(
         IQueryExecutor query,
         ICommandExecutor command,
@@ -285,6 +307,8 @@ public sealed class WorkflowRecoveryWorkerTests
 
     private static WorkflowRecoveryTaskService CreateService(IQueryExecutor query, ICommandExecutor command)
     {
+        // 普通实例夹具应先取得串行锁，后续业务拒绝仍由原任务状态决定，不能把锁替身默认0误作拒绝证明。
+        command.ExecuteAsync(WorkflowSql.LockInstanceForTodoAction, Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(1);
         var ids = Substitute.For<IIdGenerator>();
         ids.NewId().Returns(_ => Guid.CreateVersion7());
         var tenant = Substitute.For<ICurrentTenant>();
@@ -298,7 +322,7 @@ public sealed class WorkflowRecoveryWorkerTests
             tenant,
             clock,
             ids,
-            Options.Create(new DatabaseOptions { Provider = DatabaseProvider.SqlServer }));
+            Options.Create(new DatabaseOptions { Provider = DatabaseProvider.SqlServer }), WorkflowTodoManagementTestDependencies.CreateListAuthorization(query, tenant));
     }
 
     private static IQueryExecutor CreateTaskQuery(WorkflowRecoveryTaskRecord task)
@@ -311,7 +335,7 @@ public sealed class WorkflowRecoveryWorkerTests
                 WorkflowSql.FindActionReceipt, Arg.Any<object?>(), Arg.Any<CancellationToken>())
             .Returns((WorkflowActionReceiptRecord?)null);
         query.QuerySingleOrDefaultAsync<long>(
-                WorkflowRecoverySql.CountTasksForScope, Arg.Any<object?>(), Arg.Any<CancellationToken>())
+                WorkflowRecoverySql.CountTasksForScopeSqlServer, Arg.Any<object?>(), Arg.Any<CancellationToken>())
             .Returns(1);
         query.QueryAsync<WorkflowRecoveryTaskRecord>(
                 Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>())

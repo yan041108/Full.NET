@@ -326,6 +326,10 @@ public sealed class TotpStrongReauthTests
 
     private sealed class NoOpHostFileUploadWriter : IHostFileUploadWriter
     {
+        public Task<Result<HostFileUploadResult>> UploadIdempotentAsync(string key, Guid actor, string name, string mime, Stream content, long size, CancellationToken token = default, Guid? reservedFileId = null) => throw new NotSupportedException();
+        public Task<Result<HostFileUploadResult?>> FindUploadAsync(string operationKey, Guid createdByUserId, CancellationToken cancellationToken = default) =>
+            Task.FromResult(Result<HostFileUploadResult?>.Success(null));
+
         public Task<Result<HostFileUploadResult>> UploadAsync(
             Guid createdByUserId,
             string originalFileName,

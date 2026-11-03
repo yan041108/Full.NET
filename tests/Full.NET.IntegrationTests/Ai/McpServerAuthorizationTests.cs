@@ -42,10 +42,8 @@ internal static class McpServerAuthorizationAssertions
         using var client = factory.CreateClientForHost("localhost");
 
         using var metadata = await client.GetAsync("/.well-known/oauth-protected-resource/ai/mcp");
-        Assert.AreEqual(HttpStatusCode.OK, metadata.StatusCode);
-        var metadataBody = await metadata.Content.ReadAsStringAsync();
-        Assert.Contains("fullnet://ai/mcp", metadataBody, StringComparison.Ordinal);
-        Assert.Contains("authorization_servers", metadataBody, StringComparison.Ordinal);
+        Assert.AreEqual(HttpStatusCode.ServiceUnavailable, metadata.StatusCode,
+            "未启用正式 OIDC 或未配置 HTTPS 资源时不能发布虚假的授权服务器。");
 
         using var unauthorized = await client.PostAsync(
             "/api/v1/ai/mcp",

@@ -36,7 +36,7 @@ internal static class WorkflowAsyncDefinitionPlan
             var declared = node.AwaitActivityNodeKeys ?? [];
             if (declared.Count > MaximumDeclaredDependencies || declared.Distinct(StringComparer.Ordinal).Count() != declared.Count ||
                 declared.Any(source => !WorkflowNodeKeyValidator.IsValid(source) || source == key || !producers.ContainsKey(source) || !guaranteed.Contains(source))) return false;
-            var implicitBoundary = node.NodeTypeKey is "end" or "gateway.parallel" or "gateway.inclusive" or "business.command" or WorkflowSubprocessPolicy.NodeType or WorkflowDynamicRoutePolicy.NodeType;
+            var implicitBoundary = node.NodeTypeKey is "end" or "gateway.parallel" or "gateway.inclusive" or "business.command" or WorkflowSubprocessPolicy.NodeType or WorkflowDynamicRoutePolicy.NodeType or WorkflowCollaborationCallPolicy.NodeType;
             if (!TryReadConsumedFields(node, candidates, out var consumed)) return false;
             var required = pending.Where(source => producers[source].Overlaps(consumed)).ToArray();
             if (!implicitBoundary && required.Any(source => !declared.Contains(source, StringComparer.Ordinal))) return false;
@@ -69,6 +69,8 @@ internal static class WorkflowAsyncDefinitionPlan
         {
             // 进入路由前所有实际异步激活均已收敛，不能在换代后采纳旧回执。
             case WorkflowDynamicRoutePolicy.NodeType: return WorkflowDynamicRoutePolicy.TryRead(node.Config, null, out _);
+            // 协作是全量等待边界，投影须等实际前置结果收敛后冻结，不需提前猜测字段集合。
+            case WorkflowCollaborationCallPolicy.NodeType: return WorkflowCollaborationCallPolicy.TryRead(node.Config, out _);
             case WorkflowSubprocessPolicy.NodeType:
                 if (!WorkflowSubprocessPolicy.TryRead(node.Config, null, out var subprocess)) return false;
                 fields.UnionWith(subprocess.ReadFields); fields.UnionWith(subprocess.WrittenFields); return true;

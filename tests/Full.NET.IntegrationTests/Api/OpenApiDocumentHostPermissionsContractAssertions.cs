@@ -32,7 +32,7 @@ internal static class OpenApiDocumentHostPermissionsContractAssertions
         AssertSchema(
             schemas,
             "HostDocumentPermissionResponse",
-            ["id", "documentId", "userId", "permissionLevel", "createdAtUtc"]);
+            ["id", "documentId", "userId", "actions", "createdAtUtc"]);
         AssertSchema(
             schemas,
             "SetHostDocumentPermissionsRequest",

@@ -45,4 +45,5 @@ namespace Full.NET.Modules.Organization.Serialization;
 [JsonSerializable(typeof(PagedResult<OrganizationUserPositionResponse>))]
 [JsonSerializable(typeof(HostUserManagementOrganizationReferenceResponse))]
 /// <summary>Organization 模块 JSON 源生成上下文；Native AOT 绑定已审计契约，禁止反射序列化。</summary>
+[JsonSerializable(typeof(Guid[]))]
 internal partial class OrganizationJsonSerializerContext : JsonSerializerContext;

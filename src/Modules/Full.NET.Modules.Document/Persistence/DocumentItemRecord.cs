@@ -6,6 +6,11 @@ internal sealed class DocumentItemRecord
 {
     public Guid Id { get; init; }
 
+    public bool IsPurging { get; init; }
+    public string VisibilityMode { get; init; } = "host";
+    public long AccessRevision { get; init; }
+    public int LastVersionNumber { get; init; }
+
     public string DocumentNo { get; init; } = string.Empty;
 
     public string Title { get; init; } = string.Empty;
@@ -52,6 +57,11 @@ internal sealed class DocumentItemRecord
 internal sealed class DocumentItemDetailRecord
 {
     public Guid Id { get; init; }
+
+    public bool IsPurging { get; init; }
+    public string VisibilityMode { get; init; } = "host";
+    public long AccessRevision { get; init; }
+    public int LastVersionNumber { get; init; }
 
     public string DocumentNo { get; init; } = string.Empty;
 
@@ -149,7 +159,7 @@ internal sealed class DocumentPermissionRecord
 
     public Guid UserId { get; init; }
 
-    public string PermissionLevel { get; init; } = string.Empty;
+    public int Actions { get; init; }
 
     public DateTimeOffset CreatedAtUtc { get; init; }
 }
@@ -176,6 +186,8 @@ internal sealed class DocumentShareRecord
 
     public int AccessCount { get; init; }
 
+    public long PolicyRevision { get; init; }
+
     public bool IsEnabled { get; init; }
 
     public long Version { get; init; }
@@ -187,7 +199,9 @@ internal sealed class DocumentStatisticsSummaryRecord
 
     public long TotalVersions { get; init; }
 
-    public long TotalSizeKb { get; init; }
+    public long HistorySizeBytes { get; init; }
+
+    public long TotalSizeBytes { get; init; }
 }
 
 internal sealed class DocumentStatisticsByTypeRecord
@@ -196,7 +210,7 @@ internal sealed class DocumentStatisticsByTypeRecord
 
     public long Count { get; init; }
 
-    public long TotalSizeKb { get; init; }
+    public long TotalSizeBytes { get; init; }
 }
 
 internal sealed class DocumentStatisticsByCategoryRecord
@@ -215,6 +229,10 @@ internal sealed class DocumentStatisticsShareCountRecord
     public long TodayAccessCount { get; init; }
 
     public long TodayDownloadCount { get; init; }
+
+    public long TodayPreviewCount { get; init; }
+
+    public long TodayShareAccessCount { get; init; }
 
     public long TodayCreatedCount { get; init; }
 

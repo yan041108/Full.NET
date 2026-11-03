@@ -4,6 +4,11 @@ namespace Full.NET.Modules.Identity.Features.ManageTenantMembers.Persistence;
 
 internal static class TenantMembershipSql
 {
+    public static readonly SqlStatement FindUnsettledSeatTenants = new(
+        "identity.tenant_members.find_unsettled_seat_tenants",
+        "SELECT DISTINCT TenantId FROM fn_identity_member_seat_operation WHERE TenantId IN @TenantIds AND Phase NOT IN ('Activated','Cancelled')",
+        SqlDataScope.HostOnly);
+
     public static readonly SqlStatement CountActiveMembersByTenantsForHost = new(
         "identity.tenant_members.count_active_by_tenants_host", "SELECT TenantId, COUNT(1) AS UsageValue FROM fn_identity_tenant_member WHERE TenantId IN @TenantIds AND Status = @ActiveStatus GROUP BY TenantId", SqlDataScope.HostOnly);
 

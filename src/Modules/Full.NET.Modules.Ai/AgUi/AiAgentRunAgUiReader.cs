@@ -3,6 +3,10 @@ using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Ai.Persistence;
 using Full.NET.Modules.Ai.Runtime;
 using Microsoft.Extensions.Options;
+using Full.NET.Abstractions.Tenancy;
+using Full.NET.Modules.Ai.Contracts;
+using Full.NET.Modules.Identity.Contracts;
+using Microsoft.Extensions.Logging;
 
 namespace Full.NET.Modules.Ai.AgUi;
 
@@ -10,8 +14,37 @@ namespace Full.NET.Modules.Ai.AgUi;
 internal sealed class AiAgentRunAgUiReader(
     AiAgentRunStore runs,
     IQueryExecutor queries,
-    IOptions<DatabaseOptions> database) : IAgentRunAgUiReader
+    IOptions<DatabaseOptions> database,
+    ICurrentTenant tenant,
+    ICurrentSessionAuthorization authorization,
+    ILogger<AiAgentRunAgUiReader> logger) : IAgentRunAgUiReader
 {
+    private AuthorizedSessionActor? original;
+
+    public async ValueTask<bool> CanReadAsync(Guid runId, string scopeKey, Guid actorUserId, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var expectedScope = tenant.Id is { } id ? id.ToString("N") : tenant.IsHost ? "host" : null;
+        if (runId == Guid.Empty || actorUserId == Guid.Empty || expectedScope is null || expectedScope != scopeKey) return false;
+        try
+        {
+            // Identity权威Port统一核对原JWT有效期、会话、强制改密、租户和当前权限，不在Ai重复解析凭据。
+            var actor = await authorization.AuthorizeAsync(AiAgentRunPermissions.Read, cancellationToken).ConfigureAwait(false);
+            cancellationToken.ThrowIfCancellationRequested();
+            var currentScope = tenant.Id is { } currentId ? currentId.ToString("N") : tenant.IsHost ? "host" : null;
+            if (actor is null || actor.UserId != actorUserId || actor.SessionId == Guid.Empty || actor.TenantId != tenant.Id || currentScope != scopeKey) return false;
+            original ??= actor;
+            return actor == original;
+        }
+        catch (OperationCanceledException) { throw; }
+        catch (Exception)
+        {
+            // 会话核证不可用时关闭读取；诊断不携带令牌、安全戳或原始异常正文。
+            try { logger.LogWarning("Agent event admission unavailable for run {RunId}.", runId); } catch (Exception) { }
+            return false;
+        }
+    }
+
     public async ValueTask<AgentRunAgUiSnapshot?> TryGetOwnedSnapshotAsync(
         Guid runId,
         string scopeKey,

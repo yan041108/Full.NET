@@ -94,7 +94,7 @@ public sealed class WorkflowCollaborationGrantPolicyTests
     private static WorkflowCollaborationOfferPolicy Offer(DateTimeOffset now) => new(1, Guid.CreateVersion7(), Guid.CreateVersion7(), "peer.review", ["amount"], ["decision"], 256, WorkflowCollaborationOfferPolicy.NormalizeTime(now.AddDays(7)));
     private static WorkflowCollaborationAcceptancePolicy Acceptance(Guid actor) => new(1, Guid.CreateVersion7(), actor, 256, [actor],
         new Dictionary<string, string> { ["amount"] = "received" }, new Dictionary<string, string> { ["answer"] = "decision" }, SummaryHash);
-    private static (WorkflowCollaborationGrantFact Grant, DateTimeOffset Now) Grant()
+    internal static (WorkflowCollaborationGrantFact Grant, DateTimeOffset Now) Grant()
     {
         var now = DateTimeOffset.UtcNow; var source = Guid.CreateVersion7(); var target = Guid.CreateVersion7(); var first = Guid.CreateVersion7(); var second = Guid.CreateVersion7(); var id = Guid.CreateVersion7();
         var offer = Offer(now); var accepted = Acceptance(second);

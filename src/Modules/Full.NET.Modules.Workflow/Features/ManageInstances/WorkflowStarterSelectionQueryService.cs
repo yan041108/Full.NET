@@ -21,15 +21,18 @@ internal sealed class WorkflowStarterSelectionQueryService(IQueryExecutor query,
     {
         var read = await ReadAsync(versionId, token).ConfigureAwait(false);
         if (!read.IsSuccess) return Result<WorkflowStarterSelectionsResponse>.Failure(read.Error!);
-        var items = read.Value!.Nodes.SelectMany(node => WorkflowDynamicAssigneeDefinitionRules.Sources(node)
+        return Result<WorkflowStarterSelectionsResponse>.Success(new(versionId, Describe(read.Value!)));
+    }
+
+    /// <summary>草稿仿真与正式启动共享声明投影；调用方分别负责固定各自的版本或草稿修订。</summary>
+    internal static IReadOnlyList<WorkflowStarterSelectionDescriptorResponse> Describe(WorkflowDefinitionDraft model) =>
+        model.Nodes.SelectMany(node => WorkflowDynamicAssigneeDefinitionRules.Sources(node)
             .Where(source => source.StarterSelection is not null).Select(source =>
             {
                 var policy = source.StarterSelection!;
                 var name = node.Config.TryGetProperty("nodeName", out var label) && label.ValueKind == JsonValueKind.String ? label.GetString()! : node.NodeKey;
                 return new WorkflowStarterSelectionDescriptorResponse(policy.SelectionKey, node.NodeKey, name, policy.ModeKey, policy.MaximumUsers, policy.Range.KindKey);
             })).OrderBy(item => item.SelectionKey, StringComparer.Ordinal).ToArray();
-        return Result<WorkflowStarterSelectionsResponse>.Success(new(versionId, items));
-    }
 
     public async Task<Result<WorkflowRecipientCandidatePageResponse>> ListAsync(Guid versionId, string selectionKey,
         int page, int pageSize, CancellationToken token = default)
@@ -38,7 +41,16 @@ internal sealed class WorkflowStarterSelectionQueryService(IQueryExecutor query,
             return Fail<WorkflowRecipientCandidatePageResponse>(WorkflowErrorCodes.SchemaInvalid, ErrorType.Validation);
         var read = await ReadAsync(versionId, token).ConfigureAwait(false);
         if (!read.IsSuccess) return Result<WorkflowRecipientCandidatePageResponse>.Failure(read.Error!);
-        var policy = read.Value!.Nodes.SelectMany(WorkflowDynamicAssigneeDefinitionRules.Sources).Select(source => source.StarterSelection)
+        return await ListForModelAsync(read.Value!, selectionKey, page, pageSize, token).ConfigureAwait(false);
+    }
+
+    /// <summary>只从已校验的服务端模型读取范围，候选仍由当前可信租户的权威目录给出。</summary>
+    internal async Task<Result<WorkflowRecipientCandidatePageResponse>> ListForModelAsync(WorkflowDefinitionDraft model,
+        string selectionKey, int page, int pageSize, CancellationToken token)
+    {
+        if (!WorkflowNodeKeyValidator.IsValid(selectionKey) || page < 1 || pageSize is < 1 or > 100 || page > int.MaxValue / pageSize)
+            return Fail<WorkflowRecipientCandidatePageResponse>(WorkflowErrorCodes.SchemaInvalid, ErrorType.Validation);
+        var policy = model.Nodes.SelectMany(WorkflowDynamicAssigneeDefinitionRules.Sources).Select(source => source.StarterSelection)
             .SingleOrDefault(selection => selection?.SelectionKey == selectionKey);
         if (policy is null) return Fail<WorkflowRecipientCandidatePageResponse>(WorkflowErrorCodes.DefinitionAssigneePolicyInvalid, ErrorType.NotFound);
         var scope = WorkflowManagementScope.Resolve(tenant);

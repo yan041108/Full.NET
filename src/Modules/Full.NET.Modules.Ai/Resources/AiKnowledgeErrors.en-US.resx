@@ -32,4 +32,20 @@
   <data name="ai.knowledge.index_rebuild_disabled" xml:space="preserve"><value>Independent index rebuilding is not enabled.</value></data>
   <data name="ai.knowledge.no_extracted_text" xml:space="preserve"><value>No indexable text was extracted. Check the source file.</value></data>
   <data name="ai.knowledge.ocr_low_confidence" xml:space="preserve"><value>OCR confidence is insufficient. The whole file was excluded from the index.</value></data>
+  <data name="ai.knowledge.publication_not_found" xml:space="preserve"><value>This publication proposal is unavailable in the current scope.</value></data>
+  <data name="ai.knowledge.publication_invalid" xml:space="preserve"><value>The publication identity, validity period or confirmation is invalid.</value></data>
+  <data name="ai.knowledge.publication_conflict" xml:space="preserve"><value>The candidate, review or publication head changed. Refresh and review again.</value></data>
+  <data name="ai.knowledge.directory_invalid" xml:space="preserve"><value>The folder, tags, responsibility or batch request is invalid.</value></data>
+  <data name="ai.knowledge.directory_conflict" xml:space="preserve"><value>The organization changed or the folder still contains items. Refresh before retrying.</value></data>
+  <data name="ai.knowledge.search_unavailable" xml:space="preserve"><value>The search sources are unavailable, incomplete or outside the supported bounds. Check the publication and index space.</value></data>
+  <data name="ai.knowledge.search_source_changed" xml:space="preserve"><value>The search source versions changed. Review and explicitly adopt the latest publication before searching again.</value></data>
+  <data name="ai.knowledge.search_input_invalid" xml:space="preserve"><value>The search terms, index space or source selection is invalid.</value></data>
+  <data name="ai.knowledge_evaluation_sets.input_invalid" xml:space="preserve"><value>The evaluation input, frozen identity or confirmation is invalid.</value></data>
+  <data name="ai.knowledge_evaluation_sets.not_found" xml:space="preserve"><value>This evaluation set is unavailable in the current scope.</value></data>
+  <data name="ai.knowledge_evaluation_sets.version_conflict" xml:space="preserve"><value>The evaluation set or independent approval changed. Review it again.</value></data>
+  <data name="ai.knowledge_evaluation_sets.source_unavailable" xml:space="preserve"><value>The complete evaluation sources are no longer available. Review them again.</value></data>
+  <data name="ai.knowledge_evaluation_runs.input_invalid" xml:space="preserve"><value>The strategy, run identity or paid confirmation is invalid.</value></data>
+  <data name="ai.knowledge_evaluation_runs.not_found" xml:space="preserve"><value>This evaluation strategy or run is unavailable in the current scope.</value></data>
+  <data name="ai.knowledge_evaluation_runs.version_conflict" xml:space="preserve"><value>The strategy or run state changed. Check the original identity.</value></data>
+  <data name="ai.knowledge_evaluation_runs.source_unavailable" xml:space="preserve"><value>The frozen evaluation sources changed or are unavailable. Previous results are no longer delivered.</value></data>
 </root>

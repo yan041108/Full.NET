@@ -17,6 +17,7 @@ public sealed class NativeApiMySqlE2ETests
 
         await NativeApiE2EAssertions.VerifyCriticalHttpFlowAsync(
             DatabaseProvider.MySql,
-            await SharedDatabaseFixture.CreateMySqlDatabaseAsync());
+            await SharedDatabaseFixture.CreateMySqlDatabaseAsync(),
+            NativeAnonymousPreviewAssertions.TaskQueueSettings);
     }
 }

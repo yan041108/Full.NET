@@ -88,4 +88,8 @@
   <data name="workflow.definition.business_command_invalid" xml:space="preserve"><value>请选择当前作用域可用的业务动作，并将它直接放在根审批之后、结束节点之前。</value></data>
   <data name="workflow.definition.subprocess_invalid" xml:space="preserve"><value>请选择可用的子流程版本，并校验字段映射与执行额度。</value></data>
   <data name="workflow.subprocess.activation_invalid" xml:space="preserve"><value>当前父活动、固定子输入或剩余额度不允许启动子流程。</value></data>
+  <data name="workflow.collaboration_grant.invalid" xml:space="preserve"><value>协作授权政策、版本、成员或字段映射无效。</value></data>
+  <data name="workflow.collaboration_grant.not_found" xml:space="preserve"><value>当前作用域不存在该协作授权。</value></data>
+  <data name="workflow.collaboration_grant.conflict" xml:space="preserve"><value>协作授权已更新、到期或不再允许该操作，请重新读取。</value></data>
+  <data name="workflow.collaboration_query.too_broad" xml:space="preserve"><value>当前查询涉及过多协作调用，请使用更精确的资源或筛选条件。</value></data>
 </root>

@@ -46,26 +46,12 @@ internal static class CodeGenerationCli
             --schema <json-file>
             --repository <existing-directory>
             --target <json-file>
-          fullnet-codegen apply-module-integration
-            --schema <json-file>
-            --repository <existing-directory>
-            --target <json-file>
-          fullnet-codegen apply-module-entry-integration
-            --schema <json-file>
-            --repository <existing-directory>
-            --target <json-file>
-          fullnet-codegen apply-composition-integration
-            --schema <json-file>
-            --repository <existing-directory>
-            --target <json-file>
-          fullnet-codegen apply-client-route-integration
-            --schema <json-file>
-            --repository <existing-directory>
-            --target <json-file>
           fullnet-codegen apply-host-integration
             --schema <json-file>
             --repository <existing-directory>
             --target <json-file-with-authorizationContributorPath>
+          fullnet-codegen recover --workspace <existing-directory>
+          fullnet-codegen rollback --workspace <existing-directory> --operation <uuid>
           fullnet-codegen diagnose --workspace <existing-directory> [--profile <development|production>]
         """;
 
@@ -94,6 +80,8 @@ internal static class CodeGenerationCli
 
         try
         {
+            if (args.Length > 0 && args[0] is "recover" or "rollback")
+                return await RecoverOrRollbackAsync(args, output, cancellationToken);
             var options = Parse(args);
             if (options.ShowHelp)
             {
@@ -125,6 +113,17 @@ internal static class CodeGenerationCli
                 return SuccessExitCode;
             }
 
+            var mutates = options.Apply || options.ModuleIntegration?.Mode == ModuleIntegrationCliMode.ApplyHost;
+            var operationRoot = options.ModuleIntegration?.RepositoryPath ?? options.WorkspacePath;
+            await using var operationLease = mutates
+                ? await GenerationWorkspaceLease.TryAcquireAsync(operationRoot!, cancellationToken) : null;
+            if (mutates)
+            {
+                if (operationLease is null) throw new GenerationWorkspaceConflictException("另一个完整操作仍持有工作区。", ".fullnet/codegeneration-operation.lock");
+                if (await GenerationWorkspaceJournal.ReadPendingAsync(operationLease, cancellationToken) is not null)
+                    throw new GenerationWorkspaceConflictException("存在未完成操作，请先执行 recover，不得重新生成覆盖。", ".fullnet/codegeneration-active-operation.json");
+            }
+
             if (options.ModuleIntegration is not null)
             {
                 var integrationSchema = await CrudSchemaDocument.LoadAsync(
@@ -134,174 +133,22 @@ internal static class CodeGenerationCli
                     options.ModuleIntegration.TargetPath,
                     cancellationToken,
                     allowHostAuthorization: options.ModuleIntegration.Mode == ModuleIntegrationCliMode.ApplyHost);
+                if (options.ModuleIntegration.Mode is ModuleIntegrationCliMode.ApplyBackend or ModuleIntegrationCliMode.ApplyModuleEntry
+                    or ModuleIntegrationCliMode.ApplyComposition or ModuleIntegrationCliMode.ApplyClientRoutes)
+                    throw new CliUsageException("分步接入写盘已移除。请使用 apply-host-integration 一次规划、编译并提交完整链路。");
                 if (options.ModuleIntegration.Mode == ModuleIntegrationCliMode.ApplyHost)
                 {
-                    var result = await ModuleIntegrationHostOrchestrator.ApplyAsync(
-                        options.ModuleIntegration.RepositoryPath, integrationSchema, target, cancellationToken);
-                    foreach (var diagnostic in result.Diagnostics) await error.WriteLineAsync(diagnostic);
-                    if (!result.Succeeded) return ConflictExitCode;
+                    var generated = await CrudGenerationWorkspace.PlanAsync(operationRoot!, integrationSchema, cancellationToken);
+                    var fullPlan = await ModuleIntegrationFullPlanner.PlanAsync(operationRoot!, integrationSchema, target, generated, cancellationToken);
+                    foreach (var action in fullPlan.Actions) await output.WriteLineAsync($"{action.Kind} {action.RelativePath}");
+                    if (!fullPlan.CanApply) return ConflictExitCode;
+                    var compilation = await ModuleIntegrationFullCompilation.ValidateAsync(operationRoot!, integrationSchema, target, fullPlan, cancellationToken);
+                    foreach (var diagnostic in compilation.Diagnostics) await error.WriteLineAsync(diagnostic);
+                    if (!compilation.Succeeded) return ConflictExitCode;
+                    await CommitCliAsync(operationLease!, operationRoot!, fullPlan, output, cancellationToken);
                     await output.WriteLineAsync($"Applied HostIntegration {target.ModuleProjectPath}");
                     return SuccessExitCode;
                 }
-                if (options.ModuleIntegration.Mode
-                    == ModuleIntegrationCliMode.ApplyClientRoutes)
-                {
-                    var routeResult =
-                        await ClientRouteIntegrationApplyCommand.ApplyAsync(
-                            options.ModuleIntegration.RepositoryPath,
-                            integrationSchema,
-                            target,
-                            cancellationToken);
-                    foreach (var diagnostic in routeResult.Diagnostics)
-                    {
-                        await error.WriteLineAsync(diagnostic);
-                    }
-
-                    if (!routeResult.Applied)
-                    {
-                        return ConflictExitCode;
-                    }
-
-                    await output.WriteLineAsync(
-                        $"{(routeResult.VueChanged ? "Update" : "Unchanged")} "
-                        + target.VueRouterPath);
-                    if (target.LayuiRouterPath is not null
-                        && target.ClientRoute!.LayuiControllerPath is not null)
-                    {
-                        await output.WriteLineAsync(
-                            $"{(routeResult.LayuiChanged ? "Update" : "Unchanged")} "
-                            + target.LayuiRouterPath);
-                    }
-                    await output.WriteLineAsync(
-                        "Validated ClientRouteStructure "
-                        + target.ClientRoute!.RoutePath);
-                    return SuccessExitCode;
-                }
-
-                if (options.ModuleIntegration.Mode
-                    == ModuleIntegrationCliMode.ApplyComposition)
-                {
-                    var compositionResult =
-                        await CompositionIntegrationApplyCommand.ApplyAsync(
-                            options.ModuleIntegration.RepositoryPath,
-                            integrationSchema,
-                            target,
-                            cancellationToken);
-                    foreach (var diagnostic in
-                             compositionResult.Diagnostics)
-                    {
-                        await error.WriteLineAsync(diagnostic);
-                    }
-
-                    if (compositionResult.Compilation is
-                        { Succeeded: false } compositionFailure)
-                    {
-                        foreach (var diagnostic in
-                                 compositionFailure.Diagnostics)
-                        {
-                            await error.WriteLineAsync(diagnostic);
-                        }
-                    }
-
-                    if (!compositionResult.Applied)
-                    {
-                        return ConflictExitCode;
-                    }
-
-                    await output.WriteLineAsync(
-                        $"{(compositionResult.ProjectChanged ? "Update" : "Unchanged")} "
-                        + target.CompositionProjectPath);
-                    await output.WriteLineAsync(
-                        $"{(compositionResult.CatalogChanged ? "Update" : "Unchanged")} "
-                        + target.CompositionCatalogPath);
-                    if (compositionResult.Compilation is not null)
-                    {
-                        await output.WriteLineAsync(
-                            "Validated CompositionCompilation "
-                            + target.CompositionProjectPath);
-                    }
-
-                    return SuccessExitCode;
-                }
-
-                if (options.ModuleIntegration.Mode
-                    == ModuleIntegrationCliMode.ApplyModuleEntry)
-                {
-                    var entryResult =
-                        await ModuleEntryIntegrationApplyCommand.ApplyAsync(
-                            options.ModuleIntegration.RepositoryPath,
-                            integrationSchema,
-                            target,
-                            cancellationToken);
-                    foreach (var diagnostic in entryResult.Diagnostics)
-                    {
-                        await error.WriteLineAsync(diagnostic);
-                    }
-
-                    if (entryResult.Compilation is
-                        { Succeeded: false } entryCompilationFailure)
-                    {
-                        foreach (var diagnostic in
-                                 entryCompilationFailure.Diagnostics)
-                        {
-                            await error.WriteLineAsync(diagnostic);
-                        }
-                    }
-
-                    if (!entryResult.Applied)
-                    {
-                        return ConflictExitCode;
-                    }
-
-                    await output.WriteLineAsync(
-                        $"{(entryResult.Changed ? "Update" : "Unchanged")} "
-                        + target.ModuleEntryPointPath);
-                    if (entryResult.Compilation is not null)
-                    {
-                        await output.WriteLineAsync(
-                            "Validated ModuleCompilation "
-                            + target.ModuleProjectPath);
-                    }
-
-                    return SuccessExitCode;
-                }
-
-                if (options.ModuleIntegration.Mode
-                    == ModuleIntegrationCliMode.ApplyBackend)
-                {
-                    var applyResult =
-                        await ModuleIntegrationBackendApplyCommand.ApplyAsync(
-                            options.ModuleIntegration.RepositoryPath,
-                            integrationSchema,
-                            target,
-                            cancellationToken);
-                    foreach (var action in applyResult.Actions)
-                    {
-                        await output.WriteLineAsync(
-                            $"{action.Kind} {action.RelativePath}");
-                    }
-
-                    if (applyResult.Compilation is
-                        { Succeeded: false } compilationFailure)
-                    {
-                        foreach (var diagnostic in
-                                 compilationFailure.Diagnostics)
-                        {
-                            await error.WriteLineAsync(diagnostic);
-                        }
-                    }
-
-                    if (!applyResult.Applied)
-                    {
-                        return ConflictExitCode;
-                    }
-
-                    await output.WriteLineAsync(
-                        "Validated ModuleCompilation "
-                        + target.ModuleProjectPath);
-                    return SuccessExitCode;
-                }
-
                 if (options.ModuleIntegration.Mode
                     == ModuleIntegrationCliMode.ValidateCompilation)
                 {
@@ -359,15 +206,11 @@ internal static class CodeGenerationCli
                 GenerationWritePlan batchPlan;
                 try
                 {
-                    batchPlan = options.Apply
-                        ? await CrudGenerationWorkspace.ApplyAsync(
-                            options.WorkspacePath!,
-                            schemas,
-                            cancellationToken)
-                        : await CrudGenerationWorkspace.PlanAsync(
+                    batchPlan = await CrudGenerationWorkspace.PlanAsync(
                             options.WorkspacePath!,
                             schemas,
                             cancellationToken);
+                    if (options.Apply && batchPlan.CanApply) await CommitCliAsync(operationLease!, operationRoot!, batchPlan, output, cancellationToken);
                 }
                 catch (DecoderFallbackException)
                 {
@@ -406,15 +249,11 @@ internal static class CodeGenerationCli
             GenerationWritePlan plan;
             try
             {
-                plan = options.Apply
-                    ? await CrudGenerationWorkspace.ApplyAsync(
-                        options.WorkspacePath!,
-                        schema,
-                        cancellationToken)
-                    : await CrudGenerationWorkspace.PlanAsync(
+                plan = await CrudGenerationWorkspace.PlanAsync(
                         options.WorkspacePath!,
                         schema,
                         cancellationToken);
+                if (options.Apply && plan.CanApply) await CommitCliAsync(operationLease!, operationRoot!, plan, output, cancellationToken);
             }
             catch (DecoderFallbackException)
             {
@@ -442,7 +281,7 @@ internal static class CodeGenerationCli
         catch (GenerationWorkspaceConflictException exception)
         {
             await error.WriteLineAsync(
-                $"工作区冲突：{exception.Message}");
+                $"工作区冲突：{exception.Message}" + (exception.RelativePath is null ? string.Empty : $" 路径：{exception.RelativePath}"));
             return ConflictExitCode;
         }
         catch (FileNotFoundException)
@@ -476,6 +315,49 @@ internal static class CodeGenerationCli
                 $"生成运行失败：{exception.GetType().Name}");
             return RuntimeFailureExitCode;
         }
+    }
+
+    private static async Task CommitCliAsync(GenerationWorkspaceLease lease, string root, GenerationWritePlan plan, TextWriter output, CancellationToken cancellationToken)
+    {
+        var id = Guid.CreateVersion7();
+        // CLI 与 Host 共用顺序和检查点，不能用另一条入口跳过全局回滚约束。
+        await GenerationWorkspaceRecoveryBudget.EnsureAvailableAsync(lease, plan, cancellationToken);
+        await GenerationRollbackCheckpointStore.CreateAsync(root, id, plan, cancellationToken);
+        await GenerationWorkspaceJournal.PrepareAsync(lease, id, id, "apply", "cli", null, plan, cancellationToken: cancellationToken);
+        await GenerationWorkspaceJournal.CommitAsync(lease, cancellationToken);
+        await GenerationWorkspaceJournal.CompleteAsync(lease, CancellationToken.None);
+        await output.WriteLineAsync($"Applied Operation {id:D}");
+    }
+
+    private static async Task<int> RecoverOrRollbackAsync(string[] args, TextWriter output, CancellationToken token)
+    {
+        var rollback = args[0] == "rollback";
+        if (args.Length != (rollback ? 5 : 3) || args[1] != "--workspace"
+            || (rollback && (args[3] != "--operation" || !Guid.TryParseExact(args[4], "D", out _))))
+            throw new CliUsageException("用法：recover --workspace <directory>；rollback --workspace <directory> --operation <uuid>。");
+        await using var lease = await GenerationWorkspaceLease.TryAcquireAsync(args[2], token)
+            ?? throw new GenerationWorkspaceConflictException("另一个操作仍持有工作区。", ".fullnet/codegeneration-operation.lock");
+        var pending = await GenerationWorkspaceJournal.ReadPendingAsync(lease, token);
+        if (pending is not null)
+        {
+            if (pending.Client != "cli") throw new GenerationWorkspaceConflictException("Host 操作必须由 Host 恢复数据库终态与发布收据。", ".fullnet/codegeneration-active-operation.json");
+            await GenerationWorkspaceJournal.CommitAsync(lease, token);
+            await GenerationWorkspaceJournal.CompleteAsync(lease, CancellationToken.None);
+            await output.WriteLineAsync($"Recovered Operation {pending.Id:D}");
+        }
+        if (!rollback) return SuccessExitCode;
+        var sourceId = Guid.ParseExact(args[4], "D");
+        var source = await GenerationWorkspaceJournal.ReadOperationAsync(lease, sourceId, token);
+        if (source is not { Client: "cli", Kind: "apply", Phase: "completed" })
+            throw new GenerationWorkspaceConflictException("只能由 CLI 回滚 CLI 已完成的 Apply。", ".fullnet/codegeneration-head.json");
+        var checkpoint = await GenerationRollbackCheckpointStore.ReadAsync(args[2], sourceId, token);
+        var plan = await GenerationRollbackWorkspace.PlanAsync(args[2], checkpoint, token);
+        var id = Guid.CreateVersion7();
+        await GenerationWorkspaceJournal.PrepareAsync(lease, id, id, "rollback", "cli", null, plan, sourceId, token);
+        await GenerationWorkspaceJournal.CommitAsync(lease, token);
+        await GenerationWorkspaceJournal.CompleteAsync(lease, CancellationToken.None);
+        await output.WriteLineAsync($"RolledBack Operation {sourceId:D}");
+        return SuccessExitCode;
     }
 
     private static CliOptions Parse(IReadOnlyList<string> args)

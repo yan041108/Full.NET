@@ -61,9 +61,10 @@ internal static class WorkflowClaimSql
         WHERE instance.TenantScopeKey=@TenantScopeKey AND instance.StatusKey='active' AND pool.StatusKey='available'
         """;
     private const string MyProjection = "SELECT pool.Id, pool.InstanceId, step.NodeKey, definition.DefinitionKey, instance.BusinessType, instance.BusinessId, instance.BusinessTitle, pool.Revision, pool.ClaimCycle, pool.CreatedAtUtc, pool.DueAtUtc ";
-    public static readonly SqlStatement CountMine = new("workflow.claim.count_mine", "SELECT COUNT(*) " + MyPools, SqlDataScope.Global);
-    public static readonly SqlStatement ListMineSqlServer = new("workflow.claim.list_mine.sqlserver", MyProjection + MyPools + " ORDER BY pool.CreatedAtUtc, pool.Id OFFSET @Offset ROWS FETCH NEXT @Take ROWS ONLY", SqlDataScope.Global);
-    public static readonly SqlStatement ListMineMySql = new("workflow.claim.list_mine.mysql", MyProjection + MyPools + " ORDER BY pool.CreatedAtUtc, pool.Id LIMIT @Take OFFSET @Offset", SqlDataScope.Global);
+    public static readonly SqlStatement CountMineSqlServer = new("workflow.claim.count_mine.sqlserver", "SELECT COUNT(*) " + MyPools + " AND " + WorkflowCollaborationListSql.AllowsSqlServer, SqlDataScope.Global);
+    public static readonly SqlStatement CountMineMySql = new("workflow.claim.count_mine.mysql", "SELECT COUNT(*) " + MyPools + " AND " + WorkflowCollaborationListSql.AllowsMySql, SqlDataScope.Global);
+    public static readonly SqlStatement ListMineSqlServer = new("workflow.claim.list_mine.sqlserver", MyProjection + MyPools + " AND " + WorkflowCollaborationListSql.AllowsSqlServer + " ORDER BY pool.CreatedAtUtc, pool.Id OFFSET @Offset ROWS FETCH NEXT @Take ROWS ONLY", SqlDataScope.Global);
+    public static readonly SqlStatement ListMineMySql = new("workflow.claim.list_mine.mysql", MyProjection + MyPools + " AND " + WorkflowCollaborationListSql.AllowsMySql + " ORDER BY pool.CreatedAtUtc, pool.Id LIMIT @Take OFFSET @Offset", SqlDataScope.Global);
 
     public static readonly SqlStatement InsertTodo = new("workflow.claim.insert_todo", """
         INSERT INTO fn_workflow_todo (Id, InstanceId, StepId, AssigneeUserId, StatusKey, Revision, ArrivedAtUtc,

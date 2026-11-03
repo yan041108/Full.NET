@@ -47,6 +47,9 @@ internal sealed class IdentityOidcContextAccessTokenIssuer(
         claims[JwtRegisteredClaimNames.Iss] = _oidcOptions.Issuer;
         claims[JwtRegisteredClaimNames.Aud] = request.Audience;
         claims[JwtRegisteredClaimNames.Jti] = idGenerator.NewId().ToString("D");
+        if (request.AuthenticationTime is long authenticatedAt) claims["auth_time"] = authenticatedAt;
+        if (request.AuthenticationContext is not null) claims["acr"] = request.AuthenticationContext;
+        if (request.AuthenticationMethods is not null) claims["amr"] = request.AuthenticationMethods.ToArray();
         var descriptor = new SecurityTokenDescriptor
         {
             TokenType = "at+jwt",
@@ -79,4 +82,7 @@ internal sealed record IdentityOidcContextAccessTokenIssueRequest(
     bool IsSuperAdministrator,
     string SecurityStamp,
     bool IsExternalClient,
-    string Audience);
+    string Audience,
+    long? AuthenticationTime = null,
+    string? AuthenticationContext = null,
+    IReadOnlyCollection<string>? AuthenticationMethods = null);

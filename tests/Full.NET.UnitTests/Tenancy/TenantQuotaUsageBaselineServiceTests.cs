@@ -16,6 +16,36 @@ namespace Full.NET.UnitTests.Tenancy;
 public sealed class TenantQuotaUsageBaselineServiceTests
 {
     [TestMethod]
+    [DataRow(false)]
+    [DataRow(true)]
+    public async Task Reconcile_skips_confirmed_activation_and_concurrent_removal(bool removalAfterFirstRead)
+    {
+        var tenantId = Guid.CreateVersion7();
+        var queries = Substitute.For<IQueryExecutor>();
+        var commands = Substitute.For<ICommandExecutor>();
+        var members = Substitute.For<ITenantActiveMemberCountPort>();
+        queries.QueryAsync<TenantQuotaUsageBaselineRecord>(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>())
+            .Returns(new[] { new TenantQuotaUsageBaselineRecord(Guid.CreateVersion7(), tenantId,
+                TenantQuotaMetricCodes.IdentitySeats, TenantQuotaDefaults.PeriodKey, 100, 1, 0, 2) });
+        members.FindUnsettledSeatTenantsAsync(Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>())
+            .Returns(removalAfterFirstRead ? Array.Empty<Guid>() : new[] { tenantId }, new[] { tenantId });
+        members.CountActiveMembersByTenantsAsync(Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>())
+            .Returns(new Dictionary<Guid, long> { [tenantId] = 0 });
+        var service = new TenantQuotaUsageBaselineService(queries, commands, members,
+            Substitute.For<IClock>(), Substitute.For<IIdGenerator>());
+        var result = await service.ReconcileAsync(new ReconcileTenantQuotaUsageBaselineRequest(DryRun: false));
+        Assert.IsTrue(result.IsSuccess);
+        Assert.AreEqual(0, result.Value!.CandidateCount);
+        await commands.DidNotReceiveWithAnyArgs().ExecuteAsync(default!, default, default);
+        Received.InOrder(() =>
+        {
+            members.FindUnsettledSeatTenantsAsync(Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>());
+            members.CountActiveMembersByTenantsAsync(Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>());
+            members.FindUnsettledSeatTenantsAsync(Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>());
+        });
+    }
+
+    [TestMethod]
     public async Task ReconcileAsync_dry_run_reports_seat_mismatch_without_writing()
     {
         var tenantId = Guid.CreateVersion7();

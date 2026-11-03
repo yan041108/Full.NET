@@ -19,6 +19,7 @@ internal sealed class PlatformAuthorizationContributor
     /// <summary>Platform 模块全部权限定义。</summary>
     public IReadOnlyCollection<PermissionDefinition> Permissions { get; } =
     [
+        new(PlatformTaskCenterPermissions.Read, "读取我的任务入口", AuthorizationScope.Tenant),
         new PermissionDefinition(
             PlatformPermissions.Read,
             "查询更新日志",
@@ -68,6 +69,8 @@ internal sealed class PlatformAuthorizationContributor
     /// <summary>Platform 模块导航定义。</summary>
     public IReadOnlyCollection<NavigationDefinition> Navigation { get; } =
     [
+        new NavigationDefinition("my-tasks", null, "my-tasks", "/platform/my-tasks", "my-tasks",
+            "我的任务", "My Tasks", "list", 64, PlatformTaskCenterPermissions.Read),
         new NavigationDefinition(
             "host-release-notes",
             null,

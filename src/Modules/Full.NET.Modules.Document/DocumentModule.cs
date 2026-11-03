@@ -53,8 +53,17 @@ public sealed class DocumentModule : IFullNetModule
     {
         services.AddHttpContextAccessor();
         services.TryAddSingleton<DocumentSharePreviewGrantService>();
+        services.TryAddScoped<Features.ManageHostDocumentShares.DocumentShareSessionService>();
+        services.AddOptions<Features.ManageHostDocumentShares.DocumentShareSessionOptions>()
+            .Bind(configuration.GetSection("Document:ShareSession"))
+            .Validate(o => o.LifetimeMinutes is >= 1 and <= 120, "Share session lifetime must be 1 to 120 minutes.").ValidateOnStart();
         services.TryAddScoped<IDocumentActorContext, Http.HttpDocumentActorContext>();
         services.TryAddScoped<IDocumentAccessPolicy, DocumentAccessPolicy>();
+        services.TryAddScoped<Features.SearchHostDocuments.HostDocumentSearchService>();
+        services.TryAddScoped<Features.DocumentMutationGuard>();
+        services.TryAddScoped<Features.DocumentCategoryGuard>();
+        services.TryAddScoped<Features.DocumentReferenceReleasePublisher>();
+        services.TryAddScoped<PreviewTasks.DocumentPreviewLifecycle>();
         Persistence.DocumentLogTimelineSources.Register(services);
 #if FULLNET_AOT_COMPILE
         new Persistence.DocumentDapperAotMaterializerContributor()
@@ -90,23 +99,7 @@ public sealed class DocumentModule : IFullNetModule
         services.TryAddScoped<Features.QueryHostDocumentAccessLogs.HostDocumentAccessLogQueryService>();
         services.TryAddScoped<Features.ManageHostDocumentPreviewTasks.HostDocumentPreviewTaskManagementService>();
         services.TryAddScoped<Features.ManageHostDocumentPreviewTasks.HostDocumentPreviewTaskQueryService>();
-        services.TryAddEnumerable(ServiceDescriptor.Singleton<
-            IDocumentOfficePreviewConversionProvider,
-            DisabledDocumentOfficePreviewConversionProvider>());
-        services.TryAddEnumerable(ServiceDescriptor.Singleton<
-            IDocumentOfficePreviewConversionProvider,
-            ExternalHttpDocumentOfficePreviewConversionProvider>());
-        services.TryAddEnumerable(ServiceDescriptor.Singleton<
-            IDocumentOfficePreviewConversionProvider,
-            ExternalProcessDocumentOfficePreviewConversionProvider>());
-        services.TryAddSingleton<DocumentOfficePreviewConversionProviderResolver>();
-        services.AddOptions<DocumentOfficePreviewConversionOptions>()
-            .Bind(configuration.GetSection(DocumentOfficePreviewConversionOptions.SectionName))
-            .ValidateOnStart();
-        services.TryAddEnumerable(ServiceDescriptor.Singleton<
-            IValidateOptions<DocumentOfficePreviewConversionOptions>,
-            DocumentOfficePreviewConversionOptionsValidator>());
-        services.AddHttpClient(nameof(ExternalHttpDocumentOfficePreviewConversionProvider));
+        ConfigureOfficePreviewConversion(services, configuration);
         ConfigureDocumentVersionRetentionOptions(services, configuration, registerSettingsLoader: true);
         services.TryAddScoped<Features.UpdateHostDocumentVersionRetention.DocumentVersionRetentionSettingService>();
         services.TryAddScoped<Features.ManageHostDocumentCategories.HostDocumentCategoryQueryService>();
@@ -139,6 +132,7 @@ public sealed class DocumentModule : IFullNetModule
     public void MapEndpoints(IEndpointRouteBuilder endpoints)
     {
         Features.ManageHostDocumentItems.Endpoint.Map(endpoints);
+        Features.SearchHostDocuments.Endpoint.Map(endpoints);
         Features.ManageHostDocumentCategories.Endpoint.Map(endpoints);
         Features.ManageHostDocumentTags.Endpoint.Map(endpoints);
         Features.QueryHostRecycleBin.Endpoint.Map(endpoints);
@@ -149,6 +143,28 @@ public sealed class DocumentModule : IFullNetModule
         Features.QueryHostDocumentVersionRetention.Endpoint.Map(endpoints);
         Features.UpdateHostDocumentVersionRetention.Endpoint.Map(endpoints);
         Features.ManageHostDocumentPreviewTasks.Endpoint.Map(endpoints);
+    }
+
+    /// <summary>API 与 Worker 共用完整转换配置和 Provider 装配，Worker 不依赖 HTTP 模块入口。</summary>
+    private static void ConfigureOfficePreviewConversion(IServiceCollection services, IConfiguration configuration)
+    {
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<
+            IDocumentOfficePreviewConversionProvider,
+            DisabledDocumentOfficePreviewConversionProvider>());
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<
+            IDocumentOfficePreviewConversionProvider,
+            ExternalHttpDocumentOfficePreviewConversionProvider>());
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<
+            IDocumentOfficePreviewConversionProvider,
+            ExternalProcessDocumentOfficePreviewConversionProvider>());
+        services.TryAddSingleton<DocumentOfficePreviewConversionProviderResolver>();
+        services.AddOptions<DocumentOfficePreviewConversionOptions>()
+            .Bind(configuration.GetSection(DocumentOfficePreviewConversionOptions.SectionName))
+            .ValidateOnStart();
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<
+            IValidateOptions<DocumentOfficePreviewConversionOptions>,
+            DocumentOfficePreviewConversionOptionsValidator>());
+        services.AddHttpClient(nameof(ExternalHttpDocumentOfficePreviewConversionProvider));
     }
 
     private static void ConfigureDocumentVersionRetentionOptions(
@@ -189,11 +205,15 @@ public sealed class DocumentModule : IFullNetModule
         services.AddHttpContextAccessor();
         services.TryAddScoped<IDocumentActorContext, Http.HttpDocumentActorContext>();
         services.TryAddScoped<IDocumentAccessPolicy, DocumentAccessPolicy>();
+        services.TryAddScoped<Features.DocumentMutationGuard>();
+        services.TryAddScoped<Features.DocumentReferenceReleasePublisher>();
+        services.TryAddScoped<PreviewTasks.DocumentPreviewLifecycle>();
 #if FULLNET_AOT_COMPILE
         new Persistence.DocumentDapperAotMaterializerContributor()
             .RegisterMaterializers(
                 new global::Full.NET.Data.Dapper.DapperAotMaterializerRegistrar());
 #endif
+        services.TryAddEnumerable(ServiceDescriptor.Scoped<IHostFileRetentionContributor, Features.HostFileReferences.DocumentHostFileRetentionContributor>());
         services.TryAddEnumerable(ServiceDescriptor.Scoped<
             IHostFileReferenceClaimProbe,
             Features.HostFileReferences.HostDocumentVersionReferenceProbe>());
@@ -201,13 +221,9 @@ public sealed class DocumentModule : IFullNetModule
         services.TryAddScoped<Retention.DocumentVersionRetentionRunner>();
         ConfigureDocumentVersionRetentionOptions(services, configuration, registerSettingsLoader: true);
         services.TryAddScoped<PreviewTasks.DocumentPreviewTaskRunner>();
-        services.AddOptions<DocumentOfficePreviewConversionOptions>()
-            .Bind(configuration.GetSection(DocumentOfficePreviewConversionOptions.SectionName))
-            .ValidateOnStart();
-        services.TryAddEnumerable(ServiceDescriptor.Singleton<
-            IValidateOptions<DocumentOfficePreviewConversionOptions>,
-            DocumentOfficePreviewConversionOptionsValidator>());
+        ConfigureOfficePreviewConversion(services, configuration);
         services.AddHostedService<PreviewTasks.DocumentPreviewTaskHostedProcessor>();
         services.AddHostedService<Retention.DocumentVersionRetentionHostedProcessor>();
+        services.AddHostedService<Features.ManageHostDocumentShares.DocumentShareSessionCleanup>();
     }
 }

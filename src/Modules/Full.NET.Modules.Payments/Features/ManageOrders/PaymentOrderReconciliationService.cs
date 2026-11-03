@@ -6,6 +6,7 @@ using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Payments.Connectivity;
 using Full.NET.Modules.Payments.Contracts;
 using Full.NET.Modules.Payments.Persistence;
+using Full.NET.Modules.Payments.Features.SubscriptionBilling;
 
 namespace Full.NET.Modules.Payments.Features.ManageOrders;
 
@@ -25,7 +26,8 @@ internal sealed class PaymentOrderReconciliationService(
     IWeChatNativePayClient weChatNativePayClient,
     IAlipayPagePayClient alipayPagePayClient,
     IClock clock,
-    PaymentRefundReconciliationService refunds)
+    PaymentRefundReconciliationService refunds,
+    PaymentFinancialFactPublisher facts)
 {
     /// <summary>按订单标识查询渠道交易并回写本地状态。</summary>
     /// <param name="orderId">订单标识。</param>
@@ -115,6 +117,12 @@ internal sealed class PaymentOrderReconciliationService(
                 ErrorType.Validation));
         }
 
+        if (order.TradeStateKey == PaymentTradeStateKeys.Succeeded
+            && (mappedState != PaymentTradeStateKeys.Succeeded
+                || !string.Equals(order.ProviderTransactionId, providerSnapshot.TransactionId, StringComparison.Ordinal)))
+            return Result<PaymentOrderResponse>.Failure(new Error(PaymentErrorCodes.OrderStateInvalid,
+                "The provider snapshot conflicts with the original paid transaction.", ErrorType.Conflict));
+
         if (mappedState == order.TradeStateKey
             && string.Equals(
                 order.ProviderTransactionId,
@@ -164,6 +172,8 @@ internal sealed class PaymentOrderReconciliationService(
                 ErrorType.Conflict));
         }
 
+        if (mappedState == PaymentTradeStateKeys.Succeeded && order.TradeStateKey != PaymentTradeStateKeys.Succeeded)
+            await facts.PaidAsync(order, providerSnapshot.TransactionId, paidAtUtc!.Value, cancellationToken).ConfigureAwait(false);
         return await queries.GetByIdAsync(order.Id, cancellationToken).ConfigureAwait(false);
     }
 

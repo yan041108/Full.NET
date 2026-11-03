@@ -1,3 +1,4 @@
+import 'workflow_form_fixture.dart';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -19,6 +20,8 @@ Map<String, dynamic> task() => {
       'statusKey': 'active',
       'revision': 1,
       'submissionRevision': 2,
+      'formSchema': workflowTestFormSchema,
+      'fieldPolicies': <String, String>{},
       'submission': <String, dynamic>{},
       'activityKindKey': 'human.task',
       'allowedActions': ['complete'],

@@ -71,8 +71,19 @@ public sealed partial class ElasticsearchLogDocumentSink : ILogDocumentSink, ILo
             {
                 throw new ArgumentException("ES 索引名不符合日志固定路由。", nameof(writes));
             }
-            var action = JsonSerializer.Serialize(new { index = new { _index = write.IndexName, _id = write.Record.LogEventId } });
-            prefixes[index] = Encoding.UTF8.GetBytes(action + "\n");
+            // 固定 bulk action 显式写 JSON；原生路径不依赖匿名类型反射，并保留字符串转义。
+            using var action = new MemoryStream();
+            using (var writer = new Utf8JsonWriter(action))
+            {
+                writer.WriteStartObject();
+                writer.WriteStartObject("index");
+                writer.WriteString("_index", write.IndexName);
+                writer.WriteString("_id", write.Record.LogEventId);
+                writer.WriteEndObject();
+                writer.WriteEndObject();
+            }
+            action.WriteByte((byte)'\n');
+            prefixes[index] = action.ToArray();
             var json = write.Record.Utf8Json;
             while (!json.IsEmpty && json[^1] is (byte)'\r' or (byte)'\n') json = json[..^1];
             if (json.Length > MaxRequestBytes - length - prefixes[index].Length - 1)

@@ -6,6 +6,8 @@ import {
   type ReportingExportTaskPage
 } from '@fullnet/client-contracts';
 import { request, requestBlob } from './http';
+import { http } from './http';
+import { reportingCancelExportTask } from '@fullnet/client-contracts';
 
 export async function createReportingExportTask(
   body: CreateReportingExportTaskRequest,
@@ -70,4 +72,12 @@ export async function downloadReportingExportTask(
     { method: 'GET' },
     signal
   );
+}
+
+/** 仅停止本人排队版本；结果必须仍指向同一任务且已经进入取消终态。 */
+export async function cancelReportingExportTask(taskId: string, version: number, signal?: AbortSignal): Promise<ReportingExportTaskDetail> {
+  const value = await reportingCancelExportTask(http, { taskId, body: { version } }, signal);
+  if (!isReportingExportTaskDetail(value) || value.id.toLowerCase() !== taskId.toLowerCase()
+    || value.statusKey !== 'canceled' || value.version < version) throw new Error('client.invalid_reporting_export_task_detail');
+  return value;
 }

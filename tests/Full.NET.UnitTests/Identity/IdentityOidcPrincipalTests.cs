@@ -80,7 +80,9 @@ public sealed class IdentityOidcPrincipalTests
                 Assert.AreEqual(profile, OpenIddict.Abstractions.OpenIddictExtensions.GetDestinations(claim).Contains("access_token"));
             }
             Assert.IsFalse(context.Principal!.HasClaim(claim => claim.Type == FullNetIdentityClaimTypes.SecurityStamp));
-            CollectionAssert.AreEqual(new[] { "id_token" }, context.Principal.FindFirst("auth_time")!.GetDestinations().ToArray());
+            CollectionAssert.AreEquivalent(new[] { "access_token", "id_token" }, context.Principal.FindFirst("auth_time")!.GetDestinations().ToArray());
+            Assert.AreEqual(CenterSessionId.ToString("D"), context.Principal.GetClaim("sid"));
+            CollectionAssert.AreEqual(new[] { "id_token" }, context.Principal.FindFirst("sid")!.GetDestinations().ToArray());
             Assert.IsTrue(context.Principal.FindFirst("fullnet_is_first_party")!.GetDestinations().IsEmpty);
         }
     }

@@ -44,6 +44,13 @@ const answer = { refused: false, message: { id: citation.id, sessionId: citation
 const askBody = { knowledgeBaseIds: [citation.documentId], embeddingModelConfigId: citation.versionId, question: '来源说明' };
 
 describe('公开知识问答调用契约', () => {
+  it('人工补写响应保留修订身份，不由客户端补造原文位置', async () => {
+    const human = { ...citation, offset: null, length: null, correction: { revisionId: citation.versionId, textLength: 12,
+      spans: [{ contentKind: 'supplement', textOffset: 0, textLength: 12, sourceLocation: null, sourceOffset: null, sourceLength: null }] } };
+    const expected = { ...answer, message: { ...answer.message, citations: [human] } };
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(Response.json(expected)));
+    expect(await askAiKnowledge('session', askBody)).toEqual(expected);
+  });
   it.each([false, true])('返回完整答案或拒答 refused=%s', async refused => {
     const expected = { refused, message: { ...answer.message, content: refused ? '' : answer.message.content, citations: refused ? [] : [citation] } };
     const fetchMock = vi.fn().mockResolvedValue(Response.json(expected));

@@ -56,5 +56,8 @@ public sealed class McpRemoteCapabilityPolicyTests
             McpRemoteCapabilityPolicy.ComputeSchemaHash("""{"type":"object","properties":{"x":{"type":"string"}}}"""),
             out var rejection));
         Assert.AreEqual("ai.mcp.remote_schema_drift", rejection);
+        Assert.IsFalse(McpRemoteCapabilityPolicy.CanExecute(tool, null, out rejection));
+        Assert.AreEqual("ai.mcp.remote_schema_drift", rejection);
+        Assert.IsTrue(McpRemoteCapabilityPolicy.CanExecute(tool, tool.InputSchemaHash, out rejection));
     }
 }

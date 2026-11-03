@@ -151,11 +151,14 @@ internal sealed class WorkflowRegionEpochCoordinator(IQueryExecutor query, IComm
 
     private async Task CloseAsync(WorkflowInstanceRecord instance, IReadOnlyList<WorkflowExecutionEpochRecord> closing, DateTimeOffset now, CancellationToken token)
     {
+        if (closing.Count == 0) return;
         foreach (var row in closing)
             if (await commands.ExecuteAsync(WorkflowRegionSql.CloseEpoch,
                 WorkflowSqlParameters.Create(("InstanceId", instance.Id), ("TenantScopeKey", instance.TenantScopeKey),
                     ("ExecutionEpochId", row.Id), ("RegionKey", row.RegionKey), ("Revision", row.Revision), ("Now", now)), token).ConfigureAwait(false) != 1)
                 throw new InvalidOperationException("workflow.execution_epoch.region_close_conflict");
+        await commands.ExecuteAsync(WorkflowCollaborationRelaySql.CloseInvalidated,
+            WorkflowSqlParameters.Create(("InstanceId", instance.Id), ("TenantScopeKey", instance.TenantScopeKey), ("Now", now)), token).ConfigureAwait(false);
     }
 
     /// <summary>Route可嵌入已登记Return，但不能把Return父帧当作自己的可关闭回边。</summary>

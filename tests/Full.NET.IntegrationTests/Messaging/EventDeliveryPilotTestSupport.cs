@@ -161,28 +161,35 @@ internal static class EventDeliveryPilotTestSupport
 
     private sealed class PilotCutoverProbe : IEventDeliveryCutoverProbe
     {
+        public Task<CdcKafkaDeliveryBinding?> ReadDeliveryBindingAsync(string eventType, int schemaVersion, string expectedFingerprint,
+            CancellationToken cancellationToken = default) => Task.FromResult<CdcKafkaDeliveryBinding?>(TestDeliveryBinding());
         public Task<string?> ReadTargetFingerprintAsync(string eventType, int schemaVersion, CancellationToken cancellationToken = default) =>
             Task.FromResult<string?>("pilot-test-resource");
         public Task<string?> CompareShadowAsync(string eventType, int schemaVersion, IReadOnlyList<CutoverShadowEvent> expected,
             CancellationToken cancellationToken = default) => Task.FromResult<string?>("pilot-test-shadow");
     }
 
+    // 该夹具明确替代控制面，仅验证模块事务；不充当实际 Kafka 拓扑证明。
+    internal static CdcKafkaDeliveryBinding TestDeliveryBinding() => new("modeled-cluster", "modeled-connector", "modeled-config", "modeled-topic", ["modeled-group"], [],
+        [new("modeled-topic", "modeled-topic-id", [new(0, 0, 0)])])
+        { ConnectBaseUri = "http://modeled-connect:8083/", EnvironmentName = "Testing", ShadowConnectorName = "modeled-shadow", ShadowTopicName = "modeled-shadow-topic" };
+
     /// <summary>替代控制面也执行持久意图协议；不能用测试替身绕过生产状态检查。</summary>
     private sealed class JournaledTestReadinessReader(IEventDeliveryRollbackReadinessReader inner, IEventDeliveryRollbackJournal journal)
         : IEventDeliveryRollbackReadinessReader
     {
         public async Task<EventDeliveryRollbackReadiness> PrepareAsync(string eventType, int schemaVersion, Guid generation,
-            CancellationToken cancellationToken = default)
+            EventDeliveryControlLease lease, CancellationToken cancellationToken = default)
         {
             Assert.IsTrue(await journal.BindResourcesAsync(generation, "{\"testDouble\":true}", cancellationToken));
             Assert.IsTrue(await journal.TransitionAsync(generation, EventDeliveryRollbackPhase.Prepared, EventDeliveryRollbackPhase.PauseRequested, cancellationToken));
-            var proof = await inner.PrepareAsync(eventType, schemaVersion, generation, cancellationToken);
+            var proof = await inner.PrepareAsync(eventType, schemaVersion, generation, lease, cancellationToken);
             if (proof.ConnectorStopped)
                 Assert.IsTrue(await journal.TransitionAsync(generation, EventDeliveryRollbackPhase.PauseRequested, EventDeliveryRollbackPhase.Paused, cancellationToken));
             return proof;
         }
-        public Task AbortAsync(string eventType, int schemaVersion, Guid generation, CancellationToken cancellationToken = default) =>
-            inner.AbortAsync(eventType, schemaVersion, generation, cancellationToken);
+        public Task AbortAsync(string eventType, int schemaVersion, Guid generation, EventDeliveryControlLease lease, CancellationToken cancellationToken = default) =>
+            inner.AbortAsync(eventType, schemaVersion, generation, lease, cancellationToken);
     }
 
     internal static AsyncServiceScope CreateHostScope(IServiceProvider provider)

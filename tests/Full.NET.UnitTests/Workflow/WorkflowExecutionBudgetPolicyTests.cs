@@ -17,10 +17,24 @@ public sealed class WorkflowExecutionBudgetPolicyTests
         Assert.AreEqual(0, query.ReceivedCalls().Count());
     }
     [TestMethod]
-    public async Task Missing_child_grant_cannot_fall_back_to_a_new_root_budget()
+    [DataRow(false)]
+    [DataRow(true)]
+    public async Task Missing_child_or_collaboration_grant_cannot_fall_back_to_a_new_root_budget(bool collaboration)
     {
         var query = Substitute.For<IQueryExecutor>();
-        Assert.AreEqual(-1, await WorkflowExecutionBudgetPolicy.ReadRemainingAsync(Root(WorkflowChildStartContext.BusinessType), false, 0, query, default));
+        Assert.AreEqual(-1, await WorkflowExecutionBudgetPolicy.ReadRemainingAsync(Root(collaboration ? WorkflowCollaborationStartContext.BusinessType : WorkflowChildStartContext.BusinessType), false, 0, query, default));
+    }
+    [TestMethod]
+    [DataRow(32, 0, 3, 29)]
+    [DataRow(32, 28, 4, 0)]
+    [DataRow(32, 33, 0, -1)]
+    [DataRow(2, 0, 2, 0)]
+    public async Task Plain_target_without_subprocess_nodes_still_consumes_only_the_agreed_slice(int granted, int reserved, int used, int expected)
+    {
+        var root = Root(WorkflowCollaborationStartContext.BusinessType); var query = Substitute.For<IQueryExecutor>();
+        query.QuerySingleOrDefaultAsync<WorkflowExecutionBudgetRecord>(WorkflowSubprocessSql.FindBudget, Arg.Any<object?>(), Arg.Any<CancellationToken>())
+            .Returns(new WorkflowExecutionBudgetRecord(root.Id, granted, reserved, 1));
+        Assert.AreEqual(expected, await WorkflowExecutionBudgetPolicy.ReadRemainingAsync(root, false, used, query, default));
     }
     [TestMethod]
     [DataRow(64, 32, 7, 25)]

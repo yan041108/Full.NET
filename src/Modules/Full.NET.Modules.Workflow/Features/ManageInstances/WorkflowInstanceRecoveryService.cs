@@ -73,6 +73,9 @@ internal sealed class WorkflowInstanceRecoveryService(
                 if (await commandExecutor.ExecuteAsync(WorkflowSql.LockInstanceForTodoAction,
                     Parameters(("Id", instanceId), ("TenantScopeKey", scope.TenantScopeKey)), token).ConfigureAwait(false) != 1)
                     return Failure(WorkflowErrorCodes.RevisionConflict, ErrorType.Conflict);
+                if (!await WorkflowCollaborationRuntimeGate.AllowsAsync(instanceId, scope, actorUserId, clock.UtcNow,
+                        queryExecutor, token, commandExecutor, selectedUser: request.AssigneeUserId).ConfigureAwait(false))
+                    return Failure(WorkflowErrorCodes.InstanceForbidden, ErrorType.Forbidden);
                 return await ReassignCoreAsync(instanceId, actorUserId, request, scope, hash, token).ConfigureAwait(false);
             }, cancellationToken).ConfigureAwait(false);
         }
@@ -225,6 +228,12 @@ internal sealed class WorkflowInstanceRecoveryService(
         string requestHash,
         CancellationToken cancellationToken)
     {
+        if (await commandExecutor.ExecuteAsync(WorkflowSql.LockInstanceForTodoAction,
+                Parameters(("Id", instanceId), ("TenantScopeKey", scope.TenantScopeKey)), cancellationToken).ConfigureAwait(false) != 1)
+            return Failure(WorkflowErrorCodes.RevisionConflict, ErrorType.Conflict);
+        if (!await WorkflowCollaborationRuntimeGate.AllowsAsync(instanceId, scope, actorUserId, clock.UtcNow,
+                queryExecutor, cancellationToken, commandExecutor).ConfigureAwait(false))
+            return Failure(WorkflowErrorCodes.InstanceForbidden, ErrorType.Forbidden);
         var instance = await FindInstanceAsync(instanceId, scope, cancellationToken).ConfigureAwait(false);
         if (instance?.FormVersionId is not { } formVersionId)
         {
@@ -254,6 +263,10 @@ internal sealed class WorkflowInstanceRecoveryService(
             return Failure(WorkflowErrorCodes.InstanceTerminal, ErrorType.Conflict);
         }
 
+        if (await queryExecutor.QuerySingleOrDefaultAsync<int>(WorkflowCollaborationControlSql.CountBlockedSource,
+                Parameters(("InstanceId", instanceId), ("TenantScopeKey", scope.TenantScopeKey)), cancellationToken).ConfigureAwait(false) != 0)
+            return Failure(WorkflowErrorCodes.InvalidTransition, ErrorType.Conflict);
+
         if (instance.StatusKey != "suspended")
         {
             return Failure(WorkflowErrorCodes.InvalidTransition, ErrorType.Conflict);
@@ -282,7 +295,9 @@ internal sealed class WorkflowInstanceRecoveryService(
         if (work is null && await queryExecutor.QuerySingleOrDefaultAsync<int>(
                 WorkflowActivitySql.CountRecoverableWork,
                 Parameters(("InstanceId", instanceId), ("TenantScopeKey", scope.TenantScopeKey)), cancellationToken)
-                .ConfigureAwait(false) == 0)
+                .ConfigureAwait(false) == 0 &&
+            await queryExecutor.QuerySingleOrDefaultAsync<int>(WorkflowCollaborationControlSql.CountRecoverableSource,
+                Parameters(("InstanceId", instanceId), ("TenantScopeKey", scope.TenantScopeKey), ("Now", clock.UtcNow)), cancellationToken).ConfigureAwait(false) == 0)
             return Failure(WorkflowErrorCodes.InvalidTransition, ErrorType.Conflict);
 
         var instanceUpdated = await commandExecutor.ExecuteAsync(

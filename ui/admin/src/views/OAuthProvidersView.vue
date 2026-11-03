@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue';
 import {
+  ElAlert,
   ElButton,
   ElCard,
   ElForm,
@@ -210,15 +211,17 @@ onMounted(() => {
 
 <template>
   <section class="oauth-providers-view">
+    <ElAlert v-if="problem" type="error" :title="problem.title" :description="problem.detail ?? problem.code" show-icon />
     <ArtTableHeader
       :title="t('oauthProviders.title')"
-      :problem="problem"
     >
-      <PermissionGate code="identity.oauth_providers.create">
-        <ElButton type="primary" :icon="Plus" @click="openCreate">
-          {{ t('oauthProviders.create') }}
-        </ElButton>
-      </PermissionGate>
+      <template #left>
+        <PermissionGate code="identity.oauth_providers.create">
+          <ElButton type="primary" :icon="Plus" data-testid="oauth-provider-create" @click="openCreate">
+            {{ t('oauthProviders.create') }}
+          </ElButton>
+        </PermissionGate>
+      </template>
     </ArtTableHeader>
 
     <ArtSearchBar

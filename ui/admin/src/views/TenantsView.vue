@@ -40,6 +40,8 @@ import PermissionGate from '../components/PermissionGate.vue';
 import { useSessionStore } from '../auth/session';
 import { useAdminI18n } from '../i18n/adminI18n';
 import { listHostTenantPackages } from '../api/tenant-packages';
+import PaidSubscriptionPurchase from '../components/PaidSubscriptionPurchase.vue';
+import SubscriptionCheckoutAction from '../components/SubscriptionCheckoutAction.vue';
 import {
   cancelTenantSubscription,
   createTenantSubscription,
@@ -1181,13 +1183,15 @@ function toProblem(
     <el-dialog
       v-model="subscriptionDialogOpen"
       :title="t('tenants.subscriptions')"
-      width="640px"
+      width="min(760px, calc(100vw - 32px))"
     >
       <el-table v-loading="subscriptionLoading" :data="subscriptionRows" row-key="id">
         <el-table-column prop="status" :label="t('tenancy.tenantSubscriptions.status')" />
         <el-table-column prop="currentPeriodEndUtc" :label="t('tenancy.tenantSubscriptions.periodEnd')" />
-        <el-table-column :label="t('users.columnActions')" width="120">
+        <el-table-column :label="t('users.columnActions')" width="240">
           <template #default="{ row }">
+            <SubscriptionCheckoutAction v-if="subscriptionTenant && row.status === 'PastDue'"
+              :tenant-id="subscriptionTenant.id" :subscription-id="row.id" />
             <el-button
               v-if="row.status !== 'Cancelled'"
               link
@@ -1203,6 +1207,8 @@ function toProblem(
         layout="prev, pager, next, total" @current-change="loadSubscriptionPage" />
 
       <template #footer>
+        <PaidSubscriptionPurchase v-if="subscriptionTenant" :key="subscriptionTenant.id" :tenant-id="subscriptionTenant.id"
+          :packages="packages" @created="loadSubscriptionPage(); load()" />
         <el-button @click="subscriptionDialogOpen = false">{{ t('users.cancel') }}</el-button>
         <el-button type="primary" :loading="subscriptionLoading" @click="startTrialSubscription">
           {{ t('tenants.subscriptionStartTrial') }}

@@ -32,6 +32,19 @@
     }
   },
   "workflow": {
+    "resource": {
+      "instanceTitle": "Workflow instance",
+      "states": { "active": "Active", "suspended": "Suspended", "approved": "Approved", "rejected": "Rejected", "cancelled": "Cancelled", "completed": "Completed", "unknown": "Other status" },
+      "open": "Open related workflow",
+      "openTodo": "Open current task",
+      "unavailable": "This resource is unavailable or access is denied. Check the current list.",
+      "failed": "The resource could not be loaded. Try again later.",
+      "revoked": "This message was revoked and its link is closed.",
+      "status": "Current status",
+      "started": "Started at",
+      "definitionVersion": "Fixed workflow version",
+      "currentState": "This is the current authoritative state. An old notification cannot reopen a closed activity."
+    },
     "todos": {
       "title": "My tasks",
       "refresh": "Refresh",
@@ -114,6 +127,15 @@
         "completed": "Completed",
         "cancelled": "Cancelled"
       }
+    },
+    "form": {
+      "addRow": "Add row",
+      "upload": "Upload attachment",
+      "remove": "Remove",
+      "reuse": "Reuse {name}",
+      "attachment": "Attachment",
+      "removeRow": "Remove row",
+      "fileFailed": "Unable to access this attachment. Reopen the task to verify your access."
     }
   },
   "settings": {

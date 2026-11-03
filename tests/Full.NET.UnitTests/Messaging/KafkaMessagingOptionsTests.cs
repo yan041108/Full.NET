@@ -17,6 +17,7 @@ public sealed class KafkaMessagingOptionsTests
         Assert.IsFalse(config.EnableAutoCommit);
         Assert.IsFalse(config.EnableAutoOffsetStore);
         Assert.AreEqual(1, config.QueuedMinMessages);
+        Assert.AreEqual(10, config.FetchQueueBackoffMs);
         Assert.IsTrue(config.QueuedMaxMessagesKbytes > 0);
     }
 

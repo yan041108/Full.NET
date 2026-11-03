@@ -36,7 +36,7 @@ public sealed class GenerationRollbackCheckpoint
     public GenerationManifest? PreviousManifest { get; }
 
     /// <summary>
-    /// 获取上一版清单拥有产物的原始内容，按相对路径索引；摘要已与 PreviousManifest 校验一致。
+    /// 获取本次变化文件的旧原文；未变化文件仅依靠前后清单摘要校验，避免检查点重复复制全部产物。
     /// </summary>
     public IReadOnlyDictionary<string, string> PreviousContents { get; }
 }

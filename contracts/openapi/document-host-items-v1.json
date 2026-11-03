@@ -1,236 +1,282 @@
 {
-    "id":  "document-host-items-v1",
-    "version":  1,
-    "description":  "Host 文档条目 HTTP 契约冻结夹具；与 HostDocumentContracts 和 ManageHostDocumentItems.Endpoint 对齐。",
-    "paths":  [
-                  {
-                      "path":  "/api/v1/document/host/items",
-                      "operations":  [
-                                         {
-                                             "method":  "GET",
-                                             "permission":  "document.host_documents.read",
-                                             "successStatus":  200,
-                                             "responseSchema":  "HostDocumentItemResponsePage"
-                                         },
-                                         {
-                                             "method":  "POST",
-                                             "permission":  "document.host_documents.create",
-                                             "successStatus":  201,
-                                             "requestSchema":  "CreateHostDocumentItemRequest",
-                                             "responseSchema":  "HostDocumentItemResponse"
-                                         }
-                                     ]
-                  },
-                  {
-                      "path":  "/api/v1/document/host/items/{itemId}",
-                      "operations":  [
-                                         {
-                                             "method":  "GET",
-                                             "permission":  "document.host_documents.read",
-                                             "successStatus":  200,
-                                             "responseSchema":  "HostDocumentItemResponse"
-                                         },
-                                         {
-                                             "method":  "PUT",
-                                             "permission":  "document.host_documents.update",
-                                             "successStatus":  200,
-                                             "requestSchema":  "UpdateHostDocumentItemRequest",
-                                             "responseSchema":  "HostDocumentItemResponse"
-                                         }
-                                     ]
-                  },
-                  {
-                      "path":  "/api/v1/document/host/items/{itemId}/versions",
-                      "operations":  [
-                                         {
-                                             "method":  "GET",
-                                             "permission":  "document.host_documents.read",
-                                             "successStatus":  200,
-                                             "responseSchema":  "HostDocumentVersionResponseList"
-                                         },
-                                         {
-                                             "method":  "POST",
-                                             "permission":  "document.host_documents.add_version",
-                                             "successStatus":  200,
-                                             "requestSchema":  "AddHostDocumentVersionRequest",
-                                             "responseSchema":  "HostDocumentItemResponse"
-                                         }
-                                     ]
-                  },
-                  {
-                      "path":  "/api/v1/document/host/items/{itemId}/versions/upload",
-                      "operations":  [
-                                         {
-                                             "method":  "POST",
-                                             "permission":  "document.host_documents.add_version",
-                                             "successStatus":  200,
-                                             "responseSchema":  "HostDocumentItemResponse"
-                                         }
-                                     ]
-                  },
-                  {
-                      "path":  "/api/v1/document/host/items/{itemId}/preview",
-                      "operations":  [
-                                         {
-                                             "method":  "GET",
-                                             "permission":  "document.host_documents.read",
-                                             "successStatus":  200
-                                         }
-                                     ]
-                  },
-                  {
-                      "path":  "/api/v1/document/host/items/{itemId}/versions/{versionId}/preview",
-                      "operations":  [
-                                         {
-                                             "method":  "GET",
-                                             "permission":  "document.host_documents.read",
-                                             "successStatus":  200
-                                         }
-                                     ]
-                  },
-                  {
-                      "path":  "/api/v1/document/host/items/{itemId}/content",
-                      "operations":  [
-                                         {
-                                             "method":  "GET",
-                                             "permission":  "document.host_documents.download",
-                                             "successStatus":  200
-                                         }
-                                     ]
-                  },
-                  {
-                      "path":  "/api/v1/document/host/items/{itemId}/delete",
-                      "operations":  [
-                                         {
-                                             "method":  "POST",
-                                             "permission":  "document.host_documents.delete",
-                                             "successStatus":  200,
-                                             "requestSchema":  "DeleteHostDocumentItemRequest",
-                                             "responseSchema":  "BooleanResponse"
-                                         }
-                                     ]
-                  },
-                  {
-                      "path":  "/api/v1/document/host/items/{itemId}/restore",
-                      "operations":  [
-                                         {
-                                             "method":  "POST",
-                                             "permission":  "document.host_documents.restore",
-                                             "successStatus":  200,
-                                             "requestSchema":  "RestoreHostDocumentItemRequest",
-                                             "responseSchema":  "HostDocumentItemResponse"
-                                         }
-                                     ]
-                  },
-                  {
-                      "path":  "/api/v1/document/host/items/{itemId}/versions/{versionId}/rollback",
-                      "operations":  [
-                                         {
-                                             "method":  "POST",
-                                             "permission":  "document.host_documents.rollback_version",
-                                             "successStatus":  200,
-                                             "requestSchema":  "RollbackHostDocumentVersionRequest",
-                                             "responseSchema":  "HostDocumentItemResponse"
-                                         }
-                                     ]
-                  },
-                  {
-                      "path":  "/api/v1/document/host/items/{itemId}/versions/{versionId}/delete",
-                      "operations":  [
-                                         {
-                                             "method":  "POST",
-                                             "permission":  "document.host_documents.delete_version",
-                                             "successStatus":  200,
-                                             "requestSchema":  "DeleteHostDocumentVersionRequest",
-                                             "responseSchema":  "HostDocumentItemResponse"
-                                         }
-                                     ]
-                  }
-              ],
-    "schemas":  {
-                    "CreateHostDocumentItemRequest":  {
-                                                          "properties":  [
-                                                                             "title",
-                                                                             "description"
-                                                                         ]
-                                                      },
-                    "UpdateHostDocumentItemRequest":  {
-                                                          "properties":  [
-                                                                             "title",
-                                                                             "description",
-                                                                             "version"
-                                                                         ]
-                                                      },
-                    "AddHostDocumentVersionRequest":  {
-                                                          "properties":  [
-                                                                             "fileId"
-                                                                         ]
-                                                      },
-                    "DeleteHostDocumentItemRequest":  {
-                                                          "properties":  [
-                                                                             "version"
-                                                                         ]
-                                                      },
-                    "RestoreHostDocumentItemRequest":  {
-                                                           "properties":  [
-                                                                              "version"
-                                                                          ]
-                                                       },
-                    "RollbackHostDocumentVersionRequest":  {
-                                                               "properties":  [
-                                                                                  "version"
-                                                                              ]
-                                                           },
-                    "DeleteHostDocumentVersionRequest":  {
-                                                             "properties":  [
-                                                                                "version"
-                                                                            ]
-                                                         },
-                    "HostDocumentVersionResponse":  {
-                                                        "properties":  [
-                                                                           "id",
-                                                                           "versionNumber",
-                                                                           "fileId",
-                                                                           "contentHash",
-                                                                           "sizeBytes",
-                                                                           "changeDescription",
-                                                                           "createdAtUtc",
-                                                                           "uploadedByUserId"
-                                                                       ]
-                                                    },
-                    "HostDocumentVersionResponseList":  {
-                                                            "properties":  [
-
-                                                                           ],
-                                                            "itemSchema":  "HostDocumentVersionResponse"
-                                                        },
-                    "HostDocumentItemResponse":  {
-                                                     "properties":  [
-                                                                        "id",
-                                                                        "title",
-                                                                        "description",
-                                                                        "categoryId",
-                                                                        "currentVersion",
-                                                                        "createdAtUtc",
-                                                                        "createdByUserId",
-                                                                        "updatedAtUtc",
-                                                                        "updatedByUserId",
-                                                                        "version"
-                                                                    ]
-                                                 },
-                    "HostDocumentItemResponsePage":  {
-                                                         "properties":  [
-                                                                            "items",
-                                                                            "page",
-                                                                            "pageSize",
-                                                                            "total"
-                                                                        ],
-                                                         "itemSchema":  "HostDocumentItemResponse"
-                                                     },
-                    "BooleanResponse":  {
-                                            "properties":  [
-
-                                                           ]
-                                        }
-                }
+  "id": "document-host-items-v1",
+  "version": 1,
+  "description": "Host 文档条目 HTTP 契约冻结夹具；与 HostDocumentContracts 和 ManageHostDocumentItems.Endpoint 对齐。",
+  "paths": [
+    {
+      "path": "/api/v1/document/host/items",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": "document.host_documents.read",
+          "successStatus": 200,
+          "responseSchema": "HostDocumentItemResponsePage"
+        },
+        {
+          "method": "POST",
+          "permission": "document.host_documents.create",
+          "successStatus": 201,
+          "requestSchema": "CreateHostDocumentItemRequest",
+          "responseSchema": "HostDocumentItemResponse"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/document/host/items/{itemId}",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": "document.host_documents.read",
+          "successStatus": 200,
+          "responseSchema": "HostDocumentItemResponse"
+        },
+        {
+          "method": "PUT",
+          "permission": "document.host_documents.update",
+          "successStatus": 200,
+          "requestSchema": "UpdateHostDocumentItemRequest",
+          "responseSchema": "HostDocumentItemResponse"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/document/host/items/{itemId}/versions",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": "document.host_documents.read",
+          "successStatus": 200,
+          "responseSchema": "HostDocumentVersionResponseList"
+        },
+        {
+          "method": "POST",
+          "permission": "document.host_documents.add_version",
+          "successStatus": 200,
+          "requestSchema": "AddHostDocumentVersionRequest",
+          "responseSchema": "HostDocumentItemResponse"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/document/host/items/{itemId}/versions/upload",
+      "operations": [
+        {
+          "method": "POST",
+          "permission": "document.host_documents.add_version",
+          "successStatus": 200,
+          "responseSchema": "HostDocumentItemResponse"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/document/host/items/{itemId}/preview",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": "document.host_documents.read",
+          "successStatus": 200
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/document/host/items/{itemId}/versions/{versionId}/preview",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": "document.host_documents.read",
+          "successStatus": 200
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/document/host/items/{itemId}/content",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": "document.host_documents.download",
+          "successStatus": 200
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/document/host/items/{itemId}/delete",
+      "operations": [
+        {
+          "method": "POST",
+          "permission": "document.host_documents.delete",
+          "successStatus": 200,
+          "requestSchema": "DeleteHostDocumentItemRequest",
+          "responseSchema": "BooleanResponse"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/document/host/items/{itemId}/restore",
+      "operations": [
+        {
+          "method": "POST",
+          "permission": "document.host_documents.restore",
+          "successStatus": 200,
+          "requestSchema": "RestoreHostDocumentItemRequest",
+          "responseSchema": "HostDocumentItemResponse"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/document/host/items/{itemId}/versions/{versionId}/rollback",
+      "operations": [
+        {
+          "method": "POST",
+          "permission": "document.host_documents.rollback_version",
+          "successStatus": 200,
+          "requestSchema": "RollbackHostDocumentVersionRequest",
+          "responseSchema": "HostDocumentItemResponse"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/document/host/items/{itemId}/versions/{versionId}/delete",
+      "operations": [
+        {
+          "method": "POST",
+          "permission": "document.host_documents.delete_version",
+          "successStatus": 200,
+          "requestSchema": "DeleteHostDocumentVersionRequest",
+          "responseSchema": "HostDocumentItemResponse"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/document/host/items/{itemId}/publish",
+      "operations": [
+        {
+          "method": "POST",
+          "permission": "document.host_documents.publish",
+          "successStatus": 200,
+          "requestSchema": "ChangeHostDocumentStatusRequest",
+          "responseSchema": "HostDocumentItemResponse"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/document/host/items/{itemId}/archive",
+      "operations": [
+        {
+          "method": "POST",
+          "permission": "document.host_documents.archive",
+          "successStatus": 200,
+          "requestSchema": "ChangeHostDocumentStatusRequest",
+          "responseSchema": "HostDocumentItemResponse"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/document/host/items/{itemId}/unarchive",
+      "operations": [
+        {
+          "method": "POST",
+          "permission": "document.host_documents.unarchive",
+          "successStatus": 200,
+          "requestSchema": "ChangeHostDocumentStatusRequest",
+          "responseSchema": "HostDocumentItemResponse"
+        }
+      ]
+    }
+  ],
+  "schemas": {
+    "CreateHostDocumentItemRequest": {
+      "properties": [
+        "title",
+        "description"
+      ]
+    },
+    "UpdateHostDocumentItemRequest": {
+      "properties": [
+        "title",
+        "description",
+        "categoryId",
+        "thumbnail",
+        "sort",
+        "tagIds",
+        "version"
+      ]
+    },
+    "AddHostDocumentVersionRequest": {
+      "properties": [
+        "fileId",
+        "changeDescription",
+        "requestKey"
+      ]
+    },
+    "DeleteHostDocumentItemRequest": {
+      "properties": [
+        "version"
+      ]
+    },
+    "RestoreHostDocumentItemRequest": {
+      "properties": [
+        "version"
+      ]
+    },
+    "RollbackHostDocumentVersionRequest": {
+      "properties": [
+        "version"
+      ]
+    },
+    "DeleteHostDocumentVersionRequest": {
+      "properties": [
+        "version"
+      ]
+    },
+    "HostDocumentVersionResponse": {
+      "properties": [
+        "id",
+        "versionNumber",
+        "fileId",
+        "contentHash",
+        "sizeBytes",
+        "changeDescription",
+        "createdAtUtc",
+        "uploadedByUserId"
+      ]
+    },
+    "HostDocumentVersionResponseList": {
+      "properties": [],
+      "itemSchema": "HostDocumentVersionResponse"
+    },
+    "HostDocumentItemResponse": {
+      "properties": [
+        "id",
+        "title",
+        "description",
+        "categoryId",
+        "currentVersion",
+        "createdAtUtc",
+        "createdByUserId",
+        "updatedAtUtc",
+        "updatedByUserId",
+        "version",
+        "visibilityMode",
+        "appliedVersionId",
+        "mimeType"
+      ]
+    },
+    "HostDocumentItemResponsePage": {
+      "properties": [
+        "items",
+        "page",
+        "pageSize",
+        "total"
+      ],
+      "itemSchema": "HostDocumentItemResponse"
+    },
+    "BooleanResponse": {
+      "properties": []
+    },
+    "ChangeHostDocumentStatusRequest": {
+      "properties": [
+        "version"
+      ]
+    }
+  }
 }

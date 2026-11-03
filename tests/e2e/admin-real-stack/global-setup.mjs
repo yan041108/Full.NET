@@ -73,6 +73,8 @@ export default async function globalSetup() {
     existingState
     && providerMatches
     && profileMatches
+    && typeof existingState?.codeGenerationArchiveRoot === 'string'
+    && existsSync(existingState.codeGenerationArchiveRoot)
     && workspaceMatches
     && observabilityLogRootMatches
   );

@@ -40,6 +40,8 @@ const INCLUDE_ROOTS = [
   'packages/admin-i18n',
   'packages/admin-form-designer',
   'packages/design-tokens',
+  'packages/braces',
+  'patches',
 ];
 
 const INCLUDE_FILES = [
@@ -51,6 +53,7 @@ const INCLUDE_FILES = [
   'package.json',
   'pnpm-lock.yaml',
   'pnpm-workspace.yaml',
+  'templates/fullnet-app/package.json',
   'scripts/openapi/generate-fullnet-client.mjs',
   'scripts/openapi/validate-client-generation-readiness.mjs',
   'contracts/openapi/fullnet-client-v1.openapi.json',

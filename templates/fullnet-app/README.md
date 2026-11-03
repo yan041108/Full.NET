@@ -2,6 +2,8 @@
 
 This template creates an independently buildable Full.NET application with a versioned framework source bundle under `framework/fullnet/`.
 
+New applications expose their own root commands: `pnpm dev:api`, `pnpm dev:worker`, `pnpm dev:admin`, `pnpm build:api`, `pnpm build:worker`, `pnpm build:migrator`, `pnpm build:admin`, and `pnpm typecheck:admin`. Run `pnpm db:migrate` to migrate without seeding, or explicitly choose `pnpm db:seed:baseline`. `pnpm generate:crud --schema schema.json --workspace .` previews CRUD; append `--apply` only when writing is intended. `pnpm generate:client` and `pnpm check:client` invoke the shipped OpenAPI tools and accept their explicit input/manifest/output options. Configure dependencies and secrets before starting hosts; these commands do not provision infrastructure. Dependency versions, workspace safety overrides, and patch files remain frozen with the package; repository-only tests and release commands are excluded.
+
 From the Full.NET source checkout, first assemble the template package into an empty output directory:
 
 ```bash

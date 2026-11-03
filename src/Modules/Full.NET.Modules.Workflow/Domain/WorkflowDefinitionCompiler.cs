@@ -114,6 +114,8 @@ internal static class WorkflowDefinitionCompiler
             return WorkflowCompilationResult.Failure(WorkflowErrorCodes.DefinitionFieldPolicyInvalid);
         if (draft.Nodes.Any(node => node.NodeTypeKey is "integration.trigger" or "integration.async_trigger" && !WorkflowConnectorPolicy.TryRead(node.Config, null, out _)))
             return WorkflowCompilationResult.Failure(WorkflowErrorCodes.DefinitionFieldPolicyInvalid);
+        if (draft.Nodes.Any(node => node.NodeTypeKey == WorkflowCollaborationCallPolicy.NodeType && !WorkflowCollaborationCallPolicy.TryRead(node.Config, out _)))
+            return WorkflowCompilationResult.Failure(WorkflowErrorCodes.CollaborationGrantInvalid);
 
         if (draft.Nodes.Any(node => !WorkflowSlaPolicy.TryRead(node.Config, node.NodeTypeKey, out _)))
             return WorkflowCompilationResult.Failure(WorkflowErrorCodes.DefinitionTimeoutPolicyInvalid);

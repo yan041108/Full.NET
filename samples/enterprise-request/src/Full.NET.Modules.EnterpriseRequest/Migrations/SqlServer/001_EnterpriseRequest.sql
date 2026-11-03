@@ -187,6 +187,7 @@ BEGIN
     (
         Id uniqueidentifier NOT NULL,
         TenantId uniqueidentifier NOT NULL,
+        OrganizationUnitId uniqueidentifier NOT NULL,
         RequestId uniqueidentifier NOT NULL,
         LineNumber int NOT NULL,
         ItemDescription nvarchar(200) NOT NULL,
@@ -362,3 +363,6 @@ END;
           AND name = N'MS_Description'
     )
         EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'乐观并发版本号', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'demo_enterprise_request_enterprise_request_line', @level2type=N'COLUMN', @level2name=N'Version';
+-- 明细组织归属是主从隔离的显式字段，注释可在建表后重跑补齐。
+IF NOT EXISTS (SELECT 1 FROM sys.extended_properties WHERE major_id = OBJECT_ID(N'dbo.demo_enterprise_request_enterprise_request_line') AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.demo_enterprise_request_enterprise_request_line'), N'OrganizationUnitId', 'ColumnId') AND name = N'MS_Description')
+    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'归属组织单元标识', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'demo_enterprise_request_enterprise_request_line', @level2type=N'COLUMN', @level2name=N'OrganizationUnitId';

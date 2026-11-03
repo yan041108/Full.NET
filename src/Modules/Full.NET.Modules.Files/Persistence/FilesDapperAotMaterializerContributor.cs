@@ -12,6 +12,12 @@ internal sealed class FilesDapperAotMaterializerContributor : IDapperAotMaterial
 {
     public void RegisterMaterializers(DapperAotMaterializerRegistrar registrar)
     {
+        registrar.Register<WorkflowFileReadCapabilityRecord>(reader => new(reader.GetGuid(0), reader.GetGuid(1),
+            AotDataReaderExtensions.ReadNullableGuid(reader, 2), reader.GetString(3), AotDataReaderExtensions.ReadNullableGuid(reader, 4), reader.GetString(5),
+            reader.GetString(6), reader.GetString(7), reader.GetGuid(8), reader.GetGuid(9), reader.GetString(10), reader.GetString(11), reader.GetInt64(12),
+            reader.GetString(13), reader.GetString(14), AotDataReaderExtensions.ReadDateTimeOffset(reader, 15), AotDataReaderExtensions.ReadDateTimeOffset(reader, 16),
+            reader.IsDBNull(17) ? null : AotDataReaderExtensions.ReadDateTimeOffset(reader, 17), reader.GetInt64(18),
+            AotDataReaderExtensions.ReadNullableString(reader, 19), AotDataReaderExtensions.ReadNullableString(reader, 20)));
         registrar.Register<Full.NET.Modules.Files.Features.TenantResourceFiles.TenantStorageUsageRow>(reader => new(reader.GetGuid(0),
             System.Convert.ToInt64(reader.GetValue(1), System.Globalization.CultureInfo.InvariantCulture)));
         registrar.Register<TenantResourceFileRecord>(ReadTenantResourceFileRecord);
@@ -20,6 +26,10 @@ internal sealed class FilesDapperAotMaterializerContributor : IDapperAotMaterial
         registrar.Register<TenantResourceFileReadyRecord>(ReadTenantResourceFileReadyRecord);
         registrar.Register<TenantResourceFileReconciliationRecord>(ReadTenantResourceFileReconciliationRecord);
         registrar.Register<HostFileListRecord>(ReadHostFileListRecord);
+        registrar.Register<HostFileUploadOperationRecord>(reader => new HostFileUploadOperationRecord {
+            Id = reader.GetGuid(0), OriginalFileName = reader.GetString(1), ContentType = reader.GetString(2),
+            SizeBytes = reader.GetInt64(3), ContentHash = AotDataReaderExtensions.ReadNullableString(reader, 4),
+            CreatedByUserId = reader.GetGuid(5), StorageState = reader.GetString(6), IsDeleted = AotDataReaderExtensions.ReadBoolean(reader, 7) });
         registrar.Register<HostFileDetailRecord>(ReadHostFileDetailRecord);
         registrar.Register<HostFolderRecord>(ReadHostFolderRecord);
         registrar.Register<HostFolderChildRecord>(reader => new HostFolderChildRecord

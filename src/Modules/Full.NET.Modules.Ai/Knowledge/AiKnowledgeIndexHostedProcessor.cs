@@ -14,7 +14,7 @@ internal sealed class AiKnowledgeIndexHostedProcessor(IServiceScopeFactory scope
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         var configuration = options.Value;
-        if (!configuration.Enabled) return;
+        if (!configuration.Enabled && !configuration.CorrectionPreparationEnabled) return;
         while (!stoppingToken.IsCancellationRequested)
         {
             using var observationScope = AiDataObservationScope.Enter(dataPolicy ?? AiDataProcessingPolicy.Default);
@@ -22,8 +22,12 @@ internal sealed class AiKnowledgeIndexHostedProcessor(IServiceScopeFactory scope
             try
             {
                 await using var scope = scopes.CreateAsyncScope();
-                acquired = await scope.ServiceProvider.GetRequiredService<AiKnowledgeIndexWorkerCoordinator>()
-                    .ProcessPendingAsync(stoppingToken).ConfigureAwait(false);
+                if (configuration.CorrectionPreparationEnabled)
+                    acquired = await scope.ServiceProvider.GetRequiredService<AiKnowledgeCorrectionPreparationCoordinator>()
+                        .ProcessPendingAsync(stoppingToken).ConfigureAwait(false);
+                if (configuration.Enabled)
+                    acquired += await scope.ServiceProvider.GetRequiredService<AiKnowledgeIndexWorkerCoordinator>()
+                        .ProcessPendingAsync(stoppingToken).ConfigureAwait(false);
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested) { break; }
             catch (Exception exception)

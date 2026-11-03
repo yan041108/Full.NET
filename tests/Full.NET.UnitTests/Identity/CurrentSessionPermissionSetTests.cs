@@ -20,6 +20,18 @@ namespace Full.NET.UnitTests.Identity;
 public sealed class CurrentSessionPermissionSetTests
 {
     [TestMethod]
+    public async Task Token_expiring_during_permission_read_does_not_grant_authority()
+    {
+        var f = new Fixture();
+        var gate = new TaskCompletionSource<PermissionSnapshot>(TaskCreationOptions.RunContinuationsAsynchronously);
+        f.Permissions.ReadAsync(f.User, "host", null, Arg.Any<CancellationToken>()).Returns(gate.Task);
+        var pending = f.Authorization.AuthorizeAllAsync(["a"]);
+        f.Clock.UtcNow.Returns(f.Now.AddMinutes(5));
+        gate.SetResult(new PermissionSnapshot(["a"], false));
+        Assert.IsNull(await pending);
+    }
+
+    [TestMethod]
     public async Task Four_permissions_share_one_authority_read_and_later_revocation_is_observed()
     {
         var f = new Fixture();
@@ -108,12 +120,14 @@ public sealed class CurrentSessionPermissionSetTests
         internal AccessSessionValidationRecord Session;
         internal CurrentSessionAuthorization Authorization;
         internal CurrentTenantAccessor Tenant = new();
+        internal IClock Clock = Substitute.For<IClock>();
+        internal DateTimeOffset Now;
 
         internal Fixture()
         {
-            var now = DateTimeOffset.UtcNow;
+            var now = Now = DateTimeOffset.UtcNow;
             var sessionId = Guid.CreateVersion7();
-            var clock = Substitute.For<IClock>(); clock.UtcNow.Returns(now);
+            var clock = Clock; clock.UtcNow.Returns(now);
             Session = new AccessSessionValidationRecord { UserId = User, SecurityStamp = "stamp",
                 ScopeKey = "host", IsActive = true, ExpiresAtUtc = now.AddHours(1) };
             Queries.QuerySingleOrDefaultAsync<AccessSessionValidationRecord>(IdentitySql.FindAccessSessionValidationById,

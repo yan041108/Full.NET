@@ -20,6 +20,7 @@ using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Organization.Contracts;
 using Full.NET.Modules.SerialNumbers.Contracts;
 using Full.NET.Modules.Workflow.Contracts;
+using Full.NET.Modules.Workflow.Execution;
 using Full.NET.Realtime.SignalR;
 using Full.NET.Serialization.MemoryPack;
 using Microsoft.AspNetCore.Http;
@@ -121,6 +122,14 @@ internal static class DataApprovalRecoveryRestartAssertions
                 "Full.NET.IntegrationTests.DataApproval.Worker",
                 "DataApprovalRequestRecoveryHostedProcessor")
             .ConfigureAwait(false);
+        // 用真实双库执行器验证无待办时的首轮及回绕扫描；替身查询无法暴露 Guid 参数绑定异常。
+        await using (var scope = workerHost.Services.CreateAsyncScope())
+        {
+            var timeoutProcessor = scope.ServiceProvider.GetRequiredService<WorkflowTodoTimeoutProcessor>();
+            Assert.AreEqual(0, await timeoutProcessor.ProcessDueAsync(cancellationToken));
+            Assert.AreEqual(0, await timeoutProcessor.ProcessDueAsync(cancellationToken));
+        }
+
         await workerHost.StartAsync(cancellationToken).ConfigureAwait(false);
         try
         {

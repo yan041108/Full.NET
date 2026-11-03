@@ -15,7 +15,28 @@ namespace Full.NET.UnitTests.CodeGeneration;
 public sealed class CodeGenerationEndpointSecurityTests
 {
     [TestMethod]
-    public async Task Apply_endpoint_requires_independent_apply_permission()
+    public async Task Workspace_recovery_requires_both_apply_and_rollback_permissions()
+    {
+        var builder = WebApplication.CreateBuilder();
+        var module = new CodeGenerationModule();
+        module.AddServices(builder.Services, builder.Configuration);
+        builder.Services.AddSingleton(Substitute.For<IApiResultMapper>());
+        await using var app = builder.Build();
+        module.MapEndpoints(app);
+        var endpoint = ((IEndpointRouteBuilder)app).DataSources.SelectMany(source => source.Endpoints).OfType<RouteEndpoint>()
+            .Single(endpoint => endpoint.RoutePattern.RawText == "/api/v1/code-generation/runs/workspace/recover");
+        CollectionAssert.AreEquivalent(new[] { FullNetPermissionPolicies.For(CodeGenerationRunPermissions.Apply), FullNetPermissionPolicies.For(CodeGenerationRunPermissions.Rollback) },
+            endpoint.Metadata.GetOrderedMetadata<IAuthorizeData>().Select(item => item.Policy).ToArray());
+        var state = ((IEndpointRouteBuilder)app).DataSources.SelectMany(source => source.Endpoints).OfType<RouteEndpoint>()
+            .Single(endpoint => endpoint.RoutePattern.RawText == "/api/v1/code-generation/runs/workspace");
+        Assert.AreEqual(FullNetPermissionPolicies.For(CodeGenerationRunPermissions.Read), state.Metadata.GetOrderedMetadata<IAuthorizeData>().Single().Policy);
+    }
+
+    [TestMethod]
+    [DataRow("/api/v1/code-generation/runs/apply")]
+    [DataRow("/api/v1/code-generation/runs/apply-plan")]
+    [DataRow("/api/v1/code-generation/runs/{runId:guid}/publication/retry")]
+    public async Task Apply_endpoint_requires_independent_apply_permission(string route)
     {
         var builder = WebApplication.CreateBuilder();
         var module = new CodeGenerationModule();
@@ -28,7 +49,7 @@ public sealed class CodeGenerationEndpointSecurityTests
             .SelectMany(source => source.Endpoints)
             .OfType<RouteEndpoint>()
             .Single(endpoint => endpoint.RoutePattern.RawText
-                == "/api/v1/code-generation/runs/apply");
+                == route);
         var authorization = endpoint.Metadata
             .GetOrderedMetadata<IAuthorizeData>();
 

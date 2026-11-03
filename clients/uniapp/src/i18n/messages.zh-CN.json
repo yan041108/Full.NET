@@ -32,6 +32,19 @@
     }
   },
   "workflow": {
+    "resource": {
+      "instanceTitle": "流程实例",
+      "states": { "active": "进行中", "suspended": "已暂停", "approved": "已通过", "rejected": "已拒绝", "cancelled": "已取消", "completed": "已完成", "unknown": "其他状态" },
+      "open": "查看关联流程",
+      "openTodo": "查看当前待办",
+      "unavailable": "资源已失效、不可见或当前账号无权访问，请从列表重新确认。",
+      "failed": "资源加载失败，请稍后重试。",
+      "revoked": "此消息已撤销，关联入口已关闭。",
+      "status": "当前状态",
+      "started": "发起时间",
+      "definitionVersion": "固定流程版本",
+      "currentState": "以下是当前权威状态，旧通知不会重新开启已关闭的活动。"
+    },
     "todos": {
       "title": "我的待办",
       "refresh": "刷新",
@@ -114,6 +127,15 @@
         "completed": "已完成",
         "cancelled": "已取消"
       }
+    },
+    "form": {
+      "addRow": "添加明细",
+      "upload": "上传附件",
+      "remove": "移除",
+      "reuse": "复用 {name}",
+      "attachment": "附件",
+      "removeRow": "删除明细",
+      "fileFailed": "无法访问此附件，请重新打开待办核对当前权限。"
     }
   },
   "settings": {

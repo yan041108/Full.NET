@@ -8,6 +8,7 @@ using Full.NET.Modules.Tenancy.Features.ManageTenantEntitlements.Persistence;
 using Full.NET.Modules.Tenancy.Features.ManageTenantSubscriptions.Persistence;
 using Full.NET.Modules.Tenancy.Features.ReserveTenantQuota.Persistence;
 using Full.NET.Modules.Tenancy.Seeding;
+using Full.NET.Modules.Tenancy.Features.SubscriptionBilling;
 
 namespace Full.NET.Modules.Tenancy.Persistence;
 
@@ -16,17 +17,35 @@ namespace Full.NET.Modules.Tenancy.Persistence;
 /// </summary>
 internal sealed class TenancyDapperAotMaterializerContributor : IDapperAotMaterializerContributor
 {
+    /// <summary>迁移播种只注册租户摘要、权益目录与启动状态；不引入后台或 HTTP 服务。</summary>
+    internal static void RegisterMigrationMaterializers(DapperAotMaterializerRegistrar registrar)
+    {
+        registrar.Register<LocalTenantSeedSummary>(ReadLocalTenantSeedSummary);
+        registrar.Register<TenantEntitlementCatalogRecord>(ReadTenantEntitlementCatalogRecord);
+        registrar.Register<TenantEntitlementEnforcementRecord>(ReadTenantEntitlementEnforcementRecord);
+    }
+
     public void RegisterMaterializers(DapperAotMaterializerRegistrar registrar)
     {
+        RegisterMigrationMaterializers(registrar);
+        registrar.Register<TenantPackageOfferRecord>(r => new(r.GetGuid(0), r.GetGuid(1), r.GetGuid(2),
+            r.GetInt64(3), r.GetString(4), r.GetInt64(5), r.GetInt64(6), AotDataReaderExtensions.ReadInt32(r, 7),
+            AotDataReaderExtensions.ReadBoolean(r, 8), AotDataReaderExtensions.ReadInt32(r, 9)));
+        registrar.Register<SubscriptionEntitlementRecord>(r => new(r.GetGuid(0), r.GetString(1), r.GetString(2), AotDataReaderExtensions.ReadBoolean(r, 3)));
+        registrar.Register<InvoiceEntitlementRecord>(r => new(r.GetGuid(0), r.GetGuid(1), r.GetString(2)));
+        registrar.Register<SubscriptionInvoiceRecord>(r => new(r.GetGuid(0), r.GetGuid(1), r.GetGuid(2), r.GetString(3),
+            r.GetGuid(4), AotDataReaderExtensions.ReadInt32(r, 5), AotDataReaderExtensions.ReadInt32(r, 6), r.GetGuid(7), r.GetGuid(8),
+            r.GetGuid(9), AotDataReaderExtensions.ReadNullableGuid(r, 10), AotDataReaderExtensions.ReadNullableString(r, 11),
+            r.GetInt64(12), r.GetString(13), r.GetInt64(14), r.GetInt64(15), AotDataReaderExtensions.ReadDateTimeOffset(r, 16),
+            AotDataReaderExtensions.ReadDateTimeOffset(r, 17), r.GetString(18), AotDataReaderExtensions.ReadNullableGuid(r, 19),
+            r.GetInt64(20), AotDataReaderExtensions.ReadDateTimeOffset(r, 21), AotDataReaderExtensions.ReadDateTimeOffset(r, 22),
+            AotDataReaderExtensions.ReadInt32(r, 23), r.GetString(24)));
         registrar.Register<HostTenantRecord>(ReadHostTenantRecord);
         registrar.Register<TenantResolutionRecord>(ReadTenantResolutionRecord);
         registrar.Register<TenantBrandingRecord>(ReadTenantBrandingRecord);
         registrar.Register<TenantPackageRecord>(ReadTenantPackageRecord);
         registrar.Register<TenantPackageIdentityRecord>(ReadTenantPackageIdentityRecord);
-        registrar.Register<LocalTenantSeedSummary>(ReadLocalTenantSeedSummary);
-        registrar.Register<TenantEntitlementCatalogRecord>(ReadTenantEntitlementCatalogRecord);
         registrar.Register<TenantEntitlementBindingRecord>(ReadTenantEntitlementBindingRecord);
-        registrar.Register<TenantEntitlementEnforcementRecord>(ReadTenantEntitlementEnforcementRecord);
         registrar.Register<TenantSubscriptionRecord>(ReadTenantSubscriptionRecord);
         registrar.Register<TenantQuotaMetricRecord>(ReadTenantQuotaMetricRecord);
         registrar.Register<TenantQuotaUsageBaselineRecord>(ReadTenantQuotaUsageBaselineRecord);
@@ -148,7 +167,8 @@ internal sealed class TenancyDapperAotMaterializerContributor : IDapperAotMateri
             reader.GetInt64(4),
             reader.GetInt64(5),
             reader.GetInt64(6),
-            reader.GetInt32(7));
+            reader.GetInt32(7),
+            AotDataReaderExtensions.ReadNullableGuid(reader, 8));
 
     /// <summary>缺失指标与未指定游标使用数据库 NULL，原生路径同样保留可选标识。</summary>
     private static TenantQuotaUsageBaselineRecord ReadTenantQuotaUsageBaselineRecord(DbDataReader reader) =>

@@ -267,7 +267,7 @@ onMounted(async () => {
 
     <ElCard ref="tableMainRef" class="art-table-card art-full-height" shadow="never">
       <ArtTableHeader :title="t('registrationWays.title')">
-        <template #actions>
+        <template #left>
           <PermissionGate code="identity.registration_ways.create">
             <ElButton
               type="primary"

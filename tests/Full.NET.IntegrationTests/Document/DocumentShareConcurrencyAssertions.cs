@@ -27,6 +27,8 @@ internal static class DocumentShareConcurrencyAssertions
             [
                 HostDocumentPermissions.Read,
                 HostDocumentPermissions.Create,
+                HostDocumentPermissions.Publish,
+                HostDocumentPermissions.AddVersion,
                 HostDocumentSharePermissions.Read,
                 HostDocumentSharePermissions.Create,
                 HostDocumentSharePermissions.UpdateStatus,
@@ -85,7 +87,7 @@ internal static class DocumentShareConcurrencyAssertions
         var attempts = Enumerable.Range(0, ConcurrentAttempts)
             .Select(_ => client.PostAsJsonAsync(
                 path,
-                new AccessHostDocumentShareRequest(password),
+                new AccessHostDocumentShareRequest(password) { RequestKey = Guid.CreateVersion7() },
                 cancellationToken))
             .ToArray();
         var responses = await Task.WhenAll(attempts);
@@ -97,7 +99,7 @@ internal static class DocumentShareConcurrencyAssertions
                 $"访问上限为 1 时，{ConcurrentAttempts} 路并发必须仅成功一次。");
             Assert.IsTrue(
                 responses.Where(response => response.StatusCode != HttpStatusCode.OK)
-                    .All(response => response.StatusCode == HttpStatusCode.UnprocessableEntity),
+                    .All(response => response.StatusCode == HttpStatusCode.Conflict),
                 "未取得访问配额的并发请求必须稳定返回业务规则失败。");
         }
         finally
@@ -128,7 +130,7 @@ internal static class DocumentShareConcurrencyAssertions
             cancellationToken);
         using var response = await client.PostAsJsonAsync(
             $"/api/v1/document/public/shares/{share.ShareCode}/access",
-            new AccessHostDocumentShareRequest("WrongPassword!2026"),
+            new AccessHostDocumentShareRequest("WrongPassword!2026") { RequestKey = Guid.CreateVersion7() },
             cancellationToken);
         Assert.AreEqual(HttpStatusCode.NotFound, response.StatusCode);
         Assert.AreEqual(0, await QueryAccessCountAsync(factory, share.Id, cancellationToken));
@@ -162,7 +164,7 @@ internal static class DocumentShareConcurrencyAssertions
 
         using var accessResponse = await client.PostAsJsonAsync(
             $"/api/v1/document/public/shares/{share.ShareCode}/access",
-            new AccessHostDocumentShareRequest(password),
+            new AccessHostDocumentShareRequest(password) { RequestKey = Guid.CreateVersion7() },
             cancellationToken);
         Assert.AreEqual(HttpStatusCode.NotFound, accessResponse.StatusCode);
         Assert.AreEqual(0, await QueryAccessCountAsync(factory, share.Id, cancellationToken));
@@ -187,7 +189,7 @@ internal static class DocumentShareConcurrencyAssertions
 
         using var accessResponse = await client.PostAsJsonAsync(
             $"/api/v1/document/public/shares/{share.ShareCode}/access",
-            new AccessHostDocumentShareRequest(password),
+            new AccessHostDocumentShareRequest(password) { RequestKey = Guid.CreateVersion7() },
             cancellationToken);
         Assert.AreEqual(HttpStatusCode.NotFound, accessResponse.StatusCode);
         Assert.AreEqual(0, await QueryAccessCountAsync(factory, share.Id, cancellationToken));
@@ -245,7 +247,7 @@ internal static class DocumentShareConcurrencyAssertions
         Assert.AreEqual(HttpStatusCode.Created, response.StatusCode);
         var document = await response.Content.ReadFromJsonAsync<HostDocumentItemResponse>(cancellationToken);
         Assert.IsNotNull(document);
-        return document;
+        return await DocumentLifecycleTestSupport.PublishAsync(client, token, document, cancellationToken);
     }
 
     private static async Task<HostDocumentShareResponse> CreateShareAsync(

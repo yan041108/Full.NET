@@ -26,7 +26,7 @@ public sealed class AiPromptExecutionPolicyTests
         Assert.AreEqual(expectedHash, AiPromptVersionIntegrity.Hash(body, json, 1, "ollama", "model"));
     }
     [TestMethod]
-    [DataRow(AgentDefinitionRegistry.SingleTextKey)][DataRow(AgentDefinitionRegistry.ReadOnlyToolLoopKey)][DataRow(AgentWorkflowRegistry.ChatRenameWorkflowKey)]
+    [DataRow(AgentDefinitionRegistry.SingleTextKey)][DataRow(AgentDefinitionRegistry.ReadOnlyToolLoopKey)][DataRow(AgentWorkflowRegistry.ChatRenameWorkflowKey)][DataRow(AgentWorkflowRegistry.ChatReviewWorkflowKey)]
     public void Current_static_definition_roundtrips_with_distinct_hash_domain(string key)
     {
         var body = Body(key); Assert.IsTrue(AiPromptPolicy.IsValid(body));

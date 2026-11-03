@@ -31,16 +31,22 @@ export function readWorkflowAssigneeSelections(value: unknown): WorkflowAssignee
 export async function getWorkflowStarterSelections(versionId: string, signal?: AbortSignal): Promise<WorkflowStarterSelectionMetadata> {
   if (!uuid.test(versionId)) return invalid();
   const value = await workflowGetStarterSelections(http, { versionId }, signal);
-  if (!object(value) || value.definitionVersionId !== versionId || !Array.isArray(value.items) || value.items.length > 64) return invalid();
+  if (!object(value) || value.definitionVersionId !== versionId) return invalid();
+  return { ...value, items: readWorkflowStarterSelectionDescriptors(value.items) } as WorkflowStarterSelectionMetadata;
+}
+
+/** 草稿预览与已发布版本使用相同声明结构；身份绑定由各自读取入口另行校验。 */
+export function readWorkflowStarterSelectionDescriptors(value: unknown): readonly WorkflowStarterSelectionDescriptor[] {
+  if (!Array.isArray(value) || value.length > 64) return invalid();
   const seen = new Set<string>();
-  for (const item of value.items) {
+  for (const item of value) {
     if (!object(item) || typeof item.selectionKey !== 'string' || !key.test(item.selectionKey) || seen.has(item.selectionKey) ||
       typeof item.nodeKey !== 'string' || !key.test(item.nodeKey) || typeof item.nodeName !== 'string' || item.nodeName.length > 512 ||
       !['single', 'multiple'].includes(String(item.modeKey)) || !Number.isSafeInteger(item.maximumUsers) || Number(item.maximumUsers) < 1 || Number(item.maximumUsers) > 20 ||
       item.modeKey === 'single' && item.maximumUsers !== 1 || !['all', 'specified_users', 'role_members'].includes(String(item.rangeKey))) return invalid();
     seen.add(item.selectionKey);
   }
-  return value as unknown as WorkflowStarterSelectionMetadata;
+  return value as unknown as readonly WorkflowStarterSelectionDescriptor[];
 }
 
 export async function listWorkflowStarterSelectionCandidates(versionId: string, selectionKey: string, page: number, signal?: AbortSignal): Promise<WorkflowRecipientCandidatePageResponse> {

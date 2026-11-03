@@ -129,13 +129,15 @@ export function readWorkflowVoteRequest(value: unknown): WorkflowVoteRequest {
 
 export type WorkflowTodoDetail = Omit<
   WorkflowTodoRuntimeResponse,
-  'fieldPolicies' | 'formSchema' | 'submission' |
+  'fieldPolicies' | 'formSchema' | 'submission' | 'attachmentNames' |
   'approvalModeKey' | 'requiredApprovalCount' | 'approvedCount' |
   'rejectedCount' | 'pendingCount' | 'approvalGroups' | 'activityKindKey' | 'taskProgress' | 'voteForm' | 'voteProgress' | 'claimProgress' | 'webRenderJson' | 'allowedActions' | 'signRequired' | 'commentRequired'
 > & {
   readonly fieldPolicies: WorkflowFieldPolicies;
   readonly formSchema: WorkflowFormSchema;
   readonly submission: WorkflowSubmission;
+  /** 名称只用于当前可见共享附件的文本显示；读取权限仍由内容端点裁定。 */
+  readonly attachmentNames?: Readonly<Record<string, string>> | null;
   readonly activityKindKey?: 'human.approval' | 'human.group_approval' | 'human.task' | 'human.vote' | 'human.claim';
   readonly taskProgress?: WorkflowTaskProgress | null;
   readonly voteForm?: WorkflowVoteForm | null;
@@ -171,6 +173,8 @@ export function isWorkflowTodoDetail(value: unknown): value is WorkflowTodoDetai
     return false;
   }
   const response = raw as WorkflowTodoDetail;
+  if (response.attachmentNames != null && (!isRecord(response.attachmentNames) ||
+    Object.values(response.attachmentNames).some(name => typeof name !== 'string' || name.length < 1 || name.length > 260))) return false;
   const kind = response.activityKindKey ?? (response.approvalModeKey === 'group' ? 'human.group_approval' : 'human.approval');
   const isTask = kind === 'human.task';
   const isVote = kind === 'human.vote';

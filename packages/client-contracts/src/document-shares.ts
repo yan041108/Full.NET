@@ -31,6 +31,8 @@ export interface HostDocumentSharePage {
 }
 
 export interface AccessHostDocumentShareRequest {
+  accessTypeKey?: 'preview' | 'download';
+  requestKey?: string;
   previewGrant?: string | null;
   password?: string | null;
 }
@@ -110,6 +112,8 @@ export function isHostDocumentSharePage(value: unknown): value is HostDocumentSh
 
 export function isAccessHostDocumentShareRequest(value: unknown): value is AccessHostDocumentShareRequest {
   return isRecord(value)
+    && (value.accessTypeKey === undefined || value.accessTypeKey === 'download' || value.accessTypeKey === 'preview')
+    && (value.requestKey === undefined || isGuid(value.requestKey))
     && (value.previewGrant === undefined || value.previewGrant === null || (typeof value.previewGrant === 'string' && value.previewGrant.length <= 4096))
     && (value.password === undefined || isNullableString(value.password));
 }

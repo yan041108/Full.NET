@@ -82,6 +82,9 @@ public sealed record AiChatMessageResponse(
     public string? KnowledgeUnavailableCode { get; init; }
     /// <summary>仅返回服务器确认且当前可读的引用位置。</summary>
     public IReadOnlyList<AiKnowledgeCitationResponse> Citations { get; init; } = [];
+
+    /// <summary>已完成当前权威核证的本人日程引用，与文档引用保持显式分离。</summary>
+    public IReadOnlyList<AiPersonalScheduleCitationResponse> PersonalScheduleCitations { get; init; } = [];
 }
 
 /// <summary>知识答案的来源位置，不包含内部完成证明或原始来源正文。</summary>
@@ -90,10 +93,16 @@ public sealed record AiChatMessageResponse(
 /// <param name="VersionId">来源版本标识。</param>
 /// <param name="Sequence">分块序号。</param>
 /// <param name="PageNumber">PDF 页码，TXT/DOCX 来源为空。</param>
-/// <param name="Offset">分块偏移。</param>
-/// <param name="Length">分块长度。</param>
-public sealed record AiKnowledgeCitationResponse(Guid Id, Guid DocumentId, Guid VersionId, int Sequence, int? PageNumber, int Offset, int Length)
+/// <param name="Offset">自动原文分块偏移；人工修订为空，以 Correction 的来源集合为准。</param>
+/// <param name="Length">自动原文分块长度；人工修订为空，不能把改写长度作为原文长度。</param>
+public sealed record AiKnowledgeCitationResponse(Guid Id, Guid DocumentId, Guid VersionId, int Sequence, int? PageNumber, int? Offset, int? Length)
 {
+    /// <summary>FAQ 引用使用数据库修订及批准索引空间读取，禁止生成普通文件下载链接。</summary>
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public AiKnowledgeFaqCitationResponse? FaqSource { get; init; }
+    /// <summary>人工修订的完整来源集合；存在时所有顶层原文坐标必须为空。</summary>
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public AiKnowledgeCorrectionCitationResponse? Correction { get; init; }
     /// <summary>DOCX 的逻辑段落/表格位置；旧 TXT/PDF 响应省略此字段。</summary>
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     public AiKnowledgeDocxLocationResponse? DocxLocation { get; init; }
@@ -101,6 +110,9 @@ public sealed record AiKnowledgeCitationResponse(Guid Id, Guid DocumentId, Guid 
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     public Full.NET.Modules.Ai.Contracts.AiKnowledgeSourceLocationResponse? SourceLocation { get; init; }
 }
+
+/// <summary>历史中的 FAQ 节点；实际正文须按当前权限重新核证，不能把快照当作授权。</summary>
+public sealed record AiKnowledgeFaqCitationResponse(AiKnowledgeSearchSource Source, Guid EmbeddingModelConfigId, int EmbeddingModelVersion);
 
 /// <summary>DOCX 原始正文逻辑位置；不声明版式页码。</summary>
 /// <param name="BlockSequence">逻辑正文块的零起始序号。</param>

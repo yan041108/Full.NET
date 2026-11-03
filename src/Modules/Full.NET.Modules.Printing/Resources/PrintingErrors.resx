@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms</value></resheader>
+  <data name="printing.template.invalid" xml:space="preserve"><value>模板参数无效。名称限 128 字符，机器码限 128 个 ASCII 字母、数字、点、下划线或短横线，版本说明限 512 字符。</value></data>
+  <data name="printing.template.not_found" xml:space="preserve"><value>打印模板不存在或当前不可访问。</value></data>
+  <data name="printing.template.key_conflict" xml:space="preserve"><value>模板机器码已存在，请先检查已保存的模板。</value></data>
+  <data name="printing.template.concurrency_conflict" xml:space="preserve"><value>模板版本已变化，请重新读取草稿后再操作。</value></data>
+  <data name="printing.form_schema.not_found" xml:space="preserve"><value>打印表单定义不存在。</value></data>
+  <data name="printing.template_version.not_found" xml:space="preserve"><value>打印发布版本不存在。</value></data>
+  <data name="printing.template.not_published" xml:space="preserve"><value>模板尚未发布，请先显式发布版本。</value></data>
+  <data name="printing.layout_html.invalid" xml:space="preserve"><value>打印布局无效或超过 65536 字符。</value></data>
+  <data name="printing.binding.failed" xml:space="preserve"><value>无法在当前授权上下文绑定打印数据。</value></data>
+</root>

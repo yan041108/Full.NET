@@ -7,6 +7,7 @@ using Full.NET.Data.Dapper;
 using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Identity.Features.AcceptTenantInvitation;
 using Full.NET.Modules.Identity.Features.ManageTenantMembers;
+using Full.NET.Modules.Identity.Features.TenantSeatOperations;
 using NSubstitute;
 
 namespace Full.NET.UnitTests.Identity;
@@ -18,7 +19,7 @@ public sealed class TenantInvitationRollbackTests
     [TestMethod]
     [DataRow(false)]
     [DataRow(true)]
-    public async Task Failed_invitation_or_quota_confirmation_rolls_back_member_write(bool failConfirmation)
+    public async Task Failed_member_or_invitation_write_rolls_back_without_reserving_quota(bool failConfirmation)
     {
         var tenantId = Guid.NewGuid();
         var userId = Guid.NewGuid();
@@ -43,27 +44,20 @@ public sealed class TenantInvitationRollbackTests
                 Guid.NewGuid(), TenantMemberRoles.Member, "hash", TenantInvitationStatuses.Pending,
                 now.AddHours(1), now, now, 1));
         command.ExecuteAsync(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>())
-            .Returns(1, failConfirmation ? 1 : 0);
+            .Returns(failConfirmation ? 1 : 0, 0);
         var coordinator = new RecordingDbTransactionCoordinator();
+        var writer = Substitute.For<ICurrentTenantContextWriter>();
+        var transaction = new DapperCommandTransaction(coordinator);
+        var processor = new TenantSeatOperationProcessor(query, command, transaction, writer, resolver, quota, clock);
         var service = new AcceptTenantInvitationService(query, command,
-            new DapperCommandTransaction(coordinator), Substitute.For<ICurrentTenantContextWriter>(),
-            resolver, quota, clock, ids);
+            transaction, writer, resolver, processor, clock, ids);
 
         var result = await service.AcceptAsync(userId, new AcceptTenantInvitationRequest("valid-invitation-token"));
 
         Assert.IsFalse(result.IsSuccess);
-        if (failConfirmation)
-        {
-            // 成员写入提交后配额确认失败，补偿事务会再次更新成员与邀请。
-            await command.Received(4).ExecuteAsync(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>());
-            Assert.AreEqual(2, coordinator.CommitCount);
-            Assert.AreEqual(0, coordinator.RollbackCount);
-        }
-        else
-        {
-            await command.Received(2).ExecuteAsync(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>());
-            Assert.AreEqual(0, coordinator.CommitCount);
-            Assert.AreEqual(1, coordinator.RollbackCount);
-        }
+        await command.Received(failConfirmation ? 2 : 1).ExecuteAsync(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>());
+        await quota.DidNotReceiveWithAnyArgs().TryReserveAsync(default, default!, default);
+        Assert.AreEqual(0, coordinator.CommitCount);
+        Assert.AreEqual(1, coordinator.RollbackCount);
     }
 }

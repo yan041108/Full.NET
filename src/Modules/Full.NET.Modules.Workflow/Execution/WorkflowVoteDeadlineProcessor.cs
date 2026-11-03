@@ -55,6 +55,7 @@ internal sealed class WorkflowVoteDeadlineProcessor(IQueryExecutor query, IComma
             }
             else tenantWriter.SetHost();
             var scope = new WorkflowManagementScope(instance.TenantId, instance.ScopeKey, instance.TenantScopeKey);
+            if (!await WorkflowCollaborationRuntimeGate.AllowsAsync(instance.Id, scope, null, clock.UtcNow, query, token, tenants: tenants).ConfigureAwait(false)) return;
             var member = await query.QuerySingleOrDefaultAsync<WorkflowVoteDeadlineMemberRecord>(database.Value.Provider == DatabaseProvider.SqlServer
                 ? WorkflowVoteSql.FindDeadlineMemberSqlServer : WorkflowVoteSql.FindDeadlineMemberMySql,
                 P(("VoteId", row.Id), ("InstanceId", instance.Id), ("TenantScopeKey", scope.TenantScopeKey)), token).ConfigureAwait(false);
@@ -77,6 +78,8 @@ internal sealed class WorkflowVoteDeadlineProcessor(IQueryExecutor query, IComma
                 var current = latest.Value!;
                 if (current.Round.Id != row.Id || current.Instance.StatusKey != "active" || current.Round.StatusKey != "active") return Result<bool>.Success(false);
                 var now = clock.UtcNow;
+                if (!await WorkflowCollaborationRuntimeGate.AllowsAsync(current.Instance.Id, scope, null, now, query, inner, command).ConfigureAwait(false))
+                    return Result<bool>.Failure(WorkflowTransitionExecutionErrors.InvalidTransition());
                 var decision = await decisions.ResolveAsync(current.Round, current.Policy, scope, now, true, inner).ConfigureAwait(false);
                 if (!decision.IsSuccess) return Result<bool>.Failure(decision.Error!);
                 var applied = await results.ApplyAsync(current, prepared, decision.Value!, next, scope, null, now, inner).ConfigureAwait(false);

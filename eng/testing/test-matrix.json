@@ -4,9 +4,99 @@
     "unit": {
       "project": "tests/Full.NET.UnitTests/Full.NET.UnitTests.csproj",
       "assembly": "tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll",
-      "minimum": 9129,
+      "minimum": 9511,
       "timeout": "10m",
       "selections": {
+        "reporting-cell-key-serialization": {
+          "filter": "FullyQualifiedName~ReportingCellValuesSerializationTests",
+          "minimum": 7,
+          "timeout": "3m"
+        },
+        "enterprise-request-background-data-scope": {
+          "filter": "FullyQualifiedName~EnterpriseRequestBackgroundDataScopeTests",
+          "minimum": 4,
+          "timeout": "5m"
+        },
+        "enterprise-request-draft-mutations": {
+          "filter": "FullyQualifiedName~EnterpriseRequestMutationPolicyTests|FullyQualifiedName~CrudMutationPolicyTests",
+          "minimum": 10,
+          "timeout": "5m"
+        },
+        "enterprise-request-import-preview": {
+          "filter": "FullyQualifiedName~EnterpriseRequestImportPreviewTests|FullyQualifiedName~EnterpriseRequestImportWriterTests|FullyQualifiedName~EnterpriseRequestImportWorkerRegistrationTests",
+          "minimum": 15,
+          "timeout": "5m"
+        },
+        "codegen-application-client-module": {
+          "filter": "FullyQualifiedName~CrudApplicationClientTests|FullyQualifiedName~ModuleIntegrationTargetDocumentTests.Vue_target_preserves_explicit_business_client_module|FullyQualifiedName~ModuleIntegrationFullPlanTests.Full_plan_contains_Vue_page_both_client_artifacts_and_route_and_second_plan_is_unchanged",
+          "minimum": 12,
+          "timeout": "5m"
+        },
+        "kafka-observed-topic-metric": {
+          "filter": "FullyQualifiedName~MessagingRuntimeObservationTests.Shared_group_reports_the_sum_and_an_independent_query_cannot_replace_it",
+          "minimum": 1,
+          "timeout": "5m"
+        },
+        "kafka-review-sampling-boundaries": {
+          "filter": "FullyQualifiedName~KafkaConsumerLagObserverTests.Topic_snapshot_identity_rejects_recreation_and_partition_changes|FullyQualifiedName~MessagingRuntimeObservationTests.Consumer_lag_respects_configured_sample_age_and_expires|FullyQualifiedName~KafkaDeliveryControlTests.Reconciliation_round_processes_ready_stream_before_later_timeout_and_rotates|FullyQualifiedName~KafkaDeliveryControlTests.Sql_server_same_commit_lsn_does_not_prove_complete_transaction",
+          "minimum": 4,
+          "timeout": "5m"
+        },
+        "kafka-topic-snapshot-identity": {
+          "filter": "FullyQualifiedName~KafkaConsumerLagObserverTests.Topic_snapshot_identity_rejects_recreation_and_partition_changes",
+          "minimum": 1,
+          "timeout": "5m"
+        },
+        "kafka-multi-stream-reconciliation": {
+          "filter": "FullyQualifiedName~KafkaDeliveryControlTests.Multi_stream_|FullyQualifiedName~KafkaDeliveryControlTests.Current_terminal_corrects_|FullyQualifiedName~KafkaDeliveryControlTests.Reconciliation_does_not_|FullyQualifiedName~KafkaDeliveryControlTests.New_control_generation_|FullyQualifiedName~KafkaDeliveryControlTests.New_cdc_activation_|FullyQualifiedName~KafkaDeliveryControlTests.Legacy_terminal_cannot_|FullyQualifiedName~KafkaDeliveryControlTests.Healthy_connector_|FullyQualifiedName~KafkaDeliveryControlTests.Shared_connector_mapping_|FullyQualifiedName~KafkaDeliveryControlTests.Other_default_cdc_owner_",
+          "minimum": 45,
+          "timeout": "5m"
+        },
+        "kafka-multi-stream-monitoring": {
+          "filter": "FullyQualifiedName~MessagingRuntimeObservationTests|FullyQualifiedName~KafkaConsumerLagObserverTests|FullyQualifiedName~KafkaConnectorDeploymentContractTests|FullyQualifiedName~KafkaDeliveryControlTests.Prepare_waits_for_cdc_before_pause_and_drains_every_group_and_retry_topic|FullyQualifiedName~KafkaDeliveryControlTests.Other_default_cdc_owner_is_rejected_even_without_a_persisted_row|FullyQualifiedName~KafkaDeliveryControlTests.Shared_connector_mapping_is_rejected_before_pause|FullyQualifiedName~KafkaDeliveryControlTests.Connector_configuration_change_prevents_resuming_a_different_resource",
+          "minimum": 57,
+          "timeout": "5m"
+        },
+        "kafka-connector-deployment-contract": {
+          "filter": "FullyQualifiedName~KafkaConnectorDeploymentContractTests|FullyQualifiedName~KafkaDeliveryControlTests.Prepare_waits_for_cdc_before_pause_and_drains_every_group_and_retry_topic|FullyQualifiedName~KafkaDeliveryControlTests.Other_default_cdc_owner_is_rejected_even_without_a_persisted_row|FullyQualifiedName~KafkaDeliveryControlTests.Shared_connector_mapping_is_rejected_before_pause|FullyQualifiedName~KafkaDeliveryControlTests.Connector_configuration_change_prevents_resuming_a_different_resource",
+          "minimum": 18,
+          "timeout": "5m"
+        },
+        "ai-knowledge-operations": {
+          "filter": "FullyQualifiedName~AiKnowledgeOperationsTests",
+          "minimum": 25,
+          "timeout": "5m"
+        },
+        "ai-knowledge-faq-feedback": {
+          "filter": "FullyQualifiedName~AiKnowledgeFaqFeedbackTests|FullyQualifiedName~AiKnowledgeFaqGraphTests|FullyQualifiedName~AiKnowledgeFaqDraftPolicyTests|FullyQualifiedName~AiKnowledgeFaqSearchSourceTests|FullyQualifiedName~AiKnowledgeFaqTransferTests|FullyQualifiedName~AiKnowledgeFaqLifecycleTests|FullyQualifiedName~AiKnowledgeAnswerLineageTests|FullyQualifiedName~AiKnowledgeAnswerHistoryGuardTests|FullyQualifiedName~AiKnowledgeAnswerFeedbackReviewPolicyTests",
+          "minimum": 234,
+          "timeout": "5m"
+        },
+        "ai-knowledge-faq-parents": {
+          "filter": "FullyQualifiedName~AiKnowledgeFaqGraphTests|FullyQualifiedName~AiKnowledgeFaqDraftPolicyTests|FullyQualifiedName~AiKnowledgeFaqSearchSourceTests|FullyQualifiedName~AiKnowledgeFaqTransferTests|FullyQualifiedName~AiKnowledgeFaqLifecycleTests",
+          "minimum": 104,
+          "timeout": "5m"
+        },
+        "ai-knowledge-faq-transfer": {
+          "filter": "FullyQualifiedName~AiKnowledgeFaqTransferTests|FullyQualifiedName~AiDataProcessingPolicyTests|FullyQualifiedName~AiFaqNavigationDirectoryTests",
+          "minimum": 53,
+          "timeout": "5m"
+        },
+        "ai-knowledge-faq-search": {
+          "filter": "FullyQualifiedName~AiKnowledgeFaqSearchSourceTests",
+          "minimum": 13,
+          "timeout": "5m"
+        },
+        "ai-knowledge-faq-lifecycle": {
+          "filter": "FullyQualifiedName~AiKnowledgeFaqLifecycleTests|FullyQualifiedName~Faq_lifecycle_|FullyQualifiedName~AiFaqNavigationDirectoryTests|FullyQualifiedName~AiKnowledgeProofRootLockTests",
+          "minimum": 29,
+          "timeout": "5m"
+        },
+        "ai-knowledge-faq-drafts": {
+          "filter": "FullyQualifiedName~Faq_draft_",
+          "minimum": 32,
+          "timeout": "5m"
+        },
         "workflow-gateway-topology": {
           "filter": "FullyQualifiedName~Full.NET.UnitTests.Workflow.WorkflowDefinitionCompilerTests|FullyQualifiedName~Full.NET.UnitTests.Workflow.WorkflowInclusiveGatewayConfigurationTests|FullyQualifiedName~Full.NET.UnitTests.Workflow.WorkflowExclusiveGatewayConfigurationTests|FullyQualifiedName~Full.NET.UnitTests.Workflow.WorkflowParallelGatewayConfigurationTests",
           "minimum": 55
@@ -25,7 +115,11 @@
         },
         "project-review-remediation": {
           "filter": "FullyQualifiedName~Full.NET.UnitTests.Document.|FullyQualifiedName~Full.NET.UnitTests.Payments.|FullyQualifiedName~Full.NET.UnitTests.Webhooks.|FullyQualifiedName~DataProtection",
-          "minimum": 90
+          "minimum": 97
+        },
+        "workflow-collaboration-live-guards": {
+          "filter": "FullyQualifiedName~WorkflowCollaborationTargetTests|FullyQualifiedName~WorkflowInstanceManagementServiceTests|FullyQualifiedName~WorkflowInstanceRecoveryServiceTests|FullyQualifiedName~WorkflowTodoCountersignServiceTests|FullyQualifiedName~WorkflowClaimRuntimeTests|FullyQualifiedName~WorkflowRecoveryScanBudgetTests|FullyQualifiedName~WorkflowRegionEpochCoordinatorTests|FullyQualifiedName~WorkflowTodoReturnServiceTests|FullyQualifiedName~WorkflowManualReminderServiceTests|FullyQualifiedName~WorkflowTodoAssigneeCandidateQueryServiceTests|FullyQualifiedName~WorkflowConnectorTenantGateTests|FullyQualifiedName~WorkflowWithdrawalServiceTests|FullyQualifiedName~WorkflowCcManagementServiceTests|FullyQualifiedName~WorkflowAutomaticOutputSizeTests|FullyQualifiedName~WorkflowSlaScanTests|FullyQualifiedName~WorkflowSlaLifecycleTests|FullyQualifiedName~WorkflowWorkingDelayLifecycleTests|FullyQualifiedName~WorkflowVoteRuntimeTests",
+          "minimum": 170
         },
         "logging-remediation": {
           "filter": "FullyQualifiedName~AuditingWritePathTests|FullyQualifiedName~DataCommandExceptionMapperTests|FullyQualifiedName~FullNetAsyncLogMonitorTests|FullyQualifiedName~HighPriorityLoggingTests|FullyQualifiedName~KafkaLogDeliveryLaneTests|FullyQualifiedName~ServiceDefaultsMetricsTests",
@@ -45,7 +139,7 @@
         },
         "async-lifecycle": {
           "filter": "FullyQualifiedName~CodeGenerationApplyGateTests|FullyQualifiedName~CodeGenerationApplyServiceTests|FullyQualifiedName~CodeGenerationRollbackServiceTests|FullyQualifiedName~GenerationRollbackCheckpointStoreTests|FullyQualifiedName~KafkaConsumerLagObserverTests",
-          "minimum": 45
+          "minimum": 46
         },
         "memory-lifecycle": {
           "filter": "FullyQualifiedName~WeComAccessTokenCacheTests|FullyQualifiedName~DingTalkAccessTokenCacheTests|FullyQualifiedName~MqttPublishRateLimiterTests|FullyQualifiedName~WeChatPayPlatformCertificateResolverTests|FullyQualifiedName~McpClientConnectionManagerTests",
@@ -84,8 +178,8 @@
           "minimum": 308
         },
         "ai-runtime": {
-          "filter": "FullyQualifiedName~AiAgentRunReadiness|FullyQualifiedName~AiAgentRunState|FullyQualifiedName~AiAgentRunManagement|FullyQualifiedName~AiAgentRunCoordinator|FullyQualifiedName~AiAgentToolLoop|FullyQualifiedName~AiCheckpointCompatibility|FullyQualifiedName~AgentWorkflowRunner|FullyQualifiedName~AgentRuntimeMetering|FullyQualifiedName~AiMultiAgentBudget|FullyQualifiedName~AiRunOutputLimitClientTests|FullyQualifiedName~AiAgentRunLeaseBoundaryTests|FullyQualifiedName~AiToolDispatchOutcomeTests|FullyQualifiedName~AiApprovalCurrentAdmissionTests|FullyQualifiedName~AiChatRenameTransactionTests|FullyQualifiedName~AiRunOutputBudgetTests|FullyQualifiedName~AiRunInputBudgetTests|FullyQualifiedName~AiAgentRunCancellationTests|FullyQualifiedName~AiBudgetCommitObservationTests|FullyQualifiedName~AiRunInputAdmissionTests|FullyQualifiedName~AiAgentTerminalBudgetRepair|FullyQualifiedName~AiAgentToolCallAdmissionTests|FullyQualifiedName~AgentExecutionTelemetryTests|FullyQualifiedName~AiTaskRoute|FullyQualifiedName~AiAgentRunTraceContextTests|FullyQualifiedName~AiFailureLogTests|FullyQualifiedName~AiFailureLogBoundaryTests|FullyQualifiedName~AiAgentReconciliationTests|FullyQualifiedName~AiDataObservationScopeTests|FullyQualifiedName~DatabaseAuthorizationReadReserveTests|FullyQualifiedName~IndependentCurrentSessionAuthorizationTests|FullyQualifiedName~IndependentAuthorizationCapacityTests",
-          "minimum": 1079
+          "filter": "FullyQualifiedName~AiAgentRunReadiness|FullyQualifiedName~AiAgentRunState|FullyQualifiedName~AiAgentRunManagement|FullyQualifiedName~AiAgentRunCoordinator|FullyQualifiedName~AiAgentToolLoop|FullyQualifiedName~AiCheckpointCompatibility|FullyQualifiedName~AgentWorkflowRunner|FullyQualifiedName~AgentRuntimeMetering|FullyQualifiedName~AiMultiAgentBudget|FullyQualifiedName~AiRunOutputLimitClientTests|FullyQualifiedName~AiAgentRunLeaseBoundaryTests|FullyQualifiedName~AiToolDispatchOutcomeTests|FullyQualifiedName~AiApprovalCurrentAdmissionTests|FullyQualifiedName~AiChatRenameTransactionTests|FullyQualifiedName~AiRunOutputBudgetTests|FullyQualifiedName~AiRunInputBudgetTests|FullyQualifiedName~AiAgentRunCancellationTests|FullyQualifiedName~AiBudgetCommitObservationTests|FullyQualifiedName~AiRunInputAdmissionTests|FullyQualifiedName~AiAgentTerminalBudgetRepair|FullyQualifiedName~AiAgentToolCallAdmissionTests|FullyQualifiedName~AgentExecutionTelemetryTests|FullyQualifiedName~AiTaskRoute|FullyQualifiedName~AiAgentRunTraceContextTests|FullyQualifiedName~AiFailureLogTests|FullyQualifiedName~AiFailureLogBoundaryTests|FullyQualifiedName~AiAgentReconciliationTests|FullyQualifiedName~AiDataObservationScopeTests|FullyQualifiedName~DatabaseAuthorizationReadReserveTests|FullyQualifiedName~IndependentCurrentSessionAuthorizationTests|FullyQualifiedName~IndependentAuthorizationCapacityTests|FullyQualifiedName~AgentParallelWorkflowTests|FullyQualifiedName~AiWorkflowMetadataArgumentTests",
+          "minimum": 1098
         },
         "ai-provider": {
           "filter": "FullyQualifiedName~AiGatewayCapabilityTests|FullyQualifiedName~AiCredentialBoundaryTests|FullyQualifiedName~AiProviderEndpointPolicyTests|FullyQualifiedName~AiProviderSafetyRegressionTests|FullyQualifiedName~AiChatStreamingBudgetTests|FullyQualifiedName~AiModelConnectivityTesterTests|FullyQualifiedName~AiChatContentPolicyTests|FullyQualifiedName~AiAgentToolAuditPolicyTests|FullyQualifiedName~AiEmbeddingProviderContractTests|FullyQualifiedName~AzureOpenAiProviderTests|FullyQualifiedName~AiProviderOutputLimitTests|FullyQualifiedName~AiProviderPrivateNetworkTests|FullyQualifiedName~AiProviderTelemetryTests|FullyQualifiedName~McpNetworkPolicyTests|FullyQualifiedName~AiDataProcessingPolicyTests|FullyQualifiedName~AiDataPolicyProviderTests|FullyQualifiedName~AiProviderInputAdmissionTests|FullyQualifiedName~AiSilentHttpChannelTests|FullyQualifiedName~McpDataProcessingPolicyTests",
@@ -129,7 +223,11 @@
         },
         "messaging-control": {
           "filter": "FullyQualifiedName~KafkaDeliveryControlTests|FullyQualifiedName~KafkaCutoverShadowProbeTests|FullyQualifiedName~CdcDeliveryPositionTests|FullyQualifiedName~KafkaConnectAdminClientTests|FullyQualifiedName~KafkaConsumerLagObserverTests",
-          "minimum": 60
+          "minimum": 70
+        },
+        "messaging-control-components": {
+          "filter": "FullyQualifiedName~KafkaDeliveryControlTests",
+          "minimum": 46
         },
         "messaging-operations": {
           "filter": "FullyQualifiedName~KafkaRangeReplayOperationsServiceTests|FullyQualifiedName~KafkaReplayServiceTests|FullyQualifiedName~DeliveryStatusQueryServiceTests|FullyQualifiedName~MessagingWorkerOptionsTests|FullyQualifiedName~DapperRoutedOutboxWriterTests|FullyQualifiedName~DapperShadowCaptureWriterTests",
@@ -182,6 +280,267 @@
         "workflow-collaboration-grants": {
           "filter": "FullyQualifiedName~WorkflowCollaborationGrantPolicyTests",
           "minimum": 18
+        },
+        "workflow-collaboration-authorization": {
+          "filter": "FullyQualifiedName~WorkflowAuthorizationContributorTests",
+          "minimum": 4
+        },
+        "code-generation-clock": {
+          "filter": "FullyQualifiedName~Hard_delete_without_audit_or_relationship_compiles_for_both_schema_models",
+          "minimum": 2
+        },
+        "identity-protocol-http-safety": {
+          "filter": "FullyQualifiedName~IdentityProtocolHttpSafetyTests",
+          "minimum": 3
+        },
+        "document-batch-one": {
+          "filter": "FullyQualifiedName~DocumentBatchOneContractTests|FullyQualifiedName~DocumentApplicationAuthorizationTests|FullyQualifiedName~DocumentVersionRetentionBudgetTests|FullyQualifiedName~DocumentContractCompatibilityTests|FullyQualifiedName~DocumentVersionRetentionPolicyTests|FullyQualifiedName~DocumentAuthorizationContributorTests|FullyQualifiedName~DocumentShareStreamOwnershipTests",
+          "minimum": 19
+        },
+        "document-batch-three": {
+          "filter": "FullyQualifiedName~DocumentAuthorizationContributorTests|FullyQualifiedName~HostDocumentPreviewTaskStatusKeysTests|FullyQualifiedName~DocumentOfficePreviewSourcePolicyTests|FullyQualifiedName~DocumentContractCompatibilityTests|FullyQualifiedName~WorkerBatchDrainTests|FullyQualifiedName~DocumentPreviewWorkerCompositionTests",
+          "minimum": 10
+        },
+        "document-three-batch-review": {
+          "filter": "FullyQualifiedName~DocumentPreviewReadAdmissionTests|FullyQualifiedName~DocumentApplicationAuthorizationTests|FullyQualifiedName~DocumentPreviewOutputBoundaryTests",
+          "minimum": 21
+        },
+        "identity-oidc-remediation-b1": {
+          "filter": "FullyQualifiedName~IdentityOidcGovernanceTests|FullyQualifiedName~IdentityOidcOptionsTests|FullyQualifiedName~IdentitySessionContextServiceTests|FullyQualifiedName~OidcClientManagementServiceTests",
+          "minimum": 20
+        },
+        "identity-oidc-b1-b2": {
+          "filter": "FullyQualifiedName~IdentityOidcGovernanceTests|FullyQualifiedName~IdentityOidcOptionsTests|FullyQualifiedName~IdentitySessionContextServiceTests|FullyQualifiedName~OidcClientManagementServiceTests|FullyQualifiedName~IdentityOidcPrincipalTests|FullyQualifiedName~IdentityOidcSessionTests|FullyQualifiedName~IdentityOidcLogoutTests",
+          "minimum": 52
+        },
+        "identity-oidc-remaining": {
+          "filter": "FullyQualifiedName~IdentityBrowserBoundaryTests|FullyQualifiedName~IdentityOidcGovernanceTests|FullyQualifiedName~IdentityOidcOptionsTests|FullyQualifiedName~IdentitySessionContextServiceTests|FullyQualifiedName~OidcClientManagementServiceTests|FullyQualifiedName~IdentityOidcPrincipalTests|FullyQualifiedName~IdentityOidcSessionTests|FullyQualifiedName~IdentityOidcLogoutTests|FullyQualifiedName~IdentityOidcCenterLoginServiceTests|FullyQualifiedName~IdentityOidcInteractionTests|FullyQualifiedName~IdentityOidcRetentionTests|FullyQualifiedName~IdentityOidcKeyLifecycleTests|FullyQualifiedName~OidcAuthenticationEventWriterTests|FullyQualifiedName~AuthorizationCatalogTests|FullyQualifiedName~ErrorResourceCompletenessTests.Identity_error_codes_have_all_required_resources|FullyQualifiedName~IdentityProtocolHttpSafetyTests|FullyQualifiedName~IdentityOidcContextRefreshTokenIssuerTests|FullyQualifiedName~IdentityModuleRegistrationTests",
+          "minimum": 129
+        },
+        "tenant-seat-recovery": {
+          "filter": "FullyQualifiedName~TenantSeatOperationProcessorTests|FullyQualifiedName~TenantInvitationRollbackTests|FullyQualifiedName~TenantQuotaRollbackTests|FullyQualifiedName~TenantQuotaReplayTests|FullyQualifiedName~TenantQuotaUsageBaselineServiceTests|FullyQualifiedName~TenantMemberSeatQuotaPortTests|FullyQualifiedName~OptionalFilesConsumerTests|FullyQualifiedName~IdentityModuleRegistrationTests.Identity_module_delegation_matches_responsibility_registration_pipeline|FullyQualifiedName~IdentityModuleRegistrationTests.Identity_module_repeated_registration_preserves_critical_contracts",
+          "minimum": 62
+        },
+        "authentication-audit-recovery": {
+          "filter": "FullyQualifiedName~MfaRecoveryCodeAuditTests|FullyQualifiedName~IdentityOidcProtocolRejectionAuditTests|FullyQualifiedName~IdentityOidcProtocolRateLimitTests|FullyQualifiedName~OidcManagementAuditWriterTests|FullyQualifiedName~LogoutHandlerTests|FullyQualifiedName~ApiKeyAuthenticationServiceTests|FullyQualifiedName~OidcAuthenticationEventWriterTests|FullyQualifiedName~AuthenticationSecurityEventWriterTests",
+          "minimum": 29
+        },
+        "subscription-billing-recovery": {
+          "filter": "FullyQualifiedName~TenantSubscriptionBillingTests|FullyQualifiedName~SubscriptionFulfillmentProcessorTests|FullyQualifiedName~TenantSubscriptionPaymentFulfillmentRegistrationTests|FullyQualifiedName~PaymentExternalSideEffectTests|FullyQualifiedName~PaymentNotifyBindingTests|FullyQualifiedName~PaymentRefundReconciliationTests",
+          "minimum": 48
+        },
+        "enterprise-delivery": {
+          "filter": "FullyQualifiedName~EnterpriseRequestDeliveryBoundaryTests",
+          "minimum": 5
+        },
+        "ai-parallel-workflow": {
+          "filter": "FullyQualifiedName~AgentParallelWorkflowTests|FullyQualifiedName~AiWorkflowMetadataArgumentTests",
+          "minimum": 19
+        },
+        "ai-knowledge-correction-core": {
+          "filter": "FullyQualifiedName~AiKnowledgeCorrectionDocumentTests|FullyQualifiedName~AiKnowledgeCorrectionWireCodecTests|FullyQualifiedName~AiKnowledgeCorrectionSnapshotTests|FullyQualifiedName~AiKnowledgeCorrectionRowReaderTests",
+          "minimum": 24
+        },
+        "ai-knowledge-correction-index-input": {
+          "filter": "FullyQualifiedName~AiKnowledgeIndexCorrectionInputTests|FullyQualifiedName~AiKnowledgeIndexDispatchTests|FullyQualifiedName~AiKnowledgeIndexEnqueueTests",
+          "minimum": 72
+        },
+        "ai-knowledge-correction-manifest": {
+          "filter": "FullyQualifiedName~AiKnowledgeCorrectionIndexPlanTests|FullyQualifiedName~AiKnowledgeCorrectionDocumentTests",
+          "minimum": 15
+        },
+        "ai-knowledge-correction-generation": {
+          "filter": "FullyQualifiedName~AiKnowledgeCorrectionActivationSqlTests|FullyQualifiedName~Full.NET.UnitTests.Ai.AiKnowledgeCorrectionVectorTests",
+          "minimum": 19
+        },
+        "ai-knowledge-correction-publication": {
+          "filter": "FullyQualifiedName~AiKnowledgeCorrectionActivationSqlTests|FullyQualifiedName~AiBudgetRowReaderTests.Index_status_maps_optional_joins_and_provider_integer_flags",
+          "minimum": 12
+        },
+        "ai-knowledge-correction-worker": {
+          "filter": "FullyQualifiedName~AiKnowledgeIndexWorkerTests",
+          "minimum": 32
+        },
+        "ai-knowledge-correction-citations": {
+          "filter": "FullyQualifiedName~AiKnowledgeCorrectionCitationTests|FullyQualifiedName~AiKnowledgeAnswerContextTests|FullyQualifiedName~AiKnowledgeAnswerLineageTests|FullyQualifiedName~AiKnowledgeAnswerHistoryGuardTests|FullyQualifiedName~AiKnowledgeAnswerConsumerTests|FullyQualifiedName~AiKnowledgeRetrievalRuleTests",
+          "minimum": 151
+        },
+        "ai-knowledge-correction-vectors": {
+          "filter": "FullyQualifiedName~Full.NET.UnitTests.Ai.AiKnowledgeCorrectionVectorTests|FullyQualifiedName~AiKnowledgeIndexBudgetTests",
+          "minimum": 30
+        },
+        "ai-knowledge-publication": {
+          "filter": "FullyQualifiedName~AiKnowledgeDirectoryPolicyTests|FullyQualifiedName~AiBudgetRowReaderTests|FullyQualifiedName~AiKnowledgeAnswerLineageTests|FullyQualifiedName~AiKnowledgeIndexActivationTests|FullyQualifiedName~AiKnowledgeIndexPdfActivationTests|FullyQualifiedName~AiKnowledgeIndexDocumentActivationTests|FullyQualifiedName~AiKnowledgeRetrievalServiceTests|FullyQualifiedName~AiKnowledgeRetrievalRuleTests|FullyQualifiedName~AiKnowledgeDocxRetrievalTests",
+          "minimum": 525
+        },
+        "messaging-observability": {
+          "filter": "FullyQualifiedName~MessagingRuntimeObservationTests|FullyQualifiedName~MessagingCdcObservabilityTelemetryTests|FullyQualifiedName~KafkaConsumerLagObserverTests|FullyQualifiedName~KafkaConnectAdminClientTests|FullyQualifiedName~KafkaMessagingOptionsTests.BuildConsumerConfig_disables_auto_commit",
+          "minimum": 38
+        },
+        "messaging-observability-components": {
+          "filter": "FullyQualifiedName~MessagingRuntimeObservationTests|FullyQualifiedName~MessagingCdcObservabilityTelemetryTests|FullyQualifiedName~KafkaConsumerLagObserverTests|FullyQualifiedName~KafkaConnectAdminClientTests|FullyQualifiedName~KafkaMessagingOptionsTests.BuildConsumerConfig_disables_auto_commit",
+          "minimum": 38
+        },
+        "workflow-collaboration-requests": {
+          "filter": "FullyQualifiedName~WorkflowCollaborationCallPolicyTests|FullyQualifiedName~WorkflowCollaborationRequestedHandlerTests|FullyQualifiedName~WorkflowRuntimePlanTests|FullyQualifiedName~WorkflowExecutionBudgetPolicyTests|FullyQualifiedName~WorkflowAsyncDefinitionPlanTests",
+          "minimum": 43
+        },
+        "workflow-collaboration-targets": {
+          "filter": "FullyQualifiedName~WorkflowCollaborationCallPolicyTests|FullyQualifiedName~WorkflowCollaborationRequestedHandlerTests|FullyQualifiedName~WorkflowRuntimePlanTests|FullyQualifiedName~WorkflowExecutionBudgetPolicyTests|FullyQualifiedName~WorkflowAsyncDefinitionPlanTests|FullyQualifiedName~WorkflowCollaborationTargetTests|FullyQualifiedName~WorkflowCollaborationGrantPolicyTests|FullyQualifiedName~WorkflowInstanceManagementServiceTests",
+          "minimum": 102
+        },
+        "workflow-collaboration-protocol": {
+          "filter": "FullyQualifiedName~WorkflowCollaborationControlPolicyTests|FullyQualifiedName~WorkflowCollaborationControlInboxTests|FullyQualifiedName~WorkflowCollaborationTargetTests|FullyQualifiedName~WorkflowCollaborationGrantPolicyTests|FullyQualifiedName~WorkflowInstanceManagementServiceTests|FullyQualifiedName~WorkflowInstanceRecoveryServiceTests|FullyQualifiedName~WorkflowConnectorManagementTests|FullyQualifiedName~WorkflowRuntimePlanTests|FullyQualifiedName~WorkflowSubprocessCancellationGuardTests",
+          "minimum": 117
+        },
+        "workflow-collaboration-budget": {
+          "filter": "FullyQualifiedName~WorkflowExecutionBudgetPolicyTests",
+          "minimum": 10
+        },
+        "ai-knowledge-correction-preparation": {
+          "filter": "FullyQualifiedName~AiKnowledgeCorrectionWorkbenchTests|FullyQualifiedName~AiKnowledgeCorrectionRowReaderTests|FullyQualifiedName~AiKnowledgeCorrectionDocumentTests|FullyQualifiedName~AiKnowledgeCorrectionWireCodecTests",
+          "minimum": 35
+        },
+        "ai-knowledge-correction-editing": {
+          "filter": "FullyQualifiedName~AiKnowledgeCorrectionWorkbenchTests|FullyQualifiedName~AiKnowledgeCorrectionEditTests|FullyQualifiedName~AiKnowledgeCorrectionDocumentTests|FullyQualifiedName~AiKnowledgeCorrectionRowReaderTests|FullyQualifiedName~AiKnowledgeCorrectionWireCodecTests",
+          "minimum": 43
+        },
+        "ai-knowledge-correction-cleanup": {
+          "filter": "FullyQualifiedName~AiKnowledgeCorrectionCleanupTests|FullyQualifiedName~AiKnowledgeCleanupWorkerTests|FullyQualifiedName~AiFailureLog",
+          "minimum": 64
+        },
+        "workflow-collaboration-files": {
+          "filter": "FullyQualifiedName~WorkflowFileReadCapabilityTests|FullyQualifiedName~WorkflowExecutionFrameScopeTests|FullyQualifiedName~WorkflowCollaborationCallPolicyTests|FullyQualifiedName~WorkflowCollaborationRequestedHandlerTests|FullyQualifiedName~WorkflowCollaborationControlPolicyTests|FullyQualifiedName~WorkflowInitialAttachmentPreparationTests|FullyQualifiedName~WorkflowAutomaticOutputSizeTests|FullyQualifiedName~WorkflowAttachmentAccessTests|FullyQualifiedName~WorkflowTodoAttachmentAccessTests|FullyQualifiedName~WorkflowVoteAttachmentTests|FullyQualifiedName~WorkflowAttachmentTransactionTests|FullyQualifiedName~WorkflowInstanceManagementServiceTests|FullyQualifiedName~WorkflowWithdrawalServiceTests|FullyQualifiedName~WorkflowFormAttachmentUploadTests|FullyQualifiedName~WorkflowAuthorizationContributorTests",
+          "minimum": 159
+        },
+        "workflow-collaboration-worker": {
+          "filter": "FullyQualifiedName~OutboxTenantContextTests|FullyQualifiedName~OutboxProcessorTests|FullyQualifiedName~WorkflowRecoveryAuditDetailTests|FullyQualifiedName~WorkflowRecoveryWorkerTests|FullyQualifiedName~WorkflowCollaborationStartRejectionTests|FullyQualifiedName~WorkflowCollaborationTargetTests",
+          "minimum": 76
+        },
+        "workflow-collaboration-attachment-names": {
+          "filter": "FullyQualifiedName~WorkflowAttachmentNameReaderTests|FullyQualifiedName~WorkflowTodoHistoryViewTests",
+          "minimum": 15
+        },
+        "workflow-collaboration-public-node": {
+          "filter": "FullyQualifiedName~WorkflowCollaborationBindingTests|FullyQualifiedName~WorkflowNodeTypeCatalogTests.Current_catalog_only_marks_nodes_with_real_runtime_support_as_publishable",
+          "minimum": 24
+        },
+        "workflow-r5": {
+          "filter": "FullyQualifiedName~WorkflowR5Tests|FullyQualifiedName~WorkflowDefinitionManagementServiceTests|FullyQualifiedName~WorkflowAuthorizationContributorTests",
+          "minimum": 22
+        },
+        "workflow-collaboration-read-models": {
+          "filter": "FullyQualifiedName~WorkflowCollaborationListAuthorizationTests|FullyQualifiedName~WorkflowCollaborationReadModelTests|FullyQualifiedName~WorkflowCollaborationTargetTests|FullyQualifiedName~WorkflowInstanceQueryServiceTests|FullyQualifiedName~WorkflowTodoQueryServiceTests|FullyQualifiedName~TenantResolverTests.Batch_|FullyQualifiedName~WorkflowRecoveryWorkerTests.Recovery_endpoints_require_exact_permissions|FullyQualifiedName~WorkflowAuthorizationContributorTests|FullyQualifiedName~NavigationProjectorTests",
+          "minimum": 66
+        },
+        "ai-knowledge-keyword-search": {
+          "filter": "FullyQualifiedName~AiKnowledgeKeywordSearchTests|FullyQualifiedName~Retrieval_|FullyQualifiedName~Keyword_|FullyQualifiedName~AiKnowledgeRetrievalRuleTests",
+          "minimum": 61,
+          "timeout": "5m"
+        },
+        "ai-knowledge-search-policy": {
+          "filter": "FullyQualifiedName~Search_policy_|FullyQualifiedName~Retrieval_policy_|FullyQualifiedName~Paid_answer_host_policy_|FullyQualifiedName~Paid_answer_runs_two_budgeted_stages_and_retains_all_dependencies|FullyQualifiedName~Keyword_search_reads_complete_authorized_generation_without_query_embedding",
+          "minimum": 18,
+          "timeout": "5m"
+        },
+        "ai-knowledge-search-comparison": {
+          "filter": "FullyQualifiedName~AiKnowledgeIndexPdfActivationTests.Comparison_|FullyQualifiedName~Paid_answer_runs_two_budgeted_stages_and_retains_all_dependencies|FullyQualifiedName~AiProviderPaidHttpRetryTests|FullyQualifiedName~Registered_policy_denial_is_observed_without_payload_or_endpoint|FullyQualifiedName~Frozen_silent_client_has_no_default_request_logger_on_policy_rejection",
+          "minimum": 42,
+          "timeout": "5m"
+        },
+        "ai-knowledge-search-relations": {
+          "filter": "FullyQualifiedName~AiKnowledgeSourceRelationsTests|FullyQualifiedName~AiKnowledgeIndexPdfActivationTests.Relations_|FullyQualifiedName~Context_reads_one_frozen_publication_without_model_dispatch_permissions",
+          "minimum": 35,
+          "timeout": "5m"
+        },
+        "ai-knowledge-search-refinement": {
+          "filter": "FullyQualifiedName~Refinement_|FullyQualifiedName~Paid_answer_runs_two_budgeted_stages_and_retains_all_dependencies|FullyQualifiedName~Paid_answer_invalid_output|FullyQualifiedName~Paid_answer_cancellation_after_dispatch|FullyQualifiedName~Search_answer_settlement",
+          "minimum": 64,
+          "timeout": "5m"
+        },
+        "ai-knowledge-search-answer": {
+          "filter": "FullyQualifiedName~Search_answer|FullyQualifiedName~Paid_answer_runs_two_budgeted_stages_and_retains_all_dependencies",
+          "minimum": 26,
+          "timeout": "5m"
+        },
+        "ai-knowledge-search-context": {
+          "filter": "FullyQualifiedName~AiKnowledgeContextWindowTests|FullyQualifiedName~AiKnowledgeIndexPdfActivationTests.Context_|FullyQualifiedName~AiKnowledgeAnswerContextTests.Context_|FullyQualifiedName~Retrieval_revalidates_all_context_dependencies_after_wait|FullyQualifiedName~Oversize_context_is_rejected_before_copying_or_enumeration|FullyQualifiedName~Keyword_search_reads_complete_authorized_generation_without_query_embedding|FullyQualifiedName~Paid_answer_runs_two_budgeted_stages_and_retains_all_dependencies",
+          "minimum": 39,
+          "timeout": "5m"
+        },
+        "ai-knowledge-evaluation": {
+          "filter": "FullyQualifiedName~AiKnowledgeEvaluationPolicyTests",
+          "minimum": 13,
+          "timeout": "5m"
+        },
+        "ai-knowledge-evaluation-runs": {
+          "filter": "FullyQualifiedName~AiKnowledgeEvaluationRunTests|FullyQualifiedName~AiKnowledgeFinanceRowReaderTests|FullyQualifiedName~AiKnowledgeQualityAuthorizationTests|FullyQualifiedName~AiKnowledgeEvaluationLocalizationTests",
+          "minimum": 22,
+          "timeout": "5m"
+        },
+        "ai-personal-schedule-sources": {
+          "filter": "FullyQualifiedName~PersonalScheduleKnowledgeSourceTests|FullyQualifiedName~AiPersonalScheduleSourceReaderTests",
+          "minimum": 33,
+          "timeout": "5m"
+        },
+        "ai-personal-schedule-answers": {
+          "filter": "FullyQualifiedName~AiPersonalScheduleAnswerTests|FullyQualifiedName~AiPersonalScheduleContinuationGateTests|FullyQualifiedName~AiKnowledgeAnswerContextTests|FullyQualifiedName~AiKnowledgeAnswerLineageTests|FullyQualifiedName~AiKnowledgeAnswerHistoryGuardTests|FullyQualifiedName~AiChatExecutionTests|FullyQualifiedName~AiChatGenerationLifecycleTests|FullyQualifiedName~Paid_answer_|FullyQualifiedName~Personal_schedule_",
+          "minimum": 236,
+          "timeout": "7m"
+        },
+        "ai-personal-schedule-faq-sources": {
+          "filter": "FullyQualifiedName~PersonalScheduleKnowledgeSourceTests|FullyQualifiedName~AiPersonalScheduleSourceReaderTests|FullyQualifiedName~AiKnowledgeFaqBusinessSourceTests|FullyQualifiedName~AiKnowledgeFaqDraftPolicyTests|FullyQualifiedName~AiKnowledgeFaqGraphTests|FullyQualifiedName~AiKnowledgeFaqTransferTests|FullyQualifiedName~AiKnowledgeAnswerHistoryGuardTests|FullyQualifiedName~AiPersonalScheduleAnswerTests|FullyQualifiedName~AiKnowledgeFaqLifecycleTests|FullyQualifiedName~Faq_business_proof_is_current|FullyQualifiedName~Faq_draft_|FullyQualifiedName~Faq_binding_metadata|FullyQualifiedName~Faq_lifecycle_stage_binding",
+          "minimum": 259,
+          "timeout": "5m"
+        },
+        "ai-personal-schedule-completion": {
+          "filter": "FullyQualifiedName~PersonalScheduleCompletionTests|FullyQualifiedName~AiScheduleCompletionRowReaderTests|FullyQualifiedName~AiWorkerToolRegistryCompositionTests",
+          "minimum": 39,
+          "timeout": "5m"
+        },
+        "ai-agui-replay-admission": {
+          "filter": "FullyQualifiedName~AgUiStreamTerminalTests|FullyQualifiedName~AgUiEventContractTests|FullyQualifiedName~AgUiCurrentAdmissionTests|FullyQualifiedName~AiAgUiRowReaderTests",
+          "minimum": 33,
+          "timeout": "3m"
+        },
+        "reporting-export-authority": {
+          "filter": "FullyQualifiedName~ReportingExportTaskRecoveryTests|FullyQualifiedName~ReportingAuthorizationContributorTests|FullyQualifiedName~ReportingExportColumnAuthorityTests",
+          "minimum": 13
+        },
+        "my-task-cursor": {
+          "filter": "FullyQualifiedName~TimeIdQueryCursorTests",
+          "minimum": 3,
+          "timeout": "5m"
+        },
+        "query-cursor-native-precision": {
+          "filter": "FullyQualifiedName~Cursor_timestamp_keeps_microseconds_when_native_command_is_created_and_reused",
+          "minimum": 1,
+          "timeout": "3m"
+        },
+        "query-schemes": {
+          "filter": "FullyQualifiedName~QuerySchemePolicyTests",
+          "minimum": 7,
+          "timeout": "5m"
+        },
+        "import-profiles": {
+          "filter": "FullyQualifiedName~StaticImportHeaderMappingTests|FullyQualifiedName~ImportTaskAuthorityTests|FullyQualifiedName~OrganizationPositionWorkbookCodecTests|FullyQualifiedName~TenantPositionImportPreviewServiceTests|FullyQualifiedName~TenantPositionImportAuthorityTests|FullyQualifiedName~EnterpriseRequestImportPreviewTests|FullyQualifiedName~EnterpriseRequestImportWriterTests|FullyQualifiedName~ImportExportTaskRecoveryTests|FullyQualifiedName~EnterpriseRequestImportWorkerRegistrationTests|FullyQualifiedName~SessionBindingSnapshotReaderTests|FullyQualifiedName~ImportExportAuthorizationContributorTests",
+          "minimum": 45,
+          "timeout": "5m"
+        },
+        "import-task-cancellation": {
+          "filter": "FullyQualifiedName~ImportTaskCancellationTests|FullyQualifiedName~ImportExportTaskStatusKeysTests|FullyQualifiedName~ImportExportAuthorizationContributorTests",
+          "minimum": 16,
+          "timeout": "3m"
+        },
+        "reporting-task-cancellation": {
+          "filter": "FullyQualifiedName~ReportingExportCancellationTests|FullyQualifiedName~ReportingAuthorizationContributorTests",
+          "minimum": 10,
+          "timeout": "3m"
+        },
+        "printing-template-configuration": {
+          "filter": "FullyQualifiedName~PrintingAuthorizationContributorTests",
+          "minimum": 1,
+          "timeout": "3m"
         }
       }
     },
@@ -194,9 +553,13 @@
     "architecture": {
       "project": "tests/Full.NET.ArchitectureTests/Full.NET.ArchitectureTests.csproj",
       "assembly": "tests/Full.NET.ArchitectureTests/bin/Release/net10.0/Full.NET.ArchitectureTests.dll",
-      "minimum": 235,
+      "minimum": 282,
       "timeout": "10m",
       "selections": {
+        "workflow-collaboration-grant-catalog": {
+          "filter": "FullyQualifiedName~Workflow_collaboration_grant_global_sql_is_exactly_cataloged",
+          "minimum": 1
+        },
         "cache-hardening": {
           "filter": "FullyQualifiedName~CachePolicyBoundaryTests|FullyQualifiedName~TenantCachePayloadOwnershipTests",
           "minimum": 6
@@ -216,6 +579,55 @@
         "identity-oidc": {
           "filter": "FullyQualifiedName~IdentityOidcBoundaryTests",
           "minimum": 5
+        },
+        "controlled-module-reads": {
+          "filter": "FullyQualifiedName~ControlledModuleReadQueryTests|FullyQualifiedName~ModuleTableOwnershipTests|FullyQualifiedName~ModuleLocalTransactionBoundaryTests|FullyQualifiedName~ModuleCrossForeignKeyBoundaryTests",
+          "minimum": 45
+        },
+        "workflow-collaboration-requests": {
+          "filter": "FullyQualifiedName~Workflow_collaboration_request_global_sql_is_exactly_cataloged",
+          "minimum": 1
+        },
+        "workflow-collaboration-targets": {
+          "filter": "FullyQualifiedName~Workflow_collaboration_target_global_sql_is_exactly_cataloged",
+          "minimum": 1
+        },
+        "workflow-collaboration-protocol": {
+          "filter": "FullyQualifiedName~Workflow_collaboration_control_global_sql_is_exactly_cataloged|FullyQualifiedName~Workflow_collaboration_target_global_sql_is_exactly_cataloged",
+          "minimum": 2
+        },
+        "ai-knowledge-correction-sql-declarations": {
+          "filter": "FullyQualifiedName~AiKnowledgeCorrectionSqlDeclarationTests",
+          "minimum": 8
+        },
+        "workflow-collaboration-files": {
+          "filter": "FullyQualifiedName~Workflow_file_capability_global_sql_is_exactly_cataloged|FullyQualifiedName~Workflow_collaboration_request_global_sql_is_exactly_cataloged|FullyQualifiedName~Workflow_collaboration_target_global_sql_is_exactly_cataloged|FullyQualifiedName~Workflow_collaboration_control_global_sql_is_exactly_cataloged",
+          "minimum": 5
+        },
+        "workflow-collaboration-worker": {
+          "filter": "FullyQualifiedName~Workflow_recovery_worker_sql_is_exactly_cataloged",
+          "minimum": 2
+        },
+        "workflow-collaboration-attachment-names": {
+          "filter": "FullyQualifiedName~Workflow_visible_attachment_names_sql_is_exactly_cataloged|FullyQualifiedName~Workflow_file_capability_global_sql_is_exactly_cataloged",
+          "minimum": 3
+        },
+        "workflow-collaboration-public-node": {
+          "filter": "FullyQualifiedName~Workflow_collaboration_grant_global_sql_is_exactly_cataloged",
+          "minimum": 1
+        },
+        "workflow-r5": {
+          "filter": "FullyQualifiedName~GlobalSqlStatementCatalogTests.Workflow_operations_global_sql_is_exactly_cataloged",
+          "minimum": 1
+        },
+        "workflow-collaboration-read-models": {
+          "filter": "FullyQualifiedName~Collaboration_pagination_and_tenant_batch_sql_is_exactly_cataloged",
+          "minimum": 5
+        },
+        "ai-knowledge-search-sql": {
+          "filter": "FullyQualifiedName~AiKnowledgeSearchSqlDeclarationTests",
+          "minimum": 1,
+          "timeout": "5m"
         }
       }
     },
@@ -225,6 +637,86 @@
       "minimum": 2,
       "timeout": "15m",
       "selections": {
+        "enterprise-request-foundation-browser": {
+          "filter": "FullyQualifiedName~EnterpriseRequestFoundationBrowserUiTests.Real_browser_aggregate_submit_and_xlsx_import_with_sql_server",
+          "minimum": 1,
+          "timeout": "8m"
+        },
+          "enterprise-request-return-browser": {
+            "filter": "FullyQualifiedName~EnterpriseRequestFoundationBrowserUiTests.Real_browser_return_round_replays_and_completes_business_with_sql_server",
+            "minimum": 1,
+            "timeout": "8m"
+          },
+          "enterprise-request-live-delivery-revocation": {
+            "filter": "FullyQualifiedName~EnterpriseRequestDeliveryRecoveryTests.Live_role_revocation_and_historical_download",
+            "minimum": 2,
+            "timeout": "8m"
+          },
+          "reporting-template-configuration-browser": {
+            "filter": "FullyQualifiedName~ReportingPublicationBrowserUiTests.Host_edits_draft_recovers_conflict_and_explicitly_publishes_report",
+            "minimum": 1,
+            "timeout": "8m"
+          },
+          "reporting-data-source-configuration-browser": {
+            "filter": "FullyQualifiedName~ReportingPublicationBrowserUiTests.Host_creates_edits_without_replacing_credentials_and_disables_data_source",
+            "minimum": 1,
+            "timeout": "8m"
+          },
+          "reporting-published-execution-browser": {
+            "filter": "FullyQualifiedName~ReportingPublicationBrowserUiTests.Host_executes_published_version_while_draft_parameters_have_changed",
+            "minimum": 1,
+            "timeout": "8m"
+          },
+          "admin-toolbar-actions-browser": {
+            "filter": "FullyQualifiedName~AdminToolbarActionsBrowserUiTests.Host_uses_restored_toolbar_entries_and_publishes_dashboard",
+            "minimum": 1,
+            "timeout": "8m"
+          },
+        "import-profiles": {
+          "filter": "FullyQualifiedName~ImportProfilesApiTests|FullyQualifiedName~ImportProfilesBrowserUiTests",
+          "minimum": 3,
+          "timeout": "8m"
+        },
+        "import-task-cancellation": {
+          "filter": "FullyQualifiedName~ImportTaskCancellationApiTests|FullyQualifiedName~ImportTaskCancellationBrowserUiTests",
+          "minimum": 3,
+          "timeout": "8m"
+        },
+        "reporting-task-cancellation": {
+          "filter": "FullyQualifiedName~ReportingExportCancellationTests|FullyQualifiedName~ReportingPublicationBrowserUiTests.Tenant_cancels_own_pending_report",
+          "minimum": 3,
+          "timeout": "8m"
+        },
+        "document-preview-task-controls": {
+          "filter": "FullyQualifiedName~DocumentPreviewTaskControlsBrowserUiTests",
+          "minimum": 1,
+          "timeout": "8m"
+        },
+        "enterprise-report-expiry-browser": {
+          "filter": "FullyQualifiedName~EnterpriseRequestFoundationBrowserUiTests.Real_browser_report_result_expiry",
+          "minimum": 1,
+          "timeout": "8m"
+        },
+        "printing-template-configuration": {
+          "filter": "FullyQualifiedName~PrintingTemplateConfigurationTests|FullyQualifiedName~PrintingTemplateConfigurationBrowserUiTests",
+          "minimum": 3,
+          "timeout": "8m"
+        },
+        "notifications-tenant-navigation-repair": {
+          "filter": "FullyQualifiedName~NotificationNavigationDirectoryApiTests",
+          "minimum": 2,
+          "timeout": "5m"
+        },
+        "enterprise-request-member-access": {
+          "filter": "FullyQualifiedName~EnterpriseRequestAccessMatrixTests",
+          "minimum": 2,
+          "timeout": "5m"
+        },
+        "enterprise-request-state-boundaries": {
+          "filter": "FullyQualifiedName~EnterpriseRequestApiSqlServerTests.Draft_mutations_are_frozen_after_submit|FullyQualifiedName~EnterpriseRequestApiMySqlTests.Draft_mutations_are_frozen_after_submit|FullyQualifiedName~EnterpriseRequestApiSqlServerTests.Detail_write_parent_lock_serializes_workflow_submit|FullyQualifiedName~EnterpriseRequestApiMySqlTests.Detail_write_parent_lock_serializes_workflow_submit",
+          "minimum": 4,
+          "timeout": "5m"
+        },
         "organization-leadership": {
           "filter": "FullyQualifiedName~WorkflowOrganizationLeadershipApiTests",
           "minimum": 2
@@ -388,6 +880,411 @@
         "workflow-collaboration-grants": {
           "filter": "FullyQualifiedName~WorkflowCollaborationGrantApiTests",
           "minimum": 2
+        },
+        "workflow-collaboration-grants-browser": {
+          "filter": "FullyQualifiedName~WorkflowCollaborationGrantBrowserUiTests",
+          "minimum": 1
+        },
+        "workflow-collaboration-requests": {
+          "filter": "FullyQualifiedName~WorkflowCollaborationRequestApiTests.Collaboration_requests_",
+          "minimum": 2
+        },
+        "workflow-collaboration-requests-sql-server": {
+          "filter": "FullyQualifiedName~WorkflowCollaborationRequestApiTests.Collaboration_requests_with_sql_server",
+          "minimum": 1
+        },
+        "workflow-collaboration-requests-my-sql": {
+          "filter": "FullyQualifiedName~WorkflowCollaborationRequestApiTests.Collaboration_requests_with_mysql",
+          "minimum": 1
+        },
+        "workflow-collaboration-targets": {
+          "filter": "FullyQualifiedName~WorkflowCollaborationRequestApiTests.Collaboration_targets_",
+          "minimum": 2
+        },
+        "workflow-collaboration-targets-sql-server": {
+          "filter": "FullyQualifiedName~WorkflowCollaborationRequestApiTests.Collaboration_targets_with_sql_server",
+          "minimum": 1
+        },
+        "workflow-collaboration-targets-my-sql": {
+          "filter": "FullyQualifiedName~WorkflowCollaborationRequestApiTests.Collaboration_targets_with_mysql",
+          "minimum": 1
+        },
+        "workflow-collaboration-protocol-sql-server": {
+          "filter": "FullyQualifiedName~WorkflowCollaborationRequestApiTests.Collaboration_protocol_with_sql_server",
+          "minimum": 1
+        },
+        "workflow-collaboration-protocol-my-sql": {
+          "filter": "FullyQualifiedName~WorkflowCollaborationRequestApiTests.Collaboration_protocol_with_mysql",
+          "minimum": 1
+        },
+        "workflow-collaboration-files-sql-server": {
+          "filter": "FullyQualifiedName~WorkflowCollaborationRequestApiTests.Collaboration_files_with_sql_server",
+          "minimum": 1
+        },
+        "workflow-collaboration-files-my-sql": {
+          "filter": "FullyQualifiedName~WorkflowCollaborationRequestApiTests.Collaboration_files_with_mysql",
+          "minimum": 1
+        },
+        "workflow-collaboration-files-openapi-sql-server": {
+          "filter": "FullyQualifiedName~OpenApiDocumentationApiSqlServerTests.OpenApi_documentation_follows_contract_with_sql_server",
+          "minimum": 1
+        },
+        "workflow-collaboration-files-openapi-my-sql": {
+          "filter": "FullyQualifiedName~OpenApiDocumentationApiMySqlTests.OpenApi_documentation_follows_contract_with_mysql",
+          "minimum": 1
+        },
+        "workflow-collaboration-read-models-sql-server": {
+          "filter": "FullyQualifiedName~WorkflowCollaborationRequestApiTests.Collaboration_files_with_sql_server",
+          "minimum": 1
+        },
+        "workflow-collaboration-read-models-my-sql": {
+          "filter": "FullyQualifiedName~WorkflowCollaborationRequestApiTests.Collaboration_files_with_mysql",
+          "minimum": 1
+        },
+        "workflow-collaboration-files-browser": {
+          "filter": "FullyQualifiedName~WorkflowCollaborationRequestApiTests.Collaboration_files_real_browser_with_sql_server",
+          "minimum": 1
+        },
+        "workflow-collaboration-files-live-revoke-browser": {
+          "filter": "FullyQualifiedName~WorkflowCollaborationRequestApiTests.Collaboration_files_live_revoke_browser_with_sql_server",
+          "minimum": 1
+        },
+        "workflow-collaboration-worker-sql-server": {
+          "filter": "FullyQualifiedName~WorkflowCollaborationRequestApiTests.Collaboration_worker_delivery_with_sql_server",
+          "minimum": 1
+        },
+        "workflow-collaboration-worker-my-sql": {
+          "filter": "FullyQualifiedName~WorkflowCollaborationRequestApiTests.Collaboration_worker_delivery_with_mysql",
+          "minimum": 1
+        },
+        "workflow-collaboration-worker-children-sql-server": {
+          "filter": "FullyQualifiedName~WorkflowCollaborationRequestApiTests.Collaboration_worker_children_with_sql_server",
+          "minimum": 1
+        },
+        "workflow-collaboration-worker-children-my-sql": {
+          "filter": "FullyQualifiedName~WorkflowCollaborationRequestApiTests.Collaboration_worker_children_with_mysql",
+          "minimum": 1
+        },
+        "workflow-collaboration-worker-files-sql-server": {
+          "filter": "FullyQualifiedName~WorkflowCollaborationRequestApiTests.Collaboration_worker_files_with_sql_server",
+          "minimum": 1
+        },
+        "workflow-collaboration-worker-files-my-sql": {
+          "filter": "FullyQualifiedName~WorkflowCollaborationRequestApiTests.Collaboration_worker_files_with_mysql",
+          "minimum": 1
+        },
+        "workflow-collaboration-worker-child-files-sql-server": {
+          "filter": "FullyQualifiedName~WorkflowCollaborationRequestApiTests.Collaboration_worker_child_files_with_sql_server",
+          "minimum": 1
+        },
+        "workflow-collaboration-worker-child-files-my-sql": {
+          "filter": "FullyQualifiedName~WorkflowCollaborationRequestApiTests.Collaboration_worker_child_files_with_mysql",
+          "minimum": 1
+        },
+        "workflow-collaboration-worker-deep-files-sql-server": {
+          "filter": "FullyQualifiedName~WorkflowCollaborationRequestApiTests.Collaboration_worker_deep_files_with_sql_server",
+          "minimum": 1
+        },
+        "workflow-collaboration-worker-deep-files-my-sql": {
+          "filter": "FullyQualifiedName~WorkflowCollaborationRequestApiTests.Collaboration_worker_deep_files_with_mysql",
+          "minimum": 1
+        },
+        "workflow-collaboration-worker-parallel-files-sql-server": {
+          "filter": "FullyQualifiedName~WorkflowCollaborationRequestApiTests.Collaboration_worker_parallel_files_with_sql_server",
+          "minimum": 1
+        },
+        "workflow-collaboration-worker-parallel-files-my-sql": {
+          "filter": "FullyQualifiedName~WorkflowCollaborationRequestApiTests.Collaboration_worker_parallel_files_with_mysql",
+          "minimum": 1
+        },
+        "workflow-collaboration-public-node-sql-server": {
+          "filter": "FullyQualifiedName~WorkflowCollaborationRequestApiTests.Collaboration_public_node_with_sql_server",
+          "minimum": 1
+        },
+        "workflow-version-comparison-browser": {
+          "filter": "FullyQualifiedName~WorkflowCollaborationRequestApiTests.Workflow_published_versions_real_browser_with_sql_server",
+          "minimum": 1
+        },
+        "workflow-r5-sql-server": {
+          "filter": "FullyQualifiedName~WorkflowCollaborationRequestApiTests.R5_simulation_operations_with_sql_server",
+          "minimum": 1
+        },
+        "workflow-r5-my-sql": {
+          "filter": "FullyQualifiedName~WorkflowCollaborationRequestApiTests.R5_simulation_operations_with_mysql",
+          "minimum": 1
+        },
+        "workflow-r5-browser": {
+          "filter": "FullyQualifiedName~WorkflowCollaborationRequestApiTests.R5_simulation_operations_real_browser_with_sql_server",
+          "minimum": 1
+        },
+        "workflow-native-sql-server": {
+          "filter": "FullyQualifiedName~WorkflowCollaborationRequestApiTests.Workflow_native_api_worker_with_sql_server",
+          "minimum": 1
+        },
+        "workflow-native-api-sql-server": {
+          "filter": "FullyQualifiedName~WorkflowCollaborationRequestApiTests.Workflow_native_api_r5_with_sql_server",
+          "minimum": 1
+        },
+        "workflow-native-api-my-sql": {
+          "filter": "FullyQualifiedName~WorkflowCollaborationRequestApiTests.Workflow_native_api_r5_with_mysql",
+          "minimum": 1
+        },
+        "workflow-native-todo-paging-my-sql": {
+          "filter": "FullyQualifiedName~WorkflowCollaborationRequestApiTests.Workflow_native_todo_paging_with_mysql",
+          "minimum": 1
+        },
+        "workflow-native-my-sql": {
+          "filter": "FullyQualifiedName~WorkflowCollaborationRequestApiTests.Workflow_native_api_worker_with_mysql",
+          "minimum": 1
+        },
+        "workflow-native-windows-client": {
+          "filter": "FullyQualifiedName~WorkflowCollaborationRequestApiTests.Workflow_windows_release_client_with_native_sql_server",
+          "minimum": 1
+        },
+        "workflow-resource-deep-links-sql-server": {
+          "filter": "FullyQualifiedName~WorkflowResourceDeepLinkApiTests.Resource_message_lookup_with_sql_server",
+          "minimum": 1
+        },
+        "workflow-resource-deep-links-my-sql": {
+          "filter": "FullyQualifiedName~WorkflowResourceDeepLinkApiTests.Resource_message_lookup_with_mysql",
+          "minimum": 1
+        },
+        "workflow-collaboration-public-node-my-sql": {
+          "filter": "FullyQualifiedName~WorkflowCollaborationRequestApiTests.Collaboration_public_node_with_mysql",
+          "minimum": 1
+        },
+        "workflow-collaboration-public-node-deep-sql-server": {
+          "filter": "FullyQualifiedName~WorkflowCollaborationRequestApiTests.Collaboration_public_node_deep_with_sql_server",
+          "minimum": 1
+        },
+        "workflow-collaboration-public-node-deep-my-sql": {
+          "filter": "FullyQualifiedName~WorkflowCollaborationRequestApiTests.Collaboration_public_node_deep_with_mysql",
+          "minimum": 1
+        },
+        "workflow-collaboration-public-node-browser": {
+          "filter": "FullyQualifiedName~WorkflowCollaborationRequestApiTests.Collaboration_public_node_real_browser_with_sql_server",
+          "minimum": 1
+        },
+        "workflow-collaboration-files-h5-browser": {
+          "filter": "FullyQualifiedName~WorkflowCollaborationRequestApiTests.Collaboration_files_h5_browser_with_sql_server",
+          "minimum": 1
+        },
+        "workflow-collaboration-files-h5-live-revoke-browser": {
+          "filter": "FullyQualifiedName~WorkflowCollaborationRequestApiTests.Collaboration_files_h5_live_revoke_browser_with_sql_server",
+          "minimum": 1
+        },
+        "workflow-native-s3-sql-server": {
+          "filter": "FullyQualifiedName~WorkflowCollaborationRequestApiTests.Workflow_native_s3_collaboration_with_sql_server",
+          "minimum": 1
+        },
+        "workflow-native-s3-my-sql": {
+          "filter": "FullyQualifiedName~WorkflowCollaborationRequestApiTests.Workflow_native_s3_collaboration_with_mysql",
+          "minimum": 1
+        },
+        "workflow-simulation-selections-sql-server": {
+          "filter": "FullyQualifiedName~WorkflowCollaborationRequestApiTests.R5_simulation_selections_with_sql_server",
+          "minimum": 1
+        },
+        "workflow-simulation-selections-my-sql": {
+          "filter": "FullyQualifiedName~WorkflowCollaborationRequestApiTests.R5_simulation_selections_with_mysql",
+          "minimum": 1
+        },
+        "workflow-simulation-selections-browser": {
+          "filter": "FullyQualifiedName~WorkflowCollaborationRequestApiTests.R5_simulation_selections_real_browser_with_sql_server",
+          "minimum": 1
+        },
+        "workflow-native-simulation-selections-sql-server": {
+          "filter": "FullyQualifiedName~WorkflowCollaborationRequestApiTests.Workflow_native_simulation_selections_with_sql_server",
+          "minimum": 1
+        },
+        "workflow-physical-kafka-sql-server": {
+          "filter": "FullyQualifiedName~WorkflowCollaborationRequestApiTests.Collaboration_physical_kafka_with_sql_server",
+          "minimum": 1
+        },
+        "workflow-physical-kafka-my-sql": {
+          "filter": "FullyQualifiedName~WorkflowCollaborationRequestApiTests.Collaboration_physical_kafka_with_mysql",
+          "minimum": 1
+        },
+        "workflow-native-kafka-sql-server": {
+          "filter": "FullyQualifiedName=Full.NET.IntegrationTests.Workflow.WorkflowCollaborationRequestApiTests.Collaboration_native_physical_kafka_with_sql_server",
+          "minimum": 1
+        },
+        "workflow-native-kafka-my-sql": {
+          "filter": "FullyQualifiedName=Full.NET.IntegrationTests.Workflow.WorkflowCollaborationRequestApiTests.Collaboration_native_physical_kafka_with_mysql",
+          "minimum": 1
+        },
+        "workflow-native-kafka-session-loss-sql-server": {
+          "filter": "FullyQualifiedName=Full.NET.IntegrationTests.Workflow.WorkflowCollaborationRequestApiTests.Collaboration_native_cutover_lost_session_with_sql_server",
+          "minimum": 1
+        },
+        "workflow-native-kafka-session-loss-my-sql": {
+          "filter": "FullyQualifiedName=Full.NET.IntegrationTests.Workflow.WorkflowCollaborationRequestApiTests.Collaboration_native_cutover_lost_session_with_mysql",
+          "minimum": 1
+        },
+        "workflow-native-kafka-combinations-sql-server": {
+          "filter": "FullyQualifiedName=Full.NET.IntegrationTests.Workflow.WorkflowCollaborationRequestApiTests.Collaboration_native_kafka_combinations_with_sql_server",
+          "minimum": 1
+        },
+        "workflow-native-kafka-combinations-my-sql": {
+          "filter": "FullyQualifiedName=Full.NET.IntegrationTests.Workflow.WorkflowCollaborationRequestApiTests.Collaboration_native_kafka_combinations_with_mysql",
+          "minimum": 1
+        },
+        "workflow-native-kafka-reconciliation-sql-server": {
+          "filter": "FullyQualifiedName=Full.NET.IntegrationTests.Workflow.WorkflowCollaborationRequestApiTests.Collaboration_native_kafka_reconciliation_with_sql_server",
+          "minimum": 1
+        },
+        "workflow-native-kafka-reconciliation-my-sql": {
+          "filter": "FullyQualifiedName=Full.NET.IntegrationTests.Workflow.WorkflowCollaborationRequestApiTests.Collaboration_native_kafka_reconciliation_with_mysql",
+          "minimum": 1
+        },
+        "workflow-native-simulation-selections-my-sql": {
+          "filter": "FullyQualifiedName~WorkflowCollaborationRequestApiTests.Workflow_native_simulation_selections_with_mysql",
+          "minimum": 1
+        },
+        "ai-knowledge-evaluation-http": {
+          "filter": "FullyQualifiedName~AiKnowledgeEvaluationSetApiTests|FullyQualifiedName~Migration347AiKnowledgeEvaluationSetsTests",
+          "minimum": 4,
+          "timeout": "10m"
+        },
+        "ai-knowledge-evaluation-source-http": {
+          "filter": "FullyQualifiedName~AiKnowledgeEvaluationSourceApiTests",
+          "minimum": 2,
+          "timeout": "30m"
+        },
+        "ai-knowledge-evaluation-native": {
+          "filter": "FullyQualifiedName~NativeKnowledgeEvaluationSetE2ETests|FullyQualifiedName~NativeKnowledgeEvaluationSourceE2ETests",
+          "minimum": 4,
+          "timeout": "40m"
+        },
+        "ai-knowledge-evaluation-run-http": {
+          "filter": "FullyQualifiedName~AiKnowledgeEvaluationRunApiTests|FullyQualifiedName~AiKnowledgeEvaluationRunContractApiTests|FullyQualifiedName~Migration349AiKnowledgeEvaluationRunsTests",
+          "minimum": 6,
+          "timeout": "20m"
+        },
+        "ai-knowledge-evaluation-private-run-http": {
+          "filter": "FullyQualifiedName~AiKnowledgeEvaluationPrivateRunApiTests",
+          "minimum": 2,
+          "timeout": "30m"
+        },
+        "ai-knowledge-evaluation-run-native": {
+          "filter": "FullyQualifiedName~NativeKnowledgeEvaluationRunE2ETests|FullyQualifiedName~NativeKnowledgeEvaluationPrivateRunE2ETests",
+          "minimum": 4,
+          "timeout": "45m"
+        },
+        "ai-personal-schedule-source-http": {
+          "filter": "FullyQualifiedName~AiPersonalScheduleSourceApiTests",
+          "minimum": 2,
+          "timeout": "10m"
+        },
+        "ai-personal-schedule-source-native": {
+          "filter": "FullyQualifiedName~NativePersonalScheduleSourceE2ETests",
+          "minimum": 2,
+          "timeout": "10m"
+        },
+        "ai-personal-schedule-source-browser": {
+          "filter": "FullyQualifiedName~NativePersonalScheduleSourceBrowserE2ETests",
+          "minimum": 1,
+          "timeout": "15m"
+        },
+        "ai-personal-schedule-answer-http": {
+          "filter": "FullyQualifiedName~AiPersonalScheduleAnswerApiTests",
+          "minimum": 2,
+          "timeout": "15m"
+        },
+        "ai-personal-schedule-answer-native": {
+          "filter": "FullyQualifiedName~NativePersonalScheduleAnswerE2ETests",
+          "minimum": 2,
+          "timeout": "20m"
+        },
+        "ai-personal-schedule-faq-http": {
+          "filter": "FullyQualifiedName~AiPersonalScheduleFaqApiTests",
+          "minimum": 2,
+          "timeout": "15m"
+        },
+        "ai-personal-schedule-faq-native": {
+          "filter": "FullyQualifiedName~NativePersonalScheduleFaqE2ETests",
+          "minimum": 2,
+          "timeout": "20m"
+        },
+        "ai-personal-schedule-faq-native-mysql": {
+          "filter": "FullyQualifiedName~NativePersonalScheduleFaqMySqlE2ETests",
+          "minimum": 1,
+          "timeout": "20m"
+        },
+        "ai-personal-schedule-feedback-http": {
+          "filter": "FullyQualifiedName~AiPersonalScheduleFeedbackApiTests",
+          "minimum": 2,
+          "timeout": "15m"
+        },
+        "ai-personal-schedule-feedback-native": {
+          "filter": "FullyQualifiedName~NativePersonalScheduleFeedbackE2ETests",
+          "minimum": 2,
+          "timeout": "20m"
+        },
+        "ai-personal-schedule-completion-http": {
+          "filter": "FullyQualifiedName~AiPersonalScheduleCompletionApiTests",
+          "minimum": 2,
+          "timeout": "15m"
+        },
+        "ai-personal-schedule-completion-native": {
+          "filter": "FullyQualifiedName~NativePersonalScheduleCompletionE2ETests",
+          "minimum": 2,
+          "timeout": "20m"
+        },
+        "ai-personal-schedule-completion-migration": {
+          "filter": "FullyQualifiedName~Migration351PersonalScheduleCompletionTests",
+          "minimum": 2,
+          "timeout": "5m"
+        },
+        "ai-personal-schedule-completion-browser": {
+          "filter": "FullyQualifiedName~NativePersonalScheduleCompletionBrowserE2ETests",
+          "minimum": 1,
+          "timeout": "15m"
+        },
+        "ai-agui-standard-client-http": {
+          "filter": "FullyQualifiedName~AgUiStandardClientApiTests",
+          "minimum": 2,
+          "timeout": "15m"
+        },
+        "ai-agui-standard-client-native": {
+          "filter": "FullyQualifiedName~NativeAgUiStandardClientE2ETests",
+          "minimum": 2,
+          "timeout": "15m"
+        },
+        "reporting-tenant-publication": {
+          "filter": "FullyQualifiedName~ReportingTenantPublicationTests",
+          "minimum": 2,
+          "timeout": "5m"
+        },
+        "reporting-publication-browser": {
+          "filter": "FullyQualifiedName~ReportingPublicationBrowserUiTests.Host_grants_published_report_and_tenant_exports_via_real_browser",
+          "minimum": 1,
+          "timeout": "8m"
+        },
+        "my-tasks": {
+          "filter": "FullyQualifiedName~MyTasksApiTests",
+          "minimum": 2,
+          "timeout": "6m"
+        },
+        "query-schemes": {
+          "filter": "FullyQualifiedName~QuerySchemesApiTests",
+          "minimum": 2,
+          "timeout": "6m"
+        },
+        "query-schemes-browser": {
+          "filter": "FullyQualifiedName~QuerySchemesBrowserUiTests",
+          "minimum": 1,
+          "timeout": "7m"
+        },
+        "object-search": {
+          "filter": "FullyQualifiedName~ObjectSearchApiTests|FullyQualifiedName~EnterpriseRequestAccessMatrixTests",
+          "minimum": 4,
+          "timeout": "8m"
+        },
+        "object-search-browser": {
+          "filter": "FullyQualifiedName~ObjectSearchBrowserUiTests",
+          "minimum": 1,
+          "timeout": "7m"
         }
       }
     }
@@ -406,6 +1303,18 @@
     "minimumExecutableBytes": 8000000,
     "sdkImage": "mcr.microsoft.com/dotnet/sdk:10.0"
   },
+  "migratorNativeAotIntegration": {
+    "project": "tests/Full.NET.IntegrationTests/Full.NET.IntegrationTests.csproj",
+    "filter": "FullyQualifiedName~Full.NET.IntegrationTests.NativeAot.NativeMigratorE2ETests",
+    "minimum": 4,
+    "timeout": "30m"
+  },
+  "logConsumerNativeAotIntegration": {
+    "project": "tests/Full.NET.IntegrationTests/Full.NET.IntegrationTests.csproj",
+    "filter": "FullyQualifiedName~Full.NET.IntegrationTests.NativeAot.NativeLogConsumerE2ETests",
+    "minimum": 4,
+    "timeout": "30m"
+  },
   "workerNativeAotIntegration": {
     "project": "tests/Full.NET.IntegrationTests/Full.NET.IntegrationTests.csproj",
     "filter": "FullyQualifiedName~NativeWorker",
@@ -420,7 +1329,7 @@
   },
   "nativeAotIntegration": {
     "project": "tests/Full.NET.IntegrationTests/Full.NET.IntegrationTests.csproj",
-    "filter": "FullyQualifiedName~Full.NET.IntegrationTests.NativeAot&FullyQualifiedName!~NativeApiS3&FullyQualifiedName!~NativeApiKafkaReplay&FullyQualifiedName!~NativeApiNotifications&FullyQualifiedName!~NativeApiSettings&FullyQualifiedName!~NativeApiJobs&FullyQualifiedName!~NativeApiOidc",
+    "filter": "FullyQualifiedName~Full.NET.IntegrationTests.NativeAot&FullyQualifiedName!~NativeApiS3&FullyQualifiedName!~NativeApiKafkaReplay&FullyQualifiedName!~NativeApiNotifications&FullyQualifiedName!~NativeApiSettings&FullyQualifiedName!~NativeApiJobs&FullyQualifiedName!~NativeApiOidc&FullyQualifiedName!~NativeApiMessagingConfigurationE2ETests",
     "requiredTestTypes": [
       "NativeApiCacheE2ETests",
       "NativeApiLocalFileMySqlE2ETests",
@@ -429,9 +1338,13 @@
       "NativeWorkerKnowledgeRetirementE2ETests",
       "NativeWorkerTenantAuthorityE2ETests",
       "NativeApiCacheColdStartE2ETests",
-      "NativeApiKnowledgeIncrementalIndexE2ETests"
+      "NativeApiKnowledgeIncrementalIndexE2ETests",
+      "NativeKnowledgePublicationE2ETests",
+      "NativeKnowledgePublicationFormatE2ETests",
+      "NativeKnowledgeCorrectionEditingE2ETests",
+      "NativeHumanKnowledgePublicationE2ETests"
     ],
-    "minimum": 46,
+    "minimum": 60,
     "timeout": "90m"
   },
   "nativeKnowledgeGenerationIntegration": {
@@ -501,14 +1414,6 @@
       }
     },
     "migrationSelections": {
-      "301": {
-        "filter": "FullyQualifiedName~IdentityMfaSigningMigrationNamingTests.Static_migrations_recover_without_resetting_totp_or_signing_state",
-        "minimum": 2
-      },
-      "303": {
-        "filter": "FullyQualifiedName~IdentityMfaSigningMigrationNamingTests.Static_migrations_recover_without_resetting_totp_or_signing_state",
-        "minimum": 2
-      },
       "101": {
         "filter": "FullyQualifiedName~Migration101IdentityHostUserProfileAuthorityRecoveryTests.MySql_|FullyQualifiedName~Migration101IdentityHostUserProfileAuthorityRecoveryTests.SqlServer_"
       },
@@ -824,17 +1729,61 @@
       "284": {
         "filter": "FullyQualifiedName~NotificationsApiSqlServerTests|FullyQualifiedName~NotificationsApiMySqlTests"
       },
+      "286": {
+        "filter": "FullyQualifiedName~Migration286DocumentBatchOneRecoveryTests.MySql_|FullyQualifiedName~Migration286DocumentBatchOneRecoveryTests.SqlServer_"
+      },
+      "287": {
+        "filter": "FullyQualifiedName~Migration286DocumentBatchOneRecoveryTests.MySql_|FullyQualifiedName~Migration286DocumentBatchOneRecoveryTests.SqlServer_"
+      },
+      "288": {
+        "filter": "FullyQualifiedName~Migration288DocumentQueryRecoveryTests&Name~SqlServer|FullyQualifiedName~Migration288DocumentQueryRecoveryTests&Name~MySql"
+      },
+      "289": {
+        "filter": "FullyQualifiedName~Migration289DocumentPreviewRecoveryTests&Name~SqlServer|FullyQualifiedName~Migration289DocumentPreviewRecoveryTests&Name~MySql"
+      },
       "291": {
-        "filter": "FullyQualifiedName~MessagingDeliveryControlTests.MySql_|FullyQualifiedName~MessagingDeliveryControlTests.SqlServer_"
+        "filter": "FullyQualifiedName~MessagingDeliveryControlTests.MySql_|FullyQualifiedName~MessagingDeliveryControlTests.SqlServer_|FullyQualifiedName~IdentityOidcGovernancePersistenceTests.Signing_policy_migration_recovers_unrecorded_schema_without_resetting_active_key&Name~SqlServer|FullyQualifiedName~IdentityOidcGovernancePersistenceTests.Signing_policy_migration_recovers_unrecorded_schema_without_resetting_active_key&Name~MySql"
       },
       "292": {
-        "filter": "FullyQualifiedName~MessagingDeliveryControlTests.MySql_|FullyQualifiedName~MessagingDeliveryControlTests.SqlServer_"
+        "filter": "FullyQualifiedName~MessagingDeliveryControlTests.MySql_|FullyQualifiedName~MessagingDeliveryControlTests.SqlServer_|FullyQualifiedName~Migration292CodeGenerationRunSourceRecoveryTests.MySql_|FullyQualifiedName~Migration292CodeGenerationRunSourceRecoveryTests.SqlServer_"
       },
       "293": {
         "filter": "FullyQualifiedName~MessagingReplayOperationTests.SqlServer_|FullyQualifiedName~MessagingReplayOperationTests.MySql_"
       },
       "296": {
         "filter": "FullyQualifiedName~MessagingShadowCaptureTests.SqlServer_|FullyQualifiedName~MessagingShadowCaptureTests.MySql_"
+      },
+      "301": {
+        "filter": "FullyQualifiedName~IdentityMfaSigningMigrationNamingTests.Static_migrations_recover_without_resetting_totp_or_signing_state",
+        "minimum": 2
+      },
+      "303": {
+        "filter": "FullyQualifiedName~IdentityMfaSigningMigrationNamingTests.Static_migrations_recover_without_resetting_totp_or_signing_state",
+        "minimum": 2
+      },
+      "324": {
+        "filter": "FullyQualifiedName~TenantSeatRecoveryTests",
+        "minimum": 2
+      },
+      "325": {
+        "filter": "FullyQualifiedName~SubscriptionBillingRecoveryTests",
+        "minimum": 2
+      },
+      "326": {
+        "filter": "FullyQualifiedName~SubscriptionBillingRecoveryTests",
+        "minimum": 2
+      },
+      "342": {
+        "filter": "FullyQualifiedName~MessagingMultiProcessRecoveryTests.MySql_two_api_two_worker_processes_recover_durable_operations|FullyQualifiedName~MessagingMultiProcessRecoveryTests.SqlServer_two_api_two_worker_processes_recover_durable_operations",
+        "minimum": 2
+      },
+      "343": {
+        "filter": "FullyQualifiedName~Migration343AiKnowledgeFaqDraftTests",
+        "minimum": 2
+      },
+      "344": {
+        "filter": "FullyQualifiedName~Migration344AiKnowledgeFaqIndexSourcesTests",
+        "minimum": 2
       },
       "008": {
         "filter": "FullyQualifiedName~MySqlMigrationTests|FullyQualifiedName~SqlServerMigrationTests|FullyQualifiedName~UuidBinaryExpandMigrationTests|FullyQualifiedName~UuidBinaryPartialRecoveryTests"
@@ -1056,28 +2005,28 @@
       },
       "api-sqlserver": {
         "filter": "FullyQualifiedName~ApiSqlServerTests",
-        "minimum": 205,
+        "minimum": 206,
         "timeout": "60m"
       },
       "api-mysql": {
         "filter": "FullyQualifiedName~ApiMySqlTests",
-        "minimum": 205,
+        "minimum": 206,
         "timeout": "60m"
       },
       "migrations": {
         "filter": "FullyQualifiedName~Full.NET.IntegrationTests.Migrations",
-        "minimum": 564,
+        "minimum": 580,
         "timeout": "120m"
       },
       "infrastructure": {
-        "filter": "TestCategory!=ExternalSmtp&TestCategory!=ExternalAliyunSms&FullyQualifiedName!~Full.NET.IntegrationTests.NativeAot&FullyQualifiedName!~ApiSqlServerTests&FullyQualifiedName!~ApiMySqlTests&FullyQualifiedName!~Full.NET.IntegrationTests.Migrations&FullyQualifiedName!~KafkaCapacityRunnerTests&FullyQualifiedName!~KafkaOutboxCdcCapacityRunnerTests&FullyQualifiedName!~KafkaLogDeliveryTests&FullyQualifiedName!~KafkaLogRequestLatencyTests&FullyQualifiedName!~KafkaCollectorRequestReplayTests&FullyQualifiedName!~KafkaLogRouteComparisonTests&FullyQualifiedName!~KafkaLogConsumerDeliveryTests&FullyQualifiedName!~KafkaLogConsumerElasticsearchReplayTests&FullyQualifiedName!~KafkaLogConsumerElasticsearchTlsTests&FullyQualifiedName!~MySqlCdcDebeziumInboxE2ETests&FullyQualifiedName!~SqlServerCdcDebeziumInboxE2ETests&FullyQualifiedName!~OrganizationCdcKafkaIdentityProjectionMySqlE2ETests&FullyQualifiedName!~OrganizationUnitCdcKafkaEndToEndTests&FullyQualifiedName!~OrganizationUnitCdcKafkaFaultMatrixTests&FullyQualifiedName!~EventDeliveryCutoverTests&FullyQualifiedName!~EventDeliveryRollbackTests&FullyQualifiedName!~CdcCrashPointTests&FullyQualifiedName!~KafkaFailureRecoveryTests&FullyQualifiedName!~MessagingBatchOneTests&FullyQualifiedName!~KafkaReplayTests&FullyQualifiedName!~KafkaSubscriptionTests&FullyQualifiedName!~MySqlBinlogShadowTests&FullyQualifiedName!~SqlServerCdcShadowTests&FullyQualifiedName!~KafkaLogSecretBoundaryTests&FullyQualifiedName!~MessagingDeliveryControlTests&FullyQualifiedName!~MessagingShadowCaptureTests&FullyQualifiedName!~MessagingDeliveryOverviewTests&FullyQualifiedName!~MessagingShadowCaptureDebeziumTests&FullyQualifiedName!~MessagingCutoverRollbackDebeziumTests",
-        "minimum": 295,
+        "filter": "TestCategory!=ExternalSmtp&TestCategory!=ExternalAliyunSms&TestCategory!=NativeWorkflowApi&TestCategory!=NativeWorkflow&TestCategory!=NativeWorkflowWindows&TestCategory!=WorkflowNativeKafka&TestCategory!=WorkflowPhysicalKafka&FullyQualifiedName!~Full.NET.IntegrationTests.NativeAot&FullyQualifiedName!~ApiSqlServerTests&FullyQualifiedName!~ApiMySqlTests&FullyQualifiedName!~Full.NET.IntegrationTests.Migrations&FullyQualifiedName!~KafkaCapacityRunnerTests&FullyQualifiedName!~KafkaOutboxCdcCapacityRunnerTests&FullyQualifiedName!~KafkaLogDeliveryTests&FullyQualifiedName!~KafkaLogRequestLatencyTests&FullyQualifiedName!~KafkaCollectorRequestReplayTests&FullyQualifiedName!~KafkaLogRouteComparisonTests&FullyQualifiedName!~KafkaLogConsumerDeliveryTests&FullyQualifiedName!~KafkaLogConsumerElasticsearchReplayTests&FullyQualifiedName!~KafkaLogConsumerElasticsearchTlsTests&FullyQualifiedName!~MySqlCdcDebeziumInboxE2ETests&FullyQualifiedName!~SqlServerCdcDebeziumInboxE2ETests&FullyQualifiedName!~OrganizationCdcKafkaIdentityProjectionMySqlE2ETests&FullyQualifiedName!~OrganizationUnitCdcKafkaEndToEndTests&FullyQualifiedName!~OrganizationUnitCdcKafkaFaultMatrixTests&FullyQualifiedName!~EventDeliveryCutoverTests&FullyQualifiedName!~EventDeliveryRollbackTests&FullyQualifiedName!~CdcCrashPointTests&FullyQualifiedName!~KafkaFailureRecoveryTests&FullyQualifiedName!~MessagingBatchOneTests&FullyQualifiedName!~KafkaReplayTests&FullyQualifiedName!~KafkaSubscriptionTests&FullyQualifiedName!~MySqlBinlogShadowTests&FullyQualifiedName!~SqlServerCdcShadowTests&FullyQualifiedName!~KafkaLogSecretBoundaryTests&FullyQualifiedName!~MessagingDeliveryControlTests&FullyQualifiedName!~MessagingShadowCaptureTests&FullyQualifiedName!~MessagingDeliveryOverviewTests&FullyQualifiedName!~MessagingShadowCaptureDebeziumTests&FullyQualifiedName!~MessagingCutoverRollbackDebeziumTests&FullyQualifiedName!~IdentityBrowserUiTests&FullyQualifiedName!~WorkflowCollaborationGrantBrowserUiTests&FullyQualifiedName!~AiKnowledgeCorrectionBrowserUiTests&FullyQualifiedName!~IdentityOidcNetworkInteropTests&FullyQualifiedName!~MessagingCdcHealthCollectionTests&FullyQualifiedName!~MessagingMultiProcessRecoveryTests&FullyQualifiedName!~MessagingCdcAlertLoopTests&FullyQualifiedName!~MessagingKafkaQuorumRecoveryTests&FullyQualifiedName!~MessagingCdcSourceAlertLoopTests&FullyQualifiedName!~KafkaRetentionTimeObservationTests&FullyQualifiedName!~KafkaRollbackTopologyTests",
+        "minimum": 565,
         "timeout": "60m"
       },
       "messaging-heavy": {
-        "filter": "FullyQualifiedName~KafkaCapacityRunnerTests|FullyQualifiedName~KafkaOutboxCdcCapacityRunnerTests|FullyQualifiedName~KafkaLogDeliveryTests|FullyQualifiedName~KafkaLogRequestLatencyTests|FullyQualifiedName~KafkaCollectorRequestReplayTests|FullyQualifiedName~KafkaLogConsumerDeliveryTests|FullyQualifiedName~KafkaLogConsumerElasticsearchReplayTests|FullyQualifiedName~KafkaLogConsumerElasticsearchTlsTests|FullyQualifiedName~MySqlCdcDebeziumInboxE2ETests|FullyQualifiedName~SqlServerCdcDebeziumInboxE2ETests|FullyQualifiedName~OrganizationCdcKafkaIdentityProjectionMySqlE2ETests|FullyQualifiedName~OrganizationUnitCdcKafkaEndToEndTests|FullyQualifiedName~OrganizationUnitCdcKafkaFaultMatrixTests|FullyQualifiedName~EventDeliveryCutoverTests|FullyQualifiedName~EventDeliveryRollbackTests|FullyQualifiedName~CdcCrashPointTests|FullyQualifiedName~KafkaFailureRecoveryTests|FullyQualifiedName~MessagingBatchOneTests|FullyQualifiedName~KafkaReplayTests|FullyQualifiedName~KafkaSubscriptionTests|FullyQualifiedName~MySqlBinlogShadowTests|FullyQualifiedName~SqlServerCdcShadowTests|FullyQualifiedName~KafkaLogRouteComparisonTests|FullyQualifiedName~KafkaLogSecretBoundaryTests|FullyQualifiedName~MessagingDeliveryControlTests|FullyQualifiedName~MessagingShadowCaptureTests|FullyQualifiedName~MessagingDeliveryOverviewTests|FullyQualifiedName~MessagingShadowCaptureDebeziumTests|FullyQualifiedName~MessagingCutoverRollbackDebeziumTests",
-        "minimum": 87,
-        "minimumPassedOnTestcontainers": 81,
+        "filter": "FullyQualifiedName~KafkaCapacityRunnerTests|FullyQualifiedName~KafkaOutboxCdcCapacityRunnerTests|FullyQualifiedName~KafkaLogDeliveryTests|FullyQualifiedName~KafkaLogRequestLatencyTests|FullyQualifiedName~KafkaCollectorRequestReplayTests|FullyQualifiedName~KafkaLogConsumerDeliveryTests|FullyQualifiedName~KafkaLogConsumerElasticsearchReplayTests|FullyQualifiedName~KafkaLogConsumerElasticsearchTlsTests|FullyQualifiedName~MySqlCdcDebeziumInboxE2ETests|FullyQualifiedName~SqlServerCdcDebeziumInboxE2ETests|FullyQualifiedName~OrganizationCdcKafkaIdentityProjectionMySqlE2ETests|FullyQualifiedName~OrganizationUnitCdcKafkaEndToEndTests|FullyQualifiedName~OrganizationUnitCdcKafkaFaultMatrixTests|FullyQualifiedName~EventDeliveryCutoverTests|FullyQualifiedName~EventDeliveryRollbackTests|FullyQualifiedName~CdcCrashPointTests|FullyQualifiedName~KafkaFailureRecoveryTests|FullyQualifiedName~MessagingBatchOneTests|FullyQualifiedName~KafkaReplayTests|FullyQualifiedName~KafkaSubscriptionTests|FullyQualifiedName~MySqlBinlogShadowTests|FullyQualifiedName~SqlServerCdcShadowTests|FullyQualifiedName~KafkaLogRouteComparisonTests|FullyQualifiedName~KafkaLogSecretBoundaryTests|FullyQualifiedName~MessagingDeliveryControlTests|FullyQualifiedName~MessagingShadowCaptureTests|FullyQualifiedName~MessagingDeliveryOverviewTests|FullyQualifiedName~MessagingShadowCaptureDebeziumTests|FullyQualifiedName~MessagingCutoverRollbackDebeziumTests|FullyQualifiedName~MessagingCdcHealthCollectionTests|FullyQualifiedName~MessagingMultiProcessRecoveryTests|FullyQualifiedName~MessagingCdcAlertLoopTests|FullyQualifiedName~MessagingKafkaQuorumRecoveryTests|FullyQualifiedName~MessagingCdcSourceAlertLoopTests|FullyQualifiedName~KafkaRetentionTimeObservationTests|FullyQualifiedName~KafkaRollbackTopologyTests|TestCategory=WorkflowPhysicalKafka",
+        "minimum": 111,
+        "minimumPassedOnTestcontainers": 105,
         "timeout": "90m"
       },
       "logging-request-kafka": {
@@ -1098,8 +2047,8 @@
         "timeout": "15m"
       },
       "full": {
-        "filter": "TestCategory!=ExternalSmtp&TestCategory!=ExternalAliyunSms&FullyQualifiedName!~Full.NET.IntegrationTests.NativeAot",
-        "minimum": 1358,
+        "filter": "TestCategory!=ExternalSmtp&TestCategory!=ExternalAliyunSms&TestCategory!=NativeWorkflowApi&TestCategory!=NativeWorkflow&TestCategory!=NativeWorkflowWindows&TestCategory!=WorkflowNativeKafka&FullyQualifiedName!~Full.NET.IntegrationTests.NativeAot&FullyQualifiedName!~IdentityBrowserUiTests&FullyQualifiedName!~WorkflowCollaborationGrantBrowserUiTests&FullyQualifiedName!~AiKnowledgeCorrectionBrowserUiTests&FullyQualifiedName!~IdentityOidcNetworkInteropTests",
+        "minimum": 1668,
         "timeout": "90m"
       },
       "logging-metrics": {
@@ -1138,6 +2087,12 @@
         "minimumPassedOnTestcontainers": 2,
         "timeout": "15m"
       },
+      "messaging-replay-retention": {
+        "filter": "FullyQualifiedName~MessagingReplayOperationTests.SqlServer_|FullyQualifiedName~MessagingReplayOperationTests.MySql_",
+        "minimum": 2,
+        "minimumPassedOnTestcontainers": 2,
+        "timeout": "10m"
+      },
       "messaging-operations": {
         "filter": "FullyQualifiedName~MessagingReplayOperationTests|FullyQualifiedName~KafkaReplayTests|FullyQualifiedName~MessagingShadowCaptureTests|FullyQualifiedName~MessagingDeliveryOverviewTests",
         "minimum": 7,
@@ -1155,6 +2110,506 @@
         "minimum": 2,
         "minimumPassedOnTestcontainers": 2,
         "timeout": "35m"
+      },
+      "messaging-retired-connector-sql-server": {
+        "filter": "FullyQualifiedName~EventDeliveryCutoverTests.SqlServer_retired_connector_cannot_be_reused_by_another_stream",
+        "minimum": 1,
+        "timeout": "10m"
+      },
+      "messaging-cutover-session-loss-sql-server": {
+        "filter": "FullyQualifiedName~EventDeliveryCutoverTests.SqlServer_cutover_lost_control_connection_cannot_commit",
+        "minimum": 1,
+        "timeout": "10m"
+      },
+      "messaging-cutover-lock-lifecycle-sql-server": {
+        "filter": "FullyQualifiedName~EventDeliveryCutoverTests.SqlServer_transaction_bound_lock_releases_after_commit",
+        "minimum": 1,
+        "timeout": "10m"
+      },
+      "messaging-cutover-lock-lifecycle-my-sql": {
+        "filter": "FullyQualifiedName~EventDeliveryCutoverTests.MySql_transaction_bound_lock_releases_after_commit",
+        "minimum": 1,
+        "timeout": "10m"
+      },
+      "messaging-cutover-session-loss-my-sql": {
+        "filter": "FullyQualifiedName~EventDeliveryCutoverTests.MySql_cutover_lost_control_connection_cannot_commit",
+        "minimum": 1,
+        "timeout": "10m"
+      },
+      "messaging-retired-connector-my-sql": {
+        "filter": "FullyQualifiedName~EventDeliveryCutoverTests.MySql_retired_connector_cannot_be_reused_by_another_stream",
+        "minimum": 1,
+        "timeout": "10m"
+      },
+      "code-generation-http-contracts": {
+        "filter": "FullyQualifiedName~CodeGenerationApiSqlServerTests|FullyQualifiedName~CodeGenerationApiMySqlTests",
+        "minimum": 8,
+        "timeout": "15m"
+      },
+      "code-generation-http-chain": {
+        "filter": "Name~Kestrel_login_review_apply_replay_cross_entity_rollback_and_saved_download_survive_restart",
+        "minimum": 2,
+        "timeout": "15m"
+      },
+      "code-generation-http-runs": {
+        "filter": "Name~Host_runs_follow_contract_with_",
+        "minimum": 2,
+        "timeout": "15m"
+      },
+      "code-generation-http-lifecycle": {
+        "filter": "FullyQualifiedName~CodeGenerationHttpLifecycleTests",
+        "minimum": 4,
+        "timeout": "15m"
+      },
+      "code-generation-http-completion": {
+        "filter": "Name~Host_runs_follow_contract_with_|FullyQualifiedName~CodeGenerationHttpLifecycleTests",
+        "minimum": 6,
+        "timeout": "15m"
+      },
+      "code-generation-http-repair": {
+        "filter": "FullyQualifiedName~CodeGenerationHttpLifecycleTests|FullyQualifiedName~Migration292CodeGenerationRunSourceRecoveryTests",
+        "minimum": 6,
+        "timeout": "15m"
+      },
+      "code-generation-http-acceptance": {
+        "filter": "FullyQualifiedName~CodeGenerationApiSqlServerTests|FullyQualifiedName~CodeGenerationApiMySqlTests|FullyQualifiedName~CodeGenerationHttpLifecycleTests|FullyQualifiedName~Migration292CodeGenerationRunSourceRecoveryTests",
+        "minimum": 14,
+        "timeout": "15m"
+      },
+      "code-generation-http-current-workspace": {
+        "filter": "FullyQualifiedName~CodeGenerationApiSqlServerTests|FullyQualifiedName~CodeGenerationApiMySqlTests|FullyQualifiedName~CodeGenerationHttpLifecycleTests|FullyQualifiedName~Migration292CodeGenerationRunSourceRecoveryTests|FullyQualifiedName~OrganizationAssignmentListApi",
+        "minimum": 16,
+        "timeout": "15m"
+      },
+      "document-batch-three": {
+        "filter": "FullyQualifiedName~DocumentBatchThreeTests|FullyQualifiedName~Migration289DocumentPreviewRecoveryTests|FullyQualifiedName~Document_share_security_is_atomic_with_",
+        "minimum": 20,
+        "minimumPassedOnTestcontainers": 20,
+        "timeout": "8m"
+      },
+      "identity-oidc-b1-b2": {
+        "filter": "FullyQualifiedName~IdentityOidcGovernancePersistenceTests|FullyQualifiedName~IdentityOidcEndSessionTests|FullyQualifiedName~Oidc_signing_key_management_admin_api_with_",
+        "minimum": 8,
+        "minimumPassedOnTestcontainers": 8,
+        "timeout": "12m"
+      },
+      "document-three-batch-review": {
+        "filter": "FullyQualifiedName~DocumentBatchThreeTests.Review_",
+        "minimum": 6,
+        "minimumPassedOnTestcontainers": 6,
+        "timeout": "5m"
+      },
+      "identity-oidc-remaining": {
+        "filter": "FullyQualifiedName~IdentityBrowserSessionIntegrationTests|FullyQualifiedName~IdentityBrowserProtocolValidationTests|FullyQualifiedName~IdentityOidcInteractiveIntegrationTests|FullyQualifiedName~IdentityOidcBackchannelIntegrationTests|FullyQualifiedName~IdentityOidcRemediationMigrationTests|FullyQualifiedName~IdentityOidcKeyGovernanceIntegrationTests|FullyQualifiedName~IdentityOidcGovernancePersistenceTests|FullyQualifiedName~IdentityOidcEndSessionTests|FullyQualifiedName~Oidc_signing_key_management_admin_api_with_|FullyQualifiedName~Oidc_signing_key_rotation_|FullyQualifiedName~Oidc_signing_key_retirement_|FullyQualifiedName~Oidc_multi_instance_signing_key_|FullyQualifiedName~Oidc_multi_instance_staggered_exchange_|FullyQualifiedName~Oidc_multi_instance_peer_validates_|FullyQualifiedName~Oidc_multi_instance_application_logout_|FullyQualifiedName~Oidc_multi_instance_center_logout_|FullyQualifiedName~Oidc_multi_instance_revoke_all_|FullyQualifiedName~Oidc_multi_instance_governance_rejects_",
+        "minimum": 54,
+        "minimumPassedOnTestcontainers": 54,
+        "timeout": "15m"
+      },
+      "identity-oidc-browser-ui": {
+        "filter": "FullyQualifiedName~IdentityBrowserUiTests",
+        "minimum": 2,
+        "minimumPassedOnTestcontainers": 2,
+        "timeout": "8m"
+      },
+      "workflow-collaboration-grants-browser": {
+        "filter": "FullyQualifiedName~WorkflowCollaborationGrantBrowserUiTests",
+        "minimum": 1,
+        "minimumPassedOnTestcontainers": 1,
+        "timeout": "10m"
+      },
+      "identity-oidc-network-interop": {
+        "filter": "FullyQualifiedName~IdentityOidcNetworkInteropTests",
+        "minimum": 2,
+        "minimumPassedOnTestcontainers": 2,
+        "timeout": "15m"
+      },
+      "tenant-seat-recovery": {
+        "filter": "FullyQualifiedName~TenantSeatRecoveryTests|FullyQualifiedName~Tenant_member_provision_blocked_when_identity_seats_at_capacity|FullyQualifiedName~Tenant_invitation_accept_blocked_when_identity_seats_at_capacity",
+        "minimum": 6,
+        "timeout": "15m"
+      },
+      "authentication-audit-recovery": {
+        "filter": "FullyQualifiedName~AuthenticationAuditRecoveryTests|FullyQualifiedName~Mfa_recovery_codes_regenerate_and_consume_with|FullyQualifiedName~Host_signature_authentication_follows_contract_with|FullyQualifiedName~Oidc_governance_audit_writes_with|FullyQualifiedName~Oidc_application_revoke_preserves_center_sso_for_other_apps_with",
+        "minimum": 10,
+        "timeout": "15m"
+      },
+      "subscription-billing-recovery": {
+        "filter": "FullyQualifiedName~SubscriptionBillingRecoveryTests|FullyQualifiedName~TenantSeatRecoveryTests",
+        "minimum": 4,
+        "timeout": "15m"
+      },
+      "enterprise-delivery": {
+        "filter": "FullyQualifiedName~EnterpriseRequestDeliveryRecoveryTests",
+        "minimum": 2,
+        "timeout": "10m"
+      },
+      "ai-controlled-write": {
+        "filter": "FullyQualifiedName~AiControlledWriteReceiverTests",
+        "minimum": 2,
+        "timeout": "10m"
+      },
+      "ai-parallel-workflow": {
+        "filter": "FullyQualifiedName~AiParallelWorkflowRecoveryTests",
+        "minimum": 6,
+        "timeout": "8m"
+      },
+      "ai-knowledge-publication": {
+        "filter": "FullyQualifiedName~AiKnowledgePublicationTests|FullyQualifiedName~AiKnowledgeIndexPdfVectorApiSqlServerTests|FullyQualifiedName~AiKnowledgeIndexPdfVectorApiMySqlTests|FullyQualifiedName~AiKnowledgeIndexDocumentPersistenceApiSqlServerTests|FullyQualifiedName~AiKnowledgeIndexDocumentPersistenceApiMySqlTests",
+        "minimum": 6,
+        "timeout": "20m"
+      },
+      "ai-knowledge-publication-lifecycle": {
+        "filter": "FullyQualifiedName~AiKnowledgePublicationTests",
+        "minimum": 2,
+        "timeout": "10m"
+      },
+      "ai-knowledge-publication-sqlserver": {
+        "filter": "FullyQualifiedName~AiKnowledgeIndexPdfVectorApiSqlServerTests|FullyQualifiedName~AiKnowledgeIndexDocumentPersistenceApiSqlServerTests",
+        "minimum": 2,
+        "timeout": "10m"
+      },
+      "ai-knowledge-publication-mysql": {
+        "filter": "FullyQualifiedName~AiKnowledgeIndexPdfVectorApiMySqlTests|FullyQualifiedName~AiKnowledgeIndexDocumentPersistenceApiMySqlTests",
+        "minimum": 2,
+        "timeout": "10m"
+      },
+      "ai-knowledge-correction-persistence": {
+        "filter": "FullyQualifiedName~AiKnowledgeCorrectionPersistenceTests",
+        "minimum": 2,
+        "timeout": "10m"
+      },
+      "ai-knowledge-correction-preparation": {
+        "filter": "FullyQualifiedName~AiKnowledgeCorrectionWorkbenchApiTests|FullyQualifiedName~AiKnowledgeCorrectionPreparationTests",
+        "minimum": 4,
+        "timeout": "15m"
+      },
+      "ai-knowledge-correction-editing": {
+        "filter": "FullyQualifiedName~AiKnowledgeCorrectionEditingApiTests",
+        "minimum": 2,
+        "timeout": "15m"
+      },
+      "ai-knowledge-correction-index-input": {
+        "filter": "FullyQualifiedName~AiKnowledgeIndexCorrectionInputTests",
+        "minimum": 2,
+        "timeout": "10m"
+      },
+      "ai-knowledge-correction-manifest": {
+        "filter": "FullyQualifiedName~AiKnowledgeCorrectionManifestTests",
+        "minimum": 2,
+        "timeout": "10m"
+      },
+      "ai-knowledge-correction-generation": {
+        "filter": "FullyQualifiedName~AiKnowledgeCorrectionGenerationTests|FullyQualifiedName~Full.NET.IntegrationTests.Ai.AiKnowledgeCorrectionVectorTests|FullyQualifiedName~AiKnowledgeCorrectionPreparationTests",
+        "minimum": 6,
+        "timeout": "15m"
+      },
+      "ai-knowledge-correction-generation-activation": {
+        "filter": "FullyQualifiedName~AiKnowledgeCorrectionGenerationTests",
+        "minimum": 2,
+        "timeout": "10m"
+      },
+      "ai-knowledge-correction-publication": {
+        "filter": "FullyQualifiedName~AiKnowledgeCorrectionGenerationTests|FullyQualifiedName~AiKnowledgePublicationTests",
+        "minimum": 4,
+        "timeout": "15m"
+      },
+      "ai-knowledge-correction-worker": {
+        "filter": "FullyQualifiedName~AiKnowledgeCorrectionWorkerTests|FullyQualifiedName~Worker_scans_and_executes_text_with_original_scopes_async",
+        "minimum": 4,
+        "timeout": "15m"
+      },
+      "ai-knowledge-correction-citations": {
+        "filter": "FullyQualifiedName~AiKnowledgeCorrectionGenerationTests|FullyQualifiedName~AiKnowledgePublicationTests",
+        "minimum": 4,
+        "timeout": "15m"
+      },
+      "ai-knowledge-correction-vectors": {
+        "filter": "FullyQualifiedName~Full.NET.IntegrationTests.Ai.AiKnowledgeCorrectionVectorTests|FullyQualifiedName~AiKnowledgeCorrectionManifestTests",
+        "minimum": 4,
+        "timeout": "10m"
+      },
+      "ai-knowledge-publication-native": {
+        "filter": "FullyQualifiedName~NativeKnowledgePublicationE2ETests",
+        "minimum": 2,
+        "timeout": "10m"
+      },
+      "ai-knowledge-correction-editing-native": {
+        "filter": "FullyQualifiedName~NativeKnowledgeCorrectionEditingE2ETests",
+        "minimum": 2,
+        "timeout": "15m"
+      },
+      "ai-knowledge-correction-worker-native": {
+        "filter": "FullyQualifiedName~NativeWorkerCorrectionGenerationE2ETests",
+        "minimum": 2,
+        "timeout": "15m"
+      },
+      "ai-knowledge-correction-publication-native": {
+        "filter": "FullyQualifiedName~NativeHumanKnowledgePublicationE2ETests",
+        "minimum": 6,
+        "timeout": "30m"
+      },
+      "ai-knowledge-correction-structured-native": {
+        "filter": "FullyQualifiedName~NativeHumanKnowledgePublicationE2ETests.Native_structured_source_edit_index_publication_and_history_preserve_real_positions",
+        "minimum": 4,
+        "timeout": "20m"
+      },
+      "ai-knowledge-correction-publication-http": {
+        "filter": "FullyQualifiedName~AiKnowledgeHumanPublicationApiTests",
+        "minimum": 2,
+        "timeout": "15m"
+      },
+      "ai-knowledge-correction-browser-bridge": {
+        "filter": "FullyQualifiedName~AiKnowledgeCorrectionBrowserUiTests",
+        "minimum": 1,
+        "timeout": "20m"
+      },
+      "ai-knowledge-publication-native-sqlserver": {
+        "filter": "FullyQualifiedName~NativeKnowledgePublicationFormatE2ETests.SqlServer",
+        "minimum": 2,
+        "timeout": "12m"
+      },
+      "ai-knowledge-publication-native-mysql": {
+        "filter": "FullyQualifiedName~NativeKnowledgePublicationFormatE2ETests.MySql",
+        "minimum": 2,
+        "timeout": "10m"
+      },
+      "messaging-platform-health": {
+        "filter": "FullyQualifiedName~MessagingCdcHealthCollectionTests",
+        "minimum": 4,
+        "minimumPassedOnTestcontainers": 4,
+        "timeout": "12m"
+      },
+      "messaging-process-recovery": {
+        "filter": "FullyQualifiedName~MessagingMultiProcessRecoveryTests&FullyQualifiedName~recover_durable_operations",
+        "minimum": 2,
+        "minimumPassedOnTestcontainers": 2,
+        "timeout": "40m"
+      },
+      "messaging-live-alerts": {
+        "filter": "FullyQualifiedName~MessagingCdcAlertLoopTests",
+        "minimum": 1,
+        "minimumPassedOnTestcontainers": 1,
+        "timeout": "18m"
+      },
+      "messaging-source-window-alerts": {
+        "filter": "FullyQualifiedName~MessagingCdcSourceAlertLoopTests",
+        "minimum": 2,
+        "minimumPassedOnTestcontainers": 2,
+        "timeout": "18m"
+      },
+      "messaging-bounded-soak": {
+        "filter": "FullyQualifiedName~KafkaOutboxCdcCapacityRunnerTests.Scope_C_runs_outbox_cdc_inbox_pipeline",
+        "minimum": 2,
+        "minimumPassedOnTestcontainers": 2,
+        "timeout": "130m"
+      },
+      "messaging-owned-capacity-smoke": {
+        "filter": "FullyQualifiedName~KafkaOutboxCdcCapacityRunnerTests.Scope_C_runs_outbox_cdc_inbox_pipeline",
+        "minimum": 2,
+        "minimumPassedOnTestcontainers": 2,
+        "timeout": "12m"
+      },
+      "messaging-native-configuration": {
+        "filter": "FullyQualifiedName~NativeApiMessagingConfigurationE2ETests",
+        "minimum": 2,
+        "minimumPassedOnTestcontainers": 2,
+        "timeout": "12m"
+      },
+      "messaging-three-broker-recovery": {
+        "filter": "FullyQualifiedName~MessagingKafkaQuorumRecoveryTests",
+        "minimum": 1,
+        "minimumPassedOnTestcontainers": 1,
+        "timeout": "12m"
+      },
+      "ai-knowledge-correction-cleanup": {
+        "filter": "FullyQualifiedName~Full.NET.IntegrationTests.Ai.AiKnowledgeCorrectionCleanupTests|FullyQualifiedName~AiKnowledgeCleanupWorkerSqlServerTests|FullyQualifiedName~AiKnowledgeCleanupWorkerMySqlTests",
+        "minimum": 4,
+        "timeout": "15m"
+      },
+      "messaging-time-observability": {
+        "filter": "FullyQualifiedName~MySql_gtid_checkpoint_time_uses_completed_transactions_and_missing_history_is_unknown|FullyQualifiedName~KafkaRetentionTimeObservationTests.Real_append_time_tracks_committed_position_and_unsupported_policies_are_unknown",
+        "minimum": 3,
+        "minimumPassedOnTestcontainers": 3,
+        "timeout": "8m"
+      },
+      "messaging-time-alerts": {
+        "filter": "FullyQualifiedName~KafkaRetentionTimeObservationTests.Real_time_ratio_fires_original_ten_minute_alert_and_committing_the_group_resolves_it",
+        "minimum": 1,
+        "minimumPassedOnTestcontainers": 1,
+        "timeout": "15m"
+      },
+      "messaging-rollback-topology": {
+        "filter": "FullyQualifiedName~KafkaRollbackTopologyTests",
+        "minimum": 2,
+        "minimumPassedOnTestcontainers": 2,
+        "timeout": "8m"
+      },
+      "ai-knowledge-search-http": {
+        "filter": "FullyQualifiedName~AiKnowledgeSearchApiTests.Published_keyword_search",
+        "minimum": 2,
+        "timeout": "15m"
+      },
+      "ai-knowledge-search-native": {
+        "filter": "FullyQualifiedName~NativeKnowledgeSearchE2ETests",
+        "minimum": 2,
+        "timeout": "25m"
+      },
+      "ai-knowledge-search-policy-http": {
+        "filter": "FullyQualifiedName~AiKnowledgeSearchApiTests.Search_host_policy_denial",
+        "minimum": 2,
+        "timeout": "10m"
+      },
+      "ai-knowledge-search-policy-native": {
+        "filter": "FullyQualifiedName~NativeKnowledgeSearchPolicyE2ETests",
+        "minimum": 2,
+        "timeout": "10m"
+      },
+      "ai-knowledge-search-comparison-http": {
+        "filter": "FullyQualifiedName~AiKnowledgeSearchComparisonApiTests",
+        "minimum": 2,
+        "timeout": "20m"
+      },
+      "ai-knowledge-search-refinement-http": {
+        "filter": "FullyQualifiedName~AiKnowledgeSearchRefinementApiTests",
+        "minimum": 2,
+        "timeout": "20m"
+      },
+      "ai-knowledge-faq-ordinary-boundary-http": {
+        "filter": "FullyQualifiedName~AiKnowledgeFaqOrdinaryBoundaryApiTests",
+        "minimum": 2,
+        "timeout": "20m"
+      },
+      "ai-knowledge-faq-ordinary-boundary-native": {
+        "filter": "FullyQualifiedName~NativeKnowledgeFaqOrdinaryBoundaryE2ETests",
+        "minimum": 2,
+        "timeout": "25m"
+      },
+      "ai-knowledge-faq-drafts-http": {
+        "filter": "FullyQualifiedName~AiKnowledgeFaqDraftApiTests",
+        "minimum": 2,
+        "timeout": "20m"
+      },
+      "ai-knowledge-faq-navigation-http": {
+        "filter": "FullyQualifiedName~AiFaqNavigationApiTests",
+        "minimum": 2,
+        "timeout": "5m"
+      },
+      "ai-knowledge-faq-lifecycle-http": {
+        "filter": "FullyQualifiedName~AiKnowledgeFaqLifecycleApiTests",
+        "minimum": 2,
+        "timeout": "20m"
+      },
+      "ai-knowledge-operations-http": {
+        "filter": "FullyQualifiedName~AiKnowledgeOperationsApiTests",
+        "minimum": 2,
+        "timeout": "10m"
+      },
+      "ai-knowledge-operations-native": {
+        "filter": "FullyQualifiedName~NativeKnowledgeOperationsE2ETests",
+        "minimum": 2,
+        "timeout": "25m"
+      },
+      "ai-knowledge-faq-feedback-http": {
+        "filter": "FullyQualifiedName~AiKnowledgeFaqFeedbackApiTests|FullyQualifiedName~Migration346AiKnowledgeFaqFeedbackTests",
+        "minimum": 4,
+        "timeout": "35m"
+      },
+      "ai-knowledge-faq-feedback-native": {
+        "filter": "FullyQualifiedName~NativeKnowledgeFaqFeedbackE2ETests",
+        "minimum": 2,
+        "timeout": "35m"
+      },
+      "ai-knowledge-faq-parents-http": {
+        "filter": "FullyQualifiedName~AiKnowledgeFaqParentApiTests|FullyQualifiedName~Migration345AiKnowledgeFaqParentTests|FullyQualifiedName~AiKnowledgeFaqTransferApiTests",
+        "minimum": 6,
+        "timeout": "35m"
+      },
+      "ai-knowledge-faq-parents-native": {
+        "filter": "FullyQualifiedName~NativeKnowledgeFaqParentE2ETests",
+        "minimum": 2,
+        "timeout": "35m"
+      },
+      "ai-knowledge-faq-transfer-http": {
+        "filter": "FullyQualifiedName~AiKnowledgeFaqTransferApiTests|FullyQualifiedName~AiKnowledgeFaqTransferAuthorizationApiTests",
+        "minimum": 4,
+        "timeout": "20m"
+      },
+      "ai-knowledge-faq-transfer-native": {
+        "filter": "FullyQualifiedName~NativeKnowledgeFaqTransferE2ETests|FullyQualifiedName~NativeKnowledgeFaqTransferAuthorizationE2ETests",
+        "minimum": 4,
+        "timeout": "25m"
+      },
+      "ai-knowledge-faq-search-http": {
+        "filter": "FullyQualifiedName~AiKnowledgeFaqSearchApiTests",
+        "minimum": 2,
+        "timeout": "20m"
+      },
+      "ai-knowledge-faq-search-native": {
+        "filter": "FullyQualifiedName~NativeKnowledgeFaqSearchE2ETests",
+        "minimum": 2,
+        "timeout": "25m"
+      },
+      "ai-knowledge-faq-lifecycle-native": {
+        "filter": "FullyQualifiedName~NativeKnowledgeFaqLifecycleE2ETests",
+        "minimum": 2,
+        "timeout": "25m"
+      },
+      "ai-knowledge-faq-drafts-native": {
+        "filter": "FullyQualifiedName~NativeKnowledgeFaqDraftE2ETests",
+        "minimum": 2,
+        "timeout": "25m"
+      },
+      "ai-knowledge-search-refinement-native": {
+        "filter": "FullyQualifiedName~NativeKnowledgeSearchRefinementE2ETests",
+        "minimum": 2,
+        "timeout": "25m"
+      },
+      "ai-knowledge-search-relations-http": {
+        "filter": "FullyQualifiedName~AiKnowledgeSearchRelationsApiTests",
+        "minimum": 2,
+        "timeout": "20m"
+      },
+      "ai-knowledge-search-relations-native": {
+        "filter": "FullyQualifiedName~NativeKnowledgeSearchRelationsE2ETests",
+        "minimum": 2,
+        "timeout": "25m"
+      },
+      "ai-knowledge-search-comparison-native": {
+        "filter": "FullyQualifiedName~NativeKnowledgeSearchComparisonE2ETests",
+        "minimum": 2,
+        "timeout": "25m"
+      },
+      "ai-knowledge-search-answer-http": {
+        "filter": "FullyQualifiedName~AiKnowledgeSearchAnswerApiTests",
+        "minimum": 2,
+        "timeout": "15m"
+      },
+      "ai-knowledge-search-answer-native": {
+        "filter": "FullyQualifiedName~NativeKnowledgeSearchAnswerE2ETests",
+        "minimum": 2,
+        "timeout": "20m"
+      },
+      "ai-knowledge-search-context-http": {
+        "filter": "FullyQualifiedName~AiKnowledgeSearchContextApiTests",
+        "minimum": 2,
+        "timeout": "15m"
+      },
+      "ai-knowledge-search-context-native": {
+        "filter": "FullyQualifiedName~NativeKnowledgeSearchContextE2ETests",
+        "minimum": 2,
+        "timeout": "25m"
+      },
+      "messaging-dual-worker-smoke": {
+        "filter": "FullyQualifiedName~MessagingMultiProcessRecoveryTests&FullyQualifiedName~two_real_workers_bounded_soak",
+        "minimum": 2,
+        "minimumPassedOnTestcontainers": 2,
+        "timeout": "14m"
+      },
+      "messaging-dual-worker-soak": {
+        "filter": "FullyQualifiedName~MessagingMultiProcessRecoveryTests&FullyQualifiedName~two_real_workers_bounded_soak",
+        "minimum": 2,
+        "minimumPassedOnTestcontainers": 2,
+        "timeout": "140m"
       }
     }
   },
@@ -1182,6 +2637,9 @@
     },
     "f02": {
       "description": "Diagnostics and generated CRUD sample",
+      "tests": [
+        "tests/templates/application-package.test.mjs"
+      ],
       "filter": "FullyQualifiedName~CodeGeneration"
     },
     "f03": {
@@ -1247,5 +2705,11 @@
       "description": "Preset release acceptance",
       "command": "pnpm test:templates"
     }
+  },
+  "nativeAotOidcBrowserIntegration": {
+    "project": "tests/Full.NET.IntegrationTests/Full.NET.IntegrationTests.csproj",
+    "filter": "FullyQualifiedName~NativeApiBrowserSessionTests",
+    "minimum": 2,
+    "timeout": "15m"
   }
 }

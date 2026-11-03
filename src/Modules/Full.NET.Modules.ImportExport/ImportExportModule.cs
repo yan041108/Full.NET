@@ -44,23 +44,16 @@ public sealed class ImportExportModule : IFullNetModule
         services.TryAddEnumerable(ServiceDescriptor.Singleton<
             IAuthorizationCatalogContributor,
             ImportExportAuthorizationContributor>());
-        services.AddOptions<ImportExportOptions>()
-            .Bind(configuration.GetSection(ImportExportOptions.SectionName))
-            .ValidateOnStart();
-        services.TryAddEnumerable(ServiceDescriptor.Singleton<
-            IValidateOptions<ImportExportOptions>,
-            ImportExportOptionsValidator>());
-        services.TryAddSingleton<IClock, SystemClock>();
-        services.TryAddSingleton<IIdGenerator, GuidV7IdGenerator>();
+        AddExecutionServices(services, configuration);
+        services.TryAddScoped<Features.ManageImportProfiles.ImportProfileService>();
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<IErrorResourceSource, global::Full.NET.Modules.ImportExport.Resources.ImportExportErrorResourceSource>());
         services.TryAddEnumerable(ServiceDescriptor.Scoped<ITenantResourceFileOwner,
             Features.ManageImportTasks.ImportExportResourceFileOwner>());
-        services.TryAddScoped<StaticImportSchemaRegistry>();
         services.TryAddScoped<Features.BrowseStaticSchemas.StaticImportSchemaQueryService>();
         services.TryAddScoped<Features.ManageImportTasks.ImportExportTaskManagementService>();
         services.TryAddScoped<Features.ManageImportTasks.ImportExportTaskQueryService>();
         services.TryAddScoped<Features.ManageImportTasks.ImportExportTaskExecutionService>();
-        services.TryAddSingleton<PendingTenantScanState>();
-        services.TryAddScoped<ImportExportTaskRunner>();
+        services.TryAddScoped<Features.ManageImportTasks.ImportExportTaskCancellationService>();
         services.ConfigureHttpJsonOptions(options =>
             options.SerializerOptions.TypeInfoResolverChain.Insert(
                 0,
@@ -81,9 +74,23 @@ public sealed class ImportExportModule : IFullNetModule
 #endif
         services.TryAddEnumerable(ServiceDescriptor.Scoped<ITenantResourceFileOwner,
             Features.ManageImportTasks.ImportExportResourceFileOwner>());
+        AddExecutionServices(services, configuration);
+        services.AddHostedService<ImportExportTaskHostedProcessor>();
+    }
+
+    /// <summary>API 的同步执行与独立 Worker 使用同一配置和 Schema 目录，避免 Worker 依赖 HTTP 注册副作用。</summary>
+    private static void AddExecutionServices(IServiceCollection services, IConfiguration configuration)
+    {
+        services.AddOptions<ImportExportOptions>()
+            .Bind(configuration.GetSection(ImportExportOptions.SectionName))
+            .ValidateOnStart();
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<IValidateOptions<ImportExportOptions>, ImportExportOptionsValidator>());
+        services.TryAddSingleton<IClock, SystemClock>();
+        services.TryAddSingleton<IIdGenerator, GuidV7IdGenerator>();
+        services.TryAddScoped<StaticImportSchemaRegistry>();
+        services.TryAddScoped<ImportTaskAuthority>();
         services.TryAddSingleton<PendingTenantScanState>();
         services.TryAddScoped<ImportExportTaskRunner>();
-        services.AddHostedService<ImportExportTaskHostedProcessor>();
     }
 
     /// <summary>注册 ImportExport 模块的静态 Schema 浏览与导入任务管理 HTTP 端点。</summary>
@@ -92,5 +99,6 @@ public sealed class ImportExportModule : IFullNetModule
     {
         Features.BrowseStaticSchemas.Endpoint.Map(endpoints);
         Features.ManageImportTasks.Endpoint.Map(endpoints);
+        Features.ManageImportProfiles.Endpoint.Map(endpoints);
     }
 }

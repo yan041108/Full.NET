@@ -1,18 +1,20 @@
 export interface HostDocumentPermissionEntry {
   userId: string;
-  permissionLevel: string;
+  actions: ('read' | 'write' | 'delete' | 'share')[];
 }
 
 export interface SetHostDocumentPermissionsRequest {
   documentId: string;
   permissions: HostDocumentPermissionEntry[];
+  visibilityMode: 'host' | 'restricted';
+  version: number;
 }
 
 export interface HostDocumentPermissionResponse {
   id: string;
   documentId: string;
   userId: string;
-  permissionLevel: string;
+  actions: ('read' | 'write' | 'delete' | 'share')[];
   createdAtUtc: string;
 }
 
@@ -33,14 +35,15 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 export function isHostDocumentPermissionEntry(value: unknown): value is HostDocumentPermissionEntry {
   return isRecord(value)
     && isGuid(value.userId)
-    && isNonEmptyString(value.permissionLevel);
+    && Array.isArray(value.actions) && value.actions.every((action: unknown) => ['read', 'write', 'delete', 'share'].includes(String(action)));
 }
 
 export function isSetHostDocumentPermissionsRequest(value: unknown): value is SetHostDocumentPermissionsRequest {
   return isRecord(value)
     && isGuid(value.documentId)
     && Array.isArray(value.permissions)
-    && value.permissions.every(isHostDocumentPermissionEntry);
+    && value.permissions.every(isHostDocumentPermissionEntry)
+    && ['host', 'restricted'].includes(String(value.visibilityMode)) && Number.isInteger(value.version);
 }
 
 export function isHostDocumentPermissionResponse(value: unknown): value is HostDocumentPermissionResponse {
@@ -48,7 +51,7 @@ export function isHostDocumentPermissionResponse(value: unknown): value is HostD
     && isGuid(value.id)
     && isGuid(value.documentId)
     && isGuid(value.userId)
-    && isNonEmptyString(value.permissionLevel)
+    && Array.isArray(value.actions) && value.actions.every((action: unknown) => ['read', 'write', 'delete', 'share'].includes(String(action)))
     && typeof value.createdAtUtc === 'string';
 }
 

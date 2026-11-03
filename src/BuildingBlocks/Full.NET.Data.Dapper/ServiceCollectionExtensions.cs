@@ -170,6 +170,7 @@ public static class ServiceCollectionExtensions
             provider.GetRequiredService<DatabaseAdmissionPriorityScope>());
         services.AddSingleton<IDatabaseSessionLock, DapperDatabaseSessionLock>();
         services.AddScoped<DbSession>();
+        services.AddScoped<IDatabaseTransactionBoundSessionLock, DapperTransactionBoundSessionLock>();
         services.AddScoped<IDataTransactionState>(provider => provider.GetRequiredService<DbSession>());
         services.AddScoped<IDbTransactionCoordinator>(provider =>
             provider.GetRequiredService<DbSession>());
@@ -198,6 +199,7 @@ public static class ServiceCollectionExtensions
                 outboxCommandPath));
         services.AddScoped<IEventStreamOwnershipGate, DapperEventStreamOwnershipGate>();
         services.AddScoped<IEventDeliveryProducerFencePositionReader, DapperEventDeliveryProducerFencePositionReader>();
+        services.AddScoped<ICdcPlatformHealthReader, DapperCdcPlatformHealthReader>();
         services.TryAddScoped<IEffectiveEventDeliveryOwnerResolver, LegacyPollingEventDeliveryOwnerResolver>();
         // 不单独公开 DapperRoutedOutboxWriter 具体类型，业务只依赖 IOutboxWriter。
         // 精简宿主使用 LegacyPolling 兼容解析器；装配 Messaging 模块后会替换为持久化所有权解析器。

@@ -2,6 +2,19 @@
   "name": "fullnet-application",
   "private": true,
   "scripts": {
+    "dev:api": "dotnet run --project src/FullNetAppNameToken.Host.Api",
+    "dev:worker": "dotnet run --project src/FullNetAppNameToken.Host.Worker",
+    "dev:admin": "pnpm --filter @fullnet/admin dev",
+    "build:api": "dotnet build src/FullNetAppNameToken.Host.Api --configuration Release",
+    "build:worker": "dotnet build src/FullNetAppNameToken.Host.Worker --configuration Release",
+    "build:migrator": "dotnet build src/FullNetAppNameToken.Host.Migrator --configuration Release",
+    "build:admin": "pnpm --filter @fullnet/admin build",
+    "typecheck:admin": "pnpm --filter @fullnet/admin typecheck",
+    "db:migrate": "dotnet run --project src/FullNetAppNameToken.Host.Migrator --",
+    "db:seed:baseline": "dotnet run --project src/FullNetAppNameToken.Host.Migrator -- --seed baseline",
+    "generate:crud": "dotnet run --project framework/fullnet/src/Tools/Full.NET.CodeGeneration.Cli --",
+    "generate:client": "node .fullnet-tools/openapi/generate-fullnet-client.mjs",
+    "check:client": "node .fullnet-tools/openapi/generate-fullnet-client.mjs --check",
     "diagnose:development": "dotnet run --project framework/fullnet/src/Tools/Full.NET.CodeGeneration.Cli -- diagnose --workspace . --profile development",
     "diagnose:production": "dotnet run --project framework/fullnet/src/Tools/Full.NET.CodeGeneration.Cli -- diagnose --workspace . --profile production"
   }

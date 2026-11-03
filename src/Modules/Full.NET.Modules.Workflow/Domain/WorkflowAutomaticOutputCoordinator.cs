@@ -19,7 +19,8 @@ internal sealed class WorkflowAutomaticOutputCoordinator(IQueryExecutor query, I
         Matches(await ReadCurrentAsync(instance, input, token).ConfigureAwait(false), input, values);
     public async Task<WorkflowPreparedAutomaticOutput?> PrepareAsync(WorkflowInstanceRecord instance, WorkflowAutomaticInput input,
         WorkflowFormSchema schema, IReadOnlyDictionary<string, JsonElement> values, WorkflowFieldMutationOutput output,
-        Func<string, bool> canRead, CancellationToken token, IReadOnlyDictionary<Guid, WorkflowAttachmentReuseSource>? reuseSources = null)
+        Func<string, bool> canRead, CancellationToken token, IReadOnlyDictionary<Guid, WorkflowAttachmentReuseSource>? reuseSources = null,
+        WorkflowRemoteAttachmentContext? remoteContext = null)
     {
         var submission = await ReadCurrentAsync(instance, input, token).ConfigureAwait(false);
         if (!Matches(submission, input, values)) return null;
@@ -29,13 +30,15 @@ internal sealed class WorkflowAutomaticOutputCoordinator(IQueryExecutor query, I
         var visible = values.Where(pair => canRead(pair.Key)).ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.Ordinal);
         var files = WorkflowFormAttachmentValueRules.ExtractAttachmentFields(schema, visible).Values.SelectMany(ids => ids).ToHashSet();
         var prepared = await attachments.PrepareAsync(instance.StartedById, submission!.Id, instance.Id, instance.TenantScopeKey,
-            schema, values, output.Values, files, submission.Revision, next, token, reuseSources).ConfigureAwait(false);
+            schema, values, output.Values, files, submission.Revision, next, token, reuseSources, remoteContext).ConfigureAwait(false);
         return prepared.IsSuccess ? new(output, next, prepared.Value!) : null;
     }
 
     public async Task<bool> CommitAsync(WorkflowInstanceRecord instance, WorkflowAutomaticInput input, WorkflowFormSchema schema,
         IReadOnlyDictionary<string, JsonElement> values, WorkflowPreparedAutomaticOutput prepared, CancellationToken token)
     {
+        if (!await WorkflowCollaborationRuntimeGate.AllowsAsync(instance.Id,
+                new(instance.TenantId, instance.ScopeKey, instance.TenantScopeKey), null, clock.UtcNow, query, token, command).ConfigureAwait(false)) return false;
         var submission = await ReadCurrentAsync(instance, input, token).ConfigureAwait(false);
         if (!Matches(submission, input, values)) return false;
         var next = values.ToDictionary(pair => pair.Key, pair => pair.Value.Clone(), StringComparer.Ordinal);

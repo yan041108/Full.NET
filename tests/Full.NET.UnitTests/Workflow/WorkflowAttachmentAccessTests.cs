@@ -38,7 +38,7 @@ public sealed class WorkflowAttachmentAccessTests
                 outputIncludesFile.HasValue ? JsonSerializer.Serialize(new { file = outputIncludesFile.Value ? new[] { fileId } : Array.Empty<Guid>() }) : null) });
         files.OpenReadyContentAsync(fileId, Arg.Any<CancellationToken>()).Returns(Result<HostFileContent>.Success(new(new MemoryStream(), "image/png", "file.png")));
         var service = new WorkflowFormAttachmentAccessService(query, files, Options.Create(new DatabaseOptions { Provider = DatabaseProvider.SqlServer }),
-            Substitute.For<ITenantResourceFileStore>());
+            Substitute.For<ITenantResourceFileStore>(), WorkflowTodoManagementTestDependencies.CreateRemoteFiles(query));
         var result = await service.OpenInstanceAttachmentAsync(instanceId, fileId, actor, "host");
         Assert.AreEqual(allowed, result.IsSuccess);
         await files.Received(allowed ? 1 : 0).OpenReadyContentAsync(fileId, Arg.Any<CancellationToken>());

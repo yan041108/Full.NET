@@ -1,0 +1,21 @@
+const zh={title:'知识运营',hint:'仅显示自己管理的知识库元数据。处理完成、激活记录和发布记录均不代表当前来源可服务；展开处置时重新核对权限与完整来源。',
+  progress:'旧任务未记录细分阶段百分比、模型耗时或可靠费用归属，不推算这些数据。',windowHint:'UTC 起止时间须先后有序，单次查询窗口不超过 31 天。',all:'全部记录',failed:'失败／租约待办',expired:'过期发布待办',
+  refresh:'重新读取',next:'下一页',allBases:'全部管理库',from:'起始日期（UTC）',until:'结束日期（UTC）',empty:'当前窗口没有管理范围内的记录',
+  unavailable:'当前运营记录或权限不可用，旧记录已清空。',loading:'正在核对维护范围',window:'当前窗口（UTC）',document:'文档来源',faq:'FAQ 静态修订',
+  preparation:'来源准备',index:'索引任务',review:'本版本审核记录',publication:'当前发布记录',version:'来源版本',attempts:'尝试次数',active:'本版本存在激活记录（未复核服务资格）',
+  created:'版本创建时间',updated:'任务更新时间',notRecorded:'未记录',publicationVersion:'发布指向版本',effective:'发布有效期',
+  inspectIndex:'核对索引与处置',inspectFaq:'核对 FAQ 审核发布',close:'关闭',none:'无记录',unknown:'未知状态',
+  not_recorded:'未记录',awaiting_upload:'等待上传',file_uploaded:'文件已上传',pending_confirmation:'等待文件确认',static_revision:'数据库静态修订',pending:'待处理／待审核',processing:'处理中',completed:'处理完成',cancelled:'已取消',cleanup_pending:'待清理',
+  lease_expired:'任务租约已到期，待重新核证',failedState:'处理失败',not_enqueued:'尚未入队',queued:'已入队',proposed:'待审核',approved:'已批准',rejected:'已驳回',published:'存在已发布记录',withdrawn:'已撤销',
+  expired_record:'发布记录已过期',scheduled_record:'发布记录尚未生效',published_record:'有效期内的发布记录（未复核来源）'};
+const en:Record<keyof typeof zh,string>={title:'Knowledge operations',hint:'Metadata for libraries you manage. Processing, activation and publication records do not prove current service eligibility; actions recheck permissions and full provenance.',
+  progress:'Legacy records have no detailed progress, model latency or reliable cost attribution. These values are not inferred.',windowHint:'The UTC start must precede the end. A query window may not exceed 31 days.',all:'All records',failed:'Failed or stalled tasks',expired:'Expired publications',
+  refresh:'Refresh',next:'Next page',allBases:'All managed libraries',from:'Start date (UTC)',until:'End date (UTC)',empty:'No managed records in this window',
+  unavailable:'Operations records or permissions are unavailable. Previous records have been cleared.',loading:'Checking maintenance scope',window:'Current window (UTC)',document:'Document source',faq:'Static FAQ revision',
+  preparation:'Source preparation',index:'Index task',review:'Review record for this version',publication:'Current publication record',version:'Source version',attempts:'Attempts',active:'This version has an activation record (eligibility unchecked)',
+  created:'Version created',updated:'Task updated',notRecorded:'Not recorded',publicationVersion:'Published version',effective:'Publication period',
+  inspectIndex:'Inspect index and recovery',inspectFaq:'Inspect FAQ review and publication',close:'Close',none:'No record',unknown:'Unknown state',
+  not_recorded:'Not recorded',awaiting_upload:'Awaiting upload',file_uploaded:'File uploaded',pending_confirmation:'File confirmation pending',static_revision:'Static database revision',pending:'Pending processing or review',processing:'Processing',completed:'Processing completed',cancelled:'Cancelled',cleanup_pending:'Cleanup pending',
+  lease_expired:'Task lease expired; recheck required',failedState:'Processing failed',not_enqueued:'Not enqueued',queued:'Queued',proposed:'Pending review',approved:'Approved',rejected:'Rejected',published:'Publication recorded',withdrawn:'Withdrawn',
+  expired_record:'Publication expired',scheduled_record:'Publication not effective yet',published_record:'Publication within effective period (sources unchecked)'};
+export const knowledgeOperationsText=(locale:string,key:keyof typeof zh)=>(locale.startsWith('zh')?zh:en)[key];

@@ -38,11 +38,6 @@ internal sealed class DocumentPreviewTaskHostedProcessor(
 
     internal async Task<int> ProcessOnceAsync(CancellationToken cancellationToken)
     {
-        if (!options.CurrentValue.Enabled)
-        {
-            return 0;
-        }
-
         await using var scope = scopeFactory.CreateAsyncScope();
         var currentTenant = scope.ServiceProvider.GetRequiredService<ICurrentTenantContextWriter>();
         currentTenant.SetHost();

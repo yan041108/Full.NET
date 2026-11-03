@@ -49,6 +49,11 @@ public static class ModuleIntegrationFullCompilation
             var document = new XDocument(new XElement("Project",
                 XDocument.Parse(module.TargetsContent).Root!.Elements(),
                 XDocument.Parse(composition.TargetsContent).Root!.Elements()));
+            var moduleProjectCandidate = plan.Actions.SingleOrDefault(action => action.RelativePath == target.ModuleProjectPath)?.Content;
+            if (moduleProjectCandidate is not null)
+                document.Root!.Add(new XElement("ItemGroup", new XAttribute("Condition",
+                    "'$(MSBuildProjectFullPath)' == '$(FullNetModuleIntegrationProject)'"),
+                    ModuleIntegrationDependencies.ProjectReferences(moduleProject, moduleProjectCandidate)));
             await File.WriteAllTextAsync(targets, document.ToString(), cancellationToken);
             var build = await RunAsync(root,
             [
@@ -60,7 +65,8 @@ public static class ModuleIntegrationFullCompilation
             ], cancellationToken);
             if (build.Code == 0) return ModuleIntegrationCompilationResult.Success();
             var errors = build.Output.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries)
-                .Where(line => line.Contains("error ", StringComparison.OrdinalIgnoreCase))
+                .Where(line => line.Contains("error ", StringComparison.OrdinalIgnoreCase)
+                    || line.Contains("warning MSB", StringComparison.OrdinalIgnoreCase))
                 .Select(line => line.Replace(root, "<workspace>", StringComparison.OrdinalIgnoreCase)
                     .Replace(temporary, "<temporary>", StringComparison.OrdinalIgnoreCase))
                 .Distinct(StringComparer.Ordinal).Take(20).ToArray();

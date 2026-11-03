@@ -9,8 +9,46 @@ namespace Full.NET.Modules.ImportExport.Persistence;
 internal sealed class ImportExportDapperAotMaterializerContributor
     : IDapperAotMaterializerContributor
 {
-    public void RegisterMaterializers(DapperAotMaterializerRegistrar registrar) =>
+    public void RegisterMaterializers(DapperAotMaterializerRegistrar registrar)
+    {
         registrar.Register<ImportExportTaskRecord>(ReadTask);
+        registrar.Register<ImportTaskCancellationState>(reader => new()
+        {
+            Id = ReadGuid(reader, "Id"), StatusKey = ReadString(reader, "StatusKey"), Version = ReadInt64(reader, "Version"),
+        });
+        registrar.Register<ImportProfileRecord>(reader => new() {
+            Id = ReadGuid(reader, "Id"), Name = ReadString(reader, "Name"), HeaderFingerprint = ReadString(reader, "HeaderFingerprint"),
+            CreatedAtUtc = ReadDateTimeOffset(reader, "CreatedAtUtc"), UpdatedAtUtc = ReadNullableDateTimeOffset(reader, "UpdatedAtUtc"),
+            Version = ReadInt64(reader, "Version"), ConfigurationJson = reader.FieldCount == 7 ? ReadNullableString(reader, "ConfigurationJson") : null });
+        registrar.Register<ImportExportTaskListRecord>(ReadMyTask);
+    }
+
+    private static ImportExportTaskListRecord ReadMyTask(DbDataReader reader) => new()
+    {
+        Id = ReadGuid(reader, "Id"),
+        TenantId = ReadGuid(reader, "TenantId"),
+        SchemaKey = ReadString(reader, "SchemaKey"),
+        SchemaDisplayName = ReadString(reader, "SchemaDisplayName"),
+        WorksheetKey = ReadString(reader, "WorksheetKey"),
+        SourceFileId = ReadGuid(reader, "SourceFileId"),
+        SourceFileName = ReadNullableString(reader, "SourceFileName"),
+        StatusKey = ReadString(reader, "StatusKey"),
+        TotalRows = ReadInt32(reader, "TotalRows"),
+        ValidRowCount = ReadInt32(reader, "ValidRowCount"),
+        InvalidRowCount = ReadInt32(reader, "InvalidRowCount"),
+        ErrorCode = ReadNullableString(reader, "ErrorCode"),
+        RequestedByUserId = ReadGuid(reader, "RequestedByUserId"),
+        CreatedAtUtc = ReadDateTimeOffset(reader, "CreatedAtUtc"),
+        PreviewCompletedAtUtc = ReadNullableDateTimeOffset(reader, "PreviewCompletedAtUtc"),
+        ProcessedRowCount = ReadInt32(reader, "ProcessedRowCount"),
+        SucceededRowCount = ReadInt32(reader, "SucceededRowCount"),
+        ExecutionFailedRowCount = ReadInt32(reader, "ExecutionFailedRowCount"),
+        NextLineNumber = ReadInt32(reader, "NextLineNumber"),
+        ErrorReceiptFileId = ReadNullableGuid(reader, "ErrorReceiptFileId"),
+        ExecutionStartedAtUtc = ReadNullableDateTimeOffset(reader, "ExecutionStartedAtUtc"),
+        ExecutionCompletedAtUtc = ReadNullableDateTimeOffset(reader, "ExecutionCompletedAtUtc"),
+        Version = ReadInt64(reader, "Version"),
+    };
 
     private static ImportExportTaskRecord ReadTask(DbDataReader reader) => new()
     {
@@ -35,6 +73,8 @@ internal sealed class ImportExportDapperAotMaterializerContributor
         ExecutionFailedRowCount = ReadInt32(reader, "ExecutionFailedRowCount"),
         NextLineNumber = ReadInt32(reader, "NextLineNumber"),
         ExecutionRowsJson = ReadNullableString(reader, "ExecutionRowsJson"),
+        ColumnMappingJson = ReadNullableString(reader, "ColumnMappingJson"),
+        ActorSessionBindingJson = ReadNullableString(reader, "ActorSessionBindingJson"),
         ErrorReceiptFileId = ReadNullableGuid(reader, "ErrorReceiptFileId"),
         ExecutionStartedAtUtc = ReadNullableDateTimeOffset(reader, "ExecutionStartedAtUtc"),
         ExecutionCompletedAtUtc = ReadNullableDateTimeOffset(reader, "ExecutionCompletedAtUtc"),

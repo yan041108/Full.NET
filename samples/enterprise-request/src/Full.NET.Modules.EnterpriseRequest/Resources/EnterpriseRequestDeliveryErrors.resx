@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+<data name="enterprise_request.attachment_invalid" xml:space="preserve"><value>附件、文件长度或版本无效。</value></data>
+<data name="enterprise_request.attachment_limit_exceeded" xml:space="preserve"><value>附件不得超过 10 MiB。</value></data>
+<data name="enterprise_request.delivery_invalid" xml:space="preserve"><value>交付请求无效。</value></data>
+<data name="enterprise_request.delivery_forbidden" xml:space="preserve"><value>当前会话无权读取或交付此单据。</value></data>
+<data name="enterprise_request.delivery_version_conflict" xml:space="preserve"><value>单据或任务已改变，请刷新后重试。</value></data>
+<data name="enterprise_request.delivery_request_conflict" xml:space="preserve"><value>重试必须使用原请求及文件。</value></data>
+<data name="enterprise_request.delivery_state_invalid" xml:space="preserve"><value>当前状态不允许此交付操作。</value></data>
+<data name="enterprise_request.delivery_limit_exceeded" xml:space="preserve"><value>交付数量或行数超过上限。</value></data>
+<data name="enterprise_request.delivery_not_found" xml:space="preserve"><value>未找到可交付的任务或文件。</value></data>
+<data name="enterprise_request.delivery_content_mismatch" xml:space="preserve"><value>文件内容与持久意图不一致。</value></data>
+<data name="enterprise_request.delivery_source_deleted" xml:space="preserve"><value>原单据已删除。</value></data>
+<data name="enterprise_request.delivery_expired" xml:space="preserve"><value>交付已过期。</value></data>
+<data name="enterprise_request.delivery_failed" xml:space="preserve"><value>交付多次失败，请核对原单据。</value></data>
+<data name="enterprise_request.print_limit_exceeded" xml:space="preserve"><value>打印最多支持 20 行，请改用工作簿。</value></data>
+<data name="enterprise_request.import.row_invalid" xml:space="preserve"><value>申请单行不符合模板约束，请检查编号、标题、金额精度及申请人和组织标识。</value></data>
+<data name="enterprise_request.import.context_invalid" xml:space="preserve"><value>导入缺少可信任务、源文件或租户上下文。</value></data>
+<data name="enterprise_request.import.forbidden" xml:space="preserve"><value>当前申请行的组织范围不允许写入。</value></data>
+<data name="enterprise_request.import.row_conflict" xml:space="preserve"><value>导入行身份已绑定其他内容，请核对原任务和源文件。</value></data>
+<data name="enterprise_request.enterprise_requests.invalid_status" xml:space="preserve"><value>只有草稿申请可以通过普通编辑入口修改，审批状态须经业务操作推进。</value></data>
+<data name="enterprise_request.enterprise_request_lines.parent_immutable" xml:space="preserve"><value>申请明细不能改挂其他申请单。</value></data>
+  <data name="import_export.task.authority_denied" xml:space="preserve"><value>导入会话或本行业务所需权限已失效，请检查权限后由原上传者重试。</value></data>
+</root>

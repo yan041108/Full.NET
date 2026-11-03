@@ -1,6 +1,70 @@
 # Kafka Transport Capacity Runner
 
+> 2026-10-30：默认预取1和显式预取8/低水位0/单槽1的Native双Worker每库60分钟/3600条长稳均已双库2/2通过；预取8的5/10次HTTP每秒、每库60秒有界测量也已通过。预取8长稳使用独立短测准入和冻结输入，原默认1的10档失败保留。保持Capacity-not-verified，见[最新记录](../verification/2026-10-28-messaging-reliability-continuation.md#2026-10-30预取8长稳与自动ttl续办)。
+
+> 2026-10-28 续办：最新真实多进程双库2/2、独享Scope C短测2/2、三Broker单节点中断/恢复1/1及双库各60分钟Soak 2/2均已通过。长跑每库7200条完整对账，原始延迟、积压、故障时点与资源采样已保留；只认证本机登记规模，保持`Capacity-not-verified`，不自动扩大完整容量矩阵。见[本机记录](../verification/2026-10-28-messaging-reliability-continuation.md)。
+
 ## 1. 适用边界
+
+### 2026-10-30 Native 双 Worker 与有界预取对照
+
+使用本轮明确的API/Worker发布根，命令均需追加 `--build-root <构建根> --output <系统临时证据根> --native-api-root <API发布根> --native-worker-root <Worker发布根>`：
+
+```text
+node scripts/testing/run-messaging-reliability.mjs --stage component-native-dual-worker-smoke ...
+node scripts/testing/run-messaging-reliability.mjs --stage component-native-dual-worker-soak ...
+node scripts/testing/run-messaging-reliability.mjs --stage component-native-prefetch8-smoke ...
+node scripts/testing/run-messaging-reliability.mjs --stage component-native-prefetch8-soak ...
+node scripts/testing/run-messaging-reliability.mjs --stage component-native-capacity-5 --partition-buffer 1 ...
+node scripts/testing/run-messaging-reliability.mjs --stage component-native-capacity-5 --partition-buffer 8 ...
+node scripts/testing/run-messaging-reliability.mjs --stage component-native-capacity-10 --partition-buffer 8 ...
+```
+
+普通入口省略 `--partition-buffer` 为1；Native短时5/10档接受显式1/8。专属 `component-native-prefetch8-smoke|soak` 固定8并拒绝1，只有同测试/Native闭包、同8/0/1配置、1次HTTP/秒的双库60秒短测2/2通过后，才准入每库3600秒长稳；不能复用默认1或5/10档短测。普通长稳不能隐式继承8。容量档每库60秒、300/600次真实组织单元写入，不使用固定256B合成负载。预取8固定低水位0、单槽1及PerMessage安全水位，最多8项待处理，分区内Handler保持串行；不是8个并发Worker。原生产默认配置不变。
+
+两API/两个活跃Worker，单租户、一个正式有序分区、RF=1及原三个重试Topic。四分之一处强杀并替换Worker，二分之一处暂停独享Broker10秒；业务、Inbox/投影、正式/重试原身份窗口和实际组位点完整排空，原180秒等待门槛不放宽。5/10档HTTP实测速率须至少计划95%；应同时报告含停载排空的产消周期速率和事件端到端分位数，不能以HTTP发送率宣称持续消费能力或生产SLO。
+
+Native采样读取已核owner容器内PID1的RSS/累计CPU，记录唯一容器名；Docker CLI PID仅用于生命周期管理。DB/Broker/Connect仅采本轮三个独享容器。离散样本不是连续峰值。长稳准入必须是同测试/Native实际闭包的双库60秒短测2/2，原JIT或其他ELF不适用；测试/代理版本变化的不同对照分别保留输入，不把默认预取1长稳外推预取8长稳。默认预取1的10档失败、NoDelay单变量对照和单帧转发改善均保留在上述最新记录。
+
+### 2026-10-30 自动TTL控制窗口
+
+以下独立Native入口使用同样的四个路径参数，只选择原双库恢复方法的专属TTL分支，不重跑完整故障矩阵，也不执行容量负载：
+
+```text
+node scripts/testing/run-messaging-reliability.mjs --stage component-native-auto-ttl-formal ...
+node scripts/testing/run-messaging-reliability.mjs --stage component-native-auto-ttl-retry ...
+```
+
+专属Broker实际清理周期1秒，目标Topic初始retention关闭，delete/retention.bytes=-1/segment.ms=1000/LogAppendTime均读取实际配置。正常切流、实际Connector暂停和原资源/fence持久化后，才将目标retention.ms降为2000并等同TopicId的Low覆盖旧末条位点；禁止用DeleteRecords、重建或伪造时间代替。retry只针对首个1s重试Topic，使用已处理真实信封副本制造窗口，另两个重试阶段未分别演练TTL。
+
+当前formal实现还先真实执行一次两条范围、MaxMessages=1的重放，保存partial状态、原SnapshotJson和Next断点；窗口过期后恢复必须409/blocked且不移动快照、断点或确认计数。两入口均检查回退/恢复拒绝、原resources/activation/generation/fence不变、无resume、业务503且无新落库、正式组offset与投影不变。实际通过与测试程序集版本分别见上述最新记录；没有确认的结果不能由入口存在替代。此场景保护原控制窗口与生产者，不证明未消费消息不丢、所有消费者自动停机或生产容量。
+
+### 2026-10-29 双真实 Worker 场景
+
+该场景使用真实业务 HTTP、事务 Outbox、Debezium、两个独立 Host.Worker 进程、Inbox 和业务投影，独立于旧 Scope C WorkerParity。实际短测2/2及两库各3600秒长稳2/2均通过，各3600条完整对账、最终积压/死信0，执行Worker替换和Broker暂停恢复；最终结果见[续办记录](../verification/2026-10-28-messaging-reliability-continuation.md#2026-10-29迟到-rest-与双真实-worker-续办)。
+
+先在正式资源入口完成隔离 Release 构建，再依次执行：
+
+```text
+node scripts/testing/run-messaging-reliability.mjs --stage component-dual-worker-smoke --build-root <本轮构建根> --output <同一系统临时证据根>
+node scripts/testing/run-messaging-reliability.mjs --stage component-dual-worker-soak --build-root <同一本轮构建根> --output <同一系统临时证据根>
+```
+
+短测每库测量60秒，长跑每库测量3600秒，均计划每秒一次真实创建组织单元；影子与切流探针不计负载。只有相同测试、API、Worker实际托管闭包的双库短测2/2通过、测量60..75秒内完成60次写入且最终全部排空，才准入长跑。生产令牌保持原默认短期时效，长跑经真实登录和可信租户入口更新会话，不关闭鉴权。两个Worker处理同一租户有序流，单分区不会被两个成员同时处理；实例替换验证仍有可用成员，不能把组成员数称为双倍并行吞吐。四分之一处退出并替换一个实际Worker，二分之一处暂停本轮Broker10秒并恢复，最后核对双成员、精确业务投影、追加事件与processed Inbox、零未处理、零DLQ和无新增数据库死锁。
+
+报告分别记录HTTP与Outbox→Inbox的P50/P95/P99、错误、积压年龄、数据库死锁计数，采样仅限本轮三个容器和原进程句柄的CPU/内存；不按可复用PID读取其他任务。参数、TRX、故障时点、资源/积压NDJSON与每库result.json保留在同一证据根。两库串行、固定本机低负载，仅认证实际规模，保持Capacity-not-verified，不替代生产容量或物理故障域认证。
+
+### 2026-10-28 本地有界可靠性场景
+
+`scripts/testing/run-messaging-reliability.mjs --stage capacity-smoke|soak` 仅选择现有 Scope C 双库用例。入口明确使用独享数据库、Kafka 和 Connect，不使用共享夹具；先完成 smoke，再执行 `soak`。Soak 必须取得同一冻结程序集最近一次 2/2 的真实短测，且两库实测消费速率均能追上本轮计划的 2 条/秒；该准入值来自本轮负载，不是生产 SLO。默认测试不启用长跑，只有 `soak` 显式注入 3600 秒。
+
+长跑预登记参数：每库串行60分钟、2条/秒、256字节业务负载（线格式另有信封开销）、7200条、1个WorkerParity流水线、2分区、副本因子1；从Runner命令调用前开始计时，30分钟后暂停本轮Broker 10秒并恢复，排空上限180秒。SQL Server为3GiB/1核，MySQL为1.5GiB/1核，Kafka/Connect各2GiB/1核；每轮资源采样结束后间隔30秒，实测约32秒，只采本轮三个容器。双库总入口上限130分钟。原始samples、checkpoint、资源NDJSON、故障起止及参数记录保存在本任务系统临时目录；连接设置文件始终删除。
+
+本轮积压依据 `database-backlog.ndjson` 的真实 Outbox/processed Inbox 对账，排除唯一的负载前就绪探针，并额外记录 Broker 暂停期间和最终排空快照。Scope C 通用性能对象中尚未接入的 Broker backlog/oldest 等可选默认零值不作为测量结果。`resources.ndjson` 提供三个独享容器的采样最大 CPU/内存，每库实际115轮；不等于连续cgroup峰值，不包含测试宿主或整机资源认证。持续到达时首个零积压采样可能很晚，不能将它写成精确故障恢复耗时；单独报告控制暂停/解除、停载排空与端到端最大延迟。
+
+阈值来自开发验收：Runner 完整性对账、未知结果与重复业务副作用检查、排空期限及资源证据完整性；没有额外编造生产延迟预算。本机长跑已2/2通过，该场景不代替2K→5K→10K容量认证，不代表两个Host.Worker进程长稳或Kafka N+1，也不代替真实保留自动过期。能力状态继续`Capacity-not-verified`。
+
+`--stage quorum` 独立选择三 Broker 的单节点暂停/恢复用例：每 Broker 1 核/1536 MiB、RF=3、256B 消息，精确比较 minISR=2 的持续确认与 minISR=3 的副本不足拒绝，再恢复 ISR 并对账实际消息尾部。本机1/1通过，故障起点至恢复确认30.652秒。该场景通过正式`KafkaMessagingProducer`，不引入另一套总线，不证明独立物理故障域或生产容量。
 
 `kafka-capacity` 提供三个已实现的独立容量范围：Scope A `kafka_transport` 测量 Producer、临时 Topic 与 Consumer 传输；Scope B `worker_inbox_handler` 测量真实 `Kafka → 生产分区调度/连续 Offset 水位 → Dapper Inbox 事务 → Dispatcher → Handler`；Scope C `transaction_outbox_cdc` 测量 `开环调度 → 业务事务 Outbox → Debezium CDC → Kafka → 生产 Inbox/Handler` 全链路。Scope B 不包含业务写事务、Outbox 或 CDC；Scope C 通过外部 Connect REST 注册容量专用 Connector，Debezium Topic 前缀为 `fullnet.capacity.cdc.*`，Runner 默认不删除这些 Topic。三者均不能解除 ADR-0006 的影子运行与切流门禁。
 

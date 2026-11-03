@@ -42,6 +42,40 @@
           "responseSchema": "Stream"
         }
       ]
+    },
+    {
+      "path": "/api/v1/document/public/preview-capabilities",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": null,
+          "successStatus": 200,
+          "responseSchema": "DocumentPreviewCapabilities"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/document/host/preview-tasks/{taskId}/cancel",
+      "operations": [
+        {
+          "method": "POST",
+          "permission": "document.host_preview_tasks.cancel",
+          "successStatus": 200,
+          "requestSchema": "CancelDocumentPreviewTaskRequest",
+          "responseSchema": "HostDocumentPreviewTaskResponse"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/document/host/preview-tasks/{taskId}/retry",
+      "operations": [
+        {
+          "method": "POST",
+          "permission": "document.host_preview_tasks.retry",
+          "successStatus": 200,
+          "responseSchema": "HostDocumentPreviewTaskResponse"
+        }
+      ]
     }
   ],
   "schemas": {
@@ -66,7 +100,11 @@
         "createdAtUtc",
         "startedAtUtc",
         "completedAtUtc",
-        "version"
+        "version",
+        "attemptCount",
+        "nextAttemptAtUtc",
+        "previewGrant",
+        "previewPollUntilUtc"
       ]
     },
     "HostDocumentPreviewTaskResponsePage": {
@@ -80,6 +118,20 @@
     },
     "Stream": {
       "properties": []
+    },
+    "DocumentPreviewCapabilities": {
+      "properties": [
+        "enabled",
+        "providerKey",
+        "allowedMimeTypes",
+        "maxInputBytes",
+        "maxAttempts"
+      ]
+    },
+    "CancelDocumentPreviewTaskRequest": {
+      "properties": [
+        "version"
+      ]
     }
   }
 }

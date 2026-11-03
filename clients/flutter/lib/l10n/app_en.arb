@@ -1,5 +1,12 @@
 {
   "@@locale": "en",
+  "attachment": "Attachment",
+  "uploadAttachment": "Upload attachment",
+  "removeAttachment": "Remove attachment",
+  "reuseAttachment": "Reuse visible attachment",
+  "addRow": "Add row",
+  "removeRow": "Remove row",
+  "attachmentFailed": "The file is unavailable or this platform cannot open it.",
   "appTitle": "Full.NET",
   "loginTitle": "Sign in to Full.NET",
   "loginDescription": "Access your workflow tasks and approvals.",

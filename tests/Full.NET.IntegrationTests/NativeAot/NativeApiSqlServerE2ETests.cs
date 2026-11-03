@@ -17,6 +17,7 @@ public sealed class NativeApiSqlServerE2ETests
 
         await NativeApiE2EAssertions.VerifyCriticalHttpFlowAsync(
             DatabaseProvider.SqlServer,
-            await SharedDatabaseFixture.CreateSqlServerDatabaseAsync());
+            await SharedDatabaseFixture.CreateSqlServerDatabaseAsync(),
+            NativeAnonymousPreviewAssertions.TaskQueueSettings);
     }
 }

@@ -77,6 +77,8 @@ public sealed class IdentityOidcRetentionTests
             {
                 ["identity.prune_oidc_tokens"] = new Queue<int>([2]),
                 ["identity.prune_oidc_authorizations"] = new Queue<int>([1]),
+                ["identity.prune_browser_session"] = new Queue<int>([1]),
+                ["identity.prune_oidc_logout_delivery"] = new Queue<int>([1]),
             });
         var runner = CreateRunner(
             command,
@@ -93,6 +95,8 @@ public sealed class IdentityOidcRetentionTests
         CollectionAssert.AreEqual(
             new[]
             {
+                "identity.prune_oidc_logout_delivery",
+                "identity.prune_browser_session",
                 "identity.prune_oidc_tokens",
                 "identity.prune_oidc_authorizations",
             },
@@ -104,7 +108,10 @@ public sealed class IdentityOidcRetentionTests
             ReadThreshold(command.Parameters[0]));
         Assert.AreEqual(
             new DateTimeOffset(2026, 6, 29, 0, 0, 0, TimeSpan.Zero),
-            ReadThreshold(command.Parameters[1]));
+            ReadThreshold(command.Parameters[2]));
+        Assert.AreEqual(1, result.BrowserSessionsDeleted);
+        Assert.AreEqual(1, result.LogoutDeliveriesDeleted);
+        Assert.AreEqual(5, result.TotalDeleted);
     }
 
     private static ServiceProvider CreateProvider(

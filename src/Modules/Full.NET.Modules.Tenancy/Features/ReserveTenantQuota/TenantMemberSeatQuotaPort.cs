@@ -8,6 +8,17 @@ namespace Full.NET.Modules.Tenancy.Features.ReserveTenantQuota;
 internal sealed class TenantMemberSeatQuotaPort(
     ITenantQuotaReservationService quotaReservationService) : ITenantMemberSeatQuotaPort
 {
+    public async Task<Result<bool>> CancelConsumptionAsync(Guid tenantId, string operationId, CancellationToken cancellationToken = default)
+    {
+        var result = await quotaReservationService.CancelConsumptionAsync(tenantId, TenantQuotaMetricCodes.IdentitySeats,
+            operationId, cancellationToken).ConfigureAwait(false);
+        if (result.IsSuccess) return Result<bool>.Success(true);
+        return Result<bool>.Failure(result.Error!.Code == TenancyErrorCodes.QuotaReservationNotFound
+            && result.Error.Type == ErrorType.NotFound
+            ? result.Error with { Code = TenantMemberSeatQuotaErrorCodes.OperationNotFound }
+            : result.Error);
+    }
+
     public Task<Result<bool>> TryReserveAsync(
         Guid tenantId,
         string operationId,

@@ -18,7 +18,7 @@ public sealed partial class AiKnowledgeIndexDocumentActivationTests
         f.Query.QuerySingleOrDefaultAsync<AiKnowledgeIndexVectorRecord>(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>())
             .Returns(_ => { entered.TrySetResult(); return release.Task; });
         using var stop = new CancellationTokenSource();
-        var pending = AiKnowledgeIndexPdfAuthorityBoundary.RunAsync(ct => f.Store.IsReadyForReadAsync(row, new(), ct), stop.Token);
+        var pending = AiKnowledgeIndexPdfAuthorityBoundary.RunAsync(ct => f.Store.IsReadyForReadAsync(row, new() { ["OwnerUserId"] = f.Binding.OwnerUserId }, ct), stop.Token);
         try
         {
             await entered.Task.WaitAsync(TimeSpan.FromSeconds(2)); stop.Cancel();
@@ -47,7 +47,7 @@ public sealed partial class AiKnowledgeIndexDocumentActivationTests
         var f = new Fixture(tenant); Assert.IsTrue(await f.Activate()); var row = ReadRow(f); var calls = f.Authorizations;
         f.Denied = true; f.Clock.UtcNow.Returns(f.Now.AddHours(1));
         f.Query.QuerySingleOrDefaultAsync<AiKnowledgeIndexStatusRecord>(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(row);
-        Assert.IsTrue(await f.Store.IsReadyForReadAsync(row, new(), default));
+        Assert.IsTrue(await f.Store.IsReadyForReadAsync(row, new() { ["OwnerUserId"] = f.Binding.OwnerUserId }, default));
         Assert.AreEqual(calls, f.Authorizations); Assert.AreEqual(2, f.Writes);
         Assert.IsFalse(await f.Store.IsActiveAsync(f.Binding, f.TaskId, f.Lease, default));
     }
@@ -60,7 +60,7 @@ public sealed partial class AiKnowledgeIndexDocumentActivationTests
         if (fault == "payload") f.Payloads[0] = f.Payloads[0] with { Payload = new byte[8] };
         if (fault == "pointer") f.Pointer = f.Pointer! with { ManifestHash = new string('E', 64) };
         if (fault == "deleted") row = row with { IsDeleted = 1 };
-        Assert.IsFalse(await f.Store.IsReadyForReadAsync(row, new(), default)); Assert.AreEqual(2, f.Writes);
+        Assert.IsFalse(await f.Store.IsReadyForReadAsync(row, new() { ["OwnerUserId"] = f.Binding.OwnerUserId }, default)); Assert.AreEqual(2, f.Writes);
     }
 
     [TestMethod] [DataRow(false)] [DataRow(true)]

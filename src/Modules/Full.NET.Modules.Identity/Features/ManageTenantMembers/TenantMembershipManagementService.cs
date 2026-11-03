@@ -8,6 +8,8 @@ using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Identity.Features.ManageTenantMembers.Persistence;
 using Full.NET.Modules.Identity.Security;
+using Full.NET.Modules.Identity.Features.TenantSeatOperations;
+using Full.NET.Modules.Identity.Persistence;
 
 /// <summary>Identity 模块应用服务；编排事务、权限与持久化。</summary>
 namespace Full.NET.Modules.Identity.Features.ManageTenantMembers;
@@ -20,7 +22,8 @@ internal sealed class TenantMembershipManagementService(
     ICurrentTenant currentTenant,
     IIdentityActiveTenantDirectory activeTenants,
     IClock clock,
-    IIdGenerator idGenerator)
+    IIdGenerator idGenerator,
+    TenantSeatOperationProcessor seatOperations)
 {
     public Task<Result<CreateTenantInvitationResult>> InviteAsync(
         Guid invitedByUserId,
@@ -37,19 +40,23 @@ internal sealed class TenantMembershipManagementService(
             token => RevokeInvitationCoreAsync(invitationId, token),
             cancellationToken);
 
-    public Task<Result<TenantMemberResponse>> UpdateMemberAsync(
-        Guid memberId,
-        UpdateTenantMemberRequest request,
-        CancellationToken cancellationToken = default) =>
-        transaction.ExecuteAsync(
-            token => UpdateMemberCoreAsync(memberId, request, token),
-            cancellationToken);
+    public async Task<Result<TenantMemberResponse>> UpdateMemberAsync(Guid memberId, UpdateTenantMemberRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await transaction.ExecuteResultAsync(token => UpdateMemberCoreAsync(memberId, request, token), cancellationToken).ConfigureAwait(false);
+        if (!result.IsSuccess || result.Value!.Status != TenantMemberStatuses.Pending) return result;
+        var operation = await seatOperations.FindRequestAsync(result.Value.TenantId, ActivationKey(memberId, request.Version), cancellationToken).ConfigureAwait(false)
+            ?? throw new InvalidOperationException("Pending membership has no seat intent.");
+        var activation = await seatOperations.ProcessAsync(operation.Id, cancellationToken).ConfigureAwait(false);
+        return activation.IsSuccess ? await queries.GetMemberByIdAsync(memberId, cancellationToken).ConfigureAwait(false)
+            : Result<TenantMemberResponse>.Failure(activation.Error!);
+    }
 
     public Task<Result<TenantMemberResponse>> RemoveMemberAsync(
         Guid memberId,
         int version,
         CancellationToken cancellationToken = default) =>
-        transaction.ExecuteAsync(
+        transaction.ExecuteResultAsync(
             token => RemoveMemberCoreAsync(memberId, version, token),
             cancellationToken);
 
@@ -57,7 +64,7 @@ internal sealed class TenantMembershipManagementService(
         Guid userId,
         int version,
         CancellationToken cancellationToken = default) =>
-        transaction.ExecuteAsync(
+        transaction.ExecuteResultAsync(
             token => LeaveCurrentTenantCoreAsync(userId, version, token),
             cancellationToken);
 
@@ -209,6 +216,13 @@ internal sealed class TenantMembershipManagementService(
             return Result<TenantMemberResponse>.Failure(tenantActive.Error!);
         }
 
+        var existing = await queryExecutor.QuerySingleOrDefaultAsync<TenantMemberListRow>(TenantMembershipSql.FindMemberById,
+            IdentitySqlParameters.Create(("MemberId", memberId)), cancellationToken).ConfigureAwait(false);
+        if (existing is null || existing.Status is TenantMemberStatuses.Pending or TenantMemberStatuses.Removed
+            || existing.MemberRole == TenantMemberRoles.Owner)
+            return Result<TenantMemberResponse>.Failure(new Error(IdentityErrorCodes.TenantMemberVersionConflict,
+                "The member cannot be updated in this state.", ErrorType.Conflict));
+
         var role = request.MemberRole?.Trim() ?? string.Empty;
         if (role is not (TenantMemberRoles.Admin or TenantMemberRoles.Member))
         {
@@ -224,7 +238,7 @@ internal sealed class TenantMembershipManagementService(
                 Identity.Persistence.IdentitySqlParameters.Create(
                     ("MemberId", memberId),
                     ("MemberRole", role),
-                    ("Status", TenantMemberStatuses.Active),
+                    ("Status", existing.Status == TenantMemberStatuses.Active ? TenantMemberStatuses.Active : TenantMemberStatuses.Pending),
                     ("UpdatedAtUtc", now),
                     ("Version", request.Version)),
                 cancellationToken)
@@ -236,6 +250,11 @@ internal sealed class TenantMembershipManagementService(
                 "The tenant member record was updated concurrently.",
                 ErrorType.Conflict));
         }
+
+        if (existing.Status != TenantMemberStatuses.Active)
+            await seatOperations.EnlistAsync(new TenantSeatOperation(idGenerator.NewId(), ActivationKey(memberId, request.Version),
+                existing.TenantId, existing.UserId, memberId, null, existing.MemberRole, existing.Status, request.Version + 1,
+                null, TenantSeatPhases.Requested, null, null, now, now, null, null, 1, 1), cancellationToken).ConfigureAwait(false);
 
         return await queries.GetMemberByIdAsync(memberId, cancellationToken)
             .ConfigureAwait(false);
@@ -296,6 +315,8 @@ internal sealed class TenantMembershipManagementService(
                 ErrorType.Conflict));
         }
 
+        await seatOperations.CancelMemberAsync(existing.TenantId, memberId, now, cancellationToken).ConfigureAwait(false);
+
         return await queries.GetMemberByIdAsync(memberId, cancellationToken)
             .ConfigureAwait(false);
     }
@@ -321,4 +342,5 @@ internal sealed class TenantMembershipManagementService(
         return await RemoveMemberCoreAsync(existing.Id, version, cancellationToken)
             .ConfigureAwait(false);
     }
+    private static string ActivationKey(Guid memberId, int version) => "member:" + memberId.ToString("D") + ":" + version.ToString(System.Globalization.CultureInfo.InvariantCulture);
 }

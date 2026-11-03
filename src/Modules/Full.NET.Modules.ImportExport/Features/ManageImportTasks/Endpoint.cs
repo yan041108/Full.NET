@@ -1,4 +1,6 @@
 using System.Security.Claims;
+using System.Text;
+using System.Text.Json;
 using Full.NET.Abstractions.Messaging;
 using Full.NET.Abstractions.Results;
 using Full.NET.Abstractions.Tenancy;
@@ -6,6 +8,8 @@ using Full.NET.Hosting.Api;
 using Full.NET.Modules.Files.Contracts;
 using Full.NET.Modules.ImportExport.Contracts;
 using Full.NET.Modules.Identity.Contracts;
+using Full.NET.Modules.ImportExport.Domain;
+using Full.NET.Modules.ImportExport.Serialization;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -28,8 +32,10 @@ internal static class Endpoint
             [FromForm] string schemaKey,
             [FromForm] string worksheetKey,
             [FromForm] IFormFile file,
+            [FromForm] string? columnMapping,
             ImportExportTaskManagementService service,
             ClaimsPrincipal principal,
+            ICurrentTenant currentTenant,
             IApiResultMapper mapper,
             HttpContext httpContext,
             CancellationToken cancellationToken) =>
@@ -49,8 +55,22 @@ internal static class Endpoint
                     httpContext);
             }
 
+            var form = await httpContext.Request.ReadFormAsync(cancellationToken).ConfigureAwait(false);
+            if (form.Any(pair => pair.Key is not ("schemaKey" or "worksheetKey" or "columnMapping") || pair.Value.Count != 1)
+                || form.Files.Count != 1 || form.Files[0].Name != "file")
+                return mapper.Map(Result<ImportExportTaskDetailResponse>.Failure(ImportColumnMappingSnapshots.Invalid()), httpContext);
+            ImportColumnMappingRequest? mapping = null;
+            if (form.ContainsKey("columnMapping"))
+            {
+                if (string.IsNullOrWhiteSpace(columnMapping) || columnMapping.Length > StaticImportHeaderMapping.MaximumConfigurationBytes
+                    || Encoding.UTF8.GetByteCount(columnMapping) > StaticImportHeaderMapping.MaximumConfigurationBytes)
+                    return mapper.Map(Result<ImportExportTaskDetailResponse>.Failure(ImportColumnMappingSnapshots.Invalid()), httpContext);
+                try { mapping = JsonSerializer.Deserialize(columnMapping, ImportExportJsonSerializerContext.Default.ImportColumnMappingRequest); }
+                catch (JsonException) { return mapper.Map(Result<ImportExportTaskDetailResponse>.Failure(ImportColumnMappingSnapshots.Invalid()), httpContext); }
+                if (mapping is null) return mapper.Map(Result<ImportExportTaskDetailResponse>.Failure(ImportColumnMappingSnapshots.Invalid()), httpContext);
+            }
             await using var stream = file.OpenReadStream();
-            var previewContext = BuildPreviewContext(userId, principal);
+            var previewContext = BuildPreviewContext(userId, principal, currentTenant.Id) with { ColumnMapping = mapping };
             var result = await service
                 .CreateAsync(
                     schemaKey.Trim(),
@@ -81,6 +101,20 @@ internal static class Endpoint
         .ProducesProblem(StatusCodes.Status422UnprocessableEntity)
         .DisableAntiforgery()
         .RequireAuthorization(FullNetPermissionPolicies.For(ImportExportPermissions.ImportTasksCreate));
+
+        // 本人查询不接受用户或租户参数；身份只来自已认证主体和可信上下文。
+        group.MapGet("/mine", async (int? pageSize, string? statusKey, string? cursor,
+            ImportExportTaskQueryService queries, IApiResultMapper mapper, HttpContext httpContext, CancellationToken cancellationToken) =>
+        {
+            if (!TryResolveUserId(httpContext, out var userId) || userId == Guid.Empty)
+                return Results.Problem(statusCode: StatusCodes.Status401Unauthorized);
+            return mapper.Map(await queries.ListMineAsync(userId, pageSize ?? 20, statusKey, cursor, cancellationToken).ConfigureAwait(false), httpContext);
+        }).WithName("importExportListMyImportTasks")
+            .Produces<CursorPage<ImportExportTaskResponse>>()
+            .ProducesProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .RequireAuthorization(FullNetPermissionPolicies.For(ImportExportPermissions.ImportTasksRead));
 
         group.MapGet("/", async (
             int? page,
@@ -123,6 +157,7 @@ internal static class Endpoint
             Guid taskId,
             ImportExportTaskExecutionService executionService,
             ClaimsPrincipal principal,
+            ICurrentTenant currentTenant,
             IApiResultMapper mapper,
             HttpContext httpContext,
             CancellationToken cancellationToken) =>
@@ -135,7 +170,7 @@ internal static class Endpoint
             var result = await executionService
                 .QueueExecuteAsync(
                     taskId,
-                    BuildPreviewContext(userId, principal),
+                    BuildPreviewContext(userId, principal, currentTenant.Id),
                     cancellationToken)
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
@@ -152,6 +187,7 @@ internal static class Endpoint
             Guid taskId,
             ImportExportTaskExecutionService executionService,
             ClaimsPrincipal principal,
+            ICurrentTenant currentTenant,
             IApiResultMapper mapper,
             HttpContext httpContext,
             CancellationToken cancellationToken) =>
@@ -164,7 +200,7 @@ internal static class Endpoint
             var result = await executionService
                 .ResumeAsync(
                     taskId,
-                    BuildPreviewContext(userId, principal),
+                    BuildPreviewContext(userId, principal, currentTenant.Id),
                     cancellationToken)
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
@@ -181,6 +217,7 @@ internal static class Endpoint
             Guid taskId,
             ImportExportTaskExecutionService executionService,
             ClaimsPrincipal principal,
+            ICurrentTenant currentTenant,
             IApiResultMapper mapper,
             HttpContext httpContext,
             CancellationToken cancellationToken) =>
@@ -193,7 +230,7 @@ internal static class Endpoint
             var result = await executionService
                 .RetryAsync(
                     taskId,
-                    BuildPreviewContext(userId, principal),
+                    BuildPreviewContext(userId, principal, currentTenant.Id),
                     cancellationToken)
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
@@ -205,6 +242,14 @@ internal static class Endpoint
         .ProducesProblem(StatusCodes.Status404NotFound)
         .ProducesProblem(StatusCodes.Status422UnprocessableEntity)
         .RequireAuthorization(FullNetPermissionPolicies.For(ImportExportPermissions.ImportTasksExecute));
+
+        group.MapPost("/{taskId:guid}/cancel", async (Guid taskId, CancelImportExportTaskRequest request,
+            ImportExportTaskCancellationService service, IApiResultMapper mapper, HttpContext http, CancellationToken token) =>
+            mapper.Map(await service.CancelAsync(taskId, request.Version, token).ConfigureAwait(false), http))
+            .WithName("importExportCancelImportTask").Produces<ImportExportTaskDetailResponse>()
+            .ProducesProblem(400).ProducesProblem(401).ProducesProblem(403).ProducesProblem(404).ProducesProblem(409)
+            .WithMetadata(new RequestSizeLimitAttribute(1024))
+            .RequireAuthorization(FullNetPermissionPolicies.For(ImportExportPermissions.ImportTasksCancel));
 
         group.MapGet("/{taskId:guid}/error-receipt", async (
             Guid taskId,
@@ -245,13 +290,14 @@ internal static class Endpoint
 
     private static StaticImportPreviewContext BuildPreviewContext(
         Guid requestedByUserId,
-        ClaimsPrincipal principal)
+        ClaimsPrincipal principal, Guid? tenantId)
     {
         var capabilityFlags = principal
             .FindAll(FullNetIdentityClaimTypes.Permission)
             .Select(claim => claim.Value)
             .Distinct(StringComparer.Ordinal)
             .ToDictionary(permission => permission, _ => true, StringComparer.Ordinal);
-        return new StaticImportPreviewContext(requestedByUserId, capabilityFlags);
+        return new StaticImportPreviewContext(requestedByUserId, capabilityFlags) {
+            SessionBinding = SessionBindingSnapshotReader.TryReadTenant(principal, tenantId, out var binding) ? binding : null };
     }
 }

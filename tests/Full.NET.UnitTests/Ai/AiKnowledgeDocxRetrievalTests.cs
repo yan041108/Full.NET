@@ -16,7 +16,7 @@ public sealed partial class AiKnowledgeIndexDocumentActivationTests
     [TestMethod] [DataRow(false)] [DataRow(true)]
     public async Task Docx_retrieval_binds_full_manifest_and_returns_logical_citations(bool tenant)
     {
-        var f = new Fixture(tenant); Assert.IsTrue(await f.Activate()); var row = ReadRow(f); f.Denied = true;
+        var f = new Fixture(tenant); Assert.IsTrue(await f.Activate()); var row = ReadRow(f) with { PublicationId = Guid.CreateVersion7() }; f.Denied = true;
         var (service, query, model) = Retrieval(f, row);
         var result = await service.RetrieveAsync([row.KnowledgeBaseId], row.OwnerUserId, model, AiKnowledgeRetrievalRuleTests.Vector(1, 0), default);
         Assert.HasCount(17, result.Chunks); Assert.HasCount(1, result.Sources);
@@ -53,7 +53,7 @@ public sealed partial class AiKnowledgeIndexDocumentActivationTests
         orgs.ListActiveUnitIdsForUserAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>()).Returns(Array.Empty<Guid>());
         var permissions = new AiKnowledgePermissionGuard(auth, Substitute.For<IHttpContextAccessor>(), Substitute.For<ICurrentApiKeyAuthorization>());
         return (new(query, f.Transactions, f.Tenant, new(roles, orgs, f.Tenant), permissions, null!, null!,
-            Options.Create(new DatabaseOptions { Provider = DatabaseProvider.SqlServer }), f.Store), query, model);
+            Options.Create(new DatabaseOptions { Provider = DatabaseProvider.SqlServer }), f.Store, generationLeases: f.Leases), query, model);
     }
 
     private sealed class DocxRetrievalQuery(IQueryExecutor inner, AiKnowledgeIndexStatusRecord row, AiKnowledgeIndexVectorRecord[] vectors,

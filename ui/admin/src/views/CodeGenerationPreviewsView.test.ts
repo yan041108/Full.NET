@@ -4,8 +4,13 @@ import { ElMessageBox } from 'element-plus';
 import CodeGenerationPreviewsView from './CodeGenerationPreviewsView.vue';
 import {
   applyTrackedCodeGeneration,
+  prepareTrackedCodeGenerationApply,
+  getCodeGenerationWorkspaceState,
+  recoverCodeGenerationWorkspace,
+  downloadCodeGenerationArtifacts,
   listCodeGenerationRuns,
-  previewTrackedCodeGeneration
+  previewTrackedCodeGeneration,
+  retryCodeGenerationPublication
 } from '../api/code-generation-runs';
 import {
   createCodeGenerationTemplate,
@@ -40,10 +45,14 @@ vi.mock('../auth/session', () => ({
 
 vi.mock('../api/code-generation-runs', () => ({
   applyTrackedCodeGeneration: vi.fn(),
+  prepareTrackedCodeGenerationApply: vi.fn(),
+  getCodeGenerationWorkspaceState: vi.fn(),
+  recoverCodeGenerationWorkspace: vi.fn(),
   downloadCodeGenerationArtifacts: vi.fn(),
   executeTrackedCodeGenerationRollback: vi.fn(),
   listCodeGenerationRuns: vi.fn(),
-  previewTrackedCodeGeneration: vi.fn()
+  previewTrackedCodeGeneration: vi.fn(),
+  retryCodeGenerationPublication: vi.fn()
 }));
 vi.mock('../api/code-generation-templates', () => ({
   createCodeGenerationTemplate: vi.fn(),
@@ -58,6 +67,13 @@ vi.mock('../api/code-generation-catalog', () => ({
 
 const trackedPreviewMock = vi.mocked(previewTrackedCodeGeneration);
 const applyMock = vi.mocked(applyTrackedCodeGeneration);
+const prepareApplyMock = vi.mocked(prepareTrackedCodeGenerationApply);
+const workspaceMock = vi.mocked(getCodeGenerationWorkspaceState);
+const recoverWorkspaceMock = vi.mocked(recoverCodeGenerationWorkspace);
+const idleWorkspace = { workspaceId: '0198f36e-f7a7-7c52-9cbb-774e67411214', revision: 1,
+  tipOperationId: null, lastOperationId: '0198f36e-f7a7-7c52-9cbb-774e67411213', pendingOperationId: null,
+  pendingKind: null, pendingClient: null, phase: 'idle' } as const;
+const retryPublicationMock = vi.mocked(retryCodeGenerationPublication);
 const listRunsMock = vi.mocked(listCodeGenerationRuns);
 const listTemplatesMock = vi.mocked(listCodeGenerationTemplates);
 const createTemplateMock = vi.mocked(createCodeGenerationTemplate);
@@ -100,7 +116,19 @@ const template = {
 
 describe('Vue 代码生成预览页', () => {
   beforeEach(() => {
+    sessionStorage.clear();
+    workspaceMock.mockReset().mockResolvedValue(idleWorkspace);
+    recoverWorkspaceMock.mockReset().mockResolvedValue(idleWorkspace);
+    vi.mocked(downloadCodeGenerationArtifacts).mockReset();
+    prepareApplyMock.mockReset().mockResolvedValue({
+      planId: '0198f36e-f7a7-7c52-9cbb-774e67411213', previewRunId: '0198f36e-f7a7-7c52-9cbb-774e67411212',
+      workspaceId: '0198f36e-f7a7-7c52-9cbb-774e67411214', workspaceRevision: 1, generatorVersion: '2026.10.24.1',
+      planSha256: 'd'.repeat(64), expiresAtUtc: '2099-01-01T00:00:00Z',
+      files: [{ relativePath: 'module/Product.g.cs', kind: 'create', beforeSha256: null, afterSha256: 'e'.repeat(64) },
+        { relativePath: '.fullnet/codegeneration-manifest.json', kind: 'manifest', beforeSha256: null, afterSha256: 'f'.repeat(64) }]
+    });
     routeState.query = {};
+    retryPublicationMock.mockReset();
     permissionState.grants = new Set([
       'codegen.previews.read',
       'codegen.templates.read',
@@ -132,6 +160,8 @@ describe('Vue 代码生成预览页', () => {
       previewRunId: '0198f36e-f7a7-7c52-9cbb-774e67411212',
       artifactCount: 1,
       changedArtifactCount: 1,
+      publicationStatus: 'disabled',
+      commitSha: null,
       manifestSha256: 'c'.repeat(64)
     });
     listRunsMock.mockReset().mockResolvedValue({
@@ -150,7 +180,9 @@ describe('Vue 代码生成预览页', () => {
         requestedByUserId: '0198f36e-f7a7-7c52-9cbb-774e67411211',
         startedAtUtc: '2026-07-31T05:00:00Z',
         finishedAtUtc: '2026-07-31T05:00:01Z',
-        sourceApplyRunId: null
+        sourceApplyRunId: null,
+        publicationStatus: 'unavailable',
+        commitSha: null
       }],
       page: 1,
       pageSize: 20,
@@ -237,6 +269,24 @@ describe('Vue 代码生成预览页', () => {
     expect(wrapper.text()).toContain('acme_catalog_product');
   });
 
+  it('直接 Schema 预览可审查应用计划，历史下载明确显示归档到期', async () => {
+    const wrapper = mount(CodeGenerationPreviewsView);
+    await flushPromises();
+    await wrapper.get('[data-testid="codegen-preview"]').trigger('click');
+    await flushPromises();
+    expect(wrapper.get('[data-testid="codegen-download"]').attributes('disabled')).toBeUndefined();
+    await wrapper.get('[data-testid="codegen-apply"]').trigger('click');
+    await flushPromises();
+    expect(prepareApplyMock).toHaveBeenCalledWith({ previewRunId: '0198f36e-f7a7-7c52-9cbb-774e67411212', integrationTarget: undefined });
+    expect(applyMock).not.toHaveBeenCalled();
+    expect(wrapper.get('[data-testid="codegen-apply-plan"]').element.parentElement?.classList.contains('codegen-workbench__grid')).toBe(false);
+    vi.mocked(downloadCodeGenerationArtifacts).mockRejectedValue({ type: 'about:blank', title: 'expired', status: 409, code: 'codegen.run.archive_expired' });
+    await wrapper.get('[data-testid="codegen-history-download"]').trigger('click');
+    await flushPromises();
+    expect(downloadCodeGenerationArtifacts).toHaveBeenCalledOnce();
+    expect(wrapper.get('[role="alert"]').text()).toContain('保留期限');
+  });
+
   it('无效 JSON 在客户端失败关闭且不发送请求', async () => {
     const wrapper = mount(CodeGenerationPreviewsView);
     await wrapper.get('textarea[data-testid="codegen-schema"]')
@@ -312,10 +362,99 @@ describe('Vue 代码生成预览页', () => {
     await wrapper.get('[data-testid="codegen-apply"]').trigger('click');
     await flushPromises();
 
+    expect(applyMock).not.toHaveBeenCalled();
+    expect(confirm).not.toHaveBeenCalled();
+    expect(wrapper.get('[data-testid="codegen-apply-plan"]').text()).toContain('module/Product.g.cs');
+    expect(wrapper.get('[data-testid="codegen-apply-plan"]').text()).toContain('e'.repeat(64));
+    await wrapper.get('[data-testid="codegen-apply-plan-confirm"]').trigger('click');
+    await flushPromises();
     expect(confirm).toHaveBeenCalledOnce();
     expect(applyMock).toHaveBeenCalledWith({
-      previewRunId: '0198f36e-f7a7-7c52-9cbb-774e67411212'
+      planId: '0198f36e-f7a7-7c52-9cbb-774e67411213', planSha256: 'd'.repeat(64), idempotencyKey: expect.any(String)
     });
+    confirm.mockRestore();
+  });
+
+  it('显示本地成功与待发布状态，重试时不再执行 Apply', async () => {
+    const confirm = vi.spyOn(ElMessageBox, 'confirm').mockResolvedValue(undefined as never);
+    const runId = '0198f36e-f7a7-7c52-9cbb-774e67411213';
+    applyMock.mockResolvedValueOnce({
+      runId, previewRunId: '0198f36e-f7a7-7c52-9cbb-774e67411212', artifactCount: 1,
+      changedArtifactCount: 1, manifestSha256: 'c'.repeat(64), publicationStatus: 'pending', commitSha: 'd'.repeat(40)
+    });
+    retryPublicationMock.mockResolvedValue({ runId, publicationStatus: 'published', commitSha: 'd'.repeat(40) });
+    const wrapper = mount(CodeGenerationPreviewsView);
+    await flushPromises();
+    await wrapper.get('[data-testid="codegen-template-load"]').trigger('click');
+    await wrapper.get('[data-testid="codegen-preview"]').trigger('click');
+    await flushPromises();
+    await wrapper.get('[data-testid="codegen-apply"]').trigger('click');
+    await flushPromises();
+    await wrapper.get('[data-testid="codegen-apply-plan-confirm"]').trigger('click');
+    await flushPromises();
+    expect(wrapper.get('[data-testid="codegen-publication-status"]').text()).toContain('本地已应用，等待发布');
+    await wrapper.get('[data-testid="codegen-retry-publication"]').trigger('click');
+    await flushPromises();
+    expect(retryPublicationMock).toHaveBeenCalledExactlyOnceWith(runId);
+    expect(applyMock).toHaveBeenCalledOnce();
+    expect(wrapper.get('[data-testid="codegen-publication-status"]').text()).toContain('已推送工作分支');
+    expect(wrapper.find('[data-testid="codegen-retry-publication"]').exists()).toBe(false);
+    confirm.mockRestore();
+  });
+
+  it('响应丢失并重新挂载页面后保持同一计划与幂等键，不再次规划', async () => {
+    const confirm = vi.spyOn(ElMessageBox, 'confirm').mockResolvedValue(undefined as never);
+    applyMock.mockRejectedValueOnce(new Error('network response lost'));
+    let wrapper = mount(CodeGenerationPreviewsView);
+    await flushPromises();
+    await wrapper.get('[data-testid="codegen-template-load"]').trigger('click');
+    await wrapper.get('[data-testid="codegen-preview"]').trigger('click');
+    await flushPromises();
+    await wrapper.get('[data-testid="codegen-apply"]').trigger('click');
+    await flushPromises();
+    await wrapper.get('[data-testid="codegen-apply-plan-confirm"]').trigger('click');
+    await flushPromises();
+    const originalRequest = applyMock.mock.calls[0]![0];
+    wrapper.unmount();
+    wrapper = mount(CodeGenerationPreviewsView);
+    await flushPromises();
+    expect(wrapper.get('[data-testid="codegen-apply-plan-confirm"]').text()).toContain('重试同一次执行');
+    await wrapper.get('[data-testid="codegen-apply-plan-confirm"]').trigger('click');
+    await flushPromises();
+    expect(prepareApplyMock).toHaveBeenCalledOnce();
+    expect(applyMock).toHaveBeenNthCalledWith(2, originalRequest);
+    confirm.mockRestore();
+  });
+
+  it('服务端确认计划失效后可以重新规划，不把它留成永远待重试的执行', async () => {
+    const confirm = vi.spyOn(ElMessageBox, 'confirm').mockResolvedValue(undefined as never);
+    applyMock.mockRejectedValueOnce({ status: 409, code: 'codegen.run.stale_apply_preview', title: 'Stale plan' });
+    const wrapper = mount(CodeGenerationPreviewsView);
+    await flushPromises();
+    await wrapper.get('[data-testid="codegen-template-load"]').trigger('click');
+    await wrapper.get('[data-testid="codegen-preview"]').trigger('click');
+    await flushPromises();
+    await wrapper.get('[data-testid="codegen-apply"]').trigger('click');
+    await flushPromises();
+    await wrapper.get('[data-testid="codegen-apply-plan-confirm"]').trigger('click');
+    await flushPromises();
+    expect(wrapper.find('[data-testid="codegen-apply-plan"]').exists()).toBe(false);
+    expect(wrapper.get('[data-testid="codegen-apply"]').attributes('disabled')).toBeUndefined();
+    confirm.mockRestore();
+  });
+
+  it('维护入口恢复既有操作并刷新历史，不创建第二次 Apply', async () => {
+    const confirm = vi.spyOn(ElMessageBox, 'confirm').mockResolvedValue(undefined as never);
+    const operationId = '0198f36e-f7a7-7c52-9cbb-774e67411213';
+    workspaceMock.mockResolvedValueOnce({ ...idleWorkspace, pendingOperationId: operationId, pendingKind: 'apply', pendingClient: 'host', phase: 'locally_applied' });
+    const wrapper = mount(CodeGenerationPreviewsView);
+    await flushPromises();
+    expect(wrapper.get('[data-testid="codegen-workspace-recovery"]').text()).toContain('本地文件已提交');
+    await wrapper.get('[data-testid="codegen-workspace-recover"]').trigger('click');
+    await flushPromises();
+    expect(recoverWorkspaceMock).toHaveBeenCalledExactlyOnceWith({ operationId });
+    expect(applyMock).not.toHaveBeenCalled();
+    expect(wrapper.get('[data-testid="codegen-workspace-recovered"]').text()).toContain('本地操作已恢复');
     confirm.mockRestore();
   });
 

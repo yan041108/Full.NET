@@ -31,10 +31,7 @@ public static class ServiceCollectionExtensions
         ArgumentNullException.ThrowIfNull(configuration);
         ArgumentException.ThrowIfNullOrWhiteSpace(environmentName);
 
-        services
-            .AddOptions<KafkaMessagingOptions>()
-            .BindConfiguration(KafkaMessagingOptions.SectionName)
-            .ValidateOnStart();
+        AddKafkaOptions(services, configuration);
         services.TryAddEnumerable(
             ServiceDescriptor.Singleton<IValidateOptions<KafkaMessagingOptions>, KafkaMessagingOptionsValidator>());
 
@@ -60,10 +57,10 @@ public static class ServiceCollectionExtensions
                 failureStatus: null,
                 tags: ["ready"]));
 
-        var options = configuration
-                .GetSection(KafkaMessagingOptions.SectionName)
-                .Get<KafkaMessagingOptions>()
-            ?? new KafkaMessagingOptions();
+        var section = configuration.GetSection(KafkaMessagingOptions.SectionName);
+        var options = new KafkaMessagingOptions();
+        if (section.GetSection(nameof(KafkaMessagingOptions.RetryStages)).Exists()) options.RetryStages = [];
+        section.Bind(options);
         var validation = KafkaMessagingOptionsValidation.Validate(options, environmentName);
         if (validation.Failed)
         {
@@ -75,6 +72,8 @@ public static class ServiceCollectionExtensions
 
         if (options.Enabled)
         {
+            if (configuration.GetValue<bool>($"{KafkaConnectRollbackOptions.SectionName}:Enabled"))
+                services.AddHostedService<KafkaDeliveryControlReconciler>();
             services.AddHostedService<KafkaConsumerWorker>();
             if (options.DeadLetterProjectionEnabled)
                 services.AddHostedService<KafkaDeadLetterProjectionWorker>();
@@ -83,14 +82,31 @@ public static class ServiceCollectionExtensions
         return services;
     }
 
+    /// <summary>注册 Worker 专用只读观测；禁用时仅报告 disabled，不发起数据库或外部查询。</summary>
+    /// <param name="services">Worker 服务集合。</param>
+    /// <param name="configuration">采集预算与专用试点资源配置。</param>
+    /// <returns>当前服务集合。</returns>
+    public static IServiceCollection AddFullNetCdcMonitoring(this IServiceCollection services, IConfiguration configuration)
+    {
+        services.AddFullNetKafkaDeliveryControl(configuration);
+        services.AddOptions<KafkaCdcMonitoringOptions>().BindConfiguration(KafkaCdcMonitoringOptions.SectionName).ValidateOnStart();
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<IValidateOptions<KafkaCdcMonitoringOptions>, KafkaCdcMonitoringOptionsValidator>());
+        services.AddHostedService<KafkaCdcMonitoringWorker>();
+        return services;
+    }
+
     /// <summary>仅装配 API 控制面；不注册常驻消费者、生产者或后台服务。</summary>
     public static IServiceCollection AddFullNetKafkaDeliveryControl(this IServiceCollection services, IConfiguration configuration)
     {
         ArgumentNullException.ThrowIfNull(services);
         ArgumentNullException.ThrowIfNull(configuration);
-        services.AddOptions<KafkaMessagingOptions>().BindConfiguration(KafkaMessagingOptions.SectionName).ValidateOnStart();
+        AddKafkaOptions(services, configuration);
         services.TryAddEnumerable(ServiceDescriptor.Singleton<IValidateOptions<KafkaMessagingOptions>, KafkaMessagingOptionsValidator>());
-        services.AddOptions<KafkaConnectRollbackOptions>().BindConfiguration(KafkaConnectRollbackOptions.SectionName).ValidateOnStart();
+        if (!services.Any(descriptor => descriptor.ServiceType == typeof(KafkaControlBindingMarker)))
+        {
+            services.AddSingleton(new KafkaControlBindingMarker());
+            services.AddOptions<KafkaConnectRollbackOptions>().BindConfiguration(KafkaConnectRollbackOptions.SectionName).ValidateOnStart();
+        }
         services.TryAddEnumerable(ServiceDescriptor.Singleton<IValidateOptions<KafkaConnectRollbackOptions>, KafkaConnectRollbackOptionsValidator>());
         services.TryAddSingleton<KafkaConsumerLagObserver>();
         services.TryAddSingleton<KafkaConnectAdminClient>(provider =>
@@ -104,7 +120,8 @@ public static class ServiceCollectionExtensions
         if (configuration.GetValue<bool>($"{KafkaConnectRollbackOptions.SectionName}:Enabled"))
         {
             services.RemoveAll<IEventDeliveryRollbackReadinessReader>();
-            services.AddSingleton<IEventDeliveryRollbackReadinessReader, KafkaConnectEventDeliveryRollbackReadinessReader>();
+            services.TryAddSingleton<KafkaConnectEventDeliveryRollbackReadinessReader>();
+            services.AddSingleton<IEventDeliveryRollbackReadinessReader>(provider => provider.GetRequiredService<KafkaConnectEventDeliveryRollbackReadinessReader>());
             services.RemoveAll<IEventDeliveryCutoverProbe>();
             services.AddScoped<IEventDeliveryCutoverProbe, KafkaEventDeliveryCutoverProbe>();
         }
@@ -120,8 +137,7 @@ public static class ServiceCollectionExtensions
     {
         ArgumentNullException.ThrowIfNull(services);
         ArgumentNullException.ThrowIfNull(configuration);
-        services.AddOptions<KafkaMessagingOptions>()
-            .BindConfiguration(KafkaMessagingOptions.SectionName);
+        AddKafkaOptions(services, configuration);
         services.AddOptions<KafkaReplayOperationsOptions>()
             .BindConfiguration(KafkaReplayOperationsOptions.SectionName)
             .ValidateOnStart();
@@ -146,4 +162,23 @@ public static class ServiceCollectionExtensions
         services.TryAddScoped<ITrackedKafkaReplayService>(provider => provider.GetRequiredService<KafkaReplayService>());
         return services;
     }
+
+    private static void AddKafkaOptions(IServiceCollection services, IConfiguration configuration)
+    {
+        // API/Worker 的多个能力入口共用同一个选项；重复绑定会把数组再次追加，破坏重试顺序。
+        if (services.Any(descriptor => descriptor.ServiceType == typeof(KafkaOptionsBindingMarker))) return;
+        services.AddSingleton(new KafkaOptionsBindingMarker());
+        services.AddOptions<KafkaMessagingOptions>()
+            .Configure(options =>
+            {
+                // 配置数组替代默认阶段；未配置时保留官方默认值，重载时重新按当前配置判断。
+                if (configuration.GetSection(KafkaMessagingOptions.SectionName).GetSection(nameof(KafkaMessagingOptions.RetryStages)).Exists())
+                    options.RetryStages = [];
+            })
+            .BindConfiguration(KafkaMessagingOptions.SectionName)
+            .ValidateOnStart();
+    }
+
+    private sealed class KafkaOptionsBindingMarker;
+    private sealed class KafkaControlBindingMarker;
 }

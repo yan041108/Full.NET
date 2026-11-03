@@ -1,3 +1,4 @@
+import 'workflow_form_fixture.dart';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -25,6 +26,8 @@ void main() {
       'statusKey': 'active',
       'revision': 1,
       'submissionRevision': 2,
+      'formSchema': workflowTestFormSchema,
+      'fieldPolicies': <String, String>{},
       'submission': <String, dynamic>{},
       'allowedActions': ['approve'],
       'activityKindKey': 'human.approval',

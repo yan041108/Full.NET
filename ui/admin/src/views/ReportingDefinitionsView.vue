@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref, watch } from 'vue';
+import { computed, onActivated, onDeactivated, onBeforeUnmount, reactive, ref, watch } from 'vue';
 import {
   ElAlert,
   ElButton,
   ElCard,
   ElDrawer,
+  ElDialog,
   ElForm,
   ElFormItem,
   ElInput,
@@ -37,6 +38,9 @@ import ArtTableActionGroup from '../framework/art-design/components/ArtTableActi
 import ArtTableHeader from '../framework/art-design/components/ArtTableHeader.vue';
 import { useArtCrudTableLayout } from '../framework/art-design/composables/useArtCrudTableLayout';
 import PermissionGate from '../components/PermissionGate.vue';
+import ReportingDefinitionGrantsDialog from '../components/ReportingDefinitionGrantsDialog.vue';
+import { useSessionStore } from '../auth/session';
+import { reportingConfigurationText } from '../i18n/reporting-configuration';
 import { useAdminI18n } from '../i18n/adminI18n';
 import { listReportingDataSources } from '../api/reporting-data-sources';
 import {
@@ -59,7 +63,19 @@ defineOptions({ name: 'ReportingDefinitionsView' });
 type GroupEditorMode = 'create' | 'edit';
 type DefinitionEditorMode = 'create' | 'edit';
 
-const { t } = useAdminI18n();
+const { t, locale } = useAdminI18n();
+const session = useSessionStore(), active = ref(true), writeUnconfirmed = ref(false), publishOpen = ref(false), publishTarget = ref<ReportingDefinition>();
+const text = (key: Parameters<typeof reportingConfigurationText>[1]) => reportingConfigurationText(locale.value, key);
+let generation = 0, groupEpoch = 0, definitionEpoch = 0, requests = new AbortController();
+const reads = new Map<string, AbortController>();
+const canRead = () => active.value && !session.switching && session.currentUser?.actorScope === 'host' && !session.currentUser.tenantId && session.can('reporting.definitions.read');
+const can = (permission: string) => canRead() && session.can(permission);
+function current(scope: number) { return scope === generation && canRead(); }
+function reading(key: string) { reads.get(key)?.abort(); const controller = new AbortController(); reads.set(key, controller); return controller; }
+function stopReads() { for (const controller of reads.values()) controller.abort(); reads.clear(); }
+function invalidateDetails() { reads.get('draft')?.abort(); reads.get('publish')?.abort(); publishOpen.value = false; publishTarget.value = undefined; }
+function unknown(error: unknown) { return !isFullNetProblemDetails(error) || error.status === 409 || (error.status ?? 500) >= 500; }
+const grantsOpen = ref(false), grantsDefinitionId = ref('');
 const groups = ref<ReportingGroup[]>([]);
 const definitions = ref<ReportingDefinitionSummary[]>([]);
 const queryPorts = ref<ReportingQueryPortDefinition[]>([]);
@@ -88,6 +104,7 @@ const groupForm = reactive({
 const definitionEditorOpen = ref(false);
 const definitionEditorMode = ref<DefinitionEditorMode>('create');
 const editingDefinition = ref<ReportingDefinition | null>(null);
+const definitionGroupId = ref<string>();
 const definitionFormRef = ref<FormInstance>();
 const definitionForm = reactive({
   definitionKey: '',
@@ -147,70 +164,110 @@ watch(() => definitionForm.queryPortKey, queryPortKey => {
     isRequired: parameter.isRequired,
     defaultValue: parameter.defaultValue
   }));
-});
+}, { flush: 'sync' });
 
-onMounted(() => {
-  void loadPage();
-});
+/** 权限或会话变更销毁草稿与在途结果，Host 配置不能残留到租户上下文。 */
+function reset() {
+  generation++; requests.abort(); requests = new AbortController(); stopReads();
+  groups.value = []; definitions.value = []; queryPorts.value = []; dataSourceOptions.value = []; versions.value = [];
+  selectedGroupId.value = undefined; definitionPage.value = 1; definitionTotal.value = 0; versionPage.value = 1; versionTotal.value = 0; versionDefinitionId.value = '';
+  groupEditorOpen.value = false; definitionEditorOpen.value = false; versionsDrawerOpen.value = false; grantsOpen.value = false; grantsDefinitionId.value = '';
+  editingGroup.value = null; editingDefinition.value = null; publishOpen.value = false; publishTarget.value = undefined; publishNote.value = '';
+  definitionGroupId.value = undefined;
+  Object.assign(groupForm, { name: '', sortOrder: '0', isEnabled: true });
+  Object.assign(definitionForm, { definitionKey: '', name: '', description: '', dataSourceId: '', queryPortKey: '', layoutConfigJson: '{}', isEnabled: true, parameterSchema: [] });
+  searchForm.value = {}; appliedFilters.value = { name: '' }; problem.value = undefined; loading.value = false; acting.value = false; writeUnconfirmed.value = false;
+}
+watch(() => [session.currentUser?.id, session.currentUser?.tenantId, session.currentUser?.actorScope, session.currentUser?.sessionId, session.currentUser?.permissions.join('|'), session.switching, active.value], () => {
+  reset(); if (canRead()) void loadPage();
+}, { immediate: true, flush: 'sync' });
+watch(versionsDrawerOpen, value => { if (!value) { reads.get('history')?.abort(); versions.value = []; } });
+watch(groupEditorOpen, () => { groupEpoch++; }, { flush: 'sync' });
+watch(definitionEditorOpen, value => { definitionEpoch++; if (!value) reads.get('draft')?.abort(); }, { flush: 'sync' });
+onActivated(() => { active.value = true; }); onDeactivated(() => { active.value = false; }); onBeforeUnmount(() => { active.value = false; reset(); });
 
 async function loadPage(): Promise<void> {
+  if (!canRead() || acting.value) return;
+  const scope = generation, controller = reading('catalogs');
+  publishOpen.value = false; publishTarget.value = undefined; publishNote.value = '';
+  if (!definitionEditorOpen.value) reads.get('draft')?.abort();
   loading.value = true;
   problem.value = undefined;
   try {
-    const [groupRows, definitionRows, portRows, dataSourcePage] = await Promise.all([
-      listReportingGroups(),
-      listReportingDefinitions(),
-      listReportingQueryPorts(),
-      listReportingDataSources({ page: 1, pageSize: 200, isEnabled: true })
+    const catalogs = await Promise.allSettled([
+      can('reporting.groups.read') ? listReportingGroups(controller.signal) : Promise.resolve([]),
+      can('reporting.query_ports.read') ? listReportingQueryPorts(controller.signal) : Promise.resolve([]),
+      can('reporting.data_sources.read') ? listReportingDataSources({ page: 1, pageSize: 200, isEnabled: true }, controller.signal) : Promise.resolve({ items: [] })
     ]);
+    if (!current(scope) || controller.signal.aborted) return;
+    const [groupResult, portResult, sourceResult] = catalogs;
+    const groupRows = groupResult.status === 'fulfilled' ? groupResult.value : [];
+    const portRows = portResult.status === 'fulfilled' ? portResult.value : [];
+    const dataSourcePage = sourceResult.status === 'fulfilled' ? sourceResult.value : { items: [] };
+    if (catalogs.some(result => result.status === 'rejected')) problem.value = toProblem(catalogs.find(result => result.status === 'rejected')?.reason, 'reportingDefinitions.loadFailed');
     groups.value = groupRows;
-    definitions.value = definitionRows.items; definitionTotal.value = definitionRows.total;
     queryPorts.value = portRows;
     dataSourceOptions.value = dataSourcePage.items.map(item => ({
       value: item.id,
       label: item.name,
       providerKey: item.providerKey
     }));
-    if (!selectedGroupId.value && groups.value.length > 0) {
+    if (!groups.value.some(group => group.id === selectedGroupId.value)) {
       selectedGroupId.value = groups.value[0]?.id;
     }
-    await loadDefinitions();
-    updateTableHeight();
+    const loaded = await loadDefinitions();
+    if (loaded && catalogs.every(result => result.status === 'fulfilled') && !definitionEditorOpen.value && !groupEditorOpen.value && current(scope) && !controller.signal.aborted) writeUnconfirmed.value = false;
+    if (current(scope) && !controller.signal.aborted) updateTableHeight();
   } catch (error: unknown) {
-    problem.value = toProblem(error, 'reportingDefinitions.loadFailed');
+    if (current(scope) && !controller.signal.aborted) problem.value = toProblem(error, 'reportingDefinitions.loadFailed');
   } finally {
-    loading.value = false;
+    if (current(scope) && !controller.signal.aborted) loading.value = false;
   }
 }
 
-async function loadDefinitions(): Promise<void> {
-  const result = await listReportingDefinitions({ groupId: selectedGroupId.value,
-    nameContains: appliedFilters.value.name, page: definitionPage.value, pageSize: 20 });
-  definitions.value = result.items; definitionTotal.value = result.total;
+async function loadDefinitions(afterWrite = false): Promise<boolean> {
+  if (!canRead() || (acting.value && !afterWrite)) return false;
+  const scope = generation, controller = reading('definitions');
+  try {
+    const result = await listReportingDefinitions({ groupId: selectedGroupId.value,
+      nameContains: appliedFilters.value.name, page: definitionPage.value, pageSize: 20 }, controller.signal);
+    if (!current(scope) || controller.signal.aborted) return false;
+    definitions.value = result.items; definitionTotal.value = result.total;
+    return true;
+  } catch (error) { if (current(scope) && !controller.signal.aborted) problem.value = toProblem(error, 'reportingDefinitions.loadFailed'); return false; }
 }
 
 async function loadVersions(): Promise<void> {
-  if (!versionDefinitionId.value) return;
-  const result = await listReportingDefinitionVersions(versionDefinitionId.value, undefined, versionPage.value, 20);
-  versions.value = result.items; versionTotal.value = result.total;
+  if (!canRead() || !versionDefinitionId.value) return;
+  const scope = generation, id = versionDefinitionId.value, controller = reading('history');
+  try { const result = await listReportingDefinitionVersions(id, controller.signal, versionPage.value, 20);
+    if (current(scope) && !controller.signal.aborted && id === versionDefinitionId.value) { versions.value = result.items; versionTotal.value = result.total; }
+  } catch (error) { if (current(scope) && !controller.signal.aborted) problem.value = toProblem(error, 'reportingDefinitions.loadFailed'); }
 }
 
 function selectGroup(groupId: string): void {
+  if (!canRead() || acting.value || definitionEditorOpen.value) return;
+  invalidateDetails();
   selectedGroupId.value = groupId;
   definitionPage.value = 1; void loadDefinitions();
 }
 
 function handleSearch(params: Record<string, string | undefined>): void {
+  if (!canRead() || acting.value) return;
+  invalidateDetails();
   appliedFilters.value = { name: params.name ?? '' };
   definitionPage.value = 1; void loadDefinitions();
 }
 
 function resetSearch(): void {
+  if (!canRead() || acting.value) return;
+  invalidateDetails();
   appliedFilters.value = { name: '' };
   definitionPage.value = 1; void loadDefinitions();
 }
 
 function openCreateGroup(): void {
+  if (!can('reporting.groups.create') || acting.value || writeUnconfirmed.value) return;
   groupEditorMode.value = 'create';
   editingGroup.value = null;
   groupForm.name = '';
@@ -220,6 +277,7 @@ function openCreateGroup(): void {
 }
 
 function openEditGroup(group: ReportingGroup): void {
+  if (!can('reporting.groups.update') || acting.value || writeUnconfirmed.value) return;
   groupEditorMode.value = 'edit';
   editingGroup.value = group;
   groupForm.name = group.name;
@@ -229,23 +287,23 @@ function openEditGroup(group: ReportingGroup): void {
 }
 
 async function submitGroup(): Promise<void> {
-  if (!groupFormRef.value || acting.value) {
+  const permission = `reporting.groups.${groupEditorMode.value === 'create' ? 'create' : 'update'}`, scope = generation, editor = groupEpoch;
+  if (!groupFormRef.value || acting.value || writeUnconfirmed.value || !can(permission)) {
     return;
   }
   const valid = await groupFormRef.value.validate().catch(() => false);
-  if (!valid) {
+  if (!valid || !current(scope) || editor !== groupEpoch || !groupEditorOpen.value || acting.value || !can(permission)) {
     return;
   }
-  acting.value = true;
-  problem.value = undefined;
-  try {
+  await write(permission, async signal => {
     const sortOrder = Number.parseInt(groupForm.sortOrder, 10) || 0;
     if (groupEditorMode.value === 'create') {
       const created = await createReportingGroup({
         name: groupForm.name.trim(),
         sortOrder,
         isEnabled: groupForm.isEnabled
-      });
+      }, signal);
+      if (!current(scope)) return;
       groups.value = [...groups.value, created];
       selectedGroupId.value = created.id;
       ElMessage.success(t('reportingDefinitions.groupCreateSuccess'));
@@ -255,19 +313,17 @@ async function submitGroup(): Promise<void> {
         sortOrder,
         isEnabled: groupForm.isEnabled,
         version: editingGroup.value.version
-      });
+      }, signal);
+      if (!current(scope)) return;
       groups.value = groups.value.map(item => item.id === updated.id ? updated : item);
       ElMessage.success(t('reportingDefinitions.groupUpdateSuccess'));
     }
     groupEditorOpen.value = false;
-  } catch (error: unknown) {
-    problem.value = toProblem(error, 'reportingDefinitions.saveFailed');
-  } finally {
-    acting.value = false;
-  }
+  });
 }
 
 async function confirmDeleteGroup(group: ReportingGroup): Promise<void> {
+  const scope = generation; if (!can('reporting.groups.delete') || acting.value || writeUnconfirmed.value) return;
   try {
     await ElMessageBox.confirm(
       t('reportingDefinitions.confirmDeleteGroup', { name: group.name }),
@@ -276,43 +332,51 @@ async function confirmDeleteGroup(group: ReportingGroup): Promise<void> {
   } catch {
     return;
   }
-  acting.value = true;
-  try {
-    await deleteReportingGroup(group.id);
+  if (!current(scope)) return;
+  await write('reporting.groups.delete', async signal => {
+    await deleteReportingGroup(group.id, signal); if (!current(scope)) return;
     groups.value = groups.value.filter(item => item.id !== group.id);
     definitions.value = definitions.value.filter(item => item.groupId !== group.id);
     if (selectedGroupId.value === group.id) {
       selectedGroupId.value = groups.value[0]?.id;
     }
     ElMessage.success(t('reportingDefinitions.groupDeleteSuccess'));
-  } catch (error: unknown) {
-    problem.value = toProblem(error, 'reportingDefinitions.saveFailed');
-  } finally {
-    acting.value = false;
-  }
+  });
 }
 
 function openCreateDefinition(): void {
+  if (!can('reporting.definitions.create') || acting.value || writeUnconfirmed.value) return;
+  if (!can('reporting.groups.read') || !can('reporting.query_ports.read') || !can('reporting.data_sources.read')) { ElMessage.warning(text('catalogMissing')); return; }
   if (!selectedGroupId.value) {
     ElMessage.warning(t('reportingDefinitions.selectGroupFirst'));
     return;
   }
   definitionEditorMode.value = 'create';
   editingDefinition.value = null;
+  definitionGroupId.value = selectedGroupId.value;
   definitionForm.definitionKey = '';
   definitionForm.name = '';
   definitionForm.description = '';
-  definitionForm.dataSourceId = compatibleDataSources.value[0]?.value ?? '';
   definitionForm.queryPortKey = queryPorts.value[0]?.queryPortKey ?? '';
+  definitionForm.dataSourceId = compatibleDataSources.value[0]?.value ?? '';
   definitionForm.layoutConfigJson = '{}';
   definitionForm.isEnabled = true;
   definitionEditorOpen.value = true;
 }
 
 async function openEditDefinition(summary: ReportingDefinitionSummary): Promise<void> {
-  const definition = await getReportingDefinition(summary.id);
+  if (!can('reporting.definitions.update') || acting.value || writeUnconfirmed.value) return;
+  reads.get('publish')?.abort(); publishOpen.value = false;
+  await readDraft(summary.id);
+}
+async function readDraft(id: string) {
+  const scope = generation, controller = reading('draft');
+  try {
+  const definition = await getReportingDefinition(id, controller.signal);
+  if (!current(scope) || !can('reporting.definitions.update') || controller.signal.aborted) return;
   definitionEditorMode.value = 'edit';
   editingDefinition.value = definition;
+  definitionGroupId.value = definition.groupId;
   definitionForm.definitionKey = definition.definitionKey;
   definitionForm.name = definition.name;
   definitionForm.description = definition.description ?? '';
@@ -322,26 +386,41 @@ async function openEditDefinition(summary: ReportingDefinitionSummary): Promise<
   definitionForm.isEnabled = definition.isEnabled;
   definitionForm.parameterSchema = definition.parameterSchema.map(item => ({ ...item }));
   definitionEditorOpen.value = true;
+  writeUnconfirmed.value = false;
+  } catch (error) { if (current(scope) && !controller.signal.aborted) problem.value = toProblem(error, 'reportingDefinitions.loadFailed'); }
+}
+async function reloadDraft() {
+  const scope = generation, id = editingDefinition.value?.id; if (!id || !can('reporting.definitions.update') || acting.value) return;
+  try { await ElMessageBox.confirm(text('discard'), { type: 'warning' }); } catch { return; }
+  if (current(scope) && definitionEditorOpen.value && editingDefinition.value?.id === id) await readDraft(id);
+}
+async function reloadGroupDraft() {
+  const scope = generation, id = editingGroup.value?.id; if (!id || !can('reporting.groups.update') || acting.value) return;
+  try { await ElMessageBox.confirm(text('discard'), { type: 'warning' }); } catch { return; }
+  if (!current(scope) || !groupEditorOpen.value || editingGroup.value?.id !== id) return;
+  const controller = reading('group-draft');
+  try { const rows = await listReportingGroups(controller.signal); const group = rows.find(item => item.id === id);
+    if (current(scope) && !controller.signal.aborted && group) { groups.value = rows; writeUnconfirmed.value = false; openEditGroup(group); }
+  } catch (error) { if (current(scope) && !controller.signal.aborted) problem.value = toProblem(error, 'reportingDefinitions.loadFailed'); }
 }
 
 async function submitDefinition(): Promise<void> {
-  if (!definitionFormRef.value || acting.value || !selectedGroupId.value) {
+  const scope = generation, editor = definitionEpoch, permission = `reporting.definitions.${definitionEditorMode.value === 'create' ? 'create' : 'update'}`;
+  if (!definitionFormRef.value || acting.value || writeUnconfirmed.value || !definitionGroupId.value || !can(permission)) {
     return;
   }
   const valid = await definitionFormRef.value.validate().catch(() => false);
-  if (!valid) {
+  if (!valid || !current(scope) || editor !== definitionEpoch || !definitionEditorOpen.value || acting.value || !can(permission)) {
     return;
   }
-  acting.value = true;
-  problem.value = undefined;
-  try {
+  await write(permission, async signal => {
     const payload = {
-      groupId: selectedGroupId.value,
+      groupId: definitionGroupId.value!,
       dataSourceId: definitionForm.dataSourceId,
       name: definitionForm.name.trim(),
       description: definitionForm.description.trim() || null,
       queryPortKey: definitionForm.queryPortKey,
-      parameterSchema: definitionForm.parameterSchema,
+      parameterSchema: definitionForm.parameterSchema.map(item => ({ ...item })),
       layoutConfigJson: definitionForm.layoutConfigJson,
       isEnabled: definitionForm.isEnabled
     };
@@ -349,28 +428,26 @@ async function submitDefinition(): Promise<void> {
       const created = await createReportingDefinition({
         ...payload,
         definitionKey: definitionForm.definitionKey.trim()
-      });
+      }, signal);
+      if (!current(scope)) return;
       definitions.value = [...definitions.value, created];
       ElMessage.success(t('reportingDefinitions.createSuccess'));
     } else if (editingDefinition.value) {
       const updated = await updateReportingDefinition(editingDefinition.value.id, {
         ...payload,
         version: editingDefinition.value.version
-      });
+      }, signal);
+      if (!current(scope)) return;
       definitions.value = definitions.value.map(item => item.id === updated.id ? updated : item);
       editingDefinition.value = updated;
       ElMessage.success(t('reportingDefinitions.updateSuccess'));
     }
     definitionEditorOpen.value = false;
-    await loadDefinitions();
-  } catch (error: unknown) {
-    problem.value = toProblem(error, 'reportingDefinitions.saveFailed');
-  } finally {
-    acting.value = false;
-  }
+  });
 }
 
 async function confirmDeleteDefinition(definition: ReportingDefinitionSummary): Promise<void> {
+  const scope = generation; if (!can('reporting.definitions.delete') || acting.value || writeUnconfirmed.value) return;
   try {
     await ElMessageBox.confirm(
       t('reportingDefinitions.confirmDeleteDefinition', { name: definition.name }),
@@ -379,47 +456,42 @@ async function confirmDeleteDefinition(definition: ReportingDefinitionSummary): 
   } catch {
     return;
   }
-  acting.value = true;
-  try {
-    await deleteReportingDefinition(definition.id);
+  if (!current(scope)) return;
+  await write('reporting.definitions.delete', async signal => {
+    await deleteReportingDefinition(definition.id, signal); if (!current(scope)) return;
     definitions.value = definitions.value.filter(item => item.id !== definition.id);
     ElMessage.success(t('reportingDefinitions.deleteSuccess'));
-  } catch (error: unknown) {
-    problem.value = toProblem(error, 'reportingDefinitions.saveFailed');
-  } finally {
-    acting.value = false;
-  }
+  });
 }
 
 async function publishCurrentDefinition(definition: ReportingDefinitionSummary): Promise<void> {
-  acting.value = true;
-  problem.value = undefined;
-  try {
-    await publishReportingDefinition(definition.id, {
-      changeNote: publishNote.value.trim() || null,
-      version: definition.version
-    });
-    await loadDefinitions();
-    ElMessage.success(t('reportingDefinitions.publishSuccess'));
-    publishNote.value = '';
-  } catch (error: unknown) {
-    problem.value = toProblem(error, 'reportingDefinitions.saveFailed');
-  } finally {
-    acting.value = false;
-  }
+  if (!can('reporting.definitions.publish') || acting.value || writeUnconfirmed.value || definitionEditorOpen.value || groupEditorOpen.value) return;
+  reads.get('draft')?.abort();
+  const scope = generation, controller = reading('publish');
+  try { const target = await getReportingDefinition(definition.id, controller.signal);
+    if (current(scope) && can('reporting.definitions.publish') && !controller.signal.aborted) { publishTarget.value = target; publishNote.value = ''; publishOpen.value = true; }
+  } catch (error) { if (current(scope) && !controller.signal.aborted) problem.value = toProblem(error, 'reportingDefinitions.loadFailed'); }
+}
+async function confirmPublish() {
+  const target = publishTarget.value, scope = generation; if (!target) return;
+  await write('reporting.definitions.publish', async signal => {
+    await publishReportingDefinition(target.id, { version: target.version, changeNote: publishNote.value.trim() || null }, signal);
+    if (current(scope)) { publishOpen.value = false; publishNote.value = ''; ElMessage.success(t('reportingDefinitions.publishSuccess')); }
+  });
+}
+/** 同一批写入只使用当前作用域；写前读取不能解除未知写入的锁定。 */
+async function write(permission: string, action: (signal: AbortSignal) => Promise<void>) {
+  if (!can(permission) || acting.value || writeUnconfirmed.value) return;
+  const scope = generation; stopReads(); acting.value = true; loading.value = false; problem.value = undefined;
+  try { await action(requests.signal); if (current(scope)) await loadDefinitions(true); }
+  catch (error) { if (current(scope)) { writeUnconfirmed.value = unknown(error); problem.value = toProblem(error, 'reportingDefinitions.saveFailed'); } }
+  finally { if (current(scope)) acting.value = false; }
 }
 
 async function openVersions(definition: ReportingDefinitionSummary): Promise<void> {
-  acting.value = true;
-  try {
-    versionDefinitionId.value = definition.id; versionPage.value = 1;
-    await loadVersions();
-    versionsDrawerOpen.value = true;
-  } catch (error: unknown) {
-    problem.value = toProblem(error, 'reportingDefinitions.loadFailed');
-  } finally {
-    acting.value = false;
-  }
+  if (!canRead() || acting.value) return;
+  versionDefinitionId.value = definition.id; versionPage.value = 1; versions.value = []; versionTotal.value = 0; versionsDrawerOpen.value = true;
+  await loadVersions();
 }
 
 function toProblem(error: unknown, fallbackKey: Parameters<typeof t>[0]): FullNetProblemDetails {
@@ -432,16 +504,21 @@ function toProblem(error: unknown, fallbackKey: Parameters<typeof t>[0]): FullNe
 
 <template>
   <div class="reporting-definitions-view">
+    <ElAlert v-if="!canRead()" type="info" :closable="false" :title="text('hostOnly')" />
+    <template v-if="canRead()">
     <ElAlert v-if="problem" type="error" :title="problem.title" show-icon class="mb-4" />
+    <ElAlert v-if="writeUnconfirmed" type="warning" :closable="false" :title="text('unconfirmed')" data-testid="reporting-config-unconfirmed" />
+    <ElButton :disabled="acting" :loading="loading" data-testid="reporting-config-refresh" @click="loadPage">{{ text('refresh') }}</ElButton>
 
-    <div class="layout-grid">
-      <ElCard :header="t('reportingDefinitions.groupsTitle')" class="groups-card">
+    <div class="layout-grid" :class="{ 'layout-grid--single': !can('reporting.groups.read') }">
+      <ElCard v-if="can('reporting.groups.read')" :header="t('reportingDefinitions.groupsTitle')" class="groups-card">
         <PermissionGate code="reporting.groups.create">
           <ElButton
             type="primary"
             :icon="Plus"
             class="mb-3"
             data-testid="reporting-group-create"
+            :disabled="acting || writeUnconfirmed"
             @click="openCreateGroup"
           >
             {{ t('reportingDefinitions.addGroup') }}
@@ -462,12 +539,12 @@ function toProblem(error: unknown, fallbackKey: Parameters<typeof t>[0]): FullNe
             <template #default="{ row }">
               <ArtTableActionGroup>
                 <PermissionGate code="reporting.groups.update">
-                  <ArtTableActionButton type="edit" @click="openEditGroup(row)">
+                  <ArtTableActionButton type="edit" :title="t('reportingDefinitions.actionEdit')" :disabled="acting || writeUnconfirmed" @click="openEditGroup(row)">
                     {{ t('reportingDefinitions.actionEdit') }}
                   </ArtTableActionButton>
                 </PermissionGate>
                 <PermissionGate code="reporting.groups.delete">
-                  <ArtTableActionButton type="delete" @click="confirmDeleteGroup(row)">
+                  <ArtTableActionButton type="delete" :title="t('reportingDefinitions.actionDelete')" :disabled="acting || writeUnconfirmed" @click="confirmDeleteGroup(row)">
                     {{ t('reportingDefinitions.actionDelete') }}
                   </ArtTableActionButton>
                 </PermissionGate>
@@ -479,12 +556,13 @@ function toProblem(error: unknown, fallbackKey: Parameters<typeof t>[0]): FullNe
 
       <ElCard class="definitions-card">
         <ArtTableHeader :title="t('reportingDefinitions.title')">
-          <template #actions>
+          <template #left>
             <PermissionGate code="reporting.definitions.create">
               <ElButton
                 type="primary"
                 :icon="Plus"
                 data-testid="reporting-definition-create"
+                :disabled="acting || writeUnconfirmed"
                 @click="openCreateDefinition"
               >
                 {{ t('reportingDefinitions.addDefinition') }}
@@ -523,21 +601,28 @@ function toProblem(error: unknown, fallbackKey: Parameters<typeof t>[0]): FullNe
           <ElTableColumn :label="t('reportingDefinitions.actions')" width="260" fixed="right">
               <template #default="{ row }">
                 <ArtTableActionGroup>
+                  <PermissionGate code="reporting.definition_grants.read">
+                    <ArtTableActionButton v-if="row.latestPublishedVersionNumber > 0" type="view"
+                      :title="t('reportingGrants.title')" :disabled="acting"
+                      data-testid="reporting-definition-grants" @click="grantsDefinitionId = row.id; grantsOpen = true">
+                      {{ t('reportingGrants.title') }}
+                    </ArtTableActionButton>
+                  </PermissionGate>
                   <PermissionGate code="reporting.definitions.update">
-                    <ArtTableActionButton type="edit" @click="openEditDefinition(row)">
+                    <ArtTableActionButton type="edit" :title="t('reportingDefinitions.actionEdit')" :disabled="acting || writeUnconfirmed" test-id="reporting-config-edit" @click="openEditDefinition(row)">
                       {{ t('reportingDefinitions.actionEdit') }}
                     </ArtTableActionButton>
                   </PermissionGate>
                   <PermissionGate code="reporting.definitions.publish">
-                    <ArtTableActionButton type="view" @click="publishCurrentDefinition(row)">
+                    <ArtTableActionButton type="view" :title="t('reportingDefinitions.actionPublish')" :disabled="acting || writeUnconfirmed" test-id="reporting-config-publish" @click="publishCurrentDefinition(row)">
                       {{ t('reportingDefinitions.actionPublish') }}
                     </ArtTableActionButton>
                   </PermissionGate>
-                  <ArtTableActionButton type="view" @click="openVersions(row)">
+                  <ArtTableActionButton type="view" :title="t('reportingDefinitions.actionVersions')" :disabled="acting" test-id="reporting-config-history" @click="openVersions(row)">
                     {{ t('reportingDefinitions.actionVersions') }}
                   </ArtTableActionButton>
                   <PermissionGate code="reporting.definitions.delete">
-                    <ArtTableActionButton type="delete" @click="confirmDeleteDefinition(row)">
+                    <ArtTableActionButton type="delete" :title="t('reportingDefinitions.actionDelete')" :disabled="acting || writeUnconfirmed" test-id="reporting-config-delete" @click="confirmDeleteDefinition(row)">
                       {{ t('reportingDefinitions.actionDelete') }}
                     </ArtTableActionButton>
                   </PermissionGate>
@@ -545,8 +630,8 @@ function toProblem(error: unknown, fallbackKey: Parameters<typeof t>[0]): FullNe
               </template>
             </ElTableColumn>
           </ElTable>
-          <ElPagination v-model:current-page="definitionPage" :total="definitionTotal" :page-size="20"
-            layout="prev, pager, next, total" @current-change="loadDefinitions" />
+          <ElPagination v-model:current-page="definitionPage" :total="definitionTotal" :page-size="20" :disabled="acting"
+            layout="prev, pager, next, total" @current-change="() => { invalidateDetails(); void loadDefinitions(); }" />
 
         </div>
       </ElCard>
@@ -556,9 +641,14 @@ function toProblem(error: unknown, fallbackKey: Parameters<typeof t>[0]): FullNe
       v-model:open="groupEditorOpen"
       :title="groupEditorMode === 'create' ? t('reportingDefinitions.createGroupTitle') : t('reportingDefinitions.editGroupTitle')"
       :saving="acting"
+      :show-confirm="!writeUnconfirmed && can(`reporting.groups.${groupEditorMode === 'create' ? 'create' : 'update'}`)"
+      confirm-test-id="reporting-config-group-save"
       @confirm="submitGroup"
     >
-      <ElForm ref="groupFormRef" :model="groupForm" label-width="120px">
+      <ElForm ref="groupFormRef" :model="groupForm" label-position="top" :disabled="acting">
+        <ElAlert v-if="problem" type="error" :closable="false" :title="problem.detail ?? problem.title" />
+        <ElAlert v-if="writeUnconfirmed" type="warning" :closable="false" :title="text('unconfirmed')" />
+        <ElButton v-if="editingGroup" :disabled="acting" data-testid="reporting-config-group-reload" @click="reloadGroupDraft">{{ text('reload') }}</ElButton>
         <ElFormItem :label="t('reportingDefinitions.fieldGroupName')" prop="name" required>
           <ElInput v-model="groupForm.name" />
         </ElFormItem>
@@ -575,20 +665,25 @@ function toProblem(error: unknown, fallbackKey: Parameters<typeof t>[0]): FullNe
       v-model:open="definitionEditorOpen"
       :title="definitionEditorMode === 'create' ? t('reportingDefinitions.createTitle') : t('reportingDefinitions.editTitle')"
       :saving="acting"
-      width="760px"
+      :show-confirm="!writeUnconfirmed && can(`reporting.definitions.${definitionEditorMode === 'create' ? 'create' : 'update'}`)"
+      confirm-test-id="reporting-config-draft-save"
+      width="min(760px, calc(100vw - 32px))"
       @confirm="submitDefinition"
     >
-      <ElForm ref="definitionFormRef" :model="definitionForm" label-width="140px">
+      <ElForm ref="definitionFormRef" :model="definitionForm" label-position="top" :disabled="acting">
+        <ElAlert v-if="problem" type="error" :closable="false" :title="problem.detail ?? problem.title" />
+        <ElAlert v-if="writeUnconfirmed" type="warning" :closable="false" :title="text('unconfirmed')" />
+        <ElButton v-if="editingDefinition" :disabled="acting" data-testid="reporting-config-draft-reload" @click="reloadDraft">{{ text('reload') }}</ElButton>
         <ElFormItem
           v-if="definitionEditorMode === 'create'"
           :label="t('reportingDefinitions.fieldDefinitionKey')"
           prop="definitionKey"
           required
         >
-          <ElInput v-model="definitionForm.definitionKey" />
+          <ElInput v-model="definitionForm.definitionKey" data-testid="reporting-config-key" />
         </ElFormItem>
         <ElFormItem :label="t('reportingDefinitions.fieldName')" prop="name" required>
-          <ElInput v-model="definitionForm.name" />
+          <ElInput v-model="definitionForm.name" data-testid="reporting-config-name" />
         </ElFormItem>
         <ElFormItem :label="t('reportingDefinitions.fieldDescription')">
           <ElInput v-model="definitionForm.description" type="textarea" :rows="2" />
@@ -614,7 +709,7 @@ function toProblem(error: unknown, fallbackKey: Parameters<typeof t>[0]): FullNe
           </ElSelect>
         </ElFormItem>
         <ElFormItem :label="t('reportingDefinitions.fieldLayoutConfig')">
-          <ElInput v-model="definitionForm.layoutConfigJson" type="textarea" :rows="3" />
+          <ElInput v-model="definitionForm.layoutConfigJson" type="textarea" :rows="3" data-testid="reporting-config-layout" />
         </ElFormItem>
         <ElFormItem :label="t('reportingDefinitions.fieldEnabled')">
           <ElSwitch v-model="definitionForm.isEnabled" />
@@ -634,9 +729,6 @@ function toProblem(error: unknown, fallbackKey: Parameters<typeof t>[0]): FullNe
             </ElTableColumn>
           </ElTable>
         </ElFormItem>
-        <ElFormItem v-if="definitionEditorMode === 'edit'" :label="t('reportingDefinitions.fieldChangeNote')">
-          <ElInput v-model="publishNote" type="textarea" :rows="2" />
-        </ElFormItem>
       </ElForm>
     </ArtFormDialog>
 
@@ -651,19 +743,34 @@ function toProblem(error: unknown, fallbackKey: Parameters<typeof t>[0]): FullNe
         layout="prev, pager, next, total" @current-change="loadVersions" />
 
     </ElDrawer>
+    <ReportingDefinitionGrantsDialog v-model="grantsOpen" :definition-id="grantsDefinitionId" />
+    <ElDialog v-model="publishOpen" :title="text('publish')" width="min(480px, calc(100vw - 32px))" :close-on-click-modal="!acting" :close-on-press-escape="!acting" :show-close="!acting">
+      <p>{{ publishTarget?.name }}</p><p>{{ text('publishHelp') }}</p>
+      <ElAlert v-if="problem" type="error" :closable="false" :title="problem.detail ?? problem.title" />
+      <ElAlert v-if="writeUnconfirmed" type="warning" :closable="false" :title="text('unconfirmed')" />
+      <ElForm label-position="top"><ElFormItem :label="text('note')"><ElInput v-model="publishNote" :disabled="acting" maxlength="512" data-testid="reporting-config-publish-note" /></ElFormItem></ElForm>
+      <template #footer><ElButton :disabled="acting" @click="publishOpen = false">{{ text('cancel') }}</ElButton><ElButton type="primary" :loading="acting" :disabled="acting || writeUnconfirmed || !can('reporting.definitions.publish')" data-testid="reporting-config-publish-confirm" @click="confirmPublish">{{ text('publish') }}</ElButton></template>
+    </ElDialog>
+    </template>
   </div>
 </template>
 
 <style scoped>
 .layout-grid {
   display: grid;
-  grid-template-columns: 320px 1fr;
+  grid-template-columns: minmax(0, 320px) minmax(0, 1fr);
   gap: 16px;
 }
+.layout-grid--single { grid-template-columns: minmax(0, 1fr); }
 
 .groups-card,
 .definitions-card {
+  min-width: 0;
   min-height: 520px;
+}
+
+@media (max-width: 1024px) {
+  .layout-grid { grid-template-columns: minmax(0, 1fr); }
 }
 
 .table-main {

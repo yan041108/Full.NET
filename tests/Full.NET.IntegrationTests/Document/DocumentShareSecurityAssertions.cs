@@ -26,7 +26,9 @@ internal static class DocumentShareSecurityAssertions
             $"document-share-{Guid.NewGuid():N}",
             [
                 HostDocumentPermissions.Read,
+                HostDocumentPreviewTaskPermissions.Read,
                 HostDocumentPermissions.Create,
+                HostDocumentPermissions.Publish,
                 HostDocumentPermissions.AddVersion,
                 HostDocumentPermissions.Delete,
                 HostDocumentSharePermissions.Read,
@@ -62,6 +64,7 @@ internal static class DocumentShareSecurityAssertions
             var file = new ByteArrayContent("office-preview-grant-test"u8.ToArray());
             file.Headers.ContentType = new MediaTypeHeaderValue("application/vnd.openxmlformats-officedocument.wordprocessingml.document");
             upload.Add(file, "file", "preview.docx");
+            upload.Add(new StringContent(Guid.CreateVersion7().ToString("D")), "requestKey");
             using var request = Authorized(HttpMethod.Post, $"{ItemsPath}/{document.Id:D}/versions/upload", token);
             request.Content = upload;
             using var response = await client.SendAsync(request, cancellationToken);
@@ -71,7 +74,7 @@ internal static class DocumentShareSecurityAssertions
         }
         var share = await CreateShareAsync(client, token, document.Id, password, cancellationToken);
         var root = $"/api/v1/document/public/shares/{share.ShareCode}";
-        using var accessResponse = await client.PostAsJsonAsync(root + "/access", new AccessHostDocumentShareRequest(password), cancellationToken);
+        using var accessResponse = await client.PostAsJsonAsync(root + "/access", new AccessHostDocumentShareRequest(password) { RequestKey = Guid.CreateVersion7() }, cancellationToken);
         Assert.AreEqual(HttpStatusCode.OK, accessResponse.StatusCode);
         var access = await accessResponse.Content.ReadFromJsonAsync<HostDocumentShareAccessResponse>(cancellationToken);
         Assert.IsNotNull(access);
@@ -125,21 +128,21 @@ internal static class DocumentShareSecurityAssertions
             Assert.AreEqual(task.Id, loaded.Id);
             Assert.AreEqual(document.Id, loaded.DocumentItemId);
         }
-        await DocumentAnonymousPreviewExecutionAssertions.VerifyAsync(factory, client, document, task.Id, status, poll, cancellationToken);
+        await DocumentAnonymousPreviewExecutionAssertions.VerifyAsync(factory, client, document, task.Id, status, poll, token, cancellationToken);
         using (var response = await client.PostAsJsonAsync(status, creation, cancellationToken))
-            Assert.AreEqual(HttpStatusCode.NotFound, response.StatusCode, "创建凭据不能读取任务。");
+            Assert.AreEqual(HttpStatusCode.OK, response.StatusCode, "会话凭据统一授权同一固定任务。");
         using (var response = await client.PostAsJsonAsync(root + "/preview-task", poll, cancellationToken))
-            Assert.AreEqual(HttpStatusCode.NotFound, response.StatusCode, "任务凭据不能创建另一任务。");
+            Assert.AreEqual(HttpStatusCode.Created, response.StatusCode, "同一会话重试复用任务，不创建第二个任务。");
         using (var response = await client.PostAsJsonAsync(root + $"/preview-tasks/{Guid.CreateVersion7():D}", poll, cancellationToken))
             Assert.AreEqual(HttpStatusCode.NotFound, response.StatusCode, "任务凭据不能跨任务使用。");
         using (var response = await client.PostAsJsonAsync(root + "/content", poll, cancellationToken))
-            Assert.AreEqual(HttpStatusCode.BadRequest, response.StatusCode, "预览凭据不能替代原始下载口令。");
+            Assert.AreEqual(HttpStatusCode.OK, response.StatusCode, "会话凭据也能读取同一固定版本原文。");
         Assert.AreEqual(1, await QueryAccessCountAsync(factory, share.Id, cancellationToken));
 
         // 另一个有效分享用于证明文档删除也会撤销凭据，不能把拒绝归因于上一分享已停用。
         var second = await CreateShareAsync(client, token, document.Id, password, cancellationToken);
         var secondRoot = $"/api/v1/document/public/shares/{second.ShareCode}";
-        using var secondAccessResponse = await client.PostAsJsonAsync(secondRoot + "/access", new AccessHostDocumentShareRequest(password), cancellationToken);
+        using var secondAccessResponse = await client.PostAsJsonAsync(secondRoot + "/access", new AccessHostDocumentShareRequest(password) { RequestKey = Guid.CreateVersion7() }, cancellationToken);
         Assert.AreEqual(HttpStatusCode.OK, secondAccessResponse.StatusCode);
         var secondAccess = await secondAccessResponse.Content.ReadFromJsonAsync<HostDocumentShareAccessResponse>(cancellationToken);
         Assert.IsNotNull(secondAccess);
@@ -181,7 +184,7 @@ internal static class DocumentShareSecurityAssertions
         Assert.AreEqual(HttpStatusCode.Created, response.StatusCode);
         var document = await response.Content.ReadFromJsonAsync<HostDocumentItemResponse>(cancellationToken);
         Assert.IsNotNull(document);
-        return document;
+        return await DocumentLifecycleTestSupport.PublishAsync(client, token, document, cancellationToken);
     }
 
     private static async Task<HostDocumentShareResponse> CreateShareAsync(
@@ -265,7 +268,7 @@ internal static class DocumentShareSecurityAssertions
     {
         using var response = await client.PostAsJsonAsync(
             $"/api/v1/document/public/shares/{share.ShareCode}/access",
-            new AccessHostDocumentShareRequest("WrongPassword!2026"),
+            new AccessHostDocumentShareRequest("WrongPassword!2026") { RequestKey = Guid.CreateVersion7() },
             cancellationToken);
         Assert.AreEqual(HttpStatusCode.NotFound, response.StatusCode);
         Assert.AreEqual(0, await QueryAccessCountAsync(factory, share.Id, cancellationToken));
@@ -282,7 +285,7 @@ internal static class DocumentShareSecurityAssertions
         var attempts = Enumerable.Range(0, 8)
             .Select(_ => client.PostAsJsonAsync(
                 path,
-                new AccessHostDocumentShareRequest(password),
+                new AccessHostDocumentShareRequest(password) { RequestKey = Guid.CreateVersion7() },
                 cancellationToken))
             .ToArray();
         var responses = await Task.WhenAll(attempts);
@@ -294,7 +297,7 @@ internal static class DocumentShareSecurityAssertions
                 "访问上限为 1 时，并发请求必须仅成功一次。");
             Assert.IsTrue(
                 responses.Where(response => response.StatusCode != HttpStatusCode.OK)
-                    .All(response => response.StatusCode == HttpStatusCode.UnprocessableEntity),
+                    .All(response => response.StatusCode == HttpStatusCode.Conflict),
                 "未取得访问配额的请求必须稳定返回业务规则失败。");
         }
         finally

@@ -12,6 +12,7 @@ using Full.NET.Modules.Reporting.Features.BrowseQueryPorts;
 using Full.NET.Modules.Reporting.Features.ExecuteDefinitions;
 using Full.NET.Modules.Reporting.Features.ManageDataSources;
 using Full.NET.Modules.Reporting.Features.ManageDefinitions;
+using Full.NET.Modules.Reporting.Features.ManageDefinitionGrants;
 using Full.NET.Modules.Reporting.Features.ManageExportTasks;
 using Full.NET.Modules.Reporting.Features.ManageGroups;
 using Full.NET.Modules.Reporting.Security;
@@ -45,6 +46,7 @@ public sealed class ReportingModule : IFullNetModule
     /// <param name="configuration">宿主配置。</param>
     public void AddServices(IServiceCollection services, IConfiguration configuration)
     {
+        services.TryAddSingleton<IReportingWorkbookRenderer, Features.RenderWorkbooks.ReportingWorkbookRenderer>();
 #if FULLNET_AOT_COMPILE
         new Persistence.ReportingDapperAotMaterializerContributor()
             .RegisterMaterializers(
@@ -55,6 +57,7 @@ public sealed class ReportingModule : IFullNetModule
             ReportingAuthorizationContributor>());
         services.TryAddSingleton<IClock, SystemClock>();
         services.TryAddSingleton<IIdGenerator, GuidV7IdGenerator>();
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<IErrorResourceSource, Resources.ReportingPublicationErrorResourceSource>());
         services.TryAddSingleton<ReportingDataSourceSecretProtector>();
         services.TryAddSingleton<ReportingDataSourceConnectionFactory>();
         services.TryAddSingleton<ReportingDataSourceConnectionTester>();
@@ -68,12 +71,16 @@ public sealed class ReportingModule : IFullNetModule
         services.TryAddScoped<ReportingGroupManagementService>();
         services.TryAddScoped<ReportingDefinitionQueryService>();
         services.TryAddScoped<ReportingDefinitionManagementService>();
+        services.TryAddScoped<ReportingDefinitionGrantService>();
+        services.TryAddScoped<ReportingExecutionCatalog>();
+        services.TryAddScoped<IReportingExportTaskAuthority, ReportingExportTaskAuthority>();
         services.TryAddScoped<ReportingDefinitionExecutionService>();
         services.TryAddScoped<ReportingExportTaskQueryService>();
         services.TryAddScoped<IReportingExportWorkbookSource, ReportingExportWorkbookSource>();
         services.TryAddSingleton<PendingTenantScanState>();
         services.TryAddScoped<ReportingExportTaskRunner>();
         services.TryAddScoped<ReportingExportTaskManagementService>();
+        services.TryAddScoped<ReportingExportTaskCancellationService>();
         services.AddOptions<Configuration.ReportingExportOptions>()
             .Bind(configuration.GetSection(Configuration.ReportingExportOptions.SectionName))
             .ValidateOnStart();
@@ -94,6 +101,7 @@ public sealed class ReportingModule : IFullNetModule
         Features.ManageGroups.Endpoint.Map(endpoints);
         Features.BrowseQueryPorts.Endpoint.Map(endpoints);
         Features.ManageDefinitions.Endpoint.Map(endpoints);
+        Features.ManageDefinitionGrants.Endpoint.Map(endpoints);
         Features.ExecuteDefinitions.Endpoint.Map(endpoints);
         Features.ManageExportTasks.Endpoint.Map(endpoints);
     }
@@ -101,6 +109,9 @@ public sealed class ReportingModule : IFullNetModule
     /// <inheritdoc />
     public void AddBackgroundServices(IServiceCollection services, IConfiguration configuration)
     {
+        // Worker 的会话权限读取使用同一目录，不能仅在 HTTP 宿主注册权限贡献者。
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<IAuthorizationCatalogContributor, ReportingAuthorizationContributor>());
+        services.TryAddSingleton<IReportingWorkbookRenderer, Features.RenderWorkbooks.ReportingWorkbookRenderer>();
 #if FULLNET_AOT_COMPILE
         new Persistence.ReportingDapperAotMaterializerContributor()
             .RegisterMaterializers(
@@ -115,6 +126,8 @@ public sealed class ReportingModule : IFullNetModule
             Features.ManageExportTasks.ReportingResourceFileOwner>());
         services.TryAddScoped<ReportingDataSourceQueryService>();
         services.TryAddScoped<ReportingDefinitionQueryService>();
+        services.TryAddScoped<ReportingExecutionCatalog>();
+        services.TryAddScoped<IReportingExportTaskAuthority, ReportingExportTaskAuthority>();
         services.TryAddScoped<ReportingDefinitionExecutionService>();
         services.TryAddScoped<IReportingExportWorkbookSource, ReportingExportWorkbookSource>();
         services.TryAddSingleton<PendingTenantScanState>();

@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <data name="import_export.column_mapping.invalid" xml:space="preserve"><value>列映射无效或与工作簿表头不符，请检查来源表头名称。</value></data>
+  <data name="import_export.column_mapping.schema_changed" xml:space="preserve"><value>目标表头已变化，请重新读取来源并修正列映射。</value></data>
+  <data name="import_export.task.authority_denied" xml:space="preserve"><value>导入会话、本人身份或来源权限已失效，请检查当前权限后由原上传者重新排队。</value></data>
+  <data name="import_export.import_profiles.invalid" xml:space="preserve"><value>导入配置的名称、版本或列映射无效。</value></data>
+  <data name="import_export.import_profiles.not_found" xml:space="preserve"><value>当前本人作用域内不存在此导入配置。</value></data>
+  <data name="import_export.import_profiles.version_conflict" xml:space="preserve"><value>配置已被其他操作修改，请重新读取后再保存。</value></data>
+  <data name="import_export.import_profiles.limit_reached" xml:space="preserve"><value>此来源最多保存 32 条个人导入配置。</value></data>
+  <data name="import_export.task.cancel_conflict" xml:space="preserve"><value>任务已变更或当前批次已被 Worker 领取，请等待批次结束后刷新详情再操作。</value></data>
+</root>

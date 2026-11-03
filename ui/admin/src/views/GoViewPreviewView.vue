@@ -81,9 +81,11 @@ onMounted(() => {
 <template>
   <div class="goview-preview-view">
     <ArtTableHeader :title="t('goviewPreview.title')">
-      <ElButton data-testid="goview-preview-reload" :loading="loading" @click="load">
-        {{ t('goviewPreview.reload') }}
-      </ElButton>
+      <template #left>
+        <ElButton data-testid="goview-preview-reload" :loading="loading" @click="load">
+          {{ t('goviewPreview.reload') }}
+        </ElButton>
+      </template>
     </ArtTableHeader>
 
     <ElAlert

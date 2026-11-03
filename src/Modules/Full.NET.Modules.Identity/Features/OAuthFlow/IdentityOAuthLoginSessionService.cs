@@ -136,7 +136,10 @@ internal sealed class IdentityOAuthLoginSessionService(
             null,
             null,
             null,
-            clock.UtcNow);
+            clock.UtcNow,
+            ActorUserId: userId,
+            TraceId: System.Diagnostics.Activity.Current?.TraceId.ToString(),
+            AuthenticationMethod: "oauth");
         await EnsureSingleRowAsync(
             IdentitySql.InsertAuthAudit,
             audit,

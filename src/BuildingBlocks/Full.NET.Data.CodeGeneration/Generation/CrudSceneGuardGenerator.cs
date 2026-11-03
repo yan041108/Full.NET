@@ -8,17 +8,20 @@ namespace Full.NET.Data.CodeGeneration.Generation;
 /// </summary>
 internal static class CrudSceneGuardGenerator
 {
-    internal static string CreateGuardCall(FullNetCrudSchema schema, string idParameter)
+    internal static string CreateGuardCall(FullNetCrudSchema schema, string idParameter, string organizationExpression = "organizationUnitId")
     {
         var calls = new List<string>();
+        var organizationArgument = CrudOrganizationOwnershipGenerator.IsOrganizationUnitOwned(schema)
+            ? organizationExpression + ",\n    " : string.Empty;
         if (schema.Scene == FullNetCrudScene.Tree)
         {
+            calls.Add("await AcquireTreeWriteLockAsync(cancellationToken).ConfigureAwait(false);");
             calls.Add(
                 $$"""
                 var treeError = await EnsureTreeParentAsync(
                     {{idParameter}},
-                    request.ParentId,
-                    cancellationToken)
+                    request.{{schema.Columns.Single(column => column.DatabaseName == "ParentId").ClrPropertyName}},
+                    {{organizationArgument}}cancellationToken)
                     .ConfigureAwait(false);
                 if (treeError is not null)
                 {
@@ -31,7 +34,7 @@ internal static class CrudSceneGuardGenerator
         {
             calls.Add(
                 $$"""
-                var {{LowerFirst(column.ClrPropertyName)}}UniqueError = await EnsureUniqueAsync(
+                var {{LowerFirst(column.ClrPropertyName)}}UniqueError = await EnsureUnique{{column.ClrPropertyName}}Async(
                     {{idParameter}},
                     request.{{column.ClrPropertyName}},
                     cancellationToken)
@@ -47,9 +50,9 @@ internal static class CrudSceneGuardGenerator
         {
             calls.Add(
                 $$"""
-                var {{LowerFirst(relationship.DependentColumnName)}}PrincipalError = await EnsurePrincipalExistsAsync(
-                    request.{{relationship.DependentColumnName}},
-                    cancellationToken)
+                var {{LowerFirst(relationship.DependentColumnName)}}PrincipalError = await Ensure{{relationship.DependentColumnName}}PrincipalExistsAsync(
+                    request.{{schema.Columns.Single(column => column.DatabaseName == relationship.DependentColumnName).ClrPropertyName}},
+                    {{organizationArgument}}cancellationToken)
                     .ConfigureAwait(false);
                 if ({{LowerFirst(relationship.DependentColumnName)}}PrincipalError is not null)
                 {
@@ -64,10 +67,12 @@ internal static class CrudSceneGuardGenerator
     }
 
     internal static string UpdateGuardCall(FullNetCrudSchema schema, string idParameter) =>
-        CreateGuardCall(schema, idParameter);
+        CreateGuardCall(schema, idParameter, "existingForAuthorization.Value!.OrganizationUnitId");
 
     internal static string DeleteGuardCall(FullNetCrudSchema schema, string idParameter)
     {
+        if (schema.Scene == FullNetCrudScene.Tree)
+            return $"await AcquireTreeWriteLockAsync(cancellationToken).ConfigureAwait(false);\nvar treeChildrenError = await EnsureTreeHasNoChildrenAsync({idParameter}, cancellationToken).ConfigureAwait(false);\nif (treeChildrenError is not null) return treeChildrenError;\n\n";
         if (!schema.Relationships.Any(relationship =>
                 relationship.CascadeDelete == true
                 && relationship.PrincipalEntityKey == schema.EntityKey))
@@ -77,7 +82,8 @@ internal static class CrudSceneGuardGenerator
 
         return $$"""
             await CascadeDeleteDependentsAsync(
-                {{idParameter}},
+                existing.Value!,
+                actorUserId,
                 cancellationToken)
                 .ConfigureAwait(false);
 
@@ -87,8 +93,11 @@ internal static class CrudSceneGuardGenerator
     internal static string Methods(FullNetCrudSchema schema, string idParameter)
     {
         var methods = new List<string>();
+        var organizationOwned = CrudOrganizationOwnershipGenerator.IsOrganizationUnitOwned(schema);
+        var organizationParameter = organizationOwned ? "Guid organizationUnitId,\n    " : string.Empty;
         if (schema.Scene == FullNetCrudScene.Tree)
         {
+            methods.Add(CrudTreeGenerator.Methods(schema));
             var tenantParent = schema.IsTenantScoped
                 ? "\n                    TenantId = currentTenant.Id!.Value,"
                 : string.Empty;
@@ -97,7 +106,7 @@ internal static class CrudSceneGuardGenerator
                 private async Task<Result<{{schema.ClrTypeName}}Response>?> EnsureTreeParentAsync(
                     Guid {{idParameter}},
                     Guid? parentId,
-                    CancellationToken cancellationToken)
+                    {{organizationParameter}}CancellationToken cancellationToken)
                 {
                     if (parentId is null)
                     {
@@ -118,7 +127,7 @@ internal static class CrudSceneGuardGenerator
                             },
                             cancellationToken)
                         .ConfigureAwait(false);
-                    if (parent is null)
+                    if (parent is null{{(organizationOwned ? " || parent.OrganizationUnitId != organizationUnitId" : string.Empty)}})
                     {
                         return {{schema.ClrTypeName}}FeatureErrors.InvalidParent();
                     }
@@ -135,17 +144,21 @@ internal static class CrudSceneGuardGenerator
                                 },
                                 cancellationToken)
                             .ConfigureAwait(false);
-                        if (node is null || node.ParentId is null)
+                        if (node is null{{(organizationOwned ? " || node.OrganizationUnitId != organizationUnitId" : string.Empty)}})
+                        {
+                            return {{schema.ClrTypeName}}FeatureErrors.InvalidParent();
+                        }
+                        if (node.{{schema.Columns.Single(column => column.DatabaseName == "ParentId").ClrPropertyName}} is null)
                         {
                             return null;
                         }
 
-                        if (node.ParentId.Value == {{idParameter}})
+                        if (node.{{schema.Columns.Single(column => column.DatabaseName == "ParentId").ClrPropertyName}}.Value == {{idParameter}})
                         {
                             return {{schema.ClrTypeName}}FeatureErrors.ParentCycle();
                         }
 
-                        current = node.ParentId.Value;
+                        current = node.{{schema.Columns.Single(column => column.DatabaseName == "ParentId").ClrPropertyName}}.Value;
                     }
 
                     return {{schema.ClrTypeName}}FeatureErrors.ParentCycle();
@@ -153,9 +166,8 @@ internal static class CrudSceneGuardGenerator
                 """);
         }
 
-        if (UniqueColumns(schema).Count > 0)
+        foreach (var firstUnique in UniqueColumns(schema))
         {
-            var firstUnique = UniqueColumns(schema)[0];
             var tenantUnique = schema.IsTenantScoped
                 ? " AND TenantId = @TenantId"
                 : string.Empty;
@@ -166,18 +178,19 @@ internal static class CrudSceneGuardGenerator
             {
                 FullNetCrudDataScope.HostOnly => "SqlDataScope.HostOnly",
                 FullNetCrudDataScope.TenantRequired => "SqlDataScope.TenantRequired",
-                _ => "SqlDataScope.Unspecified",
+                _ => "SqlDataScope.Global",
             };
             var tenantBinding = schema.IsTenantScoped
                 ? "SqlTenantBinding.CurrentTenantId"
                 : "SqlTenantBinding.None";
             methods.Add(
                 $$"""
-                private async Task<Result<{{schema.ClrTypeName}}Response>?> EnsureUniqueAsync(
+                private async Task<Result<{{schema.ClrTypeName}}Response>?> EnsureUnique{{firstUnique.ClrPropertyName}}Async(
                     Guid {{idParameter}},
                     {{ClrType(firstUnique)}} value,
                     CancellationToken cancellationToken)
                 {
+                    {{(firstUnique.IsNullable ? "if (value is null) return null;" : string.Empty)}}
                     var existingId = await queryExecutor
                         .QuerySingleOrDefaultAsync<Guid?>(
                             new SqlStatement(
@@ -201,8 +214,11 @@ internal static class CrudSceneGuardGenerator
 
         foreach (var relationship in PrincipalChecks(schema))
         {
-            var principalTable =
-                $"{schema.OwnerKey}_{schema.ModuleKey}_{relationship.PrincipalEntityKey}";
+            var principal = FullNetCrudRelationshipResolver.Principal(schema, relationship);
+            var principalTable = principal.DatabaseTableName;
+            var dependentColumn = schema.Columns.Single(column => column.DatabaseName == relationship.DependentColumnName);
+            var deletedFilter = principal.EntityCapabilities.DeleteMode == FullNetCrudDeleteMode.SoftDelete
+                ? " AND IsDeleted = 0" : string.Empty;
             var tenantSql = schema.IsTenantScoped
                 ? " AND TenantId = @TenantId"
                 : string.Empty;
@@ -213,27 +229,29 @@ internal static class CrudSceneGuardGenerator
             {
                 FullNetCrudDataScope.HostOnly => "SqlDataScope.HostOnly",
                 FullNetCrudDataScope.TenantRequired => "SqlDataScope.TenantRequired",
-                _ => "SqlDataScope.Unspecified",
+                _ => "SqlDataScope.Global",
             };
             var tenantBinding = schema.IsTenantScoped
                 ? "SqlTenantBinding.CurrentTenantId"
                 : "SqlTenantBinding.None";
             methods.Add(
                 $$"""
-                private async Task<Result<{{schema.ClrTypeName}}Response>?> EnsurePrincipalExistsAsync(
-                    Guid principalId,
-                    CancellationToken cancellationToken)
+                private async Task<Result<{{schema.ClrTypeName}}Response>?> Ensure{{relationship.DependentColumnName}}PrincipalExistsAsync(
+                    {{(dependentColumn.IsNullable ? "Guid?" : "Guid")}} principalId,
+                    {{organizationParameter}}CancellationToken cancellationToken)
                 {
+                    {{(dependentColumn.IsNullable ? "if (principalId is null) return null;" : string.Empty)}}
                     var found = await queryExecutor
                         .QuerySingleOrDefaultAsync<Guid?>(
                             new SqlStatement(
-                                "{{schema.ModuleKey}}.find_{{relationship.PrincipalEntityKey}}_for_{{schema.EntityKey}}",
-                                "SELECT Id FROM {{principalTable}} WHERE Id = @Id{{tenantSql}}",
+                                "{{schema.ModuleKey}}.find_{{relationship.PrincipalEntityKey}}_for_{{schema.EntityKey}}_{{LowerFirst(relationship.DependentColumnName)}}",
+                                "SELECT Id FROM {{principalTable}} WHERE {{relationship.PrincipalColumnName}} = @Id{{tenantSql}}{{deletedFilter}}{{(organizationOwned ? " AND OrganizationUnitId = @OrganizationUnitId" : string.Empty)}}",
                                 {{scope}},
                                 {{tenantBinding}}),
                             new
                             {
                                 Id = principalId,{{tenantParam}}
+                                {{(organizationOwned ? "OrganizationUnitId = organizationUnitId," : string.Empty)}}
                             },
                             cancellationToken)
                         .ConfigureAwait(false);
@@ -255,8 +273,19 @@ internal static class CrudSceneGuardGenerator
                 "\n\n",
                 cascade.Select(relationship =>
                 {
-                    var dependentTable =
-                        $"{schema.OwnerKey}_{schema.ModuleKey}_{relationship.DependentEntityKey}";
+                    var dependent = FullNetCrudRelationshipResolver.Dependent(schema, relationship);
+                    var dependentTable = dependent.DatabaseTableName;
+                    var softDelete = dependent.EntityCapabilities.DeleteMode == FullNetCrudDeleteMode.SoftDelete;
+                    var assignments = new List<string> { "IsDeleted = 1" };
+                    if (dependent.EntityCapabilities.HasDeletedAudit)
+                    {
+                        assignments.Add("DeletedAtUtc = @DeletedAtUtc");
+                        assignments.Add("DeletedById = @DeletedById");
+                    }
+                    if (dependent.HasVersion) assignments.Add("Version = Version + 1");
+                    var mutation = softDelete ? $"UPDATE {dependentTable} SET {string.Join(", ", assignments)}"
+                        : $"DELETE FROM {dependentTable}";
+                    var deletedFilter = softDelete ? " AND IsDeleted = 0" : string.Empty;
                     var tenantSql = schema.IsTenantScoped
                         ? " AND TenantId = @TenantId"
                         : string.Empty;
@@ -268,7 +297,7 @@ internal static class CrudSceneGuardGenerator
                         FullNetCrudDataScope.HostOnly => "SqlDataScope.HostOnly",
                         FullNetCrudDataScope.TenantRequired =>
                             "SqlDataScope.TenantRequired",
-                        _ => "SqlDataScope.Unspecified",
+                        _ => "SqlDataScope.Global",
                     };
                     var tenantBinding = schema.IsTenantScoped
                         ? "SqlTenantBinding.CurrentTenantId"
@@ -276,13 +305,16 @@ internal static class CrudSceneGuardGenerator
                     return $$"""
                     await commandExecutor.ExecuteAsync(
                             new SqlStatement(
-                                "{{schema.ModuleKey}}.cascade_delete_{{relationship.DependentEntityKey}}",
-                                "DELETE FROM {{dependentTable}} WHERE {{relationship.DependentColumnName}} = @Id{{tenantSql}}",
+                                "{{schema.ModuleKey}}.cascade_delete_{{relationship.DependentEntityKey}}_{{LowerFirst(relationship.DependentColumnName)}}",
+                                "{{mutation}} WHERE {{relationship.DependentColumnName}} = @Id{{tenantSql}}{{deletedFilter}}{{(organizationOwned ? " AND OrganizationUnitId = @OrganizationUnitId" : string.Empty)}}",
                                 {{scope}},
                                 {{tenantBinding}}),
                             new
                             {
-                                Id = {{idParameter}},{{tenantParam}}
+                                Id = principal.{{schema.Columns.Single(column => column.DatabaseName == relationship.PrincipalColumnName).ClrPropertyName}},{{tenantParam}}
+                                {{(organizationOwned ? "OrganizationUnitId = principal.OrganizationUnitId," : string.Empty)}}
+                                DeletedAtUtc = clock.UtcNow,
+                                DeletedById = actorUserId,
                             },
                             cancellationToken)
                         .ConfigureAwait(false);
@@ -290,7 +322,8 @@ internal static class CrudSceneGuardGenerator
                 }));
             methods.Add(
                 "                private async Task CascadeDeleteDependentsAsync(\n"
-                + $"                    Guid {idParameter},\n"
+                + $"                    {schema.ClrTypeName}Response principal,\n"
+                + "                    Guid actorUserId,\n"
                 + "                    CancellationToken cancellationToken)\n"
                 + "                {\n"
                 + IndentLines(deletes, 8)
@@ -317,7 +350,7 @@ internal static class CrudSceneGuardGenerator
                 """);
         }
 
-        if (UniqueColumns(schema).Count > 0)
+        if (CrudUniqueKeyGenerator.Keys(schema).Count > 0)
         {
             members.Add(
                 $$"""
@@ -359,7 +392,7 @@ internal static class CrudSceneGuardGenerator
                 """);
         }
 
-        if (UniqueColumns(schema).Count > 0)
+        if (CrudUniqueKeyGenerator.Keys(schema).Count > 0)
         {
             factories.Add(
                 $$"""

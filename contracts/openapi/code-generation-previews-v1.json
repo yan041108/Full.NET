@@ -32,7 +32,11 @@
       "principalDataScope",
       "dependentEntityKey",
       "dependentColumnName",
-      "dependentDataScope"
+      "dependentDataScope",
+      "compositeKeyColumnNames",
+      "cascadeDelete",
+      "principalSchema",
+      "dependentSchema"
     ],
     "CodeGenerationPreviewResponse": [
       "databaseTableName",

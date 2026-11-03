@@ -59,6 +59,9 @@ internal sealed partial class WorkflowConnectorProcessor(IQueryExecutor query, I
             }
         }
         using var tenantScope = new WorkflowExecutionTenantScope(tenants, instance.TenantId, activeTenant);
+        var collaborationScope = new WorkflowManagementScope(instance.TenantId, instance.ScopeKey, instance.TenantScopeKey);
+        if (!await WorkflowCollaborationRuntimeGate.AllowsAsync(instance.Id, collaborationScope, null, clock.UtcNow, query, token, tenants: activeTenants).ConfigureAwait(false))
+            return false;
         var runtime = await LoadRuntimeAsync(instance, call, token).ConfigureAwait(false);
         if (runtime is null) return await FaultPendingAsync(call, "workflow.connector.binding_invalid", token).ConfigureAwait(false);
         var owner = ids.NewId().ToString("N"); var attemptId = ids.NewId();
@@ -66,6 +69,8 @@ internal sealed partial class WorkflowConnectorProcessor(IQueryExecutor query, I
         {
             var current = await FindInstanceAsync(call, inner).ConfigureAwait(false);
             if (!Trusted(current, call) || current!.StatusKey != "active" || !await LockAsync(current, inner).ConfigureAwait(false)) return Invalid<WorkflowConnectorCallRecord?>();
+            if (!await WorkflowCollaborationRuntimeGate.AllowsAsync(current.Id, collaborationScope, null, clock.UtcNow, query, inner, commands).ConfigureAwait(false))
+                return Invalid<WorkflowConnectorCallRecord?>();
             var currentAsync = call.ModeKey=="async" ? await outputs.ReadSnapshotAsync(current,call.ParallelJoinId,call.ParallelBranchKey,runtime.Schema,inner).ConfigureAwait(false) : null;
             if (call.ModeKey=="sync" && !await outputs.MatchesCurrentAsync(current, Input(call), runtime.Values, inner).ConfigureAwait(false) ||
                 call.ModeKey=="async" && (currentAsync is null || !WorkflowAsyncOutputPolicy.TargetsUnchanged(runtime.Policy,runtime.Values,currentAsync.Values)))

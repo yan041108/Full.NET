@@ -1,5 +1,6 @@
 import {
   isInboxMessage,
+  readInboxMessageResponse,
   isInboxMessagePage,
   isInboxUnreadCount,
   type InboxMessage,
@@ -9,6 +10,7 @@ import {
 import type { HttpClient } from '../../api/http';
 
 export interface InboxMessagesClient {
+  get(messageId: string): Promise<InboxMessage>;
   list(page: number, pageSize: number): Promise<InboxMessagePage>;
   getUnreadCount(): Promise<InboxUnreadCount>;
   markRead(messageId: string): Promise<InboxMessage>;
@@ -20,6 +22,11 @@ const guidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}
 /** 创建当前用户站内信客户端；所有响应在进入页面状态前执行运行时守卫。 */
 export function createInboxMessagesClient(http: HttpClient): InboxMessagesClient {
   return {
+    async get(messageId) {
+      const value = readInboxMessageResponse(await http.request<unknown>({ path: `/api/v1/notifications/my-inbox-messages/${requireMessageId(messageId)}` }));
+      if (!isInboxMessage(value)) throw new TypeError('notifications.inbox.invalid-message');
+      return value;
+    },
     async list(page, pageSize) {
       const params = new URLSearchParams({
         page: String(page),

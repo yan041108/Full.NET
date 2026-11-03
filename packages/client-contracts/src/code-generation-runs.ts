@@ -9,6 +9,8 @@ export type CodeGenerationRunOperationKind = 'preview' | 'apply' | 'rollback';
 
 export type CodeGenerationRunStatus = 'running' | 'succeeded' | 'failed';
 
+export type CodeGenerationPublicationStatus = 'disabled' | 'local_only' | 'pending' | 'published' | 'unavailable';
+
 export type CodeGenerationRunPreviewRequest =
   | {
       templateId: string;
@@ -26,9 +28,60 @@ export interface CodeGenerationRunPreviewResponse {
   preview: CodeGenerationPreviewResponse;
 }
 
-export interface CodeGenerationRunApplyRequest {
+export interface CodeGenerationRunApplyPlanRequest {
   previewRunId: string;
   integrationTarget?: CodeGenerationIntegrationTarget;
+}
+
+export interface CodeGenerationRunApplyRequest {
+  planId: string;
+  planSha256: string;
+  idempotencyKey: string;
+}
+
+export interface CodeGenerationApplyPlanFileResponse {
+  relativePath: string;
+  kind: 'create' | 'update' | 'unchanged' | 'delete' | 'manifest';
+  beforeSha256: string | null;
+  afterSha256: string | null;
+}
+
+export interface CodeGenerationRunApplyPlanResponse {
+  planId: string;
+  previewRunId: string;
+  workspaceId: string;
+  workspaceRevision: number;
+  generatorVersion: string;
+  planSha256: string;
+  expiresAtUtc: string;
+  files: CodeGenerationApplyPlanFileResponse[];
+}
+
+export type CodeGenerationWorkspacePhase = 'idle' | 'prepared' | 'committing' | 'locally_applied' | 'recovery_required' | 'recovered' | 'completed';
+
+export interface CodeGenerationWorkspaceStateResponse {
+  workspaceId: string;
+  revision: number;
+  tipOperationId: string | null;
+  lastOperationId: string | null;
+  pendingOperationId: string | null;
+  pendingKind: 'apply' | 'rollback' | null;
+  pendingClient: 'host' | 'cli' | null;
+  phase: CodeGenerationWorkspacePhase;
+}
+
+export interface CodeGenerationWorkspaceRecoveryRequest { operationId: string }
+
+export function isCodeGenerationWorkspaceStateResponse(value: unknown): value is CodeGenerationWorkspaceStateResponse {
+  if (!isRecord(value) || !hasOnlyKeys(value, new Set(['workspaceId', 'revision', 'tipOperationId', 'lastOperationId',
+    'pendingOperationId', 'pendingKind', 'pendingClient', 'phase'])) || !isUuid(value.workspaceId)
+    || !Number.isSafeInteger(value.revision) || (value.revision as number) < 0
+    || ![value.tipOperationId, value.lastOperationId, value.pendingOperationId].every(id => id === null || isUuid(id))) return false;
+  if (value.revision === 0 && (value.tipOperationId !== null || value.lastOperationId !== null)) return false;
+  if ((value.revision as number) > 0 && value.lastOperationId === null) return false;
+  if (value.pendingOperationId === null) return value.phase === 'idle' && value.pendingKind === null && value.pendingClient === null;
+  return ['prepared', 'committing', 'locally_applied', 'recovery_required', 'recovered', 'completed'].includes(value.phase as string)
+    && (value.pendingKind === 'apply' || value.pendingKind === 'rollback') && (value.pendingClient === 'host' || value.pendingClient === 'cli');
 }
 
 export interface CodeGenerationIntegrationTarget {
@@ -57,6 +110,8 @@ export interface CodeGenerationRunApplyResponse {
   artifactCount: number;
   changedArtifactCount: number;
   manifestSha256: string;
+  publicationStatus: CodeGenerationPublicationStatus;
+  commitSha: string | null;
 }
 
 export interface CodeGenerationRunRollbackRequest {
@@ -69,6 +124,8 @@ export interface CodeGenerationRunRollbackResponse {
   artifactCount: number;
   changedArtifactCount: number;
   manifestSha256: string;
+  publicationStatus: CodeGenerationPublicationStatus;
+  commitSha: string | null;
 }
 
 export interface CodeGenerationRunRollbackChainRequest {
@@ -95,6 +152,14 @@ export interface CodeGenerationRunResponse {
   startedAtUtc: string;
   finishedAtUtc: string;
   sourceApplyRunId: string | null;
+  publicationStatus: CodeGenerationPublicationStatus;
+  commitSha: string | null;
+}
+
+export interface CodeGenerationRunPublicationResponse {
+  runId: string;
+  publicationStatus: CodeGenerationPublicationStatus;
+  commitSha: string | null;
 }
 
 export interface CodeGenerationRunPage {
@@ -123,7 +188,9 @@ const runKeys = new Set([
   'requestedByUserId',
   'startedAtUtc',
   'finishedAtUtc',
-  'sourceApplyRunId'
+  'sourceApplyRunId',
+  'publicationStatus',
+  'commitSha'
 ]);
 
 export function isCodeGenerationRunPreviewRequest(
@@ -156,8 +223,39 @@ export function isCodeGenerationRunApplyRequest(
   value: unknown
 ): value is CodeGenerationRunApplyRequest {
   return isRecord(value)
-    && hasOnlyKeys(value, new Set(['previewRunId']))
-    && isUuid(value.previewRunId);
+    && hasOnlyKeys(value, new Set(['planId', 'planSha256', 'idempotencyKey']))
+    && isUuid(value.planId) && isSha256(value.planSha256) && isUuid(value.idempotencyKey);
+}
+
+export function isCodeGenerationRunApplyPlanResponse(value: unknown): value is CodeGenerationRunApplyPlanResponse {
+  if (!isRecord(value) || !hasOnlyKeys(value, new Set(['planId', 'previewRunId', 'workspaceId', 'workspaceRevision',
+    'generatorVersion', 'planSha256', 'expiresAtUtc', 'files'])) || !isUuid(value.planId) || !isUuid(value.previewRunId)
+    || !isUuid(value.workspaceId) || !Number.isSafeInteger(value.workspaceRevision) || (value.workspaceRevision as number) < 0
+    || !isNonEmptyString(value.generatorVersion) || !isSha256(value.planSha256) || !isDateTime(value.expiresAtUtc)
+    || !Array.isArray(value.files) || value.files.length === 0 || value.files.length > 2049) return false;
+  const paths = new Set<string>();
+  let manifests = 0;
+  for (const file of value.files) {
+    if (!isRecord(file) || !hasOnlyKeys(file, new Set(['relativePath', 'kind', 'beforeSha256', 'afterSha256']))
+      || !isNonEmptyString(file.relativePath) || file.relativePath.startsWith('/') || /[\\:\u0000-\u001f]/u.test(file.relativePath)
+      || file.relativePath.split('/').some(segment => !segment || segment === '.' || segment === '..')
+      || paths.has(file.relativePath.toLowerCase())) return false;
+    paths.add(file.relativePath.toLowerCase());
+    const before = file.beforeSha256;
+    const after = file.afterSha256;
+    if (file.kind === 'manifest') {
+      if (file.relativePath !== '.fullnet/codegeneration-manifest.json' || (before !== null && !isSha256(before)) || !isSha256(after)) return false;
+      manifests++;
+    } else {
+      if (file.relativePath.split('/').some(segment => ['.git', '.fullnet'].includes(segment.toLowerCase()))) return false;
+      if (file.kind === 'create') { if (before !== null || !isSha256(after)) return false; }
+      else if (file.kind === 'update') { if (!isSha256(before) || !isSha256(after)) return false; }
+      else if (file.kind === 'delete') { if (!isSha256(before) || after !== null) return false; }
+      else if (file.kind === 'unchanged') { if (!isSha256(before) || before !== after) return false; }
+      else return false;
+    }
+  }
+  return manifests === 1;
 }
 
 export function isCodeGenerationRunApplyResponse(
@@ -169,6 +267,8 @@ export function isCodeGenerationRunApplyResponse(
       'previewRunId',
       'artifactCount',
       'changedArtifactCount',
+      'publicationStatus',
+      'commitSha',
       'manifestSha256'
     ]))
     && isUuid(value.runId)
@@ -179,7 +279,8 @@ export function isCodeGenerationRunApplyResponse(
     && (value.changedArtifactCount as number) >= 0
     && (value.changedArtifactCount as number)
       <= (value.artifactCount as number)
-    && isSha256(value.manifestSha256);
+    && isSha256(value.manifestSha256)
+    && isPublicationState(value);
 }
 
 
@@ -200,6 +301,8 @@ export function isCodeGenerationRunRollbackResponse(
       'applyRunId',
       'artifactCount',
       'changedArtifactCount',
+      'publicationStatus',
+      'commitSha',
       'manifestSha256'
     ]))
     && isUuid(value.runId)
@@ -208,7 +311,8 @@ export function isCodeGenerationRunRollbackResponse(
     && (value.artifactCount as number) >= 0
     && Number.isSafeInteger(value.changedArtifactCount)
     && (value.changedArtifactCount as number) >= 0
-    && isSha256(value.manifestSha256);
+    && isSha256(value.manifestSha256)
+    && isPublicationState(value);
 }
 
 export function isCodeGenerationRunRollbackChainRequest(
@@ -245,7 +349,8 @@ export function isCodeGenerationRunResponse(
     || !isDateTime(value.startedAtUtc)
     || !isDateTime(value.finishedAtUtc)
     || Date.parse(value.finishedAtUtc) < Date.parse(value.startedAtUtc)
-    || !hasSourceApplyPair(value.operationKind, value.sourceApplyRunId)) {
+    || !hasSourceApplyPair(value.operationKind, value.sourceApplyRunId)
+    || !isPublicationState(value)) {
     return false;
   }
 
@@ -277,6 +382,11 @@ export function isCodeGenerationRunResponse(
     && typeof value.errorCode === 'string'
     && value.errorCode.length <= 128
     && errorCodePattern.test(value.errorCode);
+}
+
+export function isCodeGenerationRunPublicationResponse(value: unknown): value is CodeGenerationRunPublicationResponse {
+  return isRecord(value) && hasOnlyKeys(value, new Set(['runId', 'publicationStatus', 'commitSha']))
+    && isUuid(value.runId) && isPublicationState(value);
 }
 
 export function isCodeGenerationRunPage(
@@ -327,6 +437,15 @@ function hasOnlyKeys(
 
 function isSha256(value: unknown): value is string {
   return typeof value === 'string' && sha256Pattern.test(value);
+}
+
+function isPublicationState(value: Record<string, unknown>): boolean {
+  const status = value.publicationStatus;
+  if (status !== 'disabled' && status !== 'local_only' && status !== 'pending'
+    && status !== 'published' && status !== 'unavailable') return false;
+  const commit = value.commitSha;
+  if (commit !== null && (typeof commit !== 'string' || !/^(?:[a-f0-9]{40}|[a-f0-9]{64})$/.test(commit))) return false;
+  return status === 'published' || status === 'local_only' ? commit !== null : true;
 }
 
 function isDateTime(value: unknown): value is string {

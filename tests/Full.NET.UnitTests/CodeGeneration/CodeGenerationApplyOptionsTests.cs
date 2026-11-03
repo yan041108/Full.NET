@@ -71,12 +71,14 @@ public sealed class CodeGenerationApplyOptionsTests
     }
 
     [TestMethod]
-    public void Apply_contract_uses_only_preview_run_identity()
+    public void Apply_contract_binds_reviewed_plan_hash_and_persistent_idempotency_key()
     {
         var previewRunId = Guid.Parse(
             "0198f36e-f7a7-7c52-9cbb-774e67411212");
-        var request = new CodeGenerationRunApplyRequest(previewRunId);
+        var key = Guid.CreateVersion7();
+        var request = new CodeGenerationRunApplyRequest(previewRunId, new string('a', 64), key);
 
-        Assert.AreEqual(previewRunId, request.PreviewRunId);
+        Assert.AreEqual(previewRunId, request.PlanId);
+        Assert.AreEqual(key, request.IdempotencyKey);
     }
 }

@@ -3,6 +3,12 @@ namespace Full.NET.Modules.Ai.Contracts;
 /// <summary>知识库稳定错误码；业务不依赖译文。</summary>
 public static class AiKnowledgeErrorCodes
 {
+    /// <summary>独立搜索输入超出固定字面策略或来源选择边界。</summary>
+    public const string SearchInputInvalid = Prefix + "search_input_invalid";
+    /// <summary>搜索依赖不可读、不完整或超过当前有界能力。</summary>
+    public const string SearchUnavailable = Prefix + "search_unavailable";
+    /// <summary>重复搜索绑定的完整发布来源集合已变化。</summary>
+    public const string SearchSourceChanged = Prefix + "search_source_changed";
     /// <summary>部署尚未启用兼容多代次的重建入口。</summary>
     public const string IndexRebuildDisabled = Prefix + "index_rebuild_disabled";
     /// <summary>反馈输入或实际引用绑定无效。</summary>

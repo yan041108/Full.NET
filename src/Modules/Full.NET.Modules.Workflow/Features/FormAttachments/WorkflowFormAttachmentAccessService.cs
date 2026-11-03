@@ -15,7 +15,7 @@ internal sealed partial class WorkflowFormAttachmentAccessService(
     IQueryExecutor queryExecutor,
     IHostFileContentReader hostFileContentReader,
     IOptions<DatabaseOptions> databaseOptions,
-    ITenantResourceFileStore tenantFiles)
+    ITenantResourceFileStore tenantFiles, WorkflowRemoteFileService remoteFiles)
 {
     /// <summary>
     /// 在实例仍属于当前作用域且附件仍被提交投影引用时打开文件内容。
@@ -83,6 +83,7 @@ internal sealed partial class WorkflowFormAttachmentAccessService(
 
     private async Task<Result<HostFileContent>> OpenReferencedContentAsync(Guid instanceId, Guid fileId, string tenantScopeKey, CancellationToken cancellationToken)
     {
+        if (await remoteFiles.OpenAsync(instanceId, fileId, tenantScopeKey, cancellationToken).ConfigureAwait(false) is { } shared) return shared;
         if (tenantScopeKey != "host")
         {
             var owner = await queryExecutor.QuerySingleOrDefaultAsync<WorkflowAttachmentFileOwnerRecord>(WorkflowFormSubmissionAttachmentSql.FindFileOwner,

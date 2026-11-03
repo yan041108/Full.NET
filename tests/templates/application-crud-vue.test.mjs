@@ -21,9 +21,9 @@ function fixture(action) {
     for (const name of ['guards.generated.ts', 'index.generated.ts', 'models.generated.ts', 'operations.generated.ts']) {
       put(`verification/ClientGeneration/generated/${name}`, `// application ${name}\n`);
     }
-    put('clients/vue/products-page.generated.ts', '// generated page\n');
-    put('clients/vue/products.generated.ts', '// generated adapter\n');
-    put('clients/vue/productsView.vue', '<template><div>Product</div></template>\n');
+    put('generated/acme/catalog/product/clients/vue/products-page.generated.ts', '// generated page\n');
+    put('generated/acme/catalog/product/clients/vue/products.generated.ts', '// generated adapter\n');
+    put('generated/acme/catalog/product/clients/vue/productsView.vue', '<template><div>Product</div></template>\n');
     put('verification/CrudGeneration/module-target.json', JSON.stringify({ moduleName: 'Catalog', vueRouterPath: 'ui/admin/src/router/index.ts' }));
     put('ui/admin/src/router/index.ts', 'routes: [\n  { path: \'/403\', component: loadStatusView }\n]\n');
     return action({ appRoot, put });
@@ -86,28 +86,29 @@ test('application Vue adoption accepts the shipped navigation catalog shape', ()
 }));
 
 test('application Vue regeneration preserves adopted edits and rejects generated source drift', () => fixture(({ appRoot, put }) => {
-  put('clients/vue/productsView.vue', '<script setup lang="ts">\n</script>\n<template><div>Product</div></template>\n');
+  put('generated/acme/catalog/product/clients/vue/productsView.vue', '<script setup lang="ts">\n</script>\n<template><div>Product</div></template>\n');
   prepareApplicationCrudVue(appRoot);
   for (const path of CRUD_ARTIFACTS) {
     if (!existsSync(join(appRoot, path))) put(path, `// generated ${path}\n`);
   }
   put('.fullnet/codegeneration-manifest.json', '{}');
-  const source = readFileSync(join(appRoot, 'clients/vue/productsView.vue'));
+  const source = readFileSync(join(appRoot, 'generated/acme/catalog/product/clients/vue/productsView.vue'));
   const calls = [];
   const run = (command, args, options) => {
     calls.push({ command, args, options });
-    return calls.length === 1
+    if (calls.length === 1) return { status: 2, stdout: '', stderr: '工作区冲突：ui/admin/src/views/CatalogProductsView.vue' };
+    return calls.length === 2
       ? { status: 0, stdout: CRUD_ARTIFACTS.map(path => `Unchanged ${path}`).join('\n'), stderr: '' }
-      : { status: 2, stdout: 'Conflict clients/vue/productsView.vue\n', stderr: '' };
+      : { status: 2, stdout: 'Conflict generated/acme/catalog/product/clients/vue/productsView.vue\n', stderr: '' };
   };
   const result = crudVue.verifyApplicationCrudVueRegeneration(appRoot,
     { reportDirectory: join(appRoot, 'evidence'), run });
   assert.deepEqual(result, { repeatUnchanged: true, manualPreserved: true, conflictRejected: true });
-  assert.equal(calls.length, 2);
+  assert.equal(calls.length, 3);
   assert.ok(calls.every(({ command, args, options }) => command === 'dotnet'
     && args[0] === 'exec' && args.includes('--apply') && options.cwd === appRoot));
-  assert.deepEqual(readFileSync(join(appRoot, 'clients/vue/productsView.vue')), source);
-  assert.match(readFileSync(join(appRoot, 'ui/admin/src/views/CatalogProductsView.vue'), 'utf8'), /人工业务扩展/u);
+  assert.deepEqual(readFileSync(join(appRoot, 'generated/acme/catalog/product/clients/vue/productsView.vue')), source);
+  assert.doesNotMatch(readFileSync(join(appRoot, 'ui/admin/src/views/CatalogProductsView.vue'), 'utf8'), /人工业务扩展/u);
   assert.equal(JSON.parse(readFileSync(join(appRoot, 'evidence/regenerate.json'), 'utf8')).status, 0);
   assert.equal(JSON.parse(readFileSync(join(appRoot, 'evidence/vue-conflict.json'), 'utf8')).status, 2);
 }));

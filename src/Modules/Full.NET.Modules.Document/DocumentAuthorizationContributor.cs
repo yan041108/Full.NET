@@ -11,6 +11,9 @@ internal sealed class DocumentAuthorizationContributor : IAuthorizationCatalogCo
 
     public IReadOnlyCollection<PermissionDefinition> Permissions { get; } =
     [
+        new(HostDocumentPermissions.Publish, "发布 Host 文档", AuthorizationScope.Host),
+        new(HostDocumentPermissions.Archive, "归档 Host 文档", AuthorizationScope.Host),
+        new(HostDocumentPermissions.Unarchive, "恢复编辑 Host 文档", AuthorizationScope.Host),
         new(HostDocumentPermissions.Read, "读取 Host 文档库", AuthorizationScope.Host),
         new(HostDocumentPermissions.Create, "创建 Host 文档", AuthorizationScope.Host),
         new(HostDocumentPermissions.Update, "更新 Host 文档元数据", AuthorizationScope.Host),
@@ -38,6 +41,8 @@ internal sealed class DocumentAuthorizationContributor : IAuthorizationCatalogCo
         new(HostDocumentSharePermissions.UpdateStatus, "更新 Host 文档分享状态", AuthorizationScope.Host),
         new(HostDocumentStatisticsPermissions.Read, "读取 Host 文档统计", AuthorizationScope.Host),
         new(HostDocumentAccessLogPermissions.Read, "读取 Host 文档访问日志", AuthorizationScope.Host),
+        new(HostDocumentPreviewTaskPermissions.Cancel, "取消 Host 文档预览任务", AuthorizationScope.Host),
+        new(HostDocumentPreviewTaskPermissions.Retry, "重试 Host 文档预览任务", AuthorizationScope.Host),
         new(HostDocumentPreviewTaskPermissions.Read, "读取 Host 文档预览任务", AuthorizationScope.Host),
         new(HostDocumentPreviewTaskPermissions.Create, "创建 Host 文档预览任务", AuthorizationScope.Host),
     ];
@@ -136,6 +141,11 @@ internal sealed class DocumentAuthorizationContributor : IAuthorizationCatalogCo
 
     public IReadOnlyCollection<AuthorizationActionDefinition> Actions { get; } =
     [
+        new(HostDocumentPreviewTaskPermissions.Cancel, "document-preview-tasks", HostDocumentPreviewTaskPermissions.Cancel, "取消任务", "cancel", 20),
+        new(HostDocumentPreviewTaskPermissions.Retry, "document-preview-tasks", HostDocumentPreviewTaskPermissions.Retry, "新建重试", "retry", 30),
+        new AuthorizationActionDefinition(HostDocumentPermissions.Publish, "host-document-items", HostDocumentPermissions.Publish, "发布", "publish", 91),
+        new AuthorizationActionDefinition(HostDocumentPermissions.Archive, "host-document-items", HostDocumentPermissions.Archive, "归档", "archive", 92),
+        new AuthorizationActionDefinition(HostDocumentPermissions.Unarchive, "host-document-items", HostDocumentPermissions.Unarchive, "恢复编辑", "unarchive", 93),
         new AuthorizationActionDefinition(
             "document.host_documents.create",
             "host-document-items",

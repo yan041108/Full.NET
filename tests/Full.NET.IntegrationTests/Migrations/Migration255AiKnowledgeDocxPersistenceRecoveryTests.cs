@@ -98,7 +98,7 @@ public sealed class Migration255AiKnowledgeDocxPersistenceRecoveryTests
     private static async Task<Dictionary<string, object?>> SeedAsync(DbConnection db)
     {
         var p = await Migration246AiKnowledgeIndexTaskRecoveryTests.SeedAsync(db);
-        Assert.AreEqual(1, await db.ExecuteAsync(AiKnowledgeIndexTaskSql.EnqueueHost.Text, p));
+        Assert.AreEqual(1, await db.ExecuteAsync(AiKnowledgeIndexTaskSql.EnqueueHost.AutomaticSql(), p));
         p["OperationId"] = Guid.CreateVersion7(); p["Hash"] = new string('A', 64);
         await db.ExecuteAsync("INSERT INTO fn_ai_knowledge_index_batch (Id,IndexTaskId,BatchOrdinal,RequestHash,InputCount,CreatedAtUtc) VALUES (@OperationId,@TaskId,0,@Hash,1,@Now)", p);
         p["Dimensions"] = 1536; p["FormatKey"] = "knowledge-vector-batch-v1"; p["Payload"] = new byte[32]; return p;

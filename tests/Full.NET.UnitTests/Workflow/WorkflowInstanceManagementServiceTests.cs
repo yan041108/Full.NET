@@ -457,7 +457,8 @@ public sealed class WorkflowInstanceManagementServiceTests
             WorkflowTodoManagementTestDependencies.CreateParallelJoinCoordinator(query, command, ids),
             WorkflowTodoManagementTestDependencies.CreateAttachmentCoordinator(),
             featureEntitlements,
-            new WorkflowHumanActivityPreparation(WorkflowTodoManagementTestDependencies.CreateAssigneeCoordinator(), query, WorkflowTodoManagementTestDependencies.CreateStarterSelectionPreparation()));
+            new WorkflowHumanActivityPreparation(WorkflowTodoManagementTestDependencies.CreateAssigneeCoordinator(), query, WorkflowTodoManagementTestDependencies.CreateStarterSelectionPreparation()),
+            WorkflowTodoManagementTestDependencies.CreateRemoteFiles(query, tenant, clock));
     }
 
     /// <summary>构造暂停/恢复路径需要的实例、回执和活动工作查询。</summary>

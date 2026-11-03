@@ -1,0 +1,253 @@
+{
+  "schemaVersion": 1,
+  "recordedAtUtc": "2026-10-27T05:25:05.536Z",
+  "environment": {
+    "platform": "win32",
+    "cpu": "Intel(R) Core(TM) i9-14900K",
+    "logicalCpus": 32,
+    "ramBytes": 68388196352,
+    "node": "v24.20.0"
+  },
+  "inputScope": [
+    "src/Modules/Full.NET.Modules.Identity/DependencyInjection/IdentityOidcServiceCollectionExtensions.cs",
+    "src/Modules/Full.NET.Modules.Identity/DependencyInjection/IdentityBrowserServiceCollectionExtensions.cs",
+    "src/Modules/Full.NET.Modules.Identity/Oidc/IdentityOidcAuthorizationService.cs",
+    "src/Modules/Full.NET.Modules.Identity/Features/OidcSession/Endpoint.cs",
+    "tests/Full.NET.IntegrationTests/Identity/IdentityOidcNetworkFixture.cs",
+    "tests/Full.NET.IntegrationTests/Identity/IdentityOidcNetworkInteropTests.cs",
+    "tests/Full.NET.IntegrationTests/Identity/IdentityOidcConformance.cs",
+    "tests/e2e/admin-real-stack/scripts/oidc-network-rp.mjs",
+    "tests/e2e/admin-real-stack/package.json",
+    "pnpm-lock.yaml",
+    "scripts/testing/run-identity-oidc-interop.mjs",
+    "eng/testing/test-matrix.json",
+    "tests/Full.NET.IntegrationTests/Full.NET.IntegrationTests.csproj",
+    "tests/Full.NET.IntegrationTests/Identity/IdentityBrowserTestSupport.cs",
+    "tests/Full.NET.IntegrationTests/Api/FullNetApiFactory.cs"
+  ],
+  "inputSha256": "2501c083a90e8d682190adf469416af075207bf85cab617fa3bf07f5acb44dff",
+  "outcomes": {
+    "total": 2,
+    "outcomes": {
+      "Passed": 2,
+      "Failed": 0,
+      "Inconclusive": 0,
+      "Skipped": 0,
+      "NotExecuted": 0,
+      "Other": 0
+    },
+    "inconclusiveTests": []
+  },
+  "records": [
+    {
+      "provider": "SqlServer",
+      "healthySamplesMs": [
+        3990.4049,
+        4678.6677,
+        5399.5092
+      ],
+      "recoveryAfterRestartMs": 6411.2508,
+      "normalDeliveryBudgetSeconds": 15,
+      "recoveryBudgetSeconds": 20,
+      "client": "openid-client 6.8.8",
+      "probes": [
+        {
+          "concurrency": 1,
+          "requests": 200,
+          "elapsedSeconds": 2.9316049,
+          "throughput": 68.2220172302209,
+          "errors": 0,
+          "statuses": {
+            "200": 200
+          },
+          "p50Ms": 15.3654,
+          "p95Ms": 19.8659,
+          "p99Ms": 23.0976,
+          "apiAndDriverCpuMs": 1328.125,
+          "apiAndDriverWorkingSetBytes": 290762752,
+          "apiAndDriverAllocatedBytes": 37527848,
+          "gc": [
+            2,
+            0,
+            0
+          ],
+          "databaseCpuIoPoolWait": "not-collected"
+        },
+        {
+          "concurrency": 8,
+          "requests": 200,
+          "elapsedSeconds": 0.1893597,
+          "throughput": 1056.1909424233352,
+          "errors": 0,
+          "statuses": {
+            "200": 200
+          },
+          "p50Ms": 6.1325,
+          "p95Ms": 13.918,
+          "p99Ms": 28.1415,
+          "apiAndDriverCpuMs": 125,
+          "apiAndDriverWorkingSetBytes": 292753408,
+          "apiAndDriverAllocatedBytes": 38104984,
+          "gc": [
+            2,
+            0,
+            0
+          ],
+          "databaseCpuIoPoolWait": "not-collected"
+        },
+        {
+          "concurrency": 32,
+          "requests": 200,
+          "elapsedSeconds": 0.24751,
+          "throughput": 808.0481596703163,
+          "errors": 0,
+          "statuses": {
+            "200": 200
+          },
+          "p50Ms": 28.7317,
+          "p95Ms": 85.5656,
+          "p99Ms": 88.496,
+          "apiAndDriverCpuMs": 250,
+          "apiAndDriverWorkingSetBytes": 294318080,
+          "apiAndDriverAllocatedBytes": 39391336,
+          "gc": [
+            2,
+            0,
+            0
+          ],
+          "databaseCpuIoPoolWait": "not-collected"
+        }
+      ],
+      "officialModules": [
+        {
+          "module": "oidcc-discovery-endpoint-verification",
+          "authentication": "",
+          "status": "FINISHED",
+          "result": "PASSED",
+          "elapsedSeconds": 0.301085
+        },
+        {
+          "module": "oidcc-ensure-request-with-valid-pkce-succeeds",
+          "authentication": "client_secret_basic",
+          "status": "FINISHED",
+          "result": "PASSED",
+          "elapsedSeconds": 0.7071662
+        },
+        {
+          "module": "oidcc-ensure-request-with-valid-pkce-succeeds",
+          "authentication": "client_secret_post",
+          "status": "FINISHED",
+          "result": "PASSED",
+          "elapsedSeconds": 0.3658041
+        }
+      ],
+      "capacity": "Capacity-not-verified",
+      "note": "本地单 API、双 RP、单 Worker，非生产容量或外部合作方 SLO"
+    },
+    {
+      "provider": "MySql",
+      "healthySamplesMs": [
+        4749.9875,
+        4684.5816,
+        4577.7512
+      ],
+      "recoveryAfterRestartMs": 6341.1653,
+      "normalDeliveryBudgetSeconds": 15,
+      "recoveryBudgetSeconds": 20,
+      "client": "openid-client 6.8.8",
+      "probes": [
+        {
+          "concurrency": 1,
+          "requests": 200,
+          "elapsedSeconds": 2.9894553,
+          "throughput": 66.90181987333946,
+          "errors": 0,
+          "statuses": {
+            "200": 200
+          },
+          "p50Ms": 15.2974,
+          "p95Ms": 22.5873,
+          "p99Ms": 24.576,
+          "apiAndDriverCpuMs": 640.625,
+          "apiAndDriverWorkingSetBytes": 334438400,
+          "apiAndDriverAllocatedBytes": 34713192,
+          "gc": [
+            2,
+            0,
+            0
+          ],
+          "databaseCpuIoPoolWait": "not-collected"
+        },
+        {
+          "concurrency": 8,
+          "requests": 200,
+          "elapsedSeconds": 0.2583719,
+          "throughput": 774.0779860348591,
+          "errors": 0,
+          "statuses": {
+            "200": 200
+          },
+          "p50Ms": 8.1351,
+          "p95Ms": 20.4235,
+          "p99Ms": 36.5329,
+          "apiAndDriverCpuMs": 250,
+          "apiAndDriverWorkingSetBytes": 336908288,
+          "apiAndDriverAllocatedBytes": 35216048,
+          "gc": [
+            2,
+            0,
+            0
+          ],
+          "databaseCpuIoPoolWait": "not-collected"
+        },
+        {
+          "concurrency": 32,
+          "requests": 200,
+          "elapsedSeconds": 0.310427,
+          "throughput": 644.2738550448254,
+          "errors": 0,
+          "statuses": {
+            "200": 200
+          },
+          "p50Ms": 29.1378,
+          "p95Ms": 123.6183,
+          "p99Ms": 161.3645,
+          "apiAndDriverCpuMs": 390.625,
+          "apiAndDriverWorkingSetBytes": 334671872,
+          "apiAndDriverAllocatedBytes": 36288320,
+          "gc": [
+            3,
+            1,
+            1
+          ],
+          "databaseCpuIoPoolWait": "not-collected"
+        }
+      ],
+      "officialModules": [
+        {
+          "module": "oidcc-discovery-endpoint-verification",
+          "authentication": "",
+          "status": "FINISHED",
+          "result": "PASSED",
+          "elapsedSeconds": 0.2815209
+        },
+        {
+          "module": "oidcc-ensure-request-with-valid-pkce-succeeds",
+          "authentication": "client_secret_basic",
+          "status": "FINISHED",
+          "result": "PASSED",
+          "elapsedSeconds": 0.7554957
+        },
+        {
+          "module": "oidcc-ensure-request-with-valid-pkce-succeeds",
+          "authentication": "client_secret_post",
+          "status": "FINISHED",
+          "result": "PASSED",
+          "elapsedSeconds": 0.4163574
+        }
+      ],
+      "capacity": "Capacity-not-verified",
+      "note": "本地单 API、双 RP、单 Worker，非生产容量或外部合作方 SLO"
+    }
+  ]
+}

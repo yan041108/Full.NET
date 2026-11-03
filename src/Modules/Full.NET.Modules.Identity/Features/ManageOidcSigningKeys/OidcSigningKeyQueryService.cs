@@ -3,23 +3,30 @@ using Full.NET.Abstractions.Results;
 using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Identity.Oidc;
 using Microsoft.IdentityModel.Tokens;
+using Full.NET.Abstractions.Time;
+using Full.NET.Modules.Identity.Persistence;
 
 namespace Full.NET.Modules.Identity.Features.ManageOidcSigningKeys;
 
 /// <summary>读取当前 OIDC 签名密钥环元数据；响应仅含公钥，供运维核对 JWKS 与轮转窗口。</summary>
-internal sealed class OidcSigningKeyQueryService(IdentityOidcSigningKeyRing keyRing)
+internal sealed class OidcSigningKeyQueryService(IdentityOidcSigningKeyRing keyRing, IdentityOidcSigningPolicy policy,
+    IdentityOidcKeyGovernance governance, IClock clock)
 {
-    public Result<OidcSigningKeyListResponse> List()
+    public async Task<Result<OidcSigningKeyListResponse>> ListAsync(CancellationToken cancellationToken)
     {
+        await policy.SynchronizeAsync(cancellationToken).ConfigureAwait(false);
         var usesEphemeralDevelopmentKey = keyRing.UsesEphemeralDevelopmentKey;
         var activeSigningKeyId = keyRing.ActiveSigningKeyId;
         var entries = keyRing.Entries;
-        var keys = keyRing.ValidationKeys
-            .Select(securityKey => MapKey(
-                securityKey,
+        IReadOnlyList<IdentityOidcSigningKeyRow> lifecycle = usesEphemeralDevelopmentKey ? [] : await governance.ReadKeysAsync(cancellationToken).ConfigureAwait(false);
+        var readiness = await governance.ActivationReadinessAsync(cancellationToken).ConfigureAwait(false);
+        var keys = entries.Values
+            .Select(entry => MapKey(
+                entry.SecurityKey,
                 activeSigningKeyId,
                 entries,
-                usesEphemeralDevelopmentKey))
+                usesEphemeralDevelopmentKey,
+                lifecycle.SingleOrDefault(row => row.KeyId == entry.SecurityKey.KeyId), readiness.Keys, clock.UtcNow))
             .OrderBy(key => key.KeyId, StringComparer.Ordinal)
             .ToArray();
         return Result<OidcSigningKeyListResponse>.Success(
@@ -33,7 +40,10 @@ internal sealed class OidcSigningKeyQueryService(IdentityOidcSigningKeyRing keyR
         SecurityKey securityKey,
         string activeSigningKeyId,
         IReadOnlyDictionary<string, OidcSigningKeyEntry> entries,
-        bool usesEphemeralDevelopmentKey)
+        bool usesEphemeralDevelopmentKey,
+        IdentityOidcSigningKeyRow? lifecycle,
+        IReadOnlyDictionary<string, bool> readiness,
+        DateTimeOffset now)
     {
         var keyId = securityKey.KeyId ?? string.Empty;
         var hasPrivateKey = usesEphemeralDevelopmentKey
@@ -44,7 +54,13 @@ internal sealed class OidcSigningKeyQueryService(IdentityOidcSigningKeyRing keyR
             string.Equals(keyId, activeSigningKeyId, StringComparison.Ordinal),
             hasPrivateKey,
             SecurityAlgorithms.RsaSha256,
-            ExportPublicKeyPem(securityKey));
+            ExportPublicKeyPem(securityKey),
+            lifecycle?.IsRetired == true ? "retired" : keyId == activeSigningKeyId ? "active"
+                : lifecycle is null ? "unregistered" : lifecycle.LastActivatedAtUtc.HasValue ? "retained" : "prepublished",
+            IdentityOidcKeyMaterial.Hash(securityKey), lifecycle?.PublishedAtUtc, lifecycle?.RetireAfterUtc,
+            keyId != activeSigningKeyId && readiness.GetValueOrDefault(keyId),
+            lifecycle is { IsRetired: false } && keyId != activeSigningKeyId
+                && (!lifecycle.LastActivatedAtUtc.HasValue || lifecycle.RetireAfterUtc <= now));
     }
 
     private static string ExportPublicKeyPem(SecurityKey securityKey)

@@ -21,7 +21,21 @@
           "method": "GET",
           "permission": "organization.user_positions.read",
           "successStatus": 200,
-          "responseSchema": "OrganizationUserPositionResponsePage"
+          "responseSchema": "OrganizationUserPositionResponsePage",
+          "queryParameters": [
+            "page",
+            "pageSize",
+            "userId",
+            "positionId",
+            "userSearch",
+            "positionSearch",
+            "isActive"
+          ],
+          "errorStatuses": [
+            400,
+            401,
+            403
+          ]
         },
         {
           "method": "POST",

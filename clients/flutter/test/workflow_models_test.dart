@@ -1,3 +1,4 @@
+import 'workflow_form_fixture.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:fullnet_client/features/workflow/workflow_models.dart';
@@ -13,7 +14,9 @@ void main() {
         'statusKey': 'active',
         'revision': 1,
         'submissionRevision': 1,
-        'submission': <String, dynamic>{},
+        'formSchema': workflowTestFormSchema,
+      'fieldPolicies': <String, String>{},
+      'submission': <String, dynamic>{},
         'activityKindKey': kind,
         'allowedActions': ['approve', 'delegate'],
         'signRequired': false,

@@ -37,14 +37,17 @@ internal static class CrudOpenApiContractGenerator
                     schema.ReadPermission,
                     "200",
                     Ref($"PagedResultOf{entity}Response"),
-                    parameters: PageParameters()),
+                    parameters: PageParameters(schema)),
                 ["post"] = Operation(
                     $"{operationPrefix}Create{entity}",
                     tag,
                     CreatePermission(schema),
                     "201",
                     Ref($"{entity}Response"),
-                    Ref($"Create{entity}Request")),
+                    Ref($"Create{entity}Request"),
+                    parameters: CrudOrganizationOwnershipGenerator.IsOrganizationUnitOwned(schema) ? [new JsonObject {
+                        ["in"] = "header", ["name"] = "X-FullNet-Organization-Unit-Id", ["required"] = true,
+                        ["schema"] = new JsonObject { ["type"] = "string", ["format"] = "uuid" } }] : null),
             },
             [itemPath] = BuildItemPath(schema, operationPrefix, tag, entity, idParameter),
         };
@@ -67,6 +70,44 @@ internal static class CrudOpenApiContractGenerator
                     requestSchema,
                     [PathParameter(idParameter)]),
             };
+        }
+
+        if (CrudAggregateGenerator.Enabled(schema))
+        {
+            paths[$"{collectionPath}/aggregate"] = new JsonObject
+            {
+                ["post"] = Operation($"{operationPrefix}Create{entity}Aggregate", tag, schema.CreatePermission, "200",
+                    Ref($"{entity}AggregateResponse"), Ref($"Create{entity}AggregateRequest"),
+                    parameters: CrudOrganizationOwnershipGenerator.IsOrganizationUnitOwned(schema) ? [new JsonObject
+                    { ["in"] = "header", ["name"] = "X-FullNet-Organization-Unit-Id", ["required"] = true,
+                      ["schema"] = new JsonObject { ["type"] = "string", ["format"] = "uuid" } }] : null),
+            };
+            paths[$"{itemPath}/aggregate"] = new JsonObject
+            {
+                ["get"] = Operation($"{operationPrefix}Get{entity}Aggregate", tag, schema.ReadPermission, "200", Ref($"{entity}AggregateResponse"), parameters: [PathParameter(idParameter)]),
+                ["put"] = Operation($"{operationPrefix}Update{entity}Aggregate", tag, schema.UpdatePermission, "200", Ref($"{entity}AggregateResponse"), Ref($"Update{entity}AggregateRequest"), [PathParameter(idParameter)]),
+            };
+        }
+
+        if (CrudRelationshipLookupGenerator.Enabled(schema))
+        {
+            foreach (var index in Enumerable.Range(0, 2))
+            {
+                var parameters = new List<JsonObject>
+                {
+                    new() { ["name"] = "page", ["in"] = "query", ["schema"] = new JsonObject { ["type"] = "integer", ["format"] = "int32" } },
+                    new() { ["name"] = "pageSize", ["in"] = "query", ["schema"] = new JsonObject { ["type"] = "integer", ["format"] = "int32" } },
+                    new() { ["name"] = "search", ["in"] = "query", ["schema"] = new JsonObject { ["type"] = "string" } },
+                    new() { ["name"] = "selected", ["in"] = "query", ["schema"] = new JsonObject { ["type"] = "string", ["format"] = "uuid" } },
+                };
+                if (CrudOrganizationOwnershipGenerator.IsOrganizationUnitOwned(schema)) parameters.Add(new()
+                { ["name"] = "organizationUnitId", ["in"] = "query", ["schema"] = new JsonObject { ["type"] = "string", ["format"] = "uuid" } });
+                paths[$"{collectionPath}/relationship-options/{CrudRelationshipLookupGenerator.Segment(index)}"] = new JsonObject
+                {
+                    ["get"] = Operation($"{operationPrefix}List{entity}{CrudRelationshipLookupGenerator.Side(index)}Options", tag, schema.ReadPermission, "200",
+                        Ref($"PagedResultOf{entity}RelationOption"), parameters: parameters),
+                };
+            }
         }
 
         var root = new JsonObject
@@ -198,11 +239,18 @@ internal static class CrudOpenApiContractGenerator
         },
     };
 
-    private static IReadOnlyList<JsonObject> PageParameters() =>
-    [
-        QueryParameter("page", 1),
-        QueryParameter("pageSize", 20),
-    ];
+    private static IReadOnlyList<JsonObject> PageParameters(FullNetCrudSchema schema)
+    {
+        var parameters = new List<JsonObject> { QueryParameter("page", 1), QueryParameter("pageSize", 20),
+            new() { ["in"] = "query", ["name"] = "sortBy", ["required"] = false,
+                ["schema"] = new JsonObject { ["type"] = "string", ["enum"] = new JsonArray(schema.Columns.Where(column => column.ResolvedUi.Sortable)
+                    .Select(column => (JsonNode)JsonValue.Create(column.JsonPropertyName)!).ToArray()) } },
+            new() { ["in"] = "query", ["name"] = "descending", ["required"] = false, ["schema"] = new JsonObject { ["type"] = "boolean", ["default"] = false } } };
+        parameters.AddRange(CrudListQueryGenerator.Fields(schema).Select(field => new JsonObject {
+            ["in"] = "query", ["name"] = field.QueryName, ["required"] = false,
+            ["schema"] = ColumnSchema(field.Column with { IsNullable = false }) }));
+        return parameters;
+    }
 
     private static JsonObject QueryParameter(string name, int defaultValue) => new()
     {
@@ -253,8 +301,41 @@ internal static class CrudOpenApiContractGenerator
             schemas[$"{action}{entity}Request"] = ObjectSchema(
                 [RequiredColumn(schema, "Version")]);
         }
+        if (CrudAggregateGenerator.Enabled(schema)) AddAggregateSchemas(schemas, schema);
+        if (CrudRelationshipLookupGenerator.Enabled(schema))
+        {
+            schemas[$"{entity}RelationOption"] = NamedObject(("value", new JsonObject { ["type"] = "string", ["format"] = "uuid" }), ("label", new JsonObject { ["type"] = "string" }));
+            var page = PageSchema(entity);
+            page["properties"]!["items"]!["items"] = Ref($"{entity}RelationOption");
+            schemas[$"PagedResultOf{entity}RelationOption"] = page;
+        }
         return schemas;
     }
+
+    private static void AddAggregateSchemas(JsonObject schemas, FullNetCrudSchema schema)
+    {
+        var child = CrudAggregateGenerator.Detail(schema);
+        var root = schema.ClrTypeName;
+        foreach (var pair in BuildSchemas(child))
+            if (!schemas.ContainsKey(pair.Key)) schemas[pair.Key] = pair.Value!.DeepClone();
+        schemas[$"{root}DetailInput"] = ObjectSchema(CrudAggregateGenerator.InputColumns(schema));
+        schemas[$"{root}DetailEdit"] = NamedObject(("id", new JsonObject { ["type"] = "string", ["format"] = "uuid" }),
+            ("version", new JsonObject { ["type"] = "string", ["pattern"] = "^-?(?:0|[1-9]\\d*)$" }), ("input", Ref($"{root}DetailInput")));
+        schemas[$"{root}DetailRemoval"] = NamedObject(("id", new JsonObject { ["type"] = "string", ["format"] = "uuid" }),
+            ("version", new JsonObject { ["type"] = "string", ["pattern"] = "^-?(?:0|[1-9]\\d*)$" }));
+        schemas[$"Create{root}AggregateRequest"] = NamedObject(("master", Ref($"Create{root}Request")), ("details", ArrayOf($"{root}DetailInput")));
+        schemas[$"Update{root}AggregateRequest"] = NamedObject(("master", Ref($"Update{root}Request")), ("added", ArrayOf($"{root}DetailInput")),
+            ("updated", ArrayOf($"{root}DetailEdit")), ("removed", ArrayOf($"{root}DetailRemoval")));
+        schemas[$"{root}AggregateResponse"] = NamedObject(("master", Ref($"{root}Response")), ("details", ArrayOf($"{root}DetailResponse")));
+    }
+
+    private static JsonObject NamedObject(params (string Name, JsonObject Schema)[] fields) => new()
+    {
+        ["type"] = "object", ["properties"] = new JsonObject(fields.Select(field => new KeyValuePair<string, JsonNode?>(field.Name, field.Schema))),
+        ["required"] = new JsonArray(fields.Select(field => (JsonNode)JsonValue.Create(field.Name)!).ToArray()),
+    };
+
+    private static JsonObject ArrayOf(string type) => new() { ["type"] = "array", ["items"] = Ref(type) };
 
     private static JsonObject ObjectSchema(IEnumerable<FullNetColumn> columns)
     {

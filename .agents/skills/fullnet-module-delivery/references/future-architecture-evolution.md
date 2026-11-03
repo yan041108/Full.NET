@@ -2,7 +2,7 @@
 
 ## 当前基线
 
-Full.NET 当前基线是强化型模块化单体：API、Worker、Migrator 按运行角色分离，模块拥有自己的数据与强不变量，跨模块通过最小 Contract Port、版本化事件、本地投影和 Outbox 协作；正式数据库支持仍是 SQL Server/MySQL 双提供程序。
+Full.NET 当前基线是强化型模块化单体：API、Worker、Migrator 按运行角色分离，模块拥有自己的写入权与强不变量，业务操作通过最小 Contract Port、版本化事件和 Outbox 协作；后台列表、搜索、报表按 [ADR-0014](../../../../docs/architecture/adr/ADR-0014-controlled-cross-module-read-queries.md) 允许受控只读 JOIN，投影按需引入；正式数据库支持仍是 SQL Server/MySQL 双提供程序。
 
 下述微服务、分片、多数据库和云模式只用于未来架构演进评审，不得作为当前默认方案。没有批准的 Spec/ADR、可复现瓶颈和迁移回退证据时，禁止把候选模式写入生产实现。事务 Outbox 的 CDC/Kafka 演进已由 [`ADR-0006`](../../../../docs/architecture/adr/ADR-0006-transactional-outbox-cdc-kafka-event-delivery.md) 单独批准提前实施，但它不构成微服务、分片或多数据库授权，生产切流仍受该 ADR 的单一发布所有权与双库门禁约束。
 
@@ -23,7 +23,7 @@ Full.NET 当前基线是强化型模块化单体：API、Worker、Migrator 按�
 
 只有同时具备以下证据才进入拆分实验：
 
-1. 单体内模块边界已经稳定，且模块间不存在跨表、跨模块本地事务或隐藏共享状态。
+1. 单体内模块边界已经稳定，拟拆分边界上的直接读表依赖已依据 `module-read-queries.json` 替换为聚合接口或查询模型，并验证回填、延迟和失败语义；禁止跨模块写表、本地事务或隐藏共享状态。仍留在单体内的受控 JOIN 不因局部拆分自动改造。
 2. 独立部署、独立扩缩、故障隔离、合规隔离或团队自治中至少一项形成持续且可量化的收益。
 3. 已在模块化单体内完成进程内 Contract、版本事件、Outbox、幂等、补偿、Trace 和 SLO 验证。
 4. 网络延迟、部分失败、契约版本、发布编排、回滚、值班和成本已有负责人及预算。

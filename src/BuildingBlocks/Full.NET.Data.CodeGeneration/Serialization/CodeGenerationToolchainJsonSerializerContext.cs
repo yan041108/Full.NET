@@ -22,4 +22,6 @@ namespace Full.NET.Data.CodeGeneration.Serialization;
 [JsonSerializable(typeof(GenerationRollbackCheckpointDocument))]
 [JsonSerializable(typeof(GenerationRollbackCheckpointArtifactDocument))]
 [JsonSerializable(typeof(GenerationRollbackCheckpointArtifactDocument[]))]
+[JsonSerializable(typeof(GenerationWorkspaceHead))]
+[JsonSerializable(typeof(GenerationWorkspaceOperation))]
 internal partial class CodeGenerationToolchainJsonSerializerContext : JsonSerializerContext;

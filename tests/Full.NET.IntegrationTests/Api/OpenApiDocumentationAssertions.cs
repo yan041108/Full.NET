@@ -79,17 +79,7 @@ internal static class OpenApiDocumentationAssertions
 
     private static string FindRepositoryRoot()
     {
-        var directory = new DirectoryInfo(AppContext.BaseDirectory);
-        while (directory is not null)
-        {
-            if (File.Exists(Path.Combine(directory.FullName, "Full.NET.slnx")))
-            {
-                return directory.FullName;
-            }
-
-            directory = directory.Parent;
-        }
-
-        throw new InvalidOperationException("Repository root not found.");
+        // 正式隔离输出不位于仓库目录，统一使用已校验的显式测试源码入口。
+        return FullNetApiFactory.FindRepositoryRoot();
     }
 }

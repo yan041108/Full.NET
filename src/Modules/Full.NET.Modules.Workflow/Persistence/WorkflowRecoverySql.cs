@@ -5,6 +5,26 @@ namespace Full.NET.Modules.Workflow.Persistence;
 /// <summary>恢复任务扫描、领取、续租与对账 SQL；Worker 扫描不加租户过滤，管理查询必须携带 TenantScopeKey。</summary>
 internal static class WorkflowRecoverySql
 {
+    // 只为卡住任务对账：真实活动等待已经具备耐久续办来源，不能因缺少人工Todo被死信暂停。
+    public static readonly SqlStatement HasDurableWaitSqlServer = new("workflow.recovery.has_durable_wait.sql_server", DurableWaitText(false), SqlDataScope.Global);
+    public static readonly SqlStatement HasDurableWaitMySql = new("workflow.recovery.has_durable_wait.mysql", DurableWaitText(true), SqlDataScope.Global);
+
+    private static string DurableWaitText(bool mysql) => """
+        SELECT COUNT(*) FROM fn_workflow_instance AS instance
+        WHERE instance.Id=@InstanceId AND instance.TenantScopeKey=@TenantScopeKey AND instance.StatusKey='active'
+            AND NOT (1=1
+        """ + NoCollaborationWait(mysql) + NoSubprocessWait(mysql) + ")";
+
+    // 审计必须对应刚完成的真实任务与租约代次，不能只凭调用方提交的JSON声明系统身份。
+    public static readonly SqlStatement InsertSystemAudit = new("workflow.recovery.system_audit", """
+        INSERT INTO fn_workflow_domain_audit
+            (Id,TenantId,ScopeKey,InstanceId,OperationKey,ActorUserId,ResourceTypeKey,ResourceId,OutcomeKey,DetailJson,CreatedAtUtc,CorrelationJson)
+        SELECT @Id,task.TenantId,task.ScopeKey,task.InstanceId,@OperationKey,NULL,'recovery_task',task.Id,task.StatusKey,@DetailJson,@CreatedAtUtc,@CorrelationJson
+        FROM fn_workflow_recovery_task AS task
+        WHERE task.Id=@ResourceId AND task.InstanceId=@InstanceId AND task.TenantScopeKey = @TenantScopeKey
+            AND task.KindKey=@KindKey AND task.LeaseGeneration=@LeaseGeneration AND task.AttemptCount=@AttemptCount AND task.StatusKey=@OutcomeKey
+        """, SqlDataScope.Global);
+
     private const string TaskColumns = """
         Id, TenantId, ScopeKey, TenantScopeKey, InstanceId, StepId, KindKey, StatusKey,
         AttemptCount, Revision, LeaseOwnerKey, LeaseExpiresAtUtc, LeaseGeneration,
@@ -24,12 +44,12 @@ internal static class WorkflowRecoverySql
     public static readonly SqlStatement ScanStuckInstancesSqlServer = new(
         "workflow.recovery.scan_stuck_instances.sql_server",
         CreateScanText(false, false,
-            "(instance.LeaseExpiresAtUtc IS NULL OR instance.LeaseExpiresAtUtc <= @Now) AND NOT EXISTS (SELECT 1 FROM fn_workflow_activity_work work WHERE work.InstanceId=instance.Id AND work.StatusKey IN ('pending','leased')) AND NOT EXISTS (SELECT 1 FROM fn_workflow_todo todo WHERE todo.InstanceId=instance.Id AND todo.StatusKey='active')"),
+            "(instance.LeaseExpiresAtUtc IS NULL OR instance.LeaseExpiresAtUtc <= @Now) AND NOT EXISTS (SELECT 1 FROM fn_workflow_activity_work work WHERE work.InstanceId=instance.Id AND work.StatusKey IN ('pending','leased')) AND NOT EXISTS (SELECT 1 FROM fn_workflow_todo todo WHERE todo.InstanceId=instance.Id AND todo.StatusKey='active')" + NoCollaborationWait(false) + NoSubprocessWait(false)),
         SqlDataScope.Global);
     public static readonly SqlStatement ScanStuckInstancesMySql = new(
         "workflow.recovery.scan_stuck_instances.mysql",
         CreateScanText(true, false,
-            "(instance.LeaseExpiresAtUtc IS NULL OR instance.LeaseExpiresAtUtc <= @Now) AND NOT EXISTS (SELECT 1 FROM fn_workflow_activity_work work WHERE work.InstanceId=instance.Id AND work.StatusKey IN ('pending','leased')) AND NOT EXISTS (SELECT 1 FROM fn_workflow_todo todo WHERE todo.InstanceId=instance.Id AND todo.StatusKey='active')"),
+            "(instance.LeaseExpiresAtUtc IS NULL OR instance.LeaseExpiresAtUtc <= @Now) AND NOT EXISTS (SELECT 1 FROM fn_workflow_activity_work work WHERE work.InstanceId=instance.Id AND work.StatusKey IN ('pending','leased')) AND NOT EXISTS (SELECT 1 FROM fn_workflow_todo todo WHERE todo.InstanceId=instance.Id AND todo.StatusKey='active')" + NoCollaborationWait(true) + NoSubprocessWait(true)),
         SqlDataScope.Global);
     public static readonly SqlStatement ScanIncompleteStepsSqlServer = new(
         "workflow.recovery.scan_incomplete_steps.sql_server",
@@ -41,6 +61,24 @@ internal static class WorkflowRecoverySql
         CreateScanText(true, true,
             "step.StatusKey='active' AND step.NodeTypeKey IN ('human.approval','human.group_approval','human.task') AND NOT EXISTS (SELECT 1 FROM fn_workflow_todo todo WHERE todo.StepId=step.Id AND todo.StatusKey='active')"),
         SqlDataScope.Global);
+
+    // 协作在真实活动步骤上耐久等待，对端尚无结果并不等于缺少本人的待办。
+    private static string NoCollaborationWait(bool mysql) => """
+         AND NOT EXISTS (SELECT 1 FROM fn_workflow_collaboration_call AS callState
+            INNER JOIN fn_workflow_step AS waitingStep ON waitingStep.Id=callState.Id AND waitingStep.InstanceId=callState.InstanceId
+            WHERE callState.InstanceId=instance.Id
+        """ + " AND " + (mysql ? "callState.TenantScopeKey=instance.TenantScopeKey" : "callState.TenantScopeKey COLLATE Latin1_General_100_BIN2=instance.TenantScopeKey COLLATE Latin1_General_100_BIN2") + """
+                AND callState.StatusKey IN ('preparing','requested','accepted') AND waitingStep.StatusKey='active' AND waitingStep.NodeTypeKey='process.collaboration')
+        """;
+
+    // 本地父子协议同样以真实活动Step为证，损坏、已关闭或无步骤的调用不能屏蔽恢复。
+    private static string NoSubprocessWait(bool mysql) => """
+         AND NOT EXISTS (SELECT 1 FROM fn_workflow_subprocess_call AS callState
+            INNER JOIN fn_workflow_step AS waitingStep ON waitingStep.Id=callState.Id AND waitingStep.InstanceId=callState.InstanceId
+            WHERE callState.InstanceId=instance.Id
+        """ + " AND " + (mysql ? "callState.TenantScopeKey=instance.TenantScopeKey" : "callState.TenantScopeKey COLLATE Latin1_General_100_BIN2=instance.TenantScopeKey COLLATE Latin1_General_100_BIN2") + """
+                AND callState.StatusKey IN ('requested','running','result_ready') AND waitingStep.StatusKey='active' AND waitingStep.NodeTypeKey='process.subprocess')
+        """;
 
     // 扫描仅返回本模块尚未占用的有界候选；插入端仍须去重以覆盖多 Worker 的竞争窗口。
     private static string CreateScanText(bool mysql, bool steps, string predicate) =>
@@ -226,12 +264,25 @@ internal static class WorkflowRecoverySql
         """,
         SqlDataScope.Global);
 
-    public static readonly SqlStatement CountTasksForScope = new(
-        "workflow.recovery.count_for_scope",
-        """
+    public static readonly SqlStatement CountTasksForScopeSqlServer = new(
+        "workflow.recovery.count_for_scope.sqlserver",
+        $"""
         SELECT COUNT(*)
         FROM fn_workflow_recovery_task
         WHERE TenantScopeKey = @TenantScopeKey
+          AND EXISTS (SELECT 1 FROM fn_workflow_instance AS instance WHERE instance.Id=fn_workflow_recovery_task.InstanceId
+              AND instance.TenantScopeKey=@TenantScopeKey AND {WorkflowCollaborationListSql.AllowsSqlServer})
+        """,
+        SqlDataScope.Global);
+
+    public static readonly SqlStatement CountTasksForScopeMySql = new(
+        "workflow.recovery.count_for_scope.mysql",
+        $"""
+        SELECT COUNT(*)
+        FROM fn_workflow_recovery_task
+        WHERE TenantScopeKey = @TenantScopeKey
+          AND EXISTS (SELECT 1 FROM fn_workflow_instance AS instance WHERE instance.Id=fn_workflow_recovery_task.InstanceId
+              AND instance.TenantScopeKey=@TenantScopeKey AND {WorkflowCollaborationListSql.AllowsMySql})
         """,
         SqlDataScope.Global);
 
@@ -241,6 +292,8 @@ internal static class WorkflowRecoverySql
         SELECT {TaskColumns}
         FROM fn_workflow_recovery_task
         WHERE TenantScopeKey = @TenantScopeKey
+          AND EXISTS (SELECT 1 FROM fn_workflow_instance AS instance WHERE instance.Id=fn_workflow_recovery_task.InstanceId
+              AND instance.TenantScopeKey=@TenantScopeKey AND {WorkflowCollaborationListSql.AllowsSqlServer})
         ORDER BY CreatedAtUtc DESC, Id DESC
         OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY
         """,
@@ -252,6 +305,8 @@ internal static class WorkflowRecoverySql
         SELECT {TaskColumns}
         FROM fn_workflow_recovery_task
         WHERE TenantScopeKey = @TenantScopeKey
+          AND EXISTS (SELECT 1 FROM fn_workflow_instance AS instance WHERE instance.Id=fn_workflow_recovery_task.InstanceId
+              AND instance.TenantScopeKey=@TenantScopeKey AND {WorkflowCollaborationListSql.AllowsMySql})
         ORDER BY CreatedAtUtc DESC, Id DESC
         LIMIT @PageSize OFFSET @Offset
         """,

@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
@@ -66,8 +68,19 @@ test('仓库迁移脚本全部包含数据库对象注释', async () => {
 });
 
 test('generate-object-comments 可重复生成目录', () => {
-  const first = generateObjectCommentsCatalog({ repositoryRoot });
-  const second = generateObjectCommentsCatalog({ repositoryRoot });
-  assert.equal(first.tableCount, second.tableCount);
-  assert.ok(first.tableCount >= 60);
+  // 验证输出可重现，但不能覆盖共享工作区中已有的正式目录或其他会话改动。
+  const temporary = fs.mkdtempSync(path.join(os.tmpdir(), 'fullnet-object-comments-'));
+  const outputPath = path.join(temporary, 'catalog.json');
+  try {
+    const first = generateObjectCommentsCatalog({ repositoryRoot, outputPath });
+    const bytes = fs.readFileSync(outputPath);
+    const second = generateObjectCommentsCatalog({ repositoryRoot, outputPath });
+    assert.equal(first.tableCount, second.tableCount);
+    assert.equal(first.outputPath, outputPath);
+    assert.deepEqual(bytes, fs.readFileSync(outputPath));
+    assert.ok(first.tableCount >= 60);
+  } finally {
+    if (fs.existsSync(outputPath)) fs.unlinkSync(outputPath);
+    fs.rmdirSync(temporary);
+  }
 });

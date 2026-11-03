@@ -1,10 +1,12 @@
-# Full.NET 认证中心与 SSO：eShop 对照研究及验证方案
+# Full.NET 认证中心与 SSO：对照研究、模块审查与验证方案
+
+> 当前阅读入口：[执行授权与 B1 实施记录](#16-2026-10-26-执行授权与-b1-实施记录)；产品比较与审查依据见[模块复核与改造建议](#15-2026-10-26-模块复核与改造建议)。§1—§15 保留各次研究/验证的输入与范围；旧的 CI 前置、全量执行和强制兼容要求不覆盖现行规则，不将建议或源码存在升级为运行验收通过。
 
 ## 1. 状态、范围与基线
 
 - 日期：2026-09-13。
 - 初次研究状态：源码与官方资料核对完成；PoC、集成、浏览器、多实例与 Native AOT 验证均未执行。
-- 后续确认：项目所有者于 2026-09-13 要求按建议推进并同步项目文档和执行计划。演进方向已接受，见 [ADR-0011](../architecture/adr/ADR-0011-identity-oidc-sso-evolution.md)、[Identity 规格 §14](../superpowers/specs/2026-07-17-identity-session-foundation-design.md#14-oidc-认证中心与-sso-演进2026-09-13-已确认)及[唯一活动计划](../superpowers/plans/2026-09-13-identity-oidc-sso-evolution.md)；P0 尚未开始。
+- 历史确认：项目所有者于 2026-09-13 要求按建议推进并同步项目文档和执行计划。演进方向已接受，见 [ADR-0011](../architecture/adr/ADR-0011-identity-oidc-sso-evolution.md)、[Identity 规格 §14](../superpowers/specs/2026-07-17-identity-session-foundation-design.md#14-oidc-认证中心与-sso-演进2026-09-13-已确认)及[唯一活动计划](../superpowers/plans/2026-09-13-identity-oidc-sso-evolution.md)；当时 P0 尚未开始，不表示 2026-10-26 仍无实现。
 - 初次研究授权：合并两轮讨论与用户提供的补充分析，形成验证 Markdown；当时不实施认证中心、不新增依赖、迁移或运行服务。后续按已确认计划与阶段门禁推进。
 - Full.NET 基线：分支 `main`，HEAD `f74515d1b9e4544e4c75eeb623892970790b4d0c`。工作区已有大量未提交变更，包括 Identity 注册文件；本报告观察的是当前工作区，不能将所有本地事实归于该提交。
 - eShop 固定基线：`b4a40872005d4bb29e5b1fa1ff7e244143d39215`。其中央包文件实际指定 Duende IdentityServer 相关包 `7.3.2`；不能用当前 Duende 最新版文档推定示例已经具有新版能力。[包配置](https://github.com/dotnet/eShop/blob/b4a40872005d4bb29e5b1fa1ff7e244143d39215/Directory.Packages.props)
@@ -517,3 +519,242 @@ V14／V15 的跨应用传播时限、外部 API 离线令牌存活窗口，应�
 - 提交前发现 8 个新增文件为 UTF-16，已按文件字节证据转换为 UTF-8：两份 Vue 注册/找回密码页面、一份基线文档及五份迁移脚本。另清理新增文件尾部空白。
 - 修正编码后 `pnpm --dir ui/admin typecheck` 通过，`pnpm test:sql-safety` 5/5 通过；`pnpm test:naming` 为 29/32，通过前记录已不代表当前完整工作区。新增失败为迁移注释目录/脚本注释缺失、228 双库超长索引名和 MySQL 223 固定动态 DDL 未登记。此次提交保存当前代码，不代表这些门禁已修复或 CI 验收完成。
 - 全量正式源码、契约、模板、样例、测试与文档纳入提交；根目录临时日志、CI 下载产物及生成预览副本保留本地，不提交、不推送。
+
+## 15. 2026-10-26 模块复核与改造建议
+
+### 15.1 范围、授权与证据等级
+
+- 用户要求：审查标准 OIDC 认证中心与 SSO，与成熟产品比较并提出改造建议；随后要求“改造建议写到文档 并审查更新”。本轮仅修改报告、规格、ADR 与唯一活动计划，不实施业务代码、迁移、依赖升级或生产启用。
+- 基线：本地 `main`，HEAD `a77902afd87af1662af3b43206d85160eeec566b`；工作区已有其他任务改动。任务快照 `identity-oidc-review-docs-20261026` 只用于差异归属，不复制整仓。复核时主要 OIDC 实现与本次四份文档在修改前无未提交差异。
+- 方法：静态阅读配置、注册、客户端管理、会话权威、签名密钥、Vue 与共享换码逻辑；核对原规格、ADR、计划和历史证据；2026-10-26 查阅官方产品与协议资料。未进行攻击复现、浏览器抓包、双库运行、集群故障演练或 Linux Native AOT 运行。
+- 证据等级：R01—R05 为源码可确认的实现/治理缺口，运行影响按条件推导；R06—R07 为接入与产品能力差距，不将其统一标作可利用漏洞。高/中优先级是改造排序，不是 CVSS 或漏洞严重性评级。
+- 状态：已有实现，完整验收尚未关闭。历史局部通过仅属于当时输入；本轮不提升 `Verified`、`Aot-published` 或容量状态。B1—B3 是建议批次，不因落盘自动取得代码实施授权。
+
+### 15.2 应保留的设计与当前限制
+
+继续以 OpenIddict 和现有 Identity 为默认演进方向。当前 [中央包配置](https://github.com/yan041108/Full.NET/blob/a77902afd87af1662af3b43206d85160eeec566b/Directory.Packages.props)固定 OpenIddict 7.7.0；这是仓库版本事实，不表示已核验它是最新版本或完成依赖漏洞审计。[会话模型](https://github.com/yan041108/Full.NET/blob/a77902afd87af1662af3b43206d85160eeec566b/src/Modules/Full.NET.Modules.Identity/Persistence/IdentityOidcSessionRecords.cs)分离中心与应用会话，[资源校验器](https://github.com/yan041108/Full.NET/blob/a77902afd87af1662af3b43206d85160eeec566b/src/Modules/Full.NET.Modules.Identity/Oidc/IdentityOidcAccessSessionValidator.cs)检查 issuer、audience、access 用途、权威会话与租户上下文；已有显式 SQL、双库迁移及 Store 并发控制。这些与业务权限结合的边界应保留。
+
+当前能力定位为 Full.NET 第一方应用认证底座，不能仅凭采用 OpenIddict 就宣称具备完整企业 IAM。OpenIddict 专注协议，用户认证与应用交互仍由集成者负责；自定义 Dapper Store、集群状态、登录体验和长期协议回归是自建成本。[OpenIddict 定位](https://documentation.openiddict.com/introduction)
+
+### 15.3 复核发现与建议
+
+| 编号/优先级 | 源码证据与结论 | 建议及应验证的边界 |
+| --- | --- | --- |
+| R01 高：客户端权威冲突 | [Resolver](https://github.com/yan041108/Full.NET/blob/a77902afd87af1662af3b43206d85160eeec566b/src/Modules/Full.NET.Modules.Identity/Oidc/IdentityOidcClientConfigResolver.cs)优先配置并返回未禁用；[Registrar](https://github.com/yan041108/Full.NET/blob/a77902afd87af1662af3b43206d85160eeec566b/src/Modules/Full.NET.Modules.Identity/Oidc/IdentityOidcClientRegistrar.cs)启动时覆盖同 client_id 的数据库描述符。[管理服务](https://github.com/yan041108/Full.NET/blob/a77902afd87af1662af3b43206d85160eeec566b/src/Modules/Full.NET.Modules.Identity/Features/ManageOidcClients/OidcClientManagementService.cs)允许停用、修改与轮换。这使配置内客户端的管理状态与运行时判断存在冲突，重启可恢复旧策略/secret；不是所有动态客户端均受同一覆盖路径影响 | 数据库单一权威，Migrator 受控初始化，API 启动只验证；策略更新版本化，明确 OpenIddict 进程缓存收敛与失败关闭。验证停用/轮换/回调/信任级别调整后跨节点和重启不回退；配置不能重新启用新授权。停用服务会撤销既有会话与 grant，不能把配置覆盖误写成已撤销令牌必然复活 |
+| R02 高：生产配置门槛不足 | [OptionsValidator](https://github.com/yan041108/Full.NET/blob/a77902afd87af1662af3b43206d85160eeec566b/src/Modules/Full.NET.Modules.Identity/Configuration/IdentityOidcOptionsValidator.cs)允许 HTTP Issuer，协议加密密钥仅在非空时校验；[DI](https://github.com/yan041108/Full.NET/blob/a77902afd87af1662af3b43206d85160eeec566b/src/Modules/Full.NET.Modules.Identity/DependencyInjection/IdentityOidcServiceCollectionExtensions.cs)空密钥回退临时密钥且无条件关闭 HTTPS 要求。跨节点/重启解密失败是条件性后果；是否能从公网明文访问取决于部署入口，本轮未验证 | 生产强制 HTTPS、持久化加密材料、安全 Cookie；开发/测试例外显式限定环境。代理正确恢复可信 Scheme，不以关闭检查解决 TLS 终止。验证缺失材料启动失败、伪造代理头拒绝和跨节点换码/刷新 |
+| R03 高：激活仅作用于进程 | [SigningKeyRing](https://github.com/yan041108/Full.NET/blob/a77902afd87af1662af3b43206d85160eeec566b/src/Modules/Full.NET.Modules.Identity/Oidc/IdentityOidcSigningKeyRing.cs)在内存修改活动 KeyId；[管理服务](https://github.com/yan041108/Full.NET/blob/a77902afd87af1662af3b43206d85160eeec566b/src/Modules/Full.NET.Modules.Identity/Features/ManageOidcSigningKeys/OidcSigningKeyManagementService.cs)同步本进程选项，没有持久化活动版本或节点协调。若各节点预先持有全部公钥，不一定立即验签失败，但重启回退及节点签发状态不一致仍存在 | 持久化元数据/活动版本，私钥由受控 Secret 提供；预发布公钥、节点就绪、激活、保留旧验签窗口、退役。签名、协议加密和 Data Protection 分开管理；验证切换中断、审计失败、节点重启与旧令牌窗口，不把单节点 API 成功当集群完成 |
+| R04 高：Vue RP 与令牌保管不完整 | [凭据存储](https://github.com/yan041108/Full.NET/blob/a77902afd87af1662af3b43206d85160eeec566b/ui/admin/src/auth/oidc-session-credentials.ts)保存 refresh token 到 sessionStorage；[回调](https://github.com/yan041108/Full.NET/blob/a77902afd87af1662af3b43206d85160eeec566b/ui/admin/src/auth/oidc-center-login.ts)检查 state，但 nonce 未用于 ID Token 校验；[换码映射](https://github.com/yan041108/Full.NET/blob/a77902afd87af1662af3b43206d85160eeec566b/packages/client-contracts/src/oidc-interactive-auth.ts)丢弃 id_token。已有 state/PKCE，且本轮未证明可利用登录绕过；缺口是完整 RP 验证及浏览器可读长期凭据 | 推荐同源 BFF：服务端换码、验证签名/iss/aud/nonce/有效期、保存令牌并刷新；浏览器仅安全 HttpOnly 会话 Cookie。独立处理 CSRF、防会话固定、session 绑定、并发刷新与失败清理。BFF 降低令牌窃取面，不消除 XSS 代用户发请求的风险；所选组件先验证 Native AOT，不默认新增宿主 |
+| R05 高：客户端最小授权被扩展 | [描述符工厂](https://github.com/yan041108/Full.NET/blob/a77902afd87af1662af3b43206d85160eeec566b/src/Modules/Full.NET.Modules.Identity/Oidc/IdentityOidcClientDescriptorFactory.cs)无条件追加 profile、offline_access 与 RefreshToken grant；管理更新也补回 scope。管理员无法按输入精确限制这些能力。不是无请求就必然签发额外 scope，也不等于业务权限绕过 | 分开管理允许 scope/grant/audience/refresh/有效期，offline_access 显式授予。结合 OpenIddict 对内置 scope 的处理验证实际拒绝行为，不能只删集合条目就认定权限收紧。验证仅 openid 客户端不能额外获取 profile/离线续期，以及策略收紧对既有 grant 的处置 |
+| R06 中：标准退出与外部撤销链路不足 | [会话入口](https://github.com/yan041108/Full.NET/blob/a77902afd87af1662af3b43206d85160eeec566b/src/Modules/Full.NET.Modules.Identity/Features/OidcSession/Endpoint.cs)使用自定义退出 API；所查注册未配置标准 End Session/Revocation/Introspection，未找到标准 Back-Channel Logout 投递。当前有本地权威撤销，不能描述为完全没有退出能力 | 优先 RP-Initiated Logout 与 Back-Channel Logout，明确当前应用、当前中心会话及全部设备目标。已注册回跳精确验证；logout token 验签、aud/iss/sid/sub/jti、幂等、重放与有界重试；本地撤销不等待外部通知。可靠业务通知可沿批准 Outbox 边界，缓存/日志不进入。外部离线 JWT 不能被通知即时撤销；在线检查或短 TTL 由实际资源需求决定 |
+| R07 中：认证产品流程不足 | [中心凭据服务](https://github.com/yan041108/Full.NET/blob/a77902afd87af1662af3b43206d85160eeec566b/src/Modules/Full.NET.Modules.Identity/Oidc/IdentityOidcCenterLoginService.cs)限定 Host 账号密码；[授权入口](https://github.com/yan041108/Full.NET/blob/a77902afd87af1662af3b43206d85160eeec566b/src/Modules/Full.NET.Modules.Identity/Features/OidcAuthorization/Endpoint.cs)是英文拼接表单，所查流程未形成 consent、MFA 登录和 acr/amr 策略闭环。现有外部 OIDC 客户端及 TOTP 强重认证不自动补齐该中心流程 | 先完成多语言、强制改密/恢复、第一方预授权与第三方 consent、MFA 挑战和强度策略，再按真实消费者扩展企业 IdP/Passkey。验证 prompt/max_age、拒绝/撤回同意及强度不足的标准错误；租户选择经权限/成员关系确认，禁止按邮箱自动合并账号 |
+
+标准限定：RP-Initiated Logout、Back-Channel Logout、Revocation、Introspection 是按需求支持的扩展，不能将缺少任意扩展都写成违反 OIDC Core。通过框架自身测试也不等于 Full.NET 集成已通过协议一致性或获得认证。[RP 退出规范](https://openid.net/specs/openid-connect-rpinitiated-1_0.html)、[OIDC Core](https://openid.net/specs/openid-connect-core-1_0.html)
+
+生产 HTTPS 建议与 OpenIddict 官方要求一致；即便代理终止 TLS，仍应恢复可信 Scheme 并保留检查。[OpenIddict ASP.NET Core 集成](https://documentation.openiddict.com/integrations/aspnet-core)。BFF 与机密客户端建议参考 ASP.NET Core 10 官方指南，但该指南不证明本仓库选定集成的 AOT 可行性。[微软指南](https://learn.microsoft.com/aspnet/core/security/authentication/configure-oidc-web-authentication?view=aspnetcore-10.0)
+
+### 15.4 成熟方案比较与适用条件
+
+以下能力按 2026-10-26 官方资料核对；适配成本是本仓库约束下的工程判断，不是产品性能排名，不比较未经实测的吞吐量或价格。
+
+| 方案 | 优势 | Full.NET 的代价/限制 | 选择条件 |
+| --- | --- | --- | --- |
+| OpenIddict + 现有 Identity | 保留账号权威、Dapper、业务授权与租户隔离；协议栈可定制 | 不是完整 IAM 成品；自有 Store、流程、集群治理及运维均需维护 | 推荐保留为当前底座路线，先修复 R01—R05，再补标准 SSO 与认证体验 |
+| Keycloak | 成品管理控制台、身份代理、LDAP/AD、可配置认证流程、Passkey 与标准退出能力 | 独立身份系统与运维面；需要明确账号权威、绑定、租户映射及注销联动；不能直接替换 Full.NET 数据权限 | 急需广泛企业 SSO 能力且可以接受独立部署时评估，不能因功能多就推翻当前模块化单体基线 |
+| Duende IdentityServer + BFF | .NET 协议/BFF 产品与支持；提供密钥管理能力 | 仍需账号和业务权限集成；生产及再分发许可、版本功能边界需核对；Dapper/AOT 验证不能省略 | 愿意用商业支持降低维护负担时评估；自动密钥管理能力取决于所选版本/许可 |
+| Auth0 | 托管身份服务；Organizations 支持组织品牌、成员、角色和联合登录等 B2B 接入 | 外部依赖、套餐与迁移成本；数据驻留和服务约束须按项目核对；业务数据授权仍由 Full.NET 负责 | 优先上线速度且允许托管身份时评估，不把 Organizations 自动等同于 Full.NET 数据租户 |
+
+来源：[OpenIddict](https://documentation.openiddict.com/introduction)、[Keycloak 管理指南](https://www.keycloak.org/docs/latest/server_admin/index.html)、[Duende BFF](https://docs.duendesoftware.com/bff/)、[密钥管理](https://docs.duendesoftware.com/identityserver/fundamentals/key-management/)、[许可](https://docs.duendesoftware.com/general/licensing/)、[Auth0 Organizations](https://auth0.com/docs/manage-users/organizations)。未选择或安装新产品，未确认任何采购或再分发授权。
+
+### 15.5 改造顺序、验收与未验证项
+
+建议顺序为 B1 治理与生产可靠性 → B2 标准 SSO 闭环 → B3 认证体验及按需企业接入。完整范围、文件定位、V 场景映射与停止条件集中维护在[唯一活动计划 §1](../superpowers/plans/2026-09-13-identity-oidc-sso-evolution.md#1-批准状态与范围)，本报告不另建执行清单。
+
+每批先集中完成关联实现，再测试本次改动及直接必要边界。受影响持久化场景成对验证 SQL Server/MySQL；浏览器使用真实两个客户端及标准 RP，AOT 验证实际改变的 Linux 原生路径。生产容量、外部撤销传播时限和运行可靠性均需真实测量，不能借产品官方能力推导 Full.NET 已达标。OpenID 一致性测试只选择所开放的 profile，不要求为测试启用原本不支持的 flow；测试通过与申请认证是两件事。[OpenID OP 测试指南](https://openid.net/certification/connect_op_testing/)
+
+本轮文档审查校正：旧“P0 未开始”改为已有实现但完整验收未关闭；旧 SPA 冻结策略标为历史实现；客户端覆盖不表述为已撤销会话必然复活；单节点切钥不表述为必然全站验签失败；nonce/ID Token 校验缺口不直接推导可利用绕过；可选退出扩展不表述为全部 OIDC Core 必选。历史证据保留原日期和结果，当前能力矩阵不变。
+
+本轮文档验证：对本次四份 Markdown 调用仓库 `validateMarkdownBuffer`，UTF-8/乱码检查通过；检查 63 个本地链接及其中 16 个标题锚点，均有效；本任务 `git diff --check` 无空白错误。复核新旧决策状态、R01—R07 与 B1—B3 映射及历史记录限定，未修改任何能力通过标记。
+
+本轮未执行代码测试、构建、真实协议交互、双库、多实例或 Native AOT；这些项均保持未验证，不据文档检查关闭运行验收。
+
+## 16. 2026-10-26 执行授权与 B1 实施记录
+
+### 16.1 输入、范围与已实现内容
+
+用户在 §15 文档交付后明确要求“执行”。本次实施基线仍为 `main` / `a77902afd87af1662af3b43206d85160eeec566b`，任务快照为 `identity-oidc-remediation-20261026`。保护其他任务的文档、Document/CodeGeneration 等实现与契约改动；不提交、推送或发布。
+
+本次先实现 B1 的治理与生产可靠性基础：
+
+- 删除 API 启动客户端注册器，抽出不含服务器/Cookie 的 OpenIddict Store 闭包供 Migrator 使用。Baseline Contributor 只创建不存在的客户端和 scope，已有策略与 secret 不覆写；API 运行时 Resolver 只读数据库。
+- 关闭 OpenIddict 进程实体缓存；第一方信任默认关闭。描述符与管理更新精确保留 scope，只有显式 offline_access 才开放刷新 grant；额外校验组件内置 scope，授权码兑换与刷新重验当前策略。策略变化与旧授权/应用会话撤销放在 Identity 本地事务中。
+- 非 Development/Testing 环境强制 HTTPS Issuer、持久化签名与协议加密材料；协议明文测试例外限定开发/测试环境。生产中心 Cookie 强制 Secure。
+- 成对新增 `291_IdentityOidcSigningPolicy.sql`，存储集群活动密钥指针与版本。Migrator 仅首次初始化；管理激活使用原指针与版本的条件更新，并与激活审计共用事务。签发路径读取持久化状态，节点重启不覆盖；缺少活动材料时失败关闭，公开 JWKS 不额外依赖数据库。
+- 候选签名密钥预发布公钥，避免只注册活动密钥而使切换出现公钥空窗。各节点仍须在激活前受控部署材料；当前没有自动节点就绪确认、自动退役调度或完整集群传播时限承诺，不能将活动指针同步外推为这些能力已完成。
+- 同步原生测试的准备流程：显式由 JIT Migrator 初始化 OIDC 客户端，原生 API 不再写入注册状态；密钥切换用例改为显式持久化激活，启动配置不再表示覆盖操作。
+
+### 16.2 聚焦验证与边界
+
+| 检查 | 实际结果与范围 |
+| --- | --- |
+| 环境自检 | `node scripts/doctor.mjs --profile backend --json` 通过；.NET SDK 10.0.402、Docker Engine 可用；该结果不等于运行验收 |
+| Release 构建 | Unit 与 Integration 项目单节点构建通过，均 0 警告/错误。普通并行 Release 构建曾发生 MSBuild AccessViolation/子节点提前退出，按受控 `-m:1 -nodeReuse:false -p:UseSharedCompilation=false` 构建恢复；失败不计为测试通过 |
+| Unit | `identity-oidc-remediation-b1` 对应的四个类共 20 项通过，0 失败/跳过；使用本次 Release 构建。早先未重建 Release 的旧产物运行不作为本批新实现的证据 |
+| SQL Server/MySQL Integration | 精确选择新治理持久化类及既有协议、客户端管理、签名轮换与退役入口，共 12 项通过，0 失败/跳过。覆盖初始化重跑、节点重启后的活动指针、未记账迁移恢复、旧公钥保留与受控移除；不等于全部 OIDC 或前端验收 |
+| 迁移结构 | 只对 291 双库文件调用命名、对象注释与 SQL 安全校验器，全部无违规；未自动执行全仓治理/全量测试 |
+| Native AOT | 首次分析构建因 CodeGeneration 类型缺失失败；对应源码出现后重新执行 Host.Api `FullNetAotAnalysis=true`，0 警告/0 错误，默认 JIT 还原图已恢复。只证明当前静态闭包，不借此提升 `Aot-published`；Linux 原生发布/运行未执行 |
+
+本次未新增第二份执行计划；B1 未完成的节点就绪/轮换生命周期与必要原生运行证据继续留在原计划，B2 Vue BFF/标准退出和 B3 认证体验尚未由本批实现。生产容量与跨应用注销传播上界保持未验证。
+
+### 16.3 2026-10-26 改动与构建阻塞（历史记录）
+
+12 项通过后，继续补充仅 openid 客户端请求 profile/offline_access 的真实协议拒绝断言，并复核密钥激活失败语义：未知/无私钥输入返回 400，持久化策略并发冲突返回 409；同步声明 409 元数据。删除被后续配置覆盖的冗余 Cookie 配置，中心 Cookie 继续 Secure。
+
+重建 Integration 时，工作区其他任务的 `tests/Full.NET.IntegrationTests/CodeGeneration/GeneratedRemediationCommandTests.cs` 出现 CS0246：缺少 `ProductAggregateService`、`ProductDetailInput`、`ProductDetailQueryService`、`ProductDetailManagementService`。该次构建 5 个错误，新增负例未进入执行；上一轮 12 项结果不外推为这些最新改动已通过。没有修改或排除该任务的测试源码来绕过失败。
+
+首次 Host.Api AOT 分析构建出现 4 个 CS0103，位置为 `CrudVueViewGenerator.cs` 对 `CrudAggregateVueGenerator` 的引用；这是编译失败，不能算 AOT 分析通过。失败期间工作区出现对应类型文件，因此对新输入另行重验。每次 AOT 尝试后均恢复默认 JIT 还原图。Linux 原生发布与运行尚未执行，不升级能力状态。
+
+重验结果：Host.Api Release / `FullNetAotAnalysis=true` 构建通过，0 警告/0 错误，耗时 5 分 18 秒；该结果仅替代首次静态分析阻塞，不替代上文 Integration 最新构建失败或 Linux 原生运行证据。文档 UTF-8/乱码及本地链接/锚点检查通过；本任务差异空白检查通过。当前 B1 保持核心已实现、完整验收未关闭，B2/B3 尚未实施。
+
+### 16.4 2026-10-27 续作：scope 顺序与标准 RP 退出
+
+基线仍为 `main` / `a77902afd87af1662af3b43206d85160eeec566b`；新快照 `identity-oidc-continue-20261027`。后端只读自检通过。其他任务已补齐 Product 生成类型，本次 Integration 编译成功，§16.3 的类型缺失不再是当前阻塞；没有修改或排除其他任务的用例。
+
+新增或修正的行为：
+
+- 客户端 scope 校验移到 OpenIddict 默认 grant 权限检查之前，防止内置 `offline_access` 检查抢先返回另一错误；真实协议覆盖未授予的 `openid`、`profile`、`offline_access`，统一拒绝为 `invalid_scope`。
+- 配置标准 `/connect/logout`，Discovery 发布 `end_session_endpoint`。GET 和普通 RP POST 展示确认页，确认 POST 先经过防伪验证；页面 no-store、无 referrer 且禁止嵌入。回调只由协议组件验证和产生，`state` 按协议回传，ID Token 输出当前中心会话的标准 `sid`。
+- OpenIddict 默认允许可选 hint 验证失败后继续；本实现增加验证处理器，要求提供的 `id_token_hint` 必须有组件验证出的 principal，失败时拒绝，避免静默降级。确认与防伪要求不因提供 hint 而跳过，也不凭 hint 撤销其他设备。语义依据为 [RP-Initiated Logout 1.0 §2—§4](https://openid.net/specs/openid-connect-rpinitiated-1_0.html#RPLogout)，组件行为对照 [OpenIddict 7.7.0 Session 处理器](https://github.com/openiddict/openiddict-core/blob/7.7.0/src/OpenIddict.Server/OpenIddictServerHandlers.Session.cs)。
+- 当前浏览器退出只撤销其中心与关联应用会话，审计共用 Identity 本地事务，提交后发布既有实时撤销提示；不调用按用户撤销全部 grant 的接口。access/refresh 的后续使用由现有权威会话校验拒绝，其他设备保持有效。中心撤销采用单向条件更新，避免并发续期版本递增使撤销丢失。
+
+聚焦验证记录：
+
+| 检查 | 结果与限制 |
+| --- | --- |
+| 初轮治理回归 | 构建成功；6 项中 4 通过、2 因 scope 错误码断言失败。未将该轮报告为通过 |
+| 首轮退出回归 | 8 项中 4 通过、4 失败，分别揭示 scope 处理顺序及组件对无效可选 hint 的容忍行为；已针对真实路径修正 |
+| 治理与退出双库重验 | 8/8 通过，0 失败/跳过：治理持久化类 4 项、签名密钥管理入口 2 项、标准退出 2 项。覆盖错误 hint、未注册回调、GET/普通 POST 无撤销、防伪、state 回传、当前 access/refresh 失效及其他设备保留；使用 HTTPS TestServer 浏览器维持 Secure Cookie 属性 |
+| 补强后 Unit | 最新 Release 构建 0 警告/错误；上述治理类及直接受影响的主体投影、会话与退出边界共 52/52 通过，0 失败/跳过。矩阵选择器为 `identity-oidc-b1-b2`；不是整个 Identity Unit 套件 |
+| 补强后 Integration | 最新 Release 构建 0 警告/错误；退出场景补充 hint/client 不匹配与真实续期插入撤销读写窗口的负例，与既有正常协议授权流一起精确选择 4/4 通过，0 失败/跳过。该轮与上一轮退出用例重叠，不能累加宣称 12 个不同用例 |
+| 最新 AOT 分析 | Host.Api Release / `FullNetAotAnalysis=true` 构建通过，0 警告/错误，耗时 6 分 17 秒；已恢复默认 JIT 还原图。未执行 Linux 原生发布/运行 |
+| 文档 | 5 个相关 Markdown 的 UTF-8、60 个本地文件链接与 20 个锚点检查通过；没有执行全量测试 |
+
+该结果是 TestServer HTTP 协议与真实双库验证，不是浏览器 UI 或 Linux Native AOT 运行证明。标准退出尚未包含 Back-Channel 通知，Vue 仍未迁移 BFF；节点就绪/密钥生命周期、原生证据和 B3 认证体验继续由唯一活动计划追踪，不提升整批 `Verified` 或生产就绪状态。
+
+收尾已核对分支/HEAD、任务相关差异空白与新文件编码；矩阵新增了 52 项 Unit 与 8 项双库聚焦选择器。成功运行的临时产物由现有上下文清理。两轮失败 TRX 已保留到各自系统临时运行目录根部；清理三处已结束测试的其余临时目录时，自动审批返回 `blocked by policy`，因此保留这些目录，没有改用其他工具绕过清理限制。
+
+### 16.5 2026-10-27 BFF、可靠退出与中心认证交互
+
+本轮快照 `identity-oidc-remaining-20261027`，基线仍为 `main` / `a77902afd87af1662af3b43206d85160eeec566b`。以下是本轮实现与实际验证，§16.4 的“尚未实施”只保留为上一切片历史。
+
+- **BFF 与 RP。** 在现有 API 装配 OpenIddict Client 7.7.0，复用自有 Dapper Token Store 保持有状态、一次性回调。随机 256 位 `__Host-fullnet-browser` Cookie 使用 Secure/HttpOnly/SameSite=Lax；数据库仅保存句柄 SHA-256 与 Data Protection 密文。浏览器恢复响应只含到期时间与 CSRF 随机值，OAuth access/refresh/ID Token 留在服务器。组件回调保护依据 [OpenIddict 官方客户端说明](https://documentation.openiddict.com/guides/getting-started/integrating-with-a-remote-server-instance.html)；复用 Store 不引入 EF Core。
+- **刷新与上下文。** 共享数据库版本/CAS 租约串行刷新及租户切换；结果未知、过期租约或保存失败关闭票据，不重用旧 refresh。禁止组件和宿主 HTTP 自动重试一次性凭据。写请求检查精确 Origin/Referer 和常量时间 CSRF 值，WebSocket 同样核对来源；租户切换返回 204，改密后要求重登。启用 BFF 时不映射旧人类密码/刷新/OAuth 回调，JWT 只接受 OIDC issuer。没有生成虚假 TokenResponse 供旧前端逻辑使用。
+- **可靠退出。** 中心/全设备撤销和退出意图 Outbox 共用本地事务；Worker 先幂等落地 `fn_identity_oidc_logout_delivery`，再在事务外投递。标准签名 `logout_token` 绑定 issuer/audience/sub/sid、稳定 jti、事件声明，省略 nonce，采用 `logout+jwt`；协议依据 [Back-Channel Logout 1.0 §2](https://openid.net/specs/openid-connect-backchannel-1_0.html#BCLogout)。目的地须属于部署方许可的 HTTPS 来源，禁止重定向、代理和 Cookie。5 秒 HTTP 超时，5 秒轮询，最多 8 次退避重试，失败终态可按客户端更新权限审计重放；有界清理不删 pending 或持有租约的工作。这个调度参数不是已实测的外部传播 SLO，最终 RP 仍须实现签名校验、jti 幂等和自身会话撤销。
+- **中心交互。** `ui_locales` 按现有规范化器选择中英文；第三方展示精确 scope 并明确同意，永久授权参与后续签发；安全设置页支持本人撤回同一应用全部授权、令牌和应用会话。已登记 TOTP 的账号必须提交第二因子，步长 CAS 防止重放；一次性恢复码可用于账号恢复，恢复不关闭 TOTP。必须改密时不创建中心会话或授权码，改密/恢复后撤销全部权威状态。`auth_time/amr/acr` 保留真实认证结果，租户切换不提升强度；不宣称 NIST AAL 或扩大企业协议范围。
+- **部署与持久化。** 双库迁移 300/301/302 分别承载浏览器票据、TOTP 消费步长和退出队列；Migrator 仅初始化不存在的 BFF 机密客户端，API 不覆盖已保存策略。BFF 状态签名、状态加密和协议加密材料彼此独立，API/Migrator 共用配置门禁；多节点仍需共享 Data Protection。后台客户端编辑补 MFA 和退出地址，普通新客户端默认非第一方。
+
+本轮验证记录：
+
+| 检查 | 实际结果 |
+| --- | --- |
+| Vue BFF 单元/组件 | 7 个文件，20/20 通过，0 跳过；覆盖恢复、租户切换、撤销、回调及过期异步恢复不复活退出状态 |
+| 共享客户端相关测试 | HTTP、会话、实时通知、OIDC 客户端/授权及交互辅助共 6 个文件，36/36 通过 |
+| Vue 类型检查 | 新增本人授权表格修正后通过；不等同真实浏览器验收 |
+| 首轮后端构建 | 修正 OpenIddict Discovery 上下文成员和测试取消令牌参数；共享 Organization 新测试缺少 friend assembly 导致编译失败，已补最小内部访问声明，未排除其用例 |
+| 首轮双库联调 | Release 构建 0 警告/错误；14 项中 10 通过、4 失败、0 跳过。过期 ID Token 负例揭示组件授权码通道默认容忍有效期，已显式启用；另 2 项因先清 Cookie 再写 Cookie 产生两个响应头，已消除无意义的清 Cookie 响应。失败不计通过 |
+| 修正后核心双库 | 16/16 通过，0 失败/跳过。真实过期/nonce/issuer/audience 拒绝、回调重放、并发刷新、未知网络结果仅发送一次、MFA/同意/改密、退出队列重启与迁移恢复均执行；后续 303 和密钥生命周期增量另行验证 |
+| 本轮最新 Unit | Release 构建 0 警告/错误，矩阵 `identity-oidc-remaining` 精确选择 119/119 通过，0 失败/跳过；包含新增密钥材料、浏览器边界、权限目录和错误资源检查 |
+| 最新前端补验 | Vue 类型检查通过；共享客户端密钥/客户端/HTTP/会话 4 文件 15/15 通过，与上文 36 项有重叠，不相加 |
+| 架构检查首轮 | 7 项中 6 通过、1 失败；租户写入边界清单缺少并行任务的 Document 后台清理边界，且本次新增项顺序未同步。已核对固定 Host/finally 清理并修正清单，待新鲜重验；没有排除用例 |
+
+本节记录核心实现阶段；后续密钥治理、真实浏览器与原生运行结果以 §16.6 为准，不能把本节早期未执行状态当作最终结论。外部退出传播时限和生产容量仍须单独实测。
+
+### 16.6 2026-10-27 集群密钥治理与最终运行验收
+
+迁移 303 成对创建公开密钥生命周期表和签发节点租约表。`kid` 绑定规范 RSA SPKI 指纹，不因 PEM 空白/编码改变，也不能重绑其他材料；API readiness 与 Worker 记录材料摘要、协议加密及期限配置指纹、策略版本、候选私钥标识和 90 秒租约，不存私钥。激活要求预发布窗口和最少 API 数，以及全部存活节点材料一致并具备候选私钥，持久化 CAS 阻止并发覆盖。生产预发布至少 60 秒；Helm 的最少节点数来自 API 最小副本数。
+
+轮换后旧公钥继续保留，退役期限覆盖配置完整窗口和数据库现存合法令牌/中心会话最长到期，防止缩短配置后提前移除历史材料。活动钥不能退役，退役不可逆、不能重新发布；资源 API 每次核对权威退役状态，禁止对端仍缓存旧公钥时继续接受。启动缺少未退役的历史公钥失败关闭，已就绪节点仍可在数据库短暂不可用时提供已知 JWKS。原先“删配置即退役”的测试已同步为受控生命周期，并补精确 publish/retire 权限负例。
+
+真实浏览器入口使用 `IdentityBrowserUiTests` 配合 `playwright.bff.config.mjs`，独立于历史 SPA/legacy 全栈夹具；真实 HTTPS Vue 代理终止 TLS，两个回环 Kestrel 后端只信任该代理，配合 SQL Server/MySQL 和系统 Edge，不 Mock Discovery、JWKS、令牌或后端。登录与回调分别进入两个 API，验证共享状态和保护票据。第二 RP 是独立 HTTPS 来源，测试凭据只在 Playwright Node 进程，浏览器复用中心 Cookie 进行 `prompt=none`，并验证标准 state/nonce/签名/issuer/audience/到期及应用退出范围。`pnpm test:e2e:real:oidc-center` 已指向资源门禁内的新夹具；历史 HTTP SPA 项目退出活动 Playwright 配置，其业务探针文件仅保留追踪，不谎报已在 BFF 下重跑。Native 入口为 `NativeApiBrowserSessionTests`，可通过 `node scripts/testing/run-identity-oidc-runtime.mjs --native` 真实发布和运行 Linux ELF；Windows 发现或跳过不能替代。
+
+复核同时补强上下文切换的票据写入失败：新令牌可能已提交，保存失败须关闭票据；如果删除也失败，保留数据库租约并清除本请求的本地引用，不能由中间件 finally 再释放租约，使旧 refresh 重新可领取。下次读取等待或在租约过期后关闭票据，绝不接管。双库保存失败/清理失败组合负例已在最终 18 项批次通过。
+
+退役补验还发现 `JwtBearerOptions.Events` 的委托会被现有 `EventsType=FullNetJwtBearerEvents` 替代，原权威退役检查没有真正运行；此前推进测试时钟又使令牌先过期，掩盖了问题。现把检查放入实际的 `FullNetJwtBearerEvents.TokenValidated`，保留 C0 会话判断，数据库异常失败关闭。回归在退役后恢复业务时钟，证明仍持旧 RSA 公钥、且令牌尚未自然过期的对端返回 401；双库均通过。
+
+| 最终批次过程 | 实际结果与当前限制 |
+| --- | --- |
+| 定向后端构建 | 最新 Unit/Integration Release 均 0 警告/错误，包含票据失败、刷新 issuer 和真实 JWT 事件修正 |
+| 架构边界重验 | 7/7 通过，0 失败/跳过，关闭 §16.5 首轮清单差异 |
+| 双库扩展批次 | 38 项实际执行，36 通过、2 失败、0 跳过；失败均为历史多节点激活用例仍预期对端继续用旧钥，而实际已按数据库指针收敛。已同步断言并在重复治理前调用真实 readiness，后续定向重验不得沿用失败轮为通过 |
+| 最新 Vue 相关批次 | 7 文件 23/23 通过；首次暴露默认客户端仍断言 `admin-spa`，已同步到 `fullnet-admin-bff` 后通过；与 §16.5 的 20 项重叠，不累加 |
+| 双库脚本结构 | 迁移 300—303 共 8 文件的中文表/列注释及 SQL 安全检查通过；303 MySQL 表注释排列已与仓库解析器一致。不以静态检查替代双库重放用例 |
+| 最终定向 Unit | 13/13 通过、零跳过：上下文服务 6 项、刷新签发器 1 项、模块条件装配 6 项；协议 HTTP 工厂另批 3/3。与前述 119 项重叠，不直接相加；矩阵登记的去重范围为至少 129 项，本轮没有重新整批运行该选择器 |
+| 最终定向双库 | 18/18 通过、零跳过：BFF 8 项、多节点激活 2 项、单/多节点退役 4 项、多节点应用/中心退出 4 项。关闭扩展批次的旧激活断言、缓存公钥退役检查，以及历史 HTTP 夹具未携带 Secure 中心 Cookie 的失败；没有降低 Cookie 安全属性 |
+| 最终真实浏览器 | 双库 MSTest 2/2 通过、内部 Edge 桌面/移动 4 条真实流程全通过、零跳过。覆盖 HTTPS 登录与跨 API 回调、第二 HTTPS RP 无提示 SSO、恢复/CSRF/租户切换、密钥 publish/activate/详情、客户端 MFA 与退出地址编辑后取消、投递查询刷新、本人授权空态和应用/中心退出。未见页面脚本异常或 API 5xx；响应式截图人工核对通过，不把空态浏览器检查冒充实际撤回同意的 UI 操作 |
+| 浏览器密钥操作复核 | 新增真实 publish/activate 后，桌面流程发现行重排后操作组仍缓存旧插槽和回调，移动端重新载入则正常；该失败轮没有记为通过。最小组件回归先准确失败；操作组改为每轮渲染读取当前插槽，密钥表以 `keyId` 标识行。相关组件/API 回归和最终浏览器重验均通过，后端退役窗口没有放宽；补齐开关样式和 BFF 改密后的重新登录说明，截图等待抽屉进入视口 |
+| Native 资源故障 | 6 GiB 容器上限在 ILC 生成对象阶段出现 OutOfMemoryException；入口已调整为 12 GiB 构建预算与容器上限，另保留门禁的 4 GiB 余量。纯编译不提前占用重型运行锁。复用既有 TEMP 缓存重试，未复制源码、未终止其他会话或数据库 |
+| 最终 Native 发布/运行 | linux-x64 ELF 发布成功；9 条已登记第三方 ILC 告警、零新增。SQL Server/MySQL 原生进程 2/2 通过、零跳过，实际执行登录、回调、票据恢复、CSRF、切租户后刷新和应用退出；不是 Windows discovery 或跳过 |
+| 最终客户端契约 | 退出投递 DTO/guard 移至共享契约，补客户端 MFA/退出地址、本人授权与密钥 publish/retire 夹具及消费者登记；离线管理契约 3/3、共享 OIDC 3 文件 9/9、Vue 组件/API 5 文件 13/13 通过，类型检查通过，相关覆盖零遗漏。与上文批次有重叠，不相加 |
+| 文档结构 | 5 文件 UTF-8、65 个本地文件链接和 19 个锚点检查通过；本任务相关 `git diff --check` 通过 |
+
+原生首轮历史：SDK 10.0.402 / linux-x64 发布 ELF，147,232,192 字节，SHA-256 `40690ca19283ade77d9b1c2934712e2f5c33b05c46f22b5273cf05da391b2ce4`；9 条 ILC 警告均为仓库已登记第三方程序集，零新增告警。双库原生运行均完成登录、一次性回调、票据恢复及租户切换，但切换后的真实刷新返回 `invalid_grant`（ID2088，issuer 无效），该轮 0/2 通过，不能计为原生运行验收。
+
+根因是 `IdentityOidcContextRefreshTokenIssuer` 手动分派 `GenerateTokenContext`，没有设置组件取作标准 JWT issuer 的 `Claims.Private.Issuer`；同时捕获 `IOptions` 首次值，可能在轮换后继续使用旧凭据。现显式设置已配置 issuer，并每次读取 `IOptionsMonitor.CurrentValue`；依据为 [OpenIddict 7.7.0 令牌元数据生成实现](https://github.com/openiddict/openiddict-core/blob/7.7.0/src/OpenIddict.Server/OpenIddictServerHandlers.Protection.cs)。新增管理态“切换后立即真刷新”回归和当前选项单元验证均已通过；重用该轮系统 TEMP 的 Linux 构建缓存增量重发，不复制源码或保留多套产物。修正后最终 ELF 为 **147,232,112 字节**，SHA-256 **`5e93a402692f082b59883f22a0b7852a861589eb07432cc53cee4faaf24a372e`**，双库原生运行 2/2 通过，关闭该失败。
+
+最终原生输入仍为上述 HEAD 的未提交工作树；发布前后核对 Identity 主模块与 Contracts 的 474 个 `.cs/.csproj/.resx`（排除 bin/obj），按相对路径排序、每文件 SHA-256 汇总为 `19b54051dd22cf7ec0df8be88209120b766b86ccbbe3218226c82d05c7cdb094`，未改变。该摘要限定本任务 Identity 范围，不冒充整个并行工作区的冻结哈希。环境为 Windows、Docker Desktop Linux、SDK 10.0.402 / .NET 10.0.13、SQL Server 2022/MySQL 8；宿主 i9-14900K（24 核/32 线程）、63.7 GiB RAM，发布容器限制 2 CPU/12 GiB。这是功能验收，不是容量实验，保持 `Capacity-not-verified`。
+
+浏览器代理诊断已取得真实 Vite 传输错误：进入认证端点前，回环后端 TLS 握手断开。夹具改用真实 HTTPS 前端终止 TLS、仅信任回环代理恢复 HTTPS 的双 Kestrel HTTP 后端；这同时验证可信代理边界，原生入口继续验证端到端 TLS。协议客户端真实工厂的 3 项补验已通过，分别确认 BFF/退出投递仅发送一次，普通 HTTP 保留标准重试。
+
+Back-Channel 的双库用例通过受控 HTTP Handler 验证签名载荷、持久队列、失败、幂等和重启，不是外网 RP 接收验收；真实外部传播时限仍未实测。双语消息键集合聚焦检查 1 项通过，同文件其他 8 项未选择，不计为通过。全量测试、历史全部 V 场景、完整 Worker 原生发布、外部认证一致性认证和生产容量不在本次验证范围。
+
+| 原审查项 | 本轮处置与边界 |
+| --- | --- |
+| R01 客户端权威 | 数据库单一权威、Migrator 仅初始化缺失记录；停用、轮换、回调与信任调整不由 API 启动覆盖，双库/多节点路径已验证 |
+| R02 生产材料 | 生产 HTTPS、持久签名/加密、可信代理、独立 BFF 状态材料和共享 DP 门禁已实现；真实生产 Ingress/Secret 部署未执行 |
+| R03 集群密钥 | 持久策略 CAS、不可重绑指纹、API/Worker 租约及预发布/激活/保留/退役已实现并定向验证；实际 RP 缓存窗口须在接入时约定 |
+| R04 Vue RP | 服务端有状态一次性 RP 校验和加密票据、Cookie/CSRF、未知刷新结果关闭、旧入口收敛已通过聚焦测试；真实浏览器与 Native AOT 均通过 |
+| R05 最小授权 | 显式 scope/offline grant 与真实内置 scope 拒绝、授权收紧撤销已验证，不再自动补回 profile/offline_access |
+| R06 标准退出 | 标准 RP 退出、可靠通知队列和管理重放完成；后续本地独立成熟 RP 与真实网络补验见 §16.7，生产部署的 RP 传播 SLO 仍须实际接入后验证。Revocation/Introspection 继续按资源消费者需求评审，不为功能数量启用 |
+| R07 中心交互 | 中英文、consent/撤回、TOTP/恢复码、强制改密及真实认证强度已实现并聚焦验证；企业 IdP、Passkey、SAML/SCIM 等保持按需边界 |
+
+本次授权实现与本地影响集验收已完成，继续保留 OpenIddict + 自有 Identity 路线。相较成品 IAM，优势仍是账号/权限/租户、Dapper 和 AOT 的统一控制；代价是自有 Store、交互、协议回归和密钥运维，以及强一致安全判断的权威读取成本，未经性能实验不宣称优于成熟产品。下一步面向实际接入方冻结退出上界与 JWKS 缓存策略、执行所开放 profile 的一致性验证，再根据真实企业身份需求评估扩展或外部产品；不因本轮通过扩大为完整企业 IAM。
+
+收尾核对分支/HEAD、任务相关差异与文档结构，未提交、推送或部署。成功运行的常规 TEMP 由上下文自动清理；清理本轮复用的 `C:/Users/dai27/AppData/Local/Temp/fullnet-test-run-HalUs7` 下 build/publish/temp 时，自动审批返回 `blocked by policy`，未给出更具体原因，故保留这些目录及原始失败日志/TRX，没有改用其他工具绕过限制。
+
+### 16.7 2026-10-27 独立 RP、真实网络与官方套件补验
+
+用户要求继续剩余联调，并明确先采用本地独立 RP。基线仍为上述 HEAD 的未提交工作树，任务快照 `identity-oidc-interop-validation-20261027`。本节补充 §16.6 未覆盖的真实接收端、Worker 进程和选定 profile 一致性证据；历史结果不累计为新的测试数量。
+
+独立 Node HTTPS RP 使用 `openid-client 6.8.8` 与 `jose 6.2.12`，两个隔离客户端分别采用 Basic/Post 认证；强制 S256、state、nonce、ID Token 验签及 UserInfo sub 校验，令牌只在 RP 服务端内存。OP 与 RP 使用不同 Cookie 主机，本轮证书仅加入测试进程信任，未关闭 TLS 验证。API 为真实 Kestrel，Worker 为独立 Linux 进程，共享本轮正式 Provider 数据库与独立 Redis；没有调用投递器或手工推进时钟代替网络。
+
+联调发现并修复两项协议/作用域问题：
+
+1. issuer 为 `https://host/identity` 时，标准客户端会请求 `/identity/.well-known/openid-configuration`，原配置仅公开根路径。现按 issuer 路径注册标准地址，BFF 同步采用该地址；显式根 Metadata 地址仍有效，JWKS/协议端点继续以元数据为准。依据为 [OIDC Discovery §4](https://openid.net/specs/openid-connect-discovery-1_0.html#ProviderConfig)。
+2. 应用退出原先按用户与 client 撤销全部应用会话/授权，误伤另一设备的同客户端会话。现要求已验证 Bearer 的用户、client 和应用会话 ID 一致，事务内只撤销该会话，不撤回永久同意；Cookie 单独请求及错 client 返回 401。旧 access/refresh 随权威状态失效，其他设备和其他 RP 保持有效；重复旧凭据返回 401，不重复通知。共享客户端契约同步要求 accessToken，BFF 浏览器继续使用自身 CSRF 保护的退出入口。
+
+网络用例覆盖正常应用退出、中心退出、其他设备隔离、无效签名/错 audience 拒绝、真实 HTTP 503、Worker 停止重启、接收方提交后断开连接导致 ACK 丢失及稳定 jti 重投幂等。每库连续三轮正常传播，预算 15 秒；故障恢复从重启前开始计时，预算 20 秒。选定用例双库已实际通过，最终复验与原始度量写入[结构化联调证据](2026-10-27-identity-oidc-interop-results.json)。这些预算是本地回归条件，未约定外部部署 SLO。
+
+官方套件使用固定镜像摘要 `registry.gitlab.com/openid/conformance-suite@sha256:317614a73c69573907977c0a80a711e66742e9a4e3778c7f35f26cf50adcaef2`，分别执行 Discovery，以及授权码/S256 的 `client_secret_basic`、`client_secret_post`，两库合计 6 次模块执行通过。套件自己的回调 HTML 还要求回传 fragment，驱动按官方页面执行该步骤后才读取最终结果，不跳过令牌校验。没有运行全部 Basic profile，也未申请正式认证；未为运行不适用用例关闭强制 PKCE。套件使用和正式认证的区别见 [OIDF 说明](https://openid.net/certification/about-conformance-suite/)。
+
+有限请求探针按并发 1/8/32 各执行 200 次资源访问，每阶段预热 10 次；通过真实 RP 转发到 `/api/v1/me`，保持默认限流。记录吞吐、错误率、P50/P95/P99、API/驱动进程 CPU、工作集、分配与 GC。它是短突发功能观测；未采集数据库 CPU/IO/锁和连接池等待，没有长时稳态、前后优化对照或 1 万同时在途实验，不作容量/性能改善结论，继续 `Capacity-not-verified`。首次无界热循环触发默认每分钟限流属于无效容量实验，已改为有界请求，未放宽限流。
+
+新实现已重新执行 Linux Native AOT 发布及双库原生进程：**2/2 通过，零失败/跳过**。测试包含 BFF 一次性回调、Cookie/CSRF、上下文切换后真实刷新和退出，并新增有效 Bearer 的当前应用退出、旧 access/refresh 拒绝及另一设备的同客户端凭据保持有效。新 ELF 为 **147,261,680 字节**，SHA-256 **`ff17cf7590c63506bd82c828dcedead8b623a03c39655cea0809233e499a5d8a`**；9 条 ILC 警告全部匹配既有第三方精确白名单。Identity/Contracts 474 文件的发布前后摘要为 **`be8a97d0c0d17b64c6f4f2cf6db2b4a1f470d700119fcdc47da096d976e9e39c`**。环境和 2 CPU/12 GiB 发布上限同 §16.6；旧 ELF 仅保留为历史事实。
+
+调用方定向回归 **14/14 通过**，覆盖双库 BFF 主流程、标准授权码、应用退出传播、跨节点撤销、重复撤销、离线客户端权威检查及中心 SSO 保留；共享客户端契约 **10/10** 与 TypeScript 编译通过。首轮 6 项失败来自旧夹具使用 HTTP，Secure 中心 Cookie 没有回送；夹具改为 HTTPS 后通过，没有降低 Cookie 或撤销校验。测试分片结构检查通过，1432 项仅作发现与完整互斥校验，**没有执行全量测试**；同步修正了普通分片既有计数差异，新网络专项仍独立排除。
+
+网络夹具逐项停止自有进程、清理自有网络/Redis，并仅按本轮创建的完整随机库名删除数据库及 MySQL 对应库级授权；不清理其他任务的共享数据库。临时秘密始终清理，清理失败使本轮失败。曾有一轮协议 2/2 通过，但清理补改发生在构建启动边界，输入摘要检查正确拒绝该轮作为最终证据。冻结输入后最终重验于 **2026-10-27 05:25:05 UTC** 完成：双库 **2/2**、官方选定模块 **6/6**，零失败/跳过，自有进程、容器、网络、本轮新建测试库及秘密清理通过。结构化证据中的 15 项显式输入 SHA-256 为 **`2501c083a90e8d682190adf469416af075207bf85cab617fa3bf07f5acb44dff`**；该范围不是整个并行工作区的哈希。此前原生缓存删除被自动审批拒绝的边界保持，未尝试绕过。
+
+| Provider | 正常退出三次实测（秒） | 重启后恢复（秒） | 本地回归预算 |
+| --- | --- | --- | --- |
+| SQL Server | 3.990 / 4.679 / 5.400 | 6.411 | 正常 15 秒、恢复 20 秒 |
+| MySQL | 4.750 / 4.685 / 4.578 | 6.341 | 正常 15 秒、恢复 20 秒 |
+
+| Provider／并发 | 请求／错误 | 请求每秒 | P50／P95／P99（毫秒） |
+| --- | --- | --- | --- |
+| SQL Server／1 | 200／0 | 68.22 | 15.37／19.87／23.10 |
+| SQL Server／8 | 200／0 | 1056.19 | 6.13／13.92／28.14 |
+| SQL Server／32 | 200／0 | 808.05 | 28.73／85.57／88.50 |
+| MySQL／1 | 200／0 | 66.90 | 15.30／22.59／24.58 |
+| MySQL／8 | 200／0 | 774.08 | 8.14／20.42／36.53 |
+| MySQL／32 | 200／0 | 644.27 | 29.14／123.62／161.36 |
+
+上述吞吐仅为固定 200 次短突发的观测值，不能作为稳态承载量。最终文档 UTF-8、本地链接/锚点与任务相关差异检查通过，分支/HEAD 未变，未提交、推送或部署。本轮获授权的本地联调验证已完成；实际生产入口、外部合作方部署、完整 OIDF 认证、JWKS 接入方缓存窗口和万级容量没有由本轮结果自动取得验收。

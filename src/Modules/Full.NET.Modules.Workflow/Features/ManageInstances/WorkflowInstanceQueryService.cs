@@ -15,7 +15,7 @@ namespace Full.NET.Modules.Workflow.Features.ManageInstances;
 internal sealed class WorkflowInstanceQueryService(
     IQueryExecutor queryExecutor,
     ICurrentTenant currentTenant,
-    IOptions<DatabaseOptions> databaseOptions)
+    IOptions<DatabaseOptions> databaseOptions, WorkflowCollaborationListAuthorization authorization)
 {
     /// <summary>分页列出当前作用域内全部实例，供全局管理使用。</summary>
     /// <param name="page">页码，从 1 开始。</param>
@@ -28,6 +28,7 @@ internal sealed class WorkflowInstanceQueryService(
     /// <param name="cancellationToken">取消当前查询的令牌。</param>
     /// <returns>当前页实例或稳定业务错误。</returns>
     public Task<Result<PagedResult<WorkflowInstanceListItemResponse>>> ListAsync(
+        Guid actorUserId,
         int page,
         int pageSize,
         string? statusKey,
@@ -37,6 +38,7 @@ internal sealed class WorkflowInstanceQueryService(
         DateTimeOffset? startedToUtc,
         CancellationToken cancellationToken) =>
         ListCoreAsync(
+            actorUserId,
             page,
             pageSize,
             startedById: null,
@@ -75,6 +77,7 @@ internal sealed class WorkflowInstanceQueryService(
         }
 
         return ListCoreAsync(
+            actorUserId,
             page,
             pageSize,
             actorUserId,
@@ -87,6 +90,7 @@ internal sealed class WorkflowInstanceQueryService(
     }
 
     private async Task<Result<PagedResult<WorkflowInstanceListItemResponse>>> ListCoreAsync(
+        Guid actorUserId,
         int page,
         int pageSize,
         Guid? startedById,
@@ -106,7 +110,7 @@ internal sealed class WorkflowInstanceQueryService(
             return Failure(WorkflowErrorCodes.SchemaInvalid, ErrorType.Validation);
         }
 
-        page = Math.Max(page, 1);
+        page = Math.Clamp(page, 1, 100_000);
         pageSize = Math.Clamp(pageSize, 1, 100);
         var offset = (page - 1) * pageSize;
         var scope = WorkflowManagementScope.Resolve(currentTenant);
@@ -121,8 +125,12 @@ internal sealed class WorkflowInstanceQueryService(
             ("Offset", offset),
             ("PageSize", pageSize));
 
+        var proof = await authorization.PrepareAsync("instance", actorUserId, parameters, cancellationToken).ConfigureAwait(false);
+        if (!proof.IsSuccess) return Result<PagedResult<WorkflowInstanceListItemResponse>>.Failure(proof.Error!);
+        parameters["CollaborationProofs"] = proof.Value;
+
         var total = await queryExecutor.QuerySingleOrDefaultAsync<long>(
-                WorkflowSql.CountInstancesFiltered,
+                databaseOptions.Value.Provider == DatabaseProvider.SqlServer ? WorkflowSql.CountInstancesFilteredSqlServer : WorkflowSql.CountInstancesFilteredMySql,
                 parameters,
                 cancellationToken)
             .ConfigureAwait(false);

@@ -23,6 +23,7 @@ CREATE TABLE IF NOT EXISTS demo_enterprise_request_enterprise_request (
 CREATE TABLE IF NOT EXISTS demo_enterprise_request_enterprise_request_line (
     Id BINARY(16) NOT NULL COMMENT '逻辑主键',
     TenantId BINARY(16) NOT NULL COMMENT '所属租户标识',
+    OrganizationUnitId BINARY(16) NOT NULL COMMENT '归属组织单元标识',
     RequestId BINARY(16) NOT NULL COMMENT '所属申请标识',
     LineNumber int NOT NULL COMMENT '明细行号',
     ItemDescription varchar(200) NOT NULL COMMENT '申请项目说明',

@@ -24,4 +24,8 @@
   <data name="settings.grid_preference.invalid" xml:space="preserve"><value>The Grid preference contains an invalid presentation value.</value></data>
   <data name="settings.grid_preference.schema_version_mismatch" xml:space="preserve"><value>The Grid schema version no longer matches the local catalog.</value></data>
   <data name="settings.grid_preference.version_conflict" xml:space="preserve"><value>The Grid preference was updated concurrently. Refresh and try again.</value></data>
+  <data name="settings.query_scheme.invalid" xml:space="preserve"><value>The query scheme does not match the current business schema or input limits. Correct it before saving.</value></data>
+  <data name="settings.query_scheme.not_found" xml:space="preserve"><value>No accessible query scheme or business schema was found.</value></data>
+  <data name="settings.query_scheme.version_conflict" xml:space="preserve"><value>The query scheme or default selection has changed. Reload before trying again.</value></data>
+  <data name="settings.query_scheme.limit_reached" xml:space="preserve"><value>You have saved 32 personal schemes for this business list in the current context. Delete an unused scheme first.</value></data>
 </root>

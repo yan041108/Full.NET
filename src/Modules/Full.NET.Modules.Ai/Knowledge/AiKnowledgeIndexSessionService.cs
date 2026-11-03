@@ -19,13 +19,17 @@ internal sealed class AiKnowledgeIndexSessionService(IQueryExecutor query, IComm
 
     /// <summary>只复用完全相同的冻结会话；无绑定的旧任务及其他登录均拒绝接管。</summary>
     internal async Task<Guid?> EnqueueAsync(AiKnowledgeIndexTaskBinding binding, SessionBindingSnapshot session, CancellationToken token)
-        => await EnqueueCoreAsync(binding, session, null, token).ConfigureAwait(false);
+        => await EnqueueCoreAsync(binding, session, null, token, null).ConfigureAwait(false);
 
     /// <summary>显式委托下的派发仍使用原会话；计数、任务与会话必须同事务保存。</summary>
     internal Task<Guid?> EnqueueGrantedAsync(AiKnowledgeIndexTaskBinding binding, SessionBindingSnapshot session, Guid grantId, CancellationToken token) =>
-        EnqueueCoreAsync(binding, session, grantId, token);
+        EnqueueCoreAsync(binding, session, grantId, token, null);
 
-    private async Task<Guid?> EnqueueCoreAsync(AiKnowledgeIndexTaskBinding binding, SessionBindingSnapshot session, Guid? grantId, CancellationToken token)
+    /// <summary>FAQ 只接受已经物化的服务器修订来源；与普通入队共享原会话及预算身份。</summary>
+    internal Task<Guid?> EnqueueFaqAsync(AiKnowledgeIndexTaskBinding binding, AiKnowledgeFaqIndexSourceRecord source, SessionBindingSnapshot session, CancellationToken token) =>
+        source.Id != binding.VersionId || source.RevisionId == Guid.Empty ? Task.FromResult<Guid?>(null) : EnqueueCoreAsync(binding, session, null, token, source);
+
+    private async Task<Guid?> EnqueueCoreAsync(AiKnowledgeIndexTaskBinding binding, SessionBindingSnapshot session, Guid? grantId, CancellationToken token, AiKnowledgeFaqIndexSourceRecord? faqSource)
     {
         NoTransaction(); ArgumentNullException.ThrowIfNull(session);
         var parameters = tasks.TaskParameters(binding, ids.NewId(), token);
@@ -41,7 +45,10 @@ internal sealed class AiKnowledgeIndexSessionService(IQueryExecutor query, IComm
             {
                 // Identity 已在事务外授权；事务内只写 AI 自有任务及绑定。
                 if (!Valid(binding, session)) return false;
-                if (await command.ExecuteAsync(tasks.IsTenant ? AiKnowledgeIndexTaskSql.EnqueueTenant : AiKnowledgeIndexTaskSql.EnqueueHost, parameters, cancellation).ConfigureAwait(false) != 1)
+                if (await command.ExecuteAsync(tasks.IsTenant ? AiKnowledgeIndexCorrectionSql.LockTenant : AiKnowledgeIndexCorrectionSql.LockHost, parameters, cancellation).ConfigureAwait(false) != 1)
+                    return false;
+                if (await command.ExecuteAsync(faqSource is null ? tasks.IsTenant ? AiKnowledgeIndexTaskSql.EnqueueTenant : AiKnowledgeIndexTaskSql.EnqueueHost
+                    : tasks.IsTenant ? AiKnowledgeIndexTaskSql.EnqueueFaqTenant : AiKnowledgeIndexTaskSql.EnqueueFaqHost, parameters, cancellation).ConfigureAwait(false) != 1)
                     return false;
                 // 第一笔已写入，第二笔失败必须抛异常触发回滚，不能返回业务拒绝并提交孤立任务。
                 if (await command.ExecuteAsync(tasks.IsTenant ? AiKnowledgeIndexSessionSql.InsertTenant : AiKnowledgeIndexSessionSql.InsertHost, parameters, cancellation).ConfigureAwait(false) != 1)

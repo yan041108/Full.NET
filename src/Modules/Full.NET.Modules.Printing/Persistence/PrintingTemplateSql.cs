@@ -5,6 +5,16 @@ namespace Full.NET.Modules.Printing.Persistence;
 /// <summary>打印模板 SQL 语句。</summary>
 internal static class PrintingTemplateSql
 {
+    /// <summary>发布前锁定模板根行，使同版本发布竞争和草稿保存按本地事务顺序推进。</summary>
+    internal static readonly SqlStatement LockTemplateSqlServer = new("printing.template.lock.sqlserver", """
+        SELECT Id,TemplateKey,Name,FormSchemaKey,LayoutHtml,LatestPublishedVersionNumber,IsEnabled,CreatedAtUtc,UpdatedAtUtc,Version
+        FROM fn_printing_template WITH (UPDLOCK,ROWLOCK) WHERE Id=@TemplateId
+        """, SqlDataScope.HostOnly);
+    /// <summary>MySQL 与 SQL Server 使用同一模板根锁，不在插入发布版本后才发现版本竞争。</summary>
+    internal static readonly SqlStatement LockTemplateMySql = new("printing.template.lock.mysql", """
+        SELECT Id,TemplateKey,Name,FormSchemaKey,LayoutHtml,LatestPublishedVersionNumber,IsEnabled,CreatedAtUtc,UpdatedAtUtc,Version
+        FROM fn_printing_template WHERE Id=@TemplateId FOR UPDATE
+        """, SqlDataScope.HostOnly);
     private const string TemplateColumns = """
         Id, TemplateKey, Name, FormSchemaKey, LayoutHtml, LatestPublishedVersionNumber,
         IsEnabled, CreatedAtUtc, UpdatedAtUtc, Version

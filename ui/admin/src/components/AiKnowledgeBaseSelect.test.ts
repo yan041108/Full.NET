@@ -15,6 +15,12 @@ async function render() {
   const wrapper = mount(Select, { props: { modelValue: '', candidateIds: [second] }, global: { plugins: [pinia] } }); wrappers.push(wrapper); await flushPromises(); return wrapper;
 }
 afterEach(() => { wrappers.forEach(w => w.unmount()); wrappers = []; vi.clearAllMocks(); vi.restoreAllMocks(); });
+it('锁定目标显示可读名称且不再提供可变更控件', async () => {
+  vi.mocked(listKnowledgeBases).mockResolvedValue({ items: [{ ...base, id: second }], page: 1, pageSize: 20, total: 1 });
+  const wrapper = await render(); await wrapper.setProps({ modelValue: second, readonly: true });
+  expect(wrapper.get('[data-testid="knowledge-base-readonly"]').text()).toBe('目录');
+  expect(wrapper.find('[data-testid="knowledge-base-select"]').exists()).toBe(false); expect(wrapper.find('button').exists()).toBe(false);
+});
 it('候选仅保留本次请求与授权目录的交集', async () => {
   vi.mocked(listKnowledgeBases).mockResolvedValue({ items: [base, { ...base, id: second }], page: 1, pageSize: 20, total: 2 }); const wrapper = await render();
   expect(wrapper.findAllComponents(ElOption).map(option => option.props('value'))).toEqual([second]);

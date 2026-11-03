@@ -16,6 +16,8 @@ using Full.NET.Modules.Organization.Features.ManageTenantUnits;
 using Full.NET.Modules.Organization.Features.ManageTenantUserPositions;
 using Full.NET.Modules.Organization.Features.ImportExport;
 using Full.NET.Modules.Organization.Features.ManageTenantUserUnits;
+using Full.NET.Modules.Organization.Features.ManageTenantUserUnits.Queries;
+using Full.NET.Modules.Organization.Features.ManageTenantUserPositions.Queries;
 using Full.NET.Modules.ImportExport.Contracts;
 using Full.NET.Modules.Organization.Resources;
 using Full.NET.Modules.Organization.Serialization;
@@ -74,10 +76,13 @@ public sealed class OrganizationModule : IFullNetModule
         services.TryAddScoped<Features.ManageUnitLeadership.OrganizationUnitLeadershipService>();
         services.TryAddScoped<Features.ManageReportingLines.OrganizationReportingLineService>();
         services.TryAddScoped<TenantUserUnitQueryService>();
+        services.TryAddScoped<TenantUserUnitListQueryService>();
+        services.TryAddScoped<TenantUserUnitListScopeReader>();
         services.TryAddScoped<TenantUserUnitManagementService>();
         services.TryAddScoped<AssignableHostUserQueryService>();
         services.TryAddScoped<HostUserManagementReferenceService>();
         services.TryAddScoped<TenantUserPositionQueryService>();
+        services.TryAddScoped<TenantUserPositionListQueryService>();
         services.TryAddScoped<TenantUserPositionManagementService>();
         services.TryAddScoped<TenantPositionQueryService>();
         services.TryAddScoped<TenantPositionManagementService>();
@@ -119,7 +124,7 @@ public sealed class OrganizationModule : IFullNetModule
     }
 
     /// <summary>
-    /// 注册 Worker 消费 Identity 机构单元投影对账所需的最小 Organization 只读 Port。
+    /// 注册 Worker 的机构投影、业务归属授权和静态职位导入依赖。
     /// </summary>
     public void AddBackgroundServices(
         IServiceCollection services,
@@ -134,7 +139,20 @@ public sealed class OrganizationModule : IFullNetModule
         services.TryAddScoped<TenantUnits.OrganizationUnitProjectionCatalog>();
         services.TryAddScoped<IIdentityOrganizationUnitProjectionSource>(provider =>
             provider.GetRequiredService<TenantUnits.OrganizationUnitProjectionCatalog>());
+        // FAQ 后台来源交集必须读取当前真实机构关系，不能以空目录替代。
+        services.TryAddScoped<ICurrentTenantOrganizationUnitDirectory, TenantUnits.CurrentTenantOrganizationUnitDirectory>();
         services.TryAddScoped<IWorkflowOrganizationAssigneeDirectory, TenantUnits.WorkflowOrganizationAssigneeDirectory>();
+        // 导入行写入仍校验当前机构和申请人隶属，不以后台执行身份绕过组织隔离。
+        services.TryAddScoped<TenantUnits.TenantOrganizationUnitDirectory>();
+        services.TryAddScoped<ITenantOrganizationUnitDirectory>(provider =>
+            provider.GetRequiredService<TenantUnits.TenantOrganizationUnitDirectory>());
+        services.TryAddScoped<IOrganizationOwnedEntityWriteAuthorizer, OrganizationOwnedEntityWriteAuthorizer>();
+        // 后台文档重新解析普通成员的机构范围，不能只为 HTTP 查询注册此投影。
+        services.TryAddSingleton<IIdentityOrganizationDataScopeSqlProjection, IdentityOrganizationDataScopeSqlProjection>();
+        services.TryAddScoped<TenantPositionQueryService>();
+        services.TryAddScoped<TenantPositionManagementService>();
+        services.TryAddScoped<TenantPositionImportPreviewService>();
+        services.TryAddEnumerable(ServiceDescriptor.Scoped<IStaticImportSchemaHandler, TenantPositionsStaticImportSchemaHandler>());
     }
 
     /// <summary>

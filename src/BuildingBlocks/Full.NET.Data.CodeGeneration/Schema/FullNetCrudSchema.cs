@@ -297,10 +297,21 @@ public sealed class FullNetCrudSchema
             nameof(permissionResourceName));
 
         ArgumentNullException.ThrowIfNull(columns);
+        Ensure(!entityCapabilities.HasMutationPolicy || dataScope != FullNetCrudDataScope.Unspecified,
+            "业务写入策略要求显式数据作用域。", nameof(dataScope));
         ArgumentNullException.ThrowIfNull(relationships);
         Ensure(columns.Count > 0, "Schema 至少需要一个字段。", nameof(columns));
         var frozenColumns = columns.ToArray();
-        var frozenRelationships = relationships.ToArray();
+        _ = FullNetCrudQueryDefinition.Fields(frozenColumns);
+        var frozenRelationships = relationships.Select(relationship =>
+        {
+            ArgumentNullException.ThrowIfNull(relationship);
+            return relationship with
+            {
+                CompositeKeyColumnNames = relationship.CompositeKeyColumnNames is null
+                    ? null : Array.AsReadOnly(relationship.CompositeKeyColumnNames.ToArray()),
+            };
+        }).ToArray();
         ValidateColumns(
             frozenColumns,
             dataScope,
@@ -339,6 +350,20 @@ public sealed class FullNetCrudSchema
         foreach (var column in columns)
         {
             ArgumentNullException.ThrowIfNull(column);
+            Ensure(Enum.IsDefined(column.ScalarType), "字段标量类型不受支持。", nameof(columns));
+            var ui = column.ResolvedUi;
+            var controlMatches = column.ScalarType switch
+            {
+                FullNetScalarType.String => ui.ControlKind is FullNetColumnControlKind.Text or FullNetColumnControlKind.Textarea,
+                FullNetScalarType.Int32 or FullNetScalarType.Int64 or FullNetScalarType.Decimal => ui.ControlKind == FullNetColumnControlKind.Number,
+                FullNetScalarType.Boolean => ui.ControlKind == FullNetColumnControlKind.Switch,
+                FullNetScalarType.DateTimeUtc => ui.ControlKind == FullNetColumnControlKind.DateTime,
+                FullNetScalarType.Uuid => ui.ControlKind == FullNetColumnControlKind.Uuid,
+                _ => false,
+            };
+            Ensure(controlMatches && Enum.IsDefined(ui.QueryKind), "控件或查询元数据与字段类型不匹配。", nameof(columns));
+            Ensure(!IsServerManagedColumn(column.DatabaseName) || !ui.IncludeInCreate && !ui.IncludeInUpdate,
+                "系统维护字段不能进入创建或更新表单。", nameof(columns));
             Ensure(
                 ContractNameValidator.IsValidColumn(column.DatabaseName),
                 "数据库列名不符合 Naming Profile。",
@@ -477,13 +502,10 @@ public sealed class FullNetCrudSchema
                 relationship.PrincipalEntityKey == entityKey
                     ? relationship.PrincipalColumnName
                     : relationship.DependentColumnName;
-            EnsureRequiredColumn(
-                columns,
-                currentColumnName,
-                FullNetScalarType.Uuid,
-                columns.SingleOrDefault(column =>
-                    column.DatabaseName == currentColumnName)?.IsNullable
-                    ?? false);
+            // 关系列按已确认的物理名称解析；业务 CLR/JSON 名称允许与物理列名不同。
+            Ensure(columns.Any(column => column.DatabaseName == currentColumnName
+                    && column.ScalarType == FullNetScalarType.Uuid),
+                "关系列必须存在且为 UUID 类型。", nameof(relationships));
         }
 
         switch (scene)
@@ -523,6 +545,11 @@ public sealed class FullNetCrudSchema
                         .Count() == 2,
                     "ManyToMany 场景必须声明当前关联实体到两个不同主端的关系。",
                     nameof(relationships));
+                var associationColumns = relationships.Select(relationship => relationship.DependentColumnName).ToHashSet(StringComparer.Ordinal);
+                Ensure(associationColumns.Count == 2 && relationships.All(relationship => !columns.Single(column => column.DatabaseName == relationship.DependentColumnName).IsNullable &&
+                        relationship.CompositeKeyColumnNames is { Count: 2 } key && associationColumns.SetEquals(key)),
+                    "ManyToMany 的两个外键必须不同，每条关系均须声明这两个外键构成的唯一键。",
+                    nameof(relationships));
                 break;
             default:
                 throw new ArgumentOutOfRangeException(
@@ -535,6 +562,8 @@ public sealed class FullNetCrudSchema
     private static void ValidateEntityCapabilities(
         FullNetCrudEntityCapabilities entityCapabilities)
     {
+        Ensure(!entityCapabilities.HasMutationPolicy || entityCapabilities.HasVersion,
+            "业务写入策略要求 Version 乐观并发，避免业务检查后的并发写入覆盖状态。", nameof(entityCapabilities));
         Ensure(
             Enum.IsDefined(entityCapabilities.DeleteMode),
             "实体删除模式不受支持。",

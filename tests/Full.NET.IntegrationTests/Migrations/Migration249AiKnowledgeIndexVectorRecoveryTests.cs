@@ -24,7 +24,7 @@ public sealed class Migration249AiKnowledgeIndexVectorRecoveryTests
         Replay(sqlServer, connectionString);
         await using var db = Migration246AiKnowledgeIndexTaskRecoveryTests.Connection(sqlServer, connectionString);
         var p = await Migration246AiKnowledgeIndexTaskRecoveryTests.SeedAsync(db);
-        Assert.AreEqual(1, await db.ExecuteAsync(AiKnowledgeIndexTaskSql.EnqueueHost.Text, p));
+        Assert.AreEqual(1, await db.ExecuteAsync(AiKnowledgeIndexTaskSql.EnqueueHost.AutomaticSql(), p));
         var operation = Guid.CreateVersion7(); var vector = new float[1536]; vector[0] = 1;
         var batch = new AiKnowledgeIndexEmbeddingBatch(operation, 0, new(), "utf8-text-v1", AiKnowledgeCl100kTokenizer.Version,
             "structure-window-v1", new(), [new(new(0, 0, 9, "migration", "migration", 3, AiKnowledgeTextBlockKind.Paragraph, [], []), vector)]);

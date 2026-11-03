@@ -9,6 +9,7 @@ import { readWorkflowFieldMutation } from './workflow-field-mutation';
 import { readWorkflowConnector } from './workflow-connector';
 import { readWorkflowBusinessCommand } from './workflow-business-command';
 import { readWorkflowSubprocess } from './workflow-subprocess';
+import { readWorkflowCollaboration } from './workflow-collaboration-node';
 import { readWorkflowSlaPolicy } from './workflow-sla-policy';
 import { readWorkflowRoutePolicy } from './workflow-route';
 import { readWorkflowResultCallback } from './workflow-result-callback';
@@ -43,6 +44,7 @@ const sourceToTargetType = new Map<number, string>([
   [14, 'control.route'],
   [23, 'business.command'],
   [9, 'process.subprocess'],
+  [20, 'process.collaboration'],
   [7, 'timer.delay'],
   [15, 'data.modify'],
   [16, 'data.clear'],
@@ -63,6 +65,7 @@ const targetToSourceType = new Map<string, number>([
   ['control.route', 14],
   ['business.command', 23],
   ['process.subprocess', 9],
+  ['process.collaboration', 20],
   ['timer.delay', 7],
   ['data.modify', 15],
   ['data.clear', 16],
@@ -669,7 +672,9 @@ function readClosedNodeConfig(
   if (['integration.trigger', 'integration.async_trigger'].includes(nodeTypeKey)) Object.assign(result, readWorkflowConnector(node));
   if (nodeTypeKey === 'business.command') Object.assign(result, readWorkflowBusinessCommand(node));
   if (nodeTypeKey === 'process.subprocess') Object.assign(result, readWorkflowSubprocess(node));
+  if (nodeTypeKey === 'process.collaboration') Object.assign(result, readWorkflowCollaboration(node));
   for (const [key, value] of Object.entries(node)) {
+    if (nodeTypeKey === 'process.collaboration' && key === 'collaborationPolicy') continue;
     if (nodeTypeKey === 'control.route' && key === 'routePolicy') continue;
     if (nodeTypeKey === 'process.subprocess' && ['subprocessPolicy', 'fieldPolicies', 'boundSubprocess', 'multiInstancePolicy', 'starterPolicy', 'childTimeoutPolicy'].includes(key)) continue;
     if (nodeTypeKey === 'business.command' && ['businessCommandPolicy', 'boundBusinessActionHash'].includes(key)) continue;
@@ -755,7 +760,9 @@ function readClosedTargetConfig(
   if (['integration.trigger', 'integration.async_trigger'].includes(nodeTypeKey)) Object.assign(result, readWorkflowConnector(config));
   if (nodeTypeKey === 'business.command') Object.assign(result, readWorkflowBusinessCommand(config));
   if (nodeTypeKey === 'process.subprocess') Object.assign(result, readWorkflowSubprocess(config));
+  if (nodeTypeKey === 'process.collaboration') Object.assign(result, readWorkflowCollaboration(config));
   for (const [key, value] of Object.entries(config)) {
+    if (nodeTypeKey === 'process.collaboration' && key === 'collaborationPolicy') continue;
     if (nodeTypeKey === 'control.route' && key === 'routePolicy') continue;
     if (nodeTypeKey === 'process.subprocess' && ['subprocessPolicy', 'fieldPolicies', 'boundSubprocess', 'multiInstancePolicy', 'starterPolicy', 'childTimeoutPolicy'].includes(key)) continue;
     if (nodeTypeKey === 'business.command' && ['businessCommandPolicy', 'boundBusinessActionHash'].includes(key)) continue;
@@ -1093,6 +1100,8 @@ function assertSafeConfiguration(value: unknown): void {
   const businessNode = value.type === 23;
   const subprocessNode = value.type === 9;
   const routeNode = value.type === 14;
+  const collaborationNode = value.type === 20;
+  if (collaborationNode) readWorkflowCollaboration(value);
   if (routeNode) readWorkflowRoutePolicy(value.routePolicy);
   if (subprocessNode) readWorkflowSubprocess(value);
   if (businessNode) readWorkflowBusinessCommand(value);
@@ -1105,6 +1114,7 @@ function assertSafeConfiguration(value: unknown): void {
     if (businessNode && ['businessCommandPolicy', 'boundBusinessActionHash'].includes(key)) continue;
     if (subprocessNode && ['subprocessPolicy', 'fieldPolicies', 'boundSubprocess', 'multiInstancePolicy', 'starterPolicy', 'childTimeoutPolicy'].includes(key)) continue;
     if (routeNode && key === 'routePolicy') continue;
+    if (collaborationNode && key === 'collaborationPolicy') continue;
     if (unsafePropertyPattern.test(key) && hasConfiguredValue(child)) {
       throw new Error('client.unsafe_workflow_configuration');
     }

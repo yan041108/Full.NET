@@ -295,6 +295,11 @@ export const ADMIN_NAVIGATION_CATALOG: readonly AdminNavigationCatalogEntry[] = 
     path: '/platform/my-release-notes'
   },
   {
+    componentKey: 'my-tasks',
+    routeName: 'my-tasks',
+    path: '/platform/my-tasks'
+  },
+  {
     componentKey: 'backup-executor',
     routeName: 'backup-executor',
     path: '/platform/backup-executor'
@@ -380,6 +385,11 @@ export const ADMIN_NAVIGATION_CATALOG: readonly AdminNavigationCatalogEntry[] = 
     path: '/workflow/todos'
   },
   {
+    componentKey: 'workflow-claim-pools',
+    routeName: 'workflow-claim-pools',
+    path: '/workflow/claim-pools'
+  },
+  {
     componentKey: 'workflow-cc',
     routeName: 'workflow-cc',
     path: '/workflow/cc'
@@ -398,6 +408,11 @@ export const ADMIN_NAVIGATION_CATALOG: readonly AdminNavigationCatalogEntry[] = 
     componentKey: 'workflow-calendars',
     routeName: 'workflow-calendars',
     path: '/workflow/calendars'
+  },
+  {
+    componentKey: 'workflow-collaboration-grants',
+    routeName: 'workflow-collaboration-grants',
+    path: '/workflow/collaboration-grants'
   },
   {
     componentKey: 'workflow-instances',
@@ -428,6 +443,31 @@ export const ADMIN_NAVIGATION_CATALOG: readonly AdminNavigationCatalogEntry[] = 
     componentKey: 'ai-knowledge-documents',
     routeName: 'ai-knowledge-documents',
     path: '/ai/knowledge-documents'
+  },
+  {
+      componentKey: 'ai-knowledge-evaluation-sets',
+      routeName: 'ai-knowledge-evaluation-sets',
+      path: '/ai/knowledge-evaluation-sets'
+    },
+    {
+      componentKey: 'ai-knowledge-finance',
+      routeName: 'ai-knowledge-finance',
+      path: '/ai/knowledge-finance'
+    },
+    {
+      componentKey: 'ai-knowledge-operations',
+    routeName: 'ai-knowledge-operations',
+    path: '/ai/knowledge-operations'
+  },
+  {
+    componentKey: 'ai-knowledge-faqs',
+    routeName: 'ai-knowledge-faqs',
+    path: '/ai/knowledge-faqs'
+  },
+  {
+    componentKey: 'ai-knowledge-search',
+    routeName: 'ai-knowledge-search',
+    path: '/ai/knowledge-search'
   },
   {
     componentKey: 'ai-agent-tools',

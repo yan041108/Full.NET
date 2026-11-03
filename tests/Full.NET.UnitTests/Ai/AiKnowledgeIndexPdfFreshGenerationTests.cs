@@ -96,7 +96,7 @@ public sealed partial class AiKnowledgeIndexPdfPlanningServiceTests
             var query = new GenerationQuery(f.Query, this); var options = Options.Create(new DatabaseOptions());
             var manifests = new AiKnowledgeIndexPdfManifestStore(query, f.Command, f.Transaction, f.State, f.Tenant, f.Clock, f.Tasks, f.Sessions, f.Authorization, options);
             var vectors = new AiKnowledgeIndexPdfVectorStore(query, f.Command, f.Transaction, f.State, f.Tenant, f.Clock, f.Tasks, f.Sessions, f.Authorization, options);
-            var activations = new AiKnowledgeIndexPdfActivationStore(query, f.Command, f.Transaction, f.State, f.Tenant, f.Clock, f.Ids, f.Tasks, f.Authorization, options);
+            var activations = new AiKnowledgeIndexPdfActivationStore(query, f.Command, f.Transaction, f.State, f.Tenant, f.Clock, f.Ids, (f.Tasks).Scope, f.Authorization, options);
             Consumer = new(execution, vectors, manifests, f.Sessions, activations);
         }
         private sealed class GenerationQuery(IQueryExecutor inner, FreshGeneration f) : IQueryExecutor

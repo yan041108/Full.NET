@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref, watch } from 'vue';
+import { computed, onActivated, onBeforeUnmount, onDeactivated, ref, watch } from 'vue';
 import { ElButton, ElOption, ElPagination, ElSelect, ElTag } from 'element-plus';
 import type { WorkflowRecipientCandidateResponse } from '@fullnet/client-contracts';
 import type { MessageKey } from '@fullnet/admin-i18n';
@@ -7,8 +7,11 @@ import { getWorkflowStarterSelections, listWorkflowStarterSelectionCandidates, t
   type WorkflowAssigneeSelections } from '../api/workflow-starter-selections';
 import { useSessionStore } from '../auth/session';
 import { useAdminI18n } from '../i18n/adminI18n';
+import { getWorkflowSimulationStarterSelections, listWorkflowSimulationStarterSelectionCandidates,
+  type WorkflowSimulationSelectionSource } from '../api/workflow-observability';
 
-const props = defineProps<{ versionId: string; modelValue: WorkflowAssigneeSelections }>();
+const props = defineProps<{ source: { readonly kind: 'published'; readonly versionId: string } | WorkflowSimulationSelectionSource;
+  modelValue: WorkflowAssigneeSelections }>();
 const emit = defineEmits<{ 'update:modelValue': [value: WorkflowAssigneeSelections]; ready: [value: boolean] }>();
 const session = useSessionStore(); const { t } = useAdminI18n();
 const descriptors = ref<readonly WorkflowStarterSelectionDescriptor[]>([]);
@@ -16,12 +19,16 @@ const currentKey = ref(''); const page = ref(1); const total = ref(0);
 const candidates = ref<readonly WorkflowRecipientCandidateResponse[]>([]);
 const selectedNames = ref<Record<string, WorkflowRecipientCandidateResponse>>({});
 const loaded = ref(false); const loading = ref(false); const failed = ref(false); const metadataFailed = ref(false);
+const active = ref(true);
+const allowed = computed(() => active.value && !session.switching && (props.source.kind === 'published'
+  ? session.can('workflow.instances.start')
+  : session.can('workflow.definitions.simulate') && session.can('workflow.definitions.read') && session.can('workflow.forms.read')));
 let epoch = 0; let request = 0; let metadataController: AbortController | undefined; let candidatesController: AbortController | undefined;
 const current = computed(() => descriptors.value.find(item => item.selectionKey === currentKey.value));
 const selected = computed(() => chosenFor(currentKey.value));
 const chosenTotal = computed(() => Object.values(props.modelValue).reduce((sum, ids) => sum + ids.length, 0));
-const context = computed(() => JSON.stringify([props.versionId, session.currentUser?.id, session.currentUser?.sessionId,
-  session.currentUser?.tenantId, session.currentUser?.scope, session.switching, session.can('workflow.instances.start')]));
+const context = computed(() => JSON.stringify([props.source, session.currentUser?.id, session.currentUser?.sessionId,
+  session.currentUser?.tenantId, session.currentUser?.scope, session.currentUser?.profileVersion, allowed.value]));
 watch(context, () => {
   epoch++; request++; metadataController?.abort(); candidatesController?.abort(); descriptors.value = []; candidates.value = []; selectedNames.value = {};
   loaded.value = false; loading.value = false; metadataFailed.value = false; failed.value = false; currentKey.value = ''; page.value = 1; total.value = 0;
@@ -35,16 +42,19 @@ watch([() => props.modelValue, loaded, descriptors], () => {
 }, { deep: true });
 watch(currentKey, () => { page.value = 1; candidates.value = []; total.value = 0; void loadCandidates(); });
 onBeforeUnmount(() => { epoch++; request++; metadataController?.abort(); candidatesController?.abort(); });
+onDeactivated(() => { active.value = false; }); onActivated(() => { active.value = true; });
 
 function chosenFor(key: string): readonly string[] {
   return Object.hasOwn(props.modelValue, key) ? props.modelValue[key] ?? [] : [];
 }
 
 async function loadMetadata(): Promise<void> {
-  if (!session.can('workflow.instances.start') || session.switching) return;
+  if (!allowed.value) return;
   const captured = epoch; metadataController?.abort(); metadataController = new AbortController(); metadataFailed.value = false;
   try {
-    const metadata = await getWorkflowStarterSelections(props.versionId, metadataController.signal);
+    const source = props.source;
+    const metadata = source.kind === 'published' ? await getWorkflowStarterSelections(source.versionId, metadataController.signal)
+      : await getWorkflowSimulationStarterSelections(source, metadataController.signal);
     if (captured !== epoch) return;
     descriptors.value = metadata.items; loaded.value = true; currentKey.value = metadata.items[0]?.selectionKey ?? '';
   } catch { if (captured === epoch) metadataFailed.value = true; }
@@ -53,10 +63,12 @@ async function loadMetadata(): Promise<void> {
 async function loadCandidates(): Promise<void> {
   const descriptor = current.value; const captured = epoch; const currentRequest = ++request;
   candidatesController?.abort();
-  if (!descriptor || !loaded.value) return;
+  if (!descriptor || !loaded.value || !allowed.value) return;
   candidatesController = new AbortController(); loading.value = true; failed.value = false;
   try {
-    const result = await listWorkflowStarterSelectionCandidates(props.versionId, descriptor.selectionKey, page.value, candidatesController.signal);
+    const source = props.source;
+    const result = source.kind === 'published' ? await listWorkflowStarterSelectionCandidates(source.versionId, descriptor.selectionKey, page.value, candidatesController.signal)
+      : await listWorkflowSimulationStarterSelectionCandidates(source, descriptor.selectionKey, page.value, candidatesController.signal);
     if (captured !== epoch || currentRequest !== request) return;
     candidates.value = result.items; total.value = result.total;
   } catch { if (captured === epoch && currentRequest === request) failed.value = true; }
@@ -65,7 +77,7 @@ async function loadCandidates(): Promise<void> {
 
 function toggle(user: WorkflowRecipientCandidateResponse): void {
   const descriptor = current.value;
-  if (!descriptor || loading.value || !session.can('workflow.instances.start') || session.switching) return;
+  if (!descriptor || loading.value || !allowed.value) return;
   const removing = selected.value.includes(user.id);
   if (!removing && descriptor.modeKey === 'multiple' && (selected.value.length >= descriptor.maximumUsers || chosenTotal.value >= 160)) return;
   if (!removing && descriptor.modeKey === 'single' && selected.value.length === 0 && chosenTotal.value >= 160) return;
@@ -83,7 +95,7 @@ function remove(id: string): void {
 <template>
   <section v-if="descriptors.length || metadataFailed" class="workflow-starter-selection" :aria-label="t('workflowDefinitions.starterSelection.title')">
     <strong>{{ t('workflowDefinitions.starterSelection.title') }}</strong>
-    <p>{{ t('workflowDefinitions.starterSelection.help', { count: chosenTotal }) }}</p>
+    <p>{{ source.kind === 'simulation' ? t('workflowR5.selectionHelp') : t('workflowDefinitions.starterSelection.help', { count: chosenTotal }) }}</p>
     <el-button v-if="metadataFailed" @click="loadMetadata">{{ t('workflowDefinitions.starterSelection.retry') }}</el-button>
     <template v-else>
       <el-select v-model="currentKey" data-testid="workflow-starter-selection-source" :aria-label="t('workflowDefinitions.starterSelection.activity')">

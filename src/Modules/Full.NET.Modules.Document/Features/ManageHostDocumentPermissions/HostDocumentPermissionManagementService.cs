@@ -1,4 +1,7 @@
 using System.Text.Json;
+using Full.NET.Modules.Identity.Contracts;
+using Full.NET.Modules.Document.Features;
+using Full.NET.Modules.Document.Security;
 using Microsoft.Extensions.Options;
 using Full.NET.Modules.Document.Serialization;
 using Full.NET.Abstractions.Ids;
@@ -17,51 +20,53 @@ namespace Full.NET.Modules.Document.Features.ManageHostDocumentPermissions;
 /// 否则会引入权限残留或权限真空窗口。每条记录的 Id 由外部生成 UUID v7。
 /// </summary>
 internal sealed class HostDocumentPermissionManagementService(
-    IQueryExecutor queryExecutor,
     ICommandExecutor commandExecutor,
     ICommandTransaction transaction,
     HostDocumentPermissionQueryService queries,
     IClock clock,
-    IIdGenerator idGenerator, IOptions<DatabaseOptions>? databaseOptions = null)
+    IIdGenerator idGenerator, DocumentMutationGuard guard, IHostUserBatchSelectionDirectory users, IOptions<DatabaseOptions> databaseOptions,
+    IDocumentActorContext actor)
 {
-    public Task<Result<IReadOnlyList<HostDocumentPermissionResponse>>> SetPermissionsAsync(
+    public async Task<Result<IReadOnlyList<HostDocumentPermissionResponse>>> SetPermissionsAsync(
         SetHostDocumentPermissionsRequest request,
         CancellationToken cancellationToken = default)
     {
-        if (request.DocumentId == Guid.Empty || request.Permissions is null || request.Permissions.Count > 100)
+        if (actor.UserId is null || request.DocumentId == Guid.Empty || request.Permissions is null || request.Permissions.Count > 100 || request.Version < 1 || request.VisibilityMode is not ("host" or "restricted") || request.Permissions.Any(p => p is null) || request.Permissions.Select(p => p.UserId).Distinct().Count() != request.Permissions.Count)
         {
-            return Task.FromResult(Invalid());
+            return Invalid();
         }
 
         foreach (var perm in request.Permissions)
         {
-            if (perm.UserId == Guid.Empty || perm.PermissionLevel is not ("read" or "write" or "delete" or "share" or "manage"))
+            if (perm.UserId == Guid.Empty || DocumentPermissionActions.Parse(perm.Actions) == 0)
             {
-                return Task.FromResult(Invalid());
+                return Invalid();
             }
         }
 
-        return transaction.ExecuteResultAsync(
+        var found = await users.FindActiveHostUsersAsync(request.Permissions.Select(p => p.UserId).ToArray(), cancellationToken).ConfigureAwait(false);
+        if (found.Count != request.Permissions.Count) return Invalid();
+        return await transaction.ExecuteResultAsync(
             token => SetPermissionsCoreAsync(request, token),
-            cancellationToken);
+            cancellationToken).ConfigureAwait(false);
     }
 
     private async Task<Result<IReadOnlyList<HostDocumentPermissionResponse>>> SetPermissionsCoreAsync(
         SetHostDocumentPermissionsRequest request,
         CancellationToken cancellationToken)
     {
-        var document = await queryExecutor
-            .QuerySingleOrDefaultAsync<DocumentItemRecord>(
-                DocumentItemSql.FindActiveById,
-                DocumentSqlParameters.Create(("Id", request.DocumentId)),
-                cancellationToken)
-            .ConfigureAwait(false);
+        var document = await guard.LockAsync(request.DocumentId, cancellationToken).ConfigureAwait(false);
 
         if (document is null)
         {
             return DocumentNotFound();
         }
 
+        if (document.Version != request.Version) return Result<IReadOnlyList<HostDocumentPermissionResponse>>.Failure(
+            new Error(DocumentErrorCodes.VersionConflict, "Document was changed.", ErrorType.Conflict));
+        var previous = await queries.ListByDocumentAsync(request.DocumentId, cancellationToken).ConfigureAwait(false);
+        await commandExecutor.ExecuteAsync(DocumentItemSql.SetVisibility,
+            DocumentSqlParameters.Create(("Id", request.DocumentId), ("VisibilityMode", request.VisibilityMode), ("Version", request.Version)), cancellationToken).ConfigureAwait(false);
         await commandExecutor.ExecuteAsync(
                 DocumentPermissionSql.DeleteByDocument,
                 DocumentSqlParameters.Create(("DocumentId", request.DocumentId)),
@@ -72,17 +77,23 @@ internal sealed class HostDocumentPermissionManagementService(
         if (request.Permissions.Count > 0)
         {
             var rows = request.Permissions.Select(perm =>
-                new DocumentPermissionInsertRow(idGenerator.NewId(), perm.UserId, perm.PermissionLevel.Trim())).ToArray();
+                new DocumentPermissionInsertRow(idGenerator.NewId(), perm.UserId, DocumentPermissionActions.Parse(perm.Actions))).ToArray();
             await commandExecutor.ExecuteAsync(
-                databaseOptions?.Value.Provider == DatabaseProvider.MySql
+                databaseOptions.Value.Provider == DatabaseProvider.MySql
                     ? DocumentPermissionSql.InsertBatchMySql : DocumentPermissionSql.InsertBatchSqlServer,
                 DocumentSqlParameters.Create(("DocumentId", request.DocumentId), ("CreatedAtUtc", now),
                     ("Rows", JsonSerializer.Serialize(rows, DocumentJsonSerializerContext.Default.DocumentPermissionInsertRowArray))),
                 cancellationToken).ConfigureAwait(false);
         }
 
-        return await queries.ListByDocumentAsync(request.DocumentId, cancellationToken)
-            .ConfigureAwait(false);
+        var updated = await queries.ListByDocumentAsync(request.DocumentId, cancellationToken).ConfigureAwait(false);
+        await commandExecutor.ExecuteAsync(DocumentPermissionAuditSql.Insert, DocumentSqlParameters.Create(
+            ("Id", idGenerator.NewId()), ("DocumentId", request.DocumentId), ("ActorUserId", actor.UserId),
+            ("PreviousMode", document.VisibilityMode), ("NewMode", request.VisibilityMode),
+            ("BeforeActionsJson", JsonSerializer.Serialize(previous.Value!, DocumentJsonSerializerContext.Default.IReadOnlyListHostDocumentPermissionResponse)),
+            ("AfterActionsJson", JsonSerializer.Serialize(updated.Value!, DocumentJsonSerializerContext.Default.IReadOnlyListHostDocumentPermissionResponse)),
+            ("CreatedAtUtc", now)), cancellationToken).ConfigureAwait(false);
+        return updated;
     }
 
     private static Result<IReadOnlyList<HostDocumentPermissionResponse>> Invalid() =>
@@ -99,4 +110,4 @@ internal sealed class HostDocumentPermissionManagementService(
 }
 
 /// <summary>有界 ACL 替换的数据库输入；标识由应用生成 UUID v7。</summary>
-internal sealed record DocumentPermissionInsertRow(Guid Id, Guid UserId, string PermissionLevel);
+internal sealed record DocumentPermissionInsertRow(Guid Id, Guid UserId, int Actions);

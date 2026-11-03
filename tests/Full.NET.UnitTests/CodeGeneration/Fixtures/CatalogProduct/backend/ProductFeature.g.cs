@@ -23,8 +23,12 @@ internal sealed class ProductQueryService(
     public async Task<Result<PagedResult<ProductResponse>>> ListAsync(
         int page,
         int pageSize,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        ProductListQuery? query = null)
     {
+            query ??= new();
+            if (query.Validate() is { } queryError)
+                return Result<PagedResult<ProductResponse>>.Failure(queryError);
         page = Math.Max(page, 1);
         pageSize = Math.Clamp(pageSize, 1, 100);
         var offset = (long)(page - 1) * pageSize;
@@ -39,7 +43,7 @@ internal sealed class ProductQueryService(
         };
         var pageResult = await multiResultQueryExecutor.QueryMultipleAsync(
                 statement,
-                new { Offset = offset, PageSize = pageSize },
+                query.Parameters(offset, pageSize),
                 async (reader, _) =>
                 {
                     var total = await reader.ReadSingleOrDefaultAsync<long>()
@@ -66,7 +70,7 @@ internal sealed class ProductQueryService(
         var record = await queryExecutor
             .QuerySingleOrDefaultAsync<ProductRecord>(
                 ProductSql.FindByIdStatement,
-                new { Id = productId },
+                new Dictionary<string, object?> { ["Id"] = productId },
                 cancellationToken)
             .ConfigureAwait(false);
         return record is null
@@ -103,10 +107,25 @@ internal sealed class ProductManagementService(
     IClock clock,
     IIdGenerator idGenerator)
 {
+    private async Task<Result<ProductResponse>> ExecuteWriteAsync(
+        Func<CancellationToken, Task<Result<ProductResponse>>> action,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            return await transaction.ExecuteResultAsync(action, cancellationToken).ConfigureAwait(false);
+        }
+        catch (DataCommandException exception) when (exception.Kind == DataCommandFailureKind.UniqueConstraint)
+        {
+            return Result<ProductResponse>.Failure(new Error(
+                "catalog.products.unique_conflict",
+                "The unique field value already exists.", ErrorType.Conflict));
+        }
+    }
     public Task<Result<ProductResponse>> CreateAsync(
         CreateProductRequest request,
         CancellationToken cancellationToken = default) =>
-        transaction.ExecuteAsync(
+        ExecuteWriteAsync(
             token => CreateCoreAsync(request, token),
             cancellationToken);
 
@@ -114,7 +133,7 @@ internal sealed class ProductManagementService(
         Guid productId,
         UpdateProductRequest request,
         CancellationToken cancellationToken = default) =>
-        transaction.ExecuteAsync(
+        ExecuteWriteAsync(
             token => UpdateCoreAsync(productId, request, token),
             cancellationToken);
 
@@ -122,7 +141,7 @@ internal sealed class ProductManagementService(
         Guid productId,
         DisableProductRequest request,
         CancellationToken cancellationToken = default) =>
-        transaction.ExecuteAsync(
+        ExecuteWriteAsync(
             token => DisableCoreAsync(
                 productId, request,
                 token),
@@ -144,15 +163,7 @@ internal sealed class ProductManagementService(
         var productId = idGenerator.NewId();
         var affectedRows = await commandExecutor.ExecuteAsync(
                 ProductSql.InsertStatement,
-                new
-                {
-                    Id = productId,
-                    request.Name,
-                    request.Description,
-                    request.IsActive,
-                    Version = 1L,
-                    CreatedAtUtc = clock.UtcNow
-                },
+                new Dictionary<string, object?> { ["Id"] = productId, ["Name"] = request.Name, ["Description"] = request.Description, ["IsActive"] = request.IsActive, ["Version"] = 1L, ["CreatedAtUtc"] = clock.UtcNow },
                 cancellationToken)
             .ConfigureAwait(false);
         if (affectedRows != 1)
@@ -183,14 +194,7 @@ internal sealed class ProductManagementService(
 
         var affectedRows = await commandExecutor.ExecuteAsync(
                 ProductSql.UpdateStatement,
-                new
-                {
-                    Id = productId,
-                    request.Name,
-                    request.Description,
-                    request.IsActive,
-                    request.Version
-                },
+                new Dictionary<string, object?> { ["Id"] = productId, ["Name"] = request.Name, ["Description"] = request.Description, ["IsActive"] = request.IsActive, ["Version"] = request.Version },
                 cancellationToken)
             .ConfigureAwait(false);
         if (affectedRows != 1)
@@ -215,11 +219,7 @@ internal sealed class ProductManagementService(
         EnsureTenantContext();
         var affectedRows = await commandExecutor.ExecuteAsync(
                 ProductSql.DisableStatement,
-                new
-                {
-                    Id = productId,
-                    request.Version
-                },
+                new Dictionary<string, object?> { ["Id"] = productId, ["Version"] = request.Version },
                 cancellationToken)
             .ConfigureAwait(false);
         if (affectedRows != 1)
@@ -248,10 +248,10 @@ internal sealed class ProductManagementService(
     }
 
     private static Result<ProductResponse>? ValidateWriteRequest(
-        string? name,
+        string name,
         string? description)
     {
-        if (name is null || name.Length > 200)
+        if (string.IsNullOrWhiteSpace(name) || name is { Length: > 200 })
         {
             return ValidationFailure("Name");
         }
@@ -272,7 +272,7 @@ internal sealed class ProductManagementService(
             new Dictionary<string, string[]>(StringComparer.Ordinal)
             {
                 [field] = ["The field value is invalid."],
-            }));
+            }, null, new[] { new ValidationViolation(field, "catalog.products.invalid_field", new Dictionary<string, object?>()) }));
 
     private async Task<Result<ProductResponse>> ResolveWriteFailureAsync(
         Guid productId,
@@ -281,7 +281,7 @@ internal sealed class ProductManagementService(
         var record = await queryExecutor
             .QuerySingleOrDefaultAsync<ProductRecord>(
                 ProductSql.FindByIdStatement,
-                new { Id = productId },
+                new Dictionary<string, object?> { ["Id"] = productId },
                 cancellationToken)
             .ConfigureAwait(false);
         return record is null ? NotFound() : VersionConflict();

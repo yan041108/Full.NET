@@ -1,6 +1,6 @@
 import { describe, expect, it, beforeEach } from 'vitest';
 import { mount } from '@vue/test-utils';
-import { h } from 'vue';
+import { defineComponent, h, ref } from 'vue';
 import { useAdminI18n } from '../../../i18n/adminI18n';
 import ArtTableActionButton from './ArtTableActionButton.vue';
 import ArtTableActionGroup from './ArtTableActionGroup.vue';
@@ -46,6 +46,28 @@ describe('ArtTableActionGroup', () => {
     });
 
     expect(wrapper.find('[data-testid="art-table-action-more"]').exists()).toBe(false);
+  });
+
+  it('父级替换行数据后操作和回调同时更新', async () => {
+    const row = ref({ id: 'candidate', retire: true });
+    const clicked: string[] = [];
+    const parent = defineComponent({
+      setup: () => () => {
+        const current = row.value;
+        return h(ArtTableActionGroup, null, { default: () => [
+          h(ArtTableActionButton, { type: 'view', testId: 'detail', title: current.id,
+            onClick: () => clicked.push(current.id) }),
+          ...(current.retire ? [hAction('retire')] : [])
+        ] });
+      }
+    });
+    const wrapper = mount(parent, { global: { stubs: { ElDropdown: true, ElIcon: true } } });
+    expect(wrapper.find('[data-testid="retire"]').exists()).toBe(true);
+    row.value = { id: 'retained', retire: false };
+    await wrapper.vm.$nextTick();
+    expect(wrapper.find('[data-testid="retire"]').exists()).toBe(false);
+    await wrapper.get('[data-testid="detail"]').trigger('click');
+    expect(clicked).toEqual(['retained']);
   });
 });
 

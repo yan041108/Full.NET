@@ -6,7 +6,7 @@
 - 来源：项目所有者于 2026-08-25 明确要求将 Native AOT 编码经验固化为长期开发规则；`api-native-aot-linux` 的连续修复进一步暴露了开放泛型 DI、JSON 元数据、Dapper 参数与物化、第三方 native binding 和外部进程测试夹具的可重复风险。
 - 适用范围：任何修改 `Full.NET.Host.Api` 可达代码或依赖、AOT 编译条件、HTTP/SignalR JSON、配置绑定、Dapper 查询与命令、Provider native binding、Native AOT 测试、发布脚本或工作流的任务。
 - 风险：JIT 构建和普通单元测试可以通过，但裁剪后的原生程序仍可能在启动、依赖注入、序列化、数据库访问或第三方 native 调用时失败；只修告警而不运行原生产物会产生假绿。
-- 决策源：Host.Api 运行边界以 [`ADR-0008`](../docs/architecture/adr/ADR-0008-api-native-aot-runtime-boundary.md) 为准；S3 与 Kafka Replay Provider 的精确范围以 [`ADR-0009`](../docs/architecture/adr/ADR-0009-host-api-native-aot-provider-runtime-boundary.md) 为准。
+- 决策源：Host.Api 运行边界以 [`ADR-0008`](../docs/architecture/adr/ADR-0008-api-native-aot-runtime-boundary.md) 为准；S3 与 Kafka Replay Provider 的精确范围以 [`ADR-0009`](../docs/architecture/adr/ADR-0009-host-api-native-aot-provider-runtime-boundary.md) 为准；独立 Migrator、LogConsumer 角色按 [`ADR-0015`](../docs/architecture/adr/ADR-0015-migrator-log-consumer-native-aot.md) 实施并分别验收。
 - 例外：无。需要扩大已验证运行角色、Provider 或 suppression 边界时，必须先修改对应 ADR 并补齐原生运行证据。
 
 ## 2. 完成状态不得混用

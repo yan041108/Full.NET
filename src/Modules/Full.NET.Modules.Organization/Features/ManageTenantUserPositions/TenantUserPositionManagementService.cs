@@ -37,29 +37,43 @@ internal sealed class TenantUserPositionManagementService(
             return TenantMemberRequired();
         }
 
+        // 成员校验已经返回展示信息，复用事务前快照，避免事务内或提交后再次读取 Identity。
+        var user = new HostUserDirectoryEntry(tenantMember.Id, tenantMember.Username, tenantMember.DisplayName);
         return await transaction.ExecuteResultAsync(
-                token => CreateCoreAsync(request, token),
+                token => CreateCoreAsync(request, user, token),
                 cancellationToken)
             .ConfigureAwait(false);
     }
 
-    public Task<Result<OrganizationUserPositionResponse>> UpdateAsync(
+    public async Task<Result<OrganizationUserPositionResponse>> UpdateAsync(
         Guid assignmentId,
         UpdateOrganizationUserPositionRequest request,
-        CancellationToken cancellationToken = default) =>
-        transaction.ExecuteResultAsync(
-            token => UpdateCoreAsync(assignmentId, request, token),
-            cancellationToken);
+        CancellationToken cancellationToken = default)
+    {
+        EnsureTenantContext();
+        // 提前解析用户展示信息；目录失败时尚未开始写入，提交后也无需再调用 Identity。
+        var current = await assignmentQueries.GetByIdAsync(assignmentId, cancellationToken).ConfigureAwait(false);
+        if (!current.IsSuccess) return current;
+        var user = new HostUserDirectoryEntry(current.Value!.UserId, current.Value.Username, current.Value.DisplayName);
+        return await transaction.ExecuteResultAsync(
+            token => UpdateCoreAsync(assignmentId, request, user, token), cancellationToken).ConfigureAwait(false);
+    }
 
-    public Task<Result<OrganizationUserPositionResponse>> DisableAsync(
+    public async Task<Result<OrganizationUserPositionResponse>> DisableAsync(
         Guid assignmentId,
-        CancellationToken cancellationToken = default) =>
-        transaction.ExecuteResultAsync(
-            token => DisableCoreAsync(assignmentId, token),
-            cancellationToken);
+        CancellationToken cancellationToken = default)
+    {
+        EnsureTenantContext();
+        var current = await assignmentQueries.GetByIdAsync(assignmentId, cancellationToken).ConfigureAwait(false);
+        if (!current.IsSuccess) return current;
+        var user = new HostUserDirectoryEntry(current.Value!.UserId, current.Value.Username, current.Value.DisplayName);
+        return await transaction.ExecuteResultAsync(
+            token => DisableCoreAsync(assignmentId, user, token), cancellationToken).ConfigureAwait(false);
+    }
 
     private async Task<Result<OrganizationUserPositionResponse>> CreateCoreAsync(
         CreateOrganizationUserPositionRequest request,
+        HostUserDirectoryEntry user,
         CancellationToken cancellationToken)
     {
         EnsureTenantContext();
@@ -124,17 +138,18 @@ internal sealed class TenantUserPositionManagementService(
                 $"Organization user position insert affected {affectedRows} rows instead of one.");
         }
 
-        return await assignmentQueries.GetByIdAsync(assignmentId, cancellationToken)
+        return await assignmentQueries.GetLocalByIdAsync(assignmentId, user, cancellationToken)
             .ConfigureAwait(false);
     }
 
     private async Task<Result<OrganizationUserPositionResponse>> UpdateCoreAsync(
         Guid assignmentId,
         UpdateOrganizationUserPositionRequest request,
+        HostUserDirectoryEntry user,
         CancellationToken cancellationToken)
     {
         EnsureTenantContext();
-        var current = await assignmentQueries.GetByIdAsync(assignmentId, cancellationToken)
+        var current = await assignmentQueries.GetLocalByIdAsync(assignmentId, user, cancellationToken)
             .ConfigureAwait(false);
         if (!current.IsSuccess)
         {
@@ -168,12 +183,13 @@ internal sealed class TenantUserPositionManagementService(
             return Conflict();
         }
 
-        return await assignmentQueries.GetByIdAsync(assignmentId, cancellationToken)
+        return await assignmentQueries.GetLocalByIdAsync(assignmentId, user, cancellationToken)
             .ConfigureAwait(false);
     }
 
     private async Task<Result<OrganizationUserPositionResponse>> DisableCoreAsync(
         Guid assignmentId,
+        HostUserDirectoryEntry user,
         CancellationToken cancellationToken)
     {
         EnsureTenantContext();
@@ -190,7 +206,7 @@ internal sealed class TenantUserPositionManagementService(
             return NotFound();
         }
 
-        return await assignmentQueries.GetByIdAsync(assignmentId, cancellationToken)
+        return await assignmentQueries.GetLocalByIdAsync(assignmentId, user, cancellationToken)
             .ConfigureAwait(false);
     }
 

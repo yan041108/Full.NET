@@ -3,6 +3,7 @@ import { http } from './http';
 import {
   createWorkflowDefinition,
   getWorkflowDefinition,
+  getWorkflowDefinitionVersion,
   getWorkflowNodeTypeCatalog,
   listWorkflowRecipientCandidates,
   publishWorkflowDefinition,
@@ -28,6 +29,16 @@ const response = {
 
 describe('workflow definition 管理 API', () => {
   beforeEach(() => vi.mocked(http.request).mockReset());
+
+  it('精确读取固定版本沿用生成响应守卫和源作用域接口', async () => {
+    const version = { id: response.id, definitionId: response.id, formVersionId: response.id, versionNumber: 1, schemaVersion: 1,
+      canonicalJson: '{}', contentHash: 'a'.repeat(64), businessTitleTemplate: null, publishedById: response.id, publishedAtUtc: '2026-10-29T00:00:00Z' };
+    vi.mocked(http.request).mockResolvedValue(version);
+    expect(await getWorkflowDefinitionVersion(response.id)).toEqual(version);
+    expect(http.request).toHaveBeenLastCalledWith(`/api/v1/workflow/definition-versions/${response.id}`, expect.objectContaining({ method: 'GET' }), undefined);
+    vi.mocked(http.request).mockResolvedValue({ ...version, formVersionId: 7 });
+    await expect(getWorkflowDefinitionVersion(response.id)).rejects.toThrow();
+  });
 
   it('创建、读取和更新 Draft 使用精确管理端点', async () => {
     vi.mocked(http.request).mockResolvedValue(response);

@@ -4,7 +4,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useSessionStore } from '../auth/session';
 import { getWorkflowStarterSelections, listWorkflowStarterSelectionCandidates } from '../api/workflow-starter-selections';
 import WorkflowStarterSelectionPicker from './WorkflowStarterSelectionPicker.vue';
+import { getWorkflowSimulationStarterSelections, listWorkflowSimulationStarterSelectionCandidates } from '../api/workflow-observability';
 vi.mock('../api/workflow-starter-selections', () => ({ getWorkflowStarterSelections: vi.fn(), listWorkflowStarterSelectionCandidates: vi.fn() }));
+vi.mock('../api/workflow-observability', () => ({ getWorkflowSimulationStarterSelections: vi.fn(), listWorkflowSimulationStarterSelectionCandidates: vi.fn() }));
 const id = '01912345-6789-7abc-8def-0123456789ab';
 const user = { id, username: 'user', displayName: 'User' };
 const metadata = { definitionVersionId: id, items: [{ selectionKey: 'review', nodeKey: 'review', nodeName: 'Review', modeKey: 'single' as const, maximumUsers: 1, rangeKey: 'role_members' as const }] };
@@ -12,7 +14,7 @@ function setup(permissions = ['workflow.instances.start']) {
   const pinia = createPinia(); setActivePinia(pinia); const session = useSessionStore();
   session.currentUser = { id, username: 'starter', displayName: 'Starter', tenantId: null, actorScope: 'host', scope: 'host',
     isSuperAdministrator: false, passwordChangeRequired: false, permissions, sessionId: id, preferredLocale: 'zh-CN', profileVersion: 1 };
-  const wrapper = mount(WorkflowStarterSelectionPicker, { props: { versionId: id, modelValue: {} }, global: { plugins: [pinia] } });
+  const wrapper = mount(WorkflowStarterSelectionPicker, { props: { source: { kind: 'published', versionId: id }, modelValue: {} }, global: { plugins: [pinia] } });
   return { wrapper, session };
 }
 beforeEach(() => { vi.clearAllMocks(); vi.mocked(getWorkflowStarterSelections).mockResolvedValue(metadata);
@@ -42,5 +44,22 @@ describe('发起人真实选择', () => {
     expect(wrapper.emitted('ready')?.at(-1)).toEqual([false]);
     await wrapper.get(`[data-testid="workflow-starter-candidate-${id}"]`).trigger('click'); await flushPromises();
     expect(wrapper.emitted('update:modelValue')?.at(-1)).toEqual([{ constructor: [id] }]); wrapper.unmount();
+  });
+  it('仿真使用草稿查询且不要求启动权限，修订变化清空旧候选和选择', async () => {
+    const { wrapper } = setup(['workflow.definitions.simulate', 'workflow.definitions.read', 'workflow.forms.read']);
+    const source = { kind: 'simulation' as const, definitionId: id, draftRevision: 3, formVersionId: id };
+    vi.mocked(getWorkflowSimulationStarterSelections).mockResolvedValue({ definitionId: id, draftRevision: 3, formVersionId: id, items: metadata.items });
+    vi.mocked(listWorkflowSimulationStarterSelectionCandidates).mockResolvedValue({ items: [user], page: 1, pageSize: 20, total: 1 });
+    await wrapper.setProps({ source }); await flushPromises();
+    expect(getWorkflowStarterSelections).not.toHaveBeenCalled();
+    expect(getWorkflowSimulationStarterSelections).toHaveBeenCalledWith(source, expect.any(AbortSignal));
+    await wrapper.get(`[data-testid="workflow-starter-candidate-${id}"]`).trigger('click');
+    await wrapper.setProps({ modelValue: { review: [id] } }); await flushPromises();
+    let resolve!: (value: typeof metadata & { definitionId: string; draftRevision: number; formVersionId: string }) => void;
+    vi.mocked(getWorkflowSimulationStarterSelections).mockImplementationOnce(() => new Promise(done => { resolve = done; }));
+    await wrapper.setProps({ source: { ...source, draftRevision: 4 } }); await flushPromises();
+    expect(wrapper.emitted('update:modelValue')?.at(-1)).toEqual([{}]);
+    expect(wrapper.find(`[data-testid="workflow-starter-candidate-${id}"]`).exists()).toBe(false);
+    resolve({ ...metadata, definitionId: id, draftRevision: 4, formVersionId: id }); await flushPromises(); wrapper.unmount();
   });
 });

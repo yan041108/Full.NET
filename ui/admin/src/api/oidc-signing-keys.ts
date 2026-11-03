@@ -32,3 +32,10 @@ export async function activateOidcSigningKey(
 }
 
 export type { OidcSigningKeyList };
+
+/** 生命周期操作只引用已配置的 kid，不接收或返回私钥。 */
+export async function changeOidcSigningKeyLifecycle(keyId: string, operation: 'publish' | 'retire'): Promise<OidcSigningKeyList> {
+  const value = await request<unknown>(`/api/v1/identity/oidc-signing-keys/${encodeURIComponent(keyId)}/${operation}`, { method: 'POST' });
+  if (!isOidcSigningKeyList(value)) throw new Error('client.invalid_oidc_signing_key_list');
+  return value;
+}

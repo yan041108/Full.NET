@@ -14,7 +14,8 @@ internal static class NativeApiMigratorRunner
     public static async Task MigrateAsync(
         DatabaseProvider provider,
         string connectionString,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        IReadOnlyDictionary<string, string?>? oidcSettings = null)
     {
         var repositoryRoot = NativeApiArtifactLocator.FindRepositoryRoot();
         var migratorProject = Path.Combine(
@@ -33,16 +34,26 @@ internal static class NativeApiMigratorRunner
             CreateNoWindow = true,
             WorkingDirectory = repositoryRoot,
         };
-        startInfo.ArgumentList.Add("run");
-        startInfo.ArgumentList.Add("--project");
-        startInfo.ArgumentList.Add(migratorProject);
-        startInfo.ArgumentList.Add("-c");
-        startInfo.ArgumentList.Add("Release");
-        // 集中验收先构建全部宿主；数据库前置仅复用产物，不在每个原生用例中隐式还原或编译。
-        startInfo.ArgumentList.Add("--no-build");
-        startInfo.ArgumentList.Add("--no-restore");
-        startInfo.ArgumentList.Add("--no-launch-profile");
-        startInfo.ArgumentList.Add("--");
+        var preparedMigrator = Environment.GetEnvironmentVariable("FULLNET_NATIVE_MIGRATOR_DLL");
+        if (!string.IsNullOrWhiteSpace(preparedMigrator))
+        {
+            // 容器复用已构建的可移植 JIT Migrator，不在只读源码挂载中启动隐式构建。
+            if (!File.Exists(preparedMigrator)) throw new FileNotFoundException("Prepared Migrator was not found.", preparedMigrator);
+            startInfo.ArgumentList.Add(preparedMigrator);
+        }
+        else
+        {
+            startInfo.ArgumentList.Add("run");
+            startInfo.ArgumentList.Add("--project");
+            startInfo.ArgumentList.Add(migratorProject);
+            startInfo.ArgumentList.Add("-c");
+            startInfo.ArgumentList.Add("Release");
+            // 集中验收先构建全部宿主；数据库前置仅复用产物，不在每个原生用例中隐式还原或编译。
+            startInfo.ArgumentList.Add("--no-build");
+            startInfo.ArgumentList.Add("--no-restore");
+            startInfo.ArgumentList.Add("--no-launch-profile");
+            startInfo.ArgumentList.Add("--");
+        }
         startInfo.ArgumentList.Add("migrate");
         startInfo.ArgumentList.Add("--seed");
         startInfo.ArgumentList.Add(SeedProfile.Development.ToCanonicalName());
@@ -62,6 +73,13 @@ internal static class NativeApiMigratorRunner
         startInfo.Environment["Identity__Bootstrap__DisplayName"] = "系统管理员";
         startInfo.Environment["Identity__AllowDevelopmentEphemeralSigningKey"] = "true";
         ApplyMigrationContractGates(startInfo.Environment);
+        if (oidcSettings is not null)
+        {
+            // 测试显式让 Migrator 拥有客户端初始化，原生 API 启动不能再写注册数据。
+            foreach (var setting in oidcSettings.Where(pair => pair.Key.StartsWith("Identity:Oidc:", StringComparison.Ordinal)
+                || pair.Key.StartsWith("Identity:Browser:", StringComparison.Ordinal)))
+                startInfo.Environment[setting.Key.Replace(":", "__", StringComparison.Ordinal)] = setting.Value;
+        }
 
         using var process = Process.Start(startInfo)
             ?? throw new InvalidOperationException("无法启动 JIT Migrator。");
