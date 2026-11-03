@@ -371,6 +371,7 @@ export {
 export type {
   CreateRegistrationWayRequest,
   RegistrationPolicy,
+  RegistrationMode,
   RegistrationWay,
   RegistrationWayListQuery,
   RegistrationWayPage,

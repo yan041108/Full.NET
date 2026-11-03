@@ -2,6 +2,7 @@
 import { computed, onMounted, reactive, ref } from 'vue';
 import {
   ElButton,
+  ElAlert,
   ElCard,
   ElForm,
   ElFormItem,
@@ -9,6 +10,8 @@ import {
   ElMessage,
   ElMessageBox,
   ElPagination,
+  ElSelect,
+  ElOption,
   ElSwitch,
   ElTable,
   ElTableColumn,
@@ -16,7 +19,7 @@ import {
 } from 'element-plus';
 import { Plus } from '@element-plus/icons-vue';
 import type { FormInstance } from 'element-plus';
-import type { FullNetProblemDetails, RegistrationPolicy, RegistrationWay } from '@fullnet/client-contracts';
+import { isFullNetProblemDetails, type FullNetProblemDetails, type RegistrationPolicy, type RegistrationMode, type RegistrationWay } from '@fullnet/client-contracts';
 import ArtFormDialog from '../framework/art-design/components/ArtFormDialog.vue';
 import ArtSearchBar, { type ArtSearchBarItem } from '../framework/art-design/components/ArtSearchBar.vue';
 import ArtTableActionButton from '../framework/art-design/components/ArtTableActionButton.vue';
@@ -25,6 +28,8 @@ import ArtTableHeader from '../framework/art-design/components/ArtTableHeader.vu
 import { useArtCrudTableLayout } from '../framework/art-design/composables/useArtCrudTableLayout';
 import PermissionGate from '../components/PermissionGate.vue';
 import { useAdminI18n } from '../i18n/adminI18n';
+import { registrationPolicyText } from '../i18n/registration-policy';
+import { usePermission } from '../auth/permission';
 import {
   createRegistrationWay,
   deleteRegistrationWay,
@@ -38,9 +43,17 @@ defineOptions({ name: 'RegistrationWaysView' });
 
 type EditorMode = 'create' | 'edit';
 
-const { t } = useAdminI18n();
+const { t, locale } = useAdminI18n();
+const { can } = usePermission();
+const policyText = (key: Parameters<typeof registrationPolicyText>[1]) => registrationPolicyText(locale.value, key);
+const canReadPolicy = computed(() => can('identity.registration_policy.read'));
+const canUpdatePolicy = computed(() => canReadPolicy.value && can('identity.registration_policy.update'));
 const policy = ref<RegistrationPolicy | null>(null);
 const policySaving = ref(false);
+const policyLoading = ref(false);
+const policyMode = ref<RegistrationMode>(0);
+const policyError = ref('');
+const policyUnconfirmed = ref(false);
 const items = ref<RegistrationWay[]>([]);
 const total = ref(0);
 const page = ref(1);
@@ -90,20 +103,40 @@ function rowIndex(index: number) {
 }
 
 async function loadPolicy() {
-  policy.value = await getRegistrationPolicy();
+  if (!canReadPolicy.value || policySaving.value || policyLoading.value) return;
+  policyLoading.value = true;
+  policyError.value = '';
+  try {
+    const current = await getRegistrationPolicy();
+    if (!canReadPolicy.value) return;
+    policy.value = current;
+    policyMode.value = current.registrationMode;
+    policyUnconfirmed.value = false;
+  } catch (error: unknown) {
+    policyError.value = isFullNetProblemDetails(error) ? error.title || policyText('loadFailed') : policyText('loadFailed');
+  } finally {
+    policyLoading.value = false;
+  }
 }
 
-async function savePolicy(enabled: boolean) {
-  if (!policy.value) {
+async function savePolicy() {
+  if (!policy.value || !canUpdatePolicy.value || policySaving.value || policyLoading.value
+      || policyUnconfirmed.value || policyMode.value === policy.value.registrationMode) {
     return;
   }
   policySaving.value = true;
   try {
     policy.value = await updateRegistrationPolicy({
-      isPublicRegistrationEnabled: enabled,
+      isPublicRegistrationEnabled: policyMode.value === 2,
+      registrationMode: policyMode.value,
       version: policy.value.version
     });
+    policyMode.value = policy.value.registrationMode;
     ElMessage.success(t('registrationWays.policyUpdateSuccess'));
+  } catch (error: unknown) {
+    // 写入可能已提交；显式重新读取版本后才允许后续保存，避免覆盖他人的策略。
+    policyUnconfirmed.value = true;
+    policyError.value = isFullNetProblemDetails(error) ? error.title || policyText('saveFailed') : policyText('saveFailed');
   } finally {
     policySaving.value = false;
   }
@@ -232,29 +265,30 @@ async function confirmDelete(way: RegistrationWay) {
 }
 
 onMounted(async () => {
-  await loadPolicy();
-  await load();
+  await Promise.all([loadPolicy(), load()]);
 });
 </script>
 
 <template>
   <section class="registration-ways-view art-page-stack art-full-height" :aria-busy="loading">
-    <ElCard class="registration-policy-card" shadow="never">
+    <ElCard v-if="canReadPolicy" class="registration-policy-card" shadow="never">
       <template #header>
         <span>{{ t('registrationWays.policyTitle') }}</span>
       </template>
       <div class="registration-policy-row">
-        <span>{{ t('registrationWays.policyPublicEnabled') }}</span>
-        <PermissionGate code="identity.registration_policy.update">
-          <ElSwitch
-            :model-value="policy?.isPublicRegistrationEnabled ?? false"
-            :loading="policySaving"
-            data-testid="registration-policy-toggle"
-            @change="value => savePolicy(value === true)"
-          />
-        </PermissionGate>
-        <ElTag type="info">{{ t('registrationWays.policyDefaultDisabled') }}</ElTag>
+        <ElSelect v-model="policyMode" :aria-label="policyText('mode')" data-testid="registration-policy-mode"
+          :disabled="!canUpdatePolicy || !policy || policySaving || policyLoading || policyUnconfirmed">
+          <ElOption :label="policyText('disabled')" :value="0" />
+          <ElOption :label="policyText('invited')" :value="1" />
+          <ElOption :label="policyText('open')" :value="2" />
+        </ElSelect>
+        <ElButton v-if="canUpdatePolicy" type="primary" :loading="policySaving" data-testid="registration-policy-save"
+          :disabled="!policy || policyLoading || policyUnconfirmed || policyMode === policy.registrationMode"
+          @click="savePolicy">{{ policyText('save') }}</ElButton>
+        <ElButton :loading="policyLoading" :disabled="policySaving" @click="loadPolicy">{{ policyText('refresh') }}</ElButton>
       </div>
+      <ElAlert v-if="policyError" :title="policyError" type="error" :closable="false" show-icon />
+      <ElAlert v-if="policyUnconfirmed" :title="policyText('unconfirmed')" type="warning" :closable="false" show-icon />
     </ElCard>
 
     <ArtSearchBar
@@ -385,5 +419,8 @@ onMounted(async () => {
   display: flex;
   align-items: center;
   gap: 12px;
+  flex-wrap: wrap;
 }
+
+.registration-policy-row :deep(.el-select) { width: min(240px, 100%); }
 </style>

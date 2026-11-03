@@ -8,7 +8,6 @@ using Full.NET.Modules.Identity.Features.ManageRegistrationPolicy;
 using Full.NET.Modules.Identity.Features.RegisterAccount;
 using Full.NET.Modules.Identity.Features.RegistrationInvitations;
 using Full.NET.Modules.Identity.Persistence;
-using Full.NET.Modules.Notifications.Contracts;
 using Microsoft.AspNetCore.Identity;
 using NSubstitute;
 using IdentityUser = Full.NET.Modules.Identity.Domain.IdentityUser;
@@ -83,6 +82,58 @@ public sealed class RegistrationTransactionBoundaryTests
         Assert.AreEqual(change == "unchanged" ? 5 : 0, fixture.Writes);
     }
 
+    [TestMethod]
+    [DataRow("unchanged")]
+    [DataRow("tenant")]
+    [DataRow("revoked")]
+    public async Task Open_registration_preserves_invitation_target_and_rechecks_it(string change)
+    {
+        var fixture = new Fixture(invitationOnly: true);
+        fixture.Policy = fixture.Policy with { RegistrationMode = (byte)IdentityRegistrationMode.Open };
+        fixture.Way.TenantId = Guid.NewGuid();
+        fixture.AfterAuthorityRead = () =>
+        {
+            if (change == "tenant") fixture.Invitation = fixture.Invitation! with { TenantId = Guid.NewGuid() };
+            if (change == "revoked") fixture.Invitation = fixture.Invitation! with { RevokedAtUtc = DateTimeOffset.UtcNow };
+        };
+        var result = await fixture.HandleAsync();
+        Assert.AreEqual(change == "unchanged", result.IsSuccess);
+        await fixture.Directory.Received(1).IsActiveTenantAsync(fixture.TenantId, Arg.Any<CancellationToken>());
+        Assert.IsFalse(fixture.AuthorityReadInsideTransaction);
+        Assert.AreEqual(change == "unchanged" ? 1 : 0, fixture.Coordinator.CommitCount);
+        if (change == "unchanged") Assert.AreEqual(fixture.TenantId, fixture.InsertedUser!.TenantId);
+        else Assert.AreEqual(0, fixture.Writes);
+    }
+
+    [TestMethod]
+    [DataRow(true)]
+    [DataRow(false)]
+    public async Task Partial_invitation_does_not_fall_back_to_open_registration(bool missingId)
+    {
+        var fixture = new Fixture(invitationOnly: true);
+        fixture.Policy = fixture.Policy with { RegistrationMode = (byte)IdentityRegistrationMode.Open };
+        fixture.Request = missingId ? fixture.Request with { InvitationId = null } : fixture.Request with { InvitationToken = null };
+        var result = await fixture.HandleAsync();
+        Assert.IsFalse(result.IsSuccess);
+        Assert.AreEqual(IdentityErrorCodes.RegistrationInvitationInvalid, result.Error!.Code);
+        Assert.AreEqual(0, fixture.Coordinator.BeginCount);
+        Assert.AreEqual(0, fixture.Writes);
+    }
+
+    [TestMethod]
+    [DataRow(IdentityRegistrationMode.Open)]
+    [DataRow(IdentityRegistrationMode.InvitationOnly)]
+    public async Task Failed_invitation_binding_rolls_back_the_entire_registration(IdentityRegistrationMode mode)
+    {
+        var fixture = new Fixture(invitationOnly: true) { BindingSucceeds = false };
+        fixture.Policy = fixture.Policy with { RegistrationMode = (byte)mode };
+        var result = await fixture.HandleAsync();
+        Assert.IsFalse(result.IsSuccess);
+        Assert.AreEqual(IdentityErrorCodes.RegistrationInvitationInvalid, result.Error!.Code);
+        Assert.AreEqual(0, fixture.Coordinator.CommitCount);
+        Assert.AreEqual(1, fixture.Coordinator.RollbackCount);
+    }
+
     private sealed class Fixture
     {
         public readonly Guid TenantId = Guid.NewGuid();
@@ -95,8 +146,11 @@ public sealed class RegistrationTransactionBoundaryTests
         public bool AuthorityReadInsideTransaction;
         public Action? AfterAuthorityRead;
         public int Writes;
+        public bool BindingSucceeds = true;
+        public IdentityUser? InsertedUser;
         private readonly Handler handler;
-        private readonly RegisterAccountRequest request;
+        private RegisterAccountRequest request;
+        public RegisterAccountRequest Request { get => request; set => request = value; }
 
         public Fixture(bool invitationOnly = false)
         {
@@ -126,10 +180,14 @@ public sealed class RegistrationTransactionBoundaryTests
             query.QuerySingleOrDefaultAsync<AccountChallengeRecord>(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>())
                 .Returns(new AccountChallengeRecord(request.ChallengeId, (byte)(invitationOnly ? IdentityAccountChallengePurpose.InvitationEmailVerification : IdentityAccountChallengePurpose.RegistrationEmailVerification),
                     request.Email, AccountChallengeCredentialHasher.Hash(request.ChallengeId, request.ChallengeCode), now.AddMinutes(5), null, 0, 5, 1, now));
-            command.ExecuteAsync(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(_ =>
+            command.ExecuteAsync(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(call =>
             {
                 Assert.IsTrue(Coordinator.HasTransaction);
                 Writes++;
+                var statement = call.ArgAt<SqlStatement>(0);
+                Assert.IsNotNull(statement);
+                if (statement.Name == IdentitySql.InsertUser.Name) InsertedUser = call.ArgAt<IdentityUser>(1);
+                if (statement.Name == RegistrationInvitationSql.BindUser.Name && !BindingSucceeds) return 0;
                 return 1;
             });
             Directory.IsActiveTenantAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>()).Returns(_ =>

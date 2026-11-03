@@ -8,8 +8,8 @@ using Full.NET.Data.Abstractions;
 using Full.NET.IntegrationTests.Api;
 using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Identity.Features.RegistrationInvitations;
+using Full.NET.Modules.Identity.Features.ManageRegistrationPolicy;
 using Full.NET.Modules.Identity.Persistence;
-using Full.NET.Modules.Notifications.Contracts;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Full.NET.IntegrationTests.Identity;
@@ -19,7 +19,8 @@ internal static class InvitedRegistrationAssertions
 {
     public static async Task VerifyAsync(
         FullNetApiFactory factory,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        IdentityRegistrationMode mode = IdentityRegistrationMode.InvitationOnly)
     {
         var deliveryPort = new CapturingIdentityChallengeDeliveryPort();
         using var scopedFactory = new FullNetApiFactory(
@@ -31,6 +32,17 @@ internal static class InvitedRegistrationAssertions
             });
         await scopedFactory.InitializeAsync(cancellationToken);
         using var client = scopedFactory.CreateClientForHost("localhost");
+
+        await using (var policyScope = scopedFactory.Services.CreateAsyncScope())
+        {
+            policyScope.ServiceProvider.GetRequiredService<CurrentTenantAccessor>().SetHost();
+            var policyService = policyScope.ServiceProvider.GetRequiredService<RegistrationPolicyService>();
+            var policy = await policyService.GetAsync(cancellationToken);
+            Assert.IsTrue(policy.IsSuccess);
+            var changed = await policyService.UpdateAsync(new UpdateRegistrationPolicyRequest(
+                mode == IdentityRegistrationMode.Open, policy.Value!.Version, mode), cancellationToken);
+            Assert.IsTrue(changed.IsSuccess, changed.Error?.Code);
+        }
 
         var tenantId = await ResolveDefaultTenantIdAsync(scopedFactory, factory.Provider, cancellationToken);
         var registrationWayId = await CreateRegistrationWayAsync(
@@ -77,23 +89,37 @@ internal static class InvitedRegistrationAssertions
         }
 
         Assert.IsNotNull(deliveryPort.LastIntent);
+        var registration = new RegisterAccountRequest(
+            email, "Invited User", "FullNet!2026Register", deliveryPort.LastIntent!.ChallengeId,
+            deliveryPort.LastIntent.Credential, InvitationId: invitationId, InvitationToken: invitationToken);
         using var registerRequest = new HttpRequestMessage(
             HttpMethod.Post,
             "/api/v1/auth/register")
         {
-            Content = JsonContent.Create(new RegisterAccountRequest(
-                email,
-                "Invited User",
-                "FullNet!2026Register",
-                deliveryPort.LastIntent!.ChallengeId,
-                deliveryPort.LastIntent.Credential,
-                InvitationId: invitationId,
-                InvitationToken: invitationToken)),
+            Content = JsonContent.Create(registration),
         };
         using var registerResponse = await client.SendAsync(registerRequest, cancellationToken);
         Assert.AreEqual(HttpStatusCode.OK, registerResponse.StatusCode);
         var body = await registerResponse.Content.ReadFromJsonAsync<RegisterAccountResponse>(cancellationToken);
         Assert.IsTrue(body!.Created);
+        await using (var scope = scopedFactory.Services.CreateAsyncScope())
+        {
+            scope.ServiceProvider.GetRequiredService<CurrentTenantAccessor>().SetHost();
+            var query = scope.ServiceProvider.GetRequiredService<IQueryExecutor>();
+            var invitation = await query.QuerySingleOrDefaultAsync<RegistrationInvitationRecord>(
+                RegistrationInvitationSql.FindById, IdentitySqlParameters.Create(("InvitationId", invitationId)), cancellationToken);
+            Assert.IsNotNull(invitation);
+            Assert.AreEqual(body.UserId, invitation.BoundUserId);
+            Assert.AreEqual((byte)IdentityRegistrationInvitationStatus.AccountCreatedPendingOnboarding, invitation.Status);
+            Assert.IsNotNull(invitation.ConsumedAtUtc);
+            var user = await query.QuerySingleOrDefaultAsync<IdentityUserRecord>(AccountLifecycleSql.FindUserByProfileEmail,
+                IdentitySqlParameters.Create(("Email", email)), cancellationToken);
+            Assert.IsNotNull(user);
+            Assert.AreEqual(body.UserId, user.Id);
+            Assert.AreEqual(tenantId, user.TenantId);
+        }
+        using var replay = await client.PostAsJsonAsync("/api/v1/auth/register", registration, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Conflict, replay.StatusCode);
     }
 
     private static async Task<(Guid InvitationId, string Token)> CreateInvitationAsync(

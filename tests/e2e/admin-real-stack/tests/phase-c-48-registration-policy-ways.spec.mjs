@@ -73,8 +73,8 @@ test('UI：注册策略与注册方式管理页（清单 48，Vue）', async ({ 
     timeout: 20_000
   });
   await expect(page.getByText('注册策略', { exact: true })).toBeVisible();
-  await expect(page.getByText('默认关闭公开注册', { exact: true })).toBeVisible();
-  await expect(page.getByTestId('registration-policy-toggle')).toBeVisible();
+  await expect(page.getByTestId('registration-policy-mode')).toContainText('禁用注册');
+  await expect(page.getByTestId('registration-policy-mode')).toBeVisible();
   await expect(page.getByTestId('registration-ways-action-create')).toBeVisible();
   await expect(page.getByText('403', { exact: true })).toHaveCount(0);
 });

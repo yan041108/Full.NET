@@ -81,7 +81,9 @@ internal sealed class Handler(
         VerifyRegistrationInvitationResponse? verifiedInvitation = null;
         Guid tenantId;
         IdentityAccountChallengePurpose challengePurpose;
-        if (mode == IdentityRegistrationMode.InvitationOnly)
+        // 开放注册仍可携带邀请，目标租户和挑战用途必须始终由有效邀请决定。
+        if (mode == IdentityRegistrationMode.InvitationOnly || request.InvitationId.HasValue
+            || !string.IsNullOrWhiteSpace(request.InvitationToken))
         {
             if (!request.InvitationId.HasValue || string.IsNullOrWhiteSpace(request.InvitationToken))
             {
@@ -246,8 +248,13 @@ internal sealed class Handler(
 
         if (request.InvitationId.HasValue)
         {
-            await invitationService.BindCreatedUserAsync(request.InvitationId.Value, user.Id, cancellationToken)
+            var bound = await invitationService.BindCreatedUserAsync(request.InvitationId.Value, user.Id, cancellationToken)
                 .ConfigureAwait(false);
+            if (!bound.IsSuccess)
+            {
+                // 绑定失败必须回滚账号、邮箱资料和凭据核销，不能留下无法接续入驻的半成品。
+                return Result<RegisterAccountResponse>.Failure(bound.Error!);
+            }
         }
 
         return Result<RegisterAccountResponse>.Success(new RegisterAccountResponse(user.Id, true));

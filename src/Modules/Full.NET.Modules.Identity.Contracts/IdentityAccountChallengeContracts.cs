@@ -83,7 +83,7 @@ public sealed record SendRegistrationEmailChallengeRequest(
 /// <param name="Password">明文密码；只允许存在于当前请求边界，禁止写日志或缓存。</param>
 /// <param name="ChallengeId">已完成验证的挑战标识。</param>
 /// <param name="ChallengeCode">挑战验证码；服务端校验一次性消费。</param>
-/// <param name="RegistrationWayId">注册路径标识；省略时使用默认路径。</param>
+/// <param name="RegistrationWayId">开放注册时必填的注册路径标识；携带有效邀请时以邀请目标为准。</param>
 /// <param name="InvitationId">关联邀请标识；邀请模式下必填。</param>
 /// <param name="InvitationToken">关联邀请 Token；邀请模式下必填。</param>
 public sealed record RegisterAccountRequest(

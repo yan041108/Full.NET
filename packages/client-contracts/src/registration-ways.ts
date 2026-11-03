@@ -1,12 +1,16 @@
+export type RegistrationMode = 0 | 1 | 2;
+
 export interface RegistrationPolicy {
   id: string;
   isPublicRegistrationEnabled: boolean;
+  registrationMode: RegistrationMode;
   updatedAtUtc: string;
   version: number;
 }
 
 export interface UpdateRegistrationPolicyRequest {
   isPublicRegistrationEnabled: boolean;
+  registrationMode?: RegistrationMode;
   version: number;
 }
 
@@ -71,6 +75,8 @@ export function isRegistrationPolicy(value: unknown): value is RegistrationPolic
   return isRecord(value)
     && isGuid(value.id)
     && typeof value.isPublicRegistrationEnabled === 'boolean'
+    && (value.registrationMode === 0 || value.registrationMode === 1 || value.registrationMode === 2)
+    && value.isPublicRegistrationEnabled === (value.registrationMode === 2)
     && typeof value.updatedAtUtc === 'string'
     && Number.isInteger(value.version);
 }
