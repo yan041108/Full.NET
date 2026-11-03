@@ -10,6 +10,7 @@ import { createApp } from '../../../scripts/templates/create-app.mjs';
 import { prepareApplicationCompositionProbe } from './application-composition-probe.mjs';
 import { verifyApplicationModuleEndpoint } from './application-module-http.mjs';
 import { cleanupCreatedApp } from './created-app-cleanup.mjs';
+import { createdAppBuildArguments } from './created-app-build-arguments.mjs';
 import { verifyApplicationCrudGeneration } from './application-crud-generation.mjs';
 import { prepareApplicationBusinessMigrations, verifyApplicationMigrationResult } from './application-business-migrations.mjs';
 import { verifyApplicationCrudModule } from './application-crud-module.mjs';
@@ -91,11 +92,13 @@ async function startRedisContainer() {
 }
 
 function runDotnet(args, cwd, env, timeoutMs = 300_000, logPath) {
+  const environment = { ...testRunEnvironment(), ...env };
+  args = createdAppBuildArguments(args, environment);
   const result = spawnSync('dotnet', args, {
     cwd,
     encoding: 'utf8',
     timeout: timeoutMs,
-    env: { ...testRunEnvironment(), ...env },
+    env: environment,
     windowsHide: true,
   });
   if (logPath) writeFileSync(logPath, `${result.stdout ?? ''}\n${result.stderr ?? ''}`);
@@ -281,7 +284,11 @@ export async function verifyCreatedAppRealStack(databaseProviderKey, { scope = '
     }
 
     prepareApplicationCompositionProbe(appRoot);
-    const run = (command, args, options) => spawnSync(command, args, { ...options, env: { ...testRunEnvironment(), ...options?.env } });
+    const run = (command, args, options) => {
+      const environment = { ...testRunEnvironment(), ...options?.env };
+      return spawnSync(command, command === 'dotnet' ? createdAppBuildArguments(args, environment) : args,
+        { ...options, env: environment });
+    };
     verifyApplicationCrudGeneration(appRoot, { run, reportDirectory: join(logRoot, 'application-crud') });
     verifyApplicationCrudModule(appRoot, { run, reportDirectory: join(logRoot, 'application-crud-module'), removeTestSqlComment: true });
     verifyApplicationCrudHostWiring(appRoot, { run, reportDirectory: join(logRoot, 'application-crud-host-wiring') });
