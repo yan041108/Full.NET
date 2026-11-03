@@ -98,6 +98,7 @@ public sealed class TenancyModule : IFullNetModule
         services.AddScoped<Features.ManageHostTenantPackages.HostTenantPackageManagementService>();
         services.AddScoped<Features.ManageTenantLifecycle.TenantCommercialReactivateGate>();
         services.AddScoped<Features.ManageTenantLifecycle.TenantLifecycleManagementService>();
+        services.AddScoped<Features.ManageTenantLifecycle.TenantLifecycleWriteGuard>();
         services.AddScoped<Features.ManageTenantEntitlements.TenantEntitlementManagementService>();
         services.AddScoped<Features.ManageTenantSubscriptions.TenantSubscriptionQueryService>();
         services.AddScoped<Features.ManageTenantSubscriptions.TenantSubscriptionManagementService>();

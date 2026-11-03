@@ -2,6 +2,7 @@ using Full.NET.Abstractions.Results;
 using Full.NET.Hosting.Api;
 using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Tenancy.Contracts;
+using Full.NET.Modules.Tenancy.Features.ManageHostTenants;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
@@ -15,6 +16,13 @@ internal static class Endpoint
     {
         var group = endpoints.MapGroup("/api/v1/tenancy/tenants")
             .WithTags("TenancyTenantLifecycle");
+
+        group.MapGet("/{tenantId:guid}/lifecycle", async (Guid tenantId, HostTenantQueryService queries,
+            IApiResultMapper mapper, HttpContext context, CancellationToken token) =>
+            mapper.Map(await queries.GetByIdAsync(tenantId, token).ConfigureAwait(false), context))
+            .WithName("tenancyGetTenantLifecycle")
+            .Produces<TenantSummary>()
+            .RequireAuthorization(FullNetPermissionPolicies.For(TenancyTenantLifecyclePermissions.Read));
 
         group.MapPost("/{tenantId:guid}/suspend", async (
             Guid tenantId,

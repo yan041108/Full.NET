@@ -4,9 +4,14 @@
     "unit": {
       "project": "tests/Full.NET.UnitTests/Full.NET.UnitTests.csproj",
       "assembly": "tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll",
-      "minimum": 9559,
+      "minimum": 9578,
       "timeout": "10m",
       "selections": {
+        "tenant-lifecycle-console": {
+          "filter": "FullyQualifiedName~TenantLifecycleTransitionTests|FullyQualifiedName~HostTenantManagementServiceTests|FullyQualifiedName~HostTenantCacheInvalidationTests|FullyQualifiedName~TenantCommercialReactivateGateTests",
+          "minimum": 28,
+          "timeout": "3m"
+        },
         "public-registration-membership": {
           "filter": "FullyQualifiedName~RegistrationTransactionBoundaryTests|FullyQualifiedName~PermissionSnapshotReaderTests|FullyQualifiedName~TenantSeatOperationProcessorTests|FullyQualifiedName~SelfTenantRegistrationRetryTests|FullyQualifiedName~Identity_module_delegation_matches_responsibility_registration_pipeline|FullyQualifiedName~Identity_module_repeated_registration_preserves_critical_contracts",
           "minimum": 42,
@@ -677,6 +682,11 @@
       "minimum": 2,
       "timeout": "15m",
       "selections": {
+        "tenant-lifecycle-console": {
+          "filter": "FullyQualifiedName~TenantLifecycleConsoleTests|FullyQualifiedName~TenantLifecycleGuardMigrationRecoveryTests",
+          "minimum": 4,
+          "timeout": "5m"
+        },
         "public-registration-membership": {
           "filter": "FullyQualifiedName~PublicRegistrationMembershipTests|FullyQualifiedName~PublicRegistrationEnrollmentMigrationRecoveryTests",
           "minimum": 4,
@@ -2095,7 +2105,7 @@
       },
       "migrations": {
         "filter": "FullyQualifiedName~Full.NET.IntegrationTests.Migrations",
-        "minimum": 584,
+        "minimum": 586,
         "timeout": "120m"
       },
       "infrastructure": {
@@ -2128,7 +2138,7 @@
       },
       "full": {
         "filter": "TestCategory!=ExternalSmtp&TestCategory!=ExternalAliyunSms&TestCategory!=NativeWorkflowApi&TestCategory!=NativeWorkflow&TestCategory!=NativeWorkflowWindows&TestCategory!=WorkflowNativeKafka&FullyQualifiedName!~Full.NET.IntegrationTests.NativeAot&FullyQualifiedName!~IdentityBrowserUiTests&FullyQualifiedName!~WorkflowCollaborationGrantBrowserUiTests&FullyQualifiedName!~AiKnowledgeCorrectionBrowserUiTests&FullyQualifiedName!~IdentityOidcNetworkInteropTests",
-        "minimum": 1674,
+        "minimum": 1678,
         "timeout": "90m"
       },
       "logging-metrics": {

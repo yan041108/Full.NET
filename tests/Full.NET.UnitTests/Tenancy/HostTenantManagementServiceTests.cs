@@ -80,6 +80,23 @@ public sealed class HostTenantManagementServiceTests
             Arg.Any<CancellationToken>());
     }
 
+    [TestMethod]
+    [DataRow("Suspended")]
+    [DataRow("Closing")]
+    [DataRow("Closed")]
+    public async Task Legacy_enable_cannot_bypass_lifecycle_state(string status)
+    {
+        var f = new Fixture();
+        var row = f.DefaultTenant;
+        f.Query.QuerySingleOrDefaultAsync<HostTenantRecord>(TenantSql.FindHostTenantById, Arg.Any<object>(), Arg.Any<CancellationToken>())
+            .Returns(new HostTenantRecord(row.Id, row.Identifier, row.Name, row.Domain, false, row.Version,
+                row.DefaultLocale, null, null, null, status, null, TenantProvisioningStatuses.Completed, null));
+        var result = await f.Service.EnableAsync(row.Id);
+        Assert.IsFalse(result.IsSuccess);
+        Assert.AreEqual(TenancyErrorCodes.LifecycleStatusInvalid, result.Error!.Code);
+        await f.Command.DidNotReceive().ExecuteAsync(TenantSql.EnableHostTenant, Arg.Any<object>(), Arg.Any<CancellationToken>());
+    }
+
     private sealed class Fixture
     {
         public Fixture()
@@ -143,7 +160,7 @@ public sealed class HostTenantManagementServiceTests
                     })),
                 packageBinder,
                 clock,
-                AuditWriter);
+                AuditWriter, new Full.NET.Modules.Tenancy.Features.ManageTenantLifecycle.TenantLifecycleWriteGuard(Command));
         }
 
         public TenantResolutionRecord DefaultTenant { get; }

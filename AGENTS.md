@@ -13,6 +13,7 @@
 ## 开始与完成
 
 - 修改前检查分支、`git status`、相关实现与已批准决策，保护既有和无关改动。代码、SQL、配置或脚本任务记录 `git rev-parse HEAD`；工作区已脏或任务跨窗口时使用 `pnpm test:task:start -- <task-id>` 创建快照。
+- 项目所有者于 2026-11-04 要求现存分支合入 `main` 后清理，后续直接在 `main` 开发和提交；未经新的明确指令不再创建开发分支或工作树。合并与清理验证见 [Git 规则](rules/development-quality.md#13-git编码与跨平台)。
 - 按 [规则索引](rules/README.md) 读取受影响章节。认证、租户、事务、持久化与公共契约变化必须覆盖相应安全、数据或契约规则；影响 Host.Api 可达路径、依赖或 AOT 配置时读取 Native AOT 规则。范围不确定时先沿调用链确认。
 - 环境异常或首次运行时使用 [AI 工作流](docs/development/ai-workflow.md) 的只读自检；故障排查和前端验收沿用该文档的项目路由。查询 .NET、ASP.NET Core、SqlClient 或 SQL Server 文档时优先使用可用的 Microsoft Learn MCP，并匹配项目版本；连接不可用时回退官方文档。
 - 新增或扩展模块、CRUD、Endpoint、Command/Query、Dapper 持久化或双库迁移时使用 [fullnet-module-delivery](.agents/skills/fullnet-module-delivery/SKILL.md)；性能分析与优化时使用 [fullnet-performance-hardening](.agents/skills/fullnet-performance-hardening/SKILL.md)。只读咨询或局部文字调整不因提到模块名称就触发完整交付流程。

@@ -204,6 +204,7 @@ import type {
   ChangeSerialNumberRuleStatusRequest,
   ClaimWorkflowPoolRequest,
   CloseShadowCaptureRequest,
+  CloseTenantRequest,
   CodeGenerationApplyPlanFileResponse,
   CodeGenerationCatalogColumnListResponse,
   CodeGenerationCatalogColumnSyncRequest,
@@ -678,6 +679,7 @@ import type {
   QuerySchemeFilter,
   QuerySchemeFilterDefinition,
   QuerySchemeSummary,
+  ReactivateTenantRequest,
   ReadAiKnowledgeSearchContextRequest,
   ReadAiKnowledgeSearchRelationsRequest,
   ReassignWorkflowInstanceRequest,
@@ -806,6 +808,7 @@ import type {
   SuperAdministratorAuditResponse,
   SuperAdministratorChangeResponse,
   SuperAdministratorResponse,
+  SuspendTenantRequest,
   TenantBrandingResponse,
   TenantEntitlementCatalogResponse,
   TenantPackageOfferResponse,
@@ -2744,6 +2747,15 @@ export function readCloseShadowCaptureRequest(value: unknown): CloseShadowCaptur
 
 function isCloseShadowCaptureRequest(value: unknown): value is CloseShadowCaptureRequest {
   return isRecord(value) && (typeof value["reason"] === 'string');
+}
+
+export function readCloseTenantRequest(value: unknown): CloseTenantRequest {
+  const normalizedValue = normalizeCloseTenantRequestIntegerJson(value);
+  return requireValidResponse(normalizedValue, isCloseTenantRequest(normalizedValue), 'close_tenant_request') as CloseTenantRequest;
+}
+
+function isCloseTenantRequest(value: unknown): value is CloseTenantRequest {
+  return isRecord(value) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
 }
 
 export function readCodeGenerationApplyPlanFileResponse(value: unknown): CodeGenerationApplyPlanFileResponse {
@@ -6880,6 +6892,15 @@ function isQuerySchemeSummary(value: unknown): value is QuerySchemeSummary {
   return isRecord(value) && (typeof value["createdAtUtc"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["isCompatible"] === 'boolean') && (typeof value["isShared"] === 'boolean') && (typeof value["name"] === 'string') && (typeof value["ownerUserId"] === 'string' && guidPattern.test(value["ownerUserId"])) && (typeof value["schemaVersion"] === 'number' && Number.isSafeInteger(value["schemaVersion"])) && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
 }
 
+export function readReactivateTenantRequest(value: unknown): ReactivateTenantRequest {
+  const normalizedValue = normalizeReactivateTenantRequestIntegerJson(value);
+  return requireValidResponse(normalizedValue, isReactivateTenantRequest(normalizedValue), 'reactivate_tenant_request') as ReactivateTenantRequest;
+}
+
+function isReactivateTenantRequest(value: unknown): value is ReactivateTenantRequest {
+  return isRecord(value) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+}
+
 export function readReadAiKnowledgeSearchContextRequest(value: unknown): ReadAiKnowledgeSearchContextRequest {
   const normalizedValue = normalizeReadAiKnowledgeSearchContextRequestIntegerJson(value);
   return requireValidResponse(normalizedValue, isReadAiKnowledgeSearchContextRequest(normalizedValue), 'read_ai_knowledge_search_context_request') as ReadAiKnowledgeSearchContextRequest;
@@ -8001,6 +8022,15 @@ export function readSuperAdministratorResponse(value: unknown): SuperAdministrat
 
 function isSuperAdministratorResponse(value: unknown): value is SuperAdministratorResponse {
   return isRecord(value) && (typeof value["displayName"] === 'string') && (typeof value["isActive"] === 'boolean') && (typeof value["userId"] === 'string' && guidPattern.test(value["userId"])) && (typeof value["username"] === 'string');
+}
+
+export function readSuspendTenantRequest(value: unknown): SuspendTenantRequest {
+  const normalizedValue = normalizeSuspendTenantRequestIntegerJson(value);
+  return requireValidResponse(normalizedValue, isSuspendTenantRequest(normalizedValue), 'suspend_tenant_request') as SuspendTenantRequest;
+}
+
+function isSuspendTenantRequest(value: unknown): value is SuspendTenantRequest {
+  return isRecord(value) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
 }
 
 export function readTenantBrandingResponse(value: unknown): TenantBrandingResponse {
@@ -10417,6 +10447,10 @@ function normalizeClaimWorkflowPoolRequestIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "expectedRevision") ? { ["expectedRevision"]: normalizeWireInteger(value["expectedRevision"]) } : {}) } : value);
 }
 
+function normalizeCloseTenantRequestIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
+}
+
 function normalizeCodeGenerationCatalogColumnListResponseIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "columns") ? { ["columns"]: (Array.isArray(value["columns"]) ? value["columns"].map((item16: unknown) => normalizeCodeGenerationPreviewColumnRequestIntegerJson(item16)) : value["columns"]) } : {}) } : value);
 }
@@ -11785,6 +11819,10 @@ function normalizeQuerySchemeSummaryIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "schemaVersion") ? { ["schemaVersion"]: normalizeWireInteger(value["schemaVersion"]) } : {}), ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
 }
 
+function normalizeReactivateTenantRequestIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
+}
+
 function normalizeReadAiKnowledgeSearchContextRequestIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "anchorSequence") ? { ["anchorSequence"]: normalizeWireInteger(value["anchorSequence"]) } : {}), ...(Object.hasOwn(value, "embeddingModelVersion") ? { ["embeddingModelVersion"]: normalizeWireInteger(value["embeddingModelVersion"]) } : {}), ...(Object.hasOwn(value, "radius") ? { ["radius"]: normalizeWireInteger(value["radius"]) } : {}), ...(Object.hasOwn(value, "source") ? { ["source"]: normalizeAiKnowledgeSearchSourceIntegerJson(value["source"]) } : {}) } : value);
 }
@@ -12179,6 +12217,10 @@ function normalizeSubscriptionCheckoutResponseIntegerJson(value: unknown): unkno
 
 function normalizeSubscriptionFulfillmentStatusResponseIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "attempt") ? { ["attempt"]: normalizeWireInteger(value["attempt"]) } : {}) } : value);
+}
+
+function normalizeSuspendTenantRequestIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
 }
 
 function normalizeTenantBrandingResponseIntegerJson(value: unknown): unknown {

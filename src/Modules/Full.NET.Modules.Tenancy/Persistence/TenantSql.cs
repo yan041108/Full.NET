@@ -228,6 +228,8 @@ internal static class TenantSql
             Version = Version + 1
         WHERE Id = @TenantId
           AND IsActive = 0
+          AND LifecycleStatus = 'Active'
+          AND ProvisioningStatus = 'Completed'
         """,
         SqlDataScope.HostOnly);
 

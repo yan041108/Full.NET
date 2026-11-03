@@ -145,6 +145,9 @@
       "name": "TenancyHostTenantPackages"
     },
     {
+      "name": "TenancyTenantLifecycle"
+    },
+    {
       "name": "OrganizationTenantUnits"
     },
     {
@@ -59431,6 +59434,55 @@
         ]
       }
     },
+    "/api/v1/tenancy/tenants/{tenantId}/close": {
+      "post": {
+        "operationId": "tenancyCloseTenant",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "tenantId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CloseTenantRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TenantSummary"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          },
+          {
+            "ApiKey": []
+          }
+        ],
+        "tags": [
+          "TenancyTenantLifecycle"
+        ]
+      }
+    },
     "/api/v1/tenancy/tenants/{tenantId}/disable": {
       "post": {
         "operationId": "tenancyDisableHostTenant",
@@ -59576,6 +59628,45 @@
         ],
         "tags": [
           "TenancyHostTenants"
+        ]
+      }
+    },
+    "/api/v1/tenancy/tenants/{tenantId}/lifecycle": {
+      "get": {
+        "operationId": "tenancyGetTenantLifecycle",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "tenantId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TenantSummary"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          },
+          {
+            "ApiKey": []
+          }
+        ],
+        "tags": [
+          "TenancyTenantLifecycle"
         ]
       }
     },
@@ -59771,6 +59862,55 @@
         ]
       }
     },
+    "/api/v1/tenancy/tenants/{tenantId}/reactivate": {
+      "post": {
+        "operationId": "tenancyReactivateTenant",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "tenantId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReactivateTenantRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TenantSummary"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          },
+          {
+            "ApiKey": []
+          }
+        ],
+        "tags": [
+          "TenancyTenantLifecycle"
+        ]
+      }
+    },
     "/api/v1/tenancy/tenants/{tenantId}/subscriptions/paid": {
       "post": {
         "operationId": "tenancyCreatePaidSubscription",
@@ -59817,6 +59957,55 @@
         ],
         "tags": [
           "TenancySubscriptionBilling"
+        ]
+      }
+    },
+    "/api/v1/tenancy/tenants/{tenantId}/suspend": {
+      "post": {
+        "operationId": "tenancySuspendTenant",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "tenantId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SuspendTenantRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TenantSummary"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          },
+          {
+            "ApiKey": []
+          }
+        ],
+        "tags": [
+          "TenancyTenantLifecycle"
         ]
       }
     },
@@ -77676,6 +77865,22 @@
         },
         "required": [
           "reason"
+        ],
+        "type": "object"
+      },
+      "CloseTenantRequest": {
+        "properties": {
+          "version": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          }
+        },
+        "required": [
+          "version"
         ],
         "type": "object"
       },
@@ -97451,6 +97656,22 @@
         ],
         "type": "object"
       },
+      "ReactivateTenantRequest": {
+        "properties": {
+          "version": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          }
+        },
+        "required": [
+          "version"
+        ],
+        "type": "object"
+      },
       "ReadAiKnowledgeSearchContextRequest": {
         "additionalProperties": false,
         "properties": {
@@ -102001,6 +102222,22 @@
           "username",
           "displayName",
           "isActive"
+        ],
+        "type": "object"
+      },
+      "SuspendTenantRequest": {
+        "properties": {
+          "version": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          }
+        },
+        "required": [
+          "version"
         ],
         "type": "object"
       },

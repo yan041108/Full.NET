@@ -6,6 +6,7 @@ export interface HostTenant {
   isActive: boolean;
   version: number;
   defaultLocale: string;
+  lifecycleStatus?: 'Active' | 'Suspended' | 'Closing' | 'Closed';
   tenantPackageId?: string | null;
   tenantPackageCode?: string | null;
   tenantPackageName?: string | null;
@@ -50,6 +51,7 @@ export function isHostTenant(value: unknown): value is HostTenant {
     && Number.isInteger(value.version)
     && typeof value.defaultLocale === 'string'
     && value.defaultLocale.length > 0
+    && (value.lifecycleStatus === undefined || ['Active', 'Suspended', 'Closing', 'Closed'].includes(String(value.lifecycleStatus)))
     && optionalGuidOrNull(value.tenantPackageId)
     && optionalStringOrNull(value.tenantPackageCode)
     && optionalStringOrNull(value.tenantPackageName);

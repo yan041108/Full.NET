@@ -1595,6 +1595,13 @@
         "Version": "工作项乐观并发版本"
       }
     },
+    "fn_tenancy_lifecycle_guard": {
+      "comment": "租户停止操作的全局事务串行门闩",
+      "columns": {
+        "Id": "固定的基础设施 UUID v7 标识",
+        "Version": "领取事务锁时递增的修订"
+      }
+    },
     "fn_tenancy_package_offer": {
       "comment": "可发布的套餐收款报价与限额",
       "columns": {

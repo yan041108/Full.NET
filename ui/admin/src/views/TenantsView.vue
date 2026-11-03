@@ -42,6 +42,8 @@ import { useAdminI18n } from '../i18n/adminI18n';
 import { listHostTenantPackages } from '../api/tenant-packages';
 import PaidSubscriptionPurchase from '../components/PaidSubscriptionPurchase.vue';
 import SubscriptionCheckoutAction from '../components/SubscriptionCheckoutAction.vue';
+import TenantLifecycleDialog from '../components/TenantLifecycleDialog.vue';
+import { tenantLifecycleText } from '../i18n/tenant-lifecycle';
 import {
   cancelTenantSubscription,
   createTenantSubscription,
@@ -82,7 +84,7 @@ const TENANT_IDENTIFIER_PATTERN = /^[a-z0-9][a-z0-9-]{1,62}[a-z0-9]$/;
 
 const session = useSessionStore();
 const router = useRouter();
-const { t } = useAdminI18n();
+const { t, locale } = useAdminI18n();
 const allTenants = ref<HostTenant[]>([]);
 const packages = ref<HostTenantPackage[]>([]);
 const loading = ref(false);
@@ -205,6 +207,8 @@ const searchItems = computed<ArtSearchBarItem[]>(() => [
 const canCreate = computed(() => session.can('tenancy.tenants.create'));
 const canUpdate = computed(() => session.can('tenancy.tenants.update'));
 const canEnable = computed(() => session.can('tenancy.tenants.enable'));
+const lifecycleTenantId = ref<string>();
+const lifecycleOpen = ref(false);
 const canReadDirectory = computed(() => session.can('tenancy.tenants.read_directory'));
 const canAssignPackage = computed(() => session.can('tenancy.tenants.assign_package'));
 const canSwitchTenant = computed(() => session.can('tenancy.tenants.switch'));
@@ -958,7 +962,11 @@ function toProblem(
                   @click="openEdit(row as HostTenant)"
                     />
                   </PermissionGate>
-                  <PermissionGate v-if="!row.isActive" code="tenancy.tenants.enable">
+                  <PermissionGate code="tenancy.tenant_lifecycle.read">
+                    <el-button link type="primary" data-testid="tenants-action-lifecycle" :disabled="changing"
+                      @click="lifecycleTenantId = row.id; lifecycleOpen = true">{{ tenantLifecycleText(locale, 'title') }}</el-button>
+                  </PermissionGate>
+                  <PermissionGate v-if="!row.isActive && row.lifecycleStatus === 'Active'" code="tenancy.tenants.enable">
                     <el-button
                       link
                       type="primary"
@@ -1215,6 +1223,7 @@ function toProblem(
         </el-button>
       </template>
     </el-dialog>
+    <TenantLifecycleDialog v-model:open="lifecycleOpen" :tenant-id="lifecycleTenantId" @changed="load" />
   </section>
 </template>
 

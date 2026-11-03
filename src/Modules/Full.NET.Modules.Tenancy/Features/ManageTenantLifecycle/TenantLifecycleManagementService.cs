@@ -17,43 +17,17 @@ internal sealed class TenantLifecycleManagementService(
     HostTenantQueryService tenantQueries,
     TenantCommercialReactivateGate commercialReactivateGate,
     IHostUserDirectory users,
-    IClock clock)
+    IClock clock,
+    TenantLifecycleWriteGuard guard)
 {
-    public async Task<Result<TenantSummary>> SuspendAsync(
-        Guid tenantId,
-        SuspendTenantRequest request,
-        CancellationToken cancellationToken = default)
-    {
-        var result = await transaction.ExecuteAsync(
-                token => SuspendCoreAsync(tenantId, request, token),
-                cancellationToken)
-            .ConfigureAwait(false);
-        return result;
-    }
+    public Task<Result<TenantSummary>> SuspendAsync(Guid tenantId, SuspendTenantRequest request, CancellationToken cancellationToken = default) =>
+        transaction.ExecuteResultAsync(token => TransitionAsync(tenantId, request.Version, TenantLifecycleStatuses.Suspended, token), cancellationToken);
 
-    public async Task<Result<TenantSummary>> ReactivateAsync(
-        Guid tenantId,
-        ReactivateTenantRequest request,
-        CancellationToken cancellationToken = default)
-    {
-        var result = await transaction.ExecuteAsync(
-                token => ReactivateCoreAsync(tenantId, request, token),
-                cancellationToken)
-            .ConfigureAwait(false);
-        return result;
-    }
+    public Task<Result<TenantSummary>> ReactivateAsync(Guid tenantId, ReactivateTenantRequest request, CancellationToken cancellationToken = default) =>
+        transaction.ExecuteResultAsync(token => TransitionAsync(tenantId, request.Version, TenantLifecycleStatuses.Active, token), cancellationToken);
 
-    public async Task<Result<TenantSummary>> CloseAsync(
-        Guid tenantId,
-        CloseTenantRequest request,
-        CancellationToken cancellationToken = default)
-    {
-        var result = await transaction.ExecuteAsync(
-                token => CloseCoreAsync(tenantId, request, token),
-                cancellationToken)
-            .ConfigureAwait(false);
-        return result;
-    }
+    public Task<Result<TenantSummary>> CloseAsync(Guid tenantId, CloseTenantRequest request, CancellationToken cancellationToken = default) =>
+        transaction.ExecuteResultAsync(token => TransitionAsync(tenantId, request.Version, TenantLifecycleStatuses.Closed, token), cancellationToken);
 
     public async Task<Result<TenantSummary>> TransferOwnershipAsync(
         Guid tenantId,
@@ -70,113 +44,45 @@ internal sealed class TenantLifecycleManagementService(
                 ErrorType.NotFound));
         }
 
-        var result = await transaction.ExecuteAsync(
+        var result = await transaction.ExecuteResultAsync(
                 token => TransferOwnershipCoreAsync(tenantId, request, token),
                 cancellationToken)
             .ConfigureAwait(false);
         return result;
     }
 
-    private async Task<Result<TenantSummary>> SuspendCoreAsync(
-        Guid tenantId,
-        SuspendTenantRequest request,
-        CancellationToken cancellationToken)
+    // 先取得跨入口门闩，再读权威状态及数量，直到状态写入与结果读取完成才提交。
+    private async Task<Result<TenantSummary>> TransitionAsync(Guid tenantId, int version, string target, CancellationToken token)
     {
-        var tenant = await tenantQueries.GetByIdAsync(tenantId, cancellationToken)
-            .ConfigureAwait(false);
-        if (!tenant.IsSuccess)
+        if (version <= 0) return Result<TenantSummary>.Failure(new Error(ValidationErrorCodes.Failed, "A positive version is required.", ErrorType.Validation));
+        await guard.EnterAsync(token).ConfigureAwait(false);
+        var result = await tenantQueries.GetByIdAsync(tenantId, token).ConfigureAwait(false);
+        if (!result.IsSuccess) return result;
+        var tenant = result.Value!;
+        if (tenant.Version != version) return VersionConflict();
+        if (tenant.ProvisioningStatus != TenantProvisioningStatuses.Completed) return LifecycleStatusInvalid();
+        if (tenant.LifecycleStatus == target && tenant.IsActive == (target == TenantLifecycleStatuses.Active)) return result;
+        if (tenant.LifecycleStatus is not (TenantLifecycleStatuses.Active or TenantLifecycleStatuses.Suspended)) return LifecycleStatusInvalid();
+        if (target == TenantLifecycleStatuses.Active)
         {
-            return tenant;
+            if (tenant.LifecycleStatus != TenantLifecycleStatuses.Suspended || tenant.ProvisioningStatus != TenantProvisioningStatuses.Completed)
+                return LifecycleStatusInvalid();
+            var commercial = await commercialReactivateGate.ValidateAsync(tenant, token).ConfigureAwait(false);
+            if (!commercial.IsSuccess) return Result<TenantSummary>.Failure(commercial.Error!);
         }
-
-        if (tenant.Value!.LifecycleStatus is TenantLifecycleStatuses.Closed or TenantLifecycleStatuses.Closing)
+        else
         {
-            return LifecycleStatusInvalid();
+            if (target == TenantLifecycleStatuses.Suspended && tenant.LifecycleStatus != TenantLifecycleStatuses.Active)
+                return LifecycleStatusInvalid();
+            if (tenant.IsActive && await queryExecutor.QuerySingleOrDefaultAsync<long>(TenantSql.CountActiveTenants,
+                cancellationToken: token).ConfigureAwait(false) <= 1)
+                return Result<TenantSummary>.Failure(new Error(TenancyErrorCodes.LastActiveTenant,
+                    "The last active tenant cannot be stopped.", ErrorType.BusinessRule));
         }
-
-        var affected = await commandExecutor.ExecuteAsync(
-                TenantSql.UpdateLifecycleStatus,
-                TenancySqlParameters.Create(
-                    ("TenantId", tenantId),
-                    ("LifecycleStatus", TenantLifecycleStatuses.Suspended),
-                    ("IsActive", false),
-                    ("UpdatedAtUtc", clock.UtcNow),
-                    ("Version", request.Version)),
-                cancellationToken)
-            .ConfigureAwait(false);
-        return await CompleteWriteAsync(tenantId, affected, cancellationToken)
-            .ConfigureAwait(false);
-    }
-
-    private async Task<Result<TenantSummary>> ReactivateCoreAsync(
-        Guid tenantId,
-        ReactivateTenantRequest request,
-        CancellationToken cancellationToken)
-    {
-        var tenant = await tenantQueries.GetByIdAsync(tenantId, cancellationToken)
-            .ConfigureAwait(false);
-        if (!tenant.IsSuccess)
-        {
-            return tenant;
-        }
-
-        if (tenant.Value!.LifecycleStatus != TenantLifecycleStatuses.Suspended)
-        {
-            return LifecycleStatusInvalid();
-        }
-
-        var commercialGate = await commercialReactivateGate.ValidateAsync(
-                tenant.Value!,
-                cancellationToken)
-            .ConfigureAwait(false);
-        if (!commercialGate.IsSuccess)
-        {
-            return Result<TenantSummary>.Failure(commercialGate.Error!);
-        }
-
-        var affected = await commandExecutor.ExecuteAsync(
-                TenantSql.UpdateLifecycleStatus,
-                TenancySqlParameters.Create(
-                    ("TenantId", tenantId),
-                    ("LifecycleStatus", TenantLifecycleStatuses.Active),
-                    ("IsActive", true),
-                    ("UpdatedAtUtc", clock.UtcNow),
-                    ("Version", request.Version)),
-                cancellationToken)
-            .ConfigureAwait(false);
-        return await CompleteWriteAsync(tenantId, affected, cancellationToken)
-            .ConfigureAwait(false);
-    }
-
-    private async Task<Result<TenantSummary>> CloseCoreAsync(
-        Guid tenantId,
-        CloseTenantRequest request,
-        CancellationToken cancellationToken)
-    {
-        var activeCount = await queryExecutor.QuerySingleOrDefaultAsync<long>(
-                TenantSql.CountActiveTenants,
-                cancellationToken: cancellationToken)
-            .ConfigureAwait(false);
-        if (activeCount <= 1)
-        {
-            return Result<TenantSummary>.Failure(new Error(
-                TenancyErrorCodes.LastActiveTenant,
-                "The last active tenant cannot be closed.",
-                ErrorType.BusinessRule));
-        }
-
-        var affected = await commandExecutor.ExecuteAsync(
-                TenantSql.UpdateLifecycleStatus,
-                TenancySqlParameters.Create(
-                    ("TenantId", tenantId),
-                    ("LifecycleStatus", TenantLifecycleStatuses.Closed),
-                    ("IsActive", false),
-                    ("UpdatedAtUtc", clock.UtcNow),
-                    ("Version", request.Version)),
-                cancellationToken)
-            .ConfigureAwait(false);
-        return await CompleteWriteAsync(tenantId, affected, cancellationToken)
-            .ConfigureAwait(false);
+        var affected = await commandExecutor.ExecuteAsync(TenantSql.UpdateLifecycleStatus, TenancySqlParameters.Create(
+            ("TenantId", tenantId), ("LifecycleStatus", target), ("IsActive", target == TenantLifecycleStatuses.Active),
+            ("UpdatedAtUtc", clock.UtcNow), ("Version", version)), token).ConfigureAwait(false);
+        return await CompleteWriteAsync(tenantId, affected, token).ConfigureAwait(false);
     }
 
     private async Task<Result<TenantSummary>> TransferOwnershipCoreAsync(

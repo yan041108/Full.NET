@@ -113,7 +113,8 @@ public sealed class HostTenantCacheInvalidationTests
             packageBinder,
             clock,
             // UpdateAsync 不触碰 B0 域内审计写入器；此处只需满足构造函数依赖。
-            Substitute.For<ITransactionalDomainAuditWriter<TenancyDomainAuditWrite>>());
+            Substitute.For<ITransactionalDomainAuditWriter<TenancyDomainAuditWrite>>(),
+            new Full.NET.Modules.Tenancy.Features.ManageTenantLifecycle.TenantLifecycleWriteGuard(commandExecutor));
 
         var result = await service.UpdateAsync(
             tenantId,
