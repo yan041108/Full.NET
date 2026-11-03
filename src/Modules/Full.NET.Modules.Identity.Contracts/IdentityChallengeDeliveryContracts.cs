@@ -10,13 +10,20 @@ namespace Full.NET.Modules.Identity.Contracts;
 /// <param name="Credential">明文一次性口令或令牌；仅允许存在于当前投递边界。</param>
 /// <param name="ExpiresAtUtc">凭据过期时间（UTC）；过期后投递仍可发出但链接无效。</param>
 /// <param name="IdempotencyKey">投递幂等键；相同键重复发送应合并或拒绝，避免重复邮件。</param>
+/// <param name="LocaleTag">发起请求已协商的规范 BCP 47 标签，仅控制邮件展示文案。</param>
 public sealed record IdentityChallengeDeliveryIntent(
     Guid ChallengeId,
     IdentityAccountChallengePurpose Purpose,
     string NormalizedEmail,
     string Credential,
     DateTimeOffset ExpiresAtUtc,
-    string IdempotencyKey);
+    string IdempotencyKey,
+    string LocaleTag)
+{
+    /// <summary>诊断文本只包含追踪信息，不输出目标邮箱或明文验证码。</summary>
+    public override string ToString() =>
+        $"IdentityChallengeDeliveryIntent {{ ChallengeId = {ChallengeId}, Purpose = {Purpose}, LocaleTag = {LocaleTag}, Credential = [redacted] }}";
+}
 
 /// <summary>仅供 Identity 调用的账号挑战投递 Port。</summary>
 public interface IIdentityChallengeDeliveryPort

@@ -4,6 +4,7 @@ using Full.NET.Abstractions.Messaging;
 using Full.NET.Abstractions.Results;
 using Full.NET.Abstractions.Time;
 using Full.NET.Data.Abstractions;
+using Full.NET.Localization;
 using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Identity.Persistence;
 
@@ -16,7 +17,8 @@ internal sealed class AccountChallengeService(
     ICommandTransaction transaction,
     IIdentityChallengeDeliveryPort challengeDeliveryPort,
     IClock clock,
-    IIdGenerator idGenerator)
+    IIdGenerator idGenerator,
+    ILocaleContext localeContext)
 {
     private const int DefaultMaxAttempts = 5;
     private static readonly TimeSpan DefaultLifetime = TimeSpan.FromMinutes(15);
@@ -70,9 +72,10 @@ internal sealed class AccountChallengeService(
             normalizedEmail,
             code,
             expiresAtUtc,
-            $"identity-challenge:{(byte)purpose}:{challengeId:N}");
+            $"identity-challenge:{(byte)purpose}:{challengeId:N}",
+            localeContext.CurrentLocale);
         var delivered = await challengeDeliveryPort.SendAsync(intent, cancellationToken).ConfigureAwait(false);
-        if (!delivered.IsSuccess)
+        if (!delivered.IsSuccess || !delivered.Value)
         {
             // 较早投递可能晚于重发返回失败，只撤销它自己的挑战，不能误伤已送达的新验证码。
             await commandExecutor.ExecuteAsync(

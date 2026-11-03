@@ -199,7 +199,9 @@ public sealed class RegistrationTransactionBoundaryTests
             var hasher = Substitute.For<IPasswordHasher<IdentityUser>>();
             hasher.HashPassword(Arg.Any<IdentityUser>(), Arg.Any<string>()).Returns("hash");
             handler = new Handler(new RegistrationPolicyService(query, command, clock),
-                new AccountChallengeService(query, command, transaction, Substitute.For<IIdentityChallengeDeliveryPort>(), clock, ids),
+                new AccountChallengeService(query, command, transaction, Substitute.For<IIdentityChallengeDeliveryPort>(), clock, ids,
+                    new Full.NET.Localization.LocaleContext(new Full.NET.Localization.LocaleNormalizer(
+                        Microsoft.Extensions.Options.Options.Create(new Full.NET.Localization.FullNetLocalizationOptions())))),
                 new RegistrationInvitationService(query, command, clock), query, command, transaction, hasher, Directory, clock, ids);
         }
 

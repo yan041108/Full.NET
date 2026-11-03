@@ -6,6 +6,8 @@ using Full.NET.Modules.Notifications.Persistence;
 using Full.NET.Modules.Notifications.Providers;
 using Full.NET.Modules.Notifications.Providers.Smtp;
 using Microsoft.Extensions.Options;
+using Full.NET.Localization;
+using System.Globalization;
 
 /// <summary>模块内端口适配或空实现；供测试或未启用能力时闭合 DI。</summary>
 namespace Full.NET.Modules.Notifications.Features.SendIdentityChallenge;
@@ -42,13 +44,21 @@ internal sealed class IdentityChallengeDeliveryPort(
             return Result<bool>.Failure(DeliveryFailed());
         }
 
-        var subject = intent.Purpose switch
+        var english = intent.LocaleTag == LocaleCatalog.English;
+        var subject = (intent.Purpose, english) switch
         {
-            IdentityAccountChallengePurpose.PasswordRecovery => "Full.NET password recovery",
-            IdentityAccountChallengePurpose.InvitationEmailVerification => "Full.NET invitation verification",
-            _ => "Full.NET registration verification",
+            (IdentityAccountChallengePurpose.PasswordRecovery, true) => "Full.NET password recovery",
+            (IdentityAccountChallengePurpose.PasswordRecovery, false) => "Full.NET 找回密码",
+            (IdentityAccountChallengePurpose.InvitationEmailVerification, true) => "Full.NET invitation verification",
+            (IdentityAccountChallengePurpose.InvitationEmailVerification, false) => "Full.NET 邀请验证",
+            (_, true) => "Full.NET registration verification",
+            _ => "Full.NET 注册验证",
         };
-        var body = $"Your verification code is {intent.Credential}. It expires at {intent.ExpiresAtUtc:u}.";
+        // 时刻使用确定的 UTC 表示，展示语言不改变验证码、用途或有效期的业务语义。
+        var expires = intent.ExpiresAtUtc.UtcDateTime.ToString("yyyy-MM-dd HH:mm:ss 'UTC'", CultureInfo.InvariantCulture);
+        var body = english
+            ? $"Your verification code is {intent.Credential}. Valid until {expires}. If you did not request this, ignore this message."
+            : $"您的验证码为 {intent.Credential}，请在 {expires} 前使用。若非本人操作，请忽略此邮件。";
         var request = new NotificationProviderRequest(
             profileVersion.Id,
             "email",

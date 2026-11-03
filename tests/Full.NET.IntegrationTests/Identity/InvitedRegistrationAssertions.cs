@@ -238,7 +238,7 @@ internal static class InvitedRegistrationAssertions
         return (await CreateInvitationAsync(factory, tenantId, email, wayId, token)).InvitationId;
     }
 
-    private static async Task<(Guid InvitationId, string Token)> CreateInvitationAsync(
+    internal static async Task<(Guid InvitationId, string Token)> CreateInvitationAsync(
         FullNetApiFactory factory,
         Guid tenantId,
         string email,
@@ -278,7 +278,7 @@ internal static class InvitedRegistrationAssertions
         return tenantId.Value;
     }
 
-    private static async Task<Guid> CreateRegistrationWayAsync(
+    internal static async Task<Guid> CreateRegistrationWayAsync(
         FullNetApiFactory factory,
         Guid tenantId,
         CancellationToken cancellationToken)

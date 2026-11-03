@@ -2,6 +2,30 @@
 
 本教程记录从 Full.NET 应用模板创建新项目后的只读诊断入口，以及 CRUD 生成与接入步骤。独立应用的完整生成 CRUD、OpenAPI、Vue、跨租户拒绝与再生成保护仍按总计划 F02 验收，不能把模板字典 CRUD 冒烟作为生成业务验收。
 
+## 生成客户端成功链路的本地复验
+
+2026-11-04 使用固定提交 `7d2b8880aef29b3e902da1ff3d86310efd8b351c` 的正式分发包完成两库复验。参数为应用 `Demo`、owner `acme`、预设 `minimal`、模块 `catalog`、实体 `product`、租户必需作用域，表为 `acme_catalog_product`；样例 Schema 位于 `tests/templates/support/fixtures/application-crud-schema.json`。经过模板包装器的隔离 `dotnet new` 安装/创建、只读诊断、生成及模块/Composition 接入，再启动应用自己的 Migrator 和 API。
+
+提交开发改动、确保分发输入干净后，从框架仓库根目录运行以下 PowerShell 命令。分发包及报告进入系统临时目录；输出目录必须为空，不覆盖既有应用。
+
+```powershell
+$packageRoot = Join-Path $env:TEMP ('fullnet-crud-package-' + [guid]::NewGuid().ToString('N'))
+node scripts/templates/build-app-template.mjs --output $packageRoot
+$env:FULLNET_RUN_TEMPLATE_REAL_STACK = '1'
+$env:FULLNET_CREATED_APP_SCOPE = 'generated-client'
+$env:FULLNET_CREATED_APP_PACKAGE = $packageRoot
+$env:FULLNET_CREATED_APP_EVIDENCE = Join-Path $env:TEMP ('fullnet-crud-evidence-' + [guid]::NewGuid().ToString('N'))
+$env:DOTNET_PROCESSOR_COUNT = '2'
+node --test --test-concurrency=1 --test-name-pattern '\(sqlserver\)$' tests/templates/created-app-real-stack.test.mjs
+node --test --test-concurrency=1 --test-name-pattern '\(mysql\)$' tests/templates/created-app-real-stack.test.mjs
+```
+
+本轮两库的生成客户端写入流程各通过 10 次实际请求：创建 201、详情/列表 200、更新 200、旧版本更新/删除各 409、删除 200、删除后读取 404，并由应用 API 核对持久化结果；另有非空详情和列表回调各 1 次，详情核对 Id、TenantId、Name、Version，列表包含刚创建的商品。`focused-result.json` 的 requests=10 对应写入流程，另两次回调分别记录在 `application-crud-client/{product-read,product-list}.json`；`tenant-writes.json` 记录写入流程的逐项结果，不记录凭据。该范围没有运行 Vue 页面或原生发布，不能替代后文相应证据。
+
+开发机为 Windows、Intel Core i9-14900K，.NET SDK 10.0.402；构建准入预算为 2 核/6 GiB。业务阶段实测 SQL Server 363.9 秒、MySQL 383.0 秒，包含生成、构建、容器迁移及 HTTP，不是容量或生产响应时间指标。首次运行还受 SDK/NuGet/Docker 缓存影响。
+
+遇到 `cached template framework source is stale` 时重新从目标固定提交导出正式包，不修改摘要绕过检查。遇到 MSBuild 节点过多或编译器异常时先检查实际内部命令是否有 `-maxcpucount:2`；此提交已统一约束内部候选编译并关闭共享编译/节点复用。CLR 或硬件错误仍需按原始日志定位，不能由参数存在推导硬件故障已修复。
+
 ## 前置条件
 
 对于审批单据等带业务状态机的模块，可在 CLI Schema 的显式 `entityCapabilities` 中设置 `"hasMutationPolicy": true`，并同时启用 `hasVersion`、声明数据作用域。生成器为写入服务增加必需的 `I<ClrTypeName>MutationPolicy` 依赖，在创建、更新、删除的本地命令事务内调用；应用在同项目的开发者自有文件中实现并显式注册该接口。未注册时写入服务不能构造，不会静默放行。策略只访问本模块数据，不能在事务内调用其他模块或外部服务。
