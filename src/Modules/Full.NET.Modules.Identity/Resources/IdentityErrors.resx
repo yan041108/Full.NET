@@ -153,4 +153,7 @@
   <data name="identity.browser_endpoint_required" xml:space="preserve"><value>此浏览器会话必须使用专用会话端点。</value></data>
   <data name="identity.browser_session_unavailable" xml:space="preserve"><value>浏览器会话已失效或暂不可用，请重试或重新登录。</value></data>
   <data name="identity.oidc_delivery_not_failed" xml:space="preserve"><value>退出通知尚未处于可重试的失败状态。</value></data>
+  <data name="identity.registration_membership.not_found" xml:space="preserve"><value>注册入驻记录不存在。</value></data>
+  <data name="identity.registration_membership.retry_rejected" xml:space="preserve"><value>成员已被管理员更改，请联系企业管理员处理。</value></data>
+  <data name="identity.registration_membership.not_enlisted" xml:space="preserve"><value>注册入驻未能完整登记，请重试。</value></data>
 </root>

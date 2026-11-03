@@ -32,6 +32,20 @@ public sealed class TenantSeatOperationProcessorTests
     }
 
     [TestMethod]
+    [DataRow(true, false)]
+    [DataRow(false, false)]
+    [DataRow(true, true)]
+    public async Task Public_registration_uses_persisted_way_without_an_invitation(bool enabled, bool superAdministrator)
+    {
+        var f = new Fixture();
+        f.ConfigureRegistrationWay(enabled, superAdministrator, publicRegistration: true);
+        var result = await f.Processor().ProcessAsync(f.Op.Id, default);
+        Assert.AreEqual(enabled && !superAdministrator, result.IsSuccess && result.Value);
+        Assert.IsNull(f.Op.InvitationId);
+        Assert.IsNotNull(f.Op.RegistrationWayId);
+    }
+
+    [TestMethod]
     public async Task Lost_confirmation_response_replays_original_operation_without_second_reserve()
     {
         var f = new Fixture();
@@ -219,7 +233,7 @@ public sealed class TenantSeatOperationProcessorTests
             });
         }
 
-        internal void ConfigureRegistrationWay(bool enabled, bool superAdministrator)
+        internal void ConfigureRegistrationWay(bool enabled, bool superAdministrator, bool publicRegistration = false)
         {
             Op = Op with { InvitationId = Guid.CreateVersion7() };
             var way = new RegistrationWayRecord { Id = Guid.CreateVersion7(), TenantId = Op.TenantId,
@@ -232,6 +246,7 @@ public sealed class TenantSeatOperationProcessorTests
                 .Returns(new IdentityRoleRecord(way.RoleId, Op.TenantId, $"tenant:{Op.TenantId:N}", "role", "Role", false, true,
                     superAdministrator, "all", DateTimeOffset.UtcNow, null, 1));
             queries.QuerySingleOrDefaultAsync<int>(RegistrationMemberActivationSql.HasRole, Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(1);
+            if (publicRegistration) Op = Op with { InvitationId = null, RegistrationWayId = way.Id };
         }
 
         internal void ChangeRegistrationWayDuringGrant() => queries.QuerySingleOrDefaultAsync<int>(

@@ -243,6 +243,7 @@ import type {
   ConfigValueUpdate,
   ConfirmOcrIdCardTaskRequest,
   ConfirmTotpEnrollmentRequest,
+  ContinueTenantRegistrationRequest,
   CopyAiKnowledgeEvaluationSet,
   CopyAiKnowledgeFaqDraft,
   CopyHostRoleRequest,
@@ -754,6 +755,7 @@ import type {
   SearchAiKnowledgeRequest,
   SelectAiPromptVersionRequest,
   SelfServiceProfileResponse,
+  SelfTenantRegistrationResponse,
   SendHostInboxMessageRequest,
   SendRecipientEndpointVerificationResponse,
   SerialNumberPreviewResponse,
@@ -3073,6 +3075,15 @@ export function readConfirmTotpEnrollmentRequest(value: unknown): ConfirmTotpEnr
 
 function isConfirmTotpEnrollmentRequest(value: unknown): value is ConfirmTotpEnrollmentRequest {
   return isRecord(value) && (typeof value["totpCode"] === 'string');
+}
+
+export function readContinueTenantRegistrationRequest(value: unknown): ContinueTenantRegistrationRequest {
+  const normalizedValue = normalizeContinueTenantRegistrationRequestIntegerJson(value);
+  return requireValidResponse(normalizedValue, isContinueTenantRegistrationRequest(normalizedValue), 'continue_tenant_registration_request') as ContinueTenantRegistrationRequest;
+}
+
+function isContinueTenantRegistrationRequest(value: unknown): value is ContinueTenantRegistrationRequest {
+  return isRecord(value) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
 }
 
 export function readCopyAiKnowledgeEvaluationSet(value: unknown): CopyAiKnowledgeEvaluationSet {
@@ -7548,6 +7559,15 @@ function isSelfServiceProfileResponse(value: unknown): value is SelfServiceProfi
   return isRecord(value) && (typeof value["accountType"] === 'string') && ((value["avatarFileId"] === null) || (typeof value["avatarFileId"] === 'string' && guidPattern.test(value["avatarFileId"]))) && (typeof value["displayName"] === 'string') && ((value["profile"] === null) || (isHostUserProfileResponse(value["profile"]))) && (Array.isArray(value["readableFieldKeys"]) && value["readableFieldKeys"].every(item26 => typeof item26 === 'string')) && ((value["signatureFileId"] === null) || (typeof value["signatureFileId"] === 'string' && guidPattern.test(value["signatureFileId"]))) && (typeof value["userId"] === 'string' && guidPattern.test(value["userId"])) && (typeof value["username"] === 'string') && (typeof value["userVersion"] === 'number' && Number.isSafeInteger(value["userVersion"])) && (Array.isArray(value["writableFieldKeys"]) && value["writableFieldKeys"].every(item26 => typeof item26 === 'string'));
 }
 
+export function readSelfTenantRegistrationResponse(value: unknown): SelfTenantRegistrationResponse {
+  const normalizedValue = normalizeSelfTenantRegistrationResponseIntegerJson(value);
+  return requireValidResponse(normalizedValue, isSelfTenantRegistrationResponse(normalizedValue), 'self_tenant_registration_response') as SelfTenantRegistrationResponse;
+}
+
+function isSelfTenantRegistrationResponse(value: unknown): value is SelfTenantRegistrationResponse {
+  return isRecord(value) && (typeof value["canContinue"] === 'boolean') && (typeof value["createdAtUtc"] === 'string') && ((value["errorCode"] === null) || (typeof value["errorCode"] === 'string')) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["phase"] === 'string') && ((value["registrationWayName"] === null) || (typeof value["registrationWayName"] === 'string')) && (typeof value["tenantId"] === 'string' && guidPattern.test(value["tenantId"])) && (typeof value["version"] === 'number' && Number.isSafeInteger(value["version"]));
+}
+
 export function readSendHostInboxMessageRequest(value: unknown): SendHostInboxMessageRequest {
   return requireValidResponse(value, isSendHostInboxMessageRequest(value), 'send_host_inbox_message_request') as SendHostInboxMessageRequest;
 }
@@ -9563,6 +9583,11 @@ export function readIdentityListHostModulesResponse(value: unknown): Array<Modul
   return requireValidResponse(value, Array.isArray(value) && value.every(item5 => isModuleCatalogEntryResponse(item5)), 'identity_list_host_modules_response') as Array<ModuleCatalogEntryResponse>;
 }
 
+export function readIdentityListMyTenantRegistrationsResponse(value: unknown): Array<SelfTenantRegistrationResponse> {
+  const normalizedValue = (Array.isArray(value) ? value.map((item5: unknown) => normalizeSelfTenantRegistrationResponseIntegerJson(item5)) : value);
+  return requireValidResponse(normalizedValue, Array.isArray(normalizedValue) && normalizedValue.every(item15 => isSelfTenantRegistrationResponse(item15)), 'identity_list_my_tenant_registrations_response') as Array<SelfTenantRegistrationResponse>;
+}
+
 export function readIdentityListSuperAdministratorAuditsResponse(value: unknown): Array<SuperAdministratorAuditResponse> {
   return requireValidResponse(value, Array.isArray(value) && value.every(item5 => isSuperAdministratorAuditResponse(item5)), 'identity_list_super_administrator_audits_response') as Array<SuperAdministratorAuditResponse>;
 }
@@ -10465,6 +10490,10 @@ function normalizeConfigEntryResponseIntegerJson(value: unknown): unknown {
 }
 
 function normalizeConfirmOcrIdCardTaskRequestIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
+}
+
+function normalizeContinueTenantRegistrationRequestIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
 }
 
@@ -12006,6 +12035,10 @@ function normalizeSelectAiPromptVersionRequestIntegerJson(value: unknown): unkno
 
 function normalizeSelfServiceProfileResponseIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "profile") ? { ["profile"]: normalizeIntegerUnion(value["profile"], [{ matches: (value: unknown) => value === null, normalize: (value: unknown) => value }, { matches: (value: unknown) => isHostUserProfileResponse(value), normalize: (value: unknown) => normalizeHostUserProfileResponseIntegerJson(value) }]) } : {}), ...(Object.hasOwn(value, "userVersion") ? { ["userVersion"]: normalizeWireInteger(value["userVersion"]) } : {}) } : value);
+}
+
+function normalizeSelfTenantRegistrationResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
 }
 
 function normalizeSerialNumberPreviewResponseIntegerJson(value: unknown): unknown {

@@ -561,6 +561,9 @@ public sealed class IdentityModuleRegistrationTests
         RegistrationExpectation.Type<IdentityFeatures.AcceptTenantInvitation.ITenantInvitationGrantorAuthority, IdentityFeatures.AcceptTenantInvitation.TenantInvitationGrantorAuthority>(ServiceLifetime.Scoped),
         RegistrationExpectation.Self<IdentityFeatures.TenantSeatOperations.TenantSeatOperationProcessor>(ServiceLifetime.Scoped),
         RegistrationExpectation.Self<IdentityFeatures.ManageMyTenantInvitations.MyTenantInvitationQueryService>(ServiceLifetime.Scoped),
+        RegistrationExpectation.Self<IdentityFeatures.MyTenantRegistrations.MyTenantRegistrationService>(ServiceLifetime.Scoped),
+        RegistrationExpectation.Type<IdentityFeatures.RegisterAccount.IRegistrationMemberEnrollmentWriter,
+            IdentityFeatures.RegisterAccount.RegistrationMemberEnrollmentWriter>(ServiceLifetime.Scoped),
         RegistrationExpectation.Self<PublicRegistrationWayQueryService>(
             ServiceLifetime.Scoped),
         RegistrationExpectation.Self<LdapConnectionQueryService>(ServiceLifetime.Scoped),

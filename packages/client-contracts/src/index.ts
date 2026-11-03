@@ -1778,3 +1778,4 @@ export * from './ai-personal-schedule-completion.js';
 export * from './reporting-publications.js';
 export * from './cursor-page.js';
 export * from './query-schemes.js';
+export * from './tenant-registration-progress.js';

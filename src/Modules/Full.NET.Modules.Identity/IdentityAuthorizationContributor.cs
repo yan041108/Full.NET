@@ -30,6 +30,10 @@ internal sealed class IdentityAuthorizationContributor
             NavigationRead,
             "读取权限导航",
             AuthorizationScope.Host | AuthorizationScope.Tenant),
+        new PermissionDefinition(IdentitySelfTenantRegistrationPermissions.Read,
+            "查看本人注册入驻", AuthorizationScope.Host | AuthorizationScope.Tenant),
+        new PermissionDefinition(IdentitySelfTenantRegistrationPermissions.Continue,
+            "继续本人注册入驻", AuthorizationScope.Host | AuthorizationScope.Tenant),
         new PermissionDefinition(
             SuperAdministratorsRead,
             "查看超级管理员",

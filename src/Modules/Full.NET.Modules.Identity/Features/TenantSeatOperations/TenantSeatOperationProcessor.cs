@@ -38,6 +38,7 @@ internal sealed class TenantSeatOperationProcessor(IQueryExecutor queries, IComm
             ("PreviousRole", operation.PreviousRole), ("PreviousStatus", operation.PreviousStatus),
             ("MemberVersion", operation.MemberVersion), ("InvitationVersion", operation.InvitationVersion),
             ("Phase", operation.Phase), ("RequestHash", operation.RequestHash),
+            ("RegistrationWayId", operation.RegistrationWayId),
             ("CreatedAtUtc", operation.CreatedAtUtc), ("DueAtUtc", operation.DueAtUtc)), token).ConfigureAwait(false) != 1)
             throw new InvalidOperationException("Seat activation intent was not persisted.");
     });
@@ -160,14 +161,19 @@ internal sealed class TenantSeatOperationProcessor(IQueryExecutor queries, IComm
 
     private async Task<(bool Valid, RegistrationWayRecord? Way)> FindRegistrationWayAsync(TenantSeatOperation op, CancellationToken token)
     {
-        if (op.InvitationId is not Guid invitationId) return (true, null);
-        var invitation = await queries.QuerySingleOrDefaultAsync<RegistrationInvitationRecord>(RegistrationInvitationSql.FindById,
-            IdentitySqlParameters.Create(("InvitationId", invitationId)), token).ConfigureAwait(false);
-        if (invitation is null) return (true, null);
-        if (invitation.TenantId != op.TenantId || invitation.Status is not (0 or 1)
-            || invitation.BoundUserId is Guid bound && bound != op.UserId) return (false, null);
+        var wayId = op.RegistrationWayId;
+        if (op.InvitationId is Guid invitationId)
+        {
+            var invitation = await queries.QuerySingleOrDefaultAsync<RegistrationInvitationRecord>(RegistrationInvitationSql.FindById,
+                IdentitySqlParameters.Create(("InvitationId", invitationId)), token).ConfigureAwait(false);
+            if (invitation is null) return (true, null);
+            if (invitation.TenantId != op.TenantId || invitation.Status is not (0 or 1)
+                || invitation.BoundUserId is Guid bound && bound != op.UserId) return (false, null);
+            wayId = invitation.RegistrationWayId;
+        }
+        if (wayId is null) return (true, null);
         var way = await queries.QuerySingleOrDefaultAsync<RegistrationWayRecord>(RegistrationWaySql.FindById,
-            IdentitySqlParameters.Create(("WayId", invitation.RegistrationWayId)), token).ConfigureAwait(false);
+            IdentitySqlParameters.Create(("WayId", wayId.Value)), token).ConfigureAwait(false);
         if (way is null || !way.IsEnabled || way.TenantId != op.TenantId) return (false, null);
         var role = await queries.QuerySingleOrDefaultAsync<IdentityRoleRecord>(RegistrationWaySql.FindActiveTenantRole,
             IdentitySqlParameters.Create(("RoleId", way.RoleId), ("TenantId", op.TenantId)), token).ConfigureAwait(false);

@@ -5,7 +5,7 @@ namespace Full.NET.Modules.Identity.Features.TenantSeatOperations;
 /// <summary>后台只能按本模块持久工作项操作成员；所有写入同时锚定租户、成员及原始版本。</summary>
 internal static class TenantSeatOperationSql
 {
-    private const string Columns = "Id, RequestKey, TenantId, UserId, MemberId, InvitationId, PreviousRole, PreviousStatus, MemberVersion, InvitationVersion, Phase, RequestHash, ErrorCode, CreatedAtUtc, DueAtUtc, LeaseId, LeaseUntilUtc, Version, Attempt";
+    internal const string Columns = "Id, RequestKey, TenantId, UserId, MemberId, InvitationId, PreviousRole, PreviousStatus, MemberVersion, InvitationVersion, Phase, RequestHash, ErrorCode, CreatedAtUtc, DueAtUtc, LeaseId, LeaseUntilUtc, Version, Attempt, RegistrationWayId";
     internal static readonly SqlStatement Find = new("identity.seat_operation.find",
         $"SELECT {Columns} FROM fn_identity_member_seat_operation WHERE Id=@Id", SqlDataScope.HostOnly);
     internal static readonly SqlStatement FindRequest = new("identity.seat_operation.find_request",
@@ -13,7 +13,7 @@ internal static class TenantSeatOperationSql
     internal static readonly SqlStatement Insert = new("identity.seat_operation.insert", $"""
         INSERT INTO fn_identity_member_seat_operation ({Columns})
         VALUES (@Id,@RequestKey,@TenantId,@UserId,@MemberId,@InvitationId,@PreviousRole,@PreviousStatus,
-          @MemberVersion,@InvitationVersion,@Phase,@RequestHash,NULL,@CreatedAtUtc,@DueAtUtc,NULL,NULL,1,1)
+          @MemberVersion,@InvitationVersion,@Phase,@RequestHash,NULL,@CreatedAtUtc,@DueAtUtc,NULL,NULL,1,1,@RegistrationWayId)
         """, SqlDataScope.HostOnly);
     internal static readonly SqlStatement DueSqlServer = new("identity.seat_operation.due.sql_server", """
         SELECT TOP (20) Id FROM fn_identity_member_seat_operation

@@ -1589,6 +1589,7 @@
         "Phase": "席位恢复阶段",
         "PreviousRole": "激活失败时的原始成员角色",
         "PreviousStatus": "激活失败时的原始成员状态",
+        "RegistrationWayId": "开放注册的来源方式；邀请与管理员开通为空",
         "RequestHash": "不含密码的创建请求摘要",
         "RequestKey": "租户内稳定请求身份",
         "TenantId": "可信目标租户标识",

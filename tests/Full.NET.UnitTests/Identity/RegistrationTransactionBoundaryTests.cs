@@ -1,5 +1,6 @@
 using Full.NET.Abstractions.Ids;
 using Full.NET.Abstractions.Time;
+using Full.NET.Abstractions.Results;
 using Full.NET.Data.Abstractions;
 using Full.NET.Data.Dapper;
 using Full.NET.Modules.Identity.Contracts;
@@ -27,6 +28,9 @@ public sealed class RegistrationTransactionBoundaryTests
         Assert.IsFalse(fixture.AuthorityReadInsideTransaction);
         Assert.AreEqual(1, fixture.Coordinator.CommitCount);
         Assert.AreEqual(3, fixture.Writes);
+        Assert.AreEqual(1, fixture.EnrollmentCalls);
+        Assert.IsNull(fixture.InsertedUser!.TenantId);
+        Assert.AreEqual("host", fixture.InsertedUser.ScopeKey);
         await fixture.Directory.Received(1).IsActiveTenantAsync(fixture.TenantId, Arg.Any<CancellationToken>());
     }
 
@@ -134,7 +138,21 @@ public sealed class RegistrationTransactionBoundaryTests
         Assert.AreEqual(1, fixture.Coordinator.RollbackCount);
     }
 
-    private sealed class Fixture
+    [TestMethod]
+    [DataRow(false)]
+    [DataRow(true)]
+    public async Task Enrollment_failure_or_false_result_rolls_back_account_and_challenge(bool falseSuccess)
+    {
+        var fixture = new Fixture { EnrollmentResult = falseSuccess ? Result<bool>.Success(false)
+            : Result<bool>.Failure(new Error(IdentityErrorCodes.RegistrationMembershipNotEnlisted, "failed", ErrorType.Conflict)) };
+        var result = await fixture.HandleAsync();
+        Assert.IsFalse(result.IsSuccess);
+        Assert.AreEqual(IdentityErrorCodes.RegistrationMembershipNotEnlisted, result.Error!.Code);
+        Assert.AreEqual(0, fixture.Coordinator.CommitCount);
+        Assert.AreEqual(1, fixture.Coordinator.RollbackCount);
+    }
+
+    private sealed class Fixture : IRegistrationMemberEnrollmentWriter
     {
         public readonly Guid TenantId = Guid.NewGuid();
         public readonly RecordingDbTransactionCoordinator Coordinator = new();
@@ -148,6 +166,8 @@ public sealed class RegistrationTransactionBoundaryTests
         public int Writes;
         public bool BindingSucceeds = true;
         public IdentityUser? InsertedUser;
+        public int EnrollmentCalls;
+        public Result<bool> EnrollmentResult = Result<bool>.Success(true);
         private readonly Handler handler;
         private RegisterAccountRequest request;
         public RegisterAccountRequest Request { get => request; set => request = value; }
@@ -202,10 +222,20 @@ public sealed class RegistrationTransactionBoundaryTests
                 new AccountChallengeService(query, command, transaction, Substitute.For<IIdentityChallengeDeliveryPort>(), clock, ids,
                     new Full.NET.Localization.LocaleContext(new Full.NET.Localization.LocaleNormalizer(
                         Microsoft.Extensions.Options.Options.Create(new Full.NET.Localization.FullNetLocalizationOptions())))),
-                new RegistrationInvitationService(query, command, clock), query, command, transaction, hasher, Directory, clock, ids);
+                new RegistrationInvitationService(query, command, clock), query, command, transaction, hasher, Directory, clock, ids, this);
         }
 
         public Task<Full.NET.Abstractions.Results.Result<RegisterAccountResponse>> HandleAsync() =>
             handler.HandleAsync(new Command(request), CancellationToken.None);
+
+        public Task<Result<bool>> EnlistAsync(Guid userId, Guid tenantId, Guid registrationWayId, CancellationToken token)
+        {
+            Assert.IsTrue(Coordinator.HasTransaction);
+            Assert.AreEqual(InsertedUser!.Id, userId);
+            Assert.AreEqual(TenantId, tenantId);
+            Assert.AreEqual(Way.Id, registrationWayId);
+            EnrollmentCalls++;
+            return Task.FromResult(EnrollmentResult);
+        }
     }
 }

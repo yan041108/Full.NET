@@ -5,7 +5,8 @@ internal sealed record TenantSeatOperation(
     Guid Id, string RequestKey, Guid TenantId, Guid UserId, Guid MemberId, Guid? InvitationId,
     string? PreviousRole, string? PreviousStatus, int MemberVersion, int? InvitationVersion,
     string Phase, string? RequestHash, string? ErrorCode, DateTimeOffset CreatedAtUtc,
-    DateTimeOffset DueAtUtc, Guid? LeaseId, DateTimeOffset? LeaseUntilUtc, int Version, int Attempt);
+    DateTimeOffset DueAtUtc, Guid? LeaseId, DateTimeOffset? LeaseUntilUtc, int Version, int Attempt,
+    Guid? RegistrationWayId = null);
 
 /// <summary>阶段是后台恢复权威；确认与成员激活分开记账，取消不得把已经消费的额度当预留释放。</summary>
 internal static class TenantSeatPhases

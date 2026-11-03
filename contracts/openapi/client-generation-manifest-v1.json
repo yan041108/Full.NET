@@ -18,6 +18,18 @@
   ],
   "entries": [
     {
+      "operationId": "identityListMyTenantRegistrations",
+      "apiModule": "ui/admin/src/api/my-tenant-registrations.ts",
+      "generatedGroup": "my-tenant-registrations",
+      "status": "generated"
+    },
+    {
+      "operationId": "identityContinueMyTenantRegistration",
+      "apiModule": "ui/admin/src/api/my-tenant-registrations.ts",
+      "generatedGroup": "my-tenant-registrations",
+      "status": "generated"
+    },
+    {
       "operationId": "reportingCancelExportTask",
       "apiModule": "ui/admin/src/api/reporting-export-tasks.ts",
       "generatedGroup": "reporting-export-tasks",

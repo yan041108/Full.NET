@@ -71,6 +71,10 @@ public sealed class TenantContextMutationBoundaryTests
         // 单次请求内临时 Host 作用域，执行 HostOnly SQL 后恢复租户上下文。
         "src/Modules/Full.NET.Modules.Identity/Features/IdentityHostExecutionScope.cs",
         "src/Modules/Full.NET.Modules.Identity/Features/ManageTenantMembers/TenantMemberProvisionService.cs",
+        // 本人进度限定可信 sub；Host 查询及原持久化租户的续办结束后恢复调用方范围。
+        "src/Modules/Full.NET.Modules.Identity/Features/MyTenantRegistrations/MyTenantRegistrationService.cs",
+        // 匿名注册目标取自事务内复核的注册方式；临时成员写入及 Host 意图登记均恢复原范围。
+        "src/Modules/Full.NET.Modules.Identity/Features/RegisterAccount/RegistrationMemberEnrollmentWriter.cs",
         // 自助同意仅以已验证 sub 访问 Identity Host 授权，操作结束恢复上下文。
         "src/Modules/Full.NET.Modules.Identity/Features/MyOidcAuthorizations/Endpoint.cs",
         "src/Modules/Full.NET.Modules.Identity/Features/SelfServiceProfile/SelfServiceProfileMediaService.cs",

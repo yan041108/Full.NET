@@ -2153,6 +2153,10 @@ export interface ConfirmTotpEnrollmentRequest {
   readonly totpCode: string;
 }
 
+export interface ContinueTenantRegistrationRequest {
+  readonly version: number;
+}
+
 export interface CopyAiKnowledgeEvaluationSet {
   readonly expectedRevisionId: string;
   readonly expectedVersion: number;
@@ -6421,6 +6425,17 @@ export interface SelfServiceProfileResponse {
   readonly username: string;
   readonly userVersion: number;
   readonly writableFieldKeys: Array<string>;
+}
+
+export interface SelfTenantRegistrationResponse {
+  readonly canContinue: boolean;
+  readonly createdAtUtc: string;
+  readonly errorCode: null | string;
+  readonly id: string;
+  readonly phase: string;
+  readonly registrationWayName: null | string;
+  readonly tenantId: string;
+  readonly version: number;
 }
 
 export interface SendHostInboxMessageRequest {

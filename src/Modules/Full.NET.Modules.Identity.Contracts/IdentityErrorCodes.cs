@@ -366,6 +366,15 @@ public static class IdentityErrorCodes
     /// <summary>注册邮箱已被占用。</summary>
     public const string RegistrationEmailAlreadyExists = "identity.registration.email_already_exists";
 
+    /// <summary>本人注册入驻意图不存在。</summary>
+    public const string RegistrationMembershipNotFound = "identity.registration_membership.not_found";
+
+    /// <summary>原成员已被管理操作改变，不能继续旧注册意图。</summary>
+    public const string RegistrationMembershipRetryRejected = "identity.registration_membership.retry_rejected";
+
+    /// <summary>注册成员及席位意图未能完整登记。</summary>
+    public const string RegistrationMembershipNotEnlisted = "identity.registration_membership.not_enlisted";
+
     /// <summary>密码恢复请求已受理。</summary>
     public const string PasswordRecoveryAccepted = "identity.password_recovery.accepted";
 
@@ -605,6 +614,9 @@ public static class IdentityErrorCodes
         AccountChallengeDeliveryFailed,
         RegistrationInvitationInvalid,
         RegistrationEmailAlreadyExists,
+        RegistrationMembershipNotFound,
+        RegistrationMembershipRetryRejected,
+        RegistrationMembershipNotEnlisted,
         RegistrationWayNotFound,
         RegistrationWayVersionConflict,
         RegistrationWayInvalidCode,

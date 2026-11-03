@@ -56,7 +56,10 @@ describe.each(['register', 'recover'] as const)('邮箱挑战页面：%s', mode 
     await flushPromises();
     const submitter = mode === 'register' ? registerAccount : confirmRecoverPassword;
     expect(submitter).toHaveBeenCalledWith(expect.objectContaining({ challengeId: response.challengeId, challengeCode: '123456' }));
-    if (mode === 'register') expect(registerAccount).toHaveBeenCalledWith(expect.objectContaining({ registrationWayId: routeState.query.registrationWayId }));
+    if (mode === 'register') {
+      expect(registerAccount).toHaveBeenCalledWith(expect.objectContaining({ registrationWayId: routeState.query.registrationWayId }));
+      expect(replaceRoute).toHaveBeenCalledWith('/login?redirect=/tenant-context');
+    }
   });
 
   it('邮箱变化后丢弃旧请求响应并清空旧验证码', async () => {

@@ -3,6 +3,17 @@
   "entries": [
     {
       "clientContractModules": [
+        "packages/client-contracts/src/generated/index.generated.ts",
+        "packages/client-contracts/src/tenant-registration-progress.ts"
+      ],
+      "openApiFixture": "contracts/openapi/fullnet-client-v1.openapi.json",
+      "apiModule": "ui/admin/src/api/my-tenant-registrations.ts",
+      "routePrefixes": [
+        "/api/v1/me/tenant-registrations"
+      ]
+    },
+    {
+      "clientContractModules": [
         "packages/client-contracts/src/generated/index.generated.ts"
       ],
       "openApiFixture": "contracts/openapi/fullnet-client-v1.openapi.json",
@@ -1379,6 +1390,10 @@
     "ui/admin/src/preferences/grid-preferences.ts"
   ],
   "consumerModules": [
+    {
+      "apiModule": "ui/admin/src/api/my-tenant-registrations.ts",
+      "consumers": ["ui/admin/src/components/TenantRegistrationProgress.vue"]
+    },
     {
       "apiModule": "ui/admin/src/api/authentication-events.ts",
       "consumers": [

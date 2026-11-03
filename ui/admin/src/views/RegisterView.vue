@@ -120,7 +120,7 @@ async function submit(): Promise<void> {
     });
     forgetRegistrationInvitation();
     ElMessage.success(text('registered'));
-    await router.replace('/login');
+    await router.replace('/login?redirect=/tenant-context');
   } catch (error: unknown) {
     ElMessage.error(isFullNetProblemDetails(error) ? error.title : text('registerFailed'));
   } finally {

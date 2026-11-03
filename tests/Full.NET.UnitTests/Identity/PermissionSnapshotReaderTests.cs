@@ -70,7 +70,7 @@ public sealed class PermissionSnapshotReaderTests
         var reader = new PermissionSnapshotReader(new StubQueryExecutor([
             new IdentityAuthorizationRow(null, false, accountScope, null, IdentityAccountTypes.NormalUser)]), catalog);
         var snapshot = await reader.ReadAsync(Guid.CreateVersion7(), "host", null);
-        CollectionAssert.AreEqual(eligible ? new[] { "identity.navigation.read", "tenancy.tenants.read", "tenancy.tenants.switch" } : Array.Empty<string>(), snapshot.Permissions.ToArray());
+        CollectionAssert.AreEqual(eligible ? new[] { "identity.navigation.read", "identity.tenant_registrations.continue_self", "identity.tenant_registrations.read_self", "tenancy.tenants.read", "tenancy.tenants.switch" } : Array.Empty<string>(), snapshot.Permissions.ToArray());
         Assert.IsFalse(snapshot.IsSuperAdministrator);
     }
 

@@ -13,7 +13,7 @@ using Full.NET.Modules.Identity.Security;
 using Microsoft.AspNetCore.Identity;
 using IdentityUser = Full.NET.Modules.Identity.Domain.IdentityUser;
 
-/// <summary>集成事件或消息处理器；幂等边界由 Inbox/Outbox 保证。</summary>
+/// <summary>账号、挑战消费与入驻意图共享 Identity 本地事务，失败结果必须统一回滚。</summary>
 namespace Full.NET.Modules.Identity.Features.RegisterAccount;
 
 internal sealed class Handler(
@@ -26,7 +26,8 @@ internal sealed class Handler(
     IPasswordHasher<IdentityUser> passwordHasher,
     IIdentityActiveTenantDirectory activeTenants,
     IClock clock,
-    IIdGenerator idGenerator) : ICommandHandler<Command, RegisterAccountResponse>
+    IIdGenerator idGenerator,
+    IRegistrationMemberEnrollmentWriter enrollment) : ICommandHandler<Command, RegisterAccountResponse>
 {
     public async Task<Result<RegisterAccountResponse>> HandleAsync(
         Command command,
@@ -213,9 +214,9 @@ internal sealed class Handler(
         }
 
         var now = clock.UtcNow;
-        // 企业邀请创建可跨企业使用的 Host 账号；方式直注册仍属于其明确选择的租户身份域。
-        var scopeKey = expectedTarget.Invitation is not null ? "host" : $"tenant:{tenantId:N}";
-        Guid? accountTenantId = expectedTarget.Invitation is not null ? null : tenantId;
+        // 匿名注册创建统一账号；目标企业权限始终由独立成员激活和受控注册方式赋予。
+        const string scopeKey = "host";
+        Guid? accountTenantId = null;
         var user = new IdentityUser(
             idGenerator.NewId(),
             accountTenantId,
@@ -264,6 +265,12 @@ internal sealed class Handler(
                 IdentityErrorCodes.RegistrationInvitationInvalid, "The registration invitation is no longer available.", ErrorType.Conflict));
         }
 
+        if (expectedTarget.Invitation is null)
+        {
+            var enlisted = await enrollment.EnlistAsync(user.Id, tenantId, request.RegistrationWayId!.Value, cancellationToken).ConfigureAwait(false);
+            if (!enlisted.IsSuccess || !enlisted.Value) return Result<RegisterAccountResponse>.Failure(enlisted.Error ?? new Error(
+                IdentityErrorCodes.RegistrationMembershipNotEnlisted, "The registration membership was not enlisted.", ErrorType.Conflict));
+        }
         return Result<RegisterAccountResponse>.Success(new RegisterAccountResponse(user.Id, true));
     }
 

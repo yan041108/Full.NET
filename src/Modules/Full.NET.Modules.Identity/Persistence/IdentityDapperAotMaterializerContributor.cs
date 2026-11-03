@@ -24,6 +24,13 @@ internal sealed partial class IdentityDapperAotMaterializerContributor : IDapper
     public void RegisterMaterializers(DapperAotMaterializerRegistrar registrar)
     {
         RegisterMigrationMaterializers(registrar);
+        registrar.Register<Features.MyTenantRegistrations.SelfTenantRegistrationRow>(reader => new()
+        {
+            Id = reader.GetGuid(0), TenantId = reader.GetGuid(1), RegistrationWayName = AotDataReaderExtensions.ReadNullableString(reader, 2),
+            Phase = reader.GetString(3), ErrorCode = AotDataReaderExtensions.ReadNullableString(reader, 4),
+            CreatedAtUtc = AotDataReaderExtensions.ReadDateTimeOffset(reader, 5), Version = AotDataReaderExtensions.ReadInt32(reader, 6),
+            CanContinue = AotDataReaderExtensions.ReadBoolean(reader, 7),
+        });
         registrar.Register<Features.TenantSeatOperations.TenantSeatOperation>(reader => new(
             reader.GetGuid(0), reader.GetString(1), reader.GetGuid(2), reader.GetGuid(3), reader.GetGuid(4),
             AotDataReaderExtensions.ReadNullableGuid(reader, 5), AotDataReaderExtensions.ReadNullableString(reader, 6),
@@ -32,7 +39,8 @@ internal sealed partial class IdentityDapperAotMaterializerContributor : IDapper
             AotDataReaderExtensions.ReadNullableString(reader, 11), AotDataReaderExtensions.ReadNullableString(reader, 12),
             AotDataReaderExtensions.ReadDateTimeOffset(reader, 13), AotDataReaderExtensions.ReadDateTimeOffset(reader, 14),
             AotDataReaderExtensions.ReadNullableGuid(reader, 15), AotDataReaderExtensions.ReadNullableDateTimeOffset(reader, 16),
-            AotDataReaderExtensions.ReadInt32(reader, 17), AotDataReaderExtensions.ReadInt32(reader, 18)));
+            AotDataReaderExtensions.ReadInt32(reader, 17), AotDataReaderExtensions.ReadInt32(reader, 18),
+            AotDataReaderExtensions.ReadNullableGuid(reader, 19)));
         registrar.Register<WorkflowRoleMemberRow>(reader => new(reader.GetGuid(0), reader.GetGuid(1)));
         registrar.Register<WorkflowRoleUserRow>(reader => new(reader.GetGuid(0), reader.GetString(1), reader.GetString(2)));
         registrar.Register<WorkflowRoleListRow>(reader => new(reader.GetGuid(0), reader.GetString(1), reader.GetString(2)));

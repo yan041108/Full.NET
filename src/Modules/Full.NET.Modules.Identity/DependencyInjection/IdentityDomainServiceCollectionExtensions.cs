@@ -114,6 +114,9 @@ internal static class IdentityDomainServiceCollectionExtensions
         services.TryAddScoped<ITenantInvitationGrantorAuthority, TenantInvitationGrantorAuthority>();
         services.TryAddScoped<Features.TenantSeatOperations.TenantSeatOperationProcessor>();
         services.TryAddScoped<Features.ManageMyTenantInvitations.MyTenantInvitationQueryService>();
+        services.TryAddScoped<Features.MyTenantRegistrations.MyTenantRegistrationService>();
+        services.TryAddScoped<Features.RegisterAccount.IRegistrationMemberEnrollmentWriter,
+            Features.RegisterAccount.RegistrationMemberEnrollmentWriter>();
         services.TryAddScoped<PublicRegistrationWayQueryService>();
         services.TryAddScoped<LdapConnectionQueryService>();
         services.TryAddScoped<LdapConnectionManagementService>();

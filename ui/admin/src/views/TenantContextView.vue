@@ -23,6 +23,7 @@ import { showProblem, showSuccess, showWarning } from '../feedback/fullNetMessag
 import ArtSearchBar, { type ArtSearchBarItem } from '../framework/art-design/components/ArtSearchBar.vue';
 import ArtTableHeader from '../framework/art-design/components/ArtTableHeader.vue';
 import PermissionGate from '../components/PermissionGate.vue';
+import TenantRegistrationProgress from '../components/TenantRegistrationProgress.vue';
 import {
   useArtClientPagination,
   useArtCrudTableLayout
@@ -306,6 +307,8 @@ function toProblem(error: unknown): FullNetProblemDetails {
       <span>{{ problem.title }}</span>
       <code v-if="problem.traceId" translate="no">{{ problem.traceId }}</code>
     </div>
+
+    <TenantRegistrationProgress />
 
     <el-card
       v-loading="loadingInvitations"

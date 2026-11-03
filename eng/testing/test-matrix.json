@@ -4,12 +4,17 @@
     "unit": {
       "project": "tests/Full.NET.UnitTests/Full.NET.UnitTests.csproj",
       "assembly": "tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll",
-      "minimum": 9552,
+      "minimum": 9559,
       "timeout": "10m",
       "selections": {
+        "public-registration-membership": {
+          "filter": "FullyQualifiedName~RegistrationTransactionBoundaryTests|FullyQualifiedName~PermissionSnapshotReaderTests|FullyQualifiedName~TenantSeatOperationProcessorTests|FullyQualifiedName~SelfTenantRegistrationRetryTests|FullyQualifiedName~Identity_module_delegation_matches_responsibility_registration_pipeline|FullyQualifiedName~Identity_module_repeated_registration_preserves_critical_contracts",
+          "minimum": 42,
+          "timeout": "3m"
+        },
         "registration-member-provisioning": {
           "filter": "FullyQualifiedName~RegistrationAssignmentProcessorTests|FullyQualifiedName~TenantSeatOperationProcessorTests|FullyQualifiedName~TenantInvitationRollbackTests",
-          "minimum": 20,
+          "minimum": 23,
           "timeout": "3m"
         },
         "codegen-mutation-policy-workbench": {
@@ -19,7 +24,7 @@
         },
         "identity-challenge-mail": {
           "filter": "FullyQualifiedName~IdentityChallengeMailTests|FullyQualifiedName~AccountChallengeDeliveryContractTests|FullyQualifiedName~RegistrationTransactionBoundaryTests",
-          "minimum": 24,
+          "minimum": 26,
           "timeout": "3m"
         },
         "candidate-build-resources": {
@@ -29,12 +34,12 @@
         },
         "invitation-onboarding": {
           "filter": "FullyQualifiedName~RegistrationTransactionBoundaryTests|FullyQualifiedName~PermissionSnapshotReaderTests|FullyQualifiedName~TenantSeatOperationProcessorTests|FullyQualifiedName~TenantInvitationRollbackTests|FullyQualifiedName~IdentityModuleRegistrationTests|FullyQualifiedName~IdentityTenantContextAccessTests|FullyQualifiedName~IdentitySessionContextServiceTests|FullyQualifiedName~AvailableTenantMembershipScopeTests",
-          "minimum": 48,
+          "minimum": 53,
           "timeout": "3m"
         },
         "invitation-registration-boundary": {
           "filter": "FullyQualifiedName~RegistrationTransactionBoundaryTests",
-          "minimum": 16,
+          "minimum": 18,
           "timeout": "3m"
         },
         "identity-migration-seed-registration": {
@@ -672,6 +677,11 @@
       "minimum": 2,
       "timeout": "15m",
       "selections": {
+        "public-registration-membership": {
+          "filter": "FullyQualifiedName~PublicRegistrationMembershipTests|FullyQualifiedName~PublicRegistrationEnrollmentMigrationRecoveryTests",
+          "minimum": 4,
+          "timeout": "5m"
+        },
         "registration-member-provisioning": {
           "filter": "FullyQualifiedName~InvitationRegistrationModeTests|FullyQualifiedName~RegistrationAssignmentMigrationRecoveryTests",
           "minimum": 6,
@@ -2085,7 +2095,7 @@
       },
       "migrations": {
         "filter": "FullyQualifiedName~Full.NET.IntegrationTests.Migrations",
-        "minimum": 582,
+        "minimum": 584,
         "timeout": "120m"
       },
       "infrastructure": {
@@ -2118,7 +2128,7 @@
       },
       "full": {
         "filter": "TestCategory!=ExternalSmtp&TestCategory!=ExternalAliyunSms&TestCategory!=NativeWorkflowApi&TestCategory!=NativeWorkflow&TestCategory!=NativeWorkflowWindows&TestCategory!=WorkflowNativeKafka&FullyQualifiedName!~Full.NET.IntegrationTests.NativeAot&FullyQualifiedName!~IdentityBrowserUiTests&FullyQualifiedName!~WorkflowCollaborationGrantBrowserUiTests&FullyQualifiedName!~AiKnowledgeCorrectionBrowserUiTests&FullyQualifiedName!~IdentityOidcNetworkInteropTests",
-        "minimum": 1670,
+        "minimum": 1674,
         "timeout": "90m"
       },
       "logging-metrics": {

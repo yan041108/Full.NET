@@ -37844,6 +37844,86 @@
         ]
       }
     },
+    "/api/v1/me/tenant-registrations": {
+      "get": {
+        "operationId": "identityListMyTenantRegistrations",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/SelfTenantRegistrationResponse"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          },
+          {
+            "ApiKey": []
+          }
+        ],
+        "tags": [
+          "IdentityMe"
+        ]
+      }
+    },
+    "/api/v1/me/tenant-registrations/{id}/continue": {
+      "post": {
+        "operationId": "identityContinueMyTenantRegistration",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ContinueTenantRegistrationRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SelfTenantRegistrationResponse"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          },
+          {
+            "ApiKey": []
+          }
+        ],
+        "tags": [
+          "IdentityMe"
+        ]
+      }
+    },
     "/api/v1/messaging/delivery-status": {
       "get": {
         "operationId": "messagingGetDeliveryOverview",
@@ -79092,6 +79172,23 @@
         ],
         "type": "object"
       },
+      "ContinueTenantRegistrationRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "version": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          }
+        },
+        "required": [
+          "version"
+        ],
+        "type": "object"
+      },
       "CopyAiKnowledgeEvaluationSet": {
         "additionalProperties": false,
         "properties": {
@@ -100277,6 +100374,59 @@
           "avatarFileId",
           "signatureFileId",
           "profile"
+        ],
+        "type": "object"
+      },
+      "SelfTenantRegistrationResponse": {
+        "properties": {
+          "canContinue": {
+            "type": "boolean"
+          },
+          "createdAtUtc": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "errorCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "phase": {
+            "type": "string"
+          },
+          "registrationWayName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "tenantId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "version": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "tenantId",
+          "registrationWayName",
+          "phase",
+          "errorCode",
+          "createdAtUtc",
+          "version",
+          "canContinue"
         ],
         "type": "object"
       },

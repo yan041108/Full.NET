@@ -244,6 +244,7 @@ import type {
   ConfigValueUpdate,
   ConfirmOcrIdCardTaskRequest,
   ConfirmTotpEnrollmentRequest,
+  ContinueTenantRegistrationRequest,
   CopyAiKnowledgeEvaluationSet,
   CopyAiKnowledgeFaqDraft,
   CopyHostRoleRequest,
@@ -755,6 +756,7 @@ import type {
   SearchAiKnowledgeRequest,
   SelectAiPromptVersionRequest,
   SelfServiceProfileResponse,
+  SelfTenantRegistrationResponse,
   SendHostInboxMessageRequest,
   SendRecipientEndpointVerificationResponse,
   SerialNumberPreviewResponse,
@@ -1168,6 +1170,7 @@ import {
   readIdentityListFieldProjectionCatalogResponse,
   readIdentityListHostMenuPermissionOptionsResponse,
   readIdentityListHostModulesResponse,
+  readIdentityListMyTenantRegistrationsResponse,
   readIdentityListSuperAdministratorAuditsResponse,
   readIdentityListSuperAdministratorsResponse,
   readIdentitySessionPolicyResponse,
@@ -1342,6 +1345,7 @@ import {
   readRevokeAllHostUserSessionsResponse,
   readRollbackOperationResponse,
   readSelfServiceProfileResponse,
+  readSelfTenantRegistrationResponse,
   readSendRecipientEndpointVerificationResponse,
   readSerialNumberPreviewResponse,
   readSerialNumberRuleResponse,
@@ -8759,6 +8763,29 @@ export async function identityConfirmTotpEnrollment(
   return readTotpEnrollmentStatusResponse(value);
 }
 
+export interface IdentityContinueMyTenantRegistrationParameters {
+  readonly id: string;
+  readonly body: ContinueTenantRegistrationRequest;
+}
+
+export async function identityContinueMyTenantRegistration(
+  http: HttpClient,
+  parameters: IdentityContinueMyTenantRegistrationParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<SelfTenantRegistrationResponse> {
+  const path = `/api/v1/me/tenant-registrations/${encodeURIComponent(String(parameters.id))}/continue`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readSelfTenantRegistrationResponse(value);
+}
+
 export interface IdentityCopyHostRoleParameters {
   readonly sourceRoleId: string;
   readonly body: CopyHostRoleRequest;
@@ -9849,6 +9876,24 @@ export async function identityListHostUsers(
     ? await http.request<unknown>(path, init, signal)
     : await http.request<unknown>(path, init, signal, options);
   return readPagedResultOfHostUserResponse(value);
+}
+
+export interface IdentityListMyTenantRegistrationsParameters {
+
+}
+
+export async function identityListMyTenantRegistrations(
+  http: HttpClient,
+  parameters: IdentityListMyTenantRegistrationsParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<Array<SelfTenantRegistrationResponse>> {
+  const path = `/api/v1/me/tenant-registrations`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readIdentityListMyTenantRegistrationsResponse(value);
 }
 
 export interface IdentityListSuperAdministratorAuditsParameters {

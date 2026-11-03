@@ -54,7 +54,8 @@ internal sealed class PermissionSnapshotReader(
         // 统一账号可管理本人已授权的上下文；Host 租户目录与业务操作仍独立授权。
         if (authorization.Any(item => item.AccountScopeKey == "host" && item.AccountTenantId is null
             && item.AccountType is IdentityAccountTypes.NormalUser or IdentityAccountTypes.SysAdmin or IdentityAccountTypes.SuperAdmin))
-            permissions = permissions.Concat(new[] { "identity.navigation.read", "tenancy.tenants.read", "tenancy.tenants.switch" }.Where(knownCodes.Contains));
+            permissions = permissions.Concat(new[] { "identity.navigation.read", "tenancy.tenants.read", "tenancy.tenants.switch",
+                IdentitySelfTenantRegistrationPermissions.Read, IdentitySelfTenantRegistrationPermissions.Continue }.Where(knownCodes.Contains));
 
         return new PermissionSnapshot(
             permissions

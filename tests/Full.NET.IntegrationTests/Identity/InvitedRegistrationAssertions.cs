@@ -138,7 +138,7 @@ internal static class InvitedRegistrationAssertions
                 IdentitySqlParameters.Create(("InvitationId", invitationId)), cancellationToken);
             Assert.AreEqual(body.UserId, parent!.TargetUserId);
             var snapshot = await scope.ServiceProvider.GetRequiredService<IPermissionSnapshotReader>().ReadAsync(body.UserId, "host", null, cancellationToken);
-            CollectionAssert.AreEqual(new[] { "identity.navigation.read", "tenancy.tenants.read", "tenancy.tenants.switch" }, snapshot.Permissions.ToArray());
+            CollectionAssert.AreEqual(new[] { "identity.navigation.read", "identity.tenant_registrations.continue_self", "identity.tenant_registrations.read_self", "tenancy.tenants.read", "tenancy.tenants.switch" }, snapshot.Permissions.ToArray());
         }
         using var replay = await client.PostAsJsonAsync("/api/v1/auth/register", registration, cancellationToken);
         Assert.AreEqual(HttpStatusCode.Conflict, replay.StatusCode);
