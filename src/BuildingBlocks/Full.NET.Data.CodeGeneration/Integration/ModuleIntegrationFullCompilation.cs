@@ -92,8 +92,8 @@ public static class ModuleIntegrationFullCompilation
             RedirectStandardOutput = true, RedirectStandardError = true,
         } };
         foreach (var argument in arguments) process.StartInfo.ArgumentList.Add(argument);
-        process.StartInfo.Environment["UseSharedCompilation"] = "false";
-        process.StartInfo.Environment["MSBUILDDISABLENODEREUSE"] = "1";
+        if (arguments is ["build", ..])
+            CandidateBuildResources.Configure(process.StartInfo, Environment.ProcessorCount);
         process.Start();
         var output = process.StandardOutput.ReadToEndAsync();
         var error = process.StandardError.ReadToEndAsync();

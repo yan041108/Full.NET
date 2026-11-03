@@ -328,6 +328,7 @@ public static class ModuleIntegrationCompilationCommand
             + projection.ModuleProjectFullPath);
         startInfo.Environment["DOTNET_CLI_TELEMETRY_OPTOUT"] = "1";
         startInfo.Environment["NUGET_XMLDOC_MODE"] = "skip";
+        CandidateBuildResources.Configure(startInfo, Environment.ProcessorCount);
         return startInfo;
     }
 
