@@ -58,6 +58,7 @@ internal static class InvitedRegistrationAssertions
             scopedFactory,
             tenantId,
             cancellationToken);
+        await RegistrationAssignmentAssertions.PrepareAsync(scopedFactory, registrationWayId, tenantId, cancellationToken);
         var email = $"invite-{Guid.NewGuid():N}@example.com";
         var (invitationId, invitationToken) = await CreateInvitationAsync(
             scopedFactory,
@@ -181,6 +182,7 @@ internal static class InvitedRegistrationAssertions
             Assert.IsNotNull(await oidc.ResolveTenantForConsentAsync(centerPrincipal, tenantId, cancellationToken));
             Assert.IsNotNull(await oidc.CreateAuthorizationPrincipalAsync(centerPrincipal, authorizationRequest, cancellationToken, tenantId));
         }
+        await RegistrationAssignmentAssertions.VerifyAsync(scopedFactory, registrationWayId, accepted, cancellationToken);
         _ = await IntegrationTestTenantContextHelper.SwitchToTenantAsync(client, accessToken, tenantId, cancellationToken);
     }
 

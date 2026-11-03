@@ -50,7 +50,7 @@ public sealed class TenantInvitationRollbackTests
         var transaction = new DapperCommandTransaction(coordinator);
         var authority = Substitute.For<ITenantInvitationGrantorAuthority>();
         authority.IsAuthorizedAsync(Arg.Any<Guid>(), Arg.Any<Guid>(), Arg.Any<CancellationToken>()).Returns(true);
-        var processor = new TenantSeatOperationProcessor(query, command, transaction, writer, resolver, quota, clock, authority);
+        var processor = new TenantSeatOperationProcessor(query, command, transaction, writer, resolver, quota, clock, authority, Substitute.For<IOutboxWriter>());
         var service = new AcceptTenantInvitationService(query, command,
             transaction, writer, resolver, processor, clock, ids, authority);
 

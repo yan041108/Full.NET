@@ -59,6 +59,7 @@ const INCLUDE_FILES = [
   'contracts/openapi/fullnet-client-v1.openapi.json',
   'contracts/openapi/client-generation-manifest-v1.json',
   'contracts/workflow/gateway-limits.json',
+  'contracts/workflow/vform3-runtime-release.json',
 ];
 
 const EXCLUDED_DIR_NAMES = new Set(['bin', 'obj', '.vs', 'node_modules']);

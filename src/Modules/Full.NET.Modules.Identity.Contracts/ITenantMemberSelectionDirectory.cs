@@ -11,6 +11,13 @@ namespace Full.NET.Modules.Identity.Contracts;
 /// </remarks>
 public interface ITenantMemberSelectionDirectory
 {
+    /// <summary>核对当前租户内成员是否仍停留在指定激活版本，供异步分配拒绝已撤销或人工变更的旧意图。</summary>
+    /// <param name="memberId">来源成员关系标识。</param>
+    /// <param name="userId">来源账号标识。</param>
+    /// <param name="version">激活后的成员版本。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    Task<bool> IsCurrentActivationAsync(Guid memberId, Guid userId, int version, CancellationToken cancellationToken = default);
+
     /// <summary>分页读取当前 Tenant 的活动成员（含关联的活动 Host 用户资料）。</summary>
     /// <param name="page">从 1 开始的页码。</param>
     /// <param name="pageSize">单页数量；实现必须施加受控上限。</param>

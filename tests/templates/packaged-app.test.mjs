@@ -27,13 +27,21 @@ test('application template preserves the workflow frontend contract in created a
     const { templateRoot } = buildAppTemplate({ output: join(workspace, 'package') });
     const appRoot = join(workspace, 'application');
     createApp({ packageRoot: templateRoot, output: appRoot, name: 'Demo', ownerKey: 'acme' });
-    const relative = 'contracts/workflow/gateway-limits.json';
-    const original = readFileSync(new URL('../../' + relative, import.meta.url));
     const manifest = JSON.parse(readFileSync(join(appRoot, 'framework-manifest.json'), 'utf8'));
-    assert.equal(manifest.managedFiles[relative], createHash('sha256').update(original).digest('hex'));
-    for (const root of [templateRoot, appRoot]) assert.deepEqual(readFileSync(join(root, relative)), original);
+    for (const relative of ['contracts/workflow/gateway-limits.json', 'contracts/workflow/vform3-runtime-release.json']) {
+      const original = readFileSync(new URL('../../' + relative, import.meta.url));
+      assert.equal(manifest.managedFiles[relative], createHash('sha256').update(original).digest('hex'));
+      for (const root of [templateRoot, appRoot]) assert.deepEqual(readFileSync(join(root, relative)), original);
+    }
     assert.match(readFileSync(join(appRoot, 'ui/admin/src/workflow/workflow-gateway-limits.ts'), 'utf8'),
       /contracts\/workflow\/gateway-limits\.json/u);
+    // 分发闭包必须覆盖实际 Vite/VForm 生产构建，不能只检查两个文件存在。
+    for (const args of [['install', '--frozen-lockfile'], ['--filter', '@fullnet/admin', 'build']]) {
+      const result = spawnSync('pnpm', args, { cwd: appRoot, encoding: 'utf8', timeout: 180_000,
+        shell: process.platform === 'win32', windowsHide: true, maxBuffer: 4 * 1024 * 1024 });
+      assert.equal(result.error, undefined, 'packaged frontend command did not complete');
+      assert.equal(result.status, 0, (result.stderr || result.stdout || '').slice(-16_000));
+    }
   } finally { rmSync(workspace, { recursive: true, force: true }); }
 });
 

@@ -14,6 +14,20 @@ internal sealed class TenantMemberSelectionDirectory(
     IOptions<DatabaseOptions> databaseOptions,
     ICurrentTenant currentTenant) : ITenantMemberSelectionDirectory
 {
+    public async Task<bool> IsCurrentActivationAsync(Guid memberId, Guid userId, int version, CancellationToken cancellationToken = default)
+    {
+        EnsureTenantContext();
+        return await queryExecutor.QuerySingleOrDefaultAsync<int>(CurrentActivation,
+            IdentitySqlParameters.Create(("MemberId", memberId), ("UserId", userId), ("Version", version)), cancellationToken).ConfigureAwait(false) == 1;
+    }
+
+    private static readonly SqlStatement CurrentActivation = new("identity.member_selection.current_activation", """
+        SELECT COUNT(1) FROM fn_identity_tenant_member AS member
+        INNER JOIN fn_identity_user AS account ON account.Id=member.UserId AND account.IsActive=1
+        WHERE member.TenantId=@TenantId AND member.Id=@MemberId AND member.UserId=@UserId
+          AND member.Status='Active' AND member.Version=@Version
+        """, SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
+
     public async Task<PagedResult<TenantUserDirectoryEntry>> ListActiveTenantMembersAsync(
         int page,
         int pageSize,

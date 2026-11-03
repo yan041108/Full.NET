@@ -16,6 +16,11 @@ internal sealed class OrganizationDapperAotMaterializerContributor : IDapperAotM
 {
     public void RegisterMaterializers(DapperAotMaterializerRegistrar registrar)
     {
+        registrar.Register<Features.RegistrationAssignments.RegistrationAssignmentRecord>(reader => new(
+            reader.GetGuid(0), reader.GetGuid(1), reader.GetGuid(2), reader.GetInt32(3), reader.GetGuid(4), reader.GetGuid(5),
+            AotDataReaderExtensions.ReadNullableGuid(reader, 6), reader.GetString(7),
+            AotDataReaderExtensions.ReadNullableString(reader, 8), AotDataReaderExtensions.ReadDateTimeOffset(reader, 9),
+            AotDataReaderExtensions.ReadDateTimeOffset(reader, 10), reader.GetInt64(11)));
         registrar.Register<OrganizationReportingLineRecord>(reader => new(reader.GetGuid(0), reader.GetGuid(1), AotDataReaderExtensions.ReadNullableGuid(reader, 2), reader.GetInt64(3), reader.GetGuid(4), AotDataReaderExtensions.ReadDateTimeOffset(reader, 5)));
         registrar.Register<OrganizationLeadershipUnitRecord>(reader => new(reader.GetGuid(0), AotDataReaderExtensions.ReadBoolean(reader, 1), reader.GetInt32(2)));
         registrar.Register<OrganizationUnitLeadershipRecord>(reader => new(reader.GetGuid(0), AotDataReaderExtensions.ReadNullableGuid(reader, 1), reader.GetInt64(2), reader.GetGuid(3), AotDataReaderExtensions.ReadDateTimeOffset(reader, 4)));

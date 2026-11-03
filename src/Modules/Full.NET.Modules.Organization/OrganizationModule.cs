@@ -26,6 +26,8 @@ using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Full.NET.Abstractions.Messaging;
+using Full.NET.Modules.Organization.Features.RegistrationAssignments;
 
 namespace Full.NET.Modules.Organization;
 
@@ -63,6 +65,7 @@ public sealed class OrganizationModule : IFullNetModule
         IConfiguration configuration)
     {
         services.AddFullNetLocalization();
+        RegisterRegistrationAssignments(services);
         services.TryAddEnumerable(ServiceDescriptor.Singleton<
             IAuthorizationCatalogContributor,
             OrganizationAuthorizationContributor>());
@@ -131,6 +134,8 @@ public sealed class OrganizationModule : IFullNetModule
         IConfiguration configuration)
     {
         services.AddHostedService<UserUnitProjectionPublicationHostedService>();
+        RegisterRegistrationAssignments(services);
+        services.AddHostedService<RegistrationAssignmentWorker>();
 #if FULLNET_AOT_COMPILE
         new Persistence.OrganizationDapperAotMaterializerContributor()
             .RegisterMaterializers(
@@ -155,10 +160,15 @@ public sealed class OrganizationModule : IFullNetModule
         services.TryAddEnumerable(ServiceDescriptor.Scoped<IStaticImportSchemaHandler, TenantPositionsStaticImportSchemaHandler>());
     }
 
-    /// <summary>
-    /// 映射 Organization 模块的 HTTP API 端点：租户部门、用户部门隶属、岗位、职级、
-    /// 用户岗位以及 Host 用户管理引用接口。
-    /// </summary>
+    /// <summary>API 与 Worker 共享可靠意图处理器；后台执行在 Worker 独立注册。</summary>
+    private static void RegisterRegistrationAssignments(IServiceCollection services)
+    {
+        services.TryAddScoped<RegistrationAssignmentProcessor>();
+        services.TryAddScoped<RegistrationMemberActivatedHandler>();
+        services.TryAddEnumerable(ServiceDescriptor.Scoped<IIntegrationEventHandler, RegistrationMemberActivatedHandler>());
+    }
+
+    /// <summary>映射组织、用户隶属及 Host 用户管理引用端点。</summary>
     public void MapEndpoints(IEndpointRouteBuilder endpoints)
     {
         Features.ManageTenantUnits.Endpoint.Map(endpoints);

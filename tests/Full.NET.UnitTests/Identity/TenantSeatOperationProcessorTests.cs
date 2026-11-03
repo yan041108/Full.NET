@@ -4,6 +4,7 @@ using Full.NET.Abstractions.Time;
 using Full.NET.Data.Abstractions;
 using Full.NET.Data.Dapper;
 using Full.NET.Modules.Identity.Contracts;
+using Full.NET.Modules.Identity.Persistence;
 using Full.NET.Modules.Identity.Features.TenantSeatOperations;
 using Full.NET.Modules.Identity.Features.AcceptTenantInvitation;
 using Full.NET.Modules.Identity.Features.ManageTenantMembers;
@@ -15,6 +16,21 @@ namespace Full.NET.UnitTests.Identity;
 [TestClass]
 public sealed class TenantSeatOperationProcessorTests
 {
+    [TestMethod]
+    [DataRow(true, false)]
+    [DataRow(false, false)]
+    [DataRow(true, true)]
+    public async Task Registration_way_grants_only_an_enabled_tenant_business_role(bool enabled, bool superAdministrator)
+    {
+        var f = new Fixture();
+        f.ConfigureRegistrationWay(enabled, superAdministrator);
+        var result = await f.Processor().ProcessAsync(f.Op.Id, default);
+        var allowed = enabled && !superAdministrator;
+        Assert.AreEqual(allowed, result.IsSuccess && result.Value);
+        Assert.AreEqual(allowed ? 1 : 0, f.Activations);
+        Assert.AreEqual(allowed ? 1 : 0, f.Outbox.ReceivedCalls().Count());
+    }
+
     [TestMethod]
     public async Task Lost_confirmation_response_replays_original_operation_without_second_reserve()
     {
@@ -32,6 +48,20 @@ public sealed class TenantSeatOperationProcessorTests
         await f.Seats.Received(2).ConfirmAsync(f.Op.TenantId, f.Key, Arg.Any<CancellationToken>());
         Assert.IsTrue((await f.Processor().ProcessAsync(f.Op.Id, default)).Value);
         Assert.AreEqual(1, f.Activations);
+    }
+
+    [TestMethod]
+    public async Task Changed_registration_way_rolls_back_activation_and_returns_version_conflict()
+    {
+        var f = new Fixture();
+        f.ConfigureRegistrationWay(true, false);
+        f.ChangeRegistrationWayDuringGrant();
+        var result = await f.Processor().ProcessAsync(f.Op.Id, default);
+        Assert.IsFalse(result.IsSuccess);
+        Assert.AreEqual(IdentityErrorCodes.RegistrationWayVersionConflict, result.Error!.Code);
+        Assert.AreEqual(1, f.Coordinator.RollbackCount);
+        Assert.AreEqual(TenantSeatPhases.Cancelled, f.Op.Phase);
+        Assert.AreEqual(0, f.Outbox.ReceivedCalls().Count());
     }
 
     [TestMethod]
@@ -139,6 +169,8 @@ public sealed class TenantSeatOperationProcessorTests
         internal readonly ITenantMemberSeatQuotaPort Seats = Substitute.For<ITenantMemberSeatQuotaPort>();
         internal readonly IActiveTenantContextResolver Tenants = Substitute.For<IActiveTenantContextResolver>();
         internal readonly ITenantInvitationGrantorAuthority Grantors = Substitute.For<ITenantInvitationGrantorAuthority>();
+        internal readonly IOutboxWriter Outbox = Substitute.For<IOutboxWriter>();
+        internal readonly RecordingDbTransactionCoordinator Coordinator = new();
         private readonly IQueryExecutor queries = Substitute.For<IQueryExecutor>();
         private readonly ICommandExecutor commands = Substitute.For<ICommandExecutor>();
         private readonly IClock clock = Substitute.For<IClock>();
@@ -187,7 +219,25 @@ public sealed class TenantSeatOperationProcessorTests
             });
         }
 
+        internal void ConfigureRegistrationWay(bool enabled, bool superAdministrator)
+        {
+            Op = Op with { InvitationId = Guid.CreateVersion7() };
+            var way = new RegistrationWayRecord { Id = Guid.CreateVersion7(), TenantId = Op.TenantId,
+                RoleId = Guid.CreateVersion7(), OrganizationUnitId = Guid.CreateVersion7(), IsEnabled = enabled };
+            queries.QuerySingleOrDefaultAsync<RegistrationInvitationRecord>(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>())
+                .Returns(new RegistrationInvitationRecord(Op.InvitationId.Value, Op.TenantId, "invitee@example.test", "hash", way.Id,
+                    1, Op.UserId, DateTimeOffset.UtcNow.AddHours(1), DateTimeOffset.UtcNow, null, DateTimeOffset.UtcNow, 1));
+            queries.QuerySingleOrDefaultAsync<RegistrationWayRecord>(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(way);
+            queries.QuerySingleOrDefaultAsync<IdentityRoleRecord>(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>())
+                .Returns(new IdentityRoleRecord(way.RoleId, Op.TenantId, $"tenant:{Op.TenantId:N}", "role", "Role", false, true,
+                    superAdministrator, "all", DateTimeOffset.UtcNow, null, 1));
+            queries.QuerySingleOrDefaultAsync<int>(RegistrationMemberActivationSql.HasRole, Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(1);
+        }
+
+        internal void ChangeRegistrationWayDuringGrant() => queries.QuerySingleOrDefaultAsync<int>(
+            RegistrationMemberActivationSql.HasRole, Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(0);
+
         internal TenantSeatOperationProcessor Processor() => new(queries, commands,
-            new DapperCommandTransaction(new RecordingDbTransactionCoordinator()), Substitute.For<ICurrentTenantContextWriter>(), Tenants, Seats, clock, Grantors);
+            new DapperCommandTransaction(Coordinator), Substitute.For<ICurrentTenantContextWriter>(), Tenants, Seats, clock, Grantors, Outbox);
     }
 }

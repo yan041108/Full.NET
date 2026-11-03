@@ -54,8 +54,9 @@ internal static class RegistrationInvitationSql
         "identity.registration_invitation.activate",
         """
         UPDATE fn_identity_registration_invitation
-        SET Status = 2, Version = Version + 1
-        WHERE InvitationId = @InvitationId AND TenantId = @TenantId AND BoundUserId = @UserId AND Status = 1
+        SET Status = 2, BoundUserId = @UserId, Version = Version + 1
+        WHERE InvitationId = @InvitationId AND TenantId = @TenantId
+          AND ((BoundUserId = @UserId AND Status = 1) OR (BoundUserId IS NULL AND Status = 0))
         """, SqlDataScope.HostOnly);
 
     public static readonly SqlStatement MarkConsumed = new(

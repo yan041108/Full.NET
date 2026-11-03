@@ -4,9 +4,14 @@
     "unit": {
       "project": "tests/Full.NET.UnitTests/Full.NET.UnitTests.csproj",
       "assembly": "tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll",
-      "minimum": 9542,
+      "minimum": 9552,
       "timeout": "10m",
       "selections": {
+        "registration-member-provisioning": {
+          "filter": "FullyQualifiedName~RegistrationAssignmentProcessorTests|FullyQualifiedName~TenantSeatOperationProcessorTests|FullyQualifiedName~TenantInvitationRollbackTests",
+          "minimum": 20,
+          "timeout": "3m"
+        },
         "codegen-mutation-policy-workbench": {
           "filter": "FullyQualifiedName~Mutation_policy_survives_normalization_and_generates_required_command_policy|FullyQualifiedName~Mutation_policy_without_version_is_rejected|FullyQualifiedName~Disabled_mutation_policy_preserves_canonical_schema_hash|FullyQualifiedName~Schema_contract_rejects_unknown_fields_at_every_nested_level|FullyQualifiedName~Schema_normalizer_accepts_explicit_capabilities_and_emits_canonical_json|FullyQualifiedName~Preview_accepts_explicit_capabilities_through_shared_normalizer",
           "minimum": 6,
@@ -667,6 +672,11 @@
       "minimum": 2,
       "timeout": "15m",
       "selections": {
+        "registration-member-provisioning": {
+          "filter": "FullyQualifiedName~InvitationRegistrationModeTests|FullyQualifiedName~RegistrationAssignmentMigrationRecoveryTests",
+          "minimum": 6,
+          "timeout": "5m"
+        },
         "code-generation-http-preview": {
           "filter": "Name~Host_preview_follows_contract_with_",
           "minimum": 2,
@@ -2075,7 +2085,7 @@
       },
       "migrations": {
         "filter": "FullyQualifiedName~Full.NET.IntegrationTests.Migrations",
-        "minimum": 580,
+        "minimum": 582,
         "timeout": "120m"
       },
       "infrastructure": {
@@ -2108,7 +2118,7 @@
       },
       "full": {
         "filter": "TestCategory!=ExternalSmtp&TestCategory!=ExternalAliyunSms&TestCategory!=NativeWorkflowApi&TestCategory!=NativeWorkflow&TestCategory!=NativeWorkflowWindows&TestCategory!=WorkflowNativeKafka&FullyQualifiedName!~Full.NET.IntegrationTests.NativeAot&FullyQualifiedName!~IdentityBrowserUiTests&FullyQualifiedName!~WorkflowCollaborationGrantBrowserUiTests&FullyQualifiedName!~AiKnowledgeCorrectionBrowserUiTests&FullyQualifiedName!~IdentityOidcNetworkInteropTests",
-        "minimum": 1668,
+        "minimum": 1670,
         "timeout": "90m"
       },
       "logging-metrics": {

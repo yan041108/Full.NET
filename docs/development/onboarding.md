@@ -202,6 +202,10 @@ Identity/
 - 超级管理员属于受保护的系统角色，不得绕过租户隔离和精确权限检查；细则见 `rules/development-quality.md`。
 - 会话状态校验在中间件层而非 Handler 层，确保所有 Endpoint 统一受保护。
 
+受邀入驻选择注册方式后，成员激活使用当时有效的租户业务角色配置，在 Identity 本地事务内授予角色并保存组织分配事件。账号的 Host 角色不受影响。机构和可选职位由 Organization Worker 最终一致地补齐普通隶属，不改变主部门/主职位，也不重启人工停用的关系。
+
+组织分配意图位于 `fn_organization_registration_assignment`：`Pending` 表示待处理或等待重试，`Completed` 表示已处理，`Skipped` 表示原成员已撤销或激活版本发生变化。Worker 每五秒读取有界批次；机构或职位不可用时保留稳定错误码并延迟三十秒重试，修复原配置后由 Worker 接续。成员权威检查在组织事务外，组织关系和意图完成标记在本模块同一事务中提交。
+
 **`Full.NET.Modules.Tenancy`**
 多租户管理模块，负责租户创建、配置和隔离边界。
 无独立 Contracts 项目，因为租户上下文抽象已在 `Abstractions` 层定义。

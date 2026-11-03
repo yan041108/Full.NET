@@ -75,6 +75,10 @@ public sealed class TenantContextMutationBoundaryTests
         "src/Modules/Full.NET.Modules.Identity/Features/MyOidcAuthorizations/Endpoint.cs",
         "src/Modules/Full.NET.Modules.Identity/Features/SelfServiceProfile/SelfServiceProfileMediaService.cs",
         "src/Modules/Full.NET.Modules.Identity/Features/SelfServiceProfile/SelfServiceProfileService.cs",
+        // 席位编排只读取 Identity 已持久化工作项，临时 Host 读取及 Outbox 租户绑定均恢复原上下文。
+        "src/Modules/Full.NET.Modules.Identity/Features/TenantSeatOperations/TenantSeatOperationProcessor.cs",
+        // Worker 从本模块持久化意图恢复范围；外部席位调用不进入本地事务。
+        "src/Modules/Full.NET.Modules.Identity/Features/TenantSeatOperations/TenantSeatRecoveryWorker.cs",
         "src/Modules/Full.NET.Modules.Identity/Middleware/IdentityOidcHostContextMiddleware.cs",
         // BFF 票据仅在 Identity 自有 Host 数据上编排，并在 finally 恢复调用方上下文。
         "src/Modules/Full.NET.Modules.Identity/Oidc/IdentityBrowserSession.cs",
@@ -116,6 +120,8 @@ public sealed class TenantContextMutationBoundaryTests
         "src/Modules/Full.NET.Modules.Organization/Features/HostUserManagementReference/HostUserManagementTenantScope.cs",
         // 投影发布仅从 Organization 持久化源行建立租户；独立作用域 finally 清除。
         "src/Modules/Full.NET.Modules.Organization/Features/ManageTenantUserUnits/UserUnitProjectionPublicationHostedService.cs",
+        // 注册分配只从已验证事件的本地工作项恢复租户，事务外复核活动成员后执行，finally 清除。
+        "src/Modules/Full.NET.Modules.Organization/Features/RegistrationAssignments/RegistrationAssignmentWorker.cs",
         "src/Modules/Full.NET.Modules.Reporting/Features/ManageExportTasks/ReportingExportTaskRunner.cs",
         "src/Modules/Full.NET.Modules.Settings/Features/ManageDiagnosticPolicy/DiagnosticPolicyStore.cs",
         // 权益只读 Port 临时进入 Host 目录读取阶段与绑定，租户来自调用方可信作用域，结束后恢复。

@@ -3063,6 +3063,23 @@
         "Version": "乐观并发版本号"
       }
     },
+    "fn_organization_registration_assignment": {
+      "comment": "注册方式组织分配的持久恢复意图",
+      "columns": {
+        "CreatedAtUtc": "激活事实时间",
+        "DueAtUtc": "下次处理时间",
+        "ErrorCode": "最近一次稳定错误码",
+        "Id": "注册分配意图的应用端 UUID v7",
+        "MemberId": "来源成员关系标识",
+        "MemberVersion": "激活后的成员版本",
+        "PositionId": "可选目标职位标识",
+        "Status": "Pending、Completed 或 Skipped",
+        "TenantId": "可信租户标识",
+        "UnitId": "目标机构单元标识",
+        "UserId": "目标账号标识",
+        "Version": "本地并发版本"
+      }
+    },
     "fn_organization_reporting_guard": {
       "comment": "租户直属汇报图写入串行门闩；不保存身份资料",
       "columns": {

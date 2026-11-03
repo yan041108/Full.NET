@@ -8,13 +8,14 @@ using Full.NET.Modules.Identity.Persistence;
 using Full.NET.Modules.Identity.Features.AcceptTenantInvitation;
 using Full.NET.Modules.Identity.Features.ManageTenantMembers;
 using Full.NET.Modules.Identity.Features.ManageTenantMembers.Persistence;
+using Full.NET.Messaging.Abstractions;
 
 namespace Full.NET.Modules.Identity.Features.TenantSeatOperations;
 
 /// <summary>跨模块调用只在事务外执行；成员保持 Pending，直到原席位确认和 Identity 激活事务均已提交。</summary>
 internal sealed class TenantSeatOperationProcessor(IQueryExecutor queries, ICommandExecutor commands,
     ICommandTransaction transaction, ICurrentTenantContextWriter tenant, IActiveTenantContextResolver tenants,
-    ITenantMemberSeatQuotaPort seats, IClock clock, ITenantInvitationGrantorAuthority grantors)
+    ITenantMemberSeatQuotaPort seats, IClock clock, ITenantInvitationGrantorAuthority grantors, IOutboxWriter outbox)
 {
     /// <summary>与移除成员同事务登记取消；不能先返还席位再提交成员禁用。</summary>
     internal Task CancelMemberAsync(Guid tenantId, Guid memberId, DateTimeOffset now, CancellationToken token) =>
@@ -86,26 +87,43 @@ internal sealed class TenantSeatOperationProcessor(IQueryExecutor queries, IComm
             if (op.Phase == TenantSeatPhases.Confirmed)
             {
                 var activationError = "identity.seat_operation.member_changed";
-                var activated = await transaction.ExecuteAsync(async local =>
+                bool activated;
+                try
                 {
-                    if (op.InvitationId is Guid invitationId)
+                    activated = await transaction.ExecuteAsync(async local =>
                     {
-                        var invitation = await queries.QuerySingleOrDefaultAsync<TenantInvitationRecord>(TenantMembershipSql.FindInvitationByIdGlobal,
-                            IdentitySqlParameters.Create(("InvitationId", invitationId)), local).ConfigureAwait(false);
-                        if (invitation is null || invitation.TenantId != op.TenantId
-                            || !await grantors.IsAuthorizedAsync(invitation.InvitedByUserId, op.TenantId, local).ConfigureAwait(false))
+                        if (op.InvitationId is Guid invitationId)
                         {
-                            activationError = "identity.seat_operation.inviter_unauthorized";
+                            var invitation = await queries.QuerySingleOrDefaultAsync<TenantInvitationRecord>(TenantMembershipSql.FindInvitationByIdGlobal,
+                                IdentitySqlParameters.Create(("InvitationId", invitationId)), local).ConfigureAwait(false);
+                            if (invitation is null || invitation.TenantId != op.TenantId
+                                || !await grantors.IsAuthorizedAsync(invitation.InvitedByUserId, op.TenantId, local).ConfigureAwait(false))
+                            {
+                                activationError = "identity.seat_operation.inviter_unauthorized";
+                                return false;
+                            }
+                        }
+                        var (valid, way) = await FindRegistrationWayAsync(op, local).ConfigureAwait(false);
+                        if (!valid)
+                        {
+                            activationError = IdentityErrorCodes.RegistrationWayNotFound;
                             return false;
                         }
-                    }
-                    if (await commands.ExecuteAsync(TenantSeatOperationSql.ActivateMember, MemberParameters(op), local).ConfigureAwait(false) != 1)
-                        return false;
-                    if (op.InvitationId is not null)
-                        await commands.ExecuteAsync(RegistrationInvitationSql.MarkActivated, MemberParameters(op), local).ConfigureAwait(false);
-                    await SaveAsync(op, lease, TenantSeatPhases.Activated, null, local).ConfigureAwait(false);
-                    return true;
-                }, ct).ConfigureAwait(false);
+                        if (await commands.ExecuteAsync(TenantSeatOperationSql.ActivateMember, MemberParameters(op), local).ConfigureAwait(false) != 1)
+                            return false;
+                        if (way is not null) await ApplyRegistrationWayAsync(op, way, local).ConfigureAwait(false);
+                        if (op.InvitationId is not null)
+                            await commands.ExecuteAsync(RegistrationInvitationSql.MarkActivated, MemberParameters(op), local).ConfigureAwait(false);
+                        await SaveAsync(op, lease, TenantSeatPhases.Activated, null, local).ConfigureAwait(false);
+                        return true;
+                    }, ct).ConfigureAwait(false);
+                }
+                catch (RegistrationWayChangedException)
+                {
+                    // 角色授予与成员激活已经一起回滚；通过原席位补偿返回可识别的配置版本冲突。
+                    activated = false;
+                    activationError = IdentityErrorCodes.RegistrationWayVersionConflict;
+                }
                 if (activated) return Result<bool>.Success(true);
                 op = await SaveAsync(op, lease, TenantSeatPhases.Cancelling, activationError, ct).ConfigureAwait(false);
             }
@@ -140,6 +158,41 @@ internal sealed class TenantSeatOperationProcessor(IQueryExecutor queries, IComm
         }
     }
 
+    private async Task<(bool Valid, RegistrationWayRecord? Way)> FindRegistrationWayAsync(TenantSeatOperation op, CancellationToken token)
+    {
+        if (op.InvitationId is not Guid invitationId) return (true, null);
+        var invitation = await queries.QuerySingleOrDefaultAsync<RegistrationInvitationRecord>(RegistrationInvitationSql.FindById,
+            IdentitySqlParameters.Create(("InvitationId", invitationId)), token).ConfigureAwait(false);
+        if (invitation is null) return (true, null);
+        if (invitation.TenantId != op.TenantId || invitation.Status is not (0 or 1)
+            || invitation.BoundUserId is Guid bound && bound != op.UserId) return (false, null);
+        var way = await queries.QuerySingleOrDefaultAsync<RegistrationWayRecord>(RegistrationWaySql.FindById,
+            IdentitySqlParameters.Create(("WayId", invitation.RegistrationWayId)), token).ConfigureAwait(false);
+        if (way is null || !way.IsEnabled || way.TenantId != op.TenantId) return (false, null);
+        var role = await queries.QuerySingleOrDefaultAsync<IdentityRoleRecord>(RegistrationWaySql.FindActiveTenantRole,
+            IdentitySqlParameters.Create(("RoleId", way.RoleId), ("TenantId", op.TenantId)), token).ConfigureAwait(false);
+        return role is { IsSuperAdministrator: false } && role.ScopeKey == $"tenant:{op.TenantId:N}"
+            ? (true, way) : (false, null);
+    }
+
+    private async Task ApplyRegistrationWayAsync(TenantSeatOperation op, RegistrationWayRecord way, CancellationToken token)
+    {
+        var parameters = IdentitySqlParameters.Create(("UserId", op.UserId), ("RoleId", way.RoleId),
+            ("TenantId", op.TenantId), ("ScopeKey", $"tenant:{op.TenantId:N}"), ("WayId", way.Id), ("WayVersion", way.Version));
+        await commands.ExecuteAsync(RegistrationMemberActivationSql.GrantRole, parameters, token).ConfigureAwait(false);
+        if (await queries.QuerySingleOrDefaultAsync<int>(RegistrationMemberActivationSql.HasRole, parameters, token).ConfigureAwait(false) != 1)
+            throw new RegistrationWayChangedException();
+        // 事件租户来自已提交的席位意图；临时绑定只用于 Outbox 信封，发布后立即恢复 Host 编排作用域。
+        await IdentityTenantInvitationScope.RunAsync(tenant, new TenantContext(op.TenantId, op.TenantId.ToString("D"), op.TenantId.ToString("D")), async () =>
+        {
+            await outbox.AddAsync(RegistrationMemberIntegrationEventTypes.Activated, 1,
+                new RegistrationMemberActivatedIntegrationEvent(op.Id, op.TenantId, op.MemberId, op.MemberVersion + 1,
+                    op.UserId, way.OrganizationUnitId, way.PositionId, clock.UtcNow),
+                IntegrationEventMetadata.Create(op.TenantId.ToString("D"), "fullnet.identity"), token).ConfigureAwait(false);
+            return true;
+        }).ConfigureAwait(false);
+    }
+
     private async Task<TenantSeatOperation> SaveAsync(TenantSeatOperation op, Guid lease, string phase, string? error, CancellationToken token)
     {
         if (await commands.ExecuteAsync(TenantSeatOperationSql.Save,
@@ -156,4 +209,6 @@ internal sealed class TenantSeatOperationProcessor(IQueryExecutor queries, IComm
 
     private static Result<bool> Failure(string code, ErrorType type) => Result<bool>.Failure(new Error(code,
         "The tenant membership activation has not completed.", type));
+
+    private sealed class RegistrationWayChangedException : Exception { }
 }
