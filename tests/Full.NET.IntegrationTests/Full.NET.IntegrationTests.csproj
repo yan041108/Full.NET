@@ -4,6 +4,7 @@
     <Error Text="控制器聚焦模式只能选择一个，不能混合 Workflow、独立角色与校对读取。" />
   </Target>
   <ItemGroup Condition="'$(FullNetWorkflowNativeFocused)' != 'true' and '$(FullNetIndependentHostNativeFocused)' != 'true' and '$(FullNetCorrectionReadFocused)' != 'true' and '$(FullNetCorrectionWorkerNativeFocused)' != 'true'">
+    <ProjectReference Include="../Tools/Full.NET.EnterpriseRequest.WorkerFixture/Full.NET.EnterpriseRequest.WorkerFixture.csproj" ReferenceOutputAssembly="false" />
     <Compile Include="../Shared/CodeGeneration/GeneratedMigrationRecoveryFixture.cs" Link="CodeGeneration/GeneratedMigrationRecoveryFixture.cs" />
     <Compile Include="../Shared/CodeGeneration/CodeGenerationRemediationSchemas.cs" Link="CodeGeneration/CodeGenerationRemediationSchemas.cs" />
     <Compile Include="../Shared/CodeGeneration/Remediation/*.g.cs" Link="CodeGeneration/Remediation/%(Filename)%(Extension)" />

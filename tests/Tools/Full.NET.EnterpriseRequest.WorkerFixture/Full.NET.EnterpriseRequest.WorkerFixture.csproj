@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk.Worker">
+  <PropertyGroup>
+    <FullNetPublishMode>Jit</FullNetPublishMode>
+    <IsPackable>false</IsPackable>
+    <DefineConstants>$(DefineConstants);FULLNET_APP_WORKER</DefineConstants>
+  </PropertyGroup>
+  <ItemGroup>
+    <!-- 与应用模板相同，直接编译官方生产管线，不复制源码或在官方 Host 引入样例依赖。 -->
+    <Compile Include="../../../src/Hosts/Full.NET.Host.Worker/**/*.cs"
+             Exclude="../../../src/Hosts/Full.NET.Host.Worker/**/obj/**/*.cs;../../../src/Hosts/Full.NET.Host.Worker/**/bin/**/*.cs"
+             LinkBase="FrameworkWorker" />
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <ProjectReference Include="../../../src/Composition/Full.NET.Composition/Full.NET.Composition.csproj" />
+    <ProjectReference Include="../../../samples/enterprise-request/src/Full.NET.Modules.EnterpriseRequest/Full.NET.Modules.EnterpriseRequest.csproj" />
+    <ProjectReference Include="../../../src/BuildingBlocks/Full.NET.Caching.Fusion/Full.NET.Caching.Fusion.csproj" />
+    <ProjectReference Include="../../../src/BuildingBlocks/Full.NET.Data.Dapper/Full.NET.Data.Dapper.csproj" />
+    <ProjectReference Include="../../../src/BuildingBlocks/Full.NET.Hosting/Full.NET.Hosting.csproj" />
+    <ProjectReference Include="../../../src/BuildingBlocks/Full.NET.Logging.Kafka/Full.NET.Logging.Kafka.csproj" />
+    <ProjectReference Include="../../../src/BuildingBlocks/Full.NET.Realtime.SignalR/Full.NET.Realtime.SignalR.csproj" />
+    <ProjectReference Include="../../../src/BuildingBlocks/Full.NET.Messaging.Abstractions/Full.NET.Messaging.Abstractions.csproj" />
+    <ProjectReference Include="../../../src/BuildingBlocks/Full.NET.Messaging.Kafka/Full.NET.Messaging.Kafka.csproj" />
+    <ProjectReference Include="../../../src/BuildingBlocks/Full.NET.Serialization.MemoryPack/Full.NET.Serialization.MemoryPack.csproj" />
+    <Content Include="../../../src/Hosts/Full.NET.Host.Worker/appsettings.json" Link="appsettings.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>

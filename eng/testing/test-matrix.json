@@ -657,6 +657,11 @@
             "minimum": 2,
             "timeout": "8m"
           },
+          "enterprise-request-worker-process-recovery": {
+            "filter": "FullyQualifiedName~EnterpriseRequestAccessMatrixTests.Worker_process_crashes_recover_submission_and_business_writeback_without_duplicate_effects",
+            "minimum": 2,
+            "timeout": "10m"
+          },
           "reporting-template-configuration-browser": {
             "filter": "FullyQualifiedName~ReportingPublicationBrowserUiTests.Host_edits_draft_recovers_conflict_and_explicitly_publishes_report",
             "minimum": 1,

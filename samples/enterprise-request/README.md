@@ -93,4 +93,6 @@ node --test samples/enterprise-request/tests/schema.test.mjs
 
 普通活动成员专项已在 SQL Server/MySQL 通过，包含部门可见范围、无权部门写入、版本冲突、缺明细权限、打印金额脱敏、正式开通的第二租户隔离及有效/无权部门 XLSX 导入。生成器版本 `2026.11.03.1` 修复受限列表的计数过滤锚点；受影响应用使用真实生成器重新生成主单和明细功能文件。
 
+审批运行中撤权会注销旧会话；重新登录仍需当前审批权限。恢复权限后原待办可以继续，重复请求不重复推进。双库真实撤权及独立 Worker 在流程启动/业务回写后、消息确认前被终止并重启恢复均已通过，后者等待生产租约自然过期，不直接调用恢复批处理。详见[撤权记录](../../docs/verification/2026-11-03-enterprise-request-approval-revocation.md)与[进程恢复记录](../../docs/verification/2026-11-03-enterprise-request-worker-process-recovery.md)；不将该范围外推为 Native 或容量验收。
+
 每附件最大 10 MiB、每单最多 20 个附件；工作簿最多 500 明细、同时 10 个未过期任务，24 小时有效；打印最多 20 行。超限明确拒绝。停用租户待清理记录保留至重新启用，部署方不能将其误记为已经物理删除。验证范围和已知限制见[交付规格](../../docs/superpowers/specs/2026-10-27-enterprise-request-delivery.md)。
