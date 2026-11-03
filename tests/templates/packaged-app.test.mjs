@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { spawnSync } from 'node:child_process';
-import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs';
+import { execFileSync, spawnSync } from 'node:child_process';
+import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
@@ -29,9 +29,12 @@ test('application template preserves the workflow frontend contract in created a
     createApp({ packageRoot: templateRoot, output: appRoot, name: 'Demo', ownerKey: 'acme' });
     const manifest = JSON.parse(readFileSync(join(appRoot, 'framework-manifest.json'), 'utf8'));
     for (const relative of ['contracts/workflow/gateway-limits.json', 'contracts/workflow/vform3-runtime-release.json']) {
-      const original = readFileSync(new URL('../../' + relative, import.meta.url));
-      assert.equal(manifest.managedFiles[relative], createHash('sha256').update(original).digest('hex'));
-      for (const root of [templateRoot, appRoot]) assert.deepEqual(readFileSync(join(root, relative)), original);
+      // Git archive 可按平台导出 CRLF；摘要必须锚定冻结分发字节，来源对照只统一文本换行。
+      const original = execFileSync('git', ['show', `${manifest.sourceCommit}:${relative}`]);
+      const frozen = readFileSync(join(templateRoot, 'framework/fullnet', relative));
+      assert.equal(frozen.toString('utf8').replaceAll('\r\n', '\n'), original.toString('utf8').replaceAll('\r\n', '\n'));
+      assert.equal(manifest.managedFiles[relative], createHash('sha256').update(frozen).digest('hex'));
+      for (const root of [templateRoot, appRoot]) assert.deepEqual(readFileSync(join(root, relative)), frozen);
     }
     assert.match(readFileSync(join(appRoot, 'ui/admin/src/workflow/workflow-gateway-limits.ts'), 'utf8'),
       /contracts\/workflow\/gateway-limits\.json/u);
@@ -40,7 +43,22 @@ test('application template preserves the workflow frontend contract in created a
       const result = spawnSync('pnpm', args, { cwd: appRoot, encoding: 'utf8', timeout: 180_000,
         shell: process.platform === 'win32', windowsHide: true, maxBuffer: 4 * 1024 * 1024 });
       assert.equal(result.error, undefined, 'packaged frontend command did not complete');
-      assert.equal(result.status, 0, (result.stderr || result.stdout || '').slice(-16_000));
+      let releaseDifference = '';
+      const actualRelease = join(appRoot, 'ui/admin/dist/vform3/runtime-release.json');
+      if (result.status !== 0 && existsSync(actualRelease)) {
+        const actual = JSON.parse(readFileSync(actualRelease, 'utf8'));
+        const expected = JSON.parse(readFileSync(join(appRoot, 'contracts/workflow/vform3-runtime-release.json'), 'utf8'));
+        const report = join(tmpdir(), 'fullnet-f02-vform-runtime-difference.json');
+        writeFileSync(report, JSON.stringify({ sourceCommit: manifest.sourceCommit, expected, actual }, null, 2));
+        const expectedAssets = new Map(expected.assets.map(asset => [asset.path, asset]));
+        const differences = actual.assets.filter(asset => JSON.stringify(asset) !== JSON.stringify(expectedAssets.get(asset.path)));
+        for (const asset of differences) {
+          if (asset.path === 'THIRD-PARTY-NOTICES.txt' || /^assets\/(main|index)-.+\.js$/u.test(asset.path))
+            writeFileSync(join(tmpdir(), 'fullnet-f02-vform-' + asset.path.replaceAll('/', '-')), readFileSync(join(appRoot, 'ui/admin/dist/vform3', asset.path)));
+        }
+        releaseDifference = '\nRuntime release differences: ' + JSON.stringify(differences) + '\nReport: ' + report;
+      }
+      assert.equal(result.status, 0, (result.stderr || result.stdout || '').slice(-16_000) + releaseDifference);
     }
   } finally { rmSync(workspace, { recursive: true, force: true }); }
 });

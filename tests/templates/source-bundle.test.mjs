@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
 import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
@@ -41,8 +42,10 @@ test('build-source-bundle writes manifest with sha256 managed files', { skip: sk
     assert.ok(existsSync(join(bundleRoot, 'packages/admin-form-designer/package.json')));
     assert.ok(existsSync(join(bundleRoot, 'packages/design-tokens/package.json')));
     assert.ok(existsSync(join(bundleRoot, 'pnpm-lock.yaml')));
-    assert.deepEqual(readFileSync(join(bundleRoot, 'contracts/workflow/gateway-limits.json')),
-      readFileSync(resolve('contracts/workflow/gateway-limits.json')));
+    for (const relative of ['contracts/workflow/gateway-limits.json', 'contracts/workflow/vform3-runtime-release.json']) {
+      assert.equal(readFileSync(join(bundleRoot, relative), 'utf8').replaceAll('\r\n', '\n'),
+        execFileSync('git', ['show', `${manifest.sourceCommit}:${relative}`], { encoding: 'utf8' }).replaceAll('\r\n', '\n'));
+    }
     assert.equal(manifest.migrationInventory.selectionStatus, 'unscoped');
     const publishedSqlServerScripts = readdirSync(resolve('src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/SqlServer'))
       .filter((name) => /^\d+_.+\.sql$/.test(name)).sort();

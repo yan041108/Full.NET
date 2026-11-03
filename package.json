@@ -110,6 +110,13 @@
     "test:logging:secret-boundary:live": "node scripts/testing/run-integration-shard.mjs logging-secret-boundary"
   },
   "pnpm": {
+    "packageExtensions": {
+      "element-plus@2.14.3": {
+        "dependencies": {
+          "@vue/shared": "3.5.42"
+        }
+      }
+    },
     "overrides": {
       "glob": "10.5.0",
       "@intlify/message-compiler": "9.14.5",

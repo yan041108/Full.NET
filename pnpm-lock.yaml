@@ -37,6 +37,8 @@ overrides:
   vite@8.1.5: 8.1.6
   vitest@4.1.11: 4.1.12
 
+packageExtensionsChecksum: sha256-B2dtr3F70xF0oHAKQX4OJGzOrnIBivGNLyw36G7nZXw=
+
 patchedDependencies:
   '@dcloudio/uni-mp-weixin@3.0.0-5010520260709002':
     hash: d05c410533e350d0032a02d0482da3c05d4ae611a90a8c7a93b90666c0dba492
@@ -7827,6 +7829,7 @@ snapshots:
       '@popperjs/core': '@sxzz/popperjs-es@2.11.8'
       '@types/lodash': 4.17.24
       '@types/lodash-es': 4.17.12
+      '@vue/shared': 3.5.42
       '@vueuse/core': 14.3.0(vue@3.5.42(typescript@6.0.3))
       async-validator: 4.2.5
       dayjs: 1.11.21
