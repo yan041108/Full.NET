@@ -31,6 +31,7 @@ test('minimal projection excludes unselected module implementation references', 
     assert.match(result.project, new RegExp(`Full\\.NET\\.Modules\\.${module}\\\\`));
   }
   assert.doesNotMatch(result.catalog, /new PaymentsModule\(\)|AddAiProviderServices/);
+  assert.doesNotMatch(result.catalog, /using Full\.NET\.Agents\.|using OpenTelemetry\./u);
   assert.doesNotMatch(result.project, /Full\.NET\.Modules\.Payments\\|Full\.NET\.AI\.Providers/);
   const officialNames = result.selection.split('OfficialModuleNames =')[1].split('];')[0];
   assert.doesNotMatch(officialNames, /"Payments"/);
@@ -45,6 +46,8 @@ test('enterprise projection retains selected optional modules', () => {
 
 test('packaged preset lists match the Composition source presets', () => {
   for (const preset of VALID_PRESETS) {
+    const projected = projectCompositionSource(sources, resolvePresetModules(preset));
+    assert.doesNotMatch(projected.catalog, /using Full\.NET\.Agents\.|using OpenTelemetry\.|AgentExecutionTelemetry/u, preset);
     const name = preset[0].toUpperCase() + preset.slice(1);
     const block = sources.selection.split(`${name}PresetModuleNames =`)[1]?.split('];')[0];
     assert.ok(block, `missing Composition preset: ${preset}`);

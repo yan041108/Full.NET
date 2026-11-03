@@ -10,6 +10,8 @@ const COMPOSITION_ROOT = 'src/Composition/Full.NET.Composition';
 const CATALOG = `${COMPOSITION_ROOT}/FullNetModuleCatalog.cs`;
 const SELECTION = `${COMPOSITION_ROOT}/FullNetModuleSelection.cs`;
 const PROJECT = `${COMPOSITION_ROOT}/Full.NET.Composition.csproj`;
+// 这些命名空间仅服务于被整体裁剪的 AI Provider 方法，不能遗留到未安装 AI 的应用。
+const AI_ONLY_USINGS = new Set(['using Full.NET.Agents.Runtime;', 'using OpenTelemetry.Metrics;', 'using OpenTelemetry.Trace;']);
 
 function projectCatalog(source, selected) {
   const available = [...source.matchAll(/^\s*new ([A-Za-z0-9]+)Module\(\),\s*$/gm)]
@@ -27,6 +29,7 @@ function projectCatalog(source, selected) {
   if (!selected.has('Ai')) {
     result = result.split('\n').filter((line) =>
       !line.startsWith('using Full.NET.AI.')
+      && !AI_ONLY_USINGS.has(line)
       && line !== 'using Microsoft.Extensions.DependencyInjection.Extensions;'
       && !line.includes('// Provider 消费 Ai 的请求凭据作用域')).join('\n');
     const registration = /\s*if \((?:apiModules|workerModules)\.Any\(module => module is AiModule\)\)\s*\{\s*AddAiProviderServices\(services, configuration\);\s*\}/g;
