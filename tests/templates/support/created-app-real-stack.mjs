@@ -273,9 +273,10 @@ export async function verifyCreatedAppRealStack(databaseProviderKey, { scope = '
       assert.equal(changes.status, 0, 'cannot compare cached template source');
       assert.ok(!changes.stdout.split(/\r?\n/u).some(path => packageManifest.managedFiles?.[path]
         || TEMPLATE_INPUT_ROOTS.some(root => path === root || path.startsWith(root + '/'))), 'cached template framework source is stale');
-      // 外层创建工具不在受管框架清单中，复用前另核对其原文；createApp 随后仍检查包内所有摘要。
+      // 外层工具另核对源码，只统一 Git archive 的平台 CRLF；受管文件仍由 createApp 逐字节验哈希。
       for (const name of readdirSync(join(templateRoot, '.fullnet-tools')).filter(name => name.endsWith('.mjs'))) {
-        assert.deepEqual(readFileSync(join(templateRoot, '.fullnet-tools', name)), readFileSync(join(repoRoot, 'scripts/templates', name)),
+        assert.equal(readFileSync(join(templateRoot, '.fullnet-tools', name), 'utf8').replaceAll('\r\n', '\n'),
+          readFileSync(join(repoRoot, 'scripts/templates', name), 'utf8').replaceAll('\r\n', '\n'),
           'cached template creator differs: ' + name);
       }
     } else ({ templateRoot } = buildAppTemplate({ output: join(workspace, 'package'), run: runPreparation }));
