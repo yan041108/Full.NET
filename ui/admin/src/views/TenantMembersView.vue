@@ -7,7 +7,6 @@ import {
   ElFormItem,
   ElInput,
   ElMessage,
-  ElMessageBox,
   ElOption,
   ElPagination,
   ElSelect,
@@ -29,6 +28,7 @@ import ArtTableHeader from '../framework/art-design/components/ArtTableHeader.vu
 import { useArtCrudTableLayout } from '../framework/art-design/composables/useArtCrudTableLayout';
 import PermissionGate from '../components/PermissionGate.vue';
 import TenantMemberRemovalDialog from '../components/TenantMemberRemovalDialog.vue';
+import TenantInvitationRevocationDialog from '../components/TenantInvitationRevocationDialog.vue';
 import { useSessionStore } from '../auth/session';
 import { isIdentityPasswordValid } from '../auth/identity-password-policy';
 import { useAdminI18n } from '../i18n/adminI18n';
@@ -39,7 +39,6 @@ import {
   listTenantInvitations,
   listTenantMembers,
   provisionTenantMember,
-  revokeTenantInvitation,
   updateTenantMember
 } from '../api/tenant-members';
 
@@ -89,6 +88,7 @@ const inviteFormRef = ref<FormInstance>();
 const editFormRef = ref<FormInstance>();
 const editingMember = ref<TenantMember | null>(null);
 const removalOpen = ref(false), removalTarget = ref<TenantMember>();
+const revocationOpen = ref(false), revocationTarget = ref<TenantInvitation>();
 const invitationToken = ref('');
 const activeTab = ref<'members' | 'invitations'>('members');
 
@@ -549,21 +549,14 @@ function memberRemoved(confirmedWrite: boolean) {
   void loadMembers();
 }
 
-async function confirmRevoke(row: TenantInvitation) {
-  await ElMessageBox.confirm(
-    t('tenantMembers.confirmRevoke', { email: row.targetEmail }),
-    { type: 'warning' }
-  );
-  changing.value = true;
-  try {
-    await revokeTenantInvitation(row.id);
-    ElMessage.success(t('tenantMembers.revokeSuccess'));
-    await loadInvitations();
-  } catch (error) {
-    problem.value = toProblem(error);
-  } finally {
-    changing.value = false;
-  }
+function confirmRevoke(row: TenantInvitation) {
+  if (changing.value || !session.can('identity.tenant_members.read') || !session.can('identity.tenant_members.revoke_invitation')
+    || row.status !== 'Pending' || row.tenantId.toLowerCase() !== session.currentUser?.tenantId?.toLowerCase()) return;
+  removalOpen.value = false; revocationTarget.value = { ...row }; revocationOpen.value = true;
+}
+function invitationRevoked(confirmedWrite: boolean) {
+  if (confirmedWrite) ElMessage.success(t('tenantMembers.revokeSuccess'));
+  void loadInvitations();
 }
 
 async function copyInvitationToken() {
@@ -596,7 +589,8 @@ watch(
     // 列表与确认对象不能借用新会话；迟到的旧企业结果也不能填回页面。
     cancelLists(); members.value = []; invitations.value = []; memberTotal.value = 0; invitationTotal.value = 0;
     problem.value = undefined;
-    removalOpen.value = false; editOpen.value = false; inviteOpen.value = false; provisionOpen.value = false; editingMember.value = null;
+    removalOpen.value = false; removalTarget.value = undefined; revocationOpen.value = false; revocationTarget.value = undefined;
+    editOpen.value = false; inviteOpen.value = false; provisionOpen.value = false; editingMember.value = null;
     provisionForm.password = ''; provisionForm.username = ''; provisionForm.displayName = ''; provisionForm.email = '';
     inviteForm.targetEmail = ''; inviteForm.registrationWayId = '';
     invitationToken.value = '';
@@ -639,6 +633,7 @@ onMounted(() => {
 
 <template>
   <TenantMemberRemovalDialog v-model:open="removalOpen" :target="removalTarget" @removed="memberRemoved" />
+  <TenantInvitationRevocationDialog v-model:open="revocationOpen" :target="revocationTarget" @revoked="invitationRevoked" />
   <section
     class="tenant-members-view art-page-stack art-full-height"
     :aria-busy="loadingMembers || loadingInvitations"

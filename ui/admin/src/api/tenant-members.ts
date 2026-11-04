@@ -125,8 +125,14 @@ export async function revokeTenantInvitation(
   const value = await request<unknown>(
     `/api/v1/identity/tenant-members/invitations/${invitationId}/revoke`,
     { method: 'POST' },
-    signal
+    signal,
+    { retryUnauthorized: false }
   );
+  return readResponse(value, isInvitation, 'client.invalid_tenant_invitation');
+}
+
+export async function getTenantInvitation(invitationId: string, signal?: AbortSignal): Promise<TenantInvitation> {
+  const value = await request<unknown>(`/api/v1/identity/tenant-members/invitations/${invitationId}`, { method: 'GET' }, signal);
   return readResponse(value, isInvitation, 'client.invalid_tenant_invitation');
 }
 

@@ -6,10 +6,42 @@
   },
   "paths": {
     "/api/v1/identity/tenant-members": {},
+    "/api/v1/identity/tenant-members/invitations/{invitationId}": {
+      "get": {
+        "operationId": "identityGetTenantInvitation",
+        "parameters": [
+          { "name": "invitationId", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
+        ],
+        "responses": {
+          "200": { "description": "当前租户的邀请详情", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/TenantInvitationResponse" } } } },
+          "401": { "description": "会话失效" },
+          "403": { "description": "缺少读取权限" },
+          "404": { "description": "当前租户中不存在该邀请" }
+        }
+      }
+    },
     "/api/v1/identity/tenant-members/me": {},
     "/api/v1/identity/tenant-members/me/leave": {}
   },
   "components": {
-    "schemas": {}
+    "schemas": {
+      "TenantInvitationResponse": {
+        "type": "object",
+        "required": ["id", "tenantId", "targetEmail", "invitedByUserId", "memberRole", "status", "expiresAtUtc", "createdAtUtc", "updatedAtUtc", "version"],
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "tenantId": { "type": "string", "format": "uuid" },
+          "targetEmail": { "type": "string" },
+          "targetUserId": { "type": ["string", "null"], "format": "uuid" },
+          "invitedByUserId": { "type": "string", "format": "uuid" },
+          "memberRole": { "type": "string" },
+          "status": { "type": "string", "enum": ["Pending", "Accepted", "Revoked", "Expired"] },
+          "expiresAtUtc": { "type": "string", "format": "date-time" },
+          "createdAtUtc": { "type": "string", "format": "date-time" },
+          "updatedAtUtc": { "type": "string", "format": "date-time" },
+          "version": { "type": "integer", "format": "int32", "minimum": 1 }
+        }
+      }
+    }
   }
 }

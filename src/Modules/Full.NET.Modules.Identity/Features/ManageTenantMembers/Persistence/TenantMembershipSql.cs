@@ -381,6 +381,7 @@ internal static class TenantMembershipSql
         SqlDataScope.TenantRequired,
         SqlTenantBinding.CurrentTenantId);
 
+    // 状态与版本同时比较，接受先提交后撤销不能覆盖其授权/成员事实。
     public static readonly SqlStatement UpdateInvitationStatus = new(
         "identity.tenant_invitations.update_status",
         """
@@ -391,6 +392,7 @@ internal static class TenantMembershipSql
         WHERE Id = @InvitationId
           AND TenantId = @TenantId
           AND Version = @Version
+          AND Status = 'Pending'
         """,
         SqlDataScope.TenantRequired,
         SqlTenantBinding.CurrentTenantId);

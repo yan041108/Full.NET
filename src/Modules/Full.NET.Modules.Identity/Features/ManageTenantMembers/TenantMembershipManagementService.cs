@@ -174,6 +174,12 @@ internal sealed class TenantMembershipManagementService(
                 ErrorType.NotFound));
         }
 
+        // 撤销只终止未接受的授权；已接受邀请及其成员/席位事实不能被改写。
+        if (existing.Status == TenantInvitationStatuses.Revoked)
+            return await queries.GetInvitationByIdAsync(invitationId, cancellationToken).ConfigureAwait(false);
+        if (existing.Status != TenantInvitationStatuses.Pending)
+            return Result<TenantInvitationResponse>.Failure(new Error(IdentityErrorCodes.TenantInvitationInvalid,
+                "Only pending invitations can be revoked.", ErrorType.Conflict));
         var now = clock.UtcNow;
         var affected = await commandExecutor.ExecuteAsync(
                 TenantMembershipSql.UpdateInvitationStatus,
@@ -187,26 +193,16 @@ internal sealed class TenantMembershipManagementService(
         if (affected != 1)
         {
             return Result<TenantInvitationResponse>.Failure(new Error(
-                IdentityErrorCodes.TenantInvitationNotFound,
-                "The tenant invitation was not found.",
-                ErrorType.NotFound));
+                IdentityErrorCodes.TenantInvitationInvalid,
+                "The tenant invitation was updated concurrently.",
+                ErrorType.Conflict));
         }
 
         await commandExecutor.ExecuteAsync(RegistrationInvitationSql.RevokeRegistration,
             IdentitySqlParameters.Create(("InvitationId", invitationId), ("Now", now)), cancellationToken).ConfigureAwait(false);
 
-        return Result<TenantInvitationResponse>.Success(new TenantInvitationResponse(
-            existing.Id,
-            existing.TenantId,
-            existing.TargetEmail,
-            existing.TargetUserId,
-            existing.InvitedByUserId,
-            existing.MemberRole,
-            TenantInvitationStatuses.Revoked,
-            existing.ExpiresAtUtc,
-            existing.CreatedAtUtc,
-            now,
-            existing.Version + 1));
+        // 返回实际落库投影，避免双库时间精度差异让重复撤销的同一回执发生漂移。
+        return await queries.GetInvitationByIdAsync(invitationId, cancellationToken).ConfigureAwait(false);
     }
 
     private async Task<Result<TenantMemberResponse>> UpdateMemberCoreAsync(

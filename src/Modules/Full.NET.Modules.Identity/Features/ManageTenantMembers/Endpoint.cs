@@ -97,6 +97,20 @@ internal static class Endpoint
         .Produces<PagedResult<TenantInvitationResponse>>(StatusCodes.Status200OK)
         .RequireFullNetPermission(IdentityTenantMembershipPermissions.Read);
 
+        group.MapGet("/invitations/{invitationId:guid}", async (
+            Guid invitationId,
+            TenantMembershipQueryService queries,
+            IApiResultMapper mapper,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            var result = await queries.GetInvitationByIdAsync(invitationId, cancellationToken).ConfigureAwait(false);
+            return mapper.Map(result, httpContext);
+        })
+        .WithName("identityGetTenantInvitation")
+        .Produces<TenantInvitationResponse>(StatusCodes.Status200OK)
+        .RequireFullNetPermission(IdentityTenantMembershipPermissions.Read);
+
         group.MapGet("/invitations/registration-ways", async (
             TenantMembershipQueryService queries, CancellationToken cancellationToken) =>
             await queries.ListInvitationWaysAsync(cancellationToken).ConfigureAwait(false))

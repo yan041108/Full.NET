@@ -8,7 +8,7 @@ import * as api from '../api/tenant-members';
 
 vi.mock('../api/tenant-members', () => ({ listTenantMembers: vi.fn(), listTenantInvitations: vi.fn(),
   createTenantInvitation: vi.fn(), listInvitationRegistrationWays: vi.fn(), provisionTenantMember: vi.fn(),
-  revokeTenantInvitation: vi.fn(), updateTenantMember: vi.fn(), getTenantMember: vi.fn(), removeTenantMember: vi.fn() }));
+  revokeTenantInvitation: vi.fn(), getTenantInvitation: vi.fn(), updateTenantMember: vi.fn(), getTenantMember: vi.fn(), removeTenantMember: vi.fn() }));
 const id = '01981a3f-00c0-7000-8000-000000000010', other = '01981a3f-00c0-7000-8000-000000000020';
 const page = { items: [], total: 0, page: 1, pageSize: 20 };
 const row = { id, tenantId: id, userId: id, username: 'old-member', displayName: '原企业成员', memberRole: 'Member', status: 'Active',

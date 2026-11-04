@@ -2,6 +2,7 @@ using Full.NET.Abstractions.Results;
 using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Identity.Features.ManageTenantMembers.Persistence;
+using Full.NET.Modules.Identity.Persistence;
 using Microsoft.Extensions.Options;
 
 /// <summary>Identity 模块应用服务；编排事务、权限与持久化。</summary>
@@ -119,6 +120,21 @@ internal sealed class TenantMembershipQueryService(
         var items = rows.Select(MapInvitation).ToArray();
         return Result<PagedResult<TenantInvitationResponse>>.Success(
             new PagedResult<TenantInvitationResponse>(items, page, pageSize, total));
+    }
+
+    /// <summary>读取当前可信租户的单份邀请，供撤销前及未知结果后的人工核对。</summary>
+    public async Task<Result<TenantInvitationResponse>> GetInvitationByIdAsync(
+        Guid invitationId,
+        CancellationToken cancellationToken = default)
+    {
+        var row = await queryExecutor.QuerySingleOrDefaultAsync<TenantInvitationRecord>(
+                TenantMembershipSql.FindInvitationById,
+                IdentitySqlParameters.Create(("InvitationId", invitationId)), cancellationToken)
+            .ConfigureAwait(false);
+        return row is null
+            ? Result<TenantInvitationResponse>.Failure(new Error(IdentityErrorCodes.TenantInvitationNotFound,
+                "The tenant invitation was not found.", ErrorType.NotFound))
+            : Result<TenantInvitationResponse>.Success(MapInvitation(row));
     }
 
     private static TenantMemberResponse MapMember(TenantMemberListRow row) =>

@@ -2114,7 +2114,10 @@
       "apiModule": "ui/admin/src/api/tenant-members.ts",
       "consumers": [
         "ui/admin/src/views/TenantMembersView.vue",
-        "ui/admin/src/views/TenantContextView.vue"
+        "ui/admin/src/views/TenantContextView.vue",
+        "ui/admin/src/components/TenantLeaveDialog.vue",
+        "ui/admin/src/components/TenantMemberRemovalDialog.vue",
+        "ui/admin/src/components/TenantInvitationRevocationDialog.vue"
       ]
     },
     {
