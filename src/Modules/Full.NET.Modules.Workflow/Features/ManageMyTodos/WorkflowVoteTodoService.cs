@@ -18,7 +18,8 @@ namespace Full.NET.Modules.Workflow.Features.ManageMyTodos;
 internal sealed class WorkflowVoteTodoService(IQueryExecutor query, ICommandExecutor command, ICommandTransaction transaction,
     ICurrentTenant tenant, IClock clock, IIdGenerator ids, WorkflowVoteAttachmentCoordinator attachments,
     WorkflowSignatureCoordinator signatures, WorkflowHumanActivityPreparation assignees,
-    WorkflowVoteDecisionCoordinator decisions, WorkflowVoteResultWriter results, WorkflowBranchStateCoordinator branches)
+    WorkflowVoteDecisionCoordinator decisions, WorkflowVoteResultWriter results, WorkflowVoteActionReader contexts,
+    IWorkflowTodoActorAuthorization actorAuthorization)
 {
     public async Task<Result<WorkflowInstanceResponse>> VoteAsync(Guid todoId, Guid actor, VoteWorkflowTodoRequest request,
         CancellationToken token = default)
@@ -26,8 +27,12 @@ internal sealed class WorkflowVoteTodoService(IQueryExecutor query, ICommandExec
         if (todoId == Guid.Empty || actor == Guid.Empty || request.ExpectedRevision < 1 || request.ExpectedBallotRevision < 1 ||
             string.IsNullOrWhiteSpace(request.IdempotencyKey) || request.IdempotencyKey.Length > 128 || request.Comment is { Length: > 512 })
             return Fail(WorkflowErrorCodes.SchemaInvalid, ErrorType.Validation);
+        string[] required = request.SignatureFileId.HasValue
+            ? [WorkflowPermissions.TodosVote, WorkflowPermissions.TodosSign] : [WorkflowPermissions.TodosVote];
+        var originalActor = await actorAuthorization.AuthorizeAsync(actor, required, token).ConfigureAwait(false);
+        if (originalActor is null) return Fail(WorkflowErrorCodes.TodoForbidden, ErrorType.Forbidden);
         var scope = WorkflowManagementScope.Resolve(tenant);
-        var context = await ReadAsync(todoId, actor, scope, token).ConfigureAwait(false);
+        var context = await contexts.ReadAsync(todoId, actor, scope, token).ConfigureAwait(false);
         if (!context.IsSuccess) return Result<WorkflowInstanceResponse>.Failure(context.Error!);
         var initial = context.Value!;
         if (!WorkflowVoteSubmissionRules.TryCompile(initial.BallotSchema, request.Values, request.ChoiceKey, initial.Policy.AllowAbstain, out var submission))
@@ -58,11 +63,11 @@ internal sealed class WorkflowVoteTodoService(IQueryExecutor query, ICommandExec
                 submission.EvidenceJson, token).ConfigureAwait(false);
             if (!prepared.IsSuccess) return Result<WorkflowInstanceResponse>.Failure(prepared.Error!);
             signature = prepared.Value;
-            return await transaction.ExecuteResultAsync(async inner =>
+            async Task<Result<WorkflowInstanceResponse>> ExecuteVoteAsync(CancellationToken inner)
             {
                 if (await command.ExecuteAsync(WorkflowSql.LockInstanceForTodoAction, P(("Id", initial.Instance.Id),
                     ("TenantScopeKey", scope.TenantScopeKey)), inner).ConfigureAwait(false) != 1) return Conflict();
-                var reread = await ReadAsync(todoId, actor, scope, inner).ConfigureAwait(false);
+                var reread = await contexts.ReadAsync(todoId, actor, scope, inner).ConfigureAwait(false);
                 if (!reread.IsSuccess) return Result<WorkflowInstanceResponse>.Failure(reread.Error!);
                 var current = reread.Value!;
                 var existing = await ReceiptAsync(current.Instance.Id, request.IdempotencyKey, inner).ConfigureAwait(false);
@@ -113,6 +118,14 @@ internal sealed class WorkflowVoteTodoService(IQueryExecutor query, ICommandExec
                     ("ResourceId", todoId), ("OutcomeKey", "succeeded"), ("DetailJson", "{\"submissionHash\":\"" + submission.EvidenceHash + "\"}"),
                     ("CreatedAtUtc", now), ("CorrelationJson", correlation)), inner).ConfigureAwait(false);
                 return Result<WorkflowInstanceResponse>.Success(response);
+            }
+            return await transaction.ExecuteResultAsync(async inner =>
+            {
+                var result = await ExecuteVoteAsync(inner).ConfigureAwait(false);
+                if (!result.IsSuccess) return result;
+                // 包含锁内回执重放；原凭据复核失败时一并回滚选票、表单、回执与通知。
+                var currentActor = await actorAuthorization.AuthorizeAsync(actor, required, inner).ConfigureAwait(false);
+                return currentActor == originalActor ? result : Fail(WorkflowErrorCodes.TodoForbidden, ErrorType.Forbidden);
             }, token).ConfigureAwait(false);
         }
         finally
@@ -120,37 +133,6 @@ internal sealed class WorkflowVoteTodoService(IQueryExecutor query, ICommandExec
             await signatures.FinishAsync(signature, token).ConfigureAwait(false);
             await attachments.FinishAsync(files.Value, token).ConfigureAwait(false);
         }
-    }
-
-    internal async Task<Result<WorkflowVoteActionContext>> ReadAsync(Guid todoId, Guid actor, WorkflowManagementScope scope, CancellationToken token)
-    {
-        var todo = await query.QuerySingleOrDefaultAsync<WorkflowTodoRuntimeRecord>(WorkflowSql.FindTodoById,
-            P(("Id", todoId), ("TenantScopeKey", scope.TenantScopeKey)), token).ConfigureAwait(false);
-        if (todo is null) return ContextFail(WorkflowErrorCodes.TodoNotActive, ErrorType.NotFound);
-        if (todo.AssigneeUserId != actor) return ContextFail(WorkflowErrorCodes.TodoForbidden, ErrorType.Forbidden);
-        if (todo.NodeTypeKey != WorkflowHumanActivityKinds.Vote) return ContextFail(WorkflowErrorCodes.TodoActionForbidden, ErrorType.Forbidden);
-        var instance = await query.QuerySingleOrDefaultAsync<WorkflowInstanceRecord>(WorkflowSql.FindInstanceById,
-            P(("Id", todo.InstanceId), ("TenantScopeKey", scope.TenantScopeKey)), token).ConfigureAwait(false);
-        if (instance?.FormVersionId is null) return ContextFail(WorkflowErrorCodes.VersionNotPublished, ErrorType.NotFound);
-        var parameters = P(("VoteId", todo.StepId), ("InstanceId", instance.Id), ("TodoId", todo.Id), ("ActorUserId", actor),
-            ("TenantScopeKey", scope.TenantScopeKey), ("DefinitionVersionId", instance.DefinitionVersionId), ("NodeKey", todo.NodeKey));
-        var asset = await query.QuerySingleOrDefaultAsync<WorkflowRuntimeAssetRecord>(WorkflowSql.FindRuntimeAsset, parameters, token).ConfigureAwait(false);
-        var round = await query.QuerySingleOrDefaultAsync<WorkflowVoteRoundRecord>(WorkflowVoteSql.FindRound, parameters, token).ConfigureAwait(false);
-        var binding = await query.QuerySingleOrDefaultAsync<WorkflowVoteFormBindingRecord>(WorkflowVoteSql.FindFormBinding, parameters, token).ConfigureAwait(false);
-        if (asset is null || round is null || binding is null || round.FormBindingId != binding.Id ||
-            binding.FormSchemaHash != WorkflowSignatureCoordinator.HashSubmission(binding.FormSchemaJson)) return ContextFail(WorkflowErrorCodes.SchemaInvalid, ErrorType.BusinessRule);
-        var draft = JsonSerializer.Deserialize(asset.CanonicalJson, WorkflowJsonSerializerContext.Default.WorkflowDefinitionDraft);
-        var mainSchema = JsonSerializer.Deserialize(asset.FormSchemaJson, WorkflowJsonSerializerContext.Default.WorkflowFormSchema);
-        var ballotSchema = JsonSerializer.Deserialize(binding.FormSchemaJson, WorkflowJsonSerializerContext.Default.WorkflowFormSchema);
-        var node = draft?.Nodes.SingleOrDefault(node => node.NodeKey == todo.NodeKey);
-        if (draft is null || mainSchema is null || ballotSchema is null || node is null || !WorkflowVotePolicy.TryRead(node.Config, out var policy) ||
-            policy!.BallotFormVersionId != binding.BallotFormVersionId || !WorkflowRuntimePlan.TryCreate(draft, mainSchema, out var runtime) ||
-            !WorkflowHumanActionPolicy.TryResolve(asset.CanonicalJson, todo.NodeKey, out var actions)) return ContextFail(WorkflowErrorCodes.SchemaInvalid, ErrorType.BusinessRule);
-        var ballot = await query.QuerySingleOrDefaultAsync<WorkflowVoteBallotRecord>(WorkflowVoteSql.FindBallot, parameters, token).ConfigureAwait(false);
-        var submission = await query.QuerySingleOrDefaultAsync<WorkflowFormSubmissionRecord>(WorkflowSql.FindFormSubmissionByInstance, parameters, token).ConfigureAwait(false);
-        submission = await branches.ReadAsync(todo, submission, scope.TenantScopeKey, token).ConfigureAwait(false);
-        if (submission is null) return ContextFail(WorkflowErrorCodes.SchemaInvalid, ErrorType.BusinessRule);
-        return Result<WorkflowVoteActionContext>.Success(new(todo, instance, asset, round, binding, ballot, policy, mainSchema, ballotSchema, runtime!, actions!, submission));
     }
 
     private static Result<bool> ValidateActive(WorkflowVoteActionContext context, VoteWorkflowTodoRequest request, DateTimeOffset now) =>
@@ -170,7 +152,6 @@ internal sealed class WorkflowVoteTodoService(IQueryExecutor query, ICommandExec
     private static object P(params (string Name, object? Value)[] values) => WorkflowSqlParameters.Create(values);
     private static Result<WorkflowInstanceResponse> Fail(string code, ErrorType type) => Result<WorkflowInstanceResponse>.Failure(new(code, "The vote cannot be submitted.", type));
     private static Result<WorkflowInstanceResponse> Conflict() => Fail(WorkflowErrorCodes.RevisionConflict, ErrorType.Conflict);
-    private static Result<WorkflowVoteActionContext> ContextFail(string code, ErrorType type) => Result<WorkflowVoteActionContext>.Failure(new(code, "The private ballot is unavailable.", type));
 }
 
 /// <summary>事务内重读的投票上下文，不作为HTTP响应且不共享个人答案。</summary>

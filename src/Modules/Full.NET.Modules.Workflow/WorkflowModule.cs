@@ -76,6 +76,7 @@ public sealed class WorkflowModule : IFullNetModule
         // 本人待办命令和交互上传依赖当前 HTTP 凭据，不进入 Worker 后台闭包。
         services.AddScoped<IWorkflowTodoActorAuthorization,WorkflowTodoActorAuthorization>();
         services.AddScoped<WorkflowTodoManagementService>();
+        services.AddScoped<WorkflowVoteTodoService>();
         services.AddScoped<WorkflowFormAttachmentUploadService>();
         services.TryAddEnumerable(ServiceDescriptor.Scoped<
             IHostFileReferenceClaimProbe,
@@ -180,7 +181,7 @@ public sealed class WorkflowModule : IFullNetModule
         services.AddScoped<WorkflowTaskDecisionCoordinator>();
         services.AddScoped<WorkflowVoteDecisionCoordinator>();
         services.AddScoped<WorkflowVoteAttachmentCoordinator>();
-        services.AddScoped<WorkflowVoteTodoService>();
+        services.AddScoped<WorkflowVoteActionReader>();
         services.AddScoped<WorkflowClaimPoolService>();
         services.AddScoped<WorkflowClaimReleaseService>();
         services.AddScoped<WorkflowVoteResultWriter>();

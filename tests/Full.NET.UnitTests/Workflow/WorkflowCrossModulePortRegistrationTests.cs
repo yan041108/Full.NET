@@ -18,6 +18,9 @@ public sealed class WorkflowCrossModulePortRegistrationTests
         Assert.IsFalse(background.Any(service=>service.ServiceType==typeof(IWorkflowTodoActorAuthorization)||service.ServiceType==typeof(WorkflowTodoManagementService)||service.ServiceType==typeof(WorkflowFormAttachmentUploadService)));
         var api=new ServiceCollection();new Full.NET.Modules.Workflow.WorkflowModule().AddServices(api,new ConfigurationBuilder().Build());
         Assert.IsTrue(api.Any(service=>service.ServiceType==typeof(IWorkflowTodoActorAuthorization)));Assert.IsTrue(api.Any(service=>service.ServiceType==typeof(WorkflowTodoManagementService)));Assert.IsTrue(api.Any(service=>service.ServiceType==typeof(WorkflowFormAttachmentUploadService)));
+        Assert.IsFalse(background.Any(service => service.ServiceType == typeof(WorkflowVoteTodoService)));
+        Assert.IsTrue(background.Any(service => service.ServiceType == typeof(WorkflowVoteActionReader)));
+        Assert.IsTrue(api.Any(service => service.ServiceType == typeof(WorkflowVoteTodoService)));
     }
     [TestMethod]
     public void WorkflowModule_registers_cross_module_ports_as_scoped()

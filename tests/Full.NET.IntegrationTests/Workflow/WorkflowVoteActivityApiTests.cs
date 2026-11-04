@@ -13,6 +13,7 @@ using Full.NET.Modules.Files.Contracts;
 using Full.NET.Modules.Tenancy.Contracts;
 using Full.NET.Modules.Workflow.Contracts;
 using Full.NET.Modules.Workflow.Execution;
+using Full.NET.Modules.Workflow.Persistence;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.DependencyInjection;
 using MySqlConnector;
@@ -23,10 +24,118 @@ namespace Full.NET.IntegrationTests.Workflow;
 [TestClass]
 public sealed class WorkflowVoteActivityApiTests
 {
+    /// <summary>真实提交期间撤销账号必须回滚；后台截止仍能在没有交互主体时裁定。</summary>
+    [TestMethod]
+    [DataRow(DatabaseProvider.SqlServer)]
+    [DataRow(DatabaseProvider.MySql)]
+    public async Task Vote_rechecks_credentials_and_preserves_background_deadline_processing(DatabaseProvider provider)
+    {
+        var connection = provider == DatabaseProvider.SqlServer ? await SharedDatabaseFixture.CreateSqlServerDatabaseAsync()
+            : await SharedDatabaseFixture.CreateMySqlDatabaseAsync();
+        var window = new VoteRevocationWindow();
+        using var factory = new FullNetApiFactory(provider, connection, configureTestServices: services =>
+        {
+            var original = services.Last(item => item.ServiceType == typeof(ICommandExecutor));
+            services.Remove(original);
+            services.AddScoped<ICommandExecutor>(sp => new VoteAfterLockCommand((ICommandExecutor)(original.ImplementationInstance
+                ?? original.ImplementationFactory?.Invoke(sp) ?? ActivatorUtilities.CreateInstance(sp, original.ImplementationType!)), window));
+        });
+        await factory.InitializeAsync();
+        await using DbConnection db = provider == DatabaseProvider.SqlServer ? new SqlConnection(connection)
+            : new MySqlConnection(Migration114To126RecoveryTestSupport.MySqlQueryConnectionString(connection));
+        await db.OpenAsync();
+        using var owner = factory.CreateClientForHost("localhost");
+        owner.DefaultRequestHeaders.Authorization = new("Bearer", await IntegrationTestAuthHelper.LoginAsHostUserAsync(owner, "admin"));
+        var name = "vote-authority-" + Guid.CreateVersion7().ToString("N");
+        var actor = await factory.CreateHostIdentityAsync(name, [WorkflowPermissions.TodosRead, WorkflowPermissions.TodosVote], password: FullNetApiFactory.TestPassword);
+        var other = await factory.CreateHostIdentityAsync("vote-other-" + Guid.CreateVersion7().ToString("N"), [WorkflowPermissions.TodosRead, WorkflowPermissions.TodosVote]);
+        using var client = Client(factory, actor);
+        var main = await FormAsync(owner, false); var ballot = await FormAsync(owner, true);
+        var version = await PublishAsync(owner, main, ballot, [actor.UserId, other.UserId], true);
+        var instance = await StartAsync(owner, version, "vote-authority-" + Guid.CreateVersion7().ToString("N"));
+        await VerifyDeadlineAuditMigrationAsync(provider, connection, db, instance);
+        var todo = await TodoAsync(db, instance, actor.UserId);
+        var command = Cast(await RuntimeAsync(client, todo), "yes", "original private answer", "authority-vote");
+        window.Revoke = async () => Assert.AreEqual(1, await db.ExecuteAsync(
+            "UPDATE fn_identity_user SET IsActive=@Active WHERE Id=@Id", new { Active = false, Id = actor.UserId }));
+        window.Armed = 1;
+        using (var denied = await client.PostAsJsonAsync($"/api/v1/workflow/todos/{todo:D}/vote", command))
+            Assert.AreEqual(HttpStatusCode.Forbidden, denied.StatusCode, await denied.Content.ReadAsStringAsync());
+        Assert.AreEqual(1, window.Hits);
+        Assert.AreEqual("active", await db.ExecuteScalarAsync<string>("SELECT StatusKey FROM fn_workflow_todo WHERE Id=@todo", new { todo }));
+        Assert.AreEqual("pending", await db.ExecuteScalarAsync<string>("SELECT StatusKey FROM fn_workflow_vote_ballot WHERE TodoId=@todo", new { todo }));
+        Assert.AreEqual(0, await db.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM fn_workflow_action_record WHERE InstanceId=@instance AND ActionKey='vote'", new { instance }));
+        await db.ExecuteAsync("UPDATE fn_identity_user SET IsActive=@Active WHERE Id=@Id", new { Active = true, Id = actor.UserId });
+        client.DefaultRequestHeaders.Authorization = new("Bearer", await IntegrationTestAuthHelper.LoginAsHostUserAsync(client, name, FullNetApiFactory.TestPassword));
+        await PostAsync(client, $"/api/v1/workflow/todos/{todo:D}/vote", command);
+        Assert.AreEqual("active", await db.ExecuteScalarAsync<string>("SELECT StatusKey FROM fn_workflow_instance WHERE Id=@instance", new { instance }));
+        await db.ExecuteAsync("UPDATE fn_workflow_vote SET ClosesAtUtc=@past WHERE InstanceId=@instance", new { instance, past = DateTimeOffset.UtcNow.AddMinutes(-1) });
+        await using var scope = factory.Services.CreateAsyncScope();
+        Assert.IsNull(scope.ServiceProvider.GetRequiredService<Microsoft.AspNetCore.Http.IHttpContextAccessor>().HttpContext);
+        var processor = ActivatorUtilities.CreateInstance<WorkflowVoteDeadlineProcessor>(scope.ServiceProvider);
+        await processor.ProcessDueAsync(default); await processor.ProcessDueAsync(default);
+        // 两名固定成员仅一人提交，参与率 50% 未达 66%，截止应拒绝而非补造另一票。
+        Assert.AreEqual("rejected", await db.ExecuteScalarAsync<string>("SELECT StatusKey FROM fn_workflow_instance WHERE Id=@instance", new { instance }));
+        Assert.AreEqual(1, await db.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM fn_workflow_execution_log WHERE InstanceId=@instance AND TransitionKey='vote.deadline'", new { instance }));
+        Assert.AreEqual(1, await db.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM fn_workflow_action_record WHERE InstanceId=@instance AND ActionKey='vote'", new { instance }));
+        Assert.AreEqual(1, await db.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM fn_workflow_domain_audit WHERE InstanceId=@instance AND OperationKey='vote.deadline' AND ActorUserId IS NULL", new { instance }));
+    }
+
     [TestMethod]
     public async Task Vote_activity_with_sql_server() => await VerifyAsync(DatabaseProvider.SqlServer, await SharedDatabaseFixture.CreateSqlServerDatabaseAsync());
     [TestMethod]
     public async Task Vote_activity_with_mysql() => await VerifyAsync(DatabaseProvider.MySql, await SharedDatabaseFixture.CreateMySqlDatabaseAsync());
+
+    private sealed class VoteRevocationWindow { public int Armed; public int Hits; public Func<Task> Revoke = () => Task.CompletedTask; }
+
+    /// <summary>覆盖约束已删除但未记账、结构已完成但未记账及重跑；不放宽人工动作来源。</summary>
+    private static async Task VerifyDeadlineAuditMigrationAsync(DatabaseProvider provider, string connection, DbConnection db, Guid instance)
+    {
+        var before = await db.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM fn_workflow_domain_audit WHERE InstanceId=@instance", new { instance });
+        await db.ExecuteAsync(provider == DatabaseProvider.SqlServer
+            ? "ALTER TABLE fn_workflow_domain_audit DROP CONSTRAINT ck_fn_workflow_domain_audit_actor"
+            : "ALTER TABLE fn_workflow_domain_audit DROP CHECK ck_fn_workflow_domain_audit_actor");
+        var runner = ReviewFixMigrationRecoverySupport.CreateRunner(provider, connection);
+        for (var attempt = 0; attempt < 2; attempt++)
+        {
+            await ReviewFixMigrationRecoverySupport.DeleteScriptAsync(db, "374_WorkflowVoteDeadlineAudit.sql", provider == DatabaseProvider.SqlServer);
+            Assert.AreEqual(1, (await runner.MigrateAsync()).ExecutedScriptCount);
+        }
+        Assert.AreEqual(0, (await runner.MigrateAsync()).ExecutedScriptCount);
+        Assert.AreEqual(before, await db.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM fn_workflow_domain_audit WHERE InstanceId=@instance", new { instance }));
+        foreach (var invalid in new[]
+        {
+            (Operation: "vote.deadline", Resource: "step", Detail: (string?)null),
+            (Operation: "vote.deadline", Resource: "step", Detail: (string?)"{}"),
+            (Operation: "vote.deadline", Resource: "step", Detail: (string?)"{\"sourceKey\":\"user\"}"),
+            (Operation: "todo.vote", Resource: "step", Detail: (string?)"{\"sourceKey\":\"server-deadline\"}"),
+            (Operation: "vote.deadline", Resource: "todo", Detail: (string?)"{\"sourceKey\":\"server-deadline\"}"),
+        })
+        {
+            var rejected = false;
+            try
+            {
+                await db.ExecuteAsync("""
+                    INSERT INTO fn_workflow_domain_audit (Id,TenantId,ScopeKey,InstanceId,OperationKey,ActorUserId,ResourceTypeKey,ResourceId,OutcomeKey,DetailJson,CreatedAtUtc)
+                    VALUES (@Id,NULL,'host',@instance,@Operation,NULL,@Resource,@Id,'succeeded',@Detail,@Now)
+                    """, new { Id = Guid.CreateVersion7(), instance, invalid.Operation, invalid.Resource, invalid.Detail,
+                        Now = provider == DatabaseProvider.SqlServer ? (object)DateTimeOffset.UtcNow : DateTime.UtcNow });
+            }
+            catch (DbException) { rejected = true; }
+            Assert.IsTrue(rejected, $"拒绝缺少实际操作者的 {invalid.Operation}/{invalid.Resource}/{invalid.Detail}");
+        }
+    }
+
+    private sealed class VoteAfterLockCommand(ICommandExecutor inner, VoteRevocationWindow window) : ICommandExecutor
+    {
+        public async Task<int> ExecuteAsync(SqlStatement statement, object? parameters = null, CancellationToken cancellationToken = default)
+        {
+            var count = await inner.ExecuteAsync(statement, parameters, cancellationToken);
+            if (count == 1 && ReferenceEquals(statement, WorkflowSql.LockInstanceForTodoAction) && Interlocked.Exchange(ref window.Armed, 0) == 1)
+            { window.Hits++; await window.Revoke(); }
+            return count;
+        }
+    }
 
     private static async Task VerifyAsync(DatabaseProvider provider, string connectionString)
     {

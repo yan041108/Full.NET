@@ -16,7 +16,7 @@ namespace Full.NET.Modules.Workflow.Execution;
 /// <summary>截止只根据持久绝对时间裁定；后台不生成个人选票、签名或伪造办理人。</summary>
 internal sealed class WorkflowVoteDeadlineProcessor(IQueryExecutor query, ICommandExecutor command, ICommandTransaction transaction,
     IClock clock, IIdGenerator ids, IOptions<DatabaseOptions> database, IActiveTenantContextResolver tenants,
-    ICurrentTenantContextWriter tenantWriter, WorkflowVoteTodoService contexts, WorkflowHumanActivityPreparation assignees,
+    ICurrentTenantContextWriter tenantWriter, WorkflowVoteActionReader contexts, WorkflowHumanActivityPreparation assignees,
     WorkflowVoteDecisionCoordinator decisions, WorkflowVoteResultWriter results, ILogger<WorkflowVoteDeadlineProcessor> logger)
 {
     private const int BatchSize = 50;

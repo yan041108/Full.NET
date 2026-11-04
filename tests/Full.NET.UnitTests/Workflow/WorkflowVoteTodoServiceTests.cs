@@ -22,6 +22,33 @@ namespace Full.NET.UnitTests.Workflow;
 [TestClass]
 public sealed class WorkflowVoteTodoServiceTests
 {
+    /// <summary>拒绝初始身份，或在提交前拒绝原凭据；实际回滚由双库旅程核对。</summary>
+    [TestMethod]
+    [DataRow("initial")]
+    [DataRow("commit")]
+    [DataRow("changed_credential")]
+    public async Task Vote_revalidates_the_original_credential_before_returning_success(string failure)
+    {
+        var fixture = Create(new(2, 0, 0, 1, 0));
+        var original = new WorkflowTodoActor(fixture.Actor, null, Guid.CreateVersion7(), false);
+        var reads = 0;
+        fixture.Authorization.AuthorizeAsync(fixture.Actor, Arg.Any<IReadOnlyList<string>>(), Arg.Any<CancellationToken>())
+            .Returns(call =>
+            {
+                CollectionAssert.AreEqual(new[] { WorkflowPermissions.TodosVote }, call.ArgAt<IReadOnlyList<string>>(1).ToArray());
+                reads++;
+                WorkflowTodoActor? result = failure == "initial" ? null : reads == 1 ? original
+                    : failure == "commit" ? null : original with { CredentialId = Guid.CreateVersion7() };
+                return Task.FromResult(result);
+            });
+        var result = await fixture.Service.VoteAsync(fixture.Todo.Id, fixture.Actor, fixture.Request);
+        Assert.IsFalse(result.IsSuccess);
+        Assert.AreEqual(WorkflowErrorCodes.TodoForbidden, result.Error!.Code);
+        Assert.AreEqual(failure == "initial" ? 1 : 2, reads);
+        if (failure == "initial")
+            await fixture.Commands.DidNotReceive().ExecuteAsync(WorkflowVoteSql.SubmitBallot, Arg.Any<object?>(), Arg.Any<CancellationToken>());
+    }
+
     [TestMethod]
     public async Task Partial_ballot_does_not_update_main_form_or_close_vote_even_when_current_percentages_pass()
     {
@@ -127,15 +154,16 @@ public sealed class WorkflowVoteTodoServiceTests
         var writer = new WorkflowVoteResultWriter(query, commands, branch, WorkflowTodoManagementTestDependencies.CreateTransitionExecutor(query, commands, ids, outbox),
             WorkflowTodoManagementTestDependencies.CreateParallelJoinCoordinator(query, commands), new(outbox),
             WorkflowTodoManagementTestDependencies.CreateResultCallbacks(query, commands, ids));
+        var authorization = WorkflowTodoManagementTestDependencies.CreateActorAuthorization(tenant);
         var service = new WorkflowVoteTodoService(query, commands, new Transaction(), tenant, clock, ids, attach,
             WorkflowTodoManagementTestDependencies.CreateSignatureCoordinator(query, commands), new(WorkflowTodoManagementTestDependencies.CreateAssigneeCoordinator(), query, WorkflowTodoManagementTestDependencies.CreateStarterSelectionPreparation()),
-            new(query, commands, Options.Create(new DatabaseOptions { Provider = DatabaseProvider.SqlServer })), writer, branch);
+            new(query, commands, Options.Create(new DatabaseOptions { Provider = DatabaseProvider.SqlServer })), writer, new(query, branch), authorization);
         return new(service, query, commands, files, outbox, todo, instance, actor, now, round, ballotSchema,
-            new(1, 1, "yes", JsonDocument.Parse("{\"reason\":\"private\"}").RootElement.Clone(), null, "vote-once"));
+            new(1, 1, "yes", JsonDocument.Parse("{\"reason\":\"private\"}").RootElement.Clone(), null, "vote-once"), authorization);
     }
     private sealed class Transaction : ICommandTransaction
     { public Task<T> ExecuteAsync<T>(Func<CancellationToken, Task<T>> action, CancellationToken cancellationToken) => action(cancellationToken); }
     private sealed record Fixture(WorkflowVoteTodoService Service, IQueryExecutor Query, ICommandExecutor Commands, IHostFileReferenceClaimService Files,
         IOutboxWriter Outbox, WorkflowTodoRuntimeRecord Todo, WorkflowInstanceRecord Instance, Guid Actor, DateTimeOffset Now,
-        WorkflowVoteRoundRecord Round, WorkflowFormSchema BallotSchema, VoteWorkflowTodoRequest Request);
+        WorkflowVoteRoundRecord Round, WorkflowFormSchema BallotSchema, VoteWorkflowTodoRequest Request, IWorkflowTodoActorAuthorization Authorization);
 }
