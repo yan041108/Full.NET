@@ -85,10 +85,6 @@ internal sealed class TenancyAuthorizationContributor
             "关闭租户",
             AuthorizationScope.Host),
         new PermissionDefinition(
-            TenancyTenantLifecyclePermissions.TransferOwnership,
-            "转移租户所有者",
-            AuthorizationScope.Host),
-        new PermissionDefinition(
             TenancyTenantEntitlementPermissions.Read,
             "读取租户权益",
             AuthorizationScope.Host),

@@ -431,17 +431,6 @@ internal static class TenantSql
         """,
         SqlDataScope.HostOnly);
 
-    public static readonly SqlStatement UpdateOwnerUser = new(
-        "tenancy.update_owner_user",
-        """
-        UPDATE fn_tenancy_tenant
-        SET OwnerUserId = @OwnerUserId,
-            UpdatedAtUtc = @UpdatedAtUtc,
-            Version = Version + 1
-        WHERE Id = @TenantId
-          AND Version = @Version
-        """,
-        SqlDataScope.HostOnly);
     public static readonly SqlStatement CountHostTenantsFiltered = new(
         "tenancy.counthosttenants.filtered",
         CountHostTenants.Text + " WHERE (@Identifier IS NULL OR Identifier LIKE @Identifier ESCAPE '!') AND (@Name IS NULL OR Name LIKE @Name ESCAPE '!') AND (@Domain IS NULL OR Domain LIKE @Domain ESCAPE '!') AND (@Status IS NULL OR (@Status = 'active' AND IsActive = 1) OR (@Status = 'inactive' AND IsActive = 0))", CountHostTenants.Scope, CountHostTenants.TenantBinding);

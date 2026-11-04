@@ -23,6 +23,7 @@ public sealed class TenantLifecycleTransitionTests
     {
         var permission = new TenancyAuthorizationContributor().Permissions.Single(item => item.Code == TenancyTenantLifecyclePermissions.Read);
         Assert.AreEqual(AuthorizationScope.Host, permission.Scope);
+        Assert.IsFalse(new TenancyAuthorizationContributor().Permissions.Any(item => item.Code == "tenancy.tenant_lifecycle.transfer_ownership"));
     }
 
     [TestMethod]
@@ -115,7 +116,7 @@ public sealed class TenantLifecycleTransitionTests
             Service = new TenantLifecycleManagementService(query, commands, new DapperCommandTransaction(Coordinator),
                 new HostTenantQueryService(query, Options.Create(new DatabaseOptions())),
                 new TenantCommercialReactivateGate(Options.Create(new TenancyCommercialOptions()), new TenantEntitlementQueryService(query), query),
-                Substitute.For<IHostUserDirectory>(), clock, new TenantLifecycleWriteGuard(commands));
+                clock, new TenantLifecycleWriteGuard(commands));
         }
         public Task<Full.NET.Abstractions.Results.Result<TenantSummary>> RunAsync(string action) => action switch
         {

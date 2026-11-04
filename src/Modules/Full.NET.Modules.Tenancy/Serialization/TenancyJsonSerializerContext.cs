@@ -30,7 +30,6 @@ namespace Full.NET.Modules.Tenancy.Serialization;
 [JsonSerializable(typeof(SuspendTenantRequest))]
 [JsonSerializable(typeof(ReactivateTenantRequest))]
 [JsonSerializable(typeof(CloseTenantRequest))]
-[JsonSerializable(typeof(TransferTenantOwnershipRequest))]
 [JsonSerializable(typeof(TenantEntitlementCatalogResponse))]
 [JsonSerializable(typeof(TenantEntitlementCatalogResponse[]))]
 [JsonSerializable(typeof(IReadOnlyList<TenantEntitlementCatalogResponse>))]

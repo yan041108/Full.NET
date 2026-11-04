@@ -2,7 +2,7 @@ namespace Full.NET.Modules.Tenancy.Contracts;
 
 /// <summary>租户生命周期状态迁移的权限码字符串常量。</summary>
 /// <remarks>
-/// 权限码字符串发布后不可改名或删除；新增权限只能追加到本类末尾。状态迁移必须遵循状态机定义，Close 为不可逆终态。
+/// 权限码是稳定机器标识；底座阶段退役无效能力须同步移除其契约与授权目录。Close 为不可逆终态。
 /// </remarks>
 public static class TenancyTenantLifecyclePermissions
 {
@@ -18,8 +18,6 @@ public static class TenancyTenantLifecyclePermissions
     /// <summary>关闭租户；进入 Closing 中间态后转入 Closed 终态，不可逆。</summary>
     public const string Close = "tenancy.tenant_lifecycle.close";
 
-    /// <summary>转移租户所有权；用于关闭前移交或组织变更。</summary>
-    public const string TransferOwnership = "tenancy.tenant_lifecycle.transfer_ownership";
 }
 
 /// <summary>租户生命周期状态常量；描述租户的业务状态机阶段。</summary>
@@ -97,11 +95,3 @@ public sealed record ReactivateTenantRequest(int Version);
 /// </remarks>
 /// <param name="Version">调用方看到的当前版本；服务端据此拒绝并发覆盖。</param>
 public sealed record CloseTenantRequest(int Version);
-
-/// <summary>转移租户所有权的请求；将所有者变更为指定用户。</summary>
-/// <remarks>
-/// 转移须确保新所有者已存在且属于当前 Host 作用域；转移后原所有者失去管理权。最后一名保护：关闭租户前若仅剩一名所有者，须先转移或确认保留策略。
-/// </remarks>
-/// <param name="NewOwnerUserId">新所有者的用户标识；须为已存在且未被禁用的用户。</param>
-/// <param name="Version">调用方看到的当前版本；服务端据此拒绝并发覆盖。</param>
-public sealed record TransferTenantOwnershipRequest(Guid NewOwnerUserId, int Version);

@@ -445,7 +445,6 @@ public sealed class DependencyRulesTests
                 typeof(Full.NET.Modules.Tenancy.Contracts.TenantSubscriptionResponse).FullName,
                 typeof(Full.NET.Modules.Tenancy.Contracts.TenantSubscriptionStatuses).FullName,
                 typeof(Full.NET.Modules.Tenancy.Contracts.TenantSummary).FullName,
-                typeof(Full.NET.Modules.Tenancy.Contracts.TransferTenantOwnershipRequest).FullName,
                 typeof(Full.NET.Modules.Tenancy.Contracts.UpdateHostTenantPackageRequest).FullName,
                 typeof(Full.NET.Modules.Tenancy.Contracts.UpdateHostTenantRequest).FullName,
                 typeof(Full.NET.Modules.Tenancy.Contracts.UpdateTenantBrandingRequest).FullName,

@@ -26,7 +26,7 @@ public sealed class TenantLifecycleConsoleTests
         using var client = factory.CreateClientForHost("localhost");
         var token = await factory.CreateHostAccessTokenAsync(["tenancy.host_tenants.read", "tenancy.tenant_lifecycle.read",
             "tenancy.tenant_lifecycle.suspend", "tenancy.tenant_lifecycle.reactivate", "tenancy.tenant_lifecycle.close",
-            "tenancy.tenants.enable", "tenancy.tenants.disable"]);
+            "tenancy.tenants.enable", "tenancy.tenants.disable", "tenancy.tenant_lifecycle.transfer_ownership"]);
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
         var page = await client.GetFromJsonAsync<PagedResult<TenantSummary>>("/api/v1/tenancy/tenants?pageSize=100");
         var a = page!.Items.First(row => row.Identifier == "acme");
@@ -59,6 +59,14 @@ public sealed class TenantLifecycleConsoleTests
             Assert.AreEqual(HttpStatusCode.Forbidden, forbidden.StatusCode);
         }
         a = await ReadAsync(a.Id);
+        // 原接口只改目录元数据而未交接成员职责，退役后不能再返回假成功或推进租户版本。
+        var retiredTarget = await factory.CreateHostIdentityAsync($"retired-owner-{Guid.CreateVersion7():N}", []);
+        using (var retired = await client.PostAsJsonAsync(Path(a.Id) + "/transfer-ownership",
+            new { newOwnerUserId = retiredTarget.UserId, version = a.Version }))
+            Assert.AreEqual(HttpStatusCode.NotFound, retired.StatusCode);
+        var afterRetired = await ReadAsync(a.Id);
+        Assert.AreEqual(a.Version, afterRetired.Version);
+        Assert.AreEqual(a.OwnerUserId, afterRetired.OwnerUserId);
         var originalVersion = a.Version;
         using (var response = await client.PostAsJsonAsync(Path(a.Id) + "/suspend", new { a.Version }))
         {

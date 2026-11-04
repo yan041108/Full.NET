@@ -75,21 +75,5 @@ internal static class Endpoint
         .RequireAuthorization(FullNetPermissionPolicies.For(
             TenancyTenantLifecyclePermissions.Close));
 
-        group.MapPost("/{tenantId:guid}/transfer-ownership", async (
-            Guid tenantId,
-            TransferTenantOwnershipRequest request,
-            TenantLifecycleManagementService service,
-            IApiResultMapper mapper,
-            HttpContext httpContext,
-            CancellationToken cancellationToken) =>
-        {
-            var result = await service.TransferOwnershipAsync(tenantId, request, cancellationToken)
-                .ConfigureAwait(false);
-            return mapper.Map(result, httpContext);
-        })
-        .WithName("tenancyTransferTenantOwnership")
-        .Produces<TenantSummary>(StatusCodes.Status200OK)
-        .RequireAuthorization(FullNetPermissionPolicies.For(
-            TenancyTenantLifecyclePermissions.TransferOwnership));
     }
 }
