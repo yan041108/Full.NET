@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed, nextTick, onActivated, onDeactivated, onBeforeUnmount, ref, watch } from 'vue';
+import { computed, inject, nextTick, onActivated, onDeactivated, onBeforeUnmount, ref, watch } from 'vue';
+import { routeLocationKey } from 'vue-router';
 import type { InputInstance } from 'element-plus';
 import DOMPurify from 'dompurify';
 import {
@@ -39,6 +40,7 @@ const DEFAULT_LAYOUT_HTML = `<div class="print-card">
 </div>`;
 
 const session = useSessionStore();
+const route = inject(routeLocationKey, undefined);
 const { t } = useAdminI18n();
 const templates = ref<PrintingTemplateSummary[]>([]);
 const selectedTemplateId = ref('');
@@ -48,9 +50,10 @@ const preview = ref<{ html: string; versionNumber: number }>();
 const frame = ref<HTMLIFrameElement>();
 const active = ref(true), writeUnconfirmed = ref(false), publishOpen = ref(false);
 const editingId = ref(''), editingVersion = ref(0), publishTarget = ref<PrintingTemplate>(), changeNote = ref('');
-let generation = 0, detailVersion = 0, historyVersion = 0, historyRequest: AbortController | undefined, listRequest: AbortController | undefined, requests = new AbortController(), searchRequest: AbortController | undefined,
+let generation = 0, detailVersion = 0, historyVersion = 0, historyRequest: AbortController | undefined, listRequest: AbortController | undefined, requests = new AbortController(),
   detailRequest: AbortController | undefined, previewRequest: AbortController | undefined;
-const available = () => active.value && !session.switching && !!session.currentUser && session.currentUser.actorScope === 'host' && !session.currentUser.tenantId;
+const available = () => active.value && !session.switching && (!route || route.name === 'printing-preview')
+  && session.currentUser?.scope === 'host' && session.currentUser.actorScope === 'host' && !session.currentUser.tenantId;
 const can = (action: string) => available() && session.can('printing.templates.read') && session.can(`printing.templates.${action}`);
 // 布局属于可编辑的不可信内容；必须在最终插入 DOM 前净化，覆盖数据库中已经保存的旧模板。
 const safePreviewHtml = computed(() => DOMPurify.sanitize(preview.value?.html ?? '', {
@@ -59,7 +62,8 @@ const safePreviewHtml = computed(() => DOMPurify.sanitize(preview.value?.html ??
   FORBID_ATTR: ['id', 'name'],
   ALLOW_DATA_ATTR: false
 }));
-const loading = ref(false);
+const loading = ref(false), historyLoading = ref(false), historyProblem = ref<FullNetProblemDetails>();
+let lastListQuery = '', lastHistoryQuery = '';
 const previewing = ref(false);
 const creating = ref(false);
 const publishing = ref(false);
@@ -93,36 +97,39 @@ function toProblem(error: unknown, fallbackKey: Parameters<typeof t>[0]): FullNe
 
 function current(value: number) { return value === generation && can('read'); }
 function uncertain(error: unknown) { return !isFullNetProblemDetails(error) || error.status === 409 || (error.status ?? 500) >= 500; }
-let templateSearchVersion = 0, previewVersion = 0, listVersion = 0;
+let previewVersion = 0, listVersion = 0;
 async function searchTemplates(keyword: string): Promise<void> {
-  if (!can('read')) return;
-  const version = ++templateSearchVersion, scope = generation, controller = new AbortController(); searchRequest?.abort(); searchRequest = controller;
+  if (!can('read') || busy.value) return;
   searchValue.value = keyword; page.value = 1;
-  try { const result = await listPrintingTemplates(keyword, controller.signal, 1, 20); if (current(scope) && version === templateSearchVersion && !controller.signal.aborted) { templates.value = result.items; total.value = result.total; } }
-  catch (error) { if (current(scope) && version === templateSearchVersion && !controller.signal.aborted) problem.value = toProblem(error, 'printingPreview.loadFailed'); }
+  await load();
 }
 
+/** 分页、搜索与刷新共用一个请求代次，后发查询立即使旧目录和旧行操作失效。 */
 async function load(): Promise<void> {
   if (!can('read') || busy.value) return;
   const scope = generation, version = ++listVersion, controller = new AbortController(); listRequest?.abort(); listRequest = controller;
-  loading.value = true;
-  problem.value = undefined;
+  const query = { keyword: searchValue.value.trim() || undefined, page: page.value };
+  const key = JSON.stringify(query);
+  if (key !== lastListQuery) { templates.value = []; total.value = 0; selectedTemplateId.value = ''; }
+  lastListQuery = key;
+  loading.value = true; problem.value = undefined;
   try {
-    const result = await listPrintingTemplates(searchValue.value.trim() || undefined, controller.signal, page.value, 20);
-    if (!current(scope) || version !== listVersion) return;
+    const result = await listPrintingTemplates(query.keyword, controller.signal, query.page, 20);
+    if (!current(scope) || version !== listVersion || controller.signal.aborted) return;
+    if (result.page !== query.page || result.pageSize !== 20) throw Error('client.invalid_printing_template_list');
     templates.value = result.items; total.value = result.total;
     if (!templates.value.some(item => item.id === selectedTemplateId.value)) selectedTemplateId.value = printableTemplates.value[0]?.id ?? templates.value[0]?.id ?? '';
-    preview.value = undefined;
+    previewVersion++; previewRequest?.abort(); previewing.value = false; preview.value = undefined;
     if (!createDialogVisible.value) writeUnconfirmed.value = false;
   } catch (error: unknown) {
-    if (current(scope) && version === listVersion) problem.value = toProblem(error, 'printingPreview.loadFailed');
+    if (current(scope) && version === listVersion && !controller.signal.aborted) problem.value = toProblem(error, 'printingPreview.loadFailed');
   } finally {
     if (scope === generation && version === listVersion) loading.value = false;
   }
 }
 
 async function runPreview(): Promise<void> {
-  if (!can('preview') || !selectedPublished.value || previewing.value || busy.value) {
+  if (!can('preview') || !selectedTemplate.value || !selectedPublished.value || !Number.isSafeInteger(selectedPublished.value) || selectedPublished.value < 1 || previewing.value || busy.value) {
     return;
   }
 
@@ -132,25 +139,29 @@ async function runPreview(): Promise<void> {
   problem.value = undefined;
   try {
     const body = await getPrintingTemplateVersion(id, published, controller.signal);
-    if (current(scope) && can('preview') && version === previewVersion && id === selectedTemplateId.value && selectedPublished.value === published) preview.value = { html: body.layoutHtml, versionNumber: body.versionNumber };
+    if (current(scope) && can('preview') && version === previewVersion && !controller.signal.aborted && !!selectedTemplate.value && id === selectedTemplateId.value && selectedPublished.value === published) preview.value = { html: body.layoutHtml, versionNumber: body.versionNumber };
   } catch (error: unknown) {
-    if (current(scope) && version === previewVersion) problem.value = toProblem(error, 'printingPreview.previewFailed');
+    if (current(scope) && version === previewVersion && !controller.signal.aborted) problem.value = toProblem(error, 'printingPreview.previewFailed');
   } finally {
     if (scope === generation && version === previewVersion) previewing.value = false;
   }
 }
 
 function printPreview(): void {
-  if (can('preview') && preview.value) frame.value?.contentWindow?.print();
+  if (can('preview') && selectedTemplate.value && preview.value?.versionNumber === selectedPublished.value) frame.value?.contentWindow?.print();
 }
 /** 历史列表只读取二十条摘要，正文等用户选定具体版本后再读取。 */
 async function loadHistory() {
   if (!can('read') || !selectedTemplateId.value) return;
   const scope = generation, id = selectedTemplateId.value, version = ++historyVersion, controller = new AbortController(); historyRequest?.abort(); historyRequest = controller;
+  const requestedPage = historyPage.value, key = id + ':' + requestedPage;
+  if (key !== lastHistoryQuery) history.value = [];
+  lastHistoryQuery = key; historyLoading.value = true; historyProblem.value = undefined;
   try {
-    const result = await listPrintingTemplateVersions(id, historyPage.value, controller.signal);
+    const result = await listPrintingTemplateVersions(id, requestedPage, controller.signal);
     if (current(scope) && version === historyVersion && selectedTemplateId.value === id && !controller.signal.aborted) { history.value = result.items; historyTotal.value = result.total; }
-  } catch (error) { if (current(scope) && version === historyVersion && !controller.signal.aborted) problem.value = toProblem(error, 'printingPreview.loadFailed'); }
+  } catch (error) { if (current(scope) && version === historyVersion && !controller.signal.aborted) historyProblem.value = toProblem(error, 'printingPreview.loadFailed'); }
+  finally { if (scope === generation && version === historyVersion) historyLoading.value = false; }
 }
 
 function openCreate() {
@@ -224,25 +235,27 @@ async function submitCreate(): Promise<void> {
 }
 /** 写入开始时作废更早的目录/版本读取，未知结果不能被写前快照解除锁定。 */
 function beginWrite() {
-  listVersion++; templateSearchVersion++; historyVersion++; previewVersion++;
-  listRequest?.abort(); searchRequest?.abort(); historyRequest?.abort(); previewRequest?.abort(); loading.value = false; previewing.value = false; preview.value = undefined;
+  listVersion++; historyVersion++; previewVersion++;
+  listRequest?.abort(); historyRequest?.abort(); previewRequest?.abort(); loading.value = false; previewing.value = false; preview.value = undefined;
 }
 
 function reset() {
-  generation++; templateSearchVersion++; previewVersion++; listVersion++; detailVersion++; historyVersion++; requests.abort(); requests = new AbortController(); searchRequest?.abort(); detailRequest?.abort(); previewRequest?.abort(); historyRequest?.abort(); listRequest?.abort();
+  generation++; previewVersion++; listVersion++; detailVersion++; historyVersion++; requests.abort(); requests = new AbortController(); detailRequest?.abort(); previewRequest?.abort(); historyRequest?.abort(); listRequest?.abort();
   templates.value = []; selectedTemplateId.value = ''; preview.value = undefined; problem.value = undefined; createDialogVisible.value = false; publishOpen.value = false;
   publishTarget.value = undefined; writeUnconfirmed.value = false; loading.value = false; previewing.value = false; creating.value = false; publishing.value = false;
   editingId.value = ''; editingVersion.value = 0; createForm.value = { templateKey: '', name: '', layoutHtml: DEFAULT_LAYOUT_HTML, isEnabled: true };
   editorSchemaKey.value = 'printing.tenant_profile_card';
+  lastListQuery = ''; lastHistoryQuery = ''; historyLoading.value = false; historyProblem.value = undefined;
   page.value = 1; total.value = 0; searchValue.value = ''; history.value = []; historyPage.value = 1; historyTotal.value = 0; selectedPublished.value = undefined;
 }
-watch(() => [session.currentUser?.id, session.currentUser?.tenantId, session.currentUser?.sessionId, session.currentUser?.permissions.join('|'), session.switching, active.value], () => { reset(); if (can('read')) void load(); }, { immediate: true, flush: 'sync' });
-watch(selectedTemplateId, () => { previewVersion++; detailVersion++; previewRequest?.abort(); detailRequest?.abort(); preview.value = undefined; previewing.value = false; publishOpen.value = false; });
+watch(() => [session.state, route?.name, session.currentUser?.scope, session.currentUser?.actorScope, session.currentUser?.id, session.currentUser?.tenantId, session.currentUser?.sessionId, session.currentUser?.permissions.join('|'), session.switching, active.value], () => { reset(); if (can('read')) void load(); }, { immediate: true, flush: 'sync' });
+watch(selectedTemplateId, () => { previewVersion++; detailVersion++; previewRequest?.abort(); detailRequest?.abort(); preview.value = undefined; previewing.value = false; publishOpen.value = false; }, { flush: 'sync' });
 watch(() => [selectedTemplateId.value, selectedTemplate.value?.latestPublishedVersionNumber], () => {
-  historyPage.value = 1; history.value = []; selectedPublished.value = selectedTemplate.value?.latestPublishedVersionNumber || undefined;
+  historyVersion++; historyRequest?.abort(); historyLoading.value = false; historyProblem.value = undefined; lastHistoryQuery = '';
+  historyPage.value = 1; history.value = []; historyTotal.value = 0; selectedPublished.value = selectedTemplate.value?.latestPublishedVersionNumber || undefined;
   if (can('read') && selectedTemplateId.value && selectedTemplate.value) void loadHistory();
-});
-watch(selectedPublished, () => { previewVersion++; previewRequest?.abort(); preview.value = undefined; previewing.value = false; });
+}, { flush: 'sync' });
+watch(selectedPublished, () => { previewVersion++; previewRequest?.abort(); preview.value = undefined; previewing.value = false; }, { flush: 'sync' });
 onActivated(() => { active.value = true; }); onDeactivated(() => { active.value = false; }); onBeforeUnmount(() => { active.value = false; reset(); });
 </script>
 
@@ -319,11 +332,13 @@ onActivated(() => { active.value = true; }); onDeactivated(() => { active.value 
       <p v-if="selectedTemplate" data-testid="printing-template-versions">{{ t('printingTemplates.draftVersion') }} {{ selectedTemplate.version }} · {{ t('printingTemplates.publishedVersion') }} {{ selectedTemplate.latestPublishedVersionNumber }}</p>
       <p>{{ t('printingTemplates.versionHelp') }}</p>
       <ElForm v-if="selectedTemplate" label-position="top"><ElFormItem :label="t('printingTemplates.history')">
-        <ElSelect v-model="selectedPublished" :disabled="busy" data-testid="printing-template-version" class="w-full">
+        <ElSelect v-model="selectedPublished" :disabled="busy || historyLoading" data-testid="printing-template-version" class="w-full">
           <ElOption v-for="item in history" :key="item.id" :value="item.versionNumber" :label="`${item.versionNumber} · ${item.changeNote ?? ''}`" />
         </ElSelect>
       </ElFormItem></ElForm>
-      <div v-if="selectedTemplate" class="template-actions"><ElButton :disabled="busy || historyPage <= 1" @click="historyPage--; loadHistory()">{{ t('printingTemplates.previous') }}</ElButton><span>{{ historyPage }}</span><ElButton :disabled="busy || historyPage * 20 >= historyTotal" @click="historyPage++; loadHistory()">{{ t('printingTemplates.next') }}</ElButton></div>
+      <ElAlert v-if="historyProblem" type="error" :closable="false" :title="historyProblem.title" data-testid="printing-template-history-problem" />
+      <ElButton v-if="historyProblem" :disabled="busy || historyLoading" data-testid="printing-template-history-retry" @click="loadHistory">{{ t('common.refresh') }}</ElButton>
+      <div v-if="selectedTemplate" class="template-actions"><ElButton :disabled="busy || historyLoading || historyPage <= 1" @click="historyPage--; loadHistory()">{{ t('printingTemplates.previous') }}</ElButton><span>{{ historyPage }}</span><ElButton :disabled="busy || historyLoading || historyPage * 20 >= historyTotal" @click="historyPage++; loadHistory()">{{ t('printingTemplates.next') }}</ElButton></div>
       <div class="template-actions">
         <ElButton v-if="can('update') && selectedTemplate" :disabled="busy || writeUnconfirmed" data-testid="printing-template-edit" @click="editSelected">{{ t('printingTemplates.edit') }}</ElButton>
         <ElButton v-if="can('publish') && selectedTemplate" type="primary" :disabled="busy || writeUnconfirmed || createDialogVisible" data-testid="printing-template-publish" @click="confirmPublish">{{ t('printingTemplates.publish') }}</ElButton>

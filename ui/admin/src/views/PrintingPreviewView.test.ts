@@ -1,3 +1,6 @@
+import { reactive } from 'vue';
+import { routeLocationKey } from 'vue-router';
+import { deferred } from '../test/data-output-fixtures';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { flushPromises, mount, type VueWrapper } from '@vue/test-utils';
 import { createPinia, setActivePinia } from 'pinia';
@@ -23,10 +26,11 @@ const publication = () => ({ id, templateId: id, versionNumber: 1, layoutHtml: '
 const wrappers: VueWrapper[] = [];
 afterEach(() => { wrappers.splice(0).forEach(wrapper => wrapper.unmount()); vi.restoreAllMocks(); });
 
-function mountWithPermissions(permissions: string[]) {
+function mountWithPermissions(permissions: string[], route?: { name: string }) {
   const pinia = createPinia();
   setActivePinia(pinia);
   const session = useSessionStore();
+  session.state = 'authenticated';
   session.currentUser = {
     id: '019bc2b1-2a40-7cc3-8992-a80de51bf296',
     username: 'admin',
@@ -41,7 +45,7 @@ function mountWithPermissions(permissions: string[]) {
     preferredLocale: 'zh-CN',
     profileVersion: 1
   };
-  const wrapper = mount(PrintingPreviewView, { global: { plugins: [pinia], stubs: {
+  const wrapper = mount(PrintingPreviewView, { global: { plugins: [pinia], provide: route ? { [routeLocationKey as symbol]: route } : {}, stubs: {
     ElDialog: { props: ['modelValue', 'title'], template: '<aside v-if="modelValue"><h2>{{ title }}</h2><slot/><slot name="footer"/></aside>' }
   } } }); wrappers.push(wrapper); return wrapper;
 }
@@ -179,4 +183,58 @@ describe('PrintingPreviewView', () => {
     useSessionStore().currentUser!.permissions = ['printing.templates.read', 'printing.templates.update']; await flushPromises(); expect(signal.aborted).toBe(true);
     resolve({ formSchemaKey: 'printing.tenant_profile_card', displayName: '', description: '', fields: [{ fieldKey: 'tenantName', displayName: '租户名称' }] }); await flushPromises(); expect(wrapper.find('[data-field-key]').exists()).toBe(false);
   });
+  it('搜索中止初始目录，迟到初始页不能覆盖新关键词', async () => {
+    const pending = deferred<Awaited<ReturnType<typeof listPrintingTemplates>>>(); listMock.mockReturnValueOnce(pending.promise);
+    const wrapper = mountWithPermissions(['printing.templates.read']); await flushPromises(); const signal = listMock.mock.calls[0]![1]!;
+    const newer = { ...template(), id: '019bc2b1-2a40-7cc3-8992-a80de51bf300', name: '新关键词结果' };
+    listMock.mockResolvedValue({ items: [newer], page: 1, pageSize: 20, total: 1 });
+    await (wrapper.vm as unknown as { searchTemplates: (keyword: string) => Promise<void> }).searchTemplates('新关键词');
+    expect(signal.aborted).toBe(true); pending.resolve({ items: [{ ...template(), name: '旧初始结果' }], page: 1, pageSize: 20, total: 1 }); await flushPromises();
+    expect(wrapper.text()).toContain('新关键词结果'); expect(wrapper.text()).not.toContain('旧初始结果');
+  });
+  it('后发分页中止搜索，迟到搜索页不能替换当前页', async () => {
+    const wrapper = mountWithPermissions(['printing.templates.read']); await flushPromises();
+    const pending = deferred<Awaited<ReturnType<typeof listPrintingTemplates>>>(); listMock.mockReturnValueOnce(pending.promise);
+    const vm = wrapper.vm as unknown as { searchTemplates: (keyword: string) => Promise<void>; load: () => Promise<void>; page: number; templates: { name: string }[] };
+    const searching = vm.searchTemplates('分页'); const signal = listMock.mock.lastCall![1]!;
+    listMock.mockResolvedValue({ items: [{ ...template(), name: '第二页' }], page: 2, pageSize: 20, total: 21 }); vm.page = 2; await vm.load();
+    expect(signal.aborted).toBe(true); pending.resolve({ items: [{ ...template(), name: '旧搜索页' }], page: 1, pageSize: 20, total: 21 }); await searching;
+    expect(vm.page).toBe(2); expect(vm.templates[0]?.name).toBe('第二页');
+  });
+  it('开始新查询立即取消旧版式读取，迟到正文不再显示', async () => {
+    const pending = deferred<ReturnType<typeof publication>>(); vi.mocked(getPrintingTemplateVersion).mockReturnValueOnce(pending.promise);
+    const wrapper = mountWithPermissions(['printing.templates.read', 'printing.templates.preview']); await flushPromises(); await wrapper.get('[data-testid="printing-preview-run"]').trigger('click');
+    const signal = vi.mocked(getPrintingTemplateVersion).mock.lastCall![2]!;
+    listMock.mockResolvedValue({ items: [], page: 1, pageSize: 20, total: 0 }); await (wrapper.vm as unknown as { searchTemplates: (keyword: string) => Promise<void> }).searchTemplates('无结果');
+    expect(signal.aborted).toBe(true); pending.resolve(publication()); await flushPromises(); expect(wrapper.find('iframe').exists()).toBe(false);
+  });
+  it('历史读取错误与模板目录分离，重试只重读当前版本页', async () => {
+    vi.mocked(listPrintingTemplateVersions).mockRejectedValueOnce(new Error('History unavailable'));
+    const wrapper = mountWithPermissions(['printing.templates.read']); await flushPromises();
+    expect(wrapper.get('[data-testid="printing-template-history-problem"]').text()).toContain('加载');
+    expect((wrapper.vm as unknown as { problem?: unknown }).problem).toBeUndefined();
+    await wrapper.get('[data-testid="printing-template-history-retry"]').trigger('click'); await flushPromises();
+    expect(wrapper.find('[data-testid="printing-template-history-problem"]').exists()).toBe(false);
+    expect(listMock).toHaveBeenCalledOnce(); expect(listPrintingTemplateVersions).toHaveBeenCalledTimes(2);
+  });
+  it('目录中已经没有目标时，直接调用不能预览遗留发布号', async () => {
+    const wrapper = mountWithPermissions(['printing.templates.read', 'printing.templates.preview']); await flushPromises();
+    listMock.mockResolvedValue({ items: [], page: 1, pageSize: 20, total: 0 });
+    const vm = wrapper.vm as unknown as { searchTemplates: (keyword: string) => Promise<void>; selectedPublished?: number; runPreview: () => Promise<void> };
+    await vm.searchTemplates('不存在'); vm.selectedPublished = 1; await vm.runPreview(); expect(getPrintingTemplateVersion).not.toHaveBeenCalled();
+  });
+  it('路由离开同步取消版式，返回只恢复目录且不接入旧正文', async () => {
+    const route = reactive({ name: 'printing-preview' }), pending = deferred<ReturnType<typeof publication>>(); vi.mocked(getPrintingTemplateVersion).mockReturnValueOnce(pending.promise);
+    const wrapper = mountWithPermissions(['printing.templates.read', 'printing.templates.preview'], route); await flushPromises(); await wrapper.get('[data-testid="printing-preview-run"]').trigger('click');
+    const signal = vi.mocked(getPrintingTemplateVersion).mock.lastCall![2]!; route.name = 'home'; expect(signal.aborted).toBe(true);
+    pending.resolve(publication()); await flushPromises(); expect(wrapper.find('iframe').exists()).toBe(false);
+    route.name = 'printing-preview'; await flushPromises(); expect(listMock).toHaveBeenCalledTimes(2); expect(wrapper.find('iframe').exists()).toBe(false);
+  });
+  it('有效作用域不再是Host时同步取消旧读取并清理目录', async () => {
+    const pending = deferred<Awaited<ReturnType<typeof listPrintingTemplates>>>(); listMock.mockReturnValueOnce(pending.promise);
+    const wrapper = mountWithPermissions(['printing.templates.read']); await flushPromises(); const signal = listMock.mock.lastCall![1]!;
+    useSessionStore().currentUser!.scope = 'tenant:019bc2b12a407cc38992a80de51bf299'; expect(signal.aborted).toBe(true);
+    pending.resolve({ items: [template()], page: 1, pageSize: 20, total: 1 }); await flushPromises(); expect(wrapper.find('[data-testid="printing-preview-template"]').exists()).toBe(false);
+  });
+
 });

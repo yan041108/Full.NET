@@ -1,4 +1,4 @@
-import { isRecord, isInteger, type PagedResult, type PrintingTemplateSummary, isPrintingTemplateSummary } from '@fullnet/client-contracts';
+import { isRecord, type PagedResult, type PrintingTemplateSummary, isPrintingTemplateSummary } from '@fullnet/client-contracts';
 import {
   printingListPublishedTemplates,
   printingPreviewPublishedTemplate,
@@ -39,8 +39,15 @@ export async function listPrintingTemplates(
   nameContains?: string,
   signal?: AbortSignal, page = 1, pageSize = 20
 ): Promise<PagedResult<PrintingTemplateSummary>> {
-  const value = await printingListTemplates(http, { page, pageSize, nameContains }, signal);
-  if (!isRecord(value) || !Array.isArray(value.items) || !value.items.every(isPrintingTemplateSummary) || !isInteger(value.page) || !isInteger(value.pageSize) || typeof value.total !== 'number') {
+  const query = { page: Math.max(1, page), pageSize: Math.min(100, Math.max(1, pageSize)), nameContains: nameContains?.trim() || undefined };
+  if (!Number.isSafeInteger(query.page) || !Number.isSafeInteger(query.pageSize)) throw Error('client.invalid_printing_template_query');
+  const value = await printingListTemplates(http, query, signal);
+  if (!isRecord(value) || !Array.isArray(value.items) || !value.items.every(isPrintingTemplateSummary)
+    || value.page !== query.page || value.pageSize !== query.pageSize || !Number.isSafeInteger(value.total) || Number(value.total) < 0
+    || value.items.length > query.pageSize || new Set(value.items.map(row => row.id.toLowerCase())).size !== value.items.length
+    || value.items.some(row => !isGuid(row.id) || row.id === '00000000-0000-0000-0000-000000000000'
+      || !Number.isSafeInteger(row.version) || row.version < 1 || !Number.isSafeInteger(row.latestPublishedVersionNumber)
+      || row.latestPublishedVersionNumber < 0 || Object.hasOwn(row, 'layoutHtml'))) {
     throw new Error('client.invalid_printing_template_list');
   }
   return value as unknown as PagedResult<PrintingTemplateSummary>;
