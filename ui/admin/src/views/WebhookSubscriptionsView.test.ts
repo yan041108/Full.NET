@@ -3,13 +3,14 @@ import { mount, flushPromises, type VueWrapper } from '@vue/test-utils';
 import View from './WebhookSubscriptionsView.vue';
 import * as api from '../api/webhook-subscriptions';
 import { createOutputSession, outputId } from '../test/data-output-fixtures';
-vi.mock('../api/webhook-subscriptions', () => ({ listWebhookSubscriptions: vi.fn(), createWebhookSubscription: vi.fn(), setWebhookSubscriptionStatus: vi.fn() }));
+vi.mock('../api/webhook-subscriptions', () => ({ listWebhookSubscriptions: vi.fn(), createWebhookSubscription: vi.fn(), setWebhookSubscriptionStatus: vi.fn(), listWebhookDeliveryHistory: vi.fn(), getWebhookDeliveryHistory: vi.fn() }));
 const read = 'webhooks.subscriptions.read', create = 'webhooks.subscriptions.manage', status = 'webhooks.subscriptions.set_status';
 const task = { id: outputId, tenantId: outputId, eventType: 'fullnet.workflow.instance.completed', targetUrl: 'https://example.com/hooks', isActive: true, version: 1 };
 const secondId = '019bc2b1-2a40-7cc3-8992-a80de51bf298';
 let wrapper: VueWrapper;
 type State = { items: typeof task[]; editorOpen: boolean; form: { eventType: string; targetUrl: string; signingSecret: string }; createBlocked: boolean;
   receipt?: { id?: string; unknown: boolean }; confirmation?: { token: number }; reviewOpen: boolean;
+  historyTarget?: typeof task; openHistory: (row: typeof task) => void;
   editorControls: { event: (value: string) => void; update: (value: boolean) => void }; confirmationControls: { confirm: () => void; update: (value: boolean) => void }; reviewControls: { confirm: () => void };
   openCreate: () => void; submitCreate: () => Promise<void>; load: (manual?: boolean) => Promise<void>; openStatus: (row: typeof task) => void; submitStatus: (token: number) => Promise<void> };
 const state = () => wrapper.vm as unknown as State;
@@ -19,7 +20,7 @@ beforeEach(() => { vi.resetAllMocks(); vi.mocked(api.listWebhookSubscriptions).m
 afterEach(() => wrapper?.unmount());
 async function setup(permissions = [read, create, status], host = false) {
   const context = createOutputSession(permissions); if (host) Object.assign(context.session.currentUser!, { tenantId: null, scope: 'host', actorScope: 'host' });
-  wrapper = mount(View, { global: { plugins: [context.pinia], directives: { loading: {} }, stubs: { ElDialog: { props: ['modelValue'], template: '<section v-if="modelValue"><slot/><slot name="footer"/></section>' } } } }); await flushPromises(); return context;
+  wrapper = mount(View, { global: { plugins: [context.pinia], directives: { loading: {} }, stubs: { WebhookDeliveryHistoryDrawer: { template: '<aside data-testid="history-stub"/>' }, ElDialog: { props: ['modelValue'], template: '<section v-if="modelValue"><slot/><slot name="footer"/></section>' } } } }); await flushPromises(); return context;
 }
 function fillCreate() { state().openCreate(); Object.assign(state().form, { targetUrl: task.targetUrl, signingSecret: 'independent-test-secret' }); }
 it('当前企业可读取，创建与状态权限独立，Host 不读取租户订阅', async () => {
@@ -74,4 +75,9 @@ it('切换开始即取消在途写入，迟到结果不能污染另一企业', a
 });
 it('跨企业列表响应失败关闭且不展示敏感来源', async () => {
   vi.mocked(api.listWebhookSubscriptions).mockResolvedValue([{ ...task, tenantId: secondId }]); await setup(); expect(state().items).toEqual([]); expect(wrapper.text()).not.toContain(task.targetUrl);
+});
+it('历史读取独立于状态与创建，旧行和撤权不能打开历史', async () => {
+  const { session } = await setup([read, 'webhooks.deliveries.read']); state().openHistory({ ...task, version: 2 }); expect(state().historyTarget).toBeUndefined();
+  state().openHistory(task); expect(state().historyTarget?.id).toBe(task.id); expect(wrapper.find('[data-testid="webhook-status"]').exists()).toBe(false);
+  session.currentUser!.permissions = [read]; await flushPromises(); expect(state().historyTarget).toBeUndefined(); state().openHistory(task); expect(state().historyTarget).toBeUndefined();
 });

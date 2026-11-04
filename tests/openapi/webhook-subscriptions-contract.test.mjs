@@ -18,3 +18,11 @@ test('Webhook 实际 API、共享模型及页面调用点完整登记', async ()
  const relevant = value => /webhook-subscriptions|WebhookSubscriptionsView/.test(value);
  assert.deepEqual(contracts.filter(relevant), []); assert.deepEqual(calls.filter(relevant), []);
 });
+test('投递历史契约分页有界，仅公开安全失败类别及当前计数', () => {
+ const fixture=JSON.parse(fs.readFileSync('contracts/openapi/webhook-subscriptions-v1.json','utf8'));
+ const operation=fixture.paths['/api/v1/webhooks/subscriptions/{subscriptionId}/deliveries'].get;
+ assert.equal(operation.operationId,'webhooksListSubscriptionDeliveries');assert.equal(operation.parameters.find(value=>value.name==='pageSize').schema.maximum,100);
+ const properties=fixture.components.schemas.WebhookDeliveryHistoryResponse.properties;
+ for(const key of ['payloadBody','signingSecret','signingSecretHash','lastError'])assert.equal(key in properties,false);
+ assert.equal('lastErrorCode' in properties,true);assert.equal('attemptCount' in properties,true);
+});

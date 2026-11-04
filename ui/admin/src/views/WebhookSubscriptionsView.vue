@@ -8,6 +8,7 @@ import { useAuthorizedViewScope } from '../composables/useAuthorizedViewScope';
 import { useSessionStore } from '../auth/session';
 import { useAdminI18n } from '../i18n/adminI18n';
 import { listWebhookSubscriptions, createWebhookSubscription, setWebhookSubscriptionStatus } from '../api/webhook-subscriptions';
+import WebhookDeliveryHistoryDrawer from './webhooks/WebhookDeliveryHistoryDrawer.vue';
 
 defineOptions({ name: 'WebhookSubscriptionsView' });
 const session = useSessionStore(), { t } = useAdminI18n();
@@ -16,6 +17,8 @@ const tenant = () => !session.switching && !!session.currentUser?.tenantId && se
 const canRead = () => tenant() && session.can(read), canCreate = () => canRead() && session.can(create), canStatus = () => canRead() && session.can(status);
 const items = ref<WebhookSubscription[]>([]), loading = ref(false), changing = ref(false), problem = ref('');
 const editorOpen = ref(false), confirmation = ref<{ task: WebhookSubscription; active: boolean; token: number }>();
+const historyTarget = ref<WebhookSubscription>();
+const canHistory = () => canRead() && session.can('webhooks.deliveries.read');
 const reviewOpen = ref(false), createBlocked = ref(false), createReviewed = ref(false), statusBlocks = ref(new Map<string, WebhookSubscription>());
 const form = reactive({ eventType: 'fullnet.workflow.instance.completed', targetUrl: '', signingSecret: '' });
 const receipt = ref<{ id?: string; event: string; target: string; unknown: boolean }>();
@@ -25,7 +28,7 @@ let action: { request: Request; kind: 'create' | 'status'; target: WebhookSubscr
 let listRequest: ReturnType<typeof scope.begin>;
 const scope = useAuthorizedViewScope(session, () => {
   action = undefined; listRequest = undefined; items.value = []; loading.value = false; changing.value = false; problem.value = '';
-  editorOpen.value = false; confirmation.value = undefined; reviewOpen.value = false; receipt.value = undefined;
+  editorOpen.value = false; confirmation.value = undefined; reviewOpen.value = false; receipt.value = undefined; historyTarget.value = undefined;
   createBlocked.value = false; createReviewed.value = false; statusBlocks.value = new Map(); form.signingSecret = ''; form.targetUrl = '';
 }, () => load());
 watch(() => session.switching, switching => { scope.invalidate(); if (!switching) void load(); }, { flush: 'sync' });
@@ -63,7 +66,7 @@ async function load(manual = false) {
   } catch (error) { if (request.current()) problem.value = errorText(error); }
   finally { if (request.current() && sequence === listSequence) loading.value = false; request.finish(); }
 }
-function openCreate() { if (!canCreate() || changing.value || loading.value) return; confirmation.value = undefined; form.targetUrl = ''; form.signingSecret = ''; form.eventType = 'fullnet.workflow.instance.completed'; editorOpen.value = true; }
+function openCreate() { if (!canCreate() || changing.value || loading.value || historyTarget.value) return; confirmation.value = undefined; form.targetUrl = ''; form.signingSecret = ''; form.eventType = 'fullnet.workflow.instance.completed'; editorOpen.value = true; }
 async function submitCreate() {
   if (!canCreate() || !editorOpen.value || changing.value || createBlocked.value) return;
   const snapshot = { eventType: form.eventType.trim(), targetUrl: form.targetUrl.trim(), signingSecret: form.signingSecret };
@@ -81,7 +84,7 @@ async function submitCreate() {
   finally { finish(request); }
 }
 function openStatus(row: WebhookSubscription) {
-  if (!canStatus() || changing.value || loading.value || editorOpen.value || statusBlocks.value.has(row.id.toLowerCase()) || !current(row)) return;
+  if (!canStatus() || changing.value || loading.value || editorOpen.value || historyTarget.value || statusBlocks.value.has(row.id.toLowerCase()) || !current(row)) return;
   confirmation.value = { task: { ...row }, active: !row.isActive, token: ++confirmationSequence };
 }
 async function submitStatus(token: number) {
@@ -98,7 +101,11 @@ async function submitStatus(token: number) {
   } catch (error) { if (request.current()) { if (unknown(error)) markUnknown(); problem.value = errorText(error); } }
   finally { finish(request); }
 }
-const rows = computed(() => items.value.map(row => { const task = { ...row }; return { ...task, statusAction: () => openStatus(task) }; }));
+function openHistory(row: WebhookSubscription) {
+  if (canHistory() && !changing.value && !loading.value && !editorOpen.value && !confirmation.value && current(row)) historyTarget.value = { ...row };
+}
+watch(items, () => { if (historyTarget.value && !items.value.some(row => same(row, historyTarget.value!))) historyTarget.value = undefined; });
+const rows = computed(() => items.value.map(row => { const task = { ...row }; return { ...task, statusAction: () => openStatus(task), history: () => openHistory(task) }; }));
 const confirmationControls = computed(() => {
   const token = confirmation.value?.token;
   return { confirm: () => { if (token !== undefined) void submitStatus(token); }, update: (open: boolean) => { if (!open && confirmation.value?.token === token) { if (action?.kind === 'status') closeAction(); confirmation.value = undefined; } } };
@@ -131,7 +138,7 @@ const reviewControls = computed(() => {
           <ElTableColumn prop="eventType" :label="t('webhooks.event')" min-width="270" />
           <ElTableColumn prop="targetUrl" :label="t('webhooks.target')" min-width="280" />
           <ElTableColumn :label="t('webhooks.status')" width="110"><template #default="{ row }"><ElTag :type="row.isActive ? 'success' : 'info'">{{ t(row.isActive ? 'webhooks.active' : 'webhooks.paused') }}</ElTag></template></ElTableColumn>
-          <ElTableColumn v-if="canStatus()" :label="t('users.columnActions')" width="150" fixed="right"><template #default="{ row }"><ElButton data-testid="webhook-status" :disabled="changing || loading || editorOpen || statusBlocks.has(row.id.toLowerCase())" @click="row.statusAction">{{ t(row.isActive ? 'webhooks.pause' : 'webhooks.resume') }}</ElButton></template></ElTableColumn>
+          <ElTableColumn v-if="canStatus() || canHistory()" :label="t('users.columnActions')" width="160" fixed="right"><template #default="{ row }"><div class="webhook-subscriptions-view__actions"><ElButton v-if="canStatus()" data-testid="webhook-status" :disabled="changing || loading || editorOpen || !!historyTarget || statusBlocks.has(row.id.toLowerCase())" @click="row.statusAction">{{ t(row.isActive ? 'webhooks.pause' : 'webhooks.resume') }}</ElButton><ElButton v-if="canHistory()" data-testid="webhook-history-open" :disabled="changing || loading || editorOpen || !!confirmation" @click="row.history">{{ t('webhooks.history.title') }}</ElButton></div></template></ElTableColumn>
           <template #empty>{{ t('webhooks.empty') }}</template>
         </ElTable>
       </ElCard>
@@ -145,10 +152,13 @@ const reviewControls = computed(() => {
       </ArtFormDialog>
       <ArtFormDialog v-if="confirmation" :key="confirmation.token" :open="true" width="min(560px, 94vw)" :title="t(confirmation.active ? 'webhooks.resume' : 'webhooks.pause')" :saving="changing" :confirm-label="t('common.confirm')" :cancel-label="t('common.cancel')" confirm-test-id="webhook-status-confirm" v-on="{ confirm: confirmationControls.confirm, 'update:open': confirmationControls.update }"><p>{{ confirmation.task.eventType }}</p><p class="webhook-subscriptions-view__target">{{ confirmation.task.targetUrl }}</p><p>{{ t('webhooks.statusHint') }}</p></ArtFormDialog>
       <ArtFormDialog v-if="reviewOpen" :key="reviewSequence" :open="true" width="min(520px, 94vw)" :title="t('webhooks.reviewCreate')" :confirm-label="t('common.confirm')" :cancel-label="t('common.cancel')" confirm-test-id="webhook-review-confirm" v-on="{ 'update:open': reviewControls.update, confirm: reviewControls.confirm }"><p>{{ t('webhooks.reviewConfirm') }}</p></ArtFormDialog>
+      <WebhookDeliveryHistoryDrawer v-if="historyTarget && canHistory()" :key="historyTarget.id" :subscription="historyTarget" @close="historyTarget = undefined" />
     </template>
   </section>
 </template>
 <style scoped>
 .webhook-subscriptions-view__header { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
 .webhook-subscriptions-view__target, [data-testid="webhook-receipt"] { overflow-wrap: anywhere; }
+.webhook-subscriptions-view__actions { display: flex; flex-direction: column; gap: 6px; align-items: stretch; }
+.webhook-subscriptions-view__actions :deep(.el-button) { margin-left: 0; }
 </style>

@@ -7,4 +7,5 @@
   <data name="webhooks.subscription.invalid" xml:space="preserve"><value>The event, target or signing secret is invalid or exceeds the allowed length.</value></data>
   <data name="webhooks.subscription.target_url_invalid" xml:space="preserve"><value>The target must be a permitted HTTPS address.</value></data>
   <data name="webhooks.fanout_budget_exceeded" xml:space="preserve"><value>This tenant event has reached the limit of 500 subscriptions.</value></data>
+  <data name="webhooks.delivery.not_found" xml:space="preserve"><value>The delivery was not found under this tenant subscription.</value></data>
 </root>

@@ -44,6 +44,7 @@ public sealed class WebhooksModule : IFullNetModule
         AddDeliveryServices(services, configuration);
         services.AddScoped<Features.ManageWebhookSubscriptions.WebhookSubscriptionQueryService>();
         services.AddScoped<Features.ManageWebhookSubscriptions.WebhookSubscriptionManagementService>();
+        services.AddScoped<Features.ManageWebhookDeliveries.WebhookDeliveryHistoryQueryService>();
         services.AddScoped<WebhookEventEnqueueService>();
         services.TryAddEnumerable(ServiceDescriptor.Scoped<
             IIntegrationEventHandler,
@@ -101,8 +102,11 @@ public sealed class WebhooksModule : IFullNetModule
     }
 
     /// <summary>
-    /// 映射 Webhooks 模块的 HTTP API 端点：Webhook 订阅的查询与管理接口。
+    /// 映射本企业订阅管理及其投递历史读取接口。
     /// </summary>
-    public void MapEndpoints(IEndpointRouteBuilder endpoints) =>
+    public void MapEndpoints(IEndpointRouteBuilder endpoints)
+    {
         Features.ManageWebhookSubscriptions.Endpoint.Map(endpoints);
+        Features.ManageWebhookDeliveries.Endpoint.Map(endpoints);
+    }
 }

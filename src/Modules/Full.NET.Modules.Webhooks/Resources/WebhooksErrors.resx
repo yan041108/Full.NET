@@ -7,4 +7,5 @@
   <data name="webhooks.subscription.invalid" xml:space="preserve"><value>事件键、目标或签名密钥无效或超出允许长度。</value></data>
   <data name="webhooks.subscription.target_url_invalid" xml:space="preserve"><value>目标必须是允许访问的 HTTPS 地址。</value></data>
   <data name="webhooks.fanout_budget_exceeded" xml:space="preserve"><value>当前企业的该事件已达到 500 个订阅上限。</value></data>
+  <data name="webhooks.delivery.not_found" xml:space="preserve"><value>未找到该企业订阅下的投递记录。</value></data>
 </root>

@@ -14,6 +14,9 @@ public static class WebhookPermissions
 
     /// <summary>允许按当前版本暂停或恢复本企业 Webhook 订阅。</summary>
     public const string SubscriptionsSetStatus = "webhooks.subscriptions.set_status";
+
+    /// <summary>允许读取本企业指定订阅的投递历史、当前计数及安全失败类别。</summary>
+    public const string DeliveriesRead = "webhooks.deliveries.read";
 }
 
 /// <summary>
@@ -50,6 +53,9 @@ public static class WebhookErrorCodes
 
     /// <summary>事件键、目标或签名材料缺失，或超出输入预算。</summary>
     public const string SubscriptionInvalid = "webhooks.subscription.invalid";
+
+    /// <summary>当前企业的指定订阅下未找到该投递记录。</summary>
+    public const string DeliveryNotFound = "webhooks.delivery.not_found";
 
     /// <summary>订阅目标 URL 非法：未通过 HTTPS、主机名解析或回调地址校验。</summary>
     public const string TargetUrlInvalid = "webhooks.subscription.target_url_invalid";
@@ -93,6 +99,23 @@ public sealed record CreateWebhookSubscriptionRequest(
 /// <param name="IsActive">目标启用状态；停用阻止后续扇出与领取，不撤回已发出的 HTTP 请求。</param>
 /// <param name="Version">用户确认时读取的正整数修订。</param>
 public sealed record SetWebhookSubscriptionStatusRequest(bool IsActive, int Version);
+
+/// <summary>单条事件投递的当前快照，不包含正文、签名、密钥或原始异常文本。</summary>
+/// <param name="Id">投递标识，可与接收端的投递请求头关联。</param>
+/// <param name="TenantId">由原订阅权威关联得到的所属企业。</param>
+/// <param name="SubscriptionId">明确所属的订阅。</param>
+/// <param name="EventId">原事件标识，接收端据此去重。</param>
+/// <param name="StatusKey">pending、processing、delivered 或 failed。</param>
+/// <param name="AttemptCount">已完成的尝试次数，不包含正在执行的一次。</param>
+/// <param name="NextAttemptAtUtc">计划下次读取的 UTC 时间；终态为空。</param>
+/// <param name="LastErrorCode">上次失败的安全机器码，不返回原始异常。</param>
+/// <param name="LastHttpStatus">可确认的上次非成功 HTTP 状态码；其他故障为空。</param>
+/// <param name="CreatedAtUtc">原投递入队时间，不替代事件发生时间。</param>
+/// <param name="UpdatedAtUtc">当前投递最近更新的 UTC 时间，不代表完整逐次尝试历史。</param>
+/// <param name="Version">读取时投递修订。</param>
+public sealed record WebhookDeliveryHistoryResponse(Guid Id, Guid TenantId, Guid SubscriptionId, Guid EventId,
+    string StatusKey, int AttemptCount, DateTimeOffset? NextAttemptAtUtc, string? LastErrorCode, int? LastHttpStatus,
+    DateTimeOffset CreatedAtUtc, DateTimeOffset UpdatedAtUtc, int Version);
 
 /// <summary>
 /// 单次 Webhook 投递记录响应契约；用于投递历史查询与失败排查。

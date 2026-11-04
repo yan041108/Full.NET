@@ -2277,7 +2277,8 @@
     {
       "apiModule": "ui/admin/src/api/webhook-subscriptions.ts",
       "consumers": [
-        "ui/admin/src/views/WebhookSubscriptionsView.vue"
+        "ui/admin/src/views/WebhookSubscriptionsView.vue",
+        "ui/admin/src/views/webhooks/WebhookDeliveryHistoryDrawer.vue"
       ]
     }
   ]

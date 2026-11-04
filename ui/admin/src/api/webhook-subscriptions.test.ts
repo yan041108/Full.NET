@@ -1,9 +1,11 @@
 import { beforeEach, expect, it, vi } from 'vitest';
 import { request } from './http';
-import { createWebhookSubscription, listWebhookSubscriptions, setWebhookSubscriptionStatus } from './webhook-subscriptions';
+import { createWebhookSubscription, listWebhookSubscriptions, setWebhookSubscriptionStatus, listWebhookDeliveryHistory, getWebhookDeliveryHistory } from './webhook-subscriptions';
 vi.mock('./http', () => ({ request: vi.fn() }));
 const call = vi.mocked(request), id = '019bc2b1-2a40-7cc3-8992-a80de51bf299';
 const row = { id, tenantId: id, eventType: 'fullnet.workflow.instance.completed', targetUrl: 'https://example.com/hooks', isActive: true, version: 1 };
+const delivery = { id, tenantId: id, subscriptionId: id, eventId: id, statusKey: 'failed', attemptCount: 2, version: 3,
+  nextAttemptAtUtc: null, lastErrorCode: 'webhooks.delivery.http_error', lastHttpStatus: 503, createdAtUtc: '2026-11-04T00:00:00Z', updatedAtUtc: '2026-11-04T00:01:00Z' };
 beforeEach(() => call.mockReset());
 it('读取规范化版本并移除意外签名字段', async () => {
   call.mockResolvedValue([{ ...row, version: '1', signingSecret: 'must-not-escape' }]); expect(await listWebhookSubscriptions()).toEqual([row]);
@@ -37,4 +39,27 @@ it.each([
   { eventType: row.eventType, signingSecret: 'x'.repeat(15) }
 ])('存储预算以外的输入在请求前拒绝 %j', async input => {
   await expect(createWebhookSubscription({ ...input, targetUrl: row.targetUrl })).rejects.toThrow(); expect(call).not.toHaveBeenCalled();
+});
+it('历史页绑定明确订阅、页码、筛选和信号，剔除多余敏感字段', async () => {
+  call.mockResolvedValue({ items: [{ ...delivery, lastError: 'private', payloadBody: 'private', signingSecret: 'private' }], page: 2, pageSize: 20, total: '21' });
+  const signal = new AbortController().signal; expect(await listWebhookDeliveryHistory(id, 2, 20, 'failed', signal)).toEqual({ items: [delivery], page: 2, pageSize: 20, total: 21 });
+  expect(call).toHaveBeenCalledExactlyOnceWith(`/api/v1/webhooks/subscriptions/${id}/deliveries?page=2&pageSize=20&statusKey=failed`, { method: 'GET' }, signal);
+});
+it('历史页错误来源、筛选和损坏分页拒绝接纳', async () => {
+  for (const result of [
+    { items: [{ ...delivery, subscriptionId: '019bc2b1-2a40-7cc3-8992-a80de51bf298' }], page: 1, pageSize: 20, total: 1 },
+    { items: [{ ...delivery, statusKey: 'delivered' }], page: 1, pageSize: 20, total: 1 },
+    { items: [delivery], page: 2, pageSize: 20, total: 1 },
+    { items: [delivery, delivery], page: 1, pageSize: 20, total: 2 }
+  ]) { call.mockResolvedValueOnce(result); await expect(listWebhookDeliveryHistory(id, 1, 20, 'failed')).rejects.toThrow(); }
+});
+it('详情资源错配、失败类别错配和非 UTC 时间不能进入读取模型', async () => {
+  for (const value of [{ ...delivery, id: '019bc2b1-2a40-7cc3-8992-a80de51bf298' }, { ...delivery, lastErrorCode: 'raw error' }, { ...delivery, lastHttpStatus: null }, { ...delivery, createdAtUtc: '2026-11-04T00:00:00+08:00' }]) {
+    call.mockResolvedValueOnce(value); await expect(getWebhookDeliveryHistory(id, id)).rejects.toThrow();
+  }
+});
+it('历史查询边界在请求前拒绝，空结果及正确单条可以读取', async () => {
+  await expect(listWebhookDeliveryHistory(id, 0)).rejects.toThrow(); await expect(listWebhookDeliveryHistory(id, 1, 101)).rejects.toThrow(); await expect(listWebhookDeliveryHistory(id, 2_147_483_647, 100)).rejects.toThrow(); expect(call).not.toHaveBeenCalled();
+  call.mockResolvedValueOnce({ items: [], page: 1, pageSize: 20, total: 0 }); await expect(listWebhookDeliveryHistory(id)).resolves.toEqual({ items: [], page: 1, pageSize: 20, total: 0 });
+  call.mockResolvedValueOnce(delivery); await expect(getWebhookDeliveryHistory(id, id)).resolves.toEqual(delivery);
 });

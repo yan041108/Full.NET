@@ -86,6 +86,7 @@ const STEM_MODULE_OVERRIDES = new Map([
   ['DocumentQueryGovernance', 'Platform'],
   ['DocumentPreviewLifecycle', 'Platform'],
   ['WebhookFanoutBudget', 'Webhooks'],
+  ['WebhookDeliveryHistoryIndex', 'Webhooks'],
   ['DocumentAnonymousPreviewRequester', 'Platform'],
   ['SerialRuleApprovalCommands', 'Platform'],
   ['DataApprovalCommandReceipts', 'Workflow'],

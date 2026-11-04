@@ -2,6 +2,7 @@
 using System.Data.Common;
 using Full.NET.Data.Dapper;
 using Full.NET.Modules.Webhooks.Features.DeliverWebhooks.Persistence;
+using Full.NET.Modules.Webhooks.Features.ManageWebhookDeliveries.Persistence;
 using Full.NET.Modules.Webhooks.Features.ManageWebhookSubscriptions.Persistence;
 
 /// <summary>Webhooks 持久化相关类型；仅供 Dapper 或内部编排使用。</summary>
@@ -14,6 +15,10 @@ internal sealed class WebhooksDapperAotMaterializerContributor : IDapperAotMater
         registrar.Register<WebhookSubscriptionRecord>(ReadWebhookSubscriptionRecord);
         registrar.Register<WebhookSubscriptionDeliveryRecord>(ReadWebhookSubscriptionDeliveryRecord);
         registrar.Register<WebhookDeliveryWorkItem>(ReadWebhookDeliveryWorkItem);
+        registrar.Register<WebhookDeliveryHistoryRecord>(reader => new(
+            reader.GetGuid(0), reader.GetGuid(1), reader.GetGuid(2), reader.GetGuid(3), reader.GetString(4), reader.GetInt32(5),
+            AotDataReaderExtensions.ReadNullableDateTimeOffset(reader, 6), reader.IsDBNull(7) ? null : reader.GetString(7),
+            AotDataReaderExtensions.ReadDateTimeOffset(reader, 8), AotDataReaderExtensions.ReadDateTimeOffset(reader, 9), reader.GetInt32(10)));
     }
 
     private static WebhookSubscriptionRecord ReadWebhookSubscriptionRecord(DbDataReader reader) =>

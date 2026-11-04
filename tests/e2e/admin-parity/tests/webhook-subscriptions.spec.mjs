@@ -49,3 +49,35 @@ test('关闭在途创建后密钥清空，迟到响应不能误报成功',async(
  await page.getByRole('dialog').getByRole('button',{name:'取消',exact:true}).click();release();await expect.poll(()=>finished).toBe(true);await expect(page.getByTestId('webhook-unconfirmed')).toBeVisible();await expect(page.locator('.el-message--success')).toHaveCount(0);
  await page.getByTestId('webhook-create').click();await expect(page.getByTestId('webhook-secret')).toHaveValue('');await expect(page.getByTestId('webhook-create-submit')).toHaveCount(0);
 });
+
+const deliveryA='019bc2b1-2a40-7cc3-8992-a80de51bf297',deliveryB='019bc2b1-2a40-7cc3-8992-a80de51bf296',eventId='019bc2b1-2a40-7cc3-8992-a80de51bf295';
+const history={id:deliveryA,tenantId:id,subscriptionId:id,eventId,statusKey:'failed',attemptCount:2,nextAttemptAtUtc:null,lastErrorCode:'webhooks.delivery.http_error',lastHttpStatus:503,createdAtUtc:'2026-11-04T00:00:00Z',updatedAtUtc:'2026-11-04T00:01:00Z',version:3};
+const historyRights=['webhooks.subscriptions.read','webhooks.deliveries.read'];
+test('历史分页筛选与详情只读取原订阅，独立读取权限可用',async({page},info)=>{
+ await boot(page,historyRights);let lists=0,details=0;const queries=[];
+ await page.route(`**/api/v1/webhooks/subscriptions/${id}/deliveries?*`,route=>{lists++;const url=new URL(route.request().url());queries.push(url.search);const pageNumber=Number(url.searchParams.get('page'));return json(route,{items:[{...history,id:pageNumber===2?deliveryB:deliveryA}],page:pageNumber,pageSize:Number(url.searchParams.get('pageSize')),total:url.searchParams.has('statusKey')?1:21});});
+ await page.route(`**/api/v1/webhooks/subscriptions/${id}/deliveries/${deliveryA}`,route=>{details++;return json(route,history);});
+ await expect(page.getByTestId('webhook-create')).toHaveCount(0);await expect(page.getByTestId('webhook-status')).toHaveCount(0);await page.getByTestId('webhook-history-open').click();await expect.poll(()=>lists).toBe(1);
+ await page.locator('.webhook-history__pages .btn-next').click();await expect.poll(()=>lists).toBe(2);expect(queries[1]).toContain('page=2');
+ await page.getByTestId('webhook-history-filter').click();await page.getByRole('option',{name:'已失败',exact:true}).click();await expect.poll(()=>lists).toBe(3);expect(queries[2]).toContain('page=1');expect(queries[2]).toContain('statusKey=failed');
+ await page.getByTestId('webhook-history-page-size').click();await page.getByRole('option',{name:'50 条/页',exact:true}).click();await expect.poll(()=>lists).toBe(4);expect(queries[3]).toContain('page=1');expect(queries[3]).toContain('pageSize=50');
+ await page.getByTestId('webhook-history-detail').click();await expect(page.getByTestId('webhook-history-detail-panel')).toContainText('接收端返回 HTTP 503');await expect(page.getByTestId('webhook-history-detail-panel')).toContainText(deliveryA);expect(details).toBe(1);
+ const dialog=page.getByRole('dialog');const box=await dialog.boundingBox();expect(box.x).toBeGreaterThanOrEqual(0);expect(box.x+box.width).toBeLessThanOrEqual(page.viewportSize().width);
+ await page.screenshot({path:path.resolve(info.outputDir,'..','webhook-history.png'),fullPage:true,animations:'disabled'});
+ expect((await new AxeBuilder({page}).include('[role="dialog"]').withTags(['wcag2a','wcag2aa','wcag21a','wcag21aa']).analyze()).violations).toEqual([]);
+});
+test('历史失败可人工重读，错误投递详情不能冒充原记录',async({page})=>{
+ await boot(page,historyRights);let lists=0,details=0;
+ await page.route(`**/api/v1/webhooks/subscriptions/${id}/deliveries?*`,route=>{lists++;return lists===1?route.abort('failed'):json(route,{items:[history],page:1,pageSize:20,total:1});});
+ await page.route(`**/api/v1/webhooks/subscriptions/${id}/deliveries/${deliveryA}`,route=>{details++;return json(route,details===1?{...history,id:deliveryB}:history);});
+ await page.getByTestId('webhook-history-open').click();await expect(page.getByTestId('webhook-history-problem')).toBeVisible();expect(lists).toBe(1);
+ await page.getByTestId('webhook-history-refresh').click();await expect(page.getByTestId('webhook-history-detail')).toBeEnabled();expect(lists).toBe(2);
+ await page.getByTestId('webhook-history-detail').click();await expect(page.getByTestId('webhook-history-detail-problem')).toBeVisible();await expect(page.getByTestId('webhook-history-detail-panel')).not.toContainText(deliveryB);
+ await page.getByTestId('webhook-history-detail').click();await expect(page.getByTestId('webhook-history-detail-panel')).toContainText(deliveryA);expect(details).toBe(2);
+});
+test('关闭历史在途读取会中止，迟到列表不恢复原抽屉',async({page})=>{
+ await boot(page,historyRights);let release,started=false,finished=false,reads=0;const pending=new Promise(resolve=>{release=resolve;});
+ await page.route(`**/api/v1/webhooks/subscriptions/${id}/deliveries?*`,async route=>{reads++;if(reads===1){started=true;await pending;await json(route,{items:[history],page:1,pageSize:20,total:1}).catch(()=>{});finished=true;}else await json(route,{items:[history],page:1,pageSize:20,total:1});});
+ await page.getByTestId('webhook-history-open').click();await expect.poll(()=>started).toBe(true);await page.locator('.el-drawer__close-btn').click();await expect(page.getByRole('dialog')).toHaveCount(0);release();await expect.poll(()=>finished).toBe(true);await expect(page.getByTestId('webhook-history')).toHaveCount(0);
+ await page.getByTestId('webhook-history-open').click();await expect(page.getByTestId('webhook-history-detail')).toBeEnabled();expect(reads).toBe(2);
+});

@@ -1,5 +1,6 @@
 import { isGuid, readWebhookSubscription, readWebhookSubscriptions, type WebhookSubscription, type CreateWebhookSubscription, type SetWebhookSubscriptionStatus } from '@fullnet/client-contracts';
 import { request } from './http';
+import { readWebhookDeliveryHistory, readWebhookDeliveryHistoryPage, type WebhookDeliveryHistory, type WebhookDeliveryHistoryPage, type WebhookDeliveryStatusKey } from '@fullnet/client-contracts';
 
 /** 读取仅返回当前可信企业的订阅，不缓存或接受客户端指定企业。 */
 export async function listWebhookSubscriptions(signal?: AbortSignal): Promise<WebhookSubscription[]> {
@@ -19,5 +20,23 @@ export async function setWebhookSubscriptionStatus(id: string, body: SetWebhookS
   const snapshot = { ...body };
   const result = readWebhookSubscription(await request<unknown>(`/api/v1/webhooks/subscriptions/${encodeURIComponent(id)}/status`, { method: 'POST', body: JSON.stringify(snapshot) }, signal, { retryUnauthorized: false }));
   if (result.id.toLowerCase() !== id.toLowerCase() || result.isActive !== snapshot.isActive || result.version < snapshot.version) throw Error('client.invalid_webhook_subscription_status_response');
+  return result;
+}
+
+/** 只读取明确订阅的有界页，不允许响应切换到其他资源。 */
+export async function listWebhookDeliveryHistory(subscriptionId: string, page = 1, pageSize = 20, statusKey?: WebhookDeliveryStatusKey, signal?: AbortSignal): Promise<WebhookDeliveryHistoryPage> {
+  if (!isGuid(subscriptionId) || subscriptionId === '00000000-0000-0000-0000-000000000000' || !Number.isSafeInteger(page) || page < 1
+    || !Number.isSafeInteger(pageSize) || pageSize < 1 || pageSize > 100 || (page - 1) * pageSize > 2_147_483_647
+    || statusKey !== undefined && !['pending','processing','delivered','failed'].includes(statusKey)) throw Error('client.invalid_webhook_history_request');
+  const query = new URLSearchParams({ page: String(page), pageSize: String(pageSize) }); if (statusKey) query.set('statusKey', statusKey);
+  const result = readWebhookDeliveryHistoryPage(await request<unknown>(`/api/v1/webhooks/subscriptions/${encodeURIComponent(subscriptionId)}/deliveries?${query}`, { method: 'GET' }, signal));
+  if (result.page !== page || result.pageSize !== pageSize || result.items.some(row => row.subscriptionId.toLowerCase() !== subscriptionId.toLowerCase() || statusKey && row.statusKey !== statusKey)) throw Error('client.invalid_webhook_history_page_identity');
+  return result;
+}
+/** 单条详情始终绑定原订阅和明确投递，读取不触发重放。 */
+export async function getWebhookDeliveryHistory(subscriptionId: string, deliveryId: string, signal?: AbortSignal): Promise<WebhookDeliveryHistory> {
+  if (![subscriptionId, deliveryId].every(id => isGuid(id) && id !== '00000000-0000-0000-0000-000000000000')) throw Error('client.invalid_webhook_history_identity');
+  const result = readWebhookDeliveryHistory(await request<unknown>(`/api/v1/webhooks/subscriptions/${encodeURIComponent(subscriptionId)}/deliveries/${encodeURIComponent(deliveryId)}`, { method: 'GET' }, signal));
+  if (result.id.toLowerCase() !== deliveryId.toLowerCase() || result.subscriptionId.toLowerCase() !== subscriptionId.toLowerCase()) throw Error('client.invalid_webhook_history_identity');
   return result;
 }

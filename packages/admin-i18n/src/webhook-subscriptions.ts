@@ -1,4 +1,14 @@
 export const webhookSubscriptionsZh = {
+  'webhooks.history.title': '投递历史', 'webhooks.history.detail': '投递详情', 'webhooks.history.all': '全部状态',
+  'webhooks.history.pageSize': '每页条数',
+  'webhooks.history.pageSizeValue': '{size} 条/页',
+  'webhooks.history.pending': '等待投递', 'webhooks.history.processing': '正在投递', 'webhooks.history.delivered': '已送达', 'webhooks.history.failed': '已失败',
+  'webhooks.history.deliveryId': '投递标识', 'webhooks.history.eventId': '原事件标识', 'webhooks.history.attempts': '已完成尝试',
+  'webhooks.history.created': '入队时间', 'webhooks.history.updated': '最近更新', 'webhooks.history.next': '下次尝试',
+  'webhooks.history.failure': '上次失败类别', 'webhooks.history.httpError': '接收端返回 HTTP {status}',
+  'webhooks.history.timeout': '投递超时，请核对接收端是否已处理。', 'webhooks.history.otherError': '网络、地址策略或配置错误，请由运维核对。',
+  'webhooks.history.empty': '当前筛选下暂无投递记录。', 'webhooks.history.readFailed': '无法读取投递历史，请手动刷新。',
+  'webhooks.history.snapshotHint': '每行显示该事件投递的当前快照及已完成尝试次数，可用原事件和投递标识在接收端核对结果。',
   'webhooks.status': '状态',
   'navigation.webhooks.title': 'Webhook 订阅', 'navigation.webhooks.caption': '管理当前企业的事件回调',
   'webhooks.title': 'Webhook 订阅', 'webhooks.tenantRequired': '请先进入企业，再管理该企业的订阅。',
@@ -15,6 +25,16 @@ export const webhookSubscriptionsZh = {
   'webhooks.inputInvalid': '请填写事件类型、有效的 HTTPS 地址及符合长度要求的签名密钥。'
 } as const;
 export const webhookSubscriptionsEn: Record<keyof typeof webhookSubscriptionsZh, string> = {
+  'webhooks.history.title': 'Delivery history', 'webhooks.history.detail': 'Delivery details', 'webhooks.history.all': 'All states',
+  'webhooks.history.pageSize': 'Page size',
+  'webhooks.history.pageSizeValue': '{size} / page',
+  'webhooks.history.pending': 'Pending', 'webhooks.history.processing': 'Processing', 'webhooks.history.delivered': 'Delivered', 'webhooks.history.failed': 'Failed',
+  'webhooks.history.deliveryId': 'Delivery ID', 'webhooks.history.eventId': 'Original event ID', 'webhooks.history.attempts': 'Completed attempts',
+  'webhooks.history.created': 'Queued', 'webhooks.history.updated': 'Last updated', 'webhooks.history.next': 'Next attempt',
+  'webhooks.history.failure': 'Last failure category', 'webhooks.history.httpError': 'The receiver returned HTTP {status}',
+  'webhooks.history.timeout': 'Delivery timed out. Check whether the receiver processed it.', 'webhooks.history.otherError': 'A network, address policy or configuration error occurred. Ask operations to check.',
+  'webhooks.history.empty': 'No deliveries match the current filter.', 'webhooks.history.readFailed': 'Delivery history could not be read. Refresh manually.',
+  'webhooks.history.snapshotHint': 'Each row shows the current event delivery snapshot and completed attempt count. Use the original event and delivery IDs to check the outcome at the receiver.',
   'webhooks.status': 'Status',
   'navigation.webhooks.title': 'Webhook subscriptions', 'navigation.webhooks.caption': 'Manage event callbacks for the current tenant',
   'webhooks.title': 'Webhook subscriptions', 'webhooks.tenantRequired': 'Enter a tenant before managing its subscriptions.',
