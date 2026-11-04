@@ -8,6 +8,7 @@ using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Tenancy.Contracts;
 using Full.NET.Modules.Webhooks.Contracts;
 using Full.NET.Modules.Webhooks.Features.DeliverWebhooks;
+using Full.NET.Modules.Webhooks.Security;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Full.NET.IntegrationTests.Api;
@@ -16,6 +17,45 @@ namespace Full.NET.IntegrationTests.Api;
 [TestClass]
 public sealed class WebhookSubscriptionConsoleTests
 {
+    [TestMethod]
+    [DataRow(DatabaseProvider.SqlServer)]
+    [DataRow(DatabaseProvider.MySql)]
+    public async Task Creation_matches_ascii_event_and_encrypted_secret_storage_budgets(DatabaseProvider provider)
+    {
+        using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(120)); var token = deadline.Token;
+        var connection = provider == DatabaseProvider.SqlServer ? await SharedDatabaseFixture.CreateSqlServerDatabaseAsync() : await SharedDatabaseFixture.CreateMySqlDatabaseAsync();
+        using var factory = new FullNetApiFactory(provider, connection); await factory.InitializeAsync(token);
+        using var host = factory.CreateClientForHost("localhost"); using var client = factory.CreateClientForHost("acme.localhost");
+        var tenant = await IntegrationTestTenantContextHelper.GetCurrentTenantAsync(client, token);
+        var access = await factory.CreateHostAccessTokenAsync([WebhookPermissions.SubscriptionsRead, WebhookPermissions.SubscriptionsManage, "tenancy.tenants.switch"], token);
+        client.DefaultRequestHeaders.Authorization = new("Bearer", await IntegrationTestTenantContextHelper.SwitchToTenantAsync(host, access, tenant.Id, token));
+        var secret = new string('界', 128);
+        using var created = await client.PostAsJsonAsync("/api/v1/webhooks/subscriptions", new CreateWebhookSubscriptionRequest(new string('x', 128), "https://example.com/hooks/budget", secret), token);
+        Assert.AreEqual(HttpStatusCode.OK, created.StatusCode);
+        using (var body = JsonDocument.Parse(await created.Content.ReadAsStringAsync(token)))
+            Assert.IsFalse(body.RootElement.TryGetProperty("signingSecret", out _));
+        var result = await created.Content.ReadFromJsonAsync<WebhookSubscriptionResponse>(token); Assert.IsNotNull(result);
+        foreach (var invalid in new[] {
+            new CreateWebhookSubscriptionRequest(new string('x', 129), "https://example.com/hooks/budget", "valid-independent-secret"),
+            new CreateWebhookSubscriptionRequest("企业事件", "https://example.com/hooks/budget", "valid-independent-secret"),
+            new CreateWebhookSubscriptionRequest("event\ninvalid", "https://example.com/hooks/budget", "valid-independent-secret"),
+            new CreateWebhookSubscriptionRequest("secret-too-long", "https://example.com/hooks/budget", new string('x', 129)),
+            new CreateWebhookSubscriptionRequest("secret-too-short", "https://example.com/hooks/budget", new string('x', 15)) })
+        {
+            using var response = await client.PostAsJsonAsync("/api/v1/webhooks/subscriptions", invalid, token);
+            Assert.AreEqual(HttpStatusCode.BadRequest, response.StatusCode);
+            using var body = JsonDocument.Parse(await response.Content.ReadAsStringAsync(token)); Assert.AreEqual(WebhookErrorCodes.SubscriptionInvalid, body.RootElement.GetProperty("code").GetString());
+        }
+        await using var scope = factory.Services.CreateAsyncScope(); scope.ServiceProvider.GetRequiredService<CurrentTenantAccessor>().SetTenant(new(tenant.Id, "acme", "Acme"));
+        var queries = scope.ServiceProvider.GetRequiredService<IQueryExecutor>();
+        var protectedSecret = await queries.QuerySingleOrDefaultAsync<string>(new("test.webhooks.console.secret_budget", "SELECT SigningSecretHash FROM fn_webhooks_subscription WHERE TenantId=@TenantId AND Id=@Id", SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId), new Dictionary<string, object?> { ["Id"] = result.Id }, token);
+        Assert.IsNotNull(protectedSecret); Assert.IsTrue(protectedSecret.Length <= 1024);
+        Assert.IsTrue(scope.ServiceProvider.GetRequiredService<WebhookSigningSecretProtector>().Unprotect(protectedSecret) == secret);
+        Assert.AreEqual(1, await queries.QuerySingleOrDefaultAsync<int>(new("test.webhooks.console.budget_count", "SELECT COUNT(*) FROM fn_webhooks_fanout_budget WHERE TenantId=@TenantId", SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId), cancellationToken: token));
+        using var listed = await client.GetAsync("/api/v1/webhooks/subscriptions", token); Assert.AreEqual(HttpStatusCode.OK, listed.StatusCode);
+        var rows = await listed.Content.ReadFromJsonAsync<WebhookSubscriptionResponse[]>(token); Assert.IsNotNull(rows); Assert.AreEqual(1, rows.Length);
+    }
+
     [TestMethod]
     [DataRow(DatabaseProvider.SqlServer)]
     [DataRow(DatabaseProvider.MySql)]

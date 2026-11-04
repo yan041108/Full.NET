@@ -92,14 +92,20 @@ internal sealed class WebhookSubscriptionManagementService(
         }
 
         var eventType = request.EventType?.Trim();
-        if (string.IsNullOrWhiteSpace(eventType) || eventType.Length > 256
-            || request.TargetUrl.Length > 2048 || request.SigningSecret is not { Length: >= 16 and <= 1024 })
+        if (string.IsNullOrWhiteSpace(eventType) || eventType.Length > 128 || eventType.Any(value => value < '!' || value > '~')
+            || request.TargetUrl.Length > 2048 || request.SigningSecret is not { Length: >= 16 and <= 128 })
         {
             return Result<WebhookSubscriptionResponse>.Failure(new Error(
                 WebhookErrorCodes.SubscriptionInvalid,
                 "The event, target or signing secret is invalid.",
                 ErrorType.Validation));
         }
+
+        // 正式双库事件键为 128 字符 ASCII；签名材料加密后的实际长度也必须落在现有存储预算内。
+        var protectedSecret = signingSecretProtector.Protect(request.SigningSecret);
+        if (protectedSecret.Length > 1024)
+            return Result<WebhookSubscriptionResponse>.Failure(new Error(WebhookErrorCodes.SubscriptionInvalid,
+                "The protected signing secret exceeds the storage budget.", ErrorType.Validation));
 
         var budget = WebhookSqlParameters.Create(("TenantId", currentTenant.Id.Value),
             ("EventType", eventType), ("MaximumTargets", 500));
@@ -120,7 +126,7 @@ internal sealed class WebhookSubscriptionManagementService(
                     ("TenantId", currentTenant.Id.Value),
                     ("EventType", eventType),
                     ("TargetUrl", urlValidation.Value),
-                    ("SigningSecretHash", signingSecretProtector.Protect(request.SigningSecret)),
+                    ("SigningSecretHash", protectedSecret),
                     ("CreatedAtUtc", now),
                     ("UpdatedAtUtc", now)),
                 cancellationToken)

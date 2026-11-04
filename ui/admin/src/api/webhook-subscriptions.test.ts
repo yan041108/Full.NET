@@ -29,3 +29,12 @@ it('重复订阅标识与错误状态响应拒绝接纳', async () => {
   call.mockResolvedValue([row, row]); await expect(listWebhookSubscriptions()).rejects.toThrow();
   call.mockResolvedValue(row); await expect(setWebhookSubscriptionStatus(id, { isActive: false, version: 1 })).rejects.toThrow();
 });
+it.each([
+  { eventType: 'x'.repeat(129), signingSecret: 'valid-independent-secret' },
+  { eventType: '企业事件', signingSecret: 'valid-independent-secret' },
+  { eventType: 'event\ninvalid', signingSecret: 'valid-independent-secret' },
+  { eventType: row.eventType, signingSecret: 'x'.repeat(129) },
+  { eventType: row.eventType, signingSecret: 'x'.repeat(15) }
+])('存储预算以外的输入在请求前拒绝 %j', async input => {
+  await expect(createWebhookSubscription({ ...input, targetUrl: row.targetUrl })).rejects.toThrow(); expect(call).not.toHaveBeenCalled();
+});

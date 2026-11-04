@@ -83,7 +83,7 @@ public sealed record WebhookSubscriptionResponse(
 /// </remarks>
 /// <param name="EventType">订阅的事件类型稳定标识。</param>
 /// <param name="TargetUrl">接收投递的 HTTPS 端点绝对地址；必须通过 URL 合法性校验。</param>
-/// <param name="SigningSecret">用于签名投递负载的 16～1024 字符密钥；以 Data Protection 加密持久化。</param>
+/// <param name="SigningSecret">用于签名投递负载的 16～128 字符密钥；以 Data Protection 加密持久化。</param>
 public sealed record CreateWebhookSubscriptionRequest(
     string EventType,
     string TargetUrl,

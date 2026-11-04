@@ -8,7 +8,7 @@ export async function listWebhookSubscriptions(signal?: AbortSignal): Promise<We
 /** 创建无幂等回执，认证失败也不能自动重放；密钥只存在当前确认输入中。 */
 export async function createWebhookSubscription(body: CreateWebhookSubscription, signal?: AbortSignal): Promise<WebhookSubscription> {
   const snapshot = { eventType: body.eventType.trim(), targetUrl: body.targetUrl.trim(), signingSecret: body.signingSecret };
-  if (!snapshot.eventType || snapshot.eventType.length > 256 || snapshot.targetUrl.length > 2048 || snapshot.signingSecret.length < 16 || snapshot.signingSecret.length > 1024) throw Error('client.invalid_webhook_subscription_request');
+  if (!/^[\x21-\x7E]{1,128}$/u.test(snapshot.eventType) || snapshot.targetUrl.length > 2048 || snapshot.signingSecret.length < 16 || snapshot.signingSecret.length > 128) throw Error('client.invalid_webhook_subscription_request');
   const result = readWebhookSubscription(await request<unknown>('/api/v1/webhooks/subscriptions', { method: 'POST', body: JSON.stringify(snapshot) }, signal, { retryUnauthorized: false }));
   if (result.eventType !== snapshot.eventType || result.targetUrl !== snapshot.targetUrl || !result.isActive) throw Error('client.invalid_webhook_subscription_identity');
   return result;

@@ -233,7 +233,8 @@
           },
           "eventType": {
             "type": "string",
-            "maxLength": 256
+            "maxLength": 128,
+            "pattern": "^[\\x21-\\x7E]{1,128}$"
           },
           "targetUrl": {
             "type": "string",
@@ -262,7 +263,8 @@
           "eventType": {
             "type": "string",
             "minLength": 1,
-            "maxLength": 256
+            "maxLength": 128,
+            "pattern": "^[\\x21-\\x7E]{1,128}$"
           },
           "targetUrl": {
             "type": "string",
@@ -272,7 +274,7 @@
           "signingSecret": {
             "type": "string",
             "minLength": 16,
-            "maxLength": 1024,
+            "maxLength": 128,
             "writeOnly": true
           }
         }

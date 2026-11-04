@@ -435,7 +435,7 @@ dotnet run --project benchmarks/Full.NET.Benchmarks/Full.NET.Benchmarks.csproj -
 
 进入目标企业后，在“Webhook 订阅”查看本企业的事件和 HTTPS 接收地址。读取使用 `webhooks.subscriptions.read`，创建使用 `webhooks.subscriptions.manage`，暂停/恢复使用独立的 `webhooks.subscriptions.set_status`；Host 页面只提示先进入企业，不读取或指定另一企业的数据。当前已接线的工作流完成事件键为 `fullnet.workflow.instance.completed`，填写未接线的自定义键不会自动产生事件。
 
-创建时为接收端配置独立随机签名密钥（16～1024 字符），目标必须满足现有 HTTPS 和 SSRF 校验。服务端使用 Data Protection 加密保存，读取模型不回显密钥；页面关闭或创建成功即清空输入。生产多实例仍须共享并妥善保护 Data Protection 密钥环，签名接收与验证遵循现有 Webhook 协议和样例。
+事件键使用 1～128 个可打印 ASCII 字符；创建时为接收端配置独立随机签名密钥（16～128 字符），目标必须满足现有 HTTPS 和 SSRF 校验。服务端使用 Data Protection 加密保存，并在保留扇出名额前核验加密材料未超过存储预算；读取模型不回显密钥，页面关闭或创建成功即清空输入。生产多实例仍须共享并妥善保护 Data Protection 密钥环，签名接收与验证遵循现有 Webhook 协议和样例。
 
 暂停/恢复先核对原事件、地址和修订，再明确确认。暂停阻止之后的扇出与待投递领取，保留历史和原队列；已领取或已发出的投递可能仍会继续。恢复启用后处理原队列，不重建暂停期间未产生的历史事件。重复设置当前状态不推进版本，旧版本返回 `409 / webhooks.subscription.version_conflict`，须重读后重新确认；暂停不释放该事件的订阅名额。
 

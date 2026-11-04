@@ -25,6 +25,7 @@ test('订阅暂停与恢复明确确认，旧历史保留且移动弹窗可见',
 });
 test('创建不回显签名密钥，成功后清空并保留回执',async({page},info)=>{
  const state=await boot(page);await page.getByTestId('webhook-create').click();await page.getByTestId('webhook-target').fill(subscription.targetUrl);await page.getByTestId('webhook-secret').fill('browser-independent-secret');
+ await expect(page.getByTestId('webhook-event')).toHaveAttribute('maxlength','128');await expect(page.getByTestId('webhook-secret')).toHaveAttribute('maxlength','128');
  // 先完成有限入场动画再检查对比度，避免把过渡透明度当作静态颜色。
  await page.screenshot({path:path.resolve(info.outputDir,'..','webhook-create.png'),fullPage:true,animations:'disabled'});
  expect((await new AxeBuilder({page}).include('[role="dialog"]').withTags(['wcag2a','wcag2aa','wcag21a','wcag21aa']).analyze()).violations).toEqual([]);

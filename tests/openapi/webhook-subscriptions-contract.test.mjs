@@ -9,6 +9,8 @@ test('Webhook 状态契约保留版本、独立动作和不回显密钥', () => 
  assert.equal(operation.operationId, 'webhooksSetSubscriptionStatus'); assert.deepEqual(Object.keys(operation.responses).sort(), ['200','400','401','403','404','409']);
  assert.deepEqual(fixture.components.schemas.SetWebhookSubscriptionStatusRequest.required, ['isActive','version']);
  assert.equal(fixture.components.schemas.CreateWebhookSubscriptionRequest.properties.signingSecret.writeOnly, true);
+ assert.equal(fixture.components.schemas.CreateWebhookSubscriptionRequest.properties.signingSecret.maxLength, 128);
+ assert.equal(fixture.components.schemas.CreateWebhookSubscriptionRequest.properties.eventType.maxLength, 128);
  assert.equal('signingSecret' in fixture.components.schemas.WebhookSubscriptionResponse.properties, false);
 });
 test('Webhook 实际 API、共享模型及页面调用点完整登记', async () => {

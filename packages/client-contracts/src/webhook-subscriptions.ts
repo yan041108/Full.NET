@@ -9,7 +9,7 @@ export interface SetWebhookSubscriptionStatus { isActive: boolean; version: numb
 export function readWebhookSubscription(value: unknown): WebhookSubscription {
   if (!isRecord(value) || !isGuid(value.id) || !isGuid(value.tenantId)
     || [value.id, value.tenantId].includes('00000000-0000-0000-0000-000000000000')
-    || typeof value.eventType !== 'string' || !value.eventType.trim() || value.eventType.length > 256
+    || typeof value.eventType !== 'string' || !/^[\x21-\x7E]{1,128}$/u.test(value.eventType)
     || typeof value.targetUrl !== 'string' || value.targetUrl.length > 2048 || typeof value.isActive !== 'boolean') throw Error('client.invalid_webhook_subscription');
   const version = typeof value.version === 'string' && /^[1-9]\d*$/u.test(value.version) ? Number(value.version) : value.version;
   if (!Number.isSafeInteger(version) || (version as number) < 1 || (version as number) > 2_147_483_647) throw Error('client.invalid_webhook_subscription_version');

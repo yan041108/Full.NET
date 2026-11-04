@@ -67,7 +67,7 @@ function openCreate() { if (!canCreate() || changing.value || loading.value) ret
 async function submitCreate() {
   if (!canCreate() || !editorOpen.value || changing.value || createBlocked.value) return;
   const snapshot = { eventType: form.eventType.trim(), targetUrl: form.targetUrl.trim(), signingSecret: form.signingSecret };
-  try { if (!snapshot.eventType || snapshot.eventType.length > 256 || new URL(snapshot.targetUrl).protocol !== 'https:' || snapshot.signingSecret.length < 16 || snapshot.signingSecret.length > 1024) throw Error(); }
+  try { if (!/^[\x21-\x7E]{1,128}$/u.test(snapshot.eventType) || new URL(snapshot.targetUrl).protocol !== 'https:' || snapshot.signingSecret.length < 16 || snapshot.signingSecret.length > 128) throw Error(); }
   catch { problem.value = t('webhooks.inputInvalid'); return; }
   const request = scope.begin(create); if (!request) return;
   action = { request, kind: 'create', target: { eventType: snapshot.eventType, targetUrl: snapshot.targetUrl }, dispatched: true };
@@ -138,9 +138,9 @@ const reviewControls = computed(() => {
       <ArtFormDialog :open="editorOpen" width="min(620px, 94vw)" :title="t('webhooks.create')" :saving="changing" :show-confirm="canCreate() && !createBlocked" :confirm-label="t('common.confirm')" :cancel-label="t('common.cancel')" confirm-test-id="webhook-create-submit" v-on="{ confirm: editorControls.confirm, 'update:open': editorControls.update }">
         <ElAlert v-if="problem" :closable="false" type="error" :title="problem" />
         <ElForm label-position="top">
-          <ElFormItem :label="t('webhooks.event')" required><ElInput :model-value="form.eventType" data-testid="webhook-event" :disabled="changing" maxlength="256" v-on="{ 'update:modelValue': editorControls.event }" /></ElFormItem>
+          <ElFormItem :label="t('webhooks.event')" required><ElInput :model-value="form.eventType" data-testid="webhook-event" :disabled="changing" maxlength="128" v-on="{ 'update:modelValue': editorControls.event }" /></ElFormItem>
           <ElFormItem :label="t('webhooks.target')" required><ElInput :model-value="form.targetUrl" data-testid="webhook-target" :disabled="changing" maxlength="2048" autocomplete="off" v-on="{ 'update:modelValue': editorControls.target }" /></ElFormItem>
-          <ElFormItem :label="t('webhooks.secret')" required><ElInput :model-value="form.signingSecret" data-testid="webhook-secret" type="password" :disabled="changing" maxlength="1024" autocomplete="new-password" v-on="{ 'update:modelValue': editorControls.secret }" /></ElFormItem>
+          <ElFormItem :label="t('webhooks.secret')" required><ElInput :model-value="form.signingSecret" data-testid="webhook-secret" type="password" :disabled="changing" maxlength="128" autocomplete="new-password" v-on="{ 'update:modelValue': editorControls.secret }" /></ElFormItem>
         </ElForm><p>{{ t('webhooks.secretHint') }}</p>
       </ArtFormDialog>
       <ArtFormDialog v-if="confirmation" :key="confirmation.token" :open="true" width="min(560px, 94vw)" :title="t(confirmation.active ? 'webhooks.resume' : 'webhooks.pause')" :saving="changing" :confirm-label="t('common.confirm')" :cancel-label="t('common.cancel')" confirm-test-id="webhook-status-confirm" v-on="{ confirm: confirmationControls.confirm, 'update:open': confirmationControls.update }"><p>{{ confirmation.task.eventType }}</p><p class="webhook-subscriptions-view__target">{{ confirmation.task.targetUrl }}</p><p>{{ t('webhooks.statusHint') }}</p></ArtFormDialog>
