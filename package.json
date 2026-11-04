@@ -8,6 +8,8 @@
   },
   "scripts": {
     "doctor": "node scripts/doctor.mjs",
+    "sample:webhook-consumer": "node samples/webhook-consumer/server.mjs",
+    "test:webhook-consumer": "node --test tests/webhook-consumer.test.mjs",
     "db:diagnose": "node scripts/database/diagnose.mjs",
     "db:diagnose:build": "node scripts/database/build.mjs",
     "test:database-diagnostics": "node scripts/database/test.mjs",
