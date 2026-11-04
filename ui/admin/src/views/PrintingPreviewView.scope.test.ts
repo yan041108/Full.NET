@@ -4,19 +4,25 @@ import { flushPromises, mount, type VueWrapper } from '@vue/test-utils';
 import { defineComponent, h, KeepAlive, ref } from 'vue';
 import PrintingPreviewView from './PrintingPreviewView.vue';
 import * as api from '../api/printing-templates';
-import * as feedback from '../feedback/fullNetMessage';
+import { ElMessage } from 'element-plus';
 import { createShareSession } from '../test/document-share-fixtures';
-import { deferred, printResult, printTemplate } from '../test/data-output-fixtures';
+import { deferred, printTemplate } from '../test/data-output-fixtures';
+import type { PrintingTemplate, PrintingTemplateVersion } from '@fullnet/client-contracts';
 
 vi.mock('../api/printing-templates', () => ({ createPrintingTemplate: vi.fn(), listPrintingTemplates: vi.fn(),
-  previewPrintingTemplate: vi.fn(), publishPrintingTemplate: vi.fn() }));
+  previewPrintingTemplate: vi.fn(), publishPrintingTemplate: vi.fn(), getPrintingTemplate: vi.fn(), getPrintingTemplateVersion: vi.fn(), listPrintingTemplateVersions: vi.fn(), updatePrintingTemplate: vi.fn() }));
 const permissions = ['printing.templates.read', 'printing.templates.create', 'printing.templates.publish', 'printing.templates.preview'];
 const other = { ...printTemplate, id: '01980000-0000-7000-8000-000000000003', templateKey: 'other', name: '其他模板' };
+const created: PrintingTemplate = { ...printTemplate, id: '01980000-0000-7000-8000-000000000004', latestPublishedVersionNumber: 0 };
+const layout: PrintingTemplateVersion = { ...hostPrintingVersion(), layoutHtml: '<div>私有版式内容</div>' };
+const summary = ({ layoutHtml: _, ...value }: PrintingTemplate) => value;
 let wrapper: VueWrapper | undefined; let visible = ref(true);
 beforeEach(() => {
-  vi.resetAllMocks(); vi.mocked(api.listPrintingTemplates).mockResolvedValue(((items) => ({ items, page: 1, pageSize: 20, total: items.length }))([printTemplate, other]));
-  vi.mocked(api.createPrintingTemplate).mockResolvedValue({ ...printTemplate, latestPublishedVersionNumber: 0 }); vi.mocked(api.publishPrintingTemplate).mockResolvedValue(hostPrintingVersion());
-  vi.mocked(api.previewPrintingTemplate).mockResolvedValue(printResult);
+  vi.resetAllMocks(); vi.mocked(api.listPrintingTemplates).mockResolvedValue({ items: [summary(printTemplate), summary(other)], page: 1, pageSize: 20, total: 2 });
+  vi.mocked(api.createPrintingTemplate).mockResolvedValue(created); vi.mocked(api.publishPrintingTemplate).mockResolvedValue(hostPrintingVersion(created));
+  vi.mocked(api.getPrintingTemplate).mockImplementation(async id => id === created.id ? created : id === other.id ? other : printTemplate);
+  vi.mocked(api.getPrintingTemplateVersion).mockResolvedValue(layout);
+  const { layoutHtml: _, ...published } = layout; vi.mocked(api.listPrintingTemplateVersions).mockResolvedValue({ items: [published], page: 1, pageSize: 20, total: 1 });
 });
 afterEach(() => { wrapper?.unmount(); wrapper = undefined; vi.restoreAllMocks(); });
 async function setup(granted = permissions, keepAlive = false, tenantId: string | null = null) {
@@ -29,11 +35,13 @@ async function setup(granted = permissions, keepAlive = false, tenantId: string 
 }
 function vm() { return wrapper!.findComponent(PrintingPreviewView).vm as unknown as {
   createDialogVisible: boolean; creating: boolean; previewing: boolean; loading: boolean; selectedTemplateId: string;
+  publishOpen: boolean; preview?: unknown; writeReceipt?: { outcome: string }; recoveryPrompt?: { confirm: () => void };
   createForm: { templateKey: string; name: string; layoutHtml: string };
-  acknowledgeRecovery: (kind: 'create') => Promise<void>; finishRecovery: (value: boolean) => void;
-  load: () => Promise<unknown>; submitCreate: () => Promise<void>; runPreview: (printAfter?: boolean) => Promise<void>;
+  acknowledgeRecovery: () => void;
+  load: () => Promise<unknown>; submitCreate: () => Promise<void>; runPreview: () => Promise<void>; printPreview: () => Promise<void>; confirmPublish: () => Promise<void>; publishSelected: () => Promise<void>;
 }; }
-async function openCreate() { await flushPromises(); await wrapper!.get('[data-testid="printing-preview-create"]').trigger('click'); await flushPromises(); }
+async function openCreate() { await flushPromises(); await wrapper!.get('[data-testid="printing-preview-create"]').trigger('click'); await flushPromises();
+  await wrapper!.get('[data-testid="printing-template-key"]').setValue(created.templateKey); await wrapper!.get('[data-testid="printing-template-name"]').setValue(created.name); await wrapper!.get('[data-testid="printing-template-layout"]').setValue(created.layoutHtml); }
 
 describe('Host 打印创建、目录与输出归属', () => {
   it('缺少页面读取权限不显示创建入口或发送直接操作', async () => {
@@ -49,18 +57,20 @@ describe('Host 打印创建、目录与输出归属', () => {
   it('未打开创建弹窗不能直接提交', async () => { await setup(); await vm().submitCreate(); expect(api.createPrintingTemplate).not.toHaveBeenCalled(); });
   it.each(['resolve', 'reject'] as const)('关闭创建取消请求，迟到%s不能发布、刷新或反馈', async outcome => {
     const pending = deferred<typeof printTemplate>(); vi.mocked(api.createPrintingTemplate).mockReturnValueOnce(pending.promise);
-    const success = vi.spyOn(feedback, 'showSuccess'); await setup(); await openCreate(); const action = vm().submitCreate();
+    const success = vi.spyOn(ElMessage, 'success'); await setup(); await openCreate(); const action = vm().submitCreate();
     const signal = vi.mocked(api.createPrintingTemplate).mock.calls[0]![1]!; vm().createDialogVisible = false;
     expect(signal.aborted).toBe(true); if (outcome === 'resolve') pending.resolve(printTemplate); else pending.reject(new Error('late'));
     await action; expect(api.publishPrintingTemplate).not.toHaveBeenCalled(); expect(api.listPrintingTemplates).toHaveBeenCalledOnce();
     expect(api.previewPrintingTemplate).not.toHaveBeenCalled(); expect(success).not.toHaveBeenCalled();
   });
-  it('关闭发布等待取消同一创建流程，不继续读取目录', async () => {
+  it('草稿保存后显式发布，关闭发布等待取消接入且不继续补读', async () => {
     const pending = deferred<ReturnType<typeof hostPrintingVersion>>(); vi.mocked(api.publishPrintingTemplate).mockReturnValueOnce(pending.promise);
-    await setup(); await openCreate(); const action = vm().submitCreate(); await flushPromises();
-    const signal = vi.mocked(api.publishPrintingTemplate).mock.calls[0]![2]!; vm().createDialogVisible = false;
-    expect(signal.aborted).toBe(true); pending.resolve(hostPrintingVersion()); await action;
-    expect(api.listPrintingTemplates).toHaveBeenCalledOnce(); expect(api.previewPrintingTemplate).not.toHaveBeenCalled();
+    await setup(); vi.mocked(api.listPrintingTemplates).mockResolvedValueOnce({ items: [summary(created)], page: 1, pageSize: 20, total: 1 });
+    await openCreate(); await vm().submitCreate(); expect(api.publishPrintingTemplate).not.toHaveBeenCalled();
+    await vm().confirmPublish(); const action = vm().publishSelected(); await flushPromises();
+    const signal = vi.mocked(api.publishPrintingTemplate).mock.calls[0]![2]!; vm().publishOpen = false;
+    expect(signal.aborted).toBe(true); pending.resolve(hostPrintingVersion(created)); await action;
+    expect(api.listPrintingTemplates).toHaveBeenCalledTimes(2); expect(api.getPrintingTemplateVersion).not.toHaveBeenCalled();
   });
   it('关闭创建后的目录刷新取消子请求，不在新弹窗选中旧模板', async () => {
     const pending = deferred<typeof printTemplate[]>(); await setup(); vi.mocked(api.listPrintingTemplates).mockReturnValueOnce((pending.promise).then(items => ({ items, page: 1, pageSize: 20, total: items.length })));
@@ -69,18 +79,16 @@ describe('Host 打印创建、目录与输出归属', () => {
     expect(signal.aborted).toBe(true); pending.resolve([other]); await action; expect(vm().createDialogVisible).toBe(true);
     expect(api.previewPrintingTemplate).not.toHaveBeenCalled();
   });
-  it('关闭创建流程中的自动预览取消子请求，不插入迟到内容', async () => {
-    const pending = deferred<typeof printResult>(); vi.mocked(api.previewPrintingTemplate).mockReturnValueOnce(pending.promise);
+  it('保存草稿不自动预览发布版式，关闭后不插入正文', async () => {
     await setup(); vi.mocked(api.listPrintingTemplates).mockResolvedValueOnce(((items) => ({ items, page: 1, pageSize: 20, total: items.length }))([{ ...printTemplate, version: 2 }])); await openCreate(); const action = vm().submitCreate(); await flushPromises();
-    const signal = vi.mocked(api.previewPrintingTemplate).mock.calls[0]![2]!; vm().createDialogVisible = false;
-    expect(signal.aborted).toBe(true); pending.resolve(printResult); await action;
-    expect(wrapper!.text()).not.toContain('旧租户敏感内容'); expect(vm().previewing).toBe(false);
+    vm().createDialogVisible = false; await action;
+    expect(api.getPrintingTemplateVersion).not.toHaveBeenCalled(); expect(api.publishPrintingTemplate).not.toHaveBeenCalled(); expect(wrapper!.find('iframe').exists()).toBe(false); expect(vm().previewing).toBe(false);
   });
   it('旧创建 finally 不清除重开后新请求的忙状态', async () => {
     const old = deferred<typeof printTemplate>(); const next = deferred<typeof printTemplate>();
     vi.mocked(api.createPrintingTemplate).mockReturnValueOnce(old.promise).mockReturnValueOnce(next.promise);
     await setup(); await openCreate(); const first = vm().submitCreate(); vm().createDialogVisible = false; await openCreate();
-    const recovery = vm().acknowledgeRecovery('create'); vm().finishRecovery(true); await recovery;
+    vm().acknowledgeRecovery(); vm().recoveryPrompt!.confirm();
     const second = vm().submitCreate(); old.resolve(printTemplate); await first; expect(vm().creating).toBe(true);
     expect(vm().createDialogVisible).toBe(true); vm().createDialogVisible = false; next.resolve(printTemplate); await second;
   });
@@ -88,11 +96,14 @@ describe('Host 打印创建、目录与输出归属', () => {
     await setup(); await openCreate(); vm().createForm.name = '私有输入'; vm().createForm.layoutHtml = '私有布局';
     vm().createDialogVisible = false; await openCreate(); expect(vm().createForm.name).not.toBe('私有输入'); expect(vm().createForm.layoutHtml).not.toBe('私有布局');
   });
-  it('健康创建按原版本发布，再选中目录中的新模板并预览', async () => {
-    await setup(); vi.mocked(api.listPrintingTemplates).mockResolvedValueOnce(((items) => ({ items, page: 1, pageSize: 20, total: items.length }))([{ ...printTemplate, version: 2 }])); await openCreate(); await vm().submitCreate(); await flushPromises();
-    expect(api.publishPrintingTemplate).toHaveBeenCalledWith(printTemplate.id, { version: printTemplate.version }, expect.any(AbortSignal));
-    expect(api.listPrintingTemplates).toHaveBeenCalledTimes(2); expect(api.previewPrintingTemplate).toHaveBeenCalledWith(printTemplate.id, { versionNumber: 1 }, expect.any(AbortSignal));
-    expect(vm().createDialogVisible).toBe(false); expect(wrapper!.text()).toContain('旧租户敏感内容');
+  it('健康草稿先保存，再单独确认原版本发布并预览同一新资源', async () => {
+    await setup(); vi.mocked(api.listPrintingTemplates).mockResolvedValueOnce({ items: [summary(created)], page: 1, pageSize: 20, total: 1 }); await openCreate(); await vm().submitCreate(); await flushPromises();
+    expect(api.publishPrintingTemplate).not.toHaveBeenCalled(); await vm().confirmPublish();
+    vi.mocked(api.listPrintingTemplates).mockResolvedValueOnce({ items: [{ ...summary(created), version: 2, latestPublishedVersionNumber: 1 }], page: 1, pageSize: 20, total: 1 });
+    await vm().publishSelected(); expect(api.publishPrintingTemplate).toHaveBeenCalledWith(created.id, { version: created.version, changeNote: null }, expect.any(AbortSignal));
+    vi.mocked(api.getPrintingTemplateVersion).mockResolvedValueOnce(hostPrintingVersion(created)); await vm().runPreview(); await flushPromises();
+    expect(api.listPrintingTemplates).toHaveBeenCalledTimes(3); expect(api.getPrintingTemplateVersion).toHaveBeenCalledWith(created.id, 1, expect.any(AbortSignal));
+    expect(vm().createDialogVisible).toBe(false); expect(wrapper!.get('iframe').attributes('srcdoc')).toContain('夹具');
   });
   it('创建结果不在当前目录时不能自动选中或预览', async () => {
     await setup(); vi.mocked(api.listPrintingTemplates).mockResolvedValueOnce(((items) => ({ items, page: 1, pageSize: 20, total: items.length }))([other])); await openCreate(); await vm().submitCreate();
@@ -128,24 +139,24 @@ describe('Host 打印创建、目录与输出归属', () => {
     expect(api.previewPrintingTemplate).not.toHaveBeenCalled();
   });
   it('直接改变选择也取消预览，不依赖 Select 的 change 事件', async () => {
-    const pending = deferred<typeof printResult>(); vi.mocked(api.previewPrintingTemplate).mockReturnValueOnce(pending.promise);
-    await setup(); const action = vm().runPreview(); const signal = vi.mocked(api.previewPrintingTemplate).mock.calls[0]![2]!;
-    vm().selectedTemplateId = other.id; expect(signal.aborted).toBe(true); pending.resolve(printResult); await action;
-    expect(wrapper!.text()).not.toContain('旧租户敏感内容');
+    const pending = deferred<typeof layout>(); vi.mocked(api.getPrintingTemplateVersion).mockReturnValueOnce(pending.promise);
+    await setup(); const action = vm().runPreview(); const signal = vi.mocked(api.getPrintingTemplateVersion).mock.calls[0]![2]!;
+    vm().selectedTemplateId = other.id; expect(signal.aborted).toBe(true); pending.resolve(layout); await action;
+    expect(wrapper!.find('iframe').exists()).toBe(false);
   });
   it('打印重新请求展示过的精确版本，版本错配不调用浏览器打印', async () => {
-    const print = vi.spyOn(window, 'print').mockImplementation(() => {}); await setup(); await vm().runPreview();
-    vi.mocked(api.previewPrintingTemplate).mockResolvedValueOnce({ ...printResult, versionNumber: 2 }); await vm().runPreview(true);
-    expect(api.previewPrintingTemplate).toHaveBeenLastCalledWith(printTemplate.id, { versionNumber: 1 }, expect.any(AbortSignal));
-    expect(print).not.toHaveBeenCalled(); expect(wrapper!.text()).not.toContain('旧租户敏感内容');
+    const print = vi.fn(); vi.spyOn(HTMLIFrameElement.prototype, 'contentWindow', 'get').mockReturnValue({ print } as unknown as Window); await setup(); await vm().runPreview();
+    vi.mocked(api.getPrintingTemplateVersion).mockResolvedValueOnce({ ...layout, versionNumber: 2 }); await vm().printPreview();
+    expect(api.getPrintingTemplateVersion).toHaveBeenLastCalledWith(printTemplate.id, 1, expect.any(AbortSignal));
+    expect(print).not.toHaveBeenCalled(); expect(wrapper!.find('iframe').exists()).toBe(false);
   });
   it('健康打印在重新授权同一版本后执行一次', async () => {
-    const print = vi.spyOn(window, 'print').mockImplementation(() => {}); await setup(); await vm().runPreview(); await vm().runPreview(true);
-    expect(print).toHaveBeenCalledOnce();
+    const print = vi.fn(); vi.spyOn(HTMLIFrameElement.prototype, 'contentWindow', 'get').mockReturnValue({ print } as unknown as Window); await setup(); await vm().runPreview(); await vm().printPreview(); await flushPromises();
+    await wrapper!.get('iframe').trigger('load'); expect(print).toHaveBeenCalledOnce(); expect(api.getPrintingTemplateVersion).toHaveBeenCalledTimes(2);
   });
   it('没有展示内容不能以打印入口直接请求最新版本', async () => {
-    const print = vi.spyOn(window, 'print').mockImplementation(() => {}); await setup(); await vm().runPreview(true);
-    expect(api.previewPrintingTemplate).not.toHaveBeenCalled(); expect(print).not.toHaveBeenCalled();
+    const print = vi.fn(); vi.spyOn(HTMLIFrameElement.prototype, 'contentWindow', 'get').mockReturnValue({ print } as unknown as Window); await setup(); await vm().printPreview();
+    expect(api.getPrintingTemplateVersion).not.toHaveBeenCalled(); expect(print).not.toHaveBeenCalled();
   });
   it('KeepAlive 停用取消创建和预览，恢复只读取当前目录', async () => {
     const pending = deferred<typeof printTemplate>(); vi.mocked(api.createPrintingTemplate).mockReturnValueOnce(pending.promise);

@@ -73,3 +73,17 @@ test('关闭在途发布保留未知，刷新核对不自动重复发布', async
   await expect(page.getByTestId('printing-write-receipt')).toContainText('结果尚未确认'); await page.getByTestId('printing-template-refresh').click();
   await expect(page.getByTestId('printing-template-versions')).toContainText('8'); await expect(page.getByTestId('printing-template-versions')).toContainText('2'); expect(writes).toBe(1);
 });
+test('新建成功但不在当前页时保留回执和原选择，不注入目录或自动发布', async ({ page }) => {
+  await boot(page); let creates = 0, publishes = 0;
+  await page.route('**/api/v1/printing/templates', route => {
+    creates++; const body = route.request().postDataJSON(); return json(route, { ...draft, ...body, id: createdId, latestPublishedVersionNumber: 0, version: 1 });
+  });
+  await page.route('**/api/v1/printing/templates/*/publish', route => { publishes++; return route.fulfill({ status: 500 }); });
+  await page.getByTestId('printing-preview-create').click(); await page.getByTestId('printing-template-key').fill('outside-page');
+  await page.getByTestId('printing-template-name').fill('当前页以外的新草稿'); await page.getByTestId('printing-template-layout').fill('<h1>New draft</h1>');
+  await page.getByTestId('printing-preview-submit').click(); await expect(page.getByRole('dialog')).toHaveCount(0);
+  await expect(page.getByTestId('printing-write-receipt')).toContainText(createdId); await expect(page.getByTestId('printing-write-receipt')).toContainText('草稿已保存');
+  await expect(page.getByTestId('printing-preview-template')).toContainText('现有草稿');
+  await page.getByTestId('printing-preview-template').click(); await expect(page.getByRole('option', { name: '当前页以外的新草稿', exact: true })).toHaveCount(0);
+  expect(creates).toBe(1); expect(publishes).toBe(0); await expect(page.locator('iframe.printing-preview-html')).toHaveCount(0);
+});

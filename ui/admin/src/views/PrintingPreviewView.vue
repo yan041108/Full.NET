@@ -268,6 +268,7 @@ async function loadHistory() {
 
 function openCreate() {
   if (!can('create') || busy.value || writeUnconfirmed.value && !createBlocked.value) return;
+  if (loading.value) { listVersion++; listRequest?.abort(); loading.value = false; }
   detailVersion++; detailRequest?.abort();
   const recoveryDraft = createBlocked.value ? unconfirmedDraft : undefined;
   editingId.value = ''; editingVersion.value = 0; editorSchemaKey.value = recoveryDraft?.schema ?? 'printing.tenant_profile_card';
@@ -339,15 +340,15 @@ async function submitCreate(): Promise<void> {
       : await createPrintingTemplate({ templateKey: form.templateKey.trim(), formSchemaKey: schema, ...body }, operation.controller.signal);
     if (!owned()) return;
     if (!validHostPrintingTemplate(created) || created.name !== body.name || created.isEnabled !== body.isEnabled || created.templateKey !== form.templateKey.trim()
-      || created.formSchemaKey !== schema || (id ? !sameId(created.id, id) || created.version !== revision + 1 : created.version !== 1 || created.latestPublishedVersionNumber !== 0)) throw Error('client.invalid_printing_saved_draft');
+      || created.formSchemaKey !== schema || (id ? !sameId(created.id, id) || created.version !== revision + 1 : created.version !== 1 || created.latestPublishedVersionNumber !== 0 || revisionFloors.has(created.id.toLowerCase()))) throw Error('client.invalid_printing_saved_draft');
     writeReceipt.value = { ...operation.receipt, outcome: 'succeeded', templateId: created.id };
     revisionFloors.set(created.id.toLowerCase(), { draft: created.version, published: created.latestPublishedVersionNumber });
     activeWrite = undefined; creating.value = false; unconfirmedDraft = undefined; createBlocked.value = false;
     createDialogVisible.value = false; const postOwner = editorEpoch; ElMessage.success(t('printingTemplates.saved'));
     await load();
     if (!current(scope) || postOwner !== editorEpoch || createDialogVisible.value) return;
-    if (!templates.value.some(item => sameId(item.id, created.id))) { const { layoutHtml: _, ...summary } = created; templates.value = [summary, ...templates.value.slice(0, 19)]; }
-    selectedTemplateId.value = created.id; preview.value = undefined;
+    if (catalogReady.value && templates.value.some(item => sameId(item.id, created.id))) selectedTemplateId.value = created.id;
+    preview.value = undefined;
   } catch (error) {
     if (owned()) { const unknown = !isFullNetProblemDetails(error) || error.status < 400 || error.status === 408 || error.status >= 500;
       if (unknown) markUnconfirmed(operation); else { writeReceipt.value = { ...operation.receipt, outcome: 'failed' }; writeUnconfirmed.value = !!id && error.status === 409; }
