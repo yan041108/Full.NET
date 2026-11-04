@@ -104,6 +104,8 @@ public sealed class IdentityModuleRegistrationTests
         Assert.AreEqual(1, provider.GetServices<IIdentityPermissionEvaluator>().Count());
         Assert.AreEqual(ServiceLifetime.Singleton,
             services.Single(descriptor => descriptor.ServiceType == typeof(IIdentityPermissionEvaluator)).Lifetime);
+        Assert.AreEqual(ServiceLifetime.Scoped,
+            services.Single(descriptor => descriptor.ServiceType == typeof(IdentityTenantResourceAccess)).Lifetime);
     }
 
     [TestMethod]

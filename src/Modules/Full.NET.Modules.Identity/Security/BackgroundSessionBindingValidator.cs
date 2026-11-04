@@ -7,12 +7,13 @@ using Microsoft.Extensions.Options;
 
 namespace Full.NET.Modules.Identity.Security;
 
-/// <summary>后台绑定分别重查会话与租户活动的权威状态，不把 ClaimsPrincipal 持久化或作为长期授权。</summary>
+/// <summary>后台绑定分别重查会话、租户活动与成员准入，不把 ClaimsPrincipal 持久化或作为长期授权。</summary>
 internal sealed class BackgroundSessionBindingValidator(
     IQueryExecutor queryExecutor,
     IClock clock,
     IOptions<IdentityOptions> identityOptions,
-    IIdentityActiveTenantDirectory activeTenants)
+    IIdentityActiveTenantDirectory activeTenants,
+    IdentityTenantResourceAccess access)
     : IBackgroundSessionBindingValidator
 {
     private readonly IdentityOptions _identityOptions = identityOptions.Value;
@@ -34,7 +35,7 @@ internal sealed class BackgroundSessionBindingValidator(
             var sessionValid = await ValidateOidcApplicationBindingAsync(binding, cancellationToken)
                 .ConfigureAwait(false);
             cancellationToken.ThrowIfCancellationRequested();
-            return sessionValid && await ValidateTenantActivityAsync(binding.TenantId, cancellationToken)
+            return sessionValid && await ValidateTenantAuthorityAsync(binding, cancellationToken)
                 .ConfigureAwait(false);
         }
 
@@ -63,7 +64,21 @@ internal sealed class BackgroundSessionBindingValidator(
 
         cancellationToken.ThrowIfCancellationRequested();
         return ValidateRefreshBinding(record, binding)
-            && await ValidateTenantActivityAsync(binding.TenantId, cancellationToken).ConfigureAwait(false);
+            && await ValidateTenantAuthorityAsync(binding, cancellationToken).ConfigureAwait(false);
+    }
+
+    // 原会话有效不代表仍是企业成员；未知权威状态拒绝执行，主动取消继续传播给任务所有者。
+    private async Task<bool> ValidateTenantAuthorityAsync(SessionBindingSnapshot binding, CancellationToken cancellationToken)
+    {
+        if (!await ValidateTenantActivityAsync(binding.TenantId, cancellationToken).ConfigureAwait(false)) return false;
+        try
+        {
+            var allowed = await access.IsActorAllowedAsync(binding.UserId, binding.ActorScope, binding.TenantId, cancellationToken).ConfigureAwait(false);
+            cancellationToken.ThrowIfCancellationRequested();
+            return allowed;
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }
+        catch (Exception) { return false; }
     }
 
     // 会话与租户启停属于不同权威事实；后台不能沿用领取运行时的租户快照或依赖缓存通知。

@@ -46,7 +46,19 @@ internal sealed class IdentityTenantResourceAccess(IQueryExecutor queries, ICurr
         if (permissions.All(code => code is IdentityTenantMembershipPermissions.LeaveSelf or "tenancy.tenants.switch")) return true;
 
         // 每次授权只查一个可信租户的标量事实，不缓存撤权结果，也不枚举账号的全部成员关系。
+        return await IsActorAllowedAsync(userId, actorScope, tenantId, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>已被权威会话校验的后台/连接绑定按其冻结租户检查，不读取或修改当前 HTTP 上下文。</summary>
+    internal async Task<bool> IsActorAllowedAsync(Guid userId, string actorScope, Guid? tenantId,
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        if (userId == Guid.Empty || tenantId == Guid.Empty) return false;
+        if (tenantId is not { } id) return actorScope == "host";
+        if (actorScope == $"tenant:{id:N}") return true;
+        if (actorScope != "host") return false;
         return await queries.QuerySingleOrDefaultAsync<int>(FindAccess,
-            IdentitySqlParameters.Create(("UserId", userId), ("TenantId", tenantId)), cancellationToken).ConfigureAwait(false) == 1;
+            IdentitySqlParameters.Create(("UserId", userId), ("TenantId", id)), cancellationToken).ConfigureAwait(false) == 1;
     }
 }

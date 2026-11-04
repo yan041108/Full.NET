@@ -4,9 +4,14 @@
     "unit": {
       "project": "tests/Full.NET.UnitTests/Full.NET.UnitTests.csproj",
       "assembly": "tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll",
-      "minimum": 9596,
+      "minimum": 9610,
       "timeout": "10m",
       "selections": {
+        "tenant-background-revocation": {
+          "filter": "FullyQualifiedName~BackgroundSessionBindingValidatorTests|FullyQualifiedName~BackgroundSessionAuthorizationTests|FullyQualifiedName~RealtimeTenantMembershipTests|FullyQualifiedName~RealtimeConnectionLeaseTests|FullyQualifiedName~IdentityTenantResourceAccessTests|FullyQualifiedName~Permission_evaluator_contract_reuses_singleton_in_each_host_profile|FullyQualifiedName~Identity_module_delegation_matches_responsibility_registration_pipeline|FullyQualifiedName~Identity_module_repeated_registration_preserves_critical_contracts",
+          "minimum": 54,
+          "timeout": "3m"
+        },
         "tenant-resource-revocation": {
           "filter": "FullyQualifiedName~FullNetPermissionHandlerTests|FullyQualifiedName~IdentityTenantResourceAccessTests|FullyQualifiedName~CurrentSessionPermissionSetTests|FullyQualifiedName~AiToolCurrentSessionTests|FullyQualifiedName~Identity_module_delegation_matches_responsibility_registration_pipeline|FullyQualifiedName~Identity_module_repeated_registration_preserves_critical_contracts",
           "minimum": 41,

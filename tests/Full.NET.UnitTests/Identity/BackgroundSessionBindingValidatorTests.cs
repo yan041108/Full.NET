@@ -1,4 +1,5 @@
 using Full.NET.Abstractions.Time;
+using Full.NET.Abstractions.Tenancy;
 using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Identity.Configuration;
 using Full.NET.Modules.Identity.Contracts;
@@ -89,8 +90,13 @@ public sealed class BackgroundSessionBindingValidatorTests
 
     private static (BackgroundSessionBindingValidator Validator, SessionBindingSnapshot Binding,
         IIdentityActiveTenantDirectory Tenants) CreateAuthorityFixture(bool oidc, Guid? tenantId)
+        => CreateAuthorityFixture(oidc, tenantId, out _);
+
+    private static (BackgroundSessionBindingValidator Validator, SessionBindingSnapshot Binding,
+        IIdentityActiveTenantDirectory Tenants) CreateAuthorityFixture(bool oidc, Guid? tenantId, out IQueryExecutor query)
     {
-        var query = Substitute.For<IQueryExecutor>();
+        query = Substitute.For<IQueryExecutor>();
+        query.QuerySingleOrDefaultAsync<int>(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(1);
         query.QuerySingleOrDefaultAsync<RefreshSessionRecord>(IdentitySql.FindRefreshSessionById,
             Arg.Any<IReadOnlyDictionary<string, object?>>(), Arg.Any<CancellationToken>())
             .Returns(CreateRecord(activeTenantId: tenantId));
@@ -107,7 +113,8 @@ public sealed class BackgroundSessionBindingValidatorTests
     {
         var directory = tenants ?? Substitute.For<IIdentityActiveTenantDirectory>();
         using var services = new ServiceCollection().AddSingleton(query).AddSingleton<IClock>(new FixedClock(Now))
-            .AddSingleton(Options.Create(new IdentityOptions())).AddSingleton(directory).BuildServiceProvider();
+            .AddSingleton(Options.Create(new IdentityOptions())).AddSingleton(directory)
+            .AddSingleton(new IdentityTenantResourceAccess(query, new CurrentTenantAccessor())).BuildServiceProvider();
         return ActivatorUtilities.CreateInstance<BackgroundSessionBindingValidator>(services);
     }
 
@@ -119,6 +126,56 @@ public sealed class BackgroundSessionBindingValidatorTests
         var valid = await fixture.Validator.IsValidAsync(CreateBinding());
 
         Assert.IsTrue(valid);
+    }
+
+    [TestMethod]
+    [DataRow(false)]
+    [DataRow(true)]
+    public async Task Long_lived_validator_observes_membership_removal_and_explicit_reactivation(bool oidc)
+    {
+        var (validator, binding, _) = CreateAuthorityFixture(oidc, TenantId, out var query);
+        query.QuerySingleOrDefaultAsync<int>(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(1, 0, 1);
+        Assert.IsTrue(await validator.IsValidAsync(binding));
+        Assert.IsFalse(await validator.IsValidAsync(binding));
+        Assert.IsTrue(await validator.IsValidAsync(binding));
+        await query.Received(3).QuerySingleOrDefaultAsync<int>(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>());
+    }
+
+    [TestMethod]
+    [DataRow(false, false)]
+    [DataRow(false, true)]
+    [DataRow(true, false)]
+    [DataRow(true, true)]
+    public async Task Membership_authority_failure_rejects_binding_and_cancellation_propagates(bool oidc, bool cancel)
+    {
+        var (validator, binding, _) = CreateAuthorityFixture(oidc, TenantId, out var query);
+        using var cancellation = new CancellationTokenSource();
+        query.QuerySingleOrDefaultAsync<int>(Arg.Any<SqlStatement>(), Arg.Any<object?>(), cancellation.Token).Returns<int>(_ =>
+        {
+            if (cancel) { cancellation.Cancel(); throw new OperationCanceledException(cancellation.Token); }
+            throw new InvalidOperationException("membership authority unavailable");
+        });
+        if (cancel) await Assert.ThrowsExactlyAsync<OperationCanceledException>(() => validator.IsValidAsync(binding, cancellation.Token));
+        else Assert.IsFalse(await validator.IsValidAsync(binding, cancellation.Token));
+    }
+
+    [TestMethod]
+    [DataRow(false)]
+    [DataRow(true)]
+    public async Task Tenant_local_binding_does_not_require_unified_host_membership(bool oidc)
+    {
+        var (validator, binding, _) = CreateAuthorityFixture(oidc, TenantId, out var query);
+        var scope = $"tenant:{TenantId:N}";
+        if (oidc)
+        {
+            var record = CreateOidcRecord(TenantId); record.ActorScope = scope;
+            query.QuerySingleOrDefaultAsync<IdentityOidcApplicationSessionValidationRecord>(
+                IdentityOidcSessionSql.FindApplicationSessionValidationById, Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(record);
+        }
+        else query.QuerySingleOrDefaultAsync<RefreshSessionRecord>(IdentitySql.FindRefreshSessionById,
+            Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(CreateRecord(activeTenantId: TenantId, scopeKey: scope));
+        Assert.IsTrue(await validator.IsValidAsync(binding with { ActorScope = scope }));
+        await query.DidNotReceive().QuerySingleOrDefaultAsync<int>(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>());
     }
 
     [TestMethod]

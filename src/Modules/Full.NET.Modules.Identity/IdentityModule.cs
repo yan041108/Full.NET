@@ -304,6 +304,7 @@ public sealed class IdentityModule : IFullNetModule
         // FAQ 后台核证当前原会话的完整角色授予，只公开既有只读目录。
         services.TryAddScoped<IActiveRoleDirectory, Roles.ActiveRoleDirectory>();
         services.TryAddScoped<Contracts.IBackgroundSessionBindingValidator, BackgroundSessionBindingValidator>();
+        services.TryAddScoped<IdentityTenantResourceAccess>();
         services.TryAddScoped<Contracts.IBackgroundSessionAuthorization, BackgroundSessionAuthorization>();
         services.AddIdentityDataScope();
         services.AddIdentityOidcRetentionBackgroundService(configuration);

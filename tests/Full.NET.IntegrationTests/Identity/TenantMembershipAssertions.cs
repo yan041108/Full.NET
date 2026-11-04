@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
+using System.Security.Claims;
 using Full.NET.Abstractions.Results;
 using Full.NET.Abstractions.Tenancy;
 using Full.NET.Data.Abstractions;
@@ -11,6 +12,8 @@ using Full.NET.Modules.Identity.Features.ManageTenantMembers.Persistence;
 using Full.NET.Modules.Identity.Persistence;
 using Full.NET.Modules.Tenancy.Contracts;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.IdentityModel.JsonWebTokens;
+using Full.NET.Realtime;
 
 namespace Full.NET.IntegrationTests.Identity;
 
@@ -261,6 +264,8 @@ internal static class TenantMembershipAssertions
                 platformHostToken, tenantId, cancellationToken);
             Assert.AreEqual(HttpStatusCode.OK, await ReadMemberListStatusAsync(tenantClient, platformTenantToken, cancellationToken));
         }
+        await using var consumers = includeConsumers ? new FrozenConsumerAssertions(factory, tenantToken, otherToken!) : null;
+        if (consumers is not null) await consumers.AssertAsync(true, true, cancellationToken);
         using var meRequest = new HttpRequestMessage(
             HttpMethod.Get,
             "/api/v1/identity/tenant-members/me");
@@ -293,6 +298,7 @@ internal static class TenantMembershipAssertions
         {
             Assert.AreEqual(HttpStatusCode.Forbidden, await ReadMemberListStatusAsync(tenantClient, tenantToken, cancellationToken));
             Assert.AreEqual(HttpStatusCode.OK, await ReadMemberListStatusAsync(otherClient!, otherToken!, cancellationToken));
+            await consumers!.AssertAsync(false, true, cancellationToken);
             using var otherMemberRequest = new HttpRequestMessage(HttpMethod.Get, "/api/v1/identity/tenant-members/me");
             otherMemberRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", otherToken);
             using var otherMemberResponse = await otherClient!.SendAsync(otherMemberRequest, cancellationToken);
@@ -354,6 +360,48 @@ internal static class TenantMembershipAssertions
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
         using var response = await client.SendAsync(request, cancellationToken);
         return response.StatusCode;
+    }
+
+    /// <summary>同一后台作用域保留退出前冻结的绑定，不能靠新建会话或新建验证器掩盖陈旧准入。</summary>
+    private sealed class FrozenConsumerAssertions : IAsyncDisposable
+    {
+        private readonly AsyncServiceScope _scope;
+        private readonly IBackgroundSessionBindingValidator _bindings;
+        private readonly IBackgroundSessionAuthorization _authorization;
+        private readonly IRealtimeConnectionAuthorizer _realtime;
+        private readonly (ClaimsPrincipal Principal, SessionBindingSnapshot Binding) _a, _b;
+
+        internal FrozenConsumerAssertions(FullNetApiFactory factory, string tokenA, string tokenB)
+        {
+            _scope = factory.Services.CreateAsyncScope();
+            _scope.ServiceProvider.GetRequiredService<CurrentTenantAccessor>().SetHost();
+            _bindings = _scope.ServiceProvider.GetRequiredService<IBackgroundSessionBindingValidator>();
+            _authorization = _scope.ServiceProvider.GetRequiredService<IBackgroundSessionAuthorization>();
+            _realtime = _scope.ServiceProvider.GetRequiredService<IRealtimeConnectionAuthorizer>();
+            _a = Capture(tokenA); _b = Capture(tokenB);
+        }
+
+        internal async Task AssertAsync(bool expectedA, bool expectedB, CancellationToken cancellationToken)
+        {
+            foreach (var (captured, expected) in new[] { (_a, expectedA), (_b, expectedB) })
+            {
+                Assert.AreEqual(expected, await _bindings.IsValidAsync(captured.Binding, cancellationToken), "冻结后台绑定准入");
+                Assert.AreEqual(expected, await _authorization.AuthorizeAsync(captured.Binding,
+                    IdentityTenantMembershipPermissions.Read, cancellationToken) is not null, "后台业务授权");
+                Assert.AreEqual(expected, await _realtime.IsAuthorizedAsync(captured.Principal, cancellationToken), "实时连接重复核证");
+            }
+        }
+
+        private static (ClaimsPrincipal, SessionBindingSnapshot) Capture(string token)
+        {
+            // 仅解码本夹具真实登录并签发的凭据；生产入口仍使用已认证主体，不能接收客户端声明。
+            var principal = new ClaimsPrincipal(new ClaimsIdentity(new JsonWebToken(token).Claims, "factory-issued"));
+            var tenantId = Guid.Parse(principal.FindFirstValue(FullNetIdentityClaimTypes.TenantId)!);
+            Assert.IsTrue(SessionBindingSnapshotReader.TryReadTenant(principal, tenantId, out var binding));
+            return (principal, binding);
+        }
+
+        public ValueTask DisposeAsync() => _scope.DisposeAsync();
     }
 
     private static async Task VerifyOwnerCannotLeaveCurrentTenantAsync(

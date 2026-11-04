@@ -4,7 +4,7 @@ using Full.NET.IntegrationTests.Migrations;
 
 namespace Full.NET.IntegrationTests.Identity;
 
-/// <summary>多会话模式下验证退出 A 的旧凭据撤权、B 的独立会话保持以及返回 Host。</summary>
+/// <summary>多会话模式下验证退出 A 的 HTTP/后台/连接撤权、B 的独立会话保持以及返回 Host。</summary>
 [TestClass]
 public sealed class TenantMembershipSelfLeaveTests
 {
