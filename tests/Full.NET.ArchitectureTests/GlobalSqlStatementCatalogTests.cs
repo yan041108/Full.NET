@@ -77,6 +77,22 @@ public sealed class GlobalSqlStatementCatalogTests
     }
 
     [TestMethod]
+    [DataRow("Security.IdentityTenantResourceAccess", "Security/IdentityTenantResourceAccess.cs", 1)]
+    [DataRow("Features.ChangeSessionContext.IdentityTenantContextAccessReader", "Features/ChangeSessionContext/IdentityTenantContextAccessReader.cs", 2)]
+    public void Identity_tenant_admission_sql_is_exactly_cataloged(string name, string source, int count)
+    {
+        var root = FindRepositoryRoot();
+        var type = typeof(global::Full.NET.Modules.Identity.IdentityModule).Assembly.GetType($"Full.NET.Modules.Identity.{name}", throwOnError: true)!;
+        var declarations = ReadSqlStatements(root, type).Where(item => item.Statement.Scope == SqlDataScope.Global).ToArray();
+        var document = JsonSerializer.Deserialize<GlobalSqlCatalogDocument>(File.ReadAllText(Path.Combine(root,
+            "contracts", "architecture", "global-sql-statements.json")), JsonOptions)!;
+        var entries = document.Entries!.Where(item => item.File == $"src/Modules/Full.NET.Modules.Identity/{source}").ToArray();
+        Assert.HasCount(count, declarations); Assert.HasCount(count, entries);
+        var violations = Analyze(declarations, entries).ToArray();
+        Assert.HasCount(0, violations, string.Join(Environment.NewLine, violations));
+    }
+
+    [TestMethod]
     public void Workflow_collaboration_grant_global_sql_is_exactly_cataloged()
     {
         // 独立检查共享授权控制面；保留全局门禁，其他模块失败不能掩盖本次目录漂移。
@@ -429,6 +445,10 @@ public sealed class GlobalSqlStatementCatalogTests
             return file;
         }
     }
+
+    // 定向目录检查与整目录检查共用声明读取和源码定位，避免维护两套扫描语义。
+    private static IEnumerable<SqlStatementDeclaration> ReadSqlStatements(string root, Type type) =>
+        ReadSqlStatements(type, declaration => ResolveSourceFile(root, declaration));
 
     private static IEnumerable<SqlStatementDeclaration> ReadSqlStatements(
         Type type,

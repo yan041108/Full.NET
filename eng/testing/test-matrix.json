@@ -4,9 +4,14 @@
     "unit": {
       "project": "tests/Full.NET.UnitTests/Full.NET.UnitTests.csproj",
       "assembly": "tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll",
-      "minimum": 9584,
+      "minimum": 9596,
       "timeout": "10m",
       "selections": {
+        "tenant-resource-revocation": {
+          "filter": "FullyQualifiedName~FullNetPermissionHandlerTests|FullyQualifiedName~IdentityTenantResourceAccessTests|FullyQualifiedName~CurrentSessionPermissionSetTests|FullyQualifiedName~AiToolCurrentSessionTests|FullyQualifiedName~Identity_module_delegation_matches_responsibility_registration_pipeline|FullyQualifiedName~Identity_module_repeated_registration_preserves_critical_contracts",
+          "minimum": 41,
+          "timeout": "3m"
+        },
         "tenant-lifecycle-console": {
           "filter": "FullyQualifiedName~TenantLifecycleTransitionTests|FullyQualifiedName~HostTenantManagementServiceTests|FullyQualifiedName~HostTenantCacheInvalidationTests|FullyQualifiedName~TenantCommercialReactivateGateTests",
           "minimum": 28,
@@ -702,12 +707,16 @@
     "architecture": {
       "project": "tests/Full.NET.ArchitectureTests/Full.NET.ArchitectureTests.csproj",
       "assembly": "tests/Full.NET.ArchitectureTests/bin/Release/net10.0/Full.NET.ArchitectureTests.dll",
-      "minimum": 282,
+      "minimum": 284,
       "timeout": "10m",
       "selections": {
         "workflow-collaboration-grant-catalog": {
           "filter": "FullyQualifiedName~Workflow_collaboration_grant_global_sql_is_exactly_cataloged",
           "minimum": 1
+        },
+        "identity-tenant-admission-catalog": {
+          "filter": "FullyQualifiedName~Identity_tenant_admission_sql_is_exactly_cataloged",
+          "minimum": 2
         },
         "cache-hardening": {
           "filter": "FullyQualifiedName~CachePolicyBoundaryTests|FullyQualifiedName~TenantCachePayloadOwnershipTests",

@@ -112,6 +112,25 @@ public sealed class CurrentSessionPermissionSetTests
         Assert.AreEqual(0, f.Permissions.ReceivedCalls().Count());
     }
 
+    [TestMethod]
+    public async Task Tenant_membership_revocation_denies_tools_even_when_session_and_role_permissions_remain_valid()
+    {
+        var f = new Fixture();
+        var tenantId = Guid.CreateVersion7();
+        var tenantContext = new TenantContext(tenantId, "a", "租户 A");
+        f.Tenant.SetTenant(tenantContext); f.Session.ActiveTenantId = tenantId;
+        var identity = (ClaimsIdentity)f.Http.HttpContext!.User.Identity!;
+        identity.RemoveClaim(identity.FindFirst(FullNetIdentityClaimTypes.Scope)!);
+        identity.AddClaim(new(FullNetIdentityClaimTypes.Scope, $"tenant:{tenantId:N}"));
+        identity.AddClaim(new(FullNetIdentityClaimTypes.TenantId, tenantId.ToString()));
+        f.Tenants.ResolveActiveByIdAsync(tenantId, Arg.Any<CancellationToken>()).Returns(tenantContext);
+        f.Permissions.ReadAsync(f.User, "host", tenantId, Arg.Any<CancellationToken>()).Returns(new PermissionSnapshot(["a", "b"], false));
+        f.Queries.QuerySingleOrDefaultAsync<int>(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(1, 0);
+        Assert.IsNotNull(await f.Authorization.AuthorizeAllAsync(["a", "b"]));
+        Assert.IsNull(await f.Authorization.AuthorizeAllAsync(["a", "b"]));
+        await f.Permissions.Received(1).ReadAsync(f.User, "host", tenantId, Arg.Any<CancellationToken>());
+    }
+
     private sealed class Fixture
     {
         internal Guid User = Guid.CreateVersion7();
@@ -122,6 +141,8 @@ public sealed class CurrentSessionPermissionSetTests
         internal CurrentTenantAccessor Tenant = new();
         internal IClock Clock = Substitute.For<IClock>();
         internal DateTimeOffset Now;
+        internal HttpContextAccessor Http;
+        internal IActiveTenantContextResolver Tenants = Substitute.For<IActiveTenantContextResolver>();
 
         internal Fixture()
         {
@@ -133,14 +154,15 @@ public sealed class CurrentSessionPermissionSetTests
             Queries.QuerySingleOrDefaultAsync<AccessSessionValidationRecord>(IdentitySql.FindAccessSessionValidationById,
                 Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(Session);
             Permissions.ReadAsync(User, "host", null, Arg.Any<CancellationToken>()).Returns(new PermissionSnapshot(["a", "b", "c", "d"], false));
-            var http = new HttpContextAccessor { HttpContext = new DefaultHttpContext { User = new ClaimsPrincipal(new ClaimsIdentity(
+            var http = Http = new HttpContextAccessor { HttpContext = new DefaultHttpContext { User = new ClaimsPrincipal(new ClaimsIdentity(
                 new Claim[] { new("sub", User.ToString()), new("sid", sessionId.ToString()),
                     new(FullNetIdentityClaimTypes.SecurityStamp, "stamp"), new(FullNetIdentityClaimTypes.ActorScope, "host"),
                     new(FullNetIdentityClaimTypes.Scope, "host"), new("exp", now.AddMinutes(5).ToUnixTimeSeconds().ToString()) }, "test")) } };
             var tenant = Tenant; tenant.SetHost();
             var oidc = new IdentityOidcAccessSessionValidator(Queries, clock, tenant, Options.Create(new IdentityOidcOptions()), Options.Create(new IdentityOptions()));
             Authorization = new CurrentSessionAuthorization(http, new AccessSessionValidator(Queries, clock, oidc, Options.Create(new IdentityOidcOptions())),
-                Permissions, tenant, Substitute.For<IActiveTenantContextResolver>(), clock, Options.Create(new IdentityOidcOptions()));
+                Permissions, tenant, Tenants, new IdentityTenantResourceAccess(Queries, tenant),
+                clock, Options.Create(new IdentityOidcOptions()));
         }
     }
 }

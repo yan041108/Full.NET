@@ -480,6 +480,7 @@ public sealed class IdentityModuleRegistrationTests
         RegistrationExpectation.Type<
             IPermissionSnapshotReader,
             PermissionSnapshotReader>(ServiceLifetime.Scoped),
+        RegistrationExpectation.Self<IdentityTenantResourceAccess>(ServiceLifetime.Scoped),
         RegistrationExpectation.Type<IIdentityTenantContextAccess, IdentityTenantContextAccessReader>(ServiceLifetime.Scoped),
         RegistrationExpectation.Type<
             IIdentitySessionContextService,
@@ -490,7 +491,7 @@ public sealed class IdentityModuleRegistrationTests
             ServiceLifetime.Singleton),
         RegistrationExpectation.Type<
             IAuthorizationHandler,
-            FullNetPermissionHandler>(ServiceLifetime.Singleton),
+            FullNetPermissionHandler>(ServiceLifetime.Scoped),
         RegistrationExpectation.Type<
             IHostedService,
             AuthorizationCatalogValidator>(ServiceLifetime.Singleton),

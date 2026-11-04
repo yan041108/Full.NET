@@ -23,7 +23,7 @@ internal static class TenantMembershipAssertions
         using var hostClient = factory.CreateClientForHost("localhost");
         using var tenantClient = factory.CreateClientForHost("acme.localhost");
         var tenant = await IntegrationTestTenantContextHelper.GetCurrentTenantAsync(tenantClient);
-        await VerifyLeaveCurrentTenantAsync(factory, hostClient, tenantClient, tenant.Id, default);
+        await VerifyLeaveCurrentTenantAsync(factory, hostClient, tenantClient, tenant.Id, default, includeConsumers: true);
     }
 
     public static async Task VerifyAsync(
@@ -204,17 +204,40 @@ internal static class TenantMembershipAssertions
         HttpClient hostClient,
         HttpClient tenantClient,
         Guid tenantId,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        bool includeConsumers = false)
     {
         var leaver = await factory.CreateHostIdentityAsync(
             $"leaver-{Guid.NewGuid():N}",
             // 普通账号自带上下文切换资格；角色显式授予 switch 代表平台全企业管理授权。
             [
                 "identity.tenant_members.leave_self",
+                .. includeConsumers ? new[] { IdentityTenantMembershipPermissions.Read } : Array.Empty<string>(),
             ],
             cancellationToken,
             password: FullNetApiFactory.TestPassword);
         await AddTenantMemberAsync(factory, tenantId, leaver.UserId, cancellationToken);
+
+        TenantSummary? otherTenant = null;
+        var otherDomain = "leave-b-" + Guid.NewGuid().ToString("N") + ".localhost";
+        if (includeConsumers)
+        {
+            await using var scope = factory.Services.CreateAsyncScope();
+            scope.ServiceProvider.GetRequiredService<CurrentTenantAccessor>().SetHost();
+            var provisioned = await scope.ServiceProvider.GetRequiredService<ITenantProvisioningService>().ProvisionAsync(
+                new ProvisionTenantRequest("leave-b-" + Guid.NewGuid().ToString("N"), "Other membership", otherDomain), cancellationToken);
+            Assert.IsTrue(provisioned.IsSuccess, provisioned.Error?.Code); otherTenant = provisioned.Value!;
+            await AddTenantMemberAsync(factory, otherTenant.Id, leaver.UserId, cancellationToken);
+        }
+        using var otherClient = otherTenant is null ? null : factory.CreateClientForHost(otherDomain);
+        string? otherToken = null;
+        if (otherTenant is not null)
+        {
+            var otherHostToken = await IntegrationTestAuthHelper.LoginAsHostUserAsync(hostClient,
+                leaver.Username, FullNetApiFactory.TestPassword, cancellationToken);
+            otherToken = await IntegrationTestTenantContextHelper.SwitchToTenantAsync(hostClient,
+                otherHostToken, otherTenant.Id, cancellationToken);
+        }
 
         // 夹具的直签令牌只含显式权限；经真实登录取得普通账号默认自助权限，不能借平台授权代替。
         var hostToken = await IntegrationTestAuthHelper.LoginAsHostUserAsync(
@@ -224,6 +247,20 @@ internal static class TenantMembershipAssertions
             hostToken,
             tenantId,
             cancellationToken);
+        if (includeConsumers)
+        {
+            Assert.AreEqual(HttpStatusCode.OK, await ReadMemberListStatusAsync(tenantClient, tenantToken, cancellationToken));
+            Assert.AreEqual(HttpStatusCode.OK, await ReadMemberListStatusAsync(otherClient!, otherToken!, cancellationToken));
+            // 平台显式管理授权独立于普通成员准入，不能因缺少成员记录误伤其受控管理操作。
+            var platform = await factory.CreateHostIdentityAsync($"platform-{Guid.NewGuid():N}",
+                [IdentityTenantMembershipPermissions.Read, "tenancy.tenants.switch"], cancellationToken,
+                password: FullNetApiFactory.TestPassword);
+            var platformHostToken = await IntegrationTestAuthHelper.LoginAsHostUserAsync(hostClient,
+                platform.Username, FullNetApiFactory.TestPassword, cancellationToken);
+            var platformTenantToken = await IntegrationTestTenantContextHelper.SwitchToTenantAsync(hostClient,
+                platformHostToken, tenantId, cancellationToken);
+            Assert.AreEqual(HttpStatusCode.OK, await ReadMemberListStatusAsync(tenantClient, platformTenantToken, cancellationToken));
+        }
         using var meRequest = new HttpRequestMessage(
             HttpMethod.Get,
             "/api/v1/identity/tenant-members/me");
@@ -250,6 +287,21 @@ internal static class TenantMembershipAssertions
         Assert.AreEqual(member.Id, left.Id);
         Assert.AreEqual(leaver.UserId, left.UserId);
         Assert.AreEqual(tenantId, left.TenantId);
+
+        // 在返回 Host 轮换凭据前验证，不能把轮换导致的拒绝冒充成员撤权。
+        if (includeConsumers)
+        {
+            Assert.AreEqual(HttpStatusCode.Forbidden, await ReadMemberListStatusAsync(tenantClient, tenantToken, cancellationToken));
+            Assert.AreEqual(HttpStatusCode.OK, await ReadMemberListStatusAsync(otherClient!, otherToken!, cancellationToken));
+            using var otherMemberRequest = new HttpRequestMessage(HttpMethod.Get, "/api/v1/identity/tenant-members/me");
+            otherMemberRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", otherToken);
+            using var otherMemberResponse = await otherClient!.SendAsync(otherMemberRequest, cancellationToken);
+            Assert.AreEqual(HttpStatusCode.OK, otherMemberResponse.StatusCode);
+            var otherMember = await otherMemberResponse.Content.ReadFromJsonAsync<TenantMemberResponse>(cancellationToken);
+            Assert.IsNotNull(otherMember); Assert.AreEqual(otherTenant!.Id, otherMember.TenantId);
+            Assert.AreEqual(leaver.UserId, otherMember.UserId); Assert.AreEqual(TenantMemberStatuses.Active, otherMember.Status);
+            Assert.AreEqual(1, otherMember.Version);
+        }
 
         // 本人状态接口保留 Removed 供核对；退出一家企业不能禁用全局账号。
         using var reviewRequest = new HttpRequestMessage(HttpMethod.Get, "/api/v1/identity/tenant-members/me");
@@ -287,6 +339,21 @@ internal static class TenantMembershipAssertions
         reenterRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", returned.AccessToken);
         using var reenterResponse = await hostClient.SendAsync(reenterRequest, cancellationToken);
         Assert.AreEqual(HttpStatusCode.Forbidden, reenterResponse.StatusCode);
+        if (includeConsumers)
+        {
+            var returnedToB = await IntegrationTestTenantContextHelper.SwitchToTenantAsync(hostClient,
+                returned.AccessToken, otherTenant!.Id, cancellationToken);
+            Assert.AreEqual(HttpStatusCode.OK, await ReadMemberListStatusAsync(otherClient!, returnedToB, cancellationToken));
+            Assert.AreEqual(HttpStatusCode.OK, await ReadMemberListStatusAsync(otherClient!, otherToken!, cancellationToken));
+        }
+    }
+
+    private static async Task<HttpStatusCode> ReadMemberListStatusAsync(HttpClient client, string token, CancellationToken cancellationToken)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Get, "/api/v1/identity/tenant-members?pageSize=20");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        using var response = await client.SendAsync(request, cancellationToken);
+        return response.StatusCode;
     }
 
     private static async Task VerifyOwnerCannotLeaveCurrentTenantAsync(

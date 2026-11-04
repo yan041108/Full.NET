@@ -6,6 +6,7 @@ using Full.NET.Modules.Identity.DataScope;
 using Full.NET.Modules.Identity.Features.ChangeSessionContext;
 using Full.NET.Modules.Identity.Features.GetAuthorizationTree;
 using Full.NET.Modules.Identity.Features.GetNavigation;
+using Full.NET.Modules.Identity.Security;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Authorization.Policy;
 using Microsoft.Extensions.Configuration;
@@ -32,13 +33,14 @@ internal static class IdentityAuthorizationServiceCollectionExtensions
         services.TryAddSingleton<PermissionClaimEvaluator>();
         services.TryAddSingleton<IIdentityPermissionEvaluator>(provider => provider.GetRequiredService<PermissionClaimEvaluator>());
         services.TryAddScoped<IPermissionSnapshotReader, PermissionSnapshotReader>();
+        services.TryAddScoped<IdentityTenantResourceAccess>();
         services.TryAddScoped<IIdentityTenantContextAccess, IdentityTenantContextAccessReader>();
         services.TryAddScoped<
             IIdentitySessionContextService,
             IdentitySessionContextService>();
         services.TryAddSingleton<NavigationProjector>();
         services.TryAddSingleton<AuthorizationTreeProjector>();
-        services.TryAddEnumerable(ServiceDescriptor.Singleton<
+        services.TryAddEnumerable(ServiceDescriptor.Scoped<
             IAuthorizationHandler,
             FullNetPermissionHandler>());
         services.TryAddEnumerable(ServiceDescriptor.Singleton<

@@ -65,6 +65,7 @@ public sealed class AiToolCurrentSessionTests
             permissions,
             tenant,
             Substitute.For<IActiveTenantContextResolver>(),
+            new IdentityTenantResourceAccess(queries, tenant),
             clock,
             Options.Create(new IdentityOidcOptions()));
         try
@@ -150,6 +151,7 @@ public sealed class AiToolCurrentSessionTests
             permissions,
             tenant,
             Substitute.For<IActiveTenantContextResolver>(),
+            new IdentityTenantResourceAccess(queries, tenant),
             clock,
             Options.Create(new IdentityOidcOptions { Enable = true, Issuer = "https://localhost/identity" }));
         try

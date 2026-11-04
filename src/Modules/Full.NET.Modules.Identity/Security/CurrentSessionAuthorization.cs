@@ -17,6 +17,7 @@ internal sealed class CurrentSessionAuthorization(
     IPermissionSnapshotReader permissions,
     ICurrentTenant tenant,
     IActiveTenantContextResolver tenants,
+    IdentityTenantResourceAccess access,
     IClock clock,
     IOptions<IdentityOidcOptions> oidcOptions) : ICurrentSessionAuthorization
 {
@@ -47,6 +48,7 @@ internal sealed class CurrentSessionAuthorization(
         Guid? tenantId = Guid.TryParse(tenantClaim, out var parsed) ? parsed : null;
         if (tenantId != tenant.Id || (tenantId is null && !tenant.IsHost)) return null;
         if (tenantId is { } id && await tenants.ResolveActiveByIdAsync(id, cancellationToken).ConfigureAwait(false) is null) return null;
+        if (!await access.IsAllowedAsync(principal, required, cancellationToken).ConfigureAwait(false)) return null;
         var snapshot = await permissions.ReadAsync(userId,
             principal.FindFirstValue(FullNetIdentityClaimTypes.ActorScope)!, tenantId, cancellationToken).ConfigureAwait(false);
         // 权威会话和权限读取可能等待到 JWT 到期，交付授权前必须再次检查原令牌时间。

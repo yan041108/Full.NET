@@ -2,6 +2,42 @@
   "schemaVersion": 1,
   "entries": [
     {
+      "statementName": "identity.tenant_resource.find_access",
+      "declaration": "Full.NET.Modules.Identity.Security.IdentityTenantResourceAccess.FindAccess",
+      "file": "src/Modules/Full.NET.Modules.Identity/Security/IdentityTenantResourceAccess.cs",
+      "category": "verified_identity",
+      "reason": "已认证的统一 Host 账号在当前可信租户中实时核对活动成员或持久化平台授权；只返回单个用户和租户的标量准入事实，不枚举成员、不读取其他租户业务数据。",
+      "requiredSqlFragments": [
+        "actor.Id = @UserId", "actor.IsActive = 1", "actor.ScopeKey = 'host'", "actor.TenantId IS NULL",
+        "membership.UserId = actor.Id", "membership.TenantId = @TenantId", "membership.Status = 'Active'",
+        "assignment.UserId = actor.Id", "roleObject.IsActive = 1", "roleObject.ScopeKey = 'host'", "roleObject.TenantId IS NULL",
+        "roleObject.IsSuperAdministrator = 1", "permission.PermissionCode = 'tenancy.tenants.switch'"
+      ]
+    },
+    {
+      "statementName": "identity.tenant_context.global_access",
+      "declaration": "Full.NET.Modules.Identity.Features.ChangeSessionContext.IdentityTenantContextAccessReader.GlobalAccess",
+      "file": "src/Modules/Full.NET.Modules.Identity/Features/ChangeSessionContext/IdentityTenantContextAccessReader.cs",
+      "category": "verified_identity",
+      "reason": "上下文目录准入只承认已验证活动 Host 账号的持久化平台角色；普通账号默认自助切换声明不产生全目录授权。",
+      "requiredSqlFragments": [
+        "actor.Id = @UserId", "actor.IsActive = 1", "actor.ScopeKey = 'host'", "actor.TenantId IS NULL",
+        "assignment.UserId = actor.Id", "roleObject.ScopeKey = 'host'", "roleObject.TenantId IS NULL", "roleObject.IsActive = 1",
+        "roleObject.IsSuperAdministrator = 1", "permission.PermissionCode = 'tenancy.tenants.switch'"
+      ]
+    },
+    {
+      "statementName": "identity.tenant_context.memberships",
+      "declaration": "Full.NET.Modules.Identity.Features.ChangeSessionContext.IdentityTenantContextAccessReader.Memberships",
+      "file": "src/Modules/Full.NET.Modules.Identity/Features/ChangeSessionContext/IdentityTenantContextAccessReader.cs",
+      "category": "verified_identity",
+      "reason": "上下文选择目录只返回已验证活动 Host 账号自己的活动成员租户标识；业务逐次授权另用单租户标量检查。",
+      "requiredSqlFragments": [
+        "actor.Id = @UserId", "actor.IsActive = 1", "actor.ScopeKey = 'host'", "actor.TenantId IS NULL",
+        "actor.Id = membership.UserId", "membership.Status = 'Active'", "ORDER BY membership.TenantId"
+      ]
+    },
+    {
       "statementName": "ai.knowledge_correction_preparation.scan_sqlserver",
       "declaration": "Full.NET.Modules.Ai.Persistence.AiKnowledgeCorrectionPreparationSql.ScanSqlServer",
       "file": "src/Modules/Full.NET.Modules.Ai/Persistence/AiKnowledgeCorrectionPreparationSql.cs",

@@ -6,6 +6,10 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.Options;
 using Full.NET.Modules.Identity;
 using Full.NET.Modules.Tenancy;
+using Full.NET.Abstractions.Tenancy;
+using Full.NET.Data.Abstractions;
+using Microsoft.AspNetCore.Http;
+using NSubstitute;
 
 namespace Full.NET.UnitTests.Identity;
 
@@ -91,6 +95,8 @@ public sealed class FullNetPermissionHandlerTests
             [
                 new Claim(IdentityClaimTypes.SuperAdministrator, "true"),
                 new Claim(IdentityClaimTypes.Scope, "tenant:01981a3f00c070008000000000000001"),
+                new Claim(IdentityClaimTypes.ActorScope, "tenant:01981a3f00c070008000000000000001"),
+                new Claim(IdentityClaimTypes.TenantId, "01981a3f-00c0-7000-8000-000000000001"),
             ],
             "unit-test"));
         var context = new AuthorizationHandlerContext(
@@ -98,7 +104,7 @@ public sealed class FullNetPermissionHandlerTests
             principal,
             null);
 
-        await CreateHandler().HandleAsync(context);
+        await CreateHandler(Guid.Parse("01981a3f-00c0-7000-8000-000000000001")).HandleAsync(context);
 
         Assert.IsFalse(context.HasSucceeded);
         Assert.IsTrue(context.PendingRequirements.Contains(hostRequirement));
@@ -111,17 +117,22 @@ public sealed class FullNetPermissionHandlerTests
             [
                 new Claim(IdentityClaimTypes.Permission, permission),
                 new Claim(IdentityClaimTypes.Scope, "host"),
+                new Claim(IdentityClaimTypes.ActorScope, "host"),
             ],
             "unit-test"));
     }
 
-    private static FullNetPermissionHandler CreateHandler() => new(
-        new PermissionClaimEvaluator(AuthorizationCatalog.Create(
+    private static FullNetPermissionHandler CreateHandler(Guid? tenantId = null)
+    {
+        var tenant = new CurrentTenantAccessor();
+        if (tenantId is { } id) tenant.SetTenant(new TenantContext(id, "acme", "测试租户")); else tenant.SetHost();
+        return new(new PermissionClaimEvaluator(AuthorizationCatalog.Create(
             [
                 new IdentityAuthorizationContributor(),
                 new TenancyAuthorizationContributor(),
                 new HostOnlyContributor(),
-            ])));
+            ])), new IdentityTenantResourceAccess(Substitute.For<IQueryExecutor>(), tenant), new HttpContextAccessor());
+    }
 
     private sealed class HostOnlyContributor : IAuthorizationCatalogContributor
     {
