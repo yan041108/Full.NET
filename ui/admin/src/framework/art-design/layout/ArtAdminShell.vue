@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import {
   computed,
+  defineAsyncComponent,
   onMounted,
   onUnmounted,
   ref,
@@ -14,7 +15,6 @@ import ArtTabs from './ArtTabs.vue';
 import ArtBreadcrumb from './ArtBreadcrumb.vue';
 import ArtGlobalSearch from './ArtGlobalSearch.vue';
 import type { ObjectSearchSource } from '../../../search/objectSearch';
-import ArtSettingsPanel from './ArtSettingsPanel.vue';
 import ArtHorizontalMenu from './ArtHorizontalMenu.vue';
 import ArtMixedMenu from './ArtMixedMenu.vue';
 import ArtDualMenuRail from './ArtDualMenuRail.vue';
@@ -38,6 +38,8 @@ import type { PersonalShortcutScope } from '../../../navigation/personal-shortcu
 import type { MessageKey, MessageParameters } from '@fullnet/admin-i18n';
 
 defineOptions({ name: 'ArtAdminShell' });
+
+const ArtSettingsPanel = defineAsyncComponent(() => import('./ArtSettingsPanel.vue'));
 
 const props = defineProps<{
   navigationTree: NavigationNode[];
@@ -120,6 +122,9 @@ const {
 const tabs = ref<ShellTabItem[]>([]);
 const mobileNavOpen = ref(false);
 const settingsOpen = ref(false);
+const settingsRequested = ref(false);
+// 首次打开才加载设置，之后保留同一实例，关闭动画和当前偏好状态不因按需加载而丢失。
+function openSettings() { settingsRequested.value = true; settingsOpen.value = true; }
 const isMobileViewport = ref(false);
 const activeMenuGroupId = ref('');
 const globalSearchRef = ref<InstanceType<typeof ArtGlobalSearch>>();
@@ -428,7 +433,7 @@ watch(navigationGroups, () => {
           @open-search="openSearch"
           @toggle-menu="toggleMenu"
           @refresh="emit('refresh')"
-          @open-settings="settingsOpen = true"
+          @open-settings="openSettings"
         >
           <template #breadcrumb>
             <ArtBreadcrumb
@@ -500,6 +505,7 @@ watch(navigationGroups, () => {
     />
 
     <ArtSettingsPanel
+      v-if="settingsRequested"
       v-model:open="settingsOpen"
       :close-label="labels.settingsClose"
       :translate="translate"

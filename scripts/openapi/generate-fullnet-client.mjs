@@ -28,7 +28,7 @@ const defaultOutputDirectory = path.join(
 // 会话恢复与通知状态是启动必要能力；独立入口避免业务页面的共享 SDK chunk 被提前加载。
 const startupOperationIds = new Set([
   'identityGetCurrentUser', 'identityLogin', 'identityLogout',
-  'identityRefreshSession', 'identityUpdatePreferredLocale',
+  'identityRefreshSession', 'identityUpdatePreferredLocale', 'platformGetHostDashboardSummary',
   'notificationsGetMyInboxUnreadCount', 'notificationsMarkAllMyInboxMessagesRead',
   'notificationsMarkMyInboxMessageRead', 'notificationsSendHostInboxMessage',
   'notificationsArchiveMyInboxMessage', 'notificationsArchiveMyInboxMessages'

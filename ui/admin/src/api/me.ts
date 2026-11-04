@@ -1,8 +1,8 @@
 import {
-  identityGetCurrentUser,
   isCurrentUserResponse,
   type CurrentUserResponse
 } from '@fullnet/client-contracts';
+import { identityGetCurrentUser } from '@fullnet/client-contracts/startup';
 import {
   deleteSelfServiceAvatar,
   deleteSelfServiceSignature,

@@ -4,6 +4,11 @@
 import type {
   ArchiveInboxMessagesRequest,
   CurrentUserResponse,
+  HostDashboardActivityResponse,
+  HostDashboardBusinessEntryResponse,
+  HostDashboardSummaryResponse,
+  HostDashboardTrafficTrendBucketResponse,
+  HostDashboardTrafficTrendResponse,
   InboxMessageResponse,
   InboxUnreadCountResponse,
   LocalePreferenceResponse,
@@ -29,6 +34,50 @@ export function readCurrentUserResponse(value: unknown): CurrentUserResponse {
 
 function isCurrentUserResponse(value: unknown): value is CurrentUserResponse {
   return isRecord(value) && (typeof value["actorScope"] === 'string') && (typeof value["displayName"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["isSuperAdministrator"] === 'boolean') && (typeof value["passwordChangeRequired"] === 'boolean') && (Array.isArray(value["permissions"]) && value["permissions"].every(item20 => typeof item20 === 'string')) && (typeof value["preferredLocale"] === 'string') && (Number.isSafeInteger(value["profileVersion"])) && (typeof value["scope"] === 'string') && (typeof value["sessionId"] === 'string' && guidPattern.test(value["sessionId"])) && ((value["tenantId"] === null) || (typeof value["tenantId"] === 'string' && guidPattern.test(value["tenantId"]))) && (typeof value["username"] === 'string');
+}
+
+export function readHostDashboardActivityResponse(value: unknown): HostDashboardActivityResponse {
+  return requireValidResponse(value, isHostDashboardActivityResponse(value), 'host_dashboard_activity_response') as HostDashboardActivityResponse;
+}
+
+function isHostDashboardActivityResponse(value: unknown): value is HostDashboardActivityResponse {
+  return isRecord(value) && (typeof value["actionKey"] === 'string') && (typeof value["httpMethod"] === 'string') && (typeof value["occurredAtUtc"] === 'string') && (typeof value["requestPath"] === 'string') && (typeof value["succeeded"] === 'boolean');
+}
+
+export function readHostDashboardBusinessEntryResponse(value: unknown): HostDashboardBusinessEntryResponse {
+  const normalizedValue = normalizeHostDashboardBusinessEntryResponseIntegerJson(value);
+  return requireValidResponse(normalizedValue, isHostDashboardBusinessEntryResponse(normalizedValue), 'host_dashboard_business_entry_response') as HostDashboardBusinessEntryResponse;
+}
+
+function isHostDashboardBusinessEntryResponse(value: unknown): value is HostDashboardBusinessEntryResponse {
+  return isRecord(value) && (Number.isSafeInteger(value["count"])) && (typeof value["entryKey"] === 'string') && (typeof value["requiredPermission"] === 'string') && (typeof value["routePath"] === 'string');
+}
+
+export function readHostDashboardSummaryResponse(value: unknown): HostDashboardSummaryResponse {
+  const normalizedValue = normalizeHostDashboardSummaryResponseIntegerJson(value);
+  return requireValidResponse(normalizedValue, isHostDashboardSummaryResponse(normalizedValue), 'host_dashboard_summary_response') as HostDashboardSummaryResponse;
+}
+
+function isHostDashboardSummaryResponse(value: unknown): value is HostDashboardSummaryResponse {
+  return isRecord(value) && ((value["accessTrafficTrend"] === null) || (isHostDashboardTrafficTrendResponse(value["accessTrafficTrend"]))) && ((value["activeTenantCount"] === null) || (Number.isSafeInteger(value["activeTenantCount"]))) && (Array.isArray(value["businessEntries"]) && value["businessEntries"].every(item24 => isHostDashboardBusinessEntryResponse(item24))) && ((value["onlineSessionCount"] === null) || (Number.isSafeInteger(value["onlineSessionCount"]))) && ((value["recentActivities"] === null) || (Array.isArray(value["recentActivities"]) && value["recentActivities"].every(item25 => isHostDashboardActivityResponse(item25)))) && ((value["todayErrorRate"] === null) || (Number.isFinite(value["todayErrorRate"])) || (typeof value["todayErrorRate"] === 'string' && new RegExp("^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$").test(value["todayErrorRate"]) && Number.isFinite(Number(value["todayErrorRate"])))) && ((value["todayRequestCount"] === null) || (Number.isSafeInteger(value["todayRequestCount"])));
+}
+
+export function readHostDashboardTrafficTrendBucketResponse(value: unknown): HostDashboardTrafficTrendBucketResponse {
+  const normalizedValue = normalizeHostDashboardTrafficTrendBucketResponseIntegerJson(value);
+  return requireValidResponse(normalizedValue, isHostDashboardTrafficTrendBucketResponse(normalizedValue), 'host_dashboard_traffic_trend_bucket_response') as HostDashboardTrafficTrendBucketResponse;
+}
+
+function isHostDashboardTrafficTrendBucketResponse(value: unknown): value is HostDashboardTrafficTrendBucketResponse {
+  return isRecord(value) && (typeof value["bucketStartUtc"] === 'string') && (Number.isSafeInteger(value["errorCount"])) && (Number.isSafeInteger(value["eventCount"]));
+}
+
+export function readHostDashboardTrafficTrendResponse(value: unknown): HostDashboardTrafficTrendResponse {
+  const normalizedValue = normalizeHostDashboardTrafficTrendResponseIntegerJson(value);
+  return requireValidResponse(normalizedValue, isHostDashboardTrafficTrendResponse(normalizedValue), 'host_dashboard_traffic_trend_response') as HostDashboardTrafficTrendResponse;
+}
+
+function isHostDashboardTrafficTrendResponse(value: unknown): value is HostDashboardTrafficTrendResponse {
+  return isRecord(value) && (Array.isArray(value["buckets"]) && value["buckets"].every(item16 => isHostDashboardTrafficTrendBucketResponse(item16))) && (Number.isSafeInteger(value["bucketSizeMinutes"])) && (typeof value["fromUtc"] === 'string') && (typeof value["toUtc"] === 'string');
 }
 
 export function readInboxMessageResponse(value: unknown): InboxMessageResponse {
@@ -100,6 +149,22 @@ function isUpdateLocaleRequest(value: unknown): value is UpdateLocaleRequest {
 
 function normalizeCurrentUserResponseIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "profileVersion") ? { ["profileVersion"]: normalizeWireInteger(value["profileVersion"]) } : {}) } : value);
+}
+
+function normalizeHostDashboardBusinessEntryResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "count") ? { ["count"]: normalizeWireInteger(value["count"]) } : {}) } : value);
+}
+
+function normalizeHostDashboardSummaryResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "accessTrafficTrend") ? { ["accessTrafficTrend"]: normalizeIntegerUnion(value["accessTrafficTrend"], [{ matches: (value: unknown) => value === null, normalize: (value: unknown) => value }, { matches: (value: unknown) => isHostDashboardTrafficTrendResponse(value), normalize: (value: unknown) => normalizeHostDashboardTrafficTrendResponseIntegerJson(value) }]) } : {}), ...(Object.hasOwn(value, "activeTenantCount") ? { ["activeTenantCount"]: normalizeWireInteger(value["activeTenantCount"]) } : {}), ...(Object.hasOwn(value, "businessEntries") ? { ["businessEntries"]: (Array.isArray(value["businessEntries"]) ? value["businessEntries"].map((item24: unknown) => normalizeHostDashboardBusinessEntryResponseIntegerJson(item24)) : value["businessEntries"]) } : {}), ...(Object.hasOwn(value, "onlineSessionCount") ? { ["onlineSessionCount"]: normalizeWireInteger(value["onlineSessionCount"]) } : {}), ...(Object.hasOwn(value, "todayRequestCount") ? { ["todayRequestCount"]: normalizeWireInteger(value["todayRequestCount"]) } : {}) } : value);
+}
+
+function normalizeHostDashboardTrafficTrendBucketResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "errorCount") ? { ["errorCount"]: normalizeWireInteger(value["errorCount"]) } : {}), ...(Object.hasOwn(value, "eventCount") ? { ["eventCount"]: normalizeWireInteger(value["eventCount"]) } : {}) } : value);
+}
+
+function normalizeHostDashboardTrafficTrendResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "buckets") ? { ["buckets"]: (Array.isArray(value["buckets"]) ? value["buckets"].map((item16: unknown) => normalizeHostDashboardTrafficTrendBucketResponseIntegerJson(item16)) : value["buckets"]) } : {}), ...(Object.hasOwn(value, "bucketSizeMinutes") ? { ["bucketSizeMinutes"]: normalizeWireInteger(value["bucketSizeMinutes"]) } : {}) } : value);
 }
 
 function normalizeInboxUnreadCountResponseIntegerJson(value: unknown): unknown {

@@ -5,7 +5,8 @@ import {
 } from './workflow-todos.js';
 
 /** 明细子表列允许使用的标量字段类型，禁止嵌套子表与附件。 */
-export const WORKFLOW_SUBTABLE_COLUMN_FIELD_TYPES = WORKFLOW_FIELD_TYPES.filter(type =>
+// 筛选只读取本模块的静态类型数组；未使用工作流时可整体裁剪，避免公共入口提前加载运行时守卫。
+export const WORKFLOW_SUBTABLE_COLUMN_FIELD_TYPES = /* @__PURE__ */ WORKFLOW_FIELD_TYPES.filter(type =>
   type !== 'attachment' && type !== 'subtable');
 
 export type WorkflowSubtableColumnFieldType = typeof WORKFLOW_SUBTABLE_COLUMN_FIELD_TYPES[number];

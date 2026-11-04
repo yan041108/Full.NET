@@ -610,7 +610,8 @@
     },
     {
       "clientContractModules": [
-        "packages/client-contracts/src/platform-dashboard.ts"
+        "packages/client-contracts/src/platform-dashboard.ts",
+        "packages/client-contracts/src/generated/startup-operations.generated.ts"
       ],
       "openApiFixture": "contracts/openapi/platform-host-dashboard-v1.json",
       "apiModule": "ui/admin/src/api/platform-dashboard.ts",
@@ -724,7 +725,8 @@
     },
     {
       "clientContractModules": [
-        "packages/client-contracts/src/identity.ts"
+        "packages/client-contracts/src/identity.ts",
+        "packages/client-contracts/src/generated/startup-operations.generated.ts"
       ],
       "openApiFixture": "contracts/openapi/identity-me-v1.json",
       "apiModule": "ui/admin/src/api/me.ts",

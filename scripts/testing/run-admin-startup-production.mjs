@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { withTestRun, testRunEnvironment } from './test-run-context.mjs';
 
-// 复用最新生产构建，只执行启动 SDK、会话恢复与导航三个场景；原始失败保留在独立系统 Temp。
+// 复用最新生产构建，只执行启动 SDK、会话恢复、设置及导航场景；原始失败保留在独立系统 Temp。
 const root = fileURLToPath(new URL('../../', import.meta.url));
 await withTestRun({ cwd: root, heavy: true }, async () => {
   const env = testRunEnvironment();

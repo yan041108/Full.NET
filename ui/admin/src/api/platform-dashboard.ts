@@ -1,8 +1,8 @@
 import {
   isHostDashboardSummary,
-  platformGetHostDashboardSummary,
   type HostDashboardSummary
 } from '@fullnet/client-contracts';
+import { platformGetHostDashboardSummary } from '@fullnet/client-contracts/startup';
 import { http } from './http';
 
 /** 读取平台工作台摘要，并对响应结构做失败关闭校验。 */

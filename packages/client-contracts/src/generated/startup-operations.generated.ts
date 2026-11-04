@@ -5,6 +5,11 @@ import type { HttpClient, RequestOptions } from '../http.js';
 import type {
   ArchiveInboxMessagesRequest,
   CurrentUserResponse,
+  HostDashboardActivityResponse,
+  HostDashboardBusinessEntryResponse,
+  HostDashboardSummaryResponse,
+  HostDashboardTrafficTrendBucketResponse,
+  HostDashboardTrafficTrendResponse,
   InboxMessageResponse,
   InboxUnreadCountResponse,
   LocalePreferenceResponse,
@@ -16,6 +21,7 @@ import type {
 } from './models.generated.js';
 import {
   readCurrentUserResponse,
+  readHostDashboardSummaryResponse,
   readInboxMessageResponse,
   readInboxUnreadCountResponse,
   readLocalePreferenceResponse,
@@ -227,4 +233,20 @@ export async function notificationsSendHostInboxMessage(
   };
   const value = await requestJsonOperation(http, path, init, signal, options);
   return readInboxMessageResponse(value);
+}
+
+export interface PlatformGetHostDashboardSummaryParameters {
+
+}
+
+export async function platformGetHostDashboardSummary(
+  http: HttpClient,
+  parameters: PlatformGetHostDashboardSummaryParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<HostDashboardSummaryResponse> {
+  const path = `/api/v1/platform/host-dashboard-summary`;
+  const init: RequestInit = { method: 'GET' };
+  const value = await requestJsonOperation(http, path, init, signal, options);
+  return readHostDashboardSummaryResponse(value);
 }

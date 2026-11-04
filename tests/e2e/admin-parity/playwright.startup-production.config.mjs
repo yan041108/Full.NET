@@ -1,11 +1,11 @@
 import base from './playwright.config.mjs';
 
-// 默认开发模式套件不收集生产产物的网络断言，专用入口只运行这三个直接场景。
+// 默认开发模式套件不收集生产产物的网络断言，专用入口只运行启动及导航直接场景。
 export default {
   ...base,
   testDir: '.',
   testMatch: ['production-tests/startup-sdk-delivery.spec.mjs', 'tests/shell-parity.spec.mjs'],
-  grep: /匿名首屏|生产启动入口|动态导航和可信租户/u,
+  grep: /匿名首屏|生产启动入口|动态导航和可信租户|设置面板首次打开/u,
   workers: 1,
   webServer: {
     command: 'pnpm --dir ../../.. --filter @fullnet/admin exec vite preview --host 127.0.0.1 --port 15174 --strictPort',
