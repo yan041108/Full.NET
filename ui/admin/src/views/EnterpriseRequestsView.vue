@@ -86,11 +86,14 @@ const editForm = reactive({
   totalAmount: '0',
   applicantUserId: ''
 });
-type EditorMutation = {epoch:number;context:string;requestNumber:string;recordId?:string};
+type EditorMutation = {epoch:number;context:string;requestNumber:string;recordId?:string;kind:'create'|'update'|'submit'|'delete'};
 const editorEpoch = ref(0), editorBlocked = reactive(new Map<string,EditorMutation>());
 const editorContext = () => JSON.stringify([session.currentUser?.id, session.currentUser?.sessionId, session.currentUser?.tenantId]);
 const editorUnconfirmed = computed(() => editorBlocked.has(editorContext()));
+const blockedOperation=computed(()=>editorBlocked.get(editorContext()));
+const blockedOperationLabel=computed(()=>blockedOperation.value?t(({create:'enterpriseRequests.create',update:'enterpriseRequests.edit',submit:'enterpriseRequests.submit',delete:'enterpriseRequests.delete'} as const)[blockedOperation.value.kind]):'');
 let editorMutation: EditorMutation | undefined;
+const commandConfirmation=ref<{kind:'submit'|'delete';row:EnterpriseRequestResponse;epoch:number;scope:number;context:string}>();
 function clearEditorInputs() {
   Object.assign(createForm, {organizationUnitId:'',requestNumber:'',title:'',status:'Draft',totalAmount:'0',applicantUserId:''});
   Object.assign(editForm, {requestNumber:'',title:'',status:'',totalAmount:'0',applicantUserId:''});
@@ -105,7 +108,7 @@ function stopEditor() {
 const editorRecovery = computed(() => {
   const epoch=editorEpoch.value,context=editorContext();
   return () => {if(epoch===editorEpoch.value&&context===editorContext()&&!changing.value&&!loading.value&&!session.switching&&pageActive.value
-    &&session.can('enterprise_request.enterprise_requests.read')&&(canCreate.value||canUpdate.value)){editorBlocked.delete(context);problem.value=undefined;}};
+    &&session.can('enterprise_request.enterprise_requests.read')&&(canCreate.value||canUpdate.value||canSubmit.value||canDisable.value)){editorBlocked.delete(context);problem.value=undefined;}};
 });
 const editorControls = computed(() => {
   const epoch=editorEpoch.value,context=editorContext(),owned=()=>epoch===editorEpoch.value&&context===editorContext()&&pageActive.value&&!session.switching;
@@ -148,6 +151,7 @@ onMounted(() => {
 watch(() => [session.currentUser?.id, session.currentUser?.tenantId, session.currentUser?.sessionId,
   session.currentUser?.permissions.join('|'), session.switching], () => {
   stopEditor();
+  commandConfirmation.value=undefined;
   reset(); problem.value = undefined; createOpen.value = false; editOpen.value = false; editing.value = undefined;
   query.value = defaultEnterpriseRequestQuery();
   pendingQuery = undefined;
@@ -161,17 +165,18 @@ watch([createOpen,editOpen], ([created,edited], [wasCreated,wasEdited]) => {
   if (created!==wasCreated || edited!==wasEdited) editorEpoch.value++;
   if ((!created&&wasCreated)||(!edited&&wasEdited)) stopEditor();
 },{flush:'sync'});
+watch(commandConfirmation,(current,previous)=>{if(previous&&!current)stopEditor();},{flush:'sync'});
 
 /** 查询切换只取消读取；编辑或业务写入未结束时不重置其结果。 */
 function applyQuery(configuration: SavedQueryConfiguration) {
   if (!pageActive.value || session.switching) return;
   // 深链详情打开期间只保留读取到的默认条件；关闭后再应用，避免面板与实际列表条件不一致。
-  if (changing.value || aggregateOpen.value || readDetailOpen.value || deliveryOpen.value || createOpen.value || editOpen.value) { pendingQuery = configuration; return; }
+  if (changing.value || aggregateOpen.value || readDetailOpen.value || deliveryOpen.value || createOpen.value || editOpen.value || commandConfirmation.value) { pendingQuery = configuration; return; }
   pendingQuery = undefined;
   reset(); query.value = configuration; problem.value = undefined; void load(1);
 }
 function queryReady() { if (!pendingQuery && pageActive.value && !session.switching && !loading.value && !items.value.length) void load(1); }
-watch(() => [changing.value, aggregateOpen.value, readDetailOpen.value, deliveryOpen.value, createOpen.value, editOpen.value], value => {
+watch(() => [changing.value, aggregateOpen.value, readDetailOpen.value, deliveryOpen.value, createOpen.value, editOpen.value,!!commandConfirmation.value], value => {
   if (pendingQuery && value.every(busy => !busy)) applyQuery(pendingQuery);
 });
 
@@ -191,7 +196,7 @@ watch(() => [route.name, route.query.requestId], () => {
   else openRequestedDocument();
 }, { immediate: true });
 onActivated(() => { pageActive.value = true; openRequestedDocument(); if (!queryEnabled.value && !loading.value && !items.value.length) void load(); });
-onDeactivated(() => { pageActive.value = false; pendingQuery = undefined; stopEditor(); reset(); aggregateOpen.value = false; readDetailOpen.value = false; deliveryOpen.value = false; createOpen.value = false; editOpen.value = false; });
+onDeactivated(() => { pageActive.value = false; pendingQuery = undefined; stopEditor(); reset(); commandConfirmation.value=undefined; aggregateOpen.value = false; readDetailOpen.value = false; deliveryOpen.value = false; createOpen.value = false; editOpen.value = false; });
 watch(() => aggregateOpen.value || readDetailOpen.value, (value, previous) => {
   if (!value && previous && route.name === 'enterprise-requests' && route.query.requestId !== undefined) {
     const { requestId: _requestId, ...query } = route.query;
@@ -217,7 +222,7 @@ function openEdit(row: EnterpriseRequestResponse): void {
 
 async function submitCreate(): Promise<void> {
   if(!createOpen.value||editorUnconfirmed.value||changing.value||session.switching||!pageActive.value||!canCreate.value)return;
-  const mutation={epoch:editorEpoch.value,context:editorContext(),requestNumber:createForm.requestNumber.slice(0,128)};editorMutation=mutation;
+  const mutation:EditorMutation={epoch:editorEpoch.value,context:editorContext(),requestNumber:createForm.requestNumber.slice(0,128),kind:'create'};editorMutation=mutation;
   try {const succeeded=await create({...createForm,status:'Draft'});if(succeeded&&mutation.epoch===editorEpoch.value&&mutation.context===editorContext())createOpen.value=false;}
   finally {if(editorMutation===mutation)editorMutation=undefined;}
 }
@@ -226,14 +231,35 @@ async function submitEdit(): Promise<void> {
   if (!editing.value||!editOpen.value||editorUnconfirmed.value||changing.value||session.switching||!pageActive.value||!canUpdate.value) {
     return;
   }
-  const mutation={epoch:editorEpoch.value,context:editorContext(),requestNumber:editForm.requestNumber.slice(0,128),recordId:editing.value.id};editorMutation=mutation;
+  const mutation:EditorMutation={epoch:editorEpoch.value,context:editorContext(),requestNumber:editForm.requestNumber.slice(0,128),recordId:editing.value.id,kind:'update'};editorMutation=mutation;
   try {const succeeded=await update(editing.value,{...editForm});if(succeeded&&mutation.epoch===editorEpoch.value&&mutation.context===editorContext())editOpen.value=false;}
   finally {if(editorMutation===mutation)editorMutation=undefined;}
 }
 
-async function removeRow(row: EnterpriseRequestResponse): Promise<void> {
-  await remove(row);
+/** 确认只接受本次列表中仍为原修订的草稿；URL、旧按钮和客户端状态不能代替业务权威判断。 */
+function confirmCommand(row:EnterpriseRequestResponse,kind:'submit'|'delete') {
+  const scope=printEpoch.value,rows=items.value,id=row.id,version=row.version;
+  return ()=>{
+    if(scope!==printEpoch.value||route.name!=='enterprise-requests'||!pageActive.value||session.switching||changing.value
+      ||createOpen.value||editOpen.value||commandConfirmation.value||rows!==items.value||!items.value.includes(row)||row.id!==id||row.version!==version||row.status!=='Draft'
+      ||!session.can('enterprise_request.enterprise_requests.read')||!(kind==='submit'?canSubmit.value:canDisable.value))return;
+    editorEpoch.value++;commandConfirmation.value={kind,row:{...row},epoch:editorEpoch.value,scope,context:editorContext()};
+  };
 }
+const commandControls=computed(()=>{
+  const target=commandConfirmation.value;
+  const owned=()=>!!target&&commandConfirmation.value===target&&target.epoch===editorEpoch.value&&target.scope===printEpoch.value
+    &&target.context===editorContext()&&pageActive.value&&!session.switching&&route.name==='enterprise-requests'
+    &&session.can('enterprise_request.enterprise_requests.read')&&(target.kind==='submit'?canSubmit.value:canDisable.value);
+  const close=()=>{if(owned())commandConfirmation.value=undefined;};
+  const original=()=>!!target&&items.value.some(row=>row.id===target.row.id&&row.version===target.row.version&&row.status==='Draft');
+  return {close,available:owned()&&original(),update:(value:boolean)=>{if(!value)close();},confirm:async()=>{
+    if(!owned()||!target||changing.value||editorUnconfirmed.value||!original())return;
+    const mutation:EditorMutation={epoch:target.epoch,context:target.context,requestNumber:target.row.requestNumber.slice(0,128),recordId:target.row.id,kind:target.kind};editorMutation=mutation;
+    try{const succeeded=await(target.kind==='submit'?submitForApproval(target.row):remove(target.row));if(succeeded&&owned())commandConfirmation.value=undefined;}
+    finally{if(editorMutation===mutation)editorMutation=undefined;}
+  }};
+});
 </script>
 
 <template>
@@ -244,8 +270,8 @@ async function removeRow(row: EnterpriseRequestResponse): Promise<void> {
     </div>
     <section v-if="editorUnconfirmed" role="status" data-testid="enterprise-editor-unconfirmed">
       <p>{{ editorText('writeUnconfirmed') }}</p>
-      <code>{{ editorBlocked.get(editorContext())?.requestNumber }}</code>
-      <code v-if="editorBlocked.get(editorContext())?.recordId">{{ editorBlocked.get(editorContext())?.recordId }}</code>
+      <strong>{{blockedOperationLabel}}</strong> <code>{{ blockedOperation?.requestNumber }}</code>
+      <code v-if="blockedOperation?.recordId">{{ blockedOperation.recordId }}</code>
       <el-button :disabled="loading||changing" @click="load()">{{ editorText('reloadRecords') }}</el-button>
       <ElPopconfirm :key="editorEpoch" :title="editorText('confirmChecked')" :width="280" v-on="{confirm:editorRecovery}">
         <template #reference><el-button :disabled="loading||changing" data-testid="enterprise-editor-recover">{{ editorText('checkedResults') }}</el-button></template>
@@ -263,7 +289,7 @@ async function removeRow(row: EnterpriseRequestResponse): Promise<void> {
     </div>
     <QuerySchemePanel v-if="queryEnabled" grid-key="enterprise_request.enterprise_requests"
       business-permission="enterprise_request.enterprise_requests.read" :active="pageActive"
-      :disabled="changing || aggregateOpen || readDetailOpen || deliveryOpen || createOpen || editOpen" :defaults="defaultEnterpriseRequestQuery"
+      :disabled="changing || aggregateOpen || readDetailOpen || deliveryOpen || createOpen || editOpen || !!commandConfirmation" :defaults="defaultEnterpriseRequestQuery"
       :field-label="queryFieldLabel" @apply="applyQuery" @ready="queryReady" />
     <el-table
       :data="[...items]"
@@ -295,7 +321,7 @@ async function removeRow(row: EnterpriseRequestResponse): Promise<void> {
             :disabled="changing"
             link
             type="success"
-            @click="submitForApproval(row)"
+            v-on="{click:confirmCommand(row,'submit')}"
           >
             提交审批
           </el-button>
@@ -311,7 +337,7 @@ async function removeRow(row: EnterpriseRequestResponse): Promise<void> {
             v-if="canDisable && row.status === 'Draft'"
             link
             type="danger"
-            @click="removeRow(row)"
+            v-on="{click:confirmCommand(row,'delete')}"
           >
             删除
           </el-button>
@@ -329,6 +355,18 @@ async function removeRow(row: EnterpriseRequestResponse): Promise<void> {
     <!-- 文档编辑会刷新列表；弹窗由页面持有，不能随表格行或操作插槽重建而消失。 -->
     <EnterpriseRequestApprovalProgressDialog v-if="approvalProgressId" :request-id="approvalProgressId" @close="approvalProgressId = undefined" />
     <EnterpriseRequestDelivery v-if="deliveryId" v-model="deliveryOpen" :request-id="deliveryId" @updated="load(page)" />
+    <el-dialog v-if="commandConfirmation" :model-value="true" v-on="{'update:modelValue':commandControls.update}"
+      :title="t(commandConfirmation.kind==='submit'?'enterpriseRequests.submitTitle':'enterpriseRequests.deleteTitle')" width="min(520px, calc(100vw - 32px))" :close-on-click-modal="false">
+      <p>{{t(commandConfirmation.kind==='submit'?'enterpriseRequests.submitConfirm':'enterpriseRequests.deleteConfirm')}}</p>
+      <p><code>{{commandConfirmation.row.requestNumber}}</code> · {{commandConfirmation.row.title}}</p>
+      <code>{{commandConfirmation.row.id}}</code>
+      <p v-if="editorUnconfirmed">{{editorText('writeUnconfirmed')}}</p>
+      <p v-else-if="!changing&&!commandControls.available" role="status">{{editorText('commandUnavailable')}}</p>
+      <template #footer>
+        <el-button v-on="{click:commandControls.close}">{{t('common.cancel')}}</el-button>
+        <el-button type="primary" :loading="changing" :disabled="changing||editorUnconfirmed||!commandControls.available" data-testid="enterprise-command-confirm" v-on="{click:commandControls.confirm}">{{t(commandConfirmation.kind==='submit'?'enterpriseRequests.confirmSubmit':'enterpriseRequests.confirmDelete')}}</el-button>
+      </template>
+    </el-dialog>
     <el-dialog :model-value="createOpen" v-on="{'update:modelValue':editorControls.createUpdate}" title="创建" width="min(720px, calc(100vw - 32px))">
       <el-form label-width="120px" :disabled="changing">
       <el-form-item label="OrganizationUnitId">

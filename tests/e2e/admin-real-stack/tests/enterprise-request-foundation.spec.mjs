@@ -48,7 +48,7 @@ test('真实主从页面经 Worker 审批回写、消息通知与业务详情往
   await dialog.getByTestId('aggregate-remove-line').first().click(); await dialog.getByTestId('aggregate-total').fill('10.00');
   const reduced = await save(); expect(reduced.details).toHaveLength(1);
   const submitting = page.waitForResponse(r => new URL(r.url()).pathname.endsWith('/submit-for-approval') && r.request().method() === 'POST');
-  await row.getByRole('button', { name: '提交审批', exact: true }).click(); const submitted = await submitting;
+  await row.getByRole('button', { name: '提交审批', exact: true }).click(); await page.getByRole('dialog', { name: '确认提交审批', exact: true }).getByRole('button', { name: '确认提交', exact: true }).click(); const submitted = await submitting;
   expect(submitted.status(), await submitted.text()).toBe(200); await expect(row).toContainText('Submitted');
   await row.getByRole('button', { name: '主从明细', exact: true }).click();
   await expect(dialog).toContainText('当前状态或权限仅允许查看'); await expect(dialog.getByTestId('aggregate-save')).toHaveCount(0);
@@ -161,7 +161,7 @@ test('真实待办驳回经 Worker 回写终态并生成单据通知', async ({ 
   await dialog.getByTestId('aggregate-save').click(); const created = await creation;
   expect(created.status(), await created.text()).toBe(200); const document = await created.json(); await expect(dialog).not.toBeVisible();
   const row = page.locator('.generated-crud-view .el-table__row').filter({ hasText: number });
-  await row.getByRole('button', { name: '提交审批', exact: true }).click(); await expect(row).toContainText('Submitted');
+  await row.getByRole('button', { name: '提交审批', exact: true }).click(); await page.getByRole('dialog', { name: '确认提交审批', exact: true }).getByRole('button', { name: '确认提交', exact: true }).click(); await expect(row).toContainText('Submitted');
   await clickMainNavLink(page, /我的待办/);
   const todo = page.locator('.workflow-todos__table .el-table__row').filter({ hasText: title });
   await expect.poll(async () => {

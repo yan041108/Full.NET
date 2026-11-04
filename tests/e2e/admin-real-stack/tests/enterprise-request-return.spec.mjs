@@ -16,7 +16,7 @@ test('业务申请在退回轮次中保持冻结，幂等重投后重新办理�
   await editor.getByTestId('aggregate-save').click(); const created = await creating; expect(created.status(), await created.text()).toBe(200);
   const document = await created.json(); await expect(editor).not.toBeVisible();
   const row = page.locator('.generated-crud-view .el-table__row').filter({ hasText: number });
-  await row.getByRole('button', { name: '提交审批', exact: true }).click(); await expect(row).toContainText('Submitted');
+  await row.getByRole('button', { name: '提交审批', exact: true }).click(); await page.getByRole('dialog', { name: '确认提交审批', exact: true }).getByRole('button', { name: '确认提交', exact: true }).click(); await expect(row).toContainText('Submitted');
   await clickMainNavLink(page, /我的待办/);
   const todo = page.locator('.workflow-todos__table .el-table__row').filter({ hasText: title });
   async function openTodo() {

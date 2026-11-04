@@ -141,10 +141,11 @@ describe('企业样例对话框归属', () => {
       await flushPromises(); await click(f.wrapper, '提交审批'); request.mockReturnValueOnce(pending.promise);
       await click(f.wrapper, '确认提交'); await click(f.wrapper, '取消');
       expect(request.mock.calls[1]![2]?.aborted).toBe(true);
-      await click(f.wrapper, '提交审批');
+      await click(f.wrapper,'刷新申请列表');await flushPromises();await click(f.wrapper, '提交审批');await flushPromises();
+      expect(f.wrapper.get('[data-testid="enterprise-command-confirm"]').attributes('disabled')).toBeDefined();
       pending.reject({ status: 409, code: 'old.request.conflict', title: '旧提交失败' }); await flushPromises();
       expect(f.wrapper.findAllComponents(ElDialog).find(dialog => dialog.props('title') === '确认提交审批')!.props('modelValue')).toBe(true);
-      expect(f.wrapper.text()).not.toContain('旧提交失败'); expect(request).toHaveBeenCalledTimes(2);
+      expect(f.wrapper.text()).not.toContain('旧提交失败'); expect(request).toHaveBeenCalledTimes(3);
     } finally { f.wrapper.unmount(); }
   });
   it('新提交处理中旧成功到达，不刷新列表、不关闭新确认或结束新加载态', async () => {
@@ -153,13 +154,15 @@ describe('企业样例对话框归属', () => {
     try {
       await flushPromises(); await click(f.wrapper, '提交审批'); request.mockReturnValueOnce(old.promise);
       await click(f.wrapper, '确认提交'); await click(f.wrapper, '取消');
+      await click(f.wrapper,'刷新申请列表');await flushPromises();
+      f.wrapper.findAllComponents({name:'ElPopconfirm'}).find(component=>component.props('title')?.includes('核对原申请'))!.vm.$emit('confirm');await flushPromises();
       await click(f.wrapper, '提交审批'); request.mockReturnValueOnce(next.promise); await click(f.wrapper, '确认提交');
       old.resolve({ ...row, status: 'Submitted' }); await flushPromises();
-      expect(request).toHaveBeenCalledTimes(3);
+      expect(request).toHaveBeenCalledTimes(4);
       expect(f.wrapper.findAllComponents(ElDialog).find(dialog => dialog.props('title') === '确认提交审批')!.props('modelValue')).toBe(true);
       expect((f.wrapper.vm as unknown as { changing: boolean }).changing).toBe(true);
       next.resolve({ ...row, status: 'Submitted' }); await flushPromises();
-      expect(request).toHaveBeenCalledTimes(4);
+      expect(request).toHaveBeenCalledTimes(5);
       expect((f.wrapper.vm as unknown as { changing: boolean }).changing).toBe(false);
     } finally { f.wrapper.unmount(); }
   });
@@ -347,5 +350,36 @@ describe('申请摘要打印入口', () => {
       await flushPromises(); f.session.currentUser = original; route.name = 'enterprise-requests'; await flushPromises();
       callback(); expect(push).not.toHaveBeenCalled();
     } finally { f.wrapper.unmount(); }
+  });
+});
+
+describe('申请命令确认',()=>{
+  const read='enterprise_request.enterprise_requests.read';
+  beforeEach(()=>{route.name='enterprise-requests';route.query={};request.mockReset().mockResolvedValue(list);});
+  const cases=[{action:'提交审批',permission:'submit',title:'确认提交审批',confirm:'确认提交'},
+    {action:'删除',permission:'disable',title:'确认删除',confirm:'确认删除'}];
+  it.each(cases)('$action 旧确认关闭后不能作用于新确认',async scenario=>{
+    const f=fixture([read,'enterprise_request.enterprise_requests.'+scenario.permission]);try{
+      await flushPromises();await click(f.wrapper,scenario.action);await flushPromises();
+      const button=f.wrapper.findAllComponents(ElButton).find(item=>item.attributes('data-testid')==='enterprise-command-confirm')!;
+      const callback=button.vm.$.vnode.props?.onClick as ()=>void;expect(callback).toBeTypeOf('function');await click(f.wrapper,'取消');await click(f.wrapper,scenario.action);callback();await flushPromises();
+      expect(request).toHaveBeenCalledTimes(1);expect(f.wrapper.findAllComponents(ElDialog).some(dialog=>dialog.props('title')===scenario.title&&dialog.props('modelValue'))).toBe(true);
+    }finally{f.wrapper.unmount();}
+  });
+  it.each(cases)('$action 撤权再恢复后旧确认仍失效',async scenario=>{
+    const allowed=[read,'enterprise_request.enterprise_requests.'+scenario.permission],f=fixture(allowed);try{
+      await flushPromises();await click(f.wrapper,scenario.action);await flushPromises();const callback=f.wrapper.findAllComponents(ElButton).find(item=>item.attributes('data-testid')==='enterprise-command-confirm')!.vm.$.vnode.props?.onClick as ()=>void;
+      expect(callback).toBeTypeOf('function');f.session.currentUser={...f.session.currentUser!,permissions:[read]};await flushPromises();f.session.currentUser={...f.session.currentUser!,permissions:allowed};await flushPromises();callback();await flushPromises();expect(request.mock.calls.some(call=>call[1]?.method==='POST'||call[1]?.method==='DELETE')).toBe(false);
+    }finally{f.wrapper.unmount();}
+  });
+  it('删除明确确认才发送原记录版本，未知结果禁止重发',async()=>{
+    const f=fixture([read,'enterprise_request.enterprise_requests.disable']);try{
+      await flushPromises();await click(f.wrapper,'删除');await flushPromises();expect(request).toHaveBeenCalledTimes(1);request.mockRejectedValueOnce({status:503,code:'fixture.unknown',title:'未知'});await click(f.wrapper,'确认删除');await flushPromises();expect(request.mock.calls[1]![1]?.method).toBe('POST');expect(request.mock.calls[1]![0]).toContain('/delete');expect(JSON.parse(request.mock.calls[1]![1]?.body as string)).toEqual({version:'1'});expect(f.wrapper.get('[data-testid="enterprise-command-confirm"]').attributes('disabled')).toBeDefined();await click(f.wrapper,'确认删除');expect(request).toHaveBeenCalledTimes(2);
+    }finally{f.wrapper.unmount();}
+  });
+  it('确认期间列表换成新版本时拒绝旧目标并提示重新读取',async()=>{
+    const f=fixture([read,'enterprise_request.enterprise_requests.submit']);try{
+      await flushPromises();await click(f.wrapper,'提交审批');await flushPromises();request.mockResolvedValueOnce({...list,items:[{...row,version:'2'}]});await(f.wrapper.vm as unknown as {load:()=>Promise<boolean>}).load();await flushPromises();expect(f.wrapper.get('[data-testid="enterprise-command-confirm"]').attributes('disabled')).toBeDefined();expect(f.wrapper.text()).toContain('原记录已变化');expect(request).toHaveBeenCalledTimes(2);
+    }finally{f.wrapper.unmount();}
   });
 });
