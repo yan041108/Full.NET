@@ -1,5 +1,5 @@
 import { mount, flushPromises } from '@vue/test-utils';
-import { ElDialog, ElLoading } from 'element-plus';
+import { ElButton, ElDialog, ElLoading } from 'element-plus';
 import { reactive, watch } from 'vue';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import EnterpriseRequestsView from './EnterpriseRequestsView.vue';
@@ -16,8 +16,8 @@ const replace = vi.fn(async (value: { query: Record<string, unknown> }) => { rou
 const push = vi.fn(async () => {});
 vi.mock('vue-router', () => ({ useRoute: () => route, useRouter: () => ({ replace, push }) }));
 const row = { id: outputId, tenantId: outputId, organizationUnitId: outputId,
-  requestNumber: 'REQ-1', title: '旧租户资料', status: 'Draft', totalAmount: 12,
-  applicantUserId: outputId, version: 1, createdAtUtc: '2026-10-08T00:00:00Z',
+  requestNumber: 'REQ-1', title: '旧租户资料', status: 'Draft', totalAmount: '12.00',
+  applicantUserId: outputId, version: '1', createdAtUtc: '2026-10-08T00:00:00Z',
   createdById: outputId, updatedAtUtc: null, updatedById: null, isDeleted: false,
   deletedAtUtc: null, deletedById: null };
 const list = { items: [row], page: 1, pageSize: 20, total: 1 };
@@ -300,6 +300,21 @@ describe('申请摘要打印入口', () => {
       await flushPromises();
       expect(f.wrapper.find('[data-testid="enterprise-request-print"]').exists()).toBe(false);
       await button.trigger('click'); expect(push).not.toHaveBeenCalled();
+    } finally { f.wrapper.unmount(); }
+  });
+  it.each(['permission', 'route', 'tenant'])('旧打印回调在 %s 边界恢复后仍失效', async boundary => {
+    const f = fixture([read, printingRead, printingPreview]);
+    try {
+      await flushPromises();
+      const button = f.wrapper.findAllComponents(ElButton).find(item => item.attributes('data-testid') === 'enterprise-request-print')!;
+      const callback = button.vm.$.vnode.props?.onClick as () => void;
+      expect(callback).toBeTypeOf('function');
+      const original = { ...f.session.currentUser! };
+      if (boundary === 'permission') f.session.currentUser = { ...original, permissions: [read] };
+      else if (boundary === 'tenant') f.session.currentUser = { ...original, tenantId: '01980000-0000-7000-8000-000000000003' };
+      else route.name = 'overview';
+      await flushPromises(); f.session.currentUser = original; route.name = 'enterprise-requests'; await flushPromises();
+      callback(); expect(push).not.toHaveBeenCalled();
     } finally { f.wrapper.unmount(); }
   });
 });

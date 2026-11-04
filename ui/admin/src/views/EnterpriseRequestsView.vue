@@ -29,12 +29,13 @@ import ArtTableActionGroup from '../framework/art-design/components/ArtTableActi
 import { useAdminI18n } from '../i18n/adminI18n';
 import { enterpriseEditorText } from '../i18n/enterprise-request-editor';
 import { enterpriseDeliveryText } from '../i18n/enterprise-request-delivery';
+import { isPrintingRecordId } from '../printing/record-print-link';
 import { useSessionStore } from '../auth/session';
 import { useEnterpriseRequestPage } from './enterprise-requests/enterprise-requests-page.generated';
 import type { EnterpriseRequestResponse } from './enterprise-requests/enterprise-requests.generated';
 
 const session = useSessionStore();
-const { locale } = useAdminI18n();
+const { locale, t } = useAdminI18n();
 const editorText = (key: Parameters<typeof enterpriseEditorText>[1]) => enterpriseEditorText(locale.value, key);
 const pageActive = ref(true), query = ref(defaultEnterpriseRequestQuery());
 let pendingQuery: SavedQueryConfiguration | undefined;
@@ -50,6 +51,21 @@ const approvalProgressId = ref<string>();
 const canUseDelivery = () => !session.switching && session.can('enterprise_request.enterprise_requests.read') &&
   ['attachments.read', 'attachments.manage', 'reports.read', 'documents.print'].some(key => session.can(`enterprise_request.${key}`));
 const route = useRoute(), router = useRouter();
+const printEpoch = ref(0);
+const canPrintSummary = computed(() => pageActive.value && !session.switching && !!session.currentUser?.tenantId
+  && session.can('enterprise_request.enterprise_requests.read') && session.can('printing.published_templates.read')
+  && session.can('printing.published_templates.preview'));
+watch(() => [pageActive.value, route.name, session.currentUser?.id, session.currentUser?.tenantId,
+  session.currentUser?.sessionId, session.currentUser?.permissions.join('|'), session.switching], () => { printEpoch.value++; }, { flush: 'sync' });
+/** 按渲染时的会话和列表身份冻结回调；旧按钮不能在撤权后或另一企业重新生效。 */
+function printSummary(row: EnterpriseRequestResponse) {
+  const epoch = printEpoch.value, rows = items.value, id = row.id;
+  return () => {
+    if (epoch !== printEpoch.value || !canPrintSummary.value || route.name !== 'enterprise-requests' || changing.value
+      || rows !== items.value || !items.value.includes(row) || row.id !== id || !isPrintingRecordId(id)) return;
+    void router.push({ name: 'printing-published-templates', query: { formSchemaKey: 'enterprise_request.request_summary', recordId: id } });
+  };
+}
 const problem = ref<FullNetProblemDetails>();
 const createOpen = ref(false);
 const editOpen = ref(false);
@@ -222,6 +238,8 @@ async function removeRow(row: EnterpriseRequestResponse): Promise<void> {
       <el-table-column label="操作" width="360">
         <template #default="{ row }">
           <ArtTableActionGroup>
+          <el-button v-if="canPrintSummary" link type="primary" :disabled="changing" data-testid="enterprise-request-print"
+            v-on="{click:printSummary(row)}">{{ t('enterpriseRequests.printSummary') }}</el-button>
           <el-button v-if="session.can('enterprise_request.enterprise_requests.read')" link data-testid="enterprise-request-approval-progress" @click="approvalProgressId = row.id">审批进度</el-button>
           <el-button v-if="session.can('enterprise_request.enterprise_request_lines.read')" link type="primary"
             @click="aggregateId = row.id; aggregateOpen = true">{{ editorText('open') }}</el-button>

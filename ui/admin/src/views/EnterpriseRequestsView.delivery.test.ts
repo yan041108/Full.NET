@@ -16,7 +16,7 @@ let mounts = 0;
 beforeEach(() => { mounts = 0; request.mockReset().mockResolvedValue({ items: [row], page: 1, pageSize: 20, total: 1 }); });
 afterEach(() => wrappers.splice(0).forEach(wrapper => wrapper.unmount()));
 async function render() {
-  const pinia = createPinia(); setActivePinia(pinia); const session = useSessionStore(pinia);
+  const pinia = createPinia(); setActivePinia(pinia); const session = useSessionStore(pinia); session.state = 'authenticated';
   session.currentUser = { id, tenantId: id, sessionId: id, permissions: ['enterprise_request.enterprise_requests.read',
     'enterprise_request.attachments.manage'] } as NonNullable<typeof session.currentUser>;
   const router = createRouter({ history: createMemoryHistory(), routes: [{ path: '/', name: 'enterprise-requests', component: { template: '<div />' } }] });

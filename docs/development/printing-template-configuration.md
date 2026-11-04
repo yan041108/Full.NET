@@ -13,6 +13,6 @@ Host 后台“打印预览”提供模板草稿维护、显式发布和已发布
 
 启用状态立即影响模板使用资格。会话、权限或上下文变化会中止旧请求并清空页面。保存或发布结果不明时先读取确认，不自动重放写入。
 
-Printing 拥有模板及不可变版本；更新和发布通过 SQL Server/MySQL 各自的模板行锁与结果感知事务串行化。无新表、迁移、后台执行器或绑定服务。Identity 的 Baseline 版本为 5，只把原 `printing.templates.preview` 的精确系统目录/菜单修为读取权限；自定义菜单及非匹配权限不变，由 Migrator 执行播种。
+Printing 拥有模板及不可变版本；更新和发布通过 SQL Server/MySQL 各自的模板行锁与结果感知事务串行化。无新表、迁移、后台执行器或绑定服务。Identity 导航 Baseline 版本为 6：保留旧模板菜单精确修复，并将系统打印分组的旧 `printing.*` 权限改为 `identity.navigation.read`，使 Host 配置和租户获授版本各按叶子权限进入。自定义目录及非匹配权限不变，由 Migrator 执行播种，API/Worker 不播种。
 
-已发布版本的租户授权与回收沿用现有 Host 授权入口；租户真实数据预览复用业务绑定源及其当前权限校验。C02-R3 剩余真实业务旅程按最新计划差集核对，不重复建设授权或渲染服务。草稿首轮证据见[验证记录](../verification/2026-11-03-printing-template-configuration.md)，表单选择增量见[开发计划 §8.109](../superpowers/plans/2026-09-16-foundation-productization.md#8109-main-打印草稿业务表单选择2026-11-05)。
+已发布版本的租户授权与回收沿用现有 Host 授权入口；租户真实数据预览复用业务绑定源及其当前权限校验。企业申请列表的“打印摘要”携带当前记录定位到已授权模板目录，不自动预览。定位错误时修正记录 ID 后显式重试；当前会话、业务读取、金额权限及模板授权仍由服务端复核。草稿首轮证据见[验证记录](../verification/2026-11-03-printing-template-configuration.md)，表单选择及双库真实业务旅程见[开发计划](../superpowers/plans/2026-09-16-foundation-productization.md#8109-main-打印草稿业务表单选择2026-11-05)。

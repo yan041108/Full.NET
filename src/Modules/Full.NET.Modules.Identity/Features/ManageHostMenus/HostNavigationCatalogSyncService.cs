@@ -59,6 +59,13 @@ internal sealed class HostNavigationCatalogSyncService(
             AND RouteName='module-reporting' AND Path='/modules/reporting' AND RequiredPermission LIKE 'reporting.%'
         """, SqlDataScope.HostOnly);
 
+    // 打印分组同时包含 Host 配置与租户获授版本，不能让租户入口依赖 Host 草稿权限。
+    internal static readonly SqlStatement RepairPrintingDirectoryPermission = new("identity.navigation.repair_printing_directory_permission", """
+        UPDATE fn_identity_navigation SET RequiredPermission=@RequiredPermission, UpdatedAtUtc=@Now, Version=Version+1
+        WHERE ScopeKey='host' AND TenantId IS NULL AND IsSystem=1 AND MenuType='directory'
+            AND RouteName='module-printing' AND Path='/modules/printing' AND RequiredPermission LIKE 'printing.%'
+        """, SqlDataScope.HostOnly);
+
     // 工作流目录只承载分组，不能让本人待办隐式依赖定义管理或协作授权管理权限；叶子仍逐项精确授权。
     internal static readonly SqlStatement RepairWorkflowDirectoryPermission = new("identity.navigation.repair_workflow_directory_permission", """
         UPDATE fn_identity_navigation SET RequiredPermission=@RequiredPermission, UpdatedAtUtc=@Now, Version=Version+1
@@ -101,6 +108,8 @@ internal sealed class HostNavigationCatalogSyncService(
         permissionUpdated += await commandExecutor.ExecuteAsync(RepairNotificationsDirectoryPermission,
             new Dictionary<string, object?> { ["RequiredPermission"] = IdentityAuthorizationContributor.NavigationRead, ["Now"] = clock.UtcNow }, cancellationToken).ConfigureAwait(false);
         permissionUpdated += await commandExecutor.ExecuteAsync(RepairReportingDirectoryPermission,
+            new Dictionary<string, object?> { ["RequiredPermission"] = IdentityAuthorizationContributor.NavigationRead, ["Now"] = clock.UtcNow }, cancellationToken).ConfigureAwait(false);
+        permissionUpdated += await commandExecutor.ExecuteAsync(RepairPrintingDirectoryPermission,
             new Dictionary<string, object?> { ["RequiredPermission"] = IdentityAuthorizationContributor.NavigationRead, ["Now"] = clock.UtcNow }, cancellationToken).ConfigureAwait(false);
         permissionUpdated += await commandExecutor.ExecuteAsync(RepairPlatformDirectoryPermission,
             new Dictionary<string, object?> { ["RequiredPermission"] = IdentityAuthorizationContributor.NavigationRead, ["Now"] = clock.UtcNow }, cancellationToken).ConfigureAwait(false);
@@ -573,7 +582,7 @@ internal sealed class HostNavigationCatalogSyncService(
     {
         if (moduleKey == "workflow") return IdentityAuthorizationContributor.NavigationRead;
         if (moduleKey == "ai") return IdentityAuthorizationContributor.NavigationRead;
-        if (moduleKey is "notifications" or "reporting" or "platform") return IdentityAuthorizationContributor.NavigationRead;
+        if (moduleKey is "notifications" or "reporting" or "platform" or "printing") return IdentityAuthorizationContributor.NavigationRead;
         foreach (var navigation in authorizationCatalog.Navigation)
         {
             if (authorizationCatalog.NavigationModuleKeys.TryGetValue(navigation.Id, out var mappedModuleKey)

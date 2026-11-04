@@ -12,7 +12,7 @@ const id = '019bc2b1-2a40-7cc3-8992-a80de51bf330';
 const permissions = ['enterprise_request.enterprise_requests.read', 'enterprise_request.enterprise_request_lines.read'];
 const wrappers: VueWrapper[] = [];
 async function render(requestId: string, allowed = permissions) {
-  const pinia = createPinia(); setActivePinia(pinia); const session = useSessionStore(pinia);
+  const pinia = createPinia(); setActivePinia(pinia); const session = useSessionStore(pinia); session.state = 'authenticated';
   session.currentUser = { id, tenantId: id, sessionId: id, permissions: allowed } as NonNullable<typeof session.currentUser>;
   const router = createRouter({ history: createMemoryHistory(), routes: [{ path: '/enterprise-requests', name: 'enterprise-requests', component: { template: '<div />' } }] });
   await router.push({ name: 'enterprise-requests', query: { requestId } }); await router.isReady();
