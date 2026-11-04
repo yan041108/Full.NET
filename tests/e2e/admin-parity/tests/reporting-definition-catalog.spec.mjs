@@ -11,14 +11,14 @@ const source = { id: lastId, tenantId: null, name: '末页数据源', providerKe
   lastTestedAtUtc: null, lastTestStatusKey: null, lastTestMessage: null, createdAtUtc, updatedAtUtc: null, version: 1 };
 const first = Array.from({ length: 100 }, (_, index) => ({ ...source, id: '019bc2b1-2a40-7cc3-8992-' + (index + 1000).toString(16).padStart(12, '0'), name: '数据源 ' + index }));
 const json = (route, body) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) });
-async function boot(page, waitForSecondPage) {
+async function boot(page, waitForSecondPage, extraPermissions = []) {
   const sourcePages = [];
   await page.addInitScript(() => localStorage.setItem('fullnet.admin.locale', 'zh-CN'));
   await page.route('**/api/v1/**', route => route.fulfill({ status: 404 }));
   await page.route('**/api/v1/auth/refresh', route => json(route, { accessToken: 'fixture', tokenType: 'Bearer', expiresAtUtc: '2099-01-01T00:00:00Z' }));
   await page.route('**/api/v1/me', route => json(route, { id, username: 'fixture', displayName: 'Host', tenantId: null, actorScope: 'host', scope: 'host',
     isSuperAdministrator: false, passwordChangeRequired: false, sessionId: id, preferredLocale: 'zh-CN', profileVersion: 1,
-    permissions: ['reporting.definitions.read', 'reporting.definitions.create', 'reporting.groups.read', 'reporting.groups.update', 'reporting.query_ports.read', 'reporting.data_sources.read'] }));
+    permissions: ['reporting.definitions.read', 'reporting.definitions.create', 'reporting.groups.read', 'reporting.groups.update', 'reporting.query_ports.read', 'reporting.data_sources.read', ...extraPermissions] }));
   await page.route('**/api/v1/navigation', route => json(route, [{ id: 'definitions', parentId: null, routeName: 'reporting-definitions', path: '/reporting/definitions',
     componentKey: 'reporting-definitions', title: '报表配置', caption: '', icon: 'document', order: 1, requiredPermission: 'reporting.definitions.read', children: [] }]));
   await page.route('**/api/v1/reporting/groups', route => json(route, [group, { ...group, id: parent, parentId: null, name: '父分组' }]));
@@ -76,4 +76,35 @@ test('末页读取完成前不开放新建，完成后恢复当前选择', async
   await expect(page.getByRole('dialog')).toBeVisible(); await fits(page);
   await page.getByRole('dialog').getByRole('button', { name: '取消', exact: true }).click();
   await expect(page.getByRole('dialog')).toHaveCount(0);
+});
+test('编辑器内刷新保留自定义输入，端口变化经显式参数重置后才允许保存', async ({ page }, info) => {
+  await boot(page, undefined, ['reporting.definitions.update']); let required = false, unavailable = false, saved;
+  const parameter = () => ({ parameterKey: 'year', displayName: '年度', dataTypeKey: 'string', isRequired: required, defaultValue: '2026' });
+  const draft = { id: lastId, groupId: id, dataSourceId: lastId, definitionKey: 'port-recovery', name: '参数恢复定义', description: null, queryPortKey: 'metadata.schemas',
+    parameterSchema: [{ ...parameter(), displayName: '草稿自定义', defaultValue: '2027' }], layoutConfigJson: '{}', isEnabled: true, latestPublishedVersionNumber: 0, createdAtUtc, updatedAtUtc: null, version: 4 };
+  const { parameterSchema: _, layoutConfigJson: __, ...summary } = draft;
+  await page.route('**/api/v1/reporting/definitions?*', route => json(route, { items: [summary], page: 1, pageSize: 20, total: 1 }));
+  await page.route('**/api/v1/reporting/definitions/' + lastId, route => {
+    if (route.request().method() === 'GET') return json(route, draft);
+    saved = route.request().postDataJSON(); return json(route, { ...draft, ...saved, version: 5 });
+  });
+  await page.route('**/api/v1/reporting/query-ports', route => unavailable
+    ? route.fulfill({ status: 503, contentType: 'application/problem+json', body: JSON.stringify({ status: 503, code: 'fixture.catalog', title: '端口目录暂不可用' }) })
+    : json(route, [{ queryPortKey: 'metadata.schemas', displayName: '架构目录', description: '', supportedProviderKeys: ['sql_server'], parameters: [{ ...parameter(), minimum: null, maximum: null }] }]));
+  await page.getByTestId('reporting-config-refresh').click(); await page.getByTestId('reporting-config-edit').click();
+  const dialog = page.getByRole('dialog'); await page.getByTestId('reporting-config-name').fill('保留名称');
+  await expect(dialog.locator('.el-table input').nth(1)).toHaveValue('2027'); unavailable = true;
+  await page.getByTestId('reporting-editor-catalog-refresh').click(); await expect(page.getByTestId('reporting-config-draft-save')).toHaveCount(0);
+  await expect(page.getByTestId('reporting-config-name')).toHaveValue('保留名称'); await expect(dialog.locator('.el-table input').nth(1)).toHaveValue('2027');
+  unavailable = false; required = true; await page.getByTestId('reporting-editor-catalog-refresh').click();
+  await expect(dialog).toContainText('当前分组、数据源或参数与查询端口不匹配'); await expect(page.getByTestId('reporting-config-draft-save')).toHaveCount(0);
+  await page.getByTestId('reporting-parameters-reset').click(); const prompt = page.getByRole('dialog').filter({ has: page.getByTestId('reporting-management-confirm') });
+  await prompt.getByRole('button', { name: '取消', exact: true }).click(); await expect(dialog.locator('.el-table input').nth(1)).toHaveValue('2027');
+  await page.getByTestId('reporting-parameters-reset').click(); await page.getByTestId('reporting-management-confirm').click();
+  await expect(dialog.locator('.el-table input').nth(1)).toHaveValue('2026'); await expect(page.getByTestId('reporting-config-name')).toHaveValue('保留名称');
+  await expect(page.getByTestId('reporting-config-draft-save')).toBeVisible(); expect(saved).toBeUndefined();
+  await page.screenshot({ path: info.outputPath('catalog-recovery.png'), fullPage: true, animations: 'disabled' });
+  await page.getByTestId('reporting-config-draft-save').click(); await expect(page.getByRole('dialog')).toHaveCount(0);
+  expect(saved).toMatchObject({ name: '保留名称', version: 4, groupId: id, parameterSchema: [{ parameterKey: 'year', displayName: '年度', dataTypeKey: 'string', isRequired: true, defaultValue: '2026' }] });
+  await expect(page.getByTestId('reporting-draft-receipt')).toContainText('草稿保存已确认');
 });

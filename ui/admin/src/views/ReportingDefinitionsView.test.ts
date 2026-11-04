@@ -1,6 +1,6 @@
 import { reactive } from 'vue';
 import { routeLocationKey } from 'vue-router';
-import type { ReportingGroup, ReportingDefinitionVersion } from '@fullnet/client-contracts';
+import type { ReportingGroup, ReportingDefinitionVersion, ReportingQueryPortDefinition } from '@fullnet/client-contracts';
 import { flushPromises, mount, type VueWrapper } from '@vue/test-utils';
 import { createPinia, setActivePinia } from 'pinia';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -94,7 +94,8 @@ describe('ReportingDefinitionsView', () => {
     const { layoutConfigJson: _, parameterSchema: __, ...summary } = draft(4);
     definitionsMock.mockResolvedValue({ items: [summary], page: 1, pageSize: 20, total: 1 });
     groupsMock.mockResolvedValue([{ id: groupId, parentId: null, name: '分组', sortOrder: 0, isEnabled: true, createdAtUtc: '2026-11-03T00:00:00Z', updatedAtUtc: null, version: 1 }]);
-    queryPortsMock.mockResolvedValue([{ queryPortKey: 'metadata.schemas', displayName: '目录', description: '', supportedProviderKeys: ['sqlserver'],
+    dataSourcesMock.mockResolvedValue({ items: [{ ...dataSourceRow, id: groupId }], page: 1, pageSize: 100, total: 1 });
+    queryPortsMock.mockResolvedValue([{ queryPortKey: 'metadata.schemas', displayName: '目录', description: '', supportedProviderKeys: ['sql_server'],
       parameters: [{ parameterKey: 'name', displayName: '目录默认名称', dataTypeKey: 'string', isRequired: false, defaultValue: 'catalog-default', minimum: null, maximum: null }] }]);
   }
   it('只读角色只请求定义目录，不因缺少辅助目录权限而失败', async () => {
@@ -253,8 +254,10 @@ describe('ReportingDefinitionsView', () => {
     await wrapper.get('[data-testid="reporting-definition-create"]').trigger('click'); await flushPromises(); await wrapper.get('[data-testid="reporting-config-key"]').setValue('new-report'); await wrapper.get('[data-testid="reporting-config-name"]').setValue('新草稿');
     wrapper.findAllComponents(ElSelect)[1]!.vm.$emit('update:modelValue', groupId); await flushPromises();
     const group = (await groupsMock.mock.results[0]!.value)[0]!; groupsMock.mockResolvedValue([{ ...group, id, name: '其他分组' }]);
-    await wrapper.get('[data-testid="reporting-config-refresh"]').trigger('click'); await flushPromises(); await wrapper.get('[data-testid="reporting-config-draft-save"]').trigger('click'); await flushPromises();
-    expect(createReportingDefinition).toHaveBeenCalledWith(expect.objectContaining({ groupId, definitionKey: 'new-report' }), expect.any(AbortSignal)); expect(publishReportingDefinition).not.toHaveBeenCalled();
+    await wrapper.get('[data-testid="reporting-config-refresh"]').trigger('click'); await flushPromises();
+    expect(wrapper.find('[data-testid="reporting-config-draft-save"]').exists()).toBe(false);
+    expect((wrapper.vm as unknown as { definitionGroupId: string }).definitionGroupId).toBe(groupId);
+    expect(createReportingDefinition).not.toHaveBeenCalled(); expect(publishReportingDefinition).not.toHaveBeenCalled();
   });
   it('完整读取跨页数据源摘要，第一页不会截断后续可用选择', async () => {
     const first = Array.from({ length: 100 }, (_, index) => ({ ...dataSourceRow, id: '019bc2b1-2a40-7cc3-8992-' + (index + 1000).toString(16).padStart(12, '0') }));
@@ -328,12 +331,27 @@ describe('ReportingDefinitionsView', () => {
     const reading = vm.loadPage(); await vm.submitDefinition(); expect(updateReportingDefinition).not.toHaveBeenCalled();
     pending.resolve({ items: [], page: 1, pageSize: 100, total: 0 }); await reading;
   });
+  it.each(['cancel', 'fresh', 'input', 'catalog'])('端口参数重置在 %s 时只处理当前草稿，其他输入保留', async phase => {
+    withDefinition(); const wrapper = mountView(permissions); await flushPromises(); await wrapper.get('[data-testid="reporting-config-edit"]').trigger('click'); await flushPromises();
+    await wrapper.get('[data-testid="reporting-config-name"]').setValue('其他输入保留');
+    const port: ReportingQueryPortDefinition = (await queryPortsMock.mock.results[0]!.value)[0]!; queryPortsMock.mockResolvedValue([{ ...port, parameters: port.parameters.map(row => ({ ...row, isRequired: true })) }]);
+    await wrapper.get('[data-testid="reporting-editor-catalog-refresh"]').trigger('click'); await flushPromises();
+    expect(wrapper.find('[data-testid="reporting-config-draft-save"]').exists()).toBe(false);
+    const vm = wrapper.vm as unknown as { definitionForm: ReturnType<typeof draft> }; const original = JSON.stringify(vm.definitionForm.parameterSchema);
+    await wrapper.get('[data-testid="reporting-parameters-reset"]').trigger('click'); const prompt = ownedState(wrapper).confirmation!;
+    if (phase === 'catalog') { await ownedState(wrapper).loadPage(); prompt.confirm(); }
+    else { if (phase === 'input') vm.definitionForm.name = '后来输入'; if (phase === 'cancel') prompt.update(false); else prompt.confirm(); }
+    await flushPromises(); expect(updateReportingDefinition).not.toHaveBeenCalled();
+    expect(vm.definitionForm.name).toBe(phase === 'input' ? '后来输入' : '其他输入保留');
+    if (phase === 'fresh') { expect(vm.definitionForm.parameterSchema[0]).toMatchObject({ displayName: '目录默认名称', defaultValue: 'catalog-default', isRequired: true }); expect(wrapper.find('[data-testid="reporting-config-draft-save"]').exists()).toBe(true); }
+    else expect(JSON.stringify(vm.definitionForm.parameterSchema)).toBe(original);
+  });
 
   type SavingState = OwnedState & { draftReceipt?: { outcome: string; version?: number; resource: string }; creationBlocks: Set<string>;
     openCreateGroup: () => void; openCreateDefinition: () => void; groupEditorOpen: boolean; acting: boolean;
     submitGroup: () => Promise<void>; submitDefinition: () => Promise<void>; acknowledgeRecovery: (resource: 'group' | 'definition') => Promise<void> };
   async function prepareSave(resource: 'group' | 'definition', mode: 'create' | 'update' = 'create') {
-    withDefinition(); dataSourcesMock.mockResolvedValue({ items: [{ ...dataSourceRow, id: groupId, providerKey: 'sqlserver' }], page: 1, pageSize: 100, total: 1 });
+    withDefinition(); dataSourcesMock.mockResolvedValue({ items: [{ ...dataSourceRow, id: groupId }], page: 1, pageSize: 100, total: 1 });
     vi.mocked(createReportingGroup).mockImplementation(async body => ({ ...body, parentId: null, id, createdAtUtc: draft().createdAtUtc, updatedAtUtc: null, version: 1 }));
     vi.mocked(createReportingDefinition).mockImplementation(async body => ({ ...draft(1), ...body, id: '019bc2b1-2a40-7cc3-8992-a80de51bf297', description: body.description ?? null, layoutConfigJson: body.layoutConfigJson ?? '{}', latestPublishedVersionNumber: 0 }));
     vi.mocked(updateReportingGroup).mockImplementation(async (target, body) => ({ id: target, ...body, parentId: body.parentId ?? null, createdAtUtc: draft().createdAtUtc, updatedAtUtc: null, version: body.version + 1 }));

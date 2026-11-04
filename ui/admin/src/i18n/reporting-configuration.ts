@@ -1,4 +1,7 @@
 const zh = {
+  refreshCatalog: '刷新可选目录（保留草稿）',
+  resetParameters: '按当前查询端口重置参数', resetParametersConfirm: '放弃当前参数的名称、默认值和必填设置，使用当前查询端口的参数定义？其他草稿输入会保留。',
+  draftIncompatible: '当前分组、数据源或参数与查询端口不匹配，请核对后再保存。',
   historyRetry: '重新读取发布历史',
   draftProcessing: '正在保存草稿…', draftConfirmed: '草稿保存已确认', draftUnknown: '草稿保存结果尚未确认，请核对目录后再操作。', draftRejected: '草稿保存被拒绝，可修正后手动重试。',
   closeSaving: '关闭只停止本窗口等待，服务端保存仍可能完成；请核对目录。',
@@ -13,6 +16,9 @@ const zh = {
   note: '版本说明', cancel: '取消', catalogMissing: '新建定义需要可用分组及读取分组、静态查询和数据源目录的权限。'
 } as const;
 const en: Record<keyof typeof zh, string> = {
+  refreshCatalog: 'Reload choices and keep draft input',
+  resetParameters: 'Reset parameters from current query port', resetParametersConfirm: 'Discard current parameter labels, defaults, and required settings and use the current query port definition? Other draft input will be preserved.',
+  draftIncompatible: 'The group, data source, or parameters do not match the query port. Review them before saving.',
   historyRetry: 'Reload publication history',
   draftProcessing: 'Saving draft…', draftConfirmed: 'Draft save confirmed', draftUnknown: 'Draft save is unconfirmed. Review the directory before another operation.', draftRejected: 'Draft save was rejected. Correct it and retry manually.',
   closeSaving: 'Closing stops this window from waiting. The server may still save the draft; review the directory.',
