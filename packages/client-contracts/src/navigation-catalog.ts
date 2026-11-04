@@ -9,6 +9,7 @@ export interface AdminNavigationCatalogEntry {
 
 /** 当前双管理端共同发布的导航白名单。 */
 export const ADMIN_NAVIGATION_CATALOG: readonly AdminNavigationCatalogEntry[] = [
+  { componentKey: 'webhook-subscriptions', routeName: 'webhook-subscriptions', path: '/webhooks/subscriptions' },
   {
     componentKey: 'overview',
     routeName: 'overview',

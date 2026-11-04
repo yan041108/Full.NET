@@ -1418,6 +1418,16 @@
       "routePrefixes": [
         "/api/v1/ai/agent/runs"
       ]
+    },
+    {
+      "apiModule": "ui/admin/src/api/webhook-subscriptions.ts",
+      "clientContractModules": [
+        "packages/client-contracts/src/webhook-subscriptions.ts"
+      ],
+      "routePrefixes": [
+        "/api/v1/webhooks/subscriptions"
+      ],
+      "openApiFixture": "contracts/openapi/webhook-subscriptions-v1.json"
     }
   ],
   "infrastructureModules": [
@@ -2262,6 +2272,12 @@
       "apiModule": "ui/admin/src/api/workflow-reassignment-candidates.ts",
       "consumers": [
         "ui/admin/src/views/workflow/WorkflowInstanceReassignDialog.vue"
+      ]
+    },
+    {
+      "apiModule": "ui/admin/src/api/webhook-subscriptions.ts",
+      "consumers": [
+        "ui/admin/src/views/WebhookSubscriptionsView.vue"
       ]
     }
   ]

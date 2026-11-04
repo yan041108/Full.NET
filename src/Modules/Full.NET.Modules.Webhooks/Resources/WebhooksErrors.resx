@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <data name="webhooks.subscription.not_found" xml:space="preserve"><value>未找到当前企业的 Webhook 订阅。</value></data>
+  <data name="webhooks.subscription.version_conflict" xml:space="preserve"><value>订阅已变化，请读取当前状态后重新确认。</value></data>
+  <data name="webhooks.subscription.invalid" xml:space="preserve"><value>事件键、目标或签名密钥无效或超出允许长度。</value></data>
+  <data name="webhooks.subscription.target_url_invalid" xml:space="preserve"><value>目标必须是允许访问的 HTTPS 地址。</value></data>
+  <data name="webhooks.fanout_budget_exceeded" xml:space="preserve"><value>当前企业的该事件已达到 500 个订阅上限。</value></data>
+</root>

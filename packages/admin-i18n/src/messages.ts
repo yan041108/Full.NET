@@ -8,6 +8,7 @@ import { importProfilesZh, importProfilesEn } from './import-profiles.js';
 import { importCancellationZh, importCancellationEn } from './import-task-cancellation.js';
 import { reportCancellationZh, reportCancellationEn } from './reporting-task-cancellation.js';
 import { previewTaskControlsZh, previewTaskControlsEn } from './document-preview-task-controls.js';
+import { webhookSubscriptionsZh, webhookSubscriptionsEn } from './webhook-subscriptions.js';
 import { printingTemplatesZh, printingTemplatesEn } from './printing-template-management.js';
 
 import { messagingZh, messagingEn } from './messaging-operations.js';
@@ -54,6 +55,7 @@ export const zhCN = {
   ...importCancellationZh,
   ...reportCancellationZh,
   ...previewTaskControlsZh,
+  ...webhookSubscriptionsZh,
   ...printingTemplatesZh,
   ...querySchemesZh,
   ...objectSearchZh,
@@ -5807,6 +5809,7 @@ const enUS = {
   ...importCancellationEn,
   ...reportCancellationEn,
   ...previewTaskControlsEn,
+  ...webhookSubscriptionsEn,
   ...printingTemplatesEn,
   'importExportTasks.executionProgress': 'Execution progress',
   ...workflowCollaborationEn,

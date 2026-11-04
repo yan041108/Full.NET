@@ -5,6 +5,18 @@ namespace Full.NET.Modules.Webhooks.Features.ManageWebhookSubscriptions.Persiste
 
 internal static class WebhookSubscriptionSql
 {
+    /// <summary>明确定址到当前租户，不返回签名密钥。</summary>
+    public static readonly SqlStatement FindById = new("webhooks.subscriptions.find_by_id", """
+        SELECT Id,TenantId,EventType,TargetUrl,IsActive,Version FROM fn_webhooks_subscription
+        WHERE TenantId=@TenantId AND Id=@Id
+        """, SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
+
+    /// <summary>原版本 CAS 只改变状态，不释放扇出名额或删除历史投递。</summary>
+    public static readonly SqlStatement SetStatus = new("webhooks.subscriptions.set_status", """
+        UPDATE fn_webhooks_subscription SET IsActive=@IsActive,UpdatedAtUtc=@NowUtc,Version=Version+1
+        WHERE TenantId=@TenantId AND Id=@Id AND Version=@Version
+        """, SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
+
     public static readonly SqlStatement EnsureFanoutBudgetSqlServer = new(
         "webhooks.subscriptions.ensure_budget.sql_server",
         """

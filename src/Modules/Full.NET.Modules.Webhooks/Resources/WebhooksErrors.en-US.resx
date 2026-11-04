@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <data name="webhooks.subscription.not_found" xml:space="preserve"><value>The Webhook subscription was not found in the current tenant.</value></data>
+  <data name="webhooks.subscription.version_conflict" xml:space="preserve"><value>The subscription changed. Read its current state before confirming again.</value></data>
+  <data name="webhooks.subscription.invalid" xml:space="preserve"><value>The event, target or signing secret is invalid or exceeds the allowed length.</value></data>
+  <data name="webhooks.subscription.target_url_invalid" xml:space="preserve"><value>The target must be a permitted HTTPS address.</value></data>
+  <data name="webhooks.fanout_budget_exceeded" xml:space="preserve"><value>This tenant event has reached the limit of 500 subscriptions.</value></data>
+</root>

@@ -40,6 +40,7 @@ public sealed class WebhooksModule : IFullNetModule
         services.TryAddEnumerable(ServiceDescriptor.Singleton<
             IAuthorizationCatalogContributor,
             WebhooksAuthorizationContributor>());
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<IErrorResourceSource, Resources.WebhooksErrorResourceSource>());
         AddDeliveryServices(services, configuration);
         services.AddScoped<Features.ManageWebhookSubscriptions.WebhookSubscriptionQueryService>();
         services.AddScoped<Features.ManageWebhookSubscriptions.WebhookSubscriptionManagementService>();

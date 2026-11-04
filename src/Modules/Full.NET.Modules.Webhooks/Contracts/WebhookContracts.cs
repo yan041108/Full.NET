@@ -9,8 +9,11 @@ public static class WebhookPermissions
     /// <summary>允许读取 Webhook 订阅列表与详情，以及最近投递记录。</summary>
     public const string SubscriptionsRead = "webhooks.subscriptions.read";
 
-    /// <summary>允许创建、更新、删除 Webhook 订阅，含 SigningSecret 重置与启用/停用。</summary>
+    /// <summary>允许创建 Webhook 订阅；状态变更仍要求独立权限。</summary>
     public const string SubscriptionsManage = "webhooks.subscriptions.manage";
+
+    /// <summary>允许按当前版本暂停或恢复本企业 Webhook 订阅。</summary>
+    public const string SubscriptionsSetStatus = "webhooks.subscriptions.set_status";
 }
 
 /// <summary>
@@ -42,6 +45,12 @@ public static class WebhookErrorCodes
     /// <summary>指定订阅未找到；订阅标识不存在或已被删除。</summary>
     public const string SubscriptionNotFound = "webhooks.subscription.not_found";
 
+    /// <summary>订阅版本已变化，必须读取当前状态并重新确认。</summary>
+    public const string SubscriptionVersionConflict = "webhooks.subscription.version_conflict";
+
+    /// <summary>事件键、目标或签名材料缺失，或超出输入预算。</summary>
+    public const string SubscriptionInvalid = "webhooks.subscription.invalid";
+
     /// <summary>订阅目标 URL 非法：未通过 HTTPS、主机名解析或回调地址校验。</summary>
     public const string TargetUrlInvalid = "webhooks.subscription.target_url_invalid";
 }
@@ -50,7 +59,7 @@ public static class WebhookErrorCodes
 /// Webhook 订阅响应契约；字段顺序为稳定机器码的一部分，新增可选字段只能追加。
 /// </summary>
 /// <remarks>
-/// SigningSecret 不在响应中回显，避免向客户端泄漏签名密钥；客户端只能通过管理端点重置。
+/// SigningSecret 不在响应中回显，避免向客户端泄漏签名密钥。
 /// </remarks>
 /// <param name="Id">订阅稳定标识。</param>
 /// <param name="TenantId">所属租户标识；Host 级订阅为 Guid.Empty。</param>
@@ -67,18 +76,23 @@ public sealed record WebhookSubscriptionResponse(
     int Version);
 
 /// <summary>
-/// 创建 Webhook 订阅的请求契约；SigningSecret 由服务端哈希存储，响应永不回显明文。
+/// 创建 Webhook 订阅的请求契约；SigningSecret 由服务端加密存储，响应永不回显明文。
 /// </summary>
 /// <remarks>
-/// 同一 (TenantId, EventType, TargetUrl) 三元组应保持唯一；幂等键由调用方提供以避免重复创建。
+/// 当前创建不接受幂等键，未知结果须先核对列表，客户端不得自动重放。
 /// </remarks>
 /// <param name="EventType">订阅的事件类型稳定标识。</param>
 /// <param name="TargetUrl">接收投递的 HTTPS 端点绝对地址；必须通过 URL 合法性校验。</param>
-/// <param name="SigningSecret">用于签名投递负载的密钥明文；服务端存储哈希，明文不持久化。</param>
+/// <param name="SigningSecret">用于签名投递负载的 16～1024 字符密钥；以 Data Protection 加密持久化。</param>
 public sealed record CreateWebhookSubscriptionRequest(
     string EventType,
     string TargetUrl,
     string SigningSecret);
+
+/// <summary>按明确修订暂停或恢复本企业订阅，不修改事件、目标和签名材料。</summary>
+/// <param name="IsActive">目标启用状态；停用阻止后续扇出与领取，不撤回已发出的 HTTP 请求。</param>
+/// <param name="Version">用户确认时读取的正整数修订。</param>
+public sealed record SetWebhookSubscriptionStatusRequest(bool IsActive, int Version);
 
 /// <summary>
 /// 单次 Webhook 投递记录响应契约；用于投递历史查询与失败排查。

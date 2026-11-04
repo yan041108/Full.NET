@@ -149,6 +149,11 @@ export function createAppRouter(
         component: () => import('../views/ApiKeysView.vue')
       },
       {
+        name: 'webhook-subscriptions',
+        path: '/webhooks/subscriptions',
+        component: () => import('../views/WebhookSubscriptionsView.vue')
+      },
+      {
         name: 'open-access-clients',
         path: '/identity/open-access-clients',
         component: () => import('../views/OpenAccessClientsView.vue')
