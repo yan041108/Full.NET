@@ -1,0 +1,25 @@
+import {expect,test} from '@playwright/test';
+import AxeBuilder from '@axe-core/playwright';
+const id='019bc2b1-2a40-7cc3-8992-a80de51bf299',permission='enterprise_request.enterprise_requests.';
+const json=(route,value,status=200)=>route.fulfill({status,contentType:status>=400?'application/problem+json':'application/json',body:JSON.stringify(value)});
+for(const width of [1440,390])test(`主单保存未知结果、关闭清理与人工核对 ${width}`,async({page},info)=>{
+ await page.setViewportSize({width,height:1000});await page.addInitScript(()=>localStorage.setItem('fullnet.admin.locale','zh-CN'));
+ await page.route('**/api/v1/**',route=>route.fulfill({status:404}));
+ await page.route('**/api/v1/auth/refresh',route=>json(route,{accessToken:'fixture',tokenType:'Bearer',expiresAtUtc:'2099-01-01T00:00:00Z'}));
+ await page.route('**/api/v1/me',route=>json(route,{id,username:'editor',displayName:'Editor',actorScope:'tenant',scope:`tenant:${id.replaceAll('-','')}`,tenantId:id,isSuperAdministrator:false,passwordChangeRequired:false,permissions:['identity.navigation.read',permission+'read',permission+'create',permission+'update'],sessionId:id,preferredLocale:'zh-CN',profileVersion:1}));
+ await page.route('**/api/v1/navigation',route=>json(route,[{id:'requests',parentId:null,routeName:'enterprise-requests',path:'/enterprise-requests',componentKey:'enterprise-requests',title:'企业申请',caption:'',icon:'collection',order:1,requiredPermission:permission+'read',children:[]} ]));
+ await page.route('**/api/v1/enterprise_request/enterprise-requests?*',route=>json(route,{items:[],page:1,pageSize:20,total:0}));
+ let writes=0;await page.route('**/api/v1/enterprise_request/enterprise-requests',route=>{writes++;expect(route.request().postDataJSON().status).toBe('Draft');return json(route,{status:503,code:'fixture.unconfirmed',title:'结果未确认'},503);});
+ await page.goto('/#/enterprise-requests');await page.getByRole('button',{name:'创建',exact:true}).click();let editor=page.getByRole('dialog',{name:'创建',exact:true});
+ await editor.getByLabel('OrganizationUnitId',{exact:true}).fill(id);await editor.getByLabel('RequestNumber',{exact:true}).fill('UNKNOWN-REQUEST');await editor.getByLabel('Title',{exact:true}).fill('不能残留的输入');await editor.getByRole('button',{name:'保存',exact:true}).click();
+ await expect(page.getByTestId('enterprise-editor-unconfirmed')).toContainText('UNKNOWN-REQUEST');await expect(editor.getByRole('button',{name:'保存',exact:true})).toBeDisabled();await editor.getByRole('button',{name:'取消',exact:true}).click();
+ await page.getByRole('button',{name:'创建',exact:true}).click();editor=page.getByRole('dialog',{name:'创建',exact:true});await expect(editor.getByLabel('OrganizationUnitId',{exact:true})).toHaveValue('');await expect(editor.getByLabel('RequestNumber',{exact:true})).toHaveValue('');await expect(editor.getByLabel('Title',{exact:true})).toHaveValue('');await expect(editor.getByRole('button',{name:'保存',exact:true})).toBeDisabled();
+ await expect.poll(async()=>{const field=await editor.getByLabel('RequestNumber',{exact:true}).boundingBox(),box=await editor.boundingBox();return !!field&&!!box&&field.width>=150&&box.x>=0&&box.x+box.width<=width;}).toBe(true);
+ await editor.screenshot({path:info.outputPath('editor-form.png'),animations:'disabled'});await editor.getByRole('button',{name:'取消',exact:true}).click();await expect(editor).not.toBeVisible();
+ await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);await page.screenshot({path:info.outputPath('editor-unconfirmed.png'),animations:'disabled'});
+ expect((await new AxeBuilder({page}).include('.generated-crud-view').withTags(['wcag2a','wcag2aa','wcag21a','wcag21aa']).analyze()).violations).toEqual([]);
+ await page.getByRole('button',{name:'刷新申请列表',exact:true}).click();await expect(page.getByTestId('enterprise-editor-recover')).toBeEnabled();await page.getByTestId('enterprise-editor-recover').click();const confirm=page.locator('.el-popconfirm').filter({hasText:'确认已核对原申请的保存结果'});await expect(confirm).toBeVisible();expect(writes).toBe(1);await confirm.locator('.el-button--primary').click();await expect(page.getByTestId('enterprise-editor-unconfirmed')).toHaveCount(0);expect(writes).toBe(1);
+ await page.getByRole('button',{name:'创建',exact:true}).click();await expect(page.getByRole('dialog',{name:'创建',exact:true}).getByRole('button',{name:'保存',exact:true})).toBeEnabled();await page.getByRole('dialog',{name:'创建',exact:true}).getByRole('button',{name:'取消',exact:true}).click();
+ await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);await page.screenshot({path:info.outputPath('editor-recovery.png'),animations:'disabled'});
+ expect((await new AxeBuilder({page}).include('.generated-crud-view').withTags(['wcag2a','wcag2aa','wcag21a','wcag21aa']).analyze()).violations).toEqual([]);
+});

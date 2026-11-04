@@ -265,6 +265,37 @@ describe('企业样例对话框归属', () => {
     expect(createDialog(f.wrapper).props('modelValue')).toBe(true);
     stop(); f.wrapper.unmount();
   });
+  it('主单保存取消等待后锁定新保存，人工核对确认只解锁而不重发', async () => {
+    const pending=deferred<unknown>(),f=fixture();
+    try {
+      await flushPromises();request.mockReturnValueOnce(pending.promise);await click(f.wrapper,'创建');await flushPromises();await click(f.wrapper,'保存');await click(f.wrapper,'取消');
+      expect(request.mock.calls[1]![2]?.aborted).toBe(true);expect(f.wrapper.get('[data-testid="enterprise-editor-unconfirmed"]').text()).toContain('取消等待不代表服务端已回滚');
+      await click(f.wrapper,'创建');await flushPromises();const save=createDialog(f.wrapper).findAll('button').find(button=>button.text()==='保存')!;expect(save.attributes('disabled')).toBeDefined();await save.trigger('click');expect(request).toHaveBeenCalledTimes(2);
+      pending.resolve(row);await flushPromises();expect(createDialog(f.wrapper).props('modelValue')).toBe(true);expect(request).toHaveBeenCalledTimes(2);
+      const recovery=f.wrapper.findAllComponents({name:'ElPopconfirm'}).find(component=>component.props('title')?.includes('核对原申请'))!;
+      recovery.vm.$emit('confirm');await flushPromises();expect(save.attributes('disabled')).toBeUndefined();expect(request).toHaveBeenCalledTimes(2);
+    } finally {f.wrapper.unmount();}
+  });
+  it('主单保存结果不明不能重复点击保存', async () => {
+    const f=fixture();try {await flushPromises();request.mockRejectedValueOnce({status:503,code:'fixture.unknown',title:'未确认'});await click(f.wrapper,'创建');await flushPromises();await click(f.wrapper,'保存');await flushPromises();expect(f.wrapper.find('[data-testid="enterprise-editor-unconfirmed"]').exists()).toBe(true);await click(f.wrapper,'保存');expect(request).toHaveBeenCalledTimes(2);}finally{f.wrapper.unmount();}
+  });
+  it('主单保存旧按钮的保存和关闭回调不能操作新弹窗', async () => {
+    const f=fixture();try {
+      await flushPromises();await click(f.wrapper,'创建');await flushPromises();const buttons=createDialog(f.wrapper).findAllComponents(ElButton);
+      const save=buttons.find(button=>button.text()==='保存')!.vm.$.vnode.props?.onClick as ()=>void;
+      const close=buttons.find(button=>button.text()==='取消')!.vm.$.vnode.props?.onClick as ()=>void;
+      expect(save).toBeTypeOf('function');expect(close).toBeTypeOf('function');close();await flushPromises();await click(f.wrapper,'创建');await flushPromises();save();close();await flushPromises();expect(request).toHaveBeenCalledTimes(1);expect(createDialog(f.wrapper).props('modelValue')).toBe(true);
+    }finally{f.wrapper.unmount();}
+  });
+  it('主单保存核对回调失效且结果标记按原企业隔离', async () => {
+    const f=fixture();try {
+      await flushPromises();request.mockRejectedValueOnce({status:503,code:'fixture.unknown',title:'未确认'});await click(f.wrapper,'创建');await flushPromises();await click(f.wrapper,'保存');await flushPromises();
+      const oldRecovery=f.wrapper.findAllComponents({name:'ElPopconfirm'}).find(component=>component.props('title')?.includes('核对原申请'))!.vm.$.vnode.props?.onConfirm as ()=>void;
+      expect(oldRecovery).toBeTypeOf('function');await click(f.wrapper,'取消');oldRecovery();await flushPromises();expect(f.wrapper.find('[data-testid="enterprise-editor-unconfirmed"]').exists()).toBe(true);
+      const original={...f.session.currentUser!};f.session.currentUser={...original,tenantId:'01980000-0000-7000-8000-000000000003'};await flushPromises();expect(f.wrapper.find('[data-testid="enterprise-editor-unconfirmed"]').exists()).toBe(false);
+      f.session.currentUser=original;await flushPromises();expect(f.wrapper.find('[data-testid="enterprise-editor-unconfirmed"]').exists()).toBe(true);
+    }finally{f.wrapper.unmount();}
+  });
 });
 
 describe('申请摘要打印入口', () => {

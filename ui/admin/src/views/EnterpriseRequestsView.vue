@@ -9,6 +9,7 @@ import {
   ElFormItem,
   ElInput,
   ElPagination,
+  ElPopconfirm,
   ElSwitch,
   ElTable,
   ElTableColumn
@@ -85,6 +86,33 @@ const editForm = reactive({
   totalAmount: '0',
   applicantUserId: ''
 });
+type EditorMutation = {epoch:number;context:string;requestNumber:string;recordId?:string};
+const editorEpoch = ref(0), editorBlocked = reactive(new Map<string,EditorMutation>());
+const editorContext = () => JSON.stringify([session.currentUser?.id, session.currentUser?.sessionId, session.currentUser?.tenantId]);
+const editorUnconfirmed = computed(() => editorBlocked.has(editorContext()));
+let editorMutation: EditorMutation | undefined;
+function clearEditorInputs() {
+  Object.assign(createForm, {organizationUnitId:'',requestNumber:'',title:'',status:'Draft',totalAmount:'0',applicantUserId:''});
+  Object.assign(editForm, {requestNumber:'',title:'',status:'',totalAmount:'0',applicantUserId:''});
+  editing.value = undefined;
+}
+/** 取消网络等待不证明写入回滚；旧操作未确认时，新写入需人工核对后明确解锁。 */
+function stopEditor() {
+  editorEpoch.value++;
+  if (editorMutation && changing.value) { editorBlocked.set(editorMutation.context,editorMutation); reset(); }
+  editorMutation = undefined; clearEditorInputs();
+}
+const editorRecovery = computed(() => {
+  const epoch=editorEpoch.value,context=editorContext();
+  return () => {if(epoch===editorEpoch.value&&context===editorContext()&&!changing.value&&!loading.value&&!session.switching&&pageActive.value
+    &&session.can('enterprise_request.enterprise_requests.read')&&(canCreate.value||canUpdate.value)){editorBlocked.delete(context);problem.value=undefined;}};
+});
+const editorControls = computed(() => {
+  const epoch=editorEpoch.value,context=editorContext(),owned=()=>epoch===editorEpoch.value&&context===editorContext()&&pageActive.value&&!session.switching;
+  return {create:()=>{if(owned())void submitCreate();},edit:()=>{if(owned())void submitEdit();},
+    createClose:()=>{if(owned())createOpen.value=false;},editClose:()=>{if(owned())editOpen.value=false;},
+    createUpdate:(value:boolean)=>{if(owned())createOpen.value=value;},editUpdate:(value:boolean)=>{if(owned())editOpen.value=value;}};
+});
 
 const {
   items,
@@ -107,6 +135,7 @@ const {
   request: enterpriseRequestQueryHttp(enterpriseRequestsHttp, () => query.value),
   hasPermission: permission => session.can(permission),
   onProblem: (error, fallbackCode) => {
+    if (editorMutation && (!isFullNetProblemDetails(error) || error.status >= 500 || error.status === 408)) editorBlocked.set(editorMutation.context,editorMutation);
     problem.value = isFullNetProblemDetails(error)
       ? error
       : { status: 500, code: fallbackCode, title: fallbackCode };
@@ -118,6 +147,7 @@ onMounted(() => {
 });
 watch(() => [session.currentUser?.id, session.currentUser?.tenantId, session.currentUser?.sessionId,
   session.currentUser?.permissions.join('|'), session.switching], () => {
+  stopEditor();
   reset(); problem.value = undefined; createOpen.value = false; editOpen.value = false; editing.value = undefined;
   query.value = defaultEnterpriseRequestQuery();
   pendingQuery = undefined;
@@ -126,7 +156,11 @@ watch(() => [session.currentUser?.id, session.currentUser?.tenantId, session.cur
   deliveryOpen.value = false; deliveryId.value = undefined;
   if (pageActive.value && !session.switching && !queryEnabled.value) void load();
 }, { flush: 'sync' });
-onBeforeUnmount(reset);
+onBeforeUnmount(() => {stopEditor();reset();});
+watch([createOpen,editOpen], ([created,edited], [wasCreated,wasEdited]) => {
+  if (created!==wasCreated || edited!==wasEdited) editorEpoch.value++;
+  if ((!created&&wasCreated)||(!edited&&wasEdited)) stopEditor();
+},{flush:'sync'});
 
 /** 查询切换只取消读取；编辑或业务写入未结束时不重置其结果。 */
 function applyQuery(configuration: SavedQueryConfiguration) {
@@ -157,7 +191,7 @@ watch(() => [route.name, route.query.requestId], () => {
   else openRequestedDocument();
 }, { immediate: true });
 onActivated(() => { pageActive.value = true; openRequestedDocument(); if (!queryEnabled.value && !loading.value && !items.value.length) void load(); });
-onDeactivated(() => { pageActive.value = false; pendingQuery = undefined; reset(); aggregateOpen.value = false; readDetailOpen.value = false; deliveryOpen.value = false; createOpen.value = false; editOpen.value = false; });
+onDeactivated(() => { pageActive.value = false; pendingQuery = undefined; stopEditor(); reset(); aggregateOpen.value = false; readDetailOpen.value = false; deliveryOpen.value = false; createOpen.value = false; editOpen.value = false; });
 watch(() => aggregateOpen.value || readDetailOpen.value, (value, previous) => {
   if (!value && previous && route.name === 'enterprise-requests' && route.query.requestId !== undefined) {
     const { requestId: _requestId, ...query } = route.query;
@@ -166,11 +200,13 @@ watch(() => aggregateOpen.value || readDetailOpen.value, (value, previous) => {
 });
 
 function openCreate(): void {
-  createForm.status = 'Draft';
+  if(!pageActive.value||session.switching||!canCreate.value||changing.value)return;
+  clearEditorInputs();
   createOpen.value = true;
 }
 
 function openEdit(row: EnterpriseRequestResponse): void {
+  if(!pageActive.value||session.switching||!canUpdate.value||changing.value||!items.value.includes(row)||row.status!=='Draft')return;
   editing.value = row;
   Object.assign(editForm, {
     requestNumber: row.requestNumber, title: row.title, status: row.status,
@@ -180,20 +216,19 @@ function openEdit(row: EnterpriseRequestResponse): void {
 }
 
 async function submitCreate(): Promise<void> {
-  const succeeded = await create({ ...createForm });
-  if (succeeded) {
-    createOpen.value = false;
-  }
+  if(!createOpen.value||editorUnconfirmed.value||changing.value||session.switching||!pageActive.value||!canCreate.value)return;
+  const mutation={epoch:editorEpoch.value,context:editorContext(),requestNumber:createForm.requestNumber.slice(0,128)};editorMutation=mutation;
+  try {const succeeded=await create({...createForm,status:'Draft'});if(succeeded&&mutation.epoch===editorEpoch.value&&mutation.context===editorContext())createOpen.value=false;}
+  finally {if(editorMutation===mutation)editorMutation=undefined;}
 }
 
 async function submitEdit(): Promise<void> {
-  if (!editing.value) {
+  if (!editing.value||!editOpen.value||editorUnconfirmed.value||changing.value||session.switching||!pageActive.value||!canUpdate.value) {
     return;
   }
-  const succeeded = await update(editing.value, { ...editForm });
-  if (succeeded) {
-    editOpen.value = false;
-  }
+  const mutation={epoch:editorEpoch.value,context:editorContext(),requestNumber:editForm.requestNumber.slice(0,128),recordId:editing.value.id};editorMutation=mutation;
+  try {const succeeded=await update(editing.value,{...editForm});if(succeeded&&mutation.epoch===editorEpoch.value&&mutation.context===editorContext())editOpen.value=false;}
+  finally {if(editorMutation===mutation)editorMutation=undefined;}
 }
 
 async function removeRow(row: EnterpriseRequestResponse): Promise<void> {
@@ -207,6 +242,15 @@ async function removeRow(row: EnterpriseRequestResponse): Promise<void> {
       <strong translate="no">{{problem.code}}</strong>
       <span>{{problem.title}}</span>
     </div>
+    <section v-if="editorUnconfirmed" role="status" data-testid="enterprise-editor-unconfirmed">
+      <p>{{ editorText('writeUnconfirmed') }}</p>
+      <code>{{ editorBlocked.get(editorContext())?.requestNumber }}</code>
+      <code v-if="editorBlocked.get(editorContext())?.recordId">{{ editorBlocked.get(editorContext())?.recordId }}</code>
+      <el-button :disabled="loading||changing" @click="load()">{{ editorText('reloadRecords') }}</el-button>
+      <ElPopconfirm :key="editorEpoch" :title="editorText('confirmChecked')" :width="280" v-on="{confirm:editorRecovery}">
+        <template #reference><el-button :disabled="loading||changing" data-testid="enterprise-editor-recover">{{ editorText('checkedResults') }}</el-button></template>
+      </ElPopconfirm>
+    </section>
     <div class="generated-crud-view__toolbar">
       <el-button v-if="canCreate" @click="aggregateId = undefined; aggregateOpen = true">{{ editorText('create') }}</el-button>
       <el-button
@@ -285,8 +329,8 @@ async function removeRow(row: EnterpriseRequestResponse): Promise<void> {
     <!-- 文档编辑会刷新列表；弹窗由页面持有，不能随表格行或操作插槽重建而消失。 -->
     <EnterpriseRequestApprovalProgressDialog v-if="approvalProgressId" :request-id="approvalProgressId" @close="approvalProgressId = undefined" />
     <EnterpriseRequestDelivery v-if="deliveryId" v-model="deliveryOpen" :request-id="deliveryId" @updated="load(page)" />
-    <el-dialog v-model="createOpen" title="创建">
-      <el-form label-width="120px">
+    <el-dialog :model-value="createOpen" v-on="{'update:modelValue':editorControls.createUpdate}" title="创建" width="min(720px, calc(100vw - 32px))">
+      <el-form label-width="120px" :disabled="changing">
       <el-form-item label="OrganizationUnitId">
         <el-input v-model="createForm.organizationUnitId" />
       </el-form-item>
@@ -307,12 +351,12 @@ async function removeRow(row: EnterpriseRequestResponse): Promise<void> {
       </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="createOpen = false">取消</el-button>
-        <el-button type="primary" @click="submitCreate">保存</el-button>
+        <el-button v-on="{click:editorControls.createClose}">取消</el-button>
+        <el-button type="primary" :disabled="changing||editorUnconfirmed" v-on="{click:editorControls.create}">保存</el-button>
       </template>
     </el-dialog>
-    <el-dialog v-model="editOpen" title="编辑">
-      <el-form label-width="120px">
+    <el-dialog :model-value="editOpen" v-on="{'update:modelValue':editorControls.editUpdate}" title="编辑" width="min(720px, calc(100vw - 32px))">
+      <el-form label-width="120px" :disabled="changing">
       <el-form-item label="RequestNumber">
         <el-input v-model="editForm.requestNumber" />
       </el-form-item>
@@ -330,8 +374,8 @@ async function removeRow(row: EnterpriseRequestResponse): Promise<void> {
       </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="editOpen = false">取消</el-button>
-        <el-button type="primary" @click="submitEdit">保存</el-button>
+        <el-button v-on="{click:editorControls.editClose}">取消</el-button>
+        <el-button type="primary" :disabled="changing||editorUnconfirmed" v-on="{click:editorControls.edit}">保存</el-button>
       </template>
     </el-dialog>
     <EnterpriseRequestAggregateEditor v-model="aggregateOpen" :request-id="aggregateId" @saved="load(page)" />
