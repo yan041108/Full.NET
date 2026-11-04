@@ -22,6 +22,16 @@ import * as affectedIntegration
 
 const execFileAsync = promisify(execFile);
 
+test('外部 SDK 与包夹具必须走独立安装入口，不能回退无关 Smoke', () => {
+  const selection=classifyChangedPaths(['packages/integration-sdk/src/http.ts','tests/integration-sdk/consumer.ts',
+    'scripts/openapi/generate-integration-sdk.mjs','scripts/testing/run-integration-sdk-package.mjs',
+    'tests/Full.NET.IntegrationTests/Api/IntegrationSdkPackageTests.cs']);
+  assert.deepEqual(selection.targets,[{kind:'tooling',name:'sdk-package'}]);
+  assert.deepEqual(targetsForPhase(selection.targets,'inner'),selection.targets);
+  assert.ok(selection.reasons.every(reason=>reason.startsWith('SDK 独立安装验收')));
+  assert.deepEqual(classifyChangedPaths(['packages/integration-sdk/README.md','packages/integration-sdk/LICENSE']).targets,[]);
+});
+
 test('性能修复夹具必须同时覆盖两种数据库提供程序', () => {
   assert.deepEqual(classifyChangedPaths(['tests/Full.NET.IntegrationTests/Api/PerformanceApiTests.cs',
     'tests/Full.NET.IntegrationTests/Api/PerformanceFollowupAssertions.cs']).targets, [{

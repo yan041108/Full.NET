@@ -132,6 +132,7 @@ const immediateTargetNames = new Set([
   'client-openapi-snapshot',
   'integration-matrix',
   'integration-tooling',
+  'sdk-package',
   'migrations',
   'smoke'
 ]);
@@ -555,6 +556,14 @@ export function classifyChangedPaths(paths) {
 
   for (const filePath of normalizedPaths) {
     if (isLocalNoise(filePath)) {
+      continue;
+    }
+    if (/^packages\/integration-sdk\/(?:src\/|package\.json$|tsconfig\.json$)/u.test(filePath) || filePath.startsWith('tests/integration-sdk/')
+      || filePath === 'tests/integration-sdk.test.mjs' || filePath === 'contracts/webhooks/workflow-instance-completed-v1.schema.json'
+      || filePath === 'scripts/openapi/generate-integration-sdk.mjs' || filePath === 'scripts/testing/run-integration-sdk-package.mjs'
+      || filePath === 'tests/Full.NET.IntegrationTests/Api/IntegrationSdkPackageTests.cs') {
+      addTarget(targets, { kind: 'tooling', name: 'sdk-package' });
+      reasons.push(`SDK 独立安装验收：${filePath}`);
       continue;
     }
     if (filePath === 'deploy/observability/otel-collector-values.yaml'
@@ -1295,7 +1304,7 @@ async function runCli(args, cwd = process.cwd()) {
   }
 
   const selection = classifyChangedPaths(paths);
-  const executionTargets = targetsForExecutionGroup(targetsForPhase(selection.targets, phase, {
+  let executionTargets = targetsForExecutionGroup(targetsForPhase(selection.targets, phase, {
     includeHeavy
   }), executionGroup);
   process.stdout.write(
@@ -1309,6 +1318,13 @@ async function runCli(args, cwd = process.cwd()) {
   );
   if (planOnly || selection.mode === 'none') {
     return;
+  }
+
+  // 独立 SDK 入口自行准备安装项目和资源准入，必须在通用测试上下文外执行，避免嵌套重型锁。
+  if (executionTargets.some(target => target.kind === 'tooling' && target.name === 'sdk-package')) {
+    await runProcess(process.execPath, ['scripts/testing/run-integration-sdk-package.mjs'], cwd, process.env);
+    executionTargets = executionTargets.filter(target => target.name !== 'sdk-package');
+    if (executionTargets.length === 0) return;
   }
 
   return withTestRun({ cwd }, async () => {

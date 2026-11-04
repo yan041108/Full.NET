@@ -1,0 +1,17 @@
+{
+  "name": "@fullnet/integration-sdk",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "description": "Full.NET typed tenant Webhook integration client and event verification",
+  "engines": { "node": ">=24 <25" },
+  "exports": { ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" } },
+  "files": ["dist", "README.md", "LICENSE"],
+  "scripts": {
+    "generate": "node ../../scripts/openapi/generate-integration-sdk.mjs",
+    "check:generated": "node ../../scripts/openapi/generate-integration-sdk.mjs --check",
+    "build": "pnpm generate && tsc -p tsconfig.json"
+  },
+  "devDependencies": { "typescript": "7.0.2" }
+}

@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:fullnet:webhooks:workflow-instance-completed:v1",
+  "type": "object",
+  "required": ["EventType", "EventId", "TenantId", "OccurredAtUtc", "Data"],
+  "properties": {
+    "EventType": { "type": "string", "enum": ["fullnet.workflow.instance.completed"] },
+    "EventId": { "type": "string", "format": "uuid" },
+    "TenantId": { "type": "string", "format": "uuid" },
+    "OccurredAtUtc": { "type": "string", "format": "date-time" },
+    "Data": { "$ref": "#/$defs/WorkflowCompletedWebhookData" }
+  },
+  "$defs": {
+    "WorkflowCompletedWebhookData": {
+      "type": "object",
+      "required": ["InstanceId", "RecipientUserId", "BusinessType", "BusinessId"],
+      "properties": {
+        "InstanceId": { "type": "string", "format": "uuid" },
+        "RecipientUserId": { "type": "string", "format": "uuid" },
+        "BusinessType": { "type": "string", "minLength": 1 },
+        "BusinessId": { "type": "string", "minLength": 1 }
+      }
+    }
+  }
+}

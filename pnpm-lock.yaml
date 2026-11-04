@@ -215,6 +215,12 @@ importers:
 
   packages/design-tokens: {}
 
+  packages/integration-sdk:
+    devDependencies:
+      typescript:
+        specifier: 7.0.2
+        version: 7.0.2
+
   tests/e2e/admin-parity:
     devDependencies:
       '@axe-core/playwright':
