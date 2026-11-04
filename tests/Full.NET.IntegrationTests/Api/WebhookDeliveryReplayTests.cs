@@ -133,7 +133,13 @@ public sealed class WebhookDeliveryReplayTests
     private sealed class Receiver : IHttpClientFactory
     {
         internal HttpStatusCode Status = HttpStatusCode.ServiceUnavailable; internal readonly List<string> Bodies = [];
-        public HttpClient CreateClient(string name) => new(new Handler(async (request, token) => { var body = await request.Content!.ReadAsStringAsync(token); Assert.AreEqual(WebhookSignatureHelper.ComputeSignature("replay-independent-secret", body), request.Headers.GetValues("X-FullNet-Signature").Single()); Bodies.Add(body); return new HttpResponseMessage(Status); }));
+        public HttpClient CreateClient(string name) => new(new Handler(async (request, token) => {
+            var body = await request.Content!.ReadAsStringAsync(token);
+            var stamp = new WebhookSignatureStamp(Guid.Parse(request.Headers.GetValues("X-FullNet-Key-Id").Single()), Guid.Parse(request.Headers.GetValues("X-FullNet-Event-Id").Single()),
+                Guid.Parse(request.Headers.GetValues("X-FullNet-Delivery-Id").Single()), request.Headers.GetValues("X-FullNet-Event-Type").Single(), long.Parse(request.Headers.GetValues("X-FullNet-Timestamp").Single(),System.Globalization.CultureInfo.InvariantCulture));
+            Assert.AreEqual("1",request.Headers.GetValues("X-FullNet-Signature-Version").Single());
+            Assert.AreEqual(WebhookSignatureHelper.ComputeSignature("replay-independent-secret", body,stamp), request.Headers.GetValues("X-FullNet-Signature").Single()); Bodies.Add(body); return new HttpResponseMessage(Status);
+        }));
     }
     private sealed class Handler(Func<HttpRequestMessage, CancellationToken, Task<HttpResponseMessage>> send) : HttpMessageHandler
     { protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken token) => send(request, token); }

@@ -94,7 +94,8 @@ internal static class ProjectReviewRemediationAssertions
             ("MerchantConfigId", merchantId), ("ChannelKey", PaymentChannelKeys.WeChatNative), ("OutTradeNo", orderId.ToString("N")),
             ("TradeStateKey", PaymentTradeStateKeys.Refunding), ("AmountMinor", 500L), ("Currency", "CNY"),
             ("Subject", "test"), ("Description", null), ("CodeUrl", null), ("ProviderTransactionId", "wx-pay"), ("FailMessage", null),
-            ("CreatedAtUtc", now), ("UpdatedAtUtc", now), ("PaidAtUtc", now), ("Version", 1)), default);
+            ("CreatedAtUtc", now), ("UpdatedAtUtc", now), ("PaidAtUtc", now), ("Version", 1),
+            ("IdempotencyKey", orderId), ("RequestHash", new string('a', 64))), default);
         var queryExecutor = firstScope.ServiceProvider.GetRequiredService<IQueryExecutor>();
         var order = (await queryExecutor.QuerySingleOrDefaultAsync<PaymentOrderRecord>(PaymentOrderSql.FindById,
             Parameters(("OrderId", orderId)), default))!;
@@ -117,8 +118,8 @@ internal static class ProjectReviewRemediationAssertions
 
         var subscriptionId = Guid.NewGuid(); var deliveryId = Guid.NewGuid();
         await commands.ExecuteAsync(new SqlStatement("test.insert_webhook_subscription", """
-            INSERT INTO fn_webhooks_subscription (Id,TenantId,EventType,TargetUrl,SigningSecretHash,IsActive,CreatedAtUtc,UpdatedAtUtc,Version)
-            VALUES (@Id,@TenantId,'event','https://93.184.216.34/hook','unused',1,@Now,@Now,1)
+            INSERT INTO fn_webhooks_subscription (Id,TenantId,EventType,TargetUrl,SigningSecretHash,IsActive,CreatedAtUtc,UpdatedAtUtc,Version,SigningKeyId)
+            VALUES (@Id,@TenantId,'event','https://93.184.216.34/hook','unused',1,@Now,@Now,1,@Id)
             """, SqlDataScope.HostOnly), Parameters(("Id", subscriptionId), ("TenantId", Guid.NewGuid()), ("Now", now)), default);
         await commands.ExecuteAsync(WebhookDeliverySql.InsertDelivery, Parameters(("Id", deliveryId), ("SubscriptionId", subscriptionId),
             ("EventId", Guid.NewGuid()), ("PayloadBody", "{}"), ("PayloadDigest", "digest"), ("Status", "pending"),

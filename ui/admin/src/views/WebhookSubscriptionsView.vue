@@ -134,9 +134,10 @@ const reviewControls = computed(() => {
         <p>{{ t('webhooks.statusHint') }}</p>
         <ElAlert v-if="createBlocked" :closable="false" type="warning" :title="t('webhooks.createBlocked')" />
         <ElButton v-if="createBlocked && canCreate()" data-testid="webhook-review-create" :disabled="!createReviewed || loading || changing" @click="reviewOpen = true">{{ t('webhooks.reviewCreate') }}</ElButton>
-        <ElTable v-loading="loading" :data="rows" row-key="id" border>
+        <ElTable v-loading="loading" :data="rows" row-key="id" :scrollbar-tabindex="0" border>
           <ElTableColumn prop="eventType" :label="t('webhooks.event')" min-width="270" />
           <ElTableColumn prop="targetUrl" :label="t('webhooks.target')" min-width="280" />
+          <ElTableColumn prop="signingKeyId" :label="t('webhooks.signingKeyId')" min-width="230" />
           <ElTableColumn :label="t('webhooks.status')" width="110"><template #default="{ row }"><ElTag :type="row.isActive ? 'success' : 'info'">{{ t(row.isActive ? 'webhooks.active' : 'webhooks.paused') }}</ElTag></template></ElTableColumn>
           <ElTableColumn v-if="canStatus() || canHistory()" :label="t('users.columnActions')" width="160" fixed="right"><template #default="{ row }"><div class="webhook-subscriptions-view__actions"><ElButton v-if="canStatus()" data-testid="webhook-status" :disabled="changing || loading || editorOpen || !!historyTarget || statusBlocks.has(row.id.toLowerCase())" @click="row.statusAction">{{ t(row.isActive ? 'webhooks.pause' : 'webhooks.resume') }}</ElButton><ElButton v-if="canHistory()" data-testid="webhook-history-open" :disabled="changing || loading || editorOpen || !!confirmation" @click="row.history">{{ t('webhooks.history.title') }}</ElButton></div></template></ElTableColumn>
           <template #empty>{{ t('webhooks.empty') }}</template>

@@ -89,6 +89,7 @@ const STEM_MODULE_OVERRIDES = new Map([
   ['WebhookDeliveryHistoryIndex', 'Webhooks'],
   ['WebhookDeliveryAttempts', 'Webhooks'],
   ['WebhookReplayReceipts', 'Webhooks'],
+  ['WebhookSigningKeyIdentity', 'Webhooks'],
   ['DocumentAnonymousPreviewRequester', 'Platform'],
   ['SerialRuleApprovalCommands', 'Platform'],
   ['DataApprovalCommandReceipts', 'Workflow'],

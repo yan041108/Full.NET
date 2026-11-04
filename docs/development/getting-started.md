@@ -453,6 +453,6 @@ dotnet run --project benchmarks/Full.NET.Benchmarks/Full.NET.Benchmarks.csproj -
 
 启用数据库容量准入时，提交前独立核证需要已有的 `DatabaseCapacity.AuthorizationReadReserve` 正数预算，且物理连接池至少容纳两个连接；缺少预算或核证不可用时返回 503，排队及审计一并回滚。运维先核对容量和原回执，再由操作者决定是否沿用原操作重试，不通过降低会话、租户或权限校验恢复服务。
 
-可启动的 [Webhook 接收端样例](../../samples/webhook-consumer/README.md)提供原始字节验签、固定企业核对、单进程持久化消费回执及重启去重，通过秘密文件环境引用配置；包括请求预算、ProblemDetails 排错及暂停/撤销路径。它沿用现有签名协议，独立于平台的队列与双库服务；真实业务消费应将 Inbox 和业务写入放进接收方事务。
+可启动的 [Webhook 接收端样例](../../samples/webhook-consumer/README.md)提供原始字节验签、固定企业核对、单进程持久化消费回执及重启去重，通过秘密文件环境引用配置；包括请求预算、ProblemDetails 排错及暂停/撤销路径。订阅返回公开 `signingKeyId`，接收方须配置该身份及对应秘密，按 [签名 v1](webhook-protocol.md) 核对签名版本、投递时间和事件元数据，默认过去/未来容差各 300 秒。延迟重试保留原业务发生时间与事件身份，每次外发重新签名。SDK 对异步密钥来源施加有界期限并在等待后重新检查时间窗；原地密钥轮换仍待后续批次交付。真实业务消费应将 Inbox 和业务写入放进接收方事务。
 
 外部 TypeScript 项目可本地打包安装 [接入 SDK](../../packages/integration-sdk/README.md)，取得当前八个 Webhook 管理操作、生成模型和工作流完成事件验签。调用方提供同一次身份结果中的令牌/企业快照，SDK 在发出请求前核对固定作用域；企业仍由服务端按可信凭据决定。GET 暂时故障有界重试，所有 POST 均须明确发起，401 不自动刷新或重放。`pnpm test:integration-sdk` 做包内定向验证，`pnpm test:integration-sdk:package` 进一步离线安装到独立项目并验证真实 API、跨企业拒绝和会话撤销；公共注册表发布另行授权。

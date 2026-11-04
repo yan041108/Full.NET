@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 import path from 'node:path';
 const id='019bc2b1-2a40-7cc3-8992-a80de51bf299', second='019bc2b1-2a40-7cc3-8992-a80de51bf298';
-const subscription={id,tenantId:id,eventType:'fullnet.workflow.instance.completed',targetUrl:'https://example.com/hooks',isActive:true,version:1};
+const subscription={id,tenantId:id,signingKeyId:id,eventType:'fullnet.workflow.instance.completed',targetUrl:'https://example.com/hooks',isActive:true,version:1};
 const json=(route,value)=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(value)});
 async function boot(page,permissions=['webhooks.subscriptions.read','webhooks.subscriptions.manage','webhooks.subscriptions.set_status']) {
  await page.setViewportSize({width:Number(process.env.FULLNET_ADMIN_PARITY_VIEWPORT_WIDTH??1440),height:1000});
@@ -15,6 +15,15 @@ async function boot(page,permissions=['webhooks.subscriptions.read','webhooks.su
  await page.route(`**/api/v1/webhooks/subscriptions/${id}/status`,route=>{state.statuses++;const body=route.request().postDataJSON();expect(body.version).toBe(state.rows[0].version);state.rows[0]={...state.rows[0],isActive:body.isActive,version:body.version+1};return json(route,state.rows[0]);});
  await page.goto('/#/webhooks/subscriptions');await expect(page.locator('.el-table')).toContainText(subscription.targetUrl);return state;
 }
+test('公开签名 KeyId 可读取并横向查看，页面不回显秘密',async({page},info)=>{
+ await boot(page,['webhooks.subscriptions.read']);
+ const cell=page.locator('.el-table__body-wrapper').getByText(subscription.signingKeyId,{exact:true});
+ await cell.scrollIntoViewIfNeeded();await expect(cell).toBeVisible();
+ await expect(page.getByTestId('webhook-secret')).toHaveCount(0);
+ await cell.screenshot({path:path.resolve(info.outputDir,'..','webhook-signing-key.png'),animations:'disabled'});
+ expect((await new AxeBuilder({page}).include('.el-table').withTags(['wcag2a','wcag2aa','wcag21a','wcag21aa']).analyze()).violations).toEqual([]);
+});
+
 test('订阅暂停与恢复明确确认，旧历史保留且移动弹窗可见',async({page},info)=>{
  const state=await boot(page);await page.getByTestId('webhook-status').click();const dialog=page.getByRole('dialog');await expect(dialog).toContainText('已发出的 HTTP 请求');expect(state.statuses).toBe(0);
  const box=await dialog.boundingBox();expect(box.x).toBeGreaterThanOrEqual(0);expect(box.x+box.width).toBeLessThanOrEqual(page.viewportSize().width);

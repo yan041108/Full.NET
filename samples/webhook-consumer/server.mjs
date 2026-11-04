@@ -22,8 +22,8 @@ function readBody(request, limit) {
 }
 
 /** 接收端只记录当前单一企业的工作流完成事实；生产业务写入应移入自己的事务 Inbox。 */
-export async function startReceiver({ secret, tenantId, receiptsFile, host = '127.0.0.1', port = 8085, maxBodyBytes = 262_144, maxReceipts = 10_000, maxLedgerBytes = 8_388_608, requestsPerMinute = 60 }) {
-  if (typeof secret !== 'string' || secret.length < 16 || secret.length > 128 || !isGuid(tenantId) || typeof receiptsFile !== 'string'
+export async function startReceiver({ secret, keyId, tenantId, receiptsFile, host = '127.0.0.1', port = 8085, maxBodyBytes = 262_144, maxReceipts = 10_000, maxLedgerBytes = 8_388_608, requestsPerMinute = 60, maxAgeSeconds = 300, clock = Date.now }) {
+  if (typeof secret !== 'string' || secret.length < 16 || secret.length > 128 || !isGuid(keyId) || !isGuid(tenantId) || typeof receiptsFile !== 'string' || typeof clock !== 'function' || !Number.isInteger(maxAgeSeconds) || maxAgeSeconds < 1 || maxAgeSeconds > 3600
     || !Number.isInteger(port) || port < 0 || port > 65535 || typeof host !== 'string' || !host
     || ![maxBodyBytes, maxReceipts, maxLedgerBytes, requestsPerMinute].every(n => Number.isSafeInteger(n) && n > 0)
     || maxBodyBytes > 1_048_576 || maxReceipts > 100_000 || maxLedgerBytes > 67_108_864 || requestsPerMinute > 10_000) throw Error('webhook_consumer.config_invalid');
@@ -44,7 +44,8 @@ export async function startReceiver({ secret, tenantId, receiptsFile, host = '12
         if (!/^application\/json(?:\s*;\s*charset=utf-8)?$/iu.test(header(request, 'content-type') ?? '') || ![undefined, 'identity'].includes(header(request, 'content-encoding'))) throw problem(415, 'webhook_consumer.media_type_invalid');
         if (Number(request.headers['content-length']) > maxBodyBytes) throw problem(413, 'webhook_consumer.body_too_large');
         const body = await readBody(request, maxBodyBytes);
-        if (!verifySignature(body, header(request, 'x-fullnet-signature'), secret)) throw problem(401, 'webhook_consumer.signature_invalid');
+        const metadata = { version:header(request,'x-fullnet-signature-version'),keyId:header(request,'x-fullnet-key-id'),timestamp:header(request,'x-fullnet-timestamp'),eventId:header(request,'x-fullnet-event-id'),deliveryId:header(request,'x-fullnet-delivery-id'),eventType:header(request,'x-fullnet-event-type') };
+        if (!verifySignature(body, header(request, 'x-fullnet-signature'), secret, metadata, {keyId,clock,maxAgeSeconds})) throw problem(401, 'webhook_consumer.signature_invalid');
         let envelope; try { envelope = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(body)); } catch { throw problem(400, 'webhook_consumer.payload_invalid'); }
         const eventId = header(request, 'x-fullnet-event-id'), deliveryId = header(request, 'x-fullnet-delivery-id');
         if (!isGuid(eventId) || !isGuid(deliveryId) || !isGuid(envelope?.EventId) || envelope.EventId.toLowerCase() !== eventId.toLowerCase()
@@ -70,7 +71,8 @@ export async function startReceiver({ secret, tenantId, receiptsFile, host = '12
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   try {
-    const receiver = await startReceiver({ secret: await readSigningSecret(process.env.FULLNET_WEBHOOK_SIGNING_SECRET_FILE), tenantId: process.env.FULLNET_WEBHOOK_TENANT_ID,
+    const receiver = await startReceiver({ secret: await readSigningSecret(process.env.FULLNET_WEBHOOK_SIGNING_SECRET_FILE), keyId: process.env.FULLNET_WEBHOOK_KEY_ID, tenantId: process.env.FULLNET_WEBHOOK_TENANT_ID,
+      maxAgeSeconds:Number(process.env.FULLNET_WEBHOOK_SIGNATURE_WINDOW_SECONDS ?? 300),
       receiptsFile: process.env.FULLNET_WEBHOOK_RECEIPTS_FILE, host: process.env.FULLNET_WEBHOOK_HOST ?? '127.0.0.1', port: Number(process.env.FULLNET_WEBHOOK_PORT ?? 8085) });
     console.log(`WEBHOOK_CONSUMER_READY port=${receiver.address.port}`);
     for (const signal of ['SIGINT', 'SIGTERM']) process.once(signal, () => { receiver.close().catch(() => { process.exitCode = 1; }); });

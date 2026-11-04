@@ -9,6 +9,7 @@
 ```powershell
 $env:FULLNET_WEBHOOK_SIGNING_SECRET_FILE = 'C:\Secure\webhook-signing-secret'
 $env:FULLNET_WEBHOOK_TENANT_ID = '<订阅所属企业 UUID>'
+$env:FULLNET_WEBHOOK_KEY_ID = '<订阅返回的 signingKeyId>'
 $env:FULLNET_WEBHOOK_RECEIPTS_FILE = 'C:\FullNetData\webhook-consumer\receipts.ndjson'
 pnpm sample:webhook-consumer
 ```
@@ -25,7 +26,7 @@ pnpm sample:webhook-consumer
 
 默认正文最多 256 KiB，账本最多 10,000 条或 8 MiB，每分钟最多 60 次请求，最多 16 个在途处理、64 个连接；正文接收有超时，分块上传同样受限。达到账本上限后新事件返回 503，已有重复仍返回原结果，不自动删除历史。这里不提供多实例数据库、账本轮转、独立外部副作用或断电之外的存储保证；把样例扩展为真实业务时，将 Inbox 唯一键与业务写入放入自己的数据库事务，外部副作用走可靠事件或幂等接口。
 
-当前签名协议没有独立的签名投递时间头，`occurredAtUtc` 是业务发生时间。样例不使用短时间窗拒绝合法的延迟重试，也不声称提供签名新鲜度；保存的事件回执负责重复识别。协议时间窗及轮换能力继续按 F13-R2 演进。
+样例按 [签名 v1](../../docs/development/webhook-protocol.md) 同时验证版本、配置允许的 KeyId、投递时间、事件/投递身份、事件键和原文字节摘要。默认过去/未来容差均为 300 秒，可用 `FULLNET_WEBHOOK_SIGNATURE_WINDOW_SECONDS` 设置 1～3600 秒；保持系统时间同步。`OccurredAtUtc` 是业务发生时间，发送方在每次延迟重试时生成新的签名投递时间，仍用原事件回执去重。未知键、缺少/重复头、超窗或元数据被改动均不确认消费；轮换端点仍待后续批次交付。
 
 ## 排错与撤销
 
@@ -47,10 +48,12 @@ pnpm sample:webhook-consumer
 ```bash
 node samples/webhook-consumer/verify-signature.mjs \
   --secret-file /secure/webhook-signing-secret \
+  --key-id <configured-key-id> \
   --payload-file /data/original-request-body.json \
+  --metadata-file /data/request-metadata.json \
   --signature <header-value>
 ```
 
-签名算法：HMAC-SHA256(payload, secret) 十六进制大写，与 `X-FullNet-Signature` 请求头比对。
+元数据 JSON 包含请求头对应的 `version`、`keyId`、`timestamp`、`eventId`、`deliveryId`、`eventType` 字符串。`--key-id` 来自受保护配置；脚本按签名 v1 规范串进行 HMAC-SHA256 验证，并核对实际当前时间窗，历史请求可用于诊断，不能当作当前有效签名。
 
 运行本样例的定向验证：`pnpm test:webhook-consumer`。测试使用真实本地 HTTP 和独立系统临时账本，不连接平台后端或外部服务。

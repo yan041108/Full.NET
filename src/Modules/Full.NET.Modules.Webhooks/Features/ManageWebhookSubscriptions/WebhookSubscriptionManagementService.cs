@@ -38,10 +38,10 @@ internal sealed class WebhookSubscriptionManagementService(
             if (current is null) return Result<WebhookSubscriptionResponse>.Failure(new Error(WebhookErrorCodes.SubscriptionNotFound, "The subscription was not found.", ErrorType.NotFound));
             if (current.Version != request.Version) return StatusConflict();
             // 重复设置不推进版本；状态确认不能借管理入口改写目标或重新加密签名材料。
-            if (current.IsActive == request.IsActive) return Result<WebhookSubscriptionResponse>.Success(new(current.Id, current.TenantId, current.EventType, current.TargetUrl, current.IsActive, current.Version));
+            if (current.IsActive == request.IsActive) return Result<WebhookSubscriptionResponse>.Success(new(current.Id, current.TenantId, current.EventType, current.TargetUrl, current.IsActive, current.Version, current.SigningKeyId));
             values["Version"] = request.Version; values["IsActive"] = request.IsActive; values["NowUtc"] = clock.UtcNow;
             if (await commandExecutor.ExecuteAsync(WebhookSubscriptionSql.SetStatus, values, cancellation).ConfigureAwait(false) != 1) return StatusConflict();
-            return Result<WebhookSubscriptionResponse>.Success(new(current.Id, current.TenantId, current.EventType, current.TargetUrl, request.IsActive, checked(current.Version + 1)));
+            return Result<WebhookSubscriptionResponse>.Success(new(current.Id, current.TenantId, current.EventType, current.TargetUrl, request.IsActive, checked(current.Version + 1), current.SigningKeyId));
         }, token);
 
     private static Result<WebhookSubscriptionResponse> StatusConflict() => Result<WebhookSubscriptionResponse>.Failure(
@@ -123,6 +123,7 @@ internal sealed class WebhookSubscriptionManagementService(
                 WebhookSubscriptionSql.Insert,
                 WebhookSqlParameters.Create(
                     ("Id", id),
+                    ("SigningKeyId", id),
                     ("TenantId", currentTenant.Id.Value),
                     ("EventType", eventType),
                     ("TargetUrl", urlValidation.Value),
@@ -139,6 +140,7 @@ internal sealed class WebhookSubscriptionManagementService(
                 eventType,
                 urlValidation.Value!,
                 true,
-                1));
+                1,
+                id));
     }
 }

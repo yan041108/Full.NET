@@ -93,7 +93,7 @@ export function readWebhookSubscriptionResponse(value: unknown): WebhookSubscrip
 }
 
 function isWebhookSubscriptionResponse(value: unknown): value is WebhookSubscriptionResponse {
-  return isRecord(value) && (typeof value["eventType"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["isActive"] === 'boolean') && (typeof value["targetUrl"] === 'string') && (typeof value["tenantId"] === 'string' && guidPattern.test(value["tenantId"])) && (Number.isSafeInteger(value["version"]));
+  return isRecord(value) && (typeof value["eventType"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["isActive"] === 'boolean') && (typeof value["signingKeyId"] === 'string' && guidPattern.test(value["signingKeyId"])) && (typeof value["targetUrl"] === 'string') && (typeof value["tenantId"] === 'string' && guidPattern.test(value["tenantId"])) && (Number.isSafeInteger(value["version"]));
 }
 
 export function readWorkflowCompletedWebhookData(value: unknown): WorkflowCompletedWebhookData {

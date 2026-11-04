@@ -7,7 +7,7 @@ import { createOutputSession, outputId } from '../../test/data-output-fixtures';
 import type { WebhookDeliveryHistory, WebhookDeliveryReplayReceipt } from '@fullnet/client-contracts';
 vi.mock('../../api/webhook-subscriptions', () => ({ listWebhookDeliveryHistory: vi.fn(), getWebhookDeliveryHistory: vi.fn(), listWebhookDeliveryAttempts: vi.fn(), replayWebhookDelivery: vi.fn(), getWebhookDeliveryReplayReceipt: vi.fn() }));
 const other = '019bc2b1-2a40-7cc3-8992-a80de51bf298';
-const subscription = { id: outputId, tenantId: outputId, eventType: 'fullnet.workflow.instance.completed', targetUrl: 'https://example.com/hooks', isActive: true, version: 1 };
+const subscription = { id: outputId, tenantId: outputId, signingKeyId: outputId, eventType: 'fullnet.workflow.instance.completed', targetUrl: 'https://example.com/hooks', isActive: true, version: 1 };
 const row = { id: outputId, tenantId: outputId, subscriptionId: outputId, eventId: other, statusKey: 'pending' as const, attemptCount: 1,
   nextAttemptAtUtc: '2026-11-04T00:01:00Z', lastErrorCode: 'webhooks.delivery.http_error', lastHttpStatus: 503, createdAtUtc: '2026-11-04T00:00:00Z', updatedAtUtc: '2026-11-04T00:00:30Z', version: 2 };
 const read = 'webhooks.subscriptions.read', history = 'webhooks.deliveries.read';

@@ -12,6 +12,9 @@ test('Webhook 状态契约保留版本、独立动作和不回显密钥', () => 
  assert.equal(fixture.components.schemas.CreateWebhookSubscriptionRequest.properties.signingSecret.maxLength, 128);
  assert.equal(fixture.components.schemas.CreateWebhookSubscriptionRequest.properties.eventType.maxLength, 128);
  assert.equal('signingSecret' in fixture.components.schemas.WebhookSubscriptionResponse.properties, false);
+ assert.ok(fixture.components.schemas.WebhookSubscriptionResponse.required.includes('signingKeyId'));
+ assert.equal(fixture.components.schemas.WebhookSubscriptionResponse.properties.signingKeyId.format, 'uuid');
+ assert.equal(fixture.components.schemas.WebhookSubscriptionResponse.properties.signingKeyId.readOnly, true);
 });
 test('Webhook 实际 API、共享模型及页面调用点完整登记', async () => {
  const [contracts, calls] = await Promise.all([validateVueClientContractCoverage(), validateVueApiCallSiteCoverage()]);

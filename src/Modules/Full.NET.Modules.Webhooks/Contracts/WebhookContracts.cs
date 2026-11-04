@@ -82,13 +82,15 @@ public static class WebhookErrorCodes
 /// <param name="TargetUrl">接收投递的 HTTPS 端点绝对地址。</param>
 /// <param name="IsActive">订阅是否处于启用状态；停用后不再产生新的投递。</param>
 /// <param name="Version">乐观并发版本号，用于更新、删除与启用/停用请求的 CAS 守卫。</param>
+/// <param name="SigningKeyId">当前签名密钥的公开标识，不包含签名材料。</param>
 public sealed record WebhookSubscriptionResponse(
     Guid Id,
     Guid TenantId,
     string EventType,
     string TargetUrl,
     bool IsActive,
-    int Version);
+    int Version,
+    Guid SigningKeyId);
 
 /// <summary>
 /// 创建 Webhook 订阅的请求契约；SigningSecret 由服务端加密存储，响应永不回显明文。

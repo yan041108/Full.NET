@@ -23,8 +23,8 @@ internal static class PerformanceWebhookBatchAssertions
         const string eventType = "fullnet.workflow.instance.completed";
         var seed = new SqlStatement("test.performance.webhooks.seed", """
             INSERT INTO fn_webhooks_subscription
-                (Id,TenantId,EventType,TargetUrl,SigningSecretHash,IsActive,CreatedAtUtc,UpdatedAtUtc,Version)
-            VALUES (@Id,@TenantId,@EventType,'https://93.184.216.34/hooks','fixture-secret',1,@Now,@Now,1)
+                (Id,TenantId,EventType,TargetUrl,SigningSecretHash,IsActive,CreatedAtUtc,UpdatedAtUtc,Version,SigningKeyId)
+            VALUES (@Id,@TenantId,@EventType,'https://93.184.216.34/hooks','fixture-secret',1,@Now,@Now,1,@Id)
             """, SqlDataScope.HostOnly);
         async Task SeedAsync(Guid tenant) => await commands.ExecuteAsync(seed,
             new Dictionary<string,object?> { ["Id"]=Guid.CreateVersion7(),["TenantId"]=tenant,["EventType"]=eventType,["Now"]=clock.UtcNow });

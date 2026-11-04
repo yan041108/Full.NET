@@ -127,13 +127,17 @@ internal sealed class WebhookDeliveryBatchProcessor(
         var (allowed, reason) = await WebhookDeliverySsrfGuard.ValidateAsync(targetUri, token).ConfigureAwait(false);
         if (!allowed) return new(reason ?? "Target URL is blocked.", "webhooks.delivery.target_blocked", null);
         var secret = signingSecretProtector.Unprotect(item.SigningSecretHash);
-        var signature = WebhookSignatureHelper.ComputeSignature(secret, item.PayloadBody);
+        var stamp = new WebhookSignatureStamp(item.SigningKeyId, item.EventId, item.Id, item.EventType, clock.UtcNow.ToUnixTimeSeconds());
+        var signature = WebhookSignatureHelper.ComputeSignature(secret, item.PayloadBody, stamp);
         using var client = httpClientFactory.CreateClient(WebhookHttpClientNames.Delivery);
         using var request = new HttpRequestMessage(HttpMethod.Post, item.TargetUrl)
         {
             Content = new StringContent(item.PayloadBody, System.Text.Encoding.UTF8, "application/json"),
         };
         request.Headers.Add("X-FullNet-Signature", signature);
+        request.Headers.Add("X-FullNet-Signature-Version", WebhookSignatureHelper.Version);
+        request.Headers.Add("X-FullNet-Key-Id", stamp.KeyId.ToString("D"));
+        request.Headers.Add("X-FullNet-Timestamp", stamp.Timestamp.ToString(System.Globalization.CultureInfo.InvariantCulture));
         request.Headers.Add("X-FullNet-Event-Id", item.EventId.ToString("D"));
         request.Headers.Add("X-FullNet-Delivery-Id", item.Id.ToString("D"));
         request.Headers.Add("X-FullNet-Event-Type", item.EventType);

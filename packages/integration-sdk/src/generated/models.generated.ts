@@ -82,6 +82,7 @@ export interface WebhookSubscriptionResponse {
   readonly eventType: string;
   readonly id: string;
   readonly isActive: boolean;
+  readonly signingKeyId: string;
   readonly targetUrl: string;
   readonly tenantId: string;
   readonly version: number;

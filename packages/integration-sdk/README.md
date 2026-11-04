@@ -70,15 +70,19 @@ import { verifyWorkflowCompletedWebhook } from '@fullnet/integration-sdk';
 const event = await verifyWorkflowCompletedWebhook({
   body: rawRequestBytes, // 原始 UTF-8 字节，不能解析后重新序列化。
   signature: headers.get('X-FullNet-Signature')!,
+  version: headers.get('X-FullNet-Signature-Version')!,
+  keyId: headers.get('X-FullNet-Key-Id')!,
+  timestamp: headers.get('X-FullNet-Timestamp')!,
   eventId: headers.get('X-FullNet-Event-Id')!,
+  deliveryId: headers.get('X-FullNet-Delivery-Id')!,
   eventType: headers.get('X-FullNet-Event-Type')!,
   expectedTenantId: tenantId,
-  secret: signingSecretFromProtectedConfiguration
+  resolveSigningSecret: async (keyId, signal) => protectedKeys.readAllowedKey(keyId, signal)
 });
 // 在接收方事务内以 event.EventId 建立 Inbox，并与业务写入同提交。
 ```
 
-验签入口最多接受 256 KiB，使用 HMAC-SHA256 验证原文、PascalCase 事件模型、企业和事件头。现行协议的 OccurredAtUtc 是业务发生时间；签名时间窗/轮换继续由 F13-R2 演进，SDK 不虚构新鲜度保证。接收方负责原事件去重与业务事务，可运行仓库的持久化接收端样例学习该边界。
+验签入口最多接受 256 KiB，按仓库 [签名 v1](../../docs/development/webhook-protocol.md) 验证原文字节摘要、KeyId、投递时间及事件元数据，再核对 PascalCase 模型与企业。`protectedKeys` 是接收方自己的受保护密钥来源，只解析预先允许的 KeyId，未知键返回 null；不得使用请求头拼接远程地址。默认过去/未来容差均为 300 秒，可用 `maxAgeSeconds: 1..3600` 配置；`clock` 返回可信 Unix 毫秒。读取秘密与加密操作共用默认 5 秒期限（`timeoutMilliseconds: 1..30000`），支持 `signal` 取消，等待后再次核对时间。密钥来源故障或超时不确认消费。`OccurredAtUtc` 保留业务发生时间，延迟重试使用新的投递时间。接收方仍须以原 EventId 去重并与业务同事务；密钥轮换尚待后续批次交付。
 
 ## 定向验证
 

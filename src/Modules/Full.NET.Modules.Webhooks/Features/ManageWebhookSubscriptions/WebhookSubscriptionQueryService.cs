@@ -32,5 +32,5 @@ internal sealed class WebhookSubscriptionQueryService(
     }
 
     private static WebhookSubscriptionResponse Map(WebhookSubscriptionRecord row) =>
-        new(row.Id, row.TenantId, row.EventType, row.TargetUrl, row.IsActive, row.Version);
+        new(row.Id, row.TenantId, row.EventType, row.TargetUrl, row.IsActive, row.Version, row.SigningKeyId);
 }

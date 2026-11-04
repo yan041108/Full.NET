@@ -45,6 +45,7 @@ public sealed class IntegrationSdkPackageTests
         var environment=new Dictionary<string,string>{{"SDK_API_URL",address},{"SDK_TENANT_A",tenant.Id.ToString("D")},{"SDK_TENANT_B",b.Id.ToString("D")},{"SDK_TOKEN_A",accessA},{"SDK_TOKEN_B",accessB},{"SDK_HOST_B",domain},{"SDK_SIGNING_SECRET",secret}};
         await RunAsync("bootstrap");
         using var bootstrap=JsonDocument.Parse(await File.ReadAllTextAsync(Path.Combine(directory!,"bootstrap.json"),token));var subscriptionId=bootstrap.RootElement.GetProperty("subscriptionId").GetGuid();var eventId=Guid.CreateVersion7();
+        var signingKeyId=bootstrap.RootElement.GetProperty("signingKeyId").GetGuid(); environment["SDK_KEY_ID"]=signingKeyId.ToString("D");
         var envelope=new WebhookEventEnvelope("fullnet.workflow.instance.completed",eventId,tenant.Id,DateTimeOffset.UtcNow,new(Guid.CreateVersion7(),Guid.CreateVersion7(),"sdk","production-envelope"));
         await using(var scope=factory.Services.CreateAsyncScope())
         { scope.ServiceProvider.GetRequiredService<CurrentTenantAccessor>().SetHost();await scope.ServiceProvider.GetRequiredService<ICommandTransaction>().ExecuteAsync(async cancellation=>{await scope.ServiceProvider.GetRequiredService<WebhookEventEnqueueService>().EnqueueAsync(tenant.Id,envelope.EventType,eventId,envelope,cancellation);return 0;},token); }
@@ -60,7 +61,9 @@ public sealed class IntegrationSdkPackageTests
                 new Dictionary<string,object?>{{"DeliveryId",rows.Items.Single().Id}},token);
         }
         Assert.IsNotNull(payload);
-        await File.WriteAllTextAsync(Path.Combine(directory!,"event-input.json"),JsonSerializer.Serialize(new{body=payload,signature=WebhookSignatureHelper.ComputeSignature(secret,payload),eventId,subscriptionId}),token);
+        var stamp=new WebhookSignatureStamp(signingKeyId,eventId,rows.Items.Single().Id,envelope.EventType,DateTimeOffset.UtcNow.ToUnixTimeSeconds());
+        await File.WriteAllTextAsync(Path.Combine(directory!,"event-input.json"),JsonSerializer.Serialize(new{body=payload,signature=WebhookSignatureHelper.ComputeSignature(secret,payload,stamp),eventId,subscriptionId,keyId=signingKeyId,
+            deliveryId=stamp.DeliveryId,eventType=stamp.EventType,version=WebhookSignatureHelper.Version,timestamp=stamp.Timestamp.ToString(System.Globalization.CultureInfo.InvariantCulture)}),token);
         await RunAsync("event");
         host.DefaultRequestHeaders.Authorization=new("Bearer",await factory.CreateHostAccessTokenAsync([IdentitySessionManagementPermissions.Revoke],token));
         using var revoked=await host.PostAsync($"/api/v1/identity/online-sessions/users/{identity.UserId:D}/revoke-all",null,token);Assert.AreEqual(HttpStatusCode.OK,revoked.StatusCode);

@@ -7,7 +7,7 @@ internal static class WebhookSubscriptionSql
 {
     /// <summary>明确定址到当前租户，不返回签名密钥。</summary>
     public static readonly SqlStatement FindById = new("webhooks.subscriptions.find_by_id", """
-        SELECT Id,TenantId,EventType,TargetUrl,IsActive,Version FROM fn_webhooks_subscription
+        SELECT Id,TenantId,EventType,TargetUrl,IsActive,Version,SigningKeyId FROM fn_webhooks_subscription
         WHERE TenantId=@TenantId AND Id=@Id
         """, SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
 
@@ -43,7 +43,7 @@ internal static class WebhookSubscriptionSql
     public static readonly SqlStatement ListByTenant = new(
         "webhooks.subscriptions.list_by_tenant",
         @"
-        SELECT Id, TenantId, EventType, TargetUrl, IsActive, Version
+        SELECT Id, TenantId, EventType, TargetUrl, IsActive, Version, SigningKeyId
         FROM fn_webhooks_subscription
         WHERE TenantId = @TenantId
         ORDER BY EventType, Id
@@ -56,10 +56,10 @@ internal static class WebhookSubscriptionSql
         @"
         INSERT INTO fn_webhooks_subscription
             (Id, TenantId, EventType, TargetUrl, SigningSecretHash, IsActive,
-             CreatedAtUtc, UpdatedAtUtc, Version)
+             CreatedAtUtc, UpdatedAtUtc, Version, SigningKeyId)
         VALUES
             (@Id, @TenantId, @EventType, @TargetUrl, @SigningSecretHash, 1,
-             @CreatedAtUtc, @UpdatedAtUtc, 1)
+             @CreatedAtUtc, @UpdatedAtUtc, 1, @SigningKeyId)
         ",
         SqlDataScope.TenantRequired,
         SqlTenantBinding.CurrentTenantId);
@@ -71,4 +71,5 @@ internal sealed record WebhookSubscriptionRecord(
     string EventType,
     string TargetUrl,
     bool IsActive,
-    int Version);
+    int Version,
+    Guid SigningKeyId);

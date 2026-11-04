@@ -3,7 +3,7 @@ import { request } from './http';
 import { createWebhookSubscription, listWebhookSubscriptions, setWebhookSubscriptionStatus, listWebhookDeliveryHistory, getWebhookDeliveryHistory, listWebhookDeliveryAttempts, replayWebhookDelivery, getWebhookDeliveryReplayReceipt } from './webhook-subscriptions';
 vi.mock('./http', () => ({ request: vi.fn() }));
 const call = vi.mocked(request), id = '019bc2b1-2a40-7cc3-8992-a80de51bf299';
-const row = { id, tenantId: id, eventType: 'fullnet.workflow.instance.completed', targetUrl: 'https://example.com/hooks', isActive: true, version: 1 };
+const row = { id, tenantId: id, signingKeyId: id, eventType: 'fullnet.workflow.instance.completed', targetUrl: 'https://example.com/hooks', isActive: true, version: 1 };
 const delivery = { id, tenantId: id, subscriptionId: id, eventId: id, statusKey: 'failed', attemptCount: 2, version: 3,
   nextAttemptAtUtc: null, lastErrorCode: 'webhooks.delivery.http_error', lastHttpStatus: 503, createdAtUtc: '2026-11-04T00:00:00Z', updatedAtUtc: '2026-11-04T00:01:00Z' };
 beforeEach(() => call.mockReset());
@@ -43,6 +43,9 @@ it('逐次读取拒绝跨资源、矛盾结果、重复标识及越界页码', a
 });
 it('读取规范化版本并移除意外签名字段', async () => {
   call.mockResolvedValue([{ ...row, version: '1', signingSecret: 'must-not-escape' }]); expect(await listWebhookSubscriptions()).toEqual([row]);
+});
+it.each([undefined, '', '00000000-0000-0000-0000-000000000000', 'invalid'])('缺失或无效公开密钥身份拒绝接纳 %j', async signingKeyId => {
+  call.mockResolvedValue([{ ...row, signingKeyId }]); await expect(listWebhookSubscriptions()).rejects.toThrow();
 });
 it('创建携带作用域信号并关闭 401 自动重放', async () => {
   call.mockResolvedValue(row); const signal = new AbortController().signal, body = { eventType: row.eventType, targetUrl: row.targetUrl, signingSecret: 'independent-random-secret' };

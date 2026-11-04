@@ -1,0 +1,13 @@
+{
+  "version": "1",
+  "timestamp": "1793836800",
+  "keyId": "019bc2b1-2a40-7cc3-8992-a80de51bf290",
+  "eventId": "019bc2b1-2a40-7cc3-8992-a80de51bf298",
+  "deliveryId": "019bc2b1-2a40-7cc3-8992-a80de51bf297",
+  "eventType": "fullnet.workflow.instance.completed",
+  "secret": "fullnet-public-test-vector-secret",
+  "payload": "{\"EventType\":\"fullnet.workflow.instance.completed\",\"EventId\":\"019bc2b1-2a40-7cc3-8992-a80de51bf298\",\"TenantId\":\"019bc2b1-2a40-7cc3-8992-a80de51bf299\",\"OccurredAtUtc\":\"2026-11-04T00:00:00+00:00\",\"Data\":{\"InstanceId\":\"019bc2b1-2a40-7cc3-8992-a80de51bf297\",\"RecipientUserId\":\"019bc2b1-2a40-7cc3-8992-a80de51bf299\",\"BusinessType\":\"test\",\"BusinessId\":\"private-business-reference\"}}",
+  "payloadDigest": "8EDB6D10823780A71EA197A1A23D90957FECDCD5F15D04FC6A49CB909879CEBB",
+  "canonical": "fullnet.webhook/1\n1793836800\n019bc2b1-2a40-7cc3-8992-a80de51bf290\n019bc2b1-2a40-7cc3-8992-a80de51bf298\n019bc2b1-2a40-7cc3-8992-a80de51bf297\nfullnet.workflow.instance.completed\n8EDB6D10823780A71EA197A1A23D90957FECDCD5F15D04FC6A49CB909879CEBB",
+  "signature": "1BDEFBFC74BA8EF8A9DD0168B94BA293F854B638F066B75DFFE3BE957746C853"
+}

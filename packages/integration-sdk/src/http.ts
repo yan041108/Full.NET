@@ -1,3 +1,5 @@
+import { withAbort } from './async.js';
+
 /** 只公开有界 HTTP 故障字段；SDK 不自动记录正文、凭据或请求对象。 */
 export interface IntegrationProblem { status: number; code: string; title?: string; detail?: string; traceId?: string }
 export class IntegrationHttpError extends Error {
@@ -30,15 +32,6 @@ const guid = /^[a-f\d]{8}-[a-f\d]{4}-[a-f\d]{4}-[a-f\d]{4}-[a-f\d]{12}$/iu;
 const validGuid = (value: unknown): value is string => typeof value === 'string' && guid.test(value) && value !== '00000000-0000-0000-0000-000000000000';
 const invalid = (code: string): never => { throw new IntegrationProtocolError(code); };
 
-/** 令牌提供器、退避及读取共用一次请求期限；调用方取消后不能继续发送下一次请求。 */
-function withAbort<T>(value: Promise<T>, signal: AbortSignal): Promise<T> {
-  if (signal.aborted) { void value.catch(() => {}); return Promise.reject(signal.reason); }
-  return new Promise((resolve,reject) => {
-    const abort = () => reject(signal.reason);
-    signal.addEventListener('abort',abort,{once:true});
-    value.then(resolve,reject).finally(() => signal.removeEventListener('abort',abort));
-  });
-}
 async function pause(milliseconds: number, signal: AbortSignal) {
   signal.throwIfAborted();
   await new Promise<void>((resolve,reject) => {

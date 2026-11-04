@@ -36,7 +36,8 @@ internal sealed class WebhooksDapperAotMaterializerContributor : IDapperAotMater
             reader.GetString(2),
             reader.GetString(3),
             AotDataReaderExtensions.ReadBoolean(reader, 4),
-            reader.GetInt32(5));
+            reader.GetInt32(5),
+            reader.GetGuid(6));
 
     private static WebhookSubscriptionDeliveryRecord ReadWebhookSubscriptionDeliveryRecord(
         DbDataReader reader) =>
@@ -47,7 +48,8 @@ internal sealed class WebhooksDapperAotMaterializerContributor : IDapperAotMater
             reader.GetString(3),
             reader.GetString(4),
             AotDataReaderExtensions.ReadBoolean(reader, 5),
-            reader.GetInt32(6));
+            reader.GetInt32(6),
+            reader.GetGuid(7));
 
     private static WebhookDeliveryWorkItem ReadWebhookDeliveryWorkItem(DbDataReader reader) =>
         new(
@@ -60,6 +62,7 @@ internal sealed class WebhooksDapperAotMaterializerContributor : IDapperAotMater
             reader.GetGuid(6),
             reader.GetString(7),
             reader.GetString(8),
-            reader.GetString(9));
+            reader.GetString(9),
+            reader.GetGuid(10));
 }
 #endif

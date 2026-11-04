@@ -147,22 +147,24 @@ public sealed class WebhookDeliveryTests
     }
 
     [TestMethod]
-    public void ComputeSignature_matches_hmac_sha256_hex_uppercase()
+    public void ComputeSignature_binds_v1_metadata_and_the_shared_cross_language_vector()
     {
-        const string payload = "{\"eventId\":\"00000000-0000-7000-8000-000000000001\"}";
-        var signature = WebhookSignatureHelper.ComputeSignature("demo-secret", payload);
-        Assert.AreEqual(64, signature.Length);
-        Assert.IsTrue(signature.All(static c => c is >= '0' and <= '9' or >= 'A' and <= 'F'));
-        var envelope = new WebhookEventEnvelope("completed", Guid.NewGuid(), Guid.NewGuid(),
-            DateTimeOffset.UtcNow, new WebhookWorkflowInstanceCompletedData(
-                Guid.NewGuid(), Guid.NewGuid(), "申请", "request-1"));
-        // 源生成必须保留原签名原文；字段大小写或转义变化都会改变 HMAC。
-        var previousPayload = JsonSerializer.Serialize(envelope);
-        var generatedPayload = JsonSerializer.Serialize(envelope,
-            WebhookPayloadJsonSerializerContext.Default.WebhookEventEnvelope);
-        Assert.AreEqual(previousPayload, generatedPayload);
-        Assert.AreEqual(WebhookSignatureHelper.ComputeSignature("demo-secret", previousPayload),
-            WebhookSignatureHelper.ComputeSignature("demo-secret", generatedPayload));
+        var directory = new DirectoryInfo(AppContext.BaseDirectory);
+        while (directory is not null && !File.Exists(Path.Combine(directory.FullName, "Full.NET.slnx"))) directory = directory.Parent;
+        Assert.IsNotNull(directory);
+        using var document = JsonDocument.Parse(File.ReadAllText(Path.Combine(directory.FullName, "contracts", "webhooks", "signature-v1.vector.json")));
+        var vector = document.RootElement; var payload = vector.GetProperty("payload").GetString()!; var secret = vector.GetProperty("secret").GetString()!;
+        var stamp = new WebhookSignatureStamp(vector.GetProperty("keyId").GetGuid(), vector.GetProperty("eventId").GetGuid(), vector.GetProperty("deliveryId").GetGuid(),
+            vector.GetProperty("eventType").GetString()!, long.Parse(vector.GetProperty("timestamp").GetString()!, System.Globalization.CultureInfo.InvariantCulture));
+        var signature = WebhookSignatureHelper.ComputeSignature(secret, payload, stamp);
+        Assert.AreEqual(vector.GetProperty("signature").GetString(), signature);
+        Assert.AreEqual(vector.GetProperty("payloadDigest").GetString(), WebhookSignatureHelper.ComputePayloadDigest(payload));
+        foreach (var changed in new[] { stamp with { KeyId = Guid.CreateVersion7() }, stamp with { EventId = Guid.CreateVersion7() },
+            stamp with { DeliveryId = Guid.CreateVersion7() }, stamp with { Timestamp = stamp.Timestamp + 1 }, stamp with { EventType = "other" } })
+            Assert.AreNotEqual(signature, WebhookSignatureHelper.ComputeSignature(secret, payload, changed));
+        Assert.AreNotEqual(signature, WebhookSignatureHelper.ComputeSignature(secret, payload + " ", stamp));
+        Assert.ThrowsExactly<ArgumentException>(() => WebhookSignatureHelper.ComputeSignature(secret,payload,stamp with { KeyId=Guid.Empty }));
+        Assert.ThrowsExactly<ArgumentException>(() => WebhookSignatureHelper.ComputeSignature(secret,payload,stamp with { EventType="bad\nevent" }));
     }
 
     [TestMethod]
@@ -187,6 +189,8 @@ public sealed class WebhookDeliveryTests
         var handler = new CaptureHandler((request, cancellationToken) =>
         {
             capturedSignature = request.Headers.GetValues("X-FullNet-Signature").Single();
+            Assert.AreEqual("1", request.Headers.GetValues("X-FullNet-Signature-Version").Single());
+            Assert.AreEqual(subscriptionId.ToString("D"), request.Headers.GetValues("X-FullNet-Key-Id").Single());
             Assert.AreEqual(eventId.ToString("D"), request.Headers.GetValues("X-FullNet-Event-Id").Single());
             Assert.AreEqual(deliveryId.ToString("D"), request.Headers.GetValues("X-FullNet-Delivery-Id").Single());
             return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK));
@@ -216,7 +220,7 @@ public sealed class WebhookDeliveryTests
                     // 使用公网字面量 IP，避免 CI 上 example.com DNS 偶发失败导致 SSRF 校验未发起 HTTP。
                     "https://93.184.216.34/hooks/callback",
                     protectedSecret,
-                    "fullnet.workflow.instance.completed"),
+                    "fullnet.workflow.instance.completed", subscriptionId),
             ]), Task.FromResult<IReadOnlyList<WebhookDeliveryWorkItem>>([]));
 
         var command = Substitute.For<ICommandExecutor>();
@@ -242,7 +246,7 @@ public sealed class WebhookDeliveryTests
 
         Assert.AreEqual(1, processed);
         Assert.AreEqual(
-            WebhookSignatureHelper.ComputeSignature(secret, payload),
+            WebhookSignatureHelper.ComputeSignature(secret, payload, new(subscriptionId,eventId,deliveryId,"fullnet.workflow.instance.completed",DateTimeOffset.Parse("2026-09-17T00:00:00Z").ToUnixTimeSeconds())),
             capturedSignature);
         await command.Received(1).ExecuteAsync(
             WebhookDeliverySql.MarkDelivered,
@@ -270,7 +274,7 @@ public sealed class WebhookDeliveryTests
                     Guid.CreateVersion7(),
                     "https://127.0.0.1/hooks/callback",
                     "protected",
-                    "fullnet.workflow.instance.completed"),
+                    "fullnet.workflow.instance.completed", Guid.CreateVersion7()),
             ]), Task.FromResult<IReadOnlyList<WebhookDeliveryWorkItem>>([]));
 
         var command = Substitute.For<ICommandExecutor>();
@@ -310,7 +314,7 @@ public sealed class WebhookDeliveryTests
         var protector = new WebhookSigningSecretProtector(DataProtectionProvider.Create(nameof(WebhookDeliveryTests)));
         var query = Substitute.For<IQueryExecutor>();
         var first = new WebhookDeliveryWorkItem(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "{}", 0, 1,
-            Guid.NewGuid(), "https://93.184.216.34/hook", protector.Protect("secret"), "event");
+            Guid.NewGuid(), "https://93.184.216.34/hook", protector.Protect("secret"), "event", Guid.CreateVersion7());
         var second = first with { Id = Guid.NewGuid() };
         query.QueryAsync<WebhookDeliveryWorkItem>(Arg.Any<SqlStatement>(), Arg.Any<IReadOnlyDictionary<string, object?>>(),
             Arg.Any<CancellationToken>()).Returns(Task.FromResult<IReadOnlyList<WebhookDeliveryWorkItem>>([first]),
@@ -342,7 +346,7 @@ public sealed class WebhookDeliveryTests
         query.QueryAsync<WebhookDeliveryWorkItem>(Arg.Any<SqlStatement>(), Arg.Any<IReadOnlyDictionary<string, object?>>(),
             Arg.Any<CancellationToken>()).Returns(Task.FromResult<IReadOnlyList<WebhookDeliveryWorkItem>>([
                 new(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "{}", 0, 1, Guid.NewGuid(),
-                    "https://93.184.216.34/hook", "secret", "event")]));
+                    "https://93.184.216.34/hook", "secret", "event", Guid.CreateVersion7())]));
         var clients = Substitute.For<IHttpClientFactory>();
         var processor = new WebhookDeliveryBatchProcessor(query, Substitute.For<ICommandExecutor>(),
             new DapperCommandTransaction(new RecordingDbTransactionCoordinator()), clients,

@@ -2,12 +2,12 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import http from 'node:http';
 import { readFile } from 'node:fs/promises';
-import { createHmac } from 'node:crypto';
+import { computeSignature } from '../samples/webhook-consumer/signature.mjs';
 import { createIntegrationClient, IntegrationHttpError, IntegrationProtocolError, webhooksListSubscriptions, webhooksCreateSubscription, verifyWorkflowCompletedWebhook } from '../packages/integration-sdk/dist/index.js';
 import { generateIntegrationSdk } from '../scripts/openapi/generate-integration-sdk.mjs';
 
 const tenantId='019bc2b1-2a40-7cc3-8992-a80de51bf299',other='019bc2b1-2a40-7cc3-8992-a80de51bf298';
-const row={id:other,tenantId,eventType:'fullnet.workflow.instance.completed',targetUrl:'https://example.com/hooks',isActive:true,version:1};
+const row={id:other,tenantId,signingKeyId:other,eventType:'fullnet.workflow.instance.completed',targetUrl:'https://example.com/hooks',isActive:true,version:1};
 async function server(t,handler){const instance=http.createServer(handler);await new Promise(resolve=>instance.listen(0,'127.0.0.1',resolve));t.after(()=>new Promise(resolve=>{instance.close(resolve);instance.closeAllConnections();}));return `http://127.0.0.1:${instance.address().port}`;}
 const json=(response,status,value,headers={})=>{response.writeHead(status,{'Content-Type':'application/json',...headers});response.end(JSON.stringify(value));};
 const options=baseUrl=>({baseUrl,tenantId,allowHttpLocalhost:true,getCredentials:()=> ({accessToken:'fixture-token',tenantId})});
@@ -48,9 +48,19 @@ test('凭据提供器换企业后拒绝发送旧企业 POST，异步凭据也须
  let sent=0;const client=createIntegrationClient({...options('https://example.com'),getCredentials:async()=>({accessToken:'other-tenant-fixture',tenantId:other}),fetch:()=>{sent++;throw Error();}});
  await assert.rejects(webhooksCreateSubscription(client,{body:{eventType:row.eventType,targetUrl:row.targetUrl,signingSecret:'independent-fixture-secret'}}),/sdk.credential_scope_changed/u);assert.equal(sent,0);
 });
-test('事件验签消费共用 PascalCase 生产夹具，绑定原始字节和企业/事件头',async()=>{
- const body=await readFile(new URL('../contracts/webhooks/workflow-instance-completed-v1.json',import.meta.url)),event=JSON.parse(body),secret='independent-event-secret';const input={body,secret,signature:createHmac('sha256',secret).update(body).digest('hex'),eventId:event.EventId,eventType:event.EventType,expectedTenantId:tenantId};
+test('事件验签消费共用签名 v1 向量，绑定元数据和原始正文',async()=>{
+ const vector=JSON.parse(await readFile(new URL('../contracts/webhooks/signature-v1.vector.json',import.meta.url),'utf8')),body=Buffer.from(vector.payload),event=JSON.parse(vector.payload);
+ const input={...vector,body,expectedTenantId:tenantId,clock:()=>Number(vector.timestamp)*1000,resolveSigningSecret:key=>key===vector.keyId?vector.secret:null};
  assert.deepEqual(await verifyWorkflowCompletedWebhook(input),event);
- for(const change of [{signature:'0'.repeat(64)},{expectedTenantId:other},{eventId:tenantId},{eventType:'other'},{body:new TextEncoder().encode(JSON.stringify(event))}])await assert.rejects(verifyWorkflowCompletedWebhook({...input,...change}));
- const invalid={...event,OccurredAtUtc:'2026-11-05T08:00:00+08:00'},bytes=Buffer.from(JSON.stringify(invalid));await assert.rejects(verifyWorkflowCompletedWebhook({...input,body:bytes,signature:createHmac('sha256',secret).update(bytes).digest('hex')}));
+ for(const change of [{signature:'0'.repeat(64)},{expectedTenantId:other},{eventId:tenantId},{deliveryId:tenantId},{keyId:tenantId},{version:'2'},{timestamp:String(Number(vector.timestamp)+1)},{eventType:'other'},{body:new TextEncoder().encode(JSON.stringify(event,null,2))}])await assert.rejects(verifyWorkflowCompletedWebhook({...input,...change}));
+ const invalid={...event,OccurredAtUtc:'2026-11-05T08:00:00+08:00'},bytes=Buffer.from(JSON.stringify(invalid));await assert.rejects(verifyWorkflowCompletedWebhook({...input,body:bytes,signature:computeSignature(bytes,vector.secret,vector)}));
+});
+test('时间窗在受保护密钥等待后再次检查，缺失密钥和提供器故障不确认消费',async()=>{
+ const vector=JSON.parse(await readFile(new URL('../contracts/webhooks/signature-v1.vector.json',import.meta.url),'utf8'));let now=Number(vector.timestamp)*1000;
+ const input={...vector,body:Buffer.from(vector.payload),expectedTenantId:tenantId,clock:()=>now,resolveSigningSecret:()=>vector.secret};
+ for(const delta of [-301000,301000]){now=Number(vector.timestamp)*1000+delta;await assert.rejects(verifyWorkflowCompletedWebhook(input),/sdk.webhook_invalid/u);}
+ now=Number(vector.timestamp)*1000;await assert.rejects(verifyWorkflowCompletedWebhook({...input,resolveSigningSecret:()=>{now+=301000;return vector.secret;}}),/sdk.webhook_invalid/u);
+ now=Number(vector.timestamp)*1000;await assert.rejects(verifyWorkflowCompletedWebhook({...input,resolveSigningSecret:()=>null}),/sdk.webhook_invalid/u);
+ await assert.rejects(verifyWorkflowCompletedWebhook({...input,resolveSigningSecret:()=>{throw Error('private source failure');}}),/sdk.webhook_key_unavailable/u);
+ await assert.rejects(verifyWorkflowCompletedWebhook({...input,timeoutMilliseconds:20,resolveSigningSecret:()=>new Promise(()=>{})}),error=>error.name==='TimeoutError');
 });

@@ -3983,7 +3983,8 @@
         "TargetUrl": "Target Url",
         "TenantId": "租户标识；NULL 表示 Host 级",
         "UpdatedAtUtc": "更新时间(UTC)",
-        "Version": "乐观并发版本号"
+        "Version": "乐观并发版本号",
+        "SigningKeyId": "当前签名密钥的公开标识；秘密仍受保护保存"
       }
     },
     "fn_workflow_action_evidence": {

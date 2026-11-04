@@ -20,10 +20,11 @@ if (phase === 'bootstrap') {
   const foreign = createIntegrationClient({baseUrl:env.SDK_API_URL,tenantId:env.SDK_TENANT_B,getCredentials:()=>({accessToken:env.SDK_TOKEN_B,tenantId:env.SDK_TENANT_B}),allowHttpLocalhost:true,fetch:adapter(env.SDK_HOST_B),maxGetRetries:0});
   await assert.rejects(webhooksSetSubscriptionStatus(foreign,{subscriptionId:created.id,body:{isActive:false,version:created.version}}),error=>error instanceof IntegrationHttpError&&error.problem.status===404);
   assert.equal((await webhooksListSubscriptions(client,{})).find(row=>row.id===created.id).isActive,true);
-  await writeFile('bootstrap.json',JSON.stringify({subscriptionId:created.id,tenantId:created.tenantId})); console.log('SDK_BOOTSTRAP_OK crossTenant=404');
+  await writeFile('bootstrap.json',JSON.stringify({subscriptionId:created.id,tenantId:created.tenantId,signingKeyId:created.signingKeyId})); console.log('SDK_BOOTSTRAP_OK crossTenant=404');
 } else if (phase === 'event') {
   const input=JSON.parse(await readFile('event-input.json','utf8')),body=new TextEncoder().encode(input.body);
-  const verify=()=>verifyWorkflowCompletedWebhook({body,signature:input.signature,eventId:input.eventId,eventType:'fullnet.workflow.instance.completed',expectedTenantId:env.SDK_TENANT_A,secret:env.SDK_SIGNING_SECRET});
+  const verify=()=>verifyWorkflowCompletedWebhook({body,signature:input.signature,eventId:input.eventId,deliveryId:input.deliveryId,eventType:input.eventType,version:input.version,keyId:input.keyId,timestamp:input.timestamp,
+    expectedTenantId:env.SDK_TENANT_A,resolveSigningSecret:keyId=>keyId===env.SDK_KEY_ID?env.SDK_SIGNING_SECRET:null});
   const event=await verify(); assert.equal(event.EventId,input.eventId); assert.deepEqual(await verify(),event);
   const history=await webhooksListSubscriptionDeliveries(client,{subscriptionId:input.subscriptionId,page:1,pageSize:20});assert.ok(history.items.some(row=>row.eventId===event.EventId));
   await writeFile('event-consumed.json',JSON.stringify({eventId:event.EventId,instanceId:event.Data.InstanceId}));console.log('SDK_EVENT_OK');

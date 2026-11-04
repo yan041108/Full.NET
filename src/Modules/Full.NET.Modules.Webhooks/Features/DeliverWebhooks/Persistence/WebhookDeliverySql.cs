@@ -44,7 +44,7 @@ internal static class WebhookDeliverySql
     public static readonly SqlStatement ListActiveSubscriptionsByEventType = new(
         "webhooks.subscriptions.list_active_by_event_type",
         """
-        SELECT Id, TenantId, EventType, TargetUrl, SigningSecretHash, IsActive, Version
+        SELECT Id, TenantId, EventType, TargetUrl, SigningSecretHash, IsActive, Version, SigningKeyId
         FROM fn_webhooks_subscription
         WHERE TenantId = @TenantId
           AND EventType = @EventType
@@ -78,7 +78,8 @@ internal static class WebhookDeliverySql
                subscription.TenantId,
                subscription.TargetUrl,
                subscription.SigningSecretHash,
-               subscription.EventType
+               subscription.EventType,
+               subscription.SigningKeyId
         FROM fn_webhooks_delivery AS delivery WITH (UPDLOCK, ROWLOCK, READPAST)
         INNER JOIN fn_webhooks_subscription AS subscription
             ON subscription.Id = delivery.SubscriptionId
@@ -101,7 +102,8 @@ internal static class WebhookDeliverySql
                subscription.TenantId,
                subscription.TargetUrl,
                subscription.SigningSecretHash,
-               subscription.EventType
+               subscription.EventType,
+               subscription.SigningKeyId
         FROM fn_webhooks_delivery AS delivery
         INNER JOIN fn_webhooks_subscription AS subscription
             ON subscription.Id = delivery.SubscriptionId
@@ -170,7 +172,8 @@ internal sealed record WebhookSubscriptionDeliveryRecord(
     string TargetUrl,
     string SigningSecretHash,
     bool IsActive,
-    int Version);
+    int Version,
+    Guid SigningKeyId);
 
 internal sealed record WebhookDeliveryWorkItem(
     Guid Id,
@@ -182,7 +185,8 @@ internal sealed record WebhookDeliveryWorkItem(
     Guid TenantId,
     string TargetUrl,
     string SigningSecretHash,
-    string EventType)
+    string EventType,
+    Guid SigningKeyId)
 {
     /// <summary>本次成功领取时创建的尝试标识；原始候选读取尚未取得该标识。</summary>
     public Guid AttemptId { get; init; }

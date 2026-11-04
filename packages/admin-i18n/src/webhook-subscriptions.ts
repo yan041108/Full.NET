@@ -1,4 +1,5 @@
 export const webhookSubscriptionsZh = {
+  'webhooks.signingKeyId': '公开签名 KeyId',
   'webhooks.replay.next': '核对最新失败后再次排队',
   'webhooks.replay.open': "重新排队失败投递",
   'webhooks.replay.confirmTitle': "确认原失败投递重放",
@@ -42,6 +43,7 @@ export const webhookSubscriptionsZh = {
   'webhooks.inputInvalid': '请填写事件类型、有效的 HTTPS 地址及符合长度要求的签名密钥。'
 } as const;
 export const webhookSubscriptionsEn: Record<keyof typeof webhookSubscriptionsZh, string> = {
+  'webhooks.signingKeyId': 'Public signing KeyId',
   'webhooks.replay.next': 'Requeue after reviewing the latest failure',
   'webhooks.replay.open': 'Requeue failed delivery',
   'webhooks.replay.confirmTitle': 'Confirm original failed delivery replay',
