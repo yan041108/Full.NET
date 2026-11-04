@@ -8,6 +8,17 @@ import { resolvePresetModules, VALID_PRESETS } from '../../scripts/templates/pre
 
 const MIGRATIONS = resolve('src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/SqlServer');
 
+test('tenant owner receipts follow Identity in every official preset', () => {
+  const name = '368_TenantOwnerTransferReceipt.sql';
+  assert.equal(inferMigrationModuleOwner(name), 'Identity');
+  for (const preset of VALID_PRESETS) {
+    const selected = buildPresetMigrationInventory({ scripts: [{ name }] }, preset, resolvePresetModules(preset));
+    assert.ok(selected.scripts.some(script => script.name === name), preset);
+  }
+  const withoutIdentity = buildPresetMigrationInventory({ scripts: [{ name: '001_Foundation.sql' }, { name }] }, 'focused', ['Tenancy']);
+  assert.ok(!withoutIdentity.scripts.some(script => script.name === name));
+});
+
 test('preview cancellation and lease migrations follow their platform table owner', () => {
   for (const name of ['261_DocumentPreviewTaskCancellation.sql', '262_DocumentPreviewTaskLease.sql']) {
     assert.equal(inferMigrationModuleOwner(name), 'Platform');

@@ -108,6 +108,8 @@ internal static class IdentityDomainServiceCollectionExtensions
         services.TryAddScoped<RegistrationWayManagementService>();
         services.TryAddScoped<TenantMembershipQueryService>();
         services.TryAddScoped<TenantMembershipManagementService>();
+        services.TryAddScoped<Features.ManageTenantOwnership.TenantOwnerAccountGuard>();
+        services.TryAddScoped<Features.ManageTenantOwnership.TenantOwnershipService>();
         services.TryAddScoped<MfaRecoveryCodeService>();
         services.TryAddScoped<TenantMemberProvisionService>();
         services.TryAddScoped<AcceptTenantInvitationService>();

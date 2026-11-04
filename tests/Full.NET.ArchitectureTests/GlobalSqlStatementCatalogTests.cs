@@ -79,6 +79,7 @@ public sealed class GlobalSqlStatementCatalogTests
     [TestMethod]
     [DataRow("Security.IdentityTenantResourceAccess", "Security/IdentityTenantResourceAccess.cs", 1)]
     [DataRow("Features.ChangeSessionContext.IdentityTenantContextAccessReader", "Features/ChangeSessionContext/IdentityTenantContextAccessReader.cs", 2)]
+    [DataRow("Features.ManageTenantOwnership.TenantOwnershipSql", "Features/ManageTenantOwnership/TenantOwnershipSql.cs", 2)]
     public void Identity_tenant_admission_sql_is_exactly_cataloged(string name, string source, int count)
     {
         var root = FindRepositoryRoot();
@@ -90,6 +91,20 @@ public sealed class GlobalSqlStatementCatalogTests
         Assert.HasCount(count, declarations); Assert.HasCount(count, entries);
         var violations = Analyze(declarations, entries).ToArray();
         Assert.HasCount(0, violations, string.Join(Environment.NewLine, violations));
+    }
+
+    [TestMethod]
+    public void Host_TOTP_lookup_is_explicitly_bounded_for_tenant_strong_reauthentication()
+    {
+        var root = FindRepositoryRoot();
+        var type = typeof(global::Full.NET.Modules.Identity.IdentityModule).Assembly.GetType("Full.NET.Modules.Identity.Persistence.IdentitySql", throwOnError: true)!;
+        var declarations = ReadSqlStatements(root, type).Where(item => item.Statement.Name == "identity.find_user_totp_by_user_id").ToArray();
+        var document = JsonSerializer.Deserialize<GlobalSqlCatalogDocument>(File.ReadAllText(Path.Combine(root,
+            "contracts", "architecture", "global-sql-statements.json")), JsonOptions)!;
+        var entries = document.Entries!.Where(item => item.StatementName == "identity.find_user_totp_by_user_id").ToArray();
+        Assert.HasCount(1, declarations); Assert.HasCount(1, entries);
+        Assert.AreEqual(SqlDataScope.Global, declarations[0].Statement.Scope);
+        Assert.HasCount(0, Analyze(declarations, entries).ToArray());
     }
 
     [TestMethod]

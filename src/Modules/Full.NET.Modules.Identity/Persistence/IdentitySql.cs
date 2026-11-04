@@ -2074,12 +2074,13 @@ internal static class IdentitySql
     public static readonly SqlStatement FindUserTotpByUserId = new(
         "identity.find_user_totp_by_user_id",
         """
-        SELECT UserId, SecretProtected, IsEnabled, ConfirmedAtUtc,
-               CreatedAtUtc, UpdatedAtUtc, Version
-        FROM fn_identity_user_totp
-        WHERE UserId = @UserId
+        SELECT credential.UserId, credential.SecretProtected, credential.IsEnabled, credential.ConfirmedAtUtc,
+               credential.CreatedAtUtc, credential.UpdatedAtUtc, credential.Version
+        FROM fn_identity_user_totp AS credential
+        INNER JOIN fn_identity_user AS actor ON actor.Id=credential.UserId
+        WHERE credential.UserId=@UserId AND actor.TenantId IS NULL AND actor.ScopeKey='host'
         """,
-        SqlDataScope.HostOnly);
+        SqlDataScope.Global);
 
     public static readonly SqlStatement InsertUserTotpPending = new(
         "identity.insert_user_totp_pending",

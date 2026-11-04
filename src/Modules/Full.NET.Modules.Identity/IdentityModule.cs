@@ -205,6 +205,7 @@ public sealed class IdentityModule : IFullNetModule
         Features.ManageRegistrationPolicy.Endpoint.Map(endpoints);
         Features.ManageRegistrationWays.Endpoint.Map(endpoints);
         Features.ManageTenantMembers.Endpoint.Map(endpoints);
+        Features.ManageTenantOwnership.Endpoint.Map(endpoints);
         Features.AcceptTenantInvitation.Endpoint.Map(endpoints);
         Features.ManageMyTenantInvitations.Endpoint.Map(endpoints);
         Features.MyTenantRegistrations.Endpoint.Map(endpoints);

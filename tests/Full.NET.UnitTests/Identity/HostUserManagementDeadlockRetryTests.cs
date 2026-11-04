@@ -105,7 +105,9 @@ public sealed class HostUserManagementDeadlockRetryTests
                 Substitute.For<IIdGenerator>(),
                 Substitute.For<IClock>()),
             Substitute.For<IPermissionSnapshotReader>(),
-            Substitute.For<IIdentityOidcUserAuthorityRevoker>());
+            Substitute.For<IIdentityOidcUserAuthorityRevoker>(),
+            new Full.NET.Modules.Identity.Features.ManageTenantOwnership.TenantOwnerAccountGuard(
+                Substitute.For<IQueryExecutor>(), Microsoft.Extensions.Options.Options.Create(new DatabaseOptions())));
 
     /// <summary>
     /// 提供当前测试不会进入的密码哈希依赖，避免为内部领域类型生成动态代理。

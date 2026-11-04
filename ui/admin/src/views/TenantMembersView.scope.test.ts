@@ -56,3 +56,11 @@ it('已展示成员在读取权限撤销后立即清除，不继续发成员或�
   expect(wrapper.findAllComponents({ name: 'ElTable' })[0]!.props('data')).toEqual([]);
   expect(api.listTenantMembers).toHaveBeenCalledTimes(1); expect(api.listTenantInvitations).toHaveBeenCalledTimes(1);
 });
+it('所有者交接按钮使用独立操作权限，撤销后立即移除', async () => {
+  vi.mocked(api.listTenantMembers).mockResolvedValue({ ...page, items: [row], total: 1 }); const session = await setup();
+  expect(wrapper.find('[data-testid="tenant-members-action-transfer-owner"]').exists()).toBe(false);
+  session.currentUser!.permissions.push('identity.tenant_members.transfer_ownership'); await flushPromises();
+  expect(wrapper.find('[data-testid="tenant-members-action-transfer-owner"]').exists()).toBe(true);
+  session.currentUser!.permissions = ['identity.tenant_members.read']; await flushPromises();
+  expect(wrapper.find('[data-testid="tenant-members-action-transfer-owner"]').exists()).toBe(false);
+});

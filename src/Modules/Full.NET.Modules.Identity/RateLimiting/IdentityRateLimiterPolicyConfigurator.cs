@@ -72,6 +72,19 @@ internal sealed class IdentityRateLimiterPolicyConfigurator(
                     QueueLimit = 0,
                     AutoReplenishment = true,
                 }));
+        // 所有者交接包含强认证，按账号限制高风险尝试；不与普通成员读取共享预算。
+        rateLimiter.AddPolicy(
+            "identity-tenant-owner-write",
+            httpContext => RateLimitPartition.GetFixedWindowLimiter(
+                httpContext.User.FindFirstValue(JwtRegisteredClaimNames.Sub)
+                    ?? httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+                _ => new FixedWindowRateLimiterOptions
+                {
+                    PermitLimit = 5,
+                    Window = TimeSpan.FromMinutes(1),
+                    QueueLimit = 0,
+                    AutoReplenishment = true,
+                }));
     }
 
     public void Configure(RateLimitPolicyErrorCodes registry)
@@ -86,5 +99,6 @@ internal sealed class IdentityRateLimiterPolicyConfigurator(
         registry.MapPolicy(
             IdentityModule.SignatureAuthenticationRateLimitPolicy,
             IdentityErrorCodes.AuthenticationRateLimited);
+        registry.MapPolicy("identity-tenant-owner-write", IdentityErrorCodes.AuthenticationRateLimited);
     }
 }

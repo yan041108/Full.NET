@@ -83,6 +83,20 @@ public sealed class HttpOperationLogTests
     }
 
     [TestMethod]
+    [DataRow("totpCode")]
+    [DataRow("TOTP_Code")]
+    [DataRow("currentTotpCode")]
+    public void Ownership_strong_authentication_code_is_redacted_even_when_explicitly_whitelisted(string key)
+    {
+        var source = JsonSerializer.Serialize(new Dictionary<string, string> { [key] = "593712", ["operationId"] = "visible-operation" });
+        var projected = HttpOperationLogSanitizer.ProjectJsonPayload(source, [key, "operationId"], 2048);
+        Assert.IsNotNull(projected); Assert.IsFalse(projected.Contains("593712", StringComparison.Ordinal));
+        StringAssert.Contains(projected, HttpOperationLogSanitizer.Redacted);
+        StringAssert.Contains(projected, "visible-operation");
+        Assert.IsFalse(HttpOperationLogSanitizer.SanitizeUrl("/api/ownership?" + key + "=593712").Contains("593712", StringComparison.Ordinal));
+    }
+
+    [TestMethod]
     public void Legacy_capture_does_not_retain_oversize_request_json()
     {
         var context = new DefaultHttpContext();

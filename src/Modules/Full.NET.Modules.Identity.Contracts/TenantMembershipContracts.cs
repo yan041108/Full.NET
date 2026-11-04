@@ -18,15 +18,17 @@ public static class IdentityTenantMembershipPermissions
     public const string Provision = "identity.tenant_members.provision";
     /// <summary>当前用户主动退出当前租户成员关系。</summary>
     public const string LeaveSelf = "identity.tenant_members.leave_self";
+    /// <summary>在当前企业内以强认证建立或交接受保护的所有者职责。</summary>
+    public const string TransferOwnership = "identity.tenant_members.transfer_ownership";
 }
 
 /// <summary>租户成员角色机器码常量集合。</summary>
 /// <remarks>角色字符串发布后不可改名或删除；新增角色只能追加，已发布角色不得调整顺序。</remarks>
 public static class TenantMemberRoles
 {
-    /// <summary>租户所有者；具备租户内最高权限，通常不可被移除。</summary>
+    /// <summary>租户所有者职责；交接前不可移除或退出，业务操作权限仍由独立 RBAC 授予。</summary>
     public const string Owner = "Owner";
-    /// <summary>租户管理员；可管理成员但不可操作所有者。</summary>
+    /// <summary>租户管理员职责；成员管理仍须精确权限，不可借普通成员更新改写所有者职责。</summary>
     public const string Admin = "Admin";
     /// <summary>普通成员；仅具备业务操作权限。</summary>
     public const string Member = "Member";

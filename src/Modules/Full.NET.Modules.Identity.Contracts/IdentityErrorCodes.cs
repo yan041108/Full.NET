@@ -419,6 +419,14 @@ public static class IdentityErrorCodes
 
     /// <summary>租户所有者受保护。</summary>
     public const string TenantOwnerProtected = "identity.tenant_members.owner_protected";
+    /// <summary>所有者职责、目标或成员版本已变化，原交接不能覆盖当前事实。</summary>
+    public const string TenantOwnershipConflict = "identity.tenant_ownership.conflict";
+    /// <summary>当前账号不具备该企业所有者操作资格。</summary>
+    public const string TenantOwnershipForbidden = "identity.tenant_ownership.forbidden";
+    /// <summary>该企业内的原操作回执或目标成员不可见。</summary>
+    public const string TenantOwnershipNotFound = "identity.tenant_ownership.not_found";
+    /// <summary>生产环境未提供合格的强认证实现，拒绝建立或交接所有者。</summary>
+    public const string TenantOwnershipStrongAuthenticationRequired = "identity.tenant_ownership.strong_authentication_required";
 
     /// <summary>用户已是活动租户成员。</summary>
     public const string TenantMemberAlreadyActive = "identity.tenant_members.already_active";
@@ -633,6 +641,10 @@ public static class IdentityErrorCodes
         TenantMemberVersionConflict,
         TenantMemberRoleInvalid,
         TenantOwnerProtected,
+        TenantOwnershipConflict,
+        TenantOwnershipForbidden,
+        TenantOwnershipNotFound,
+        TenantOwnershipStrongAuthenticationRequired,
         TenantMemberAlreadyActive,
         TenantMembershipTenantInactive,
         TenantInvitationInvalid,

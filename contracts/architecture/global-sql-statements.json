@@ -2,6 +2,30 @@
   "schemaVersion": 1,
   "entries": [
     {
+      "statementName": "identity.find_user_totp_by_user_id",
+      "declaration": "Full.NET.Modules.Identity.Persistence.IdentitySql.FindUserTotpByUserId",
+      "file": "src/Modules/Full.NET.Modules.Identity/Persistence/IdentitySql.cs",
+      "category": "host_catalog",
+      "reason": "统一 Host 账号在企业上下文执行强认证时按已验证操作者账号读取唯一 TOTP 凭据；SQL 自身固定 Host 账号边界，不切换请求企业或读取租户本地账号凭据。",
+      "requiredSqlFragments": ["actor.Id=credential.UserId", "credential.UserId=@UserId", "actor.TenantId IS NULL", "actor.ScopeKey='host'"]
+    },
+    {
+      "statementName": "identity.tenant_ownership.lock_host_user_sqlserver",
+      "declaration": "Full.NET.Modules.Identity.Features.ManageTenantOwnership.TenantOwnershipSql.LockHostUserSqlServer",
+      "file": "src/Modules/Full.NET.Modules.Identity/Features/ManageTenantOwnership/TenantOwnershipSql.cs",
+      "category": "verified_identity",
+      "reason": "所有者交接与账号停用按同一用户行锁串行化，只读取经业务参与者或授权 Host 账号管理派生的两个以内显式账号；成员及回执仍按可信租户读写。",
+      "requiredSqlFragments": ["WHERE Id=@UserId", "TenantId IS NULL", "ScopeKey='host'", "UPDLOCK,ROWLOCK"]
+    },
+    {
+      "statementName": "identity.tenant_ownership.lock_host_user_mysql",
+      "declaration": "Full.NET.Modules.Identity.Features.ManageTenantOwnership.TenantOwnershipSql.LockHostUserMySql",
+      "file": "src/Modules/Full.NET.Modules.Identity/Features/ManageTenantOwnership/TenantOwnershipSql.cs",
+      "category": "verified_identity",
+      "reason": "所有者交接与账号停用按同一用户行锁串行化，只读取经业务参与者或授权 Host 账号管理派生的两个以内显式账号；成员及回执仍按可信租户读写。",
+      "requiredSqlFragments": ["WHERE Id=@UserId", "TenantId IS NULL", "ScopeKey='host'", "FOR UPDATE"]
+    },
+    {
       "statementName": "identity.tenant_resource.find_access",
       "declaration": "Full.NET.Modules.Identity.Security.IdentityTenantResourceAccess.FindAccess",
       "file": "src/Modules/Full.NET.Modules.Identity/Security/IdentityTenantResourceAccess.cs",

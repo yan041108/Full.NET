@@ -1732,6 +1732,7 @@ export type {
 export * from './public-auth.js';
 export * from './tenancy-entitlements.js';
 export * from './tenant-members.js';
+export * from './tenant-ownership.js';
 export * from './tenant-subscriptions.js';
 
 export * from './ai-knowledge.js';

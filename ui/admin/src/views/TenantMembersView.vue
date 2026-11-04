@@ -29,10 +29,12 @@ import { useArtCrudTableLayout } from '../framework/art-design/composables/useAr
 import PermissionGate from '../components/PermissionGate.vue';
 import TenantMemberRemovalDialog from '../components/TenantMemberRemovalDialog.vue';
 import TenantInvitationRevocationDialog from '../components/TenantInvitationRevocationDialog.vue';
+import TenantOwnerTransferDialog from '../components/TenantOwnerTransferDialog.vue';
 import { useSessionStore } from '../auth/session';
 import { isIdentityPasswordValid } from '../auth/identity-password-policy';
 import { useAdminI18n } from '../i18n/adminI18n';
 import { invitationOnboardingText } from '../i18n/invitation-onboarding';
+import { tenantOwnershipText } from '../i18n/tenant-ownership';
 import {
   createTenantInvitation,
   listInvitationRegistrationWays,
@@ -50,6 +52,7 @@ const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/u;
 const session = useSessionStore();
 const { t, locale } = useAdminI18n();
 const onboarding = (key: Parameters<typeof invitationOnboardingText>[1]) => invitationOnboardingText(locale.value, key);
+const ownershipText = (key: Parameters<typeof tenantOwnershipText>[1]) => tenantOwnershipText(locale.value, key);
 const registrationWays = ref<{ id: string; name: string }[]>([]);
 const registrationLink = ref('');
 const inTenantContext = computed(() => Boolean(session.currentUser?.tenantId));
@@ -89,6 +92,7 @@ const editFormRef = ref<FormInstance>();
 const editingMember = ref<TenantMember | null>(null);
 const removalOpen = ref(false), removalTarget = ref<TenantMember>();
 const revocationOpen = ref(false), revocationTarget = ref<TenantInvitation>();
+const ownerTransferOpen = ref(false), ownerTransferTarget = ref<TenantMember>();
 const invitationToken = ref('');
 const activeTab = ref<'members' | 'invitations'>('members');
 
@@ -549,6 +553,18 @@ function memberRemoved(confirmedWrite: boolean) {
   void loadMembers();
 }
 
+function confirmOwnerTransfer(row: TenantMember) {
+  if (changing.value || !canReadMembers.value || !session.can('identity.tenant_members.transfer_ownership')
+    || row.status !== 'Active' || row.memberRole === 'Owner'
+    || row.tenantId.toLowerCase() !== session.currentUser?.tenantId?.toLowerCase()) return;
+  removalOpen.value = false; revocationOpen.value = false;
+  ownerTransferTarget.value = { ...row }; ownerTransferOpen.value = true;
+}
+function ownerTransferred(confirmedWrite: boolean) {
+  if (confirmedWrite) ElMessage.success(ownershipText('success'));
+  void loadMembers();
+}
+
 function confirmRevoke(row: TenantInvitation) {
   if (changing.value || !session.can('identity.tenant_members.read') || !session.can('identity.tenant_members.revoke_invitation')
     || row.status !== 'Pending' || row.tenantId.toLowerCase() !== session.currentUser?.tenantId?.toLowerCase()) return;
@@ -590,6 +606,7 @@ watch(
     cancelLists(); members.value = []; invitations.value = []; memberTotal.value = 0; invitationTotal.value = 0;
     problem.value = undefined;
     removalOpen.value = false; removalTarget.value = undefined; revocationOpen.value = false; revocationTarget.value = undefined;
+    ownerTransferOpen.value = false; ownerTransferTarget.value = undefined;
     editOpen.value = false; inviteOpen.value = false; provisionOpen.value = false; editingMember.value = null;
     provisionForm.password = ''; provisionForm.username = ''; provisionForm.displayName = ''; provisionForm.email = '';
     inviteForm.targetEmail = ''; inviteForm.registrationWayId = '';
@@ -634,6 +651,7 @@ onMounted(() => {
 <template>
   <TenantMemberRemovalDialog v-model:open="removalOpen" :target="removalTarget" @removed="memberRemoved" />
   <TenantInvitationRevocationDialog v-model:open="revocationOpen" :target="revocationTarget" @revoked="invitationRevoked" />
+  <TenantOwnerTransferDialog v-model:open="ownerTransferOpen" :target="ownerTransferTarget" @changed="ownerTransferred" />
   <section
     class="tenant-members-view art-page-stack art-full-height"
     :aria-busy="loadingMembers || loadingInvitations"
@@ -759,6 +777,10 @@ onMounted(() => {
                         test-id="tenant-members-action-remove"
                         @click="confirmRemove(row as TenantMember)"
                       />
+                    </PermissionGate>
+                    <PermissionGate code="identity.tenant_members.transfer_ownership">
+                      <ArtTableActionButton v-if="row.status === 'Active'" type="edit" :title="ownershipText('action')"
+                        test-id="tenant-members-action-transfer-owner" @click="confirmOwnerTransfer(row as TenantMember)" />
                     </PermissionGate>
                   </ArtTableActionGroup>
                 </template>

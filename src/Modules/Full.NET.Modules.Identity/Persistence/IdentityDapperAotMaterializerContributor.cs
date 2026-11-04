@@ -24,6 +24,12 @@ internal sealed partial class IdentityDapperAotMaterializerContributor : IDapper
     public void RegisterMaterializers(DapperAotMaterializerRegistrar registrar)
     {
         RegisterMigrationMaterializers(registrar);
+        registrar.Register<Features.ManageTenantOwnership.TenantOwnerTransferRow>(reader => new(
+            reader.GetGuid(0), reader.GetGuid(1), reader.GetGuid(2), AotDataReaderExtensions.ReadNullableGuid(reader, 3),
+            AotDataReaderExtensions.ReadNullableGuid(reader, 4), reader.IsDBNull(5) ? null : AotDataReaderExtensions.ReadInt32(reader, 5),
+            reader.IsDBNull(6) ? null : AotDataReaderExtensions.ReadInt32(reader, 6), reader.GetGuid(7), reader.GetGuid(8),
+            AotDataReaderExtensions.ReadInt32(reader, 9), AotDataReaderExtensions.ReadInt32(reader, 10),
+            AotDataReaderExtensions.ReadDateTimeOffset(reader, 11), reader.GetString(12)));
         registrar.Register<Features.MyTenantRegistrations.SelfTenantRegistrationRow>(reader => new()
         {
             Id = reader.GetGuid(0), TenantId = reader.GetGuid(1), RegistrationWayName = AotDataReaderExtensions.ReadNullableString(reader, 2),

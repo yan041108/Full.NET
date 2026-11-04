@@ -2,6 +2,12 @@
   "schemaVersion": 1,
   "entries": [
     {
+      "clientContractModules": ["packages/client-contracts/src/tenant-ownership.ts"],
+      "routePrefixes": ["/api/v1/identity/tenant-members/ownership"],
+      "apiModule": "ui/admin/src/api/tenant-ownership.ts",
+      "openApiFixture": "contracts/openapi/tenant-ownership-v1.json"
+    },
+    {
       "clientContractModules": [
         "packages/client-contracts/src/generated/index.generated.ts"
       ],
@@ -1402,6 +1408,10 @@
   ],
   "consumerModules": [
     {
+      "apiModule": "ui/admin/src/api/tenant-ownership.ts",
+      "consumers": ["ui/admin/src/components/TenantOwnerTransferDialog.vue"]
+    },
+    {
       "apiModule": "ui/admin/src/api/tenant-lifecycle.ts",
       "consumers": [
         "ui/admin/src/components/TenantLifecycleDialog.vue"
@@ -2117,7 +2127,8 @@
         "ui/admin/src/views/TenantContextView.vue",
         "ui/admin/src/components/TenantLeaveDialog.vue",
         "ui/admin/src/components/TenantMemberRemovalDialog.vue",
-        "ui/admin/src/components/TenantInvitationRevocationDialog.vue"
+        "ui/admin/src/components/TenantInvitationRevocationDialog.vue",
+        "ui/admin/src/components/TenantOwnerTransferDialog.vue"
       ]
     },
     {

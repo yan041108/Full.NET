@@ -18,7 +18,7 @@ public static partial class HttpOperationLogSanitizer
     [
         "password", "passwd", "pwd", "secret", "token", "authorization",
         "cookie", "connectionstring", "apikey", "signature", "privatekey",
-        "nonce", "sessionid",
+        "nonce", "sessionid", "totp",
     ];
 
     public const string Redacted = "[REDACTED]";

@@ -1,0 +1,356 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "version": "1.0.0",
+    "title": "Identity tenant owner responsibility"
+  },
+  "paths": {
+    "/api/v1/identity/tenant-members/ownership": {
+      "get": {
+        "operationId": "identityGetTenantOwnership",
+        "responses": {
+          "200": {
+            "description": "当前企业内的权威状态或原操作回执",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TenantOwnershipStateResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "当前会话或强认证失效"
+          },
+          "403": {
+            "description": "无独立权限、当前职责或合格生产强认证"
+          },
+          "404": {
+            "description": "当前企业中不存在可见目标或本人操作"
+          }
+        }
+      }
+    },
+    "/api/v1/identity/tenant-members/ownership/operations/{operationId}": {
+      "get": {
+        "operationId": "identityGetTenantOwnerTransferReceipt",
+        "parameters": [
+          {
+            "name": "operationId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "当前企业内的权威状态或原操作回执",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TenantOwnerTransferReceipt"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "当前会话或强认证失效"
+          },
+          "403": {
+            "description": "无独立权限、当前职责或合格生产强认证"
+          },
+          "404": {
+            "description": "当前企业中不存在可见目标或本人操作"
+          }
+        }
+      }
+    },
+    "/api/v1/identity/tenant-members/ownership/transfer": {
+      "post": {
+        "operationId": "identityTransferTenantOwner",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TransferTenantOwnerRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "当前企业内的权威状态或原操作回执",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TenantOwnerTransferReceipt"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "操作标识或版本无效"
+          },
+          "401": {
+            "description": "当前会话或强认证失效"
+          },
+          "403": {
+            "description": "无独立权限、当前职责或合格生产强认证"
+          },
+          "404": {
+            "description": "当前企业中不存在可见目标或本人操作"
+          },
+          "409": {
+            "description": "职责/版本竞争或同操作不同输入"
+          },
+          "429": {
+            "description": "强认证写入限流"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "TenantOwnerMember": {
+        "type": "object",
+        "required": [
+          "id",
+          "tenantId",
+          "userId",
+          "username",
+          "displayName",
+          "memberRole",
+          "status",
+          "createdAtUtc",
+          "updatedAtUtc",
+          "version"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "tenantId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "userId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "username": {
+            "type": "string"
+          },
+          "displayName": {
+            "type": "string"
+          },
+          "memberRole": {
+            "type": "string",
+            "const": "Owner"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "Active",
+              "Pending",
+              "Suspended",
+              "Removed"
+            ]
+          },
+          "createdAtUtc": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAtUtc": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "version": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 1,
+            "maximum": 2147483647
+          }
+        }
+      },
+      "TenantOwnershipStateResponse": {
+        "type": "object",
+        "required": [
+          "tenantId",
+          "canInitialize",
+          "canTransfer",
+          "requiresTotp"
+        ],
+        "properties": {
+          "tenantId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "owner": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TenantOwnerMember"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "canInitialize": {
+            "type": "boolean"
+          },
+          "canTransfer": {
+            "type": "boolean"
+          },
+          "requiresTotp": {
+            "type": "boolean"
+          }
+        }
+      },
+      "TransferTenantOwnerRequest": {
+        "type": "object",
+        "required": [
+          "operationId",
+          "targetMemberId",
+          "targetVersion",
+          "currentPassword"
+        ],
+        "properties": {
+          "operationId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "sourceMemberId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "sourceVersion": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "minimum": 1,
+            "maximum": 2147483647
+          },
+          "targetMemberId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "targetVersion": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 1,
+            "maximum": 2147483646
+          },
+          "currentPassword": {
+            "type": "string",
+            "format": "password",
+            "maxLength": 1024,
+            "writeOnly": true
+          },
+          "totpCode": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 32,
+            "writeOnly": true
+          }
+        }
+      },
+      "TenantOwnerTransferReceipt": {
+        "type": "object",
+        "description": "原操作的不可变事实；源为空时全部源字段为空，非空源及目标版本均精确递增一次。",
+        "required": [
+          "tenantId",
+          "operationId",
+          "actorUserId",
+          "targetMemberId",
+          "targetUserId",
+          "targetPreviousVersion",
+          "targetVersion",
+          "createdAtUtc"
+        ],
+        "properties": {
+          "tenantId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "operationId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "actorUserId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "sourceMemberId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "sourceUserId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "sourcePreviousVersion": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "minimum": 1,
+            "maximum": 2147483647
+          },
+          "sourceVersion": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "minimum": 1,
+            "maximum": 2147483647
+          },
+          "targetMemberId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "targetUserId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "targetPreviousVersion": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 1,
+            "maximum": 2147483647
+          },
+          "targetVersion": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 1,
+            "maximum": 2147483647
+          },
+          "createdAtUtc": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      }
+    }
+  }
+}

@@ -595,6 +595,8 @@ public sealed class IdentityModuleRegistrationTests
             ServiceLifetime.Scoped),
         RegistrationExpectation.Self<IdentityFeatures.ManageTenantMembers.TenantMembershipQueryService>(ServiceLifetime.Scoped),
         RegistrationExpectation.Self<IdentityFeatures.ManageTenantMembers.TenantMembershipManagementService>(ServiceLifetime.Scoped),
+        RegistrationExpectation.Self<IdentityFeatures.ManageTenantOwnership.TenantOwnerAccountGuard>(ServiceLifetime.Scoped),
+        RegistrationExpectation.Self<IdentityFeatures.ManageTenantOwnership.TenantOwnershipService>(ServiceLifetime.Scoped),
         RegistrationExpectation.Self<IdentityFeatures.ManageMfaRecoveryCodes.MfaRecoveryCodeService>(ServiceLifetime.Scoped),
         RegistrationExpectation.Self<IdentityFeatures.ManageTenantMembers.TenantMemberProvisionService>(ServiceLifetime.Scoped),
         RegistrationExpectation.Self<IdentityFeatures.AcceptTenantInvitation.AcceptTenantInvitationService>(ServiceLifetime.Scoped),

@@ -1,6 +1,25 @@
 {
   "schemaVersion": 1,
   "tables": {
+    "fn_identity_tenant_owner_transfer": {
+      "comment": "企业所有者交接不可变回执及领域审计，不保存密码或TOTP",
+      "columns": {
+        "Id": "逻辑主键",
+        "TenantId": "所属企业标识",
+        "OperationId": "调用方固定的交接操作标识",
+        "ActorUserId": "实际交接操作者账号标识",
+        "SourceMemberId": "交接前所有者成员标识，首次建立为空",
+        "SourceUserId": "交接前所有者账号标识，首次建立为空",
+        "SourcePreviousVersion": "交接前源成员版本",
+        "SourceVersion": "交接后源成员版本",
+        "TargetMemberId": "接收职责的成员标识",
+        "TargetUserId": "接收职责的账号标识",
+        "TargetPreviousVersion": "交接前目标成员版本",
+        "TargetVersion": "交接后目标成员版本",
+        "CreatedAtUtc": "交接事务提交事实时间(UTC)",
+        "RequestDigest": "仅绑定非敏感目标与版本的请求摘要"
+      }
+    },
     "fn_ai_agent_approval": {
       "comment": "人工智能agent approval表",
       "columns": {

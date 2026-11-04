@@ -8,6 +8,7 @@ using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Identity.Domain;
 using Full.NET.Modules.Identity.Oidc;
 using Full.NET.Modules.Identity.Features.ManageTenantMembers.Persistence;
+using Full.NET.Modules.Identity.Features.ManageTenantOwnership;
 using Full.NET.Modules.Identity.Persistence;
 using Full.NET.Modules.Identity.Security;
 using IdentityUser = Full.NET.Modules.Identity.Domain.IdentityUser;
@@ -24,7 +25,8 @@ internal sealed class HostUserManagementService(
     IIdGenerator idGenerator,
     AuthenticationSecurityEventWriter authenticationEvents,
     IPermissionSnapshotReader permissionSnapshots,
-    IIdentityOidcUserAuthorityRevoker oidcUserAuthorityRevoker)
+    IIdentityOidcUserAuthorityRevoker oidcUserAuthorityRevoker,
+    TenantOwnerAccountGuard ownerAccounts)
 {
     private const string HostScope = "host";
     private const int MaxDeadlockRetryAttempts = 3;
@@ -395,6 +397,9 @@ internal sealed class HostUserManagementService(
         Guid userId,
         CancellationToken cancellationToken)
     {
+        await ownerAccounts.LockAsync(userId, cancellationToken).ConfigureAwait(false);
+        if (await ownerAccounts.IsProtectedAsync(userId, cancellationToken).ConfigureAwait(false))
+            return OwnerProtected();
         var record = await queryExecutor.QuerySingleOrDefaultAsync<IdentityUserRecord>(
                 IdentitySql.FindHostUserById,
                 IdentitySqlParameters.Create(("UserId", userId)),
@@ -460,6 +465,9 @@ internal sealed class HostUserManagementService(
         Guid userId,
         CancellationToken cancellationToken)
     {
+        await ownerAccounts.LockAsync(userId, cancellationToken).ConfigureAwait(false);
+        if (await ownerAccounts.IsProtectedAsync(userId, cancellationToken).ConfigureAwait(false))
+            return OwnerProtected();
         var record = await queryExecutor.QuerySingleOrDefaultAsync<IdentityUserRecord>(
                 IdentitySql.FindHostUserById,
                 IdentitySqlParameters.Create(("UserId", userId)),
@@ -614,6 +622,7 @@ internal sealed class HostUserManagementService(
                 ErrorType.Validation));
         }
 
+        await ownerAccounts.LockAsync(userId, cancellationToken).ConfigureAwait(false);
         var existing = await queryExecutor.QuerySingleOrDefaultAsync<IdentityUserRecord>(
                 IdentitySql.FindHostUserById,
                 IdentitySqlParameters.Create(("UserId", userId)),
@@ -633,6 +642,8 @@ internal sealed class HostUserManagementService(
         }
 
         var accountType = accountTypeResult.Value ?? IdentityAccountTypes.NormalUser;
+        if (accountType != existing.AccountType
+            && await ownerAccounts.IsProtectedAsync(userId, cancellationToken).ConfigureAwait(false)) return OwnerProtected();
         var now = clock.UtcNow;
         var affectedRows = await commandExecutor.ExecuteAsync(
                 IdentitySql.UpdateHostUserDisplayName,
@@ -1036,6 +1047,9 @@ internal sealed class HostUserManagementService(
             IdentityErrorCodes.UsernameExists,
             "A host user with this username already exists.",
             ErrorType.Conflict));
+
+    private static Result<HostUserResponse> OwnerProtected() => Result<HostUserResponse>.Failure(new Error(
+        IdentityErrorCodes.TenantOwnerProtected, "Transfer the tenant owner responsibility before disabling or retiring this account.", ErrorType.BusinessRule));
 
     private static Result<HostUserResponse> NotFound() =>
         Result<HostUserResponse>.Failure(new Error(

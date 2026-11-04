@@ -4,7 +4,7 @@
     "unit": {
       "project": "tests/Full.NET.UnitTests/Full.NET.UnitTests.csproj",
       "assembly": "tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll",
-      "minimum": 9610,
+      "minimum": 9616,
       "timeout": "10m",
       "selections": {
         "tenant-background-revocation": {
@@ -700,6 +700,11 @@
         "import-cancellation": {
           "filter": "FullyQualifiedName~ImportExportTaskCancellationTests|FullyQualifiedName~ImportExportTaskStatusKeysTests|FullyQualifiedName~ImportExportAuthorizationContributorTests",
           "minimum": 17
+        },
+        "tenant-owner-handoff": {
+          "filter": "FullyQualifiedName~TenantOwnershipPolicyTests|FullyQualifiedName~Ownership_strong_authentication_code_is_redacted_even_when_explicitly_whitelisted|FullyQualifiedName~HostUserManagementDeadlockRetryTests|FullyQualifiedName~Identity_module_delegation_matches_responsibility_registration_pipeline|FullyQualifiedName~Identity_module_repeated_registration_preserves_critical_contracts",
+          "minimum": 10,
+          "timeout": "3m"
         }
       }
     },
@@ -712,7 +717,7 @@
     "architecture": {
       "project": "tests/Full.NET.ArchitectureTests/Full.NET.ArchitectureTests.csproj",
       "assembly": "tests/Full.NET.ArchitectureTests/bin/Release/net10.0/Full.NET.ArchitectureTests.dll",
-      "minimum": 284,
+      "minimum": 286,
       "timeout": "10m",
       "selections": {
         "workflow-collaboration-grant-catalog": {
@@ -721,7 +726,7 @@
         },
         "identity-tenant-admission-catalog": {
           "filter": "FullyQualifiedName~Identity_tenant_admission_sql_is_exactly_cataloged",
-          "minimum": 2
+          "minimum": 3
         },
         "cache-hardening": {
           "filter": "FullyQualifiedName~CachePolicyBoundaryTests|FullyQualifiedName~TenantCachePayloadOwnershipTests",
@@ -791,6 +796,11 @@
           "filter": "FullyQualifiedName~AiKnowledgeSearchSqlDeclarationTests",
           "minimum": 1,
           "timeout": "5m"
+        },
+        "tenant-owner-authority": {
+          "filter": "FullyQualifiedName~Identity_tenant_admission_sql_is_exactly_cataloged|FullyQualifiedName~Host_TOTP_lookup_is_explicitly_bounded_for_tenant_strong_reauthentication",
+          "minimum": 4,
+          "timeout": "3m"
         }
       }
     },
@@ -1503,6 +1513,11 @@
           "filter": "FullyQualifiedName~ObjectSearchBrowserUiTests",
           "minimum": 1,
           "timeout": "7m"
+        },
+        "tenant-owner-handoff": {
+          "filter": "FullyQualifiedName~TenantOwnershipHandoffTests|FullyQualifiedName~TenantOwnershipRollbackTests|FullyQualifiedName~TenantOwnershipMfaTests|FullyQualifiedName~TenantOwnerAccountBoundaryTests|FullyQualifiedName~TenantOwnershipQueryPlanTests|FullyQualifiedName~Migration368TenantOwnerTransferRecoveryTests",
+          "minimum": 18,
+          "timeout": "5m"
         }
       }
     }
@@ -2029,6 +2044,10 @@
       "367": {
         "filter": "FullyQualifiedName~Migration367MediaBindingClaimGenerationRecoveryTests.MySql_|FullyQualifiedName~Migration367MediaBindingClaimGenerationRecoveryTests.SqlServer_"
       },
+      "368": {
+        "filter": "FullyQualifiedName~Migration368TenantOwnerTransferRecoveryTests",
+        "minimum": 2
+      },
       "008": {
         "filter": "FullyQualifiedName~MySqlMigrationTests|FullyQualifiedName~SqlServerMigrationTests|FullyQualifiedName~UuidBinaryExpandMigrationTests|FullyQualifiedName~UuidBinaryPartialRecoveryTests"
       },
@@ -2259,12 +2278,12 @@
       },
       "migrations": {
         "filter": "FullyQualifiedName~Full.NET.IntegrationTests.Migrations",
-        "minimum": 616,
+        "minimum": 618,
         "timeout": "120m"
       },
       "infrastructure": {
         "filter": "TestCategory!=ExternalSmtp&TestCategory!=ExternalAliyunSms&TestCategory!=NativeWorkflowApi&TestCategory!=NativeWorkflow&TestCategory!=NativeWorkflowWindows&TestCategory!=WorkflowNativeKafka&TestCategory!=WorkflowPhysicalKafka&FullyQualifiedName!~Full.NET.IntegrationTests.NativeAot&FullyQualifiedName!~ApiSqlServerTests&FullyQualifiedName!~ApiMySqlTests&FullyQualifiedName!~Full.NET.IntegrationTests.Migrations&FullyQualifiedName!~KafkaCapacityRunnerTests&FullyQualifiedName!~KafkaOutboxCdcCapacityRunnerTests&FullyQualifiedName!~KafkaLogDeliveryTests&FullyQualifiedName!~KafkaLogRequestLatencyTests&FullyQualifiedName!~KafkaCollectorRequestReplayTests&FullyQualifiedName!~KafkaLogRouteComparisonTests&FullyQualifiedName!~KafkaLogConsumerDeliveryTests&FullyQualifiedName!~KafkaLogConsumerElasticsearchReplayTests&FullyQualifiedName!~KafkaLogConsumerElasticsearchTlsTests&FullyQualifiedName!~MySqlCdcDebeziumInboxE2ETests&FullyQualifiedName!~SqlServerCdcDebeziumInboxE2ETests&FullyQualifiedName!~OrganizationCdcKafkaIdentityProjectionMySqlE2ETests&FullyQualifiedName!~OrganizationUnitCdcKafkaEndToEndTests&FullyQualifiedName!~OrganizationUnitCdcKafkaFaultMatrixTests&FullyQualifiedName!~EventDeliveryCutoverTests&FullyQualifiedName!~EventDeliveryRollbackTests&FullyQualifiedName!~CdcCrashPointTests&FullyQualifiedName!~KafkaFailureRecoveryTests&FullyQualifiedName!~MessagingBatchOneTests&FullyQualifiedName!~KafkaReplayTests&FullyQualifiedName!~KafkaSubscriptionTests&FullyQualifiedName!~MySqlBinlogShadowTests&FullyQualifiedName!~SqlServerCdcShadowTests&FullyQualifiedName!~KafkaLogSecretBoundaryTests&FullyQualifiedName!~MessagingDeliveryControlTests&FullyQualifiedName!~MessagingShadowCaptureTests&FullyQualifiedName!~MessagingDeliveryOverviewTests&FullyQualifiedName!~MessagingShadowCaptureDebeziumTests&FullyQualifiedName!~MessagingCutoverRollbackDebeziumTests&FullyQualifiedName!~IdentityBrowserUiTests&FullyQualifiedName!~WorkflowCollaborationGrantBrowserUiTests&FullyQualifiedName!~AiKnowledgeCorrectionBrowserUiTests&FullyQualifiedName!~IdentityOidcNetworkInteropTests&FullyQualifiedName!~MessagingCdcHealthCollectionTests&FullyQualifiedName!~MessagingMultiProcessRecoveryTests&FullyQualifiedName!~MessagingCdcAlertLoopTests&FullyQualifiedName!~MessagingKafkaQuorumRecoveryTests&FullyQualifiedName!~MessagingCdcSourceAlertLoopTests&FullyQualifiedName!~KafkaRetentionTimeObservationTests&FullyQualifiedName!~KafkaRollbackTopologyTests",
-        "minimum": 827,
+        "minimum": 843,
         "timeout": "60m"
       },
       "messaging-heavy": {
@@ -2292,7 +2311,7 @@
       },
       "full": {
         "filter": "TestCategory!=ExternalSmtp&TestCategory!=ExternalAliyunSms&TestCategory!=NativeWorkflowApi&TestCategory!=NativeWorkflow&TestCategory!=NativeWorkflowWindows&TestCategory!=WorkflowNativeKafka&FullyQualifiedName!~Full.NET.IntegrationTests.NativeAot&FullyQualifiedName!~IdentityBrowserUiTests&FullyQualifiedName!~WorkflowCollaborationGrantBrowserUiTests&FullyQualifiedName!~AiKnowledgeCorrectionBrowserUiTests&FullyQualifiedName!~IdentityOidcNetworkInteropTests",
-        "minimum": 2025,
+        "minimum": 2043,
         "timeout": "90m"
       },
       "logging-metrics": {
