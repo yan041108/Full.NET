@@ -63,14 +63,7 @@ public static class ModuleIntegrationFullCompilation
                 "-p:FullNetModuleIntegrationProject=" + moduleProject,
                 "-p:FullNetCompositionIntegrationProject=" + composition.CompositionProjectFullPath,
             ], cancellationToken);
-            if (build.Code == 0) return ModuleIntegrationCompilationResult.Success();
-            var errors = build.Output.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries)
-                .Where(line => line.Contains("error ", StringComparison.OrdinalIgnoreCase)
-                    || line.Contains("warning MSB", StringComparison.OrdinalIgnoreCase))
-                .Select(line => line.Replace(root, "<workspace>", StringComparison.OrdinalIgnoreCase)
-                    .Replace(temporary, "<temporary>", StringComparison.OrdinalIgnoreCase))
-                .Distinct(StringComparer.Ordinal).Take(20).ToArray();
-            return ModuleIntegrationCompilationResult.Failure(errors.Length == 0 ? ["整链接入编译失败。"] : errors);
+            return CreateBuildResult(build.Code, build.Output, root, temporary);
         }
         catch (Exception exception) when (exception is System.ComponentModel.Win32Exception or TimeoutException)
         {
@@ -80,6 +73,21 @@ public static class ModuleIntegrationFullCompilation
         {
             if (Directory.Exists(temporary)) Directory.Delete(temporary, recursive: true);
         }
+    }
+
+    // SDK/运行时失败可能没有编译器诊断；保留有符号退出码，但不能回显任意进程输出。
+    internal static ModuleIntegrationCompilationResult CreateBuildResult(int exitCode, string output, string root, string temporary)
+    {
+        if (exitCode == 0) return ModuleIntegrationCompilationResult.Success();
+        var errors = output.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries)
+            .Where(line => line.Contains("error ", StringComparison.OrdinalIgnoreCase)
+                || line.Contains("warning MSB", StringComparison.OrdinalIgnoreCase))
+            .Select(line => line.Replace(root, "<workspace>", StringComparison.OrdinalIgnoreCase)
+                .Replace(temporary, "<temporary>", StringComparison.OrdinalIgnoreCase))
+            .Distinct(StringComparer.Ordinal).Take(20).ToArray();
+        return ModuleIntegrationCompilationResult.Failure(errors.Length == 0
+            ? [$"整链接入编译失败，构建进程未返回可公开的编译诊断。构建进程退出码：{exitCode.ToString(System.Globalization.CultureInfo.InvariantCulture)}。"]
+            : errors);
     }
 
     private static async Task<(int Code, string Output)> RunAsync(string root, string[] arguments, CancellationToken cancellationToken)

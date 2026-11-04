@@ -7,6 +7,40 @@ namespace Full.NET.UnitTests.CodeGeneration;
 public sealed class IntegrationCompilationDiagnosticsTests
 {
     [TestMethod]
+    [DataRow(1, "")]
+    [DataRow(-1073741819, "Fatal runtime failure: credential-probe")]
+    [DataRow(-2147450725, "A compatible .NET SDK was not found: credential-probe")]
+    [DataRow(2, "错误：credential-probe")]
+    public void Full_integration_missing_sdk_or_runtime_diagnostics_preserve_signed_exit_code(int exitCode, string output)
+    {
+        var result = ModuleIntegrationFullCompilation.CreateBuildResult(exitCode, output, "/repository", "/temporary");
+        Assert.IsFalse(result.Succeeded);
+        Assert.HasCount(1, result.Diagnostics);
+        StringAssert.Contains(result.Diagnostics[0], "构建进程退出码：" + exitCode.ToString(CultureInfo.InvariantCulture));
+        Assert.IsFalse(result.Diagnostics[0].Contains("credential-probe", StringComparison.Ordinal));
+    }
+
+    [TestMethod]
+    public void Full_integration_compiler_diagnostics_keep_redaction_deduplication_and_limit()
+    {
+        var lines = Enumerable.Range(0, 25).Select(index => $"/repository/source.cs: error CS{index:D4}: /TEMPORARY/generated.cs").ToArray();
+        var result = ModuleIntegrationFullCompilation.CreateBuildResult(1, string.Join('\n', lines.Concat(lines)), "/repository", "/temporary");
+        Assert.IsFalse(result.Succeeded);
+        Assert.HasCount(20, result.Diagnostics);
+        Assert.IsTrue(result.Diagnostics.All(line => !line.Contains("/repository", StringComparison.OrdinalIgnoreCase)
+            && !line.Contains("/temporary", StringComparison.OrdinalIgnoreCase)));
+        StringAssert.Contains(result.Diagnostics[0], "<workspace>/source.cs: error CS0000: <temporary>/generated.cs");
+    }
+
+    [TestMethod]
+    public void Full_integration_success_ignores_error_text()
+    {
+        var result = ModuleIntegrationFullCompilation.CreateBuildResult(0, "error text from build logging", "/repository", "/temporary");
+        Assert.IsTrue(result.Succeeded);
+        Assert.HasCount(0, result.Diagnostics);
+    }
+
+    [TestMethod]
     [DataRow(false, 1, "")]
     [DataRow(true, 1, "")]
     [DataRow(false, 2, "credential-probe")]

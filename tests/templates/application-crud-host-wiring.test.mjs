@@ -75,3 +75,18 @@ for (const exitStatus of [-123, 2147516571]) {
     } finally {rmSync(fixture.root,{recursive:true,force:true});}
   });
 }
+
+test('SDK诊断断言失败仍保存原始候选错误并恢复配置', () => {
+  const fixture = workspace(), original = Buffer.from('{"sdk":{"version":"10.0.100"}}');
+  fixture.put('global.json', original);
+  const run = (_command, args) => args[0] === 'build' ? { status: -123, stdout: '', stderr: '' }
+    : { status: 2, stdout: '', stderr: '整链接入编译失败。' };
+  try {
+    assert.throws(() => verifyApplicationCrudHostWiring(fixture.root, { run, verifyMissingSdk: true,
+      reportDirectory: join(fixture.root, 'evidence') }), /signed SDK exit code/u);
+    const result = JSON.parse(readFileSync(join(fixture.root, 'evidence/apply-host-integration-sdk-diagnostic.json'), 'utf8'));
+    assert.equal(result.buildExitCode, -123); assert.equal(result.candidateExitCode, 2);
+    assert.equal(result.stderr, '整链接入编译失败。');
+    assert.deepEqual(readFileSync(join(fixture.root, 'global.json')), original);
+  } finally { rmSync(fixture.root, { recursive: true, force: true }); }
+});

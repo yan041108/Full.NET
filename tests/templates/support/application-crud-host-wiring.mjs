@@ -57,6 +57,11 @@ export function verifyApplicationCrudHostWiring(appRoot, {
       const build = run('dotnet', ['build', join(appRoot, 'src/Demo.Host.Api/Demo.Host.Api.csproj'), '-c', 'Release'], options);
       assert.equal(build.error, undefined); assert.ok(Number.isInteger(build.status) && build.status !== 0 && !build.signal, 'missing SDK must fail a real build');
       const candidate = run('dotnet', args, options);
+      // 断言前保留有界原始记录，避免失败时只有断言文本而丢失实际候选诊断。
+      writeFileSync(join(reportDirectory, 'apply-host-integration-sdk-diagnostic.json'), JSON.stringify({
+        buildExitCode: build.status, candidateExitCode: candidate.status,
+        stdout: String(candidate.stdout ?? '').slice(-12_000), stderr: String(candidate.stderr ?? '').slice(-12_000),
+      }, null, 2));
       assert.equal(candidate.error, undefined); assert.equal(candidate.status, 2, 'failed candidate must be rejected');
       const expected = build.status | 0;
       const diagnostics = String(candidate.stderr ?? '') + '\n' + String(candidate.stdout ?? '');
