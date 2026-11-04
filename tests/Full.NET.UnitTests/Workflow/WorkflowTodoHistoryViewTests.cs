@@ -55,7 +55,7 @@ public sealed class WorkflowTodoHistoryViewTests
             new WorkflowBranchStateCoordinator(query, command), WorkflowTodoManagementTestDependencies.CreateSignatureCoordinator(query, command),
             WorkflowTodoManagementTestDependencies.CreateStepResolution(query, command, ids, outbox),
             WorkflowTodoManagementTestDependencies.CreateTaskDecisions(query, command, ids, outbox),
-            WorkflowTodoManagementTestDependencies.CreateResultCallbacks(query, command, ids));
+            WorkflowTodoManagementTestDependencies.CreateResultCallbacks(query, command, ids), WorkflowTodoManagementTestDependencies.CreateActorAuthorization(tenant));
         var result = await service.GetAsync(todo.Id, actor);
         Assert.AreEqual(hasView, result.IsSuccess);
         if (hasView)

@@ -73,6 +73,10 @@ public sealed class WorkflowModule : IFullNetModule
                 0,
                 WorkflowJsonSerializerContext.Default));
         RegisterWorkerRuntimeClosure(services);
+        // 本人待办命令和交互上传依赖当前 HTTP 凭据，不进入 Worker 后台闭包。
+        services.AddScoped<IWorkflowTodoActorAuthorization,WorkflowTodoActorAuthorization>();
+        services.AddScoped<WorkflowTodoManagementService>();
+        services.AddScoped<WorkflowFormAttachmentUploadService>();
         services.TryAddEnumerable(ServiceDescriptor.Scoped<
             IHostFileReferenceClaimProbe,
             WorkflowFormSubmissionAttachmentProbe>());
@@ -148,14 +152,12 @@ public sealed class WorkflowModule : IFullNetModule
         services.AddScoped<WorkflowSignatureCoordinator>();
         services.AddScoped<WorkflowSignatureReadService>();
         services.AddScoped<WorkflowSignatureUploadService>();
-        services.AddScoped<WorkflowFormAttachmentUploadService>();
         services.TryAddEnumerable(ServiceDescriptor.Scoped<ITenantResourceFileOwner, WorkflowTenantFileOwner>());
         services.AddScoped<WorkflowInstanceManagementService>();
         services.AddScoped<WorkflowManualReminderService>();
         services.AddScoped<WorkflowInstanceQueryService>();
         services.AddScoped<WorkflowInstanceRecoveryService>();
         services.AddScoped<WorkflowRecoveryTaskService>();
-        services.AddScoped<WorkflowTodoManagementService>();
         services.AddScoped<WorkflowTodoQueryService>();
         services.AddScoped<WorkflowTodoCountersignService>();
         services.AddScoped<WorkflowApprovalStepResolutionCoordinator>();

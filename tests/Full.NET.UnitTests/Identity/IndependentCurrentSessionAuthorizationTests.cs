@@ -12,6 +12,30 @@ namespace Full.NET.UnitTests.Identity;
 public sealed class IndependentCurrentSessionAuthorizationTests
 {
     [TestMethod]
+    public async Task All_permissions_are_frozen_and_checked_together_in_an_independent_scope()
+    {
+        var current=new CurrentTenantAccessor();var tenant=Guid.CreateVersion7();current.SetTenant(new(tenant,"current","Current"));
+        var actor=new AuthorizedSessionActor(Guid.CreateVersion7(),tenant,Guid.CreateVersion7());var ready=new TaskCompletionSource<AuthorizedSessionActor?>(TaskCreationOptions.RunContinuationsAsynchronously);
+        IReadOnlyCollection<string>? captured=null;CurrentTenantAccessor? child=null;var authorization=Substitute.For<ICurrentSessionAuthorization>();var services=new ServiceCollection();
+        services.AddScoped<ICurrentTenantContextWriter>(_=>child=new CurrentTenantAccessor());services.AddScoped<IDataTransactionState>(_=>Substitute.For<IDataTransactionState>());
+        services.AddScoped<IDatabaseAuthorizationReadScope>(_=>Capacity());services.AddScoped(_=>authorization);
+        authorization.AuthorizeAllAsync(Arg.Any<IReadOnlyCollection<string>>(),Arg.Any<CancellationToken>()).Returns(call=>{captured=call.ArgAt<IReadOnlyCollection<string>>(0);Assert.AreEqual(tenant,child!.Id);Assert.AreNotSame(current,child);return ready.Task;});
+        using var provider=services.BuildServiceProvider();var boundary=new IndependentCurrentSessionAuthorization(provider.GetRequiredService<IServiceScopeFactory>(),current,Capacity());
+        var permissions=new[]{"workflow.todos.approve","workflow.todos.sign"};var pending=boundary.AuthorizeAllAsync(permissions);permissions[0]="changed";ready.SetResult(actor);
+        Assert.AreEqual(actor,await pending);CollectionAssert.AreEqual(new[]{"workflow.todos.approve","workflow.todos.sign"},captured!.ToArray());
+        Assert.AreEqual(tenant,current.Id);Assert.IsFalse(child!.IsAvailable);
+        await authorization.DidNotReceive().AuthorizeAsync(Arg.Any<string>(),Arg.Any<CancellationToken>());
+    }
+
+    [TestMethod]
+    public async Task Empty_or_invalid_permission_sets_do_not_open_an_independent_scope()
+    {
+        var current=new CurrentTenantAccessor();current.SetHost();var scopes=Substitute.For<IServiceScopeFactory>();
+        var boundary=new IndependentCurrentSessionAuthorization(scopes,current,Capacity());
+        Assert.IsNull(await boundary.AuthorizeAllAsync([]));Assert.IsNull(await boundary.AuthorizeAllAsync(["workflow.todos.approve",""]));
+        scopes.DidNotReceive().CreateScope();
+    }
+    [TestMethod]
     [DataRow(false)] [DataRow(true)]
     public async Task Independent_scope_has_no_parent_transaction_and_copies_trusted_scope(bool isTenant)
     {

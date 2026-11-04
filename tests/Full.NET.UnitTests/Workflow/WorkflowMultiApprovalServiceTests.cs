@@ -306,7 +306,7 @@ public sealed class WorkflowMultiApprovalServiceTests
             WorkflowTodoManagementTestDependencies.CreateSignatureCoordinator(query, command),
             WorkflowTodoManagementTestDependencies.CreateStepResolution(query, command, ids, outbox),
             WorkflowTodoManagementTestDependencies.CreateTaskDecisions(query, command, ids, outbox),
-            WorkflowTodoManagementTestDependencies.CreateResultCallbacks(query, command, ids));
+            WorkflowTodoManagementTestDependencies.CreateResultCallbacks(query, command, ids), WorkflowTodoManagementTestDependencies.CreateActorAuthorization(tenant));
         return new ApprovalFixture(service, query, command, outbox, todoId, actorId);
     }
 

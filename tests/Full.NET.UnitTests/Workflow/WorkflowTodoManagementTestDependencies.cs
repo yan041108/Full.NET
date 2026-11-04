@@ -19,6 +19,13 @@ namespace Full.NET.UnitTests.Workflow;
 /// <summary>为待办管理服务测试提供不可 mock 的密封依赖真实实例。</summary>
 internal static class WorkflowTodoManagementTestDependencies
 {
+    internal static IWorkflowTodoActorAuthorization CreateActorAuthorization(ICurrentTenant tenant)
+    {
+        var authorization=Substitute.For<IWorkflowTodoActorAuthorization>();var session=Guid.CreateVersion7();
+        authorization.AuthorizeAsync(Arg.Any<Guid>(),Arg.Any<IReadOnlyList<string>>(),Arg.Any<CancellationToken>())
+            .Returns(call=>new WorkflowTodoActor(call.ArgAt<Guid>(0),tenant.Id,session,false));
+        return authorization;
+    }
     internal static Full.NET.Modules.Workflow.Features.WorkflowCollaborationListAuthorization CreateListAuthorization(IQueryExecutor query,
         ICurrentTenant tenant, IClock? clock = null, IActiveTenantContextResolver? tenants = null, DatabaseProvider provider = DatabaseProvider.SqlServer) =>
         new(query, Substitute.For<IDataTransactionState>(), tenant, clock ?? Substitute.For<IClock>(),

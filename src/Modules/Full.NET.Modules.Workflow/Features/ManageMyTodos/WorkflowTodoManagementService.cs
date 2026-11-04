@@ -30,6 +30,7 @@ namespace Full.NET.Modules.Workflow.Features.ManageMyTodos;
 /// <param name="notificationPublisher">工作流提醒事务 Outbox 发布器。</param>
 /// <param name="transitionExecutor">审批迁移执行器。</param>
 /// <param name="parallelJoinCoordinator">并行汇合协调器。</param>
+/// <param name="actorAuthorization">事务外准备与提交前独立复核原办理凭据和精确权限。</param>
 internal sealed partial class WorkflowTodoManagementService(
     IQueryExecutor queryExecutor,
     ICommandExecutor commandExecutor,
@@ -48,7 +49,8 @@ internal sealed partial class WorkflowTodoManagementService(
     WorkflowSignatureCoordinator signatureCoordinator,
     WorkflowApprovalStepResolutionCoordinator stepResolution,
     WorkflowTaskDecisionCoordinator taskDecisions,
-    WorkflowHumanActivityCompletionCoordinator resultCallbacks)
+    WorkflowHumanActivityCompletionCoordinator resultCallbacks,
+    IWorkflowTodoActorAuthorization actorAuthorization)
 {
     public Task<Result<WorkflowInstanceResponse>> ApproveAsync(Guid todoId, Guid actorUserId,
         ActWorkflowTodoRequest request, CancellationToken cancellationToken = default) =>
@@ -60,6 +62,11 @@ internal sealed partial class WorkflowTodoManagementService(
         Func<WorkflowActionPreparation, CancellationToken, Task<Result<WorkflowInstanceResponse>>> execute,
         CancellationToken token)
     {
+        var permission=actionKey switch {"approve"=>WorkflowPermissions.TodosApprove,"reject"=>WorkflowPermissions.TodosReject,"complete"=>WorkflowPermissions.TodosComplete,"return"=>WorkflowPermissions.TodosReturn,_=>null};
+        if(permission is null)return Failure(WorkflowErrorCodes.TodoForbidden,ErrorType.Forbidden);
+        string[] required=request.SignatureFileId.HasValue?[permission,WorkflowPermissions.TodosSign]:[permission];
+        var actor=await actorAuthorization.AuthorizeAsync(actorUserId,required,token).ConfigureAwait(false);
+        if(actor is null)return Failure(WorkflowErrorCodes.TodoForbidden,ErrorType.Forbidden);
         var prepared = await PrepareActionAsync(todoId, actorUserId, request, actionKey, token).ConfigureAwait(false);
         if (!prepared.IsSuccess) return Result<WorkflowInstanceResponse>.Failure(prepared.Error!);
         try
@@ -75,7 +82,11 @@ internal sealed partial class WorkflowTodoManagementService(
                 if (prepared.Value!.InstanceId is { } currentId && !await WorkflowCollaborationRuntimeGate.AllowsAsync(currentId,
                         WorkflowManagementScope.Resolve(currentTenant), actorUserId, clock.UtcNow, queryExecutor, inner, commandExecutor).ConfigureAwait(false))
                     return Failure(WorkflowErrorCodes.TodoForbidden, ErrorType.Forbidden);
-                return await execute(prepared.Value, inner).ConfigureAwait(false);
+                var result=await execute(prepared.Value,inner).ConfigureAwait(false);
+                if(!result.IsSuccess)return result;
+                // 末次读取使用独立连接；失败结果让本地事务回滚待办、表单、回执和 Outbox。
+                var current=await actorAuthorization.AuthorizeAsync(actorUserId,required,inner).ConfigureAwait(false);
+                return current==actor?result:Failure(WorkflowErrorCodes.TodoForbidden,ErrorType.Forbidden);
             }, token).ConfigureAwait(false);
         }
         finally

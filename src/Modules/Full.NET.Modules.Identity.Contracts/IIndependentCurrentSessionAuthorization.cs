@@ -10,4 +10,10 @@ public interface IIndependentCurrentSessionAuthorization
     /// <param name="cancellationToken">取消令牌。</param>
     /// <returns>独立权威读取后的最小主体；上下文或权限失效时为空。</returns>
     Task<AuthorizedSessionActor?> AuthorizeAsync(string permissionCode, CancellationToken cancellationToken = default);
+
+    /// <summary>在同一独立作用域中读取一次权威会话和权限快照，要求全部精确权限成立。</summary>
+    /// <param name="permissionCodes">非空权限集合；进入异步读取前冻结，不接受空权限码。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>全部权限均成立且原可信上下文不变时的主体，否则为空。</returns>
+    Task<AuthorizedSessionActor?> AuthorizeAllAsync(IReadOnlyCollection<string> permissionCodes, CancellationToken cancellationToken = default);
 }

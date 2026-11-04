@@ -1,5 +1,7 @@
 using Full.NET.Modules.Workflow.Contracts;
 using Full.NET.Modules.Workflow.Features.CrossModulePorts;
+using Full.NET.Modules.Workflow.Features.ManageMyTodos;
+using Full.NET.Modules.Workflow.Features.FormAttachments;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -9,6 +11,14 @@ namespace Full.NET.UnitTests.Workflow;
 [TestClass]
 public sealed class WorkflowCrossModulePortRegistrationTests
 {
+    [TestMethod]
+    public void Background_registration_does_not_require_interactive_todo_credentials_or_upload_services()
+    {
+        var background=new ServiceCollection();new Full.NET.Modules.Workflow.WorkflowModule().AddBackgroundServices(background,new ConfigurationBuilder().Build());
+        Assert.IsFalse(background.Any(service=>service.ServiceType==typeof(IWorkflowTodoActorAuthorization)||service.ServiceType==typeof(WorkflowTodoManagementService)||service.ServiceType==typeof(WorkflowFormAttachmentUploadService)));
+        var api=new ServiceCollection();new Full.NET.Modules.Workflow.WorkflowModule().AddServices(api,new ConfigurationBuilder().Build());
+        Assert.IsTrue(api.Any(service=>service.ServiceType==typeof(IWorkflowTodoActorAuthorization)));Assert.IsTrue(api.Any(service=>service.ServiceType==typeof(WorkflowTodoManagementService)));Assert.IsTrue(api.Any(service=>service.ServiceType==typeof(WorkflowFormAttachmentUploadService)));
+    }
     [TestMethod]
     public void WorkflowModule_registers_cross_module_ports_as_scoped()
     {

@@ -11,7 +11,17 @@ internal sealed class IndependentCurrentSessionAuthorization(IServiceScopeFactor
     : IIndependentCurrentSessionAuthorization
 {
     public bool HasIndependentReadCapacity => capacity.HasIndependentReadCapacity;
-    public async Task<AuthorizedSessionActor?> AuthorizeAsync(string permissionCode, CancellationToken cancellationToken = default)
+    public Task<AuthorizedSessionActor?> AuthorizeAsync(string permissionCode, CancellationToken cancellationToken = default)=>
+        AuthorizeCoreAsync((authorization,token)=>authorization.AuthorizeAsync(permissionCode,token),cancellationToken);
+
+    public Task<AuthorizedSessionActor?> AuthorizeAllAsync(IReadOnlyCollection<string> permissionCodes,CancellationToken cancellationToken=default)
+    {
+        ArgumentNullException.ThrowIfNull(permissionCodes);var required=permissionCodes.ToArray();
+        return required.Length==0||required.Any(string.IsNullOrWhiteSpace)?Task.FromResult<AuthorizedSessionActor?>(null):
+            AuthorizeCoreAsync((authorization,token)=>authorization.AuthorizeAllAsync(required,token),cancellationToken);
+    }
+
+    private async Task<AuthorizedSessionActor?> AuthorizeCoreAsync(Func<ICurrentSessionAuthorization,CancellationToken,Task<AuthorizedSessionActor?>> authorize,CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
         if (!HasIndependentReadCapacity) throw new Full.NET.Abstractions.Results.ServiceCapacityExceededException(
@@ -29,8 +39,7 @@ internal sealed class IndependentCurrentSessionAuthorization(IServiceScopeFactor
         if (tenantId is { } id) writer.SetTenant(new(id, identifier, name)); else writer.SetHost();
         try
         {
-            var actor = await scope.ServiceProvider.GetRequiredService<ICurrentSessionAuthorization>()
-                .AuthorizeAsync(permissionCode, cancellationToken).ConfigureAwait(false);
+            var actor = await authorize(scope.ServiceProvider.GetRequiredService<ICurrentSessionAuthorization>(),cancellationToken).ConfigureAwait(false);
             cancellationToken.ThrowIfCancellationRequested();
             return current.Id == tenantId && current.IsHost == host && actor?.TenantId == tenantId ? actor : null;
         }

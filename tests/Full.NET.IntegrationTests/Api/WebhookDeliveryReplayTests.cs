@@ -129,7 +129,11 @@ public sealed class WebhookDeliveryReplayTests
     private sealed record Payload(Guid EventId, string PayloadBody, string PayloadDigest);
     private sealed class Clock : IClock { internal TimeSpan Offset; public DateTimeOffset UtcNow => DateTimeOffset.UtcNow + Offset; }
     private sealed class ExpiringAuthorization(IIndependentCurrentSessionAuthorization actual, Action before) : IIndependentCurrentSessionAuthorization
-    { public bool HasIndependentReadCapacity => actual.HasIndependentReadCapacity; public Task<AuthorizedSessionActor?> AuthorizeAsync(string permission, CancellationToken token) { before(); return actual.AuthorizeAsync(permission, token); } }
+    {
+        public bool HasIndependentReadCapacity => actual.HasIndependentReadCapacity;
+        public Task<AuthorizedSessionActor?> AuthorizeAsync(string permission, CancellationToken token) { before(); return actual.AuthorizeAsync(permission, token); }
+        public Task<AuthorizedSessionActor?> AuthorizeAllAsync(IReadOnlyCollection<string> permissions,CancellationToken token=default){before();return actual.AuthorizeAllAsync(permissions,token);}
+    }
     private sealed class Receiver : IHttpClientFactory
     {
         internal HttpStatusCode Status = HttpStatusCode.ServiceUnavailable; internal readonly List<string> Bodies = [];
