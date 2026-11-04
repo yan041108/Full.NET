@@ -20,9 +20,20 @@ beforeEach(() => { vi.resetAllMocks(); vi.mocked(api.listWebhookSubscriptions).m
 afterEach(() => wrapper?.unmount());
 async function setup(permissions = [read, create, status], host = false) {
   const context = createOutputSession(permissions); if (host) Object.assign(context.session.currentUser!, { tenantId: null, scope: 'host', actorScope: 'host' });
-  wrapper = mount(View, { global: { plugins: [context.pinia], directives: { loading: {} }, stubs: { WebhookDeliveryHistoryDrawer: { template: '<aside data-testid="history-stub"/>' }, ElDialog: { props: ['modelValue'], template: '<section v-if="modelValue"><slot/><slot name="footer"/></section>' } } } }); await flushPromises(); return context;
+  wrapper = mount(View, { global: { plugins: [context.pinia], directives: { loading: {} }, stubs: { WebhookSigningKeyRotationPanel: { name:'WebhookSigningKeyRotationPanel',props:['modelValue','subscription'],emits:['changed','unknown','update:modelValue','refresh'],template:'<aside data-testid="rotation-stub"/>' }, WebhookDeliveryHistoryDrawer: { template: '<aside data-testid="history-stub"/>' }, ElDialog: { props: ['modelValue'], template: '<section v-if="modelValue"><slot/><slot name="footer"/></section>' } } } }); await flushPromises(); return context;
 }
 function fillCreate() { state().openCreate(); Object.assign(state().form, { targetUrl: task.targetUrl, signingSecret: 'independent-test-secret' }); }
+
+it('轮换确认更新原订阅修订与活动身份，陈旧列表及回执不能回退',async()=>{
+ await setup();const view=wrapper.vm as unknown as {openRotation:(row:typeof task)=>void};view.openRotation(task);await flushPromises();const panel=wrapper.findComponent({name:'WebhookSigningKeyRotationPanel'});
+ const prepared={operationId:outputId,tenantId:outputId,subscriptionId:outputId,previousKeyId:outputId,signingKeyId:secondId,previousVersion:1,preparedVersion:2,stateKey:'prepared',preparedAtUtc:'2026-11-05T00:00:00Z',completedAtUtc:null,completedVersion:null};
+ panel.vm.$emit('changed',prepared);await flushPromises();expect(state().items[0]).toMatchObject({version:2,signingKeyId:outputId});
+ panel.vm.$emit('changed',{...prepared,stateKey:'activated',completedAtUtc:'2026-11-05T00:01:00Z',completedVersion:3});await flushPromises();expect(state().items[0]).toMatchObject({version:3,signingKeyId:secondId});expect(panel.props('subscription')).toMatchObject({version:3,signingKeyId:secondId});await state().load();expect(state().items[0]).toMatchObject({version:3,signingKeyId:secondId});
+ panel.vm.$emit('changed',prepared);await flushPromises();expect(state().items[0]).toMatchObject({version:3,signingKeyId:secondId});
+});
+it('未知轮换关闭后保留原面板与操作，不允许其他写入抢占',async()=>{
+ await setup();const view=wrapper.vm as unknown as {openRotation:(row:typeof task)=>void;rotationOpen:boolean;rotationUnknown:boolean};view.openRotation(task);await flushPromises();const panel=wrapper.findComponent({name:'WebhookSigningKeyRotationPanel'});panel.vm.$emit('unknown',true);panel.vm.$emit('update:modelValue',false);await flushPromises();expect(view.rotationUnknown).toBe(true);expect(panel.exists()).toBe(true);state().openCreate();expect(state().editorOpen).toBe(false);state().openStatus(task);expect(state().confirmation).toBeUndefined();view.openRotation(task);expect(view.rotationOpen).toBe(true);
+});
 it('当前企业可读取，创建与状态权限独立，Host 不读取租户订阅', async () => {
   await setup([read]); expect(wrapper.find('[data-testid="webhook-create"]').exists()).toBe(false); expect(wrapper.find('[data-testid="webhook-status"]').exists()).toBe(false); expect(api.listWebhookSubscriptions).toHaveBeenCalledOnce();
   wrapper.unmount(); await setup([read, create, status], true); expect(api.listWebhookSubscriptions).toHaveBeenCalledOnce(); expect(wrapper.text()).toContain('请先进入企业');

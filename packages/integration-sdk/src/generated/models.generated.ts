@@ -1,10 +1,21 @@
 // 此文件由 OpenAPI 快照确定性生成，禁止手工修改。
 // 内容：OpenAPI 数据模型。
 
+export interface CompleteWebhookSigningKeyRotationRequest {
+  readonly signingKeyId: string;
+  readonly version: number;
+}
+
 export interface CreateWebhookSubscriptionRequest {
   readonly eventType: string;
   readonly signingSecret: string;
   readonly targetUrl: string;
+}
+
+export interface PrepareWebhookSigningKeyRotationRequest {
+  readonly operationId: string;
+  readonly signingSecret: string;
+  readonly version: number;
 }
 
 export interface ProblemDetails {
@@ -76,6 +87,20 @@ export interface WebhookDeliveryReplayReceipt {
   readonly subscriptionId: string;
   readonly tenantId: string;
   readonly version: number;
+}
+
+export interface WebhookSigningKeyRotationReceipt {
+  readonly completedAtUtc: string | null;
+  readonly completedVersion: number | null;
+  readonly operationId: string;
+  readonly preparedAtUtc: string;
+  readonly preparedVersion: number;
+  readonly previousKeyId: string;
+  readonly previousVersion: number;
+  readonly signingKeyId: string;
+  readonly stateKey: "prepared" | "activated" | "cancelled";
+  readonly subscriptionId: string;
+  readonly tenantId: string;
 }
 
 export interface WebhookSubscriptionResponse {

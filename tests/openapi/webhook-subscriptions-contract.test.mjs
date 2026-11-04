@@ -1,6 +1,14 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+test('签名轮换准备和明确完成分开，回执不暴露准备材料或操作者会话',()=>{
+ const f=JSON.parse(fs.readFileSync('contracts/openapi/webhook-subscriptions-v1.json','utf8')),root='/api/v1/webhooks/subscriptions/{subscriptionId}/signing-key-rotations';
+ assert.equal(f.paths[root].post.operationId,'webhooksPrepareSigningKeyRotation');assert.equal(f.paths[root+'/pending'].get.operationId,'webhooksGetPendingSigningKeyRotation');assert.equal(f.paths[root+'/{operationId}'].get.operationId,'webhooksGetSigningKeyRotation');
+ for(const action of ['activate','cancel'])assert.ok(f.paths[root+'/{operationId}/'+action].post.responses['503']);
+ assert.equal(f.components.schemas.PrepareWebhookSigningKeyRotationRequest.properties.signingSecret.writeOnly,true);assert.equal(f.components.schemas.PrepareWebhookSigningKeyRotationRequest.properties.signingSecret.maxLength,128);
+ const properties=f.components.schemas.WebhookSigningKeyRotationReceipt.properties;for(const field of ['signingSecret','protectedSecret','protectedFingerprint','actorSessionId','completedBySessionId'])assert.equal(field in properties,false);
+ assert.deepEqual(properties.stateKey.enum,['prepared','activated','cancelled']);
+});
 import { validateVueClientContractCoverage } from '../../scripts/openapi/validate-vue-client-contract-coverage.mjs';
 import { validateVueApiCallSiteCoverage } from '../../scripts/openapi/validate-vue-api-call-site-coverage.mjs';
 test('Webhook 状态契约保留版本、独立动作和不回显密钥', () => {

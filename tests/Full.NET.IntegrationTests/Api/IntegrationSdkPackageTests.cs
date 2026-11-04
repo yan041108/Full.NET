@@ -37,15 +37,17 @@ public sealed class IntegrationSdkPackageTests
         var domain="sdk-b-"+Guid.CreateVersion7().ToString("N")+".localhost";
         await using(var scope=factory.Services.CreateAsyncScope())
         { scope.ServiceProvider.GetRequiredService<CurrentTenantAccessor>().SetHost();var result=await scope.ServiceProvider.GetRequiredService<ITenantProvisioningService>().ProvisionAsync(new("sdk-b-"+Guid.CreateVersion7().ToString("N"),"SDK B",domain),token);Assert.IsTrue(result.IsSuccess);b=result.Value!; }
-        string[] rights=[WebhookPermissions.SubscriptionsRead,WebhookPermissions.SubscriptionsManage,WebhookPermissions.SubscriptionsSetStatus,WebhookPermissions.DeliveriesRead,"tenancy.tenants.switch"];
+        string[] rights=[WebhookPermissions.SubscriptionsRead,WebhookPermissions.SubscriptionsManage,WebhookPermissions.SubscriptionsSetStatus,WebhookPermissions.DeliveriesRead,WebhookPermissions.SigningKeysRotate,"tenancy.tenants.switch"];
         var identity=await factory.CreateHostIdentityAsync("sdk-a-"+Guid.CreateVersion7().ToString("N"),rights,token);
         var accessA=await IntegrationTestTenantContextHelper.SwitchToTenantAsync(host,identity.AccessToken,tenant.Id,token);
         var accessB=await IntegrationTestTenantContextHelper.SwitchToTenantAsync(host,await factory.CreateHostAccessTokenAsync(rights,token),b.Id,token);
         const string secret="sdk-independent-signing-secret";
-        var environment=new Dictionary<string,string>{{"SDK_API_URL",address},{"SDK_TENANT_A",tenant.Id.ToString("D")},{"SDK_TENANT_B",b.Id.ToString("D")},{"SDK_TOKEN_A",accessA},{"SDK_TOKEN_B",accessB},{"SDK_HOST_B",domain},{"SDK_SIGNING_SECRET",secret}};
+        const string rotatedSecret="sdk-rotated-independent-secret";
+        var environment=new Dictionary<string,string>{{"SDK_API_URL",address},{"SDK_TENANT_A",tenant.Id.ToString("D")},{"SDK_TENANT_B",b.Id.ToString("D")},{"SDK_TOKEN_A",accessA},{"SDK_TOKEN_B",accessB},{"SDK_HOST_B",domain},{"SDK_SIGNING_SECRET",secret},{"SDK_ROTATED_SIGNING_SECRET",rotatedSecret}};
         await RunAsync("bootstrap");
         using var bootstrap=JsonDocument.Parse(await File.ReadAllTextAsync(Path.Combine(directory!,"bootstrap.json"),token));var subscriptionId=bootstrap.RootElement.GetProperty("subscriptionId").GetGuid();var eventId=Guid.CreateVersion7();
         var signingKeyId=bootstrap.RootElement.GetProperty("signingKeyId").GetGuid(); environment["SDK_KEY_ID"]=signingKeyId.ToString("D");
+        environment["SDK_SIGNING_SECRET"]=rotatedSecret;
         var envelope=new WebhookEventEnvelope("fullnet.workflow.instance.completed",eventId,tenant.Id,DateTimeOffset.UtcNow,new(Guid.CreateVersion7(),Guid.CreateVersion7(),"sdk","production-envelope"));
         await using(var scope=factory.Services.CreateAsyncScope())
         { scope.ServiceProvider.GetRequiredService<CurrentTenantAccessor>().SetHost();await scope.ServiceProvider.GetRequiredService<ICommandTransaction>().ExecuteAsync(async cancellation=>{await scope.ServiceProvider.GetRequiredService<WebhookEventEnqueueService>().EnqueueAsync(tenant.Id,envelope.EventType,eventId,envelope,cancellation);return 0;},token); }
@@ -62,7 +64,7 @@ public sealed class IntegrationSdkPackageTests
         }
         Assert.IsNotNull(payload);
         var stamp=new WebhookSignatureStamp(signingKeyId,eventId,rows.Items.Single().Id,envelope.EventType,DateTimeOffset.UtcNow.ToUnixTimeSeconds());
-        await File.WriteAllTextAsync(Path.Combine(directory!,"event-input.json"),JsonSerializer.Serialize(new{body=payload,signature=WebhookSignatureHelper.ComputeSignature(secret,payload,stamp),eventId,subscriptionId,keyId=signingKeyId,
+        await File.WriteAllTextAsync(Path.Combine(directory!,"event-input.json"),JsonSerializer.Serialize(new{body=payload,signature=WebhookSignatureHelper.ComputeSignature(rotatedSecret,payload,stamp),eventId,subscriptionId,keyId=signingKeyId,
             deliveryId=stamp.DeliveryId,eventType=stamp.EventType,version=WebhookSignatureHelper.Version,timestamp=stamp.Timestamp.ToString(System.Globalization.CultureInfo.InvariantCulture)}),token);
         await RunAsync("event");
         host.DefaultRequestHeaders.Authorization=new("Bearer",await factory.CreateHostAccessTokenAsync([IdentitySessionManagementPermissions.Revoke],token));

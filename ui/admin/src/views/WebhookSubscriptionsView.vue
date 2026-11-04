@@ -2,22 +2,24 @@
 import { computed, reactive, ref, watch } from 'vue';
 import { ElAlert, ElButton, ElCard, ElForm, ElFormItem, ElInput, ElMessage, ElTable, ElTableColumn, ElTag } from 'element-plus';
 import 'element-plus/theme-chalk/el-alert.css';
-import { isFullNetProblemDetails, type WebhookSubscription } from '@fullnet/client-contracts';
+import { isFullNetProblemDetails, type WebhookSubscription, type WebhookSigningKeyRotationReceipt } from '@fullnet/client-contracts';
 import ArtFormDialog from '../framework/art-design/components/ArtFormDialog.vue';
 import { useAuthorizedViewScope } from '../composables/useAuthorizedViewScope';
 import { useSessionStore } from '../auth/session';
 import { useAdminI18n } from '../i18n/adminI18n';
 import { listWebhookSubscriptions, createWebhookSubscription, setWebhookSubscriptionStatus } from '../api/webhook-subscriptions';
 import WebhookDeliveryHistoryDrawer from './webhooks/WebhookDeliveryHistoryDrawer.vue';
+import WebhookSigningKeyRotationPanel from './webhooks/WebhookSigningKeyRotationPanel.vue';
 
 defineOptions({ name: 'WebhookSubscriptionsView' });
 const session = useSessionStore(), { t } = useAdminI18n();
 const read = 'webhooks.subscriptions.read', create = 'webhooks.subscriptions.manage', status = 'webhooks.subscriptions.set_status';
 const tenant = () => !session.switching && !!session.currentUser?.tenantId && session.currentUser.scope !== 'host' && session.currentUser.actorScope !== 'host';
-const canRead = () => tenant() && session.can(read), canCreate = () => canRead() && session.can(create), canStatus = () => canRead() && session.can(status);
+const canRead = () => tenant() && session.can(read), canCreate = () => canRead() && session.can(create) && !rotationOpen.value && !rotationUnknown.value, canStatus = () => canRead() && session.can(status) && !rotationOpen.value && !rotationUnknown.value;
 const items = ref<WebhookSubscription[]>([]), loading = ref(false), changing = ref(false), problem = ref('');
 const editorOpen = ref(false), confirmation = ref<{ task: WebhookSubscription; active: boolean; token: number }>();
 const historyTarget = ref<WebhookSubscription>();
+const rotationTarget = ref<WebhookSubscription>(), rotationOpen = ref(false), rotationUnknown = ref(false);
 const canHistory = () => canRead() && session.can('webhooks.deliveries.read');
 const reviewOpen = ref(false), createBlocked = ref(false), createReviewed = ref(false), statusBlocks = ref(new Map<string, WebhookSubscription>());
 const form = reactive({ eventType: 'fullnet.workflow.instance.completed', targetUrl: '', signingSecret: '' });
@@ -29,6 +31,7 @@ let listRequest: ReturnType<typeof scope.begin>;
 const scope = useAuthorizedViewScope(session, () => {
   action = undefined; listRequest = undefined; items.value = []; loading.value = false; changing.value = false; problem.value = '';
   editorOpen.value = false; confirmation.value = undefined; reviewOpen.value = false; receipt.value = undefined; historyTarget.value = undefined;
+  rotationTarget.value = undefined; rotationOpen.value = false; rotationUnknown.value = false;
   createBlocked.value = false; createReviewed.value = false; statusBlocks.value = new Map(); form.signingSecret = ''; form.targetUrl = '';
 }, () => load());
 watch(() => session.switching, switching => { scope.invalidate(); if (!switching) void load(); }, { flush: 'sync' });
@@ -102,10 +105,20 @@ async function submitStatus(token: number) {
   finally { finish(request); }
 }
 function openHistory(row: WebhookSubscription) {
-  if (canHistory() && !changing.value && !loading.value && !editorOpen.value && !confirmation.value && current(row)) historyTarget.value = { ...row };
+  if (canHistory() && !rotationOpen.value && !rotationUnknown.value && !changing.value && !loading.value && !editorOpen.value && !confirmation.value && current(row)) historyTarget.value = { ...row };
 }
+function openRotation(row: WebhookSubscription) {
+  if (!canRead() || changing.value || loading.value || editorOpen.value || confirmation.value || historyTarget.value || !current(row) || rotationUnknown.value && rotationTarget.value?.id !== row.id) return;
+  rotationTarget.value = { ...row }; rotationOpen.value = true;
+}
+function rotationChanged(value: WebhookSigningKeyRotationReceipt) {
+  if (!canRead() || !rotationTarget.value || value.subscriptionId.toLowerCase() !== rotationTarget.value.id.toLowerCase() || value.tenantId.toLowerCase() !== rotationTarget.value.tenantId.toLowerCase()) return;
+  const version = value.completedVersion ?? value.preparedVersion, signingKeyId = value.stateKey === 'activated' ? value.signingKeyId : value.previousKeyId;
+  items.value = items.value.map(row => row.id.toLowerCase() === value.subscriptionId.toLowerCase() && version > row.version ? { ...row, version, signingKeyId } : row);
+}
+watch(items, () => { if (rotationTarget.value) { const row = items.value.find(row => same(row, rotationTarget.value!)); if (row) rotationTarget.value = { ...row }; } });
 watch(items, () => { if (historyTarget.value && !items.value.some(row => same(row, historyTarget.value!))) historyTarget.value = undefined; });
-const rows = computed(() => items.value.map(row => { const task = { ...row }; return { ...task, statusAction: () => openStatus(task), history: () => openHistory(task) }; }));
+const rows = computed(() => items.value.map(row => { const task = { ...row }; return { ...task, statusAction: () => openStatus(task), history: () => openHistory(task), rotate: () => openRotation(task) }; }));
 const confirmationControls = computed(() => {
   const token = confirmation.value?.token;
   return { confirm: () => { if (token !== undefined) void submitStatus(token); }, update: (open: boolean) => { if (!open && confirmation.value?.token === token) { if (action?.kind === 'status') closeAction(); confirmation.value = undefined; } } };
@@ -139,7 +152,7 @@ const reviewControls = computed(() => {
           <ElTableColumn prop="targetUrl" :label="t('webhooks.target')" min-width="280" />
           <ElTableColumn prop="signingKeyId" :label="t('webhooks.signingKeyId')" min-width="230" />
           <ElTableColumn :label="t('webhooks.status')" width="110"><template #default="{ row }"><ElTag :type="row.isActive ? 'success' : 'info'">{{ t(row.isActive ? 'webhooks.active' : 'webhooks.paused') }}</ElTag></template></ElTableColumn>
-          <ElTableColumn v-if="canStatus() || canHistory()" :label="t('users.columnActions')" width="160" fixed="right"><template #default="{ row }"><div class="webhook-subscriptions-view__actions"><ElButton v-if="canStatus()" data-testid="webhook-status" :disabled="changing || loading || editorOpen || !!historyTarget || statusBlocks.has(row.id.toLowerCase())" @click="row.statusAction">{{ t(row.isActive ? 'webhooks.pause' : 'webhooks.resume') }}</ElButton><ElButton v-if="canHistory()" data-testid="webhook-history-open" :disabled="changing || loading || editorOpen || !!confirmation" @click="row.history">{{ t('webhooks.history.title') }}</ElButton></div></template></ElTableColumn>
+          <ElTableColumn :label="t('users.columnActions')" width="220" fixed="right"><template #default="{ row }"><div class="webhook-subscriptions-view__actions"><ElButton v-if="canStatus()" data-testid="webhook-status" :disabled="changing || loading || editorOpen || !!historyTarget || statusBlocks.has(row.id.toLowerCase())" @click="row.statusAction">{{ t(row.isActive ? 'webhooks.pause' : 'webhooks.resume') }}</ElButton><ElButton v-if="canHistory()" data-testid="webhook-history-open" :disabled="changing || loading || editorOpen || !!confirmation || rotationOpen || rotationUnknown" @click="row.history">{{ t('webhooks.history.title') }}</ElButton><ElButton data-testid="webhook-key-open" :disabled="changing || loading || editorOpen || !!confirmation || !!historyTarget || rotationOpen || rotationUnknown && rotationTarget?.id !== row.id" @click="row.rotate">{{ t('webhooks.rotation.title') }}</ElButton></div></template></ElTableColumn>
           <template #empty>{{ t('webhooks.empty') }}</template>
         </ElTable>
       </ElCard>
@@ -154,6 +167,7 @@ const reviewControls = computed(() => {
       <ArtFormDialog v-if="confirmation" :key="confirmation.token" :open="true" width="min(560px, 94vw)" :title="t(confirmation.active ? 'webhooks.resume' : 'webhooks.pause')" :saving="changing" :confirm-label="t('common.confirm')" :cancel-label="t('common.cancel')" confirm-test-id="webhook-status-confirm" v-on="{ confirm: confirmationControls.confirm, 'update:open': confirmationControls.update }"><p>{{ confirmation.task.eventType }}</p><p class="webhook-subscriptions-view__target">{{ confirmation.task.targetUrl }}</p><p>{{ t('webhooks.statusHint') }}</p></ArtFormDialog>
       <ArtFormDialog v-if="reviewOpen" :key="reviewSequence" :open="true" width="min(520px, 94vw)" :title="t('webhooks.reviewCreate')" :confirm-label="t('common.confirm')" :cancel-label="t('common.cancel')" confirm-test-id="webhook-review-confirm" v-on="{ 'update:open': reviewControls.update, confirm: reviewControls.confirm }"><p>{{ t('webhooks.reviewConfirm') }}</p></ArtFormDialog>
       <WebhookDeliveryHistoryDrawer v-if="historyTarget && canHistory()" :key="historyTarget.id" :subscription="historyTarget" @close="historyTarget = undefined" />
+      <WebhookSigningKeyRotationPanel v-if="rotationTarget" :key="rotationTarget.id" v-model="rotationOpen" :subscription="rotationTarget" @changed="rotationChanged" @unknown="rotationUnknown = $event" @refresh="load(true)" />
     </template>
   </section>
 </template>

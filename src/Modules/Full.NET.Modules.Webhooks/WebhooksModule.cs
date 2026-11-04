@@ -46,6 +46,7 @@ public sealed class WebhooksModule : IFullNetModule
         services.AddScoped<Features.ManageWebhookSubscriptions.WebhookSubscriptionManagementService>();
         services.AddScoped<Features.ManageWebhookDeliveries.WebhookDeliveryHistoryQueryService>();
         services.AddScoped<Features.ManageWebhookDeliveries.WebhookDeliveryReplayService>();
+        services.AddScoped<Features.RotateSigningKey.WebhookSigningKeyRotationService>();
         services.AddScoped<WebhookEventEnqueueService>();
         services.TryAddEnumerable(ServiceDescriptor.Scoped<
             IIntegrationEventHandler,
@@ -109,5 +110,6 @@ public sealed class WebhooksModule : IFullNetModule
     {
         Features.ManageWebhookSubscriptions.Endpoint.Map(endpoints);
         Features.ManageWebhookDeliveries.Endpoint.Map(endpoints);
+        Features.RotateSigningKey.Endpoint.Map(endpoints);
     }
 }

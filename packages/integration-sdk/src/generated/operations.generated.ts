@@ -3,7 +3,9 @@
 
 import type { HttpClient, RequestOptions } from '../http.js';
 import type {
+  CompleteWebhookSigningKeyRotationRequest,
   CreateWebhookSubscriptionRequest,
+  PrepareWebhookSigningKeyRotationRequest,
   ProblemDetails,
   ReplayWebhookDeliveryRequest,
   SetWebhookSubscriptionStatusRequest,
@@ -12,6 +14,7 @@ import type {
   WebhookDeliveryHistoryPageResponse,
   WebhookDeliveryHistoryResponse,
   WebhookDeliveryReplayReceipt,
+  WebhookSigningKeyRotationReceipt,
   WebhookSubscriptionResponse,
   WorkflowCompletedWebhookData,
   WorkflowCompletedWebhookEvent
@@ -21,6 +24,7 @@ import {
   readWebhookDeliveryHistoryPageResponse,
   readWebhookDeliveryHistoryResponse,
   readWebhookDeliveryReplayReceipt,
+  readWebhookSigningKeyRotationReceipt,
   readWebhooksListSubscriptionsResponse,
   readWebhookSubscriptionResponse
 } from './guards.generated.js';
@@ -39,6 +43,50 @@ function requestJsonOperation(
   return options === undefined
     ? http.request<unknown>(path, init, signal)
     : http.request<unknown>(path, init, signal, options);
+}
+
+export interface WebhooksActivateSigningKeyRotationParameters {
+  readonly subscriptionId: string;
+  readonly operationId: string;
+  readonly body: CompleteWebhookSigningKeyRotationRequest;
+}
+
+export async function webhooksActivateSigningKeyRotation(
+  http: HttpClient,
+  parameters: WebhooksActivateSigningKeyRotationParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<WebhookSigningKeyRotationReceipt> {
+  const path = `/api/v1/webhooks/subscriptions/${encodeURIComponent(String(parameters.subscriptionId))}/signing-key-rotations/${encodeURIComponent(String(parameters.operationId))}/activate`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = await requestJsonOperation(http, path, init, signal, options);
+  return readWebhookSigningKeyRotationReceipt(value);
+}
+
+export interface WebhooksCancelSigningKeyRotationParameters {
+  readonly subscriptionId: string;
+  readonly operationId: string;
+  readonly body: CompleteWebhookSigningKeyRotationRequest;
+}
+
+export async function webhooksCancelSigningKeyRotation(
+  http: HttpClient,
+  parameters: WebhooksCancelSigningKeyRotationParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<WebhookSigningKeyRotationReceipt> {
+  const path = `/api/v1/webhooks/subscriptions/${encodeURIComponent(String(parameters.subscriptionId))}/signing-key-rotations/${encodeURIComponent(String(parameters.operationId))}/cancel`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = await requestJsonOperation(http, path, init, signal, options);
+  return readWebhookSigningKeyRotationReceipt(value);
 }
 
 export interface WebhooksCreateSubscriptionParameters {
@@ -77,6 +125,39 @@ export async function webhooksGetDeliveryReplayReceipt(
   const init: RequestInit = { method: 'GET' };
   const value = await requestJsonOperation(http, path, init, signal, options);
   return readWebhookDeliveryReplayReceipt(value);
+}
+
+export interface WebhooksGetPendingSigningKeyRotationParameters {
+  readonly subscriptionId: string;
+}
+
+export async function webhooksGetPendingSigningKeyRotation(
+  http: HttpClient,
+  parameters: WebhooksGetPendingSigningKeyRotationParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<WebhookSigningKeyRotationReceipt> {
+  const path = `/api/v1/webhooks/subscriptions/${encodeURIComponent(String(parameters.subscriptionId))}/signing-key-rotations/pending`;
+  const init: RequestInit = { method: 'GET' };
+  const value = await requestJsonOperation(http, path, init, signal, options);
+  return readWebhookSigningKeyRotationReceipt(value);
+}
+
+export interface WebhooksGetSigningKeyRotationParameters {
+  readonly subscriptionId: string;
+  readonly operationId: string;
+}
+
+export async function webhooksGetSigningKeyRotation(
+  http: HttpClient,
+  parameters: WebhooksGetSigningKeyRotationParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<WebhookSigningKeyRotationReceipt> {
+  const path = `/api/v1/webhooks/subscriptions/${encodeURIComponent(String(parameters.subscriptionId))}/signing-key-rotations/${encodeURIComponent(String(parameters.operationId))}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = await requestJsonOperation(http, path, init, signal, options);
+  return readWebhookSigningKeyRotationReceipt(value);
 }
 
 export interface WebhooksGetSubscriptionDeliveryParameters {
@@ -165,6 +246,27 @@ export async function webhooksListSubscriptions(
   const init: RequestInit = { method: 'GET' };
   const value = await requestJsonOperation(http, path, init, signal, options);
   return readWebhooksListSubscriptionsResponse(value);
+}
+
+export interface WebhooksPrepareSigningKeyRotationParameters {
+  readonly subscriptionId: string;
+  readonly body: PrepareWebhookSigningKeyRotationRequest;
+}
+
+export async function webhooksPrepareSigningKeyRotation(
+  http: HttpClient,
+  parameters: WebhooksPrepareSigningKeyRotationParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<WebhookSigningKeyRotationReceipt> {
+  const path = `/api/v1/webhooks/subscriptions/${encodeURIComponent(String(parameters.subscriptionId))}/signing-key-rotations`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = await requestJsonOperation(http, path, init, signal, options);
+  return readWebhookSigningKeyRotationReceipt(value);
 }
 
 export interface WebhooksReplayDeliveryParameters {

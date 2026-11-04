@@ -1,5 +1,6 @@
 import { beforeEach, expect, it, vi } from 'vitest';
 import { request } from './http';
+import { getPendingWebhookSigningKeyRotation, getWebhookSigningKeyRotation, prepareWebhookSigningKeyRotation, activateWebhookSigningKeyRotation, cancelWebhookSigningKeyRotation } from './webhook-subscriptions';
 import { createWebhookSubscription, listWebhookSubscriptions, setWebhookSubscriptionStatus, listWebhookDeliveryHistory, getWebhookDeliveryHistory, listWebhookDeliveryAttempts, replayWebhookDelivery, getWebhookDeliveryReplayReceipt } from './webhook-subscriptions';
 vi.mock('./http', () => ({ request: vi.fn() }));
 const call = vi.mocked(request), id = '019bc2b1-2a40-7cc3-8992-a80de51bf299';
@@ -7,6 +8,29 @@ const row = { id, tenantId: id, signingKeyId: id, eventType: 'fullnet.workflow.i
 const delivery = { id, tenantId: id, subscriptionId: id, eventId: id, statusKey: 'failed', attemptCount: 2, version: 3,
   nextAttemptAtUtc: null, lastErrorCode: 'webhooks.delivery.http_error', lastHttpStatus: 503, createdAtUtc: '2026-11-04T00:00:00Z', updatedAtUtc: '2026-11-04T00:01:00Z' };
 beforeEach(() => call.mockReset());
+const rotation={operationId:id,tenantId:id,subscriptionId:id,previousKeyId:id,signingKeyId:'019bc2b1-2a40-7cc3-8992-a80de51bf298',previousVersion:1,preparedVersion:2,stateKey:'prepared',preparedAtUtc:'2026-11-05T00:00:00Z',completedAtUtc:null,completedVersion:null};
+it('准备固定原操作及修订，秘密只在 POST 输入且禁止自动认证重发',async()=>{
+ call.mockResolvedValue({...rotation,protectedSecret:'private',protectedFingerprint:'private'});const signal=new AbortController().signal,body={operationId:id,version:1,signingSecret:'new-independent-secret'};
+ await expect(prepareWebhookSigningKeyRotation(id,body,signal)).resolves.toEqual(rotation);expect(call).toHaveBeenCalledExactlyOnceWith(`/api/v1/webhooks/subscriptions/${id}/signing-key-rotations`,{method:'POST',body:JSON.stringify(body)},signal,{retryUnauthorized:false});
+});
+it('当前准备和原轮换回执只读，绑定原订阅和操作',async()=>{
+ call.mockResolvedValue(rotation);await expect(getPendingWebhookSigningKeyRotation(id)).resolves.toEqual(rotation);await expect(getWebhookSigningKeyRotation(id,id)).resolves.toEqual(rotation);
+ expect(call.mock.calls.map(args=>args[1]?.method)).toEqual(['GET','GET']);call.mockResolvedValue({...rotation,subscriptionId:rotation.signingKeyId});await expect(getWebhookSigningKeyRotation(id,id)).rejects.toThrow();
+});
+it('激活与取消按明确动作、身份和本次修订核对不可变完成回执',async()=>{
+ const body={version:2,signingKeyId:rotation.signingKeyId},signal=new AbortController().signal;
+ for(const [action,submit] of [['activated',activateWebhookSigningKeyRotation],['cancelled',cancelWebhookSigningKeyRotation]] as const){
+  call.mockClear();const completed={...rotation,stateKey:action,completedAtUtc:'2026-11-05T00:01:00Z',completedVersion:3};call.mockResolvedValue(completed);await expect(submit(id,id,body,signal)).resolves.toEqual(completed);
+  expect(call).toHaveBeenCalledExactlyOnceWith(`/api/v1/webhooks/subscriptions/${id}/signing-key-rotations/${id}/${action==='activated'?'activate':'cancel'}`,{method:'POST',body:JSON.stringify(body)},signal,{retryUnauthorized:false});
+ }
+});
+it.each([{...rotation,preparedVersion:3},{...rotation,signingKeyId:id},{...rotation,stateKey:'activated'},{...rotation,completedVersion:3},{...rotation,operationId:'invalid'}])('轮换矛盾状态或身份拒绝接纳 %j',async value=>{
+ call.mockResolvedValue(value);await expect(getWebhookSigningKeyRotation(id,id)).rejects.toThrow();
+});
+it('激活不能接纳另一动作、键或修订；无效输入不发送',async()=>{
+ const body={version:2,signingKeyId:rotation.signingKeyId};for(const value of [rotation,{...rotation,stateKey:'cancelled',completedAtUtc:'2026-11-05T00:01:00Z',completedVersion:3},{...rotation,stateKey:'activated',completedAtUtc:'2026-11-05T00:01:00Z',completedVersion:4}]){call.mockResolvedValue(value);await expect(activateWebhookSigningKeyRotation(id,id,body)).rejects.toThrow();}
+ call.mockClear();await expect(prepareWebhookSigningKeyRotation(id,{operationId:id,version:2_147_483_646,signingSecret:'new-independent-secret'})).rejects.toThrow();await expect(activateWebhookSigningKeyRotation(id,id,{...body,version:2_147_483_647})).rejects.toThrow();expect(call).not.toHaveBeenCalled();
+});
 const replayReceipt = { operationId: id, tenantId: id, subscriptionId: id, deliveryId: id, eventId: id, previousVersion: 3, version: 4, attemptCount: 2, queuedAtUtc: '2026-11-05T00:00:00Z' };
 it('重放固定原操作和修订，关闭认证重发并剔除敏感多余字段', async () => {
   call.mockResolvedValue({ ...replayReceipt, signingSecret: 'private', actorSessionId: 'private' }); const signal = new AbortController().signal;

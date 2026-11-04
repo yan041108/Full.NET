@@ -4,6 +4,7 @@ using Full.NET.Data.Dapper;
 using Full.NET.Modules.Webhooks.Features.DeliverWebhooks.Persistence;
 using Full.NET.Modules.Webhooks.Features.ManageWebhookDeliveries.Persistence;
 using Full.NET.Modules.Webhooks.Features.ManageWebhookSubscriptions.Persistence;
+using Full.NET.Modules.Webhooks.Features.RotateSigningKey;
 
 /// <summary>Webhooks 持久化相关类型；仅供 Dapper 或内部编排使用。</summary>
 namespace Full.NET.Modules.Webhooks.Persistence;
@@ -15,6 +16,11 @@ internal sealed class WebhooksDapperAotMaterializerContributor : IDapperAotMater
         registrar.Register<WebhookSubscriptionRecord>(ReadWebhookSubscriptionRecord);
         registrar.Register<WebhookSubscriptionDeliveryRecord>(ReadWebhookSubscriptionDeliveryRecord);
         registrar.Register<WebhookDeliveryWorkItem>(ReadWebhookDeliveryWorkItem);
+        registrar.Register<WebhookSigningProfileRecord>(reader=>new(reader.GetGuid(0),reader.GetString(1)));
+        registrar.Register<WebhookSigningKeyRotationRecord>(reader=>new(reader.GetGuid(0),reader.GetGuid(1),reader.GetGuid(2),reader.GetGuid(3),reader.GetGuid(4),
+            reader.GetGuid(5),reader.GetGuid(6),reader.GetInt32(7),reader.GetInt32(8),reader.GetString(9),reader.IsDBNull(10)?null:reader.GetString(10),reader.GetString(11),
+            AotDataReaderExtensions.ReadDateTimeOffset(reader,12),reader.IsDBNull(13)?null:AotDataReaderExtensions.ReadDateTimeOffset(reader,13),reader.IsDBNull(14)?null:reader.GetInt32(14),
+            reader.IsDBNull(15)?null:reader.GetGuid(15),reader.IsDBNull(16)?null:reader.GetGuid(16)));
         registrar.Register<WebhookDeliveryHistoryRecord>(reader => new(
             reader.GetGuid(0), reader.GetGuid(1), reader.GetGuid(2), reader.GetGuid(3), reader.GetString(4), reader.GetInt32(5),
             AotDataReaderExtensions.ReadNullableDateTimeOffset(reader, 6), reader.IsDBNull(7) ? null : reader.GetString(7),

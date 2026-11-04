@@ -126,8 +126,12 @@ internal sealed class WebhookDeliveryBatchProcessor(
             return new("Target URL is invalid.", "webhooks.delivery.target_invalid", null);
         var (allowed, reason) = await WebhookDeliverySsrfGuard.ValidateAsync(targetUri, token).ConfigureAwait(false);
         if (!allowed) return new(reason ?? "Target URL is blocked.", "webhooks.delivery.target_blocked", null);
-        var secret = signingSecretProtector.Unprotect(item.SigningSecretHash);
-        var stamp = new WebhookSignatureStamp(item.SigningKeyId, item.EventId, item.Id, item.EventType, clock.UtcNow.ToUnixTimeSeconds());
+        // 每次外发只增加一次有界单行读取；不可沿用整批领取时缓存的旧身份/秘密。
+        var profile=await queryExecutor.QuerySingleOrDefaultAsync<WebhookSigningProfileRecord>(WebhookDeliverySql.FindSigningProfile,
+            WebhookSqlParameters.Create(("SubscriptionId",item.SubscriptionId),("TenantId",item.TenantId)),token).ConfigureAwait(false)
+            ?? throw new InvalidOperationException("The delivery signing profile is missing.");
+        var secret = signingSecretProtector.Unprotect(profile.SigningSecretHash);
+        var stamp = new WebhookSignatureStamp(profile.SigningKeyId, item.EventId, item.Id, item.EventType, clock.UtcNow.ToUnixTimeSeconds());
         var signature = WebhookSignatureHelper.ComputeSignature(secret, item.PayloadBody, stamp);
         using var client = httpClientFactory.CreateClient(WebhookHttpClientNames.Delivery);
         using var request = new HttpRequestMessage(HttpMethod.Post, item.TargetUrl)

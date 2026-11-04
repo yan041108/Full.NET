@@ -1,4 +1,13 @@
 export const webhookSubscriptionsZh = {
+  'webhooks.rotation.title': '密钥轮换', 'webhooks.rotation.hint': '先准备新秘密并在接收端配置新 KeyId，再明确激活。准备不会切换活动密钥。',
+  'webhooks.rotation.activeKey': '当前活动 KeyId', 'webhooks.rotation.newKey': '准备的新 KeyId', 'webhooks.rotation.secret': '新随机签名秘密（16～128 字符）',
+  'webhooks.rotation.prepare': '准备新密钥', 'webhooks.rotation.retryPrepare': '沿用原操作重试准备', 'webhooks.rotation.activate': '确认接收端后激活', 'webhooks.rotation.cancel': '取消此准备',
+  'webhooks.rotation.prepared': '新密钥已准备，尚未激活', 'webhooks.rotation.activated': '新密钥已激活', 'webhooks.rotation.cancelled': '准备已取消，原活动密钥保留',
+  'webhooks.rotation.unknown': '结果尚未确认。请读取原操作；重试时沿用原操作、修订及秘密，不创建另一轮换。',
+  'webhooks.rotation.read': '读取原轮换并刷新订阅', 'webhooks.rotation.readFailed': '未能确认原轮换。404 不能证明在途写入未提交，请保留原操作后重读。',
+  'webhooks.rotation.writeFailed': '轮换未能确认。核对原操作和当前订阅后再明确处理。', 'webhooks.rotation.next': '核对后准备下一轮换',
+  'webhooks.rotation.activateHint': '请核对新 KeyId 和秘密已配置在接收端。激活只切换后续外发；在途旧请求仍可能到达，接收端须明确设置旧密钥退役时间。',
+  'webhooks.rotation.cancelHint': '取消只清除本次准备材料并保留审计；原活动密钥及投递历史不变。', 'webhooks.rotation.configured': '我已配置接收端的新 KeyId、对应秘密和明确的旧密钥退役策略',
   'webhooks.signingKeyId': '公开签名 KeyId',
   'webhooks.replay.next': '核对最新失败后再次排队',
   'webhooks.replay.open': "重新排队失败投递",
@@ -43,6 +52,15 @@ export const webhookSubscriptionsZh = {
   'webhooks.inputInvalid': '请填写事件类型、有效的 HTTPS 地址及符合长度要求的签名密钥。'
 } as const;
 export const webhookSubscriptionsEn: Record<keyof typeof webhookSubscriptionsZh, string> = {
+  'webhooks.rotation.title': 'Signing key rotation', 'webhooks.rotation.hint': 'Prepare a new secret, configure its KeyId at the receiver, then explicitly activate it. Preparation keeps the active key.',
+  'webhooks.rotation.activeKey': 'Active KeyId', 'webhooks.rotation.newKey': 'Prepared KeyId', 'webhooks.rotation.secret': 'New random signing secret (16–128 characters)',
+  'webhooks.rotation.prepare': 'Prepare new key', 'webhooks.rotation.retryPrepare': 'Retry original preparation', 'webhooks.rotation.activate': 'Activate after receiver confirmation', 'webhooks.rotation.cancel': 'Cancel preparation',
+  'webhooks.rotation.prepared': 'Prepared, not activated', 'webhooks.rotation.activated': 'New key activated', 'webhooks.rotation.cancelled': 'Preparation cancelled; active key retained',
+  'webhooks.rotation.unknown': 'Outcome unknown. Read the original operation. Retain its operation, revision and secret when retrying; do not create another rotation.',
+  'webhooks.rotation.read': 'Read original rotation and refresh subscription', 'webhooks.rotation.readFailed': 'The original rotation could not be confirmed. A 404 does not prove an in-flight write did not commit. Retain the operation and read again.',
+  'webhooks.rotation.writeFailed': 'The rotation could not be confirmed. Check the original operation and current subscription before acting.', 'webhooks.rotation.next': 'Review and prepare another rotation',
+  'webhooks.rotation.activateHint': 'Check the receiver has this KeyId and secret. Activation changes subsequent sends; old requests in flight may still arrive. Set an explicit retirement time for the old key at the receiver.',
+  'webhooks.rotation.cancelHint': 'Cancellation clears this prepared secret and retains its audit. The active key and delivery history remain.', 'webhooks.rotation.configured': 'I configured the receiver with the new KeyId, secret and an explicit old-key retirement policy',
   'webhooks.signingKeyId': 'Public signing KeyId',
   'webhooks.replay.next': 'Requeue after reviewing the latest failure',
   'webhooks.replay.open': 'Requeue failed delivery',

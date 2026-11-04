@@ -1,6 +1,6 @@
 # Full.NET TypeScript 接入包
 
-当前交付企业 Webhook 的八个管理操作、生成模型/响应守卫及工作流完成事件验签。包使用标准 fetch/Web Crypto，零运行时依赖，独立于 Vue 管理端和内部实现；支持 Node.js 24。源码许可证为 MIT，目前仅本地打包，`private: true` 保留公共发布门禁。
+当前交付企业 Webhook 的十三个管理操作、生成模型/响应守卫及工作流完成事件验签，包含准备、读取、明确激活和取消密钥轮换。包使用标准 fetch/Web Crypto，零运行时依赖，独立于 Vue 管理端和内部实现；支持 Node.js 24。源码许可证为 MIT，目前仅本地打包，`private: true` 保留公共发布门禁。
 
 ## 本地构建和安装
 
@@ -58,7 +58,7 @@ try {
 }
 ```
 
-生成操作还包括创建/列表、暂停恢复、历史分页/详情、逐次尝试和原回执查询。重放仍要求平台交互会话及独立重放权限，SDK 不提供授权旁路。完整步骤和权限见仓库开发入门 §15。
+生成操作还包括创建/列表、暂停恢复、历史分页/详情、逐次尝试和原回执查询。重放仍要求平台交互会话及独立重放权限，SDK 不提供授权旁路。密钥轮换使用 `webhooksPrepareSigningKeyRotation`、`webhooksGetPendingSigningKeyRotation`、`webhooksGetSigningKeyRotation`、`webhooksActivateSigningKeyRotation`、`webhooksCancelSigningKeyRotation`：先固定准备操作及原修订，接收端配置返回的新 KeyId/秘密与旧键截止时间，再由操作者明确激活。所有 POST 均不重试；未知激活结果须保留原操作、KeyId 和确认修订后读取或明确重试，不能取后来修订当作原确认。取消清除准备秘密，原活动密钥不变。完整步骤和权限见仓库开发入门 §15 及签名协议。
 
 GET 对网络故障及 429/502/503/504 默认最多重试两次，可设 `maxGetRetries: 0..3`；遵守有界 Retry-After/退避，取消或总体超时立即停止。所有 POST（含创建、状态变更及重放）均不自动重试，401/403/404 不重试；凭据撤销须经所属身份入口处理，调用方重新授权后再明确发起请求。`IntegrationHttpError.problem` 保留有界状态、机器码和排错字段，`IntegrationProtocolError` 表示作用域、正文或协议不符。SDK 不自动记录正文或凭据。
 
@@ -82,7 +82,7 @@ const event = await verifyWorkflowCompletedWebhook({
 // 在接收方事务内以 event.EventId 建立 Inbox，并与业务写入同提交。
 ```
 
-验签入口最多接受 256 KiB，按仓库 [签名 v1](../../docs/development/webhook-protocol.md) 验证原文字节摘要、KeyId、投递时间及事件元数据，再核对 PascalCase 模型与企业。`protectedKeys` 是接收方自己的受保护密钥来源，只解析预先允许的 KeyId，未知键返回 null；不得使用请求头拼接远程地址。默认过去/未来容差均为 300 秒，可用 `maxAgeSeconds: 1..3600` 配置；`clock` 返回可信 Unix 毫秒。读取秘密与加密操作共用默认 5 秒期限（`timeoutMilliseconds: 1..30000`），支持 `signal` 取消，等待后再次核对时间。密钥来源故障或超时不确认消费。`OccurredAtUtc` 保留业务发生时间，延迟重试使用新的投递时间。接收方仍须以原 EventId 去重并与业务同事务；密钥轮换尚待后续批次交付。
+验签入口最多接受 256 KiB，按仓库 [签名 v1](../../docs/development/webhook-protocol.md) 验证原文字节摘要、KeyId、投递时间及事件元数据，再核对 PascalCase 模型与企业。`protectedKeys` 是接收方自己的受保护密钥来源，只解析预先允许的 KeyId，未知键返回 null；不得使用请求头拼接远程地址。默认过去/未来容差均为 300 秒，可用 `maxAgeSeconds: 1..3600` 配置；`clock` 返回可信 Unix 毫秒。读取秘密与加密操作共用默认 5 秒期限（`timeoutMilliseconds: 1..30000`），支持 `signal` 取消，等待后再次核对时间。密钥来源故障或超时不确认消费。`OccurredAtUtc` 保留业务发生时间，延迟重试使用新的投递时间。接收方仍须以原 EventId 去重并与业务同事务；密钥来源须按受信旧键截止时间停止返回其秘密，期限不能来自请求；原事件去重事实不随换键删除。
 
 ## 定向验证
 

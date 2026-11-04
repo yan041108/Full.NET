@@ -2,7 +2,9 @@
 // 内容：OpenAPI 运行时响应守卫。
 
 import type {
+  CompleteWebhookSigningKeyRotationRequest,
   CreateWebhookSubscriptionRequest,
+  PrepareWebhookSigningKeyRotationRequest,
   ProblemDetails,
   ReplayWebhookDeliveryRequest,
   SetWebhookSubscriptionStatusRequest,
@@ -11,10 +13,19 @@ import type {
   WebhookDeliveryHistoryPageResponse,
   WebhookDeliveryHistoryResponse,
   WebhookDeliveryReplayReceipt,
+  WebhookSigningKeyRotationReceipt,
   WebhookSubscriptionResponse,
   WorkflowCompletedWebhookData,
   WorkflowCompletedWebhookEvent
 } from './models.generated.js';
+
+export function readCompleteWebhookSigningKeyRotationRequest(value: unknown): CompleteWebhookSigningKeyRotationRequest {
+  return requireValidResponse(value, isCompleteWebhookSigningKeyRotationRequest(value), 'complete_webhook_signing_key_rotation_request') as CompleteWebhookSigningKeyRotationRequest;
+}
+
+function isCompleteWebhookSigningKeyRotationRequest(value: unknown): value is CompleteWebhookSigningKeyRotationRequest {
+  return isRecord(value) && (typeof value["signingKeyId"] === 'string' && guidPattern.test(value["signingKeyId"])) && (Number.isSafeInteger(value["version"]));
+}
 
 export function readCreateWebhookSubscriptionRequest(value: unknown): CreateWebhookSubscriptionRequest {
   return requireValidResponse(value, isCreateWebhookSubscriptionRequest(value), 'create_webhook_subscription_request') as CreateWebhookSubscriptionRequest;
@@ -22,6 +33,14 @@ export function readCreateWebhookSubscriptionRequest(value: unknown): CreateWebh
 
 function isCreateWebhookSubscriptionRequest(value: unknown): value is CreateWebhookSubscriptionRequest {
   return isRecord(value) && (typeof value["eventType"] === 'string') && (typeof value["signingSecret"] === 'string') && (typeof value["targetUrl"] === 'string');
+}
+
+export function readPrepareWebhookSigningKeyRotationRequest(value: unknown): PrepareWebhookSigningKeyRotationRequest {
+  return requireValidResponse(value, isPrepareWebhookSigningKeyRotationRequest(value), 'prepare_webhook_signing_key_rotation_request') as PrepareWebhookSigningKeyRotationRequest;
+}
+
+function isPrepareWebhookSigningKeyRotationRequest(value: unknown): value is PrepareWebhookSigningKeyRotationRequest {
+  return isRecord(value) && (typeof value["operationId"] === 'string' && guidPattern.test(value["operationId"])) && (typeof value["signingSecret"] === 'string') && (Number.isSafeInteger(value["version"]));
 }
 
 export function readProblemDetails(value: unknown): ProblemDetails {
@@ -86,6 +105,14 @@ export function readWebhookDeliveryReplayReceipt(value: unknown): WebhookDeliver
 
 function isWebhookDeliveryReplayReceipt(value: unknown): value is WebhookDeliveryReplayReceipt {
   return isRecord(value) && (Number.isSafeInteger(value["attemptCount"])) && (typeof value["deliveryId"] === 'string' && guidPattern.test(value["deliveryId"])) && (typeof value["eventId"] === 'string' && guidPattern.test(value["eventId"])) && (typeof value["operationId"] === 'string' && guidPattern.test(value["operationId"])) && (Number.isSafeInteger(value["previousVersion"])) && (typeof value["queuedAtUtc"] === 'string') && (typeof value["subscriptionId"] === 'string' && guidPattern.test(value["subscriptionId"])) && (typeof value["tenantId"] === 'string' && guidPattern.test(value["tenantId"])) && (Number.isSafeInteger(value["version"]));
+}
+
+export function readWebhookSigningKeyRotationReceipt(value: unknown): WebhookSigningKeyRotationReceipt {
+  return requireValidResponse(value, isWebhookSigningKeyRotationReceipt(value), 'webhook_signing_key_rotation_receipt') as WebhookSigningKeyRotationReceipt;
+}
+
+function isWebhookSigningKeyRotationReceipt(value: unknown): value is WebhookSigningKeyRotationReceipt {
+  return isRecord(value) && ((typeof value["completedAtUtc"] === 'string') || (value["completedAtUtc"] === null)) && ((Number.isSafeInteger(value["completedVersion"])) || (value["completedVersion"] === null)) && (typeof value["operationId"] === 'string' && guidPattern.test(value["operationId"])) && (typeof value["preparedAtUtc"] === 'string') && (Number.isSafeInteger(value["preparedVersion"])) && (typeof value["previousKeyId"] === 'string' && guidPattern.test(value["previousKeyId"])) && (Number.isSafeInteger(value["previousVersion"])) && (typeof value["signingKeyId"] === 'string' && guidPattern.test(value["signingKeyId"])) && (typeof value["stateKey"] === 'string' && ["prepared", "activated", "cancelled"].includes(value["stateKey"])) && (typeof value["subscriptionId"] === 'string' && guidPattern.test(value["subscriptionId"])) && (typeof value["tenantId"] === 'string' && guidPattern.test(value["tenantId"]));
 }
 
 export function readWebhookSubscriptionResponse(value: unknown): WebhookSubscriptionResponse {

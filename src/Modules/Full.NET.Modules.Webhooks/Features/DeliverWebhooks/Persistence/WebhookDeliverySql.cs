@@ -5,6 +5,9 @@ namespace Full.NET.Modules.Webhooks.Features.DeliverWebhooks.Persistence;
 
 internal static class WebhookDeliverySql
 {
+    /// <summary>每次实际发送前读取一份原子密钥快照，批量领取的旧秘密不用于后续发送。</summary>
+    internal static readonly SqlStatement FindSigningProfile = new("webhooks.deliveries.find_signing_profile",
+        "SELECT SigningKeyId,SigningSecretHash FROM fn_webhooks_subscription WHERE Id=@SubscriptionId AND TenantId=@TenantId",SqlDataScope.HostOnly);
     public static readonly SqlStatement ListTargetIdsSqlServer = new(
         "webhooks.subscriptions.target_ids.sql_server",
         """
@@ -164,6 +167,9 @@ internal static class WebhookDeliverySql
         """,
         SqlDataScope.HostOnly);
 }
+
+/// <summary>单次实际发送的当前密钥身份和受保护材料必须来自同一行快照。</summary>
+internal sealed record WebhookSigningProfileRecord(Guid SigningKeyId,string SigningSecretHash);
 
 internal sealed record WebhookSubscriptionDeliveryRecord(
     Guid Id,

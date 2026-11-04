@@ -2,7 +2,7 @@ import http from 'node:http';
 import { createHash } from 'node:crypto';
 import { pathToFileURL } from 'node:url';
 import { openReceiptStore, isGuid } from './receipt-store.mjs';
-import { readSigningSecret, verifySignature } from './signature.mjs';
+import { readSigningSecret, readSigningKeys, normalizeSigningKeys, verifySignature } from './signature.mjs';
 
 const eventType = 'fullnet.workflow.instance.completed';
 const problem = (status, code) => Object.assign(Error(code), { status });
@@ -22,12 +22,13 @@ function readBody(request, limit) {
 }
 
 /** 接收端只记录当前单一企业的工作流完成事实；生产业务写入应移入自己的事务 Inbox。 */
-export async function startReceiver({ secret, keyId, tenantId, receiptsFile, host = '127.0.0.1', port = 8085, maxBodyBytes = 262_144, maxReceipts = 10_000, maxLedgerBytes = 8_388_608, requestsPerMinute = 60, maxAgeSeconds = 300, clock = Date.now }) {
-  if (typeof secret !== 'string' || secret.length < 16 || secret.length > 128 || !isGuid(keyId) || !isGuid(tenantId) || typeof receiptsFile !== 'string' || typeof clock !== 'function' || !Number.isInteger(maxAgeSeconds) || maxAgeSeconds < 1 || maxAgeSeconds > 3600
+export async function startReceiver({ secret, keyId, signingKeys, tenantId, receiptsFile, host = '127.0.0.1', port = 8085, maxBodyBytes = 262_144, maxReceipts = 10_000, maxLedgerBytes = 8_388_608, requestsPerMinute = 60, maxAgeSeconds = 300, clock = Date.now }) {
+  if (signingKeys!==undefined&&(secret!==undefined||keyId!==undefined)||!isGuid(tenantId) || typeof receiptsFile !== 'string' || typeof clock !== 'function' || !Number.isInteger(maxAgeSeconds) || maxAgeSeconds < 1 || maxAgeSeconds > 3600
     || !Number.isInteger(port) || port < 0 || port > 65535 || typeof host !== 'string' || !host
     || ![maxBodyBytes, maxReceipts, maxLedgerBytes, requestsPerMinute].every(n => Number.isSafeInteger(n) && n > 0)
     || maxBodyBytes > 1_048_576 || maxReceipts > 100_000 || maxLedgerBytes > 67_108_864 || requestsPerMinute > 10_000) throw Error('webhook_consumer.config_invalid');
   tenantId = tenantId.toLowerCase();
+  const allowedKeys=normalizeSigningKeys(signingKeys??[{keyId,secret,acceptUntilUtc:null}],clock);
   const store = await openReceiptStore(receiptsFile, { maxReceipts, maxBytes: maxLedgerBytes });
   let windowStart = Date.now(), requests = 0, active = 0;
   const server = http.createServer({ maxHeaderSize: 16_384 }, async (request, response) => {
@@ -45,7 +46,9 @@ export async function startReceiver({ secret, keyId, tenantId, receiptsFile, hos
         if (Number(request.headers['content-length']) > maxBodyBytes) throw problem(413, 'webhook_consumer.body_too_large');
         const body = await readBody(request, maxBodyBytes);
         const metadata = { version:header(request,'x-fullnet-signature-version'),keyId:header(request,'x-fullnet-key-id'),timestamp:header(request,'x-fullnet-timestamp'),eventId:header(request,'x-fullnet-event-id'),deliveryId:header(request,'x-fullnet-delivery-id'),eventType:header(request,'x-fullnet-event-type') };
-        if (!verifySignature(body, header(request, 'x-fullnet-signature'), secret, metadata, {keyId,clock,maxAgeSeconds})) throw problem(401, 'webhook_consumer.signature_invalid');
+        const key=allowedKeys.find(key=>key.keyId===metadata.keyId?.toLowerCase());
+        const keyActive=()=>{const now=clock();return !!key&&Number.isFinite(now)&&now<key.acceptUntilMilliseconds;};
+        if (!keyActive() || !verifySignature(body, header(request, 'x-fullnet-signature'), key.secret, metadata, {keyId:key.keyId,clock,maxAgeSeconds}) || !keyActive()) throw problem(401, 'webhook_consumer.signature_invalid');
         let envelope; try { envelope = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(body)); } catch { throw problem(400, 'webhook_consumer.payload_invalid'); }
         const eventId = header(request, 'x-fullnet-event-id'), deliveryId = header(request, 'x-fullnet-delivery-id');
         if (!isGuid(eventId) || !isGuid(deliveryId) || !isGuid(envelope?.EventId) || envelope.EventId.toLowerCase() !== eventId.toLowerCase()
@@ -71,7 +74,9 @@ export async function startReceiver({ secret, keyId, tenantId, receiptsFile, hos
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   try {
-    const receiver = await startReceiver({ secret: await readSigningSecret(process.env.FULLNET_WEBHOOK_SIGNING_SECRET_FILE), keyId: process.env.FULLNET_WEBHOOK_KEY_ID, tenantId: process.env.FULLNET_WEBHOOK_TENANT_ID,
+    if(process.env.FULLNET_WEBHOOK_SIGNING_KEYS_FILE&&(process.env.FULLNET_WEBHOOK_SIGNING_SECRET_FILE||process.env.FULLNET_WEBHOOK_KEY_ID))throw Error('webhook_consumer.keys_config_invalid');
+    const keys=process.env.FULLNET_WEBHOOK_SIGNING_KEYS_FILE?{signingKeys:await readSigningKeys(process.env.FULLNET_WEBHOOK_SIGNING_KEYS_FILE)}:{secret:await readSigningSecret(process.env.FULLNET_WEBHOOK_SIGNING_SECRET_FILE),keyId:process.env.FULLNET_WEBHOOK_KEY_ID};
+    const receiver = await startReceiver({ ...keys, tenantId: process.env.FULLNET_WEBHOOK_TENANT_ID,
       maxAgeSeconds:Number(process.env.FULLNET_WEBHOOK_SIGNATURE_WINDOW_SECONDS ?? 300),
       receiptsFile: process.env.FULLNET_WEBHOOK_RECEIPTS_FILE, host: process.env.FULLNET_WEBHOOK_HOST ?? '127.0.0.1', port: Number(process.env.FULLNET_WEBHOOK_PORT ?? 8085) });
     console.log(`WEBHOOK_CONSUMER_READY port=${receiver.address.port}`);

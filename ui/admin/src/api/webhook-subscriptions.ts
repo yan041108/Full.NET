@@ -1,5 +1,39 @@
 import { isGuid, readWebhookSubscription, readWebhookSubscriptions, type WebhookSubscription, type CreateWebhookSubscription, type SetWebhookSubscriptionStatus } from '@fullnet/client-contracts';
 import { request } from './http';
+import { readWebhookSigningKeyRotationReceipt, type WebhookSigningKeyRotationReceipt, type PrepareWebhookSigningKeyRotation, type CompleteWebhookSigningKeyRotation } from '@fullnet/client-contracts';
+
+const rotationId = (value: string) => isGuid(value) && value !== '00000000-0000-0000-0000-000000000000';
+function rotationResult(value: unknown, subscriptionId: string, operationId?: string): WebhookSigningKeyRotationReceipt {
+  const row=readWebhookSigningKeyRotationReceipt(value);
+  if(row.subscriptionId.toLowerCase()!==subscriptionId.toLowerCase()||operationId&&row.operationId.toLowerCase()!==operationId.toLowerCase())throw Error('client.invalid_webhook_rotation_identity');
+  return row;
+}
+/** 只读取原订阅当前准备；404 不代表未知写入必然未发生。 */
+export async function getPendingWebhookSigningKeyRotation(subscriptionId: string,signal?: AbortSignal): Promise<WebhookSigningKeyRotationReceipt> {
+  if(!rotationId(subscriptionId))throw Error('client.invalid_webhook_rotation_identity');
+  const row=rotationResult(await request<unknown>(`/api/v1/webhooks/subscriptions/${subscriptionId}/signing-key-rotations/pending`,{method:'GET'},signal),subscriptionId);
+  if(row.stateKey!=='prepared')throw Error('client.invalid_webhook_rotation_state');return row;
+}
+/** 原操作回执只读取，不自动激活或取消。 */
+export async function getWebhookSigningKeyRotation(subscriptionId: string,operationId: string,signal?: AbortSignal): Promise<WebhookSigningKeyRotationReceipt> {
+  if(![subscriptionId,operationId].every(rotationId))throw Error('client.invalid_webhook_rotation_identity');
+  return rotationResult(await request<unknown>(`/api/v1/webhooks/subscriptions/${subscriptionId}/signing-key-rotations/${operationId}`,{method:'GET'},signal),subscriptionId,operationId);
+}
+/** 准备固定原操作和修订；关闭认证重发，秘密不进入读取回执。 */
+export async function prepareWebhookSigningKeyRotation(subscriptionId: string,body: PrepareWebhookSigningKeyRotation,signal?: AbortSignal): Promise<WebhookSigningKeyRotationReceipt> {
+  const snapshot={...body};if(![subscriptionId,snapshot.operationId].every(rotationId)||!Number.isSafeInteger(snapshot.version)||snapshot.version<1||snapshot.version>2_147_483_645||typeof snapshot.signingSecret!=='string'||snapshot.signingSecret.length<16||snapshot.signingSecret.length>128)throw Error('client.invalid_webhook_rotation_request');
+  const row=rotationResult(await request<unknown>(`/api/v1/webhooks/subscriptions/${subscriptionId}/signing-key-rotations`,{method:'POST',body:JSON.stringify(snapshot)},signal,{retryUnauthorized:false}),subscriptionId,snapshot.operationId);
+  if(row.previousVersion!==snapshot.version)throw Error('client.invalid_webhook_rotation_version');return row;
+}
+async function completeRotation(subscriptionId:string,operationId:string,body:CompleteWebhookSigningKeyRotation,activate:boolean,signal?:AbortSignal):Promise<WebhookSigningKeyRotationReceipt>{
+  const snapshot={...body};if(![subscriptionId,operationId,snapshot.signingKeyId].every(rotationId)||!Number.isSafeInteger(snapshot.version)||snapshot.version<1||snapshot.version>2_147_483_646)throw Error('client.invalid_webhook_rotation_request');
+  const row=rotationResult(await request<unknown>(`/api/v1/webhooks/subscriptions/${subscriptionId}/signing-key-rotations/${operationId}/${activate?'activate':'cancel'}`,{method:'POST',body:JSON.stringify(snapshot)},signal,{retryUnauthorized:false}),subscriptionId,operationId);
+  if(row.signingKeyId.toLowerCase()!==snapshot.signingKeyId.toLowerCase()||row.stateKey!==(activate?'activated':'cancelled')||row.completedVersion!==snapshot.version+1)throw Error('client.invalid_webhook_rotation_completion');return row;
+}
+/** 明确激活接收方已配置的新身份，未知结果仍沿用原操作与修订。 */
+export function activateWebhookSigningKeyRotation(subscriptionId:string,operationId:string,body:CompleteWebhookSigningKeyRotation,signal?:AbortSignal):Promise<WebhookSigningKeyRotationReceipt>{return completeRotation(subscriptionId,operationId,body,true,signal);}
+/** 明确取消只清除准备材料，当前活动密钥不变。 */
+export function cancelWebhookSigningKeyRotation(subscriptionId:string,operationId:string,body:CompleteWebhookSigningKeyRotation,signal?:AbortSignal):Promise<WebhookSigningKeyRotationReceipt>{return completeRotation(subscriptionId,operationId,body,false,signal);}
 import { readWebhookDeliveryHistory, readWebhookDeliveryHistoryPage, type WebhookDeliveryHistory, type WebhookDeliveryHistoryPage, type WebhookDeliveryStatusKey } from '@fullnet/client-contracts';
 import { readWebhookDeliveryAttemptPage, type WebhookDeliveryAttemptPage } from '@fullnet/client-contracts';
 import { readWebhookDeliveryReplayReceipt, type WebhookDeliveryReplayReceipt, type ReplayWebhookDelivery } from '@fullnet/client-contracts';

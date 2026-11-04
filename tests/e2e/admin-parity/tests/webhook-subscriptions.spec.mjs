@@ -62,6 +62,35 @@ test('关闭在途创建后密钥清空，迟到响应不能误报成功',async(
 const deliveryA='019bc2b1-2a40-7cc3-8992-a80de51bf297',deliveryB='019bc2b1-2a40-7cc3-8992-a80de51bf296',eventId='019bc2b1-2a40-7cc3-8992-a80de51bf295';
 const history={id:deliveryA,tenantId:id,subscriptionId:id,eventId,statusKey:'failed',attemptCount:2,nextAttemptAtUtc:null,lastErrorCode:'webhooks.delivery.http_error',lastHttpStatus:503,createdAtUtc:'2026-11-04T00:00:00Z',updatedAtUtc:'2026-11-04T00:01:00Z',version:3};
 const historyRights=['webhooks.subscriptions.read','webhooks.deliveries.read'];
+
+const preparedSigningKey='019bc2b1-2a40-7cc3-8992-a80de51bf293';
+async function wireSigningRotation(page,state,{pending=false,unknownActivation=false}={}){
+ const template={operationId:id,tenantId:id,subscriptionId:id,previousKeyId:id,signingKeyId:preparedSigningKey,previousVersion:1,preparedVersion:2,stateKey:'prepared',preparedAtUtc:'2026-11-05T00:00:00Z',completedAtUtc:null,completedVersion:null};
+ const flow={receipt:pending?{...template}:undefined,prepares:0,activations:[],reads:0,missingReads:0};if(pending)state.rows[0].version=2;
+ const missing=route=>route.fulfill({status:404,contentType:'application/problem+json',body:JSON.stringify({type:'about:blank',title:'Missing',status:404,code:'webhooks.signing_key_rotation.not_found'})});
+ await page.route(`**/api/v1/webhooks/subscriptions/${id}/signing-key-rotations**`,route=>{
+  const suffix=new URL(route.request().url()).pathname.split('/signing-key-rotations')[1];
+  if(route.request().method()==='GET'){flow.reads++;if(flow.missingReads>0){flow.missingReads--;return missing(route);}return flow.receipt&&(suffix!=='/pending'||flow.receipt.stateKey==='prepared')?json(route,flow.receipt):missing(route);}
+  const body=route.request().postDataJSON();if(!suffix||suffix==='/'){flow.prepares++;expect(body.version).toBe(state.rows[0].version);flow.receipt={...template,operationId:body.operationId};state.rows[0].version++;return json(route,flow.receipt);}
+  if(suffix.endsWith('/activate')){flow.activations.push(body);if(unknownActivation&&flow.activations.length===1)return route.fulfill({status:503,contentType:'application/problem+json',body:JSON.stringify({type:'about:blank',title:'Unavailable',status:503,code:'server.unavailable'})});expect(body).toEqual({version:state.rows[0].version,signingKeyId:preparedSigningKey});state.rows[0].version++;state.rows[0].signingKeyId=preparedSigningKey;flow.receipt={...flow.receipt,stateKey:'activated',completedAtUtc:'2026-11-05T00:01:00Z',completedVersion:state.rows[0].version};return json(route,flow.receipt);}
+  return missing(route);
+ });return flow;
+}
+async function prepareSigningRotation(page){await page.getByTestId('webhook-key-open').click();await page.getByTestId('webhook-key-secret').fill('browser-new-independent-secret');await page.getByTestId('webhook-key-prepare').click();await expect(page.getByTestId('webhook-key-receipt')).toContainText(preparedSigningKey);await expect(page.getByTestId('webhook-key-secret')).toHaveCount(0);}
+async function screenshotSigningRotation(page,info,name){const dialog=page.getByRole('dialog');const box=await dialog.boundingBox();expect(box.x).toBeGreaterThanOrEqual(0);expect(box.x+box.width).toBeLessThanOrEqual(page.viewportSize().width);await dialog.screenshot({path:path.resolve(info.outputDir,'..',name+'.png'),animations:'disabled'});expect((await new AxeBuilder({page}).include('[role="dialog"]').withTags(['wcag2a','wcag2aa','wcag21a','wcag21aa']).analyze()).violations).toEqual([]);}
+
+test('签名密钥轮换先准备并核对接收端，再明确激活',async({page},info)=>{
+ const state=await boot(page,['webhooks.subscriptions.read','webhooks.subscriptions.rotate_signing_key']);const flow=await wireSigningRotation(page,state);await prepareSigningRotation(page);expect(state.rows[0].signingKeyId).toBe(id);expect(flow.activations).toHaveLength(0);
+ await page.getByTestId('webhook-key-activate').click();await expect(page.getByTestId('webhook-key-confirm')).toBeDisabled();await screenshotSigningRotation(page,info,'signing-key-confirm');await page.getByTestId('webhook-key-ack').click();await page.getByTestId('webhook-key-confirm').click();await expect(page.getByTestId('webhook-key-receipt')).toContainText('新密钥已激活');expect(flow.activations).toHaveLength(1);expect(state.rows[0].signingKeyId).toBe(preparedSigningKey);await expect(page.getByTestId('webhook-key-rotation').locator('p').filter({hasText:'当前活动 KeyId'})).toContainText(preparedSigningKey);await screenshotSigningRotation(page,info,'signing-key-activated');
+});
+test('签名密钥轮换未知激活只读原操作，404及未完成不触发新操作',async({page},info)=>{
+ const state=await boot(page,['webhooks.subscriptions.read','webhooks.subscriptions.rotate_signing_key']);const flow=await wireSigningRotation(page,state,{unknownActivation:true});await prepareSigningRotation(page);await page.getByTestId('webhook-key-activate').click();await page.getByTestId('webhook-key-ack').click();await page.getByTestId('webhook-key-confirm').click();await expect(page.getByTestId('webhook-key-unknown')).toBeVisible();await screenshotSigningRotation(page,info,'signing-key-unknown');
+ flow.missingReads=1;let reads=flow.reads;await page.getByTestId('webhook-key-read').click();await expect.poll(()=>flow.reads).toBe(reads+1);await expect(page.getByTestId('webhook-key-read')).toBeEnabled();await expect(page.getByTestId('webhook-key-unknown')).toBeVisible();reads=flow.reads;await page.getByTestId('webhook-key-read').click();await expect.poll(()=>flow.reads).toBe(reads+1);await expect(page.getByTestId('webhook-key-read')).toBeEnabled();await expect(page.getByTestId('webhook-key-unknown')).toBeVisible();expect(flow.activations).toHaveLength(1);
+ await page.getByTestId('webhook-key-activate').click();await page.getByTestId('webhook-key-ack').click();await page.getByTestId('webhook-key-confirm').click();await expect(page.getByTestId('webhook-key-unknown')).toHaveCount(0);expect(flow.prepares).toBe(1);expect(flow.activations[1]).toEqual(flow.activations[0]);
+});
+test('签名密钥轮换独立只读权限可核对待处理身份，不能准备或激活',async({page},info)=>{
+ const state=await boot(page,['webhooks.subscriptions.read']);const flow=await wireSigningRotation(page,state,{pending:true});await page.getByTestId('webhook-key-open').click();await expect(page.getByTestId('webhook-key-receipt')).toContainText(preparedSigningKey);for(const testId of ['webhook-key-secret','webhook-key-prepare','webhook-key-activate','webhook-key-cancel'])await expect(page.getByTestId(testId)).toHaveCount(0);await screenshotSigningRotation(page,info,'signing-key-readonly');expect(flow.prepares).toBe(0);expect(flow.activations).toHaveLength(0);
+});
 test('历史分页筛选与详情只读取原订阅，独立读取权限可用',async({page},info)=>{
  await boot(page,historyRights);let lists=0,details=0;const queries=[];
  await page.route(`**/api/v1/webhooks/subscriptions/${id}/deliveries?*`,route=>{lists++;const url=new URL(route.request().url());queries.push(url.search);const pageNumber=Number(url.searchParams.get('page'));return json(route,{items:[{...history,id:pageNumber===2?deliveryB:deliveryA}],page:pageNumber,pageSize:Number(url.searchParams.get('pageSize')),total:url.searchParams.has('statusKey')?1:21});});

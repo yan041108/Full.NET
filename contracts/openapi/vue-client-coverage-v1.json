@@ -2280,7 +2280,8 @@
         "ui/admin/src/views/WebhookSubscriptionsView.vue",
         "ui/admin/src/views/webhooks/WebhookDeliveryHistoryDrawer.vue",
         "ui/admin/src/views/webhooks/WebhookDeliveryAttemptsPanel.vue",
-        "ui/admin/src/views/webhooks/WebhookDeliveryReplayPanel.vue"
+        "ui/admin/src/views/webhooks/WebhookDeliveryReplayPanel.vue",
+        "ui/admin/src/views/webhooks/WebhookSigningKeyRotationPanel.vue"
       ]
     }
   ]

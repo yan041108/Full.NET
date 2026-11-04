@@ -10,4 +10,6 @@
   <data name="webhooks.delivery.not_found" xml:space="preserve"><value>The delivery was not found under this tenant subscription.</value></data>
   <data name="webhooks.delivery.replay_conflict" xml:space="preserve"><value>The operation, delivery version, state or active subscription conflicts. Read the original receipt and delivery before confirming again.</value></data>
   <data name="webhooks.delivery.replay_receipt_not_found" xml:space="preserve"><value>The original replay receipt was not found for the current actor and delivery.</value></data>
+  <data name="webhooks.signing_key_rotation.conflict" xml:space="preserve"><value>The rotation or subscription revision changed. Read the original rotation and current subscription before confirming again.</value></data>
+  <data name="webhooks.signing_key_rotation.not_found" xml:space="preserve"><value>The rotation or pending identity was not found under the original subscription.</value></data>
 </root>

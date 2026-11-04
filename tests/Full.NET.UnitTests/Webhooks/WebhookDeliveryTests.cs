@@ -174,6 +174,10 @@ public sealed class WebhookDeliveryTests
         var protector = new WebhookSigningSecretProtector(provider);
         var protectedValue = protector.Protect("demo-secret");
         Assert.AreEqual("demo-secret", protector.Unprotect(protectedValue));
+        var fingerprint=protector.ProtectFingerprint("demo-secret");
+        Assert.IsTrue(protector.MatchesFingerprint("demo-secret",fingerprint));
+        Assert.IsFalse(protector.MatchesFingerprint("different-secret",fingerprint));
+        Assert.AreNotEqual(Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes("demo-secret"))),fingerprint);
     }
 
     [TestMethod]
@@ -230,6 +234,8 @@ public sealed class WebhookDeliveryTests
                 Arg.Any<CancellationToken>())
             .Returns(Task.FromResult(1));
 
+        query.QuerySingleOrDefaultAsync<WebhookSigningProfileRecord>(Arg.Any<SqlStatement>(),Arg.Any<IReadOnlyDictionary<string,object?>>(),Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<WebhookSigningProfileRecord?>(new(subscriptionId,protectedSecret)));
         var transaction = new DapperCommandTransaction(new RecordingDbTransactionCoordinator());
         var processor = new WebhookDeliveryBatchProcessor(
             query,
@@ -316,6 +322,8 @@ public sealed class WebhookDeliveryTests
         var first = new WebhookDeliveryWorkItem(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "{}", 0, 1,
             Guid.NewGuid(), "https://93.184.216.34/hook", protector.Protect("secret"), "event", Guid.CreateVersion7());
         var second = first with { Id = Guid.NewGuid() };
+        query.QuerySingleOrDefaultAsync<WebhookSigningProfileRecord>(Arg.Any<SqlStatement>(),Arg.Any<IReadOnlyDictionary<string,object?>>(),Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<WebhookSigningProfileRecord?>(new(first.SigningKeyId,first.SigningSecretHash)));
         query.QueryAsync<WebhookDeliveryWorkItem>(Arg.Any<SqlStatement>(), Arg.Any<IReadOnlyDictionary<string, object?>>(),
             Arg.Any<CancellationToken>()).Returns(Task.FromResult<IReadOnlyList<WebhookDeliveryWorkItem>>([first]),
                 Task.FromResult<IReadOnlyList<WebhookDeliveryWorkItem>>([second]),

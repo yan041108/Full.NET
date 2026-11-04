@@ -20,6 +20,9 @@ public static class WebhookPermissions
 
     /// <summary>允许按原版本手动排队本企业的终态失败投递。</summary>
     public const string DeliveriesReplay = "webhooks.deliveries.replay";
+
+    /// <summary>允许准备、明确激活或取消本企业订阅的签名密钥轮换。</summary>
+    public const string SigningKeysRotate = "webhooks.subscriptions.rotate_signing_key";
 }
 
 /// <summary>
@@ -65,6 +68,12 @@ public static class WebhookErrorCodes
 
     /// <summary>当前操作者在原资源下没有对应重放回执。</summary>
     public const string ReplayReceiptNotFound = "webhooks.delivery.replay_receipt_not_found";
+
+    /// <summary>轮换操作、原版本、待准备身份或完成状态冲突。</summary>
+    public const string SigningKeyRotationConflict = "webhooks.signing_key_rotation.conflict";
+
+    /// <summary>原订阅没有对应的轮换记录或待激活身份。</summary>
+    public const string SigningKeyRotationNotFound = "webhooks.signing_key_rotation.not_found";
 
     /// <summary>订阅目标 URL 非法：未通过 HTTPS、主机名解析或回调地址校验。</summary>
     public const string TargetUrlInvalid = "webhooks.subscription.target_url_invalid";

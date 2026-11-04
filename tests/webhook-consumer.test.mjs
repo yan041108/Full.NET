@@ -8,11 +8,28 @@ import http from 'node:http';
 import { spawn, spawnSync } from 'node:child_process';
 import { once } from 'node:events';
 import { startReceiver } from '../samples/webhook-consumer/server.mjs';
-import { readSigningSecret, verifySignature, computeSignature } from '../samples/webhook-consumer/signature.mjs';
+import { readSigningSecret, readSigningKeys, normalizeSigningKeys, verifySignature, computeSignature } from '../samples/webhook-consumer/signature.mjs';
 import { openReceiptStore } from '../samples/webhook-consumer/receipt-store.mjs';
 
 const secret = 'independent-consumer-secret', tenantId = '019bc2b1-2a40-7cc3-8992-a80de51bf299', eventId = '019bc2b1-2a40-7cc3-8992-a80de51bf298', deliveryId = '019bc2b1-2a40-7cc3-8992-a80de51bf297';
 const envelope = JSON.parse(await readFile(new URL('../contracts/webhooks/workflow-instance-completed-v1.json', import.meta.url), 'utf8'));
+test('明确旧键退役期限后拒绝其新签名，新键重复投递仍返回原消费事实',async t=>{
+ let now=Date.now();const nextSecret='receiver-new-protected-secret',nextKey='019bc2b1-2a40-7cc3-8992-a80de51bf296';
+ const keys=[{keyId:tenantId,secret,acceptUntilUtc:new Date(now+1000).toISOString()},{keyId:nextKey,secret:nextSecret,acceptUntilUtc:null}];
+ const f=await fixture(t,{secret:undefined,keyId:undefined,signingKeys:keys,clock:()=>now});
+ assert.equal((await f.send()).status,200);keys[0].acceptUntilUtc=null;keys[1].secret='caller-mutated-secret';
+ const body=JSON.stringify(envelope),metadata=stamp({keyId:nextKey,timestamp:String(Math.floor(now/1000))});
+ let result=await f.send(envelope,{'X-FullNet-Key-Id':nextKey,'X-FullNet-Timestamp':metadata.timestamp,'X-FullNet-Signature':computeSignature(body,nextSecret,metadata)},body);
+ assert.equal(result.status,200);assert.equal((await result.json()).duplicate,true);
+ now+=2000;result=await f.send(envelope,{'X-FullNet-Timestamp':String(Math.floor(now/1000))});assert.equal(result.status,401);
+ const refreshed={...metadata,timestamp:String(Math.floor(now/1000))};result=await f.send(envelope,{'X-FullNet-Key-Id':nextKey,'X-FullNet-Timestamp':refreshed.timestamp,'X-FullNet-Signature':computeSignature(body,nextSecret,refreshed)},body);assert.equal(result.status,200);assert.equal((await result.json()).duplicate,true);
+});
+test('轮换秘密配置只允许有界文件引用、唯一身份及明确退役策略',async t=>{
+ const root=await mkdtemp(path.join(os.tmpdir(),'fullnet-webhook-keys-'));t.after(()=>rm(root,{recursive:true,force:true}));const secretFile=path.join(root,'secret'),configFile=path.join(root,'keys.json');await writeFile(secretFile,secret);
+ const entry={keyId:tenantId,secretFile,acceptUntilUtc:null};await writeFile(configFile,JSON.stringify({keys:[entry]}));assert.equal((await readSigningKeys(configFile))[0].secret,secret);
+ for(const keys of [[entry,entry],[{...entry,secretFile:'relative'}],[{...entry,secret}],[{...entry,acceptUntilUtc:'2099-01-01T00:00:00Z'}]]){await writeFile(configFile,JSON.stringify({keys}));await assert.rejects(readSigningKeys(configFile));}
+ assert.throws(()=>normalizeSigningKeys([{keyId:tenantId,secret,acceptUntilUtc:null},{keyId:eventId,secret,acceptUntilUtc:null}]));
+});
 const stamp = (changes={}) => ({version:'1',keyId:tenantId,timestamp:String(Math.floor(Date.now()/1000)),eventId,deliveryId,eventType:envelope.EventType,...changes});
 const signature = (body,metadata=stamp()) => computeSignature(body,secret,metadata);
 const signedHeaders = (body,metadata=stamp()) => ({'X-FullNet-Signature':signature(body,metadata),'X-FullNet-Signature-Version':metadata.version,'X-FullNet-Key-Id':metadata.keyId,'X-FullNet-Timestamp':metadata.timestamp,'X-FullNet-Event-Id':metadata.eventId,'X-FullNet-Delivery-Id':metadata.deliveryId,'X-FullNet-Event-Type':metadata.eventType});

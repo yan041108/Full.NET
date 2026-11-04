@@ -71,6 +71,25 @@ export interface WebhookDeliveryReplayReceipt {
   previousVersion: number; version: number; attemptCount: number; queuedAtUtc: string;
 }
 export interface ReplayWebhookDelivery { operationId: string; version: number }
+/** 轮换公开事实；准备秘密及其加密指纹均不进入客户端模型。 */
+export interface WebhookSigningKeyRotationReceipt {
+  operationId: string; tenantId: string; subscriptionId: string; previousKeyId: string; signingKeyId: string;
+  previousVersion: number; preparedVersion: number; stateKey: 'prepared' | 'activated' | 'cancelled';
+  preparedAtUtc: string; completedAtUtc: string | null; completedVersion: number | null;
+}
+export interface PrepareWebhookSigningKeyRotation { operationId: string; version: number; signingSecret: string }
+export interface CompleteWebhookSigningKeyRotation { version: number; signingKeyId: string }
+export function readWebhookSigningKeyRotationReceipt(value: unknown): WebhookSigningKeyRotationReceipt {
+  if (!isRecord(value) || ![value.operationId,value.tenantId,value.subscriptionId,value.previousKeyId,value.signingKeyId].every(id => isGuid(id) && id !== '00000000-0000-0000-0000-000000000000')
+    || (value.previousKeyId as string).toLowerCase() === (value.signingKeyId as string).toLowerCase() || !utc(value.preparedAtUtc) || !['prepared','activated','cancelled'].includes(value.stateKey as string)) throw Error('client.invalid_webhook_rotation');
+  const previousVersion=integer(value.previousVersion,1,2_147_483_645),preparedVersion=integer(value.preparedVersion,2,2_147_483_646);
+  if(preparedVersion!==previousVersion+1)throw Error('client.invalid_webhook_rotation_version');
+  let completedVersion:number|null=null;
+  if(value.stateKey==='prepared'){if(value.completedAtUtc!==null||value.completedVersion!==null)throw Error('client.invalid_webhook_rotation_state');}
+  else {if(!utc(value.completedAtUtc))throw Error('client.invalid_webhook_rotation_time');completedVersion=integer(value.completedVersion,preparedVersion+1);if(Date.parse(value.completedAtUtc)<Date.parse(value.preparedAtUtc))throw Error('client.invalid_webhook_rotation_time');}
+  return {operationId:value.operationId as string,tenantId:value.tenantId as string,subscriptionId:value.subscriptionId as string,previousKeyId:value.previousKeyId as string,signingKeyId:value.signingKeyId as string,
+    previousVersion,preparedVersion,stateKey:value.stateKey as WebhookSigningKeyRotationReceipt['stateKey'],preparedAtUtc:value.preparedAtUtc,completedAtUtc:value.completedAtUtc as string|null,completedVersion};
+}
 export function readWebhookDeliveryReplayReceipt(value: unknown): WebhookDeliveryReplayReceipt {
   if (!isRecord(value) || ![value.operationId,value.tenantId,value.subscriptionId,value.deliveryId,value.eventId].every(id => isGuid(id) && id !== '00000000-0000-0000-0000-000000000000') || !utc(value.queuedAtUtc)) throw Error('client.invalid_webhook_replay_receipt');
   const previousVersion = integer(value.previousVersion, 1, 2_147_483_644), version = integer(value.version, 2);
