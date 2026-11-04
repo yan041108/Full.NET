@@ -6,6 +6,8 @@ using Full.NET.Modules.Workflow.Contracts;
 using Full.NET.Modules.Workflow.Features;
 using Full.NET.Modules.Workflow.Domain;
 using Full.NET.Modules.Workflow.Features.FormAttachments;
+using Full.NET.Modules.Workflow.Features.ManageDefinitions;
+using Full.NET.Modules.Workflow.Features.ManageMyTodos;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
@@ -19,6 +21,16 @@ internal static class Endpoint
     /// <param name="endpoints">应用端点路由构建器。</param>
     public static void Map(IEndpointRouteBuilder endpoints)
     {
+        endpoints.MapGet("/api/v1/workflow/instances/{instanceId:guid}/reassignment-candidates", async (Guid instanceId,
+            Guid todoId, int? page, int? pageSize, WorkflowTodoAssigneeCandidateQueryService service, IApiResultMapper mapper,
+            HttpContext context, CancellationToken token) =>
+        {
+            if (!Guid.TryParse(context.User.FindFirst("sub")?.Value, out var actor) || actor == Guid.Empty)
+                return Results.Problem(statusCode: StatusCodes.Status401Unauthorized);
+            return mapper.Map(await service.ListReassignmentAsync(instanceId, todoId, actor, page ?? 1, pageSize ?? 20, token).ConfigureAwait(false), context);
+        }).WithName("workflowListReassignmentCandidates").WithTags("WorkflowInstances").Produces<WorkflowReassignmentCandidatePageResponse>()
+            .ProducesProblem(400).ProducesProblem(401).ProducesProblem(403).ProducesProblem(404).ProducesProblem(409)
+            .RequireAuthorization(FullNetPermissionPolicies.For(WorkflowPermissions.InstancesRead), FullNetPermissionPolicies.For(WorkflowPermissions.InstancesRecover));
         endpoints.MapGet("/api/v1/workflow/definition-versions/{versionId:guid}/starter-selections", async (Guid versionId,
             WorkflowStarterSelectionQueryService service, IApiResultMapper mapper, HttpContext context, CancellationToken token) =>
             mapper.Map(await service.GetAsync(versionId, token).ConfigureAwait(false), context))

@@ -18,6 +18,35 @@ public sealed class WorkflowTodoAssigneeCandidateQueryServiceTests
     [TestMethod]
     [DataRow(false)]
     [DataRow(true)]
+    public async Task Administrative_reassignment_reads_the_scoped_directory_without_requiring_todo_ownership(bool isTenant)
+    {
+        var f = Create(isTenant);
+        f.Host.ListActiveHostUsersAsync(1, 50, Arg.Any<CancellationToken>()).Returns(new PagedResult<HostUserDirectoryEntry>([new(f.Actor, "actor", "Actor")], 1, 50, 1));
+        f.TenantUsers.ListActiveTenantMembersAsync(1, 50, Arg.Any<CancellationToken>()).Returns(new PagedResult<TenantUserDirectoryEntry>([new(f.Actor, "actor", "Actor")], 1, 50, 1));
+        var result = await f.Service.ListReassignmentAsync(f.Todo.InstanceId, f.Todo.Id, Guid.CreateVersion7(), 1, 50);
+        Assert.IsTrue(result.IsSuccess); Assert.AreEqual(f.Actor, result.Value!.Items.Single().Id);
+        await f.Host.Received(isTenant ? 0 : 1).ListActiveHostUsersAsync(1, 50, Arg.Any<CancellationToken>());
+        await f.TenantUsers.Received(isTenant ? 1 : 0).ListActiveTenantMembersAsync(1, 50, Arg.Any<CancellationToken>());
+    }
+
+    [TestMethod]
+    [DataRow("wrong_instance", WorkflowErrorCodes.TodoNotActive)]
+    [DataRow("missing", WorkflowErrorCodes.TodoNotActive)]
+    [DataRow("completed", WorkflowErrorCodes.InvalidTransition)]
+    [DataRow("paused", WorkflowErrorCodes.InvalidTransition)]
+    [DataRow("overflow", WorkflowErrorCodes.SchemaInvalid)]
+    public async Task Administrative_denial_never_enumerates_the_directory(string scenario, string code)
+    {
+        var f = Create(false, scenario);
+        var result = await f.Service.ListReassignmentAsync(scenario == "wrong_instance" ? Guid.CreateVersion7() : f.Todo.InstanceId,
+            f.Todo.Id, f.Actor, scenario == "overflow" ? int.MaxValue : 1, 50);
+        Assert.IsFalse(result.IsSuccess); Assert.AreEqual(code, result.Error!.Code);
+        Assert.AreEqual(0, f.Host.ReceivedCalls().Count()); Assert.AreEqual(0, f.TenantUsers.ReceivedCalls().Count());
+    }
+
+    [TestMethod]
+    [DataRow(false)]
+    [DataRow(true)]
     public async Task Transfer_candidate_scope_supports_multi_approval_without_definition_or_countersign_permission(bool isTenant)
     {
         var f = Create(isTenant, "multi");
@@ -87,9 +116,11 @@ public sealed class WorkflowTodoAssigneeCandidateQueryServiceTests
     }
 
     [TestMethod]
-    [DataRow(false)]
-    [DataRow(true)]
-    public async Task Collaboration_candidates_use_only_current_active_accepted_members_and_deny_revoked_grants(bool revoked)
+    [DataRow(false, false)]
+    [DataRow(true, false)]
+    [DataRow(false, true)]
+    [DataRow(true, true)]
+    public async Task Collaboration_candidates_use_only_current_active_accepted_members_and_deny_revoked_grants(bool revoked, bool administrative)
     {
         var data = WorkflowCollaborationTargetTests.Fixture(); var f = Create(true, actorOverride: data.Accepted.StarterUserId);
         f.Tenant.SetTenant(new TenantContext(data.Grant.TargetTenantId!.Value, "target", "协作目标"));
@@ -102,6 +133,13 @@ public sealed class WorkflowTodoAssigneeCandidateQueryServiceTests
         f.TenantUsers.FindActiveTenantMembersAsync(Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>())
             .Returns(data.Accepted.AllowedUserIds.ToDictionary(id => id, id => new TenantUserDirectoryEntry(id, "allowed", "已同意成员")));
         var result = await f.Service.ListTransferAsync(f.Todo.Id, f.Actor, 1, 50);
+        if (administrative)
+        {
+            f.TenantUsers.ClearReceivedCalls();
+            var managed = await f.Service.ListReassignmentAsync(f.Todo.InstanceId, f.Todo.Id, f.Actor, 1, 50);
+            Assert.AreEqual(result.IsSuccess, managed.IsSuccess);
+            if (managed.IsSuccess) CollectionAssert.AreEqual(result.Value!.Items.Select(x => x.Id).ToArray(), managed.Value!.Items.Select(x => x.Id).ToArray());
+        }
         Assert.AreEqual(!revoked, result.IsSuccess);
         if (!revoked)
         {

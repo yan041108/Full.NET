@@ -1533,6 +1533,11 @@
           "filter": "FullyQualifiedName~ImportMembershipRevocationTests",
           "minimum": 4,
           "timeout": "4m"
+        },
+        "workflow-reassignment-candidates": {
+          "filter": "FullyQualifiedName~WorkflowReassignmentCandidatesApiTests",
+          "minimum": 2,
+          "timeout": "4m"
         }
       }
     }
@@ -2298,7 +2303,7 @@
       },
       "infrastructure": {
         "filter": "TestCategory!=ExternalSmtp&TestCategory!=ExternalAliyunSms&TestCategory!=NativeWorkflowApi&TestCategory!=NativeWorkflow&TestCategory!=NativeWorkflowWindows&TestCategory!=WorkflowNativeKafka&TestCategory!=WorkflowPhysicalKafka&FullyQualifiedName!~Full.NET.IntegrationTests.NativeAot&FullyQualifiedName!~ApiSqlServerTests&FullyQualifiedName!~ApiMySqlTests&FullyQualifiedName!~Full.NET.IntegrationTests.Migrations&FullyQualifiedName!~KafkaCapacityRunnerTests&FullyQualifiedName!~KafkaOutboxCdcCapacityRunnerTests&FullyQualifiedName!~KafkaLogDeliveryTests&FullyQualifiedName!~KafkaLogRequestLatencyTests&FullyQualifiedName!~KafkaCollectorRequestReplayTests&FullyQualifiedName!~KafkaLogRouteComparisonTests&FullyQualifiedName!~KafkaLogConsumerDeliveryTests&FullyQualifiedName!~KafkaLogConsumerElasticsearchReplayTests&FullyQualifiedName!~KafkaLogConsumerElasticsearchTlsTests&FullyQualifiedName!~MySqlCdcDebeziumInboxE2ETests&FullyQualifiedName!~SqlServerCdcDebeziumInboxE2ETests&FullyQualifiedName!~OrganizationCdcKafkaIdentityProjectionMySqlE2ETests&FullyQualifiedName!~OrganizationUnitCdcKafkaEndToEndTests&FullyQualifiedName!~OrganizationUnitCdcKafkaFaultMatrixTests&FullyQualifiedName!~EventDeliveryCutoverTests&FullyQualifiedName!~EventDeliveryRollbackTests&FullyQualifiedName!~CdcCrashPointTests&FullyQualifiedName!~KafkaFailureRecoveryTests&FullyQualifiedName!~MessagingBatchOneTests&FullyQualifiedName!~KafkaReplayTests&FullyQualifiedName!~KafkaSubscriptionTests&FullyQualifiedName!~MySqlBinlogShadowTests&FullyQualifiedName!~SqlServerCdcShadowTests&FullyQualifiedName!~KafkaLogSecretBoundaryTests&FullyQualifiedName!~MessagingDeliveryControlTests&FullyQualifiedName!~MessagingShadowCaptureTests&FullyQualifiedName!~MessagingDeliveryOverviewTests&FullyQualifiedName!~MessagingShadowCaptureDebeziumTests&FullyQualifiedName!~MessagingCutoverRollbackDebeziumTests&FullyQualifiedName!~IdentityBrowserUiTests&FullyQualifiedName!~WorkflowCollaborationGrantBrowserUiTests&FullyQualifiedName!~AiKnowledgeCorrectionBrowserUiTests&FullyQualifiedName!~IdentityOidcNetworkInteropTests&FullyQualifiedName!~MessagingCdcHealthCollectionTests&FullyQualifiedName!~MessagingMultiProcessRecoveryTests&FullyQualifiedName!~MessagingCdcAlertLoopTests&FullyQualifiedName!~MessagingKafkaQuorumRecoveryTests&FullyQualifiedName!~MessagingCdcSourceAlertLoopTests&FullyQualifiedName!~KafkaRetentionTimeObservationTests&FullyQualifiedName!~KafkaRollbackTopologyTests",
-        "minimum": 855,
+        "minimum": 857,
         "timeout": "60m"
       },
       "messaging-heavy": {
@@ -2326,7 +2331,7 @@
       },
       "full": {
         "filter": "TestCategory!=ExternalSmtp&TestCategory!=ExternalAliyunSms&TestCategory!=NativeWorkflowApi&TestCategory!=NativeWorkflow&TestCategory!=NativeWorkflowWindows&TestCategory!=WorkflowNativeKafka&FullyQualifiedName!~Full.NET.IntegrationTests.NativeAot&FullyQualifiedName!~IdentityBrowserUiTests&FullyQualifiedName!~WorkflowCollaborationGrantBrowserUiTests&FullyQualifiedName!~AiKnowledgeCorrectionBrowserUiTests&FullyQualifiedName!~IdentityOidcNetworkInteropTests",
-        "minimum": 2055,
+        "minimum": 2057,
         "timeout": "90m"
       },
       "logging-metrics": {

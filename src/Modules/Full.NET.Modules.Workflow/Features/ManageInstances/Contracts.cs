@@ -59,6 +59,17 @@ internal sealed record ReassignWorkflowInstanceRequest(
     Guid TodoId,
     long ExpectedTodoRevision);
 
+/// <summary>候选页同时冻结原实例和显式待办修订，前端不能猜测待办版本或借用别的资源。</summary>
+internal sealed record WorkflowReassignmentCandidatePageResponse(
+    Guid InstanceId,
+    long InstanceRevision,
+    Guid TodoId,
+    long TodoRevision,
+    IReadOnlyList<Full.NET.Modules.Workflow.Features.ManageDefinitions.WorkflowRecipientCandidateResponse> Items,
+    int Page,
+    int PageSize,
+    long Total);
+
 /// <summary>实例详情展示的网关汇合分支到达事实。</summary>
 /// <param name="BranchKey">稳定分支键。</param>
 /// <param name="ArrivedAtUtc">到达汇合时间（UTC）。</param>

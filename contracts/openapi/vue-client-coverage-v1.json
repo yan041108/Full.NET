@@ -2,8 +2,22 @@
   "schemaVersion": 1,
   "entries": [
     {
-      "clientContractModules": ["packages/client-contracts/src/tenant-ownership.ts"],
-      "routePrefixes": ["/api/v1/identity/tenant-members/ownership"],
+      "clientContractModules": [
+        "packages/client-contracts/src/workflow-reassignment-candidates.ts"
+      ],
+      "routePrefixes": [
+        "/api/v1/workflow/instances"
+      ],
+      "apiModule": "ui/admin/src/api/workflow-reassignment-candidates.ts",
+      "openApiFixture": "contracts/openapi/workflow-reassignment-candidates-v1.json"
+    },
+    {
+      "clientContractModules": [
+        "packages/client-contracts/src/tenant-ownership.ts"
+      ],
+      "routePrefixes": [
+        "/api/v1/identity/tenant-members/ownership"
+      ],
       "apiModule": "ui/admin/src/api/tenant-ownership.ts",
       "openApiFixture": "contracts/openapi/tenant-ownership-v1.json"
     },
@@ -1412,7 +1426,9 @@
   "consumerModules": [
     {
       "apiModule": "ui/admin/src/api/tenant-ownership.ts",
-      "consumers": ["ui/admin/src/components/TenantOwnerTransferDialog.vue"]
+      "consumers": [
+        "ui/admin/src/components/TenantOwnerTransferDialog.vue"
+      ]
     },
     {
       "apiModule": "ui/admin/src/api/tenant-lifecycle.ts",
@@ -2240,6 +2256,12 @@
       "consumers": [
         "ui/admin/src/components/AiPersonalScheduleCompletionDialog.vue",
         "ui/admin/src/components/AiPersonalScheduleCompletionReceiptPanel.vue"
+      ]
+    },
+    {
+      "apiModule": "ui/admin/src/api/workflow-reassignment-candidates.ts",
+      "consumers": [
+        "ui/admin/src/views/workflow/WorkflowInstanceReassignDialog.vue"
       ]
     }
   ]

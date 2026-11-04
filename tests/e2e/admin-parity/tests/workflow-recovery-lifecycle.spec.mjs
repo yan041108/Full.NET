@@ -1,4 +1,6 @@
 import { expect, test } from '@playwright/test';
+import AxeBuilder from '@axe-core/playwright';
+import path from 'node:path';
 
 const user = '019bc2b1-2a40-7cc3-8992-a80de51bf299';
 const id = '01912345-6789-7abc-8def-0123456789ab';
@@ -33,7 +35,7 @@ const unavailable = route => json(route, { type: 'about:blank', status: 503, cod
 // 只控制 HTTP 与身份快照；实际路由、状态门槛、表单、确认框及点击均使用真实 Vue。
 async function setup(page, granted = permissions) {
   const state = { permissions: [...granted], instance: { ...instance }, writes: [], readFailures: 0,
-    failReads: false, failLogOnce: false, lists: [], write: async route => unavailable(route) };
+    failReads: false, failLogOnce: false, lists: [], candidateCalls: [], failCandidates: false, write: async route => unavailable(route) };
   await page.addInitScript(() => localStorage.setItem('fullnet.admin.locale', 'zh-CN'));
   await page.route('**/api/v1/**', async route => {
     const request = route.request(), url = new URL(request.url()), path = url.pathname;
@@ -54,6 +56,13 @@ async function setup(page, granted = permissions) {
       if (state.failReads) { state.readFailures++; return unavailable(route); }
       const items = path.includes('/todos/') ? [todoRow] : [{ ...row, statusKey: state.instance.statusKey }];
       return json(route, { items, total: 1, page: Number(url.searchParams.get('page') ?? 1), pageSize: Number(url.searchParams.get('pageSize') ?? 20) });
+    }
+    if (path === `/api/v1/workflow/instances/${id}/reassignment-candidates`) {
+      state.candidateCalls.push(Object.fromEntries(url.searchParams));
+      if (state.failCandidates) return unavailable(route);
+      const current = Number(url.searchParams.get('page') ?? 1);
+      return json(route, { instanceId: id, instanceRevision: state.instance.revision, todoId, todoRevision: 7,
+        items: [{ id: current === 1 ? form : row.businessId, username: current === 1 ? 'reviewer.one' : 'reviewer.two', displayName: current === 1 ? '第一位审核人' : '第二位审核人' }], page: current, pageSize: 20, total: 21 });
     }
     if (path === `/api/v1/workflow/instances/${id}`) {
       if (state.failReads) { state.readFailures++; return unavailable(route); }
@@ -95,6 +104,33 @@ function acknowledgeSecondWrite(state) {
     return json(route, state.instance);
   };
 }
+
+test('管理改派按姓名账号分页选择，携带原待办修订提交', async ({ page }, info) => {
+  await page.setViewportSize({ width: Number(process.env.FULLNET_ADMIN_PARITY_VIEWPORT_WIDTH ?? 1440), height: 1000 });
+  const state = await setup(page); state.write = route => { state.instance = { ...state.instance, revision: 4, activeTodoId: row.businessId }; return json(route, state.instance); };
+  await page.goto('/#/workflow/instances'); await openInstance(page); await page.getByTestId('workflow-instance-reassign').click();
+  const select = page.getByTestId('workflow-reassign-user'); await expect(select).toBeEnabled();
+  await expect(select.locator('option')).toContainText(['目标办理人', '第一位审核人 · reviewer.one']);
+  await select.selectOption(form); await expect(page.getByTestId('workflow-reassign-save')).toBeEnabled();
+  await page.getByRole('dialog').getByRole('button', { name: '下一页' }).click();
+  await expect(select.locator('option')).toContainText(['目标办理人', '第二位审核人 · reviewer.two']); await expect(select).toHaveValue('');
+  await expect(page.getByTestId('workflow-reassign-save')).toBeDisabled(); await select.selectOption(row.businessId);
+  expect((await new AxeBuilder({ page }).include('[role="dialog"]').withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa']).analyze()).violations).toEqual([]);
+  await page.screenshot({ path: path.resolve(info.outputDir, '..', 'reassignment-candidates.png'), fullPage: true, animations: 'disabled' });
+  await page.getByTestId('workflow-reassign-save').click(); await confirm(page);
+  await expect(page.getByTestId('workflow-instance-receipt')).toContainText('操作已确认'); expect(state.writes).toHaveLength(1);
+  expect(state.writes[0].body).toMatchObject({ assigneeUserId: row.businessId, todoId, expectedTodoRevision: 7, expectedRevision: 3 });
+  expect(state.candidateCalls.map(value => value.page)).toEqual(['1', '2']);
+});
+
+test('管理改派目录失败后显式重读，关闭不会产生写入', async ({ page }) => {
+  const state = await setup(page); state.failCandidates = true; await page.goto('/#/workflow/instances'); await openInstance(page);
+  await page.getByTestId('workflow-instance-reassign').click(); await expect(page.getByTestId('workflow-reassign-retry')).toBeVisible();
+  await expect(page.getByTestId('workflow-reassign-save')).toBeDisabled(); state.failCandidates = false;
+  await page.getByTestId('workflow-reassign-retry').click(); await expect(page.getByTestId('workflow-reassign-user')).toBeEnabled();
+  await page.getByTestId('workflow-reassign-close').click(); await expect(page.getByRole('dialog')).toBeHidden();
+  expect(state.candidateCalls).toHaveLength(2); expect(state.writes).toHaveLength(0);
+});
 
 test('实例只读权限不能显示管理写入入口', async ({ page }) => {
   const state = await setup(page, ['workflow.instances.read']); await page.goto('/#/workflow/instances'); await openInstance(page);

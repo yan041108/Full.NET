@@ -115,6 +115,7 @@ namespace Full.NET.Modules.Workflow.Serialization;
 [JsonSerializable(typeof(WorkflowRecipientCandidateResponse))]
 [JsonSerializable(typeof(WorkflowRecipientCandidateResponse[]))]
 [JsonSerializable(typeof(WorkflowRecipientCandidatePageResponse))]
+[JsonSerializable(typeof(WorkflowReassignmentCandidatePageResponse))]
 [JsonSerializable(typeof(WorkflowRoleCandidateResponse))]
 [JsonSerializable(typeof(WorkflowRoleCandidatePageResponse))]
 [JsonSerializable(typeof(WorkflowOrganizationUnitCandidateResponse))]

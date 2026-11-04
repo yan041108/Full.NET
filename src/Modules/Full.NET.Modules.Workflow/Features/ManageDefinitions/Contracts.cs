@@ -41,7 +41,7 @@ internal sealed record WorkflowNodeTypeResponse(
     public bool? HasDefaultBranch { get; init; }
 }
 
-/// <summary>供工作流设计器选择抄送人的最小用户投影。</summary>
+/// <summary>供已授权工作流操作选择活动用户的最小投影。</summary>
 /// <param name="Id">稳定用户标识。</param>
 /// <param name="Username">登录名。</param>
 /// <param name="DisplayName">显示名称。</param>
@@ -50,7 +50,7 @@ internal sealed record WorkflowRecipientCandidateResponse(
     string Username,
     string DisplayName);
 
-/// <summary>工作流抄送候选人的受控分页结果。</summary>
+/// <summary>工作流操作候选人的受控分页结果。</summary>
 /// <param name="Items">当前页候选人。</param>
 /// <param name="Page">从 1 开始的页码。</param>
 /// <param name="PageSize">受控单页数量。</param>

@@ -120,7 +120,8 @@ export async function reassignWorkflowInstance(
   body: ReassignWorkflowInstanceRequest,
   signal?: AbortSignal
 ): Promise<WorkflowInstanceResponse> {
-  requireId(instanceId); const snapshot = { ...frozenBody(body), assigneeUserId: body.assigneeUserId, todoId: body.todoId, expectedTodoRevision: body.expectedTodoRevision }; requireId(snapshot.assigneeUserId);
+  requireId(instanceId); const snapshot = { ...frozenBody(body), assigneeUserId: body.assigneeUserId, todoId: body.todoId, expectedTodoRevision: body.expectedTodoRevision }; requireId(snapshot.assigneeUserId); requireId(snapshot.todoId);
+  if (!workflowFormWriteRevisionValid(snapshot.expectedTodoRevision)) throw Error('client.invalid_workflow_instance_request');
   return mutationResult(await reassignInstance(http, { instanceId, body: snapshot }, signal), instanceId, snapshot.expectedRevision);
 }
 

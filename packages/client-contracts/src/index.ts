@@ -1783,6 +1783,7 @@ export * from './reporting-publications.js';
 export * from './cursor-page.js';
 export * from './query-schemes.js';
 export * from './tenant-registration-progress.js';
+export * from './workflow-reassignment-candidates.js';
 
 export { isReportingPublishedVersion, isReportingPublishedVersionList, isReportingTenantVersionGrantPage } from './reporting-definitions.js';
 export type { ReportingPublishedVersion, ReportingTenantVersionGrantPage } from './reporting-definitions.js';
