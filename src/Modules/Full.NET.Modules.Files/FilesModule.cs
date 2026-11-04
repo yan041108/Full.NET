@@ -112,12 +112,9 @@ public sealed class FilesModule : IFullNetModule
         services.TryAddEnumerable(ServiceDescriptor.Singleton<
             IValidateOptions<PendingTenantResourceFileReconciliationOptions>,
             PendingTenantResourceFileReconciliationOptionsValidator>());
-        services.TryAddSingleton<DeletedHostFileBlobCleanupCursor>();
         services.TryAddScoped<DeletedHostFileBlobCleanupRunner>();
         services.AddHostedService<Features.WorkflowReadCapabilities.WorkflowFileReadCapabilityCleanupHostedProcessor>();
-        services.TryAddSingleton<PendingHostFileReconciliationCursor>();
         services.TryAddScoped<PendingHostFileReconciliationRunner>();
-        services.TryAddSingleton<PendingHostFileReferenceClaimReconciliationCursor>();
         services.TryAddScoped<PendingHostFileReferenceClaimReconciliationRunner>();
         services.TryAddSingleton<HostFileScanCursor<PendingHostFileReconciliationRunner>>();
         services.TryAddSingleton<HostFileScanCursor<PendingHostFileReferenceClaimReconciliationRunner>>();

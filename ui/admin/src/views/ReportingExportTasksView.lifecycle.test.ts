@@ -3,25 +3,26 @@ import { flushPromises, mount, type VueWrapper } from '@vue/test-utils';
 import { ElDialog, ElMessage, ElOption, ElSelect } from 'element-plus';
 import ReportingExportTasksView from './ReportingExportTasksView.vue';
 import ArtTableHeader from '../framework/art-design/components/ArtTableHeader.vue';
-import { listReportingPublishedVersions } from '../api/reporting-definitions';
-import { cancelReportingExportTask, createReportingExportTask, downloadReportingExportTask, listReportingExportTasks } from '../api/reporting-export-tasks';
-import { createOutputSession, deferred, exportTask, publishedReportDefinition } from '../test/data-output-fixtures';
-vi.mock('../api/reporting-definitions', () => ({ listReportingPublishedVersions: vi.fn() }));
+import { listReportingPublishedDefinitions } from '../api/reporting-publications';
+import { getReportingExportTask, cancelReportingExportTask, createReportingExportTask, downloadReportingExportTask, listReportingExportTasks } from '../api/reporting-export-tasks';
+import { createOutputSession, deferred, exportTask, publishedExportDefinition } from '../test/data-output-fixtures';
+const publicationPage = (items: typeof publishedExportDefinition[]) => ({ items, page: 1, pageSize: 20, total: items.length });
+vi.mock('../api/reporting-publications', () => ({ listReportingPublishedDefinitions: vi.fn() }));
 vi.mock('../api/reporting-export-tasks', () => ({ getReportingExportTask: vi.fn(), cancelReportingExportTask: vi.fn(), createReportingExportTask: vi.fn(), listReportingExportTasks: vi.fn(), downloadReportingExportTask: vi.fn() }));
 let wrapper: VueWrapper | undefined;
-beforeEach(() => { vi.resetAllMocks(); vi.mocked(listReportingPublishedVersions).mockResolvedValue([publishedReportDefinition]); vi.mocked(listReportingExportTasks).mockResolvedValue({ items: [exportTask], page: 1, pageSize: 20, total: 1 }); });
+beforeEach(() => { vi.resetAllMocks(); vi.mocked(listReportingPublishedDefinitions).mockResolvedValue(publicationPage([publishedExportDefinition])); vi.mocked(listReportingExportTasks).mockResolvedValue({ items: [exportTask], page: 1, pageSize: 20, total: 1 }); });
 afterEach(() => { wrapper?.unmount(); wrapper = undefined; vi.restoreAllMocks(); });
 const mountView = (permissions: string[]) => { const context = createOutputSession(permissions); wrapper = mount(ReportingExportTasksView, { global: { plugins: [context.pinia] } }); return context.session; };
 describe('报表导出授权与生命周期', () => {
   const queued = { ...exportTask, statusKey: 'queued' };
-  const queue = (task = queued) => vi.mocked(listReportingExportTasks).mockResolvedValue({ items: [task], page: 1, pageSize: 20, total: 1 });
+  const queue = (task = queued) => { vi.mocked(getReportingExportTask).mockResolvedValue(task); return vi.mocked(listReportingExportTasks).mockResolvedValue({ items: [task], page: 1, pageSize: 20, total: 1 }); };
   it('创建权限不授予取消，取消不要求执行或下载权限', async () => {
     queue(); const session = mountView(['reporting.export_tasks.read', 'reporting.export_tasks.create']); await flushPromises();
     expect(wrapper!.find('[data-testid="reporting-export-cancel"]').exists()).toBe(false);
     session.currentUser!.permissions = ['reporting.export_tasks.read', 'reporting.export_tasks.cancel']; await flushPromises();
     expect(wrapper!.find('[data-testid="reporting-export-cancel"]').exists()).toBe(true);
   });
-  it.each(['processing', 'succeeded', 'failed', 'cancelled'])('状态%s不显示取消入口', async statusKey => {
+  it.each(['processing', 'succeeded', 'failed', 'canceled'])('状态%s不显示取消入口', async statusKey => {
     queue({ ...queued, statusKey }); mountView(['reporting.export_tasks.read', 'reporting.export_tasks.cancel']); await flushPromises();
     expect(wrapper!.find('[data-testid="reporting-export-cancel"]').exists()).toBe(false);
   });
@@ -43,7 +44,7 @@ describe('报表导出授权与生命周期', () => {
     await wrapper!.get('[data-testid="reporting-export-cancel"]').trigger('click'); await flushPromises();
     await wrapper!.get('[data-testid="reporting-cancel-confirm"]').trigger('click');
     expect(cancelReportingExportTask).toHaveBeenCalledTimes(1);
-    pending.resolve({ ...exportTask, statusKey: 'cancelled' }); await flushPromises();
+    pending.resolve({ ...exportTask, statusKey: 'canceled' }); await flushPromises();
     expect(listReportingExportTasks).toHaveBeenCalledTimes(2);
     expect(wrapper!.find('[data-testid="reporting-cancel-confirm"]').exists()).toBe(false);
   });
@@ -61,7 +62,7 @@ describe('报表导出授权与生命周期', () => {
     await wrapper!.get('[data-testid="reporting-cancel-confirm"]').trigger('click');
     session.currentUser!.tenantId = '01980000-0000-7000-8000-000000000003';
     expect(vi.mocked(cancelReportingExportTask).mock.calls[0]?.[2]?.aborted).toBe(true);
-    pending.resolve({ ...exportTask, statusKey: 'cancelled' }); await flushPromises();
+    pending.resolve({ ...exportTask, statusKey: 'canceled' }); await flushPromises();
     expect(success).not.toHaveBeenCalled();
   });
   it('明确文件404显示不可用并禁用对应下载入口', async () => {
@@ -83,7 +84,7 @@ describe('报表导出授权与生命周期', () => {
   });
   it('关闭等待创建的弹窗立即取消，迟到任务不刷新或写回弹窗', async () => {
     const pending=deferred<typeof exportTask>();vi.mocked(createReportingExportTask).mockReturnValue(pending.promise);
-    mountView(['reporting.export_tasks.read','reporting.export_tasks.create','reporting.executions.run']);await flushPromises();
+    mountView(['reporting.export_tasks.read','reporting.export_tasks.create','reporting.published_definitions.read']);await flushPromises();
     await wrapper!.get('[data-testid="reporting-export-create"]').trigger('click');await flushPromises();
     await wrapper!.get('[data-testid="reporting-export-submit"]').trigger('click');
     const signal=vi.mocked(createReportingExportTask).mock.calls[0]![1]!;
@@ -91,21 +92,21 @@ describe('报表导出授权与生命周期', () => {
     expect(signal.aborted).toBe(true);pending.resolve(exportTask);await flushPromises();
     expect(listReportingExportTasks).toHaveBeenCalledOnce();
   });
-  it('同一报表的多个版本可独立选择并创建指定旧版导出', async () => {
-    vi.mocked(listReportingPublishedVersions).mockResolvedValue([{...publishedReportDefinition,versionNumber:2},publishedReportDefinition]);
+  it('不同发布摘要可独立选择并精确创建所选版本', async () => {
+    vi.mocked(listReportingPublishedDefinitions).mockResolvedValue(publicationPage([{...publishedExportDefinition,id:'01980000-0000-7000-8000-000000000003',versionNumber:2},publishedExportDefinition]));
     vi.mocked(createReportingExportTask).mockResolvedValue(exportTask);
-    mountView(['reporting.export_tasks.read','reporting.export_tasks.create','reporting.executions.run']);await flushPromises();
+    mountView(['reporting.export_tasks.read','reporting.export_tasks.create','reporting.published_definitions.read']);await flushPromises();
     await wrapper!.get('[data-testid="reporting-export-create"]').trigger('click');await flushPromises();
     const select=wrapper!.findAllComponents(ElSelect).find(item=>item.attributes('data-testid')==='reporting-export-definition')!;
-    expect(select.findAllComponents(ElOption).map(option=>option.props('value'))).toEqual([publishedReportDefinition.definitionId+':2',publishedReportDefinition.definitionId+':1']);
-    select.vm.$emit('update:modelValue',publishedReportDefinition.definitionId+':1');select.vm.$emit('change');await flushPromises();
+    expect(select.findAllComponents(ElOption).map(option=>option.props('value'))).toEqual(['01980000-0000-7000-8000-000000000003:2',publishedExportDefinition.id+':1']);
+    select.vm.$emit('update:modelValue',publishedExportDefinition.id+':1');select.vm.$emit('change');await flushPromises();
     await wrapper!.get('[data-testid="reporting-export-submit"]').trigger('click');await flushPromises();
-    expect(createReportingExportTask).toHaveBeenCalledWith({definitionId:publishedReportDefinition.definitionId,versionNumber:1,formatKey:'excel',parameters:[]},expect.any(AbortSignal));
+    expect(createReportingExportTask).toHaveBeenCalledWith({definitionId:publishedExportDefinition.id,versionNumber:1,formatKey:'excel',parameters:[]},expect.any(AbortSignal));
     expect(listReportingExportTasks).toHaveBeenCalledTimes(2);
   });
   it.each([{definitionId:'another'},{versionNumber:2},{formatKey:'pdf'}])('导出响应不匹配时不关闭或刷新 %j', async (change) => {
     vi.mocked(createReportingExportTask).mockResolvedValue({...exportTask,...change});
-    mountView(['reporting.export_tasks.read','reporting.export_tasks.create','reporting.executions.run']);await flushPromises();
+    mountView(['reporting.export_tasks.read','reporting.export_tasks.create','reporting.published_definitions.read']);await flushPromises();
     await wrapper!.get('[data-testid="reporting-export-create"]').trigger('click');await flushPromises();
     await wrapper!.get('[data-testid="reporting-export-submit"]').trigger('click');await flushPromises();
     expect(listReportingExportTasks).toHaveBeenCalledOnce();
@@ -121,13 +122,13 @@ describe('报表导出授权与生命周期', () => {
   });
   it('创建请求互斥，失败后重试；成功才关闭弹窗并刷新列表', async () => {
     const pending = deferred<typeof exportTask>(); vi.mocked(createReportingExportTask).mockReturnValueOnce(pending.promise).mockResolvedValueOnce(exportTask);
-    mountView(['reporting.export_tasks.read', 'reporting.export_tasks.create', 'reporting.executions.run']); await flushPromises();
+    mountView(['reporting.export_tasks.read', 'reporting.export_tasks.create', 'reporting.published_definitions.read']); await flushPromises();
     await wrapper!.get('[data-testid="reporting-export-create"]').trigger('click'); await flushPromises(); const button = wrapper!.get('[data-testid="reporting-export-submit"]');
     await button.trigger('click'); await button.trigger('click'); expect(createReportingExportTask).toHaveBeenCalledTimes(1);
     pending.reject({ status: 409, code: 'reporting.export.rejected', title: 'Rejected' }); await flushPromises(); await button.trigger('click'); await flushPromises();
     expect(createReportingExportTask).toHaveBeenCalledTimes(2); expect(listReportingExportTasks).toHaveBeenCalledTimes(2);
   });
-  it('只读列表不请求创建专用定义目录', async () => { mountView(['reporting.export_tasks.read']); await flushPromises(); expect(listReportingPublishedVersions).not.toHaveBeenCalled(); expect(listReportingExportTasks).toHaveBeenCalledTimes(1); });
+  it('只读列表不请求创建专用定义目录', async () => { mountView(['reporting.export_tasks.read']); await flushPromises(); expect(listReportingPublishedDefinitions).not.toHaveBeenCalled(); expect(listReportingExportTasks).toHaveBeenCalledTimes(1); });
   it('下载等待期间撤权，不创建文件 URL，重复点击不重复请求', async () => {
     const pending = deferred<Blob>(); vi.mocked(downloadReportingExportTask).mockReturnValue(pending.promise); const createUrl = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:fixture');
     const session = mountView(['reporting.export_tasks.read', 'reporting.export_tasks.download']); await flushPromises(); const button = wrapper!.get('[data-testid="reporting-export-download"]');
@@ -136,7 +137,7 @@ describe('报表导出授权与生命周期', () => {
     expect(downloadReportingExportTask).toHaveBeenCalledTimes(1); expect(signal?.aborted).toBe(true); expect(createUrl).not.toHaveBeenCalled();
   });
   it('已打开弹窗撤销创建权限后不再显示提交入口', async () => {
-    const session = mountView(['reporting.export_tasks.read', 'reporting.export_tasks.create', 'reporting.executions.run']); await flushPromises(); await wrapper!.get('[data-testid="reporting-export-create"]').trigger('click'); await flushPromises();
+    const session = mountView(['reporting.export_tasks.read', 'reporting.export_tasks.create', 'reporting.published_definitions.read']); await flushPromises(); await wrapper!.get('[data-testid="reporting-export-create"]').trigger('click'); await flushPromises();
     session.currentUser!.permissions = ['reporting.export_tasks.read']; await flushPromises(); expect(wrapper!.find('[data-testid="reporting-export-submit"]').exists()).toBe(false); expect(createReportingExportTask).not.toHaveBeenCalled();
   });
 });

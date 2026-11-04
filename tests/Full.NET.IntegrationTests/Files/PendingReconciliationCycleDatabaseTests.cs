@@ -2,6 +2,7 @@ using Dapper;
 using Full.NET.Abstractions.Tenancy;
 using Full.NET.Abstractions.Time;
 using Full.NET.Data.Abstractions;
+using Full.NET.Modules.Tenancy.Contracts;
 using Full.NET.IntegrationTests.Api;
 using Full.NET.IntegrationTests.Document;
 using Full.NET.IntegrationTests.NativeAot;
@@ -51,6 +52,22 @@ public sealed class PendingReconciliationCycleDatabaseTests
                        ProviderKey, @Key, 'pending', CreatedByUserId, @Future
                 FROM fn_files_tenant_resource_file WHERE Id = @Source
                 """, new { Id = resource, Key = resourceKey, Future = future, Source = scenario.TenantGood });
+            // 模拟上传已确认配额但尚未发布文件时中断；对象存在不能替代原操作计量凭证。
+            var metricId = Guid.CreateVersion7();
+            await db.ExecuteAsync("""
+                INSERT INTO fn_tenancy_quota_metric
+                    (Id, TenantId, MetricCode, PeriodKey, LimitValue, UsedValue, ReservedValue, CreatedAtUtc, UpdatedAtUtc, Version)
+                VALUES (@Id, @Tenant, @MetricCode, @PeriodKey, 1024, 14, 0, @Now, @Now, 1)
+                """, new { Id = metricId, Tenant = scenario.TenantId, Now = future,
+                MetricCode = TenantQuotaMetricCodes.FilesStorageBytes, PeriodKey = TenantQuotaDefaults.PeriodKey });
+            foreach (var fileId in new[] { scenario.TenantGood, resource })
+                await db.ExecuteAsync("""
+                    INSERT INTO fn_tenancy_quota_reservation
+                        (Id, TenantId, MetricId, MetricCode, OperationId, Amount, Status, ExpiresAtUtc, CreatedAtUtc, UpdatedAtUtc, Version)
+                    VALUES (@Id, @Tenant, @Metric, @MetricCode, @Operation, 7, @Status, @Now, @Now, @Now, 1)
+                    """, new { Id = Guid.CreateVersion7(), Tenant = scenario.TenantId, Metric = metricId,
+                        Operation = fileId.ToString("N"), Now = future, MetricCode = TenantQuotaMetricCodes.FilesStorageBytes,
+                        Status = TenantQuotaReservationStatuses.Confirmed });
             foreach (var key in new[] { uploadKey, resourceKey })
                 await File.WriteAllBytesAsync(Path.Combine(scenario.Upload.StorageRoot, key.Replace('/', Path.DirectorySeparatorChar)), [1, 2, 3]);
             using var factory = new FullNetApiFactory(provider, cs, new Dictionary<string, string?>
@@ -58,8 +75,8 @@ public sealed class PendingReconciliationCycleDatabaseTests
                 {
                     services.AddSingleton<IClock>(clock);
                     // 主动调用后台组件，不启动循环，避免验收断言被并发扫描改变。
-                    services.AddSingleton<PendingHostFileReconciliationCursor>();
-                    services.AddSingleton<PendingHostFileReferenceClaimReconciliationCursor>();
+                    services.AddSingleton<HostFileScanCursor<PendingHostFileReconciliationRunner>>();
+                    services.AddSingleton<HostFileScanCursor<PendingHostFileReferenceClaimReconciliationRunner>>();
                     services.AddSingleton<TenantResourceFileReconciliationCursor>();
                     services.AddScoped<PendingHostFileReconciliationRunner>();
                     services.AddScoped<PendingHostFileReferenceClaimReconciliationRunner>();

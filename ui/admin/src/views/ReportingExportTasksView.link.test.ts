@@ -8,7 +8,7 @@ import * as api from '../api/reporting-export-tasks';
 import { createOutputSession, deferred, exportTask, outputId } from '../test/data-output-fixtures';
 vi.mock('../api/reporting-export-tasks', () => ({ getReportingExportTask: vi.fn(), listReportingExportTasks: vi.fn(),
   createReportingExportTask: vi.fn(), cancelReportingExportTask: vi.fn(), downloadReportingExportTask: vi.fn() }));
-vi.mock('../api/reporting-definitions', () => ({ listReportingPublishedDefinitions: vi.fn() }));
+vi.mock('../api/reporting-publications', () => ({ listReportingPublishedDefinitions: vi.fn() }));
 let wrapper: VueWrapper | undefined; let router: Router; let visible = ref(true);
 const otherId = '01980000-0000-7000-8000-000000000003';
 beforeEach(() => {
@@ -55,11 +55,11 @@ describe('报表导出详情与结果入口', () => {
   });
   it('详情取消使用独立权限和确认，列表没有该任务也可以取消', async () => {
     vi.mocked(api.getReportingExportTask).mockResolvedValue({ ...exportTask, statusKey: 'queued' });
-    vi.mocked(api.cancelReportingExportTask).mockResolvedValue({ ...exportTask, statusKey: 'cancelled' });
+    vi.mocked(api.cancelReportingExportTask).mockResolvedValue({ ...exportTask, statusKey: 'canceled' });
     await setup(undefined, ['reporting.export_tasks.read', 'reporting.export_tasks.cancel']);
     await wrapper!.get('[data-testid="reporting-export-detail-cancel"]').trigger('click'); await flushPromises();
     expect(api.cancelReportingExportTask).not.toHaveBeenCalled(); await wrapper!.get('[data-testid="reporting-cancel-confirm"]').trigger('click'); await flushPromises();
-    expect(api.cancelReportingExportTask).toHaveBeenCalledExactlyOnceWith(outputId, expect.any(AbortSignal));
+    expect(api.cancelReportingExportTask).toHaveBeenCalledExactlyOnceWith(outputId, exportTask.version, expect.any(AbortSignal));
   });
   it('详情在途任务与列表共用轮询，终态停止读取', async () => {
     vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });

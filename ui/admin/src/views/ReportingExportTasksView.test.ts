@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { flushPromises, mount, type VueWrapper } from '@vue/test-utils';
 import { createPinia, setActivePinia } from 'pinia';
-import { ElPopconfirm } from 'element-plus';
+import { createOutputSession, exportTask, outputId } from '../test/data-output-fixtures';
 import ReportingExportTasksView from './ReportingExportTasksView.vue';
 import { useSessionStore } from '../auth/session';
 const api = vi.hoisted(() => ({ listReportingPublishedDefinitions: vi.fn(), listReportingExportTasks: vi.fn(),
@@ -10,12 +10,10 @@ vi.mock('../api/reporting-publications', () => ({ listReportingPublishedDefiniti
 vi.mock('../api/reporting-export-tasks', () => api);
 const wrappers: VueWrapper[] = [];
 const all = ['reporting.export_tasks.read', 'reporting.export_tasks.create', 'reporting.export_tasks.download', 'reporting.published_definitions.read'];
-const task = (statusKey = 'queued') => ({ id: 'task', definitionName: 'Visible report', definitionKey: 'visible', versionNumber: 1,
-  formatKey: 'excel', statusKey, requestedByUserId: 'member', createdAtUtc: '2026-11-03T00:00:00Z', rowCount: 1 });
+const task = (statusKey = 'queued') => ({ ...exportTask, version: 4, definitionName: 'Visible report', definitionKey: 'visible', statusKey });
 const page = (items: unknown[] = []) => ({ items, page: 1, pageSize: 20, total: items.length });
 function render(permissions = all) {
-  const pinia = createPinia(); setActivePinia(pinia); const session = useSessionStore(pinia);
-  session.currentUser = { id: 'member', tenantId: 'tenant', sessionId: 'session', permissions } as NonNullable<typeof session.currentUser>;
+  const { pinia, session } = createOutputSession(permissions);
   const wrapper = mount(ReportingExportTasksView, { global: { plugins: [pinia], stubs: {
     ElDialog: { props: ['modelValue'], template: '<section v-if="modelValue"><slot/><slot name="footer"/></section>' },
     ElDrawer: { props: ['modelValue'], template: '<aside v-if="modelValue"><slot/></aside>' }
@@ -31,8 +29,9 @@ describe('ReportingExportTasksView', () => {
     const { wrapper } = render(['reporting.export_tasks.read', 'reporting.export_tasks.cancel']); await flushPromises();
     await wrapper.get('[data-testid="reporting-export-detail"]').trigger('click'); await flushPromises();
     expect(wrapper.find('[data-testid="reporting-export-detail-cancel"]').exists()).toBe(true);
-    wrapper.findComponent(ElPopconfirm).vm.$emit('confirm'); await flushPromises();
-    expect(api.cancelReportingExportTask).toHaveBeenCalledWith('task', 4, expect.any(AbortSignal));
+    await wrapper.get('[data-testid="reporting-export-detail-cancel"]').trigger('click'); await flushPromises();
+    await wrapper.get('[data-testid="reporting-cancel-confirm"]').trigger('click'); await flushPromises();
+    expect(api.cancelReportingExportTask).toHaveBeenCalledWith(outputId, 4, expect.any(AbortSignal));
     expect(wrapper.text()).toContain('任务已取消'); expect(wrapper.find('[data-testid="reporting-export-detail-cancel"]').exists()).toBe(false);
   });
   it('处理中及他人的任务不显示取消，保留来源状态说明', async () => {
@@ -49,7 +48,8 @@ describe('ReportingExportTasksView', () => {
     api.listReportingExportTasks.mockResolvedValue(page([task()])); api.cancelReportingExportTask.mockRejectedValue(new Error('timeout'));
     const { wrapper } = render(['reporting.export_tasks.read', 'reporting.export_tasks.cancel']); await flushPromises();
     await wrapper.get('[data-testid="reporting-export-detail"]').trigger('click'); await flushPromises();
-    wrapper.findComponent(ElPopconfirm).vm.$emit('confirm'); await flushPromises();
+    await wrapper.get('[data-testid="reporting-export-detail-cancel"]').trigger('click'); await flushPromises();
+    await wrapper.get('[data-testid="reporting-cancel-confirm"]').trigger('click'); await flushPromises();
     expect(wrapper.get('[data-testid="reporting-export-detail-cancel"]').attributes('disabled')).toBeDefined();
     api.getReportingExportTask.mockResolvedValue({ ...task('canceled'), version: 5, parameters: [], outputFileId: null });
     await wrapper.get('[data-testid="reporting-export-detail-refresh"]').trigger('click'); await flushPromises();
@@ -78,7 +78,7 @@ describe('ReportingExportTasksView', () => {
   });
   it('切换租户时取消旧读取，迟到页面结果不能进入新上下文', async () => {
     let resolve!: (value: unknown) => void; api.listReportingExportTasks.mockImplementationOnce(() => new Promise(done => { resolve = done; }));
-    const { wrapper, session } = render(); const signal = api.listReportingExportTasks.mock.calls[0]![3] as AbortSignal;
+    const { wrapper, session } = render(); await flushPromises(); const signal = api.listReportingExportTasks.mock.calls[0]![3] as AbortSignal;
     session.switching = true; await flushPromises(); expect(signal.aborted).toBe(true);
     resolve(page([task('succeeded')])); await flushPromises(); expect(wrapper.text()).not.toContain('Visible report');
     expect(wrapper.find('section').exists()).toBe(false);
@@ -103,23 +103,23 @@ describe('ReportingExportTasksView', () => {
   });
   it('搜索取消上一请求，旧关键词的迟到结果不得替换新选项', async () => {
     let resolve!: (value: unknown) => void; api.listReportingPublishedDefinitions.mockImplementationOnce(() => new Promise(done => { resolve = done; }))
-      .mockResolvedValueOnce(page([{ id: 'new', name: 'New', versionNumber: 2, parameterSchema: [] }]));
+      .mockResolvedValueOnce(page([{ id: outputId, name: 'New', versionNumber: 2, parameterSchema: [] }]));
     const { wrapper } = render(); await flushPromises(); await wrapper.get('[data-testid="reporting-export-create"]').trigger('click');
     const oldSignal = api.listReportingPublishedDefinitions.mock.calls[0]![1] as AbortSignal;
     const definitionSelect = wrapper.getComponent('[data-testid="reporting-export-definition"]') as VueWrapper;
     const search = (definitionSelect.props() as { remoteMethod: (keyword: string) => Promise<void> }).remoteMethod;
     await search('New'); expect(oldSignal.aborted).toBe(true);
-    resolve(page([{ id: 'old', name: 'Old', versionNumber: 1, parameterSchema: [] }])); await flushPromises();
+    resolve(page([{ id: '019bc2b1-2a40-7cc3-8992-a80de51bf298', name: 'Old', versionNumber: 1, parameterSchema: [] }])); await flushPromises();
     expect(definitionSelect.findAllComponents({ name: 'ElOption' }).map(option => option.props('label'))).toEqual(['New']);
   });
   it('创建失败保留参数输入，允许修正后重试', async () => {
-    api.listReportingPublishedDefinitions.mockResolvedValue(page([{ id: 'definition', name: 'Published', versionNumber: 2,
-      parameterSchema: [{ parameterKey: 'topN', defaultValue: '20', displayName: 'Limit' }] }]));
+    api.listReportingPublishedDefinitions.mockResolvedValue(page([{ id: outputId, name: 'Published', versionNumber: 2,
+      parameterSchema: [{ parameterKey: 'topN', defaultValue: '20', displayName: 'Limit', dataTypeKey: 'string', isRequired: false }] }]));
     api.createReportingExportTask.mockRejectedValue(new Error('Invalid parameter'));
     const { wrapper } = render(); await flushPromises(); await wrapper.get('[data-testid="reporting-export-create"]').trigger('click'); await flushPromises();
-    const select = wrapper.getComponent('[data-testid="reporting-export-definition"]') as VueWrapper; select.vm.$emit('update:modelValue', 'definition'); select.vm.$emit('change', 'definition'); await flushPromises();
+    const select = wrapper.getComponent('[data-testid="reporting-export-definition"]') as VueWrapper; select.vm.$emit('update:modelValue', outputId + ':2'); select.vm.$emit('change', outputId + ':2'); await flushPromises();
     await wrapper.get('section .el-input__inner').setValue('30'); await wrapper.get('[data-testid="reporting-export-submit"]').trigger('click'); await flushPromises();
     expect(wrapper.find('section').exists()).toBe(true); expect((wrapper.get('section .el-input__inner').element as HTMLInputElement).value).toBe('30');
-    expect(api.createReportingExportTask.mock.calls[0]![0]).toEqual({ definitionId: 'definition', versionNumber: 2, formatKey: 'excel', parameters: [{ parameterKey: 'topN', value: '30' }] });
+    expect(api.createReportingExportTask.mock.calls[0]![0]).toEqual({ definitionId: outputId, versionNumber: 2, formatKey: 'excel', parameters: [{ parameterKey: 'topN', value: '30' }] });
   });
 });

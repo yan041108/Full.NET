@@ -6,12 +6,13 @@ import { ElButton, ElDialog, ElDrawer, ElMessage, ElPagination, ElSelect } from 
 import View from './ReportingExportTasksView.vue';
 import ArtTableHeader from '../framework/art-design/components/ArtTableHeader.vue';
 import * as api from '../api/reporting-export-tasks';
-import { listReportingPublishedVersions } from '../api/reporting-definitions';
-import { createOutputSession, deferred, exportTask, outputId, publishedReportDefinition } from '../test/data-output-fixtures';
+import { listReportingPublishedDefinitions } from '../api/reporting-publications';
+import { createOutputSession, deferred, exportTask, outputId, publishedExportDefinition } from '../test/data-output-fixtures';
+const publicationPage = (items: typeof publishedExportDefinition[]) => ({ items, page: 1, pageSize: 20, total: items.length });
 
 vi.mock('../api/reporting-export-tasks', () => ({ getReportingExportTask: vi.fn(), listReportingExportTasks: vi.fn(), createReportingExportTask: vi.fn(), cancelReportingExportTask: vi.fn(), downloadReportingExportTask: vi.fn() }));
-vi.mock('../api/reporting-definitions', () => ({ listReportingPublishedVersions: vi.fn() }));
-const read = 'reporting.export_tasks.read', create = 'reporting.export_tasks.create', run = 'reporting.executions.run', download = 'reporting.export_tasks.download', cancel = 'reporting.export_tasks.cancel';
+vi.mock('../api/reporting-publications', () => ({ listReportingPublishedDefinitions: vi.fn() }));
+const read = 'reporting.export_tasks.read', create = 'reporting.export_tasks.create', run = 'reporting.published_definitions.read', download = 'reporting.export_tasks.download', cancel = 'reporting.export_tasks.cancel';
 const all = [read, create, run, download, cancel];
 const other = '01980000-0000-7000-8000-000000000003';
 let wrapper: VueWrapper | undefined;
@@ -20,8 +21,8 @@ beforeEach(() => {
   vi.mocked(api.listReportingExportTasks).mockResolvedValue({ items: [{ ...exportTask }], page: 1, pageSize: 20, total: 100 });
   vi.mocked(api.getReportingExportTask).mockResolvedValue({ ...exportTask });
   vi.mocked(api.createReportingExportTask).mockResolvedValue({ ...exportTask });
-  vi.mocked(api.cancelReportingExportTask).mockResolvedValue({ ...exportTask, statusKey: 'cancelled' });
-  vi.mocked(listReportingPublishedVersions).mockResolvedValue([{ ...publishedReportDefinition }]);
+  vi.mocked(api.cancelReportingExportTask).mockResolvedValue({ ...exportTask, statusKey: 'canceled' });
+  vi.mocked(listReportingPublishedDefinitions).mockResolvedValue(publicationPage([{ ...publishedExportDefinition }]));
 });
 afterEach(() => { wrapper?.unmount(); wrapper = undefined; vi.restoreAllMocks(); });
 async function setup(permissions = all, keepAlive = false, withRoute = false) {
@@ -35,14 +36,14 @@ async function setup(permissions = all, keepAlive = false, withRoute = false) {
   } } }); await flushPromises(); return { ...context, active, route };
 }
 const click = (id: string) => wrapper!.get(`[data-testid="${id}"]`).trigger('click');
-const queuedRows = () => vi.mocked(api.listReportingExportTasks).mockResolvedValue({ items: [{ ...exportTask, statusKey: 'queued' }], page: 1, pageSize: 20, total: 1 });
+const queuedRows = () => { vi.mocked(api.getReportingExportTask).mockResolvedValue({ ...exportTask, statusKey: 'queued' }); return vi.mocked(api.listReportingExportTasks).mockResolvedValue({ items: [{ ...exportTask, statusKey: 'queued' }], page: 1, pageSize: 20, total: 1 }); };
 const commands = () => wrapper!.getComponent(View).vm as unknown as { openCreateDialog(): void; submitCreate(): Promise<void>; downloadTask(task: typeof exportTask): Promise<void>; requestCancellation(task: typeof exportTask): void; openDetail(id: string): Promise<void> };
 const refresh = async () => { wrapper!.getComponent(ArtTableHeader).vm.$emit('refresh'); await flushPromises(); };
 
 describe('报表导出任务操作意图', () => {
   it('缺少父页面read时不加载创建目录或提供任何任务操作', async () => {
     await setup([create, run, download, cancel]);
-    expect(listReportingPublishedVersions).not.toHaveBeenCalled(); expect(api.listReportingExportTasks).not.toHaveBeenCalled(); expect(wrapper!.find('[data-testid="reporting-export-create"]').exists()).toBe(false);
+    expect(listReportingPublishedDefinitions).not.toHaveBeenCalled(); expect(api.listReportingExportTasks).not.toHaveBeenCalled(); expect(wrapper!.find('[data-testid="reporting-export-create"]').exists()).toBe(false);
     commands().openCreateDialog(); await commands().submitCreate(); await commands().downloadTask(exportTask); commands().requestCancellation({ ...exportTask, statusKey: 'queued' }); await flushPromises();
     expect(api.createReportingExportTask).not.toHaveBeenCalled(); expect(api.downloadReportingExportTask).not.toHaveBeenCalled(); expect(wrapper!.find('[data-testid="reporting-cancel-confirm"]').exists()).toBe(false);
   });
@@ -52,7 +53,7 @@ describe('报表导出任务操作意图', () => {
   });
   it('无执行目录权限不读取定义，也不能直接提交', async () => {
     await setup([read, create]); await click('reporting-export-create'); await commands().submitCreate();
-    expect(listReportingPublishedVersions).not.toHaveBeenCalled(); expect(api.createReportingExportTask).not.toHaveBeenCalled();
+    expect(listReportingPublishedDefinitions).not.toHaveBeenCalled(); expect(api.createReportingExportTask).not.toHaveBeenCalled();
   });
   it('创建成功展示本次回包详情，不额外请求详情或自动下载', async () => {
     await setup(); await click('reporting-export-create'); await click('reporting-export-submit'); await flushPromises();
@@ -65,10 +66,10 @@ describe('报表导出任务操作意图', () => {
     expect(wrapper!.getComponent(ElDrawer).props('modelValue')).toBe(true);
   });
   it('程序修改选择不能改变在途创建的发布版本', async () => {
-    vi.mocked(listReportingPublishedVersions).mockResolvedValue([{ ...publishedReportDefinition }, { ...publishedReportDefinition, versionNumber: 2 }]);
+    vi.mocked(listReportingPublishedDefinitions).mockResolvedValue(publicationPage([{ ...publishedExportDefinition }, { ...publishedExportDefinition, id: '01980000-0000-7000-8000-000000000003', versionNumber: 2 }]));
     const pending = deferred<typeof exportTask>(); vi.mocked(api.createReportingExportTask).mockReturnValueOnce(pending.promise);
     await setup(); await click('reporting-export-create'); await click('reporting-export-submit');
-    wrapper!.getComponent(ElSelect).vm.$emit('update:modelValue', outputId + ':2');
+    wrapper!.getComponent(ElSelect).vm.$emit('update:modelValue', '01980000-0000-7000-8000-000000000003:2');
     pending.resolve(exportTask); await flushPromises(); expect(vi.mocked(api.createReportingExportTask).mock.calls[0]?.[0].versionNumber).toBe(1);
     expect(wrapper!.getComponent(ElDrawer).props('modelValue')).toBe(true);
   });
@@ -105,10 +106,17 @@ describe('报表导出任务操作意图', () => {
     vi.mocked(api.listReportingExportTasks).mockResolvedValue({ items: [{ ...exportTask, statusKey: 'processing' }], page: 1, pageSize: 20, total: 1 });
     await refresh(); await click('reporting-cancel-confirm'); await flushPromises(); expect(api.cancelReportingExportTask).not.toHaveBeenCalled();
   });
-  it.each([{ id: other, statusKey: 'cancelled' }, { statusKey: 'queued' }])('不匹配取消回包 %j 不提示成功', async change => {
+  it.each([{ id: other, statusKey: 'canceled' }, { statusKey: 'queued' }])('不匹配取消回包 %j 不提示成功', async change => {
     queuedRows(); vi.mocked(api.cancelReportingExportTask).mockResolvedValue({ ...exportTask, ...change }); const success = vi.spyOn(ElMessage, 'success');
     await setup(); await click('reporting-export-cancel'); await click('reporting-cancel-confirm'); await flushPromises();
     expect(success).not.toHaveBeenCalled(); expect(api.listReportingExportTasks).toHaveBeenCalledOnce();
+  });
+  it('详情并发版本变化后旧确认不能借新版本提交', async () => {
+    queuedRows(); await setup(); await commands().openDetail(outputId); await flushPromises();
+    await click('reporting-export-detail-cancel');
+    vi.mocked(api.getReportingExportTask).mockResolvedValue({ ...exportTask, statusKey: 'queued', version: 2 });
+    await refresh(); await click('reporting-cancel-confirm'); await flushPromises();
+    expect(api.cancelReportingExportTask).not.toHaveBeenCalled();
   });
   it('旧取消确认的迟到点击不能取消新确认', async () => {
     queuedRows(); await setup(); await click('reporting-export-cancel');

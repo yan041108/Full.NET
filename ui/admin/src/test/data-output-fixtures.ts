@@ -36,3 +36,6 @@ export const publishedReportDefinition: ReportingPublishedVersion = {
   versionNumber: 1, queryPortKey: reportDefinition.queryPortKey,
   parameterSchema: reportDefinition.parameterSchema, layoutConfigJson: reportDefinition.layoutConfigJson
 };
+
+/** 导出选择器只使用最小发布摘要，不读取查询端口或布局正文。 */
+export const publishedExportDefinition = { id: reportDefinition.id, definitionKey: reportDefinition.definitionKey, name: reportDefinition.name, versionNumber: 1, parameterSchema: reportDefinition.parameterSchema };

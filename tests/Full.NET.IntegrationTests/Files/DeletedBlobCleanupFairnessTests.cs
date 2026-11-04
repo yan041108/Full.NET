@@ -6,6 +6,7 @@ using Full.NET.IntegrationTests.Api;
 using Full.NET.IntegrationTests.Document;
 using Full.NET.IntegrationTests.NativeAot;
 using Full.NET.Modules.Files.Cleanup;
+using Full.NET.Modules.Files.Reconciliation;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Full.NET.IntegrationTests.Files;
@@ -42,7 +43,7 @@ public sealed class DeletedBlobCleanupFairnessTests
                 {
                     services.AddSingleton<IClock>(clock);
                     // API 工厂只装配主动调用的 Worker 组件，避免启动后台循环干扰断言。
-                    services.AddSingleton<DeletedHostFileBlobCleanupCursor>();
+                    services.AddSingleton<HostFileScanCursor<DeletedHostFileBlobCleanupRunner>>();
                     services.AddScoped<DeletedHostFileBlobCleanupRunner>();
                 });
             await factory.InitializeAsync();

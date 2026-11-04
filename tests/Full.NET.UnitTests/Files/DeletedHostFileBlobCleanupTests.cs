@@ -2,6 +2,7 @@ using Full.NET.Abstractions.Messaging;
 using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Files;
 using Full.NET.Modules.Files.Cleanup;
+using Full.NET.Modules.Files.Reconciliation;
 using Full.NET.Modules.Files.Persistence;
 using Full.NET.Modules.Files.Storage;
 using Microsoft.Extensions.Configuration;
@@ -31,8 +32,8 @@ public sealed class DeletedHostFileBlobCleanupTests
         Assert.IsTrue(defaults.GetServices<IHostedService>()
             .Any(service => service is DeletedHostFileBlobCleanupHostedProcessor));
         using var scope = defaults.CreateScope();
-        Assert.AreSame(defaults.GetRequiredService<DeletedHostFileBlobCleanupCursor>(),
-            scope.ServiceProvider.GetRequiredService<DeletedHostFileBlobCleanupCursor>(), "后台新作用域必须保留同一周期游标。");
+        Assert.AreSame(defaults.GetRequiredService<HostFileScanCursor<DeletedHostFileBlobCleanupRunner>>(),
+            scope.ServiceProvider.GetRequiredService<HostFileScanCursor<DeletedHostFileBlobCleanupRunner>>(), "后台新作用域必须保留同一周期游标。");
 
         using var invalid = CreateProvider(
             new Dictionary<string, string?>

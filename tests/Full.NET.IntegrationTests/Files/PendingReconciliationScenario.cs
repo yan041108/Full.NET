@@ -1,5 +1,6 @@
 using Dapper;
 using Full.NET.Data.Abstractions;
+using Full.NET.Modules.Tenancy.Contracts;
 using Full.NET.IntegrationTests.Document;
 using Full.NET.IntegrationTests.NativeAot;
 
@@ -35,8 +36,9 @@ internal sealed record PendingReconciliationScenario(NativeWorkerFilesScenario U
             await db.ExecuteAsync("""
                 INSERT INTO fn_tenancy_tenant
                     (Id, Identifier, Name, Domain, IsActive, CreatedAtUtc, Version, DefaultLocale, LifecycleStatus, ProvisioningStatus, ProvisioningStep)
-                VALUES (@Id, @Slug, 'pending cycles', @Domain, 1, @Old, 1, 'zh-CN', 'active', 'completed', 'completed')
-                """, new { Id = tenant, Slug = "cycle-" + tenant.ToString("N"), Domain = tenant.ToString("N") + ".test", Old = old });
+                VALUES (@Id, @Slug, 'pending cycles', @Domain, 1, @Old, 1, 'zh-CN', @Lifecycle, @Provisioning, @Provisioning)
+                """, new { Id = tenant, Slug = "cycle-" + tenant.ToString("N"), Domain = tenant.ToString("N") + ".test", Old = old,
+                Lifecycle = TenantLifecycleStatuses.Active, Provisioning = TenantProvisioningStatuses.Completed });
             foreach (var (id, state, time) in new[] { (tenantHeld, "ready", old), (tenantGood, "pending", later) })
                 await db.ExecuteAsync("""
                     INSERT INTO fn_files_tenant_resource_file
