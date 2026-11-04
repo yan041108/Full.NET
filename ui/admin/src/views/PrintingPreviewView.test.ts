@@ -236,5 +236,41 @@ describe('PrintingPreviewView', () => {
     useSessionStore().currentUser!.scope = 'tenant:019bc2b12a407cc38992a80de51bf299'; expect(signal.aborted).toBe(true);
     pending.resolve({ items: [template()], page: 1, pageSize: 20, total: 1 }); await flushPromises(); expect(wrapper.find('[data-testid="printing-preview-template"]').exists()).toBe(false);
   });
+  it('已观察目录修订不能回退，失败目录阻止预览与发布直至人工刷新恢复', async () => {
+    const wrapper = mountWithPermissions(['printing.templates.read', 'printing.templates.preview', 'printing.templates.publish']); await flushPromises();
+    const vm = wrapper.vm as unknown as { load: () => Promise<void>; runPreview: () => Promise<void>; confirmPublish: () => Promise<void>; templates: ReturnType<typeof template>[]; catalogReady: boolean };
+    listMock.mockResolvedValueOnce({ items: [{ ...template(9), latestPublishedVersionNumber: 3 }], page: 1, pageSize: 20, total: 1 }); await vm.load();
+    await vm.load(); expect(vm.templates[0]?.version).toBe(9); expect(vm.catalogReady).toBe(false); await vm.runPreview(); await vm.confirmPublish();
+    expect(getPrintingTemplateVersion).not.toHaveBeenCalled(); expect(getPrintingTemplate).not.toHaveBeenCalled();
+    listMock.mockResolvedValueOnce({ items: [{ ...template(9), latestPublishedVersionNumber: 3 }], page: 1, pageSize: 20, total: 1 }); await vm.load(); expect(vm.catalogReady).toBe(true);
+  });
+  it.each(['printing-template-edit', 'printing-template-publish'])('目录之后迟到的旧草稿不能打开 %s', async action => {
+    vi.mocked(getPrintingTemplate).mockResolvedValueOnce(template(3)); const wrapper = mountWithPermissions(['printing.templates.read', 'printing.templates.update', 'printing.templates.publish']); await flushPromises();
+    await wrapper.get(`[data-testid="${action}"]`).trigger('click'); await flushPromises();
+    expect(wrapper.find('[data-testid="printing-preview-submit"]').exists()).toBe(false); expect(wrapper.find('[data-testid="printing-template-confirm-publish"]').exists()).toBe(false);
+  });
+  it('打印前重新读取精确版式，拒绝时立即清除旧正文且不打印', async () => {
+    const printing = vi.fn(); vi.spyOn(HTMLIFrameElement.prototype, 'contentWindow', 'get').mockReturnValue({ print: printing } as unknown as Window);
+    const wrapper = mountWithPermissions(['printing.templates.read', 'printing.templates.preview']); await flushPromises(); await wrapper.get('[data-testid="printing-preview-run"]').trigger('click'); await flushPromises();
+    expect(wrapper.find('iframe').exists()).toBe(true); vi.mocked(getPrintingTemplateVersion).mockRejectedValueOnce({ status: 403, code: 'fixture.denied', title: 'Denied' });
+    await wrapper.get('[data-testid="printing-preview-print"]').trigger('click'); await flushPromises();
+    expect(getPrintingTemplateVersion).toHaveBeenCalledTimes(2); expect(wrapper.find('iframe').exists()).toBe(false); expect(printing).not.toHaveBeenCalled();
+  });
+  it('新正文加载才打印一次，旧frame事件不能打印新正文，打印异常保留新预览', async () => {
+    const printing = vi.fn(); vi.spyOn(HTMLIFrameElement.prototype, 'contentWindow', 'get').mockReturnValue({ print: printing } as unknown as Window);
+    const wrapper = mountWithPermissions(['printing.templates.read', 'printing.templates.preview']); await flushPromises(); await wrapper.get('[data-testid="printing-preview-run"]').trigger('click'); await flushPromises();
+    const oldFrame = wrapper.get('iframe'); await wrapper.get('[data-testid="printing-preview-print"]').trigger('click'); await flushPromises();
+    expect(getPrintingTemplateVersion).toHaveBeenLastCalledWith(id, 1, expect.any(AbortSignal)); expect(printing).not.toHaveBeenCalled();
+    await oldFrame.trigger('load'); expect(printing).not.toHaveBeenCalled(); await wrapper.get('iframe').trigger('load'); await wrapper.get('iframe').trigger('load'); expect(printing).toHaveBeenCalledOnce();
+    printing.mockImplementationOnce(() => { throw Error('browser unavailable'); }); await wrapper.get('[data-testid="printing-preview-print"]').trigger('click'); await flushPromises();
+    await wrapper.get('iframe').trigger('load'); expect(wrapper.find('iframe').exists()).toBe(true); expect(wrapper.text()).toContain('无法打开浏览器打印窗口');
+  });
+  it('打印重读期间撤权，取消请求且迟到正文和load事件不能打印', async () => {
+    const printing = vi.fn(); vi.spyOn(HTMLIFrameElement.prototype, 'contentWindow', 'get').mockReturnValue({ print: printing } as unknown as Window);
+    const wrapper = mountWithPermissions(['printing.templates.read', 'printing.templates.preview']); await flushPromises(); await wrapper.get('[data-testid="printing-preview-run"]').trigger('click'); await flushPromises();
+    const pending = deferred<ReturnType<typeof publication>>(); vi.mocked(getPrintingTemplateVersion).mockReturnValueOnce(pending.promise); const oldFrame = wrapper.get('iframe');
+    await wrapper.get('[data-testid="printing-preview-print"]').trigger('click'); const signal = vi.mocked(getPrintingTemplateVersion).mock.lastCall![2]!; useSessionStore().currentUser!.permissions = ['printing.templates.read'];
+    expect(signal.aborted).toBe(true); pending.resolve(publication()); await flushPromises(); await oldFrame.trigger('load'); expect(printing).not.toHaveBeenCalled(); expect(wrapper.find('iframe').exists()).toBe(false);
+  });
 
 });

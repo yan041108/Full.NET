@@ -1,4 +1,5 @@
 export const printingTemplatesZh = {
+  'printingTemplates.printFailed': '无法打开浏览器打印窗口，已保留新预览，可手动重试。',
   'printingTemplates.close': '关闭',
   'printingTemplates.closeInFlight': '关闭只停止本窗口等待，服务端操作仍可能完成；请重新读取核对结果。',
   'printingTemplates.writeProcessing': '正在提交操作…', 'printingTemplates.writeUnconfirmed': '结果尚未确认，请核对后再决定下一步。', 'printingTemplates.writeFailed': '本次操作已被拒绝，修正后可手动重试。',
@@ -23,6 +24,7 @@ export const printingTemplatesZh = {
   'printingTemplates.reloadDraft': '重新载入草稿', 'printingTemplates.discardConfirm': '放弃本地输入，重新读取服务端草稿？'
 } as const;
 export const printingTemplatesEn: Record<keyof typeof printingTemplatesZh, string> = {
+  'printingTemplates.printFailed': 'Could not open browser printing. The refreshed preview is preserved for a manual retry.',
   'printingTemplates.close': 'Close',
   'printingTemplates.closeInFlight': 'Closing stops this window from waiting. The server operation may still complete; reload to review its outcome.',
   'printingTemplates.writeProcessing': 'Submitting operation…', 'printingTemplates.writeUnconfirmed': 'The outcome is unconfirmed. Review it before deciding the next step.', 'printingTemplates.writeFailed': 'The operation was rejected. Correct the input and retry manually.',

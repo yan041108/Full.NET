@@ -63,3 +63,36 @@ test('版本目录失败可独立重试，切模板取消旧正文并展示新�
   await expect(page.locator('iframe.printing-preview-html')).toHaveAttribute('title', /.+/);
   await expect(page.getByTestId('printing-preview-print')).toHaveAccessibleName('浏览器打印');
 });
+test('打印重新读取同一不可变版本，拒绝时不输出，恢复后只在新正文加载时输出一次', async ({ page }) => {
+  await boot(page); let reads = 0, denied = false;
+  await page.addInitScript(() => {
+    window.__layoutPrints = 0;
+    document.addEventListener('load', event => {
+      const frame = event.target;
+      if (frame instanceof HTMLIFrameElement && frame.classList.contains('printing-preview-html') && frame.contentWindow) {
+        frame.contentWindow.print = () => { window.__layoutPrints++; window.__printedLayout = frame.contentDocument.body.textContent; };
+      }
+    }, true);
+  });
+  await page.route('**/api/v1/printing/templates?*', route => json(route, { items: [template()], page: 1, pageSize: 20, total: 1 }));
+  await page.route('**/api/v1/printing/templates/' + id + '/versions/1', route => {
+    reads++; return denied ? route.fulfill({ status: 403, contentType: 'application/problem+json', body: JSON.stringify({ status: 403, code: 'fixture.denied', title: '版式读取已撤权' }) })
+      : json(route, version(id, '<h1>版式 {{tenantName}}</h1>'));
+  });
+  await page.goto('/#/printing/preview'); await page.getByTestId('printing-preview-run').click(); await previewVisible(page, '版式 {{tenantName}}');
+  expect(await page.evaluate(() => window.__layoutPrints)).toBe(0); denied = true; await page.getByTestId('printing-preview-print').click();
+  await expect(page.locator('iframe.printing-preview-html')).toHaveCount(0); await expect(page.getByText('版式读取已撤权', { exact: true })).toBeVisible();
+  expect(reads).toBe(2); expect(await page.evaluate(() => window.__layoutPrints)).toBe(0);
+  denied = false; await page.getByTestId('printing-preview-run').click(); await previewVisible(page, '版式 {{tenantName}}');
+  await page.getByTestId('printing-preview-print').click(); await expect.poll(() => page.evaluate(() => window.__layoutPrints)).toBe(1);
+  expect(reads).toBe(4); expect(await page.evaluate(() => window.__printedLayout)).toContain('版式 {{tenantName}}');
+});
+test('已观察目录修订不能回退，陈旧目录禁用预览，人工刷新可恢复', async ({ page }) => {
+  await boot(page); let revision = 4;
+  await page.route('**/api/v1/printing/templates?*', route => json(route, { items: [{ ...template(), version: revision }], page: 1, pageSize: 20, total: 1 }));
+  await page.goto('/#/printing/preview'); await expect(page.getByTestId('printing-preview-run')).toBeEnabled();
+  revision = 9; await page.getByTestId('printing-template-refresh').click(); await expect(page.getByTestId('printing-template-versions')).toContainText('9');
+  revision = 4; await page.getByTestId('printing-template-refresh').click(); await expect(page.getByTestId('printing-preview-run')).toBeDisabled();
+  await expect(page.getByTestId('printing-template-versions')).toContainText('9');
+  revision = 9; await page.getByTestId('printing-template-refresh').click(); await expect(page.getByTestId('printing-preview-run')).toBeEnabled();
+});

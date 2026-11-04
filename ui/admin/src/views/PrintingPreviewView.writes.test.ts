@@ -101,6 +101,13 @@ it('发布成功后的目录补读失败保留已确认版本，不自动再次�
   await setup(); await state().confirmPublish(); vi.mocked(api.listPrintingTemplates).mockRejectedValueOnce(new Error('offline')); await state().publishSelected();
   expect(state().writeReceipt).toMatchObject({ outcome: 'succeeded', versionNumber: 2 }); await state().publishSelected(); expect(api.publishPrintingTemplate).toHaveBeenCalledOnce();
 });
+it('已确认发布的修订先更新本地，陈旧目录不能回退且不重新开放发布', async () => {
+  await setup(); await state().confirmPublish(); await state().publishSelected();
+  const vm = wrapper.vm as unknown as { templates: { version: number; latestPublishedVersionNumber: number }[]; catalogReady: boolean };
+  expect(vm.templates[0]).toMatchObject({ version: 8, latestPublishedVersionNumber: 2 }); expect(vm.catalogReady).toBe(false);
+  await state().load(); expect(vm.templates[0]).toMatchObject({ version: 8, latestPublishedVersionNumber: 2 }); await state().confirmPublish(); await state().publishSelected();
+  expect(api.publishPrintingTemplate).toHaveBeenCalledOnce(); expect(state().writeReceipt).toMatchObject({ outcome: 'succeeded', versionNumber: 2 });
+});
 it('关闭在途发布取消旧响应，晚成功不覆盖未知回执', async () => {
   await setup(); await state().confirmPublish(); const pending = deferred<typeof publication>(); vi.mocked(api.publishPrintingTemplate).mockReturnValueOnce(pending.promise);
   const action = state().publishSelected(); const signal = vi.mocked(api.publishPrintingTemplate).mock.lastCall![2]!; state().publishOpen = false;
