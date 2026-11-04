@@ -1,4 +1,5 @@
 const zh = {
+  historyRetry: '重新读取发布历史',
   draftProcessing: '正在保存草稿…', draftConfirmed: '草稿保存已确认', draftUnknown: '草稿保存结果尚未确认，请核对目录后再操作。', draftRejected: '草稿保存被拒绝，可修正后手动重试。',
   closeSaving: '关闭只停止本窗口等待，服务端保存仍可能完成；请核对目录。',
   creationBlocked: '上一次新建结果尚未确认，已保留原始输入。刷新或重开不会自动再次新建。',
@@ -12,6 +13,7 @@ const zh = {
   note: '版本说明', cancel: '取消', catalogMissing: '新建定义需要可用分组及读取分组、静态查询和数据源目录的权限。'
 } as const;
 const en: Record<keyof typeof zh, string> = {
+  historyRetry: 'Reload publication history',
   draftProcessing: 'Saving draft…', draftConfirmed: 'Draft save confirmed', draftUnknown: 'Draft save is unconfirmed. Review the directory before another operation.', draftRejected: 'Draft save was rejected. Correct it and retry manually.',
   closeSaving: 'Closing stops this window from waiting. The server may still save the draft; review the directory.',
   creationBlocked: 'The previous creation is unconfirmed. Original input is preserved. Reloading or reopening will not create it again.',

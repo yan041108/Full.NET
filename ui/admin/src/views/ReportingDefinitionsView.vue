@@ -151,6 +151,10 @@ const definitionForm = reactive({
 });
 const publishNote = ref('');
 const versionsDrawerOpen = ref(false);
+const versionsLoading = ref(false), versionsProblem = ref<FullNetProblemDetails>(), versionDefinitionName = ref(''), historyEpoch = ref(0);
+const observedVersionIds = new Map<string, Map<number, string>>();
+const historyContent = ref<HTMLElement>();
+const historyLandmarks = useArtDialogLandmarks(() => historyContent.value?.closest('.el-drawer'));
 type DraftResource = 'group' | 'definition';
 type DraftReceipt = { resource: DraftResource; kind: 'create' | 'update'; outcome: 'processing' | 'confirmed' | 'unknown' | 'rejected'; name: string; id?: string; version?: number };
 type DraftSnapshot = { resource: 'group'; form: typeof groupForm } | { resource: 'definition'; form: typeof definitionForm; groupId?: string };
@@ -273,6 +277,7 @@ watch(() => definitionForm.queryPortKey, queryPortKey => {
 
 /** 权限或会话变更销毁草稿与在途结果，Host 配置不能残留到租户上下文。 */
 function reset() {
+  observedVersionIds.clear(); versionsProblem.value = undefined; versionsLoading.value = false; versionDefinitionName.value = ''; historyEpoch.value++;
   draftRequest?.controller.abort(); draftRequest = undefined; draftReceipt.value = undefined; creationBlocks.clear(); unconfirmedDrafts.clear(); groupFloors.clear();
   cancelConfirmation?.(); deletedDefinitions.clear(); deletedGroups.clear();
   publicationRequest?.controller.abort(); publicationRequest = undefined; publicationReceipt.value = undefined; definitionFloors.clear();
@@ -289,7 +294,7 @@ function reset() {
 watch(() => [session.state, route?.name, session.currentUser?.scope, session.currentUser?.id, session.currentUser?.tenantId, session.currentUser?.actorScope, session.currentUser?.sessionId, session.currentUser?.permissions.join('|'), session.switching, active.value], () => {
   reset(); if (canRead()) void loadPage();
 }, { immediate: true, flush: 'sync' });
-watch(versionsDrawerOpen, value => { if (!value) { reads.get('history')?.abort(); versions.value = []; } });
+watch(versionsDrawerOpen, value => { historyEpoch.value++; if (!value) { reads.get('history')?.abort(); versions.value = []; versionTotal.value = 0; versionDefinitionId.value = ''; versionDefinitionName.value = ''; versionsProblem.value = undefined; versionsLoading.value = false; } }, { flush: 'sync' });
 watch(groupEditorOpen, value => { groupEpoch++; if (!value) reads.get('group-draft')?.abort(); }, { flush: 'sync' });
 watch(definitionEditorOpen, value => { definitionEpoch++; if (!value) reads.get('draft')?.abort(); }, { flush: 'sync' });
 watch(() => JSON.stringify([groupEditorOpen.value, groupSignature()]), () => cancelDraftWrite('group'), { flush: 'sync' });
@@ -380,11 +385,21 @@ async function loadDefinitions(afterWrite = false): Promise<boolean> {
 }
 
 async function loadVersions(): Promise<void> {
-  if (!canRead() || !versionDefinitionId.value) return;
-  const scope = generation, id = versionDefinitionId.value, controller = reading('history');
-  try { const result = await listReportingDefinitionVersions(id, controller.signal, versionPage.value, 20);
-    if (current(scope) && !controller.signal.aborted && id === versionDefinitionId.value) { versions.value = result.items; versionTotal.value = result.total; }
-  } catch (error) { if (current(scope) && !controller.signal.aborted) problem.value = toProblem(error, 'reportingDefinitions.loadFailed'); }
+  if (!canRead() || !versionsDrawerOpen.value || !versionDefinitionId.value) return;
+  const scope = generation, id = versionDefinitionId.value, page = versionPage.value, epoch = historyEpoch.value, controller = reading('history');
+  const owned = () => current(scope) && !controller.signal.aborted && versionsDrawerOpen.value && id === versionDefinitionId.value && page === versionPage.value && epoch === historyEpoch.value;
+  versionsLoading.value = true; versionsProblem.value = undefined; versions.value = [];
+  try { const result = await listReportingDefinitionVersions(id, controller.signal, page, 20);
+    if (!owned()) return;
+    const known = observedVersionIds.get(id.toLowerCase()) ?? new Map<number, string>();
+    if (result.total < (definitionFloors.get(id.toLowerCase())?.publishedVersion ?? 0)
+      || result.items.some(row => !sameReportingId(row.definitionId, id) || known.has(row.versionNumber) && !sameReportingId(known.get(row.versionNumber), row.id))
+      || [...known].some(([number, key]) => result.total < number || Math.floor((result.total - number) / 20) + 1 === page
+        && !result.items.some(row => row.versionNumber === number && sameReportingId(row.id, key)))) throw Error('client.stale_reporting_version_history');
+    for (const row of result.items) known.set(row.versionNumber, row.id);
+    observedVersionIds.set(id.toLowerCase(), known); versions.value = result.items; versionTotal.value = result.total;
+  } catch (error) { if (owned()) versionsProblem.value = toProblem(error, 'reportingDefinitions.loadFailed'); }
+  finally { if (owned()) versionsLoading.value = false; }
 }
 
 function selectGroup(groupId: string): void {
@@ -615,6 +630,7 @@ async function confirmPublish() {
       || !sameReportingParameters(result.parameterSchema, target.parameterSchema) || !sameReportingLayout(result.layoutConfigJson, target.layoutConfigJson)
       || !sameReportingId(result.publishedByUserId, session.currentUser?.id) || result.changeNote !== note) throw Error('client.invalid_reporting_publication');
     publicationReceipt.value = { ...request.receipt, outcome: 'confirmed', versionNumber: result.versionNumber };
+    const known = observedVersionIds.get(target.id.toLowerCase()) ?? new Map<number, string>(); known.set(result.versionNumber, result.id); observedVersionIds.set(target.id.toLowerCase(), known);
     definitionFloors.set(target.id.toLowerCase(), { definitionVersion: target.version + 1, publishedVersion: result.versionNumber });
     definitions.value = definitions.value.map(row => sameReportingId(row.id, target.id)
       ? { ...row, version: Math.max(row.version, target.version + 1), latestPublishedVersionNumber: Math.max(row.latestPublishedVersionNumber, result.versionNumber) } : row);
@@ -640,8 +656,10 @@ async function write(permission: string, action: (signal: AbortSignal) => Promis
 }
 
 async function openVersions(definition: ReportingDefinitionSummary): Promise<void> {
-  if (!canRead() || acting.value) return;
+  if (!canRead() || acting.value || !definitions.value.some(row => sameReportingId(row.id, definition.id) && row.version === definition.version)) return;
+  historyEpoch.value++;
   versionDefinitionId.value = definition.id; versionPage.value = 1; versions.value = []; versionTotal.value = 0; versionsDrawerOpen.value = true;
+  versionDefinitionName.value = definition.name;
   await loadVersions();
 }
 
@@ -673,6 +691,12 @@ const definitionControls = computed(() => {
       name: (value: string) => { if (owned() && !acting.value) definitionForm.parameterSchema[index]!.displayName = value; },
       defaultValue: (value: string) => { if (owned() && !acting.value) definitionForm.parameterSchema[index]!.defaultValue = value; }
     })) };
+});
+const historyControls = computed(() => {
+  const scope = generation, epoch = historyEpoch.value, id = versionDefinitionId.value, page = versionPage.value, open = versionsDrawerOpen.value;
+  const owned = () => current(scope) && open && versionsDrawerOpen.value && epoch === historyEpoch.value && id === versionDefinitionId.value && page === versionPage.value;
+  return { update: (value: boolean) => { if (owned()) versionsDrawerOpen.value = value; }, retry: () => { if (owned()) void loadVersions(); },
+    page: (value: number) => { if (owned() && Number.isSafeInteger(value) && value >= 1 && value <= Math.max(1, Math.ceil(versionTotal.value / 20))) { versionPage.value = value; void loadVersions(); } } };
 });
 </script>
 
@@ -926,16 +950,21 @@ const definitionControls = computed(() => {
       v-on="{ confirm: confirmation.confirm, 'update:open': confirmation.update }">
       <p data-testid="reporting-management-confirm-message">{{ confirmation.message }}</p>
     </ArtFormDialog>
-    <ElDrawer v-model="versionsDrawerOpen" :title="t('reportingDefinitions.versionsTitle')" size="40%">
-      <ElTable :data="versions" size="small">
+    <ElDrawer :model-value="versionsDrawerOpen" v-on="{ 'update:modelValue': historyControls.update }" @open="historyLandmarks" @opened="historyLandmarks"
+      :title="t('reportingDefinitions.versionsTitle')" size="min(760px, calc(100vw - 32px))">
+      <div ref="historyContent">
+      <p>{{ versionDefinitionName }} <code>{{ versionDefinitionId }}</code></p>
+      <ElAlert v-if="versionsProblem" type="error" :closable="false" :title="versionsProblem.title" data-testid="reporting-history-problem" />
+      <ElButton :loading="versionsLoading" data-testid="reporting-history-retry" v-on="{ click: historyControls.retry }">{{ text('historyRetry') }}</ElButton>
+      <ElTable :data="versions" size="small" v-loading="versionsLoading" :scrollbar-tabindex="0">
         <ElTableColumn prop="versionNumber" :label="t('reportingDefinitions.fieldVersionNumber')" width="100" />
         <ElTableColumn prop="queryPortKey" :label="t('reportingDefinitions.fieldQueryPort')" />
         <ElTableColumn prop="publishedAtUtc" :label="t('reportingDefinitions.fieldPublishedAt')" min-width="180" />
         <ElTableColumn prop="changeNote" :label="t('reportingDefinitions.fieldChangeNote')" />
       </ElTable>
-      <ElPagination v-model:current-page="versionPage" :total="versionTotal" :page-size="20"
-        layout="prev, pager, next, total" @current-change="loadVersions" />
-
+      <ElPagination :current-page="versionPage" :total="versionTotal" :page-size="20" :disabled="versionsLoading"
+        layout="prev, pager, next, total" v-on="{ 'update:currentPage': historyControls.page }" />
+      </div>
     </ElDrawer>
     <ReportingTenantGrantsDialog v-if="versionGrantDefinition" :definition="versionGrantDefinition" @close="versionGrantDefinition = undefined" />
     <ReportingDefinitionGrantsDialog v-model="grantsOpen" :definition-id="grantsDefinitionId" />

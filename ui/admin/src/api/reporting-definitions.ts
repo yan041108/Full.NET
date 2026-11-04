@@ -27,7 +27,7 @@ import {
   type UpdateReportingGroupRequest
 } from '@fullnet/client-contracts';
 import { http, request } from './http';
-import { matchesReportingDraft, sameReportingId, validReportingDefinition, validReportingGroup, validReportingPort, validReportingVersion } from '../guards/reporting-management-guards';
+import { matchesReportingDraft, sameReportingId, validReportingDefinition, validReportingGroup, validReportingPort, validReportingVersion, reportingId } from '../guards/reporting-management-guards';
 
 function buildDefinitionListQuery(query: ReportingDefinitionListQuery): string {
   const params = new URLSearchParams({ page: String(query.page ?? 1), pageSize: String(query.pageSize ?? 20) });
@@ -205,6 +205,8 @@ export async function listReportingDefinitionVersions(
   id: string,
   signal?: AbortSignal, page = 1, pageSize = 20
 ): Promise<PagedResult<ReportingDefinitionVersionSummary>> {
+  if (!reportingId(id) || !Number.isSafeInteger(page) || page < 1 || !Number.isSafeInteger(pageSize) || pageSize < 1 || pageSize > 100
+    || !Number.isSafeInteger((page - 1) * pageSize)) throw new Error('client.invalid_reporting_definition_version_query');
   const value = await request<unknown>(
     `/api/v1/reporting/definitions/${encodeURIComponent(id)}/versions?page=${page}&pageSize=${pageSize}`,
     { method: 'GET' },
@@ -213,7 +215,12 @@ export async function listReportingDefinitionVersions(
   if (!isRecord(value) || !Array.isArray(value.items) || !value.items.every(row => isReportingDefinitionVersionSummary(row) && Number.isSafeInteger(row.versionNumber) && row.versionNumber > 0) || !isInteger(value.page) || !isInteger(value.pageSize) || typeof value.total !== 'number') {
     throw new Error('client.invalid_reporting_definition_version_list');
   }
-  if (value.page !== page || value.pageSize !== pageSize || !Number.isSafeInteger(value.total) || value.total < 0 || value.items.length > pageSize
+  // 发布号从一连续递增且不可单独删除，倒序页和总数必须来自可接受的同一快照。
+  const total = value.total;
+  if (value.page !== page || value.pageSize !== pageSize || !Number.isSafeInteger(total) || total < 0
+    || value.items.length !== Math.min(pageSize, Math.max(0, total - (page - 1) * pageSize))
+    || value.items.some((row, index) => !reportingId(row.id) || !reportingId(row.dataSourceId) || !reportingId(row.publishedByUserId)
+      || row.versionNumber !== total - (page - 1) * pageSize - index || 'parameterSchema' in row || 'layoutConfigJson' in row)
     || value.items.some(row => row.definitionId.toLowerCase() !== id.toLowerCase())
     || new Set(value.items.map(row => row.versionNumber)).size !== value.items.length
     || new Set(value.items.map(row => row.id.toLowerCase())).size !== value.items.length) throw new Error('client.invalid_reporting_definition_version');

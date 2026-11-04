@@ -13,7 +13,7 @@ import {
 } from '../api/reporting-definitions';
 import { listReportingDataSources } from '../api/reporting-data-sources';
 import { useSessionStore } from '../auth/session';
-import { ElButton, ElDialog, ElForm, ElMessage, ElSelect } from 'element-plus';
+import { ElButton, ElDialog, ElDrawer, ElForm, ElMessage, ElPagination, ElSelect } from 'element-plus';
 import { dataSourceRow } from '../test/reporting-data-source-fixtures';
 import { deferred } from '../test/data-output-fixtures';
 import { updateReportingGroup } from '../api/reporting-definitions';
@@ -415,6 +415,47 @@ describe('ReportingDefinitionsView', () => {
     loadPage: () => Promise<void>; confirmPublish: () => Promise<void> };
   const publicationState = (wrapper: VueWrapper) => wrapper.vm as unknown as PublicationState;
   const publicationButton = (wrapper: VueWrapper) => wrapper.findAllComponents(ElButton).find(item => item.attributes('data-testid') === 'reporting-config-publish-confirm')!;
+  type HistoryState = { versionsDrawerOpen: boolean; versions: { id: string; versionNumber: number }[]; versionsProblem?: unknown; versionsLoading: boolean; versionPage: number; openVersions: (row: ReturnType<typeof draft>) => Promise<void>; loadVersions: () => Promise<void> };
+  const historyState = (wrapper: VueWrapper) => wrapper.vm as unknown as HistoryState;
+  const historyRow = (number: number) => { const { parameterSchema: _, layoutConfigJson: __, ...row } = publication({ versionNumber: number,
+    id: '019bc2b1-2a40-7cc3-8992-' + (1000 + number).toString(16).padStart(12, '0') }); return row; };
+  it('历史读取失败只在抽屉中提示，重试原定义恢复且不发布', async () => {
+    withDefinition(); vi.mocked(listReportingDefinitionVersions).mockRejectedValueOnce({ status: 503, code: 'fixture.history', title: '历史暂不可用' });
+    const wrapper = mountView(permissions); await flushPromises(); await wrapper.get('[data-testid="reporting-config-history"]').trigger('click'); await flushPromises();
+    expect(historyState(wrapper).versionsDrawerOpen).toBe(true); expect(historyState(wrapper).versionsLoading).toBe(false);
+    expect(wrapper.get('[data-testid="reporting-history-problem"]').text()).toContain('历史暂不可用'); expect(publicationState(wrapper).problem).toBeUndefined();
+    vi.mocked(listReportingDefinitionVersions).mockResolvedValueOnce({ items: [historyRow(1)], total: 1, page: 1, pageSize: 20 });
+    await wrapper.get('[data-testid="reporting-history-retry"]').trigger('click'); await flushPromises();
+    expect(historyState(wrapper).versions).toHaveLength(1); expect(historyState(wrapper).versionsProblem).toBeUndefined(); expect(publishReportingDefinition).not.toHaveBeenCalled();
+  });
+  it('关闭历史同步取消读取，迟到结果和旧关闭回调不能影响重开抽屉', async () => {
+    withDefinition(); const pending = deferred<Awaited<ReturnType<typeof listReportingDefinitionVersions>>>(); vi.mocked(listReportingDefinitionVersions).mockReturnValueOnce(pending.promise);
+    const wrapper = mountView(permissions); await flushPromises(); await wrapper.get('[data-testid="reporting-config-history"]').trigger('click'); const vm = historyState(wrapper);
+    const oldClose = wrapper.getComponent(ElDrawer).vm.$.vnode.props!['onUpdate:modelValue'] as (value: boolean) => void;
+    const signal = vi.mocked(listReportingDefinitionVersions).mock.lastCall![1]!; vm.versionsDrawerOpen = false; expect(signal.aborted).toBe(true);
+    vi.mocked(listReportingDefinitionVersions).mockResolvedValueOnce({ items: [historyRow(1)], total: 1, page: 1, pageSize: 20 });
+    await wrapper.get('[data-testid="reporting-config-history"]').trigger('click'); await flushPromises(); oldClose(false);
+    pending.resolve({ items: [], total: 0, page: 1, pageSize: 20 }); await flushPromises(); expect(vm.versionsDrawerOpen).toBe(true); expect(vm.versions).toHaveLength(1);
+  });
+  it.each(['changed-id', 'missing', 'older-total'])('已确认发布的历史不能 %s，失败后仍可重试核对', async change => {
+    withDefinition(); vi.mocked(publishReportingDefinition).mockResolvedValueOnce(publication()); const wrapper = mountView(permissions); await flushPromises();
+    await wrapper.get('[data-testid="reporting-config-publish"]').trigger('click'); await flushPromises(); await publicationState(wrapper).confirmPublish();
+    const actual = { ...historyRow(2), id: groupId };
+    vi.mocked(listReportingDefinitionVersions).mockResolvedValueOnce({ items: change === 'older-total' ? [historyRow(1)] : change === 'missing' ? [historyRow(3), historyRow(1)] : [historyRow(2), historyRow(1)],
+      total: change === 'older-total' ? 1 : change === 'missing' ? 3 : 2, page: 1, pageSize: 20 });
+    await wrapper.get('[data-testid="reporting-config-history"]').trigger('click'); await flushPromises(); expect(historyState(wrapper).versions).toEqual([]); expect(historyState(wrapper).versionsProblem).toBeDefined();
+    vi.mocked(listReportingDefinitionVersions).mockResolvedValueOnce({ items: [actual, historyRow(1)], total: 2, page: 1, pageSize: 20 });
+    await wrapper.get('[data-testid="reporting-history-retry"]').trigger('click'); await flushPromises(); expect(historyState(wrapper).versions).toHaveLength(2); expect(publishReportingDefinition).toHaveBeenCalledOnce();
+  });
+  it('翻页立即清除旧摘要，旧分页回调不能操作新页', async () => {
+    withDefinition(); vi.mocked(listReportingDefinitionVersions).mockResolvedValueOnce({ items: Array.from({ length: 20 }, (_, index) => historyRow(21 - index)), total: 21, page: 1, pageSize: 20 });
+    const wrapper = mountView(permissions); await flushPromises(); await wrapper.get('[data-testid="reporting-config-history"]').trigger('click'); await flushPromises();
+    const pagination = wrapper.findAllComponents(ElPagination).at(-1)!; const oldPage = pagination.vm.$.vnode.props!['onUpdate:currentPage'] as (value: number) => void;
+    const pending = deferred<Awaited<ReturnType<typeof listReportingDefinitionVersions>>>(); vi.mocked(listReportingDefinitionVersions).mockReturnValueOnce(pending.promise);
+    oldPage(2); expect(historyState(wrapper).versions).toEqual([]); oldPage(1); expect(historyState(wrapper).versionPage).toBe(2);
+    pending.resolve({ items: [historyRow(1)], total: 21, page: 2, pageSize: 20 }); await flushPromises(); expect(historyState(wrapper).versions[0]?.versionNumber).toBe(1);
+    expect(listReportingDefinitionVersions).toHaveBeenCalledTimes(2);
+  });
   it('发布成功先保存精确版本，补读失败不撤销确认或自动再次发布', async () => {
     withDefinition(); vi.mocked(publishReportingDefinition).mockResolvedValue(publication()); vi.spyOn(ElMessage, 'success').mockImplementation(() => ({ close() {} }));
     const wrapper = mountView(permissions); await flushPromises(); await wrapper.get('[data-testid="reporting-config-publish"]').trigger('click'); await flushPromises();

@@ -59,3 +59,37 @@ test('关闭在途发布取消接入，读取实际新版本不自动重发', as
   await expect(page.getByTestId('reporting-publication-receipt')).toContainText('发布结果尚未确认'); await page.getByTestId('reporting-config-refresh').click();
   await expect(row(page).getByRole('cell').nth(3)).toHaveText('2'); expect(writes).toBe(1);
 });
+async function openHistory(page) {
+  await row(page).getByTestId('art-table-action-more').click(); await page.getByTestId('reporting-config-history').click();
+}
+const historyRow = (number, key = '019bc2b1-2a40-7cc3-8992-' + (1000 + number).toString(16).padStart(12, '0')) => ({ id: key, definitionId: id, dataSourceId: related, versionNumber: number,
+  queryPortKey: draft.queryPortKey, changeNote: '历史' + number, publishedByUserId: id, publishedAtUtc: createdAtUtc });
+test('发布历史失败独立重试，按二十条分页并在窄屏可关闭', async ({ page }, info) => {
+  await boot(page); const pages = []; let unavailable = true;
+  await page.route('**/api/v1/reporting/definitions/' + id + '/versions?*', route => {
+    const query = new URL(route.request().url()).searchParams; const pageNumber = Number(query.get('page')); pages.push(pageNumber); expect(query.get('pageSize')).toBe('20');
+    if (unavailable) return route.fulfill({ status: 503, contentType: 'application/problem+json', body: JSON.stringify({ status: 503, code: 'fixture.history', title: '历史暂不可用' }) });
+    return json(route, { items: pageNumber === 1 ? Array.from({ length: 20 }, (_, index) => historyRow(21 - index)) : [historyRow(1)], total: 21, page: pageNumber, pageSize: 20 });
+  });
+  await openHistory(page); const dialog = page.getByRole('dialog'); await expect(dialog.getByTestId('reporting-history-problem')).toContainText('历史暂不可用');
+  await expect(page.getByTestId('reporting-config-unconfirmed')).toHaveCount(0); unavailable = false;
+  await page.getByTestId('reporting-history-retry').click(); await expect(dialog.getByRole('cell', { name: '历史21', exact: true })).toBeVisible();
+  await expect.poll(async () => { const box = await dialog.boundingBox(); return !!box && box.x >= 0 && box.x + box.width <= page.viewportSize().width; }).toBe(true);
+  await expect.poll(() => dialog.evaluate(element => { for (let node = element; node; node = node.parentElement) if (getComputedStyle(node).opacity !== '1' || node.getAnimations().some(animation => animation.playState === 'running')) return false; return true; })).toBe(true);
+  await expect.poll(async () => (await new AxeBuilder({ page }).include('[role="dialog"]').analyze()).violations.map(item => item.id)).toEqual([]);
+  const scroll = dialog.locator('.el-table__body-wrapper .el-scrollbar__wrap'); await expect(scroll).toHaveAttribute('tabindex', '0');
+  if (page.viewportSize().width < 600) { await scroll.focus(); await page.keyboard.press('ArrowRight'); await expect.poll(() => scroll.evaluate(element => element.scrollLeft)).toBeGreaterThan(0); }
+  await page.screenshot({ path: info.outputPath('publication-history.png'), fullPage: true, animations: 'disabled' });
+  await dialog.locator('.btn-next').click(); await expect(dialog.getByRole('cell', { name: '历史1', exact: true })).toBeVisible(); expect(pages).toEqual([1, 1, 2]);
+  await page.keyboard.press('Escape'); await expect(dialog).toHaveCount(0);
+});
+test('已确认发布号的历史身份错配被拒绝，重试只核对而不发布', async ({ page }) => {
+  await boot(page); let writes = 0, correct = false;
+  await page.route('**/api/v1/reporting/definitions/' + id + '/publish', route => { writes++; return json(route, version('History review')); });
+  await open(page, 'History review'); await page.getByTestId('reporting-config-publish-confirm').click(); await expect(page.getByRole('dialog')).toHaveCount(0);
+  await page.route('**/api/v1/reporting/definitions/' + id + '/versions?*', route => json(route, { items: [historyRow(2, correct ? related : undefined), historyRow(1)], total: 2, page: 1, pageSize: 20 }));
+  await openHistory(page); await expect(page.getByTestId('reporting-history-problem')).toBeVisible();
+  await expect(page.getByRole('dialog').getByRole('cell', { name: '历史2', exact: true })).toHaveCount(0);
+  correct = true; await page.getByTestId('reporting-history-retry').click(); await expect(page.getByRole('dialog').getByRole('cell', { name: '历史2', exact: true })).toBeVisible();
+  expect(writes).toBe(1); await page.goto('/#/'); await expect(page.getByRole('dialog')).toHaveCount(0);
+});
