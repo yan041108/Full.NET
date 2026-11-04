@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref, watch } from 'vue';
+import { computed, onBeforeUnmount, onDeactivated, ref, watch } from 'vue';
 import { ElAlert, ElButton, ElDrawer } from 'element-plus';
 import { createEnterpriseRequestsApi, enterpriseRequestsHttp, type EnterpriseRequestResponse } from '../api/enterprise-requests';
 import { useSessionStore } from '../auth/session';
 import { useAdminI18n } from '../i18n/adminI18n';
 import { isSearchObjectId } from '../search/objectSearch';
+import {requestStatusLabel} from '../views/enterprise-requests/enterprise-request-presentation';
 
 const props = defineProps<{ requestId?: string }>(); const open = defineModel<boolean>({ default: false });
 const session = useSessionStore(), { t } = useAdminI18n(); const item = ref<EnterpriseRequestResponse>(), loading = ref(false), failed = ref(false);
@@ -27,14 +28,17 @@ async function load(id: string) {
   finally { if (current === generation) loading.value = false; }
 }
 onBeforeUnmount(reset);
+onDeactivated(()=>{open.value=false;reset();});
 </script>
 <template>
-  <ElDrawer v-model="open" :title="t('objectSearch.detail')" size="min(640px, 100vw)" data-testid="enterprise-request-read-detail">
+  <ElDrawer v-model="open" :title="t('enterpriseRequests.detailTitle')" size="min(640px, 100vw)" data-testid="enterprise-request-read-detail">
     <p v-if="loading" role="status">{{ t('objectSearch.loading') }}</p>
     <ElAlert v-else-if="failed" type="error" :closable="false" :title="t('objectSearch.detailFailed')" />
     <dl v-else-if="item">
+      <dt>{{t('enterpriseRequests.id')}}</dt><dd><code>{{item.id}}</code></dd>
       <dt>{{ t('objectSearch.number') }}</dt><dd>{{ item.requestNumber }}</dd>
       <dt>{{ t('objectSearch.titleLabel') }}</dt><dd data-testid="request-read-detail-title">{{ item.title }}</dd>
+      <dt>{{t('enterpriseRequests.requestStatus')}}</dt><dd>{{requestStatusLabel(item.status,t)}}</dd>
     </dl>
     <template #footer><ElButton @click="open = false">{{ t('objectSearch.close') }}</ElButton></template>
   </ElDrawer>

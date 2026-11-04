@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import AxeBuilder from '@axe-core/playwright';
 import { clickMainNavLink, enterDevelopmentTenant, loginAsHostAdmin } from './support/real-stack-auth.mjs';
+import {clickEnterpriseRequestAction} from './support/enterprise-request-actions.mjs';
 
 const root = '/api/v1/enterprise_request/enterprise-requests';
 function fixture(key) {
@@ -48,8 +49,8 @@ test('真实主从页面经 Worker 审批回写、消息通知与业务详情往
   await dialog.getByTestId('aggregate-remove-line').first().click(); await dialog.getByTestId('aggregate-total').fill('10.00');
   const reduced = await save(); expect(reduced.details).toHaveLength(1);
   const submitting = page.waitForResponse(r => new URL(r.url()).pathname.endsWith('/submit-for-approval') && r.request().method() === 'POST');
-  await row.getByRole('button', { name: '提交审批', exact: true }).click(); await page.getByRole('dialog', { name: '确认提交审批', exact: true }).getByRole('button', { name: '确认提交', exact: true }).click(); const submitted = await submitting;
-  expect(submitted.status(), await submitted.text()).toBe(200); await expect(row).toContainText('Submitted');
+  await clickEnterpriseRequestAction(page,row,'提交审批'); await page.getByRole('dialog', { name: '确认提交审批', exact: true }).getByRole('button', { name: '确认提交', exact: true }).click(); const submitted = await submitting;
+  expect(submitted.status(), await submitted.text()).toBe(200); await expect(row).toContainText('已提交');
   await row.getByRole('button', { name: '主从明细', exact: true }).click();
   await expect(dialog).toContainText('当前状态或权限仅允许查看'); await expect(dialog.getByTestId('aggregate-save')).toHaveCount(0);
   await page.keyboard.press('Escape');
@@ -71,7 +72,7 @@ test('真实主从页面经 Worker 审批回写、消息通知与业务详情往
   await page.keyboard.press('Escape'); await clickMainNavLink(page, /企业申请/);
   await expect.poll(async () => {
     await page.reload(); return row.textContent();
-  }, { timeout: 30000, intervals: [1000] }).toContain('Approved');
+  }, { timeout: 30000, intervals: [1000] }).toContain('已通过');
   await clickMainNavLink(page, /消息中心/);
   const notification = page.locator('.inbox-messages-view .el-table__row')
     .filter({ hasText: '审批已完成' }).filter({ hasText: document.master.id });
@@ -110,7 +111,7 @@ test('真实导入、附件下载、后台报表和同单据打印', async ({ pa
   await expect(detail).toContainText('执行成功', { timeout: 30000 });
   await page.keyboard.press('Escape'); await clickMainNavLink(page, /企业申请/);
   const imported = page.locator('.generated-crud-view .el-table__row').filter({ hasText: fixture('IMPORT_NUMBER') });
-  await expect(imported).toBeVisible(); await imported.getByRole('button', { name: '附件与文档', exact: true }).click();
+  await expect(imported).toBeVisible(); await clickEnterpriseRequestAction(page,imported,'附件与文档');
   const delivery = page.getByRole('dialog', { name: '企业申请交付', exact: true });
   await expect(delivery.getByRole('button', { name: '刷新状态', exact: true })).toBeEnabled();
   await delivery.locator('input[type=file]').setInputFiles({ name: 'evidence.txt', mimeType: 'text/plain', buffer: Buffer.from('real delivery evidence') });
@@ -161,7 +162,7 @@ test('真实待办驳回经 Worker 回写终态并生成单据通知', async ({ 
   await dialog.getByTestId('aggregate-save').click(); const created = await creation;
   expect(created.status(), await created.text()).toBe(200); const document = await created.json(); await expect(dialog).not.toBeVisible();
   const row = page.locator('.generated-crud-view .el-table__row').filter({ hasText: number });
-  await row.getByRole('button', { name: '提交审批', exact: true }).click(); await page.getByRole('dialog', { name: '确认提交审批', exact: true }).getByRole('button', { name: '确认提交', exact: true }).click(); await expect(row).toContainText('Submitted');
+  await clickEnterpriseRequestAction(page,row,'提交审批'); await page.getByRole('dialog', { name: '确认提交审批', exact: true }).getByRole('button', { name: '确认提交', exact: true }).click(); await expect(row).toContainText('已提交');
   await clickMainNavLink(page, /我的待办/);
   const todo = page.locator('.workflow-todos__table .el-table__row').filter({ hasText: title });
   await expect.poll(async () => {
@@ -172,7 +173,7 @@ test('真实待办驳回经 Worker 回写终态并生成单据通知', async ({ 
   await page.getByTestId('workflow-todo-reject').click(); const rejected = await rejecting;
   expect(rejected.status(), await rejected.text()).toBe(200);
   await page.keyboard.press('Escape'); await clickMainNavLink(page, /企业申请/);
-  await expect.poll(async () => { await page.reload(); return row.textContent(); }, { timeout: 30000, intervals: [1000] }).toContain('Rejected');
+  await expect.poll(async () => { await page.reload(); return row.textContent(); }, { timeout: 30000, intervals: [1000] }).toContain('已驳回');
   await row.getByRole('button', { name: '主从明细', exact: true }).click(); await expect(dialog).toBeVisible();
   await expect(dialog.getByTestId('aggregate-save')).toHaveCount(0); await expect(dialog).toContainText('已驳回');
   await page.keyboard.press('Escape'); await clickMainNavLink(page, /消息中心/);

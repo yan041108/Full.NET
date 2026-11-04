@@ -1,5 +1,5 @@
 import { mount, flushPromises } from '@vue/test-utils';
-import { ElButton, ElDialog, ElLoading } from 'element-plus';
+import { ElButton, ElDialog, ElDrawer, ElLoading } from 'element-plus';
 import { reactive, watch } from 'vue';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import EnterpriseRequestsView from './EnterpriseRequestsView.vue';
@@ -11,6 +11,10 @@ vi.mock('../api/enterprise-requests', async original => ({
   ...await original<typeof import('../api/enterprise-requests')>(), enterpriseRequestsHttp: { request: vi.fn() }
 }));
 const request = vi.mocked(enterpriseRequestsHttp.request);
+const ownedReads=vi.hoisted(()=>({master:vi.fn(),attachments:vi.fn(),aggregate:vi.fn()}));
+vi.mock('../api/enterprise-request-delivery',()=>({deliveryRequest:ownedReads.master,deliveryAttachments:ownedReads.attachments}));
+vi.mock('../api/enterprise-request-aggregate',()=>({getEnterpriseRequestAggregate:ownedReads.aggregate,createEnterpriseRequestAggregate:vi.fn(),updateEnterpriseRequestAggregate:vi.fn()}));
+beforeEach(()=>{Object.values(ownedReads).forEach(mock=>mock.mockReset());});
 const route = reactive<{ name: string; query: Record<string, unknown> }>({ name: 'enterprise-requests', query: {} });
 const replace = vi.fn(async (value: { query: Record<string, unknown> }) => { route.query = value.query; });
 const push = vi.fn(async () => {});
@@ -43,8 +47,8 @@ describe('企业样例对话框归属', () => {
     try {
       await flushPromises(); expect(f.wrapper.text()).toContain('链接申请');
       expect(request.mock.calls.some(call => call[0] === `/api/v1/enterprise_request/enterprise-requests/${id}`)).toBe(true);
-      const dialog = f.wrapper.findAllComponents(ElDialog).find(value => value.props('title') === '申请详情')!;
-      await dialog.findAll('button').find(value => value.text() === '取消')!.trigger('click'); await flushPromises();
+      const dialog = f.wrapper.findAllComponents(ElDrawer).find(value => value.props('title') === '申请详情')!;
+      await dialog.findAll('button').find(value => value.text() === '关闭详情')!.trigger('click'); await flushPromises();
       expect(route.query).toEqual({ page: '3' });
     } finally { f.wrapper.unmount(); }
   });
@@ -62,7 +66,7 @@ describe('企业样例对话框归属', () => {
       await flushPromises(); expect(f.wrapper.text()).toContain('申请详情');
       f.session.currentUser = { ...f.session.currentUser!, tenantId: '019bc2b1-2a40-7cc3-8992-a80de51bf330' };
       await flushPromises();
-      expect(f.wrapper.findAllComponents(ElDialog).some(value => value.props('title') === '申请详情')).toBe(false);
+      expect(f.wrapper.findAllComponents(ElDrawer).some(value => value.props('title') === '申请详情'&&value.props('modelValue'))).toBe(false);
       expect(request.mock.calls.filter(call => call[0].endsWith(outputId))).toHaveLength(1);
       route.query = { ...route.query, page: '2' }; await flushPromises();
       expect(request.mock.calls.filter(call => call[0].endsWith(outputId))).toHaveLength(1);
@@ -79,27 +83,29 @@ describe('企业样例对话框归属', () => {
       old.resolve({ ...row, title: '迟到旧详情' }); await flushPromises();
       expect(f.wrapper.text()).toContain('新链接申请'); expect(f.wrapper.text()).not.toContain('迟到旧详情');
       route.name = 'another-view'; await flushPromises();
-      expect(f.wrapper.findAllComponents(ElDialog).some(value => value.props('title') === '申请详情')).toBe(false);
+      expect(f.wrapper.findAllComponents(ElDrawer).some(value => value.props('title') === '申请详情'&&value.props('modelValue'))).toBe(false);
     } finally { f.wrapper.unmount(); }
   });
-  it('附件入口从服务端读取当前申请的受保护引用', async () => {
-    const f = fixture();
+  it('文档入口按独立附件权限重新读取原主单和受保护引用', async () => {
+    const f = fixture([...permissions,'enterprise_request.attachments.read']);
     try {
       await flushPromises();
-      request.mockResolvedValueOnce({ requestId: outputId, requestVersion: '1', requestStatus: 'Draft', items: [] });
-      await click(f.wrapper, '附件'); await flushPromises();
-      expect(request.mock.calls[1]![0]).toBe(`/api/v1/enterprise_request/enterprise-requests/${outputId}/attachments`);
-      expect(f.wrapper.text()).toContain('申请附件');
+      ownedReads.master.mockResolvedValueOnce(row);ownedReads.attachments.mockResolvedValueOnce({items:[],page:1,pageSize:20,total:0});
+      await click(f.wrapper,'附件与文档');await flushPromises();
+      expect(ownedReads.master).toHaveBeenCalledExactlyOnceWith(outputId,expect.anything());
+      expect(ownedReads.attachments).toHaveBeenCalledExactlyOnceWith(outputId,1,ownedReads.master.mock.calls[0]![1]);
+      expect(f.wrapper.text()).toContain('申请交付');expect(request).toHaveBeenCalledTimes(1);
     } finally { f.wrapper.unmount(); }
   });
-  it('明细入口从服务端读取版本与精确金额', async () => {
-    const f = fixture();
+  it('主从入口按独立明细权限读取当前主单及字符串版本金额', async () => {
+    const f = fixture([...permissions,'enterprise_request.enterprise_request_lines.read']);
     try {
       await flushPromises();
-      request.mockResolvedValueOnce({ requestId: outputId, requestVersion: '1', requestStatus: 'Draft', totalAmount: '12.00', items: [] });
-      await click(f.wrapper, '明细'); await flushPromises();
-      expect(request.mock.calls[1]![0]).toBe(`/api/v1/enterprise_request/enterprise-requests/${outputId}/lines`);
-      expect(f.wrapper.text()).toContain('申请明细');
+      ownedReads.aggregate.mockResolvedValueOnce({master:{...row,title:'权威主从标题',version:'2'},details:[]});
+      await click(f.wrapper,'主从明细');await flushPromises();
+      expect(ownedReads.aggregate).toHaveBeenCalledExactlyOnceWith(outputId,expect.anything());
+      expect((f.wrapper.get('[data-testid="aggregate-title"]').element as HTMLInputElement).value).toBe('权威主从标题');
+      expect((f.wrapper.get('[data-testid="aggregate-total"]').element as HTMLInputElement).value).toBe('12.00');expect(request).toHaveBeenCalledTimes(1);
     } finally { f.wrapper.unmount(); }
   });
 
@@ -109,7 +115,7 @@ describe('企业样例对话框归属', () => {
       await flushPromises(); request.mockResolvedValueOnce({ ...row, title: '最新资料', version: '2' });
       await click(f.wrapper, '详情'); await flushPromises();
       expect(request.mock.calls[1]![0]).toBe(`/api/v1/enterprise_request/enterprise-requests/${outputId}`);
-      expect(f.wrapper.findAllComponents(ElDialog).find(dialog => dialog.props('title') === '申请详情')!.text()).toContain('最新资料');
+      expect(f.wrapper.findAllComponents(ElDrawer).find(dialog => dialog.props('title') === '申请详情')!.text()).toContain('最新资料');
     } finally { f.wrapper.unmount(); }
   });
   it('提交审批先确认，取消不会写入，确认正文不携带客户端状态', async () => {
@@ -380,6 +386,23 @@ describe('申请命令确认',()=>{
   it('确认期间列表换成新版本时拒绝旧目标并提示重新读取',async()=>{
     const f=fixture([read,'enterprise_request.enterprise_requests.submit']);try{
       await flushPromises();await click(f.wrapper,'提交审批');await flushPromises();request.mockResolvedValueOnce({...list,items:[{...row,version:'2'}]});await(f.wrapper.vm as unknown as {load:()=>Promise<boolean>}).load();await flushPromises();expect(f.wrapper.get('[data-testid="enterprise-command-confirm"]').attributes('disabled')).toBeDefined();expect(f.wrapper.text()).toContain('原记录已变化');expect(request).toHaveBeenCalledTimes(2);
+    }finally{f.wrapper.unmount();}
+  });
+});
+
+describe('申请读取入口',()=>{
+  const read='enterprise_request.enterprise_requests.read';
+  beforeEach(()=>{route.name='enterprise-requests';route.query={};request.mockReset().mockResolvedValue(list);});
+  it('仅主单读取权限可从行重新读取摘要，不隐式加载明细或展示金额',async()=>{
+    const f=fixture([read]);try{
+      await flushPromises();request.mockResolvedValueOnce({...row,title:'当前权威摘要',totalAmount:'999.00'});await f.wrapper.get('[data-testid="enterprise-request-detail"]').trigger('click');await flushPromises();
+      const drawer=f.wrapper.findComponent(ElDrawer);expect(drawer.text()).toContain('当前权威摘要');expect(drawer.text()).not.toContain('999.00');expect(request.mock.calls[1]![0]).toBe(`/api/v1/enterprise_request/enterprise-requests/${outputId}`);expect(request).toHaveBeenCalledTimes(2);
+    }finally{f.wrapper.unmount();}
+  });
+  it.each(['permission','route','tenant'])('%s 边界恢复后旧详情按钮不能重新读取',async boundary=>{
+    const f=fixture([read]);try{
+      await flushPromises();const callback=f.wrapper.findAllComponents(ElButton).find(button=>button.attributes('data-testid')==='enterprise-request-detail')!.vm.$.vnode.props?.onClick as ()=>void;expect(callback).toBeTypeOf('function');
+      const original={...f.session.currentUser!};if(boundary==='permission')f.session.currentUser={...original,permissions:[]};else if(boundary==='tenant')f.session.currentUser={...original,tenantId:'01980000-0000-7000-8000-000000000003'};else route.name='overview';await flushPromises();f.session.currentUser=original;route.name='enterprise-requests';await flushPromises();const reads=request.mock.calls.length;callback();await flushPromises();expect(request).toHaveBeenCalledTimes(reads);expect(f.wrapper.findComponent(ElDrawer).props('modelValue')).toBe(false);
     }finally{f.wrapper.unmount();}
   });
 });

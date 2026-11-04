@@ -2,6 +2,7 @@ import { expect, test } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 import path from 'node:path';
 import { clickMainNavLink, enterDevelopmentTenant, loginAsHostAdmin } from './support/real-stack-auth.mjs';
+import {clickEnterpriseRequestAction} from './support/enterprise-request-actions.mjs';
 
 test('业务申请在退回轮次中保持冻结，幂等重投后重新办理并回写通知', async ({ page }) => {
   test.setTimeout(150_000);
@@ -16,7 +17,7 @@ test('业务申请在退回轮次中保持冻结，幂等重投后重新办理�
   await editor.getByTestId('aggregate-save').click(); const created = await creating; expect(created.status(), await created.text()).toBe(200);
   const document = await created.json(); await expect(editor).not.toBeVisible();
   const row = page.locator('.generated-crud-view .el-table__row').filter({ hasText: number });
-  await row.getByRole('button', { name: '提交审批', exact: true }).click(); await page.getByRole('dialog', { name: '确认提交审批', exact: true }).getByRole('button', { name: '确认提交', exact: true }).click(); await expect(row).toContainText('Submitted');
+  await clickEnterpriseRequestAction(page,row,'提交审批'); await page.getByRole('dialog', { name: '确认提交审批', exact: true }).getByRole('button', { name: '确认提交', exact: true }).click(); await expect(row).toContainText('已提交');
   await clickMainNavLink(page, /我的待办/);
   const todo = page.locator('.workflow-todos__table .el-table__row').filter({ hasText: title });
   async function openTodo() {
@@ -45,10 +46,10 @@ test('业务申请在退回轮次中保持冻结，幂等重投后重新办理�
   });
   const returning = page.waitForResponse(response => new URL(response.url()).pathname.endsWith('/return') && response.request().method() === 'POST');
   await page.getByTestId('workflow-todo-return').click(); expect((await returning).status()).toBe(200); expect(replayed).toBe(true); await page.keyboard.press('Escape');
-  await clickMainNavLink(page, /企业申请/); await expect(row).toContainText('Submitted'); await row.getByRole('button', { name: '主从明细', exact: true }).click();
+  await clickMainNavLink(page, /企业申请/); await expect(row).toContainText('已提交'); await row.getByRole('button', { name: '主从明细', exact: true }).click();
   await expect(editor).toContainText('当前状态或权限仅允许查看'); await expect(editor.getByTestId('aggregate-save')).toHaveCount(0); await page.keyboard.press('Escape');
   await clickMainNavLink(page, /我的待办/); await approve(); await approve();
   await clickMainNavLink(page, /企业申请/);
-  await expect.poll(async () => { await page.reload(); return row.textContent(); }, { timeout: 30_000, intervals: [1000] }).toContain('Approved');
+  await expect.poll(async () => { await page.reload(); return row.textContent(); }, { timeout: 30_000, intervals: [1000] }).toContain('已通过');
   await clickMainNavLink(page, /消息中心/); await expect(page.locator('.inbox-messages-view .el-table__row').filter({ hasText: '审批已完成' }).filter({ hasText: document.master.id })).toBeVisible({ timeout: 30_000 });
 });

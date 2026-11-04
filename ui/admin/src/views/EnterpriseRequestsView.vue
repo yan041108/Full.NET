@@ -30,6 +30,7 @@ import ArtTableActionGroup from '../framework/art-design/components/ArtTableActi
 import { useAdminI18n } from '../i18n/adminI18n';
 import { enterpriseEditorText } from '../i18n/enterprise-request-editor';
 import { enterpriseDeliveryText } from '../i18n/enterprise-request-delivery';
+import {requestStatusLabel} from './enterprise-requests/enterprise-request-presentation';
 import { isPrintingRecordId } from '../printing/record-print-link';
 import { useSessionStore } from '../auth/session';
 import { useEnterpriseRequestPage } from './enterprise-requests/enterprise-requests-page.generated';
@@ -43,8 +44,12 @@ let pendingQuery: SavedQueryConfiguration | undefined;
 const queryEnabled = computed(() => pageActive.value && !session.switching && !!session.currentUser?.tenantId
   && session.can('enterprise_request.enterprise_requests.read') && !!session.currentUser?.permissions.includes('settings.query_schemes.read'));
 const queryColumns = computed(() => query.value.columns.filter(column => column.visible).sort((left, right) => left.order - right.order));
-const queryFieldLabel = (key: string) => (({ id: 'ID', requestNumber: editorText('number'), title: editorText('subject'),
-  status: editorText('status'), totalAmount: editorText('total'), applicantUserId: editorText('applicant') } as Record<string, string>)[key] ?? key);
+const queryFieldLabel = (key: string) => (({ id: t('enterpriseRequests.id'), requestNumber: editorText('number'), title: editorText('subject'),
+  status: t('enterpriseRequests.requestStatus'), totalAmount: editorText('total'), applicantUserId: editorText('applicant') } as Record<string, string>)[key] ?? key);
+function queryCell(row:EnterpriseRequestResponse,key:string):string {
+  if(key==='status')return requestStatusLabel(row.status,t);
+  switch(key){case 'id':case 'requestNumber':case 'title':case 'totalAmount':case 'applicantUserId':return row[key]??'';default:return '';}
+}
 const aggregateOpen = ref(false), aggregateId = ref<string>();
 const readDetailOpen = ref(false), readDetailId = ref<string>();
 const deliveryOpen = ref(false), deliveryId = ref<string>();
@@ -52,6 +57,7 @@ const approvalProgressId = ref<string>();
 const canUseDelivery = () => !session.switching && session.can('enterprise_request.enterprise_requests.read') &&
   ['attachments.read', 'attachments.manage', 'reports.read', 'documents.print'].some(key => session.can(`enterprise_request.${key}`));
 const route = useRoute(), router = useRouter();
+const canReadSummary=computed(()=>pageActive.value&&!session.switching&&!!session.currentUser?.tenantId&&session.can('enterprise_request.enterprise_requests.read'));
 const printEpoch = ref(0);
 const canPrintSummary = computed(() => pageActive.value && !session.switching && !!session.currentUser?.tenantId
   && session.can('enterprise_request.enterprise_requests.read') && session.can('printing.published_templates.read')
@@ -65,6 +71,18 @@ function printSummary(row: EnterpriseRequestResponse) {
     if (epoch !== printEpoch.value || !canPrintSummary.value || route.name !== 'enterprise-requests' || changing.value
       || rows !== items.value || !items.value.includes(row) || row.id !== id || !isPrintingRecordId(id)) return;
     void router.push({ name: 'printing-published-templates', query: { formSchemaKey: 'enterprise_request.request_summary', recordId: id } });
+  };
+}
+/** 按当前可读行定位详情；实际数据由子组件重新读取，不使用列表快照替代权威结果。 */
+function readRow(row:EnterpriseRequestResponse,action:'detail'|'progress'|'aggregate'|'delivery') {
+  const epoch=printEpoch.value,rows=items.value,id=row.id;
+  return ()=>{
+    if(epoch!==printEpoch.value||!canReadSummary.value||route.name!=='enterprise-requests'||changing.value
+      ||rows!==items.value||!items.value.includes(row)||row.id!==id||!isPrintingRecordId(id))return;
+    if(action==='detail'){readDetailId.value=id;readDetailOpen.value=true;}
+    else if(action==='progress')approvalProgressId.value=id;
+    else if(action==='aggregate'&&session.can('enterprise_request.enterprise_request_lines.read')){aggregateId.value=id;aggregateOpen.value=true;}
+    else if(action==='delivery'&&canUseDelivery()){deliveryId.value=id;deliveryOpen.value=true;}
   };
 }
 const problem = ref<FullNetProblemDetails>();
@@ -156,6 +174,7 @@ watch(() => [session.currentUser?.id, session.currentUser?.tenantId, session.cur
   query.value = defaultEnterpriseRequestQuery();
   pendingQuery = undefined;
   aggregateOpen.value = false; aggregateId.value = undefined;
+  approvalProgressId.value=undefined;
   readDetailOpen.value = false; readDetailId.value = undefined;
   deliveryOpen.value = false; deliveryId.value = undefined;
   if (pageActive.value && !session.switching && !queryEnabled.value) void load();
@@ -165,6 +184,7 @@ watch([createOpen,editOpen], ([created,edited], [wasCreated,wasEdited]) => {
   if (created!==wasCreated || edited!==wasEdited) editorEpoch.value++;
   if ((!created&&wasCreated)||(!edited&&wasEdited)) stopEditor();
 },{flush:'sync'});
+watch(readDetailOpen,value=>{if(!value)readDetailId.value=undefined;},{flush:'sync'});
 watch(commandConfirmation,(current,previous)=>{if(previous&&!current)stopEditor();},{flush:'sync'});
 
 /** 查询切换只取消读取；编辑或业务写入未结束时不重置其结果。 */
@@ -196,7 +216,7 @@ watch(() => [route.name, route.query.requestId], () => {
   else openRequestedDocument();
 }, { immediate: true });
 onActivated(() => { pageActive.value = true; openRequestedDocument(); if (!queryEnabled.value && !loading.value && !items.value.length) void load(); });
-onDeactivated(() => { pageActive.value = false; pendingQuery = undefined; stopEditor(); reset(); commandConfirmation.value=undefined; aggregateOpen.value = false; readDetailOpen.value = false; deliveryOpen.value = false; createOpen.value = false; editOpen.value = false; });
+onDeactivated(() => { pageActive.value = false; pendingQuery = undefined; stopEditor(); reset(); commandConfirmation.value=undefined; approvalProgressId.value=undefined; aggregateOpen.value = false; readDetailOpen.value = false; deliveryOpen.value = false; createOpen.value = false; editOpen.value = false; });
 watch(() => aggregateOpen.value || readDetailOpen.value, (value, previous) => {
   if (!value && previous && route.name === 'enterprise-requests' && route.query.requestId !== undefined) {
     const { requestId: _requestId, ...query } = route.query;
@@ -284,7 +304,7 @@ const commandControls=computed(()=>{
         type="primary"
         @click="openCreate"
       >
-        创建
+        {{t('enterpriseRequests.create')}}
       </el-button>
     </div>
     <QuerySchemePanel v-if="queryEnabled" grid-key="enterprise_request.enterprise_requests"
@@ -294,26 +314,25 @@ const commandControls=computed(()=>{
     <el-table
       :data="[...items]"
       row-key="id"
-      empty-text="暂无数据"
+      :empty-text="t('enterpriseRequests.empty')"
       v-loading="loading"
     >
-      <el-table-column prop="id" label="Id" />
-      <el-table-column prop="organizationUnitId" label="OrganizationUnitId" />
-      <el-table-column v-for="column in queryColumns" :key="column.columnKey" :prop="column.columnKey"
-        :label="queryFieldLabel(column.columnKey)" :width="column.width ?? undefined" :fixed="column.fixed ?? undefined" />
-      <el-table-column prop="createdById" label="CreatedById" />
-      <el-table-column prop="updatedById" label="UpdatedById" />
-      <el-table-column prop="deletedById" label="DeletedById" />
       <!-- @vue-generic {EnterpriseRequestResponse} -->
-      <el-table-column label="操作" width="360">
+      <el-table-column v-for="column in queryColumns" :key="column.columnKey" :prop="column.columnKey"
+        :label="queryFieldLabel(column.columnKey)" :min-width="column.columnKey==='title'?180:140" :width="column.width ?? undefined" :fixed="column.fixed ?? undefined">
+        <template #default="{row}">{{queryCell(row,column.columnKey)}}</template>
+      </el-table-column>
+      <!-- @vue-generic {EnterpriseRequestResponse} -->
+      <el-table-column :label="t('enterpriseRequests.actions')" width="360">
         <template #default="{ row }">
           <ArtTableActionGroup>
+          <el-button v-if="canReadSummary" link type="primary" data-testid="enterprise-request-detail" v-on="{click:readRow(row,'detail')}">{{t('enterpriseRequests.detail')}}</el-button>
           <el-button v-if="canPrintSummary" link type="primary" :disabled="changing" data-testid="enterprise-request-print"
             v-on="{click:printSummary(row)}">{{ t('enterpriseRequests.printSummary') }}</el-button>
-          <el-button v-if="session.can('enterprise_request.enterprise_requests.read')" link data-testid="enterprise-request-approval-progress" @click="approvalProgressId = row.id">审批进度</el-button>
+          <el-button v-if="canReadSummary" link data-testid="enterprise-request-approval-progress" v-on="{click:readRow(row,'progress')}">{{t('enterpriseRequests.approvalProgress')}}</el-button>
           <el-button v-if="session.can('enterprise_request.enterprise_request_lines.read')" link type="primary"
-            @click="aggregateId = row.id; aggregateOpen = true">{{ editorText('open') }}</el-button>
-          <el-button v-if="canUseDelivery()" link type="primary" @click="deliveryId = row.id; deliveryOpen = true">
+            v-on="{click:readRow(row,'aggregate')}">{{ editorText('open') }}</el-button>
+          <el-button v-if="canUseDelivery()" link type="primary" v-on="{click:readRow(row,'delivery')}">
             {{ enterpriseDeliveryText(locale, 'open') }}
           </el-button>
           <el-button
@@ -323,7 +342,7 @@ const commandControls=computed(()=>{
             type="success"
             v-on="{click:confirmCommand(row,'submit')}"
           >
-            提交审批
+            {{t('enterpriseRequests.submit')}}
           </el-button>
           <el-button
             v-if="canUpdate && row.status === 'Draft'"
@@ -331,7 +350,7 @@ const commandControls=computed(()=>{
             type="primary"
             @click="openEdit(row)"
           >
-            编辑
+            {{t('enterpriseRequests.edit')}}
           </el-button>
           <el-button
             v-if="canDisable && row.status === 'Draft'"
@@ -339,7 +358,7 @@ const commandControls=computed(()=>{
             type="danger"
             v-on="{click:confirmCommand(row,'delete')}"
           >
-            删除
+            {{t('enterpriseRequests.delete')}}
           </el-button>
           </ArtTableActionGroup>
         </template>
@@ -367,53 +386,53 @@ const commandControls=computed(()=>{
         <el-button type="primary" :loading="changing" :disabled="changing||editorUnconfirmed||!commandControls.available" data-testid="enterprise-command-confirm" v-on="{click:commandControls.confirm}">{{t(commandConfirmation.kind==='submit'?'enterpriseRequests.confirmSubmit':'enterpriseRequests.confirmDelete')}}</el-button>
       </template>
     </el-dialog>
-    <el-dialog :model-value="createOpen" v-on="{'update:modelValue':editorControls.createUpdate}" title="创建" width="min(720px, calc(100vw - 32px))">
+    <el-dialog :model-value="createOpen" v-on="{'update:modelValue':editorControls.createUpdate}" :title="t('enterpriseRequests.create')" width="min(720px, calc(100vw - 32px))">
       <el-form label-width="120px" :disabled="changing">
-      <el-form-item label="OrganizationUnitId">
+      <el-form-item :label="editorText('organization')">
         <el-input v-model="createForm.organizationUnitId" />
       </el-form-item>
-      <el-form-item label="RequestNumber">
+      <el-form-item :label="editorText('number')">
         <el-input v-model="createForm.requestNumber" />
       </el-form-item>
-      <el-form-item label="Title">
+      <el-form-item :label="editorText('subject')">
         <el-input v-model="createForm.title" />
       </el-form-item>
-      <el-form-item label="Status">
-        <el-input v-model="createForm.status" readonly />
+      <el-form-item :label="t('enterpriseRequests.requestStatus')">
+        <el-input :model-value="requestStatusLabel('Draft',t)" disabled />
       </el-form-item>
-      <el-form-item label="TotalAmount">
+      <el-form-item :label="editorText('total')">
         <el-input v-model="createForm.totalAmount" />
       </el-form-item>
-      <el-form-item label="ApplicantUserId">
+      <el-form-item :label="editorText('applicant')">
         <el-input v-model="createForm.applicantUserId" />
       </el-form-item>
       </el-form>
       <template #footer>
-        <el-button v-on="{click:editorControls.createClose}">取消</el-button>
-        <el-button type="primary" :disabled="changing||editorUnconfirmed" v-on="{click:editorControls.create}">保存</el-button>
+        <el-button v-on="{click:editorControls.createClose}">{{t('common.cancel')}}</el-button>
+        <el-button type="primary" :disabled="changing||editorUnconfirmed" v-on="{click:editorControls.create}">{{t('enterpriseRequests.save')}}</el-button>
       </template>
     </el-dialog>
-    <el-dialog :model-value="editOpen" v-on="{'update:modelValue':editorControls.editUpdate}" title="编辑" width="min(720px, calc(100vw - 32px))">
+    <el-dialog :model-value="editOpen" v-on="{'update:modelValue':editorControls.editUpdate}" :title="t('enterpriseRequests.edit')" width="min(720px, calc(100vw - 32px))">
       <el-form label-width="120px" :disabled="changing">
-      <el-form-item label="RequestNumber">
+      <el-form-item :label="editorText('number')">
         <el-input v-model="editForm.requestNumber" />
       </el-form-item>
-      <el-form-item label="Title">
+      <el-form-item :label="editorText('subject')">
         <el-input v-model="editForm.title" />
       </el-form-item>
-      <el-form-item label="Status">
-        <el-input v-model="editForm.status" readonly />
+      <el-form-item :label="t('enterpriseRequests.requestStatus')">
+        <el-input :model-value="requestStatusLabel(editForm.status,t)" disabled />
       </el-form-item>
-      <el-form-item label="TotalAmount">
+      <el-form-item :label="editorText('total')">
         <el-input v-model="editForm.totalAmount" />
       </el-form-item>
-      <el-form-item label="ApplicantUserId">
+      <el-form-item :label="editorText('applicant')">
         <el-input v-model="editForm.applicantUserId" />
       </el-form-item>
       </el-form>
       <template #footer>
-        <el-button v-on="{click:editorControls.editClose}">取消</el-button>
-        <el-button type="primary" :disabled="changing||editorUnconfirmed" v-on="{click:editorControls.edit}">保存</el-button>
+        <el-button v-on="{click:editorControls.editClose}">{{t('common.cancel')}}</el-button>
+        <el-button type="primary" :disabled="changing||editorUnconfirmed" v-on="{click:editorControls.edit}">{{t('enterpriseRequests.save')}}</el-button>
       </template>
     </el-dialog>
     <EnterpriseRequestAggregateEditor v-model="aggregateOpen" :request-id="aggregateId" @saved="load(page)" />
