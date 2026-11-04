@@ -5,7 +5,6 @@ import {
   ElButton,
   ElCard,
   ElInput,
-  ElMessageBox,
   ElPagination,
   ElTable,
   ElTableColumn,
@@ -18,7 +17,7 @@ import {
   listMyTenantInvitations,
   type MyTenantInvitation
 } from '../api/my-tenant-invitations';
-import { getCurrentTenantMember, leaveCurrentTenantMember } from '../api/tenant-members';
+import TenantLeaveDialog from '../components/TenantLeaveDialog.vue';
 import { showProblem, showSuccess, showWarning } from '../feedback/fullNetMessage';
 import ArtSearchBar, { type ArtSearchBarItem } from '../framework/art-design/components/ArtSearchBar.vue';
 import ArtTableHeader from '../framework/art-design/components/ArtTableHeader.vue';
@@ -57,7 +56,7 @@ const appliedFilters = ref<AppliedFilters>({ keyword: '' });
 const canSwitch = computed(() => session.can('tenancy.tenants.switch'));
 const canLeaveTenant = computed(() =>
   Boolean(session.currentUser?.tenantId) && session.can('identity.tenant_members.leave_self'));
-const leavingTenant = ref(false);
+const leaveOpen = ref(false);
 
 const {
   tableMainRef,
@@ -158,39 +157,11 @@ async function acceptByToken(): Promise<void> {
   }
 }
 
-async function leaveCurrentTenant(): Promise<void> {
-  if (leavingTenant.value || !session.currentUser?.tenantId) {
-    return;
-  }
-
-  try {
-    await ElMessageBox.confirm(
-      t('tenant.leaveConfirm'),
-      t('tenant.leaveTitle'),
-      { type: 'warning' });
-  } catch {
-    return;
-  }
-
-  leavingTenant.value = true;
-  try {
-    const member = await getCurrentTenantMember();
-    if (member.memberRole === 'Owner') {
-      showWarning(t('tenant.leaveOwnerBlocked'));
-      return;
-    }
-
-    await leaveCurrentTenantMember(member.version);
-    showSuccess(t('tenant.leaveSuccess'));
-    await session.switchTenant(null);
-    await router.push('/tenant-context');
-  } catch (error: unknown) {
-    showProblem(error, t('tenant.leaveFailed'));
-  } finally {
-    leavingTenant.value = false;
-  }
+async function finishLeavingTenant(): Promise<void> {
+  showSuccess(t('tenant.leaveSuccess'));
+  try { await session.switchTenant(null); leaveOpen.value = false; }
+  catch (error: unknown) { showProblem(error, t('shell.contextSwitchFailed')); }
 }
-
 function formatMemberRole(role: string): string {
   if (role === 'Owner') {
     return t('tenantMembers.roleOwner');
@@ -293,9 +264,9 @@ function toProblem(error: unknown): FullNetProblemDetails {
           v-if="canLeaveTenant"
           type="danger"
           plain
-          :loading="leavingTenant"
+          :disabled="session.switching"
           data-testid="leave-current-tenant"
-          @click="leaveCurrentTenant"
+          @click="leaveOpen = true"
         >
           {{ t('tenant.leaveAction') }}
         </el-button>
@@ -307,6 +278,8 @@ function toProblem(error: unknown): FullNetProblemDetails {
       <span>{{ problem.title }}</span>
       <code v-if="problem.traceId" translate="no">{{ problem.traceId }}</code>
     </div>
+
+    <TenantLeaveDialog :open="leaveOpen" @update:open="leaveOpen = $event" @left="finishLeavingTenant" />
 
     <TenantRegistrationProgress />
 

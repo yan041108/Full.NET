@@ -145,7 +145,8 @@ export async function leaveCurrentTenantMember(
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify(body)
     },
-    signal
+    signal,
+    { retryUnauthorized: false }
   );
   return readResponse(value, isMember, 'client.invalid_tenant_member');
 }
