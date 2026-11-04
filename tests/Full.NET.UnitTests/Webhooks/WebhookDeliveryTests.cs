@@ -1,3 +1,4 @@
+using Full.NET.Abstractions.Ids;
 using Full.NET.Data.Dapper;
 using System.Net;
 using System.Text;
@@ -66,7 +67,7 @@ public sealed class WebhookDeliveryTests
             new FixedClock(DateTimeOffset.Parse("2026-09-17T00:00:00Z")),
             Options.Create(new DatabaseOptions { Provider = DatabaseProvider.SqlServer }),
             Options.Create(new WebhookDeliveryWorkerOptions()),
-            NullLogger<WebhookDeliveryBatchProcessor>.Instance);
+            NullLogger<WebhookDeliveryBatchProcessor>.Instance, NewIds());
         var services = new ServiceCollection();
         services.AddScoped<ICurrentTenantContextWriter>(_ => tenant);
         services.AddScoped(_ => processor);
@@ -219,7 +220,7 @@ public sealed class WebhookDeliveryTests
             new FixedClock(DateTimeOffset.Parse("2026-09-17T00:00:00Z")),
             Options.Create(new DatabaseOptions { Provider = DatabaseProvider.SqlServer }),
             Options.Create(new WebhookDeliveryWorkerOptions()),
-            NullLogger<WebhookDeliveryBatchProcessor>.Instance);
+            NullLogger<WebhookDeliveryBatchProcessor>.Instance, NewIds());
 
         var processed = await processor.ProcessPendingAsync(CancellationToken.None);
 
@@ -273,7 +274,7 @@ public sealed class WebhookDeliveryTests
             new FixedClock(DateTimeOffset.Parse("2026-09-17T00:00:00Z")),
             Options.Create(new DatabaseOptions { Provider = DatabaseProvider.SqlServer }),
             Options.Create(new WebhookDeliveryWorkerOptions()),
-            NullLogger<WebhookDeliveryBatchProcessor>.Instance);
+            NullLogger<WebhookDeliveryBatchProcessor>.Instance, NewIds());
 
         var processed = await processor.ProcessPendingAsync(CancellationToken.None);
         Assert.AreEqual(1, processed);
@@ -310,7 +311,7 @@ public sealed class WebhookDeliveryTests
         var processor = new WebhookDeliveryBatchProcessor(query, commands,
             new DapperCommandTransaction(new RecordingDbTransactionCoordinator()), clients, protector,
             new FixedClock(DateTimeOffset.UtcNow), Options.Create(new DatabaseOptions()),
-            Options.Create(new WebhookDeliveryWorkerOptions()), NullLogger<WebhookDeliveryBatchProcessor>.Instance);
+            Options.Create(new WebhookDeliveryWorkerOptions()), NullLogger<WebhookDeliveryBatchProcessor>.Instance, NewIds());
         Assert.AreEqual(2, await processor.ProcessPendingAsync(default));
         await commands.Received(1).ExecuteAsync(WebhookDeliverySql.MarkFailed,
             Arg.Is<IReadOnlyDictionary<string, object?>>(p => (Guid)p!["DeliveryId"]! == first.Id && (int)p!["Version"]! == 2), Arg.Any<CancellationToken>());
@@ -331,10 +332,12 @@ public sealed class WebhookDeliveryTests
             new DapperCommandTransaction(new RecordingDbTransactionCoordinator()), clients,
             new WebhookSigningSecretProtector(DataProtectionProvider.Create(nameof(WebhookDeliveryTests))),
             new FixedClock(DateTimeOffset.UtcNow), Options.Create(new DatabaseOptions()),
-            Options.Create(new WebhookDeliveryWorkerOptions()), NullLogger<WebhookDeliveryBatchProcessor>.Instance);
+            Options.Create(new WebhookDeliveryWorkerOptions()), NullLogger<WebhookDeliveryBatchProcessor>.Instance, NewIds());
         Assert.AreEqual(0, await processor.ProcessPendingAsync(default));
         clients.DidNotReceive().CreateClient(Arg.Any<string>());
     }
+
+    private static IIdGenerator NewIds() { var ids = Substitute.For<IIdGenerator>(); ids.NewId().Returns(_ => Guid.CreateVersion7()); return ids; }
 
     private sealed class CaptureHandler(Func<HttpRequestMessage, CancellationToken, Task<HttpResponseMessage>> onSend)
         : HttpMessageHandler

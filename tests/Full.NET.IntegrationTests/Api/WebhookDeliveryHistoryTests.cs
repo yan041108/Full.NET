@@ -67,16 +67,29 @@ public sealed class WebhookDeliveryHistoryTests
         using (var detail = await a.GetAsync(path + $"/{http.Id:D}", token))
         { Assert.AreEqual(HttpStatusCode.OK, detail.StatusCode); Assert.AreEqual(http, await detail.Content.ReadFromJsonAsync<WebhookDeliveryHistoryResponse>(token)); }
         using (var wrong = await a.GetAsync($"/api/v1/webhooks/subscriptions/{other.Id:D}/deliveries/{http.Id:D}", token)) Assert.AreEqual(HttpStatusCode.NotFound, wrong.StatusCode);
+        var attemptsPath = path + $"/{http.Id:D}/attempts";
+        using (var attempts = await a.GetAsync(attemptsPath, token))
+        {
+            Assert.AreEqual(HttpStatusCode.OK, attempts.StatusCode);
+            var page = await attempts.Content.ReadFromJsonAsync<PagedResult<WebhookDeliveryAttemptResponse>>(token);
+            Assert.AreEqual(1L, page!.Total); Assert.AreEqual("unconfirmed", page.Items.Single().OutcomeKey);
+            var raw = await attempts.Content.ReadAsStringAsync(token);
+            foreach (var forbidden in new[] { "private-payload-marker", "private-error-marker", "signingSecret", "payloadBody", "claimVersion" }) Assert.IsFalse(raw.Contains(forbidden, StringComparison.OrdinalIgnoreCase));
+        }
+        using (var wrong = await a.GetAsync($"/api/v1/webhooks/subscriptions/{other.Id:D}/deliveries/{http.Id:D}/attempts", token)) Assert.AreEqual(HttpStatusCode.NotFound, wrong.StatusCode);
+        foreach (var query in new[] { "?page=0", "?pageSize=101", "?page=2147483647&pageSize=100" })
+        { using var invalid = await a.GetAsync(attemptsPath + query, token); Assert.AreEqual(HttpStatusCode.BadRequest, invalid.StatusCode); }
         foreach (var query in new[] { "?page=0", "?pageSize=101", "?page=2147483647&pageSize=100", "?statusKey=unknown" })
         { using var invalid = await a.GetAsync(path + query, token); Assert.AreEqual(HttpStatusCode.BadRequest, invalid.StatusCode); }
         foreach (var rights in new[] { new[] { WebhookPermissions.SubscriptionsRead }, new[] { WebhookPermissions.DeliveriesRead } })
-        { using var client = factory.CreateClientForHost("acme.localhost"); client.DefaultRequestHeaders.Authorization = new("Bearer", await AccessAsync(tenant.Id, rights)); using var denied = await client.GetAsync(path, token); Assert.AreEqual(HttpStatusCode.Forbidden, denied.StatusCode); }
+        { using var client = factory.CreateClientForHost("acme.localhost"); client.DefaultRequestHeaders.Authorization = new("Bearer", await AccessAsync(tenant.Id, rights)); using var denied = await client.GetAsync(path, token); Assert.AreEqual(HttpStatusCode.Forbidden, denied.StatusCode); using var attemptDenied = await client.GetAsync(attemptsPath, token); Assert.AreEqual(HttpStatusCode.Forbidden, attemptDenied.StatusCode); }
         var domain = "history-b-" + Guid.CreateVersion7().ToString("N") + ".localhost"; TenantSummary b;
         await using (var scope = factory.Services.CreateAsyncScope())
         { scope.ServiceProvider.GetRequiredService<CurrentTenantAccessor>().SetHost(); var result = await scope.ServiceProvider.GetRequiredService<ITenantProvisioningService>().ProvisionAsync(new("history-b-" + Guid.CreateVersion7().ToString("N"), "History B", domain), token); Assert.IsTrue(result.IsSuccess); b = result.Value!; }
         using var foreign = factory.CreateClientForHost(domain); foreign.DefaultRequestHeaders.Authorization = new("Bearer", await AccessAsync(b.Id, permissions));
         using (var hidden = await foreign.GetAsync(path, token)) Assert.AreEqual(HttpStatusCode.NotFound, hidden.StatusCode);
         using (var hidden = await foreign.GetAsync(path + $"/{http.Id:D}", token)) Assert.AreEqual(HttpStatusCode.NotFound, hidden.StatusCode);
+        using (var hidden = await foreign.GetAsync(attemptsPath, token)) Assert.AreEqual(HttpStatusCode.NotFound, hidden.StatusCode);
         async Task<string> AccessAsync(Guid tenantId, IReadOnlyCollection<string> rights) => await IntegrationTestTenantContextHelper.SwitchToTenantAsync(host, await factory.CreateHostAccessTokenAsync([.. rights, "tenancy.tenants.switch"], token), tenantId, token);
         async Task<WebhookSubscriptionResponse> CreateAsync(string eventType)
         { using var response = await a.PostAsJsonAsync("/api/v1/webhooks/subscriptions", new CreateWebhookSubscriptionRequest(eventType, "https://example.com/history", "history-independent-secret"), token); Assert.AreEqual(HttpStatusCode.OK, response.StatusCode); return (await response.Content.ReadFromJsonAsync<WebhookSubscriptionResponse>(token))!; }

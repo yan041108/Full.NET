@@ -182,4 +182,8 @@ internal sealed record WebhookDeliveryWorkItem(
     Guid TenantId,
     string TargetUrl,
     string SigningSecretHash,
-    string EventType);
+    string EventType)
+{
+    /// <summary>本次成功领取时创建的尝试标识；原始候选读取尚未取得该标识。</summary>
+    public Guid AttemptId { get; init; }
+}

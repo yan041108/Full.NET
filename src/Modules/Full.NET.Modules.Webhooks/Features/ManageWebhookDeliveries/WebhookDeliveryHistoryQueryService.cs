@@ -2,8 +2,10 @@ using System.Globalization;
 using Full.NET.Abstractions.Messaging;
 using Full.NET.Abstractions.Results;
 using Full.NET.Abstractions.Tenancy;
+using Full.NET.Abstractions.Time;
 using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Webhooks.Contracts;
+using Full.NET.Modules.Webhooks.Delivery;
 using Full.NET.Modules.Webhooks.Features.ManageWebhookDeliveries.Persistence;
 using Full.NET.Modules.Webhooks.Features.ManageWebhookSubscriptions;
 using Full.NET.Modules.Webhooks.Features.ManageWebhookSubscriptions.Persistence;
@@ -12,8 +14,28 @@ using Microsoft.Extensions.Options;
 namespace Full.NET.Modules.Webhooks.Features.ManageWebhookDeliveries;
 
 /// <summary>投递历史在当前企业中明确定位，失败只输出安全分类，不暴露载荷或目标返回正文。</summary>
-internal sealed class WebhookDeliveryHistoryQueryService(IQueryExecutor queries, ICurrentTenant tenant, IOptions<DatabaseOptions> database)
+internal sealed class WebhookDeliveryHistoryQueryService(IQueryExecutor queries, ICurrentTenant tenant, IOptions<DatabaseOptions> database,
+    IClock clock, IOptions<WebhookDeliveryWorkerOptions> workerOptions)
 {
+    internal async Task<Result<PagedResult<WebhookDeliveryAttemptResponse>>> ListAttemptsAsync(Guid subscriptionId, Guid deliveryId, int page, int pageSize, CancellationToken token)
+    {
+        if (page < 1 || pageSize is < 1 or > 100 || (long)(page - 1) * pageSize > int.MaxValue)
+            return Result<PagedResult<WebhookDeliveryAttemptResponse>>.Failure(Invalid());
+        var owned = await GetAsync(subscriptionId, deliveryId, token).ConfigureAwait(false);
+        if (!owned.IsSuccess) return Result<PagedResult<WebhookDeliveryAttemptResponse>>.Failure(owned.Error!);
+        var parameters = WebhookSqlParameters.Create(("SubscriptionId", subscriptionId), ("DeliveryId", deliveryId), ("PageSize", pageSize), ("Offset", (page - 1) * pageSize));
+        var count = await queries.QuerySingleOrDefaultAsync<long>(WebhookDeliveryAttemptSql.Count, parameters, token).ConfigureAwait(false);
+        var sql = database.Value.Provider switch { DatabaseProvider.SqlServer => WebhookDeliveryAttemptSql.PageSqlServer, DatabaseProvider.MySql => WebhookDeliveryAttemptSql.PageMySql, _ => throw new InvalidOperationException("Unsupported database provider.") };
+        var rows = await queries.QueryAsync<WebhookDeliveryAttemptRecord>(sql, parameters, token).ConfigureAwait(false);
+        var deadline = clock.UtcNow.AddSeconds(-Math.Clamp(workerOptions.Value.LeaseSeconds, 60, 3600));
+        var items = rows.Select(row => {
+            var outcome = row.OutcomeKey == "started" ? row.CurrentStatus == "processing" && row.ClaimVersion == row.CurrentVersion && row.CurrentUpdatedAtUtc > deadline ? "processing" : "unconfirmed" : row.OutcomeKey;
+            var error = row.ErrorCode is null or "webhooks.delivery.http_error" or "webhooks.delivery.timeout" or "webhooks.delivery.target_invalid" or "webhooks.delivery.target_blocked" or "webhooks.delivery.transport_error" ? row.ErrorCode : "webhooks.delivery.failed";
+            return new WebhookDeliveryAttemptResponse(row.Id, row.TenantId, row.SubscriptionId, row.DeliveryId, outcome, row.StartedAtUtc, row.CompletedAtUtc, row.HttpStatus, error, row.AppliedToDelivery);
+        }).ToArray();
+        return Result<PagedResult<WebhookDeliveryAttemptResponse>>.Success(new(items, page, pageSize, count));
+    }
+
     internal async Task<Result<PagedResult<WebhookDeliveryHistoryResponse>>> ListAsync(Guid subscriptionId, int page, int pageSize, string? statusKey, CancellationToken token)
     {
         if (page < 1 || pageSize is < 1 or > 100 || (long)(page - 1) * pageSize > int.MaxValue)

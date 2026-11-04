@@ -57,3 +57,30 @@ export function readWebhookDeliveryHistoryPage(value: unknown): WebhookDeliveryH
   if (items.length > pageSize || items.length > total || new Set(items.map(row => row.id.toLowerCase())).size !== items.length) throw Error('client.invalid_webhook_history_page');
   return { page, pageSize, total, items };
 }
+
+export interface WebhookDeliveryAttempt {
+  id: string; tenantId: string; subscriptionId: string; deliveryId: string;
+  outcomeKey: 'processing' | 'unconfirmed' | 'delivered' | 'failed'; startedAtUtc: string; completedAtUtc: string | null;
+  httpStatus: number | null; errorCode: string | null; appliedToDelivery: boolean | null;
+}
+export interface WebhookDeliveryAttemptPage { items: WebhookDeliveryAttempt[]; page: number; pageSize: number; total: number }
+export function readWebhookDeliveryAttemptPage(value: unknown): WebhookDeliveryAttemptPage {
+  if (!isRecord(value) || !Array.isArray(value.items)) throw Error('client.invalid_webhook_attempt_page');
+  const page = integer(value.page, 1), pageSize = integer(value.pageSize, 1, 100), total = integer(value.total, 0, Number.MAX_SAFE_INTEGER);
+  const items: WebhookDeliveryAttempt[] = value.items.map(item => {
+    if (!isRecord(item) || ![item.id,item.tenantId,item.subscriptionId,item.deliveryId].every(id => isGuid(id) && id !== '00000000-0000-0000-0000-000000000000')
+      || !['processing','unconfirmed','delivered','failed'].includes(item.outcomeKey as string) || !utc(item.startedAtUtc)
+      || item.completedAtUtc !== null && !utc(item.completedAtUtc)
+      || item.httpStatus !== null && (!Number.isInteger(item.httpStatus) || (item.httpStatus as number) < 100 || (item.httpStatus as number) > 599)
+      || item.errorCode !== null && !['webhooks.delivery.http_error','webhooks.delivery.timeout','webhooks.delivery.failed','webhooks.delivery.target_invalid','webhooks.delivery.target_blocked','webhooks.delivery.transport_error'].includes(item.errorCode as string)
+      || item.appliedToDelivery !== null && typeof item.appliedToDelivery !== 'boolean') throw Error('client.invalid_webhook_attempt');
+    const completed = item.outcomeKey === 'delivered' || item.outcomeKey === 'failed';
+    if (completed !== (item.completedAtUtc !== null) || completed !== (item.appliedToDelivery !== null)
+      || !completed && (item.httpStatus !== null || item.errorCode !== null)) throw Error('client.invalid_webhook_attempt_outcome');
+    return { id: item.id as string, tenantId: item.tenantId as string, subscriptionId: item.subscriptionId as string, deliveryId: item.deliveryId as string,
+      outcomeKey: item.outcomeKey as WebhookDeliveryAttempt['outcomeKey'], startedAtUtc: item.startedAtUtc, completedAtUtc: item.completedAtUtc as string | null,
+      httpStatus: item.httpStatus as number | null, errorCode: item.errorCode as string | null, appliedToDelivery: item.appliedToDelivery as boolean | null };
+  });
+  if (items.length > pageSize || items.length > total || new Set(items.map(row => row.id.toLowerCase())).size !== items.length) throw Error('client.invalid_webhook_attempt_page');
+  return { items, page, pageSize, total };
+}

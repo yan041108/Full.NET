@@ -1,12 +1,32 @@
 import { beforeEach, expect, it, vi } from 'vitest';
 import { request } from './http';
-import { createWebhookSubscription, listWebhookSubscriptions, setWebhookSubscriptionStatus, listWebhookDeliveryHistory, getWebhookDeliveryHistory } from './webhook-subscriptions';
+import { createWebhookSubscription, listWebhookSubscriptions, setWebhookSubscriptionStatus, listWebhookDeliveryHistory, getWebhookDeliveryHistory, listWebhookDeliveryAttempts } from './webhook-subscriptions';
 vi.mock('./http', () => ({ request: vi.fn() }));
 const call = vi.mocked(request), id = '019bc2b1-2a40-7cc3-8992-a80de51bf299';
 const row = { id, tenantId: id, eventType: 'fullnet.workflow.instance.completed', targetUrl: 'https://example.com/hooks', isActive: true, version: 1 };
 const delivery = { id, tenantId: id, subscriptionId: id, eventId: id, statusKey: 'failed', attemptCount: 2, version: 3,
   nextAttemptAtUtc: null, lastErrorCode: 'webhooks.delivery.http_error', lastHttpStatus: 503, createdAtUtc: '2026-11-04T00:00:00Z', updatedAtUtc: '2026-11-04T00:01:00Z' };
 beforeEach(() => call.mockReset());
+const attempt = { id, tenantId: id, subscriptionId: id, deliveryId: id, outcomeKey: 'delivered', startedAtUtc: '2026-11-04T00:00:00Z', completedAtUtc: '2026-11-04T00:00:01Z', httpStatus: 200, errorCode: null, appliedToDelivery: false };
+it('逐次记录绑定订阅和投递，保留迟到应答但剔除敏感字段', async () => {
+  call.mockResolvedValue({ items: [{ ...attempt, payloadBody: 'private', lastError: 'private' }], page: 1, pageSize: 20, total: '1' });
+  const signal = new AbortController().signal;
+  await expect(listWebhookDeliveryAttempts(id, id, 1, 20, signal)).resolves.toEqual({ items: [attempt], page: 1, pageSize: 20, total: 1 });
+  expect(call).toHaveBeenCalledExactlyOnceWith(`/api/v1/webhooks/subscriptions/${id}/deliveries/${id}/attempts?page=1&pageSize=20`, { method: 'GET' }, signal);
+});
+it('未确认与失败记录保留各自可验证事实', async () => {
+  for (const value of [{ ...attempt, outcomeKey: 'unconfirmed', completedAtUtc: null, httpStatus: null, appliedToDelivery: null }, { ...attempt, outcomeKey: 'failed', httpStatus: 503, errorCode: 'webhooks.delivery.http_error', appliedToDelivery: true }]) {
+    call.mockResolvedValueOnce({ items: [value], page: 1, pageSize: 20, total: 1 });
+    await expect(listWebhookDeliveryAttempts(id, id)).resolves.toEqual({ items: [value], page: 1, pageSize: 20, total: 1 });
+  }
+});
+it('逐次读取拒绝跨资源、矛盾结果、重复标识及越界页码', async () => {
+  for (const value of [{ ...attempt, deliveryId: '019bc2b1-2a40-7cc3-8992-a80de51bf298' }, { ...attempt, subscriptionId: '019bc2b1-2a40-7cc3-8992-a80de51bf298' }, { ...attempt, outcomeKey: 'processing' }, { ...attempt, appliedToDelivery: null }, { ...attempt, errorCode: 'private exception' }, { ...attempt, startedAtUtc: '2026-11-04T08:00:00+08:00' }]) {
+    call.mockResolvedValueOnce({ items: [value], page: 1, pageSize: 20, total: 1 }); await expect(listWebhookDeliveryAttempts(id, id)).rejects.toThrow();
+  }
+  call.mockResolvedValueOnce({ items: [attempt, attempt], page: 1, pageSize: 20, total: 2 }); await expect(listWebhookDeliveryAttempts(id, id)).rejects.toThrow();
+  call.mockClear(); await expect(listWebhookDeliveryAttempts(id, id, 0)).rejects.toThrow(); await expect(listWebhookDeliveryAttempts(id, id, 2_147_483_647)).rejects.toThrow(); expect(call).not.toHaveBeenCalled();
+});
 it('读取规范化版本并移除意外签名字段', async () => {
   call.mockResolvedValue([{ ...row, version: '1', signingSecret: 'must-not-escape' }]); expect(await listWebhookSubscriptions()).toEqual([row]);
 });

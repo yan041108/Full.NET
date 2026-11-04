@@ -1,4 +1,9 @@
 export const webhookSubscriptionsZh = {
+  'webhooks.attempts.title': '逐次尝试记录', 'webhooks.attempts.hint': '开始表示已领取处理，可能尚未发送 HTTP。未确认不代表失败或成功；已确认结果保留原事实。',
+  'webhooks.attempts.processing': '正在处理', 'webhooks.attempts.unconfirmed': '结果未确认', 'webhooks.attempts.delivered': '收到成功应答', 'webhooks.attempts.failed': '本次尝试失败',
+  'webhooks.attempts.started': '开始处理', 'webhooks.attempts.completed': '确认结果', 'webhooks.attempts.http': 'HTTP 应答',
+  'webhooks.attempts.applied': '已更新当前投递状态', 'webhooks.attempts.notApplied': '仅保留本次结果，当前租约已变化。',
+  'webhooks.attempts.empty': '暂无逐次记录；部署前的历史尝试不会补造。', 'webhooks.attempts.readFailed': '无法读取尝试记录，请手动刷新。',
   'webhooks.history.title': '投递历史', 'webhooks.history.detail': '投递详情', 'webhooks.history.all': '全部状态',
   'webhooks.history.pageSize': '每页条数',
   'webhooks.history.pageSizeValue': '{size} 条/页',
@@ -25,6 +30,11 @@ export const webhookSubscriptionsZh = {
   'webhooks.inputInvalid': '请填写事件类型、有效的 HTTPS 地址及符合长度要求的签名密钥。'
 } as const;
 export const webhookSubscriptionsEn: Record<keyof typeof webhookSubscriptionsZh, string> = {
+  'webhooks.attempts.title': 'Individual attempts', 'webhooks.attempts.hint': 'Started means processing was claimed; HTTP may not have been sent. Unconfirmed does not mean failure or success. Confirmed results retain their original facts.',
+  'webhooks.attempts.processing': 'Processing', 'webhooks.attempts.unconfirmed': 'Outcome unconfirmed', 'webhooks.attempts.delivered': 'Successful response received', 'webhooks.attempts.failed': 'Attempt failed',
+  'webhooks.attempts.started': 'Processing started', 'webhooks.attempts.completed': 'Outcome confirmed', 'webhooks.attempts.http': 'HTTP response',
+  'webhooks.attempts.applied': 'Current delivery state updated', 'webhooks.attempts.notApplied': 'This outcome is retained; the current lease has changed.',
+  'webhooks.attempts.empty': 'No individual attempts are recorded. Attempts from before deployment are not reconstructed.', 'webhooks.attempts.readFailed': 'Attempts could not be read. Refresh manually.',
   'webhooks.history.title': 'Delivery history', 'webhooks.history.detail': 'Delivery details', 'webhooks.history.all': 'All states',
   'webhooks.history.pageSize': 'Page size',
   'webhooks.history.pageSizeValue': '{size} / page',

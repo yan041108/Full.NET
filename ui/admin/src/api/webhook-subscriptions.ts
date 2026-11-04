@@ -1,6 +1,7 @@
 import { isGuid, readWebhookSubscription, readWebhookSubscriptions, type WebhookSubscription, type CreateWebhookSubscription, type SetWebhookSubscriptionStatus } from '@fullnet/client-contracts';
 import { request } from './http';
 import { readWebhookDeliveryHistory, readWebhookDeliveryHistoryPage, type WebhookDeliveryHistory, type WebhookDeliveryHistoryPage, type WebhookDeliveryStatusKey } from '@fullnet/client-contracts';
+import { readWebhookDeliveryAttemptPage, type WebhookDeliveryAttemptPage } from '@fullnet/client-contracts';
 
 /** 读取仅返回当前可信企业的订阅，不缓存或接受客户端指定企业。 */
 export async function listWebhookSubscriptions(signal?: AbortSignal): Promise<WebhookSubscription[]> {
@@ -38,5 +39,15 @@ export async function getWebhookDeliveryHistory(subscriptionId: string, delivery
   if (![subscriptionId, deliveryId].every(id => isGuid(id) && id !== '00000000-0000-0000-0000-000000000000')) throw Error('client.invalid_webhook_history_identity');
   const result = readWebhookDeliveryHistory(await request<unknown>(`/api/v1/webhooks/subscriptions/${encodeURIComponent(subscriptionId)}/deliveries/${encodeURIComponent(deliveryId)}`, { method: 'GET' }, signal));
   if (result.id.toLowerCase() !== deliveryId.toLowerCase() || result.subscriptionId.toLowerCase() !== subscriptionId.toLowerCase()) throw Error('client.invalid_webhook_history_identity');
+  return result;
+}
+
+/** 尝试记录绑定原企业资源，不把查询当作发送或重放许可。 */
+export async function listWebhookDeliveryAttempts(subscriptionId: string, deliveryId: string, page = 1, pageSize = 20, signal?: AbortSignal): Promise<WebhookDeliveryAttemptPage> {
+  if (![subscriptionId,deliveryId].every(id => isGuid(id) && id !== '00000000-0000-0000-0000-000000000000') || !Number.isSafeInteger(page) || page < 1
+    || !Number.isSafeInteger(pageSize) || pageSize < 1 || pageSize > 100 || (page - 1) * pageSize > 2_147_483_647) throw Error('client.invalid_webhook_attempt_request');
+  const query = new URLSearchParams({ page: String(page), pageSize: String(pageSize) });
+  const result = readWebhookDeliveryAttemptPage(await request<unknown>(`/api/v1/webhooks/subscriptions/${encodeURIComponent(subscriptionId)}/deliveries/${encodeURIComponent(deliveryId)}/attempts?${query}`, { method: 'GET' }, signal));
+  if (result.page !== page || result.pageSize !== pageSize || result.items.some(row => row.subscriptionId.toLowerCase() !== subscriptionId.toLowerCase() || row.deliveryId.toLowerCase() !== deliveryId.toLowerCase())) throw Error('client.invalid_webhook_attempt_identity');
   return result;
 }

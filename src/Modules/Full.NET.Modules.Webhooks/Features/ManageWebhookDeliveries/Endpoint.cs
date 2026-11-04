@@ -26,5 +26,10 @@ internal static class Endpoint
             .WithName("webhooksGetSubscriptionDelivery")
             .Produces<WebhookDeliveryHistoryResponse>()
             .ProducesProblem(401).ProducesProblem(403).ProducesProblem(404);
+        group.MapGet("/{deliveryId:guid}/attempts", async (Guid subscriptionId, Guid deliveryId, int? page, int? pageSize, WebhookDeliveryHistoryQueryService queries, IApiResultMapper mapper, HttpContext context, CancellationToken token) =>
+            mapper.Map(await queries.ListAttemptsAsync(subscriptionId, deliveryId, page ?? 1, pageSize ?? 20, token).ConfigureAwait(false), context))
+            .WithName("webhooksListDeliveryAttempts")
+            .Produces<PagedResult<WebhookDeliveryAttemptResponse>>()
+            .ProducesProblem(400).ProducesProblem(401).ProducesProblem(403).ProducesProblem(404);
     }
 }

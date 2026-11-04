@@ -117,6 +117,20 @@ public sealed record WebhookDeliveryHistoryResponse(Guid Id, Guid TenantId, Guid
     string StatusKey, int AttemptCount, DateTimeOffset? NextAttemptAtUtc, string? LastErrorCode, int? LastHttpStatus,
     DateTimeOffset CreatedAtUtc, DateTimeOffset UpdatedAtUtc, int Version);
 
+/// <summary>逐次领取的开始及首次结果；未确认不会被推断为失败或成功。</summary>
+/// <param name="Id">尝试标识。</param>
+/// <param name="TenantId">可信企业标识。</param>
+/// <param name="SubscriptionId">原订阅标识。</param>
+/// <param name="DeliveryId">原投递标识。</param>
+/// <param name="OutcomeKey">processing、unconfirmed、delivered 或 failed。</param>
+/// <param name="StartedAtUtc">开始处理时间，不保证已经发出 HTTP。</param>
+/// <param name="CompletedAtUtc">首次确认结果时间，未确认时为空。</param>
+/// <param name="HttpStatus">已确认的 HTTP 应答状态，非 HTTP 故障为空。</param>
+/// <param name="ErrorCode">安全失败类别，不包含原始异常。</param>
+/// <param name="AppliedToDelivery">该次结果是否推进原租约的当前投递状态；未确认时为空。</param>
+public sealed record WebhookDeliveryAttemptResponse(Guid Id, Guid TenantId, Guid SubscriptionId, Guid DeliveryId,
+    string OutcomeKey, DateTimeOffset StartedAtUtc, DateTimeOffset? CompletedAtUtc, int? HttpStatus, string? ErrorCode, bool? AppliedToDelivery);
+
 /// <summary>
 /// 单次 Webhook 投递记录响应契约；用于投递历史查询与失败排查。
 /// </summary>

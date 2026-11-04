@@ -9,6 +9,7 @@ import { useSessionStore } from '../../auth/session';
 import { useAdminI18n } from '../../i18n/adminI18n';
 import { useAuthorizedViewScope } from '../../composables/useAuthorizedViewScope';
 import { getWebhookDeliveryHistory, listWebhookDeliveryHistory } from '../../api/webhook-subscriptions';
+import WebhookDeliveryAttemptsPanel from './WebhookDeliveryAttemptsPanel.vue';
 
 const props = defineProps<{ subscription: WebhookSubscription }>();
 const emit = defineEmits<{ close: [] }>();
@@ -18,12 +19,15 @@ const canRead = () => !session.switching && session.currentUser?.tenantId?.toLow
 const items = ref<WebhookDeliveryHistory[]>([]), total = ref(0), page = ref(1), pageSize = ref(20), filter = ref<WebhookDeliveryStatusKey | ''>('');
 const loading = ref(false), problem = ref(''), detailLoading = ref(false), detailProblem = ref(''), detailTarget = ref(''), detail = ref<WebhookDeliveryHistory>();
 const epoch = ref(0), detailHeading = ref<HTMLElement>();
+const showAttempts = ref(false);
+const detailGeneration = ref(0);
 let listRequest: ReturnType<typeof scope.begin>, detailRequest: ReturnType<typeof scope.begin>;
 let lastQuery: { page: number; pageSize: number; statusKey?: WebhookDeliveryStatusKey } | undefined;
 const scope = useAuthorizedViewScope(session, () => {
   epoch.value++; items.value = []; total.value = 0; loading.value = false; problem.value = ''; detail.value = undefined;
   detailTarget.value = ''; detailProblem.value = ''; detailLoading.value = false; page.value = 1; pageSize.value = 20; filter.value = '';
   lastQuery = undefined;
+  showAttempts.value = false;
 }, () => load());
 watch(() => JSON.stringify([props.subscription.id, props.subscription.tenantId]), () => { scope.invalidate(); void load(); }, { flush: 'sync' });
 watch(() => session.switching, switching => { scope.invalidate(); if (!switching) void load(); }, { flush: 'sync' });
@@ -40,7 +44,7 @@ function failure(row: WebhookDeliveryHistory) {
 function close() { scope.invalidate(); emit('close'); }
 async function load(recover = true) {
   if (!canRead()) return;
-  epoch.value++; listRequest?.cancel(); detailRequest?.cancel(); detail.value = undefined; detailTarget.value = ''; detailProblem.value = ''; detailLoading.value = false;
+  epoch.value++; listRequest?.cancel(); detailRequest?.cancel(); detail.value = undefined; detailTarget.value = ''; detailProblem.value = ''; detailLoading.value = false; showAttempts.value = false;
   const request = scope.begin(permission); if (!request) return; listRequest = request;
   const target = props.subscription.id, query = { page: page.value, pageSize: pageSize.value, statusKey: filter.value || undefined };
   if (!lastQuery || lastQuery.page !== query.page || lastQuery.pageSize !== query.pageSize || lastQuery.statusKey !== query.statusKey) { items.value = []; total.value = 0; }
@@ -58,7 +62,7 @@ async function load(recover = true) {
 }
 async function openDetail(row: WebhookDeliveryHistory) {
   if (!canRead() || loading.value || !items.value.some(value => value.id === row.id && value.version === row.version && owned(value))) return;
-  detailRequest?.cancel(); const request = scope.begin(permission); if (!request) return; detailRequest = request;
+  detailGeneration.value++; detailRequest?.cancel(); showAttempts.value = false; const request = scope.begin(permission); if (!request) return; detailRequest = request;
   detailTarget.value = row.id; detail.value = undefined; detailLoading.value = true; detailProblem.value = '';
   try {
     const result = await getWebhookDeliveryHistory(props.subscription.id, row.id, request.signal);
@@ -82,6 +86,11 @@ const controls = computed(() => {
     update: (open: boolean) => { if (!open && valid()) close(); } };
 });
 const rows = computed(() => { const version = epoch.value; return items.value.map(row => ({ ...row, show: () => { if (version === epoch.value) void openDetail(row); } })); });
+const attemptControls = computed(() => {
+  const owner = epoch.value, generation = detailGeneration.value, target = detail.value?.id;
+  const owned = () => owner === epoch.value && generation === detailGeneration.value && target === detail.value?.id && canRead();
+  return { open: () => { if (owned() && detail.value && !detailLoading.value && !loading.value) showAttempts.value = true; }, close: () => { if (owned()) showAttempts.value = false; } };
+});
 </script>
 <template>
   <ElDrawer :model-value="true" size="min(1000px, 100vw)" :title="t('webhooks.history.title')" v-on="{ 'update:modelValue': controls.update }">
@@ -109,6 +118,8 @@ const rows = computed(() => { const version = epoch.value; return items.value.ma
           <ElDescriptionsItem :label="t('webhooks.history.failure')">{{ failure(detail) }}</ElDescriptionsItem><ElDescriptionsItem :label="t('webhooks.history.next')">{{ time(detail.nextAttemptAtUtc) }}</ElDescriptionsItem>
           <ElDescriptionsItem :label="t('webhooks.history.created')">{{ time(detail.createdAtUtc) }}</ElDescriptionsItem><ElDescriptionsItem :label="t('webhooks.history.updated')">{{ time(detail.updatedAtUtc) }}</ElDescriptionsItem>
         </ElDescriptions>
+        <ElButton v-if="detail" data-testid="webhook-attempts-open" :disabled="detailLoading || loading" v-on="{ click: attemptControls.open }">{{ t('webhooks.attempts.title') }}</ElButton>
+        <WebhookDeliveryAttemptsPanel v-if="detail && showAttempts" :key="detail.id" :delivery="detail" v-on="{ close: attemptControls.close }" />
       </section>
     </section>
   </ElDrawer>

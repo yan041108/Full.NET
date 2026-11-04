@@ -4,7 +4,7 @@ import { ElPagination } from 'element-plus';
 import View from './WebhookDeliveryHistoryDrawer.vue';
 import * as api from '../../api/webhook-subscriptions';
 import { createOutputSession, outputId } from '../../test/data-output-fixtures';
-vi.mock('../../api/webhook-subscriptions', () => ({ listWebhookDeliveryHistory: vi.fn(), getWebhookDeliveryHistory: vi.fn() }));
+vi.mock('../../api/webhook-subscriptions', () => ({ listWebhookDeliveryHistory: vi.fn(), getWebhookDeliveryHistory: vi.fn(), listWebhookDeliveryAttempts: vi.fn() }));
 const other = '019bc2b1-2a40-7cc3-8992-a80de51bf298';
 const subscription = { id: outputId, tenantId: outputId, eventType: 'fullnet.workflow.instance.completed', targetUrl: 'https://example.com/hooks', isActive: true, version: 1 };
 const row = { id: outputId, tenantId: outputId, subscriptionId: outputId, eventId: other, statusKey: 'pending' as const, attemptCount: 1,

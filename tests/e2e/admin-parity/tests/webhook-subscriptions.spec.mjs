@@ -81,3 +81,27 @@ test('关闭历史在途读取会中止，迟到列表不恢复原抽屉',async(
  await page.getByTestId('webhook-history-open').click();await expect.poll(()=>started).toBe(true);await page.locator('.el-drawer__close-btn').click();await expect(page.getByRole('dialog')).toHaveCount(0);release();await expect.poll(()=>finished).toBe(true);await expect(page.getByTestId('webhook-history')).toHaveCount(0);
  await page.getByTestId('webhook-history-open').click();await expect(page.getByTestId('webhook-history-detail')).toBeEnabled();expect(reads).toBe(2);
 });
+
+const attemptId='019bc2b1-2a40-7cc3-8992-a80de51bf294';
+const attempt={id:attemptId,tenantId:id,subscriptionId:id,deliveryId:deliveryA,outcomeKey:'unconfirmed',startedAtUtc:'2026-11-04T00:00:00Z',completedAtUtc:null,httpStatus:null,errorCode:null,appliedToDelivery:null};
+async function openAttempts(page) {
+ await page.route(`**/api/v1/webhooks/subscriptions/${id}/deliveries?*`,route=>json(route,{items:[history],page:1,pageSize:20,total:1}));
+ await page.route(`**/api/v1/webhooks/subscriptions/${id}/deliveries/${deliveryA}`,route=>json(route,history));
+ await page.getByTestId('webhook-history-open').click();await page.getByTestId('webhook-history-detail').click();await page.getByTestId('webhook-attempts-open').click();
+}
+test('逐次记录明确区分未确认和旧租约应答，读取不会重发',async({page},info)=>{
+ const state=await boot(page,historyRights);let reads=0;
+ await page.route(`**/api/v1/webhooks/subscriptions/${id}/deliveries/${deliveryA}/attempts?*`,route=>{reads++;return json(route,{items:[attempt,{...attempt,id:second,outcomeKey:'delivered',completedAtUtc:'2026-11-04T00:01:00Z',httpStatus:200,appliedToDelivery:false}],page:1,pageSize:20,total:2});});
+ await openAttempts(page);const panel=page.getByTestId('webhook-attempts');await expect(panel).toContainText('未确认');await expect(panel).toContainText('收到成功应答');await expect(panel).toContainText('当前租约已变化');expect(reads).toBe(1);
+ await panel.screenshot({path:path.resolve(info.outputDir,'..','webhook-attempts.png'),animations:'disabled'});
+ expect((await new AxeBuilder({page}).include('[role="dialog"]').withTags(['wcag2a','wcag2aa','wcag21a','wcag21aa']).analyze()).violations).toEqual([]);
+ expect(state.creates).toBe(0);expect(state.statuses).toBe(0);
+});
+test('逐次读取失败可手动重读，关闭后的迟到结果不能重新打开',async({page})=>{
+ await boot(page,historyRights);let reads=0,release,finished=false;const pending=new Promise(resolve=>{release=resolve;});
+ await page.route(`**/api/v1/webhooks/subscriptions/${id}/deliveries/${deliveryA}/attempts?*`,async route=>{reads++;if(reads===1)return route.abort('failed');if(reads===2)return json(route,{items:[attempt],page:1,pageSize:20,total:1});await pending;await json(route,{items:[attempt],page:1,pageSize:20,total:1}).catch(()=>{});finished=true;});
+ await openAttempts(page);await expect(page.getByTestId('webhook-attempts-problem')).toBeVisible();expect(reads).toBe(1);
+ await page.getByTestId('webhook-attempts-refresh').click();await expect(page.getByTestId('webhook-attempts')).toContainText('未确认');expect(reads).toBe(2);
+ await page.getByTestId('webhook-attempts-refresh').click();await expect.poll(()=>reads).toBe(3);await page.getByTestId('webhook-attempts-close').click();await expect(page.getByTestId('webhook-attempts')).toHaveCount(0);
+ release();await expect.poll(()=>finished).toBe(true);await expect(page.getByTestId('webhook-attempts')).toHaveCount(0);
+});

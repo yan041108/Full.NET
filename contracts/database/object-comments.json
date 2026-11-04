@@ -5768,6 +5768,22 @@
         "TenantId": "租户标识；NULL 表示 Host 级",
         "VersionNumber": "版本号"
       }
+    },
+    "fn_webhooks_delivery_attempt": {
+      "comment": "Webhook逐次尝试的开始及首次完成事实，完成后不可变",
+      "columns": {
+        "Id": "应用端UUID v7尝试标识",
+        "TenantId": "可信订阅所属企业",
+        "SubscriptionId": "原订阅标识",
+        "DeliveryId": "原投递标识",
+        "ClaimVersion": "成功领取时的投递修订，作为本次执行隔离标识",
+        "StartedAtUtc": "领取提交的开始时间，不代表HTTP已发送",
+        "CompletedAtUtc": "首次确认结果的UTC时间，未确认时为空",
+        "OutcomeKey": "started、delivered或failed的首次完成状态",
+        "HttpStatus": "已知HTTP应答状态，非HTTP故障为空",
+        "ErrorCode": "安全失败分类，不存原始异常或正文",
+        "AppliedToDelivery": "该完成是否推进原租约版本的投递状态"
+      }
     }
   }
 }
