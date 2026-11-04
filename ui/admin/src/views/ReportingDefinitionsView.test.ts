@@ -346,6 +346,37 @@ describe('ReportingDefinitionsView', () => {
     if (phase === 'fresh') { expect(vm.definitionForm.parameterSchema[0]).toMatchObject({ displayName: '目录默认名称', defaultValue: 'catalog-default', isRequired: true }); expect(wrapper.find('[data-testid="reporting-config-draft-save"]').exists()).toBe(true); }
     else expect(JSON.stringify(vm.definitionForm.parameterSchema)).toBe(original);
   });
+  it('详情等待即提供可关闭编辑容器，关闭取消请求且晚结果不重开', async () => {
+    withDefinition(); const pending = deferred<ReturnType<typeof draft>>(); vi.mocked(getReportingDefinition).mockReturnValueOnce(pending.promise);
+    const wrapper = mountView(permissions); await flushPromises(); await wrapper.get('[data-testid="reporting-config-edit"]').trigger('click');
+    expect(wrapper.get('[data-testid="reporting-draft-loading"]').text()).toContain('可关闭'); expect(wrapper.find('[data-testid="reporting-config-draft-save"]').exists()).toBe(false);
+    expect(wrapper.get('[data-testid="reporting-config-name"]').attributes('disabled')).toBeDefined();
+    const signal = vi.mocked(getReportingDefinition).mock.lastCall![1]!; await wrapper.get('[data-testid="test-editor-close"]').trigger('click'); expect(signal.aborted).toBe(true);
+    pending.resolve(draft()); await flushPromises(); expect(wrapper.find('[data-testid="reporting-config-name"]').exists()).toBe(false);
+  });
+  it('详情失败保留可重试窗口，确认重读后恢复且不自动保存', async () => {
+    withDefinition(); vi.mocked(getReportingDefinition).mockRejectedValueOnce(new Error('offline')); const wrapper = mountView(permissions); await flushPromises();
+    await wrapper.get('[data-testid="reporting-config-edit"]').trigger('click'); await flushPromises(); expect(wrapper.find('[data-testid="reporting-config-name"]').exists()).toBe(true);
+    await wrapper.get('[data-testid="reporting-config-name"]').setValue('临时输入'); await wrapper.get('[data-testid="reporting-config-draft-reload"]').trigger('click');
+    await wrapper.get('[data-testid="reporting-management-confirm"]').trigger('click'); await flushPromises(); expect(getReportingDefinition).toHaveBeenCalledTimes(2);
+    expect((wrapper.get('[data-testid="reporting-config-name"]').element as HTMLInputElement).value).toBe(draft().name); expect(wrapper.find('[data-testid="reporting-config-draft-save"]').exists()).toBe(true); expect(updateReportingDefinition).not.toHaveBeenCalled();
+  });
+  it('打开分组意图取消旧定义读取，迟到详情不并排打开编辑器', async () => {
+    withDefinition(); const pending = deferred<ReturnType<typeof draft>>(); vi.mocked(getReportingDefinition).mockReturnValueOnce(pending.promise);
+    const wrapper = mountView([...permissions, 'reporting.groups.update']); await flushPromises(); await wrapper.get('[data-testid="reporting-config-edit"]').trigger('click');
+    const signal = vi.mocked(getReportingDefinition).mock.lastCall![1]!; ownedState(wrapper).openEditGroup(ownedState(wrapper).groups[0]!); expect(signal.aborted).toBe(true);
+    pending.resolve(draft()); await flushPromises(); expect(wrapper.find('[data-testid="reporting-config-name"]').exists()).toBe(false); expect(wrapper.find('[data-testid="reporting-config-group-save"]').exists()).toBe(true);
+  });
+  it('目录新修订保留本地定义但禁止保存，旧详情也不能解除，确认新详情后恢复', async () => {
+    withDefinition(); const wrapper = mountView(permissions); await flushPromises(); await wrapper.get('[data-testid="reporting-config-edit"]').trigger('click'); await flushPromises();
+    await wrapper.get('[data-testid="reporting-config-name"]').setValue('保留本地'); definitionsMock.mockResolvedValue({ items: [draft(8)], total: 1, page: 1, pageSize: 20 });
+    await wrapper.get('[data-testid="reporting-editor-catalog-refresh"]').trigger('click'); await flushPromises(); expect(wrapper.find('[data-testid="reporting-config-draft-save"]').exists()).toBe(false);
+    expect((wrapper.get('[data-testid="reporting-config-name"]').element as HTMLInputElement).value).toBe('保留本地');
+    await wrapper.get('[data-testid="reporting-config-draft-reload"]').trigger('click'); await wrapper.get('[data-testid="reporting-management-confirm"]').trigger('click'); await flushPromises();
+    expect(wrapper.find('[data-testid="reporting-config-draft-save"]').exists()).toBe(false); expect((wrapper.get('[data-testid="reporting-config-name"]').element as HTMLInputElement).value).toBe('保留本地');
+    vi.mocked(getReportingDefinition).mockResolvedValueOnce({ ...draft(9), name: '最新草稿' }); await wrapper.get('[data-testid="reporting-config-draft-reload"]').trigger('click'); await wrapper.get('[data-testid="reporting-management-confirm"]').trigger('click'); await flushPromises();
+    expect(wrapper.find('[data-testid="reporting-config-draft-save"]').exists()).toBe(true); expect((wrapper.get('[data-testid="reporting-config-name"]').element as HTMLInputElement).value).toBe('最新草稿'); expect(updateReportingDefinition).not.toHaveBeenCalled();
+  });
 
   type SavingState = OwnedState & { draftReceipt?: { outcome: string; version?: number; resource: string }; creationBlocks: Set<string>;
     openCreateGroup: () => void; openCreateDefinition: () => void; groupEditorOpen: boolean; acting: boolean;

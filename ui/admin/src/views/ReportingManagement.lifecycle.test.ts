@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { defineComponent, h, KeepAlive, ref } from 'vue';
 import { flushPromises, mount, type VueWrapper } from '@vue/test-utils';
-import { ElForm, ElDrawer, ElMessage, ElMessageBox } from 'element-plus';
+import { ElButton, ElForm, ElDrawer, ElMessage, ElMessageBox } from 'element-plus';
 import type { ReportingDataSource } from '@fullnet/client-contracts';
 import ArtFormDialog from '../framework/art-design/components/ArtFormDialog.vue';
 import ArtTableHeader from '../framework/art-design/components/ArtTableHeader.vue';
@@ -17,13 +17,14 @@ vi.mock('../api/reporting-data-sources', () => ({ listReportingDataSources: vi.f
 vi.mock('../api/reporting-definitions', () => ({ listReportingGroups: vi.fn(), createReportingGroup: vi.fn(),
   updateReportingGroup: vi.fn(), deleteReportingGroup: vi.fn(), listReportingQueryPorts: vi.fn(),
   listReportingDefinitions: vi.fn(), createReportingDefinition: vi.fn(), updateReportingDefinition: vi.fn(),
-  deleteReportingDefinition: vi.fn(), publishReportingDefinition: vi.fn(), listReportingDefinitionVersions: vi.fn() }));
+  getReportingDefinition: vi.fn(), deleteReportingDefinition: vi.fn(), publishReportingDefinition: vi.fn(), listReportingDefinitionVersions: vi.fn() }));
 
 const source: ReportingDataSource = { id: outputId, tenantId: null, name: '原会话数据源', providerKey: 'sql_server',
   serverHost: 'private-db', port: 1433, databaseName: 'private-database', username: 'private-user',
   hasPassword: true, trustServerCertificate: false, isEnabled: true, lastTestedAtUtc: null,
   lastTestStatusKey: null, lastTestMessage: null, createdAtUtc: '2026-10-10T00:00:00Z', updatedAtUtc: null, version: 1 };
-const page = { items: [{ ...source, maskedDatabaseName: 'private-***', maskedServerEndpoint: 'private-***',
+const { serverHost: _host, port: _port, databaseName: _database, username: _username, ...sourceMetadata } = source;
+const page = { items: [{ ...sourceMetadata, maskedDatabaseName: 'private-***', maskedServerEndpoint: 'private-***',
   maskedUsername: 'private-***' }], page: 1, pageSize: 20, total: 1 };
 const group = { id: outputId, parentId: null, name: '原会话分组', sortOrder: 0, isEnabled: true,
   createdAtUtc: source.createdAtUtc, updatedAtUtc: null, version: 1 };
@@ -43,9 +44,9 @@ function switchTenant(session: ReturnType<typeof createOutputSession>['session']
   Object.assign(session.currentUser!, { tenantId: outputId, scope: `tenant:${outputId.replaceAll('-', '')}` });
 }
 const rowAction = async (text: string) => {
-  const action = { 删除: 'delete', 版本: 'versions', 发布: 'publish', 编辑: 'edit' }[text];
+  const action = { 删除: 'delete', 版本: 'history', 发布: 'publish', 编辑: 'edit' }[text];
   expect(action).toBeDefined();
-  const selector = `[data-testid="reporting-definition-${action}"]`;
+  const selector = `[data-testid="reporting-config-${action}"]`;
   if (!wrapper!.find(selector).exists()) { await wrapper!.get('[data-testid="art-table-action-more"]').trigger('click'); await flushPromises(); }
   const button = wrapper!.find(selector);
   if (button.exists()) await button.trigger('click');
@@ -58,6 +59,7 @@ beforeEach(() => {
   vi.mocked(sources.listReportingDataSources).mockImplementation(async query => ({ ...page, page: query?.page ?? 1, pageSize: query?.pageSize ?? 20 }));
   vi.mocked(definitions.listReportingGroups).mockResolvedValue([group]);
   vi.mocked(definitions.listReportingDefinitions).mockResolvedValue(((items) => ({ items, page: 1, pageSize: 20, total: items.length }))([reportDefinition]));
+  vi.mocked(definitions.getReportingDefinition).mockResolvedValue({ ...reportDefinition, parameterSchema: [] });
   vi.mocked(definitions.listReportingQueryPorts).mockResolvedValue([]);
   vi.mocked(definitions.listReportingDefinitionVersions).mockResolvedValue(((items) => ({ items, page: 1, pageSize: 20, total: items.length }))([]));
 });
@@ -73,7 +75,7 @@ describe('Reporting 管理页授权代次', () => {
     const calls = vi.mocked(read).mock.calls[0]!;
     const signal = calls[calls.length - 1] as AbortSignal;
     switchTenant(session); await flushPromises();
-    pending.resolve(kind === 'sources' ? page : [reportDefinition]); await flushPromises();
+    pending.resolve(kind === 'sources' ? page : { items: [reportDefinition], total: 1, page: 1, pageSize: 20 }); await flushPromises();
     expect(wrapper!.text()).not.toContain(kind === 'sources' ? source.name : reportDefinition.name);
     expect(signal?.aborted).toBe(true);
     expect(read).toHaveBeenCalledOnce();
@@ -134,9 +136,11 @@ describe('Reporting 管理页授权代次', () => {
   it('发布期间重复点击只提交一次，切会话后迟到结果不触发补读', async () => {
     const pending = deferred<any>(); vi.mocked(definitions.publishReportingDefinition).mockReturnValue(pending.promise);
     const session = mountPage(ReportingDefinitionsView); await flushPromises();
-    await rowAction('发布'); await rowAction('发布'); await flushPromises();
+    await rowAction('发布'); const confirm = wrapper!.findAllComponents(ElButton).find(item => item.attributes('data-testid') === 'reporting-config-publish-confirm')!;
+    confirm.vm.$emit('click'); confirm.vm.$emit('click'); await flushPromises();
     expect(definitions.publishReportingDefinition).toHaveBeenCalledOnce();
-    switchTenant(session); pending.resolve({}); await flushPromises();
+    switchTenant(session); pending.resolve({ id: '019bc2b1-2a40-7cc3-8992-a80de51bf298', definitionId: outputId, versionNumber: 2, dataSourceId: reportDefinition.dataSourceId,
+      queryPortKey: reportDefinition.queryPortKey, parameterSchema: [], layoutConfigJson: '{}', changeNote: null, publishedByUserId: outputId, publishedAtUtc: source.createdAtUtc }); await flushPromises();
     expect(definitions.listReportingDefinitions).toHaveBeenCalledOnce();
   });
   it('关闭版本抽屉立即取消读取，迟到结果不接入', async () => {
@@ -154,9 +158,10 @@ describe('Reporting 管理页授权代次', () => {
     await flushPromises();
     const dialog = wrapper!.findAllComponents(ArtFormDialog).find(item => item.props('open'))!;
     const validation = deferred<boolean>(); const form = dialog.getComponent(ElForm);
+    Object.assign(form.props('model')!, kind === 'groups' ? { name: '合法分组' } : { name: '合法数据源', serverHost: 'localhost', databaseName: 'app', username: 'user', password: 'not-a-real-secret' }); await flushPromises();
     vi.spyOn(form.vm.$.exposed!, 'validate').mockImplementation(() => validation.promise as any);
     dialog.vm.$emit('confirm'); await flushPromises();
-    expect(dialog.props('saving')).toBe(true);
+    expect(dialog.props('open')).toBe(true); expect(kind === 'sources' ? sources.createReportingDataSource : definitions.createReportingGroup).not.toHaveBeenCalled();
     dialog.vm.$emit('update:open', false); validation.resolve(true); await flushPromises();
     expect(kind === 'sources' ? sources.createReportingDataSource : definitions.createReportingGroup).not.toHaveBeenCalled();
   });
@@ -169,7 +174,7 @@ describe('Reporting 管理页授权代次', () => {
     await flushPromises(); const dialog = wrapper!.getComponent(ArtFormDialog); dialog.vm.$emit('confirm'); dialog.vm.$emit('confirm'); await flushPromises();
     expect(sources.createReportingDataSource).toHaveBeenCalledOnce();
     expect(vi.mocked(sources.createReportingDataSource).mock.calls[0]![1]).toBeInstanceOf(AbortSignal);
-    pending.resolve(source); await flushPromises(); expect(dialog.props('open')).toBe(false);
+    pending.resolve({ ...source, id: '019bc2b1-2a40-7cc3-8992-a80de51bf298', name: '新增', serverHost: 'localhost', databaseName: 'app', username: 'user' }); await flushPromises(); expect(dialog.props('open')).toBe(false);
     expect(sources.listReportingDataSources).toHaveBeenCalledTimes(2);
   });
   it('数据源确认取消允许重试，确认后提交一次且刷新目录', async () => {
@@ -189,14 +194,16 @@ describe('Reporting 管理页授权代次', () => {
     expect(wrapper!.getComponent(ElDrawer).props('modelValue')).toBe(true);
     expect(wrapper!.getComponent(ElDrawer).findAllComponents({ name: 'ElAlert' }).some(alert => alert.props('title') === '版本服务不可用')).toBe(true);
   });
-  it('关闭报表编辑器清空备注，随后发布不携带上一草稿', async () => {
-    vi.mocked(definitions.publishReportingDefinition).mockResolvedValue({} as any);
-    mountPage(ReportingDefinitionsView); await flushPromises(); await rowAction('编辑');
-    const noteElement = document.querySelector('[data-testid="reporting-publish-note"]')!;
-    const note = (noteElement.matches('textarea') ? noteElement : noteElement.querySelector('textarea')) as HTMLTextAreaElement;
+  it('关闭独立发布确认清空备注，再次确认不携带上一窗口输入', async () => {
+    vi.mocked(definitions.publishReportingDefinition).mockResolvedValue({ id: '019bc2b1-2a40-7cc3-8992-a80de51bf298', definitionId: outputId, versionNumber: 2,
+      dataSourceId: reportDefinition.dataSourceId, queryPortKey: reportDefinition.queryPortKey, parameterSchema: [], layoutConfigJson: '{}', changeNote: null,
+      publishedByUserId: outputId, publishedAtUtc: source.createdAtUtc });
+    mountPage(ReportingDefinitionsView); await flushPromises(); await rowAction('发布');
+    const noteElement = wrapper!.get('[data-testid="reporting-config-publish-note"]').element;
+    const note = (noteElement.matches('input') ? noteElement : noteElement.querySelector('input')) as HTMLInputElement;
     note.value = '未提交的旧备注'; note.dispatchEvent(new Event('input', { bubbles: true })); await flushPromises();
-    wrapper!.findAllComponents(ArtFormDialog).find(dialog => dialog.props('open'))!.vm.$emit('update:open', false);
-    await flushPromises(); await rowAction('发布');
+    await wrapper!.get('[data-testid="reporting-publication-close"]').trigger('click');
+    await flushPromises(); await rowAction('发布'); wrapper!.findAllComponents(ElButton).find(item => item.attributes('data-testid') === 'reporting-config-publish-confirm')!.vm.$emit('click'); await flushPromises();
     expect(definitions.publishReportingDefinition).toHaveBeenCalledWith(outputId, { changeNote: null, version: 1 }, expect.any(AbortSignal));
   });
   it('同 Host 会话更换取消连接测试，迟到失败不能显示', async () => {

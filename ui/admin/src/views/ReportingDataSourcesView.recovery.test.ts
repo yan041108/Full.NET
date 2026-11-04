@@ -54,6 +54,12 @@ beforeEach(() => {
 afterEach(() => { wrapper?.unmount(); ElMessage.closeAll(); vi.restoreAllMocks(); });
 
 describe('报表数据源完整流程恢复', () => {
+  it('有效 Host 不能覆盖原始租户作用域，立即关闭并清空凭据', async () => {
+    const session = await setup(); await state().openEdit(row); state().editorForm.password = 'fixture-only'; await flushPromises();
+    session.currentUser!.actorScope = 'tenant:019bc2b12a407cc38992a80de51bf299'; await flushPromises();
+    expect(state().editorOpen).toBe(false); expect(state().editorForm.password).toBe(''); expect(state().editorForm.serverHost).toBe('');
+    await state().openEdit(row); await state().load(); expect(api.getReportingDataSource).toHaveBeenCalledOnce(); expect(api.listReportingDataSources).toHaveBeenCalledOnce();
+  });
   it('同查询补读失败保留目录并提供刷新，换页失败清除旧页', async () => {
     await setup(); vi.mocked(api.listReportingDataSources).mockRejectedValue(failure); await state().load();
     expect(state().items).toEqual([row]); expect(state().problem).toEqual(failure);

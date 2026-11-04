@@ -83,7 +83,7 @@ const viewActive = ref(false);
 onMounted(() => { viewActive.value = true; }); onActivated(() => { viewActive.value = true; });
 onDeactivated(() => { viewActive.value = false; }); onBeforeUnmount(() => { viewActive.value = false; });
 const host = () => viewActive.value && (!route || route.name === 'reporting-data-sources')
-  && session.currentUser?.scope === 'host' && session.currentUser.tenantId === null;
+  && session.currentUser?.scope === 'host' && session.currentUser.actorScope === 'host' && session.currentUser.tenantId === null;
 const canRead = computed(() => host() && session.can('reporting.data_sources.read'));
 const scope = useAuthorizedViewScope(session, resetScope, load);
 type ViewRequest = NonNullable<ReturnType<typeof scope.begin>>;

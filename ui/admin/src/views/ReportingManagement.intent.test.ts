@@ -15,13 +15,14 @@ vi.mock('../api/reporting-data-sources', () => ({ listReportingDataSources: vi.f
   deleteReportingDataSource: vi.fn(), testReportingDataSource: vi.fn() }));
 vi.mock('../api/reporting-definitions', () => ({ listReportingGroups: vi.fn(), createReportingGroup: vi.fn(), updateReportingGroup: vi.fn(),
   deleteReportingGroup: vi.fn(), listReportingQueryPorts: vi.fn(), listReportingDefinitions: vi.fn(), createReportingDefinition: vi.fn(),
-  updateReportingDefinition: vi.fn(), deleteReportingDefinition: vi.fn(), publishReportingDefinition: vi.fn(), listReportingDefinitionVersions: vi.fn() }));
+  getReportingDefinition: vi.fn(), updateReportingDefinition: vi.fn(), deleteReportingDefinition: vi.fn(), publishReportingDefinition: vi.fn(), listReportingDefinitionVersions: vi.fn() }));
 const otherId = '01980000-0000-7000-8000-000000000003';
 const source: ReportingDataSource = { id: outputId, tenantId: null, name: '数据源', providerKey: 'sql_server',
   serverHost: 'fixture-db', port: 1433, databaseName: 'app', username: 'fixture-user', hasPassword: true,
   trustServerCertificate: false, isEnabled: true, lastTestedAtUtc: null, lastTestStatusKey: null, lastTestMessage: null,
   createdAtUtc: '2026-10-15T00:00:00Z', updatedAtUtc: null, version: 1 };
-const sourceRow = { ...source, maskedServerEndpoint: 'fixture-***', maskedDatabaseName: 'app-***', maskedUsername: 'user-***' };
+const { serverHost: _host, port: _port, databaseName: _database, username: _username, ...sourceMetadata } = source;
+const sourceRow = { ...sourceMetadata, maskedServerEndpoint: 'fixture-***', maskedDatabaseName: 'app-***', maskedUsername: 'user-***' };
 const otherSource = { ...sourceRow, id: otherId, providerKey: 'mysql' };
 const group = { id: outputId, parentId: null, name: '分组一', sortOrder: 0, isEnabled: true, createdAtUtc: source.createdAtUtc, updatedAtUtc: null, version: 1 };
 const otherGroup = { ...group, id: otherId, name: '分组二' };
@@ -48,6 +49,10 @@ async function validateOpen(result = Promise.resolve(true)) {
   await flushPromises(); const dialog = wrapper!.findAllComponents(ArtFormDialog).find(item => item.props('open'))!;
   vi.spyOn(dialog.getComponent(ElForm).vm.$.exposed!, 'validate').mockImplementation(() => result);
 }
+async function answerPrompt(accepted: boolean) {
+  await flushPromises(); const prompt = wrapper!.findAllComponents(ArtFormDialog).find(item => item.props('open') && ['reporting-management-confirm', 'reporting-data-source-confirm'].includes(item.props('confirmTestId') ?? ''))!;
+  expect(prompt).toBeDefined(); if (accepted) prompt.vm.$emit('confirm'); else prompt.vm.$emit('update:open', false); await flushPromises();
+}
 beforeEach(() => {
   vi.resetAllMocks(); vi.mocked(sources.listReportingDataSources).mockImplementation(async query => ({ items: [sourceRow, otherSource], page: query?.page ?? 1, pageSize: query?.pageSize ?? 20, total: 2 }));
   vi.mocked(sources.getReportingDataSource).mockResolvedValue(source);
@@ -57,6 +62,7 @@ beforeEach(() => {
   vi.mocked(sources.deleteReportingDataSource).mockResolvedValue(true);
   vi.mocked(sources.disableReportingDataSource).mockResolvedValue({ ...source, version: 2, isEnabled: false });
   vi.mocked(definitions.listReportingGroups).mockResolvedValue([group, otherGroup]); vi.mocked(definitions.listReportingDefinitions).mockResolvedValue(((items) => ({ items, page: 1, pageSize: 20, total: items.length }))([definition]));
+  vi.mocked(definitions.getReportingDefinition).mockResolvedValue({ ...definition, parameterSchema: definition.parameterSchema.map(row => ({ ...row })) });
   vi.mocked(definitions.listReportingQueryPorts).mockResolvedValue([port]); vi.mocked(definitions.listReportingDefinitionVersions).mockResolvedValue(((items) => ({ items, page: 1, pageSize: 20, total: items.length }))([]));
   vi.mocked(definitions.deleteReportingDefinition).mockResolvedValue(true); vi.mocked(definitions.deleteReportingGroup).mockResolvedValue(true);
   vi.mocked(definitions.updateReportingDefinition).mockResolvedValue({ ...definition, version: 2 }); vi.mocked(definitions.updateReportingGroup).mockResolvedValue({ ...group, version: 2 });
@@ -79,22 +85,23 @@ describe('报表定义编辑与确认意图', () => {
     await setup(Definitions); await run('openCreateDefinition'); expect(state().definitionForm.queryPortKey).toBe(port.queryPortKey);
     expect(state().definitionForm.dataSourceId).toBe(otherSource.id);
   });
-  it('编辑期间切换分组关闭旧表单，不能把旧输入提交到新分组', async () => {
-    await setup(Definitions); await run('openEditDefinition', definition); await flushPromises(); state().selectedGroupId = otherGroup.id;
-    await run('submitDefinition'); expect(state().definitionEditorOpen).toBe(false); expect(definitions.updateReportingDefinition).not.toHaveBeenCalled();
+  it('编辑期间分组点击不能改挂原草稿，提交保留打开时的分组', async () => {
+    await setup(Definitions); await run('openEditDefinition', definition); await flushPromises(); await run('selectGroup', otherGroup.id);
+    expect(state().selectedGroupId).toBe(group.id); await validateOpen(); await run('submitDefinition');
+    expect(definitions.updateReportingDefinition).toHaveBeenCalledWith(definition.id, expect.objectContaining({ groupId: definition.groupId }), expect.any(AbortSignal));
   });
   it('校验期间切换分组取消创建，晚校验不能提交', async () => {
     await setup(Definitions); await run('openCreateDefinition'); const pending = deferred<boolean>(); await validateOpen(pending.promise);
-    const action = run('submitDefinition'); state().selectedGroupId = otherGroup.id; pending.resolve(true); await action;
+    const action = run('submitDefinition'); state().definitionEditorOpen = false; await run('selectGroup', otherGroup.id); pending.resolve(true); await action;
     expect(definitions.createReportingDefinition).not.toHaveBeenCalled();
   });
-  it('目录出现新修订时关闭旧定义编辑器', async () => {
+  it('目录出现新修订时保留定义输入但阻止旧修订保存', async () => {
     await setup(Definitions); await run('openEditDefinition', definition); state().definitions = [{ ...definition, version: 9 }];
-    expect(state().definitionEditorOpen).toBe(false); await run('submitDefinition'); expect(definitions.updateReportingDefinition).not.toHaveBeenCalled();
+    expect(state().definitionEditorOpen).toBe(true); await run('submitDefinition'); expect(definitions.updateReportingDefinition).not.toHaveBeenCalled();
   });
-  it('目录出现新修订时关闭旧分组编辑器', async () => {
+  it('目录出现新修订时保留分组输入但阻止旧修订保存', async () => {
     await setup(Definitions); await run('openEditGroup', group); state().groups = [{ ...group, version: 9 }, otherGroup];
-    expect(state().groupEditorOpen).toBe(false);
+    expect(state().groupEditorOpen).toBe(true); await run('submitGroup'); expect(definitions.updateReportingGroup).not.toHaveBeenCalled();
   });
   it('打开另一类编辑器关闭原编辑器，版本抽屉不替换编辑目标', async () => {
     await setup(Definitions); await run('openEditDefinition', definition); await run('openEditGroup', group);
@@ -106,13 +113,13 @@ describe('报表定义编辑与确认意图', () => {
     if (kind === 'group') vi.mocked(definitions.deleteReportingGroup).mockResolvedValueOnce(false);
     else vi.mocked(definitions.deleteReportingDefinition).mockResolvedValueOnce(false);
     const action = run(kind === 'group' ? 'confirmDeleteGroup' : 'confirmDeleteDefinition', kind === 'group' ? group : definition);
-    await run('finishConfirmation', true); await action;
+    await answerPrompt(true); await action;
     expect(success).not.toHaveBeenCalled(); expect(state().groups).toHaveLength(2); expect(state().definitions).toHaveLength(1);
   });
   it.each(['group', 'definition'] as const)('%s 确认期间修订变化不能继续删除', async kind => {
     await setup(Definitions); const action = run(kind === 'group' ? 'confirmDeleteGroup' : 'confirmDeleteDefinition', kind === 'group' ? group : definition);
     if (kind === 'group') state().groups = [{ ...group, version: 9 }, otherGroup]; else state().definitions = [{ ...definition, version: 9 }];
-    await run('finishConfirmation', true); await action;
+    await answerPrompt(true); await action;
     expect(kind === 'group' ? definitions.deleteReportingGroup : definitions.deleteReportingDefinition).not.toHaveBeenCalled();
   });
   it('版本响应属于另一报表时不展示且关闭抽屉', async () => {
@@ -133,7 +140,7 @@ describe('报表定义编辑与确认意图', () => {
   });
   it('删除确认固定原始标识，调用者改写原对象不能改目标', async () => {
     await setup(Definitions); const target = { ...definition }; const action = run('confirmDeleteDefinition', target);
-    target.id = otherId; await run('finishConfirmation', true); await action;
+    target.id = otherId; await answerPrompt(true); await action;
     expect(definitions.deleteReportingDefinition).toHaveBeenCalledWith(definition.id, expect.any(AbortSignal));
   });
   it('关闭后重开新编辑，旧更新结果不能关闭新表单或清除忙状态', async () => {
@@ -141,7 +148,7 @@ describe('报表定义编辑与确认意图', () => {
     vi.mocked(definitions.updateReportingDefinition).mockReturnValueOnce(old.promise).mockReturnValueOnce(next.promise);
     await setup(Definitions); await run('openEditDefinition', definition); await validateOpen(); const first = run('submitDefinition'); await flushPromises();
     state().definitionEditorOpen = false;
-    const recovery = run('acknowledgeRecovery', 'definition', definition.id); await run('finishConfirmation', true); await recovery;
+    await run('loadPage');
     await run('openEditDefinition', definition); await validateOpen(); const second = run('submitDefinition'); await flushPromises();
     old.resolve({ ...definition, version: 2 }); await first; expect(state().definitionEditorOpen).toBe(true); expect(state().acting).toBe(true);
     state().definitionEditorOpen = false; next.resolve({ ...definition, version: 2 }); await second;
@@ -156,8 +163,9 @@ describe('报表定义编辑与确认意图', () => {
   });
   it('关闭闲置编辑器不释放另一发布操作的锁，重复发布仍被阻止', async () => {
     const pending = deferred<Awaited<ReturnType<typeof definitions.publishReportingDefinition>>>(); vi.mocked(definitions.publishReportingDefinition).mockReturnValueOnce(pending.promise);
-    await setup(Definitions); await run('openEditGroup', group); const action = run('publishCurrentDefinition', definition);
-    state().groupEditorOpen = false; expect(state().acting).toBe(true); await run('publishCurrentDefinition', definition);
+    await setup(Definitions); await run('openEditGroup', group); await flushPromises(); const oldClose = wrapper!.findAllComponents(ArtFormDialog).find(item => item.props('open'))!.vm.$.vnode.props!['onUpdate:open'] as (open: boolean) => void;
+    state().groupEditorOpen = false; await run('publishCurrentDefinition', definition); const action = run('confirmPublish');
+    oldClose(false); expect(state().acting).toBe(true); await run('confirmPublish');
     expect(definitions.publishReportingDefinition).toHaveBeenCalledOnce(); wrapper!.unmount(); wrapper = undefined;
     pending.reject(new Error('late')); await action;
   });
@@ -184,16 +192,16 @@ describe('报表数据源编辑与操作意图', () => {
   });
   it.each(['disable', 'delete'] as const)('%s 确认期间列表修订变化不写入', async kind => {
     await setup(Sources); const action = run(kind === 'disable' ? 'runDisable' : 'runDelete', sourceRow);
-    state().items = [{ ...sourceRow, version: 9 }]; await run('finishConfirmation', true); await action;
+    state().items = [{ ...sourceRow, version: 9 }]; await answerPrompt(true); await action;
     expect(kind === 'disable' ? sources.disableReportingDataSource : sources.deleteReportingDataSource).not.toHaveBeenCalled();
   });
   it('删除 false 不显示成功或刷新', async () => {
     vi.mocked(sources.deleteReportingDataSource).mockResolvedValueOnce(false); const success = vi.spyOn(ElMessage, 'success');
-    await setup(Sources); const action = run('runDelete', sourceRow); await run('finishConfirmation', true); await action;
+    await setup(Sources); const action = run('runDelete', sourceRow); await answerPrompt(true); await action;
     expect(success).not.toHaveBeenCalled(); expect(sources.listReportingDataSources).toHaveBeenCalledOnce();
   });
   it('健康删除仍只提交冻结目标一次并刷新', async () => {
-    await setup(Sources); const action = run('runDelete', sourceRow); await run('finishConfirmation', true); await action;
+    await setup(Sources); const action = run('runDelete', sourceRow); await answerPrompt(true); await action;
     expect(sources.deleteReportingDataSource).toHaveBeenCalledWith(sourceRow.id, expect.any(AbortSignal)); expect(sources.listReportingDataSources).toHaveBeenCalledTimes(2);
   });
   it('健康编辑沿用原详情修订，空密码保持 null', async () => {
@@ -208,7 +216,7 @@ describe('报表数据源编辑与操作意图', () => {
   });
   it('停用响应身份错配不反馈成功或刷新目录', async () => {
     vi.mocked(sources.disableReportingDataSource).mockResolvedValueOnce({ ...source, id: otherId }); const success = vi.spyOn(ElMessage, 'success');
-    await setup(Sources); const action = run('runDisable', sourceRow); await run('finishConfirmation', true); await action;
+    await setup(Sources); const action = run('runDisable', sourceRow); await answerPrompt(true); await action;
     expect(success).not.toHaveBeenCalled(); expect(sources.listReportingDataSources).toHaveBeenCalledOnce();
   });
   it('关闭闲置数据源编辑器不释放连接测试的锁', async () => {

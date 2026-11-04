@@ -108,3 +108,37 @@ test('编辑器内刷新保留自定义输入，端口变化经显式参数重�
   expect(saved).toMatchObject({ name: '保留名称', version: 4, groupId: id, parameterSchema: [{ parameterKey: 'year', displayName: '年度', dataTypeKey: 'string', isRequired: true, defaultValue: '2026' }] });
   await expect(page.getByTestId('reporting-draft-receipt')).toContainText('草稿保存已确认');
 });
+test('详情等待可关闭，目录新修订保留输入并拒绝旧详情，重新载入后用新修订保存', async ({ page }, info) => {
+  await boot(page, undefined, ['reporting.definitions.update']); let catalogVersion = 1, serverVersion = 1, reads = 0, writes = 0, cancelled = false, release;
+  const pending = new Promise(resolve => { release = resolve; });
+  const draft = { id: lastId, groupId: id, dataSourceId: lastId, definitionKey: 'draft-ownership', name: '服务端草稿', description: null, queryPortKey: 'metadata.schemas', parameterSchema: [], layoutConfigJson: '{}', isEnabled: true, latestPublishedVersionNumber: 0, createdAtUtc, updatedAtUtc: null, version: 1 };
+  const { parameterSchema: _, layoutConfigJson: __, ...summary } = draft;
+  await page.route('**/api/v1/reporting/definitions?*', route => json(route, { items: [{ ...summary, version: catalogVersion }], page: 1, pageSize: 20, total: 1 }));
+  page.on('requestfailed', request => { if (request.url().endsWith('/definitions/' + lastId) && request.method() === 'GET') cancelled = true; });
+  await page.route('**/api/v1/reporting/definitions/' + lastId, async route => {
+    if (route.request().method() === 'PUT') { writes++; const body = route.request().postDataJSON(); expect(body.version).toBe(2); catalogVersion = 3; return json(route, { ...draft, ...body, version: 3 }); }
+    reads++; if (reads === 1) await pending; return json(route, { ...draft, version: serverVersion }).catch(() => {});
+  });
+  await page.getByTestId('reporting-config-refresh').click(); await page.getByTestId('reporting-config-edit').click();
+  await expect(page.getByTestId('reporting-draft-loading')).toBeVisible(); await expect(page.getByTestId('reporting-config-name')).toBeDisabled();
+  await page.getByRole('dialog').getByRole('button', { name: '取消', exact: true }).click(); await expect.poll(() => cancelled).toBe(true); release(); await expect(page.getByRole('dialog')).toHaveCount(0);
+  await page.getByTestId('reporting-config-edit').click(); await page.getByTestId('reporting-config-name').fill('保留本地输入'); catalogVersion = 2;
+  await page.getByTestId('reporting-editor-catalog-refresh').click(); await expect(page.getByTestId('reporting-config-draft-save')).toHaveCount(0);
+  await expect(page.getByTestId('reporting-config-name')).toHaveValue('保留本地输入'); const dialog = page.getByRole('dialog'); await expect(dialog).toContainText('目录已出现新修订');
+  await page.getByTestId('reporting-config-draft-reload').click(); await page.getByTestId('reporting-management-confirm').click(); await expect.poll(() => reads).toBe(3);
+  await expect(page.getByTestId('reporting-config-name')).toHaveValue('保留本地输入'); await expect(page.getByTestId('reporting-config-draft-save')).toHaveCount(0);
+  await fits(page); await page.screenshot({ path: info.outputPath('stale-draft-preserved.png'), fullPage: true, animations: 'disabled' }); serverVersion = 2;
+  await page.getByTestId('reporting-config-draft-reload').click(); await page.getByTestId('reporting-management-confirm').click(); await expect(page.getByTestId('reporting-config-name')).toHaveValue('服务端草稿');
+  await page.getByTestId('reporting-config-draft-save').click(); await expect(page.getByRole('dialog')).toHaveCount(0); expect(writes).toBe(1);
+});
+test('分组目录新修订保留输入，确认重读后保留父组并使用新修订保存', async ({ page }, info) => {
+  await boot(page); let revision = 4, serverName = group.name, writes = 0;
+  await page.route('**/api/v1/reporting/groups', route => json(route, [{ ...group, name: serverName, version: revision }, { ...group, id: parent, parentId: null, name: '父分组' }]));
+  await page.route('**/api/v1/reporting/groups/' + id, route => { writes++; const body = route.request().postDataJSON(); expect(body.version).toBe(5); expect(body.parentId).toBe(parent); revision = 6; serverName = body.name; return json(route, { ...group, ...body, version: 6 }); });
+  await page.locator('.groups-card').getByRole('button', { name: '编辑', exact: true }).first().click(); const dialog = page.getByRole('dialog'); await dialog.locator('input').first().fill('本地分组输入');
+  revision = 5; serverName = '服务端新分组'; await page.getByTestId('reporting-group-catalog-refresh').click(); await expect(page.getByTestId('reporting-config-group-save')).toHaveCount(0);
+  await expect(dialog.locator('input').first()).toHaveValue('本地分组输入'); await expect(dialog).toContainText('目录已出现新修订');
+  await fits(page); await page.screenshot({ path: info.outputPath('stale-group-preserved.png'), fullPage: true, animations: 'disabled' });
+  await page.getByTestId('reporting-config-group-reload').click(); await page.getByTestId('reporting-management-confirm').click(); await expect(dialog.locator('input').first()).toHaveValue('服务端新分组');
+  await dialog.locator('input').first().fill('提交新修订'); await page.getByTestId('reporting-config-group-save').click(); await expect(page.getByRole('dialog')).toHaveCount(0); expect(writes).toBe(1);
+});

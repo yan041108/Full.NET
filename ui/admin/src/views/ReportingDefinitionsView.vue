@@ -152,6 +152,7 @@ const definitionForm = reactive({
 });
 const publishNote = ref('');
 const versionsDrawerOpen = ref(false);
+const draftLoading = ref(false), groupDraftLoading = ref(false), draftTargetId = ref('');
 const versionsLoading = ref(false), versionsProblem = ref<FullNetProblemDetails>(), versionDefinitionName = ref(''), historyEpoch = ref(0);
 const observedVersionIds = new Map<string, Map<number, string>>();
 const historyContent = ref<HTMLElement>();
@@ -271,6 +272,17 @@ const definitionCatalogCompatible = computed(() => {
     && schema.every(row => { const parameter = port.parameters.find(item => item.parameterKey === row.parameterKey);
       return parameter && row.dataTypeKey === parameter.dataTypeKey && (!parameter.isRequired || row.isRequired) && row.displayName.trim().length > 0; });
 });
+const groupDraftFresh = computed(() => groupEditorMode.value === 'create' || !!editingGroup.value
+  && groups.value.some(row => sameReportingId(row.id, editingGroup.value!.id) && row.version <= editingGroup.value!.version)
+  && editingGroup.value.version >= (groupFloors.get(editingGroup.value.id.toLowerCase()) ?? 0));
+const definitionDraftFresh = computed(() => {
+  // 分页目录可能不含当前编辑目标，已观察修订仍是有效下界，不能因翻页而解除。
+  const rows = definitions.value, target = editingDefinition.value;
+  if (definitionEditorMode.value === 'create') return true;
+  if (!target || deletedDefinitions.has(target.id.toLowerCase())) return false;
+  const row = rows.find(item => sameReportingId(item.id, target.id));
+  return target.version >= Math.max(row?.version ?? 0, definitionFloors.get(target.id.toLowerCase())?.definitionVersion ?? 0);
+});
 
 watch(() => definitionForm.queryPortKey, queryPortKey => {
   const port = queryPorts.value.find(item => item.queryPortKey === queryPortKey);
@@ -289,6 +301,7 @@ watch(() => definitionForm.queryPortKey, queryPortKey => {
 
 /** 权限或会话变更销毁草稿与在途结果，Host 配置不能残留到租户上下文。 */
 function reset() {
+  draftLoading.value = false; groupDraftLoading.value = false; draftTargetId.value = '';
   observedVersionIds.clear(); versionsProblem.value = undefined; versionsLoading.value = false; versionDefinitionName.value = ''; historyEpoch.value++;
   draftRequest?.controller.abort(); draftRequest = undefined; draftReceipt.value = undefined; creationBlocks.clear(); unconfirmedDrafts.clear(); groupFloors.clear();
   cancelConfirmation?.(); deletedDefinitions.clear(); deletedGroups.clear();
@@ -307,8 +320,8 @@ watch(() => [session.state, route?.name, session.currentUser?.scope, session.cur
   reset(); if (canRead()) void loadPage();
 }, { immediate: true, flush: 'sync' });
 watch(versionsDrawerOpen, value => { historyEpoch.value++; if (!value) { reads.get('history')?.abort(); versions.value = []; versionTotal.value = 0; versionDefinitionId.value = ''; versionDefinitionName.value = ''; versionsProblem.value = undefined; versionsLoading.value = false; } }, { flush: 'sync' });
-watch(groupEditorOpen, value => { groupEpoch++; if (!value) reads.get('group-draft')?.abort(); }, { flush: 'sync' });
-watch(definitionEditorOpen, value => { definitionEpoch++; if (!value) reads.get('draft')?.abort(); }, { flush: 'sync' });
+watch(groupEditorOpen, value => { groupEpoch++; if (!value) { reads.get('group-draft')?.abort(); groupDraftLoading.value = false; } }, { flush: 'sync' });
+watch(definitionEditorOpen, value => { definitionEpoch++; if (!value) { reads.get('draft')?.abort(); draftLoading.value = false; } }, { flush: 'sync' });
 watch(() => JSON.stringify([groupEditorOpen.value, groupSignature()]), () => cancelDraftWrite('group'), { flush: 'sync' });
 watch(() => JSON.stringify([definitionEditorOpen.value, definitionSignature()]), () => cancelDraftWrite('definition'), { flush: 'sync' });
 onActivated(() => { active.value = true; }); onDeactivated(() => { active.value = false; }); onBeforeUnmount(() => { active.value = false; reset(); });
@@ -439,6 +452,7 @@ function resetSearch(): void {
 
 function openCreateGroup(): void {
   if (!can('reporting.groups.create') || acting.value || writeUnconfirmed.value && !creationBlocks.has('group')) return;
+  invalidateDetails(); definitionEditorOpen.value = false; versionsDrawerOpen.value = false;
   groupEpoch++; groupEditorMode.value = 'create';
   editingGroup.value = null;
   groupForm.name = '';
@@ -449,7 +463,8 @@ function openCreateGroup(): void {
 }
 
 function openEditGroup(group: ReportingGroup): void {
-  if (!can('reporting.groups.update') || acting.value || writeUnconfirmed.value) return;
+  if (!can('reporting.groups.update') || acting.value || writeUnconfirmed.value || !groups.value.some(row => sameReportingId(row.id, group.id) && row.version === group.version)) return;
+  invalidateDetails(); definitionEditorOpen.value = false; versionsDrawerOpen.value = false;
   groupEpoch++; groupEditorMode.value = 'edit';
   editingGroup.value = group;
   groupForm.name = group.name;
@@ -460,7 +475,7 @@ function openEditGroup(group: ReportingGroup): void {
 
 async function submitGroup(): Promise<void> {
   const permission = `reporting.groups.${groupEditorMode.value === 'create' ? 'create' : 'update'}`, scope = generation, editor = groupEpoch;
-  if (!groupFormRef.value || acting.value || writeUnconfirmed.value || groupEditorMode.value === 'create' && creationBlocks.has('group') || !can(permission)) {
+  if (!groupFormRef.value || acting.value || groupDraftLoading.value || !groupDraftFresh.value || writeUnconfirmed.value || groupEditorMode.value === 'create' && creationBlocks.has('group') || !can(permission)) {
     return;
   }
   // 校验等待期间只能确认原编辑目标和原草稿；隐藏的父组关系也属于本次写入快照。
@@ -469,7 +484,7 @@ async function submitGroup(): Promise<void> {
   const payload = { name: groupForm.name.trim(), sortOrder: Number(groupForm.sortOrder), isEnabled: groupForm.isEnabled };
   if (!Number.isSafeInteger(payload.sortOrder)) return;
   const valid = await groupFormRef.value.validate().catch(() => false);
-  if (!valid || !current(scope) || editor !== groupEpoch || signature !== groupSignature() || !groupEditorOpen.value || acting.value || !can(permission)) {
+  if (!valid || !current(scope) || editor !== groupEpoch || signature !== groupSignature() || !groupEditorOpen.value || groupDraftLoading.value || !groupDraftFresh.value || acting.value || !can(permission)) {
     return;
   }
   if (writeUnconfirmed.value || mode === 'create' && creationBlocks.has('group') || mode === 'edit' && !target) return;
@@ -509,6 +524,7 @@ function openCreateDefinition(): void {
     ElMessage.warning(t('reportingDefinitions.selectGroupFirst'));
     return;
   }
+  invalidateDetails(); groupEditorOpen.value = false; versionsDrawerOpen.value = false;
   definitionEpoch++;
   definitionEditorMode.value = 'create';
   editingDefinition.value = null;
@@ -530,18 +546,23 @@ function openCreateDefinition(): void {
 
 async function openEditDefinition(summary: ReportingDefinitionSummary): Promise<void> {
   if (!can('reporting.definitions.update') || acting.value || writeUnconfirmed.value || !definitions.value.some(row => sameReportingId(row.id, summary.id) && row.version === summary.version)) return;
-  reads.get('publish')?.abort(); publishOpen.value = false;
+  invalidateDetails(); groupEditorOpen.value = false; versionsDrawerOpen.value = false;
+  definitionEpoch++; definitionEditorMode.value = 'edit'; editingDefinition.value = null; draftTargetId.value = summary.id; definitionGroupId.value = undefined;
+  Object.assign(definitionForm, { definitionKey: '', name: '', description: '', dataSourceId: '', queryPortKey: '', parameterSchema: [], layoutConfigJson: '{}', isEnabled: true });
+  definitionEditorOpen.value = true;
   await readDraft(summary.id);
 }
 async function readDraft(id: string, owned: () => boolean = () => true) {
   const scope = generation, controller = reading('draft');
+  draftLoading.value = true;
   try {
   const definition = await getReportingDefinition(id, controller.signal);
   if (!current(scope) || !can('reporting.definitions.update') || controller.signal.aborted || !owned()) return;
-  if (!sameReportingId(definition.id, id)) throw Error('client.invalid_reporting_draft');
+  if (!sameReportingId(definition.id, id) || definition.version < (definitionFloors.get(id.toLowerCase())?.definitionVersion ?? 0)) throw Error('client.invalid_reporting_draft');
   definitionEpoch++;
   definitionEditorMode.value = 'edit';
   editingDefinition.value = definition;
+  draftTargetId.value = definition.id;
   definitionGroupId.value = definition.groupId;
   definitionForm.definitionKey = definition.definitionKey;
   definitionForm.name = definition.name;
@@ -554,12 +575,13 @@ async function readDraft(id: string, owned: () => boolean = () => true) {
   definitionEditorOpen.value = true;
   writeUnconfirmed.value = false;
   } catch (error) { if (current(scope) && !controller.signal.aborted && owned()) problem.value = toProblem(error, 'reportingDefinitions.loadFailed'); }
+  finally { if (current(scope) && reads.get('draft') === controller && !controller.signal.aborted) draftLoading.value = false; }
 }
 async function reloadDraft() {
-  const scope = generation, id = editingDefinition.value?.id; if (!id || !can('reporting.definitions.update') || acting.value) return;
+  const scope = generation, id = draftTargetId.value; if (!id || !can('reporting.definitions.update') || acting.value || draftLoading.value) return;
   const epoch = definitionEpoch, signature = JSON.stringify([definitionGroupId.value, definitionForm, editingDefinition.value?.version]);
   const owned = () => current(scope) && can('reporting.definitions.update') && definitionEditorOpen.value && definitionEpoch === epoch
-    && editingDefinition.value?.id === id && signature === JSON.stringify([definitionGroupId.value, definitionForm, editingDefinition.value?.version]);
+    && draftTargetId.value === id && signature === JSON.stringify([definitionGroupId.value, definitionForm, editingDefinition.value?.version]);
   if (await askConfirmation(text('discard')) && owned()) await readDraft(id, owned);
 }
 async function resetParameters() {
@@ -577,6 +599,7 @@ async function reloadGroupDraft() {
     && editingGroup.value?.id === id && signature === JSON.stringify([groupForm, editingGroup.value?.version]);
   if (!await askConfirmation(text('discard')) || !owned()) return;
   const controller = reading('group-draft');
+  groupDraftLoading.value = true;
   try { const rows = await listReportingGroups(controller.signal); const group = rows.find(item => item.id === id);
     if (!controller.signal.aborted && owned() && group) {
       if (rows.some(row => deletedGroups.has(row.id.toLowerCase()) || row.version < (groupFloors.get(row.id.toLowerCase()) ?? 0))) throw Error('client.stale_reporting_group_catalog');
@@ -584,11 +607,12 @@ async function reloadGroupDraft() {
       groups.value = rows; writeUnconfirmed.value = false; openEditGroup(group);
     }
   } catch (error) { if (current(scope) && !controller.signal.aborted && owned()) problem.value = toProblem(error, 'reportingDefinitions.loadFailed'); }
+  finally { if (current(scope) && reads.get('group-draft') === controller && !controller.signal.aborted) groupDraftLoading.value = false; }
 }
 
 async function submitDefinition(): Promise<void> {
   const scope = generation, editor = definitionEpoch, catalog = catalogEpoch.value, permission = `reporting.definitions.${definitionEditorMode.value === 'create' ? 'create' : 'update'}`;
-  if (!definitionFormRef.value || acting.value || writeUnconfirmed.value || definitionEditorMode.value === 'create' && creationBlocks.has('definition') || !definitionCatalogCompatible.value || !definitionGroupId.value || !can(permission)) {
+  if (!definitionFormRef.value || acting.value || draftLoading.value || !definitionDraftFresh.value || writeUnconfirmed.value || definitionEditorMode.value === 'create' && creationBlocks.has('definition') || !definitionCatalogCompatible.value || !definitionGroupId.value || !can(permission)) {
     return;
   }
   const mode = definitionEditorMode.value, target = editingDefinition.value ? { ...editingDefinition.value } : undefined;
@@ -597,7 +621,7 @@ async function submitDefinition(): Promise<void> {
     description: definitionForm.description.trim() || null, queryPortKey: definitionForm.queryPortKey,
     parameterSchema: definitionForm.parameterSchema.map(item => ({ ...item })), layoutConfigJson: definitionForm.layoutConfigJson, isEnabled: definitionForm.isEnabled };
   const valid = await definitionFormRef.value.validate().catch(() => false);
-  if (!valid || !current(scope) || editor !== definitionEpoch || signature !== definitionSignature() || catalog !== catalogEpoch.value || !definitionCatalogCompatible.value || !definitionEditorOpen.value || acting.value || writeUnconfirmed.value || !can(permission)) {
+  if (!valid || !current(scope) || editor !== definitionEpoch || signature !== definitionSignature() || catalog !== catalogEpoch.value || draftLoading.value || !definitionDraftFresh.value || !definitionCatalogCompatible.value || !definitionEditorOpen.value || acting.value || writeUnconfirmed.value || !can(permission)) {
     return;
   }
   if (mode === 'create' && creationBlocks.has('definition') || mode === 'edit' && !target) return;
@@ -679,6 +703,7 @@ async function write(permission: string, action: (signal: AbortSignal) => Promis
 
 async function openVersions(definition: ReportingDefinitionSummary): Promise<void> {
   if (!canRead() || acting.value || !definitions.value.some(row => sameReportingId(row.id, definition.id) && row.version === definition.version)) return;
+  invalidateDetails(); groupEditorOpen.value = false; definitionEditorOpen.value = false;
   historyEpoch.value++;
   versionDefinitionId.value = definition.id; versionPage.value = 1; versions.value = []; versionTotal.value = 0; versionsDrawerOpen.value = true;
   versionDefinitionName.value = definition.name;
@@ -697,6 +722,7 @@ const groupControls = computed(() => {
   const owned = () => current(scope) && catalog === catalogEpoch.value && open && groupEditorOpen.value && epoch === groupEpoch && signature === groupSignature();
   return { update: (value: boolean) => { if (owned()) groupEditorOpen.value = value; },
     confirm: () => { if (owned()) void submitGroup(); }, reload: () => { if (owned()) void reloadGroupDraft(); }, recover: () => { if (owned()) void acknowledgeRecovery('group'); },
+    refreshCatalog: () => { if (owned()) void loadPage(); },
     name: (value: string) => { if (owned() && !acting.value) groupForm.name = value; },
     sortOrder: (value: string) => { if (owned() && !acting.value) groupForm.sortOrder = value; },
     enabled: (value: boolean) => { if (owned() && !acting.value) groupForm.isEnabled = value; } };
@@ -881,17 +907,19 @@ function definitionAction(row: ReportingDefinitionSummary, action: (target: Repo
       width="min(520px, calc(100vw - 32px))"
       :title="groupEditorMode === 'create' ? t('reportingDefinitions.createGroupTitle') : t('reportingDefinitions.editGroupTitle')"
       :saving="acting"
-      :show-confirm="!writeUnconfirmed && (groupEditorMode !== 'create' || !creationBlocks.has('group')) && can(`reporting.groups.${groupEditorMode === 'create' ? 'create' : 'update'}`)"
+      :show-confirm="!groupDraftLoading && groupDraftFresh && !writeUnconfirmed && (groupEditorMode !== 'create' || !creationBlocks.has('group')) && can(`reporting.groups.${groupEditorMode === 'create' ? 'create' : 'update'}`)"
       confirm-test-id="reporting-config-group-save"
       v-on="{ confirm: groupControls.confirm, 'update:open': groupControls.update }"
     >
       <ElForm ref="groupFormRef" :model="groupForm" label-position="top" :disabled="acting">
+        <ElAlert v-if="!groupDraftFresh" type="warning" :closable="false" :title="text('draftStale')" />
         <ElAlert v-if="problem" type="error" :closable="false" :title="problem.detail ?? problem.title" />
         <ElAlert v-if="writeUnconfirmed" type="warning" :closable="false" :title="text('unconfirmed')" />
         <ElAlert v-if="draftRequest?.receipt.resource === 'group'" type="info" :closable="false" :title="text('closeSaving')" />
         <ElAlert v-if="groupEditorMode === 'create' && creationBlocks.has('group')" type="warning" :closable="false" :title="text('creationBlocked')" />
         <ElButton v-if="groupEditorMode === 'create' && creationBlocks.has('group')" :disabled="acting" data-testid="reporting-group-recovery" v-on="{ click: groupControls.recover }">{{ text('recovery') }}</ElButton>
-        <ElButton v-if="editingGroup" :disabled="acting" data-testid="reporting-config-group-reload" v-on="{ click: groupControls.reload }">{{ text('reload') }}</ElButton>
+        <ElButton v-if="editingGroup" :disabled="acting || groupDraftLoading" :loading="groupDraftLoading" data-testid="reporting-config-group-reload" v-on="{ click: groupControls.reload }">{{ text('reload') }}</ElButton>
+        <ElButton :disabled="acting" :loading="loading" data-testid="reporting-group-catalog-refresh" v-on="{ click: groupControls.refreshCatalog }">{{ text('refreshCatalog') }}</ElButton>
         <ElFormItem :label="t('reportingDefinitions.fieldGroupName')" prop="name" required>
           <ElInput :model-value="groupForm.name" v-on="{ 'update:modelValue': groupControls.name }" />
         </ElFormItem>
@@ -908,12 +936,14 @@ function definitionAction(row: ReportingDefinitionSummary, action: (target: Repo
       :open="definitionEditorOpen"
       :title="definitionEditorMode === 'create' ? t('reportingDefinitions.createTitle') : t('reportingDefinitions.editTitle')"
       :saving="acting"
-      :show-confirm="definitionCatalogCompatible && !writeUnconfirmed && (definitionEditorMode !== 'create' || !creationBlocks.has('definition')) && can(`reporting.definitions.${definitionEditorMode === 'create' ? 'create' : 'update'}`)"
+      :show-confirm="!draftLoading && definitionDraftFresh && definitionCatalogCompatible && !writeUnconfirmed && (definitionEditorMode !== 'create' || !creationBlocks.has('definition')) && can(`reporting.definitions.${definitionEditorMode === 'create' ? 'create' : 'update'}`)"
       confirm-test-id="reporting-config-draft-save"
       width="min(760px, calc(100vw - 32px))"
       v-on="{ confirm: definitionControls.confirm, 'update:open': definitionControls.update }"
     >
-      <ElForm ref="definitionFormRef" :model="definitionForm" label-position="top" :disabled="acting">
+      <ElForm ref="definitionFormRef" :model="definitionForm" label-position="top" :disabled="acting || draftLoading && !editingDefinition">
+        <ElAlert v-if="draftLoading" type="info" :closable="false" :title="text('draftLoading')" data-testid="reporting-draft-loading" />
+        <ElAlert v-else-if="definitionEditorMode === 'edit' && !definitionDraftFresh" type="warning" :closable="false" :title="text('draftStale')" />
         <ElAlert v-if="!definitionCatalogReady" type="warning" :closable="false" :title="text('catalogMissing')" />
         <ElAlert v-else-if="!definitionCatalogCompatible" type="warning" :closable="false" :title="text('draftIncompatible')" />
         <ElAlert v-if="problem" type="error" :closable="false" :title="problem.detail ?? problem.title" />
@@ -921,7 +951,7 @@ function definitionAction(row: ReportingDefinitionSummary, action: (target: Repo
         <ElAlert v-if="draftRequest?.receipt.resource === 'definition'" type="info" :closable="false" :title="text('closeSaving')" />
         <ElAlert v-if="definitionEditorMode === 'create' && creationBlocks.has('definition')" type="warning" :closable="false" :title="text('creationBlocked')" />
         <ElButton v-if="definitionEditorMode === 'create' && creationBlocks.has('definition')" :disabled="acting" data-testid="reporting-definition-recovery" v-on="{ click: definitionControls.recover }">{{ text('recovery') }}</ElButton>
-        <ElButton v-if="editingDefinition" :disabled="acting" data-testid="reporting-config-draft-reload" v-on="{ click: definitionControls.reload }">{{ text('reload') }}</ElButton>
+        <ElButton v-if="definitionEditorMode === 'edit' && draftTargetId" :disabled="acting || draftLoading" :loading="draftLoading" data-testid="reporting-config-draft-reload" v-on="{ click: definitionControls.reload }">{{ text('reload') }}</ElButton>
         <ElButton :disabled="acting" :loading="loading" data-testid="reporting-editor-catalog-refresh" v-on="{ click: definitionControls.refreshCatalog }">{{ text('refreshCatalog') }}</ElButton>
         <ElButton v-if="selectedQueryPort && definitionCatalogReady" :disabled="acting" data-testid="reporting-parameters-reset" v-on="{ click: definitionControls.parametersReset }">{{ text('resetParameters') }}</ElButton>
         <ElFormItem
