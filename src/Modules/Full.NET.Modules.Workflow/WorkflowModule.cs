@@ -77,6 +77,11 @@ public sealed class WorkflowModule : IFullNetModule
         services.AddScoped<IWorkflowTodoActorAuthorization,WorkflowTodoActorAuthorization>();
         services.AddScoped<WorkflowTodoManagementService>();
         services.AddScoped<WorkflowVoteTodoService>();
+        services.AddScoped<WorkflowTodoTransferService>();
+        services.AddScoped<WorkflowTodoDelegationService>();
+        services.AddScoped<WorkflowClaimPoolService>();
+        services.AddScoped<WorkflowClaimReleaseService>();
+        services.AddScoped<WorkflowTodoCountersignService>();
         services.AddScoped<WorkflowFormAttachmentUploadService>();
         services.TryAddEnumerable(ServiceDescriptor.Scoped<
             IHostFileReferenceClaimProbe,
@@ -160,10 +165,7 @@ public sealed class WorkflowModule : IFullNetModule
         services.AddScoped<WorkflowInstanceRecoveryService>();
         services.AddScoped<WorkflowRecoveryTaskService>();
         services.AddScoped<WorkflowTodoQueryService>();
-        services.AddScoped<WorkflowTodoCountersignService>();
         services.AddScoped<WorkflowApprovalStepResolutionCoordinator>();
-        services.AddScoped<WorkflowTodoTransferService>();
-        services.AddScoped<WorkflowTodoDelegationService>();
         services.AddScoped<WorkflowCcTransitionWriter>();
         services.AddScoped<WorkflowParallelJoinCoordinator>();
         services.AddScoped<WorkflowRuntimeTransitionExecutor>();
@@ -182,8 +184,6 @@ public sealed class WorkflowModule : IFullNetModule
         services.AddScoped<WorkflowVoteDecisionCoordinator>();
         services.AddScoped<WorkflowVoteAttachmentCoordinator>();
         services.AddScoped<WorkflowVoteActionReader>();
-        services.AddScoped<WorkflowClaimPoolService>();
-        services.AddScoped<WorkflowClaimReleaseService>();
         services.AddScoped<WorkflowVoteResultWriter>();
         services.AddScoped<WorkflowTodoHandoffWriter>();
         services.AddScoped<WorkflowNotificationOutboxPublisher>();

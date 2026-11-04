@@ -23,7 +23,7 @@ internal sealed class WorkflowClaimPoolService(IQueryExecutor query, ICommandExe
     ICurrentTenant tenant, IClock clock, IIdGenerator ids, WorkflowClaimCandidateAuthorizer candidates,
     IHostUserBatchSelectionDirectory hosts, ITenantMemberSelectionDirectory members, WorkflowBranchStateCoordinator branches,
     WorkflowHumanActivityActivationWriter activation, WorkflowNotificationOutboxPublisher notifications,
-    IOptions<DatabaseOptions> database, WorkflowCollaborationListAuthorization authorization)
+    IOptions<DatabaseOptions> database, WorkflowCollaborationListAuthorization authorization, IWorkflowTodoActorAuthorization actorAuthorization)
 {
     public async Task<Result<WorkflowClaimPoolPageResponse>> ListAsync(Guid actor, int page, int pageSize, CancellationToken token)
     {
@@ -56,6 +56,10 @@ internal sealed class WorkflowClaimPoolService(IQueryExecutor query, ICommandExe
             string.IsNullOrWhiteSpace(request.IdempotencyKey) || request.IdempotencyKey.Length > 128)
             return Fail<WorkflowInstanceResponse>(WorkflowErrorCodes.SchemaInvalid, ErrorType.Validation);
         request = request with { IdempotencyKey = request.IdempotencyKey.Trim() };
+        var permission = administrative ? WorkflowPermissions.ClaimPoolsAssign : WorkflowPermissions.ClaimPoolsClaim;
+        string[] required = [permission];
+        var originalActor = await actorAuthorization.AuthorizeAsync(actor, required, token).ConfigureAwait(false);
+        if (originalActor is null) return Fail<WorkflowInstanceResponse>(WorkflowErrorCodes.TodoForbidden, ErrorType.Forbidden);
         var scope = WorkflowManagementScope.Resolve(tenant);
         var pool = await FindPoolAsync(poolId, scope, token).ConfigureAwait(false);
         if (pool is null) return Fail<WorkflowInstanceResponse>(WorkflowErrorCodes.TodoNotActive, ErrorType.NotFound);
@@ -96,7 +100,7 @@ internal sealed class WorkflowClaimPoolService(IQueryExecutor query, ICommandExe
             : await candidates.IsCurrentCandidateAsync(source!, scope, instance.StartedById, actor, token, resolution).ConfigureAwait(false);
         if (!administrative && !frozen.Any(candidate => candidate.UserId == actor) || !current)
             return Fail<WorkflowInstanceResponse>(WorkflowErrorCodes.TodoForbidden, ErrorType.Forbidden);
-        return await transaction.ExecuteResultAsync(async inner =>
+        return await WorkflowTodoAuthorizedTransaction.ExecuteAsync(actorAuthorization, transaction, originalActor, required, async inner =>
         {
             if (await command.ExecuteAsync(WorkflowSql.LockInstanceForTodoAction,
                 P(("Id", instance.Id), ("TenantScopeKey", scope.TenantScopeKey)), inner).ConfigureAwait(false) != 1) return Conflict();

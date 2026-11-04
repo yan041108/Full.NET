@@ -21,6 +21,12 @@ public sealed class WorkflowCrossModulePortRegistrationTests
         Assert.IsFalse(background.Any(service => service.ServiceType == typeof(WorkflowVoteTodoService)));
         Assert.IsTrue(background.Any(service => service.ServiceType == typeof(WorkflowVoteActionReader)));
         Assert.IsTrue(api.Any(service => service.ServiceType == typeof(WorkflowVoteTodoService)));
+        foreach (var command in new[] { typeof(WorkflowTodoTransferService), typeof(WorkflowTodoDelegationService),
+                     typeof(WorkflowTodoCountersignService), typeof(WorkflowClaimPoolService), typeof(WorkflowClaimReleaseService) })
+        {
+            Assert.IsFalse(background.Any(service => service.ServiceType == command));
+            Assert.IsTrue(api.Any(service => service.ServiceType == command));
+        }
     }
     [TestMethod]
     public void WorkflowModule_registers_cross_module_ports_as_scoped()

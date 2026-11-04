@@ -422,7 +422,8 @@ public sealed class WorkflowTodoCountersignServiceTests
             Substitute.For<ITenantMemberBatchSelectionDirectory>(),
             new WorkflowNotificationOutboxPublisher(outbox),
             new WorkflowBranchStateCoordinator(query, command),
-            WorkflowTodoManagementTestDependencies.CreateStepResolution(query, command, ids, outbox));
+            WorkflowTodoManagementTestDependencies.CreateStepResolution(query, command, ids, outbox),
+            WorkflowTodoManagementTestDependencies.CreateActorAuthorization(tenant));
 
         return new CountersignFixture(service, query, command, outbox, todoId, resolvedActorId, hostDirectory, transaction);
     }

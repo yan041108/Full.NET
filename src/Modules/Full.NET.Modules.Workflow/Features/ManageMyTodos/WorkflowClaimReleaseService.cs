@@ -19,7 +19,7 @@ namespace Full.NET.Modules.Workflow.Features.ManageMyTodos;
 /// <summary>释放只关闭本人的实际待办并重开同一个候选池，绝对SLA与剩余提醒预算原样保留。</summary>
 internal sealed class WorkflowClaimReleaseService(IQueryExecutor query, ICommandExecutor command, ICommandTransaction transaction,
     ICurrentTenant tenant, IClock clock, WorkflowBranchStateCoordinator branches, WorkflowSignatureCoordinator signatures,
-    WorkflowClaimPoolService pools)
+    WorkflowClaimPoolService pools, IWorkflowTodoActorAuthorization actorAuthorization)
 {
     public async Task<Result<WorkflowInstanceResponse>> ReleaseAsync(Guid todoId, Guid actor, ReleaseWorkflowTodoRequest request, CancellationToken token)
     {
@@ -27,6 +27,10 @@ internal sealed class WorkflowClaimReleaseService(IQueryExecutor query, ICommand
             string.IsNullOrWhiteSpace(request.IdempotencyKey) || request.IdempotencyKey.Length > 128 || request.Comment is { Length: > 512 })
             return Fail(WorkflowErrorCodes.SchemaInvalid, ErrorType.Validation);
         request = request with { IdempotencyKey = request.IdempotencyKey.Trim(), Comment = request.Comment?.Trim() };
+        var permission = WorkflowPermissions.TodosRelease;
+        string[] required = request.SignatureFileId.HasValue ? [permission, WorkflowPermissions.TodosSign] : [permission];
+        var originalActor = await actorAuthorization.AuthorizeAsync(actor, required, token).ConfigureAwait(false);
+        if (originalActor is null) return Fail(WorkflowErrorCodes.TodoForbidden, ErrorType.Forbidden);
         var scope = WorkflowManagementScope.Resolve(tenant);
         var todo = await FindTodoAsync(todoId, scope, token).ConfigureAwait(false);
         if (todo is null) return Fail(WorkflowErrorCodes.TodoNotActive, ErrorType.NotFound);
@@ -55,7 +59,7 @@ internal sealed class WorkflowClaimReleaseService(IQueryExecutor query, ICommand
         if (!prepared.IsSuccess) return Result<WorkflowInstanceResponse>.Failure(prepared.Error!);
         try
         {
-            return await transaction.ExecuteResultAsync(async inner =>
+            return await WorkflowTodoAuthorizedTransaction.ExecuteAsync(actorAuthorization, transaction, originalActor, required, async inner =>
             {
                 if (await command.ExecuteAsync(WorkflowSql.LockInstanceForTodoAction,
                     P(("Id", instance.Id), ("TenantScopeKey", scope.TenantScopeKey)), inner).ConfigureAwait(false) != 1) return Conflict();

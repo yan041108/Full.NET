@@ -96,7 +96,7 @@ internal static class WorkflowTodoManagementTestDependencies
             Substitute.For<ITenantMemberBatchSelectionDirectory>(),
             new WorkflowNotificationOutboxPublisher(outbox),
             new WorkflowBranchStateCoordinator(query, command),
-            CreateStepResolution(query, command, ids, outbox));
+            CreateStepResolution(query, command, ids, outbox), CreateActorAuthorization(tenant));
     }
 
     /// <summary>创建默认回落到发起人语义的办理人协调器，供实例与待办测试复用。</summary>

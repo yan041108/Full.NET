@@ -256,9 +256,9 @@ public sealed class WorkflowTodoTransferServiceTests
         var outbox = Substitute.For<IOutboxWriter>(); var notifications = new WorkflowNotificationOutboxPublisher(outbox);
         var service = new WorkflowTodoTransferService(query, command, tx, scope, clock, ids, host, members,
             new(query, command), new WorkflowTodoHandoffWriter(query, command, ids, new(command, ids, notifications), notifications),
-            WorkflowTodoManagementTestDependencies.CreateSignatureCoordinator(query, command));
+            WorkflowTodoManagementTestDependencies.CreateSignatureCoordinator(query, command), WorkflowTodoManagementTestDependencies.CreateActorAuthorization(scope));
         var delegations = new WorkflowTodoDelegationService(query, command, tx, scope, clock, ids, host, members,
-            new(query, command), new WorkflowTodoHandoffWriter(query, command, ids, new(command, ids, notifications), notifications));
+            new(query, command), new WorkflowTodoHandoffWriter(query, command, ids, new(command, ids, notifications), notifications), WorkflowTodoManagementTestDependencies.CreateActorAuthorization(scope));
         return new(service, query, command, outbox, host, todo, instance, actor, target, slot, new(target, 3, 2, null, "transfer-test"), calls, delegations);
     }
 

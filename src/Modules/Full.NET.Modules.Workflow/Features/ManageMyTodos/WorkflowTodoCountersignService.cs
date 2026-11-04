@@ -30,7 +30,7 @@ internal sealed class WorkflowTodoCountersignService(
     ITenantMemberBatchSelectionDirectory tenantUserDirectory,
     WorkflowNotificationOutboxPublisher notificationPublisher,
     WorkflowBranchStateCoordinator branchStates,
-    WorkflowApprovalStepResolutionCoordinator stepResolution)
+    WorkflowApprovalStepResolutionCoordinator stepResolution, IWorkflowTodoActorAuthorization actorAuthorization)
 {
     /// <summary>读取当前待办关联的活动加签链。</summary>
     public async Task<Result<WorkflowTodoCountersignChainResponse>> GetChainAsync(
@@ -71,12 +71,16 @@ internal sealed class WorkflowTodoCountersignService(
             request.DirectionKey is not ("before" or "after") || assignees.Length is < 1 or > 10 ||
             assignees.Length != request.AssigneeUserIds?.Count || assignees.Contains(Guid.Empty) || assignees.Contains(actorUserId))
             return InstanceFailure(WorkflowErrorCodes.SchemaInvalid, ErrorType.Validation);
+        var permission = WorkflowPermissions.TodosCountersign;
+        string[] required = [permission];
+        var originalActor = await actorAuthorization.AuthorizeAsync(actorUserId, required, cancellationToken).ConfigureAwait(false);
+        if (originalActor is null) return InstanceFailure(WorkflowErrorCodes.TodoForbidden, ErrorType.Forbidden);
         var scope = WorkflowManagementScope.Resolve(currentTenant);
         var todo = await FindOwnedTodoAsync(todoId, actorUserId, scope, cancellationToken).ConfigureAwait(false);
         if (todo is null) return InstanceFailure(WorkflowErrorCodes.TodoNotActive, ErrorType.NotFound);
         // 目录只在事务外准备；重复请求由事务内不可变回执裁定，不因人员后来停用而改写首次结果。
         var validAssignees = await ValidateAssigneesAsync(assignees, scope, cancellationToken).ConfigureAwait(false);
-        return await transaction.ExecuteResultAsync(async token =>
+        return await WorkflowTodoAuthorizedTransaction.ExecuteAsync(actorAuthorization, transaction, originalActor, required, async token =>
         {
             if (await commandExecutor.ExecuteAsync(WorkflowSql.LockInstanceForTodoAction,
                 WorkflowSqlParameters.Create(("Id", todo.InstanceId), ("TenantScopeKey", scope.TenantScopeKey)), token).ConfigureAwait(false) != 1)
@@ -101,10 +105,14 @@ internal sealed class WorkflowTodoCountersignService(
         if (request.ExpectedRevision < 1 || string.IsNullOrWhiteSpace(request.IdempotencyKey) ||
             request.IdempotencyKey.Length > 128 || request.Comment is { Length: > 512 })
             return InstanceFailure(WorkflowErrorCodes.SchemaInvalid, ErrorType.Validation);
+        var permission = WorkflowPermissions.TodosCountersign;
+        string[] required = [permission];
+        var originalActor = await actorAuthorization.AuthorizeAsync(actorUserId, required, cancellationToken).ConfigureAwait(false);
+        if (originalActor is null) return InstanceFailure(WorkflowErrorCodes.TodoForbidden, ErrorType.Forbidden);
         var scope = WorkflowManagementScope.Resolve(currentTenant);
         var todo = await FindOwnedTodoAsync(todoId, actorUserId, scope, cancellationToken).ConfigureAwait(false);
         if (todo is null) return InstanceFailure(WorkflowErrorCodes.TodoNotActive, ErrorType.NotFound);
-        return await transaction.ExecuteResultAsync(async token =>
+        return await WorkflowTodoAuthorizedTransaction.ExecuteAsync(actorAuthorization, transaction, originalActor, required, async token =>
         {
             if (await commandExecutor.ExecuteAsync(WorkflowSql.LockInstanceForTodoAction,
                 WorkflowSqlParameters.Create(("Id", todo.InstanceId), ("TenantScopeKey", scope.TenantScopeKey)), token).ConfigureAwait(false) != 1)
