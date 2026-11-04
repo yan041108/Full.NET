@@ -58,12 +58,21 @@ internal sealed class WorkflowFileReadCapabilityStore(IQueryExecutor query, ICom
     {
         var row = await FindAsync(capabilityId, callId, false, cancellationToken).ConfigureAwait(false);
         if (row?.ProviderKey is not { } provider || row.StorageKey is not { } key) return NotFound<WorkflowFileReadContent>();
+        Stream? stream=null;
         try
         {
-            var stream = await providers.Resolve(provider).OpenReadAsync(key, cancellationToken).ConfigureAwait(false);
-            return Result<WorkflowFileReadContent>.Success(new(stream, WorkflowFileReadCapabilityPolicy.Describe(row)));
+            stream = await providers.Resolve(provider).OpenReadAsync(key, cancellationToken).ConfigureAwait(false);
+            // 存储打开期间可能撤销、到期或停用企业；只交付仍匹配原授权及元数据的流。
+            cancellationToken.ThrowIfCancellationRequested();
+            var current=await FindAsync(capabilityId,callId,false,cancellationToken).ConfigureAwait(false);
+            cancellationToken.ThrowIfCancellationRequested();
+            if(current!=row)return NotFound<WorkflowFileReadContent>();
+            var result=Result<WorkflowFileReadContent>.Success(new(stream,WorkflowFileReadCapabilityPolicy.Describe(current)));
+            stream=null;
+            return result;
         }
         catch (FileNotFoundException) { return NotFound<WorkflowFileReadContent>(); }
+        finally {if(stream is not null)await stream.DisposeAsync().ConfigureAwait(false);}
     }
 
     public async Task<WorkflowIssuedFileReference?> ResolveIssuedAsync(Guid capabilityId, Guid callId, CancellationToken cancellationToken = default)

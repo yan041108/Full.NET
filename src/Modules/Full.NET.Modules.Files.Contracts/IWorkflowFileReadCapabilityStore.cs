@@ -16,7 +16,7 @@ public interface IWorkflowFileReadCapabilityStore
     /// <param name="cancellationToken">取消令牌。</param>
     Task<WorkflowFileReadCapability?> DescribeAsync(Guid capabilityId, Guid callId, CancellationToken cancellationToken = default);
 
-    /// <summary>复核与描述相同的约束后打开内容；调用方负责释放流，不返回原文件Id或物理路径。</summary>
+    /// <summary>在存储打开前后复核能力、企业状态及原元数据；拒绝时释放已打开的流，成功后由调用方释放，不返回原文件Id或物理路径。</summary>
     /// <param name="capabilityId">不透明能力身份。</param>
     /// <param name="callId">已授权Workflow资源的固定调用身份。</param>
     /// <param name="cancellationToken">取消令牌。</param>
