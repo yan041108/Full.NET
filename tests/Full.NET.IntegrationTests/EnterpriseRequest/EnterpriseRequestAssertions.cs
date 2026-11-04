@@ -1,11 +1,6 @@
-using System.Data.Common;
-using Dapper;
-using Full.NET.Abstractions.Messaging;
+using System.IO.Compression;
+using System.Xml.Linq;
 using Full.NET.Abstractions.Tenancy;
-using Full.NET.Data.Abstractions;
-using Full.NET.IntegrationTests.Migrations;
-using Microsoft.Data.SqlClient;
-using MySqlConnector;
 using Microsoft.Extensions.DependencyInjection;
 using System.Globalization;
 using System.Net;
@@ -18,14 +13,12 @@ using Full.NET.Modules.EnterpriseRequest.Contracts;
 using Full.NET.Modules.EnterpriseRequest.Generated;
 using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.ImportExport.Contracts;
-using Full.NET.Modules.Reporting.Contracts;
 using Full.NET.Modules.Organization.Contracts;
 using Full.NET.Modules.Tenancy.Contracts;
 
 namespace Full.NET.IntegrationTests.EnterpriseRequest;
 
-/// <summary>企业流程申请：与工作流引导的 API 烟雾。</summary>
-internal static class EnterpriseRequestAssertions
+internal static partial class EnterpriseRequestAssertions
 {
     private const string BasePath = "/api/v1/enterprise_request/enterprise-requests";
     private const string ImportTasksPath = "/api/v1/import-export/tasks";
@@ -61,6 +54,9 @@ internal static class EnterpriseRequestAssertions
         Assert.IsNotNull(created);
         Assert.AreEqual(EnterpriseRequestStatusKeys.Draft, created!.Status);
         Assert.AreEqual(organizationUnitId, created.OrganizationUnitId);
+        await VerifyApprovalProgressReadBoundaryAsync(factory, client, token, created, cancellationToken);
+        using var anonymousAttachments = await client.GetAsync($"{BasePath}/{created.Id:D}/attachments", cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Unauthorized, anonymousAttachments.StatusCode);
 
         using var getRequest = new HttpRequestMessage(HttpMethod.Get, $"{BasePath}/{created.Id:D}");
         getRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
@@ -71,7 +67,7 @@ internal static class EnterpriseRequestAssertions
         submitRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
         using var submitResponse = await client.SendAsync(submitRequest, cancellationToken);
         Assert.IsTrue(
-            submitResponse.StatusCode == HttpStatusCode.Forbidden,
+            submitResponse.StatusCode is HttpStatusCode.BadRequest or HttpStatusCode.Conflict,
             await submitResponse.Content.ReadAsStringAsync(cancellationToken));
     }
 
@@ -94,7 +90,7 @@ internal static class EnterpriseRequestAssertions
             title = "Submit integration probe",
             status = EnterpriseRequestStatusKeys.Draft,
             totalAmount = 42m,
-            applicantUserId = await GetCurrentUserIdAsync(client, token, cancellationToken),
+            applicantUserId = Guid.NewGuid(),
         };
 
         using var createRequest = new HttpRequestMessage(HttpMethod.Post, BasePath)
@@ -109,42 +105,20 @@ internal static class EnterpriseRequestAssertions
         Assert.IsNotNull(created);
 
         using var submitRequest = new HttpRequestMessage(HttpMethod.Post, $"{BasePath}/{created!.Id:D}/submit-for-approval");
+        await VerifySubmissionRollbackAsync(factory, created, cancellationToken);
         submitRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
         using var submitResponse = await client.SendAsync(submitRequest, cancellationToken);
         Assert.AreEqual(HttpStatusCode.OK, submitResponse.StatusCode, await submitResponse.Content.ReadAsStringAsync(cancellationToken));
         var submitted = await submitResponse.Content.ReadFromJsonAsync<EnterpriseRequestResponse>(cancellationToken);
         Assert.IsNotNull(submitted);
         Assert.AreEqual(EnterpriseRequestStatusKeys.Submitted, submitted!.Status);
-        // 重复 HTTP 提交只返回原状态，不产生第二条启动意图。
-        using var retry = new HttpRequestMessage(HttpMethod.Post, $"{BasePath}/{created.Id:D}/submit-for-approval");
-        retry.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
-        using var retried = await client.SendAsync(retry, cancellationToken);
-        Assert.AreEqual(HttpStatusCode.OK, retried.StatusCode);
-        await using DbConnection db = factory.Provider == DatabaseProvider.SqlServer
-            ? new SqlConnection(factory.ConnectionString)
-            : new MySqlConnection(Migration114To126RecoveryTestSupport.MySqlQueryConnectionString(factory.ConnectionString));
-        const string messageType = "demo.enterprise_request.request.submitted";
-        var envelopes = (await db.QueryAsync<SubmissionEnvelope>(
-            "SELECT Id, TenantId, Payload FROM fn_outbox_message WHERE MessageType=@messageType", new { messageType })).ToArray();
-        Assert.AreEqual(1, envelopes.Length);
-        var envelope = envelopes[0];
-        await using var scope = factory.Services.CreateAsyncScope();
-        var writer = scope.ServiceProvider.GetRequiredService<ICurrentTenantContextWriter>();
-        var resolver = scope.ServiceProvider.GetRequiredService<IActiveTenantContextResolver>();
-        writer.SetTenant((await resolver.ResolveActiveByIdAsync(envelope.TenantId, cancellationToken))!);
-        var handler = scope.ServiceProvider.GetServices<IIntegrationEventHandler>().Single(item => item.EventType == messageType);
-        var context = new IntegrationEventContext(envelope.Id, messageType, 1, envelope.TenantId, null, DateTimeOffset.UtcNow);
-        await handler.HandleAsync(context, envelope.Payload, cancellationToken);
-        await handler.HandleAsync(context, envelope.Payload, cancellationToken);
-        Assert.AreEqual(1, await db.ExecuteScalarAsync<int>(
-            "SELECT COUNT(*) FROM fn_workflow_instance WHERE BusinessType=@businessType AND BusinessId=@id",
-            new { businessType = EnterpriseRequestWorkflowConstants.BusinessType, id = created.Id.ToString("D") }));
-        writer.Clear();
+        await VerifyReliableApprovalRecoveryAsync(factory, client, token, submitted, cancellationToken);
     }
 
-    public static async Task VerifyTenantDemoEnterpriseRequestsXlsxImportAsync(
+    public static async Task VerifyTenantDemoEnterpriseRequestsWorkbookImportAsync(
         FullNetApiFactory factory,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        Func<ImportExportTaskDetailResponse, string, Task<ImportExportTaskDetailResponse>>? executeQueued = null)
     {
         await factory.InitializeAsync(cancellationToken);
         using var client = factory.CreateClientForHost("localhost");
@@ -152,23 +126,35 @@ internal static class EnterpriseRequestAssertions
         var organizationUnitId = await CreateOrganizationUnitAsync(client, token, cancellationToken);
         var applicantUserId = Guid.NewGuid();
         var requestNumber = $"IMP-{Guid.NewGuid():N}".Substring(0, 16);
-        // 使用正式渲染契约生成 XLSX；不能把 CSV 改扩展名充当工作簿验收。
-        var renderer = factory.Services.GetRequiredService<IReportingWorkbookRenderer>();
-        string[] headers = ["requestNumber", "title", "totalAmount", "applicantUserId", "organizationUnitId"];
-        var workbook = renderer.Render(headers.Select(header => new ReportingExecutionColumnDefinition(header, header)).ToArray(),
-            [new ReportingExecutionRow(new Dictionary<string, string?>
+        using var templateRequest = new HttpRequestMessage(HttpMethod.Get,
+            $"/api/v1/import-export/schemas/{EnterpriseRequestImportSchemaKeys.EnterpriseRequests}/worksheets/requests/template");
+        templateRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        using var templateResponse = await client.SendAsync(templateRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, templateResponse.StatusCode);
+        var workbookBytes = await templateResponse.Content.ReadAsByteArrayAsync(cancellationToken);
+        using (var workbook = new MemoryStream())
+        {
+            workbook.Write(workbookBytes);
+            using (var archive = new ZipArchive(workbook, ZipArchiveMode.Update, leaveOpen: true))
             {
-                ["requestNumber"] = requestNumber, ["title"] = "Imported row", ["totalAmount"] = "12.50",
-                ["applicantUserId"] = applicantUserId.ToString("D"), ["organizationUnitId"] = organizationUnitId.ToString("D"),
-            })]);
-        Assert.IsTrue(workbook.IsSuccess);
+                var entry = archive.GetEntry("xl/worksheets/sheet1.xml")!;
+                XDocument document; using (var input = entry.Open()) document = XDocument.Load(input);
+                XNamespace ns = "http://schemas.openxmlformats.org/spreadsheetml/2006/main";
+                var values = new[] { requestNumber, "Imported row, with comma", "12.5", applicantUserId.ToString("D"), organizationUnitId.ToString("D") };
+                document.Root!.Element(ns + "sheetData")!.Add(new XElement(ns + "row", new XAttribute("r", 2),
+                    values.Select((value, index) => new XElement(ns + "c", new XAttribute("r", $"{(char)('A' + index)}2"),
+                        new XAttribute("t", "inlineStr"), new XElement(ns + "is", new XElement(ns + "t", value))))));
+                entry.Delete(); using var output = archive.CreateEntry("xl/worksheets/sheet1.xml").Open(); document.Save(output);
+            }
+            workbookBytes = workbook.ToArray();
+        }
 
         using var createContent = new MultipartFormDataContent
         {
             { new StringContent(EnterpriseRequestImportSchemaKeys.EnterpriseRequests), "schemaKey" },
             { new StringContent("requests"), "worksheetKey" },
         };
-        var fileContent = new ByteArrayContent(workbook.Value!);
+        var fileContent = new ByteArrayContent(workbookBytes);
         fileContent.Headers.ContentType = new MediaTypeHeaderValue(
             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
         createContent.Add(fileContent, "file", "demo-enterprise-requests.xlsx");
@@ -184,9 +170,8 @@ internal static class EnterpriseRequestAssertions
         Assert.IsNotNull(created);
         Assert.AreEqual(ImportExportTaskStatusKeys.PreviewSucceeded, created!.StatusKey);
         Assert.AreEqual(EnterpriseRequestImportSchemaKeys.EnterpriseRequests, created.SchemaKey);
-        Assert.AreEqual(1, created.TotalRows);
-        Assert.AreEqual(1, created.ValidRowCount);
-        Assert.AreEqual(0, created.InvalidRowCount);
+        Assert.AreEqual(1, created.TotalRows); Assert.AreEqual(1, created.ValidRowCount); Assert.AreEqual(0, created.InvalidRowCount);
+        Assert.AreEqual(2, created.PreviewRows.Single().LineNumber);
 
         using var executeRequest = new HttpRequestMessage(HttpMethod.Post, $"{ImportTasksPath}/{created.Id:D}/execute");
         executeRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
@@ -194,36 +179,30 @@ internal static class EnterpriseRequestAssertions
         Assert.AreEqual(HttpStatusCode.OK, executeResponse.StatusCode, await executeResponse.Content.ReadAsStringAsync(cancellationToken));
         var executed = await executeResponse.Content.ReadFromJsonAsync<ImportExportTaskDetailResponse>(cancellationToken);
         Assert.IsNotNull(executed);
-        Assert.AreEqual(ImportExportTaskStatusKeys.ExecutionSucceeded, executed!.StatusKey);
-        Assert.IsTrue(executed.SucceededRowCount >= 1);
-
-        // 模拟业务已提交但任务检查点丢失：以原可信任务/文件/主体直接重放处理器。
-        await using (var replayScope = factory.Services.CreateAsyncScope())
+        if (executeQueued is not null)
         {
-            var tenantWriter = replayScope.ServiceProvider.GetRequiredService<ICurrentTenantContextWriter>();
-            var tenantResolver = replayScope.ServiceProvider.GetRequiredService<IActiveTenantContextResolver>();
-            tenantWriter.SetTenant((await tenantResolver.ResolveActiveByIdAsync(created.TenantId, cancellationToken))!);
-            var handler = replayScope.ServiceProvider.GetServices<IStaticImportSchemaHandler>()
-                .Single(value => value.SchemaKey == created.SchemaKey);
-            var replayContext = new StaticImportPreviewContext(created.RequestedByUserId, new Dictionary<string, bool>())
-            { TaskId = created.Id, SourceFileId = created.SourceFileId };
-            Guid? replayedId = null;
-            for (var iteration = 0; iteration < 2; iteration++)
+            Assert.AreEqual(ImportExportTaskStatusKeys.Queued, executed!.StatusKey);
+            executed = await executeQueued(executed, token);
+        }
+        Assert.AreEqual(ImportExportTaskStatusKeys.ExecutionSucceeded, executed!.StatusKey);
+        Assert.AreEqual(1, executed.SucceededRowCount); Assert.AreEqual(1, executed.NextLineNumber);
+        // 模拟业务已提交、调度检查点尚未提交的恢复窗口，正式处理器重放必须返回同一个实体。
+        await using (var scope = factory.Services.CreateAsyncScope())
+        {
+            var tenant = scope.ServiceProvider.GetRequiredService<CurrentTenantAccessor>();
+            tenant.SetTenant(new TenantContext(created.TenantId, "acme", "Acme"));
+            try
             {
-                using var input = new MemoryStream(workbook.Value!);
-                var replayed = await handler.ExecuteBatchAsync(input, input.Length, 0, 50, replayContext, cancellationToken);
-                Assert.IsTrue(replayed.IsSuccess);
-                Assert.AreEqual(1, replayed.Value!.Rows.Count);
-                Assert.IsTrue(replayed.Value.Rows[0].Succeeded);
-                replayedId ??= replayed.Value.Rows[0].EntityId;
-                Assert.AreEqual(replayedId, replayed.Value.Rows[0].EntityId);
+                var handler = scope.ServiceProvider.GetServices<IStaticImportSchemaHandler>().Single(item => item.SchemaKey == created.SchemaKey);
+                var context = new StaticImportPreviewContext(created.RequestedByUserId, new Dictionary<string, bool>()) { TaskId = created.Id };
+                using var replayContent = new MemoryStream(workbookBytes);
+                var replay = await handler.ExecuteBatchAsync(replayContent, replayContent.Length, 0, 1, context, cancellationToken);
+                Assert.IsTrue(replay.IsSuccess); Assert.IsTrue(replay.Value!.Rows.Single().Succeeded);
+                using var secondContent = new MemoryStream(workbookBytes);
+                var second = await handler.ExecuteBatchAsync(secondContent, secondContent.Length, 0, 1, context, cancellationToken);
+                Assert.AreEqual(replay.Value.Rows.Single().EntityId, second.Value!.Rows.Single().EntityId);
             }
-            using var changedInput = new MemoryStream(workbook.Value!);
-            var changed = await handler.ExecuteBatchAsync(changedInput, changedInput.Length, 0, 50,
-                replayContext with { SourceFileId = Guid.CreateVersion7() }, cancellationToken);
-            Assert.IsTrue(changed.IsSuccess);
-            Assert.IsFalse(changed.Value!.Rows[0].Succeeded);
-            Assert.AreEqual("enterprise_request.import.row_conflict", changed.Value.Rows[0].ErrorCode);
+            finally { tenant.Clear(); }
         }
 
         using var listRequest = new HttpRequestMessage(HttpMethod.Get, $"{BasePath}?page=1&pageSize=50");
@@ -231,20 +210,13 @@ internal static class EnterpriseRequestAssertions
         using var listResponse = await client.SendAsync(listRequest, cancellationToken);
         Assert.AreEqual(HttpStatusCode.OK, listResponse.StatusCode);
         using var listJson = JsonDocument.Parse(await listResponse.Content.ReadAsStringAsync(cancellationToken));
-        var found = listJson.RootElement.GetProperty("items")
+        var matching = listJson.RootElement.GetProperty("items")
             .EnumerateArray()
             .Count(item => string.Equals(
                 item.GetProperty("requestNumber").GetString(),
                 requestNumber,
                 StringComparison.Ordinal));
-        Assert.AreEqual(1, found, "Replayed import must leave exactly one enterprise request.");
-    }
-
-    private sealed class SubmissionEnvelope
-    {
-        public Guid Id { get; set; }
-        public Guid TenantId { get; set; }
-        public byte[] Payload { get; set; } = [];
+        Assert.AreEqual(1, matching, "Recovered import must create exactly one enterprise request.");
     }
 
     internal static async Task<Guid> CreateOrganizationUnitAsync(

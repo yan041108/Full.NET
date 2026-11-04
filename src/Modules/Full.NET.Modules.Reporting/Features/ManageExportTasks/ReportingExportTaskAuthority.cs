@@ -23,6 +23,7 @@ internal sealed class ReportingExportTaskAuthority(IBackgroundSessionAuthorizati
 {
     public async Task<Error?> ValidateAsync(ReportingExportTaskRecord task, CancellationToken token)
     {
+        token.ThrowIfCancellationRequested();
         if (!current.IsAvailable || current.Id != task.TenantId || string.IsNullOrEmpty(task.ActorSessionBindingJson)) return Denied();
         SessionBindingSnapshot? binding;
         string[] permissions;
@@ -36,14 +37,23 @@ internal sealed class ReportingExportTaskAuthority(IBackgroundSessionAuthorizati
             || !permissions.Contains(ReportingExportTaskPermissions.Create, StringComparer.Ordinal)
             || !permissions.Contains(ReportingDefinitionGrantPermissions.PublishedRead, StringComparer.Ordinal)) return Denied();
         var actor = await sessions.AuthorizeAllAsync(binding, permissions, token).ConfigureAwait(false);
-        if (actor is null || actor.UserId != task.RequestedByUserId || actor.TenantId != task.TenantId) return Denied();
+        token.ThrowIfCancellationRequested();
+        if (current.Id != task.TenantId || actor is null || actor.UserId != task.RequestedByUserId || actor.TenantId != task.TenantId || actor.SessionId != binding.SessionId) return Denied();
+        var definition = await catalog.GetByIdAsync(task.DefinitionId, token).ConfigureAwait(false);
+        token.ThrowIfCancellationRequested();
+        if (!definition.IsSuccess || !definition.Value!.IsEnabled) return Denied();
         var version = await catalog.GetVersionAsync(task.DefinitionId, task.VersionNumber, token).ConfigureAwait(false);
+        token.ThrowIfCancellationRequested();
         if (!version.IsSuccess) return Denied();
+        try { ReportingLayoutConfigParser.ParseColumns(version.Value!.LayoutConfigJson); }
+        catch (InvalidOperationException) { token.ThrowIfCancellationRequested(); return Denied(); }
+        catch (JsonException) { token.ThrowIfCancellationRequested(); return Denied(); }
         var source = await catalog.GetDataSourceAsync(task.DefinitionId, task.VersionNumber, version.Value!.DataSourceId, token).ConfigureAwait(false);
-        return source is { IsEnabled: true } ? null : Denied();
+        token.ThrowIfCancellationRequested();
+        return current.IsAvailable && current.Id == task.TenantId && source is { IsEnabled: true } ? null : Denied();
     }
 
-    internal static string[] FreezePermissions(ReportingDefinitionVersionResponse version, ClaimsPrincipal principal)
+    internal static string[] FreezePermissions(ReportingDefinitionVersionResponse version, Func<string, bool> hasPermission)
     {
         var result = new HashSet<string>(StringComparer.Ordinal)
         {
@@ -52,7 +62,7 @@ internal sealed class ReportingExportTaskAuthority(IBackgroundSessionAuthorizati
         var columns = ReportingQueryPortCatalog.ResolveResultColumnKeys(version.QueryPortKey);
         foreach (var column in ReportingLayoutConfigParser.ParseColumns(version.LayoutConfigJson))
             if (column.RequiredPermission is { } permission && columns.Contains(column.ColumnKey, StringComparer.Ordinal)
-                && principal.HasClaim(FullNetIdentityClaimTypes.Permission, permission)) result.Add(permission);
+                && hasPermission(permission)) result.Add(permission);
         return result.Order(StringComparer.Ordinal).ToArray();
     }
 

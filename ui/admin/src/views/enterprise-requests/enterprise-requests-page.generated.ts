@@ -1,4 +1,4 @@
-import { computed, readonly, ref } from 'vue';
+import { computed, readonly, ref, watch, onActivated, onDeactivated, onBeforeUnmount, getCurrentInstance } from 'vue';
 import {
   createEnterpriseRequestsApi,
   enterpriseRequestPermissions,
@@ -16,6 +16,7 @@ export type EnterpriseRequestPageProblemCode =
 
 export interface EnterpriseRequestPageDependencies {
   request: GeneratedRequest;
+  contextKey?: () => string;
   hasPermission: (permission: string) => boolean;
   onProblem: (
     problem: unknown,
@@ -26,6 +27,7 @@ export interface EnterpriseRequestPageDependencies {
 export function useEnterpriseRequestPage(
   dependencies: EnterpriseRequestPageDependencies
 ) {
+  const active = ref(true);
   let generation = 0, cancellation = new AbortController();
   const api = createEnterpriseRequestsApi(dependencies.request, () => cancellation.signal);
   const items = ref<EnterpriseRequestResponse[]>([]);
@@ -61,7 +63,7 @@ export function useEnterpriseRequestPage(
     nextPage = page.value,
     nextPageSize = pageSize.value
   ): Promise<boolean> {
-    if (!canRead.value || loading.value) return false;
+    if (!active.value || !canRead.value || loading.value) return false;
     const current = generation;
     loading.value = true;
     try {
@@ -94,6 +96,7 @@ export function useEnterpriseRequestPage(
     item: EnterpriseRequestResponse,
     input: EnterpriseRequestPageUpdate
   ): Promise<boolean> {
+    if (item.status !== 'Draft') return false;
     return change(canUpdate.value, () => api.update(item.id, { ...input, version: item.version }));
   }
 
@@ -107,11 +110,12 @@ export function useEnterpriseRequestPage(
   async function remove(
     item: EnterpriseRequestResponse
   ): Promise<boolean> {
+    if (item.status !== 'Draft') return false;
     return change(canDisable.value, () => api.delete(item.id, { version: item.version }));
   }
 
   async function change(allowed: boolean, action: () => Promise<unknown>): Promise<boolean> {
-    if (!allowed || changing.value) return false;
+    if (!active.value || !allowed || changing.value) return false;
     const current = generation;
     changing.value = true;
     try {
@@ -130,6 +134,18 @@ export function useEnterpriseRequestPage(
     }
   }
 
+  if (dependencies.contextKey) {
+    watch(() => JSON.stringify([dependencies.contextKey!(), canRead.value, canCreate.value, canUpdate.value, canDisable.value, canSubmit.value]), () => {
+      reset(); const current=generation;
+      queueMicrotask(() => { if (active.value && generation===current) void load(); });
+    }, { flush: 'sync' });
+  }
+  if (getCurrentInstance()) {
+    let suspended=false;
+    onDeactivated(() => { suspended=true; active.value=false; reset(); });
+    onBeforeUnmount(() => { active.value=false; reset(); });
+    onActivated(() => { active.value=true; if(suspended) { suspended=false; void load(); } });
+  }
   return {
     items: readonly(items),
     page: readonly(page),

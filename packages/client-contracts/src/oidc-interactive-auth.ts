@@ -30,6 +30,8 @@ export interface ExchangeOidcAuthorizationCodeOptions {
   code: string;
   verifier: string;
   clientSecret?: string | null;
+  /** 取消授权码交换；调用方仍须阻断已经返回的迟到响应。 */
+  signal?: AbortSignal;
 }
 
 export interface RefreshOidcAccessTokenOptions {
@@ -149,12 +151,14 @@ export function mapOidcTokenEndpointToTokenResponse(
 
 async function requestOidcTokenEndpoint(
   apiBase: string,
-  body: URLSearchParams
+  body: URLSearchParams,
+  signal?: AbortSignal
 ): Promise<OidcTokenEndpointResponse> {
   const response = await fetch(`${apiBase}/connect/token`, {
     method: 'POST',
     headers: { 'content-type': 'application/x-www-form-urlencoded' },
-    body: body.toString()
+    body: body.toString(),
+    signal
   });
   const payload: unknown = await response.json().catch(() => undefined);
   if (!response.ok) {
@@ -197,7 +201,7 @@ export async function exchangeOidcAuthorizationCode(
     body.set('client_secret', options.clientSecret);
   }
 
-  const payload = await requestOidcTokenEndpoint(apiBase, body);
+  const payload = await requestOidcTokenEndpoint(apiBase, body, options.signal);
   return mapOidcTokenExchangeResult(payload);
 }
 

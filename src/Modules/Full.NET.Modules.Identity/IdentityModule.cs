@@ -12,6 +12,7 @@ using Full.NET.Modules.Files.Contracts;
 using Full.NET.Modules.Identity.DependencyInjection;
 using Full.NET.Modules.Identity.Domain;
 using Full.NET.Modules.Identity.Features.Bootstrap;
+using Full.NET.Modules.Identity.Features.AccountChallenges;
 using Full.NET.Modules.Identity.Features.ManageHostMenus;
 using Full.NET.Modules.Identity.Features.OrganizationUnitProjection;
 using Full.NET.Modules.Identity.Middleware;
@@ -276,10 +277,16 @@ public sealed class IdentityModule : IFullNetModule
         services.TryAddEnumerable(ServiceDescriptor.Scoped<
             IHostFileReferenceClaimProbe,
             Features.HostFileReferences.IdentityUserProfileMediaReferenceProbe>());
+        services.TryAddEnumerable(ServiceDescriptor.Scoped<IIntegrationEventHandler,
+            Features.HostFileReferences.IdentityProfileMediaUnboundIntegrationEventHandler>());
         services.TryAddEnumerable(ServiceDescriptor.Singleton<
             IIntegrationEventHandlerRegistry,
             global::Full.NET.Generated.IntegrationEventHandlerRegistry>());
         services.TryAddSingleton<IClock, SystemClock>();
+        // 后台组织归属业务服务使用静态数据范围契约，不引入 HTTP 授权中间件。
+        services.TryAddSingleton<DataScope.RoleDataScopeProjection>();
+        services.TryAddScoped<Contracts.IUserDataScopeResolver, DataScope.UserDataScopeResolver>();
+        services.TryAddSingleton<Contracts.IDataScopeSqlFilterBuilder, DataScope.DataScopeSqlFilterBuilder>();
         // Worker 后台授权与工具执行依赖权限快照，但不装配完整 HTTP 授权中间件栈。
         services.TryAddEnumerable(ServiceDescriptor.Singleton<
             IAuthorizationCatalogContributor,
@@ -287,6 +294,7 @@ public sealed class IdentityModule : IFullNetModule
         services.TryAddSingleton(provider => AuthorizationCatalog.Create(
             provider.GetServices<IAuthorizationCatalogContributor>()));
         services.TryAddSingleton<PermissionClaimEvaluator>();
+        services.TryAddSingleton<IIdentityPermissionEvaluator>(provider => provider.GetRequiredService<PermissionClaimEvaluator>());
         services.TryAddScoped<IPermissionSnapshotReader, PermissionSnapshotReader>();
         services.AddHostUserDirectory();
         services.TryAddScoped<HostUsers.HostUserSelectionDirectory>();
@@ -304,6 +312,7 @@ public sealed class IdentityModule : IFullNetModule
             services.AddHostedService<Features.TenantSeatOperations.TenantSeatRecoveryWorker>();
             services.AddHostedService<Retention.IdentityEphemeralStateRetentionHostedService>();
             services.AddAuthenticationEventRetentionBackgroundService(configuration);
+            services.AddAccountChallengeReconciliation(configuration);
         }
     }
 

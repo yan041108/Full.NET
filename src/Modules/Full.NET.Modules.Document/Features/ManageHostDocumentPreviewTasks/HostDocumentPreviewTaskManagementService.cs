@@ -78,7 +78,8 @@ internal sealed class HostDocumentPreviewTaskManagementService(
                     ("CreatedAtUtc", now), ("StartedAtUtc", null), ("CompletedAtUtc", null), ("Version", 1L),
                     ("SourceReferenceId", sourceReferenceId), ("OutputReferenceId", outputReferenceId), ("OutputOwnerId", locked.CreatedByUserId),
                     ("AttemptCount", 0), ("NextAttemptAtUtc", null), ("LeaseExpiresAtUtc", null)), ct).ConfigureAwait(false);
-                return Result<HostDocumentPreviewTaskResponse>.Success(HostDocumentPreviewTaskMapper.Map((await lifecycle.FindAsync(taskId, ct).ConfigureAwait(false))!));
+                var created = await lifecycle.FindAsync(taskId, ct).ConfigureAwait(false);
+                return created is null ? NotFound() : Result<HostDocumentPreviewTaskResponse>.Success(HostDocumentPreviewTaskMapper.Map(created));
             }, cancellationToken).ConfigureAwait(false);
             if (!inserted.IsSuccess) return inserted;
         }

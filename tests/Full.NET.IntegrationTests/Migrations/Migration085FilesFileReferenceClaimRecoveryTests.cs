@@ -23,7 +23,8 @@ public sealed class Migration085FilesFileReferenceClaimRecoveryTests
     {
         var connectionString = await SharedDatabaseFixture.CreateSqlServerDatabaseAsync();
         var runner = CreateRunner(DatabaseProvider.SqlServer, connectionString);
-        await runner.MigrateAsync();
+        await MigrationRecoverySchema.InitializeAsync(runner, DatabaseProvider.SqlServer, connectionString,
+            template => CreateRunner(DatabaseProvider.SqlServer, template));
 
         var fileId = Guid.NewGuid();
         var claimId = Guid.NewGuid();
@@ -52,7 +53,8 @@ public sealed class Migration085FilesFileReferenceClaimRecoveryTests
     {
         var connectionString = await SharedDatabaseFixture.CreateMySqlDatabaseAsync();
         var runner = CreateRunner(DatabaseProvider.MySql, connectionString);
-        await runner.MigrateAsync();
+        await MigrationRecoverySchema.InitializeAsync(runner, DatabaseProvider.MySql, connectionString,
+            template => CreateRunner(DatabaseProvider.MySql, template));
 
         var fileId = Guid.NewGuid();
         var claimId = Guid.NewGuid();

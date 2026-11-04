@@ -84,7 +84,7 @@ public sealed record DeleteHostDocumentTagRequest(long Version);
 /// <param name="Icon">标签图标标识；未设置时为 <see langword="null"/>。</param>
 /// <param name="Color">标签主题色；未设置时为 <see langword="null"/>。</param>
 /// <param name="Description">标签描述；未设置时为 <see langword="null"/>。</param>
-/// <param name="UseCount">标签被文档引用次数；旧数据可能为 0。</param>
+/// <param name="UseCount">仍保留的Host文档引用数，包括回收站关联；读取时实时统计，标签写入响应使用门禁内写入前快照。</param>
 /// <param name="CreatedAtUtc">标签创建时间（UTC）。</param>
 /// <param name="UpdatedAtUtc">标签最近更新时间（UTC）；未更新时为 <see langword="null"/>。</param>
 /// <param name="Version">CAS 乐观并发版本号。</param>
@@ -108,7 +108,7 @@ public sealed record HostDocumentTagResponse(
     /// <summary>
     /// 兼容策略：保留扩展前的旧构造签名，避免新增 Code/Icon/Color/Description/UseCount
     /// 导致既有 .NET 调用方出现"构造参数数不匹配(CS8852)"编译错误。
-    /// UseCount 默认补 0，表示未统计使用次数的旧数据。
+    /// UseCount 默认补 0，表示调用方未提供引用统计；HTTP响应使用真实Host引用数。
     /// </summary>
     [Obsolete("保留用于源码兼容；建议使用带完整字段的构造函数")]
     public HostDocumentTagResponse(

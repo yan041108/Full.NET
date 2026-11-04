@@ -37,19 +37,19 @@ export function createProductsApi(
   http: GeneratedRequest
 ) {
   return {
-    list: (page = 1, pageSize = 20, query: ProductListOptions = {}) =>
-      catalogListProducts(http, { page, pageSize, ...query }),
-    create: (input: CreateProductRequest) =>
-      catalogCreateProduct(http, { body: input }),
-    update: (id: string, input: UpdateProductRequest) =>
+    list: (page = 1, pageSize = 20, query: ProductListOptions = {}, signal?: AbortSignal) =>
+      catalogListProducts(http, { page, pageSize, ...query }, signal),
+    create: (input: CreateProductRequest, signal?: AbortSignal) =>
+      catalogCreateProduct(http, { body: input }, signal),
+    update: (id: string, input: UpdateProductRequest, signal?: AbortSignal) =>
       catalogUpdateProduct(
         http,
-        { productId: id, body: input }
+        { productId: id, body: input }, signal
       ),
-    disable: (id: string, input: DisableProductRequest) =>
+    disable: (id: string, input: DisableProductRequest, signal?: AbortSignal) =>
       catalogDisableProduct(
         http,
-        { productId: id, body: input }
+        { productId: id, body: input }, signal
       )
   };
 }

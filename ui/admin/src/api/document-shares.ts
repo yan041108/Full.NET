@@ -14,6 +14,7 @@ import {
   isHostDocumentSharePage,
   isHostDocumentShareResponse,
   isUpdateHostDocumentShareStatusRequest,
+  isGuid,
   type AccessHostDocumentShareRequest,
   type BatchCreateHostDocumentSharesRequest,
   type BatchCreateHostDocumentSharesResponse,
@@ -82,10 +83,12 @@ export async function createDocumentShare(
   if (!isCreateHostDocumentShareRequest(req)) {
     throw new Error('client.invalid_create_document_share_request');
   }
+  const documentId = req.documentId;
   const value = await documentHostCreateDocumentShare(http, { body: req }, signal);
   if (!isHostDocumentShareResponse(value)) {
     throw new Error('client.invalid_document_share');
   }
+  if (value.documentId.toLowerCase() !== documentId.toLowerCase()) throw new Error('client.invalid_document_share_identity');
   return value;
 }
 
@@ -95,17 +98,21 @@ export async function updateDocumentShareStatus(
   req: UpdateHostDocumentShareStatusRequest,
   signal?: AbortSignal
 ): Promise<HostDocumentShareResponse> {
-  if (!isUpdateHostDocumentShareStatusRequest(req)) {
+  // 状态与修订同时冻结，响应必须对应原写入；服务端同一事务内将修订递增一次。
+  const snapshot = { ...req };
+  if (!isUpdateHostDocumentShareStatusRequest(snapshot)) {
     throw new Error('client.invalid_update_document_share_status_request');
   }
   const value = await documentHostUpdateDocumentShareStatus(
     http,
-    { id, body: req },
+    { id, body: snapshot },
     signal
   );
   if (!isHostDocumentShareResponse(value)) {
     throw new Error('client.invalid_document_share');
   }
+  if (value.id.toLowerCase() !== id.toLowerCase() || value.isEnabled !== snapshot.isEnabled || value.version !== snapshot.version + 1)
+    throw new Error('client.invalid_document_share_identity');
   return value;
 }
 
@@ -114,25 +121,52 @@ export async function batchCreateDocumentShares(
   req: BatchCreateHostDocumentSharesRequest,
   signal?: AbortSignal
 ): Promise<BatchCreateHostDocumentSharesResponse> {
-  return documentHostBatchCreateDocumentShares(http, { body: req }, signal);
+  // 按请求文档的多重集合校验结果，允许合法乱序及 UUID 大小写差异。
+  const documentIds = [...req.documentIds];
+  const value = await documentHostBatchCreateDocumentShares(http, { body: req }, signal);
+  const remaining = new Map<string, number>();
+  for (const id of documentIds) remaining.set(id.toLowerCase(), (remaining.get(id.toLowerCase()) ?? 0) + 1);
+  let succeeded = 0;
+  if (value.results.length !== documentIds.length) throw new Error('client.invalid_document_share_batch');
+  for (const item of value.results) {
+    const key = item.documentId.toLowerCase();
+    const count = remaining.get(key) ?? 0;
+    if (count === 0 || (item.succeeded
+      ? !isHostDocumentShareResponse(item.share) || item.share.documentId.toLowerCase() !== key
+      : item.share !== null)) throw new Error('client.invalid_document_share_batch');
+    remaining.set(key, count - 1);
+    if (item.succeeded) succeeded++;
+  }
+  if (succeeded !== value.succeededCount) throw new Error('client.invalid_document_share_batch');
+  return value;
 }
 
+/** 公开读取只携带本次冻结的口令副本，不混入管理会话字段。 */
+function publicShareInput(shareCode: string, req: AccessHostDocumentShareRequest) {
+  const code = shareCode.trim();
+  if (!code) throw new Error('client.invalid_public_document_share_code');
+  if (!isAccessHostDocumentShareRequest(req)) throw new Error('client.invalid_access_document_share_request');
+  return { shareCode: code, body: req.password === undefined ? {} : { password: req.password } };
+}
+const nonNilGuid = (value: string) => isGuid(value) && value !== '00000000-0000-0000-0000-000000000000';
+function checkPublicPreviewTask(task: HostDocumentPreviewTaskResponse): void {
+  if (!nonNilGuid(task.id) || !nonNilGuid(task.documentItemId) || !nonNilGuid(task.sourceFileId) || task.versionId !== null || !Number.isSafeInteger(task.version) || task.version < 1) throw new Error('client.invalid_document_preview_task_identity');
+}
 /** 通过分享码访问文档分享，可附带访问密码等公开访问参数。 */
 export async function accessDocumentShareByCode(
   shareCode: string,
   req: AccessHostDocumentShareRequest = {},
   signal?: AbortSignal
 ): Promise<HostDocumentShareAccessResponse> {
-  if (!isAccessHostDocumentShareRequest(req)) {
-    throw new Error('client.invalid_access_document_share_request');
-  }
+  const input = publicShareInput(shareCode, req);
   const value = await documentPublicAccessDocumentShare(
     http,
-    { shareCode, body: req },
+    input,
     signal,
     { retryUnauthorized: false, skipAuthentication: true }
   );
-  if (!isHostDocumentShareAccessResponse(value)) {
+  if (!isHostDocumentShareAccessResponse(value) || value.shareCode !== input.shareCode || !nonNilGuid(value.shareId) || !nonNilGuid(value.documentId)
+    || !Number.isSafeInteger(value.fileSizeBytes) || value.fileSizeBytes < 0 || !Number.isSafeInteger(value.accessCountRemaining) || value.accessCountRemaining < 0) {
     throw new Error('client.invalid_document_share_access');
   }
   return value;
@@ -144,12 +178,10 @@ export async function loadDocumentShareContentByCode(
   req: AccessHostDocumentShareRequest = {},
   signal?: AbortSignal
 ): Promise<Blob> {
-  if (!isAccessHostDocumentShareRequest(req)) {
-    throw new Error('client.invalid_access_document_share_request');
-  }
+  const input = publicShareInput(shareCode, req);
   return documentPublicContentDocumentShare(
     http,
-    { shareCode, body: req },
+    input,
     signal,
     { retryUnauthorized: false, skipAuthentication: true }
   );
@@ -163,15 +195,14 @@ export async function createDocumentSharePreviewTaskByCode(
   req: AccessHostDocumentShareRequest = {},
   signal?: AbortSignal
 ): Promise<HostDocumentPreviewTaskResponse> {
-  if (!isAccessHostDocumentShareRequest(req)) {
-    throw new Error('client.invalid_access_document_share_request');
-  }
-  return documentPublicCreateDocumentSharePreviewTask(
+  const input = publicShareInput(shareCode, req);
+  const value = await documentPublicCreateDocumentSharePreviewTask(
     http,
-    { shareCode, body: req },
+    input,
     signal,
     publicShareOptions
   );
+  checkPublicPreviewTask(value); return value;
 }
 
 /** 匿名分享：查询预览任务状态。 */
@@ -181,15 +212,16 @@ export async function getDocumentSharePreviewTaskByCode(
   req: AccessHostDocumentShareRequest = {},
   signal?: AbortSignal
 ): Promise<HostDocumentPreviewTaskResponse> {
-  if (!isAccessHostDocumentShareRequest(req)) {
-    throw new Error('client.invalid_access_document_share_request');
-  }
-  return documentPublicGetDocumentSharePreviewTask(
+  const input = publicShareInput(shareCode, req); if (!nonNilGuid(taskId)) throw new Error('client.invalid_document_preview_task_identity');
+  const value = await documentPublicGetDocumentSharePreviewTask(
     http,
-    { shareCode, taskId, body: req },
+    { ...input, taskId },
     signal,
     publicShareOptions
   );
+  // 生成操作验证响应结构；公开轮询还必须拒绝另一个任务的合法响应。
+  checkPublicPreviewTask(value); if (value.id.toLowerCase() !== taskId.toLowerCase()) throw new Error('client.invalid_document_preview_task_identity');
+  return value;
 }
 
 /** 匿名分享：读取已完成的预览任务输出（通常为 PDF）。 */
@@ -199,12 +231,10 @@ export async function loadDocumentSharePreviewTaskContentByCode(
   req: AccessHostDocumentShareRequest = {},
   signal?: AbortSignal
 ): Promise<Blob> {
-  if (!isAccessHostDocumentShareRequest(req)) {
-    throw new Error('client.invalid_access_document_share_request');
-  }
+  const input = publicShareInput(shareCode, req); if (!nonNilGuid(taskId)) throw new Error('client.invalid_document_preview_task_identity');
   return documentPublicContentDocumentSharePreviewTask(
     http,
-    { shareCode, taskId, body: req },
+    { ...input, taskId },
     signal,
     publicShareOptions
   );

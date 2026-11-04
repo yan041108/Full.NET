@@ -197,5 +197,11 @@ namespace Full.NET.Modules.Identity.Serialization;
 [JsonSerializable(typeof(RegenerateMfaRecoveryCodesResponse))]
 [JsonSerializable(typeof(ConsumeMfaRecoveryCodeRequest))]
 [JsonSerializable(typeof(ConsumeMfaRecoveryCodeResponse))]
+// OpenAPI 使用端点声明的集合接口类型，数组元数据不能替代集合根类型。
+[JsonSerializable(typeof(IReadOnlyList<MyTenantInvitationResponse>))]
+[JsonSerializable(typeof(IReadOnlyList<SuperAdministratorResponse>))]
+[JsonSerializable(typeof(IReadOnlyList<SuperAdministratorAuditResponse>))]
+[JsonSerializable(typeof(IReadOnlyCollection<FieldProjectionResourceDefinition>))]
+[JsonSerializable(typeof(IReadOnlyList<HostMenuPermissionOptionResponse>))]
 /// <summary>Identity 模块 JSON 源生成上下文；Native AOT 绑定已审计契约，禁止反射序列化。</summary>
 internal partial class IdentityJsonSerializerContext : JsonSerializerContext;

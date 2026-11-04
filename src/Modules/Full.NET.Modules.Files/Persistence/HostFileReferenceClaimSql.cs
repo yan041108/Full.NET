@@ -74,6 +74,61 @@ internal static class HostFileReferenceClaimSql
         """,
         SqlDataScope.HostOnly);
 
+    /// <summary>对账仅释放仍符合扫描快照的 Pending 行，不覆盖探测期间完成的确认或刷新。</summary>
+    public static readonly SqlStatement ReleaseStalePending = new(
+        "files.file_reference_claim.release_stale_pending",
+        """
+        UPDATE fn_files_file_reference_claim
+        SET State = @ReleasedState,
+            ReleasedAtUtc = @Now,
+            UpdatedAtUtc = @Now
+        WHERE Id = @Id
+          AND State = @PendingState
+          AND UpdatedAtUtc = @ObservedUpdatedAtUtc
+        """,
+        SqlDataScope.HostOnly);
+
+    /// <summary>只释放仍等于扫描身份和版本的 Active；权威不存在结论来自不可复用引用的消费者。</summary>
+    public static readonly SqlStatement ReleaseStaleActive = new(
+        "files.file_reference_claim.release_stale_active",
+        """
+        UPDATE fn_files_file_reference_claim
+        SET State = @ReleasedState, ReleasedAtUtc = @Now, UpdatedAtUtc = @Now
+        WHERE Id = @Id AND State = @ActiveState
+          AND UpdatedAtUtc = @ObservedUpdatedAtUtc
+          AND FileId = @ObservedFileId
+          AND ConsumerModule = @ObservedConsumerModule
+          AND ConsumerReferenceId = @ObservedConsumerReferenceId
+        """, SqlDataScope.HostOnly);
+
+    /// <summary>复用 State/UpdatedAtUtc/Id 索引及稳定游标，仅纳入主动声明能力的消费者。</summary>
+    public static readonly SqlStatement SelectStaleActiveSqlServer = new(
+        "files.file_reference_claim.select_stale_active.sql_server",
+        """
+        SELECT TOP (@BatchSize) Id, IdempotencyKey, FileId, ConsumerModule, ConsumerReferenceId,
+               State, ContentHash, SizeBytes, CreatedAtUtc, UpdatedAtUtc, ConfirmedAtUtc, ReleasedAtUtc
+        FROM fn_files_file_reference_claim
+        WHERE State = @ActiveState AND ConsumerModule IN @ConsumerModules
+          AND UpdatedAtUtc <= @StaleBeforeUtc
+          AND (@HasCursor = 0 OR UpdatedAtUtc > @AfterUpdatedAtUtc
+               OR (UpdatedAtUtc = @AfterUpdatedAtUtc AND Id > @AfterId))
+        ORDER BY UpdatedAtUtc, Id
+        """, SqlDataScope.HostOnly);
+
+    /// <summary>与 SQL Server 相同的消费者、龄期与游标过滤，MySQL 使用 LIMIT。</summary>
+    public static readonly SqlStatement SelectStaleActiveMySql = new(
+        "files.file_reference_claim.select_stale_active.mysql",
+        """
+        SELECT Id, IdempotencyKey, FileId, ConsumerModule, ConsumerReferenceId,
+               State, ContentHash, SizeBytes, CreatedAtUtc, UpdatedAtUtc, ConfirmedAtUtc, ReleasedAtUtc
+        FROM fn_files_file_reference_claim
+        WHERE State = @ActiveState AND ConsumerModule IN @ConsumerModules
+          AND UpdatedAtUtc <= @StaleBeforeUtc
+          AND (@HasCursor = 0 OR UpdatedAtUtc > @AfterUpdatedAtUtc
+               OR (UpdatedAtUtc = @AfterUpdatedAtUtc AND Id > @AfterId))
+        ORDER BY UpdatedAtUtc, Id LIMIT @BatchSize
+        """, SqlDataScope.HostOnly);
+
     public static readonly SqlStatement SelectStalePendingSqlServer = new(
         "files.file_reference_claim.select_stale_pending.sql_server",
         """

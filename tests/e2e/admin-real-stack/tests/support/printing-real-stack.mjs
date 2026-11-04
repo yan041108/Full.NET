@@ -55,7 +55,7 @@ export async function listPrintingTemplatesViaApi(request, clientKind, accessTok
   return { response, accessToken: token };
 }
 
-/** 预览已发布模板（租户上下文 + 服务端数据绑定）。 */
+/** 租户只能预览明确获授的发布版本，不能调用 Host 草稿入口。 */
 export async function previewPrintingTemplateViaApi(
   request,
   clientKind,
@@ -64,7 +64,7 @@ export async function previewPrintingTemplateViaApi(
   accessToken = null
 ) {
   const token = accessToken ?? (await loginTenantAdminAccessToken(request, clientKind));
-  const response = await request.post(`${templatesPath}/${templateId}/preview`, {
+  const response = await request.post(`${apiBaseUrl}/api/v1/printing/published-templates/${templateId}/preview`, {
     headers: authHeaders(clientKind, token),
     data: body
   });

@@ -27,7 +27,7 @@ internal sealed class WorkflowTodoCountersignService(
     IIdGenerator idGenerator,
     IOptions<DatabaseOptions> databaseOptions,
     IHostUserBatchSelectionDirectory hostUserDirectory,
-    ITenantMemberSelectionDirectory tenantUserDirectory,
+    ITenantMemberBatchSelectionDirectory tenantUserDirectory,
     WorkflowNotificationOutboxPublisher notificationPublisher,
     WorkflowBranchStateCoordinator branchStates,
     WorkflowApprovalStepResolutionCoordinator stepResolution)

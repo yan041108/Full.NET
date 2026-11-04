@@ -39,6 +39,8 @@ import ArtTableHeader from '../framework/art-design/components/ArtTableHeader.vu
 import { useArtCrudTableLayout } from '../framework/art-design/composables/useArtCrudTableLayout';
 import PermissionGate from '../components/PermissionGate.vue';
 import ReportingDefinitionGrantsDialog from '../components/ReportingDefinitionGrantsDialog.vue';
+import ReportingTenantGrantsDialog from '../components/reporting/ReportingTenantGrantsDialog.vue';
+const versionGrantDefinition = ref<ReportingDefinitionSummary>();
 import { useSessionStore } from '../auth/session';
 import { reportingConfigurationText } from '../i18n/reporting-configuration';
 import { useAdminI18n } from '../i18n/adminI18n';
@@ -171,7 +173,7 @@ function reset() {
   generation++; requests.abort(); requests = new AbortController(); stopReads();
   groups.value = []; definitions.value = []; queryPorts.value = []; dataSourceOptions.value = []; versions.value = [];
   selectedGroupId.value = undefined; definitionPage.value = 1; definitionTotal.value = 0; versionPage.value = 1; versionTotal.value = 0; versionDefinitionId.value = '';
-  groupEditorOpen.value = false; definitionEditorOpen.value = false; versionsDrawerOpen.value = false; grantsOpen.value = false; grantsDefinitionId.value = '';
+  groupEditorOpen.value = false; definitionEditorOpen.value = false; versionsDrawerOpen.value = false; grantsOpen.value = false; versionGrantDefinition.value = undefined; grantsDefinitionId.value = '';
   editingGroup.value = null; editingDefinition.value = null; publishOpen.value = false; publishTarget.value = undefined; publishNote.value = '';
   definitionGroupId.value = undefined;
   Object.assign(groupForm, { name: '', sortOrder: '0', isEnabled: true });
@@ -601,6 +603,10 @@ function toProblem(error: unknown, fallbackKey: Parameters<typeof t>[0]): FullNe
           <ElTableColumn :label="t('reportingDefinitions.actions')" width="260" fixed="right">
               <template #default="{ row }">
                 <ArtTableActionGroup>
+                  <PermissionGate v-if="row.latestPublishedVersionNumber > 0" code="reporting.definitions.grant_tenants">
+                    <ArtTableActionButton type="view" test-id="reporting-tenant-grants-open" :disabled="acting"
+                      :title="t('reportingGrants.manage')" @click="versionGrantDefinition = row">{{ t('reportingGrants.manage') }}</ArtTableActionButton>
+                  </PermissionGate>
                   <PermissionGate code="reporting.definition_grants.read">
                     <ArtTableActionButton v-if="row.latestPublishedVersionNumber > 0" type="view"
                       :title="t('reportingGrants.title')" :disabled="acting"
@@ -743,6 +749,7 @@ function toProblem(error: unknown, fallbackKey: Parameters<typeof t>[0]): FullNe
         layout="prev, pager, next, total" @current-change="loadVersions" />
 
     </ElDrawer>
+    <ReportingTenantGrantsDialog v-if="versionGrantDefinition" :definition="versionGrantDefinition" @close="versionGrantDefinition = undefined" />
     <ReportingDefinitionGrantsDialog v-model="grantsOpen" :definition-id="grantsDefinitionId" />
     <ElDialog v-model="publishOpen" :title="text('publish')" width="min(480px, calc(100vw - 32px))" :close-on-click-modal="!acting" :close-on-press-escape="!acting" :show-close="!acting">
       <p>{{ publishTarget?.name }}</p><p>{{ text('publishHelp') }}</p>

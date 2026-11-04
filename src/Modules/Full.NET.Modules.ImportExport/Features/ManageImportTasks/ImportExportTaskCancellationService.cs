@@ -14,15 +14,20 @@ internal sealed class ImportExportTaskCancellationService(IQueryExecutor queries
 {
     internal async Task<Result<ImportExportTaskDetailResponse>> CancelAsync(Guid taskId, long version, CancellationToken token)
     {
+        token.ThrowIfCancellationRequested();
+        var tenantId = tenant.Id;
         if (!tenant.IsAvailable || tenant.IsHost || tenant.Id is null)
             return Result<ImportExportTaskDetailResponse>.Failure(new(CommonErrorCodes.PermissionDenied, "A tenant interaction session is required.", ErrorType.Forbidden));
         if (taskId == Guid.Empty || version < 1)
             return Result<ImportExportTaskDetailResponse>.Failure(new(CommonErrorCodes.RequestInvalid, "A task and positive version are required.", ErrorType.Validation));
         var actor = await sessions.AuthorizeAsync(ImportExportPermissions.ImportTasksCancel, token).ConfigureAwait(false);
-        if (actor is null || actor.UserId == Guid.Empty || actor.TenantId != tenant.Id)
+        token.ThrowIfCancellationRequested();
+        if (actor is null || actor.UserId == Guid.Empty || actor.TenantId != tenantId || tenant.Id != tenantId || !tenant.IsAvailable || tenant.IsHost)
             return Result<ImportExportTaskDetailResponse>.Failure(new(CommonErrorCodes.PermissionDenied, "The current session cannot cancel this task.", ErrorType.Forbidden));
         var args = ImportExportSqlParameters.Create(("Id", taskId), ("UserId", actor.UserId));
         var task = await queries.QuerySingleOrDefaultAsync<ImportTaskCancellationState>(ImportExportTaskSql.FindOwnedCancellationState, args, token).ConfigureAwait(false);
+        token.ThrowIfCancellationRequested();
+        if (tenant.Id != tenantId || !tenant.IsAvailable || tenant.IsHost) return Result<ImportExportTaskDetailResponse>.Failure(new(CommonErrorCodes.PermissionDenied, "The tenant session changed.", ErrorType.Forbidden));
         if (task is null) return Result<ImportExportTaskDetailResponse>.Failure(NotFound());
         // 已经停止的同一本人任务可安全重读；不能把其他终态当成取消成功。
         if (task.StatusKey != ImportExportTaskStatusKeys.Canceled)
@@ -32,10 +37,12 @@ internal sealed class ImportExportTaskCancellationService(IQueryExecutor queries
                 return Result<ImportExportTaskDetailResponse>.Failure(Conflict());
             args.Add("Version", version); args.Add("Now", clock.UtcNow);
             var affected = await commands.ExecuteAsync(ImportExportTaskSql.CancelOwnedPending, args, token).ConfigureAwait(false);
+            token.ThrowIfCancellationRequested();
             if (affected != 1) return Result<ImportExportTaskDetailResponse>.Failure(Conflict());
         }
         var record = await queries.QuerySingleOrDefaultAsync<ImportExportTaskRecord>(ImportExportTaskSql.FindById,
             ImportExportSqlParameters.Create(("Id", taskId)), token).ConfigureAwait(false);
+        token.ThrowIfCancellationRequested();
         return record is null || record.RequestedByUserId != actor.UserId
             ? Result<ImportExportTaskDetailResponse>.Failure(NotFound())
             : record.StatusKey != ImportExportTaskStatusKeys.Canceled ? Result<ImportExportTaskDetailResponse>.Failure(Conflict())

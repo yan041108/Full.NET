@@ -18,6 +18,7 @@ internal sealed class ReportingExecutionCatalog(IQueryExecutor queries, Reportin
         if (!TenantAvailable()) return Result<ReportingDefinitionResponse>.Failure(ScopeDenied());
         var row = await queries.QuerySingleOrDefaultAsync<ReportingDefinitionRecord>(ReportingDefinitionGrantSql.PublishedDefinition,
             ReportingSqlParameters.Create(("DefinitionId", id), ("NameContains", null)), token).ConfigureAwait(false);
+        token.ThrowIfCancellationRequested();
         return row is null ? Result<ReportingDefinitionResponse>.Failure(NotFound())
             : Result<ReportingDefinitionResponse>.Success(ReportingDefinitionMapper.MapDefinition(row));
     }
@@ -28,6 +29,7 @@ internal sealed class ReportingExecutionCatalog(IQueryExecutor queries, Reportin
         if (!TenantAvailable()) return Result<ReportingDefinitionVersionResponse>.Failure(ScopeDenied());
         var row = await queries.QuerySingleOrDefaultAsync<ReportingDefinitionVersionRecord>(ReportingDefinitionGrantSql.PublishedVersion,
             ReportingSqlParameters.Create(("DefinitionId", id), ("VersionNumber", version)), token).ConfigureAwait(false);
+        token.ThrowIfCancellationRequested();
         return row is null ? Result<ReportingDefinitionVersionResponse>.Failure(NotFound())
             : Result<ReportingDefinitionVersionResponse>.Success(ReportingDefinitionMapper.MapVersion(row));
     }

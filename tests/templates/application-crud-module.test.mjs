@@ -23,10 +23,11 @@ function workspace() {
 // 注入执行器只证明编排和验收门禁；实际整链编译、写盘与恢复由 .NET 聚焦测试验证。
 function runner({ root, put }, failure, calls) {
   return (command, args, options) => {
-    const stage = calls.length >= 3 ? 'conflict' : ['apply', 'build', 'repeat'][calls.length];
+    const stage = calls.length >= 9 ? ['manual-repeat', 'manual-build'][calls.length - 9]
+      : calls.length >= 3 ? 'conflict' : ['apply', 'build', 'repeat'][calls.length];
     calls.push({ stage, command, args, options });
     if (failure === stage) return { status: 1, stdout: '', stderr: stage + ' failed' };
-    if (stage === 'build') return { status: 0, stdout: '', stderr: '' };
+    if (stage === 'build' || stage === 'manual-build') return { status: 0, stdout: '', stderr: '' };
     if (stage === 'apply') {
       for (const path of MODULE_ARTIFACTS) put(directory + '/' + path, path + '\n');
       const entry = directory + '/CatalogModule.cs';
@@ -43,6 +44,7 @@ function runner({ root, put }, failure, calls) {
       if (failure === 'host-mutates') put('src/Demo.Host.Api/Program.cs', 'host lost');
     }
     if (stage === 'repeat' && failure === 'repeat-mutates') put(directory + '/CatalogModule.cs', 'entry lost');
+    if (stage === 'manual-repeat' && failure === 'manual-repeat-mutates') put(directory + '/Product.manual.cs', 'business code lost');
     if (stage === 'conflict') {
       const edited = MODULE_ARTIFACTS.find((path) => readFileSync(join(root, directory, path), 'utf8').includes('人工修改'));
       if (failure === 'conflict-mutates') put(directory + '/Product.manual.cs', 'manual code lost');
@@ -58,8 +60,9 @@ test('module acceptance uses a complete Host operation and checks root ownership
   try {
     const result = verifyApplicationCrudModule(fixture.root, { reportDirectory: join(fixture.root, 'evidence'), run: runner(fixture, null, calls), removeTestSqlComment: true });
     assert.equal(result.moduleCompiled, true);
+    assert.equal(result.manualExtensionPreserved, true);
     assert.equal(result.conflictArtifacts.length, MODULE_ARTIFACTS.length);
-    assert.ok(calls.filter(call => call.stage !== 'build').every(call => call.args.includes('apply-host-integration')));
+    assert.ok(calls.filter(call => !['build', 'manual-build'].includes(call.stage)).every(call => call.args.includes('apply-host-integration')));
     assert.ok(calls.every(call => call.options.cwd === fixture.root && call.options.windowsHide === true));
     assert.equal(readFileSync(join(fixture.root, directory, 'Generated/Product/ProductSql.g.cs'), 'utf8'), 'Generated/Product/ProductSql.g.cs\n');
     assert.match(readFileSync(join(fixture.root, directory, 'Product.manual.cs'), 'utf8'), /人工模块文件/u);
@@ -67,7 +70,7 @@ test('module acceptance uses a complete Host operation and checks root ownership
 });
 
 for (const failure of ['apply', 'build', 'repeat', 'unowned', 'wrong-hash', 'project-mutates', 'host-mutates',
-  'repeat-mutates', 'missing-receipt', 'conflict-accepted', 'conflict-mutates', 'wrong-path']) {
+  'repeat-mutates', 'manual-repeat-mutates', 'manual-build', 'missing-receipt', 'conflict-accepted', 'conflict-mutates', 'wrong-path']) {
   test(`complete module acceptance rejects ${failure}`, () => {
     const fixture = workspace(); const calls = [];
     try { assert.throws(() => verifyApplicationCrudModule(fixture.root, { reportDirectory: join(fixture.root, 'evidence'), run: runner(fixture, failure, calls) })); }

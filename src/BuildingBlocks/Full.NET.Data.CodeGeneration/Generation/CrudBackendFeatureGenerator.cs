@@ -152,7 +152,7 @@ internal static class CrudBackendFeatureGenerator
                     var record = await queryExecutor
                         .QuerySingleOrDefaultAsync<{{schema.ClrTypeName}}Record>(
                             {{schema.ClrTypeName}}Sql.FindByIdStatement,
-                            new { Id = {{idParameter}} },
+                            new Dictionary<string, object?> { ["Id"] = {{idParameter}} },
                             cancellationToken)
                         .ConfigureAwait(false);
                     return record is null ? NotFound() : VersionConflict();
@@ -185,7 +185,7 @@ internal static class CrudBackendFeatureGenerator
 
             namespace {{schema.RootNamespace}}.Generated;
 
-            internal sealed class {{schema.ClrTypeName}}QueryService(
+            internal sealed partial class {{schema.ClrTypeName}}QueryService(
                 IQueryExecutor queryExecutor,
                 IMultiResultQueryExecutor multiResultQueryExecutor,
                 IOptions<DatabaseOptions> databaseOptions)
@@ -238,7 +238,7 @@ internal static class CrudBackendFeatureGenerator
                     var record = await queryExecutor
                         .QuerySingleOrDefaultAsync<{{schema.ClrTypeName}}Record>(
                             {{schema.ClrTypeName}}Sql.FindByIdStatement,
-                            new { Id = {{idParameter}} },
+                            new Dictionary<string, object?> { ["Id"] = {{idParameter}} },
                             cancellationToken)
                         .ConfigureAwait(false);
                     return record is null
@@ -300,7 +300,7 @@ internal static class CrudBackendFeatureGenerator
             {{IndentLines(validationCall, 8)}}        var {{idParameter}} = idGenerator.NewId();
                     var affectedRows = await commandExecutor.ExecuteAsync(
                             {{schema.ClrTypeName}}Sql.InsertStatement,
-                            new
+                            new Dictionary<string, object?>
                             {
             {{IndentLines(createValues, 20)}}
                             },
@@ -326,7 +326,7 @@ internal static class CrudBackendFeatureGenerator
             {{contextGuardLine}}
             {{IndentLines(validationCall, 8)}}        var affectedRows = await commandExecutor.ExecuteAsync(
                             {{schema.ClrTypeName}}Sql.UpdateStatement,
-                            new
+                            new Dictionary<string, object?>
                             {
             {{IndentLines(updateValues, 20)}}
                             },
@@ -349,7 +349,7 @@ internal static class CrudBackendFeatureGenerator
             {{contextGuardLine}}
                     var affectedRows = await commandExecutor.ExecuteAsync(
                             {{schema.ClrTypeName}}Sql.DisableStatement,
-                            new
+                            new Dictionary<string, object?>
                             {
             {{IndentLines(disableValues, 20)}}
                             },
@@ -574,6 +574,9 @@ internal static class CrudBackendFeatureGenerator
                         services.AddSingleton<IErrorResourceSource>(new GeneratedCrudErrorResourceSource("{{schema.ModuleKey}}.{{schema.PermissionResourceName}}."));
                     services.TryAddScoped<{{schema.ClrTypeName}}QueryService>();
                     services.TryAddScoped<{{schema.ClrTypeName}}ManagementService>();
+            #if FULLNET_AOT_COMPILE
+                    {{schema.ClrTypeName}}RecordAotMaterializer.Register();
+            #endif
                     services.ConfigureHttpJsonOptions(options =>
                         options.SerializerOptions.TypeInfoResolverChain.Insert(
                             0,
@@ -939,7 +942,7 @@ internal static class CrudBackendFeatureGenerator
             {{organizationFeatureUsings}}
             namespace {{schema.RootNamespace}}.Generated;
             {{CrudMutationPolicyGenerator.Contract(schema)}}
-            internal sealed class {{schema.ClrTypeName}}QueryService(
+            internal sealed partial class {{schema.ClrTypeName}}QueryService(
             {{IndentLines(queryServiceConstructorParameters, 4)}})
             {
             {{IndentLines(listMethod, 4)}}
@@ -961,7 +964,7 @@ internal static class CrudBackendFeatureGenerator
             {{organizationDataScopeComposer}}
             }
 
-            internal sealed class {{schema.ClrTypeName}}ManagementService(
+            internal sealed partial class {{schema.ClrTypeName}}ManagementService(
             {{IndentLines(managementConstructorParameters, 4)}})
             {
             {{IndentLines(GenerateTransactionMethod(schema), 4)}}
@@ -979,13 +982,16 @@ internal static class CrudBackendFeatureGenerator
                     {{createCoreParameters}})
                 {
             {{contextGuardLine}}
-            {{IndentLines(createCoreAuthorization, 8)}}{{IndentLines(validationCall, 8)}}{{IndentLines(CrudMutationPolicyGenerator.Call(schema, "Create"), 8)}}        var {{idParameter}} = idGenerator.NewId();
+            {{IndentLines(createCoreAuthorization, 8)}}{{IndentLines(validationCall, 8)}}{{IndentLines(CrudMutationPolicyGenerator.Call(schema, "Create"), 8)}}        Error? domainError = null;
+                    ValidateCreateDomain(request, ref domainError);
+                    if (domainError is not null) return Result<{{schema.ClrTypeName}}Response>.Failure(domainError);
+                    var {{idParameter}} = idGenerator.NewId();
             {{IndentLines(CrudRelationshipRestoreGenerator.Read(schema, idParameter), 8)}}
             {{IndentLines(
                 CrudSceneGuardGenerator.CreateGuardCall(schema, idParameter),
                 8)}}{{IndentLines(CrudRelationshipRestoreGenerator.Restore(schema, idParameter), 8)}}        var affectedRows = await commandExecutor.ExecuteAsync(
                             {{schema.ClrTypeName}}Sql.InsertStatement,
-                            new
+                            new Dictionary<string, object?>
                             {
             {{IndentLines(RenderExplicitCreateValues(
                 schema,
@@ -1005,6 +1011,9 @@ internal static class CrudBackendFeatureGenerator
                         .ConfigureAwait(false);
                 }
             {{updateMethods}}{{deleteMethods}}
+                // 在独立手写 partial 文件实现领域约束；未实现时编译器移除调用。
+                partial void ValidateCreateDomain(Create{{schema.ClrTypeName}}Request request, ref Error? error);
+
             {{contextGuardMethod}}{{validationMethod}}{{conflictMethods}}{{CrudSceneGuardGenerator.Methods(schema, idParameter)}}
 
                 private static Result<{{schema.ClrTypeName}}Response> NotFound() =>
@@ -1079,7 +1088,7 @@ internal static class CrudBackendFeatureGenerator
                     var record = await queryExecutor
                         .QuerySingleOrDefaultAsync<{{schema.ClrTypeName}}Record>(
                             {{schema.ClrTypeName}}Sql.FindByIdStatement,
-                            new { Id = {{idParameter}} },
+                            new Dictionary<string, object?> { ["Id"] = {{idParameter}} },
                             cancellationToken)
                         .ConfigureAwait(false);
                     return record is null
@@ -1105,6 +1114,10 @@ internal static class CrudBackendFeatureGenerator
             : "return NotFound();";
         return "\n" + $$"""
 
+            // 领域读取只在存在实现时执行，普通生成 CRUD 不增加数据库往返。
+            partial void ValidateUpdateDomain(Guid id, Update{{schema.ClrTypeName}}Request request,
+                CancellationToken cancellationToken, ref Task<Error?>? validation);
+
             public Task<Result<{{schema.ClrTypeName}}Response>> UpdateAsync(
                 Guid {{idParameter}},
                 Update{{schema.ClrTypeName}}Request request,
@@ -1127,9 +1140,20 @@ internal static class CrudBackendFeatureGenerator
         {{contextGuardLine}}
         {{IndentLines(authorizationBlock, 4)}}{{IndentLines(validationCall, 4)}}{{IndentLines(CrudMutationPolicyGenerator.Call(schema, "Update", idParameter), 8)}}{{IndentLines(
             CrudSceneGuardGenerator.UpdateGuardCall(schema, idParameter),
-            8)}}        var affectedRows = await commandExecutor.ExecuteAsync(
+            8)}}        Task<Error?>? domainValidation = null;
+                ValidateUpdateDomain({{idParameter}}, request, cancellationToken, ref domainValidation);
+                if (domainValidation is not null)
+                {
+                    var domainError = await domainValidation.ConfigureAwait(false);
+                    if (domainError is not null)
+                    {
+                        return Result<{{schema.ClrTypeName}}Response>.Failure(domainError);
+                    }
+                }
+
+                var affectedRows = await commandExecutor.ExecuteAsync(
                         {{schema.ClrTypeName}}Sql.UpdateStatement,
-                        new
+                        new Dictionary<string, object?>
                         {
         {{IndentLines(RenderExplicitUpdateValues(
             schema,
@@ -1170,11 +1194,14 @@ internal static class CrudBackendFeatureGenerator
             : "return NotFound();";
         return "\n" + $$"""
 
+            // 删除约束先于级联写入，不能只在父行删除后判断领域状态。
+            partial void ValidateDeleteDomain({{schema.ClrTypeName}}Response existing, long? expectedVersion, ref Error? error);
+
             public Task<Result<{{schema.ClrTypeName}}Response>> DeleteAsync(
                 Guid {{idParameter}}{{requestParameter}},
                 Guid actorUserId,
                 CancellationToken cancellationToken = default) =>
-                transaction.ExecuteAsync(
+                transaction.ExecuteResultAsync(
                     token => DeleteCoreAsync(
                         {{idParameter}}{{requestArgument}},
                         actorUserId,
@@ -1197,11 +1224,18 @@ internal static class CrudBackendFeatureGenerator
                 }
 
         {{IndentLines(authorizationBlock, 8)}}
+                Error? domainError = null;
+                ValidateDeleteDomain(existing.Value!, {{(schema.HasVersion ? "request.Version" : "null")}}, ref domainError);
+                if (domainError is not null)
+                {
+                    return Result<{{schema.ClrTypeName}}Response>.Failure(domainError);
+                }
+
         {{IndentLines(CrudMutationPolicyGenerator.Call(schema, "Delete", idParameter), 8)}}{{IndentLines(
                 CrudSceneGuardGenerator.DeleteGuardCall(schema, idParameter),
                 8)}}                var affectedRows = await commandExecutor.ExecuteAsync(
                         {{schema.ClrTypeName}}Sql.DeleteStatement,
-                        new
+                        new Dictionary<string, object?>
                         {
         {{IndentLines(RenderExplicitDeleteValues(
             schema,
@@ -1231,7 +1265,7 @@ internal static class CrudBackendFeatureGenerator
                 var record = await queryExecutor
                     .QuerySingleOrDefaultAsync<{{schema.ClrTypeName}}Record>(
                         {{schema.ClrTypeName}}Sql.FindByIdStatement,
-                        new { Id = {{idParameter}} },
+                        new Dictionary<string, object?> { ["Id"] = {{idParameter}} },
                         cancellationToken)
                     .ConfigureAwait(false);
                 return record is null ? NotFound() : VersionConflict();
@@ -1711,6 +1745,8 @@ internal static class CrudBackendFeatureGenerator
             4);
     }
 
+    private static string ParameterEntry(string name, string value) => $"[\"{name}\"] = {value}";
+
     private static string RenderExplicitCreateValues(
         FullNetCrudSchema schema,
         string idParameter) =>
@@ -1718,52 +1754,52 @@ internal static class CrudBackendFeatureGenerator
             ",\n",
             schema.Columns
                 .Where(column => column.DatabaseName != "TenantId")
-                .Select(column => column.DatabaseName switch
+                .Select(column => ParameterEntry(column.DatabaseName, column.DatabaseName switch
                 {
-                    "Id" => $"Id = {idParameter}",
-                    "CreatedAtUtc" => "CreatedAtUtc = clock.UtcNow",
-                    "CreatedById" => "CreatedById = actorUserId",
-                    "UpdatedAtUtc" => "UpdatedAtUtc = (DateTimeOffset?)null",
-                    "UpdatedById" => "UpdatedById = (Guid?)null",
-                    "IsDeleted" => "IsDeleted = false",
-                    "DeletedAtUtc" => "DeletedAtUtc = (DateTimeOffset?)null",
-                    "DeletedById" => "DeletedById = (Guid?)null",
-                    "OrganizationUnitId" => "OrganizationUnitId = organizationUnitId",
-                    "Version" => $"Version = {InitialValue(column)}",
-                    _ => $"{column.DatabaseName} = {RequestValue(column)}",
-                }));
+                    "Id" => idParameter,
+                    "CreatedAtUtc" => "clock.UtcNow",
+                    "CreatedById" => "actorUserId",
+                    "UpdatedAtUtc" => "(DateTimeOffset?)null",
+                    "UpdatedById" => "(Guid?)null",
+                    "IsDeleted" => "false",
+                    "DeletedAtUtc" => "(DateTimeOffset?)null",
+                    "DeletedById" => "(Guid?)null",
+                    "OrganizationUnitId" => "organizationUnitId",
+                    "Version" => InitialValue(column),
+                    _ => RequestValue(column),
+                })));
 
     private static string RenderExplicitUpdateValues(
         FullNetCrudSchema schema,
         string idParameter) =>
         string.Join(
             ",\n",
-            new[] { $"Id = {idParameter}" }
+            new[] { ParameterEntry("Id", idParameter) }
                 .Concat(WritableColumns(schema).Select(column =>
-                    $"{column.DatabaseName} = {RequestValue(column)}"))
+                    ParameterEntry(column.DatabaseName, RequestValue(column))))
                 .Concat(schema.EntityCapabilities.HasUpdatedAudit
                     ?
                     [
-                        "UpdatedAtUtc = clock.UtcNow",
-                        "UpdatedById = actorUserId",
+                        ParameterEntry("UpdatedAtUtc", "clock.UtcNow"),
+                        ParameterEntry("UpdatedById", "actorUserId"),
                     ]
                     : [])
-                .Concat(schema.HasVersion ? ["request.Version"] : []));
+                .Concat(schema.HasVersion ? [ParameterEntry("Version", "request.Version")] : []));
 
     private static string RenderExplicitDeleteValues(
         FullNetCrudSchema schema,
         string idParameter) =>
         string.Join(
             ",\n",
-            new[] { $"Id = {idParameter}" }
+            new[] { ParameterEntry("Id", idParameter) }
                 .Concat(schema.EntityCapabilities.HasDeletedAudit
                     ?
                     [
-                        "DeletedAtUtc = clock.UtcNow",
-                        "DeletedById = actorUserId",
+                        ParameterEntry("DeletedAtUtc", "clock.UtcNow"),
+                        ParameterEntry("DeletedById", "actorUserId"),
                     ]
                     : [])
-                .Concat(schema.HasVersion ? ["request.Version"] : []));
+                .Concat(schema.HasVersion ? [ParameterEntry("Version", "request.Version")] : []));
 
     private static string RenderCreateValues(
         FullNetCrudSchema schema,
@@ -1772,31 +1808,52 @@ internal static class CrudBackendFeatureGenerator
             ",\n",
             schema.Columns
                 .Where(column => column.DatabaseName != "TenantId")
-                .Select(column => column.DatabaseName switch
+                .Select(column => ParameterEntry(column.DatabaseName, column.DatabaseName switch
                 {
-                    "Id" => $"Id = {idParameter}",
-                    "CreatedAtUtc" => "CreatedAtUtc = clock.UtcNow",
-                    "Version" => $"Version = {InitialValue(column)}",
-                    _ => $"{column.DatabaseName} = {RequestValue(column)}",
-                }));
+                    "Id" => idParameter,
+                    "CreatedAtUtc" => "clock.UtcNow",
+                    "Version" => InitialValue(column),
+                    _ => RequestValue(column),
+                })));
 
     private static string RenderUpdateValues(
         FullNetCrudSchema schema,
         string idParameter) =>
         string.Join(
             ",\n",
-            new[] { $"Id = {idParameter}" }
+            new[] { ParameterEntry("Id", idParameter) }
                 .Concat(MutableColumns(schema).Select(column =>
-                    $"{column.DatabaseName} = {RequestValue(column)}"))
-                .Concat(schema.HasVersion ? ["request.Version"] : []));
+                    ParameterEntry(column.DatabaseName, RequestValue(column))))
+                .Concat(schema.HasVersion ? [ParameterEntry("Version", "request.Version")] : []));
 
     private static string RenderDisableValues(
         FullNetCrudSchema schema,
         string idParameter) =>
         string.Join(
             ",\n",
-            new[] { $"Id = {idParameter}" }
-                .Concat(schema.HasVersion ? ["request.Version"] : []));
+            new[] { ParameterEntry("Id", idParameter) }
+                .Concat(schema.HasVersion ? [ParameterEntry("Version", "request.Version")] : []));
+
+    private static string RenderAotRowArguments(IEnumerable<FullNetColumn> columns) =>
+        string.Join(",\n", columns.Select((column, index) => "            " + AotReadExpression(column, index)));
+
+    private static string AotReadExpression(FullNetColumn column, int index)
+    {
+        const string helpers = "global::Full.NET.Data.Dapper.AotDataReaderExtensions.";
+        // 列序由同一 Schema 的 SELECT 和记录共同确定；辅助读取保持双库整数、布尔和 UTC 时间语义。
+        var read = column.ScalarType switch
+        {
+            FullNetScalarType.Uuid => $"reader.GetGuid({index})",
+            FullNetScalarType.String => $"reader.GetString({index})",
+            FullNetScalarType.Int32 => $"{helpers}ReadInt32(reader, {index})",
+            FullNetScalarType.Int64 => $"{helpers}ReadInt64(reader, {index})",
+            FullNetScalarType.Boolean => $"{helpers}ReadBoolean(reader, {index})",
+            FullNetScalarType.DateTimeUtc => $"{helpers}ReadDateTimeOffset(reader, {index})",
+            FullNetScalarType.Decimal => $"reader.GetDecimal({index})",
+            _ => throw new ArgumentOutOfRangeException(nameof(column), "不支持的静态物化类型。"),
+        };
+        return column.IsNullable ? $"reader.IsDBNull({index}) ? ({CSharpType(column)})null : {read}" : read;
+    }
 
     private static string InitialValue(FullNetColumn column) =>
         column.ScalarType switch

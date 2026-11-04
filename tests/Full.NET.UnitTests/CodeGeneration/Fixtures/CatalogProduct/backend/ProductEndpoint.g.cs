@@ -160,6 +160,9 @@ public static class ProductGeneratedFeatureExtensions
             services.AddSingleton<IErrorResourceSource>(new GeneratedCrudErrorResourceSource("catalog.products."));
         services.TryAddScoped<ProductQueryService>();
         services.TryAddScoped<ProductManagementService>();
+#if FULLNET_AOT_COMPILE
+        ProductRecordAotMaterializer.Register();
+#endif
         services.ConfigureHttpJsonOptions(options =>
             options.SerializerOptions.TypeInfoResolverChain.Insert(
                 0,

@@ -9,7 +9,7 @@ namespace Full.NET.Modules.Identity.Contracts;
 /// 成员关系以 <c>fn_identity_tenant_member</c> 为准，状态须为 <see cref="TenantMemberStatuses.Active"/>；
 /// 调用方不得传入 TenantId 跨租户枚举。
 /// </remarks>
-public interface ITenantMemberSelectionDirectory
+public interface ITenantMemberSelectionDirectory : ITenantMemberBatchSelectionDirectory
 {
     /// <summary>核对当前租户内成员是否仍停留在指定激活版本，供异步分配拒绝已撤销或人工变更的旧意图。</summary>
     /// <param name="memberId">来源成员关系标识。</param>
@@ -27,13 +27,6 @@ public interface ITenantMemberSelectionDirectory
         int page,
         int pageSize,
         CancellationToken cancellationToken = default);
-
-    /// <summary>批量校验当前租户内最多 100 个活动成员。</summary>
-    /// <param name="userIds">已去重的用户标识。</param>
-    /// <param name="cancellationToken">请求取消。</param>
-    /// <returns>仍属于当前租户的活动成员。</returns>
-    Task<IReadOnlyDictionary<Guid, TenantUserDirectoryEntry>> FindActiveTenantMembersAsync(
-        IReadOnlyCollection<Guid> userIds, CancellationToken cancellationToken = default);
 
     /// <summary>查找当前 Tenant 内指定用户是否仍为活动成员。</summary>
     /// <param name="userId">待校验的稳定用户标识。</param>

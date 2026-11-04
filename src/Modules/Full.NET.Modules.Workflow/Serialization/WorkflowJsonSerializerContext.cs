@@ -177,5 +177,13 @@ namespace Full.NET.Modules.Workflow.Serialization;
 [JsonSerializable(typeof(JsonElement))]
 [JsonSerializable(typeof(Dictionary<string, JsonElement>))]
 [JsonSerializable(typeof(Dictionary<string, string>))]
+// OpenAPI 使用端点声明的集合接口类型，数组元数据不能替代集合根类型。
+[JsonSerializable(typeof(IReadOnlyList<WorkflowExecutionLogResponse>))]
+[JsonSerializable(typeof(IReadOnlyList<WorkflowTodoReturnTargetResponse>))]
+[JsonSerializable(typeof(IReadOnlyList<WorkflowCcResponse>))]
+[JsonSerializable(typeof(IReadOnlyList<WorkflowFormResponse>))]
+[JsonSerializable(typeof(IReadOnlyList<WorkflowFormVersionResponse>))]
+[JsonSerializable(typeof(IReadOnlyList<WorkflowDefinitionResponse>))]
+[JsonSerializable(typeof(IReadOnlyList<WorkflowDefinitionVersionResponse>))]
 /// <summary>Workflow 模块 JSON 源生成上下文；Native AOT 绑定已审计契约，禁止反射序列化。</summary>
 internal partial class WorkflowJsonSerializerContext : JsonSerializerContext;

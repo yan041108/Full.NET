@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { clickMainNavLink, loginAsHostAdmin } from './support/real-stack-auth.mjs';
 import {
   createReportingDefinitionViaApi,
+  createReportingDataSourceViaApi,
   createReportingGroupViaApi,
   executeReportingDefinitionViaApi,
   listReportingDataSourcesViaApi,
@@ -45,11 +46,22 @@ test('API：未发布定义与缺失定义 execute 契约（清单 69）', async
 
   const { response: sourcesResponse } = await listReportingDataSourcesViaApi(request, clientKind);
   expect(sourcesResponse.ok()).toBeTruthy();
-  const sourcesPage = await sourcesResponse.json();
-  const dataSource = sourcesPage.items?.find((item) => item.isEnabled && item.hasPassword);
-  if (!dataSource) {
-    test.skip(true, '无已配置密码的启用数据源，跳过未发布 execute 422 路径');
-  }
+  expect(Array.isArray((await sourcesResponse.json()).items)).toBe(true);
+  // 未发布拒绝必须先于连接；自建元数据避免依赖预种数据，不向保留域名发起查询。
+  const { response: sourceResponse } = await createReportingDataSourceViaApi(request, clientKind, {
+    tenantId: null,
+    name: `e2e-unpublished-source-${suffix}`,
+    providerKey: 'sql_server',
+    serverHost: 'reporting-e2e.invalid',
+    port: 1433,
+    databaseName: 'reporting',
+    username: 'reader',
+    password: 'NotARealPassword1!',
+    trustServerCertificate: true,
+    isEnabled: true
+  });
+  expect(sourceResponse.status()).toBe(201);
+  const dataSource = await sourceResponse.json();
 
   const { response: createDefResponse } = await createReportingDefinitionViaApi(
     request,
@@ -78,7 +90,8 @@ test('API：未发布定义与缺失定义 execute 契约（清单 69）', async
     1,
     50
   );
-  expect(unpublishedExecute.status()).toBe(422);
+  expect(unpublishedExecute.status()).toBe(400);
+  expect((await unpublishedExecute.json()).code).toBe('reporting.definition.not_published');
 
   const { response: definitionsResponse } = await listReportingDefinitionsViaApi(
     request,

@@ -70,6 +70,9 @@ public sealed class ReportingModule : IFullNetModule
         services.TryAddScoped<ReportingGroupQueryService>();
         services.TryAddScoped<ReportingGroupManagementService>();
         services.TryAddScoped<ReportingDefinitionQueryService>();
+        services.TryAddScoped<Features.PublishedDefinitions.ReportingPublishedDefinitionResolver>();
+        services.TryAddScoped<Features.PublishedDefinitions.ReportingTenantGrantManagementService>();
+        services.TryAddScoped<ReportingExportAuthorization>();
         services.TryAddScoped<ReportingDefinitionManagementService>();
         services.TryAddScoped<ReportingDefinitionGrantService>();
         services.TryAddScoped<ReportingExecutionCatalog>();
@@ -102,6 +105,7 @@ public sealed class ReportingModule : IFullNetModule
         Features.BrowseQueryPorts.Endpoint.Map(endpoints);
         Features.ManageDefinitions.Endpoint.Map(endpoints);
         Features.ManageDefinitionGrants.Endpoint.Map(endpoints);
+        Features.PublishedDefinitions.Endpoint.Map(endpoints);
         Features.ExecuteDefinitions.Endpoint.Map(endpoints);
         Features.ManageExportTasks.Endpoint.Map(endpoints);
     }
@@ -128,6 +132,9 @@ public sealed class ReportingModule : IFullNetModule
         services.TryAddScoped<ReportingDefinitionQueryService>();
         services.TryAddScoped<ReportingExecutionCatalog>();
         services.TryAddScoped<IReportingExportTaskAuthority, ReportingExportTaskAuthority>();
+        services.TryAddScoped<Features.PublishedDefinitions.ReportingPublishedDefinitionResolver>();
+        services.TryAddScoped<Features.PublishedDefinitions.ReportingTenantGrantManagementService>();
+        services.TryAddScoped<ReportingExportAuthorization>();
         services.TryAddScoped<ReportingDefinitionExecutionService>();
         services.TryAddScoped<IReportingExportWorkbookSource, ReportingExportWorkbookSource>();
         services.TryAddSingleton<PendingTenantScanState>();

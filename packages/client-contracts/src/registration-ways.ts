@@ -12,6 +12,7 @@ export interface UpdateRegistrationPolicyRequest {
   isPublicRegistrationEnabled: boolean;
   registrationMode?: RegistrationMode;
   version: number;
+
 }
 
 export interface RegistrationWay {
@@ -78,7 +79,9 @@ export function isRegistrationPolicy(value: unknown): value is RegistrationPolic
     && (value.registrationMode === 0 || value.registrationMode === 1 || value.registrationMode === 2)
     && value.isPublicRegistrationEnabled === (value.registrationMode === 2)
     && typeof value.updatedAtUtc === 'string'
-    && Number.isInteger(value.version);
+    && Number.isFinite(Date.parse(value.updatedAtUtc))
+    && Number.isSafeInteger(value.version)
+    && (value.version as number) > 0;
 }
 
 export function isRegistrationWay(value: unknown): value is RegistrationWay {

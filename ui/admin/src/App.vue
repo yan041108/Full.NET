@@ -24,7 +24,6 @@ import { useSessionStore } from './auth/session';
 import { adminIdentityAuthMode } from './config/identity-auth';
 import { createElementLocaleController } from './i18n/elementLocale';
 import { useAdminI18n } from './i18n/adminI18n';
-import ArtAdminShell from './framework/art-design/layout/ArtAdminShell.vue';
 import ReleaseNoteUnreadPrompt from './components/ReleaseNoteUnreadPrompt.vue';
 import { buildShellNavigation } from './framework/art-design/adapters/fullNetShellAdapter';
 import { localNavigationFor } from './navigation/catalog';
@@ -47,6 +46,10 @@ import './framework/art-design/theme/art-settings-panel.css';
 import './framework/art-design/auth/art-login.css';
 import { scheduleComboboxLabeling } from './framework/art-design/accessibility/labelComboboxes';
 
+// 登录页与公开分享页无需预载后台布局，登录后的完整依赖另设预算约束。
+const ArtAdminShell = defineAsyncComponent(
+  () => import('./framework/art-design/layout/ArtAdminShell.vue')
+);
 const route = useRoute();
 const router = useRouter();
 const session = useSessionStore();
@@ -110,6 +113,7 @@ function isOidcCenterCallbackLocation(): boolean {
 
 const isAuthCallbackRoute = computed(() =>
   authCallbackPaths.has(route.path)
+  || authCallbackPaths.has(window.location.hash.replace(/^#/, '').split('?')[0] ?? '')
   || (adminIdentityAuthMode === 'oidc-center' && isOidcCenterCallbackLocation()));
 const isPublicAuthRoute = computed(() => publicAuthPaths.has(route.path));
 const isPublicShareRoute = computed(
@@ -153,7 +157,7 @@ onMounted(() => {
     return;
   }
 
-  if (adminIdentityAuthMode === 'oidc-center' && isAuthCallbackRoute.value) {
+  if (isAuthCallbackRoute.value) {
     return;
   }
 
@@ -350,7 +354,8 @@ watch(
     :locale="elementLocale"
     :dialog="{ draggable: true }"
   >
-    <router-view v-if="isPublicShareRoute" />
+    <!-- 回调跨 initializing/authenticated 保持实例，避免自身认证过程卸载并重复消费。 -->
+    <router-view v-if="isPublicShareRoute || isAuthCallbackRoute" />
     <div
       v-else-if="session.state === 'initializing'"
       class="session-boot"
@@ -360,7 +365,7 @@ watch(
       <strong>{{ t('session.restoring') }}</strong>
       <i />
     </div>
-    <router-view v-else-if="session.state === 'anonymous' && (isAuthCallbackRoute || isPublicAuthRoute)" />
+    <router-view v-else-if="session.state === 'anonymous' && isPublicAuthRoute" />
     <LoginView v-else-if="session.state === 'anonymous'" />
     <ArtAdminShell
       v-else

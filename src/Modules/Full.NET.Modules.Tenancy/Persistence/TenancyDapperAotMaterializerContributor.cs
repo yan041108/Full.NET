@@ -50,6 +50,8 @@ internal sealed class TenancyDapperAotMaterializerContributor : IDapperAotMateri
         registrar.Register<TenantQuotaMetricRecord>(ReadTenantQuotaMetricRecord);
         registrar.Register<TenantQuotaUsageBaselineRecord>(ReadTenantQuotaUsageBaselineRecord);
         registrar.Register<TenantQuotaReservationRecord>(ReadTenantQuotaReservationRecord);
+        registrar.Register<OutstandingReservationRow>(ReadOutstandingReservationRow);
+        registrar.Register<TenantQuotaMetricBackfillCandidate>(ReadTenantQuotaMetricBackfillCandidate);
         registrar.Register<TenantEntitlementBackfillCandidate>(ReadTenantEntitlementBackfillCandidate);
     }
 
@@ -89,7 +91,8 @@ internal sealed class TenancyDapperAotMaterializerContributor : IDapperAotMateri
             AotDataReaderExtensions.ReadNullableString(reader, 4),
             AotDataReaderExtensions.ReadNullableString(reader, 5),
             AotDataReaderExtensions.ReadNullableString(reader, 6),
-            reader.GetInt32(7));
+            reader.GetInt32(7),
+            reader.FieldCount > 8 ? AotDataReaderExtensions.ReadNullableString(reader, 8) : null);
 
     private static TenantPackageRecord ReadTenantPackageRecord(DbDataReader reader) =>
         new(
@@ -193,6 +196,13 @@ internal sealed class TenancyDapperAotMaterializerContributor : IDapperAotMateri
             AotDataReaderExtensions.ReadDateTimeOffset(reader, 6),
             reader.GetInt32(7),
             reader.IsDBNull(8) ? null : reader.GetGuid(8));
+
+    // 对账查询与普通指标读取共享双库 UUID 路径，保持历史预留投影的四列顺序。
+    private static OutstandingReservationRow ReadOutstandingReservationRow(DbDataReader reader) =>
+        new(reader.GetGuid(0), reader.GetGuid(1), reader.GetString(2), reader.GetInt32(3));
+
+    private static TenantQuotaMetricBackfillCandidate ReadTenantQuotaMetricBackfillCandidate(DbDataReader reader) =>
+        new(reader.GetGuid(0));
 
     private static TenantEntitlementBackfillCandidate ReadTenantEntitlementBackfillCandidate(
         DbDataReader reader) =>

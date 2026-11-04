@@ -1,3 +1,4 @@
+using Full.NET.Abstractions.Time;
 using Full.NET.Modules.Files.Reconciliation;
 using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Files.Persistence;
@@ -29,7 +30,7 @@ internal sealed class DeletedHostFileBlobCleanupRunner(
     ICommandExecutor commandExecutor,
     FileStorageProviderRegistry storageProviders,
     IOptions<DatabaseOptions> databaseOptions,
-    HostFileScanCursor<DeletedHostFileBlobCleanupRunner>? cursor = null)
+    HostFileScanCursor<DeletedHostFileBlobCleanupRunner>? cursor = null, IClock? clock = null)
 {
     private readonly HostFileScanCursor<DeletedHostFileBlobCleanupRunner> _cursor = cursor ?? new();
     private readonly DatabaseProvider _provider = databaseOptions.Value.Provider;
@@ -58,6 +59,10 @@ internal sealed class DeletedHostFileBlobCleanupRunner(
             return DeletedHostFileBlobCleanupResult.Empty;
         }
 
+        var failures = DeletedHostFileBlobCleanupOptionsValidator.ValidateBounds(options);
+        if (failures.Count > 0) throw new OptionsValidationException(Options.DefaultName, typeof(DeletedHostFileBlobCleanupOptions), failures);
+
+        var scanThrough = _cursor.CutoffUtc ??= clock?.UtcNow ?? DateTimeOffset.UtcNow;
         var scanned = 0;
         var purged = 0;
         var blobFailures = 0;
@@ -73,6 +78,7 @@ internal sealed class DeletedHostFileBlobCleanupRunner(
                     SelectStatement(),
                     new Dictionary<string, object?>
                     {
+                        ["ScanThroughDeletedAtUtc"] = scanThrough,
                         ["HasCursor"] = hasCursor ? 1 : 0,
                         ["AfterDeletedAtUtc"] = afterDeletedAtUtc,
                         ["AfterId"] = afterId,
@@ -138,6 +144,7 @@ internal sealed class DeletedHostFileBlobCleanupRunner(
                 }
             }
 
+            cancellationToken.ThrowIfCancellationRequested();
             var last = records[^1];
             hasCursor = true;
             afterDeletedAtUtc = last.DeletedAtUtc;

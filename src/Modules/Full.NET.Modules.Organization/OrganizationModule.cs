@@ -141,6 +141,11 @@ public sealed class OrganizationModule : IFullNetModule
             .RegisterMaterializers(
                 new global::Full.NET.Data.Dapper.DapperAotMaterializerRegistrar());
 #endif
+        // 后台导入复用当前机构及有效隶属校验，不能因 Worker 没有 HTTP 入口而省略写授权。
+        services.TryAddScoped<TenantUnits.TenantOrganizationUnitDirectory>();
+        services.TryAddScoped<ITenantOrganizationUnitDirectory>(provider => provider.GetRequiredService<TenantUnits.TenantOrganizationUnitDirectory>());
+        services.TryAddScoped<IOrganizationOwnedEntityWriteAuthorizer, OrganizationOwnedEntityWriteAuthorizer>();
+        services.TryAddSingleton<IIdentityOrganizationDataScopeSqlProjection, IdentityOrganizationDataScopeSqlProjection>();
         services.TryAddScoped<TenantUnits.OrganizationUnitProjectionCatalog>();
         services.TryAddScoped<IIdentityOrganizationUnitProjectionSource>(provider =>
             provider.GetRequiredService<TenantUnits.OrganizationUnitProjectionCatalog>());
@@ -158,6 +163,9 @@ public sealed class OrganizationModule : IFullNetModule
         services.TryAddScoped<TenantPositionManagementService>();
         services.TryAddScoped<TenantPositionImportPreviewService>();
         services.TryAddEnumerable(ServiceDescriptor.Scoped<IStaticImportSchemaHandler, TenantPositionsStaticImportSchemaHandler>());
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<IAuthorizationCatalogContributor, OrganizationAuthorizationContributor>());
+        services.TryAddSingleton<IClock, SystemClock>();
+        services.TryAddSingleton<IIdGenerator, GuidV7IdGenerator>();
     }
 
     /// <summary>API 与 Worker 共享可靠意图处理器；后台执行在 Worker 独立注册。</summary>

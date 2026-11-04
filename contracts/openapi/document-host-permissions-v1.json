@@ -36,6 +36,17 @@
           "responseSchema": "HostDocumentPermissionContext"
         }
       ]
+    },
+    {
+      "path": "/api/v1/document/host/permissions/snapshot/{documentId}",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": "document.host_permissions.read",
+          "successStatus": 200,
+          "responseSchema": "HostDocumentPermissionSnapshotResponse"
+        }
+      ]
     }
   ],
   "schemas": {
@@ -73,6 +84,13 @@
         "documentNo",
         "visibilityMode",
         "version"
+      ]
+    },
+    "HostDocumentPermissionSnapshotResponse": {
+      "properties": [
+        "documentId",
+        "version",
+        "permissions"
       ]
     }
   }

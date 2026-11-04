@@ -46,7 +46,8 @@ test('API：大屏草稿保存、发布快照与只读预览（清单 78）', as
     canvasJson: '{not-json',
     isEnabled: true
   });
-  expect(invalidCreate.status()).toBe(422);
+  expect(invalidCreate.status()).toBe(400);
+  expect((await invalidCreate.json()).code).toBe('goview.canvas_json.invalid');
 
   const { response: createResponse } = await createGoViewProjectViaApi(request, clientKind, {
     projectKey,
@@ -79,7 +80,8 @@ test('API：大屏草稿保存、发布快照与只读预览（清单 78）', as
     clientKind,
     created.id
   );
-  expect(previewUnpublished.status()).toBe(422);
+  expect(previewUnpublished.status()).toBe(400);
+  expect((await previewUnpublished.json()).code).toBe('goview.project.not_published');
 
   const { response: publishResponse } = await publishGoViewProjectViaApi(
     request,

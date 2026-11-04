@@ -34,7 +34,8 @@ internal sealed class ReportingExportTaskManagementService(
     ICurrentTenant currentTenant,
     IClock clock,
     IIdGenerator idGenerator,
-    IOptions<DatabaseOptions> databaseOptions)
+    IOptions<DatabaseOptions> databaseOptions,
+    IIdentityPermissionEvaluator permissionEvaluator)
 {
     private const string WorkbookContentType =
         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
@@ -50,11 +51,14 @@ internal sealed class ReportingExportTaskManagementService(
         ClaimsPrincipal principal,
         CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         EnsureTenantContext();
         var tenantId = currentTenant.Id!.Value;
         if (!ReportingExportSessionBinding.TryRead(principal, tenantId, out var binding) || binding.UserId != requestedByUserId)
             return Result<ReportingExportTaskDetailResponse>.Failure(ReportingExportTaskAuthority.Denied());
 
+        if (request is null || request.Parameters is null || request.Parameters.Any(parameter => parameter is null))
+            return Result<ReportingExportTaskDetailResponse>.Failure(ExportFailedError("The export request is invalid."));
         if (!string.Equals(request.FormatKey, ReportingExportFormatKeys.Excel, StringComparison.Ordinal))
         {
             return Result<ReportingExportTaskDetailResponse>.Failure(UnsupportedFormatError());
@@ -94,7 +98,7 @@ internal sealed class ReportingExportTaskManagementService(
         var taskId = idGenerator.NewId();
         var now = clock.UtcNow;
         var parametersJson = ReportingExportTaskMapper.SerializeParameters(request.Parameters);
-        var permissionCodes = ReportingExportTaskAuthority.FreezePermissions(version.Value!, principal);
+        var permissionCodes = ReportingExportTaskAuthority.FreezePermissions(version.Value!, code => permissionEvaluator.HasPermission(principal, code));
         var record = new ReportingExportTaskRecord
         {
             Id = taskId,
@@ -133,6 +137,7 @@ internal sealed class ReportingExportTaskManagementService(
         ClaimsPrincipal principal,
         CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         EnsureTenantContext();
         var record = await queryExecutor
             .QuerySingleOrDefaultAsync<ReportingExportTaskRecord>(
@@ -140,15 +145,20 @@ internal sealed class ReportingExportTaskManagementService(
                 ReportingSqlParameters.Create(("Id", taskId)),
                 cancellationToken)
             .ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
         if (record is null)
         {
             return Result<TenantResourceFileContent>.Failure(TaskNotFoundError());
         }
-        if (!ReportingExportSessionBinding.TryRead(principal, currentTenant.Id, out var caller)
-            || caller.UserId != record.RequestedByUserId
-            || await sessions.AuthorizeAsync(caller, ReportingExportTaskPermissions.Download, cancellationToken).ConfigureAwait(false) is null
-            || await authority.ValidateAsync(record, cancellationToken).ConfigureAwait(false) is not null)
+        if (!ReportingExportSessionBinding.TryRead(principal, currentTenant.Id, out var caller) || caller.UserId != record.RequestedByUserId)
             return Result<TenantResourceFileContent>.Failure(ReportingExportTaskAuthority.Denied());
+        var initialActor = await sessions.AuthorizeAsync(caller, ReportingExportTaskPermissions.Download, cancellationToken).ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
+        if (initialActor is null || initialActor.UserId != caller.UserId || initialActor.TenantId != caller.TenantId || initialActor.SessionId != caller.SessionId
+            || currentTenant.Id != caller.TenantId) return Result<TenantResourceFileContent>.Failure(ReportingExportTaskAuthority.Denied());
+        var denied = await authority.ValidateAsync(record, cancellationToken).ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
+        if (denied is not null) return Result<TenantResourceFileContent>.Failure(denied);
 
         if (!string.Equals(record.StatusKey, ReportingExportTaskStatusKeys.Succeeded, StringComparison.Ordinal)
             || record.OutputFileId is null)
@@ -164,21 +174,25 @@ internal sealed class ReportingExportTaskManagementService(
             .ConfigureAwait(false);
         if (!content.IsSuccess)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             return Result<TenantResourceFileContent>.Failure(content.Error!);
         }
 
-        var file = content.Value!;
-        // 读取对象存储可能耗时；文件交付前再次核对创建者会话和当前下载授权。
-        if (await sessions.AuthorizeAsync(caller, ReportingExportTaskPermissions.Download, cancellationToken).ConfigureAwait(false) is null
-            || await authority.ValidateAsync(record, cancellationToken).ConfigureAwait(false) is not null)
+        var file = content.Value!; var transferred = false;
+        try
         {
-            await file.Content.DisposeAsync().ConfigureAwait(false);
-            return Result<TenantResourceFileContent>.Failure(ReportingExportTaskAuthority.Denied());
+            cancellationToken.ThrowIfCancellationRequested();
+            var actor = await sessions.AuthorizeAsync(caller, ReportingExportTaskPermissions.Download, cancellationToken).ConfigureAwait(false);
+            cancellationToken.ThrowIfCancellationRequested();
+            if (currentTenant.Id != caller.TenantId || actor is null || actor.UserId != caller.UserId || actor.TenantId != caller.TenantId || actor.SessionId != caller.SessionId
+                || await authority.ValidateAsync(record, cancellationToken).ConfigureAwait(false) is not null)
+                return Result<TenantResourceFileContent>.Failure(ReportingExportTaskAuthority.Denied());
+            cancellationToken.ThrowIfCancellationRequested();
+            var result = Result<TenantResourceFileContent>.Success(new TenantResourceFileContent(
+                file.Content, file.ContentType ?? WorkbookContentType, record.OutputFileName ?? file.OriginalFileName));
+            transferred = true; return result;
         }
-        return Result<TenantResourceFileContent>.Success(new TenantResourceFileContent(
-            file.Content,
-            file.ContentType ?? WorkbookContentType,
-            record.OutputFileName ?? file.OriginalFileName));
+        finally { if (!transferred) await file.Content.DisposeAsync().ConfigureAwait(false); }
     }
 
     /// <summary>把持久化终态映射为创建 API 结果，失败任务仍返回业务错误。</summary>

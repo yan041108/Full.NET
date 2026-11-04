@@ -30,7 +30,7 @@ public sealed class IdentityChallengeMailTests
                 "env://CONTROLLED_SMTP_PASSWORD", "hash", Guid.CreateVersion7(), DateTimeOffset.UtcNow));
         var transport = new ControlledTransport();
         var port = new IdentityChallengeDeliveryPort(query, [new SmtpNotificationProviderAdapter(new ControlledSecret(), transport)],
-            Options.Create(new DatabaseOptions { Provider = DatabaseProvider.SqlServer }));
+            Options.Create(new DatabaseOptions { Provider = DatabaseProvider.SqlServer }), NSubstitute.Substitute.For<Full.NET.Abstractions.Time.IClock>());
         var intent = Intent(purpose, locale);
         Assert.IsTrue((await port.SendAsync(intent)).IsSuccess);
         var captured = transport.Last;

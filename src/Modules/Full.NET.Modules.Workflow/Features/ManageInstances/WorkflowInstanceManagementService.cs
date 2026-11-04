@@ -50,6 +50,7 @@ internal sealed partial class WorkflowInstanceManagementService(
     /// <param name="cancellationToken">取消当前异步操作的令牌。</param>
     /// <param name="requireApproval">业务审批端口要求发布定义具备人工审批路径。</param>
     /// <param name="childContext">仅供Workflow内核提供的真实父项证明；不能由HTTP或普通业务启动端口构造。</param>
+    /// <param name="requestedInstanceId">可靠调用方持久化的实例标识；重放时不得创建第二个实例。</param>
     /// <returns>新建实例或原始启动回执。</returns>
     public async Task<Result<WorkflowInstanceResponse>> StartAsync(
         Guid actorUserId,
@@ -57,9 +58,10 @@ internal sealed partial class WorkflowInstanceManagementService(
         CancellationToken cancellationToken = default,
         bool requireApproval = false,
         WorkflowChildStartContext? childContext = null,
-        WorkflowCollaborationStartContext? collaborationContext = null)
+        WorkflowCollaborationStartContext? collaborationContext = null,
+        Guid? requestedInstanceId = null)
     {
-        if (!IsValid(request) || !WorkflowStarterSelectionPreparation.TryNormalize(request.AssigneeSelections, out var selections))
+        if (!IsValid(request) || actorUserId == Guid.Empty || requestedInstanceId == Guid.Empty || !WorkflowStarterSelectionPreparation.TryNormalize(request.AssigneeSelections, out var selections))
         {
             return Failure(WorkflowErrorCodes.SchemaInvalid, ErrorType.Validation);
         }
@@ -72,13 +74,23 @@ internal sealed partial class WorkflowInstanceManagementService(
         request = request with { AssigneeSelections = selections };
 
         var scope = WorkflowManagementScope.Resolve(currentTenant);
+        var requestHash = HashStartRequest(request, requireApproval);
+        if (requestedInstanceId is { } pinnedId)
+        {
+            var pinnedReplay = await FindPinnedStartReplayAsync(
+                pinnedId, actorUserId, request, scope, requestHash, cancellationToken).ConfigureAwait(false);
+            if (pinnedReplay is not null)
+            {
+                return pinnedReplay;
+            }
+        }
+
         if (await WorkflowTenantFeatureEntitlementGate.TryGetDenialAsync(scope, featureEntitlements, cancellationToken)
                 .ConfigureAwait(false) is { } denial)
         {
             return WorkflowTenantFeatureEntitlementGate.Deny<WorkflowInstanceResponse>(denial);
         }
 
-        var requestHash = HashStartRequest(request, requireApproval);
         var replay = childContext is null ? await FindStartReplayAsync(actorUserId, request, scope, requestHash, cancellationToken)
             .ConfigureAwait(false) : null;
         if (replay is not null) return replay;
@@ -137,7 +149,7 @@ internal sealed partial class WorkflowInstanceManagementService(
         if (childContext is not null && await WorkflowCollaborationOriginPolicy.ReadMembersAsync(childContext.ParentInstanceId, scope,
                 queryExecutor, cancellationToken).ConfigureAwait(false) is { } allowed)
             preparedAssignees = preparedAssignees.RestrictTo(allowed);
-        var instanceId = idGenerator.NewId();
+        var instanceId = requestedInstanceId ?? idGenerator.NewId();
         var submissionId = idGenerator.NewId();
         var now = clock.UtcNow;
         IReadOnlyDictionary<Guid, WorkflowAttachmentReuseSource>? inputSources = null;
@@ -305,6 +317,14 @@ internal sealed partial class WorkflowInstanceManagementService(
         catch (DataCommandException exception) when (exception.Kind == DataCommandFailureKind.UniqueConstraint)
         {
             if (childContext is not null) return Failure(WorkflowErrorCodes.RevisionConflict, ErrorType.Conflict);
+            if (requestedInstanceId is { } pinnedIdAfterConflict)
+            {
+                // 主键竞争后只重放同一实例；业务键释放后也不能偷偷创建新流程。
+                return await FindPinnedStartReplayAsync(
+                    pinnedIdAfterConflict, actorUserId, request, scope, requestHash, cancellationToken).ConfigureAwait(false)
+                    ?? Failure(WorkflowErrorCodes.ActiveInstanceExists, ErrorType.Conflict);
+            }
+
             return await ResolveStartConflictAsync(
                 actorUserId, request, scope, requestHash, cancellationToken).ConfigureAwait(false);
         }
@@ -936,6 +956,9 @@ internal sealed partial class WorkflowInstanceManagementService(
             Parameters(("InstanceId", instanceId), ("Now", now)), token).ConfigureAwait(false);
         // 并行分叉可能同时存在多个活动待办与步骤，锚点关闭后仍需收敛兄弟分支与等待汇合。
         await commandExecutor.ExecuteAsync(
+            WorkflowSql.CancelPendingApprovalSlotsByInstance,
+            Parameters(("InstanceId", instanceId), ("DecidedAtUtc", now)), token).ConfigureAwait(false);
+        await commandExecutor.ExecuteAsync(
             WorkflowSql.CancelAllActiveTodosByInstance,
             Parameters(("InstanceId", instanceId), ("CompletedAtUtc", now),
                 ("ResultActionKey", "cancelled")), token).ConfigureAwait(false);
@@ -988,6 +1011,51 @@ internal sealed partial class WorkflowInstanceManagementService(
             instance.Id, instance.DefinitionVersionId, formVersionId,
             instance.BusinessType, instance.BusinessId, instance.BusinessTitle, "cancelled",
             request.ExpectedRevision + 1, null, instance.StartedAtUtc));
+    }
+
+    /// <summary>核对持久化实例与起始回执后重放，终态也保持相同实例身份。</summary>
+    private async Task<Result<WorkflowInstanceResponse>?> FindPinnedStartReplayAsync(
+        Guid instanceId,
+        Guid actorUserId,
+        StartWorkflowInstanceRequest request,
+        WorkflowManagementScope scope,
+        string requestHash,
+        CancellationToken cancellationToken)
+    {
+        var instance = await queryExecutor.QuerySingleOrDefaultAsync<WorkflowInstanceRecord>(
+            WorkflowSql.FindInstanceById,
+            Parameters(("Id", instanceId), ("TenantScopeKey", scope.TenantScopeKey)),
+            cancellationToken).ConfigureAwait(false);
+        if (instance is null)
+        {
+            return null;
+        }
+
+        if (instance.Id != instanceId || instance.TenantId != scope.TenantId ||
+            instance.ScopeKey != scope.ScopeKey || instance.TenantScopeKey != scope.TenantScopeKey ||
+            instance.DefinitionVersionId != request.DefinitionVersionId ||
+            instance.BusinessType != request.BusinessType.Trim() || instance.BusinessId != request.BusinessId.Trim() ||
+            instance.StartedById != actorUserId || instance.FormVersionId is not { } formVersionId ||
+            (!string.IsNullOrWhiteSpace(request.BusinessTitle) && instance.BusinessTitle != request.BusinessTitle.Trim()))
+        {
+            return Failure(WorkflowErrorCodes.ActiveInstanceExists, ErrorType.Conflict);
+        }
+
+        var receipt = await queryExecutor.QuerySingleOrDefaultAsync<WorkflowActionReceiptRecord>(
+            WorkflowSql.FindActionReceipt,
+            Parameters(("InstanceId", instanceId), ("IdempotencyKey", request.IdempotencyKey.Trim())),
+            cancellationToken).ConfigureAwait(false);
+        if (receipt is null || receipt.ActionKey != "start" || receipt.ActorUserId != actorUserId ||
+            receipt.IdempotencyKey != request.IdempotencyKey.Trim() || receipt.RequestHash != requestHash)
+        {
+            return Failure(WorkflowErrorCodes.ActiveInstanceExists, ErrorType.Conflict);
+        }
+
+        var todo = await queryExecutor.QuerySingleOrDefaultAsync<WorkflowTodoRecord>(
+            WorkflowSql.FindActiveTodoByInstance,
+            Parameters(("InstanceId", instanceId), ("TenantScopeKey", scope.TenantScopeKey)),
+            cancellationToken).ConfigureAwait(false);
+        return Result<WorkflowInstanceResponse>.Success(Map(instance, formVersionId, todo?.Id));
     }
 
     private async Task<Result<WorkflowInstanceResponse>> ResolveStartConflictAsync(

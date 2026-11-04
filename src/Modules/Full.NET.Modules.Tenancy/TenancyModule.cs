@@ -106,7 +106,6 @@ public sealed class TenancyModule : IFullNetModule
         services.TryAddScoped<ITenantQuotaReservationService, Features.ReserveTenantQuota.TenantQuotaReservationService>();
         services.AddScoped<Features.ReserveTenantQuota.TenantQuotaReservationService>();
         services.AddScoped<ITenantMemberSeatQuotaPort, Features.ReserveTenantQuota.TenantMemberSeatQuotaPort>();
-        services.AddScoped<ITenantFileStorageQuotaPort, Features.ReserveTenantQuota.TenantFileStorageQuotaPort>();
         services.AddScoped<Features.ManageTenantEntitlements.TenantEntitlementBackfillService>();
         services.AddScoped<Features.ManageTenantQuota.TenantQuotaManagementService>();
         services.AddScoped<Features.ReconcileQuotaReservationMetricIds.TenantQuotaMetricIdReconciliationService>();
@@ -119,6 +118,8 @@ public sealed class TenancyModule : IFullNetModule
         services.TryAddEnumerable(ServiceDescriptor.Scoped<
             IHostFileReferenceClaimProbe,
             Features.HostFileReferences.TenancyTenantLogoReferenceProbe>());
+        services.TryAddEnumerable(ServiceDescriptor.Scoped<IIntegrationEventHandler,
+            Features.HostFileReferences.TenantLogoUnboundIntegrationEventHandler>());
         services.TryAddEnumerable(ServiceDescriptor.Scoped<
             IHostDashboardTenantMetricsReader,
             HostDashboard.HostDashboardTenantMetricsReader>());
@@ -200,7 +201,7 @@ public sealed class TenancyModule : IFullNetModule
     }
 
     /// <summary>
-    /// 注册 Worker 消费租户事件所需的最小后台能力；不引入额外的模块拆分来承载唯一后台消费者。
+    /// 注册 Worker 的租户解析、活动目录、功能权益与文件配额 Port，后台不得回退为空配额实现。
     /// </summary>
     public void AddBackgroundServices(
         IServiceCollection services,
@@ -238,6 +239,10 @@ public sealed class TenancyModule : IFullNetModule
         services.TryAddScoped<ITenantSubscriptionBillingPort>(provider => provider.GetRequiredService<Features.SubscriptionBilling.TenantSubscriptionBillingService>());
         services.TryAddScoped<Features.SubscriptionBilling.TenantSubscriptionExpirySweep>();
         if (workerHost) services.AddHostedService<Features.SubscriptionBilling.TenantSubscriptionExpiryWorker>();
+        // Worker 也必须核对 Logo Pending 的权威代际，活动目录由公共注册提供。
+        services.TryAddEnumerable(ServiceDescriptor.Scoped<IHostFileReferenceClaimProbe, Features.HostFileReferences.TenancyTenantLogoReferenceProbe>());
+        services.TryAddEnumerable(ServiceDescriptor.Scoped<IIntegrationEventHandler, Features.HostFileReferences.TenantLogoUnboundIntegrationEventHandler>());
+        services.TryAddScoped<ITenantActivityReadPort>(provider => provider.GetRequiredService<Directories.ActiveTenantDirectory>());
     }
 
     /// <summary>

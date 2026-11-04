@@ -9,6 +9,12 @@ internal sealed class HostUserProfileRecord
 
     public Guid? SignatureFileId { get; set; }
 
+    /// <summary>实际绑定的 Claim 代际键；历史空值使用原双参数键。</summary>
+    public string? AvatarClaimKey { get; set; }
+
+    /// <summary>签名绑定的独立代际键，不随其他档案字段编辑改变。</summary>
+    public string? SignatureClaimKey { get; set; }
+
     public string? Nickname { get; set; }
 
     public string? PhoneNumber { get; set; }

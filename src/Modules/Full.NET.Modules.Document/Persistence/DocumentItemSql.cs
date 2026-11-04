@@ -190,14 +190,27 @@ internal static class DocumentItemSql
         """,
         SqlDataScope.HostOnly);
 
-    /// <summary>
-    /// 新建文档项；CategoryId 与 CurrentVersionId 创建时为 NULL，由后续 Update 或 SetCurrentVersion 维护。
-    /// TenantId 固定 NULL 以保证 Host 行；Version 初始为 1。
-    /// </summary>
-    public static readonly SqlStatement FindActiveByTitle = new(
-        "document.host_item.find_active_by_title",
+    /// <summary>未分类标题写入共享事务锁，直到文档写入提交或回滚才释放。</summary>
+    public static readonly SqlStatement LockUnclassifiedWriteSqlServer = new(
+        "document.host_item.lock_unclassified_write.sql_server",
         """
-        SELECT Id, Title AS Name, Version
+        SELECT 1 FROM fn_document_item_write_guard WITH (UPDLOCK, HOLDLOCK)
+        WHERE Id = @Id AND TenantId IS NULL
+        """, SqlDataScope.HostOnly);
+
+    /// <summary>MySQL 与 SQL Server 使用同一门禁行，避免 ReadCommitted 下的空结果竞争。</summary>
+    public static readonly SqlStatement LockUnclassifiedWriteMySql = new(
+        "document.host_item.lock_unclassified_write.my_sql",
+        """
+        SELECT 1 FROM fn_document_item_write_guard
+        WHERE Id = @Id AND TenantId IS NULL FOR UPDATE
+        """, SqlDataScope.HostOnly);
+
+    /// <summary>按最终分类判断标题冲突；标量计数允许安全处理既有多条同名记录。</summary>
+    public static readonly SqlStatement CountActiveByTitle = new(
+        "document.host_item.count_active_by_title",
+        """
+        SELECT COUNT(1)
         FROM fn_document_item
         WHERE TenantId IS NULL
           AND IsDeleted = 0
@@ -298,6 +311,7 @@ internal static class DocumentItemSql
         """
         UPDATE fn_document_item
         SET IsDeleted = 0,
+            CategoryId = @CategoryId,
             Status = 0,
             AccessRevision = AccessRevision + 1,
             DeletedAtUtc = NULL,
@@ -341,6 +355,24 @@ internal static class DocumentItemSql
         WHERE Id = @Id
           AND TenantId IS NULL
           AND IsDeleted = 1
+        """,
+        SqlDataScope.HostOnly);
+
+    /// <summary>主行先于版本、标签关联等子行锁定；删除状态由持锁调用方重新检查。</summary>
+    public static readonly SqlStatement LockHostItemSqlServer = new(
+        "document.host_item.lock_host.sql_server",
+        """
+        SELECT 1 FROM fn_document_item WITH (UPDLOCK, HOLDLOCK)
+        WHERE Id = @Id AND TenantId IS NULL
+        """,
+        SqlDataScope.HostOnly);
+
+    /// <summary>MySQL与SQL Server使用相同主行锁边界，不依赖默认隔离级别或子行存在。</summary>
+    public static readonly SqlStatement LockHostItemMySql = new(
+        "document.host_item.lock_host.mysql",
+        """
+        SELECT 1 FROM fn_document_item
+        WHERE Id = @Id AND TenantId IS NULL FOR UPDATE
         """,
         SqlDataScope.HostOnly);
 
@@ -390,6 +422,16 @@ internal static class DocumentItemSql
     /// 按 VersionId 与 FileId 双键校验版本引用归属；
     /// Files 模块在 Confirm Release 前必须验证引用确实属于该版本。
     /// </summary>
+    /// <summary>批量引用端口复用已有版本物化器；只读 Document 自有版本表，包含回收站保留版本。</summary>
+    public static readonly SqlStatement FindVersionsForClaimProbe = new(
+        "document.host_version.find_for_claim_probe",
+        """
+        SELECT Id, DocumentItemId, FileId, VersionNumber, ContentHash, SizeBytes,
+               ChangeDescription, UploadedByUserId, CreatedAtUtc
+        FROM fn_document_version
+        WHERE Id IN @VersionIds
+        """, SqlDataScope.HostOnly);
+
     public static readonly SqlStatement VersionExistsByIdAndFile = new(
         "document.host_version.exists_by_id_and_file",
         """
@@ -429,9 +471,9 @@ internal static class DocumentItemSql
     public static readonly SqlStatement StatisticsByCategory = new(
         "document.host_statistics.by_category",
         $"""
-        SELECT i.CategoryId, c.Name AS CategoryName, COUNT(1) AS Count
-        FROM fn_document_item i LEFT JOIN fn_document_category c ON c.Id = i.CategoryId
-        WHERE {StatisticsScope} GROUP BY i.CategoryId, c.Name ORDER BY Count DESC, i.CategoryId
+        SELECT c.Id AS CategoryId, c.Name AS CategoryName, COUNT(1) AS Count
+        FROM fn_document_item i LEFT JOIN fn_document_category c ON c.Id = i.CategoryId AND c.TenantId IS NULL AND c.IsDeleted = 0
+        WHERE {StatisticsScope} GROUP BY c.Id, c.Name ORDER BY Count DESC, c.Id
         """, SqlDataScope.HostOnly);
 
     /// <summary>

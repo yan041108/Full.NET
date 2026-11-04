@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
+import { testRunEnvironment } from '../../../scripts/testing/test-run-context.mjs';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -49,7 +50,7 @@ export function verifyApplicationComposition(appRoot, {
   const probeRoot = prepareApplicationCompositionProbe(appRoot);
   mkdirSync(reportDirectory, { recursive: true });
   const execute = (stage, args, timeout) => {
-    const result = run('dotnet', args, { cwd: appRoot, encoding: 'utf8', timeout });
+    const result = run('dotnet', args, { cwd: appRoot, encoding: 'utf8', timeout, env: testRunEnvironment() });
     writeFileSync(join(reportDirectory, `${stage}.json`), JSON.stringify({
       args, status: result.status, signal: result.signal, error: result.error?.message,
       stdout: result.stdout, stderr: result.stderr,

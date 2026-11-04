@@ -370,8 +370,9 @@ export {
 
 export type {
   CreateRegistrationWayRequest,
-  RegistrationPolicy,
   RegistrationMode,
+  RegistrationPolicy,
+
   RegistrationWay,
   RegistrationWayListQuery,
   RegistrationWayPage,
@@ -806,12 +807,14 @@ export type {
 export {
   isHostDocumentPermissionResponse,
   isHostDocumentPermissionResponseList,
+  isHostDocumentPermissionSnapshotResponse,
   isSetHostDocumentPermissionsRequest
 } from './document-permissions.js';
 
 export type {
   HostDocumentPermissionEntry,
   HostDocumentPermissionResponse,
+  HostDocumentPermissionSnapshotResponse,
   SetHostDocumentPermissionsRequest
 } from './document-permissions.js';
 
@@ -1779,3 +1782,6 @@ export * from './reporting-publications.js';
 export * from './cursor-page.js';
 export * from './query-schemes.js';
 export * from './tenant-registration-progress.js';
+
+export { isReportingPublishedVersion, isReportingPublishedVersionList, isReportingTenantVersionGrantPage } from './reporting-definitions.js';
+export type { ReportingPublishedVersion, ReportingTenantVersionGrantPage } from './reporting-definitions.js';

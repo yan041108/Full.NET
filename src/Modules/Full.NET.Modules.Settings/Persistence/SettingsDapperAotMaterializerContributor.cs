@@ -40,6 +40,7 @@ internal sealed class SettingsDapperAotMaterializerContributor : IDapperAotMater
             DefaultSchemeId = AotDataReaderExtensions.ReadNullableGuid(reader, 0),
             Version = reader.GetInt64(1),
         });
+        registrar.Register<SettingsDomainAuditDiffRecord>(ReadDomainAuditDiffRecord);
     }
 
     // 摘要固定为前八列，只有详情附加正文；不在摘要路径读取或反序列化配置。
@@ -186,6 +187,17 @@ internal sealed class SettingsDapperAotMaterializerContributor : IDapperAotMater
             ValueKind = reader.GetString(0),
             Value = reader.GetString(1),
             IsActive = AotDataReaderExtensions.ReadBoolean(reader, 2),
+        };
+
+    /// <summary>审计差异读取使用独立五列投影，可空 Trace 与摘要仍交由上层解析及脱敏。</summary>
+    private static SettingsDomainAuditDiffRecord ReadDomainAuditDiffRecord(DbDataReader reader) =>
+        new()
+        {
+            Id = reader.GetGuid(0),
+            ActionKey = reader.GetString(1),
+            TraceId = AotDataReaderExtensions.ReadNullableString(reader, 2),
+            DiffSummaryJson = AotDataReaderExtensions.ReadNullableString(reader, 3),
+            OccurredAtUtc = AotDataReaderExtensions.ReadDateTimeOffset(reader, 4),
         };
 
     private static GridPreferenceRecord ReadGridPreferenceRecord(DbDataReader reader) =>

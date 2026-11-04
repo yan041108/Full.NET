@@ -7,6 +7,13 @@ namespace Full.NET.IntegrationTests.Reporting;
 public sealed class ReportingExportTaskClaimPersistenceSqlServerTests
 {
     [TestMethod]
+    public Task Cancellation_is_scoped_and_fenced() => ReportingExportTaskClaimPersistenceAssertions.Cancellation_is_scoped_and_fenced_async(DatabaseProvider.SqlServer);
+    [TestMethod]
+    public Task Cancellation_and_claim_have_one_winner() => ReportingExportTaskClaimPersistenceAssertions.Cancellation_and_claim_have_one_winner_async(DatabaseProvider.SqlServer);
+    [TestMethod]
+    public Task Cancellation_preserves_processing_lease() => ReportingExportTaskClaimPersistenceAssertions.Cancellation_preserves_processing_lease_async(DatabaseProvider.SqlServer);
+
+    [TestMethod]
     public Task Claim_is_isolated_to_current_tenant() =>
         ReportingExportTaskClaimPersistenceAssertions.Claim_is_isolated_to_current_tenant_async(DatabaseProvider.SqlServer);
 

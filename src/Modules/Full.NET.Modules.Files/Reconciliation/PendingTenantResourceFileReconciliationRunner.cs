@@ -62,6 +62,11 @@ internal sealed class PendingTenantResourceFileReconciliationRunner(
         PendingTenantResourceFileReconciliationOptions options,
         CancellationToken cancellationToken)
     {
+        ArgumentNullException.ThrowIfNull(options);
+        if (!options.Enabled) return PendingTenantResourceFileReconciliationResult.Empty;
+        var validation = new PendingTenantResourceFileReconciliationOptionsValidator().Validate(null, options);
+        if (validation.Failed)
+            throw new OptionsValidationException(PendingTenantResourceFileReconciliationOptions.SectionName, options.GetType(), validation.Failures);
         await _cursor.Gate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
@@ -82,7 +87,8 @@ internal sealed class PendingTenantResourceFileReconciliationRunner(
             return PendingTenantResourceFileReconciliationResult.Empty;
         }
 
-        var createdBeforeUtc = clock.UtcNow.AddSeconds(-options.MinimumAgeSeconds);
+        var cutoff = clock.UtcNow.AddSeconds(-options.MinimumAgeSeconds);
+        _cursor.CreatedBeforeUtc = _cursor.CreatedBeforeUtc is { } previous && previous < cutoff ? previous : cutoff;
         var scanned = 0;
         var promoted = 0;
         var purged = 0;
@@ -95,11 +101,12 @@ internal sealed class PendingTenantResourceFileReconciliationRunner(
 
         while (batches < options.MaxBatchesPerRun)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             var records = await queryExecutor.QueryAsync<TenantResourceFileReconciliationRecord>(
                     SelectStatement(),
                     new Dictionary<string, object?>
                     {
-                        ["CreatedBeforeUtc"] = createdBeforeUtc,
+                        ["CreatedBeforeUtc"] = _cursor.CreatedBeforeUtc,
                         ["HasCursor"] = hasCursor ? 1 : 0,
                         ["AfterCreatedAtUtc"] = afterCreatedAtUtc,
                         ["AfterId"] = afterId,
@@ -107,6 +114,7 @@ internal sealed class PendingTenantResourceFileReconciliationRunner(
                     },
                     cancellationToken)
                 .ConfigureAwait(false);
+            cancellationToken.ThrowIfCancellationRequested();
             batches++;
             if (records.Count == 0)
             {
@@ -180,6 +188,7 @@ internal sealed class PendingTenantResourceFileReconciliationRunner(
                 }
                 catch (Exception)
                 {
+                    cancellationToken.ThrowIfCancellationRequested();
                     // 单个存储或所属模块故障不能阻塞后续文件；状态保留到下一次环扫重试。
                     skipped++;
                 }
@@ -190,6 +199,7 @@ internal sealed class PendingTenantResourceFileReconciliationRunner(
             }
 
             var last = records[^1];
+            cancellationToken.ThrowIfCancellationRequested();
             hasCursor = true;
             afterCreatedAtUtc = last.CreatedAtUtc;
             afterId = last.Id;
@@ -229,6 +239,14 @@ internal sealed class PendingTenantResourceFileReconciliationRunner(
             return PendingOutcome.Skipped;
         }
 
+        // 对象尚未落盘可能是活动慢上传，先让所属模块以持久化状态仲裁；端口故障由外层保留意图。
+        cancellationToken.ThrowIfCancellationRequested();
+        if (!exists && resourceOwners.SingleOrDefault(item => item.OwnerModuleKey == record.OwnerModuleKey) is { } owner)
+        {
+            var retained = await owner.IsReferencedAsync(record.ResourceId, record.Id, cancellationToken).ConfigureAwait(false);
+            cancellationToken.ThrowIfCancellationRequested();
+            if (retained) return PendingOutcome.Skipped;
+        }
         if (exists)
         {
             var confirmed = await FilesHostExecutionScope.RunAsync(currentTenant,
@@ -274,8 +292,10 @@ internal sealed class PendingTenantResourceFileReconciliationRunner(
             return false;
         }
 
-        return !await owner.IsReferencedAsync(record.ResourceId, record.Id, cancellationToken)
+        var referenced = await owner.IsReferencedAsync(record.ResourceId, record.Id, cancellationToken)
             .ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
+        return !referenced;
     }
 
     /// <summary>对账写入必须进入文件所属的活动租户。</summary>
@@ -285,6 +305,7 @@ internal sealed class PendingTenantResourceFileReconciliationRunner(
     {
         var tenant = await tenantResolver.ResolveActiveByIdAsync(tenantId, cancellationToken)
             .ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
         if (tenant is null)
         {
             return false;

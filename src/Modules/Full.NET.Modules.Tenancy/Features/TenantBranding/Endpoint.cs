@@ -71,6 +71,7 @@ internal static class Endpoint
 
         group.MapPost("/branding/logo", UploadCurrentLogoAsync)
             .WithName("tenancyUploadCurrentBrandingLogo")
+            .ProducesProblem(StatusCodes.Status409Conflict)
             .Produces<TenantBrandingResponse>(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status401Unauthorized)
@@ -80,6 +81,7 @@ internal static class Endpoint
 
         group.MapDelete("/branding/logo", DeleteCurrentLogoAsync)
             .WithName("tenancyDeleteCurrentBrandingLogo")
+            .ProducesProblem(StatusCodes.Status409Conflict)
             .Produces<TenantBrandingResponse>(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status401Unauthorized)
             .ProducesProblem(StatusCodes.Status403Forbidden)
@@ -139,6 +141,7 @@ internal static class Endpoint
 
         group.MapPost("/{tenantId:guid}/branding/logo", UploadHostLogoAsync)
             .WithName("tenancyUploadHostTenantBrandingLogo")
+            .ProducesProblem(StatusCodes.Status409Conflict)
             .Produces<TenantBrandingResponse>(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status401Unauthorized)
@@ -149,6 +152,7 @@ internal static class Endpoint
 
         group.MapDelete("/{tenantId:guid}/branding/logo", DeleteHostLogoAsync)
             .WithName("tenancyDeleteHostTenantBrandingLogo")
+            .ProducesProblem(StatusCodes.Status409Conflict)
             .Produces<TenantBrandingResponse>(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status401Unauthorized)
             .ProducesProblem(StatusCodes.Status403Forbidden)

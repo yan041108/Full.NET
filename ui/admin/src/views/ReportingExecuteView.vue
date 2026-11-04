@@ -1,9 +1,11 @@
 <script setup lang="ts">
-import { computed, onActivated, onDeactivated, onBeforeUnmount, reactive, ref, watch } from 'vue';
+import { computed, inject, onActivated, onBeforeUnmount, onDeactivated, onMounted, reactive, ref, watch } from 'vue';
+import { routeLocationKey, routerKey } from 'vue-router';
 import {
   ElAlert,
   ElButton,
   ElCard,
+  ElDialog,
   ElForm,
   ElFormItem,
   ElInput,
@@ -15,47 +17,65 @@ import {
 } from 'element-plus';
 import type {
   FullNetProblemDetails,
-  ReportingDefinitionVersion,
-  ReportingDefinitionSummary,
+  ReportingPublishedVersion,
   ReportingExecutionPage,
   ReportingExecutionParameterValue
 } from '@fullnet/client-contracts';
-import { isFullNetProblemDetails } from '@fullnet/client-contracts';
+import { isFullNetProblemDetails, isGuid } from '@fullnet/client-contracts';
 import ArtTableHeader from '../framework/art-design/components/ArtTableHeader.vue';
-import { useArtCrudTableLayout } from '../framework/art-design/composables/useArtCrudTableLayout';
+import { useArtPagedTableInCard } from '../framework/art-design/composables/useArtPagedTableInCard';
 import { useAdminI18n } from '../i18n/adminI18n';
+import { executeReportingDefinition } from '../api/reporting-executions';
+import { listReportingPublishedVersions } from '../api/reporting-definitions';
+import PermissionGate from '../components/PermissionGate.vue';
 import { useSessionStore } from '../auth/session';
-import { reportingExecutionText } from '../i18n/reporting-published-execution';
-import { executeReportingDefinition, getReportingExecutionVersion } from '../api/reporting-executions';
-import { listReportingDefinitions } from '../api/reporting-definitions';
+import { isTenantSessionContext } from '../auth/tenant-session-context';
+import { useAuthorizedViewScope } from '../composables/useAuthorizedViewScope';
+import { createReportingExportTask } from '../api/reporting-export-tasks';
+import { showSuccess } from '../feedback/fullNetMessage';
 
 defineOptions({ name: 'ReportingExecuteView' });
 
-const { t, locale } = useAdminI18n();
-const session = useSessionStore(), active = ref(true);
-const text = (key: Parameters<typeof reportingExecutionText>[1]) => reportingExecutionText(locale.value, key);
-const canRead = () => active.value && !session.switching && session.currentUser?.actorScope === 'host' && !session.currentUser.tenantId
-  && session.can('reporting.executions.run') && session.can('reporting.definitions.read');
-let generation = 0, listRequest: AbortController | undefined, versionRequest: AbortController | undefined, executionRequest: AbortController | undefined;
-function current(scope: number) { return scope === generation && canRead(); }
-const definitions = ref<ReportingDefinitionSummary[]>([]);
-const selectedDefinition = ref<ReportingDefinitionVersion>();
-const selectedSummary = ref<ReportingDefinitionSummary>();
-const selectedDefinitionId = ref('');
-const parameterValues = reactive<Record<string, string>>({});
+const { t } = useAdminI18n();
+const session = useSessionStore();
+const router = inject(routerKey, undefined); const route = inject(routeLocationKey, undefined);
+const pageActive = ref(false), owner = ref(0);
+onMounted(() => { pageActive.value = true; }); onActivated(() => { pageActive.value = true; });
+onDeactivated(() => { pageActive.value = false; }); onBeforeUnmount(() => { pageActive.value = false; });
+const canRun = () => pageActive.value && (!route || route.name === 'reporting-execute') && session.can('reporting.executions.run')
+  && (session.currentUser?.scope === 'host' && session.currentUser.tenantId === null || isTenantSessionContext(session.currentUser));
+const canExport = computed(() => canRun() && !!router && route?.name === 'reporting-execute'
+  && session.can('reporting.export_tasks.create') && session.can('reporting.export_tasks.read'));
+const definitions = ref<ReportingPublishedVersion[]>([]);
+const selectedDefinitionVersionKey = ref('');
+// 参数机器键可以与对象成员同名，Map 同时保证特殊键读取参与响应式失效。
+const parameterValues = reactive(new Map<string, string>());
 const result = ref<ReportingExecutionPage>();
 const page = ref(1);
 const pageSize = ref(50);
 const loading = ref(false);
 const executing = ref(false);
+const exporting = ref(false);
 const problem = ref<FullNetProblemDetails>();
-type ExecutionInput = { definitionId: string; versionNumber: number; parameters: ReportingExecutionParameterValue[]; pageSize: number };
-const executedInput = ref<ExecutionInput>();
-const selectableDefinitions = computed(() => selectedSummary.value && !definitions.value.some(item => item.id === selectedSummary.value!.id) ? [selectedSummary.value, ...definitions.value] : definitions.value);
-const inputParameters = () => parameterSchema.value.map(parameter => ({ parameterKey: parameter.parameterKey, value: parameterValues[parameter.parameterKey]?.trim() || null }));
-const inputChanged = computed(() => !!executedInput.value && JSON.stringify(executedInput.value.parameters) !== JSON.stringify(inputParameters()));
+const definitionsProblem = ref<FullNetProblemDetails>(), navigationProblem = ref<FullNetProblemDetails>();
+const busy = computed(() => loading.value || executing.value || exporting.value);
+type Receipt = { sequence: number; definitionId: string; versionNumber: number; taskId?: string; outcome: 'processing' | 'succeeded' | 'failed' | 'unconfirmed'; errorCode?: string };
+const receipt = ref<Receipt>(); let receiptSequence = 0, recoverySequence = 0;
+const exportBlocks = ref(new Map<string, Receipt>());
+const recoveryConfirmation = ref<{ token: number; confirm: () => void; update: (open: boolean) => void }>();
+let exportingIntent: { key: string; receipt: Receipt } | undefined;
+
+// 同一定义的每个不可变发布版本都是独立授权资源，选择身份同时包含定义和版本。
+const versionKey = (definition: ReportingPublishedVersion) => definition.definitionId.toLowerCase() + ':' + definition.versionNumber;
+const selectedDefinition = computed(() =>
+  definitions.value.find(item => versionKey(item) === selectedDefinitionVersionKey.value));
 
 const parameterSchema = computed(() => selectedDefinition.value?.parameterSchema ?? []);
+const intent = computed(() => JSON.stringify([selectedDefinition.value, parameterSchema.value.map(parameter => [parameter.parameterKey, parameterValues.get(parameter.parameterKey) ?? ''])]));
+// 重复写入按实际提交值匹配，不能用空白差异绕过结果不确定时的人工核对。
+const exportKey = computed(() => selectedDefinition.value ? JSON.stringify([versionKey(selectedDefinition.value), 'excel', currentParameters()]) : '');
+const exportBlocked = computed(() => exportBlocks.value.has(exportKey.value));
+let lastExecutionPage: { page: number; pageSize: number } | undefined;
 
 const {
   tableMainRef,
@@ -65,91 +85,164 @@ const {
   tableBorder,
   tableHeaderBackground,
   tableHeaderCellStyle,
-  updateTableHeight,
-  watchLoading
-} = useArtCrudTableLayout();
+  syncTableLayout
+} = useArtPagedTableInCard(executing);
 
-watchLoading(executing);
+const scope = useAuthorizedViewScope(session, () => {
+  definitions.value = []; selectedDefinitionVersionKey.value = ''; result.value = undefined; problem.value = undefined;
+  page.value = 1; loading.value = false; executing.value = false; exporting.value = false; resetParameters();
+  definitionsProblem.value = undefined; navigationProblem.value = undefined; receipt.value = undefined;
+  exportBlocks.value = new Map(); exportingIntent = undefined; recoveryConfirmation.value = undefined; owner.value++;
+}, loadDefinitions);
+let definitionsRequest: ReturnType<typeof scope.begin>;
+let executeRequest: ReturnType<typeof scope.begin>;
+let exportRequest: ReturnType<typeof scope.begin>;
+function cancelExecution(): void { executeRequest?.cancel(); executeRequest = undefined; executing.value = false; }
+function cancelExport(): void {
+  if (exportRequest?.current() && exportingIntent) {
+    const value: Receipt = { ...exportingIntent.receipt, outcome: 'unconfirmed' };
+    exportBlocks.value = new Map(exportBlocks.value).set(exportingIntent.key, value); receipt.value = value;
+  }
+  exportRequest?.cancel(); exportRequest = undefined; exportingIntent = undefined; exporting.value = false;
+}
+watch(selectedDefinitionVersionKey, resetParameters, { flush: 'sync' });
+watch(() => JSON.stringify(selectedDefinition.value), resetParameters, { flush: 'sync' });
+watch(intent, () => {
+  cancelExecution(); cancelExport(); result.value = undefined; problem.value = undefined; navigationProblem.value = undefined;
+  page.value = 1; owner.value++; recoveryConfirmation.value = undefined;
+  lastExecutionPage = undefined;
+}, { flush: 'sync' });
+watch(() => route?.name, name => {
+  if (name === 'reporting-execute') { if (pageActive.value) void loadDefinitions(); return; }
+  cancelExecution(); cancelExport(); definitionsRequest?.cancel(); loading.value = false; owner.value++;
+  definitions.value = []; selectedDefinitionVersionKey.value = ''; result.value = undefined; recoveryConfirmation.value = undefined;
+}, { flush: 'sync' });
+const controls = computed(() => {
+  const ticket = owner.value, query = intent.value, output = result.value;
+  const owned = () => ticket === owner.value && query === intent.value && canRun();
+  return { reload: () => { if (owned() && !busy.value) void loadDefinitions(); }, run: () => { if (owned()) void runExecute(); }, export: () => { if (owned()) void exportCurrent(); },
+    select: (value: string) => { if (owned() && !busy.value) selectedDefinitionVersionKey.value = value; },
+    parameters: parameterSchema.value.map(parameter => ({ ...parameter, input: (value: string) => { if (owned() && !busy.value) parameterValues.set(parameter.parameterKey, value); } })),
+    currentPage: (value: number) => { if (owned() && !busy.value && Number.isSafeInteger(value) && value > 0 && value <= 2147483647) page.value = value; },
+    page: (value: number, size: number) => { if (owned() && output && result.value === output && size === output.pageSize) void onPageChanged(value); },
+    recover: () => { if (owned()) acknowledgeExport(); }, open: () => { if (owned() && receipt.value?.outcome === 'succeeded') void openExport(receipt.value); } };
+});
 
-/** 各读取拥有独立取消源，切上下文同时使所有迟到结果失效。 */
-function reset() {
-  generation++; listRequest?.abort(); versionRequest?.abort(); executionRequest?.abort();
-  definitions.value = []; selectedDefinitionId.value = ''; selectedDefinition.value = undefined; selectedSummary.value = undefined;
-  clearParameters(); result.value = undefined; executedInput.value = undefined; page.value = 1; loading.value = false; executing.value = false; problem.value = undefined;
-}
-function clearParameters() { for (const key of Object.keys(parameterValues)) delete parameterValues[key]; }
-async function reloadPublished() {
-  if (!canRead() || executing.value) return;
-  const scope = generation;
-  const previous = selectedDefinitionId.value; selectedDefinitionId.value = ''; selectedDefinition.value = undefined; selectedSummary.value = undefined;
-  clearParameters(); result.value = undefined; executedInput.value = undefined;
-  const rows = await searchDefinitions('');
-  if (current(scope) && rows) selectedDefinitionId.value = rows.find(item => item.id === previous)?.id ?? rows[0]?.id ?? '';
-}
-async function searchDefinitions(keyword: string): Promise<ReportingDefinitionSummary[] | undefined> {
-  if (!canRead()) return;
-  const scope = generation, controller = new AbortController(); listRequest?.abort(); listRequest = controller; loading.value = true; problem.value = undefined;
+async function loadDefinitions(): Promise<void> {
+  if (!canRun() || executing.value || exporting.value) return;
+  definitionsRequest?.cancel(); const request = scope.begin('reporting.executions.run'); if (!request) return; definitionsRequest = request;
+  loading.value = true; definitionsProblem.value = undefined; owner.value++;
   try {
-    const value = await listReportingDefinitions({ nameContains: keyword, page: 1, pageSize: 20 }, controller.signal);
-    if (!current(scope) || controller.signal.aborted) return;
-    const rows = value.items.filter(item => item.isEnabled && item.latestPublishedVersionNumber > 0); definitions.value = rows; return rows;
-  } catch (error) { if (current(scope) && !controller.signal.aborted) problem.value = toProblem(error, 'reportingExecute.loadFailed'); }
-  finally { if (current(scope) && !controller.signal.aborted) loading.value = false; }
+    const values = await listReportingPublishedVersions(request.signal);
+    if (!request.current()) return;
+    if (new Set(values.map(versionKey)).size !== values.length || values.some(row => !isGuid(row.definitionId) || row.definitionId === '00000000-0000-0000-0000-000000000000' || !Number.isSafeInteger(row.versionNumber) || row.versionNumber < 1
+      || row.parameterSchema.some(parameter => !parameter.parameterKey.trim()) || new Set(row.parameterSchema.map(parameter => parameter.parameterKey)).size !== row.parameterSchema.length)) throw new Error('client.invalid_reporting_definition_list');
+    const previous = selectedDefinitionVersionKey.value;
+    definitions.value = values;
+    selectedDefinitionVersionKey.value = definitions.value.some(item => versionKey(item) === previous) ? previous : definitions.value[0] ? versionKey(definitions.value[0]) : '';
+  } catch (error: unknown) {
+    if (request.current()) definitionsProblem.value = toProblem(error, 'reportingExecute.loadFailed');
+  } finally {
+    if (request.current()) loading.value = false; request.finish();
+  }
 }
 
 function resetParameters(): void {
-  clearParameters();
+  parameterValues.clear();
   for (const parameter of parameterSchema.value) {
-    parameterValues[parameter.parameterKey] = parameter.defaultValue ?? '';
+    parameterValues.set(parameter.parameterKey, parameter.defaultValue ?? '');
   }
-}
-
-async function onDefinitionChanged(): Promise<void> {
-  versionRequest?.abort(); executionRequest?.abort(); executing.value = false; selectedDefinition.value = undefined; clearParameters();
-  result.value = undefined; executedInput.value = undefined; page.value = 1;
-  const id = selectedDefinitionId.value, summary = selectableDefinitions.value.find(item => item.id === id); selectedSummary.value = summary;
-  if (!canRead() || !summary || !id) return;
-  const scope = generation, controller = new AbortController(); versionRequest = controller;
-  try {
-    const value = await getReportingExecutionVersion(id, summary.latestPublishedVersionNumber, controller.signal);
-    if (current(scope) && !controller.signal.aborted && selectedDefinitionId.value === id) { selectedDefinition.value = value; resetParameters(); }
-  } catch (error) { if (current(scope) && !controller.signal.aborted) problem.value = toProblem(error, 'reportingExecute.loadFailed'); }
 }
 
 async function runExecute(): Promise<void> {
-  if (!canRead() || !selectedDefinition.value || executing.value) return;
-  if (parameterSchema.value.some(parameter => parameter.isRequired && !parameterValues[parameter.parameterKey]?.trim())) {
-    problem.value = { status: 400, code: 'client.validation_failed', title: text('required') }; return;
+  const definition = selectedDefinition.value;
+  if (!definition || !canRun() || busy.value || !Number.isSafeInteger(page.value) || page.value < 1 || page.value > 2147483647) {
+    return;
   }
-  await execute({ definitionId: selectedDefinitionId.value, versionNumber: selectedDefinition.value.versionNumber, parameters: inputParameters(), pageSize: pageSize.value }, 1);
-}
-async function execute(input: ExecutionInput, nextPage: number) {
-  if (!canRead() || executing.value || selectedDefinitionId.value !== input.definitionId) return;
-  const scope = generation, controller = new AbortController(); executionRequest?.abort(); executionRequest = controller; executing.value = true;
+  const query = { definitionId: definition.definitionId, versionNumber: definition.versionNumber, queryPortKey: definition.queryPortKey, parameters: currentParameters(), page: page.value, pageSize: pageSize.value };
+  lastExecutionPage = { page: query.page, pageSize: query.pageSize };
+  const request = scope.begin('reporting.executions.run'); if (!request) return; executeRequest = request; owner.value++;
+  executing.value = true;
   problem.value = undefined;
+  // 新查询失败时不得把上一次结果继续呈现为本次输出。
+  result.value = undefined;
   try {
-    const value = await executeReportingDefinition(input.definitionId, { versionNumber: input.versionNumber, parameters: input.parameters.map(parameter => ({ ...parameter })) }, nextPage, input.pageSize, controller.signal);
-    if (!current(scope) || controller.signal.aborted || selectedDefinitionId.value !== input.definitionId || selectedDefinition.value?.versionNumber !== input.versionNumber) return;
-    result.value = value; executedInput.value = input; page.value = nextPage;
-    updateTableHeight();
+    const value = await executeReportingDefinition(
+      query.definitionId,
+      { versionNumber: query.versionNumber, parameters: query.parameters },
+      query.page,
+      query.pageSize,
+      request.signal
+    );
+    if (!request.current()) return;
+    // 运行时守卫只验证形状；内容交付前还须匹配本次选择的精确发布身份。
+    if (value.definitionId.toLowerCase() !== query.definitionId.toLowerCase() || value.versionNumber !== query.versionNumber || value.queryPortKey !== query.queryPortKey
+      || value.page !== query.page || value.pageSize !== query.pageSize)
+      throw new Error('client.invalid_reporting_execution_identity');
+    result.value = value;
   } catch (error: unknown) {
-    if (current(scope) && !controller.signal.aborted) { result.value = undefined; executedInput.value = undefined; problem.value = toProblem(error, 'reportingExecute.executeFailed'); }
+    if (request.current()) problem.value = toProblem(error, 'reportingExecute.executeFailed');
   } finally {
-    if (current(scope) && !controller.signal.aborted) executing.value = false;
+    if (executeRequest === request) { if (request.current()) executing.value = false; executeRequest = undefined; } request.finish(); void syncTableLayout();
   }
+}
+
+// 两个入口共用参数规范化；导出是完整查询的后台执行，不是当前分页的客户端截图。
+function currentParameters(): ReportingExecutionParameterValue[] {
+  return parameterSchema.value.map(parameter => ({ parameterKey: parameter.parameterKey,
+    value: parameterValues.get(parameter.parameterKey)?.trim() || null }));
+}
+async function exportCurrent(): Promise<void> {
+  const definition = selectedDefinition.value;
+  if (!definition || !canExport.value || busy.value || exportBlocked.value) return;
+  const request = scope.begin('reporting.export_tasks.create'); if (!request) return; exportRequest = request;
+  exporting.value = true; problem.value = undefined; navigationProblem.value = undefined; owner.value++;
+  receipt.value = { sequence: ++receiptSequence, definitionId: definition.definitionId, versionNumber: definition.versionNumber, outcome: 'processing' };
+  const attempt = { key: exportKey.value, receipt: { ...receipt.value } }; exportingIntent = attempt;
+  try {
+    const task = await createReportingExportTask({ definitionId: definition.definitionId, versionNumber: definition.versionNumber,
+      formatKey: 'excel', parameters: currentParameters() }, request.signal);
+    if (!request.current() || !canExport.value) return;
+    if (task.definitionId.toLowerCase() !== definition.definitionId.toLowerCase() || task.versionNumber !== definition.versionNumber || task.formatKey !== 'excel'
+      || !isGuid(task.id) || task.id === '00000000-0000-0000-0000-000000000000' || task.requestedByUserId.toLowerCase() !== session.currentUser?.id.toLowerCase())
+      throw new Error('client.invalid_reporting_export_task_identity');
+    receipt.value = { ...attempt.receipt, taskId: task.id, outcome: 'succeeded' };
+    exportBlocks.value = new Map(exportBlocks.value).set(attempt.key, receipt.value);
+    // 成功回包已经确认创建；后续导航失败不能降级写入事实，也不能自动再发 POST。
+    exportingIntent = undefined; exportRequest = undefined; exporting.value = false;
+    showSuccess(t('reportingExportTasks.createSuccess'));
+    await openExport(receipt.value);
+  } catch (error) {
+    if (exportRequest === request && request.current()) {
+      const failure = toProblem(error, 'reportingExportTasks.createFailed');
+      const unknown = !isFullNetProblemDetails(error) || error.status < 400 || error.status >= 500 || error.status === 408;
+      receipt.value = { ...attempt.receipt, outcome: unknown ? 'unconfirmed' : 'failed', errorCode: failure.code };
+      if (unknown) exportBlocks.value = new Map(exportBlocks.value).set(attempt.key, receipt.value);
+      problem.value = failure;
+    }
+  } finally { if (exportRequest === request) { if (request.current()) exporting.value = false; exportRequest = undefined; exportingIntent = undefined; } request.finish(); }
+}
+async function openExport(value: Receipt): Promise<void> {
+  if (!canExport.value || !value.taskId || value.outcome !== 'succeeded' || receipt.value?.sequence !== value.sequence) return;
+  const ticket = owner.value; navigationProblem.value = undefined;
+  try { const failure = await router!.push({ name: 'reporting-export-tasks', query: { taskId: value.taskId } }); if (failure) throw failure; }
+  catch (error) { if (canExport.value && owner.value === ticket && receipt.value?.sequence === value.sequence) navigationProblem.value = toProblem(error, 'reportingExecute.navigationFailed'); }
+}
+function acknowledgeExport(): void {
+  if (!canExport.value || busy.value || !exportBlocked.value) return;
+  const key = exportKey.value, sequence = exportBlocks.value.get(key)!.sequence, ticket = owner.value, token = ++recoverySequence;
+  const owned = () => canExport.value && !busy.value && ticket === owner.value && key === exportKey.value && recoveryConfirmation.value?.token === token && exportBlocks.value.get(key)?.sequence === sequence;
+  recoveryConfirmation.value = { token, confirm: () => { if (owned()) { const next = new Map(exportBlocks.value); next.delete(key); exportBlocks.value = next; recoveryConfirmation.value = undefined; } }, update: open => { if (!open && owned()) recoveryConfirmation.value = undefined; } };
 }
 
 async function onPageChanged(nextPage: number): Promise<void> {
-  if (executedInput.value && Number.isSafeInteger(nextPage) && nextPage > 0) await execute(executedInput.value, nextPage);
+  if (busy.value || !canRun() || !Number.isSafeInteger(nextPage) || nextPage < 1 || nextPage > 2147483647 || lastExecutionPage && nextPage === lastExecutionPage.page && pageSize.value === lastExecutionPage.pageSize) return;
+  page.value = nextPage;
+  await runExecute();
 }
-watch(selectedDefinitionId, onDefinitionChanged, { flush: 'sync' });
-watch(() => [session.currentUser?.id, session.currentUser?.tenantId, session.currentUser?.actorScope, session.currentUser?.sessionId, session.currentUser?.permissions.join('|'), session.switching, active.value], () => {
-  reset(); if (canRead()) void reloadPublished();
-}, { immediate: true, flush: 'sync' });
-onActivated(() => { active.value = true; }); onDeactivated(() => { active.value = false; }); onBeforeUnmount(() => { active.value = false; reset(); });
 
 function cellValue(row: { values: Record<string, string | null> }, columnKey: string): string {
-  return row.values[columnKey] ?? '';
+  return Object.hasOwn(row.values, columnKey) ? row.values[columnKey] ?? '' : '';
 }
 
 function toProblem(error: unknown, fallbackKey: Parameters<typeof t>[0]): FullNetProblemDetails {
@@ -161,59 +254,64 @@ function toProblem(error: unknown, fallbackKey: Parameters<typeof t>[0]): FullNe
 </script>
 
 <template>
-  <div class="reporting-execute-view">
-    <ElAlert v-if="!canRead()" type="info" :closable="false" :title="text('hostOnly')" />
-    <template v-if="canRead()">
+  <div class="reporting-execute-view art-page-stack art-full-height">
     <ElAlert v-if="problem" type="error" :title="problem.title" show-icon class="mb-4" />
-    <ElButton :loading="loading" :disabled="executing" data-testid="reporting-execute-reload" @click="reloadPublished">{{ text('reload') }}</ElButton>
+    <ElAlert v-if="navigationProblem" data-testid="reporting-execute-navigation-problem" type="error" :title="navigationProblem.title" show-icon />
+    <div v-if="receipt" role="status" data-testid="reporting-execute-export-receipt">
+      <p>{{ t('reportingExportTasks.receiptTarget', { definition: receipt.definitionId, version: String(receipt.versionNumber) }) }} · {{ t(receipt.outcome === 'succeeded' ? 'reportingExportTasks.resultSucceeded' : receipt.outcome === 'failed' ? 'reportingExportTasks.resultFailed' : receipt.outcome === 'processing' ? 'reportingExportTasks.resultProcessing' : 'reportingExportTasks.resultUnconfirmed') }}</p>
+      <code v-if="receipt.taskId" translate="no">{{ receipt.taskId }}</code> <code v-if="receipt.errorCode" translate="no">{{ receipt.errorCode }}</code>
+      <ElButton v-if="canExport && receipt.outcome === 'succeeded'" data-testid="reporting-execute-open-export" v-on="{ click: controls.open }">{{ t('reportingExecute.openExport') }}</ElButton>
+    </div>
 
     <ElCard v-loading="loading">
       <ArtTableHeader :title="t('reportingExecute.title')" />
-      <ElForm label-position="top" class="execute-form">
-        <ElFormItem :label="t('reportingExecute.fieldDefinition')">
+      <ElAlert v-if="definitionsProblem" data-testid="reporting-execute-definitions-problem" type="error" :title="definitionsProblem.title" show-icon />
+      <ElButton v-if="canRun()" data-testid="reporting-execute-definitions-refresh" :disabled="busy" :loading="loading" v-on="{ click: controls.reload }">{{ t('reportingExecute.reloadDefinitions') }}</ElButton>
+      <ElForm label-width="140px" class="execute-form">
+        <ElFormItem :label="t('reportingExecute.fieldDefinition')" required>
           <ElSelect
-            v-model="selectedDefinitionId"
-            filterable remote :remote-method="searchDefinitions"
+            :model-value="selectedDefinitionVersionKey"
+            filterable
             data-testid="reporting-execute-definition"
-            class="definition-select"
+            :disabled="busy"
+            v-on="{ 'update:modelValue': controls.select }"
           >
             <ElOption
-              v-for="definition in selectableDefinitions"
-              :key="definition.id"
-              :label="`${definition.name} (${definition.definitionKey})`"
-              :value="definition.id"
+              v-for="definition in definitions"
+              :key="versionKey(definition)"
+              :label="`${definition.name} (${definition.definitionKey}) · v${definition.versionNumber}`"
+              :value="versionKey(definition)"
             />
           </ElSelect>
         </ElFormItem>
         <ElFormItem
-          v-for="parameter in parameterSchema"
+          v-for="parameter in controls.parameters"
           :key="parameter.parameterKey"
           :label="parameter.displayName"
+          :required="parameter.isRequired"
         >
-          <ElInput v-model="parameterValues[parameter.parameterKey]" :disabled="executing" :data-parameter-key="parameter.parameterKey" :aria-required="parameter.isRequired" />
+          <ElInput :model-value="parameterValues.get(parameter.parameterKey) ?? ''" :disabled="busy" v-on="{ 'update:modelValue': parameter.input }" />
         </ElFormItem>
         <ElFormItem>
-          <ElButton
+          <PermissionGate code="reporting.executions.run"><ElButton
             type="primary"
             data-testid="reporting-execute-run"
             :loading="executing"
-            :disabled="!selectedDefinition || executing"
-            @click="runExecute"
+            :disabled="!selectedDefinition || loading || exporting"
+            v-on="{ click: controls.run }"
           >
             {{ t('reportingExecute.run') }}
-          </ElButton>
+          </ElButton></PermissionGate>
+          <ElButton v-if="canExport" data-testid="reporting-execute-export" :loading="exporting"
+            :disabled="!selectedDefinition || executing || loading || exportBlocked" v-on="{ click: controls.export }">{{ t('reportingExecute.export') }}</ElButton>
+          <ElButton v-if="canExport && exportBlocked" data-testid="reporting-execute-export-recovery" :disabled="busy" v-on="{ click: controls.recover }">{{ t('reportingExecute.reviewExport') }}</ElButton>
         </ElFormItem>
       </ElForm>
-      <p v-if="selectedDefinition" data-testid="reporting-execute-version">{{ text('version') }} {{ selectedDefinition.versionNumber }}</p>
-      <p>{{ text('versionHelp') }}</p>
-      <p v-if="!loading && !definitions.length && !selectedSummary">{{ text('empty') }}</p>
     </ElCard>
 
-    <ElCard v-if="result" class="result-card">
-      <p data-testid="reporting-execute-result-version">{{ result.definitionName }} · {{ text('resultVersion') }} {{ result.versionNumber }} · {{ text('page') }} {{ result.page }}</p>
-      <ElAlert v-if="inputChanged" type="info" :closable="false" :title="text('changed')" data-testid="reporting-execute-input-changed" />
-      <ArtTableHeader :title="t('reportingExecute.resultTitle')" />
-      <div ref="tableMainRef" class="table-main">
+    <ElCard v-if="result" class="result-card art-table-card art-full-height">
+      <ArtTableHeader data-testid="reporting-execute-result-header" :title="t('reportingExecute.resultTitle')" />
+      <div ref="tableMainRef" class="art-crud-table-main">
         <ElTable
           v-loading="executing"
           :data="result.rows"
@@ -236,19 +334,22 @@ function toProblem(error: unknown, fallbackKey: Parameters<typeof t>[0]): FullNe
             </template>
           </ElTableColumn>
         </ElTable>
+        <ElPagination
+          v-if="result.hasMore || result.page > 1"
+          class="art-table-pagination"
+          layout="prev, pager, next"
+          :current-page="page"
+          :disabled="busy"
+          :page-size="result.pageSize"
+          :total="result.totalRows ?? result.page * result.pageSize + (result.hasMore ? 1 : 0)"
+          v-on="{ 'update:current-page': controls.currentPage, change: controls.page }"
+        />
       </div>
-      <ElPagination
-        v-if="result.hasMore || result.page > 1"
-        class="mt-3"
-        layout="prev, pager, next"
-        :current-page="result.page"
-        :page-size="result.pageSize"
-        :disabled="executing"
-        :total="result.totalRows ?? result.page * result.pageSize + (result.hasMore ? 1 : 0)"
-        @current-change="onPageChanged"
-      />
     </ElCard>
-    </template>
+    <ElDialog :model-value="!!recoveryConfirmation" :title="t('reportingExecute.reviewExport')" width="480px" v-on="{ 'update:modelValue': recoveryConfirmation?.update }">
+      <p>{{ t('reportingExecute.exportRecoveryHint') }}</p>
+      <template #footer><ElButton type="warning" data-testid="reporting-execute-export-recovery-confirm" v-on="{ click: recoveryConfirmation?.confirm }">{{ t('reportingExecute.exportRecoveryConfirm') }}</ElButton></template>
+    </ElDialog>
   </div>
 </template>
 
@@ -256,21 +357,13 @@ function toProblem(error: unknown, fallbackKey: Parameters<typeof t>[0]): FullNe
 .execute-form {
   max-width: 720px;
 }
-.definition-select { width: 100%; }
 
 .result-card {
   margin-top: 16px;
-}
-
-.table-main {
-  margin-top: 12px;
 }
 
 .mb-4 {
   margin-bottom: 16px;
 }
 
-.mt-3 {
-  margin-top: 12px;
-}
 </style>

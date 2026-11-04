@@ -42,7 +42,7 @@ public sealed class DocumentApplicationAuthorizationTests
     public async Task Direct_write_denied_before_transaction_or_upload()
     {
         var policy = new TestDocumentAccessPolicy(new Error(Full.NET.Modules.Document.Contracts.DocumentErrorCodes.AccessDenied, "Denied", ErrorType.Forbidden));
-        var service = new HostDocumentItemManagementService(null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, policy, null!, null!);
+        var service = new HostDocumentItemManagementService(null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, policy, null!, null!);
         var result = await service.AddVersionFromUploadAsync(Guid.CreateVersion7(), Guid.CreateVersion7(),
             "sample.txt", "text/plain", Stream.Null, 1);
         Assert.IsFalse(result.IsSuccess);

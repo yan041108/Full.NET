@@ -7,6 +7,12 @@ namespace Full.NET.IntegrationTests.Notifications;
 public sealed class NotificationDeliveryLeasePersistenceSqlServerTests
 {
     [TestMethod]
+    [DataRow(false)]
+    [DataRow(true)]
+    public Task Unknown_delivery_requires_reconciliation(bool operatorRetry) =>
+        NotificationDeliveryLeasePersistenceAssertions.Unknown_delivery_requires_reconciliation_async(DatabaseProvider.SqlServer, operatorRetry);
+
+    [TestMethod]
     public Task Concurrent_claim_admits_only_one_owner() =>
         NotificationDeliveryLeasePersistenceAssertions.Concurrent_claim_admits_only_one_owner_async(DatabaseProvider.SqlServer);
 

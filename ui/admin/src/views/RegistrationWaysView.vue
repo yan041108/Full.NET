@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue';
+import { computed, onActivated, onBeforeUnmount, onDeactivated, onMounted, reactive, ref, watch } from 'vue';
 import {
   ElButton,
   ElAlert,
@@ -26,6 +26,8 @@ import ArtTableActionButton from '../framework/art-design/components/ArtTableAct
 import ArtTableActionGroup from '../framework/art-design/components/ArtTableActionGroup.vue';
 import ArtTableHeader from '../framework/art-design/components/ArtTableHeader.vue';
 import { useArtCrudTableLayout } from '../framework/art-design/composables/useArtCrudTableLayout';
+import { showProblem, showSuccess } from '../feedback/fullNetMessage';
+import { useSessionStore } from '../auth/session';
 import PermissionGate from '../components/PermissionGate.vue';
 import { useAdminI18n } from '../i18n/adminI18n';
 import { registrationPolicyText } from '../i18n/registration-policy';
@@ -57,6 +59,31 @@ const policyUnconfirmed = ref(false);
 const registrationLink = ref('');
 const registrationLinkOpen = ref(false);
 const copyingLink = ref(false);
+const session = useSessionStore();
+let disposed = false;
+let inactive = false;
+let viewGeneration = 0;
+let policyRequest = 0;
+let listRequest = 0;
+// 会话与页面生命周期变化后，旧请求不能修改新页面状态或显示成功提示。
+function invalidateView() {
+  viewGeneration++; policyRequest++; listRequest++;
+  policy.value = null; items.value = []; total.value = 0;
+  policyLoading.value = false; policySaving.value = false; loading.value = false;
+}
+onBeforeUnmount(() => { disposed = true; invalidateView(); });
+onDeactivated(() => { inactive = true; invalidateView(); });
+onActivated(() => {
+  if (!inactive) return;
+  inactive = false; void loadPolicy(); void load();
+});
+watch([() => session.currentUser?.id, () => session.currentUser?.sessionId], () => {
+  invalidateView();
+  if (!disposed && !inactive) { void loadPolicy(); void load(); }
+}, { flush: 'sync' });
+const policyModeLabel = computed(() => policy.value ? t(([
+  'registrationWays.modeDisabled', 'registrationWays.modeInvitationOnly', 'registrationWays.modeOpen'
+] as const)[policy.value.registrationMode]) : t('registrationWays.policyUnavailable'));
 const items = ref<RegistrationWay[]>([]);
 const total = ref(0);
 const page = ref(1);
@@ -130,46 +157,56 @@ function selectRegistrationLink(event: Event) {
 }
 
 async function loadPolicy() {
-  if (!canReadPolicy.value || policySaving.value || policyLoading.value) return;
+  if (disposed || inactive || !canReadPolicy.value || policySaving.value || policyLoading.value) return;
+  const request = ++policyRequest;
   policyLoading.value = true;
   policyError.value = '';
   try {
     const current = await getRegistrationPolicy();
+    if (disposed || inactive || request !== policyRequest) return;
     if (!canReadPolicy.value) return;
     policy.value = current;
     policyMode.value = current.registrationMode;
     policyUnconfirmed.value = false;
   } catch (error: unknown) {
+    if (disposed || inactive || request !== policyRequest) return;
     policyError.value = isFullNetProblemDetails(error) ? error.title || policyText('loadFailed') : policyText('loadFailed');
   } finally {
-    policyLoading.value = false;
+    if (request === policyRequest) policyLoading.value = false;
   }
 }
 
 async function savePolicy() {
-  if (!policy.value || !canUpdatePolicy.value || policySaving.value || policyLoading.value
+  if (disposed || inactive || !policy.value || !canUpdatePolicy.value || policySaving.value || policyLoading.value
       || policyUnconfirmed.value || policyMode.value === policy.value.registrationMode) {
     return;
   }
+  const request = ++policyRequest;
   policySaving.value = true;
   try {
-    policy.value = await updateRegistrationPolicy({
+    const result = await updateRegistrationPolicy({
       isPublicRegistrationEnabled: policyMode.value === 2,
       registrationMode: policyMode.value,
       version: policy.value.version
     });
+    if (disposed || inactive || request !== policyRequest) return;
+    policy.value = result;
     policyMode.value = policy.value.registrationMode;
     ElMessage.success(t('registrationWays.policyUpdateSuccess'));
   } catch (error: unknown) {
+    if (disposed || inactive || request !== policyRequest) return;
     // 写入可能已提交；显式重新读取版本后才允许后续保存，避免覆盖他人的策略。
     policyUnconfirmed.value = true;
     policyError.value = isFullNetProblemDetails(error) ? error.title || policyText('saveFailed') : policyText('saveFailed');
   } finally {
-    policySaving.value = false;
+    if (request === policyRequest) policySaving.value = false;
   }
 }
 
 async function load() {
+  if (disposed || inactive) return;
+  const generation = viewGeneration;
+  const request = ++listRequest;
   loading.value = true;
   problem.value = undefined;
   try {
@@ -179,13 +216,14 @@ async function load() {
       tenantId: appliedFilters.value.tenantId,
       nameContains: appliedFilters.value.name
     });
+    if (disposed || inactive || generation !== viewGeneration || request !== listRequest) return;
     items.value = result.items;
     total.value = result.total;
     updateTableHeight();
   } catch (error) {
-    problem.value = error as FullNetProblemDetails;
+    if (!disposed && !inactive && generation === viewGeneration && request === listRequest) problem.value = error as FullNetProblemDetails;
   } finally {
-    loading.value = false;
+    if (generation === viewGeneration && request === listRequest) loading.value = false;
   }
 }
 
@@ -448,6 +486,10 @@ onMounted(async () => {
 </template>
 
 <style scoped>
+.registration-ways-title {
+  margin: 0;
+  font-size: 1.25rem;
+}
 .registration-policy-card {
   margin-bottom: 12px;
 }

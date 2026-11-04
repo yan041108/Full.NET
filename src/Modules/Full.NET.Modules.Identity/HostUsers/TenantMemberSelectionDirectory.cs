@@ -12,7 +12,7 @@ namespace Full.NET.Modules.Identity.HostUsers;
 internal sealed class TenantMemberSelectionDirectory(
     IQueryExecutor queryExecutor,
     IOptions<DatabaseOptions> databaseOptions,
-    ICurrentTenant currentTenant) : ITenantMemberSelectionDirectory
+    ICurrentTenant currentTenant) : ITenantMemberSelectionDirectory, ITenantMemberBatchSelectionDirectory
 {
     public async Task<bool> IsCurrentActivationAsync(Guid memberId, Guid userId, int version, CancellationToken cancellationToken = default)
     {
@@ -83,6 +83,7 @@ internal sealed class TenantMemberSelectionDirectory(
         IReadOnlyCollection<Guid> userIds, CancellationToken cancellationToken = default)
     {
         EnsureTenantContext();
+        ArgumentNullException.ThrowIfNull(userIds);
         if (userIds.Count > 100) throw new ArgumentOutOfRangeException(nameof(userIds));
         if (userIds.Count == 0) return new Dictionary<Guid, TenantUserDirectoryEntry>();
         var rows = await queryExecutor.QueryAsync<HostUserDirectoryRecord>(

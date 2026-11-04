@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { existsSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { test } from 'node:test';
+import path from 'node:path';
 
 assert.equal(
   existsSync('security/dotnet-audit-policy.json'),
@@ -237,4 +238,41 @@ test('toProjectSlug normalizes repository-relative project paths', () => {
     toProjectSlug('G:/repo/src/Sample/Sample.csproj', 'G:/repo'),
     'src__Sample__Sample'
   );
+});
+
+// 在命令边界模拟真实 JSON，不允许干净主解决方案掩盖独立实验的漏洞或缺失结果。
+function runWithProbeReport(probeReport) {
+  return auditModule.runDotnetListAudit((_command, args) => {
+    if (args[0] === 'restore') return { status: 0, stdout: '', stderr: '' };
+    const project = args[1].endsWith('.csproj') ? args[1] : path.resolve('src/Sample/Sample.csproj');
+    const report = args[1].endsWith('.csproj') ? probeReport(project)
+      : { version: 1, sources: ['https://api.nuget.org/v3/index.json'], projects: [{ path: project, frameworks: [] }] };
+    return { status: 0, stdout: JSON.stringify(report), stderr: '' };
+  });
+}
+
+test('干净主解决方案不能掩盖独立实验中的高危传递依赖', () => {
+  assert.throws(() => evaluateDotnetListReport(runWithProbeReport(project => createReport({
+    projectPath: project, bucket: 'transitivePackages', pkg: createVulnerablePackage({ id: 'System.Security.Cryptography.Pkcs' })
+  })), policy), /Unreviewed high advisory/u);
+});
+
+test('独立实验缺少漏洞源时不得与主解决方案合并为干净报告', () => {
+  assert.throws(() => runWithProbeReport(project => ({ version: 1, projects: [{ path: project, frameworks: [] }] })), /vulnerability sources/u);
+});
+
+test('独立实验零项目报告不能作为审计通过', () => {
+  assert.throws(() => runWithProbeReport(() => ({ version: 1, sources: ['https://api.nuget.org/v3/index.json'], projects: [] })), /no project/u);
+});
+
+test('独立实验报告必须包含实际请求的项目', () => {
+  assert.throws(() => runWithProbeReport(() => ({ version: 1, sources: ['https://api.nuget.org/v3/index.json'], projects: [{ path: path.resolve('src/Other/Other.csproj'), frameworks: [] }] })), /requested project/u);
+});
+
+test('还原失败保留标准输出中的 NuGet 根因和标准错误', () => {
+  assert.throws(() => auditModule.runDotnetListAudit(() => ({ status: 1, stdout: 'NU1109 dependency downgrade', stderr: 'restore stderr' })), error => {
+    assert.match(error.message, /NU1109 dependency downgrade/u);
+    assert.match(error.message, /restore stderr/u);
+    return true;
+  });
 });

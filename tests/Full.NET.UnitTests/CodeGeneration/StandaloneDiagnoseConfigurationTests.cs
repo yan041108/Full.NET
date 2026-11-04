@@ -1,6 +1,9 @@
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using Full.NET.CodeGeneration.Cli;
+using Microsoft.Extensions.Configuration;
+using Microsoft.AspNetCore.Http;
 
 namespace Full.NET.UnitTests.CodeGeneration;
 
@@ -8,6 +11,36 @@ namespace Full.NET.UnitTests.CodeGeneration;
 [TestClass]
 public sealed class StandaloneDiagnoseConfigurationTests
 {
+    [TestMethod]
+    [DataRow("../../Modules/Full.NET.Modules.Identity/Full.NET.Modules.Identity.csproj", false, false)]
+    [DataRow("..\\..\\Modules\\Full.NET.Modules.Identity\\Full.NET.Modules.Identity.csproj", false, false)]
+    [DataRow("../../modules/Full.NET.Modules.Identity/Full.NET.Modules.Identity.csproj", true, false)]
+    [DataRow("../../Modules/Full.NET.Modules.Identity/Full.NET.Modules.identity.csproj", true, false)]
+    [DataRow("../../Modules/Full.NET.Modules.Identity/Full.NET.Modules.identity.csproj", true, true)]
+    public async Task Module_reference_paths_preserve_platform_case_semantics(string include, bool changedCase, bool aliasExists)
+    {
+        using var fixture = new StandaloneWorkspace();
+        const string composition = "framework/fullnet/src/Composition/Full.NET.Composition";
+        const string canonical = "framework/fullnet/src/Modules/Full.NET.Modules.Identity/Full.NET.Modules.Identity.csproj";
+        var referencedPath = Path.GetFullPath(Path.Combine(fixture.PathFor(composition),
+            include.Replace('\\', Path.DirectorySeparatorChar)));
+        if (aliasExists && !OperatingSystem.IsWindows())
+        {
+            // Linux 同时存在大小写不同的文件时，引用另一个文件仍不能证明所选模块已接入。
+            File.WriteAllText(referencedPath, "<Project><PropertyGroup><Probe>other-project</Probe></PropertyGroup></Project>");
+            Assert.AreNotEqual(File.ReadAllText(fixture.PathFor(canonical)), File.ReadAllText(referencedPath));
+        }
+        var expected = !changedCase || OperatingSystem.IsWindows();
+        Assert.IsTrue(File.Exists(fixture.PathFor(canonical)));
+        Assert.AreEqual(expected || aliasExists, File.Exists(referencedPath), "先核对实际引用路径的文件存在性。");
+        fixture.Write(composition + "/Full.NET.Composition.csproj",
+            $"<Project><ItemGroup><ProjectReference Include=\"{include}\" /></ItemGroup></Project>");
+        var result = await DiagnoseAsync(fixture);
+        Assert.AreEqual(expected ? 0 : 1, result.ExitCode, result.Output);
+        StringAssert.Contains(result.Output, expected ? "DIAG_MODULE_CLOSURE_OK ok" : "DIAG_MODULE_DEPENDENCY_MISSING error");
+        Assert.AreEqual(expected, result.Output.Contains("DIAG_MODULE_CLOSURE_OK ok", StringComparison.Ordinal));
+    }
+
     [TestMethod]
     [DataRow(false)]
     [DataRow(true)]
@@ -170,6 +203,308 @@ public sealed class StandaloneDiagnoseConfigurationTests
         var result = await DiagnoseAsync(fixture);
         Assert.AreEqual(1, result.ExitCode);
         StringAssert.Contains(result.Output, code + " error");
+    }
+
+    [TestMethod]
+    [DataRow("appsettings.json", false)]
+    [DataRow("appsettings.json", true)]
+    [DataRow("src/Demo.Host.Api/appsettings.json", false)]
+    [DataRow("src/Demo.Host.Api/appsettings.json", true)]
+    [DataRow("src/Demo.Host.Migrator/appsettings.json", false)]
+    [DataRow("src/Demo.Host.Migrator/appsettings.json", true)]
+    [DataRow("src/Demo.Host.Worker/appsettings.json", false)]
+    [DataRow("src/Demo.Host.Worker/appsettings.json", true)]
+    public async Task Base_json_comments_and_trailing_commas_match_host_loader(string path, bool trailingComma)
+    {
+        using var fixture = new StandaloneWorkspace();
+        var json = Configuration();
+        var content = trailingComma ? json[..^1] + ",}" : "// credential-probe comment\n" + json;
+        var configuration = new ConfigurationBuilder()
+            .AddJsonStream(new MemoryStream(Encoding.UTF8.GetBytes(content))).Build();
+        Assert.AreEqual("mysql", configuration["Database:Provider"]);
+        fixture.Write(path, content);
+        var result = await DiagnoseAsync(fixture);
+        Assert.AreEqual(0, result.ExitCode, result.Output);
+        StringAssert.Contains(result.Output, "DIAG_APP_PROFILE_OK ok");
+    }
+
+    [TestMethod]
+    [DataRow("appsettings.json", "case")]
+    [DataRow("appsettings.json", "flat")]
+    [DataRow("appsettings.json", "array")]
+    [DataRow("src/Demo.Host.Api/appsettings.json", "case")]
+    [DataRow("src/Demo.Host.Api/appsettings.json", "flat")]
+    [DataRow("src/Demo.Host.Api/appsettings.json", "array")]
+    [DataRow("src/Demo.Host.Migrator/appsettings.json", "case")]
+    [DataRow("src/Demo.Host.Migrator/appsettings.json", "flat")]
+    [DataRow("src/Demo.Host.Migrator/appsettings.json", "array")]
+    [DataRow("src/Demo.Host.Worker/appsettings.json", "case")]
+    [DataRow("src/Demo.Host.Worker/appsettings.json", "flat")]
+    [DataRow("src/Demo.Host.Worker/appsettings.json", "array")]
+    public async Task Base_json_duplicate_configuration_paths_reject_frozen_profile(string path, string shape)
+    {
+        using var fixture = new StandaloneWorkspace();
+        var fragment = shape switch
+        {
+            "case" => "\"credential-probe\":1,\"CREDENTIAL-PROBE\":2",
+            "flat" => "\"Probe\":{\"Value\":1},\"probe:value\":\"credential-probe\"",
+            _ => "\"Probe\":[1],\"probe:0\":\"credential-probe\"",
+        };
+        var json = Configuration();
+        var content = json[..^1] + "," + fragment + "}";
+        Assert.ThrowsExactly<FormatException>(() => new ConfigurationBuilder()
+            .AddJsonStream(new MemoryStream(Encoding.UTF8.GetBytes(content))).Build());
+        fixture.Write(path, content);
+        var result = await DiagnoseAsync(fixture);
+        Assert.AreEqual(1, result.ExitCode, result.Output);
+        StringAssert.Contains(result.Output, "DIAG_APP_PROFILE_INVALID error");
+        Assert.IsFalse(result.Output.Contains("DIAG_APP_PROFILE_OK", StringComparison.Ordinal));
+    }
+
+    [TestMethod]
+    [DataRow("fullnet-app.json", "DIAG_APP_PROFILE_INVALID")]
+    [DataRow("framework-manifest.json", "DIAG_MODULE_CLOSURE_INVALID")]
+    public async Task Base_json_tolerance_does_not_relax_frozen_manifest_json(string path, string code)
+    {
+        using var fixture = new StandaloneWorkspace();
+        fixture.Write(path, "// credential-probe comment\n" + File.ReadAllText(fixture.PathFor(path)));
+        var result = await DiagnoseAsync(fixture);
+        Assert.AreEqual(1, result.ExitCode);
+        StringAssert.Contains(result.Output, code + " error");
+    }
+
+    [TestMethod]
+    [DataRow("appsettings.json", "flat")]
+    [DataRow("appsettings.json", "flat-case")]
+    [DataRow("appsettings.json", "nested-case")]
+    [DataRow("src/Demo.Host.Api/appsettings.json", "flat")]
+    [DataRow("src/Demo.Host.Api/appsettings.json", "flat-case")]
+    [DataRow("src/Demo.Host.Api/appsettings.json", "nested-case")]
+    [DataRow("src/Demo.Host.Migrator/appsettings.json", "flat")]
+    [DataRow("src/Demo.Host.Migrator/appsettings.json", "flat-case")]
+    [DataRow("src/Demo.Host.Migrator/appsettings.json", "nested-case")]
+    [DataRow("src/Demo.Host.Worker/appsettings.json", "flat")]
+    [DataRow("src/Demo.Host.Worker/appsettings.json", "flat-case")]
+    [DataRow("src/Demo.Host.Worker/appsettings.json", "nested-case")]
+    public async Task Frozen_profile_paths_match_real_configuration_loader(string path, string layout)
+    {
+        using var fixture = new StandaloneWorkspace();
+        var root = JsonNode.Parse(Configuration())!.AsObject();
+        foreach (var key in FrozenProfilePaths)
+        {
+            var value = RemoveProfileValue(root, key);
+            if (layout == "nested-case") SetProfileValue(root, key.ToLowerInvariant(), value);
+            else root[layout == "flat-case" ? key.ToUpperInvariant() : key] = value;
+        }
+        var content = root.ToJsonString();
+        var runtime = RuntimeConfiguration(content);
+        Assert.AreEqual("minimal", runtime[FrozenProfilePaths[0]]);
+        Assert.AreEqual("mysql", runtime[FrozenProfilePaths[1]]);
+        Assert.AreEqual("http://localhost:5181", runtime[FrozenProfilePaths[2]]);
+        fixture.Write(path, content);
+        var result = await DiagnoseAsync(fixture);
+        Assert.AreEqual(0, result.ExitCode, result.Output);
+        StringAssert.Contains(result.Output, "DIAG_APP_PROFILE_OK ok");
+    }
+
+    [TestMethod]
+    [DataRow("appsettings.json", "FullNet:Modules:Preset", false)]
+    [DataRow("appsettings.json", "FullNet:Modules:Preset", true)]
+    [DataRow("appsettings.json", "Database:Provider", false)]
+    [DataRow("appsettings.json", "Database:Provider", true)]
+    [DataRow("src/Demo.Host.Api/appsettings.json", "FullNet:Modules:Preset", false)]
+    [DataRow("src/Demo.Host.Api/appsettings.json", "FullNet:Modules:Preset", true)]
+    [DataRow("src/Demo.Host.Api/appsettings.json", "Database:Provider", false)]
+    [DataRow("src/Demo.Host.Api/appsettings.json", "Database:Provider", true)]
+    [DataRow("src/Demo.Host.Migrator/appsettings.json", "FullNet:Modules:Preset", false)]
+    [DataRow("src/Demo.Host.Migrator/appsettings.json", "FullNet:Modules:Preset", true)]
+    [DataRow("src/Demo.Host.Migrator/appsettings.json", "Database:Provider", false)]
+    [DataRow("src/Demo.Host.Migrator/appsettings.json", "Database:Provider", true)]
+    [DataRow("src/Demo.Host.Worker/appsettings.json", "FullNet:Modules:Preset", false)]
+    [DataRow("src/Demo.Host.Worker/appsettings.json", "FullNet:Modules:Preset", true)]
+    [DataRow("src/Demo.Host.Worker/appsettings.json", "Database:Provider", false)]
+    [DataRow("src/Demo.Host.Worker/appsettings.json", "Database:Provider", true)]
+    public async Task Frozen_profile_empty_alias_overwrite_cannot_preserve_stale_scalar(string path, string key, bool array)
+    {
+        using var fixture = new StandaloneWorkspace();
+        var root = JsonNode.Parse(Configuration())!.AsObject();
+        root[key.ToUpperInvariant()] = array ? new JsonArray() : new JsonObject();
+        var content = root.ToJsonString();
+        Assert.AreEqual(array ? string.Empty : null, RuntimeConfiguration(content)[key]);
+        fixture.Write(path, content);
+        var result = await DiagnoseAsync(fixture);
+        Assert.AreEqual(1, result.ExitCode, result.Output);
+        StringAssert.Contains(result.Output, "DIAG_APP_PROFILE_MISMATCH error");
+        Assert.IsFalse(result.Output.Contains("DIAG_APP_PROFILE_OK", StringComparison.Ordinal));
+    }
+
+    [TestMethod]
+    [DataRow("appsettings.json", "FullNet:Modules:Preset")]
+    [DataRow("appsettings.json", "Database:Provider")]
+    [DataRow("src/Demo.Host.Api/appsettings.json", "FullNet:Modules:Preset")]
+    [DataRow("src/Demo.Host.Api/appsettings.json", "Database:Provider")]
+    [DataRow("src/Demo.Host.Migrator/appsettings.json", "FullNet:Modules:Preset")]
+    [DataRow("src/Demo.Host.Migrator/appsettings.json", "Database:Provider")]
+    [DataRow("src/Demo.Host.Worker/appsettings.json", "FullNet:Modules:Preset")]
+    [DataRow("src/Demo.Host.Worker/appsettings.json", "Database:Provider")]
+    public async Task Frozen_profile_child_values_do_not_overwrite_scalar(string path, string key)
+    {
+        using var fixture = new StandaloneWorkspace();
+        var root = JsonNode.Parse(Configuration())!.AsObject();
+        root[key.ToUpperInvariant()] = new JsonObject { ["Probe"] = "credential-probe" };
+        var content = root.ToJsonString();
+        Assert.AreEqual(key == FrozenProfilePaths[0] ? "minimal" : "mysql", RuntimeConfiguration(content)[key]);
+        fixture.Write(path, content);
+        var result = await DiagnoseAsync(fixture);
+        Assert.AreEqual(0, result.ExitCode, result.Output);
+        StringAssert.Contains(result.Output, "DIAG_APP_PROFILE_OK ok");
+    }
+
+    [TestMethod]
+    [DataRow("FullNet:Modules:Preset", false)]
+    [DataRow("FullNet:Modules:Preset", true)]
+    [DataRow("Database:Provider", false)]
+    [DataRow("Database:Provider", true)]
+    [DataRow("Kestrel:Endpoints:Http:Url", false)]
+    [DataRow("Kestrel:Endpoints:Http:Url", true)]
+    public async Task Frozen_profile_preserves_nested_string_type_validation(string key, bool boolean)
+    {
+        using var fixture = new StandaloneWorkspace();
+        var root = JsonNode.Parse(Configuration())!.AsObject();
+        _ = RemoveProfileValue(root, key);
+        SetProfileValue(root, key, boolean ? JsonValue.Create(true) : JsonValue.Create(42));
+        fixture.Write("src/Demo.Host.Worker/appsettings.json", root.ToJsonString());
+        var result = await DiagnoseAsync(fixture);
+        Assert.AreEqual(1, result.ExitCode, result.Output);
+        StringAssert.Contains(result.Output, "DIAG_APP_PROFILE_INVALID error");
+    }
+
+    [TestMethod]
+    [DataRow("flat", "http://localhost:5181", true)]
+    [DataRow("flat", "http://localhost:5182", false)]
+    [DataRow("flat", "credential-probe", false)]
+    [DataRow("flat", null, false)]
+    [DataRow("flat-case", "http://localhost:5181", true)]
+    [DataRow("flat-case", "http://localhost:5182", false)]
+    [DataRow("flat-case", "credential-probe", false)]
+    [DataRow("flat-case", null, false)]
+    [DataRow("nested-case", "http://localhost:5181", true)]
+    [DataRow("nested-case", "http://localhost:5182", false)]
+    [DataRow("nested-case", "credential-probe", false)]
+    [DataRow("nested-case", null, false)]
+    [DataRow("flat", "ftp://localhost:5181", false)]
+    [DataRow("flat", "http://localhost:5181/credential-probe", false)]
+    [DataRow("flat", "http://localhost:5181/./", false)]
+    [DataRow("flat", "http://localhost:5181/?credential-probe", false)]
+    [DataRow("flat", "http://localhost:5181?credential-probe", false)]
+    [DataRow("flat", "http://+:5181", true)]
+    [DataRow("flat", "http://*:5181", true)]
+    [DataRow("flat", "HTTPS://[::1]:5181/", true)]
+    [DataRow("flat-case", "ftp://localhost:5181", false)]
+    [DataRow("flat-case", "http://localhost:5181/credential-probe", false)]
+    [DataRow("flat-case", "http://localhost:5181/./", false)]
+    [DataRow("flat-case", "http://localhost:5181/?credential-probe", false)]
+    [DataRow("flat-case", "http://localhost:5181?credential-probe", false)]
+    [DataRow("flat-case", "http://+:5181", true)]
+    [DataRow("flat-case", "http://*:5181", true)]
+    [DataRow("flat-case", "HTTPS://[::1]:5181/", true)]
+    [DataRow("nested-case", "ftp://localhost:5181", false)]
+    [DataRow("nested-case", "http://localhost:5181/credential-probe", false)]
+    [DataRow("nested-case", "http://localhost:5181/./", false)]
+    [DataRow("nested-case", "http://localhost:5181/?credential-probe", false)]
+    [DataRow("nested-case", "http://localhost:5181?credential-probe", false)]
+    [DataRow("nested-case", "http://+:5181", true)]
+    [DataRow("nested-case", "http://*:5181", true)]
+    [DataRow("nested-case", "HTTPS://[::1]:5181/", true)]
+    public async Task Frozen_profile_worker_port_uses_flattened_endpoint(string layout, string? endpoint, bool valid)
+    {
+        using var fixture = new StandaloneWorkspace();
+        var root = JsonNode.Parse(Configuration())!.AsObject();
+        var key = FrozenProfilePaths[2];
+        _ = RemoveProfileValue(root, key);
+        if (layout == "nested-case") SetProfileValue(root, key.ToLowerInvariant(), JsonValue.Create(endpoint));
+        else root[layout == "flat-case" ? key.ToUpperInvariant() : key] = JsonValue.Create(endpoint);
+        var content = root.ToJsonString();
+        Assert.AreEqual(endpoint, RuntimeConfiguration(content)[key]);
+        if (endpoint is not null && endpoint != "credential-probe")
+        {
+            // 使用真实监听解析器对照；URI 会误判通配主机并规范化宿主不支持的路径。
+            var binding = BindingAddress.Parse(endpoint);
+            var runtimeMatches = (binding.Scheme.Equals("http", StringComparison.OrdinalIgnoreCase)
+                || binding.Scheme.Equals("https", StringComparison.OrdinalIgnoreCase))
+                && string.IsNullOrEmpty(binding.PathBase) && binding.Port == 5181;
+            Assert.AreEqual(valid, runtimeMatches);
+        }
+        fixture.Write("src/Demo.Host.Worker/appsettings.json", content);
+        var result = await DiagnoseAsync(fixture);
+        Assert.AreEqual(valid ? 0 : 1, result.ExitCode, result.Output);
+        StringAssert.Contains(result.Output, valid ? "DIAG_APP_PROFILE_OK ok" : "DIAG_APP_PROFILE_MISMATCH error");
+    }
+
+    [TestMethod]
+    [DataRow("appsettings.json", "root")]
+    [DataRow("appsettings.json", "modules")]
+    [DataRow("appsettings.json", "database")]
+    [DataRow("appsettings.json", "endpoint")]
+    [DataRow("src/Demo.Host.Api/appsettings.json", "root")]
+    [DataRow("src/Demo.Host.Api/appsettings.json", "modules")]
+    [DataRow("src/Demo.Host.Api/appsettings.json", "database")]
+    [DataRow("src/Demo.Host.Api/appsettings.json", "endpoint")]
+    [DataRow("src/Demo.Host.Migrator/appsettings.json", "root")]
+    [DataRow("src/Demo.Host.Migrator/appsettings.json", "modules")]
+    [DataRow("src/Demo.Host.Migrator/appsettings.json", "database")]
+    [DataRow("src/Demo.Host.Migrator/appsettings.json", "endpoint")]
+    [DataRow("src/Demo.Host.Worker/appsettings.json", "root")]
+    [DataRow("src/Demo.Host.Worker/appsettings.json", "modules")]
+    [DataRow("src/Demo.Host.Worker/appsettings.json", "database")]
+    [DataRow("src/Demo.Host.Worker/appsettings.json", "endpoint")]
+    public async Task Repeated_json_sections_in_declared_hosts_preserve_all_disjoint_values(string path, string shape)
+    {
+        using var fixture = new StandaloneWorkspace();
+        var fragment = shape switch
+        {
+            "modules" => "\"FullNet\":{\"Modules\":{\"Enabled\":[\"Identity\"]}}",
+            "database" => "\"Database\":{\"MySqlGuidStorageMode\":\"Binary16\"}",
+            "endpoint" => "\"Kestrel\":{\"Endpoints\":{\"Http\":{\"Probe\":\"credential-probe\"}}}",
+            _ => "\"Probe\":{\"One\":1},\"Probe\":{\"Two\":2}",
+        };
+        var content = Configuration()[..^1] + "," + fragment + "}";
+        var runtime = RuntimeConfiguration(content);
+        Assert.AreEqual("mysql", runtime[FrozenProfilePaths[1]]);
+        Assert.AreEqual("minimal", runtime[FrozenProfilePaths[0]]);
+        Assert.AreEqual("http://localhost:5181", runtime[FrozenProfilePaths[2]]);
+        fixture.Write(path, content);
+        var result = await DiagnoseAsync(fixture);
+        Assert.AreEqual(0, result.ExitCode, result.Output);
+        StringAssert.Contains(result.Output, "DIAG_APP_PROFILE_OK ok");
+    }
+
+    private static readonly string[] FrozenProfilePaths =
+        ["FullNet:Modules:Preset", "Database:Provider", "Kestrel:Endpoints:Http:Url"];
+
+    private static IConfigurationRoot RuntimeConfiguration(string content) => new ConfigurationBuilder()
+        .AddJsonStream(new MemoryStream(Encoding.UTF8.GetBytes(content))).Build();
+
+    private static JsonNode? RemoveProfileValue(JsonObject root, string key)
+    {
+        var segments = key.Split(':');
+        var parent = root;
+        foreach (var segment in segments[..^1]) parent = parent[segment]!.AsObject();
+        var value = parent[segments[^1]];
+        parent.Remove(segments[^1]);
+        return value;
+    }
+
+    private static void SetProfileValue(JsonObject root, string key, JsonNode? value)
+    {
+        var segments = key.Split(':');
+        var parent = root;
+        foreach (var segment in segments[..^1])
+        {
+            if (parent[segment] is null) parent[segment] = new JsonObject();
+            parent = parent[segment]!.AsObject();
+        }
+        parent[segments[^1]] = value;
     }
 
     private static async Task<(int ExitCode, string Output)> DiagnoseAsync(StandaloneWorkspace fixture)

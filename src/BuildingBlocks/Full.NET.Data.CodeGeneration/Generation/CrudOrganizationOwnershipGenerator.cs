@@ -32,6 +32,10 @@ internal static class CrudOrganizationOwnershipGenerator
     internal static string DataScopeComposerClass() =>
         """
 
+            // 在独立手写 partial 中细化业务记录范围；未实现时编译器移除调用。
+            partial void ConfigureReadDataScope(
+                EffectiveUserDataScope scope, Guid currentUserId, ref DataScopeSqlFilter? filter);
+
             private static class GeneratedTenantDataScopeComposer
             {
                 private const string CountTenantWhereAnchor =
@@ -144,6 +148,7 @@ internal static class CrudOrganizationOwnershipGenerator
                         _ => throw new InvalidOperationException("The configured database provider is not supported."),
                     };
                     // 计数与分页共用固定租户条件追加范围，不依赖 WHERE 前导项或排版。
+                    ConfigureReadDataScope(scope, currentUserId, ref filter);
                     var countStatement = GeneratedTenantDataScopeComposer.ApplyDataScopeFilter(
                         countBase,
                         filter,
@@ -201,6 +206,7 @@ internal static class CrudOrganizationOwnershipGenerator
                         scope,
                         "OrganizationUnitId",
                         currentUserId);
+                    ConfigureReadDataScope(scope, currentUserId, ref filter);
                     var statement = GeneratedTenantDataScopeComposer.ApplyDataScopeFilter(
                         {{schema.ClrTypeName}}Sql.FindByIdStatement,
                         filter,

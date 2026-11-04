@@ -1,47 +1,17 @@
-import { mount } from '@vue/test-utils';
-import { createPinia, setActivePinia } from 'pinia';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
-import GoViewEditorView from './GoViewEditorView.vue';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { mount, flushPromises, type VueWrapper } from '@vue/test-utils';
+import { routeLocationKey, routerKey } from 'vue-router';
+import { createShareSession } from '../test/document-share-fixtures';
+import { goViewProject } from '../test/goview-fixtures';
+let wrapper: VueWrapper;
+afterEach(() => wrapper?.unmount());
+import View from './GoViewEditorView.vue';
 import { getGoViewProject } from '../api/goview-projects';
-
-vi.mock('../api/goview-projects', () => ({
-  getGoViewProject: vi.fn(),
-  updateGoViewProject: vi.fn(),
-  publishGoViewProject: vi.fn()
-}));
-
-vi.mock('vue-router', () => ({
-  useRoute: () => ({ params: { projectId: '00000000-0000-4000-8000-000000000001' } }),
-  useRouter: () => ({ push: vi.fn() })
-}));
-
-const getMock = vi.mocked(getGoViewProject);
-
-function mountView() {
-  const pinia = createPinia();
-  setActivePinia(pinia);
-  return mount(GoViewEditorView, { global: { plugins: [pinia] } });
-}
-
+vi.mock('../api/goview-projects', () => ({ getGoViewProject: vi.fn(), updateGoViewProject: vi.fn(), publishGoViewProject: vi.fn() }));
 describe('GoViewEditorView', () => {
-  beforeEach(() => {
-    getMock.mockResolvedValue({
-      id: '00000000-0000-4000-8000-000000000001',
-      projectKey: 'demo',
-      name: 'Demo',
-      canvasJson: '{"width":1920,"height":1080,"backgroundColor":"#0a1628","components":[]}',
-      latestPublishedVersionNumber: 0,
-      isEnabled: true,
-      createdAtUtc: '2026-01-01T00:00:00Z',
-      updatedAtUtc: null,
-      version: 1
-    });
-  });
-
-  it('hides save action without permission', async () => {
-    const wrapper = mountView();
-    await wrapper.vm.$nextTick();
-    await new Promise(resolve => setTimeout(resolve, 0));
-    expect(wrapper.find('[data-testid="goview-editor-save"]').exists()).toBe(false);
+  beforeEach(() => { vi.resetAllMocks(); vi.mocked(getGoViewProject).mockResolvedValue(goViewProject); });
+  it('只读用户可以读取草稿，但不创建保存入口', async () => {
+    const context = createShareSession(['goview.projects.read']); wrapper = mount(View, { global: { plugins: [context.pinia], provide: { [routerKey as symbol]: { push: vi.fn() }, [routeLocationKey as symbol]: { name: 'goview-editor', params: { projectId: goViewProject.id }, query: {} } } } }); await flushPromises();
+    expect(getGoViewProject).toHaveBeenCalledOnce(); expect(wrapper.find('[data-testid="goview-editor-save"]').exists()).toBe(false);
   });
 });

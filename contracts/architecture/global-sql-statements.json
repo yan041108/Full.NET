@@ -3391,7 +3391,8 @@
       "reason": "匿名挑战消费在账号恢复/注册事务内执行。",
       "requiredSqlFragments": [
         "UPDATE fn_identity_account_challenge",
-        "@ChallengeId"
+        "@ChallengeId",
+        "DeliveryStateKey = 'accepted' OR DeliveryStateKey IS NULL"
       ]
     },
     {
@@ -3672,10 +3673,14 @@
       "declaration": "Full.NET.Modules.Identity.Persistence.AccountChallengeSql.IncrementAttempt",
       "file": "src/Modules/Full.NET.Modules.Identity/Persistence/AccountChallengeSql.cs",
       "category": "host_catalog",
-      "reason": "挑战尝试计数在公开恢复流程更新。",
+      "reason": "挑战错误尝试按当前记录原子累加，并受消费状态和次数上限保护。",
       "requiredSqlFragments": [
         "UPDATE fn_identity_account_challenge",
-        "@ChallengeId"
+        "AttemptCount = AttemptCount + 1",
+        "Version = Version + 1",
+        "WHERE ChallengeId = @ChallengeId",
+        "ConsumedAtUtc IS NULL",
+        "AttemptCount < MaxAttempts"
       ]
     },
     {
@@ -3686,7 +3691,8 @@
       "reason": "公开挑战创建在注册/恢复事务内写入。",
       "requiredSqlFragments": [
         "INSERT INTO fn_identity_account_challenge",
-        "@ChallengeId"
+        "@ChallengeId",
+        "@DeliveryStateKey"
       ]
     },
     {
@@ -13810,6 +13816,115 @@
       "requiredSqlFragments": [
         "@ScopeTenantId",
         "Outcome='accepted'"
+      ]
+    },
+    {
+      "statementName": "identity.invalidate_account_challenge",
+      "declaration": "Full.NET.Modules.Identity.Persistence.AccountChallengeSql.InvalidateById",
+      "file": "src/Modules/Full.NET.Modules.Identity/Persistence/AccountChallengeSql.cs",
+      "category": "host_catalog",
+      "reason": "投递失败仅撤销当前请求所属的挑战，不影响已成功重发的新挑战。",
+      "requiredSqlFragments": [
+        "UPDATE fn_identity_account_challenge",
+        "WHERE ChallengeId = @ChallengeId",
+        "ConsumedAtUtc IS NULL",
+        "ExpiresAtUtc > @ConsumedAtUtc"
+      ]
+    },
+    {
+      "statementName": "notifications.platform.delivery.mark_smtp_inflight",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationPlatformSql.MarkSmtpDeliveryInFlight",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationPlatformSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "Worker 仅使用受信领取的投递标识；SMTP 外发停放必须同时绑定当前租约所有者、世代、修订及未过期窗口，拒绝旧执行者更新。",
+      "requiredSqlFragments": [
+        "fn_notifications_delivery",
+        "Id = @Id",
+        "StatusKey IN ('accepted', 'unknown')",
+        "LeaseOwnerKey = @LeaseOwnerKey",
+        "LeaseGeneration = @LeaseGeneration",
+        "Revision = @Revision",
+        "LeaseExpiresAtUtc > @Now",
+        "StatusKey = 'unknown'",
+        "NextAttemptAtUtc = NULL"
+      ]
+    },
+    {
+      "statementName": "workflow.approval_slot.cancel_pending_by_instance",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.CancelPendingApprovalSlotsByInstance",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "仅在同一本地事务内通过可信 TenantScopeKey 与修订号取消实例成功后，关闭该实例全部未决席位；保留既有投票。",
+      "requiredSqlFragments": [
+        "fn_workflow_approval_slot",
+        "InstanceId = @InstanceId",
+        "DecisionKey IS NULL"
+      ]
+    },
+    {
+      "statementName": "identity.complete_account_challenge_delivery",
+      "declaration": "Full.NET.Modules.Identity.Persistence.AccountChallengeSql.CompleteDelivery",
+      "file": "src/Modules/Full.NET.Modules.Identity/Persistence/AccountChallengeSql.cs",
+      "category": "host_catalog",
+      "reason": "受信挑战调用的单次投递事实，按当前标识和未完成/未对账状态原子完成；未知不能变为可消费凭据。",
+      "requiredSqlFragments": [
+        "UPDATE fn_identity_account_challenge",
+        "ChallengeId = @ChallengeId",
+        "DeliveryStateKey = 'unknown'",
+        "DeliveryCompletedAtUtc IS NULL",
+        "DeliveryReconciledAtUtc IS NULL"
+      ]
+    },
+    {
+      "statementName": "identity.reconcile_account_challenge_delivery",
+      "declaration": "Full.NET.Modules.Identity.Persistence.AccountChallengeSql.ReconcileDelivery",
+      "file": "src/Modules/Full.NET.Modules.Identity/Persistence/AccountChallengeSql.cs",
+      "category": "host_catalog",
+      "reason": "仅撤销当前已完成或过期的未知/拒收挑战，幂等标记对账，不重发、不跨模块读取。",
+      "requiredSqlFragments": [
+        "UPDATE fn_identity_account_challenge",
+        "ChallengeId = @ChallengeId",
+        "DeliveryStateKey IN ('unknown', 'rejected')",
+        "DeliveryReconciledAtUtc IS NULL",
+        "DeliveryCompletedAtUtc IS NOT NULL OR ExpiresAtUtc <= @Now"
+      ]
+    },
+    {
+      "statementName": "identity.scan_account_challenge_delivery.sql_server",
+      "declaration": "Full.NET.Modules.Identity.Persistence.AccountChallengeSql.ScanDeliverySqlServer",
+      "file": "src/Modules/Full.NET.Modules.Identity/Persistence/AccountChallengeSql.cs",
+      "category": "host_catalog",
+      "reason": "仅 Worker 可信 Host 上下文按数据库主键有界扫描本模块挑战；无公开入口，按标识 CAS 对账不重发、不修改受理事实或旧空状态。",
+      "requiredSqlFragments": [
+        "FROM fn_identity_account_challenge",
+        "WHERE (@AfterId IS NULL OR ChallengeId > @AfterId)",
+        "ORDER BY ChallengeId",
+        "TOP (@BatchSize)"
+      ]
+    },
+    {
+      "statementName": "identity.scan_account_challenge_delivery.mysql",
+      "declaration": "Full.NET.Modules.Identity.Persistence.AccountChallengeSql.ScanDeliveryMySql",
+      "file": "src/Modules/Full.NET.Modules.Identity/Persistence/AccountChallengeSql.cs",
+      "category": "host_catalog",
+      "reason": "仅 Worker 可信 Host 上下文按数据库主键有界扫描本模块挑战；无公开入口，按标识 CAS 对账不重发、不修改受理事实或旧空状态。",
+      "requiredSqlFragments": [
+        "FROM fn_identity_account_challenge",
+        "WHERE (@AfterId IS NULL OR ChallengeId > @AfterId)",
+        "ORDER BY ChallengeId",
+        "LIMIT @BatchSize"
+      ]
+    },
+    {
+      "statementName": "notifications.platform.intent.read_delivery_progress",
+      "declaration": "Full.NET.Modules.Notifications.Features.ReadIntentDelivery.NotificationIntentDeliverySql.FindByIdempotency",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Features/ReadIntentDelivery/NotificationIntentDeliveryDirectory.cs",
+      "category": "host_tenant_catalog",
+      "reason": "通知模块按受信 Host/租户作用域与业务回执的固定生产者、幂等键查询自身表，只公开统计；消费模块必须先验证业务读取权限。",
+      "requiredSqlFragments": [
+        "WHERE i.TenantScopeKey = @TenantScopeKey",
+        "AND i.ProducerKey = @ProducerKey",
+        "AND i.IdempotencyKey = @IdempotencyKey"
       ]
     }
   ]

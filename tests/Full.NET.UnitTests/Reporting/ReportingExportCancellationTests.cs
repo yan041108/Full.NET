@@ -67,6 +67,27 @@ public sealed class ReportingExportCancellationTests
         Assert.IsFalse(fixture.Sessions.ReceivedCalls().Any()); Assert.IsFalse(fixture.Queries.ReceivedCalls().Any());
     }
 
+    /// <summary>提供程序忽略取消时，调用边界仍停止后续读写；提交后的取消也不能伪装为成功交付。</summary>
+    [TestMethod]
+    [DataRow("entry")]
+    [DataRow("authorize")]
+    [DataRow("lookup")]
+    [DataRow("write")]
+    [DataRow("reload")]
+    public async Task Cancellation_at_each_await_boundary_stops_result_delivery(string stage)
+    {
+        var fixture = new Fixture(); using var cancellation = new CancellationTokenSource();
+        if (stage == "entry") cancellation.Cancel();
+        if (stage == "authorize") fixture.Sessions.When(value => value.AuthorizeAsync(ReportingExportTaskPermissions.Cancel, Arg.Any<CancellationToken>())).Do(_ => cancellation.Cancel());
+        if (stage == "lookup") fixture.Queries.When(value => value.QuerySingleOrDefaultAsync<ReportingTaskCancellationState>(ReportingExportTaskSql.FindOwnedCancellationState, Arg.Any<object?>(), Arg.Any<CancellationToken>())).Do(_ => cancellation.Cancel());
+        if (stage == "write") fixture.Commands.When(value => value.ExecuteAsync(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>())).Do(_ => cancellation.Cancel());
+        if (stage == "reload") fixture.Queries.When(value => value.QuerySingleOrDefaultAsync<ReportingExportTaskRecord>(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>())).Do(_ => cancellation.Cancel());
+        var error = await Assert.ThrowsExactlyAsync<OperationCanceledException>(() => fixture.Service.CancelAsync(fixture.Id, 5, cancellation.Token));
+        Assert.AreEqual(cancellation.Token, error.CancellationToken);
+        if (stage is "entry" or "authorize" or "lookup") Assert.IsFalse(fixture.Commands.ReceivedCalls().Any());
+        if (stage == "write") await fixture.Queries.DidNotReceive().QuerySingleOrDefaultAsync<ReportingExportTaskRecord>(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>());
+    }
+
     private sealed class Fixture
     {
         internal Guid Id { get; } = Guid.CreateVersion7();

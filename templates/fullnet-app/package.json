@@ -15,7 +15,7 @@
     "generate:crud": "dotnet run --project framework/fullnet/src/Tools/Full.NET.CodeGeneration.Cli --",
     "generate:client": "node .fullnet-tools/openapi/generate-fullnet-client.mjs",
     "check:client": "node .fullnet-tools/openapi/generate-fullnet-client.mjs --check",
-    "diagnose:development": "dotnet run --project framework/fullnet/src/Tools/Full.NET.CodeGeneration.Cli -- diagnose --workspace . --profile development",
-    "diagnose:production": "dotnet run --project framework/fullnet/src/Tools/Full.NET.CodeGeneration.Cli -- diagnose --workspace . --profile production"
+    "diagnose:development": "node .fullnet-tools/diagnose-app.mjs --profile development",
+    "diagnose:production": "node .fullnet-tools/diagnose-app.mjs --profile production"
   }
 }

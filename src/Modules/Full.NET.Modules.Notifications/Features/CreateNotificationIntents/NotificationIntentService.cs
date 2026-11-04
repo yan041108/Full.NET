@@ -71,12 +71,14 @@ internal sealed class NotificationIntentService(
     /// <param name="actorUserId">创建通知的受信业务主体。</param>
     /// <param name="request">模板化通知意图请求。</param>
     /// <param name="cancellationToken">消息租约取消令牌。</param>
+    /// <param name="prepareFirstAcceptance">仅在尚无受理快照时准备内建模板；历史重放不得依赖当前模板状态。</param>
     /// <returns>首次创建或幂等回放结果。</returns>
     internal async Task<Result<NotificationIntentCreateResult>> CreateForTrustedEventAsync(
         NotificationInboxScope scope,
         Guid actorUserId,
         CreateNotificationIntentRequest request,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        Func<CancellationToken, Task>? prepareFirstAcceptance = null)
     {
         var producer = NotificationTemplateCompiler.NormalizeStableKey(request.ProducerKey, "ProducerKey");
         var idempotency = NotificationTemplateCompiler.NormalizeStableKey(request.IdempotencyKey, "IdempotencyKey");
@@ -94,6 +96,12 @@ internal sealed class NotificationIntentService(
         if (existing is not null)
         {
             return await ReplayOrConflictAsync(existing, request, cancellationToken).ConfigureAwait(false);
+        }
+
+        // 先核对历史幂等快照，首次受理才允许调用方在事务外补齐模板。
+        if (prepareFirstAcceptance is not null)
+        {
+            await prepareFirstAcceptance(cancellationToken).ConfigureAwait(false);
         }
 
         var prepared = await PrepareAsync(scope, actorUserId, request, cancellationToken).ConfigureAwait(false);

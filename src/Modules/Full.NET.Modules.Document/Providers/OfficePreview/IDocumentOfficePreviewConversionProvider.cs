@@ -14,7 +14,8 @@ public interface IDocumentOfficePreviewConversionProvider
     /// <param name="cancellationToken">取消令牌。</param>
     /// <returns>
     /// 转换结果：成功时包含 PDF 只读流与字节长度，流由调用方负责释放；
-    /// 失败时返回失败 <see cref="Result{T}"/>，由调用方决定降级或重试，实现不得抛出未捕获异常。
+    /// 可识别的转换或预算失败返回 <see cref="Result{T}"/>；调用方取消必须传播，配置及基础设施故障由调用方治理。
+    /// 输入为借用流，Provider 不得释放；成功输出由调用方持有，必须在 Provider 返回后仍可读取。
     /// </returns>
     Task<Result<DocumentOfficePreviewConversionOutput>> ConvertAsync(
         DocumentOfficePreviewConversionInput request,
@@ -23,7 +24,7 @@ public interface IDocumentOfficePreviewConversionProvider
 }
 
 /// <summary>Office 预览转换输入。</summary>
-/// <param name="SourceFileName">原始文件名，用于推断扩展名。</param>
+/// <param name="SourceFileName">原始文件名，仅作为 HTTP 上传元数据，不可用作进程参数或本地路径。</param>
 /// <param name="SourceMimeType">源 MIME 类型。</param>
 /// <param name="SourceContent">源文件只读流，由调用方负责释放。</param>
 /// <param name="SourceLength">源文件字节长度。</param>

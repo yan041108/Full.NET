@@ -22,6 +22,23 @@ internal static class Endpoint
             .ProducesProblem(401).ProducesProblem(403).ProducesProblem(404)
             .RequireAuthorization(FullNetPermissionPolicies.For(HostDocumentPermissionManagementPermissions.Read));
 
+        group.MapGet("/snapshot/{documentId:guid}", async (
+            Guid documentId,
+            HostDocumentPermissionQueryService queries,
+            IApiResultMapper mapper,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            var result = await queries.GetSnapshotAsync(documentId, cancellationToken).ConfigureAwait(false);
+            return mapper.Map(result, httpContext);
+        })
+        .WithName("documentHostGetDocumentPermissionSnapshot")
+        .Produces<HostDocumentPermissionSnapshotResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .RequireAuthorization(FullNetPermissionPolicies.For(HostDocumentPermissionManagementPermissions.Read));
+
         group.MapGet("/by-document/{documentId:guid}", async (
             Guid documentId,
             HostDocumentPermissionQueryService queries,
@@ -47,6 +64,11 @@ internal static class Endpoint
             HttpContext httpContext,
             CancellationToken cancellationToken) =>
         {
+            if (!Guid.TryParse(httpContext.User.FindFirst("sub")?.Value, out var actorUserId))
+            {
+                return Results.Unauthorized();
+            }
+
             var result = await service.SetPermissionsAsync(request, cancellationToken)
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
@@ -54,6 +76,7 @@ internal static class Endpoint
         .WithName("documentHostSetDocumentPermissions")
         .Produces<IReadOnlyList<HostDocumentPermissionResponse>>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status409Conflict)
         .ProducesProblem(StatusCodes.Status401Unauthorized)
         .ProducesProblem(StatusCodes.Status403Forbidden)
         .ProducesProblem(StatusCodes.Status404NotFound)

@@ -1,3 +1,4 @@
+import { recycleItem } from '../test/document-recycle-fixtures';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { flushPromises, mount } from '@vue/test-utils';
 import { createPinia, setActivePinia } from 'pinia';
@@ -17,6 +18,7 @@ function mountWithPermissions(permissions: string[]) {
   const pinia = createPinia();
   setActivePinia(pinia);
   const session = useSessionStore();
+  session.state = 'authenticated';
   session.currentUser = {
     id: '019bc2b1-2a40-7cc3-8992-a80de51bf296',
     username: 'admin',
@@ -38,6 +40,7 @@ describe('Vue 文档回收站页', () => {
   beforeEach(() => {
     listMock.mockReset().mockResolvedValue({
       items: [{
+        ...recycleItem,
         id: '0198f36e-f7a7-7c52-9cbb-774e67411205',
         title: 'Deleted doc',
         version: 2

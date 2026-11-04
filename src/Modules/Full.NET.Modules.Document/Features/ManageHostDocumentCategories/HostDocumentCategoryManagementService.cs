@@ -225,13 +225,8 @@ internal sealed class HostDocumentCategoryManagementService(
         Guid? excludeId,
         CancellationToken cancellationToken)
     {
-        var existing = await queryExecutor
-            .QuerySingleOrDefaultAsync<DocumentNameConflictRecord>(
-                DocumentCategorySql.FindActiveByParentAndName,
-                DocumentSqlParameters.Create(("ParentId", parentId), ("Name", name)),
-                cancellationToken)
-            .ConfigureAwait(false);
-        return existing is not null && existing.Id != excludeId;
+        return await queryExecutor.QuerySingleOrDefaultAsync<long>(DocumentCategorySql.CountActiveByParentAndName,
+            DocumentSqlParameters.Create(("ParentId", parentId), ("Name", name), ("ExcludeId", excludeId)), cancellationToken).ConfigureAwait(false) > 0;
     }
 
     private static bool TryNormalizeName(string? value, out string name)

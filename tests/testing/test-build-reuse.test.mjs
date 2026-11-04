@@ -278,3 +278,51 @@ test('固定依赖必须禁用引用构建并拒绝空集合或仓库外测试�
   await assert.rejects(f.scoped({ frozenDependencies: bad(async () => ['../outside.cs']) }), /仓库内/);
   await assert.rejects(f.scoped({ frozenDependencies: bad(async () => ['src/source.cs']) }), /仓库内/);
 });
+
+test('同输出目录中的 Migrator DLL、依赖图与运行配置变动会使构建记录失效', async t => {
+  const f = await fixture(t);
+  const files = ['dll', 'deps.json', 'runtimeconfig.json'].map(extension =>
+    path.join(f.cwd, 'bin/Release', `Full.NET.Host.Migrator.${extension}`));
+  const build = async () => {
+    await f.options.build();
+    for (const file of files) await writeFile(file, 'migrator-output');
+  };
+  await f.run({ build });
+  assert.equal((await f.run({ build })).reused, true);
+  for (const file of files) {
+    await writeFile(file, 'changed');
+    await assert.rejects(f.run({ mode: 'verify', build }), /构建|产物/);
+    assert.equal((await f.run({ build })).reused, false);
+    await rm(file);
+    await assert.rejects(f.run({ mode: 'verify', build }), /构建|产物/);
+    assert.equal((await f.run({ build })).reused, false);
+  }
+  assert.equal(f.builds(), 7);
+});
+
+function commitFixture(cwd, message, empty = false) {
+  execFileSync('git', ['add', '.'], { cwd });
+  execFileSync('git', ['-c', 'user.name=Build Fixture', '-c', 'user.email=fixture@example.invalid',
+    '-c', 'commit.gpgsign=false', '-c', `core.hooksPath=${path.join(cwd, '.git', 'no-hooks')}`,
+    'commit', ...(empty ? ['--allow-empty'] : []), '-m', message], { cwd });
+}
+
+test('文件内容相同但 Git 修订改变时必须重建 SDK 的版本元数据', async t => {
+  const f = await fixture(t);
+  commitFixture(f.cwd, 'initial');
+  await f.run();
+  commitFixture(f.cwd, 'metadata only', true);
+  await assert.rejects(f.run({ mode: 'verify' }), /构建|记录/);
+  assert.equal((await f.run()).reused, false);
+  assert.equal(f.builds(), 2);
+});
+
+test('构建过程中 Git 修订改变不能登记为原修订的有效产物', async t => {
+  const f = await fixture(t);
+  commitFixture(f.cwd, 'initial');
+  await assert.rejects(f.run({ build: async () => {
+    await f.options.build();
+    commitFixture(f.cwd, 'during build', true);
+  } }), /构建期间.*(?:修订|版本|源码)/);
+  await assert.rejects(f.run({ mode: 'verify' }), /构建|记录/);
+});

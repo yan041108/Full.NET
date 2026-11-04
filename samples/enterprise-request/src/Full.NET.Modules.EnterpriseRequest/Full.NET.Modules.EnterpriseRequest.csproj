@@ -10,6 +10,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="MemoryPack" />
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
     <ProjectReference Include="../../../../src/BuildingBlocks/Full.NET.Abstractions/Full.NET.Abstractions.csproj" />
     <ProjectReference Include="../../../../src/BuildingBlocks/Full.NET.Data.Abstractions/Full.NET.Data.Abstractions.csproj" />
@@ -20,6 +21,7 @@
     <ProjectReference Include="../../../../src/Modules/Full.NET.Modules.Organization.Contracts/Full.NET.Modules.Organization.Contracts.csproj" />
     <ProjectReference Include="../../../../src/Modules/Full.NET.Modules.Files.Contracts/Full.NET.Modules.Files.Contracts.csproj" />
     <ProjectReference Include="../../../../src/Modules/Full.NET.Modules.Workflow.Contracts/Full.NET.Modules.Workflow.Contracts.csproj" />
+    <ProjectReference Include="../../../../src/Modules/Full.NET.Modules.Notifications.Contracts/Full.NET.Modules.Notifications.Contracts.csproj" />
     <ProjectReference Include="../../../../src/Modules/Full.NET.Modules.ImportExport.Contracts/Full.NET.Modules.ImportExport.Contracts.csproj" />
     <ProjectReference Include="../../../../src/Modules/Full.NET.Modules.Reporting.Contracts/Full.NET.Modules.Reporting.Contracts.csproj" />
     <ProjectReference Include="../../../../src/Modules/Full.NET.Modules.Printing.Contracts/Full.NET.Modules.Printing.Contracts.csproj" />
@@ -28,6 +30,5 @@
 
   <ItemGroup>
     <EmbeddedResource Include="Migrations/**/*.sql" />
-    <PackageReference Include="MemoryPack" />
   </ItemGroup>
 </Project>

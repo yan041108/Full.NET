@@ -20,7 +20,9 @@ internal sealed class PrintingTemplatePreviewService(
         ClaimsPrincipal principal,
         CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         var templateResult = await templateQueries.GetByIdAsync(templateId, cancellationToken).ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
         if (!templateResult.IsSuccess || templateResult.Value is null)
         {
             return Result<PrintingTemplatePreviewResponse>.Failure(templateResult.Error!);
@@ -44,20 +46,32 @@ internal sealed class PrintingTemplatePreviewService(
         var versionResult = await templateQueries
             .GetVersionAsync(templateId, versionNumber, cancellationToken)
             .ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
         if (!versionResult.IsSuccess || versionResult.Value is null)
         {
             return Result<PrintingTemplatePreviewResponse>.Failure(versionResult.Error!);
         }
 
         var bindingResult = await bindingService
-            .ResolveAsync(template.FormSchemaKey, principal, cancellationToken)
+            .ResolveAsync(template.FormSchemaKey, principal, cancellationToken, request.RecordId)
             .ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
         if (!bindingResult.IsSuccess || bindingResult.Value is null)
         {
             return Result<PrintingTemplatePreviewResponse>.Failure(bindingResult.Error!);
         }
 
-        var html = PrintingHtmlRenderer.Render(versionResult.Value.LayoutHtml, bindingResult.Value);
+        string html;
+        try
+        {
+            html = PrintingHtmlRenderer.Render(versionResult.Value.LayoutHtml, bindingResult.Value, cancellationToken);
+        }
+        catch (PrintingRenderingLimitException exception)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            return Result<PrintingTemplatePreviewResponse>.Failure(new Error(exception.Code,
+                "The printing preview exceeds the supported rendering limits.", ErrorType.Validation));
+        }
         return Result<PrintingTemplatePreviewResponse>.Success(new PrintingTemplatePreviewResponse(
             template.Id,
             template.TemplateKey,

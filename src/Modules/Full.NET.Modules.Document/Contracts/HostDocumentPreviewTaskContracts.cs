@@ -20,6 +20,7 @@ public static class HostDocumentPreviewTaskStatusKeys
     /// <summary>已取消；旧领取版本不能再提交。</summary>
     public const string Cancelled = "cancelled";
 
+
     /// <summary>已发布的全部状态键。</summary>
     public static IReadOnlyList<string> All { get; } = Array.AsReadOnly(
     [

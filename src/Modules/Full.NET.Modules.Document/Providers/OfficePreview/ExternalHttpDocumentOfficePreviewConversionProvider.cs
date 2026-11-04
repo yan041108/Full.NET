@@ -19,7 +19,8 @@ internal sealed class ExternalHttpDocumentOfficePreviewConversionProvider(
         string workingDirectory,
         CancellationToken cancellationToken = default)
     {
-        var current = options.CurrentValue.ExternalHttp;
+        var snapshot = options.CurrentValue;
+        var current = snapshot.ExternalHttp;
         if (string.IsNullOrWhiteSpace(current.BaseUrl))
         {
             return Result<DocumentOfficePreviewConversionOutput>.Failure(
@@ -30,15 +31,15 @@ internal sealed class ExternalHttpDocumentOfficePreviewConversionProvider(
         }
 
         using var client = httpClientFactory.CreateClient(nameof(ExternalHttpDocumentOfficePreviewConversionProvider));
-        client.Timeout = TimeSpan.FromSeconds(Math.Clamp(options.CurrentValue.TimeoutSeconds, 5, 3600));
+        client.Timeout = TimeSpan.FromSeconds(Math.Clamp(snapshot.TimeoutSeconds, 5, 3600));
         using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        deadline.CancelAfter(TimeSpan.FromSeconds(Math.Clamp(options.CurrentValue.TimeoutSeconds, 5, 3600)));
+        deadline.CancelAfter(TimeSpan.FromSeconds(Math.Clamp(snapshot.TimeoutSeconds, 5, 3600)));
         cancellationToken = deadline.Token;
         var inputPath = Path.Combine(workingDirectory, $"http-input-{Guid.NewGuid():N}.bin");
         await using var input = new FileStream(inputPath, FileMode.CreateNew, FileAccess.ReadWrite, FileShare.None,
             16 * 1024, FileOptions.Asynchronous | FileOptions.DeleteOnClose);
         await OfficePreviewInputBudget.CopyAsync(request.SourceContent, input,
-            Math.Min(options.CurrentValue.MaxInputBytes, options.CurrentValue.MaxTemporaryBytes), cancellationToken).ConfigureAwait(false);
+            Math.Min(snapshot.MaxInputBytes, snapshot.MaxTemporaryBytes), cancellationToken).ConfigureAwait(false);
         input.Position = 0;
         using var form = new MultipartFormDataContent();
         var streamContent = new StreamContent(input);
@@ -72,7 +73,7 @@ internal sealed class ExternalHttpDocumentOfficePreviewConversionProvider(
         try
         {
             var length = await BoundedHttpContent.CopyToAsync(response.Content, output,
-                Math.Min(options.CurrentValue.MaxOutputBytes, options.CurrentValue.MaxTemporaryBytes - input.Length), cancellationToken).ConfigureAwait(false);
+                Math.Min(snapshot.MaxOutputBytes, snapshot.MaxTemporaryBytes - input.Length), cancellationToken).ConfigureAwait(false);
             output.Position = 0;
             return Result<DocumentOfficePreviewConversionOutput>.Success(new(output, length));
         }

@@ -78,6 +78,13 @@ internal sealed class TenantResourceFileStore(IQueryExecutor queries, ICommandEx
         buffered.Position = 0;
         var digest = Convert.ToHexString(await SHA256.HashDataAsync(buffered, cancellationToken).ConfigureAwait(false));
         buffered.Position = 0;
+        // 大文件读取和摘要计算可能跨越停用或上下文切换；进入配额和持久化前重新核对可信租户。
+        if (RequireScope(ownerModuleKey, resourceId) != tenantId
+            || !await activeTenants.IsActiveTenantAsync(tenantId, cancellationToken).ConfigureAwait(false))
+        {
+            return Failure<TenantResourceFileReference>(FilesErrorCodes.TenantInactive, ErrorType.Validation);
+        }
+
         var fileId = ids.NewId();
         var operationId = fileId.ToString("N");
         var reserveResult = await FilesHostExecutionScope.RunAsync(
@@ -96,6 +103,17 @@ internal sealed class TenantResourceFileStore(IQueryExecutor queries, ICommandEx
             return Failure<TenantResourceFileReference>(FilesErrorCodes.StorageQuotaExceeded, ErrorType.Conflict);
 
         var provider = providers.DefaultProvider;
+        try
+        {
+            var uploadOwner = resourceOwners.SingleOrDefault(item => item.OwnerModuleKey == ownerModuleKey) as ITenantResourceFileUploadOwner;
+            if (uploadOwner is not null)
+                await uploadOwner.BeginUploadAsync(new(resourceId, fileId, actorUserId, fileName, buffered.Length, clock.UtcNow), cancellationToken).ConfigureAwait(false);
+        }
+        catch
+        {
+            await ReleaseQuotaReservationAsync(tenantId, operationId, cancellationToken).ConfigureAwait(false);
+            throw;
+        }
         var storageKey = $"tenant-resources/{tenantId:N}/{fileId:N}";
         var parameters = Parameters(ownerModuleKey, resourceId, fileId);
         parameters["OriginalFileName"] = fileName;
@@ -118,7 +136,7 @@ internal sealed class TenantResourceFileStore(IQueryExecutor queries, ICommandEx
         }
         catch
         {
-            await DeleteRevokedObjectAsync(ownerModuleKey, resourceId, fileId, provider, storageKey).ConfigureAwait(false);
+            await DeleteRevokedObjectAsync(ownerModuleKey, resourceId, fileId, provider, storageKey, parameters).ConfigureAwait(false);
             await ReleaseQuotaReservationAsync(tenantId, operationId, cancellationToken).ConfigureAwait(false);
             throw;
         }
@@ -156,7 +174,7 @@ internal sealed class TenantResourceFileStore(IQueryExecutor queries, ICommandEx
         {
             // 响应失败、异常或取消都可能晚于租约清理；独立短令牌只删除权威已撤销的对象。
             if (!published)
-                await DeleteRevokedObjectAsync(ownerModuleKey, resourceId, fileId, provider, storageKey).ConfigureAwait(false);
+                await DeleteRevokedObjectAsync(ownerModuleKey, resourceId, fileId, provider, storageKey, parameters).ConfigureAwait(false);
         }
     }
 
@@ -167,13 +185,16 @@ internal sealed class TenantResourceFileStore(IQueryExecutor queries, ICommandEx
     /// <param name="provider">已选定存储。</param>
     /// <param name="storageKey">本次独立对象键。</param>
     private async Task DeleteRevokedObjectAsync(string ownerModuleKey, Guid resourceId, Guid fileId,
-        IFileStorageProvider provider, string storageKey)
+        IFileStorageProvider provider, string storageKey, Dictionary<string, object?> cleanupIntent)
     {
         using var cleanup = new CancellationTokenSource(TimeSpan.FromSeconds(3));
         try
         {
             var current = await queries.QuerySingleOrDefaultAsync<TenantResourceFileRecord>(TenantResourceFileSql.FindOwned,
                 Parameters(ownerModuleKey, resourceId, fileId), cleanup.Token).ConfigureAwait(false);
+            // 删除失败时仍让 Worker 能找到本次迟到对象，不丢失原始存储元数据。
+            if (current is null)
+                await commands.ExecuteAsync(TenantResourceFileSql.InsertReleasedIntent, cleanupIntent, cleanup.Token).ConfigureAwait(false);
             if (current is null || current.StatusKey == "released")
                 await provider.DeleteAsync(storageKey, cleanup.Token).ConfigureAwait(false);
         }
@@ -219,9 +240,11 @@ internal sealed class TenantResourceFileStore(IQueryExecutor queries, ICommandEx
         {
             return Failure<TenantResourceFileContent>(FilesErrorCodes.FileNotFound, ErrorType.NotFound);
         }
-        var stream = await providers.Resolve(record.ProviderKey).OpenReadAsync(record.StorageKey, cancellationToken)
-            .ConfigureAwait(false);
-        return Result<TenantResourceFileContent>.Success(new(stream, record.ContentType, record.OriginalFileName));
+        var content = await FileStorageContentReader.OpenAsync(
+            providers.Resolve(record.ProviderKey), record.StorageKey, cancellationToken).ConfigureAwait(false);
+        return content.IsSuccess
+            ? Result<TenantResourceFileContent>.Success(new(content.Value!, record.ContentType, record.OriginalFileName))
+            : Result<TenantResourceFileContent>.Failure(content.Error!);
     }
 
     /// <inheritdoc />

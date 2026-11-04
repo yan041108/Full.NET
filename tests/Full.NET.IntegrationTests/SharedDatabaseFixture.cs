@@ -37,6 +37,8 @@ public static class SharedDatabaseFixture
     private static NativeContainerResourceProfile.Lease? _mySqlLease;
     private static RedisContainer? _redis;
     private static NativeContainerResourceProfile.Lease? _redisLease;
+    private static readonly OwnedTestDatabases Databases = new();
+    private static int _closing;
     private static readonly SemaphoreSlim SqlServerStartLock = new(1, 1);
     private static readonly SemaphoreSlim MySqlStartLock = new(1, 1);
     private static readonly SemaphoreSlim RedisStartLock = new(1, 1);
@@ -107,49 +109,85 @@ public static class SharedDatabaseFixture
     [AssemblyCleanup]
     public static async Task CleanupAsync()
     {
-        if (!ReuseContainers)
+        // 先封堵晚启动；容器移除再持启动锁等待已经开始的启动动作。
+        Volatile.Write(ref _closing, 1);
+        var failures = new List<Exception>();
+        async Task AttemptAsync(Func<Task> cleanup)
         {
-            if (_redis is not null)
-            {
-                if (_redisLease is { } lease) await lease.DisposeContainerAsync(_redis);
-                else await _redis.DisposeAsync();
-                _redisLease = null;
-                _redis = null;
-            }
-
-            if (_mySql is not null)
-            {
-                if (_mySqlLease is { } lease) await lease.DisposeContainerAsync(_mySql);
-                else await _mySql.DisposeAsync();
-                _mySqlLease = null;
-                _mySql = null;
-            }
-
-            if (_sqlServer is not null)
-            {
-                if (_sqlServerLease is { } lease) await lease.DisposeContainerAsync(_sqlServer);
-                else await _sqlServer.DisposeAsync();
-                _sqlServerLease = null;
-                _sqlServer = null;
-            }
+            try { await cleanup(); }
+            catch (Exception error) { failures.Add(error); }
         }
 
-        await Messaging.KafkaFixture.DisposeAsync();
-        await Messaging.CdcDebeziumPipelineFixture.DisposeAsync();
+        // 复用容器仍须释放本次运行的临时库；schema 模板与其他进程的库不在登记簿中。
+        if (ReuseContainers)
+        {
+            await AttemptAsync(Databases.CleanupAsync);
+        }
+        else
+        {
+            // 私有容器成功移除即释放其中全部数据库，避免逐库删除后再重复销毁容器。
+            await AttemptAsync(() => Databases.RetireAsync(
+                () => WithStartLockAsync(MySqlStartLock, async () =>
+                {
+                    if (_mySql is not null)
+                    {
+                        if (_mySqlLease is { } lease) await lease.DisposeContainerAsync(_mySql);
+                        else await _mySql.DisposeAsync();
+                        _mySqlLease = null; _mySql = null;
+                    }
+                }),
+                () => WithStartLockAsync(SqlServerStartLock, async () =>
+                {
+                    if (_sqlServer is not null)
+                    {
+                        if (_sqlServerLease is { } lease) await lease.DisposeContainerAsync(_sqlServer);
+                        else await _sqlServer.DisposeAsync();
+                        _sqlServerLease = null; _sqlServer = null;
+                    }
+                })));
+            await AttemptAsync(() => WithStartLockAsync(RedisStartLock, async () =>
+            {
+                if (_redis is not null)
+                    {
+                        if (_redisLease is { } lease) await lease.DisposeContainerAsync(_redis);
+                        else await _redis.DisposeAsync();
+                        _redisLease = null; _redis = null;
+                    }
+            }));
+        }
+
+        await AttemptAsync(async () => await Messaging.KafkaFixture.DisposeAsync());
+        await AttemptAsync(async () => await Messaging.CdcDebeziumPipelineFixture.DisposeAsync());
+        if (failures.Count > 0) throw new AggregateException("测试资源清理失败。", failures);
+    }
+
+    private static async Task WithStartLockAsync(SemaphoreSlim gate, Func<Task> cleanup)
+    {
+        await gate.WaitAsync();
+        try { await cleanup(); }
+        finally { gate.Release(); }
+    }
+
+    private static void EnsureOpen()
+    {
+        if (Volatile.Read(ref _closing) != 0)
+            throw new InvalidOperationException("测试资源已进入清理，不能重新启动容器。");
     }
 
     /// <summary>
     /// 在共享 SQL Server 实例上创建一个隔离数据库，返回指向该库的连接串。
     /// </summary>
-    public static async Task<string> CreateSqlServerDatabaseAsync()
+    public static Task<string> CreateSqlServerDatabaseAsync() => CreateSqlServerDatabaseAsync(Databases);
+
+    internal static async Task<string> CreateSqlServerDatabaseAsync(OwnedTestDatabases owner)
     {
         var container = await GetOrStartSqlServerAsync();
         var baseConnectionString = container.GetConnectionString();
-        var databaseName = CreateDatabaseName();
-        await using (var admin = new SqlConnection(baseConnectionString))
+        var databaseName = await owner.CreateAsync(async name =>
         {
-            await admin.ExecuteAsync($"CREATE DATABASE [{databaseName}];");
-        }
+            await using var admin = new SqlConnection(baseConnectionString);
+            await admin.ExecuteAsync($"CREATE DATABASE [{name}];");
+        }, name => DropSqlServerDatabaseAsync(baseConnectionString, name));
 
         return new SqlConnectionStringBuilder(baseConnectionString)
         {
@@ -160,11 +198,12 @@ public static class SharedDatabaseFixture
     /// <summary>
     /// 在共享 MySQL 实例上以 root 创建隔离数据库并授权应用账户，返回应用账户连接串。
     /// </summary>
-    public static async Task<string> CreateMySqlDatabaseAsync()
+    public static Task<string> CreateMySqlDatabaseAsync() => CreateMySqlDatabaseAsync(Databases);
+
+    internal static async Task<string> CreateMySqlDatabaseAsync(OwnedTestDatabases owner)
     {
         var container = await GetOrStartMySqlAsync();
         var appConnectionString = container.GetConnectionString();
-        var databaseName = CreateDatabaseName();
 
         // 官方 mysql 镜像只授予应用账户其初始库的权限；建库与授权必须由 root 完成。
         var rootConnectionString = new MySqlConnectionStringBuilder(appConnectionString)
@@ -173,15 +212,19 @@ public static class SharedDatabaseFixture
             Password = Password,
             Database = string.Empty,
         }.ConnectionString;
-        await using (var root = new MySqlConnection(rootConnectionString))
+        var databaseName = await owner.CreateAsync(async name =>
         {
-            await root.ExecuteAsync($"CREATE DATABASE `{databaseName}`;");
+            await using var root = new MySqlConnection(rootConnectionString);
+            await root.ExecuteAsync($"CREATE DATABASE `{name}`;");
+        }, name => DropMySqlDatabaseAsync(rootConnectionString, appConnectionString, name), async name =>
+        {
+            await using var root = new MySqlConnection(rootConnectionString);
             await root.ExecuteAsync(
-                $"GRANT ALL PRIVILEGES ON `{databaseName}`.* "
+                $"GRANT ALL PRIVILEGES ON `{name}`.* "
                 + $"TO '{MySqlAppUser}'@'%'; "
                 + $"GRANT REPLICATION SLAVE, REPLICATION CLIENT ON *.* "
                 + $"TO '{MySqlAppUser}'@'%'; FLUSH PRIVILEGES;");
-        }
+        });
 
         return new MySqlConnectionStringBuilder(appConnectionString)
         {
@@ -228,6 +271,7 @@ public static class SharedDatabaseFixture
 
     private static async Task<MsSqlContainer> GetOrStartSqlServerAsync()
     {
+        EnsureOpen();
         if (_sqlServer is not null)
         {
             return _sqlServer;
@@ -236,6 +280,7 @@ public static class SharedDatabaseFixture
         await SqlServerStartLock.WaitAsync();
         try
         {
+            EnsureOpen();
             if (_sqlServer is not null)
             {
                 return _sqlServer;
@@ -299,6 +344,7 @@ public static class SharedDatabaseFixture
 
     private static async Task<MySqlContainer> GetOrStartMySqlAsync()
     {
+        EnsureOpen();
         if (_mySql is not null)
         {
             return _mySql;
@@ -307,6 +353,7 @@ public static class SharedDatabaseFixture
         await MySqlStartLock.WaitAsync();
         try
         {
+            EnsureOpen();
             if (_mySql is not null)
             {
                 return _mySql;
@@ -375,6 +422,7 @@ public static class SharedDatabaseFixture
 
     private static async Task<RedisContainer> GetOrStartRedisAsync()
     {
+        EnsureOpen();
         if (_redis is not null)
         {
             return _redis;
@@ -383,6 +431,7 @@ public static class SharedDatabaseFixture
         await RedisStartLock.WaitAsync();
         try
         {
+            EnsureOpen();
             if (_redis is not null)
             {
                 return _redis;
@@ -483,7 +532,42 @@ public static class SharedDatabaseFixture
 
     internal static string MySqlApplicationUserName => MySqlAppUser;
 
-    // 库名需短于 MySQL 的 64 字符上限并且是合法标识符；固定前缀 + N 格式 GUID 满足两库要求。
-    private static string CreateDatabaseName() =>
-        "fullnet_it_" + Guid.NewGuid().ToString("N");
+    private static async Task DropSqlServerDatabaseAsync(string serverConnectionString, string name)
+    {
+        var target = new SqlConnectionStringBuilder(serverConnectionString) { InitialCatalog = name }.ConnectionString;
+        using (var pool = new SqlConnection(target)) SqlConnection.ClearPool(pool);
+        var master = new SqlConnectionStringBuilder(serverConnectionString) { InitialCatalog = "master" }.ConnectionString;
+        using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(60));
+        await using var admin = new SqlConnection(master);
+        await admin.OpenAsync(deadline.Token);
+        var quoted = QuoteSqlServerIdent(name);
+        await admin.ExecuteAsync(new CommandDefinition($"""
+            IF DB_ID(@Name) IS NOT NULL
+            BEGIN
+                ALTER DATABASE {quoted} SET SINGLE_USER WITH ROLLBACK IMMEDIATE;
+                DROP DATABASE {quoted};
+            END;
+            """, new { Name = name }, commandTimeout: 60, cancellationToken: deadline.Token));
+    }
+
+    private static async Task DropMySqlDatabaseAsync(string rootConnectionString, string appConnectionString, string name)
+    {
+        var target = new MySqlConnectionStringBuilder(appConnectionString) { Database = name }.ConnectionString;
+        using (var pool = new MySqlConnection(target)) MySqlConnection.ClearPool(pool);
+        using (var pool = new MySqlConnection(new MySqlConnectionStringBuilder(rootConnectionString) { Database = name }.ConnectionString))
+            MySqlConnection.ClearPool(pool);
+        using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(60));
+        await using var root = new MySqlConnection(rootConnectionString);
+        await root.OpenAsync(deadline.Token);
+        await root.ExecuteAsync(new CommandDefinition($"DROP DATABASE IF EXISTS {QuoteMySqlIdent(name)};",
+            commandTimeout: 60, cancellationToken: deadline.Token));
+        // MySQL 删除库不会删除库级授权；仅撤销该库的授权，不触碰应用账户的全局复制权限。
+        var grant = await root.ExecuteScalarAsync<int>(new CommandDefinition(
+            "SELECT COUNT(*) FROM mysql.db WHERE User = @User AND Host = '%' AND Db = @Name;",
+            new { User = MySqlAppUser, Name = name }, commandTimeout: 60, cancellationToken: deadline.Token));
+        if (grant > 0)
+            await root.ExecuteAsync(new CommandDefinition(
+                $"REVOKE ALL PRIVILEGES ON {QuoteMySqlIdent(name)}.* FROM '{MySqlAppUser}'@'%';",
+                commandTimeout: 60, cancellationToken: deadline.Token));
+    }
 }

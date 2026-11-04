@@ -364,6 +364,7 @@ internal static class TenantMembershipSql
         SqlDataScope.TenantRequired,
         SqlTenantBinding.CurrentTenantId);
 
+    // 两个正式提供程序共用同一成员 JOIN；TenantId 始终由执行器绑定可信上下文。
     public static readonly SqlStatement FindActiveMemberSelectionsByUserIds = new(
         "identity.tenant_members.find_active_selections_by_user_ids",
         """

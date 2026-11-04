@@ -85,6 +85,27 @@ namespace Full.NET.UnitTests.Identity;
 [TestClass]
 public sealed class IdentityModuleRegistrationTests
 {
+    /// <summary>API 与 Worker 共享同一权限解释器实例，重复装配不产生旁路实现。</summary>
+    [TestMethod]
+    [DataRow(false)]
+    [DataRow(true)]
+    public void Permission_evaluator_contract_reuses_singleton_in_each_host_profile(bool background)
+    {
+        var services = new ServiceCollection();
+        var configuration = new ConfigurationBuilder().Build();
+        for (var iteration = 0; iteration < 2; iteration++)
+        {
+            if (background) new IdentityModule().AddBackgroundServices(services, configuration);
+            else services.AddIdentityAuthorization(configuration);
+        }
+        using var provider = services.BuildServiceProvider();
+        var evaluator = provider.GetRequiredService<IIdentityPermissionEvaluator>();
+        Assert.AreSame(provider.GetRequiredService<PermissionClaimEvaluator>(), evaluator);
+        Assert.AreEqual(1, provider.GetServices<IIdentityPermissionEvaluator>().Count());
+        Assert.AreEqual(ServiceLifetime.Singleton,
+            services.Single(descriptor => descriptor.ServiceType == typeof(IIdentityPermissionEvaluator)).Lifetime);
+    }
+
     [TestMethod]
     [DataRow(false)]
     [DataRow(true)]
@@ -138,7 +159,11 @@ public sealed class IdentityModuleRegistrationTests
             SnapshotIdentityOwnedRegistrations(splitServices.Where(descriptor =>
                 descriptor.ImplementationType != typeof(AuthenticationEventRetentionHostedProcessor)
                 && descriptor.ImplementationType != typeof(IdentityFeatures.TenantSeatOperations.TenantSeatRecoveryWorker)
-                && descriptor.ImplementationType != typeof(Full.NET.Modules.Identity.Retention.IdentityEphemeralStateRetentionHostedService))));
+                && descriptor.ImplementationType != typeof(Full.NET.Modules.Identity.Retention.IdentityEphemeralStateRetentionHostedService)
+                && descriptor.ImplementationType != typeof(IdentityFeatures.AccountChallenges.AccountChallengeReconciliationHostedProcessor)
+                && descriptor.ImplementationType != typeof(IdentityFeatures.AccountChallenges.AccountChallengeReconciliationRunner)
+                && descriptor.ImplementationType != typeof(IdentityFeatures.AccountChallenges.AccountChallengeReconciliationOptionsValidator))));
+
         CollectionAssert.AreEqual(
             ExpectedIdentityOwnedRegistrations(),
             SnapshotIdentityOwnedRegistrations(moduleServices));
@@ -230,6 +255,17 @@ public sealed class IdentityModuleRegistrationTests
             descriptor.ServiceType == typeof(ITenantMemberSelectionDirectory)
             && descriptor.ImplementationType == typeof(TenantMemberSelectionDirectory)
             && descriptor.Lifetime == ServiceLifetime.Scoped));
+        Assert.IsTrue(services.Any(descriptor =>
+            descriptor.ServiceType == typeof(ITenantMemberBatchSelectionDirectory)
+            && descriptor.ImplementationFactory is not null
+            && descriptor.Lifetime == ServiceLifetime.Scoped));
+        // Worker 也装配工作流候选服务，必须真实解析分页成员 Port，不能只有批量目录。
+        services.AddSingleton(Substitute.For<IQueryExecutor>());
+        services.AddSingleton(Substitute.For<Full.NET.Abstractions.Tenancy.ICurrentTenant>());
+        services.AddOptions<DatabaseOptions>();
+        using var provider = services.BuildServiceProvider();
+        using var scope = provider.CreateScope();
+        Assert.IsInstanceOfType<TenantMemberSelectionDirectory>(scope.ServiceProvider.GetRequiredService<ITenantMemberSelectionDirectory>());
     }
 
     [TestMethod]
@@ -440,6 +476,7 @@ public sealed class IdentityModuleRegistrationTests
 
         RegistrationExpectation.Self<PermissionClaimEvaluator>(
             ServiceLifetime.Singleton),
+        RegistrationExpectation.Factory<IIdentityPermissionEvaluator>(ServiceLifetime.Singleton),
         RegistrationExpectation.Type<
             IPermissionSnapshotReader,
             PermissionSnapshotReader>(ServiceLifetime.Scoped),
@@ -608,6 +645,7 @@ public sealed class IdentityModuleRegistrationTests
         RegistrationExpectation.Type<
             ITenantMemberSelectionDirectory,
             TenantMemberSelectionDirectory>(ServiceLifetime.Scoped),
+        RegistrationExpectation.Type<ITenantMemberBatchSelectionDirectory, TenantMemberSelectionDirectory>(ServiceLifetime.Scoped),
         RegistrationExpectation.Type<ITenantActiveMemberCountPort, TenantActiveMemberCountPort>(ServiceLifetime.Scoped),
         RegistrationExpectation.Self<HostTenantUserSelectionDirectory>(ServiceLifetime.Scoped),
         RegistrationExpectation.Factory<IHostTenantUserSelectionDirectory>(
@@ -706,6 +744,8 @@ public sealed class IdentityModuleRegistrationTests
             RegistrationKind.Type,
             typeof(IdentityModule).Assembly.GetType(
                 "Full.NET.Modules.Identity.Features.OrganizationUnitProjection.OrganizationUnitChangedKafkaSubscription")),
+        RegistrationExpectation.Type<IIntegrationEventHandler,
+            Full.NET.Modules.Identity.Features.HostFileReferences.IdentityProfileMediaUnboundIntegrationEventHandler>(ServiceLifetime.Scoped),
         new RegistrationExpectation(
             typeof(IIntegrationEventHandlerRegistry),
             ServiceLifetime.Singleton,

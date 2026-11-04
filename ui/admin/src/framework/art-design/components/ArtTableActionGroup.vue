@@ -18,42 +18,43 @@ const props = withDefaults(defineProps<{
 const { t } = useAdminI18n();
 const slots = useSlots();
 
-// 父级替换行对象时插槽函数会改变，却不会使 computed 自动失效；每轮渲染须读取当前操作与回调。
+// 表格复用行时插槽闭包会替换；必须在渲染中读取，不能缓存旧行的身份和事件处理器。
 const actionNodes = () => flattenSlotVNodes(slots.default?.() ?? []);
-const visibleNodes = () => actionNodes().slice(0, props.maxVisible);
-const overflowNodes = () => actionNodes().slice(props.maxVisible);
 </script>
 
 <template>
   <div class="art-table-action-group" data-testid="art-table-action-group">
-    <template v-for="(node, index) in visibleNodes()" :key="`visible-${index}`">
-      <component :is="node" />
-    </template>
-
-    <ElDropdown
-      v-if="overflowNodes().length > 0"
-      trigger="click"
-      placement="bottom-end"
-      :teleported="true"
-      popper-class="art-table-action-group__dropdown"
-    >
-      <button
-        type="button"
-        class="art-table-action-btn art-table-action-btn--more"
-        :title="t('table.moreActions')"
-        data-testid="art-table-action-more"
-        @click.stop
-      >
-        <ElIcon :size="16"><MoreFilled /></ElIcon>
-      </button>
-      <template #dropdown>
-        <div class="art-table-action-group__overflow-panel" role="menu">
-          <template v-for="(node, index) in overflowNodes()" :key="`overflow-${index}`">
-            <component :is="node" />
-          </template>
-        </div>
+    <!-- 每轮只展开一次；局部节点作用域让更多菜单插槽也随当前行更新。 -->
+    <template v-for="nodes in [actionNodes()]" :key="'current-actions'">
+      <template v-for="(node, index) in nodes.slice(0, props.maxVisible)" :key="`visible-${index}`">
+        <component :is="node" />
       </template>
-    </ElDropdown>
+
+      <ElDropdown
+        v-if="nodes.length > props.maxVisible"
+        trigger="click"
+        placement="bottom-end"
+        :teleported="true"
+        popper-class="art-table-action-group__dropdown"
+      >
+        <button
+          type="button"
+          class="art-table-action-btn art-table-action-btn--more"
+          :title="t('table.moreActions')"
+          data-testid="art-table-action-more"
+          @click.stop
+        >
+          <ElIcon :size="16"><MoreFilled /></ElIcon>
+        </button>
+        <template #dropdown>
+          <div class="art-table-action-group__overflow-panel" role="menu">
+            <template v-for="(node, index) in nodes.slice(props.maxVisible)" :key="`overflow-${index}`">
+              <component :is="node" />
+            </template>
+          </div>
+        </template>
+      </ElDropdown>
+    </template>
   </div>
 </template>
 

@@ -1,7 +1,7 @@
 namespace Full.NET.Modules.Files.Contracts;
 
 /// <summary>资源所属模块确认当前可信租户的持久化引用；Files 不读取其他模块表。</summary>
-/// <remarks>仅供旧文件兼容读取与清理对账；实现必须查询真实资源，不信任调用方给出的文件声明。</remarks>
+/// <remarks>用于兼容读取与清理对账；实现必须查询真实资源或受控上传意图，不信任调用方给出的文件声明。上传意图的过期清理必须与最终绑定通过持久化状态 CAS 仲裁。</remarks>
 public interface ITenantResourceFileOwner
 {
     /// <summary>模块代码拥有的稳定键。</summary>

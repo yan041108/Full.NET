@@ -355,10 +355,10 @@ public static class CrudArtifactGenerator
             .Select(value => $"  type {value}"));
         var updateMember = schema.EntityCapabilities.CanUpdate
             ? $$"""
-            update: (id: string, input: Update{{entity}}Request{{(CrudAggregateGenerator.Enabled(schema) ? $", changes: {entity}DetailChanges" : string.Empty)}}) =>
+            update: (id: string, input: Update{{entity}}Request{{(CrudAggregateGenerator.Enabled(schema) ? $", changes: {entity}DetailChanges" : string.Empty)}}, signal?: AbortSignal) =>
               {{operationPrefix}}Update{{entity}}{{(CrudAggregateGenerator.Enabled(schema) ? "Aggregate" : string.Empty)}}(
                 http,
-                { {{LowerFirst(entity)}}Id: id, body: {{(CrudAggregateGenerator.Enabled(schema) ? "{ master: input, added: [...changes.added], updated: [...changes.updated], removed: [...changes.removed] }" : "input")}} }
+                { {{LowerFirst(entity)}}Id: id, body: {{(CrudAggregateGenerator.Enabled(schema) ? "{ master: input, added: [...changes.added], updated: [...changes.updated], removed: [...changes.removed] }" : "input")}} }, signal
               )
             """
             : string.Empty;
@@ -368,10 +368,10 @@ public static class CrudArtifactGenerator
         var actionBody = schema.HasVersion ? ", body: input" : string.Empty;
         var deleteMember = schema.EntityCapabilities.CanDelete
             ? $$"""
-            {{actionMember}}: (id: string{{actionInputType}}) =>
+            {{actionMember}}: (id: string{{actionInputType}}, signal?: AbortSignal) =>
               {{operationPrefix}}{{action}}{{entity}}(
                 http,
-                { {{LowerFirst(entity)}}Id: id{{actionBody}} }
+                { {{LowerFirst(entity)}}Id: id{{actionBody}} }, signal
               )
             """
             : string.Empty;
@@ -423,10 +423,10 @@ public static class CrudArtifactGenerator
               http: GeneratedRequest
             ) {
               return {
-                list: (page = 1, pageSize = 20, query: {{entity}}ListOptions = {}) =>
-                  {{operationPrefix}}List{{resource}}(http, { page, pageSize, ...query }),
-                create: (input: Create{{entity}}Request{{(CrudAggregateGenerator.Enabled(schema) ? $", details: readonly {entity}DetailInput[]" : string.Empty)}}{{(CrudOrganizationOwnershipGenerator.IsOrganizationUnitOwned(schema) ? ", organizationUnitId: string" : string.Empty)}}) =>
-                  {{operationPrefix}}Create{{entity}}{{(CrudAggregateGenerator.Enabled(schema) ? "Aggregate" : string.Empty)}}(http, { body: {{(CrudAggregateGenerator.Enabled(schema) ? "{ master: input, details: [...details] }" : "input")}}{{(CrudOrganizationOwnershipGenerator.IsOrganizationUnitOwned(schema) ? ", 'X-FullNet-Organization-Unit-Id': organizationUnitId" : string.Empty)}} }){{renderedAdditionalMembers}}
+                list: (page = 1, pageSize = 20, query: {{entity}}ListOptions = {}, signal?: AbortSignal) =>
+                  {{operationPrefix}}List{{resource}}(http, { page, pageSize, ...query }, signal),
+                create: (input: Create{{entity}}Request{{(CrudAggregateGenerator.Enabled(schema) ? $", details: readonly {entity}DetailInput[]" : string.Empty)}}{{(CrudOrganizationOwnershipGenerator.IsOrganizationUnitOwned(schema) ? ", organizationUnitId: string" : string.Empty)}}, signal?: AbortSignal) =>
+                  {{operationPrefix}}Create{{entity}}{{(CrudAggregateGenerator.Enabled(schema) ? "Aggregate" : string.Empty)}}(http, { body: {{(CrudAggregateGenerator.Enabled(schema) ? "{ master: input, details: [...details] }" : "input")}}{{(CrudOrganizationOwnershipGenerator.IsOrganizationUnitOwned(schema) ? ", 'X-FullNet-Organization-Unit-Id': organizationUnitId" : string.Empty)}} }, signal){{renderedAdditionalMembers}}
               };
             }
             """);

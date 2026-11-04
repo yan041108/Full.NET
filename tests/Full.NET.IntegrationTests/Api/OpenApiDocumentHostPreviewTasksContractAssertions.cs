@@ -26,7 +26,7 @@ internal static class OpenApiDocumentHostPreviewTasksContractAssertions
         AssertOperation(
             paths.GetProperty("/api/v1/document/host/preview-tasks"),
             "post",
-            ["201", "400", "401", "403", "404", "422"]);
+            ["201", "400", "401", "403", "404", "409", "422"]);
         AssertOperation(
             paths.GetProperty("/api/v1/document/host/preview-tasks/{taskId}"),
             "get",

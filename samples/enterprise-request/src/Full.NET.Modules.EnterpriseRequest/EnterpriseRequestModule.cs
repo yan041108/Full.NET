@@ -1,8 +1,14 @@
 using Full.NET.Modularity.Modules;
+using Full.NET.Abstractions.Messaging;
 using Full.NET.Modules.Identity.Contracts;
+using Full.NET.Modules.Printing.Contracts;
+using Full.NET.Modules.EnterpriseRequest.Features.Printing;
 using Full.NET.Modules.EnterpriseRequest.Features.ImportExport;
 using Full.NET.Modules.EnterpriseRequest.Features.SubmitForApproval;
 using Full.NET.Modules.EnterpriseRequest.Features.WorkflowOutcomes;
+using Full.NET.Modules.EnterpriseRequest.Features.ApprovalProgress;
+using Full.NET.Modules.EnterpriseRequest.Features.RepairApproval;
+using Full.NET.Modules.Files.Contracts;
 using Full.NET.Modules.ImportExport.Contracts;
 using Full.NET.Modules.Workflow.Contracts;
 using Microsoft.AspNetCore.Routing;
@@ -12,7 +18,6 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using Full.NET.Modules.EnterpriseRequest.Generated;
 using Full.NET.Modules.EnterpriseRequest.Contracts;
 using Full.NET.Modules.EnterpriseRequest.Features.Delivery;
-using Full.NET.Modules.Files.Contracts;
 using Microsoft.AspNetCore.Builder;
 using Full.NET.Modules.EnterpriseRequest.Features.DraftMutations;
 
@@ -23,7 +28,7 @@ public sealed class EnterpriseRequestModule : IFullNetModule
     public string Name => "EnterpriseRequest";
 
     public IReadOnlyCollection<string> Dependencies =>
-        ["Identity", "Tenancy", "Organization", "Settings", "Files", "Workflow", "ImportExport", "Reporting", "Printing"];
+        ["Identity", "Tenancy", "Organization", "Settings", "Files", "Workflow", "Notifications", "ImportExport", "Reporting", "Printing"];
 
     public IReadOnlyCollection<string> OptionalContractDependencies => [];
 
@@ -35,9 +40,19 @@ public sealed class EnterpriseRequestModule : IFullNetModule
         services.TryAddEnumerable(ServiceDescriptor.Singleton<
             IAuthorizationCatalogContributor,
             EnterpriseRequestAuthorizationContributor>());
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<IPrintingFormSchemaContributor, EnterpriseRequestPrintingSchemaContributor>());
+        services.TryAddEnumerable(ServiceDescriptor.Scoped<IPrintingRecordBindingSource, EnterpriseRequestPrintingBindingSource>());
         services.TryAddScoped<SubmitEnterpriseRequestForApprovalService>();
         services.TryAddScoped<Features.Search.EnterpriseRequestSearchService>();
         AddImportServices(services);
+        services.TryAddScoped<EnterpriseRequestApprovalProgressService>();
+        services.TryAddScoped<EnterpriseRequestNotificationProgressReader>();
+        services.TryAddScoped<EnterpriseRequestApprovalRepairService>();
+        services.ConfigureHttpJsonOptions(options => options.SerializerOptions.TypeInfoResolverChain.Insert(0, EnterpriseRequestApprovalRepairJsonContext.Default));
+        services.ConfigureHttpJsonOptions(options => options.SerializerOptions.TypeInfoResolverChain.Insert(0, EnterpriseRequestApprovalProgressJsonContext.Default));
+#if FULLNET_AOT_COMPILE
+        Persistence.EnterpriseRequestApprovalAotMaterializer.Register();
+#endif
         services.AddFullNetGeneratedModuleFeatures();
         AddDeliveryServices(services, configuration);
         services.ConfigureHttpJsonOptions(options => options.SerializerOptions.TypeInfoResolverChain.Insert(0,
@@ -49,9 +64,12 @@ public sealed class EnterpriseRequestModule : IFullNetModule
         AddImportServices(services);
         AddDeliveryServices(services, configuration);
         services.AddHostedService<EnterpriseRequestDeliveryWorker>();
-        services.TryAddEnumerable(ServiceDescriptor.Scoped<Full.NET.Abstractions.Messaging.IIntegrationEventHandler,
-            EnterpriseRequestSubmittedHandler>());
+        services.AddFullNetGeneratedModuleFeatures();
+#if FULLNET_AOT_COMPILE
+        Persistence.EnterpriseRequestApprovalAotMaterializer.Register();
+#endif
         services.TryAddScoped<EnterpriseRequestWorkflowOutcomeService>();
+        services.TryAddEnumerable(ServiceDescriptor.Scoped<IIntegrationEventHandler, EnterpriseRequestApprovalSubmittedHandler>());
         services.TryAddEnumerable(ServiceDescriptor.Scoped<
             IWorkflowInstanceCompletedSink,
             WorkflowInstanceCompletedEnterpriseRequestSink>());
@@ -69,6 +87,8 @@ public sealed class EnterpriseRequestModule : IFullNetModule
         SubmitForApprovalEndpoint.Map(endpoints);
         Features.Search.Endpoint.Map(endpoints);
         EnterpriseRequestDeliveryEndpoint.Map(endpoints);
+        ApprovalProgressEndpoint.Map(endpoints);
+        EnterpriseRequestApprovalRepairEndpoint.Map(endpoints);
     }
 
     private static void AddDeliveryServices(IServiceCollection services, IConfiguration configuration)

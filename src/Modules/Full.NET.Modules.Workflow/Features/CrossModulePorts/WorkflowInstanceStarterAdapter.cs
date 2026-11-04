@@ -41,7 +41,7 @@ internal sealed class WorkflowInstanceStarterAdapter(
                 initialValues,
                 command.IdempotencyKey,
                 command.BusinessTitle),
-            cancellationToken, requireApproval: true).ConfigureAwait(false);
+            cancellationToken, requireApproval: true, requestedInstanceId: command.RequestedInstanceId).ConfigureAwait(false);
         if (!result.IsSuccess)
         {
             return Result<WorkflowInstanceLifecycleResult>.Failure(result.Error!);

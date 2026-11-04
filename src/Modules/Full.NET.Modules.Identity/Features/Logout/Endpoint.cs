@@ -70,6 +70,7 @@ internal static class Endpoint
                 : mapper.Map(result, httpContext);
         })
         .WithName("identityLogout")
+        .AddEndpointFilter<IdentityAuthSessionScopeFilter>()
         .Produces(StatusCodes.Status204NoContent)
         .ProducesProblem(StatusCodes.Status401Unauthorized)
         .ProducesProblem(StatusCodes.Status403Forbidden)

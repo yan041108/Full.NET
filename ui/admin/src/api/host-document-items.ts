@@ -25,6 +25,7 @@ import {
   type HostDocumentVersionResponse
 } from '@fullnet/client-contracts';
 import { http } from './http';
+import { openContentBlob } from '../utils/openContentBlob';
 
 // 同一文件对象的失败重试保留操作身份，重新选择文件会获得新的身份。
 const uploadKeys = new WeakMap<File, Map<string, string>>();
@@ -203,20 +204,8 @@ export function safeDocumentPreviewBlob(blob: Blob): Blob {
     ? blob.slice(0, blob.size, 'text/plain') : blob;
 }
 
-/** 预览安全格式，其余格式直接下载；对象 URL 保留到浏览器完成导航后再回收。 */
-export function openDocumentBlob(blob: Blob): void {
-  const safe = safeDocumentPreviewBlob(blob);
-  const url = URL.createObjectURL(safe);
-  const link = document.createElement('a');
-  link.href = url;
-  link.target = '_blank';
-  link.rel = 'noopener noreferrer';
-  if (!safe.type.startsWith('image/') && !safe.type.startsWith('text/plain') && safe.type !== 'application/pdf') {
-    link.download = 'document';
-  }
-  link.click();
-  window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
-}
+/** 复用文档/文件一致的内容策略与有界对象 URL 生命周期。 */
+export function openDocumentBlob(blob: Blob, fileName?: string): void { openContentBlob(blob, fileName); }
 
 /** 将已上传文件追加为文档项的新版本。 */
 export async function addDocumentVersion(
@@ -276,6 +265,7 @@ export async function restoreDocumentItem(
   if (!isHostDocumentItemResponse(value)) {
     throw new Error('client.invalid_document_item');
   }
+  if (value.id.toLowerCase() !== itemId.toLowerCase()) throw new Error('client.invalid_document_item_identity');
   return value;
 }
 
@@ -298,6 +288,7 @@ export async function rollbackDocumentVersion(
   if (!isHostDocumentItemResponse(value)) {
     throw new Error('client.invalid_document_item');
   }
+  if (value.id.toLowerCase() !== itemId.toLowerCase()) throw new Error('client.invalid_document_item_identity');
   return value;
 }
 
@@ -320,6 +311,7 @@ export async function deleteDocumentVersion(
   if (!isHostDocumentItemResponse(value)) {
     throw new Error('client.invalid_document_item');
   }
+  if (value.id.toLowerCase() !== itemId.toLowerCase()) throw new Error('client.invalid_document_item_identity');
   return value;
 }
 
@@ -327,9 +319,9 @@ export async function deleteDocumentVersion(
 export type { HostDocumentItemPage, HostDocumentItemResponse, HostDocumentVersionResponse };
 
 /** 显式状态命令由服务端按精确权限及并发版本验证。 */
-export async function changeDocumentStatus(item: HostDocumentItemResponse, action: 'publish' | 'archive' | 'unarchive'): Promise<HostDocumentItemResponse> {
+export async function changeDocumentStatus(item: HostDocumentItemResponse, action: 'publish' | 'archive' | 'unarchive', signal?: AbortSignal): Promise<HostDocumentItemResponse> {
   const command = { publish: documentHostItempublish, archive: documentHostItemarchive, unarchive: documentHostItemunarchive }[action];
-  const value = await command(http, { itemId: item.id, body: { version: item.version } });
+  const value = await command(http, { itemId: item.id, body: { version: item.version } }, signal);
   if (!isHostDocumentItemResponse(value)) throw new Error('client.invalid_document_item');
   return value;
 }

@@ -44,8 +44,11 @@ internal sealed class HostFileReferenceClaimService(
         HostFileReferenceClaimRequest request,
         CancellationToken cancellationToken)
     {
+        // 输入长度必须与正式双库列容量一致，不能让无效请求在 INSERT 时变为 500。
         if (string.IsNullOrWhiteSpace(request.IdempotencyKey)
+            || request.IdempotencyKey.Length > 128
             || string.IsNullOrWhiteSpace(request.ConsumerModule)
+            || request.ConsumerModule.Length > 64
             || request.FileId == Guid.Empty
             || request.ConsumerReferenceId == Guid.Empty)
         {

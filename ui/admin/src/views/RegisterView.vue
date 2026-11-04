@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { ElAlert, ElButton, ElInput, ElMessage } from 'element-plus';
 import { isFullNetProblemDetails, isGuid } from '@fullnet/client-contracts';
@@ -32,7 +32,9 @@ const sending = ref(false);
 const { locale } = useAdminI18n();
 const text = (key: Parameters<typeof accountSelfServiceText>[1]) => accountSelfServiceText(locale.value, key);
 
-watch(email, () => { challengeId.value = ''; challengeCode.value = ''; }, { flush: 'sync' });
+let disposed = false, emailRevision = 0;
+onBeforeUnmount(() => { disposed = true; });
+watch(email, () => { emailRevision++; challengeId.value = ''; challengeCode.value = ''; }, { flush: 'sync' });
 
 onMounted(async () => {
   // 链接只选择注册路径；方式启用、目标租户及分配规则仍由服务端权威校验。
@@ -67,10 +69,12 @@ onMounted(async () => {
   invitationChecking.value = true;
   try {
     const info = await verifyInvitation(parsed.invitationId, parsed.invitationToken);
+    if (disposed) return;
     email.value = info.email;
     registrationWayId.value = info.registrationWayId;
     invitationVerified.value = true;
   } catch {
+    if (disposed) return;
     invitationInvalid.value = true;
     ElMessage.error(text('invalidInvitation'));
   } finally {
@@ -79,8 +83,8 @@ onMounted(async () => {
 });
 
 async function sendChallenge(): Promise<void> {
-  if (sending.value || submitting.value || !email.value.trim() || !entryReady.value) return;
-  const requestedEmail = email.value;
+  if (disposed || sending.value || submitting.value || !email.value.trim() || !entryReady.value) return;
+  const requestedEmail = email.value, revision = emailRevision;
   sending.value = true;
   // 重发可能已经在服务端替换旧码，响应未知时也不能继续提交旧挑战。
   challengeId.value = '';
@@ -88,18 +92,18 @@ async function sendChallenge(): Promise<void> {
   const purpose = invitationId.value ? InvitationEmailVerification : RegistrationEmailVerification;
   try {
     const result = await requestEmailChallenge(requestedEmail, purpose, invitationId.value || undefined, invitationToken.value || undefined);
-    if (email.value !== requestedEmail) return;
+    if (disposed || emailRevision !== revision || email.value !== requestedEmail) return;
     challengeId.value = result.challengeId;
     ElMessage.success(text('sent'));
   } catch (error: unknown) {
-    if (email.value === requestedEmail) ElMessage.error(isFullNetProblemDetails(error) ? error.title : text('sendFailed'));
+    if (!disposed && emailRevision === revision && email.value === requestedEmail) ElMessage.error(isFullNetProblemDetails(error) ? error.title : text('sendFailed'));
   } finally {
     sending.value = false;
   }
 }
 
 async function submit(): Promise<void> {
-  if (submitting.value || sending.value) return;
+  if (disposed || submitting.value || sending.value) return;
   if (!entryReady.value) { ElMessage.error(text('entryRequired')); return; }
   if (!challengeId.value || !challengeCode.value) {
     ElMessage.error(text('required'));
@@ -118,6 +122,7 @@ async function submit(): Promise<void> {
       invitationId: invitationId.value || undefined,
       invitationToken: invitationToken.value || undefined
     });
+    if (disposed) return;
     forgetRegistrationInvitation();
     ElMessage.success(text('registered'));
     await router.replace('/login?redirect=/tenant-context');

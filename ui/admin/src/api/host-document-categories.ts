@@ -70,6 +70,7 @@ export async function updateDocumentCategory(
   if (!isHostDocumentCategoryResponse(value)) {
     throw new Error('client.invalid_document_category');
   }
+  if (value.id.toLowerCase() !== id.toLowerCase()) throw new Error('client.invalid_document_category_identity');
   return value;
 }
 

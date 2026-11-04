@@ -86,7 +86,7 @@ internal static class WorkflowTodoManagementTestDependencies
             ids,
             Options.Create(new DatabaseOptions { Provider = DatabaseProvider.SqlServer }),
             Substitute.For<IHostUserBatchSelectionDirectory>(),
-            Substitute.For<ITenantMemberSelectionDirectory>(),
+            Substitute.For<ITenantMemberBatchSelectionDirectory>(),
             new WorkflowNotificationOutboxPublisher(outbox),
             new WorkflowBranchStateCoordinator(query, command),
             CreateStepResolution(query, command, ids, outbox));
@@ -98,7 +98,7 @@ internal static class WorkflowTodoManagementTestDependencies
     /// <returns>可直接注入实例或待办管理服务的协调器。</returns>
     internal static WorkflowHumanActivityAssigneeCoordinator CreateAssigneeCoordinator(
         IHostUserBatchSelectionDirectory? hostUsers = null,
-        ITenantMemberSelectionDirectory? tenantUsers = null)
+        ITenantMemberBatchSelectionDirectory? tenantUsers = null)
     {
         var roleDirectory = Substitute.For<IWorkflowRoleMemberDirectory>();
         var unitDirectory = Substitute.For<IWorkflowOrganizationAssigneeDirectory>();
@@ -112,7 +112,7 @@ internal static class WorkflowTodoManagementTestDependencies
         return new WorkflowHumanActivityAssigneeCoordinator(
             new WorkflowAssigneeResolver(
                 hostUsers,
-                tenantUsers ?? Substitute.For<ITenantMemberSelectionDirectory>(),
+                tenantUsers ?? Substitute.For<ITenantMemberBatchSelectionDirectory>(),
                 roleDirectory,
                 unitDirectory));
     }
@@ -169,7 +169,7 @@ internal static class WorkflowTodoManagementTestDependencies
     internal static WorkflowAssigneePublishValidator CreateAssigneePublishValidator()
     {
         var hostUsers = Substitute.For<IHostUserBatchSelectionDirectory>();
-        var tenantUsers = Substitute.For<ITenantMemberSelectionDirectory>();
+        var tenantUsers = Substitute.For<ITenantMemberBatchSelectionDirectory>();
         var roleDirectory = Substitute.For<IWorkflowRoleMemberDirectory>();
         var unitDirectory = Substitute.For<IWorkflowOrganizationAssigneeDirectory>();
         hostUsers.FindActiveHostUsersAsync(Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>())

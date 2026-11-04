@@ -1,7 +1,10 @@
 <Project Sdk="MSTest.Sdk">
   <ItemGroup>
+    <Compile Include="../Shared/Testing/SessionBindingTestPrincipal.cs" Link="Testing/SessionBindingTestPrincipal.cs" />
     <!-- 直接复用消息故障代理源码，验证帧转发和 Gate，避免测试替身偏离真实验收链。 -->
     <Compile Include="../Full.NET.IntegrationTests/Messaging/MessagingKafkaFaultProxy.cs" Link="Messaging/Fixtures/MessagingKafkaFaultProxy.cs" />
+    <Compile Include="../Shared/Testing/ApprovalProgressReadPolling.cs" Link="Testing/ApprovalProgressReadPolling.cs" />
+    <Compile Include="../Shared/Testing/NativeMigratorProcess.cs" Link="Testing/NativeMigratorProcess.cs" />
     <Compile Include="../templates/support/fixtures/application-migration-runner.cs.fixture" Link="Hosting/ApplicationMigrationRunner.cs" />
     <Compile Include="../ai-evaluation/probe/ProbeVectorSearch.cs" Link="Ai/Evaluation/ProbeVectorSearch.cs" />
     <Compile Include="../Shared/CodeGeneration/GeneratedMigrationRecoveryFixture.cs" Link="CodeGeneration/GeneratedMigrationRecoveryFixture.cs" />

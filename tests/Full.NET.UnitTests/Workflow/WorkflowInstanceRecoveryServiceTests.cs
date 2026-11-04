@@ -26,6 +26,17 @@ namespace Full.NET.UnitTests.Workflow;
 public sealed class WorkflowInstanceRecoveryServiceTests
 {
     [TestMethod]
+    public async Task Reassign_accepts_active_member_without_legacy_tenant_role_async()
+    {
+        var fixture = ReassignFixture.Create(tenantScope: true);
+        var result = await fixture.Service.ReassignAsync(fixture.Instance.Id, fixture.Actor, fixture.Request);
+        Assert.IsTrue(result.IsSuccess);
+        Assert.IsTrue(fixture.Transaction.HasStarted);
+        Assert.IsTrue(fixture.DirectoryInside.Count > 0);
+        Assert.IsTrue(fixture.DirectoryInside.All(inside => !inside));
+    }
+
+    [TestMethod]
     public async Task Administrative_recovery_cannot_bypass_an_unknown_route_selection()
     {
         var fixture = ReassignFixture.Create();

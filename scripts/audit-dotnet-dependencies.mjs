@@ -211,47 +211,41 @@ export function evaluateDotnetListReport(report, policy, now = new Date(), rootD
   return evaluateDotnetVulnerabilityFindings(findings, policy, now);
 }
 
-function runDotnetListAudit() {
-  const restore = spawnSync('dotnet', ['restore', solutionPath], {
-    cwd: repoRoot,
-    encoding: 'utf8',
-    maxBuffer: 16 * 1024 * 1024
-  });
-  if (restore.error) {
-    throw restore.error;
-  }
-  if (restore.status !== 0) {
-    throw new Error(`dotnet restore failed (exit ${restore.status}): ${restore.stderr.trim()}`);
-  }
+/** 逐目标获取并验证审计证据；命令边界可替换，但目标范围和失败门禁固定。 */
+export function runDotnetListAudit(run = spawnSync) {
+  // 独立实验不加入生产解决方案，但仍属于仓库供应链审计范围。
+  const targets = [solutionPath, path.join(repoRoot, 'tests/ai-evaluation/probe/Full.NET.AiRetrieval.Probe.csproj')];
+  const reports = [];
+  const normalize = value => process.platform === 'win32' ? path.resolve(value).toLowerCase() : path.resolve(value);
+  for (const target of targets) {
+    const restore = run('dotnet', ['restore', target], {
+      cwd: repoRoot, encoding: 'utf8', maxBuffer: 16 * 1024 * 1024
+    });
+    if (restore.error) throw restore.error;
+    if (restore.status !== 0) {
+      throw new Error(`dotnet restore failed for ${target} (exit ${restore.status}): ${[restore.stdout, restore.stderr].filter(Boolean).join('\n').trim()}`);
+    }
 
-  const audit = spawnSync('dotnet', [
-    'list',
-    solutionPath,
-    'package',
-    '--vulnerable',
-    '--include-transitive',
-    '--format',
-    'json'
-  ], {
-    cwd: repoRoot,
-    encoding: 'utf8',
-    maxBuffer: 32 * 1024 * 1024
-  });
-  if (audit.error) {
-    throw audit.error;
-  }
-  if (audit.status !== 0) {
-    throw new Error(`dotnet list package audit failed (exit ${audit.status}): ${audit.stderr.trim()}`);
-  }
+    const audit = run('dotnet', ['list', target, 'package', '--vulnerable', '--include-transitive', '--format', 'json'], {
+      cwd: repoRoot, encoding: 'utf8', maxBuffer: 32 * 1024 * 1024
+    });
+    if (audit.error) throw audit.error;
+    if (audit.status !== 0) {
+      throw new Error(`dotnet list package audit failed for ${target} (exit ${audit.status}): ${[audit.stdout, audit.stderr].filter(Boolean).join('\n').trim()}`);
+    }
 
-  let report;
-  try {
-    report = JSON.parse(audit.stdout);
-  } catch {
-    throw new Error('dotnet list package audit did not return valid JSON.');
+    let report;
+    try { report = JSON.parse(audit.stdout); }
+    catch { throw new Error(`dotnet list package audit for ${target} did not return valid JSON.`); }
+    // 每个目标先独立验真，不能用另一份报告的源或项目填补缺失证据。
+    extractVulnerabilityFindings(report);
+    if (report.projects.length === 0) throw new Error(`Dotnet audit for ${target} returned no project.`);
+    if (target.endsWith('.csproj') && !report.projects.some(project => normalize(project.path) === normalize(target))) {
+      throw new Error(`Dotnet audit does not contain the requested project ${target}.`);
+    }
+    reports.push(report);
   }
-
-  return report;
+  return { version: 1, sources: [...new Set(reports.flatMap(report => report.sources))], projects: reports.flatMap(report => report.projects) };
 }
 
 async function main() {

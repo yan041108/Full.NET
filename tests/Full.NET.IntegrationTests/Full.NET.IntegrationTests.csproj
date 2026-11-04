@@ -5,6 +5,8 @@
   </Target>
   <ItemGroup Condition="'$(FullNetWorkflowNativeFocused)' != 'true' and '$(FullNetIndependentHostNativeFocused)' != 'true' and '$(FullNetCorrectionReadFocused)' != 'true' and '$(FullNetCorrectionWorkerNativeFocused)' != 'true'">
     <ProjectReference Include="../Tools/Full.NET.EnterpriseRequest.WorkerFixture/Full.NET.EnterpriseRequest.WorkerFixture.csproj" ReferenceOutputAssembly="false" />
+    <Compile Include="../Shared/Testing/ApprovalProgressReadPolling.cs" Link="Testing/ApprovalProgressReadPolling.cs" />
+    <Compile Include="../Shared/Testing/NativeMigratorProcess.cs" Link="Testing/NativeMigratorProcess.cs" />
     <Compile Include="../Shared/CodeGeneration/GeneratedMigrationRecoveryFixture.cs" Link="CodeGeneration/GeneratedMigrationRecoveryFixture.cs" />
     <Compile Include="../Shared/CodeGeneration/CodeGenerationRemediationSchemas.cs" Link="CodeGeneration/CodeGenerationRemediationSchemas.cs" />
     <Compile Include="../Shared/CodeGeneration/Remediation/*.g.cs" Link="CodeGeneration/Remediation/%(Filename)%(Extension)" />
@@ -53,6 +55,7 @@
     <Compile Remove="Auditing/AuditingSustainedCapacityTests.cs;Messaging/KafkaLogRouteCapacityTests.cs" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="../Shared/Testing/SessionBindingTestPrincipal.cs" Link="Testing/SessionBindingTestPrincipal.cs" />
     <ProjectReference Include="..\..\benchmarks\Full.NET.Benchmarks\Full.NET.Benchmarks.csproj" Aliases="kafkabenchmarks" />
     <ProjectReference Include="..\..\src\Tools\Full.NET.CodeGeneration.Cli\Full.NET.CodeGeneration.Cli.csproj" Aliases="codegencli" />
     <ProjectReference Include="..\..\src\BuildingBlocks\Full.NET.Data.CodeGeneration\Full.NET.Data.CodeGeneration.csproj" />
@@ -71,6 +74,8 @@
     <ProjectReference Include="..\..\src\Hosts\Full.NET.Host.Migrator\Full.NET.Host.Migrator.csproj" ReferenceOutputAssembly="false" />
     <ProjectReference Include="..\..\src\Hosts\Full.NET.Host.LogConsumer\Full.NET.Host.LogConsumer.csproj" Aliases="consumerhost" />
     <ProjectReference Include="..\..\src\Hosts\Full.NET.Host.Worker\Full.NET.Host.Worker.csproj" Aliases="workerhost" />
+    <!-- 原生用例复用此构建复制的 JIT Migrator，禁止逐例隐式编译。 -->
+    <ProjectReference Include="..\..\src\Hosts\Full.NET.Host.Migrator\Full.NET.Host.Migrator.csproj" Aliases="migratorhost" />
     <ProjectReference Include="..\..\src\Modules\Full.NET.Modules.Identity\Full.NET.Modules.Identity.csproj" />
     <ProjectReference Include="..\..\src\Modules\Full.NET.Modules.Notifications.Contracts\Full.NET.Modules.Notifications.Contracts.csproj" />
     <ProjectReference Include="..\..\src\Modules\Full.NET.Modules.CodeGeneration\Full.NET.Modules.CodeGeneration.csproj" />

@@ -115,12 +115,12 @@ internal sealed class ReportingExportWorkbookSource(
             {
                 if (columns is null)
                 {
-                    budget.AddColumns(pageValue.Columns);
+                    budget.AddColumns(pageValue.Columns, cancellationToken);
                 }
 
                 foreach (var row in pageValue.Rows)
                 {
-                    budget.AddRow(row);
+                    budget.AddRow(row, cancellationToken);
                 }
             }
             catch (InvalidDataException)

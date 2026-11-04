@@ -9,4 +9,5 @@ internal sealed record TenantBrandingRecord(
     string? ContactEmail,
     string? ContactAddress,
     string? Copyright,
-    int Version);
+    int Version,
+    string? LogoClaimKey = null);

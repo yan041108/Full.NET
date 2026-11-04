@@ -26,7 +26,8 @@ internal static class OpenApiDocumentHostPermissionsContractAssertions
         AssertOperation(
             paths.GetProperty("/api/v1/document/host/permissions"),
             "post",
-            ["200", "400", "401", "403", "404"]);
+            ["200", "400", "401", "403", "404", "409"]);
+        AssertOperation(paths.GetProperty("/api/v1/document/host/permissions/snapshot/{documentId}"), "get", ["200", "401", "403", "404"]);
 
         var schemas = root.GetProperty("components").GetProperty("schemas");
         AssertSchema(
@@ -36,12 +37,16 @@ internal static class OpenApiDocumentHostPermissionsContractAssertions
         AssertSchema(
             schemas,
             "SetHostDocumentPermissionsRequest",
-            ["documentId", "permissions"]);
+            ["documentId", "permissions", "version"]);
+        AssertSchema(schemas, "HostDocumentPermissionSnapshotResponse", ["documentId", "version", "permissions"]);
     }
 
     private static void AssertPilotOperations(JsonElement document)
     {
         const string tag = "DocumentHostPermissions";
+        OpenApiPilotContractAssertions.AssertOperation(document,
+            "/api/v1/document/host/permissions/snapshot/{documentId}", HttpMethod.Get,
+            "documentHostGetDocumentPermissionSnapshot", tag, 200, "application/json");
         OpenApiPilotContractAssertions.AssertOperation(
             document,
             "/api/v1/document/host/permissions/by-document/{documentId}",

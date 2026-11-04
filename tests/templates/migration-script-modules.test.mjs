@@ -8,6 +8,26 @@ import { resolvePresetModules, VALID_PRESETS } from '../../scripts/templates/pre
 
 const MIGRATIONS = resolve('src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/SqlServer');
 
+test('preview cancellation and lease migrations follow their platform table owner', () => {
+  for (const name of ['261_DocumentPreviewTaskCancellation.sql', '262_DocumentPreviewTaskLease.sql']) {
+    assert.equal(inferMigrationModuleOwner(name), 'Platform');
+    const inventory = { scripts: [{ name: '001_Foundation.sql' }, { name }] };
+    for (const preset of ['minimal', 'platform', 'enterprise']) {
+      const selected = buildPresetMigrationInventory(inventory, preset, resolvePresetModules(preset)).scripts;
+      assert.equal(selected.some(script => script.name === name), preset !== 'minimal');
+    }
+  }
+});
+
+test('document write guards follow the platform migration closure', () => {
+  for (const name of ['250_DocumentItemWriteGuard.sql', '366_DocumentTaxonomyWriteGuard.sql']) {
+    assert.equal(inferMigrationModuleOwner(name), 'Platform');
+    const inventory = { scripts: [{ name: '001_Foundation.sql' }, { name }] };
+    assert.ok(!buildPresetMigrationInventory(inventory, 'minimal', resolvePresetModules('minimal')).scripts.some(script => script.name === name));
+    assert.ok(buildPresetMigrationInventory(inventory, 'platform', resolvePresetModules('platform')).scripts.some(script => script.name === name));
+  }
+});
+
 test('inferMigrationModuleOwner resolves every published script', () => {
   const names = readdirSync(MIGRATIONS).filter((name) => name.endsWith('.sql')).sort();
   for (const name of names) {
@@ -74,4 +94,20 @@ test('preset-minimal migration inventory is smaller than unscoped inventory', ()
   assert.ok(minimal.scripts.length < full.scripts.length);
   assert.ok(minimal.scripts.length > 40);
   assert.ok(!minimal.scripts.some(({ name }) => name.startsWith('102_Workflow')));
+});
+
+test('sample migrations cannot enter an official preset migration inventory', () => {
+  for (const name of ['003_EnterpriseRequestImportRows.sql', '005_EnterpriseRequestApprovalSubmission.sql', '006_EnterpriseRequestApprovalRepair.sql']) {
+    assert.throws(() => inferMigrationModuleOwner(name), /Unable to infer migration module owner/);
+  }
+});
+
+test('media binding generation migration belongs to every official foundation preset', () => {
+  const name = '367_MediaBindingClaimGeneration.sql';
+  assert.equal(inferMigrationModuleOwner(name), 'Shared');
+  for (const preset of ['minimal', 'platform', 'saas', 'enterprise']) {
+    const modules = resolvePresetModules(preset);
+    assert.ok(modules.includes('Identity') && modules.includes('Tenancy'));
+    assert.ok(buildPresetMigrationInventory({ scripts: [{ name }] }, preset, modules).scripts.some(script => script.name === name));
+  }
 });

@@ -6,10 +6,12 @@ internal sealed class TenantResourceFileReconciliationCursor
     internal SemaphoreSlim Gate { get; } = new(1, 1);
     internal DateTimeOffset CreatedAtUtc { get; set; } = DateTimeOffset.UnixEpoch;
     internal Guid? Id { get; set; }
+    internal DateTimeOffset? CreatedBeforeUtc { get; set; }
 
     internal void Reset()
     {
         CreatedAtUtc = DateTimeOffset.UnixEpoch;
         Id = null;
+        CreatedBeforeUtc = null;
     }
 }

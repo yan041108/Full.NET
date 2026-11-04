@@ -20,6 +20,7 @@ internal sealed class HostDocumentItemManagementService(
     ICommandExecutor commandExecutor,
     ICommandTransaction transaction,
     DocumentCategoryGuard categoryGuard,
+    DocumentItemRestoreService restores,
     IHostFileReferenceClaimService hostFileReferenceClaimService,
     IHostFileUploadWriter hostFileUploadWriter,
     DocumentVersionDeletionService documentVersionDeletionService,
@@ -554,6 +555,7 @@ internal sealed class HostDocumentItemManagementService(
         long version,
         CancellationToken cancellationToken)
     {
+        await categoryGuard.LockAsync(cancellationToken).ConfigureAwait(false);
         var existing = await mutationGuard.LockAsync(itemId, cancellationToken).ConfigureAwait(false);
         if (await accessPolicy.CheckAsync(itemId, DocumentOperation.Write, cancellationToken).ConfigureAwait(false) is { } denied)
             return Result<HostDocumentItemResponse>.Failure(denied);
@@ -562,16 +564,8 @@ internal sealed class HostDocumentItemManagementService(
             return NotFound();
         }
 
-        var now = clock.UtcNow;
-        var affected = await commandExecutor.ExecuteAsync(
-                DocumentItemSql.Restore,
-                DocumentSqlParameters.Create(("Id", itemId), ("UpdatedAtUtc", now), ("UpdatedByUserId", actorUserId), ("Version", version)),
-                cancellationToken)
-            .ConfigureAwait(false);
-        if (affected != 1)
-        {
-            return VersionConflict();
-        }
+        var restored = await restores.RestoreAsync(existing, actorUserId, version, fromRecycleBin: false, cancellationToken).ConfigureAwait(false);
+        if (!restored.IsSuccess) return Result<HostDocumentItemResponse>.Failure(restored.Error!);
 
         return await ReloadActiveAsync(itemId, cancellationToken).ConfigureAwait(false);
     }
@@ -659,16 +653,8 @@ internal sealed class HostDocumentItemManagementService(
         Guid? excludeItemId,
         CancellationToken cancellationToken)
     {
-        var conflict = await queryExecutor
-            .QuerySingleOrDefaultAsync<DocumentNameConflictRecord>(
-                DocumentItemSql.FindActiveByTitle,
-                DocumentSqlParameters.Create(
-                    ("Title", title),
-                    ("CategoryId", categoryId),
-                    ("ExcludeId", excludeItemId)),
-                cancellationToken)
-            .ConfigureAwait(false);
-        return conflict is not null;
+        return await queryExecutor.QuerySingleOrDefaultAsync<long>(DocumentItemSql.CountActiveByTitle,
+            DocumentSqlParameters.Create(("Title", title), ("CategoryId", categoryId), ("ExcludeId", excludeItemId)), cancellationToken).ConfigureAwait(false) > 0;
     }
 
     private static HostDocumentItemResponse Map(

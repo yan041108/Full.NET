@@ -1469,6 +1469,7 @@ internal static class IdentitySql
         """,
         SqlDataScope.HostOnly);
 
+    // 密码校验或恢复授权基于已读账号快照；并发改密及状态变化必须使旧请求更新失败。
     public static readonly SqlStatement ResetUserPasswordByIdentity = new(
         "identity.reset_user_password_by_identity",
         """
@@ -1484,6 +1485,7 @@ internal static class IdentitySql
         WHERE Id = @UserId
           AND ScopeKey = @ScopeKey
           AND IsActive = 1
+          AND Version = @Version
         """,
         SqlDataScope.Global);
 
@@ -1606,7 +1608,7 @@ internal static class IdentitySql
                JoinDateUtc, SortOrder, IdCardType, IdCardNumber, BirthDate,
                Ethnicity, Address, GraduatedSchool, EducationLevel, PoliticalStatus,
                OfficePhone, EmergencyContact, EmergencyContactRelation, EmergencyContactPhone,
-               EmergencyContactAddress, Remark, AvatarFileId, SignatureFileId, Version
+               EmergencyContactAddress, Remark, AvatarFileId, SignatureFileId, Version, AvatarClaimKey, SignatureClaimKey
         FROM fn_identity_user_profile
         WHERE UserId IN @UserIds
         """,
@@ -1714,6 +1716,7 @@ internal static class IdentitySql
         """
         UPDATE fn_identity_user_profile
         SET AvatarFileId = @AvatarFileId,
+            AvatarClaimKey = @ClaimKey,
             Version = Version + 1
         WHERE UserId = @UserId
           AND Version = @Version
@@ -1725,6 +1728,7 @@ internal static class IdentitySql
         """
         UPDATE fn_identity_user_profile
         SET SignatureFileId = @SignatureFileId,
+            SignatureClaimKey = @ClaimKey,
             Version = Version + 1
         WHERE UserId = @UserId
           AND Version = @Version
@@ -1736,10 +1740,11 @@ internal static class IdentitySql
         """
         UPDATE fn_identity_user_profile
         SET AvatarFileId = NULL,
+            AvatarClaimKey = NULL,
             Version = Version + 1
         WHERE UserId = @UserId
+          AND AvatarFileId = @FileId
           AND Version = @Version
-          AND AvatarFileId IS NOT NULL
         """,
         SqlDataScope.HostOnly);
 
@@ -1748,10 +1753,11 @@ internal static class IdentitySql
         """
         UPDATE fn_identity_user_profile
         SET SignatureFileId = NULL,
+            SignatureClaimKey = NULL,
             Version = Version + 1
         WHERE UserId = @UserId
+          AND SignatureFileId = @FileId
           AND Version = @Version
-          AND SignatureFileId IS NOT NULL
         """,
         SqlDataScope.HostOnly);
 
@@ -1759,9 +1765,9 @@ internal static class IdentitySql
         "identity.insert_host_user_profile_media_shell",
         """
         INSERT INTO fn_identity_user_profile
-            (UserId, SortOrder, AvatarFileId, SignatureFileId, Version)
+            (UserId, SortOrder, AvatarFileId, SignatureFileId, Version, AvatarClaimKey, SignatureClaimKey)
         VALUES
-            (@UserId, 100, @AvatarFileId, @SignatureFileId, 1)
+            (@UserId, 100, @AvatarFileId, @SignatureFileId, 1, @AvatarClaimKey, @SignatureClaimKey)
         """,
         SqlDataScope.HostOnly);
 
@@ -2097,6 +2103,8 @@ internal static class IdentitySql
             UpdatedAtUtc = @UpdatedAtUtc,
             Version = Version + 1
         WHERE UserId = @UserId
+          AND IsEnabled = 0
+          AND Version = @Version
         """,
         SqlDataScope.HostOnly);
 

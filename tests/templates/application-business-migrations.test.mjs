@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, rmSync, readdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
-import { prepareApplicationBusinessMigrations, verifyApplicationMigrationResult } from './support/application-business-migrations.mjs';
+import { prepareApplicationBusinessMigrations, prepareApplicationBusinessSchemaUpgrade, verifyApplicationMigrationResult } from './support/application-business-migrations.mjs';
 
 const host = 'src/Demo.Host.Migrator';
 const anchor = 'builder.Services.AddApplicationModules(builder.Configuration, FullNetHostProfile.Migrator);';
@@ -86,6 +86,44 @@ test('changed source draft cannot rewrite an adopted migration', () => fixture((
   assert.throws(() => prepareApplicationBusinessMigrations(root));
   assert.deepEqual(capture(), before);
 }));
+test('schema upgrade adds reviewed paired 002 scripts without changing adopted 001 or manual files', () => fixture(({ root, put, capture }) => {
+  prepareApplicationBusinessMigrations(root);
+  const schema = JSON.parse(readFileSync(join(root, 'verification/CrudGeneration/schema.json'), 'utf8'));
+  schema.columns.push({ databaseName: 'Description', clrPropertyName: 'Description',
+    jsonPropertyName: 'description', scalarType: 'String', isNullable: true, maxLength: 500 });
+  put('verification/CrudGeneration/schema.json', JSON.stringify(schema));
+  const before = capture();
+  const result = prepareApplicationBusinessSchemaUpgrade(root);
+  assert.equal(result.scriptsPerProvider, 2);
+  const after = capture();
+  for (const [path, bytes] of Object.entries(before)) {
+    if (path === `${host}/Demo.Host.Migrator.csproj` || path === `${host}/Program.cs`
+      || path === `${host}/ApplicationMigrationRunner.cs`) continue;
+    assert.equal(after[path], bytes, `upgrade changed ${path}`);
+  }
+  for (const provider of ['SqlServer', 'MySql']) {
+    const path = `${host}/Migrations/${provider}/002_AddProductDescription.sql`;
+    assert.match(readFileSync(join(root, path), 'utf8'), /Description/u);
+    assert.match(readFileSync(join(root, `${host}/Demo.Host.Migrator.csproj`), 'utf8'),
+      new RegExp(`acme\\.catalog\\.Migrations\\.${provider}\\.002_AddProductDescription\\.sql`, 'u'));
+  }
+  assert.match(readFileSync(join(root, `${host}/Demo.Host.Migrator.csproj`), 'utf8'),
+    /<ItemGroup>\s*<EmbeddedResource[^>]+002_AddProductDescription\.sql[^>]*\/>\s*<EmbeddedResource[^>]+002_AddProductDescription\.sql[^>]*\/>\s*<\/ItemGroup>/u,
+    'new migration resources must be inside an MSBuild ItemGroup');
+  assert.deepEqual(prepareApplicationBusinessSchemaUpgrade(root), result);
+  assert.deepEqual(capture(), after, 'upgrade repeat changed adopted files');
+}));
+test('schema upgrade rejects missing provider and adopted 001 drift before writing', () => fixture(({ root, put, capture }) => {
+  prepareApplicationBusinessMigrations(root);
+  const schema = JSON.parse(readFileSync(join(root, 'verification/CrudGeneration/schema.json'), 'utf8'));
+  schema.columns.push({ databaseName: 'Description', clrPropertyName: 'Description',
+    jsonPropertyName: 'description', scalarType: 'String', isNullable: true, maxLength: 500 });
+  put('verification/CrudGeneration/schema.json', JSON.stringify(schema));
+  put(`${host}/Migrations/MySql/001_CreateProduct.sql`, '-- unexpected drift');
+  const before = capture();
+  assert.throws(() => prepareApplicationBusinessSchemaUpgrade(root));
+  assert.deepEqual(capture(), before);
+}));
 test('preexisting resource registration fails before adoption writes', () => fixture(({ root, put, capture }) => {
   put(`${host}/Demo.Host.Migrator.csproj`, '<Project><EmbeddedResource LogicalName="acme.catalog.Migrations.MySql.001_CreateProduct.sql" /></Project>');
   const before = capture();
@@ -95,6 +133,7 @@ test('preexisting resource registration fails before adoption writes', () => fix
 test('runtime evidence distinguishes first execution and repeat journal', () => {
   assert.deepEqual(verifyApplicationMigrationResult('log\nFULLNET_APPLICATION_MIGRATIONS {"frameworkScripts":123,"applicationScripts":1}\n', true), { frameworkScripts: 123, applicationScripts: 1 });
   assert.deepEqual(verifyApplicationMigrationResult('FULLNET_APPLICATION_MIGRATIONS {"frameworkScripts":0,"applicationScripts":0}', false), { frameworkScripts: 0, applicationScripts: 0 });
+  assert.deepEqual(verifyApplicationMigrationResult('FULLNET_APPLICATION_MIGRATIONS {"frameworkScripts":0,"applicationScripts":1}', false, 1), { frameworkScripts: 0, applicationScripts: 1 });
 });
 test('missing, duplicate and incorrect migration evidence is rejected', () => {
   for (const stdout of ['', 'FULLNET_APPLICATION_MIGRATIONS {}', 'FULLNET_APPLICATION_MIGRATIONS {"frameworkScripts":0,"applicationScripts":1}', 'FULLNET_APPLICATION_MIGRATIONS {"frameworkScripts":3,"applicationScripts":0}', 'FULLNET_APPLICATION_MIGRATIONS {"frameworkScripts":1,"applicationScripts":1}\nFULLNET_APPLICATION_MIGRATIONS {"frameworkScripts":1,"applicationScripts":1}']) {

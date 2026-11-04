@@ -84,6 +84,13 @@ internal sealed class DapperSqlExecutor(
                 throw mapped;
             }
 
+            if (DataCommandExceptionMapper.TryMapCancellation(caught, cancellationToken, out var canceled))
+            {
+                // 遥测与调用方采用同一个最终取消异常，保留 Provider 诊断而不误记数据库故障。
+                exception = canceled;
+                throw canceled;
+            }
+
             throw;
         }
         finally
@@ -140,6 +147,13 @@ internal sealed class DapperSqlExecutor(
         catch (Exception caught)
         {
             exception = caught;
+            if (DataCommandExceptionMapper.TryMapCancellation(caught, cancellationToken, out var canceled))
+            {
+                // 遥测与调用方采用同一个最终取消异常，保留 Provider 诊断而不误记数据库故障。
+                exception = canceled;
+                throw canceled;
+            }
+
             if (DataCommandExceptionMapper.TryMapQueryConcurrency(caught, out var mapped)) throw mapped;
             throw;
         }
@@ -202,6 +216,13 @@ internal sealed class DapperSqlExecutor(
         catch (Exception caught)
         {
             exception = caught;
+            if (DataCommandExceptionMapper.TryMapCancellation(caught, cancellationToken, out var canceled))
+            {
+                // 遥测与调用方采用同一个最终取消异常，保留 Provider 诊断而不误记数据库故障。
+                exception = canceled;
+                throw canceled;
+            }
+
             if (DataCommandExceptionMapper.TryMapQueryConcurrency(caught, out var mapped)) throw mapped;
             throw;
         }
@@ -263,6 +284,13 @@ internal sealed class DapperSqlExecutor(
             if (DataCommandExceptionMapper.TryMap(caught, out var mapped))
             {
                 throw mapped;
+            }
+
+            if (DataCommandExceptionMapper.TryMapCancellation(caught, cancellationToken, out var canceled))
+            {
+                // 遥测与调用方采用同一个最终取消异常，保留 Provider 诊断而不误记数据库故障。
+                exception = canceled;
+                throw canceled;
             }
 
             throw;
@@ -336,6 +364,13 @@ internal sealed class DapperSqlExecutor(
         catch (Exception caught)
         {
             exception = caught;
+            if (DataCommandExceptionMapper.TryMapCancellation(caught, cancellationToken, out var canceled))
+            {
+                // 遥测与调用方采用同一个最终取消异常，保留 Provider 诊断而不误记数据库故障。
+                exception = canceled;
+                throw canceled;
+            }
+
             if (DataCommandExceptionMapper.TryMapQueryConcurrency(caught, out var mapped)) throw mapped;
             throw;
         }

@@ -32,6 +32,14 @@ internal sealed class RegistrationPolicyService(
                 ErrorType.NotFound));
         }
 
+        // 旧版本可能曾写入未知模式；不能将损坏的策略当作公开注册继续执行。
+        if (record.RegistrationMode > (byte)IdentityRegistrationMode.Open)
+        {
+            return Result<RegistrationPolicyResponse>.Failure(new Error(
+                IdentityErrorCodes.RegistrationDisabled,
+                "Registration is disabled.",
+                ErrorType.Forbidden));
+        }
         return Result<RegistrationPolicyResponse>.Success(Map(record));
     }
 
@@ -44,6 +52,15 @@ internal sealed class RegistrationPolicyService(
         CancellationToken cancellationToken = default)
     {
         var mode = ResolveRegistrationMode(request);
+        if (request.Version <= 0
+            || mode is not (IdentityRegistrationMode.Disabled
+                or IdentityRegistrationMode.InvitationOnly or IdentityRegistrationMode.Open))
+        {
+            return Result<RegistrationPolicyResponse>.Failure(new Error(
+                ValidationErrorCodes.Failed,
+                "A valid registration mode and positive version are required.",
+                ErrorType.Validation));
+        }
         var now = clock.UtcNow;
         var affectedRows = await commandExecutor.ExecuteAsync(
                 RegistrationPolicySql.UpdatePolicy,
@@ -68,11 +85,8 @@ internal sealed class RegistrationPolicyService(
 
     internal static RegistrationPolicyResponse Map(RegistrationPolicyRecord record)
     {
-        var mode = record.RegistrationMode == 0
-            ? (record.IsPublicRegistrationEnabled
-                ? IdentityRegistrationMode.Open
-                : IdentityRegistrationMode.InvitationOnly)
-            : (IdentityRegistrationMode)record.RegistrationMode;
+        // 迁移 222 已回填旧布尔策略；0 是明确关闭，不能再按旧布尔值开放邀请注册。
+        var mode = (IdentityRegistrationMode)record.RegistrationMode;
         return new(
             record.Id,
             mode == IdentityRegistrationMode.Open,

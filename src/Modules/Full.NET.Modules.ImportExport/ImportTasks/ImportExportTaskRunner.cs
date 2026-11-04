@@ -227,22 +227,33 @@ internal sealed class ImportExportTaskRunner(
                 await source.Content.DisposeAsync().ConfigureAwait(false);
             }
 
-            if (!batchResult.IsSuccess)
+            cancellationToken.ThrowIfCancellationRequested();
+            if (batchResult is null || !batchResult.IsSuccess)
             {
                 await MarkExecutionFailedAsync(
                     task,
                     lease,
-                    batchResult.Error!.Code,
+                    batchResult?.Error?.Code ?? ImportExportErrorCodes.ExecutionFailed,
                     clock.UtcNow,
                     cancellationToken).ConfigureAwait(false);
                 return;
             }
 
+            if (!ImportExportResultBoundary.IsValidBatch(task, batchResult.Value, executionState.Rows, executionBatchSize, cancellationToken, out var textLimitExceeded))
+            {
+                await MarkExecutionFailedAsync(task, lease, textLimitExceeded ? ImportExportErrorCodes.ErrorReceiptLimitExceeded
+                    : ImportExportErrorCodes.ExecutionFailed, clock.UtcNow, cancellationToken).ConfigureAwait(false);
+                return;
+            }
             await ApplyBatchResultAsync(task, lease, batchResult.Value!, cancellationToken).ConfigureAwait(false);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
             // 宿主取消不能写成失败；租约到期后由其他实例从检查点重领。
+        }
+        catch (ImportExportErrorReceiptLimitException)
+        {
+            await MarkExecutionFailedAsync(task, lease, ImportExportErrorCodes.ErrorReceiptLimitExceeded, clock.UtcNow, cancellationToken).ConfigureAwait(false);
         }
         catch (StaticImportHeaderMappingException)
         {
@@ -304,7 +315,7 @@ internal sealed class ImportExportTaskRunner(
                 errorCode = ImportExportErrorCodes.ExecutionFailed;
             }
 
-            if (executionFailedRowCount > 0 && errorReceiptFileId is null)
+            if (executionFailedRowCount > 0)
             {
                 errorReceiptFileId = await ResolveOrUploadErrorReceiptAsync(task, mergedRows, cancellationToken)
                     .ConfigureAwait(false);
@@ -359,27 +370,31 @@ internal sealed class ImportExportTaskRunner(
         IReadOnlyList<StaticImportRowExecutionResult> mergedRows,
         CancellationToken cancellationToken)
     {
+        var failedRows = mergedRows.Where(row => !row.Succeeded).ToArray();
+        var fileName = ImportExportErrorReceiptIdentity.BuildStorageFileName(task.SourceFileName, failedRows, cancellationToken);
         var ready = await resourceFiles.ListReadyAsync("import_export", task.Id, cancellationToken)
             .ConfigureAwait(false);
-        var existing = ready.LastOrDefault(item => item.FileId != task.SourceFileId);
+        cancellationToken.ThrowIfCancellationRequested();
+        var existing = ready.LastOrDefault(item => item.FileId != task.SourceFileId && string.Equals(item.OriginalFileName, fileName, StringComparison.Ordinal));
         if (existing is not null)
         {
             return existing.FileId;
         }
 
-        var failedRows = mergedRows.Where(row => !row.Succeeded).ToArray();
         var receiptBytes = ImportExportErrorReceiptRenderer.Render(failedRows, cancellationToken);
         await using var receiptStream = new MemoryStream(receiptBytes, writable: false);
         var upload = await resourceFiles
             .UploadAsync(
                 "import_export", task.Id, task.RequestedByUserId,
-                BuildErrorReceiptFileName(task),
+                fileName,
                 WorkbookContentType,
                 receiptStream,
                 receiptBytes.Length,
                 cancellationToken)
             .ConfigureAwait(false);
-        return upload.IsSuccess ? upload.Value!.FileId : null;
+        cancellationToken.ThrowIfCancellationRequested();
+        if (!upload.IsSuccess) throw new IOException("导入错误回执存储失败，保留任务等待恢复。");
+        return upload.Value!.FileId;
     }
 
     /// <summary>仅在仍持有当前租约时写入任务级失败。</summary>

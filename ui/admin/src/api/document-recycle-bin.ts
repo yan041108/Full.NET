@@ -3,13 +3,13 @@ import {
   documentHostPurgeRecycleBinItem,
   documentHostRestoreRecycleBinItem,
   isHostRecycleBinItemResponse,
-  isHostRecycleBinPage,
   isRestoreHostRecycleBinItemRequest,
   type HostRecycleBinItemResponse,
   type HostRecycleBinPage,
   type RestoreHostRecycleBinItemRequest
 } from '@fullnet/client-contracts';
 import { http } from './http';
+import { validRecycleId, validRecycleRevision, validRecyclePage, validRestoredRecycleItem } from '../guards/document-recycle-guards';
 
 /** 分页查询文档回收站列表，并对响应页做失败关闭校验。 */
 export async function listRecycleBinItems(
@@ -17,12 +17,14 @@ export async function listRecycleBinItems(
   pageSize = 20,
   signal?: AbortSignal
 ): Promise<HostRecycleBinPage> {
+  page = Number.isSafeInteger(page) ? Math.min(2147483647, Math.max(1, page)) : 1;
+  pageSize = Number.isSafeInteger(pageSize) ? Math.max(1, Math.min(100, pageSize)) : 20;
   const value = await documentHostListRecycleBinItems(
     http,
     { page, pageSize },
     signal
   );
-  if (!isHostRecycleBinPage(value)) {
+  if (!validRecyclePage(value, page, pageSize)) {
     throw new Error('client.invalid_recycle_bin_page');
   }
   return value;
@@ -34,15 +36,17 @@ export async function restoreRecycleBinItem(
   req: RestoreHostRecycleBinItemRequest,
   signal?: AbortSignal
 ): Promise<HostRecycleBinItemResponse> {
-  if (!isRestoreHostRecycleBinItemRequest(req)) {
+  const payload = { ...req };
+  if (!validRecycleId(id) || !isRestoreHostRecycleBinItemRequest(payload) || !validRecycleRevision(payload.version)) {
     throw new Error('client.invalid_restore_recycle_bin_request');
   }
   const value = await documentHostRestoreRecycleBinItem(
     http,
-    { id, body: req },
+    { id, body: payload },
     signal
   );
-  if (!isHostRecycleBinItemResponse(value)) {
+  if (isHostRecycleBinItemResponse(value) && value.id.toLowerCase() !== id.toLowerCase()) throw new Error('client.invalid_recycle_bin_identity');
+  if (!validRestoredRecycleItem(value, id, payload.version)) {
     throw new Error('client.invalid_recycle_bin_item');
   }
   return value;
@@ -53,6 +57,7 @@ export async function purgeRecycleBinItem(
   id: string,
   signal?: AbortSignal
 ): Promise<boolean> {
+  if (!validRecycleId(id)) throw new Error('client.invalid_recycle_bin_identity');
   return documentHostPurgeRecycleBinItem(http, { id }, signal);
 }
 

@@ -18,6 +18,13 @@ export interface HostDocumentPermissionResponse {
   createdAtUtc: string;
 }
 
+export interface HostDocumentPermissionSnapshotResponse {
+  visibilityMode: 'host' | 'restricted';
+  documentId: string;
+  version: number;
+  permissions: HostDocumentPermissionResponse[];
+}
+
 const guidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 function isGuid(value: unknown): value is string {
@@ -41,6 +48,8 @@ export function isHostDocumentPermissionEntry(value: unknown): value is HostDocu
 export function isSetHostDocumentPermissionsRequest(value: unknown): value is SetHostDocumentPermissionsRequest {
   return isRecord(value)
     && isGuid(value.documentId)
+    && Number.isSafeInteger(value.version) && (value.version as number) >= 1
+    && (value.version as number) < Number.MAX_SAFE_INTEGER
     && Array.isArray(value.permissions)
     && value.permissions.every(isHostDocumentPermissionEntry)
     && ['host', 'restricted'].includes(String(value.visibilityMode)) && Number.isInteger(value.version);
@@ -57,4 +66,13 @@ export function isHostDocumentPermissionResponse(value: unknown): value is HostD
 
 export function isHostDocumentPermissionResponseList(value: unknown): value is HostDocumentPermissionResponse[] {
   return Array.isArray(value) && value.every(isHostDocumentPermissionResponse);
+}
+
+export function isHostDocumentPermissionSnapshotResponse(value: unknown): value is HostDocumentPermissionSnapshotResponse {
+  return isRecord(value) && isGuid(value.documentId)
+    && Number.isSafeInteger(value.version) && (value.version as number) >= 1
+    && (value.version as number) < Number.MAX_SAFE_INTEGER
+    && ['host', 'restricted'].includes(String(value.visibilityMode))
+    && isHostDocumentPermissionResponseList(value.permissions)
+    && value.permissions.every(entry => entry.documentId.toLowerCase() === (value.documentId as string).toLowerCase());
 }

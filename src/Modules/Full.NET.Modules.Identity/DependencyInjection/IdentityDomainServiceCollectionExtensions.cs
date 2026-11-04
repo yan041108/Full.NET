@@ -147,6 +147,7 @@ internal static class IdentityDomainServiceCollectionExtensions
         services.TryAddScoped<
             ITenantMemberSelectionDirectory,
             HostUsers.TenantMemberSelectionDirectory>();
+        services.TryAddScoped<ITenantMemberBatchSelectionDirectory, HostUsers.TenantMemberSelectionDirectory>();
         services.TryAddScoped<ITenantActiveMemberCountPort, HostUsers.TenantActiveMemberCountPort>();
         services.TryAddScoped<HostUsers.HostTenantUserSelectionDirectory>();
         services.TryAddScoped<IHostTenantUserSelectionDirectory>(provider =>
@@ -247,6 +248,7 @@ internal static class IdentityDomainServiceCollectionExtensions
         services.TryAddScoped<ITenantUserSelectionDirectory, HostUsers.TenantUserSelectionDirectory>();
         // Workflow 后台推进按当前活动成员复核，不把旧租户角色视作成员关系。
         services.TryAddScoped<ITenantMemberSelectionDirectory, HostUsers.TenantMemberSelectionDirectory>();
+        services.TryAddScoped<ITenantMemberBatchSelectionDirectory>(provider => provider.GetRequiredService<ITenantMemberSelectionDirectory>());
         return services;
     }
 }

@@ -57,7 +57,7 @@ internal sealed class HostDocumentPermissionManagementService(
     {
         var document = await guard.LockAsync(request.DocumentId, cancellationToken).ConfigureAwait(false);
 
-        if (document is null)
+        if (document is null || document.DeletedAtUtc is not null)
         {
             return DocumentNotFound();
         }
@@ -65,8 +65,10 @@ internal sealed class HostDocumentPermissionManagementService(
         if (document.Version != request.Version) return Result<IReadOnlyList<HostDocumentPermissionResponse>>.Failure(
             new Error(DocumentErrorCodes.VersionConflict, "Document was changed.", ErrorType.Conflict));
         var previous = await queries.ListByDocumentAsync(request.DocumentId, cancellationToken).ConfigureAwait(false);
-        await commandExecutor.ExecuteAsync(DocumentItemSql.SetVisibility,
+        var updatedRows = await commandExecutor.ExecuteAsync(DocumentItemSql.SetVisibility,
             DocumentSqlParameters.Create(("Id", request.DocumentId), ("VisibilityMode", request.VisibilityMode), ("Version", request.Version)), cancellationToken).ConfigureAwait(false);
+        if (updatedRows != 1) return Result<IReadOnlyList<HostDocumentPermissionResponse>>.Failure(
+            new Error(DocumentErrorCodes.VersionConflict, "Document was changed.", ErrorType.Conflict));
         await commandExecutor.ExecuteAsync(
                 DocumentPermissionSql.DeleteByDocument,
                 DocumentSqlParameters.Create(("DocumentId", request.DocumentId)),

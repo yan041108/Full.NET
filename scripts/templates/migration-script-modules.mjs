@@ -34,6 +34,7 @@ const SHARED_STEMS = new Set([
   'AuthenticationAuditContext',
   'SuperAdministratorGrantRevokePermissions',
   'OwnTaskCursorIndexes',
+  'MediaBindingClaimGeneration',
 ]);
 
 /** 两种本人任务索引共用一份脚本；两张权威表都存在时才能执行，不由任一模块单独带入。 */
@@ -61,9 +62,13 @@ const STEM_MODULE_OVERRIDES = new Map([
   ['DocumentAccessLog', 'Platform'],
   ['DocumentHostAccessLogPermission', 'Platform'],
   ['DocumentPreviewTask', 'Platform'],
+  ['DocumentPreviewTaskCancellation', 'Platform'],
+  ['DocumentPreviewTaskLease', 'Platform'],
   ['DocumentHostPreviewTaskPermission', 'Platform'],
   ['DocumentTagHotRecommended', 'Platform'],
   ['DocumentVersionRetentionSetting', 'Platform'],
+  ['DocumentItemWriteGuard', 'Platform'],
+  ['DocumentTaxonomyWriteGuard', 'Platform'],
   ['DataApprovalRequest', 'Workflow'],
   ['DataApprovalScenario', 'Workflow'],
   ['DataApprovalRequestRecovery', 'Workflow'],

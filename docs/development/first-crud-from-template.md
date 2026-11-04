@@ -1,6 +1,6 @@
 # 从模板到首个 CRUD（入口与分项验证范围）
 
-1. 组装并创建应用（见 [`templates/fullnet-app/README.md`](../../templates/fullnet-app/README.md)）。
+1. 组装并创建应用（可复制的 Minimal 命令见[首个 CRUD 教程](create-first-crud.md#从空目录创建示例应用)，其他参数见 [`templates/fullnet-app/README.md`](../../templates/fullnet-app/README.md)）。
 2. 诊断：`pnpm run diagnose:development`（应用根目录）。
 3. 配置 `ConnectionStrings:app`。仅在本地开发时显式设置 Migrator 的 `DOTNET_ENVIRONMENT=Development`（PowerShell：`$env:DOTNET_ENVIRONMENT='Development'`；Bash：`export DOTNET_ENVIRONMENT=Development`），再从应用根运行 `dotnet run --project src/<name>.Host.Migrator -- --seed development`。省略 `--seed` 只迁移；默认 Production 环境拒绝 Development Overlay，生产仍只允许 Baseline。旧应用需显式采用新模板的应用Migrator，源码升级不会覆盖或创建应用拥有的入口。
 4. 使用 [`Full.NET.CodeGeneration.Cli`](../../src/Tools/Full.NET.CodeGeneration.Cli/) 在应用工作区生成租户 CRUD（表名遵循 `{owner}_*` 命名，见 [`samples/enterprise-request`](../../samples/enterprise-request)）。模板 API、Worker 与 Migrator 通过 `src/<name>.Composition/ApplicationModuleCatalog.cs` 按各自 Profile 装配应用模块；接入目标使用该应用自有项目和标准 `CreateModules()` 清单，不修改 `framework/fullnet/` 的受管官方目录。Worker 编译随应用分发的框架后台处理管线，并使用应用目录注册业务后台能力；其生成应用运行时和 Native AOT 验收仍需单独证据。当前生成客户端验收已显式接入生成业务迁移并验证两库首次执行；重复运行与故障恢复仍按对应独立证据声明。

@@ -30,6 +30,7 @@ internal static class IdentityAuthorizationServiceCollectionExtensions
         services.TryAddSingleton(provider => AuthorizationCatalog.Create(
             provider.GetServices<IAuthorizationCatalogContributor>()));
         services.TryAddSingleton<PermissionClaimEvaluator>();
+        services.TryAddSingleton<IIdentityPermissionEvaluator>(provider => provider.GetRequiredService<PermissionClaimEvaluator>());
         services.TryAddScoped<IPermissionSnapshotReader, PermissionSnapshotReader>();
         services.TryAddScoped<IIdentityTenantContextAccess, IdentityTenantContextAccessReader>();
         services.TryAddScoped<

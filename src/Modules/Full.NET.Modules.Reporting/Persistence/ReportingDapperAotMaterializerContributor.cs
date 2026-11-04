@@ -12,6 +12,7 @@ internal sealed class ReportingDapperAotMaterializerContributor
 {
     public void RegisterMaterializers(DapperAotMaterializerRegistrar registrar)
     {
+        registrar.Register<ReportingGroupRecord>(ReadGroup);
         registrar.Register<ReportingDataSourceRecord>(ReadDataSource);
         registrar.Register<ReportingExportTaskRecord>(ReadExportTask);
         registrar.Register<ReportingTaskCancellationState>(reader => new()
@@ -23,6 +24,7 @@ internal sealed class ReportingDapperAotMaterializerContributor
         registrar.Register<ReportingDefinitionRecord>(ReadDefinition);
         registrar.Register<ReportingDefinitionVersionRecord>(ReadDefinitionVersion);
         registrar.Register<ReportingDefinitionTenantGrantRecord>(ReadTenantGrant);
+        registrar.Register<ReportingPublishedDefinitionRecord>(ReadPublishedDefinition);
     }
 
     // 以下序号与分组、定义和版本的完整/摘要投影一致；摘要 SQL 不读取大正文列。
@@ -68,6 +70,15 @@ internal sealed class ReportingDapperAotMaterializerContributor
         ChangeNote = AotDataReaderExtensions.ReadNullableString(reader, 7),
         PublishedByUserId = reader.GetGuid(8),
         PublishedAtUtc = AotDataReaderExtensions.ReadDateTimeOffset(reader, 9),
+    };
+
+    /// <summary>目录只物化获授版本的执行字段，保持 Native AOT 静态闭包。</summary>
+    private static ReportingPublishedDefinitionRecord ReadPublishedDefinition(DbDataReader reader) => new()
+    {
+        DefinitionId = ReadGuid(reader, "DefinitionId"), DefinitionKey = ReadString(reader, "DefinitionKey"),
+        Name = ReadString(reader, "Name"), VersionNumber = ReadInt32(reader, "VersionNumber"),
+        QueryPortKey = ReadString(reader, "QueryPortKey"), ParameterSchemaJson = ReadString(reader, "ParameterSchemaJson"),
+        LayoutConfigJson = ReadString(reader, "LayoutConfigJson"),
     };
 
     private static ReportingDataSourceRecord ReadDataSource(DbDataReader reader) => new()

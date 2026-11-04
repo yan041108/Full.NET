@@ -30,6 +30,7 @@ internal sealed class ImportExportTaskExecutionService(
         StaticImportPreviewContext executionContext,
         CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         EnsureTenantContext();
         var task = await LoadTaskAsync(taskId, cancellationToken).ConfigureAwait(false);
         if (task is null)
@@ -43,6 +44,7 @@ internal sealed class ImportExportTaskExecutionService(
         }
 
         var permission = await authority.ValidateQueueAsync(task, executionContext, cancellationToken).ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
         if (!permission.IsSuccess) return Result<ImportExportTaskDetailResponse>.Failure(permission.Error!);
         var updated = await TransitionAsync(
                 task,
@@ -67,6 +69,7 @@ internal sealed class ImportExportTaskExecutionService(
         StaticImportPreviewContext executionContext,
         CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         EnsureTenantContext();
         var task = await LoadTaskAsync(taskId, cancellationToken).ConfigureAwait(false);
         if (task is null)
@@ -80,6 +83,7 @@ internal sealed class ImportExportTaskExecutionService(
         }
 
         var permission = await authority.ValidateQueueAsync(task, executionContext, cancellationToken).ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
         if (!permission.IsSuccess) return Result<ImportExportTaskDetailResponse>.Failure(permission.Error!);
 
         var updated = await TransitionAsync(
@@ -105,6 +109,7 @@ internal sealed class ImportExportTaskExecutionService(
         StaticImportPreviewContext executionContext,
         CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         EnsureTenantContext();
         var task = await LoadTaskAsync(taskId, cancellationToken).ConfigureAwait(false);
         if (task is null)
@@ -119,6 +124,7 @@ internal sealed class ImportExportTaskExecutionService(
         }
 
         var permission = await authority.ValidateQueueAsync(task, executionContext, cancellationToken).ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
         if (!permission.IsSuccess) return Result<ImportExportTaskDetailResponse>.Failure(permission.Error!);
 
         var updated = await TransitionAsync(
@@ -140,24 +146,34 @@ internal sealed class ImportExportTaskExecutionService(
 
     /// <summary>打开错误回执 xlsx 内容。</summary>
     public async Task<Result<TenantResourceFileContent>> OpenErrorReceiptAsync(
-        Guid taskId,
+        Guid taskId, Full.NET.Modules.Identity.Contracts.SessionBindingSnapshot binding,
         CancellationToken cancellationToken = default)
     {
-        EnsureTenantContext();
+        cancellationToken.ThrowIfCancellationRequested(); EnsureTenantContext();
         var task = await LoadTaskAsync(taskId, cancellationToken).ConfigureAwait(false);
-        if (task is null)
-        {
-            return Result<TenantResourceFileContent>.Failure(TaskNotFoundError());
-        }
-
+        cancellationToken.ThrowIfCancellationRequested();
+        if (task is null) return Result<TenantResourceFileContent>.Failure(TaskNotFoundError());
+        var error = await authority.ValidateReadAsync(task, binding, cancellationToken).ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
+        if (error is not null) return Result<TenantResourceFileContent>.Failure(error);
         if (task.ErrorReceiptFileId is null || task.ExecutionFailedRowCount <= 0)
-        {
             return Result<TenantResourceFileContent>.Failure(ErrorReceiptNotReadyError());
+        var content = await resourceFiles.OpenReadyContentAsync("import_export", task.Id, task.ErrorReceiptFileId.Value,
+            cancellationToken).ConfigureAwait(false);
+        if (!content.IsSuccess) { cancellationToken.ThrowIfCancellationRequested(); return content; }
+        var transferred = false;
+        try
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            error = await authority.ValidateReadAsync(task, binding, cancellationToken).ConfigureAwait(false);
+            cancellationToken.ThrowIfCancellationRequested();
+            if (error is not null) return Result<TenantResourceFileContent>.Failure(error);
+            var result = Result<TenantResourceFileContent>.Success(content.Value! with {
+                OriginalFileName = ImportExportErrorReceiptIdentity.BuildDownloadFileName(task.SourceFileName),
+            });
+            transferred = true; return result;
         }
-
-        return await resourceFiles
-            .OpenReadyContentAsync("import_export", task.Id, task.ErrorReceiptFileId.Value, cancellationToken)
-            .ConfigureAwait(false);
+        finally { if (!transferred) await content.Value!.Content.DisposeAsync().ConfigureAwait(false); }
     }
 
     private async Task RunSynchronouslyIfConfiguredAsync(
@@ -243,6 +259,7 @@ internal sealed class ImportExportTaskExecutionService(
                     ("ErrorCode", resetExecution ? null : task.ErrorCode)),
                 cancellationToken)
             .ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
         if (affected == 0)
         {
             return null;
@@ -253,13 +270,13 @@ internal sealed class ImportExportTaskExecutionService(
 
     private async Task<ImportExportTaskRecord?> LoadTaskAsync(
         Guid taskId,
-        CancellationToken cancellationToken) =>
-        await queryExecutor
-            .QuerySingleOrDefaultAsync<ImportExportTaskRecord>(
-                ImportExportTaskSql.FindById,
-                ImportExportSqlParameters.Create(("Id", taskId)),
-                cancellationToken)
-            .ConfigureAwait(false);
+        CancellationToken cancellationToken)
+    {
+        var record = await queryExecutor.QuerySingleOrDefaultAsync<ImportExportTaskRecord>(ImportExportTaskSql.FindById,
+            ImportExportSqlParameters.Create(("Id", taskId)), cancellationToken).ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
+        return record;
+    }
 
     private void EnsureTenantContext()
     {

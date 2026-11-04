@@ -65,6 +65,23 @@ export interface ReportingDefinitionVersion {
   publishedAtUtc: string;
 }
 
+/** Host 精确版本的授权租户标识分页，不包含租户目录或秘密。 */
+export interface ReportingTenantVersionGrantPage {
+  items: string[];
+  page: number;
+  pageSize: number;
+  total: number;
+}
+
+export function isReportingTenantVersionGrantPage(value: unknown): value is ReportingTenantVersionGrantPage {
+  if (!isRecord(value)) return false;
+  return Array.isArray(value.items) && value.items.every(isGuid)
+    && Number.isSafeInteger(value.page) && Number(value.page) >= 1
+    && Number.isSafeInteger(value.pageSize) && Number(value.pageSize) >= 1 && Number(value.pageSize) <= 200
+    && value.items.length <= Number(value.pageSize)
+    && Number.isSafeInteger(value.total) && Number(value.total) >= value.items.length;
+}
+
 export interface CreateReportingGroupRequest {
   parentId?: string | null;
   name: string;
@@ -253,4 +270,27 @@ export function isReportingDefinitionVersionSummary(value: unknown): value is Re
     && isNullableString(value.changeNote)
     && isGuid(value.publishedByUserId)
     && typeof value.publishedAtUtc === 'string';
+}
+
+/** 获授的不可变发布配置，不能使用 Host 草稿或自行推断全局最新版本。 */
+export interface ReportingPublishedVersion {
+  definitionId: string;
+  definitionKey: string;
+  name: string;
+  versionNumber: number;
+  queryPortKey: string;
+  parameterSchema: ReportingParameterSchemaEntry[];
+  layoutConfigJson: string;
+}
+
+export function isReportingPublishedVersion(value: unknown): value is ReportingPublishedVersion {
+  return isRecord(value) && isGuid(value.definitionId)
+    && typeof value.definitionKey === 'string' && typeof value.name === 'string'
+    && typeof value.versionNumber === 'number' && Number.isInteger(value.versionNumber) && value.versionNumber > 0
+    && typeof value.queryPortKey === 'string' && typeof value.layoutConfigJson === 'string'
+    && Array.isArray(value.parameterSchema) && value.parameterSchema.every(isReportingParameterSchemaEntry);
+}
+
+export function isReportingPublishedVersionList(value: unknown): value is ReportingPublishedVersion[] {
+  return Array.isArray(value) && value.every(isReportingPublishedVersion);
 }

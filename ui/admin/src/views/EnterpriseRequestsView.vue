@@ -19,6 +19,7 @@ import {
   type SavedQueryConfiguration
 } from '@fullnet/client-contracts';
 import { enterpriseRequestsHttp } from '../api/enterprise-requests';
+import EnterpriseRequestApprovalProgressDialog from './enterprise-requests/EnterpriseRequestApprovalProgressDialog.vue';
 import EnterpriseRequestDelivery from '../components/EnterpriseRequestDelivery.vue';
 import EnterpriseRequestAggregateEditor from '../components/EnterpriseRequestAggregateEditor.vue';
 import EnterpriseRequestReadDetail from '../components/EnterpriseRequestReadDetail.vue';
@@ -45,6 +46,7 @@ const queryFieldLabel = (key: string) => (({ id: 'ID', requestNumber: editorText
 const aggregateOpen = ref(false), aggregateId = ref<string>();
 const readDetailOpen = ref(false), readDetailId = ref<string>();
 const deliveryOpen = ref(false), deliveryId = ref<string>();
+const approvalProgressId = ref<string>();
 const canUseDelivery = () => !session.switching && session.can('enterprise_request.enterprise_requests.read') &&
   ['attachments.read', 'attachments.manage', 'reports.read', 'documents.print'].some(key => session.can(`enterprise_request.${key}`));
 const route = useRoute(), router = useRouter();
@@ -126,7 +128,7 @@ watch(() => [changing.value, aggregateOpen.value, readDetailOpen.value, delivery
 /** 业务待办只携带 UUID；实际内容仍由当前租户及精确读取权限约束的业务 API 返回。 */
 function openRequestedDocument() {
   if (route.name !== 'enterprise-requests' || session.switching || !session.can('enterprise_request.enterprise_requests.read')) {
-    aggregateOpen.value = false; readDetailOpen.value = false; return;
+    approvalProgressId.value = undefined; aggregateOpen.value = false; readDetailOpen.value = false; return;
   }
   const id = route.query.requestId;
   if (typeof id !== 'string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)
@@ -220,6 +222,7 @@ async function removeRow(row: EnterpriseRequestResponse): Promise<void> {
       <el-table-column label="操作" width="360">
         <template #default="{ row }">
           <ArtTableActionGroup>
+          <el-button v-if="session.can('enterprise_request.enterprise_requests.read')" link data-testid="enterprise-request-approval-progress" @click="approvalProgressId = row.id">审批进度</el-button>
           <el-button v-if="session.can('enterprise_request.enterprise_request_lines.read')" link type="primary"
             @click="aggregateId = row.id; aggregateOpen = true">{{ editorText('open') }}</el-button>
           <el-button v-if="canUseDelivery()" link type="primary" @click="deliveryId = row.id; deliveryOpen = true">
@@ -262,6 +265,7 @@ async function removeRow(row: EnterpriseRequestResponse): Promise<void> {
       @current-change="(next: number) => load(next)"
     />
     <!-- 文档编辑会刷新列表；弹窗由页面持有，不能随表格行或操作插槽重建而消失。 -->
+    <EnterpriseRequestApprovalProgressDialog v-if="approvalProgressId" :request-id="approvalProgressId" @close="approvalProgressId = undefined" />
     <EnterpriseRequestDelivery v-if="deliveryId" v-model="deliveryOpen" :request-id="deliveryId" @updated="load(page)" />
     <el-dialog v-model="createOpen" title="创建">
       <el-form label-width="120px">

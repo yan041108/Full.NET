@@ -17,7 +17,8 @@ internal static class OpenApiClientSnapshotContractAssertions
     public static async Task VerifyAsync(
         HttpClient client,
         DatabaseProvider provider,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        string? exportPathOverride = null)
     {
         using var response = await client.GetAsync("/openapi/v1.json", cancellationToken);
         Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
@@ -32,7 +33,7 @@ internal static class OpenApiClientSnapshotContractAssertions
                 Assert.AreEqual("string", enterprise.GetProperty("properties").GetProperty("totalAmount").GetProperty("type").GetString());
         }
 
-        var exportPath = Environment.GetEnvironmentVariable(ExportPathEnvironmentVariable);
+        var exportPath = exportPathOverride ?? Environment.GetEnvironmentVariable(ExportPathEnvironmentVariable);
         if (!string.IsNullOrWhiteSpace(exportPath))
         {
             var exportDirectory = Path.GetDirectoryName(exportPath);

@@ -224,6 +224,21 @@ test('manifest 与规范快照精确登记生成操作且 CI 只执行离线 che
   for (const operationId of ['aiGetKnowledgeAnswerFeedbackReviews', 'aiReviewKnowledgeAnswerFeedback', 'aiExportKnowledgeAnswerFeedbackLabels']) {
     assert.ok(manifest.entries.some(entry => entry.operationId === operationId && entry.generatedGroup === 'ai-answer-feedback' && entry.status === 'generated'));
   }
+  const submit = snapshot.paths['/api/v1/enterprise_request/enterprise-requests/{id}/submit-for-approval']?.post;
+  assert.ok(submit?.responses['400'], '未发布流程定义的校验失败必须进入公开契约');
+  for (const [route, method, operationId] of [
+    ['/api/v1/enterprise_request/enterprise-requests/{id}/submit-for-approval', 'post', 'submitEnterpriseRequestForApproval'],
+    ['/api/v1/enterprise_request/enterprise-requests/{id}/approval-progress', 'get', 'enterpriseRequestGetApprovalProgress'],
+    ['/api/v1/enterprise_request/enterprise-requests/{id}/repair-approval', 'post', 'enterpriseRequestRepairApproval'],
+    ['/api/v1/reporting/published-definition-versions', 'get', 'reportingListPublishedDefinitionVersions'],
+    ['/api/v1/reporting/definitions/{definitionId}/versions/{versionNumber}/tenant-grants', 'get', 'reportingListTenantVersionGrants']
+  ]) {
+    const operation = snapshot.paths[route][method];
+    assert.equal(operation.operationId, operationId);
+    assert.equal(manifest.entries.find(entry => entry.operationId === operationId).status, 'generated');
+    assert.ok(operation.security.length > 0);
+    assert.ok(operation.responses['403']);
+  }
   assert.deepEqual(
     manifest.entries
       .filter(entry => entry.generatedGroup === 'workflow-forms')

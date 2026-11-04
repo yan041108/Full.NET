@@ -21,6 +21,8 @@ internal sealed class HostRecycleBinManagementService(
     ICommandTransaction transaction,
     HostDocumentItemQueryService itemQueries,
     IClock clock,
+    Full.NET.Modules.Document.Features.DocumentCategoryGuard categoryGuard,
+    Full.NET.Modules.Document.Features.ManageHostDocumentItems.DocumentItemRestoreService restores,
     IDocumentAccessPolicy accessPolicy,
     Full.NET.Modules.Document.Features.DocumentMutationGuard mutationGuard,
     Full.NET.Modules.Document.Features.DocumentReferenceReleasePublisher releasePublisher,
@@ -76,6 +78,7 @@ internal sealed class HostRecycleBinManagementService(
         long version,
         CancellationToken cancellationToken)
     {
+        await categoryGuard.LockAsync(cancellationToken).ConfigureAwait(false);
         var existing = await mutationGuard.LockAsync(itemId, cancellationToken).ConfigureAwait(false);
 
         if (existing is null || existing.DeletedAtUtc is null || existing.IsPurging)
@@ -85,17 +88,8 @@ internal sealed class HostRecycleBinManagementService(
 
         if (await accessPolicy.CheckAsync(itemId, DocumentOperation.Write, cancellationToken).ConfigureAwait(false) is { } denied)
             return Result<HostDocumentItemResponse>.Failure(denied);
-        var now = clock.UtcNow;
-        var affected = await commandExecutor.ExecuteAsync(
-                DocumentItemSql.Restore,
-                DocumentSqlParameters.Create(("Id", itemId), ("UpdatedAtUtc", now), ("UpdatedByUserId", actorUserId), ("Version", version)),
-                cancellationToken)
-            .ConfigureAwait(false);
-
-        if (affected != 1)
-        {
-            return VersionConflict();
-        }
+        var restored = await restores.RestoreAsync(existing, actorUserId, version, fromRecycleBin: true, cancellationToken).ConfigureAwait(false);
+        if (!restored.IsSuccess) return Result<HostDocumentItemResponse>.Failure(restored.Error!);
 
         return await itemQueries.GetByIdAsync(itemId, cancellationToken).ConfigureAwait(false);
     }

@@ -450,6 +450,9 @@ internal sealed class ReportingExportTaskRunner(
     private static ClaimsPrincipal RebuildPrincipal(ReportingExportTaskRecord task)
     {
         var identity = new ClaimsIdentity("reporting-export-recovery");
+        // 恢复主体仅携带已验证任务的租户作用域及冻结列权限，不能继承超级管理员能力。
+        identity.AddClaim(new Claim(FullNetIdentityClaimTypes.Scope, $"tenant:{task.TenantId:N}"));
+        identity.AddClaim(new Claim(FullNetIdentityClaimTypes.TenantId, task.TenantId.ToString("D")));
         identity.AddClaim(new Claim(FullNetIdentityClaimTypes.Subject, task.RequestedByUserId.ToString("D")));
         IReadOnlyList<string> permissions;
         try { permissions = ReportingExportTaskMapper.DeserializePermissionCodes(task.ActorPermissionCodesJson); }

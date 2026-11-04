@@ -58,7 +58,7 @@ describe('OidcCallbackView', () => {
     const pinia = createPinia();
     setActivePinia(pinia);
     const session = useSessionStore();
-    const completeSpy = vi.spyOn(session, 'restore').mockImplementation(async () => { session.$patch({ state: 'authenticated' }); });
+    const completeSpy = vi.spyOn(session, 'restore').mockImplementation(async () => { session.$patch({ state: 'authenticated' }); return true; });
 
     const wrapper = mount(OidcCallbackView, { global: { plugins: [pinia] } });
     await flushPromises();

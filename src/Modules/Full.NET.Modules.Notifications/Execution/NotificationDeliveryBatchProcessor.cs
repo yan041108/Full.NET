@@ -361,7 +361,7 @@ internal sealed class NotificationDeliveryBatchProcessor(
             resultCategory = providerCallStarted
                 ? NotificationDeliveryRetry.Unknown
                 : NotificationDeliveryRetry.Transient;
-            logger.LogWarning(exception, "Notification delivery attempt failed with category {ResultCategory}.", resultCategory);
+            logger.LogWarning("Notification delivery attempt failed with category {ResultCategory}. ExceptionType={ExceptionType}", resultCategory, exception.GetType().Name);
         }
 
         stopwatch.Stop();

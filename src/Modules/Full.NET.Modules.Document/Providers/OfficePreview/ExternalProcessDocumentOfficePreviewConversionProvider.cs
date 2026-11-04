@@ -17,7 +17,8 @@ internal sealed class ExternalProcessDocumentOfficePreviewConversionProvider(
         string workingDirectory,
         CancellationToken cancellationToken = default)
     {
-        var processOptions = options.CurrentValue.ExternalProcess;
+        var snapshot = options.CurrentValue;
+        var processOptions = snapshot.ExternalProcess;
         if (string.IsNullOrWhiteSpace(processOptions.ExecutablePath))
         {
             return Result<DocumentOfficePreviewConversionOutput>.Failure(
@@ -28,22 +29,18 @@ internal sealed class ExternalProcessDocumentOfficePreviewConversionProvider(
         }
 
         using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        timeoutCts.CancelAfter(TimeSpan.FromSeconds(Math.Clamp(options.CurrentValue.TimeoutSeconds, 5, 3600)));
-        var inputPath = Path.Combine(workingDirectory, SanitizeFileName(request.SourceFileName));
-        var outputPath = Path.Combine(workingDirectory, Path.GetFileNameWithoutExtension(inputPath) + ".pdf");
+        timeoutCts.CancelAfter(TimeSpan.FromSeconds(Math.Clamp(snapshot.TimeoutSeconds, 5, 3600)));
+        var inputPath = Path.Combine(workingDirectory, DocumentPreviewProcessArguments.InputFileName(request.SourceMimeType));
+        var outputPath = Path.Combine(workingDirectory, "output.pdf");
         await using (var inputFile = File.Create(inputPath))
         {
             await OfficePreviewInputBudget.CopyAsync(request.SourceContent, inputFile,
-                Math.Min(options.CurrentValue.MaxInputBytes, options.CurrentValue.MaxTemporaryBytes), timeoutCts.Token).ConfigureAwait(false);
+                Math.Min(snapshot.MaxInputBytes, snapshot.MaxTemporaryBytes), timeoutCts.Token).ConfigureAwait(false);
         }
 
-        var arguments = processOptions.ArgumentTemplate
-            .Replace("{inputPath}", inputPath, StringComparison.Ordinal)
-            .Replace("{outputPath}", outputPath, StringComparison.Ordinal);
         var startInfo = new ProcessStartInfo
         {
             FileName = processOptions.ExecutablePath,
-            Arguments = arguments,
             WorkingDirectory = workingDirectory,
             RedirectStandardError = true,
             RedirectStandardOutput = true,
@@ -51,6 +48,9 @@ internal sealed class ExternalProcessDocumentOfficePreviewConversionProvider(
             CreateNoWindow = true,
         };
 
+        // 文件名与参数边界由模块控制，上传名称不能注入转换器选项。
+        foreach (var argument in DocumentPreviewProcessArguments.Build(processOptions.ArgumentTemplate, inputPath, outputPath))
+            startInfo.ArgumentList.Add(argument);
         using var process = new Process { StartInfo = startInfo };
         if (!process.Start())
         {
@@ -66,7 +66,7 @@ internal sealed class ExternalProcessDocumentOfficePreviewConversionProvider(
         var stderr = DrainAsync(process.StandardError);
         using var monitorStop = new CancellationTokenSource();
         var diskBudgetExceeded = false;
-        var diskMonitor = MonitorDirectoryAsync(workingDirectory, outputPath, options.CurrentValue,
+        var diskMonitor = MonitorDirectoryAsync(workingDirectory, outputPath, snapshot,
             () => { diskBudgetExceeded = true; timeoutCts.Cancel(); }, monitorStop.Token);
         try
         {
@@ -113,7 +113,7 @@ internal sealed class ExternalProcessDocumentOfficePreviewConversionProvider(
 
         var pdfStream = File.OpenRead(outputPath);
         var length = pdfStream.Length;
-        if (length > options.CurrentValue.MaxOutputBytes)
+        if (length > snapshot.MaxOutputBytes)
         {
             await pdfStream.DisposeAsync().ConfigureAwait(false);
             return Result<DocumentOfficePreviewConversionOutput>.Failure(new Error(

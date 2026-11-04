@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { flushPromises, mount } from '@vue/test-utils';
+import { createShareSession } from '../test/document-share-fixtures';
 import DocumentShareCreateDialog from './DocumentShareCreateDialog.vue';
 
 describe('DocumentShareCreateDialog', () => {
   it('shows confirm button when open', async () => {
+    const { pinia } = createShareSession(['document.host_shares.read', 'document.host_shares.create']);
     const wrapper = mount(DocumentShareCreateDialog, {
       props: {
         open: true,
@@ -13,6 +15,7 @@ describe('DocumentShareCreateDialog', () => {
           documentNo: 'DOC-1'
         }
       },
+      global: { plugins: [pinia] },
       attachTo: document.body
     });
     await flushPromises();

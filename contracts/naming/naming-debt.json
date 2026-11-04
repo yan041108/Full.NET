@@ -2878,6 +2878,34 @@
       "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/335_AiKnowledgeCorrectionVectors.sql",
       "reason": "仅执行新增、启用与替换固定人工向量格式约束的字面量 DDL；支持 DDL 成功但未记账恢复，不接受外部对象名。双库约束恢复与向量不变由本批定向验证，未执行不计通过。",
       "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "dynamic_sql",
+      "value": "dynamic_sql",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/363_IdentityChallengeDeliveryJournal.sql",
+      "reason": "243 使用 INFORMATION_SCHEMA 与固定字面量 PREPARE 逐列恢复挑战投递可空状态；表列名及 COMMENT 均为脚本常量，不接受外部输入，由双库半完成与未记账重放测试覆盖。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "dynamic_sql",
+      "value": "dynamic_sql",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/366_DocumentTaxonomyWriteGuard.sql",
+      "reason": "251 仅按 CHECK 约束存在性选择固定 ALTER TABLE 或 SELECT 1，恢复未记账的分类/标签 Host 门禁结构；无外部输入拼接，由双库分阶段迁移恢复测试覆盖。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "dynamic_sql",
+      "value": "dynamic_sql",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/367_MediaBindingClaimGeneration.sql",
+      "reason": "252 仅根据 INFORMATION_SCHEMA 选择固定加列 DDL 或 SELECT 1，恢复媒体代际字段的部分执行；表列和中文 COMMENT 均为常量，无外部输入，由双库迁移恢复测试覆盖。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "file": "samples/enterprise-request/src/Full.NET.Modules.EnterpriseRequest/Migrations/MySql/006_EnterpriseRequestApprovalRepair.sql",
+      "kind": "dynamic_sql",
+      "value": "dynamic_sql",
+      "reason": "MySQL 不支持 CREATE INDEX IF NOT EXISTS；仅按 INFORMATION_SCHEMA 选择固定索引 DDL 或 SELECT 1，不拼接输入或动态标识符，双库申请夹具覆盖索引丢失与未记账重入。",
+      "removalMilestone": "M1.0"
     }
   ]
 }

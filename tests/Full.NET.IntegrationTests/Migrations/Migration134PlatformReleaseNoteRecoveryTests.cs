@@ -20,7 +20,8 @@ public sealed class Migration134PlatformReleaseNoteRecoveryTests
     {
         var connectionString = await SharedDatabaseFixture.CreateSqlServerDatabaseAsync();
         var runner = CreateRunner(DatabaseProvider.SqlServer, connectionString);
-        await runner.MigrateAsync();
+        await MigrationRecoverySchema.InitializeAsync(runner, DatabaseProvider.SqlServer, connectionString,
+            template => CreateRunner(DatabaseProvider.SqlServer, template));
 
         await using var connection = new SqlConnection(connectionString);
         Assert.AreEqual(1, await TableExistsAsync(connection, "fn_platform_release_note", isSqlServer: true));
@@ -38,7 +39,8 @@ public sealed class Migration134PlatformReleaseNoteRecoveryTests
     {
         var connectionString = await SharedDatabaseFixture.CreateSqlServerDatabaseAsync();
         var runner = CreateRunner(DatabaseProvider.SqlServer, connectionString);
-        await runner.MigrateAsync();
+        await MigrationRecoverySchema.InitializeAsync(runner, DatabaseProvider.SqlServer, connectionString,
+            template => CreateRunner(DatabaseProvider.SqlServer, template));
 
         await using var connection = new SqlConnection(connectionString);
         await connection.ExecuteAsync(
@@ -58,7 +60,8 @@ public sealed class Migration134PlatformReleaseNoteRecoveryTests
     {
         var connectionString = await SharedDatabaseFixture.CreateMySqlDatabaseAsync();
         var runner = CreateRunner(DatabaseProvider.MySql, connectionString);
-        await runner.MigrateAsync();
+        await MigrationRecoverySchema.InitializeAsync(runner, DatabaseProvider.MySql, connectionString,
+            template => CreateRunner(DatabaseProvider.MySql, template));
 
         await using var connection = new MySqlConnection(
             MySqlConnectionStringPolicy.Create(
@@ -80,7 +83,8 @@ public sealed class Migration134PlatformReleaseNoteRecoveryTests
     {
         var connectionString = await SharedDatabaseFixture.CreateMySqlDatabaseAsync();
         var runner = CreateRunner(DatabaseProvider.MySql, connectionString);
-        await runner.MigrateAsync();
+        await MigrationRecoverySchema.InitializeAsync(runner, DatabaseProvider.MySql, connectionString,
+            template => CreateRunner(DatabaseProvider.MySql, template));
 
         await using var connection = new MySqlConnection(
             MySqlConnectionStringPolicy.Create(

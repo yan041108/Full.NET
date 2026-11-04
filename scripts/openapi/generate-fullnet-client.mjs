@@ -238,6 +238,19 @@ function renderOperations(operations, schemas, httpModuleSpecifier) {
     + '  signal?: AbortSignal,\n'
     + '  options?: RequestOptions\n'
     + ') => Promise<T>;\n\n'
+    // JSON 与无内容操作共用分派，保留可选参数省略、接收者和响应守卫语义。
+    + (operations.some(operation => operation.response.kind !== 'blob') ? [
+      'function requestJsonOperation(',
+      '  http: HttpClient, path: string, init: RequestInit,',
+      '  signal?: AbortSignal, options?: RequestOptions',
+      '): Promise<unknown> {',
+      '  return options === undefined',
+      '    ? http.request<unknown>(path, init, signal)',
+      '    : http.request<unknown>(path, init, signal, options);',
+      '}',
+      '',
+      ''
+    ].join('\n') : '')
     + blocks.join('\n\n')
     + '\n';
 }
@@ -300,15 +313,10 @@ function renderOperation(operation, schemas) {
     lines.push('    ? await http.requestBlob(path, init, signal)');
     lines.push('    : await http.requestBlob(path, init, signal, options);');
   } else if (operation.response.kind === 'void') {
-    lines.push('  if (options === undefined) {');
-    lines.push('    await http.request<void>(path, init, signal);');
-    lines.push('  } else {');
-    lines.push('    await http.request<void>(path, init, signal, options);');
-    lines.push('  }');
+    // 不返回自定义 HttpClient 的意外正文，保持既有 Promise<void> 的运行时结果。
+    lines.push('  await requestJsonOperation(http, path, init, signal, options);');
   } else {
-    lines.push('  const value = options === undefined');
-    lines.push('    ? await http.request<unknown>(path, init, signal)');
-    lines.push('    : await http.request<unknown>(path, init, signal, options);');
+    lines.push('  const value = await requestJsonOperation(http, path, init, signal, options);');
     lines.push(`  return ${responseReaderName(operation)}(value);`);
   }
   lines.push('}');
@@ -659,10 +667,11 @@ function guardExpression(schema, valueExpression) {
     return `typeof ${valueExpression} === 'string'`;
   }
   if (type === 'integer') {
-    return `typeof ${valueExpression} === 'number' && Number.isSafeInteger(${valueExpression})`;
+    // Number 的静态谓词不强转类型，已拒绝字符串、装箱值与非有限数，避免重复输出类型判断。
+    return `Number.isSafeInteger(${valueExpression})`;
   }
   if (type === 'number') {
-    return `typeof ${valueExpression} === 'number' && Number.isFinite(${valueExpression})`;
+    return `Number.isFinite(${valueExpression})`;
   }
   if (type === 'boolean') {
     return `typeof ${valueExpression} === 'boolean'`;
@@ -694,7 +703,10 @@ function effectiveTypes(schema) {
       ? [schema.type]
       : schema.properties || schema.additionalProperties
         ? ['object']
-        : [];
+        // 运行时 OpenAPI 可只提供字符串 enum；仍生成闭合联合与成员校验，不能退化为任意字符串。
+        : Array.isArray(schema.enum) && schema.enum.length > 0 && schema.enum.every(value => typeof value === 'string')
+          ? ['string']
+          : [];
   if (source.includes('integer')
     && source.includes('string')
     && typeof schema.pattern === 'string'

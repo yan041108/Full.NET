@@ -57,7 +57,7 @@ internal sealed class PendingHostFileReconciliationRunner(
             return PendingHostFileReconciliationResult.Empty;
         }
 
-        var createdBeforeUtc = clock.UtcNow.AddSeconds(-options.MinimumAgeSeconds);
+        var createdBeforeUtc = _cursor.CutoffUtc ??= clock.UtcNow.AddSeconds(-options.MinimumAgeSeconds);
         var scanned = 0;
         var promoted = 0;
         var purged = 0;
@@ -163,6 +163,7 @@ internal sealed class PendingHostFileReconciliationRunner(
                 }
             }
 
+            cancellationToken.ThrowIfCancellationRequested();
             var last = records[^1];
             hasCursor = true;
             afterCreatedAtUtc = last.CreatedAtUtc;

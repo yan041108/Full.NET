@@ -1,8 +1,8 @@
-using System.Diagnostics;
 using Full.NET.Data.Abstractions;
 using Full.NET.IntegrationTests.Migrations;
 using Full.NET.Migrations.DbUp;
 using Full.NET.Seeding.Abstractions;
+using Full.NET.Testing;
 
 namespace Full.NET.IntegrationTests.NativeAot;
 
@@ -18,45 +18,8 @@ internal static class NativeApiMigratorRunner
         IReadOnlyDictionary<string, string?>? oidcSettings = null)
     {
         var repositoryRoot = NativeApiArtifactLocator.FindRepositoryRoot();
-        var migratorProject = Path.Combine(
-            repositoryRoot,
-            "src",
-            "Hosts",
-            "Full.NET.Host.Migrator",
-            "Full.NET.Host.Migrator.csproj");
-
-        var startInfo = new ProcessStartInfo
-        {
-            FileName = "dotnet",
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            UseShellExecute = false,
-            CreateNoWindow = true,
-            WorkingDirectory = repositoryRoot,
-        };
-        var preparedMigrator = Environment.GetEnvironmentVariable("FULLNET_NATIVE_MIGRATOR_DLL");
-        if (!string.IsNullOrWhiteSpace(preparedMigrator))
-        {
-            // 容器复用已构建的可移植 JIT Migrator，不在只读源码挂载中启动隐式构建。
-            if (!File.Exists(preparedMigrator)) throw new FileNotFoundException("Prepared Migrator was not found.", preparedMigrator);
-            startInfo.ArgumentList.Add(preparedMigrator);
-        }
-        else
-        {
-            startInfo.ArgumentList.Add("run");
-            startInfo.ArgumentList.Add("--project");
-            startInfo.ArgumentList.Add(migratorProject);
-            startInfo.ArgumentList.Add("-c");
-            startInfo.ArgumentList.Add("Release");
-            // 集中验收先构建全部宿主；数据库前置仅复用产物，不在每个原生用例中隐式还原或编译。
-            startInfo.ArgumentList.Add("--no-build");
-            startInfo.ArgumentList.Add("--no-restore");
-            startInfo.ArgumentList.Add("--no-launch-profile");
-            startInfo.ArgumentList.Add("--");
-        }
-        startInfo.ArgumentList.Add("migrate");
-        startInfo.ArgumentList.Add("--seed");
-        startInfo.ArgumentList.Add(SeedProfile.Development.ToCanonicalName());
+        var startInfo = NativeMigratorProcess.CreateStartInfo(
+            repositoryRoot, AppContext.BaseDirectory, SeedProfile.Development.ToCanonicalName());
 
         startInfo.Environment["DOTNET_ENVIRONMENT"] = "Testing";
         startInfo.Environment[$"{DatabaseOptions.SectionName}__Provider"] =
@@ -81,19 +44,7 @@ internal static class NativeApiMigratorRunner
                 startInfo.Environment[setting.Key.Replace(":", "__", StringComparison.Ordinal)] = setting.Value;
         }
 
-        using var process = Process.Start(startInfo)
-            ?? throw new InvalidOperationException("无法启动 JIT Migrator。");
-        var stdout = await process.StandardOutput.ReadToEndAsync(cancellationToken)
-            .ConfigureAwait(false);
-        var stderr = await process.StandardError.ReadToEndAsync(cancellationToken)
-            .ConfigureAwait(false);
-        await process.WaitForExitAsync(cancellationToken).ConfigureAwait(false);
-
-        if (process.ExitCode != 0)
-        {
-            throw new InvalidOperationException(
-                $"JIT Migrator 退出码 {process.ExitCode}。stderr: {stderr}\nstdout: {stdout}");
-        }
+        await NativeMigratorProcess.RunAsync(startInfo, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>

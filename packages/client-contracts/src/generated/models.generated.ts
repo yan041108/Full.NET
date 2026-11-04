@@ -3030,6 +3030,22 @@ export interface DocumentPreviewCapabilities {
   readonly providerKey: string;
 }
 
+export type EnterpriseRequestApprovalDeliveryState = "not_submitted" | "queued" | "started" | "finalized" | "recovery_required";
+
+export interface EnterpriseRequestApprovalProgressResponse {
+  readonly completedAtUtc: null | string;
+  readonly deliveryState: EnterpriseRequestApprovalDeliveryState;
+  readonly finalNotification?: null | NotificationIntentDeliverySnapshot;
+  readonly requestId: string;
+  readonly requestStatus: string;
+  readonly requestVersion: number;
+  readonly startedAtUtc: null | string;
+  readonly submittedAtUtc: null | string;
+  readonly submittedVersion: null | number;
+  readonly workflowDefinitionVersionId: null | string;
+  readonly workflowInstanceId: null | string;
+}
+
 export interface EnterpriseRequestAttachmentResponse {
   readonly contentType: string;
   readonly createdAtUtc: string;
@@ -3448,6 +3464,13 @@ export interface HostDocumentPermissionResponse {
   readonly userId: string;
 }
 
+export interface HostDocumentPermissionSnapshotResponse {
+  readonly documentId: string;
+  readonly permissions: Array<HostDocumentPermissionResponse>;
+  readonly version: number;
+  readonly visibilityMode: string;
+}
+
 export interface HostDocumentPreviewTaskResponse {
   readonly attemptCount?: number;
   readonly completedAtUtc: null | string;
@@ -3584,6 +3607,7 @@ export interface HostDocumentVersionRetentionSettingsResponse {
   readonly maximumRetainedHistoryVersions: number;
   readonly minimumRetainedVersionsPerItem: number;
   readonly pollSeconds: number;
+  readonly version: number;
 }
 
 export interface HostFileReferenceClaimResponse {
@@ -4479,6 +4503,23 @@ export interface NotificationDeliverySummaryResponse {
   readonly statusKey: string;
 }
 
+export interface NotificationIntentDeliverySnapshot {
+  readonly acceptedAtUtc: string;
+  readonly deadLetteredDeliveryCount: number;
+  readonly deliveredDeliveryCount?: number;
+  readonly failedDeliveryCount: number;
+  readonly intentId: string;
+  readonly nextAttemptAtUtc: null | string;
+  readonly otherDeliveryCount: number;
+  readonly pendingDeliveryCount: number;
+  readonly persistedDeliveryCount?: number;
+  readonly readDeliveryCount?: number;
+  readonly sentDeliveryCount: number;
+  readonly suppressedDeliveryCount?: number;
+  readonly totalDeliveryCount: number;
+  readonly unknownDeliveryCount: number;
+}
+
 export interface NotificationPreferenceResponse {
   readonly channelKey: string;
   readonly channelOptedOut: boolean;
@@ -5017,6 +5058,13 @@ export interface PagedResultOfGoViewProjectSummaryResponse {
 
 export interface PagedResultOfGoViewProjectVersionSummaryResponse {
   readonly items: Array<GoViewProjectVersionSummaryResponse>;
+  readonly page: number;
+  readonly pageSize: number;
+  readonly total: number;
+}
+
+export interface PagedResultOfGuid {
+  readonly items: Array<string>;
   readonly page: number;
   readonly pageSize: number;
   readonly total: number;
@@ -5602,6 +5650,7 @@ export interface PreviewGoViewProjectRequest {
 }
 
 export interface PreviewPrintingTemplateRequest {
+  readonly recordId?: null | string;
   readonly versionNumber: null | number;
 }
 
@@ -5630,6 +5679,16 @@ export interface PrintingFormSchemaDefinition {
   readonly displayName: string;
   readonly fields: Array<PrintingFormFieldDefinition>;
   readonly formSchemaKey: string;
+  readonly requiresRecordId?: boolean;
+}
+
+export interface PrintingPublishedTemplateResponse {
+  readonly formSchemaKey: string;
+  readonly requiresRecordId?: boolean;
+  readonly templateId: string;
+  readonly templateKey: string;
+  readonly templateName: string;
+  readonly versionNumber: number;
 }
 
 export interface PrintingTemplatePreviewResponse {
@@ -5958,6 +6017,12 @@ export interface ReleaseWorkflowTodoRequest {
   readonly signatureFileId?: null | string;
 }
 
+export interface RepairEnterpriseRequestApprovalRequest {
+  readonly expectedVersion: number;
+  readonly reason: string;
+  readonly workflowInstanceId: string;
+}
+
 export interface ReplaceHostRoleFieldGrantsRequest {
   readonly fieldKeys: Array<string>;
   readonly resourceKey: string;
@@ -6176,6 +6241,16 @@ export interface ReportingPublishedDefinitionResponse {
   readonly id: string;
   readonly name: string;
   readonly parameterSchema: Array<ReportingParameterSchemaEntry>;
+  readonly versionNumber: number;
+}
+
+export interface ReportingPublishedVersionResponse {
+  readonly definitionId: string;
+  readonly definitionKey: string;
+  readonly layoutConfigJson: string;
+  readonly name: string;
+  readonly parameterSchema: Array<ReportingParameterSchemaEntry>;
+  readonly queryPortKey: string;
   readonly versionNumber: number;
 }
 
@@ -7121,6 +7196,7 @@ export interface UpdateHostDocumentVersionRetentionRequest {
   readonly maximumRetainedHistoryVersions: number;
   readonly minimumRetainedVersionsPerItem: number;
   readonly pollSeconds: number;
+  readonly version?: number;
 }
 
 export interface UpdateHostFileMetadataRequest {

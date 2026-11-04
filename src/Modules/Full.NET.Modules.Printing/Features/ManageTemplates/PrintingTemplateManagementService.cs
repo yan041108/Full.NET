@@ -18,7 +18,8 @@ internal sealed class PrintingTemplateManagementService(
     PrintingTemplateQueryService queries,
     IClock clock,
     IIdGenerator idGenerator,
-    IOptions<DatabaseOptions> database)
+    IOptions<DatabaseOptions> database,
+    PrintingFormSchemaCatalog catalog)
 {
     public Task<Result<PrintingTemplateResponse>> CreateAsync(
         CreatePrintingTemplateRequest request,
@@ -49,12 +50,15 @@ internal sealed class PrintingTemplateManagementService(
         {
             return Result<PrintingTemplateResponse>.Failure(validation.Error!);
         }
+        var sanitized = SanitizeLayout(request.LayoutHtml, cancellationToken);
+        if (!sanitized.IsSuccess) return Result<PrintingTemplateResponse>.Failure(sanitized.Error!);
 
         var existing = await queryExecutor.QuerySingleOrDefaultAsync<PrintingTemplateRecord>(
                 PrintingTemplateSql.FindTemplateByKey,
                 PrintingSqlParameters.Create([("TemplateKey", request.TemplateKey.Trim())]),
                 cancellationToken)
             .ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
         if (existing is not null)
         {
             return Result<PrintingTemplateResponse>.Failure(new Error(
@@ -72,7 +76,7 @@ internal sealed class PrintingTemplateManagementService(
                     ("TemplateKey", request.TemplateKey.Trim()),
                     ("Name", request.Name.Trim()),
                     ("FormSchemaKey", request.FormSchemaKey.Trim()),
-                    ("LayoutHtml", PrintingHtmlRenderer.SanitizeLayoutHtml(request.LayoutHtml)),
+                    ("LayoutHtml", sanitized.Value),
                     ("LatestPublishedVersionNumber", 0),
                     ("IsEnabled", request.IsEnabled),
                     ("CreatedAtUtc", now),
@@ -97,12 +101,15 @@ internal sealed class PrintingTemplateManagementService(
         {
             return Result<PrintingTemplateResponse>.Failure(layoutValidation.Error!);
         }
+        var sanitized = SanitizeLayout(request.LayoutHtml, cancellationToken);
+        if (!sanitized.IsSuccess) return Result<PrintingTemplateResponse>.Failure(sanitized.Error!);
 
         var record = await queryExecutor.QuerySingleOrDefaultAsync<PrintingTemplateRecord>(
                 database.Value.Provider == DatabaseProvider.MySql ? PrintingTemplateSql.LockTemplateMySql : PrintingTemplateSql.LockTemplateSqlServer,
                 PrintingSqlParameters.Create([("TemplateId", templateId)]),
                 cancellationToken)
             .ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
         if (record is null)
         {
             return NotFoundTemplate();
@@ -118,7 +125,7 @@ internal sealed class PrintingTemplateManagementService(
                 PrintingSqlParameters.Create([
                     ("Id", templateId),
                     ("Name", request.Name.Trim()),
-                    ("LayoutHtml", PrintingHtmlRenderer.SanitizeLayoutHtml(request.LayoutHtml)),
+                    ("LayoutHtml", sanitized.Value),
                     ("IsEnabled", request.IsEnabled),
                     ("UpdatedAtUtc", clock.UtcNow),
                     ("Version", request.Version)]),
@@ -155,7 +162,7 @@ internal sealed class PrintingTemplateManagementService(
             return VersionConflictVersion();
         }
 
-        if (PrintingFormSchemaCatalog.TryGet(record.FormSchemaKey) is null)
+        if (catalog.TryGet(record.FormSchemaKey) is null)
         {
             return Result<PrintingTemplateVersionResponse>.Failure(new Error(
                 PrintingErrorCodes.TemplateInvalid,
@@ -202,7 +209,7 @@ internal sealed class PrintingTemplateManagementService(
         return await queries.GetVersionAsync(templateId, versionNumber, cancellationToken).ConfigureAwait(false);
     }
 
-    private static Result<bool> ValidateDraft(
+    private Result<bool> ValidateDraft(
         string templateKey,
         string name,
         string formSchemaKey,
@@ -217,7 +224,7 @@ internal sealed class PrintingTemplateManagementService(
             || !templateKey.Trim().All(static character => char.IsAsciiLetterOrDigit(character) || character is '.' or '_' or '-'))
             return InvalidTemplate("The template key must be an ASCII machine key up to 128 characters, and the name must not exceed 128 characters.");
 
-        if (PrintingFormSchemaCatalog.TryGet(formSchemaKey) is null)
+        if (catalog.TryGet(formSchemaKey) is null)
         {
             return InvalidTemplate("The printing form schema was not found.");
         }
@@ -241,6 +248,20 @@ internal sealed class PrintingTemplateManagementService(
         }
 
         return Result<bool>.Success(true);
+    }
+
+    /// <summary>保存前将有界预处理故障转换为校验结果；取消仍向外传播。</summary>
+    /// <param name="layout">已通过草稿长度检查的布局。</param>
+    /// <param name="token">当前写入取消令牌。</param>
+    private static Result<string> SanitizeLayout(string layout, CancellationToken token)
+    {
+        try { return Result<string>.Success(PrintingHtmlRenderer.SanitizeLayoutHtml(layout, token)); }
+        catch (PrintingRenderingLimitException exception)
+        {
+            token.ThrowIfCancellationRequested();
+            return Result<string>.Failure(new Error(exception.Code,
+                "The printing layout exceeds the supported preprocessing limits.", ErrorType.Validation));
+        }
     }
 
     private static string? NormalizeOptional(string? value)

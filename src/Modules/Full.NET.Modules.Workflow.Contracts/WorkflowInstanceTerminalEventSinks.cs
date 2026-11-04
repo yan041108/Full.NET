@@ -3,6 +3,7 @@ using Full.NET.Abstractions.Messaging;
 namespace Full.NET.Modules.Workflow.Contracts;
 
 /// <summary>消费工作流实例完成事实的 Outbox 扇出接收点。</summary>
+/// <remarks>各接收点顺序执行并独立提交；非取消失败不阻断其余接收点，但整条消息仍重试，所有接收点必须幂等。</remarks>
 public interface IWorkflowInstanceCompletedSink
 {
     /// <summary>处理已反序列化的实例完成事件。</summary>
@@ -17,6 +18,7 @@ public interface IWorkflowInstanceCompletedSink
 }
 
 /// <summary>消费工作流实例驳回事实的 Outbox 扇出接收点。</summary>
+/// <remarks>各接收点顺序执行并独立提交；非取消失败不阻断其余接收点，但整条消息仍重试，所有接收点必须幂等。</remarks>
 public interface IWorkflowInstanceRejectedSink
 {
     /// <summary>处理已反序列化的实例驳回事件。</summary>
@@ -31,6 +33,7 @@ public interface IWorkflowInstanceRejectedSink
 }
 
 /// <summary>消费工作流实例取消事实的 Outbox 扇出接收点。</summary>
+/// <remarks>各接收点顺序执行并独立提交；非取消失败不阻断其余接收点，但整条消息仍重试，所有接收点必须幂等。</remarks>
 public interface IWorkflowInstanceCancelledSink
 {
     /// <summary>处理已反序列化的实例取消事件。</summary>

@@ -68,8 +68,8 @@ internal sealed class PendingHostFileReferenceClaimReconciliationRunner(
             return PendingHostFileReferenceClaimReconciliationResult.Empty;
         }
 
-        var staleBeforeUtc = clock.UtcNow.AddSeconds(-options.MinimumAgeSeconds);
-        var releaseBeforeUtc = clock.UtcNow.AddSeconds(-options.ReleaseGraceSeconds);
+        var staleBeforeUtc = _cursor.CutoffUtc ??= clock.UtcNow.AddSeconds(-options.MinimumAgeSeconds);
+        var releaseBeforeUtc = _cursor.ReleaseBeforeUtc ??= clock.UtcNow.AddSeconds(-options.ReleaseGraceSeconds);
         var scanned = 0;
         var promoted = 0;
         var released = 0;
@@ -151,7 +151,7 @@ internal sealed class PendingHostFileReferenceClaimReconciliationRunner(
                     continue;
                 }
 
-                if (probeResult.Outcome == HostFileReferenceClaimProbeOutcome.Failed)
+                if (probeResult.Outcome != HostFileReferenceClaimProbeOutcome.NotFound)
                 {
                     probeFailures++;
                     continue;
@@ -163,12 +163,12 @@ internal sealed class PendingHostFileReferenceClaimReconciliationRunner(
                 }
 
                 var releasedRows = await commandExecutor.ExecuteAsync(
-                        HostFileReferenceClaimSql.ReleaseOpen,
+                        HostFileReferenceClaimSql.ReleaseStalePending,
                         new Dictionary<string, object?>
                         {
-                            ["IdempotencyKey"] = record.IdempotencyKey,
+                            ["Id"] = record.Id,
+                            ["ObservedUpdatedAtUtc"] = record.UpdatedAtUtc,
                             ["PendingState"] = HostFileReferenceClaimStates.Pending,
-                            ["ActiveState"] = HostFileReferenceClaimStates.Active,
                             ["ReleasedState"] = HostFileReferenceClaimStates.Released,
                             ["Now"] = clock.UtcNow,
                         },
@@ -180,6 +180,7 @@ internal sealed class PendingHostFileReferenceClaimReconciliationRunner(
                 }
             }
 
+            cancellationToken.ThrowIfCancellationRequested();
             var last = records[^1];
             hasCursor = true;
             afterUpdatedAtUtc = last.UpdatedAtUtc;

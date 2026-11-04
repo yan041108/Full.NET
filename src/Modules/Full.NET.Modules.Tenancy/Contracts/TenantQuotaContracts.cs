@@ -28,11 +28,11 @@ public sealed record ReconcileTenantQuotaMetricIdsRequest(bool DryRun = true);
 
 /// <summary>历史预留 MetricId 对账结果。</summary>
 /// <remarks>
-/// 字段顺序与命名为稳定机器码的一部分；发布后不可改名或删除，新增字段只能追加到末尾。DryRun=true 时 RepairedCount 始终为 0，调用方据此区分试运行与实际修复。
+/// 字段顺序与命名为稳定机器码的一部分；发布后不可改名或删除，新增字段只能追加到末尾。调用方须依据 DryRun 区分预估与实际修复，不能仅凭 RepairedCount 非零判断已写库；试运行结果不保证随后执行时仍可修复相同条数。
 /// </remarks>
 /// <param name="OutstandingCount">扫描发现的待修复条数。</param>
-/// <param name="RepairedCount">实际修复的条数；DryRun=true 时为 0。</param>
-/// <param name="SkippedCount">因校验失败或状态不兼容而跳过的条数。</param>
+/// <param name="RepairedCount">DryRun=true 时为找到匹配指标的预计可修复条数；否则为实际成功修复的条数。</param>
+/// <param name="SkippedCount">未找到匹配指标的条数；实际执行时还包括因并发变化而未成功更新的条数。</param>
 /// <param name="DryRun">是否为试运行；true 时仅统计不写库。</param>
 public sealed record ReconcileTenantQuotaMetricIdsResponse(
     int OutstandingCount,

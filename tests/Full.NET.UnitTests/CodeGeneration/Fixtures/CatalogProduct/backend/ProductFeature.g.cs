@@ -15,7 +15,7 @@ using Microsoft.Extensions.Options;
 
 namespace Acme.Modules.Catalog.Generated;
 
-internal sealed class ProductQueryService(
+internal sealed partial class ProductQueryService(
     IQueryExecutor queryExecutor,
     IMultiResultQueryExecutor multiResultQueryExecutor,
     IOptions<DatabaseOptions> databaseOptions)
@@ -163,7 +163,15 @@ internal sealed class ProductManagementService(
         var productId = idGenerator.NewId();
         var affectedRows = await commandExecutor.ExecuteAsync(
                 ProductSql.InsertStatement,
-                new Dictionary<string, object?> { ["Id"] = productId, ["Name"] = request.Name, ["Description"] = request.Description, ["IsActive"] = request.IsActive, ["Version"] = 1L, ["CreatedAtUtc"] = clock.UtcNow },
+                new Dictionary<string, object?>
+                {
+                    ["Id"] = productId,
+                    ["Name"] = request.Name,
+                    ["Description"] = request.Description,
+                    ["IsActive"] = request.IsActive,
+                    ["Version"] = 1L,
+                    ["CreatedAtUtc"] = clock.UtcNow
+                },
                 cancellationToken)
             .ConfigureAwait(false);
         if (affectedRows != 1)
@@ -194,7 +202,14 @@ internal sealed class ProductManagementService(
 
         var affectedRows = await commandExecutor.ExecuteAsync(
                 ProductSql.UpdateStatement,
-                new Dictionary<string, object?> { ["Id"] = productId, ["Name"] = request.Name, ["Description"] = request.Description, ["IsActive"] = request.IsActive, ["Version"] = request.Version },
+                new Dictionary<string, object?>
+                {
+                    ["Id"] = productId,
+                    ["Name"] = request.Name,
+                    ["Description"] = request.Description,
+                    ["IsActive"] = request.IsActive,
+                    ["Version"] = request.Version
+                },
                 cancellationToken)
             .ConfigureAwait(false);
         if (affectedRows != 1)
@@ -219,7 +234,11 @@ internal sealed class ProductManagementService(
         EnsureTenantContext();
         var affectedRows = await commandExecutor.ExecuteAsync(
                 ProductSql.DisableStatement,
-                new Dictionary<string, object?> { ["Id"] = productId, ["Version"] = request.Version },
+                new Dictionary<string, object?>
+                {
+                    ["Id"] = productId,
+                    ["Version"] = request.Version
+                },
                 cancellationToken)
             .ConfigureAwait(false);
         if (affectedRows != 1)

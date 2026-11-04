@@ -9,6 +9,10 @@ on:
 jobs:
   client-build-test:
     if: github.event.action != 'labeled'
+    # 只替代本 PR 的普通检查，作业分组不影响显式独立应用验收。
+    concurrency:
+      group: ${{ github.workflow }}-client-build-test-${{ github.event_name }}-${{ github.event.pull_request.number || github.run_id }}
+      cancel-in-progress: ${{ github.event_name == 'pull_request' }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -56,6 +60,9 @@ jobs:
 
       - name: Verify real-stack bootstrap helpers
         run: pnpm test:e2e:provisioner
+
+      - name: Verify CI image preparation contracts
+        run: node --test tests/testing/prepare-ci-test-images.test.mjs
 
       - name: Setup Helm
         uses: azure/setup-helm@v4
@@ -142,6 +149,9 @@ jobs:
           cache: pnpm
           registry-url: https://registry.npmjs.org
 
+      - name: Prepare official database test images
+        run: node scripts/testing/prepare-ci-test-images.mjs --include-mysql-8.4
+
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 10.0.x
@@ -180,6 +190,9 @@ jobs:
         with:
           node-version: 24
           cache: pnpm
+
+      - name: Prepare official database test images
+        run: node scripts/testing/prepare-ci-test-images.mjs
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 10.0.x
@@ -192,6 +205,8 @@ jobs:
       - name: Verify representative enterprise sample
         env:
           FULLNET_E2E_DATABASE_PROVIDER: ${{ matrix.provider }}
+          FULLNET_E2E_BUILD_ROOT: ${{ runner.temp }}/fullnet-real-stack-build
+          FULLNET_E2E_LOG_ROOT: ${{ runner.temp }}/fullnet-real-stack-logs
         run: pnpm --filter @fullnet/admin-real-stack-e2e exec playwright test enterprise-request.spec.mjs --project vue-admin
       - name: Upload sample reports
         if: always()
@@ -200,7 +215,7 @@ jobs:
           name: fullnet-foundation-sample-${{ matrix.provider }}
           path: |
             tests/e2e/admin-real-stack/test-results/**
-            .tmp/e2e-real-stack/**
+            ${{ runner.temp }}/fullnet-real-stack-logs/**
           if-no-files-found: warn
 
   real-stack-e2e:
@@ -220,6 +235,9 @@ jobs:
           cache: pnpm
           registry-url: https://registry.npmjs.org
 
+      - name: Prepare official database test images
+        run: node scripts/testing/prepare-ci-test-images.mjs --redis-only
+
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 10.0.x
@@ -234,6 +252,9 @@ jobs:
         run: pnpm --filter @fullnet/admin-real-stack-e2e exec playwright install --with-deps chromium
 
       - name: Verify real backend admin smoke (legacy + oidc-center)
+        env:
+          FULLNET_E2E_BUILD_ROOT: ${{ runner.temp }}/fullnet-real-stack-build
+          FULLNET_E2E_LOG_ROOT: ${{ runner.temp }}/fullnet-real-stack-logs
         run: pnpm test:e2e:real
 
       - name: Upload real-stack reports
@@ -244,6 +265,7 @@ jobs:
           path: |
             tests/e2e/admin-real-stack/playwright-report/**
             tests/e2e/admin-real-stack/test-results/**
+            ${{ runner.temp }}/fullnet-real-stack-logs/**
           if-no-files-found: warn
 
   real-stack-e2e-mysql:
@@ -263,6 +285,9 @@ jobs:
           cache: pnpm
           registry-url: https://registry.npmjs.org
 
+      - name: Prepare official database test images
+        run: node scripts/testing/prepare-ci-test-images.mjs
+
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 10.0.x
@@ -277,6 +302,9 @@ jobs:
         run: pnpm --filter @fullnet/admin-real-stack-e2e exec playwright install --with-deps chromium
 
       - name: Verify real backend admin smoke on MySQL
+        env:
+          FULLNET_E2E_BUILD_ROOT: ${{ runner.temp }}/fullnet-real-stack-build
+          FULLNET_E2E_LOG_ROOT: ${{ runner.temp }}/fullnet-real-stack-logs
         run: pnpm test:e2e:real:mysql
 
       - name: Upload real-stack MySQL reports
@@ -287,6 +315,7 @@ jobs:
           path: |
             tests/e2e/admin-real-stack/playwright-report/**
             tests/e2e/admin-real-stack/test-results/**
+            ${{ runner.temp }}/fullnet-real-stack-logs/**
           if-no-files-found: warn
 
   real-stack-e2e-production-totp:
@@ -306,6 +335,9 @@ jobs:
           cache: pnpm
           registry-url: https://registry.npmjs.org
 
+      - name: Prepare official database test images
+        run: node scripts/testing/prepare-ci-test-images.mjs --redis-only
+
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 10.0.x
@@ -320,6 +352,9 @@ jobs:
         run: pnpm --filter @fullnet/admin-real-stack-e2e exec playwright install --with-deps chromium
 
       - name: Verify Production TOTP super-admin grant gate (SqlServer)
+        env:
+          FULLNET_E2E_BUILD_ROOT: ${{ runner.temp }}/fullnet-real-stack-build
+          FULLNET_E2E_LOG_ROOT: ${{ runner.temp }}/fullnet-real-stack-logs
         run: pnpm test:e2e:real:production-totp
 
       - name: Upload production-totp real-stack reports
@@ -330,11 +365,14 @@ jobs:
           path: |
             tests/e2e/admin-real-stack/playwright-report/**
             tests/e2e/admin-real-stack/test-results/**
-            .tmp/e2e-real-stack/**
+            ${{ runner.temp }}/fullnet-real-stack-logs/**
           if-no-files-found: warn
 
   build-and-module-test:
     if: github.event.action != 'labeled'
+    concurrency:
+      group: ${{ github.workflow }}-build-and-module-test-${{ github.event_name }}-${{ github.event.pull_request.number || github.run_id }}
+      cancel-in-progress: ${{ github.event_name == 'pull_request' }}
     runs-on: ubuntu-latest
     # PR 按差异验证模块和 Smoke；迁移恢复由独立分组并行执行。
     timeout-minutes: 120
@@ -350,6 +388,9 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 24
+
+      - name: Prepare official database test images
+        run: node scripts/testing/prepare-ci-test-images.mjs
 
       - uses: pnpm/action-setup@v4
         with:
@@ -411,6 +452,10 @@ jobs:
 
   affected-migration-recovery:
     if: github.event_name == 'pull_request' && github.event.action != 'labeled'
+    # 两个迁移分片必须各自保留，同一次运行不能互相取消。
+    concurrency:
+      group: ${{ github.workflow }}-affected-migration-recovery-${{ matrix.group }}-${{ github.event_name }}-${{ github.event.pull_request.number || github.run_id }}
+      cancel-in-progress: ${{ github.event_name == 'pull_request' }}
     runs-on: ubuntu-latest
     timeout-minutes: 120
     strategy:
@@ -427,6 +472,9 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 24
+
+      - name: Prepare official database test images
+        run: node scripts/testing/prepare-ci-test-images.mjs
       - uses: pnpm/action-setup@v4
         with:
           version: 10.26.0
@@ -494,6 +542,9 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 24
+
+      - name: Prepare official database test images
+        run: node scripts/testing/prepare-ci-test-images.mjs
 
       - uses: actions/setup-dotnet@v4
         with:

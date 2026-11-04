@@ -1,7 +1,9 @@
 import { defineComponent, h, nextTick } from 'vue';
-import { mount } from '@vue/test-utils';
+import { mount, flushPromises } from '@vue/test-utils';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { useArtCrudTableLayout } from './useArtCrudTableLayout';
+import { ElCard } from 'element-plus';
+import { useAdminI18n } from '../../../i18n/adminI18n';
 
 vi.mock('../../../i18n/adminI18n', () => ({ useAdminI18n: () => ({ t: () => '每页条数' }) }));
 
@@ -25,5 +27,22 @@ describe('CRUD 分页补标的根节点', () => {
       await nextTick(); await vi.runAllTimersAsync(); await nextTick();
       expect(wrapper.get('input').attributes('aria-label')).toBe('每页条数');
     } finally { wrapper.unmount(); }
+  });
+});
+
+describe('CRUD 表格组件引用', () => {
+  it('labels pagination through an Element Plus card component ref', async () => {
+    useAdminI18n().setLocale('en-US');
+    const fixture = defineComponent({
+      setup() {
+        const { tableMainRef } = useArtCrudTableLayout();
+        return () => h(ElCard, { ref: tableMainRef }, () =>
+          h('div', { class: 'el-pagination' }, h('input', { class: 'el-select__input' })));
+      }
+    });
+    const wrapper = mount(fixture);
+    await flushPromises();
+    expect(wrapper.get('input').attributes('aria-label')).toBe('Page size');
+    wrapper.unmount();
   });
 });

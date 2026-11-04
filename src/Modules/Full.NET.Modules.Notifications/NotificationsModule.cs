@@ -94,6 +94,7 @@ public sealed class NotificationsModule : IFullNetModule
         services.TryAddScoped<Features.ManageTemplates.NotificationTemplateSelector>();
         services.TryAddScoped<Features.CreateNotificationIntents.NotificationIntentService>();
         services.TryAddScoped<Features.CreateNotificationIntents.NotificationLifecycleService>();
+        services.TryAddScoped<INotificationIntentDeliveryDirectory, Features.ReadIntentDelivery.NotificationIntentDeliveryDirectory>();
         services.TryAddScoped<Features.IntentAttachments.NotificationIntentAttachmentCoordinator>();
         services.TryAddScoped<Execution.NotificationAttachmentLoader>();
         services.TryAddEnumerable(ServiceDescriptor.Scoped<
@@ -216,6 +217,7 @@ public sealed class NotificationsModule : IFullNetModule
         services.TryAddScoped<Features.CreateNotificationIntents.NotificationRecipientDirectoryResolver>();
         services.TryAddScoped<Features.ManageTemplates.NotificationTemplateSelector>();
         services.TryAddScoped<Features.CreateNotificationIntents.NotificationIntentService>();
+        services.TryAddScoped<INotificationIntentDeliveryDirectory, Features.ReadIntentDelivery.NotificationIntentDeliveryDirectory>();
         services.TryAddScoped<Features.IntentAttachments.NotificationIntentAttachmentCoordinator>();
         services.TryAddScoped<Execution.NotificationAttachmentLoader>();
         services.TryAddEnumerable(ServiceDescriptor.Scoped<

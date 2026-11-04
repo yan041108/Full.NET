@@ -28,7 +28,7 @@ public sealed class EnterpriseRequestSubmissionTests
         var authorizer = Substitute.For<IOrganizationOwnedEntityWriteAuthorizer>();
         authorizer.EnsureCanWriteAsync(tenant.Id.Value, row.OrganizationUnitId, row.ApplicantUserId, Arg.Any<CancellationToken>()).Returns(Result<bool>.Success(false));
         var service = new SubmitEnterpriseRequestForApprovalService(query, command, Substitute.For<IClock>(), tenant,
-            Substitute.For<IWorkflowPublishedDefinitionDirectory>(), authorizer, Substitute.For<ICommandTransaction>(), outbox);
+            Substitute.For<IWorkflowPublishedDefinitionDirectory>(), Substitute.For<ICommandTransaction>(), outbox, Substitute.For<Full.NET.Abstractions.Ids.IIdGenerator>(), authorizer);
         Assert.AreEqual(ErrorType.Forbidden, (await service.SubmitAsync(row.Id, Guid.NewGuid())).Error!.Type);
         Assert.IsFalse(authorizer.ReceivedCalls().Any());
         Assert.AreEqual(ErrorType.Forbidden, (await service.SubmitAsync(row.Id, row.ApplicantUserId)).Error!.Type);

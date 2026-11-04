@@ -35,4 +35,7 @@ public static class ImportExportErrorCodes
 
     /// <summary>错误回执尚未生成或不可下载。</summary>
     public const string ErrorReceiptNotReady = "import_export.error_receipt.not_ready";
+
+    /// <summary>错误回执超过行数、文本或文件预算，停止自动生成以便显式重试。</summary>
+    public const string ErrorReceiptLimitExceeded = "import_export.error_receipt.limit_exceeded";
 }

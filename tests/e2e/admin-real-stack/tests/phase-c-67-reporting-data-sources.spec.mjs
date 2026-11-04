@@ -58,7 +58,8 @@ test('API：列表脱敏、禁止连接串分隔符、test 端点（清单 67）
     trustServerCertificate: true,
     isEnabled: false
   });
-  expect(invalidCreate.status()).toBe(422);
+  expect(invalidCreate.status()).toBe(400);
+  expect((await invalidCreate.json()).code).toBe('reporting.data_source.invalid');
 
   const missingId = randomUUID();
   const { response: testMissing } = await testReportingDataSourceViaApi(

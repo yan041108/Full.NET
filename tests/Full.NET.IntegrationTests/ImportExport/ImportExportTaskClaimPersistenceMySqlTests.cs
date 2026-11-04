@@ -7,6 +7,14 @@ namespace Full.NET.IntegrationTests.ImportExport;
 public sealed class ImportExportTaskClaimPersistenceMySqlTests
 {
     [TestMethod]
+    public Task Cancellation_is_fenced_and_preserves_checkpoint() =>
+        ImportExportTaskClaimPersistenceAssertions.Cancellation_is_fenced_and_preserves_checkpoint_async(DatabaseProvider.MySql);
+
+    [TestMethod]
+    public Task Cancellation_and_claim_have_one_winner() =>
+        ImportExportTaskClaimPersistenceAssertions.Cancellation_and_claim_have_one_winner_async(DatabaseProvider.MySql);
+
+    [TestMethod]
     public Task Claim_is_isolated_to_current_tenant() =>
         ImportExportTaskClaimPersistenceAssertions.Claim_is_isolated_to_current_tenant_async(DatabaseProvider.MySql);
 

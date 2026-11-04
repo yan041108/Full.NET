@@ -1,7 +1,7 @@
 using Full.NET.Modules.Identity.Authorization;
+using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Reporting;
 using Full.NET.Modules.Reporting.Contracts;
-using Full.NET.Modules.Identity.Contracts;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -24,6 +24,29 @@ public sealed class ReportingAuthorizationContributorTests
         Assert.AreEqual(AuthorizationScope.Host, catalog.Permissions.Single(item => item.Code == ReportingDefinitionGrantPermissions.Manage).Scope);
         Assert.IsTrue(catalog.Permissions.Single(item => item.Code == ReportingExecutionPermissions.ColumnSchemaName).Scope.HasFlag(AuthorizationScope.Tenant));
     }
+    [TestMethod]
+    public void Export_actions_belong_to_the_read_page_and_keep_distinct_permissions()
+    {
+        var catalog = AuthorizationCatalog.Create([new ReportingAuthorizationContributor()]);
+        CollectionAssert.AreEquivalent(new[] { ReportingExportTaskPermissions.Create, ReportingExportTaskPermissions.Download, ReportingExportTaskPermissions.Cancel },
+            catalog.Actions.Where(action => action.NavigationId == "reporting-export-tasks").Select(action => action.PermissionCode).ToArray());
+    }
+
+    [TestMethod]
+    [DataRow("reporting.executions.run", AuthorizationScope.Host | AuthorizationScope.Tenant)]
+    [DataRow("reporting.executions.columns.schema_name", AuthorizationScope.Host | AuthorizationScope.Tenant)]
+    [DataRow("reporting.export_tasks.create", AuthorizationScope.Tenant)]
+    [DataRow("reporting.export_tasks.read", AuthorizationScope.Tenant)]
+    [DataRow("reporting.export_tasks.download", AuthorizationScope.Tenant)]
+    [DataRow("reporting.export_tasks.cancel", AuthorizationScope.Tenant)]
+    public void Execution_and_outputs_have_explicit_tenant_scope(string code, AuthorizationScope expected)
+    {
+        var catalog = AuthorizationCatalog.Create([new ReportingAuthorizationContributor()]);
+        Assert.AreEqual(expected, catalog.Permissions.Single(permission => permission.Code == code).Scope);
+        Assert.AreEqual(AuthorizationScope.Host,
+            catalog.Permissions.Single(permission => permission.Code == ReportingDataSourcePermissions.Read).Scope);
+    }
+
     [TestMethod]
     public void Contributor_publishes_reporting_permissions_and_navigation()
     {
@@ -49,6 +72,7 @@ public sealed class ReportingAuthorizationContributorTests
                 ReportingDefinitionPermissions.Update,
                 ReportingDefinitionPermissions.Delete,
                 ReportingDefinitionPermissions.Publish,
+                ReportingDefinitionPermissions.GrantTenants,
                 ReportingQueryPortPermissions.Read,
                 ReportingExecutionPermissions.Run,
                 ReportingExecutionPermissions.ColumnSchemaName,

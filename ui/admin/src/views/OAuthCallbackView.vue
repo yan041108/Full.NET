@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { translateRuntimeMessage } from '../i18n/runtimeMessage';
-import { onMounted, ref } from 'vue';
+import { onDeactivated, onMounted, onUnmounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { ElMessage } from 'element-plus';
 import { useSessionStore } from '../auth/session';
@@ -13,26 +13,34 @@ const router = useRouter();
 const session = useSessionStore();
 const { t } = useAdminI18n();
 const processing = ref(true);
+let inactive = false;
+onUnmounted(() => { inactive = true; });
+onDeactivated(() => { inactive = true; });
 
 onMounted(async () => {
   const oauth = route.query.oauth;
   const oauthError = route.query.oauth_error;
   if (typeof oauthError === 'string') {
     const messageKey = `oauthCallback.errors.${oauthError}` as const;
-    ElMessage.error(translateRuntimeMessage(t, messageKey));
+    const message = translateRuntimeMessage(t, messageKey);
+    ElMessage.error(message === messageKey ? t('oauthCallback.restoreFailed') : message);
     await router.replace('/');
     return;
   }
 
   if (oauth === 'success') {
     try {
-      await session.restore();
+      const restored = await session.restore();
+      if (inactive) return;
+      // 返回页面不等于恢复认证；必须同时确认本次恢复结果和当前会话状态。
+      if (!restored || session.state !== 'authenticated') throw new Error('oauth_restore_failed');
       ElMessage.success(t('oauthCallback.success'));
     } catch {
-      ElMessage.error(t('oauthCallback.restoreFailed'));
+      if (!inactive) ElMessage.error(t('oauthCallback.restoreFailed'));
     }
   }
 
+  if (inactive) return;
   processing.value = false;
   await router.replace('/');
 });

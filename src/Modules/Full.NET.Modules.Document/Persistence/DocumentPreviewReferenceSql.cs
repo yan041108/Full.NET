@@ -18,6 +18,12 @@ internal static class DocumentPreviewReferenceSql
         UPDATE fn_document_preview_reference SET StateKey = @StateKey, ReleaseAfterUtc = @ReleaseAfterUtc
         WHERE Id = @Id AND StateKey NOT IN ('release_pending','released')
         """, SqlDataScope.HostOnly);
+    // 与版本引用共同用于批量对账，释放等待期内仍必须保留对象。
+    internal static readonly SqlStatement FindForClaimProbe = new("document.preview_reference.for_claim_probe", """
+        SELECT Id, DocumentId, TaskId, FileId, Purpose, StateKey, ReleaseAfterUtc, CreatedAtUtc
+        FROM fn_document_preview_reference WHERE Id IN @ReferenceIds
+          AND (StateKey <> 'released' OR ReleaseAfterUtc > @Now)
+        """, SqlDataScope.HostOnly);
     internal static readonly SqlStatement Exists = new("document.preview_reference.exists", """
         SELECT CASE WHEN EXISTS (SELECT 1 FROM fn_document_preview_reference WHERE Id = @ReferenceId AND FileId = @FileId
         AND (StateKey <> 'released' OR ReleaseAfterUtc > @Now)) THEN 1 ELSE 0 END

@@ -76,9 +76,11 @@ public sealed record PrintingTemplateVersionResponse(
     DateTimeOffset PublishedAtUtc);
 
 /// <summary>打印预览请求。</summary>
-/// <param name="VersionNumber">指定预览版本号；为空使用最新发布版本。</param>
+/// <param name="VersionNumber">指定预览版本号；租户端为空时使用已获授的最高版本。</param>
+/// <param name="RecordId">业务记录标识；业务表单必须提供，租户档案表单保持可省略。</param>
 public sealed record PreviewPrintingTemplateRequest(
-    int? VersionNumber);
+    int? VersionNumber,
+    Guid? RecordId = null);
 
 /// <summary>打印预览响应；HTML 仅供浏览器预览/打印，不包含脚本。</summary>
 /// <remarks>字段顺序发布后不可调整；新增字段只能追加到末尾，以保持线格式兼容。TemplateKey、FormSchemaKey 为稳定机器码，发布后不可改名或删除。</remarks>

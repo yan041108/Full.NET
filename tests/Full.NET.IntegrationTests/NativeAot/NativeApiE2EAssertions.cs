@@ -9,6 +9,7 @@ using Full.NET.Abstractions.Results;
 using Full.NET.Data.Abstractions;
 using Full.NET.Data.MySql;
 using Full.NET.IntegrationTests.Api;
+using Full.NET.IntegrationTests.Document;
 using Full.NET.Modules.Ai.Contracts;
 using Full.NET.Modules.Auditing.Contracts;
 using Full.NET.Modules.CodeGeneration.Contracts;
@@ -247,11 +248,15 @@ internal static class NativeApiE2EAssertions
         }
         await VerifyTenancyPackageFlowAsync(client, token, cancellationToken)
             .ConfigureAwait(false);
+        await NativeApiTenantQuotaReconciliationAssertions.VerifyAsync(
+            client, token, host.LogFilePath, provider, connectionString, cancellationToken).ConfigureAwait(false);
         await VerifyCodeGenerationCatalogReadAsync(client, token, cancellationToken)
             .ConfigureAwait(false);
         await VerifySerialNumbersFlowAsync(client, token, cancellationToken)
             .ConfigureAwait(false);
-        await VerifyDocumentFlowAsync(client, token, host.LogFilePath, cancellationToken)
+        await VerifyDocumentFlowAsync(client, token, provider, connectionString, host.LogFilePath, cancellationToken)
+            .ConfigureAwait(false);
+        await DocumentVersionRetentionAssertions.VerifyHostAsync(client, token, host.LogFilePath, cancellationToken)
             .ConfigureAwait(false);
         await VerifyAuditingFlowAsync(client, token, cancellationToken)
             .ConfigureAwait(false);
@@ -266,6 +271,10 @@ internal static class NativeApiE2EAssertions
         await VerifyMessagingDeliveryStatusAsync(client, token, cancellationToken)
             .ConfigureAwait(false);
         var tenantToken = await EnterDevelopmentTenantAsync(client, token, cancellationToken)
+            .ConfigureAwait(false);
+        await NativeApiTenantQuotaReconciliationAssertions.VerifyTenantDeniedAsync(
+            client, tenantToken, host.LogFilePath, cancellationToken).ConfigureAwait(false);
+        await DocumentVersionRetentionAssertions.VerifyDeniedAsync(client, tenantToken, host.LogFilePath, cancellationToken)
             .ConfigureAwait(false);
         await VerifyOrganizationFlowAsync(
                 client,
@@ -1083,10 +1092,18 @@ internal static class NativeApiE2EAssertions
     private static async Task VerifyDocumentFlowAsync(
         HttpClient client,
         string accessToken,
+        DatabaseProvider provider,
+        string connectionString,
         string? nativeLogFilePath,
         CancellationToken cancellationToken)
     {
         var suffix = Guid.NewGuid().ToString("N");
+        await DocumentTaxonomyConcurrencyAssertions.VerifyAsync(client, accessToken, provider, connectionString, cancellationToken).ConfigureAwait(false);
+        await DocumentTagUseCountAssertions.VerifyAsync(client, accessToken, provider, connectionString, cancellationToken).ConfigureAwait(false);
+        await DocumentCategoryHierarchyAssertions.VerifyAsync(client, accessToken, cancellationToken).ConfigureAwait(false);
+        await DocumentCategoryReferenceAssertions.VerifyAsync(client, accessToken, provider, connectionString, cancellationToken).ConfigureAwait(false);
+        await DocumentTitleConcurrencyAssertions.VerifyAsync(client, accessToken, provider, connectionString, cancellationToken).ConfigureAwait(false);
+        await DocumentLifecycleAssertions.VerifyAsync(client, accessToken, cancellationToken).ConfigureAwait(false);
         var categoryRequest = new CreateHostDocumentCategoryRequest(
             "Native AOT category " + suffix,
             null,

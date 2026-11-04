@@ -42,12 +42,13 @@ test('知识发布分批验证完整覆盖聚合集且不降低最低发现数',
   });
 });
 
+
 test('快速套件支持校验式构建复用但不能与手动 no-build 混用', () => {
   assert.equal(parseSuiteOptions(['--reuse-build']).reuseBuild, true);
   assert.throws(() => parseSuiteOptions(['--reuse-build', '--no-build']), /不能/);
 });
 
-test('测试矩阵包含默认快速套件并允许登记聚焦套件和 Integration 分片', () => {
+test('测试矩阵集中定义三个快速套件和完整 Integration 分片', () => {
   const matrix = loadTestMatrix();
   const recoveryMigrationNumbers = readdirSync(
     new URL('../Full.NET.IntegrationTests/Migrations/', import.meta.url)
@@ -130,14 +131,9 @@ test('测试矩阵包含默认快速套件并允许登记聚焦套件和 Integra
       new RegExp(`Migration${migrationNumber}.*RecoveryTests\\.SqlServer_`)
     );
   }
-  assert.equal(
-    matrix.integration.mainPartitions.reduce(
-      (sum, name) => sum + matrix.integration.shards[name].minimum,
-      0
-    ),
-    matrix.integration.shards.full.minimum
-  );
-});
+  // 各分片是独立维护的最低发现数，聚合集可保留更严格下限，不能把下限当作精确计数相加。
+  assert.ok(matrix.integration.shards.full.minimum >= matrix.integration.mainPartitions.reduce(
+    (sum, name) => sum + matrix.integration.shards[name].minimum, 0));});
 
 test('快速套件命令从矩阵生成最低发现数而不是在 CI 复制数字', () => {
   const matrix = loadTestMatrix();

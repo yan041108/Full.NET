@@ -3,6 +3,7 @@ using System.IO.Compression;
 using System.Text;
 using System.Xml;
 using System.Xml.Linq;
+using Full.NET.Abstractions.Text;
 
 namespace Full.NET.Modules.Auditing.Features.ExportHostAuditLogs;
 
@@ -143,8 +144,12 @@ internal static class AuditLogWorkbookCodec
 
     private static string SanitizeSheetName(string value)
     {
-        var sanitized = string.Concat(value.Where(character => character is not ':' and not '\\' and not '/' and not '?' and not '*' and not '[' and not ']'));
-        return sanitized.Length > 31 ? sanitized[..31] : sanitized;
+        var sanitized = string.Concat(XmlTextSanitizer.Sanitize(value).Where(character => character is not ':' and not '\\' and not '/' and not '?' and not '*' and not '[' and not ']'));
+        if (string.IsNullOrWhiteSpace(sanitized)) return "Export";
+        if (sanitized.Length <= 31) return sanitized;
+        // 31 字符上限按 UTF-16 长度保守执行，不能截断合法代理对生成无效 XML。
+        var length = char.IsHighSurrogate(sanitized[30]) ? 30 : 31;
+        return sanitized[..length];
     }
 
     private static void WriteEntry(ZipArchive archive, string entryName, XDocument document)
@@ -160,8 +165,9 @@ internal static class AuditLogWorkbookCodec
         document.Save(writer);
     }
 
+    // 以完整 Unicode 字符清洗，不能将补充平面名称按独立代理项删除。
     private static string SanitizeXmlText(string? value) =>
-        string.Concat((value ?? string.Empty).Where(XmlConvert.IsXmlChar));
+        XmlTextSanitizer.Sanitize(value ?? string.Empty);
 
     private static string CellReference(int columnIndex, int rowNumber)
     {

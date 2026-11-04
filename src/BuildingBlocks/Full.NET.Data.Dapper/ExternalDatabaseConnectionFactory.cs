@@ -1,5 +1,4 @@
 using System.Data.Common;
-using System.Globalization;
 using Full.NET.Data.Abstractions;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Options;
@@ -237,19 +236,6 @@ internal sealed class ExternalDatabaseSession(DbConnection connection, Semaphore
             return null;
         }
 
-        var value = reader.GetValue(ordinal);
-        var text = value switch
-        {
-            DateTime dateTime => dateTime.ToString("O", CultureInfo.InvariantCulture),
-            DateTimeOffset dateTimeOffset => dateTimeOffset.ToString("O", CultureInfo.InvariantCulture),
-            IFormattable formattable => formattable.ToString(null, CultureInfo.InvariantCulture),
-            _ => Convert.ToString(value, CultureInfo.InvariantCulture),
-        };
-        if (text is null)
-        {
-            return null;
-        }
-
-        return text.Length <= maxCellValueLength ? text : text[..maxCellValueLength];
+        return ExternalDatabaseCellText.Format(reader.GetValue(ordinal), maxCellValueLength);
     }
 }

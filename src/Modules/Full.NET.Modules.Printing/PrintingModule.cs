@@ -8,6 +8,7 @@ using Full.NET.Modules.Printing.Features.BrowseFormSchemas;
 using Full.NET.Modules.Printing.Features.ManageTemplates;
 using Full.NET.Modules.Printing.Features.PreviewTemplates;
 using Full.NET.Modules.Printing.Serialization;
+using Full.NET.Modules.Printing.Features.PublishedTemplates;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Configuration;
@@ -45,11 +46,19 @@ public sealed class PrintingModule : IFullNetModule
         services.TryAddSingleton<IClock, SystemClock>();
         services.TryAddSingleton<IIdGenerator, GuidV7IdGenerator>();
         services.TryAddEnumerable(ServiceDescriptor.Singleton<IErrorResourceSource, Resources.PrintingErrorResourceSource>());
+        services.TryAddSingleton<Domain.PrintingFormSchemaCatalog>();
         services.TryAddSingleton<PrintingFormSchemaQueryService>();
         services.TryAddScoped<PrintingTemplateQueryService>();
         services.TryAddScoped<PrintingTemplateManagementService>();
         services.TryAddScoped<PrintingFormBindingService>();
         services.TryAddScoped<PrintingTemplatePreviewService>();
+        services.TryAddScoped<PrintingPublishedTemplateService>();
+        services.TryAddScoped<PrintingTenantGrantManagementService>();
+#if FULLNET_AOT_COMPILE
+        // 条件编译只包围实现注册，模块名称与依赖元数据之前不放置条件分支。
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<Full.NET.Data.Dapper.IDapperAotMaterializerContributor,
+            Persistence.PrintingDapperAotMaterializerContributor>());
+#endif
         services.ConfigureHttpJsonOptions(options =>
             options.SerializerOptions.TypeInfoResolverChain.Insert(
                 0,
@@ -63,6 +72,7 @@ public sealed class PrintingModule : IFullNetModule
         Features.BrowseFormSchemas.Endpoint.Map(endpoints);
         Features.ManageTemplates.Endpoint.Map(endpoints);
         Features.PreviewTemplates.Endpoint.Map(endpoints);
+        Features.PublishedTemplates.Endpoint.Map(endpoints);
     }
 
     /// <summary>Worker 仅注册纯渲染 Contract，不启动 HTTP 模板服务。</summary>

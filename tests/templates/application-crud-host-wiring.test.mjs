@@ -56,3 +56,22 @@ test('missing generated entry is rejected before running commands', () => {
     assert.equal(readFileSync(join(fixture.root, directory, 'CatalogModule.cs'), 'utf8'), 'human entry');
   } finally { rmSync(fixture.root, { recursive: true, force: true }); }
 });
+
+for (const exitStatus of [-123, 2147516571]) {
+  test('缺失SDK保留有符号退出码并恢复原配置：' + exitStatus, () => {
+    const fixture = workspace(), calls = [], original = Buffer.from('{"sdk":{"version":"10.0.100"}}');
+    fixture.put('global.json', original);
+    const normal = runner(fixture, null, calls);
+    const run = (command, args, options) => {
+      if (JSON.parse(readFileSync(join(fixture.root, 'global.json'), 'utf8')).sdk.version !== '99.0.100') return normal(command, args, options);
+      return args[0] === 'build' ? {status:exitStatus,stdout:'',stderr:''}
+        : {status:2,stdout:'',stderr:'构建进程退出码：' + (exitStatus | 0)};
+    };
+    try {
+      verifyApplicationCrudHostWiring(fixture.root, {run,verifyMissingSdk:true,reportDirectory:join(fixture.root,'evidence')});
+      assert.deepEqual(readFileSync(join(fixture.root,'global.json')),original);
+      const result=JSON.parse(readFileSync(join(fixture.root,'evidence/apply-host-integration-sdk-failure.json'),'utf8'));
+      assert.equal(result.buildExitCode,exitStatus);assert.equal(result.diagnosticExitCode,exitStatus | 0);assert.equal(result.inputsUnchanged,true);
+    } finally {rmSync(fixture.root,{recursive:true,force:true});}
+  });
+}

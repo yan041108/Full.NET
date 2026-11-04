@@ -2,6 +2,7 @@ using System.IO.Compression;
 using System.Text;
 using System.Xml;
 using System.Xml.Linq;
+using Full.NET.Abstractions.Text;
 using Full.NET.Modules.Reporting.Contracts;
 
 namespace Full.NET.Modules.Reporting.Domain;
@@ -24,16 +25,18 @@ internal static class ReportingExcelExportRenderer
     /// <summary>根据可见列与数据行生成 xlsx 字节数组。</summary>
     /// <param name="columns">允许导出的可见列。</param>
     /// <param name="rows">已收集且仍需预算验证的数据行。</param>
+    /// <param name="cancellationToken">收集、扫描及压缩写入统一遵守的取消令牌。</param>
     public static byte[] Render(
         IReadOnlyList<ReportingExecutionColumnDefinition> columns,
         IReadOnlyList<ReportingExecutionRow> rows, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(columns);
         ArgumentNullException.ThrowIfNull(rows);
+        cancellationToken.ThrowIfCancellationRequested();
 
         var budget = new ReportingExportBudget();
-        budget.AddColumns(columns);
-        foreach (var row in rows) { cancellationToken.ThrowIfCancellationRequested(); budget.AddRow(row); }
+        budget.AddColumns(columns, cancellationToken);
+        foreach (var row in rows) budget.AddRow(row, cancellationToken);
 
         var headers = columns.Select(column => EscapeFormulaText(column.DisplayName)).ToArray();
         var dataRows = rows.Select(row => columns
@@ -50,7 +53,7 @@ internal static class ReportingExcelExportRenderer
         IReadOnlyList<string> headers,
         IEnumerable<IReadOnlyList<string?>> rows, CancellationToken cancellationToken)
     {
-        using var output = new ReportingExportOutputStream();
+        using var output = new ReportingExportOutputStream(cancellationToken);
         using (var archive = new ZipArchive(output, ZipArchiveMode.Create, leaveOpen: true))
         {
             WriteEntry(
@@ -150,7 +153,7 @@ internal static class ReportingExcelExportRenderer
             writer.WriteStartElement("is", SpreadsheetNamespace.NamespaceName);
             writer.WriteStartElement("t", SpreadsheetNamespace.NamespaceName);
             writer.WriteAttributeString("xml", "space", XNamespace.Xml.NamespaceName, "preserve");
-            writer.WriteString(SanitizeXmlText(values[index] ?? string.Empty));
+            writer.WriteString(XmlTextSanitizer.Sanitize(values[index] ?? string.Empty, cancellationToken));
             writer.WriteEndElement();
             writer.WriteEndElement();
             writer.WriteEndElement();
@@ -191,11 +194,6 @@ internal static class ReportingExcelExportRenderer
             ? $"'{value}"
             : value;
     }
-
-    /// <summary>移除 XML 不支持的字符。</summary>
-    /// <param name="value">待清理文本。</param>
-    private static string SanitizeXmlText(string value) =>
-        string.Concat(value.Where(XmlConvert.IsXmlChar));
 
     /// <summary>计算 Excel 单元格坐标。</summary>
     /// <param name="columnIndex">从零开始的列号。</param>

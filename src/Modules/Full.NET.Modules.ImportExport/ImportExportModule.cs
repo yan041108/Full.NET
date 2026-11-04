@@ -76,6 +76,8 @@ public sealed class ImportExportModule : IFullNetModule
             Features.ManageImportTasks.ImportExportResourceFileOwner>());
         AddExecutionServices(services, configuration);
         services.AddHostedService<ImportExportTaskHostedProcessor>();
+        services.TryAddScoped<Features.ManageImportTasks.ImportExportExecutionAuthorization>();
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<IAuthorizationCatalogContributor, ImportExportAuthorizationContributor>());
     }
 
     /// <summary>API 的同步执行与独立 Worker 使用同一配置和 Schema 目录，避免 Worker 依赖 HTTP 注册副作用。</summary>

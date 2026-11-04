@@ -32,7 +32,7 @@ public sealed class ReportingExportColumnAuthorityTests
         var layout = """{"columns":[{"key":"SchemaName","displayName":"Schema","requiredPermission":"reporting.executions.columns.schema_name"}]}""";
         var version = new ReportingDefinitionVersionResponse(Guid.CreateVersion7(), definition, 1, Guid.CreateVersion7(),
             "reporting.schema_inventory", [], layout, null, user, DateTimeOffset.UtcNow);
-        var permissions = ReportingExportTaskAuthority.FreezePermissions(version, principal);
+        var permissions = ReportingExportTaskAuthority.FreezePermissions(version, code => principal.HasClaim(FullNetIdentityClaimTypes.Permission, code));
         CollectionAssert.DoesNotContain(permissions, "unrelated.secret.read"); Assert.AreEqual(3, permissions.Length);
         var task = new ReportingExportTaskRecord { Id = Guid.CreateVersion7(), TenantId = tenant, RequestedByUserId = user,
             DefinitionId = definition, VersionNumber = 1,

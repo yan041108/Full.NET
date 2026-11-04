@@ -12,6 +12,8 @@ internal sealed class PrintingDapperAotMaterializerContributor : IDapperAotMater
     {
         registrar.Register<PrintingTemplateRecord>(ReadTemplate);
         registrar.Register<PrintingTemplateVersionRecord>(ReadVersion);
+        registrar.Register<PrintingPublishedTemplateRecord>(ReadCatalog);
+        registrar.Register<PrintingGrantedVersionRecord>(ReadGranted);
     }
 
     private static PrintingTemplateRecord ReadTemplate(DbDataReader reader) => new()
@@ -38,5 +40,21 @@ internal sealed class PrintingDapperAotMaterializerContributor : IDapperAotMater
         PublishedByUserId = reader.GetGuid(5),
         PublishedAtUtc = AotDataReaderExtensions.ReadDateTimeOffset(reader, 6),
     };
+    private static PrintingPublishedTemplateRecord ReadCatalog(DbDataReader reader) => Fill(reader, new PrintingPublishedTemplateRecord());
+    private static PrintingGrantedVersionRecord ReadGranted(DbDataReader reader)
+    {
+        var row = Fill(reader, new PrintingGrantedVersionRecord());
+        row.LayoutHtml = Text(reader, "LayoutHtml");
+        return row;
+    }
+    private static T Fill<T>(DbDataReader reader, T row) where T : PrintingPublishedTemplateRecord
+    {
+        row.TemplateId = reader.GetGuid(reader.GetOrdinal("TemplateId"));
+        row.TemplateKey = Text(reader, "TemplateKey"); row.TemplateName = Text(reader, "TemplateName");
+        row.FormSchemaKey = Text(reader, "FormSchemaKey"); row.VersionNumber = Number(reader, "VersionNumber");
+        return row;
+    }
+    private static string Text(DbDataReader reader, string name) => reader.GetString(reader.GetOrdinal(name));
+    private static int Number(DbDataReader reader, string name) => AotDataReaderExtensions.ReadInt32(reader, reader.GetOrdinal(name));
 }
 #endif

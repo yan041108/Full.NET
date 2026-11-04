@@ -7,6 +7,15 @@ namespace Full.NET.Modules.Tenancy.Persistence;
 /// </summary>
 internal static class TenantSql
 {
+    /// <summary>仅供当前租户档案绑定；可信上下文覆盖参数，不允许读取其他租户。</summary>
+    public static readonly SqlStatement FindCurrentPrintingProfile = new(
+        "tenancy.printing.find_current_profile",
+        """
+        SELECT Id, Identifier, Name, Domain, IsActive, Version, DefaultLocale
+        FROM fn_tenancy_tenant
+        WHERE Id = @TenantId AND IsActive = 1
+        """, SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
+
     public static readonly SqlStatement FindByIdentifier = new(
         "tenancy.find_by_identifier",
         """
@@ -243,9 +252,21 @@ internal static class TenantSql
                ContactEmail,
                ContactAddress,
                Copyright,
-               Version
+               Version,
+               LogoClaimKey
         FROM fn_tenancy_tenant
         WHERE Id = @TenantId
+        """,
+        SqlDataScope.HostOnly);
+
+    /// <summary>Host 后台按有限主体集合一次权威读取 Logo 绑定，避免代际对账逐条跨模块调用。</summary>
+    public static readonly SqlStatement FindTenantBrandingByIds = new(
+        "tenancy.tenant_branding.find_by_ids",
+        """
+        SELECT Id AS TenantId, SystemTitle, LogoFileId, ContactPhone, ContactEmail,
+               ContactAddress, Copyright, Version, LogoClaimKey
+        FROM fn_tenancy_tenant
+        WHERE Id IN @TenantIds
         """,
         SqlDataScope.HostOnly);
 
@@ -259,7 +280,8 @@ internal static class TenantSql
                ContactEmail,
                ContactAddress,
                Copyright,
-               Version
+               Version,
+               LogoClaimKey
         FROM fn_tenancy_tenant
         WHERE Id = @TenantId
         """,
@@ -304,6 +326,7 @@ internal static class TenantSql
         """
         UPDATE fn_tenancy_tenant
         SET LogoFileId = @LogoFileId,
+            LogoClaimKey = @ClaimKey,
             UpdatedAtUtc = @UpdatedAtUtc,
             Version = Version + 1
         WHERE Id = @TenantId
@@ -316,6 +339,7 @@ internal static class TenantSql
         """
         UPDATE fn_tenancy_tenant
         SET LogoFileId = @LogoFileId,
+            LogoClaimKey = @ClaimKey,
             UpdatedAtUtc = @UpdatedAtUtc,
             Version = Version + 1
         WHERE Id = @TenantId
@@ -329,10 +353,11 @@ internal static class TenantSql
         """
         UPDATE fn_tenancy_tenant
         SET LogoFileId = NULL,
+            LogoClaimKey = NULL,
             UpdatedAtUtc = @UpdatedAtUtc,
             Version = Version + 1
         WHERE Id = @TenantId
-          AND LogoFileId IS NOT NULL
+          AND LogoFileId = @FileId
           AND Version = @Version
         """,
         SqlDataScope.HostOnly);
@@ -342,10 +367,11 @@ internal static class TenantSql
         """
         UPDATE fn_tenancy_tenant
         SET LogoFileId = NULL,
+            LogoClaimKey = NULL,
             UpdatedAtUtc = @UpdatedAtUtc,
             Version = Version + 1
         WHERE Id = @TenantId
-          AND LogoFileId IS NOT NULL
+          AND LogoFileId = @FileId
           AND Version = @Version
         """,
         SqlDataScope.TenantRequired,

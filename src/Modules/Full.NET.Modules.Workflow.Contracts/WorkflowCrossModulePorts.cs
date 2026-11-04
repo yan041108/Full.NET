@@ -41,13 +41,15 @@ public interface IWorkflowPublishedDefinitionDirectory
 /// <param name="InitialValuesJson">表单初始值 JSON 文本。</param>
 /// <param name="IdempotencyKey">调用方幂等键。</param>
 /// <param name="BusinessTitle">可选业务标题；用于实例列表展示，为空时由 Workflow 模块生成默认标题。</param>
+/// <param name="RequestedInstanceId">调用方与提交意图一起持久化的实例标识；重试包含终态重放。</param>
 public sealed record StartWorkflowInstanceCommand(
     Guid DefinitionVersionId,
     string BusinessType,
     string BusinessId,
     string InitialValuesJson,
     string IdempotencyKey,
-    string? BusinessTitle = null);
+    string? BusinessTitle = null,
+    Guid? RequestedInstanceId = null);
 
 /// <summary>跨模块取消工作流实例的命令。</summary>
 /// <param name="InstanceId">工作流实例标识。</param>

@@ -8,6 +8,16 @@ import { testRunEnvironment } from './test-run-context.mjs';
 const exec = promisify(execFile);
 const digest = value => createHash('sha256').update(value).digest('hex');
 
+async function revision(cwd) {
+  try {
+    return (await exec('git', ['rev-parse', '--verify', '--quiet', 'HEAD'], { cwd })).stdout.trim();
+  } catch (error) {
+    // Git 对无可解析 HEAD 返回 1，允许新仓库尚无提交；其它退出码与启动故障不能忽略。
+    if (error.code === 1) return null;
+    throw error;
+  }
+}
+
 async function inputs(cwd, frozenDependencies) {
   const { stdout } = await exec('git', ['ls-files', '-z', '--cached', '--others', '--exclude-standard'], {
     cwd, maxBuffer: 32 * 1024 * 1024
@@ -71,7 +81,7 @@ async function outputs(directory) {
 }
 
 /** 只复用由本入口成功构建且输入/产物仍一致的记录；verify 模式不自动补构建。 */
-export async function prepareTestBuild({ cwd, project, assembly, args, build, mode = 'reuse', sdkVersion, frozenDependencies }) {
+export async function prepareTestBuild({ cwd, project, assembly, args, build, mode = 'reuse', sdkVersion, frozenDependencies, buildEnvironment }) {
   if (!['reuse', 'verify', 'fresh'].includes(mode)) throw new Error('未知构建复用模式。');
   const referenceBuildArguments = frozenDependencies && Array.isArray(args)
     ? args.filter(arg => /BuildProjectReferences/iu.test(arg)) : [];
@@ -83,8 +93,8 @@ export async function prepareTestBuild({ cwd, project, assembly, args, build, mo
   const assemblyPath = path.resolve(cwd, assembly);
   // pnpm 测试选择及 Codex 单次工具调用身份属于启动元数据；从构建环境和指纹同时移除。
   // 保留其他 MSBuild 环境属性，且不修改调用进程或测试进程的环境。
-  const env = Object.fromEntries(Object.entries(testRunEnvironment()).filter(([name]) =>
-    !/^(?:npm_lifecycle_script|CODEX_TOOL_CALL_ID)$/iu.test(name)
+  const env = Object.fromEntries(Object.entries(buildEnvironment ?? testRunEnvironment()).filter(([name]) =>
+    !/^(?:npm_lifecycle_script|npm_lifecycle_event|CODEX_TOOL_CALL_ID)$/iu.test(name)
   ));
   sdkVersion ??= (await exec('dotnet', ['--version'], { cwd, env })).stdout.trim();
   // MSBuild 可以读取任意合法环境属性；只排除每轮隔离的临时目录，不维护易漏项的前缀清单。
@@ -93,7 +103,8 @@ export async function prepareTestBuild({ cwd, project, assembly, args, build, mo
     !/^(?:TEMP|TMP|TMPDIR)$/iu.test(name)
   ).sort(([left], [right]) => left.localeCompare(right)));
   const source = await inputs(cwd, frozenDependencies);
-  const identity = digest(JSON.stringify({ source, sdkVersion, args, environment }));
+  const sourceRevision = await revision(cwd);
+  const identity = digest(JSON.stringify({ source, sourceRevision, sdkVersion, args, environment }));
   const recordPath = path.join(cwd, '.tmp', 'test-builds', `${digest(project)}.json`);
   let record;
   try { record = JSON.parse(await readFile(recordPath, 'utf8')); }
@@ -107,12 +118,14 @@ export async function prepareTestBuild({ cwd, project, assembly, args, build, mo
   }
   if (mode !== 'fresh' && record?.schemaVersion === 1
       && record.identity === identity && record.output === output && output) {
+    if (await revision(cwd) !== sourceRevision) throw new Error('构建校验期间 Git 修订发生变化，不能复用该产物。');
     return { reused: true, recordPath };
   }
   if (mode === 'verify') throw new Error('构建输入或产物已改变/缺少有效记录；先执行 --reuse-build 或正常构建入口。');
   try { await unlink(recordPath); } catch (error) { if (error.code !== 'ENOENT') throw error; }
   await build(env);
   if (await inputs(cwd, frozenDependencies) !== source) throw new Error('构建期间源码发生变化，不能登记或运行该产物。');
+  if (await revision(cwd) !== sourceRevision) throw new Error('构建期间 Git 修订发生变化，不能登记或运行该产物。');
   await readFile(assemblyPath);
   output = await outputs(path.dirname(assemblyPath));
   await mkdir(path.dirname(recordPath), { recursive: true });

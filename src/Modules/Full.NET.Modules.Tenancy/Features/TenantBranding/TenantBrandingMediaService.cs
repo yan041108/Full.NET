@@ -6,6 +6,7 @@ using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Files.Contracts;
 using Full.NET.Modules.Tenancy.Contracts;
 using Full.NET.Modules.Tenancy.Persistence;
+using Full.NET.Modules.Tenancy.Features.HostFileReferences;
 
 namespace Full.NET.Modules.Tenancy.Features.TenantBranding;
 
@@ -23,6 +24,7 @@ internal sealed class TenantBrandingMediaService(
     IHostFileDescriptorReader? hostFileDescriptorReader = null,
     IHostFileContentReader? hostFileContentReader = null)
 {
+    private IOutboxWriter Outbox => outbox;
     /// <summary>Host 作用域上传并绑定租户 Logo。</summary>
     public Task<Result<TenantBrandingResponse>> UploadLogoByTenantIdAsync(
         Guid tenantId,
@@ -106,7 +108,7 @@ internal sealed class TenantBrandingMediaService(
         CancellationToken cancellationToken)
     {
         // Files 为可选模块；依赖不完整时先拒绝，不能先上传或修改租户品牌数据。
-        if (hostFileUploadWriter is null || hostFileReferenceClaimService is null || hostFileDescriptorReader is null)
+        if (hostFileUploadWriter is null || hostFileReferenceClaimService is null || hostFileDescriptorReader is null || Outbox is null)
         {
             return LogoInvalid<TenantBrandingResponse>();
         }
@@ -129,6 +131,7 @@ internal sealed class TenantBrandingMediaService(
         }
 
         var previousFileId = branding.LogoFileId;
+        var previousKey = previousFileId is Guid previous ? ResolveClaimKey(tenantId, previous, branding.LogoClaimKey) : null;
         var claimPhase = await RunHostFileOpsIfNeededAsync(
                 useCurrentTenantScope,
                 async () =>
@@ -161,7 +164,8 @@ internal sealed class TenantBrandingMediaService(
 
                     var idempotencyKey = HostFileReferenceClaimIdempotencyKeys.TenancyTenantLogo(
                         tenantId,
-                        fileId);
+                        fileId,
+                        Guid.CreateVersion7());
                     var claimResult = await hostFileReferenceClaimService
                         .ClaimAsync(
                             new HostFileReferenceClaimRequest(
@@ -186,15 +190,10 @@ internal sealed class TenantBrandingMediaService(
         var bindResult = await transaction.ExecuteResultAsync(
                 async token =>
                 {
-                    var bound = await BindLogoAsync(
-                        tenantId,
-                        fileId,
-                        branding.Version,
-                        updateStatement,
-                        token).ConfigureAwait(false);
-                    if (bound.IsSuccess && previousFileId is { } oldId && oldId != fileId)
-                        await ReleaseLogoClaimAsync(tenantId, oldId, token).ConfigureAwait(false);
-                    return bound;
+                    var result = await BindLogoAsync(tenantId, fileId, idempotencyKey, branding.Version, updateStatement, token).ConfigureAwait(false);
+                    if (result.IsSuccess && previousKey is not null)
+                        await TenantLogoUnboundOutbox.PublishAsync(Outbox, tenantId, previousFileId!.Value, previousKey, token).ConfigureAwait(false);
+                    return result;
                 },
                 cancellationToken)
             .ConfigureAwait(false);
@@ -207,6 +206,7 @@ internal sealed class TenantBrandingMediaService(
             return Result<TenantBrandingResponse>.Failure(bindResult.Error!);
         }
 
+        // 品牌绑定已提交；后续 Claim 确认失败、抛错或请求取消都不能阻止提交后缓存失效。
         var confirmResult = await RunHostFileOpsIfNeededAsync(
                 useCurrentTenantScope,
                 () => hostFileReferenceClaimService.ConfirmAsync(idempotencyKey, cancellationToken))
@@ -214,6 +214,12 @@ internal sealed class TenantBrandingMediaService(
         if (!confirmResult.IsSuccess)
         {
             return Result<TenantBrandingResponse>.Failure(confirmResult.Error!);
+        }
+
+        if (previousKey is not null)
+        {
+            await ReleaseLogoClaimAsync(previousKey, useCurrentTenantScope, cancellationToken)
+                .ConfigureAwait(false);
         }
 
         return await ReloadBrandingResponseAsync(tenantId, useCurrentTenantScope, cancellationToken)
@@ -248,23 +254,33 @@ internal sealed class TenantBrandingMediaService(
                 .ConfigureAwait(false);
         }
 
-        var deleted = await transaction.ExecuteAsync(async token =>
+        // 同时保护版本和原文件快照，不能清除读取之后并发替换的 Logo。
+        if (Outbox is null) return LogoInvalid<TenantBrandingResponse>();
+        var releaseKey = ResolveClaimKey(tenantId, fileId, branding.LogoClaimKey);
+        var clearResult = await transaction.ExecuteResultAsync(async token =>
         {
             var affected = await commandExecutor.ExecuteAsync(
                     clearStatement,
                     TenancySqlParameters.Create(
                         ("TenantId", tenantId),
+                        ("FileId", fileId),
                         ("Version", branding.Version),
                         ("UpdatedAtUtc", clock.UtcNow)),
                     token)
                 .ConfigureAwait(false);
-            if (affected != 1) return false;
-            await ReleaseLogoClaimAsync(tenantId, fileId, token)
-                .ConfigureAwait(false);
-            return true;
+            if (affected != 1)
+            {
+                return Result<bool>.Failure(new Error(
+                    TenancyErrorCodes.VersionConflict,
+                    "The tenant record was updated concurrently.",
+                    ErrorType.Conflict));
+            }
+            await TenantLogoUnboundOutbox.PublishAsync(Outbox, tenantId, fileId, releaseKey, token).ConfigureAwait(false);
+            return Result<bool>.Success(true);
         }, cancellationToken).ConfigureAwait(false);
-        if (!deleted) return Result<TenantBrandingResponse>.Failure(new Error(
-            TenancyErrorCodes.VersionConflict, "The tenant record was updated concurrently.", ErrorType.Conflict));
+        if (!clearResult.IsSuccess) return Result<TenantBrandingResponse>.Failure(clearResult.Error!);
+        await ReleaseLogoClaimAsync(releaseKey, useCurrentTenantScope, cancellationToken)
+            .ConfigureAwait(false);
         return await ReloadBrandingResponseAsync(tenantId, useCurrentTenantScope, cancellationToken)
             .ConfigureAwait(false);
     }
@@ -340,6 +356,7 @@ internal sealed class TenantBrandingMediaService(
     private async Task<Result<bool>> BindLogoAsync(
         Guid tenantId,
         Guid fileId,
+        string claimKey,
         int version,
         SqlStatement updateStatement,
         CancellationToken cancellationToken)
@@ -349,6 +366,7 @@ internal sealed class TenantBrandingMediaService(
                 TenancySqlParameters.Create(
                     ("TenantId", tenantId),
                     ("LogoFileId", fileId),
+                    ("ClaimKey", claimKey),
                     ("UpdatedAtUtc", clock.UtcNow),
                     ("Version", version)),
                 cancellationToken)
@@ -362,13 +380,24 @@ internal sealed class TenantBrandingMediaService(
     }
 
     private Task ReleaseLogoClaimAsync(
-        Guid tenantId,
-        Guid fileId,
+        string idempotencyKey,
+        bool useCurrentTenantScope,
         CancellationToken cancellationToken)
     {
-        var idempotencyKey = HostFileReferenceClaimIdempotencyKeys.TenancyTenantLogo(tenantId, fileId);
-        return outbox.AddAsync(HostFileReferenceReleaseRequested.EventType, 1,
-            new HostFileReferenceReleaseRequested(idempotencyKey), cancellationToken);
+        return RunHostFileOpsIfNeededAsync(
+            useCurrentTenantScope,
+            async () =>
+            {
+                _ = await hostFileReferenceClaimService!
+                    .ReleaseAsync(idempotencyKey, cancellationToken)
+                    .ConfigureAwait(false);
+            });
+    }
+
+    private static string ResolveClaimKey(Guid tenantId, Guid fileId, string? stored)
+    {
+        var legacy = HostFileReferenceClaimIdempotencyKeys.TenancyTenantLogo(tenantId, fileId);
+        return stored is not null && HostFileReferenceClaimIdempotencyKeys.IsBindingKey(legacy, stored) ? stored : legacy;
     }
 
     private Task<T> RunHostFileOpsIfNeededAsync<T>(

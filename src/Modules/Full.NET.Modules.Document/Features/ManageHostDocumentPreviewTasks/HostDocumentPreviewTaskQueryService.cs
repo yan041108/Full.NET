@@ -26,6 +26,7 @@ internal sealed class HostDocumentPreviewTaskQueryService(
         Guid? documentItemId,
         CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         page = Math.Max(page, 1);
         pageSize = Math.Clamp(pageSize, 1, 100);
         var offset = ((long)page - 1) * pageSize;
@@ -53,6 +54,7 @@ internal sealed class HostDocumentPreviewTaskQueryService(
                 cancellationToken)
             .ConfigureAwait(false);
 
+        cancellationToken.ThrowIfCancellationRequested();
         var items = pageResult.Rows.Select(HostDocumentPreviewTaskMapper.Map).ToArray();
         return Result<PagedResult<HostDocumentPreviewTaskResponse>>.Success(
             new PagedResult<HostDocumentPreviewTaskResponse>(items, page, pageSize, pageResult.Total));
@@ -74,12 +76,14 @@ internal sealed class HostDocumentPreviewTaskQueryService(
         Guid taskId,
         CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         var record = await queryExecutor
             .QuerySingleOrDefaultAsync<DocumentPreviewTaskRecord>(
                 DocumentPreviewTaskSql.FindById,
                 DocumentSqlParameters.Create(("Id", taskId)),
                 cancellationToken)
             .ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
         return record is null
             ? Result<HostDocumentPreviewTaskResponse>.Failure(TaskNotFoundError())
             : Result<HostDocumentPreviewTaskResponse>.Success(HostDocumentPreviewTaskMapper.Map(record));
@@ -120,12 +124,14 @@ internal sealed class HostDocumentPreviewTaskQueryService(
         Guid taskId,
         CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         var record = await queryExecutor
             .QuerySingleOrDefaultAsync<DocumentPreviewTaskRecord>(
                 DocumentPreviewTaskSql.FindById,
                 DocumentSqlParameters.Create(("Id", taskId)),
                 cancellationToken)
             .ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
         if (record is null)
         {
             return Result<HostFileContent>.Failure(TaskNotFoundError());
@@ -135,19 +141,39 @@ internal sealed class HostDocumentPreviewTaskQueryService(
     }
 
     /// <summary>只有已成功的固定输出快照可以打开；未就绪返回稳定业务错误，不能混用两次读取的字段。</summary>
-    private Task<Result<HostFileContent>> OpenOutputSnapshotAsync(DocumentPreviewTaskRecord record, CancellationToken cancellationToken)
+    private async Task<Result<HostFileContent>> OpenOutputSnapshotAsync(DocumentPreviewTaskRecord record, CancellationToken cancellationToken)
     {
         if (!string.Equals(record.StatusKey, HostDocumentPreviewTaskStatusKeys.Succeeded, StringComparison.Ordinal)
             || record.OutputFileId is null)
         {
-            return Task.FromResult(Result<HostFileContent>.Failure(
+            return Result<HostFileContent>.Failure(
                 new Error(
                     DocumentErrorCodes.PreviewTaskNotReady,
                     "Document preview task output is not ready.",
-                    ErrorType.BusinessRule)));
+                    ErrorType.BusinessRule));
         }
 
-        return hostFileContentReader.OpenReadyContentAsync(record.OutputFileId.Value, cancellationToken);
+        var content = await hostFileContentReader
+            .OpenReadyContentAsync(record.OutputFileId.Value, cancellationToken)
+            .ConfigureAwait(false);
+        if (!content.IsSuccess)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            return content;
+        }
+
+        // 文件端口交付流后由本服务持有，晚取消时不能把释放责任留给尚未接收的响应。
+        var transferred = false;
+        try
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            transferred = true;
+            return content;
+        }
+        finally
+        {
+            if (!transferred) await content.Value!.Content.DisposeAsync().ConfigureAwait(false);
+        }
     }
 
     private static Error TaskNotFoundError() =>

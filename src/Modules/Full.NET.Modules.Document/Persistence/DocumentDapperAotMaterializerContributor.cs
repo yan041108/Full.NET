@@ -33,6 +33,7 @@ internal sealed class DocumentDapperAotMaterializerContributor
             Id = ReadGuid(r, "Id"), DocumentId = ReadGuid(r, "DocumentId"), TaskId = ReadGuid(r, "TaskId"), FileId = ReadGuid(r, "FileId"),
             Purpose = ReadString(r, "Purpose"), StateKey = ReadString(r, "StateKey"), ReleaseAfterUtc = ReadNullableDateTimeOffset(r, "ReleaseAfterUtc"), CreatedAtUtc = ReadDateTimeOffset(r, "CreatedAtUtc") });
         registrar.Register<DocumentPermissionRecord>(ReadPermission);
+        registrar.Register<DocumentPermissionRevisionRecord>(ReadPermissionRevision);
         registrar.Register<DocumentShareRecord>(ReadShare);
         registrar.Register<DocumentShareSessionRecord>(reader => new DocumentShareSessionRecord {
             Id = ReadGuid(reader, "Id"), ShareId = ReadGuid(reader, "ShareId"), DocumentId = ReadGuid(reader, "DocumentId"),
@@ -45,6 +46,13 @@ internal sealed class DocumentDapperAotMaterializerContributor
         registrar.Register<DocumentStatisticsShareCountRecord>(ReadStatisticsShareCount);
         registrar.Register<DocumentVersionRetentionSettingRecord>(ReadVersionRetentionSetting);
     }
+
+    private static DocumentPermissionRevisionRecord ReadPermissionRevision(DbDataReader reader) => new()
+    {
+        Id = ReadGuid(reader, "Id"),
+        Version = ReadInt64(reader, "Version"),
+        VisibilityMode = ReadString(reader, "VisibilityMode"),
+    };
 
     private static DocumentCategoryRecord ReadCategory(DbDataReader reader) => new()
     {

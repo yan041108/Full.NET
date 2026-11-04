@@ -99,7 +99,7 @@ internal static class CrudSceneGuardGenerator
         {
             methods.Add(CrudTreeGenerator.Methods(schema));
             var tenantParent = schema.IsTenantScoped
-                ? "\n                    TenantId = currentTenant.Id!.Value,"
+                ? "\n                    [\"TenantId\"] = currentTenant.Id!.Value,"
                 : string.Empty;
             methods.Add(
                 $$"""
@@ -121,9 +121,9 @@ internal static class CrudSceneGuardGenerator
                     var parent = await queryExecutor
                         .QuerySingleOrDefaultAsync<{{schema.ClrTypeName}}Record>(
                             {{schema.ClrTypeName}}Sql.FindByIdStatement,
-                            new
+                            new Dictionary<string, object?>
                             {
-                                Id = parentId.Value,{{tenantParent}}
+                                ["Id"] = parentId.Value,{{tenantParent}}
                             },
                             cancellationToken)
                         .ConfigureAwait(false);
@@ -138,9 +138,9 @@ internal static class CrudSceneGuardGenerator
                         var node = await queryExecutor
                             .QuerySingleOrDefaultAsync<{{schema.ClrTypeName}}Record>(
                                 {{schema.ClrTypeName}}Sql.FindByIdStatement,
-                                new
+                                new Dictionary<string, object?>
                                 {
-                                    Id = current,{{tenantParent}}
+                                    ["Id"] = current,{{tenantParent}}
                                 },
                                 cancellationToken)
                             .ConfigureAwait(false);
@@ -172,7 +172,7 @@ internal static class CrudSceneGuardGenerator
                 ? " AND TenantId = @TenantId"
                 : string.Empty;
             var tenantParam = schema.IsTenantScoped
-                ? "\n                            TenantId = currentTenant.Id!.Value,"
+                ? "\n                            [\"TenantId\"] = currentTenant.Id!.Value,"
                 : string.Empty;
             var scope = schema.DataScope switch
             {
@@ -198,10 +198,10 @@ internal static class CrudSceneGuardGenerator
                                 "SELECT Id FROM {{schema.DatabaseTableName}} WHERE {{firstUnique.DatabaseName}} = @Value AND Id <> @Id{{tenantUnique}}",
                                 {{scope}},
                                 {{tenantBinding}}),
-                            new
+                            new Dictionary<string, object?>
                             {
-                                Value = value,
-                                Id = {{idParameter}},{{tenantParam}}
+                                ["Value"] = value,
+                                ["Id"] = {{idParameter}},{{tenantParam}}
                             },
                             cancellationToken)
                         .ConfigureAwait(false);
@@ -223,7 +223,7 @@ internal static class CrudSceneGuardGenerator
                 ? " AND TenantId = @TenantId"
                 : string.Empty;
             var tenantParam = schema.IsTenantScoped
-                ? "\n                            TenantId = currentTenant.Id!.Value,"
+                ? "\n                            [\"TenantId\"] = currentTenant.Id!.Value,"
                 : string.Empty;
             var scope = schema.DataScope switch
             {
@@ -248,10 +248,10 @@ internal static class CrudSceneGuardGenerator
                                 "SELECT Id FROM {{principalTable}} WHERE {{relationship.PrincipalColumnName}} = @Id{{tenantSql}}{{deletedFilter}}{{(organizationOwned ? " AND OrganizationUnitId = @OrganizationUnitId" : string.Empty)}}",
                                 {{scope}},
                                 {{tenantBinding}}),
-                            new
+                            new Dictionary<string, object?>
                             {
-                                Id = principalId,{{tenantParam}}
-                                {{(organizationOwned ? "OrganizationUnitId = organizationUnitId," : string.Empty)}}
+                                ["Id"] = principalId,{{tenantParam}}
+                                {{(organizationOwned ? "[\"OrganizationUnitId\"] = organizationUnitId," : string.Empty)}}
                             },
                             cancellationToken)
                         .ConfigureAwait(false);
@@ -290,7 +290,7 @@ internal static class CrudSceneGuardGenerator
                         ? " AND TenantId = @TenantId"
                         : string.Empty;
                     var tenantParam = schema.IsTenantScoped
-                        ? "\n                            TenantId = currentTenant.Id!.Value,"
+                        ? "\n                            [\"TenantId\"] = currentTenant.Id!.Value,"
                         : string.Empty;
                     var scope = schema.DataScope switch
                     {
@@ -309,12 +309,12 @@ internal static class CrudSceneGuardGenerator
                                 "{{mutation}} WHERE {{relationship.DependentColumnName}} = @Id{{tenantSql}}{{deletedFilter}}{{(organizationOwned ? " AND OrganizationUnitId = @OrganizationUnitId" : string.Empty)}}",
                                 {{scope}},
                                 {{tenantBinding}}),
-                            new
+                            new Dictionary<string, object?>
                             {
-                                Id = principal.{{schema.Columns.Single(column => column.DatabaseName == relationship.PrincipalColumnName).ClrPropertyName}},{{tenantParam}}
-                                {{(organizationOwned ? "OrganizationUnitId = principal.OrganizationUnitId," : string.Empty)}}
-                                DeletedAtUtc = clock.UtcNow,
-                                DeletedById = actorUserId,
+                                ["Id"] = principal.{{schema.Columns.Single(column => column.DatabaseName == relationship.PrincipalColumnName).ClrPropertyName}},{{tenantParam}}
+                                {{(organizationOwned ? "[\"OrganizationUnitId\"] = principal.OrganizationUnitId," : string.Empty)}}
+                                ["DeletedAtUtc"] = clock.UtcNow,
+                                ["DeletedById"] = actorUserId,
                             },
                             cancellationToken)
                         .ConfigureAwait(false);

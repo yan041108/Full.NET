@@ -36,6 +36,7 @@ internal static class Endpoint
             ImportExportTaskManagementService service,
             ClaimsPrincipal principal,
             ICurrentTenant currentTenant,
+            IIdentityPermissionEvaluator permissions,
             IApiResultMapper mapper,
             HttpContext httpContext,
             CancellationToken cancellationToken) =>
@@ -70,7 +71,7 @@ internal static class Endpoint
                 if (mapping is null) return mapper.Map(Result<ImportExportTaskDetailResponse>.Failure(ImportColumnMappingSnapshots.Invalid()), httpContext);
             }
             await using var stream = file.OpenReadStream();
-            var previewContext = BuildPreviewContext(userId, principal, currentTenant.Id) with { ColumnMapping = mapping };
+            var previewContext = BuildPreviewContext(userId, principal, permissions, currentTenant.Id) with { ColumnMapping = mapping };
             var result = await service
                 .CreateAsync(
                     schemaKey.Trim(),
@@ -158,6 +159,7 @@ internal static class Endpoint
             ImportExportTaskExecutionService executionService,
             ClaimsPrincipal principal,
             ICurrentTenant currentTenant,
+            IIdentityPermissionEvaluator permissions,
             IApiResultMapper mapper,
             HttpContext httpContext,
             CancellationToken cancellationToken) =>
@@ -170,7 +172,7 @@ internal static class Endpoint
             var result = await executionService
                 .QueueExecuteAsync(
                     taskId,
-                    BuildPreviewContext(userId, principal, currentTenant.Id),
+                    BuildPreviewContext(userId, principal, permissions, currentTenant.Id),
                     cancellationToken)
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
@@ -188,6 +190,7 @@ internal static class Endpoint
             ImportExportTaskExecutionService executionService,
             ClaimsPrincipal principal,
             ICurrentTenant currentTenant,
+            IIdentityPermissionEvaluator permissions,
             IApiResultMapper mapper,
             HttpContext httpContext,
             CancellationToken cancellationToken) =>
@@ -200,7 +203,7 @@ internal static class Endpoint
             var result = await executionService
                 .ResumeAsync(
                     taskId,
-                    BuildPreviewContext(userId, principal, currentTenant.Id),
+                    BuildPreviewContext(userId, principal, permissions, currentTenant.Id),
                     cancellationToken)
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
@@ -218,6 +221,7 @@ internal static class Endpoint
             ImportExportTaskExecutionService executionService,
             ClaimsPrincipal principal,
             ICurrentTenant currentTenant,
+            IIdentityPermissionEvaluator permissions,
             IApiResultMapper mapper,
             HttpContext httpContext,
             CancellationToken cancellationToken) =>
@@ -230,7 +234,7 @@ internal static class Endpoint
             var result = await executionService
                 .RetryAsync(
                     taskId,
-                    BuildPreviewContext(userId, principal, currentTenant.Id),
+                    BuildPreviewContext(userId, principal, permissions, currentTenant.Id),
                     cancellationToken)
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
@@ -254,12 +258,15 @@ internal static class Endpoint
         group.MapGet("/{taskId:guid}/error-receipt", async (
             Guid taskId,
             ImportExportTaskExecutionService executionService,
+            ICurrentTenant currentTenant,
             IApiResultMapper mapper,
             HttpContext httpContext,
             CancellationToken cancellationToken) =>
         {
+            if (!SessionBindingSnapshotReader.TryReadTenant(httpContext.User, currentTenant.Id, out var binding))
+                return mapper.Map(Result<TenantResourceFileContent>.Failure(ImportTaskAuthority.Denied()), httpContext);
             var result = await executionService
-                .OpenErrorReceiptAsync(taskId, cancellationToken)
+                .OpenErrorReceiptAsync(taskId, binding, cancellationToken)
                 .ConfigureAwait(false);
             if (!result.IsSuccess)
             {
@@ -288,14 +295,12 @@ internal static class Endpoint
         return Guid.TryParse(subject, out userId);
     }
 
-    private static StaticImportPreviewContext BuildPreviewContext(
+    internal static StaticImportPreviewContext BuildPreviewContext(
         Guid requestedByUserId,
-        ClaimsPrincipal principal, Guid? tenantId)
+        ClaimsPrincipal principal, IIdentityPermissionEvaluator permissions, Guid? tenantId)
     {
-        var capabilityFlags = principal
-            .FindAll(FullNetIdentityClaimTypes.Permission)
-            .Select(claim => claim.Value)
-            .Distinct(StringComparer.Ordinal)
+        var capabilityFlags = permissions.ResolvePermissions(principal)
+            .Where(permission => permissions.HasPermission(principal, permission))
             .ToDictionary(permission => permission, _ => true, StringComparer.Ordinal);
         return new StaticImportPreviewContext(requestedByUserId, capabilityFlags) {
             SessionBinding = SessionBindingSnapshotReader.TryReadTenant(principal, tenantId, out var binding) ? binding : null };

@@ -35,7 +35,7 @@ internal sealed class WorkflowInstanceRecoveryService(
     IClock clock,
     IIdGenerator idGenerator,
     IHostUserBatchSelectionDirectory hostUserDirectory,
-    ITenantMemberSelectionDirectory tenantUserDirectory,
+    ITenantMemberBatchSelectionDirectory tenantUserDirectory,
     WorkflowTodoHandoffWriter handoffs,
     WorkflowBranchStateCoordinator branchStates)
 {

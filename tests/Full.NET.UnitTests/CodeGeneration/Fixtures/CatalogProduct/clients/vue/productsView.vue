@@ -42,12 +42,14 @@ const editOpen = ref(false);
 const deleteOpen = ref(false);
 const editing = ref<ProductResponse>();
 const deleting = ref<ProductResponse>();
+let createTicket = 0; let editTicket = 0; let deleteTicket = 0;
 type FormModel = { -readonly [Key in keyof CreateProductRequest]: CreateProductRequest[Key] };
 function defaults(): FormModel { return { displayName: '',
   description: null,
   isActive: false }; }
 const createForm = reactive<FormModel>(defaults());
 const editForm = reactive<FormModel>(defaults());
+const initialCreateForm = defaults; const initialEditForm = defaults;
 
 const {
   items,
@@ -57,6 +59,8 @@ const {
   loading,
   changing,
   query,
+  scopeVersion,
+  cancelChange,
   canWrite,
   load,
   create,
@@ -64,6 +68,9 @@ const {
   disable: remove
 } = useProductPage({
   request: http,
+  contextKey: () => JSON.stringify([session.state, session.currentUser?.id,
+    session.currentUser?.sessionId, session.currentUser?.tenantId, session.currentUser?.scope,
+    session.currentUser?.actorScope, session.currentUser?.permissions]),
   hasPermission: permission => session.can(permission),
   onProblem: (error, fallbackCode) => {
     problem.value = isFullNetProblemDetails(error)
@@ -136,11 +143,32 @@ function clearFilters(): void {
   void load(1);
 }
 
+// 旧上下文的对话框、行与输入必须同步失效，迟到响应由页面模型拒绝接入。
+watch(scopeVersion, () => {
+  createOpen.value = false; editOpen.value = false; deleteOpen.value = false;
+  editing.value = undefined; deleting.value = undefined; problem.value = undefined;
+  Object.assign(createForm, initialCreateForm()); Object.assign(editForm, initialEditForm());
+}, { flush: 'sync' });
+watch(createOpen, open => {
+  createTicket++;
+  if (!open) { cancelChange(); Object.assign(createForm, initialCreateForm()); }
+}, { flush: 'sync' });
+watch(editOpen, open => {
+  editTicket++;
+  if (!open) { cancelChange(); editing.value = undefined; Object.assign(editForm, initialEditForm()); }
+}, { flush: 'sync' });
+watch(deleteOpen, open => {
+  deleteTicket++;
+  if (!open) { cancelChange(); deleting.value = undefined; }
+}, { flush: 'sync' });
+
 onMounted(() => {
   void load();
 });
 
 function openCreate(): void {
+  if (!canWrite.value || changing.value) return;
+  problem.value = undefined;
   Object.assign(createForm, defaults());
 
   createOpen.value = true;
@@ -148,6 +176,7 @@ function openCreate(): void {
 }
 
 async function openEdit(row: unknown): Promise<void> {
+  if (!canWrite.value || changing.value) return;
   // 树行附带 children；按白名单中的标识回到已由生成客户端校验的当前记录。
   let item = resolveRow(row);
   if (!item) return;
@@ -160,6 +189,7 @@ async function openEdit(row: unknown): Promise<void> {
 }
 
 function openDelete(row: unknown): void {
+  if (!canWrite.value || changing.value) return;
   // 先展示确认弹窗；表格按钮不得直接执行不可撤销的删除请求。
   const item = resolveRow(row);
   if (!item) return;
@@ -171,30 +201,33 @@ async function submitCreate(): Promise<void> {
   if (!await createFormRef.value?.validate().catch(() => false)) return;
 
 
+  if (!createOpen.value) return;
+  const ticket = createTicket; const scopeTicket = scopeVersion.value;
   const succeeded = await create({ ...createForm });
-  if (succeeded) {
+  if (succeeded && ticket === createTicket && scopeTicket === scopeVersion.value && createOpen.value) {
     createOpen.value = false;
   }
 }
 
 async function submitEdit(): Promise<void> {
-  if (!editing.value) {
+  if (!editOpen.value || !editing.value) {
     return;
   }
   if (!await editFormRef.value?.validate().catch(() => false)) return;
 
+  const ticket = editTicket; const scopeTicket = scopeVersion.value;
   const succeeded = await update(editing.value, { ...editForm });
-  if (succeeded) {
+  if (succeeded && ticket === editTicket && scopeTicket === scopeVersion.value && editOpen.value) {
     editOpen.value = false;
   }
 }
 
 async function confirmDelete(): Promise<void> {
-  if (!deleting.value) return;
-  const succeeded = await remove(deleting.value);
-  if (succeeded) {
+  if (!deleteOpen.value || !deleting.value) return;
+  const ticket = deleteTicket; const scopeTicket = scopeVersion.value;
+  const succeeded = await disable(deleting.value);
+  if (succeeded && ticket === deleteTicket && scopeTicket === scopeVersion.value && deleteOpen.value) {
     deleteOpen.value = false;
-    deleting.value = undefined;
   }
 }
 function resolveRow(row: unknown): ProductResponse | undefined {

@@ -5146,6 +5146,84 @@
       "apiModule": "ui/admin/src/api/query-schemes.ts",
       "generatedGroup": "query-schemes",
       "status": "generated"
+    },
+    {
+      "operationId": "submitEnterpriseRequestForApproval",
+      "apiModule": "ui/admin/src/api/enterprise-requests.ts",
+      "generatedGroup": "enterprise-requests",
+      "status": "generated"
+    },
+    {
+      "operationId": "enterpriseRequestGetApprovalProgress",
+      "apiModule": "ui/admin/src/api/enterprise-requests.ts",
+      "generatedGroup": "enterprise-requests",
+      "status": "generated"
+    },
+    {
+      "operationId": "enterpriseRequestRepairApproval",
+      "apiModule": "ui/admin/src/api/enterprise-requests.ts",
+      "generatedGroup": "enterprise-requests",
+      "status": "generated"
+    },
+    {
+      "operationId": "documentHostGetDocumentPermissionSnapshot",
+      "apiModule": "ui/admin/src/api/document-permissions.ts",
+      "generatedGroup": "document-host-permissions",
+      "status": "generated"
+    },
+    {
+      "operationId": "reportingListTenantVersionGrants",
+      "apiModule": "ui/admin/src/api/reporting-definitions.ts",
+      "generatedGroup": "reporting-definitions",
+      "status": "generated"
+    },
+    {
+      "operationId": "reportingGrantTenantVersion",
+      "apiModule": "ui/admin/src/api/reporting-definitions.ts",
+      "generatedGroup": "reporting-definitions",
+      "status": "generated"
+    },
+    {
+      "operationId": "reportingRevokeTenantVersion",
+      "apiModule": "ui/admin/src/api/reporting-definitions.ts",
+      "generatedGroup": "reporting-definitions",
+      "status": "generated"
+    },
+    {
+      "operationId": "printingListPublishedTemplates",
+      "apiModule": "ui/admin/src/api/printing-templates.ts",
+      "generatedGroup": "printing-templates",
+      "status": "generated"
+    },
+    {
+      "operationId": "printingPreviewPublishedTemplate",
+      "apiModule": "ui/admin/src/api/printing-templates.ts",
+      "generatedGroup": "printing-templates",
+      "status": "generated"
+    },
+    {
+      "operationId": "printingListTenantVersionGrants",
+      "apiModule": "ui/admin/src/api/printing-templates.ts",
+      "generatedGroup": "printing-templates",
+      "status": "generated"
+    },
+    {
+      "operationId": "printingGrantTenantVersion",
+      "apiModule": "ui/admin/src/api/printing-templates.ts",
+      "generatedGroup": "printing-templates",
+      "status": "generated"
+    },
+    {
+      "operationId": "printingRevokeTenantVersion",
+      "apiModule": "ui/admin/src/api/printing-templates.ts",
+      "generatedGroup": "printing-templates",
+      "status": "generated"
+    },
+    {
+      "operationId": "reportingListPublishedDefinitionVersions",
+      "apiModule": "ui/admin/src/api/reporting-definitions.ts",
+      "generatedGroup": "reporting-definitions",
+      "status": "generated"
     }
   ]
 }

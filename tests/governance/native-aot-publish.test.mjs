@@ -17,67 +17,81 @@ async function read(relativePath) {
   return readFile(path.join(repositoryRoot, relativePath), 'utf8');
 }
 
-const execute = promisify(execFile);
-
-/** 只复制入口脚本与配置到有限夹具；模拟外部 SDK，验证真实入口选择的结果目录及 TRX 参数。 */
+/** 在真实共享运行器上注入 SDK 边界，只验证编排、目录与参数，不声明 Native 业务已执行。 */
 async function assertNativeResultDestination(runner, gateKey, gate, trxName) {
-  const matrix = JSON.parse(await read('eng/testing/test-matrix.json'));
+  const {runNativeSuite} = await import('../../scripts/testing/native-suite-runner.mjs');
+  const {execFileSync} = await import('node:child_process');
+  const originalCi = process.env.CI;
   for (const ci of [false, true]) {
     const root = await mkdtemp(path.join(tmpdir(), 'fullnet-native-output-contract-'));
     try {
-      const fixture = path.join(root, 'repo');
-      const scratch = path.join(root, 'temp');
-      const scripts = path.join(fixture, 'scripts/testing');
-      await mkdir(scripts, { recursive: true });
-      await mkdir(path.join(fixture, 'eng/testing'), { recursive: true });
-      await mkdir(scratch);
-      await writeFile(path.join(scripts, 'entry.mjs'), runner);
-      await writeFile(path.join(scripts, 'test-output-directory.mjs'), await read('scripts/testing/test-output-directory.mjs'));
-      await writeFile(path.join(fixture, 'eng/testing/test-matrix.json'), JSON.stringify({
-        integration: { assembly: matrix.integration.assembly }, [gateKey]: gate,
-      }));
-      const capture = path.join(root, 'commands.jsonl');
-      const preload = path.join(root, 'sdk-boundary.mjs');
-      await writeFile(preload, `
-import childProcess from 'node:child_process';
-import { appendFileSync } from 'node:fs';
-import { syncBuiltinESMExports } from 'node:module';
-childProcess.spawnSync = (command, args) => {
-  appendFileSync(${JSON.stringify(capture)}, JSON.stringify({ command, args }) + '\\n');
-  if (command !== 'dotnet') throw new Error('Unexpected external command');
-  if (args[0] === 'build' && args[1] === ${JSON.stringify(gate.project)})
-    return { status: 0, stdout: '', stderr: '' };
-  if (args[0] !== ${JSON.stringify(matrix.integration.assembly)}) throw new Error('Unexpected assembly');
-  if (args.includes('--list-tests'))
-    return { status: 0, stdout: JSON.stringify({ tests: Array.from({ length: ${gate.minimum} }, (_, index) => ({ uid: String(index) })) }), stderr: '' };
-  if (!args.includes('--report-trx')) throw new Error('Missing test report command');
-  return { status: 0, stdout: '', stderr: '' };
-};
-syncBuiltinESMExports();
-`);
-      await execute(process.execPath, ['--import', pathToFileURL(preload).href, path.join(scripts, 'entry.mjs')], {
-        cwd: fixture, timeout: 10_000,
-        env: { ...process.env, CI: String(ci), TEMP: scratch, TMP: scratch, TMPDIR: scratch },
+      process.env.CI = String(ci);
+      await mkdir(path.dirname(path.join(root, gate.project)), {recursive:true});
+      await writeFile(path.join(root, gate.project), '<Project />');
+      await writeFile(path.join(root, '.gitignore'), '.tmp/\nbin/\nobj/\nlocks/\nartifacts/\n');
+      execFileSync('git', ['init', '--quiet'], {cwd:root, windowsHide:true});
+      const assembly='bin/tests.dll';
+      await mkdir(path.join(root,'eng/testing'),{recursive:true});
+      await writeFile(path.join(root,'eng/testing/test-matrix.json'),JSON.stringify({integration:{assembly},[gateKey]:gate}));
+      const calls=[];
+      await runNativeSuite({suite:gateKey,results:'native-aot/linux-x64/test-results',trx:trxName}, {
+        cwd:root,platform:'win32',sdkVersion:'test-sdk',lockRoot:path.join(root,'locks'),
+        runCommand:async(args)=>{
+          calls.push(args);
+          if(args[0]==='build'){await mkdir(path.join(root,'bin'));await writeFile(path.join(root,assembly),'compiled');return '';}
+          if(args.includes('--list-tests'))return JSON.stringify({tests:Array.from({length:gate.minimum},(_,index)=>({uid:String(index),type:{typeName:gate.requiredTestTypes?.[index%gate.requiredTestTypes.length]}}))});
+          return '';
+        }
       });
-      const calls = (await readFile(capture, 'utf8')).trim().split('\n').map(line => JSON.parse(line));
-      const tests = calls.filter(call => call.args.includes('--report-trx'));
-      assert.equal(tests.length, 1);
-      const args = tests[0].args;
-      const directory = args[args.indexOf('--results-directory') + 1];
-      assert.equal(args[args.indexOf('--report-trx-filename') + 1], trxName);
-      assert.equal(args[args.indexOf('--filter') + 1], gate.filter);
-      assert.equal(args[args.indexOf('--timeout') + 1], gate.timeout);
-      if (ci) {
-        assert.equal(directory, path.join(fixture, 'artifacts/native-aot/linux-x64/test-results'));
-      } else {
-        const relative = path.relative(scratch, directory).replaceAll('\\', '/');
-        assert.match(relative, /^fullnet-test-output-[^/]+\/native-aot\/linux-x64\/test-results$/);
-      }
-    } finally {
-      // root 仅来自本函数的 mkdtemp，子进程已退出；不清理真实仓库或其他任务的目录。
-      await rm(root, { recursive: true, force: true });
-    }
+      const tests=calls.filter(args=>args.includes('--report-trx'));assert.equal(tests.length,1);
+      const args=tests[0],directory=args[args.indexOf('--results-directory')+1];
+      assert.ok(args[args.indexOf('--report-trx-filename')+1].startsWith(trxName.replace(/\.trx$/u,'-')));
+      assert.equal(args[args.indexOf('--filter')+1],gate.filter);assert.equal(args[args.indexOf('--timeout')+1],gate.timeout);
+      if(ci)assert.equal(directory,path.join(root,'artifacts/native-aot/linux-x64/test-results'));
+      else assert.match(path.relative(tmpdir(),directory).replaceAll('\\','/'),/^fullnet-test-output-[^/]+\/native-aot\/linux-x64\/test-results$/);
+    } finally {await rm(root,{recursive:true,force:true});}
   }
+  if(originalCi===undefined)delete process.env.CI;else process.env.CI=originalCi;
+}
+
+async function readNativeRunner(relativePath) {
+  const entry = await read(relativePath);
+  // 入口必须实际接入共享运行器；契约检查随后沿调用链核对执行门禁。
+  assert.match(entry, /import \{runNativeSuite\} from '\.\/native-suite-runner\.mjs'/);
+  assert.match(entry, /runNativeSuite\(\{/);
+  return entry + '\n' + await read('scripts/testing/native-suite-runner.mjs');
+}
+
+test('核心API跨宿主恢复与Worker专项均登记必需场景', async () => {
+  const matrix = JSON.parse(await read('eng/testing/test-matrix.json'));
+  // 核心API套件含当前跨Host恢复用例，须保留真实Worker程序；专项仍固定选择Worker用例。
+  assert.ok(matrix.nativeAotIntegration.requiredTestTypes.includes('NativeWorkerPdfE2ETests'));
+  assert.equal(matrix.workerNativeAotIntegration.filter, 'FullyQualifiedName~NativeWorker');
+  assert.ok(matrix.nativeAotIntegration.requiredTestTypes.includes('NativeApiKafkaLogMySqlE2ETests'));
+  assert.ok(matrix.workerNativeAotIntegration.requiredTestTypes.includes('NativeWorkerKafkaLogMySqlE2ETests'));
+});
+
+for (const role of ['api', 'worker']) {
+  test(`${role} 成功发布后立即上传可复用产物，运行证据仍在原生测试之后`, async () => {
+    const workflow = await read(`.github/workflows/${role}-native-aot-linux.yml`);
+    const steps = workflow.split(/^      - /m).slice(1);
+    const publish = steps.findIndex(step => step.includes(role === 'api'
+      ? 'run: pnpm test:aot:publish:linux' : 'run: pnpm test:aot:worker:publish:linux'));
+    const artifact = steps.findIndex(step => step.startsWith(role === 'api'
+      ? 'name: Upload publish manifest' : 'name: Upload Worker Native AOT publish artifact'));
+    const runtime = steps.findIndex(step => step.startsWith(role === 'api'
+      ? 'name: Run Native AOT external-process E2E' : 'name: Run Worker Native AOT dual-database E2E'));
+    assert.ok(publish >= 0 && artifact > publish && artifact < runtime, '可复用产物须在运行门禁之前上传');
+    assert.ok(runtime > artifact, '保留后续原生运行门禁');
+    assert.match(steps[artifact], /if: success\(\)/);
+    assert.match(steps[artifact], /if-no-files-found: error/);
+    const prefix = role === 'api' ? 'artifacts/native-aot/linux-x64' : 'artifacts/native-aot/worker/linux-x64';
+    assert.ok(steps[artifact].includes(`${prefix}/publish-manifest.json`));
+    assert.ok(steps[artifact].includes(`${prefix}/publish/Full.NET.Host.${role === 'api' ? 'Api' : 'Worker'}`));
+    assert.ok(steps.findIndex(step => step.startsWith(role === 'api'
+      ? 'name: Upload Native AOT test logs' : 'name: Upload Worker Native AOT evidence')) > runtime,
+    '最终运行日志或回执必须保留到测试之后');
+  });
 }
 
 test('package.json 暴露稳定的 linux Native AOT publish 命令', async () => {
@@ -182,7 +196,7 @@ test('Docker publish 将 bin 与 obj 隔离在容器临时目录', async () => {
 });
 
 test('Native E2E 直接运行已构建程序集并执行最低发现数门禁', async () => {
-  const script = await read('scripts/testing/run-native-aot-e2e.mjs');
+  const script = await readNativeRunner('scripts/testing/run-native-aot-e2e.mjs');
   assert.match(script, /nativeGate\.project/);
   assert.match(script, /'build'/);
   assert.match(script, /matrix\.integration\.assembly/);
@@ -207,13 +221,13 @@ test('Native E2E 将 TRX 与原生进程日志写入可上传的 artifacts 目�
   );
 
   for (const [runnerPath, reportName] of runners) {
-    const runner = await read(runnerPath);
+    const runner = await readNativeRunner(runnerPath);
     assert.match(runner, /--results-directory/);
     assert.match(runner, /--report-trx/);
     if (reportName === 'native-aot') {
       // 核心入口每轮生成唯一文件名，防止旧成功报告填补本轮缺失；运行行为另有入口回归覆盖。
-      assert.match(runner, /Full\.NET\.IntegrationTests-native-aot-\$\{randomUUID\(\)\}\.trx/);
-      assert.match(runner, /'--report-trx-filename',\s*reportFilename/);
+      assert.match(runner, /randomUUID\(\)/);
+      assert.match(runner, /'--report-trx-filename',\s*path\.basename\(resultPath\)/);
     } else {
       assert.ok(
         runner.includes(`Full.NET.IntegrationTests-${reportName}.trx`),
@@ -229,7 +243,7 @@ test('Notifications Native AOT 门禁登记矩阵、脚本、工作流与专用 
   const matrix = JSON.parse(await read('eng/testing/test-matrix.json'));
   const packageJson = JSON.parse(await read('package.json'));
   const workflow = await read('.github/workflows/api-native-aot-linux.yml');
-  const runner = await read('scripts/testing/run-native-aot-notifications-e2e.mjs');
+  const runner = await readNativeRunner('scripts/testing/run-native-aot-notifications-e2e.mjs');
 
   const notificationsGate = matrix.nativeAotNotificationsIntegration;
   assert.ok(
@@ -271,11 +285,8 @@ test('Notifications Native AOT 门禁登记矩阵、脚本、工作流与专用 
     matrix.nativeAotIntegration.filter,
     /FullyQualifiedName!~NativeApiNotifications/
   );
-  assert.deepEqual(
-    matrix.nativeAotIntegration.requiredTestTypes,
-    ['NativeApiCacheE2ETests', 'NativeApiLocalFileMySqlE2ETests', 'NativeApiKafkaLogMySqlE2ETests', 'NativeWorkerPdfE2ETests', 'NativeWorkerKnowledgeRetirementE2ETests', 'NativeWorkerTenantAuthorityE2ETests', 'NativeApiCacheColdStartE2ETests', 'NativeApiKnowledgeIncrementalIndexE2ETests']
-  );
-  assert.match(await read('scripts/testing/run-native-aot-e2e.mjs'),
+  for (const required of [...new Set(['NativeApiCacheE2ETests', 'NativeApiLocalFileMySqlE2ETests', 'NativeApiKafkaLogMySqlE2ETests', 'NativeWorkerPdfE2ETests', 'NativeWorkerKnowledgeRetirementE2ETests', 'NativeWorkerTenantAuthorityE2ETests', 'NativeApiCacheColdStartE2ETests', 'NativeApiKnowledgeIncrementalIndexE2ETests', 'NativeApiMediaBindingTests'])]) assert.ok(matrix.nativeAotIntegration.requiredTestTypes.includes(required), required);
+  assert.match(await readNativeRunner('scripts/testing/run-native-aot-e2e.mjs'),
     /discoveredTypes\.has\(requiredType\)/);
 });
 
@@ -283,7 +294,7 @@ test('Settings/Jobs Native AOT 门禁登记矩阵、脚本、工作流与专用 
   const matrix = JSON.parse(await read('eng/testing/test-matrix.json'));
   const packageJson = JSON.parse(await read('package.json'));
   const workflow = await read('.github/workflows/api-native-aot-linux.yml');
-  const runner = await read('scripts/testing/run-native-aot-settings-jobs-e2e.mjs');
+  const runner = await readNativeRunner('scripts/testing/run-native-aot-settings-jobs-e2e.mjs');
 
   const settingsJobsGate = matrix.nativeAotSettingsJobsIntegration;
   assert.ok(
@@ -338,7 +349,7 @@ test('OIDC Native AOT 门禁登记矩阵、脚本、工作流与专用 TRX', asy
   const matrix = JSON.parse(await read('eng/testing/test-matrix.json'));
   const packageJson = JSON.parse(await read('package.json'));
   const workflow = await read('.github/workflows/api-native-aot-linux.yml');
-  const runner = await read('scripts/testing/run-native-aot-oidc-e2e.mjs');
+  const runner = await readNativeRunner('scripts/testing/run-native-aot-oidc-e2e.mjs');
 
   const oidcGate = matrix.nativeAotOidcIntegration;
   assert.ok(
@@ -384,10 +395,7 @@ test('OIDC Native AOT 门禁登记矩阵、脚本、工作流与专用 TRX', asy
 
 test('Worker Native AOT 发现门禁包含 Kafka、PDF、旧代次清理与租户准入原生用例', async () => {
   const matrix = JSON.parse(await read('eng/testing/test-matrix.json'));
-  const runner = await read('scripts/testing/run-native-aot-worker-e2e.mjs');
-  assert.deepEqual(
-    matrix.workerNativeAotIntegration.requiredTestTypes,
-    ['NativeWorkerKafkaLogMySqlE2ETests', 'NativeWorkerPdfE2ETests', 'NativeWorkerKnowledgeRetirementE2ETests', 'NativeWorkerTenantAuthorityE2ETests']
-  );
+  const runner = await readNativeRunner('scripts/testing/run-native-aot-worker-e2e.mjs');
+  for (const required of ['NativeWorkerKafkaLogMySqlE2ETests', 'NativeWorkerPdfE2ETests', 'NativeWorkerKnowledgeRetirementE2ETests', 'NativeWorkerTenantAuthorityE2ETests', 'NativeWorkerClaimSnapshotTests']) assert.ok(matrix.workerNativeAotIntegration.requiredTestTypes.includes(required), required);
   assert.match(runner, /discoveredTypes\.has\(requiredType\)/);
 });

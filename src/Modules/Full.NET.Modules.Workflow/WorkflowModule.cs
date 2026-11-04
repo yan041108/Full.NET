@@ -185,6 +185,7 @@ public sealed class WorkflowModule : IFullNetModule
         services.AddScoped<WorkflowTodoHandoffWriter>();
         services.AddScoped<WorkflowNotificationOutboxPublisher>();
         services.AddScoped<IWorkflowPublishedDefinitionDirectory, WorkflowPublishedDefinitionDirectoryAdapter>();
+        services.AddScoped<IWorkflowBusinessStartProofDirectory, WorkflowBusinessStartProofDirectoryAdapter>();
         services.AddScoped<IWorkflowInstanceStarter, WorkflowInstanceStarterAdapter>();
         services.AddScoped<IWorkflowInstanceCanceller, WorkflowInstanceCancellerAdapter>();
     }

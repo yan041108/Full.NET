@@ -44,7 +44,8 @@ internal static class IntegrationWorkerHostFactory
         string? fileRootPath = null,
         IReadOnlyCollection<string>? additionalHostedServiceNames = null,
         Action<IServiceCollection>? configureServices = null,
-        IReadOnlyList<IFullNetModule>? applicationModules = null)
+        IReadOnlyList<IFullNetModule>? applicationModules = null,
+        Action<IServiceCollection>? configureTargetServices = null)
     {
         var redisConnectionString = await SharedDatabaseFixture.GetRedisConnectionStringAsync()
             .ConfigureAwait(false);
@@ -58,7 +59,7 @@ internal static class IntegrationWorkerHostFactory
             ["Realtime:RedisBackplaneConnectionString"] = redisConnectionString,
             ["Realtime:AllowSharedRedisInDevelopment"] = "true",
             ["ConnectionStrings:redis"] = redisConnectionString,
-            ["Files:Local:RootPath"] = fileRootPath ?? Path.Combine(
+            ["Files:Local:RootPath"] = fileRootPath ?? (workerSettings.TryGetValue("Files:Local:RootPath", out var sharedFilesRoot) ? sharedFilesRoot : null) ?? Path.Combine(
                 Path.GetTempPath(),
                 "fullnet-files-integration",
                 $"worker-{Guid.NewGuid():N}"),
@@ -104,6 +105,7 @@ internal static class IntegrationWorkerHostFactory
             builder.Services.Remove(descriptor);
         }
 
+        configureTargetServices?.Invoke(builder.Services);
         return builder.Build();
     }
 

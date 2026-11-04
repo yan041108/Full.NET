@@ -92,6 +92,8 @@ public static class ServiceCollectionExtensions
         services.TryAddSingleton<ICacheBatchInvalidator, FusionCacheBatchInvalidator>();
         services.TryAddSingleton<CacheBackplaneHealthState>();
         services.TryAddSingleton<CacheRuntimeObservationState>();
+        services.TryAddEnumerable(
+            ServiceDescriptor.Singleton<ICacheJsonTypeInfoContributor, FusionCacheInfrastructureJsonTypeInfoContributor>());
 
         RegisterRedisDistributedCacheIfConfigured(
             services,

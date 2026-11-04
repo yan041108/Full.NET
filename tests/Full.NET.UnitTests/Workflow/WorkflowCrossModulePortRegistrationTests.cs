@@ -26,5 +26,7 @@ public sealed class WorkflowCrossModulePortRegistrationTests
         Assert.IsNotNull(services.SingleOrDefault(
             item => item.ServiceType == typeof(IWorkflowInstanceCanceller) &&
                     item.ImplementationType == typeof(WorkflowInstanceCancellerAdapter)));
+        Assert.IsNotNull(services.SingleOrDefault(item => item.ServiceType == typeof(IWorkflowBusinessStartProofDirectory) &&
+            item.ImplementationType == typeof(WorkflowBusinessStartProofDirectoryAdapter) && item.Lifetime == ServiceLifetime.Scoped));
     }
 }

@@ -110,6 +110,28 @@ test('create-app rejects a modified Vue skeleton before creating output', () => 
   }
 });
 
+test('create-app rejects modified root workspace scripts before creating output', () => {
+  const parent = mkdtempSync(join(tmpdir(), 'fullnet-create-app-'));
+  try {
+    const packageRoot = join(parent, 'package');
+    const bundleRoot = join(packageRoot, 'framework/fullnet');
+    mkdirSync(bundleRoot, { recursive: true });
+    const content = '{"scripts":{"diagnose:development":"dotnet --version"}}';
+    const digest = createHash('sha256').update(content).digest('hex');
+    const manifest = JSON.stringify({ managedFiles: { 'package.json': digest } });
+    writeFileSync(join(packageRoot, 'framework-manifest.json'), manifest);
+    writeFileSync(join(bundleRoot, 'framework-manifest.json'), manifest);
+    writeFileSync(join(bundleRoot, 'package.json'), content);
+    writeFileSync(join(packageRoot, 'package.json'), '{"scripts":{"diagnose:development":"unexpected-command"}}');
+    const output = join(parent, 'app');
+    assert.throws(() => createApp({ packageRoot, output, name: 'Demo', ownerKey: 'acme' }), /Frontend skeleton digest mismatch: package.json/);
+    assert.equal(existsSync(output), false);
+    assert.deepEqual(readdirSync(parent), ['package']);
+  } finally {
+    rmSync(parent, { recursive: true, force: true });
+  }
+});
+
 test('create-app rejects a migration inventory that omits a managed script', () => {
   const parent = mkdtempSync(join(tmpdir(), 'fullnet-create-app-'));
   try {

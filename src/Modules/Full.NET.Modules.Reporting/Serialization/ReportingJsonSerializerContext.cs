@@ -9,6 +9,7 @@ namespace Full.NET.Modules.Reporting.Serialization;
 [JsonSerializable(typeof(PagedResult<ReportingDefinitionSummaryResponse>))]
 [JsonSerializable(typeof(PagedResult<ReportingDefinitionVersionSummaryResponse>))]
 [JsonSerializable(typeof(PagedResult<ReportingDataSourceListItem>))]
+[JsonSerializable(typeof(PagedResult<Guid>))]
 [JsonSerializable(typeof(ReportingDataSourceListItem))]
 [JsonSerializable(typeof(ReportingDataSourceResponse))]
 [JsonSerializable(typeof(CreateReportingDataSourceRequest))]
@@ -41,11 +42,18 @@ namespace Full.NET.Modules.Reporting.Serialization;
 [JsonSerializable(typeof(IReadOnlyList<ReportingExecutionParameterValue>))]
 [JsonSerializable(typeof(IReadOnlyList<ReportingParameterSchemaEntry>))]
 [JsonSerializable(typeof(string[]))]
+[JsonSerializable(typeof(ReportingPublishedDefinitionResponse))]
+[JsonSerializable(typeof(IReadOnlyList<ReportingPublishedDefinitionResponse>))]
+[JsonSerializable(typeof(Full.NET.Modules.Reporting.Features.ManageExportTasks.ReportingExportAuthorizationSnapshot))]
+// OpenAPI 使用端点声明的集合接口类型，数组元数据不能替代集合根类型。
+[JsonSerializable(typeof(IReadOnlyList<ReportingGroupResponse>))]
+[JsonSerializable(typeof(IReadOnlyList<ReportingQueryPortDefinition>))]
+[JsonSerializable(typeof(IReadOnlyList<ReportingDefinitionResponse>))]
+[JsonSerializable(typeof(IReadOnlyList<ReportingDefinitionVersionResponse>))]
 [JsonSerializable(typeof(SessionBindingSnapshot))]
 [JsonSerializable(typeof(ReportingDefinitionTenantGrantResponse))]
 [JsonSerializable(typeof(PagedResult<ReportingDefinitionTenantGrantResponse>))]
 [JsonSerializable(typeof(SetReportingDefinitionTenantGrantRequest))]
-[JsonSerializable(typeof(ReportingPublishedDefinitionResponse))]
 [JsonSerializable(typeof(PagedResult<ReportingPublishedDefinitionResponse>))]
 /// <summary>Reporting 模块 JSON 源生成上下文；Native AOT 绑定已审计契约，禁止反射序列化。</summary>
 internal partial class ReportingJsonSerializerContext : JsonSerializerContext;

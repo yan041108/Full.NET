@@ -126,7 +126,7 @@ public sealed class WorkflowAssigneeResolverTests
                 Arg.Any<CancellationToken>())
             .Returns(new WorkflowOrganizationLeaderResolution(true, [new(Guid.CreateVersion7(), leaderId, 3)]));
 
-        var tenantUsers = Substitute.For<ITenantMemberSelectionDirectory>();
+        var tenantUsers = Substitute.For<ITenantMemberBatchSelectionDirectory>();
         tenantUsers.FindActiveTenantMembersAsync(
                 Arg.Any<IReadOnlyCollection<Guid>>(),
                 Arg.Any<CancellationToken>())
@@ -166,7 +166,7 @@ public sealed class WorkflowAssigneeResolverTests
     {
         var initiatorId = Guid.CreateVersion7();
         var tenantId = Guid.CreateVersion7();
-        var tenantUsers = Substitute.For<ITenantMemberSelectionDirectory>();
+        var tenantUsers = Substitute.For<ITenantMemberBatchSelectionDirectory>();
         tenantUsers.FindActiveTenantMembersAsync(
                 Arg.Any<IReadOnlyCollection<Guid>>(),
                 Arg.Any<CancellationToken>())
@@ -239,7 +239,7 @@ public sealed class WorkflowAssigneeResolverTests
 
         var resolver = new WorkflowAssigneeResolver(
             Substitute.For<IHostUserBatchSelectionDirectory>(),
-            Substitute.For<ITenantMemberSelectionDirectory>(),
+            Substitute.For<ITenantMemberBatchSelectionDirectory>(),
             Substitute.For<IWorkflowRoleMemberDirectory>(),
             unitDirectory);
 

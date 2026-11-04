@@ -6,7 +6,7 @@ namespace Full.NET.Modules.Workflow.Features.ManageDefinitions;
 /// <summary>按可信作用域选择 Host 活动用户或 Tenant 活动成员，租户角色不能代替成员关系。</summary>
 /// <param name="currentTenant">由认证与租户中间件建立的可信当前租户。</param>
 /// <param name="hostUsers">活动 Host 用户候选目录。</param>
-/// <param name="tenantUsers">当前 Tenant 活动用户候选目录。</param>
+/// <param name="tenantUsers">当前可信 Tenant 活动成员候选目录。</param>
 internal sealed class WorkflowRecipientCandidateQueryService(
     ICurrentTenant currentTenant,
     IHostUserSelectionDirectory hostUsers,
