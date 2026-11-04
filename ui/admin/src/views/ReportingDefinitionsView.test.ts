@@ -8,11 +8,11 @@ import ReportingDefinitionsView from './ReportingDefinitionsView.vue';
 import {
   listReportingDefinitions,
   listReportingGroups,
-  listReportingQueryPorts, getReportingDefinition, updateReportingDefinition, publishReportingDefinition, listReportingDefinitionVersions, deleteReportingDefinition, createReportingDefinition
+  listReportingQueryPorts, getReportingDefinition, updateReportingDefinition, publishReportingDefinition, listReportingDefinitionVersions, deleteReportingDefinition, deleteReportingGroup, createReportingDefinition
 } from '../api/reporting-definitions';
 import { listReportingDataSources } from '../api/reporting-data-sources';
 import { useSessionStore } from '../auth/session';
-import { ElButton, ElDialog, ElForm, ElMessage, ElMessageBox, ElSelect } from 'element-plus';
+import { ElButton, ElDialog, ElForm, ElMessage, ElSelect } from 'element-plus';
 import { dataSourceRow } from '../test/reporting-data-source-fixtures';
 import { deferred } from '../test/data-output-fixtures';
 import { updateReportingGroup } from '../api/reporting-definitions';
@@ -63,6 +63,15 @@ function mountView(grants: string[] = [], route?: { name: string }) {
     ArtTableActionGroup: { template: '<div><slot/></div>' }
   } } }); wrappers.push(wrapper); return wrapper;
 }
+type OwnedState = {
+  confirmation?: { confirm: () => void; update: (open: boolean) => void };
+  definitions: ReturnType<typeof draft>[]; groups: ReportingGroup[]; writeUnconfirmed: boolean;
+  confirmDeleteGroup: (group: ReportingGroup) => Promise<void>;
+  openEditGroup: (group: ReportingGroup) => void;
+  groupForm: { name: string }; definitionForm: { name: string }; definitionEditorOpen: boolean;
+  loadPage: () => Promise<void>;
+};
+const ownedState = (wrapper: VueWrapper) => wrapper.vm as unknown as OwnedState;
 
 describe('ReportingDefinitionsView', () => {
   beforeEach(() => {
@@ -116,12 +125,13 @@ describe('ReportingDefinitionsView', () => {
   });
   it('草稿冲突保留输入和旧版本，目录刷新不能解锁，确认重新读取后使用新版本', async () => {
     withDefinition(); vi.mocked(updateReportingDefinition).mockRejectedValueOnce({ status: 409, code: 'reporting.definition.version_conflict', title: 'Conflict' });
-    vi.spyOn(ElMessageBox, 'confirm').mockResolvedValue(undefined as never); const wrapper = mountView(permissions); await flushPromises();
+    const wrapper = mountView(permissions); await flushPromises();
     await wrapper.get('[data-testid="reporting-config-edit"]').trigger('click'); await flushPromises(); await wrapper.get('[data-testid="reporting-config-name"]').setValue('保留本地输入');
     await wrapper.get('[data-testid="reporting-config-draft-save"]').trigger('click'); await flushPromises();
     await wrapper.get('[data-testid="reporting-config-refresh"]').trigger('click'); await flushPromises(); expect((wrapper.get('[data-testid="reporting-config-name"]').element as HTMLInputElement).value).toBe('保留本地输入');
     expect(wrapper.find('[data-testid="reporting-config-draft-save"]').exists()).toBe(false);
     vi.mocked(getReportingDefinition).mockResolvedValue({ ...draft(9), name: '最新草稿' }); await wrapper.get('[data-testid="reporting-config-draft-reload"]').trigger('click'); await flushPromises();
+    await wrapper.get('[data-testid="reporting-management-confirm"]').trigger('click'); await flushPromises();
     expect((wrapper.get('[data-testid="reporting-config-name"]').element as HTMLInputElement).value).toBe('最新草稿');
     vi.mocked(updateReportingDefinition).mockResolvedValue(draft(10)); await wrapper.get('[data-testid="reporting-config-draft-save"]').trigger('click'); await flushPromises();
     expect(vi.mocked(updateReportingDefinition).mock.lastCall?.[1].version).toBe(9);
@@ -143,8 +153,71 @@ describe('ReportingDefinitionsView', () => {
     await wrapper.get('[data-testid="reporting-config-refresh"]').trigger('click'); await flushPromises(); expect(wrapper.find('[data-testid="reporting-config-unconfirmed"]').exists()).toBe(false); expect(publishReportingDefinition).toHaveBeenCalledTimes(1);
   });
   it('删除确认期间切会话不得向新上下文发起旧定义删除', async () => {
-    withDefinition(); let confirm!: () => void; vi.spyOn(ElMessageBox, 'confirm').mockImplementationOnce(() => new Promise(done => { confirm = () => done(undefined as never); }));
-    const wrapper = mountView(permissions); await flushPromises(); await wrapper.get('[data-testid="reporting-config-delete"]').trigger('click'); useSessionStore().currentUser = undefined; confirm(); await flushPromises(); expect(deleteReportingDefinition).not.toHaveBeenCalled();
+    withDefinition(); const wrapper = mountView(permissions); await flushPromises(); await wrapper.get('[data-testid="reporting-config-delete"]').trigger('click');
+    const confirm = ownedState(wrapper).confirmation!.confirm; useSessionStore().currentUser = undefined; confirm(); await flushPromises();
+    expect(deleteReportingDefinition).not.toHaveBeenCalled(); expect(wrapper.find('[data-testid="reporting-management-confirm"]').exists()).toBe(false);
+  });
+  it('删除返回未应用时保留定义，不提示成功或自动补读', async () => {
+    withDefinition(); vi.mocked(deleteReportingDefinition).mockResolvedValue(false); const success = vi.spyOn(ElMessage, 'success');
+    const wrapper = mountView(permissions); await flushPromises(); await wrapper.get('[data-testid="reporting-config-delete"]').trigger('click');
+    await wrapper.get('[data-testid="reporting-management-confirm"]').trigger('click'); await flushPromises();
+    expect(ownedState(wrapper).definitions).toHaveLength(1); expect(ownedState(wrapper).writeUnconfirmed).toBe(true);
+    expect(success).not.toHaveBeenCalled(); expect(definitionsMock).toHaveBeenCalledOnce(); expect(wrapper.text()).toContain('服务端未确认删除');
+  });
+  it('确认删除的定义不能被陈旧补读或刷新复活', async () => {
+    withDefinition(); vi.mocked(deleteReportingDefinition).mockResolvedValue(true);
+    const wrapper = mountView(permissions); await flushPromises(); await wrapper.get('[data-testid="reporting-config-delete"]').trigger('click');
+    await wrapper.get('[data-testid="reporting-management-confirm"]').trigger('click'); await flushPromises();
+    expect(ownedState(wrapper).definitions).toEqual([]); await ownedState(wrapper).loadPage(); expect(ownedState(wrapper).definitions).toEqual([]);
+    expect(deleteReportingDefinition).toHaveBeenCalledOnce();
+  });
+  it.each([false, true])('分组删除结果 %s 只接受明确成功，陈旧目录不能恢复已删除组', async deleted => {
+    withDefinition(); vi.mocked(deleteReportingGroup).mockResolvedValue(deleted); const success = vi.spyOn(ElMessage, 'success');
+    const wrapper = mountView([...permissions, 'reporting.groups.delete']); await flushPromises(); const vm = ownedState(wrapper);
+    const deleting = vm.confirmDeleteGroup(vm.groups[0]!); await flushPromises(); await wrapper.get('[data-testid="reporting-management-confirm"]').trigger('click'); await deleting;
+    expect(vm.groups).toHaveLength(deleted ? 0 : 1); expect(vm.definitions).toHaveLength(deleted ? 0 : 1);
+    if (deleted) { await vm.loadPage(); expect(vm.groups).toEqual([]); expect(vm.definitions).toEqual([]); }
+    else { expect(success).not.toHaveBeenCalled(); expect(vm.writeUnconfirmed).toBe(true); }
+    expect(deleteReportingGroup).toHaveBeenCalledOnce();
+  });
+  it('取消的确认回调不能批准后来打开的删除确认', async () => {
+    withDefinition(); const wrapper = mountView(permissions); await flushPromises(); await wrapper.get('[data-testid="reporting-config-delete"]').trigger('click');
+    const old = ownedState(wrapper).confirmation!; old.update(false); await flushPromises();
+    await wrapper.get('[data-testid="reporting-config-delete"]').trigger('click'); old.confirm(); await flushPromises();
+    expect(deleteReportingDefinition).not.toHaveBeenCalled(); expect(wrapper.find('[data-testid="reporting-management-confirm"]').exists()).toBe(true);
+  });
+  it.each(['refresh', 'route'])('%s 销毁原确认，保留的回调不能删除', async change => {
+    withDefinition(); const route = reactive({ name: 'reporting-definitions' }); const wrapper = mountView(permissions, route); await flushPromises();
+    await wrapper.get('[data-testid="reporting-config-delete"]').trigger('click'); const old = ownedState(wrapper).confirmation!;
+    if (change === 'route') route.name = 'dashboard'; else await ownedState(wrapper).loadPage();
+    old.confirm(); await flushPromises(); expect(deleteReportingDefinition).not.toHaveBeenCalled(); expect(ownedState(wrapper).confirmation).toBeUndefined();
+  });
+  it('等待确认期间目标修订变化，不能删除较新的定义', async () => {
+    withDefinition(); const wrapper = mountView(permissions); await flushPromises(); await wrapper.get('[data-testid="reporting-config-delete"]').trigger('click');
+    ownedState(wrapper).definitions = [draft(9)]; await wrapper.get('[data-testid="reporting-management-confirm"]').trigger('click'); await flushPromises();
+    expect(deleteReportingDefinition).not.toHaveBeenCalled();
+  });
+  it.each(['confirmation', 'response', 'reopen'])('重新载入草稿在 %s 期间失去原窗口或输入归属，不覆盖新输入', async phase => {
+    withDefinition(); const wrapper = mountView(permissions); await flushPromises(); await wrapper.get('[data-testid="reporting-config-edit"]').trigger('click'); await flushPromises();
+    const vm = ownedState(wrapper); vm.definitionForm.name = '原本地输入'; await wrapper.get('[data-testid="reporting-config-draft-reload"]').trigger('click');
+    const pending = deferred<ReturnType<typeof draft>>(); vi.mocked(getReportingDefinition).mockReturnValueOnce(pending.promise);
+    if (phase === 'confirmation') vm.definitionForm.name = '后来输入';
+    await wrapper.get('[data-testid="reporting-management-confirm"]').trigger('click'); await flushPromises();
+    if (phase === 'reopen') { vm.definitionEditorOpen = false; await flushPromises(); vi.mocked(getReportingDefinition).mockResolvedValueOnce({ ...draft(), name: '重开输入' }); await wrapper.get('[data-testid="reporting-config-edit"]').trigger('click'); await flushPromises(); }
+    else vm.definitionForm.name = '后来输入';
+    pending.resolve({ ...draft(9), name: '迟到服务端' }); await flushPromises();
+    expect(vm.definitionForm.name).toBe(phase === 'reopen' ? '重开输入' : '后来输入');
+    expect(getReportingDefinition).toHaveBeenCalledTimes(phase === 'confirmation' ? 1 : phase === 'reopen' ? 3 : 2);
+  });
+  it.each(['confirmation', 'response', 'fresh'])('重新载入分组在 %s 时只接受原输入，保留父组关系', async phase => {
+    const child: ReportingGroup = { id, parentId: groupId, name: '子分组', sortOrder: 3, isEnabled: true, createdAtUtc: draft().createdAtUtc, updatedAtUtc: null, version: 4 };
+    groupsMock.mockResolvedValue([child]); const wrapper = mountView([...permissions, 'reporting.groups.update']); await flushPromises();
+    const vm = ownedState(wrapper); vm.openEditGroup(child); await flushPromises(); await wrapper.get('[data-testid="reporting-config-group-reload"]').trigger('click');
+    const pending = deferred<ReportingGroup[]>(); groupsMock.mockReturnValueOnce(pending.promise);
+    if (phase === 'confirmation') vm.groupForm.name = '后来输入'; await wrapper.get('[data-testid="reporting-management-confirm"]').trigger('click'); await flushPromises();
+    if (phase === 'response') vm.groupForm.name = '后来输入'; pending.resolve([{ ...child, name: '服务端新输入', version: 5 }]); await flushPromises();
+    expect(vm.groupForm.name).toBe(phase === 'fresh' ? '服务端新输入' : '后来输入'); expect(vm.groups[0]?.parentId).toBe(groupId);
+    expect(groupsMock).toHaveBeenCalledTimes(phase === 'confirmation' ? 1 : 2);
   });
   it('历史抽屉按二十条摘要读取', async () => {
     withDefinition(); const wrapper = mountView(permissions); await flushPromises(); await wrapper.get('[data-testid="reporting-config-history"]').trigger('click'); await flushPromises();

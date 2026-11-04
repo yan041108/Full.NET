@@ -1,4 +1,5 @@
 const zh = {
+  deleteNotApplied: '服务端未确认删除，请刷新核对后再操作。',
   publishProcessing: '正在发布报表版本…', publishUnknown: '发布结果尚未确认，请刷新定义和发布历史核对；不会自动重发。', publishRejected: '发布被拒绝，可修正后手动重试。', draftVersion: '草稿并发版本', close: '关闭', closePublishing: '关闭只停止本窗口等待，服务端发布仍可能完成；请刷新核对。',
   hostOnly: '报表配置仅在 Host 上下文开放，需要读取报表定义权限。',
   refresh: '刷新配置', unconfirmed: '操作结果或草稿版本未确认，请先刷新。编辑内容会保留，确认重新载入草稿后再保存。',
@@ -7,6 +8,7 @@ const zh = {
   note: '版本说明', cancel: '取消', catalogMissing: '新建定义需要可用分组及读取分组、静态查询和数据源目录的权限。'
 } as const;
 const en: Record<keyof typeof zh, string> = {
+  deleteNotApplied: 'The server did not confirm deletion. Reload to review before another operation.',
   publishProcessing: 'Publishing report version…', publishUnknown: 'Publication is unconfirmed. Reload definitions and history to review; it will not retry automatically.', publishRejected: 'Publication was rejected. Correct it and retry manually.', draftVersion: 'Draft concurrency version', close: 'Close', closePublishing: 'Closing stops this window from waiting. Publication may still complete; reload to review.',
   hostOnly: 'Report configuration requires the Host context and permission to read definitions.',
   refresh: 'Refresh configuration', unconfirmed: 'The operation result or draft version is unconfirmed. Refresh first. Local edits are preserved; explicitly reload the draft before saving again.',

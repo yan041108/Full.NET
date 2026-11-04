@@ -10,7 +10,6 @@ import {
   ElFormItem,
   ElInput,
   ElMessage,
-  ElMessageBox,
   ElOption,
   ElPagination,
   ElSelect,
@@ -77,6 +76,10 @@ const publicationReceipt = ref<PublicationReceipt>();
 const publicationDialog = ref<InstanceType<typeof ElDialog>>();
 const publicationLandmarks = useArtDialogLandmarks(() => publicationDialog.value?.dialogContentRef?.$el);
 const definitionFloors = new Map<string, { definitionVersion: number; publishedVersion: number }>();
+const deletedDefinitions = new Set<string>(), deletedGroups = new Set<string>();
+type Confirmation = { token: number; message: string; confirm: () => void; update: (open: boolean) => void };
+const confirmation = ref<Confirmation>();
+let confirmationToken = 0, cancelConfirmation: (() => void) | undefined;
 let publishEpoch = 0, publicationRequest: { controller: AbortController; receipt: PublicationReceipt } | undefined;
 const text = (key: Parameters<typeof reportingConfigurationText>[1]) => reportingConfigurationText(locale.value, key);
 let generation = 0, groupEpoch = 0, definitionEpoch = 0, catalogEpoch = 0, requests = new AbortController();
@@ -86,6 +89,20 @@ const canRead = () => active.value && !session.switching && (!route || route.nam
   && session.currentUser?.scope === 'host' && session.currentUser.actorScope === 'host' && !session.currentUser.tenantId && session.can('reporting.definitions.read');
 const can = (permission: string) => canRead() && session.can(permission);
 function current(scope: number) { return scope === generation && canRead(); }
+/** 确认只属于发起它的页面与目标，关闭后的旧回调不能批准下一次操作。 */
+function askConfirmation(message: string): Promise<boolean> {
+  cancelConfirmation?.();
+  const scope = generation, token = ++confirmationToken;
+  return new Promise(resolve => {
+    const finish = (accepted: boolean) => {
+      if (confirmation.value?.token !== token) return;
+      confirmation.value = undefined; cancelConfirmation = undefined;
+      resolve(accepted && current(scope));
+    };
+    cancelConfirmation = () => finish(false);
+    confirmation.value = { token, message, confirm: () => finish(true), update: open => { if (!open) finish(false); } };
+  });
+}
 function reading(key: string) { reads.get(key)?.abort(); const controller = new AbortController(); reads.set(key, controller); return controller; }
 function stopReads() { for (const controller of reads.values()) controller.abort(); reads.clear(); }
 function invalidateDetails() { reads.get('draft')?.abort(); reads.get('publish')?.abort(); publishOpen.value = false; publishTarget.value = undefined; }
@@ -198,6 +215,7 @@ watch(() => definitionForm.queryPortKey, queryPortKey => {
 
 /** 权限或会话变更销毁草稿与在途结果，Host 配置不能残留到租户上下文。 */
 function reset() {
+  cancelConfirmation?.(); deletedDefinitions.clear(); deletedGroups.clear();
   publicationRequest?.controller.abort(); publicationRequest = undefined; publicationReceipt.value = undefined; definitionFloors.clear();
   generation++; catalogEpoch++; catalogProblems.sources = undefined; requests.abort(); requests = new AbortController(); stopReads();
   groups.value = []; definitions.value = []; queryPorts.value = []; dataSourceOptions.value = []; versions.value = [];
@@ -213,7 +231,7 @@ watch(() => [session.state, route?.name, session.currentUser?.scope, session.cur
   reset(); if (canRead()) void loadPage();
 }, { immediate: true, flush: 'sync' });
 watch(versionsDrawerOpen, value => { if (!value) { reads.get('history')?.abort(); versions.value = []; } });
-watch(groupEditorOpen, () => { groupEpoch++; }, { flush: 'sync' });
+watch(groupEditorOpen, value => { groupEpoch++; if (!value) reads.get('group-draft')?.abort(); }, { flush: 'sync' });
 watch(definitionEditorOpen, value => { definitionEpoch++; if (!value) reads.get('draft')?.abort(); }, { flush: 'sync' });
 onActivated(() => { active.value = true; }); onDeactivated(() => { active.value = false; }); onBeforeUnmount(() => { active.value = false; reset(); });
 
@@ -241,6 +259,7 @@ async function loadDataSourceCatalog(signal: AbortSignal): Promise<{ items: Repo
 
 async function loadPage(): Promise<void> {
   if (!canRead() || acting.value) return;
+  cancelConfirmation?.();
   const scope = generation, controller = reading('catalogs');
   catalogEpoch++; catalogProblems.sources = undefined;
   reads.get('publish')?.abort(); publishOpen.value = false; publishTarget.value = undefined; publishNote.value = '';
@@ -260,7 +279,9 @@ async function loadPage(): Promise<void> {
     const portRows = portResult.status === 'fulfilled' ? portResult.value : [];
     const dataSourcePage = sourceResult.status === 'fulfilled' ? sourceResult.value : { items: [] };
     if (catalogs.some(result => result.status === 'rejected')) problem.value = toProblem(catalogs.find(result => result.status === 'rejected')?.reason, 'reportingDefinitions.loadFailed');
-    groups.value = groupRows;
+    const groupsTrusted = !groupRows.some(row => deletedGroups.has(row.id.toLowerCase()));
+    if (groupsTrusted) groups.value = groupRows;
+    else problem.value = toProblem(Error('client.stale_reporting_group_catalog'), 'reportingDefinitions.loadFailed');
     queryPorts.value = portRows;
     dataSourceOptions.value = dataSourcePage.items.map(item => ({
       value: item.id,
@@ -271,7 +292,7 @@ async function loadPage(): Promise<void> {
       selectedGroupId.value = groups.value[0]?.id;
     }
     const loaded = await loadDefinitions();
-    if (loaded && catalogs.every(result => result.status === 'fulfilled') && !definitionEditorOpen.value && !groupEditorOpen.value && current(scope) && !controller.signal.aborted) writeUnconfirmed.value = false;
+    if (loaded && groupsTrusted && catalogs.every(result => result.status === 'fulfilled') && !definitionEditorOpen.value && !groupEditorOpen.value && current(scope) && !controller.signal.aborted) writeUnconfirmed.value = false;
     if (current(scope) && !controller.signal.aborted) updateTableHeight();
   } catch (error: unknown) {
     if (current(scope) && !controller.signal.aborted) problem.value = toProblem(error, 'reportingDefinitions.loadFailed');
@@ -287,6 +308,7 @@ async function loadDefinitions(afterWrite = false): Promise<boolean> {
     const result = await listReportingDefinitions({ groupId: selectedGroupId.value,
       nameContains: appliedFilters.value.name, page: definitionPage.value, pageSize: 20 }, controller.signal);
     if (!current(scope) || controller.signal.aborted) return false;
+    if (result.items.some(row => deletedDefinitions.has(row.id.toLowerCase()) || deletedGroups.has(row.groupId.toLowerCase()))) throw Error('client.stale_reporting_deleted_catalog');
     // 已确认发布的修订是本视图下界，迟到或陈旧目录不能撤销这一事实。
     if (result.items.some(row => { const floor = definitionFloors.get(row.id.toLowerCase());
       return floor && (row.version < floor.definitionVersion || row.latestPublishedVersionNumber < floor.publishedVersion); })) throw Error('client.stale_reporting_publication_catalog');
@@ -378,20 +400,16 @@ async function submitGroup(): Promise<void> {
 
 async function confirmDeleteGroup(group: ReportingGroup): Promise<void> {
   const scope = generation; if (!can('reporting.groups.delete') || acting.value || writeUnconfirmed.value) return;
-  try {
-    await ElMessageBox.confirm(
-      t('reportingDefinitions.confirmDeleteGroup', { name: group.name }),
-      { type: 'warning' }
-    );
-  } catch {
-    return;
-  }
-  if (!current(scope)) return;
+  const target = { ...group };
+  if (!await askConfirmation(t('reportingDefinitions.confirmDeleteGroup', { name: target.name }))) return;
+  if (!current(scope) || !groups.value.some(row => sameReportingId(row.id, target.id) && row.version === target.version)) return;
   await write('reporting.groups.delete', async signal => {
-    await deleteReportingGroup(group.id, signal); if (!current(scope)) return;
-    groups.value = groups.value.filter(item => item.id !== group.id);
-    definitions.value = definitions.value.filter(item => item.groupId !== group.id);
-    if (selectedGroupId.value === group.id) {
+    const deleted = await deleteReportingGroup(target.id, signal); if (!current(scope)) return;
+    if (!deleted) throw { status: 409, code: 'client.reporting_delete_not_applied', title: text('deleteNotApplied') };
+    deletedGroups.add(target.id.toLowerCase());
+    groups.value = groups.value.filter(item => !sameReportingId(item.id, target.id));
+    definitions.value = definitions.value.filter(item => !sameReportingId(item.groupId, target.id));
+    if (selectedGroupId.value === target.id) {
       selectedGroupId.value = groups.value[0]?.id;
     }
     ElMessage.success(t('reportingDefinitions.groupDeleteSuccess'));
@@ -423,11 +441,12 @@ async function openEditDefinition(summary: ReportingDefinitionSummary): Promise<
   reads.get('publish')?.abort(); publishOpen.value = false;
   await readDraft(summary.id);
 }
-async function readDraft(id: string) {
+async function readDraft(id: string, owned: () => boolean = () => true) {
   const scope = generation, controller = reading('draft');
   try {
   const definition = await getReportingDefinition(id, controller.signal);
-  if (!current(scope) || !can('reporting.definitions.update') || controller.signal.aborted) return;
+  if (!current(scope) || !can('reporting.definitions.update') || controller.signal.aborted || !owned()) return;
+  if (!sameReportingId(definition.id, id)) throw Error('client.invalid_reporting_draft');
   definitionEditorMode.value = 'edit';
   editingDefinition.value = definition;
   definitionGroupId.value = definition.groupId;
@@ -445,16 +464,23 @@ async function readDraft(id: string) {
 }
 async function reloadDraft() {
   const scope = generation, id = editingDefinition.value?.id; if (!id || !can('reporting.definitions.update') || acting.value) return;
-  try { await ElMessageBox.confirm(text('discard'), { type: 'warning' }); } catch { return; }
-  if (current(scope) && definitionEditorOpen.value && editingDefinition.value?.id === id) await readDraft(id);
+  const epoch = definitionEpoch, signature = JSON.stringify([definitionGroupId.value, definitionForm, editingDefinition.value?.version]);
+  const owned = () => current(scope) && can('reporting.definitions.update') && definitionEditorOpen.value && definitionEpoch === epoch
+    && editingDefinition.value?.id === id && signature === JSON.stringify([definitionGroupId.value, definitionForm, editingDefinition.value?.version]);
+  if (await askConfirmation(text('discard')) && owned()) await readDraft(id, owned);
 }
 async function reloadGroupDraft() {
   const scope = generation, id = editingGroup.value?.id; if (!id || !can('reporting.groups.update') || acting.value) return;
-  try { await ElMessageBox.confirm(text('discard'), { type: 'warning' }); } catch { return; }
-  if (!current(scope) || !groupEditorOpen.value || editingGroup.value?.id !== id) return;
+  const epoch = groupEpoch, signature = JSON.stringify([groupForm, editingGroup.value?.version]);
+  const owned = () => current(scope) && can('reporting.groups.update') && groupEditorOpen.value && groupEpoch === epoch
+    && editingGroup.value?.id === id && signature === JSON.stringify([groupForm, editingGroup.value?.version]);
+  if (!await askConfirmation(text('discard')) || !owned()) return;
   const controller = reading('group-draft');
   try { const rows = await listReportingGroups(controller.signal); const group = rows.find(item => item.id === id);
-    if (current(scope) && !controller.signal.aborted && group) { groups.value = rows; writeUnconfirmed.value = false; openEditGroup(group); }
+    if (!controller.signal.aborted && owned() && group) {
+      if (rows.some(row => deletedGroups.has(row.id.toLowerCase()))) throw Error('client.stale_reporting_group_catalog');
+      groups.value = rows; writeUnconfirmed.value = false; openEditGroup(group);
+    }
   } catch (error) { if (current(scope) && !controller.signal.aborted) problem.value = toProblem(error, 'reportingDefinitions.loadFailed'); }
 }
 
@@ -502,18 +528,14 @@ async function submitDefinition(): Promise<void> {
 
 async function confirmDeleteDefinition(definition: ReportingDefinitionSummary): Promise<void> {
   const scope = generation; if (!can('reporting.definitions.delete') || acting.value || writeUnconfirmed.value) return;
-  try {
-    await ElMessageBox.confirm(
-      t('reportingDefinitions.confirmDeleteDefinition', { name: definition.name }),
-      { type: 'warning' }
-    );
-  } catch {
-    return;
-  }
-  if (!current(scope)) return;
+  const target = { ...definition };
+  if (!await askConfirmation(t('reportingDefinitions.confirmDeleteDefinition', { name: target.name }))) return;
+  if (!current(scope) || !definitions.value.some(row => sameReportingId(row.id, target.id) && row.version === target.version)) return;
   await write('reporting.definitions.delete', async signal => {
-    await deleteReportingDefinition(definition.id, signal); if (!current(scope)) return;
-    definitions.value = definitions.value.filter(item => item.id !== definition.id);
+    const deleted = await deleteReportingDefinition(target.id, signal); if (!current(scope)) return;
+    if (!deleted) throw { status: 409, code: 'client.reporting_delete_not_applied', title: text('deleteNotApplied') };
+    deletedDefinitions.add(target.id.toLowerCase());
+    definitions.value = definitions.value.filter(item => !sameReportingId(item.id, target.id));
     ElMessage.success(t('reportingDefinitions.deleteSuccess'));
   });
 }
@@ -819,6 +841,11 @@ function toProblem(error: unknown, fallbackKey: Parameters<typeof t>[0]): FullNe
       </ElForm>
     </ArtFormDialog>
 
+    <ArtFormDialog v-if="confirmation" :key="confirmation.token" :open="true" :title="t('common.confirm')" :show-confirm="true"
+    :confirm-label="t('common.confirm')" :cancel-label="text('cancel')" width="min(520px, calc(100vw - 32px))" :trap-focus="true" confirm-test-id="reporting-management-confirm"
+      v-on="{ confirm: confirmation.confirm, 'update:open': confirmation.update }">
+      <p data-testid="reporting-management-confirm-message">{{ confirmation.message }}</p>
+    </ArtFormDialog>
     <ElDrawer v-model="versionsDrawerOpen" :title="t('reportingDefinitions.versionsTitle')" size="40%">
       <ElTable :data="versions" size="small">
         <ElTableColumn prop="versionNumber" :label="t('reportingDefinitions.fieldVersionNumber')" width="100" />
