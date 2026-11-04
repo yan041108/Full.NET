@@ -83,7 +83,9 @@ const expectedFileNames = [
   'guards.generated.ts',
   'index.generated.ts',
   'models.generated.ts',
-  'operations.generated.ts'
+  'operations.generated.ts',
+  'startup-guards.generated.ts',
+  'startup-operations.generated.ts'
 ];
 
 test('无 type 的字符串枚举保持闭合模型与引用、可空守卫', async () => {
@@ -216,7 +218,7 @@ test('multipart allOf 和引用字段完整生成导入参数与 FormData', asyn
   const files = renderGeneratedFiles(snapshot);
   const operations = files['operations.generated.ts'];
   const parameters = operations.slice(operations.indexOf('export interface ImportExportCreateImportTaskParameters'),
-    operations.indexOf('export interface ImportExportDownloadImportTaskErrorReceiptParameters'));
+    operations.indexOf('\nexport interface ', operations.indexOf('export async function importExportCreateImportTask')));
   assert.match(parameters, /readonly schemaKey: string/u);
   assert.match(parameters, /readonly worksheetKey: string/u);
   assert.match(parameters, /readonly file: IFormFile/u);
@@ -577,7 +579,8 @@ test('CRUD Golden OpenAPI 通过就绪门禁并进入同一客户端生成入口
 });
 
 async function readGeneratedFiles(directory) {
-  const entries = await Promise.all(expectedFileNames.map(async fileName => [
+  const fileNames = (await readdir(directory)).filter(name => name.endsWith('.generated.ts')).sort();
+  const entries = await Promise.all(fileNames.map(async fileName => [
     fileName,
     await readFile(path.join(directory, fileName), 'utf8')
   ]));

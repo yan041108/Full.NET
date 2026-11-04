@@ -4,6 +4,10 @@
   "private": true,
   "type": "module",
   "exports": {
+    "./startup": {
+      "types": "./src/generated/startup-operations.generated.ts",
+      "import": "./src/generated/startup-operations.generated.ts"
+    },
     ".": {
       "types": "./src/index.ts",
       "import": "./src/index.ts"

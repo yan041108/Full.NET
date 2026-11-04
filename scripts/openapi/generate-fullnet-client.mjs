@@ -25,12 +25,14 @@ const defaultOutputDirectory = path.join(
   'src',
   'generated'
 );
-const generatedFileNames = [
-  'guards.generated.ts',
-  'index.generated.ts',
-  'models.generated.ts',
-  'operations.generated.ts'
-];
+// 会话恢复与通知状态是启动必要能力；独立入口避免业务页面的共享 SDK chunk 被提前加载。
+const startupOperationIds = new Set([
+  'identityGetCurrentUser', 'identityLogin', 'identityLogout',
+  'identityRefreshSession', 'identityUpdatePreferredLocale',
+  'notificationsGetMyInboxUnreadCount', 'notificationsMarkAllMyInboxMessagesRead',
+  'notificationsMarkMyInboxMessageRead', 'notificationsSendHostInboxMessage',
+  'notificationsArchiveMyInboxMessage', 'notificationsArchiveMyInboxMessages'
+]);
 const httpMethods = new Set([
   'delete',
   'get',
@@ -83,12 +85,36 @@ export function renderGeneratedFiles(document, { httpModuleSpecifier = '../http.
   validateHttpModuleSpecifier(httpModuleSpecifier);
   const schemas = document.components?.schemas ?? {};
   const operations = collectOperations(document);
+  const startupOperations = operations.filter(operation => startupOperationIds.has(operation.operationId));
+  const startupSchemas = referencedSchemas(startupOperations, schemas);
   return {
     'guards.generated.ts': renderGuards(schemas, operations),
     'index.generated.ts': renderIndex(),
     'models.generated.ts': renderModels(schemas),
-    'operations.generated.ts': renderOperations(operations, schemas, httpModuleSpecifier)
+    'operations.generated.ts': renderOperations(operations, schemas, httpModuleSpecifier),
+    ...(startupOperations.length === 0 ? {} : {
+      'startup-guards.generated.ts': renderGuards(startupSchemas, startupOperations),
+      'startup-operations.generated.ts': renderOperations(startupOperations, startupSchemas, httpModuleSpecifier, 'startup-guards.generated.js')
+    })
   };
+}
+
+/** 遍历操作的静态模型引用闭包；循环引用只展开一次，沿用原响应验证与整数归一语义。 */
+function referencedSchemas(operations, schemas) {
+  const selected = new Map();
+  function visit(value) {
+    if (Array.isArray(value)) { value.forEach(visit); return; }
+    if (!value || typeof value !== 'object') return;
+    if (isReference(value)) {
+      const name = referenceName(value);
+      if (!selected.has(name) && schemas[name]) {
+        selected.set(name, schemas[name]); visit(schemas[name]);
+      }
+    }
+    Object.values(value).forEach(visit);
+  }
+  operations.forEach(visit);
+  return Object.fromEntries([...selected].sort(([left], [right]) => compareText(left, right)));
 }
 
 function renderModels(schemas) {
@@ -211,7 +237,7 @@ function validateHttpModuleSpecifier(value) {
   }
 }
 
-function renderOperations(operations, schemas, httpModuleSpecifier) {
+function renderOperations(operations, schemas, httpModuleSpecifier, guardModule = 'guards.generated.js') {
   const schemaNames = Object.keys(schemas).sort(compareText);
   const modelImports = schemaNames.length > 0
     ? `import type {\n${schemaNames.map(name => `  ${name}`).join(',\n')}\n} from './models.generated.js';\n`
@@ -221,7 +247,7 @@ function renderOperations(operations, schemas, httpModuleSpecifier) {
     .map(responseReaderName))]
     .sort(compareText);
   const guardImports = readerNames.length > 0
-    ? `import {\n${readerNames.map(name => `  ${name}`).join(',\n')}\n} from './guards.generated.js';\n`
+    ? `import {\n${readerNames.map(name => `  ${name}`).join(',\n')}\n} from './${guardModule}';\n`
     : '';
   const blocks = operations.map(operation => [
     renderOperationParameters(operation),
@@ -831,7 +857,7 @@ async function assertGeneratedFilesMatch(outputDirectory, expectedFiles) {
     }
     throw error;
   }
-  if (JSON.stringify(actualNames) !== JSON.stringify(generatedFileNames)) {
+  if (JSON.stringify(actualNames) !== JSON.stringify(Object.keys(expectedFiles).sort(compareText))) {
     throw new Error('客户端生成文件清单漂移。');
   }
   for (const [fileName, expected] of Object.entries(expectedFiles)) {

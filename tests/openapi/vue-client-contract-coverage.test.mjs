@@ -71,6 +71,25 @@ async function cleanupSharedConsumerFixture(root) {
   await rm(target, { recursive: true, force: true });
 }
 
+for (const valid of [true, false]) {
+  test(`启动子入口必须具有真实运行时和类型导出，实际导入匹配：${valid}`, async () => {
+    const root = await sharedConsumerFixture('packages/client-contracts/src/ai-knowledge.ts');
+    const { writeFile } = await import('node:fs/promises');
+    const path = await import('node:path');
+    try {
+      await writeFile(path.join(root, 'packages/client-contracts/src/index.ts'), "export * from './other.js';");
+      await writeFile(path.join(root, 'packages/client-contracts/package.json'), JSON.stringify({ exports: {
+        './startup': { types: './src/ai-knowledge.ts', import: valid ? './src/ai-knowledge.ts' : './src/other.ts' }
+      } }));
+      await writeFile(path.join(root, 'ui/admin/src/api/knowledge.ts'),
+        "import { aiListKnowledgeBases } from '@fullnet/client-contracts/startup'; export const list = aiListKnowledgeBases;");
+      const violations = await validateVueClientContractCoverage(root);
+      if (valid) assert.deepEqual(violations, []);
+      else assert.ok(violations.some(value => value.includes('not exported')));
+    } finally { await cleanupSharedConsumerFixture(root); }
+  });
+}
+
 // 本批只断言本人注册适配器，其他历史目录缺口不由该用例放行。
 test('本人注册入驻 API 的契约与调用点均已登记', async () => {
   const module = 'ui/admin/src/api/my-tenant-registrations.ts';

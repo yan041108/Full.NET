@@ -106,7 +106,7 @@ function collectForbiddenLocalInterfaces(source) {
   return violations;
 }
 
-function collectClientContractExportViolations(indexSource, clientContractModules) {
+function collectClientContractExportViolations(indexSource, clientContractModules, packageExports, apiSource) {
   const violations = [];
   for (const modulePath of clientContractModules) {
     const posixPath = normalizePosix(modulePath);
@@ -118,7 +118,12 @@ function collectClientContractExportViolations(indexSource, clientContractModule
       `from './${moduleName}'`,
       `from "./${moduleName}"`
     ];
-    if (!exportMarkers.some((marker) => indexSource.includes(marker))) {
+    // 子入口必须由 package.json 的运行时与类型导出同时精确指向，且被当前适配器实际导入。
+    const imports = new Set([...apiSource.matchAll(/\bfrom\s*['"]([^'"]+)['"]/gu)].map(match => match[1]));
+    const exportedSubpath = Object.entries(packageExports).some(([subpath, target]) =>
+      subpath.startsWith('./') && target?.types === `./src/${moduleName.replace(/\.js$/u, '.ts')}`
+      && target?.import === target.types && imports.has(`@fullnet/client-contracts/${subpath.slice(2)}`));
+    if (!exportMarkers.some((marker) => indexSource.includes(marker)) && !exportedSubpath) {
       violations.push(`${modulePath} is not exported from ${clientContractsIndexRelativePath}`);
     }
   }
@@ -128,6 +133,13 @@ function collectClientContractExportViolations(indexSource, clientContractModule
 export async function validateVueClientContractCoverage(repositoryRoot = defaultRepositoryRoot) {
   const root = path.resolve(repositoryRoot);
   const violations = [];
+
+  let packageExports = {};
+  try {
+    packageExports = JSON.parse(await readFile(path.join(root, 'packages/client-contracts/package.json'), 'utf8')).exports ?? {};
+  } catch (error) {
+    if (error.code !== 'ENOENT') return [`Unable to read client package exports: ${error.message}`];
+  }
 
   const manifestPath = path.join(root, manifestRelativePath);
   let manifest;
@@ -269,7 +281,7 @@ export async function validateVueClientContractCoverage(repositoryRoot = default
     }
 
     const indexSource = await readFile(path.join(root, clientContractsIndexRelativePath), 'utf8');
-    violations.push(...collectClientContractExportViolations(indexSource, entry.clientContractModules));
+    violations.push(...collectClientContractExportViolations(indexSource, entry.clientContractModules, packageExports, apiSource));
   }
 
   const duplicateModules = manifest.entries

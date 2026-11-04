@@ -3,17 +3,20 @@ import {
   isInboxMessagePage,
   isInboxUnreadCount,
   isSentInboxMessagePage,
-  notificationsGetMyInboxUnreadCount,
-  notificationsMarkAllMyInboxMessagesRead,
-  notificationsMarkMyInboxMessageRead,
-  notificationsSendHostInboxMessage,
-  notificationsArchiveMyInboxMessage,
-  notificationsArchiveMyInboxMessages,
   type InboxMessage,
   type InboxMessagePage,
   type InboxUnreadCount,
   type SentInboxMessagePage
 } from '@fullnet/client-contracts';
+// 壳层也读取未读数；启动入口由相同 OpenAPI 生成，避免首屏依赖全部业务 Operation。
+import {
+  notificationsGetMyInboxUnreadCount,
+  notificationsMarkAllMyInboxMessagesRead,
+  notificationsMarkMyInboxMessageRead,
+  notificationsSendHostInboxMessage,
+  notificationsArchiveMyInboxMessage,
+  notificationsArchiveMyInboxMessages
+} from '@fullnet/client-contracts/startup';
 import { http, request } from './http';
 
 export interface InboxMessageListQuery {

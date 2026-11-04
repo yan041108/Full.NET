@@ -95,6 +95,7 @@
     "test:clients": "pnpm --recursive --filter=!@fullnet/admin-parity-e2e --filter=!@fullnet/admin-real-stack-e2e --filter=!@fullnet/uniapp-h5-e2e --filter=!@fullnet/admin-layui --if-present test",
     "build:clients": "pnpm --recursive --filter=!@fullnet/admin-layui --if-present build",
     "test:e2e:admin": "pnpm --filter @fullnet/admin-parity-e2e test",
+    "test:e2e:startup-production": "pnpm --filter @fullnet/admin build && node scripts/testing/run-admin-startup-production.mjs",
     "test:e2e:layui-frozen": "pnpm --filter @fullnet/admin-parity-e2e test:layui-frozen",
     "test:e2e": "pnpm test:e2e:admin",
     "test:e2e:provisioner": "pnpm --filter @fullnet/admin-real-stack-e2e test:provisioner",

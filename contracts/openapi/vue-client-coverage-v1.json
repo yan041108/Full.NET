@@ -454,7 +454,8 @@
     },
     {
       "clientContractModules": [
-        "packages/client-contracts/src/inbox-messages.ts"
+        "packages/client-contracts/src/inbox-messages.ts",
+        "packages/client-contracts/src/generated/startup-operations.generated.ts"
       ],
       "openApiFixture": "contracts/openapi/notifications-inbox-messages-v1.json",
       "apiModule": "ui/admin/src/api/inbox-messages.ts",

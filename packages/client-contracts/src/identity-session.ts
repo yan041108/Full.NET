@@ -24,7 +24,7 @@ import {
   identityLogout,
   identityRefreshSession,
   identityUpdatePreferredLocale
-} from './generated/operations.generated.js';
+} from './generated/startup-operations.generated.js';
 
 export type SessionState = 'initializing' | 'authenticated' | 'anonymous';
 
