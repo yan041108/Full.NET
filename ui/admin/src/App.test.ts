@@ -57,6 +57,20 @@ async function waitForShell(wrapper: VueWrapper) {
 }
 
 describe('Vue 管理端壳层', () => {
+  it.each([
+    ['/tenant-context', true, '/tenant-context'],
+    ['//evil.test', true, '/'],
+    ['/tenant-context', false, '/']
+  ])('密码登录后仅接续已授权的固定目标 %s', async (destination, authorized, expected) => {
+    const pinia = createAuthenticatedPinia(), session = useSessionStore(); session.state = 'anonymous';
+    if (!authorized) session.currentUser!.permissions = ['platform.dashboard.read'];
+    const router = createAppRouter(createMemoryHistory(), pinia);
+    await router.push({ path: '/login', query: { redirect: destination } }); await router.isReady();
+    const wrapper = mount(App, { global: { plugins: [pinia, router], stubs: { RouterView: true } } });
+    session.state = 'authenticated';
+    try { await vi.dynamicImportSettled(); await flushPromises(); await vi.waitFor(() => expect(router.currentRoute.value.path).toBe(expected), { timeout: 5000 }); }
+    finally { wrapper.unmount(); }
+  }, 10_000);
   beforeEach(() => {
     localStorage.clear();
     useAdminI18n().setLocale('zh-CN');

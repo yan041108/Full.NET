@@ -20,15 +20,16 @@ for (const width of [1440, 390]) {
       if (path === '/api/v1/auth/invitations/verify') return json(route, { invitationId: id, tenantId: id, email: invitation.targetEmail, registrationWayId: id, expiresAtUtc: invitation.expiresAtUtc });
       if (path === '/api/v1/auth/refresh' || path === '/api/v1/auth/login') {
         if (!authenticated && path.endsWith('/refresh')) return json(route, { status: 401, title: 'Anonymous', code: 'identity.session_not_active' }, 401);
+        if (path.endsWith('/login')) expect(route.request().postDataJSON()).toEqual({ username: 'invitee', password: 'Original!2026Password' });
         authenticated = true;
         return json(route, { accessToken: 'invitation-browser', tokenType: 'Bearer', expiresAtUtc: invitation.expiresAtUtc });
       }
       if (path === '/api/v1/me') return json(route, { id, username: 'invitee', displayName: '邀请用户', actorScope: 'host', scope: manager ? `tenant:${id.replaceAll('-', '')}` : 'host', tenantId: manager ? id : null,
-        isSuperAdministrator: false, permissions: ['identity.navigation.read', 'tenancy.tenants.read', 'tenancy.tenants.switch', ...(manager ? ['identity.tenant_members.read', 'identity.tenant_members.invite'] : [])],
+        isSuperAdministrator: false, permissions: ['identity.navigation.read', 'identity.users.read', 'tenancy.tenants.read', 'tenancy.tenants.switch', ...(manager ? ['identity.tenant_members.read', 'identity.tenant_members.invite'] : [])],
         sessionId: id, preferredLocale: 'zh-CN', profileVersion: 1, passwordChangeRequired: false });
       if (path === '/api/v1/navigation') {
         const key = manager ? 'tenant-members' : 'tenant-context';
-        return json(route, [{ id: key, parentId: null, routeName: key, path: manager ? '/identity/tenant-members' : '/tenant-context', componentKey: key,
+        return json(route, [...(manager ? [] : [{ id: 'users', parentId: null, routeName: 'users', path: '/identity/users', componentKey: 'users', title: '用户', caption: '', icon: 'user', order: 0, requiredPermission: 'identity.users.read', children: [] }]), { id: key, parentId: null, routeName: key, path: manager ? '/identity/tenant-members' : '/tenant-context', componentKey: key,
           title: '邀请', caption: '邀请', icon: 'user', order: 1, requiredPermission: manager ? 'identity.tenant_members.read' : 'tenancy.tenants.read', children: [] }]);
       }
       if (path === '/api/v1/tenancy/available') return json(route, activated ? [{ id, identifier: 'acme', name: 'Acme', domain: 'acme.localhost' }] : []);
@@ -70,10 +71,10 @@ for (const width of [1440, 390]) {
     await expect(page.getByTestId('invitation-existing-account')).toBeVisible();
     expect(page.url()).not.toContain(token);
     await page.getByTestId('invitation-existing-account').click();
-    // 登录本身沿用原有认证；这里恢复受控会话后进入用户明确选择的接收页面。
-    authenticated = true;
-    await page.goto('about:blank');
-    await page.goto('/#/tenant-context');
+    await page.locator('input[name="username"]').fill('invitee');
+    await page.locator('input[name="password"]').fill('Original!2026Password');
+    await page.locator('form').getByRole('button', { name: '进入控制台', exact: true }).click();
+    await expect(page).toHaveURL(/#\/tenant-context$/);
     const card = page.getByTestId('my-tenant-invitations');
     await expect(card.locator('input')).toHaveValue(token);
     await expect(card.locator('input')).toBeInViewport();

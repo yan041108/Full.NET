@@ -65,7 +65,7 @@ it.each(['tenant', 'user', 'session', 'permission', 'anonymous', 'route'])('等�
   await flushPromises(); expect(signal.aborted).toBe(true);
   pending.resolve({ ...row, status: 'Removed', version: 5 }); await flushPromises(); expect(wrapper.emitted('left')).toBeUndefined();
 });
-it.each([{ tenantId: other }, { userId: other }, { status: 'Removed' }, { version: 0 }])('错误成员详情 %j 不开放退出', async patch => {
+it.each([{ tenantId: other }, { userId: other }, { status: 'Suspended' }, { version: 0 }])('错误成员详情 %j 不开放退出', async patch => {
   vi.mocked(api.getCurrentTenantMember).mockResolvedValue({ ...row, ...patch }); await setup(); await confirm();
   expect(dialog().props('showConfirm')).toBe(false); expect(api.leaveCurrentTenantMember).not.toHaveBeenCalled();
 });
@@ -88,6 +88,15 @@ it('在途关闭保留未知结果，重开不自动读取或重复退出', asyn
   expect(signal.aborted).toBe(true); expect(document.body.textContent).toContain('退出结果尚未确认');
   expect(api.getCurrentTenantMember).toHaveBeenCalledTimes(1); await confirm(); expect(api.leaveCurrentTenantMember).toHaveBeenCalledTimes(1);
   pending.resolve({ ...row, status: 'Removed', version: 5 }); await flushPromises(); expect(wrapper.emitted('left')).toBeUndefined();
+});
+it('人工核对已退出的权威状态后接续返回平台，不重发未知写入', async () => {
+  const pending = deferred<typeof row>(); vi.mocked(api.leaveCurrentTenantMember).mockReturnValue(pending.promise);
+  await setup(); await confirm(); dialog().vm.$emit('update:open', false);
+  await wrapper.setProps({ open: false }); await wrapper.setProps({ open: true }); await flushPromises();
+  vi.mocked(api.getCurrentTenantMember).mockResolvedValue({ ...row, status: 'Removed', version: 5 });
+  (document.querySelector('[data-testid="tenant-leave-refresh"]') as HTMLButtonElement).click(); await flushPromises();
+  expect(wrapper.emitted('left')).toHaveLength(1); expect(api.leaveCurrentTenantMember).toHaveBeenCalledTimes(1);
+  pending.resolve({ ...row, status: 'Removed', version: 5 }); await flushPromises(); expect(wrapper.emitted('left')).toHaveLength(1);
 });
 it.each([{ id: other }, { userId: other }, { tenantId: other }, { status: 'Active' }, { version: 6 }])('错误退出回执 %j 保持未知，不切换上下文', async patch => {
   vi.mocked(api.leaveCurrentTenantMember).mockResolvedValue({ ...row, status: 'Removed', version: 5, ...patch }); await setup(); await confirm();

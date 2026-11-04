@@ -36,7 +36,12 @@ async function read() {
     const result = await getCurrentTenantMember(request.signal);
     if (!current(ticket, key)) return;
     if (!sameId(result.tenantId, session.currentUser?.tenantId) || !sameId(result.userId, session.currentUser?.id)
-      || result.status !== 'Active' || !Number.isSafeInteger(result.version) || result.version <= 0) throw Error('client.invalid_tenant_member_scope');
+      || !Number.isSafeInteger(result.version) || result.version <= 0) throw Error('client.invalid_tenant_member_scope');
+    // 人工核对已退出的事实即可返回 Host，无需把未知写入再发一次。
+    if (result.status === 'Removed') {
+      unknown.value = false; completed.value = true; loading.value = false; controller = undefined; emit('left'); return;
+    }
+    if (result.status !== 'Active') throw Error('client.invalid_tenant_member_scope');
     member.value = result; unknown.value = false;
   } catch (error) { if (current(ticket, key) && !request.signal.aborted) {
     failed.value = true; errorText.value = isFullNetProblemDetails(error) ? error.title ?? '' : '';

@@ -17,6 +17,15 @@ namespace Full.NET.IntegrationTests.Identity;
 /// <summary>租户成员：加入、移除与活跃租户守卫。</summary>
 internal static class TenantMembershipAssertions
 {
+    public static async Task VerifySelfLeaveAndReturnToHostAsync(FullNetApiFactory factory)
+    {
+        await factory.InitializeAsync();
+        using var hostClient = factory.CreateClientForHost("localhost");
+        using var tenantClient = factory.CreateClientForHost("acme.localhost");
+        var tenant = await IntegrationTestTenantContextHelper.GetCurrentTenantAsync(tenantClient);
+        await VerifyLeaveCurrentTenantAsync(factory, hostClient, tenantClient, tenant.Id, default);
+    }
+
     public static async Task VerifyAsync(
         FullNetApiFactory factory,
         CancellationToken cancellationToken = default)
@@ -199,17 +208,20 @@ internal static class TenantMembershipAssertions
     {
         var leaver = await factory.CreateHostIdentityAsync(
             $"leaver-{Guid.NewGuid():N}",
+            // 普通账号自带上下文切换资格；角色显式授予 switch 代表平台全企业管理授权。
             [
                 "identity.tenant_members.leave_self",
-                "tenancy.tenants.switch",
             ],
             cancellationToken,
             password: FullNetApiFactory.TestPassword);
         await AddTenantMemberAsync(factory, tenantId, leaver.UserId, cancellationToken);
 
+        // 夹具的直签令牌只含显式权限；经真实登录取得普通账号默认自助权限，不能借平台授权代替。
+        var hostToken = await IntegrationTestAuthHelper.LoginAsHostUserAsync(
+            hostClient, leaver.Username, FullNetApiFactory.TestPassword, cancellationToken);
         var tenantToken = await IntegrationTestTenantContextHelper.SwitchToTenantAsync(
             hostClient,
-            leaver.AccessToken,
+            hostToken,
             tenantId,
             cancellationToken);
         using var meRequest = new HttpRequestMessage(
@@ -234,6 +246,47 @@ internal static class TenantMembershipAssertions
         var left = await leaveResponse.Content.ReadFromJsonAsync<TenantMemberResponse>(cancellationToken);
         Assert.IsNotNull(left);
         Assert.AreEqual(TenantMemberStatuses.Removed, left!.Status);
+        Assert.AreEqual(member.Version + 1, left.Version);
+        Assert.AreEqual(member.Id, left.Id);
+        Assert.AreEqual(leaver.UserId, left.UserId);
+        Assert.AreEqual(tenantId, left.TenantId);
+
+        // 本人状态接口保留 Removed 供核对；退出一家企业不能禁用全局账号。
+        using var reviewRequest = new HttpRequestMessage(HttpMethod.Get, "/api/v1/identity/tenant-members/me");
+        reviewRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", tenantToken);
+        using var reviewResponse = await tenantClient.SendAsync(reviewRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, reviewResponse.StatusCode);
+        var reviewed = await reviewResponse.Content.ReadFromJsonAsync<TenantMemberResponse>(cancellationToken);
+        Assert.IsNotNull(reviewed);
+        Assert.AreEqual(left.Id, reviewed.Id);
+        Assert.AreEqual(TenantMemberStatuses.Removed, reviewed.Status);
+
+        using var returnRequest = new HttpRequestMessage(HttpMethod.Put, "/api/v1/tenancy/context")
+        {
+            Content = JsonContent.Create(new ChangeTenantContextRequest(null)),
+        };
+        returnRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", tenantToken);
+        using var returnResponse = await hostClient.SendAsync(returnRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, returnResponse.StatusCode);
+        var returned = await returnResponse.Content.ReadFromJsonAsync<TenantContextTokenResponse>(cancellationToken);
+        Assert.IsNotNull(returned);
+        Assert.IsNull(returned.Context.TenantId);
+        Assert.AreEqual("host", returned.Context.Scope);
+        using var accountRequest = new HttpRequestMessage(HttpMethod.Get, "/api/v1/me");
+        accountRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", returned.AccessToken);
+        using var accountResponse = await hostClient.SendAsync(accountRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, accountResponse.StatusCode);
+        using var account = JsonDocument.Parse(await accountResponse.Content.ReadAsStringAsync(cancellationToken));
+        Assert.AreEqual(leaver.UserId, account.RootElement.GetProperty("id").GetGuid());
+        Assert.AreEqual("host", account.RootElement.GetProperty("scope").GetString());
+
+        using var reenterRequest = new HttpRequestMessage(HttpMethod.Put, "/api/v1/tenancy/context")
+        {
+            Content = JsonContent.Create(new ChangeTenantContextRequest(tenantId)),
+        };
+        reenterRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", returned.AccessToken);
+        using var reenterResponse = await hostClient.SendAsync(reenterRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Forbidden, reenterResponse.StatusCode);
     }
 
     private static async Task VerifyOwnerCannotLeaveCurrentTenantAsync(

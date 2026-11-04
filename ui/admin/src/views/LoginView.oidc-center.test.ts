@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { flushPromises, mount } from '@vue/test-utils';
 import { createPinia, setActivePinia } from 'pinia';
+import { createMemoryHistory, createRouter } from 'vue-router';
 
 vi.mock('../api/oauth-providers', () => ({ listPublicOAuthProviders: vi.fn().mockResolvedValue([]) }));
 vi.mock('../config/identity-auth', () => ({
@@ -8,7 +9,8 @@ vi.mock('../config/identity-auth', () => ({
   resolveAdminOidcClientId: () => 'admin-spa'
 }));
 vi.mock('../auth/oidc-center-login', () => ({
-  beginAdminOidcCenterLogin: vi.fn()
+  beginAdminOidcCenterLogin: vi.fn(), adminBrowserSession: undefined,
+  clearAdminOidcSessionCredentials: vi.fn(), readAdminBrowserCsrfToken: () => undefined
 }));
 
 import LoginView from './LoginView.vue';
@@ -45,6 +47,15 @@ describe('Vue 登录页 oidc-center 模式', () => {
 
     expect(beginAdminOidcCenterLogin).toHaveBeenCalledOnce();
     expect(wrapper.find('[role="alert"]').exists()).toBe(false);
+  });
+
+  it('把邀请的固定接续参数交给身份中心登录入口', async () => {
+    const pinia = createPinia(); setActivePinia(pinia);
+    const router = createRouter({ history: createMemoryHistory(), routes: [{ path: '/login', component: { template: '<div />' } }] });
+    await router.push('/login?redirect=/tenant-context');
+    const wrapper = mount(LoginView, { global: { plugins: [pinia, router] } });
+    await wrapper.get('[data-testid="login-oidc-center"]').trigger('click'); await flushPromises();
+    expect(beginAdminOidcCenterLogin).toHaveBeenCalledExactlyOnceWith('/tenant-context'); wrapper.unmount();
   });
 
   it('启动失败时展示错误提示', async () => {

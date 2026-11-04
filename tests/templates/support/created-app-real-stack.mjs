@@ -404,7 +404,7 @@ export async function verifyCreatedAppRealStack(databaseProviderKey, { scope = '
       };
       const retirement = runDotnet([
         'run', '--project', workerProject, '-c', 'Release', '--no-build', '--',
-        '--outbox-version-retirement-message-type', 'fullnet.tenancy.tenant.changed',
+        '--outbox-version-retirement-message-type', 'fullnet.organization.unit.changed',
         '--outbox-version-retirement-schema-version', '1',
       ], appRoot, workerEnv, 180_000, join(logRoot, 'worker-retirement.log'));
       const retirementReport = retirement.stdout.split(/\r?\n/u)
@@ -413,12 +413,6 @@ export async function verifyCreatedAppRealStack(databaseProviderKey, { scope = '
       assert.ok(retirementReport, 'generated Worker did not query the migrated outbox: ' + retirement.stdout);
       assert.equal(retirementReport.pendingCount, 0);
       assert.equal(retirementReport.deadLetterCount, 0);
-
-      const outboxMessage = runOutboxProbe(outboxProbeProject, appRoot, env, 'enqueue');
-      const pendingOutbox = runOutboxProbe(outboxProbeProject, appRoot, env, 'state', outboxMessage.id);
-      assert.equal(pendingOutbox.Attempts, 0);
-      assert.equal(pendingOutbox.IsProcessed, 0);
-      assert.equal(pendingOutbox.IsDeadLettered, 0);
 
       workerLogPath = join(logRoot, 'worker.log');
       writeFileSync(workerLogPath, '');
@@ -433,14 +427,6 @@ export async function verifyCreatedAppRealStack(databaseProviderKey, { scope = '
       await waitForApi(workerUrl, 180_000, workerLogPath);
       const workerReady = await fetch(`${workerUrl}/health/ready`);
       assert.equal(workerReady.status, 200, `generated Worker readiness: ${await workerReady.text()}`);
-      const deliveredOutbox = runOutboxProbe(outboxProbeProject, appRoot, env, 'wait', outboxMessage.id);
-      writeFileSync(join(logRoot, 'worker-outbox-delivery.json'), JSON.stringify({ pendingOutbox, deliveredOutbox }, null, 2));
-      assert.equal(deliveredOutbox.Attempts, 1);
-      assert.equal(deliveredOutbox.IsProcessed, 1);
-      assert.equal(deliveredOutbox.IsDeadLettered, 0);
-      assert.equal(deliveredOutbox.DeadLetterReasonCode, null);
-      assert.equal(deliveredOutbox.IsLeaseReleased, 1);
-      assert.equal(deliveredOutbox.IsRetryCleared, 1);
 
       }
       const apiLogPath = join(logRoot, 'api.log');

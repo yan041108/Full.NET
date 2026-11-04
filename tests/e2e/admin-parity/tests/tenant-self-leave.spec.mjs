@@ -6,7 +6,7 @@ const id = '019bc2b1-2a40-7cc3-8992-a80de51bf299', now = '2026-11-04T00:00:00Z';
 const json = (route, body, status = 200) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
 const row = { id, userId: id, tenantId: id, username: 'member', displayName: '普通成员', memberRole: 'Member', status: 'Active', createdAtUtc: now, updatedAtUtc: now, version: 4 };
 async function boot(page) {
-  const state = { tenant: true, reads: 0, writes: [], version: 4, owner: false, pending: undefined };
+  const state = { tenant: true, reads: 0, writes: [], version: 4, owner: false, pending: undefined, memberStatus: 'Active' };
   await page.addInitScript(() => localStorage.setItem('fullnet.admin.locale', 'zh-CN'));
   await page.route('**/api/v1/**', async route => {
     const path = new URL(route.request().url()).pathname;
@@ -20,9 +20,9 @@ async function boot(page) {
     if (path === '/api/v1/tenancy/available') return json(route, state.tenant ? [{ id, identifier: 'acme', name: 'Acme', domain: 'acme.localhost' }] : []);
     if (path === '/api/v1/tenancy/context') { expect(route.request().postDataJSON()).toEqual({ tenantId: null }); state.tenant = false;
       return json(route, { accessToken: 'host', tokenType: 'Bearer', expiresAtUtc: '2099-01-01T00:00:00Z', context: { scope: 'host', tenantId: null, identifier: 'host', name: 'Full.NET Host' } }); }
-    if (path === '/api/v1/identity/tenant-members/me') { state.reads++; return json(route, { ...row, version: state.version, memberRole: state.owner ? 'Owner' : 'Member' }); }
+    if (path === '/api/v1/identity/tenant-members/me') { state.reads++; return json(route, { ...row, status: state.memberStatus, version: state.version, memberRole: state.owner ? 'Owner' : 'Member' }); }
     if (path === '/api/v1/identity/tenant-members/me/leave') {
-      state.writes.push(route.request().postDataJSON()); if (state.pending) { await state.pending; return json(route, { ...row, status: 'Removed', version: 5 }).catch(() => {}); }
+      state.writes.push(route.request().postDataJSON()); if (state.pending) { await state.pending; state.memberStatus = 'Removed'; state.version = 5; return json(route, { ...row, status: 'Removed', version: 5 }).catch(() => {}); }
       if (state.writes.length === 1) { state.version = 6; return json(route, { status: 409, title: '成员版本已变化', code: 'identity.tenant_member_version_conflict' }, 409); }
       return json(route, { ...row, status: 'Removed', version: 7 });
     }
@@ -61,7 +61,8 @@ test('在途退出关闭取消 HTTP，重开保留未知结果且不会自动重
   await page.getByTestId('leave-current-tenant').click(); await fits(page); await expect(page.getByTestId('tenant-leave-panel')).toContainText('退出结果尚未确认');
   await expect(page.getByTestId('tenant-leave-confirm')).toHaveCount(0); expect(state.writes).toHaveLength(1); expect(state.reads).toBe(1);
   await page.screenshot({ path: info.outputPath('leave-unknown.png'), fullPage: true, animations: 'disabled' });
-  await page.keyboard.press('Escape'); await expect(page.getByRole('dialog')).toHaveCount(0);
+  await page.getByTestId('tenant-leave-refresh').click(); await expect(page.getByRole('dialog')).toHaveCount(0);
+  await expect(page.getByTestId('leave-current-tenant')).toHaveCount(0); expect(state.writes).toHaveLength(1);
 });
 test('所有者看到保护原因，关闭不会退出企业', async ({ page }) => {
   const state = await boot(page); state.owner = true; await page.getByTestId('leave-current-tenant').click(); await fits(page);

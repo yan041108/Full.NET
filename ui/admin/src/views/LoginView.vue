@@ -15,8 +15,10 @@ import { listPublicOAuthProviders } from '../api/oauth-providers';
 import { beginAdminOidcCenterLogin } from '../auth/oidc-center-login';
 import { resolveLoginProblemTitle } from '../auth/login-problem';
 import { adminIdentityAuthMode } from '../config/identity-auth';
+import { useRoute } from 'vue-router';
 
 const session = useSessionStore();
+const route = useRoute();
 const { t } = useAdminI18n();
 const username = ref('');
 const password = ref('');
@@ -65,7 +67,7 @@ async function submitOidcCenter(): Promise<void> {
   problem.value = undefined;
   const current = ++operation; const controller = new AbortController(); loginController = controller;
   try {
-    await beginAdminOidcCenterLogin();
+    await beginAdminOidcCenterLogin(route?.query.redirect);
   } catch (error: unknown) {
     if (inactive || current !== operation) return;
     problem.value = isFullNetProblemDetails(error)

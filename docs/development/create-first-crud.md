@@ -777,7 +777,7 @@ $env:FULLNET_RUN_TEMPLATE_REAL_STACK = '1'
 node --throw-deprecation --test --test-concurrency=1 tests/templates/created-app-real-stack.test.mjs
 ```
 
-该入口依次验证 SQL Server 与 MySQL 的迁移、API/Worker、OpenAPI 客户端、Vue 浏览器 CRUD、普通账号精确权限、双租户拒绝、人工内容保护及已有业务数据升级恢复。报告位于 `.tmp/template-real-stack/<provider>/`；先核对本次源码 SHA、报告时间与终态，不能读取旧报告补齐未执行阶段。关闭该子项要求两库用例均通过且零跳过；OOM、超时、失败或只通过其中一库都不能计为双库成功。它不覆盖任意业务 Schema、应用自有 Native AOT 或容量实测。
+该入口依次验证 SQL Server 与 MySQL 的迁移、API/Worker、OpenAPI 客户端、Vue 浏览器 CRUD、普通账号精确权限、双租户拒绝、人工内容保护及已有业务数据升级恢复。本地报告默认位于系统临时目录 `fullnet-created-app-evidence-*/<provider>/`，也可由 `FULLNET_CREATED_APP_EVIDENCE` 指定；CI 保留其明确上传范围。先核对本次源码 SHA、报告时间与终态，不能读取旧报告补齐未执行阶段。关闭该子项要求两库用例均通过且零跳过；OOM、超时、失败或只通过其中一库都不能计为双库成功。它不覆盖任意业务 Schema、应用自有 Native AOT 或容量实测。
 
 验收遵循[开发质量 §11](../../rules/development-quality.md#11-测试与验证)：规定范围的本地实际通过即可验收，GitHub Actions 继续提供回归证据。文中各历史增量的 Actions 记录保留原事实，不构成当前本地验收的额外前置。
 
@@ -886,3 +886,5 @@ Schema 有意变更的源码升级增量：独立打包应用在既有 Product S
 应用 Worker 非空 Outbox 增量：双库真实栈在 Worker 启动前写入一条合法 `fullnet.tenancy.tenant.changed` MemoryPack 消息，并按消息 ID 确认初始 `Attempts=0`、未处理、非死信；应用自有 Worker 启动后，同一消息首次领取即写入已处理、非死信终态，租约及下次重试字段清空。测试探针只存在于验收工作区，使用生成应用分发的框架程序集生成载荷；SQL Server 与 MySQL 本地用例均通过。此证据只覆盖 Minimal 预设的该条合法事件路由及成功终态，不外推到其他 Handler、失败重试、Kafka、应用自有 Native AOT 或容量实测，F02 仍未关闭。
 
 应用业务 Outbox 到投影增量：`66bcb227` 的[独立生成应用双库 CI](https://github.com/yan041108/Full.NET/actions/runs/37150305798)成功，模板测试 437/437、零失败/跳过。SQL Server/MySQL 各用真实租户令牌通过 Organization API 创建单位，核对业务事务写出的 `fullnet.organization.unit.changed` MemoryPack 消息，并在应用自有 Worker 运行后按消息 ID 确认首次处理、非死信、租约与重试字段清空；Identity 的同租户同单位投影名称、版本和启用状态与 API 创建结果一致。两库的 `worker-business-outbox.json` 均记录这一终态，不包含令牌。本地 Docker Engine 恢复后，使用 SQL Server 2022 CU14、MySQL 8.0 与缓存的 Redis 8.6 镜像重跑，双库真实栈 2/2 通过；此前一次数据库超时不能计为通过，但复跑未重现。不据此成功路径外推失败重试、其他事件路由、应用自有 Native AOT 或容量实测，F02 仍未关闭。
+
+2026-11-04 当前探针：上文 Tenancy 缓存变更事件的非空 Outbox 记录仅为历史证据，该事件已退役，当前验收不再直接写入它。版本空扫描改为现行 `fullnet.organization.unit.changed`；非空交付继续使用真实 Organization API 事务产生的业务事件，并精确核对事件身份、载荷、首次处理、租约/重试终态和 Identity 投影。探针不再依赖 Tenancy 内部事件或恢复缓存 Outbox。夹具编译通过不等于 Worker 或双库运行通过，当前整链结果以固定来源的新鲜报告为准。

@@ -5,11 +5,12 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <!-- 正式应用默认读取分发框架；本仓库可显式指定源码根以聚焦编译同一探针。 -->
+    <FullNetFrameworkRoot Condition="'$(FullNetFrameworkRoot)' == ''">../../framework/fullnet</FullNetFrameworkRoot>
   </PropertyGroup>
   <ItemGroup>
-    <ProjectReference Include="../../framework/fullnet/src/BuildingBlocks/Full.NET.Data.Dapper/Full.NET.Data.Dapper.csproj" />
-    <ProjectReference Include="../../framework/fullnet/src/BuildingBlocks/Full.NET.Serialization.MemoryPack/Full.NET.Serialization.MemoryPack.csproj" />
-    <ProjectReference Include="../../framework/fullnet/src/Modules/Full.NET.Modules.Identity.Contracts/Full.NET.Modules.Identity.Contracts.csproj" />
-    <ProjectReference Include="../../framework/fullnet/src/Modules/Full.NET.Modules.Tenancy/Full.NET.Modules.Tenancy.csproj" />
+    <ProjectReference Include="$(FullNetFrameworkRoot)/src/BuildingBlocks/Full.NET.Data.Dapper/Full.NET.Data.Dapper.csproj" />
+    <ProjectReference Include="$(FullNetFrameworkRoot)/src/BuildingBlocks/Full.NET.Serialization.MemoryPack/Full.NET.Serialization.MemoryPack.csproj" />
+    <ProjectReference Include="$(FullNetFrameworkRoot)/src/Modules/Full.NET.Modules.Identity.Contracts/Full.NET.Modules.Identity.Contracts.csproj" />
   </ItemGroup>
 </Project>

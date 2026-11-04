@@ -1,5 +1,6 @@
 import { http, apiBaseUrl } from '../api/http';
 import { resolveAdminOidcClientId } from '../config/identity-auth';
+import { rememberLoginDestination } from './login-destination';
 
 let csrfToken: string | undefined;
 let generation = 0;
@@ -21,9 +22,10 @@ export function clearAdminOidcSessionCredentials(): void {
 
 export function readAdminBrowserCsrfToken(): string | undefined { return csrfToken; }
 
-export async function beginAdminOidcCenterLogin(): Promise<void> {
+export async function beginAdminOidcCenterLogin(destination?: unknown): Promise<void> {
   requireSameOrigin();
   clearAdminOidcSessionCredentials();
+  rememberLoginDestination(destination);
   window.location.assign('/api/v1/identity/browser/login');
 }
 
@@ -58,6 +60,7 @@ export const adminBrowserSession = {
   async logout(): Promise<void> {
     await http.request('/api/v1/identity/browser/logout', { method: 'POST' }, undefined, { retryUnauthorized: false });
     clearAdminOidcSessionCredentials();
+    rememberLoginDestination(undefined);
     const parameters = new URLSearchParams({ client_id: resolveAdminOidcClientId(), post_logout_redirect_uri: window.location.origin + '/' });
     window.location.assign('/connect/logout?' + parameters.toString());
   },

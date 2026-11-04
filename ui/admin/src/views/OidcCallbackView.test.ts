@@ -27,9 +27,11 @@ import OidcCallbackView from './OidcCallbackView.vue';
 import { completeAdminOidcCallback } from '../auth/oidc-center-login';
 import { useSessionStore } from '../auth/session';
 import { useAdminI18n } from '../i18n/adminI18n';
+import { rememberLoginDestination, takeLoginDestination } from '../auth/login-destination';
 
 describe('OidcCallbackView', () => {
   beforeEach(() => {
+    rememberLoginDestination(undefined);
     identityAuth.mode = 'oidc-center';
     localStorage.clear();
     useAdminI18n().setLocale('zh-CN');
@@ -38,6 +40,36 @@ describe('OidcCallbackView', () => {
     vi.mocked(completeAdminOidcCallback).mockResolvedValue(undefined);
     vi.spyOn(ElMessage, 'success').mockImplementation(() => ({ close: vi.fn() }));
     vi.spyOn(ElMessage, 'error').mockImplementation(() => ({ close: vi.fn() }));
+  });
+
+  it('身份中心成功后回到固定邀请接续页，目标只消费一次', async () => {
+    const pinia = createPinia(); setActivePinia(pinia); const session = useSessionStore();
+    session.$patch({ currentUser: { id: 'member', username: 'member', displayName: '成员', actorScope: 'host', scope: 'host', tenantId: null,
+      isSuperAdministrator: false, permissions: ['tenancy.tenants.read'], sessionId: 'session', preferredLocale: 'zh-CN', profileVersion: 1 },
+      navigation: [{ id: 'tenant-context', parentId: null, routeName: 'tenant-context', path: '/tenant-context', componentKey: 'tenant-context',
+        title: '企业', caption: '', icon: 'user', order: 1, requiredPermission: 'tenancy.tenants.read', children: [] }] });
+    vi.spyOn(session, 'restore').mockImplementation(async () => { session.state = 'authenticated'; return true; });
+    rememberLoginDestination('/tenant-context');
+    const wrapper = mount(OidcCallbackView, { global: { plugins: [pinia] } }); await flushPromises();
+    expect(replaceMock).toHaveBeenCalledExactlyOnceWith('/tenant-context'); expect(takeLoginDestination()).toBeUndefined(); wrapper.unmount();
+  });
+  it('会话认证成功但未下发企业入口时不使用接续目标', async () => {
+    const pinia = createPinia(); setActivePinia(pinia); const session = useSessionStore();
+    vi.spyOn(session, 'restore').mockImplementation(async () => { session.state = 'authenticated'; return true; });
+    rememberLoginDestination('/tenant-context'); const wrapper = mount(OidcCallbackView, { global: { plugins: [pinia] } }); await flushPromises();
+    expect(replaceMock).toHaveBeenCalledExactlyOnceWith('/'); expect(takeLoginDestination()).toBeUndefined(); wrapper.unmount();
+  });
+  it('认证失败不使用邀请接续目标，也不残留给下次回调', async () => {
+    const pinia = createPinia(); setActivePinia(pinia);
+    vi.mocked(completeAdminOidcCallback).mockRejectedValue(new Error('oidc_invalid_state'));
+    rememberLoginDestination('/tenant-context'); const wrapper = mount(OidcCallbackView, { global: { plugins: [pinia] } }); await flushPromises();
+    expect(replaceMock).toHaveBeenCalledExactlyOnceWith('/'); expect(takeLoginDestination()).toBeUndefined(); wrapper.unmount();
+  });
+  it('关闭旧回调页面后晚结果不导航或提示成功', async () => {
+    let release!: () => void; vi.mocked(completeAdminOidcCallback).mockReturnValue(new Promise<void>(resolve => { release = resolve; }));
+    const pinia = createPinia(); setActivePinia(pinia); const restore = vi.spyOn(useSessionStore(), 'restore');
+    const wrapper = mount(OidcCallbackView, { global: { plugins: [pinia] } }); wrapper.unmount(); release(); await flushPromises();
+    expect(restore).not.toHaveBeenCalled(); expect(replaceMock).not.toHaveBeenCalled(); expect(ElMessage.success).not.toHaveBeenCalled();
   });
 
   it('legacy 模式仅重定向首页', async () => {

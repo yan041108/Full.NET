@@ -22,6 +22,7 @@ import LoginView from './views/LoginView.vue';
 import { apiBaseUrl } from './api/http';
 import { useSessionStore } from './auth/session';
 import { adminIdentityAuthMode } from './config/identity-auth';
+import { resolveLoginDestination } from './auth/login-destination';
 import { createElementLocaleController } from './i18n/elementLocale';
 import { useAdminI18n } from './i18n/adminI18n';
 import ReleaseNoteUnreadPrompt from './components/ReleaseNoteUnreadPrompt.vue';
@@ -322,6 +323,11 @@ watch(
       navigation: session.navigation,
       translate: t
     });
+    const destination = route.path === '/login' ? resolveLoginDestination(route.query.redirect) : undefined;
+    if (destination && session.can('tenancy.tenants.read') && allowed.some(item => item.path === destination)) {
+      void router.replace(destination);
+      return;
+    }
     if (!allowed.some(item => item.path === route.path)) {
       void router.replace(allowed[0]?.path ?? '/403');
     }
