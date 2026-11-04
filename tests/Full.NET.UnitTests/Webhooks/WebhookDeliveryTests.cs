@@ -58,6 +58,42 @@ public sealed class WebhookDeliveryTests
             && descriptor.Lifetime == ServiceLifetime.Scoped));
         Assert.IsTrue(services.Any(descriptor =>
             descriptor.ServiceType == typeof(IHttpClientFactory)));
+        Assert.IsTrue(services.Any(descriptor=>descriptor.ServiceType==typeof(WebhookEventEnqueueService)));
+        Assert.AreEqual(1,services.Count(descriptor=>descriptor.ServiceType==typeof(Full.NET.Modules.Workflow.Contracts.IWorkflowInstanceCompletedSink)
+            &&descriptor.ImplementationType==typeof(WorkflowInstanceCompletedWebhookSink)));
+        Assert.IsFalse(services.Any(descriptor=>descriptor.ServiceType==typeof(IIntegrationEventHandler)));
+    }
+
+    [TestMethod]
+    [DataRow(false,false)]
+    [DataRow(false,true)]
+    [DataRow(true,false)]
+    [DataRow(true,true)]
+    public async Task Workflow_completion_sink_owns_local_queue_transaction_and_restores_original_scope(bool host,bool failure)
+    {
+        var tenantId=Guid.CreateVersion7();var tenant=new CurrentTenantAccessor();if(host)tenant.SetHost();else tenant.SetTenant(new TenantContext(tenantId,"acme","Acme"));
+        var query=Substitute.For<IQueryExecutor>();query.QueryAsync<Guid>(Arg.Any<SqlStatement>(),Arg.Any<IReadOnlyDictionary<string,object?>>(),Arg.Any<CancellationToken>()).Returns(call=>
+        {Assert.IsTrue(tenant.IsHost);Assert.AreEqual(tenantId,((IReadOnlyDictionary<string,object?>)call[1]!)["TenantId"]);return Task.FromResult<IReadOnlyList<Guid>>([Guid.CreateVersion7()]);});
+        var commands=Substitute.For<ICommandExecutor>();commands.ExecuteAsync(Arg.Any<SqlStatement>(),Arg.Any<IReadOnlyDictionary<string,object?>>(),Arg.Any<CancellationToken>())
+            .Returns(_=>failure?Task.FromException<int>(new InvalidOperationException("test queue failure")):Task.FromResult(1));
+        var now=DateTimeOffset.UtcNow;var enqueue=new WebhookEventEnqueueService(query,commands,new FixedClock(now),NewIds());
+        var sink=new WorkflowInstanceCompletedWebhookSink(enqueue,new DapperCommandTransaction(new RecordingDbTransactionCoordinator()),tenant);
+        var context=new IntegrationEventContext(Guid.CreateVersion7(),Full.NET.Modules.Workflow.Contracts.WorkflowNotificationIntegrationEventTypes.InstanceCompleted,1,tenantId,null,now);
+        var completed=new Full.NET.Modules.Workflow.Contracts.WorkflowInstanceCompletedIntegrationEvent(Guid.CreateVersion7(),Guid.CreateVersion7(),"test","business",now);
+        if(failure)await Assert.ThrowsExactlyAsync<InvalidOperationException>(()=>sink.HandleAsync(context,completed,default));else await sink.HandleAsync(context,completed,default);
+        Assert.AreEqual(host,tenant.IsHost);if(!host){Assert.AreEqual(tenantId,tenant.Id);Assert.AreEqual("acme",tenant.Identifier);Assert.AreEqual("Acme",tenant.Name);}
+    }
+
+    [TestMethod]
+    public async Task Workflow_completion_sink_rejects_empty_or_mismatched_tenant_and_ignores_host_business()
+    {
+        var tenant=new CurrentTenantAccessor();tenant.SetTenant(new TenantContext(Guid.CreateVersion7(),"other","Other"));var query=Substitute.For<IQueryExecutor>();
+        var enqueue=new WebhookEventEnqueueService(query,Substitute.For<ICommandExecutor>(),new FixedClock(DateTimeOffset.UtcNow),NewIds());
+        var sink=new WorkflowInstanceCompletedWebhookSink(enqueue,new DapperCommandTransaction(new RecordingDbTransactionCoordinator()),tenant);
+        var completed=new Full.NET.Modules.Workflow.Contracts.WorkflowInstanceCompletedIntegrationEvent(Guid.CreateVersion7(),Guid.CreateVersion7(),"test","business",DateTimeOffset.UtcNow);
+        foreach(var invalid in new[]{Guid.Empty,Guid.CreateVersion7()})await Assert.ThrowsExactlyAsync<InvalidOperationException>(()=>sink.HandleAsync(new(Guid.CreateVersion7(),Full.NET.Modules.Workflow.Contracts.WorkflowNotificationIntegrationEventTypes.InstanceCompleted,1,invalid,null,DateTimeOffset.UtcNow),completed,default));
+        await sink.HandleAsync(new(Guid.CreateVersion7(),Full.NET.Modules.Workflow.Contracts.WorkflowNotificationIntegrationEventTypes.InstanceCompleted,1,null,null,DateTimeOffset.UtcNow),completed,default);
+        await query.DidNotReceive().QueryAsync<Guid>(Arg.Any<SqlStatement>(),Arg.Any<IReadOnlyDictionary<string,object?>>(),Arg.Any<CancellationToken>());
     }
 
     [TestMethod]

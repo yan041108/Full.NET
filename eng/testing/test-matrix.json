@@ -2921,8 +2921,8 @@
       },
       "sdk-package": {
         "filter": "FullyQualifiedName~Full.NET.IntegrationTests.Api.IntegrationSdkPackageTests",
-        "minimum": 1,
-        "timeout": "5m"
+        "minimum": 2,
+        "timeout": "10m"
       }
     }
   },

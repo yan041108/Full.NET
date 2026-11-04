@@ -20,15 +20,20 @@ namespace Full.NET.IntegrationTests.Api;
 /// <summary>独立安装后的 SDK 通过真实 Kestrel 调用生产 API；打包入口单独准入，不进入通用数据库分片。</summary>
 [TestClass]
 [TestCategory("IntegrationSdkPackage")]
-public sealed class IntegrationSdkPackageTests
+public sealed partial class IntegrationSdkPackageTests
 {
     [TestMethod]
-    public async Task Installed_sdk_authorizes_consumes_production_event_and_observes_tenant_isolation_and_revocation()
+    [DataRow(DatabaseProvider.SqlServer)]
+    [DataRow(DatabaseProvider.MySql)]
+    public async Task Installed_sdk_authorizes_consumes_production_event_and_observes_tenant_isolation_and_revocation(DatabaseProvider provider)
     {
         var directory = Environment.GetEnvironmentVariable("FULLNET_SDK_CONSUMER_DIRECTORY");
         Assert.IsTrue(!string.IsNullOrWhiteSpace(directory) && File.Exists(Path.Combine(directory, "consumer.mjs")), "Run pnpm test:integration-sdk:package to prepare the isolated installed consumer.");
-        using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(3)); var token = timeout.Token;
-        using var factory = new FullNetApiFactory(DatabaseProvider.SqlServer, await SharedDatabaseFixture.CreateSqlServerDatabaseAsync(), new Dictionary<string,string?> { ["Tenancy:HostDomains:1"]="127.0.0.1" });
+        var consumerRoot=directory!;directory=Path.Combine(consumerRoot,provider.ToString());Directory.CreateDirectory(directory);
+        foreach(var file in new[]{"consumer.mjs","receiver.mjs"})File.Copy(Path.Combine(consumerRoot,file),Path.Combine(directory,file));
+        using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(5)); var token = timeout.Token;
+        var cs=provider==DatabaseProvider.SqlServer?await SharedDatabaseFixture.CreateSqlServerDatabaseAsync():await SharedDatabaseFixture.CreateMySqlDatabaseAsync();
+        using var factory = new FullNetApiFactory(provider, cs, new Dictionary<string,string?> { ["Tenancy:HostDomains:1"]="127.0.0.1",["DataProtection:KeyRingPath"]=Path.Combine(directory,"keys") },includeEnterpriseRequest:true);
         factory.UseKestrel(options => options.Listen(IPAddress.Loopback,0)); await factory.InitializeAsync(token);
         var address = factory.Services.GetRequiredService<IServer>().Features.Get<IServerAddressesFeature>()!.Addresses.Single();
         using var host = new HttpClient { BaseAddress=new Uri(address) }; host.DefaultRequestHeaders.Host="localhost";
@@ -45,28 +50,10 @@ public sealed class IntegrationSdkPackageTests
         const string rotatedSecret="sdk-rotated-independent-secret";
         var environment=new Dictionary<string,string>{{"SDK_API_URL",address},{"SDK_TENANT_A",tenant.Id.ToString("D")},{"SDK_TENANT_B",b.Id.ToString("D")},{"SDK_TOKEN_A",accessA},{"SDK_TOKEN_B",accessB},{"SDK_HOST_B",domain},{"SDK_SIGNING_SECRET",secret},{"SDK_ROTATED_SIGNING_SECRET",rotatedSecret}};
         await RunAsync("bootstrap");
-        using var bootstrap=JsonDocument.Parse(await File.ReadAllTextAsync(Path.Combine(directory!,"bootstrap.json"),token));var subscriptionId=bootstrap.RootElement.GetProperty("subscriptionId").GetGuid();var eventId=Guid.CreateVersion7();
+        using var bootstrap=JsonDocument.Parse(await File.ReadAllTextAsync(Path.Combine(directory!,"bootstrap.json"),token));var subscriptionId=bootstrap.RootElement.GetProperty("subscriptionId").GetGuid();
         var signingKeyId=bootstrap.RootElement.GetProperty("signingKeyId").GetGuid(); environment["SDK_KEY_ID"]=signingKeyId.ToString("D");
         environment["SDK_SIGNING_SECRET"]=rotatedSecret;
-        var envelope=new WebhookEventEnvelope("fullnet.workflow.instance.completed",eventId,tenant.Id,DateTimeOffset.UtcNow,new(Guid.CreateVersion7(),Guid.CreateVersion7(),"sdk","production-envelope"));
-        await using(var scope=factory.Services.CreateAsyncScope())
-        { scope.ServiceProvider.GetRequiredService<CurrentTenantAccessor>().SetHost();await scope.ServiceProvider.GetRequiredService<ICommandTransaction>().ExecuteAsync(async cancellation=>{await scope.ServiceProvider.GetRequiredService<WebhookEventEnqueueService>().EnqueueAsync(tenant.Id,envelope.EventType,eventId,envelope,cancellation);return 0;},token); }
-        a.DefaultRequestHeaders.Authorization=new("Bearer",accessA);
-        var rows=await a.GetFromJsonAsync<Full.NET.Abstractions.Results.PagedResult<WebhookDeliveryHistoryResponse>>($"/api/v1/webhooks/subscriptions/{subscriptionId:D}/deliveries",token);Assert.AreEqual(eventId,rows!.Items.Single().EventId);
-        // 从真实入队记录取得原文，不重新组装正文；此旅程仍不等于 Workflow 业务完成或公网外发。
-        string? payload;
-        await using(var scope=factory.Services.CreateAsyncScope())
-        {
-            scope.ServiceProvider.GetRequiredService<CurrentTenantAccessor>().SetHost();
-            payload=await scope.ServiceProvider.GetRequiredService<IQueryExecutor>().QuerySingleOrDefaultAsync<string>(
-                new SqlStatement("tests.sdk.payload","SELECT PayloadBody FROM fn_webhooks_delivery WHERE Id=@DeliveryId",SqlDataScope.HostOnly),
-                new Dictionary<string,object?>{{"DeliveryId",rows.Items.Single().Id}},token);
-        }
-        Assert.IsNotNull(payload);
-        var stamp=new WebhookSignatureStamp(signingKeyId,eventId,rows.Items.Single().Id,envelope.EventType,DateTimeOffset.UtcNow.ToUnixTimeSeconds());
-        await File.WriteAllTextAsync(Path.Combine(directory!,"event-input.json"),JsonSerializer.Serialize(new{body=payload,signature=WebhookSignatureHelper.ComputeSignature(rotatedSecret,payload,stamp),eventId,subscriptionId,keyId=signingKeyId,
-            deliveryId=stamp.DeliveryId,eventType=stamp.EventType,version=WebhookSignatureHelper.Version,timestamp=stamp.Timestamp.ToString(System.Globalization.CultureInfo.InvariantCulture)}),token);
-        await RunAsync("event");
+        await RunBusinessConsumerAsync(factory,host,subscriptionId,tenant.Id,signingKeyId,rotatedSecret,directory!,environment,RunAsync,token);
         host.DefaultRequestHeaders.Authorization=new("Bearer",await factory.CreateHostAccessTokenAsync([IdentitySessionManagementPermissions.Revoke],token));
         using var revoked=await host.PostAsync($"/api/v1/identity/online-sessions/users/{identity.UserId:D}/revoke-all",null,token);Assert.AreEqual(HttpStatusCode.OK,revoked.StatusCode);
         await RunAsync("revoked");

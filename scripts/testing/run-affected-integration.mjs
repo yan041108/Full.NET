@@ -561,7 +561,7 @@ export function classifyChangedPaths(paths) {
     if (/^packages\/integration-sdk\/(?:src\/|package\.json$|tsconfig\.json$)/u.test(filePath) || filePath.startsWith('tests/integration-sdk/')
       || filePath === 'tests/integration-sdk.test.mjs' || filePath === 'contracts/webhooks/workflow-instance-completed-v1.schema.json'
       || filePath === 'scripts/openapi/generate-integration-sdk.mjs' || filePath === 'scripts/testing/run-integration-sdk-package.mjs'
-      || filePath === 'tests/Full.NET.IntegrationTests/Api/IntegrationSdkPackageTests.cs') {
+      || /^tests\/Full\.NET\.IntegrationTests\/Api\/IntegrationSdkPackageTests(?:\.[A-Za-z]+)?\.cs$/u.test(filePath)) {
       addTarget(targets, { kind: 'tooling', name: 'sdk-package' });
       reasons.push(`SDK 独立安装验收：${filePath}`);
       continue;

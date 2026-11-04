@@ -86,4 +86,6 @@ const event = await verifyWorkflowCompletedWebhook({
 
 ## 定向验证
 
-`pnpm test:integration-sdk` 构建并运行包自身的定向协议测试。`pnpm test:integration-sdk:package` 在完成开发入门的后端构建、Docker/SQL Server 准备后，定向编译测试程序集、本地 pack、离线安装到系统临时独立项目并严格编译外部 TypeScript；随后通过真实 Kestrel 验证授权创建/查询、跨企业写入拒绝、生产事件验签和正式会话撤销。测试使用自己的临时账本/包目录，成功后清理，不公开发布包或访问客户地址。
+`pnpm test:integration-sdk` 构建并运行包自身的定向协议测试。`pnpm test:integration-sdk:package` 在完成开发入门的后端构建、Node.js 24、Docker/SQL Server/MySQL/Redis 准备后，定向编译本场景 Worker 与测试程序集，本地 pack、离线安装到系统临时独立项目并严格编译外部 TypeScript。两个提供程序分别通过真实 Kestrel 验证授权创建、全部轮换操作、跨企业拒绝及会话撤销；业务旅程实际发布企业申请审批定义、创建/提交并办理，由独立 Worker 的正式 Outbox/签名/投递循环发送至 Node 接收端，安装包核对所捕获原始报文与业务身份，再验证持久回执去重。
+
+验收仅在测试夹具中把命名 HTTP 传输转发到本机真实接收端，保留原公开目标检查、队列、签名与落账；没有放行生产内网目标或宣称公网交付。入队提交后故意丢失一次确认，真实 Outbox 重试仍只产生一条投递/消费结果。接收程序仅复制样例的三个有限源文件，消费 SDK 不依赖仓库内部运行路径；各提供程序独立目录，共享各自 API/Worker 密钥环。临时账本/包目录成功后正常清理，不公开发布包或访问客户地址。

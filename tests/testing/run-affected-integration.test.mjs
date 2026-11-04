@@ -25,7 +25,7 @@ const execFileAsync = promisify(execFile);
 test('外部 SDK 与包夹具必须走独立安装入口，不能回退无关 Smoke', () => {
   const selection=classifyChangedPaths(['packages/integration-sdk/src/http.ts','tests/integration-sdk/consumer.ts',
     'scripts/openapi/generate-integration-sdk.mjs','scripts/testing/run-integration-sdk-package.mjs',
-    'tests/Full.NET.IntegrationTests/Api/IntegrationSdkPackageTests.cs']);
+    'tests/Full.NET.IntegrationTests/Api/IntegrationSdkPackageTests.cs','tests/Full.NET.IntegrationTests/Api/IntegrationSdkPackageTests.BusinessConsumer.cs','tests/integration-sdk/receiver.mjs']);
   assert.deepEqual(selection.targets,[{kind:'tooling',name:'sdk-package'}]);
   assert.deepEqual(targetsForPhase(selection.targets,'inner'),selection.targets);
   assert.ok(selection.reasons.every(reason=>reason.startsWith('SDK 独立安装验收')));

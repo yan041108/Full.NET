@@ -13,7 +13,9 @@ function run(command,args,cwd=root,env=process.env) {
 await generateIntegrationSdk();
 run(process.execPath,[path.join(root,'packages/integration-sdk/node_modules/typescript/bin/tsc'),'--project',path.join(root,'packages/integration-sdk/tsconfig.json')]);
 process.stdout.write(run(process.execPath,['--test','tests/integration-sdk.test.mjs']).slice(-2500));
-// 与项目定向验收共用资源预算；此入口复用按开发入门已构建的后端引用，只编译当前测试程序集。
+// 复用已构建的框架库；仅编译本场景 Worker 与测试程序集，构建和实际进程验收顺序使用同一资源预算。
+const workerBuild=run(process.execPath,['scripts/testing/run-build-with-resources.mjs','--cpu','2','--memory-gib','6','--','dotnet','build','tests/Tools/Full.NET.EnterpriseRequest.WorkerFixture/Full.NET.EnterpriseRequest.WorkerFixture.csproj','-c','Release','--no-restore','-m:2','-v:minimal','-p:BuildProjectReferences=false']);
+process.stdout.write(workerBuild.slice(-900));
 const build=run(process.execPath,['scripts/testing/run-build-with-resources.mjs','--cpu','2','--memory-gib','6','--','dotnet','build','tests/Full.NET.IntegrationTests/Full.NET.IntegrationTests.csproj','-c','Release','--no-restore','-m:2','-v:minimal','-p:BuildProjectReferences=false','-p:UseSharedCompilation=false']);
 process.stdout.write(build.slice(-1200));
 await withTestRun({cwd:root,heavy:true},async()=>{
@@ -25,7 +27,9 @@ await withTestRun({cwd:root,heavy:true},async()=>{
   for(const file of ['dist/index.js','dist/index.d.ts','README.md','LICENSE'])if(!inventory.has(file))throw Error('SDK package is missing '+file);
   const archive=path.join(packages,packed[0].filename);fs.writeFileSync(path.join(workspace,'package.json'),JSON.stringify({name:'fullnet-sdk-clean-consumer',private:true,type:'module'}));
   run(process.execPath,[npm,'install','--offline','--ignore-scripts','--no-audit','--no-fund','--package-lock=false',archive],workspace,env);
-  for(const name of ['consumer.mjs','consumer.ts'])fs.copyFileSync(path.join(root,'tests/integration-sdk',name),path.join(workspace,name));
+  for(const name of ['consumer.mjs','consumer.ts','receiver.mjs'])fs.copyFileSync(path.join(root,'tests/integration-sdk',name),path.join(workspace,name));
+  const receiver=path.join(workspace,'webhook-receiver');fs.mkdirSync(receiver);
+  for(const name of ['server.mjs','signature.mjs','receipt-store.mjs'])fs.copyFileSync(path.join(root,'samples/webhook-consumer',name),path.join(receiver,name));
   fs.writeFileSync(path.join(workspace,'tsconfig.json'),JSON.stringify({compilerOptions:{target:'ES2024',module:'NodeNext',moduleResolution:'NodeNext',strict:true,noEmit:true,lib:['ES2024','DOM','DOM.Iterable']},include:['consumer.ts']}));
   run(process.execPath,[path.join(root,'packages/integration-sdk/node_modules/typescript/bin/tsc'),'--project',path.join(workspace,'tsconfig.json')],workspace,env);
   const installed=JSON.parse(fs.readFileSync(path.join(workspace,'node_modules/@fullnet/integration-sdk/package.json'),'utf8'));if(installed.dependencies&&Object.keys(installed.dependencies).length)throw Error('The SDK must not depend on workspace runtime implementations.');

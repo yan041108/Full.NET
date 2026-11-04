@@ -21,7 +21,7 @@ internal sealed class EnterpriseRequestWorkerProcess : IAsyncDisposable
         errors = PumpAsync(process.StandardError, log + ".stderr.log");
     }
 
-    internal static async Task<EnterpriseRequestWorkerProcess> StartAsync(FullNetApiFactory factory, string evidence, string mode, string gateFile, int sequence)
+    internal static async Task<EnterpriseRequestWorkerProcess> StartAsync(FullNetApiFactory factory, string evidence, string mode, string gateFile, int sequence, string? webhookReceiverUrl=null, bool webhookFailAfterEnqueueOnce=false)
     {
         var root = FullNetApiFactory.FindRepositoryRoot();
         var directory = Environment.GetEnvironmentVariable("FULLNET_ENTERPRISE_WORKER_FIXTURE_OUTPUT")
@@ -46,7 +46,10 @@ internal sealed class EnterpriseRequestWorkerProcess : IAsyncDisposable
             ["Identity:AllowDevelopmentEphemeralSigningKey"] = "true", ["Identity:AllowedOrigins:0"] = "http://localhost",
             ["OutboxWorker:PollMilliseconds"] = "100", ["OutboxWorker:MaximumIdlePollMilliseconds"] = "1000",
             ["OutboxWorker:LeaseSeconds"] = "10", ["OutboxWorker:LeaseRenewalSeconds"] = "3", ["OutboxWorker:MaxConcurrency"] = "1",
+            ["OutboxWorker:MaxAttempts"] = webhookFailAfterEnqueueOnce?"3":"1",
             ["RecoveryFixture:Pause"] = mode, ["RecoveryFixture:GateFile"] = gateFile,
+            ["RecoveryFixture:WebhookReceiverUrl"] = webhookReceiverUrl, ["Webhooks:Delivery:PollMilliseconds"]="100",
+            ["RecoveryFixture:WebhookFailAfterEnqueueOnce"]=webhookFailAfterEnqueueOnce.ToString(),
             ["Notifications:Worker:PollMilliseconds"] = "100", ["Workflow:RecoveryWorker:PollMilliseconds"] = "100"
         };
         foreach (var setting in settings) if (setting.Value is not null) start.Environment[setting.Key.Replace(":", "__", StringComparison.Ordinal)] = setting.Value;

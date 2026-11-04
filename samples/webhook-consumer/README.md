@@ -76,3 +76,5 @@ node samples/webhook-consumer/verify-signature.mjs \
 元数据 JSON 包含请求头对应的 `version`、`keyId`、`timestamp`、`eventId`、`deliveryId`、`eventType` 字符串。`--key-id` 来自受保护配置；脚本按签名 v1 规范串进行 HMAC-SHA256 验证，并核对实际当前时间窗，历史请求可用于诊断，不能当作当前有效签名。
 
 运行本样例的定向验证：`pnpm test:webhook-consumer`。测试使用真实本地 HTTP 和独立系统临时账本，不连接平台后端或外部服务。
+
+需要验证实际平台业务链时，按 SDK README 准备双库、Redis 与后端构建后运行 `pnpm test:integration-sdk:package`：企业申请实际提交审批并完成，独立 Worker 从事务 Outbox 扇出 Webhook，真实本机接收端验签/保存回执，独立安装包读取同一原始报文并核对业务身份。测试还覆盖入队确认丢失后的原事件重试及重复接收，使用各自临时账本并正常关闭；仅测试传输转发至回环，不改变生产 SSRF 规则。

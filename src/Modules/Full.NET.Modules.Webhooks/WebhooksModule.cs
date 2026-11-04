@@ -2,6 +2,7 @@ using Full.NET.Abstractions.Messaging;
 using Full.NET.Hosting.Api;
 using Full.NET.Modularity.Modules;
 using Full.NET.Modules.Identity.Contracts;
+using Full.NET.Modules.Workflow.Contracts;
 using Full.NET.Modules.Webhooks.Delivery;
 using Full.NET.Modules.Webhooks.Features.DeliverWebhooks;
 using Full.NET.Modules.Webhooks.Security;
@@ -32,7 +33,7 @@ public sealed class WebhooksModule : IFullNetModule
     public IReadOnlyCollection<string> OptionalContractDependencies => ["Workflow"];
 
     /// <summary>
-    /// 注册 Webhooks 模块的应用服务：订阅查询与管理、事件入队、Workflow 完成事件处理器、
+    /// 注册 Webhooks 模块的应用服务：订阅查询与管理、事件入队、Workflow 完成事件接收点、
     /// 授权目录、投递 HTTP 客户端与签名保护等，以及 AOT 物化器。
     /// </summary>
     public void AddServices(IServiceCollection services, IConfiguration configuration)
@@ -47,10 +48,6 @@ public sealed class WebhooksModule : IFullNetModule
         services.AddScoped<Features.ManageWebhookDeliveries.WebhookDeliveryHistoryQueryService>();
         services.AddScoped<Features.ManageWebhookDeliveries.WebhookDeliveryReplayService>();
         services.AddScoped<Features.RotateSigningKey.WebhookSigningKeyRotationService>();
-        services.AddScoped<WebhookEventEnqueueService>();
-        services.TryAddEnumerable(ServiceDescriptor.Scoped<
-            IIntegrationEventHandler,
-            WorkflowInstanceCompletedWebhookHandler>());
         services.ConfigureHttpJsonOptions(options =>
             options.SerializerOptions.TypeInfoResolverChain.Insert(
                 0,
@@ -62,7 +59,7 @@ public sealed class WebhooksModule : IFullNetModule
     }
 
     /// <summary>
-    /// 注册 Webhooks 后台投递能力：投递工作选项、签名保护、批量处理器与 Webhook 投递 Hosted 后台服务。
+    /// 注册 Webhooks 后台投递能力：完成事件接收及独立入队、签名保护、批量处理器与投递循环。
     /// </summary>
     public void AddBackgroundServices(IServiceCollection services, IConfiguration configuration)
     {
@@ -88,6 +85,8 @@ public sealed class WebhooksModule : IFullNetModule
             .ConfigurePrimaryHttpMessageHandler(() => CreateDeliveryHandler());
         services.AddScoped<WebhookSigningSecretProtector>();
         services.AddScoped<WebhookDeliveryBatchProcessor>();
+        services.TryAddScoped<WebhookEventEnqueueService>();
+        services.TryAddEnumerable(ServiceDescriptor.Scoped<IWorkflowInstanceCompletedSink,WorkflowInstanceCompletedWebhookSink>());
     }
 
     private static SocketsHttpHandler CreateDeliveryHandler()

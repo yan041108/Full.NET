@@ -35,7 +35,10 @@ if (phase === 'bootstrap') {
   const verify=()=>verifyWorkflowCompletedWebhook({body,signature:input.signature,eventId:input.eventId,deliveryId:input.deliveryId,eventType:input.eventType,version:input.version,keyId:input.keyId,timestamp:input.timestamp,
     expectedTenantId:env.SDK_TENANT_A,resolveSigningSecret:keyId=>keyId===env.SDK_KEY_ID?env.SDK_SIGNING_SECRET:null});
   const event=await verify(); assert.equal(event.EventId,input.eventId); assert.deepEqual(await verify(),event);
-  const history=await webhooksListSubscriptionDeliveries(client,{subscriptionId:input.subscriptionId,page:1,pageSize:20});assert.ok(history.items.some(row=>row.eventId===event.EventId));
+  assert.equal(event.Data.InstanceId,env.SDK_WORKFLOW_INSTANCE_ID);assert.equal(event.Data.BusinessId,env.SDK_BUSINESS_ID);
+  const history=await webhooksListSubscriptionDeliveries(client,{subscriptionId:env.SDK_SUBSCRIPTION_ID,page:1,pageSize:20});assert.ok(history.items.some(row=>row.eventId===event.EventId&&row.statusKey==='delivered'));
+  const duplicate=await fetch(env.SDK_RECEIVER_URL,{method:'POST',body:input.body,headers:{'Content-Type':'application/json','X-FullNet-Signature':input.signature,'X-FullNet-Signature-Version':input.version,'X-FullNet-Key-Id':input.keyId,'X-FullNet-Timestamp':input.timestamp,'X-FullNet-Event-Id':input.eventId,'X-FullNet-Delivery-Id':input.deliveryId,'X-FullNet-Event-Type':input.eventType}});assert.equal(duplicate.status,200);assert.equal((await duplicate.json()).duplicate,true);
+  const ledger=(await readFile('receipts.ndjson','utf8')).trim().split('\n');assert.equal(ledger.length,1);assert.equal(JSON.parse(ledger[0]).eventId,event.EventId);assert.equal(JSON.parse(ledger[0]).result.instanceId,event.Data.InstanceId);
   await writeFile('event-consumed.json',JSON.stringify({eventId:event.EventId,instanceId:event.Data.InstanceId}));console.log('SDK_EVENT_OK');
 } else if (phase === 'revoked') {
   await assert.rejects(webhooksListSubscriptions(client,{}),error=>error instanceof IntegrationHttpError&&error.problem.status===401);console.log('SDK_REVOKED_OK');
