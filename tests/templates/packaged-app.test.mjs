@@ -23,6 +23,34 @@ const skipBundleIntegration = areBundleInputsClean()
   ? false
   : 'source bundle inputs have uncommitted changes';
 
+test('template package freezes host metadata and creator inputs to its source commit', { skip: skipBundleIntegration }, () => {
+  const workspace = mkdtempSync(join(tmpdir(), 'fullnet-frozen-template-inputs-'));
+  try {
+    const { templateRoot } = buildAppTemplate({ output: join(workspace, 'package') });
+    const manifest = JSON.parse(readFileSync(join(templateRoot, 'framework-manifest.json'), 'utf8'));
+    for (const [source, packaged] of [
+      ['templates/fullnet-app/Directory.Build.targets', 'Directory.Build.targets'],
+      ['templates/fullnet-app/src/FullNetAppNameToken.Composition/ApplicationModuleCatalog.cs', 'src/FullNetAppNameToken.Composition/ApplicationModuleCatalog.cs'],
+      ['scripts/templates/create-app.mjs', '.fullnet-tools/create-app.mjs'],
+      ['scripts/templates/diagnose-app.mjs', '.fullnet-tools/diagnose-app.mjs'],
+    ]) {
+      const committed = execFileSync('git', ['show', `${manifest.sourceCommit}:${source}`], { encoding: 'utf8' });
+      assert.equal(readFileSync(join(templateRoot, packaged), 'utf8').replaceAll('\r\n', '\n'), committed.replaceAll('\r\n', '\n'));
+    }
+    // 框架包不嵌套第二个模板，避免 dotnet new 发现重复身份。
+    assert.equal(existsSync(join(templateRoot, 'framework/fullnet/templates/fullnet-app/.template.config')), false);
+    const appRoot = join(workspace, 'application');
+    createApp({ packageRoot: templateRoot, output: appRoot, name: 'Demo', ownerKey: 'acme', preset: 'minimal' });
+    assert.equal(verifyCreatedApp(appRoot).ok, true);
+    const targets = readFileSync(join(appRoot, 'Directory.Build.targets'), 'utf8');
+    for (const host of ['Api', 'Worker', 'Migrator']) assert.ok(targets.includes(`Demo.Host.${host}`));
+    assert.ok(targets.includes('CopyToPublishDirectory="PreserveNewest"'));
+    assert.ok(existsSync(join(appRoot, 'framework-manifest.json')));
+    assert.ok(existsSync(join(appRoot, 'fullnet-app.json')));
+    assert.match(readFileSync(join(appRoot, 'src/Demo.Composition/ApplicationModuleCatalog.cs'), 'utf8'), /AppContext\.BaseDirectory/u);
+  } finally { rmSync(workspace, { recursive: true, force: true }); }
+});
+
 test('application template preserves the workflow frontend contract in created applications', { skip: skipBundleIntegration }, () => {
   const workspace = mkdtempSync(join(tmpdir(), 'fullnet-workflow-contract-'));
   try {

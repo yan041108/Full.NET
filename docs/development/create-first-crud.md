@@ -159,14 +159,15 @@ dotnet run --project framework/fullnet/src/Tools/Full.NET.CodeGeneration.Cli -- 
 可以在新应用中用下面的 PowerShell 步骤验证保护边界。第一遍生成后再添加人工文件，重复生成应仍报告 14 个 `Unchanged`，且人工文件内容保持。
 
 ```powershell
+New-Item -ItemType Directory -Path backend -Force | Out-Null
 '// 人工业务扩展，重复生成必须保留。' | Set-Content -Encoding utf8 backend/Product.manual.cs
 dotnet run --project framework/fullnet/src/Tools/Full.NET.CodeGeneration.Cli -- --schema schema.json --workspace . --apply
-Copy-Item backend/ProductSql.g.cs backend/ProductSql.before-conflict.txt
-Add-Content backend/ProductSql.g.cs '// 人工修改，必须拒绝覆盖。'
+Copy-Item generated/acme/catalog/product/backend/ProductSql.g.cs generated/acme/catalog/product/backend/ProductSql.before-conflict.txt
+Add-Content generated/acme/catalog/product/backend/ProductSql.g.cs '// 人工修改，必须拒绝覆盖。'
 dotnet run --project framework/fullnet/src/Tools/Full.NET.CodeGeneration.Cli -- --schema schema.json --workspace . --apply
 ```
 
-最后一条命令应返回退出码 2，并精确报告 `Conflict backend/ProductSql.g.cs`；修改后的 SQL、人工文件与生成清单均应保持，其他产物也不能被部分更新。只有确认备份属于本次演练、期间未再修改 SQL，才能用 `Copy-Item backend/ProductSql.before-conflict.txt backend/ProductSql.g.cs` 撤销本次测试注释，再继续接入；业务修改应保留并人工评审，不应删除生成清单绕过冲突。
+最后一条命令应返回退出码 2，并精确报告 `Conflict generated/acme/catalog/product/backend/ProductSql.g.cs`；修改后的 SQL、人工文件与生成清单均应保持，其他产物也不能被部分更新。只有确认备份属于本次演练、期间未再修改 SQL，才能用 `Copy-Item generated/acme/catalog/product/backend/ProductSql.before-conflict.txt generated/acme/catalog/product/backend/ProductSql.g.cs` 撤销本次测试注释，再继续接入；业务修改应保留并人工评审，不应删除生成清单绕过冲突。
 
 2026-10-04 已用修复提交 `0957ee6232cd4ccebf3f90847d77955675baa4d3` 创建新的 SQL Server / Minimal 应用，保存本文 Schema 后执行上述入口。开发诊断返回 0，并报告连接与三个常见秘密占位；生产诊断对同一占位配置返回 1。预览、生成、重复生成分别返回 0；14 个产物符合预期，人工文件保持，SQL 冲突返回 2，配置与受管框架摘要保持。六条 CLI 命令合计 40.214 秒，不含组包、创建、下载、宿主接入、迁移或启动耗时；它不是完整教程或冷启动时长承诺。原始结果位于 `.tmp/f02-tutorial-walk-0957ee62/results/`。此六命令证据只覆盖前四步，后续接线、迁移和运行实走记录另见第五至第七步。
 
@@ -242,19 +243,17 @@ public sealed class CatalogModule : IFullNetModule
 }
 ```
 
-规划命令只报告接线缺口，不写文件；此时后端生成和宿主接线显示 `ChangeRequired`，已有模块项目显示 `Satisfied`，未声明客户端路由显示 `ManualReview`。然后生成模块内的六个产物并编译：
+规划命令只报告接线缺口，不写文件；此时后端生成和宿主接线显示 `ChangeRequired`，已有模块项目显示 `Satisfied`，未声明客户端路由显示 `ManualReview`。本步仅规划，准备好下节的授权贡献者后再一次提交完整接入：
 
 ```bash
 dotnet run --project framework/fullnet/src/Tools/Full.NET.CodeGeneration.Cli -- plan-module-integration --schema schema.json --repository . --target integration-target.json
-dotnet run --project framework/fullnet/src/Tools/Full.NET.CodeGeneration.Cli -- apply-module-integration --schema schema.json --repository . --target integration-target.json
-dotnet build src/Demo.Modules.Catalog/Demo.Modules.Catalog.csproj -c Release
 ```
 
-`apply-module-integration` 应报告六项 `Create` 和模块候选编译通过；产物位于模块的 `Generated/`，原来根目录的 `backend/` 草稿保持。此命令尚未接入 Composition、授权贡献者或页面。
+分步写盘入口已移除；不要调用 `apply-module-integration`。模块的六个产物、入口、Composition 和授权在同一完整计划中先编译后提交；人工文件和已存在的其他模块保持。
 
 ### 接入授权贡献者与组合根
 
-模块生成完成后，在同目录保存 `CatalogAuthorizationContributor.cs`。三个标准集合供 CLI 接入，保留一项人工权限用于确认再生成不会覆盖应用扩展：
+在模块同目录保存 `CatalogAuthorizationContributor.cs`。三个标准集合供 CLI 完整接入，保留一项人工权限用于确认再生成不会覆盖应用扩展：
 
 ```csharp
 using Demo.Modules.Catalog.Generated;
@@ -283,7 +282,7 @@ public sealed class CatalogAuthorizationContributor : IAuthorizationCatalogContr
 services.AddSingleton<Full.NET.Modules.Identity.Contracts.IAuthorizationCatalogContributor, CatalogAuthorizationContributor>();
 ```
 
-另存应用根的 `host-target.json`；逐阶段目标和完整编排目标必须分开，因为只有完整编排接受 `authorizationContributorPath`：
+另存应用根的 `host-target.json`，在只读规划目标上加入授权贡献者；后续写入和升级使用这个完整目标，接入 Vue 时继续保留其字段：
 
 ```json
 {
@@ -324,8 +323,8 @@ dotnet run --project framework/fullnet/src/Tools/Full.NET.CodeGeneration.Cli -- 
 确认 `packages/client-contracts/src/application-generated/catalog-product/` 尚不存在，然后从根目录执行：
 
 ```bash
-node .fullnet-tools/openapi/generate-fullnet-client.mjs --input contracts/openapi/products.generated.openapi.json --manifest contracts/openapi/catalog-product.client-manifest.json --output packages/client-contracts/src/application-generated/catalog-product --http-module @fullnet/client-contracts
-node .fullnet-tools/openapi/generate-fullnet-client.mjs --input contracts/openapi/products.generated.openapi.json --manifest contracts/openapi/catalog-product.client-manifest.json --output packages/client-contracts/src/application-generated/catalog-product --http-module @fullnet/client-contracts --check
+node .fullnet-tools/openapi/generate-fullnet-client.mjs --input generated/acme/catalog/product/contracts/openapi/products.generated.openapi.json --manifest contracts/openapi/catalog-product.client-manifest.json --output packages/client-contracts/src/application-generated/catalog-product --http-module @fullnet/client-contracts
+node .fullnet-tools/openapi/generate-fullnet-client.mjs --input generated/acme/catalog/product/contracts/openapi/products.generated.openapi.json --manifest contracts/openapi/catalog-product.client-manifest.json --output packages/client-contracts/src/application-generated/catalog-product --http-module @fullnet/client-contracts --check
 ```
 
 应生成四个 TypeScript 文件并通过零漂移检查。业务产物与原 `src/generated/` 基线分开；`--http-module` 使业务操作复用共享 HTTP 类型。这里消费的是 CRUD 生成的静态 OpenAPI，尚未与正在运行的 API 文档比较。客户端生成器的重新生成会写入指定目录，不提供人工合并；这些文件保持生成器所有，人工扩展放在其他文件，`--check` 只核对且不写盘。
@@ -361,9 +360,9 @@ $vueTargets = @(
 foreach ($vueTarget in $vueTargets) {
   if (Test-Path -LiteralPath $vueTarget) { throw "页面目标已存在，先审查：$vueTarget" }
 }
-Copy-Item -LiteralPath clients/vue/products-page.generated.ts -Destination ui/admin/src/views/products-page.generated.ts
-Copy-Item -LiteralPath clients/vue/products.generated.ts -Destination ui/admin/src/views/products.generated.ts
-Copy-Item -LiteralPath clients/vue/productsView.vue -Destination ui/admin/src/views/CatalogProductsView.vue
+Copy-Item -LiteralPath generated/acme/catalog/product/clients/vue/products-page.generated.ts -Destination ui/admin/src/views/products-page.generated.ts
+Copy-Item -LiteralPath generated/acme/catalog/product/clients/vue/products.generated.ts -Destination ui/admin/src/views/products.generated.ts
+Copy-Item -LiteralPath generated/acme/catalog/product/clients/vue/productsView.vue -Destination ui/admin/src/views/CatalogProductsView.vue
 ```
 
 在 `packages/client-contracts/src/navigation-catalog.ts` 的 `ADMIN_NAVIGATION_CATALOG` 数组末尾加入下面一项，并给前一项补逗号。先核对 componentKey、routeName 与 path 均未被其他项占用；保留其他导航及失败关闭校验，不增加公开路由或手写权限白名单：
@@ -376,7 +375,7 @@ Copy-Item -LiteralPath clients/vue/productsView.vue -Destination ui/admin/src/vi
   }
 ```
 
-该三元组必须与后端贡献者生成的导航一致；本地目录只登记可信组件，不授予权限。在应用根另存 `vue-target.json`，从逐阶段目标扩展 `clientRoute`，不带完整 Host 专用的 `authorizationContributorPath`：
+该三元组必须与后端贡献者生成的导航一致；本地目录只登记可信组件，不授予权限。在应用根另存 `vue-target.json`，从完整 `host-target.json` 扩展 `clientRoute`，保留授权贡献者及其他现有绑定：
 
 ```json
 {
@@ -386,6 +385,7 @@ Copy-Item -LiteralPath clients/vue/productsView.vue -Destination ui/admin/src/vi
   "compositionProjectPath": "src/Demo.Composition/Demo.Composition.csproj",
   "compositionCatalogPath": "src/Demo.Composition/ApplicationModuleCatalog.cs",
   "vueRouterPath": "ui/admin/src/router/index.ts",
+  "authorizationContributorPath": "src/Demo.Modules.Catalog/CatalogAuthorizationContributor.cs",
   "clientRoute": {
     "routePath": "/catalog/products",
     "vueRouteName": "m7-catalog-products",
@@ -397,8 +397,8 @@ Copy-Item -LiteralPath clients/vue/productsView.vue -Destination ui/admin/src/vi
 执行路由接入及重复检查，再安装冻结依赖、编译共享包和 Vue：
 
 ```bash
-dotnet run --project framework/fullnet/src/Tools/Full.NET.CodeGeneration.Cli -- apply-client-route-integration --schema schema.json --repository . --target vue-target.json
-dotnet run --project framework/fullnet/src/Tools/Full.NET.CodeGeneration.Cli -- apply-client-route-integration --schema schema.json --repository . --target vue-target.json
+dotnet run --project framework/fullnet/src/Tools/Full.NET.CodeGeneration.Cli -- apply-host-integration --schema schema.json --repository . --target vue-target.json
+dotnet run --project framework/fullnet/src/Tools/Full.NET.CodeGeneration.Cli -- apply-host-integration --schema schema.json --repository . --target vue-target.json
 pnpm install --frozen-lockfile
 pnpm --filter @fullnet/client-contracts build
 pnpm --filter @fullnet/admin build
@@ -406,7 +406,7 @@ pnpm --filter @fullnet/admin build
 
 首次路由应报告 `Update ui/admin/src/router/index.ts`，重复应报告 `Unchanged` 且内容保持。Vue 构建包含类型检查；页面继续使用应用已有 HTTP、Session 和路由守卫，前端按钮隐藏不能替代服务端精确授权。本节至多证明接线与生产构建，数据库迁移、实际登录、租户切换及普通账号页面/操作仍须运行验收，不能标为教程全链路 `Verified`。
 
-采纳的 `CatalogProductsView.vue` 不属于根 CRUD 生成清单，可在 `<script setup lang="ts">` 后追加人工注释，再执行第四步的 `--apply` 并比较页面、路由、客户端导出与导航文件，确认全部保持。对生成源 `clients/vue/productsView.vue` 的人工修改则应触发退出 2、精确 `Conflict`，并保持清单及所有产物；只撤销本次验证注释后再构建。该保护不表示生成器会自动同步或合并已采纳页面。
+完整接入会把采纳的 `CatalogProductsView.vue` 和两个页面适配文件纳入受管清单。添加人工注释后再生成应退出 2，并指出采纳页面的漂移；生成源 `generated/acme/catalog/product/clients/vue/productsView.vue` 的人工修改同样必须拒绝覆盖。核对失败未改写其他文件后，只撤销本次验证注释再继续；人工扩展放在未受管的独立业务文件中。修改 Schema 后使用原 `vue-target.json` 执行 `apply-host-integration`，统一更新源产物、模块和采纳页面，再核对重复执行全部 `Unchanged`；数据库增量仍须显式评审与采纳。
 
 相关随包测试可从应用根执行 `pnpm --filter @fullnet/client-contracts test tests/navigation-catalog.test.ts --maxWorkers=2` 和 `pnpm --filter @fullnet/admin test src/navigation/catalog.test.ts src/router/index.auth-guard.test.ts --maxWorkers=2`；它们检查导航与守卫，仍不替代真实账号、数据库或浏览器验收。
 
@@ -480,8 +480,8 @@ SDK 探测在进程启动后对退出与标准输出/错误读取设置 30 秒�
 
 ```powershell
 $migrationCopies = @{
-  'templates/migrations/SqlServer/CreateProduct.sql.template' = 'src/Demo.Host.Migrator/Migrations/SqlServer/001_CreateProduct.sql'
-  'templates/migrations/MySql/CreateProduct.sql.template' = 'src/Demo.Host.Migrator/Migrations/MySql/001_CreateProduct.sql'
+  'generated/acme/catalog/product/templates/migrations/SqlServer/CreateProduct.sql.template' = 'src/Demo.Host.Migrator/Migrations/SqlServer/001_CreateProduct.sql'
+  'generated/acme/catalog/product/templates/migrations/MySql/CreateProduct.sql.template' = 'src/Demo.Host.Migrator/Migrations/MySql/001_CreateProduct.sql'
 }
 foreach ($migrationCopy in $migrationCopies.GetEnumerator()) {
   if (!(Test-Path -LiteralPath $migrationCopy.Key -PathType Leaf)) { throw "缺少迁移源：$($migrationCopy.Key)" }

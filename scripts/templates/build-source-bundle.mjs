@@ -62,6 +62,9 @@ const INCLUDE_FILES = [
   'contracts/workflow/vform3-runtime-release.json',
 ];
 
+// 模板与创建器同属正式分发输入；不能仅检查框架运行源码是否干净。
+export const TEMPLATE_INPUT_ROOTS = ['templates/fullnet-app', 'scripts/templates'];
+
 const EXCLUDED_DIR_NAMES = new Set(['bin', 'obj', '.vs', 'node_modules']);
 const SECRET_FILE_PATTERN = /(?:^|\/)(?:\.env|secrets?\.json|appsettings\.(?:Production|Local)\.json)$/i;
 
@@ -120,7 +123,7 @@ function assertCommittedBundleInputs(run) {
 
 /** 供模板测试在脏工作区跳过需完整打包的用例；CI 干净提交仍必须跑绿。 */
 export function readBundleInputStatus(run = spawnSync) {
-  const pathspecs = [...INCLUDE_ROOTS, ...INCLUDE_FILES].map(toPosixPath);
+  const pathspecs = [...INCLUDE_ROOTS, ...INCLUDE_FILES, ...TEMPLATE_INPUT_ROOTS].map(toPosixPath);
   const result = run('git', ['status', '--porcelain', '--untracked-files=all', '--', ...pathspecs], {
     cwd: REPO_ROOT,
     encoding: 'utf8',

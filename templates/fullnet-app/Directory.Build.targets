@@ -1,4 +1,9 @@
 <Project>
   <!-- 应用宿主与框架项目使用同一 Native AOT 分析和生成器配置。 -->
   <Import Project="framework/fullnet/Directory.Build.targets" />
+  <ItemGroup Condition="'$(MSBuildProjectName)' == 'FullNetAppNameToken.Host.Api' or '$(MSBuildProjectName)' == 'FullNetAppNameToken.Host.Worker' or '$(MSBuildProjectName)' == 'FullNetAppNameToken.Host.Migrator'">
+    <!-- 清单与应用声明一同交付，清单缺失时必须识别为应用配置损坏，不能回退全框架迁移。 -->
+    <Content Include="$(MSBuildThisFileDirectory)framework-manifest.json" Link="framework-manifest.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="$(MSBuildThisFileDirectory)fullnet-app.json" Link="fullnet-app.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
 </Project>

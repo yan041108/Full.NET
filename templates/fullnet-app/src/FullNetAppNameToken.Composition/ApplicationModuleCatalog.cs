@@ -1,4 +1,5 @@
 using Full.NET.Composition;
+using Full.NET.Data.Abstractions;
 using Full.NET.Modularity.Modules;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -14,8 +15,15 @@ public static class ApplicationModuleCatalog
     /// <param name="profile">API、Worker 或 Migrator 角色。</param>
     /// <returns>宿主服务集合。</returns>
     public static IServiceCollection AddApplicationModules(
-        this IServiceCollection services, IConfiguration configuration, FullNetHostProfile profile) =>
-        services.AddFullNetApplicationModules(configuration, profile, CreateModules());
+        this IServiceCollection services, IConfiguration configuration, FullNetHostProfile profile)
+    {
+        // 三个宿主从自身构建/发布目录读取同一冻结清单，不依赖 SDK 或服务管理器的工作目录。
+        services.PostConfigure<FrameworkManifestMigrationOptions>(options =>
+        {
+            if (string.IsNullOrWhiteSpace(options.ContentRoot)) options.ContentRoot = AppContext.BaseDirectory;
+        });
+        return services.AddFullNetApplicationModules(configuration, profile, CreateModules());
+    }
 
     // 保持标准集合表达式，供显式 CLI 接入；不扫描程序集或猜测业务模块。
     private static IReadOnlyList<IFullNetModule> CreateModules() =>

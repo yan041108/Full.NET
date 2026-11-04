@@ -6,6 +6,7 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { buildAppTemplate } from '../../../scripts/templates/build-app-template.mjs';
+import { TEMPLATE_INPUT_ROOTS } from '../../../scripts/templates/build-source-bundle.mjs';
 import { createApp } from '../../../scripts/templates/create-app.mjs';
 import { testRunEnvironment } from '../../../scripts/testing/test-run-context.mjs';
 import { prepareApplicationCompositionProbe } from './application-composition-probe.mjs';
@@ -172,7 +173,6 @@ export function buildSharedEnv(connectionString, databaseProvider, redisConnecti
     Identity__AllowDevelopmentEphemeralSigningKey: 'true',
     Tenancy__HostDomains__0: 'localhost',
     Tenancy__HostDomains__1: '127.0.0.1',
-    FullNet__FrameworkManifest__ContentRoot: '.',
     DOTNET_ENVIRONMENT: 'Development',
     ASPNETCORE_ENVIRONMENT: 'Development',
   };
@@ -271,7 +271,8 @@ export async function verifyCreatedAppRealStack(databaseProviderKey, { scope = '
       const changes = spawnSync('git', ['diff', '--name-only', packageManifest.sourceCommit, 'HEAD', '--'],
         { cwd: repoRoot, encoding: 'utf8', windowsHide: true, timeout: 10_000 });
       assert.equal(changes.status, 0, 'cannot compare cached template source');
-      assert.ok(!changes.stdout.split(/\r?\n/u).some(path => packageManifest.managedFiles?.[path]), 'cached template framework source is stale');
+      assert.ok(!changes.stdout.split(/\r?\n/u).some(path => packageManifest.managedFiles?.[path]
+        || TEMPLATE_INPUT_ROOTS.some(root => path === root || path.startsWith(root + '/'))), 'cached template framework source is stale');
       // 外层创建工具不在受管框架清单中，复用前另核对其原文；createApp 随后仍检查包内所有摘要。
       for (const name of readdirSync(join(templateRoot, '.fullnet-tools')).filter(name => name.endsWith('.mjs'))) {
         assert.deepEqual(readFileSync(join(templateRoot, '.fullnet-tools', name)), readFileSync(join(repoRoot, 'scripts/templates', name)),

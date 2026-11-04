@@ -9,6 +9,23 @@ import { buildSourceBundle } from '../../scripts/templates/build-source-bundle.m
 import { createApp } from '../../scripts/templates/create-app.mjs';
 
 for (const [name, build] of [['源码包', buildSourceBundle], ['应用模板', buildAppTemplate]]) {
+  for (const input of ['templates/fullnet-app/Directory.Build.targets', 'scripts/templates/create-app.mjs']) {
+    test(`${name}拒绝未提交的模板和创建器输入：${input}`, t => {
+      const root = mkdtempSync(join(tmpdir(), 'fullnet-dirty-template-input-'));
+      t.after(() => rmSync(root, { recursive: true, force: true }));
+      const commands = [];
+      assert.throws(() => build({ output: join(root, 'package'), run: (binary, args) => {
+        commands.push([binary, args]);
+        if (args[0] === 'status') {
+          assert.ok(args.includes('templates/fullnet-app'));
+          assert.ok(args.includes('scripts/templates'));
+          return { status: 0, stdout: ` M ${input}\n` };
+        }
+        return { status: 0, stdout: 'a'.repeat(40) };
+      } }), /inputs contain uncommitted changes/u);
+      assert.deepEqual(commands.map(([binary, args]) => [binary, args[0]]), [['git', 'rev-parse'], ['git', 'status']]);
+    });
+  }
   test(`${name}的 Git 与解包命令都使用准备预算入口`, t => {
     const root = mkdtempSync(join(tmpdir(), 'fullnet-command-budget-'));
     t.after(() => rmSync(root, { recursive: true, force: true }));

@@ -1,5 +1,6 @@
 <Project Sdk="MSTest.Sdk">
   <ItemGroup>
+    <Compile Include="../../templates/fullnet-app/src/FullNetAppNameToken.Composition/ApplicationModuleCatalog.cs" Link="Hosting/Fixtures/TemplateApplicationModuleCatalog.cs" />
     <Compile Include="../Shared/Testing/SessionBindingTestPrincipal.cs" Link="Testing/SessionBindingTestPrincipal.cs" />
     <!-- 直接复用消息故障代理源码，验证帧转发和 Gate，避免测试替身偏离真实验收链。 -->
     <Compile Include="../Full.NET.IntegrationTests/Messaging/MessagingKafkaFaultProxy.cs" Link="Messaging/Fixtures/MessagingKafkaFaultProxy.cs" />

@@ -4,6 +4,7 @@
     <AssemblyName>FullNetAppNameToken.Composition</AssemblyName>
   </PropertyGroup>
   <ItemGroup>
+    <ProjectReference Include="../../framework/fullnet/src/BuildingBlocks/Full.NET.Data.Abstractions/Full.NET.Data.Abstractions.csproj" />
     <ProjectReference Include="../../framework/fullnet/src/Composition/Full.NET.Composition/Full.NET.Composition.csproj" />
   </ItemGroup>
 </Project>
