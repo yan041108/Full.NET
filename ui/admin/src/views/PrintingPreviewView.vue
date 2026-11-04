@@ -25,6 +25,7 @@ import ArtTableHeader from '../framework/art-design/components/ArtTableHeader.vu
 import PermissionGate from '../components/PermissionGate.vue';
 import PrintingTemplateFields from '../components/PrintingTemplateFields.vue';
 import PrintingTenantGrantsDialog from '../components/printing/PrintingTenantGrantsDialog.vue';
+import PrintingFormSchemaSelector from '../components/printing/PrintingFormSchemaSelector.vue';
 import { useSessionStore } from '../auth/session';
 import { useAdminI18n } from '../i18n/adminI18n';
 import {
@@ -151,6 +152,8 @@ const editorControls = computed(() => {
     close: () => { if (owned()) createDialogVisible.value = false; }, save: () => { if (owned()) void submitCreate(); },
     key: (value: string) => input('templateKey', value), name: (value: string) => input('name', value), layout: (value: string) => input('layoutHtml', value), enabled: (value: string | number | boolean) => { if (typeof value === 'boolean') input('isEnabled', value); },
     insert: (key: string) => { if (owned()) void insertLayoutField(key); },
+    schema: (value: string) => { if (owned() && !busy.value && !editingId.value && !createBlocked.value && !writeUnconfirmed.value) editorSchemaKey.value = value; },
+    schemaLayout: (value: {formSchemaKey:string;layoutHtml:string}) => { if (owned() && !editingId.value && !createBlocked.value && !writeUnconfirmed.value && value.formSchemaKey===editorSchemaKey.value && value.layoutHtml.length<=65536) input('layoutHtml',value.layoutHtml); },
     reload: () => { if (owned() && editingId.value === selectedTemplateId.value && !busy.value) void editSelected(); },
     recover: () => { if (owned()) acknowledgeRecovery(); }
   };
@@ -569,6 +572,9 @@ function historyPageAction(delta: number) {
         </ElFormItem>
         <ElFormItem :label="t('printingPreview.fieldName')" required>
           <ElInput :model-value="createForm.name" v-on="{ 'update:modelValue': editorControls.name }" :disabled="busy" maxlength="128" data-testid="printing-template-name" />
+        </ElFormItem>
+        <ElFormItem :label="t('printingTemplates.schema')">
+          <PrintingFormSchemaSelector v-if="createDialogVisible" :model-value="editorSchemaKey" :layout-html="createForm.layoutHtml" :immutable="!!editingId" :disabled="busy||writeUnconfirmed||createBlocked" v-on="{'update:modelValue':editorControls.schema,replace:editorControls.schemaLayout}" />
         </ElFormItem>
         <ElFormItem :label="t('printingPreview.fieldLayoutHtml')" required>
           <ElInput ref="layoutInput" :model-value="createForm.layoutHtml" v-on="{ 'update:modelValue': editorControls.layout }" :disabled="busy" type="textarea" :rows="10" :maxlength="65536" show-word-limit data-testid="printing-template-layout" />

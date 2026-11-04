@@ -8,6 +8,8 @@ export interface PrintingFormSchemaDefinition {
   displayName: string;
   description: string;
   fields: PrintingFormFieldDefinition[];
+  /** 与服务端及生成契约一致；业务表单须按记录权限解析数据。 */
+  requiresRecordId?: boolean;
 }
 
 export interface PrintingTemplate {

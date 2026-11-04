@@ -1589,7 +1589,10 @@
     {
       "apiModule": "ui/admin/src/api/printing-templates.ts",
       "consumers": [
-        "ui/admin/src/views/PrintingPreviewView.vue"
+        "ui/admin/src/views/PrintingPreviewView.vue",
+        "ui/admin/src/components/printing/PrintingFormSchemaSelector.vue",
+        "ui/admin/src/components/PrintingTemplateFields.vue",
+        "ui/admin/src/views/PrintingPublishedTemplatesView.vue"
       ]
     },
     {

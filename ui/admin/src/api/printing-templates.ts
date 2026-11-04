@@ -134,7 +134,17 @@ export async function getPrintingTemplateVersion(templateId: string, versionNumb
 export async function listPrintingFormSchemas(
   signal?: AbortSignal
 ): Promise<PrintingFormSchemaDefinition[]> {
-  return printingListFormSchemas(http, {}, signal);
+  const rows=await printingListFormSchemas(http, {}, signal);
+  if(!Array.isArray(rows)||rows.length>64||rows.some(value=>!validFormSchema(value))||new Set(rows.map(row=>row.formSchemaKey)).size!==rows.length)
+    throw new Error('client.invalid_printing_form_schema_catalog');
+  return rows;
+}
+
+/** 目录和字段均有界；只能插入固定字段名，拒绝可执行占位语法及重复身份。 */
+function validFormSchema(value: PrintingFormSchemaDefinition): boolean {
+  return typeof value.formSchemaKey==='string'&&/^[\x21-\x7e]{1,128}$/u.test(value.formSchemaKey)&&typeof value.displayName==='string'&&typeof value.description==='string'
+    &&(value.requiresRecordId===undefined||typeof value.requiresRecordId==='boolean')&&Array.isArray(value.fields)&&value.fields.length<=64
+    &&value.fields.every(field=>typeof field.displayName==='string'&&/^[a-zA-Z0-9_]{1,64}$/u.test(field.fieldKey))&&new Set(value.fields.map(field=>field.fieldKey)).size===value.fields.length;
 }
 
 /** 读取指定打印表单 schema 定义。 */
@@ -144,9 +154,7 @@ export async function getPrintingFormSchema(
 ): Promise<PrintingFormSchemaDefinition> {
   const value = await printingGetFormSchema(http, { formSchemaKey }, signal);
   // 字段只能来自请求的固定目录，拒绝混入其他 Schema 或可执行占位语法。
-  if (value.formSchemaKey !== formSchemaKey || value.fields.length > 64
-    || value.fields.some(field => !/^[a-zA-Z0-9_]{1,64}$/.test(field.fieldKey))
-    || new Set(value.fields.map(field => field.fieldKey)).size !== value.fields.length) throw new Error('client.invalid_printing_form_schema');
+  if (value.formSchemaKey !== formSchemaKey || !validFormSchema(value)) throw new Error('client.invalid_printing_form_schema');
   return value;
 }
 

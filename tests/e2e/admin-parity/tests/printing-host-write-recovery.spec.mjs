@@ -8,6 +8,12 @@ const draft = { id, templateKey: 'existing', name: '现有草稿', formSchemaKey
   isEnabled: true, createdAtUtc, updatedAtUtc: null, version: 7 };
 const json = (route, body) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) });
 const summary = ({ layoutHtml: _, ...value }) => value;
+const profileBinding={formSchemaKey:'printing.tenant_profile_card',displayName:'租户档案卡片',description:'固定档案字段',requiresRecordId:false,fields:[{fieldKey:'tenantName',displayName:'租户名称'}]};
+const businessBinding={formSchemaKey:'demo.enterprise_request.summary',displayName:'企业申请摘要',description:'已有业务权限边界',requiresRecordId:true,fields:[{fieldKey:'requestNumber',displayName:'申请编号'},{fieldKey:'title',displayName:'申请标题'}]};
+async function wireBindingSchemas(page,{failFirst=false}={}){
+ const reads={catalog:0};await page.route('**/api/v1/printing/form-schemas',route=>{reads.catalog++;if(failFirst&&reads.catalog===1)return route.fulfill({status:503,contentType:'application/problem+json',body:JSON.stringify({status:503,title:'目录暂时不可用',code:'fixture.unavailable'})});return json(route,[profileBinding,businessBinding]);});
+ await page.route('**/api/v1/printing/form-schemas/*',route=>json(route,new URL(route.request().url()).pathname.endsWith(businessBinding.formSchemaKey)?businessBinding:profileBinding));return reads;
+}
 async function boot(page, rows = () => [draft], extraPermissions = []) {
   await page.addInitScript(() => localStorage.setItem('fullnet.admin.locale', 'zh-CN'));
   await page.route('**/api/v1/**', route => route.fulfill({ status: 404 }));
@@ -37,6 +43,22 @@ async function fits(dialog, page) {
     return true;
   })).toBe(true);
 }
+
+test('业务表单绑定选择保留输入，基础版式需确认且保存不自动发布',async({page},info)=>{
+ let saved,creates=0,publishes=0;await boot(page,()=>saved?[saved,draft]:[draft],['printing.form_schemas.read']);await wireBindingSchemas(page);
+ await page.route('**/api/v1/printing/templates',route=>{creates++;const body=route.request().postDataJSON();expect(body.formSchemaKey).toBe(businessBinding.formSchemaKey);expect(body.layoutHtml).toContain('{{requestNumber}}');saved={...draft,...body,id:createdId,version:1,latestPublishedVersionNumber:0};return json(route,saved);});
+ await page.route('**/api/v1/printing/templates/*/publish',route=>{publishes++;return route.fulfill({status:500});});
+ await page.getByTestId('printing-preview-create').click();await page.getByTestId('printing-template-key').fill('business-summary');await page.getByTestId('printing-template-name').fill('申请摘要版式');await page.getByTestId('printing-template-layout').fill('<p>保留我的原始输入</p>');
+ await expect(page.getByTestId('printing-schema-choice')).toBeEnabled();await page.getByTestId('printing-schema-choice').click();await page.getByRole('option',{name:'企业申请摘要 · '+businessBinding.formSchemaKey,exact:true}).click();await expect(page.getByTestId('printing-template-layout')).toHaveValue('<p>保留我的原始输入</p>');await expect(page.getByTestId('printing-template-fields')).toContainText('{{requestNumber}}');expect(creates).toBe(0);
+ await page.getByTestId('printing-schema-layout').click();const confirm=page.locator('.el-popconfirm').filter({hasText:'确定用此表单的基础版式替换当前输入'});await expect(confirm).toBeVisible();await expect(page.getByTestId('printing-template-layout')).toHaveValue('<p>保留我的原始输入</p>');await confirm.locator('.el-button--primary').click();await expect(page.getByTestId('printing-template-layout')).toHaveValue(/\{\{requestNumber\}\}/u);
+ const dialog=page.getByRole('dialog');await fits(dialog,page);await dialog.screenshot({path:info.outputPath('business-schema-editor.png'),animations:'disabled'});expect((await new AxeBuilder({page}).include('[role="dialog"]').withTags(['wcag2a','wcag2aa','wcag21a','wcag21aa']).analyze()).violations).toEqual([]);
+ await page.getByTestId('printing-preview-submit').click();await expect(page.getByTestId('printing-write-receipt')).toContainText('business-summary');expect(creates).toBe(1);expect(publishes).toBe(0);await expect(page.getByRole('dialog')).toHaveCount(0);
+});
+
+test('业务表单绑定目录失败只人工重读，原模板保持原绑定',async({page},info)=>{
+ await boot(page,()=>[draft],['printing.form_schemas.read']);const reads=await wireBindingSchemas(page,{failFirst:true});await page.getByTestId('printing-preview-create').click();await expect(page.getByTestId('printing-schema-retry')).toBeVisible();await page.getByTestId('printing-template-layout').fill('<p>目录失败时继续编辑</p>');await page.getByTestId('printing-schema-retry').click();await expect(page.getByTestId('printing-schema-choice')).toBeEnabled();expect(reads.catalog).toBe(2);await expect(page.getByTestId('printing-template-layout')).toHaveValue('<p>目录失败时继续编辑</p>');await expect(page.getByTestId('printing-schema-selector')).toContainText(profileBinding.formSchemaKey);
+ await page.getByTestId('printing-preview-create-back').click();await page.getByTestId('printing-template-edit').click();await expect(page.getByTestId('printing-schema-selector')).toContainText('已有模板固定原表单');await expect(page.getByTestId('printing-schema-choice')).toHaveCount(0);expect(reads.catalog).toBe(2);const dialog=page.getByRole('dialog');await fits(dialog,page);await dialog.screenshot({path:info.outputPath('business-schema-immutable.png'),animations:'disabled'});expect((await new AxeBuilder({page}).include('[role="dialog"]').withTags(['wcag2a','wcag2aa','wcag21a','wcag21aa']).analyze()).violations).toEqual([]);
+});
 test('未知草稿跨关闭和刷新保护，人工核对只解锁下一次保存', async ({ page }, info) => {
   let creates = 0, publishes = 0, saved;
   await boot(page, () => saved ? [saved, draft] : [draft]);

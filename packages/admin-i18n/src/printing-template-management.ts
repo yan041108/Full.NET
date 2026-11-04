@@ -1,4 +1,9 @@
 export const printingTemplatesZh = {
+  'printingTemplates.schema': '绑定表单', 'printingTemplates.schemaChangeHint': '切换表单保留当前版式，请按新表单字段调整；保存不会自动发布。',
+  'printingTemplates.schemaRecordRequired': '此表单需要租户中可读取的业务记录；查看真实数据时仍须通过该业务的权限校验。',
+  'printingTemplates.schemaReadRequired': '读取字段目录需要独立权限，当前绑定保持不变。', 'printingTemplates.schemaImmutable': '已有模板固定原表单；如需其他绑定，请明确新建模板。',
+  'printingTemplates.schemaLoadFailed': '未能读取可用表单，已保留当前绑定和版式。', 'printingTemplates.schemaEmpty': '当前没有可选择的表单。',
+  'printingTemplates.schemaUseLayout': '使用该表单的基础版式', 'printingTemplates.schemaReplaceConfirm': '确定用此表单的基础版式替换当前输入？尚未保存的版式将被替换，不会自动保存或发布。',
   'printingTemplates.reviewPublication': '核对本模板的未知发布', 'printingTemplates.tenantGrants': '已发布版本租户授权',
   'printingTemplates.printFailed': '无法打开浏览器打印窗口，已保留新预览，可手动重试。',
   'printingTemplates.close': '关闭',
@@ -25,6 +30,11 @@ export const printingTemplatesZh = {
   'printingTemplates.reloadDraft': '重新载入草稿', 'printingTemplates.discardConfirm': '放弃本地输入，重新读取服务端草稿？'
 } as const;
 export const printingTemplatesEn: Record<keyof typeof printingTemplatesZh, string> = {
+  'printingTemplates.schema': 'Bound form', 'printingTemplates.schemaChangeHint': 'Changing the form preserves the layout. Adjust it using the new fields. Saving does not publish it.',
+  'printingTemplates.schemaRecordRequired': 'This form needs a readable tenant business record. Real data still requires the owning business permissions.',
+  'printingTemplates.schemaReadRequired': 'Reading the field catalog requires separate permission. The current binding is retained.', 'printingTemplates.schemaImmutable': 'Existing templates keep their original form. Create another template to use a different binding.',
+  'printingTemplates.schemaLoadFailed': 'Available forms could not be read. The binding and layout were retained.', 'printingTemplates.schemaEmpty': 'No forms are currently available.',
+  'printingTemplates.schemaUseLayout': 'Use this form’s basic layout', 'printingTemplates.schemaReplaceConfirm': 'Replace the current unsaved layout with this form’s basic layout? This does not save or publish it.',
   'printingTemplates.reviewPublication': 'Review this template’s unconfirmed publication', 'printingTemplates.tenantGrants': 'Tenant grants for published versions',
   'printingTemplates.printFailed': 'Could not open browser printing. The refreshed preview is preserved for a manual retry.',
   'printingTemplates.close': 'Close',
