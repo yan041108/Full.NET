@@ -47,13 +47,13 @@ export async function startReceiver({ secret, tenantId, receiptsFile, host = '12
         if (!verifySignature(body, header(request, 'x-fullnet-signature'), secret)) throw problem(401, 'webhook_consumer.signature_invalid');
         let envelope; try { envelope = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(body)); } catch { throw problem(400, 'webhook_consumer.payload_invalid'); }
         const eventId = header(request, 'x-fullnet-event-id'), deliveryId = header(request, 'x-fullnet-delivery-id');
-        if (!isGuid(eventId) || !isGuid(deliveryId) || !isGuid(envelope?.eventId) || envelope.eventId.toLowerCase() !== eventId.toLowerCase()
-          || !isGuid(envelope.tenantId) || envelope.tenantId.toLowerCase() !== tenantId || envelope.eventType !== eventType || header(request, 'x-fullnet-event-type') !== eventType
-          || typeof envelope.occurredAtUtc !== 'string' || !/(?:Z|\+00:00)$/u.test(envelope.occurredAtUtc) || !Number.isFinite(Date.parse(envelope.occurredAtUtc))
-          || !isGuid(envelope.data?.instanceId) || !isGuid(envelope.data?.recipientUserId) || typeof envelope.data?.businessType !== 'string' || !envelope.data.businessType
-          || typeof envelope.data?.businessId !== 'string' || !envelope.data.businessId) throw problem(400, 'webhook_consumer.payload_invalid');
+        if (!isGuid(eventId) || !isGuid(deliveryId) || !isGuid(envelope?.EventId) || envelope.EventId.toLowerCase() !== eventId.toLowerCase()
+          || !isGuid(envelope.TenantId) || envelope.TenantId.toLowerCase() !== tenantId || envelope.EventType !== eventType || header(request, 'x-fullnet-event-type') !== eventType
+          || typeof envelope.OccurredAtUtc !== 'string' || !/(?:Z|\+00:00)$/u.test(envelope.OccurredAtUtc) || !Number.isFinite(Date.parse(envelope.OccurredAtUtc))
+          || !isGuid(envelope.Data?.InstanceId) || !isGuid(envelope.Data?.RecipientUserId) || typeof envelope.Data?.BusinessType !== 'string' || !envelope.Data.BusinessType
+          || typeof envelope.Data?.BusinessId !== 'string' || !envelope.Data.BusinessId) throw problem(400, 'webhook_consumer.payload_invalid');
         const result = await store.accept({ schemaVersion: 1, eventId: eventId.toLowerCase(), tenantId, deliveryId: deliveryId.toLowerCase(), eventType,
-          payloadDigest: createHash('sha256').update(body).digest('hex'), receivedAtUtc: new Date().toISOString(), result: { instanceId: envelope.data.instanceId.toLowerCase(), status: 'recorded' } });
+          payloadDigest: createHash('sha256').update(body).digest('hex'), receivedAtUtc: new Date().toISOString(), result: { instanceId: envelope.Data.InstanceId.toLowerCase(), status: 'recorded' } });
         if (result.conflict) throw problem(409, 'webhook_consumer.event_conflict');
         send(200, result);
       } finally { active--; }

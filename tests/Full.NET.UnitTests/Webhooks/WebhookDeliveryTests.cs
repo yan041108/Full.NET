@@ -29,6 +29,22 @@ namespace Full.NET.UnitTests.Webhooks;
 public sealed class WebhookDeliveryTests
 {
     [TestMethod]
+    public void Production_payload_matches_the_shared_receiver_wire_fixture()
+    {
+        var directory = new DirectoryInfo(AppContext.BaseDirectory);
+        while (directory is not null && !File.Exists(Path.Combine(directory.FullName, "Full.NET.slnx"))) directory = directory.Parent;
+        Assert.IsNotNull(directory, "Repository root was not found.");
+        var fixture = File.ReadAllText(Path.Combine(directory.FullName, "contracts", "webhooks", "workflow-instance-completed-v1.json"));
+        var envelope = JsonSerializer.Deserialize(fixture, WebhookPayloadJsonSerializerContext.Default.WebhookEventEnvelope);
+        Assert.IsNotNull(envelope);
+        Assert.AreEqual("fullnet.workflow.instance.completed", envelope.EventType);
+        Assert.AreEqual(Guid.Parse("019bc2b1-2a40-7cc3-8992-a80de51bf298"), envelope.EventId);
+        Assert.AreEqual("private-business-reference", envelope.Data.BusinessId);
+        var actual = JsonSerializer.Serialize(envelope, WebhookPayloadJsonSerializerContext.Default.WebhookEventEnvelope);
+        Assert.IsTrue(System.Text.Json.Nodes.JsonNode.DeepEquals(System.Text.Json.Nodes.JsonNode.Parse(fixture), System.Text.Json.Nodes.JsonNode.Parse(actual)), "Producer and receiver wire formats must match.");
+    }
+
+    [TestMethod]
     public void Worker_registration_includes_delivery_processor_and_dependencies()
     {
         var services = new ServiceCollection();

@@ -15,7 +15,7 @@ pnpm sample:webhook-consumer
 
 默认只监听 `127.0.0.1:8085`，使用 `POST /webhooks`；可通过 `FULLNET_WEBHOOK_HOST`、`FULLNET_WEBHOOK_PORT` 修改监听。`GET /health` 仅说明进程正在监听，不证明账本容量、平台连通性或业务交付成功。正式 Webhook 目标须使用具有有效证书的 HTTPS 入口，可由反向代理转发至本监听器；遵守发送方现有公网地址/SSRF 限制，不为样例放行回环或内网订阅地址。
 
-接收端固定核对配置的企业及 `fullnet.workflow.instance.completed`。签名覆盖请求正文的原始 UTF-8 字节，使用 HMAC-SHA256 和恒定时间比较；事件头须匹配已签名信封。投递 ID 用于诊断，不作为事件去重权威。
+接收端固定核对配置的企业及 `fullnet.workflow.instance.completed`。生产事件正文使用 PascalCase（`EventId`、`TenantId`、`EventType`、`OccurredAtUtc`、`Data`），与管理 API 的 camelCase 分开；[共用报文夹具](../../contracts/webhooks/workflow-instance-completed-v1.json)由 .NET 生产序列化和本接收端测试共同核对。签名覆盖请求正文的原始 UTF-8 字节，使用 HMAC-SHA256 和恒定时间比较；事件头须匹配已签名信封。投递 ID 用于诊断，不作为事件去重权威。
 
 ## 回执与重复消费
 

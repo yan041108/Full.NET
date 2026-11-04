@@ -12,7 +12,7 @@ import { readSigningSecret, verifySignature } from '../samples/webhook-consumer/
 import { openReceiptStore } from '../samples/webhook-consumer/receipt-store.mjs';
 
 const secret = 'independent-consumer-secret', tenantId = '019bc2b1-2a40-7cc3-8992-a80de51bf299', eventId = '019bc2b1-2a40-7cc3-8992-a80de51bf298', deliveryId = '019bc2b1-2a40-7cc3-8992-a80de51bf297';
-const envelope = { eventType: 'fullnet.workflow.instance.completed', eventId, tenantId, occurredAtUtc: '2026-11-04T00:00:00Z', data: { instanceId: deliveryId, recipientUserId: tenantId, businessType: 'test', businessId: 'private-business-reference' } };
+const envelope = JSON.parse(await readFile(new URL('../contracts/webhooks/workflow-instance-completed-v1.json', import.meta.url), 'utf8'));
 const signature = body => createHmac('sha256', secret).update(body).digest('hex');
 async function fixture(t, options = {}) {
   const root = await mkdtemp(path.join(os.tmpdir(), 'fullnet-webhook-consumer-')), receiptsFile = path.join(root, 'receipts.ndjson');
@@ -20,7 +20,7 @@ async function fixture(t, options = {}) {
   t.after(async () => { await receiver?.close(); await rm(root, { recursive: true, force: true }); });
   return { root, receiptsFile, get receiver() { return receiver; }, async restart() { await receiver.close(); receiver = undefined; receiver = await startReceiver({ secret, tenantId, receiptsFile, port: 0, ...options }); },
     async send(value = envelope, headers = {}, body = JSON.stringify(value)) {
-      return fetch(`http://127.0.0.1:${receiver.address.port}/webhooks`, { method: 'POST', headers: { 'Content-Type': 'application/json; charset=utf-8', 'X-FullNet-Signature': signature(body), 'X-FullNet-Event-Id': value?.eventId ?? eventId, 'X-FullNet-Delivery-Id': deliveryId, 'X-FullNet-Event-Type': envelope.eventType, ...headers }, body });
+      return fetch(`http://127.0.0.1:${receiver.address.port}/webhooks`, { method: 'POST', headers: { 'Content-Type': 'application/json; charset=utf-8', 'X-FullNet-Signature': signature(body), 'X-FullNet-Event-Id': value?.EventId ?? eventId, 'X-FullNet-Delivery-Id': deliveryId, 'X-FullNet-Event-Type': envelope.EventType, ...headers }, body });
     } };
 }
 
@@ -44,7 +44,7 @@ test('原始字节签名不能由重新序列化、错误秘密或畸形签名�
 
 test('签名通过后仍校验企业、事件、标识和载荷，拒绝跨来源接入', async t => {
   const f = await fixture(t);
-  for (const [value, headers] of [[{ ...envelope, tenantId: eventId }, {}], [envelope, { 'X-FullNet-Event-Id': tenantId }], [envelope, { 'X-FullNet-Event-Type': 'other' }], [{ ...envelope, data: {} }, {}], [{ ...envelope, occurredAtUtc: '2026-11-04T08:00:00+08:00' }, {}], [null, {}]]) {
+  for (const [value, headers] of [[{ ...envelope, TenantId: eventId }, {}], [envelope, { 'X-FullNet-Event-Id': tenantId }], [envelope, { 'X-FullNet-Event-Type': 'other' }], [{ ...envelope, Data: {} }, {}], [{ ...envelope, OccurredAtUtc: '2026-11-04T08:00:00+08:00' }, {}], [null, {}]]) {
     const response = await f.send(value, headers); assert.equal(response.status, 400); assert.equal((await response.json()).code, 'webhook_consumer.payload_invalid');
   }
   assert.equal((await readFile(f.receiptsFile, 'utf8')).length, 0);
@@ -53,8 +53,8 @@ test('签名通过后仍校验企业、事件、标识和载荷，拒绝跨来�
 test('同事件内容冲突不会覆写回执，账本满后仍可确认原重复', async t => {
   const f = await fixture(t, { maxReceipts: 1 }); assert.equal((await f.send()).status, 200);
   const before = await readFile(f.receiptsFile, 'utf8');
-  assert.equal((await f.send({ ...envelope, data: { ...envelope.data, businessId: 'changed' } })).status, 409);
-  assert.equal((await f.send({ ...envelope, eventId: tenantId })).status, 503);
+  assert.equal((await f.send({ ...envelope, Data: { ...envelope.Data, BusinessId: 'changed' } })).status, 409);
+  assert.equal((await f.send({ ...envelope, EventId: tenantId })).status, 503);
   assert.equal((await f.send()).status, 200); assert.equal(await readFile(f.receiptsFile, 'utf8'), before);
 });
 
@@ -103,7 +103,7 @@ test('真实 CLI 启动接收并持久化，进程崩溃后保留锁且再次启
     child.once('exit', () => { clearTimeout(timer); reject(Error('consumer exited before readiness')); });
     child.stdout.on('data', () => { const match = output.match(/WEBHOOK_CONSUMER_READY port=(\d+)/u); if (match) { clearTimeout(timer); resolve(Number(match[1])); } });
   });
-  const body = JSON.stringify(envelope), response = await fetch(`http://127.0.0.1:${port}/webhooks`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-FullNet-Signature': signature(body), 'X-FullNet-Event-Id': eventId, 'X-FullNet-Delivery-Id': deliveryId, 'X-FullNet-Event-Type': envelope.eventType }, body });
+  const body = JSON.stringify(envelope), response = await fetch(`http://127.0.0.1:${port}/webhooks`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-FullNet-Signature': signature(body), 'X-FullNet-Event-Id': eventId, 'X-FullNet-Delivery-Id': deliveryId, 'X-FullNet-Event-Type': envelope.EventType }, body });
   assert.equal(response.status, 200); assert.equal((await response.json()).duplicate, false);
   const ended = once(child, 'close'); child.kill('SIGKILL'); await ended;
   assert.equal((await readFile(receiptsFile, 'utf8')).trim().split('\n').length, 1); assert.equal(await readFile(receiptsFile + '.lock', 'utf8'), String(child.pid));
