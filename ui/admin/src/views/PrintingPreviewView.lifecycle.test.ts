@@ -50,8 +50,10 @@ describe('打印输出授权与生命周期', () => {
   });
   it('选择另一模板取消旧预览，不把旧结果当作新模板', async () => {
     const pending = deferred<typeof layout>(); vi.mocked(getPrintingTemplateVersion).mockReturnValue(pending.promise);
+    const { layoutHtml: _, ...summary } = printTemplate, otherId = '019bc2b1-2a40-7cc3-8992-a80de51bf298';
+    vi.mocked(listPrintingTemplates).mockResolvedValueOnce({ items: [summary, { ...summary, id: otherId, templateKey: 'other', name: '其他模板' }], page: 1, pageSize: 20, total: 2 });
     mountView(['printing.templates.read', 'printing.templates.preview']); await flushPromises(); await wrapper!.get('[data-testid="printing-preview-run"]').trigger('click');
-    wrapper!.findComponent(ElSelect).vm.$emit('update:modelValue', 'new-template'); wrapper!.findComponent(ElSelect).vm.$emit('change', 'new-template');
+    wrapper!.findComponent(ElSelect).vm.$emit('update:modelValue', otherId);
     await flushPromises(); pending.resolve(layout); await flushPromises(); expect(wrapper!.find('iframe').exists()).toBe(false);
   });
   it('已打开创建弹窗撤权后移除提交入口', async () => {

@@ -24,6 +24,7 @@ import { validHostPrintingTemplate, validHostPrintingVersion } from '../guards/p
 import ArtTableHeader from '../framework/art-design/components/ArtTableHeader.vue';
 import PermissionGate from '../components/PermissionGate.vue';
 import PrintingTemplateFields from '../components/PrintingTemplateFields.vue';
+import PrintingTenantGrantsDialog from '../components/printing/PrintingTenantGrantsDialog.vue';
 import { useSessionStore } from '../auth/session';
 import { useAdminI18n } from '../i18n/adminI18n';
 import {
@@ -80,12 +81,15 @@ const editorDialog = ref<InstanceType<typeof ElDialog>>(), publicationDialog = r
 const editorLandmarks = useArtDialogLandmarks(() => editorDialog.value?.dialogContentRef?.$el);
 const publicationLandmarks = useArtDialogLandmarks(() => publicationDialog.value?.dialogContentRef?.$el);
 const createDialogVisible = ref(false), createBlocked = ref(false);
-type WriteReceipt = { kind: 'create' | 'update' | 'publish'; outcome: 'processing' | 'succeeded' | 'unconfirmed' | 'failed'; templateKey: string; templateId?: string; versionNumber?: number };
+type WriteReceipt = { kind: 'create' | 'update' | 'publish'; outcome: 'processing' | 'succeeded' | 'unconfirmed' | 'failed'; templateKey: string; templateId?: string; versionNumber?: number; draftVersion?: number };
 const writeReceipt = ref<WriteReceipt>();
 let editorEpoch = 0, publishEpoch = 0, recoverySequence = 0;
 let unconfirmedDraft: { form: { templateKey: string; name: string; layoutHtml: string; isEnabled: boolean }; schema: string } | undefined;
 let activeWrite: { controller: AbortController; kind: WriteReceipt['kind']; receipt: WriteReceipt; draft?: NonNullable<typeof unconfirmedDraft> } | undefined;
-const recoveryPrompt = ref<{ token: number; confirm: () => void; close: (open: boolean) => void }>();
+const recoveryPrompt = ref<{ token: number; kind: 'create' | 'publish'; confirm: () => void; close: (open: boolean) => void }>();
+const publicationBlocks = ref(new Map<string, number>());
+let lastUnknownKind: WriteReceipt['kind'] | undefined, grantSequence = 0;
+const grantWindow = ref<{ token: number; template: Pick<PrintingTemplate, 'id' | 'name' | 'latestPublishedVersionNumber'>; close: () => void }>();
 const layoutInput = ref<InputInstance>(), editorSchemaKey = ref('printing.tenant_profile_card');
 const createForm = ref({
   templateKey: 'tenant-profile-card',
@@ -99,7 +103,11 @@ const canSaveDraft = computed(() => !busy.value && !writeUnconfirmed.value && (!
   && (!!editingId.value || (!!createForm.value.templateKey.trim() && createForm.value.templateKey.trim().length <= 128)));
 
 const selectedTemplate = computed(() =>
-  templates.value.find(item => item.id === selectedTemplateId.value));
+  templates.value.find(item => item.id.toLowerCase() === selectedTemplateId.value.toLowerCase()));
+const publicationBlocked = computed(() => {
+  const blocked = publicationBlocks.value.get(selectedTemplateId.value.toLowerCase());
+  return blocked !== undefined && (selectedTemplate.value?.version ?? 0) <= blocked;
+});
 
 const printableTemplates = computed(() =>
   templates.value.filter(item => item.isEnabled && item.latestPublishedVersionNumber > 0));
@@ -113,8 +121,10 @@ function currentDraft(draft: PrintingTemplate, id: string): boolean {
 }
 const editorSignature = () => JSON.stringify([editingId.value, editingVersion.value, editorSchemaKey.value, createForm.value]);
 function markUnconfirmed(operation: NonNullable<typeof activeWrite>) {
+  lastUnknownKind = operation.kind;
   writeUnconfirmed.value = true;
   writeReceipt.value = { ...operation.receipt, outcome: 'unconfirmed' };
+  if (operation.kind === 'publish' && operation.receipt.templateId && operation.receipt.draftVersion) publicationBlocks.value.set(operation.receipt.templateId.toLowerCase(), operation.receipt.draftVersion);
   if (operation.kind === 'create') { createBlocked.value = true; unconfirmedDraft = operation.draft; }
 }
 /** 取消只结束本窗口接入；已发出的写入仍可能提交，必须留下待核对事实。 */
@@ -155,7 +165,22 @@ function acknowledgeRecovery() {
   if (!can('create') || !createDialogVisible.value || !createBlocked.value || busy.value) return;
   const owner = editorEpoch, token = ++recoverySequence;
   const owned = () => recoveryPrompt.value?.token === token && owner === editorEpoch && createDialogVisible.value && createBlocked.value && can('create');
-  recoveryPrompt.value = { token, confirm: () => { if (owned()) { createBlocked.value = false; writeUnconfirmed.value = false; recoveryPrompt.value = undefined; } }, close: open => { if (!open && owned()) recoveryPrompt.value = undefined; } };
+  recoveryPrompt.value = { token, kind: 'create', confirm: () => { if (owned()) { createBlocked.value = false; writeUnconfirmed.value = false; recoveryPrompt.value = undefined; } }, close: open => { if (!open && owned()) recoveryPrompt.value = undefined; } };
+}
+function acknowledgePublicationRecovery() {
+  if (!can('publish') || !catalogReady.value || !publicationBlocked.value || busy.value || !selectedTemplate.value) return;
+  const scope = generation, catalog = listVersion, id = selectedTemplateId.value, revision = selectedTemplate.value.version, token = ++recoverySequence;
+  const owned = () => current(scope) && can('publish') && !busy.value && catalog === listVersion && id === selectedTemplateId.value && revision === selectedTemplate.value?.version
+    && publicationBlocked.value && recoveryPrompt.value?.token === token;
+  recoveryPrompt.value = { token, kind: 'publish', confirm: () => { if (owned()) { publicationBlocks.value.delete(id.toLowerCase()); writeUnconfirmed.value = false; recoveryPrompt.value = undefined; } },
+    close: open => { if (!open && owned()) recoveryPrompt.value = undefined; } };
+}
+function openGrants() {
+  const target = selectedTemplate.value;
+  if (!can('grant_tenants') || !catalogReady.value || busy.value || !target || target.latestPublishedVersionNumber < 1) return;
+  const token = ++grantSequence;
+  grantWindow.value = { token, template: { id: target.id, name: target.name, latestPublishedVersionNumber: target.latestPublishedVersionNumber },
+    close: () => { if (grantWindow.value?.token === token) grantWindow.value = undefined; } };
 }
 const receiptMessage = computed(() => writeReceipt.value?.outcome === 'succeeded'
   ? t(writeReceipt.value.kind === 'publish' ? 'printingTemplates.published' : 'printingTemplates.saved')
@@ -185,7 +210,8 @@ async function load(): Promise<void> {
   const key = JSON.stringify(query);
   if (key !== lastListQuery) { templates.value = []; total.value = 0; selectedTemplateId.value = ''; }
   lastListQuery = key;
-  loading.value = true; catalogReady.value = false; catalogProblem.value = undefined; problem.value = undefined; printIntent = undefined;
+  loading.value = true; catalogReady.value = false; catalogProblem.value = undefined; problem.value = undefined; printIntent = undefined; grantWindow.value = undefined;
+  if (recoveryPrompt.value?.kind === 'publish') recoveryPrompt.value = undefined;
   try {
     const result = await listPrintingTemplates(query.keyword, controller.signal, query.page, 20);
     if (!current(scope) || version !== listVersion || controller.signal.aborted) return;
@@ -194,14 +220,18 @@ async function load(): Promise<void> {
       const floor = revisionFloors.get(row.id.toLowerCase()); return !Number.isSafeInteger(row.version) || row.version < 1 || !Number.isSafeInteger(row.latestPublishedVersionNumber) || row.latestPublishedVersionNumber < 0
         || floor && (row.version < floor.draft || row.latestPublishedVersionNumber < floor.published);
     })) throw Error('client.stale_printing_template_catalog');
-    for (const row of result.items) revisionFloors.set(row.id.toLowerCase(), { draft: row.version, published: row.latestPublishedVersionNumber });
+    for (const row of result.items) {
+      revisionFloors.set(row.id.toLowerCase(), { draft: row.version, published: row.latestPublishedVersionNumber });
+      const blocked = publicationBlocks.value.get(row.id.toLowerCase()); if (blocked !== undefined && row.version > blocked) publicationBlocks.value.delete(row.id.toLowerCase());
+    }
     catalogReady.value = true;
     const previousId = selectedTemplateId.value;
     templates.value = result.items; total.value = result.total;
-    if (!templates.value.some(item => item.id === selectedTemplateId.value)) selectedTemplateId.value = printableTemplates.value[0]?.id ?? templates.value[0]?.id ?? '';
+    const selected = templates.value.find(item => sameId(item.id, selectedTemplateId.value));
+    selectedTemplateId.value = selected?.id ?? printableTemplates.value[0]?.id ?? templates.value[0]?.id ?? '';
     if (selectedTemplateId.value && previousId === selectedTemplateId.value) void loadHistory();
     previewVersion++; previewRequest?.abort(); previewing.value = false; preview.value = undefined;
-    if (!createDialogVisible.value) writeUnconfirmed.value = false;
+    if (!createDialogVisible.value) writeUnconfirmed.value = publicationBlocked.value;
   } catch (error: unknown) {
     if (current(scope) && version === listVersion && !controller.signal.aborted) { catalogProblem.value = toProblem(error, 'printingPreview.loadFailed'); problem.value = catalogProblem.value; }
   } finally {
@@ -295,7 +325,7 @@ async function editSelected() {
   } catch (error) { if (current(scope) && version === detailVersion && !controller.signal.aborted) problem.value = toProblem(error, 'printingPreview.loadFailed'); }
 }
 async function confirmPublish() {
-  if (!can('publish') || !catalogReady.value || !selectedTemplateId.value || busy.value || writeUnconfirmed.value) return;
+  if (!can('publish') || !catalogReady.value || !selectedTemplateId.value || busy.value || writeUnconfirmed.value || publicationBlocked.value) return;
   const scope = generation, id = selectedTemplateId.value, version = ++detailVersion, controller = new AbortController(); detailRequest?.abort(); detailRequest = controller;
   try { const target = await getPrintingTemplate(id, controller.signal); if (current(scope) && selectedTemplateId.value === id && version === detailVersion && !controller.signal.aborted) {
     if (!currentDraft(target, id)) throw Error('client.stale_printing_draft');
@@ -304,9 +334,9 @@ async function confirmPublish() {
 }
 async function publishSelected() {
   const target = publishTarget.value ? { ...publishTarget.value } : undefined;
-  if (!publishOpen.value || !target || !sameId(target.id, selectedTemplateId.value) || !can('publish') || busy.value || writeUnconfirmed.value) return;
+  if (!publishOpen.value || !target || !sameId(target.id, selectedTemplateId.value) || !can('publish') || busy.value || writeUnconfirmed.value || publicationBlocked.value) return;
   const scope = generation, owner = publishEpoch, note = changeNote.value.trim() || null;
-  const operation = { controller: new AbortController(), kind: 'publish' as const, receipt: { kind: 'publish' as const, outcome: 'processing' as const, templateKey: target.templateKey, templateId: target.id } };
+  const operation = { controller: new AbortController(), kind: 'publish' as const, receipt: { kind: 'publish' as const, outcome: 'processing' as const, templateKey: target.templateKey, templateId: target.id, draftVersion: target.version } };
   activeWrite = operation; writeReceipt.value = { ...operation.receipt }; publishing.value = true; beginWrite();
   const owned = () => activeWrite === operation && current(scope) && can('publish') && publishOpen.value && owner === publishEpoch;
   try {
@@ -316,6 +346,7 @@ async function publishSelected() {
       || !sameId(result.publishedByUserId, session.currentUser!.id) || result.layoutHtml !== target.layoutHtml || result.changeNote !== note) throw Error('client.invalid_printing_publication');
     // 先固定已确认事实，再关闭自己的窗口；后续目录故障不能把成功降为未知。
     writeReceipt.value = { ...operation.receipt, outcome: 'succeeded', versionNumber: result.versionNumber };
+    publicationBlocks.value.delete(target.id.toLowerCase());
     revisionFloors.set(target.id.toLowerCase(), { draft: target.version + 1, published: result.versionNumber });
     const known = observedVersionIds.get(target.id.toLowerCase()) ?? new Map<number, string>(); known.set(result.versionNumber, result.id); observedVersionIds.set(target.id.toLowerCase(), known);
     templates.value = templates.value.map(row => sameId(row.id, target.id) ? { ...row, version: target.version + 1, latestPublishedVersionNumber: result.versionNumber } : row);
@@ -363,6 +394,7 @@ function beginWrite() {
 }
 
 function reset() {
+  publicationBlocks.value.clear(); lastUnknownKind = undefined; grantWindow.value = undefined;
   printIntent = undefined; revisionFloors.clear(); observedVersionIds.clear(); catalogReady.value = false; catalogProblem.value = undefined;
   activeWrite?.controller.abort(); activeWrite = undefined; writeReceipt.value = undefined; unconfirmedDraft = undefined; createBlocked.value = false; recoveryPrompt.value = undefined;
   generation++; previewVersion++; listVersion++; detailVersion++; historyVersion++; requests.abort(); requests = new AbortController(); detailRequest?.abort(); previewRequest?.abort(); historyRequest?.abort(); listRequest?.abort();
@@ -374,7 +406,9 @@ function reset() {
   page.value = 1; total.value = 0; searchValue.value = ''; history.value = []; historyPage.value = 1; historyTotal.value = 0; selectedPublished.value = undefined;
 }
 watch(() => [session.state, route?.name, session.currentUser?.scope, session.currentUser?.actorScope, session.currentUser?.id, session.currentUser?.tenantId, session.currentUser?.sessionId, session.currentUser?.permissions.join('|'), session.switching, active.value], () => { reset(); if (can('read')) void load(); }, { immediate: true, flush: 'sync' });
-watch(selectedTemplateId, () => { previewVersion++; detailVersion++; previewRequest?.abort(); detailRequest?.abort(); preview.value = undefined; previewing.value = false; publishOpen.value = false; }, { flush: 'sync' });
+watch(selectedTemplateId, () => { grantWindow.value = undefined; if (recoveryPrompt.value?.kind === 'publish') recoveryPrompt.value = undefined;
+  if (lastUnknownKind === 'publish' && !createDialogVisible.value) writeUnconfirmed.value = publicationBlocked.value;
+  previewVersion++; detailVersion++; previewRequest?.abort(); detailRequest?.abort(); preview.value = undefined; previewing.value = false; publishOpen.value = false; }, { flush: 'sync' });
 watch(() => [selectedTemplateId.value, selectedTemplate.value?.latestPublishedVersionNumber], () => {
   historyVersion++; historyRequest?.abort(); historyLoading.value = false; historyProblem.value = undefined; lastHistoryQuery = '';
   historyPage.value = 1; history.value = []; historyTotal.value = 0; selectedPublished.value = selectedTemplate.value?.latestPublishedVersionNumber || undefined;
@@ -382,13 +416,50 @@ watch(() => [selectedTemplateId.value, selectedTemplate.value?.latestPublishedVe
 }, { flush: 'sync' });
 watch(selectedPublished, () => { previewVersion++; previewRequest?.abort(); preview.value = undefined; previewing.value = false; }, { flush: 'sync' });
 onActivated(() => { active.value = true; }); onDeactivated(() => { active.value = false; }); onBeforeUnmount(() => { active.value = false; reset(); });
+/** 每次渲染冻结目录与窗口归属，旧按钮不能借用刷新后的选择或新弹窗。 */
+function catalogAction(action: () => unknown, row = false) {
+  const scope = generation, catalog = listVersion, id = selectedTemplateId.value, revision = selectedTemplate.value?.version, published = selectedPublished.value;
+  return () => {
+    if (!current(scope) || catalog !== listVersion
+      || row && (id !== selectedTemplateId.value || revision !== selectedTemplate.value?.version || published !== selectedPublished.value)) return;
+    if ((action === openCreate || action === editSelected || action === confirmPublish || action === openGrants) && (createDialogVisible.value || publishOpen.value)) return;
+    void action();
+  };
+}
+function catalogSelection() {
+  const scope = generation;
+  const key = (row: PrintingTemplateSummary) => JSON.stringify([row.id.toLowerCase(), row.version, row.latestPublishedVersionNumber, row.templateKey, row.formSchemaKey, row.isEnabled]);
+  const choices = new Map(templates.value.map(row => [row.id.toLowerCase(), key(row)]));
+  // 展开选择器会先触发同条件远程读取；允许选择仍在当前目录且修订未变的可见候选。
+  return (id: string) => { const row = templates.value.find(item => sameId(item.id, id));
+    if (current(scope) && !busy.value && !createDialogVisible.value && row && choices.get(id.toLowerCase()) === key(row)) selectedTemplateId.value = row.id; };
+}
+function catalogSearch() {
+  const scope = generation, catalog = listVersion;
+  return (keyword: string) => { if (current(scope) && catalog === listVersion) void searchTemplates(keyword); };
+}
+function catalogPage(delta: number) {
+  return catalogAction(() => { const next = page.value + delta; if (!loading.value && next >= 1 && next <= Math.max(1, Math.ceil(total.value / 20))) { page.value = next; void load(); } });
+}
+function historyAction(action: () => unknown) {
+  const scope = generation, catalog = listVersion, history = historyVersion, id = selectedTemplateId.value, requestedPage = historyPage.value;
+  return () => { if (current(scope) && catalog === listVersion && history === historyVersion && id === selectedTemplateId.value && requestedPage === historyPage.value) void action(); };
+}
+function historySelection() {
+  const scope = generation, catalog = listVersion, historyOwner = historyVersion, id = selectedTemplateId.value;
+  return (number: number) => { if (current(scope) && catalog === listVersion && historyOwner === historyVersion && id === selectedTemplateId.value && !busy.value
+    && history.value.some(row => row.versionNumber === number)) selectedPublished.value = number; };
+}
+function historyPageAction(delta: number) {
+  return historyAction(() => { const next = historyPage.value + delta; if (!historyLoading.value && next >= 1 && next <= Math.max(1, Math.ceil(historyTotal.value / 20))) { historyPage.value = next; void loadHistory(); } });
+}
 </script>
 
 <template>
   <div class="printing-preview-view">
     <ElAlert v-if="!can('read')" type="info" :closable="false" :title="t('printingTemplates.hostOnly')" />
     <ElCard v-if="can('read')" shadow="never" class="art-table-card no-print">
-      <ArtTableHeader :loading="loading" @refresh="load">
+      <ArtTableHeader :loading="loading" v-on="{ refresh: catalogAction(load) }">
         <template #left>
           <PermissionGate code="printing.templates.create">
             <ElButton
@@ -397,7 +468,7 @@ onActivated(() => { active.value = true; }); onDeactivated(() => { active.value 
               :icon="Plus"
               data-testid="printing-preview-create"
               :disabled="busy || writeUnconfirmed && !createBlocked"
-              @click="openCreate"
+              v-on="{ click: catalogAction(openCreate) }"
             >
               {{ t('printingPreview.createTemplate') }}
             </ElButton>
@@ -406,8 +477,8 @@ onActivated(() => { active.value = true; }); onDeactivated(() => { active.value 
       </ArtTableHeader>
       <div v-if="writeReceipt" role="status" data-testid="printing-write-receipt"><p>{{ writeReceipt.templateKey }} <code v-if="writeReceipt.templateId">{{ writeReceipt.templateId }}</code></p><p>{{ receiptMessage }} <span v-if="writeReceipt.versionNumber">{{ writeReceipt.versionNumber }}</span></p></div>
       <ElAlert v-if="writeUnconfirmed" type="warning" :closable="false" :title="t('printingTemplates.unconfirmed')" data-testid="printing-template-unconfirmed" />
-      <ElButton :loading="loading" :disabled="busy" data-testid="printing-template-refresh" @click="load">{{ t('common.refresh') }}</ElButton>
-      <div class="template-actions"><ElButton :disabled="busy || loading || page <= 1" @click="page--; load()">{{ t('printingTemplates.previous') }}</ElButton><span>{{ page }}</span><ElButton :disabled="busy || loading || page * 20 >= total" @click="page++; load()">{{ t('printingTemplates.next') }}</ElButton></div>
+      <ElButton :loading="loading" :disabled="busy" data-testid="printing-template-refresh" v-on="{ click: catalogAction(load) }">{{ t('common.refresh') }}</ElButton>
+      <div class="template-actions"><ElButton :disabled="busy || loading || page <= 1" v-on="{ click: catalogPage(-1) }">{{ t('printingTemplates.previous') }}</ElButton><span>{{ page }}</span><ElButton :disabled="busy || loading || page * 20 >= total" v-on="{ click: catalogPage(1) }">{{ t('printingTemplates.next') }}</ElButton></div>
 
       <ElAlert
         v-if="problem"
@@ -420,8 +491,8 @@ onActivated(() => { active.value = true; }); onDeactivated(() => { active.value 
       <ElForm label-width="120px">
         <ElFormItem :label="t('printingPreview.fieldTemplate')">
           <ElSelect
-            v-model="selectedTemplateId"
-            filterable remote :remote-method="searchTemplates"
+            :model-value="selectedTemplateId" v-on="{ 'update:modelValue': catalogSelection() }"
+            filterable remote :remote-method="catalogSearch()"
             data-testid="printing-preview-template"
             :disabled="busy || createDialogVisible"
             class="w-full"
@@ -441,7 +512,7 @@ onActivated(() => { active.value = true; }); onDeactivated(() => { active.value 
             :loading="previewing"
             :disabled="!selectedPublished || !catalogReady || busy"
             data-testid="printing-preview-run"
-            @click="runPreview"
+            v-on="{ click: catalogAction(runPreview, true) }"
           >
             {{ t('printingTemplates.previewPublished') }}
           </ElButton>
@@ -449,7 +520,7 @@ onActivated(() => { active.value = true; }); onDeactivated(() => { active.value 
             v-if="preview && can('preview')"
             :disabled="!preview || !catalogReady || previewing || busy"
             data-testid="printing-preview-print"
-            @click="printPreview"
+            v-on="{ click: catalogAction(printPreview, true) }"
           >
             {{ t('printingPreview.print') }}
           </ElButton>
@@ -458,16 +529,18 @@ onActivated(() => { active.value = true; }); onDeactivated(() => { active.value 
       <p v-if="selectedTemplate" data-testid="printing-template-versions">{{ t('printingTemplates.draftVersion') }} {{ selectedTemplate.version }} · {{ t('printingTemplates.publishedVersion') }} {{ selectedTemplate.latestPublishedVersionNumber }}</p>
       <p>{{ t('printingTemplates.versionHelp') }}</p>
       <ElForm v-if="selectedTemplate" label-position="top"><ElFormItem :label="t('printingTemplates.history')">
-        <ElSelect v-model="selectedPublished" :disabled="busy || historyLoading" data-testid="printing-template-version" class="w-full">
+        <ElSelect :model-value="selectedPublished" v-on="{ 'update:modelValue': historySelection() }" :disabled="busy || historyLoading" data-testid="printing-template-version" class="w-full">
           <ElOption v-for="item in history" :key="item.id" :value="item.versionNumber" :label="`${item.versionNumber} · ${item.changeNote ?? ''}`" />
         </ElSelect>
       </ElFormItem></ElForm>
       <ElAlert v-if="historyProblem" type="error" :closable="false" :title="historyProblem.title" data-testid="printing-template-history-problem" />
-      <ElButton v-if="historyProblem" :disabled="busy || historyLoading" data-testid="printing-template-history-retry" @click="loadHistory">{{ t('common.refresh') }}</ElButton>
-      <div v-if="selectedTemplate" class="template-actions"><ElButton :disabled="busy || historyLoading || historyPage <= 1" @click="historyPage--; loadHistory()">{{ t('printingTemplates.previous') }}</ElButton><span>{{ historyPage }}</span><ElButton :disabled="busy || historyLoading || historyPage * 20 >= historyTotal" @click="historyPage++; loadHistory()">{{ t('printingTemplates.next') }}</ElButton></div>
+      <ElButton v-if="historyProblem" :disabled="busy || historyLoading" data-testid="printing-template-history-retry" v-on="{ click: historyAction(loadHistory) }">{{ t('common.refresh') }}</ElButton>
+      <div v-if="selectedTemplate" class="template-actions"><ElButton :disabled="busy || historyLoading || historyPage <= 1" v-on="{ click: historyPageAction(-1) }">{{ t('printingTemplates.previous') }}</ElButton><span>{{ historyPage }}</span><ElButton :disabled="busy || historyLoading || historyPage * 20 >= historyTotal" v-on="{ click: historyPageAction(1) }">{{ t('printingTemplates.next') }}</ElButton></div>
       <div class="template-actions">
-        <ElButton v-if="can('update') && selectedTemplate" :disabled="!catalogReady || busy || writeUnconfirmed" data-testid="printing-template-edit" @click="editSelected">{{ t('printingTemplates.edit') }}</ElButton>
-        <ElButton v-if="can('publish') && selectedTemplate" type="primary" :disabled="!catalogReady || busy || writeUnconfirmed || createDialogVisible" data-testid="printing-template-publish" @click="confirmPublish">{{ t('printingTemplates.publish') }}</ElButton>
+        <ElButton v-if="can('update') && selectedTemplate" :disabled="!catalogReady || busy || writeUnconfirmed" data-testid="printing-template-edit" v-on="{ click: catalogAction(editSelected, true) }">{{ t('printingTemplates.edit') }}</ElButton>
+        <ElButton v-if="can('publish') && selectedTemplate" type="primary" :disabled="!catalogReady || busy || writeUnconfirmed || publicationBlocked || createDialogVisible" data-testid="printing-template-publish" v-on="{ click: catalogAction(confirmPublish, true) }">{{ t('printingTemplates.publish') }}</ElButton>
+        <ElButton v-if="can('publish') && publicationBlocked" :disabled="!catalogReady || busy" data-testid="printing-publish-review" v-on="{ click: catalogAction(acknowledgePublicationRecovery, true) }">{{ t('printingTemplates.reviewPublication') }}</ElButton>
+        <ElButton v-if="can('grant_tenants') && selectedTemplate?.latestPublishedVersionNumber" :disabled="!catalogReady || busy" data-testid="printing-tenant-grants-open" v-on="{ click: catalogAction(openGrants, true) }">{{ t('printingTemplates.tenantGrants') }}</ElButton>
       </div>
     </ElCard>
 
@@ -524,8 +597,9 @@ onActivated(() => { active.value = true; }); onDeactivated(() => { active.value 
       <template #footer><ElButton data-testid="printing-publish-close" v-on="{ click: publishControls.close }">{{ t('printingTemplates.close') }}</ElButton><ElButton type="primary" :loading="publishing" :disabled="busy || writeUnconfirmed || !can('publish')" data-testid="printing-template-confirm-publish" v-on="{ click: publishControls.confirm }">{{ t('printingTemplates.publish') }}</ElButton></template>
     </ElDialog>
     <ArtFormDialog v-if="recoveryPrompt" :key="recoveryPrompt.token" :open="true" width="min(520px, calc(100vw - 32px))" :title="t('printingPreview.recoveryTitle')"
-      :confirm-label="t('common.confirm')" :cancel-label="t('common.cancel')" confirm-test-id="printing-create-review-confirm"
+      :confirm-label="t('common.confirm')" :cancel-label="t('common.cancel')" :confirm-test-id="recoveryPrompt.kind === 'create' ? 'printing-create-review-confirm' : 'printing-publish-review-confirm'"
       v-on="{ confirm: recoveryPrompt.confirm, 'update:open': recoveryPrompt.close }"><p>{{ t('printingPreview.recoveryHint') }}</p></ArtFormDialog>
+    <PrintingTenantGrantsDialog v-if="grantWindow" :key="grantWindow.token" :template="grantWindow.template" v-on="{ close: grantWindow.close }" />
   </div>
 </template>
 

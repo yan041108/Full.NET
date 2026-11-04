@@ -50,7 +50,7 @@ const grantRows = computed(() => {
   const token = controls.value.token, version = selectedVersion.value;
   return tenants.value.map(id => ({ id, revoke: () => { if (controls.value.token === token && selectedVersion.value === version) void changeGrant(id, false); } }));
 });
-const host = () => session.currentUser?.scope === 'host' && session.currentUser.tenantId === null;
+const host = () => session.currentUser?.scope === 'host' && session.currentUser.actorScope === 'host' && session.currentUser.tenantId === null;
 const scope = useAuthorizedViewScope(session, () => {
   // 确认框属于本页面，失效时同步清除原租户提示并解除等待。
   finishConfirmation(false);
@@ -171,7 +171,7 @@ async function changeGrant(target: string, grant: boolean): Promise<void> {
 </script>
 
 <template>
-  <ArtFormDialog v-if="canManage" :open="true" :title="t('printingGrants.title', {name:template.name})" :show-confirm="false"
+  <ArtFormDialog v-if="canManage" :open="true" width="min(680px, calc(100vw - 32px))" :title="t('printingGrants.title', {name:template.name})" :show-confirm="false"
     :cancel-label="t('printingGrants.close')" v-on="{ 'update:open': controls.close }">
     <ElAlert :title="t('printingGrants.versionHint')" type="info" :closable="false" />
     <ElAlert v-if="problem" :title="problem.title" type="error" :closable="false" />
@@ -183,7 +183,7 @@ async function changeGrant(target: string, grant: boolean): Promise<void> {
     <ElButton :disabled="busy" data-testid="printing-grant-versions-refresh" v-on="{ click: controls.reloadVersions }">{{ t('printingGrants.refreshVersions') }}</ElButton>
     <ElForm label-width="120px">
       <ElFormItem :label="t('printingGrants.version')" required>
-        <ElSelect :model-value="selectedVersion" :disabled="busy" v-on="{ 'update:modelValue': controls.selectVersion }">
+        <ElSelect class="printing-grant-version-select" :model-value="selectedVersion" :disabled="busy" v-on="{ 'update:modelValue': controls.selectVersion }">
           <ElOption v-for="version in versions" :key="version.id" :label="String(version.versionNumber)" :value="version.versionNumber" />
         </ElSelect>
       </ElFormItem>
@@ -193,7 +193,7 @@ async function changeGrant(target: string, grant: boolean): Promise<void> {
       <ElButton :disabled="busy || !validVersion() || selectedVersion !== undefined && unconfirmed.has(grantKey(selectedVersion,tenantId.trim()))" data-testid="printing-grant-save" v-on="{ click: controls.grant }">{{ t('printingGrants.grant') }}</ElButton>
       <ElButton :disabled="busy || !validVersion()" data-testid="printing-grant-refresh" v-on="{ click: controls.refresh }">{{ t('printingGrants.refresh') }}</ElButton>
     </ElForm>
-    <ElTable v-loading="loading" :data="grantRows" class="art-crud-data-table" max-height="320">
+    <ElTable v-loading="loading" :data="grantRows" class="art-crud-data-table" max-height="320" :scrollbar-tabindex="0">
       <ElTableColumn prop="id" :label="t('printingGrants.tenant')" min-width="280" />
       <ElTableColumn :label="t('printingGrants.actions')" :width="ART_TABLE_ACTION_COLUMN_WIDTH">
         <template #default="{row}"><ArtTableActionGroup><ArtTableActionButton type="delete" :disabled="busy || selectedVersion !== undefined && unconfirmed.has(grantKey(selectedVersion,row.id))" test-id="printing-grant-revoke" :title="t('printingGrants.revoke')" v-on="{ click: row.revoke }" /></ArtTableActionGroup></template>
@@ -201,9 +201,14 @@ async function changeGrant(target: string, grant: boolean): Promise<void> {
     </ElTable>
     <ElPagination :current-page="page" :page-size="20" :total="total" :disabled="acting || !validVersion()" layout="prev, pager, next" v-on="{ 'current-change': controls.page }" />
   </ArtFormDialog>
-  <ArtFormDialog v-if="confirmation && canManage" :key="confirmation.token" :open="true" :title="t('printingGrants.revoke')"
+  <ArtFormDialog v-if="confirmation && canManage" :key="confirmation.token" :open="true" width="min(520px, calc(100vw - 32px))" :trap-focus="true" :title="t('printingGrants.revoke')"
     :confirm-label="t('printingGrants.revoke')" confirm-test-id="printing-grant-confirm-revoke"
     v-on="{ confirm: confirmation.accept, 'update:open': confirmation.update }">
     <p>{{ t('printingGrants.confirmRevoke', {tenant:confirmation.target,version:String(confirmation.version)}) }}</p>
   </ArtFormDialog>
 </template>
+
+<style scoped>
+/* 与控件底色一致，避免负层级的占位文字透出弹窗遮罩。 */
+.printing-grant-version-select :deep(.el-select__placeholder) { background-color: var(--el-fill-color-blank); }
+</style>

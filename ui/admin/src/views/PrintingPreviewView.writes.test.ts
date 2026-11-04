@@ -28,9 +28,10 @@ beforeEach(() => {
   vi.mocked(api.publishPrintingTemplate).mockImplementation(async (_key, body) => ({ ...publication, changeNote: body.changeNote ?? null }));
 });
 afterEach(() => { wrapper?.unmount(); vi.restoreAllMocks(); });
-async function setup() {
-  const context = createShareSession(['read', 'create', 'update', 'publish'].map(action => 'printing.templates.' + action)); context.session.currentUser!.id = actor;
-  wrapper = mount(View, { global: { plugins: [context.pinia], stubs: { ElDialog: { name: 'ElDialog', props: ['modelValue'], template: '<section v-if="modelValue"><slot/><slot name="footer"/></section>' } } } });
+async function setup(extraPermissions: string[] = []) {
+  const context = createShareSession([...['read', 'create', 'update', 'publish'].map(action => 'printing.templates.' + action), ...extraPermissions]); context.session.currentUser!.id = actor;
+  wrapper = mount(View, { global: { plugins: [context.pinia], stubs: { ElDialog: { name: 'ElDialog', props: ['modelValue'], template: '<section v-if="modelValue"><slot/><slot name="footer"/></section>' },
+    PrintingTenantGrantsDialog: { name: 'PrintingTenantGrantsDialog', props: ['template'], emits: ['close'], template: '<section data-testid="grant-window" />' } } } });
   await flushPromises(); return context.session;
 }
 async function openCreate() {
@@ -122,4 +123,28 @@ it('写入期间会话变化销毁回执并取消请求', async () => {
   const session = await setup(); await openCreate(); const pending = deferred<typeof draft>(); vi.mocked(api.createPrintingTemplate).mockReturnValueOnce(pending.promise);
   const action = state().submitCreate(); const signal = vi.mocked(api.createPrintingTemplate).mock.lastCall![1]!; session.currentUser!.sessionId = createdId;
   expect(signal.aborted).toBe(true); pending.resolve(draft); await action; expect(state().writeReceipt).toBeUndefined(); expect(ElMessage.success).not.toHaveBeenCalled();
+});
+it('未知发布按模板保留，切换模板和覆盖回执不能解锁原模板', async () => {
+  const other = { ...draft, id: createdId, templateKey: 'other' }; vi.mocked(api.listPrintingTemplates).mockResolvedValue({ items: [summary, { ...summary, id: createdId, templateKey: 'other' }], total: 2, page: 1, pageSize: 20 });
+  await setup(); vi.mocked(api.getPrintingTemplate).mockImplementation(async target => target === createdId ? other : draft); vi.mocked(api.publishPrintingTemplate).mockRejectedValue(new Error('lost'));
+  await state().confirmPublish(); await state().publishSelected(); const vm = wrapper.vm as unknown as { selectedTemplateId: string; publicationBlocks: Map<string, number> };
+  vm.selectedTemplateId = createdId; await state().confirmPublish(); await state().publishSelected(); vm.selectedTemplateId = id;
+  await state().confirmPublish(); await state().publishSelected(); expect(api.publishPrintingTemplate).toHaveBeenCalledTimes(2); expect(vm.publicationBlocks.get(id)).toBe(7);
+  await state().load(); expect(vm.publicationBlocks.get(id)).toBe(7);
+});
+it('旧发布核对确认不能解锁后续确认，确认本身不发请求', async () => {
+  await setup(); vi.mocked(api.publishPrintingTemplate).mockRejectedValueOnce(new Error('lost')); await state().confirmPublish(); await state().publishSelected(); await state().load();
+  await wrapper.get('[data-testid="printing-publish-review"]').trigger('click'); await flushPromises();
+  const first = wrapper.getComponent(ArtFormDialog), confirm = first.vm.$.vnode.props!.onConfirm as () => void; first.vm.$emit('update:open', false); await flushPromises();
+  await wrapper.get('[data-testid="printing-publish-review"]').trigger('click'); await flushPromises(); confirm();
+  expect((wrapper.vm as unknown as { publicationBlocks: Map<string, number> }).publicationBlocks.has(id)).toBe(true);
+  await wrapper.get('[data-testid="printing-publish-review-confirm"]').trigger('click'); await flushPromises();
+  expect((wrapper.vm as unknown as { publicationBlocks: Map<string, number> }).publicationBlocks.has(id)).toBe(false); expect(api.publishPrintingTemplate).toHaveBeenCalledOnce();
+});
+it('授权窗口冻结已发布模板，同模板重开后旧关闭不能关闭新窗口，撤权销毁窗口', async () => {
+  const session = await setup(['printing.templates.grant_tenants']); await wrapper.get('[data-testid="printing-tenant-grants-open"]').trigger('click'); await flushPromises();
+  const first = wrapper.getComponent({ name: 'PrintingTenantGrantsDialog' }), oldClose = first.vm.$.vnode.props!.onClose as () => void;
+  expect(first.props('template')).toEqual({ id, name: draft.name, latestPublishedVersionNumber: 1 }); first.vm.$emit('close'); await flushPromises();
+  await wrapper.get('[data-testid="printing-tenant-grants-open"]').trigger('click'); await flushPromises(); oldClose(); await flushPromises(); expect(wrapper.find('[data-testid="grant-window"]').exists()).toBe(true);
+  session.currentUser!.permissions = ['printing.templates.read']; await flushPromises(); expect(wrapper.find('[data-testid="grant-window"]').exists()).toBe(false);
 });

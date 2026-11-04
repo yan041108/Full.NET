@@ -1,4 +1,5 @@
 export const printingTemplatesZh = {
+  'printingTemplates.reviewPublication': '核对本模板的未知发布', 'printingTemplates.tenantGrants': '已发布版本租户授权',
   'printingTemplates.printFailed': '无法打开浏览器打印窗口，已保留新预览，可手动重试。',
   'printingTemplates.close': '关闭',
   'printingTemplates.closeInFlight': '关闭只停止本窗口等待，服务端操作仍可能完成；请重新读取核对结果。',
@@ -24,6 +25,7 @@ export const printingTemplatesZh = {
   'printingTemplates.reloadDraft': '重新载入草稿', 'printingTemplates.discardConfirm': '放弃本地输入，重新读取服务端草稿？'
 } as const;
 export const printingTemplatesEn: Record<keyof typeof printingTemplatesZh, string> = {
+  'printingTemplates.reviewPublication': 'Review this template’s unconfirmed publication', 'printingTemplates.tenantGrants': 'Tenant grants for published versions',
   'printingTemplates.printFailed': 'Could not open browser printing. The refreshed preview is preserved for a manual retry.',
   'printingTemplates.close': 'Close',
   'printingTemplates.closeInFlight': 'Closing stops this window from waiting. The server operation may still complete; reload to review its outcome.',

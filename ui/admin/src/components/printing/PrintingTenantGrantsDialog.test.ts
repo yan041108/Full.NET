@@ -27,6 +27,11 @@ function create(permissions = ['printing.templates.read','printing.templates.gra
 }
 async function enter(wrapper:ReturnType<typeof create>['wrapper'], value=tenant) { wrapper.getComponent(ElInput).vm.$emit('update:modelValue',value); await flushPromises(); }
 describe('PrintingTenantGrantsDialog', () => {
+ it('有效 Host 标记不能代替原始 Host 作用域，切换后关闭窗口且不继续读取', async () => {
+  const { wrapper, session } = create(); await flushPromises(); const calls = versions.mock.calls.length;
+  session.currentUser!.actorScope = 'tenant:019bc2b12a407cc38992a80de51bf292'; await flushPromises();
+  expect(wrapper.findComponent(ArtFormDialog).exists()).toBe(false); expect(versions).toHaveBeenCalledTimes(calls);
+ });
  beforeEach(() => {vi.clearAllMocks();versions.mockResolvedValue(((items) => ({ items, page: 1, pageSize: 20, total: items.length }))([1,2].map(n=>({id:tenant.slice(0,-1)+String(n),templateId:template.id,versionNumber:n,
    layoutHtml:'<div>Frozen</div>',changeNote:null,publishedByUserId:tenant,publishedAtUtc:'2026-10-08T00:00:00Z'}))));
   grants.mockResolvedValue({items:[tenant],page:1,pageSize:20,total:1});setGrant.mockResolvedValue(true); });

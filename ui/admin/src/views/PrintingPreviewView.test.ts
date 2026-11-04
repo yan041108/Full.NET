@@ -115,12 +115,14 @@ describe('PrintingPreviewView', () => {
     vi.mocked(getPrintingTemplate).mockResolvedValue({ ...template(9), name: '远端名称' }); wrapper.findComponent(ElPopconfirm).vm.$emit('confirm'); await flushPromises();
     expect((wrapper.get('[data-testid="printing-template-name"]').element as HTMLInputElement).value).toBe('远端名称'); expect(wrapper.get('[data-testid="printing-preview-submit"]').attributes('disabled')).toBeUndefined();
   });
-  it('发布结果不明只读刷新后才能再次确认，不重放写请求', async () => {
+  it('未知发布的同修订刷新不解锁，人工核对只解锁下一次单独确认', async () => {
     vi.mocked(publishPrintingTemplate).mockRejectedValue(new Error('Response lost'));
     const wrapper = mountWithPermissions(['printing.templates.read', 'printing.templates.publish']); await flushPromises();
     await wrapper.get('[data-testid="printing-template-publish"]').trigger('click'); await flushPromises(); await wrapper.get('[data-testid="printing-template-confirm-publish"]').trigger('click'); await flushPromises();
     expect(wrapper.find('[data-testid="printing-template-unconfirmed"]').exists()).toBe(true); expect(publishPrintingTemplate).toHaveBeenCalledTimes(1);
-    await wrapper.get('[data-testid="printing-template-refresh"]').trigger('click'); await flushPromises(); expect(wrapper.find('[data-testid="printing-template-unconfirmed"]').exists()).toBe(false); expect(publishPrintingTemplate).toHaveBeenCalledTimes(1);
+    await wrapper.get('[data-testid="printing-template-refresh"]').trigger('click'); await flushPromises(); expect(wrapper.find('[data-testid="printing-template-unconfirmed"]').exists()).toBe(true); expect(publishPrintingTemplate).toHaveBeenCalledTimes(1);
+    await wrapper.get('[data-testid="printing-publish-review"]').trigger('click'); await flushPromises(); await wrapper.get('[data-testid="printing-publish-review-confirm"]').trigger('click'); await flushPromises();
+    expect(wrapper.find('[data-testid="printing-template-unconfirmed"]').exists()).toBe(false); expect(publishPrintingTemplate).toHaveBeenCalledOnce();
   });
   it('撤权取消在途版式读取，迟到正文不能重新显示或打印', async () => {
     let resolve!: (value: ReturnType<typeof publication>) => void; vi.mocked(getPrintingTemplateVersion).mockImplementationOnce(() => new Promise(done => { resolve = done; }));
@@ -130,11 +132,13 @@ describe('PrintingPreviewView', () => {
   });
   it('选择另一个发布版本会取消旧正文，旧版式不能污染新选择', async () => {
     let resolve!: (value: ReturnType<typeof publication>) => void; vi.mocked(getPrintingTemplateVersion).mockImplementationOnce(() => new Promise(done => { resolve = done; }));
+    const { layoutHtml: _, ...first } = publication(), second = { ...first, id: '019bc2b1-2a40-7cc3-8992-a80de51bf297', versionNumber: 2 };
+    vi.mocked(listPrintingTemplateVersions).mockResolvedValueOnce({ items: [second, first], page: 1, pageSize: 20, total: 2 });
     const wrapper = mountWithPermissions(['printing.templates.read', 'printing.templates.preview']); await flushPromises(); await wrapper.get('[data-testid="printing-preview-run"]').trigger('click');
     const signal = vi.mocked(getPrintingTemplateVersion).mock.calls[0]![2]!;
     wrapper.findAllComponents(ElSelect)[1]!.vm.$emit('update:modelValue', 2); await flushPromises(); expect(signal.aborted).toBe(true);
     resolve(publication()); await flushPromises(); expect(wrapper.find('iframe').exists()).toBe(false);
-    vi.mocked(getPrintingTemplateVersion).mockResolvedValue({ ...publication(), versionNumber: 2, layoutHtml: '<h1>Version two</h1>' });
+    vi.mocked(getPrintingTemplateVersion).mockResolvedValue({ ...second, layoutHtml: '<h1>Version two</h1>' });
     await wrapper.get('[data-testid="printing-preview-run"]').trigger('click'); await flushPromises(); expect(wrapper.get('iframe').attributes('srcdoc')).toContain('Version two');
   });
   it('发布期间失去会话会取消请求，迟到成功不得自动读取或展示旧模板', async () => {
@@ -271,6 +275,16 @@ describe('PrintingPreviewView', () => {
     const pending = deferred<ReturnType<typeof publication>>(); vi.mocked(getPrintingTemplateVersion).mockReturnValueOnce(pending.promise); const oldFrame = wrapper.get('iframe');
     await wrapper.get('[data-testid="printing-preview-print"]').trigger('click'); const signal = vi.mocked(getPrintingTemplateVersion).mock.lastCall![2]!; useSessionStore().currentUser!.permissions = ['printing.templates.read'];
     expect(signal.aborted).toBe(true); pending.resolve(publication()); await flushPromises(); await oldFrame.trigger('load'); expect(printing).not.toHaveBeenCalled(); expect(wrapper.find('iframe').exists()).toBe(false);
+  });
+  it('选择器内部重读期间可以选择未变候选，旧候选不能借用新修订', async () => {
+    const otherId = '019bc2b1-2a40-7cc3-8992-a80de51bf298', other = { ...template(), id: otherId, templateKey: 'other' };
+    listMock.mockResolvedValue({ items: [template(), other], total: 2, page: 1, pageSize: 20 }); const wrapper = mountWithPermissions(['printing.templates.read']); await flushPromises();
+    const oldSelect = wrapper.findAllComponents(ElSelect)[0]!.vm.$.vnode.props!['onUpdate:modelValue'] as (value: string) => void;
+    const pending = deferred<Awaited<ReturnType<typeof listPrintingTemplates>>>(); listMock.mockReturnValueOnce(pending.promise);
+    const vm = wrapper.vm as unknown as { load: () => Promise<void>; selectedTemplateId: string }; const reading = vm.load(); oldSelect(otherId); expect(vm.selectedTemplateId).toBe(otherId);
+    pending.resolve({ items: [template(), other], total: 2, page: 1, pageSize: 20 }); await reading; expect(vm.selectedTemplateId).toBe(otherId);
+    listMock.mockResolvedValueOnce({ items: [template(), { ...other, version: 5 }], total: 2, page: 1, pageSize: 20 }); await vm.load(); vm.selectedTemplateId = id;
+    oldSelect(otherId); expect(vm.selectedTemplateId).toBe(id);
   });
 
 });

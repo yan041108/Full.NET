@@ -8,17 +8,21 @@ const draft = { id, templateKey: 'existing', name: '现有草稿', formSchemaKey
   isEnabled: true, createdAtUtc, updatedAtUtc: null, version: 7 };
 const json = (route, body) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) });
 const summary = ({ layoutHtml: _, ...value }) => value;
-async function boot(page, rows = () => [draft]) {
+async function boot(page, rows = () => [draft], extraPermissions = []) {
   await page.addInitScript(() => localStorage.setItem('fullnet.admin.locale', 'zh-CN'));
   await page.route('**/api/v1/**', route => route.fulfill({ status: 404 }));
   await page.route('**/api/v1/auth/refresh', route => json(route, { accessToken: 'fixture', tokenType: 'Bearer', expiresAtUtc: '2099-01-01T00:00:00Z' }));
   await page.route('**/api/v1/me', route => json(route, { id, username: 'fixture', displayName: 'Host', tenantId: null, actorScope: 'host', scope: 'host',
-    isSuperAdministrator: false, passwordChangeRequired: false, permissions: ['read', 'create', 'update', 'publish'].map(action => 'printing.templates.' + action),
+    isSuperAdministrator: false, passwordChangeRequired: false, permissions: [...['read', 'create', 'update', 'publish'].map(action => 'printing.templates.' + action), ...extraPermissions],
     sessionId: id, preferredLocale: 'zh-CN', profileVersion: 1 }));
   await page.route('**/api/v1/navigation', route => json(route, [{ id: 'printing', parentId: null, routeName: 'printing-preview', path: '/printing/preview', componentKey: 'printing-preview',
     title: '打印版式', caption: '', icon: 'document', order: 1, requiredPermission: 'printing.templates.read', children: [] }]));
   await page.route('**/api/v1/printing/templates?*', route => json(route, { items: rows().map(summary), page: 1, pageSize: 20, total: rows().length }));
-  await page.route('**/api/v1/printing/templates/*/versions?*', route => json(route, { items: [], page: 1, pageSize: 20, total: 0 }));
+  await page.route('**/api/v1/printing/templates/*/versions?*', route => {
+    const templateId = new URL(route.request().url()).pathname.split('/').at(-2), target = rows().find(item => item.id === templateId), count = target?.latestPublishedVersionNumber ?? 0;
+    return json(route, { items: Array.from({ length: count }, (_, index) => ({ id: index === 0 && count > 1 ? createdId : templateId, templateId,
+      versionNumber: count - index, changeNote: null, publishedByUserId: id, publishedAtUtc: createdAtUtc })), page: 1, pageSize: 20, total: count });
+  });
   await page.route('**/api/v1/printing/templates/' + id, route => json(route, rows().find(item => item.id === id)));
   await page.goto('/#/printing/preview'); await expect(page.getByTestId('printing-preview-create')).toBeEnabled();
 }
@@ -86,4 +90,36 @@ test('新建成功但不在当前页时保留回执和原选择，不注入目�
   await expect(page.getByTestId('printing-preview-template')).toContainText('现有草稿');
   await page.getByTestId('printing-preview-template').click(); await expect(page.getByRole('option', { name: '当前页以外的新草稿', exact: true })).toHaveCount(0);
   expect(creates).toBe(1); expect(publishes).toBe(0); await expect(page.locator('iframe.printing-preview-html')).toHaveCount(0);
+});
+test('同修订未知发布保持保护，人工核对仅解锁新确认，不自动重发', async ({ page }, info) => {
+  let writes = 0, committed = false;
+  await boot(page, () => [{ ...draft, version: committed ? 8 : 7, latestPublishedVersionNumber: committed ? 2 : 1 }]);
+  await page.route('**/api/v1/printing/templates/' + id + '/publish', route => {
+    writes++; if (writes === 1) return route.fulfill({ status: 503, contentType: 'application/problem+json', body: JSON.stringify({ status: 503, code: 'fixture.unknown', title: '发布结果待核对' }) });
+    const body = route.request().postDataJSON(); expect(body).toEqual({ version: 7, changeNote: 'Reviewed retry' }); committed = true;
+    return json(route, { id: createdId, templateId: id, versionNumber: 2, layoutHtml: draft.layoutHtml, changeNote: body.changeNote, publishedByUserId: id, publishedAtUtc: createdAtUtc });
+  });
+  await page.getByTestId('printing-template-publish').click(); await page.getByTestId('printing-template-confirm-publish').click(); await expect(page.getByRole('dialog')).toHaveCount(0);
+  await page.getByTestId('printing-template-refresh').click(); await expect(page.getByTestId('printing-template-publish')).toBeDisabled(); expect(writes).toBe(1);
+  await page.getByTestId('printing-publish-review').click(); await fits(page.getByRole('dialog'), page);
+  await page.screenshot({ path: info.outputPath('publication-review.png'), fullPage: true, animations: 'disabled' });
+  await page.getByTestId('printing-publish-review-confirm').click(); await expect(page.getByTestId('printing-template-publish')).toBeEnabled(); expect(writes).toBe(1);
+  await page.getByTestId('printing-template-publish').click(); await page.getByTestId('printing-template-change-note').fill('Reviewed retry');
+  await page.getByTestId('printing-template-confirm-publish').click(); await expect(page.getByRole('dialog')).toHaveCount(0);
+  await expect(page.getByTestId('printing-write-receipt')).toContainText('新版本已发布'); expect(writes).toBe(2);
+});
+test('Host 从版式入口按精确发布版本授权和撤销租户，窄屏确认可操作', async ({ page }, info) => {
+  await boot(page, () => [draft], ['printing.templates.grant_tenants']); const tenant = '019bc2b1-2a40-7cc3-8992-a80de51bf297'; let granted = false; const writes = [];
+  const root = '/api/v1/printing/templates/' + id + '/versions/1/tenant-grants';
+  await page.route('**' + root + '?*', route => json(route, { items: granted ? [tenant] : [], total: granted ? 1 : 0, page: 1, pageSize: 20 }));
+  await page.route('**' + root + '/' + tenant, route => { writes.push(route.request().method()); granted = route.request().method() === 'PUT'; return json(route, true); });
+  await page.getByTestId('printing-tenant-grants-open').click(); const dialog = page.getByRole('dialog'); await fits(dialog, page);
+  await page.getByTestId('printing-grant-tenant').fill(tenant); await page.getByTestId('printing-grant-save').click();
+  await expect(page.getByTestId('printing-grant-receipt')).toContainText(tenant); await expect(page.getByTestId('printing-grant-revoke')).toBeEnabled();
+  await expect.poll(async () => (await new AxeBuilder({ page }).include('[role="dialog"]').analyze()).violations.map(item => item.id)).toEqual([]);
+  await page.screenshot({ path: info.outputPath('version-tenant-grant.png'), fullPage: true, animations: 'disabled' });
+  await page.getByTestId('printing-grant-revoke').click(); const prompt = page.getByRole('dialog').filter({ has: page.getByTestId('printing-grant-confirm-revoke') });
+  await fits(prompt, page); await expect(prompt).toContainText(tenant); await page.getByTestId('printing-grant-confirm-revoke').click();
+  await expect(page.getByTestId('printing-grant-revoke')).toHaveCount(0); expect(writes).toEqual(['PUT', 'DELETE']);
+  await dialog.getByRole('button', { name: '关闭', exact: true }).click(); await expect(dialog).toHaveCount(0);
 });
