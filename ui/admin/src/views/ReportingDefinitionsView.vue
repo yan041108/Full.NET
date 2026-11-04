@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onActivated, onDeactivated, onBeforeUnmount, reactive, ref, watch } from 'vue';
+import { computed, inject, onActivated, onDeactivated, onBeforeUnmount, reactive, ref, watch } from 'vue';
 import {
   ElAlert,
   ElButton,
@@ -19,6 +19,7 @@ import {
   ElTableColumn,
   ElTag
 } from 'element-plus';
+import { routeLocationKey } from 'vue-router';
 import { Plus } from '@element-plus/icons-vue';
 import type { FormInstance } from 'element-plus';
 import type {
@@ -32,6 +33,8 @@ import type {
   ReportingQueryPortDefinition
 } from '@fullnet/client-contracts';
 import { isFullNetProblemDetails } from '@fullnet/client-contracts';
+import { sameReportingId, sameReportingParameters, sameReportingLayout, validReportingVersion } from '../guards/reporting-management-guards';
+import { useArtDialogLandmarks } from '../framework/art-design/composables/useArtDialogLandmarks';
 import ArtFormDialog from '../framework/art-design/components/ArtFormDialog.vue';
 import ArtSearchBar, { type ArtSearchBarItem } from '../framework/art-design/components/ArtSearchBar.vue';
 import ArtTableActionButton from '../framework/art-design/components/ArtTableActionButton.vue';
@@ -67,12 +70,20 @@ type GroupEditorMode = 'create' | 'edit';
 type DefinitionEditorMode = 'create' | 'edit';
 
 const { t, locale } = useAdminI18n();
+const route = inject(routeLocationKey, undefined);
 const session = useSessionStore(), active = ref(true), writeUnconfirmed = ref(false), publishOpen = ref(false), publishTarget = ref<ReportingDefinition>();
+type PublicationReceipt = { definitionId: string; definitionKey: string; outcome: 'processing' | 'confirmed' | 'unknown' | 'rejected'; versionNumber?: number };
+const publicationReceipt = ref<PublicationReceipt>();
+const publicationDialog = ref<InstanceType<typeof ElDialog>>();
+const publicationLandmarks = useArtDialogLandmarks(() => publicationDialog.value?.dialogContentRef?.$el);
+const definitionFloors = new Map<string, { definitionVersion: number; publishedVersion: number }>();
+let publishEpoch = 0, publicationRequest: { controller: AbortController; receipt: PublicationReceipt } | undefined;
 const text = (key: Parameters<typeof reportingConfigurationText>[1]) => reportingConfigurationText(locale.value, key);
 let generation = 0, groupEpoch = 0, definitionEpoch = 0, catalogEpoch = 0, requests = new AbortController();
 const catalogProblems = reactive<{ sources?: FullNetProblemDetails }>({});
 const reads = new Map<string, AbortController>();
-const canRead = () => active.value && !session.switching && session.currentUser?.actorScope === 'host' && !session.currentUser.tenantId && session.can('reporting.definitions.read');
+const canRead = () => active.value && !session.switching && (!route || route.name === 'reporting-definitions')
+  && session.currentUser?.scope === 'host' && session.currentUser.actorScope === 'host' && !session.currentUser.tenantId && session.can('reporting.definitions.read');
 const can = (permission: string) => canRead() && session.can(permission);
 function current(scope: number) { return scope === generation && canRead(); }
 function reading(key: string) { reads.get(key)?.abort(); const controller = new AbortController(); reads.set(key, controller); return controller; }
@@ -137,6 +148,21 @@ const {
 
 watchLoading(loading);
 
+function cancelPublication() {
+  const request = publicationRequest; if (!request) return;
+  publicationRequest = undefined; request.controller.abort(); acting.value = false; writeUnconfirmed.value = true;
+  publicationReceipt.value = { ...request.receipt, outcome: 'unknown' };
+}
+watch(() => [publishOpen.value, publishTarget.value, publishNote.value], () => {
+  publishEpoch++; cancelPublication();
+}, { flush: 'sync' });
+const publicationControls = computed(() => {
+  const owner = publishEpoch, open = publishOpen.value, target = publishTarget.value, note = publishNote.value;
+  const owned = () => owner === publishEpoch && open && publishOpen.value && target === publishTarget.value && note === publishNote.value && can('reporting.definitions.publish');
+  return { close: () => { if (owned()) publishOpen.value = false; }, update: (value: boolean) => { if (!value && owned()) publishOpen.value = false; },
+    note: (value: string) => { if (owned() && !acting.value) publishNote.value = value; }, confirm: () => { if (owned()) void confirmPublish(); } };
+});
+
 const searchItems = computed<ArtSearchBarItem[]>(() => [
   { key: 'name', label: t('reportingDefinitions.fieldName'), type: 'input' }
 ]);
@@ -172,6 +198,7 @@ watch(() => definitionForm.queryPortKey, queryPortKey => {
 
 /** 权限或会话变更销毁草稿与在途结果，Host 配置不能残留到租户上下文。 */
 function reset() {
+  publicationRequest?.controller.abort(); publicationRequest = undefined; publicationReceipt.value = undefined; definitionFloors.clear();
   generation++; catalogEpoch++; catalogProblems.sources = undefined; requests.abort(); requests = new AbortController(); stopReads();
   groups.value = []; definitions.value = []; queryPorts.value = []; dataSourceOptions.value = []; versions.value = [];
   selectedGroupId.value = undefined; definitionPage.value = 1; definitionTotal.value = 0; versionPage.value = 1; versionTotal.value = 0; versionDefinitionId.value = '';
@@ -182,7 +209,7 @@ function reset() {
   Object.assign(definitionForm, { definitionKey: '', name: '', description: '', dataSourceId: '', queryPortKey: '', layoutConfigJson: '{}', isEnabled: true, parameterSchema: [] });
   searchForm.value = {}; appliedFilters.value = { name: '' }; problem.value = undefined; loading.value = false; acting.value = false; writeUnconfirmed.value = false;
 }
-watch(() => [session.currentUser?.id, session.currentUser?.tenantId, session.currentUser?.actorScope, session.currentUser?.sessionId, session.currentUser?.permissions.join('|'), session.switching, active.value], () => {
+watch(() => [session.state, route?.name, session.currentUser?.scope, session.currentUser?.id, session.currentUser?.tenantId, session.currentUser?.actorScope, session.currentUser?.sessionId, session.currentUser?.permissions.join('|'), session.switching, active.value], () => {
   reset(); if (canRead()) void loadPage();
 }, { immediate: true, flush: 'sync' });
 watch(versionsDrawerOpen, value => { if (!value) { reads.get('history')?.abort(); versions.value = []; } });
@@ -216,7 +243,7 @@ async function loadPage(): Promise<void> {
   if (!canRead() || acting.value) return;
   const scope = generation, controller = reading('catalogs');
   catalogEpoch++; catalogProblems.sources = undefined;
-  publishOpen.value = false; publishTarget.value = undefined; publishNote.value = '';
+  reads.get('publish')?.abort(); publishOpen.value = false; publishTarget.value = undefined; publishNote.value = '';
   if (!definitionEditorOpen.value) reads.get('draft')?.abort();
   loading.value = true;
   problem.value = undefined;
@@ -260,6 +287,10 @@ async function loadDefinitions(afterWrite = false): Promise<boolean> {
     const result = await listReportingDefinitions({ groupId: selectedGroupId.value,
       nameContains: appliedFilters.value.name, page: definitionPage.value, pageSize: 20 }, controller.signal);
     if (!current(scope) || controller.signal.aborted) return false;
+    // 已确认发布的修订是本视图下界，迟到或陈旧目录不能撤销这一事实。
+    if (result.items.some(row => { const floor = definitionFloors.get(row.id.toLowerCase());
+      return floor && (row.version < floor.definitionVersion || row.latestPublishedVersionNumber < floor.publishedVersion); })) throw Error('client.stale_reporting_publication_catalog');
+    for (const row of result.items) definitionFloors.set(row.id.toLowerCase(), { definitionVersion: row.version, publishedVersion: row.latestPublishedVersionNumber });
     definitions.value = result.items; definitionTotal.value = result.total;
     return true;
   } catch (error) { if (current(scope) && !controller.signal.aborted) problem.value = toProblem(error, 'reportingDefinitions.loadFailed'); return false; }
@@ -488,19 +519,45 @@ async function confirmDeleteDefinition(definition: ReportingDefinitionSummary): 
 }
 
 async function publishCurrentDefinition(definition: ReportingDefinitionSummary): Promise<void> {
-  if (!can('reporting.definitions.publish') || acting.value || writeUnconfirmed.value || definitionEditorOpen.value || groupEditorOpen.value) return;
+  if (!can('reporting.definitions.publish') || acting.value || writeUnconfirmed.value || publishOpen.value || definitionEditorOpen.value || groupEditorOpen.value
+    || !definitions.value.some(row => sameReportingId(row.id, definition.id) && row.version === definition.version)) return;
   reads.get('draft')?.abort();
   const scope = generation, controller = reading('publish');
   try { const target = await getReportingDefinition(definition.id, controller.signal);
-    if (current(scope) && can('reporting.definitions.publish') && !controller.signal.aborted) { publishTarget.value = target; publishNote.value = ''; publishOpen.value = true; }
+    if (current(scope) && can('reporting.definitions.publish') && !controller.signal.aborted) {
+      if (!sameReportingId(target.id, definition.id) || target.version < definition.version || target.latestPublishedVersionNumber < definition.latestPublishedVersionNumber) throw Error('client.invalid_reporting_publication_target');
+      publishTarget.value = target; publishNote.value = ''; publishOpen.value = true; }
   } catch (error) { if (current(scope) && !controller.signal.aborted) problem.value = toProblem(error, 'reportingDefinitions.loadFailed'); }
 }
 async function confirmPublish() {
-  const target = publishTarget.value, scope = generation; if (!target) return;
-  await write('reporting.definitions.publish', async signal => {
-    await publishReportingDefinition(target.id, { version: target.version, changeNote: publishNote.value.trim() || null }, signal);
-    if (current(scope)) { publishOpen.value = false; publishNote.value = ''; ElMessage.success(t('reportingDefinitions.publishSuccess')); }
-  });
+  const target = publishTarget.value ? { ...publishTarget.value, parameterSchema: publishTarget.value.parameterSchema.map(parameter => ({ ...parameter })) } : undefined;
+  if (!publishOpen.value || !target || !can('reporting.definitions.publish') || acting.value || writeUnconfirmed.value) return;
+  const scope = generation, owner = publishEpoch, note = publishNote.value.trim() || null;
+  const request = { controller: new AbortController(), receipt: { definitionId: target.id, definitionKey: target.definitionKey, outcome: 'processing' as const } };
+  publicationRequest = request; publicationReceipt.value = { ...request.receipt }; stopReads(); acting.value = true; loading.value = false; problem.value = undefined;
+  const owned = () => publicationRequest === request && current(scope) && owner === publishEpoch && publishOpen.value && can('reporting.definitions.publish');
+  try {
+    const result = await publishReportingDefinition(target.id, { version: target.version, changeNote: note }, request.controller.signal);
+    if (!owned()) return;
+    if (!validReportingVersion(result) || !sameReportingId(result.definitionId, target.id) || result.versionNumber !== target.latestPublishedVersionNumber + 1
+      || !sameReportingId(result.dataSourceId, target.dataSourceId) || result.queryPortKey !== target.queryPortKey
+      || !sameReportingParameters(result.parameterSchema, target.parameterSchema) || !sameReportingLayout(result.layoutConfigJson, target.layoutConfigJson)
+      || !sameReportingId(result.publishedByUserId, session.currentUser?.id) || result.changeNote !== note) throw Error('client.invalid_reporting_publication');
+    publicationReceipt.value = { ...request.receipt, outcome: 'confirmed', versionNumber: result.versionNumber };
+    definitionFloors.set(target.id.toLowerCase(), { definitionVersion: target.version + 1, publishedVersion: result.versionNumber });
+    definitions.value = definitions.value.map(row => sameReportingId(row.id, target.id)
+      ? { ...row, version: Math.max(row.version, target.version + 1), latestPublishedVersionNumber: Math.max(row.latestPublishedVersionNumber, result.versionNumber) } : row);
+    // 先记录权威版本再关闭；后续补读失败只影响目录，不降级已确认结果。
+    publicationRequest = undefined; acting.value = false; publishOpen.value = false; publishNote.value = '';
+    ElMessage.success(t('reportingDefinitions.publishSuccess')); await loadDefinitions();
+  } catch (error) {
+    if (owned()) {
+      const uncertain = !isFullNetProblemDetails(error) || error.status < 400 || error.status === 408 || error.status >= 500;
+      publicationReceipt.value = { ...request.receipt, outcome: uncertain ? 'unknown' : 'rejected' };
+      writeUnconfirmed.value = uncertain || isFullNetProblemDetails(error) && error.status === 409;
+      problem.value = toProblem(error, 'reportingDefinitions.saveFailed');
+    }
+  } finally { if (publicationRequest === request) { publicationRequest = undefined; acting.value = false; } }
 }
 /** 同一批写入只使用当前作用域；写前读取不能解除未知写入的锁定。 */
 async function write(permission: string, action: (signal: AbortSignal) => Promise<void>) {
@@ -529,6 +586,8 @@ function toProblem(error: unknown, fallbackKey: Parameters<typeof t>[0]): FullNe
   <div class="reporting-definitions-view">
     <ElAlert v-if="!canRead()" type="info" :closable="false" :title="text('hostOnly')" />
     <template v-if="canRead()">
+    <div v-if="publicationReceipt" role="status" data-testid="reporting-publication-receipt"><p>{{ publicationReceipt.definitionKey }} · <code>{{ publicationReceipt.definitionId }}</code></p>
+      <p>{{ publicationReceipt.outcome === 'confirmed' ? t('reportingDefinitions.publishSuccess') : text(publicationReceipt.outcome === 'unknown' ? 'publishUnknown' : publicationReceipt.outcome === 'rejected' ? 'publishRejected' : 'publishProcessing') }} <span v-if="publicationReceipt.versionNumber">{{ publicationReceipt.versionNumber }}</span></p></div>
     <ElAlert v-if="problem" type="error" :title="problem.title" show-icon class="mb-4" />
     <ElAlert v-if="writeUnconfirmed" type="warning" :closable="false" :title="text('unconfirmed')" data-testid="reporting-config-unconfirmed" />
     <ElButton :disabled="acting" :loading="loading" data-testid="reporting-config-refresh" @click="loadPage">{{ text('refresh') }}</ElButton>
@@ -773,12 +832,14 @@ function toProblem(error: unknown, fallbackKey: Parameters<typeof t>[0]): FullNe
     </ElDrawer>
     <ReportingTenantGrantsDialog v-if="versionGrantDefinition" :definition="versionGrantDefinition" @close="versionGrantDefinition = undefined" />
     <ReportingDefinitionGrantsDialog v-model="grantsOpen" :definition-id="grantsDefinitionId" />
-    <ElDialog v-model="publishOpen" :title="text('publish')" width="min(480px, calc(100vw - 32px))" :close-on-click-modal="!acting" :close-on-press-escape="!acting" :show-close="!acting">
-      <p>{{ publishTarget?.name }}</p><p>{{ text('publishHelp') }}</p>
+    <ElDialog ref="publicationDialog" @open="publicationLandmarks" @opened="publicationLandmarks" :model-value="publishOpen" v-on="{ 'update:modelValue': publicationControls.update }" :title="text('publish')" width="min(480px, calc(100vw - 32px))" :close-on-click-modal="false" :close-on-press-escape="true" :show-close="true">
+      <p>{{ publishTarget?.name }}</p><p data-testid="reporting-publication-target-version">{{ text('draftVersion') }} {{ publishTarget?.version }} · {{ t('reportingDefinitions.fieldPublishedVersion') }} {{ publishTarget?.latestPublishedVersionNumber }}</p><p>{{ text('publishHelp') }}</p>
+      <ElAlert v-if="acting" type="info" :closable="false" :title="text('closePublishing')" />
+      <ElAlert v-if="publicationReceipt?.outcome === 'unknown'" type="warning" :closable="false" :title="text('publishUnknown')" />
       <ElAlert v-if="problem" type="error" :closable="false" :title="problem.detail ?? problem.title" />
       <ElAlert v-if="writeUnconfirmed" type="warning" :closable="false" :title="text('unconfirmed')" />
-      <ElForm label-position="top"><ElFormItem :label="text('note')"><ElInput v-model="publishNote" :disabled="acting" maxlength="512" data-testid="reporting-config-publish-note" /></ElFormItem></ElForm>
-      <template #footer><ElButton :disabled="acting" @click="publishOpen = false">{{ text('cancel') }}</ElButton><ElButton type="primary" :loading="acting" :disabled="acting || writeUnconfirmed || !can('reporting.definitions.publish')" data-testid="reporting-config-publish-confirm" @click="confirmPublish">{{ text('publish') }}</ElButton></template>
+      <ElForm label-position="top"><ElFormItem :label="text('note')"><ElInput :model-value="publishNote" v-on="{ 'update:modelValue': publicationControls.note }" :disabled="acting" maxlength="512" data-testid="reporting-config-publish-note" /></ElFormItem></ElForm>
+      <template #footer><ElButton data-testid="reporting-publication-close" v-on="{ click: publicationControls.close }">{{ text('close') }}</ElButton><ElButton type="primary" :loading="acting" :disabled="acting || writeUnconfirmed || !can('reporting.definitions.publish')" data-testid="reporting-config-publish-confirm" v-on="{ click: publicationControls.confirm }">{{ text('publish') }}</ElButton></template>
     </ElDialog>
     </template>
   </div>

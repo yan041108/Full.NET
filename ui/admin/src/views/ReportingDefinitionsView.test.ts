@@ -1,4 +1,6 @@
-import type { ReportingGroup } from '@fullnet/client-contracts';
+import { reactive } from 'vue';
+import { routeLocationKey } from 'vue-router';
+import type { ReportingGroup, ReportingDefinitionVersion } from '@fullnet/client-contracts';
 import { flushPromises, mount, type VueWrapper } from '@vue/test-utils';
 import { createPinia, setActivePinia } from 'pinia';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -10,7 +12,7 @@ import {
 } from '../api/reporting-definitions';
 import { listReportingDataSources } from '../api/reporting-data-sources';
 import { useSessionStore } from '../auth/session';
-import { ElForm, ElMessageBox, ElSelect } from 'element-plus';
+import { ElButton, ElDialog, ElForm, ElMessage, ElMessageBox, ElSelect } from 'element-plus';
 import { dataSourceRow } from '../test/reporting-data-source-fixtures';
 import { deferred } from '../test/data-output-fixtures';
 import { updateReportingGroup } from '../api/reporting-definitions';
@@ -47,13 +49,13 @@ const draft = (version = 7) => ({ id, groupId, dataSourceId: groupId, definition
 const permissions = ['reporting.definitions.read', 'reporting.definitions.update', 'reporting.definitions.publish', 'reporting.definitions.delete', 'reporting.groups.read', 'reporting.query_ports.read', 'reporting.data_sources.read'];
 const wrappers: VueWrapper[] = [];
 afterEach(() => { wrappers.splice(0).forEach(wrapper => wrapper.unmount()); vi.restoreAllMocks(); });
-function mountView(grants: string[] = []) {
+function mountView(grants: string[] = [], route?: { name: string }) {
   const pinia = createPinia();
   setActivePinia(pinia);
   useSessionStore().state = 'authenticated';
   useSessionStore().currentUser = { id, username: 'reviewer', displayName: '验收', tenantId: null, actorScope: 'host', scope: 'host',
     isSuperAdministrator: false, passwordChangeRequired: false, permissions: grants, sessionId: groupId, preferredLocale: 'zh-CN', profileVersion: 1 };
-  const wrapper = mount(ReportingDefinitionsView, { global: { plugins: [pinia], directives: { loading: {} }, stubs: {
+  const wrapper = mount(ReportingDefinitionsView, { global: { plugins: [pinia], provide: route ? { [routeLocationKey as symbol]: route } : {}, directives: { loading: {} }, stubs: {
     ArtFormDialog: { props: ['open', 'title', 'saving', 'showConfirm', 'confirmTestId'], emits: ['confirm', 'update:open'], template: '<section v-if="open" :data-title="title"><slot/><button @click="$emit(\'update:open\', false)" data-testid="test-editor-close">关闭</button><button v-if="showConfirm" :disabled="saving" :data-testid="confirmTestId" @click="$emit(\'confirm\')">保存</button></section>' },
     ElDialog: { props: ['modelValue', 'title'], template: '<aside v-if="modelValue" :data-title="title"><slot/><slot name="footer"/></aside>' },
     ElDrawer: { props: ['modelValue'], template: '<aside v-if="modelValue"><slot/></aside>' },
@@ -251,6 +253,79 @@ describe('ReportingDefinitionsView', () => {
     const vm = wrapper.vm as unknown as { submitDefinition: () => Promise<void>; loadPage: () => Promise<void> };
     const reading = vm.loadPage(); await vm.submitDefinition(); expect(updateReportingDefinition).not.toHaveBeenCalled();
     pending.resolve({ items: [], page: 1, pageSize: 100, total: 0 }); await reading;
+  });
+
+  const publication = (change: Partial<ReportingDefinitionVersion> = {}): ReportingDefinitionVersion => ({ id: groupId, definitionId: id, dataSourceId: groupId,
+    versionNumber: 2, queryPortKey: draft().queryPortKey, parameterSchema: draft().parameterSchema, layoutConfigJson: draft().layoutConfigJson,
+    changeNote: null, publishedByUserId: id, publishedAtUtc: draft().createdAtUtc, ...change });
+  type PublicationState = { publishOpen: boolean; publicationReceipt?: { outcome: string; versionNumber?: number }; definitions: ReturnType<typeof draft>[]; problem?: unknown;
+    loadPage: () => Promise<void>; confirmPublish: () => Promise<void> };
+  const publicationState = (wrapper: VueWrapper) => wrapper.vm as unknown as PublicationState;
+  const publicationButton = (wrapper: VueWrapper) => wrapper.findAllComponents(ElButton).find(item => item.attributes('data-testid') === 'reporting-config-publish-confirm')!;
+  it('发布成功先保存精确版本，补读失败不撤销确认或自动再次发布', async () => {
+    withDefinition(); vi.mocked(publishReportingDefinition).mockResolvedValue(publication()); vi.spyOn(ElMessage, 'success').mockImplementation(() => ({ close() {} }));
+    const wrapper = mountView(permissions); await flushPromises(); await wrapper.get('[data-testid="reporting-config-publish"]').trigger('click'); await flushPromises();
+    expect(wrapper.get('[data-testid="reporting-publication-target-version"]').text()).toContain('7');
+    definitionsMock.mockRejectedValueOnce(new Error('offline')); await publicationState(wrapper).confirmPublish();
+    expect(publicationState(wrapper).publicationReceipt).toMatchObject({ outcome: 'confirmed', versionNumber: 2 }); expect(publicationState(wrapper).definitions[0]?.version).toBe(8);
+    expect(publicationState(wrapper).publishOpen).toBe(false); await publicationState(wrapper).confirmPublish(); expect(publishReportingDefinition).toHaveBeenCalledOnce();
+  });
+  it('已确认发布修订不能被后续陈旧目录回退', async () => {
+    withDefinition(); vi.mocked(publishReportingDefinition).mockResolvedValue(publication());
+    const wrapper = mountView(permissions); await flushPromises(); await wrapper.get('[data-testid="reporting-config-publish"]').trigger('click'); await flushPromises();
+    await publicationState(wrapper).confirmPublish(); await publicationState(wrapper).loadPage();
+    expect(publicationState(wrapper).definitions[0]).toMatchObject({ version: 8, latestPublishedVersionNumber: 2 }); expect(publicationState(wrapper).problem).toBeDefined();
+    expect(publicationState(wrapper).publicationReceipt?.outcome).toBe('confirmed'); expect(publishReportingDefinition).toHaveBeenCalledOnce();
+  });
+  it('观察到更高目录修订后不再回退，保留最后可信摘要', async () => {
+    withDefinition(); const wrapper = mountView(permissions); await flushPromises();
+    definitionsMock.mockResolvedValueOnce({ items: [{ ...draft(9), latestPublishedVersionNumber: 3 }], page: 1, pageSize: 20, total: 1 });
+    await publicationState(wrapper).loadPage(); await publicationState(wrapper).loadPage();
+    expect(publicationState(wrapper).definitions[0]).toMatchObject({ version: 9, latestPublishedVersionNumber: 3 }); expect(publicationState(wrapper).problem).toBeDefined();
+  });
+  it.each([{ definitionId: groupId }, { dataSourceId: id }, { versionNumber: 1 }, { queryPortKey: 'other' }, { parameterSchema: [] }, { layoutConfigJson: '{"other":true}' }, { publishedByUserId: groupId }, { changeNote: 'other' }])('发布快照错配%j按未知保护，不反馈成功', async change => {
+    withDefinition(); vi.mocked(publishReportingDefinition).mockResolvedValue(publication(change)); const success = vi.spyOn(ElMessage, 'success').mockImplementation(() => ({ close() {} }));
+    const wrapper = mountView(permissions); await flushPromises(); await wrapper.get('[data-testid="reporting-config-publish"]').trigger('click'); await flushPromises(); await publicationState(wrapper).confirmPublish();
+    expect(publicationState(wrapper).publicationReceipt?.outcome).toBe('unknown'); expect(success).not.toHaveBeenCalled(); expect(definitionsMock).toHaveBeenCalledOnce();
+  });
+  it('等价UUID大小写和规范布局可以确认发布', async () => {
+    withDefinition(); vi.mocked(publishReportingDefinition).mockResolvedValue(publication({ definitionId: id.toUpperCase(), publishedByUserId: id.toUpperCase(), layoutConfigJson: ' { } ' }));
+    const wrapper = mountView(permissions); await flushPromises(); await wrapper.get('[data-testid="reporting-config-publish"]').trigger('click'); await flushPromises(); await publicationState(wrapper).confirmPublish();
+    expect(publicationState(wrapper).publicationReceipt?.outcome).toBe('confirmed');
+  });
+  it('说明变化使旧确认失效，新确认冻结当前说明', async () => {
+    withDefinition(); vi.mocked(publishReportingDefinition).mockImplementation(async (_key, body) => publication({ changeNote: body.changeNote ?? null }));
+    const wrapper = mountView(permissions); await flushPromises(); await wrapper.get('[data-testid="reporting-config-publish"]').trigger('click'); await flushPromises();
+    const old = publicationButton(wrapper).vm.$.vnode.props!.onClick as () => void;
+    await wrapper.get('[data-testid="reporting-config-publish-note"]').setValue('Reviewed'); old(); await flushPromises(); expect(publishReportingDefinition).not.toHaveBeenCalled();
+    await wrapper.get('[data-testid="reporting-config-publish-confirm"]').trigger('click'); await flushPromises();
+    expect(publishReportingDefinition).toHaveBeenCalledWith(id, { version: 7, changeNote: 'Reviewed' }, expect.any(AbortSignal)); expect(publicationState(wrapper).publicationReceipt?.outcome).toBe('confirmed');
+  });
+  it('旧窗口关闭和确认不能影响同一资源的新窗口', async () => {
+    withDefinition(); const wrapper = mountView(permissions); await flushPromises(); await wrapper.get('[data-testid="reporting-config-publish"]').trigger('click'); await flushPromises();
+    const old = publicationButton(wrapper).vm.$.vnode.props!.onClick as () => void;
+    const close = wrapper.findAllComponents(ElDialog).find(item => item.props('modelValue'))!.vm.$.vnode.props!['onUpdate:modelValue'] as (value: boolean) => void;
+    close(false); await wrapper.get('[data-testid="reporting-config-publish"]').trigger('click'); await flushPromises(); close(false); old(); await flushPromises();
+    expect(publicationState(wrapper).publishOpen).toBe(true); expect(publishReportingDefinition).not.toHaveBeenCalled();
+  });
+  it('关闭在途发布中止接入并保留未知，晚成功不改写回执', async () => {
+    withDefinition(); const pending = deferred<ReportingDefinitionVersion>(); vi.mocked(publishReportingDefinition).mockReturnValueOnce(pending.promise);
+    const wrapper = mountView(permissions); await flushPromises(); await wrapper.get('[data-testid="reporting-config-publish"]').trigger('click'); await flushPromises();
+    const action = publicationState(wrapper).confirmPublish(), signal = vi.mocked(publishReportingDefinition).mock.lastCall![2]!; publicationState(wrapper).publishOpen = false;
+    expect(signal.aborted).toBe(true); pending.resolve(publication()); await action; expect(publicationState(wrapper).publicationReceipt?.outcome).toBe('unknown');
+    expect(definitionsMock).toHaveBeenCalledOnce();
+  });
+  it('明确发布拒绝保留确认窗口，允许修正后手动提交', async () => {
+    withDefinition(); vi.mocked(publishReportingDefinition).mockRejectedValueOnce({ status: 400, code: 'fixture.invalid', title: 'Invalid' }).mockResolvedValue(publication());
+    const wrapper = mountView(permissions); await flushPromises(); await wrapper.get('[data-testid="reporting-config-publish"]').trigger('click'); await flushPromises();
+    await publicationState(wrapper).confirmPublish(); expect(publicationState(wrapper).publicationReceipt?.outcome).toBe('rejected'); expect(publicationState(wrapper).publishOpen).toBe(true);
+    await publicationState(wrapper).confirmPublish(); expect(publishReportingDefinition).toHaveBeenCalledTimes(2); expect(publicationState(wrapper).publicationReceipt?.outcome).toBe('confirmed');
+  });
+  it('路由离开取消发布并销毁本作用域回执，返回不重放', async () => {
+    withDefinition(); const route = reactive({ name: 'reporting-definitions' }), pending = deferred<ReportingDefinitionVersion>(); vi.mocked(publishReportingDefinition).mockReturnValueOnce(pending.promise);
+    const wrapper = mountView(permissions, route); await flushPromises(); await wrapper.get('[data-testid="reporting-config-publish"]').trigger('click'); await flushPromises();
+    const action = publicationState(wrapper).confirmPublish(), signal = vi.mocked(publishReportingDefinition).mock.lastCall![2]!; route.name = 'home'; expect(signal.aborted).toBe(true);
+    pending.resolve(publication()); await action; expect(publicationState(wrapper).publicationReceipt).toBeUndefined(); route.name = 'reporting-definitions'; await flushPromises(); expect(publishReportingDefinition).toHaveBeenCalledOnce();
   });
 
 });
