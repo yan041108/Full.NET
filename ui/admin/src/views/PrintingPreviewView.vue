@@ -18,6 +18,9 @@ import {
 import { Plus, Printer } from '@element-plus/icons-vue';
 import type { FullNetProblemDetails, PrintingTemplateSummary, PrintingTemplate, PrintingTemplateVersionSummary } from '@fullnet/client-contracts';
 import { isFullNetProblemDetails } from '@fullnet/client-contracts';
+import { useArtDialogLandmarks } from '../framework/art-design/composables/useArtDialogLandmarks';
+import ArtFormDialog from '../framework/art-design/components/ArtFormDialog.vue';
+import { validHostPrintingTemplate, validHostPrintingVersion } from '../guards/printing-host-guards';
 import ArtTableHeader from '../framework/art-design/components/ArtTableHeader.vue';
 import PermissionGate from '../components/PermissionGate.vue';
 import PrintingTemplateFields from '../components/PrintingTemplateFields.vue';
@@ -69,7 +72,16 @@ const creating = ref(false);
 const publishing = ref(false);
 const busy = computed(() => creating.value || publishing.value);
 const problem = ref<FullNetProblemDetails>();
-const createDialogVisible = ref(false);
+const editorDialog = ref<InstanceType<typeof ElDialog>>(), publicationDialog = ref<InstanceType<typeof ElDialog>>();
+const editorLandmarks = useArtDialogLandmarks(() => editorDialog.value?.dialogContentRef?.$el);
+const publicationLandmarks = useArtDialogLandmarks(() => publicationDialog.value?.dialogContentRef?.$el);
+const createDialogVisible = ref(false), createBlocked = ref(false);
+type WriteReceipt = { kind: 'create' | 'update' | 'publish'; outcome: 'processing' | 'succeeded' | 'unconfirmed' | 'failed'; templateKey: string; templateId?: string; versionNumber?: number };
+const writeReceipt = ref<WriteReceipt>();
+let editorEpoch = 0, publishEpoch = 0, recoverySequence = 0;
+let unconfirmedDraft: { form: { templateKey: string; name: string; layoutHtml: string; isEnabled: boolean }; schema: string } | undefined;
+let activeWrite: { controller: AbortController; kind: WriteReceipt['kind']; receipt: WriteReceipt; draft?: NonNullable<typeof unconfirmedDraft> } | undefined;
+const recoveryPrompt = ref<{ token: number; confirm: () => void; close: (open: boolean) => void }>();
 const layoutInput = ref<InputInstance>(), editorSchemaKey = ref('printing.tenant_profile_card');
 const createForm = ref({
   templateKey: 'tenant-profile-card',
@@ -77,7 +89,7 @@ const createForm = ref({
   layoutHtml: DEFAULT_LAYOUT_HTML,
   isEnabled: true
 });
-const canSaveDraft = computed(() => !busy.value && !writeUnconfirmed.value && can(editingId.value ? 'update' : 'create')
+const canSaveDraft = computed(() => !busy.value && !writeUnconfirmed.value && (!!editingId.value || !createBlocked.value) && can(editingId.value ? 'update' : 'create')
   && !!createForm.value.name.trim() && createForm.value.name.trim().length <= 128
   && !!createForm.value.layoutHtml.trim() && createForm.value.layoutHtml.length <= 65536
   && (!!editingId.value || (!!createForm.value.templateKey.trim() && createForm.value.templateKey.trim().length <= 128)));
@@ -87,6 +99,57 @@ const selectedTemplate = computed(() =>
 
 const printableTemplates = computed(() =>
   templates.value.filter(item => item.isEnabled && item.latestPublishedVersionNumber > 0));
+
+const sameId = (left: string, right: string) => left.toLowerCase() === right.toLowerCase();
+const editorSignature = () => JSON.stringify([editingId.value, editingVersion.value, editorSchemaKey.value, createForm.value]);
+function markUnconfirmed(operation: NonNullable<typeof activeWrite>) {
+  writeUnconfirmed.value = true;
+  writeReceipt.value = { ...operation.receipt, outcome: 'unconfirmed' };
+  if (operation.kind === 'create') { createBlocked.value = true; unconfirmedDraft = operation.draft; }
+}
+/** 取消只结束本窗口接入；已发出的写入仍可能提交，必须留下待核对事实。 */
+function cancelOwnedWrite(kind: 'editor' | 'publish') {
+  const operation = activeWrite;
+  if (!operation || (operation.kind === 'publish') !== (kind === 'publish')) return;
+  markUnconfirmed(operation); activeWrite = undefined; operation.controller.abort(); creating.value = false; publishing.value = false;
+}
+watch(createDialogVisible, open => {
+  editorEpoch++; recoveryPrompt.value = undefined;
+  if (!open) { detailVersion++; detailRequest?.abort(); cancelOwnedWrite('editor'); }
+}, { flush: 'sync' });
+watch(editorSignature, () => { editorEpoch++; recoveryPrompt.value = undefined; cancelOwnedWrite('editor'); }, { flush: 'sync' });
+watch(() => [publishOpen.value, publishTarget.value, changeNote.value], () => {
+  publishEpoch++; cancelOwnedWrite('publish');
+}, { flush: 'sync' });
+const editorControls = computed(() => {
+  const owner = editorEpoch, signature = editorSignature(), open = createDialogVisible.value;
+  const owned = () => owner === editorEpoch && open && createDialogVisible.value && signature === editorSignature() && can(editingId.value ? 'update' : 'create');
+  const input = <K extends keyof typeof createForm.value>(key: K, value: typeof createForm.value[K]) => {
+    if (owned() && !busy.value) createForm.value = { ...createForm.value, [key]: value };
+  };
+  return { update: (value: boolean) => { if (!value && owned()) createDialogVisible.value = false; },
+    close: () => { if (owned()) createDialogVisible.value = false; }, save: () => { if (owned()) void submitCreate(); },
+    key: (value: string) => input('templateKey', value), name: (value: string) => input('name', value), layout: (value: string) => input('layoutHtml', value), enabled: (value: string | number | boolean) => { if (typeof value === 'boolean') input('isEnabled', value); },
+    insert: (key: string) => { if (owned()) void insertLayoutField(key); },
+    reload: () => { if (owned() && editingId.value === selectedTemplateId.value && !busy.value) void editSelected(); },
+    recover: () => { if (owned()) acknowledgeRecovery(); }
+  };
+});
+const publishControls = computed(() => {
+  const owner = publishEpoch, target = publishTarget.value, open = publishOpen.value, note = changeNote.value;
+  const owned = () => owner === publishEpoch && open && publishOpen.value && target === publishTarget.value && note === changeNote.value && can('publish');
+  return { update: (value: boolean) => { if (!value && owned()) publishOpen.value = false; }, close: () => { if (owned()) publishOpen.value = false; },
+    note: (value: string) => { if (owned() && !busy.value) changeNote.value = value; }, confirm: () => { if (owned()) void publishSelected(); } };
+});
+function acknowledgeRecovery() {
+  if (!can('create') || !createDialogVisible.value || !createBlocked.value || busy.value) return;
+  const owner = editorEpoch, token = ++recoverySequence;
+  const owned = () => recoveryPrompt.value?.token === token && owner === editorEpoch && createDialogVisible.value && createBlocked.value && can('create');
+  recoveryPrompt.value = { token, confirm: () => { if (owned()) { createBlocked.value = false; writeUnconfirmed.value = false; recoveryPrompt.value = undefined; } }, close: open => { if (!open && owned()) recoveryPrompt.value = undefined; } };
+}
+const receiptMessage = computed(() => writeReceipt.value?.outcome === 'succeeded'
+  ? t(writeReceipt.value.kind === 'publish' ? 'printingTemplates.published' : 'printingTemplates.saved')
+  : t(writeReceipt.value?.outcome === 'unconfirmed' ? 'printingTemplates.writeUnconfirmed' : writeReceipt.value?.outcome === 'failed' ? 'printingTemplates.writeFailed' : 'printingTemplates.writeProcessing'));
 
 function toProblem(error: unknown, fallbackKey: Parameters<typeof t>[0]): FullNetProblemDetails {
   if (isFullNetProblemDetails(error)) {
@@ -165,8 +228,11 @@ async function loadHistory() {
 }
 
 function openCreate() {
-  if (!can('create') || busy.value || writeUnconfirmed.value) return;
-  editingId.value = ''; editingVersion.value = 0; editorSchemaKey.value = 'printing.tenant_profile_card'; createForm.value = { templateKey: '', name: '', layoutHtml: DEFAULT_LAYOUT_HTML, isEnabled: true }; createDialogVisible.value = true;
+  if (!can('create') || busy.value || writeUnconfirmed.value && !createBlocked.value) return;
+  detailVersion++; detailRequest?.abort();
+  const recoveryDraft = createBlocked.value ? unconfirmedDraft : undefined;
+  editingId.value = ''; editingVersion.value = 0; editorSchemaKey.value = recoveryDraft?.schema ?? 'printing.tenant_profile_card';
+  createForm.value = recoveryDraft ? { ...recoveryDraft.form } : { templateKey: '', name: '', layoutHtml: DEFAULT_LAYOUT_HTML, isEnabled: true }; createDialogVisible.value = true;
 }
 /** 仅修改当前草稿文本，按选区替换；字段目录不能触发保存、发布或数据绑定。 */
 async function insertLayoutField(fieldKey: string) {
@@ -175,8 +241,8 @@ async function insertLayoutField(fieldKey: string) {
   const start = Math.min(input?.selectionStart ?? body.length, body.length), end = Math.max(start, Math.min(input?.selectionEnd ?? start, body.length));
   if (body.length - (end - start) + token.length > 65536) { ElMessage.warning(t('printingTemplates.layoutFull')); return; }
   const scope = generation; createForm.value.layoutHtml = body.slice(0, start) + token + body.slice(end);
-  await nextTick();
-  if (current(scope) && createDialogVisible.value && input) { input.focus(); input.setSelectionRange(start + token.length, start + token.length); }
+  const owner = editorEpoch; await nextTick();
+  if (current(scope) && owner === editorEpoch && createDialogVisible.value && input) { input.focus(); input.setSelectionRange(start + token.length, start + token.length); }
 }
 async function editSelected() {
   if (!can('update') || !selectedTemplateId.value || busy.value) return;
@@ -194,44 +260,52 @@ async function confirmPublish() {
   catch (error) { if (current(scope) && version === detailVersion && !controller.signal.aborted) problem.value = toProblem(error, 'printingPreview.loadFailed'); }
 }
 async function publishSelected() {
-  const target = publishTarget.value; if (!target || !can('publish') || busy.value || writeUnconfirmed.value) return;
-  const scope = generation; publishing.value = true; beginWrite();
+  const target = publishTarget.value ? { ...publishTarget.value } : undefined;
+  if (!publishOpen.value || !target || !sameId(target.id, selectedTemplateId.value) || !can('publish') || busy.value || writeUnconfirmed.value) return;
+  const scope = generation, owner = publishEpoch, note = changeNote.value.trim() || null;
+  const operation = { controller: new AbortController(), kind: 'publish' as const, receipt: { kind: 'publish' as const, outcome: 'processing' as const, templateKey: target.templateKey, templateId: target.id } };
+  activeWrite = operation; writeReceipt.value = { ...operation.receipt }; publishing.value = true; beginWrite();
+  const owned = () => activeWrite === operation && current(scope) && can('publish') && publishOpen.value && owner === publishEpoch;
   try {
-    await publishPrintingTemplate(target.id, { version: target.version, changeNote: changeNote.value.trim() || null }, requests.signal);
-    if (!current(scope)) return; publishOpen.value = false; publishing.value = false; ElMessage.success(t('printingTemplates.published')); await load();
-  } catch (error) { if (current(scope)) { publishOpen.value = false; writeUnconfirmed.value = uncertain(error); problem.value = toProblem(error, 'printingPreview.createFailed'); } }
-  finally { if (scope === generation) publishing.value = false; }
+    const result = await publishPrintingTemplate(target.id, { version: target.version, changeNote: note }, operation.controller.signal);
+    if (!owned()) return;
+    if (!validHostPrintingVersion(result) || !sameId(result.templateId, target.id) || result.versionNumber !== target.latestPublishedVersionNumber + 1
+      || !sameId(result.publishedByUserId, session.currentUser!.id) || result.layoutHtml !== target.layoutHtml || result.changeNote !== note) throw Error('client.invalid_printing_publication');
+    // 先固定已确认事实，再关闭自己的窗口；后续目录故障不能把成功降为未知。
+    writeReceipt.value = { ...operation.receipt, outcome: 'succeeded', versionNumber: result.versionNumber };
+    activeWrite = undefined; publishing.value = false; publishOpen.value = false; ElMessage.success(t('printingTemplates.published')); await load();
+  } catch (error) {
+    if (owned()) { if (uncertain(error)) markUnconfirmed(operation); else writeReceipt.value = { ...operation.receipt, outcome: 'failed' };
+      writeUnconfirmed.value = uncertain(error); problem.value = toProblem(error, 'printingPreview.createFailed'); activeWrite = undefined; publishing.value = false; publishOpen.value = false; }
+  } finally { if (activeWrite === operation) { activeWrite = undefined; publishing.value = false; } }
 }
 
 async function submitCreate(): Promise<void> {
-  if (!can(editingId.value ? 'update' : 'create') || busy.value || writeUnconfirmed.value || !createForm.value.name.trim() || !createForm.value.layoutHtml.trim()) return;
-  if (!editingId.value && !createForm.value.templateKey.trim()) return;
-  if (createForm.value.name.trim().length > 128 || createForm.value.templateKey.trim().length > 128 || createForm.value.layoutHtml.length > 65536) return;
-  const scope = generation;
-  creating.value = true;
-  beginWrite();
-  problem.value = undefined;
+  if (!createDialogVisible.value || !canSaveDraft.value) return;
+  const scope = generation, owner = editorEpoch, id = editingId.value, revision = editingVersion.value, schema = editorSchemaKey.value, form = { ...createForm.value };
+  const kind = id ? 'update' as const : 'create' as const;
+  const operation = { controller: new AbortController(), kind, receipt: { kind, outcome: 'processing' as const, templateKey: form.templateKey, templateId: id || undefined }, draft: { form, schema } };
+  const owned = () => activeWrite === operation && current(scope) && can(id ? 'update' : 'create') && owner === editorEpoch && createDialogVisible.value;
+  activeWrite = operation; writeReceipt.value = { ...operation.receipt }; creating.value = true; beginWrite(); problem.value = undefined;
   try {
-    const body = { name: createForm.value.name.trim(), layoutHtml: createForm.value.layoutHtml, isEnabled: createForm.value.isEnabled };
-    const created = editingId.value ? await updatePrintingTemplate(editingId.value, { ...body, version: editingVersion.value }, requests.signal) : await createPrintingTemplate({
-      templateKey: createForm.value.templateKey,
-      formSchemaKey: editorSchemaKey.value,
-      ...body
-    }, requests.signal);
-    if (!current(scope)) return;
-    ElMessage.success(t('printingTemplates.saved'));
-    createDialogVisible.value = false;
-    creating.value = false;
+    const body = { name: form.name.trim(), layoutHtml: form.layoutHtml, isEnabled: form.isEnabled };
+    const created = id ? await updatePrintingTemplate(id, { ...body, version: revision }, operation.controller.signal)
+      : await createPrintingTemplate({ templateKey: form.templateKey.trim(), formSchemaKey: schema, ...body }, operation.controller.signal);
+    if (!owned()) return;
+    if (!validHostPrintingTemplate(created) || created.name !== body.name || created.isEnabled !== body.isEnabled || created.templateKey !== form.templateKey.trim()
+      || created.formSchemaKey !== schema || (id ? !sameId(created.id, id) || created.version !== revision + 1 : created.version !== 1 || created.latestPublishedVersionNumber !== 0)) throw Error('client.invalid_printing_saved_draft');
+    writeReceipt.value = { ...operation.receipt, outcome: 'succeeded', templateId: created.id };
+    activeWrite = undefined; creating.value = false; unconfirmedDraft = undefined; createBlocked.value = false;
+    createDialogVisible.value = false; const postOwner = editorEpoch; ElMessage.success(t('printingTemplates.saved'));
     await load();
-    if (!current(scope)) return;
-    if (!templates.value.some(item => item.id === created.id)) { const { layoutHtml: _, ...summary } = created; templates.value = [summary, ...templates.value.slice(0, 19)]; }
-    selectedTemplateId.value = created.id;
-    preview.value = undefined;
-  } catch (error: unknown) {
-    if (current(scope)) { writeUnconfirmed.value = uncertain(error); problem.value = toProblem(error, 'printingPreview.createFailed'); }
-  } finally {
-    if (scope === generation) creating.value = false;
-  }
+    if (!current(scope) || postOwner !== editorEpoch || createDialogVisible.value) return;
+    if (!templates.value.some(item => sameId(item.id, created.id))) { const { layoutHtml: _, ...summary } = created; templates.value = [summary, ...templates.value.slice(0, 19)]; }
+    selectedTemplateId.value = created.id; preview.value = undefined;
+  } catch (error) {
+    if (owned()) { const unknown = !isFullNetProblemDetails(error) || error.status < 400 || error.status === 408 || error.status >= 500;
+      if (unknown) markUnconfirmed(operation); else { writeReceipt.value = { ...operation.receipt, outcome: 'failed' }; writeUnconfirmed.value = !!id && error.status === 409; }
+      problem.value = toProblem(error, 'printingPreview.createFailed'); }
+  } finally { if (activeWrite === operation) { activeWrite = undefined; creating.value = false; } }
 }
 /** 写入开始时作废更早的目录/版本读取，未知结果不能被写前快照解除锁定。 */
 function beginWrite() {
@@ -240,6 +314,7 @@ function beginWrite() {
 }
 
 function reset() {
+  activeWrite?.controller.abort(); activeWrite = undefined; writeReceipt.value = undefined; unconfirmedDraft = undefined; createBlocked.value = false; recoveryPrompt.value = undefined;
   generation++; previewVersion++; listVersion++; detailVersion++; historyVersion++; requests.abort(); requests = new AbortController(); detailRequest?.abort(); previewRequest?.abort(); historyRequest?.abort(); listRequest?.abort();
   templates.value = []; selectedTemplateId.value = ''; preview.value = undefined; problem.value = undefined; createDialogVisible.value = false; publishOpen.value = false;
   publishTarget.value = undefined; writeUnconfirmed.value = false; loading.value = false; previewing.value = false; creating.value = false; publishing.value = false;
@@ -271,7 +346,7 @@ onActivated(() => { active.value = true; }); onDeactivated(() => { active.value 
               plain
               :icon="Plus"
               data-testid="printing-preview-create"
-              :disabled="busy || writeUnconfirmed"
+              :disabled="busy || writeUnconfirmed && !createBlocked"
               @click="openCreate"
             >
               {{ t('printingPreview.createTemplate') }}
@@ -279,6 +354,7 @@ onActivated(() => { active.value = true; }); onDeactivated(() => { active.value 
           </PermissionGate>
         </template>
       </ArtTableHeader>
+      <div v-if="writeReceipt" role="status" data-testid="printing-write-receipt"><p>{{ writeReceipt.templateKey }} <code v-if="writeReceipt.templateId">{{ writeReceipt.templateId }}</code></p><p>{{ receiptMessage }} <span v-if="writeReceipt.versionNumber">{{ writeReceipt.versionNumber }}</span></p></div>
       <ElAlert v-if="writeUnconfirmed" type="warning" :closable="false" :title="t('printingTemplates.unconfirmed')" data-testid="printing-template-unconfirmed" />
       <ElButton :loading="loading" :disabled="busy" data-testid="printing-template-refresh" @click="load">{{ t('common.refresh') }}</ElButton>
       <div class="template-actions"><ElButton :disabled="busy || loading || page <= 1" @click="page--; load()">{{ t('printingTemplates.previous') }}</ElButton><span>{{ page }}</span><ElButton :disabled="busy || loading || page * 20 >= total" @click="page++; load()">{{ t('printingTemplates.next') }}</ElButton></div>
@@ -352,47 +428,53 @@ onActivated(() => { active.value = true; }); onDeactivated(() => { active.value 
     </section>
 
     <ElDialog
-      v-model="createDialogVisible"
+      ref="editorDialog" @open="editorLandmarks" @opened="editorLandmarks"
+      :model-value="createDialogVisible" v-on="{ 'update:modelValue': editorControls.update }"
       :title="t(editingId ? 'printingTemplates.edit' : 'printingTemplates.create')"
       width="min(760px, calc(100vw - 32px))"
-      :close-on-click-modal="!busy" :close-on-press-escape="!busy" :show-close="!busy"
+      :close-on-click-modal="false" :close-on-press-escape="true" :show-close="true"
       class="no-print"
     >
+      <ElButton v-if="createBlocked && !editingId" data-testid="printing-create-review" :disabled="busy" v-on="{ click: editorControls.recover }">{{ t('printingPreview.recoveryTitle') }}</ElButton>
+      <ElAlert v-if="creating" type="info" :closable="false" :title="t('printingTemplates.closeInFlight')" />
       <ElForm label-position="top">
         <ElAlert v-if="problem" type="error" :closable="false" :title="problem.detail ?? problem.title" />
         <ElAlert v-if="writeUnconfirmed" type="warning" :closable="false" :title="t('printingTemplates.unconfirmed')" />
         <ElFormItem :label="t('printingPreview.fieldTemplateKey')" required>
-          <ElInput v-model="createForm.templateKey" :disabled="!!editingId || busy" maxlength="128" data-testid="printing-template-key" />
+          <ElInput :model-value="createForm.templateKey" v-on="{ 'update:modelValue': editorControls.key }" :disabled="!!editingId || busy" maxlength="128" data-testid="printing-template-key" />
         </ElFormItem>
         <ElFormItem :label="t('printingPreview.fieldName')" required>
-          <ElInput v-model="createForm.name" :disabled="busy" maxlength="128" data-testid="printing-template-name" />
+          <ElInput :model-value="createForm.name" v-on="{ 'update:modelValue': editorControls.name }" :disabled="busy" maxlength="128" data-testid="printing-template-name" />
         </ElFormItem>
         <ElFormItem :label="t('printingPreview.fieldLayoutHtml')" required>
-          <ElInput ref="layoutInput" v-model="createForm.layoutHtml" :disabled="busy" type="textarea" :rows="10" :maxlength="65536" show-word-limit data-testid="printing-template-layout" />
+          <ElInput ref="layoutInput" :model-value="createForm.layoutHtml" v-on="{ 'update:modelValue': editorControls.layout }" :disabled="busy" type="textarea" :rows="10" :maxlength="65536" show-word-limit data-testid="printing-template-layout" />
         </ElFormItem>
         <ElFormItem v-if="createDialogVisible && session.can('printing.form_schemas.read')" :label="t('printingTemplates.fields')">
-          <PrintingTemplateFields :form-schema-key="editorSchemaKey" :disabled="busy || writeUnconfirmed" @insert="insertLayoutField" />
+          <PrintingTemplateFields :form-schema-key="editorSchemaKey" :disabled="busy || writeUnconfirmed" v-on="{ insert: editorControls.insert }" />
         </ElFormItem>
-        <ElFormItem :label="t('printingTemplates.enabled')"><ElSwitch v-model="createForm.isEnabled" :disabled="busy" :aria-label="t('printingTemplates.enabled')" /></ElFormItem>
+        <ElFormItem :label="t('printingTemplates.enabled')"><ElSwitch :model-value="createForm.isEnabled" v-on="{ 'update:modelValue': editorControls.enabled }" :disabled="busy" :aria-label="t('printingTemplates.enabled')" /></ElFormItem>
         <p>{{ t('printingTemplates.enabledHelp') }}</p>
       </ElForm>
       <template #footer>
-        <ElButton :disabled="busy" @click="createDialogVisible = false">
-          {{ t('common.cancel') }}
+        <ElButton data-testid="printing-preview-create-back" v-on="{ click: editorControls.close }">
+          {{ t('printingTemplates.close') }}
         </ElButton>
-        <ElPopconfirm v-if="editingId" :title="t('printingTemplates.discardConfirm')" width="280" @confirm="editSelected">
+        <ElPopconfirm v-if="editingId" :title="t('printingTemplates.discardConfirm')" width="280" v-on="{ confirm: editorControls.reload }">
           <template #reference><ElButton :disabled="busy" data-testid="printing-template-reload-draft">{{ t('printingTemplates.reloadDraft') }}</ElButton></template>
         </ElPopconfirm>
-        <ElButton v-if="can(editingId ? 'update' : 'create')" type="primary" :loading="creating" :disabled="!canSaveDraft" data-testid="printing-preview-submit" @click="submitCreate">
+        <ElButton v-if="can(editingId ? 'update' : 'create')" type="primary" :loading="creating" :disabled="!canSaveDraft" data-testid="printing-preview-submit" v-on="{ click: editorControls.save }">
           {{ t('printingTemplates.save') }}
         </ElButton>
       </template>
     </ElDialog>
-    <ElDialog v-model="publishOpen" :title="t('printingTemplates.publish')" width="min(480px, calc(100vw - 32px))" :close-on-click-modal="!busy" :close-on-press-escape="!busy" :show-close="!busy">
-      <p>{{ publishTarget?.name }}</p><p>{{ t('printingTemplates.publishHelp') }}</p>
-      <ElForm label-position="top"><ElFormItem :label="t('printingTemplates.changeNote')"><ElInput v-model="changeNote" :disabled="busy" maxlength="512" data-testid="printing-template-change-note" /></ElFormItem></ElForm>
-      <template #footer><ElButton :disabled="busy" @click="publishOpen = false">{{ t('common.cancel') }}</ElButton><ElButton type="primary" :loading="publishing" :disabled="busy || writeUnconfirmed || !can('publish')" data-testid="printing-template-confirm-publish" @click="publishSelected">{{ t('printingTemplates.publish') }}</ElButton></template>
+    <ElDialog ref="publicationDialog" @open="publicationLandmarks" @opened="publicationLandmarks" :model-value="publishOpen" v-on="{ 'update:modelValue': publishControls.update }" :title="t('printingTemplates.publish')" width="min(480px, calc(100vw - 32px))" :close-on-click-modal="false" :close-on-press-escape="true" :show-close="true">
+      <p>{{ publishTarget?.name }}</p><p>{{ t('printingTemplates.publishHelp') }}</p><ElAlert v-if="publishing" type="info" :closable="false" :title="t('printingTemplates.closeInFlight')" />
+      <ElForm label-position="top"><ElFormItem :label="t('printingTemplates.changeNote')"><ElInput :model-value="changeNote" v-on="{ 'update:modelValue': publishControls.note }" :disabled="busy" maxlength="512" data-testid="printing-template-change-note" /></ElFormItem></ElForm>
+      <template #footer><ElButton data-testid="printing-publish-close" v-on="{ click: publishControls.close }">{{ t('printingTemplates.close') }}</ElButton><ElButton type="primary" :loading="publishing" :disabled="busy || writeUnconfirmed || !can('publish')" data-testid="printing-template-confirm-publish" v-on="{ click: publishControls.confirm }">{{ t('printingTemplates.publish') }}</ElButton></template>
     </ElDialog>
+    <ArtFormDialog v-if="recoveryPrompt" :key="recoveryPrompt.token" :open="true" width="min(520px, calc(100vw - 32px))" :title="t('printingPreview.recoveryTitle')"
+      :confirm-label="t('common.confirm')" :cancel-label="t('common.cancel')" confirm-test-id="printing-create-review-confirm"
+      v-on="{ confirm: recoveryPrompt.confirm, 'update:open': recoveryPrompt.close }"><p>{{ t('printingPreview.recoveryHint') }}</p></ArtFormDialog>
   </div>
 </template>
 

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ElButton, ElDialog } from 'element-plus';
-import { nextTick, ref } from 'vue';
+import { ref } from 'vue';
+import { useArtDialogLandmarks } from '../composables/useArtDialogLandmarks';
 
 defineOptions({ name: 'ArtFormDialog' });
 const dialog = ref<InstanceType<typeof ElDialog>>();
@@ -31,15 +32,7 @@ const emit = defineEmits<{
   cancel: [];
 }>();
 
-/** 库未暴露 header/footer 的语义属性；只校正本弹窗内容，保留外层 dialog 名称与焦点行为。 */
-async function scopeLandmarks(): Promise<void> {
-  await nextTick();
-  const content = dialog.value?.dialogContentRef?.$el;
-  if (!(content instanceof HTMLElement)) return;
-  for (const child of Array.from(content.children)) {
-    if (child.tagName === 'HEADER' || child.tagName === 'FOOTER') child.setAttribute('role', 'presentation');
-  }
-}
+const scopeLandmarks = useArtDialogLandmarks(() => dialog.value?.dialogContentRef?.$el);
 
 function close(): void {
   emit('update:open', false);

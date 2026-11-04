@@ -1,4 +1,7 @@
 export const printingTemplatesZh = {
+  'printingTemplates.close': '关闭',
+  'printingTemplates.closeInFlight': '关闭只停止本窗口等待，服务端操作仍可能完成；请重新读取核对结果。',
+  'printingTemplates.writeProcessing': '正在提交操作…', 'printingTemplates.writeUnconfirmed': '结果尚未确认，请核对后再决定下一步。', 'printingTemplates.writeFailed': '本次操作已被拒绝，修正后可手动重试。',
   'printingTemplates.fields': '可用占位字段', 'printingTemplates.fieldsHelp': '点击字段会插入到布局光标处，或替换选中文字。仅插入占位符，不读取业务数据。',
   'printingTemplates.fieldsLoading': '正在读取字段目录…', 'printingTemplates.fieldsFailed': '字段目录读取失败，可重试。现有布局仍可编辑。',
   'printingTemplates.fieldsEmpty': '此表单暂未提供占位字段。', 'printingTemplates.layoutFull': '插入后将超过布局 65536 字符上限，请先缩减内容。',
@@ -20,6 +23,9 @@ export const printingTemplatesZh = {
   'printingTemplates.reloadDraft': '重新载入草稿', 'printingTemplates.discardConfirm': '放弃本地输入，重新读取服务端草稿？'
 } as const;
 export const printingTemplatesEn: Record<keyof typeof printingTemplatesZh, string> = {
+  'printingTemplates.close': 'Close',
+  'printingTemplates.closeInFlight': 'Closing stops this window from waiting. The server operation may still complete; reload to review its outcome.',
+  'printingTemplates.writeProcessing': 'Submitting operation…', 'printingTemplates.writeUnconfirmed': 'The outcome is unconfirmed. Review it before deciding the next step.', 'printingTemplates.writeFailed': 'The operation was rejected. Correct the input and retry manually.',
   'printingTemplates.fields': 'Available placeholders', 'printingTemplates.fieldsHelp': 'Select a field to insert it at the layout cursor or replace selected text. This inserts a placeholder without reading business data.',
   'printingTemplates.fieldsLoading': 'Loading available fields…', 'printingTemplates.fieldsFailed': 'Could not load fields. Retry or continue editing the existing layout.',
   'printingTemplates.fieldsEmpty': 'This form has no available placeholders.', 'printingTemplates.layoutFull': 'This insertion would exceed the 65536 character layout limit. Shorten the layout first.',
