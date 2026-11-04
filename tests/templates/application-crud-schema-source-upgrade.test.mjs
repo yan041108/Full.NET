@@ -67,3 +67,23 @@ for (const failure of ['missing-source', 'missing-module', 'wrong-prefix', 'bind
   try { assert.throws(() => verifyApplicationCrudSchemaSourceUpgrade(f.root, { run: runner(f, failure, []), reportDirectory: join(f.root, 'evidence') })); }
   finally { rmSync(f.root, { recursive: true, force: true }); }
 });
+
+for (const cpu of ['1', '2', '4']) test('升级中的CLI及最终API编译使用显式CPU预算：' + cpu, () => {
+  const f = fixture(true), calls = [], execute = runner(f, null, calls);
+  try {
+    verifyApplicationCrudSchemaSourceUpgrade(f.root, { buildCpuCount: cpu, reportDirectory: join(f.root, 'evidence'),
+      run: (command, args, options) => {
+        assert.equal(options.env.DOTNET_PROCESSOR_COUNT, cpu);
+        if (args[0] === 'build') assert.ok(args.includes('-maxcpucount:' + cpu));
+        return execute(command, args, options);
+      } });
+    assert.equal(calls.length, 3);
+  } finally { rmSync(f.root, { recursive: true, force: true }); }
+});
+test('无效升级编译预算在修改Schema前拒绝', () => {
+  const f = fixture(true), before = readFileSync(join(f.root, 'verification/CrudGeneration/schema.json'));
+  try {
+    assert.throws(() => verifyApplicationCrudSchemaSourceUpgrade(f.root, { buildCpuCount: '0' }), /正整数/u);
+    assert.deepEqual(readFileSync(join(f.root, 'verification/CrudGeneration/schema.json')), before);
+  } finally { rmSync(f.root, { recursive: true, force: true }); }
+});

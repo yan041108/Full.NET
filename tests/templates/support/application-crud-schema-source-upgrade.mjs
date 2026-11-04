@@ -5,11 +5,16 @@ import { join, posix } from 'node:path';
 import { testRunEnvironment } from '../../../scripts/testing/test-run-context.mjs';
 import { CRUD_ARTIFACTS, applicationCrudArtifactPath } from './application-crud-generation.mjs';
 import { MODULE_ARTIFACTS, assertHostIntegrationReceipt } from './application-crud-module.mjs';
+import { createdAppBuildArguments } from './created-app-build-arguments.mjs';
 
 // 源码升级通过同一完整目标原子接入；业务表仍需显式采纳成对迁移。
 export function verifyApplicationCrudSchemaSourceUpgrade(appRoot, {
   reportDirectory = join(process.cwd(), '.tmp/template-real-stack/application-crud-schema-source-upgrade'), run = spawnSync,
+  buildCpuCount = testRunEnvironment().DOTNET_PROCESSOR_COUNT ?? '1',
 } = {}) {
+  // 真实栈阶段会释放编译名额并恢复运行时 CPU；此处仅为嵌套编译固定原预算，独立调用保守串行。
+  const environment = { ...testRunEnvironment(), DOTNET_PROCESSOR_COUNT: buildCpuCount };
+  const apiBuildArgs = createdAppBuildArguments(['build', join(appRoot, 'src/Demo.Host.Api/Demo.Host.Api.csproj'), '-c', 'Release', '-v', 'quiet'], environment);
   mkdirSync(reportDirectory, { recursive: true });
   const schemaPath = join(appRoot, 'verification/CrudGeneration/schema.json');
   const vueTarget = join(appRoot, 'verification/CrudGeneration/vue-target.json');
@@ -35,7 +40,7 @@ export function verifyApplicationCrudSchemaSourceUpgrade(appRoot, {
   const cli = join(appRoot, 'framework/fullnet/src/Tools/Full.NET.CodeGeneration.Cli/bin/Release/net10.0/Full.NET.CodeGeneration.Cli.dll');
   const args = ['exec', cli, 'apply-host-integration', '--schema', schemaPath, '--repository', appRoot, '--target', targetPath];
   const execute = (stage, command, commandArgs) => {
-    const result = run(command, commandArgs, { cwd: appRoot, encoding: 'utf8', timeout: 300_000, windowsHide: true, env: testRunEnvironment() });
+    const result = run(command, commandArgs, { cwd: appRoot, encoding: 'utf8', timeout: 300_000, windowsHide: true, env: environment });
     writeFileSync(join(reportDirectory, stage + '.json'), JSON.stringify({ status: result.status,
       signal: result.signal, error: result.error?.message, stdout: result.stdout, stderr: result.stderr }, null, 2));
     assert.equal(result.error, undefined, stage + ' process failed');
@@ -70,7 +75,7 @@ export function verifyApplicationCrudSchemaSourceUpgrade(appRoot, {
   assert.equal(changed.get('src/Demo.Modules.Catalog/Generated/Product/ProductContracts.g.cs'), 'Update', 'schema change did not update module contracts');
   assert.deepEqual(snapshot(), before, 'source upgrade changed application-owned bindings or manual code');
   actions(execute('source-repeat', 'dotnet', args), false);
-  execute('api-build', 'dotnet', ['build', join(appRoot, 'src/Demo.Host.Api/Demo.Host.Api.csproj'), '-c', 'Release', '-v', 'quiet']);
+  execute('api-build', 'dotnet', apiBuildArgs);
   assert.deepEqual(snapshot(), before, 'source upgrade changed application-owned files');
   const result = { nullableColumn: 'Description', sourceUpdated: CRUD_ARTIFACTS.filter(path => changed.get(path) === 'Update').length,
     moduleUpdated: modulePaths.filter(path => changed.get(path) === 'Update').length,

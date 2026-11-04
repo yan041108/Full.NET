@@ -107,8 +107,14 @@ export async function removeTenantMember(
   const value = await request<unknown>(
     `/api/v1/identity/tenant-members/${memberId}?${params.toString()}`,
     { method: 'DELETE' },
-    signal
+    signal,
+    { retryUnauthorized: false }
   );
+  return readResponse(value, isMember, 'client.invalid_tenant_member');
+}
+
+export async function getTenantMember(memberId: string, signal?: AbortSignal): Promise<TenantMember> {
+  const value = await request<unknown>(`/api/v1/identity/tenant-members/${memberId}`, { method: 'GET' }, signal);
   return readResponse(value, isMember, 'client.invalid_tenant_member');
 }
 

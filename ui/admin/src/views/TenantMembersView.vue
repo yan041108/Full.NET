@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue';
+import { computed, nextTick, onActivated, onBeforeUnmount, onDeactivated, onMounted, reactive, ref, watch } from 'vue';
 import {
   ElButton,
   ElCard,
@@ -28,6 +28,7 @@ import ArtTableActionGroup from '../framework/art-design/components/ArtTableActi
 import ArtTableHeader from '../framework/art-design/components/ArtTableHeader.vue';
 import { useArtCrudTableLayout } from '../framework/art-design/composables/useArtCrudTableLayout';
 import PermissionGate from '../components/PermissionGate.vue';
+import TenantMemberRemovalDialog from '../components/TenantMemberRemovalDialog.vue';
 import { useSessionStore } from '../auth/session';
 import { isIdentityPasswordValid } from '../auth/identity-password-policy';
 import { useAdminI18n } from '../i18n/adminI18n';
@@ -38,7 +39,6 @@ import {
   listTenantInvitations,
   listTenantMembers,
   provisionTenantMember,
-  removeTenantMember,
   revokeTenantInvitation,
   updateTenantMember
 } from '../api/tenant-members';
@@ -69,6 +69,18 @@ const memberSearchForm = ref<Record<string, string | undefined>>({});
 const invitationSearchForm = ref<Record<string, string | undefined>>({});
 const appliedMemberStatus = ref('');
 const appliedInvitationStatus = ref('');
+const active = ref(true);
+const listingScope = computed(() => JSON.stringify([active.value, session.state, session.currentUser?.id,
+  session.currentUser?.sessionId, session.currentUser?.actorScope, session.currentUser?.scope,
+  session.currentUser?.tenantId, session.can('identity.tenant_members.read')]));
+const canReadMembers = computed(() => active.value && session.state === 'authenticated' && inTenantContext.value
+  && session.currentUser?.scope !== 'host' && session.can('identity.tenant_members.read'));
+let memberRequest: AbortController | undefined, invitationRequest: AbortController | undefined;
+let memberEpoch = 0, invitationEpoch = 0;
+function cancelLists() {
+  memberEpoch++; invitationEpoch++; memberRequest?.abort(); invitationRequest?.abort();
+  memberRequest = undefined; invitationRequest = undefined; loadingMembers.value = false; loadingInvitations.value = false;
+}
 
 const inviteOpen = ref(false);
 const provisionOpen = ref(false);
@@ -76,6 +88,7 @@ const editOpen = ref(false);
 const inviteFormRef = ref<FormInstance>();
 const editFormRef = ref<FormInstance>();
 const editingMember = ref<TenantMember | null>(null);
+const removalOpen = ref(false), removalTarget = ref<TenantMember>();
 const invitationToken = ref('');
 const activeTab = ref<'members' | 'invitations'>('members');
 
@@ -253,7 +266,8 @@ function canManageMember(row: TenantMember): boolean {
 }
 
 async function loadMembers() {
-  if (!inTenantContext.value) {
+  memberRequest?.abort(); const ticket = ++memberEpoch, key = listingScope.value;
+  if (!canReadMembers.value) {
     members.value = [];
     memberTotal.value = 0;
     return;
@@ -261,43 +275,50 @@ async function loadMembers() {
 
   loadingMembers.value = true;
   problem.value = undefined;
+  const request = new AbortController(); memberRequest = request;
   try {
     const result = await listTenantMembers({
       page: memberPage.value,
       pageSize: pageSize.value,
       status: appliedMemberStatus.value || undefined
-    });
+    }, request.signal);
+    if (ticket !== memberEpoch || key !== listingScope.value || !canReadMembers.value) return;
     members.value = result.items;
     memberTotal.value = result.total;
     await updateTableHeight();
   } catch (error) {
-    problem.value = toProblem(error, 'tenantMembers.loadFailed');
+    if (ticket === memberEpoch && key === listingScope.value && !request.signal.aborted)
+      problem.value = toProblem(error, 'tenantMembers.loadFailed');
   } finally {
-    loadingMembers.value = false;
+    if (ticket === memberEpoch && key === listingScope.value) { loadingMembers.value = false; memberRequest = undefined; }
   }
 }
 
 async function loadInvitations() {
-  if (!inTenantContext.value) {
+  invitationRequest?.abort(); const ticket = ++invitationEpoch, key = listingScope.value;
+  if (!canReadMembers.value) {
     invitations.value = [];
     invitationTotal.value = 0;
     return;
   }
 
   loadingInvitations.value = true;
+  const request = new AbortController(); invitationRequest = request;
   try {
     const result = await listTenantInvitations({
       page: invitationPage.value,
       pageSize: pageSize.value,
       status: appliedInvitationStatus.value || undefined
-    });
+    }, request.signal);
+    if (ticket !== invitationEpoch || key !== listingScope.value || !canReadMembers.value) return;
     invitations.value = result.items;
     invitationTotal.value = result.total;
     await updateInvitationTableHeight();
   } catch (error) {
-    problem.value = toProblem(error, 'tenantMembers.loadFailed');
+    if (ticket === invitationEpoch && key === listingScope.value && !request.signal.aborted)
+      problem.value = toProblem(error, 'tenantMembers.loadFailed');
   } finally {
-    loadingInvitations.value = false;
+    if (ticket === invitationEpoch && key === listingScope.value) { loadingInvitations.value = false; invitationRequest = undefined; }
   }
 }
 
@@ -518,21 +539,14 @@ async function submitEditRole() {
   }
 }
 
-async function confirmRemove(row: TenantMember) {
-  await ElMessageBox.confirm(
-    t('tenantMembers.confirmRemove', { name: row.displayName, username: row.username }),
-    { type: 'warning' }
-  );
-  changing.value = true;
-  try {
-    await removeTenantMember(row.id, row.version);
-    ElMessage.success(t('tenantMembers.removeSuccess'));
-    await loadMembers();
-  } catch (error) {
-    problem.value = toProblem(error);
-  } finally {
-    changing.value = false;
-  }
+function confirmRemove(row: TenantMember) {
+  if (!session.can('identity.tenant_members.read') || !session.can('identity.tenant_members.remove')
+    || row.tenantId.toLowerCase() !== session.currentUser?.tenantId?.toLowerCase() || !canManageMember(row)) return;
+  removalTarget.value = { ...row }; removalOpen.value = true;
+}
+function memberRemoved(confirmedWrite: boolean) {
+  if (confirmedWrite) ElMessage.success(t('tenantMembers.removeSuccess'));
+  void loadMembers();
 }
 
 async function confirmRevoke(row: TenantInvitation) {
@@ -577,13 +591,22 @@ function toProblem(
 }
 
 watch(
-  () => session.currentUser?.tenantId,
+  listingScope,
   () => {
+    // 列表与确认对象不能借用新会话；迟到的旧企业结果也不能填回页面。
+    cancelLists(); members.value = []; invitations.value = []; memberTotal.value = 0; invitationTotal.value = 0;
+    problem.value = undefined;
+    removalOpen.value = false; editOpen.value = false; inviteOpen.value = false; provisionOpen.value = false; editingMember.value = null;
+    provisionForm.password = ''; provisionForm.username = ''; provisionForm.displayName = ''; provisionForm.email = '';
+    inviteForm.targetEmail = ''; inviteForm.registrationWayId = '';
     invitationToken.value = '';
     registrationLink.value = '';
     void refreshAll();
-  }
+  }, { flush: 'sync' }
 );
+onDeactivated(() => { active.value = false; });
+onActivated(() => { if (!active.value) active.value = true; });
+onBeforeUnmount(cancelLists);
 
 async function onTabChange(name: string | number): Promise<void> {
   await nextTick();
@@ -615,6 +638,7 @@ onMounted(() => {
 </script>
 
 <template>
+  <TenantMemberRemovalDialog v-model:open="removalOpen" :target="removalTarget" @removed="memberRemoved" />
   <section
     class="tenant-members-view art-page-stack art-full-height"
     :aria-busy="loadingMembers || loadingInvitations"

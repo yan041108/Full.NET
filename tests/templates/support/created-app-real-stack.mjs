@@ -248,6 +248,7 @@ async function loginAndReadSettings(baseUrl, verifySettings = true) {
 export async function verifyCreatedAppRealStack(databaseProviderKey, { scope = 'complete', executeRuntime = action => action(), preparation } = {}) {
   assert.ok(['complete', 'generated-client'].includes(scope), 'unsupported created application verification scope');
   const generatedClientOnly = scope === 'generated-client';
+  const compilationCpu = testRunEnvironment().DOTNET_PROCESSOR_COUNT ?? '1';
   const started = Date.now();
   const workspace = mkdtempSync(join(realpathSync.native(tmpdir()), 'fullnet-created-app-rs-'));
   let dbContainer;
@@ -553,10 +554,10 @@ export async function verifyCreatedAppRealStack(databaseProviderKey, { scope = '
       apiProcess = undefined;
       apiLogStream = undefined;
       const sourceUpgrade = verifyApplicationCrudSchemaSourceUpgrade(appRoot,
-        { reportDirectory: join(logRoot, 'application-crud-live-upgrade/source') });
+        { reportDirectory: join(logRoot, 'application-crud-live-upgrade/source'), buildCpuCount: compilationCpu });
       const upgradedAdoption = prepareApplicationBusinessSchemaUpgrade(appRoot);
       assert.equal(upgradedAdoption.scriptsPerProvider, 2);
-      runDotnet(['build', migratorProject, '-c', 'Release', '-v', 'quiet'], appRoot, env,
+      runDotnet(['build', migratorProject, '-c', 'Release', '-v', 'quiet'], appRoot, { ...env, DOTNET_PROCESSOR_COUNT: compilationCpu },
         300_000, join(logRoot, 'application-crud-live-upgrade/migrator-build.log'));
       const migrationArgs = ['run', '--project', migratorProject, '-c', 'Release', '--no-build'];
       const upgradeMigration = runDotnet(migrationArgs, appRoot, env, 600_000,
