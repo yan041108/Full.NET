@@ -9,7 +9,8 @@ import * as api from '../api/document-preview-tasks';
 import { createShareSession } from '../test/document-share-fixtures';
 import { deferred } from '../test/data-output-fixtures';
 import { documentPreviewTask as task } from '../test/task-lifecycle-fixtures';
-vi.mock('../api/document-preview-tasks', () => ({ getDocumentPreviewTask: vi.fn(), listDocumentPreviewTasks: vi.fn(), createDocumentPreviewTask: vi.fn(), cancelDocumentPreviewTask: vi.fn(), openDocumentPreviewTaskContent: vi.fn() }));
+vi.mock('../api/document-preview-tasks', () => ({
+  getDocumentPreviewCapabilities: vi.fn(), retryDocumentPreviewTask: vi.fn(), getDocumentPreviewTask: vi.fn(), listDocumentPreviewTasks: vi.fn(), createDocumentPreviewTask: vi.fn(), cancelDocumentPreviewTask: vi.fn(), openDocumentPreviewTaskContent: vi.fn() }));
 const read = 'document.host_preview_tasks.read', create = 'document.host_preview_tasks.create', cancel = 'document.host_preview_tasks.cancel';
 const otherId = '019bc2b1-2a40-7cc3-8992-a80de51bf298', pendingTask = { ...task, statusKey: 'pending', outputFileId: null };
 let wrapper: VueWrapper;
@@ -18,6 +19,7 @@ const state = () => wrapper.vm as unknown as State;
 const button = (id: string) => wrapper.findAllComponents(ElButton).find(item => item.attributes('data-testid') === id)!;
 beforeEach(() => {
   vi.resetAllMocks(); vi.spyOn(ElMessage, 'success').mockImplementation(() => ({ close() {} }));
+  vi.mocked(api.getDocumentPreviewCapabilities).mockResolvedValue({ enabled: true, providerKey: 'external_http', allowedMimeTypes: [], maxInputBytes: 1024, maxAttempts: 3 });
   vi.mocked(api.listDocumentPreviewTasks).mockResolvedValue({ items: [{ ...pendingTask }], page: 1, pageSize: 20, total: 1 });
   vi.mocked(api.getDocumentPreviewTask).mockResolvedValue({ ...pendingTask }); vi.mocked(api.createDocumentPreviewTask).mockResolvedValue({ ...pendingTask }); vi.mocked(api.cancelDocumentPreviewTask).mockResolvedValue({ ...pendingTask, statusKey: 'cancelled', version: 2 });
 });

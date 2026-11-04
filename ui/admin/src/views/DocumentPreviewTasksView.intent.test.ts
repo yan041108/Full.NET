@@ -9,12 +9,14 @@ import { createShareSession } from '../test/document-share-fixtures';
 import { deferred, outputId } from '../test/data-output-fixtures';
 import { documentPreviewTask as task } from '../test/task-lifecycle-fixtures';
 
-vi.mock('../api/document-preview-tasks', () => ({ getDocumentPreviewTask: vi.fn(), listDocumentPreviewTasks: vi.fn(), createDocumentPreviewTask: vi.fn(), cancelDocumentPreviewTask: vi.fn(), openDocumentPreviewTaskContent: vi.fn() }));
+vi.mock('../api/document-preview-tasks', () => ({
+  getDocumentPreviewCapabilities: vi.fn(), retryDocumentPreviewTask: vi.fn(), getDocumentPreviewTask: vi.fn(), listDocumentPreviewTasks: vi.fn(), createDocumentPreviewTask: vi.fn(), cancelDocumentPreviewTask: vi.fn(), openDocumentPreviewTaskContent: vi.fn() }));
 const read = 'document.host_preview_tasks.read', create = 'document.host_preview_tasks.create', cancel = 'document.host_preview_tasks.cancel';
 const other = '01980000-0000-7000-8000-000000000003';
 let wrapper: VueWrapper | undefined;
 beforeEach(() => {
   vi.resetAllMocks();
+  vi.mocked(api.getDocumentPreviewCapabilities).mockResolvedValue({ enabled: true, providerKey: 'external_http', allowedMimeTypes: [], maxInputBytes: 1024, maxAttempts: 3 });
   vi.mocked(api.listDocumentPreviewTasks).mockResolvedValue({ items: [{ ...task }], page: 1, pageSize: 20, total: 100 });
   vi.mocked(api.getDocumentPreviewTask).mockResolvedValue({ ...task });
   vi.mocked(api.createDocumentPreviewTask).mockResolvedValue({ ...task });
@@ -92,11 +94,11 @@ describe('文档预览筛选与任务快照意图', () => {
     const dismiss = wrapper!.findAllComponents(ElButton).find(item => item.attributes('data-testid') === 'document-preview-cancel-dismiss')!.vm.$.vnode.props!.onClick as () => void;
     await click('document-preview-cancel-dismiss'); await click('document-preview-task-cancel'); accept(); dismiss(); await flushPromises();
     expect(api.cancelDocumentPreviewTask).not.toHaveBeenCalled(); expect(wrapper!.find('[data-testid="document-preview-cancel-confirm"]').exists()).toBe(true);
-    await click('document-preview-cancel-confirm'); await flushPromises(); expect(api.cancelDocumentPreviewTask).toHaveBeenCalledExactlyOnceWith(task.id, expect.any(AbortSignal));
+    await click('document-preview-cancel-confirm'); await flushPromises(); expect(api.cancelDocumentPreviewTask).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ id: task.id, version: task.version }), expect.any(AbortSignal));
   });
   it('大小写等价取消按目录中的权威标识发送', async () => {
     queued(); await setup(); vm().requestCancellation({ ...task, statusKey: 'pending', id: task.id.toUpperCase() }); await flushPromises(); await click('document-preview-cancel-confirm'); await flushPromises();
-    expect(api.cancelDocumentPreviewTask).toHaveBeenCalledExactlyOnceWith(task.id, expect.any(AbortSignal));
+    expect(api.cancelDocumentPreviewTask).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ id: task.id, version: task.version }), expect.any(AbortSignal));
   });
   it('路由离开清空目录并取消在途读取，返回重新读取', async () => {
     const old = deferred<Awaited<ReturnType<typeof api.listDocumentPreviewTasks>>>(); vi.mocked(api.listDocumentPreviewTasks).mockReturnValueOnce(old.promise);

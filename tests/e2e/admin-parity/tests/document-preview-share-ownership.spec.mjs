@@ -1,4 +1,6 @@
 import { expect, test } from '@playwright/test';
+import AxeBuilder from '@axe-core/playwright';
+import path from 'node:path';
 const id='019bc2b1-2a40-7cc3-8992-a80de51bf299',other='019bc2b1-2a40-7cc3-8992-a80de51bf298';
 const task={id,documentItemId:id,documentTitle:'预览归属样例',versionId:null,sourceFileId:id,outputFileId:id,statusKey:'succeeded',providerKey:'fixture',errorCode:null,requestedByUserId:id,createdAtUtc:'2026-10-10T00:00:00Z',startedAtUtc:null,completedAtUtc:null,version:1};
 const access=(code,title,mimeType='text/plain')=>({shareId:id,documentId:id,shareCode:code,title,fileName:'spec.docx',mimeType,fileSizeBytes:12,hasPassword:false,accessCountRemaining:9});
@@ -33,12 +35,13 @@ test('公开分享轮询拒绝其他任务ID，不下载输出',async({page})=>{
  await page.route('**/api/v1/document/public/shares/OLD/preview-tasks/*/content',route=>{contents++;return route.fulfill({status:200,contentType:'application/pdf',body:'controlled'});});
  await page.goto('/#/document/share/OLD');await expect(page.locator('.el-alert')).toBeVisible();expect(contents).toBe(0);await expect(page.locator('iframe')).toHaveCount(0);
 });
-async function hostBoot(page){
+async function hostBoot(page,rows=[]){
  await publicBoot(page);let lists=0;
  await page.route('**/api/v1/auth/refresh',route=>json(route,{accessToken:'fixture',tokenType:'Bearer',expiresAtUtc:'2099-01-01T00:00:00Z'}));
  await page.route('**/api/v1/me',route=>json(route,{id,username:'fixture',displayName:'Host',tenantId:null,actorScope:'host',scope:'host',isSuperAdministrator:false,passwordChangeRequired:false,permissions:['document.host_preview_tasks.read','document.host_preview_tasks.create'],sessionId:id,preferredLocale:'zh-CN',profileVersion:1}));
  await page.route('**/api/v1/navigation',route=>json(route,[{id:'fixture',parentId:null,routeName:'document-preview-tasks',path:'/document/preview-tasks',componentKey:'document-preview-tasks',title:'文档预览任务',caption:'',icon:'document',order:1,requiredPermission:'document.host_preview_tasks.read',children:[]}]));
- await page.route('**/api/v1/document/host/preview-tasks?*',route=>{lists++;return json(route,{items:[],page:1,pageSize:20,total:0});});
+ await page.route('**/api/v1/document/public/preview-capabilities',route=>json(route,{enabled:true,allowedMimeTypes:[office],maxInputBytes:52428800,maxAttempts:3,providerKey:'fixture'}));
+ await page.route('**/api/v1/document/host/preview-tasks?*',route=>{lists++;return json(route,{items:rows,page:1,pageSize:20,total:rows.length});});
  await page.goto('/#/document/preview-tasks');await expect(page.getByTestId('document-preview-task-create')).toBeEnabled();await expect.poll(()=>lists).toBe(1);return()=>lists;
 }
 async function openCreate(page){await page.getByTestId('document-preview-task-create').click();await page.getByTestId('document-preview-task-editor-form').locator('input').nth(0).fill(id);}
@@ -59,8 +62,26 @@ test('后台关闭在途创建不刷新或反馈，重开不残留文档和版�
  await openCreate(page);await page.getByTestId('document-preview-task-editor-form').locator('input').nth(1).fill(id);
  await page.getByTestId('document-preview-task-editor-submit').click();await expect.poll(()=>started).toBe(true);
  await page.getByRole('dialog').getByRole('button',{name:'取消',exact:true}).click();await expect(page.getByRole('dialog')).toHaveCount(0);release();await expect.poll(()=>finished).toBe(true);
- expect(lists()).toBe(1);await expect(page.locator('.el-message--success')).toHaveCount(0);await expect(page.locator('.el-alert')).toHaveCount(0);await page.getByTestId('document-preview-task-create').click();
+ expect(lists()).toBe(1);await expect(page.locator('.el-message--success')).toHaveCount(0);await expect(page.locator('.el-alert--error')).toHaveCount(0);await expect(page.getByTestId('document-preview-unconfirmed')).toBeVisible();await page.getByTestId('document-preview-task-create').click();
  const inputs=page.getByTestId('document-preview-task-editor-form').locator('input');await expect(inputs.nth(0)).toHaveValue('');await expect(inputs.nth(1)).toHaveValue('');
+});
+
+test('后台结果丢失后确认重新生成固定版本，保留原任务',async({page},info)=>{
+ await page.setViewportSize({width:Number(process.env.FULLNET_ADMIN_PARITY_VIEWPORT_WIDTH??1440),height:1000});
+ const original={...task,versionId:id},fresh={...original,id:other,statusKey:'pending',outputFileId:null};const rows=[original];
+ await hostBoot(page,rows);let creates=0;
+ await page.route(`**/api/v1/document/host/preview-tasks/${id}/content`,route=>route.fulfill({status:404,contentType:'application/problem+json',body:JSON.stringify({status:404,code:'files.file.not_found',title:'Result missing'})}));
+ await page.route('**/api/v1/document/host/preview-tasks',route=>{creates++;expect(route.request().postDataJSON()).toEqual({documentItemId:id,versionId:id});rows.push(fresh);return json(route,fresh);});
+ await page.route(`**/api/v1/document/host/preview-tasks/${other}`,route=>json(route,fresh));
+ await page.getByTestId('document-preview-task-open-pdf').click();await expect(page.getByTestId('document-preview-task-regenerate')).toBeVisible();expect(creates).toBe(0);
+ await page.getByTestId('document-preview-task-regenerate').click();const dialog=page.getByRole('dialog');const inputs=page.getByTestId('document-preview-task-editor-form').locator('input');
+ await expect(inputs.nth(0)).toHaveValue(id);await expect(inputs.nth(1)).toHaveValue(id);await expect(inputs.nth(0)).toBeDisabled();await expect(inputs.nth(1)).toBeDisabled();
+ await expect(page.getByTestId('document-preview-regeneration-hint')).toContainText('原任务及其状态保留');expect(creates).toBe(0);
+ const box=await dialog.boundingBox();expect(box.x).toBeGreaterThanOrEqual(0);expect(box.x+box.width).toBeLessThanOrEqual(page.viewportSize().width);
+ expect((await new AxeBuilder({page}).include('[role="dialog"]').withTags(['wcag2a','wcag2aa','wcag21a','wcag21aa']).analyze()).violations).toEqual([]);
+ await page.screenshot({path:path.resolve(info.outputDir,'..','document-preview-regenerate.png'),fullPage:true,animations:'disabled'});
+ await page.getByTestId('document-preview-task-editor-submit').click();await expect(page.getByTestId('document-preview-detail')).toContainText('预览归属样例');expect(creates).toBe(1);
+ await expect(page.locator('.el-table__body-wrapper').getByText('预览归属样例',{exact:true})).toHaveCount(2);await expect(page.getByTestId('document-preview-receipt')).toContainText(other);
 });
 
 test('公开分享输错密码后仍能输入正确密码完成预览',async({page})=>{

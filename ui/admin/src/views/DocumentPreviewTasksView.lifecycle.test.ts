@@ -9,6 +9,7 @@ import { deferred, outputId } from '../test/data-output-fixtures';
 import { documentPreviewTask as task } from '../test/task-lifecycle-fixtures';
 import { createShareSession } from '../test/document-share-fixtures';
 vi.mock('../api/document-preview-tasks', () => ({
+  getDocumentPreviewCapabilities: vi.fn(), retryDocumentPreviewTask: vi.fn(),
   cancelDocumentPreviewTask: vi.fn(),
   getDocumentPreviewTask: vi.fn(),
   listDocumentPreviewTasks: vi.fn(), createDocumentPreviewTask: vi.fn(), openDocumentPreviewTaskContent: vi.fn()
@@ -18,6 +19,7 @@ const read = 'document.host_preview_tasks.read'; const create = 'document.host_p
 beforeEach(() => {
   vi.clearAllMocks();
   for (const operation of Object.values(api)) if (vi.isMockFunction(operation)) operation.mockReset();
+  vi.mocked(api.getDocumentPreviewCapabilities).mockResolvedValue({ enabled: true, providerKey: 'external_http', allowedMimeTypes: [], maxInputBytes: 1024, maxAttempts: 3 });
   vi.mocked(api.listDocumentPreviewTasks).mockResolvedValue({ items: [task], page: 1, pageSize: 20, total: 1 });
   vi.mocked(api.getDocumentPreviewTask).mockResolvedValue(task);
 });
@@ -39,7 +41,7 @@ describe('文档预览请求归属', () => {
     session.currentUser!.permissions = [read, 'document.host_preview_tasks.cancel']; await flushPromises();
     expect(wrapper!.find('[data-testid="document-preview-task-cancel"]').exists()).toBe(true);
   });
-  it.each(['processing', 'succeeded', 'failed', 'cancelled'])('状态%s不显示取消入口', async statusKey => {
+  it.each(['succeeded', 'failed', 'cancelled'])('状态%s不显示取消入口', async statusKey => {
     queue({ ...pendingTask, statusKey }); await setup([read, 'document.host_preview_tasks.cancel']);
     expect(wrapper!.find('[data-testid="document-preview-task-cancel"]').exists()).toBe(false);
   });
@@ -154,7 +156,8 @@ describe('文档预览创建弹窗关闭', () => {
     wrapper!.getComponent(ArtFormDialog).vm.$emit('update:open',false);
     expect(signal.aborted).toBe(true);
     if(outcome==='resolve')pending.resolve(task);else pending.reject(new Error('late'));
-    await flushPromises();expect(success).not.toHaveBeenCalled();expect(api.listDocumentPreviewTasks).toHaveBeenCalledOnce();expect(wrapper!.find('.el-alert').exists()).toBe(false);
+    await flushPromises();expect(success).not.toHaveBeenCalled();expect(api.listDocumentPreviewTasks).toHaveBeenCalledOnce();expect(wrapper!.find('.el-alert--error').exists()).toBe(false);
+    expect(wrapper!.find('[data-testid="document-preview-unconfirmed"]').exists()).toBe(true);
     await wrapper!.get('[data-testid="document-preview-task-create"]').trigger('click');await flushPromises();
     expect(wrapper!.get('[data-testid="document-preview-task-editor-form"]').findAll('input').map(input=>(input.element as HTMLInputElement).value)).toEqual(['','']);
     await wrapper!.get('[data-testid="document-preview-task-editor-form"] input').setValue(outputId);

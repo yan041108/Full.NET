@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { http } from './http';
-import { getDocumentPreviewCapabilities, cancelDocumentPreviewTask, retryDocumentPreviewTask, openDocumentPreviewTaskContent } from './document-preview-tasks';
+import { getDocumentPreviewCapabilities, createDocumentPreviewTask, cancelDocumentPreviewTask, retryDocumentPreviewTask, openDocumentPreviewTaskContent } from './document-preview-tasks';
 import { openDocumentBlob } from './host-document-items';
 vi.mock('./http', () => ({ http: { request: vi.fn(), requestBlob: vi.fn() } }));
 vi.mock('./host-document-items', () => ({ openDocumentBlob: vi.fn() }));
@@ -21,11 +21,16 @@ describe('preview lifecycle API', () => {
     request.mockResolvedValueOnce({ ...task, statusKey: 'cancelled', version: 4 }).mockResolvedValueOnce({ ...task, id: '01912345-6789-7abc-8def-0123456789ac', attemptCount: 0 });
     await cancelDocumentPreviewTask(task); await retryDocumentPreviewTask(id);
     expect(request).toHaveBeenNthCalledWith(1, `/api/v1/document/host/preview-tasks/${id}/cancel`, expect.objectContaining({ method: 'POST', body: JSON.stringify({ version: 3 }) }), undefined);
-    expect(request).toHaveBeenNthCalledWith(2, `/api/v1/document/host/preview-tasks/${id}/retry`, expect.objectContaining({ method: 'POST' }), undefined);
+    expect(request).toHaveBeenNthCalledWith(2, `/api/v1/document/host/preview-tasks/${id}/retry`, expect.objectContaining({ method: 'POST' }), undefined, { retryUnauthorized: false });
   });
   it('rejects incomplete capability replies', async () => {
     request.mockResolvedValueOnce({ enabled: true });
     await expect(getDocumentPreviewCapabilities()).rejects.toThrow();
+  });
+  it('创建转换关闭认证失败后的自动写入重放', async () => {
+    request.mockResolvedValueOnce(task);
+    await createDocumentPreviewTask({ documentItemId: id, versionId: id });
+    expect(request.mock.calls[0]?.[3]).toEqual({ retryUnauthorized: false });
   });
   it('拒绝未取消、错误目标、陈旧版本与复用原任务的重试响应', async () => {
     for (const value of [task, { ...task, id: '01912345-6789-7abc-8def-0123456789ac', statusKey: 'cancelled' }, { ...task, statusKey: 'cancelled', version: 2 }]) {

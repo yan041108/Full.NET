@@ -35,6 +35,7 @@ function mountWithPermissions(permissions: string[]) {
     preferredLocale: 'zh-CN',
     profileVersion: 1
   };
+  session.state = 'authenticated';
   const wrapper = mount(DocumentPreviewTasksView, { global: { plugins: [pinia], directives: { loading: () => {} }, stubs: {
     ElDialog: { props: ['modelValue', 'title'], template: '<aside v-if="modelValue"><h2>{{ title }}</h2><slot/><slot name="footer"/></aside>' }
   } } }); wrappers.push(wrapper); return wrapper;
@@ -92,7 +93,7 @@ describe('Vue 文档预览任务页', () => {
     expect(wrapper.find('[data-testid="document-preview-task-retry"]').exists()).toBe(false);
     await wrapper.find('[data-testid="document-preview-task-cancel"]').trigger('click'); await flushPromises();
     expect(cancelDocumentPreviewTask).not.toHaveBeenCalled(); expect(wrapper.text()).toContain('确认取消预览转换');
-    await wrapper.get('[data-testid="document-preview-confirm-cancel"]').trigger('click'); await flushPromises();
+    await wrapper.get('[data-testid="document-preview-cancel-confirm"]').trigger('click'); await flushPromises();
     expect(cancelDocumentPreviewTask).toHaveBeenCalledWith(expect.objectContaining({ version: 1, statusKey: 'pending' }), expect.any(AbortSignal));
   });
   it('有精确重试权限的终态任务允许新建重试', async () => {
@@ -104,25 +105,26 @@ describe('Vue 文档预览任务页', () => {
     expect(wrapper.find('[data-testid="document-preview-task-cancel"]').exists()).toBe(false);
   });
 
-  it('处理中的预览仍可按服务端版本取消，确认固定点击时快照', async () => {
+  it('处理中的预览确认固定点击时快照，版本变化后拒绝旧确认', async () => {
     const page = await listMock(); page.items[0]!.statusKey = 'processing'; page.items[0]!.version = 8; listMock.mockResolvedValue(page);
     const wrapper = mountWithPermissions(['document.host_preview_tasks.read', 'document.host_preview_tasks.cancel']); await flushPromises();
     await wrapper.get('[data-testid="document-preview-task-cancel"]').trigger('click');
     expect(wrapper.text()).toContain('临时文件由后台释放');
     page.items[0]!.version = 9;
-    await wrapper.get('[data-testid="document-preview-confirm-cancel"]').trigger('click'); await flushPromises();
-    expect(cancelDocumentPreviewTask).toHaveBeenCalledWith(expect.objectContaining({ version: 8 }), expect.any(AbortSignal));
+    await wrapper.get('[data-testid="document-preview-cancel-confirm"]').trigger('click'); await flushPromises();
+    expect(cancelDocumentPreviewTask).not.toHaveBeenCalled();
   });
   it('未知写入结果暂停后续操作和自动刷新，只允许显式重读', async () => {
     vi.useFakeTimers(); vi.spyOn(document, 'hidden', 'get').mockReturnValue(false);
     vi.mocked(cancelDocumentPreviewTask).mockRejectedValue(new Error('Response lost'));
     const wrapper = mountWithPermissions(['document.host_preview_tasks.read', 'document.host_preview_tasks.cancel']); await flushPromises();
-    await wrapper.get('[data-testid="document-preview-task-cancel"]').trigger('click'); await wrapper.get('[data-testid="document-preview-confirm-cancel"]').trigger('click'); await flushPromises();
+    await wrapper.get('[data-testid="document-preview-task-cancel"]').trigger('click'); await wrapper.get('[data-testid="document-preview-cancel-confirm"]').trigger('click'); await flushPromises();
     expect(wrapper.find('[data-testid="document-preview-unconfirmed"]').exists()).toBe(true);
-    expect(wrapper.get('[data-testid="document-preview-task-cancel"]').attributes('disabled')).toBeDefined();
+    expect(wrapper.find('[data-testid="document-preview-task-cancel"]').exists()).toBe(false);
     await vi.advanceTimersByTimeAsync(30_000); expect(cancelDocumentPreviewTask).toHaveBeenCalledTimes(1); expect(listMock).toHaveBeenCalledTimes(1);
     await wrapper.get('[data-testid="document-preview-refresh"]').trigger('click'); await flushPromises();
-    expect(wrapper.find('[data-testid="document-preview-unconfirmed"]').exists()).toBe(false);
+    expect(wrapper.find('[data-testid="document-preview-unconfirmed"]').exists()).toBe(true);
+    expect(wrapper.find('[data-testid="document-preview-task-cancel"]').exists()).toBe(false);
   });
   it('切换到租户会中止请求，迟到的 Host 数据不可重新显示', async () => {
     let resolve!: (value: Awaited<ReturnType<typeof listMock>>) => void;
@@ -135,7 +137,7 @@ describe('Vue 文档预览任务页', () => {
     const wrapper = mountWithPermissions(['document.host_preview_tasks.read', 'document.host_preview_tasks.cancel']); await flushPromises();
     await wrapper.get('[data-testid="document-preview-task-cancel"]').trigger('click');
     useSessionStore().currentUser!.permissions = []; await flushPromises();
-    expect(wrapper.text()).not.toContain('Quarterly report'); expect(wrapper.find('[data-testid="document-preview-confirm-cancel"]').exists()).toBe(false);
+    expect(wrapper.text()).not.toContain('Quarterly report'); expect(wrapper.find('[data-testid="document-preview-cancel-confirm"]').exists()).toBe(false);
     expect(cancelDocumentPreviewTask).not.toHaveBeenCalled();
   });
   it('仅轮询非终态，成功后停止刷新且不重放写操作', async () => {
@@ -156,7 +158,7 @@ describe('Vue 文档预览任务页', () => {
   it('身份失效后取消响应不能触发刷新或恢复旧列表', async () => {
     let resolve!: (value: never) => void; vi.mocked(cancelDocumentPreviewTask).mockImplementationOnce(() => new Promise(done => { resolve = done; }));
     const wrapper = mountWithPermissions(['document.host_preview_tasks.read', 'document.host_preview_tasks.cancel']); await flushPromises();
-    await wrapper.get('[data-testid="document-preview-task-cancel"]').trigger('click'); await wrapper.get('[data-testid="document-preview-confirm-cancel"]').trigger('click');
+    await wrapper.get('[data-testid="document-preview-task-cancel"]').trigger('click'); await wrapper.get('[data-testid="document-preview-cancel-confirm"]').trigger('click');
     const signal = vi.mocked(cancelDocumentPreviewTask).mock.calls[0]![1]!; useSessionStore().currentUser = undefined; await flushPromises();
     expect(signal.aborted).toBe(true); resolve({} as never); await flushPromises(); expect(listMock).toHaveBeenCalledTimes(1); expect(wrapper.text()).not.toContain('Quarterly report');
   });
@@ -165,8 +167,8 @@ describe('Vue 文档预览任务页', () => {
     const original = await listMock.mock.results[0]!.value; let resolve!: (value: typeof original) => void;
     listMock.mockImplementationOnce(() => new Promise(done => { resolve = done; })); await wrapper.get('[data-testid="document-preview-refresh"]').trigger('click');
     const oldSignal = listMock.mock.calls[1]![3]!; vi.mocked(cancelDocumentPreviewTask).mockRejectedValue(new Error('Response lost'));
-    await wrapper.get('[data-testid="document-preview-task-cancel"]').trigger('click'); await wrapper.get('[data-testid="document-preview-confirm-cancel"]').trigger('click'); await flushPromises();
+    await wrapper.get('[data-testid="document-preview-task-cancel"]').trigger('click'); await wrapper.get('[data-testid="document-preview-cancel-confirm"]').trigger('click'); await flushPromises();
     expect(oldSignal.aborted).toBe(true); resolve(original); await flushPromises(); expect(wrapper.find('[data-testid="document-preview-unconfirmed"]').exists()).toBe(true);
-    expect(wrapper.get('[data-testid="document-preview-task-cancel"]').attributes('disabled')).toBeDefined();
+    expect(wrapper.find('[data-testid="document-preview-task-cancel"]').exists()).toBe(false);
   });
 });

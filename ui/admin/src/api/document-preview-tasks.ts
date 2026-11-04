@@ -53,7 +53,7 @@ export async function createDocumentPreviewTask(
   }
   const value = await documentHostCreateDocumentPreviewTask(http, {
     body: snapshot
-  }, signal);
+  }, signal, { retryUnauthorized: false });
   if (!isHostDocumentPreviewTaskResponse(value)) {
     throw new Error('client.invalid_document_preview_task');
   }
@@ -106,7 +106,7 @@ export async function cancelDocumentPreviewTask(task: HostDocumentPreviewTaskRes
 }
 /** 人工重试产生新任务与新上传身份。 */
 export async function retryDocumentPreviewTask(taskId: string, signal?: AbortSignal): Promise<HostDocumentPreviewTaskResponse> {
-  const value = await documentHostRetryPreviewTask(http, { taskId }, signal);
+  const value = await documentHostRetryPreviewTask(http, { taskId }, signal, { retryUnauthorized: false });
   if (!isHostDocumentPreviewTaskResponse(value) || value.id.toLowerCase() === taskId.toLowerCase()) throw new Error('client.invalid_document_preview_task');
   return value;
 }

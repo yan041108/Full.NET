@@ -8,13 +8,15 @@ import * as api from '../api/document-preview-tasks';
 import { createShareSession } from '../test/document-share-fixtures';
 import { deferred, outputId } from '../test/data-output-fixtures';
 import { documentPreviewTask as task } from '../test/task-lifecycle-fixtures';
-vi.mock('../api/document-preview-tasks', () => ({ getDocumentPreviewTask: vi.fn(), listDocumentPreviewTasks: vi.fn(),
+vi.mock('../api/document-preview-tasks', () => ({
+  getDocumentPreviewCapabilities: vi.fn(), retryDocumentPreviewTask: vi.fn(), getDocumentPreviewTask: vi.fn(), listDocumentPreviewTasks: vi.fn(),
   createDocumentPreviewTask: vi.fn(), cancelDocumentPreviewTask: vi.fn(), openDocumentPreviewTaskContent: vi.fn() }));
 const read = 'document.host_preview_tasks.read', create = 'document.host_preview_tasks.create', cancel = 'document.host_preview_tasks.cancel';
 const otherId = '01980000-0000-7000-8000-000000000003';
 let wrapper: VueWrapper | undefined; let router: Router; let visible = ref(true);
 beforeEach(() => {
   vi.resetAllMocks(); vi.spyOn(document, 'hidden', 'get').mockReturnValue(false);
+  vi.mocked(api.getDocumentPreviewCapabilities).mockResolvedValue({ enabled: true, providerKey: 'external_http', allowedMimeTypes: [], maxInputBytes: 1024, maxAttempts: 3 });
   vi.mocked(api.listDocumentPreviewTasks).mockResolvedValue({ items: [], page: 1, pageSize: 20, total: 0 });
   vi.mocked(api.getDocumentPreviewTask).mockImplementation(async id => ({ ...task, id, documentTitle: id === otherId ? '新预览' : '链接预览' }));
   vi.mocked(api.createDocumentPreviewTask).mockResolvedValue(task); vi.mocked(api.openDocumentPreviewTaskContent).mockResolvedValue();
@@ -96,7 +98,7 @@ describe('文档预览详情及完整任务流程', () => {
     vi.mocked(api.getDocumentPreviewTask).mockResolvedValue({ ...task, statusKey: 'pending' }); vi.mocked(api.cancelDocumentPreviewTask).mockResolvedValue({ ...task, statusKey: 'cancelled' });
     await setup(undefined, [read, cancel]); await wrapper!.get('[data-testid="document-preview-detail-cancel"]').trigger('click');
     expect(api.cancelDocumentPreviewTask).not.toHaveBeenCalled(); await wrapper!.get('[data-testid="document-preview-cancel-confirm"]').trigger('click'); await flushPromises();
-    expect(api.cancelDocumentPreviewTask).toHaveBeenCalledExactlyOnceWith(task.id, expect.any(AbortSignal));
+    expect(api.cancelDocumentPreviewTask).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ id: task.id, version: task.version }), expect.any(AbortSignal));
   });
   it('关闭详情取消在途取消请求，不接入迟到成功', async () => {
     const pending = deferred<typeof task>(); vi.mocked(api.getDocumentPreviewTask).mockResolvedValue({ ...task, statusKey: 'pending' });
