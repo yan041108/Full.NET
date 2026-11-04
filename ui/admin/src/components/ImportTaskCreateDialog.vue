@@ -1,134 +1,207 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref, watch } from 'vue';
-import { ElButton, ElDialog, ElForm, ElFormItem, ElOption, ElSelect } from 'element-plus';
-import type { ImportColumnMappingRequest, ImportExportTaskDetailResponse, StaticImportSchemaDefinition } from '@fullnet/client-contracts';
+import { computed, onActivated, onBeforeUnmount, onDeactivated, onMounted, ref, watch } from 'vue';
+import { ElAlert, ElButton, ElForm, ElFormItem, ElOption, ElSelect } from 'element-plus';
+import { isFullNetProblemDetails, isGuid, type FullNetProblemDetails, type ImportExportTaskDetailResponse, type StaticImportSchemaDefinition } from '@fullnet/client-contracts';
+import ArtFormDialog from '../framework/art-design/components/ArtFormDialog.vue';
+import PermissionGate from './PermissionGate.vue';
 import { useSessionStore } from '../auth/session';
+import { isTenantSessionContext } from '../auth/tenant-session-context';
+import { useAuthorizedViewScope } from '../composables/useAuthorizedViewScope';
 import { useAdminI18n } from '../i18n/adminI18n';
 import { showProblem, showSuccess, showWarning } from '../feedback/fullNetMessage';
 import { createImportExportTask, downloadStaticImportTemplate, listStaticImportSchemas } from '../api/import-export-tasks';
 import ImportProfileEditor from './ImportProfileEditor.vue';
 import { validImportMapping } from '../api/import-profiles';
+import type { ImportColumnMappingRequest } from '@fullnet/client-contracts';
 
-const open = defineModel<boolean>({ default: false });
-const emit = defineEmits<{ created: [task: ImportExportTaskDetailResponse] }>();
-const session = useSessionStore();
-const { t } = useAdminI18n();
-const allowed = computed(() => !session.switching && !!session.currentUser?.tenantId
-  && session.can('import_export.import_tasks.create') && session.can('import_export.static_schemas.read'));
-const schemas = ref<StaticImportSchemaDefinition[]>([]);
-const schemaKey = ref(''), worksheetKey = ref('');
-const file = ref<File>(), fileInput = ref<HTMLInputElement>();
-const busy = ref(false);
-const profileBusy = ref(false), mapping = ref<ImportColumnMappingRequest>();
-const availableSchemas = computed(() => schemas.value.filter(schema => schema.scopeKey === 'tenant' && session.can(schema.requiredPermission)));
-const schema = computed(() => availableSchemas.value.find(item => item.schemaKey === schemaKey.value));
-const worksheet = computed(() => schema.value?.worksheets.find(item => item.worksheetKey === worksheetKey.value));
-let generation = 0, cancellation = new AbortController();
+defineOptions({ name: 'ImportTaskCreateDialog' });
+const props = defineProps<{ open: boolean; schemaKey?: string }>();
+const emit = defineEmits<{ 'update:open': [value: boolean]; created: [task: ImportExportTaskDetailResponse] }>();
+const session = useSessionStore(); const { t } = useAdminI18n();
+const schemas = ref<StaticImportSchemaDefinition[]>([]); const schemaKey = ref(''); const worksheetKey = ref('');
+const selectedFile = ref<File>(); const fileInput = ref<HTMLInputElement>();
+const mapping = ref<ImportColumnMappingRequest>(), profileBusy = ref(false);
+const loading = ref(false); const saving = ref(false); const downloading = ref(false);
+const active = ref(false), closed = ref(!props.open), catalogProblem = ref<FullNetProblemDetails>();
+onMounted(() => { active.value = true; }); onActivated(() => { active.value = true; });
+onDeactivated(() => { active.value = false; }); onBeforeUnmount(() => { active.value = false; });
+const busy = computed(() => loading.value || saving.value || downloading.value || profileBusy.value);
+const selectedSchema = computed(() => schemas.value.find(value => value.schemaKey === schemaKey.value));
+const selectedWorksheet = computed(() => selectedSchema.value?.worksheets.find(value => value.worksheetKey === worksheetKey.value));
+const canCreate = () => active.value && props.open && !closed.value && session.can('import_export.import_tasks.create') && session.can('import_export.static_schemas.read')
+  && !session.switching && isTenantSessionContext(session.currentUser);
+let receiptSequence = 0, controlSequence = 0, recoverySequence = 0;
+const receipt = ref<{ sequence: number; schemaKey: string; worksheetKey: string; fileName: string; outcome: 'processing' | 'succeeded' | 'failed' | 'unconfirmed'; taskId?: string; errorCode?: string }>();
+const acknowledged = ref<number>();
+const requiresReview = computed(() => receipt.value?.outcome === 'unconfirmed' && acknowledged.value !== receipt.value.sequence);
+let dispatched = false;
+const recoveryConfirmation = ref<{ token: number; confirm: () => void; update: (open: boolean) => void }>();
+interface Controls { token: number; schema: (value: string) => void; worksheet: (value: string) => void; file: (event: Event) => void; submit: () => void; download: () => void; refresh: () => void; close: (open: boolean) => void; acknowledge: () => void }
+const controls = ref<Controls>(makeControls());
+function makeControls(): Controls {
+  const token = ++controlSequence, owned = () => controls.value.token === token && canCreate();
+  return { token, schema: value => { if (owned() && !busy.value) schemaKey.value = value; }, worksheet: value => { if (owned() && !busy.value) worksheetKey.value = value; },
+    file: event => { if (owned() && !busy.value) selectFile(event); }, submit: () => { if (owned()) void submit(); }, download: () => { if (owned()) void downloadTemplate(); },
+    refresh: () => { if (owned() && !busy.value) void loadSchemas(); }, close: open => { if (!open && owned()) changeOpen(false); }, acknowledge: () => { if (owned()) acknowledgeUnknown(); } };
+}
+const scope = useAuthorizedViewScope(session, () => { closed.value = true; reset(); receipt.value = undefined; acknowledged.value = undefined; emit('update:open', false); }, () => { if (props.open) return loadSchemas(); });
+let schemaRequest: ReturnType<typeof scope.begin>; let createRequest: ReturnType<typeof scope.begin>; let downloadRequest: ReturnType<typeof scope.begin>;
 
-/** 弹窗或会话变化立即作废上传及迟到响应，防止把旧租户结果带入新上下文。 */
-function reset() {
-  generation++; cancellation.abort(); cancellation = new AbortController();
-  schemas.value = []; schemaKey.value = ''; worksheetKey.value = ''; file.value = undefined; busy.value = false;
-  mapping.value = undefined; profileBusy.value = false;
-  if (fileInput.value) fileInput.value.value = '';
+function clearFile(): void { selectedFile.value = undefined; if (fileInput.value) fileInput.value.value = ''; }
+function cancelSelection(): void {
+  // 浏览器取消不能撤销已到服务端的创建，关闭或换选择后仍须保留未知事实。
+  if (dispatched && createRequest?.current() && receipt.value?.outcome === 'processing') receipt.value.outcome = 'unconfirmed';
+  createRequest?.cancel(); downloadRequest?.cancel(); dispatched = false; saving.value = false; downloading.value = false;
+  recoveryConfirmation.value = undefined; controls.value = makeControls(); clearFile();
 }
-async function act(action: () => Promise<void>) {
-  if (busy.value || profileBusy.value || !allowed.value || !open.value) return;
-  const current = generation; busy.value = true;
-  try { await action(); }
-  catch (error) { if (current === generation) showProblem(error, t('importExportTasks.actionFailed')); }
-  finally { if (current === generation) busy.value = false; }
+function reset(): void {
+  cancelSelection(); schemaRequest?.cancel();
+  schemas.value = []; schemaKey.value = ''; worksheetKey.value = ''; clearFile();
+  loading.value = false; catalogProblem.value = undefined; mapping.value = undefined; profileBusy.value = false;
 }
-watch(open, value => {
-  reset();
-  if (value && allowed.value) {
-    const current = generation;
-    void act(async () => {
-      const result = await listStaticImportSchemas(cancellation.signal);
-      if (current !== generation) return;
-      schemas.value = result;
-      schemaKey.value = availableSchemas.value[0]?.schemaKey ?? '';
-    });
+function changeOpen(open: boolean): void {
+  // 关闭意图先取消本组件请求，不能等父组件下一轮更新属性后才阻断迟到结果。
+  if (!open) { closed.value = true; reset(); }
+  emit('update:open', open);
+}
+// 业务入口切换时同步撤销旧文件、目录、下载和上传，不能把前一业务的完成交给新入口。
+watch(() => props.open, open => { reset(); closed.value = !open; if (open) void loadSchemas(); }, { flush: 'sync' });
+watch(() => session.switching, value => { if (value) changeOpen(false); }, { flush: 'sync' });
+watch(() => props.schemaKey, () => { reset(); if (canCreate()) void loadSchemas(); }, { flush: 'sync' });
+watch(schemaKey, () => { worksheetKey.value = selectedSchema.value?.worksheets[0]?.worksheetKey ?? ''; }, { flush: 'sync' });
+watch([schemaKey, worksheetKey], () => { mapping.value = undefined; profileBusy.value = false; }, { flush: 'sync' });
+const selectionSignature = computed(() => JSON.stringify([schemaKey.value, worksheetKey.value, selectedSchema.value?.scopeKey, selectedSchema.value?.requiredPermission, selectedWorksheet.value, mapping.value]));
+watch(selectionSignature, cancelSelection, { flush: 'sync' });
+async function loadSchemas(): Promise<void> {
+  if (!canCreate() || saving.value || downloading.value) return;
+  schemaRequest?.cancel(); const request = scope.begin('import_export.static_schemas.read'); schemaRequest = request;
+  if (!request) return; loading.value = true; catalogProblem.value = undefined;
+  try {
+    const values = await listStaticImportSchemas(request.signal);
+    if (!request.current()) return;
+    // 目录只是元数据；选择仍须满足可信作用域与该 Schema 的业务权限。
+    const previousSchema = schemaKey.value, previousWorksheet = worksheetKey.value;
+    schemas.value = values.filter(value => value.scopeKey === 'tenant' && session.can(value.requiredPermission) && value.worksheets.length > 0
+      && (props.schemaKey === undefined || value.schemaKey === props.schemaKey));
+    schemaKey.value = schemas.value.find(value => value.schemaKey === previousSchema)?.schemaKey ?? schemas.value[0]?.schemaKey ?? '';
+    worksheetKey.value = selectedSchema.value?.worksheets.find(value => value.worksheetKey === previousWorksheet)?.worksheetKey ?? selectedSchema.value?.worksheets[0]?.worksheetKey ?? '';
+  } catch (error) {
+    if (request.current()) catalogProblem.value = toProblem(error);
+  } finally { if (request.current()) loading.value = false; request.finish(); }
+}
+function selectFile(event: Event): void {
+  if (!canCreate() || busy.value) return;
+  const input = event.target as HTMLInputElement; const file = input.files?.[0]; controls.value = makeControls(); clearFile();
+  if (!file) return;
+  // 客户端只做快速反馈，工作簿结构、解压预算与权限仍由服务端最终验证。
+  if (!/\.xlsx$/i.test(file.name) || file.size === 0 || file.size > 1024 * 1024) {
+    clearFile(); showWarning(t('importCreate.invalidFile')); return;
   }
-}, { immediate: true, flush: 'sync' });
-watch(schemaKey, () => {
-  worksheetKey.value = schema.value?.worksheets[0]?.worksheetKey ?? '';
-}, { flush: 'sync' });
-watch([schemaKey, worksheetKey], () => {
-  generation++; cancellation.abort(); cancellation = new AbortController();
-  busy.value = false;
-  mapping.value = undefined;
-  clearFile();
-}, { flush: 'sync' });
-function clearFile() {
-  file.value = undefined;
-  if (fileInput.value) fileInput.value.value = '';
+  selectedFile.value = file;
 }
-watch(() => [session.currentUser?.id, session.currentUser?.tenantId, session.currentUser?.sessionId, session.switching,
-  session.currentUser?.permissions.join('|')], () => { open.value = false; reset(); }, { flush: 'sync' });
-onBeforeUnmount(reset);
-
-function choose(event: Event) {
-  file.value = (event.target as HTMLInputElement).files?.[0];
+async function submit(): Promise<void> {
+  const schema = selectedSchema.value; const worksheet = selectedWorksheet.value; const file = selectedFile.value;
+  if (busy.value || requiresReview.value || !canCreate() || !schema || schema.scopeKey !== 'tenant' || !session.can(schema.requiredPermission)) return;
+  if (!worksheet || !file) { showWarning(t('importCreate.required')); return; }
+  if (mapping.value && !validImportMapping(mapping.value, worksheet.headerColumns)) { showWarning(t('importProfiles.invalid')); return; }
+  const request = scope.begin('import_export.import_tasks.create'); if (!request) return; createRequest = request; saving.value = true;
+  // 列映射是本次上传的冻结输入；编辑映射与换来源一样撤销旧文件选择和回调归属。
+  const target = { schemaKey: schema.schemaKey, worksheetKey: worksheet.worksheetKey, file,
+    mapping: mapping.value ? JSON.parse(JSON.stringify(mapping.value)) as ImportColumnMappingRequest : undefined }, signature = selectionSignature.value;
+  receipt.value = { sequence: ++receiptSequence, schemaKey: target.schemaKey, worksheetKey: target.worksheetKey, fileName: file.name, outcome: 'processing' }; acknowledged.value = undefined; dispatched = true;
+  try {
+    const task = target.mapping ? await createImportExportTask(target.schemaKey, target.worksheetKey, target.file, request.signal, target.mapping)
+      : await createImportExportTask(target.schemaKey, target.worksheetKey, target.file, request.signal);
+    if (!request.current()) return;
+    if (!canCreate() || signature !== selectionSignature.value || !isGuid(task.id) || task.id === '00000000-0000-0000-0000-000000000000'
+      || task.tenantId.toLowerCase() !== session.currentUser?.tenantId?.toLowerCase() || task.requestedByUserId.toLowerCase() !== session.currentUser?.id.toLowerCase()
+      || task.schemaKey !== target.schemaKey || task.worksheetKey !== target.worksheetKey) throw new Error('client.invalid_import_export_task_identity');
+    dispatched = false; receipt.value = { ...receipt.value!, outcome: 'succeeded', taskId: task.id };
+    showSuccess(t('importExportTasks.actionSuccess'));
+    // 先交付创建事实，再本地关闭；父组件延迟更新 open 也不能再次提交。
+    emit('created', task); changeOpen(false);
+  } catch (error) {
+    if (request.current()) {
+      const failure = toProblem(error), unknown = !isFullNetProblemDetails(error) || failure.status < 400 || failure.status >= 500 || failure.status === 408;
+      receipt.value = { ...receipt.value!, outcome: unknown ? 'unconfirmed' : 'failed', errorCode: failure.code }; showProblem(failure, t('common.requestFailed'));
+    }
+  } finally { if (createRequest === request) { if (request.current()) saving.value = false; dispatched = false; } request.finish(); }
 }
-async function download() {
-  if (!schema.value || !worksheet.value) return;
-  const current = generation, name = `${schemaKey.value}-${worksheetKey.value}.xlsx`;
-  const blob = await downloadStaticImportTemplate(schemaKey.value, worksheetKey.value, cancellation.signal);
-  if (current !== generation) return;
-  const url = URL.createObjectURL(blob), link = document.createElement('a');
-  link.href = url; link.download = name; link.click(); setTimeout(() => URL.revokeObjectURL(url), 1000);
+async function downloadTemplate(): Promise<void> {
+  const schema = selectedSchema.value; const worksheet = selectedWorksheet.value;
+  if (busy.value || !canCreate() || !schema || !worksheet || schema.scopeKey !== 'tenant' || !session.can(schema.requiredPermission)) return;
+  const request = scope.begin('import_export.static_schemas.read'); if (!request) return; downloadRequest = request; downloading.value = true;
+  const target = { schemaKey: schema.schemaKey, worksheetKey: worksheet.worksheetKey }, signature = selectionSignature.value;
+  try {
+    const blob = await downloadStaticImportTemplate(target.schemaKey, target.worksheetKey, request.signal);
+    if (!request.current() || !canCreate() || signature !== selectionSignature.value) return;
+    const url = URL.createObjectURL(blob);
+    try {
+      const anchor = document.createElement('a'); anchor.href = url;
+      anchor.download = `${target.schemaKey.replaceAll('.', '-')}-${target.worksheetKey}-template.xlsx`; anchor.click();
+    } finally { URL.revokeObjectURL(url); }
+  } catch (error) {
+    if (request.current()) showProblem(error, t('common.requestFailed'));
+  } finally { if (request.current()) downloading.value = false; request.finish(); }
 }
-async function submit() {
-  const selected = file.value;
-  if (!schema.value || !worksheet.value || !selected || !/\.xlsx$/i.test(selected.name)
-    || selected.size < 1 || selected.size > 1024 * 1024) {
-    showWarning(t('importExportTasks.invalidWorkbook')); return;
-  }
-  if (mapping.value && !validImportMapping(mapping.value, worksheet.value.headerColumns)) {
-    showWarning(t('importProfiles.invalid')); return;
-  }
-  const current = generation;
-  const task = mapping.value
-    ? await createImportExportTask(schemaKey.value, worksheetKey.value, selected, cancellation.signal, mapping.value)
-    : await createImportExportTask(schemaKey.value, worksheetKey.value, selected, cancellation.signal);
-  if (current !== generation) return;
-  showSuccess(t('importExportTasks.previewCreated')); emit('created', task); open.value = false;
+function toProblem(error: unknown): FullNetProblemDetails {
+  return isFullNetProblemDetails(error) ? error : { status: 500, code: 'client.unexpected_error', title: t('common.requestFailed') };
+}
+function acknowledgeUnknown(): void {
+  if (!canCreate() || busy.value || !requiresReview.value || !receipt.value) return;
+  const sequence = receipt.value.sequence, token = ++recoverySequence;
+  const owned = () => recoveryConfirmation.value?.token === token && canCreate() && receipt.value?.sequence === sequence && requiresReview.value;
+  recoveryConfirmation.value = { token, confirm: () => { if (owned()) { acknowledged.value = sequence; recoveryConfirmation.value = undefined; } }, update: open => { if (!open && owned()) recoveryConfirmation.value = undefined; } };
 }
 </script>
 
 <template>
-  <el-dialog v-model="open" :title="t('importExportTasks.addTask')" width="min(560px, calc(100vw - 32px))"
-    :close-on-click-modal="false" append-to-body destroy-on-close>
-    <el-form v-if="allowed" class="import-task-form" label-position="top" :aria-busy="busy" @submit.prevent="act(submit)">
-      <el-form-item :label="t('importExportTasks.schema')" required>
-        <el-select v-model="schemaKey" :disabled="busy || profileBusy" :aria-label="t('importExportTasks.schema')" data-testid="import-task-schema">
-          <el-option v-for="item in availableSchemas" :key="item.schemaKey" :label="item.displayName" :value="item.schemaKey" />
-        </el-select>
-      </el-form-item>
-      <el-form-item :label="t('importExportTasks.worksheet')" required>
-        <el-select v-model="worksheetKey" :disabled="busy || profileBusy" :aria-label="t('importExportTasks.worksheet')" data-testid="import-task-worksheet">
-          <el-option v-for="item in schema?.worksheets ?? []" :key="item.worksheetKey" :label="item.displayName" :value="item.worksheetKey" />
-        </el-select>
-      </el-form-item>
-      <el-button :disabled="busy || !worksheet" data-testid="import-task-template" @click="act(download)">{{ t('importExportTasks.downloadTemplate') }}</el-button>
-      <import-profile-editor v-if="worksheet" v-model="mapping" :schema-key="schemaKey" :worksheet-key="worksheetKey"
-        :headers="worksheet.headerColumns" :active="open && allowed" :disabled="busy" @busy="profileBusy = $event" @changed="clearFile" />
-      <p v-if="!busy && availableSchemas.length === 0" role="status">{{ t('importExportTasks.noAvailableSchemas') }}</p>
-      <p id="import-task-file-help">{{ t('importExportTasks.workbookHelp') }}</p>
-      <el-form-item :label="t('importExportTasks.workbook')" required>
-        <input ref="fileInput" type="file" accept=".xlsx" :aria-label="t('importExportTasks.workbook')"
-          aria-describedby="import-task-file-help" :disabled="busy || profileBusy || !worksheet" data-testid="import-task-file" @change="choose" />
-      </el-form-item>
-      <el-button type="primary" :loading="busy" :disabled="profileBusy || !worksheet || !file" data-testid="import-task-submit" @click="act(submit)">{{ t('importExportTasks.preview') }}</el-button>
-    </el-form>
-  </el-dialog>
+  <ArtFormDialog :open="open && !closed" :title="t('importExportTasks.addTask')" :saving="busy" :show-confirm="canCreate() && !requiresReview"
+    :confirm-disabled="!selectedWorksheet || !selectedFile"
+    :confirm-label="t('importCreate.submit')" :cancel-label="t('common.cancel')" confirm-test-id="import-create-submit"
+    v-on="{ 'update:open': controls.close, confirm: controls.submit }">
+    <ElAlert v-if="catalogProblem" data-testid="import-create-catalog-problem" type="error" :closable="false" :title="catalogProblem.title" :description="catalogProblem.code" />
+    <ElButton data-testid="import-create-refresh" :disabled="busy || !canCreate()" v-on="{ click: controls.refresh }">{{ t('importCreate.refreshSchemas') }}</ElButton>
+    <div v-if="receipt" role="status" data-testid="import-create-receipt">
+      <p>{{ t('importCreate.receiptTarget', {schema:receipt.schemaKey,worksheet:receipt.worksheetKey,file:receipt.fileName}) }}</p>
+      <p>{{ t(receipt.outcome === 'succeeded' ? 'importCreate.resultSucceeded' : receipt.outcome === 'failed' ? 'importCreate.resultFailed' : receipt.outcome === 'processing' ? 'importCreate.resultProcessing' : 'importCreate.resultUnconfirmed') }} <code v-if="receipt.taskId" translate="no">{{ receipt.taskId }}</code> <code v-if="receipt.errorCode" translate="no">{{ receipt.errorCode }}</code></p>
+      <p v-if="receipt.outcome === 'unconfirmed'">{{ t('importCreate.recoveryHint') }}</p>
+      <p v-if="receipt.outcome === 'unconfirmed' && !requiresReview">{{ t('importCreate.recoveryAcknowledged') }}</p>
+      <ElButton v-if="requiresReview" data-testid="import-create-recovery" :disabled="busy || !canCreate()" v-on="{ click: controls.acknowledge }">{{ t('importCreate.reviewExistingTasks') }}</ElButton>
+    </div>
+    <ElForm v-if="canCreate()" label-width="120px">
+      <ElFormItem :label="t('importExportTasks.schema')" required>
+        <ElSelect :model-value="schemaKey" data-testid="import-create-schema" :loading="loading" :disabled="busy || !canCreate()" v-on="{ 'update:modelValue': controls.schema }">
+          <ElOption v-for="schema in schemas" :key="schema.schemaKey" :label="schema.displayName" :value="schema.schemaKey" />
+        </ElSelect>
+      </ElFormItem>
+      <ElFormItem :label="t('importExportTasks.worksheet')" required>
+        <ElSelect :model-value="worksheetKey" data-testid="import-create-worksheet" :disabled="busy || !canCreate()" v-on="{ 'update:modelValue': controls.worksheet }">
+          <ElOption v-for="worksheet in selectedSchema?.worksheets ?? []" :key="worksheet.worksheetKey" :label="worksheet.displayName" :value="worksheet.worksheetKey" />
+        </ElSelect>
+      </ElFormItem>
+      <ElFormItem v-if="selectedWorksheet" :label="t('importCreate.columns')">
+        <span>{{ selectedWorksheet.headerColumns.join('、') }}</span>
+      </ElFormItem>
+      <ImportProfileEditor v-if="selectedWorksheet" v-model="mapping" :schema-key="schemaKey" :worksheet-key="worksheetKey"
+        :headers="selectedWorksheet.headerColumns" :active="canCreate()" :disabled="loading || saving || downloading" @busy="profileBusy = $event" @changed="clearFile" />
+      <ElFormItem :label="t('importCreate.file')" required>
+        <input ref="fileInput" type="file" accept=".xlsx" data-testid="import-create-file"
+          :aria-label="t('importCreate.file')" :disabled="busy || !canCreate()" v-on="{ change: controls.file }">
+        <span v-if="selectedFile" data-testid="import-create-selected-file">{{ t('importCreate.selectedFile', {file:selectedFile.name,size:String(selectedFile.size)}) }}</span>
+      </ElFormItem>
+      <ElAlert :title="t('importCreate.fileHint')" type="info" :closable="false" />
+      <ElAlert v-if="!loading && !catalogProblem && schemas.length === 0" data-testid="import-create-no-schemas" :title="t('importCreate.noSchemas')" type="warning" :closable="false" />
+      <PermissionGate code="import_export.static_schemas.read">
+        <ElButton data-testid="import-create-template" :loading="downloading" :disabled="!selectedWorksheet || busy || !canCreate()" v-on="{ click: controls.download }">
+          {{ t('users.importTemplate') }}
+        </ElButton>
+      </PermissionGate>
+    </ElForm>
+  </ArtFormDialog>
+  <ArtFormDialog v-if="recoveryConfirmation && canCreate()" :key="recoveryConfirmation.token" :open="true" :title="t('importCreate.reviewExistingTasks')"
+    :confirm-label="t('importCreate.allowResubmit')" :cancel-label="t('common.cancel')" confirm-test-id="import-create-recovery-confirm"
+    v-on="{ confirm: recoveryConfirmation.confirm, 'update:open': recoveryConfirmation.update }">
+    <p>{{ t('importCreate.recoveryConfirm') }}</p>
+  </ArtFormDialog>
 </template>
-
-<style scoped>
-/* 选中项采用与输入面相同的显式底色，保证弹层叠加时的文字对比度。 */
-.import-task-form :deep(.el-select__selected-item) {
-  background-color: var(--el-fill-color-blank);
-}
-.import-task-form input[type='file'] { max-width: 100%; }
-</style>

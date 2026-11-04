@@ -72,7 +72,17 @@
           "method": "POST",
           "permission": "import_export.import_tasks.execute",
           "successStatus": 200,
-          "responseSchema": "ImportExportTaskDetailResponse"
+          "responseSchema": "ImportExportTaskDetailResponse",
+          "errorStatuses": [
+            401,
+            403,
+            404,
+            409,
+            422
+          ],
+          "errorCodes": [
+            "import_export.source.unavailable"
+          ]
         }
       ]
     },
@@ -83,7 +93,17 @@
           "method": "POST",
           "permission": "import_export.import_tasks.execute",
           "successStatus": 200,
-          "responseSchema": "ImportExportTaskDetailResponse"
+          "responseSchema": "ImportExportTaskDetailResponse",
+          "errorStatuses": [
+            401,
+            403,
+            404,
+            409,
+            422
+          ],
+          "errorCodes": [
+            "import_export.source.unavailable"
+          ]
         }
       ]
     },
@@ -94,7 +114,17 @@
           "method": "POST",
           "permission": "import_export.import_tasks.execute",
           "successStatus": 200,
-          "responseSchema": "ImportExportTaskDetailResponse"
+          "responseSchema": "ImportExportTaskDetailResponse",
+          "errorStatuses": [
+            401,
+            403,
+            404,
+            409,
+            422
+          ],
+          "errorCodes": [
+            "import_export.source.unavailable"
+          ]
         }
       ]
     },

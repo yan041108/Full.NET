@@ -1,4 +1,6 @@
 import { expect, test } from '@playwright/test';
+import AxeBuilder from '@axe-core/playwright';
+import path from 'node:path';
 const id='019bc2b1-2a40-7cc3-8992-a80de51bf299';
 const otherId='019bc2b1-2a40-7cc3-8992-a80de51bf298';
 const task={id,tenantId:id,schemaKey:'organization.tenant_positions',schemaDisplayName:'导入归属样例',worksheetKey:'positions',
@@ -28,6 +30,26 @@ async function openAndUpload(page){
  // 受控字节仅验证客户端归属与 multipart，不作为服务端工作簿解析证据。
  await page.getByTestId('import-create-file').setInputFiles({name:'positions.xlsx',mimeType:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',buffer:Buffer.from('controlled-upload')});
 }
+
+test('来源失效阻止反复恢复，核对已成功行后可重新上传创建任务', async ({page}, info) => {
+ await page.setViewportSize({width:Number(process.env.FULLNET_ADMIN_PARITY_VIEWPORT_WIDTH ?? 1440),height:1000});
+ await boot(page,true);const partial={...task,statusKey:'execution_partial',succeededRowCount:1,processedRowCount:2,executionFailedRowCount:1,hasErrorReceipt:false};
+ let resumes=0,uploads=0;
+ await page.route(`**/api/v1/import-export/tasks/${id}`,route=>json(route,partial));
+ await page.route(`**/api/v1/import-export/tasks/${id}/resume`,route=>{resumes++;return route.fulfill({status:409,contentType:'application/problem+json',body:JSON.stringify({type:'about:blank',status:409,code:'import_export.source.unavailable',title:'Source unavailable'})});});
+ await page.route('**/api/v1/import-export/tasks',route=>{uploads++;return json(route,{...task,id:otherId,sourceFileId:otherId});});
+ await page.getByTestId('import-export-task-detail').click();await page.getByTestId('import-export-task-resume').click();
+ await expect(page.getByTestId('import-source-unavailable')).toContainText('已经成功的行不会撤销');
+ await expect(page.getByTestId('import-export-task-resume')).toBeDisabled();await expect(page.getByTestId('import-export-task-retry')).toBeDisabled();expect(resumes).toBe(1);
+ const drawerBox=await page.getByRole('dialog',{name:'任务详情',exact:true}).boundingBox();expect(drawerBox.x).toBeGreaterThanOrEqual(0);expect(drawerBox.x+drawerBox.width).toBeLessThanOrEqual(page.viewportSize().width);
+ await expect(page.getByRole('dialog',{name:'任务详情',exact:true})).not.toContainText('{succeeded}');
+ expect((await new AxeBuilder({page}).include('[role="dialog"]').withTags(['wcag2a','wcag2aa','wcag21a','wcag21aa']).analyze()).violations).toEqual([]);
+ await page.screenshot({path:path.resolve(info.outputDir,'..','import-source-unavailable.png'),fullPage:true,animations:'disabled'});
+ await page.getByTestId('import-source-replace').click();await expect(page.getByTestId('import-create-schema')).toContainText('租户职位');
+ await expect(page.getByTestId('import-create-file')).toHaveValue('');expect(uploads).toBe(0);
+ await page.getByTestId('import-create-file').setInputFiles({name:'corrected.xlsx',mimeType:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',buffer:Buffer.from('controlled-new-source')});
+ await page.getByTestId('import-create-submit').click();await expect(page.getByTestId('import-export-task-execute')).toBeEnabled();expect(uploads).toBe(1);expect(resumes).toBe(1);
+});
 
 for(const field of ['schemaKey','worksheetKey']){
  test(`创建拒绝错配${field}且可重试，不误开详情`,async({page})=>{

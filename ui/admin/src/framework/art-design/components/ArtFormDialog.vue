@@ -15,6 +15,8 @@ const props = withDefaults(defineProps<{
   cancelLabel?: string;
   confirmTestId?: string;
   showConfirm?: boolean;
+  /** 由业务输入资格禁用确认，保持关闭入口可用。 */
+  confirmDisabled?: boolean;
   /** 多层动态弹窗显式维护本层 Tab 边界，避免焦点落到浏览器或下层表单。 */
   trapFocus?: boolean;
 }>(), {
@@ -23,6 +25,7 @@ const props = withDefaults(defineProps<{
   confirmLabel: '确定',
   cancelLabel: '取消',
   showConfirm: true,
+  confirmDisabled: false,
   trapFocus: false
 });
 
@@ -90,6 +93,7 @@ function containTab(event: KeyboardEvent): void {
           v-if="showConfirm"
           type="primary"
           :loading="saving"
+          :disabled="confirmDisabled"
           :data-testid="confirmTestId"
           @click="emit('confirm')"
         >

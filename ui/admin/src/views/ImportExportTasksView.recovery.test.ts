@@ -31,6 +31,39 @@ async function setup(permissions = [read, execute, cancel]) {
   } } }); await flushPromises(); return { ...context, route };
 }
 describe('导入任务归属与失败恢复', () => {
+  it('来源缺失保持失败回执并阻止重复排队，人工重读不自动重发', async () => {
+    vi.mocked(api.executeImportExportTask).mockRejectedValueOnce({ status: 409, code: 'import_export.source.unavailable', title: 'Source unavailable' });
+    await setup(); await state().openDetail(importTask.id); await state().runAction('execute');
+    expect(wrapper.get('[data-testid="import-source-unavailable"]').text()).toContain('本次未重新排队');
+    expect(state().actionReceipt?.outcome).toBe('failed'); await state().runAction('execute'); expect(api.executeImportExportTask).toHaveBeenCalledOnce();
+    await wrapper.get('[data-testid="import-export-task-detail-refresh"]').trigger('click'); await flushPromises();
+    expect(api.executeImportExportTask).toHaveBeenCalledOnce(); expect(wrapper.find('[data-testid="import-source-unavailable"]').exists()).toBe(false);
+    await state().runAction('execute'); expect(api.executeImportExportTask).toHaveBeenCalledTimes(2);
+  });
+  it('部分成功来源失效提示核对原结果，并以独立权限开放全新上传', async () => {
+    const partial = { ...importTask, statusKey: 'execution_partial', succeededRowCount: 1 };
+    vi.mocked(api.getImportExportTask).mockResolvedValue(partial);
+    vi.mocked(api.resumeImportExportTask).mockRejectedValueOnce({ status: 409, code: 'import_export.source.unavailable', title: 'Source unavailable' });
+    await setup([read, execute, cancel, 'import_export.import_tasks.create', 'import_export.static_schemas.read']);
+    await state().openDetail(importTask.id); await state().runAction('resume');
+    expect(wrapper.get('[data-testid="import-source-unavailable"]').text()).toContain('已经成功的行不会撤销');
+    await wrapper.get('[data-testid="import-source-replace"]').trigger('click');
+    expect((wrapper.vm as unknown as { createOpen: boolean }).createOpen).toBe(true); expect(api.createImportExportTask).not.toHaveBeenCalled();
+    expect(api.resumeImportExportTask).toHaveBeenCalledOnce();
+  });
+  it('迟到的来源缺失不能污染另一任务', async () => {
+    const pending = deferred<typeof importTask>(); vi.mocked(api.executeImportExportTask).mockReturnValueOnce(pending.promise);
+    await setup(); await state().openDetail(importTask.id); const action = state().runAction('execute');
+    await state().openDetail(other.id); pending.reject({ status: 409, code: 'import_export.source.unavailable', title: 'Source unavailable' }); await action;
+    expect(state().selectedTask?.id).toBe(other.id); expect(wrapper.find('[data-testid="import-source-unavailable"]').exists()).toBe(false);
+  });
+  it('开始切换上下文便取消来源动作，不等新身份快照到达', async () => {
+    const pending = deferred<typeof importTask>(); vi.mocked(api.executeImportExportTask).mockReturnValueOnce(pending.promise);
+    const { session } = await setup(); await state().openDetail(importTask.id); const action = state().runAction('execute');
+    const signal = vi.mocked(api.executeImportExportTask).mock.calls[0]![1]!; session.switching = true; expect(signal.aborted).toBe(true);
+    pending.reject({ status: 409, code: 'import_export.source.unavailable', title: 'Source unavailable' }); await action;
+    expect(state().selectedTask).toBeUndefined(); expect(wrapper.find('[data-testid="import-source-unavailable"]').exists()).toBe(false);
+  });
   it('父读取权限缺失时直接调用也不读取或执行', async () => {
     await setup([execute, cancel]); await state().openDetail(importTask.id); await state().load(); await state().runAction('execute');
     expect(api.listImportExportTasks).not.toHaveBeenCalled(); expect(api.getImportExportTask).not.toHaveBeenCalled(); expect(api.executeImportExportTask).not.toHaveBeenCalled();

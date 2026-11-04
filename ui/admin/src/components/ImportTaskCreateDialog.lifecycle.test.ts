@@ -19,7 +19,7 @@ beforeEach(()=>{
 afterEach(()=>{wrapper?.unmount();wrapper=undefined;vi.restoreAllMocks();});
 async function setup(){
  const {pinia}=createOutputSession(['import_export.import_tasks.create','import_export.static_schemas.read',schema.requiredPermission]);
- wrapper=mount(ImportTaskCreateDialog,{props:{modelValue:true},global:{plugins:[pinia],stubs:{
+ wrapper=mount(ImportTaskCreateDialog,{props:{open:true},global:{plugins:[pinia],stubs:{
   ElDialog:{props:['modelValue'],template:'<div v-if="modelValue"><slot/><slot name="footer"/></div>'}
  }}});await flushPromises();
 }
@@ -34,7 +34,7 @@ describe('导入创建弹窗独立关闭边界',()=>{
  it('父组件尚未更新open时，关闭意图立即取消目录读取',async()=>{
   const pending=deferred<typeof schema[]>();vi.mocked(api.listStaticImportSchemas).mockReturnValueOnce(pending.promise);
   await setup();close();expect(vi.mocked(api.listStaticImportSchemas).mock.calls[0]![0]!.aborted).toBe(true);
-  expect(wrapper!.props('modelValue')).toBe(true);pending.resolve([schema]);await flushPromises();
+  expect(wrapper!.props('open')).toBe(true);pending.resolve([schema]);await flushPromises();
    expect(wrapper!.find('[data-testid="import-create-schema"]').exists()).toBe(false);
  });
  it.each(['resolve','reject'] as const)('关闭后忽略上传%s，不发送created或反馈',async outcome=>{
@@ -53,7 +53,7 @@ describe('导入创建弹窗独立关闭边界',()=>{
  });
  it('父组件确认关闭并重新打开后仍能加载目录和提交',async()=>{
   await setup();await upload();await flushPromises();
-  await wrapper!.setProps({modelValue:false});await wrapper!.setProps({modelValue:true});await flushPromises();
+  await wrapper!.setProps({open:false});await wrapper!.setProps({open:true});await flushPromises();
   await upload();await flushPromises();expect(api.listStaticImportSchemas).toHaveBeenCalledTimes(2);
   expect(api.createImportExportTask).toHaveBeenCalledTimes(2);expect(wrapper!.emitted('created')).toHaveLength(2);
  });

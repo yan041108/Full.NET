@@ -34,4 +34,9 @@ test('ImportExport 导入任务 OpenAPI 夹具与 C# 契约和端点一致', asy
   assert.match(contractsSource, /import_export\.import_tasks\.read/u);
   assert.match(contractsSource, /import_export\.import_tasks\.create/u);
   assert.match(contractsSource, /import_export\.import_tasks\.execute/u);
+  for (const action of ['execute', 'resume', 'retry']) {
+    const operation = contract.paths.find(item => item.path.endsWith('/' + action)).operations[0];
+    assert.ok(operation.errorStatuses.includes(409));
+    assert.ok(operation.errorCodes.includes('import_export.source.unavailable'));
+  }
 });

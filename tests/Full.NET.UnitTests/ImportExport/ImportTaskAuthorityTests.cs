@@ -47,7 +47,10 @@ public sealed class ImportTaskAuthorityTests
         query.QuerySingleOrDefaultAsync<ImportExportTaskRecord>(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(fixture.Task);
         Dictionary<string, object?>? written = null;
         command.ExecuteAsync(ImportExportTaskSql.QueueExecution, Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(call => { written = (Dictionary<string, object?>)call[1]!; return 1; });
-        var service = new ImportExportTaskExecutionService(query, command, Substitute.For<ITenantResourceFileStore>(), fixture.Tenant,
+        var files = Substitute.For<ITenantResourceFileStore>();
+        files.OpenReadyContentAsync("import_export", fixture.Task.Id, fixture.Task.SourceFileId, Arg.Any<CancellationToken>())
+            .Returns(_ => Full.NET.Abstractions.Results.Result<TenantResourceFileContent>.Success(new(new MemoryStream(), "application/octet-stream", "source.xlsx")));
+        var service = new ImportExportTaskExecutionService(query, command, files, fixture.Tenant,
             fixture.Authority, Substitute.For<IServiceScopeFactory>(), new Monitor(new ImportExportOptions { RunSynchronously = false }));
         var context = fixture.Context with { CapabilityFlags = new Dictionary<string, bool> { ["assign"] = true }, SessionBinding = fixture.Binding with { SessionId = Guid.CreateVersion7() } };
         Assert.IsTrue((retry ? await service.RetryAsync(fixture.Task.Id, context) : await service.ResumeAsync(fixture.Task.Id, context)).IsSuccess);

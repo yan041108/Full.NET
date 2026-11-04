@@ -2776,6 +2776,10 @@ export const zhCN = {
   'importExportTasks.downloadErrorReceipt': '下载错误回执',
   'importExportTasks.actionSuccess': '操作已提交',
   'importExportTasks.actionFailed': '操作失败',
+  'importExportTasks.sourceUnavailable': '原来源文件已不可用，本次未重新排队。',
+  'importExportTasks.sourceUnavailableHint': '可先重新读取任务后手动重试，或核对导入结果后重新上传并创建新任务。',
+  'importExportTasks.sourceUnavailablePartial': '已经成功的行不会撤销，重新上传前请排除已经导入的数据。',
+  'importExportTasks.sourceReplace': '重新上传并创建任务',
 
   'importExportTasks.receiptTarget': '任务 {task}',
   'importExportTasks.resultSucceeded': '操作已确认完成',
@@ -8521,6 +8525,10 @@ const enUS = {
   'importExportTasks.downloadErrorReceipt': 'Download error receipt',
   'importExportTasks.actionSuccess': 'Operation submitted',
   'importExportTasks.actionFailed': 'Operation failed',
+  'importExportTasks.sourceUnavailable': 'The original source is unavailable. This request did not queue the task.',
+  'importExportTasks.sourceUnavailableHint': 'Reload the task before retrying manually, or review the imported results and upload a source for a new task.',
+  'importExportTasks.sourceUnavailablePartial': 'Successful rows remain applied. Exclude previously imported data before uploading again.',
+  'importExportTasks.sourceReplace': 'Upload and create a new task',
 
   'importExportTasks.receiptTarget': 'Task {task}',
   'importExportTasks.resultSucceeded': 'Operation confirmed',

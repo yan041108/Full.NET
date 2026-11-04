@@ -30,6 +30,9 @@ public static class ImportExportErrorCodes
     /// <summary>任务状态不允许请求的执行操作。</summary>
     public const string TaskStatusInvalid = "import_export.task.status_invalid";
 
+    /// <summary>原来源文件已不存在，拒绝排队且保留任务和原检查点。</summary>
+    public const string SourceUnavailable = "import_export.source.unavailable";
+
     /// <summary>批量执行阶段失败且无法继续。</summary>
     public const string ExecutionFailed = "import_export.execution.failed";
 

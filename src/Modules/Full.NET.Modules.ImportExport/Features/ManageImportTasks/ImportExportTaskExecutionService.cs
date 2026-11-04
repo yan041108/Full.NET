@@ -46,6 +46,8 @@ internal sealed class ImportExportTaskExecutionService(
         var permission = await authority.ValidateQueueAsync(task, executionContext, cancellationToken).ConfigureAwait(false);
         cancellationToken.ThrowIfCancellationRequested();
         if (!permission.IsSuccess) return Result<ImportExportTaskDetailResponse>.Failure(permission.Error!);
+        var sourceError = await ValidateSourceAsync(task, executionContext, cancellationToken).ConfigureAwait(false);
+        if (sourceError is not null) return Result<ImportExportTaskDetailResponse>.Failure(sourceError);
         var updated = await TransitionAsync(
                 task,
                 ImportExportTaskStatusKeys.PreviewSucceeded,
@@ -85,6 +87,8 @@ internal sealed class ImportExportTaskExecutionService(
         var permission = await authority.ValidateQueueAsync(task, executionContext, cancellationToken).ConfigureAwait(false);
         cancellationToken.ThrowIfCancellationRequested();
         if (!permission.IsSuccess) return Result<ImportExportTaskDetailResponse>.Failure(permission.Error!);
+        var sourceError = await ValidateSourceAsync(task, executionContext, cancellationToken).ConfigureAwait(false);
+        if (sourceError is not null) return Result<ImportExportTaskDetailResponse>.Failure(sourceError);
 
         var updated = await TransitionAsync(
                 task,
@@ -126,6 +130,8 @@ internal sealed class ImportExportTaskExecutionService(
         var permission = await authority.ValidateQueueAsync(task, executionContext, cancellationToken).ConfigureAwait(false);
         cancellationToken.ThrowIfCancellationRequested();
         if (!permission.IsSuccess) return Result<ImportExportTaskDetailResponse>.Failure(permission.Error!);
+        var sourceError = await ValidateSourceAsync(task, executionContext, cancellationToken).ConfigureAwait(false);
+        if (sourceError is not null) return Result<ImportExportTaskDetailResponse>.Failure(sourceError);
 
         var updated = await TransitionAsync(
                 task,
@@ -209,6 +215,24 @@ internal sealed class ImportExportTaskExecutionService(
                 break;
             }
         }
+    }
+
+    /// <summary>排队前实际打开原来源，完成后释放流并重验会话；不读取工作簿或改变任务状态。</summary>
+    private async Task<Error?> ValidateSourceAsync(ImportExportTaskRecord task, StaticImportPreviewContext context, CancellationToken token)
+    {
+        var content = await resourceFiles.OpenReadyContentAsync("import_export", task.Id, task.SourceFileId, token).ConfigureAwait(false);
+        try
+        {
+            token.ThrowIfCancellationRequested();
+            var permission = await authority.ValidateQueueAsync(task, context, token).ConfigureAwait(false);
+            token.ThrowIfCancellationRequested();
+            if (!permission.IsSuccess) return permission.Error;
+            if (content.IsSuccess) return null;
+            return content.Error!.Code == FilesErrorCodes.FileNotFound
+                ? new Error(ImportExportErrorCodes.SourceUnavailable, "The original import source is unavailable. Upload a new source before creating another task.", ErrorType.Conflict)
+                : content.Error;
+        }
+        finally { if (content.IsSuccess) await content.Value!.Content.DisposeAsync().ConfigureAwait(false); }
     }
 
     private async Task<Result<ImportExportTaskDetailResponse>> ReloadDetailAsync(

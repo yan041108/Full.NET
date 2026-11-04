@@ -1,9 +1,8 @@
 <script setup lang="ts">
+import { importReceiptFailureLabel } from './importReceiptFailureLabel';
 import { translateRuntimeMessage } from '../i18n/runtimeMessage';
-import { computed, onActivated, onBeforeUnmount, onDeactivated, onMounted, ref, watch } from 'vue';
-import { useImportTaskDetailPolling } from '../composables/useImportTaskDetailPolling';
-import { showProblem, showSuccess } from '../feedback/fullNetMessage';
-import { useTaskDetailRoute } from '../composables/useTaskDetailRoute';
+import { computed, inject, onActivated, onBeforeUnmount, onDeactivated, onMounted, ref, watch } from 'vue';
+import { routeLocationKey } from 'vue-router';
 import {
   ElAlert,
   ElButton,
@@ -11,60 +10,137 @@ import {
   ElDescriptions,
   ElDescriptionsItem,
   ElDrawer,
+  ElDialog,
+  ElMessage,
   ElPagination,
-  ElPopconfirm,
   ElTable,
   ElTableColumn,
   ElTag
 } from 'element-plus';
 import { Plus } from '@element-plus/icons-vue';
 import type { FullNetProblemDetails, ImportExportTaskDetailResponse, ImportExportTaskResponse } from '@fullnet/client-contracts';
-import { isFullNetProblemDetails } from '@fullnet/client-contracts';
+import { isFullNetProblemDetails, isGuid } from '@fullnet/client-contracts';
 import ArtTableActionGroup from '../framework/art-design/components/ArtTableActionGroup.vue';
 import ArtTableHeader from '../framework/art-design/components/ArtTableHeader.vue';
-import { useArtCrudTableLayout } from '../framework/art-design/composables/useArtCrudTableLayout';
+import { useArtPagedTableInCard } from '../framework/art-design/composables/useArtPagedTableInCard';
 import PermissionGate from '../components/PermissionGate.vue';
 import ImportTaskCreateDialog from '../components/ImportTaskCreateDialog.vue';
 import { useSessionStore } from '../auth/session';
+import { isTenantSessionContext } from '../auth/tenant-session-context';
 import { useAdminI18n } from '../i18n/adminI18n';
+import { useAuthorizedViewScope } from '../composables/useAuthorizedViewScope';
+import { useTaskStatusRefresh } from '../composables/useTaskStatusRefresh';
+import { useUnavailableResultFiles } from '../composables/useUnavailableResultFiles';
 import {
+  cancelImportExportTask,
   downloadImportExportTaskErrorReceipt,
   executeImportExportTask,
   getImportExportTask,
   listImportExportTasks,
   resumeImportExportTask,
-  retryImportExportTask,
-  cancelImportExportTask
+  retryImportExportTask
 } from '../api/import-export-tasks';
 
 defineOptions({ name: 'ImportExportTasksView' });
 
 const session = useSessionStore();
+const route = inject(routeLocationKey, undefined);
+let linkBlocked = false; let linkedTaskId: string | undefined;
+const pageActive = ref(false);
+// 先登记激活状态，确保作用域恢复读取完成后只在当前可见页面解释链接。
+onMounted(() => { pageActive.value = true; }); onActivated(() => { pageActive.value = true; });
+onDeactivated(() => { pageActive.value = false; }); onBeforeUnmount(() => { pageActive.value = false; });
 const { t } = useAdminI18n();
 const items = ref<ImportExportTaskResponse[]>([]);
 const loading = ref(false);
 const detailLoading = ref(false);
 const actionLoading = ref(false);
-const cancelReloadRequired = ref(false);
 const problem = ref<FullNetProblemDetails>();
+const detailProblem = ref<FullNetProblemDetails>();
 const page = ref(1);
 const pageSize = ref(20);
 const total = ref(0);
 const drawerVisible = ref(false);
-const createVisible = ref(false);
 const selectedTask = ref<ImportExportTaskDetailResponse>();
-let generation = 0, listGeneration = 0, detailGeneration = 0, cancellation = new AbortController();
-let detailCancellation: AbortController | undefined;
-
-/** 任务列表、详情与执行结果均绑定当前会话，切换租户后不能回填旧任务。 */
-function reset() {
-  generation++; listGeneration++; detailGeneration++; cancellation.abort(); cancellation = new AbortController();
-  detailCancellation?.abort(); detailCancellation = undefined;
-  items.value = []; selectedTask.value = undefined; total.value = 0; page.value = 1;
-  drawerVisible.value = false; createVisible.value = false; loading.value = false; detailLoading.value = false; actionLoading.value = false;
-  problem.value = undefined;
-  cancelReloadRequired.value = false;
+const createOpen = ref(false);
+const detailTargetId = ref(''); const detailOwner = ref(0); let cancelSequence = 0;
+const cancelHandlers = ref<{ confirm: () => void; dismiss: () => void; update: (open: boolean) => void }>();
+const cancelConfirmation = ref<ImportExportTaskDetailResponse>();
+const cancelDialogVisible = computed({ get: () => !!cancelConfirmation.value, set: value => { if (!value) cancelConfirmation.value = undefined; } });
+const unavailableFiles = useUnavailableResultFiles();
+const unavailableSources = ref(new Set<string>());
+const sourceKey = (task: ImportExportTaskResponse) => task.id.toLowerCase() + ':' + task.sourceFileId.toLowerCase();
+const sourceUnavailable = (task: ImportExportTaskResponse) => unavailableSources.value.has(sourceKey(task));
+const receiptKey = (task: ImportExportTaskDetailResponse) => task.id + ':' + task.version;
+type ActionKind = 'execute' | 'resume' | 'retry' | 'cancel';
+const actionReceipt = ref<{ taskId: string; kind: ActionKind; outcome: 'processing' | 'succeeded' | 'failed' | 'unconfirmed'; errorCode: string | null }>();
+const unconfirmedTasks = ref(new Map<string, ImportExportTaskResponse>());
+let mutation: { task: ImportExportTaskResponse; kind: ActionKind; dispatched: boolean } | undefined;
+const sameId = (left?: string | null, right?: string | null) => (left?.toLowerCase() ?? null) === (right?.toLowerCase() ?? null);
+const validId = (id: string) => isGuid(id) && id !== '00000000-0000-0000-0000-000000000000';
+const canRead = () => pageActive.value && !session.switching && (!route || route.name === 'import-export-tasks') && isTenantSessionContext(session.currentUser) && session.can('import_export.import_tasks.read');
+const begin = (permission: string) => canRead() ? scope.begin(permission) : undefined;
+let controlsSequence = 0;
+interface ListControls { token: number; refresh: () => void; create: () => void; page: (value: number) => void; size: (value: number) => void; change: (nextPage: number, nextSize: number) => void }
+const listControls = ref<ListControls>(makeListControls());
+function makeListControls(): ListControls {
+  const token = ++controlsSequence, owned = () => listControls.value.token === token && canRead();
+  return { token, refresh: () => { if (owned()) refreshResults(); }, create: () => { if (owned() && canCreate()) createOpen.value = true; },
+    page: value => { if (owned() && Number.isSafeInteger(value) && value > 0) page.value = value; },
+    size: value => { if (owned() && [10, 20, 50].includes(value)) pageSize.value = value; },
+    change: (nextPage, nextSize) => {
+      if (!owned() || !Number.isSafeInteger(nextPage) || nextPage < 1 || ![10, 20, 50].includes(nextSize)) return;
+      const sizeChanged = lastQuery?.pageSize !== nextSize; page.value = sizeChanged ? 1 : nextPage; pageSize.value = nextSize;
+      if (lastQuery?.page !== page.value || lastQuery.pageSize !== nextSize) void load();
+    } };
 }
+const tableRows = computed(() => {
+  const token = listControls.value.token;
+  return items.value.map(row => { const { id, version } = row; return { ...row, open: () => { if (listControls.value.token === token && canRead() && items.value.some(item => sameId(item.id, id) && item.version === version)) void openDetail(id); } }; });
+});
+const scope = useAuthorizedViewScope(session, () => {
+  linkBlocked = true; linkedTaskId = undefined;
+  cancelConfirmation.value = undefined;
+  detailOwner.value++; detailTargetId.value = ''; mutation = undefined; actionReceipt.value = undefined; unconfirmedTasks.value = new Map(); lastQuery = undefined; listControls.value = makeListControls();
+  unavailableFiles.reset(); unavailableSources.value = new Set();
+  items.value = []; selectedTask.value = undefined; problem.value = undefined; detailProblem.value = undefined; drawerVisible.value = false;
+  page.value = 1; total.value = 0; createOpen.value = false; loading.value = false; detailLoading.value = false; actionLoading.value = false;
+}, async () => { openLinkedTask(); await load(); });
+watch(() => session.switching, switching => { scope.invalidate(); if (!switching) { openLinkedTask(); void load(); } }, { flush: 'sync' });
+let listRequest: ReturnType<typeof scope.begin>;
+let detailRequest: ReturnType<typeof scope.begin>;
+let actionRequest: ReturnType<typeof scope.begin>;
+let lastQuery: { page: number; pageSize: number } | undefined;
+
+// 抽屉关闭或重新选择任务后，旧详情、执行和下载均失去接入资格。
+function cancelDetail(): void {
+  cancelConfirmation.value = undefined;
+  if (actionRequest?.current() && mutation?.dispatched) markUnconfirmed(mutation.task, mutation.kind);
+  detailOwner.value++; detailTargetId.value = ''; mutation = undefined;
+  detailProblem.value = undefined;
+  detailRequest?.cancel(); actionRequest?.cancel(); selectedTask.value = undefined;
+  detailLoading.value = false; actionLoading.value = false;
+}
+watch(drawerVisible, visible => {
+  if (!visible) { cancelDetail(); linkBlocked = true; linkedTaskId = undefined; }
+}, { flush: 'sync' });
+
+// 链接仅提供任务身份，读取仍使用当前可信租户和已有精确权限；不自动执行任务。
+function openLinkedTask(): void {
+  const id = route?.query.taskId;
+  if (!pageActive.value || linkBlocked || route?.name !== 'import-export-tasks' || !isTenantSessionContext(session.currentUser)
+    || !session.can('import_export.import_tasks.read') || !isGuid(id) || id === '00000000-0000-0000-0000-000000000000') return;
+  if (linkedTaskId === id.toLowerCase()) return;
+  linkedTaskId = id.toLowerCase(); void openDetail(linkedTaskId);
+}
+watch(() => JSON.stringify([route?.name, route?.query.taskId]), () => {
+  const wasBlocked = linkBlocked;
+  cancelDetail(); drawerVisible.value = false; linkedTaskId = undefined;
+  createOpen.value = false;
+  linkBlocked = route?.name !== 'import-export-tasks';
+  if (linkBlocked) { listRequest?.cancel(); items.value = []; total.value = 0; loading.value = false; lastQuery = undefined; listControls.value = makeListControls(); }
+  else { openLinkedTask(); if (wasBlocked && pageActive.value) void load(); }
+}, { flush: 'sync' });
 
 const {
   tableMainRef,
@@ -74,34 +150,21 @@ const {
   tableBorder,
   tableHeaderBackground,
   tableHeaderCellStyle,
-  updateTableHeight,
-  watchLoading
-} = useArtCrudTableLayout();
+  syncTableLayout
+} = useArtPagedTableInCard(loading);
 
-watchLoading(loading);
-
-const canCreate = () => session.can('import_export.import_tasks.create');
-const canRead = () => session.can('import_export.import_tasks.read');
-const canExecute = () => session.can('import_export.import_tasks.execute');
-const ownsSelectedTask = () => !!session.currentUser?.id && !!selectedTask.value
-  && selectedTask.value.requestedByUserId.toLowerCase() === session.currentUser.id.toLowerCase();
-const canCancelSelected = () => ownsSelectedTask() && session.can('import_export.import_tasks.cancel')
-  && !!selectedTask.value && ['preview_succeeded', 'queued', 'execution_partial'].includes(selectedTask.value.statusKey);
-const polling = useImportTaskDetailPolling({
-  enabled: () => drawerVisible.value && canRead() && !session.switching && !detailLoading.value && !actionLoading.value && !cancelReloadRequired.value,
-  task: () => selectedTask.value,
-  read: getImportExportTask,
-  accept: task => {
-    selectedTask.value = task;
-    items.value = items.value.map(item => item.id === task.id ? task : item);
-  },
-  failed: error => showProblem(error, t('importExportTasks.loadFailed'))
+const canCreate = () => canRead() && session.can('import_export.static_schemas.read') && session.can('import_export.import_tasks.create');
+const canExecute = () => canRead() && session.can('import_export.import_tasks.execute');
+function onCreated(task: ImportExportTaskDetailResponse): void {
+  if (!canCreate() || !createOpen.value || !sameId(task.tenantId, session.currentUser?.tenantId) || !validId(task.id)) return;
+  cancelDetail(); detailTargetId.value = task.id; selectedTask.value = task; drawerVisible.value = true; void load();
+}
+let createSequence = 0;
+watch(createOpen, () => { createSequence++; }, { flush: 'sync' });
+const createHandlers = computed(() => {
+  const open = createOpen.value, token = createSequence;
+  return { created: (task: ImportExportTaskDetailResponse) => { if (open && token === createSequence) onCreated(task); }, update: (value: boolean) => { if (token === createSequence && canRead()) createOpen.value = value; } };
 });
-
-/** 关闭抽屉即使未切换租户，也不能接纳仍在途的详情或操作结果。 */
-watch(drawerVisible, open => {
-  if (!open) { detailGeneration++; detailCancellation?.abort(); selectedTask.value = undefined; cancelReloadRequired.value = false; taskDetailRoute.clear(); }
-}, { flush: 'sync' });
 
 function statusTagType(statusKey: string): 'success' | 'warning' | 'danger' | 'info' {
   if (statusKey === 'preview_succeeded' || statusKey === 'execution_succeeded') {
@@ -144,106 +207,184 @@ const executionStats = computed(() => {
   });
 });
 
-async function load() {
-  if (!canRead() || session.switching) {
-    return;
-  }
-
+async function load(recoverPage = true): Promise<boolean> {
+  if (!canRead() || !Number.isSafeInteger(page.value) || page.value < 1 || ![10, 20, 50].includes(pageSize.value)) return false;
+  listRequest?.cancel(); const request = begin('import_export.import_tasks.read'); listRequest = request;
+  if (!request) return false;
+  const query = { page: page.value, pageSize: pageSize.value };
+  if (!lastQuery || lastQuery.page !== query.page || lastQuery.pageSize !== query.pageSize) { items.value = []; total.value = 0; listControls.value = makeListControls(); }
+  lastQuery = query;
   loading.value = true;
-  const current = generation, request = ++listGeneration;
   problem.value = undefined;
   try {
-    const result = await listImportExportTasks(page.value, pageSize.value, undefined, cancellation.signal);
-    if (current !== generation || request !== listGeneration) return;
-    items.value = result.items;
-    page.value = result.page;
-    pageSize.value = result.pageSize;
+    const result = await listImportExportTasks(query.page, query.pageSize, undefined, request.signal);
+    if (!request.current()) return false;
+    if (result.page !== query.page || result.pageSize !== query.pageSize || result.items.some(row => !sameId(row.tenantId, session.currentUser?.tenantId))) throw new Error('client.invalid_import_export_task_page');
+    const lastPage = Math.max(1, Math.ceil(result.total / query.pageSize));
+    if (recoverPage && !result.items.length && query.page > lastPage) { page.value = lastPage; return await load(false); }
+    items.value = result.items.map(row => { const existing = items.value.find(item => sameId(item.id, row.id)); return existing && existing.version > row.version ? existing : row; });
     total.value = result.total;
-    await updateTableHeight();
+    return request.current();
   } catch (error) {
-    if (current === generation && request === listGeneration) problem.value = toProblem(error);
+    if (request.current()) problem.value = toProblem(error);
+    return false;
   } finally {
-    if (current === generation && request === listGeneration) loading.value = false;
+    if (request.current()) { loading.value = false; void syncTableLayout(); } request.finish();
   }
 }
 
 async function openDetail(taskId: string) {
-  if (!canRead() || session.switching) return;
-  const current = generation, request = ++detailGeneration;
-  detailCancellation?.abort(); const controller = new AbortController(); detailCancellation = controller;
-  selectedTask.value = undefined;
-  detailLoading.value = true;
-  drawerVisible.value = true;
+  if (!canRead() || !validId(taskId)) return;
+  cancelDetail(); detailTargetId.value = taskId; drawerVisible.value = true; await refreshDetail(taskId);
+}
+
+// 进度读取保留已展示内容；关闭抽屉及操作仍由原请求租约取消旧结果。
+async function refreshDetail(taskId: string) {
+  if (!canRead() || !drawerVisible.value || !validId(taskId) || !sameId(taskId, detailTargetId.value)) return;
+  detailRequest?.cancel(); const request = begin('import_export.import_tasks.read'); detailRequest = request;
+  if (!request) return;
+  detailLoading.value = true; detailProblem.value = undefined;
   try {
-    const result = await getImportExportTask(taskId, controller.signal);
-    if (current === generation && request === detailGeneration) { selectedTask.value = result; cancelReloadRequired.value = false; }
+    const detail = await getImportExportTask(taskId, request.signal);
+    if (!request.current()) return;
+    if (!sameId(detail.id, taskId) || !sameId(detail.tenantId, session.currentUser?.tenantId)
+      || selectedTask.value && !sameTaskIdentity(detail, selectedTask.value)) throw new Error('client.invalid_import_export_task_identity');
+    // 关闭抽屉会清展示内容，未知提交的来源与最低版本仍需跨抽屉保留。
+    const uncertain = unconfirmedTasks.value.get(taskId.toLowerCase());
+    if (uncertain && (!sameTaskIdentity(detail, uncertain) || detail.version < uncertain.version)) throw new Error('client.invalid_import_export_task_identity');
+    if (selectedTask.value && detail.version < selectedTask.value.version) return;
+    selectedTask.value = detail;
+    const next = new Map(unconfirmedTasks.value); next.delete(taskId.toLowerCase()); unconfirmedTasks.value = next;
   } catch (error) {
-    if (current === generation && request === detailGeneration) {
-      drawerVisible.value = false;
-      showProblem(error, t('importExportTasks.loadFailed'));
+    if (!request.current()) return;
+    detailProblem.value = toProblem(error);
+  } finally {
+    if (request.current()) detailLoading.value = false; request.finish();
+  }
+}
+
+// 同一任务的来源和业务定位不可随详情或写响应改变。
+function sameTaskIdentity(left: ImportExportTaskResponse, right: ImportExportTaskResponse): boolean {
+  return sameId(left.id, right.id) && sameId(left.tenantId, right.tenantId) && left.schemaKey === right.schemaKey && left.worksheetKey === right.worksheetKey
+    && sameId(left.sourceFileId, right.sourceFileId) && sameId(left.requestedByUserId, right.requestedByUserId);
+}
+const taskSnapshot = (task?: ImportExportTaskDetailResponse) => task ? JSON.stringify([task.id.toLowerCase(), task.tenantId.toLowerCase(), task.version, task.statusKey, task.schemaKey, task.worksheetKey, task.sourceFileId?.toLowerCase(), task.hasErrorReceipt, task.requestedByUserId.toLowerCase()]) : '';
+const detailControls = computed(() => {
+  const owner = detailOwner.value, snapshot = taskSnapshot(selectedTask.value), target = detailTargetId.value;
+  const owned = () => owner === detailOwner.value && canRead() && drawerVisible.value && snapshot === taskSnapshot(selectedTask.value);
+  return { update: (open: boolean) => { if (!open && owner === detailOwner.value && canRead()) drawerVisible.value = false; },
+    refresh: () => { if (owned() && !actionLoading.value && !detailLoading.value) { unavailableFiles.reset(); if (selectedTask.value) unavailableSources.value.delete(sourceKey(selectedTask.value)); void refreshDetail(target); } },
+    execute: () => { if (owned()) void runAction('execute'); }, resume: () => { if (owned()) void runAction('resume'); }, retry: () => { if (owned()) void runAction('retry'); },
+    replaceSource: () => { if (owned() && canCreate() && !actionLoading.value && !detailLoading.value && selectedTask.value && sourceUnavailable(selectedTask.value)) createOpen.value = true; },
+    cancel: () => { if (owned()) requestCancellation(); }, download: () => { if (owned()) void downloadErrorReceipt(); } };
+});
+
+function markUnconfirmed(task: ImportExportTaskResponse, kind: ActionKind): void {
+  listRequest?.cancel(); detailRequest?.cancel(); loading.value = false; detailLoading.value = false;
+  unconfirmedTasks.value = new Map(unconfirmedTasks.value).set(task.id.toLowerCase(), { ...task });
+  actionReceipt.value = { taskId: task.id, kind, outcome: 'unconfirmed', errorCode: sameId(actionReceipt.value?.taskId, task.id) ? actionReceipt.value?.errorCode ?? null : null };
+}
+
+const isRunning = (statusKey?: string) => statusKey === 'queued' || statusKey === 'executing';
+useTaskStatusRefresh(() => canRead() && !problem.value && (items.value.some(task => isRunning(task.statusKey))
+  || (drawerVisible.value && isRunning(selectedTask.value?.statusKey))), async current => {
+  if (loading.value || detailLoading.value || actionLoading.value || createOpen.value) return;
+  const loaded = await load();
+  const task = selectedTask.value;
+  // 列表被手动刷新替换时，本轮不得继续详情读取，即使页面仍处于同一授权代次。
+  if (loaded && current() && !loading.value && !problem.value && !detailProblem.value && drawerVisible.value && task && isRunning(task.statusKey) && !actionLoading.value && !detailLoading.value) {
+    await refreshDetail(task.id);
+  }
+});
+
+const isCancellable = (task: ImportExportTaskDetailResponse) =>
+  task.requestedByUserId.toLowerCase() === session.currentUser?.id.toLowerCase()
+  && ['preview_succeeded', 'queued', 'execution_partial', 'execution_failed'].includes(task.statusKey);
+
+async function runAction(kind: ActionKind) {
+  const task = selectedTask.value;
+  if (!canRead() || !drawerVisible.value || !task || !sameId(task.id, detailTargetId.value) || !sameId(task.tenantId, session.currentUser?.tenantId)
+    || actionLoading.value || detailLoading.value || unconfirmedTasks.value.has(task.id.toLowerCase())) return;
+  const eligible = kind === 'cancel' ? isCancellable(task) : kind === 'execute' ? task.statusKey === 'preview_succeeded'
+    : kind === 'resume' ? task.statusKey === 'execution_partial'
+    : task.statusKey === 'execution_partial' || task.statusKey === 'execution_failed';
+  if (!eligible || kind !== 'cancel' && sourceUnavailable(task)) return;
+  const request = begin(kind === 'cancel' ? 'import_export.import_tasks.cancel' : 'import_export.import_tasks.execute'); if (!request) return; actionRequest = request;
+  const action = kind === 'execute' ? executeImportExportTask : kind === 'resume' ? resumeImportExportTask : retryImportExportTask;
+  const target = { ...task }, snapshot = taskSnapshot(task);
+  listRequest?.cancel(); detailRequest?.cancel(); loading.value = false; detailLoading.value = false;
+  mutation = { task: target, kind, dispatched: true };
+  actionReceipt.value = { taskId: target.id, kind, outcome: 'processing', errorCode: null };
+  actionLoading.value = true;
+  try {
+    const detail = kind === 'cancel' ? await cancelImportExportTask(target.id, target.version, request.signal) : await action(target.id, request.signal);
+    if (!request.current()) return;
+    if (snapshot !== taskSnapshot(selectedTask.value) || !sameTaskIdentity(detail, target) || !Number.isSafeInteger(detail.version) || detail.version < target.version) throw new Error('client.invalid_import_export_task_identity');
+    mutation.dispatched = false; listRequest?.cancel(); detailRequest?.cancel(); loading.value = false; detailLoading.value = false;
+    selectedTask.value = detail;
+    items.value = items.value.map(row => sameId(row.id, detail.id) && row.version <= detail.version ? { ...row, ...detail } : row);
+    actionReceipt.value = { taskId: target.id, kind, outcome: 'succeeded', errorCode: null };
+    ElMessage.success(t('importExportTasks.actionSuccess'));
+    await load();
+  } catch (error) {
+    if (request.current()) {
+      const failure = toProblem(error);
+      if (kind !== 'cancel' && failure.code === 'import_export.source.unavailable') unavailableSources.value = new Set(unavailableSources.value).add(sourceKey(target));
+      const unknown = !isFullNetProblemDetails(error) || failure.status < 400 || failure.status >= 500 || failure.status === 408;
+      actionReceipt.value = { taskId: target.id, kind, outcome: unknown ? 'unconfirmed' : 'failed', errorCode: failure.code };
+      if (unknown) markUnconfirmed(target, kind);
+      ElMessage.error(failure.code === 'import_export.source.unavailable' ? t('importExportTasks.sourceUnavailable') : failure.title || t('importExportTasks.actionFailed'));
     }
   } finally {
-    if (current === generation && request === detailGeneration) detailLoading.value = false;
+    if (actionRequest === request) { if (request.current()) actionLoading.value = false; actionRequest = undefined; mutation = undefined; } request.finish();
   }
 }
 
-async function runAction(action: (signal: AbortSignal) => Promise<ImportExportTaskDetailResponse>) {
-  if (!selectedTask.value || actionLoading.value || cancelReloadRequired.value || !canExecute() || !ownsSelectedTask() || session.switching) {
-    return;
-  }
-
-  actionLoading.value = true;
-  const current = generation, request = detailGeneration;
-  try {
-    const result = await action(cancellation.signal);
-    if (current !== generation) return;
-    if (drawerVisible.value && request === detailGeneration) selectedTask.value = result;
-    showSuccess(t('importExportTasks.actionSuccess'));
-    await load();
-  } catch (error) {
-    if (current === generation) showProblem(error, t('importExportTasks.actionFailed'));
-  } finally {
-    if (current === generation) actionLoading.value = false;
+// 确认属于当前详情及版本；换任务、撤权和关闭抽屉都同步撤销确认，不能在新范围发送旧操作。
+function requestCancellation() {
+  const task = selectedTask.value;
+  if (canRead() && drawerVisible.value && task && isCancellable(task) && !unconfirmedTasks.value.has(task.id.toLowerCase()) && session.can('import_export.import_tasks.cancel') && !actionLoading.value && !detailLoading.value) {
+    cancelConfirmation.value = { ...task };
+    const token = ++cancelSequence, current = () => token === cancelSequence && !!cancelConfirmation.value;
+    cancelHandlers.value = { confirm: () => { if (current()) void confirmCancellation(); }, dismiss: () => { if (current()) cancelConfirmation.value = undefined; }, update: open => { if (!open && current()) cancelConfirmation.value = undefined; } };
   }
 }
 
-/** 未知取消结果与 CAS 冲突必须先读取详情，不能用旧版本反复覆盖 Worker 的推进。 */
-async function cancelSelected() {
-  if (!selectedTask.value || !canCancelSelected() || actionLoading.value || cancelReloadRequired.value || session.switching) return;
-  const current = generation, request = detailGeneration, task = selectedTask.value; actionLoading.value = true;
-  try {
-    const result = await cancelImportExportTask(task.id, task.version, cancellation.signal);
-    if (current !== generation || request !== detailGeneration || !drawerVisible.value) return;
-    selectedTask.value = result; showSuccess(t('importExportTasks.cancelSuccess'));
-    await load();
-  } catch (error) {
-    if (current !== generation || request !== detailGeneration) return;
-    cancelReloadRequired.value = !isFullNetProblemDetails(error) || error.status === 409 || (error.status ?? 500) >= 500;
-    showProblem(error, t('importExportTasks.actionFailed'));
-  } finally { if (current === generation) actionLoading.value = false; }
+async function confirmCancellation() {
+  const confirmed = cancelConfirmation.value, task = selectedTask.value;
+  cancelConfirmation.value = undefined;
+  if (!canRead() || !confirmed || !task || !drawerVisible.value || !session.can('import_export.import_tasks.cancel')) return;
+  if (!sameTaskIdentity(confirmed, task) || confirmed.version !== task.version || confirmed.statusKey !== task.statusKey || !isCancellable(task)) {
+    ElMessage.warning(t('importExportTasks.cancelStateChanged')); return;
+  }
+  await runAction('cancel');
 }
 
 async function downloadErrorReceipt() {
-  if (!selectedTask.value || actionLoading.value || !canExecute() || session.switching) {
-    return;
-  }
+  const task = selectedTask.value;
+  if (!canRead() || !drawerVisible.value || !task?.hasErrorReceipt || unavailableFiles.isUnavailable(receiptKey(task)) || actionLoading.value || detailLoading.value) return;
+  const fileRequest = unavailableFiles.begin(receiptKey(task));
+  const request = begin('import_export.import_tasks.execute'); if (!request) return; actionRequest = request;
+  const snapshot = taskSnapshot(task);
 
   actionLoading.value = true;
-  const current = generation, sourceFileName = selectedTask.value.sourceFileName;
   try {
-    const blob = await downloadImportExportTaskErrorReceipt(selectedTask.value.id, cancellation.signal);
-    if (current !== generation) return;
+    const blob = await downloadImportExportTaskErrorReceipt(task.id, request.signal);
+    if (!request.current() || !fileRequest.current() || snapshot !== taskSnapshot(selectedTask.value)) return;
     const url = URL.createObjectURL(blob);
-    const anchor = document.createElement('a');
-    anchor.href = url;
-    anchor.download = sourceFileName?.replace(/\.xlsx$/i, '-errors.xlsx')
-      ?? 'import-task-errors.xlsx';
-    anchor.click();
-    URL.revokeObjectURL(url);
+    try {
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = task.sourceFileName?.replace(/\.xlsx$/i, '-errors.xlsx') ?? 'import-task-errors.xlsx';
+      anchor.click();
+    } finally { URL.revokeObjectURL(url); }
   } catch (error) {
-    if (current === generation) showProblem(error, t('importExportTasks.actionFailed'));
+    if (request.current() && fileRequest.current() && snapshot === taskSnapshot(selectedTask.value)) {
+      const missing = fileRequest.markUnavailable(error);
+      ElMessage.error(missing ? t('dataOutput.resultUnavailable') : toProblem(error).title || t('importExportTasks.actionFailed'));
+    }
   } finally {
-    if (current === generation) actionLoading.value = false;
+    if (request.current()) actionLoading.value = false; request.finish();
   }
 }
 
@@ -254,23 +395,15 @@ function toProblem(error: unknown): FullNetProblemDetails {
   return { title: t('importExportTasks.loadFailed'), status: 500, code: 'importExportTasks.loadFailed' };
 }
 
-const taskDetailRoute = useTaskDetailRoute({ routeName: 'import-export-tasks',
-  enabled: () => canRead() && !session.switching,
-  context: () => [session.currentUser?.id, session.currentUser?.tenantId, session.currentUser?.sessionId].join('|'),
-  open: openDetail, close: () => { drawerVisible.value = false; }
-});
-onMounted(load);
-onDeactivated(reset);
-onActivated(() => { if (!items.value.length && !loading.value) void load(); });
-watch(() => [session.currentUser?.id, session.currentUser?.tenantId, session.currentUser?.sessionId,
-  session.currentUser?.permissions.join('|'), session.switching], () => {
-  reset(); if (!session.switching) void load();
-}, { flush: 'sync' });
-onBeforeUnmount(reset);
+function refreshResults() {
+  if (actionLoading.value || detailLoading.value) return;
+  unavailableFiles.reset(); void load();
+}
+
 </script>
 
 <template>
-  <section class="art-page">
+  <section v-if="canRead()" class="art-page-stack art-full-height">
     <h1 class="art-sr-heading" data-route-heading tabindex="-1">{{ t('importExportTasks.title') }}</h1>
 
     <el-alert
@@ -282,38 +415,44 @@ onBeforeUnmount(reset);
       class="art-page-alert"
     />
 
+    <div v-if="actionReceipt" role="status" data-testid="import-task-action-receipt">
+      <p>{{ t('importExportTasks.receiptTarget', {task:actionReceipt.taskId}) }} · {{ t(`importExportTasks.${actionReceipt.kind}`) }}</p>
+      <p>{{ t(actionReceipt.outcome === 'succeeded' ? 'importExportTasks.resultSucceeded' : actionReceipt.outcome === 'failed' ? 'importExportTasks.resultFailed' : actionReceipt.outcome === 'processing' ? 'importExportTasks.resultProcessing' : 'importExportTasks.resultUnconfirmed') }} <code v-if="actionReceipt.errorCode" translate="no">{{ actionReceipt.errorCode }}</code></p>
+      <p v-if="actionReceipt.outcome === 'unconfirmed'">{{ t('importExportTasks.recoveryHint') }}</p>
+    </div>
     <el-card class="art-table-card" shadow="never">
-      <div ref="tableMainRef" class="art-crud-table-main">
-        <ArtTableHeader
-          v-model:table-size="tableSize"
-          v-model:zebra="tableZebra"
-          v-model:border="tableBorder"
-          v-model:header-background="tableHeaderBackground"
-          :loading="loading"
-          full-class="art-crud-table-main"
-          layout="refresh,size,fullscreen"
-          @refresh="load"
-        >
-          <template #left>
-            <PermissionGate code="import_export.import_tasks.create">
-              <el-button
-                type="primary"
-                plain
-                :icon="Plus"
-                data-testid="import-export-task-create"
-                v-if="canCreate() && session.can('import_export.static_schemas.read') && !!session.currentUser?.tenantId && !session.switching"
-                @click="createVisible = true"
-              >
-                {{ t('importExportTasks.addTask') }}
-              </el-button>
+      <ArtTableHeader
+        v-model:table-size="tableSize"
+        v-model:zebra="tableZebra"
+        v-model:border="tableBorder"
+        v-model:header-background="tableHeaderBackground"
+        :loading="loading"
+        full-class="art-crud-table-main"
+        layout="refresh,size,fullscreen"
+        v-on="{ refresh: listControls.refresh }"
+      >
+        <template #left>
+          <PermissionGate code="import_export.import_tasks.create">
+            <PermissionGate code="import_export.static_schemas.read">
+            <el-button
+              v-if="isTenantSessionContext(session.currentUser)"
+              type="primary"
+              plain
+              :icon="Plus"
+              data-testid="import-export-task-create"
+              v-on="{ click: listControls.create }"
+            >
+              {{ t('importExportTasks.addTask') }}
+            </el-button>
             </PermissionGate>
-          </template>
-        </ArtTableHeader>
-
+          </PermissionGate>
+        </template>
+      </ArtTableHeader>
+      <div ref="tableMainRef" class="art-crud-table-main">
         <div class="art-table" :class="{ 'is-empty': items.length === 0 }">
           <el-table
             v-loading="loading"
-            :data="items"
+            :data="tableRows"
             :height="tableHeight"
             :size="tableSize"
             :stripe="tableZebra"
@@ -335,65 +474,59 @@ onBeforeUnmount(reset);
                 {{ row.validRowCount }}/{{ row.totalRows }}
               </template>
             </el-table-column>
-            <el-table-column :label="t('importExportTasks.errorCode')" prop="errorCode" min-width="180" />
+            <el-table-column :label="t('importExportTasks.failureReason')" min-width="180">
+              <template #default="{ row }">{{ importReceiptFailureLabel(row.errorCode, t) }}</template>
+            </el-table-column>
             <el-table-column :label="t('importExportTasks.createdAtUtc')" prop="createdAtUtc" min-width="200" />
             <el-table-column :label="t('users.columnActions')" width="120" fixed="right" align="center">
               <template #default="{ row }">
                 <ArtTableActionGroup>
-                  <el-button
+                  <PermissionGate code="import_export.import_tasks.read"><el-button
                     link
                     type="primary"
                     data-testid="import-export-task-detail"
-                    @click="openDetail(row.id)"
+                    v-on="{ click: row.open }"
                   >
                     {{ t('importExportTasks.viewDetail') }}
-                  </el-button>
+                  </el-button></PermissionGate>
                 </ArtTableActionGroup>
               </template>
             </el-table-column>
             <template #empty>{{ t('importExportTasks.emptyDirectory') }}</template>
           </el-table>
 
-          <div class="art-table__pagination center custom-pagination">
-            <el-pagination
-              v-model:current-page="page"
-              v-model:page-size="pageSize"
-              :total="total"
-              background
-              layout="total, sizes, prev, pager, next"
-              :page-sizes="[10, 20, 50]"
-              @current-change="load"
-              @size-change="load"
-            />
-          </div>
         </div>
+        <el-pagination
+          :current-page="page"
+          :page-size="pageSize"
+          class="art-table-pagination"
+          :total="total"
+          background
+          layout="total, sizes, prev, pager, next"
+          :page-sizes="[10, 20, 50]"
+          v-on="{ 'update:currentPage': listControls.page, 'update:pageSize': listControls.size, change: listControls.change }"
+        />
       </div>
     </el-card>
 
-    <ImportTaskCreateDialog v-model="createVisible" @created="task => { selectedTask = task; drawerVisible = true; void load(); }" />
-
+    <ImportTaskCreateDialog :open="createOpen" v-on="{ 'update:open': createHandlers.update, created: createHandlers.created }" />
     <el-drawer
-      v-model="drawerVisible"
+      :model-value="drawerVisible"
+      v-on="{ 'update:modelValue': detailControls.update }"
       :title="t('importExportTasks.detailTitle')"
       size="min(480px, 100vw)"
       destroy-on-close
     >
       <div v-loading="detailLoading">
+        <ElAlert v-if="detailProblem" type="error" :closable="false" data-testid="import-task-detail-problem" :title="detailProblem.title" :description="detailProblem.code" />
+        <ElButton data-testid="import-export-task-detail-refresh" :disabled="actionLoading || detailLoading" v-on="{ click: detailControls.refresh }">{{ t('importExportTasks.refreshDetail') }}</ElButton>
         <template v-if="selectedTask">
-          <el-alert v-if="cancelReloadRequired" type="warning" :closable="false" :title="t('importExportTasks.cancelReload')" />
-          <el-alert v-else-if="selectedTask.statusKey === 'canceled'" type="info" :closable="false" :title="t('importExportTasks.cancelDone')" />
-          <el-alert v-else-if="ownsSelectedTask() && session.can('import_export.import_tasks.cancel') && selectedTask.statusKey === 'executing'"
-            type="info" :closable="false" :title="t('importExportTasks.cancelExecuting')" />
-          <el-alert v-if="polling.paused.value" type="info" :closable="false" :title="t('importExportTasks.refreshPaused')" />
-          <el-button data-testid="import-export-task-refresh" :disabled="detailLoading || actionLoading" @click="openDetail(selectedTask.id)">
-            {{ t('importExportTasks.refreshDetail') }}
-          </el-button>
           <el-descriptions :column="1" border>
             <el-descriptions-item :label="t('importExportTasks.schema')">
               {{ selectedTask.schemaDisplayName }}
             </el-descriptions-item>
             <el-descriptions-item :label="t('importExportTasks.status')">
-              <el-tag :type="statusTagType(selectedTask.statusKey)" size="small" :class="{ 'task-canceled-tag': selectedTask.statusKey === 'canceled' }">
+              <el-tag :type="statusTagType(selectedTask.statusKey)" size="small">
                 {{ statusLabel(selectedTask.statusKey) }}
               </el-tag>
             </el-descriptions-item>
@@ -403,11 +536,10 @@ onBeforeUnmount(reset);
             <el-descriptions-item :label="t('importExportTasks.executionProgress')">
               {{ executionStats }}
             </el-descriptions-item>
-            <el-descriptions-item :label="t('importExportTasks.errorCode')">
-              {{ selectedTask.errorCode ?? '-' }}
+            <el-descriptions-item :label="t('importExportTasks.failureReason')">
+              {{ importReceiptFailureLabel(selectedTask.errorCode, t) }}
             </el-descriptions-item>
           </el-descriptions>
-
           <template v-if="selectedTask.columnMappings?.length">
             <p>{{ t('importProfiles.frozen') }}</p>
             <dl data-testid="import-task-frozen-mapping">
@@ -416,73 +548,93 @@ onBeforeUnmount(reset);
               </template>
             </dl>
           </template>
-          <el-table v-if="selectedTask.previewRows.length" :data="selectedTask.previewRows" max-height="280">
-            <el-table-column :label="t('importExportTasks.lineNumber')" prop="lineNumber" width="90" />
-            <el-table-column :label="t('importExportTasks.validationMessage')" min-width="200">
-              <template #default="{ row }">{{ row.message ?? row.errorCode ?? t('importExportTasks.rowValid') }}</template>
+          <el-table v-if="selectedTask.previewRows.length" :data="selectedTask.previewRows" data-testid="import-task-preview-rows">
+            <el-table-column prop="lineNumber" :label="t('users.importResultLine')" width="80" />
+            <el-table-column :label="t('importExportTasks.status')" width="100">
+              <template #default="{ row }">{{ row.isValid ? t('importExportTasks.status.preview_succeeded') : t('importExportTasks.status.preview_failed') }}</template>
             </el-table-column>
+            <el-table-column prop="errorCode" :label="t('importExportTasks.errorCode')" min-width="150" />
+            <el-table-column prop="message" :label="t('users.importResultMessage')" min-width="150" />
           </el-table>
 
+          <ElAlert v-if="sourceUnavailable(selectedTask)" class="import-source-warning" type="warning" :closable="false" data-testid="import-source-unavailable" :title="t('importExportTasks.sourceUnavailable')">
+            <p>{{ t('importExportTasks.sourceUnavailableHint') }}</p>
+            <p v-if="selectedTask.succeededRowCount > 0">{{ t('importExportTasks.sourceUnavailablePartial') }}</p>
+            <ElButton v-if="canCreate()" data-testid="import-source-replace" :disabled="actionLoading || detailLoading" v-on="{ click: detailControls.replaceSource }">{{ t('importExportTasks.sourceReplace') }}</ElButton>
+          </ElAlert>
           <div class="art-drawer-actions">
-            <el-popconfirm v-if="canCancelSelected()" :title="t('importExportTasks.cancelConfirm')"
-              :disabled="actionLoading || cancelReloadRequired" :confirm-button-text="t('importExportTasks.cancelConfirmAction')"
-              :cancel-button-text="t('common.cancel')" width="280" @confirm="cancelSelected">
-              <template #reference><el-button type="danger" plain data-testid="import-export-task-cancel" :loading="actionLoading"
-                :disabled="actionLoading || cancelReloadRequired">{{ t('importExportTasks.cancel') }}</el-button></template>
-            </el-popconfirm>
+            <PermissionGate code="import_export.import_tasks.cancel">
+              <el-button v-if="isCancellable(selectedTask)" data-testid="import-export-task-cancel"
+                :loading="actionLoading" :disabled="detailLoading || unconfirmedTasks.has(selectedTask.id.toLowerCase())" v-on="{ click: detailControls.cancel }">
+                {{ t('importExportTasks.cancel') }}
+              </el-button>
+            </PermissionGate>
             <PermissionGate code="import_export.import_tasks.execute">
               <el-button
-                v-if="ownsSelectedTask() && selectedTask.statusKey === 'preview_succeeded'"
+                v-if="selectedTask.statusKey === 'preview_succeeded'"
                 type="primary"
                 data-testid="import-export-task-execute"
                 :loading="actionLoading"
-                :disabled="!canExecute() || cancelReloadRequired"
-                @click="runAction(signal => executeImportExportTask(selectedTask!.id, signal))"
+                :disabled="!canExecute() || detailLoading || sourceUnavailable(selectedTask) || unconfirmedTasks.has(selectedTask.id.toLowerCase())"
+                v-on="{ click: detailControls.execute }"
               >
                 {{ t('importExportTasks.execute') }}
               </el-button>
               <el-button
-                v-if="ownsSelectedTask() && selectedTask.statusKey === 'execution_partial'"
+                v-if="selectedTask.statusKey === 'execution_partial'"
                 type="primary"
                 data-testid="import-export-task-resume"
                 :loading="actionLoading"
-                :disabled="!canExecute() || cancelReloadRequired"
-                @click="runAction(signal => resumeImportExportTask(selectedTask!.id, signal))"
+                :disabled="!canExecute() || detailLoading || sourceUnavailable(selectedTask) || unconfirmedTasks.has(selectedTask.id.toLowerCase())"
+                v-on="{ click: detailControls.resume }"
               >
                 {{ t('importExportTasks.resume') }}
               </el-button>
               <el-button
-                v-if="ownsSelectedTask() && (selectedTask.statusKey === 'execution_partial' || selectedTask.statusKey === 'execution_failed')"
+                v-if="selectedTask.statusKey === 'execution_partial' || selectedTask.statusKey === 'execution_failed'"
                 data-testid="import-export-task-retry"
                 :loading="actionLoading"
-                :disabled="!canExecute() || cancelReloadRequired"
-                @click="runAction(signal => retryImportExportTask(selectedTask!.id, signal))"
+                :disabled="!canExecute() || detailLoading || sourceUnavailable(selectedTask) || unconfirmedTasks.has(selectedTask.id.toLowerCase())"
+                v-on="{ click: detailControls.retry }"
               >
                 {{ t('importExportTasks.retry') }}
               </el-button>
               <el-button
-                v-if="selectedTask.hasErrorReceipt"
+                v-if="selectedTask.hasErrorReceipt && !unavailableFiles.isUnavailable(receiptKey(selectedTask))"
                 data-testid="import-export-task-error-receipt"
                 :loading="actionLoading"
                 :disabled="!canExecute()"
-                @click="downloadErrorReceipt"
+                v-on="{ click: detailControls.download }"
               >
                 {{ t('importExportTasks.downloadErrorReceipt') }}
               </el-button>
             </PermissionGate>
           </div>
+          <el-alert v-if="unavailableFiles.isUnavailable(receiptKey(selectedTask))" type="warning" :closable="false"
+            data-testid="import-result-unavailable" :title="t('dataOutput.resultUnavailable')" />
         </template>
       </div>
     </el-drawer>
+    <ElDialog v-if="cancelConfirmation && cancelHandlers" :key="cancelSequence" :model-value="cancelDialogVisible" v-on="{ 'update:modelValue': cancelHandlers.update }" :title="t('importExportTasks.cancel')" width="460px">
+      <p>{{ t('importExportTasks.cancelConfirm') }}</p>
+      <template #footer>
+        <ElButton data-testid="import-cancel-dismiss" v-on="{ click: cancelHandlers.dismiss }">{{ t('common.cancel') }}</ElButton>
+        <ElButton type="danger" data-testid="import-cancel-confirm" v-on="{ click: cancelHandlers.confirm }">{{ t('importExportTasks.cancel') }}</ElButton>
+      </template>
+    </ElDialog>
   </section>
 </template>
 
 <style scoped>
-.task-canceled-tag { color: var(--el-text-color-primary); background-color: var(--el-fill-color-light); border-color: var(--el-border-color); }
+/* 部分成功状态仍以文案和警示底色区分，正文色在亮暗主题中保持可读对比度。 */
+.el-tag--warning { color: var(--el-text-color-primary); }
+.import-source-warning { margin-top: 12px; padding: 12px; border-radius: 8px; background: var(--el-color-warning-light-9); color: var(--el-text-color-primary); }
+.import-source-warning :deep(.el-alert__title) { color: var(--el-text-color-primary); }
 .art-drawer-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
   margin-top: 16px;
 }
+.art-drawer-actions :deep(.el-button.is-disabled) { color: var(--el-text-color-placeholder); background: var(--el-fill-color-light); border-color: var(--el-border-color-light); }
 </style>
