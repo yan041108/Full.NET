@@ -5,10 +5,11 @@ import { flushPromises, mount, type VueWrapper } from '@vue/test-utils';
 import { createPinia, setActivePinia } from 'pinia';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import ReportingDefinitionsView from './ReportingDefinitionsView.vue';
+import ArtFormDialog from '../framework/art-design/components/ArtFormDialog.vue';
 import {
   listReportingDefinitions,
   listReportingGroups,
-  listReportingQueryPorts, getReportingDefinition, updateReportingDefinition, publishReportingDefinition, listReportingDefinitionVersions, deleteReportingDefinition, deleteReportingGroup, createReportingDefinition
+  listReportingQueryPorts, getReportingDefinition, updateReportingDefinition, publishReportingDefinition, listReportingDefinitionVersions, deleteReportingDefinition, deleteReportingGroup, createReportingDefinition, createReportingGroup
 } from '../api/reporting-definitions';
 import { listReportingDataSources } from '../api/reporting-data-sources';
 import { useSessionStore } from '../auth/session';
@@ -199,7 +200,7 @@ describe('ReportingDefinitionsView', () => {
   });
   it.each(['confirmation', 'response', 'reopen'])('重新载入草稿在 %s 期间失去原窗口或输入归属，不覆盖新输入', async phase => {
     withDefinition(); const wrapper = mountView(permissions); await flushPromises(); await wrapper.get('[data-testid="reporting-config-edit"]').trigger('click'); await flushPromises();
-    const vm = ownedState(wrapper); vm.definitionForm.name = '原本地输入'; await wrapper.get('[data-testid="reporting-config-draft-reload"]').trigger('click');
+    const vm = ownedState(wrapper); vm.definitionForm.name = '原本地输入'; await wrapper.vm.$nextTick(); await wrapper.get('[data-testid="reporting-config-draft-reload"]').trigger('click');
     const pending = deferred<ReturnType<typeof draft>>(); vi.mocked(getReportingDefinition).mockReturnValueOnce(pending.promise);
     if (phase === 'confirmation') vm.definitionForm.name = '后来输入';
     await wrapper.get('[data-testid="reporting-management-confirm"]').trigger('click'); await flushPromises();
@@ -326,6 +327,85 @@ describe('ReportingDefinitionsView', () => {
     const vm = wrapper.vm as unknown as { submitDefinition: () => Promise<void>; loadPage: () => Promise<void> };
     const reading = vm.loadPage(); await vm.submitDefinition(); expect(updateReportingDefinition).not.toHaveBeenCalled();
     pending.resolve({ items: [], page: 1, pageSize: 100, total: 0 }); await reading;
+  });
+
+  type SavingState = OwnedState & { draftReceipt?: { outcome: string; version?: number; resource: string }; creationBlocks: Set<string>;
+    openCreateGroup: () => void; openCreateDefinition: () => void; groupEditorOpen: boolean; acting: boolean;
+    submitGroup: () => Promise<void>; submitDefinition: () => Promise<void>; acknowledgeRecovery: (resource: 'group' | 'definition') => Promise<void> };
+  async function prepareSave(resource: 'group' | 'definition', mode: 'create' | 'update' = 'create') {
+    withDefinition(); dataSourcesMock.mockResolvedValue({ items: [{ ...dataSourceRow, id: groupId, providerKey: 'sqlserver' }], page: 1, pageSize: 100, total: 1 });
+    vi.mocked(createReportingGroup).mockImplementation(async body => ({ ...body, parentId: null, id, createdAtUtc: draft().createdAtUtc, updatedAtUtc: null, version: 1 }));
+    vi.mocked(createReportingDefinition).mockImplementation(async body => ({ ...draft(1), ...body, id: '019bc2b1-2a40-7cc3-8992-a80de51bf297', description: body.description ?? null, layoutConfigJson: body.layoutConfigJson ?? '{}', latestPublishedVersionNumber: 0 }));
+    vi.mocked(updateReportingGroup).mockImplementation(async (target, body) => ({ id: target, ...body, parentId: body.parentId ?? null, createdAtUtc: draft().createdAtUtc, updatedAtUtc: null, version: body.version + 1 }));
+    vi.mocked(updateReportingDefinition).mockImplementation(async (target, body) => ({ ...draft(), ...body, id: target, description: body.description ?? null, layoutConfigJson: body.layoutConfigJson ?? '{}', version: body.version + 1 }));
+    const wrapper = mountView([...permissions, 'reporting.groups.create', 'reporting.groups.update', 'reporting.definitions.create']); await flushPromises();
+    const vm = wrapper.vm as unknown as SavingState;
+    if (resource === 'group') { if (mode === 'create') vm.openCreateGroup(); else vm.openEditGroup(vm.groups[0]!); vm.groupForm.name = '保存原分组'; }
+    else { if (mode === 'create') vm.openCreateDefinition(); else { await wrapper.get('[data-testid="reporting-config-edit"]').trigger('click'); await flushPromises(); }
+      Object.assign(vm.definitionForm, { definitionKey: 'report-review', name: '保存原定义' }); }
+    await flushPromises(); return { wrapper, vm, submit: () => resource === 'group' ? vm.submitGroup() : vm.submitDefinition() };
+  }
+  it.each(['group', 'definition'] as const)('%s 保存成功先保留回执，补读失败不降级或重发', async resource => {
+    const { vm, submit } = await prepareSave(resource, 'update'); definitionsMock.mockRejectedValueOnce(new Error('read failed'));
+    await submit(); expect(vm.draftReceipt).toMatchObject({ resource, outcome: 'confirmed', version: resource === 'group' ? 2 : 8 });
+    expect(resource === 'group' ? vm.groupEditorOpen : vm.definitionEditorOpen).toBe(false); expect(vm.acting).toBe(false);
+    expect(resource === 'group' ? updateReportingGroup : updateReportingDefinition).toHaveBeenCalledOnce();
+  });
+  it.each(['group', 'definition'] as const)('%s 新建成功不会被自己的关闭降级为未知', async resource => {
+    const { vm, submit } = await prepareSave(resource); await submit(); expect(vm.draftReceipt).toMatchObject({ resource, outcome: 'confirmed', version: 1 });
+    expect(vm.creationBlocks.has(resource)).toBe(false); expect(vm.writeUnconfirmed).toBe(false); expect(vm.acting).toBe(false);
+  });
+  it.each(['group', 'definition'] as const)('%s 校验期间输入变化，不能借用新输入提交', async resource => {
+    const { wrapper, vm, submit } = await prepareSave(resource, 'update'); const pending = deferred<boolean>();
+    vi.spyOn(wrapper.findAllComponents(ElForm)[0]!.vm.$.exposed!, 'validate').mockImplementation(() => pending.promise);
+    const saving = submit(); (resource === 'group' ? vm.groupForm : vm.definitionForm).name = '后来输入'; pending.resolve(true); await saving;
+    expect(resource === 'group' ? updateReportingGroup : updateReportingDefinition).not.toHaveBeenCalled();
+  });
+  it.each(['group', 'definition'] as const)('%s 在途新建关闭取消接入，刷新重开仍保留原输入和防重', async resource => {
+    const { wrapper, vm, submit } = await prepareSave(resource); const pending = deferred<never>();
+    const api = resource === 'group' ? createReportingGroup : createReportingDefinition; vi.mocked(api).mockReturnValueOnce(pending.promise);
+    const saving = submit(); await flushPromises(); const signal = vi.mocked(api).mock.lastCall![1]!;
+    if (resource === 'group') vm.groupEditorOpen = false; else vm.definitionEditorOpen = false;
+    expect(signal.aborted).toBe(true); expect(vm.draftReceipt?.outcome).toBe('unknown'); expect(vm.acting).toBe(false);
+    await vm.loadPage(); if (resource === 'group') vm.openCreateGroup(); else vm.openCreateDefinition(); await flushPromises();
+    expect((resource === 'group' ? vm.groupForm : vm.definitionForm).name).toBe(resource === 'group' ? '保存原分组' : '保存原定义');
+    await submit(); expect(api).toHaveBeenCalledOnce(); expect(vm.creationBlocks.has(resource)).toBe(true);
+    pending.reject(new Error('late response')); await saving; expect(vm.draftReceipt?.outcome).toBe('unknown');
+    const recovery = vm.acknowledgeRecovery(resource); await flushPromises(); await wrapper.get('[data-testid="reporting-management-confirm"]').trigger('click'); await recovery;
+    expect(vm.creationBlocks.has(resource)).toBe(false); expect(api).toHaveBeenCalledOnce(); await submit(); expect(api).toHaveBeenCalledTimes(2); expect(vm.draftReceipt?.outcome).toBe('confirmed');
+  });
+  it.each(['group', 'definition'] as const)('%s 新建回包错配按未知结果保护，不提示成功', async resource => {
+    const { vm, submit } = await prepareSave(resource); const success = vi.spyOn(ElMessage, 'success');
+    if (resource === 'group') vi.mocked(createReportingGroup).mockResolvedValueOnce({ ...vm.groups[0]!, name: '错配' }); else vi.mocked(createReportingDefinition).mockResolvedValueOnce(draft());
+    await submit(); expect(vm.draftReceipt?.outcome).toBe('unknown'); expect(vm.creationBlocks.has(resource)).toBe(true); expect(success).not.toHaveBeenCalled();
+  });
+  it('新建定义不继承上次编辑在相同端口下的私有参数输入', async () => {
+    const { wrapper, vm } = await prepareSave('definition', 'update');
+    const form = vm.definitionForm as ReturnType<typeof draft>; form.parameterSchema[0]!.displayName = '上次私有名称'; form.parameterSchema[0]!.defaultValue = '上次私有值';
+    vm.definitionEditorOpen = false; vm.openCreateDefinition(); await flushPromises();
+    expect(form.parameterSchema[0]).toMatchObject({ displayName: '目录默认名称', defaultValue: 'catalog-default' });
+    expect(wrapper.text()).not.toContain('上次私有值');
+  });
+  it('新建回包不得冒用当前已知定义的标识', async () => {
+    const { vm, submit } = await prepareSave('definition');
+    vi.mocked(createReportingDefinition).mockImplementationOnce(async body => ({ ...draft(1), ...body, description: body.description ?? null, layoutConfigJson: body.layoutConfigJson ?? '{}', latestPublishedVersionNumber: 0 }));
+    await submit(); expect(vm.draftReceipt?.outcome).toBe('unknown'); expect(vm.creationBlocks.has('definition')).toBe(true);
+  });
+  it.each(['group', 'definition'] as const)('%s 原窗口输入、关闭与保存回调不能修改后来重开的编辑器', async resource => {
+    const { wrapper, vm } = await prepareSave(resource, 'update'); const dialogs = wrapper.findAllComponents(ArtFormDialog);
+    const editor = dialogs.find(item => item.props('open'))!; const props = editor.vm.$.vnode.props!;
+    const oldClose = props['onUpdate:open'] as (open: boolean) => void, oldSave = props.onConfirm as () => void;
+    const oldInput = editor.getComponent({ name: 'ElInput' }).vm.$.vnode.props!['onUpdate:modelValue'] as (value: string) => void;
+    if (resource === 'group') { vm.groupEditorOpen = false; vm.openEditGroup(vm.groups[0]!); }
+    else { vm.definitionEditorOpen = false; await wrapper.get('[data-testid="reporting-config-edit"]').trigger('click'); }
+    await flushPromises(); oldInput('旧回调'); oldClose(false); oldSave(); await flushPromises();
+    expect(resource === 'group' ? vm.groupEditorOpen : vm.definitionEditorOpen).toBe(true);
+    expect((resource === 'group' ? vm.groupForm : vm.definitionForm).name).not.toBe('旧回调'); expect(resource === 'group' ? updateReportingGroup : updateReportingDefinition).not.toHaveBeenCalled();
+  });
+  it.each(['group', 'definition'] as const)('%s 确定拒绝可以修正后人工重试，冲突需要重新读取', async resource => {
+    const { vm, submit } = await prepareSave(resource, 'update'); const api = resource === 'group' ? updateReportingGroup : updateReportingDefinition;
+    vi.mocked(api).mockRejectedValueOnce({ status: 400, code: 'fixture.invalid', title: 'Invalid' }); await submit();
+    expect(vm.draftReceipt?.outcome).toBe('rejected'); expect(vm.writeUnconfirmed).toBe(false); await submit(); expect(vm.draftReceipt?.outcome).toBe('confirmed');
   });
 
   const publication = (change: Partial<ReportingDefinitionVersion> = {}): ReportingDefinitionVersion => ({ id: groupId, definitionId: id, dataSourceId: groupId,

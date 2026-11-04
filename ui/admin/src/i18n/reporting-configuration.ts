@@ -1,4 +1,8 @@
 const zh = {
+  draftProcessing: '正在保存草稿…', draftConfirmed: '草稿保存已确认', draftUnknown: '草稿保存结果尚未确认，请核对目录后再操作。', draftRejected: '草稿保存被拒绝，可修正后手动重试。',
+  closeSaving: '关闭只停止本窗口等待，服务端保存仍可能完成；请核对目录。',
+  creationBlocked: '上一次新建结果尚未确认，已保留原始输入。刷新或重开不会自动再次新建。',
+  recovery: '我已核对新建结果', recoveryConfirm: '请先核对目录，确认上次新建未完成且仍需新建。确认仅解锁下一次手动保存，不会自动提交。',
   deleteNotApplied: '服务端未确认删除，请刷新核对后再操作。',
   publishProcessing: '正在发布报表版本…', publishUnknown: '发布结果尚未确认，请刷新定义和发布历史核对；不会自动重发。', publishRejected: '发布被拒绝，可修正后手动重试。', draftVersion: '草稿并发版本', close: '关闭', closePublishing: '关闭只停止本窗口等待，服务端发布仍可能完成；请刷新核对。',
   hostOnly: '报表配置仅在 Host 上下文开放，需要读取报表定义权限。',
@@ -8,6 +12,10 @@ const zh = {
   note: '版本说明', cancel: '取消', catalogMissing: '新建定义需要可用分组及读取分组、静态查询和数据源目录的权限。'
 } as const;
 const en: Record<keyof typeof zh, string> = {
+  draftProcessing: 'Saving draft…', draftConfirmed: 'Draft save confirmed', draftUnknown: 'Draft save is unconfirmed. Review the directory before another operation.', draftRejected: 'Draft save was rejected. Correct it and retry manually.',
+  closeSaving: 'Closing stops this window from waiting. The server may still save the draft; review the directory.',
+  creationBlocked: 'The previous creation is unconfirmed. Original input is preserved. Reloading or reopening will not create it again.',
+  recovery: 'I reviewed the creation result', recoveryConfirm: 'Review the directory first and confirm the previous creation did not complete and is still needed. Confirming only unlocks the next manual save; it does not submit.',
   deleteNotApplied: 'The server did not confirm deletion. Reload to review before another operation.',
   publishProcessing: 'Publishing report version…', publishUnknown: 'Publication is unconfirmed. Reload definitions and history to review; it will not retry automatically.', publishRejected: 'Publication was rejected. Correct it and retry manually.', draftVersion: 'Draft concurrency version', close: 'Close', closePublishing: 'Closing stops this window from waiting. Publication may still complete; reload to review.',
   hostOnly: 'Report configuration requires the Host context and permission to read definitions.',

@@ -32,7 +32,7 @@ import type {
   ReportingQueryPortDefinition
 } from '@fullnet/client-contracts';
 import { isFullNetProblemDetails } from '@fullnet/client-contracts';
-import { sameReportingId, sameReportingParameters, sameReportingLayout, validReportingVersion } from '../guards/reporting-management-guards';
+import { sameReportingId, sameReportingParameters, sameReportingLayout, validReportingVersion, validReportingGroup, validReportingDefinition, matchesReportingDraft } from '../guards/reporting-management-guards';
 import { useArtDialogLandmarks } from '../framework/art-design/composables/useArtDialogLandmarks';
 import ArtFormDialog from '../framework/art-design/components/ArtFormDialog.vue';
 import ArtSearchBar, { type ArtSearchBarItem } from '../framework/art-design/components/ArtSearchBar.vue';
@@ -77,6 +77,7 @@ const publicationDialog = ref<InstanceType<typeof ElDialog>>();
 const publicationLandmarks = useArtDialogLandmarks(() => publicationDialog.value?.dialogContentRef?.$el);
 const definitionFloors = new Map<string, { definitionVersion: number; publishedVersion: number }>();
 const deletedDefinitions = new Set<string>(), deletedGroups = new Set<string>();
+const groupFloors = new Map<string, number>();
 type Confirmation = { token: number; message: string; confirm: () => void; update: (open: boolean) => void };
 const confirmation = ref<Confirmation>();
 let confirmationToken = 0, cancelConfirmation: (() => void) | undefined;
@@ -150,6 +151,63 @@ const definitionForm = reactive({
 });
 const publishNote = ref('');
 const versionsDrawerOpen = ref(false);
+type DraftResource = 'group' | 'definition';
+type DraftReceipt = { resource: DraftResource; kind: 'create' | 'update'; outcome: 'processing' | 'confirmed' | 'unknown' | 'rejected'; name: string; id?: string; version?: number };
+type DraftSnapshot = { resource: 'group'; form: typeof groupForm } | { resource: 'definition'; form: typeof definitionForm; groupId?: string };
+const draftReceipt = ref<DraftReceipt>(), creationBlocks = reactive(new Set<DraftResource>());
+const unconfirmedDrafts = new Map<DraftResource, DraftSnapshot>();
+let draftRequest: { controller: AbortController; receipt: DraftReceipt; snapshot: DraftSnapshot } | undefined;
+const groupSignature = () => JSON.stringify([groupEditorMode.value, editingGroup.value, groupForm]);
+const definitionSignature = () => JSON.stringify([definitionEditorMode.value, editingDefinition.value, definitionGroupId.value, definitionForm]);
+function snapshotDraft(resource: DraftResource): DraftSnapshot {
+  return resource === 'group' ? { resource, form: { ...groupForm } }
+    : { resource, groupId: definitionGroupId.value, form: { ...definitionForm, parameterSchema: definitionForm.parameterSchema.map(row => ({ ...row })) } };
+}
+function markDraftUnknown(request: NonNullable<typeof draftRequest>) {
+  draftReceipt.value = { ...request.receipt, outcome: 'unknown' }; writeUnconfirmed.value = true;
+  if (request.receipt.kind === 'create') { creationBlocks.add(request.receipt.resource); unconfirmedDrafts.set(request.receipt.resource, request.snapshot); }
+}
+/** 关闭或改输入只停止客户端接入，不承诺撤销服务端已发出的写入。 */
+function cancelDraftWrite(resource: DraftResource) {
+  const request = draftRequest; if (!request || request.receipt.resource !== resource) return;
+  draftRequest = undefined; request.controller.abort(); acting.value = false; markDraftUnknown(request);
+}
+async function saveDraft(receipt: Omit<DraftReceipt, 'outcome'>, snapshot: DraftSnapshot, action: (signal: AbortSignal) => Promise<ReportingGroup | ReportingDefinition>,
+  accept: (value: ReportingGroup | ReportingDefinition) => void) {
+  const scope = generation, request = { controller: new AbortController(), receipt: { ...receipt, outcome: 'processing' as const }, snapshot };
+  draftRequest = request; draftReceipt.value = { ...request.receipt }; stopReads(); acting.value = true; loading.value = false; problem.value = undefined;
+  try {
+    const result = await action(request.controller.signal);
+    if (draftRequest !== request || !current(scope)) return;
+    accept(result);
+    // 成功归属核对完成后先解除在途所有权，再关闭表单与补读，避免自己的关闭产生未知回执。
+    draftRequest = undefined; acting.value = false;
+    draftReceipt.value = { ...receipt, outcome: 'confirmed', id: result.id, version: result.version };
+    creationBlocks.delete(receipt.resource); unconfirmedDrafts.delete(receipt.resource);
+    if (receipt.resource === 'group') groupEditorOpen.value = false; else definitionEditorOpen.value = false;
+    ElMessage.success(t(receipt.resource === 'group' ? receipt.kind === 'create' ? 'reportingDefinitions.groupCreateSuccess' : 'reportingDefinitions.groupUpdateSuccess'
+      : receipt.kind === 'create' ? 'reportingDefinitions.createSuccess' : 'reportingDefinitions.updateSuccess'));
+    await loadDefinitions();
+  } catch (error) {
+    if (draftRequest === request && current(scope)) {
+      const uncertain = !isFullNetProblemDetails(error) || error.status < 400 || error.status === 408 || error.status >= 500;
+      if (uncertain) markDraftUnknown(request); else {
+        draftReceipt.value = { ...receipt, outcome: 'rejected' }; writeUnconfirmed.value = error.status === 409;
+      }
+      problem.value = toProblem(error, 'reportingDefinitions.saveFailed');
+    }
+  } finally { if (draftRequest === request) { draftRequest = undefined; acting.value = false; } }
+}
+async function acknowledgeRecovery(resource: DraftResource) {
+  const scope = generation, epoch = resource === 'group' ? groupEpoch : definitionEpoch;
+  const signature = resource === 'group' ? groupSignature() : definitionSignature();
+  const owned = () => current(scope) && !acting.value && can(`reporting.${resource === 'group' ? 'groups' : 'definitions'}.create`) && creationBlocks.has(resource)
+    && (resource === 'group' ? groupEditorOpen.value && groupEditorMode.value === 'create' && epoch === groupEpoch && signature === groupSignature()
+      : definitionEditorOpen.value && definitionEditorMode.value === 'create' && epoch === definitionEpoch && signature === definitionSignature());
+  if (!owned() || !await askConfirmation(text('recoveryConfirm')) || !owned()) return;
+  creationBlocks.delete(resource); unconfirmedDrafts.delete(resource);
+  if (draftReceipt.value?.resource === resource && draftReceipt.value.kind === 'create' && draftReceipt.value.outcome === 'unknown') writeUnconfirmed.value = false;
+}
 
 const {
   tableMainRef,
@@ -215,6 +273,7 @@ watch(() => definitionForm.queryPortKey, queryPortKey => {
 
 /** 权限或会话变更销毁草稿与在途结果，Host 配置不能残留到租户上下文。 */
 function reset() {
+  draftRequest?.controller.abort(); draftRequest = undefined; draftReceipt.value = undefined; creationBlocks.clear(); unconfirmedDrafts.clear(); groupFloors.clear();
   cancelConfirmation?.(); deletedDefinitions.clear(); deletedGroups.clear();
   publicationRequest?.controller.abort(); publicationRequest = undefined; publicationReceipt.value = undefined; definitionFloors.clear();
   generation++; catalogEpoch++; catalogProblems.sources = undefined; requests.abort(); requests = new AbortController(); stopReads();
@@ -233,6 +292,8 @@ watch(() => [session.state, route?.name, session.currentUser?.scope, session.cur
 watch(versionsDrawerOpen, value => { if (!value) { reads.get('history')?.abort(); versions.value = []; } });
 watch(groupEditorOpen, value => { groupEpoch++; if (!value) reads.get('group-draft')?.abort(); }, { flush: 'sync' });
 watch(definitionEditorOpen, value => { definitionEpoch++; if (!value) reads.get('draft')?.abort(); }, { flush: 'sync' });
+watch(() => JSON.stringify([groupEditorOpen.value, groupSignature()]), () => cancelDraftWrite('group'), { flush: 'sync' });
+watch(() => JSON.stringify([definitionEditorOpen.value, definitionSignature()]), () => cancelDraftWrite('definition'), { flush: 'sync' });
 onActivated(() => { active.value = true; }); onDeactivated(() => { active.value = false; }); onBeforeUnmount(() => { active.value = false; reset(); });
 
 /** 辅助选择必须读取完整目录；数量变化、欠量或重复页不能冒充可提交的候选集。 */
@@ -279,8 +340,8 @@ async function loadPage(): Promise<void> {
     const portRows = portResult.status === 'fulfilled' ? portResult.value : [];
     const dataSourcePage = sourceResult.status === 'fulfilled' ? sourceResult.value : { items: [] };
     if (catalogs.some(result => result.status === 'rejected')) problem.value = toProblem(catalogs.find(result => result.status === 'rejected')?.reason, 'reportingDefinitions.loadFailed');
-    const groupsTrusted = !groupRows.some(row => deletedGroups.has(row.id.toLowerCase()));
-    if (groupsTrusted) groups.value = groupRows;
+    const groupsTrusted = !groupRows.some(row => deletedGroups.has(row.id.toLowerCase()) || row.version < (groupFloors.get(row.id.toLowerCase()) ?? 0));
+    if (groupsTrusted) { groups.value = groupRows; for (const row of groupRows) groupFloors.set(row.id.toLowerCase(), row.version); }
     else problem.value = toProblem(Error('client.stale_reporting_group_catalog'), 'reportingDefinitions.loadFailed');
     queryPorts.value = portRows;
     dataSourceOptions.value = dataSourcePage.items.map(item => ({
@@ -348,12 +409,13 @@ function resetSearch(): void {
 }
 
 function openCreateGroup(): void {
-  if (!can('reporting.groups.create') || acting.value || writeUnconfirmed.value) return;
+  if (!can('reporting.groups.create') || acting.value || writeUnconfirmed.value && !creationBlocks.has('group')) return;
   groupEpoch++; groupEditorMode.value = 'create';
   editingGroup.value = null;
   groupForm.name = '';
   groupForm.sortOrder = '0';
   groupForm.isEnabled = true;
+  const saved = unconfirmedDrafts.get('group'); if (saved?.resource === 'group') Object.assign(groupForm, saved.form);
   groupEditorOpen.value = true;
 }
 
@@ -369,32 +431,27 @@ function openEditGroup(group: ReportingGroup): void {
 
 async function submitGroup(): Promise<void> {
   const permission = `reporting.groups.${groupEditorMode.value === 'create' ? 'create' : 'update'}`, scope = generation, editor = groupEpoch;
-  if (!groupFormRef.value || acting.value || writeUnconfirmed.value || !can(permission)) {
+  if (!groupFormRef.value || acting.value || writeUnconfirmed.value || groupEditorMode.value === 'create' && creationBlocks.has('group') || !can(permission)) {
     return;
   }
   // 校验等待期间只能确认原编辑目标和原草稿；隐藏的父组关系也属于本次写入快照。
   const target = editingGroup.value ? { ...editingGroup.value } : undefined;
-  const mode = groupEditorMode.value, signature = JSON.stringify(groupForm);
+  const mode = groupEditorMode.value, signature = groupSignature();
   const payload = { name: groupForm.name.trim(), sortOrder: Number(groupForm.sortOrder), isEnabled: groupForm.isEnabled };
   if (!Number.isSafeInteger(payload.sortOrder)) return;
   const valid = await groupFormRef.value.validate().catch(() => false);
-  if (!valid || !current(scope) || editor !== groupEpoch || signature !== JSON.stringify(groupForm) || !groupEditorOpen.value || acting.value || !can(permission)) {
+  if (!valid || !current(scope) || editor !== groupEpoch || signature !== groupSignature() || !groupEditorOpen.value || acting.value || !can(permission)) {
     return;
   }
-  await write(permission, async signal => {
-    if (mode === 'create') {
-      const created = await createReportingGroup(payload, signal);
-      if (!current(scope)) return;
-      groups.value = [...groups.value, created];
-      selectedGroupId.value = created.id;
-      ElMessage.success(t('reportingDefinitions.groupCreateSuccess'));
-    } else if (target) {
-      const updated = await updateReportingGroup(target.id, { ...payload, parentId: target.parentId, version: target.version }, signal);
-      if (!current(scope)) return;
-      groups.value = groups.value.map(item => item.id === updated.id ? updated : item);
-      ElMessage.success(t('reportingDefinitions.groupUpdateSuccess'));
-    }
-    groupEditorOpen.value = false;
+  if (writeUnconfirmed.value || mode === 'create' && creationBlocks.has('group') || mode === 'edit' && !target) return;
+  await saveDraft({ resource: 'group', kind: mode === 'create' ? 'create' : 'update', name: payload.name, id: target?.id }, snapshotDraft('group'),
+    signal => mode === 'create' ? createReportingGroup(payload, signal) : updateReportingGroup(target!.id, { ...payload, parentId: target!.parentId, version: target!.version }, signal), result => {
+    if (!validReportingGroup(result) || result.version !== (target ? target.version + 1 : 1) || target && !sameReportingId(result.id, target.id)
+      || mode === 'create' && groupFloors.has(result.id.toLowerCase())
+      || !sameReportingId(result.parentId, target?.parentId) || result.name !== payload.name || result.sortOrder !== payload.sortOrder || result.isEnabled !== payload.isEnabled) throw Error('client.invalid_reporting_group_save');
+    groupFloors.set(result.id.toLowerCase(), result.version);
+    groups.value = mode === 'create' ? [...groups.value, result] : groups.value.map(item => sameReportingId(item.id, result.id) ? result : item);
+    if (mode === 'create') selectedGroupId.value = result.id;
   });
 }
 
@@ -417,12 +474,13 @@ async function confirmDeleteGroup(group: ReportingGroup): Promise<void> {
 }
 
 function openCreateDefinition(): void {
-  if (!can('reporting.definitions.create') || acting.value || loading.value || writeUnconfirmed.value) return;
+  if (!can('reporting.definitions.create') || acting.value || loading.value || writeUnconfirmed.value && !creationBlocks.has('definition')) return;
   if (catalogProblems.sources || !can('reporting.groups.read') || !can('reporting.query_ports.read') || !can('reporting.data_sources.read')) { ElMessage.warning(text('catalogMissing')); return; }
   if (!selectedGroupId.value) {
     ElMessage.warning(t('reportingDefinitions.selectGroupFirst'));
     return;
   }
+  definitionEpoch++;
   definitionEditorMode.value = 'create';
   editingDefinition.value = null;
   definitionGroupId.value = selectedGroupId.value;
@@ -430,9 +488,14 @@ function openCreateDefinition(): void {
   definitionForm.name = '';
   definitionForm.description = '';
   definitionForm.queryPortKey = queryPorts.value[0]?.queryPortKey ?? '';
+  definitionForm.parameterSchema = (selectedQueryPort.value?.parameters ?? []).map(parameter => ({ parameterKey: parameter.parameterKey, displayName: parameter.displayName,
+    dataTypeKey: parameter.dataTypeKey, isRequired: parameter.isRequired, defaultValue: parameter.defaultValue }));
   definitionForm.dataSourceId = compatibleDataSources.value[0]?.value ?? '';
   definitionForm.layoutConfigJson = '{}';
   definitionForm.isEnabled = true;
+  const saved = unconfirmedDrafts.get('definition'); if (saved?.resource === 'definition') {
+    definitionGroupId.value = saved.groupId; Object.assign(definitionForm, saved.form, { parameterSchema: saved.form.parameterSchema.map(row => ({ ...row })) });
+  }
   definitionEditorOpen.value = true;
 }
 
@@ -447,6 +510,7 @@ async function readDraft(id: string, owned: () => boolean = () => true) {
   const definition = await getReportingDefinition(id, controller.signal);
   if (!current(scope) || !can('reporting.definitions.update') || controller.signal.aborted || !owned()) return;
   if (!sameReportingId(definition.id, id)) throw Error('client.invalid_reporting_draft');
+  definitionEpoch++;
   definitionEditorMode.value = 'edit';
   editingDefinition.value = definition;
   definitionGroupId.value = definition.groupId;
@@ -460,7 +524,7 @@ async function readDraft(id: string, owned: () => boolean = () => true) {
   definitionForm.parameterSchema = definition.parameterSchema.map(item => ({ ...item }));
   definitionEditorOpen.value = true;
   writeUnconfirmed.value = false;
-  } catch (error) { if (current(scope) && !controller.signal.aborted) problem.value = toProblem(error, 'reportingDefinitions.loadFailed'); }
+  } catch (error) { if (current(scope) && !controller.signal.aborted && owned()) problem.value = toProblem(error, 'reportingDefinitions.loadFailed'); }
 }
 async function reloadDraft() {
   const scope = generation, id = editingDefinition.value?.id; if (!id || !can('reporting.definitions.update') || acting.value) return;
@@ -478,51 +542,36 @@ async function reloadGroupDraft() {
   const controller = reading('group-draft');
   try { const rows = await listReportingGroups(controller.signal); const group = rows.find(item => item.id === id);
     if (!controller.signal.aborted && owned() && group) {
-      if (rows.some(row => deletedGroups.has(row.id.toLowerCase()))) throw Error('client.stale_reporting_group_catalog');
+      if (rows.some(row => deletedGroups.has(row.id.toLowerCase()) || row.version < (groupFloors.get(row.id.toLowerCase()) ?? 0))) throw Error('client.stale_reporting_group_catalog');
+      for (const row of rows) groupFloors.set(row.id.toLowerCase(), row.version);
       groups.value = rows; writeUnconfirmed.value = false; openEditGroup(group);
     }
-  } catch (error) { if (current(scope) && !controller.signal.aborted) problem.value = toProblem(error, 'reportingDefinitions.loadFailed'); }
+  } catch (error) { if (current(scope) && !controller.signal.aborted && owned()) problem.value = toProblem(error, 'reportingDefinitions.loadFailed'); }
 }
 
 async function submitDefinition(): Promise<void> {
   const scope = generation, editor = definitionEpoch, catalog = catalogEpoch, permission = `reporting.definitions.${definitionEditorMode.value === 'create' ? 'create' : 'update'}`;
-  if (!definitionFormRef.value || acting.value || loading.value || writeUnconfirmed.value || catalogProblems.sources || !definitionGroupId.value || !can(permission)) {
+  if (!definitionFormRef.value || acting.value || loading.value || writeUnconfirmed.value || definitionEditorMode.value === 'create' && creationBlocks.has('definition') || catalogProblems.sources || !definitionGroupId.value || !can(permission)) {
     return;
   }
+  const mode = definitionEditorMode.value, target = editingDefinition.value ? { ...editingDefinition.value } : undefined;
+  const signature = definitionSignature(), snapshot = snapshotDraft('definition'), key = definitionForm.definitionKey.trim();
+  const payload = { groupId: definitionGroupId.value, dataSourceId: definitionForm.dataSourceId, name: definitionForm.name.trim(),
+    description: definitionForm.description.trim() || null, queryPortKey: definitionForm.queryPortKey,
+    parameterSchema: definitionForm.parameterSchema.map(item => ({ ...item })), layoutConfigJson: definitionForm.layoutConfigJson, isEnabled: definitionForm.isEnabled };
   const valid = await definitionFormRef.value.validate().catch(() => false);
-  if (!valid || !current(scope) || editor !== definitionEpoch || catalog !== catalogEpoch || loading.value || catalogProblems.sources || !definitionEditorOpen.value || acting.value || !can(permission)) {
+  if (!valid || !current(scope) || editor !== definitionEpoch || signature !== definitionSignature() || catalog !== catalogEpoch || loading.value || catalogProblems.sources || !definitionEditorOpen.value || acting.value || writeUnconfirmed.value || !can(permission)) {
     return;
   }
-  await write(permission, async signal => {
-    const payload = {
-      groupId: definitionGroupId.value!,
-      dataSourceId: definitionForm.dataSourceId,
-      name: definitionForm.name.trim(),
-      description: definitionForm.description.trim() || null,
-      queryPortKey: definitionForm.queryPortKey,
-      parameterSchema: definitionForm.parameterSchema.map(item => ({ ...item })),
-      layoutConfigJson: definitionForm.layoutConfigJson,
-      isEnabled: definitionForm.isEnabled
-    };
-    if (definitionEditorMode.value === 'create') {
-      const created = await createReportingDefinition({
-        ...payload,
-        definitionKey: definitionForm.definitionKey.trim()
-      }, signal);
-      if (!current(scope)) return;
-      definitions.value = [...definitions.value, created];
-      ElMessage.success(t('reportingDefinitions.createSuccess'));
-    } else if (editingDefinition.value) {
-      const updated = await updateReportingDefinition(editingDefinition.value.id, {
-        ...payload,
-        version: editingDefinition.value.version
-      }, signal);
-      if (!current(scope)) return;
-      definitions.value = definitions.value.map(item => item.id === updated.id ? updated : item);
-      editingDefinition.value = updated;
-      ElMessage.success(t('reportingDefinitions.updateSuccess'));
-    }
-    definitionEditorOpen.value = false;
+  if (mode === 'create' && creationBlocks.has('definition') || mode === 'edit' && !target) return;
+  await saveDraft({ resource: 'definition', kind: mode === 'create' ? 'create' : 'update', name: payload.name, id: target?.id }, snapshot,
+    signal => mode === 'create' ? createReportingDefinition({ ...payload, definitionKey: key }, signal) : updateReportingDefinition(target!.id, { ...payload, version: target!.version }, signal), result => {
+    if (!validReportingDefinition(result) || !matchesReportingDraft(result, payload) || result.definitionKey !== (target?.definitionKey ?? key)
+      || mode === 'create' && definitionFloors.has(result.id.toLowerCase())
+      || result.version !== (target ? target.version + 1 : 1) || target && !sameReportingId(result.id, target.id)
+      || result.latestPublishedVersionNumber !== (target?.latestPublishedVersionNumber ?? 0)) throw Error('client.invalid_reporting_definition_save');
+    definitionFloors.set(result.id.toLowerCase(), { definitionVersion: result.version, publishedVersion: result.latestPublishedVersionNumber });
+    definitions.value = mode === 'create' ? [...definitions.value, result] : definitions.value.map(item => sameReportingId(item.id, result.id) ? result : item);
   });
 }
 
@@ -556,7 +605,7 @@ async function confirmPublish() {
   if (!publishOpen.value || !target || !can('reporting.definitions.publish') || acting.value || writeUnconfirmed.value) return;
   const scope = generation, owner = publishEpoch, note = publishNote.value.trim() || null;
   const request = { controller: new AbortController(), receipt: { definitionId: target.id, definitionKey: target.definitionKey, outcome: 'processing' as const } };
-  publicationRequest = request; publicationReceipt.value = { ...request.receipt }; stopReads(); acting.value = true; loading.value = false; problem.value = undefined;
+  publicationRequest = request; publicationReceipt.value = { ...request.receipt }; draftReceipt.value = undefined; stopReads(); acting.value = true; loading.value = false; problem.value = undefined;
   const owned = () => publicationRequest === request && current(scope) && owner === publishEpoch && publishOpen.value && can('reporting.definitions.publish');
   try {
     const result = await publishReportingDefinition(target.id, { version: target.version, changeNote: note }, request.controller.signal);
@@ -584,7 +633,7 @@ async function confirmPublish() {
 /** 同一批写入只使用当前作用域；写前读取不能解除未知写入的锁定。 */
 async function write(permission: string, action: (signal: AbortSignal) => Promise<void>) {
   if (!can(permission) || acting.value || writeUnconfirmed.value) return;
-  const scope = generation; stopReads(); acting.value = true; loading.value = false; problem.value = undefined;
+  const scope = generation; draftReceipt.value = undefined; stopReads(); acting.value = true; loading.value = false; problem.value = undefined;
   try { await action(requests.signal); if (current(scope)) await loadDefinitions(true); }
   catch (error) { if (current(scope)) { writeUnconfirmed.value = unknown(error); problem.value = toProblem(error, 'reportingDefinitions.saveFailed'); } }
   finally { if (current(scope)) acting.value = false; }
@@ -602,12 +651,37 @@ function toProblem(error: unknown, fallbackKey: Parameters<typeof t>[0]): FullNe
   }
   return { status: 500, code: 'client.unexpected_error', title: t(fallbackKey) };
 }
+/** 事件捕获当次窗口及输入；Vue 复用组件后保留的回调不能借用后来的表单。 */
+const groupControls = computed(() => {
+  const scope = generation, epoch = groupEpoch, open = groupEditorOpen.value, signature = groupSignature();
+  const owned = () => current(scope) && open && groupEditorOpen.value && epoch === groupEpoch && signature === groupSignature();
+  return { update: (value: boolean) => { if (owned()) groupEditorOpen.value = value; },
+    confirm: () => { if (owned()) void submitGroup(); }, reload: () => { if (owned()) void reloadGroupDraft(); }, recover: () => { if (owned()) void acknowledgeRecovery('group'); },
+    name: (value: string) => { if (owned() && !acting.value) groupForm.name = value; },
+    sortOrder: (value: string) => { if (owned() && !acting.value) groupForm.sortOrder = value; },
+    enabled: (value: boolean) => { if (owned() && !acting.value) groupForm.isEnabled = value; } };
+});
+const definitionControls = computed(() => {
+  const scope = generation, epoch = definitionEpoch, open = definitionEditorOpen.value, signature = definitionSignature();
+  const owned = () => current(scope) && open && definitionEditorOpen.value && epoch === definitionEpoch && signature === definitionSignature();
+  const input = (key: 'definitionKey' | 'name' | 'description' | 'dataSourceId' | 'queryPortKey' | 'layoutConfigJson') => (value: string) => { if (owned() && !acting.value) definitionForm[key] = value; };
+  return { update: (value: boolean) => { if (owned()) definitionEditorOpen.value = value; },
+    confirm: () => { if (owned()) void submitDefinition(); }, reload: () => { if (owned()) void reloadDraft(); }, recover: () => { if (owned()) void acknowledgeRecovery('definition'); },
+    key: input('definitionKey'), name: input('name'), description: input('description'), source: input('dataSourceId'), port: input('queryPortKey'), layout: input('layoutConfigJson'),
+    enabled: (value: boolean) => { if (owned() && !acting.value) definitionForm.isEnabled = value; },
+    parameters: definitionForm.parameterSchema.map((_, index) => ({
+      name: (value: string) => { if (owned() && !acting.value) definitionForm.parameterSchema[index]!.displayName = value; },
+      defaultValue: (value: string) => { if (owned() && !acting.value) definitionForm.parameterSchema[index]!.defaultValue = value; }
+    })) };
+});
 </script>
 
 <template>
   <div class="reporting-definitions-view">
     <ElAlert v-if="!canRead()" type="info" :closable="false" :title="text('hostOnly')" />
     <template v-if="canRead()">
+    <div v-if="draftReceipt" role="status" data-testid="reporting-draft-receipt"><p>{{ draftReceipt.name }} <code>{{ draftReceipt.id }}</code></p>
+      <p>{{ text(draftReceipt.outcome === 'confirmed' ? 'draftConfirmed' : draftReceipt.outcome === 'unknown' ? 'draftUnknown' : draftReceipt.outcome === 'rejected' ? 'draftRejected' : 'draftProcessing') }} <span v-if="draftReceipt.version">{{ draftReceipt.version }}</span></p></div>
     <div v-if="publicationReceipt" role="status" data-testid="reporting-publication-receipt"><p>{{ publicationReceipt.definitionKey }} · <code>{{ publicationReceipt.definitionId }}</code></p>
       <p>{{ publicationReceipt.outcome === 'confirmed' ? t('reportingDefinitions.publishSuccess') : text(publicationReceipt.outcome === 'unknown' ? 'publishUnknown' : publicationReceipt.outcome === 'rejected' ? 'publishRejected' : 'publishProcessing') }} <span v-if="publicationReceipt.versionNumber">{{ publicationReceipt.versionNumber }}</span></p></div>
     <ElAlert v-if="problem" type="error" :title="problem.title" show-icon class="mb-4" />
@@ -622,7 +696,7 @@ function toProblem(error: unknown, fallbackKey: Parameters<typeof t>[0]): FullNe
             :icon="Plus"
             class="mb-3"
             data-testid="reporting-group-create"
-            :disabled="acting || writeUnconfirmed"
+            :disabled="acting || writeUnconfirmed && !creationBlocks.has('group')"
             @click="openCreateGroup"
           >
             {{ t('reportingDefinitions.addGroup') }}
@@ -666,7 +740,7 @@ function toProblem(error: unknown, fallbackKey: Parameters<typeof t>[0]): FullNe
                 type="primary"
                 :icon="Plus"
                 data-testid="reporting-definition-create"
-                :disabled="acting || loading || writeUnconfirmed || !!catalogProblems.sources"
+                :disabled="acting || loading || writeUnconfirmed && !creationBlocks.has('definition') || !!catalogProblems.sources"
                 @click="openCreateDefinition"
               >
                 {{ t('reportingDefinitions.addDefinition') }}
@@ -746,59 +820,65 @@ function toProblem(error: unknown, fallbackKey: Parameters<typeof t>[0]): FullNe
     </div>
 
     <ArtFormDialog
-      v-model:open="groupEditorOpen"
+      :open="groupEditorOpen"
       width="min(520px, calc(100vw - 32px))"
       :title="groupEditorMode === 'create' ? t('reportingDefinitions.createGroupTitle') : t('reportingDefinitions.editGroupTitle')"
       :saving="acting"
-      :show-confirm="!writeUnconfirmed && can(`reporting.groups.${groupEditorMode === 'create' ? 'create' : 'update'}`)"
+      :show-confirm="!writeUnconfirmed && (groupEditorMode !== 'create' || !creationBlocks.has('group')) && can(`reporting.groups.${groupEditorMode === 'create' ? 'create' : 'update'}`)"
       confirm-test-id="reporting-config-group-save"
-      @confirm="submitGroup"
+      v-on="{ confirm: groupControls.confirm, 'update:open': groupControls.update }"
     >
       <ElForm ref="groupFormRef" :model="groupForm" label-position="top" :disabled="acting">
         <ElAlert v-if="problem" type="error" :closable="false" :title="problem.detail ?? problem.title" />
         <ElAlert v-if="writeUnconfirmed" type="warning" :closable="false" :title="text('unconfirmed')" />
-        <ElButton v-if="editingGroup" :disabled="acting" data-testid="reporting-config-group-reload" @click="reloadGroupDraft">{{ text('reload') }}</ElButton>
+        <ElAlert v-if="draftRequest?.receipt.resource === 'group'" type="info" :closable="false" :title="text('closeSaving')" />
+        <ElAlert v-if="groupEditorMode === 'create' && creationBlocks.has('group')" type="warning" :closable="false" :title="text('creationBlocked')" />
+        <ElButton v-if="groupEditorMode === 'create' && creationBlocks.has('group')" :disabled="acting" data-testid="reporting-group-recovery" v-on="{ click: groupControls.recover }">{{ text('recovery') }}</ElButton>
+        <ElButton v-if="editingGroup" :disabled="acting" data-testid="reporting-config-group-reload" v-on="{ click: groupControls.reload }">{{ text('reload') }}</ElButton>
         <ElFormItem :label="t('reportingDefinitions.fieldGroupName')" prop="name" required>
-          <ElInput v-model="groupForm.name" />
+          <ElInput :model-value="groupForm.name" v-on="{ 'update:modelValue': groupControls.name }" />
         </ElFormItem>
         <ElFormItem :label="t('reportingDefinitions.fieldSortOrder')" prop="sortOrder" required>
-          <ElInput v-model="groupForm.sortOrder" />
+          <ElInput :model-value="groupForm.sortOrder" v-on="{ 'update:modelValue': groupControls.sortOrder }" />
         </ElFormItem>
         <ElFormItem :label="t('reportingDefinitions.fieldEnabled')">
-          <ElSwitch v-model="groupForm.isEnabled" />
+          <ElSwitch :model-value="groupForm.isEnabled" v-on="{ 'update:modelValue': groupControls.enabled }" />
         </ElFormItem>
       </ElForm>
     </ArtFormDialog>
 
     <ArtFormDialog
-      v-model:open="definitionEditorOpen"
+      :open="definitionEditorOpen"
       :title="definitionEditorMode === 'create' ? t('reportingDefinitions.createTitle') : t('reportingDefinitions.editTitle')"
       :saving="acting"
-      :show-confirm="!loading && !catalogProblems.sources && !writeUnconfirmed && can(`reporting.definitions.${definitionEditorMode === 'create' ? 'create' : 'update'}`)"
+      :show-confirm="!loading && !catalogProblems.sources && !writeUnconfirmed && (definitionEditorMode !== 'create' || !creationBlocks.has('definition')) && can(`reporting.definitions.${definitionEditorMode === 'create' ? 'create' : 'update'}`)"
       confirm-test-id="reporting-config-draft-save"
       width="min(760px, calc(100vw - 32px))"
-      @confirm="submitDefinition"
+      v-on="{ confirm: definitionControls.confirm, 'update:open': definitionControls.update }"
     >
       <ElForm ref="definitionFormRef" :model="definitionForm" label-position="top" :disabled="acting">
         <ElAlert v-if="problem" type="error" :closable="false" :title="problem.detail ?? problem.title" />
         <ElAlert v-if="writeUnconfirmed" type="warning" :closable="false" :title="text('unconfirmed')" />
-        <ElButton v-if="editingDefinition" :disabled="acting" data-testid="reporting-config-draft-reload" @click="reloadDraft">{{ text('reload') }}</ElButton>
+        <ElAlert v-if="draftRequest?.receipt.resource === 'definition'" type="info" :closable="false" :title="text('closeSaving')" />
+        <ElAlert v-if="definitionEditorMode === 'create' && creationBlocks.has('definition')" type="warning" :closable="false" :title="text('creationBlocked')" />
+        <ElButton v-if="definitionEditorMode === 'create' && creationBlocks.has('definition')" :disabled="acting" data-testid="reporting-definition-recovery" v-on="{ click: definitionControls.recover }">{{ text('recovery') }}</ElButton>
+        <ElButton v-if="editingDefinition" :disabled="acting" data-testid="reporting-config-draft-reload" v-on="{ click: definitionControls.reload }">{{ text('reload') }}</ElButton>
         <ElFormItem
           v-if="definitionEditorMode === 'create'"
           :label="t('reportingDefinitions.fieldDefinitionKey')"
           prop="definitionKey"
           required
         >
-          <ElInput v-model="definitionForm.definitionKey" data-testid="reporting-config-key" />
+          <ElInput :model-value="definitionForm.definitionKey" v-on="{ 'update:modelValue': definitionControls.key }" data-testid="reporting-config-key" />
         </ElFormItem>
         <ElFormItem :label="t('reportingDefinitions.fieldName')" prop="name" required>
-          <ElInput v-model="definitionForm.name" data-testid="reporting-config-name" />
+          <ElInput :model-value="definitionForm.name" v-on="{ 'update:modelValue': definitionControls.name }" data-testid="reporting-config-name" />
         </ElFormItem>
         <ElFormItem :label="t('reportingDefinitions.fieldDescription')">
-          <ElInput v-model="definitionForm.description" type="textarea" :rows="2" />
+          <ElInput :model-value="definitionForm.description" v-on="{ 'update:modelValue': definitionControls.description }" type="textarea" :rows="2" />
         </ElFormItem>
         <ElFormItem :label="t('reportingDefinitions.fieldQueryPort')" prop="queryPortKey" required>
-          <ElSelect v-model="definitionForm.queryPortKey" filterable>
+          <ElSelect class="reporting-draft-select" :model-value="definitionForm.queryPortKey" v-on="{ 'update:modelValue': definitionControls.port }" filterable>
             <ElOption
               v-for="port in queryPorts"
               :key="port.queryPortKey"
@@ -808,7 +888,7 @@ function toProblem(error: unknown, fallbackKey: Parameters<typeof t>[0]): FullNe
           </ElSelect>
         </ElFormItem>
         <ElFormItem :label="t('reportingDefinitions.fieldDataSource')" prop="dataSourceId" required>
-          <ElSelect v-model="definitionForm.dataSourceId" filterable>
+          <ElSelect class="reporting-draft-select" :model-value="definitionForm.dataSourceId" v-on="{ 'update:modelValue': definitionControls.source }" filterable>
             <ElOption
               v-for="option in compatibleDataSources"
               :key="option.value"
@@ -818,22 +898,22 @@ function toProblem(error: unknown, fallbackKey: Parameters<typeof t>[0]): FullNe
           </ElSelect>
         </ElFormItem>
         <ElFormItem :label="t('reportingDefinitions.fieldLayoutConfig')">
-          <ElInput v-model="definitionForm.layoutConfigJson" type="textarea" :rows="3" data-testid="reporting-config-layout" />
+          <ElInput :model-value="definitionForm.layoutConfigJson" v-on="{ 'update:modelValue': definitionControls.layout }" type="textarea" :rows="3" data-testid="reporting-config-layout" />
         </ElFormItem>
         <ElFormItem :label="t('reportingDefinitions.fieldEnabled')">
-          <ElSwitch v-model="definitionForm.isEnabled" />
+          <ElSwitch :model-value="definitionForm.isEnabled" v-on="{ 'update:modelValue': definitionControls.enabled }" />
         </ElFormItem>
         <ElFormItem v-if="definitionForm.parameterSchema.length > 0" :label="t('reportingDefinitions.fieldParameterSchema')">
           <ElTable :data="definitionForm.parameterSchema" size="small">
             <ElTableColumn prop="parameterKey" :label="t('reportingDefinitions.fieldParameterKey')" />
             <ElTableColumn :label="t('reportingDefinitions.fieldParameterDisplayName')">
-              <template #default="{ row }">
-                <ElInput v-model="row.displayName" />
+              <template #default="{ row, $index }">
+                <ElInput :model-value="row.displayName" v-on="{ 'update:modelValue': definitionControls.parameters[$index]?.name }" />
               </template>
             </ElTableColumn>
             <ElTableColumn :label="t('reportingDefinitions.fieldParameterDefault')">
-              <template #default="{ row }">
-                <ElInput v-model="row.defaultValue" />
+              <template #default="{ row, $index }">
+                <ElInput :model-value="row.defaultValue" v-on="{ 'update:modelValue': definitionControls.parameters[$index]?.defaultValue }" />
               </template>
             </ElTableColumn>
           </ElTable>
@@ -873,6 +953,8 @@ function toProblem(error: unknown, fallbackKey: Parameters<typeof t>[0]): FullNe
 </template>
 
 <style scoped>
+/* 选中占位文字使用负层级，选择区显式沿用控件底色，避免透明背景穿透到弹窗遮罩。 */
+.reporting-draft-select :deep(.el-select__placeholder) { background-color: var(--el-fill-color-blank); }
 .layout-grid {
   display: grid;
   grid-template-columns: minmax(0, 320px) minmax(0, 1fr);
