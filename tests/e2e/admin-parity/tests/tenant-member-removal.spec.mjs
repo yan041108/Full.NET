@@ -36,7 +36,11 @@ async function boot(page) {
 async function fits(page) {
   await expect(page.getByRole('dialog')).toBeVisible();
   await expect.poll(() => page.getByRole('dialog').evaluate(element => {
-    const box = element.getBoundingClientRect(); return box.x >= 0 && box.right <= innerWidth;
+    const box = element.getBoundingClientRect();
+    // 等待弹层及祖先过渡结束，避免在半透明动画帧上计算颜色对比度。
+    for (let node = element; node && node !== document.body; node = node.parentElement)
+      if (Number(getComputedStyle(node).opacity) < 1 || node.getAnimations().some(animation => animation.playState === 'running')) return false;
+    return box.x >= 0 && box.right <= innerWidth;
   })).toBe(true);
 }
 test('读取成员再明确移除，冲突核对后固定新版本并保留回执', async ({ page }, info) => {
