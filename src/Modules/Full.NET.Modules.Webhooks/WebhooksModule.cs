@@ -45,6 +45,7 @@ public sealed class WebhooksModule : IFullNetModule
         services.AddScoped<Features.ManageWebhookSubscriptions.WebhookSubscriptionQueryService>();
         services.AddScoped<Features.ManageWebhookSubscriptions.WebhookSubscriptionManagementService>();
         services.AddScoped<Features.ManageWebhookDeliveries.WebhookDeliveryHistoryQueryService>();
+        services.AddScoped<Features.ManageWebhookDeliveries.WebhookDeliveryReplayService>();
         services.AddScoped<WebhookEventEnqueueService>();
         services.TryAddEnumerable(ServiceDescriptor.Scoped<
             IIntegrationEventHandler,

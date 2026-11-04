@@ -10,6 +10,8 @@ import { useAdminI18n } from '../../i18n/adminI18n';
 import { useAuthorizedViewScope } from '../../composables/useAuthorizedViewScope';
 import { getWebhookDeliveryHistory, listWebhookDeliveryHistory } from '../../api/webhook-subscriptions';
 import WebhookDeliveryAttemptsPanel from './WebhookDeliveryAttemptsPanel.vue';
+import WebhookDeliveryReplayPanel from './WebhookDeliveryReplayPanel.vue';
+import type { WebhookDeliveryReplayReceipt } from '@fullnet/client-contracts';
 
 const props = defineProps<{ subscription: WebhookSubscription }>();
 const emit = defineEmits<{ close: [] }>();
@@ -91,6 +93,23 @@ const attemptControls = computed(() => {
   const owned = () => owner === epoch.value && generation === detailGeneration.value && target === detail.value?.id && canRead();
   return { open: () => { if (owned() && detail.value && !detailLoading.value && !loading.value) showAttempts.value = true; }, close: () => { if (owned()) showAttempts.value = false; } };
 });
+const replayControls = computed(() => {
+  const generation = detailGeneration.value, owner = epoch.value, target = detail.value?.id;
+  return { queued: (receipt: WebhookDeliveryReplayReceipt) => {
+    const row = detail.value;
+    if (!row || !canRead() || owner !== epoch.value || generation !== detailGeneration.value || target !== row.id
+      || receipt.deliveryId.toLowerCase() !== row.id.toLowerCase() || receipt.subscriptionId.toLowerCase() !== row.subscriptionId.toLowerCase()
+      || receipt.tenantId.toLowerCase() !== row.tenantId.toLowerCase() || receipt.eventId.toLowerCase() !== row.eventId.toLowerCase() || row.version > receipt.version) return;
+    // 只接入已知排队修订，不覆盖之后人工读取的更新状态；回执始终保留自身原事实。
+    const next = { ...row, statusKey: 'pending' as const, version: receipt.version, nextAttemptAtUtc: receipt.queuedAtUtc, updatedAtUtc: receipt.queuedAtUtc };
+    detail.value = next;
+    if (filter.value && filter.value !== 'pending') {
+      const removed = items.value.some(item => item.id === next.id && item.version <= next.version);
+      items.value = items.value.filter(item => item.id !== next.id || item.version > next.version);
+      if (removed) total.value = Math.max(0,total.value - 1);
+    } else items.value = items.value.map(item => item.id === next.id && item.version <= next.version ? next : item);
+  } };
+});
 </script>
 <template>
   <ElDrawer :model-value="true" size="min(1000px, 100vw)" :title="t('webhooks.history.title')" v-on="{ 'update:modelValue': controls.update }">
@@ -118,6 +137,7 @@ const attemptControls = computed(() => {
           <ElDescriptionsItem :label="t('webhooks.history.failure')">{{ failure(detail) }}</ElDescriptionsItem><ElDescriptionsItem :label="t('webhooks.history.next')">{{ time(detail.nextAttemptAtUtc) }}</ElDescriptionsItem>
           <ElDescriptionsItem :label="t('webhooks.history.created')">{{ time(detail.createdAtUtc) }}</ElDescriptionsItem><ElDescriptionsItem :label="t('webhooks.history.updated')">{{ time(detail.updatedAtUtc) }}</ElDescriptionsItem>
         </ElDescriptions>
+        <WebhookDeliveryReplayPanel v-if="detail" :key="detail.id" :subscription="subscription" :delivery="detail" v-on="{ queued: replayControls.queued }" />
         <ElButton v-if="detail" data-testid="webhook-attempts-open" :disabled="detailLoading || loading" v-on="{ click: attemptControls.open }">{{ t('webhooks.attempts.title') }}</ElButton>
         <WebhookDeliveryAttemptsPanel v-if="detail && showAttempts" :key="detail.id" :delivery="detail" v-on="{ close: attemptControls.close }" />
       </section>

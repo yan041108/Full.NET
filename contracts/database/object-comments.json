@@ -5784,6 +5784,23 @@
         "ErrorCode": "安全失败分类，不存原始异常或正文",
         "AppliedToDelivery": "该完成是否推进原租约版本的投递状态"
       }
+    },
+    "fn_webhooks_delivery_replay": {
+      "comment": "手动重放的不可变排队回执及同事务领域审计",
+      "columns": {
+        "Id": "应用端UUID v7回执主键",
+        "TenantId": "可信企业标识",
+        "OperationId": "客户端固定操作标识，重试不得替换",
+        "ActorUserId": "实际操作者账号标识",
+        "ActorSessionId": "提交时的原交互会话标识",
+        "SubscriptionId": "原订阅标识",
+        "DeliveryId": "原投递标识，不新建投递",
+        "EventId": "保持不变的原业务事件身份",
+        "PreviousVersion": "排队前终态失败投递修订",
+        "Version": "排队成功后的投递修订",
+        "AttemptCount": "排队时原已完成次数，不重置",
+        "QueuedAtUtc": "排队事务的UTC时间"
+      }
     }
   }
 }

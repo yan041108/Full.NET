@@ -3,7 +3,7 @@ import { mount, flushPromises, type VueWrapper } from '@vue/test-utils';
 import View from './WebhookSubscriptionsView.vue';
 import * as api from '../api/webhook-subscriptions';
 import { createOutputSession, outputId } from '../test/data-output-fixtures';
-vi.mock('../api/webhook-subscriptions', () => ({ listWebhookSubscriptions: vi.fn(), createWebhookSubscription: vi.fn(), setWebhookSubscriptionStatus: vi.fn(), listWebhookDeliveryHistory: vi.fn(), getWebhookDeliveryHistory: vi.fn(), listWebhookDeliveryAttempts: vi.fn() }));
+vi.mock('../api/webhook-subscriptions', () => ({ listWebhookSubscriptions: vi.fn(), createWebhookSubscription: vi.fn(), setWebhookSubscriptionStatus: vi.fn(), listWebhookDeliveryHistory: vi.fn(), getWebhookDeliveryHistory: vi.fn(), listWebhookDeliveryAttempts: vi.fn(), replayWebhookDelivery: vi.fn(), getWebhookDeliveryReplayReceipt: vi.fn() }));
 const read = 'webhooks.subscriptions.read', create = 'webhooks.subscriptions.manage', status = 'webhooks.subscriptions.set_status';
 const task = { id: outputId, tenantId: outputId, eventType: 'fullnet.workflow.instance.completed', targetUrl: 'https://example.com/hooks', isActive: true, version: 1 };
 const secondId = '019bc2b1-2a40-7cc3-8992-a80de51bf298';

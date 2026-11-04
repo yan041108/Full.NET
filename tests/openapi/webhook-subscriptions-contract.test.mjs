@@ -36,3 +36,14 @@ test('投递历史契约分页有界，仅公开安全失败类别及当前计�
  for(const key of ['payloadBody','signingSecret','signingSecretHash','lastError'])assert.equal(key in properties,false);
  assert.equal('lastErrorCode' in properties,true);assert.equal('attemptCount' in properties,true);
 });
+
+test('受控重放固定操作和原修订，回执不包含正文或操作者会话', () => {
+ const f=JSON.parse(fs.readFileSync('contracts/openapi/webhook-subscriptions-v1.json','utf8'));
+ const path='/api/v1/webhooks/subscriptions/{subscriptionId}/deliveries/{deliveryId}/replays';
+ assert.equal(f.paths[path].post.operationId,'webhooksReplayDelivery');assert.equal(f.paths[path+'/{operationId}'].get.operationId,'webhooksGetDeliveryReplayReceipt');
+ assert.deepEqual(f.components.schemas.ReplayWebhookDeliveryRequest.required,['operationId','version']); assert.equal(f.components.schemas.ReplayWebhookDeliveryRequest.properties.version.maximum,2147483644);
+ assert.ok('409' in f.paths[path].post.responses);assert.ok('503' in f.paths[path].post.responses);
+ const fields=f.components.schemas.WebhookDeliveryReplayReceipt.properties;
+ for(const key of ['payloadBody','payloadDigest','signingSecret','actorSessionId'])assert.equal(key in fields,false);
+ assert.ok('previousVersion' in fields);assert.ok('queuedAtUtc' in fields);
+});

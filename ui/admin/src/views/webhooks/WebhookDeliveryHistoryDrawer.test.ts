@@ -4,15 +4,17 @@ import { ElPagination } from 'element-plus';
 import View from './WebhookDeliveryHistoryDrawer.vue';
 import * as api from '../../api/webhook-subscriptions';
 import { createOutputSession, outputId } from '../../test/data-output-fixtures';
-vi.mock('../../api/webhook-subscriptions', () => ({ listWebhookDeliveryHistory: vi.fn(), getWebhookDeliveryHistory: vi.fn(), listWebhookDeliveryAttempts: vi.fn() }));
+import type { WebhookDeliveryHistory, WebhookDeliveryReplayReceipt } from '@fullnet/client-contracts';
+vi.mock('../../api/webhook-subscriptions', () => ({ listWebhookDeliveryHistory: vi.fn(), getWebhookDeliveryHistory: vi.fn(), listWebhookDeliveryAttempts: vi.fn(), replayWebhookDelivery: vi.fn(), getWebhookDeliveryReplayReceipt: vi.fn() }));
 const other = '019bc2b1-2a40-7cc3-8992-a80de51bf298';
 const subscription = { id: outputId, tenantId: outputId, eventType: 'fullnet.workflow.instance.completed', targetUrl: 'https://example.com/hooks', isActive: true, version: 1 };
 const row = { id: outputId, tenantId: outputId, subscriptionId: outputId, eventId: other, statusKey: 'pending' as const, attemptCount: 1,
   nextAttemptAtUtc: '2026-11-04T00:01:00Z', lastErrorCode: 'webhooks.delivery.http_error', lastHttpStatus: 503, createdAtUtc: '2026-11-04T00:00:00Z', updatedAtUtc: '2026-11-04T00:00:30Z', version: 2 };
 const read = 'webhooks.subscriptions.read', history = 'webhooks.deliveries.read';
 let wrapper: VueWrapper;
-type State = { items: typeof row[]; page: number; pageSize: number; filter: string; detail?: typeof row; detailTarget: string; problem: string; detailProblem: string;
-  load: (recover?: boolean) => Promise<void>; openDetail: (value: typeof row) => Promise<void>;
+type State = { items: WebhookDeliveryHistory[]; page: number; pageSize: number; total: number; filter: string; detail?: WebhookDeliveryHistory; detailTarget: string; problem: string; detailProblem: string;
+  load: (recover?: boolean) => Promise<void>; openDetail: (value: WebhookDeliveryHistory) => Promise<void>;
+  replayControls: { queued: (receipt: WebhookDeliveryReplayReceipt) => void };
   controls: { change: (page: number, size: number) => void; resize: (value: number) => void; filter: (value: string) => void; update: (value: boolean) => void; refresh: () => void };
   rows: { show: () => void }[] };
 const state = () => wrapper.vm as unknown as State;
@@ -64,4 +66,14 @@ it('切换开始取消列表，迟到错误或数据不能恢复', async () => {
 it('读取失败可人工刷新，不自动重试或触发投递', async () => {
   vi.mocked(api.listWebhookDeliveryHistory).mockRejectedValueOnce(new Error('offline')); await setup(); expect(state().problem).not.toBe(''); expect(api.listWebhookDeliveryHistory).toHaveBeenCalledOnce();
   state().controls.refresh(); await flushPromises(); expect(state().problem).toBe(''); expect(state().items).toHaveLength(1);
+});
+it('重放排队事实移除失败筛选行，重复回执不重复扣减总数', async () => {
+ await setup(); const failed={...row,statusKey:'failed' as const,version:3}; state().items=[failed]; vi.mocked(api.getWebhookDeliveryHistory).mockResolvedValueOnce(failed); await state().openDetail(failed); state().items=[failed]; state().filter='failed'; state().total=1;
+ const receipt={operationId:outputId,tenantId:outputId,subscriptionId:outputId,deliveryId:outputId,eventId:other,previousVersion:3,version:4,attemptCount:1,queuedAtUtc:'2026-11-05T00:00:00Z'};
+ state().replayControls.queued(receipt); expect(state().detail?.statusKey).toBe('pending'); expect(state().detail?.version).toBe(4); expect(state().items).toEqual([]); expect(state().total).toBe(0); state().replayControls.queued(receipt); expect(state().total).toBe(0);
+});
+it('陈旧重放回执与旧详情回调不能回退新读取的修订', async () => {
+ await setup(); const current={...row,statusKey:'failed' as const,version:7}; state().items=[current]; vi.mocked(api.getWebhookDeliveryHistory).mockResolvedValue(current); await state().openDetail(current); const old=state().replayControls.queued;
+ const receipt={operationId:outputId,tenantId:outputId,subscriptionId:outputId,deliveryId:outputId,eventId:other,previousVersion:3,version:4,attemptCount:1,queuedAtUtc:'2026-11-05T00:00:00Z'};
+ old(receipt); expect(state().detail?.version).toBe(7); await state().openDetail(current); old({...receipt,previousVersion:7,version:8}); expect(state().detail?.version).toBe(7);
 });

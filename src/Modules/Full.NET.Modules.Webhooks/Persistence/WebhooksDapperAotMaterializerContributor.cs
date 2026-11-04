@@ -24,6 +24,9 @@ internal sealed class WebhooksDapperAotMaterializerContributor : IDapperAotMater
             AotDataReaderExtensions.ReadNullableDateTimeOffset(reader, 6), reader.GetString(7), reader.IsDBNull(8) ? null : reader.GetInt32(8),
             reader.IsDBNull(9) ? null : reader.GetString(9), reader.IsDBNull(10) ? null : AotDataReaderExtensions.ReadBoolean(reader, 10),
             reader.GetString(11), reader.GetInt32(12), AotDataReaderExtensions.ReadDateTimeOffset(reader, 13)));
+        registrar.Register<WebhookDeliveryReplayRecord>(reader => new(
+            reader.GetGuid(0), reader.GetGuid(1), reader.GetGuid(2), reader.GetGuid(3), reader.GetGuid(4), reader.GetGuid(5), reader.GetGuid(6),
+            reader.GetInt32(7), reader.GetInt32(8), reader.GetInt32(9), AotDataReaderExtensions.ReadDateTimeOffset(reader, 10)));
     }
 
     private static WebhookSubscriptionRecord ReadWebhookSubscriptionRecord(DbDataReader reader) =>

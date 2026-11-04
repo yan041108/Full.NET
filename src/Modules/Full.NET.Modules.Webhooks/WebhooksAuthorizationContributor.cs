@@ -21,6 +21,7 @@ internal sealed class WebhooksAuthorizationContributor : IAuthorizationCatalogCo
             AuthorizationScope.Host | AuthorizationScope.Tenant),
         new PermissionDefinition(WebhookPermissions.SubscriptionsSetStatus, "暂停或恢复 Webhook 订阅", AuthorizationScope.Tenant),
         new PermissionDefinition(WebhookPermissions.DeliveriesRead, "读取 Webhook 投递历史", AuthorizationScope.Tenant),
+        new PermissionDefinition(WebhookPermissions.DeliveriesReplay, "手动重放失败 Webhook 投递", AuthorizationScope.Tenant),
     ];
 
     public IReadOnlyCollection<NavigationDefinition> Navigation { get; } =
@@ -30,5 +31,6 @@ internal sealed class WebhooksAuthorizationContributor : IAuthorizationCatalogCo
     public IReadOnlyCollection<AuthorizationActionDefinition> Actions { get; } =
     [new(WebhookPermissions.SubscriptionsManage, "webhook-subscriptions", WebhookPermissions.SubscriptionsManage, "创建订阅", "create", 10),
      new(WebhookPermissions.SubscriptionsSetStatus, "webhook-subscriptions", WebhookPermissions.SubscriptionsSetStatus, "暂停或恢复订阅", "set-status", 20),
-     new(WebhookPermissions.DeliveriesRead, "webhook-subscriptions", WebhookPermissions.DeliveriesRead, "读取投递历史", "deliveries", 30)];
+     new(WebhookPermissions.DeliveriesRead, "webhook-subscriptions", WebhookPermissions.DeliveriesRead, "读取投递历史", "deliveries", 30),
+     new(WebhookPermissions.DeliveriesReplay, "webhook-subscriptions", WebhookPermissions.DeliveriesReplay, "手动重放失败投递", "replay", 40)];
 }

@@ -16,6 +16,8 @@ namespace Full.NET.Modules.Webhooks.Serialization;
 [JsonSerializable(typeof(Full.NET.Abstractions.Results.PagedResult<WebhookDeliveryHistoryResponse>))]
 [JsonSerializable(typeof(Full.NET.Abstractions.Results.PagedResult<WebhookDeliveryAttemptResponse>))]
 [JsonSerializable(typeof(WebhookDeliveryResponse))]
+[JsonSerializable(typeof(ReplayWebhookDeliveryRequest))]
+[JsonSerializable(typeof(WebhookDeliveryReplayReceipt))]
 /// <summary>Webhooks 模块 JSON 源生成上下文；Native AOT 绑定已审计契约，禁止反射序列化。</summary>
 internal partial class WebhooksJsonSerializerContext : JsonSerializerContext;
 

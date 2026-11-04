@@ -2,6 +2,7 @@ import { isGuid, readWebhookSubscription, readWebhookSubscriptions, type Webhook
 import { request } from './http';
 import { readWebhookDeliveryHistory, readWebhookDeliveryHistoryPage, type WebhookDeliveryHistory, type WebhookDeliveryHistoryPage, type WebhookDeliveryStatusKey } from '@fullnet/client-contracts';
 import { readWebhookDeliveryAttemptPage, type WebhookDeliveryAttemptPage } from '@fullnet/client-contracts';
+import { readWebhookDeliveryReplayReceipt, type WebhookDeliveryReplayReceipt, type ReplayWebhookDelivery } from '@fullnet/client-contracts';
 
 /** 读取仅返回当前可信企业的订阅，不缓存或接受客户端指定企业。 */
 export async function listWebhookSubscriptions(signal?: AbortSignal): Promise<WebhookSubscription[]> {
@@ -49,5 +50,20 @@ export async function listWebhookDeliveryAttempts(subscriptionId: string, delive
   const query = new URLSearchParams({ page: String(page), pageSize: String(pageSize) });
   const result = readWebhookDeliveryAttemptPage(await request<unknown>(`/api/v1/webhooks/subscriptions/${encodeURIComponent(subscriptionId)}/deliveries/${encodeURIComponent(deliveryId)}/attempts?${query}`, { method: 'GET' }, signal));
   if (result.page !== page || result.pageSize !== pageSize || result.items.some(row => row.subscriptionId.toLowerCase() !== subscriptionId.toLowerCase() || row.deliveryId.toLowerCase() !== deliveryId.toLowerCase())) throw Error('client.invalid_webhook_attempt_identity');
+  return result;
+}
+
+/** 固定原操作与修订，认证失败不自动重发；未知后继续使用同一操作标识。 */
+export async function replayWebhookDelivery(subscriptionId: string, deliveryId: string, body: ReplayWebhookDelivery, signal?: AbortSignal): Promise<WebhookDeliveryReplayReceipt> {
+  if (![subscriptionId,deliveryId,body.operationId].every(id => isGuid(id) && id !== '00000000-0000-0000-0000-000000000000') || !Number.isSafeInteger(body.version) || body.version < 1 || body.version > 2_147_483_644) throw Error('client.invalid_webhook_replay_request');
+  const snapshot = { ...body }, result = readWebhookDeliveryReplayReceipt(await request<unknown>(`/api/v1/webhooks/subscriptions/${encodeURIComponent(subscriptionId)}/deliveries/${encodeURIComponent(deliveryId)}/replays`, { method: 'POST', body: JSON.stringify(snapshot) }, signal, { retryUnauthorized: false }));
+  if (result.operationId.toLowerCase() !== snapshot.operationId.toLowerCase() || result.subscriptionId.toLowerCase() !== subscriptionId.toLowerCase() || result.deliveryId.toLowerCase() !== deliveryId.toLowerCase() || result.previousVersion !== snapshot.version) throw Error('client.invalid_webhook_replay_identity');
+  return result;
+}
+/** 仅由原操作者手动读取原回执，不借查询重新排队。 */
+export async function getWebhookDeliveryReplayReceipt(subscriptionId: string, deliveryId: string, operationId: string, signal?: AbortSignal): Promise<WebhookDeliveryReplayReceipt> {
+  if (![subscriptionId,deliveryId,operationId].every(id => isGuid(id) && id !== '00000000-0000-0000-0000-000000000000')) throw Error('client.invalid_webhook_replay_request');
+  const result = readWebhookDeliveryReplayReceipt(await request<unknown>(`/api/v1/webhooks/subscriptions/${encodeURIComponent(subscriptionId)}/deliveries/${encodeURIComponent(deliveryId)}/replays/${encodeURIComponent(operationId)}`, { method: 'GET' }, signal));
+  if (result.operationId.toLowerCase() !== operationId.toLowerCase() || result.subscriptionId.toLowerCase() !== subscriptionId.toLowerCase() || result.deliveryId.toLowerCase() !== deliveryId.toLowerCase()) throw Error('client.invalid_webhook_replay_identity');
   return result;
 }

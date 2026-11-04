@@ -105,3 +105,38 @@ test('逐次读取失败可手动重读，关闭后的迟到结果不能重新�
  await page.getByTestId('webhook-attempts-refresh').click();await expect.poll(()=>reads).toBe(3);await page.getByTestId('webhook-attempts-close').click();await expect(page.getByTestId('webhook-attempts')).toHaveCount(0);
  release();await expect.poll(()=>finished).toBe(true);await expect(page.getByTestId('webhook-attempts')).toHaveCount(0);
 });
+
+const replayRights=[...historyRights,'webhooks.deliveries.replay'];
+const replayReceipt=operationId=>({operationId,tenantId:id,subscriptionId:id,deliveryId:deliveryA,eventId,previousVersion:3,version:4,attemptCount:2,queuedAtUtc:'2026-11-05T00:00:00Z'});
+async function replayPage(page) {
+ const state=await boot(page,replayRights);
+ await page.route(`**/api/v1/webhooks/subscriptions/${id}/deliveries?*`,route=>json(route,{items:[history],page:1,pageSize:20,total:1}));
+ await page.route(`**/api/v1/webhooks/subscriptions/${id}/deliveries/${deliveryA}`,route=>json(route,history));
+ await page.getByTestId('webhook-history-open').click();await page.getByTestId('webhook-history-detail').click();return state;
+}
+test('受控重放独立权限且明确确认原事件，排队回执不代表送达',async({page},info)=>{
+ const state=await replayPage(page);let writes=0,operation;
+ await page.route(`**/api/v1/webhooks/subscriptions/${id}/deliveries/${deliveryA}/replays`,route=>{writes++;const body=route.request().postDataJSON();expect(body.version).toBe(3);operation=body.operationId;return json(route,replayReceipt(operation));});
+ await expect(page.getByTestId('webhook-status')).toHaveCount(0);await page.getByTestId('webhook-replay-open').click();const dialog=page.getByRole('dialog',{name:'确认原失败投递重放',exact:true});await expect(dialog).toContainText(eventId);await expect(dialog).toContainText('累计次数');expect(writes).toBe(0);
+ await dialog.screenshot({path:path.resolve(info.outputDir,'..','webhook-replay-confirm.png'),animations:'disabled'});
+ expect((await new AxeBuilder({page}).include('.el-dialog').withTags(['wcag2a','wcag2aa','wcag21a','wcag21aa']).analyze()).violations).toEqual([]);
+ await page.getByTestId('webhook-replay-confirm').click();await expect(page.getByTestId('webhook-replay-receipt')).toContainText('不表示最终送达');await expect(page.getByTestId('webhook-replay-receipt')).toContainText(operation);await expect(dialog).not.toBeVisible();expect(writes).toBe(1);expect(state.creates).toBe(0);expect(state.statuses).toBe(0);
+ await page.getByTestId('webhook-replay').screenshot({path:path.resolve(info.outputDir,'..','webhook-replay-receipt.png'),animations:'disabled'});
+ expect((await new AxeBuilder({page}).include('[data-testid="webhook-replay"]').withTags(['wcag2a','wcag2aa','wcag21a','wcag21aa']).analyze()).violations).toEqual([]);
+});
+test('受控重放未知后只人工读取原回执，不自动再排队',async({page})=>{
+ await replayPage(page);let writes=0,reads=0,operation;
+ await page.route(`**/api/v1/webhooks/subscriptions/${id}/deliveries/${deliveryA}/replays`,route=>{writes++;operation=route.request().postDataJSON().operationId;return route.abort('failed');});
+ await page.route(`**/api/v1/webhooks/subscriptions/${id}/deliveries/${deliveryA}/replays/*`,route=>{reads++;expect(route.request().url()).toContain(operation);return reads===1?route.fulfill({status:404,contentType:'application/problem+json',body:JSON.stringify({type:'about:blank',title:'Missing',status:404,code:'webhooks.delivery.replay_receipt_not_found'})}):json(route,replayReceipt(operation));});
+ await page.getByTestId('webhook-replay-open').click();await page.getByTestId('webhook-replay-confirm').click();await expect(page.getByTestId('webhook-replay-unknown')).toBeAttached();await page.getByTestId('webhook-replay-cancel').click();
+ await page.getByTestId('webhook-replay-read').click();await expect(page.getByTestId('webhook-replay-problem')).toContainText('Missing');await expect(page.getByTestId('webhook-replay-unknown')).toBeVisible();expect(writes).toBe(1);expect(reads).toBe(1);
+ expect((await new AxeBuilder({page}).include('[data-testid="webhook-replay"]').withTags(['wcag2a','wcag2aa','wcag21a','wcag21aa']).analyze()).violations).toEqual([]);
+ await page.getByTestId('webhook-replay-read').click();await expect(page.getByTestId('webhook-replay-receipt')).toContainText(operation);await expect(page.getByTestId('webhook-replay-unknown')).toHaveCount(0);expect(writes).toBe(1);expect(reads).toBe(2);
+});
+test('受控重放关闭在途确认后迟到成功不能误报，可读取原操作恢复',async({page})=>{
+ await replayPage(page);let release,started=false,finished=false,writes=0,operation;const pending=new Promise(resolve=>{release=resolve;});
+ await page.route(`**/api/v1/webhooks/subscriptions/${id}/deliveries/${deliveryA}/replays`,async route=>{writes++;operation=route.request().postDataJSON().operationId;started=true;await pending;await json(route,replayReceipt(operation)).catch(()=>{});finished=true;});
+ await page.route(`**/api/v1/webhooks/subscriptions/${id}/deliveries/${deliveryA}/replays/*`,route=>json(route,replayReceipt(operation)));
+ await page.getByTestId('webhook-replay-open').click();await page.getByTestId('webhook-replay-confirm').click();await expect.poll(()=>started).toBe(true);await page.getByTestId('webhook-replay-cancel').click();await expect(page.getByTestId('webhook-replay-unknown')).toBeVisible();release();await expect.poll(()=>finished).toBe(true);await expect(page.getByTestId('webhook-replay-receipt')).toHaveCount(0);
+ await page.getByTestId('webhook-replay-read').click();await expect(page.getByTestId('webhook-replay-receipt')).toContainText(operation);expect(writes).toBe(1);
+});

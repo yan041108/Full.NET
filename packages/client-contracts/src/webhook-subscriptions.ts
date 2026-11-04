@@ -64,6 +64,20 @@ export interface WebhookDeliveryAttempt {
   httpStatus: number | null; errorCode: string | null; appliedToDelivery: boolean | null;
 }
 export interface WebhookDeliveryAttemptPage { items: WebhookDeliveryAttempt[]; page: number; pageSize: number; total: number }
+
+/** 原重放排队事实；不表示当前状态或最终交付，累计次数保持不变。 */
+export interface WebhookDeliveryReplayReceipt {
+  operationId: string; tenantId: string; subscriptionId: string; deliveryId: string; eventId: string;
+  previousVersion: number; version: number; attemptCount: number; queuedAtUtc: string;
+}
+export interface ReplayWebhookDelivery { operationId: string; version: number }
+export function readWebhookDeliveryReplayReceipt(value: unknown): WebhookDeliveryReplayReceipt {
+  if (!isRecord(value) || ![value.operationId,value.tenantId,value.subscriptionId,value.deliveryId,value.eventId].every(id => isGuid(id) && id !== '00000000-0000-0000-0000-000000000000') || !utc(value.queuedAtUtc)) throw Error('client.invalid_webhook_replay_receipt');
+  const previousVersion = integer(value.previousVersion, 1, 2_147_483_644), version = integer(value.version, 2);
+  if (version !== previousVersion + 1) throw Error('client.invalid_webhook_replay_version');
+  return { operationId: value.operationId as string, tenantId: value.tenantId as string, subscriptionId: value.subscriptionId as string, deliveryId: value.deliveryId as string, eventId: value.eventId as string,
+    previousVersion, version, attemptCount: integer(value.attemptCount, 0), queuedAtUtc: value.queuedAtUtc };
+}
 export function readWebhookDeliveryAttemptPage(value: unknown): WebhookDeliveryAttemptPage {
   if (!isRecord(value) || !Array.isArray(value.items)) throw Error('client.invalid_webhook_attempt_page');
   const page = integer(value.page, 1), pageSize = integer(value.pageSize, 1, 100), total = integer(value.total, 0, Number.MAX_SAFE_INTEGER);

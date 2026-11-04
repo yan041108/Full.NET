@@ -1,12 +1,26 @@
 import { beforeEach, expect, it, vi } from 'vitest';
 import { request } from './http';
-import { createWebhookSubscription, listWebhookSubscriptions, setWebhookSubscriptionStatus, listWebhookDeliveryHistory, getWebhookDeliveryHistory, listWebhookDeliveryAttempts } from './webhook-subscriptions';
+import { createWebhookSubscription, listWebhookSubscriptions, setWebhookSubscriptionStatus, listWebhookDeliveryHistory, getWebhookDeliveryHistory, listWebhookDeliveryAttempts, replayWebhookDelivery, getWebhookDeliveryReplayReceipt } from './webhook-subscriptions';
 vi.mock('./http', () => ({ request: vi.fn() }));
 const call = vi.mocked(request), id = '019bc2b1-2a40-7cc3-8992-a80de51bf299';
 const row = { id, tenantId: id, eventType: 'fullnet.workflow.instance.completed', targetUrl: 'https://example.com/hooks', isActive: true, version: 1 };
 const delivery = { id, tenantId: id, subscriptionId: id, eventId: id, statusKey: 'failed', attemptCount: 2, version: 3,
   nextAttemptAtUtc: null, lastErrorCode: 'webhooks.delivery.http_error', lastHttpStatus: 503, createdAtUtc: '2026-11-04T00:00:00Z', updatedAtUtc: '2026-11-04T00:01:00Z' };
 beforeEach(() => call.mockReset());
+const replayReceipt = { operationId: id, tenantId: id, subscriptionId: id, deliveryId: id, eventId: id, previousVersion: 3, version: 4, attemptCount: 2, queuedAtUtc: '2026-11-05T00:00:00Z' };
+it('重放固定原操作和修订，关闭认证重发并剔除敏感多余字段', async () => {
+  call.mockResolvedValue({ ...replayReceipt, signingSecret: 'private', actorSessionId: 'private' }); const signal = new AbortController().signal;
+  await expect(replayWebhookDelivery(id,id,{ operationId:id,version:3 },signal)).resolves.toEqual(replayReceipt);
+  expect(call).toHaveBeenCalledExactlyOnceWith(`/api/v1/webhooks/subscriptions/${id}/deliveries/${id}/replays`, { method:'POST', body:JSON.stringify({ operationId:id,version:3 }) },signal,{ retryUnauthorized:false });
+});
+it('读取原回执只发 GET，按原操作和资源核对', async () => {
+  call.mockResolvedValue(replayReceipt); await expect(getWebhookDeliveryReplayReceipt(id,id,id)).resolves.toEqual(replayReceipt);
+  expect(call).toHaveBeenCalledExactlyOnceWith(`/api/v1/webhooks/subscriptions/${id}/deliveries/${id}/replays/${id}`,{ method:'GET' },undefined);
+});
+it('重放拒绝矛盾修订、错误操作、错误来源及不安全数值', async () => {
+  for (const value of [{ ...replayReceipt,version:5 },{ ...replayReceipt,operationId:'019bc2b1-2a40-7cc3-8992-a80de51bf298' },{ ...replayReceipt,deliveryId:'019bc2b1-2a40-7cc3-8992-a80de51bf298' },{ ...replayReceipt,attemptCount:'9007199254740993' }]) { call.mockResolvedValueOnce(value); await expect(replayWebhookDelivery(id,id,{ operationId:id,version:3 })).rejects.toThrow(); }
+  call.mockClear(); await expect(replayWebhookDelivery(id,id,{ operationId:id,version:2_147_483_645 })).rejects.toThrow(); expect(call).not.toHaveBeenCalled();
+});
 const attempt = { id, tenantId: id, subscriptionId: id, deliveryId: id, outcomeKey: 'delivered', startedAtUtc: '2026-11-04T00:00:00Z', completedAtUtc: '2026-11-04T00:00:01Z', httpStatus: 200, errorCode: null, appliedToDelivery: false };
 it('逐次记录绑定订阅和投递，保留迟到应答但剔除敏感字段', async () => {
   call.mockResolvedValue({ items: [{ ...attempt, payloadBody: 'private', lastError: 'private' }], page: 1, pageSize: 20, total: '1' });

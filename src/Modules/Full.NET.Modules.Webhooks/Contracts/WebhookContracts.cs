@@ -17,6 +17,9 @@ public static class WebhookPermissions
 
     /// <summary>允许读取本企业指定订阅的投递历史、当前计数及安全失败类别。</summary>
     public const string DeliveriesRead = "webhooks.deliveries.read";
+
+    /// <summary>允许按原版本手动排队本企业的终态失败投递。</summary>
+    public const string DeliveriesReplay = "webhooks.deliveries.replay";
 }
 
 /// <summary>
@@ -56,6 +59,12 @@ public static class WebhookErrorCodes
 
     /// <summary>当前企业的指定订阅下未找到该投递记录。</summary>
     public const string DeliveryNotFound = "webhooks.delivery.not_found";
+
+    /// <summary>重放操作键、版本、订阅启用条件或原投递状态冲突。</summary>
+    public const string ReplayConflict = "webhooks.delivery.replay_conflict";
+
+    /// <summary>当前操作者在原资源下没有对应重放回执。</summary>
+    public const string ReplayReceiptNotFound = "webhooks.delivery.replay_receipt_not_found";
 
     /// <summary>订阅目标 URL 非法：未通过 HTTPS、主机名解析或回调地址校验。</summary>
     public const string TargetUrlInvalid = "webhooks.subscription.target_url_invalid";

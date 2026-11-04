@@ -31,5 +31,14 @@ internal static class Endpoint
             .WithName("webhooksListDeliveryAttempts")
             .Produces<PagedResult<WebhookDeliveryAttemptResponse>>()
             .ProducesProblem(400).ProducesProblem(401).ProducesProblem(403).ProducesProblem(404);
+        group.MapPost("/{deliveryId:guid}/replays", async (Guid subscriptionId, Guid deliveryId, ReplayWebhookDeliveryRequest request, WebhookDeliveryReplayService service, IApiResultMapper mapper, HttpContext context, CancellationToken token) =>
+            mapper.Map(await service.QueueAsync(subscriptionId, deliveryId, request, token).ConfigureAwait(false), context))
+            .WithName("webhooksReplayDelivery").Produces<WebhookDeliveryReplayReceipt>()
+            .ProducesProblem(400).ProducesProblem(401).ProducesProblem(403).ProducesProblem(404).ProducesProblem(409).ProducesProblem(503)
+            .RequireAuthorization(FullNetPermissionPolicies.For(WebhookPermissions.DeliveriesReplay));
+        group.MapGet("/{deliveryId:guid}/replays/{operationId:guid}", async (Guid subscriptionId, Guid deliveryId, Guid operationId, WebhookDeliveryReplayService service, IApiResultMapper mapper, HttpContext context, CancellationToken token) =>
+            mapper.Map(await service.ReadAsync(subscriptionId, deliveryId, operationId, token).ConfigureAwait(false), context))
+            .WithName("webhooksGetDeliveryReplayReceipt").Produces<WebhookDeliveryReplayReceipt>()
+            .ProducesProblem(401).ProducesProblem(403).ProducesProblem(404);
     }
 }
