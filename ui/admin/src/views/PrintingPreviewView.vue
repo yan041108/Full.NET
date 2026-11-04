@@ -435,6 +435,7 @@ onActivated(() => { active.value = true; }); onDeactivated(() => { active.value 
       :close-on-click-modal="false" :close-on-press-escape="true" :show-close="true"
       class="no-print"
     >
+      <p v-if="createBlocked && !editingId" id="printing-create-blocked-help" role="status">{{ t('printingPreview.createUnconfirmedReceipt') }}</p>
       <ElButton v-if="createBlocked && !editingId" data-testid="printing-create-review" :disabled="busy" v-on="{ click: editorControls.recover }">{{ t('printingPreview.recoveryTitle') }}</ElButton>
       <ElAlert v-if="creating" type="info" :closable="false" :title="t('printingTemplates.closeInFlight')" />
       <ElForm label-position="top">
@@ -462,7 +463,7 @@ onActivated(() => { active.value = true; }); onDeactivated(() => { active.value 
         <ElPopconfirm v-if="editingId" :title="t('printingTemplates.discardConfirm')" width="280" v-on="{ confirm: editorControls.reload }">
           <template #reference><ElButton :disabled="busy" data-testid="printing-template-reload-draft">{{ t('printingTemplates.reloadDraft') }}</ElButton></template>
         </ElPopconfirm>
-        <ElButton v-if="can(editingId ? 'update' : 'create')" type="primary" :loading="creating" :disabled="!canSaveDraft" data-testid="printing-preview-submit" v-on="{ click: editorControls.save }">
+        <ElButton v-if="can(editingId ? 'update' : 'create')" type="primary" :loading="creating" :disabled="!canSaveDraft" :aria-describedby="createBlocked ? 'printing-create-blocked-help' : undefined" data-testid="printing-preview-submit" v-on="{ click: editorControls.save }">
           {{ t('printingTemplates.save') }}
         </ElButton>
       </template>

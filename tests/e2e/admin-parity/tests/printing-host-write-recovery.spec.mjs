@@ -24,6 +24,14 @@ async function boot(page, rows = () => [draft]) {
 }
 async function fits(dialog, page) {
   await expect.poll(async () => { const box = await dialog.boundingBox(); return !!box && box.x >= 0 && box.x + box.width <= page.viewportSize().width; }).toBe(true);
+  await expect.poll(() => dialog.evaluate(element => {
+    const panel = element.querySelector('.el-dialog') ?? element;
+    // 动画作用于面罩和定位层，不能只检查内容面板。
+    for (let node = panel; node; node = node.parentElement) {
+      if (getComputedStyle(node).opacity !== '1' || node.getAnimations().some(animation => animation.playState === 'running')) return false;
+    }
+    return true;
+  })).toBe(true);
 }
 test('未知草稿跨关闭和刷新保护，人工核对只解锁下一次保存', async ({ page }, info) => {
   let creates = 0, publishes = 0, saved;
@@ -40,8 +48,9 @@ test('未知草稿跨关闭和刷新保护，人工核对只解锁下一次保�
   await expect(page.getByTestId('printing-write-receipt')).toContainText('结果尚未确认');
   await page.getByTestId('printing-preview-create-back').click(); await page.getByTestId('printing-template-refresh').click();
   await page.getByTestId('printing-preview-create').click(); await expect(page.getByTestId('printing-template-name')).toHaveValue('待核对草稿');
-  await expect(page.getByTestId('printing-preview-submit')).toBeDisabled(); expect(creates).toBe(1);
-  await fits(page.getByRole('dialog'), page); await page.screenshot({ path: info.outputPath('create-unknown.png'), fullPage: true });
+  await expect(page.getByTestId('printing-preview-submit')).toBeDisabled();
+  await expect(page.getByTestId('printing-preview-submit')).toHaveAccessibleDescription('创建结果尚未确认，请先刷新核对再决定是否重新提交。'); expect(creates).toBe(1);
+  await fits(page.getByRole('dialog'), page); await page.screenshot({ path: info.outputPath('create-unknown.png'), fullPage: true, animations: 'disabled' });
   await page.getByTestId('printing-create-review').click();
   await expect.poll(async () => (await new AxeBuilder({ page }).include('[role="dialog"]').analyze()).violations.map(item => item.id)).toEqual([]);
   await page.getByTestId('printing-create-review-confirm').click(); await expect(page.getByTestId('printing-preview-submit')).toBeEnabled(); expect(creates).toBe(1);
