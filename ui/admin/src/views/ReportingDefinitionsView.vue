@@ -25,6 +25,7 @@ import type {
   FullNetProblemDetails,
   ReportingDefinition,
   ReportingDefinitionSummary,
+  ReportingDataSourceListItem,
   ReportingDefinitionVersionSummary,
   ReportingGroup,
   ReportingParameterSchemaEntry,
@@ -68,7 +69,8 @@ type DefinitionEditorMode = 'create' | 'edit';
 const { t, locale } = useAdminI18n();
 const session = useSessionStore(), active = ref(true), writeUnconfirmed = ref(false), publishOpen = ref(false), publishTarget = ref<ReportingDefinition>();
 const text = (key: Parameters<typeof reportingConfigurationText>[1]) => reportingConfigurationText(locale.value, key);
-let generation = 0, groupEpoch = 0, definitionEpoch = 0, requests = new AbortController();
+let generation = 0, groupEpoch = 0, definitionEpoch = 0, catalogEpoch = 0, requests = new AbortController();
+const catalogProblems = reactive<{ sources?: FullNetProblemDetails }>({});
 const reads = new Map<string, AbortController>();
 const canRead = () => active.value && !session.switching && session.currentUser?.actorScope === 'host' && !session.currentUser.tenantId && session.can('reporting.definitions.read');
 const can = (permission: string) => canRead() && session.can(permission);
@@ -170,7 +172,7 @@ watch(() => definitionForm.queryPortKey, queryPortKey => {
 
 /** 权限或会话变更销毁草稿与在途结果，Host 配置不能残留到租户上下文。 */
 function reset() {
-  generation++; requests.abort(); requests = new AbortController(); stopReads();
+  generation++; catalogEpoch++; catalogProblems.sources = undefined; requests.abort(); requests = new AbortController(); stopReads();
   groups.value = []; definitions.value = []; queryPorts.value = []; dataSourceOptions.value = []; versions.value = [];
   selectedGroupId.value = undefined; definitionPage.value = 1; definitionTotal.value = 0; versionPage.value = 1; versionTotal.value = 0; versionDefinitionId.value = '';
   groupEditorOpen.value = false; definitionEditorOpen.value = false; versionsDrawerOpen.value = false; grantsOpen.value = false; versionGrantDefinition.value = undefined; grantsDefinitionId.value = '';
@@ -188,9 +190,32 @@ watch(groupEditorOpen, () => { groupEpoch++; }, { flush: 'sync' });
 watch(definitionEditorOpen, value => { definitionEpoch++; if (!value) reads.get('draft')?.abort(); }, { flush: 'sync' });
 onActivated(() => { active.value = true; }); onDeactivated(() => { active.value = false; }); onBeforeUnmount(() => { active.value = false; reset(); });
 
+/** 辅助选择必须读取完整目录；数量变化、欠量或重复页不能冒充可提交的候选集。 */
+async function loadDataSourceCatalog(signal: AbortSignal): Promise<{ items: ReportingDataSourceListItem[] }> {
+  const items: ReportingDataSourceListItem[] = [], ids = new Set<string>();
+  let expectedTotal: number | undefined;
+  for (let page = 1; page <= 100; page++) {
+    signal.throwIfAborted();
+    const result = await listReportingDataSources({ page, pageSize: 100, isEnabled: true }, signal);
+    signal.throwIfAborted();
+    if (result.page !== page || result.pageSize !== 100 || !Number.isSafeInteger(result.total) || result.total < 0 || result.total > 10000
+      || expectedTotal !== undefined && result.total !== expectedTotal
+      || result.items.length !== Math.min(100, Math.max(0, result.total - (page - 1) * 100))) throw Error('client.invalid_reporting_data_source_catalog');
+    expectedTotal = result.total;
+    for (const row of result.items) {
+      const id = row.id.toLowerCase();
+      if (ids.has(id)) throw Error('client.invalid_reporting_data_source_catalog');
+      ids.add(id); items.push(row);
+    }
+    if (items.length === expectedTotal) return { items };
+  }
+  throw Error('client.invalid_reporting_data_source_catalog');
+}
+
 async function loadPage(): Promise<void> {
   if (!canRead() || acting.value) return;
   const scope = generation, controller = reading('catalogs');
+  catalogEpoch++; catalogProblems.sources = undefined;
   publishOpen.value = false; publishTarget.value = undefined; publishNote.value = '';
   if (!definitionEditorOpen.value) reads.get('draft')?.abort();
   loading.value = true;
@@ -199,10 +224,11 @@ async function loadPage(): Promise<void> {
     const catalogs = await Promise.allSettled([
       can('reporting.groups.read') ? listReportingGroups(controller.signal) : Promise.resolve([]),
       can('reporting.query_ports.read') ? listReportingQueryPorts(controller.signal) : Promise.resolve([]),
-      can('reporting.data_sources.read') ? listReportingDataSources({ page: 1, pageSize: 200, isEnabled: true }, controller.signal) : Promise.resolve({ items: [] })
+      can('reporting.data_sources.read') ? loadDataSourceCatalog(controller.signal) : Promise.resolve({ items: [] })
     ]);
     if (!current(scope) || controller.signal.aborted) return;
     const [groupResult, portResult, sourceResult] = catalogs;
+    if (sourceResult.status === 'rejected') catalogProblems.sources = toProblem(sourceResult.reason, 'reportingDefinitions.loadFailed');
     const groupRows = groupResult.status === 'fulfilled' ? groupResult.value : [];
     const portRows = portResult.status === 'fulfilled' ? portResult.value : [];
     const dataSourcePage = sourceResult.status === 'fulfilled' ? sourceResult.value : { items: [] };
@@ -270,7 +296,7 @@ function resetSearch(): void {
 
 function openCreateGroup(): void {
   if (!can('reporting.groups.create') || acting.value || writeUnconfirmed.value) return;
-  groupEditorMode.value = 'create';
+  groupEpoch++; groupEditorMode.value = 'create';
   editingGroup.value = null;
   groupForm.name = '';
   groupForm.sortOrder = '0';
@@ -280,7 +306,7 @@ function openCreateGroup(): void {
 
 function openEditGroup(group: ReportingGroup): void {
   if (!can('reporting.groups.update') || acting.value || writeUnconfirmed.value) return;
-  groupEditorMode.value = 'edit';
+  groupEpoch++; groupEditorMode.value = 'edit';
   editingGroup.value = group;
   groupForm.name = group.name;
   groupForm.sortOrder = String(group.sortOrder);
@@ -293,29 +319,24 @@ async function submitGroup(): Promise<void> {
   if (!groupFormRef.value || acting.value || writeUnconfirmed.value || !can(permission)) {
     return;
   }
+  // 校验等待期间只能确认原编辑目标和原草稿；隐藏的父组关系也属于本次写入快照。
+  const target = editingGroup.value ? { ...editingGroup.value } : undefined;
+  const mode = groupEditorMode.value, signature = JSON.stringify(groupForm);
+  const payload = { name: groupForm.name.trim(), sortOrder: Number(groupForm.sortOrder), isEnabled: groupForm.isEnabled };
+  if (!Number.isSafeInteger(payload.sortOrder)) return;
   const valid = await groupFormRef.value.validate().catch(() => false);
-  if (!valid || !current(scope) || editor !== groupEpoch || !groupEditorOpen.value || acting.value || !can(permission)) {
+  if (!valid || !current(scope) || editor !== groupEpoch || signature !== JSON.stringify(groupForm) || !groupEditorOpen.value || acting.value || !can(permission)) {
     return;
   }
   await write(permission, async signal => {
-    const sortOrder = Number.parseInt(groupForm.sortOrder, 10) || 0;
-    if (groupEditorMode.value === 'create') {
-      const created = await createReportingGroup({
-        name: groupForm.name.trim(),
-        sortOrder,
-        isEnabled: groupForm.isEnabled
-      }, signal);
+    if (mode === 'create') {
+      const created = await createReportingGroup(payload, signal);
       if (!current(scope)) return;
       groups.value = [...groups.value, created];
       selectedGroupId.value = created.id;
       ElMessage.success(t('reportingDefinitions.groupCreateSuccess'));
-    } else if (editingGroup.value) {
-      const updated = await updateReportingGroup(editingGroup.value.id, {
-        name: groupForm.name.trim(),
-        sortOrder,
-        isEnabled: groupForm.isEnabled,
-        version: editingGroup.value.version
-      }, signal);
+    } else if (target) {
+      const updated = await updateReportingGroup(target.id, { ...payload, parentId: target.parentId, version: target.version }, signal);
       if (!current(scope)) return;
       groups.value = groups.value.map(item => item.id === updated.id ? updated : item);
       ElMessage.success(t('reportingDefinitions.groupUpdateSuccess'));
@@ -347,8 +368,8 @@ async function confirmDeleteGroup(group: ReportingGroup): Promise<void> {
 }
 
 function openCreateDefinition(): void {
-  if (!can('reporting.definitions.create') || acting.value || writeUnconfirmed.value) return;
-  if (!can('reporting.groups.read') || !can('reporting.query_ports.read') || !can('reporting.data_sources.read')) { ElMessage.warning(text('catalogMissing')); return; }
+  if (!can('reporting.definitions.create') || acting.value || loading.value || writeUnconfirmed.value) return;
+  if (catalogProblems.sources || !can('reporting.groups.read') || !can('reporting.query_ports.read') || !can('reporting.data_sources.read')) { ElMessage.warning(text('catalogMissing')); return; }
   if (!selectedGroupId.value) {
     ElMessage.warning(t('reportingDefinitions.selectGroupFirst'));
     return;
@@ -407,12 +428,12 @@ async function reloadGroupDraft() {
 }
 
 async function submitDefinition(): Promise<void> {
-  const scope = generation, editor = definitionEpoch, permission = `reporting.definitions.${definitionEditorMode.value === 'create' ? 'create' : 'update'}`;
-  if (!definitionFormRef.value || acting.value || writeUnconfirmed.value || !definitionGroupId.value || !can(permission)) {
+  const scope = generation, editor = definitionEpoch, catalog = catalogEpoch, permission = `reporting.definitions.${definitionEditorMode.value === 'create' ? 'create' : 'update'}`;
+  if (!definitionFormRef.value || acting.value || loading.value || writeUnconfirmed.value || catalogProblems.sources || !definitionGroupId.value || !can(permission)) {
     return;
   }
   const valid = await definitionFormRef.value.validate().catch(() => false);
-  if (!valid || !current(scope) || editor !== definitionEpoch || !definitionEditorOpen.value || acting.value || !can(permission)) {
+  if (!valid || !current(scope) || editor !== definitionEpoch || catalog !== catalogEpoch || loading.value || catalogProblems.sources || !definitionEditorOpen.value || acting.value || !can(permission)) {
     return;
   }
   await write(permission, async signal => {
@@ -564,7 +585,7 @@ function toProblem(error: unknown, fallbackKey: Parameters<typeof t>[0]): FullNe
                 type="primary"
                 :icon="Plus"
                 data-testid="reporting-definition-create"
-                :disabled="acting || writeUnconfirmed"
+                :disabled="acting || loading || writeUnconfirmed || !!catalogProblems.sources"
                 @click="openCreateDefinition"
               >
                 {{ t('reportingDefinitions.addDefinition') }}
@@ -645,6 +666,7 @@ function toProblem(error: unknown, fallbackKey: Parameters<typeof t>[0]): FullNe
 
     <ArtFormDialog
       v-model:open="groupEditorOpen"
+      width="min(520px, calc(100vw - 32px))"
       :title="groupEditorMode === 'create' ? t('reportingDefinitions.createGroupTitle') : t('reportingDefinitions.editGroupTitle')"
       :saving="acting"
       :show-confirm="!writeUnconfirmed && can(`reporting.groups.${groupEditorMode === 'create' ? 'create' : 'update'}`)"
@@ -671,7 +693,7 @@ function toProblem(error: unknown, fallbackKey: Parameters<typeof t>[0]): FullNe
       v-model:open="definitionEditorOpen"
       :title="definitionEditorMode === 'create' ? t('reportingDefinitions.createTitle') : t('reportingDefinitions.editTitle')"
       :saving="acting"
-      :show-confirm="!writeUnconfirmed && can(`reporting.definitions.${definitionEditorMode === 'create' ? 'create' : 'update'}`)"
+      :show-confirm="!loading && !catalogProblems.sources && !writeUnconfirmed && can(`reporting.definitions.${definitionEditorMode === 'create' ? 'create' : 'update'}`)"
       confirm-test-id="reporting-config-draft-save"
       width="min(760px, calc(100vw - 32px))"
       @confirm="submitDefinition"

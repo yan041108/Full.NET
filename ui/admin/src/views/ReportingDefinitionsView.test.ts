@@ -1,3 +1,4 @@
+import type { ReportingGroup } from '@fullnet/client-contracts';
 import { flushPromises, mount, type VueWrapper } from '@vue/test-utils';
 import { createPinia, setActivePinia } from 'pinia';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -9,7 +10,10 @@ import {
 } from '../api/reporting-definitions';
 import { listReportingDataSources } from '../api/reporting-data-sources';
 import { useSessionStore } from '../auth/session';
-import { ElMessageBox, ElSelect } from 'element-plus';
+import { ElForm, ElMessageBox, ElSelect } from 'element-plus';
+import { dataSourceRow } from '../test/reporting-data-source-fixtures';
+import { deferred } from '../test/data-output-fixtures';
+import { updateReportingGroup } from '../api/reporting-definitions';
 
 vi.mock('../api/reporting-definitions', () => ({
   listReportingGroups: vi.fn(),
@@ -46,6 +50,7 @@ afterEach(() => { wrappers.splice(0).forEach(wrapper => wrapper.unmount()); vi.r
 function mountView(grants: string[] = []) {
   const pinia = createPinia();
   setActivePinia(pinia);
+  useSessionStore().state = 'authenticated';
   useSessionStore().currentUser = { id, username: 'reviewer', displayName: '验收', tenantId: null, actorScope: 'host', scope: 'host',
     isSuperAdministrator: false, passwordChangeRequired: false, permissions: grants, sessionId: groupId, preferredLocale: 'zh-CN', profileVersion: 1 };
   const wrapper = mount(ReportingDefinitionsView, { global: { plugins: [pinia], directives: { loading: {} }, stubs: {
@@ -63,7 +68,7 @@ describe('ReportingDefinitionsView', () => {
     groupsMock.mockResolvedValue([]);
     definitionsMock.mockResolvedValue({ items: [], page: 1, pageSize: 20, total: 0 });
     queryPortsMock.mockResolvedValue([]);
-    dataSourcesMock.mockResolvedValue({ items: [], page: 1, pageSize: 200, total: 0 });
+    dataSourcesMock.mockResolvedValue({ items: [], page: 1, pageSize: 100, total: 0 });
     vi.mocked(getReportingDefinition).mockResolvedValue(draft());
     vi.mocked(listReportingDefinitionVersions).mockResolvedValue({ items: [], page: 1, pageSize: 20, total: 0 });
   });
@@ -175,4 +180,77 @@ describe('ReportingDefinitionsView', () => {
     await wrapper.get('[data-testid="reporting-config-refresh"]').trigger('click'); await flushPromises(); await wrapper.get('[data-testid="reporting-config-draft-save"]').trigger('click'); await flushPromises();
     expect(createReportingDefinition).toHaveBeenCalledWith(expect.objectContaining({ groupId, definitionKey: 'new-report' }), expect.any(AbortSignal)); expect(publishReportingDefinition).not.toHaveBeenCalled();
   });
+  it('完整读取跨页数据源摘要，第一页不会截断后续可用选择', async () => {
+    const first = Array.from({ length: 100 }, (_, index) => ({ ...dataSourceRow, id: '019bc2b1-2a40-7cc3-8992-' + (index + 1000).toString(16).padStart(12, '0') }));
+    dataSourcesMock.mockImplementation(async query => ({ items: query?.page === 1 ? first : [dataSourceRow], page: query?.page ?? 1, pageSize: 100, total: 101 }));
+    const wrapper = mountView(permissions); await flushPromises();
+    const vm = wrapper.vm as unknown as { dataSourceOptions: { value: string }[] };
+    expect(vm.dataSourceOptions).toHaveLength(101);
+    expect(dataSourcesMock).toHaveBeenNthCalledWith(2, { page: 2, pageSize: 100, isEnabled: true }, expect.any(AbortSignal));
+    expect(vm.dataSourceOptions.at(-1)?.value).toBe(dataSourceRow.id);
+  });
+  it.each(['short', 'duplicate', 'changed', 'limit'] as const)('数据源目录%s不能作为完整选择，定义列表仍独立可读', async failure => {
+    withDefinition();
+    const first = Array.from({ length: 100 }, (_, index) => ({ ...dataSourceRow, id: '019bc2b1-2a40-7cc3-8992-' + (index + 1000).toString(16).padStart(12, '0') }));
+    dataSourcesMock.mockImplementation(async query => ({ items: query?.page === 1 ? failure === 'short' ? [dataSourceRow] : first : [failure === 'duplicate' ? first[0]! : dataSourceRow], page: query?.page ?? 1, pageSize: 100, total: failure === 'limit' ? 10001 : failure === 'changed' && query?.page === 2 ? 102 : 101 }));
+    const wrapper = mountView([...permissions, 'reporting.definitions.create']); await flushPromises();
+    const vm = wrapper.vm as unknown as { dataSourceOptions: unknown[]; catalogProblems: { sources?: unknown }; definitionEditorOpen: boolean };
+    expect(vm.dataSourceOptions).toEqual([]); expect(vm.catalogProblems.sources).toBeDefined();
+    expect(wrapper.text()).toContain('配置验收');
+    await wrapper.get('[data-testid="reporting-definition-create"]').trigger('click'); await flushPromises();
+    expect(vm.definitionEditorOpen).toBe(false); expect(createReportingDefinition).not.toHaveBeenCalled();
+  });
+  it('切会话取消在途数据源页，不继续获取后页或恢复旧选项', async () => {
+    const pending = deferred<Awaited<ReturnType<typeof listReportingDataSources>>>(); dataSourcesMock.mockReturnValueOnce(pending.promise);
+    const wrapper = mountView(permissions); await flushPromises(); const signal = dataSourcesMock.mock.calls[0]![1]!;
+    useSessionStore().currentUser = undefined;
+    expect(signal.aborted).toBe(true); pending.resolve({ items: [], page: 1, pageSize: 100, total: 0 }); await flushPromises();
+    expect(dataSourcesMock).toHaveBeenCalledOnce(); expect((wrapper.vm as unknown as { dataSourceOptions: unknown[] }).dataSourceOptions).toEqual([]);
+  });
+  it('编辑子分组保留父组标识和并发版本', async () => {
+    const child = { id, parentId: groupId, name: '子分组', sortOrder: 3, isEnabled: true, createdAtUtc: '2026-11-03T00:00:00Z', updatedAtUtc: null, version: 4 };
+    groupsMock.mockResolvedValue([child]); vi.mocked(updateReportingGroup).mockResolvedValue({ ...child, name: '新名称', version: 5 });
+    const wrapper = mountView([...permissions, 'reporting.groups.update']); await flushPromises();
+    const vm = wrapper.vm as unknown as { openEditGroup: (row: typeof child) => void; groupForm: { name: string }; submitGroup: () => Promise<void> };
+    vm.openEditGroup(child); await flushPromises(); vm.groupForm.name = '新名称'; await vm.submitGroup();
+    expect(updateReportingGroup).toHaveBeenCalledWith(id, { name: '新名称', sortOrder: 3, isEnabled: true, parentId: groupId, version: 4 }, expect.any(AbortSignal));
+  });
+  it('分组校验等待期间草稿变化，原提交失效而不保存后来的内容', async () => {
+    const child = { id, parentId: groupId, name: '子分组', sortOrder: 3, isEnabled: true, createdAtUtc: '2026-11-03T00:00:00Z', updatedAtUtc: null, version: 4 };
+    groupsMock.mockResolvedValue([child]); const wrapper = mountView([...permissions, 'reporting.groups.update']); await flushPromises();
+    const vm = wrapper.vm as unknown as { openEditGroup: (row: typeof child) => void; groupForm: { name: string }; submitGroup: () => Promise<void> };
+    vm.openEditGroup(child); await flushPromises(); const pending = deferred<boolean>();
+    vi.spyOn(wrapper.findAllComponents(ElForm)[0]!.vm.$.exposed!, 'validate').mockImplementation(() => pending.promise);
+    const submitting = vm.submitGroup(); vm.groupForm.name = '后来输入'; pending.resolve(true); await submitting;
+    expect(updateReportingGroup).not.toHaveBeenCalled();
+  });
+
+  it('辅助目录重读使校验中的旧草稿提交失效，即使目录内容相同', async () => {
+    withDefinition(); const wrapper = mountView(permissions); await flushPromises();
+    await wrapper.get('[data-testid="reporting-config-edit"]').trigger('click'); await flushPromises();
+    const pending = deferred<boolean>(); vi.spyOn(wrapper.findAllComponents(ElForm)[0]!.vm.$.exposed!, 'validate').mockImplementation(() => pending.promise);
+    const vm = wrapper.vm as unknown as { submitDefinition: () => Promise<void>; loadPage: () => Promise<void> };
+    const submitting = vm.submitDefinition(); await vm.loadPage(); pending.resolve(true); await submitting;
+    expect(updateReportingDefinition).not.toHaveBeenCalled();
+  });
+  it('分组校验等待期间切换编辑目标，原提交不能写入任一分组', async () => {
+    const child: ReportingGroup = { id, parentId: groupId, name: '子分组', sortOrder: 3, isEnabled: true, createdAtUtc: '2026-11-03T00:00:00Z', updatedAtUtc: null, version: 4 };
+    const root = { ...child, id: groupId, parentId: null, name: '父分组' };
+    groupsMock.mockResolvedValue([child, root]); const wrapper = mountView([...permissions, 'reporting.groups.update']); await flushPromises();
+    const vm = wrapper.vm as unknown as { openEditGroup: (row: ReportingGroup) => void; submitGroup: () => Promise<void>; groupForm: { name: string } };
+    vm.openEditGroup(child); await flushPromises(); const pending = deferred<boolean>();
+    vi.spyOn(wrapper.findAllComponents(ElForm)[0]!.vm.$.exposed!, 'validate').mockImplementation(() => pending.promise);
+    const submitting = vm.submitGroup(); vm.openEditGroup(root); pending.resolve(true); await submitting;
+    expect(updateReportingGroup).not.toHaveBeenCalled(); expect(vm.groupForm.name).toBe('父分组');
+  });
+
+  it('数据源目录仍在刷新时不能借旧候选提交草稿', async () => {
+    withDefinition(); const wrapper = mountView(permissions); await flushPromises();
+    await wrapper.get('[data-testid="reporting-config-edit"]').trigger('click'); await flushPromises();
+    const pending = deferred<Awaited<ReturnType<typeof listReportingDataSources>>>(); dataSourcesMock.mockReturnValueOnce(pending.promise);
+    const vm = wrapper.vm as unknown as { submitDefinition: () => Promise<void>; loadPage: () => Promise<void> };
+    const reading = vm.loadPage(); await vm.submitDefinition(); expect(updateReportingDefinition).not.toHaveBeenCalled();
+    pending.resolve({ items: [], page: 1, pageSize: 100, total: 0 }); await reading;
+  });
+
 });

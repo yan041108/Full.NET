@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import { ElButton, ElDialog } from 'element-plus';
+import { nextTick, ref } from 'vue';
 
 defineOptions({ name: 'ArtFormDialog' });
+const dialog = ref<InstanceType<typeof ElDialog>>();
 
 const props = withDefaults(defineProps<{
   open: boolean;
@@ -29,6 +31,16 @@ const emit = defineEmits<{
   cancel: [];
 }>();
 
+/** 库未暴露 header/footer 的语义属性；只校正本弹窗内容，保留外层 dialog 名称与焦点行为。 */
+async function scopeLandmarks(): Promise<void> {
+  await nextTick();
+  const content = dialog.value?.dialogContentRef?.$el;
+  if (!(content instanceof HTMLElement)) return;
+  for (const child of Array.from(content.children)) {
+    if (child.tagName === 'HEADER' || child.tagName === 'FOOTER') child.setAttribute('role', 'presentation');
+  }
+}
+
 function close(): void {
   emit('update:open', false);
   emit('cancel');
@@ -54,6 +66,7 @@ function containTab(event: KeyboardEvent): void {
 
 <template>
   <el-dialog
+    ref="dialog"
     :model-value="open"
     :title="title"
     :width="width"
@@ -63,12 +76,14 @@ function containTab(event: KeyboardEvent): void {
     :show-close="false"
     append-to-body
     align-center
+    @open="scopeLandmarks"
+    @opened="scopeLandmarks"
     @keydown.capture="containTab"
     @update:model-value="emit('update:open', $event)"
   >
     <template #header>
       <div class="art-form-dialog__header">
-        <span>{{ title }}</span>
+        <span role="heading" aria-level="2">{{ title }}</span>
         <button type="button" class="art-form-dialog__close" @click="close">×</button>
       </div>
     </template>
