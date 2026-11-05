@@ -8118,7 +8118,7 @@ export function readSubscriptionFulfillmentStatusResponse(value: unknown): Subsc
 }
 
 function isSubscriptionFulfillmentStatusResponse(value: unknown): value is SubscriptionFulfillmentStatusResponse {
-  return isRecord(value) && (Number.isSafeInteger(value["attempt"])) && (typeof value["beneficiaryTenantId"] === 'string' && guidPattern.test(value["beneficiaryTenantId"])) && ((value["errorCode"] === null) || (typeof value["errorCode"] === 'string')) && ((value["paymentOrderId"] === null) || (typeof value["paymentOrderId"] === 'string' && guidPattern.test(value["paymentOrderId"]))) && (typeof value["stateKey"] === 'string') && (typeof value["subscriptionId"] === 'string' && guidPattern.test(value["subscriptionId"])) && (typeof value["updatedAtUtc"] === 'string');
+  return isRecord(value) && (Number.isSafeInteger(value["attempt"])) && (typeof value["beneficiaryTenantId"] === 'string' && guidPattern.test(value["beneficiaryTenantId"])) && (typeof value["effectiveFromUtc"] === 'string') && ((value["errorCode"] === null) || (typeof value["errorCode"] === 'string')) && ((value["nextAttemptAtUtc"] === null) || (typeof value["nextAttemptAtUtc"] === 'string')) && ((value["paymentOrderId"] === null) || (typeof value["paymentOrderId"] === 'string' && guidPattern.test(value["paymentOrderId"]))) && (typeof value["readAtUtc"] === 'string') && (typeof value["stateKey"] === 'string') && (typeof value["subscriptionId"] === 'string' && guidPattern.test(value["subscriptionId"])) && (typeof value["updatedAtUtc"] === 'string');
 }
 
 export function readSuperAdministratorAuditResponse(value: unknown): SuperAdministratorAuditResponse {

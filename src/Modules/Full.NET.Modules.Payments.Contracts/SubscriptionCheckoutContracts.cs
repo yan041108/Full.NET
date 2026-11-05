@@ -16,5 +16,9 @@ public sealed record SubscriptionCheckoutResponse(Guid SubscriptionId, PaymentOr
 /// <param name="ErrorCode">稳定失败码。</param>
 /// <param name="Attempt">恢复次数。</param>
 /// <param name="UpdatedAtUtc">最近变更时间。</param>
+/// <param name="EffectiveFromUtc">原账单冻结的权益生效时间。</param>
+/// <param name="NextAttemptAtUtc">自动队列最早可处理时间；仅待付款履约或待退款恢复阶段提供，不保证该时刻完成。</param>
+/// <param name="ReadAtUtc">本次状态读取完成时间；调用方据此展示等待，不能用本机时间冒充实时状态。</param>
 public sealed record SubscriptionFulfillmentStatusResponse(Guid SubscriptionId, Guid BeneficiaryTenantId,
-    Guid? PaymentOrderId, string StateKey, string? ErrorCode, int Attempt, DateTimeOffset UpdatedAtUtc);
+    Guid? PaymentOrderId, string StateKey, string? ErrorCode, int Attempt, DateTimeOffset UpdatedAtUtc,
+    DateTimeOffset EffectiveFromUtc, DateTimeOffset? NextAttemptAtUtc, DateTimeOffset ReadAtUtc);

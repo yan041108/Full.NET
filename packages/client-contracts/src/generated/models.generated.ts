@@ -6871,8 +6871,11 @@ export interface SubscriptionCheckoutResponse {
 export interface SubscriptionFulfillmentStatusResponse {
   readonly attempt: number;
   readonly beneficiaryTenantId: string;
+  readonly effectiveFromUtc: string;
   readonly errorCode: null | string;
+  readonly nextAttemptAtUtc: null | string;
   readonly paymentOrderId: null | string;
+  readonly readAtUtc: string;
   readonly stateKey: string;
   readonly subscriptionId: string;
   readonly updatedAtUtc: string;

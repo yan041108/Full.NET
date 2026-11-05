@@ -69,7 +69,8 @@ internal sealed class SubscriptionCheckoutService(ITenantSubscriptionBillingPort
         return work is null ? Result<SubscriptionFulfillmentStatusResponse>.Failure(new Error(
             "payments.subscription_binding_not_found", "No subscription fulfillment is associated with the order.", ErrorType.NotFound))
             : Result<SubscriptionFulfillmentStatusResponse>.Success(new(work.SubscriptionId, work.BeneficiaryTenantId,
-                work.PaymentOrderId, work.Phase, work.ErrorCode, work.Attempt, work.UpdatedAtUtc));
+                work.PaymentOrderId, work.Phase, work.ErrorCode, work.Attempt, work.UpdatedAtUtc,
+                work.EffectiveFromUtc, work.Phase is "ReadyPaid" or "ReadyRefund" ? work.DueAtUtc : null, clock.UtcNow));
     }
 
     private Task<SubscriptionFulfillmentRecord?> FindAsync(Guid id, CancellationToken token) =>

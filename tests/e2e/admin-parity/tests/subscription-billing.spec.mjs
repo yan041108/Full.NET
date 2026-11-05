@@ -122,7 +122,8 @@ test('人工重试只调用原订单履约接口，不下单或扣款', async ({
     subject: '付费套餐', createdAtUtc: '2026-10-27T00:00:00Z', paidAtUtc: '2026-10-27T00:00:00Z' }], page: 1, pageSize: 20, total: 1 }));
   let retry = 0, checkout = 0;
   const status = stateKey => ({ subscriptionId, beneficiaryTenantId: tenantId, paymentOrderId: orderId, stateKey,
-    errorCode: null, attempt: 1, updatedAtUtc: '2026-10-27T00:00:00Z' });
+    errorCode: null, attempt: 1, updatedAtUtc: '2026-10-27T00:00:00Z', effectiveFromUtc: '2026-10-01T00:00:00Z',
+    nextAttemptAtUtc: stateKey === 'ReadyPaid' ? '2026-10-27T00:00:00Z' : null, readAtUtc: '2026-10-27T00:00:00Z' });
   await page.route(`**/api/v1/payments/orders/${orderId}/subscription-fulfillment`, r => json(r, status('Review')));
   await page.route(`**/api/v1/payments/orders/${orderId}/subscription-fulfillment/retry`, r => { retry++; return json(r, status('ReadyPaid')); });
   await page.route('**/checkout', r => { checkout++; return r.abort(); });
@@ -146,7 +147,8 @@ for (const [width, locale] of [[1440, 'en-US'], [390, 'zh-CN']]) {
     let reads = 0, retries = 0, checkouts = 0;
     await page.route('**/api/v1/payments/orders/' + orderId + '/subscription-fulfillment', r => {
       reads++; return json(r, { subscriptionId, beneficiaryTenantId: tenantId, paymentOrderId: orderId,
-        stateKey: reads === 1 ? 'Review' : 'ReadyPaid', errorCode: null, attempt: 1, updatedAtUtc: '2026-11-05T00:00:00Z' });
+        stateKey: reads === 1 ? 'Review' : 'ReadyPaid', errorCode: null, attempt: 1, updatedAtUtc: '2026-11-05T00:00:00Z',
+        effectiveFromUtc: '2026-11-01T00:00:00Z', nextAttemptAtUtc: reads === 1 ? null : '2026-11-05T00:00:00Z', readAtUtc: '2026-11-05T00:00:00Z' });
     });
     await page.route('**/api/v1/payments/orders/' + orderId + '/subscription-fulfillment/retry', r => {
       retries++; return json(r, { status: 503, code: 'test.response_lost', title: 'unconfirmed' }, 503);
@@ -163,5 +165,36 @@ for (const [width, locale] of [[1440, 'en-US'], [390, 'zh-CN']]) {
     await page.getByTestId('subscription-fulfillment-refresh').click();
     await expect(modal).toContainText(locale === 'en-US' ? 'Paid, awaiting fulfillment' : '已收款，等待发放');
     expect(reads).toBe(2); expect(retries).toBe(1); expect(checkouts).toBe(0);
+  });
+}
+
+for (const [width, locale] of [[1440, 'en-US'], [390, 'zh-CN']]) {
+  test(`只读履约等待生效与服务器读取时间 ${width}`, async ({ page }, info) => {
+    await page.setViewportSize({ width: 1440, height: 1000 });
+    const readOnly = permissions.filter(code => !['payments.orders.create', 'payments.orders.reconcile', 'tenancy.tenant_subscriptions.manage'].includes(code));
+    await setup(page, readOnly, locale);
+    await page.route('**/api/v1/payments/orders?*', r => json(r, { items: [{ id: orderId, tenantId, merchantConfigId: merchantId,
+      channelKey: 'wechat_native', outTradeNo: 'original', tradeStateKey: 'succeeded', amountMinor: 12500, currency: 'CNY',
+      subject: 'Scheduled plan', createdAtUtc: '2026-11-05T00:00:00Z', paidAtUtc: '2026-11-05T00:00:00Z' }], page: 1, pageSize: 20, total: 1 }));
+    let reads = 0, writes = 0;
+    const effective = '2026-12-01T00:00:00Z';
+    await page.route('**/api/v1/payments/orders/' + orderId + '/subscription-fulfillment', r => {
+      reads++; return json(r, { subscriptionId, beneficiaryTenantId: tenantId, paymentOrderId: orderId, stateKey: 'ReadyPaid',
+        errorCode: null, attempt: 0, updatedAtUtc: '2026-11-05T00:00:00Z', effectiveFromUtc: effective, nextAttemptAtUtc: effective,
+        readAtUtc: reads === 1 ? '2026-11-05T00:00:00Z' : '2026-12-02T00:00:00Z' });
+    });
+    await page.route('**/api/v1/payments/orders/' + orderId + '/subscription-fulfillment/retry', r => { writes++; return json(r, {}, 405); });
+    await page.goto('/#/payments/orders'); await expect(page.getByTestId('subscription-fulfillment')).toBeAttached();
+    await page.setViewportSize({ width, height: 1000 }); await page.getByTestId('subscription-fulfillment').click();
+    const modal = page.locator('.art-form-dialog').filter({ has: page.getByTestId('fulfillment-read-at') });
+    await expect(page.getByTestId('fulfillment-waiting')).toBeVisible();
+    await expect(page.getByTestId('fulfillment-effective')).toHaveAttribute('datetime', effective);
+    await expect(page.getByTestId('fulfillment-next')).toHaveAttribute('datetime', effective);
+    await expect(page.getByTestId('fulfillment-read-at')).toHaveAttribute('datetime', '2026-11-05T00:00:00Z');
+    await expect(page.getByTestId('subscription-fulfillment-retry')).toHaveCount(0); expect(reads).toBe(1); expect(writes).toBe(0);
+    await modal.screenshot({ path: info.outputPath('fulfillment-schedule-' + width + '.png'), animations: 'disabled' });
+    expect((await new AxeBuilder({ page }).include('.art-form-dialog').withTags(['wcag2a', 'wcag2aa']).analyze()).violations).toEqual([]);
+    await page.getByTestId('subscription-fulfillment-refresh').click(); await expect(page.getByTestId('fulfillment-waiting')).toHaveCount(0);
+    await expect(page.getByTestId('fulfillment-read-at')).toHaveAttribute('datetime', '2026-12-02T00:00:00Z'); expect(reads).toBe(2); expect(writes).toBe(0);
   });
 }

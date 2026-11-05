@@ -104046,7 +104046,18 @@
             "format": "uuid",
             "type": "string"
           },
+          "effectiveFromUtc": {
+            "format": "date-time",
+            "type": "string"
+          },
           "errorCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "nextAttemptAtUtc": {
+            "format": "date-time",
             "type": [
               "null",
               "string"
@@ -104058,6 +104069,10 @@
               "null",
               "string"
             ]
+          },
+          "readAtUtc": {
+            "format": "date-time",
+            "type": "string"
           },
           "stateKey": {
             "type": "string"
@@ -104078,7 +104093,10 @@
           "stateKey",
           "errorCode",
           "attempt",
-          "updatedAtUtc"
+          "updatedAtUtc",
+          "effectiveFromUtc",
+          "nextAttemptAtUtc",
+          "readAtUtc"
         ],
         "type": "object"
       },

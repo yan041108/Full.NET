@@ -2,6 +2,8 @@ import type { SupportedLocale } from '@fullnet/admin-i18n';
 
 // 资金和权益状态使用独立固定文案，不能把渠道成功误显示为已完成授权。
 const zh = {
+  effectiveAt: '权益生效时间（UTC）', nextAttemptAt: '下一次最早处理（UTC）', fulfillmentReadAt: '本次读取（UTC）', recoveryAttempts: '当前恢复尝试次数', fulfillmentProblem: '最近处理码',
+  waitingEffective: '履约记录正在等待生效日，尚未确认权益发放。', scheduleHint: '排期为最早可处理时间，不保证届时完成。状态按本次服务器读取判断；请显式刷新，刷新不会重试履约。',
   detailAction: '订阅详情',
   statusFilter: '订阅状态筛选', allStatuses: '全部状态', statusFilterHint: '筛选只影响当前历史列表，不代表企业全部订阅或新增资格；操作仍由服务端校验。',
   subscriptionDetail: '订阅详情', detailPeriodStart: '周期开始', detailTrialEnd: '试用截止', detailCancelledAt: '取消时间', detailPackageId: '套餐 ID', detailPackageName: '当前套餐目录名称',
@@ -43,6 +45,8 @@ const zh = {
   safeRetry: '网络重试复用原账单；履约重试不会再次扣款。'
 };
 const en: Record<keyof typeof zh, string> = {
+  effectiveAt: 'Entitlement effective time (UTC)', nextAttemptAt: 'Earliest next processing (UTC)', fulfillmentReadAt: 'Read at (UTC)', recoveryAttempts: 'Current recovery attempts', fulfillmentProblem: 'Last processing code',
+  waitingEffective: 'Waiting for the effective date; entitlement delivery is not confirmed.', scheduleHint: 'This is the earliest processing time, not a completion guarantee. Status reflects this server read; refresh explicitly. Refreshing does not retry fulfillment.',
   detailAction: 'Details',
   statusFilter: 'Subscription status filter', allStatuses: 'All statuses', statusFilterHint: 'The filter only changes this history list. It does not establish all subscriptions or eligibility; the server validates each operation.',
   subscriptionDetail: 'Subscription details', detailPeriodStart: 'Period start', detailTrialEnd: 'Trial ends', detailCancelledAt: 'Cancelled at', detailPackageId: 'Package ID', detailPackageName: 'Current catalog name',

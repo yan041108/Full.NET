@@ -1,4 +1,5 @@
 using System.Data.Common;
+using System.Text.Json;
 using Dapper;
 using Full.NET.Abstractions.Results;
 using Full.NET.Abstractions.Time;
@@ -13,6 +14,7 @@ using Full.NET.Modules.Payments.Features.ManageOrders;
 using Full.NET.Modules.Payments.Features.ManageRefunds;
 using Full.NET.Modules.Payments.Features.SubscriptionBilling;
 using Full.NET.Modules.Payments.Persistence;
+using Full.NET.Modules.Payments.Serialization;
 using Full.NET.Modules.Tenancy.Contracts;
 using Full.NET.Modules.Tenancy.Features.ManageHostTenantPackages;
 using Full.NET.Modules.Tenancy.Features.ManageTenantEntitlements.Persistence;
@@ -203,12 +205,14 @@ public sealed class SubscriptionBillingRecoveryTests
             .Single(payload => !payload.SequenceEqual(paidBytes));
         await paidHandler.HandleAsync(futurePaid, default);
         await MarkFutureReviewAsync();
+        await VerifyScheduleSnapshotAsync(sp, futureOrder, "Review", future.Value.EffectiveFromUtc, null);
         var recovery = sp.GetRequiredService<SubscriptionFulfillmentProcessor>();
         Assert.AreEqual(1, await recovery.RetryAsync(futureOrder, default));
         var waiting = (await queries.QuerySingleOrDefaultAsync<SubscriptionFulfillmentRecord>(SubscriptionFulfillmentSql.Find,
             P(("Id", future.Value.PaymentOperationId))))!;
         Assert.AreEqual("ReadyPaid", waiting.Phase); Assert.AreEqual(future.Value.EffectiveFromUtc, waiting.DueAtUtc);
         Assert.AreEqual(0, waiting.Attempt); Assert.IsNull(waiting.ErrorCode);
+        await VerifyScheduleSnapshotAsync(sp, futureOrder, "ReadyPaid", future.Value.EffectiveFromUtc, future.Value.EffectiveFromUtc);
         var early = await recovery.ProcessAsync(future.Value.PaymentOperationId, default);
         Assert.IsTrue(early.IsSuccess); Assert.IsFalse(early.Value);
         await paidHandler.HandleAsync(futurePaid, default);
@@ -231,11 +235,29 @@ public sealed class SubscriptionBillingRecoveryTests
         Assert.IsTrue((await recovery.ProcessAsync(future.Value.PaymentOperationId, default)).Value);
         Assert.AreEqual("Refunded", await connection.QuerySingleAsync<string>("SELECT Phase FROM fn_payment_subscription_fulfillment WHERE Id=@Id", new { Id = future.Value.PaymentOperationId }));
         Assert.AreEqual(0, await SourceCount(connection, future.Value.SubscriptionId));
+        await VerifyScheduleSnapshotAsync(sp, futureOrder, "Refunded", future.Value.EffectiveFromUtc, null);
 
         Task<int> MarkFutureReviewAsync() => connection.ExecuteAsync("""
             UPDATE fn_payment_subscription_fulfillment SET Phase='Review',ErrorCode='test.manual_review',Attempt=10,
                 LeaseId=NULL,LeaseUntilUtc=NULL,Version=Version+1 WHERE Id=@Id
             """, new { Id = future.Value.PaymentOperationId });
+    }
+
+    /// <summary>队列时间来自原始持久化快照，源生成 JSON 与服务端读取时间保持同一合同。</summary>
+    private static async Task VerifyScheduleSnapshotAsync(IServiceProvider sp, Guid orderId, string phase,
+        DateTimeOffset effectiveFromUtc, DateTimeOffset? nextAttemptAtUtc)
+    {
+        var before = sp.GetRequiredService<IClock>().UtcNow;
+        var result = await sp.GetRequiredService<SubscriptionCheckoutService>().StatusAsync(orderId, default);
+        Assert.IsTrue(result.IsSuccess, result.Error?.Code); var status = result.Value!;
+        Assert.AreEqual(phase, status.StateKey); Assert.AreEqual(effectiveFromUtc, status.EffectiveFromUtc);
+        Assert.AreEqual(nextAttemptAtUtc, status.NextAttemptAtUtc); Assert.IsTrue(status.ReadAtUtc >= before);
+        var context = new PaymentsJsonSerializerContext(new JsonSerializerOptions(JsonSerializerDefaults.Web));
+        using var json = JsonDocument.Parse(JsonSerializer.Serialize(status, context.SubscriptionFulfillmentStatusResponse));
+        Assert.AreEqual(status.EffectiveFromUtc, json.RootElement.GetProperty("effectiveFromUtc").GetDateTimeOffset());
+        Assert.AreEqual(status.ReadAtUtc, json.RootElement.GetProperty("readAtUtc").GetDateTimeOffset());
+        Assert.AreEqual(nextAttemptAtUtc, json.RootElement.GetProperty("nextAttemptAtUtc").ValueKind == JsonValueKind.Null
+            ? null : json.RootElement.GetProperty("nextAttemptAtUtc").GetDateTimeOffset());
     }
 
     /// <summary>使用真实 Files、存储和配额端口核对新增占用，不以账面余额推导业务成功。</summary>

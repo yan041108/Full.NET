@@ -15,7 +15,8 @@ const id = (n: number) => `019bc2b1-2a40-7cc3-8992-a80de51bf2${String(n).padStar
 const permissions = ['tenancy.tenant_packages.read', 'tenancy.tenant_subscriptions.manage', 'payments.orders.create', 'payments.orders.read', 'tenancy.tenant_subscriptions.read', 'payments.orders.reconcile'];
 const pkg = { id: id(2), code: 'plan', name: 'Plan', description: null, isActive: true, version: 1, assignedTenantCount: 0 };
 const offer = { packageId: pkg.id, paymentTenantId: id(3), merchantConfigId: id(4), amountMinor: 12500, currency: 'CNY', seatLimit: 20, storageLimit: 1000, durationDays: 30, entitlementIds: [], isActive: true, version: 3 };
-const fulfillment = { subscriptionId: id(5), beneficiaryTenantId: id(1), paymentOrderId: id(6), stateKey: 'Review', errorCode: null, attempt: 1, updatedAtUtc: '2026-11-05T00:00:00Z' };
+const fulfillment = { subscriptionId: id(5), beneficiaryTenantId: id(1), paymentOrderId: id(6), stateKey: 'Review', errorCode: null, attempt: 1, updatedAtUtc: '2026-11-05T00:00:00Z',
+  effectiveFromUtc: '2026-11-01T00:00:00Z', nextAttemptAtUtc: null, readAtUtc: '2026-11-05T00:00:00Z' };
 const checkout = { subscriptionId: id(5), fulfillmentStateKey: 'Awaiting', errorCode: null, order: { id: id(6), tradeStateKey: 'pending', codeUrl: 'weixin://original' } } as SubscriptionCheckoutResponse;
 const dialog = { props: ['open', 'showConfirm', 'confirmDisabled'], emits: ['confirm', 'update:open'], template: '<section v-if="open"><slot/><button v-if="showConfirm !== false" data-testid="confirm" :disabled="confirmDisabled" @click="$emit(\'confirm\')">Confirm</button><button data-testid="close" @click="$emit(\'update:open\', false)">Close</button></section>' };
 function sessionSetup() {
@@ -35,6 +36,39 @@ async function purchase(source?: { subscriptionId: string; packageId: string }) 
 }
 describe('付费账单原请求恢复', () => {
   beforeEach(() => { vi.resetAllMocks(); useAdminI18n().setLocale('zh-CN'); vi.mocked(getPackageOffer).mockResolvedValue(offer); vi.mocked(getSubscriptionFulfillment).mockResolvedValue(fulfillment); });
+  it('未来生效按服务器读取时点判断，浏览器时钟不改变排期事实', async () => {
+    const clock = vi.spyOn(Date, 'now').mockReturnValue(Date.parse('2040-01-01T00:00:00Z'));
+    const future = { ...fulfillment, stateKey: 'ReadyPaid', effectiveFromUtc: '2027-01-01T00:00:00Z', nextAttemptAtUtc: '2027-01-01T00:00:00Z' };
+    vi.mocked(getSubscriptionFulfillment).mockResolvedValue(future); const { pinia } = sessionSetup();
+    const wrapper = mount(SubscriptionFulfillmentAction, { props: { orderId: id(6) }, global: globalFor(pinia) });
+    await wrapper.get('[data-testid="subscription-fulfillment"]').trigger('click'); await flushPromises();
+    expect(wrapper.find('[data-testid="fulfillment-waiting"]').exists()).toBe(true);
+    expect(wrapper.get('[data-testid="fulfillment-next"]').attributes('datetime')).toBe(future.nextAttemptAtUtc);
+    expect(wrapper.get('[data-testid="fulfillment-read-at"]').attributes('datetime')).toBe(fulfillment.readAtUtc);
+    expect(wrapper.find('[data-testid="subscription-fulfillment-retry"]').exists()).toBe(false);
+    expect(getSubscriptionFulfillment).toHaveBeenCalledTimes(1); expect(retrySubscriptionFulfillment).not.toHaveBeenCalled();
+    vi.mocked(getSubscriptionFulfillment).mockResolvedValue({ ...future, readAtUtc: '2027-01-02T00:00:00Z' });
+    await wrapper.get('[data-testid="subscription-fulfillment-refresh"]').trigger('click'); await flushPromises();
+    expect(wrapper.find('[data-testid="fulfillment-waiting"]').exists()).toBe(false); expect(retrySubscriptionFulfillment).not.toHaveBeenCalled();
+    wrapper.unmount(); clock.mockRestore();
+  });
+  it.each(['Review', 'Applied', 'Refunded'])('%s 不显示自动处理排期', async stateKey => {
+    vi.mocked(getSubscriptionFulfillment).mockResolvedValue({ ...fulfillment, stateKey }); const { pinia } = sessionSetup();
+    const wrapper = mount(SubscriptionFulfillmentAction, { props: { orderId: id(6) }, global: globalFor(pinia) });
+    await wrapper.get('[data-testid="subscription-fulfillment"]').trigger('click'); await flushPromises();
+    expect(wrapper.find('[data-testid="fulfillment-next"]').exists()).toBe(false); expect(wrapper.find('[data-testid="fulfillment-waiting"]').exists()).toBe(false); wrapper.unmount();
+  });
+  it.each([
+    { readAtUtc: 'bad' }, { effectiveFromUtc: 'bad' }, { stateKey: 'ReadyPaid', nextAttemptAtUtc: null },
+    { stateKey: 'Applied', nextAttemptAtUtc: '2027-01-01T00:00:00Z' },
+    { stateKey: 'ReadyPaid', nextAttemptAtUtc: '2026-10-01T00:00:00Z' }
+  ])('拒绝无法核对的履约时间 %j', async patch => {
+    vi.mocked(getSubscriptionFulfillment).mockResolvedValue({ ...fulfillment, ...patch }); const { pinia } = sessionSetup();
+    const wrapper = mount(SubscriptionFulfillmentAction, { props: { orderId: id(6) }, global: globalFor(pinia) });
+    await wrapper.get('[data-testid="subscription-fulfillment"]').trigger('click'); await flushPromises();
+    expect(wrapper.text()).toContain('未接入结果'); expect(wrapper.find('[data-testid="fulfillment-effective"]').exists()).toBe(false);
+    expect(wrapper.find('[data-testid="subscription-fulfillment-retry"]').exists()).toBe(false); wrapper.unmount();
+  });
   it('从到期历史明确读取当前报价，再创建独立新周期', async () => {
     vi.mocked(createPaidSubscription).mockImplementation(async (tenant, body) => ({ ...offer, tenantId: tenant, subscriptionId: id(5), paymentOperationId: id(7), subject: 'Plan', offerVersion: body.offerVersion, effectiveFromUtc: body.effectiveFromUtc, effectiveToUtc: '2027-01-01T00:00:00Z' }));
     const { wrapper } = await purchase({ subscriptionId: id(11), packageId: pkg.id });
