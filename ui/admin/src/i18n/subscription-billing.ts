@@ -2,6 +2,14 @@ import type { SupportedLocale } from '@fullnet/admin-i18n';
 
 // 资金和权益状态使用独立固定文案，不能把渠道成功误显示为已完成授权。
 const zh = {
+  offerSaving: '正在保存报价，请等待结果。',
+  offerScopeHint: '报价调整适用于后续新账单，已冻结账单继续按原条款履约。', offerVersion: '报价版本',
+  offerReadFailed: '报价或功能目录读取失败。请重新读取，不能按空报价覆盖。', offerReload: '重新读取报价', offerCheck: '核对当前报价',
+  offerUnknown: '保存结果未确认。请保留草稿并核对当前报价；不会自动重发。', offerConflict: '保存被拒绝或版本已变更。请核对当前报价后重新确认。',
+  offerMissing: '当前尚无报价，可重新确认首次创建。', offerCurrentMatches: '当前报价与提交内容一致。', offerCurrentChanged: '当前报价与草稿不同，请逐项比较。',
+  offerComparison: '草稿与当前报价比较', offerField: '项目', offerDraft: '本次草稿', offerCurrent: '当前报价', offerUnchecked: '尚未核对',
+  offerRebaseHint: '采用当前报价会替换草稿；保留草稿后仍须再次保存确认，可能覆盖当前报价的对应内容。',
+  offerAdoptCurrent: '采用当前报价继续编辑', offerKeepDraft: '保留草稿并采用当前版本', offerEnabled: '允许', offerDisabled: '不允许',
   repurchase: '重新购买原套餐', sourceSubscription: '历史订阅', repurchasePolicy: '本次创建独立的新账单与新周期，读取当前报价；原订阅历史继续保留，付款后按新账单履约。',
   repurchaseUnavailable: '原套餐已停用或不在当前目录，请核对后选择其他可用套餐。',
   trialPackage: '试用套餐', trialConfirm: '确认开通试用', cancelConfirm: '确认取消订阅', confirmOperation: '确认本次操作',
@@ -30,6 +38,14 @@ const zh = {
   safeRetry: '网络重试复用原账单；履约重试不会再次扣款。'
 };
 const en: Record<keyof typeof zh, string> = {
+  offerSaving: 'Saving the offer. Waiting for the result.',
+  offerScopeHint: 'Offer changes apply to new invoices. Frozen invoices retain their original terms.', offerVersion: 'Offer version',
+  offerReadFailed: 'The offer or feature catalog could not be read. Reload before editing; unavailable data is not an empty offer.', offerReload: 'Reload offer', offerCheck: 'Check current offer',
+  offerUnknown: 'Save result unconfirmed. Keep the draft and check the current offer; no automatic retry occurs.', offerConflict: 'The save was rejected or the version changed. Check the current offer before confirming again.',
+  offerMissing: 'No offer currently exists. Review before creating the first offer.', offerCurrentMatches: 'The current offer matches the submitted content.', offerCurrentChanged: 'The current offer differs from the draft. Compare each field.',
+  offerComparison: 'Draft and current offer comparison', offerField: 'Field', offerDraft: 'Draft', offerCurrent: 'Current offer', offerUnchecked: 'Not checked',
+  offerRebaseHint: 'Adopting the current offer replaces the draft. Keeping the draft still requires another explicit save and may replace the current offer values.',
+  offerAdoptCurrent: 'Adopt current offer and edit', offerKeepDraft: 'Keep draft with current version', offerEnabled: 'Allowed', offerDisabled: 'Not allowed',
   repurchase: 'Buy this plan again', sourceSubscription: 'Previous subscription', repurchasePolicy: 'Create a new invoice and period using the current offer. The previous subscription remains in history; fulfillment follows the new invoice after payment.',
   repurchaseUnavailable: 'The previous plan is inactive or unavailable. Review the available plans before purchasing.',
   trialPackage: 'Trial package', trialConfirm: 'Confirm trial', cancelConfirm: 'Confirm subscription cancellation', confirmOperation: 'Confirm operation',
