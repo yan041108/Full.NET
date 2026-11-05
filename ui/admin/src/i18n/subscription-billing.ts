@@ -2,6 +2,8 @@ import type { SupportedLocale } from '@fullnet/admin-i18n';
 
 // 资金和权益状态使用独立固定文案，不能把渠道成功误显示为已完成授权。
 const zh = {
+  repurchase: '重新购买原套餐', sourceSubscription: '历史订阅', repurchasePolicy: '本次创建独立的新账单与新周期，读取当前报价；原订阅历史继续保留，付款后按新账单履约。',
+  repurchaseUnavailable: '原套餐已停用或不在当前目录，请核对后选择其他可用套餐。',
   trialPackage: '试用套餐', trialConfirm: '确认开通试用', cancelConfirm: '确认取消订阅', confirmOperation: '确认本次操作',
   trialDuration: '本次试用为 30 天，提交前请核对套餐与起止时间。', activeSubscriptionHint: '已有试用、有效或待付款订阅，不能重复开通试用。',
   cancelPolicy: '取消当前订阅不会自动发起渠道退款；请核对原订阅与当前周期，退款沿独立订单流程处理。',
@@ -28,6 +30,8 @@ const zh = {
   safeRetry: '网络重试复用原账单；履约重试不会再次扣款。'
 };
 const en: Record<keyof typeof zh, string> = {
+  repurchase: 'Buy this plan again', sourceSubscription: 'Previous subscription', repurchasePolicy: 'Create a new invoice and period using the current offer. The previous subscription remains in history; fulfillment follows the new invoice after payment.',
+  repurchaseUnavailable: 'The previous plan is inactive or unavailable. Review the available plans before purchasing.',
   trialPackage: 'Trial package', trialConfirm: 'Confirm trial', cancelConfirm: 'Confirm subscription cancellation', confirmOperation: 'Confirm operation',
   trialDuration: 'The trial lasts 30 days. Review the package and period before confirming.', activeSubscriptionHint: 'A trial, active or unpaid subscription already exists. Another trial cannot be started.',
   cancelPolicy: 'Cancellation does not automatically issue a payment refund. Review the original subscription and period; refunds use the separate order process.',

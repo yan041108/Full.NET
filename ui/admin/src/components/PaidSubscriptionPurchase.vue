@@ -9,11 +9,12 @@ import { subscriptionBillingText } from '../i18n/subscription-billing';
 import { createPaidSubscription, getPackageOffer } from '../api/subscription-billing';
 import ArtFormDialog from '../framework/art-design/components/ArtFormDialog.vue';
 import SubscriptionCheckoutAction from './SubscriptionCheckoutAction.vue';
-const props = defineProps<{ tenantId: string; packages: HostTenantPackage[]; disabled?: boolean }>();
+const props = defineProps<{ tenantId: string; packages: HostTenantPackage[]; disabled?: boolean; source?: { subscriptionId: string; packageId: string } }>();
 const emit = defineEmits<{ created: []; dialogOpen: [value: boolean] }>();
 const session = useSessionStore(); const { locale } = useAdminI18n();
 const text = (key: Parameters<typeof subscriptionBillingText>[1]) => subscriptionBillingText(locale.value, key);
-const allowed = computed(() => !props.disabled && session.state === 'authenticated' && session.can('tenancy.tenant_packages.read') && session.can('tenancy.tenant_subscriptions.manage'));
+const allowed = computed(() => !props.disabled && session.state === 'authenticated' && session.can('tenancy.tenant_packages.read') && session.can('tenancy.tenant_subscriptions.manage')
+  && (!props.source || props.packages.some(pkg => pkg.isActive && pkg.id.toLowerCase() === props.source!.packageId.toLowerCase())));
 const open = ref(false); const loading = ref(false); const failure = ref(''); const attempted = ref(false);
 const quoteRejected = ref(false);
 const quote = ref<TenantPackageOfferResponse>(); const terms = ref<TenantSubscriptionPaymentTerms>();
@@ -25,7 +26,8 @@ const scope = useAuthorizedViewScope(session, () => {
   Object.assign(form, { packageId: '', effectiveFromUtc: '', idempotencyKey: '' });
 }, () => {});
 let pending: ReturnType<typeof scope.begin>;
-watch(() => props.tenantId, () => scope.invalidate(), { flush: 'sync' });
+// 列表重读会重建来源对象；只有实际身份改变才失效，避免清掉刚创建的新账单。
+watch([() => props.tenantId, () => props.source?.subscriptionId, () => props.source?.packageId], () => scope.invalidate(), { flush: 'sync' });
 watch(open, value => { if (!value) { pending?.cancel(); pending = undefined; loading.value = false; } }, { flush: 'sync' });
 watch(open, value => emit('dialogOpen', value), { flush: 'sync' });
 const sameId = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
@@ -34,7 +36,7 @@ function begin() {
   // 未确认请求保留原报价、时间和幂等键，关闭重开不能意外创建第二张账单。
   if (!attempted.value) {
     failure.value = ''; quote.value = undefined; terms.value = undefined;
-    Object.assign(form, { packageId: '', effectiveFromUtc: new Date().toISOString(), idempotencyKey: crypto.randomUUID() });
+    Object.assign(form, { packageId: props.source?.packageId ?? '', effectiveFromUtc: new Date().toISOString(), idempotencyKey: crypto.randomUUID() });
   }
   open.value = true;
 }
@@ -64,6 +66,7 @@ async function create() {
     const value = await createPaidSubscription(tenantId, body, operation.signal);
     if (!operation.current() || !open.value || !allowed.value || tenantId !== props.tenantId) return;
     if (!sameId(value.tenantId, tenantId) || !sameId(value.packageId, body.packageId) || value.offerVersion !== body.offerVersion
+      || (props.source && sameId(value.subscriptionId, props.source.subscriptionId))
       || Date.parse(value.effectiveFromUtc) !== Date.parse(body.effectiveFromUtc) || value.amountMinor !== offer.amountMinor
       || value.currency !== offer.currency || !sameId(value.merchantConfigId, offer.merchantConfigId) || !sameId(value.paymentTenantId, offer.paymentTenantId)) {
       failure.value = text('responseMismatch'); return;
@@ -84,15 +87,16 @@ function reconfirmQuote() {
 }
 </script>
 <template>
-  <el-button v-if="allowed" type="primary" plain data-testid="paid-subscription-create" @click="begin">{{ text('purchase') }}</el-button>
-  <ArtFormDialog v-model:open="open" trap-focus :title="text('purchase')" width="min(520px, calc(100vw - 32px))" :saving="loading" :show-confirm="!!quote && !terms" confirm-test-id="paid-subscription-confirm"
+  <el-button v-if="allowed" type="primary" plain :data-testid="source ? 'subscription-repurchase' : 'paid-subscription-create'" @click="begin">{{ text(source ? 'repurchase' : 'purchase') }}</el-button>
+  <ArtFormDialog v-model:open="open" trap-focus :title="text(source ? 'repurchase' : 'purchase')" width="min(520px, calc(100vw - 32px))" :saving="loading" :show-confirm="!!quote && !terms" confirm-test-id="paid-subscription-confirm"
     :confirm-disabled="!allowed || loading" :confirm-label="text(attempted ? 'recoverInvoice' : 'create')" :cancel-label="text('close')" @confirm="create">
     <el-alert v-if="failure" :title="failure" type="error" :closable="false" />
     <el-button v-if="quoteRejected" data-testid="subscription-reconfirm-quote" :disabled="loading || !allowed" @click="reconfirmQuote">{{ text('reconfirmQuote') }}</el-button>
     <p>{{ text('paidHint') }}</p>
+    <template v-if="source"><p>{{ text('repurchasePolicy') }}</p><p>{{ text('sourceSubscription') }} <code data-testid="repurchase-source">{{ source.subscriptionId }}</code></p></template>
     <p v-if="attempted && !terms" role="status" data-testid="subscription-invoice-recovery">{{ text('invoiceRecovery') }}</p>
     <el-form v-if="!terms" label-position="top" :disabled="loading || attempted">
-      <el-form-item :label="text('package')"><el-select data-testid="paid-subscription-package" v-model="form.packageId" @change="quote = undefined">
+      <el-form-item :label="text('package')"><el-select data-testid="paid-subscription-package" v-model="form.packageId" :disabled="!!source" @change="quote = undefined">
         <el-option v-for="pkg in packages" :key="pkg.id" :label="pkg.name" :value="pkg.id" />
       </el-select></el-form-item>
       <el-form-item :label="text('start')"><el-input v-model="form.effectiveFromUtc" /></el-form-item>

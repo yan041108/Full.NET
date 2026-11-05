@@ -31,6 +31,41 @@ async function setup(page, { readOnly = false, active = true, rows = [] } = {}) 
   return state;
 }
 for (const width of [1440, 390]) {
+  test(`到期原套餐按当前报价创建独立新周期 ${width}`, async ({ page }, info) => {
+    await page.setViewportSize({ width: 1440, height: 1000 });
+    const previous = { id: subscriptionId, tenantId, packageId, status: 'Expired', currentPeriodStartUtc: '2026-10-01T00:00:00Z',
+      currentPeriodEndUtc: '2026-11-01T00:00:00Z', trialEndsAtUtc: null, cancelledAtUtc: null, version: 3 };
+    const state = await setup(page, { rows: [previous] }); await page.setViewportSize({ width, height: 1000 });
+    let offers = 0; const newId = id(8);
+    const offer = { packageId, paymentTenantId: tenantId, merchantConfigId: id(7), amountMinor: 24900, currency: 'CNY', seatLimit: 30,
+      storageLimit: 200000, durationDays: 30, entitlementIds: [], isActive: true, version: 7 };
+    await page.route(`**/api/v1/tenancy/tenant-packages/${packageId}/offer`, route => { offers++; return json(route, offer); });
+    await page.route(`**/api/v1/tenancy/tenants/${tenantId}/subscriptions/paid`, route => {
+      const body = route.request().postDataJSON(); state.creates.push(body);
+      expect(Object.keys(body).sort()).toEqual(['effectiveFromUtc', 'idempotencyKey', 'offerVersion', 'packageId']);
+      expect(body.packageId).toBe(packageId); expect(body.offerVersion).toBe(7);
+      expect(Date.parse(body.effectiveFromUtc)).toBeGreaterThan(Date.parse(previous.currentPeriodEndUtc));
+      const end = new Date(Date.parse(body.effectiveFromUtc) + 30 * 86400000).toISOString();
+      state.rows = [{ id: newId, tenantId, packageId, status: 'PastDue', currentPeriodStartUtc: body.effectiveFromUtc,
+        currentPeriodEndUtc: end, trialEndsAtUtc: null, cancelledAtUtc: null, version: 1 }, previous];
+      return json(route, { ...offer, tenantId, subscriptionId: newId, offerVersion: 7, paymentOperationId: id(6), subject: 'Current plan',
+        effectiveFromUtc: body.effectiveFromUtc, effectiveToUtc: end });
+    });
+    await page.getByTestId('subscription-repurchase').click();
+    const modal = page.getByRole('dialog').filter({ has: page.getByTestId('repurchase-source') });
+    await expect(modal.getByTestId('repurchase-source')).toHaveText(subscriptionId);
+    await expect(modal.getByRole('combobox')).toBeDisabled(); expect(offers).toBe(0); expect(state.creates.length).toBe(0);
+    await modal.getByRole('button', { name: '读取报价', exact: true }).click(); await expect(modal).toContainText('24900 CNY');
+    await modal.screenshot({ path: info.outputPath('expired-repurchase-' + width + '.png'), animations: 'disabled' });
+    expect((await new AxeBuilder({ page }).include('.art-form-dialog').withTags(['wcag2a', 'wcag2aa']).analyze()).violations).toEqual([]);
+    await page.getByTestId('paid-subscription-confirm').click(); await expect(modal).toContainText(newId);
+    expect(state.creates.length).toBe(1); expect(offers).toBe(1); expect(state.rows.find(item => item.id === subscriptionId)).toEqual(previous);
+    await modal.getByRole('button', { name: '关闭', exact: true }).click();
+    await expect(modal).toBeHidden();
+    await expect(page.getByTestId('subscription-repurchase')).toHaveCount(0);
+    const history = page.getByRole('dialog', { name: '订阅管理', exact: true });
+    await expect(history).toContainText('已到期'); await expect(history).toContainText('待付款');
+  });
   test(`选择套餐确认试用及取消未知后重读 ${width}`, async ({ page }, info) => {
     await page.setViewportSize({ width: 1440, height: 1000 }); const state = await setup(page); await page.setViewportSize({ width, height: 1000 });
     await page.route(`**/api/v1/tenancy/tenants/${tenantId}/subscriptions`, route => {

@@ -26,15 +26,54 @@ function sessionSetup() {
 }
 const globalFor = (pinia: ReturnType<typeof createPinia>) => ({ plugins: [pinia], stubs: { ArtFormDialog: dialog } });
 function deferred<T>() { let resolve!: (value: T) => void; const promise = new Promise<T>(r => { resolve = r; }); return { promise, resolve }; }
-async function purchase() {
-  const state = sessionSetup(); const wrapper = mount(PaidSubscriptionPurchase, { props: { tenantId: id(1), packages: [pkg] }, global: globalFor(state.pinia) });
-  await wrapper.get('[data-testid="paid-subscription-create"]').trigger('click');
-  wrapper.findComponent(ElSelect).vm.$emit('update:modelValue', pkg.id); await flushPromises();
+async function purchase(source?: { subscriptionId: string; packageId: string }) {
+  const state = sessionSetup(); const wrapper = mount(PaidSubscriptionPurchase, { props: { tenantId: id(1), packages: [pkg], source }, global: globalFor(state.pinia) });
+  await wrapper.get(`[data-testid="${source ? 'subscription-repurchase' : 'paid-subscription-create'}"]`).trigger('click');
+  if (!source) wrapper.findComponent(ElSelect).vm.$emit('update:modelValue', pkg.id); await flushPromises();
   await wrapper.findAll('button').find(button => button.text() === '读取报价')!.trigger('click'); await flushPromises();
   return { wrapper, ...state };
 }
 describe('付费账单原请求恢复', () => {
   beforeEach(() => { vi.resetAllMocks(); useAdminI18n().setLocale('zh-CN'); vi.mocked(getPackageOffer).mockResolvedValue(offer); vi.mocked(getSubscriptionFulfillment).mockResolvedValue(fulfillment); });
+  it('从到期历史明确读取当前报价，再创建独立新周期', async () => {
+    vi.mocked(createPaidSubscription).mockImplementation(async (tenant, body) => ({ ...offer, tenantId: tenant, subscriptionId: id(5), paymentOperationId: id(7), subject: 'Plan', offerVersion: body.offerVersion, effectiveFromUtc: body.effectiveFromUtc, effectiveToUtc: '2027-01-01T00:00:00Z' }));
+    const { wrapper } = await purchase({ subscriptionId: id(11), packageId: pkg.id });
+    expect(createPaidSubscription).not.toHaveBeenCalled(); expect(getPackageOffer).toHaveBeenCalledWith(pkg.id, expect.any(AbortSignal));
+    expect(wrapper.findComponent(ElSelect).props('disabled')).toBe(true); expect(wrapper.get('[data-testid="repurchase-source"]').text()).toBe(id(11));
+    await wrapper.get('[data-testid="confirm"]').trigger('click'); await flushPromises();
+    const body = vi.mocked(createPaidSubscription).mock.calls[0]![1];
+    expect(body.packageId).toBe(pkg.id); expect(body.offerVersion).toBe(3);
+    expect(Object.keys(body).sort()).toEqual(['effectiveFromUtc', 'idempotencyKey', 'offerVersion', 'packageId']);
+    expect(Date.parse(body.effectiveFromUtc)).toBeGreaterThan(Date.parse('2026-01-01T00:00:00Z'));
+    expect(wrapper.emitted('created')).toHaveLength(1); wrapper.unmount();
+  });
+  it('历史套餐已停用时不提供原套餐购买入口', async () => {
+    const { pinia } = sessionSetup(); const wrapper = mount(PaidSubscriptionPurchase, { props: { tenantId: id(1), packages: [{ ...pkg, isActive: false }], source: { subscriptionId: id(11), packageId: pkg.id } }, global: globalFor(pinia) });
+    expect(wrapper.find('[data-testid="subscription-repurchase"]').exists()).toBe(false); expect(getPackageOffer).not.toHaveBeenCalled(); wrapper.unmount();
+  });
+  it('返回原到期订阅身份不能冒充新周期', async () => {
+    vi.mocked(createPaidSubscription).mockImplementation(async (tenant, body) => ({ ...offer, tenantId: tenant, subscriptionId: id(11), paymentOperationId: id(7), subject: 'Plan', offerVersion: body.offerVersion, effectiveFromUtc: body.effectiveFromUtc, effectiveToUtc: '2027-01-01T00:00:00Z' }));
+    const { wrapper } = await purchase({ subscriptionId: id(11), packageId: pkg.id }); await wrapper.get('[data-testid="confirm"]').trigger('click'); await flushPromises();
+    expect(wrapper.text()).toContain('响应与原目标不一致'); expect(wrapper.emitted('created')).toBeUndefined(); wrapper.unmount();
+  });
+  it('等待购买时切换历史来源会取消并丢弃旧账单', async () => {
+    const pending = deferred<Awaited<ReturnType<typeof createPaidSubscription>>>(); vi.mocked(createPaidSubscription).mockReturnValue(pending.promise);
+    const { wrapper } = await purchase({ subscriptionId: id(11), packageId: pkg.id }); await wrapper.get('[data-testid="confirm"]').trigger('click'); await flushPromises();
+    const [tenant, body, signal] = vi.mocked(createPaidSubscription).mock.calls[0]!;
+    await wrapper.setProps({ source: { subscriptionId: id(12), packageId: pkg.id } }); expect(signal?.aborted).toBe(true);
+    pending.resolve({ ...offer, tenantId: tenant, subscriptionId: id(5), paymentOperationId: id(7), subject: 'Plan', offerVersion: body.offerVersion, effectiveFromUtc: body.effectiveFromUtc, effectiveToUtc: '2027-01-01T00:00:00Z' });
+    await flushPromises(); expect(wrapper.emitted('created')).toBeUndefined(); wrapper.unmount();
+  });
+  it('同一历史来源重新渲染不会清除正在创建的账单', async () => {
+    const pending = deferred<Awaited<ReturnType<typeof createPaidSubscription>>>(); vi.mocked(createPaidSubscription).mockReturnValue(pending.promise);
+    const { wrapper } = await purchase({ subscriptionId: id(11), packageId: pkg.id }); await wrapper.get('[data-testid="confirm"]').trigger('click'); await flushPromises();
+    const [tenant, body, signal] = vi.mocked(createPaidSubscription).mock.calls[0]!;
+    await wrapper.setProps({ source: { subscriptionId: id(11), packageId: pkg.id } }); expect(signal?.aborted).toBe(false);
+    pending.resolve({ ...offer, tenantId: tenant, subscriptionId: id(5), paymentOperationId: id(7), subject: 'Plan', offerVersion: body.offerVersion, effectiveFromUtc: body.effectiveFromUtc, effectiveToUtc: '2027-01-01T00:00:00Z' });
+    await flushPromises(); expect(wrapper.emitted('created')).toHaveLength(1);
+    await wrapper.setProps({ source: { subscriptionId: id(11), packageId: pkg.id } });
+    expect(wrapper.text()).toContain(id(5)); expect(wrapper.find('[data-testid="confirm"]').exists()).toBe(false); wrapper.unmount();
+  });
   it('关闭重开保留原报价、时间和请求身份，显式恢复不会产生新键', async () => {
     vi.mocked(createPaidSubscription).mockRejectedValueOnce(new Error('lost')).mockImplementationOnce(async (tenant, body) => ({ ...offer, tenantId: tenant, subscriptionId: id(5), paymentOperationId: id(7), subject: 'Plan', offerVersion: body.offerVersion, effectiveFromUtc: body.effectiveFromUtc, effectiveToUtc: '2027-01-01T00:00:00Z' }));
     const { wrapper } = await purchase(); await wrapper.get('[data-testid="confirm"]').trigger('click'); await flushPromises();

@@ -115,6 +115,11 @@ function paidCreated() { emit('changed'); void load(); }
       <ElTableColumn :label="t('tenancy.tenantSubscriptions.status')" min-width="140"><template #default="{ row }">{{ statusLabel(row.status) }}</template></ElTableColumn>
       <ElTableColumn :label="t('tenancy.tenantSubscriptions.periodEnd')" min-width="200"><template #default="{ row }">{{ formatDate(row.currentPeriodEndUtc) }}</template></ElTableColumn>
       <ElTableColumn v-if="canManage" :label="t('users.columnActions')" width="240"><template #default="{ row }">
+        <PaidSubscriptionPurchase v-if="row.status === 'Expired' && row.packageId && tenant?.isActive && session.can('tenancy.tenant_packages.read')"
+          :key="'repurchase-' + row.id" :tenant-id="tenant.id" :packages="packages" :source="{ subscriptionId: row.id, packageId: row.packageId }"
+          :disabled="loading || !hasRead || uncertain || hasActive" @created="paidCreated" @dialog-open="paidOpen = $event" />
+        <span v-if="row.status === 'Expired' && row.packageId && tenant?.isActive && session.can('tenancy.tenant_packages.read') && !activePackages.some(pkg => sameId(pkg.id, row.packageId))"
+          data-testid="subscription-repurchase-unavailable">{{ text('repurchaseUnavailable') }}</span>
         <SubscriptionCheckoutAction v-if="hasRead && !uncertain && tenant?.isActive && row.status === 'PastDue'" :key="row.id" :tenant-id="tenant.id" :subscription-id="row.id" @dialog-open="checkoutOpen = $event" />
         <ElButton v-if="['Trial', 'Active', 'PastDue'].includes(row.status)" link type="danger" data-testid="tenant-subscription-cancel"
           :disabled="loading || !hasRead || uncertain" @click="beginCancel(row as TenantSubscription)">{{ t('tenants.subscriptionCancel') }}</ElButton>
