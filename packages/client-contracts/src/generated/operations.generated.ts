@@ -1404,6 +1404,7 @@ import {
   readTenantQuotaUsageSummaryResponse,
   readTenantRuntimeBrandingResponse,
   readTenantSubscriptionPaymentTerms,
+  readTenantSubscriptionResponse,
   readTenantSummary,
   readTestAiModelConfigResult,
   readTestAiModelEmbeddingResult,
@@ -17263,6 +17264,23 @@ export async function tenancyGetTenantQuotaUsage(
   const init: RequestInit = { method: 'GET' };
   const value = await requestJsonOperation(http, path, init, signal, options);
   return readTenantQuotaUsageSummaryResponse(value);
+}
+
+export interface TenancyGetTenantSubscriptionParameters {
+  readonly tenantId: string;
+  readonly subscriptionId: string;
+}
+
+export async function tenancyGetTenantSubscription(
+  http: HttpClient,
+  parameters: TenancyGetTenantSubscriptionParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<TenantSubscriptionResponse> {
+  const path = `/api/v1/tenancy/tenants/${encodeURIComponent(String(parameters.tenantId))}/subscriptions/${encodeURIComponent(String(parameters.subscriptionId))}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = await requestJsonOperation(http, path, init, signal, options);
+  return readTenantSubscriptionResponse(value);
 }
 
 export interface TenancyListEntitlementCatalogParameters {

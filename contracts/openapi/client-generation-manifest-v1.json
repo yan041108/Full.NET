@@ -18,6 +18,12 @@
   ],
   "entries": [
     {
+      "operationId": "tenancyGetTenantSubscription",
+      "apiModule": "ui/admin/src/api/tenant-subscriptions.ts",
+      "generatedGroup": "tenant-subscriptions",
+      "status": "generated"
+    },
+    {
       "operationId": "tenancyListTenantSubscriptions",
       "apiModule": "ui/admin/src/api/tenant-subscriptions.ts",
       "generatedGroup": "tenant-subscriptions",

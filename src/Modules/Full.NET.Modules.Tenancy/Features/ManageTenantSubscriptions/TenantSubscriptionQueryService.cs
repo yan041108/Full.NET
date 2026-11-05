@@ -36,6 +36,15 @@ internal sealed class TenantSubscriptionQueryService(IQueryExecutor queryExecuto
         return Result<PagedResult<TenantSubscriptionResponse>>.Success(new PagedResult<TenantSubscriptionResponse>(items, page, pageSize, total));
     }
 
+    /// <summary>按原租户和订阅身份读取，不从分页或筛选结果推断原记录是否存在。</summary>
+    public async Task<Result<TenantSubscriptionResponse>> GetAsync(Guid tenantId, Guid subscriptionId, CancellationToken cancellationToken = default)
+    {
+        var row = await queryExecutor.QuerySingleOrDefaultAsync<TenantSubscriptionRecord>(TenantSubscriptionSql.FindById,
+            Tenancy.Persistence.TenancySqlParameters.Create(("TenantId", tenantId), ("Id", subscriptionId)), cancellationToken).ConfigureAwait(false);
+        return row is null ? Result<TenantSubscriptionResponse>.Failure(new Error(TenancyErrorCodes.SubscriptionNotFound,
+            "The tenant subscription was not found.", ErrorType.NotFound)) : Result<TenantSubscriptionResponse>.Success(Map(row));
+    }
+
     private static TenantSubscriptionResponse Map(TenantSubscriptionRecord row) =>
         new(
             row.Id,

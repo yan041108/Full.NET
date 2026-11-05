@@ -61278,6 +61278,54 @@
         ]
       }
     },
+    "/api/v1/tenancy/tenants/{tenantId}/subscriptions/{subscriptionId}": {
+      "get": {
+        "operationId": "tenancyGetTenantSubscription",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "tenantId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "subscriptionId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TenantSubscriptionResponse"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          },
+          {
+            "ApiKey": []
+          }
+        ],
+        "tags": [
+          "TenancyTenantSubscriptions"
+        ]
+      }
+    },
     "/api/v1/tenancy/tenants/{tenantId}/subscriptions/paid": {
       "post": {
         "operationId": "tenancyCreatePaidSubscription",

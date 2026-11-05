@@ -2,6 +2,7 @@ import type { SupportedLocale } from '@fullnet/admin-i18n';
 
 // 资金和权益状态使用独立固定文案，不能把渠道成功误显示为已完成授权。
 const zh = {
+  detailRefresh: '刷新原订阅', detailAbsent: '原订阅不存在或已不可读取，请核对原 ID 并刷新历史列表。', detailForbidden: '当前会话无权读取原订阅，请核对权限或重新登录。',
   retryConfirmTitle: '确认重试原订单的内部履约', retryConfirmHint: '以下为最近一次读取的原订单与订阅。确认后由服务端核对当前状态；不会创建新订单或再次扣款。',
   retryConfirm: '确认重试履约', retryCancel: '返回状态', beneficiaryTenant: '权益受益企业', retryConfirmationChanged: '确认目标或读取快照已变化，请重新读取原订单后确认。',
   effectiveAt: '权益生效时间（UTC）', nextAttemptAt: '下一次最早处理（UTC）', fulfillmentReadAt: '本次读取（UTC）', recoveryAttempts: '当前恢复尝试次数', fulfillmentProblem: '最近处理码',
@@ -47,6 +48,7 @@ const zh = {
   safeRetry: '网络重试复用原账单；履约重试不会再次扣款。'
 };
 const en: Record<keyof typeof zh, string> = {
+  detailRefresh: 'Refresh original subscription', detailAbsent: 'The original subscription is missing or unavailable. Check its ID and refresh the history list.', detailForbidden: 'This session cannot read the original subscription. Check permissions or sign in again.',
   retryConfirmTitle: 'Confirm original fulfillment retry', retryConfirmHint: 'This is the last read of the original order and subscription. The server validates current state after confirmation; no new order or charge is created.',
   retryConfirm: 'Confirm fulfillment retry', retryCancel: 'Back to status', beneficiaryTenant: 'Beneficiary tenant', retryConfirmationChanged: 'The target or read snapshot changed. Reload the original order before confirming.',
   effectiveAt: 'Entitlement effective time (UTC)', nextAttemptAt: 'Earliest next processing (UTC)', fulfillmentReadAt: 'Read at (UTC)', recoveryAttempts: 'Current recovery attempts', fulfillmentProblem: 'Last processing code',

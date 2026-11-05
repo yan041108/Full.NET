@@ -19,10 +19,16 @@ async function setup(page, { readOnly = false, active = true, rows = [], locale 
     { id: chosenId, code: 'chosen', name: '明确选择的套餐', description: null, isActive: true, version: 1, assignedTenantCount: 0 }], page: 1, pageSize: 20, total: 2 }));
   await page.route('**/api/v1/tenancy/tenants?*', route => json(route, { items: [{ id: tenantId, identifier: 'acme', name: 'Acme 企业', domain: 'acme.localhost',
     isActive: active, version: 1, defaultLocale: 'zh-CN' }], page: 1, pageSize: 20, total: 1 }));
-  const state = { rows, reads: 0, creates: [], cancels: [] };
+  const state = { rows, reads: 0, detailReads: 0, detailRows: new Map(rows.map(row => [row.id, { ...row }])), creates: [], cancels: [] };
   await page.route(`**/api/v1/tenancy/tenants/${tenantId}/subscriptions?*`, route => {
     state.reads++; if (state.failRead) return json(route, { status: 503, code: 'test.unavailable', title: 'unavailable' }, 503);
     return json(route, { items: state.rows, page: 1, pageSize: 20, total: state.rows.length });
+  });
+  await page.route(`**/api/v1/tenancy/tenants/${tenantId}/subscriptions/*`, route => {
+    state.detailReads++; const target = new URL(route.request().url()).pathname.split('/').at(-1);
+    if (state.failDetail) return json(route, { status: 503, code: 'test.unavailable', title: 'unavailable' }, 503);
+    const value = state.detailMissing ? undefined : state.detailRows.get(target);
+    return value ? json(route, value) : json(route, { status: 404, code: 'tenancy.tenant_subscription.not_found', title: 'not found' }, 404);
   });
   await page.goto('/#/tenants');
   await page.getByRole('link', { name: locale === 'en-US' ? 'Tenant management' : '租户管理', exact: true }).click();
@@ -48,14 +54,17 @@ for (const [width, locale] of [[1440, 'en-US'], [390, 'zh-CN']]) {
     await expect(page.getByTestId('tenant-subscription-cancel')).toHaveCount(0); await expect(page.getByTestId('paid-subscription-create')).toHaveCount(0);
     await modal.screenshot({ path: info.outputPath('subscription-detail-' + width + '.png'), animations: 'disabled' });
     expect((await new AxeBuilder({ page }).include('.art-form-dialog').withTags(['wcag2a', 'wcag2aa']).analyze()).violations).toEqual([]);
-    state.failRead = true; await page.getByTestId('subscription-detail-refresh').click();
+    state.failDetail = true; await page.getByTestId('subscription-detail-refresh').click();
     await expect(modal).toContainText(locale === 'en-US' ? 'last successful result is retained' : '保留上次成功读取的结果');
     await expect(page.getByTestId('subscription-detail-status')).toHaveText(locale === 'en-US' ? 'Cancelled' : '已取消');
-    state.failRead = false; state.rows = [{ ...previous, id: id(8), status: 'Active', version: 6 }];
+    state.failDetail = false; state.rows = [{ ...previous, id: id(8), status: 'Active', version: 6 }];
     await page.getByTestId('subscription-detail-refresh').click();
-    await expect(modal).toContainText(locale === 'en-US' ? 'does not include the subscription' : '当前页或筛选未返回该订阅');
+    await expect(page.getByTestId('subscription-detail-status')).toHaveText(locale === 'en-US' ? 'Cancelled' : '已取消');
+    expect(state.reads).toBe(1); expect(state.detailReads).toBe(3);
+    state.detailMissing = true; await page.getByTestId('subscription-detail-refresh').click();
+    await expect(modal).toContainText(locale === 'en-US' ? 'original subscription is missing' : '原订阅不存在');
     await expect(page.getByTestId('subscription-detail-id')).toHaveText(subscriptionId); await expect(page.getByTestId('subscription-detail-status')).toHaveCount(0);
-    expect(state.reads).toBe(3); expect(state.creates.length).toBe(0); expect(state.cancels.length).toBe(0);
+    expect(state.reads).toBe(1); expect(state.detailReads).toBe(4); expect(state.creates.length).toBe(0); expect(state.cancels.length).toBe(0);
   });
 }
 for (const width of [1440, 390]) {

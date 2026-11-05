@@ -31,6 +31,16 @@ internal static class Endpoint
         .RequireAuthorization(FullNetPermissionPolicies.For(
             TenancyTenantSubscriptionPermissions.Read));
 
+        group.MapGet("/{subscriptionId:guid}", async (Guid tenantId, Guid subscriptionId, TenantSubscriptionQueryService queries,
+            IApiResultMapper mapper, HttpContext context, CancellationToken token) =>
+        {
+            context.Response.Headers.CacheControl = "no-store";
+            return mapper.Map(await queries.GetAsync(tenantId, subscriptionId, token).ConfigureAwait(false), context);
+        })
+        .WithName("tenancyGetTenantSubscription")
+        .Produces<TenantSubscriptionResponse>(StatusCodes.Status200OK)
+        .RequireAuthorization(FullNetPermissionPolicies.For(TenancyTenantSubscriptionPermissions.Read));
+
         group.MapPost("/", async (
             Guid tenantId,
             CreateTenantSubscriptionRequest request,

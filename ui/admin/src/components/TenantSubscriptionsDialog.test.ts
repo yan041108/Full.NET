@@ -6,9 +6,9 @@ import type { TenantSubscription } from '@fullnet/client-contracts';
 import TenantSubscriptionsDialog from './TenantSubscriptionsDialog.vue';
 import { useSessionStore } from '../auth/session';
 import { useAdminI18n } from '../i18n/adminI18n';
-import { cancelTenantSubscription, createTenantSubscription, listTenantSubscriptions } from '../api/tenant-subscriptions';
+import { cancelTenantSubscription, createTenantSubscription, getTenantSubscription, listTenantSubscriptions } from '../api/tenant-subscriptions';
 
-vi.mock('../api/tenant-subscriptions', () => ({ listTenantSubscriptions: vi.fn(), createTenantSubscription: vi.fn(), cancelTenantSubscription: vi.fn() }));
+vi.mock('../api/tenant-subscriptions', () => ({ getTenantSubscription: vi.fn(), listTenantSubscriptions: vi.fn(), createTenantSubscription: vi.fn(), cancelTenantSubscription: vi.fn() }));
 const id = (n: number) => `019bc2b1-2a40-7cc3-8992-a80de51bf2${String(n).padStart(2, '0')}`;
 const tenant = { id: id(1), identifier: 'acme', name: 'Acme', domain: 'acme.localhost', isActive: true, version: 2, defaultLocale: 'zh-CN' };
 const pkg = { id: id(2), code: 'one', name: 'First plan', description: null, isActive: true, version: 1, assignedTenantCount: 0 };
@@ -26,7 +26,7 @@ async function panel(options: { readOnly?: boolean; active?: boolean } = {}) {
   await flushPromises(); return { wrapper, session };
 }
 describe('租户订阅操作台', () => {
-  beforeEach(() => { vi.resetAllMocks(); useAdminI18n().setLocale('zh-CN'); vi.mocked(listTenantSubscriptions).mockResolvedValue(page()); });
+  beforeEach(() => { vi.resetAllMocks(); useAdminI18n().setLocale('zh-CN'); vi.mocked(listTenantSubscriptions).mockResolvedValue(page()); vi.mocked(getTenantSubscription).mockResolvedValue(row); });
   it('只读筛选切回第一页并保持筛选后的分页参数', async () => {
     const { wrapper } = await panel({ readOnly: true });
     vi.mocked(listTenantSubscriptions).mockResolvedValue({ ...page([{ ...row, status: 'Expired' }]), total: 41 });
@@ -83,6 +83,7 @@ describe('租户订阅操作台', () => {
   });
   it('只读详情展示原周期、试用和取消信息，套餐名称明确取当前目录', async () => {
     vi.mocked(listTenantSubscriptions).mockResolvedValue(page([{ ...row, status: 'Cancelled', trialEndsAtUtc: '2026-11-30T00:00:00Z', cancelledAtUtc: '2026-11-04T00:00:00Z' }]));
+    vi.mocked(getTenantSubscription).mockResolvedValue({ ...row, status: 'Cancelled', trialEndsAtUtc: '2026-11-30T00:00:00Z', cancelledAtUtc: '2026-11-04T00:00:00Z' });
     const { wrapper } = await panel({ readOnly: true }); await wrapper.get('[data-testid="tenant-subscription-detail"]').trigger('click');
     expect(wrapper.get('[data-testid="subscription-detail-id"]').text()).toBe(row.id); expect(wrapper.get('[data-testid="subscription-detail-status"]').text()).toBe('已取消');
     expect(wrapper.findAll('time').some(time => time.attributes('datetime') === row.currentPeriodStartUtc)).toBe(true);
@@ -91,21 +92,44 @@ describe('租户订阅操作台', () => {
   });
   it('详情刷新只更新原订阅', async () => {
     const { wrapper } = await panel({ readOnly: true }); await wrapper.get('[data-testid="tenant-subscription-detail"]').trigger('click');
-    vi.mocked(listTenantSubscriptions).mockResolvedValue(page([{ ...row, status: 'Cancelled', version: 5 }]));
+    vi.mocked(getTenantSubscription).mockResolvedValue({ ...row, status: 'Cancelled', version: 5 });
     await wrapper.get('[data-testid="subscription-detail-refresh"]').trigger('click'); await flushPromises();
     expect(wrapper.get('[data-testid="subscription-detail-id"]').text()).toBe(row.id); expect(wrapper.get('[data-testid="subscription-detail-status"]').text()).toBe('已取消'); wrapper.unmount();
   });
-  it('原订阅不在新结果时不把同位置其他订阅接入详情', async () => {
+  it('原订阅独立于列表页读取，不把同位置其他订阅接入详情', async () => {
     const { wrapper } = await panel({ readOnly: true }); await wrapper.get('[data-testid="tenant-subscription-detail"]').trigger('click');
     vi.mocked(listTenantSubscriptions).mockResolvedValue(page([{ ...row, id: id(8), status: 'Active', version: 9 }]));
+    vi.mocked(getTenantSubscription).mockResolvedValue({ ...row, status: 'Cancelled', version: 5 });
     await wrapper.get('[data-testid="subscription-detail-refresh"]').trigger('click'); await flushPromises();
-    expect(wrapper.get('[data-testid="subscription-detail-id"]').text()).toBe(row.id); expect(wrapper.find('[data-testid="subscription-detail-status"]').exists()).toBe(false);
-    expect(wrapper.text()).toContain('当前页或筛选未返回该订阅'); wrapper.unmount();
+    expect(wrapper.get('[data-testid="subscription-detail-id"]').text()).toBe(row.id); expect(wrapper.get('[data-testid="subscription-detail-status"]').text()).toBe('已取消');
+    expect(listTenantSubscriptions).toHaveBeenCalledTimes(1); expect(getTenantSubscription).toHaveBeenLastCalledWith(tenant.id, row.id, expect.any(AbortSignal)); wrapper.unmount();
   });
   it('详情刷新失败保留上次读取且明确提示', async () => {
     const { wrapper } = await panel({ readOnly: true }); await wrapper.get('[data-testid="tenant-subscription-detail"]').trigger('click');
-    vi.mocked(listTenantSubscriptions).mockRejectedValue(new Error('offline')); await wrapper.get('[data-testid="subscription-detail-refresh"]').trigger('click'); await flushPromises();
+    vi.mocked(getTenantSubscription).mockRejectedValue(new Error('offline')); await wrapper.get('[data-testid="subscription-detail-refresh"]').trigger('click'); await flushPromises();
     expect(wrapper.get('[data-testid="subscription-detail-status"]').text()).toBe('试用中'); expect(wrapper.text()).toContain('详情刷新失败，保留上次成功读取'); wrapper.unmount();
+  });
+  it.each([401, 403, 404])('原订阅明确拒绝 %s 后清除内容并保留目标 ID', async status => {
+    const { wrapper } = await panel({ readOnly: true }); await wrapper.get('[data-testid="tenant-subscription-detail"]').trigger('click'); await flushPromises();
+    vi.mocked(getTenantSubscription).mockRejectedValue({ status, code: status === 404 ? 'tenancy.tenant_subscription.not_found' : 'authorization.permission_denied' });
+    await wrapper.get('[data-testid="subscription-detail-refresh"]').trigger('click'); await flushPromises();
+    expect(wrapper.get('[data-testid="subscription-detail-id"]').text()).toBe(row.id); expect(wrapper.find('[data-testid="subscription-detail-status"]').exists()).toBe(false);
+    if (status !== 404) expect(wrapper.getComponent({ name: 'ElTable' }).props('data')).toEqual([]);
+    expect(wrapper.text()).toContain(status === 404 ? '原订阅不存在' : '无权读取原订阅'); wrapper.unmount();
+  });
+  it.each(['subscription', 'tenant'])('不接入错配 %s 的独立读取', async target => {
+    const { wrapper } = await panel({ readOnly: true }); await wrapper.get('[data-testid="tenant-subscription-detail"]').trigger('click'); await flushPromises();
+    vi.mocked(getTenantSubscription).mockResolvedValue({ ...row, ...(target === 'subscription' ? { id: id(8) } : { tenantId: id(8) }), status: 'Cancelled' });
+    await wrapper.get('[data-testid="subscription-detail-refresh"]').trigger('click'); await flushPromises();
+    expect(wrapper.get('[data-testid="subscription-detail-id"]').text()).toBe(row.id); expect(wrapper.get('[data-testid="subscription-detail-status"]').text()).toBe('试用中');
+    expect(wrapper.text()).toContain('响应与原目标不一致'); wrapper.unmount();
+  });
+  it('关闭详情取消独立读取，不接入迟到内容', async () => {
+    const pending = deferred<TenantSubscription>(); vi.mocked(getTenantSubscription).mockReturnValue(pending.promise);
+    const { wrapper } = await panel({ readOnly: true }); await wrapper.get('[data-testid="tenant-subscription-detail"]').trigger('click'); await flushPromises();
+    const signal = vi.mocked(getTenantSubscription).mock.calls[0]![2]!;
+    await wrapper.findAll('[data-testid="close"]').at(-1)!.trigger('click'); expect(signal.aborted).toBe(true);
+    pending.resolve({ ...row, status: 'Cancelled' }); await flushPromises(); expect(wrapper.find('[data-testid="subscription-detail-id"]').exists()).toBe(false); wrapper.unmount();
   });
   it('同一企业对象更新不会关闭原订阅详情', async () => {
     const { wrapper } = await panel({ readOnly: true }); await wrapper.get('[data-testid="tenant-subscription-detail"]').trigger('click');
@@ -114,10 +138,10 @@ describe('租户订阅操作台', () => {
   });
   it('撤权取消详情刷新并丢弃迟到内容', async () => {
     const { wrapper, session } = await panel({ readOnly: true }); await wrapper.get('[data-testid="tenant-subscription-detail"]').trigger('click');
-    const pending = deferred<ReturnType<typeof page>>(); vi.mocked(listTenantSubscriptions).mockReturnValue(pending.promise);
+    const pending = deferred<TenantSubscription>(); vi.mocked(getTenantSubscription).mockReturnValue(pending.promise);
     await wrapper.get('[data-testid="subscription-detail-refresh"]').trigger('click'); await flushPromises();
-    const signal = vi.mocked(listTenantSubscriptions).mock.calls.at(-1)![3]; session.currentUser!.permissions = []; await flushPromises(); expect(signal?.aborted).toBe(true);
-    pending.resolve(page([{ ...row, status: 'Cancelled' }])); await flushPromises(); expect(wrapper.find('[data-testid="subscription-detail-id"]').exists()).toBe(false); wrapper.unmount();
+    const signal = vi.mocked(getTenantSubscription).mock.calls.at(-1)![2]; session.currentUser!.permissions = []; await flushPromises(); expect(signal?.aborted).toBe(true);
+    pending.resolve({ ...row, status: 'Cancelled' }); await flushPromises(); expect(wrapper.find('[data-testid="subscription-detail-id"]').exists()).toBe(false); wrapper.unmount();
   });
   it.each(['Expired', 'Cancelled'])('终态 %s 不提供取消', async status => {
     vi.mocked(listTenantSubscriptions).mockResolvedValue(page([{ ...row, status }])); const { wrapper } = await panel();

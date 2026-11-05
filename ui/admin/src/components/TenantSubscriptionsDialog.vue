@@ -7,7 +7,7 @@ import { useSessionStore } from '../auth/session';
 import { useAdminI18n } from '../i18n/adminI18n';
 import { useAuthorizedViewScope } from '../composables/useAuthorizedViewScope';
 import { subscriptionBillingText } from '../i18n/subscription-billing';
-import { cancelTenantSubscription, createTenantSubscription, listTenantSubscriptions } from '../api/tenant-subscriptions';
+import { cancelTenantSubscription, createTenantSubscription, getTenantSubscription, listTenantSubscriptions } from '../api/tenant-subscriptions';
 import ArtFormDialog from '../framework/art-design/components/ArtFormDialog.vue';
 import PaidSubscriptionPurchase from './PaidSubscriptionPurchase.vue';
 import SubscriptionCheckoutAction from './SubscriptionCheckoutAction.vue';
@@ -29,6 +29,7 @@ type Confirmation = { tenantId: string; tenantName: string } & ({ action: 'trial
   | { action: 'cancel'; id: string; version: number });
 const confirmation = ref<Confirmation>();
 const detailId = ref<string>(); const detail = ref<TenantSubscription>(); const detailFailure = ref('');
+const detailLoading = ref(false);
 const paidOpen = ref(false); const checkoutOpen = ref(false);
 const background = computed(() => !!confirmation.value || !!detailId.value || paidOpen.value || checkoutOpen.value);
 const sameId = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
@@ -41,9 +42,10 @@ const scope = useAuthorizedViewScope(session, () => {
   status.value = '';
   uncertain.value = false; failure.value = ''; packageId.value = ''; confirmation.value = undefined; receipt.value = undefined;
   paidOpen.value = false; checkoutOpen.value = false;
-  detailId.value = undefined; detail.value = undefined; detailFailure.value = '';
+  detailId.value = undefined; detail.value = undefined; detailFailure.value = ''; detailLoading.value = false;
 }, () => { if (props.open) void load(); });
 let pending: ReturnType<typeof scope.begin>;
+let detailPending: ReturnType<typeof scope.begin>;
 watch([() => props.open, () => props.tenant?.id], () => {
   scope.invalidate(); if (props.open) void load();
 }, { flush: 'sync' });
@@ -52,32 +54,47 @@ async function load() {
   pending?.cancel(); confirmation.value = undefined;
   const operation = scope.begin('tenancy.tenant_subscriptions.read'); if (!operation) return;
   const target = props.tenant.id; const requestedPage = page.value; const requestedStatus = status.value;
-  pending = operation; loading.value = true; hasRead.value = false; failure.value = ''; detailFailure.value = '';
+  pending = operation; loading.value = true; hasRead.value = false; failure.value = '';
   try {
     const value = await (requestedStatus ? listTenantSubscriptions(target, requestedPage, 20, operation.signal, requestedStatus)
       : listTenantSubscriptions(target, requestedPage, 20, operation.signal));
     if (!operation.current() || !props.open || !props.tenant || !sameId(props.tenant.id, target)) return;
     if (value.page !== requestedPage || value.pageSize !== 20 || value.items.some(row => !sameId(row.tenantId, target) || (requestedStatus && row.status !== requestedStatus))) {
-      if (detailId.value) { detail.value = undefined; detailFailure.value = text('responseMismatch'); }
       failure.value = text('responseMismatch'); rows.value = []; total.value = 0; return;
     }
     rows.value = value.items; total.value = value.total; hasRead.value = true; uncertain.value = false;
-    if (detailId.value) {
-      // 刷新仍绑定原订阅；翻页/新增导致原项不在结果中时，不能接入同位置的另一条记录。
-      const current = value.items.find(row => sameId(row.id, detailId.value!));
-      detail.value = current ? { ...current } : undefined; detailFailure.value = current ? '' : text('detailOutsideResult');
-    }
   } catch {
-    if (operation.current()) { failure.value = text('historyFailed'); if (detailId.value) detailFailure.value = text('detailRefreshFailed'); }
+    if (operation.current()) failure.value = text('historyFailed');
   }
   finally { operation.finish(); if (pending === operation) { pending = undefined; loading.value = false; } }
 }
 function openDetail(row: TenantSubscription) {
   if (!props.open || !props.tenant || !canRead.value || background.value || loading.value || !hasRead.value || !sameId(row.tenantId, props.tenant.id)
     || !rows.value.some(current => sameId(current.id, row.id) && current.version === row.version)) return;
-  detailId.value = row.id; detail.value = { ...row }; detailFailure.value = '';
+  detailId.value = row.id; detail.value = { ...row }; detailFailure.value = ''; void refreshDetail();
 }
-function closeDetail() { detailId.value = undefined; detail.value = undefined; detailFailure.value = ''; }
+function closeDetail() { detailPending?.cancel(); detailPending = undefined; detailLoading.value = false; detailId.value = undefined; detail.value = undefined; detailFailure.value = ''; }
+async function refreshDetail() {
+  if (!props.open || !props.tenant || !detailId.value || !canRead.value || detailLoading.value) return;
+  const operation = scope.begin('tenancy.tenant_subscriptions.read'); if (!operation) return;
+  const tenantId = props.tenant.id; const subscriptionId = detailId.value;
+  detailPending = operation; detailLoading.value = true; detailFailure.value = '';
+  try {
+    const value = await getTenantSubscription(tenantId, subscriptionId, operation.signal);
+    if (!operation.current() || !props.open || !props.tenant || !sameId(props.tenant.id, tenantId) || detailId.value !== subscriptionId) return;
+    if (!sameId(value.tenantId, tenantId) || !sameId(value.id, subscriptionId)) { detailFailure.value = text('responseMismatch'); return; }
+    detail.value = value;
+  } catch (error) {
+    if (!operation.current() || detailId.value !== subscriptionId) return;
+    const statusCode = isFullNetProblemDetails(error) ? error.status : 0;
+    if ([401, 403, 404].includes(statusCode)) {
+      detail.value = undefined; hasRead.value = false;
+      if (statusCode !== 404) { rows.value = []; total.value = 0; }
+      failure.value = text(statusCode === 404 ? 'detailAbsent' : 'detailForbidden');
+    }
+    detailFailure.value = text(statusCode === 404 ? 'detailAbsent' : statusCode === 401 || statusCode === 403 ? 'detailForbidden' : 'detailRefreshFailed');
+  } finally { operation.finish(); if (detailPending === operation) { detailPending = undefined; detailLoading.value = false; } }
+}
 const detailPackage = computed(() => detail.value?.packageId
   ? props.packages.find(pkg => sameId(pkg.id, detail.value!.packageId!))?.name ?? text('detailPackageUnavailable') : '—');
 function beginTrial() {
@@ -184,7 +201,7 @@ function paidCreated() { emit('changed'); status.value = ''; page.value = 1; voi
     <p>{{ tenant?.name }}</p><code data-testid="subscription-detail-id">{{ detailId }}</code>
     <p>{{ text('detailSnapshotHint') }}</p>
     <ElAlert v-if="detailFailure" :title="detailFailure" type="warning" :closable="false" />
-    <ElButton data-testid="subscription-detail-refresh" :loading="loading" :disabled="!canRead" @click="load">{{ text('historyRefresh') }}</ElButton>
+    <ElButton data-testid="subscription-detail-refresh" :loading="detailLoading" :disabled="!canRead" @click="refreshDetail">{{ text('detailRefresh') }}</ElButton>
     <ElDescriptions v-if="detail" :column="1" border class="subscription-details">
       <ElDescriptionsItem :label="t('tenancy.tenantSubscriptions.status')"><span data-testid="subscription-detail-status">{{ statusLabel(detail.status) }}</span></ElDescriptionsItem>
       <ElDescriptionsItem :label="text('detailPeriodStart')"><time :datetime="detail.currentPeriodStartUtc">{{ formatDate(detail.currentPeriodStartUtc) }}</time></ElDescriptionsItem>

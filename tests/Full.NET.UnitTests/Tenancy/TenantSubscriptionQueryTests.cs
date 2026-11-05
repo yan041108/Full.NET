@@ -12,6 +12,26 @@ namespace Full.NET.UnitTests.Tenancy;
 public sealed class TenantSubscriptionQueryTests
 {
     [TestMethod]
+    public async Task Get_binds_original_tenant_and_id_and_preserves_terminal_history()
+    {
+        var queries = Substitute.For<IQueryExecutor>(); var tenant = Guid.CreateVersion7(); var id = Guid.CreateVersion7();
+        var now = DateTimeOffset.UtcNow;
+        queries.QuerySingleOrDefaultAsync<TenantSubscriptionRecord>(TenantSubscriptionSql.FindById,
+            Arg.Is<Dictionary<string, object?>>(p => (Guid)p!["TenantId"]! == tenant && (Guid)p["Id"]! == id), Arg.Any<CancellationToken>())
+            .Returns(new TenantSubscriptionRecord(id, tenant, null, "Cancelled", null, now.AddDays(-30), now, now, 7));
+        var result = await new TenantSubscriptionQueryService(queries).GetAsync(tenant, id);
+        Assert.IsTrue(result.IsSuccess); Assert.AreEqual(id, result.Value!.Id); Assert.AreEqual(tenant, result.Value.TenantId);
+        Assert.AreEqual("Cancelled", result.Value.Status); Assert.AreEqual(7, result.Value.Version); Assert.AreEqual(now, result.Value.CancelledAtUtc);
+    }
+
+    [TestMethod]
+    public async Task Get_returns_explicit_not_found_when_original_record_is_absent()
+    {
+        var result = await new TenantSubscriptionQueryService(Substitute.For<IQueryExecutor>()).GetAsync(Guid.CreateVersion7(), Guid.CreateVersion7());
+        Assert.IsFalse(result.IsSuccess); Assert.AreEqual(TenancyErrorCodes.SubscriptionNotFound, result.Error!.Code);
+    }
+
+    [TestMethod]
     [DataRow("Trial")]
     [DataRow("Active")]
     [DataRow("PastDue")]

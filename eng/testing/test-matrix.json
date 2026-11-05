@@ -7,6 +7,11 @@
       "minimum": 9616,
       "timeout": "10m",
       "selections": {
+        "subscription-original-detail": {
+          "filter": "FullyQualifiedName~TenantSubscriptionQueryTests.Get_",
+          "minimum": 2,
+          "timeout": "3m"
+        },
         "subscription-status-filter": {
           "filter": "FullyQualifiedName~TenantSubscriptionQueryTests",
           "minimum": 11,
@@ -825,6 +830,11 @@
       "minimum": 2,
       "timeout": "15m",
       "selections": {
+        "subscription-original-detail": {
+          "filter": "FullyQualifiedName~TenantSubscriptionStatusFilterApiTests",
+          "minimum": 2,
+          "timeout": "5m"
+        },
         "subscription-future-retry": {
           "filter": "FullyQualifiedName~SubscriptionBillingRecoveryTests",
           "minimum": 2,
