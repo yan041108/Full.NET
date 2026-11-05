@@ -14,6 +14,7 @@ import ArtTableHeader from '../framework/art-design/components/ArtTableHeader.vu
 import { useArtCrudTableLayout } from '../framework/art-design/composables/useArtCrudTableLayout';
 import { useAdminI18n } from '../i18n/adminI18n';
 import { listPaymentRefunds } from '../api/payment-refunds';
+import { formatPaymentAmount } from '../utils/payment-amount';
 
 defineOptions({ name: 'PaymentRefundsView' });
 
@@ -45,7 +46,7 @@ function toProblem(error: unknown, fallbackKey: Parameters<typeof t>[0]): FullNe
 }
 
 function formatAmount(minor: number): string {
-  return (minor / 100).toFixed(2);
+  return formatPaymentAmount(minor) ?? t('paymentOrders.amountUnavailable');
 }
 
 async function load(): Promise<void> {
@@ -74,7 +75,7 @@ onMounted(() => {
     <el-alert v-if="problem" type="error" :title="problem.title" show-icon class="art-page-alert" />
 
     <el-card class="art-full-height-card" shadow="never">
-      <ArtTableHeader />
+      <ArtTableHeader @refresh="load" />
 
       <div ref="tableMainRef" class="art-table-main">
         <el-table

@@ -8,9 +8,9 @@ import {
   ElFormItem,
   ElInput,
   ElMessage,
-  ElOption,
   ElPagination,
-  ElSelect,
+  ElRadio,
+  ElRadioGroup,
   ElTable,
   ElTableColumn,
   ElTag
@@ -25,6 +25,7 @@ import PermissionGate from '../components/PermissionGate.vue';
 import SubscriptionFulfillmentAction from '../components/SubscriptionFulfillmentAction.vue';
 import { useAdminI18n } from '../i18n/adminI18n';
 import { createPaymentOrder, listPaymentOrders, reconcilePaymentOrder, createPaymentRefund } from '../api/payment-orders';
+import { formatPaymentAmount, parsePaymentAmount } from '../utils/payment-amount';
 
 defineOptions({ name: 'PaymentOrdersView' });
 
@@ -75,7 +76,7 @@ function toProblem(error: unknown, fallbackKey: Parameters<typeof t>[0]): FullNe
 }
 
 function formatAmount(minor: number): string {
-  return (minor / 100).toFixed(2);
+  return formatPaymentAmount(minor) ?? t('paymentOrders.amountUnavailable');
 }
 
 async function load(): Promise<void> {
@@ -108,9 +109,9 @@ function openCreate(): void {
 }
 
 async function submitCreate(): Promise<void> {
-  const amount = Number.parseFloat(createForm.amountYuan);
-  if (!createForm.tenantId.trim() || Number.isNaN(amount) || amount <= 0 || !createForm.subject.trim()) {
-    ElMessage.warning(t('paymentOrders.createValidationFailed'));
+  const amountMinor = parsePaymentAmount(createForm.amountYuan);
+  if (!createForm.tenantId.trim() || amountMinor === undefined || !createForm.subject.trim()) {
+    ElMessage.warning(t(amountMinor === undefined ? 'paymentOrders.amountValidationFailed' : 'paymentOrders.createValidationFailed'));
     return;
   }
   changing.value = true;
@@ -120,7 +121,7 @@ async function submitCreate(): Promise<void> {
       tenantId: createForm.tenantId.trim(),
       channelKey: createForm.merchantConfigId.trim() ? null : createForm.channelKey,
       merchantConfigId: createForm.merchantConfigId.trim() || null,
-      amountMinor: Math.round(amount * 100),
+      amountMinor,
       currency: 'CNY',
       subject: createForm.subject.trim(),
       description: createForm.description.trim() || null
@@ -161,9 +162,9 @@ async function submitRefund(): Promise<void> {
     return;
   }
   const amountYuan = refundForm.amountYuan.trim();
-  const amountMinor = amountYuan ? Math.round(Number.parseFloat(amountYuan) * 100) : null;
-  if (amountMinor !== null && (!Number.isSafeInteger(amountMinor) || amountMinor <= 0)) {
-    ElMessage.warning(t('paymentOrders.refundValidationFailed'));
+  const amountMinor = amountYuan ? parsePaymentAmount(amountYuan) : null;
+  if (amountMinor === undefined) {
+    ElMessage.warning(t('paymentOrders.amountValidationFailed'));
     return;
   }
   changing.value = true;
@@ -201,7 +202,7 @@ onMounted(() => {
     />
 
     <el-card class="art-full-height-card" shadow="never">
-      <ArtTableHeader>
+      <ArtTableHeader @refresh="load">
         <template #left>
           <PermissionGate code="payments.orders.create">
             <el-button type="primary" :icon="Plus" data-testid="payment-order-create" @click="openCreate">
@@ -245,7 +246,7 @@ onMounted(() => {
                   {{ t('paymentOrders.reconcile') }}
                 </el-button>
               </PermissionGate>
-              <PermissionGate code="payments.orders.refund">
+              <PermissionGate code="payments.refunds.create">
                 <el-button
                   link
                   type="warning"
@@ -274,26 +275,27 @@ onMounted(() => {
       v-model:open="createOpen"
       :title="t('paymentOrders.createTitle')"
       :saving="changing"
+      confirm-test-id="payment-order-create-confirm"
       @confirm="submitCreate"
     >
       <el-form label-width="120px">
         <el-form-item :label="t('paymentOrders.fieldTenantId')" required>
-          <el-input v-model="createForm.tenantId" />
+          <el-input v-model="createForm.tenantId" data-testid="payment-order-create-tenant" />
         </el-form-item>
         <el-form-item :label="t('paymentOrders.fieldChannelKey')">
-          <el-select v-model="createForm.channelKey" :disabled="Boolean(createForm.merchantConfigId.trim())">
-            <el-option :label="t('paymentOrders.channelWeChatNative')" value="wechat_native" />
-            <el-option :label="t('paymentOrders.channelAlipayPage')" value="alipay_page" />
-          </el-select>
+          <ElRadioGroup v-model="createForm.channelKey" class="payment-channel-options" :aria-label="t('paymentOrders.fieldChannelKey')" :disabled="Boolean(createForm.merchantConfigId.trim())">
+            <ElRadio value="wechat_native">{{ t('paymentOrders.channelWeChatNative') }}</ElRadio>
+            <ElRadio value="alipay_page">{{ t('paymentOrders.channelAlipayPage') }}</ElRadio>
+          </ElRadioGroup>
         </el-form-item>
         <el-form-item :label="t('paymentOrders.fieldMerchantConfigId')">
-          <el-input v-model="createForm.merchantConfigId" />
+          <el-input v-model="createForm.merchantConfigId" data-testid="payment-order-create-merchant" />
         </el-form-item>
         <el-form-item :label="t('paymentOrders.fieldAmountYuan')" required>
-          <el-input v-model="createForm.amountYuan" />
+          <el-input v-model="createForm.amountYuan" inputmode="decimal" maxlength="18" data-testid="payment-order-create-amount" />
         </el-form-item>
         <el-form-item :label="t('paymentOrders.fieldSubject')" required>
-          <el-input v-model="createForm.subject" />
+          <el-input v-model="createForm.subject" data-testid="payment-order-create-subject" />
         </el-form-item>
         <el-form-item :label="t('paymentOrders.fieldDescription')">
           <el-input v-model="createForm.description" type="textarea" :rows="3" />
@@ -305,16 +307,21 @@ onMounted(() => {
       v-model:open="refundOpen"
       :title="t('paymentOrders.refundTitle')"
       :saving="changing"
+      confirm-test-id="payment-order-refund-confirm"
       @confirm="submitRefund"
     >
       <el-form label-width="120px">
         <el-form-item :label="t('paymentOrders.refundReason')" required>
-          <el-input v-model="refundForm.reason" type="textarea" :rows="3" />
+          <el-input v-model="refundForm.reason" type="textarea" :rows="3" data-testid="payment-order-refund-reason" />
         </el-form-item>
         <el-form-item :label="t('paymentOrders.refundAmountYuan')">
-          <el-input v-model="refundForm.amountYuan" />
+          <el-input v-model="refundForm.amountYuan" inputmode="decimal" maxlength="18" data-testid="payment-order-refund-amount" />
         </el-form-item>
       </el-form>
     </ArtFormDialog>
   </section>
 </template>
+<style scoped>
+.payment-channel-options { display: flex; flex-wrap: wrap; gap: 4px 16px; }
+.payment-channel-options .el-radio { margin-right: 0; }
+</style>
