@@ -81,7 +81,7 @@ node --test samples/enterprise-request/tests/schema.test.mjs
 
 应用迁移 002 增加自有交付日记；应用 Worker 显式装配此模块后默认每 5 秒恢复上传/报表及清理任务，`EnterpriseRequest:Delivery:Enabled=false` 可停止恢复线程。API 只保存意图和执行业务入口，不自行启动交付 Worker。Reporting/Printing 必须在应用模块集合中启用，分别通过 Workbook/Form Renderer Contract 消费已授权投影；它们不查询样例数据库表。
 
-`/enterprise-requests` 行操作“附件与文档”提供附件、工作簿和打印。附件读/管理、报表创建/读/取消、打印及文档金额使用独立 `enterprise_request.attachments.*`、`reports.*`、`documents.*` 权限；报表/打印同时要求主单与明细读取权限。文档金额策略不改变原 CRUD 行为。任务固定原会话和源版本，下载仍需当前对象权限，不能把 Ready 状态当作已授权的永久链接。
+`/enterprise-requests` 行操作“附件与文档”提供附件、工作簿和打印。附件读/管理、报表创建/读/取消、打印及文档金额使用独立 `enterprise_request.attachments.*`、`reports.*`、`documents.*` 权限；报表/打印同时要求主单与明细读取权限。文档金额策略不改变原 CRUD 行为。任务固定原会话和源版本，下载仍需当前对象权限，不能把 Ready 状态当作已授权的永久链接。文件打开后的状态、会话、来源复核仍可能失败；失败、异常及取消由交付服务释放已打开的流，只有成功返回后才转移给 HTTP/直接调用方释放，不返回部分成功文件。
 
 文档弹窗由页面持有，上传或删除附件刷新列表后可继续生成报表和打印。会话、租户或权限变化清除预览并取消在途读取/下载，不接纳撤权前的迟到结果；Worker 从当前权威数据范围重新读取单据，不能借后台身份扩大部门可见范围。
 

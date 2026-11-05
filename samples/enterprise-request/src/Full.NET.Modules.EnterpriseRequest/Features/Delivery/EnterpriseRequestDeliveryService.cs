@@ -224,33 +224,33 @@ internal sealed class EnterpriseRequestDeliveryService(IQueryExecutor queries, I
         }
         var opened = await files.OpenReadyContentAsync(work.Owner, work.Id, work.FileId.Value, token).ConfigureAwait(false);
         if (!opened.IsSuccess) return opened;
-        // 取消和删除可能发生在存储打开期间；交付前复核持久状态，不能只依赖先前的就绪快照。
-        var current = await processor.FindAsync(id, token).ConfigureAwait(false);
-        if (current is null || current.Phase != "Ready" || current.FileId != work.FileId
-            || (kind == "Report" && current.ExpiresAtUtc <= clock.UtcNow))
+        var transferred = false;
+        try
         {
-            await opened.Value!.Content.DisposeAsync().ConfigureAwait(false);
-            return Failure<TenantResourceFileContent>("enterprise_request.delivery_not_found", ErrorType.NotFound);
-        }
-        // 文件打开耗时期间的会话/对象撤权仍须拒绝交付，拒绝时释放已打开的流。
-        authorized = await access.ReadAsync(requestId, binding, [EnterpriseRequestPermissions.Read, permission], token).ConfigureAwait(false);
-        if (!authorized.IsSuccess)
-        {
-            await opened.Value!.Content.DisposeAsync().ConfigureAwait(false);
-            return Result<TenantResourceFileContent>.Failure(authorized.Error!);
-        }
-        if (kind == "Report")
-        {
-            var source = await snapshots.ReadAsync(requestId, binding, [EnterpriseRequestDeliveryPermissions.ReportsRead],
-                work.RequestedVersion, work.IncludesAmounts, token).ConfigureAwait(false);
-            if (!source.IsSuccess || source.Value!.Digest() != work.SourceDigest)
+            // 取消和删除可能发生在存储打开期间，交付前复核持久状态和当前授权。
+            var current = await processor.FindAsync(id, token).ConfigureAwait(false);
+            if (current is null || current.Phase != "Ready" || current.FileId != work.FileId
+                || (kind == "Report" && current.ExpiresAtUtc <= clock.UtcNow))
+                return Failure<TenantResourceFileContent>("enterprise_request.delivery_not_found", ErrorType.NotFound);
+            authorized = await access.ReadAsync(requestId, binding, [EnterpriseRequestPermissions.Read, permission], token).ConfigureAwait(false);
+            if (!authorized.IsSuccess) return Result<TenantResourceFileContent>.Failure(authorized.Error!);
+            if (kind == "Report")
             {
-                await opened.Value!.Content.DisposeAsync().ConfigureAwait(false);
-                return source.IsSuccess ? Failure<TenantResourceFileContent>("enterprise_request.delivery_version_conflict")
-                    : Result<TenantResourceFileContent>.Failure(source.Error!);
+                var source = await snapshots.ReadAsync(requestId, binding, [EnterpriseRequestDeliveryPermissions.ReportsRead],
+                    work.RequestedVersion, work.IncludesAmounts, token).ConfigureAwait(false);
+                if (!source.IsSuccess || source.Value!.Digest() != work.SourceDigest)
+                    return source.IsSuccess ? Failure<TenantResourceFileContent>("enterprise_request.delivery_version_conflict")
+                        : Result<TenantResourceFileContent>.Failure(source.Error!);
             }
+            token.ThrowIfCancellationRequested();
+            transferred = true;
+            return opened;
         }
-        return opened;
+        finally
+        {
+            // 仅成功交付后转移流所有权；复核失败、异常和取消统一释放。
+            if (!transferred) await opened.Value!.Content.DisposeAsync().ConfigureAwait(false);
+        }
     }
 
     internal async Task<Result<EnterpriseRequestPrintResponse>> PrintAsync(Guid requestId, SessionBindingSnapshot binding, CancellationToken token)
