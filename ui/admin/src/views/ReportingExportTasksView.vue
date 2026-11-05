@@ -42,6 +42,7 @@ import { useAuthorizedViewScope } from '../composables/useAuthorizedViewScope';
 import { useBoundedPolling } from '../composables/useBoundedPolling';
 import { useUnavailableResultFiles } from '../composables/useUnavailableResultFiles';
 import { listReportingPublishedDefinitions } from '../api/reporting-publications';
+import { translateReportingExportRecovery } from '@fullnet/admin-i18n';
 import {
   createReportingExportTask,
   cancelReportingExportTask,
@@ -55,9 +56,14 @@ defineOptions({ name: 'ReportingExportTasksView' });
 const session = useSessionStore();
 const route = inject(routeLocationKey, undefined);
 const pageActive = ref(false); let linkBlocked = false; let linkedTaskId: string | undefined;
+const narrowViewport = ref(false); let viewportQuery: MediaQueryList | undefined;
+function updateViewport() { narrowViewport.value = viewportQuery?.matches ?? false; }
+onMounted(() => { if (typeof window.matchMedia !== 'function') return; viewportQuery = window.matchMedia('(max-width: 640px)');
+  updateViewport(); viewportQuery.addEventListener?.('change', updateViewport); });
+onBeforeUnmount(() => viewportQuery?.removeEventListener?.('change', updateViewport));
 onMounted(() => { pageActive.value = true; }); onActivated(() => { pageActive.value = true; });
 onDeactivated(() => { pageActive.value = false; }); onBeforeUnmount(() => { pageActive.value = false; });
-const { t } = useAdminI18n();
+const { t, locale } = useAdminI18n();
 const items = ref<ReportingExportTask[]>([]);
 const definitions = ref<ReportingPublishedDefinition[]>([]);
 const loading = ref(false);
@@ -110,7 +116,14 @@ type Receipt = { sequence: number; kind: 'create' | 'cancel'; definitionId: stri
 const receipt = ref<Receipt>(); let receiptSequence = 0, listSequence = 0, recoverySequence = 0;
 const creationBlocks = ref(new Map<string, number>()), cancellationBlocks = ref(new Map<string, ReportingExportTask>()), confirmedCancellations = ref(new Map<string, ReportingExportTaskDetail>());
 const recoveryConfirmation = ref<{ token: number; confirm: () => void; update: (open: boolean) => void }>();
-const createIntent = computed(() => selectedDefinition.value ? JSON.stringify([versionKey(selectedDefinition.value), 'excel', ...parameterSchema.value.map(parameter => [parameter.parameterKey, parameterValues.get(parameter.parameterKey) ?? null])]) : '');
+type Regeneration = Readonly<{ taskId: string; sourceStatusKey: string; definitionId: string; definitionName: string; versionNumber: number; parameters: readonly Readonly<ReportingExportTaskParameterValue>[] }>;
+const regeneration = ref<Regeneration>();
+const recoveryText = (key: Parameters<typeof translateReportingExportRecovery>[1]) => translateReportingExportRecovery(locale.value, key);
+const normalizedParameters = (parameters: readonly Readonly<ReportingExportTaskParameterValue>[]) => parameters.map(parameter => [parameter.parameterKey, parameter.value] as const)
+  .sort(([left], [right]) => left < right ? -1 : left > right ? 1 : 0);
+const creationKey = (id: string, version: number, parameters: readonly Readonly<ReportingExportTaskParameterValue>[]) => JSON.stringify([id.toLowerCase() + ':' + version, 'excel', ...normalizedParameters(parameters)]);
+const createIntent = computed(() => regeneration.value ? creationKey(regeneration.value.definitionId, regeneration.value.versionNumber, regeneration.value.parameters)
+  : selectedDefinition.value ? creationKey(selectedDefinition.value.id, selectedDefinition.value.versionNumber, parameterSchema.value.map(parameter => ({ parameterKey: parameter.parameterKey, value: parameterValues.get(parameter.parameterKey) ?? null }))) : '');
 const createBlocked = computed(() => creationBlocks.value.has(createIntent.value));
 let creatingIntent: { key: string; receipt: Receipt } | undefined;
 let cancellingTask: { task: ReportingExportTask; receipt: Receipt } | undefined;
@@ -137,7 +150,7 @@ function cancelCreate(): void {
 // 关闭只取消客户端接入，不承诺撤销已经提交到服务端的导出任务。
 watch(createDialogVisible, visible => {
   createOwner.value++; recoveryConfirmation.value = undefined;
-  if (!visible) { cancelCreate(); resetParameters(); }
+  if (!visible) { cancelCreate(); regeneration.value = undefined; resetParameters(); }
 }, {flush:'sync'});
 watch(selectedDefinitionVersionKey, resetParameters, { flush: 'sync' });
 watch(() => JSON.stringify(selectedDefinition.value), resetParameters, { flush: 'sync' });
@@ -146,7 +159,7 @@ const createControls = computed(() => {
   const owner = createOwner.value, open = createDialogVisible.value, intent = createIntent.value;
   const owned = () => owner === createOwner.value && open && createDialogVisible.value && intent === createIntent.value && canCreate();
   return { update: (value: boolean) => { if (!value && owned()) createDialogVisible.value = false; }, close: () => { if (owned()) createDialogVisible.value = false; },
-    select: (value: string) => { if (owned() && !busy.value) selectedDefinitionVersionKey.value = value; }, submit: () => { if (owned()) void submitCreate(); }, refresh: () => { if (owned() && !busy.value) void loadDefinitions(); }, recovery: () => { if (owned()) acknowledgeCreate(); },
+    select: (value: string) => { if (owned() && !busy.value && !regeneration.value) selectedDefinitionVersionKey.value = value; }, submit: () => { if (owned()) void submitCreate(); }, refresh: () => { if (owned() && !busy.value && !regeneration.value) void loadDefinitions(); }, recovery: () => { if (owned()) acknowledgeCreate(); },
     parameters: parameterSchema.value.map(parameter => ({ ...parameter, input: (value: string) => { if (owned() && !busy.value) parameterValues.set(parameter.parameterKey, value); } })) };
 });
 const scope = useAuthorizedViewScope(session, () => {
@@ -155,7 +168,7 @@ const scope = useAuthorizedViewScope(session, () => {
   unavailableFiles.reset();
   items.value = []; definitions.value = []; selectedDefinitionVersionKey.value = ''; total.value = 0; page.value = 1;
   problem.value = undefined; createDialogVisible.value = false; loading.value = false; creating.value = false; downloading.value = false;
-  resetParameters();
+  regeneration.value = undefined; resetParameters();
   detailOwner.value++; detailTargetId.value = ''; detailProblem.value = undefined; definitionsProblem.value = undefined; definitionsLoading.value = false;
   receipt.value = undefined; creationBlocks.value = new Map(); cancellationBlocks.value = new Map(); confirmedCancellations.value = new Map(); creatingIntent = undefined; cancellingTask = undefined; recoveryConfirmation.value = undefined;
   lastQuery = undefined; listControls.value = makeListControls();
@@ -316,15 +329,17 @@ async function load(recoverPage = true): Promise<boolean> {
 
 async function openCreateDialog(): Promise<void> {
   if (!canCreate() || creating.value || downloading.value || cancelling.value || cancelDialogVisible.value) return;
-  detailVisible.value = false;
+  detailVisible.value = false; regeneration.value = undefined;
   createDialogVisible.value = true;
   resetParameters();
   await loadDefinitions();
 }
 
 async function submitCreate(): Promise<void> {
+  const original = regeneration.value;
   const selected = selectedDefinition.value;
-  const definition = selected ? { ...selected, parameterSchema: selected.parameterSchema.map(parameter => ({ ...parameter })) } : undefined;
+  const definition = original ? { id: original.definitionId, versionNumber: original.versionNumber }
+    : selected ? { id: selected.id, versionNumber: selected.versionNumber } : undefined;
   if (!canCreate() || !session.can('reporting.published_definitions.read') || !createDialogVisible.value || createBlocked.value || !definition || busy.value || cancelDialogVisible.value) {
     return;
   }
@@ -336,7 +351,7 @@ async function submitCreate(): Promise<void> {
   creatingIntent = { key: createIntent.value, receipt: { ...receipt.value } };
   loadRequest?.cancel(); detailRequest?.cancel(); loading.value = false; detailLoading.value = false;
   try {
-    const parameters: ReportingExportTaskParameterValue[] = definition.parameterSchema.map(parameter => ({
+    const parameters: ReportingExportTaskParameterValue[] = original ? original.parameters.map(parameter => ({ ...parameter })) : parameterSchema.value.map(parameter => ({
       parameterKey: parameter.parameterKey,
       value: parameterValues.get(parameter.parameterKey) ?? null
     }));
@@ -349,7 +364,8 @@ async function submitCreate(): Promise<void> {
     if (!request.current()) return;
     // 创建成功必须对应选中的发布版本和格式，不能将其他任务误认为本次结果。
     if (task.definitionId.toLowerCase() !== definition.id.toLowerCase() || task.versionNumber !== definition.versionNumber || task.formatKey !== 'excel'
-      || !isGuid(task.id) || task.id === '00000000-0000-0000-0000-000000000000' || task.requestedByUserId.toLowerCase() !== session.currentUser?.id.toLowerCase())
+      || !isGuid(task.id) || task.id === '00000000-0000-0000-0000-000000000000' || task.requestedByUserId.toLowerCase() !== session.currentUser?.id.toLowerCase()
+      || JSON.stringify(normalizedParameters(task.parameters)) !== JSON.stringify(normalizedParameters(parameters)) || original && sameId(task.id, original.taskId))
       throw new Error('client.invalid_reporting_export_task_identity');
     receipt.value = { ...receipt.value!, taskId: task.id, outcome: 'succeeded' };
     creatingIntent = undefined; createRequest = undefined; creating.value = false; loadRequest?.cancel(); detailRequest?.cancel(); loading.value = false; detailLoading.value = false;
@@ -378,6 +394,35 @@ function sameTaskSource(left: ReportingExportTask, right: ReportingExportTask): 
     && sameId(left.requestedByUserId, right.requestedByUserId) && left.createdAtUtc === right.createdAtUtc;
 }
 const isUnknown = (error: unknown) => !isFullNetProblemDetails(error) || error.status < 400 || error.status >= 500 || error.status === 408;
+function canRegenerate(task: ReportingExportTaskDetail) {
+  return canCreate() && (['failed', 'canceled'].includes(task.statusKey) || task.statusKey === 'succeeded' && unavailableFiles.isUnavailable(task.id))
+    && task.formatKey === 'excel' && sameId(task.requestedByUserId, session.currentUser?.id)
+    && !busy.value && !detailLoading.value && !detailProblem.value && !cancelDialogVisible.value;
+}
+async function prepareRegeneration(source: ReportingExportTaskDetail) {
+  if (!canRegenerate(source) || !detailVisible.value || !currentTask(source)) return;
+  const original = { ...source, parameters: source.parameters.map(parameter => ({ ...parameter })) }; const owner = detailOwner.value;
+  detailRequest?.cancel(); const request = begin('reporting.export_tasks.read'); if (!request) return; detailRequest = request; detailLoading.value = true;
+  try {
+    const current = await getReportingExportTask(original.id, request.signal);
+    if (!request.current() || owner !== detailOwner.value || !detailVisible.value || !canCreate()) return;
+    if (!sameTaskSource(current, original) || current.statusKey !== original.statusKey || current.formatKey !== 'excel'
+      || !isGuid(current.id) || current.id === '00000000-0000-0000-0000-000000000000' || !isGuid(current.definitionId) || current.definitionId === '00000000-0000-0000-0000-000000000000'
+      || !Number.isSafeInteger(current.version) || current.version < original.version
+      || current.outputFileId !== original.outputFileId || !sameId(current.requestedByUserId, session.currentUser?.id)
+      || !Number.isSafeInteger(current.versionNumber) || current.versionNumber < 1
+      || new Set(current.parameters.map(parameter => parameter.parameterKey)).size !== current.parameters.length
+      || current.parameters.some(parameter => !parameter.parameterKey.trim() || parameter.value !== null && typeof parameter.value !== 'string')
+      || JSON.stringify(normalizedParameters(current.parameters)) !== JSON.stringify(normalizedParameters(original.parameters)))
+      throw { type: 'about:blank', status: 409, code: 'client.original_export_changed', title: recoveryText('changed') };
+    // 原参数与发布版本只读冻结；重生成仍创建新任务，不复活旧文件或切换到最新目录。
+    definitionsRequest?.cancel(); definitionsLoading.value = false; definitionsProblem.value = undefined;
+    regeneration.value = Object.freeze({ taskId: current.id, sourceStatusKey: current.statusKey, definitionId: current.definitionId, definitionName: current.definitionName, versionNumber: current.versionNumber,
+      parameters: Object.freeze(current.parameters.map(parameter => Object.freeze({ ...parameter }))) });
+    detailRequest = undefined; detailLoading.value = false; detailVisible.value = false; createDialogVisible.value = true;
+  } catch (error) { if (request.current() && owner === detailOwner.value) detailProblem.value = isFullNetProblemDetails(error) ? error : toProblem(error, 'reportingExportTasks.loadFailed'); }
+  finally { if (request.current() && owner === detailOwner.value) detailLoading.value = false; request.finish(); }
+}
 function acknowledgeCreate(): void {
   if (!canCreate() || !createDialogVisible.value || busy.value || !createBlocked.value) return;
   const key = createIntent.value, sequence = creationBlocks.value.get(key), owner = createOwner.value, token = ++recoverySequence;
@@ -388,7 +433,8 @@ const detailControls = computed(() => {
   const owner = detailOwner.value, id = detailTargetId.value, task = selectedTask.value ? { ...selectedTask.value } : undefined;
   const owned = () => owner === detailOwner.value && detailVisible.value && canRead() && (!task || !!currentTask(task));
   return { update: (open: boolean) => { if (!open && owner === detailOwner.value && canRead()) detailVisible.value = false; }, refresh: () => { if (owned() && !busy.value && !detailLoading.value) { unavailableFiles.reset(); void refreshDetail(id); } },
-    download: () => { if (owned() && task) void downloadTask(task); }, cancel: () => { if (owned() && task) requestCancellation(task); } };
+    download: () => { if (owned() && task) void downloadTask(task); }, cancel: () => { if (owned() && task) requestCancellation(task); },
+    regenerate: () => { if (owned() && task && 'parameters' in task) void prepareRegeneration(task as ReportingExportTaskDetail); } };
 });
 
 // 行事件只能操作当前目录/详情的同一结果快照，不接受失效行或替换后的文件。
@@ -579,7 +625,7 @@ function markCancelUnconfirmed(): void {
           <ElTableColumn prop="rowCount" :label="t('reportingExportTasks.fieldRowCount')" width="100" />
           <ElTableColumn prop="createdAtUtc" :label="t('reportingExportTasks.fieldCreatedAt')" min-width="180" />
           <!-- @vue-generic {ReportingExportTaskRow} -->
-          <ElTableColumn :label="t('reportingExportTasks.actions')" width="120" fixed="right">
+          <ElTableColumn :label="t('reportingExportTasks.actions')" width="200" :fixed="narrowViewport ? undefined : 'right'">
             <template #default="{ row }">
               <ArtTableActionGroup>
                 <PermissionGate code="reporting.export_tasks.read"><ElButton link type="primary" data-testid="reporting-export-detail"
@@ -596,13 +642,13 @@ function markCancelUnconfirmed(): void {
                   >
                     {{ t('reportingExportTasks.download') }}
                   </ElButton>
-                  <span v-if="unavailableFiles.isUnavailable(row.id)" data-testid="reporting-result-unavailable" role="status">{{ t('dataOutput.resultUnavailable') }}</span>
                 </PermissionGate>
                 <ElButton v-if="isCancellable(row)" link type="warning" data-testid="reporting-export-cancel"
                   :data-task-id="row.id" :disabled="cancelling || creating || downloading" v-on="{ click: row.cancel }">
                   {{ t('common.cancel') }}
                 </ElButton>
               </ArtTableActionGroup>
+              <p v-if="canDownload() && unavailableFiles.isUnavailable(row.id)" class="reporting-result-hint" data-testid="reporting-result-unavailable" role="status">{{ t('dataOutput.resultUnavailable') }}</p>
             </template>
           </ElTableColumn>
         </ElTable>
@@ -642,6 +688,8 @@ function markCancelUnconfirmed(): void {
             data-testid="reporting-export-detail-download" :data-task-id="selectedTask.id" :disabled="detailLoading || downloading || cancelling || unavailableFiles.isUnavailable(selectedTask.id)"
             v-on="{ click: detailControls.download }">{{ t('reportingExportTasks.download') }}</ElButton></PermissionGate>
           <span v-if="unavailableFiles.isUnavailable(selectedTask.id)" role="status">{{ t('dataOutput.resultUnavailable') }}</span>
+          <ElButton v-if="(['failed', 'canceled'].includes(selectedTask.statusKey) || selectedTask.statusKey === 'succeeded' && unavailableFiles.isUnavailable(selectedTask.id)) && canCreate() && sameId(selectedTask.requestedByUserId, session.currentUser?.id)"
+            data-testid="reporting-export-regenerate" :disabled="!canRegenerate(selectedTask)" v-on="{ click: detailControls.regenerate }">{{ recoveryText('action') }}</ElButton>
           <ElButton v-if="isCancellable(selectedTask) || selectedTask.statusKey === 'queued' && sameId(selectedTask.requestedByUserId, session.currentUser?.id) && session.can('reporting.export_tasks.cancel')" data-testid="reporting-export-detail-cancel" :disabled="detailLoading || cancelling || creating || downloading || cancellationBlocks.has(selectedTask.id.toLowerCase())"
             v-on="{ click: detailControls.cancel }">{{ t('common.cancel') }}</ElButton>
         </template>
@@ -650,14 +698,21 @@ function markCancelUnconfirmed(): void {
     <ElDialog
       :model-value="createDialogVisible"
       v-on="{ 'update:modelValue': createControls.update }"
-      :title="t('reportingExportTasks.createTitle')"
+      :title="regeneration ? recoveryText('title') : t('reportingExportTasks.createTitle')"
       width="min(520px, calc(100vw - 32px))"
     >
       <ElAlert v-if="definitionsProblem" data-testid="reporting-export-definitions-problem" type="error" :closable="false" :title="definitionsProblem.title" :description="definitionsProblem.code" />
-      <PermissionGate code="reporting.published_definitions.read"><ElButton data-testid="reporting-export-definitions-refresh" :disabled="busy" v-on="{ click: createControls.refresh }">{{ t('reportingExportTasks.refreshDefinitions') }}</ElButton></PermissionGate>
+      <PermissionGate v-if="!regeneration" code="reporting.published_definitions.read"><ElButton data-testid="reporting-export-definitions-refresh" :disabled="busy" v-on="{ click: createControls.refresh }">{{ t('reportingExportTasks.refreshDefinitions') }}</ElButton></PermissionGate>
       <ElAlert v-if="createBlocked" type="warning" :closable="false" :title="t('reportingExportTasks.recoveryHint')" />
       <ElButton v-if="createBlocked" data-testid="reporting-export-recovery" :disabled="busy" v-on="{ click: createControls.recovery }">{{ t('reportingExportTasks.reviewCreation') }}</ElButton>
-      <ElForm label-width="120px">
+      <div v-if="regeneration" data-testid="reporting-export-regeneration-snapshot" class="export-regeneration">
+        <p>{{ recoveryText(regeneration.sourceStatusKey === 'succeeded' ? 'notice' : 'terminalNotice') }}</p><p>{{ recoveryText('source') }} <code>{{ regeneration.taskId }}</code></p>
+        <p>{{ t('reportingExportTasks.fieldStatus') }} {{ statusLabel(regeneration.sourceStatusKey) }}</p>
+        <p>{{ t('reportingExportTasks.fieldDefinition') }} {{ regeneration.definitionName }} <code>{{ regeneration.definitionId }}</code></p>
+        <p>{{ recoveryText('version') }} {{ regeneration.versionNumber }}</p>
+        <ElTable :data="[...regeneration.parameters]"><ElTableColumn prop="parameterKey" :label="t('reportingExportTasks.parameterKey')" /><ElTableColumn :label="t('reportingExportTasks.parameterValue')"><template #default="{ row }"><span class="regeneration-parameter-value">{{ row.value === null ? recoveryText('nullValue') : row.value === '' ? recoveryText('emptyValue') : row.value }}</span></template></ElTableColumn></ElTable>
+      </div>
+      <ElForm v-else label-width="120px">
         <ElFormItem :label="t('reportingExportTasks.fieldDefinition')" required>
           <ElSelect
             :model-value="selectedDefinitionVersionKey"
@@ -692,7 +747,7 @@ function markCancelUnconfirmed(): void {
         <PermissionGate code="reporting.export_tasks.create"><ElButton
           type="primary"
           :loading="creating"
-          :disabled="!selectedDefinition || busy || createBlocked || !session.can('reporting.published_definitions.read')"
+          :disabled="(!regeneration && !selectedDefinition) || busy || createBlocked || !session.can('reporting.published_definitions.read')"
           data-testid="reporting-export-submit"
           v-on="{ click: createControls.submit }"
         >
@@ -716,3 +771,9 @@ function markCancelUnconfirmed(): void {
     </ElDialog>
   </div>
 </template>
+
+<style scoped>
+.export-regeneration { overflow-wrap: anywhere; }
+.regeneration-parameter-value { white-space: pre-wrap; }
+.reporting-result-hint { margin: 4px 0 0; line-height: 1.4; overflow-wrap: anywhere; }
+</style>
