@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
-import { ElAlert, ElButton, ElDescriptions, ElDescriptionsItem, ElOption, ElPagination, ElRadio, ElRadioGroup, ElSelect, ElTable, ElTableColumn } from 'element-plus';
+import { ElAlert, ElButton, ElDescriptions, ElDescriptionsItem, ElInput, ElOption, ElPagination, ElRadio, ElRadioGroup, ElSelect, ElTable, ElTableColumn } from 'element-plus';
 import type { CreateTenantSubscriptionBody, HostTenant, HostTenantPackage, TenantSubscription } from '@fullnet/client-contracts';
-import { isFullNetProblemDetails } from '@fullnet/client-contracts';
+import { isFullNetProblemDetails, isGuid } from '@fullnet/client-contracts';
 import { useSessionStore } from '../auth/session';
 import { useAdminI18n } from '../i18n/adminI18n';
 import { useAuthorizedViewScope } from '../composables/useAuthorizedViewScope';
@@ -30,6 +30,7 @@ type Confirmation = { tenantId: string; tenantName: string } & ({ action: 'trial
 const confirmation = ref<Confirmation>();
 const detailId = ref<string>(); const detail = ref<TenantSubscription>(); const detailFailure = ref('');
 const detailLoading = ref(false);
+const lookupId = ref(''); const lookupTarget = computed(() => lookupId.value.trim().toLowerCase());
 const paidOpen = ref(false); const checkoutOpen = ref(false);
 const background = computed(() => !!confirmation.value || !!detailId.value || paidOpen.value || checkoutOpen.value);
 const sameId = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
@@ -43,6 +44,7 @@ const scope = useAuthorizedViewScope(session, () => {
   uncertain.value = false; failure.value = ''; packageId.value = ''; confirmation.value = undefined; receipt.value = undefined;
   paidOpen.value = false; checkoutOpen.value = false;
   detailId.value = undefined; detail.value = undefined; detailFailure.value = ''; detailLoading.value = false;
+  lookupId.value = '';
 }, () => { if (props.open) void load(); });
 let pending: ReturnType<typeof scope.begin>;
 let detailPending: ReturnType<typeof scope.begin>;
@@ -74,6 +76,10 @@ function openDetail(row: TenantSubscription) {
   detailId.value = row.id; detail.value = { ...row }; detailFailure.value = ''; void refreshDetail();
 }
 function closeDetail() { detailPending?.cancel(); detailPending = undefined; detailLoading.value = false; detailId.value = undefined; detail.value = undefined; detailFailure.value = ''; }
+function lookupDetail() {
+  if (!props.open || !props.tenant || !canRead.value || loading.value || background.value || !isGuid(lookupTarget.value)) return;
+  detailId.value = lookupTarget.value; detail.value = undefined; detailFailure.value = ''; void refreshDetail();
+}
 async function refreshDetail() {
   if (!props.open || !props.tenant || !detailId.value || !canRead.value || detailLoading.value) return;
   const operation = scope.begin('tenancy.tenant_subscriptions.read'); if (!operation) return;
@@ -88,9 +94,11 @@ async function refreshDetail() {
     if (!operation.current() || detailId.value !== subscriptionId) return;
     const statusCode = isFullNetProblemDetails(error) ? error.status : 0;
     if ([401, 403, 404].includes(statusCode)) {
-      detail.value = undefined; hasRead.value = false;
+      detail.value = undefined;
+      // 陌生 ID 的 404 不否定已读取列表；鉴权拒绝或原列表记录失效才撤销列表操作资格。
+      const invalidatesHistory = statusCode !== 404 || rows.value.some(row => sameId(row.id, subscriptionId));
+      if (invalidatesHistory) { hasRead.value = false; failure.value = text(statusCode === 404 ? 'detailAbsent' : 'detailForbidden'); }
       if (statusCode !== 404) { rows.value = []; total.value = 0; }
-      failure.value = text(statusCode === 404 ? 'detailAbsent' : 'detailForbidden');
     }
     detailFailure.value = text(statusCode === 404 ? 'detailAbsent' : statusCode === 401 || statusCode === 403 ? 'detailForbidden' : 'detailRefreshFailed');
   } finally { operation.finish(); if (detailPending === operation) { detailPending = undefined; detailLoading.value = false; } }
@@ -153,6 +161,12 @@ function paidCreated() { emit('changed'); status.value = ''; page.value = 1; voi
     <ElAlert v-if="failure" :title="failure" type="warning" :closable="false" />
     <p v-if="receipt" role="status" data-testid="subscription-operation-receipt">{{ text(receipt.state === 'confirmed' ? 'operationConfirmed' : receipt.state === 'rejected' ? 'operationRejected' : 'operationUnknown') }} <code>{{ receipt.target }}</code></p>
     <ElButton data-testid="tenant-subscriptions-refresh" :loading="loading" @click="load">{{ text('historyRefresh') }}</ElButton>
+    <div class="subscription-lookup">
+      <ElInput v-model="lookupId" maxlength="64" clearable :aria-label="text('lookupLabel')" :placeholder="text('lookupLabel')"
+        data-testid="subscription-detail-lookup-input" @keyup.enter="lookupDetail" />
+      <ElButton data-testid="subscription-detail-lookup" :disabled="!tenant || !canRead || loading || background || !isGuid(lookupTarget)" @click="lookupDetail">{{ text('lookupAction') }}</ElButton>
+    </div>
+    <p>{{ text('lookupHint') }}</p>
     <fieldset class="subscription-status-filter">
       <legend>{{ text('statusFilter') }}</legend>
       <ElRadioGroup :model-value="status" :aria-label="text('statusFilter')" data-testid="subscription-status-filter" @update:model-value="changeStatus">
@@ -224,4 +238,6 @@ function paidCreated() { emit('changed'); status.value = ''; page.value = 1; voi
 .subscription-status-filter { border: 0; padding: 0; margin: 12px 0 0; min-width: 0; }
 .subscription-status-filter :deep(.el-radio-group) { display: flex; flex-wrap: wrap; gap: 0 16px; }
 .subscription-status-filter :deep(.el-radio) { margin-right: 0; }
+.subscription-lookup { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.subscription-lookup :deep(.el-input) { width: min(340px, 100%); }
 </style>

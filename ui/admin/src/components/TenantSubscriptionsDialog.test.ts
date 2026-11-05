@@ -27,6 +27,31 @@ async function panel(options: { readOnly?: boolean; active?: boolean } = {}) {
 }
 describe('租户订阅操作台', () => {
   beforeEach(() => { vi.resetAllMocks(); useAdminI18n().setLocale('zh-CN'); vi.mocked(listTenantSubscriptions).mockResolvedValue(page()); vi.mocked(getTenantSubscription).mockResolvedValue(row); });
+  it('空列表可按规范化 ID 独立定位，非法输入不发请求', async () => {
+    vi.mocked(listTenantSubscriptions).mockResolvedValue(page([])); vi.mocked(getTenantSubscription).mockResolvedValue({ ...row, id: id(8), status: 'Expired' });
+    const { wrapper } = await panel({ readOnly: true }); const input = wrapper.get('[data-testid="subscription-detail-lookup-input"]');
+    await input.setValue('bad-id'); await input.trigger('keyup.enter'); expect(getTenantSubscription).not.toHaveBeenCalled();
+    expect(wrapper.get('[data-testid="subscription-detail-lookup"]').attributes('disabled')).toBeDefined();
+    await input.setValue('  ' + id(8).toUpperCase() + '  '); await input.trigger('keyup.enter'); await flushPromises();
+    expect(getTenantSubscription).toHaveBeenCalledWith(tenant.id, id(8), expect.any(AbortSignal));
+    expect(wrapper.get('[data-testid="subscription-detail-id"]').text()).toBe(id(8)); expect(wrapper.get('[data-testid="subscription-detail-status"]').text()).toBe('已到期');
+    expect(listTenantSubscriptions).toHaveBeenCalledTimes(1); expect(createTenantSubscription).not.toHaveBeenCalled(); expect(cancelTenantSubscription).not.toHaveBeenCalled(); wrapper.unmount();
+  });
+  it('查不到列表之外的 ID 不撤销原列表读取资格', async () => {
+    vi.mocked(listTenantSubscriptions).mockResolvedValue(page([])); vi.mocked(getTenantSubscription).mockRejectedValue({ status: 404, code: 'tenancy.tenant_subscription.not_found' });
+    const { wrapper } = await panel(); wrapper.findComponent(ElSelect).vm.$emit('update:modelValue', pkg.id); await flushPromises();
+    expect(wrapper.get('[data-testid="tenant-subscription-trial"]').attributes('disabled')).toBeUndefined();
+    const input = wrapper.get('[data-testid="subscription-detail-lookup-input"]'); await input.setValue(id(8)); await input.trigger('keyup.enter'); await flushPromises();
+    await wrapper.findAll('[data-testid="close"]').at(-1)!.trigger('click'); await flushPromises();
+    expect(wrapper.get('[data-testid="tenant-subscription-trial"]').attributes('disabled')).toBeUndefined();
+    expect(wrapper.getComponent({ name: 'ElTable' }).props('data')).toEqual([]); expect(createTenantSubscription).not.toHaveBeenCalled(); wrapper.unmount();
+  });
+  it('目标企业变化清空查找草稿，不向新企业发送旧 ID', async () => {
+    const { wrapper } = await panel({ readOnly: true }); await wrapper.get('[data-testid="subscription-detail-lookup-input"]').setValue(id(5));
+    await wrapper.setProps({ tenant: { ...tenant, id: id(8), name: 'Other tenant' } }); await flushPromises();
+    expect((wrapper.get('[data-testid="subscription-detail-lookup-input"]').element as HTMLInputElement).value).toBe('');
+    expect(getTenantSubscription).not.toHaveBeenCalled(); wrapper.unmount();
+  });
   it('只读筛选切回第一页并保持筛选后的分页参数', async () => {
     const { wrapper } = await panel({ readOnly: true });
     vi.mocked(listTenantSubscriptions).mockResolvedValue({ ...page([{ ...row, status: 'Expired' }]), total: 41 });

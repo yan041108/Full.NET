@@ -145,3 +145,25 @@ for (const width of [1440, 390]) {
     expect((await new AxeBuilder({ page }).include('.art-form-dialog').withTags(['wcag2a', 'wcag2aa']).analyze()).violations).toEqual([]);
   });
 }
+
+for (const [width, locale] of [[1440, 'en-US'], [390, 'zh-CN']]) {
+  test(`空历史按原订阅 ID 独立定位 ${width}`, async ({ page }, info) => {
+    await page.setViewportSize({ width: 1440, height: 1000 }); const state = await setup(page, { readOnly: true, active: false, rows: [], locale });
+    const original = { id: subscriptionId, tenantId, packageId, status: 'Expired', currentPeriodStartUtc: '2026-10-01T00:00:00Z',
+      currentPeriodEndUtc: '2026-11-01T00:00:00Z', trialEndsAtUtc: null, cancelledAtUtc: null, version: 3 };
+    state.detailRows.set(subscriptionId, original); let writes = 0;
+    await page.route('**/api/v1/tenancy/tenants/*/subscriptions**', route => {
+      if (route.request().method() !== 'GET') { writes++; return json(route, {}, 405); } return route.fallback();
+    });
+    await page.setViewportSize({ width, height: 1000 });
+    await page.getByTestId('subscription-detail-lookup-input').fill('  ' + subscriptionId.toUpperCase() + '  ');
+    const history = page.locator('.art-form-dialog').filter({ has: page.getByTestId('subscription-detail-lookup-input') });
+    await history.screenshot({ path: info.outputPath('subscription-lookup-' + width + '.png'), animations: 'disabled' });
+    expect((await new AxeBuilder({ page }).include('.art-form-dialog').withTags(['wcag2a', 'wcag2aa']).analyze()).violations).toEqual([]);
+    expect(state.detailReads).toBe(0); await page.getByTestId('subscription-detail-lookup-input').press('Enter');
+    await expect(page.getByTestId('subscription-detail-id')).toHaveText(subscriptionId);
+    await expect(page.getByTestId('subscription-detail-status')).toHaveText(locale === 'en-US' ? 'Expired' : '已到期');
+    expect(state.reads).toBe(1); expect(state.detailReads).toBe(1); expect(writes).toBe(0);
+    await expect(page.getByTestId('tenant-subscription-cancel')).toHaveCount(0);
+  });
+}
