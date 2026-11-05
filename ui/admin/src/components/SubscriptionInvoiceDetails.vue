@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
 import { ElAlert, ElButton, ElDescriptions, ElDescriptionsItem } from 'element-plus';
-import { isFullNetProblemDetails, type TenantSubscriptionInvoiceResponse } from '@fullnet/client-contracts';
+import { isFullNetProblemDetails, isGuid, type TenantSubscriptionInvoiceResponse } from '@fullnet/client-contracts';
 import { useSessionStore } from '../auth/session';
 import { useAdminI18n } from '../i18n/adminI18n';
 import { useAuthorizedViewScope } from '../composables/useAuthorizedViewScope';
@@ -9,6 +9,7 @@ import { subscriptionBillingText } from '../i18n/subscription-billing';
 import { getSubscriptionInvoice } from '../api/subscription-billing';
 
 const props = defineProps<{ tenantId: string; subscriptionId: string }>();
+const emit = defineEmits<{ readSource: [subscriptionId: string] }>();
 const session = useSessionStore(); const { locale } = useAdminI18n();
 const text = (key: Parameters<typeof subscriptionBillingText>[1]) => subscriptionBillingText(locale.value, key);
 const allowed = computed(() => session.state === 'authenticated' && session.can('tenancy.tenant_subscriptions.read'));
@@ -16,6 +17,14 @@ const invoice = ref<TenantSubscriptionInvoiceResponse>(); const loading = ref(fa
 const scope = useAuthorizedViewScope(session, () => { invoice.value = undefined; loading.value = false; failure.value = ''; }, () => {});
 watch([() => props.tenantId, () => props.subscriptionId], () => scope.invalidate(), { flush: 'sync' });
 const sameId = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
+const canReadSource = computed(() => {
+  const source = invoice.value?.renewalOfSubscriptionId;
+  return !!source && isGuid(source) && source !== '00000000-0000-0000-0000-000000000000' && !sameId(source, props.subscriptionId);
+});
+function readSource() {
+  if (allowed.value && !loading.value && canReadSource.value && invoice.value?.renewalOfSubscriptionId)
+    emit('readSource', invoice.value.renewalOfSubscriptionId);
+}
 // 不能经过 Number 中转；原金额和额度即使超过 JavaScript 安全整数也必须原样核对。
 const exactInteger = (value: string) => value.length <= 19 && /^(0|[1-9]\d*)$/.test(value) && BigInt(value) <= 9223372036854775807n;
 const phaseText = computed(() => invoice.value?.phase === 'Applied' ? text('invoiceApplied')
@@ -64,7 +73,9 @@ async function read() {
       <el-descriptions-item :label="text('start')">{{ invoice.effectiveFromUtc }}</el-descriptions-item>
       <el-descriptions-item :label="text('end')">{{ invoice.effectiveToUtc }}</el-descriptions-item>
       <el-descriptions-item :label="text('invoicePhase')">{{ phaseText }}</el-descriptions-item>
-      <el-descriptions-item :label="text('sourceSubscription')"><code>{{ invoice.renewalOfSubscriptionId ?? '—' }}</code></el-descriptions-item>
+      <el-descriptions-item :label="text('sourceSubscription')"><code>{{ invoice.renewalOfSubscriptionId ?? '—' }}</code>
+        <el-button v-if="canReadSource" link type="primary" data-testid="subscription-invoice-source" :disabled="loading" @click="readSource">{{ text('invoiceReadSource') }}</el-button>
+      </el-descriptions-item>
       <el-descriptions-item v-if="invoice.renewalSourceVersion != null" :label="text('invoiceSourceVersion')">{{ invoice.renewalSourceVersion }}</el-descriptions-item>
       <el-descriptions-item :label="text('invoicePaymentOrder')"><code>{{ invoice.paymentOrderId ?? '—' }}</code></el-descriptions-item>
       <el-descriptions-item :label="text('fulfillmentReadAt')">{{ invoice.readAtUtc }}</el-descriptions-item>

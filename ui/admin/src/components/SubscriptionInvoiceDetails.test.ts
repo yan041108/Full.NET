@@ -29,6 +29,22 @@ describe('原冻结账单只读回读', () => {
     for (const exact of [original.subject, original.seatLimit, original.storageLimit, original.renewalOfSubscriptionId!, original.effectiveFromUtc, original.readAtUtc]) expect(snapshot.text()).toContain(exact);
     expect(snapshot.text()).toContain('已接收退款事实'); wrapper.unmount();
   });
+  it('有效来源只发出原 ID 的只读选择，不自动再次读取账单', async () => {
+    const { wrapper } = setup(); await read(wrapper); await wrapper.get('[data-testid="subscription-invoice-source"]').trigger('click');
+    expect(wrapper.emitted('readSource')).toEqual([[original.renewalOfSubscriptionId]]); expect(getSubscriptionInvoice).toHaveBeenCalledTimes(1); wrapper.unmount();
+  });
+  it.each([null, original.subscriptionId, '00000000-0000-0000-0000-000000000000'])('普通/自指/空来源 %s 不提供导航', async source => {
+    vi.mocked(getSubscriptionInvoice).mockResolvedValue({ ...original, renewalOfSubscriptionId: source, renewalSourceVersion: source ? 3 : null });
+    const { wrapper } = setup(); await read(wrapper); expect(wrapper.find('[data-testid="subscription-invoice-source"]').exists()).toBe(false);
+    expect(wrapper.emitted('readSource')).toBeUndefined(); wrapper.unmount();
+  });
+  it('账单刷新期间禁用来源入口', async () => {
+    const { wrapper } = setup(); await read(wrapper); const pending = Promise.withResolvers<TenantSubscriptionInvoiceResponse>();
+    vi.mocked(getSubscriptionInvoice).mockReturnValue(pending.promise); await read(wrapper);
+    expect(wrapper.get('[data-testid="subscription-invoice-source"]').attributes('disabled')).toBeDefined();
+    await wrapper.get('[data-testid="subscription-invoice-source"]').trigger('click'); expect(wrapper.emitted('readSource')).toBeUndefined();
+    pending.resolve(original); await flushPromises(); wrapper.unmount();
+  });
   it('刷新临时失败保留原快照及原读取时间', async () => {
     const { wrapper } = setup(); await read(wrapper); vi.mocked(getSubscriptionInvoice).mockRejectedValue({ status: 503, title: 'temporary' }); await read(wrapper);
     expect(wrapper.get('[data-testid="subscription-invoice-failure"]').text()).toContain('保留');

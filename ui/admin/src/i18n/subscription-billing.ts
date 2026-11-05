@@ -2,6 +2,7 @@ import type { SupportedLocale } from '@fullnet/admin-i18n';
 
 // 资金和权益状态使用独立固定文案，不能把渠道成功误显示为已完成授权。
 const zh = {
+  invoiceReadSource: '查看原续期来源',
   frozenInvoice: '原冻结付费账单', invoiceRead: '读取原账单', invoiceRefresh: '刷新原账单', invoiceSubject: '原商品名称', invoiceSourceVersion: '原续期来源版本', invoicePaymentOrder: '已接收的付款订单',
   invoicePhase: '账单事实接收阶段', invoicePending: '本账单待履约', invoiceApplied: '本账单已履约', invoiceRefunded: '已接收退款事实',
   invoiceSnapshotHint: '显式回读原账单，不按当前报价重算。阶段表示历史事实接收，不代替当前资金或权益判断；读取不会下单、退款或重试。',
@@ -55,6 +56,7 @@ const zh = {
   safeRetry: '网络重试复用原账单；履约重试不会再次扣款。'
 };
 const en: Record<keyof typeof zh, string> = {
+  invoiceReadSource: 'Read renewal source',
   frozenInvoice: 'Original frozen invoice', invoiceRead: 'Read original invoice', invoiceRefresh: 'Refresh original invoice', invoiceSubject: 'Original product name', invoiceSourceVersion: 'Renewal source version', invoicePaymentOrder: 'Received payment order',
   invoicePhase: 'Invoice receipt phase', invoicePending: 'This invoice is pending fulfillment', invoiceApplied: 'This invoice was fulfilled', invoiceRefunded: 'Refund fact received',
   invoiceSnapshotHint: 'Read the original invoice using its frozen terms. Its phase records historical receipts, not current funds or access. Reading does not place orders, refund or retry.',

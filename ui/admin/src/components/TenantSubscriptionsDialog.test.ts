@@ -27,6 +27,44 @@ async function panel(options: { readOnly?: boolean; active?: boolean } = {}) {
 }
 describe('租户订阅操作台', () => {
   beforeEach(() => { vi.resetAllMocks(); useAdminI18n().setLocale('zh-CN'); vi.mocked(listTenantSubscriptions).mockResolvedValue(page()); vi.mocked(getTenantSubscription).mockResolvedValue(row); });
+  it('只读来源在当前企业内独立定位，不改变当前筛选或第三页', async () => {
+    vi.mocked(listTenantSubscriptions).mockImplementation(async (_tenant, selectedPage = 1, pageSize = 20) => ({ items: [row], total: 100, page: selectedPage, pageSize }));
+    const { wrapper } = await panel({ readOnly: true });
+    wrapper.getComponent({ name: 'ElRadioGroup' }).vm.$emit('update:modelValue', 'Trial'); await flushPromises();
+    wrapper.getComponent({ name: 'ElPagination' }).vm.$emit('current-change', 3); await flushPromises();
+    await wrapper.get('[data-testid="tenant-subscription-detail"]').trigger('click'); await flushPromises();
+    const calls = vi.mocked(listTenantSubscriptions).mock.calls.length;
+    vi.mocked(getTenantSubscription).mockResolvedValue({ ...row, id: id(8), status: 'Expired' });
+    wrapper.getComponent({ name: 'SubscriptionInvoiceDetails' }).vm.$emit('readSource', id(8)); await flushPromises();
+    expect(getTenantSubscription).toHaveBeenLastCalledWith(tenant.id, id(8), expect.any(AbortSignal));
+    expect(wrapper.get('[data-testid="subscription-detail-id"]').text()).toBe(id(8));
+    expect(wrapper.get('[data-testid="subscription-detail-status"]').text()).toBe('已到期');
+    expect(wrapper.getComponent({ name: 'ElRadioGroup' }).props('modelValue')).toBe('Trial');
+    expect(wrapper.getComponent({ name: 'ElPagination' }).props('currentPage')).toBe(3);
+    expect(listTenantSubscriptions).toHaveBeenCalledTimes(calls); expect(createTenantSubscription).not.toHaveBeenCalled(); expect(cancelTenantSubscription).not.toHaveBeenCalled(); wrapper.unmount();
+  });
+  it('来源 404 保留请求的原来源 ID，不显示上一张账单或破坏历史列表', async () => {
+    const { wrapper } = await panel({ readOnly: true }); await wrapper.get('[data-testid="tenant-subscription-detail"]').trigger('click'); await flushPromises();
+    vi.mocked(getTenantSubscription).mockRejectedValue({ status: 404, code: 'test.missing', title: 'missing' });
+    wrapper.getComponent({ name: 'SubscriptionInvoiceDetails' }).vm.$emit('readSource', id(8)); await flushPromises();
+    expect(wrapper.get('[data-testid="subscription-detail-id"]').text()).toBe(id(8)); expect(wrapper.find('[data-testid="subscription-detail-status"]').exists()).toBe(false);
+    expect(wrapper.findComponent({ name: 'SubscriptionInvoiceDetails' }).exists()).toBe(false);
+    expect(wrapper.getComponent({ name: 'ElTable' }).props('data')).toEqual([row]); expect(listTenantSubscriptions).toHaveBeenCalledTimes(1); wrapper.unmount();
+  });
+  it('查看来源取消原详情刷新并拒绝其晚到结果', async () => {
+    const { wrapper } = await panel({ readOnly: true }); await wrapper.get('[data-testid="tenant-subscription-detail"]').trigger('click'); await flushPromises();
+    const old = deferred<TenantSubscription>(); vi.mocked(getTenantSubscription).mockReturnValueOnce(old.promise);
+    await wrapper.get('[data-testid="subscription-detail-refresh"]').trigger('click'); await flushPromises(); const oldSignal = vi.mocked(getTenantSubscription).mock.calls[1]![2];
+    vi.mocked(getTenantSubscription).mockResolvedValue({ ...row, id: id(8), status: 'Expired' });
+    wrapper.getComponent({ name: 'SubscriptionInvoiceDetails' }).vm.$emit('readSource', id(8)); await flushPromises(); expect(oldSignal?.aborted).toBe(true);
+    old.resolve(row); await flushPromises(); expect(wrapper.get('[data-testid="subscription-detail-id"]').text()).toBe(id(8));
+    expect(wrapper.get('[data-testid="subscription-detail-status"]').text()).toBe('已到期'); wrapper.unmount();
+  });
+  it.each(['bad-id', '00000000-0000-0000-0000-000000000000', row.id])('来源事件 %s 不能触发无效或自指读取', async source => {
+    const { wrapper } = await panel({ readOnly: true }); await wrapper.get('[data-testid="tenant-subscription-detail"]').trigger('click'); await flushPromises();
+    wrapper.getComponent({ name: 'SubscriptionInvoiceDetails' }).vm.$emit('readSource', source); await flushPromises();
+    expect(getTenantSubscription).toHaveBeenCalledTimes(1); expect(wrapper.get('[data-testid="subscription-detail-id"]').text()).toBe(row.id); wrapper.unmount();
+  });
   it('空列表可按规范化 ID 独立定位，非法输入不发请求', async () => {
     vi.mocked(listTenantSubscriptions).mockResolvedValue(page([])); vi.mocked(getTenantSubscription).mockResolvedValue({ ...row, id: id(8), status: 'Expired' });
     const { wrapper } = await panel({ readOnly: true }); const input = wrapper.get('[data-testid="subscription-detail-lookup-input"]');

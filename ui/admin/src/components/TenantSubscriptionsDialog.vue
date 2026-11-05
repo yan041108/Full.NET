@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue';
+import { computed, nextTick, ref, watch } from 'vue';
 import { ElAlert, ElButton, ElDescriptions, ElDescriptionsItem, ElInput, ElOption, ElPagination, ElRadio, ElRadioGroup, ElSelect, ElTable, ElTableColumn } from 'element-plus';
 import type { CreateTenantSubscriptionBody, HostTenant, HostTenantPackage, TenantSubscription } from '@fullnet/client-contracts';
 import { isFullNetProblemDetails, isGuid } from '@fullnet/client-contracts';
@@ -31,6 +31,7 @@ type Confirmation = { tenantId: string; tenantName: string } & ({ action: 'trial
 const confirmation = ref<Confirmation>();
 const detailId = ref<string>(); const detail = ref<TenantSubscription>(); const detailFailure = ref('');
 const detailLoading = ref(false);
+const detailRefreshButton = ref<InstanceType<typeof ElButton>>();
 const lookupId = ref(''); const lookupTarget = computed(() => lookupId.value.trim().toLowerCase());
 const paidOpen = ref(false); const checkoutOpen = ref(false);
 const background = computed(() => !!confirmation.value || !!detailId.value || paidOpen.value || checkoutOpen.value);
@@ -80,6 +81,16 @@ function closeDetail() { detailPending?.cancel(); detailPending = undefined; det
 function lookupDetail() {
   if (!props.open || !props.tenant || !canRead.value || loading.value || background.value || !isGuid(lookupTarget.value)) return;
   detailId.value = lookupTarget.value; detail.value = undefined; detailFailure.value = ''; void refreshDetail();
+}
+async function readRenewalSource(sourceId: string) {
+  if (!props.open || !props.tenant || !canRead.value || !detail.value || !isGuid(sourceId)
+    || sourceId === '00000000-0000-0000-0000-000000000000' || sameId(sourceId, detail.value.id)) return;
+  // 来源读取独立于当前页；切换先取消原详情请求，不能让旧回执接入新的目标。
+  detailPending?.cancel(); detailPending = undefined; detailLoading.value = false;
+  const target = sourceId.toLowerCase();
+  detailId.value = target; detail.value = undefined; detailFailure.value = ''; await refreshDetail();
+  await nextTick();
+  if (props.open && canRead.value && detailId.value === target) detailRefreshButton.value?.ref?.focus();
 }
 async function refreshDetail() {
   if (!props.open || !props.tenant || !detailId.value || !canRead.value || detailLoading.value) return;
@@ -219,7 +230,7 @@ function paidCreated() { emit('changed'); status.value = ''; page.value = 1; voi
     <p>{{ tenant?.name }}</p><code data-testid="subscription-detail-id">{{ detailId }}</code>
     <p>{{ text('detailSnapshotHint') }}</p>
     <ElAlert v-if="detailFailure" :title="detailFailure" type="warning" :closable="false" />
-    <ElButton data-testid="subscription-detail-refresh" :loading="detailLoading" :disabled="!canRead" @click="refreshDetail">{{ text('detailRefresh') }}</ElButton>
+    <ElButton ref="detailRefreshButton" data-testid="subscription-detail-refresh" :loading="detailLoading" :disabled="!canRead" @click="refreshDetail">{{ text('detailRefresh') }}</ElButton>
     <ElDescriptions v-if="detail" :column="1" border class="subscription-details">
       <ElDescriptionsItem :label="t('tenancy.tenantSubscriptions.status')"><span data-testid="subscription-detail-status">{{ statusLabel(detail.status) }}</span></ElDescriptionsItem>
       <ElDescriptionsItem :label="text('detailPeriodStart')"><time :datetime="detail.currentPeriodStartUtc">{{ formatDate(detail.currentPeriodStartUtc) }}</time></ElDescriptionsItem>
@@ -229,7 +240,7 @@ function paidCreated() { emit('changed'); status.value = ''; page.value = 1; voi
       <ElDescriptionsItem :label="text('detailPackageId')"><code>{{ detail.packageId ?? '—' }}</code></ElDescriptionsItem>
       <ElDescriptionsItem :label="text('detailPackageName')">{{ detailPackage }}</ElDescriptionsItem>
     </ElDescriptions>
-    <SubscriptionInvoiceDetails v-if="detail && tenant" :key="tenant.id + ':' + detail.id" :tenant-id="tenant.id" :subscription-id="detail.id" />
+    <SubscriptionInvoiceDetails v-if="detail && tenant" :key="tenant.id + ':' + detail.id" :tenant-id="tenant.id" :subscription-id="detail.id" @read-source="readRenewalSource" />
   </ArtFormDialog>
 </template>
 
