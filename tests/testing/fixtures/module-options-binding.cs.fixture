@@ -16,6 +16,7 @@ var input = new Dictionary<string, string?>
     ["FullNet:Reporting:Export:PollSeconds"] = "6",
     ["FullNet:Reporting:Export:BatchSize"] = "3",
     ["FullNet:Reporting:Export:LeaseSeconds"] = "45",
+    ["FullNet:Reporting:Export:ExecutionTimeoutSeconds"] = "91",
     ["Notifications:Providers:DingTalk:Workflow:Enabled"] = "true",
     ["Notifications:Providers:DingTalk:Workflow:ProcessCode"] = "fixture-process",
     ["Notifications:Providers:DingTalk:Workflow:AgentId"] = "123",
@@ -39,6 +40,7 @@ var input = new Dictionary<string, string?>
     ["FullNet:Mqtt:Broker:DeploymentNotice"] = "fixture-notice",
     ["FullNet:ObservabilityAdmin:LogRootPath"] = "fixture-logs",
     ["FullNet:ObservabilityAdmin:MaximumListFiles"] = "7",
+    ["FullNet:ObservabilityAdmin:MaximumScanEntries"] = "71",
     ["FullNet:ObservabilityAdmin:DefaultTailLines"] = "8",
     ["FullNet:ObservabilityAdmin:MaximumTailLines"] = "9",
     ["FullNet:ObservabilityAdmin:DefaultTailBytes"] = "1024",
@@ -74,7 +76,7 @@ services.Configure<PlatformBackupExecutorOptions>(config.GetSection(PlatformBack
 services.AddOptions<ImportExportOptions>().Bind(config.GetSection(ImportExportOptions.SectionName));
 using var provider = services.BuildServiceProvider();
 var reporting = provider.GetRequiredService<IOptions<ReportingExportOptions>>().Value;
-Check("reporting", !reporting.ExecutionEnabled && reporting.PollSeconds == 6 && reporting.BatchSize == 3 && reporting.LeaseSeconds == 45);
+Check("reporting", !reporting.ExecutionEnabled && reporting.PollSeconds == 6 && reporting.BatchSize == 3 && reporting.LeaseSeconds == 45 && reporting.ExecutionTimeoutSeconds == 91);
 var dingTalk = provider.GetRequiredService<IOptions<DingTalkApprovalSyncOptions>>().Value;
 Check("dingtalk", dingTalk.Enabled && dingTalk.ProcessCode == "fixture-process" && dingTalk.AgentId == 123
     && dingTalk.AppKey == "fixture-app" && dingTalk.AppSecretReference == "env://FIXTURE_APP"
@@ -89,7 +91,7 @@ Check("mqtt", mqtt.Enabled && mqtt.Host == "fixture.invalid" && mqtt.Port == 888
     && mqtt.MaximumPublishRatePerMinute == 7 && mqtt.AllowedPublishTopicPrefixes.SequenceEqual(["fullnet/", "tenants/", "fixture/"])
     && mqtt.DeploymentNotice == "fixture-notice");
 var logs = provider.GetRequiredService<IOptions<ObservabilityAdminOptions>>().Value;
-Check("observability", logs.LogRootPath == "fixture-logs" && logs.MaximumListFiles == 7 && logs.DefaultTailLines == 8
+Check("observability", logs.LogRootPath == "fixture-logs" && logs.MaximumListFiles == 7 && logs.MaximumScanEntries == 71 && logs.DefaultTailLines == 8
     && logs.MaximumTailLines == 9 && logs.DefaultTailBytes == 1024 && logs.MaximumTailBytes == 2048
     && logs.InstanceKey == "fixture-instance" && logs.InstanceDisplayName == "fixture-name" && logs.HostRole == "Worker"
     && logs.Instances.Count == 1 && logs.Instances[0].InstanceKey == "fixture-other"

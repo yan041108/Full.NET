@@ -19,10 +19,10 @@ public sealed class ReportingExportOptions
     public int BatchSize { get; set; } = 20;
 
     /// <summary>单次执行的总时间预算；续租不能延长该截止时间。</summary>
-    public int ExecutionTimeoutSeconds { get; init; } = 900;
+    public int ExecutionTimeoutSeconds { get; set; } = 900;
 
     /// <summary>执行租约秒数；持有期间独立续租，失租立即取消执行。</summary>
-    public int LeaseSeconds { get; init; } = 300;
+    public int LeaseSeconds { get; set; } = 300;
 }
 
 /// <summary>校验报表导出 Worker 配置边界。</summary>
