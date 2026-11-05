@@ -11,4 +11,5 @@
   <data name="payments.subscription_funds_not_settled" xml:space="preserve"><value>资金尚未结算，暂不发放权益。</value></data>
   <data name="payments.subscription_fulfillment_pending" xml:space="preserve"><value>订阅履约等待重试。</value></data>
   <data name="payments.subscription_recovery_failed" xml:space="preserve"><value>多次恢复未完成，请核对付款和账单后重试履约。</value></data>
+  <data name="payments.refund.request_conflict" xml:space="preserve"><value>本次退款参数与原退款意图不一致，请核对原退款记录。</value></data>
 </root>

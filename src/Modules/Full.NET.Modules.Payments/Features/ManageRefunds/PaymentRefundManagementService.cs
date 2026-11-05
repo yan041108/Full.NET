@@ -155,7 +155,7 @@ internal sealed class PaymentRefundManagementService(
 
         if (order.TradeStateKey == PaymentTradeStateKeys.Refunding)
         {
-            return await RecoverRefundIntentAsync(order, merchantConfig, cancellationToken)
+            return await RecoverRefundIntentAsync(order, merchantConfig, request, cancellationToken)
                 .ConfigureAwait(false);
         }
 
@@ -238,11 +238,13 @@ internal sealed class PaymentRefundManagementService(
     /// <summary>恢复退款中订单上尚未完成的意图；租约未过期时拒绝并发调用。</summary>
     /// <param name="order">当前为退款中的订单。</param>
     /// <param name="merchantConfig">订单所属商户配置。</param>
+    /// <param name="request">本次恢复参数；必须与单一原退款意图保持一致。</param>
     /// <param name="cancellationToken">取消令牌。</param>
     /// <returns>可重试的退款意图或冲突。</returns>
     private async Task<Result<PreparedPaymentRefund>> RecoverRefundIntentAsync(
         PaymentOrderRecord order,
         PaymentMerchantConfigRecord merchantConfig,
+        CreatePaymentRefundRequest request,
         CancellationToken cancellationToken)
     {
         var recoverable = await queryExecutor.QueryAsync<PaymentRefundRecord>(
@@ -257,6 +259,18 @@ internal sealed class PaymentRefundManagementService(
                 PaymentErrorCodes.OrderStateInvalid,
                 "The order is already being refunded.",
                 ErrorType.Validation));
+        }
+
+        // 订单处于退款中不代表本次参数已获确认；在领取和渠道调用之前核对单一原意图。
+        if (recoverable.Count != 1 || refund.AmountMinor != (request.AmountMinor ?? order.AmountMinor)
+            || !string.Equals(refund.Reason, request.Reason.Trim(), StringComparison.Ordinal)
+            || refund.OrderId != order.Id || refund.TenantId != order.TenantId
+            || refund.MerchantConfigId != order.MerchantConfigId
+            || !string.Equals(refund.OutTradeNo, order.OutTradeNo, StringComparison.Ordinal)
+            || !string.Equals(refund.Currency, order.Currency, StringComparison.Ordinal))
+        {
+            return Result<PreparedPaymentRefund>.Failure(new Error(PaymentErrorCodes.RefundRequestConflict,
+                "The refund request does not match the original refund intent.", ErrorType.Conflict));
         }
 
         if (refund.RefundStateKey == PaymentRefundStateKeys.Created

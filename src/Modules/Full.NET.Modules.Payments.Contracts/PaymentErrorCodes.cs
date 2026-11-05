@@ -54,6 +54,9 @@ public static class PaymentErrorCodes
     /// <summary>已有退款正在调用渠道，并发请求不得再次产生副作用。</summary>
     public const string RefundInProgress = "payments.refund.in_progress";
 
+    /// <summary>恢复请求与原退款意图的金额、原因或所属订单不一致。</summary>
+    public const string RefundRequestConflict = "payments.refund.request_conflict";
+
     /// <summary>订单状态不允许当前操作。</summary>
     public const string OrderStateInvalid = "payments.order.state_invalid";
 }

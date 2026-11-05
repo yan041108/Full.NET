@@ -11,4 +11,5 @@
   <data name="payments.subscription_funds_not_settled" xml:space="preserve"><value>Funds are not settled. Entitlements remain pending.</value></data>
   <data name="payments.subscription_fulfillment_pending" xml:space="preserve"><value>Subscription fulfillment is awaiting retry.</value></data>
   <data name="payments.subscription_recovery_failed" xml:space="preserve"><value>Recovery failed repeatedly. Reconcile the payment and invoice before retrying fulfillment.</value></data>
+  <data name="payments.refund.request_conflict" xml:space="preserve"><value>The refund parameters do not match the original refund intent. Check the original refund record.</value></data>
 </root>

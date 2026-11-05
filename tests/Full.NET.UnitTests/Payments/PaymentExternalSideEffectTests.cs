@@ -252,6 +252,48 @@ public sealed class PaymentExternalSideEffectTests
             Arg.Any<CancellationToken>());
     }
 
+    [TestMethod] [DataRow(30L, "original")] [DataRow(29L, "changed")] [DataRow(null, "original")]
+    public async Task Refund_recovery_rejects_changed_inputs_before_invocation_async(long? amount, string reason)
+    {
+        var fixture = CreateOrderFixture(); var orderId = Guid.NewGuid();
+        fixture.Store.Orders[orderId] = SucceededOrder(orderId, fixture);
+        fixture.WeChat.CreateDomesticRefundAsync(Arg.Any<PaymentMerchantConfigRecord>(), Arg.Any<string>(), Arg.Any<string>(),
+            Arg.Any<long>(), Arg.Any<long>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromException<WeChatRefundResult>(new HttpRequestException("unknown")));
+        var first = await fixture.Refunds.CreateForOrderAsync(orderId, new(29, "original"));
+        Assert.AreEqual(PaymentErrorCodes.RefundProviderUnknown, first.Error!.Code);
+        var original = fixture.Store.Refunds.Values.Single(); var version = original.Version;
+        fixture.WeChat.ClearReceivedCalls();
+        var changed = await fixture.Refunds.CreateForOrderAsync(orderId, new(amount, reason));
+        Assert.IsFalse(changed.IsSuccess); Assert.AreEqual(PaymentErrorCodes.RefundRequestConflict, changed.Error!.Code);
+        Assert.AreEqual(ErrorType.Conflict, changed.Error.Type); Assert.AreEqual(version, fixture.Store.Refunds[original.Id].Version);
+        Assert.AreEqual(1, fixture.Store.Refunds.Count);
+        await fixture.WeChat.DidNotReceive().CreateDomesticRefundAsync(Arg.Any<PaymentMerchantConfigRecord>(), Arg.Any<string>(), Arg.Any<string>(),
+            Arg.Any<long>(), Arg.Any<long>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
+    }
+
+    [TestMethod] [DataRow(false)] [DataRow(true)]
+    public async Task Refund_recovery_preserves_original_identity_and_normalized_inputs_async(bool paddedReason)
+    {
+        var fixture = CreateOrderFixture(); var orderId = Guid.NewGuid();
+        fixture.Store.Orders[orderId] = SucceededOrder(orderId, fixture);
+        fixture.WeChat.CreateDomesticRefundAsync(Arg.Any<PaymentMerchantConfigRecord>(), Arg.Any<string>(), Arg.Any<string>(),
+            Arg.Any<long>(), Arg.Any<long>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromException<WeChatRefundResult>(new HttpRequestException("unknown")));
+        await fixture.Refunds.CreateForOrderAsync(orderId, new(29, "original"));
+        var original = fixture.Store.Refunds.Values.Single(); var refundId = original.Id; var outRefundNo = original.OutRefundNo;
+        fixture.WeChat.ClearReceivedCalls();
+        fixture.WeChat.CreateDomesticRefundAsync(Arg.Any<PaymentMerchantConfigRecord>(), Arg.Any<string>(), Arg.Any<string>(),
+            Arg.Any<long>(), Arg.Any<long>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(WeChatRefundResult.Success("provider", "PROCESSING"));
+        var recovered = await fixture.Refunds.CreateForOrderAsync(orderId, new(29, paddedReason ? " original " : "original"));
+        Assert.IsTrue(recovered.IsSuccess, recovered.Error?.Code); Assert.AreEqual(refundId, recovered.Value!.Id);
+        Assert.AreEqual(outRefundNo, recovered.Value.OutRefundNo); Assert.AreEqual(29L, recovered.Value.AmountMinor);
+        Assert.AreEqual(1, fixture.Store.Refunds.Count);
+        await fixture.WeChat.Received(1).CreateDomesticRefundAsync(Arg.Any<PaymentMerchantConfigRecord>(), Arg.Any<string>(),
+            outRefundNo, 29, 100, "CNY", "original", Arg.Any<CancellationToken>());
+    }
+
     /// <summary>建立带真实事务提交语义的订单/退款服务。</summary>
     /// <returns>隔离测试夹具。</returns>
     private static OrderFixture CreateOrderFixture()
