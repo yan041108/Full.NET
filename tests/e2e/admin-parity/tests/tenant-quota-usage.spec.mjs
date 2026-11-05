@@ -3,12 +3,12 @@ import AxeBuilder from '@axe-core/playwright';
 const id = n => `019bc2b1-2a40-7cc3-8992-${String(n).padStart(12, '0')}`;
 const tenantId = id(1);
 const json = (route, body, status = 200) => route.fulfill({ status, contentType: status >= 400 ? 'application/problem+json' : 'application/json', body: JSON.stringify(body) });
-async function setup(page, locale, hasQuotaRead = true) {
+async function setup(page, locale, hasQuotaRead = true, hasDiagnostic = false) {
   await page.addInitScript(selected => localStorage.setItem('fullnet.admin.locale', selected), locale);
   await page.route('**/api/v1/**', route => route.fulfill({ status: 404 }));
   await page.route('**/api/v1/auth/refresh', route => json(route, { accessToken: 'fixture', tokenType: 'Bearer', expiresAtUtc: '2099-01-01T00:00:00Z' }));
   await page.route('**/api/v1/me', route => json(route, { id: id(9), username: 'quota-reader', displayName: 'Quota reader', actorScope: 'host', scope: 'host', tenantId: null,
-    isSuperAdministrator: false, passwordChangeRequired: false, permissions: ['identity.navigation.read', 'tenancy.tenants.read', 'tenancy.tenant_packages.read', ...(hasQuotaRead ? ['tenancy.tenant_quota.read'] : [])],
+    isSuperAdministrator: false, passwordChangeRequired: false, permissions: ['identity.navigation.read', 'tenancy.tenants.read', 'tenancy.tenant_packages.read', ...(hasQuotaRead ? ['tenancy.tenant_quota.read'] : []), ...(hasDiagnostic ? ['tenancy.tenant_quota.reconcile_usage_baseline'] : [])],
     sessionId: id(10), preferredLocale: locale, profileVersion: 1 }));
   await page.route('**/api/v1/navigation', route => json(route, [{ id: 'tenants', parentId: null, routeName: 'tenant-management', path: '/tenants', componentKey: 'tenants', title: 'Tenants',
     caption: '', icon: 'setting', order: 1, requiredPermission: 'tenancy.tenants.read', children: [] }]));
@@ -58,3 +58,37 @@ for (const [width, locale] of [[1440, 'en-US'], [390, 'zh-CN']]) {
 test('缺少配额读取权限不展示入口或发起查询', async ({ page }) => {
   const state = await setup(page, 'zh-CN', false); await expect(page.getByTestId('tenants-action-quota')).toHaveCount(0); expect(state.reads).toBe(0);
 });
+
+for (const [width, locale] of [[1440, 'en-US'], [390, 'zh-CN']]) {
+  test('单企业权威诊断只读切换与未知状态 ' + width, async ({ page }, info) => {
+    await page.setViewportSize({ width: 1440, height: 1000 }); const state = await setup(page, locale, true, true);
+    const reads = []; let mode = 'normal';
+    await page.route(`**/api/v1/tenancy/tenants/${tenantId}/quota/usage-diagnostic?*`, route => {
+      expect(route.request().method()).toBe('GET'); expect(route.request().postData()).toBeNull();
+      const metricCode = new URL(route.request().url()).searchParams.get('metricCode'); reads.push(metricCode);
+      if (mode === 'denied') return json(route, { status: 403, code: 'authorization.permission_denied', title: 'denied' }, 403);
+      const storage = metricCode === 'files.storage_bytes';
+      return json(route, { tenantId, metricCode, tenantIsActive: false, metricId: storage ? id(3) : id(2),
+        bookUsedValue: storage ? '9223372036854775707' : '2', reservedValue: storage ? '0' : '1',
+        authoritativeUsedValue: mode === 'unavailable' ? null : storage ? '9223372036854775807' : '3',
+        observedDifference: mode === 'unavailable' || !storage ? null : '100', state: mode === 'unavailable' ? 'Unavailable' : storage ? 'Different' : 'InProgress', readAtUtc: '2026-11-05T00:00:01Z' });
+    });
+    await page.setViewportSize({ width, height: 1000 }); await page.getByTestId('tenants-action-quota').click();
+    await expect(page.getByTestId('quota-diagnostic-read')).toBeVisible(); expect(reads).toHaveLength(0);
+    await page.getByTestId('quota-diagnostic-read').click(); await expect(page.getByTestId('diagnostic-difference')).toHaveText(locale === 'en-US' ? 'Not compared' : '暂不比较');
+    const storageLabel = locale === 'en-US' ? 'File storage' : '文件存储';
+    await page.getByTestId('quota-diagnostic-metric').getByText(storageLabel, { exact: true }).click();
+    await expect(page.getByTestId('quota-diagnostic-metric').getByRole('radio', { name: storageLabel, exact: true })).toBeChecked();
+    await expect(page.getByTestId('quota-diagnostic-result')).toHaveCount(0); expect(reads).toHaveLength(1);
+    await page.getByTestId('quota-diagnostic-read').click(); await expect(page.getByTestId('diagnostic-authoritative')).toHaveText('9223372036854775807');
+    await expect(page.getByTestId('diagnostic-difference')).toHaveText('100');
+    expect((await new AxeBuilder({ page }).include('.art-form-dialog').withTags(['wcag2a', 'wcag2aa']).analyze()).violations).toEqual([]);
+    await page.getByTestId('quota-diagnostic-result').scrollIntoViewIfNeeded();
+    await page.getByRole('dialog').last().screenshot({ path: info.outputPath('quota-diagnostic-' + width + '.png'), animations: 'disabled' });
+    mode = 'unavailable'; await page.getByTestId('quota-diagnostic-read').click(); await expect(page.getByTestId('diagnostic-authoritative')).toHaveText(locale === 'en-US' ? 'Unknown' : '未知');
+    await expect(page.getByTestId('diagnostic-difference')).toHaveText(locale === 'en-US' ? 'Not compared' : '暂不比较');
+    mode = 'denied'; await page.getByTestId('quota-diagnostic-read').click(); await expect(page.getByTestId('quota-diagnostic-result')).toHaveCount(0);
+    await expect(page.getByTestId('quota-diagnostic-failure')).toBeVisible(); expect(reads).toEqual(['identity.seats', 'files.storage_bytes', 'files.storage_bytes', 'files.storage_bytes']);
+    expect(state.reads).toBe(1); expect(state.writes).toBe(0);
+  });
+}

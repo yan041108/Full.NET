@@ -826,6 +826,7 @@ import type {
   TenantEntitlementCatalogResponse,
   TenantPackageOfferResponse,
   TenantPackageSummary,
+  TenantQuotaUsageDiagnosticResponse,
   TenantQuotaUsageItemResponse,
   TenantQuotaUsageSummaryResponse,
   TenantRuntimeBrandingResponse,
@@ -1403,6 +1404,7 @@ import {
   readTenantBrandingResponse,
   readTenantPackageOfferResponse,
   readTenantPackageSummary,
+  readTenantQuotaUsageDiagnosticResponse,
   readTenantQuotaUsageSummaryResponse,
   readTenantRuntimeBrandingResponse,
   readTenantSubscriptionInvoiceResponse,
@@ -17307,6 +17309,25 @@ export async function tenancyGetTenantQuotaUsage(
   const init: RequestInit = { method: 'GET' };
   const value = await requestJsonOperation(http, path, init, signal, options);
   return readTenantQuotaUsageSummaryResponse(value);
+}
+
+export interface TenancyGetTenantQuotaUsageDiagnosticParameters {
+  readonly tenantId: string;
+  readonly metricCode: string;
+}
+
+export async function tenancyGetTenantQuotaUsageDiagnostic(
+  http: HttpClient,
+  parameters: TenancyGetTenantQuotaUsageDiagnosticParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<TenantQuotaUsageDiagnosticResponse> {
+  const query = new URLSearchParams();
+  query.set('metricCode', String(parameters.metricCode));
+  const path = query.size === 0 ? `/api/v1/tenancy/tenants/${encodeURIComponent(String(parameters.tenantId))}/quota/usage-diagnostic` : `/api/v1/tenancy/tenants/${encodeURIComponent(String(parameters.tenantId))}/quota/usage-diagnostic?${query.toString()}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = await requestJsonOperation(http, path, init, signal, options);
+  return readTenantQuotaUsageDiagnosticResponse(value);
 }
 
 export interface TenancyGetTenantSubscriptionParameters {

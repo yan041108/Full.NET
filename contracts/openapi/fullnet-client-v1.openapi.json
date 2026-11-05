@@ -61159,6 +61159,53 @@
         ]
       }
     },
+    "/api/v1/tenancy/tenants/{tenantId}/quota/usage-diagnostic": {
+      "get": {
+        "operationId": "tenancyGetTenantQuotaUsageDiagnostic",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "tenantId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "metricCode",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TenantQuotaUsageDiagnosticResponse"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          },
+          {
+            "ApiKey": []
+          }
+        ],
+        "tags": [
+          "TenancyTenantQuota"
+        ]
+      }
+    },
     "/api/v1/tenancy/tenants/{tenantId}/reactivate": {
       "post": {
         "operationId": "tenancyReactivateTenant",
@@ -104603,6 +104650,71 @@
           "description",
           "isActive",
           "version"
+        ],
+        "type": "object"
+      },
+      "TenantQuotaUsageDiagnosticResponse": {
+        "properties": {
+          "authoritativeUsedValue": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "bookUsedValue": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "metricCode": {
+            "type": "string"
+          },
+          "metricId": {
+            "format": "uuid",
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "observedDifference": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "readAtUtc": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "reservedValue": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "state": {
+            "type": "string"
+          },
+          "tenantId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "tenantIsActive": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "tenantId",
+          "metricCode",
+          "tenantIsActive",
+          "metricId",
+          "bookUsedValue",
+          "reservedValue",
+          "authoritativeUsedValue",
+          "observedDifference",
+          "state",
+          "readAtUtc"
         ],
         "type": "object"
       },

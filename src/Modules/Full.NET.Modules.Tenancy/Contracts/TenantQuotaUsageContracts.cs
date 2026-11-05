@@ -22,3 +22,18 @@ public sealed record TenantQuotaUsageItemResponse(Guid Id, string MetricCode, st
     [property: JsonConverter(typeof(StringInt64JsonConverter))] long LimitValue,
     [property: JsonConverter(typeof(StringInt64JsonConverter))] long UsedValue,
     [property: JsonConverter(typeof(StringInt64JsonConverter))] long ReservedValue);
+
+/// <summary>单企业用量的只读时点观察；未知或进行中不提供差额判断。</summary>
+/// <param name="TenantId">精确目标企业。</param>
+/// <param name="MetricCode">席位或资源存储指标。</param>
+/// <param name="TenantIsActive">最终账面观察时的企业状态。</param>
+/// <param name="MetricId">当前指标身份，未配置时为空。</param>
+/// <param name="BookUsedValue">账面已确认量，精确整数文本；未配置时未知。</param>
+/// <param name="ReservedValue">账面预留，精确整数文本；未配置时未知。</param>
+/// <param name="AuthoritativeUsedValue">所有者计数端口的观察值，不可用时未知。</param>
+/// <param name="ObservedDifference">权威值减账面值的精确整数文本；仅可比较时提供。</param>
+/// <param name="State">Aligned、Different、InProgress、Unconfigured 或 Unavailable。</param>
+/// <param name="ReadAtUtc">本次观察完成时间，不是准入或修复资格。</param>
+public sealed record TenantQuotaUsageDiagnosticResponse(Guid TenantId, string MetricCode, bool TenantIsActive,
+    Guid? MetricId, string? BookUsedValue, string? ReservedValue, string? AuthoritativeUsedValue,
+    string? ObservedDifference, string State, DateTimeOffset ReadAtUtc);

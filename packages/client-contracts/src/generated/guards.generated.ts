@@ -825,6 +825,7 @@ import type {
   TenantEntitlementCatalogResponse,
   TenantPackageOfferResponse,
   TenantPackageSummary,
+  TenantQuotaUsageDiagnosticResponse,
   TenantQuotaUsageItemResponse,
   TenantQuotaUsageSummaryResponse,
   TenantRuntimeBrandingResponse,
@@ -8190,6 +8191,14 @@ export function readTenantPackageSummary(value: unknown): TenantPackageSummary {
 
 function isTenantPackageSummary(value: unknown): value is TenantPackageSummary {
   return isRecord(value) && (value["assignedTenantCount"] === undefined || (Number.isSafeInteger(value["assignedTenantCount"]))) && (typeof value["code"] === 'string') && ((value["description"] === null) || (typeof value["description"] === 'string')) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["isActive"] === 'boolean') && (typeof value["name"] === 'string') && (Number.isSafeInteger(value["version"]));
+}
+
+export function readTenantQuotaUsageDiagnosticResponse(value: unknown): TenantQuotaUsageDiagnosticResponse {
+  return requireValidResponse(value, isTenantQuotaUsageDiagnosticResponse(value), 'tenant_quota_usage_diagnostic_response') as TenantQuotaUsageDiagnosticResponse;
+}
+
+function isTenantQuotaUsageDiagnosticResponse(value: unknown): value is TenantQuotaUsageDiagnosticResponse {
+  return isRecord(value) && ((value["authoritativeUsedValue"] === null) || (typeof value["authoritativeUsedValue"] === 'string')) && ((value["bookUsedValue"] === null) || (typeof value["bookUsedValue"] === 'string')) && (typeof value["metricCode"] === 'string') && ((value["metricId"] === null) || (typeof value["metricId"] === 'string' && guidPattern.test(value["metricId"]))) && ((value["observedDifference"] === null) || (typeof value["observedDifference"] === 'string')) && (typeof value["readAtUtc"] === 'string') && ((value["reservedValue"] === null) || (typeof value["reservedValue"] === 'string')) && (typeof value["state"] === 'string') && (typeof value["tenantId"] === 'string' && guidPattern.test(value["tenantId"])) && (typeof value["tenantIsActive"] === 'boolean');
 }
 
 export function readTenantQuotaUsageItemResponse(value: unknown): TenantQuotaUsageItemResponse {

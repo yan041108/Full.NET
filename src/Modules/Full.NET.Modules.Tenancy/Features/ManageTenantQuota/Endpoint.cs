@@ -12,6 +12,15 @@ internal static class Endpoint
 {
     public static void Map(IEndpointRouteBuilder endpoints)
     {
+        endpoints.MapGet("/api/v1/tenancy/tenants/{tenantId:guid}/quota/usage-diagnostic", async (
+            Guid tenantId, string metricCode, TenantQuotaUsageDiagnosticService service, IApiResultMapper mapper, HttpContext context, CancellationToken token) =>
+        {
+            context.Response.Headers.CacheControl = "no-store";
+            return mapper.Map(await service.GetAsync(tenantId, metricCode, token).ConfigureAwait(false), context);
+        }).WithName("tenancyGetTenantQuotaUsageDiagnostic").WithTags("TenancyTenantQuota")
+            .Produces<TenantQuotaUsageDiagnosticResponse>()
+            .RequireAuthorization(FullNetPermissionPolicies.For(TenancyTenantQuotaPermissions.Read),
+                FullNetPermissionPolicies.For(TenancyTenantQuotaPermissions.ReconcileUsageBaseline));
         endpoints.MapGet("/api/v1/tenancy/tenants/{tenantId:guid}/quota/usage", async (
             Guid tenantId, TenantQuotaUsageQueryService service, IApiResultMapper mapper, HttpContext context, CancellationToken token) =>
         {

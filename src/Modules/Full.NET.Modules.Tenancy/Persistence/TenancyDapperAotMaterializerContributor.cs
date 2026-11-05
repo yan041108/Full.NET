@@ -51,6 +51,9 @@ internal sealed class TenancyDapperAotMaterializerContributor : IDapperAotMateri
         registrar.Register<TenantPackageIdentityRecord>(ReadTenantPackageIdentityRecord);
         registrar.Register<TenantEntitlementBindingRecord>(ReadTenantEntitlementBindingRecord);
         registrar.Register<TenantSubscriptionRecord>(ReadTenantSubscriptionRecord);
+        registrar.Register<Features.ManageTenantQuota.TenantQuotaDiagnosticSnapshot>(r => new(r.GetGuid(0), AotDataReaderExtensions.ReadBoolean(r, 1),
+            AotDataReaderExtensions.ReadNullableGuid(r, 2), r.IsDBNull(3) ? null : r.GetInt64(3), r.IsDBNull(4) ? null : r.GetInt64(4),
+            r.IsDBNull(5) ? null : AotDataReaderExtensions.ReadInt32(r, 5)));
         registrar.Register<TenantQuotaMetricRecord>(ReadTenantQuotaMetricRecord);
         registrar.Register<TenantQuotaUsageBaselineRecord>(ReadTenantQuotaUsageBaselineRecord);
         registrar.Register<TenantQuotaReservationRecord>(ReadTenantQuotaReservationRecord);

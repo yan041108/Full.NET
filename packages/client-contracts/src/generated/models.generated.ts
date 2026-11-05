@@ -6954,6 +6954,19 @@ export interface TenantPackageSummary {
   readonly version: number;
 }
 
+export interface TenantQuotaUsageDiagnosticResponse {
+  readonly authoritativeUsedValue: null | string;
+  readonly bookUsedValue: null | string;
+  readonly metricCode: string;
+  readonly metricId: null | string;
+  readonly observedDifference: null | string;
+  readonly readAtUtc: string;
+  readonly reservedValue: null | string;
+  readonly state: string;
+  readonly tenantId: string;
+  readonly tenantIsActive: boolean;
+}
+
 export interface TenantQuotaUsageItemResponse {
   readonly id: string;
   readonly limitValue: string;

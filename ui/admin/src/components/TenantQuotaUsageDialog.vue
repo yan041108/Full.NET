@@ -9,6 +9,7 @@ import { tenantQuotaText } from '../i18n/tenant-quota';
 import { getTenantQuotaUsage, type TenantQuotaUsageSummaryResponse } from '../api/tenant-quota';
 import { quotaUsageRows, type QuotaUsageRow } from './tenant-quota-usage';
 import ArtFormDialog from '../framework/art-design/components/ArtFormDialog.vue';
+import TenantQuotaUsageDiagnostic from './TenantQuotaUsageDiagnostic.vue';
 
 const props = defineProps<{ open: boolean; tenantId: string; tenantName?: string }>();
 const emit = defineEmits<{ 'update:open': [value: boolean] }>();
@@ -67,6 +68,7 @@ async function load() {
           </template>
         </article>
       </div>
+      <TenantQuotaUsageDiagnostic :key="tenantId" :tenant-id="tenantId" />
     </template>
   </ArtFormDialog>
 </template>

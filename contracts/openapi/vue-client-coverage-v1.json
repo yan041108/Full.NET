@@ -1443,7 +1443,7 @@
   "consumerModules": [
     {
       "apiModule": "ui/admin/src/api/tenant-quota.ts",
-      "consumers": ["ui/admin/src/components/TenantQuotaUsageDialog.vue", "ui/admin/src/components/TenantQuotaBaselinePreview.vue"]
+      "consumers": ["ui/admin/src/components/TenantQuotaUsageDialog.vue", "ui/admin/src/components/TenantQuotaBaselinePreview.vue", "ui/admin/src/components/TenantQuotaUsageDiagnostic.vue"]
     },
     {
       "apiModule": "ui/admin/src/api/tenant-ownership.ts",

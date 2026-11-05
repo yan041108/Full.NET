@@ -111,6 +111,7 @@ public sealed class TenancyModule : IFullNetModule
         services.AddScoped<Features.ManageTenantEntitlements.TenantEntitlementBackfillService>();
         services.AddScoped<Features.ManageTenantQuota.TenantQuotaManagementService>();
         services.AddScoped<Features.ManageTenantQuota.TenantQuotaUsageQueryService>();
+        services.AddScoped<Features.ManageTenantQuota.TenantQuotaUsageDiagnosticService>();
         services.AddScoped<Features.ReconcileQuotaReservationMetricIds.TenantQuotaMetricIdReconciliationService>();
         services.AddScoped<Features.ReconcileQuotaUsageBaseline.TenantQuotaUsageBaselineService>();
         services.AddScoped<Features.TenantBranding.TenantBrandingService>();

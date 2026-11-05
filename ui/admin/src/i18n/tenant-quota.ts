@@ -1,5 +1,10 @@
 import type { SupportedLocale } from '@fullnet/admin-i18n';
 const zh = {
+  diagnosticTitle: '权威用量诊断', diagnosticRead: '读取当前诊断', diagnosticAuthoritative: '权威观察用量', diagnosticDifference: '权威值减账面值', diagnosticUnknown: '未知', diagnosticNoComparison: '暂不比较',
+  diagnosticHint: '只读观察当前企业及指标。各来源按时点读取，不能视为全局一致快照；诊断不会修复账面，也不授予新增资格。',
+  diagnosticSeatsSource: '计数来源：本企业状态为活动的成员；未完成席位工作会暂缓差额判断。', diagnosticStorageSource: '计数来源：已就绪资源文件字节，不是物理磁盘总量。',
+  diagnosticAligned: '本次观察一致。', diagnosticDifferent: '本次观察存在差额，请结合读取时间和业务状态复核。', diagnosticProgress: '存在预留、未完成工作或账面观察变化，当前不判断差额。',
+  diagnosticUnconfigured: '尚未配置账面指标，不能将其解释为零。', diagnosticUnavailable: '权威来源未装配或未返回有效计数，当前用量未知。',
   previewTitle: '全局配额预检', previewMetric: '预检指标', previewStart: '预检本批', previewNext: '预检下一批', previewReset: '从头重新预检',
   previewHint: '检查所有活动企业的用量基线，每批最多 25 家。此入口只统计候选，不会修复或写入配额。',
   previewSkipped: '存在预留或尚未结算的业务操作时会跳过对应企业。各批独立读取，结果不是全局一致快照，也不是全部企业总数。',
@@ -16,6 +21,11 @@ const zh = {
   absent: '当前企业不存在或已不可读取，请刷新企业列表。', mismatch: '返回用量无法与原企业及正式指标核对，请重新读取。'
 };
 const en: Record<keyof typeof zh, string> = {
+  diagnosticTitle: 'Authoritative usage diagnostic', diagnosticRead: 'Read current diagnostic', diagnosticAuthoritative: 'Observed authoritative usage', diagnosticDifference: 'Authoritative minus book usage', diagnosticUnknown: 'Unknown', diagnosticNoComparison: 'Not compared',
+  diagnosticHint: 'Read only the selected tenant and metric. Sources are observed at different times, not as a global snapshot. This diagnostic does not repair usage or grant admission.',
+  diagnosticSeatsSource: 'Source: active tenant members. Unsettled seat work defers comparison.', diagnosticStorageSource: 'Source: bytes of ready resource files, not total disk usage.',
+  diagnosticAligned: 'The observed values match.', diagnosticDifferent: 'The observed values differ. Check the read time and business state.', diagnosticProgress: 'Reservations, unsettled work or changing book values prevent comparison.',
+  diagnosticUnconfigured: 'The book metric is not configured; it must not be interpreted as zero.', diagnosticUnavailable: 'The authoritative source is not installed or did not return a valid count. Usage remains unknown.',
   previewTitle: 'Global quota preview', previewMetric: 'Preview metric', previewStart: 'Preview batch', previewNext: 'Preview next batch', previewReset: 'Restart preview',
   previewHint: 'Check the usage baseline of all active tenants, up to 25 per batch. This console only reports candidates; it never repairs or writes quota.',
   previewSkipped: 'Tenants with pending reservations or unsettled operations are skipped. Each batch is a separate read, not a globally consistent snapshot or a total tenant count.',
