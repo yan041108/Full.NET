@@ -27,6 +27,9 @@ public static class PaymentErrorCodes
     /// <summary>原创建请求核对仅允许 Host 上下文。</summary>
     public const string OrderCreationLookupForbidden = "payments.order.creation_lookup_forbidden";
 
+    /// <summary>订单对账商户与原租户或渠道不一致。</summary>
+    public const string OrderMerchantMismatch = "payments.order.merchant_mismatch";
+
     /// <summary>支付订单元数据校验失败。</summary>
     public const string OrderInvalid = "payments.order.invalid";
 

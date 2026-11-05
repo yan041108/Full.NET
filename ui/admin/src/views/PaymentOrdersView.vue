@@ -27,8 +27,9 @@ import SubscriptionFulfillmentAction from '../components/SubscriptionFulfillment
 import PaymentOrderDetailDialog from '../components/PaymentOrderDetailDialog.vue';
 import PaymentOrderCreateDialog from '../components/PaymentOrderCreateDialog.vue';
 import PaymentOrderCreationLookupDialog from '../components/PaymentOrderCreationLookupDialog.vue';
+import PaymentOrderReconcileDialog from '../components/PaymentOrderReconcileDialog.vue';
 import { useAdminI18n } from '../i18n/adminI18n';
-import { listPaymentOrders, reconcilePaymentOrder, createPaymentRefund } from '../api/payment-orders';
+import { listPaymentOrders, createPaymentRefund } from '../api/payment-orders';
 import { formatPaymentAmount, parsePaymentAmount } from '../utils/payment-amount';
 import { useSessionStore } from '../auth/session';
 import { useAuthorizedViewScope } from '../composables/useAuthorizedViewScope';
@@ -47,6 +48,7 @@ const loading = ref(false);
 const changing = ref(false);
 const problem = ref<FullNetProblemDetails>();
 const createOpen = ref(false);
+const reconcileOpen = ref(false); const reconcileTarget = ref<Readonly<PaymentOrderListItem>>();
 const refundOpen = ref(false);
 const refundOrderId = ref('');
 const refundForm = reactive({
@@ -72,6 +74,7 @@ let appliedFilters = { ...filters }; let invalidFilters = false;
 const refundScope = useAuthorizedViewScope(session, () => {
   clearList(); page.value = 1;
   createOpen.value = false; creationLookupOpen.value = false; lastCodeUrl.value = ''; lastCreatedOrder.value = undefined; lastCreationReadAt.value = '';
+  reconcileOpen.value = false; reconcileTarget.value = undefined; changing.value = false;
   Object.assign(filters, { tenantId: '', state: 'all', outTradeNo: '' }); appliedFilters = { ...filters }; invalidFilters = false;
   orderIdInput.value = ''; orderDetailId.value = ''; orderDetailOpen.value = false;
   refundOpen.value = false; refundOrderId.value = ''; refundSaving.value = false; refundAttempts.clear();
@@ -164,17 +167,10 @@ function orderCreated(order: PaymentOrder, readAtUtc?: string) {
   lastCreatedOrder.value = order; lastCreationReadAt.value = readAtUtc ?? ''; lastCodeUrl.value = order.codeUrl ?? ''; void load();
 }
 
-async function reconcileOrder(orderId: string): Promise<void> {
-  changing.value = true;
-  try {
-    await reconcilePaymentOrder(orderId);
-    ElMessage.success(t('paymentOrders.reconcileSuccess'));
-    await load();
-  } catch (error: unknown) {
-    ElMessage.error(toProblem(error, 'paymentOrders.reconcileFailed').title);
-  } finally {
-    changing.value = false;
-  }
+function reconcileOrder(orderId: string): void {
+  if (changing.value || refundSaving.value || !canRead.value || !session.can('payments.orders.reconcile')) return;
+  const original = items.value.find(row => row.id === orderId); if (!original) return;
+  reconcileTarget.value = Object.freeze({ ...original }); reconcileOpen.value = true;
 }
 
 function openRefund(orderId: string): void {
@@ -320,6 +316,7 @@ async function submitRefund(): Promise<void> {
                   link
                   type="primary"
                   :data-testid="`payment-order-reconcile-${row.id}`"
+                  :disabled="changing || refundSaving || !canRead"
                   @click="reconcileOrder(row.id)"
                 >
                   {{ t('paymentOrders.reconcile') }}
@@ -353,6 +350,7 @@ async function submitRefund(): Promise<void> {
     </el-card>
 
     <PaymentOrderCreateDialog v-model:open="createOpen" @created="orderCreated" />
+  <PaymentOrderReconcileDialog v-model:open="reconcileOpen" :reference="reconcileTarget" @busy="changing = $event" @updated="load" />
     <PaymentOrderCreationLookupDialog v-model:open="creationLookupOpen" @open-order="readOrder" />
 
     <ArtFormDialog

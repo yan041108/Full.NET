@@ -1663,7 +1663,8 @@
         "ui/admin/src/views/PaymentOrdersView.vue",
         "ui/admin/src/components/PaymentOrderDetailDialog.vue",
         "ui/admin/src/components/PaymentOrderCreateDialog.vue",
-        "ui/admin/src/components/PaymentOrderCreationLookupDialog.vue"
+        "ui/admin/src/components/PaymentOrderCreationLookupDialog.vue",
+        "ui/admin/src/components/PaymentOrderReconcileDialog.vue"
       ]
     },
     {

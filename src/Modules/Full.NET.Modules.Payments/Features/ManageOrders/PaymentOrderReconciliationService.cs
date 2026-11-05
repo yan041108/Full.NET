@@ -77,6 +77,12 @@ internal sealed class PaymentOrderReconciliationService(
                 ErrorType.Validation));
         }
 
+        // 对账使用当前凭据，但凭据所属租户和渠道必须仍与原资金意图一致。
+        if (merchantConfig.Id != order.MerchantConfigId || merchantConfig.TenantId != order.TenantId
+            || !string.Equals(merchantConfig.ChannelKey, order.ChannelKey, StringComparison.Ordinal))
+            return Result<PaymentOrderResponse>.Failure(new Error(PaymentErrorCodes.OrderMerchantMismatch,
+                "The merchant configuration no longer matches the original order tenant and channel.", ErrorType.Conflict));
+
         ProviderQuerySnapshot providerSnapshot;
         try
         {

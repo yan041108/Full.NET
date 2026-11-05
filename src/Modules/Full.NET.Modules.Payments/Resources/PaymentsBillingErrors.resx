@@ -16,4 +16,5 @@
   <data name="payments.refund.merchant_mismatch" xml:space="preserve"><value>当前商户配置与原订单的租户或渠道不一致，请核对原订单。</value></data>
   <data name="payments.order.creation_request_not_found" xml:space="preserve"><value>未找到该租户及原创建请求对应的订单。</value></data>
   <data name="payments.order.creation_lookup_forbidden" xml:space="preserve"><value>仅 Host 上下文可以核对支付订单创建请求。</value></data>
+  <data name="payments.order.merchant_mismatch" xml:space="preserve"><value>当前商户配置与原订单的租户或渠道不一致，请先核对原资金身份。</value></data>
 </root>
