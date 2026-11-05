@@ -44,9 +44,11 @@ internal static class SubscriptionFulfillmentSql
         UPDATE fn_payment_subscription_fulfillment SET LeaseId=NULL,LeaseUntilUtc=NULL,DueAtUtc=@DueAtUtc,Version=Version+1
         WHERE Id=@Id AND LeaseId=@LeaseId
         """, SqlDataScope.HostOnly);
+    // 付款复核仍须等待冻结生效日；退款复核不能被同一个未来时间延后。
     internal static readonly SqlStatement Retry = new("payments.subscription_fulfillment.retry", """
         UPDATE fn_payment_subscription_fulfillment SET Phase=CASE WHEN LastRefundId IS NULL THEN 'ReadyPaid' ELSE 'ReadyRefund' END,
-          DueAtUtc=@Now,Attempt=0,ErrorCode=NULL,Version=Version+1
+          DueAtUtc=CASE WHEN LastRefundId IS NULL AND EffectiveFromUtc>@Now THEN EffectiveFromUtc ELSE @Now END,
+          Attempt=0,ErrorCode=NULL,Version=Version+1
         WHERE PaymentOrderId=@OrderId AND Phase='Review' AND (LeaseUntilUtc IS NULL OR LeaseUntilUtc<=@Now)
         """, SqlDataScope.HostOnly);
     internal static readonly SqlStatement DueSqlServer = new("payments.subscription_fulfillment.due.sql_server", """

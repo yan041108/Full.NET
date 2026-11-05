@@ -825,6 +825,11 @@
       "minimum": 2,
       "timeout": "15m",
       "selections": {
+        "subscription-future-retry": {
+          "filter": "FullyQualifiedName~SubscriptionBillingRecoveryTests",
+          "minimum": 2,
+          "timeout": "5m"
+        },
         "subscription-status-filter": {
           "filter": "FullyQualifiedName~TenantSubscriptionStatusFilterApiTests",
           "minimum": 2,

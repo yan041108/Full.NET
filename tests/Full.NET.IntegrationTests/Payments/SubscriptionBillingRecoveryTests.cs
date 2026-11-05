@@ -180,6 +180,62 @@ public sealed class SubscriptionBillingRecoveryTests
         Assert.IsFalse((await billing.ApplyVerifiedPaymentAsync(receipt with { SubscriptionId = expiring.Value.SubscriptionId,
             PaymentOperationId = expiring.Value.PaymentOperationId })).IsSuccess);
         Assert.AreEqual(1L, await ActiveFeature(sp, tenant, code));
+
+        await VerifyFutureReviewRetryAsync(sp, connection, billing, package.Value.Id, tenant, now, paidBytes, refundBytes);
+
+    }
+
+    /// <summary>未来付款的人工重试保持生效门槛，未来账单的退款不受该门槛延误。</summary>
+    private static async Task VerifyFutureReviewRetryAsync(IServiceProvider sp, DbConnection connection,
+        TenantSubscriptionBillingService billing, Guid packageId, Guid tenant, DateTimeOffset now, byte[] paidBytes, byte[] refundBytes)
+    {
+        var queries = sp.GetRequiredService<IQueryExecutor>();
+        var paidHandler = sp.GetServices<IIntegrationEventHandler>().OfType<PaymentPaidFactHandler>().Single();
+        var refundHandler = sp.GetServices<IIntegrationEventHandler>().OfType<PaymentRefundFactHandler>().Single();
+        // 首次事实已按生效时间排队；人工复核后的付款重试也不能提前耗尽失败预算。
+        var future = await billing.CreateAsync(tenant, new(packageId, 2, now.AddDays(1), Guid.CreateVersion7()), default);
+        Assert.IsTrue(future.IsSuccess, future.Error?.Code);
+        var futureCheckout = await sp.GetRequiredService<SubscriptionCheckoutService>().CheckoutAsync(tenant, future.Value!.SubscriptionId, default);
+        Assert.IsTrue(futureCheckout.IsSuccess, futureCheckout.Error?.Code);
+        var futureOrder = futureCheckout.Value!.Order.Id;
+        Assert.IsTrue((await sp.GetRequiredService<PaymentOrderReconciliationService>().ReconcileAsync(futureOrder)).IsSuccess);
+        var futurePaid = (await connection.QueryAsync<byte[]>("SELECT Payload FROM fn_outbox_message WHERE MessageType='fullnet.payments.order.paid'"))
+            .Single(payload => !payload.SequenceEqual(paidBytes));
+        await paidHandler.HandleAsync(futurePaid, default);
+        await MarkFutureReviewAsync();
+        var recovery = sp.GetRequiredService<SubscriptionFulfillmentProcessor>();
+        Assert.AreEqual(1, await recovery.RetryAsync(futureOrder, default));
+        var waiting = (await queries.QuerySingleOrDefaultAsync<SubscriptionFulfillmentRecord>(SubscriptionFulfillmentSql.Find,
+            P(("Id", future.Value.PaymentOperationId))))!;
+        Assert.AreEqual("ReadyPaid", waiting.Phase); Assert.AreEqual(future.Value.EffectiveFromUtc, waiting.DueAtUtc);
+        Assert.AreEqual(0, waiting.Attempt); Assert.IsNull(waiting.ErrorCode);
+        var early = await recovery.ProcessAsync(future.Value.PaymentOperationId, default);
+        Assert.IsTrue(early.IsSuccess); Assert.IsFalse(early.Value);
+        await paidHandler.HandleAsync(futurePaid, default);
+        waiting = (await queries.QuerySingleOrDefaultAsync<SubscriptionFulfillmentRecord>(SubscriptionFulfillmentSql.Find,
+            P(("Id", future.Value.PaymentOperationId))))!;
+        Assert.AreEqual(future.Value.EffectiveFromUtc, waiting.DueAtUtc); Assert.AreEqual(0, waiting.Attempt);
+        Assert.AreEqual(0, await SourceCount(connection, future.Value.SubscriptionId));
+
+        // 同一未来账单若已退款，复核重试必须立即撤销，不等待原生效日。
+        var futureRefund = await sp.GetRequiredService<PaymentRefundManagementService>().CreateForOrderAsync(futureOrder, new(null, "future refund"));
+        Assert.IsTrue(futureRefund.IsSuccess, futureRefund.Error?.Code);
+        var futureRefundFact = (await connection.QueryAsync<byte[]>("SELECT Payload FROM fn_outbox_message WHERE MessageType='fullnet.payments.refund.succeeded'"))
+            .Single(payload => !payload.SequenceEqual(refundBytes));
+        await refundHandler.HandleAsync(futureRefundFact, default);
+        await MarkFutureReviewAsync();
+        Assert.AreEqual(1, await recovery.RetryAsync(futureOrder, default));
+        var refundWork = (await queries.QuerySingleOrDefaultAsync<SubscriptionFulfillmentRecord>(SubscriptionFulfillmentSql.Find,
+            P(("Id", future.Value.PaymentOperationId))))!;
+        Assert.AreEqual("ReadyRefund", refundWork.Phase); Assert.IsTrue(refundWork.DueAtUtc <= DateTimeOffset.UtcNow);
+        Assert.IsTrue((await recovery.ProcessAsync(future.Value.PaymentOperationId, default)).Value);
+        Assert.AreEqual("Refunded", await connection.QuerySingleAsync<string>("SELECT Phase FROM fn_payment_subscription_fulfillment WHERE Id=@Id", new { Id = future.Value.PaymentOperationId }));
+        Assert.AreEqual(0, await SourceCount(connection, future.Value.SubscriptionId));
+
+        Task<int> MarkFutureReviewAsync() => connection.ExecuteAsync("""
+            UPDATE fn_payment_subscription_fulfillment SET Phase='Review',ErrorCode='test.manual_review',Attempt=10,
+                LeaseId=NULL,LeaseUntilUtc=NULL,Version=Version+1 WHERE Id=@Id
+            """, new { Id = future.Value.PaymentOperationId });
     }
 
     /// <summary>使用真实 Files、存储和配额端口核对新增占用，不以账面余额推导业务成功。</summary>
@@ -250,10 +306,13 @@ public sealed class SubscriptionBillingRecoveryTests
     private sealed class Channel : IWeChatNativePayClient
     {
         internal int CreateCount;
+        // 同一订单重查保持渠道身份，新增订单不能复用首单金额或流水。
+        private readonly Dictionary<string, long> amounts = new(StringComparer.Ordinal);
+        private string? firstTradeNo;
         public Task<WeChatNativePayResult> CreateNativeOrderAsync(PaymentMerchantConfigRecord merchantConfig, string outTradeNo, long amountMinor, string currency, string description, CancellationToken cancellationToken = default)
-        { CreateCount++; return Task.FromResult(WeChatNativePayResult.Success("weixin://test-only")); }
-        public Task<WeChatTransactionQueryResult> QueryTransactionByOutTradeNoAsync(PaymentMerchantConfigRecord merchantConfig, string outTradeNo, CancellationToken cancellationToken = default) => Task.FromResult(WeChatTransactionQueryResult.Success("SUCCESS", "wx-paid", 12500));
-        public Task<WeChatRefundResult> CreateDomesticRefundAsync(PaymentMerchantConfigRecord merchantConfig, string outTradeNo, string outRefundNo, long amountMinor, long totalMinor, string currency, string reason, CancellationToken cancellationToken = default) => Task.FromResult(WeChatRefundResult.Success("wx-refund", "SUCCESS"));
+        { CreateCount++; firstTradeNo ??= outTradeNo; amounts[outTradeNo] = amountMinor; return Task.FromResult(WeChatNativePayResult.Success("weixin://test-only")); }
+        public Task<WeChatTransactionQueryResult> QueryTransactionByOutTradeNoAsync(PaymentMerchantConfigRecord merchantConfig, string outTradeNo, CancellationToken cancellationToken = default) => Task.FromResult(WeChatTransactionQueryResult.Success("SUCCESS", outTradeNo == firstTradeNo ? "wx-paid" : "wx-paid-" + outTradeNo, amounts[outTradeNo]));
+        public Task<WeChatRefundResult> CreateDomesticRefundAsync(PaymentMerchantConfigRecord merchantConfig, string outTradeNo, string outRefundNo, long amountMinor, long totalMinor, string currency, string reason, CancellationToken cancellationToken = default) => Task.FromResult(WeChatRefundResult.Success(outTradeNo == firstTradeNo ? "wx-refund" : "wx-refund-" + outRefundNo, "SUCCESS"));
         public Task<WeChatRefundQueryResult> QueryDomesticRefundAsync(PaymentMerchantConfigRecord merchantConfig, string outRefundNo, CancellationToken cancellationToken = default) => throw new NotSupportedException();
     }
     private sealed class FutureClock(DateTimeOffset now) : IClock { public DateTimeOffset UtcNow => now; }
