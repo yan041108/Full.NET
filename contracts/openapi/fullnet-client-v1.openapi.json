@@ -59343,6 +59343,44 @@
         ]
       }
     },
+    "/api/v1/tenancy/quota/usage-baseline": {
+      "post": {
+        "operationId": "tenancyReconcileQuotaUsageBaseline",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReconcileTenantQuotaUsageBaselineRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReconcileTenantQuotaUsageBaselineResponse"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          },
+          {
+            "ApiKey": []
+          }
+        ],
+        "tags": [
+          "TenancyTenantQuota"
+        ]
+      }
+    },
     "/api/v1/tenancy/tenant-packages": {
       "get": {
         "operationId": "tenancyListHostTenantPackages",
@@ -99681,6 +99719,83 @@
           "revision",
           "outcomeKey",
           "evidenceReference"
+        ],
+        "type": "object"
+      },
+      "ReconcileTenantQuotaUsageBaselineRequest": {
+        "properties": {
+          "afterTenantId": {
+            "format": "uuid",
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "dryRun": {
+            "default": true,
+            "type": "boolean"
+          },
+          "metricCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "pageSize": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          }
+        },
+        "type": "object"
+      },
+      "ReconcileTenantQuotaUsageBaselineResponse": {
+        "properties": {
+          "appliedCount": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "candidateCount": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "dryRun": {
+            "type": "boolean"
+          },
+          "isComplete": {
+            "type": "boolean"
+          },
+          "nextAfterTenantId": {
+            "format": "uuid",
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "tenantIds": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "candidateCount",
+          "appliedCount",
+          "dryRun",
+          "tenantIds"
         ],
         "type": "object"
       },

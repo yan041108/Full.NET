@@ -696,6 +696,8 @@ import type {
   RecipientEndpointResponse,
   ReconcileAiAgentRunRequest,
   ReconcileNotificationDeliveryRequest,
+  ReconcileTenantQuotaUsageBaselineRequest,
+  ReconcileTenantQuotaUsageBaselineResponse,
   ReconcileWorkflowConnectorRequest,
   ReconcileWorkflowRecoveryTaskRequest,
   ReconcileWorkflowRouteRequest,
@@ -7051,6 +7053,24 @@ function isReconcileNotificationDeliveryRequest(value: unknown): value is Reconc
   return isRecord(value) && (typeof value["evidenceReference"] === 'string') && (typeof value["outcomeKey"] === 'string') && (Number.isSafeInteger(value["revision"]));
 }
 
+export function readReconcileTenantQuotaUsageBaselineRequest(value: unknown): ReconcileTenantQuotaUsageBaselineRequest {
+  const normalizedValue = normalizeReconcileTenantQuotaUsageBaselineRequestIntegerJson(value);
+  return requireValidResponse(normalizedValue, isReconcileTenantQuotaUsageBaselineRequest(normalizedValue), 'reconcile_tenant_quota_usage_baseline_request') as ReconcileTenantQuotaUsageBaselineRequest;
+}
+
+function isReconcileTenantQuotaUsageBaselineRequest(value: unknown): value is ReconcileTenantQuotaUsageBaselineRequest {
+  return isRecord(value) && (value["afterTenantId"] === undefined || ((value["afterTenantId"] === null) || (typeof value["afterTenantId"] === 'string' && guidPattern.test(value["afterTenantId"])))) && (value["dryRun"] === undefined || (typeof value["dryRun"] === 'boolean')) && (value["metricCode"] === undefined || ((value["metricCode"] === null) || (typeof value["metricCode"] === 'string'))) && (value["pageSize"] === undefined || (Number.isSafeInteger(value["pageSize"])));
+}
+
+export function readReconcileTenantQuotaUsageBaselineResponse(value: unknown): ReconcileTenantQuotaUsageBaselineResponse {
+  const normalizedValue = normalizeReconcileTenantQuotaUsageBaselineResponseIntegerJson(value);
+  return requireValidResponse(normalizedValue, isReconcileTenantQuotaUsageBaselineResponse(normalizedValue), 'reconcile_tenant_quota_usage_baseline_response') as ReconcileTenantQuotaUsageBaselineResponse;
+}
+
+function isReconcileTenantQuotaUsageBaselineResponse(value: unknown): value is ReconcileTenantQuotaUsageBaselineResponse {
+  return isRecord(value) && (Number.isSafeInteger(value["appliedCount"])) && (Number.isSafeInteger(value["candidateCount"])) && (typeof value["dryRun"] === 'boolean') && (value["isComplete"] === undefined || (typeof value["isComplete"] === 'boolean')) && (value["nextAfterTenantId"] === undefined || ((value["nextAfterTenantId"] === null) || (typeof value["nextAfterTenantId"] === 'string' && guidPattern.test(value["nextAfterTenantId"])))) && (Array.isArray(value["tenantIds"]) && value["tenantIds"].every(item18 => typeof item18 === 'string' && guidPattern.test(item18)));
+}
+
 export function readReconcileWorkflowConnectorRequest(value: unknown): ReconcileWorkflowConnectorRequest {
   const normalizedValue = normalizeReconcileWorkflowConnectorRequestIntegerJson(value);
   return requireValidResponse(normalizedValue, isReconcileWorkflowConnectorRequest(normalizedValue), 'reconcile_workflow_connector_request') as ReconcileWorkflowConnectorRequest;
@@ -11997,6 +12017,14 @@ function normalizeReconcileAiAgentRunRequestIntegerJson(value: unknown): unknown
 
 function normalizeReconcileNotificationDeliveryRequestIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "revision") ? { ["revision"]: normalizeWireInteger(value["revision"]) } : {}) } : value);
+}
+
+function normalizeReconcileTenantQuotaUsageBaselineRequestIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "pageSize") ? { ["pageSize"]: normalizeWireInteger(value["pageSize"]) } : {}) } : value);
+}
+
+function normalizeReconcileTenantQuotaUsageBaselineResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "appliedCount") ? { ["appliedCount"]: normalizeWireInteger(value["appliedCount"]) } : {}), ...(Object.hasOwn(value, "candidateCount") ? { ["candidateCount"]: normalizeWireInteger(value["candidateCount"]) } : {}) } : value);
 }
 
 function normalizeReconcileWorkflowConnectorRequestIntegerJson(value: unknown): unknown {

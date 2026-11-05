@@ -5961,6 +5961,22 @@ export interface ReconcileNotificationDeliveryRequest {
   readonly revision: number;
 }
 
+export interface ReconcileTenantQuotaUsageBaselineRequest {
+  readonly afterTenantId?: null | string;
+  readonly dryRun?: boolean;
+  readonly metricCode?: null | string;
+  readonly pageSize?: number;
+}
+
+export interface ReconcileTenantQuotaUsageBaselineResponse {
+  readonly appliedCount: number;
+  readonly candidateCount: number;
+  readonly dryRun: boolean;
+  readonly isComplete?: boolean;
+  readonly nextAfterTenantId?: null | string;
+  readonly tenantIds: Array<string>;
+}
+
 export interface ReconcileWorkflowConnectorRequest {
   readonly actionKey: string;
   readonly attemptId: null | string;

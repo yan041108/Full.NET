@@ -42,6 +42,7 @@ import { useAdminI18n } from '../i18n/adminI18n';
 import { listHostTenantPackages } from '../api/tenant-packages';
 import TenantSubscriptionsDialog from '../components/TenantSubscriptionsDialog.vue';
 import TenantQuotaUsageDialog from '../components/TenantQuotaUsageDialog.vue';
+import TenantQuotaBaselinePreview from '../components/TenantQuotaBaselinePreview.vue';
 
 import TenantLifecycleDialog from '../components/TenantLifecycleDialog.vue';
 import { tenantLifecycleText } from '../i18n/tenant-lifecycle';
@@ -732,6 +733,7 @@ function toProblem(
           @refresh="load"
         >
           <template #left>
+            <TenantQuotaBaselinePreview />
             <PermissionGate code="tenancy.tenants.create">
               <el-button
                 type="primary"

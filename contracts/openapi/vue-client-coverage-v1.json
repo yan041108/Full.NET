@@ -2,6 +2,12 @@
   "schemaVersion": 1,
   "entries": [
     {
+      "clientContractModules": ["packages/client-contracts/src/generated/index.generated.ts"],
+      "openApiFixture": "contracts/openapi/fullnet-client-v1.openapi.json",
+      "apiModule": "ui/admin/src/api/tenant-quota.ts",
+      "routePrefixes": ["/api/v1/tenancy/tenants", "/api/v1/tenancy/quota/usage-baseline"]
+    },
+    {
       "clientContractModules": [
         "packages/client-contracts/src/workflow-reassignment-candidates.ts"
       ],
@@ -1434,6 +1440,10 @@
     "ui/admin/src/preferences/grid-preferences.ts"
   ],
   "consumerModules": [
+    {
+      "apiModule": "ui/admin/src/api/tenant-quota.ts",
+      "consumers": ["ui/admin/src/components/TenantQuotaUsageDialog.vue", "ui/admin/src/components/TenantQuotaBaselinePreview.vue"]
+    },
     {
       "apiModule": "ui/admin/src/api/tenant-ownership.ts",
       "consumers": [

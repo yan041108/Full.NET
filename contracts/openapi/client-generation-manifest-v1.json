@@ -5230,6 +5230,12 @@
       "apiModule": "ui/admin/src/api/tenant-quota.ts",
       "generatedGroup": "tenant-quota",
       "status": "generated"
+    },
+    {
+      "operationId": "tenancyReconcileQuotaUsageBaseline",
+      "apiModule": "ui/admin/src/api/tenant-quota.ts",
+      "generatedGroup": "tenant-quota",
+      "status": "generated"
     }
   ]
 }

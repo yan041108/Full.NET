@@ -697,6 +697,8 @@ import type {
   RecipientEndpointResponse,
   ReconcileAiAgentRunRequest,
   ReconcileNotificationDeliveryRequest,
+  ReconcileTenantQuotaUsageBaselineRequest,
+  ReconcileTenantQuotaUsageBaselineResponse,
   ReconcileWorkflowConnectorRequest,
   ReconcileWorkflowRecoveryTaskRequest,
   ReconcileWorkflowRouteRequest,
@@ -1345,6 +1347,7 @@ import {
   readQuerySchemeDetail,
   readReceivedHostAnnouncementDetailResponse,
   readRecipientEndpointResponse,
+  readReconcileTenantQuotaUsageBaselineResponse,
   readRecoverDeadLetterResponse,
   readRegionsGetAdministrativeRegionTreeResponse,
   readRegionsListAdministrativeRegionChildrenResponse,
@@ -17420,6 +17423,26 @@ export async function tenancyReactivateTenant(
   };
   const value = await requestJsonOperation(http, path, init, signal, options);
   return readTenantSummary(value);
+}
+
+export interface TenancyReconcileQuotaUsageBaselineParameters {
+  readonly body: ReconcileTenantQuotaUsageBaselineRequest;
+}
+
+export async function tenancyReconcileQuotaUsageBaseline(
+  http: HttpClient,
+  parameters: TenancyReconcileQuotaUsageBaselineParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<ReconcileTenantQuotaUsageBaselineResponse> {
+  const path = `/api/v1/tenancy/quota/usage-baseline`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = await requestJsonOperation(http, path, init, signal, options);
+  return readReconcileTenantQuotaUsageBaselineResponse(value);
 }
 
 export interface TenancySavePackageOfferParameters {
