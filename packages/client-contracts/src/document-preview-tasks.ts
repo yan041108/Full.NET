@@ -1,3 +1,11 @@
+/** 预览历史查询条件；分页与状态共同限定同一服务端结果集。 */
+export interface DocumentPreviewTaskListQuery {
+  page?: number;
+  pageSize?: number;
+  documentItemId?: string;
+  statusKey?: string;
+}
+
 export interface CreateHostDocumentPreviewTaskRequest {
   documentItemId: string;
   versionId?: string | null;

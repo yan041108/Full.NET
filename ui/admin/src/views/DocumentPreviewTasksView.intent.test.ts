@@ -39,23 +39,23 @@ const queued = () => vi.mocked(api.listDocumentPreviewTasks).mockResolvedValue({
 describe('文档预览筛选与任务快照意图', () => {
   it('翻页不会应用尚未提交的文档筛选草稿', async () => {
     await setup(); vm().filterDocumentItemId = outputId; await vm().applyFilter(); vm().filterDocumentItemId = other;
-    vm().page = 2; await vm().load(); expect(vi.mocked(api.listDocumentPreviewTasks).mock.calls.at(-1)?.slice(0, 3)).toEqual([2, 20, outputId]);
+    vm().page = 2; await vm().load(); expect(vi.mocked(api.listDocumentPreviewTasks).mock.calls.at(-1)?.[0]).toMatchObject({ page: 2, pageSize: 20, documentItemId: outputId });
   });
   it('应用条件修剪输入并从第一页查询，清空应用后恢复全部', async () => {
     await setup(); vm().page = 3; vm().filterDocumentItemId = ' ' + outputId + ' '; await vm().applyFilter();
-    expect(vi.mocked(api.listDocumentPreviewTasks).mock.calls.at(-1)?.slice(0, 3)).toEqual([1, 20, outputId]);
-    vm().filterDocumentItemId = ''; await vm().applyFilter(); expect(vi.mocked(api.listDocumentPreviewTasks).mock.calls.at(-1)?.[2]).toBeUndefined();
+    expect(vi.mocked(api.listDocumentPreviewTasks).mock.calls.at(-1)?.[0]).toMatchObject({ page: 1, pageSize: 20, documentItemId: outputId });
+    vm().filterDocumentItemId = ''; await vm().applyFilter(); expect(vi.mocked(api.listDocumentPreviewTasks).mock.calls.at(-1)?.[0]?.documentItemId).toBeUndefined();
   });
   it('Enter使用同一应用入口而不继续触发表单默认提交', async () => {
     await setup(); const input = wrapper!.get('[data-testid="document-preview-task-filter"]'); await input.setValue(outputId); await input.trigger('keydown', { key: 'Enter' }); await flushPromises();
-    expect(api.listDocumentPreviewTasks).toHaveBeenCalledTimes(2); expect(vi.mocked(api.listDocumentPreviewTasks).mock.calls.at(-1)?.[2]).toBe(outputId);
+    expect(api.listDocumentPreviewTasks).toHaveBeenCalledTimes(2); expect(vi.mocked(api.listDocumentPreviewTasks).mock.calls.at(-1)?.[0]?.documentItemId).toBe(outputId);
   });
   it('创建预填仅使用已应用文档条件', async () => {
     await setup(); vm().filterDocumentItemId = outputId; await vm().applyFilter(); vm().filterDocumentItemId = other; vm().openCreate(); await flushPromises(); expect(vm().editorForm.documentItemId).toBe(outputId);
   });
   it('会话变更清空草稿和已应用条件', async () => {
     const { session } = await setup(); vm().filterDocumentItemId = outputId; await vm().applyFilter(); session.currentUser!.sessionId = 'next'; await flushPromises();
-    expect(vm().filterDocumentItemId).toBe(''); expect(vi.mocked(api.listDocumentPreviewTasks).mock.calls.at(-1)?.[2]).toBeUndefined();
+    expect(vm().filterDocumentItemId).toBe(''); expect(vi.mocked(api.listDocumentPreviewTasks).mock.calls.at(-1)?.[0]?.documentItemId).toBeUndefined();
   });
   it.each(['revision', 'file', 'status', 'missing'] as const)('PDF在途目标%s变化同步取消，旧完成不妨碍重新创建', async change => {
     await setup(); const old = deferred<void>(); vi.mocked(api.openDocumentPreviewTaskContent).mockReturnValueOnce(old.promise);
@@ -102,7 +102,7 @@ describe('文档预览筛选与任务快照意图', () => {
   });
   it('路由离开清空目录并取消在途读取，返回重新读取', async () => {
     const old = deferred<Awaited<ReturnType<typeof api.listDocumentPreviewTasks>>>(); vi.mocked(api.listDocumentPreviewTasks).mockReturnValueOnce(old.promise);
-    const { route } = await setup(); const signal = vi.mocked(api.listDocumentPreviewTasks).mock.calls[0]?.[3]; route.name = 'elsewhere'; await flushPromises(); expect(signal?.aborted).toBe(true);
+    const { route } = await setup(); const signal = vi.mocked(api.listDocumentPreviewTasks).mock.calls[0]?.[1]; route.name = 'elsewhere'; await flushPromises(); expect(signal?.aborted).toBe(true);
     old.resolve({ items: [{ ...task, documentTitle: '迟到旧目录' }], page: 1, pageSize: 20, total: 1 }); await flushPromises(); route.name = 'document-preview-tasks'; await flushPromises();
     expect(api.listDocumentPreviewTasks).toHaveBeenCalledTimes(2); expect(wrapper!.text()).not.toContain('迟到旧目录'); expect(wrapper!.text()).toContain(task.documentTitle);
   });

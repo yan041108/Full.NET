@@ -15,6 +15,8 @@ import {
   ElForm,
   ElFormItem,
   ElInput,
+  ElSelect,
+  ElOption,
   ElMessage,
   ElPagination,
   ElTable,
@@ -74,6 +76,10 @@ const pageSize = ref(20);
 const total = ref(0);
 const filterDocumentItemId = ref('');
 const appliedDocumentItemId = ref('');
+const statusDraft = ref('all'), appliedStatus = ref<string>();
+const statusKeys = ['preparing', 'pending', 'processing', 'succeeded', 'failed', 'cancelled'] as const;
+let invalidQuery = false;
+const confirmedCancellations = new Map<string, HostDocumentPreviewTaskResponse>();
 const editorOpen = ref(false);
 const regenerationOrigin = ref<HostDocumentPreviewTaskResponse>();
 const detailVisible = ref(false); const detailLoading = ref(false);
@@ -91,17 +97,18 @@ const validId = (id: string) => isGuid(id) && id !== '00000000-0000-0000-0000-00
 const createBlocked = computed(() => creationBlocks.value.has(createKey(editorForm.documentItemId.trim(), editorForm.versionId.trim())));
 let editorSequence = 0, listSequence = 0, recoverySequence = 0;
 const recoveryConfirmation = ref<{ token: number; confirm: () => void; update: (open: boolean) => void }>();
-let lastQuery: { page: number; pageSize: number; documentItemId: string | undefined } | undefined;
+let lastQuery: { page: number; pageSize: number; documentItemId: string | undefined; statusKey?: string } | undefined;
 let mutation: { request: NonNullable<ReturnType<typeof scope.begin>>; receipt: Receipt; task?: HostDocumentPreviewTaskResponse; dispatched: boolean } | undefined;
 interface ListControls { token: number; input: (value: string) => void; apply: () => void; submit: (event: Event) => void; key: (event: KeyboardEvent) => void; refresh: () => void; create: () => void; page: (value: number) => void; size: (value: number) => void; change: (nextPage: number, nextSize: number) => void }
 const listControls = ref<ListControls>(makeListControls());
 function makeListControls(): ListControls {
   const token = ++listSequence, owned = () => listControls.value.token === token && canRead();
+  const canPage = () => owned() && !loading.value && !invalidQuery && !(problem.value && items.value.length === 0);
   const apply = () => { if (owned()) void applyFilter(); };
   return { token, input: value => { if (owned()) filterDocumentItemId.value = value; }, apply, submit: event => { event.preventDefault(); apply(); }, key: event => { if (event.key === 'Enter') { event.preventDefault(); apply(); } },
-    refresh: () => { if (owned()) void refreshResults(); }, create: () => { if (owned()) openCreate(); }, page: value => { if (owned() && Number.isSafeInteger(value) && value > 0) page.value = value; }, size: value => { if (owned() && [10, 20, 50].includes(value)) pageSize.value = value; },
+    refresh: () => { if (owned()) void refreshResults(); }, create: () => { if (owned()) openCreate(); }, page: value => { if (canPage() && Number.isSafeInteger(value) && value > 0) page.value = value; }, size: value => { if (canPage() && [10, 20, 50].includes(value)) pageSize.value = value; },
     change: (nextPage, nextSize) => {
-      if (!owned() || !Number.isSafeInteger(nextPage) || nextPage < 1 || ![10, 20, 50].includes(nextSize)) return;
+      if (!canPage() || !Number.isSafeInteger(nextPage) || nextPage < 1 || ![10, 20, 50].includes(nextSize)) return;
       page.value = lastQuery?.pageSize !== nextSize ? 1 : nextPage; pageSize.value = nextSize;
       if (lastQuery?.page !== page.value || lastQuery.pageSize !== nextSize) void load();
     } };
@@ -113,6 +120,7 @@ const tableRows = computed(() => {
 });
 const scope = useAuthorizedViewScope(session, () => {
   lookupSequence.value++; taskLookup.value = ''; lookupProblem.value = undefined;
+  statusDraft.value = 'all'; appliedStatus.value = undefined; invalidQuery = false; confirmedCancellations.clear();
   linkBlocked = true; linkedTaskId = undefined; detailVisible.value = false; clearDetail();
   cancelConfirmation.value = undefined;
   unavailableFiles.reset(); capabilityEnabled.value = false; pollingFailed.value = false;
@@ -293,15 +301,15 @@ const progress = useBoundedPolling({
   enabled: () => canRead() && !loading.value && !changing.value && !editorOpen.value && !cancelDialogVisible.value
     && !problem.value && !detailProblem.value && !creationBlocks.value.size && !cancellationBlocks.value.size,
   pending: () => items.value.some(isRunning) || detailVisible.value && isRunning(selectedTask.value),
-  key: () => JSON.stringify([session.currentUser?.sessionId, session.currentUser?.id, page.value, pageSize.value, appliedDocumentItemId.value]),
+  key: () => JSON.stringify([session.currentUser?.sessionId, session.currentUser?.id, page.value, pageSize.value, appliedDocumentItemId.value, appliedStatus.value]),
   intervalMs: 5000,
   read: async signal => {
-    const query = { page: page.value, pageSize: pageSize.value, documentItemId: appliedDocumentItemId.value || undefined };
-    return { query, result: await listDocumentPreviewTasks(query.page, query.pageSize, query.documentItemId, signal) };
+    const query = { page: page.value, pageSize: pageSize.value, documentItemId: appliedDocumentItemId.value || undefined, statusKey: appliedStatus.value };
+    return { query, result: await listDocumentPreviewTasks(query, signal) };
   },
   accept: ({ query, result }) => {
     if (result.page !== query.page || result.pageSize !== query.pageSize || query.documentItemId && result.items.some(row => !sameId(row.documentItemId, query.documentItemId))) throw new Error('client.invalid_document_preview_task_page');
-    items.value = result.items.map(row => { const existing = items.value.find(item => sameId(item.id, row.id)); return existing && existing.version > row.version ? existing : row; });
+    items.value = rowsForQuery(result.items, query.statusKey);
     total.value = result.total;
     if (detailVisible.value && !detailLoading.value && isRunning(selectedTask.value)) void refreshDetail(detailTargetId.value);
   },
@@ -310,29 +318,30 @@ const progress = useBoundedPolling({
 const progressPaused = computed(() => progress.paused.value || pollingFailed.value);
 
 async function load(recoverPage = true): Promise<boolean> {
-  if (!canRead() || !Number.isSafeInteger(page.value) || page.value < 1 || ![10, 20, 50].includes(pageSize.value)) return false;
+  if (!canRead() || invalidQuery || !Number.isSafeInteger(page.value) || page.value < 1 || ![10, 20, 50].includes(pageSize.value)) return false;
   pollingFailed.value = false;
   listRequest?.cancel(); const request = begin('document.host_preview_tasks.read'); listRequest = request;
   if (!request) return false;
-  const query = { page: page.value, pageSize: pageSize.value, documentItemId: appliedDocumentItemId.value || undefined };
-  if (!lastQuery || lastQuery.page !== query.page || lastQuery.pageSize !== query.pageSize || !sameId(lastQuery.documentItemId, query.documentItemId)) {
-    cancelAction(pdfRequest); pdfRequest = undefined; pdfTarget = undefined; items.value = []; total.value = 0; listControls.value = makeListControls();
+  const query = { page: page.value, pageSize: pageSize.value, documentItemId: appliedDocumentItemId.value || undefined, statusKey: appliedStatus.value };
+  const changedQuery = !lastQuery || lastQuery.page !== query.page || lastQuery.pageSize !== query.pageSize || !sameId(lastQuery.documentItemId, query.documentItemId) || lastQuery.statusKey !== query.statusKey;
+  if (changedQuery) {
+    cancelAction(pdfRequest); pdfRequest = undefined; pdfTarget = undefined; items.value = []; listControls.value = makeListControls();
   }
   lastQuery = query;
   loading.value = true;
   problem.value = undefined;
   try {
-    const [capability, result] = await Promise.all([getDocumentPreviewCapabilities(request.signal).catch(() => ({ enabled: false })), listDocumentPreviewTasks(query.page, query.pageSize, query.documentItemId, request.signal)]);
+    const [capability, result] = await Promise.all([getDocumentPreviewCapabilities(request.signal).catch(() => ({ enabled: false })), listDocumentPreviewTasks(query, request.signal)]);
     if (!request.current()) return false;
     if (result.page !== query.page || result.pageSize !== query.pageSize || query.documentItemId && result.items.some(row => !sameId(row.documentItemId, query.documentItemId))) throw new Error('client.invalid_document_preview_task_page');
     capabilityEnabled.value = capability.enabled === true;
     const lastPage = Math.max(1, Math.ceil(result.total / query.pageSize));
     if (recoverPage && !result.items.length && query.page > lastPage) { page.value = lastPage; return await load(false); }
-    items.value = result.items.map(row => { const existing = items.value.find(item => sameId(item.id, row.id)); return existing && existing.version > row.version ? existing : row; });
+    items.value = rowsForQuery(result.items, query.statusKey);
     total.value = result.total;
     return request.current();
   } catch (error) {
-    if (request.current()) problem.value = toProblem(error);
+    if (request.current()) { problem.value = toProblem(error); if (changedQuery) total.value = 0; }
     return false;
   } finally {
     if (request.current()) { loading.value = false; void syncTableLayout(); } request.finish();
@@ -340,13 +349,27 @@ async function load(recoverPage = true): Promise<boolean> {
 }
 
 async function applyFilter(): Promise<void> {
-  if (!canRead()) return;
+  if (!canRead() || changing.value && !pdfTarget || editorOpen.value || cancelDialogVisible.value) return;
   const documentItemId = filterDocumentItemId.value.trim();
-  if (documentItemId && !validId(documentItemId)) { problem.value = { status: 400, code: 'client.invalid_document_preview_filter', title: t('documentPreviewTasks.invalidIdentity') }; return; }
+  const statusKey = statusDraft.value === 'all' ? undefined : statusDraft.value;
+  if (documentItemId && !validId(documentItemId) || statusKey && !statusKeys.includes(statusKey as typeof statusKeys[number])) {
+    invalidQuery = true; listRequest?.cancel(); loading.value = false; items.value = []; total.value = 0; page.value = 1; listControls.value = makeListControls();
+    problem.value = { status: 400, code: 'client.invalid_document_preview_filter', title: documentItemId && !validId(documentItemId) ? t('documentPreviewTasks.invalidIdentity') : lookupText('invalidStatus') }; return;
+  }
   // 输入是草稿，分页、轮询与刷新只能复用已明确应用的查询。
   cancelAction(pdfRequest); pdfRequest = undefined; pdfTarget = undefined;
-  appliedDocumentItemId.value = documentItemId; page.value = 1;
+  invalidQuery = false; appliedDocumentItemId.value = documentItemId; appliedStatus.value = statusKey; page.value = 1;
   await load();
+}
+function rowsForQuery(rows: HostDocumentPreviewTaskResponse[], statusKey?: string): HostDocumentPreviewTaskResponse[] {
+  // 已确认取消是当前会话内的权威下界；陈旧源页不能把任务恢复为待执行。
+  const current = rows.map(row => {
+    const confirmed = confirmedCancellations.get(row.id.toLowerCase());
+    const existing = items.value.find(item => sameId(item.id, row.id));
+    return confirmed && sameTaskSource(confirmed, row) && confirmed.version >= row.version ? confirmed : existing && existing.version > row.version ? existing : row;
+  });
+  if (statusKey && current.some(row => row.statusKey !== statusKey)) throw new Error('client.invalid_document_preview_task_page');
+  return current;
 }
 
 function openCreate() {
@@ -422,7 +445,7 @@ async function submitCreate() {
       || !sameId(created.requestedByUserId, session.currentUser?.id)) throw new Error('client.invalid_document_preview_task_identity');
     mutation!.dispatched = false; listRequest?.cancel(); detailRequest?.cancel(); loading.value = false; detailLoading.value = false;
     receipt.value = { ...receipt.value!, taskId: created.id, outcome: 'succeeded' };
-    if ((!appliedDocumentItemId.value || sameId(appliedDocumentItemId.value, created.documentItemId)) && page.value === 1) {
+    if ((!appliedDocumentItemId.value || sameId(appliedDocumentItemId.value, created.documentItemId)) && (!appliedStatus.value || appliedStatus.value === created.statusKey) && page.value === 1) {
       const existed = items.value.some(row => sameId(row.id, created.id));
       items.value = [created, ...items.value.filter(row => !sameId(row.id, created.id))].slice(0, pageSize.value); if (!existed) total.value++;
     }
@@ -522,7 +545,10 @@ async function confirmCancellation(token = cancelSequence) {
     if (!sameTaskSource(result, current) || result.statusKey !== 'cancelled' || !Number.isSafeInteger(result.version) || result.version < current.version) throw new Error('client.invalid_document_preview_task_cancellation');
     mutation!.dispatched = false; listRequest?.cancel(); detailRequest?.cancel(); loading.value = false; detailLoading.value = false;
     receipt.value = { ...receipt.value!, outcome: 'succeeded' };
-    items.value = items.value.map(item => sameId(item.id, taskId) && item.version <= result.version ? result : item);
+    confirmedCancellations.set(taskId.toLowerCase(), { ...result });
+    const wasListed = items.value.some(item => sameId(item.id, taskId));
+    items.value = items.value.flatMap(item => sameId(item.id, taskId) && item.version <= result.version ? appliedStatus.value && appliedStatus.value !== result.statusKey ? [] : [result] : [item]);
+    if (wasListed && appliedStatus.value && appliedStatus.value !== result.statusKey) total.value = Math.max(0, total.value - 1);
     if (detailVisible.value && sameId(selectedTask.value?.id, taskId)) selectedTask.value = result;
     ElMessage.success(t('documentPreviewTasks.cancelSuccess'));
     await load();
@@ -560,6 +586,7 @@ function toProblem(
       show-icon
       class="art-page-alert"
     />
+    <p v-if="problem && !invalidQuery && items.length === 0" data-testid="document-preview-requested-page">{{ lookupText('requestedPage') }} {{ page }}</p>
 
     <div v-if="receipt" role="status" data-testid="document-preview-receipt">
       <p>{{ t('documentPreviewTasks.receiptTarget', {document:receipt.documentItemId,version:receipt.versionId ?? t('documentPreviewTasks.currentVersion')}) }} · {{ t(receipt.kind === 'create' ? 'documentPreviewTasks.addTask' : 'common.cancel') }}</p>
@@ -577,6 +604,12 @@ function toProblem(
         </div>
       </template>
         <el-form class="document-module-inline-query" :inline="true" v-on="{ submit: listControls.submit }">
+          <el-form-item :label="t('documentPreviewTasks.status')">
+            <ElSelect v-model="statusDraft" class="document-preview-status-filter" data-testid="document-preview-status-filter" :disabled="changing && !pdfTarget || editorOpen || cancelDialogVisible">
+              <ElOption value="all" :label="lookupText('allStatuses')" />
+              <ElOption v-for="key in statusKeys" :key="key" :value="key" :label="statusLabel(key)" />
+            </ElSelect>
+          </el-form-item>
           <el-form-item :label="t('documentPreviewTasks.documentItemId')">
             <el-input
               :model-value="filterDocumentItemId"
@@ -588,9 +621,10 @@ function toProblem(
             />
           </el-form-item>
           <el-form-item>
-             <el-button type="primary" :icon="Search" v-on="{ click: listControls.apply }">{{ t('documentPermissions.query') }}</el-button>
+             <el-button type="primary" :icon="Search" data-testid="document-preview-filter-submit" :disabled="changing && !pdfTarget || editorOpen || cancelDialogVisible" v-on="{ click: listControls.apply }">{{ t('documentPermissions.query') }}</el-button>
           </el-form-item>
         </el-form>
+        <p data-testid="document-preview-applied-status">{{ lookupText('submittedStatus') }} {{ appliedStatus ? statusLabel(appliedStatus) : lookupText('allStatuses') }}</p>
         <form class="document-preview-lookup" @submit.prevent="lookupControls.submit">
           <label for="document-preview-exact-id">{{ lookupText('taskId') }}</label>
           <div class="document-preview-lookup__controls">
@@ -681,6 +715,7 @@ function toProblem(
 
         <el-pagination
           :current-page="page"
+          :disabled="loading || !!problem && items.length === 0"
           :page-size="pageSize"
           class="art-table-pagination center custom-pagination"
           :total="total"
@@ -802,4 +837,10 @@ function toProblem(
 .document-preview-lookup__controls { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 8px; }
 .document-preview-lookup__controls :deep(.el-input) { flex: 1 1 240px; max-width: 520px; }
 .document-preview-identity { overflow-wrap: anywhere; }
+.document-preview-status-filter { width: 200px; }
+@media (max-width: 640px) {
+  .document-module-inline-query :deep(.el-form-item) { display: flex; flex-wrap: wrap; max-width: 100%; margin-right: 0; }
+  .document-module-inline-query :deep(.el-form-item__content) { min-width: 0; max-width: 100%; }
+  .document-preview-tasks-view__filter { max-width: 100%; margin-right: 0; }
+}
 </style>

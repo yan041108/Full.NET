@@ -14,9 +14,11 @@ internal static class DocumentPreviewTaskSql
     internal static readonly SqlStatement PageSqlServer = new("document.preview_task.page.sqlserver", $$"""
         SELECT COUNT(1) FROM fn_document_preview_task
         WHERE (@DocumentItemId IS NULL OR DocumentItemId = @DocumentItemId)
+        AND (@StatusKey IS NULL OR StatusKey = @StatusKey)
         AND {{DocumentPermissionSql.RelatedReadPredicate("fn_document_preview_task.DocumentItemId")}};
         SELECT {{Columns}} FROM fn_document_preview_task
         WHERE (@DocumentItemId IS NULL OR DocumentItemId = @DocumentItemId)
+        AND (@StatusKey IS NULL OR StatusKey = @StatusKey)
         AND {{DocumentPermissionSql.RelatedReadPredicate("fn_document_preview_task.DocumentItemId")}}
         ORDER BY CreatedAtUtc DESC, Id DESC
         OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY;
@@ -24,9 +26,11 @@ internal static class DocumentPreviewTaskSql
     internal static readonly SqlStatement PageMySql = new("document.preview_task.page.mysql", $$"""
         SELECT COUNT(1) FROM fn_document_preview_task
         WHERE (@DocumentItemId IS NULL OR DocumentItemId = @DocumentItemId)
+        AND (@StatusKey IS NULL OR StatusKey = @StatusKey)
         AND {{DocumentPermissionSql.RelatedReadPredicate("fn_document_preview_task.DocumentItemId")}};
         SELECT {{Columns}} FROM fn_document_preview_task
         WHERE (@DocumentItemId IS NULL OR DocumentItemId = @DocumentItemId)
+        AND (@StatusKey IS NULL OR StatusKey = @StatusKey)
         AND {{DocumentPermissionSql.RelatedReadPredicate("fn_document_preview_task.DocumentItemId")}}
         ORDER BY CreatedAtUtc DESC, Id DESC
         LIMIT @PageSize OFFSET @Offset;

@@ -24,9 +24,14 @@ internal sealed class HostDocumentPreviewTaskQueryService(
         int page,
         int pageSize,
         Guid? documentItemId,
+        string? statusKey = null,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
+        statusKey = string.IsNullOrWhiteSpace(statusKey) ? null : statusKey.Trim();
+        if (statusKey is not null && !HostDocumentPreviewTaskStatusKeys.All.Contains(statusKey, StringComparer.Ordinal))
+            return Result<PagedResult<HostDocumentPreviewTaskResponse>>.Failure(
+                new Error(CommonErrorCodes.RequestInvalid, "A supported preview task status is required.", ErrorType.Validation));
         page = Math.Max(page, 1);
         pageSize = Math.Clamp(pageSize, 1, 100);
         var offset = ((long)page - 1) * pageSize;
@@ -42,6 +47,7 @@ internal sealed class HostDocumentPreviewTaskQueryService(
                 statement,
                 DocumentSqlParameters.Create(
                     ("DocumentItemId", documentItemId),
+                    ("StatusKey", statusKey),
                     ("ActorUserId", accessPolicy.ActorUserId),
                     ("Offset", offset),
                     ("PageSize", pageSize)),

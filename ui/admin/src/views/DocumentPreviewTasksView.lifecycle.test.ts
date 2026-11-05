@@ -120,7 +120,7 @@ describe('文档预览请求归属', () => {
     await wrapper!.get('[data-testid="document-preview-task-filter"]').trigger('keydown', { key: 'Enter' }); await flushPromises();
     pending.resolve({ items: [task], page: 1, pageSize: 20, total: 1 }); await flushPromises();
     expect(wrapper!.text()).toContain('新文档'); expect(wrapper!.text()).not.toContain('敏感文档');
-    expect(vi.mocked(api.listDocumentPreviewTasks).mock.calls[0]?.[3]?.aborted).toBe(true);
+    expect(vi.mocked(api.listDocumentPreviewTasks).mock.calls[0]?.[1]?.aborted).toBe(true);
   });
   it('创建防重复，撤权后取消且不显示成功或刷新', async () => {
     const pending = deferred<typeof task>(); vi.mocked(api.createDocumentPreviewTask).mockReturnValue(pending.promise);

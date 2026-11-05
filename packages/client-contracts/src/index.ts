@@ -532,6 +532,7 @@ export {
 
 export type {
   CreateHostDocumentPreviewTaskRequest,
+  DocumentPreviewTaskListQuery,
   HostDocumentPreviewTaskPage,
   HostDocumentPreviewTaskResponse
 } from './document-preview-tasks.js';

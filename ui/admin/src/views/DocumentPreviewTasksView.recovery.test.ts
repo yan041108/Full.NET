@@ -41,7 +41,7 @@ describe('文档预览任务结果与恢复', () => {
   });
   it('页大小改变回第一页且重复受控事件不重复读取', async () => {
     await setup(); const pager = wrapper.getComponent(ElPagination); pager.vm.$emit('change', 1, 20); await flushPromises(); expect(api.listDocumentPreviewTasks).toHaveBeenCalledOnce();
-    vi.mocked(api.listDocumentPreviewTasks).mockResolvedValueOnce({ items: [], page: 1, pageSize: 50, total: 0 }); pager.vm.$emit('update:pageSize', 50); pager.vm.$emit('update:currentPage', 3); pager.vm.$emit('change', 3, 50); await flushPromises(); expect(api.listDocumentPreviewTasks).toHaveBeenLastCalledWith(1, 50, undefined, expect.any(AbortSignal));
+    vi.mocked(api.listDocumentPreviewTasks).mockResolvedValueOnce({ items: [], page: 1, pageSize: 50, total: 0 }); pager.vm.$emit('update:pageSize', 50); pager.vm.$emit('update:currentPage', 3); pager.vm.$emit('change', 3, 50); await flushPromises(); expect(api.listDocumentPreviewTasks).toHaveBeenLastCalledWith({ page: 1, pageSize: 50, documentItemId: undefined, statusKey: undefined }, expect.any(AbortSignal));
   });
   it('空越界页最多补读一次末页', async () => {
     await setup(); state().page = 3; vi.mocked(api.listDocumentPreviewTasks).mockResolvedValueOnce({ items: [], page: 3, pageSize: 20, total: 21 }).mockResolvedValueOnce({ items: [], page: 2, pageSize: 20, total: 0 }); await state().load(); expect(api.listDocumentPreviewTasks).toHaveBeenCalledTimes(3); expect(state().page).toBe(2);

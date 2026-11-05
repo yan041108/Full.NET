@@ -6695,6 +6695,7 @@ export interface DocumentHostListDocumentPreviewTasksParameters {
   readonly page?: number;
   readonly pageSize?: number;
   readonly documentItemId?: string;
+  readonly statusKey?: string;
 }
 
 export async function documentHostListDocumentPreviewTasks(
@@ -6712,6 +6713,9 @@ export async function documentHostListDocumentPreviewTasks(
   }
   if (parameters.documentItemId !== undefined) {
     query.set('documentItemId', String(parameters.documentItemId));
+  }
+  if (parameters.statusKey !== undefined) {
+    query.set('statusKey', String(parameters.statusKey));
   }
   const path = query.size === 0 ? `/api/v1/document/host/preview-tasks` : `/api/v1/document/host/preview-tasks?${query.toString()}`;
   const init: RequestInit = { method: 'GET' };

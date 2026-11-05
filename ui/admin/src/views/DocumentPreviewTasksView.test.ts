@@ -129,7 +129,7 @@ describe('Vue 文档预览任务页', () => {
   it('切换到租户会中止请求，迟到的 Host 数据不可重新显示', async () => {
     let resolve!: (value: Awaited<ReturnType<typeof listMock>>) => void;
     const result = await listMock(); listMock.mockClear().mockImplementationOnce(() => new Promise(done => { resolve = done; }));
-    const wrapper = mountWithPermissions(['document.host_preview_tasks.read']); const signal = listMock.mock.calls[0]![3]!;
+    const wrapper = mountWithPermissions(['document.host_preview_tasks.read']); const signal = listMock.mock.calls[0]![1]!;
     const session = useSessionStore(); session.currentUser = { ...session.currentUser!, tenantId: 'other', actorScope: 'tenant', scope: 'tenant' }; await flushPromises();
     expect(signal.aborted).toBe(true); resolve(result); await flushPromises(); expect(wrapper.text()).not.toContain('Quarterly report');
   });
@@ -166,7 +166,7 @@ describe('Vue 文档预览任务页', () => {
     const wrapper = mountWithPermissions(['document.host_preview_tasks.read', 'document.host_preview_tasks.cancel']); await flushPromises();
     const original = await listMock.mock.results[0]!.value; let resolve!: (value: typeof original) => void;
     listMock.mockImplementationOnce(() => new Promise(done => { resolve = done; })); await wrapper.get('[data-testid="document-preview-refresh"]').trigger('click');
-    const oldSignal = listMock.mock.calls[1]![3]!; vi.mocked(cancelDocumentPreviewTask).mockRejectedValue(new Error('Response lost'));
+    const oldSignal = listMock.mock.calls[1]![1]!; vi.mocked(cancelDocumentPreviewTask).mockRejectedValue(new Error('Response lost'));
     await wrapper.get('[data-testid="document-preview-task-cancel"]').trigger('click'); await wrapper.get('[data-testid="document-preview-cancel-confirm"]').trigger('click'); await flushPromises();
     expect(oldSignal.aborted).toBe(true); resolve(original); await flushPromises(); expect(wrapper.find('[data-testid="document-preview-unconfirmed"]').exists()).toBe(true);
     expect(wrapper.find('[data-testid="document-preview-task-cancel"]').exists()).toBe(false);

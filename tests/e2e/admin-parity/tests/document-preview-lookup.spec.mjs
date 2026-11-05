@@ -4,7 +4,7 @@ const id = n => `019bc2b1-2a40-7cc3-8992-${String(n).padStart(12, '0')}`;
 const json = (route, body) => route.fulfill({ contentType: 'application/json', body: JSON.stringify(body) });
 const record = n => ({ id: id(n), documentItemId: id(3), documentTitle: `Preview ${n}`, versionId: id(4), sourceFileId: id(5), outputFileId: id(6),
   statusKey: 'succeeded', providerKey: 'external_http', errorCode: null, requestedByUserId: id(9), createdAtUtc: '2026-11-06T00:00:00Z', startedAtUtc: null, completedAtUtc: '2026-11-06T00:01:00Z', version: 3 });
-async function boot(page, locale) {
+async function boot(page, locale, statusMode = false) {
   await page.setViewportSize({ width: 1440, height: 1000 }); await page.addInitScript(value => localStorage.setItem('fullnet.admin.locale', value), locale);
   await page.route('**/api/v1/**', route => route.fulfill({ status: 404 })); const reads = [], lists = []; let writes = 0, content = 0, mode = 'ok';
   await page.route('**/api/v1/document/**', route => { if (route.request().method() !== 'GET') writes++; if (route.request().url().endsWith('/content')) content++; return route.fulfill({ status: 404 }); });
@@ -16,8 +16,16 @@ async function boot(page, locale) {
   await page.route('**/api/v1/tenancy/available', route => json(route, []));
   await page.route('**/api/v1/notifications/my-inbox-messages/unread-count', route => json(route, { unreadCount: 0 }));
   await page.route('**/api/v1/document/public/preview-capabilities', route => json(route, { enabled: true, providerKey: 'external_http', allowedMimeTypes: [], maxInputBytes: 1024, maxAttempts: 3 }));
-  await page.route('**/api/v1/document/host/preview-tasks?*', route => {
+  await page.route('**/api/v1/document/host/preview-tasks?*', async route => {
     const query = Object.fromEntries(new URL(route.request().url()).searchParams); lists.push(query);
+    if (statusMode) {
+      await new Promise(resolve => setTimeout(resolve, 80));
+      if (mode === '503' && query.page === '2') return route.fulfill({ status: 503 });
+      const rows = [...Array.from({ length: 60 }, (_, n) => record(11 + n)), ...Array.from({ length: 60 }, (_, n) => ({ ...record(1011 + n), statusKey: 'failed' }))];
+      const filtered = query.statusKey ? rows.filter(row => row.statusKey === query.statusKey) : rows;
+      const items = mode === 'list-mismatch' ? [{ ...record(11), documentTitle: 'WRONG-STATE' }] : filtered.slice((Number(query.page) - 1) * Number(query.pageSize), Number(query.page) * Number(query.pageSize));
+      return json(route, { items, page: Number(query.page), pageSize: Number(query.pageSize), total: filtered.length });
+    }
     return json(route, { items: [record(11)], page: Number(query.page), pageSize: Number(query.pageSize), total: 1 });
   });
   await page.route('**/api/v1/document/host/preview-tasks/*', route => {
@@ -40,6 +48,30 @@ async function settleDrawer(page) {
   }).toBe(true);
 }
 for (const [width, locale] of [[1440, 'en-US'], [390, 'zh-CN']]) {
+  test('预览已提交状态分页、草稿独立和错误来源拒绝 ' + width, async ({ page }, info) => {
+    const trace = await boot(page, locale, true); await page.setViewportSize({ width, height: 1000 }); const view = page.locator('.document-preview-tasks-view');
+    await page.getByTestId('document-preview-status-filter').click(); await page.getByRole('option', { name: locale === 'zh-CN' ? '已失败' : 'Failed', exact: true }).click();
+    await page.getByTestId('document-preview-filter-submit').click(); await expect(view.locator('.el-table__body-wrapper')).toContainText('Preview 1011');
+    await page.getByTestId('document-preview-status-filter').click(); await page.getByRole('option', { name: locale === 'zh-CN' ? '已取消' : 'Cancelled', exact: true }).click();
+    await view.locator('.el-pagination .btn-next').click(); await expect(view.locator('.el-pager .is-active')).toHaveText('2'); await expect(view.locator('.el-table__body-wrapper')).toContainText('Preview 1031');
+    await page.getByTestId('document-preview-refresh').click(); await expect(view.locator('.el-loading-mask')).toHaveCount(0);
+    expect(trace.lists.at(-1)).toEqual({ page: '2', pageSize: '20', statusKey: 'failed' }); await expect(page.getByTestId('document-preview-applied-status')).toContainText(locale === 'zh-CN' ? '已失败' : 'Failed');
+    await page.screenshot({ path: info.outputPath(`preview-status-page-two-${width}.png`), animations: 'disabled' });
+    expect((await new AxeBuilder({ page }).include('.document-preview-tasks-view').withTags(['wcag2a', 'wcag2aa']).analyze()).violations).toEqual([]);
+    trace.mode('list-mismatch'); await page.getByTestId('document-preview-filter-submit').click(); await expect(view.locator('.art-page-alert')).toBeVisible();
+    await expect(view.locator('.el-table__body-wrapper .el-table__row')).toHaveCount(0); await expect(view).not.toContainText('WRONG-STATE');
+    expect(trace.lists.at(-1)).toEqual({ page: '1', pageSize: '20', statusKey: 'cancelled' }); expect(trace.writes()).toBe(0); expect(trace.content()).toBe(0);
+  });
+  test('预览状态第二页失败后只显式重读原页 ' + width, async ({ page }, info) => {
+    const trace = await boot(page, locale, true); await page.setViewportSize({ width, height: 1000 }); const view = page.locator('.document-preview-tasks-view');
+    await page.getByTestId('document-preview-status-filter').click(); await page.getByRole('option', { name: locale === 'zh-CN' ? '已失败' : 'Failed', exact: true }).click();
+    await page.getByTestId('document-preview-filter-submit').click(); await expect(view.locator('.el-table__body-wrapper')).toContainText('Preview 1011');
+    trace.mode('503'); await view.locator('.el-pagination .btn-next').click(); await expect(view.locator('.art-page-alert')).toBeVisible(); await expect(view.locator('.el-loading-mask')).toHaveCount(0);
+    await expect(page.getByTestId('document-preview-requested-page')).toContainText('2'); await expect(view.locator('.el-table__body-wrapper .el-table__row')).toHaveCount(0);
+    await page.screenshot({ path: info.outputPath(`preview-status-read-failed-${width}.png`), animations: 'disabled' }); expect(trace.lists).toHaveLength(3);
+    trace.mode('ok'); await page.getByTestId('document-preview-refresh').click(); await expect(view.locator('.el-table__body-wrapper')).toContainText('Preview 1031'); await expect(view.locator('.el-loading-mask')).toHaveCount(0);
+    expect(trace.lists).toHaveLength(4); expect(trace.lists.at(-1)).toEqual({ page: '2', pageSize: '20', statusKey: 'failed' }); expect(trace.writes()).toBe(0); expect(trace.content()).toBe(0);
+  });
   test('预览只读精确任务、原文件身份及失败重读 ' + width, async ({ page }, info) => {
     const trace = await boot(page, locale); await page.setViewportSize({ width, height: 1000 });
     await lookup(page, ` ${id(99).toUpperCase()} `); await expect(page.getByTestId('document-preview-detail-id')).toHaveText(id(99));

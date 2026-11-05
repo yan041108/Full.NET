@@ -21,7 +21,7 @@ beforeEach(() => {
   vi.resetAllMocks();
   vi.mocked(api.getDocumentPreviewCapabilities).mockResolvedValue({ enabled: true, providerKey: 'fixture', allowedMimeTypes: [], maxInputBytes: 1024, maxAttempts: 3 });
   vi.mocked(api.getDocumentPreviewTask).mockResolvedValue({ ...task, versionId: otherId });
-  vi.mocked(api.listDocumentPreviewTasks).mockImplementation(async (page = 1, pageSize = 20) => ({ items: [], page, pageSize, total: 40 }));
+  vi.mocked(api.listDocumentPreviewTasks).mockImplementation(async (query = {}) => ({ items: [], page: query.page ?? 1, pageSize: query.pageSize ?? 20, total: 40 }));
 });
 afterEach(() => wrapper?.unmount());
 
@@ -67,7 +67,7 @@ it.each(['session', 'account', 'tenant', 'permissions'] as const)('%s 变化清�
 it('分页和文档筛选草稿不替换精确目标，空输入在新会话中仍可操作', async () => {
   const { session } = await setup(); session.currentUser!.sessionId = otherId; await flushPromises();
   await lookup(task.id); wrapper.getComponent(ElPagination).vm.$emit('change', 2, 20); await flushPromises();
-  expect(api.listDocumentPreviewTasks).toHaveBeenLastCalledWith(2, 20, undefined, expect.any(AbortSignal));
+  expect(api.listDocumentPreviewTasks).toHaveBeenLastCalledWith({ page: 2, pageSize: 20, documentItemId: undefined, statusKey: undefined }, expect.any(AbortSignal));
   expect(wrapper.get('[data-testid="document-preview-detail-id"]').text()).toBe(task.id); expect(api.getDocumentPreviewTask).toHaveBeenCalledTimes(1);
 });
 it.each(['documentItemId', 'sourceFileId', 'versionId', 'requestedByUserId', 'version'] as const)('拒绝原行 %s 漂移或任务版本倒退', async field => {

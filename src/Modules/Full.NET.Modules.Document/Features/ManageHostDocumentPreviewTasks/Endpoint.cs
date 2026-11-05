@@ -74,18 +74,20 @@ internal static class Endpoint
             int? page,
             int? pageSize,
             Guid? documentItemId,
+            string? statusKey,
             HostDocumentPreviewTaskQueryService queries,
             IApiResultMapper mapper,
             HttpContext httpContext,
             CancellationToken cancellationToken) =>
         {
             var result = await queries
-                .ListAsync(page ?? 1, pageSize ?? 20, documentItemId, cancellationToken)
+                .ListAsync(page ?? 1, pageSize ?? 20, documentItemId, statusKey, cancellationToken)
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
         .WithName("documentHostListDocumentPreviewTasks")
         .Produces<PagedResult<HostDocumentPreviewTaskResponse>>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
         .ProducesProblem(StatusCodes.Status401Unauthorized)
         .ProducesProblem(StatusCodes.Status403Forbidden)
         .RequireAuthorization(FullNetPermissionPolicies.For(HostDocumentPreviewTaskPermissions.Read));

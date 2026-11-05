@@ -268,7 +268,7 @@ public sealed class DocumentContentHandoffBoundaryTests
             "item-list" => items.ListAsync(1, 20, cancellationToken: Cancellation.Token),
             "item-detail" => items.GetByIdAsync(itemId, Cancellation.Token),
             "versions" => items.ListVersionsAsync(itemId, Cancellation.Token),
-            "task-list" => tasks.ListAsync(1, 20, null, Cancellation.Token),
+            "task-list" => tasks.ListAsync(1, 20, null, cancellationToken: Cancellation.Token),
             _ => tasks.GetAsync(taskId, Cancellation.Token),
         };
         public void Dispose() { Stream.Dispose(); Cancellation.Dispose(); }

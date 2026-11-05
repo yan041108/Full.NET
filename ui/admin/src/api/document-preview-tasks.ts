@@ -11,6 +11,7 @@ import {
   isHostDocumentPreviewTaskPage,
   isHostDocumentPreviewTaskResponse,
   type CreateHostDocumentPreviewTaskRequest,
+  type DocumentPreviewTaskListQuery,
   type HostDocumentPreviewTaskPage,
   type HostDocumentPreviewTaskResponse
 } from '@fullnet/client-contracts';
@@ -19,23 +20,24 @@ import { openDocumentBlob } from './host-document-items';
 
 /** 分页查询 Office 预览转换任务。 */
 export async function listDocumentPreviewTasks(
-  page = 1,
-  pageSize = 20,
-  documentItemId?: string,
+  query: DocumentPreviewTaskListQuery = {},
   signal?: AbortSignal
 ): Promise<HostDocumentPreviewTaskPage> {
+  const { page = 1, pageSize = 20, documentItemId } = query;
+  const statusKey = query.statusKey?.trim() || undefined;
   const value = await documentHostListDocumentPreviewTasks(
     http,
     {
       page,
       pageSize,
-      documentItemId
+      documentItemId,
+      statusKey
     },
     signal
   );
   if (!isHostDocumentPreviewTaskPage(value) || value.page !== page || value.pageSize !== pageSize
     || new Set(value.items.map(row => row.id.toLowerCase())).size !== value.items.length
-    || value.items.some(row => row.id === '00000000-0000-0000-0000-000000000000' || documentItemId !== undefined && row.documentItemId.toLowerCase() !== documentItemId.toLowerCase())) {
+    || value.items.some(row => row.id === '00000000-0000-0000-0000-000000000000' || statusKey !== undefined && row.statusKey !== statusKey || documentItemId !== undefined && row.documentItemId.toLowerCase() !== documentItemId.toLowerCase())) {
     throw new Error('client.invalid_document_preview_task_page');
   }
   return value;

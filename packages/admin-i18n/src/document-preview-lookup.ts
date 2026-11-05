@@ -2,9 +2,9 @@ import type { SupportedLocale } from './locale.js';
 
 // 精确定位文案只供预览页面使用，任务和文件身份始终使用原始 UUID。
 const messages = {
-  'zh-CN': { taskId: '预览任务 ID', read: '按 ID 读取', invalid: '请输入非零预览任务 UUID。', hint: '读取 Host 范围内获准可见的原预览任务，支持当前页之外的 ID；不会更改文档筛选或自动打开 PDF。',
+  'zh-CN': { allStatuses: '全部状态', submittedStatus: '已提交状态：', invalidStatus: '请选择已支持的预览任务状态。', requestedPage: '待读取页码：', taskId: '预览任务 ID', read: '按 ID 读取', invalid: '请输入非零预览任务 UUID。', hint: '读取 Host 范围内获准可见的原预览任务，支持当前页之外的 ID；不会更改文档筛选或自动打开 PDF。',
     versionId: '原文档版本 ID', currentFile: '未指定历史版本（创建时的当前文件）', sourceFile: '原文件 ID', outputFile: '结果文件 ID', requester: '发起人 ID', revision: '任务版本', absent: '未提供', stale: '本次重读失败，以下为上次读取的快照；操作前请重新读取。' },
-  'en-US': { taskId: 'Preview task ID', read: 'Read by ID', invalid: 'Enter a nonzero preview task UUID.', hint: 'Read a task visible in the Host scope, including IDs outside this page. Document filters stay unchanged and PDFs do not open automatically.',
+  'en-US': { allStatuses: 'All statuses', submittedStatus: 'Submitted state:', invalidStatus: 'Select a supported preview task state.', requestedPage: 'Requested page:', taskId: 'Preview task ID', read: 'Read by ID', invalid: 'Enter a nonzero preview task UUID.', hint: 'Read a task visible in the Host scope, including IDs outside this page. Document filters stay unchanged and PDFs do not open automatically.',
     versionId: 'Original document version ID', currentFile: 'No historical version specified (current file at creation)', sourceFile: 'Source file ID', outputFile: 'Result file ID', requester: 'Requester ID', revision: 'Task revision', absent: 'Not provided', stale: 'The latest read failed. This is the previous snapshot; read it again before acting.' }
 } as const;
 
