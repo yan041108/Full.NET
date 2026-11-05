@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
-import { ElAlert, ElButton, ElDescriptions, ElDescriptionsItem, ElOption, ElPagination, ElSelect, ElTable, ElTableColumn } from 'element-plus';
+import { ElAlert, ElButton, ElDescriptions, ElDescriptionsItem, ElOption, ElPagination, ElRadio, ElRadioGroup, ElSelect, ElTable, ElTableColumn } from 'element-plus';
 import type { CreateTenantSubscriptionBody, HostTenant, HostTenantPackage, TenantSubscription } from '@fullnet/client-contracts';
 import { isFullNetProblemDetails } from '@fullnet/client-contracts';
 import { useSessionStore } from '../auth/session';
@@ -19,7 +19,8 @@ const text = (key: Parameters<typeof subscriptionBillingText>[1]) => subscriptio
 const canRead = computed(() => session.state === 'authenticated' && session.currentUser?.tenantId === null
   && session.currentUser.actorScope === 'host' && session.can('tenancy.tenant_subscriptions.read'));
 const canManage = computed(() => canRead.value && session.can('tenancy.tenant_subscriptions.manage'));
-const rows = ref<TenantSubscription[]>([]); const page = ref(1); const total = ref(0); const loading = ref(false);
+const rows = ref<TenantSubscription[]>([]); const page = ref(1); const total = ref(0); const loading = ref(false); const status = ref('');
+const statuses = ['Trial', 'Active', 'PastDue', 'Cancelled', 'Expired'];
 const hasRead = ref(false); const uncertain = ref(false); const failure = ref(''); const packageId = ref('');
 const activePackages = computed(() => props.packages.filter(item => item.isActive));
 const hasActive = computed(() => rows.value.some(row => ['Trial', 'Active', 'PastDue'].includes(row.status)));
@@ -37,6 +38,7 @@ const statusLabel = (status: string) => ['Trial', 'Active', 'PastDue', 'Cancelle
   ? text(('status' + status) as 'statusTrial' | 'statusActive' | 'statusPastDue' | 'statusCancelled' | 'statusExpired') : status;
 const scope = useAuthorizedViewScope(session, () => {
   rows.value = []; total.value = 0; page.value = 1; loading.value = false; hasRead.value = false;
+  status.value = '';
   uncertain.value = false; failure.value = ''; packageId.value = ''; confirmation.value = undefined; receipt.value = undefined;
   paidOpen.value = false; checkoutOpen.value = false;
   detailId.value = undefined; detail.value = undefined; detailFailure.value = '';
@@ -49,12 +51,13 @@ async function load() {
   if (!props.open || !props.tenant || !canRead.value) return;
   pending?.cancel(); confirmation.value = undefined;
   const operation = scope.begin('tenancy.tenant_subscriptions.read'); if (!operation) return;
-  const target = props.tenant.id; const requestedPage = page.value;
+  const target = props.tenant.id; const requestedPage = page.value; const requestedStatus = status.value;
   pending = operation; loading.value = true; hasRead.value = false; failure.value = ''; detailFailure.value = '';
   try {
-    const value = await listTenantSubscriptions(target, requestedPage, 20, operation.signal);
+    const value = await (requestedStatus ? listTenantSubscriptions(target, requestedPage, 20, operation.signal, requestedStatus)
+      : listTenantSubscriptions(target, requestedPage, 20, operation.signal));
     if (!operation.current() || !props.open || !props.tenant || !sameId(props.tenant.id, target)) return;
-    if (value.page !== requestedPage || value.pageSize !== 20 || value.items.some(row => !sameId(row.tenantId, target))) {
+    if (value.page !== requestedPage || value.pageSize !== 20 || value.items.some(row => !sameId(row.tenantId, target) || (requestedStatus && row.status !== requestedStatus))) {
       if (detailId.value) { detail.value = undefined; detailFailure.value = text('responseMismatch'); }
       failure.value = text('responseMismatch'); rows.value = []; total.value = 0; return;
     }
@@ -118,7 +121,11 @@ async function confirm() {
   if (receipt.value?.state === 'confirmed' && props.open && canRead.value) await load();
 }
 function changePage(value: number) { if (loading.value || !Number.isSafeInteger(value) || value < 1) return; page.value = value; void load(); }
-function paidCreated() { emit('changed'); void load(); }
+function changeStatus(value: unknown) {
+  if (background.value || (value !== '' && (typeof value !== 'string' || !statuses.includes(value))) || value === status.value) return;
+  pending?.cancel(); status.value = value as string; page.value = 1; rows.value = []; total.value = 0; hasRead.value = false; void load();
+}
+function paidCreated() { emit('changed'); status.value = ''; page.value = 1; void load(); }
 </script>
 
 <template>
@@ -129,11 +136,19 @@ function paidCreated() { emit('changed'); void load(); }
     <ElAlert v-if="failure" :title="failure" type="warning" :closable="false" />
     <p v-if="receipt" role="status" data-testid="subscription-operation-receipt">{{ text(receipt.state === 'confirmed' ? 'operationConfirmed' : receipt.state === 'rejected' ? 'operationRejected' : 'operationUnknown') }} <code>{{ receipt.target }}</code></p>
     <ElButton data-testid="tenant-subscriptions-refresh" :loading="loading" @click="load">{{ text('historyRefresh') }}</ElButton>
+    <fieldset class="subscription-status-filter">
+      <legend>{{ text('statusFilter') }}</legend>
+      <ElRadioGroup :model-value="status" :aria-label="text('statusFilter')" data-testid="subscription-status-filter" @update:model-value="changeStatus">
+        <ElRadio value="">{{ text('allStatuses') }}</ElRadio>
+        <ElRadio v-for="item in statuses" :key="item" :value="item">{{ statusLabel(item) }}</ElRadio>
+      </ElRadioGroup>
+    </fieldset>
+    <p>{{ text('statusFilterHint') }}</p>
     <ElTable v-loading="loading" class="subscription-history" :data="rows" row-key="id">
       <ElTableColumn :label="t('tenancy.tenantSubscriptions.status')" min-width="140"><template #default="{ row }">{{ statusLabel(row.status) }}</template></ElTableColumn>
       <ElTableColumn :label="t('tenancy.tenantSubscriptions.periodEnd')" min-width="200"><template #default="{ row }">{{ formatDate(row.currentPeriodEndUtc) }}</template></ElTableColumn>
       <ElTableColumn :label="t('users.columnActions')" :width="canManage ? 240 : 100" fixed="right"><template #default="{ row }">
-        <ElButton link type="primary" data-testid="tenant-subscription-detail" :disabled="loading || !hasRead" @click="openDetail(row as TenantSubscription)">{{ text('subscriptionDetail') }}</ElButton>
+        <ElButton link type="primary" data-testid="tenant-subscription-detail" :disabled="loading || !hasRead" @click="openDetail(row as TenantSubscription)">{{ text('detailAction') }}</ElButton>
         <PaidSubscriptionPurchase v-if="canManage && row.status === 'Expired' && row.packageId && tenant?.isActive && session.can('tenancy.tenant_packages.read')"
           :key="'repurchase-' + row.id" :tenant-id="tenant.id" :packages="packages" :source="{ subscriptionId: row.id, packageId: row.packageId }"
           :disabled="loading || !hasRead || uncertain || hasActive" @created="paidCreated" @dialog-open="paidOpen = $event" />
@@ -189,4 +204,7 @@ function paidCreated() { emit('changed'); void load(); }
 .subscription-history :deep(th.el-table__cell), .subscription-history :deep(.el-table__empty-text) { color: var(--el-text-color-primary); }
 .subscription-details { margin-top: 12px; }
 .subscription-details code { overflow-wrap: anywhere; }
+.subscription-status-filter { border: 0; padding: 0; margin: 12px 0 0; min-width: 0; }
+.subscription-status-filter :deep(.el-radio-group) { display: flex; flex-wrap: wrap; gap: 0 16px; }
+.subscription-status-filter :deep(.el-radio) { margin-right: 0; }
 </style>

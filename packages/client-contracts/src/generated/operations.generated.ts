@@ -637,6 +637,7 @@ import type {
   PagedResultOfReportingPublishedDefinitionResponse,
   PagedResultOfSerialNumberRuleResponse,
   PagedResultOfTenantPackageSummary,
+  PagedResultOfTenantSubscriptionResponse,
   PagedResultOfTenantSummary,
   PagedResultOfWorkflowInstanceListItemResponse,
   PagedResultOfWorkflowRecoveryTaskResponse,
@@ -829,6 +830,7 @@ import type {
   TenantQuotaUsageSummaryResponse,
   TenantRuntimeBrandingResponse,
   TenantSubscriptionPaymentTerms,
+  TenantSubscriptionResponse,
   TenantSummary,
   TestAiModelConfigResult,
   TestAiModelEmbeddingRequest,
@@ -1327,6 +1329,7 @@ import {
   readPagedResultOfReportingPublishedDefinitionResponse,
   readPagedResultOfSerialNumberRuleResponse,
   readPagedResultOfTenantPackageSummary,
+  readPagedResultOfTenantSubscriptionResponse,
   readPagedResultOfTenantSummary,
   readPagedResultOfWorkflowInstanceListItemResponse,
   readPagedResultOfWorkflowRecoveryTaskResponse,
@@ -17402,6 +17405,35 @@ export async function tenancyListHostTenants(
   const init: RequestInit = { method: 'GET' };
   const value = await requestJsonOperation(http, path, init, signal, options);
   return readPagedResultOfTenantSummary(value);
+}
+
+export interface TenancyListTenantSubscriptionsParameters {
+  readonly tenantId: string;
+  readonly page?: number;
+  readonly pageSize?: number;
+  readonly status?: string;
+}
+
+export async function tenancyListTenantSubscriptions(
+  http: HttpClient,
+  parameters: TenancyListTenantSubscriptionsParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<PagedResultOfTenantSubscriptionResponse> {
+  const query = new URLSearchParams();
+  if (parameters.page !== undefined) {
+    query.set('page', String(parameters.page));
+  }
+  if (parameters.pageSize !== undefined) {
+    query.set('pageSize', String(parameters.pageSize));
+  }
+  if (parameters.status !== undefined) {
+    query.set('status', String(parameters.status));
+  }
+  const path = query.size === 0 ? `/api/v1/tenancy/tenants/${encodeURIComponent(String(parameters.tenantId))}/subscriptions` : `/api/v1/tenancy/tenants/${encodeURIComponent(String(parameters.tenantId))}/subscriptions?${query.toString()}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = await requestJsonOperation(http, path, init, signal, options);
+  return readPagedResultOfTenantSubscriptionResponse(value);
 }
 
 export interface TenancyReactivateTenantParameters {

@@ -160,6 +160,9 @@
       "name": "TenancyTenantLifecycle"
     },
     {
+      "name": "TenancyTenantSubscriptions"
+    },
+    {
       "name": "OrganizationTenantUnits"
     },
     {
@@ -61205,6 +61208,76 @@
         ]
       }
     },
+    "/api/v1/tenancy/tenants/{tenantId}/subscriptions": {
+      "get": {
+        "operationId": "tenancyListTenantSubscriptions",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "tenantId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "format": "int32",
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ]
+            }
+          },
+          {
+            "in": "query",
+            "name": "pageSize",
+            "schema": {
+              "format": "int32",
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ]
+            }
+          },
+          {
+            "in": "query",
+            "name": "status",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PagedResultOfTenantSubscriptionResponse"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          },
+          {
+            "ApiKey": []
+          }
+        ],
+        "tags": [
+          "TenancyTenantSubscriptions"
+        ]
+      }
+    },
     "/api/v1/tenancy/tenants/{tenantId}/subscriptions/paid": {
       "post": {
         "operationId": "tenancyCreatePaidSubscription",
@@ -97417,6 +97490,47 @@
         ],
         "type": "object"
       },
+      "PagedResultOfTenantSubscriptionResponse": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/TenantSubscriptionResponse"
+            },
+            "type": "array"
+          },
+          "page": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "pageSize": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "total": {
+            "format": "int64",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          }
+        },
+        "required": [
+          "items",
+          "page",
+          "pageSize",
+          "total"
+        ],
+        "type": "object"
+      },
       "PagedResultOfTenantSummary": {
         "properties": {
           "items": {
@@ -104488,6 +104602,70 @@
           "effectiveFromUtc",
           "effectiveToUtc",
           "subject"
+        ],
+        "type": "object"
+      },
+      "TenantSubscriptionResponse": {
+        "properties": {
+          "cancelledAtUtc": {
+            "format": "date-time",
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "currentPeriodEndUtc": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "currentPeriodStartUtc": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "packageId": {
+            "format": "uuid",
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "status": {
+            "type": "string"
+          },
+          "tenantId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "trialEndsAtUtc": {
+            "format": "date-time",
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "version": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "tenantId",
+          "packageId",
+          "status",
+          "trialEndsAtUtc",
+          "currentPeriodStartUtc",
+          "currentPeriodEndUtc",
+          "cancelledAtUtc",
+          "version"
         ],
         "type": "object"
       },

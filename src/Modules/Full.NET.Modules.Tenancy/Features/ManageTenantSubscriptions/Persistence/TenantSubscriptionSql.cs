@@ -33,17 +33,26 @@ internal static class TenantSubscriptionSql
 
     public static readonly SqlStatement CountByTenant = new(
         "tenancy.subscriptions.count_by_tenant",
-        "SELECT COUNT(1) FROM fn_tenancy_tenant_subscription WHERE TenantId = @TenantId",
+        "SELECT COUNT(1) FROM fn_tenancy_tenant_subscription WHERE TenantId = @TenantId AND (@Status IS NULL OR Status = @Status)",
         SqlDataScope.HostOnly);
+
+    // 总数与两种分页共用精确状态条件；不把筛选结果当作企业全部订阅资格。
+    private const string FilteredPage = """
+        SELECT Id, TenantId, PackageId, Status, TrialEndsAtUtc,
+               CurrentPeriodStartUtc, CurrentPeriodEndUtc, CancelledAtUtc, Version
+        FROM fn_tenancy_tenant_subscription
+        WHERE TenantId = @TenantId AND (@Status IS NULL OR Status = @Status)
+        ORDER BY CurrentPeriodStartUtc DESC, Id
+        """;
 
     public static readonly SqlStatement ListPageSqlServer = new(
         "tenancy.subscriptions.list_page.sql_server",
-        ListByTenant.Text + " OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY",
+        FilteredPage + " OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY",
         SqlDataScope.HostOnly);
 
     public static readonly SqlStatement ListPageMySql = new(
         "tenancy.subscriptions.list_page.mysql",
-        ListByTenant.Text + " LIMIT @PageSize OFFSET @Offset",
+        FilteredPage + " LIMIT @PageSize OFFSET @Offset",
         SqlDataScope.HostOnly);
 
     public static readonly SqlStatement Insert = new(

@@ -39,7 +39,8 @@ describe('付费账单原请求恢复', () => {
     vi.mocked(createPaidSubscription).mockImplementation(async (tenant, body) => ({ ...offer, tenantId: tenant, subscriptionId: id(5), paymentOperationId: id(7), subject: 'Plan', offerVersion: body.offerVersion, effectiveFromUtc: body.effectiveFromUtc, effectiveToUtc: '2027-01-01T00:00:00Z' }));
     const { wrapper } = await purchase({ subscriptionId: id(11), packageId: pkg.id });
     expect(createPaidSubscription).not.toHaveBeenCalled(); expect(getPackageOffer).toHaveBeenCalledWith(pkg.id, expect.any(AbortSignal));
-    expect(wrapper.findComponent(ElSelect).props('disabled')).toBe(true); expect(wrapper.get('[data-testid="repurchase-source"]').text()).toBe(id(11));
+    expect(wrapper.findComponent(ElSelect).exists()).toBe(false); expect(wrapper.get('[data-testid="repurchase-package"]').text()).toContain(pkg.id);
+    expect(wrapper.get('[data-testid="repurchase-source"]').text()).toBe(id(11));
     await wrapper.get('[data-testid="confirm"]').trigger('click'); await flushPromises();
     const body = vi.mocked(createPaidSubscription).mock.calls[0]![1];
     expect(body.packageId).toBe(pkg.id); expect(body.offerVersion).toBe(3);

@@ -5470,6 +5470,13 @@ export interface PagedResultOfTenantPackageSummary {
   readonly total: number;
 }
 
+export interface PagedResultOfTenantSubscriptionResponse {
+  readonly items: Array<TenantSubscriptionResponse>;
+  readonly page: number;
+  readonly pageSize: number;
+  readonly total: number;
+}
+
 export interface PagedResultOfTenantSummary {
   readonly items: Array<TenantSummary>;
   readonly page: number;
@@ -6980,6 +6987,18 @@ export interface TenantSubscriptionPaymentTerms {
   readonly subject: string;
   readonly subscriptionId: string;
   readonly tenantId: string;
+}
+
+export interface TenantSubscriptionResponse {
+  readonly cancelledAtUtc: null | string;
+  readonly currentPeriodEndUtc: string;
+  readonly currentPeriodStartUtc: string;
+  readonly id: string;
+  readonly packageId: null | string;
+  readonly status: string;
+  readonly tenantId: string;
+  readonly trialEndsAtUtc: null | string;
+  readonly version: number;
 }
 
 export interface TenantSummary {

@@ -636,6 +636,7 @@ import type {
   PagedResultOfReportingPublishedDefinitionResponse,
   PagedResultOfSerialNumberRuleResponse,
   PagedResultOfTenantPackageSummary,
+  PagedResultOfTenantSubscriptionResponse,
   PagedResultOfTenantSummary,
   PagedResultOfWorkflowInstanceListItemResponse,
   PagedResultOfWorkflowRecoveryTaskResponse,
@@ -828,6 +829,7 @@ import type {
   TenantQuotaUsageSummaryResponse,
   TenantRuntimeBrandingResponse,
   TenantSubscriptionPaymentTerms,
+  TenantSubscriptionResponse,
   TenantSummary,
   TestAiModelConfigResult,
   TestAiModelEmbeddingRequest,
@@ -6525,6 +6527,15 @@ function isPagedResultOfTenantPackageSummary(value: unknown): value is PagedResu
   return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isTenantPackageSummary(item14))) && (Number.isSafeInteger(value["page"])) && (Number.isSafeInteger(value["pageSize"])) && (Number.isSafeInteger(value["total"]));
 }
 
+export function readPagedResultOfTenantSubscriptionResponse(value: unknown): PagedResultOfTenantSubscriptionResponse {
+  const normalizedValue = normalizePagedResultOfTenantSubscriptionResponseIntegerJson(value);
+  return requireValidResponse(normalizedValue, isPagedResultOfTenantSubscriptionResponse(normalizedValue), 'paged_result_of_tenant_subscription_response') as PagedResultOfTenantSubscriptionResponse;
+}
+
+function isPagedResultOfTenantSubscriptionResponse(value: unknown): value is PagedResultOfTenantSubscriptionResponse {
+  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isTenantSubscriptionResponse(item14))) && (Number.isSafeInteger(value["page"])) && (Number.isSafeInteger(value["pageSize"])) && (Number.isSafeInteger(value["total"]));
+}
+
 export function readPagedResultOfTenantSummary(value: unknown): PagedResultOfTenantSummary {
   const normalizedValue = normalizePagedResultOfTenantSummaryIntegerJson(value);
   return requireValidResponse(normalizedValue, isPagedResultOfTenantSummary(normalizedValue), 'paged_result_of_tenant_summary') as PagedResultOfTenantSummary;
@@ -8210,6 +8221,15 @@ export function readTenantSubscriptionPaymentTerms(value: unknown): TenantSubscr
 
 function isTenantSubscriptionPaymentTerms(value: unknown): value is TenantSubscriptionPaymentTerms {
   return isRecord(value) && (Number.isSafeInteger(value["amountMinor"])) && (typeof value["currency"] === 'string') && (typeof value["effectiveFromUtc"] === 'string') && (typeof value["effectiveToUtc"] === 'string') && (typeof value["merchantConfigId"] === 'string' && guidPattern.test(value["merchantConfigId"])) && (Number.isSafeInteger(value["offerVersion"])) && (typeof value["packageId"] === 'string' && guidPattern.test(value["packageId"])) && (typeof value["paymentOperationId"] === 'string' && guidPattern.test(value["paymentOperationId"])) && (typeof value["paymentTenantId"] === 'string' && guidPattern.test(value["paymentTenantId"])) && (typeof value["subject"] === 'string') && (typeof value["subscriptionId"] === 'string' && guidPattern.test(value["subscriptionId"])) && (typeof value["tenantId"] === 'string' && guidPattern.test(value["tenantId"]));
+}
+
+export function readTenantSubscriptionResponse(value: unknown): TenantSubscriptionResponse {
+  const normalizedValue = normalizeTenantSubscriptionResponseIntegerJson(value);
+  return requireValidResponse(normalizedValue, isTenantSubscriptionResponse(normalizedValue), 'tenant_subscription_response') as TenantSubscriptionResponse;
+}
+
+function isTenantSubscriptionResponse(value: unknown): value is TenantSubscriptionResponse {
+  return isRecord(value) && ((value["cancelledAtUtc"] === null) || (typeof value["cancelledAtUtc"] === 'string')) && (typeof value["currentPeriodEndUtc"] === 'string') && (typeof value["currentPeriodStartUtc"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && ((value["packageId"] === null) || (typeof value["packageId"] === 'string' && guidPattern.test(value["packageId"]))) && (typeof value["status"] === 'string') && (typeof value["tenantId"] === 'string' && guidPattern.test(value["tenantId"])) && ((value["trialEndsAtUtc"] === null) || (typeof value["trialEndsAtUtc"] === 'string')) && (Number.isSafeInteger(value["version"]));
 }
 
 export function readTenantSummary(value: unknown): TenantSummary {
@@ -11827,6 +11847,10 @@ function normalizePagedResultOfTenantPackageSummaryIntegerJson(value: unknown): 
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "items") ? { ["items"]: (Array.isArray(value["items"]) ? value["items"].map((item14: unknown) => normalizeTenantPackageSummaryIntegerJson(item14)) : value["items"]) } : {}), ...(Object.hasOwn(value, "page") ? { ["page"]: normalizeWireInteger(value["page"]) } : {}), ...(Object.hasOwn(value, "pageSize") ? { ["pageSize"]: normalizeWireInteger(value["pageSize"]) } : {}), ...(Object.hasOwn(value, "total") ? { ["total"]: normalizeWireInteger(value["total"]) } : {}) } : value);
 }
 
+function normalizePagedResultOfTenantSubscriptionResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "items") ? { ["items"]: (Array.isArray(value["items"]) ? value["items"].map((item14: unknown) => normalizeTenantSubscriptionResponseIntegerJson(item14)) : value["items"]) } : {}), ...(Object.hasOwn(value, "page") ? { ["page"]: normalizeWireInteger(value["page"]) } : {}), ...(Object.hasOwn(value, "pageSize") ? { ["pageSize"]: normalizeWireInteger(value["pageSize"]) } : {}), ...(Object.hasOwn(value, "total") ? { ["total"]: normalizeWireInteger(value["total"]) } : {}) } : value);
+}
+
 function normalizePagedResultOfTenantSummaryIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "items") ? { ["items"]: (Array.isArray(value["items"]) ? value["items"].map((item14: unknown) => normalizeTenantSummaryIntegerJson(item14)) : value["items"]) } : {}), ...(Object.hasOwn(value, "page") ? { ["page"]: normalizeWireInteger(value["page"]) } : {}), ...(Object.hasOwn(value, "pageSize") ? { ["pageSize"]: normalizeWireInteger(value["pageSize"]) } : {}), ...(Object.hasOwn(value, "total") ? { ["total"]: normalizeWireInteger(value["total"]) } : {}) } : value);
 }
@@ -12429,6 +12453,10 @@ function normalizeTenantPackageSummaryIntegerJson(value: unknown): unknown {
 
 function normalizeTenantSubscriptionPaymentTermsIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "amountMinor") ? { ["amountMinor"]: normalizeWireInteger(value["amountMinor"]) } : {}), ...(Object.hasOwn(value, "offerVersion") ? { ["offerVersion"]: normalizeWireInteger(value["offerVersion"]) } : {}) } : value);
+}
+
+function normalizeTenantSubscriptionResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
 }
 
 function normalizeTenantSummaryIntegerJson(value: unknown): unknown {

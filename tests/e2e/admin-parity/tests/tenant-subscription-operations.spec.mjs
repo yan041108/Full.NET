@@ -53,7 +53,7 @@ for (const [width, locale] of [[1440, 'en-US'], [390, 'zh-CN']]) {
     await expect(page.getByTestId('subscription-detail-status')).toHaveText(locale === 'en-US' ? 'Cancelled' : '已取消');
     state.failRead = false; state.rows = [{ ...previous, id: id(8), status: 'Active', version: 6 }];
     await page.getByTestId('subscription-detail-refresh').click();
-    await expect(modal).toContainText(locale === 'en-US' ? 'does not include the subscription' : '当前页未返回该订阅');
+    await expect(modal).toContainText(locale === 'en-US' ? 'does not include the subscription' : '当前页或筛选未返回该订阅');
     await expect(page.getByTestId('subscription-detail-id')).toHaveText(subscriptionId); await expect(page.getByTestId('subscription-detail-status')).toHaveCount(0);
     expect(state.reads).toBe(3); expect(state.creates.length).toBe(0); expect(state.cancels.length).toBe(0);
   });
@@ -82,7 +82,8 @@ for (const width of [1440, 390]) {
     await page.getByTestId('subscription-repurchase').click();
     const modal = page.getByRole('dialog').filter({ has: page.getByTestId('repurchase-source') });
     await expect(modal.getByTestId('repurchase-source')).toHaveText(subscriptionId);
-    await expect(modal.getByRole('combobox')).toBeDisabled(); expect(offers).toBe(0); expect(state.creates.length).toBe(0);
+    await expect(modal.getByRole('combobox')).toHaveCount(0); await expect(modal.getByTestId('repurchase-package')).toContainText(packageId);
+    expect(offers).toBe(0); expect(state.creates.length).toBe(0);
     await modal.getByRole('button', { name: '读取报价', exact: true }).click(); await expect(modal).toContainText('24900 CNY');
     await modal.screenshot({ path: info.outputPath('expired-repurchase-' + width + '.png'), animations: 'disabled' });
     expect((await new AxeBuilder({ page }).include('.art-form-dialog').withTags(['wcag2a', 'wcag2aa']).analyze()).violations).toEqual([]);

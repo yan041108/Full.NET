@@ -17,13 +17,13 @@ internal static class Endpoint
             .WithTags("TenancyTenantSubscriptions");
 
         group.MapGet("/", async (
-            Guid tenantId, int? page, int? pageSize,
+            Guid tenantId, int? page, int? pageSize, string? status,
             TenantSubscriptionQueryService queries,
             IApiResultMapper mapper,
             HttpContext httpContext,
             CancellationToken cancellationToken) =>
         {
-            var result = await queries.ListAsync(tenantId, cancellationToken, page ?? 1, pageSize ?? 20).ConfigureAwait(false);
+            var result = await queries.ListAsync(tenantId, cancellationToken, page ?? 1, pageSize ?? 20, status).ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
         .WithName("tenancyListTenantSubscriptions")

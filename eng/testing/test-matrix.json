@@ -7,6 +7,11 @@
       "minimum": 9616,
       "timeout": "10m",
       "selections": {
+        "subscription-status-filter": {
+          "filter": "FullyQualifiedName~TenantSubscriptionQueryTests",
+          "minimum": 11,
+          "timeout": "3m"
+        },
         "tenant-file-content-activity": {
           "filter": "FullyQualifiedName~TenantResourceFileStoreTests.Open_|FullyQualifiedName~TenantResourceFileStoreTests.Ready_metadata_with_missing_object|FullyQualifiedName~TenantResourceFileStoreTests.Ownership_and_release|FullyQualifiedName~TenantResourceFileStoreTests.Legacy_file_requires_resource_owner_confirmation",
           "minimum": 13,
@@ -820,6 +825,11 @@
       "minimum": 2,
       "timeout": "15m",
       "selections": {
+        "subscription-status-filter": {
+          "filter": "FullyQualifiedName~TenantSubscriptionStatusFilterApiTests",
+          "minimum": 2,
+          "timeout": "5m"
+        },
         "subscription-storage-consumer": {
           "filter": "FullyQualifiedName~SubscriptionBillingRecoveryTests",
           "minimum": 2,
@@ -2356,7 +2366,7 @@
       },
       "infrastructure": {
         "filter": "TestCategory!=ExternalSmtp&TestCategory!=ExternalAliyunSms&TestCategory!=NativeWorkflowApi&TestCategory!=NativeWorkflow&TestCategory!=NativeWorkflowWindows&TestCategory!=WorkflowNativeKafka&TestCategory!=WorkflowPhysicalKafka&FullyQualifiedName!~Full.NET.IntegrationTests.NativeAot&FullyQualifiedName!~ApiSqlServerTests&FullyQualifiedName!~ApiMySqlTests&FullyQualifiedName!~Full.NET.IntegrationTests.Migrations&FullyQualifiedName!~KafkaCapacityRunnerTests&FullyQualifiedName!~KafkaOutboxCdcCapacityRunnerTests&FullyQualifiedName!~KafkaLogDeliveryTests&FullyQualifiedName!~KafkaLogRequestLatencyTests&FullyQualifiedName!~KafkaCollectorRequestReplayTests&FullyQualifiedName!~KafkaLogRouteComparisonTests&FullyQualifiedName!~KafkaLogConsumerDeliveryTests&FullyQualifiedName!~KafkaLogConsumerElasticsearchReplayTests&FullyQualifiedName!~KafkaLogConsumerElasticsearchTlsTests&FullyQualifiedName!~MySqlCdcDebeziumInboxE2ETests&FullyQualifiedName!~SqlServerCdcDebeziumInboxE2ETests&FullyQualifiedName!~OrganizationCdcKafkaIdentityProjectionMySqlE2ETests&FullyQualifiedName!~OrganizationUnitCdcKafkaEndToEndTests&FullyQualifiedName!~OrganizationUnitCdcKafkaFaultMatrixTests&FullyQualifiedName!~EventDeliveryCutoverTests&FullyQualifiedName!~EventDeliveryRollbackTests&FullyQualifiedName!~CdcCrashPointTests&FullyQualifiedName!~KafkaFailureRecoveryTests&FullyQualifiedName!~MessagingBatchOneTests&FullyQualifiedName!~KafkaReplayTests&FullyQualifiedName!~KafkaSubscriptionTests&FullyQualifiedName!~MySqlBinlogShadowTests&FullyQualifiedName!~SqlServerCdcShadowTests&FullyQualifiedName!~KafkaLogSecretBoundaryTests&FullyQualifiedName!~MessagingDeliveryControlTests&FullyQualifiedName!~MessagingShadowCaptureTests&FullyQualifiedName!~MessagingDeliveryOverviewTests&FullyQualifiedName!~MessagingShadowCaptureDebeziumTests&FullyQualifiedName!~MessagingCutoverRollbackDebeziumTests&FullyQualifiedName!~IdentityBrowserUiTests&FullyQualifiedName!~WorkflowCollaborationGrantBrowserUiTests&FullyQualifiedName!~AiKnowledgeCorrectionBrowserUiTests&FullyQualifiedName!~IdentityOidcNetworkInteropTests&FullyQualifiedName!~MessagingCdcHealthCollectionTests&FullyQualifiedName!~MessagingMultiProcessRecoveryTests&FullyQualifiedName!~MessagingCdcAlertLoopTests&FullyQualifiedName!~MessagingKafkaQuorumRecoveryTests&FullyQualifiedName!~MessagingCdcSourceAlertLoopTests&FullyQualifiedName!~KafkaRetentionTimeObservationTests&FullyQualifiedName!~KafkaRollbackTopologyTests&TestCategory!=IntegrationSdkPackage",
-        "minimum": 921,
+        "minimum": 923,
         "timeout": "60m"
       },
       "messaging-heavy": {
@@ -2384,7 +2394,7 @@
       },
       "full": {
         "filter": "TestCategory!=ExternalSmtp&TestCategory!=ExternalAliyunSms&TestCategory!=NativeWorkflowApi&TestCategory!=NativeWorkflow&TestCategory!=NativeWorkflowWindows&TestCategory!=WorkflowNativeKafka&FullyQualifiedName!~Full.NET.IntegrationTests.NativeAot&FullyQualifiedName!~IdentityBrowserUiTests&FullyQualifiedName!~WorkflowCollaborationGrantBrowserUiTests&FullyQualifiedName!~AiKnowledgeCorrectionBrowserUiTests&FullyQualifiedName!~IdentityOidcNetworkInteropTests&TestCategory!=IntegrationSdkPackage",
-        "minimum": 2131,
+        "minimum": 2133,
         "timeout": "90m"
       },
       "logging-metrics": {

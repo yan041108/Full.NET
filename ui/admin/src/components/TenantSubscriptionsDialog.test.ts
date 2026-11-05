@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { flushPromises, mount } from '@vue/test-utils';
 import { createPinia, setActivePinia } from 'pinia';
-import { ElSelect } from 'element-plus';
+import { ElPagination, ElRadioGroup, ElSelect } from 'element-plus';
 import type { TenantSubscription } from '@fullnet/client-contracts';
 import TenantSubscriptionsDialog from './TenantSubscriptionsDialog.vue';
 import { useSessionStore } from '../auth/session';
@@ -27,6 +27,35 @@ async function panel(options: { readOnly?: boolean; active?: boolean } = {}) {
 }
 describe('租户订阅操作台', () => {
   beforeEach(() => { vi.resetAllMocks(); useAdminI18n().setLocale('zh-CN'); vi.mocked(listTenantSubscriptions).mockResolvedValue(page()); });
+  it('只读筛选切回第一页并保持筛选后的分页参数', async () => {
+    const { wrapper } = await panel({ readOnly: true });
+    vi.mocked(listTenantSubscriptions).mockResolvedValue({ ...page([{ ...row, status: 'Expired' }]), total: 41 });
+    wrapper.findComponent(ElRadioGroup).vm.$emit('update:modelValue', 'Expired'); await flushPromises();
+    expect(listTenantSubscriptions).toHaveBeenLastCalledWith(tenant.id, 1, 20, expect.any(AbortSignal), 'Expired');
+    vi.mocked(listTenantSubscriptions).mockResolvedValue({ ...page([{ ...row, status: 'Expired' }]), page: 2, total: 41 });
+    wrapper.findComponent(ElPagination).vm.$emit('current-change', 2); await flushPromises();
+    expect(listTenantSubscriptions).toHaveBeenLastCalledWith(tenant.id, 2, 20, expect.any(AbortSignal), 'Expired');
+    vi.mocked(listTenantSubscriptions).mockResolvedValue(page([{ ...row, status: 'Cancelled' }]));
+    wrapper.findComponent(ElRadioGroup).vm.$emit('update:modelValue', 'Cancelled'); await flushPromises();
+    expect(listTenantSubscriptions).toHaveBeenLastCalledWith(tenant.id, 1, 20, expect.any(AbortSignal), 'Cancelled');
+    vi.mocked(listTenantSubscriptions).mockResolvedValue(page()); wrapper.findComponent(ElRadioGroup).vm.$emit('update:modelValue', ''); await flushPromises();
+    expect(listTenantSubscriptions).toHaveBeenLastCalledWith(tenant.id, 1, 20, expect.any(AbortSignal));
+    expect(createTenantSubscription).not.toHaveBeenCalled(); expect(cancelTenantSubscription).not.toHaveBeenCalled(); wrapper.unmount();
+  });
+  it('连续切换状态取消旧读取，不接入晚到的前一筛选结果', async () => {
+    const { wrapper } = await panel(); const pending = deferred<ReturnType<typeof page>>();
+    vi.mocked(listTenantSubscriptions).mockReturnValueOnce(pending.promise);
+    wrapper.findComponent(ElRadioGroup).vm.$emit('update:modelValue', 'Expired'); await flushPromises();
+    const signal = vi.mocked(listTenantSubscriptions).mock.calls.at(-1)![3]!;
+    vi.mocked(listTenantSubscriptions).mockResolvedValue(page([{ ...row, status: 'Cancelled' }]));
+    wrapper.findComponent(ElRadioGroup).vm.$emit('update:modelValue', 'Cancelled'); await flushPromises(); expect(signal.aborted).toBe(true);
+    pending.resolve(page([{ ...row, status: 'Expired' }])); await flushPromises();
+    expect(wrapper.getComponent({ name: 'ElTable' }).props('data')).toEqual([{ ...row, status: 'Cancelled' }]); wrapper.unmount();
+  });
+  it('过滤响应混入其他状态时拒绝整页', async () => {
+    const { wrapper } = await panel(); wrapper.findComponent(ElRadioGroup).vm.$emit('update:modelValue', 'Expired'); await flushPromises();
+    expect(wrapper.getComponent({ name: 'ElTable' }).props('data')).toEqual([]); expect(wrapper.text()).toContain('未接入结果'); wrapper.unmount();
+  });
   it('明确选择套餐并预览三十天试用，确认前不写入', async () => {
     vi.mocked(listTenantSubscriptions).mockResolvedValue(page([]));
     vi.mocked(createTenantSubscription).mockImplementation(async (tenantId, body) => ({ ...row, ...body, id: id(6), tenantId, version: 1 }));
@@ -71,7 +100,7 @@ describe('租户订阅操作台', () => {
     vi.mocked(listTenantSubscriptions).mockResolvedValue(page([{ ...row, id: id(8), status: 'Active', version: 9 }]));
     await wrapper.get('[data-testid="subscription-detail-refresh"]').trigger('click'); await flushPromises();
     expect(wrapper.get('[data-testid="subscription-detail-id"]').text()).toBe(row.id); expect(wrapper.find('[data-testid="subscription-detail-status"]').exists()).toBe(false);
-    expect(wrapper.text()).toContain('当前页未返回该订阅'); wrapper.unmount();
+    expect(wrapper.text()).toContain('当前页或筛选未返回该订阅'); wrapper.unmount();
   });
   it('详情刷新失败保留上次读取且明确提示', async () => {
     const { wrapper } = await panel({ readOnly: true }); await wrapper.get('[data-testid="tenant-subscription-detail"]').trigger('click');
@@ -103,7 +132,7 @@ describe('租户订阅操作台', () => {
     const { wrapper } = await panel(); const signal = vi.mocked(listTenantSubscriptions).mock.calls[0]![3];
     await wrapper.setProps({ tenant: { ...tenant, id: id(8), name: 'Other tenant' } }); await flushPromises();
     expect(signal?.aborted).toBe(true); pending.resolve(page()); await flushPromises();
-    expect(wrapper.text()).toContain('Other tenant'); expect(wrapper.text()).not.toContain('试用中'); wrapper.unmount();
+    expect(wrapper.text()).toContain('Other tenant'); expect(wrapper.getComponent({ name: 'ElTable' }).props('data')).toEqual([]); wrapper.unmount();
   });
   it('错配租户列表失败关闭写入资格', async () => {
     vi.mocked(listTenantSubscriptions).mockResolvedValue(page([{ ...row, tenantId: id(8) }])); const { wrapper } = await panel();

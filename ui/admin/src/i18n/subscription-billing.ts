@@ -2,9 +2,11 @@ import type { SupportedLocale } from '@fullnet/admin-i18n';
 
 // 资金和权益状态使用独立固定文案，不能把渠道成功误显示为已完成授权。
 const zh = {
+  detailAction: '订阅详情',
+  statusFilter: '订阅状态筛选', allStatuses: '全部状态', statusFilterHint: '筛选只影响当前历史列表，不代表企业全部订阅或新增资格；操作仍由服务端校验。',
   subscriptionDetail: '订阅详情', detailPeriodStart: '周期开始', detailTrialEnd: '试用截止', detailCancelledAt: '取消时间', detailPackageId: '套餐 ID', detailPackageName: '当前套餐目录名称',
   detailPackageUnavailable: '当前目录未包含该套餐，历史套餐 ID 继续保留。', detailSnapshotHint: '以下为最近一次成功读取的订阅记录；套餐名称显示当前目录名称，请结合套餐 ID 和周期核对。',
-  detailOutsideResult: '当前页未返回该订阅，请关闭详情后重新定位。', detailRefreshFailed: '详情刷新失败，保留上次成功读取的结果，请重新读取。',
+  detailOutsideResult: '当前页或筛选未返回该订阅，请关闭详情后重新定位。', detailRefreshFailed: '详情刷新失败，保留上次成功读取的结果，请重新读取。',
   offerSaving: '正在保存报价，请等待结果。',
   offerScopeHint: '报价调整适用于后续新账单，已冻结账单继续按原条款履约。', offerVersion: '报价版本',
   offerReadFailed: '报价或功能目录读取失败。请重新读取，不能按空报价覆盖。', offerReload: '重新读取报价', offerCheck: '核对当前报价',
@@ -41,9 +43,11 @@ const zh = {
   safeRetry: '网络重试复用原账单；履约重试不会再次扣款。'
 };
 const en: Record<keyof typeof zh, string> = {
+  detailAction: 'Details',
+  statusFilter: 'Subscription status filter', allStatuses: 'All statuses', statusFilterHint: 'The filter only changes this history list. It does not establish all subscriptions or eligibility; the server validates each operation.',
   subscriptionDetail: 'Subscription details', detailPeriodStart: 'Period start', detailTrialEnd: 'Trial ends', detailCancelledAt: 'Cancelled at', detailPackageId: 'Package ID', detailPackageName: 'Current catalog name',
   detailPackageUnavailable: 'The package is absent from the current catalog. Its historical ID is retained.', detailSnapshotHint: 'Review the last successful subscription record. Package names reflect the current catalog; check the package ID and period.',
-  detailOutsideResult: 'This page does not include the subscription. Close these details and locate it again.', detailRefreshFailed: 'Details could not be refreshed. The last successful result is retained; reload to check.',
+  detailOutsideResult: 'This page or filter does not include the subscription. Close these details and locate it again.', detailRefreshFailed: 'Details could not be refreshed. The last successful result is retained; reload to check.',
   offerSaving: 'Saving the offer. Waiting for the result.',
   offerScopeHint: 'Offer changes apply to new invoices. Frozen invoices retain their original terms.', offerVersion: 'Offer version',
   offerReadFailed: 'The offer or feature catalog could not be read. Reload before editing; unavailable data is not an empty offer.', offerReload: 'Reload offer', offerCheck: 'Check current offer',

@@ -96,7 +96,11 @@ function reconfirmQuote() {
     <template v-if="source"><p>{{ text('repurchasePolicy') }}</p><p>{{ text('sourceSubscription') }} <code data-testid="repurchase-source">{{ source.subscriptionId }}</code></p></template>
     <p v-if="attempted && !terms" role="status" data-testid="subscription-invoice-recovery">{{ text('invoiceRecovery') }}</p>
     <el-form v-if="!terms" label-position="top" :disabled="loading || attempted">
-      <el-form-item :label="text('package')"><el-select data-testid="paid-subscription-package" v-model="form.packageId" :disabled="!!source" @change="quote = undefined">
+      <el-form-item :label="text('package')">
+      <div v-if="source" data-testid="repurchase-package" style="overflow-wrap: anywhere">
+        {{ packages.find(pkg => pkg.id.toLowerCase() === source?.packageId.toLowerCase())?.name }} <code>{{ source.packageId }}</code>
+      </div>
+      <el-select v-else data-testid="paid-subscription-package" v-model="form.packageId" @change="quote = undefined">
         <el-option v-for="pkg in packages" :key="pkg.id" :label="pkg.name" :value="pkg.id" />
       </el-select></el-form-item>
       <el-form-item :label="text('start')"><el-input v-model="form.effectiveFromUtc" /></el-form-item>

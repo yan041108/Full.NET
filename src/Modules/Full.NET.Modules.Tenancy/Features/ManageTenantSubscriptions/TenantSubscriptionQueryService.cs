@@ -11,12 +11,20 @@ internal sealed class TenantSubscriptionQueryService(IQueryExecutor queryExecuto
 {
     public async Task<Result<PagedResult<TenantSubscriptionResponse>>> ListAsync(
         Guid tenantId,
-        CancellationToken cancellationToken = default, int page = 1, int pageSize = 20)
+        CancellationToken cancellationToken = default, int page = 1, int pageSize = 20, string? status = null)
     {
+        status = string.IsNullOrWhiteSpace(status) ? null : status.Trim();
+        if (status is not null && status is not (TenantSubscriptionStatuses.Trial or TenantSubscriptionStatuses.Active
+            or TenantSubscriptionStatuses.PastDue or TenantSubscriptionStatuses.Cancelled or TenantSubscriptionStatuses.Expired))
+        {
+            // 查询包含已结束的历史，不能借用仅允许创建非终态订阅的写入校验器。
+            return Result<PagedResult<TenantSubscriptionResponse>>.Failure(new Error(TenancyErrorCodes.SubscriptionStatusInvalid,
+                "Subscription status filter is invalid.", ErrorType.Validation));
+        }
         page = Math.Max(1, page);
         pageSize = Math.Clamp(pageSize, 1, 100);
         var parameters = Tenancy.Persistence.TenancySqlParameters.Create(("TenantId", tenantId),
-            ("Offset", ((long)page - 1) * pageSize), ("PageSize", pageSize));
+            ("Offset", ((long)page - 1) * pageSize), ("PageSize", pageSize), ("Status", status));
         var total = await queryExecutor.QuerySingleOrDefaultAsync<long>(TenantSubscriptionSql.CountByTenant,
             parameters, cancellationToken).ConfigureAwait(false);
         var rows = await queryExecutor.QueryAsync<TenantSubscriptionRecord>(
