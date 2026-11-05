@@ -308,6 +308,7 @@ import type {
   CreateOrganizationUserPositionRequest,
   CreateOrganizationUserUnitRequest,
   CreatePaidTenantSubscriptionRequest,
+  CreatePaidTenantSubscriptionResponse,
   CreatePaymentMerchantConfigRequest,
   CreatePaymentOrderRequest,
   CreatePaymentRefundRequest,
@@ -831,7 +832,6 @@ import type {
   TenantQuotaUsageSummaryResponse,
   TenantRuntimeBrandingResponse,
   TenantSubscriptionInvoiceResponse,
-  TenantSubscriptionPaymentTerms,
   TenantSubscriptionRenewalPreviewResponse,
   TenantSubscriptionResponse,
   TenantSummary,
@@ -3649,6 +3649,15 @@ export function readCreatePaidTenantSubscriptionRequest(value: unknown): CreateP
 
 function isCreatePaidTenantSubscriptionRequest(value: unknown): value is CreatePaidTenantSubscriptionRequest {
   return isRecord(value) && (typeof value["effectiveFromUtc"] === 'string') && (typeof value["idempotencyKey"] === 'string' && guidPattern.test(value["idempotencyKey"])) && (Number.isSafeInteger(value["offerVersion"])) && (typeof value["packageId"] === 'string' && guidPattern.test(value["packageId"])) && (value["renewalOfSubscriptionId"] === undefined || ((value["renewalOfSubscriptionId"] === null) || (typeof value["renewalOfSubscriptionId"] === 'string' && guidPattern.test(value["renewalOfSubscriptionId"])))) && (value["renewalSourceVersion"] === undefined || ((value["renewalSourceVersion"] === null) || (Number.isSafeInteger(value["renewalSourceVersion"]))));
+}
+
+export function readCreatePaidTenantSubscriptionResponse(value: unknown): CreatePaidTenantSubscriptionResponse {
+  const normalizedValue = normalizeCreatePaidTenantSubscriptionResponseIntegerJson(value);
+  return requireValidResponse(normalizedValue, isCreatePaidTenantSubscriptionResponse(normalizedValue), 'create_paid_tenant_subscription_response') as CreatePaidTenantSubscriptionResponse;
+}
+
+function isCreatePaidTenantSubscriptionResponse(value: unknown): value is CreatePaidTenantSubscriptionResponse {
+  return isRecord(value) && (typeof value["amountMinor"] === 'string') && (typeof value["currency"] === 'string') && (typeof value["effectiveFromUtc"] === 'string') && (typeof value["effectiveToUtc"] === 'string') && (typeof value["merchantConfigId"] === 'string' && guidPattern.test(value["merchantConfigId"])) && (Number.isSafeInteger(value["offerVersion"])) && (typeof value["packageId"] === 'string' && guidPattern.test(value["packageId"])) && (typeof value["paymentOperationId"] === 'string' && guidPattern.test(value["paymentOperationId"])) && (typeof value["paymentTenantId"] === 'string' && guidPattern.test(value["paymentTenantId"])) && (value["renewalOfSubscriptionId"] === undefined || ((value["renewalOfSubscriptionId"] === null) || (typeof value["renewalOfSubscriptionId"] === 'string' && guidPattern.test(value["renewalOfSubscriptionId"])))) && (value["renewalSourceVersion"] === undefined || ((value["renewalSourceVersion"] === null) || (Number.isSafeInteger(value["renewalSourceVersion"])))) && (typeof value["subject"] === 'string') && (typeof value["subscriptionId"] === 'string' && guidPattern.test(value["subscriptionId"])) && (typeof value["tenantId"] === 'string' && guidPattern.test(value["tenantId"]));
 }
 
 export function readCreatePaymentMerchantConfigRequest(value: unknown): CreatePaymentMerchantConfigRequest {
@@ -8191,7 +8200,7 @@ export function readTenantPackageOfferResponse(value: unknown): TenantPackageOff
 }
 
 function isTenantPackageOfferResponse(value: unknown): value is TenantPackageOfferResponse {
-  return isRecord(value) && (Number.isSafeInteger(value["amountMinor"])) && (typeof value["currency"] === 'string') && (Number.isSafeInteger(value["durationDays"])) && (Array.isArray(value["entitlementIds"]) && value["entitlementIds"].every(item23 => typeof item23 === 'string' && guidPattern.test(item23))) && (typeof value["isActive"] === 'boolean') && (typeof value["merchantConfigId"] === 'string' && guidPattern.test(value["merchantConfigId"])) && (typeof value["packageId"] === 'string' && guidPattern.test(value["packageId"])) && (typeof value["paymentTenantId"] === 'string' && guidPattern.test(value["paymentTenantId"])) && (Number.isSafeInteger(value["seatLimit"])) && (Number.isSafeInteger(value["storageLimit"])) && (Number.isSafeInteger(value["version"]));
+  return isRecord(value) && (typeof value["amountMinor"] === 'string') && (typeof value["currency"] === 'string') && (Number.isSafeInteger(value["durationDays"])) && (Array.isArray(value["entitlementIds"]) && value["entitlementIds"].every(item23 => typeof item23 === 'string' && guidPattern.test(item23))) && (typeof value["isActive"] === 'boolean') && (typeof value["merchantConfigId"] === 'string' && guidPattern.test(value["merchantConfigId"])) && (typeof value["packageId"] === 'string' && guidPattern.test(value["packageId"])) && (typeof value["paymentTenantId"] === 'string' && guidPattern.test(value["paymentTenantId"])) && (typeof value["seatLimit"] === 'string') && (typeof value["storageLimit"] === 'string') && (Number.isSafeInteger(value["version"]));
 }
 
 export function readTenantPackageSummary(value: unknown): TenantPackageSummary {
@@ -8242,15 +8251,6 @@ export function readTenantSubscriptionInvoiceResponse(value: unknown): TenantSub
 
 function isTenantSubscriptionInvoiceResponse(value: unknown): value is TenantSubscriptionInvoiceResponse {
   return isRecord(value) && (typeof value["amountMinor"] === 'string') && (typeof value["currency"] === 'string') && (typeof value["effectiveFromUtc"] === 'string') && (typeof value["effectiveToUtc"] === 'string') && (Number.isSafeInteger(value["offerVersion"])) && (typeof value["packageId"] === 'string' && guidPattern.test(value["packageId"])) && ((value["paymentOrderId"] === null) || (typeof value["paymentOrderId"] === 'string' && guidPattern.test(value["paymentOrderId"]))) && (typeof value["phase"] === 'string') && (typeof value["readAtUtc"] === 'string') && ((value["renewalOfSubscriptionId"] === null) || (typeof value["renewalOfSubscriptionId"] === 'string' && guidPattern.test(value["renewalOfSubscriptionId"]))) && ((value["renewalSourceVersion"] === null) || (Number.isSafeInteger(value["renewalSourceVersion"]))) && (typeof value["seatLimit"] === 'string') && (typeof value["storageLimit"] === 'string') && (typeof value["subject"] === 'string') && (typeof value["subscriptionId"] === 'string' && guidPattern.test(value["subscriptionId"])) && (typeof value["tenantId"] === 'string' && guidPattern.test(value["tenantId"]));
-}
-
-export function readTenantSubscriptionPaymentTerms(value: unknown): TenantSubscriptionPaymentTerms {
-  const normalizedValue = normalizeTenantSubscriptionPaymentTermsIntegerJson(value);
-  return requireValidResponse(normalizedValue, isTenantSubscriptionPaymentTerms(normalizedValue), 'tenant_subscription_payment_terms') as TenantSubscriptionPaymentTerms;
-}
-
-function isTenantSubscriptionPaymentTerms(value: unknown): value is TenantSubscriptionPaymentTerms {
-  return isRecord(value) && (Number.isSafeInteger(value["amountMinor"])) && (typeof value["currency"] === 'string') && (typeof value["effectiveFromUtc"] === 'string') && (typeof value["effectiveToUtc"] === 'string') && (typeof value["merchantConfigId"] === 'string' && guidPattern.test(value["merchantConfigId"])) && (Number.isSafeInteger(value["offerVersion"])) && (typeof value["packageId"] === 'string' && guidPattern.test(value["packageId"])) && (typeof value["paymentOperationId"] === 'string' && guidPattern.test(value["paymentOperationId"])) && (typeof value["paymentTenantId"] === 'string' && guidPattern.test(value["paymentTenantId"])) && (value["renewalOfSubscriptionId"] === undefined || ((value["renewalOfSubscriptionId"] === null) || (typeof value["renewalOfSubscriptionId"] === 'string' && guidPattern.test(value["renewalOfSubscriptionId"])))) && (value["renewalSourceVersion"] === undefined || ((value["renewalSourceVersion"] === null) || (Number.isSafeInteger(value["renewalSourceVersion"])))) && (typeof value["subject"] === 'string') && (typeof value["subscriptionId"] === 'string' && guidPattern.test(value["subscriptionId"])) && (typeof value["tenantId"] === 'string' && guidPattern.test(value["tenantId"]));
 }
 
 export function readTenantSubscriptionRenewalPreviewResponse(value: unknown): TenantSubscriptionRenewalPreviewResponse {
@@ -8889,7 +8889,7 @@ export function readUpsertTenantPackageOfferRequest(value: unknown): UpsertTenan
 }
 
 function isUpsertTenantPackageOfferRequest(value: unknown): value is UpsertTenantPackageOfferRequest {
-  return isRecord(value) && (Number.isSafeInteger(value["amountMinor"])) && (typeof value["currency"] === 'string') && (Number.isSafeInteger(value["durationDays"])) && (Array.isArray(value["entitlementIds"]) && value["entitlementIds"].every(item23 => typeof item23 === 'string' && guidPattern.test(item23))) && (typeof value["isActive"] === 'boolean') && (typeof value["merchantConfigId"] === 'string' && guidPattern.test(value["merchantConfigId"])) && (typeof value["paymentTenantId"] === 'string' && guidPattern.test(value["paymentTenantId"])) && (Number.isSafeInteger(value["seatLimit"])) && (Number.isSafeInteger(value["storageLimit"])) && (Number.isSafeInteger(value["version"]));
+  return isRecord(value) && (typeof value["amountMinor"] === 'string') && (typeof value["currency"] === 'string') && (Number.isSafeInteger(value["durationDays"])) && (Array.isArray(value["entitlementIds"]) && value["entitlementIds"].every(item23 => typeof item23 === 'string' && guidPattern.test(item23))) && (typeof value["isActive"] === 'boolean') && (typeof value["merchantConfigId"] === 'string' && guidPattern.test(value["merchantConfigId"])) && (typeof value["paymentTenantId"] === 'string' && guidPattern.test(value["paymentTenantId"])) && (typeof value["seatLimit"] === 'string') && (typeof value["storageLimit"] === 'string') && (Number.isSafeInteger(value["version"]));
 }
 
 export function readVerifyCutoverRequest(value: unknown): VerifyCutoverRequest {
@@ -10862,6 +10862,10 @@ function normalizeCreatePaidTenantSubscriptionRequestIntegerJson(value: unknown)
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "offerVersion") ? { ["offerVersion"]: normalizeWireInteger(value["offerVersion"]) } : {}), ...(Object.hasOwn(value, "renewalSourceVersion") ? { ["renewalSourceVersion"]: normalizeWireInteger(value["renewalSourceVersion"]) } : {}) } : value);
 }
 
+function normalizeCreatePaidTenantSubscriptionResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "offerVersion") ? { ["offerVersion"]: normalizeWireInteger(value["offerVersion"]) } : {}), ...(Object.hasOwn(value, "renewalSourceVersion") ? { ["renewalSourceVersion"]: normalizeWireInteger(value["renewalSourceVersion"]) } : {}) } : value);
+}
+
 function normalizeCreatePaymentOrderRequestIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "amountMinor") ? { ["amountMinor"]: normalizeWireInteger(value["amountMinor"]) } : {}) } : value);
 }
@@ -12487,7 +12491,7 @@ function normalizeTenantEntitlementCatalogResponseIntegerJson(value: unknown): u
 }
 
 function normalizeTenantPackageOfferResponseIntegerJson(value: unknown): unknown {
-  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "amountMinor") ? { ["amountMinor"]: normalizeWireInteger(value["amountMinor"]) } : {}), ...(Object.hasOwn(value, "durationDays") ? { ["durationDays"]: normalizeWireInteger(value["durationDays"]) } : {}), ...(Object.hasOwn(value, "seatLimit") ? { ["seatLimit"]: normalizeWireInteger(value["seatLimit"]) } : {}), ...(Object.hasOwn(value, "storageLimit") ? { ["storageLimit"]: normalizeWireInteger(value["storageLimit"]) } : {}), ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "durationDays") ? { ["durationDays"]: normalizeWireInteger(value["durationDays"]) } : {}), ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
 }
 
 function normalizeTenantPackageSummaryIntegerJson(value: unknown): unknown {
@@ -12496,10 +12500,6 @@ function normalizeTenantPackageSummaryIntegerJson(value: unknown): unknown {
 
 function normalizeTenantSubscriptionInvoiceResponseIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "offerVersion") ? { ["offerVersion"]: normalizeWireInteger(value["offerVersion"]) } : {}), ...(Object.hasOwn(value, "renewalSourceVersion") ? { ["renewalSourceVersion"]: normalizeWireInteger(value["renewalSourceVersion"]) } : {}) } : value);
-}
-
-function normalizeTenantSubscriptionPaymentTermsIntegerJson(value: unknown): unknown {
-  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "amountMinor") ? { ["amountMinor"]: normalizeWireInteger(value["amountMinor"]) } : {}), ...(Object.hasOwn(value, "offerVersion") ? { ["offerVersion"]: normalizeWireInteger(value["offerVersion"]) } : {}), ...(Object.hasOwn(value, "renewalSourceVersion") ? { ["renewalSourceVersion"]: normalizeWireInteger(value["renewalSourceVersion"]) } : {}) } : value);
 }
 
 function normalizeTenantSubscriptionRenewalPreviewResponseIntegerJson(value: unknown): unknown {
@@ -12751,7 +12751,7 @@ function normalizeUpdateWorkflowWorkCalendarRequestIntegerJson(value: unknown): 
 }
 
 function normalizeUpsertTenantPackageOfferRequestIntegerJson(value: unknown): unknown {
-  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "amountMinor") ? { ["amountMinor"]: normalizeWireInteger(value["amountMinor"]) } : {}), ...(Object.hasOwn(value, "durationDays") ? { ["durationDays"]: normalizeWireInteger(value["durationDays"]) } : {}), ...(Object.hasOwn(value, "seatLimit") ? { ["seatLimit"]: normalizeWireInteger(value["seatLimit"]) } : {}), ...(Object.hasOwn(value, "storageLimit") ? { ["storageLimit"]: normalizeWireInteger(value["storageLimit"]) } : {}), ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "durationDays") ? { ["durationDays"]: normalizeWireInteger(value["durationDays"]) } : {}), ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
 }
 
 function normalizeVerifyCutoverRequestIntegerJson(value: unknown): unknown {

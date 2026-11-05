@@ -2641,6 +2641,23 @@ export interface CreatePaidTenantSubscriptionRequest {
   readonly renewalSourceVersion?: null | number;
 }
 
+export interface CreatePaidTenantSubscriptionResponse {
+  readonly amountMinor: string;
+  readonly currency: string;
+  readonly effectiveFromUtc: string;
+  readonly effectiveToUtc: string;
+  readonly merchantConfigId: string;
+  readonly offerVersion: number;
+  readonly packageId: string;
+  readonly paymentOperationId: string;
+  readonly paymentTenantId: string;
+  readonly renewalOfSubscriptionId?: null | string;
+  readonly renewalSourceVersion?: null | number;
+  readonly subject: string;
+  readonly subscriptionId: string;
+  readonly tenantId: string;
+}
+
 export interface CreatePaymentMerchantConfigRequest {
   readonly apiV3Key: null | string;
   readonly appId: string;
@@ -6937,7 +6954,7 @@ export interface TenantEntitlementCatalogResponse {
 }
 
 export interface TenantPackageOfferResponse {
-  readonly amountMinor: number;
+  readonly amountMinor: string;
   readonly currency: string;
   readonly durationDays: number;
   readonly entitlementIds: Array<string>;
@@ -6945,8 +6962,8 @@ export interface TenantPackageOfferResponse {
   readonly merchantConfigId: string;
   readonly packageId: string;
   readonly paymentTenantId: string;
-  readonly seatLimit: number;
-  readonly storageLimit: number;
+  readonly seatLimit: string;
+  readonly storageLimit: string;
   readonly version: number;
 }
 
@@ -7012,23 +7029,6 @@ export interface TenantSubscriptionInvoiceResponse {
   readonly renewalSourceVersion: null | number;
   readonly seatLimit: string;
   readonly storageLimit: string;
-  readonly subject: string;
-  readonly subscriptionId: string;
-  readonly tenantId: string;
-}
-
-export interface TenantSubscriptionPaymentTerms {
-  readonly amountMinor: number;
-  readonly currency: string;
-  readonly effectiveFromUtc: string;
-  readonly effectiveToUtc: string;
-  readonly merchantConfigId: string;
-  readonly offerVersion: number;
-  readonly packageId: string;
-  readonly paymentOperationId: string;
-  readonly paymentTenantId: string;
-  readonly renewalOfSubscriptionId?: null | string;
-  readonly renewalSourceVersion?: null | number;
   readonly subject: string;
   readonly subscriptionId: string;
   readonly tenantId: string;
@@ -7610,15 +7610,15 @@ export interface UpdateWorkflowWorkCalendarRequest {
 }
 
 export interface UpsertTenantPackageOfferRequest {
-  readonly amountMinor: number;
+  readonly amountMinor: string;
   readonly currency: string;
   readonly durationDays: number;
   readonly entitlementIds: Array<string>;
   readonly isActive: boolean;
   readonly merchantConfigId: string;
   readonly paymentTenantId: string;
-  readonly seatLimit: number;
-  readonly storageLimit: number;
+  readonly seatLimit: string;
+  readonly storageLimit: string;
   readonly version: number;
 }
 

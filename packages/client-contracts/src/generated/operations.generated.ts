@@ -309,6 +309,7 @@ import type {
   CreateOrganizationUserPositionRequest,
   CreateOrganizationUserUnitRequest,
   CreatePaidTenantSubscriptionRequest,
+  CreatePaidTenantSubscriptionResponse,
   CreatePaymentMerchantConfigRequest,
   CreatePaymentOrderRequest,
   CreatePaymentRefundRequest,
@@ -832,7 +833,6 @@ import type {
   TenantQuotaUsageSummaryResponse,
   TenantRuntimeBrandingResponse,
   TenantSubscriptionInvoiceResponse,
-  TenantSubscriptionPaymentTerms,
   TenantSubscriptionRenewalPreviewResponse,
   TenantSubscriptionResponse,
   TenantSummary,
@@ -1113,6 +1113,7 @@ import {
   readCreateAiAgentDelegationResponse,
   readCreateAiAgentRunResponse,
   readCreateHostApiKeyResponse,
+  readCreatePaidTenantSubscriptionResponse,
   readCurrentUserResponse,
   readCursorPageOfAiAgentRunResponse,
   readCursorPageOfImportExportTaskResponse,
@@ -1410,7 +1411,6 @@ import {
   readTenantQuotaUsageSummaryResponse,
   readTenantRuntimeBrandingResponse,
   readTenantSubscriptionInvoiceResponse,
-  readTenantSubscriptionPaymentTerms,
   readTenantSubscriptionRenewalPreviewResponse,
   readTenantSubscriptionResponse,
   readTenantSummary,
@@ -17043,7 +17043,7 @@ export async function tenancyCreatePaidSubscription(
   parameters: TenancyCreatePaidSubscriptionParameters,
   signal?: AbortSignal,
   options?: RequestOptions
-): Promise<TenantSubscriptionPaymentTerms> {
+): Promise<CreatePaidTenantSubscriptionResponse> {
   const path = `/api/v1/tenancy/tenants/${encodeURIComponent(String(parameters.tenantId))}/subscriptions/paid`;
   const init: RequestInit = {
     method: 'POST',
@@ -17051,7 +17051,7 @@ export async function tenancyCreatePaidSubscription(
     body: JSON.stringify(parameters.body)
   };
   const value = await requestJsonOperation(http, path, init, signal, options);
-  return readTenantSubscriptionPaymentTerms(value);
+  return readCreatePaidTenantSubscriptionResponse(value);
 }
 
 export interface TenancyDeleteCurrentBrandingLogoParameters {

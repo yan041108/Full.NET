@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using Full.NET.Abstractions.Results;
 using Full.NET.Hosting.Api;
 using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Tenancy.Contracts;
@@ -53,9 +54,12 @@ internal static class Endpoint
             IApiResultMapper mapper, HttpContext context, CancellationToken token) =>
         {
             if (!TryActor(context.User, out var actor)) return Results.Unauthorized();
-            return mapper.Map(await service.CreateAsync(tenantId, request, token, actor).ConfigureAwait(false), context);
+            var result = await service.CreateAsync(tenantId, request, token, actor).ConfigureAwait(false);
+            if (!result.IsSuccess) return mapper.Map(result, context);
+            return mapper.Map(Result<CreatePaidTenantSubscriptionResponse>.Success(
+                CreatePaidTenantSubscriptionResponse.From(result.Value!)), context);
         }).WithName("tenancyCreatePaidSubscription").WithTags("TenancySubscriptionBilling")
-            .Produces<TenantSubscriptionPaymentTerms>()
+            .Produces<CreatePaidTenantSubscriptionResponse>()
             .RequireAuthorization(FullNetPermissionPolicies.For(TenancyTenantSubscriptionPermissions.Manage));
     }
 

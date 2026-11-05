@@ -61592,7 +61592,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/TenantSubscriptionPaymentTerms"
+                  "$ref": "#/components/schemas/CreatePaidTenantSubscriptionResponse"
                 }
               }
             },
@@ -83136,6 +83136,92 @@
         ],
         "type": "object"
       },
+      "CreatePaidTenantSubscriptionResponse": {
+        "properties": {
+          "amountMinor": {
+            "format": "int64",
+            "pattern": "^-?(0|[1-9][0-9]*)$",
+            "type": "string"
+          },
+          "currency": {
+            "type": "string"
+          },
+          "effectiveFromUtc": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "effectiveToUtc": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "merchantConfigId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "offerVersion": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "packageId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "paymentOperationId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "paymentTenantId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "renewalOfSubscriptionId": {
+            "format": "uuid",
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "renewalSourceVersion": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ]
+          },
+          "subject": {
+            "type": "string"
+          },
+          "subscriptionId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "tenantId": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "subscriptionId",
+          "tenantId",
+          "paymentTenantId",
+          "paymentOperationId",
+          "merchantConfigId",
+          "packageId",
+          "offerVersion",
+          "amountMinor",
+          "currency",
+          "effectiveFromUtc",
+          "effectiveToUtc",
+          "subject"
+        ],
+        "type": "object"
+      },
       "CreatePaymentMerchantConfigRequest": {
         "properties": {
           "apiV3Key": {
@@ -104636,11 +104722,8 @@
         "properties": {
           "amountMinor": {
             "format": "int64",
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "integer",
-              "string"
-            ]
+            "pattern": "^-?(0|[1-9][0-9]*)$",
+            "type": "string"
           },
           "currency": {
             "type": "string"
@@ -104677,19 +104760,13 @@
           },
           "seatLimit": {
             "format": "int64",
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "integer",
-              "string"
-            ]
+            "pattern": "^-?(0|[1-9][0-9]*)$",
+            "type": "string"
           },
           "storageLimit": {
             "format": "int64",
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "integer",
-              "string"
-            ]
+            "pattern": "^-?(0|[1-9][0-9]*)$",
+            "type": "string"
           },
           "version": {
             "format": "int32",
@@ -105034,95 +105111,6 @@
           "renewalSourceVersion",
           "paymentOrderId",
           "readAtUtc"
-        ],
-        "type": "object"
-      },
-      "TenantSubscriptionPaymentTerms": {
-        "properties": {
-          "amountMinor": {
-            "format": "int64",
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "integer",
-              "string"
-            ]
-          },
-          "currency": {
-            "type": "string"
-          },
-          "effectiveFromUtc": {
-            "format": "date-time",
-            "type": "string"
-          },
-          "effectiveToUtc": {
-            "format": "date-time",
-            "type": "string"
-          },
-          "merchantConfigId": {
-            "format": "uuid",
-            "type": "string"
-          },
-          "offerVersion": {
-            "format": "int32",
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "integer",
-              "string"
-            ]
-          },
-          "packageId": {
-            "format": "uuid",
-            "type": "string"
-          },
-          "paymentOperationId": {
-            "format": "uuid",
-            "type": "string"
-          },
-          "paymentTenantId": {
-            "format": "uuid",
-            "type": "string"
-          },
-          "renewalOfSubscriptionId": {
-            "format": "uuid",
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "renewalSourceVersion": {
-            "format": "int32",
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "null",
-              "integer",
-              "string"
-            ]
-          },
-          "subject": {
-            "type": "string"
-          },
-          "subscriptionId": {
-            "format": "uuid",
-            "type": "string"
-          },
-          "tenantId": {
-            "format": "uuid",
-            "type": "string"
-          }
-        },
-        "required": [
-          "subscriptionId",
-          "tenantId",
-          "paymentTenantId",
-          "paymentOperationId",
-          "merchantConfigId",
-          "packageId",
-          "offerVersion",
-          "amountMinor",
-          "currency",
-          "effectiveFromUtc",
-          "effectiveToUtc",
-          "subject"
         ],
         "type": "object"
       },
@@ -107897,11 +107885,8 @@
         "properties": {
           "amountMinor": {
             "format": "int64",
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "integer",
-              "string"
-            ]
+            "pattern": "^-?(0|[1-9][0-9]*)$",
+            "type": "string"
           },
           "currency": {
             "type": "string"
@@ -107934,19 +107919,13 @@
           },
           "seatLimit": {
             "format": "int64",
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "integer",
-              "string"
-            ]
+            "pattern": "^-?(0|[1-9][0-9]*)$",
+            "type": "string"
           },
           "storageLimit": {
             "format": "int64",
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "integer",
-              "string"
-            ]
+            "pattern": "^-?(0|[1-9][0-9]*)$",
+            "type": "string"
           },
           "version": {
             "format": "int32",

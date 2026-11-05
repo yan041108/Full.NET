@@ -8,6 +8,7 @@ import { useAuthorizedViewScope } from '../composables/useAuthorizedViewScope';
 import { subscriptionBillingText } from '../i18n/subscription-billing';
 import { getPackageOffer, listBillingFeatures, savePackageOffer } from '../api/subscription-billing';
 import ArtFormDialog from '../framework/art-design/components/ArtFormDialog.vue';
+import { isNonnegativeInt64String } from '../utils/exact-integer';
 
 const props = defineProps<{ packageId: string }>();
 const session = useSessionStore(); const { locale } = useAdminI18n();
@@ -16,8 +17,8 @@ const allowed = computed(() => session.state === 'authenticated' && ['tenancy.te
   'tenancy.tenant_entitlements.read', 'tenancy.tenant_entitlements.manage_bindings'].every(code => session.can(code)));
 const open = ref(false); const loading = ref(false); const ready = ref(false); const failure = ref('');
 const features = ref<TenantEntitlementCatalogResponse[]>([]);
-const defaults = () => ({ paymentTenantId: '', merchantConfigId: '', amountMinor: 1, currency: 'CNY', seatLimit: 0,
-  storageLimit: 0, durationDays: 30, entitlementIds: [] as string[], isActive: true, version: 0 });
+const defaults = () => ({ paymentTenantId: '', merchantConfigId: '', amountMinor: '1', currency: 'CNY', seatLimit: '0',
+  storageLimit: '0', durationDays: 30, entitlementIds: [] as string[], isActive: true, version: 0 });
 const form = reactive(defaults());
 const attempted = ref<Readonly<UpsertTenantPackageOfferRequest>>();
 const receipt = ref<'saving' | 'saved' | 'unknown' | 'rejected'>();
@@ -85,8 +86,9 @@ function edit() {
 async function save() {
   if (!open.value || !allowed.value || loading.value || !ready.value || attempted.value) return;
   if (!isGuid(form.paymentTenantId) || !isGuid(form.merchantConfigId)
-    || ![form.amountMinor, form.seatLimit, form.storageLimit, form.durationDays, form.version].every(Number.isSafeInteger)
-    || form.amountMinor < 1 || form.seatLimit < 0 || form.storageLimit < 0 || form.durationDays < 1 || form.durationDays > 3660 || form.version < 0
+    || ![form.amountMinor, form.seatLimit, form.storageLimit].every(isNonnegativeInt64String) || form.amountMinor === '0'
+    || ![form.durationDays, form.version].every(Number.isSafeInteger)
+    || form.durationDays < 1 || form.durationDays > 3660 || form.version < 0
     || !/^[A-Z]{3}$/.test(form.currency) || form.entitlementIds.length > 100 || new Set(form.entitlementIds.map(id => id.toLowerCase())).size !== form.entitlementIds.length
     || form.entitlementIds.some(id => !features.value.some(feature => sameId(feature.id, id)))) { failure.value = text('validation'); return; }
   const operation = scope.begin('tenancy.tenant_packages.update'); if (!operation) return;
@@ -140,21 +142,23 @@ function display(value: unknown): string {
         <ElButton v-if="receipt !== 'saved' && !matches" data-testid="package-offer-keep-draft" :disabled="loading || !allowed" @click="adopt(true)">{{ text('offerKeepDraft') }}</ElButton>
       </template>
     </template>
-    <!-- 数值组件只在挂载时写入 aria-disabled，授权数据就绪后再挂载，保持交互与辅助语义一致。 -->
+    <!-- 金额和限额始终保留原始十进制文本，不经过浏览器 Number；天数仍使用有界数值组件。 -->
     <ElForm v-else-if="ready && !loading" label-position="top" :disabled="!allowed">
       <ElFormItem :label="text('seller')"><ElInput v-model="form.paymentTenantId" data-testid="package-offer-seller" /></ElFormItem>
       <ElFormItem :label="text('merchant')"><ElInput v-model="form.merchantConfigId" data-testid="package-offer-merchant" /></ElFormItem>
-      <ElFormItem :label="text('amount')"><ElInputNumber v-model="form.amountMinor" data-testid="package-offer-amount" :min="1" :max="Number.MAX_SAFE_INTEGER" :precision="0" /></ElFormItem>
+      <ElFormItem :label="text('amount')"><ElInput v-model="form.amountMinor" inputmode="numeric" maxlength="19" data-testid="package-offer-amount" /></ElFormItem>
       <ElFormItem :label="text('currency')"><ElInput v-model="form.currency" maxlength="3" /></ElFormItem>
-      <ElFormItem :label="text('seats')"><ElInputNumber v-model="form.seatLimit" :min="0" :max="Number.MAX_SAFE_INTEGER" :precision="0" /></ElFormItem>
-      <ElFormItem :label="text('storage')"><ElInputNumber v-model="form.storageLimit" :min="0" :max="Number.MAX_SAFE_INTEGER" :precision="0" /></ElFormItem>
+      <ElFormItem :label="text('seats')"><ElInput v-model="form.seatLimit" inputmode="numeric" maxlength="19" data-testid="package-offer-seats" /></ElFormItem>
+      <ElFormItem :label="text('storage')"><ElInput v-model="form.storageLimit" inputmode="numeric" maxlength="19" data-testid="package-offer-storage" /></ElFormItem>
       <ElFormItem :label="text('days')"><ElInputNumber v-model="form.durationDays" :min="1" :max="3660" :precision="0" /></ElFormItem>
-      <ElFormItem :label="text('features')"><ElSelect v-model="form.entitlementIds" multiple filterable><ElOption v-for="feature in features" :key="feature.id" :label="feature.name" :value="feature.id" /></ElSelect></ElFormItem>
+      <ElFormItem :label="text('features')"><ElSelect v-model="form.entitlementIds" class="offer-features" multiple filterable><ElOption v-for="feature in features" :key="feature.id" :label="feature.name" :value="feature.id" /></ElSelect></ElFormItem>
       <ElFormItem :label="text('active')"><ElSwitch v-model="form.isActive" /></ElFormItem>
     </ElForm>
   </ArtFormDialog>
 </template>
 <style scoped>
+/* 已选功能的中性标签使用正文色，随当前主题保持可读对比度。 */
+.offer-features { --el-color-info: var(--el-text-color-primary); }
 .offer-comparison { overflow-x: auto; margin: 12px 0; }
 .offer-comparison table { width: 100%; border-collapse: collapse; table-layout: fixed; }
 .offer-comparison th, .offer-comparison td { padding: 8px; text-align: start; vertical-align: top; overflow-wrap: anywhere; border-bottom: 1px solid var(--el-border-color); color: var(--el-text-color-primary); }

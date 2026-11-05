@@ -7,7 +7,7 @@ import { useSessionStore } from '../auth/session';
 import { getTenantQuotaUsage } from '../api/tenant-quota';
 vi.mock('../api/tenant-quota', () => ({ getTenantQuotaUsage: vi.fn() }));
 const id = (n: number) => `019bc2b1-2a40-7cc3-8992-a80de51bf2${String(n).padStart(2, '0')}`;
-const offer = { packageId: id(2), version: 1, seatLimit: 1, storageLimit: 1000 } as TenantPackageOfferResponse;
+const offer = { packageId: id(2), version: 1, seatLimit: '1', storageLimit: '1000' } as TenantPackageOfferResponse;
 const summary = { tenantId: id(1), tenantIsActive: true, readAtUtc: '2026-11-05T00:00:00Z', metrics: [
   { id: id(3), metricCode: 'identity.seats', periodKey: 'default', limitValue: '100', usedValue: '2', reservedValue: '1' },
   { id: id(4), metricCode: 'files.storage_bytes', periodKey: 'default', limitValue: '9223372036854775807', usedValue: '9007199254740993', reservedValue: '3' }] };
@@ -38,6 +38,13 @@ describe('新套餐当前用量影响', () => {
     expect(wrapper.find('[data-testid="impact-used"]').exists()).toBe(false);
     expect(wrapper.find('[data-testid="impact-remaining"]').exists()).toBe(false);
   });
+  it('新报价上限达到 Int64 最大值仍精确比较', async () => {
+    const { wrapper } = panel(); await wrapper.setProps({ offer: { ...offer, storageLimit: '9223372036854775807' } });
+    await wrapper.get('[data-testid="subscription-quota-impact-read"]').trigger('click'); await flushPromises();
+    const storage = wrapper.get('[data-testid="subscription-quota-impact-files.storage_bytes"]');
+    expect(storage.get('[data-testid="impact-limit"]').text()).toBe('9223372036854775807');
+    expect(storage.get('[data-testid="impact-remaining"]').text()).toBe('9214364837600034811');
+  });
   it.each([401, 403, 404])('失败 %s 清除成功快照，不保留可误用的影响数值', async status => {
     const { wrapper } = panel(); await wrapper.get('[data-testid="subscription-quota-impact-read"]').trigger('click'); await flushPromises();
     vi.mocked(getTenantQuotaUsage).mockRejectedValue({ status, type: 'about:blank', title: 'denied', code: 'test.denied' });
@@ -61,7 +68,7 @@ describe('新套餐当前用量影响', () => {
     const { wrapper, session } = panel(); await wrapper.get('[data-testid="subscription-quota-impact-read"]').trigger('click');
     const signal = vi.mocked(getTenantQuotaUsage).mock.calls[0]![1]!;
     if (change === 'tenant') await wrapper.setProps({ tenantId: id(20) });
-    else if (change === 'offer') await wrapper.setProps({ offer: { ...offer, version: 2, storageLimit: 500 } });
+    else if (change === 'offer') await wrapper.setProps({ offer: { ...offer, version: 2, storageLimit: '500' } });
     else if (change === 'disabled') await wrapper.setProps({ disabled: true });
     else if (change === 'permission') session.currentUser!.permissions = [];
     else session.currentUser!.sessionId = id(30);
@@ -70,7 +77,7 @@ describe('新套餐当前用量影响', () => {
   });
   it('没有独立读取权限或切入租户时隐藏，失真报价上限拒绝比较', async () => {
     expect(panel([]).wrapper.find('[data-testid="subscription-quota-impact"]').exists()).toBe(false);
-    const { wrapper, session } = panel(); await wrapper.setProps({ offer: { ...offer, storageLimit: Number.MAX_SAFE_INTEGER + 1 } });
+    const { wrapper, session } = panel(); await wrapper.setProps({ offer: { ...offer, storageLimit: '9223372036854775808' } });
     expect(wrapper.get('[data-testid="subscription-quota-impact-read"]').attributes('disabled')).toBeDefined();
     expect(wrapper.find('[data-testid="subscription-quota-impact-problem"]').exists()).toBe(true);
     session.currentUser!.tenantId = id(1); await flushPromises();

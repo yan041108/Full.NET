@@ -8,6 +8,7 @@ import { useAuthorizedViewScope } from '../composables/useAuthorizedViewScope';
 import { subscriptionBillingText } from '../i18n/subscription-billing';
 import { getTenantQuotaUsage } from '../api/tenant-quota';
 import { quotaOfferImpactRows, type QuotaOfferImpactRow } from './tenant-quota-usage';
+import { isNonnegativeInt64String } from '../utils/exact-integer';
 
 const props = defineProps<{ tenantId: string; offer: TenantPackageOfferResponse; disabled?: boolean }>();
 const session = useSessionStore(); const { locale } = useAdminI18n();
@@ -17,7 +18,7 @@ const allowed = computed(() => session.state === 'authenticated' && session.curr
   && session.currentUser.actorScope === 'host' && session.can(permission));
 const validOffer = computed(() => isGuid(props.tenantId) && isGuid(props.offer.packageId)
   && Number.isSafeInteger(props.offer.version) && props.offer.version > 0
-  && [props.offer.seatLimit, props.offer.storageLimit].every(value => Number.isSafeInteger(value) && value >= 0));
+  && [props.offer.seatLimit, props.offer.storageLimit].every(isNonnegativeInt64String));
 const loading = ref(false); const failure = ref('');
 const result = ref<{ rows: QuotaOfferImpactRow[]; readAtUtc: string; tenantIsActive: boolean }>();
 const scope = useAuthorizedViewScope(session, () => { result.value = undefined; loading.value = false; failure.value = ''; }, () => {});

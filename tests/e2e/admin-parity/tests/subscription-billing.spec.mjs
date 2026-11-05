@@ -7,8 +7,8 @@ const permissions = ['identity.navigation.read', 'tenancy.tenants.read', 'tenanc
   'tenancy.tenant_entitlements.read', 'tenancy.tenant_entitlements.manage_bindings', 'tenancy.tenant_subscriptions.read',
   'tenancy.tenant_subscriptions.manage', 'payments.orders.read', 'payments.orders.create', 'payments.orders.reconcile'];
 const pkg = { id: packageId, code: 'billing-plan', name: '付费套餐', description: null, isActive: true, version: 1, assignedTenantCount: 1 };
-const offer = { packageId, paymentTenantId: tenantId, merchantConfigId: merchantId, amountMinor: 12500, currency: 'CNY',
-  seatLimit: 20, storageLimit: 100000, durationDays: 30, entitlementIds: [id(6)], isActive: true, version: 1 };
+const offer = { packageId, paymentTenantId: tenantId, merchantConfigId: merchantId, amountMinor: '12500', currency: 'CNY',
+  seatLimit: '20', storageLimit: '100000', durationDays: 30, entitlementIds: [id(6)], isActive: true, version: 1 };
 const json = (route, body, status = 200) => route.fulfill({ status, contentType: status >= 400 ? 'application/problem+json' : 'application/json', body: JSON.stringify(body) });
 
 async function setup(page, allowed = permissions, locale = 'zh-CN') {
@@ -109,11 +109,46 @@ test('报价保存携带版本与权益；缺少绑定权限时不显示编辑�
   await page.getByTestId('package-offer-edit').click();
   await page.getByTestId('package-offer-save').click();
   await expect.poll(() => saved.length).toBe(1);
-  expect(saved[0]).toMatchObject({ amountMinor: 12500, durationDays: 30, version: 1, entitlementIds: [id(6)] });
+  expect(saved[0]).toMatchObject({ amountMinor: '12500', durationDays: 30, version: 1, entitlementIds: [id(6)] });
   await setup(page, permissions.filter(code => code !== 'tenancy.tenant_entitlements.manage_bindings'));
   await page.reload();
   await expect(page.getByTestId('package-offer-edit')).toHaveCount(0);
 });
+
+for (const width of [1440, 390]) {
+  test('完整 Int64 报价编辑保存与未知结果核对 ' + width, async ({ page }, info) => {
+    await page.setViewportSize({ width: 1440, height: 1000 }); await setup(page);
+    let current = { ...offer, amountMinor: '9007199254740993', seatLimit: '9223372036854775807', storageLimit: '9223372036854775806' };
+    let reads = 0; const writes = [];
+    await page.route(`**/api/v1/tenancy/tenant-packages/${packageId}/offer`, r => {
+      if (r.request().method() === 'PUT') {
+        const body = r.request().postDataJSON(); writes.push(body); current = { packageId, ...body, version: body.version + 1 };
+        return json(r, { status: 503, type: 'about:blank', code: 'test.unknown', title: 'unconfirmed' }, 503);
+      }
+      reads++; return json(r, current);
+    });
+    await page.goto('/tenant-packages'); await page.getByTestId('package-offer-edit').click();
+    await page.setViewportSize({ width, height: 1000 });
+    await expect(page.getByTestId('package-offer-amount')).toHaveValue('9007199254740993');
+    await expect(page.getByTestId('package-offer-seats')).toHaveValue('9223372036854775807');
+    await page.getByTestId('package-offer-amount').fill('9007199254740995');
+    await page.getByTestId('package-offer-storage').fill('9223372036854775807');
+    await page.getByRole('dialog').last().screenshot({ path: info.outputPath('offer-int64-input-' + width + '.png'), animations: 'disabled' });
+    expect((await new AxeBuilder({ page }).include('.art-form-dialog').withTags(['wcag2a', 'wcag2aa']).analyze()).violations).toEqual([]);
+    await page.getByTestId('package-offer-save').click();
+    await expect(page.getByTestId('package-offer-receipt')).toContainText('保存结果未确认');
+    expect(writes).toHaveLength(1);
+    expect(writes[0]).toMatchObject({ amountMinor: '9007199254740995', seatLimit: '9223372036854775807', storageLimit: '9223372036854775807', version: 1 });
+    await page.getByTestId('package-offer-reload').click();
+    await expect(page.getByTestId('package-offer-current-state')).toContainText('当前报价与提交内容一致');
+    const comparison = page.getByRole('region', { name: '草稿与当前报价比较' });
+    await expect(comparison).toContainText('9007199254740995'); await expect(comparison).toContainText('9223372036854775807');
+    await expect(page.getByTestId('package-offer-receipt')).toContainText('保存结果未确认');
+    expect(writes).toHaveLength(1); expect(reads).toBe(2);
+    await page.getByRole('dialog').last().screenshot({ path: info.outputPath('offer-int64-comparison-' + width + '.png'), animations: 'disabled' });
+    expect((await new AxeBuilder({ page }).include('.art-form-dialog').withTags(['wcag2a', 'wcag2aa']).analyze()).violations).toEqual([]);
+  });
+}
 
 test('人工重试只调用原订单履约接口，不下单或扣款', async ({ page }) => {
   await setup(page);
@@ -330,7 +365,7 @@ for (const width of [1440, 390]) {
   test('下周期迁往新套餐并原样恢复独立账单 ' + width, async ({ page }, info) => {
     await page.setViewportSize({ width: 1440, height: 1000 }); await setup(page, [...permissions, 'tenancy.tenant_quota.read']);
     const next = { ...pkg, id: id(40), name: 'Next billing plan', assignedTenantCount: 0 };
-    const nextOffer = { ...offer, packageId: next.id, version: 1, amountMinor: 25000, durationDays: 60, seatLimit: 1, storageLimit: 1 };
+    const nextOffer = { ...offer, packageId: next.id, version: 1, amountMinor: '25000', durationDays: 60, seatLimit: '1', storageLimit: '1' };
     const source = { id: subscriptionId, tenantId, packageId, status: 'Active', version: 2, trialEndsAtUtc: null,
       currentPeriodStartUtc: '2026-11-01T00:00:00Z', currentPeriodEndUtc: '2026-12-01T00:00:00Z', cancelledAtUtc: null };
     await page.route('**/api/v1/tenancy/tenant-packages?*', r => json(r, { items: [{ ...pkg, isActive: false }, next], total: 2, page: 1,
@@ -354,7 +389,7 @@ for (const width of [1440, 390]) {
       const body = r.request().postDataJSON(); purchases.push(body);
       if (purchases.length === 1) return json(r, { status: 503, title: 'unconfirmed', code: 'test.unconfirmed' }, 503);
       return json(r, { subscriptionId: id(41), tenantId, paymentTenantId: tenantId, paymentOperationId: id(42), merchantConfigId: merchantId,
-        packageId: next.id, offerVersion: 1, amountMinor: 25000, currency: 'CNY', effectiveFromUtc: body.effectiveFromUtc,
+        packageId: next.id, offerVersion: 1, amountMinor: '25000', currency: 'CNY', effectiveFromUtc: body.effectiveFromUtc,
         effectiveToUtc: '2027-01-30T00:00:00Z', subject: 'Frozen replacement plan', renewalOfSubscriptionId: subscriptionId, renewalSourceVersion: 2 });
     });
     await page.route('**/checkout', r => { checkouts++; return r.abort(); });

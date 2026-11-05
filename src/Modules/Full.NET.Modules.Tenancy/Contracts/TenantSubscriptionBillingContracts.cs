@@ -1,3 +1,6 @@
+using System.Text.Json.Serialization;
+using Full.NET.Hosting.Serialization;
+
 namespace Full.NET.Modules.Tenancy.Contracts;
 
 /// <summary>发布套餐报价；权益只允许选择已登记的功能目录，不接受任意权限码。</summary>
@@ -11,8 +14,11 @@ namespace Full.NET.Modules.Tenancy.Contracts;
 /// <param name="EntitlementIds">已登记的功能权益。</param>
 /// <param name="IsActive">是否接受新购买。</param>
 /// <param name="Version">已见报价版本，首次创建为零。</param>
-public sealed record UpsertTenantPackageOfferRequest(Guid PaymentTenantId, Guid MerchantConfigId, long AmountMinor,
-    string Currency, long SeatLimit, long StorageLimit, int DurationDays, IReadOnlyList<Guid> EntitlementIds, bool IsActive, int Version);
+public sealed record UpsertTenantPackageOfferRequest(Guid PaymentTenantId, Guid MerchantConfigId,
+    [property: JsonConverter(typeof(StringInt64JsonConverter))] long AmountMinor,
+    string Currency, [property: JsonConverter(typeof(StringInt64JsonConverter))] long SeatLimit,
+    [property: JsonConverter(typeof(StringInt64JsonConverter))] long StorageLimit,
+    int DurationDays, IReadOnlyList<Guid> EntitlementIds, bool IsActive, int Version);
 
 /// <summary>套餐报价及当前允许的权益；购买时服务端另存不可变快照。</summary>
 /// <param name="PackageId">所属套餐。</param>
@@ -26,8 +32,40 @@ public sealed record UpsertTenantPackageOfferRequest(Guid PaymentTenantId, Guid 
 /// <param name="EntitlementIds">功能目录标识。</param>
 /// <param name="IsActive">是否可购买。</param>
 /// <param name="Version">报价版本。</param>
-public sealed record TenantPackageOfferResponse(Guid PackageId, Guid PaymentTenantId, Guid MerchantConfigId, long AmountMinor,
-    string Currency, long SeatLimit, long StorageLimit, int DurationDays, IReadOnlyList<Guid> EntitlementIds, bool IsActive, int Version);
+public sealed record TenantPackageOfferResponse(Guid PackageId, Guid PaymentTenantId, Guid MerchantConfigId,
+    [property: JsonConverter(typeof(StringInt64JsonConverter))] long AmountMinor,
+    string Currency, [property: JsonConverter(typeof(StringInt64JsonConverter))] long SeatLimit,
+    [property: JsonConverter(typeof(StringInt64JsonConverter))] long StorageLimit,
+    int DurationDays, IReadOnlyList<Guid> EntitlementIds, bool IsActive, int Version);
+
+/// <summary>创建付费账单的 HTTP 回执；金额使用精确字符串，进程内支付 Port 保留 long 业务契约。</summary>
+/// <param name="SubscriptionId">本次独立账单身份。</param>
+/// <param name="TenantId">权益受益企业。</param>
+/// <param name="PaymentTenantId">收款租户。</param>
+/// <param name="PaymentOperationId">原支付幂等身份。</param>
+/// <param name="MerchantConfigId">冻结商户身份。</param>
+/// <param name="PackageId">冻结套餐身份。</param>
+/// <param name="OfferVersion">冻结报价版本。</param>
+/// <param name="AmountMinor">精确最小货币单位金额。</param>
+/// <param name="Currency">冻结币种。</param>
+/// <param name="EffectiveFromUtc">新周期起点。</param>
+/// <param name="EffectiveToUtc">新周期终点。</param>
+/// <param name="Subject">冻结商品名称。</param>
+public sealed record CreatePaidTenantSubscriptionResponse(Guid SubscriptionId, Guid TenantId, Guid PaymentTenantId,
+    Guid PaymentOperationId, Guid MerchantConfigId, Guid PackageId, int OfferVersion,
+    [property: JsonConverter(typeof(StringInt64JsonConverter))] long AmountMinor,
+    string Currency, DateTimeOffset EffectiveFromUtc, DateTimeOffset EffectiveToUtc, string Subject)
+{
+    /// <summary>原续期来源；普通创建为空。</summary>
+    public Guid? RenewalOfSubscriptionId { get; init; }
+    /// <summary>创建时核对的来源版本。</summary>
+    public int? RenewalSourceVersion { get; init; }
+
+    internal static CreatePaidTenantSubscriptionResponse From(TenantSubscriptionPaymentTerms value) => new(
+        value.SubscriptionId, value.TenantId, value.PaymentTenantId, value.PaymentOperationId, value.MerchantConfigId,
+        value.PackageId, value.OfferVersion, value.AmountMinor, value.Currency, value.EffectiveFromUtc, value.EffectiveToUtc, value.Subject)
+    { RenewalOfSubscriptionId = value.RenewalOfSubscriptionId, RenewalSourceVersion = value.RenewalSourceVersion };
+}
 
 /// <summary>按服务端报价创建付费订阅；不包含可被覆盖的金额和商户。</summary>
 /// <param name="PackageId">目标套餐。</param>

@@ -16,7 +16,7 @@ vi.mock('../api/tenant-quota', () => ({ getTenantQuotaUsage: vi.fn() }));
 const id = (n: number) => `019bc2b1-2a40-7cc3-8992-a80de51bf2${String(n).padStart(2, '0')}`;
 const permissions = ['tenancy.tenant_packages.read', 'tenancy.tenant_subscriptions.manage', 'payments.orders.create', 'payments.orders.read', 'tenancy.tenant_subscriptions.read', 'payments.orders.reconcile'];
 const pkg = { id: id(2), code: 'plan', name: 'Plan', description: null, isActive: true, version: 1, assignedTenantCount: 0 };
-const offer = { packageId: pkg.id, paymentTenantId: id(3), merchantConfigId: id(4), amountMinor: 12500, currency: 'CNY', seatLimit: 20, storageLimit: 1000, durationDays: 30, entitlementIds: [], isActive: true, version: 3 };
+const offer = { packageId: pkg.id, paymentTenantId: id(3), merchantConfigId: id(4), amountMinor: '12500', currency: 'CNY', seatLimit: '20', storageLimit: '1000', durationDays: 30, entitlementIds: [], isActive: true, version: 3 };
 const fulfillment = { subscriptionId: id(5), beneficiaryTenantId: id(1), paymentOrderId: id(6), stateKey: 'Review', errorCode: null, attempt: 1, updatedAtUtc: '2026-11-05T00:00:00Z',
   effectiveFromUtc: '2026-11-01T00:00:00Z', nextAttemptAtUtc: null, readAtUtc: '2026-11-05T00:00:00Z' };
 const checkout = { subscriptionId: id(5), fulfillmentStateKey: 'Awaiting', errorCode: null, order: { id: id(6), tradeStateKey: 'pending', codeUrl: 'weixin://original' } } as SubscriptionCheckoutResponse;
@@ -308,7 +308,7 @@ describe('同套餐提前续期', () => {
 
 describe('下周期换套餐', () => {
   const next = { ...pkg, id: id(22), name: 'Next plan' }; const other = { ...pkg, id: id(23), name: 'Other active plan' };
-  const nextOffer = { ...offer, packageId: next.id, version: 1, amountMinor: 25000, durationDays: 60, seatLimit: 1, storageLimit: 1 };
+  const nextOffer = { ...offer, packageId: next.id, version: 1, amountMinor: '25000', durationDays: 60, seatLimit: '1', storageLimit: '1' };
   const proposal = { tenantId: id(1), sourceSubscriptionId: id(11), sourcePackageId: pkg.id, sourceVersion: 7,
     effectiveFromUtc: '2026-12-01T00:00:00Z', offer: nextOffer, readAtUtc: '2026-11-05T00:00:00Z' };
   beforeEach(() => { vi.resetAllMocks(); useAdminI18n().setLocale('zh-CN'); vi.mocked(getSubscriptionRenewalPreview).mockResolvedValue(proposal); });

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, reactive, ref, watch } from 'vue';
 import { ElAlert, ElButton, ElDescriptions, ElDescriptionsItem, ElForm, ElFormItem, ElInput, ElOption, ElSelect } from 'element-plus';
-import { isFullNetProblemDetails, type CreatePaidTenantSubscriptionRequest, type HostTenantPackage, type TenantPackageOfferResponse, type TenantSubscriptionPaymentTerms } from '@fullnet/client-contracts';
+import { isFullNetProblemDetails, type CreatePaidTenantSubscriptionRequest, type CreatePaidTenantSubscriptionResponse, type HostTenantPackage, type TenantPackageOfferResponse } from '@fullnet/client-contracts';
 import { useSessionStore } from '../auth/session';
 import { useAdminI18n } from '../i18n/adminI18n';
 import { useAuthorizedViewScope } from '../composables/useAuthorizedViewScope';
@@ -26,7 +26,7 @@ const allowed = computed(() => !props.disabled && !(props.renewal && props.chang
 const quoteRejected = ref(false);
 const targetRejected = ref(false);
 const renewalSourceVersion = ref<number>(); const previewReadAt = ref('');
-const quote = ref<TenantPackageOfferResponse>(); const terms = ref<TenantSubscriptionPaymentTerms>();
+const quote = ref<TenantPackageOfferResponse>(); const terms = ref<CreatePaidTenantSubscriptionResponse>();
 const form = reactive({ packageId: '', effectiveFromUtc: '', idempotencyKey: '' });
 let frozen: Readonly<CreatePaidTenantSubscriptionRequest> | undefined;
 const scope = useAuthorizedViewScope(session, () => {
