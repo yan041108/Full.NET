@@ -25,6 +25,7 @@ import { Plus, Refresh, Search } from '@element-plus/icons-vue';
 import type { FormInstance } from 'element-plus';
 import type { FullNetProblemDetails, HostDocumentPreviewTaskResponse } from '@fullnet/client-contracts';
 import { isFullNetProblemDetails, isGuid } from '@fullnet/client-contracts';
+import { translateDocumentPreviewLookup } from '@fullnet/admin-i18n';
 import ArtFormDialog from '../framework/art-design/components/ArtFormDialog.vue';
 import ArtTableActionButton from '../framework/art-design/components/ArtTableActionButton.vue';
 import ArtTableActionGroup from '../framework/art-design/components/ArtTableActionGroup.vue';
@@ -51,7 +52,10 @@ const route = inject(routeLocationKey, undefined);
 const pageActive = ref(false); let linkBlocked = false; let linkedTaskId: string | undefined;
 onMounted(() => { pageActive.value = true; }); onActivated(() => { pageActive.value = true; });
 onDeactivated(() => { pageActive.value = false; }); onBeforeUnmount(() => { pageActive.value = false; });
-const { t } = useAdminI18n();
+const { t, locale } = useAdminI18n();
+const lookupText = (key: Parameters<typeof translateDocumentPreviewLookup>[1]) => translateDocumentPreviewLookup(locale.value, key);
+const taskLookup = ref(''), lookupProblem = ref<string>();
+const lookupSequence = ref(0);
 const items = ref<HostDocumentPreviewTaskResponse[]>([]);
 const loading = ref(false);
 const changing = ref(false);
@@ -64,6 +68,7 @@ const problem = ref<FullNetProblemDetails>();
 const capabilityEnabled = ref(false);
 const detailProblem = ref<FullNetProblemDetails>();
 const detailTargetId = ref(''), detailOwner = ref(0);
+let detailBaseline: HostDocumentPreviewTaskResponse | undefined;
 const page = ref(1);
 const pageSize = ref(20);
 const total = ref(0);
@@ -107,6 +112,7 @@ const tableRows = computed(() => {
     return { ...task, detail: () => { if (owned()) void openDetail(task.id); }, pdf: () => { if (owned()) void openPdf(task); }, cancel: () => { if (owned()) requestCancellation(task); }, regenerate: () => { if (owned()) openRegenerate(task); }, retry: () => { if (owned()) void retryTask(task); }, reviewRetry: () => { if (owned()) reviewRetry(task); } }; });
 });
 const scope = useAuthorizedViewScope(session, () => {
+  lookupSequence.value++; taskLookup.value = ''; lookupProblem.value = undefined;
   linkBlocked = true; linkedTaskId = undefined; detailVisible.value = false; clearDetail();
   cancelConfirmation.value = undefined;
   unavailableFiles.reset(); capabilityEnabled.value = false; pollingFailed.value = false;
@@ -161,6 +167,7 @@ const editorControls = computed(() => {
 });
 
 function clearDetail(): void {
+  detailBaseline = undefined;
   detailOwner.value++; detailTargetId.value = ''; detailProblem.value = undefined;
   detailRequest?.cancel(); detailRequest = undefined; cancelAction(detailActionRequest); detailActionRequest = undefined;
   selectedTask.value = undefined; detailLoading.value = false; cancelConfirmation.value = undefined;
@@ -179,6 +186,7 @@ watch(() => JSON.stringify([route?.name, route?.query.taskId]), () => {
   const wasBlocked = linkBlocked;
   cancelAction(actionRequest);
   clearDetail(); detailVisible.value = false; linkedTaskId = undefined; editorOpen.value = false;
+  lookupSequence.value++; taskLookup.value = ''; lookupProblem.value = undefined;
   linkBlocked = route?.name !== 'document-preview-tasks';
   if (linkBlocked) {
     listRequest?.cancel(); items.value = []; total.value = 0; loading.value = false;
@@ -189,8 +197,20 @@ watch(() => JSON.stringify([route?.name, route?.query.taskId]), () => {
 }, { flush: 'sync' });
 async function openDetail(id: string): Promise<void> {
   if (!canRead() || !isGuid(id) || id === '00000000-0000-0000-0000-000000000000') return;
-  clearDetail(); detailTargetId.value = id; editorOpen.value = false; await refreshDetail(id, true);
+  const row = items.value.find(task => sameId(task.id, id));
+  clearDetail(); detailBaseline = row ? { ...row } : undefined; detailTargetId.value = id; editorOpen.value = false; await refreshDetail(id, true);
 }
+const lookupControls = computed(() => {
+  const sequence = lookupSequence.value, draft = taskLookup.value;
+  const owned = () => sequence === lookupSequence.value && canRead();
+  return { input: (value: string) => { if (owned()) { taskLookup.value = value; lookupProblem.value = undefined; } },
+    submit: () => {
+      if (!owned() || changing.value || editorOpen.value || cancelDialogVisible.value) return;
+      const id = draft.trim().toLowerCase();
+      if (!validId(id)) { lookupProblem.value = lookupText('invalid'); return; }
+      lookupProblem.value = undefined; void openDetail(id);
+    } };
+});
 async function refreshDetail(id: string, open = false): Promise<void> {
   if (!canRead() || !validId(id) || !sameId(id, detailTargetId.value) || !open && !detailVisible.value) return;
   detailRequest?.cancel(); const request = begin('document.host_preview_tasks.read'); if (!request) return;
@@ -199,7 +219,8 @@ async function refreshDetail(id: string, open = false): Promise<void> {
     const task = await getDocumentPreviewTask(id, request.signal);
     if (!request.current()) return;
     if (task.id.toLowerCase() !== id.toLowerCase()) throw new Error('client.invalid_document_preview_task_identity');
-    if (!Number.isSafeInteger(task.version) || task.version < 1 || [cancellationBlocks.value.get(id.toLowerCase()), selectedTask.value].some(baseline => baseline && (!sameTaskSource(task, baseline) || task.version < baseline.version))) throw new Error('client.invalid_document_preview_task_identity');
+    if (!Number.isSafeInteger(task.version) || task.version < 1 || [detailBaseline, cancellationBlocks.value.get(id.toLowerCase()), selectedTask.value].some(baseline => baseline && (!sameTaskSource(task, baseline) || task.version < baseline.version))) throw new Error('client.invalid_document_preview_task_identity');
+    detailBaseline = { ...task };
     selectedTask.value = task;
     const next = new Map(cancellationBlocks.value); next.delete(id.toLowerCase()); cancellationBlocks.value = next;
   } catch (error) {
@@ -570,6 +591,16 @@ function toProblem(
              <el-button type="primary" :icon="Search" v-on="{ click: listControls.apply }">{{ t('documentPermissions.query') }}</el-button>
           </el-form-item>
         </el-form>
+        <form class="document-preview-lookup" @submit.prevent="lookupControls.submit">
+          <label for="document-preview-exact-id">{{ lookupText('taskId') }}</label>
+          <div class="document-preview-lookup__controls">
+            <ElInput id="document-preview-exact-id" :model-value="taskLookup" data-testid="document-preview-exact-id" autocomplete="off"
+              :disabled="changing || editorOpen || cancelDialogVisible" v-on="{ 'update:modelValue': lookupControls.input }" />
+            <ElButton native-type="submit" data-testid="document-preview-read-id" :disabled="changing || editorOpen || cancelDialogVisible">{{ lookupText('read') }}</ElButton>
+          </div>
+          <p>{{ lookupText('hint') }}</p>
+          <ElAlert v-if="lookupProblem" type="error" :closable="false" :title="lookupProblem" data-testid="document-preview-lookup-problem" />
+        </form>
         <ArtTableHeader
           v-model:table-size="tableSize"
           v-model:zebra="tableZebra"
@@ -662,10 +693,17 @@ function toProblem(
     </el-card>
 
     <ElDrawer :model-value="detailVisible" v-on="{ 'update:modelValue': detailControls.update }" :title="t('documentPreviewTasks.detailTitle')" size="min(560px, 100vw)">
+      <p>{{ lookupText('taskId') }} <code class="document-preview-identity" data-testid="document-preview-detail-id">{{ detailTargetId }}</code></p>
+      <p v-if="detailProblem && selectedTask" role="status" data-testid="document-preview-stale-snapshot">{{ lookupText('stale') }}</p>
       <div v-loading="detailLoading" data-testid="document-preview-detail">
         <ElAlert v-if="detailProblem" type="error" :closable="false" data-testid="document-preview-detail-problem" :title="detailProblem.title" :description="detailProblem.code" />
         <ElButton data-testid="document-preview-detail-refresh" :disabled="changing || detailLoading" v-on="{ click: detailControls.refresh }">{{ t('documentPreviewTasks.refreshDetail') }}</ElButton>
         <ElDescriptions v-if="selectedTask" :column="1" border>
+          <ElDescriptionsItem :label="lookupText('versionId')"><code class="document-preview-identity" data-testid="document-preview-version-id">{{ selectedTask.versionId ?? lookupText('currentFile') }}</code></ElDescriptionsItem>
+          <ElDescriptionsItem :label="lookupText('sourceFile')"><code class="document-preview-identity" data-testid="document-preview-source-file">{{ selectedTask.sourceFileId }}</code></ElDescriptionsItem>
+          <ElDescriptionsItem :label="lookupText('outputFile')"><code class="document-preview-identity" data-testid="document-preview-output-file">{{ selectedTask.outputFileId ?? lookupText('absent') }}</code></ElDescriptionsItem>
+          <ElDescriptionsItem :label="lookupText('requester')"><code class="document-preview-identity" data-testid="document-preview-requester">{{ selectedTask.requestedByUserId ?? lookupText('absent') }}</code></ElDescriptionsItem>
+          <ElDescriptionsItem :label="lookupText('revision')">{{ selectedTask.version }}</ElDescriptionsItem>
           <ElDescriptionsItem :label="t('documentPreviewTasks.documentTitle')">{{ selectedTask.documentTitle }}</ElDescriptionsItem>
           <ElDescriptionsItem :label="t('documentPreviewTasks.documentItemId')">{{ selectedTask.documentItemId }}</ElDescriptionsItem>
           <ElDescriptionsItem :label="t('documentPreviewTasks.status')">{{ statusLabel(selectedTask.statusKey) }}</ElDescriptionsItem>
@@ -760,4 +798,8 @@ function toProblem(
   margin: 6px 0;
   line-height: 1.5;
 }
+.document-preview-lookup { margin-block: 12px; }
+.document-preview-lookup__controls { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 8px; }
+.document-preview-lookup__controls :deep(.el-input) { flex: 1 1 240px; max-width: 520px; }
+.document-preview-identity { overflow-wrap: anywhere; }
 </style>
