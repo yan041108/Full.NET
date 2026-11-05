@@ -9,6 +9,7 @@ import { subscriptionBillingText } from '../i18n/subscription-billing';
 import { createPaidSubscription, getPackageOffer, getSubscriptionRenewalPreview } from '../api/subscription-billing';
 import ArtFormDialog from '../framework/art-design/components/ArtFormDialog.vue';
 import SubscriptionCheckoutAction from './SubscriptionCheckoutAction.vue';
+import SubscriptionQuotaImpact from './SubscriptionQuotaImpact.vue';
 const props = defineProps<{ tenantId: string; packages: HostTenantPackage[]; disabled?: boolean; source?: { subscriptionId: string; packageId: string }; renewal?: boolean; changePackage?: boolean }>();
 const emit = defineEmits<{ created: []; dialogOpen: [value: boolean] }>();
 const session = useSessionStore(); const { locale } = useAdminI18n();
@@ -157,6 +158,7 @@ function reselectTarget() {
       <el-descriptions-item :label="text('seats')">{{ quote.seatLimit }}</el-descriptions-item>
       <el-descriptions-item :label="text('storage')">{{ quote.storageLimit }}</el-descriptions-item>
     </el-descriptions>
+    <SubscriptionQuotaImpact v-if="open && changePackage && quote && !attempted && !terms && !quoteRejected" :tenant-id="tenantId" :offer="quote" :disabled="loading" />
     <el-descriptions v-if="terms" :column="1" border>
       <el-descriptions-item :label="text('invoice')"><code>{{ terms.subscriptionId }}</code></el-descriptions-item>
       <el-descriptions-item :label="text('start')">{{ terms.effectiveFromUtc }}</el-descriptions-item>

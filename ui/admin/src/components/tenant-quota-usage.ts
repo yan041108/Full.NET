@@ -11,6 +11,10 @@ export interface QuotaUsageRow {
   remaining?: string;
   overLimit: boolean;
 }
+export interface QuotaOfferImpactRow extends QuotaUsageRow {
+  proposedLimit: string;
+  proposedRemaining?: string;
+}
 const maximum = 9223372036854775807n;
 function exact(value: unknown): value is string {
   return typeof value === 'string' && /^(0|[1-9][0-9]{0,18})$/.test(value) && BigInt(value) <= maximum;
@@ -27,4 +31,16 @@ export function quotaUsageRows(metrics: readonly TenantQuotaUsageItemResponse[])
       limit: metric.limitValue, used: metric.usedValue, reserved: metric.reservedValue, remaining: remaining.toString(), overLimit: remaining < 0n });
   }
   return quotaMetricCodes.map(metricCode => rows.get(metricCode) ?? { metricCode, configured: false, overLimit: false });
+}
+
+/** 报价仍使用安全整数；账面用量和差额始终按 BigInt 计算，不预测未来时点的实际准入。 */
+export function quotaOfferImpactRows(metrics: readonly TenantQuotaUsageItemResponse[], seatLimit: number,
+  storageLimit: number): QuotaOfferImpactRow[] | undefined {
+  if (![seatLimit, storageLimit].every(value => Number.isSafeInteger(value) && value >= 0)) return undefined;
+  const rows = quotaUsageRows(metrics);
+  return rows?.map(row => {
+    const proposedLimit = String(row.metricCode === 'identity.seats' ? seatLimit : storageLimit);
+    const proposedRemaining = row.configured ? (BigInt(proposedLimit) - BigInt(row.used!) - BigInt(row.reserved!)).toString() : undefined;
+    return { ...row, proposedLimit, proposedRemaining, overLimit: proposedRemaining !== undefined && BigInt(proposedRemaining) < 0n };
+  });
 }

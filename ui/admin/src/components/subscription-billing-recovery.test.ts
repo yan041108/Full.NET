@@ -9,8 +9,10 @@ import SubscriptionFulfillmentAction from './SubscriptionFulfillmentAction.vue';
 import { useSessionStore } from '../auth/session';
 import { useAdminI18n } from '../i18n/adminI18n';
 import { createPaidSubscription, getPackageOffer, getSubscriptionRenewalPreview, checkoutSubscription, getSubscriptionFulfillment, retrySubscriptionFulfillment } from '../api/subscription-billing';
+import { getTenantQuotaUsage } from '../api/tenant-quota';
 
 vi.mock('../api/subscription-billing', () => ({ createPaidSubscription: vi.fn(), getPackageOffer: vi.fn(), getSubscriptionRenewalPreview: vi.fn(), checkoutSubscription: vi.fn(), getSubscriptionFulfillment: vi.fn(), retrySubscriptionFulfillment: vi.fn() }));
+vi.mock('../api/tenant-quota', () => ({ getTenantQuotaUsage: vi.fn() }));
 const id = (n: number) => `019bc2b1-2a40-7cc3-8992-a80de51bf2${String(n).padStart(2, '0')}`;
 const permissions = ['tenancy.tenant_packages.read', 'tenancy.tenant_subscriptions.manage', 'payments.orders.create', 'payments.orders.read', 'tenancy.tenant_subscriptions.read', 'payments.orders.reconcile'];
 const pkg = { id: id(2), code: 'plan', name: 'Plan', description: null, isActive: true, version: 1, assignedTenantCount: 0 };
@@ -310,14 +312,28 @@ describe('下周期换套餐', () => {
   const proposal = { tenantId: id(1), sourceSubscriptionId: id(11), sourcePackageId: pkg.id, sourceVersion: 7,
     effectiveFromUtc: '2026-12-01T00:00:00Z', offer: nextOffer, readAtUtc: '2026-11-05T00:00:00Z' };
   beforeEach(() => { vi.resetAllMocks(); useAdminI18n().setLocale('zh-CN'); vi.mocked(getSubscriptionRenewalPreview).mockResolvedValue(proposal); });
-  async function prepare() {
-    const state = sessionSetup(); const wrapper = mount(PaidSubscriptionPurchase, { props: { tenantId: id(1), packages: [{ ...pkg, isActive: false }, next, other],
+  async function prepare(quotaRead = false) {
+    const state = sessionSetup(); if (quotaRead) state.session.currentUser!.permissions.push('tenancy.tenant_quota.read');
+    const wrapper = mount(PaidSubscriptionPurchase, { props: { tenantId: id(1), packages: [{ ...pkg, isActive: false }, next, other],
       changePackage: true, source: { subscriptionId: id(11), packageId: pkg.id } }, global: globalFor(state.pinia) });
     await wrapper.get('[data-testid="subscription-package-change"]').trigger('click');
     wrapper.findComponent(ElSelect).vm.$emit('update:modelValue', next.id); wrapper.findComponent(ElSelect).vm.$emit('change', next.id); await flushPromises();
     await wrapper.findAll('button').find(button => button.text() === '读取报价')!.trigger('click'); await flushPromises();
     return { wrapper, ...state };
   }
+  it('用量影响只在未提交的报价确认态可读，提交后取消在途读取且不阻断原账单核对', async () => {
+    const { wrapper } = await prepare(true);
+    expect(wrapper.find('[data-testid="subscription-quota-impact"]').exists()).toBe(true); expect(getTenantQuotaUsage).not.toHaveBeenCalled();
+    const pendingUsage = deferred<Awaited<ReturnType<typeof getTenantQuotaUsage>>>();
+    vi.mocked(getTenantQuotaUsage).mockReturnValue(pendingUsage.promise);
+    await wrapper.get('[data-testid="subscription-quota-impact-read"]').trigger('click');
+    const signal = vi.mocked(getTenantQuotaUsage).mock.calls[0]![1]!;
+    vi.mocked(createPaidSubscription).mockRejectedValue(new Error('unconfirmed'));
+    await wrapper.get('[data-testid="confirm"]').trigger('click'); await flushPromises();
+    expect(signal.aborted).toBe(true); expect(wrapper.find('[data-testid="subscription-quota-impact"]').exists()).toBe(false);
+    expect(wrapper.find('[data-testid="subscription-invoice-recovery"]').exists()).toBe(true); expect(createPaidSubscription).toHaveBeenCalledTimes(1);
+    wrapper.unmount();
+  });
   it('原套餐退售仍可选择活动目标，固定起点和独立账单条款', async () => {
     const { wrapper } = await prepare(); expect(getSubscriptionRenewalPreview).toHaveBeenCalledWith(id(1), id(11), expect.any(AbortSignal), next.id);
     expect(getPackageOffer).not.toHaveBeenCalled(); expect(createPaidSubscription).not.toHaveBeenCalled();

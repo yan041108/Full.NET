@@ -328,7 +328,7 @@ for (const width of [1440, 390]) {
 
 for (const width of [1440, 390]) {
   test('下周期迁往新套餐并原样恢复独立账单 ' + width, async ({ page }, info) => {
-    await page.setViewportSize({ width: 1440, height: 1000 }); await setup(page);
+    await page.setViewportSize({ width: 1440, height: 1000 }); await setup(page, [...permissions, 'tenancy.tenant_quota.read']);
     const next = { ...pkg, id: id(40), name: 'Next billing plan', assignedTenantCount: 0 };
     const nextOffer = { ...offer, packageId: next.id, version: 1, amountMinor: 25000, durationDays: 60, seatLimit: 1, storageLimit: 1 };
     const source = { id: subscriptionId, tenantId, packageId, status: 'Active', version: 2, trialEndsAtUtc: null,
@@ -336,7 +336,15 @@ for (const width of [1440, 390]) {
     await page.route('**/api/v1/tenancy/tenant-packages?*', r => json(r, { items: [{ ...pkg, isActive: false }, next], total: 2, page: 1,
       pageSize: Number(new URL(r.request().url()).searchParams.get('pageSize')) }));
     await page.route(`**/api/v1/tenancy/tenants/${tenantId}/subscriptions?*`, r => json(r, { items: [source], total: 1, page: 1, pageSize: 20 }));
-    let previews = 0, checkouts = 0; const purchases = [];
+    let previews = 0, checkouts = 0, usageReads = 0, usageMode = 'normal'; const purchases = [];
+    await page.route(`**/api/v1/tenancy/tenants/${tenantId}/quota/usage`, r => {
+      expect(r.request().method()).toBe('GET'); usageReads++;
+      if (usageMode === 'unavailable' || usageMode === 'denied') return json(r, { status: usageMode === 'denied' ? 403 : 503,
+        type: 'about:blank', title: usageMode, code: 'test.' + usageMode }, usageMode === 'denied' ? 403 : 503);
+      return json(r, { tenantId, tenantIsActive: true, readAtUtc: '2026-11-05T00:00:00Z', metrics: usageMode === 'missing' ? [] : [
+        { id: id(51), metricCode: 'identity.seats', periodKey: 'default', limitValue: '20', usedValue: '2', reservedValue: '1' },
+        { id: id(52), metricCode: 'files.storage_bytes', periodKey: 'default', limitValue: '9223372036854775807', usedValue: '9007199254740993', reservedValue: '3' }] });
+    });
     await page.route(`**/api/v1/tenancy/tenants/${tenantId}/subscriptions/${subscriptionId}/renewal-preview?*`, r => {
       previews++; expect(new URL(r.request().url()).searchParams.get('targetPackageId')).toBe(next.id);
       return json(r, { tenantId, sourceSubscriptionId: subscriptionId, sourcePackageId: packageId, sourceVersion: 2,
@@ -361,6 +369,26 @@ for (const width of [1440, 390]) {
     await expect(page.getByTestId('paid-subscription-start')).toHaveAttribute('readonly', ''); await expect(modal).toContainText(next.id); expect(purchases).toHaveLength(0);
     await expect(modal.getByRole('combobox')).toHaveCount(0);
     await expect(page.getByTestId('package-change-target-reset')).toBeVisible();
+    expect(usageReads).toBe(0);
+    await page.getByTestId('subscription-quota-impact-read').click();
+    const impact = page.getByTestId('subscription-quota-impact');
+    const storageImpact = page.getByTestId('subscription-quota-impact-files.storage_bytes');
+    await expect(storageImpact.getByTestId('impact-used')).toHaveText('9007199254740993');
+    await expect(storageImpact.getByTestId('impact-remaining')).toHaveText('-9007199254740995');
+    await expect(storageImpact.getByTestId('impact-over-limit')).toContainText('存量保留');
+    await expect(page.getByTestId('paid-subscription-confirm')).toBeEnabled();
+    await impact.scrollIntoViewIfNeeded();
+    expect(await impact.evaluate(node => node.scrollWidth <= node.clientWidth + 1)).toBe(true);
+    await impact.screenshot({ path: info.outputPath('package-change-impact-' + width + '.png'), animations: 'disabled' });
+    expect((await new AxeBuilder({ page }).include('.art-form-dialog').withTags(['wcag2a', 'wcag2aa']).analyze()).violations).toEqual([]);
+    usageMode = 'missing'; await page.getByTestId('subscription-quota-impact-read').click();
+    await expect(impact.getByTestId('impact-unknown')).toHaveCount(2); await expect(impact.getByTestId('impact-used')).toHaveCount(0);
+    usageMode = 'unavailable'; await page.getByTestId('subscription-quota-impact-read').click();
+    await expect(page.getByTestId('subscription-quota-impact-problem')).toContainText('上次成功读取');
+    await expect(page.getByTestId('subscription-quota-impact-read-at')).toHaveAttribute('datetime', '2026-11-05T00:00:00Z');
+    usageMode = 'denied'; await page.getByTestId('subscription-quota-impact-read').click();
+    await expect(page.getByTestId('subscription-quota-impact-problem')).toContainText('已无权读取');
+    await expect(impact.getByTestId('impact-limit')).toHaveCount(0); expect(usageReads).toBe(4);
     expect((await new AxeBuilder({ page }).include('.art-form-dialog').withTags(['wcag2a', 'wcag2aa']).analyze()).violations).toEqual([]);
     await modal.screenshot({ path: info.outputPath('package-change-proposal-' + width + '.png'), animations: 'disabled' });
     await page.getByTestId('paid-subscription-confirm').click(); await expect(page.getByTestId('subscription-invoice-recovery')).toBeVisible();

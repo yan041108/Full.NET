@@ -2,6 +2,13 @@ import type { SupportedLocale } from '@fullnet/admin-i18n';
 
 // 资金和权益状态使用独立固定文案，不能把渠道成功误显示为已完成授权。
 const zh = {
+  impactTitle: '新套餐用量影响', impactRead: '读取当前用量影响',
+  impactHint: '按当前账面用量及预留对比新周期报价上限，不保证未来生效时仍有余量。本操作只读，不修复账面、不释放预留，也不自动取消任务。',
+  impactReadAt: '上次成功读取时间', impactLimit: '新周期上限', impactUsed: '当前已用', impactReserved: '当前预留', impactRemaining: '按新上限计算的账面余量',
+  impactUnknown: '当前指标未配置，用量未知；不能把未配置当作零用量。',
+  impactOver: '当前用量及预留已超过新上限。新周期生效后存量保留，新增操作受既有准入限制。',
+  impactMismatch: '报价或账面响应无效，无法比较用量影响。', impactForbidden: '已无权读取用量，请核对当前权限。',
+  impactAbsent: '目标企业不存在或已不可读取。', impactFailed: '用量读取失败；已有结果仅代表上次成功读取，请显式重试。', impactInactive: '当前企业为非活动状态，请先核对企业状态。',
   packageChangeRejected: '目标套餐已停止接受新账单，本次未创建。请重新选择活动套餐并读取新提案。', packageChangeReselect: '重新选择新周期套餐',
   packageChange: '下周期换套餐', sourcePackage: '原周期套餐 ID', targetPackage: '新周期套餐',
   packageChangePolicy: '选择其他活动套餐，按其当前报价创建独立账单，起点固定为原付费周期结束。新周期实际履约后切换套餐和限额，保留已有用量与预留；两个周期各自取消和退款，不做比例结算或自动抵扣。',
@@ -59,6 +66,13 @@ const zh = {
   safeRetry: '网络重试复用原账单；履约重试不会再次扣款。'
 };
 const en: Record<keyof typeof zh, string> = {
+  impactTitle: 'New plan usage impact', impactRead: 'Read current usage impact',
+  impactHint: 'Compare current book usage and reservations with the quoted next period limits. This does not guarantee capacity at activation. This read does not repair counters, release reservations or cancel tasks.',
+  impactReadAt: 'Last successful read', impactLimit: 'Next period limit', impactUsed: 'Currently used', impactReserved: 'Currently reserved', impactRemaining: 'Book capacity under the new limit',
+  impactUnknown: 'This metric is not configured. Usage is unknown and cannot be treated as zero.',
+  impactOver: 'Current usage and reservations exceed the new limit. Existing data remains after activation; existing admission rules restrict new operations.',
+  impactMismatch: 'The offer or usage response is invalid. Usage impact cannot be compared.', impactForbidden: 'Usage read access is no longer available. Check current permissions.',
+  impactAbsent: 'The target tenant does not exist or is no longer readable.', impactFailed: 'Usage read failed. Existing results reflect the last successful read; retry explicitly.', impactInactive: 'The tenant is currently inactive. Check its status first.',
   packageChangeRejected: 'The target plan is no longer accepting new invoices. No invoice was created. Choose an active plan and read a new proposal.', packageChangeReselect: 'Choose another next period plan',
   packageChange: 'Change next period plan', sourcePackage: 'Previous period package ID', targetPackage: 'Next period plan',
   packageChangePolicy: 'Choose another active plan and create an independent invoice using its current offer, starting at the end of the paid period. Fulfillment switches the plan and limits while preserving existing usage and reservations. Each period is cancelled and refunded separately, without prorating or automatic credit.',
