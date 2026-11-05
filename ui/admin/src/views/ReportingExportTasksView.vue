@@ -65,6 +65,7 @@ onMounted(() => { pageActive.value = true; }); onActivated(() => { pageActive.va
 onDeactivated(() => { pageActive.value = false; }); onBeforeUnmount(() => { pageActive.value = false; });
 const { t, locale } = useAdminI18n();
 const items = ref<ReportingExportTask[]>([]);
+const taskLookup = ref('');
 const definitions = ref<ReportingPublishedDefinition[]>([]);
 const loading = ref(false);
 const creating = ref(false);
@@ -166,7 +167,7 @@ const scope = useAuthorizedViewScope(session, () => {
   linkBlocked = true; linkedTaskId = undefined; detailVisible.value = false; selectedTask.value = undefined; detailLoading.value = false;
   cancelConfirmation.value = undefined; cancelling.value = false;
   unavailableFiles.reset();
-  items.value = []; definitions.value = []; selectedDefinitionVersionKey.value = ''; total.value = 0; page.value = 1;
+  items.value = []; taskLookup.value = ''; definitions.value = []; selectedDefinitionVersionKey.value = ''; total.value = 0; page.value = 1;
   problem.value = undefined; createDialogVisible.value = false; loading.value = false; creating.value = false; downloading.value = false;
   regeneration.value = undefined; resetParameters();
   detailOwner.value++; detailTargetId.value = ''; detailProblem.value = undefined; definitionsProblem.value = undefined; definitionsLoading.value = false;
@@ -189,11 +190,12 @@ function openLinkedTask(): void {
   const id = route?.query.taskId;
   if (!pageActive.value || linkBlocked || route?.name !== 'reporting-export-tasks' || !canRead() || !isGuid(id)
     || id === '00000000-0000-0000-0000-000000000000' || linkedTaskId === id.toLowerCase()) return;
-  linkedTaskId = id.toLowerCase(); void openDetail(linkedTaskId);
+  linkedTaskId = id.toLowerCase(); taskLookup.value = linkedTaskId; void openDetail(linkedTaskId);
 }
 watch(() => JSON.stringify([route?.name, route?.query.taskId]), () => {
   const wasBlocked = linkBlocked;
   clearDetail(); detailVisible.value = false; linkedTaskId = undefined; createDialogVisible.value = false;
+  taskLookup.value = '';
   linkBlocked = route?.name !== 'reporting-export-tasks';
   if (linkBlocked) {
     loadRequest?.cancel(); definitionsRequest?.cancel(); items.value = []; definitions.value = []; total.value = 0; loading.value = false;
@@ -206,6 +208,15 @@ watch(() => JSON.stringify([route?.name, route?.query.taskId]), () => {
 async function openDetail(id: string): Promise<void> {
   if (!canRead() || !isGuid(id) || id === '00000000-0000-0000-0000-000000000000') return;
   createDialogVisible.value = false; clearDetail(); detailTargetId.value = id; await refreshDetail(id, true);
+}
+function lookupTask() {
+  if (!canRead() || busy.value || createDialogVisible.value || cancelDialogVisible.value) return;
+  const id = taskLookup.value.trim().toLowerCase();
+  if (!isGuid(id) || id === '00000000-0000-0000-0000-000000000000') {
+    problem.value = { type: 'about:blank', status: 400, code: 'client.invalid_reporting_export_task_id', title: recoveryText('invalidId') }; return;
+  }
+  if (problem.value?.code === 'client.invalid_reporting_export_task_id') problem.value = undefined;
+  taskLookup.value = id; void openDetail(id);
 }
 async function refreshDetail(id: string, open = false): Promise<void> {
   if (!canRead() || !isGuid(id) || !sameId(id, detailTargetId.value) || !open && !detailVisible.value) return;
@@ -563,6 +574,11 @@ function markCancelUnconfirmed(): void {
       <p v-if="receipt.kind === 'cancel' && receipt.outcome === 'unconfirmed'">{{ t('reportingExportTasks.cancelRecoveryHint') }}</p>
     </div>
     <ElCard shadow="never" class="art-table-card art-full-height">
+        <ElForm class="reporting-task-lookup" label-position="top" @submit.prevent="lookupTask">
+          <ElFormItem :label="recoveryText('lookupId')"><ElInput v-model="taskLookup" data-testid="reporting-export-exact-id" /></ElFormItem>
+          <ElButton native-type="submit" :disabled="busy" data-testid="reporting-export-read-id">{{ recoveryText('readById') }}</ElButton>
+        </ElForm>
+        <p>{{ recoveryText('lookupHint') }}</p>
         <ArtTableHeader
           v-model:table-size="tableSize"
           v-model:zebra="tableZebra"
@@ -667,10 +683,12 @@ function markCancelUnconfirmed(): void {
     </ElCard>
 
     <ElDrawer :model-value="detailVisible" v-on="{ 'update:modelValue': detailControls.update }" :title="t('reportingExportTasks.detailTitle')" size="min(680px, 100vw)" destroy-on-close>
+      <p>{{ recoveryText('lookupId') }} <code class="reporting-task-identity" data-testid="reporting-export-detail-id">{{ detailTargetId }}</code></p>
       <div v-loading="detailLoading">
         <ElAlert v-if="detailProblem" data-testid="reporting-export-detail-problem" type="error" :closable="false" :title="detailProblem.title" :description="detailProblem.code" />
         <ElButton data-testid="reporting-export-detail-refresh" :disabled="busy || detailLoading" v-on="{ click: detailControls.refresh }">{{ t('reportingExportTasks.refreshDetail') }}</ElButton>
         <ElDescriptions v-if="selectedTask" :column="1" border>
+          <ElDescriptionsItem :label="recoveryText('requester')"><code class="reporting-task-identity" data-testid="reporting-export-requester">{{ selectedTask.requestedByUserId }}</code></ElDescriptionsItem>
           <ElDescriptionsItem :label="t('reportingExportTasks.fieldDefinition')">{{ selectedTask.definitionName }}</ElDescriptionsItem>
           <ElDescriptionsItem :label="t('reportingExportTasks.fieldVersion')">{{ selectedTask.versionNumber }}</ElDescriptionsItem>
           <ElDescriptionsItem :label="t('reportingExportTasks.fieldStatus')">{{ statusLabel(selectedTask.statusKey) }}</ElDescriptionsItem>
@@ -776,4 +794,7 @@ function markCancelUnconfirmed(): void {
 .export-regeneration { overflow-wrap: anywhere; }
 .regeneration-parameter-value { white-space: pre-wrap; }
 .reporting-result-hint { margin: 4px 0 0; line-height: 1.4; overflow-wrap: anywhere; }
+.reporting-task-lookup { display: flex; gap: 8px 12px; flex-wrap: wrap; align-items: end; margin-bottom: 12px; }
+.reporting-task-lookup :deep(.el-form-item) { width: min(420px, 100%); margin-bottom: 0; }
+.reporting-task-identity { overflow-wrap: anywhere; }
 </style>
