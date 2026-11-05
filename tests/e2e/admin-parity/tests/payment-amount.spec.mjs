@@ -5,6 +5,7 @@ const json = (route, body) => route.fulfill({ contentType: 'application/json', b
 const order = { id: id(1), tenantId: id(2), merchantConfigId: id(3), channelKey: 'wechat_native', outTradeNo: 'precise-order',
   tradeStateKey: 'succeeded', amountMinor: Number.MAX_SAFE_INTEGER - 1, currency: 'CNY', subject: '原订单', description: null,
   codeUrl: null, providerTransactionId: 'paid', failMessage: null, createdAtUtc: '2026-11-05T00:00:00Z', updatedAtUtc: null, paidAtUtc: '2026-11-05T00:00:00Z', version: 1 };
+const fullOrder = { ...order, id: id(8), amountMinor: 100, outTradeNo: 'full-refund-order' };
 const refund = { id: id(5), tenantId: id(2), orderId: order.id, merchantConfigId: id(3), outTradeNo: order.outTradeNo, outRefundNo: 'precise-refund',
   refundStateKey: 'succeeded', amountMinor: Number.MAX_SAFE_INTEGER - 1, currency: 'CNY', reason: '核对', providerRefundId: 'refunded',
   failMessage: null, createdAtUtc: order.createdAtUtc, updatedAtUtc: null, completedAtUtc: order.createdAtUtc, version: 1 };
@@ -25,13 +26,14 @@ for (const width of [1440, 390]) {
     await page.route('**/api/v1/notifications/my-inbox-messages/unread-count', route => json(route, { unreadCount: 0 }));
     let orderReads = 0, refundReads = 0; const creates = [], refunds = [];
     await page.route('**/api/v1/payments/orders?*', route => {
-      orderReads++; return json(route, { items: [order, { ...order, id: id(4), outTradeNo: 'unknown-amount', amountMinor: Number.MAX_SAFE_INTEGER + 1 }, { ...order, id: id(7), channelKey: 'alipay_page', outTradeNo: 'unsupported-refund' }], page: 1, pageSize: 20, total: 3 });
+      orderReads++; return json(route, { items: [order, { ...order, id: id(4), outTradeNo: 'unknown-amount', amountMinor: Number.MAX_SAFE_INTEGER + 1 }, { ...order, id: id(7), channelKey: 'alipay_page', outTradeNo: 'unsupported-refund' }, fullOrder], page: 1, pageSize: 20, total: 4 });
     });
     await page.route('**/api/v1/payments/orders', route => {
       expect(route.request().method()).toBe('POST'); creates.push(route.request().postDataJSON()); return json(route, { ...order, amountMinor: creates.at(-1).amountMinor });
     });
-    await page.route(`**/api/v1/payments/orders/${order.id}/refunds`, route => {
-      expect(route.request().method()).toBe('POST'); refunds.push(route.request().postDataJSON()); return json(route, refund);
+    await page.route('**/api/v1/payments/orders/*/refunds', route => {
+      expect(route.request().method()).toBe('POST'); refunds.push(route.request().postDataJSON()); const source = route.request().url().includes(fullOrder.id) ? fullOrder : order;
+      return json(route, { ...refund, orderId: source.id, outTradeNo: source.outTradeNo, reason: refunds.at(-1).reason, amountMinor: refunds.at(-1).amountMinor ?? source.amountMinor });
     });
     await page.route('**/api/v1/payments/refunds?*', route => {
       refundReads++; return json(route, { items: [refund, { ...refund, id: id(6), outRefundNo: 'unknown-refund', amountMinor: Number.MAX_SAFE_INTEGER + 1 }], page: 1, pageSize: 20, total: 2 });
@@ -68,7 +70,7 @@ for (const width of [1440, 390]) {
     expect((await new AxeBuilder({ page }).include('.art-form-dialog').withTags(['wcag2a', 'wcag2aa']).analyze()).violations).toEqual([]);
     await page.getByTestId('payment-order-refund-confirm').click(); await expect.poll(() => refunds.length).toBe(1); expect(refunds[0].amountMinor).toBe(29);
     await expect(page.getByTestId('payment-order-refund-amount')).toHaveCount(0); await expect.poll(() => orderReads).toBe(4);
-    await page.getByTestId('payment-order-refund-' + order.id).click(); await page.getByTestId('payment-order-refund-reason').fill('全额语义核对');
+    await page.getByTestId('payment-order-refund-' + fullOrder.id).click(); await page.getByTestId('payment-order-refund-reason').fill('全额语义核对');
     await page.getByTestId('payment-order-refund-confirm').click(); await expect.poll(() => refunds.length).toBe(2); expect(refunds[1].amountMinor).toBeNull();
     await page.goto('/#/payments/refunds'); const records = page.locator('.payment-refunds-view');
     await expect(records.locator('.el-table__body-wrapper')).toContainText('90071992547409.90');

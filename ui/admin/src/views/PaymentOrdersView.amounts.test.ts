@@ -16,7 +16,7 @@ const dialog = { props: ['open', 'confirmTestId'], emits: ['confirm'], template:
 const wrappers: VueWrapper[] = [];
 async function panel(refundPermission = 'payments.refunds.create') {
   const pinia = createPinia(); setActivePinia(pinia); const session = useSessionStore(pinia); session.state = 'authenticated';
-  session.currentUser = { id: id(9), tenantId: null, permissions: ['payments.orders.read', 'payments.orders.create', refundPermission] } as NonNullable<typeof session.currentUser>;
+  session.currentUser = { id: id(9), tenantId: null, actorScope: 'host', sessionId: id(8), permissions: ['payments.orders.read', 'payments.orders.create', refundPermission] } as NonNullable<typeof session.currentUser>;
   const wrapper = mount(PaymentOrdersView, { global: { plugins: [pinia], stubs: { ArtFormDialog: dialog, SubscriptionFulfillmentAction: true } } });
   wrappers.push(wrapper); await flushPromises(); return wrapper;
 }
@@ -85,7 +85,7 @@ describe('支付页面金额提交', () => {
     await wrapper.get('[data-testid="payment-order-refund-reason"]').setValue('明确退款原因');
     await wrapper.get('[data-testid="payment-order-refund-amount"]').setValue(amount);
     await wrapper.get('[data-testid="payment-order-refund-confirm"]').trigger('click'); await flushPromises();
-    expect(createPaymentRefund).toHaveBeenCalledWith(order.id, { reason: '明确退款原因', amountMinor: amount === '' ? null : amount === '0.29' ? 29 : Number.MAX_SAFE_INTEGER });
+    expect(createPaymentRefund).toHaveBeenCalledWith(order.id, { reason: '明确退款原因', amountMinor: amount === '' ? null : amount === '0.29' ? 29 : Number.MAX_SAFE_INTEGER }, expect.any(AbortSignal));
   });
   it.each(['0', '1abc', '1e3', '2.675', '90071992547409.92'])('退款非法金额 %s 不调用接口', async amount => {
     const wrapper = await panel(); await wrapper.get(`[data-testid="payment-order-refund-${order.id}"]`).trigger('click');

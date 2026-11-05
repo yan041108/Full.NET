@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, reactive, ref } from 'vue';
+import { computed, reactive, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import {
   ElAlert,
@@ -28,6 +28,7 @@ import { useAdminI18n } from '../i18n/adminI18n';
 import { createPaymentOrder, listPaymentOrders, reconcilePaymentOrder, createPaymentRefund } from '../api/payment-orders';
 import { formatPaymentAmount, parsePaymentAmount } from '../utils/payment-amount';
 import { useSessionStore } from '../auth/session';
+import { useAuthorizedViewScope } from '../composables/useAuthorizedViewScope';
 
 defineOptions({ name: 'PaymentOrdersView' });
 
@@ -49,6 +50,22 @@ const refundForm = reactive({
   amountYuan: '',
   reason: ''
 });
+type RefundAttempt = { readonly order: Readonly<PaymentOrderListItem>; readonly body: Readonly<{ amountMinor: number | null; reason: string }>;
+  readonly amountYuan: string; readonly submittedAtUtc: string; readonly state: 'pending' | 'unconfirmed' | 'accepted' };
+const refundAttempts = reactive(new Map<string, RefundAttempt>());
+const refundAttempt = computed(() => refundAttempts.get(refundOrderId.value));
+const refundSaving = ref(false);
+const validPaymentId = (value: unknown): value is string => isGuid(value) && value !== '00000000-0000-0000-0000-000000000000';
+const canRefund = computed(() => session.state === 'authenticated' && session.currentUser?.tenantId === null
+  && session.currentUser.actorScope === 'host' && session.can('payments.refunds.create'));
+const canRead = computed(() => session.state === 'authenticated' && session.currentUser?.tenantId === null
+  && session.currentUser.actorScope === 'host' && session.can('payments.orders.read'));
+let listSequence = 0;
+const refundScope = useAuthorizedViewScope(session, () => {
+  listSequence++; items.value = []; total.value = 0; page.value = 1; loading.value = false; problem.value = undefined;
+  refundOpen.value = false; refundOrderId.value = ''; refundSaving.value = false; refundAttempts.clear();
+  Object.assign(refundForm, { amountYuan: '', reason: '' });
+}, () => { void load(); });
 const createForm = reactive({
   tenantId: '',
   channelKey: 'wechat_native',
@@ -83,17 +100,23 @@ function formatAmount(minor: number): string {
 }
 
 async function load(): Promise<void> {
+  if (!canRead.value) return;
+  const operation = refundScope.begin('payments.orders.read'); if (!operation) return;
+  const sequence = ++listSequence;
   loading.value = true;
   problem.value = undefined;
   try {
-    const result = await listPaymentOrders({ page: page.value, pageSize: pageSize.value });
+    const result = await listPaymentOrders({ page: page.value, pageSize: pageSize.value }, operation.signal);
+    if (!operation.current() || sequence !== listSequence) return;
     items.value = result.items;
     total.value = result.total;
     await updateTableHeight();
   } catch (error: unknown) {
+    if (!operation.current() || sequence !== listSequence) return;
     problem.value = toProblem(error, 'paymentOrders.loadFailed');
   } finally {
-    loading.value = false;
+    if (operation.current() && sequence === listSequence) loading.value = false;
+    operation.finish();
   }
 }
 
@@ -154,9 +177,10 @@ async function reconcileOrder(orderId: string): Promise<void> {
 }
 
 function openRefund(orderId: string): void {
-  if (changing.value || items.value.find(row => row.id === orderId)?.channelKey !== 'wechat_native') return;
+  if (changing.value || refundSaving.value || !canRefund.value || items.value.find(row => row.id === orderId)?.channelKey !== 'wechat_native') return;
   refundOrderId.value = orderId;
-  Object.assign(refundForm, { amountYuan: '', reason: '' });
+  const previous = refundAttempts.get(orderId);
+  Object.assign(refundForm, { amountYuan: previous?.amountYuan ?? '', reason: previous?.body.reason ?? '' });
   refundOpen.value = true;
 }
 function readRefundRecords(orderId: string): void {
@@ -166,35 +190,53 @@ function readRefundRecords(orderId: string): void {
 }
 
 async function submitRefund(): Promise<void> {
-  if (!refundForm.reason.trim()) {
+  if (changing.value || refundSaving.value || refundAttempt.value || !canRefund.value) return;
+  const order = items.value.find(row => row.id === refundOrderId.value);
+  if (!order || order.channelKey !== 'wechat_native' || !validPaymentId(order.id) || !validPaymentId(order.tenantId)
+    || !validPaymentId(order.merchantConfigId) || !order.outTradeNo || !order.currency) return;
+  const reason = refundForm.reason.trim();
+  if (!reason || reason.length > 128) {
     ElMessage.warning(t('paymentOrders.refundValidationFailed'));
     return;
   }
   const amountYuan = refundForm.amountYuan.trim();
   const amountMinor = amountYuan ? parsePaymentAmount(amountYuan) : null;
-  if (amountMinor === undefined) {
+  const expectedAmount = amountMinor ?? order.amountMinor;
+  if (amountMinor === undefined || !Number.isSafeInteger(expectedAmount) || expectedAmount <= 0
+    || (amountMinor !== null && Number.isSafeInteger(order.amountMinor) && amountMinor > order.amountMinor)) {
     ElMessage.warning(t('paymentOrders.amountValidationFailed'));
     return;
   }
-  changing.value = true;
+  const operation = refundScope.begin('payments.refunds.create'); if (!operation) return;
+  // 一旦发出资金请求就冻结原正文；网络错误不能作为改参或再次提交的依据。
+  const attempt: RefundAttempt = Object.freeze({ order: Object.freeze({ ...order }), body: Object.freeze({ amountMinor, reason }),
+    amountYuan, submittedAtUtc: new Date().toISOString(), state: 'pending' });
+  Object.assign(refundForm, { amountYuan, reason });
+  refundAttempts.set(order.id, attempt); refundSaving.value = true;
   try {
-    await createPaymentRefund(refundOrderId.value, {
-      amountMinor,
-      reason: refundForm.reason.trim()
-    });
+    const receipt = await createPaymentRefund(order.id, attempt.body, operation.signal);
+    if (!operation.current()) return;
+    const sameId = (a: unknown, b: string) => validPaymentId(a) && a.toLowerCase() === b.toLowerCase();
+    if (!validPaymentId(receipt.id)
+      || !sameId(receipt.orderId, order.id) || !sameId(receipt.tenantId, order.tenantId)
+      || !sameId(receipt.merchantConfigId, order.merchantConfigId) || receipt.outTradeNo !== order.outTradeNo
+      || receipt.amountMinor !== expectedAmount || receipt.currency !== order.currency || receipt.reason !== reason
+      || !receipt.outRefundNo?.trim() || !['created', 'provider_unknown', 'processing', 'succeeded', 'failed', 'closed'].includes(receipt.refundStateKey))
+      throw new Error('client.payment_refund_mismatch');
+    refundAttempts.set(order.id, Object.freeze({ ...attempt, state: 'accepted' }));
     ElMessage.success(t('paymentOrders.refundSuccess'));
-    refundOpen.value = false;
+    if (refundOrderId.value === order.id) refundOpen.value = false;
     await load();
-  } catch (error: unknown) {
-    ElMessage.error(toProblem(error, 'paymentOrders.refundFailed').title);
+  } catch {
+    if (!operation.current()) return;
+    refundAttempts.set(order.id, Object.freeze({ ...attempt, state: 'unconfirmed' }));
+    ElMessage.warning(t('paymentOrders.refundAttemptUnconfirmed'));
   } finally {
-    changing.value = false;
+    if (operation.current()) refundSaving.value = false;
+    operation.finish();
   }
 }
 
-onMounted(() => {
-  void load();
-});
 </script>
 
 <template>
@@ -261,7 +303,7 @@ onMounted(() => {
                   link
                   type="warning"
                   :data-testid="`payment-order-refund-${row.id}`"
-                  :disabled="changing || row.channelKey !== 'wechat_native'"
+                  :disabled="changing || refundSaving || row.channelKey !== 'wechat_native'"
                   @click="openRefund(row.id)"
                 >
                   {{ t('paymentOrders.refund') }}
@@ -318,23 +360,37 @@ onMounted(() => {
     <ArtFormDialog
       v-model:open="refundOpen"
       :title="t('paymentOrders.refundTitle')"
-      :saving="changing"
+      :saving="refundSaving"
+      :confirm-disabled="changing || refundSaving || !!refundAttempt || !canRefund"
+      :confirm-label="t('common.confirm')"
+      :cancel-label="t('paymentRefunds.close')"
       confirm-test-id="payment-order-refund-confirm"
       @confirm="submitRefund"
     >
-      <el-form label-width="120px">
+      <ElAlert v-if="refundAttempt" type="warning" :closable="false" :title="t('paymentOrders.refundAttemptLocked')"
+        :description="t(refundAttempt.state === 'unconfirmed' ? 'paymentOrders.refundAttemptUnconfirmed' : 'paymentOrders.refundAttemptRecorded')"
+        show-icon data-testid="payment-refund-attempt-status" />
+      <dl v-if="refundAttempt" class="refund-attempt-summary" data-testid="payment-refund-original-attempt">
+        <dt>{{ t('paymentRefunds.orderId') }}</dt><dd>{{ refundAttempt.order.id }}</dd>
+        <dt>{{ t('paymentOrders.fieldOutTradeNo') }}</dt><dd>{{ refundAttempt.order.outTradeNo }}</dd>
+        <dt>{{ t('paymentOrders.refundAttemptTime') }}</dt><dd>{{ refundAttempt.submittedAtUtc }}</dd>
+      </dl>
+      <el-form label-position="top">
         <el-form-item :label="t('paymentOrders.refundReason')" required>
-          <el-input v-model="refundForm.reason" type="textarea" :rows="3" data-testid="payment-order-refund-reason" />
+          <el-input v-model="refundForm.reason" type="textarea" :rows="3" maxlength="128" :readonly="!!refundAttempt" data-testid="payment-order-refund-reason" />
         </el-form-item>
         <el-form-item :label="t('paymentOrders.refundAmountYuan')">
-          <el-input v-model="refundForm.amountYuan" inputmode="decimal" maxlength="18" data-testid="payment-order-refund-amount" />
+          <el-input v-model="refundForm.amountYuan" :readonly="!!refundAttempt" inputmode="decimal" maxlength="18" data-testid="payment-order-refund-amount" />
         </el-form-item>
       </el-form>
-      <PermissionGate code="payments.refunds.read"><ElButton :disabled="changing" data-testid="payment-refund-check-records" @click="readRefundRecords(refundOrderId)">{{ t('paymentOrders.readRefundRecords') }}</ElButton></PermissionGate>
+      <PermissionGate code="payments.refunds.read"><ElButton :disabled="changing || refundSaving" data-testid="payment-refund-check-records" @click="readRefundRecords(refundOrderId)">{{ t('paymentOrders.readRefundRecords') }}</ElButton></PermissionGate>
     </ArtFormDialog>
   </section>
 </template>
 <style scoped>
 .payment-channel-options { display: flex; flex-wrap: wrap; gap: 4px 16px; }
 .payment-channel-options .el-radio { margin-right: 0; }
+.refund-attempt-summary { display: grid; gap: 4px; margin: 12px 0; }
+.refund-attempt-summary dt { font-weight: 600; }
+.refund-attempt-summary dd { margin: 0 0 8px; overflow-wrap: anywhere; }
 </style>
