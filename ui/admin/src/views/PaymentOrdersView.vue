@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue';
+import { useRouter } from 'vue-router';
 import {
   ElAlert,
   ElButton,
@@ -17,7 +18,7 @@ import {
 } from 'element-plus';
 import { Plus } from '@element-plus/icons-vue';
 import type { PaymentOrderListItem, FullNetProblemDetails } from '@fullnet/client-contracts';
-import { isFullNetProblemDetails } from '@fullnet/client-contracts';
+import { isFullNetProblemDetails, isGuid } from '@fullnet/client-contracts';
 import ArtFormDialog from '../framework/art-design/components/ArtFormDialog.vue';
 import ArtTableHeader from '../framework/art-design/components/ArtTableHeader.vue';
 import { useArtCrudTableLayout } from '../framework/art-design/composables/useArtCrudTableLayout';
@@ -26,10 +27,12 @@ import SubscriptionFulfillmentAction from '../components/SubscriptionFulfillment
 import { useAdminI18n } from '../i18n/adminI18n';
 import { createPaymentOrder, listPaymentOrders, reconcilePaymentOrder, createPaymentRefund } from '../api/payment-orders';
 import { formatPaymentAmount, parsePaymentAmount } from '../utils/payment-amount';
+import { useSessionStore } from '../auth/session';
 
 defineOptions({ name: 'PaymentOrdersView' });
 
 const { t } = useAdminI18n();
+const router = useRouter(); const session = useSessionStore();
 const items = ref<PaymentOrderListItem[]>([]);
 const total = ref(0);
 const page = ref(1);
@@ -155,6 +158,11 @@ function openRefund(orderId: string): void {
   Object.assign(refundForm, { amountYuan: '', reason: '' });
   refundOpen.value = true;
 }
+function readRefundRecords(orderId: string): void {
+  if (changing.value || !session.can('payments.refunds.read') || !isGuid(orderId) || orderId === '00000000-0000-0000-0000-000000000000') return;
+  refundOpen.value = false;
+  void router?.push({ name: 'payment-refunds', query: { orderId } });
+}
 
 async function submitRefund(): Promise<void> {
   if (!refundForm.reason.trim()) {
@@ -257,6 +265,7 @@ onMounted(() => {
                 </el-button>
               </PermissionGate>
               <SubscriptionFulfillmentAction :order-id="row.id" />
+              <PermissionGate code="payments.refunds.read"><ElButton link type="primary" :disabled="changing" :data-testid="`payment-order-refund-records-${row.id}`" @click="readRefundRecords(row.id)">{{ t('paymentOrders.readRefundRecords') }}</ElButton></PermissionGate>
             </template>
           </el-table-column>
         </el-table>
@@ -318,6 +327,7 @@ onMounted(() => {
           <el-input v-model="refundForm.amountYuan" inputmode="decimal" maxlength="18" data-testid="payment-order-refund-amount" />
         </el-form-item>
       </el-form>
+      <PermissionGate code="payments.refunds.read"><ElButton :disabled="changing" data-testid="payment-refund-check-records" @click="readRefundRecords(refundOrderId)">{{ t('paymentOrders.readRefundRecords') }}</ElButton></PermissionGate>
     </ArtFormDialog>
   </section>
 </template>

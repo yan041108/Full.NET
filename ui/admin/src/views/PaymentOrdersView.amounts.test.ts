@@ -5,6 +5,8 @@ import type { PaymentOrder, PaymentRefund } from '@fullnet/client-contracts';
 import PaymentOrdersView from './PaymentOrdersView.vue';
 import { useSessionStore } from '../auth/session';
 import { createPaymentOrder, createPaymentRefund, listPaymentOrders } from '../api/payment-orders';
+const navigation = vi.hoisted(() => ({ push: vi.fn() }));
+vi.mock('vue-router', async original => ({ ...await original<typeof import('vue-router')>(), useRouter: () => ({ push: navigation.push }) }));
 vi.mock('../api/payment-orders', () => ({ listPaymentOrders: vi.fn(), createPaymentOrder: vi.fn(), getPaymentOrder: vi.fn(),
   reconcilePaymentOrder: vi.fn(), createPaymentRefund: vi.fn() }));
 const id = (n: number) => `019bc2b1-2a40-7cc3-8992-a80de51bf2${String(n).padStart(2, '0')}`;
@@ -25,6 +27,17 @@ beforeEach(() => {
 });
 afterEach(() => wrappers.splice(0).forEach(wrapper => wrapper.unmount()));
 describe('支付页面金额提交', () => {
+  it('退款结果未确认时可按原订单跳转只读记录，不再次提交退款', async () => {
+    const wrapper = await panel(); useSessionStore().currentUser!.permissions.push('payments.refunds.read'); await flushPromises();
+    vi.mocked(createPaymentRefund).mockRejectedValue(new Error('unconfirmed'));
+    await wrapper.get(`[data-testid="payment-order-refund-${order.id}"]`).trigger('click');
+    await wrapper.get('[data-testid="payment-order-refund-reason"]').setValue('original');
+    await wrapper.get('[data-testid="payment-order-refund-amount"]').setValue('0.29');
+    await wrapper.get('[data-testid="payment-order-refund-confirm"]').trigger('click'); await flushPromises();
+    await wrapper.get('[data-testid="payment-refund-check-records"]').trigger('click'); await flushPromises();
+    expect(navigation.push).toHaveBeenCalledWith({ name: 'payment-refunds', query: { orderId: order.id } });
+    expect(createPaymentRefund).toHaveBeenCalledTimes(1); expect(wrapper.find('[data-testid="payment-order-refund-amount"]').exists()).toBe(false);
+  });
   it('退款入口只认后端现有精确权限，不接受不存在的旧权限码', async () => {
     const wrapper = await panel('payments.orders.refund');
     expect(wrapper.find(`[data-testid="payment-order-refund-${order.id}"]`).exists()).toBe(false);
