@@ -19,6 +19,21 @@ internal static class Endpoint
         var group = endpoints.MapGroup("/api/v1/payments/orders")
             .WithTags("PaymentOrders");
 
+        group.MapGet("/creation-requests/{idempotencyKey:guid}", async (
+            Guid idempotencyKey, Guid tenantId, PaymentOrderCreationQueryService query, IApiResultMapper mapper,
+            HttpContext httpContext, CancellationToken cancellationToken) =>
+        {
+            httpContext.Response.Headers.CacheControl = "no-store";
+            return mapper.Map(await query.GetAsync(tenantId, idempotencyKey, cancellationToken).ConfigureAwait(false), httpContext);
+        })
+        .WithName("paymentsGetOrderCreationRequest")
+        .Produces<PaymentOrderCreationLookupResponse>()
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .RequireAuthorization(FullNetPermissionPolicies.For(PaymentOrderPermissions.Read));
+
         group.MapGet("/", async (
             int? page,
             int? pageSize,

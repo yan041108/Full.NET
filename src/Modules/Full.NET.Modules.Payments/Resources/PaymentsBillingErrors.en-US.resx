@@ -14,4 +14,6 @@
   <data name="payments.refund.request_conflict" xml:space="preserve"><value>The refund parameters do not match the original refund intent. Check the original refund record.</value></data>
   <data name="payments.refund.channel_unsupported" xml:space="preserve"><value>Refunds and refund reconciliation are currently supported only for WeChat Native orders.</value></data>
   <data name="payments.refund.merchant_mismatch" xml:space="preserve"><value>The merchant configuration does not match the original order tenant or channel. Check the original order.</value></data>
+  <data name="payments.order.creation_request_not_found" xml:space="preserve"><value>No order was found for this tenant and original creation request.</value></data>
+  <data name="payments.order.creation_lookup_forbidden" xml:space="preserve"><value>Payment order creation requests can be read only in the Host context.</value></data>
 </root>

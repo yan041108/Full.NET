@@ -1052,7 +1052,8 @@
     },
     {
       "clientContractModules": [
-        "packages/client-contracts/src/payments.ts"
+        "packages/client-contracts/src/payments.ts",
+        "packages/client-contracts/src/generated/index.generated.ts"
       ],
       "openApiFixture": "contracts/openapi/fullnet-client-v1.openapi.json",
       "apiModule": "ui/admin/src/api/payment-orders.ts",
@@ -1660,7 +1661,9 @@
       "apiModule": "ui/admin/src/api/payment-orders.ts",
       "consumers": [
         "ui/admin/src/views/PaymentOrdersView.vue",
-        "ui/admin/src/components/PaymentOrderDetailDialog.vue"
+        "ui/admin/src/components/PaymentOrderDetailDialog.vue",
+        "ui/admin/src/components/PaymentOrderCreateDialog.vue",
+        "ui/admin/src/components/PaymentOrderCreationLookupDialog.vue"
       ]
     },
     {

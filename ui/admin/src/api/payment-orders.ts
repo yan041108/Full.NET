@@ -2,6 +2,7 @@ import {
   isPaymentOrder,
   isPaymentOrderPage,
   isPaymentRefund,
+  paymentsGetOrderCreationRequest,
   type CreatePaymentOrderRequest,
   type CreatePaymentRefundRequest,
   type PaymentOrder,
@@ -9,7 +10,10 @@ import {
   type PaymentOrderPage,
   type PaymentRefund
 } from '@fullnet/client-contracts';
-import { request } from './http';
+import { http, request } from './http';
+
+export const getPaymentOrderCreationRequest = (tenantId: string, idempotencyKey: string, signal?: AbortSignal) =>
+  paymentsGetOrderCreationRequest(http, { tenantId, idempotencyKey }, signal);
 
 function buildListQuery(query: PaymentOrderListQuery): string {
   const params = new URLSearchParams();

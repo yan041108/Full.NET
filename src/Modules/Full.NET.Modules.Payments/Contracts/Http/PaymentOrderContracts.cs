@@ -104,3 +104,9 @@ public sealed record CreatePaymentOrderRequest(
     string Subject,
     string? Description,
     Guid IdempotencyKey);
+
+/// <summary>按原创建身份读取已存订单；不调用渠道，也不创建或推进订单。</summary>
+/// <param name="IdempotencyKey">订单已保存的原创建请求标识。</param>
+/// <param name="Order">同一租户和创建身份的本地订单记录。</param>
+/// <param name="ReadAtUtc">服务器完成本次读取的时间，不代表渠道资金时间。</param>
+public sealed record PaymentOrderCreationLookupResponse(Guid IdempotencyKey, PaymentOrderResponse Order, DateTimeOffset ReadAtUtc);

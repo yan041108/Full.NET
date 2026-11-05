@@ -5574,6 +5574,12 @@ export interface PaymentMerchantConfigResponse {
   readonly version: number;
 }
 
+export interface PaymentOrderCreationLookupResponse {
+  readonly idempotencyKey: string;
+  readonly order: PaymentOrderResponse;
+  readonly readAtUtc: string;
+}
+
 export interface PaymentOrderListItem {
   readonly amountMinor: string;
   readonly channelKey: string;

@@ -30,7 +30,7 @@ for (const width of [1440, 390]) {
       orderReads++; return json(route, { items: [order, { ...order, id: id(4), outTradeNo: 'unknown-amount', amountMinor: '9223372036854775807' }, { ...order, id: id(7), channelKey: 'alipay_page', outTradeNo: 'unsupported-refund' }, fullOrder, maxRefundOrder], page: 1, pageSize: 20, total: 5 });
     });
     await page.route('**/api/v1/payments/orders', route => {
-      expect(route.request().method()).toBe('POST'); creates.push(route.request().postDataJSON()); return json(route, { ...order, amountMinor: creates.at(-1).amountMinor });
+      expect(route.request().method()).toBe('POST'); creates.push(route.request().postDataJSON()); return json(route, { ...order, id: id(10 + creates.length), tenantId: creates.at(-1).tenantId, merchantConfigId: creates.at(-1).merchantConfigId ?? order.merchantConfigId, channelKey: creates.at(-1).channelKey ?? order.channelKey, amountMinor: creates.at(-1).amountMinor, subject: creates.at(-1).subject, description: creates.at(-1).description ?? null, tradeStateKey: 'awaiting_payment' });
     });
     await page.route('**/api/v1/payments/orders/*/refunds', route => {
       expect(route.request().method()).toBe('POST'); refunds.push(route.request().postDataJSON()); const source = route.request().url().includes(fullOrder.id) ? fullOrder : route.request().url().includes(maxRefundOrder.id) ? maxRefundOrder : order;
@@ -63,6 +63,7 @@ for (const width of [1440, 390]) {
     await page.getByTestId('payment-order-create-confirm').click(); await expect.poll(() => creates.length).toBe(1); expect(creates[0].amountMinor).toBe('29');
     await expect(page.getByTestId('payment-order-create-amount')).toHaveCount(0); await expect.poll(() => orderReads).toBe(3);
     await page.getByTestId('payment-order-create').click();
+    await page.getByTestId('payment-order-create-another').click();
     await page.getByTestId('payment-order-create-tenant').fill(id(2)); await page.getByTestId('payment-order-create-subject').fill('完整 Int64');
     await page.getByTestId('payment-order-create-amount').fill('92233720368547758.07');
     await expect(page.getByTestId('payment-order-create-amount')).toHaveValue('92233720368547758.07');

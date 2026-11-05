@@ -11,15 +11,13 @@ import {
   ElMessage,
   ElOption,
   ElPagination,
-  ElRadio,
-  ElRadioGroup,
   ElSelect,
   ElTable,
   ElTableColumn,
   ElTag
 } from 'element-plus';
 import { Plus } from '@element-plus/icons-vue';
-import type { PaymentOrderListItem, FullNetProblemDetails } from '@fullnet/client-contracts';
+import type { PaymentOrder, PaymentOrderListItem, FullNetProblemDetails } from '@fullnet/client-contracts';
 import { isFullNetProblemDetails, isGuid } from '@fullnet/client-contracts';
 import ArtFormDialog from '../framework/art-design/components/ArtFormDialog.vue';
 import ArtTableHeader from '../framework/art-design/components/ArtTableHeader.vue';
@@ -27,8 +25,10 @@ import { useArtCrudTableLayout } from '../framework/art-design/composables/useAr
 import PermissionGate from '../components/PermissionGate.vue';
 import SubscriptionFulfillmentAction from '../components/SubscriptionFulfillmentAction.vue';
 import PaymentOrderDetailDialog from '../components/PaymentOrderDetailDialog.vue';
+import PaymentOrderCreateDialog from '../components/PaymentOrderCreateDialog.vue';
+import PaymentOrderCreationLookupDialog from '../components/PaymentOrderCreationLookupDialog.vue';
 import { useAdminI18n } from '../i18n/adminI18n';
-import { createPaymentOrder, listPaymentOrders, reconcilePaymentOrder, createPaymentRefund } from '../api/payment-orders';
+import { listPaymentOrders, reconcilePaymentOrder, createPaymentRefund } from '../api/payment-orders';
 import { formatPaymentAmount, parsePaymentAmount } from '../utils/payment-amount';
 import { useSessionStore } from '../auth/session';
 import { useAuthorizedViewScope } from '../composables/useAuthorizedViewScope';
@@ -47,8 +47,6 @@ const loading = ref(false);
 const changing = ref(false);
 const problem = ref<FullNetProblemDetails>();
 const createOpen = ref(false);
-// 同一创建窗口的网络重试必须复用请求标识，避免重复下单。
-const createIdempotencyKey = ref('');
 const refundOpen = ref(false);
 const refundOrderId = ref('');
 const refundForm = reactive({
@@ -73,20 +71,14 @@ const filters = reactive({ tenantId: '', state: 'all', outTradeNo: '' });
 let appliedFilters = { ...filters }; let invalidFilters = false;
 const refundScope = useAuthorizedViewScope(session, () => {
   clearList(); page.value = 1;
+  createOpen.value = false; creationLookupOpen.value = false; lastCodeUrl.value = ''; lastCreatedOrder.value = undefined; lastCreationReadAt.value = '';
   Object.assign(filters, { tenantId: '', state: 'all', outTradeNo: '' }); appliedFilters = { ...filters }; invalidFilters = false;
   orderIdInput.value = ''; orderDetailId.value = ''; orderDetailOpen.value = false;
   refundOpen.value = false; refundOrderId.value = ''; refundSaving.value = false; refundAttempts.clear();
   Object.assign(refundForm, { amountYuan: '', reason: '' });
 }, () => { void load(); });
-const createForm = reactive({
-  tenantId: '',
-  channelKey: 'wechat_native',
-  merchantConfigId: '',
-  amountYuan: '',
-  subject: '',
-  description: ''
-});
 const lastCodeUrl = ref('');
+const lastCreatedOrder = ref<PaymentOrder>(); const lastCreationReadAt = ref(''); const creationLookupOpen = ref(false);
 const narrowViewport = ref(false);
 let viewportQuery: MediaQueryList | undefined;
 function updateViewport() { narrowViewport.value = viewportQuery?.matches ?? false; }
@@ -165,46 +157,11 @@ function changePage(value: number) { if (value !== page.value) { page.value = va
 function orderStateLabel(value: string) { const key = `paymentOrders.status.${value}`; const label = translateRuntimeMessage(t, key); return label === key ? value : label; }
 
 function openCreate(): void {
-  createIdempotencyKey.value = crypto.randomUUID();
-  Object.assign(createForm, {
-    tenantId: '',
-    channelKey: 'wechat_native',
-    merchantConfigId: '',
-    amountYuan: '',
-    subject: '',
-    description: ''
-  });
-  lastCodeUrl.value = '';
-  createOpen.value = true;
+  if (session.state === 'authenticated' && session.currentUser?.tenantId === null && session.currentUser.actorScope === 'host'
+    && session.can('payments.orders.create')) createOpen.value = true;
 }
-
-async function submitCreate(): Promise<void> {
-  const amountMinor = parsePaymentAmount(createForm.amountYuan);
-  if (!createForm.tenantId.trim() || amountMinor === undefined || !createForm.subject.trim()) {
-    ElMessage.warning(t(amountMinor === undefined ? 'paymentOrders.amountValidationFailed' : 'paymentOrders.createValidationFailed'));
-    return;
-  }
-  changing.value = true;
-  try {
-    const order = await createPaymentOrder({
-      idempotencyKey: createIdempotencyKey.value,
-      tenantId: createForm.tenantId.trim(),
-      channelKey: createForm.merchantConfigId.trim() ? null : createForm.channelKey,
-      merchantConfigId: createForm.merchantConfigId.trim() || null,
-      amountMinor,
-      currency: 'CNY',
-      subject: createForm.subject.trim(),
-      description: createForm.description.trim() || null
-    });
-    lastCodeUrl.value = order.codeUrl ?? '';
-    ElMessage.success(t('paymentOrders.createSuccess'));
-    createOpen.value = false;
-    await load();
-  } catch (error: unknown) {
-    ElMessage.error(toProblem(error, 'paymentOrders.createFailed').title);
-  } finally {
-    changing.value = false;
-  }
+function orderCreated(order: PaymentOrder, readAtUtc?: string) {
+  lastCreatedOrder.value = order; lastCreationReadAt.value = readAtUtc ?? ''; lastCodeUrl.value = order.codeUrl ?? ''; void load();
 }
 
 async function reconcileOrder(orderId: string): Promise<void> {
@@ -296,7 +253,7 @@ async function submitRefund(): Promise<void> {
     <el-alert type="info" :closable="false" :title="t('paymentOrders.refundChannelHint')" show-icon class="art-page-alert" data-testid="payment-refund-channel-hint" />
     <el-alert v-if="problem" type="error" :title="problem.title" show-icon class="art-page-alert" />
     <el-alert
-      v-if="lastCodeUrl"
+      v-if="lastCodeUrl && lastCreatedOrder?.tradeStateKey === 'awaiting_payment'"
       type="success"
       :title="t('paymentOrders.payUrlReady')"
       :description="lastCodeUrl"
@@ -304,6 +261,12 @@ async function submitRefund(): Promise<void> {
       class="art-page-alert"
     />
 
+    <div v-if="lastCreatedOrder" role="status" class="payment-creation-receipt" data-testid="payment-order-creation-receipt">
+      <strong>{{ t('paymentOrders.creationConfirmed') }}</strong>
+      <p>{{ t('paymentOrders.orderId') }} <code>{{ lastCreatedOrder.id }}</code> {{ orderStateLabel(lastCreatedOrder.tradeStateKey) }}</p>
+      <p v-if="lastCreationReadAt">{{ t('paymentOrders.creationServerReadAt') }} {{ lastCreationReadAt }}</p>
+      <ElButton v-if="canRead" data-testid="payment-created-order-detail" @click="readOrder(lastCreatedOrder.id)">{{ t('paymentOrders.detail') }}</ElButton>
+    </div>
     <ElForm v-if="canRead" label-position="top" class="payment-order-filters" @submit.prevent="searchOrders">
       <ElFormItem :label="t('paymentOrders.fieldTenantId')"><ElInput v-model="filters.tenantId" clearable data-testid="payment-orders-filter-tenant" /></ElFormItem>
       <ElFormItem :label="t('paymentOrders.fieldStatus')"><ElSelect v-model="filters.state" data-testid="payment-orders-filter-state"><ElOption value="all" :label="t('paymentOrders.allStates')" /><ElOption v-for="state in orderStates" :key="state" :value="state" :label="orderStateLabel(state)" /></ElSelect></ElFormItem>
@@ -318,6 +281,7 @@ async function submitRefund(): Promise<void> {
             <ElFormItem :label="t('paymentOrders.orderId')"><ElInput v-model="orderIdInput" clearable data-testid="payment-order-id-input" /></ElFormItem>
             <ElButton native-type="submit" data-testid="payment-order-id-read">{{ t('paymentOrders.readById') }}</ElButton>
           </ElForm>
+          <ElButton v-if="canRead" data-testid="payment-orders-creation-lookup" @click="creationLookupOpen = true">{{ t('paymentOrders.creationLookupTitle') }}</ElButton>
           <PermissionGate code="payments.orders.create">
             <el-button type="primary" :icon="Plus" data-testid="payment-order-create" @click="openCreate">
               {{ t('paymentOrders.createOrder') }}
@@ -388,37 +352,8 @@ async function submitRefund(): Promise<void> {
       />
     </el-card>
 
-    <ArtFormDialog
-      v-model:open="createOpen"
-      :title="t('paymentOrders.createTitle')"
-      :saving="changing"
-      confirm-test-id="payment-order-create-confirm"
-      @confirm="submitCreate"
-    >
-      <el-form label-width="120px">
-        <el-form-item :label="t('paymentOrders.fieldTenantId')" required>
-          <el-input v-model="createForm.tenantId" data-testid="payment-order-create-tenant" />
-        </el-form-item>
-        <el-form-item :label="t('paymentOrders.fieldChannelKey')">
-          <ElRadioGroup v-model="createForm.channelKey" class="payment-channel-options" :aria-label="t('paymentOrders.fieldChannelKey')" :disabled="Boolean(createForm.merchantConfigId.trim())">
-            <ElRadio value="wechat_native">{{ t('paymentOrders.channelWeChatNative') }}</ElRadio>
-            <ElRadio value="alipay_page">{{ t('paymentOrders.channelAlipayPage') }}</ElRadio>
-          </ElRadioGroup>
-        </el-form-item>
-        <el-form-item :label="t('paymentOrders.fieldMerchantConfigId')">
-          <el-input v-model="createForm.merchantConfigId" data-testid="payment-order-create-merchant" />
-        </el-form-item>
-        <el-form-item :label="t('paymentOrders.fieldAmountYuan')" required>
-          <el-input v-model="createForm.amountYuan" inputmode="decimal" data-testid="payment-order-create-amount" />
-        </el-form-item>
-        <el-form-item :label="t('paymentOrders.fieldSubject')" required>
-          <el-input v-model="createForm.subject" data-testid="payment-order-create-subject" />
-        </el-form-item>
-        <el-form-item :label="t('paymentOrders.fieldDescription')">
-          <el-input v-model="createForm.description" type="textarea" :rows="3" />
-        </el-form-item>
-      </el-form>
-    </ArtFormDialog>
+    <PaymentOrderCreateDialog v-model:open="createOpen" @created="orderCreated" />
+    <PaymentOrderCreationLookupDialog v-model:open="creationLookupOpen" @open-order="readOrder" />
 
     <ArtFormDialog
       v-model:open="refundOpen"
@@ -452,8 +387,6 @@ async function submitRefund(): Promise<void> {
   </section>
 </template>
 <style scoped>
-.payment-channel-options { display: flex; flex-wrap: wrap; gap: 4px 16px; }
-.payment-channel-options .el-radio { margin-right: 0; }
 .refund-attempt-summary { display: grid; gap: 4px; margin: 12px 0; }
 .refund-attempt-summary dt { font-weight: 600; }
 .refund-attempt-summary dd { margin: 0 0 8px; overflow-wrap: anywhere; }
@@ -463,4 +396,5 @@ async function submitRefund(): Promise<void> {
 .payment-order-filter-actions { display: flex; gap: 8px; margin-bottom: 18px; }
 .payment-order-filter-hint { margin: 0; }
 @media (max-width: 800px) { .payment-order-filters { grid-template-columns: 1fr; gap: 0; } }
+.payment-creation-receipt { overflow-wrap: anywhere; }
 </style>

@@ -647,6 +647,7 @@ import type {
   PauseWorkflowInstanceRequest,
   PaymentMerchantConfigListItem,
   PaymentMerchantConfigResponse,
+  PaymentOrderCreationLookupResponse,
   PaymentOrderListItem,
   PaymentOrderResponse,
   PaymentRefundListItem,
@@ -1341,6 +1342,7 @@ import {
   readPagedResultOfWorkflowRecoveryTaskResponse,
   readPagedResultOfWorkflowTodoListItemResponse,
   readPaymentMerchantConfigResponse,
+  readPaymentOrderCreationLookupResponse,
   readPaymentOrderResponse,
   readPaymentRefundResponse,
   readPersonalScheduleResponse,
@@ -13934,6 +13936,25 @@ export async function paymentsGetOrder(
   const init: RequestInit = { method: 'GET' };
   const value = await requestJsonOperation(http, path, init, signal, options);
   return readPaymentOrderResponse(value);
+}
+
+export interface PaymentsGetOrderCreationRequestParameters {
+  readonly idempotencyKey: string;
+  readonly tenantId: string;
+}
+
+export async function paymentsGetOrderCreationRequest(
+  http: HttpClient,
+  parameters: PaymentsGetOrderCreationRequestParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<PaymentOrderCreationLookupResponse> {
+  const query = new URLSearchParams();
+  query.set('tenantId', String(parameters.tenantId));
+  const path = query.size === 0 ? `/api/v1/payments/orders/creation-requests/${encodeURIComponent(String(parameters.idempotencyKey))}` : `/api/v1/payments/orders/creation-requests/${encodeURIComponent(String(parameters.idempotencyKey))}?${query.toString()}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = await requestJsonOperation(http, path, init, signal, options);
+  return readPaymentOrderCreationLookupResponse(value);
 }
 
 export interface PaymentsGetRefundParameters {

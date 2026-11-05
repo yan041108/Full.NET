@@ -12,6 +12,7 @@ namespace Full.NET.Modules.Payments.Serialization;
 [JsonSerializable(typeof(PagedResult<PaymentMerchantConfigListItem>))]
 [JsonSerializable(typeof(PaymentOrderListItem))]
 [JsonSerializable(typeof(PaymentOrderResponse))]
+[JsonSerializable(typeof(PaymentOrderCreationLookupResponse))]
 [JsonSerializable(typeof(SubscriptionCheckoutResponse))]
 [JsonSerializable(typeof(SubscriptionFulfillmentStatusResponse))]
 [JsonSerializable(typeof(CreatePaymentOrderRequest))]

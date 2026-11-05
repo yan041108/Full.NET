@@ -69,6 +69,7 @@ public sealed class PaymentsModule : IFullNetModule
         services.TryAddScoped<PaymentMerchantConfigQueryService>();
         services.TryAddScoped<PaymentMerchantConfigManagementService>();
         services.TryAddScoped<PaymentOrderQueryService>();
+        services.TryAddScoped<PaymentOrderCreationQueryService>();
         services.TryAddScoped<PaymentOrderManagementService>();
         services.TryAddScoped<PaymentOrderReconciliationService>();
         services.TryAddScoped<PaymentRefundReconciliationService>();

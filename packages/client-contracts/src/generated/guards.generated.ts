@@ -646,6 +646,7 @@ import type {
   PauseWorkflowInstanceRequest,
   PaymentMerchantConfigListItem,
   PaymentMerchantConfigResponse,
+  PaymentOrderCreationLookupResponse,
   PaymentOrderListItem,
   PaymentOrderResponse,
   PaymentRefundListItem,
@@ -6619,6 +6620,15 @@ function isPaymentMerchantConfigResponse(value: unknown): value is PaymentMercha
   return isRecord(value) && (typeof value["appId"] === 'string') && (typeof value["certificateSerialNo"] === 'string') && (typeof value["channelKey"] === 'string') && (typeof value["createdAtUtc"] === 'string') && (typeof value["hasApiV3Key"] === 'boolean') && (typeof value["hasPrivateKey"] === 'boolean') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["isDefault"] === 'boolean') && (typeof value["isEnabled"] === 'boolean') && (typeof value["merchantId"] === 'string') && (typeof value["name"] === 'string') && (typeof value["notifyUrl"] === 'string') && (typeof value["returnUrl"] === 'string') && ((value["tenantId"] === null) || (typeof value["tenantId"] === 'string' && guidPattern.test(value["tenantId"]))) && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && (Number.isSafeInteger(value["version"]));
 }
 
+export function readPaymentOrderCreationLookupResponse(value: unknown): PaymentOrderCreationLookupResponse {
+  const normalizedValue = normalizePaymentOrderCreationLookupResponseIntegerJson(value);
+  return requireValidResponse(normalizedValue, isPaymentOrderCreationLookupResponse(normalizedValue), 'payment_order_creation_lookup_response') as PaymentOrderCreationLookupResponse;
+}
+
+function isPaymentOrderCreationLookupResponse(value: unknown): value is PaymentOrderCreationLookupResponse {
+  return isRecord(value) && (typeof value["idempotencyKey"] === 'string' && guidPattern.test(value["idempotencyKey"])) && (isPaymentOrderResponse(value["order"])) && (typeof value["readAtUtc"] === 'string');
+}
+
 export function readPaymentOrderListItem(value: unknown): PaymentOrderListItem {
   const normalizedValue = normalizePaymentOrderListItemIntegerJson(value);
   return requireValidResponse(normalizedValue, isPaymentOrderListItem(normalizedValue), 'payment_order_list_item') as PaymentOrderListItem;
@@ -11914,6 +11924,10 @@ function normalizePaymentMerchantConfigListItemIntegerJson(value: unknown): unkn
 
 function normalizePaymentMerchantConfigResponseIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
+}
+
+function normalizePaymentOrderCreationLookupResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "order") ? { ["order"]: normalizePaymentOrderResponseIntegerJson(value["order"]) } : {}) } : value);
 }
 
 function normalizePaymentOrderListItemIntegerJson(value: unknown): unknown {

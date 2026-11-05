@@ -21,6 +21,12 @@ public static class PaymentErrorCodes
     /// <summary>支付订单不存在。</summary>
     public const string OrderNotFound = "payments.order.not_found";
 
+    /// <summary>原租户及创建请求身份没有对应的本地订单。</summary>
+    public const string OrderCreationRequestNotFound = "payments.order.creation_request_not_found";
+
+    /// <summary>原创建请求核对仅允许 Host 上下文。</summary>
+    public const string OrderCreationLookupForbidden = "payments.order.creation_lookup_forbidden";
+
     /// <summary>支付订单元数据校验失败。</summary>
     public const string OrderInvalid = "payments.order.invalid";
 

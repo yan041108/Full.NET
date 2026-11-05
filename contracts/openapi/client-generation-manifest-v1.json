@@ -3282,6 +3282,12 @@
       "status": "manual"
     },
     {
+      "operationId": "paymentsGetOrderCreationRequest",
+      "apiModule": "ui/admin/src/api/payment-orders.ts",
+      "generatedGroup": "payment-orders",
+      "status": "generated"
+    },
+    {
       "operationId": "paymentsGetOrder",
       "apiModule": "ui/admin/src/api/payment-orders.ts",
       "generatedGroup": "payment-orders",
