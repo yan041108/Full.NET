@@ -1,13 +1,28 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { importTaskItem, reportingTaskItem, taskActions, taskPending, readMyTaskSource } from './myTasks';
-import type { ImportExportTaskResponse, ReportingExportTask } from '@fullnet/client-contracts';
-const api = vi.hoisted(() => ({ listMyImportTasks: vi.fn(), listMyReportingTasks: vi.fn() }));
+import { agentTaskItem, importTaskItem, reportingTaskItem, taskActions, taskPending, readMyTaskSource } from './myTasks';
+import type { AiAgentRunResponse, ImportExportTaskResponse, ReportingExportTask } from '@fullnet/client-contracts';
+const api = vi.hoisted(() => ({ listMyImportTasks: vi.fn(), listMyReportingTasks: vi.fn(), listMyAgentRuns: vi.fn() }));
 vi.mock('../api/my-tasks', () => api);
 const imported = (statusKey = 'preview_succeeded', extra = {}) => ({ id: 'i', requestedByUserId: 'user', tenantId: 'tenant',
   statusKey, validRowCount: 2, processedRowCount: 1, sourceFileName: 'Orders.xlsx', schemaKey: 'orders', hasErrorReceipt: false, ...extra } as ImportExportTaskResponse);
 const exported = (statusKey = 'succeeded', extra = {}) => ({ id: 'r', requestedByUserId: 'user', statusKey, definitionName: 'Orders', rowCount: 100, ...extra } as ReportingExportTask);
 beforeEach(() => vi.resetAllMocks());
 describe('本人任务来源契约', () => {
+  it('AI 来源保留等待态且只提供来源详情，不借用导入或报表写入资格', async () => {
+    const run = { id: 'a', definitionKey: 'workflow', statusKey: 'running', createdAtUtc: '2026-11-05T00:00:00Z' } as AiAgentRunResponse;
+    const task = agentTaskItem(run);
+    expect(taskPending(task)).toBe(true);
+    for (const statusKey of ['awaiting_approval', 'authorization_required', 'reconciliation_required', 'retry_scheduled', 'completed', 'failed', 'cancelled', 'expired']) {
+      const item = agentTaskItem({ ...run, statusKey });
+      expect(taskPending(item)).toBe(false); expect(taskActions(item, () => true)).toEqual(['detail']);
+      expect(item.progress).toBeNull(); expect(item.hasResult).toBe(false);
+    }
+    api.listMyAgentRuns.mockResolvedValue({ items: [run], nextCursor: 'next', hasMore: true });
+    const signal = new AbortController().signal;
+    const result = await readMyTaskSource('agents', { userId: 'user', tenantId: 'tenant' }, 'before', 'running', signal);
+    expect(api.listMyAgentRuns).toHaveBeenCalledWith('before', 'running', signal);
+    expect(result.items).toEqual([task]); expect(result.nextCursor).toBe('next');
+  });
   it('已知导入行数保留，报表结果行数和未知有效期不伪装为进度', () => {
     expect(importTaskItem(imported()).progress).toEqual({ processed: 1, total: 2 });
     expect(importTaskItem(imported('preview_failed', { validRowCount: 0 })).progress).toBeNull();

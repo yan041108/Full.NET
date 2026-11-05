@@ -43,6 +43,7 @@ internal static partial class AiBudgetRowReaders
         registrar.Register<AiMcpRemoteToolRecord>(ReadMcpRemoteTool);
         registrar.Register<AiAgentApprovalRecord>(ReadAgentApproval);
         registrar.Register<AiAgentRunRecord>(ReadAgentRun);
+        registrar.Register<AiAgentRunResponse>(ReadAgentRunSummary);
         registrar.Register<AiAgentEventSequenceBounds>(ReadAgUiSequenceBounds);
         registrar.Register<AiAgentEventRecord>(ReadAgUiEvent);
         registrar.Register<AiAgentStepSummaryRecord>(ReadAgUiStep);
@@ -109,6 +110,12 @@ internal static partial class AiBudgetRowReaders
         ContentJson = Text(reader,"ContentJson"), ContentHash = Text(reader,"ContentHash"), CreatedAtUtc = Timestamp(reader,"CreatedAtUtc"), RevisionCreatedAtUtc = Timestamp(reader,"RevisionCreatedAtUtc"),
         RestoredFromRevisionId = Null(reader,"RestoredFromRevisionId") ? null : reader.GetGuid(reader.GetOrdinal("RestoredFromRevisionId"))
     };
+
+    /// <summary>本人列表只物化摘要，不把授权及预算快照带入查询契约。</summary>
+    internal static AiAgentRunResponse ReadAgentRunSummary(DbDataReader reader) => new(
+        reader.GetGuid(reader.GetOrdinal("Id")), Text(reader, "StatusKey"), Text(reader, "DefinitionKey"),
+        checked((int)Integer(reader, "DefinitionVersion")), Timestamp(reader, "DeadlineAtUtc"),
+        Timestamp(reader, "CreatedAtUtc"), Timestamp(reader, "UpdatedAtUtc"));
 
     /// <summary>运行完整投影与领取租约的四列投影共用静态物化，保留作用域、代次和原始绑定快照。</summary>
     internal static AiAgentRunRecord ReadAgentRun(DbDataReader reader)

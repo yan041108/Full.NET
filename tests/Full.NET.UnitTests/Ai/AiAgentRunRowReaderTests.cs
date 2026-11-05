@@ -7,6 +7,25 @@ namespace Full.NET.UnitTests.Ai;
 [TestClass]
 public sealed class AiAgentRunRowReaderTests
 {
+    [TestMethod] [DataRow(false)] [DataRow(true)]
+    public void Mine_summary_reads_only_seven_reordered_columns_with_provider_time_and_integer_shapes(bool mysql)
+    {
+        using var table = new DataTable(); var now = DateTime.UtcNow; var id = Guid.CreateVersion7();
+        table.Columns.Add("UpdatedAtUtc", mysql ? typeof(DateTime) : typeof(DateTimeOffset));
+        table.Columns.Add("Id", typeof(Guid)); table.Columns.Add("StatusKey", typeof(string));
+        table.Columns.Add("DefinitionVersion", mysql ? typeof(long) : typeof(decimal)); table.Columns.Add("DefinitionKey", typeof(string));
+        table.Columns.Add("CreatedAtUtc", mysql ? typeof(DateTime) : typeof(DateTimeOffset));
+        table.Columns.Add("DeadlineAtUtc", mysql ? typeof(DateTime) : typeof(DateTimeOffset));
+        var time = mysql ? (object)now : new DateTimeOffset(now);
+        table.Rows.Add(time, id, "reconciliation_required", 2, "workflow", time, time);
+        using var reader = table.CreateDataReader(); Assert.IsTrue(reader.Read());
+        var row = AiBudgetRowReaders.ReadAgentRunSummary(reader);
+        Assert.AreEqual(id, row.Id); Assert.AreEqual("reconciliation_required", row.StatusKey);
+        Assert.AreEqual("workflow", row.DefinitionKey); Assert.AreEqual(2, row.DefinitionVersion);
+        Assert.AreEqual(new DateTimeOffset(now), row.CreatedAtUtc); Assert.AreEqual(row.CreatedAtUtc, row.UpdatedAtUtc);
+        Assert.AreEqual(row.CreatedAtUtc, row.DeadlineAtUtc);
+    }
+
     [TestMethod] [DataRow(false, false)] [DataRow(true, false)] [DataRow(false, true)] [DataRow(true, true)]
     public void Full_run_preserves_binding_fencing_and_nullable_provider_values(bool mysql, bool absent)
     {

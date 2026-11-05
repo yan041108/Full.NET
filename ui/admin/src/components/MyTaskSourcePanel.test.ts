@@ -3,7 +3,7 @@ import { mount, flushPromises, type VueWrapper } from '@vue/test-utils';
 import { createPinia, setActivePinia } from 'pinia';
 import MyTaskSourcePanel from './MyTaskSourcePanel.vue';
 import { useSessionStore } from '../auth/session';
-const api = vi.hoisted(() => ({ listMyImportTasks: vi.fn(), listMyReportingTasks: vi.fn(), push: vi.fn(),
+const api = vi.hoisted(() => ({ listMyImportTasks: vi.fn(), listMyReportingTasks: vi.fn(), listMyAgentRuns: vi.fn(), push: vi.fn(),
   getImportExportTask: vi.fn(), executeImportExportTask: vi.fn(), resumeImportExportTask: vi.fn(), retryImportExportTask: vi.fn(),
   downloadImportExportTaskErrorReceipt: vi.fn(), getReportingExportTask: vi.fn(), downloadReportingExportTask: vi.fn() }));
 vi.mock('../api/my-tasks', () => api);
@@ -15,14 +15,31 @@ const imported = (statusKey = 'preview_succeeded') => ({ id: 'i', requestedByUse
   schemaKey: 'orders', statusKey, validRowCount: 2, processedRowCount: 0 });
 const reported = (statusKey = 'succeeded') => ({ id: 'r', requestedByUserId: 'user', definitionName: 'Report', statusKey });
 const page = (items: unknown[] = [], nextCursor: string | null = null) => ({ items, nextCursor, hasMore: nextCursor !== null });
-function render(source: 'imports' | 'reports' = 'imports', permissions = ['platform.my_tasks.read', 'import_export.import_tasks.read', 'import_export.import_tasks.execute', 'reporting.export_tasks.read', 'reporting.export_tasks.download']) {
+function render(source: 'imports' | 'reports' | 'agents' = 'imports', permissions = ['platform.my_tasks.read', 'import_export.import_tasks.read', 'import_export.import_tasks.execute', 'reporting.export_tasks.read', 'reporting.export_tasks.download']) {
   const pinia = createPinia(); setActivePinia(pinia); const session = useSessionStore(pinia);
+  session.state = 'authenticated';
   session.currentUser = { id: 'user', tenantId: 'tenant', sessionId: 'session', permissions } as NonNullable<typeof session.currentUser>;
   const wrapper = mount(MyTaskSourcePanel, { props: { source }, global: { plugins: [pinia] } }); wrappers.push(wrapper); return { wrapper, session };
 }
-beforeEach(() => { vi.resetAllMocks(); api.listMyImportTasks.mockResolvedValue(page()); api.listMyReportingTasks.mockResolvedValue(page()); });
+beforeEach(() => { vi.resetAllMocks(); api.listMyImportTasks.mockResolvedValue(page()); api.listMyReportingTasks.mockResolvedValue(page()); api.listMyAgentRuns.mockResolvedValue(page()); });
 afterEach(() => { wrappers.splice(0).forEach(wrapper => wrapper.unmount()); vi.restoreAllMocks(); vi.useRealTimers(); });
 describe('来源独立任务面板', () => {
+  it('AI 等待态只链接原详情，撤权取消独立读取并清空摘要', async () => {
+    api.listMyAgentRuns.mockResolvedValue(page([{ id: 'run', definitionKey: 'rename-workflow', statusKey: 'awaiting_approval' }]));
+    const { wrapper, session } = render('agents', ['platform.my_tasks.read', 'ai.agent_runs.read', 'import_export.import_tasks.execute']);
+    await flushPromises(); expect(wrapper.text()).toContain('等待审批');
+    expect(wrapper.findAll('[data-testid^="my-tasks-"]').filter(item => ['execute', 'resume', 'retry', 'cancel', 'download'].some(action => item.attributes('data-testid') === `my-tasks-${action}`))).toHaveLength(0);
+    await wrapper.get('.el-table__body-wrapper [data-testid="my-tasks-detail"]').trigger('click');
+    expect(api.push).toHaveBeenCalledWith({ name: 'ai-agent-runs', query: { taskId: 'run' } });
+    let resolve!: (value: unknown) => void;
+    api.listMyAgentRuns.mockImplementation(() => new Promise(done => { resolve = done; }));
+    await wrapper.get('[data-testid="my-tasks-refresh"]').trigger('click');
+    const signal = api.listMyAgentRuns.mock.lastCall![2] as AbortSignal;
+    session.currentUser!.permissions = ['platform.my_tasks.read']; await flushPromises();
+    expect(signal.aborted).toBe(true);
+    resolve(page([{ id: 'late', definitionKey: 'late-private', statusKey: 'completed' }])); await flushPromises();
+    expect(wrapper.text()).not.toContain('rename-workflow'); expect(wrapper.text()).not.toContain('late-private');
+  });
   it('取消跳转原详情确认，不在聚合页直接写入或使用旧版本执行', async () => {
     api.listMyImportTasks.mockResolvedValue(page([imported('queued')]));
     const { wrapper } = render('imports', ['platform.my_tasks.read', 'import_export.import_tasks.read', 'import_export.import_tasks.cancel']);

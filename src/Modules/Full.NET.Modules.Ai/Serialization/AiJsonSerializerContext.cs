@@ -202,6 +202,7 @@ namespace Full.NET.Modules.Ai.Serialization;
 [JsonSerializable(typeof(CreateAiAgentRunResponse))]
 [JsonSerializable(typeof(AiAgentWorkflowProposalResponse))]
 [JsonSerializable(typeof(AiAgentRunResponse))]
+[JsonSerializable(typeof(Full.NET.Abstractions.Results.CursorPage<AiAgentRunResponse>))]
 [JsonSerializable(typeof(AiAgentReconciliationResponse))]
 [JsonSerializable(typeof(ReconcileAiAgentRunRequest))]
 [JsonSerializable(typeof(AgentRunBudgetSnapshot))]

@@ -323,6 +323,7 @@ import type {
   CreateWorkflowFormRequest,
   CreateWorkflowWorkCalendarRequest,
   CurrentUserResponse,
+  CursorPageOfAiAgentRunResponse,
   CursorPageOfImportExportTaskResponse,
   CursorPageOfQuerySchemeSummary,
   CursorPageOfReportingExportTaskResponse,
@@ -1113,6 +1114,7 @@ import {
   readCreateAiAgentRunResponse,
   readCreateHostApiKeyResponse,
   readCurrentUserResponse,
+  readCursorPageOfAiAgentRunResponse,
   readCursorPageOfImportExportTaskResponse,
   readCursorPageOfQuerySchemeSummary,
   readCursorPageOfReportingExportTaskResponse,
@@ -3790,6 +3792,34 @@ export async function aiListModelConfigs(
   const init: RequestInit = { method: 'GET' };
   const value = await requestJsonOperation(http, path, init, signal, options);
   return readPagedResultOfAiModelConfigListItem(value);
+}
+
+export interface AiListMyAgentRunsParameters {
+  readonly pageSize?: number;
+  readonly statusKey?: string;
+  readonly cursor?: string;
+}
+
+export async function aiListMyAgentRuns(
+  http: HttpClient,
+  parameters: AiListMyAgentRunsParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<CursorPageOfAiAgentRunResponse> {
+  const query = new URLSearchParams();
+  if (parameters.pageSize !== undefined) {
+    query.set('pageSize', String(parameters.pageSize));
+  }
+  if (parameters.statusKey !== undefined) {
+    query.set('statusKey', String(parameters.statusKey));
+  }
+  if (parameters.cursor !== undefined) {
+    query.set('cursor', String(parameters.cursor));
+  }
+  const path = query.size === 0 ? `/api/v1/ai/agent/runs/mine` : `/api/v1/ai/agent/runs/mine?${query.toString()}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = await requestJsonOperation(http, path, init, signal, options);
+  return readCursorPageOfAiAgentRunResponse(value);
 }
 
 export interface AiListPromptsParameters {

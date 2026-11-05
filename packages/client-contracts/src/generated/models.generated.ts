@@ -2771,6 +2771,12 @@ export interface CurrentUserResponse {
   readonly username: string;
 }
 
+export interface CursorPageOfAiAgentRunResponse {
+  readonly hasMore: boolean;
+  readonly items: Array<AiAgentRunResponse>;
+  readonly nextCursor: null | string;
+}
+
 export interface CursorPageOfImportExportTaskResponse {
   readonly hasMore: boolean;
   readonly items: Array<ImportExportTaskResponse>;

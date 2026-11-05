@@ -1,6 +1,6 @@
 import { beforeEach, expect, it, vi } from 'vitest';
 import { isCursorPage } from '@fullnet/client-contracts';
-import { listMyImportTasks, listMyReportingTasks } from './my-tasks';
+import { listMyAgentRuns, listMyImportTasks, listMyReportingTasks } from './my-tasks';
 const request = vi.hoisted(() => vi.fn());
 vi.mock('./http', () => ({ http: { request } }));
 beforeEach(() => vi.resetAllMocks());
@@ -14,11 +14,15 @@ it('本人查询使用生成操作、固定页上限、来源筛选和取消信�
   expect(request.mock.calls[0]![2]).toBe(signal);
   await listMyReportingTasks(undefined, 'failed', signal);
   expect(request.mock.lastCall![0]).toBe('/api/v1/reporting/export-tasks/mine?pageSize=20&statusKey=failed');
+  await listMyAgentRuns('before', 'awaiting_approval', signal);
+  expect(request.mock.lastCall![0]).toBe('/api/v1/ai/agent/runs/mine?pageSize=20&statusKey=awaiting_approval&cursor=before');
+  expect(request.mock.lastCall![2]).toBe(signal);
 });
 it('生成契约与游标交叉约束共同拒绝损坏的来源响应', async () => {
   for (const value of [{ items: [], nextCursor: 'again', hasMore: true }, { items: [], nextCursor: 'again', hasMore: false },
     { items: [{ id: 'invalid' }], nextCursor: null, hasMore: false }]) {
     request.mockResolvedValue(value); await expect(listMyReportingTasks()).rejects.toThrow();
+    await expect(listMyAgentRuns()).rejects.toThrow();
   }
 });
 it('游标页拒绝超过接口上限或缺失后续位置的摘要', () => {

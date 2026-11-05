@@ -7,6 +7,9 @@ import { cancelAiAgentRun, resumeAiAgentRun, createAiAgentRun, getAiAgentRun, st
 import { listAiModelConfigs } from '../api/ai-model-configs';
 import { useSessionStore } from '../auth/session';
 
+const taskRoute = vi.hoisted(() => ({ query: {} as Record<string, string> }));
+vi.mock('vue-router', async original => ({ ...await original<typeof import('vue-router')>(), useRoute: () => taskRoute }));
+
 vi.mock('../api/ai-agent-runs', () => ({
   createAiAgentRun: vi.fn(),
   getAiAgentRun: vi.fn(),
@@ -42,8 +45,26 @@ describe('AiAgentRunsView', () => {
 
   beforeEach(() => {
     vi.resetAllMocks();
+    taskRoute.query = {};
     listModelsMock.mockResolvedValue({ items: [], page: 1, pageSize: 100, total: 0 });
     streamMock.mockResolvedValue(undefined);
+  });
+
+  it('从我的任务进入时由来源重新读取本人详情，未授予创建权限也不自动写入', async () => {
+    const id = '11111111-1111-7111-8111-111111111111';
+    taskRoute.query = { taskId: id };
+    getRunMock.mockResolvedValue({ id, statusKey: 'completed', definitionKey: 'workflow', definitionVersion: 1,
+      deadlineAtUtc: '2026-11-05T01:00:00Z', createdAtUtc: '2026-11-05T00:00:00Z', updatedAtUtc: '2026-11-05T00:00:00Z' });
+    const pinia = createPinia(); setActivePinia(pinia); const session = useSessionStore(pinia);
+    session.state = 'authenticated';
+    session.currentUser = { id: 'user', tenantId: 'tenant', permissions: ['ai.agent_runs.read'] } as NonNullable<typeof session.currentUser>;
+    const wrapper = mount(AiAgentRunsView, { global: { plugins: [pinia], stubs: { AiPromptPanel: true, AiAgentReconciliationPanel: true } } });
+    wrappers.push(wrapper); await flushPromises();
+    expect(getRunMock).toHaveBeenCalledWith(id, expect.any(AbortSignal));
+    expect(wrapper.text()).toContain('completed'); expect(createRunMock).not.toHaveBeenCalled();
+    expect(cancelAiAgentRun).not.toHaveBeenCalled(); expect(resumeAiAgentRun).not.toHaveBeenCalled();
+    session.currentUser!.permissions = []; await flushPromises();
+    expect(wrapper.get('[data-testid="ai-agent-runs-id"]').element).toHaveProperty('value', '');
   });
 
   it('hides create action without permission', async () => {

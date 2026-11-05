@@ -322,6 +322,7 @@ import type {
   CreateWorkflowFormRequest,
   CreateWorkflowWorkCalendarRequest,
   CurrentUserResponse,
+  CursorPageOfAiAgentRunResponse,
   CursorPageOfImportExportTaskResponse,
   CursorPageOfQuerySchemeSummary,
   CursorPageOfReportingExportTaskResponse,
@@ -3770,6 +3771,15 @@ export function readCurrentUserResponse(value: unknown): CurrentUserResponse {
 
 function isCurrentUserResponse(value: unknown): value is CurrentUserResponse {
   return isRecord(value) && (typeof value["actorScope"] === 'string') && (typeof value["displayName"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["isSuperAdministrator"] === 'boolean') && (typeof value["passwordChangeRequired"] === 'boolean') && (Array.isArray(value["permissions"]) && value["permissions"].every(item20 => typeof item20 === 'string')) && (typeof value["preferredLocale"] === 'string') && (Number.isSafeInteger(value["profileVersion"])) && (typeof value["scope"] === 'string') && (typeof value["sessionId"] === 'string' && guidPattern.test(value["sessionId"])) && ((value["tenantId"] === null) || (typeof value["tenantId"] === 'string' && guidPattern.test(value["tenantId"]))) && (typeof value["username"] === 'string');
+}
+
+export function readCursorPageOfAiAgentRunResponse(value: unknown): CursorPageOfAiAgentRunResponse {
+  const normalizedValue = normalizeCursorPageOfAiAgentRunResponseIntegerJson(value);
+  return requireValidResponse(normalizedValue, isCursorPageOfAiAgentRunResponse(normalizedValue), 'cursor_page_of_ai_agent_run_response') as CursorPageOfAiAgentRunResponse;
+}
+
+function isCursorPageOfAiAgentRunResponse(value: unknown): value is CursorPageOfAiAgentRunResponse {
+  return isRecord(value) && (typeof value["hasMore"] === 'boolean') && (Array.isArray(value["items"]) && value["items"].every(item14 => isAiAgentRunResponse(item14))) && ((value["nextCursor"] === null) || (typeof value["nextCursor"] === 'string'));
 }
 
 export function readCursorPageOfImportExportTaskResponse(value: unknown): CursorPageOfImportExportTaskResponse {
@@ -10890,6 +10900,10 @@ function normalizeCreateWorkflowWorkCalendarRequestIntegerJson(value: unknown): 
 
 function normalizeCurrentUserResponseIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "profileVersion") ? { ["profileVersion"]: normalizeWireInteger(value["profileVersion"]) } : {}) } : value);
+}
+
+function normalizeCursorPageOfAiAgentRunResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "items") ? { ["items"]: (Array.isArray(value["items"]) ? value["items"].map((item14: unknown) => normalizeAiAgentRunResponseIntegerJson(item14)) : value["items"]) } : {}) } : value);
 }
 
 function normalizeCursorPageOfImportExportTaskResponseIntegerJson(value: unknown): unknown {

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, shallowRef, watch } from 'vue';
+import { useRoute } from 'vue-router';
 import {
   ElAlert,
   ElButton,
@@ -43,6 +44,7 @@ defineOptions({ name: 'AiAgentRunsView' });
 const { t, locale } = useAdminI18n();
 const workflowText = (key: Parameters<typeof aiWorkflowText>[1]) => aiWorkflowText(locale.value, key);
 const session = useSessionStore();
+const route = useRoute();
 const promptVersion = ref<AiPromptVersionResponse>();
 function selectPrompt(version: AiPromptVersionResponse | undefined) {
   promptVersion.value = version;
@@ -246,6 +248,15 @@ onBeforeUnmount(() => {
   ++contextEpoch; contextController.abort(); pendingCreate = undefined; pendingAction.value = undefined;
   stopStream();
 });
+
+// 聚合入口只传标识；来源详情重新校验本人归属，不把列表状态当作执行凭据。
+watch(() => [route?.query.taskId, session.currentUser?.id, session.currentUser?.tenantId, session.switching,
+  session.can('ai.agent_runs.read')], () => {
+  const id = route?.query.taskId;
+  if (typeof id === 'string' && /^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i.test(id)
+    && id !== '00000000-0000-0000-0000-000000000000' && session.currentUser?.tenantId
+    && !session.switching && session.can('ai.agent_runs.read')) void loadRun(id);
+}, { immediate: true });
 
 async function loadModels() {
   if (!session.can('ai.model_configs.read') || session.switching) return;

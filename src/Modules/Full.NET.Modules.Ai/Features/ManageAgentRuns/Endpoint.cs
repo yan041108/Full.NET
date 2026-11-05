@@ -17,6 +17,17 @@ internal static class Endpoint
         var group = endpoints.MapGroup("/api/v1/ai/agent/runs")
             .WithTags("AiAgentRuns");
 
+        group.MapGet("/mine", async (int? pageSize, string? statusKey, string? cursor,
+            AiAgentRunQueryService queries, IApiResultMapper mapper, HttpContext context, CancellationToken token) =>
+        {
+            if (!TryResolveUserId(context, out var userId) || userId == Guid.Empty) return Results.Unauthorized();
+            context.Response.Headers.CacheControl = "no-store";
+            return mapper.Map(await queries.ListMineAsync(userId, pageSize ?? 20, statusKey, cursor, token).ConfigureAwait(false), context);
+        }).WithName("aiListMyAgentRuns").Produces<CursorPage<AiAgentRunResponse>>()
+            .ProducesProblem(StatusCodes.Status400BadRequest).ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .RequireAuthorization(FullNetPermissionPolicies.For(AiAgentRunPermissions.Read));
+
         group.MapPost("/", async (
             CreateAiAgentRunRequest request,
             AiAgentRunManagementService service,
@@ -61,6 +72,7 @@ internal static class Endpoint
             }
 
             var result = await queries.GetOwnedAsync(runId, userId, cancellationToken).ConfigureAwait(false);
+            httpContext.Response.Headers.CacheControl = "no-store";
             return mapper.Map(result, httpContext);
         })
         .WithName("aiGetAgentRun")

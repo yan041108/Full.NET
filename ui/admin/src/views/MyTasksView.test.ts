@@ -7,11 +7,16 @@ const wrappers: VueWrapper[] = [];
 afterEach(() => wrappers.splice(0).forEach(wrapper => wrapper.unmount()));
 function render(permissions: string[], extra = {}) {
   const pinia = createPinia(); setActivePinia(pinia); const session = useSessionStore(pinia);
+  session.state = 'authenticated';
   session.currentUser = { id: 'user', tenantId: 'tenant', permissions, ...extra } as NonNullable<typeof session.currentUser>;
   const wrapper = mount(MyTasksView, { global: { plugins: [pinia], stubs: { MyTaskSourcePanel: { props: ['source'], template: '<div :data-source="source" />' } } } });
   wrappers.push(wrapper); return wrapper;
 }
 describe('我的任务入口', () => {
+  it('明确授予 AI 来源读取权限时装配第三来源，未授权来源保持隐藏', () => {
+    const wrapper = render(['platform.my_tasks.read', 'ai.agent_runs.read']);
+    expect(wrapper.findAll('[data-source]').map(item => item.attributes('data-source'))).toEqual(['agents']);
+  });
   it('只装配当前权限目录里的来源，超级管理员通配不猜测安装状态', () => {
     const wrapper = render(['platform.my_tasks.read', 'reporting.export_tasks.read'], { isSuperAdministrator: true });
     expect(wrapper.findAll('[data-source]').map(item => item.attributes('data-source'))).toEqual(['reports']);

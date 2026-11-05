@@ -20,7 +20,7 @@ let generation = 0, readVersion = 0; let requests = new AbortController(), readR
 const scope = () => [session.currentUser?.id, session.currentUser?.tenantId, session.currentUser?.sessionId, session.currentUser?.permissions.join('|')].join('|');
 const eligible = () => !!session.currentUser?.tenantId && !session.switching && session.can('platform.my_tasks.read')
   && session.currentUser.permissions.includes(sourceReadPermissions.get(props.source)!);
-const heading = computed(() => t(props.source === 'imports' ? 'taskCenter.imports' : 'taskCenter.reports'));
+const heading = computed(() => t(props.source === 'imports' ? 'taskCenter.imports' : props.source === 'agents' ? 'taskCenter.agents' : 'taskCenter.reports'));
 const states = computed(() => sourceStatusKeys.get(props.source) ?? []);
 const currentCursor = () => cursors.value[pageIndex.value] || undefined;
 async function read(signal: AbortSignal) {
@@ -67,12 +67,13 @@ function next() {
 }
 function previous() { if (pageIndex.value > 0 && !loading.value && !actionLoading.value) { pageIndex.value--; void load(); } }
 function statusLabel(key: string) {
-  const message = `${props.source === 'imports' ? 'importExportTasks' : 'reportingExportTasks'}.status.${key}`;
+  const message = props.source === 'agents' ? `taskCenter.agentStatus.${key}`
+    : `${props.source === 'imports' ? 'importExportTasks' : 'reportingExportTasks'}.status.${key}`;
   const translated = translateRuntimeMessage(t, message); return translated === message ? key : translated;
 }
 function tagType(key: string) {
   if (key.includes('failed')) return 'danger'; if (key === 'execution_partial') return 'warning';
-  return key.includes('succeeded') ? 'success' : 'info';
+  return key.includes('succeeded') || key === 'completed' ? 'success' : 'info';
 }
 function download(blob: Blob, filename: string) {
   const url = URL.createObjectURL(blob), anchor = document.createElement('a');
@@ -99,7 +100,7 @@ async function act(task: MyTaskItem, action: MyTaskAction) {
         await execute(task.id, requests.signal);
         if (current === generation && eligible()) showSuccess(t('importExportTasks.actionSuccess'));
       }
-    } else {
+    } else if (props.source === 'reports') {
       const detail = await getReportingExportTask(task.id, requests.signal);
       if (current !== generation || !eligible()) return;
       if (detail.requestedByUserId !== actor.id || !taskActions(reportingTaskItem(detail), session.can).includes(action)) throw new Error('client.task_state_changed');
@@ -133,7 +134,7 @@ onBeforeUnmount(reset);
       <ElTableColumn :label="t('taskCenter.expiry')" min-width="130"><template #default>{{ t('taskCenter.notProvided') }}</template></ElTableColumn>
       <ElTableColumn prop="createdAtUtc" :label="t('taskCenter.createdAt')" min-width="190" show-overflow-tooltip />
       <!-- @vue-generic {MyTaskItem} -->
-      <ElTableColumn :label="t('taskCenter.actions')" min-width="220" fixed="right"><template #default="{ row }">
+      <ElTableColumn :label="t('taskCenter.actions')" :min-width="source === 'agents' ? 100 : 220" fixed="right"><template #default="{ row }">
         <ElButton v-for="action in taskActions(row, session.can)" :key="action" link type="primary" :disabled="actionLoading || loading || unavailable"
           :data-testid="`my-tasks-${action}`" @click="act(row, action)">{{ translateRuntimeMessage(t, `taskCenter.action.${action}`) }}</ElButton>
       </template></ElTableColumn>
