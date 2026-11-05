@@ -22,6 +22,8 @@ internal sealed class PaymentRefundReconciliationService(IQueryExecutor queries,
             PaymentSqlParameters.Create(("MerchantConfigId", order.MerchantConfigId)), cancellationToken).ConfigureAwait(false);
         if (refund is null || merchant is null || refund.MerchantConfigId != merchant.Id)
             return Failure("No matching refund intent or merchant is available.");
+        var channelError = PaymentRefundChannelGuard.Validate(order, merchant);
+        if (channelError is not null) return Result<bool>.Failure(channelError);
         WeChatRefundQueryResult snapshot;
         try { snapshot = await client.QueryDomesticRefundAsync(merchant, refund.OutRefundNo, cancellationToken).ConfigureAwait(false); }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }

@@ -12,4 +12,6 @@
   <data name="payments.subscription_fulfillment_pending" xml:space="preserve"><value>Subscription fulfillment is awaiting retry.</value></data>
   <data name="payments.subscription_recovery_failed" xml:space="preserve"><value>Recovery failed repeatedly. Reconcile the payment and invoice before retrying fulfillment.</value></data>
   <data name="payments.refund.request_conflict" xml:space="preserve"><value>The refund parameters do not match the original refund intent. Check the original refund record.</value></data>
+  <data name="payments.refund.channel_unsupported" xml:space="preserve"><value>Refunds and refund reconciliation are currently supported only for WeChat Native orders.</value></data>
+  <data name="payments.refund.merchant_mismatch" xml:space="preserve"><value>The merchant configuration does not match the original order tenant or channel. Check the original order.</value></data>
 </root>

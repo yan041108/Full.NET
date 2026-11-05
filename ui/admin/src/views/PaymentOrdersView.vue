@@ -154,6 +154,7 @@ async function reconcileOrder(orderId: string): Promise<void> {
 }
 
 function openRefund(orderId: string): void {
+  if (changing.value || items.value.find(row => row.id === orderId)?.channelKey !== 'wechat_native') return;
   refundOrderId.value = orderId;
   Object.assign(refundForm, { amountYuan: '', reason: '' });
   refundOpen.value = true;
@@ -199,6 +200,7 @@ onMounted(() => {
 <template>
   <section class="payment-orders-view art-page-stack art-full-height" :aria-busy="loading">
     <h1 class="art-sr-heading" data-route-heading tabindex="-1">{{ t('paymentOrders.title') }}</h1>
+    <el-alert type="info" :closable="false" :title="t('paymentOrders.refundChannelHint')" show-icon class="art-page-alert" data-testid="payment-refund-channel-hint" />
     <el-alert v-if="problem" type="error" :title="problem.title" show-icon class="art-page-alert" />
     <el-alert
       v-if="lastCodeUrl"
@@ -259,6 +261,7 @@ onMounted(() => {
                   link
                   type="warning"
                   :data-testid="`payment-order-refund-${row.id}`"
+                  :disabled="changing || row.channelKey !== 'wechat_native'"
                   @click="openRefund(row.id)"
                 >
                   {{ t('paymentOrders.refund') }}

@@ -25,7 +25,7 @@ for (const width of [1440, 390]) {
     await page.route('**/api/v1/notifications/my-inbox-messages/unread-count', route => json(route, { unreadCount: 0 }));
     let orderReads = 0, refundReads = 0; const creates = [], refunds = [];
     await page.route('**/api/v1/payments/orders?*', route => {
-      orderReads++; return json(route, { items: [order, { ...order, id: id(4), outTradeNo: 'unknown-amount', amountMinor: Number.MAX_SAFE_INTEGER + 1 }], page: 1, pageSize: 20, total: 2 });
+      orderReads++; return json(route, { items: [order, { ...order, id: id(4), outTradeNo: 'unknown-amount', amountMinor: Number.MAX_SAFE_INTEGER + 1 }, { ...order, id: id(7), channelKey: 'alipay_page', outTradeNo: 'unsupported-refund' }], page: 1, pageSize: 20, total: 3 });
     });
     await page.route('**/api/v1/payments/orders', route => {
       expect(route.request().method()).toBe('POST'); creates.push(route.request().postDataJSON()); return json(route, { ...order, amountMinor: creates.at(-1).amountMinor });
@@ -40,6 +40,12 @@ for (const width of [1440, 390]) {
     const orders = page.locator('.payment-orders-view');
     await expect(orders.locator('.el-table__body-wrapper')).toContainText('90071992547409.90');
     await expect(orders.locator('.el-table__body-wrapper')).toContainText('金额无法精确显示');
+    await expect(page.getByTestId('payment-refund-channel-hint')).toContainText('当前仅支持微信 Native');
+    await expect(page.getByTestId('payment-order-refund-' + id(7))).toBeDisabled();
+    await expect(page.getByTestId('payment-order-refund-records-' + id(7))).toBeEnabled();
+    expect(refunds).toHaveLength(0);
+    await page.screenshot({ path: info.outputPath('payment-refund-channel-' + width + '.png'), animations: 'disabled' });
+    expect((await new AxeBuilder({ page }).include('.payment-orders-view').withTags(['wcag2a', 'wcag2aa']).analyze()).violations).toEqual([]);
     await orders.getByRole('button', { name: '刷新', exact: true }).click(); await expect.poll(() => orderReads).toBe(2);
     await page.getByTestId('payment-order-create').click();
     await page.getByTestId('payment-order-create-tenant').fill(id(2)); await page.getByTestId('payment-order-create-subject').fill('明确订单');

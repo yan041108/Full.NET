@@ -12,4 +12,6 @@
   <data name="payments.subscription_fulfillment_pending" xml:space="preserve"><value>订阅履约等待重试。</value></data>
   <data name="payments.subscription_recovery_failed" xml:space="preserve"><value>多次恢复未完成，请核对付款和账单后重试履约。</value></data>
   <data name="payments.refund.request_conflict" xml:space="preserve"><value>本次退款参数与原退款意图不一致，请核对原退款记录。</value></data>
+  <data name="payments.refund.channel_unsupported" xml:space="preserve"><value>当前仅支持微信 Native 订单退款及退款对账。</value></data>
+  <data name="payments.refund.merchant_mismatch" xml:space="preserve"><value>当前商户配置与原订单的租户或渠道不一致，请核对原订单。</value></data>
 </root>

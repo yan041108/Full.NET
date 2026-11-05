@@ -153,6 +153,10 @@ internal sealed class PaymentRefundManagementService(
                 ErrorType.Validation));
         }
 
+        var channelError = PaymentRefundChannelGuard.Validate(order, merchantConfig);
+        if (channelError is not null)
+            return Result<PreparedPaymentRefund>.Failure(channelError);
+
         if (order.TradeStateKey == PaymentTradeStateKeys.Refunding)
         {
             return await RecoverRefundIntentAsync(order, merchantConfig, request, cancellationToken)

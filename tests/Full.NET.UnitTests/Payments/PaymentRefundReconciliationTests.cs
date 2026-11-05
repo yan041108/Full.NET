@@ -56,9 +56,9 @@ public sealed class PaymentRefundReconciliationTests
     private static Fixture Create(string remote)
     {
         var tenantId = Guid.NewGuid();
-        var merchant = new PaymentMerchantConfigRecord { Id = Guid.NewGuid(), IsEnabled = true, TenantId = tenantId };
+        var merchant = new PaymentMerchantConfigRecord { Id = Guid.NewGuid(), IsEnabled = true, TenantId = tenantId, ChannelKey = PaymentChannelKeys.WeChatNative };
         var order = new PaymentOrderRecord { Id = Guid.NewGuid(), MerchantConfigId = merchant.Id,
-            TenantId = tenantId, AmountMinor = 500, Currency = "CNY", ProviderTransactionId = "transaction-1",
+            TenantId = tenantId, ChannelKey = PaymentChannelKeys.WeChatNative, AmountMinor = 500, Currency = "CNY", ProviderTransactionId = "transaction-1",
             PaidAtUtc = DateTimeOffset.UtcNow.AddMinutes(-5), TradeStateKey = PaymentTradeStateKeys.Refunding, Version = 2 };
         var refund = new PaymentRefundRecord { Id = Guid.NewGuid(), OrderId = order.Id, MerchantConfigId = merchant.Id,
             OutRefundNo = "refund-1", AmountMinor = 500, Currency = "CNY", Version = 1 };

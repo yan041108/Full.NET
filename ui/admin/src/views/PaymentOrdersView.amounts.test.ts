@@ -10,7 +10,7 @@ vi.mock('vue-router', async original => ({ ...await original<typeof import('vue-
 vi.mock('../api/payment-orders', () => ({ listPaymentOrders: vi.fn(), createPaymentOrder: vi.fn(), getPaymentOrder: vi.fn(),
   reconcilePaymentOrder: vi.fn(), createPaymentRefund: vi.fn() }));
 const id = (n: number) => `019bc2b1-2a40-7cc3-8992-a80de51bf2${String(n).padStart(2, '0')}`;
-const order = { id: id(1), tenantId: id(2), merchantConfigId: id(3), outTradeNo: 'paid-order', tradeStateKey: 'succeeded',
+const order = { id: id(1), tenantId: id(2), merchantConfigId: id(3), channelKey: 'wechat_native', outTradeNo: 'paid-order', tradeStateKey: 'succeeded',
   amountMinor: Number.MAX_SAFE_INTEGER, currency: 'CNY', codeUrl: null } as PaymentOrder;
 const dialog = { props: ['open', 'confirmTestId'], emits: ['confirm'], template: '<section v-if="open"><slot/><button :data-testid="confirmTestId" @click="$emit(\'confirm\')">Confirm</button></section>' };
 const wrappers: VueWrapper[] = [];
@@ -27,6 +27,16 @@ beforeEach(() => {
 });
 afterEach(() => wrappers.splice(0).forEach(wrapper => wrapper.unmount()));
 describe('支付页面金额提交', () => {
+  it.each(['alipay_page', 'unknown', ''])('渠道 %s 不打开退款窗口，仍可只读核对', async channelKey => {
+    vi.mocked(listPaymentOrders).mockResolvedValue({ items: [{ ...order, channelKey }], page: 1, pageSize: 20, total: 1 });
+    const wrapper = await panel(); useSessionStore().currentUser!.permissions.push('payments.refunds.read'); await flushPromises();
+    const action = wrapper.get(`[data-testid="payment-order-refund-${order.id}"]`);
+    expect(action.attributes('disabled')).toBeDefined(); await action.trigger('click');
+    expect(wrapper.find('[data-testid="payment-order-refund-reason"]').exists()).toBe(false);
+    expect(createPaymentRefund).not.toHaveBeenCalled();
+    await wrapper.get(`[data-testid="payment-order-refund-records-${order.id}"]`).trigger('click');
+    expect(navigation.push).toHaveBeenCalledWith({ name: 'payment-refunds', query: { orderId: order.id } });
+  });
   it('退款结果未确认时可按原订单跳转只读记录，不再次提交退款', async () => {
     const wrapper = await panel(); useSessionStore().currentUser!.permissions.push('payments.refunds.read'); await flushPromises();
     vi.mocked(createPaymentRefund).mockRejectedValue(new Error('unconfirmed'));

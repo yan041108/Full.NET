@@ -57,6 +57,12 @@ public static class PaymentErrorCodes
     /// <summary>恢复请求与原退款意图的金额、原因或所属订单不一致。</summary>
     public const string RefundRequestConflict = "payments.refund.request_conflict";
 
+    /// <summary>原订单渠道尚未支持退款创建或退款对账。</summary>
+    public const string RefundChannelUnsupported = "payments.refund.channel_unsupported";
+
+    /// <summary>当前商户配置的渠道或租户与原订单不一致。</summary>
+    public const string RefundMerchantMismatch = "payments.refund.merchant_mismatch";
+
     /// <summary>订单状态不允许当前操作。</summary>
     public const string OrderStateInvalid = "payments.order.state_invalid";
 }
