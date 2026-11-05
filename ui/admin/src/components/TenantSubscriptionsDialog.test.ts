@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { flushPromises, mount } from '@vue/test-utils';
 import { createPinia, setActivePinia } from 'pinia';
 import { ElSelect } from 'element-plus';
+import type { TenantSubscription } from '@fullnet/client-contracts';
 import TenantSubscriptionsDialog from './TenantSubscriptionsDialog.vue';
 import { useSessionStore } from '../auth/session';
 import { useAdminI18n } from '../i18n/adminI18n';
@@ -13,7 +14,7 @@ const tenant = { id: id(1), identifier: 'acme', name: 'Acme', domain: 'acme.loca
 const pkg = { id: id(2), code: 'one', name: 'First plan', description: null, isActive: true, version: 1, assignedTenantCount: 0 };
 const second = { ...pkg, id: id(3), name: 'Chosen plan' };
 const row = { id: id(5), tenantId: tenant.id, packageId: pkg.id, status: 'Trial', currentPeriodStartUtc: '2026-11-01T00:00:00Z', currentPeriodEndUtc: '2026-12-01T00:00:00Z', version: 4 };
-const page = (items = [row]) => ({ items, page: 1, pageSize: 20, total: items.length });
+const page = (items: TenantSubscription[] = [row]) => ({ items, page: 1, pageSize: 20, total: items.length });
 const dialog = { props: ['open', 'showConfirm', 'confirmDisabled'], emits: ['confirm', 'update:open'], template: '<section v-if="open"><slot/><button v-if="showConfirm !== false" data-testid="confirm" :disabled="confirmDisabled" @click="$emit(\'confirm\')">Confirm</button><button data-testid="close" @click="$emit(\'update:open\', false)">Close</button></section>' };
 function deferred<T>() { let resolve!: (value: T) => void; const promise = new Promise<T>(r => { resolve = r; }); return { promise, resolve }; }
 async function panel(options: { readOnly?: boolean; active?: boolean } = {}) {
@@ -50,6 +51,44 @@ describe('租户订阅操作台', () => {
     const { wrapper } = await panel({ readOnly: true }); expect(listTenantSubscriptions).toHaveBeenCalledTimes(1);
     expect(wrapper.text()).toContain('试用中'); expect(wrapper.find('[data-testid="tenant-subscription-cancel"]').exists()).toBe(false);
     expect(wrapper.find('[data-testid="tenant-subscription-trial"]').exists()).toBe(false); wrapper.unmount();
+  });
+  it('只读详情展示原周期、试用和取消信息，套餐名称明确取当前目录', async () => {
+    vi.mocked(listTenantSubscriptions).mockResolvedValue(page([{ ...row, status: 'Cancelled', trialEndsAtUtc: '2026-11-30T00:00:00Z', cancelledAtUtc: '2026-11-04T00:00:00Z' }]));
+    const { wrapper } = await panel({ readOnly: true }); await wrapper.get('[data-testid="tenant-subscription-detail"]').trigger('click');
+    expect(wrapper.get('[data-testid="subscription-detail-id"]').text()).toBe(row.id); expect(wrapper.get('[data-testid="subscription-detail-status"]').text()).toBe('已取消');
+    expect(wrapper.findAll('time').some(time => time.attributes('datetime') === row.currentPeriodStartUtc)).toBe(true);
+    expect(wrapper.text()).toContain('试用截止'); expect(wrapper.text()).toContain('取消时间'); expect(wrapper.text()).toContain('当前套餐目录名称'); expect(wrapper.text()).toContain('First plan');
+    expect(createTenantSubscription).not.toHaveBeenCalled(); expect(cancelTenantSubscription).not.toHaveBeenCalled(); wrapper.unmount();
+  });
+  it('详情刷新只更新原订阅', async () => {
+    const { wrapper } = await panel({ readOnly: true }); await wrapper.get('[data-testid="tenant-subscription-detail"]').trigger('click');
+    vi.mocked(listTenantSubscriptions).mockResolvedValue(page([{ ...row, status: 'Cancelled', version: 5 }]));
+    await wrapper.get('[data-testid="subscription-detail-refresh"]').trigger('click'); await flushPromises();
+    expect(wrapper.get('[data-testid="subscription-detail-id"]').text()).toBe(row.id); expect(wrapper.get('[data-testid="subscription-detail-status"]').text()).toBe('已取消'); wrapper.unmount();
+  });
+  it('原订阅不在新结果时不把同位置其他订阅接入详情', async () => {
+    const { wrapper } = await panel({ readOnly: true }); await wrapper.get('[data-testid="tenant-subscription-detail"]').trigger('click');
+    vi.mocked(listTenantSubscriptions).mockResolvedValue(page([{ ...row, id: id(8), status: 'Active', version: 9 }]));
+    await wrapper.get('[data-testid="subscription-detail-refresh"]').trigger('click'); await flushPromises();
+    expect(wrapper.get('[data-testid="subscription-detail-id"]').text()).toBe(row.id); expect(wrapper.find('[data-testid="subscription-detail-status"]').exists()).toBe(false);
+    expect(wrapper.text()).toContain('当前页未返回该订阅'); wrapper.unmount();
+  });
+  it('详情刷新失败保留上次读取且明确提示', async () => {
+    const { wrapper } = await panel({ readOnly: true }); await wrapper.get('[data-testid="tenant-subscription-detail"]').trigger('click');
+    vi.mocked(listTenantSubscriptions).mockRejectedValue(new Error('offline')); await wrapper.get('[data-testid="subscription-detail-refresh"]').trigger('click'); await flushPromises();
+    expect(wrapper.get('[data-testid="subscription-detail-status"]').text()).toBe('试用中'); expect(wrapper.text()).toContain('详情刷新失败，保留上次成功读取'); wrapper.unmount();
+  });
+  it('同一企业对象更新不会关闭原订阅详情', async () => {
+    const { wrapper } = await panel({ readOnly: true }); await wrapper.get('[data-testid="tenant-subscription-detail"]').trigger('click');
+    await wrapper.setProps({ tenant: { ...tenant, name: 'Updated directory name' } });
+    expect(wrapper.get('[data-testid="subscription-detail-id"]').text()).toBe(row.id); expect(listTenantSubscriptions).toHaveBeenCalledTimes(1); wrapper.unmount();
+  });
+  it('撤权取消详情刷新并丢弃迟到内容', async () => {
+    const { wrapper, session } = await panel({ readOnly: true }); await wrapper.get('[data-testid="tenant-subscription-detail"]').trigger('click');
+    const pending = deferred<ReturnType<typeof page>>(); vi.mocked(listTenantSubscriptions).mockReturnValue(pending.promise);
+    await wrapper.get('[data-testid="subscription-detail-refresh"]').trigger('click'); await flushPromises();
+    const signal = vi.mocked(listTenantSubscriptions).mock.calls.at(-1)![3]; session.currentUser!.permissions = []; await flushPromises(); expect(signal?.aborted).toBe(true);
+    pending.resolve(page([{ ...row, status: 'Cancelled' }])); await flushPromises(); expect(wrapper.find('[data-testid="subscription-detail-id"]').exists()).toBe(false); wrapper.unmount();
   });
   it.each(['Expired', 'Cancelled'])('终态 %s 不提供取消', async status => {
     vi.mocked(listTenantSubscriptions).mockResolvedValue(page([{ ...row, status }])); const { wrapper } = await panel();

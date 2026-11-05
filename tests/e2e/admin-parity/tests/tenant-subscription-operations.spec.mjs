@@ -3,13 +3,13 @@ import AxeBuilder from '@axe-core/playwright';
 const id = n => `019bc2b1-2a40-7cc3-8992-${String(n).padStart(12, '0')}`;
 const tenantId = id(1), packageId = id(2), chosenId = id(3), subscriptionId = id(4);
 const json = (route, body, status = 200) => route.fulfill({ status, contentType: status >= 400 ? 'application/problem+json' : 'application/json', body: JSON.stringify(body) });
-async function setup(page, { readOnly = false, active = true, rows = [] } = {}) {
-  await page.addInitScript(() => localStorage.setItem('fullnet.admin.locale', 'zh-CN'));
+async function setup(page, { readOnly = false, active = true, rows = [], locale = 'zh-CN' } = {}) {
+  await page.addInitScript(selected => localStorage.setItem('fullnet.admin.locale', selected), locale);
   await page.route('**/api/v1/**', route => route.fulfill({ status: 404 }));
   await page.route('**/api/v1/auth/refresh', route => json(route, { accessToken: 'fixture', tokenType: 'Bearer', expiresAtUtc: '2099-01-01T00:00:00Z' }));
   await page.route('**/api/v1/me', route => json(route, { id: id(9), username: 'operator', displayName: 'Operator', actorScope: 'host', scope: 'host',
     isSuperAdministrator: false, tenantId: null, permissions: ['identity.navigation.read', 'tenancy.tenants.read', 'tenancy.tenant_packages.read', 'tenancy.tenant_subscriptions.read',
-      ...(readOnly ? [] : ['tenancy.tenant_subscriptions.manage'])], sessionId: id(10), preferredLocale: 'zh-CN', profileVersion: 1, passwordChangeRequired: false }));
+      ...(readOnly ? [] : ['tenancy.tenant_subscriptions.manage'])], sessionId: id(10), preferredLocale: locale, profileVersion: 1, passwordChangeRequired: false }));
   await page.route('**/api/v1/navigation', route => json(route, [{ id: 'tenants', parentId: null, routeName: 'tenant-management', path: '/tenants', componentKey: 'tenants',
     title: '租户管理', caption: '', icon: 'setting', order: 1, requiredPermission: 'tenancy.tenants.read', children: [] }]));
   await page.route('**/api/v1/tenancy/available', route => json(route, []));
@@ -21,14 +21,42 @@ async function setup(page, { readOnly = false, active = true, rows = [] } = {}) 
     isActive: active, version: 1, defaultLocale: 'zh-CN' }], page: 1, pageSize: 20, total: 1 }));
   const state = { rows, reads: 0, creates: [], cancels: [] };
   await page.route(`**/api/v1/tenancy/tenants/${tenantId}/subscriptions?*`, route => {
-    state.reads++; return json(route, { items: state.rows, page: 1, pageSize: 20, total: state.rows.length });
+    state.reads++; if (state.failRead) return json(route, { status: 503, code: 'test.unavailable', title: 'unavailable' }, 503);
+    return json(route, { items: state.rows, page: 1, pageSize: 20, total: state.rows.length });
   });
   await page.goto('/#/tenants');
-  await page.getByRole('link', { name: '租户管理', exact: true }).click();
+  await page.getByRole('link', { name: locale === 'en-US' ? 'Tenant management' : '租户管理', exact: true }).click();
   await page.getByTestId('tenants-action-subscriptions').click();
   await expect(page.getByTestId('subscription-target')).toHaveText('Acme 企业');
   await expect(page.locator('.el-loading-mask')).toHaveCount(0);
   return state;
+}
+
+for (const [width, locale] of [[1440, 'en-US'], [390, 'zh-CN']]) {
+  test(`只读订阅详情固定原记录并区分刷新失败 ${width}`, async ({ page }, info) => {
+    await page.setViewportSize({ width: 1440, height: 1000 });
+    const previous = { id: subscriptionId, tenantId, packageId, status: 'Cancelled', currentPeriodStartUtc: '2026-11-01T00:00:00Z',
+      currentPeriodEndUtc: '2026-12-01T00:00:00Z', trialEndsAtUtc: '2026-11-30T00:00:00Z', cancelledAtUtc: '2026-11-04T00:00:00Z', version: 4 };
+    const state = await setup(page, { readOnly: true, active: false, rows: [previous], locale }); await page.setViewportSize({ width, height: 1000 });
+    await page.getByTestId('tenant-subscription-detail').click();
+    const modal = page.getByRole('dialog', { name: locale === 'en-US' ? 'Subscription details' : '订阅详情', exact: true });
+    await expect(page.getByTestId('subscription-detail-id')).toHaveText(subscriptionId);
+    await expect(page.getByTestId('subscription-detail-status')).toHaveText(locale === 'en-US' ? 'Cancelled' : '已取消');
+    for (const value of [previous.currentPeriodStartUtc, previous.currentPeriodEndUtc, previous.trialEndsAtUtc, previous.cancelledAtUtc])
+      await expect(modal.locator(`time[datetime="${value}"]`)).toBeVisible();
+    await expect(modal).toContainText(locale === 'en-US' ? 'Current catalog name' : '当前套餐目录名称');
+    await expect(page.getByTestId('tenant-subscription-cancel')).toHaveCount(0); await expect(page.getByTestId('paid-subscription-create')).toHaveCount(0);
+    await modal.screenshot({ path: info.outputPath('subscription-detail-' + width + '.png'), animations: 'disabled' });
+    expect((await new AxeBuilder({ page }).include('.art-form-dialog').withTags(['wcag2a', 'wcag2aa']).analyze()).violations).toEqual([]);
+    state.failRead = true; await page.getByTestId('subscription-detail-refresh').click();
+    await expect(modal).toContainText(locale === 'en-US' ? 'last successful result is retained' : '保留上次成功读取的结果');
+    await expect(page.getByTestId('subscription-detail-status')).toHaveText(locale === 'en-US' ? 'Cancelled' : '已取消');
+    state.failRead = false; state.rows = [{ ...previous, id: id(8), status: 'Active', version: 6 }];
+    await page.getByTestId('subscription-detail-refresh').click();
+    await expect(modal).toContainText(locale === 'en-US' ? 'does not include the subscription' : '当前页未返回该订阅');
+    await expect(page.getByTestId('subscription-detail-id')).toHaveText(subscriptionId); await expect(page.getByTestId('subscription-detail-status')).toHaveCount(0);
+    expect(state.reads).toBe(3); expect(state.creates.length).toBe(0); expect(state.cancels.length).toBe(0);
+  });
 }
 for (const width of [1440, 390]) {
   test(`到期原套餐按当前报价创建独立新周期 ${width}`, async ({ page }, info) => {

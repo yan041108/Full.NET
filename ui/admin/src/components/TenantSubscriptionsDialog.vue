@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
-import { ElAlert, ElButton, ElOption, ElPagination, ElSelect, ElTable, ElTableColumn } from 'element-plus';
+import { ElAlert, ElButton, ElDescriptions, ElDescriptionsItem, ElOption, ElPagination, ElSelect, ElTable, ElTableColumn } from 'element-plus';
 import type { CreateTenantSubscriptionBody, HostTenant, HostTenantPackage, TenantSubscription } from '@fullnet/client-contracts';
 import { isFullNetProblemDetails } from '@fullnet/client-contracts';
 import { useSessionStore } from '../auth/session';
@@ -27,8 +27,9 @@ const receipt = ref<{ action: 'trial' | 'cancel'; target: string; state: 'confir
 type Confirmation = { tenantId: string; tenantName: string } & ({ action: 'trial'; packageName: string; body: Readonly<CreateTenantSubscriptionBody> }
   | { action: 'cancel'; id: string; version: number });
 const confirmation = ref<Confirmation>();
+const detailId = ref<string>(); const detail = ref<TenantSubscription>(); const detailFailure = ref('');
 const paidOpen = ref(false); const checkoutOpen = ref(false);
-const background = computed(() => !!confirmation.value || paidOpen.value || checkoutOpen.value);
+const background = computed(() => !!confirmation.value || !!detailId.value || paidOpen.value || checkoutOpen.value);
 const sameId = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
 const formatDate = (value: string) => Number.isFinite(Date.parse(value))
   ? new Intl.DateTimeFormat(locale.value, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value)) : '—';
@@ -38,9 +39,10 @@ const scope = useAuthorizedViewScope(session, () => {
   rows.value = []; total.value = 0; page.value = 1; loading.value = false; hasRead.value = false;
   uncertain.value = false; failure.value = ''; packageId.value = ''; confirmation.value = undefined; receipt.value = undefined;
   paidOpen.value = false; checkoutOpen.value = false;
+  detailId.value = undefined; detail.value = undefined; detailFailure.value = '';
 }, () => { if (props.open) void load(); });
 let pending: ReturnType<typeof scope.begin>;
-watch(() => [props.open, props.tenant?.id], () => {
+watch([() => props.open, () => props.tenant?.id], () => {
   scope.invalidate(); if (props.open) void load();
 }, { flush: 'sync' });
 async function load() {
@@ -48,26 +50,42 @@ async function load() {
   pending?.cancel(); confirmation.value = undefined;
   const operation = scope.begin('tenancy.tenant_subscriptions.read'); if (!operation) return;
   const target = props.tenant.id; const requestedPage = page.value;
-  pending = operation; loading.value = true; hasRead.value = false; failure.value = '';
+  pending = operation; loading.value = true; hasRead.value = false; failure.value = ''; detailFailure.value = '';
   try {
     const value = await listTenantSubscriptions(target, requestedPage, 20, operation.signal);
     if (!operation.current() || !props.open || !props.tenant || !sameId(props.tenant.id, target)) return;
     if (value.page !== requestedPage || value.pageSize !== 20 || value.items.some(row => !sameId(row.tenantId, target))) {
+      if (detailId.value) { detail.value = undefined; detailFailure.value = text('responseMismatch'); }
       failure.value = text('responseMismatch'); rows.value = []; total.value = 0; return;
     }
     rows.value = value.items; total.value = value.total; hasRead.value = true; uncertain.value = false;
-  } catch { if (operation.current()) failure.value = text('historyFailed'); }
+    if (detailId.value) {
+      // 刷新仍绑定原订阅；翻页/新增导致原项不在结果中时，不能接入同位置的另一条记录。
+      const current = value.items.find(row => sameId(row.id, detailId.value!));
+      detail.value = current ? { ...current } : undefined; detailFailure.value = current ? '' : text('detailOutsideResult');
+    }
+  } catch {
+    if (operation.current()) { failure.value = text('historyFailed'); if (detailId.value) detailFailure.value = text('detailRefreshFailed'); }
+  }
   finally { operation.finish(); if (pending === operation) { pending = undefined; loading.value = false; } }
 }
+function openDetail(row: TenantSubscription) {
+  if (!props.open || !props.tenant || !canRead.value || background.value || loading.value || !hasRead.value || !sameId(row.tenantId, props.tenant.id)
+    || !rows.value.some(current => sameId(current.id, row.id) && current.version === row.version)) return;
+  detailId.value = row.id; detail.value = { ...row }; detailFailure.value = '';
+}
+function closeDetail() { detailId.value = undefined; detail.value = undefined; detailFailure.value = ''; }
+const detailPackage = computed(() => detail.value?.packageId
+  ? props.packages.find(pkg => sameId(pkg.id, detail.value!.packageId!))?.name ?? text('detailPackageUnavailable') : '—');
 function beginTrial() {
-  if (!canManage.value || !props.tenant?.isActive || !hasRead.value || loading.value || uncertain.value || hasActive.value) return;
+  if (!canManage.value || !props.tenant?.isActive || background.value || !hasRead.value || loading.value || uncertain.value || hasActive.value) return;
   const pkg = activePackages.value.find(item => sameId(item.id, packageId.value)); if (!pkg) return;
   const start = new Date(); const end = new Date(start.getTime() + 30 * 86400000);
   confirmation.value = { action: 'trial', tenantId: props.tenant.id, tenantName: props.tenant.name, packageName: pkg.name,
     body: Object.freeze({ packageId: pkg.id, status: 'Trial', trialEndsAtUtc: end.toISOString(), currentPeriodStartUtc: start.toISOString(), currentPeriodEndUtc: end.toISOString() }) };
 }
 function beginCancel(row: TenantSubscription) {
-  if (!canManage.value || !props.tenant || !hasRead.value || loading.value || uncertain.value
+  if (!canManage.value || !props.tenant || background.value || !hasRead.value || loading.value || uncertain.value
     || !sameId(row.tenantId, props.tenant.id) || !['Trial', 'Active', 'PastDue'].includes(row.status)
     || !rows.value.some(current => sameId(current.id, row.id) && current.version === row.version)) return;
   confirmation.value = { action: 'cancel', tenantId: props.tenant.id, tenantName: props.tenant.name, id: row.id, version: row.version };
@@ -114,14 +132,15 @@ function paidCreated() { emit('changed'); void load(); }
     <ElTable v-loading="loading" class="subscription-history" :data="rows" row-key="id">
       <ElTableColumn :label="t('tenancy.tenantSubscriptions.status')" min-width="140"><template #default="{ row }">{{ statusLabel(row.status) }}</template></ElTableColumn>
       <ElTableColumn :label="t('tenancy.tenantSubscriptions.periodEnd')" min-width="200"><template #default="{ row }">{{ formatDate(row.currentPeriodEndUtc) }}</template></ElTableColumn>
-      <ElTableColumn v-if="canManage" :label="t('users.columnActions')" width="240"><template #default="{ row }">
-        <PaidSubscriptionPurchase v-if="row.status === 'Expired' && row.packageId && tenant?.isActive && session.can('tenancy.tenant_packages.read')"
+      <ElTableColumn :label="t('users.columnActions')" :width="canManage ? 240 : 100" fixed="right"><template #default="{ row }">
+        <ElButton link type="primary" data-testid="tenant-subscription-detail" :disabled="loading || !hasRead" @click="openDetail(row as TenantSubscription)">{{ text('subscriptionDetail') }}</ElButton>
+        <PaidSubscriptionPurchase v-if="canManage && row.status === 'Expired' && row.packageId && tenant?.isActive && session.can('tenancy.tenant_packages.read')"
           :key="'repurchase-' + row.id" :tenant-id="tenant.id" :packages="packages" :source="{ subscriptionId: row.id, packageId: row.packageId }"
           :disabled="loading || !hasRead || uncertain || hasActive" @created="paidCreated" @dialog-open="paidOpen = $event" />
-        <span v-if="row.status === 'Expired' && row.packageId && tenant?.isActive && session.can('tenancy.tenant_packages.read') && !activePackages.some(pkg => sameId(pkg.id, row.packageId))"
+        <span v-if="canManage && row.status === 'Expired' && row.packageId && tenant?.isActive && session.can('tenancy.tenant_packages.read') && !activePackages.some(pkg => sameId(pkg.id, row.packageId))"
           data-testid="subscription-repurchase-unavailable">{{ text('repurchaseUnavailable') }}</span>
-        <SubscriptionCheckoutAction v-if="hasRead && !uncertain && tenant?.isActive && row.status === 'PastDue'" :key="row.id" :tenant-id="tenant.id" :subscription-id="row.id" @dialog-open="checkoutOpen = $event" />
-        <ElButton v-if="['Trial', 'Active', 'PastDue'].includes(row.status)" link type="danger" data-testid="tenant-subscription-cancel"
+        <SubscriptionCheckoutAction v-if="canManage && hasRead && !uncertain && tenant?.isActive && row.status === 'PastDue'" :key="row.id" :tenant-id="tenant.id" :subscription-id="row.id" @dialog-open="checkoutOpen = $event" />
+        <ElButton v-if="canManage && ['Trial', 'Active', 'PastDue'].includes(row.status)" link type="danger" data-testid="tenant-subscription-cancel"
           :disabled="loading || !hasRead || uncertain" @click="beginCancel(row as TenantSubscription)">{{ t('tenants.subscriptionCancel') }}</ElButton>
       </template></ElTableColumn>
     </ElTable>
@@ -145,6 +164,22 @@ function paidCreated() { emit('changed'); void load(); }
       <template v-else><code>{{ confirmation.id }}</code><p>{{ text('cancelPolicy') }}</p></template>
     </template>
   </ArtFormDialog>
+  <ArtFormDialog trap-focus :open="!!detailId && open && canRead" :title="text('subscriptionDetail')" :show-confirm="false"
+    width="min(600px, calc(100vw - 32px))" :cancel-label="text('close')" @update:open="value => { if (!value) closeDetail(); }">
+    <p>{{ tenant?.name }}</p><code data-testid="subscription-detail-id">{{ detailId }}</code>
+    <p>{{ text('detailSnapshotHint') }}</p>
+    <ElAlert v-if="detailFailure" :title="detailFailure" type="warning" :closable="false" />
+    <ElButton data-testid="subscription-detail-refresh" :loading="loading" :disabled="!canRead" @click="load">{{ text('historyRefresh') }}</ElButton>
+    <ElDescriptions v-if="detail" :column="1" border class="subscription-details">
+      <ElDescriptionsItem :label="t('tenancy.tenantSubscriptions.status')"><span data-testid="subscription-detail-status">{{ statusLabel(detail.status) }}</span></ElDescriptionsItem>
+      <ElDescriptionsItem :label="text('detailPeriodStart')"><time :datetime="detail.currentPeriodStartUtc">{{ formatDate(detail.currentPeriodStartUtc) }}</time></ElDescriptionsItem>
+      <ElDescriptionsItem :label="t('tenancy.tenantSubscriptions.periodEnd')"><time :datetime="detail.currentPeriodEndUtc">{{ formatDate(detail.currentPeriodEndUtc) }}</time></ElDescriptionsItem>
+      <ElDescriptionsItem :label="text('detailTrialEnd')"><time v-if="detail.trialEndsAtUtc" :datetime="detail.trialEndsAtUtc">{{ formatDate(detail.trialEndsAtUtc) }}</time><span v-else>—</span></ElDescriptionsItem>
+      <ElDescriptionsItem :label="text('detailCancelledAt')"><time v-if="detail.cancelledAtUtc" :datetime="detail.cancelledAtUtc">{{ formatDate(detail.cancelledAtUtc) }}</time><span v-else>—</span></ElDescriptionsItem>
+      <ElDescriptionsItem :label="text('detailPackageId')"><code>{{ detail.packageId ?? '—' }}</code></ElDescriptionsItem>
+      <ElDescriptionsItem :label="text('detailPackageName')">{{ detailPackage }}</ElDescriptionsItem>
+    </ElDescriptions>
+  </ArtFormDialog>
 </template>
 
 <style scoped>
@@ -152,4 +187,6 @@ function paidCreated() { emit('changed'); void load(); }
 .subscription-operations :deep(.el-select) { width: min(240px, 100%); }
 /* 表头与空状态都是需要读取的信息，避免组件默认灰字在白色背景下对比不足。 */
 .subscription-history :deep(th.el-table__cell), .subscription-history :deep(.el-table__empty-text) { color: var(--el-text-color-primary); }
+.subscription-details { margin-top: 12px; }
+.subscription-details code { overflow-wrap: anywhere; }
 </style>
