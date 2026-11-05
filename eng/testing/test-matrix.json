@@ -12,6 +12,11 @@
           "minimum": 13,
           "timeout": "3m"
         },
+        "tenant-file-descriptor-activity": {
+          "filter": "FullyQualifiedName~TenantResourceFileDescriptorReaderTests",
+          "minimum": 10,
+          "timeout": "3m"
+        },
         "tenant-background-revocation": {
           "filter": "FullyQualifiedName~BackgroundSessionBindingValidatorTests|FullyQualifiedName~BackgroundSessionAuthorizationTests|FullyQualifiedName~RealtimeTenantMembershipTests|FullyQualifiedName~RealtimeConnectionLeaseTests|FullyQualifiedName~IdentityTenantResourceAccessTests|FullyQualifiedName~Permission_evaluator_contract_reuses_singleton_in_each_host_profile|FullyQualifiedName~Identity_module_delegation_matches_responsibility_registration_pipeline|FullyQualifiedName~Identity_module_repeated_registration_preserves_critical_contracts",
           "minimum": 54,

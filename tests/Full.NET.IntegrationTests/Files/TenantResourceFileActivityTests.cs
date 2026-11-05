@@ -46,14 +46,36 @@ public sealed class TenantResourceFileActivityTests
         Assert.IsTrue(uploaded.IsSuccess, uploaded.Error?.Code);
         var fileId = uploaded.Value!.FileId;
         await AssertReadableAsync();
+        await AssertDescriptorAsync(true);
         using var paused = await host.PostAsJsonAsync($"/api/v1/tenancy/tenants/{original.Id:D}/suspend", new SuspendTenantRequest(original.Version));
         Assert.AreEqual(HttpStatusCode.OK, paused.StatusCode, await paused.Content.ReadAsStringAsync());
         var suspended = (await paused.Content.ReadFromJsonAsync<TenantSummary>())!;
         var denied = await InOriginalTenantAsync(store => store.OpenReadyContentAsync("import_export", resourceId, fileId));
         Assert.IsFalse(denied.IsSuccess); Assert.AreEqual(FilesErrorCodes.TenantInactive, denied.Error!.Code);
+        await AssertDescriptorAsync(false);
         using var resumed = await host.PostAsJsonAsync($"/api/v1/tenancy/tenants/{original.Id:D}/reactivate", new ReactivateTenantRequest(suspended.Version));
         Assert.AreEqual(HttpStatusCode.OK, resumed.StatusCode, await resumed.Content.ReadAsStringAsync());
         await AssertReadableAsync();
+        await AssertDescriptorAsync(true);
+
+        async Task AssertDescriptorAsync(bool expected)
+        {
+            await using var scope = factory.Services.CreateAsyncScope();
+            var context = scope.ServiceProvider.GetRequiredService<CurrentTenantAccessor>();
+            context.SetTenant(new TenantContext(original.Id, original.Identifier, original.Name));
+            try
+            {
+                var descriptor = await scope.ServiceProvider.GetRequiredService<ITenantResourceFileDescriptorReader>()
+                    .GetReadyDescriptorAsync("import_export", resourceId, fileId);
+                Assert.AreEqual(expected, descriptor is not null);
+                if (descriptor is not null)
+                {
+                    Assert.AreEqual(fileId, descriptor.FileId); Assert.AreEqual(3L, descriptor.SizeBytes);
+                    Assert.AreEqual("activity.bin", descriptor.OriginalFileName); Assert.AreEqual(uploaded.Value.ContentHash, descriptor.ContentHash);
+                }
+            }
+            finally { context.Clear(); }
+        }
 
         async Task<T> InOriginalTenantAsync<T>(Func<ITenantResourceFileStore, Task<T>> action)
         {

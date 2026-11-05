@@ -8,7 +8,7 @@ public interface ITenantResourceFileDescriptorReader
     /// <param name="resourceId">已授权资源标识。</param>
     /// <param name="fileId">文件标识。</param>
     /// <param name="cancellationToken">取消令牌。</param>
-    /// <returns>就绪文件描述；越权、未就绪或不存在均返回空。</returns>
+    /// <returns>就绪文件描述；越权、未就绪、不存在、企业停用或异步读取期间可信租户变化均返回空。调用方继续核对用户、会话及业务资源授权。</returns>
     Task<TenantResourceFileDescriptor?> GetReadyDescriptorAsync(string ownerModuleKey, Guid resourceId,
         Guid fileId, CancellationToken cancellationToken = default);
 }
