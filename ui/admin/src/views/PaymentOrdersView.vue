@@ -24,6 +24,7 @@ import ArtTableHeader from '../framework/art-design/components/ArtTableHeader.vu
 import { useArtCrudTableLayout } from '../framework/art-design/composables/useArtCrudTableLayout';
 import PermissionGate from '../components/PermissionGate.vue';
 import SubscriptionFulfillmentAction from '../components/SubscriptionFulfillmentAction.vue';
+import PaymentOrderDetailDialog from '../components/PaymentOrderDetailDialog.vue';
 import { useAdminI18n } from '../i18n/adminI18n';
 import { createPaymentOrder, listPaymentOrders, reconcilePaymentOrder, createPaymentRefund } from '../api/payment-orders';
 import { formatPaymentAmount, parsePaymentAmount } from '../utils/payment-amount';
@@ -55,6 +56,7 @@ type RefundAttempt = { readonly order: Readonly<PaymentOrderListItem>; readonly 
 const refundAttempts = reactive(new Map<string, RefundAttempt>());
 const refundAttempt = computed(() => refundAttempts.get(refundOrderId.value));
 const refundSaving = ref(false);
+const orderIdInput = ref(''); const orderDetailId = ref(''); const orderDetailOpen = ref(false);
 const validPaymentId = (value: unknown): value is string => isGuid(value) && value !== '00000000-0000-0000-0000-000000000000';
 const canRefund = computed(() => session.state === 'authenticated' && session.currentUser?.tenantId === null
   && session.currentUser.actorScope === 'host' && session.can('payments.refunds.create'));
@@ -63,6 +65,7 @@ const canRead = computed(() => session.state === 'authenticated' && session.curr
 let listSequence = 0;
 const refundScope = useAuthorizedViewScope(session, () => {
   listSequence++; items.value = []; total.value = 0; page.value = 1; loading.value = false; problem.value = undefined;
+  orderIdInput.value = ''; orderDetailId.value = ''; orderDetailOpen.value = false;
   refundOpen.value = false; refundOrderId.value = ''; refundSaving.value = false; refundAttempts.clear();
   Object.assign(refundForm, { amountYuan: '', reason: '' });
 }, () => { void load(); });
@@ -183,6 +186,13 @@ function openRefund(orderId: string): void {
   Object.assign(refundForm, { amountYuan: previous?.amountYuan ?? '', reason: previous?.body.reason ?? '' });
   refundOpen.value = true;
 }
+function readOrder(input = orderIdInput.value) {
+  if (!canRead.value) return;
+  const id = input.trim();
+  if (!validPaymentId(id)) { problem.value = { type: 'about:blank', status: 400, code: 'client.invalid_payment_order_id', title: t('paymentOrders.invalidId') }; return; }
+  if (problem.value?.code === 'client.invalid_payment_order_id') problem.value = undefined;
+  orderIdInput.value = id; orderDetailId.value = id; orderDetailOpen.value = true;
+}
 function readRefundRecords(orderId: string): void {
   if (changing.value || !session.can('payments.refunds.read') || !isGuid(orderId) || orderId === '00000000-0000-0000-0000-000000000000') return;
   refundOpen.value = false;
@@ -256,6 +266,10 @@ async function submitRefund(): Promise<void> {
     <el-card class="art-full-height-card" shadow="never">
       <ArtTableHeader @refresh="load">
         <template #left>
+          <ElForm v-if="canRead" class="payment-order-exact-picker" label-position="top" @submit.prevent="readOrder()">
+            <ElFormItem :label="t('paymentOrders.orderId')"><ElInput v-model="orderIdInput" clearable data-testid="payment-order-id-input" /></ElFormItem>
+            <ElButton native-type="submit" data-testid="payment-order-id-read">{{ t('paymentOrders.readById') }}</ElButton>
+          </ElForm>
           <PermissionGate code="payments.orders.create">
             <el-button type="primary" :icon="Plus" data-testid="payment-order-create" @click="openCreate">
               {{ t('paymentOrders.createOrder') }}
@@ -286,8 +300,9 @@ async function submitRefund(): Promise<void> {
           </el-table-column>
           <el-table-column prop="createdAtUtc" :label="t('paymentOrders.fieldCreatedAt')" min-width="180" />
           <el-table-column prop="failMessage" :label="t('paymentOrders.fieldFailMessage')" min-width="160" />
-          <el-table-column :label="t('paymentOrders.actions')" width="220" fixed="right">
+          <el-table-column :label="t('paymentOrders.actions')" width="270" fixed="right">
             <template #default="{ row }">
+              <ElButton v-if="canRead" link type="primary" :data-testid="`payment-order-detail-${row.id}`" @click="readOrder(row.id)">{{ t('paymentOrders.detail') }}</ElButton>
               <PermissionGate code="payments.orders.reconcile">
                 <el-button
                   link
@@ -385,6 +400,7 @@ async function submitRefund(): Promise<void> {
       </el-form>
       <PermissionGate code="payments.refunds.read"><ElButton :disabled="changing || refundSaving" data-testid="payment-refund-check-records" @click="readRefundRecords(refundOrderId)">{{ t('paymentOrders.readRefundRecords') }}</ElButton></PermissionGate>
     </ArtFormDialog>
+    <PaymentOrderDetailDialog v-model:open="orderDetailOpen" :order-id="orderDetailId" />
   </section>
 </template>
 <style scoped>
@@ -393,4 +409,6 @@ async function submitRefund(): Promise<void> {
 .refund-attempt-summary { display: grid; gap: 4px; margin: 12px 0; }
 .refund-attempt-summary dt { font-weight: 600; }
 .refund-attempt-summary dd { margin: 0 0 8px; overflow-wrap: anywhere; }
+.payment-order-exact-picker { display: flex; flex-wrap: wrap; align-items: end; gap: 8px; max-width: 100%; }
+.payment-order-exact-picker .el-form-item { flex: 1 1 200px; min-width: 0; max-width: 100%; margin: 0; }
 </style>

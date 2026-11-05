@@ -76,6 +76,7 @@ describe('原退款记录核对控制台', () => {
     await wrapper.get('[data-testid="refunds-exact-id"]').setValue(id(20)); await wrapper.get('[data-testid="refunds-read-id"]').trigger('click'); await flushPromises();
     expect(getPaymentRefund).toHaveBeenCalledWith(id(20), expect.any(AbortSignal)); expect(wrapper.get('[data-testid="refund-detail-id"]').text()).toBe(id(20));
     expect(wrapper.get('[data-testid="refund-detail-snapshot"]').text()).toContain('original reason');
+    expect(wrapper.find('[data-testid="refund-read-original-order"]').exists()).toBe(false);
     vi.mocked(getPaymentRefund).mockRejectedValue({ status: 503, code: 'test.unavailable', type: 'about:blank', title: 'unavailable' });
     await wrapper.get('[data-testid="refund-detail-refresh"]').trigger('click'); await flushPromises();
     expect(wrapper.find('[data-testid="refund-detail-snapshot"]').exists()).toBe(false); expect(wrapper.get('[data-testid="refund-detail-id"]').text()).toBe(id(20));

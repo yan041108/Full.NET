@@ -28,6 +28,8 @@ import { useSessionStore } from '../auth/session';
 import { useAuthorizedViewScope } from '../composables/useAuthorizedViewScope';
 import { getPaymentRefund, listPaymentRefunds } from '../api/payment-refunds';
 import { formatPaymentAmount } from '../utils/payment-amount';
+import PermissionGate from '../components/PermissionGate.vue';
+import PaymentOrderDetailDialog from '../components/PaymentOrderDetailDialog.vue';
 
 defineOptions({ name: 'PaymentRefundsView' });
 
@@ -40,6 +42,8 @@ const states = ['created', 'provider_unknown', 'processing', 'succeeded', 'faile
 const orderFilter = ref(''); const stateFilter = ref('all'); const invalidRoute = ref(false);
 const refundIdInput = ref(''); const detailId = ref(''); const detailOpen = ref(false);
 const detail = ref<PaymentRefund>(); const detailLoading = ref(false); const detailProblem = ref<FullNetProblemDetails>();
+const originalOrderOpen = ref(false); const originalOrderId = ref('');
+const originalOrderReference = ref<Pick<PaymentRefund, 'tenantId' | 'merchantConfigId' | 'outTradeNo' | 'currency'>>();
 const items = ref<PaymentRefundListItem[]>([]);
 const total = ref(0);
 const page = ref(1);
@@ -58,6 +62,7 @@ const scope = useAuthorizedViewScope(session, () => {
   orderFilter.value = ''; stateFilter.value = 'all'; refundIdInput.value = ''; invalidRoute.value = false;
   appliedFilters = { orderId: '', state: 'all' };
   detail.value = undefined; detailId.value = ''; detailOpen.value = false; detailLoading.value = false; detailProblem.value = undefined;
+  originalOrderOpen.value = false; originalOrderId.value = ''; originalOrderReference.value = undefined;
 }, () => { readRoute(); void load(); });
 
 const {
@@ -129,6 +134,13 @@ function stateLabel(value: string) {
   const key = `paymentRefunds.status.${value}`; const translated = translateRuntimeMessage(t, key); return translated === key ? value : translated;
 }
 function closeDetail() { detailSequence++; detailPending?.cancel(); detailPending = undefined; detailOpen.value = false; detailLoading.value = false; detail.value = undefined; detailProblem.value = undefined; }
+function readOriginalOrder() {
+  const source = detail.value;
+  if (!allowed.value || !session.can('payments.orders.read') || !source || !validId(source.orderId)) return;
+  originalOrderId.value = source.orderId;
+  originalOrderReference.value = { tenantId: source.tenantId, merchantConfigId: source.merchantConfigId, outTradeNo: source.outTradeNo, currency: source.currency };
+  closeDetail(); originalOrderOpen.value = true;
+}
 async function readDetail(input = refundIdInput.value) {
   if (!allowed.value) return;
   const id = input.trim();
@@ -207,6 +219,7 @@ async function readDetail(input = refundIdInput.value) {
       <p class="refund-identifiers">{{ t('paymentRefunds.refundId') }} <code data-testid="refund-detail-id">{{ detailId }}</code></p>
       <p>{{ t('paymentRefunds.readOnlyHint') }}</p>
       <ElButton :loading="detailLoading" data-testid="refund-detail-refresh" @click="readDetail(detailId)">{{ t('paymentRefunds.refresh') }}</ElButton>
+      <PermissionGate code="payments.orders.read"><ElButton v-if="detail" data-testid="refund-read-original-order" @click="readOriginalOrder">{{ t('paymentOrders.readOriginal') }}</ElButton></PermissionGate>
       <ElAlert v-if="detailProblem" type="warning" :closable="false" :title="detailProblem.title" data-testid="refund-detail-problem" />
       <ElDescriptions v-if="detail" :column="1" border class="refund-identifiers" data-testid="refund-detail-snapshot">
         <ElDescriptionsItem :label="t('paymentRefunds.orderId')"><code>{{ detail.orderId }}</code></ElDescriptionsItem>
@@ -222,6 +235,7 @@ async function readDetail(input = refundIdInput.value) {
         <ElDescriptionsItem :label="t('paymentRefunds.fieldFailMessage')">{{ detail.failMessage || '—' }}</ElDescriptionsItem>
       </ElDescriptions>
     </ArtFormDialog>
+    <PaymentOrderDetailDialog v-model:open="originalOrderOpen" :order-id="originalOrderId" :reference="originalOrderReference" />
     </template>
   </section>
 </template>

@@ -1659,7 +1659,8 @@
     {
       "apiModule": "ui/admin/src/api/payment-orders.ts",
       "consumers": [
-        "ui/admin/src/views/PaymentOrdersView.vue"
+        "ui/admin/src/views/PaymentOrdersView.vue",
+        "ui/admin/src/components/PaymentOrderDetailDialog.vue"
       ]
     },
     {
