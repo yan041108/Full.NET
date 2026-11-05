@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue';
+import { computed, nextTick, ref, watch } from 'vue';
 import { ElAlert, ElButton, ElDescriptions, ElDescriptionsItem } from 'element-plus';
 import { isFullNetProblemDetails, type SubscriptionFulfillmentStatusResponse } from '@fullnet/client-contracts';
 import { useSessionStore } from '../auth/session';
@@ -15,6 +15,9 @@ const allowed = computed(() => session.state === 'authenticated' && session.can(
 const retryAllowed = computed(() => allowed.value && session.can('payments.orders.reconcile') && session.can('tenancy.tenant_subscriptions.manage'));
 const open = ref(false); const loading = ref(false); const failure = ref(''); const uncertain = ref(false);
 const status = ref<SubscriptionFulfillmentStatusResponse>();
+type RetryConfirmation = Readonly<{ orderId: string; subscriptionId: string; beneficiaryTenantId: string; readAtUtc: string }>;
+const confirmation = ref<RetryConfirmation>();
+const confirmButton = ref<InstanceType<typeof ElButton>>(); const retryButton = ref<InstanceType<typeof ElButton>>();
 const dates = computed(() => new Intl.DateTimeFormat(locale.value, { dateStyle: 'medium', timeStyle: 'medium', timeZone: 'UTC' }));
 const formatDate = (value: string) => dates.value.format(new Date(value));
 const waitingForEffective = computed(() => status.value?.stateKey === 'ReadyPaid'
@@ -26,13 +29,34 @@ function validSchedule(value: SubscriptionFulfillmentStatusResponse) {
   return value.nextAttemptAtUtc == null || (Number.isFinite(Date.parse(value.nextAttemptAtUtc))
     && (value.stateKey !== 'ReadyPaid' || Date.parse(value.nextAttemptAtUtc) >= Date.parse(value.effectiveFromUtc)));
 }
-const scope = useAuthorizedViewScope(session, () => { open.value = false; loading.value = false; failure.value = ''; status.value = undefined; uncertain.value = false; }, () => {});
+const scope = useAuthorizedViewScope(session, () => { open.value = false; loading.value = false; failure.value = ''; status.value = undefined; uncertain.value = false; confirmation.value = undefined; }, () => {});
 let pending: ReturnType<typeof scope.begin>;
 watch(() => props.orderId, () => scope.invalidate(), { flush: 'sync' });
-watch(open, value => { if (!value) { pending?.cancel(); pending = undefined; loading.value = false; } }, { flush: 'sync' });
+watch(open, value => { if (!value) { pending?.cancel(); pending = undefined; loading.value = false; confirmation.value = undefined; } }, { flush: 'sync' });
 function begin() { if (allowed.value) { open.value = true; void load(); } }
+async function beginRetry() {
+  if (!open.value || !retryAllowed.value || loading.value || uncertain.value || status.value?.stateKey !== 'Review' || confirmation.value) return;
+  const snapshot = Object.freeze({ orderId: props.orderId, subscriptionId: status.value.subscriptionId,
+    beneficiaryTenantId: status.value.beneficiaryTenantId, readAtUtc: status.value.readAtUtc });
+  confirmation.value = snapshot; await nextTick();
+  if (open.value && confirmation.value === snapshot && retryAllowed.value) confirmButton.value?.ref?.focus();
+}
+async function cancelRetry() {
+  confirmation.value = undefined; await nextTick();
+  if (open.value && retryAllowed.value && status.value?.stateKey === 'Review') retryButton.value?.ref?.focus();
+}
+async function confirmRetry() {
+  const snapshot = confirmation.value; if (!snapshot || loading.value) return;
+  confirmation.value = undefined;
+  if (!open.value || !retryAllowed.value || uncertain.value) return;
+  if (snapshot.orderId !== props.orderId || status.value?.stateKey !== 'Review' || snapshot.subscriptionId !== status.value.subscriptionId
+    || snapshot.beneficiaryTenantId !== status.value.beneficiaryTenantId || snapshot.readAtUtc !== status.value.readAtUtc) {
+    status.value = undefined; uncertain.value = true; failure.value = text('retryConfirmationChanged'); return;
+  }
+  await load(true);
+}
 async function load(retry = false) {
-  if (!open.value || !allowed.value || loading.value || (retry && (!retryAllowed.value || uncertain.value || status.value?.stateKey !== 'Review'))) return;
+  if (!open.value || !allowed.value || loading.value || confirmation.value || (retry && (!retryAllowed.value || uncertain.value || status.value?.stateKey !== 'Review'))) return;
   const operation = scope.begin(retry ? 'payments.orders.reconcile' : 'payments.orders.read'); if (!operation) return;
   const orderId = props.orderId; pending = operation; loading.value = true; failure.value = '';
   // 重试结果不明时只允许重新读取当前订单，不把旧 Review 状态继续作为写入资格。
@@ -56,7 +80,7 @@ async function load(retry = false) {
     <el-alert v-if="failure" :title="failure" type="error" :closable="false" />
     <p>{{ text('safeRetry') }}</p>
     <el-alert v-if="waitingForEffective" class="fulfillment-waiting" type="info" :title="text('waitingEffective')" :closable="false" data-testid="fulfillment-waiting" />
-    <el-descriptions v-if="status" class="fulfillment-snapshot" :column="1" border>
+    <el-descriptions v-if="status && !confirmation" class="fulfillment-snapshot" :column="1" border>
       <el-descriptions-item :label="text('invoice')"><code>{{ status.subscriptionId }}</code></el-descriptions-item>
       <el-descriptions-item :label="text('fulfillment')">{{ subscriptionPhaseText(locale, status.stateKey) }}</el-descriptions-item>
       <el-descriptions-item :label="text('effectiveAt')"><time data-testid="fulfillment-effective" :datetime="status.effectiveFromUtc">{{ formatDate(status.effectiveFromUtc) }}</time></el-descriptions-item>
@@ -65,9 +89,20 @@ async function load(retry = false) {
       <el-descriptions-item v-if="status.errorCode" :label="text('fulfillmentProblem')"><code>{{ status.errorCode }}</code></el-descriptions-item>
       <el-descriptions-item :label="text('fulfillmentReadAt')"><time data-testid="fulfillment-read-at" :datetime="status.readAtUtc">{{ formatDate(status.readAtUtc) }}</time></el-descriptions-item>
     </el-descriptions>
-    <p v-if="status">{{ text('scheduleHint') }}</p>
-    <el-button data-testid="subscription-fulfillment-refresh" :disabled="!allowed" :loading="loading" @click="load()">{{ text('refresh') }}</el-button>
-    <el-button data-testid="subscription-fulfillment-retry" v-if="retryAllowed && !uncertain && status?.stateKey === 'Review'" :loading="loading" @click="load(true)">{{ text('retry') }}</el-button>
+    <p v-if="status && !confirmation">{{ text('scheduleHint') }}</p>
+    <section v-if="confirmation" role="group" :aria-label="text('retryConfirmTitle')" data-testid="fulfillment-retry-confirmation">
+      <h3>{{ text('retryConfirmTitle') }}</h3><p>{{ text('retryConfirmHint') }}</p>
+      <el-descriptions class="fulfillment-snapshot" :column="1" border>
+        <el-descriptions-item :label="text('order')"><code data-testid="fulfillment-confirm-order">{{ confirmation.orderId }}</code></el-descriptions-item>
+        <el-descriptions-item :label="text('invoice')"><code>{{ confirmation.subscriptionId }}</code></el-descriptions-item>
+        <el-descriptions-item :label="text('beneficiaryTenant')"><code>{{ confirmation.beneficiaryTenantId }}</code></el-descriptions-item>
+        <el-descriptions-item :label="text('fulfillmentReadAt')"><time :datetime="confirmation.readAtUtc">{{ formatDate(confirmation.readAtUtc) }}</time></el-descriptions-item>
+      </el-descriptions>
+      <el-button data-testid="fulfillment-retry-cancel" @click="cancelRetry">{{ text('retryCancel') }}</el-button>
+      <el-button ref="confirmButton" type="primary" :disabled="!retryAllowed" data-testid="fulfillment-retry-confirm" @click="confirmRetry">{{ text('retryConfirm') }}</el-button>
+    </section>
+    <el-button v-if="!confirmation" data-testid="subscription-fulfillment-refresh" :disabled="!allowed" :loading="loading" @click="load()">{{ text('refresh') }}</el-button>
+    <el-button ref="retryButton" data-testid="subscription-fulfillment-retry" v-if="!confirmation && retryAllowed && !uncertain && status?.stateKey === 'Review'" :loading="loading" @click="beginRetry">{{ text('retry') }}</el-button>
   </ArtFormDialog>
 </template>
 <style scoped>

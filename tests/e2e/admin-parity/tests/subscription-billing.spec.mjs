@@ -133,6 +133,9 @@ test('人工重试只调用原订单履约接口，不下单或扣款', async ({
   const dialog = page.getByRole('dialog').last();
   await expect(dialog).toContainText('需要人工对账');
   await dialog.getByRole('button', { name: '重试履约', exact: true }).click();
+  await expect(page.getByTestId('fulfillment-confirm-order')).toHaveText(orderId); expect(retry).toBe(0);
+  await expect(page.getByTestId('fulfillment-retry-confirm')).toBeFocused();
+  await page.getByTestId('fulfillment-retry-confirm').click();
   await expect(dialog).toContainText('已收款，等待发放');
   expect(retry).toBe(1); expect(checkout).toBe(0);
 });
@@ -156,6 +159,15 @@ for (const [width, locale] of [[1440, 'en-US'], [390, 'zh-CN']]) {
     await page.route('**/checkout', r => { checkouts++; return r.abort(); });
     await page.goto('/#/payments/orders'); await page.getByTestId('subscription-fulfillment').click();
     await page.getByTestId('subscription-fulfillment-retry').click();
+    await expect(page.getByTestId('fulfillment-confirm-order')).toHaveText(orderId); expect(retries).toBe(0);
+    await expect(page.getByTestId('fulfillment-retry-confirm')).toBeFocused();
+    await page.getByTestId('fulfillment-retry-cancel').click();
+    await expect(page.getByTestId('subscription-fulfillment-retry')).toBeFocused(); expect(reads).toBe(1); expect(retries).toBe(0);
+    await page.getByTestId('subscription-fulfillment-retry').click(); await expect(page.getByTestId('fulfillment-retry-confirm')).toBeFocused();
+    await page.locator('.art-form-dialog').filter({ has: page.getByTestId('fulfillment-retry-confirmation') })
+      .screenshot({ path: info.outputPath('fulfillment-confirm-' + width + '.png'), animations: 'disabled' });
+    expect((await new AxeBuilder({ page }).include('.art-form-dialog').withTags(['wcag2a', 'wcag2aa']).analyze()).violations).toEqual([]);
+    await page.getByTestId('fulfillment-retry-confirm').press('Enter');
     const modal = page.getByRole('dialog').last();
     await expect(modal).toContainText(locale === 'en-US' ? 'Fulfillment result unconfirmed' : '履约结果未确认');
     await expect(page.getByTestId('subscription-fulfillment-retry')).toHaveCount(0);

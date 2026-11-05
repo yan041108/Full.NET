@@ -2,6 +2,8 @@ import type { SupportedLocale } from '@fullnet/admin-i18n';
 
 // 资金和权益状态使用独立固定文案，不能把渠道成功误显示为已完成授权。
 const zh = {
+  retryConfirmTitle: '确认重试原订单的内部履约', retryConfirmHint: '以下为最近一次读取的原订单与订阅。确认后由服务端核对当前状态；不会创建新订单或再次扣款。',
+  retryConfirm: '确认重试履约', retryCancel: '返回状态', beneficiaryTenant: '权益受益企业', retryConfirmationChanged: '确认目标或读取快照已变化，请重新读取原订单后确认。',
   effectiveAt: '权益生效时间（UTC）', nextAttemptAt: '下一次最早处理（UTC）', fulfillmentReadAt: '本次读取（UTC）', recoveryAttempts: '当前恢复尝试次数', fulfillmentProblem: '最近处理码',
   waitingEffective: '履约记录正在等待生效日，尚未确认权益发放。', scheduleHint: '排期为最早可处理时间，不保证届时完成。状态按本次服务器读取判断；请显式刷新，刷新不会重试履约。',
   detailAction: '订阅详情',
@@ -45,6 +47,8 @@ const zh = {
   safeRetry: '网络重试复用原账单；履约重试不会再次扣款。'
 };
 const en: Record<keyof typeof zh, string> = {
+  retryConfirmTitle: 'Confirm original fulfillment retry', retryConfirmHint: 'This is the last read of the original order and subscription. The server validates current state after confirmation; no new order or charge is created.',
+  retryConfirm: 'Confirm fulfillment retry', retryCancel: 'Back to status', beneficiaryTenant: 'Beneficiary tenant', retryConfirmationChanged: 'The target or read snapshot changed. Reload the original order before confirming.',
   effectiveAt: 'Entitlement effective time (UTC)', nextAttemptAt: 'Earliest next processing (UTC)', fulfillmentReadAt: 'Read at (UTC)', recoveryAttempts: 'Current recovery attempts', fulfillmentProblem: 'Last processing code',
   waitingEffective: 'Waiting for the effective date; entitlement delivery is not confirmed.', scheduleHint: 'This is the earliest processing time, not a completion guarantee. Status reflects this server read; refresh explicitly. Refreshing does not retry fulfillment.',
   detailAction: 'Details',

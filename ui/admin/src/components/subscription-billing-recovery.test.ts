@@ -36,6 +36,36 @@ async function purchase(source?: { subscriptionId: string; packageId: string }) 
 }
 describe('付费账单原请求恢复', () => {
   beforeEach(() => { vi.resetAllMocks(); useAdminI18n().setLocale('zh-CN'); vi.mocked(getPackageOffer).mockResolvedValue(offer); vi.mocked(getSubscriptionFulfillment).mockResolvedValue(fulfillment); });
+  it('确认前展示冻结目标，取消不写入，重复确认只提交一次', async () => {
+    const { pinia } = sessionSetup(); const pending = Promise.withResolvers<Awaited<ReturnType<typeof retrySubscriptionFulfillment>>>();
+    vi.mocked(retrySubscriptionFulfillment).mockReturnValue(pending.promise);
+    const wrapper = mount(SubscriptionFulfillmentAction, { props: { orderId: id(6) }, global: globalFor(pinia) });
+    await wrapper.get('[data-testid="subscription-fulfillment"]').trigger('click'); await flushPromises();
+    await wrapper.get('[data-testid="subscription-fulfillment-retry"]').trigger('click'); await flushPromises();
+    expect(wrapper.get('[data-testid="fulfillment-retry-confirmation"]').text()).toContain(id(5));
+    expect(wrapper.get('[data-testid="fulfillment-retry-confirmation"]').text()).toContain(id(1));
+    expect(wrapper.get('[data-testid="fulfillment-confirm-order"]').text()).toBe(id(6));
+    expect(retrySubscriptionFulfillment).not.toHaveBeenCalled(); expect(getSubscriptionFulfillment).toHaveBeenCalledTimes(1);
+    await wrapper.get('[data-testid="fulfillment-retry-cancel"]').trigger('click'); await flushPromises();
+    expect(retrySubscriptionFulfillment).not.toHaveBeenCalled(); expect(wrapper.find('[data-testid="fulfillment-retry-confirmation"]').exists()).toBe(false);
+    await wrapper.get('[data-testid="subscription-fulfillment-retry"]').trigger('click'); await flushPromises();
+    const button = wrapper.get('[data-testid="fulfillment-retry-confirm"]'); await button.trigger('click'); await button.trigger('click');
+    expect(retrySubscriptionFulfillment).toHaveBeenCalledTimes(1); expect(retrySubscriptionFulfillment).toHaveBeenCalledWith(id(6), expect.any(AbortSignal));
+    pending.resolve({ ...fulfillment, stateKey: 'ReadyPaid', nextAttemptAtUtc: fulfillment.readAtUtc }); await flushPromises();
+    expect(wrapper.find('[data-testid="subscription-fulfillment-retry"]').exists()).toBe(false); wrapper.unmount();
+  });
+  it.each(['order', 'permission', 'session', 'close'])('%s 变化清除旧确认且不提交', async mode => {
+    const { pinia, session } = sessionSetup();
+    const wrapper = mount(SubscriptionFulfillmentAction, { props: { orderId: id(6) }, global: globalFor(pinia) });
+    await wrapper.get('[data-testid="subscription-fulfillment"]').trigger('click'); await flushPromises();
+    await wrapper.get('[data-testid="subscription-fulfillment-retry"]').trigger('click'); await flushPromises();
+    if (mode === 'order') await wrapper.setProps({ orderId: id(8) });
+    else if (mode === 'permission') session.currentUser!.permissions = session.currentUser!.permissions.filter(code => code !== 'payments.orders.reconcile');
+    else if (mode === 'session') session.currentUser!.sessionId = id(11);
+    else await wrapper.get('[data-testid="close"]').trigger('click');
+    await flushPromises(); expect(wrapper.find('[data-testid="fulfillment-retry-confirmation"]').exists()).toBe(false);
+    expect(retrySubscriptionFulfillment).not.toHaveBeenCalled(); wrapper.unmount();
+  });
   it('未来生效按服务器读取时点判断，浏览器时钟不改变排期事实', async () => {
     const clock = vi.spyOn(Date, 'now').mockReturnValue(Date.parse('2040-01-01T00:00:00Z'));
     const future = { ...fulfillment, stateKey: 'ReadyPaid', effectiveFromUtc: '2027-01-01T00:00:00Z', nextAttemptAtUtc: '2027-01-01T00:00:00Z' };
@@ -170,6 +200,8 @@ describe('付费账单原请求恢复', () => {
     const wrapper = mount(SubscriptionFulfillmentAction, { props: { orderId: id(6) }, global: globalFor(pinia) });
     await wrapper.get('[data-testid="subscription-fulfillment"]').trigger('click'); await flushPromises();
     await wrapper.get('[data-testid="subscription-fulfillment-retry"]').trigger('click'); await flushPromises();
+    expect(retrySubscriptionFulfillment).not.toHaveBeenCalled();
+    await wrapper.get('[data-testid="fulfillment-retry-confirm"]').trigger('click'); await flushPromises();
     expect(wrapper.text()).toContain('履约结果未确认'); expect(wrapper.find('[data-testid="subscription-fulfillment-retry"]').exists()).toBe(false); expect(retrySubscriptionFulfillment).toHaveBeenCalledTimes(1);
     await wrapper.get('[data-testid="subscription-fulfillment-refresh"]').trigger('click'); await flushPromises();
     expect(getSubscriptionFulfillment).toHaveBeenCalledTimes(2); expect(wrapper.find('[data-testid="subscription-fulfillment-retry"]').exists()).toBe(true); wrapper.unmount();
