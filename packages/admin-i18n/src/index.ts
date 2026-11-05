@@ -22,3 +22,4 @@ export { translateAiReconciliation } from './ai-reconciliation.js';
 export { translateKnowledgeFormats } from './knowledge-formats.js';
 
 export { translatePaymentReconciliation } from './payment-reconciliation.js';
+export { translatePaymentMerchantOperations } from './payment-merchant-operations.js';
