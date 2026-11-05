@@ -70,6 +70,7 @@ public sealed class TenantSubscriptionRenewalTests
         var preview = (await previewService.GetAsync(tenant, original.SubscriptionId, default)).Value!;
         Assert.AreEqual(original.EffectiveToUtc, preview.EffectiveFromUtc); Assert.AreEqual(2, preview.SourceVersion);
         await VerifyPreviewAuthorizationAsync(factory, tenant, original.SubscriptionId);
+        await VerifyInvoiceHistoryAsync(factory, tenant, original, "Applied");
         Assert.IsTrue((await offers.SaveAsync(packageId, new(tenant, merchant, 25000, "CNY", 1, 1, 60, [], true, 1), default)).IsSuccess);
         preview = (await previewService.GetAsync(tenant, original.SubscriptionId, default)).Value!;
         var request = new CreatePaidTenantSubscriptionRequest(packageId, preview.Offer.Version, preview.EffectiveFromUtc, Guid.CreateVersion7())
@@ -97,11 +98,13 @@ public sealed class TenantSubscriptionRenewalTests
         Assert.AreEqual(original.SubscriptionId, renewed.RenewalOfSubscriptionId); Assert.AreEqual(preview.SourceVersion, renewed.RenewalSourceVersion);
         Assert.AreEqual(original.EffectiveToUtc, renewed.EffectiveFromUtc); Assert.AreEqual(renewed.EffectiveFromUtc.AddDays(60), renewed.EffectiveToUtc);
         Assert.AreEqual(25000L, renewed.AmountMinor);
+        await VerifyInvoiceHistoryAsync(factory, tenant, renewed, "Pending");
         var nextReceipt = Receipt(renewed, clock.UtcNow);
         Assert.IsFalse((await billing.ApplyVerifiedPaymentAsync(nextReceipt)).IsSuccess);
         await AssertQuotaAsync(original.SubscriptionId, 20);
         Assert.IsTrue((await billing.ApplyVerifiedRefundAsync(new(paid, Guid.CreateVersion7(), paid.AmountMinor))).IsSuccess);
         Assert.IsFalse((await previewService.GetAsync(tenant, original.SubscriptionId, default)).IsSuccess);
+        await VerifyInvoiceHistoryAsync(factory, tenant, original, "Refunded");
         Assert.AreEqual(renewed, (await billing.CreateAsync(tenant, accepted, default)).Value, "来源退款后原请求仍返回原账单");
         Assert.IsFalse((await billing.CreateAsync(tenant, accepted with { RenewalSourceVersion = 999 }, default)).IsSuccess);
         clock.UtcNow = renewed.EffectiveFromUtc.AddSeconds(1);
@@ -110,6 +113,10 @@ public sealed class TenantSubscriptionRenewalTests
         Assert.IsTrue((await billing.ApplyVerifiedRefundAsync(new(paid, Guid.CreateVersion7(), paid.AmountMinor))).IsSuccess);
         await AssertQuotaAsync(renewed.SubscriptionId, 1);
         Assert.AreEqual(renewed, (await billing.CreateAsync(tenant, accepted, default)).Value, "来源到期后原请求仍幂等");
+        await db.ExecuteAsync("UPDATE fn_tenancy_tenant SET IsActive=0,LifecycleStatus='Suspended' WHERE Id=@Tenant", new { Tenant = tenant });
+        var inactiveHistory = await sp.GetRequiredService<TenantSubscriptionInvoiceQueryService>().GetAsync(tenant, original.SubscriptionId, default);
+        Assert.IsTrue(inactiveHistory.IsSuccess); Assert.AreEqual("Refunded", inactiveHistory.Value!.Phase);
+        Assert.IsFalse((await billing.GetPaymentTermsAsync(tenant, renewed.SubscriptionId)).IsSuccess, "只读回读不能放宽停用企业付款资格");
 
         async Task<Full.NET.Abstractions.Results.Result<TenantSubscriptionPaymentTerms>> CreateInOwnScope(CreatePaidTenantSubscriptionRequest body)
         {
@@ -124,6 +131,36 @@ public sealed class TenantSubscriptionRenewalTests
             Assert.AreEqual(source, row.SourceSubscriptionId); Assert.AreEqual(limit, row.LimitValue);
             Assert.AreEqual(2L, row.UsedValue); Assert.AreEqual(1L, row.ReservedValue);
         }
+    }
+
+    private static async Task VerifyInvoiceHistoryAsync(FullNetApiFactory factory, Guid tenant, TenantSubscriptionPaymentTerms terms, string phase)
+    {
+        using var client = factory.CreateClientForHost("localhost");
+        var path = $"/api/v1/tenancy/tenants/{tenant:D}/subscriptions/{terms.SubscriptionId:D}/invoice";
+        using var anonymous = await client.GetAsync(path); Assert.AreEqual(HttpStatusCode.Unauthorized, anonymous.StatusCode);
+        client.DefaultRequestHeaders.Authorization = new("Bearer", await factory.CreateHostAccessTokenAsync(["tenancy.tenant_subscriptions.manage"]));
+        using var denied = await client.GetAsync(path); Assert.AreEqual(HttpStatusCode.Forbidden, denied.StatusCode);
+        client.DefaultRequestHeaders.Authorization = new("Bearer", await factory.CreateHostAccessTokenAsync(["tenancy.tenant_subscriptions.read"]));
+        using var response = await client.GetAsync(path); Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
+        Assert.IsTrue(response.Headers.CacheControl!.NoStore);
+        using var json = System.Text.Json.JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        Assert.AreEqual(System.Text.Json.JsonValueKind.String, json.RootElement.GetProperty("amountMinor").ValueKind);
+        foreach (var hidden in new[] { "requestHash", "requestId", "paymentOperationId", "merchantConfigId", "providerTransactionId" })
+            Assert.IsFalse(json.RootElement.TryGetProperty(hidden, out _), hidden);
+        var invoice = (await response.Content.ReadFromJsonAsync<TenantSubscriptionInvoiceResponse>())!;
+        Assert.AreEqual(terms.SubscriptionId, invoice.SubscriptionId); Assert.AreEqual(tenant, invoice.TenantId);
+        Assert.AreEqual(terms.AmountMinor.ToString(System.Globalization.CultureInfo.InvariantCulture), invoice.AmountMinor);
+        Assert.AreEqual(terms.EffectiveFromUtc, invoice.EffectiveFromUtc); Assert.AreEqual(terms.EffectiveToUtc, invoice.EffectiveToUtc);
+        Assert.AreEqual(terms.RenewalOfSubscriptionId, invoice.RenewalOfSubscriptionId); Assert.AreEqual(terms.RenewalSourceVersion, invoice.RenewalSourceVersion);
+        Assert.AreEqual(phase, invoice.Phase);
+        using var wrongTenant = await client.GetAsync($"/api/v1/tenancy/tenants/{Guid.CreateVersion7():D}/subscriptions/{terms.SubscriptionId:D}/invoice");
+        Assert.AreEqual(HttpStatusCode.NotFound, wrongTenant.StatusCode);
+        using var missing = await client.GetAsync($"/api/v1/tenancy/tenants/{tenant:D}/subscriptions/{Guid.CreateVersion7():D}/invoice");
+        Assert.AreEqual(HttpStatusCode.NotFound, missing.StatusCode);
+        using var emptyTenant = await client.GetAsync($"/api/v1/tenancy/tenants/{Guid.Empty:D}/subscriptions/{terms.SubscriptionId:D}/invoice");
+        Assert.AreEqual(HttpStatusCode.NotFound, emptyTenant.StatusCode);
+        using var emptySubscription = await client.GetAsync($"/api/v1/tenancy/tenants/{tenant:D}/subscriptions/{Guid.Empty:D}/invoice");
+        Assert.AreEqual(HttpStatusCode.NotFound, emptySubscription.StatusCode);
     }
 
     private static async Task VerifyPreviewAuthorizationAsync(FullNetApiFactory factory, Guid tenant, Guid source)

@@ -2242,7 +2242,8 @@
         "ui/admin/src/components/PackageOfferEditor.vue",
         "ui/admin/src/components/PaidSubscriptionPurchase.vue",
         "ui/admin/src/components/SubscriptionCheckoutAction.vue",
-        "ui/admin/src/components/SubscriptionFulfillmentAction.vue"
+        "ui/admin/src/components/SubscriptionFulfillmentAction.vue",
+        "ui/admin/src/components/SubscriptionInvoiceDetails.vue"
       ]
     },
     {

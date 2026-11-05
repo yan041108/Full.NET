@@ -254,3 +254,42 @@ for (const width of [1440, 390]) {
     await modal.screenshot({ path: info.outputPath('renewal-created-' + width + '.png'), animations: 'disabled' });
   });
 }
+
+for (const width of [1440, 390]) {
+  test('停用企业原冻结账单只读回读保留精确金额 ' + width, async ({ page }, info) => {
+    const readOnly = ['identity.navigation.read', 'tenancy.tenants.read', 'tenancy.tenant_subscriptions.read'];
+    await page.setViewportSize({ width: 1440, height: 1000 }); await setup(page, readOnly);
+    const row = { id: subscriptionId, tenantId, packageId, status: 'Cancelled', version: 4, trialEndsAtUtc: null,
+      currentPeriodStartUtc: '2026-09-01T00:00:00Z', currentPeriodEndUtc: '2026-10-01T00:00:00Z', cancelledAtUtc: '2026-09-15T00:00:00Z' };
+    await page.route('**/api/v1/tenancy/tenants?*', r => json(r, { items: [{ id: tenantId, identifier: 'billing', name: 'Historical tenant', domain: 'billing.localhost', isActive: false, version: 4, defaultLocale: 'zh-CN' }], total: 1, page: 1, pageSize: 20 }));
+    await page.route(`**/api/v1/tenancy/tenants/${tenantId}/subscriptions?*`, r => json(r, { items: [row], total: 1, page: 1, pageSize: 20 }));
+    await page.route(`**/api/v1/tenancy/tenants/${tenantId}/subscriptions/${subscriptionId}`, r => json(r, row));
+    const invoice = { subscriptionId, tenantId, packageId, subject: '原冻结商品名称', offerVersion: 7, amountMinor: '9007199254740993', currency: 'CNY',
+      seatLimit: '9223372036854775807', storageLimit: '9223372036854775806', effectiveFromUtc: row.currentPeriodStartUtc, effectiveToUtc: row.currentPeriodEndUtc,
+      phase: 'Refunded', renewalOfSubscriptionId: id(30), renewalSourceVersion: 3, paymentOrderId: orderId, readAtUtc: '2026-11-05T00:00:00Z' };
+    let reads = 0, writes = 0;
+    await page.route(`**/api/v1/tenancy/tenants/${tenantId}/subscriptions/${subscriptionId}/invoice`, r => {
+      reads++; return reads === 1 ? json(r, invoice) : reads === 2 ? json(r, { status: 503, title: 'temporary', code: 'test.temporary' }, 503)
+        : json(r, { status: 404, title: 'missing', code: 'tenancy.subscription_billing.not_found' }, 404);
+    });
+    await page.route('**/api/v1/**', r => {
+      if (r.request().method() !== 'GET' && /\/api\/v1\/(?:tenancy|payments)\//.test(r.request().url())) { writes++; return r.abort(); }
+      return r.fallback();
+    });
+    await page.goto('/#/tenants'); await page.getByRole('link', { name: '租户管理', exact: true }).click();
+    await page.setViewportSize({ width, height: 1000 }); await page.getByTestId('tenants-action-subscriptions').click();
+    await page.getByTestId('tenant-subscription-detail').click(); await expect(page.getByTestId('subscription-detail-status')).toContainText('已取消');
+    expect(reads).toBe(0); await page.getByTestId('subscription-invoice-read').click();
+    const snapshot = page.getByTestId('subscription-invoice-snapshot');
+    await expect(page.getByTestId('invoice-exact-amount')).toHaveText(invoice.amountMinor);
+    await expect(snapshot).toContainText(invoice.renewalOfSubscriptionId); await expect(snapshot).toContainText(invoice.seatLimit);
+    await expect(snapshot).toContainText('已接收退款事实');
+    expect((await new AxeBuilder({ page }).include('.art-form-dialog').withTags(['wcag2a', 'wcag2aa']).analyze()).violations).toEqual([]);
+    await snapshot.getByText(invoice.readAtUtc, { exact: true }).scrollIntoViewIfNeeded();
+    await page.getByRole('dialog').last().screenshot({ path: info.outputPath('frozen-invoice-' + width + '.png'), animations: 'disabled' });
+    await page.getByTestId('subscription-invoice-read').click(); await expect(page.getByTestId('subscription-invoice-failure')).toContainText('保留');
+    await expect(snapshot).toContainText(invoice.readAtUtc); await page.getByTestId('subscription-invoice-read').click();
+    await expect(snapshot).toHaveCount(0); await expect(page.getByTestId('subscription-invoice-failure')).toContainText('不存在或不可读取');
+    expect(reads).toBe(3); expect(writes).toBe(0);
+  });
+}

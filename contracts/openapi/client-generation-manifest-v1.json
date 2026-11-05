@@ -5254,6 +5254,12 @@
       "apiModule": "ui/admin/src/api/subscription-billing.ts",
       "generatedGroup": "subscription-billing",
       "status": "generated"
+    },
+    {
+      "operationId": "tenancyGetSubscriptionInvoice",
+      "apiModule": "ui/admin/src/api/subscription-billing.ts",
+      "generatedGroup": "subscription-billing",
+      "status": "generated"
     }
   ]
 }

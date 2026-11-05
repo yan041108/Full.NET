@@ -52,3 +52,25 @@ public sealed record CreatePaidTenantSubscriptionRequest(Guid PackageId, int Off
 /// <param name="ReadAtUtc">服务器读取时间。</param>
 public sealed record TenantSubscriptionRenewalPreviewResponse(Guid TenantId, Guid SourceSubscriptionId,
     int SourceVersion, DateTimeOffset EffectiveFromUtc, TenantPackageOfferResponse Offer, DateTimeOffset ReadAtUtc);
+
+/// <summary>原冻结账单的只读快照；历史接收阶段不替代当前资金或权益判断。</summary>
+/// <param name="SubscriptionId">账单所属订阅。</param>
+/// <param name="TenantId">权益受益企业。</param>
+/// <param name="PackageId">冻结套餐。</param>
+/// <param name="Subject">冻结商品名称。</param>
+/// <param name="OfferVersion">冻结报价版本。</param>
+/// <param name="AmountMinor">最小货币单位金额的精确十进制字符串。</param>
+/// <param name="Currency">冻结币种。</param>
+/// <param name="SeatLimit">冻结席位上限的精确十进制字符串。</param>
+/// <param name="StorageLimit">冻结存储字节上限的精确十进制字符串。</param>
+/// <param name="EffectiveFromUtc">冻结周期起点。</param>
+/// <param name="EffectiveToUtc">冻结周期终点。</param>
+/// <param name="Phase">Tenancy 账单事实接收阶段。</param>
+/// <param name="RenewalOfSubscriptionId">原续期来源，普通购买为空。</param>
+/// <param name="RenewalSourceVersion">创建时核验的来源版本。</param>
+/// <param name="PaymentOrderId">已接收付款事实的订单身份；不是下单指令。</param>
+/// <param name="ReadAtUtc">服务器读取时间。</param>
+public sealed record TenantSubscriptionInvoiceResponse(Guid SubscriptionId, Guid TenantId, Guid PackageId,
+    string Subject, int OfferVersion, string AmountMinor, string Currency, string SeatLimit, string StorageLimit,
+    DateTimeOffset EffectiveFromUtc, DateTimeOffset EffectiveToUtc, string Phase,
+    Guid? RenewalOfSubscriptionId, int? RenewalSourceVersion, Guid? PaymentOrderId, DateTimeOffset ReadAtUtc);

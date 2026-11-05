@@ -6979,6 +6979,25 @@ export interface TenantRuntimeBrandingResponse {
   readonly systemTitle: null | string;
 }
 
+export interface TenantSubscriptionInvoiceResponse {
+  readonly amountMinor: string;
+  readonly currency: string;
+  readonly effectiveFromUtc: string;
+  readonly effectiveToUtc: string;
+  readonly offerVersion: number;
+  readonly packageId: string;
+  readonly paymentOrderId: null | string;
+  readonly phase: string;
+  readonly readAtUtc: string;
+  readonly renewalOfSubscriptionId: null | string;
+  readonly renewalSourceVersion: null | number;
+  readonly seatLimit: string;
+  readonly storageLimit: string;
+  readonly subject: string;
+  readonly subscriptionId: string;
+  readonly tenantId: string;
+}
+
 export interface TenantSubscriptionPaymentTerms {
   readonly amountMinor: number;
   readonly currency: string;

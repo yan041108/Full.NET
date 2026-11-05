@@ -2,6 +2,10 @@ import type { SupportedLocale } from '@fullnet/admin-i18n';
 
 // 资金和权益状态使用独立固定文案，不能把渠道成功误显示为已完成授权。
 const zh = {
+  frozenInvoice: '原冻结付费账单', invoiceRead: '读取原账单', invoiceRefresh: '刷新原账单', invoiceSubject: '原商品名称', invoiceSourceVersion: '原续期来源版本', invoicePaymentOrder: '已接收的付款订单',
+  invoicePhase: '账单事实接收阶段', invoicePending: '本账单待履约', invoiceApplied: '本账单已履约', invoiceRefunded: '已接收退款事实',
+  invoiceSnapshotHint: '显式回读原账单，不按当前报价重算。阶段表示历史事实接收，不代替当前资金或权益判断；读取不会下单、退款或重试。',
+  invoiceAbsent: '原付费账单不存在或不可读取，请核对原订阅 ID。', invoiceReadFailed: '原账单读取失败；若已有快照，保留其原读取时间，请重新读取。',
   renewalChanged: '续期来源或报价版本已变化，本次未创建账单。请重新读取提案，核对来源和新条款后确认。',
   renewal: '同套餐续期', renewalPolicy: '创建独立续期账单，开始时间固定为原付费周期结束。采用当前报价，付款不提前覆盖当前权益；取消或退款原周期不会自动取消新周期。新限额保留现有占用，超限时停止新增。',
   lookupLabel: '输入原订阅 ID（UUID）', lookupAction: '按 ID 读取', lookupHint: '仅在当前企业内精确读取原订阅，不改变列表筛选，不创建或取消订阅。',
@@ -51,6 +55,10 @@ const zh = {
   safeRetry: '网络重试复用原账单；履约重试不会再次扣款。'
 };
 const en: Record<keyof typeof zh, string> = {
+  frozenInvoice: 'Original frozen invoice', invoiceRead: 'Read original invoice', invoiceRefresh: 'Refresh original invoice', invoiceSubject: 'Original product name', invoiceSourceVersion: 'Renewal source version', invoicePaymentOrder: 'Received payment order',
+  invoicePhase: 'Invoice receipt phase', invoicePending: 'This invoice is pending fulfillment', invoiceApplied: 'This invoice was fulfilled', invoiceRefunded: 'Refund fact received',
+  invoiceSnapshotHint: 'Read the original invoice using its frozen terms. Its phase records historical receipts, not current funds or access. Reading does not place orders, refund or retry.',
+  invoiceAbsent: 'The original paid invoice is missing or unavailable. Check the original subscription ID.', invoiceReadFailed: 'The original invoice could not be read. Any previous snapshot keeps its original read time; read it again.',
   renewalChanged: 'The renewal source or offer version changed. No invoice was created. Read the proposal again and confirm its source and new terms.',
   renewal: 'Renew this plan', renewalPolicy: 'Create an independent invoice starting at the end of the paid period using the current offer. Payment does not replace current access early. Cancelling or refunding the previous period does not cancel the new period. Existing usage remains; a lower limit can block new usage.',
   lookupLabel: 'Original subscription ID (UUID)', lookupAction: 'Read by ID', lookupHint: 'Read the original subscription within this tenant. The list filter is unchanged; no subscription is created or cancelled.',

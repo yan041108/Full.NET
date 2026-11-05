@@ -828,6 +828,7 @@ import type {
   TenantQuotaUsageItemResponse,
   TenantQuotaUsageSummaryResponse,
   TenantRuntimeBrandingResponse,
+  TenantSubscriptionInvoiceResponse,
   TenantSubscriptionPaymentTerms,
   TenantSubscriptionRenewalPreviewResponse,
   TenantSubscriptionResponse,
@@ -8215,6 +8216,15 @@ function isTenantRuntimeBrandingResponse(value: unknown): value is TenantRuntime
   return isRecord(value) && ((value["contactAddress"] === null) || (typeof value["contactAddress"] === 'string')) && ((value["contactEmail"] === null) || (typeof value["contactEmail"] === 'string')) && ((value["contactPhone"] === null) || (typeof value["contactPhone"] === 'string')) && ((value["copyright"] === null) || (typeof value["copyright"] === 'string')) && (typeof value["hasLogo"] === 'boolean') && ((value["systemTitle"] === null) || (typeof value["systemTitle"] === 'string'));
 }
 
+export function readTenantSubscriptionInvoiceResponse(value: unknown): TenantSubscriptionInvoiceResponse {
+  const normalizedValue = normalizeTenantSubscriptionInvoiceResponseIntegerJson(value);
+  return requireValidResponse(normalizedValue, isTenantSubscriptionInvoiceResponse(normalizedValue), 'tenant_subscription_invoice_response') as TenantSubscriptionInvoiceResponse;
+}
+
+function isTenantSubscriptionInvoiceResponse(value: unknown): value is TenantSubscriptionInvoiceResponse {
+  return isRecord(value) && (typeof value["amountMinor"] === 'string') && (typeof value["currency"] === 'string') && (typeof value["effectiveFromUtc"] === 'string') && (typeof value["effectiveToUtc"] === 'string') && (Number.isSafeInteger(value["offerVersion"])) && (typeof value["packageId"] === 'string' && guidPattern.test(value["packageId"])) && ((value["paymentOrderId"] === null) || (typeof value["paymentOrderId"] === 'string' && guidPattern.test(value["paymentOrderId"]))) && (typeof value["phase"] === 'string') && (typeof value["readAtUtc"] === 'string') && ((value["renewalOfSubscriptionId"] === null) || (typeof value["renewalOfSubscriptionId"] === 'string' && guidPattern.test(value["renewalOfSubscriptionId"]))) && ((value["renewalSourceVersion"] === null) || (Number.isSafeInteger(value["renewalSourceVersion"]))) && (typeof value["seatLimit"] === 'string') && (typeof value["storageLimit"] === 'string') && (typeof value["subject"] === 'string') && (typeof value["subscriptionId"] === 'string' && guidPattern.test(value["subscriptionId"])) && (typeof value["tenantId"] === 'string' && guidPattern.test(value["tenantId"]));
+}
+
 export function readTenantSubscriptionPaymentTerms(value: unknown): TenantSubscriptionPaymentTerms {
   const normalizedValue = normalizeTenantSubscriptionPaymentTermsIntegerJson(value);
   return requireValidResponse(normalizedValue, isTenantSubscriptionPaymentTerms(normalizedValue), 'tenant_subscription_payment_terms') as TenantSubscriptionPaymentTerms;
@@ -12459,6 +12469,10 @@ function normalizeTenantPackageOfferResponseIntegerJson(value: unknown): unknown
 
 function normalizeTenantPackageSummaryIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "assignedTenantCount") ? { ["assignedTenantCount"]: normalizeWireInteger(value["assignedTenantCount"]) } : {}), ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
+}
+
+function normalizeTenantSubscriptionInvoiceResponseIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "offerVersion") ? { ["offerVersion"]: normalizeWireInteger(value["offerVersion"]) } : {}), ...(Object.hasOwn(value, "renewalSourceVersion") ? { ["renewalSourceVersion"]: normalizeWireInteger(value["renewalSourceVersion"]) } : {}) } : value);
 }
 
 function normalizeTenantSubscriptionPaymentTermsIntegerJson(value: unknown): unknown {

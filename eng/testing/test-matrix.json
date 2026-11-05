@@ -4,7 +4,7 @@
     "unit": {
       "project": "tests/Full.NET.UnitTests/Full.NET.UnitTests.csproj",
       "assembly": "tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll",
-      "minimum": 9627,
+      "minimum": 9632,
       "timeout": "10m",
       "selections": {
         "subscription-original-detail": {
@@ -729,6 +729,11 @@
         "subscription-manual-renewal": {
           "filter": "FullyQualifiedName~TenantSubscriptionBillingTests",
           "minimum": 22,
+          "timeout": "3m"
+        },
+        "subscription-frozen-invoice": {
+          "filter": "FullyQualifiedName~TenantSubscriptionInvoiceQueryTests",
+          "minimum": 5,
           "timeout": "3m"
         }
       }
@@ -1597,6 +1602,11 @@
         "subscription-manual-renewal": {
           "filter": "FullyQualifiedName~TenantSubscriptionRenewalTests|FullyQualifiedName~Migration376SubscriptionRenewalRecoveryTests|FullyQualifiedName~SubscriptionBillingRecoveryTests",
           "minimum": 6,
+          "timeout": "5m"
+        },
+        "subscription-frozen-invoice": {
+          "filter": "FullyQualifiedName~TenantSubscriptionRenewalTests",
+          "minimum": 2,
           "timeout": "5m"
         }
       }

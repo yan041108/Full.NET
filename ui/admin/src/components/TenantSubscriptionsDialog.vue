@@ -10,6 +10,7 @@ import { subscriptionBillingText } from '../i18n/subscription-billing';
 import { cancelTenantSubscription, createTenantSubscription, getTenantSubscription, listTenantSubscriptions } from '../api/tenant-subscriptions';
 import ArtFormDialog from '../framework/art-design/components/ArtFormDialog.vue';
 import PaidSubscriptionPurchase from './PaidSubscriptionPurchase.vue';
+import SubscriptionInvoiceDetails from './SubscriptionInvoiceDetails.vue';
 import SubscriptionCheckoutAction from './SubscriptionCheckoutAction.vue';
 
 const props = defineProps<{ open: boolean; tenant: HostTenant | null; packages: HostTenantPackage[] }>();
@@ -228,6 +229,7 @@ function paidCreated() { emit('changed'); status.value = ''; page.value = 1; voi
       <ElDescriptionsItem :label="text('detailPackageId')"><code>{{ detail.packageId ?? '—' }}</code></ElDescriptionsItem>
       <ElDescriptionsItem :label="text('detailPackageName')">{{ detailPackage }}</ElDescriptionsItem>
     </ElDescriptions>
+    <SubscriptionInvoiceDetails v-if="detail && tenant" :key="tenant.id + ':' + detail.id" :tenant-id="tenant.id" :subscription-id="detail.id" />
   </ArtFormDialog>
 </template>
 
