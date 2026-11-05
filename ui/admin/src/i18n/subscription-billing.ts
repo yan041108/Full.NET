@@ -2,6 +2,12 @@ import type { SupportedLocale } from '@fullnet/admin-i18n';
 
 // 资金和权益状态使用独立固定文案，不能把渠道成功误显示为已完成授权。
 const zh = {
+  trialPackage: '试用套餐', trialConfirm: '确认开通试用', cancelConfirm: '确认取消订阅', confirmOperation: '确认本次操作',
+  trialDuration: '本次试用为 30 天，提交前请核对套餐与起止时间。', activeSubscriptionHint: '已有试用、有效或待付款订阅，不能重复开通试用。',
+  cancelPolicy: '取消当前订阅不会自动发起渠道退款；请核对原订阅与当前周期，退款沿独立订单流程处理。',
+  historyRefresh: '刷新订阅历史', historyFailed: '订阅历史读取失败，请重新读取后再操作。',
+  operationUnknown: '操作结果未确认，请刷新订阅历史核对；不会自动重试。', operationRejected: '操作被拒绝，请刷新订阅历史后重新确认。', operationConfirmed: '操作已确认完成。',
+  statusTrial: '试用中', statusActive: '有效', statusPastDue: '待付款', statusCancelled: '已取消', statusExpired: '已到期',
   offer: '付费报价', seller: '收款租户 ID', merchant: '商户配置 ID', amount: '金额（最小货币单位）',
   currency: '币种', seats: '席位上限', storage: '存储字节上限', days: '有效天数', features: '功能权益', active: '允许新购买',
   save: '保存', close: '关闭', failure: '操作失败，请刷新后重试。', saved: '报价已保存', purchase: '创建付费订阅',
@@ -22,6 +28,12 @@ const zh = {
   safeRetry: '网络重试复用原账单；履约重试不会再次扣款。'
 };
 const en: Record<keyof typeof zh, string> = {
+  trialPackage: 'Trial package', trialConfirm: 'Confirm trial', cancelConfirm: 'Confirm subscription cancellation', confirmOperation: 'Confirm operation',
+  trialDuration: 'The trial lasts 30 days. Review the package and period before confirming.', activeSubscriptionHint: 'A trial, active or unpaid subscription already exists. Another trial cannot be started.',
+  cancelPolicy: 'Cancellation does not automatically issue a payment refund. Review the original subscription and period; refunds use the separate order process.',
+  historyRefresh: 'Refresh subscriptions', historyFailed: 'Unable to read subscriptions. Reload before taking action.',
+  operationUnknown: 'Operation result unconfirmed. Refresh subscriptions to check; no automatic retry occurs.', operationRejected: 'Operation rejected. Refresh subscriptions before confirming again.', operationConfirmed: 'Operation confirmed.',
+  statusTrial: 'Trial', statusActive: 'Active', statusPastDue: 'Awaiting payment', statusCancelled: 'Cancelled', statusExpired: 'Expired',
   offer: 'Paid offer', seller: 'Payment tenant ID', merchant: 'Merchant configuration ID', amount: 'Amount in minor units',
   currency: 'Currency', seats: 'Seat limit', storage: 'Storage byte limit', days: 'Duration in days', features: 'Feature entitlements', active: 'Allow new purchases',
   save: 'Save', close: 'Close', failure: 'Operation failed. Refresh and retry.', saved: 'Offer saved', purchase: 'Create paid subscription',

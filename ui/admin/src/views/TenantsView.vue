@@ -40,16 +40,11 @@ import PermissionGate from '../components/PermissionGate.vue';
 import { useSessionStore } from '../auth/session';
 import { useAdminI18n } from '../i18n/adminI18n';
 import { listHostTenantPackages } from '../api/tenant-packages';
-import PaidSubscriptionPurchase from '../components/PaidSubscriptionPurchase.vue';
-import SubscriptionCheckoutAction from '../components/SubscriptionCheckoutAction.vue';
+import TenantSubscriptionsDialog from '../components/TenantSubscriptionsDialog.vue';
+
 import TenantLifecycleDialog from '../components/TenantLifecycleDialog.vue';
 import { tenantLifecycleText } from '../i18n/tenant-lifecycle';
-import {
-  cancelTenantSubscription,
-  createTenantSubscription,
-  listTenantSubscriptions,
-  type TenantSubscription
-} from '../api/tenant-subscriptions';
+
 import {
   assignHostTenantPackage,
   createHostTenant,
@@ -109,10 +104,6 @@ const editorForm = reactive({
 });
 const subscriptionDialogOpen = ref(false);
 const subscriptionTenant = ref<HostTenant | null>(null);
-const subscriptionRows = ref<TenantSubscription[]>([]);
-const subscriptionPage = ref(1);
-const subscriptionTotal = ref(0);
-const subscriptionLoading = ref(false);
 const fieldErrors = reactive({
   identifier: '',
   name: '',
@@ -440,74 +431,8 @@ async function saveEdit(): Promise<void> {
   }
 }
 
-async function loadSubscriptionPage(): Promise<void> {
-  const tenant = subscriptionTenant.value;
-  if (!tenant) return;
-  subscriptionLoading.value = true;
-  try {
-    const result = await listTenantSubscriptions(tenant.id, subscriptionPage.value, 20);
-    subscriptionRows.value = result.items;
-    subscriptionTotal.value = result.total;
-  } finally { subscriptionLoading.value = false; }
-}
-
-async function openSubscriptions(tenant: HostTenant): Promise<void> {
-  subscriptionTenant.value = tenant;
-  subscriptionDialogOpen.value = true;
-  subscriptionPage.value = 1;
-  subscriptionLoading.value = true;
-  try {
-    await loadSubscriptionPage();
-  } catch {
-    ElMessage.error(t('common.loadFailed'));
-  } finally {
-    subscriptionLoading.value = false;
-  }
-}
-
-async function startTrialSubscription(): Promise<void> {
-  const tenant = subscriptionTenant.value;
-  const pkg = packages.value.find((item) => item.isActive);
-  if (!tenant || !pkg) {
-    ElMessage.warning(t('tenants.subscriptionNoPackage'));
-    return;
-  }
-  subscriptionLoading.value = true;
-  try {
-    const start = new Date();
-    const end = new Date(start.getTime() + 30 * 24 * 60 * 60 * 1000);
-    await createTenantSubscription(tenant.id, {
-      packageId: pkg.id,
-      status: 'Trial',
-      trialEndsAtUtc: end.toISOString(),
-      currentPeriodStartUtc: start.toISOString(),
-      currentPeriodEndUtc: end.toISOString()
-    });
-    await loadSubscriptionPage();
-    await load();
-    ElMessage.success(t('tenants.subscriptionTrialStarted'));
-  } catch {
-    ElMessage.error(t('common.saveFailed'));
-  } finally {
-    subscriptionLoading.value = false;
-  }
-}
-
-async function cancelActiveSubscription(row: TenantSubscription): Promise<void> {
-  const tenant = subscriptionTenant.value;
-  if (!tenant) {
-    return;
-  }
-  subscriptionLoading.value = true;
-  try {
-    await cancelTenantSubscription(tenant.id, row.id, row.version);
-    await loadSubscriptionPage();
-    ElMessage.success(t('tenants.subscriptionCancelled'));
-  } catch {
-    ElMessage.error(t('common.saveFailed'));
-  } finally {
-    subscriptionLoading.value = false;
-  }
+function openSubscriptions(tenant: HostTenant): void {
+  subscriptionTenant.value = tenant; subscriptionDialogOpen.value = true;
 }
 
 async function assignPackage(
@@ -932,9 +857,8 @@ function toProblem(
                       {{ t('tenants.manageUsers') }}
                     </el-button>
                   </PermissionGate>
-                  <PermissionGate code="tenancy.tenant_subscriptions.manage">
+                  <PermissionGate code="tenancy.tenant_subscriptions.read">
                     <el-button
-                      v-if="row.isActive"
                       link
                       type="primary"
                       data-testid="tenants-action-subscriptions"
@@ -1188,41 +1112,7 @@ function toProblem(
       </template>
     </el-dialog>
 
-    <el-dialog
-      v-model="subscriptionDialogOpen"
-      :title="t('tenants.subscriptions')"
-      width="min(760px, calc(100vw - 32px))"
-    >
-      <el-table v-loading="subscriptionLoading" :data="subscriptionRows" row-key="id">
-        <el-table-column prop="status" :label="t('tenancy.tenantSubscriptions.status')" />
-        <el-table-column prop="currentPeriodEndUtc" :label="t('tenancy.tenantSubscriptions.periodEnd')" />
-        <el-table-column :label="t('users.columnActions')" width="240">
-          <template #default="{ row }">
-            <SubscriptionCheckoutAction v-if="subscriptionTenant && row.status === 'PastDue'"
-              :tenant-id="subscriptionTenant.id" :subscription-id="row.id" />
-            <el-button
-              v-if="row.status !== 'Cancelled'"
-              link
-              type="danger"
-              @click="cancelActiveSubscription(row as TenantSubscription)"
-            >
-              {{ t('tenants.subscriptionCancel') }}
-            </el-button>
-          </template>
-        </el-table-column>
-      </el-table>
-      <el-pagination v-model:current-page="subscriptionPage" :page-size="20" :total="subscriptionTotal"
-        layout="prev, pager, next, total" @current-change="loadSubscriptionPage" />
-
-      <template #footer>
-        <PaidSubscriptionPurchase v-if="subscriptionTenant" :key="subscriptionTenant.id" :tenant-id="subscriptionTenant.id"
-          :packages="packages" @created="loadSubscriptionPage(); load()" />
-        <el-button @click="subscriptionDialogOpen = false">{{ t('users.cancel') }}</el-button>
-        <el-button type="primary" :loading="subscriptionLoading" @click="startTrialSubscription">
-          {{ t('tenants.subscriptionStartTrial') }}
-        </el-button>
-      </template>
-    </el-dialog>
+    <TenantSubscriptionsDialog v-model:open="subscriptionDialogOpen" :tenant="subscriptionTenant" :packages="packages" @changed="load" />
     <TenantLifecycleDialog v-model:open="lifecycleOpen" :tenant-id="lifecycleTenantId" @changed="load" />
   </section>
 </template>

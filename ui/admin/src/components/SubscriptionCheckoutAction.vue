@@ -10,6 +10,7 @@ import { checkoutSubscription } from '../api/subscription-billing';
 import ArtFormDialog from '../framework/art-design/components/ArtFormDialog.vue';
 import SubscriptionFulfillmentAction from './SubscriptionFulfillmentAction.vue';
 const props = defineProps<{ tenantId: string; subscriptionId: string }>();
+const emit = defineEmits<{ dialogOpen: [value: boolean] }>();
 const session = useSessionStore(); const { locale } = useAdminI18n();
 const text = (key: Parameters<typeof subscriptionBillingText>[1]) => subscriptionBillingText(locale.value, key);
 const allowed = computed(() => session.state === 'authenticated' && session.can('payments.orders.create') && session.can('tenancy.tenant_subscriptions.manage'));
@@ -18,6 +19,7 @@ const scope = useAuthorizedViewScope(session, () => { open.value = false; loadin
 let pending: ReturnType<typeof scope.begin>;
 watch(() => [props.tenantId, props.subscriptionId], () => scope.invalidate(), { flush: 'sync' });
 watch(open, value => { if (!value) { pending?.cancel(); pending = undefined; loading.value = false; } }, { flush: 'sync' });
+watch(open, value => emit('dialogOpen', value), { flush: 'sync' });
 function begin() { if (allowed.value) open.value = true; }
 async function submit() {
   if (!open.value || !allowed.value || loading.value || checkout.value) return;

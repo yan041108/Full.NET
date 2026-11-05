@@ -9,11 +9,11 @@ import { subscriptionBillingText } from '../i18n/subscription-billing';
 import { createPaidSubscription, getPackageOffer } from '../api/subscription-billing';
 import ArtFormDialog from '../framework/art-design/components/ArtFormDialog.vue';
 import SubscriptionCheckoutAction from './SubscriptionCheckoutAction.vue';
-const props = defineProps<{ tenantId: string; packages: HostTenantPackage[] }>();
-const emit = defineEmits<{ created: [] }>();
+const props = defineProps<{ tenantId: string; packages: HostTenantPackage[]; disabled?: boolean }>();
+const emit = defineEmits<{ created: []; dialogOpen: [value: boolean] }>();
 const session = useSessionStore(); const { locale } = useAdminI18n();
 const text = (key: Parameters<typeof subscriptionBillingText>[1]) => subscriptionBillingText(locale.value, key);
-const allowed = computed(() => session.state === 'authenticated' && session.can('tenancy.tenant_packages.read') && session.can('tenancy.tenant_subscriptions.manage'));
+const allowed = computed(() => !props.disabled && session.state === 'authenticated' && session.can('tenancy.tenant_packages.read') && session.can('tenancy.tenant_subscriptions.manage'));
 const open = ref(false); const loading = ref(false); const failure = ref(''); const attempted = ref(false);
 const quoteRejected = ref(false);
 const quote = ref<TenantPackageOfferResponse>(); const terms = ref<TenantSubscriptionPaymentTerms>();
@@ -27,6 +27,7 @@ const scope = useAuthorizedViewScope(session, () => {
 let pending: ReturnType<typeof scope.begin>;
 watch(() => props.tenantId, () => scope.invalidate(), { flush: 'sync' });
 watch(open, value => { if (!value) { pending?.cancel(); pending = undefined; loading.value = false; } }, { flush: 'sync' });
+watch(open, value => emit('dialogOpen', value), { flush: 'sync' });
 const sameId = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
 function begin() {
   if (!allowed.value) return;
