@@ -287,7 +287,8 @@ public sealed class OutputTaskBoundaryTests
             var handler = Substitute.For<IStaticImportSchemaHandler>(); handler.SchemaKey.Returns("positions");
             handler.GetDefinition().Returns(new StaticImportSchemaDefinition("positions", "Positions", "tenant", "positions.import", [new("rows", "Rows", [])]));
             handler.ExecutionCapabilityPermissions.Returns(stage == "capability-missing" ? ["assign"] : []);
-            var importTask = new ImportExportTaskRecord { Id = taskId, TenantId = tenantId, RequestedByUserId = Binding.UserId,
+            var importTask = new ImportExportTaskRecord {
+                SourceExpiresAtUtc = DateTimeOffset.UtcNow.AddDays(7), Id = taskId, TenantId = tenantId, RequestedByUserId = Binding.UserId,
                 SchemaKey = "positions", WorksheetKey="rows", SourceFileName = "positions.xlsx", ErrorReceiptFileId = Guid.CreateVersion7(), ExecutionFailedRowCount = 1,
                 StatusKey = importStatus ?? ImportExportTaskStatusKeys.ExecutionFailed,
                 ExecutionRowsJson = ImportExportTaskMapper.SerializeExecutionState(new(new Dictionary<string, bool> { ["assign"] = stage == "capability-missing" }, [])) };
@@ -297,7 +298,7 @@ public sealed class OutputTaskBoundaryTests
                 return stage == "task-missing" ? null : importTask;
             });
             import = new(Query, Command, files, Tenant, new(new([handler]), identity, Tenant),
-                Substitute.For<IServiceScopeFactory>(), Substitute.For<IOptionsMonitor<ImportExportOptions>>());
+                Substitute.For<IServiceScopeFactory>(), Substitute.For<IOptionsMonitor<ImportExportOptions>>(), new Full.NET.Abstractions.Time.SystemClock());
         }
 
         public Task<Result<TenantResourceFileContent>> Read() => isImport

@@ -1,5 +1,6 @@
 using Full.NET.Abstractions.Results;
 using Full.NET.Abstractions.Tenancy;
+using Full.NET.Abstractions.Time;
 using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Files.Contracts;
 using Full.NET.Modules.Identity.Contracts;
@@ -18,6 +19,33 @@ namespace Full.NET.UnitTests.ImportExport;
 [TestClass]
 public sealed class ImportSourceAvailabilityTests
 {
+    [TestMethod]
+    [DataRow("queue")][DataRow("resume")][DataRow("retry")]
+    public async Task Expired_source_rejects_before_opening_or_changing_the_task(string operation)
+    {
+        var fixture = Create(operation, expiresAtUtc: DateTimeOffset.UtcNow.AddMinutes(-1));
+        var result = await fixture.Run();
+        Assert.AreEqual(ImportExportErrorCodes.SourceExpired, result.Error!.Code);
+        await fixture.Files.DidNotReceive().OpenReadyContentAsync(Arg.Any<string>(), Arg.Any<Guid>(), Arg.Any<Guid>(), Arg.Any<CancellationToken>());
+        Assert.AreEqual(0, fixture.Commands.ReceivedCalls().Count());
+    }
+
+    [TestMethod]
+    [DataRow("queue")][DataRow("resume")][DataRow("retry")]
+    public async Task Expiry_while_opening_returns_the_stream_and_preserves_checkpoint(string operation)
+    {
+        var fixture = Create(operation); var stream = new ObservedStream();
+        fixture.Files.OpenReadyContentAsync("import_export", fixture.Task.Id, fixture.Task.SourceFileId, Arg.Any<CancellationToken>()).Returns(_ =>
+        {
+            fixture.Clock.UtcNow.Returns(fixture.Task.SourceExpiresAtUtc);
+            return Result<TenantResourceFileContent>.Success(new(stream, "application/octet-stream", "source.xlsx"));
+        });
+        var result = await fixture.Run();
+        Assert.AreEqual(ImportExportErrorCodes.SourceExpired, result.Error!.Code);
+        Assert.IsTrue(stream.Disposed); Assert.AreEqual(0, stream.Reads);
+        Assert.AreEqual(0, fixture.Commands.ReceivedCalls().Count());
+    }
+
     [TestMethod]
     [DataRow("queue")]
     [DataRow("resume")]
@@ -79,11 +107,13 @@ public sealed class ImportSourceAvailabilityTests
         var result = await f.Run(); Assert.AreEqual(error, result.Error); Assert.AreEqual(0, f.Commands.ReceivedCalls().Count());
     }
 
-    private static Fixture Create(string operation, CancellationToken token = default)
+    private static Fixture Create(string operation, CancellationToken token = default, DateTimeOffset? expiresAtUtc = null)
     {
+        var now = DateTimeOffset.UtcNow; var clock = Substitute.For<IClock>(); clock.UtcNow.Returns(now);
         var tenant = new CurrentTenantAccessor(); var tenantId = Guid.CreateVersion7(); tenant.SetTenant(new TenantContext(tenantId, "acme", "Acme"));
         var binding = new SessionBindingSnapshot(Guid.CreateVersion7(), tenantId, Guid.CreateVersion7(), "stamp", "host", $"tenant:{tenantId:N}");
-        var task = new ImportExportTaskRecord { Id = Guid.CreateVersion7(), TenantId = tenantId, RequestedByUserId = binding.UserId,
+        var task = new ImportExportTaskRecord {
+                SourceExpiresAtUtc = expiresAtUtc ?? now.AddDays(7), Id = Guid.CreateVersion7(), TenantId = tenantId, RequestedByUserId = binding.UserId,
             SchemaKey = "positions", SchemaDisplayName = "Positions", WorksheetKey = "positions", SourceFileId = Guid.CreateVersion7(), SourceFileName = "source.xlsx",
             StatusKey = operation == "queue" ? ImportExportTaskStatusKeys.PreviewSucceeded : operation == "resume" ? ImportExportTaskStatusKeys.ExecutionPartial : ImportExportTaskStatusKeys.ExecutionFailed,
             Version = 1, ValidRowCount = 2, SucceededRowCount = operation == "resume" ? 1 : 0,
@@ -96,13 +126,13 @@ public sealed class ImportSourceAvailabilityTests
         var sessions = Substitute.For<IBackgroundSessionAuthorization>();
         sessions.AuthorizeAllAsync(binding, Arg.Any<IReadOnlyCollection<string>>(), Arg.Any<CancellationToken>()).Returns(new AuthorizedSessionActor(binding.UserId, tenantId, binding.SessionId));
         var options = Substitute.For<IOptionsMonitor<ImportExportOptions>>(); options.CurrentValue.Returns(new ImportExportOptions());
-        var service = new ImportExportTaskExecutionService(query, commands, files, tenant, new ImportTaskAuthority(new StaticImportSchemaRegistry([handler]), sessions, tenant), Substitute.For<IServiceScopeFactory>(), options);
+        var service = new ImportExportTaskExecutionService(query, commands, files, tenant, new ImportTaskAuthority(new StaticImportSchemaRegistry([handler]), sessions, tenant), Substitute.For<IServiceScopeFactory>(), options, clock);
         var context = new StaticImportPreviewContext(binding.UserId, new Dictionary<string, bool>()) { SessionBinding = binding };
         return new(task, files, commands, sessions, binding, () => operation == "queue" ? service.QueueExecuteAsync(task.Id, context, token)
-            : operation == "resume" ? service.ResumeAsync(task.Id, context, token) : service.RetryAsync(task.Id, context, token));
+            : operation == "resume" ? service.ResumeAsync(task.Id, context, token) : service.RetryAsync(task.Id, context, token), clock);
     }
     private sealed record Fixture(ImportExportTaskRecord Task, ITenantResourceFileStore Files, ICommandExecutor Commands,
-        IBackgroundSessionAuthorization Sessions, SessionBindingSnapshot Binding, Func<Task<Result<ImportExportTaskDetailResponse>>> Run);
+        IBackgroundSessionAuthorization Sessions, SessionBindingSnapshot Binding, Func<Task<Result<ImportExportTaskDetailResponse>>> Run, IClock Clock);
     private sealed class ObservedStream : MemoryStream
     {
         internal bool Disposed; internal int Reads;

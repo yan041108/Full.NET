@@ -163,6 +163,7 @@ public sealed class OutputDownloadAuthorizationTests
             });
             await commands.ExecuteAsync(ImportExportTaskSql.Insert, new ImportExportTaskRecord
             {
+                SourceExpiresAtUtc = DateTimeOffset.UtcNow.AddDays(7),
                 Id = importId, TenantId = tenantId, SchemaKey = StaticImportSchemaKeys.OrganizationTenantPositions,
                 SchemaDisplayName = "Positions", WorksheetKey = "positions", SourceFileId = Guid.CreateVersion7(),
                 SourceFileName = "source.xlsx", StatusKey = ImportExportTaskStatusKeys.ExecutionPartial,

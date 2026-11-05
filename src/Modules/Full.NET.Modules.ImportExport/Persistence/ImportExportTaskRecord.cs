@@ -17,6 +17,15 @@ internal sealed class ImportExportTaskRecord
 
     public string? SourceFileName { get; init; }
 
+    /// <summary>创建任务时固定的源文件期限，不用于删除业务事实或错误回执。</summary>
+    public required DateTimeOffset SourceExpiresAtUtc { get; init; }
+
+    /// <summary>清理已开始；即使对象删除失败，也不能重新把原文件排队执行。</summary>
+    public DateTimeOffset? SourceReleaseStartedAtUtc { get; init; }
+
+    /// <summary>文件提供程序已确认幂等释放的时间。</summary>
+    public DateTimeOffset? SourceReleasedAtUtc { get; init; }
+
     public string StatusKey { get; init; } = string.Empty;
 
     public int TotalRows { get; init; }

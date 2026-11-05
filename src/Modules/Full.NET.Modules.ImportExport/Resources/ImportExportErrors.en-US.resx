@@ -10,4 +10,5 @@
   <data name="import_export.import_profiles.version_conflict" xml:space="preserve"><value>The profile has changed. Reload it before saving.</value></data>
   <data name="import_export.import_profiles.limit_reached" xml:space="preserve"><value>A source can have at most 32 personal import profiles.</value></data>
   <data name="import_export.task.cancel_conflict" xml:space="preserve"><value>The task changed or a Worker claimed the current batch. Refresh its details after the batch ends.</value></data>
+  <data name="import_export.source.expired" xml:space="preserve"><value>The source workbook retention period has expired. Processed records and error receipts remain available.</value></data>
 </root>

@@ -46,7 +46,7 @@ internal sealed class ImportExportTaskCancellationService(IQueryExecutor queries
         return record is null || record.RequestedByUserId != actor.UserId
             ? Result<ImportExportTaskDetailResponse>.Failure(NotFound())
             : record.StatusKey != ImportExportTaskStatusKeys.Canceled ? Result<ImportExportTaskDetailResponse>.Failure(Conflict())
-            : Result<ImportExportTaskDetailResponse>.Success(ImportExportTaskMapper.MapDetail(record));
+            : Result<ImportExportTaskDetailResponse>.Success(ImportExportTaskMapper.MapDetail(record, clock.UtcNow));
     }
 
     private static Error NotFound() => new(ImportExportErrorCodes.TaskNotFound, "The import task was not found.", ErrorType.NotFound);

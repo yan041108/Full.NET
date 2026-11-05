@@ -69,7 +69,8 @@ public sealed class ImportExportResultBoundaryTests
     [DataRow("empty")]
     public void Invalid_batch_cannot_advance_checkpoint(string kind)
     {
-        var task = new ImportExportTaskRecord { TotalRows = 3, ValidRowCount = 3, NextLineNumber = kind == "remaining" ? 3 : 0 };
+        var task = new ImportExportTaskRecord {
+                SourceExpiresAtUtc = DateTimeOffset.UtcNow.AddDays(7), TotalRows = 3, ValidRowCount = 3, NextLineNumber = kind == "remaining" ? 3 : 0 };
         IReadOnlyList<StaticImportRowExecutionResult> history = kind == "old-line" ? [new(1, true, null, null, null)] : [];
         StaticImportBatchExecutionResult? batch = kind switch
         {
@@ -92,7 +93,8 @@ public sealed class ImportExportResultBoundaryTests
     [DataRow(true)]
     public void Valid_batch_supports_noncontiguous_original_lines_and_finished_empty_batch(bool finished)
     {
-        var task = new ImportExportTaskRecord { TotalRows = 3, ValidRowCount = 2, NextLineNumber = finished ? 2 : 1 };
+        var task = new ImportExportTaskRecord {
+                SourceExpiresAtUtc = DateTimeOffset.UtcNow.AddDays(7), TotalRows = 3, ValidRowCount = 2, NextLineNumber = finished ? 2 : 1 };
         var batch = new StaticImportBatchExecutionResult(finished ? [] : [new(3, false, null, "error", "failed")]);
         Assert.IsTrue(ImportExportResultBoundary.IsValidBatch(task, batch, [new(1, true, null, null, null)], 2, default, out _));
     }
@@ -104,7 +106,7 @@ public sealed class ImportExportResultBoundaryTests
     {
         var text = new string('x', 8 * 1024 * 1024);
         if (preview) Assert.IsFalse(ImportExportResultBoundary.IsValidPreview(new(1, 0, 1, [new(1, false, "x", text)]), 1000, default));
-        else Assert.IsFalse(ImportExportResultBoundary.IsValidBatch(new() { TotalRows = 2, ValidRowCount = 2, NextLineNumber = 1 },
+        else Assert.IsFalse(ImportExportResultBoundary.IsValidBatch(new() { SourceExpiresAtUtc = DateTimeOffset.UtcNow.AddDays(7), TotalRows = 2, ValidRowCount = 2, NextLineNumber = 1 },
             new([new(2, false, null, "x", "x")]), [new(1, false, null, null, text)], 2, default, out _));
     }
 
@@ -114,7 +116,7 @@ public sealed class ImportExportResultBoundaryTests
     public void Cancelled_result_checks_propagate_before_reading_rows(bool preview)
     {
         if (preview) Assert.ThrowsExactly<OperationCanceledException>(() => ImportExportResultBoundary.IsValidPreview(null, 1000, new(true)));
-        else Assert.ThrowsExactly<OperationCanceledException>(() => ImportExportResultBoundary.IsValidBatch(new(), null, [], 2, new(true), out _));
+        else Assert.ThrowsExactly<OperationCanceledException>(() => ImportExportResultBoundary.IsValidBatch(new() { SourceExpiresAtUtc = DateTimeOffset.UtcNow.AddDays(7) }, null, [], 2, new(true), out _));
     }
 
     [TestMethod]
@@ -130,7 +132,7 @@ public sealed class ImportExportResultBoundaryTests
     [DataRow(4096)]
     public void Execution_keeps_physical_source_line_identity_beyond_data_row_count(int line)
     {
-        Assert.IsTrue(ImportExportResultBoundary.IsValidBatch(new() { TotalRows = 1, ValidRowCount = 1 },
+        Assert.IsTrue(ImportExportResultBoundary.IsValidBatch(new() { SourceExpiresAtUtc = DateTimeOffset.UtcNow.AddDays(7), TotalRows = 1, ValidRowCount = 1 },
             new([new(line, true, Guid.CreateVersion7(), null, null)]), [], 1, default, out _));
     }
 }

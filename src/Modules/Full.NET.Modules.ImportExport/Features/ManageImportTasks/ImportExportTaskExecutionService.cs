@@ -1,5 +1,6 @@
 using Full.NET.Abstractions.Results;
 using Full.NET.Abstractions.Tenancy;
+using Full.NET.Abstractions.Time;
 using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Files.Contracts;
 using Full.NET.Modules.ImportExport.Configuration;
@@ -22,7 +23,7 @@ internal sealed class ImportExportTaskExecutionService(
     ICurrentTenant currentTenant,
     ImportTaskAuthority authority,
     IServiceScopeFactory scopeFactory,
-    IOptionsMonitor<ImportExportOptions> options)
+    IOptionsMonitor<ImportExportOptions> options, IClock clock)
 {
     /// <summary>将预校验成功任务排队执行。</summary>
     public async Task<Result<ImportExportTaskDetailResponse>> QueueExecuteAsync(
@@ -217,9 +218,14 @@ internal sealed class ImportExportTaskExecutionService(
         }
     }
 
-    /// <summary>排队前实际打开原来源，完成后释放流并重验会话；不读取工作簿或改变任务状态。</summary>
+    /// <summary>来源到期使用独立机器码，不能把过期任务自动重置为新任务。</summary>
+    private static Error SourceExpiredError() => new(ImportExportErrorCodes.SourceExpired,
+        "The source workbook retention period has expired.", ErrorType.Conflict);
+
+    /// <summary>排队前打开原来源，前后复核保留期限和会话；不读取工作簿或改变任务状态。</summary>
     private async Task<Error?> ValidateSourceAsync(ImportExportTaskRecord task, StaticImportPreviewContext context, CancellationToken token)
     {
+        if (!ImportSourceRetentionRules.CanUse(task, clock.UtcNow)) return SourceExpiredError();
         var content = await resourceFiles.OpenReadyContentAsync("import_export", task.Id, task.SourceFileId, token).ConfigureAwait(false);
         try
         {
@@ -227,6 +233,7 @@ internal sealed class ImportExportTaskExecutionService(
             var permission = await authority.ValidateQueueAsync(task, context, token).ConfigureAwait(false);
             token.ThrowIfCancellationRequested();
             if (!permission.IsSuccess) return permission.Error;
+            if (!ImportSourceRetentionRules.CanUse(task, clock.UtcNow)) return SourceExpiredError();
             if (content.IsSuccess) return null;
             return content.Error!.Code == FilesErrorCodes.FileNotFound
                 ? new Error(ImportExportErrorCodes.SourceUnavailable, "The original import source is unavailable. Upload a new source before creating another task.", ErrorType.Conflict)
@@ -247,7 +254,7 @@ internal sealed class ImportExportTaskExecutionService(
             .ConfigureAwait(false);
         return record is null
             ? Result<ImportExportTaskDetailResponse>.Failure(TaskNotFoundError())
-            : Result<ImportExportTaskDetailResponse>.Success(ImportExportTaskMapper.MapDetail(record));
+            : Result<ImportExportTaskDetailResponse>.Success(ImportExportTaskMapper.MapDetail(record, clock.UtcNow));
     }
 
     private async Task<ImportExportTaskRecord?> TransitionAsync(
@@ -280,7 +287,8 @@ internal sealed class ImportExportTaskExecutionService(
                     ("ErrorReceiptFileId", resetExecution ? null : task.ErrorReceiptFileId),
                     ("ExecutionStartedAtUtc", resetExecution ? null : task.ExecutionStartedAtUtc),
                     ("ExecutionCompletedAtUtc", resetExecution ? null : task.ExecutionCompletedAtUtc),
-                    ("ErrorCode", resetExecution ? null : task.ErrorCode)),
+                    ("ErrorCode", resetExecution ? null : task.ErrorCode),
+                    ("ExpectedVersion", task.Version), ("SourceNow", clock.UtcNow)),
                 cancellationToken)
             .ConfigureAwait(false);
         cancellationToken.ThrowIfCancellationRequested();

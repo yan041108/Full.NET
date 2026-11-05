@@ -1,5 +1,6 @@
 using Full.NET.Abstractions.Results;
 using Full.NET.Abstractions.Tenancy;
+using Full.NET.Abstractions.Time;
 using Full.NET.Data.Abstractions;
 using Full.NET.Modules.ImportExport.Contracts;
 using Full.NET.Modules.ImportExport.Persistence;
@@ -12,7 +13,7 @@ internal sealed class ImportExportTaskQueryService(
     IQueryExecutor queryExecutor,
     IMultiResultQueryExecutor multiResultQueryExecutor,
     IOptions<DatabaseOptions> databaseOptions,
-    ICurrentTenant currentTenant)
+    ICurrentTenant currentTenant, IClock clock)
 {
     public async Task<Result<PagedResult<ImportExportTaskResponse>>> ListAsync(
         int page,
@@ -46,7 +47,7 @@ internal sealed class ImportExportTaskQueryService(
                 cancellationToken)
             .ConfigureAwait(false);
 
-        var items = pageResult.Rows.Select(ImportExportTaskMapper.MapSummary).ToArray();
+        var items = pageResult.Rows.Select(record => ImportExportTaskMapper.MapSummary(record, clock.UtcNow)).ToArray();
         return Result<PagedResult<ImportExportTaskResponse>>.Success(
             new PagedResult<ImportExportTaskResponse>(items, page, pageSize, pageResult.Total));
     }
@@ -63,7 +64,7 @@ internal sealed class ImportExportTaskQueryService(
             .ConfigureAwait(false);
         return record is null
             ? Result<ImportExportTaskDetailResponse>.Failure(TaskNotFoundError())
-            : Result<ImportExportTaskDetailResponse>.Success(ImportExportTaskMapper.MapDetail(record));
+            : Result<ImportExportTaskDetailResponse>.Success(ImportExportTaskMapper.MapDetail(record, clock.UtcNow));
     }
 
     private static Error TaskNotFoundError() =>
@@ -96,7 +97,7 @@ internal sealed class ImportExportTaskQueryService(
             ImportExportSqlParameters.Create(("RequestedByUserId", requestedByUserId), ("StatusKey", status), ("Take", pageSize + 1),
                 ("BeforeCreatedAtUtc", before?.CreatedAtUtc.UtcDateTime), ("BeforeId", before?.Id)), cancellationToken).ConfigureAwait(false);
         var hasMore = rows.Count > pageSize;
-        var items = rows.Take(pageSize).Select(ImportExportTaskMapper.MapSummary).ToArray();
+        var items = rows.Take(pageSize).Select(record => ImportExportTaskMapper.MapSummary(record, clock.UtcNow)).ToArray();
         var next = hasMore ? TimeIdQueryCursor.Encode(new(items[^1].CreatedAtUtc, items[^1].Id), context) : null;
         return Result<CursorPage<ImportExportTaskResponse>>.Success(new(items, next, hasMore));
     }

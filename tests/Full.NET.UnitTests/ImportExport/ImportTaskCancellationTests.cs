@@ -132,7 +132,8 @@ public sealed class ImportTaskCancellationTests
             Queries.QuerySingleOrDefaultAsync<ImportTaskCancellationState>(ImportExportTaskSql.FindOwnedCancellationState, Arg.Any<object?>(), Arg.Any<CancellationToken>())
                 .Returns(call => { var parameters = (Dictionary<string, object?>)call[1]!; Assert.AreEqual(UserId, parameters["UserId"]); return Visible ? new ImportTaskCancellationState { Id = Id, StatusKey = Status, Version = Version } : null; });
             Queries.QuerySingleOrDefaultAsync<ImportExportTaskRecord>(ImportExportTaskSql.FindById, Arg.Any<object?>(), Arg.Any<CancellationToken>())
-                .Returns(_ => new ImportExportTaskRecord { Id = Id, TenantId = tenant.Id!.Value, RequestedByUserId = UserId, StatusKey = Status,
+                .Returns(_ => new ImportExportTaskRecord {
+                SourceExpiresAtUtc = DateTimeOffset.UtcNow.AddDays(7), Id = Id, TenantId = tenant.Id!.Value, RequestedByUserId = UserId, StatusKey = Status,
                     Version = Version, ProcessedRowCount = 4, SucceededRowCount = 3, ExecutionFailedRowCount = 1, ErrorReceiptFileId = Guid.CreateVersion7() });
             Commands.ExecuteAsync(ImportExportTaskSql.CancelOwnedPending, Arg.Any<object?>(), Arg.Any<CancellationToken>())
                 .Returns(_ => { if (CommandResult == 1) { Status = ImportExportTaskStatusKeys.Canceled; Version++; } return CommandResult; });

@@ -52,6 +52,9 @@ var input = new Dictionary<string, string?>
     ["FullNet:Platform:BackupExecutor:ArtifactRootPath"] = "fixture-artifacts",
     ["FullNet:Platform:BackupExecutor:DeploymentNotice"] = "fixture-notice",
     ["FullNet:ImportExport:MaxUploadBytes"] = "4096",
+    ["FullNet:ImportExport:SourceRetentionDays"] = "13",
+    ["FullNet:ImportExport:SourceCleanupBatchSize"] = "9",
+    ["FullNet:ImportExport:SourceCleanupPollSeconds"] = "17",
     ["FullNet:ImportExport:MaxPreviewRows"] = "11",
     ["FullNet:ImportExport:ExecutionEnabled"] = "true",
     ["FullNet:ImportExport:PollSeconds"] = "5",
@@ -95,6 +98,7 @@ var backup = provider.GetRequiredService<IOptions<PlatformBackupExecutorOptions>
 Check("backup", backup.ArtifactRootPath == "fixture-artifacts" && backup.DeploymentNotice == "fixture-notice");
 var imports = provider.GetRequiredService<IOptions<ImportExportOptions>>().Value;
 Check("import", imports.MaxUploadBytes == 4096 && imports.MaxPreviewRows == 11 && imports.ExecutionEnabled
+    && imports.SourceRetentionDays == 13 && imports.SourceCleanupBatchSize == 9 && imports.SourceCleanupPollSeconds == 17
     && imports.PollSeconds == 5 && imports.BatchSize == 3 && imports.LeaseSeconds == 30 && imports.RunSynchronously);
 
 // 通过实际配置再次绑定空节及非法值，确认默认值与校验器没有被配置覆盖修复改变。

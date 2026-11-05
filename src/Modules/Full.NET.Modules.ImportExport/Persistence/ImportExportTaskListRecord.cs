@@ -10,6 +10,9 @@ internal sealed class ImportExportTaskListRecord
     public string WorksheetKey { get; init; } = string.Empty;
     public Guid SourceFileId { get; init; }
     public string? SourceFileName { get; init; }
+    public required DateTimeOffset SourceExpiresAtUtc { get; init; }
+    public DateTimeOffset? SourceReleaseStartedAtUtc { get; init; }
+    public DateTimeOffset? SourceReleasedAtUtc { get; init; }
     public string StatusKey { get; init; } = string.Empty;
     public int TotalRows { get; init; }
     public int ValidRowCount { get; init; }

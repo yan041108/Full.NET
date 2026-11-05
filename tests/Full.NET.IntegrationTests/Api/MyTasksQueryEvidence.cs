@@ -156,6 +156,7 @@ internal static class MyTasksQueryEvidence
     private static DateTime At(int second) => new(2026, 11, 3, 0, 0, second, DateTimeKind.Utc);
     private static ImportExportTaskRecord Import(Guid tenant, Guid user, int i, Guid? id = null) => new()
     {
+        SourceExpiresAtUtc = DateTimeOffset.UtcNow.AddDays(7),
         Id = id ?? Guid.CreateVersion7(), TenantId = tenant, RequestedByUserId = user, CreatedAtUtc = At(i % 10),
         SchemaKey = "my_tasks", SchemaDisplayName = "Task evidence", WorksheetKey = "sheet1", SourceFileId = Guid.CreateVersion7(), SourceFileName = "evidence.xlsx",
         StatusKey = i % 2 == 0 ? "execution_failed" : "execution_succeeded", TotalRows = 1, ValidRowCount = 1,

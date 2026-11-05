@@ -19,7 +19,7 @@ internal static class ImportExportTaskMapper
 {
     private static readonly ImportExportJsonSerializerContext RowSerializerContext = new(new JsonSerializerOptions(JsonSerializerDefaults.Web));
 
-    public static ImportExportTaskResponse MapSummary(ImportExportTaskRecord record) =>
+    public static ImportExportTaskResponse MapSummary(ImportExportTaskRecord record, DateTimeOffset now) =>
         new(
             record.Id,
             record.TenantId,
@@ -43,10 +43,10 @@ internal static class ImportExportTaskMapper
             record.ExecutionStartedAtUtc,
             record.ExecutionCompletedAtUtc,
             record.ErrorReceiptFileId is not null,
-            record.Version);
+            record.Version, ImportSourceRetentionRules.Describe(record, now));
 
     /// <summary>将不含正文的本人任务投影映射为原有摘要契约。</summary>
-    public static ImportExportTaskResponse MapSummary(ImportExportTaskListRecord record) =>
+    public static ImportExportTaskResponse MapSummary(ImportExportTaskListRecord record, DateTimeOffset now) =>
         new(
             record.Id,
             record.TenantId,
@@ -70,9 +70,9 @@ internal static class ImportExportTaskMapper
             record.ExecutionStartedAtUtc,
             record.ExecutionCompletedAtUtc,
             record.ErrorReceiptFileId is not null,
-            record.Version);
+            record.Version, ImportSourceRetentionRules.Describe(record, now));
 
-    public static ImportExportTaskDetailResponse MapDetail(ImportExportTaskRecord record) =>
+    public static ImportExportTaskDetailResponse MapDetail(ImportExportTaskRecord record, DateTimeOffset now) =>
         new(
             record.Id,
             record.TenantId,
@@ -97,7 +97,7 @@ internal static class ImportExportTaskMapper
             record.ExecutionCompletedAtUtc,
             record.ErrorReceiptFileId is not null,
             DeserializePreviewRows(record.PreviewRowsJson),
-            record.Version) { ColumnMappings = ImportColumnMappingSnapshots.Display(record.ColumnMappingJson) };
+            record.Version, ImportSourceRetentionRules.Describe(record, now)) { ColumnMappings = ImportColumnMappingSnapshots.Display(record.ColumnMappingJson) };
 
     /// <summary>使用静态元数据保存导入行预览快照。</summary>
     /// <param name="rows">需保存的逐行结果。</param>

@@ -33785,6 +33785,16 @@
             },
             "description": "Not Found"
           },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
           "422": {
             "content": {
               "application/problem+json": {
@@ -33863,6 +33873,16 @@
               }
             },
             "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Conflict"
           },
           "422": {
             "content": {
@@ -33943,6 +33963,16 @@
             },
             "description": "Not Found"
           },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
           "422": {
             "content": {
               "application/problem+json": {
@@ -34021,6 +34051,16 @@
               }
             },
             "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Conflict"
           },
           "422": {
             "content": {
@@ -89728,6 +89768,30 @@
         ],
         "type": "object"
       },
+      "ImportExportSourceRetentionResponse": {
+        "properties": {
+          "expiresAtUtc": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "releasedAtUtc": {
+            "format": "date-time",
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "stateKey": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "expiresAtUtc",
+          "stateKey",
+          "releasedAtUtc"
+        ],
+        "type": "object"
+      },
       "ImportExportTaskDetailResponse": {
         "properties": {
           "columnMappings": {
@@ -89835,6 +89899,9 @@
               "string"
             ]
           },
+          "sourceRetention": {
+            "$ref": "#/components/schemas/ImportExportSourceRetentionResponse"
+          },
           "statusKey": {
             "type": "string"
           },
@@ -89902,7 +89969,8 @@
           "executionCompletedAtUtc",
           "hasErrorReceipt",
           "previewRows",
-          "version"
+          "version",
+          "sourceRetention"
         ],
         "type": "object"
       },
@@ -89998,6 +90066,9 @@
               "string"
             ]
           },
+          "sourceRetention": {
+            "$ref": "#/components/schemas/ImportExportSourceRetentionResponse"
+          },
           "statusKey": {
             "type": "string"
           },
@@ -90064,7 +90135,8 @@
           "executionStartedAtUtc",
           "executionCompletedAtUtc",
           "hasErrorReceipt",
-          "version"
+          "version",
+          "sourceRetention"
         ],
         "type": "object"
       },

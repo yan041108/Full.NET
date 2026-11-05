@@ -476,6 +476,7 @@ import type {
   ImportAiKnowledgeFaqs,
   ImportColumnMapping,
   ImportColumnMappingRequest,
+  ImportExportSourceRetentionResponse,
   ImportExportTaskDetailResponse,
   ImportExportTaskResponse,
   ImportHostUserRowResult,

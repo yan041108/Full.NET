@@ -212,7 +212,7 @@ internal static partial class ImportExportWorkerAssertions
         while (true)
         {
             var record = await LoadTaskAsync(api, task);
-            if (record.StatusKey == expectedStatus) return ImportExportTaskMapper.MapDetail(record);
+            if (record.StatusKey == expectedStatus) return ImportExportTaskMapper.MapDetail(record, DateTimeOffset.UtcNow);
             Assert.IsFalse(record.StatusKey is ImportExportTaskStatusKeys.ExecutionFailed
                 or ImportExportTaskStatusKeys.ExecutionPartial, $"Unexpected terminal state: {record.StatusKey}, {record.ErrorCode}");
             await Task.Delay(100, timeout.Token);

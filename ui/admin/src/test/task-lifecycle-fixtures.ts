@@ -2,6 +2,7 @@ import type { HostDocumentPreviewTaskResponse, ImportExportTaskDetailResponse } 
 import { outputId } from './data-output-fixtures';
 
 export const importTask: ImportExportTaskDetailResponse = {
+  sourceRetention: { expiresAtUtc: '2027-01-01T00:00:00Z', stateKey: 'available', releasedAtUtc: null },
   id: outputId, tenantId: outputId, schemaKey: 'organization.tenant_positions', schemaDisplayName: '租户职位',
   worksheetKey: 'positions', sourceFileId: outputId, sourceFileName: 'positions.xlsx', statusKey: 'preview_succeeded',
   totalRows: 1, validRowCount: 1, invalidRowCount: 0, errorCode: null, requestedByUserId: outputId,

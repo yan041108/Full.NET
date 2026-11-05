@@ -12,6 +12,15 @@ public sealed class ImportExportOptions
     /// <summary>单次预校验允许的最大数据行数，默认 1000。</summary>
     public int MaxPreviewRows { get; set; } = 1_000;
 
+    /// <summary>新任务源工作簿保留天数；固定在任务创建时，默认七天，执行中的来源延后清理。</summary>
+    public int SourceRetentionDays { get; set; } = 7;
+
+    /// <summary>每次来源清理的任务上限；独立于业务执行批次，默认二十五项。</summary>
+    public int SourceCleanupBatchSize { get; set; } = 25;
+
+    /// <summary>来源清理轮询间隔秒数，默认一分钟。</summary>
+    public int SourceCleanupPollSeconds { get; set; } = 60;
+
     /// <summary>是否启用后台批量执行 worker。</summary>
     // 源生成绑定器通过可写属性应用配置；init 会静默保留默认值，导致 Native Worker 不执行队列。
     public bool ExecutionEnabled { get; set; }

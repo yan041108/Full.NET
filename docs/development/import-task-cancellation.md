@@ -11,3 +11,13 @@
 本人任务中心识别 `canceled` 终态，并将取消入口送回来源详情页确认。后台任务、执行中任务和其他来源的取消能力不会由聚合页自行推断。当前首版不支持中断在途业务行；报表、预览等其他来源的取消与结果有效期由 C02-R2 后续差集处理。
 
 配对迁移 `358_ImportTaskCancellation.sql` 扩展原状态约束；不新增业务表、事件、缓存或跨模块事务。结构恢复可重放，收窄回旧白名单前必须处理已存在的 `canceled` 数据。迁移恢复验收使用真实迁移建库，避免 MySQL `CREATE TABLE LIKE` 测试模板重命名 CHECK 后影响按名称恢复的验证。
+
+## 源工作簿保留期限
+
+`FullNet:ImportExport:SourceRetentionDays` 默认 7 天，允许 1～365；新任务创建时固定 `SourceExpiresAtUtc`，后续配置调整不追溯改变已创建任务。配对迁移 `375_ImportExportSourceRetention.sql` 将既有任务补为创建时间加七天，可重放并保留已存在的期限。
+
+到期后新的执行、恢复或重试返回 `409 / import_export.source.expired`，不改变版本、进度或检查点。已排队和正在执行的任务继续保留来源，退出这些状态后才进入清理；取消任务本身不立即删除文件。详情和列表展示保留时间与 `available`、`retained_for_execution`、`expired`、`releasing`、`released` 状态。
+
+Worker 独立轮询清理，不依赖 `ExecutionEnabled`。`SourceCleanupBatchSize` 默认 25、范围 1～100，`SourceCleanupPollSeconds` 默认 60 秒、范围 5～3600。按到期时间及任务 ID 有界扫描，失败或停用租户不会长期阻塞其他任务；停用租户等待恢复后处理。因此期限表示清理资格，不保证期限到达即完成物理删除。
+
+先持久化释放意图，再调用 Files 的幂等释放，最后记录完成；文件已释放但完成记录写入失败时，下轮可安全接续。只释放该任务绑定的源工作簿，任务历史、行检查点及错误回执继续保留，回执下载只要求对应读取权限。已清理来源不能直接恢复执行；重新上传前先核对已导入数据，页面不会自动重排或重发。

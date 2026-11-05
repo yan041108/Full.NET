@@ -51,7 +51,7 @@ public sealed class ImportTaskAuthorityTests
         files.OpenReadyContentAsync("import_export", fixture.Task.Id, fixture.Task.SourceFileId, Arg.Any<CancellationToken>())
             .Returns(_ => Full.NET.Abstractions.Results.Result<TenantResourceFileContent>.Success(new(new MemoryStream(), "application/octet-stream", "source.xlsx")));
         var service = new ImportExportTaskExecutionService(query, command, files, fixture.Tenant,
-            fixture.Authority, Substitute.For<IServiceScopeFactory>(), new Monitor(new ImportExportOptions { RunSynchronously = false }));
+            fixture.Authority, Substitute.For<IServiceScopeFactory>(), new Monitor(new ImportExportOptions { RunSynchronously = false }), new Full.NET.Abstractions.Time.SystemClock());
         var context = fixture.Context with { CapabilityFlags = new Dictionary<string, bool> { ["assign"] = true }, SessionBinding = fixture.Binding with { SessionId = Guid.CreateVersion7() } };
         Assert.IsTrue((retry ? await service.RetryAsync(fixture.Task.Id, context) : await service.ResumeAsync(fixture.Task.Id, context)).IsSuccess);
         Assert.IsNotNull(written);
@@ -89,7 +89,7 @@ public sealed class ImportTaskAuthorityTests
             Authority = new(new StaticImportSchemaRegistry([handler]), Sessions, Tenant);
         }
         internal ImportExportTaskRecord Record(string status = "", string? binding = null, string? execution = null, int next = 0) => new()
-        { Id = Guid.CreateVersion7(), TenantId = Tenant.Id!.Value, RequestedByUserId = Binding.UserId, SchemaKey = "source", WorksheetKey = "rows",
+        { SourceExpiresAtUtc = DateTimeOffset.UtcNow.AddDays(7), Id = Guid.CreateVersion7(), TenantId = Tenant.Id!.Value, RequestedByUserId = Binding.UserId, SchemaKey = "source", WorksheetKey = "rows",
             StatusKey = status, ActorSessionBindingJson = binding, ExecutionRowsJson = execution, NextLineNumber = next };
     }
 }

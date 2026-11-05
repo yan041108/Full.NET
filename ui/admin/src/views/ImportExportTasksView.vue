@@ -50,7 +50,7 @@ const pageActive = ref(false);
 // 先登记激活状态，确保作用域恢复读取完成后只在当前可见页面解释链接。
 onMounted(() => { pageActive.value = true; }); onActivated(() => { pageActive.value = true; });
 onDeactivated(() => { pageActive.value = false; }); onBeforeUnmount(() => { pageActive.value = false; });
-const { t } = useAdminI18n();
+const { t, locale } = useAdminI18n();
 const items = ref<ImportExportTaskResponse[]>([]);
 const loading = ref(false);
 const detailLoading = ref(false);
@@ -69,8 +69,29 @@ const cancelConfirmation = ref<ImportExportTaskDetailResponse>();
 const cancelDialogVisible = computed({ get: () => !!cancelConfirmation.value, set: value => { if (!value) cancelConfirmation.value = undefined; } });
 const unavailableFiles = useUnavailableResultFiles();
 const unavailableSources = ref(new Set<string>());
+const expiredSources = ref(new Set<string>());
 const sourceKey = (task: ImportExportTaskResponse) => task.id.toLowerCase() + ':' + task.sourceFileId.toLowerCase();
-const sourceUnavailable = (task: ImportExportTaskResponse) => unavailableSources.value.has(sourceKey(task));
+const sourceExpired = (task: ImportExportTaskResponse) => expiredSources.value.has(sourceKey(task))
+  || ['expired', 'releasing', 'released'].includes(task.sourceRetention.stateKey);
+const sourceUnavailable = (task: ImportExportTaskResponse) => sourceExpired(task) || unavailableSources.value.has(sourceKey(task));
+const sourceDateFormatter = computed(() => new Intl.DateTimeFormat(locale.value, { dateStyle: 'medium', timeStyle: 'short' }));
+const sourceExpiryLabel = (task: ImportExportTaskResponse) => sourceDateFormatter.value.format(new Date(task.sourceRetention.expiresAtUtc));
+const sourceRetentionLabel = (task: ImportExportTaskResponse) => {
+  if (expiredSources.value.has(sourceKey(task)) && task.sourceRetention.stateKey === 'available') return t('importExportTasks.sourceExpiredState');
+  switch (task.sourceRetention.stateKey) {
+    case 'retained_for_execution': return t('importExportTasks.sourceRetainedForExecution');
+    case 'expired': return t('importExportTasks.sourceExpiredState');
+    case 'releasing': return t('importExportTasks.sourceReleasing');
+    case 'released': return t('importExportTasks.sourceReleased');
+    default: return t('importExportTasks.sourceAvailable');
+  }
+};
+/** 仅记住有界的已确认来源拒绝；不改变原任务和未知命令账本。 */
+function rememberSourceFailure(values: Set<string>, task: ImportExportTaskResponse): Set<string> {
+  const next = new Set(values); const key = sourceKey(task); next.delete(key); next.add(key);
+  while (next.size > 128) next.delete(next.values().next().value!);
+  return next;
+}
 const receiptKey = (task: ImportExportTaskDetailResponse) => task.id + ':' + task.version;
 type ActionKind = 'execute' | 'resume' | 'retry' | 'cancel';
 const actionReceipt = ref<{ taskId: string; kind: ActionKind; outcome: 'processing' | 'succeeded' | 'failed' | 'unconfirmed'; errorCode: string | null }>();
@@ -297,13 +318,13 @@ useTaskStatusRefresh(() => canRead() && !problem.value && (items.value.some(task
   }
 });
 
-const isCancellable = (task: ImportExportTaskDetailResponse) =>
-  task.requestedByUserId.toLowerCase() === session.currentUser?.id.toLowerCase()
+const ownsTask = (task: ImportExportTaskResponse) => sameId(task.requestedByUserId, session.currentUser?.id);
+const isCancellable = (task: ImportExportTaskDetailResponse) => ownsTask(task)
   && ['preview_succeeded', 'queued', 'execution_partial', 'execution_failed'].includes(task.statusKey);
 
 async function runAction(kind: ActionKind) {
   const task = selectedTask.value;
-  if (!canRead() || !drawerVisible.value || !task || !sameId(task.id, detailTargetId.value) || !sameId(task.tenantId, session.currentUser?.tenantId)
+  if (!canRead() || !drawerVisible.value || !task || !ownsTask(task) || !sameId(task.id, detailTargetId.value) || !sameId(task.tenantId, session.currentUser?.tenantId)
     || actionLoading.value || detailLoading.value || unconfirmedTasks.value.has(task.id.toLowerCase())) return;
   const eligible = kind === 'cancel' ? isCancellable(task) : kind === 'execute' ? task.statusKey === 'preview_succeeded'
     : kind === 'resume' ? task.statusKey === 'execution_partial'
@@ -329,11 +350,15 @@ async function runAction(kind: ActionKind) {
   } catch (error) {
     if (request.current()) {
       const failure = toProblem(error);
-      if (kind !== 'cancel' && failure.code === 'import_export.source.unavailable') unavailableSources.value = new Set(unavailableSources.value).add(sourceKey(target));
+      if (kind !== 'cancel' && ['import_export.source.unavailable', 'import_export.source.expired'].includes(failure.code ?? '')) {
+        unavailableSources.value = rememberSourceFailure(unavailableSources.value, target);
+        if (failure.code === 'import_export.source.expired') expiredSources.value = rememberSourceFailure(expiredSources.value, target);
+      }
       const unknown = !isFullNetProblemDetails(error) || failure.status < 400 || failure.status >= 500 || failure.status === 408;
       actionReceipt.value = { taskId: target.id, kind, outcome: unknown ? 'unconfirmed' : 'failed', errorCode: failure.code };
       if (unknown) markUnconfirmed(target, kind);
-      ElMessage.error(failure.code === 'import_export.source.unavailable' ? t('importExportTasks.sourceUnavailable') : failure.title || t('importExportTasks.actionFailed'));
+      ElMessage.error(failure.code === 'import_export.source.expired' ? t('importExportTasks.sourceExpired')
+        : failure.code === 'import_export.source.unavailable' ? t('importExportTasks.sourceUnavailable') : failure.title || t('importExportTasks.actionFailed'));
     }
   } finally {
     if (actionRequest === request) { if (request.current()) actionLoading.value = false; actionRequest = undefined; mutation = undefined; } request.finish();
@@ -364,7 +389,7 @@ async function downloadErrorReceipt() {
   const task = selectedTask.value;
   if (!canRead() || !drawerVisible.value || !task?.hasErrorReceipt || unavailableFiles.isUnavailable(receiptKey(task)) || actionLoading.value || detailLoading.value) return;
   const fileRequest = unavailableFiles.begin(receiptKey(task));
-  const request = begin('import_export.import_tasks.execute'); if (!request) return; actionRequest = request;
+  const request = begin('import_export.import_tasks.read'); if (!request) return; actionRequest = request;
   const snapshot = taskSnapshot(task);
 
   actionLoading.value = true;
@@ -477,6 +502,12 @@ function refreshResults() {
             <el-table-column :label="t('importExportTasks.failureReason')" min-width="180">
               <template #default="{ row }">{{ importReceiptFailureLabel(row.errorCode, t) }}</template>
             </el-table-column>
+            <el-table-column :label="t('importExportTasks.sourceRetentionState')" min-width="210">
+              <template #default="{ row }">
+                <div>{{ sourceRetentionLabel(row as ImportExportTaskResponse) }}</div>
+                <time :datetime="row.sourceRetention.expiresAtUtc">{{ sourceExpiryLabel(row as ImportExportTaskResponse) }}</time>
+              </template>
+            </el-table-column>
             <el-table-column :label="t('importExportTasks.createdAtUtc')" prop="createdAtUtc" min-width="200" />
             <el-table-column :label="t('users.columnActions')" width="120" fixed="right" align="center">
               <template #default="{ row }">
@@ -533,6 +564,12 @@ function refreshResults() {
             <el-descriptions-item :label="t('importExportTasks.rows')">
               {{ previewStats }}
             </el-descriptions-item>
+            <el-descriptions-item :label="t('importExportTasks.sourceExpiresAtUtc')">
+              <time data-testid="import-source-expiry" :datetime="selectedTask.sourceRetention.expiresAtUtc">{{ sourceExpiryLabel(selectedTask) }}</time>
+            </el-descriptions-item>
+            <el-descriptions-item :label="t('importExportTasks.sourceRetentionState')">
+              <span data-testid="import-source-state">{{ sourceRetentionLabel(selectedTask) }}</span>
+            </el-descriptions-item>
             <el-descriptions-item :label="t('importExportTasks.executionProgress')">
               {{ executionStats }}
             </el-descriptions-item>
@@ -557,11 +594,13 @@ function refreshResults() {
             <el-table-column prop="message" :label="t('users.importResultMessage')" min-width="150" />
           </el-table>
 
-          <ElAlert v-if="sourceUnavailable(selectedTask)" class="import-source-warning" type="warning" :closable="false" data-testid="import-source-unavailable" :title="t('importExportTasks.sourceUnavailable')">
-            <p>{{ t('importExportTasks.sourceUnavailableHint') }}</p>
+          <ElAlert v-if="sourceUnavailable(selectedTask)" class="import-source-warning" type="warning" :closable="false" data-testid="import-source-unavailable" :title="sourceExpired(selectedTask) ? t('importExportTasks.sourceExpired') : t('importExportTasks.sourceUnavailable')">
+            <p>{{ sourceExpired(selectedTask) ? t('importExportTasks.sourceExpiredHint') : t('importExportTasks.sourceUnavailableHint') }}</p>
             <p v-if="selectedTask.succeededRowCount > 0">{{ t('importExportTasks.sourceUnavailablePartial') }}</p>
             <ElButton v-if="canCreate()" data-testid="import-source-replace" :disabled="actionLoading || detailLoading" v-on="{ click: detailControls.replaceSource }">{{ t('importExportTasks.sourceReplace') }}</ElButton>
           </ElAlert>
+          <ElAlert v-if="selectedTask.statusKey === 'executing' && ownsTask(selectedTask) && session.can('import_export.import_tasks.cancel')"
+            type="info" :closable="false" data-testid="import-cancel-executing" :title="t('importExportTasks.cancelExecutingHint')" />
           <div class="art-drawer-actions">
             <PermissionGate code="import_export.import_tasks.cancel">
               <el-button v-if="isCancellable(selectedTask)" data-testid="import-export-task-cancel"
@@ -569,7 +608,7 @@ function refreshResults() {
                 {{ t('importExportTasks.cancel') }}
               </el-button>
             </PermissionGate>
-            <PermissionGate code="import_export.import_tasks.execute">
+            <PermissionGate v-if="ownsTask(selectedTask)" code="import_export.import_tasks.execute">
               <el-button
                 v-if="selectedTask.statusKey === 'preview_succeeded'"
                 type="primary"
@@ -599,11 +638,13 @@ function refreshResults() {
               >
                 {{ t('importExportTasks.retry') }}
               </el-button>
+            </PermissionGate>
+            <PermissionGate code="import_export.import_tasks.read">
               <el-button
                 v-if="selectedTask.hasErrorReceipt && !unavailableFiles.isUnavailable(receiptKey(selectedTask))"
                 data-testid="import-export-task-error-receipt"
                 :loading="actionLoading"
-                :disabled="!canExecute()"
+                :disabled="!canRead()"
                 v-on="{ click: detailControls.download }"
               >
                 {{ t('importExportTasks.downloadErrorReceipt') }}
@@ -626,8 +667,8 @@ function refreshResults() {
 </template>
 
 <style scoped>
-/* 部分成功状态仍以文案和警示底色区分，正文色在亮暗主题中保持可读对比度。 */
-.el-tag--warning { color: var(--el-text-color-primary); }
+/* 状态以文案和底色区分，正文色避免默认绿色小字在亮暗主题中对比不足。 */
+.el-tag--warning, .el-tag--success { color: var(--el-text-color-primary); }
 .import-source-warning { margin-top: 12px; padding: 12px; border-radius: 8px; background: var(--el-color-warning-light-9); color: var(--el-text-color-primary); }
 .import-source-warning :deep(.el-alert__title) { color: var(--el-text-color-primary); }
 .art-drawer-actions {

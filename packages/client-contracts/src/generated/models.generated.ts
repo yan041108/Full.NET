@@ -4077,6 +4077,12 @@ export interface ImportColumnMappingRequest {
   readonly headerColumns: Array<string>;
 }
 
+export interface ImportExportSourceRetentionResponse {
+  readonly expiresAtUtc: string;
+  readonly releasedAtUtc: null | string;
+  readonly stateKey: string;
+}
+
 export interface ImportExportTaskDetailResponse {
   readonly columnMappings?: null | Array<ImportColumnMapping>;
   readonly createdAtUtc: string;
@@ -4096,6 +4102,7 @@ export interface ImportExportTaskDetailResponse {
   readonly schemaKey: string;
   readonly sourceFileId: string;
   readonly sourceFileName: null | string;
+  readonly sourceRetention: ImportExportSourceRetentionResponse;
   readonly statusKey: string;
   readonly succeededRowCount: number;
   readonly tenantId: string;
@@ -4122,6 +4129,7 @@ export interface ImportExportTaskResponse {
   readonly schemaKey: string;
   readonly sourceFileId: string;
   readonly sourceFileName: null | string;
+  readonly sourceRetention: ImportExportSourceRetentionResponse;
   readonly statusKey: string;
   readonly succeededRowCount: number;
   readonly tenantId: string;

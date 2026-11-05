@@ -34,6 +34,12 @@ internal sealed class ImportExportOptionsValidator : IValidateOptions<ImportExpo
             return ValidateOptionsResult.Fail("导入执行租约必须在 30 到 3600 秒之间。");
         }
 
+        if (options.SourceRetentionDays is < 1 or > 365)
+            return ValidateOptionsResult.Fail("源工作簿保留期限必须在 1 到 365 天之间。");
+        if (options.SourceCleanupBatchSize is < 1 or > 100)
+            return ValidateOptionsResult.Fail("源工作簿清理批大小必须在 1 到 100 之间。");
+        if (options.SourceCleanupPollSeconds is < 5 or > 3600)
+            return ValidateOptionsResult.Fail("源工作簿清理间隔必须在 5 到 3600 秒之间。");
         return ValidateOptionsResult.Success;
     }
 }

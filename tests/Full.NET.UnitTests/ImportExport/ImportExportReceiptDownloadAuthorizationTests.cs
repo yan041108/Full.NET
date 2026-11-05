@@ -42,6 +42,7 @@ public sealed class ImportExportReceiptDownloadAuthorizationTests
             Guid.NewGuid(), "stamp", "host", $"tenant:{tenantId:N}");
         var task = new ImportExportTaskRecord
         {
+                SourceExpiresAtUtc = DateTimeOffset.UtcNow.AddDays(7),
             Id = Guid.NewGuid(), TenantId = tenantId, RequestedByUserId = owner, SchemaKey = "positions",
             SourceFileName = "positions.xlsx",
             ErrorReceiptFileId = Guid.NewGuid(), ExecutionFailedRowCount = 1,
@@ -77,7 +78,7 @@ public sealed class ImportExportReceiptDownloadAuthorizationTests
         Full.NET.UnitTests.TestInfrastructure.BackgroundSessionAuthorizationTestAdapter.DelegateAllToSingle(identity);
         var service = new ImportExportTaskExecutionService(query, Substitute.For<ICommandExecutor>(), files, tenant,
             new ImportTaskAuthority(new StaticImportSchemaRegistry([handler]), identity, tenant),
-            Substitute.For<IServiceScopeFactory>(), Substitute.For<IOptionsMonitor<ImportExportOptions>>());
+            Substitute.For<IServiceScopeFactory>(), Substitute.For<IOptionsMonitor<ImportExportOptions>>(), new Full.NET.Abstractions.Time.SystemClock());
         if (reason is "lateFailure" or "lateCancel" or "lateRequestCancel")
         {
             if (reason == "lateFailure") await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => service.OpenErrorReceiptAsync(task.Id, binding, cancellation.Token));

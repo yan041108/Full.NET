@@ -63,7 +63,7 @@ public static class ImportExportTaskStatusKeys
     /// <summary>执行阶段失败，无成功行或任务级失败。</summary>
     public const string ExecutionFailed = "execution_failed";
 
-    /// <summary>本人已停止后续执行；已经写入的业务行和原任务输入仍保留。</summary>
+    /// <summary>本人已停止后续执行；业务行和历史保留，原工作簿按独立期限清理。</summary>
     public const string Canceled = "canceled";
 
     /// <summary>已发布的全部状态键。</summary>
@@ -252,6 +252,7 @@ public interface IStaticImportSchemaHandler
 /// <param name="ExecutionCompletedAtUtc">执行完成时间（UTC）；未完成时为 <see langword="null"/>。</param>
 /// <param name="HasErrorReceipt">是否存在可下载的错误回执。</param>
 /// <param name="Version">乐观并发版本号，用于 CAS 守卫。</param>
+/// <param name="SourceRetention">当前来源保留状态，不影响业务事实与错误回执。</param>
 public sealed record ImportExportTaskResponse(
     Guid Id,
     Guid TenantId,
@@ -275,7 +276,8 @@ public sealed record ImportExportTaskResponse(
     DateTimeOffset? ExecutionStartedAtUtc,
     DateTimeOffset? ExecutionCompletedAtUtc,
     bool HasErrorReceipt,
-    long Version);
+    long Version,
+    ImportExportSourceRetentionResponse SourceRetention);
 
 /// <summary>导入任务详情响应，包含行级预校验结果。</summary>
 /// <remarks>字段顺序发布后不可调整；新增字段只能追加到末尾，以保持线格式兼容。 StatusKey 与 ErrorCode 为稳定机器码；PreviewRows 顺序与原始行号一致。</remarks>
@@ -303,6 +305,7 @@ public sealed record ImportExportTaskResponse(
 /// <param name="HasErrorReceipt">是否存在可下载的错误回执。</param>
 /// <param name="PreviewRows">预校验逐行结果集合，顺序与原始行号一致。</param>
 /// <param name="Version">乐观并发版本号，用于 CAS 守卫。</param>
+/// <param name="SourceRetention">当前来源保留状态，不影响业务事实与错误回执。</param>
 public sealed record ImportExportTaskDetailResponse(
     Guid Id,
     Guid TenantId,
@@ -327,7 +330,8 @@ public sealed record ImportExportTaskDetailResponse(
     DateTimeOffset? ExecutionCompletedAtUtc,
     bool HasErrorReceipt,
     IReadOnlyList<StaticImportRowPreviewResult> PreviewRows,
-    long Version)
+    long Version,
+    ImportExportSourceRetentionResponse SourceRetention)
 {
     /// <summary>创建任务时使用的字面映射；为空表示标准模板，不返回内部快照 JSON 或个人配置身份。</summary>
     public IReadOnlyList<ImportColumnMapping>? ColumnMappings { get; init; }

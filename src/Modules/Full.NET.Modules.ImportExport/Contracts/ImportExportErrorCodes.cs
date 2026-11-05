@@ -33,6 +33,9 @@ public static class ImportExportErrorCodes
     /// <summary>原来源文件已不存在，拒绝排队且保留任务和原检查点。</summary>
     public const string SourceUnavailable = "import_export.source.unavailable";
 
+    /// <summary>来源保留期限已经结束，保留原业务事实但不能继续排队。</summary>
+    public const string SourceExpired = "import_export.source.expired";
+
     /// <summary>批量执行阶段失败且无法继续。</summary>
     public const string ExecutionFailed = "import_export.execution.failed";
 

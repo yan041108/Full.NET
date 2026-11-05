@@ -1,14 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { flushPromises, mount } from '@vue/test-utils';
 import { createPinia, setActivePinia } from 'pinia';
-import { ElPopconfirm } from 'element-plus';
 import ImportExportTasksView from './ImportExportTasksView.vue';
 import { useSessionStore } from '../auth/session';
+import { useAdminI18n } from '../i18n/adminI18n';
 import {
   executeImportExportTask,
   getImportExportTask,
   listImportExportTasks,
-  cancelImportExportTask
+  cancelImportExportTask,
+  downloadImportExportTaskErrorReceipt
 } from '../api/import-export-tasks';
 
 vi.mock('../api/import-export-tasks', () => ({
@@ -27,6 +28,7 @@ vi.mock('../api/import-export-tasks', () => ({
 const listMock = vi.mocked(listImportExportTasks);
 const getMock = vi.mocked(getImportExportTask);
 const executeMock = vi.mocked(executeImportExportTask);
+const downloadMock = vi.mocked(downloadImportExportTaskErrorReceipt);
 
 const baseTask = {
   id: '0198f36e-f7a7-7c52-9cbb-774e67411205',
@@ -36,6 +38,7 @@ const baseTask = {
   worksheetKey: 'positions',
   sourceFileId: '0198f36e-f7a7-7c52-9cbb-774e67411206',
   sourceFileName: 'tenant-positions-import.xlsx',
+  sourceRetention: { expiresAtUtc: '2027-01-01T00:00:00Z', stateKey: 'available' as const, releasedAtUtc: null },
   statusKey: 'preview_succeeded',
   totalRows: 1,
   validRowCount: 1,
@@ -58,13 +61,14 @@ function mountWithPermissions(permissions: string[]) {
   const pinia = createPinia();
   setActivePinia(pinia);
   const session = useSessionStore();
+  session.state = 'authenticated';
   session.currentUser = {
     id: '019bc2b1-2a40-7cc3-8992-a80de51bf296',
     username: 'admin',
     displayName: '管理员',
     tenantId: '019bc2b1-2a40-7cc3-8992-a80de51bf297',
-    actorScope: 'tenant',
-    scope: 'tenant',
+    actorScope: 'tenant:019bc2b12a407cc38992a80de51bf297',
+    scope: 'tenant:019bc2b12a407cc38992a80de51bf297',
     isSuperAdministrator: false,
     passwordChangeRequired: false,
     permissions,
@@ -88,6 +92,59 @@ describe('Vue 导入任务页', () => {
       previewRows: []
     });
     executeMock.mockReset();
+    downloadMock.mockReset();
+  });
+
+  it.each(['expired', 'releasing', 'released'] as const)('来源 %s 保留原失败详情和到期时间并阻止再次执行', async stateKey => {
+    getMock.mockResolvedValue({ ...baseTask, statusKey: 'execution_failed', executionFailedRowCount: 1, previewRows: [],
+      sourceRetention: { expiresAtUtc: '2026-10-01T00:00:00Z', stateKey, releasedAtUtc: stateKey === 'released' ? '2026-10-02T00:00:00Z' : null } });
+    const wrapper = mountWithPermissions(['import_export.import_tasks.read', 'import_export.import_tasks.execute']);
+    await flushPromises(); await wrapper.get('[data-testid="import-export-task-detail"]').trigger('click'); await flushPromises();
+    expect(wrapper.get('[data-testid="import-source-expiry"]').attributes('datetime')).toBe('2026-10-01T00:00:00Z');
+    expect(wrapper.get('[data-testid="import-source-unavailable"]').text()).toContain('源工作簿已到期');
+    expect(wrapper.get('[data-testid="import-export-task-retry"]').attributes('disabled')).toBeDefined();
+    expect(executeMock).not.toHaveBeenCalled(); wrapper.unmount();
+  });
+
+  it('队列中的过期来源继续保留且本人仍能取消', async () => {
+    getMock.mockResolvedValue({ ...baseTask, statusKey: 'queued', previewRows: [],
+      sourceRetention: { expiresAtUtc: '2026-10-01T00:00:00Z', stateKey: 'retained_for_execution', releasedAtUtc: null } });
+    const wrapper = mountWithPermissions(['import_export.import_tasks.read', 'import_export.import_tasks.cancel', 'import_export.import_tasks.execute']);
+    await flushPromises(); await wrapper.get('[data-testid="import-export-task-detail"]').trigger('click'); await flushPromises();
+    expect(wrapper.get('[data-testid="import-source-state"]').text()).toContain('执行期间继续保留');
+    expect(wrapper.get('[data-testid="import-export-task-cancel"]').attributes('disabled')).toBeUndefined();
+    expect(wrapper.find('[data-testid="import-source-unavailable"]').exists()).toBe(false); wrapper.unmount();
+  });
+
+  it('服务器确认到期后锁住原按钮，不自动重新排队或重建任务', async () => {
+    executeMock.mockRejectedValue({ status: 409, code: 'import_export.source.expired', title: 'Expired' });
+    const wrapper = mountWithPermissions(['import_export.import_tasks.read', 'import_export.import_tasks.execute']);
+    await flushPromises(); await wrapper.get('[data-testid="import-export-task-detail"]').trigger('click'); await flushPromises();
+    await wrapper.get('[data-testid="import-export-task-execute"]').trigger('click'); await flushPromises();
+    expect(executeMock).toHaveBeenCalledTimes(1);
+    expect(wrapper.get('[data-testid="import-source-unavailable"]').text()).toContain('源工作簿已到期');
+    expect(wrapper.get('[data-testid="import-source-state"]').text()).toContain('已到期');
+    await wrapper.get('[data-testid="import-export-task-execute"]').trigger('click'); await flushPromises();
+    expect(executeMock).toHaveBeenCalledTimes(1); wrapper.unmount();
+  });
+
+  it('只读用户到期后仍能读取回执，语言切换不重新读取任务', async () => {
+    getMock.mockResolvedValue({ ...baseTask, statusKey: 'execution_failed', executionFailedRowCount: 1, hasErrorReceipt: true, previewRows: [],
+      sourceRetention: { expiresAtUtc: '2026-10-01T00:00:00Z', stateKey: 'released', releasedAtUtc: '2026-10-02T00:00:00Z' } });
+    downloadMock.mockImplementation((_id, signal) => new Promise<Blob>((_resolve, reject) =>
+      signal?.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')))));
+    const wrapper = mountWithPermissions(['import_export.import_tasks.read']);
+    try {
+      await flushPromises(); await wrapper.get('[data-testid="import-export-task-detail"]').trigger('click'); await flushPromises();
+      useAdminI18n().setLocale('en-US'); await flushPromises();
+      expect(wrapper.get('[data-testid="import-source-state"]').text()).toBe('Source workbook cleaned');
+      expect(getMock).toHaveBeenCalledTimes(1);
+      const button = wrapper.get('[data-testid="import-export-task-error-receipt"]');
+      expect(button.attributes('disabled')).toBeUndefined(); await button.trigger('click'); await flushPromises();
+      expect(downloadMock).toHaveBeenCalledTimes(1);
+      expect(executeMock).not.toHaveBeenCalled();
+    } finally { wrapper.unmount(); await flushPromises(); useAdminI18n().setLocale('zh-CN'); }
+    expect(downloadMock.mock.calls[0]?.[1]?.aborted).toBe(true);
   });
 
   it('仅有 read 时不显示创建按钮', async () => {
@@ -144,9 +201,10 @@ describe('Vue 导入任务页', () => {
     const wrapper = mountWithPermissions(['import_export.import_tasks.read', 'import_export.import_tasks.cancel']);
     await flushPromises(); await wrapper.get('[data-testid="import-export-task-detail"]').trigger('click'); await flushPromises();
     expect(wrapper.find('[data-testid="import-export-task-cancel"]').exists()).toBe(true);
-    wrapper.findComponent(ElPopconfirm).vm.$emit('confirm'); await flushPromises();
+    await wrapper.get('[data-testid="import-export-task-cancel"]').trigger('click'); await flushPromises();
+    await wrapper.get('[data-testid="import-cancel-confirm"]').trigger('click'); await flushPromises();
     expect(cancelImportExportTask).toHaveBeenCalledWith(baseTask.id, 4, expect.any(AbortSignal));
-    expect(wrapper.text()).toContain('任务已取消'); expect(wrapper.text()).toContain('执行：1 成功');
+    expect(wrapper.text()).toContain('已取消'); expect(wrapper.text()).toContain('执行：1 成功');
     expect(wrapper.find('[data-testid="import-export-task-cancel"]').exists()).toBe(false);
     expect(wrapper.find('[data-testid="import-export-task-execute"]').exists()).toBe(false); wrapper.unmount();
   });
@@ -163,12 +221,13 @@ describe('Vue 导入任务页', () => {
     getMock.mockResolvedValue({ ...baseTask, previewRows: [], version: 7 }); vi.mocked(cancelImportExportTask).mockRejectedValue(new Error('timeout'));
     const wrapper = mountWithPermissions(['import_export.import_tasks.read', 'import_export.import_tasks.cancel', 'import_export.import_tasks.execute']);
     await flushPromises(); await wrapper.get('[data-testid="import-export-task-detail"]').trigger('click'); await flushPromises();
-    wrapper.findComponent(ElPopconfirm).vm.$emit('confirm'); await flushPromises();
+    await wrapper.get('[data-testid="import-export-task-cancel"]').trigger('click'); await flushPromises();
+    await wrapper.get('[data-testid="import-cancel-confirm"]').trigger('click'); await flushPromises();
     expect(wrapper.get('[data-testid="import-export-task-cancel"]').attributes('disabled')).toBeDefined();
     expect(wrapper.get('[data-testid="import-export-task-execute"]').attributes('disabled')).toBeDefined();
     getMock.mockResolvedValue({ ...baseTask, statusKey: 'canceled', previewRows: [], version: 8 });
-    await wrapper.get('[data-testid="import-export-task-refresh"]').trigger('click'); await flushPromises();
-    expect(wrapper.text()).toContain('任务已取消'); expect(cancelImportExportTask).toHaveBeenCalledTimes(1); wrapper.unmount();
+    await wrapper.get('[data-testid="import-export-task-detail-refresh"]').trigger('click'); await flushPromises();
+    expect(wrapper.text()).toContain('已取消'); expect(cancelImportExportTask).toHaveBeenCalledTimes(1); wrapper.unmount();
   });
 
   it('异步执行排队后自动呈现终态并同步列表', async () => {
@@ -181,7 +240,7 @@ describe('Vue 导入任务页', () => {
       getMock.mockResolvedValue({ ...baseTask, statusKey: 'execution_succeeded', succeededRowCount: 1, previewRows: [] });
       await wrapper.get('[data-testid="import-export-task-execute"]').trigger('click'); await flushPromises();
       expect(wrapper.text()).toContain('排队中');
-      await vi.advanceTimersByTimeAsync(2000); await flushPromises();
+      await vi.advanceTimersByTimeAsync(5000); await flushPromises();
       expect(wrapper.text()).toContain('执行成功'); expect(getMock).toHaveBeenCalledTimes(2);
       await vi.advanceTimersByTimeAsync(6000); expect(getMock).toHaveBeenCalledTimes(2);
     } finally { wrapper.unmount(); vi.restoreAllMocks(); vi.useRealTimers(); }

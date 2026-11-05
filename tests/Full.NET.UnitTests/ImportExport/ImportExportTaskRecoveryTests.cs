@@ -297,6 +297,7 @@ public sealed class ImportExportTaskRecoveryTests
             WorksheetKey = "positions",
             SourceFileId = Guid.NewGuid(),
             SourceFileName = "source.xlsx",
+            SourceExpiresAtUtc = fixture.Clock.UtcNow.AddDays(7),
             StatusKey = statusKey,
             TotalRows = validRowCount,
             ValidRowCount = validRowCount,
@@ -432,6 +433,8 @@ public sealed class ImportExportTaskRecoveryTests
             {
                 Tasks[current.Id] = new ImportExportTaskRecord
                 {
+                SourceExpiresAtUtc = current.SourceExpiresAtUtc,
+                SourceReleaseStartedAtUtc = current.SourceReleaseStartedAtUtc, SourceReleasedAtUtc = current.SourceReleasedAtUtc,
                     Id = current.Id,
                     TenantId = current.TenantId,
                     SchemaKey = current.SchemaKey,
@@ -504,6 +507,8 @@ public sealed class ImportExportTaskRecoveryTests
 
             var claimed = new ImportExportTaskRecord
             {
+                SourceExpiresAtUtc = candidate.SourceExpiresAtUtc,
+                SourceReleaseStartedAtUtc = candidate.SourceReleaseStartedAtUtc, SourceReleasedAtUtc = candidate.SourceReleasedAtUtc,
                 Id = candidate.Id,
                 TenantId = candidate.TenantId,
                 SchemaKey = candidate.SchemaKey,
@@ -554,6 +559,8 @@ public sealed class ImportExportTaskRecoveryTests
                 or ImportExportTaskStatusKeys.ExecutionFailed;
             return new ImportExportTaskRecord
             {
+                SourceExpiresAtUtc = current.SourceExpiresAtUtc,
+                SourceReleaseStartedAtUtc = current.SourceReleaseStartedAtUtc, SourceReleasedAtUtc = current.SourceReleasedAtUtc,
                 Id = current.Id,
                 TenantId = current.TenantId,
                 SchemaKey = current.SchemaKey,
@@ -592,6 +599,9 @@ public sealed class ImportExportTaskRecoveryTests
             DateTimeOffset completedAtUtc) =>
             new()
             {
+                SourceExpiresAtUtc = current.SourceExpiresAtUtc,
+                SourceReleaseStartedAtUtc = current.SourceReleaseStartedAtUtc,
+                SourceReleasedAtUtc = current.SourceReleasedAtUtc,
                 Id = current.Id,
                 TenantId = current.TenantId,
                 SchemaKey = current.SchemaKey,

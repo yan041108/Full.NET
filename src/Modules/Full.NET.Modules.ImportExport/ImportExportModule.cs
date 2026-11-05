@@ -76,6 +76,7 @@ public sealed class ImportExportModule : IFullNetModule
             Features.ManageImportTasks.ImportExportResourceFileOwner>());
         AddExecutionServices(services, configuration);
         services.AddHostedService<ImportExportTaskHostedProcessor>();
+        services.AddHostedService<ImportSourceRetentionHostedProcessor>();
         services.TryAddScoped<Features.ManageImportTasks.ImportExportExecutionAuthorization>();
         services.TryAddEnumerable(ServiceDescriptor.Singleton<IAuthorizationCatalogContributor, ImportExportAuthorizationContributor>());
     }
@@ -92,6 +93,8 @@ public sealed class ImportExportModule : IFullNetModule
         services.TryAddScoped<StaticImportSchemaRegistry>();
         services.TryAddScoped<ImportTaskAuthority>();
         services.TryAddSingleton<PendingTenantScanState>();
+        services.TryAddSingleton<ImportSourceRetentionScanState>();
+        services.TryAddScoped<ImportSourceRetentionProcessor>();
         services.TryAddScoped<ImportExportTaskRunner>();
     }
 

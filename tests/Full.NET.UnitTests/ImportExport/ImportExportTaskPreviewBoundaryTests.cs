@@ -219,7 +219,8 @@ public sealed class ImportExportTaskPreviewBoundaryTests
                     if (boundaryStage is "readback" or "readback-missing") cancellation?.Cancel();
                     if (boundaryStage == "readback-missing") return null;
                     if (boundaryStage == "scope-readback") tenant.SetTenant(new(Guid.CreateVersion7(), "other", "Other"));
-                    return new ImportExportTaskRecord { Id = taskId, TenantId = tenantId, SourceFileId = fileId, RequestedByUserId = ActorId,
+                    return new ImportExportTaskRecord {
+                SourceExpiresAtUtc = DateTimeOffset.UtcNow.AddDays(7), Id = taskId, TenantId = tenantId, SourceFileId = fileId, RequestedByUserId = ActorId,
                     StatusKey = (string)Inserted!["StatusKey"]!, ErrorCode = (string?)Inserted["ErrorCode"],
                     TotalRows = (int)Inserted["TotalRows"]!, ValidRowCount = (int)Inserted["ValidRowCount"]!, InvalidRowCount = (int)Inserted["InvalidRowCount"]!,
                     PreviewRowsJson = (string?)Inserted["PreviewRowsJson"] }; });

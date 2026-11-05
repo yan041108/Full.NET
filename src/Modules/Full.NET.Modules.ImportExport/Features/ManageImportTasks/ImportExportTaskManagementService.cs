@@ -189,6 +189,7 @@ internal sealed class ImportExportTaskManagementService(
                     ("WorksheetKey", worksheetKey),
                     ("SourceFileId", uploaded.FileId),
                     ("SourceFileName", originalFileName),
+                    ("SourceExpiresAtUtc", now.AddDays(Math.Clamp(options.CurrentValue.SourceRetentionDays, 1, 365))),
                     ("StatusKey", statusKey),
                     ("TotalRows", totalRows),
                     ("ValidRowCount", validRowCount),
@@ -227,7 +228,7 @@ internal sealed class ImportExportTaskManagementService(
         if (!IsOriginalTenant(tenantId)) return Result<ImportExportTaskDetailResponse>.Failure(PermissionDeniedError());
         return created is null
             ? Result<ImportExportTaskDetailResponse>.Failure(TaskNotFoundError())
-            : Result<ImportExportTaskDetailResponse>.Success(ImportExportTaskMapper.MapDetail(created));
+            : Result<ImportExportTaskDetailResponse>.Success(ImportExportTaskMapper.MapDetail(created, clock.UtcNow));
     }
 
     private void EnsureTenantContext()

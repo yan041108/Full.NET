@@ -2157,7 +2157,10 @@
         "Version": "乐观并发版本号",
         "WorksheetKey": "工作表键",
         "ColumnMappingJson": "创建时固化的有界列映射输入，后台不读取当前个人配置",
-        "ActorSessionBindingJson": "本人显式排队操作绑定的会话，后台每阶段重新授权"
+        "ActorSessionBindingJson": "本人显式排队操作绑定的会话，后台每阶段重新授权",
+        "SourceExpiresAtUtc": "源工作簿固定保留截止时间，排队和执行中延后清理",
+        "SourceReleaseStartedAtUtc": "源文件释放意图持久化时间，阻止重新排队",
+        "SourceReleasedAtUtc": "源文件提供程序确认幂等释放完成的时间"
       }
     },
     "fn_jobs_definition": {

@@ -251,7 +251,8 @@ internal static class PerformanceImportExecutionAssertions
     private static Task<int> InsertImportAsync(IServiceProvider sp, Guid id, Guid tenantId, Guid actor, Guid source, int count,
         IReadOnlyDictionary<string, bool>? capabilities = null) =>
         sp.GetRequiredService<ICommandExecutor>().ExecuteAsync(ImportExportTaskSql.Insert, new ImportExportTaskRecord
-        { Id = id, TenantId = tenantId, SchemaKey = StaticImportSchemaKeys.OrganizationTenantPositions,
+        {
+                SourceExpiresAtUtc = DateTimeOffset.UtcNow.AddDays(7), Id = id, TenantId = tenantId, SchemaKey = StaticImportSchemaKeys.OrganizationTenantPositions,
             SchemaDisplayName = "positions", WorksheetKey = "positions", SourceFileId = source, SourceFileName = "positions.xlsx",
             StatusKey = "queued", TotalRows = count, ValidRowCount = count, PreviewRowsJson = "[]", RequestedByUserId = actor,
             CreatedAtUtc = sp.GetRequiredService<IClock>().UtcNow, Version = 1,

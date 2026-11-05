@@ -4,6 +4,7 @@ import { cancelImportExportTask } from './import-export-tasks';
 vi.mock('./http', () => ({ http: { request: vi.fn() } }));
 const id = '019bc2b1-2a40-7cc3-8992-a80de51bf330';
 const canceled = () => ({ id, tenantId: id, schemaKey: 'source', schemaDisplayName: 'Source', worksheetKey: 'rows', sourceFileId: id,
+  sourceRetention: { expiresAtUtc: '2027-01-01T00:00:00Z', stateKey: 'available', releasedAtUtc: null },
   sourceFileName: 'rows.xlsx', statusKey: 'canceled', totalRows: 2, validRowCount: 2, invalidRowCount: 0, errorCode: null,
   requestedByUserId: id, createdAtUtc: '2026-11-03T00:00:00Z', previewCompletedAtUtc: null, processedRowCount: 1, succeededRowCount: 1,
   executionFailedRowCount: 0, nextLineNumber: 1, executionStartedAtUtc: null, executionCompletedAtUtc: '2026-11-03T00:00:01Z',

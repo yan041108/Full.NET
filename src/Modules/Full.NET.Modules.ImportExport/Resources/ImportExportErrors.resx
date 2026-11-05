@@ -10,4 +10,5 @@
   <data name="import_export.import_profiles.version_conflict" xml:space="preserve"><value>配置已被其他操作修改，请重新读取后再保存。</value></data>
   <data name="import_export.import_profiles.limit_reached" xml:space="preserve"><value>此来源最多保存 32 条个人导入配置。</value></data>
   <data name="import_export.task.cancel_conflict" xml:space="preserve"><value>任务已变更或当前批次已被 Worker 领取，请等待批次结束后刷新详情再操作。</value></data>
+  <data name="import_export.source.expired" xml:space="preserve"><value>源工作簿保留期限已到，无法继续执行；已处理记录和错误回执仍可查看。</value></data>
 </root>

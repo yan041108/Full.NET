@@ -12,6 +12,11 @@ internal sealed class ImportExportDapperAotMaterializerContributor
     public void RegisterMaterializers(DapperAotMaterializerRegistrar registrar)
     {
         registrar.Register<ImportExportTaskRecord>(ReadTask);
+        registrar.Register<ImportSourceRetentionCandidate>(reader => new()
+        {
+            Id = ReadGuid(reader, "Id"), TenantId = ReadGuid(reader, "TenantId"),
+            SourceExpiresAtUtc = ReadDateTimeOffset(reader, "SourceExpiresAtUtc"),
+        });
         registrar.Register<ImportTaskCancellationState>(reader => new()
         {
             Id = ReadGuid(reader, "Id"), StatusKey = ReadString(reader, "StatusKey"), Version = ReadInt64(reader, "Version"),
@@ -32,6 +37,9 @@ internal sealed class ImportExportDapperAotMaterializerContributor
         WorksheetKey = ReadString(reader, "WorksheetKey"),
         SourceFileId = ReadGuid(reader, "SourceFileId"),
         SourceFileName = ReadNullableString(reader, "SourceFileName"),
+        SourceExpiresAtUtc = ReadDateTimeOffset(reader, "SourceExpiresAtUtc"),
+        SourceReleaseStartedAtUtc = ReadNullableDateTimeOffset(reader, "SourceReleaseStartedAtUtc"),
+        SourceReleasedAtUtc = ReadNullableDateTimeOffset(reader, "SourceReleasedAtUtc"),
         StatusKey = ReadString(reader, "StatusKey"),
         TotalRows = ReadInt32(reader, "TotalRows"),
         ValidRowCount = ReadInt32(reader, "ValidRowCount"),
@@ -59,6 +67,9 @@ internal sealed class ImportExportDapperAotMaterializerContributor
         WorksheetKey = ReadString(reader, "WorksheetKey"),
         SourceFileId = ReadGuid(reader, "SourceFileId"),
         SourceFileName = ReadNullableString(reader, "SourceFileName"),
+        SourceExpiresAtUtc = ReadDateTimeOffset(reader, "SourceExpiresAtUtc"),
+        SourceReleaseStartedAtUtc = ReadNullableDateTimeOffset(reader, "SourceReleaseStartedAtUtc"),
+        SourceReleasedAtUtc = ReadNullableDateTimeOffset(reader, "SourceReleasedAtUtc"),
         StatusKey = ReadString(reader, "StatusKey"),
         TotalRows = ReadInt32(reader, "TotalRows"),
         ValidRowCount = ReadInt32(reader, "ValidRowCount"),

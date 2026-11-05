@@ -33,6 +33,7 @@ public sealed class ImportExportTaskExecutionAuthorizationTests
         var binding = new SessionBindingSnapshot(changedActor ? Guid.NewGuid() : owner, tenantId, Guid.NewGuid(), "stamp", "host", $"tenant:{tenantId:N}");
         var task = new ImportExportTaskRecord
         {
+                SourceExpiresAtUtc = DateTimeOffset.UtcNow.AddDays(7),
             Id = Guid.NewGuid(), TenantId = tenantId, RequestedByUserId = owner, SchemaKey = "positions",
             SchemaDisplayName = "positions", WorksheetKey = "positions", SourceFileName = "source.xlsx",
             StatusKey = operation == "queue" ? ImportExportTaskStatusKeys.PreviewSucceeded
@@ -55,7 +56,7 @@ public sealed class ImportExportTaskExecutionAuthorizationTests
         var options = Substitute.For<IOptionsMonitor<ImportExportOptions>>(); options.CurrentValue.Returns(new ImportExportOptions());
         var service = new ImportExportTaskExecutionService(query, command, Substitute.For<ITenantResourceFileStore>(),
             tenant, new ImportTaskAuthority(new StaticImportSchemaRegistry([handler]), identity, tenant),
-            Substitute.For<IServiceScopeFactory>(), options);
+            Substitute.For<IServiceScopeFactory>(), options, new Full.NET.Abstractions.Time.SystemClock());
         var context = new StaticImportPreviewContext(binding.UserId, new Dictionary<string, bool> { ["assign"] = false }) { SessionBinding = binding };
         var result = operation == "queue" ? await service.QueueExecuteAsync(task.Id, context)
             : operation == "retry" ? await service.RetryAsync(task.Id, context) : await service.ResumeAsync(task.Id, context);

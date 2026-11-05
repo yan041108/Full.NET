@@ -21,6 +21,12 @@ export interface StaticImportRowPreviewResult {
   message: string | null;
 }
 
+export interface ImportExportSourceRetention {
+  expiresAtUtc: string;
+  stateKey: 'available' | 'retained_for_execution' | 'expired' | 'releasing' | 'released';
+  releasedAtUtc: string | null;
+}
+
 export interface ImportExportTaskResponse {
   id: string;
   tenantId: string;
@@ -45,6 +51,7 @@ export interface ImportExportTaskResponse {
   executionCompletedAtUtc: string | null;
   hasErrorReceipt: boolean;
   version: number;
+  sourceRetention: ImportExportSourceRetention;
 }
 
 export interface ImportExportTaskDetailResponse extends ImportExportTaskResponse {
@@ -82,6 +89,15 @@ export function isStaticImportSchemaDefinition(value: unknown): value is StaticI
     && Array.isArray(value.worksheets);
 }
 
+export function isImportExportSourceRetention(value: unknown): value is ImportExportSourceRetention {
+  return isRecord(value) && typeof value.expiresAtUtc === 'string' && Number.isFinite(Date.parse(value.expiresAtUtc))
+    && typeof value.stateKey === 'string'
+    && ['available', 'retained_for_execution', 'expired', 'releasing', 'released'].includes(value.stateKey)
+    && (value.stateKey === 'released'
+      ? typeof value.releasedAtUtc === 'string' && Number.isFinite(Date.parse(value.releasedAtUtc))
+      : value.releasedAtUtc === null);
+}
+
 export function isImportExportTaskResponse(value: unknown): value is ImportExportTaskResponse {
   return isRecord(value)
     && isGuid(value.id)
@@ -106,7 +122,8 @@ export function isImportExportTaskResponse(value: unknown): value is ImportExpor
     && isNullableString(value.executionStartedAtUtc)
     && isNullableString(value.executionCompletedAtUtc)
     && typeof value.hasErrorReceipt === 'boolean'
-    && Number.isInteger(value.version);
+    && Number.isInteger(value.version)
+    && isImportExportSourceRetention(value.sourceRetention);
 }
 
 export function isImportExportTaskDetailResponse(
