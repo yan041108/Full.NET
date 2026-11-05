@@ -815,6 +815,11 @@
       "minimum": 2,
       "timeout": "15m",
       "selections": {
+        "subscription-storage-consumer": {
+          "filter": "FullyQualifiedName~SubscriptionBillingRecoveryTests",
+          "minimum": 2,
+          "timeout": "5m"
+        },
         "tenant-file-content-activity": {
           "filter": "FullyQualifiedName~TenantResourceFileActivityTests",
           "minimum": 2,

@@ -18,6 +18,7 @@ using Full.NET.Modules.Tenancy.Features.ManageHostTenantPackages;
 using Full.NET.Modules.Tenancy.Features.ManageTenantEntitlements.Persistence;
 using Full.NET.Modules.Tenancy.Features.SubscriptionBilling;
 using Full.NET.Modules.Tenancy.Features.ManageTenantSubscriptions;
+using Full.NET.Modules.Files.Contracts;
 using Microsoft.Extensions.Options;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.DependencyInjection;
@@ -120,6 +121,9 @@ public sealed class SubscriptionBillingRecoveryTests
             new { Tenant = tenant, Metric = TenantQuotaMetricCodes.IdentitySeats, Period = TenantQuotaDefaults.PeriodKey }));
         Assert.AreEqual(1L, await ActiveFeature(sp, tenant, code));
 
+        // 不能只用直接预留代替真实消费者：已履约的存储额度必须支持实际上传并确认字节占用。
+        var storedFile = await VerifyStorageConsumerAsync(sp, connection, tenant, allowed: true);
+
         // 未记账迁移重跑保留资金、工作项和快照，SQL Server 补回缺失索引。
         if (provider == DatabaseProvider.SqlServer)
             await connection.ExecuteAsync("DROP INDEX IX_fn_payment_subscription_fulfillment_Phase_DueAtUtc ON fn_payment_subscription_fulfillment");
@@ -142,6 +146,9 @@ public sealed class SubscriptionBillingRecoveryTests
             orderId, merchant, 12500, "CNY", "wx-paid", now))).IsSuccess);
         Assert.IsFalse((await sp.GetRequiredService<ITenantQuotaReservationService>().ReserveAsync(tenant,
             new(TenantQuotaMetricCodes.IdentitySeats, "after-refund", 1))).IsSuccess);
+        await VerifyStorageConsumerAsync(sp, connection, tenant, allowed: false);
+        // 退款阻止新增占用，但保留已存在业务文件，不能冒充删除或重建成功。
+        await VerifyStoredContentAsync(sp, tenant, storedFile.ResourceId, storedFile.FileId);
 
         // 人工独立授权仍可生效；退款不会删除历史绑定或业务资源。
         await connection.ExecuteAsync("""
@@ -173,6 +180,51 @@ public sealed class SubscriptionBillingRecoveryTests
         Assert.IsFalse((await billing.ApplyVerifiedPaymentAsync(receipt with { SubscriptionId = expiring.Value.SubscriptionId,
             PaymentOperationId = expiring.Value.PaymentOperationId })).IsSuccess);
         Assert.AreEqual(1L, await ActiveFeature(sp, tenant, code));
+    }
+
+    /// <summary>使用真实 Files、存储和配额端口核对新增占用，不以账面余额推导业务成功。</summary>
+    private static async Task<(Guid ResourceId, Guid FileId)> VerifyStorageConsumerAsync(IServiceProvider sp, DbConnection connection, Guid tenant, bool allowed)
+    {
+        var resource = Guid.CreateVersion7();
+        var before = await ReadUsageAsync();
+        var context = sp.GetRequiredService<ICurrentTenantContextWriter>(); context.SetTenant(new(tenant, "acme", "Acme"));
+        Guid fileId = default;
+        try
+        {
+            using var bytes = new MemoryStream(new byte[] { 1, 2, 3 });
+            var result = await sp.GetRequiredService<ITenantResourceFileStore>().UploadAsync("import_export", resource,
+                Guid.CreateVersion7(), "paid-storage.bin", "application/octet-stream", bytes, 3);
+            Assert.AreEqual(allowed, result.IsSuccess, result.Error?.Code);
+            if (allowed) fileId = result.Value!.FileId;
+            else Assert.AreEqual(FilesErrorCodes.StorageQuotaExceeded, result.Error!.Code);
+        }
+        finally { context.SetHost(); }
+        var after = await ReadUsageAsync();
+        Assert.AreEqual(before.Used + (allowed ? 3 : 0), after.Used);
+        Assert.AreEqual(before.Reserved, after.Reserved, "成功确认或拒绝后不遗留新预留。");
+        Assert.AreEqual(allowed ? 1 : 0, await connection.QuerySingleAsync<int>(
+            "SELECT COUNT(*) FROM fn_files_tenant_resource_file WHERE TenantId=@Tenant AND OwnerModuleKey='import_export' AND ResourceId=@Resource",
+            new { Tenant = tenant, Resource = resource }));
+        if (allowed) await VerifyStoredContentAsync(sp, tenant, resource, fileId);
+        return (resource, fileId);
+
+        Task<(long Used, long Reserved)> ReadUsageAsync() => connection.QuerySingleAsync<(long Used, long Reserved)>(
+            "SELECT UsedValue,ReservedValue FROM fn_tenancy_quota_metric WHERE TenantId=@Tenant AND MetricCode='files.storage_bytes' AND PeriodKey='default'",
+            new { Tenant = tenant });
+    }
+
+    /// <summary>原文件独立按租户和资源读取，付款、退款或重放不应悄悄破坏字节内容。</summary>
+    private static async Task VerifyStoredContentAsync(IServiceProvider sp, Guid tenant, Guid resource, Guid fileId)
+    {
+        var context = sp.GetRequiredService<ICurrentTenantContextWriter>(); context.SetTenant(new(tenant, "acme", "Acme"));
+        try
+        {
+            var result = await sp.GetRequiredService<ITenantResourceFileStore>().OpenReadyContentAsync("import_export", resource, fileId);
+            Assert.IsTrue(result.IsSuccess, result.Error?.Code);
+            await using var content = result.Value!.Content; using var copy = new MemoryStream();
+            await content.CopyToAsync(copy); CollectionAssert.AreEqual(new byte[] { 1, 2, 3 }, copy.ToArray());
+        }
+        finally { context.SetHost(); }
     }
 
     private static Task<int> SourceCount(DbConnection connection, Guid id) => connection.QuerySingleAsync<int>(
