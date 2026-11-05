@@ -82,7 +82,7 @@ export interface PaymentOrderListItem {
   channelKey: string;
   outTradeNo: string;
   tradeStateKey: string;
-  amountMinor: number;
+  amountMinor: string;
   currency: string;
   subject: string;
   description: string | null;
@@ -102,7 +102,7 @@ export interface PaymentOrder {
   channelKey: string;
   outTradeNo: string;
   tradeStateKey: string;
-  amountMinor: number;
+  amountMinor: string;
   currency: string;
   subject: string;
   description: string | null;
@@ -128,7 +128,7 @@ export interface CreatePaymentOrderRequest {
   tenantId: string;
   merchantConfigId?: string | null;
   channelKey?: string | null;
-  amountMinor: number;
+  amountMinor: string;
   currency: string;
   subject: string;
   description?: string | null;
@@ -158,7 +158,7 @@ export interface PaymentRefundListItem {
   outTradeNo: string;
   outRefundNo: string;
   refundStateKey: string;
-  amountMinor: number;
+  amountMinor: string;
   currency: string;
   reason: string;
   providerRefundId: string | null;
@@ -177,7 +177,7 @@ export interface PaymentRefund {
   outTradeNo: string;
   outRefundNo: string;
   refundStateKey: string;
-  amountMinor: number;
+  amountMinor: string;
   currency: string;
   reason: string;
   providerRefundId: string | null;
@@ -196,7 +196,7 @@ export interface PaymentRefundPage {
 }
 
 export interface CreatePaymentRefundRequest {
-  amountMinor?: number | null;
+  amountMinor?: string | null;
   reason: string;
 }
 
@@ -206,6 +206,11 @@ export interface PaymentRefundListQuery {
   tenantId?: string;
   orderId?: string;
   refundStateKey?: string;
+}
+
+// 金额线格式先验证规范十进制和 Int64 上界，不能把 JSON 数字或指数静默转为金额。
+function isPaymentMinorUnits(value: unknown): value is string {
+  return typeof value === 'string' && /^[1-9][0-9]{0,18}$/.test(value) && BigInt(value) <= 9223372036854775807n;
 }
 
 const guidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -255,7 +260,7 @@ export function isPaymentOrderListItem(value: unknown): value is PaymentOrderLis
     && isGuid(value.merchantConfigId)
     && typeof value.outTradeNo === 'string'
     && typeof value.tradeStateKey === 'string'
-    && typeof value.amountMinor === 'number';
+    && isPaymentMinorUnits(value.amountMinor);
 }
 
 export function isPaymentOrder(value: unknown): value is PaymentOrder {
@@ -263,7 +268,8 @@ export function isPaymentOrder(value: unknown): value is PaymentOrder {
     && isGuid(value.id)
     && isGuid(value.tenantId)
     && typeof value.outTradeNo === 'string'
-    && typeof value.tradeStateKey === 'string';
+    && typeof value.tradeStateKey === 'string'
+    && isPaymentMinorUnits(value.amountMinor);
 }
 
 export function isPaymentOrderPage(value: unknown): value is PaymentOrderPage {
@@ -281,14 +287,16 @@ export function isPaymentRefundListItem(value: unknown): value is PaymentRefundL
     && isGuid(value.tenantId)
     && isGuid(value.orderId)
     && typeof value.outRefundNo === 'string'
-    && typeof value.refundStateKey === 'string';
+    && typeof value.refundStateKey === 'string'
+    && isPaymentMinorUnits(value.amountMinor);
 }
 
 export function isPaymentRefund(value: unknown): value is PaymentRefund {
   return isRecord(value)
     && isGuid(value.id)
     && isGuid(value.orderId)
-    && typeof value.outRefundNo === 'string';
+    && typeof value.outRefundNo === 'string'
+    && isPaymentMinorUnits(value.amountMinor);
 }
 
 export function isPaymentRefundPage(value: unknown): value is PaymentRefundPage {

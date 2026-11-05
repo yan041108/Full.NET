@@ -3,7 +3,7 @@ import AxeBuilder from '@axe-core/playwright';
 const id = n => `019bc2b1-2a40-7cc3-8992-${String(n).padStart(12, '0')}`;
 const json = (route, body) => route.fulfill({ contentType: 'application/json', body: JSON.stringify(body) });
 const order = { id: id(1), tenantId: id(2), merchantConfigId: id(3), channelKey: 'wechat_native', outTradeNo: 'original-order',
-  tradeStateKey: 'refunding', amountMinor: 29, currency: 'CNY', subject: 'Original payment', description: null, codeUrl: null,
+  tradeStateKey: 'refunding', amountMinor: '29', currency: 'CNY', subject: 'Original payment', description: null, codeUrl: null,
   providerTransactionId: 'paid', failMessage: null, createdAtUtc: '2026-11-05T00:00:00Z', updatedAtUtc: null, paidAtUtc: null, version: 1 };
 for (const [width, locale] of [[1440, 'en-US'], [390, 'zh-CN']]) {
   test('订单服务端筛选及已提交条件分页 ' + width, async ({ page }, info) => {

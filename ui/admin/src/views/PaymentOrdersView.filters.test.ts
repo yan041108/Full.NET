@@ -9,7 +9,7 @@ vi.mock('vue-router', async original => ({ ...await original<typeof import('vue-
 vi.mock('../api/payment-orders', () => ({ listPaymentOrders: vi.fn(), getPaymentOrder: vi.fn(), createPaymentOrder: vi.fn(), reconcilePaymentOrder: vi.fn(), createPaymentRefund: vi.fn() }));
 const id = (n: number) => `019bc2b1-2a40-7cc3-8992-a80de51bf2${String(n).padStart(2, '0')}`;
 const order = { id: id(1), tenantId: id(2), merchantConfigId: id(3), channelKey: 'wechat_native', outTradeNo: 'original-order',
-  tradeStateKey: 'succeeded', amountMinor: 29, currency: 'CNY', subject: 'Original' } as PaymentOrder;
+  tradeStateKey: 'succeeded', amountMinor: '29', currency: 'CNY', subject: 'Original' } as PaymentOrder;
 const wrappers: VueWrapper[] = [];
 async function panel() {
   const pinia = createPinia(); setActivePinia(pinia); const session = useSessionStore(pinia); session.state = 'authenticated';

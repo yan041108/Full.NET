@@ -11,9 +11,9 @@ vi.mock('../api/payment-orders', () => ({ listPaymentOrders: vi.fn(), createPaym
   reconcilePaymentOrder: vi.fn(), createPaymentRefund: vi.fn() }));
 const id = (n: number) => `019bc2b1-2a40-7cc3-8992-a80de51bf2${String(n).padStart(2, '0')}`;
 const order = { id: id(1), tenantId: id(2), merchantConfigId: id(3), channelKey: 'wechat_native', outTradeNo: 'original-order',
-  tradeStateKey: 'succeeded', amountMinor: 100, currency: 'CNY', subject: '原订单', version: 1 } as PaymentOrder;
+  tradeStateKey: 'succeeded', amountMinor: '100', currency: 'CNY', subject: '原订单', version: 1 } as PaymentOrder;
 const receipt = { id: id(4), orderId: order.id, tenantId: order.tenantId, merchantConfigId: order.merchantConfigId,
-  outTradeNo: order.outTradeNo, outRefundNo: 'original-refund', amountMinor: 29, currency: 'CNY', reason: 'original',
+  outTradeNo: order.outTradeNo, outRefundNo: 'original-refund', amountMinor: '29', currency: 'CNY', reason: 'original',
   refundStateKey: 'processing' } as PaymentRefund;
 const dialog = { props: ['open', 'confirmTestId', 'confirmDisabled', 'saving'], emits: ['confirm', 'update:open'],
   template: '<section v-if="open"><slot/><button data-testid="close-refund-test" @click="$emit(\'update:open\', false)">Close</button><button :data-testid="confirmTestId" :disabled="confirmDisabled || saving" @click="$emit(\'confirm\')">Confirm</button></section>' };
@@ -52,7 +52,7 @@ describe('退款原请求保护', () => {
     expect((wrapper.get('[data-testid="payment-order-refund-amount"]').element as HTMLInputElement).value).toBe('0.29');
     expect(wrapper.get('[data-testid="payment-order-refund-confirm"]').attributes('disabled')).toBeDefined();
     expect(wrapper.find('[data-testid="payment-refund-check-records"]').exists()).toBe(false);
-    expect(createPaymentRefund).toHaveBeenCalledWith(order.id, { amountMinor: 29, reason: 'original' }, expect.any(AbortSignal));
+    expect(createPaymentRefund).toHaveBeenCalledWith(order.id, { amountMinor: '29', reason: 'original' }, expect.any(AbortSignal));
   });
 
   it('有效回执只表示已提交，关闭重开不重复发送', async () => {
@@ -67,7 +67,7 @@ describe('退款原请求保护', () => {
 
   it.each([
     ['id', '00000000-0000-0000-0000-000000000000'], ['orderId', id(5)], ['tenantId', id(5)], ['merchantConfigId', id(5)],
-    ['outTradeNo', 'other'], ['amountMinor', 30], ['currency', 'USD'], ['reason', 'other'], ['outRefundNo', ''], ['refundStateKey', 'unknown']
+    ['outTradeNo', 'other'], ['amountMinor', '30'], ['currency', 'USD'], ['reason', 'other'], ['outRefundNo', ''], ['refundStateKey', 'unknown']
   ])('回执 %s 错配保留原请求，不冒充成功或再次写入', async (field, value) => {
     vi.mocked(createPaymentRefund).mockResolvedValue({ ...receipt, [field]: value });
     const { wrapper } = await panel(); await start(wrapper);
@@ -120,8 +120,8 @@ describe('退款原请求保护', () => {
     expect(wrapper.find('[data-testid="payment-refund-original-attempt"]').exists()).toBe(false);
   });
 
-  it('不安全的原订单金额不能以空金额发送全额退款', async () => {
-    vi.mocked(listPaymentOrders).mockResolvedValue({ items: [{ ...order, amountMinor: Number.MAX_SAFE_INTEGER + 1 }], page: 1, pageSize: 20, total: 1 });
+  it('错误线格式的原订单金额不能以空金额发送全额退款', async () => {
+    vi.mocked(listPaymentOrders).mockResolvedValue({ items: [{ ...order, amountMinor: '9223372036854775808' }], page: 1, pageSize: 20, total: 1 });
     const { wrapper } = await panel(); await wrapper.get(`[data-testid="payment-order-refund-${order.id}"]`).trigger('click');
     await wrapper.get('[data-testid="payment-order-refund-reason"]').setValue('original');
     await wrapper.get('[data-testid="payment-order-refund-confirm"]').trigger('click'); await flushPromises();

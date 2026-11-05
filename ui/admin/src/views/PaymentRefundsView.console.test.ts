@@ -11,7 +11,7 @@ vi.mock('vue-router', async original => ({ ...await original<typeof import('vue-
 vi.mock('../api/payment-refunds', () => ({ getPaymentRefund: vi.fn(), listPaymentRefunds: vi.fn() }));
 const id = (n: number) => `019bc2b1-2a40-7cc3-8992-a80de51bf2${String(n).padStart(2, '0')}`;
 const row: PaymentRefund = { id: id(1), orderId: id(2), tenantId: id(3), merchantConfigId: id(4), outTradeNo: 'original-order',
-  outRefundNo: 'original-refund', refundStateKey: 'provider_unknown', amountMinor: 29, currency: 'CNY', reason: 'original reason', providerRefundId: null,
+  outRefundNo: 'original-refund', refundStateKey: 'provider_unknown', amountMinor: '29', currency: 'CNY', reason: 'original reason', providerRefundId: null,
   failMessage: 'unconfirmed', createdAtUtc: '2026-11-05T00:00:00Z', updatedAtUtc: null, completedAtUtc: null, version: 2 };
 const page = (items: PaymentRefund[] = [row], current = 1, total = 41): PaymentRefundPage => ({ items, page: current, pageSize: 20, total });
 const dialog = { props: ['open', 'showConfirm'], emits: ['update:open'], template: '<section v-if="open" data-testid="test-refund-dialog"><slot/><button data-testid="test-refund-close" @click="$emit(\'update:open\', false)">Close</button></section>' };
@@ -82,13 +82,13 @@ describe('原退款记录核对控制台', () => {
     expect(wrapper.find('[data-testid="refund-detail-snapshot"]').exists()).toBe(false); expect(wrapper.get('[data-testid="refund-detail-id"]').text()).toBe(id(20));
     expect(listPaymentRefunds).toHaveBeenCalledTimes(1);
   });
-  it('错 ID 的详情响应拒绝接入，超范围金额只显示核对提示', async () => {
+  it('错 ID 的详情响应拒绝接入，完整 Int64 金额精确展示', async () => {
     const { wrapper } = await panel(); vi.mocked(getPaymentRefund).mockResolvedValue({ ...row, id: id(20) });
     await wrapper.get('[data-testid="refunds-exact-id"]').setValue(row.id); await wrapper.get('[data-testid="refunds-read-id"]').trigger('click'); await flushPromises();
     expect(wrapper.find('[data-testid="refund-detail-snapshot"]').exists()).toBe(false);
-    vi.mocked(getPaymentRefund).mockResolvedValue({ ...row, amountMinor: Number.MAX_SAFE_INTEGER + 1 });
+    vi.mocked(getPaymentRefund).mockResolvedValue({ ...row, amountMinor: '9223372036854775807' });
     await wrapper.get('[data-testid="refund-detail-refresh"]').trigger('click'); await flushPromises();
-    expect(wrapper.get('[data-testid="refund-detail-amount"]').text()).toContain('金额无法精确显示');
+    expect(wrapper.get('[data-testid="refund-detail-amount"]').text()).toBe('92233720368547758.07 CNY');
   });
   it('关闭旧详情取消请求，另一个目标不接受旧结果', async () => {
     const old = deferred<PaymentRefund>(); const { wrapper } = await panel(); vi.mocked(getPaymentRefund).mockReturnValueOnce(old.promise);

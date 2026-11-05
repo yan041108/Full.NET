@@ -8,6 +8,7 @@ import { useSessionStore } from '../auth/session';
 import { useAuthorizedViewScope } from '../composables/useAuthorizedViewScope';
 import { useAdminI18n } from '../i18n/adminI18n';
 import { formatPaymentAmount } from '../utils/payment-amount';
+import { isNonnegativeInt64String } from '../utils/exact-integer';
 
 const props = defineProps<{ open: boolean; orderId: string;
   reference?: Pick<PaymentOrder, 'tenantId' | 'merchantConfigId' | 'outTradeNo' | 'currency'> }>();
@@ -44,7 +45,7 @@ async function read() {
       || !['created', 'awaiting_payment', 'succeeded', 'closed', 'failed', 'provider_unknown', 'refunding', 'refunded'].includes(value.tradeStateKey)
       || typeof value.outTradeNo !== 'string' || !value.outTradeNo.trim() || typeof value.subject !== 'string'
       || typeof value.currency !== 'string' || !/^[A-Z]{3}$/.test(value.currency)
-      || !Number.isInteger(value.amountMinor) || value.amountMinor <= 0 || !Number.isFinite(value.amountMinor)
+      || !isNonnegativeInt64String(value.amountMinor) || value.amountMinor === '0'
       || !Number.isSafeInteger(value.version) || value.version < 1 || !date(value.createdAtUtc)
       || ![value.updatedAtUtc, value.paidAtUtc].every(item => item === null || date(item))
       || ![value.description, value.codeUrl, value.providerTransactionId, value.failMessage].every(item => item === null || typeof item === 'string')

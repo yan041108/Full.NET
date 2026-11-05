@@ -3,11 +3,11 @@ import AxeBuilder from '@axe-core/playwright';
 const id = n => `019bc2b1-2a40-7cc3-8992-${String(n).padStart(12, '0')}`;
 const json = (route, body) => route.fulfill({ contentType: 'application/json', body: JSON.stringify(body) });
 const order = { id: id(1), tenantId: id(2), merchantConfigId: id(3), channelKey: 'wechat_native', outTradeNo: 'original-readonly-order',
-  tradeStateKey: 'refunding', amountMinor: Number.MAX_SAFE_INTEGER - 1, currency: 'CNY', subject: 'Original payment', description: 'Original description',
+  tradeStateKey: 'refunding', amountMinor: '9007199254740990', currency: 'CNY', subject: 'Original payment', description: 'Original description',
   codeUrl: 'https://example.com/payment-link', providerTransactionId: 'original-provider-transaction', failMessage: null,
   createdAtUtc: '2026-11-05T00:00:00Z', updatedAtUtc: null, paidAtUtc: '2026-11-05T00:00:00Z', version: 7 };
 const refund = { id: id(5), tenantId: order.tenantId, orderId: order.id, merchantConfigId: order.merchantConfigId, outTradeNo: order.outTradeNo,
-  outRefundNo: 'original-refund', refundStateKey: 'processing', amountMinor: 29, currency: 'CNY', reason: 'original reason',
+  outRefundNo: 'original-refund', refundStateKey: 'processing', amountMinor: '29', currency: 'CNY', reason: 'original reason',
   providerRefundId: 'provider-refund', failMessage: null, createdAtUtc: order.createdAtUtc, updatedAtUtc: null, completedAtUtc: null, version: 1 };
 
 for (const [width, locale] of [[1440, 'en-US'], [390, 'zh-CN']]) {

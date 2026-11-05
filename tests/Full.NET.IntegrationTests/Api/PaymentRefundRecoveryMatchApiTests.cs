@@ -79,7 +79,7 @@ public sealed class PaymentRefundRecoveryMatchApiTests
         Assert.AreEqual(HttpStatusCode.Created, recovered.StatusCode, await recovered.Content.ReadAsStringAsync());
         var receipt = await recovered.Content.ReadFromJsonAsync<JsonElement>();
         Assert.AreEqual(original.Id, receipt.GetProperty("id").GetGuid()); Assert.AreEqual(original.OutRefundNo, receipt.GetProperty("outRefundNo").GetString());
-        Assert.AreEqual(29L, receipt.GetProperty("amountMinor").GetInt64());
+        Assert.AreEqual("29", receipt.GetProperty("amountMinor").GetString());
         Assert.AreEqual(2, channel.OutRefundNos.Count); Assert.AreEqual(channel.OutRefundNos[0], channel.OutRefundNos[1]);
         Assert.AreEqual(1, await database.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM fn_payment_refund WHERE OrderId=@Id", new { Id = order }));
 

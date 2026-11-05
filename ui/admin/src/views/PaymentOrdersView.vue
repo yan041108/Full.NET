@@ -33,6 +33,7 @@ import { formatPaymentAmount, parsePaymentAmount } from '../utils/payment-amount
 import { useSessionStore } from '../auth/session';
 import { useAuthorizedViewScope } from '../composables/useAuthorizedViewScope';
 import { translateRuntimeMessage } from '../i18n/runtimeMessage';
+import { isNonnegativeInt64String } from '../utils/exact-integer';
 
 defineOptions({ name: 'PaymentOrdersView' });
 
@@ -54,7 +55,7 @@ const refundForm = reactive({
   amountYuan: '',
   reason: ''
 });
-type RefundAttempt = { readonly order: Readonly<PaymentOrderListItem>; readonly body: Readonly<{ amountMinor: number | null; reason: string }>;
+type RefundAttempt = { readonly order: Readonly<PaymentOrderListItem>; readonly body: Readonly<{ amountMinor: string | null; reason: string }>;
   readonly amountYuan: string; readonly submittedAtUtc: string; readonly state: 'pending' | 'unconfirmed' | 'accepted' };
 const refundAttempts = reactive(new Map<string, RefundAttempt>());
 const refundAttempt = computed(() => refundAttempts.get(refundOrderId.value));
@@ -115,7 +116,7 @@ function toProblem(error: unknown, fallbackKey: Parameters<typeof t>[0]): FullNe
     : { code: 'client.request_failed', title: t(fallbackKey), status: 500, type: 'about:blank' };
 }
 
-function formatAmount(minor: number): string {
+function formatAmount(minor: unknown): string {
   return formatPaymentAmount(minor) ?? t('paymentOrders.amountUnavailable');
 }
 
@@ -252,8 +253,8 @@ async function submitRefund(): Promise<void> {
   const amountYuan = refundForm.amountYuan.trim();
   const amountMinor = amountYuan ? parsePaymentAmount(amountYuan) : null;
   const expectedAmount = amountMinor ?? order.amountMinor;
-  if (amountMinor === undefined || !Number.isSafeInteger(expectedAmount) || expectedAmount <= 0
-    || (amountMinor !== null && Number.isSafeInteger(order.amountMinor) && amountMinor > order.amountMinor)) {
+  if (amountMinor === undefined || !isNonnegativeInt64String(expectedAmount) || expectedAmount === '0'
+    || !isNonnegativeInt64String(order.amountMinor) || BigInt(expectedAmount) > BigInt(order.amountMinor)) {
     ElMessage.warning(t('paymentOrders.amountValidationFailed'));
     return;
   }
@@ -408,7 +409,7 @@ async function submitRefund(): Promise<void> {
           <el-input v-model="createForm.merchantConfigId" data-testid="payment-order-create-merchant" />
         </el-form-item>
         <el-form-item :label="t('paymentOrders.fieldAmountYuan')" required>
-          <el-input v-model="createForm.amountYuan" inputmode="decimal" maxlength="18" data-testid="payment-order-create-amount" />
+          <el-input v-model="createForm.amountYuan" inputmode="decimal" data-testid="payment-order-create-amount" />
         </el-form-item>
         <el-form-item :label="t('paymentOrders.fieldSubject')" required>
           <el-input v-model="createForm.subject" data-testid="payment-order-create-subject" />
@@ -442,7 +443,7 @@ async function submitRefund(): Promise<void> {
           <el-input v-model="refundForm.reason" type="textarea" :rows="3" maxlength="128" :readonly="!!refundAttempt" data-testid="payment-order-refund-reason" />
         </el-form-item>
         <el-form-item :label="t('paymentOrders.refundAmountYuan')">
-          <el-input v-model="refundForm.amountYuan" :readonly="!!refundAttempt" inputmode="decimal" maxlength="18" data-testid="payment-order-refund-amount" />
+          <el-input v-model="refundForm.amountYuan" :readonly="!!refundAttempt" inputmode="decimal" data-testid="payment-order-refund-amount" />
         </el-form-item>
       </el-form>
       <PermissionGate code="payments.refunds.read"><ElButton :disabled="changing || refundSaving" data-testid="payment-refund-check-records" @click="readRefundRecords(refundOrderId)">{{ t('paymentOrders.readRefundRecords') }}</ElButton></PermissionGate>

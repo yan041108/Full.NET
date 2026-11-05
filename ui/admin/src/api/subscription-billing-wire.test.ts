@@ -1,5 +1,5 @@
 import { beforeEach, expect, it, vi } from 'vitest';
-import { createPaidSubscription, getPackageOffer, savePackageOffer } from './subscription-billing';
+import { checkoutSubscription, createPaidSubscription, getPackageOffer, savePackageOffer } from './subscription-billing';
 const request = vi.hoisted(() => vi.fn());
 vi.mock('./http', () => ({ http: { request } }));
 const id = '019bc2b1-2a40-7cc3-8992-a80de51bf201';
@@ -23,4 +23,14 @@ it('创建回执使用独立精确契约，原请求不附带可覆盖金额', a
   const body = { packageId: id, offerVersion: 1, effectiveFromUtc: '2026-11-05T00:00:00Z', idempotencyKey: id };
   expect((await createPaidSubscription(id, body)).amountMinor).toBe('9223372036854775807');
   expect(JSON.parse(request.mock.lastCall![1].body)).toEqual(body);
+});
+it('订阅下单的嵌套订单金额完整保留 Int64 字符串并拒绝数字回执', async () => {
+  const reply = { subscriptionId: id, fulfillmentStateKey: 'Awaiting', errorCode: null, order: {
+    id, tenantId: id, merchantConfigId: id, channelKey: 'wechat_native', outTradeNo: 'original', tradeStateKey: 'awaiting_payment',
+    amountMinor: '9223372036854775807', currency: 'CNY', subject: 'Original', description: null, codeUrl: 'weixin://original',
+    providerTransactionId: null, failMessage: null, createdAtUtc: '2026-11-05T00:00:00Z', updatedAtUtc: null, paidAtUtc: null, version: 1 } };
+  request.mockResolvedValue(reply);
+  expect((await checkoutSubscription(id, id)).order.amountMinor).toBe('9223372036854775807');
+  request.mockResolvedValue({ ...reply, order: { ...reply.order, amountMinor: 29 } });
+  await expect(checkoutSubscription(id, id)).rejects.toThrow();
 });

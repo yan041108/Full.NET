@@ -47,7 +47,7 @@ for (const viewport of [{ width: 1440, height: 1000 }, { width: 390, height: 844
     await page.route(`**/api/v1/payments/subscriptions/${tenantId}/${subscriptionId}/checkout`, r => {
       expect(r.request().postData()).toBeNull();
       return json(r, { subscriptionId, fulfillmentStateKey: 'ReadyPaid', errorCode: null, order: {
-        id: orderId, tenantId, merchantConfigId: merchantId, channelKey: 'wechat_native', amountMinor: 12500, currency: 'CNY',
+        id: orderId, tenantId, merchantConfigId: merchantId, channelKey: 'wechat_native', amountMinor: '12500', currency: 'CNY',
         subject: '付费套餐', description: null, outTradeNo: 'original-order', tradeStateKey: 'succeeded', codeUrl: 'weixin://original',
         providerTransactionId: 'original-paid', failMessage: null, paidAtUtc: '2026-10-27T00:00:00Z', createdAtUtc: '2026-10-27T00:00:00Z', updatedAtUtc: null, version: 1
       } });
@@ -153,7 +153,7 @@ for (const width of [1440, 390]) {
 test('人工重试只调用原订单履约接口，不下单或扣款', async ({ page }) => {
   await setup(page);
   await page.route('**/api/v1/payments/orders?*', r => json(r, { items: [{ id: orderId, tenantId, merchantConfigId: merchantId,
-    channelKey: 'wechat_native', outTradeNo: 'original', tradeStateKey: 'succeeded', amountMinor: 12500, currency: 'CNY',
+    channelKey: 'wechat_native', outTradeNo: 'original', tradeStateKey: 'succeeded', amountMinor: '12500', currency: 'CNY',
     subject: '付费套餐', createdAtUtc: '2026-10-27T00:00:00Z', paidAtUtc: '2026-10-27T00:00:00Z' }], page: 1, pageSize: 20, total: 1 }));
   let retry = 0, checkout = 0;
   const status = stateKey => ({ subscriptionId, beneficiaryTenantId: tenantId, paymentOrderId: orderId, stateKey,
@@ -180,7 +180,7 @@ for (const [width, locale] of [[1440, 'en-US'], [390, 'zh-CN']]) {
   test('人工重试结果未确认时先重读当前订单 ' + width, async ({ page }, info) => {
     await page.setViewportSize({ width, height: 1000 }); await setup(page, permissions, locale);
     await page.route('**/api/v1/payments/orders?*', r => json(r, { items: [{ id: orderId, tenantId, merchantConfigId: merchantId,
-      channelKey: 'wechat_native', outTradeNo: 'original', tradeStateKey: 'succeeded', amountMinor: 12500, currency: 'CNY',
+      channelKey: 'wechat_native', outTradeNo: 'original', tradeStateKey: 'succeeded', amountMinor: '12500', currency: 'CNY',
       subject: 'Plan', createdAtUtc: '2026-10-27T00:00:00Z', paidAtUtc: '2026-10-27T00:00:00Z' }], page: 1, pageSize: 20, total: 1 }));
     let reads = 0, retries = 0, checkouts = 0;
     await page.route('**/api/v1/payments/orders/' + orderId + '/subscription-fulfillment', r => {
@@ -221,7 +221,7 @@ for (const [width, locale] of [[1440, 'en-US'], [390, 'zh-CN']]) {
     const readOnly = permissions.filter(code => !['payments.orders.create', 'payments.orders.reconcile', 'tenancy.tenant_subscriptions.manage'].includes(code));
     await setup(page, readOnly, locale);
     await page.route('**/api/v1/payments/orders?*', r => json(r, { items: [{ id: orderId, tenantId, merchantConfigId: merchantId,
-      channelKey: 'wechat_native', outTradeNo: 'original', tradeStateKey: 'succeeded', amountMinor: 12500, currency: 'CNY',
+      channelKey: 'wechat_native', outTradeNo: 'original', tradeStateKey: 'succeeded', amountMinor: '12500', currency: 'CNY',
       subject: 'Scheduled plan', createdAtUtc: '2026-11-05T00:00:00Z', paidAtUtc: '2026-11-05T00:00:00Z' }], page: 1, pageSize: 20, total: 1 }));
     let reads = 0, writes = 0;
     const effective = '2026-12-01T00:00:00Z';

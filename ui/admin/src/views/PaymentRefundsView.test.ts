@@ -35,11 +35,11 @@ describe('PaymentRefundsView', () => {
   });
   it('退款记录使用精确分展示，刷新重新读取并拒绝失真金额', async () => {
     const row = { id: '019bc2b1-2a40-7cc3-8992-a80de51bf201', orderId: '019bc2b1-2a40-7cc3-8992-a80de51bf202', tenantId: '019bc2b1-2a40-7cc3-8992-a80de51bf203',
-      outRefundNo: 'refund', refundStateKey: 'processing', amountMinor: Number.MAX_SAFE_INTEGER - 1, currency: 'CNY' } as PaymentRefundListItem;
+      outRefundNo: 'refund', refundStateKey: 'processing', amountMinor: '9223372036854775806', currency: 'CNY' } as PaymentRefundListItem;
     listMock.mockResolvedValue({ items: [row], page: 1, pageSize: 20, total: 1 });
     const wrapper = mountView(); await flushPromises();
-    expect(wrapper.get('.el-table__body-wrapper').text()).toContain('90071992547409.90');
-    listMock.mockResolvedValue({ items: [{ ...row, amountMinor: Number.MAX_SAFE_INTEGER + 1 }], page: 1, pageSize: 20, total: 1 });
+    expect(wrapper.get('.el-table__body-wrapper').text()).toContain('92233720368547758.06');
+    listMock.mockResolvedValue({ items: [{ ...row, amountMinor: '9223372036854775808' }], page: 1, pageSize: 20, total: 1 });
     wrapper.getComponent({ name: 'ArtTableHeader' }).vm.$emit('refresh'); await flushPromises();
     expect(wrapper.get('.el-table__body-wrapper').text()).toContain('金额无法精确显示'); wrapper.unmount();
   });

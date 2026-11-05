@@ -83291,11 +83291,8 @@
         "properties": {
           "amountMinor": {
             "format": "int64",
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "integer",
-              "string"
-            ]
+            "pattern": "^-?(0|[1-9][0-9]*)$",
+            "type": "string"
           },
           "channelKey": {
             "type": [
@@ -83347,10 +83344,9 @@
         "properties": {
           "amountMinor": {
             "format": "int64",
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "pattern": "^-?(0|[1-9][0-9]*)$",
             "type": [
               "null",
-              "integer",
               "string"
             ]
           },
@@ -98310,11 +98306,8 @@
         "properties": {
           "amountMinor": {
             "format": "int64",
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "integer",
-              "string"
-            ]
+            "pattern": "^-?(0|[1-9][0-9]*)$",
+            "type": "string"
           },
           "channelKey": {
             "type": "string"
@@ -98419,11 +98412,8 @@
         "properties": {
           "amountMinor": {
             "format": "int64",
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "integer",
-              "string"
-            ]
+            "pattern": "^-?(0|[1-9][0-9]*)$",
+            "type": "string"
           },
           "channelKey": {
             "type": "string"
@@ -98528,11 +98518,8 @@
         "properties": {
           "amountMinor": {
             "format": "int64",
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "integer",
-              "string"
-            ]
+            "pattern": "^-?(0|[1-9][0-9]*)$",
+            "type": "string"
           },
           "completedAtUtc": {
             "format": "date-time",
@@ -98623,11 +98610,8 @@
         "properties": {
           "amountMinor": {
             "format": "int64",
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "integer",
-              "string"
-            ]
+            "pattern": "^-?(0|[1-9][0-9]*)$",
+            "type": "string"
           },
           "completedAtUtc": {
             "format": "date-time",

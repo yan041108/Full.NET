@@ -28,6 +28,7 @@ import { useSessionStore } from '../auth/session';
 import { useAuthorizedViewScope } from '../composables/useAuthorizedViewScope';
 import { getPaymentRefund, listPaymentRefunds } from '../api/payment-refunds';
 import { formatPaymentAmount } from '../utils/payment-amount';
+import { isNonnegativeInt64String } from '../utils/exact-integer';
 import PermissionGate from '../components/PermissionGate.vue';
 import PaymentOrderDetailDialog from '../components/PaymentOrderDetailDialog.vue';
 
@@ -84,7 +85,7 @@ function toProblem(error: unknown, fallbackKey: Parameters<typeof t>[0]): FullNe
     : { code: 'client.request_failed', title: t(fallbackKey), status: 500, type: 'about:blank' };
 }
 
-function formatAmount(minor: number): string {
+function formatAmount(minor: unknown): string {
   return formatPaymentAmount(minor) ?? t('paymentOrders.amountUnavailable');
 }
 
@@ -155,7 +156,7 @@ async function readDetail(input = refundIdInput.value) {
     if (!validId(value.id) || !sameId(value.id, id) || !validId(value.orderId) || !validId(value.tenantId) || !validId(value.merchantConfigId)
       || typeof value.outRefundNo !== 'string' || typeof value.outTradeNo !== 'string' || typeof value.reason !== 'string'
       || typeof value.currency !== 'string' || !/^[A-Z]{3}$/.test(value.currency) || typeof value.refundStateKey !== 'string'
-      || typeof value.amountMinor !== 'number' || !Number.isFinite(value.amountMinor) || value.amountMinor <= 0
+      || !isNonnegativeInt64String(value.amountMinor) || value.amountMinor === '0'
       || !Number.isSafeInteger(value.version) || value.version < 1 || !Number.isFinite(Date.parse(value.createdAtUtc))) throw mismatch();
     detail.value = value;
   } catch (error) {

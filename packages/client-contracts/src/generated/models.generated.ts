@@ -2674,7 +2674,7 @@ export interface CreatePaymentMerchantConfigRequest {
 }
 
 export interface CreatePaymentOrderRequest {
-  readonly amountMinor: number;
+  readonly amountMinor: string;
   readonly channelKey: null | string;
   readonly currency: string;
   readonly description: null | string;
@@ -2685,7 +2685,7 @@ export interface CreatePaymentOrderRequest {
 }
 
 export interface CreatePaymentRefundRequest {
-  readonly amountMinor: null | number;
+  readonly amountMinor: null | string;
   readonly reason: string;
 }
 
@@ -5575,7 +5575,7 @@ export interface PaymentMerchantConfigResponse {
 }
 
 export interface PaymentOrderListItem {
-  readonly amountMinor: number;
+  readonly amountMinor: string;
   readonly channelKey: string;
   readonly codeUrl: null | string;
   readonly createdAtUtc: string;
@@ -5595,7 +5595,7 @@ export interface PaymentOrderListItem {
 }
 
 export interface PaymentOrderResponse {
-  readonly amountMinor: number;
+  readonly amountMinor: string;
   readonly channelKey: string;
   readonly codeUrl: null | string;
   readonly createdAtUtc: string;
@@ -5615,7 +5615,7 @@ export interface PaymentOrderResponse {
 }
 
 export interface PaymentRefundListItem {
-  readonly amountMinor: number;
+  readonly amountMinor: string;
   readonly completedAtUtc: null | string;
   readonly createdAtUtc: string;
   readonly currency: string;
@@ -5633,7 +5633,7 @@ export interface PaymentRefundListItem {
 }
 
 export interface PaymentRefundResponse {
-  readonly amountMinor: number;
+  readonly amountMinor: string;
   readonly completedAtUtc: null | string;
   readonly createdAtUtc: string;
   readonly currency: string;

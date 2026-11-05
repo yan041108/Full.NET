@@ -11,7 +11,7 @@ vi.mock('../api/payment-orders', () => ({ listPaymentOrders: vi.fn(), createPaym
   reconcilePaymentOrder: vi.fn(), createPaymentRefund: vi.fn() }));
 const id = (n: number) => `019bc2b1-2a40-7cc3-8992-a80de51bf2${String(n).padStart(2, '0')}`;
 const order = { id: id(1), tenantId: id(2), merchantConfigId: id(3), channelKey: 'wechat_native', outTradeNo: 'paid-order', tradeStateKey: 'succeeded',
-  amountMinor: Number.MAX_SAFE_INTEGER, currency: 'CNY', codeUrl: null } as PaymentOrder;
+  amountMinor: '9223372036854775807', currency: 'CNY', codeUrl: null } as PaymentOrder;
 const dialog = { props: ['open', 'confirmTestId'], emits: ['confirm'], template: '<section v-if="open"><slot/><button :data-testid="confirmTestId" @click="$emit(\'confirm\')">Confirm</button></section>' };
 const wrappers: VueWrapper[] = [];
 async function panel(refundPermission = 'payments.refunds.create') {
@@ -52,13 +52,13 @@ describe('支付页面金额提交', () => {
     const wrapper = await panel('payments.orders.refund');
     expect(wrapper.find(`[data-testid="payment-order-refund-${order.id}"]`).exists()).toBe(false);
   });
-  it.each(['0.29', '90071992547409.91'])('创建金额 %s 只按精确分提交', async amount => {
+  it.each(['0.29', '90071992547409.91', '92233720368547758.07'])('创建金额 %s 只按精确分提交', async amount => {
     const wrapper = await panel(); await wrapper.get('[data-testid="payment-order-create"]').trigger('click');
     await wrapper.get('[data-testid="payment-order-create-tenant"]').setValue(id(2));
     await wrapper.get('[data-testid="payment-order-create-subject"]').setValue('明确订单');
     await wrapper.get('[data-testid="payment-order-create-amount"]').setValue(amount);
     await wrapper.get('[data-testid="payment-order-create-confirm"]').trigger('click'); await flushPromises();
-    expect(vi.mocked(createPaymentOrder).mock.calls[0]![0].amountMinor).toBe(amount === '0.29' ? 29 : Number.MAX_SAFE_INTEGER);
+    expect(vi.mocked(createPaymentOrder).mock.calls[0]![0].amountMinor).toBe(amount === '0.29' ? '29' : amount === '92233720368547758.07' ? '9223372036854775807' : '9007199254740991');
   });
   it('并列渠道选择保留正确请求身份，指定商户时渠道选择禁用', async () => {
     const wrapper = await panel(); await wrapper.get('[data-testid="payment-order-create"]').trigger('click');
@@ -72,7 +72,7 @@ describe('支付页面金额提交', () => {
     await wrapper.get('[data-testid="payment-order-create-merchant"]').setValue(id(3));
     expect(wrapper.getComponent({ name: 'ElRadioGroup' }).props('disabled')).toBe(true);
   });
-  it.each(['1abc', '1e3', '1.001', '90071992547409.92'])('创建非法金额 %s 不调用接口', async amount => {
+  it.each(['1abc', '1e3', '1.001', '92233720368547758.08', '92233720368547758.071'])('创建非法金额 %s 不调用接口', async amount => {
     const wrapper = await panel(); await wrapper.get('[data-testid="payment-order-create"]').trigger('click');
     await wrapper.get('[data-testid="payment-order-create-tenant"]').setValue(id(2));
     await wrapper.get('[data-testid="payment-order-create-subject"]').setValue('明确订单');
@@ -80,14 +80,14 @@ describe('支付页面金额提交', () => {
     await wrapper.get('[data-testid="payment-order-create-confirm"]').trigger('click'); await flushPromises();
     expect(createPaymentOrder).not.toHaveBeenCalled();
   });
-  it.each(['', '0.29', '90071992547409.91'])('退款金额 %s 保留空金额语义或精确分', async amount => {
+  it.each(['', '0.29', '90071992547409.91', '92233720368547758.07'])('退款金额 %s 保留空金额语义或精确分', async amount => {
     const wrapper = await panel(); await wrapper.get(`[data-testid="payment-order-refund-${order.id}"]`).trigger('click');
     await wrapper.get('[data-testid="payment-order-refund-reason"]').setValue('明确退款原因');
     await wrapper.get('[data-testid="payment-order-refund-amount"]').setValue(amount);
     await wrapper.get('[data-testid="payment-order-refund-confirm"]').trigger('click'); await flushPromises();
-    expect(createPaymentRefund).toHaveBeenCalledWith(order.id, { reason: '明确退款原因', amountMinor: amount === '' ? null : amount === '0.29' ? 29 : Number.MAX_SAFE_INTEGER }, expect.any(AbortSignal));
+    expect(createPaymentRefund).toHaveBeenCalledWith(order.id, { reason: '明确退款原因', amountMinor: amount === '' ? null : amount === '0.29' ? '29' : amount === '92233720368547758.07' ? '9223372036854775807' : '9007199254740991' }, expect.any(AbortSignal));
   });
-  it.each(['0', '1abc', '1e3', '2.675', '90071992547409.92'])('退款非法金额 %s 不调用接口', async amount => {
+  it.each(['0', '1abc', '1e3', '2.675', '92233720368547758.08', '92233720368547758.071'])('退款非法金额 %s 不调用接口', async amount => {
     const wrapper = await panel(); await wrapper.get(`[data-testid="payment-order-refund-${order.id}"]`).trigger('click');
     await wrapper.get('[data-testid="payment-order-refund-reason"]').setValue('明确退款原因');
     await wrapper.get('[data-testid="payment-order-refund-amount"]').setValue(amount);
@@ -95,8 +95,8 @@ describe('支付页面金额提交', () => {
     expect(createPaymentRefund).not.toHaveBeenCalled();
   });
   it('列表边界金额按整数展示，超界数值不伪装为可核对金额', async () => {
-    const wrapper = await panel(); expect(wrapper.get('.el-table__body-wrapper').text()).toContain('90071992547409.91');
-    vi.mocked(listPaymentOrders).mockResolvedValue({ items: [{ ...order, amountMinor: Number.MAX_SAFE_INTEGER + 1 }], page: 1, pageSize: 20, total: 1 });
+    const wrapper = await panel(); expect(wrapper.get('.el-table__body-wrapper').text()).toContain('92233720368547758.07');
+    vi.mocked(listPaymentOrders).mockResolvedValue({ items: [{ ...order, amountMinor: '9223372036854775808' }], page: 1, pageSize: 20, total: 1 });
     wrapper.getComponent({ name: 'ArtTableHeader' }).vm.$emit('refresh'); await flushPromises();
     expect(wrapper.get('.el-table__body-wrapper').text()).toContain('金额无法精确显示');
   });

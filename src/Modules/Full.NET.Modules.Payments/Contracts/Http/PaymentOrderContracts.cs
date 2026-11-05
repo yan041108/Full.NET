@@ -1,7 +1,10 @@
+using System.Text.Json.Serialization;
+using Full.NET.Hosting.Serialization;
+
 namespace Full.NET.Modules.Payments.Contracts;
 
 /// <remarks>
-/// 机器码稳定性：字段顺序与权限码/错误码字符串发布后不可改名或删除，新增只能追加。
+/// HTTP 金额采用规范 Int64 字符串；进程内继续使用 long，不接纳旧数字线格式。
 /// </remarks>
 /// <summary>支付订单列表项。</summary>
 /// <param name="Id">订单稳定标识。</param>
@@ -28,7 +31,7 @@ public sealed record PaymentOrderListItem(
     string ChannelKey,
     string OutTradeNo,
     string TradeStateKey,
-    long AmountMinor,
+    [property: JsonConverter(typeof(StringInt64JsonConverter))] long AmountMinor,
     string Currency,
     string Subject,
     string? Description,
@@ -41,7 +44,7 @@ public sealed record PaymentOrderListItem(
     int Version);
 
 /// <remarks>
-/// 机器码稳定性：字段顺序与权限码/错误码字符串发布后不可改名或删除，新增只能追加。
+/// HTTP 金额采用规范 Int64 字符串；进程内继续使用 long，不接纳旧数字线格式。
 /// </remarks>
 /// <summary>支付订单详情。</summary>
 /// <param name="Id">订单稳定标识。</param>
@@ -68,7 +71,7 @@ public sealed record PaymentOrderResponse(
     string ChannelKey,
     string OutTradeNo,
     string TradeStateKey,
-    long AmountMinor,
+    [property: JsonConverter(typeof(StringInt64JsonConverter))] long AmountMinor,
     string Currency,
     string Subject,
     string? Description,
@@ -81,7 +84,7 @@ public sealed record PaymentOrderResponse(
     int Version);
 
 /// <remarks>
-/// 机器码稳定性：字段顺序与权限码/错误码字符串发布后不可改名或删除，新增只能追加。
+/// HTTP 金额采用规范 Int64 字符串；进程内继续使用 long，不接纳旧数字线格式。
 /// </remarks>
 /// <summary>创建支付订单请求。</summary>
 /// <param name="TenantId">所属租户标识。</param>
@@ -96,7 +99,7 @@ public sealed record CreatePaymentOrderRequest(
     Guid TenantId,
     Guid? MerchantConfigId,
     string? ChannelKey,
-    long AmountMinor,
+    [property: JsonConverter(typeof(StringInt64JsonConverter))] long AmountMinor,
     string Currency,
     string Subject,
     string? Description,

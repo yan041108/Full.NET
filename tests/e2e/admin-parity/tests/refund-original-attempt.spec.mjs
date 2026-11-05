@@ -3,11 +3,11 @@ import AxeBuilder from '@axe-core/playwright';
 const id = n => `019bc2b1-2a40-7cc3-8992-${String(n).padStart(12, '0')}`;
 const json = (route, body) => route.fulfill({ contentType: 'application/json', body: JSON.stringify(body) });
 const order = { id: id(1), tenantId: id(2), merchantConfigId: id(3), channelKey: 'wechat_native', outTradeNo: 'original-refund-order',
-  tradeStateKey: 'succeeded', amountMinor: 100, currency: 'CNY', subject: 'Original payment', description: null,
+  tradeStateKey: 'succeeded', amountMinor: '100', currency: 'CNY', subject: 'Original payment', description: null,
   codeUrl: null, providerTransactionId: 'paid', failMessage: null, createdAtUtc: '2026-11-05T00:00:00Z', updatedAtUtc: null,
   paidAtUtc: '2026-11-05T00:00:00Z', version: 1 };
 const refund = { id: id(5), tenantId: id(2), orderId: order.id, merchantConfigId: id(3), outTradeNo: order.outTradeNo,
-  outRefundNo: 'original-refund', refundStateKey: 'provider_unknown', amountMinor: 29, currency: 'CNY', reason: 'original reason',
+  outRefundNo: 'original-refund', refundStateKey: 'provider_unknown', amountMinor: '29', currency: 'CNY', reason: 'original reason',
   providerRefundId: null, failMessage: null, createdAtUtc: order.createdAtUtc, updatedAtUtc: null, completedAtUtc: null, version: 1 };
 
 for (const [width, locale] of [[1440, 'en-US'], [390, 'zh-CN']]) {
@@ -41,7 +41,7 @@ for (const [width, locale] of [[1440, 'en-US'], [390, 'zh-CN']]) {
     await page.getByTestId('payment-order-refund-amount').fill('0.29');
     await page.getByTestId('payment-order-refund-confirm').click();
     await expect(page.getByTestId('payment-refund-attempt-status')).toContainText(locale === 'zh-CN' ? '退款结果尚未核实' : 'outcome is unverified');
-    expect(writes).toEqual([{ amountMinor: 29, reason: 'original reason' }]);
+    expect(writes).toEqual([{ amountMinor: '29', reason: 'original reason' }]);
     await expect(page.getByTestId('payment-order-refund-confirm')).toBeDisabled();
     await expect(page.getByTestId('payment-order-refund-reason')).toHaveAttribute('readonly', '');
     await expect(page.getByTestId('payment-order-refund-amount')).toHaveAttribute('readonly', '');

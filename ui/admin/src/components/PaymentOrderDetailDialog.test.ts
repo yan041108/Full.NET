@@ -8,7 +8,7 @@ import { getPaymentOrder } from '../api/payment-orders';
 vi.mock('../api/payment-orders', () => ({ getPaymentOrder: vi.fn() }));
 const id = (n: number) => `019bc2b1-2a40-7cc3-8992-a80de51bf2${String(n).padStart(2, '0')}`;
 const order: PaymentOrder = { id: id(1), tenantId: id(2), merchantConfigId: id(3), channelKey: 'wechat_native', outTradeNo: 'original-order',
-  tradeStateKey: 'succeeded', amountMinor: 29, currency: 'CNY', subject: 'Original', description: null, codeUrl: 'https://example.com/payment-link',
+  tradeStateKey: 'succeeded', amountMinor: '29', currency: 'CNY', subject: 'Original', description: null, codeUrl: 'https://example.com/payment-link',
   providerTransactionId: 'provider-transaction', failMessage: null, createdAtUtc: '2026-11-05T00:00:00Z', updatedAtUtc: null, paidAtUtc: null, version: 1 };
 const dialog = { props: ['open'], emits: ['update:open'], template: '<section v-if="open"><slot/><button data-testid="close-detail" @click="$emit(\'update:open\', false)">Close</button></section>' };
 const wrappers: VueWrapper[] = [];
@@ -47,11 +47,11 @@ describe('原支付订单只读详情', () => {
     expect(wrapper.find('[data-testid="payment-order-detail-snapshot"]').exists()).toBe(false);
     expect(wrapper.text()).toContain('订单响应与请求或原退款归属不一致');
   });
-  it('响应 ID 错配拒绝展示；超安全整数金额只显示核对提示', async () => {
+  it('响应 ID 错配拒绝展示；完整 Int64 金额精确读取', async () => {
     vi.mocked(getPaymentOrder).mockResolvedValueOnce({ ...order, id: id(6) }); const a = await panel();
     expect(a.wrapper.find('[data-testid="payment-order-detail-snapshot"]').exists()).toBe(false);
-    vi.mocked(getPaymentOrder).mockResolvedValueOnce({ ...order, amountMinor: Number.MAX_SAFE_INTEGER + 1 }); const b = await panel();
-    expect(b.wrapper.get('[data-testid="payment-order-detail-amount"]').text()).toContain('金额无法精确显示');
+    vi.mocked(getPaymentOrder).mockResolvedValueOnce({ ...order, amountMinor: '9223372036854775807' }); const b = await panel();
+    expect(b.wrapper.get('[data-testid="payment-order-detail-amount"]').text()).toBe('92233720368547758.07 CNY');
   });
   it('切换原订单取消并丢弃迟到响应', async () => {
     let resolve!: (value: PaymentOrder) => void;

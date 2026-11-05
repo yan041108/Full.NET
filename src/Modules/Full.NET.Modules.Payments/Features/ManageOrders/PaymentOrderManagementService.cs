@@ -9,9 +9,6 @@ using Full.NET.Modules.Payments.Contracts;
 using Full.NET.Modules.Payments.Domain;
 using Full.NET.Modules.Payments.Persistence;
 using Microsoft.Extensions.Options;
-using System.Security.Cryptography;
-using System.Text.Json;
-using Full.NET.Modules.Payments.Serialization;
 
 namespace Full.NET.Modules.Payments.Features.ManageOrders;
 
@@ -148,8 +145,7 @@ internal sealed class PaymentOrderManagementService(
             : Task.FromResult(Result<PaymentOrderResponse>.Failure(new Error("payments.order_idempotency_conflict",
                 "The idempotency key was already used with different input.", ErrorType.Conflict)));
 
-    private static string CreateRequestHash(CreatePaymentOrderRequest request) => Convert.ToHexStringLower(SHA256.HashData(
-        JsonSerializer.SerializeToUtf8Bytes(request, PaymentsJsonSerializerContext.Default.CreatePaymentOrderRequest)));
+    private static string CreateRequestHash(CreatePaymentOrderRequest request) => PaymentOrderCreationIdentity.CreateHash(request);
 
     /// <summary>在短事务中写入渠道幂等键和 created 意图，不调用外部接口。</summary>
     /// <param name="request">创建请求。</param>
