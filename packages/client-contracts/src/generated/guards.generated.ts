@@ -822,6 +822,8 @@ import type {
   TenantEntitlementCatalogResponse,
   TenantPackageOfferResponse,
   TenantPackageSummary,
+  TenantQuotaUsageItemResponse,
+  TenantQuotaUsageSummaryResponse,
   TenantRuntimeBrandingResponse,
   TenantSubscriptionPaymentTerms,
   TenantSummary,
@@ -8155,6 +8157,22 @@ export function readTenantPackageSummary(value: unknown): TenantPackageSummary {
 
 function isTenantPackageSummary(value: unknown): value is TenantPackageSummary {
   return isRecord(value) && (value["assignedTenantCount"] === undefined || (Number.isSafeInteger(value["assignedTenantCount"]))) && (typeof value["code"] === 'string') && ((value["description"] === null) || (typeof value["description"] === 'string')) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["isActive"] === 'boolean') && (typeof value["name"] === 'string') && (Number.isSafeInteger(value["version"]));
+}
+
+export function readTenantQuotaUsageItemResponse(value: unknown): TenantQuotaUsageItemResponse {
+  return requireValidResponse(value, isTenantQuotaUsageItemResponse(value), 'tenant_quota_usage_item_response') as TenantQuotaUsageItemResponse;
+}
+
+function isTenantQuotaUsageItemResponse(value: unknown): value is TenantQuotaUsageItemResponse {
+  return isRecord(value) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["limitValue"] === 'string') && (typeof value["metricCode"] === 'string') && (typeof value["periodKey"] === 'string') && (typeof value["reservedValue"] === 'string') && (typeof value["usedValue"] === 'string');
+}
+
+export function readTenantQuotaUsageSummaryResponse(value: unknown): TenantQuotaUsageSummaryResponse {
+  return requireValidResponse(value, isTenantQuotaUsageSummaryResponse(value), 'tenant_quota_usage_summary_response') as TenantQuotaUsageSummaryResponse;
+}
+
+function isTenantQuotaUsageSummaryResponse(value: unknown): value is TenantQuotaUsageSummaryResponse {
+  return isRecord(value) && (Array.isArray(value["metrics"]) && value["metrics"].every(item16 => isTenantQuotaUsageItemResponse(item16))) && (typeof value["readAtUtc"] === 'string') && (typeof value["tenantId"] === 'string' && guidPattern.test(value["tenantId"])) && (typeof value["tenantIsActive"] === 'boolean');
 }
 
 export function readTenantRuntimeBrandingResponse(value: unknown): TenantRuntimeBrandingResponse {

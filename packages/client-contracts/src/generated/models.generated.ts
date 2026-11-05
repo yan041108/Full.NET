@@ -6926,6 +6926,22 @@ export interface TenantPackageSummary {
   readonly version: number;
 }
 
+export interface TenantQuotaUsageItemResponse {
+  readonly id: string;
+  readonly limitValue: string;
+  readonly metricCode: string;
+  readonly periodKey: string;
+  readonly reservedValue: string;
+  readonly usedValue: string;
+}
+
+export interface TenantQuotaUsageSummaryResponse {
+  readonly metrics: Array<TenantQuotaUsageItemResponse>;
+  readonly readAtUtc: string;
+  readonly tenantId: string;
+  readonly tenantIsActive: boolean;
+}
+
 export interface TenantRuntimeBrandingResponse {
   readonly contactAddress: null | string;
   readonly contactEmail: null | string;

@@ -5224,6 +5224,12 @@
       "apiModule": "ui/admin/src/api/reporting-definitions.ts",
       "generatedGroup": "reporting-definitions",
       "status": "generated"
+    },
+    {
+      "operationId": "tenancyGetTenantQuotaUsage",
+      "apiModule": "ui/admin/src/api/tenant-quota.ts",
+      "generatedGroup": "tenant-quota",
+      "status": "generated"
     }
   ]
 }

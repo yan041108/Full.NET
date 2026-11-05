@@ -56,6 +56,8 @@ namespace Full.NET.Modules.Tenancy.Serialization;
 [JsonSerializable(typeof(ReleaseTenantQuotaRequest))]
 [JsonSerializable(typeof(TenantQuotaMetricResponse))]
 [JsonSerializable(typeof(TenantQuotaMetricResponse[]))]
+[JsonSerializable(typeof(TenantQuotaUsageSummaryResponse))]
+[JsonSerializable(typeof(TenantQuotaUsageItemResponse))]
 [JsonSerializable(typeof(IReadOnlyList<TenantQuotaMetricResponse>))]
 [JsonSerializable(typeof(UpsertTenantQuotaMetricRequest))]
 [JsonSerializable(typeof(ReconcileTenantQuotaMetricIdsRequest))]

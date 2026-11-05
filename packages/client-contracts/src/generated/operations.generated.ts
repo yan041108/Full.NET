@@ -823,6 +823,8 @@ import type {
   TenantEntitlementCatalogResponse,
   TenantPackageOfferResponse,
   TenantPackageSummary,
+  TenantQuotaUsageItemResponse,
+  TenantQuotaUsageSummaryResponse,
   TenantRuntimeBrandingResponse,
   TenantSubscriptionPaymentTerms,
   TenantSummary,
@@ -1393,6 +1395,7 @@ import {
   readTenantBrandingResponse,
   readTenantPackageOfferResponse,
   readTenantPackageSummary,
+  readTenantQuotaUsageSummaryResponse,
   readTenantRuntimeBrandingResponse,
   readTenantSubscriptionPaymentTerms,
   readTenantSummary,
@@ -17238,6 +17241,22 @@ export async function tenancyGetTenantLifecycle(
   const init: RequestInit = { method: 'GET' };
   const value = await requestJsonOperation(http, path, init, signal, options);
   return readTenantSummary(value);
+}
+
+export interface TenancyGetTenantQuotaUsageParameters {
+  readonly tenantId: string;
+}
+
+export async function tenancyGetTenantQuotaUsage(
+  http: HttpClient,
+  parameters: TenancyGetTenantQuotaUsageParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<TenantQuotaUsageSummaryResponse> {
+  const path = `/api/v1/tenancy/tenants/${encodeURIComponent(String(parameters.tenantId))}/quota/usage`;
+  const init: RequestInit = { method: 'GET' };
+  const value = await requestJsonOperation(http, path, init, signal, options);
+  return readTenantQuotaUsageSummaryResponse(value);
 }
 
 export interface TenancyListEntitlementCatalogParameters {

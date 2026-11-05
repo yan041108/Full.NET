@@ -28,6 +28,9 @@ internal sealed class TenancyDapperAotMaterializerContributor : IDapperAotMateri
     public void RegisterMaterializers(DapperAotMaterializerRegistrar registrar)
     {
         RegisterMigrationMaterializers(registrar);
+        registrar.Register<Features.ManageTenantQuota.TenantQuotaUsageRow>(r => new(r.GetGuid(0), AotDataReaderExtensions.ReadBoolean(r, 1),
+            AotDataReaderExtensions.ReadNullableGuid(r, 2), AotDataReaderExtensions.ReadNullableString(r, 3), AotDataReaderExtensions.ReadNullableString(r, 4),
+            r.IsDBNull(5) ? null : r.GetInt64(5), r.IsDBNull(6) ? null : r.GetInt64(6), r.IsDBNull(7) ? null : r.GetInt64(7)));
         registrar.Register<TenantPackageOfferRecord>(r => new(r.GetGuid(0), r.GetGuid(1), r.GetGuid(2),
             r.GetInt64(3), r.GetString(4), r.GetInt64(5), r.GetInt64(6), AotDataReaderExtensions.ReadInt32(r, 7),
             AotDataReaderExtensions.ReadBoolean(r, 8), AotDataReaderExtensions.ReadInt32(r, 9)));

@@ -28,6 +28,9 @@
       "name": "TenancySubscriptionBilling"
     },
     {
+      "name": "TenancyTenantQuota"
+    },
+    {
       "name": "OrganizationUnitLeadership"
     },
     {
@@ -61076,6 +61079,45 @@
         ]
       }
     },
+    "/api/v1/tenancy/tenants/{tenantId}/quota/usage": {
+      "get": {
+        "operationId": "tenancyGetTenantQuotaUsage",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "tenantId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TenantQuotaUsageSummaryResponse"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          },
+          {
+            "ApiKey": []
+          }
+        ],
+        "tags": [
+          "TenancyTenantQuota"
+        ]
+      }
+    },
     "/api/v1/tenancy/tenants/{tenantId}/reactivate": {
       "post": {
         "operationId": "tenancyReactivateTenant",
@@ -104146,6 +104188,72 @@
           "description",
           "isActive",
           "version"
+        ],
+        "type": "object"
+      },
+      "TenantQuotaUsageItemResponse": {
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "limitValue": {
+            "format": "int64",
+            "pattern": "^-?(0|[1-9][0-9]*)$",
+            "type": "string"
+          },
+          "metricCode": {
+            "type": "string"
+          },
+          "periodKey": {
+            "type": "string"
+          },
+          "reservedValue": {
+            "format": "int64",
+            "pattern": "^-?(0|[1-9][0-9]*)$",
+            "type": "string"
+          },
+          "usedValue": {
+            "format": "int64",
+            "pattern": "^-?(0|[1-9][0-9]*)$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "metricCode",
+          "periodKey",
+          "limitValue",
+          "usedValue",
+          "reservedValue"
+        ],
+        "type": "object"
+      },
+      "TenantQuotaUsageSummaryResponse": {
+        "properties": {
+          "metrics": {
+            "items": {
+              "$ref": "#/components/schemas/TenantQuotaUsageItemResponse"
+            },
+            "type": "array"
+          },
+          "readAtUtc": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "tenantId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "tenantIsActive": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "tenantId",
+          "tenantIsActive",
+          "readAtUtc",
+          "metrics"
         ],
         "type": "object"
       },

@@ -41,6 +41,7 @@ import { useSessionStore } from '../auth/session';
 import { useAdminI18n } from '../i18n/adminI18n';
 import { listHostTenantPackages } from '../api/tenant-packages';
 import TenantSubscriptionsDialog from '../components/TenantSubscriptionsDialog.vue';
+import TenantQuotaUsageDialog from '../components/TenantQuotaUsageDialog.vue';
 
 import TenantLifecycleDialog from '../components/TenantLifecycleDialog.vue';
 import { tenantLifecycleText } from '../i18n/tenant-lifecycle';
@@ -103,6 +104,8 @@ const editorForm = reactive({
   packageId: ''
 });
 const subscriptionDialogOpen = ref(false);
+const quotaDialogOpen = ref(false);
+const quotaTenant = ref<HostTenant | null>(null);
 const subscriptionTenant = ref<HostTenant | null>(null);
 const fieldErrors = reactive({
   identifier: '',
@@ -867,6 +870,9 @@ function toProblem(
                       {{ t('tenants.subscriptions') }}
                     </el-button>
                   </PermissionGate>
+                  <PermissionGate code="tenancy.tenant_quota.read">
+                    <el-button link type="primary" data-testid="tenants-action-quota" @click="quotaTenant = row as HostTenant; quotaDialogOpen = true">{{ t('tenants.quotaUsage') }}</el-button>
+                  </PermissionGate>
                   <PermissionGate code="tenancy.tenants.update">
                     <el-button
                       v-if="row.isActive"
@@ -1113,6 +1119,7 @@ function toProblem(
     </el-dialog>
 
     <TenantSubscriptionsDialog v-model:open="subscriptionDialogOpen" :tenant="subscriptionTenant" :packages="packages" @changed="load" />
+    <TenantQuotaUsageDialog v-model:open="quotaDialogOpen" :tenant-id="quotaTenant?.id ?? ''" :tenant-name="quotaTenant?.name" />
     <TenantLifecycleDialog v-model:open="lifecycleOpen" :tenant-id="lifecycleTenantId" @changed="load" />
   </section>
 </template>

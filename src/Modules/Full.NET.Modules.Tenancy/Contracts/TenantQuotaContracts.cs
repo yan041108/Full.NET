@@ -126,7 +126,7 @@ public static class TenantQuotaReservationStatuses
 
 /// <summary>租户配额指标的只读响应；描述某指标在某周期内的限额与占用情况。</summary>
 /// <remarks>
-/// 字段顺序发布后不可重排；新增字段只能追加到末尾。ReservedValue 与 UsedValue 的差值即当前可立即分配的额度，调用方不应自行缓存以避免跨实例不一致。
+/// 账面余额为 LimitValue - UsedValue - ReservedValue；读取结果不替代当前租户、订阅及业务准入判断，调用方不应自行缓存以避免跨实例不一致。
 /// </remarks>
 /// <param name="Id">配额指标记录的稳定标识。</param>
 /// <param name="TenantId">目标租户标识。</param>
