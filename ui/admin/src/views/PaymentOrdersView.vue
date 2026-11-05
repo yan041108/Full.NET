@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, reactive, ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import {
   ElAlert,
@@ -9,9 +9,11 @@ import {
   ElFormItem,
   ElInput,
   ElMessage,
+  ElOption,
   ElPagination,
   ElRadio,
   ElRadioGroup,
+  ElSelect,
   ElTable,
   ElTableColumn,
   ElTag
@@ -30,6 +32,7 @@ import { createPaymentOrder, listPaymentOrders, reconcilePaymentOrder, createPay
 import { formatPaymentAmount, parsePaymentAmount } from '../utils/payment-amount';
 import { useSessionStore } from '../auth/session';
 import { useAuthorizedViewScope } from '../composables/useAuthorizedViewScope';
+import { translateRuntimeMessage } from '../i18n/runtimeMessage';
 
 defineOptions({ name: 'PaymentOrdersView' });
 
@@ -63,8 +66,13 @@ const canRefund = computed(() => session.state === 'authenticated' && session.cu
 const canRead = computed(() => session.state === 'authenticated' && session.currentUser?.tenantId === null
   && session.currentUser.actorScope === 'host' && session.can('payments.orders.read'));
 let listSequence = 0;
+let listPending: { cancel(): void } | undefined;
+const orderStates = ['created', 'awaiting_payment', 'succeeded', 'closed', 'failed', 'provider_unknown', 'refunding', 'refunded'] as const;
+const filters = reactive({ tenantId: '', state: 'all', outTradeNo: '' });
+let appliedFilters = { ...filters }; let invalidFilters = false;
 const refundScope = useAuthorizedViewScope(session, () => {
-  listSequence++; items.value = []; total.value = 0; page.value = 1; loading.value = false; problem.value = undefined;
+  clearList(); page.value = 1;
+  Object.assign(filters, { tenantId: '', state: 'all', outTradeNo: '' }); appliedFilters = { ...filters }; invalidFilters = false;
   orderIdInput.value = ''; orderDetailId.value = ''; orderDetailOpen.value = false;
   refundOpen.value = false; refundOrderId.value = ''; refundSaving.value = false; refundAttempts.clear();
   Object.assign(refundForm, { amountYuan: '', reason: '' });
@@ -78,6 +86,15 @@ const createForm = reactive({
   description: ''
 });
 const lastCodeUrl = ref('');
+const narrowViewport = ref(false);
+let viewportQuery: MediaQueryList | undefined;
+function updateViewport() { narrowViewport.value = viewportQuery?.matches ?? false; }
+onMounted(() => {
+  if (typeof window.matchMedia !== 'function') return;
+  viewportQuery = window.matchMedia('(max-width: 640px)'); updateViewport();
+  viewportQuery.addEventListener?.('change', updateViewport);
+});
+onBeforeUnmount(() => viewportQuery?.removeEventListener?.('change', updateViewport));
 
 const {
   tableMainRef,
@@ -103,25 +120,48 @@ function formatAmount(minor: number): string {
 }
 
 async function load(): Promise<void> {
-  if (!canRead.value) return;
+  if (!canRead.value || invalidFilters) return;
+  // 加载时保留分页总数，避免组件因临时归零把第二页夹回首页；旧行仍立即清空。
+  clearList(false);
   const operation = refundScope.begin('payments.orders.read'); if (!operation) return;
-  const sequence = ++listSequence;
+  const sequence = listSequence; listPending = operation;
+  const query = { page: page.value, pageSize: pageSize.value, tenantId: appliedFilters.tenantId || undefined,
+    tradeStateKey: appliedFilters.state === 'all' ? undefined : appliedFilters.state, outTradeNoContains: appliedFilters.outTradeNo || undefined };
   loading.value = true;
   problem.value = undefined;
   try {
-    const result = await listPaymentOrders({ page: page.value, pageSize: pageSize.value }, operation.signal);
+    const result = await listPaymentOrders(query, operation.signal);
     if (!operation.current() || sequence !== listSequence) return;
+    if (result.page !== query.page || result.pageSize !== query.pageSize || !Number.isSafeInteger(result.total) || result.total < 0
+      || result.items.length > query.pageSize || result.items.some(row => !validPaymentId(row.id) || !validPaymentId(row.tenantId)
+        || (query.tenantId && row.tenantId.toLowerCase() !== query.tenantId.toLowerCase())
+        || (query.tradeStateKey && row.tradeStateKey !== query.tradeStateKey)))
+      throw { type: 'about:blank', status: 502, code: 'client.payment_order_page_mismatch', title: t('paymentOrders.filterMismatch') };
     items.value = result.items;
     total.value = result.total;
     await updateTableHeight();
   } catch (error: unknown) {
     if (!operation.current() || sequence !== listSequence) return;
+    total.value = 0; page.value = 1;
     problem.value = toProblem(error, 'paymentOrders.loadFailed');
   } finally {
-    if (operation.current() && sequence === listSequence) loading.value = false;
+    if (operation.current() && sequence === listSequence) { loading.value = false; listPending = undefined; }
     operation.finish();
   }
 }
+function clearList(resetTotal = true) { listSequence++; listPending?.cancel(); listPending = undefined; items.value = []; if (resetTotal) total.value = 0; loading.value = false; problem.value = undefined; }
+function searchOrders() {
+  if (!canRead.value) return;
+  clearList(); page.value = 1;
+  const next = { tenantId: filters.tenantId.trim(), state: filters.state, outTradeNo: filters.outTradeNo.trim() };
+  invalidFilters = (!!next.tenantId && !validPaymentId(next.tenantId))
+    || (next.state !== 'all' && !orderStates.some(state => state === next.state)) || next.outTradeNo.length > 64;
+  if (invalidFilters) { problem.value = { type: 'about:blank', status: 400, code: 'client.invalid_payment_order_filter', title: t('paymentOrders.invalidFilter') }; return; }
+  appliedFilters = next; void load();
+}
+function resetOrderFilters() { Object.assign(filters, { tenantId: '', state: 'all', outTradeNo: '' }); searchOrders(); }
+function changePage(value: number) { if (value !== page.value) { page.value = value; void load(); } }
+function orderStateLabel(value: string) { const key = `paymentOrders.status.${value}`; const label = translateRuntimeMessage(t, key); return label === key ? value : label; }
 
 function openCreate(): void {
   createIdempotencyKey.value = crypto.randomUUID();
@@ -263,6 +303,13 @@ async function submitRefund(): Promise<void> {
       class="art-page-alert"
     />
 
+    <ElForm v-if="canRead" label-position="top" class="payment-order-filters" @submit.prevent="searchOrders">
+      <ElFormItem :label="t('paymentOrders.fieldTenantId')"><ElInput v-model="filters.tenantId" clearable data-testid="payment-orders-filter-tenant" /></ElFormItem>
+      <ElFormItem :label="t('paymentOrders.fieldStatus')"><ElSelect v-model="filters.state" data-testid="payment-orders-filter-state"><ElOption value="all" :label="t('paymentOrders.allStates')" /><ElOption v-for="state in orderStates" :key="state" :value="state" :label="orderStateLabel(state)" /></ElSelect></ElFormItem>
+      <ElFormItem :label="t('paymentOrders.filterOutTradeNo')"><ElInput v-model="filters.outTradeNo" clearable maxlength="64" data-testid="payment-orders-filter-trade" /></ElFormItem>
+      <div class="payment-order-filter-actions"><ElButton native-type="submit" type="primary" data-testid="payment-orders-search">{{ t('paymentOrders.search') }}</ElButton><ElButton data-testid="payment-orders-reset" @click="resetOrderFilters">{{ t('paymentOrders.reset') }}</ElButton></div>
+    </ElForm>
+    <p v-if="canRead" class="payment-order-filter-hint">{{ t('paymentOrders.filtersHint') }}</p>
     <el-card class="art-full-height-card" shadow="never">
       <ArtTableHeader @refresh="load">
         <template #left>
@@ -295,12 +342,12 @@ async function submitRefund(): Promise<void> {
           <el-table-column prop="subject" :label="t('paymentOrders.fieldSubject')" min-width="140" />
           <el-table-column :label="t('paymentOrders.fieldStatus')" width="140">
             <template #default="{ row }">
-              <el-tag>{{ row.tradeStateKey }}</el-tag>
+              <el-tag>{{ orderStateLabel(row.tradeStateKey) }}</el-tag>
             </template>
           </el-table-column>
           <el-table-column prop="createdAtUtc" :label="t('paymentOrders.fieldCreatedAt')" min-width="180" />
           <el-table-column prop="failMessage" :label="t('paymentOrders.fieldFailMessage')" min-width="160" />
-          <el-table-column :label="t('paymentOrders.actions')" width="270" fixed="right">
+          <el-table-column :label="t('paymentOrders.actions')" width="270" :fixed="narrowViewport ? undefined : 'right'">
             <template #default="{ row }">
               <ElButton v-if="canRead" link type="primary" :data-testid="`payment-order-detail-${row.id}`" @click="readOrder(row.id)">{{ t('paymentOrders.detail') }}</ElButton>
               <PermissionGate code="payments.orders.reconcile">
@@ -332,11 +379,11 @@ async function submitRefund(): Promise<void> {
       </div>
 
       <el-pagination
-        v-model:current-page="page"
+        :current-page="page"
         v-model:page-size="pageSize"
         layout="total, prev, pager, next"
         :total="total"
-        @current-change="load"
+        @current-change="changePage"
       />
     </el-card>
 
@@ -411,4 +458,8 @@ async function submitRefund(): Promise<void> {
 .refund-attempt-summary dd { margin: 0 0 8px; overflow-wrap: anywhere; }
 .payment-order-exact-picker { display: flex; flex-wrap: wrap; align-items: end; gap: 8px; max-width: 100%; }
 .payment-order-exact-picker .el-form-item { flex: 1 1 200px; min-width: 0; max-width: 100%; margin: 0; }
+.payment-order-filters { display: grid; grid-template-columns: minmax(180px, 1fr) minmax(150px, 180px) minmax(180px, 1fr) auto; gap: 12px; align-items: end; }
+.payment-order-filter-actions { display: flex; gap: 8px; margin-bottom: 18px; }
+.payment-order-filter-hint { margin: 0; }
+@media (max-width: 800px) { .payment-order-filters { grid-template-columns: 1fr; gap: 0; } }
 </style>
