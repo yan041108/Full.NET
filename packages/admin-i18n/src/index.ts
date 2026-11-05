@@ -25,3 +25,4 @@ export { translatePaymentReconciliation } from './payment-reconciliation.js';
 export { translatePaymentMerchantOperations } from './payment-merchant-operations.js';
 export { translateReportingExportRecovery } from './reporting-export-recovery.js';
 export { translateDocumentPreviewLookup } from './document-preview-lookup.js';
+export { translateImportTaskLookup } from './import-task-lookup.js';

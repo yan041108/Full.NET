@@ -12,6 +12,7 @@ import {
   ElDrawer,
   ElDialog,
   ElMessage,
+  ElInput,
   ElPagination,
   ElTable,
   ElTableColumn,
@@ -20,6 +21,7 @@ import {
 import { Plus } from '@element-plus/icons-vue';
 import type { FullNetProblemDetails, ImportExportTaskDetailResponse, ImportExportTaskResponse } from '@fullnet/client-contracts';
 import { isFullNetProblemDetails, isGuid } from '@fullnet/client-contracts';
+import { translateImportTaskLookup } from '@fullnet/admin-i18n';
 import ArtTableActionGroup from '../framework/art-design/components/ArtTableActionGroup.vue';
 import ArtTableHeader from '../framework/art-design/components/ArtTableHeader.vue';
 import { useArtPagedTableInCard } from '../framework/art-design/composables/useArtPagedTableInCard';
@@ -51,6 +53,9 @@ const pageActive = ref(false);
 onMounted(() => { pageActive.value = true; }); onActivated(() => { pageActive.value = true; });
 onDeactivated(() => { pageActive.value = false; }); onBeforeUnmount(() => { pageActive.value = false; });
 const { t, locale } = useAdminI18n();
+const lookupText = (key: Parameters<typeof translateImportTaskLookup>[1]) => translateImportTaskLookup(locale.value, key);
+const taskLookup = ref(''), lookupProblem = ref<string>(), lookupSequence = ref(0);
+let detailBaseline: ImportExportTaskResponse | undefined;
 const items = ref<ImportExportTaskResponse[]>([]);
 const loading = ref(false);
 const detailLoading = ref(false);
@@ -106,11 +111,12 @@ interface ListControls { token: number; refresh: () => void; create: () => void;
 const listControls = ref<ListControls>(makeListControls());
 function makeListControls(): ListControls {
   const token = ++controlsSequence, owned = () => listControls.value.token === token && canRead();
+  const canPage = () => owned() && !loading.value && !(problem.value && items.value.length === 0);
   return { token, refresh: () => { if (owned()) refreshResults(); }, create: () => { if (owned() && canCreate()) createOpen.value = true; },
-    page: value => { if (owned() && Number.isSafeInteger(value) && value > 0) page.value = value; },
-    size: value => { if (owned() && [10, 20, 50].includes(value)) pageSize.value = value; },
+    page: value => { if (canPage() && Number.isSafeInteger(value) && value > 0) page.value = value; },
+    size: value => { if (canPage() && [10, 20, 50].includes(value)) pageSize.value = value; },
     change: (nextPage, nextSize) => {
-      if (!owned() || !Number.isSafeInteger(nextPage) || nextPage < 1 || ![10, 20, 50].includes(nextSize)) return;
+      if (!canPage() || !Number.isSafeInteger(nextPage) || nextPage < 1 || ![10, 20, 50].includes(nextSize)) return;
       const sizeChanged = lastQuery?.pageSize !== nextSize; page.value = sizeChanged ? 1 : nextPage; pageSize.value = nextSize;
       if (lastQuery?.page !== page.value || lastQuery.pageSize !== nextSize) void load();
     } };
@@ -120,6 +126,7 @@ const tableRows = computed(() => {
   return items.value.map(row => { const { id, version } = row; return { ...row, open: () => { if (listControls.value.token === token && canRead() && items.value.some(item => sameId(item.id, id) && item.version === version)) void openDetail(id); } }; });
 });
 const scope = useAuthorizedViewScope(session, () => {
+  lookupSequence.value++; taskLookup.value = ''; lookupProblem.value = undefined; detailBaseline = undefined;
   linkBlocked = true; linkedTaskId = undefined;
   cancelConfirmation.value = undefined;
   detailOwner.value++; detailTargetId.value = ''; mutation = undefined; actionReceipt.value = undefined; unconfirmedTasks.value = new Map(); lastQuery = undefined; listControls.value = makeListControls();
@@ -135,6 +142,7 @@ let lastQuery: { page: number; pageSize: number } | undefined;
 
 // 抽屉关闭或重新选择任务后，旧详情、执行和下载均失去接入资格。
 function cancelDetail(): void {
+  detailBaseline = undefined;
   cancelConfirmation.value = undefined;
   if (actionRequest?.current() && mutation?.dispatched) markUnconfirmed(mutation.task, mutation.kind);
   detailOwner.value++; detailTargetId.value = ''; mutation = undefined;
@@ -157,6 +165,7 @@ function openLinkedTask(): void {
 watch(() => JSON.stringify([route?.name, route?.query.taskId]), () => {
   const wasBlocked = linkBlocked;
   cancelDetail(); drawerVisible.value = false; linkedTaskId = undefined;
+  lookupSequence.value++; taskLookup.value = ''; lookupProblem.value = undefined;
   createOpen.value = false;
   linkBlocked = route?.name !== 'import-export-tasks';
   if (linkBlocked) { listRequest?.cancel(); items.value = []; total.value = 0; loading.value = false; lastQuery = undefined; listControls.value = makeListControls(); }
@@ -233,7 +242,8 @@ async function load(recoverPage = true): Promise<boolean> {
   listRequest?.cancel(); const request = begin('import_export.import_tasks.read'); listRequest = request;
   if (!request) return false;
   const query = { page: page.value, pageSize: pageSize.value };
-  if (!lastQuery || lastQuery.page !== query.page || lastQuery.pageSize !== query.pageSize) { items.value = []; total.value = 0; listControls.value = makeListControls(); }
+  const changedQuery = !lastQuery || lastQuery.page !== query.page || lastQuery.pageSize !== query.pageSize;
+  if (changedQuery) { items.value = []; listControls.value = makeListControls(); }
   lastQuery = query;
   loading.value = true;
   problem.value = undefined;
@@ -247,7 +257,7 @@ async function load(recoverPage = true): Promise<boolean> {
     total.value = result.total;
     return request.current();
   } catch (error) {
-    if (request.current()) problem.value = toProblem(error);
+    if (request.current()) { problem.value = toProblem(error); if (changedQuery) total.value = 0; }
     return false;
   } finally {
     if (request.current()) { loading.value = false; void syncTableLayout(); } request.finish();
@@ -256,8 +266,20 @@ async function load(recoverPage = true): Promise<boolean> {
 
 async function openDetail(taskId: string) {
   if (!canRead() || !validId(taskId)) return;
-  cancelDetail(); detailTargetId.value = taskId; drawerVisible.value = true; await refreshDetail(taskId);
+  const row = items.value.find(task => sameId(task.id, taskId));
+  cancelDetail(); detailBaseline = row ? { ...row } : undefined; detailTargetId.value = taskId; drawerVisible.value = true; await refreshDetail(taskId);
 }
+const lookupControls = computed(() => {
+  const sequence = lookupSequence.value, draft = taskLookup.value;
+  const owned = () => sequence === lookupSequence.value && canRead();
+  return { input: (value: string) => { if (owned()) { taskLookup.value = value; lookupProblem.value = undefined; } },
+    submit: () => {
+      if (!owned() || actionLoading.value || createOpen.value || cancelDialogVisible.value) return;
+      const id = draft.trim().toLowerCase();
+      if (!validId(id)) { lookupProblem.value = lookupText('invalid'); return; }
+      lookupProblem.value = undefined; void openDetail(id);
+    } };
+});
 
 // 进度读取保留已展示内容；关闭抽屉及操作仍由原请求租约取消旧结果。
 async function refreshDetail(taskId: string) {
@@ -273,7 +295,8 @@ async function refreshDetail(taskId: string) {
     // 关闭抽屉会清展示内容，未知提交的来源与最低版本仍需跨抽屉保留。
     const uncertain = unconfirmedTasks.value.get(taskId.toLowerCase());
     if (uncertain && (!sameTaskIdentity(detail, uncertain) || detail.version < uncertain.version)) throw new Error('client.invalid_import_export_task_identity');
-    if (selectedTask.value && detail.version < selectedTask.value.version) return;
+    if ([detailBaseline, selectedTask.value].some(baseline => baseline && (!sameTaskIdentity(detail, baseline) || detail.version < baseline.version))) throw new Error('client.invalid_import_export_task_identity');
+    detailBaseline = { ...detail };
     selectedTask.value = detail;
     const next = new Map(unconfirmedTasks.value); next.delete(taskId.toLowerCase()); unconfirmedTasks.value = next;
   } catch (error) {
@@ -428,7 +451,8 @@ function refreshResults() {
 </script>
 
 <template>
-  <section v-if="canRead()" class="art-page-stack art-full-height">
+  <section v-if="canRead()" class="import-export-tasks-view art-page-stack art-full-height">
+    <p v-if="problem && items.length === 0" data-testid="import-task-requested-page">{{ lookupText('requestedPage') }} {{ page }}</p>
     <h1 class="art-sr-heading" data-route-heading tabindex="-1">{{ t('importExportTasks.title') }}</h1>
 
     <el-alert
@@ -446,6 +470,16 @@ function refreshResults() {
       <p v-if="actionReceipt.outcome === 'unconfirmed'">{{ t('importExportTasks.recoveryHint') }}</p>
     </div>
     <el-card class="art-table-card" shadow="never">
+      <form class="import-task-lookup" @submit.prevent="lookupControls.submit">
+        <label for="import-task-exact-id">{{ lookupText('taskId') }}</label>
+        <div class="import-task-lookup__controls">
+          <ElInput id="import-task-exact-id" :model-value="taskLookup" data-testid="import-task-exact-id" autocomplete="off"
+            :disabled="actionLoading || createOpen || cancelDialogVisible" v-on="{ 'update:modelValue': lookupControls.input }" />
+          <ElButton native-type="submit" data-testid="import-task-read-id" :disabled="actionLoading || createOpen || cancelDialogVisible">{{ lookupText('read') }}</ElButton>
+        </div>
+        <p>{{ lookupText('hint') }}</p>
+        <ElAlert v-if="lookupProblem" type="error" :closable="false" :title="lookupProblem" data-testid="import-task-lookup-problem" />
+      </form>
       <ArtTableHeader
         v-model:table-size="tableSize"
         v-model:zebra="tableZebra"
@@ -529,6 +563,7 @@ function refreshResults() {
         </div>
         <el-pagination
           :current-page="page"
+          :disabled="loading || !!problem && items.length === 0"
           :page-size="pageSize"
           class="art-table-pagination"
           :total="total"
@@ -548,11 +583,19 @@ function refreshResults() {
       size="min(480px, 100vw)"
       destroy-on-close
     >
+      <p>{{ lookupText('taskId') }} <code class="import-task-identity" data-testid="import-task-detail-id">{{ detailTargetId }}</code></p>
+      <p v-if="detailProblem && selectedTask" role="status" data-testid="import-task-stale-snapshot">{{ lookupText('stale') }}</p>
       <div v-loading="detailLoading">
         <ElAlert v-if="detailProblem" type="error" :closable="false" data-testid="import-task-detail-problem" :title="detailProblem.title" :description="detailProblem.code" />
         <ElButton data-testid="import-export-task-detail-refresh" :disabled="actionLoading || detailLoading" v-on="{ click: detailControls.refresh }">{{ t('importExportTasks.refreshDetail') }}</ElButton>
         <template v-if="selectedTask">
           <el-descriptions :column="1" border>
+            <ElDescriptionsItem :label="lookupText('tenant')"><code class="import-task-identity" data-testid="import-task-tenant">{{ selectedTask.tenantId }}</code></ElDescriptionsItem>
+            <ElDescriptionsItem :label="lookupText('requester')"><code class="import-task-identity" data-testid="import-task-requester">{{ selectedTask.requestedByUserId }}</code></ElDescriptionsItem>
+            <ElDescriptionsItem :label="lookupText('sourceFile')"><code class="import-task-identity" data-testid="import-task-source-file">{{ selectedTask.sourceFileId }}</code></ElDescriptionsItem>
+            <ElDescriptionsItem :label="lookupText('schemaKey')"><code class="import-task-identity" data-testid="import-task-schema-key">{{ selectedTask.schemaKey }}</code></ElDescriptionsItem>
+            <ElDescriptionsItem :label="lookupText('worksheetKey')"><code class="import-task-identity" data-testid="import-task-worksheet-key">{{ selectedTask.worksheetKey }}</code></ElDescriptionsItem>
+            <ElDescriptionsItem :label="lookupText('revision')">{{ selectedTask.version }}</ElDescriptionsItem>
             <el-descriptions-item :label="t('importExportTasks.schema')">
               {{ selectedTask.schemaDisplayName }}
             </el-descriptions-item>
@@ -678,4 +721,8 @@ function refreshResults() {
   margin-top: 16px;
 }
 .art-drawer-actions :deep(.el-button.is-disabled) { color: var(--el-text-color-placeholder); background: var(--el-fill-color-light); border-color: var(--el-border-color-light); }
+.import-task-lookup { margin-bottom: 12px; }
+.import-task-lookup__controls { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 8px; }
+.import-task-lookup__controls :deep(.el-input) { flex: 1 1 240px; max-width: 520px; }
+.import-task-identity { overflow-wrap: anywhere; }
 </style>
