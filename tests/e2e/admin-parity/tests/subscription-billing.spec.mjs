@@ -11,11 +11,11 @@ const offer = { packageId, paymentTenantId: tenantId, merchantConfigId: merchant
   seatLimit: 20, storageLimit: 100000, durationDays: 30, entitlementIds: [id(6)], isActive: true, version: 1 };
 const json = (route, body, status = 200) => route.fulfill({ status, contentType: status >= 400 ? 'application/problem+json' : 'application/json', body: JSON.stringify(body) });
 
-async function setup(page, allowed = permissions) {
-  await page.addInitScript(() => localStorage.setItem('fullnet.admin.locale', 'zh-CN'));
+async function setup(page, allowed = permissions, locale = 'zh-CN') {
+  await page.addInitScript(selected => localStorage.setItem('fullnet.admin.locale', selected), locale);
   await page.route('**/api/v1/auth/refresh', r => json(r, { accessToken: 'billing-test', tokenType: 'Bearer', expiresAtUtc: new Date(Date.now() + 3600000).toISOString() }));
   await page.route('**/api/v1/me', r => json(r, { id: id(9), username: 'billing', displayName: 'Billing operator', actorScope: 'host', scope: 'host',
-    isSuperAdministrator: false, tenantId: null, permissions: allowed, sessionId: id(10), preferredLocale: 'zh-CN', profileVersion: 1, passwordChangeRequired: false }));
+    isSuperAdministrator: false, tenantId: null, permissions: allowed, sessionId: id(10), preferredLocale: locale, profileVersion: 1, passwordChangeRequired: false }));
   await page.route('**/api/v1/navigation', r => json(r, [
     ['tenant-packages', '/tenant-packages', 'tenancy.tenant_packages.read'], ['tenant-management', '/tenants', 'tenancy.tenants.read'],
     ['payments-orders', '/payments/orders', 'payments.orders.read']
@@ -68,24 +68,30 @@ for (const viewport of [{ width: 1440, height: 1000 }, { width: 390, height: 844
     await dialog.getByRole('button', { name: '读取报价', exact: true }).click();
     await expect(dialog).toContainText('12500 CNY');
     await page.getByTestId('paid-subscription-confirm').click();
-    await expect(dialog).toContainText('操作失败');
+    await expect(dialog).toContainText('账单结果未确认');
+    await dialog.getByRole('button', { name: '关闭', exact: true }).click();
+    await page.getByTestId('paid-subscription-create').click();
+    dialog = page.getByRole('dialog').last();
+    await expect(dialog.getByTestId('subscription-invoice-recovery')).toBeVisible();
+    expect(requests.length).toBe(1);
     await page.getByTestId('paid-subscription-confirm').click();
     await expect.poll(() => requests.length).toBe(2);
     expect(requests[1]).toEqual(requests[0]);
     expect(Object.keys(requests[0]).sort()).toEqual(['effectiveFromUtc', 'idempotencyKey', 'offerVersion', 'packageId']);
     await dialog.getByTestId('subscription-checkout').click();
     await page.getByTestId('subscription-checkout-confirm').click();
-    const payment = page.getByRole('dialog').filter({ has: page.getByTestId('subscription-checkout-confirm') });
+    const payment = page.getByRole('dialog').filter({ has: page.locator('input[aria-label="支付渠道链接"]') });
     await expect(payment).toContainText('资金状态');
     await expect(payment).toContainText('已收款，等待发放');
     const box = await payment.boundingBox();
     expect(box.x).toBeGreaterThanOrEqual(0); expect(box.x + box.width).toBeLessThanOrEqual(viewport.width);
-    await expect(payment.getByTestId('subscription-checkout-confirm')).toBeEnabled();
-    await payment.getByTestId('subscription-checkout-confirm').focus();
-    await expect(payment.getByTestId('subscription-checkout-confirm')).toBeFocused();
+    await expect(page.getByTestId('subscription-checkout-confirm')).toHaveCount(0);
+    await payment.getByRole('button', { name: '关闭', exact: true }).focus();
+    await expect(payment.getByRole('button', { name: '关闭', exact: true })).toBeFocused();
     await page.keyboard.press('Tab');
     await expect.poll(() => payment.evaluate(element => element.contains(document.activeElement))).toBe(true);
-    await payment.screenshot({ path: testInfo.outputPath(`checkout-${viewport.width}.png`) });
+    await expect(page.locator('.el-loading-mask')).toHaveCount(0);
+    await payment.screenshot({ path: testInfo.outputPath(`checkout-${viewport.width}.png`), animations: 'disabled' });
     const axe = await new AxeBuilder({ page }).include('.art-form-dialog').withTags(['wcag2a', 'wcag2aa']).analyze();
     expect(axe.violations).toEqual([]);
   });
@@ -129,3 +135,33 @@ test('人工重试只调用原订单履约接口，不下单或扣款', async ({
   await expect(dialog).toContainText('已收款，等待发放');
   expect(retry).toBe(1); expect(checkout).toBe(0);
 });
+
+
+for (const [width, locale] of [[1440, 'en-US'], [390, 'zh-CN']]) {
+  test('人工重试结果未确认时先重读当前订单 ' + width, async ({ page }, info) => {
+    await page.setViewportSize({ width, height: 1000 }); await setup(page, permissions, locale);
+    await page.route('**/api/v1/payments/orders?*', r => json(r, { items: [{ id: orderId, tenantId, merchantConfigId: merchantId,
+      channelKey: 'wechat_native', outTradeNo: 'original', tradeStateKey: 'succeeded', amountMinor: 12500, currency: 'CNY',
+      subject: 'Plan', createdAtUtc: '2026-10-27T00:00:00Z', paidAtUtc: '2026-10-27T00:00:00Z' }], page: 1, pageSize: 20, total: 1 }));
+    let reads = 0, retries = 0, checkouts = 0;
+    await page.route('**/api/v1/payments/orders/' + orderId + '/subscription-fulfillment', r => {
+      reads++; return json(r, { subscriptionId, beneficiaryTenantId: tenantId, paymentOrderId: orderId,
+        stateKey: reads === 1 ? 'Review' : 'ReadyPaid', errorCode: null, attempt: 1, updatedAtUtc: '2026-11-05T00:00:00Z' });
+    });
+    await page.route('**/api/v1/payments/orders/' + orderId + '/subscription-fulfillment/retry', r => {
+      retries++; return json(r, { status: 503, code: 'test.response_lost', title: 'unconfirmed' }, 503);
+    });
+    await page.route('**/checkout', r => { checkouts++; return r.abort(); });
+    await page.goto('/#/payments/orders'); await page.getByTestId('subscription-fulfillment').click();
+    await page.getByTestId('subscription-fulfillment-retry').click();
+    const modal = page.getByRole('dialog').last();
+    await expect(modal).toContainText(locale === 'en-US' ? 'Fulfillment result unconfirmed' : '履约结果未确认');
+    await expect(page.getByTestId('subscription-fulfillment-retry')).toHaveCount(0);
+    expect(reads).toBe(1); expect(retries).toBe(1); expect(checkouts).toBe(0);
+    await modal.screenshot({ path: info.outputPath('fulfillment-unconfirmed-' + width + '.png'), animations: 'disabled' });
+    expect((await new AxeBuilder({ page }).include('.art-form-dialog').withTags(['wcag2a', 'wcag2aa']).analyze()).violations).toEqual([]);
+    await page.getByTestId('subscription-fulfillment-refresh').click();
+    await expect(modal).toContainText(locale === 'en-US' ? 'Paid, awaiting fulfillment' : '已收款，等待发放');
+    expect(reads).toBe(2); expect(retries).toBe(1); expect(checkouts).toBe(0);
+  });
+}

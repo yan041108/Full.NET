@@ -12,6 +12,13 @@ const zh = {
   Applied: '权益已发放', ReadyRefund: '已退款，等待撤销', Refunded: '退款已完成履约', Review: '需要人工对账',
   noBinding: '此订单未关联付费订阅', paymentLink: '支付渠道链接', validation: '请填写有效标识、金额和期限。',
   paidHint: '只有已核实的收款事实才能发放权益；本页不能手工标记付款成功。',
+  reconfirmQuote: '重新读取并确认报价', offerChanged: '报价已变更，本次未创建账单。请重新读取并确认报价。', invoiceRejected: '请求被拒绝。请核对当前订阅和报价，再决定是否恢复原请求。',
+  recoverInvoice: '恢复原账单', recoverCheckout: '恢复原账单下单',
+  invoiceRecovery: '已提交原请求。关闭后重新打开仍保留原报价、时间和请求身份；恢复只使用同一请求，不创建新身份。',
+  invoiceUnknown: '账单结果未确认。请恢复原账单，或在订阅列表核对，勿另建购买。',
+  checkoutUnknown: '下单结果未确认。请恢复原账单下单；不会自动重试或更换账单。',
+  fulfillmentUnknown: '履约结果未确认。请先刷新当前订单，再决定是否重试。',
+  responseMismatch: '响应与原目标不一致，未接入结果；请核对原订阅或订单。',
   safeRetry: '网络重试复用原账单；履约重试不会再次扣款。'
 };
 const en: Record<keyof typeof zh, string> = {
@@ -25,6 +32,13 @@ const en: Record<keyof typeof zh, string> = {
   Applied: 'Entitlements applied', ReadyRefund: 'Refunded, awaiting revocation', Refunded: 'Refund fulfillment complete', Review: 'Manual reconciliation required',
   noBinding: 'This order is not associated with a paid subscription', paymentLink: 'Payment provider link', validation: 'Enter valid IDs, amount and duration.',
   paidHint: 'Only verified funds can grant entitlements. This page cannot manually mark a payment as paid.',
+  reconfirmQuote: 'Reload and confirm offer', offerChanged: 'The offer changed. No invoice was created; reload and confirm the offer.', invoiceRejected: 'The request was rejected. Check the subscription and offer before recovering the original request.',
+  recoverInvoice: 'Recover original invoice', recoverCheckout: 'Recover invoice checkout',
+  invoiceRecovery: 'The original request is retained when closing and reopening. Recovery reuses the same offer, time and request identity.',
+  invoiceUnknown: 'Invoice result unconfirmed. Recover the original invoice or check subscriptions before purchasing again.',
+  checkoutUnknown: 'Checkout result unconfirmed. Recover checkout for the same invoice; no automatic retry occurs.',
+  fulfillmentUnknown: 'Fulfillment result unconfirmed. Refresh this order before deciding to retry.',
+  responseMismatch: 'The response does not match the original target. Check the original subscription or order.',
   safeRetry: 'Network retries reuse the original invoice. Fulfillment retries never charge again.'
 };
 export type SubscriptionBillingTextKey = keyof typeof zh;
