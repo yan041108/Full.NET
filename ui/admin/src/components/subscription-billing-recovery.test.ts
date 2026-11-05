@@ -240,7 +240,7 @@ describe('付费账单原请求恢复', () => {
 });
 
 describe('同套餐提前续期', () => {
-  const preview = { tenantId: id(1), sourceSubscriptionId: id(11), sourceVersion: 7,
+  const preview = { tenantId: id(1), sourceSubscriptionId: id(11), sourcePackageId: pkg.id, sourceVersion: 7,
     effectiveFromUtc: '2026-12-01T00:00:00Z', offer, readAtUtc: '2026-11-05T00:00:00Z' };
   beforeEach(() => { vi.resetAllMocks(); useAdminI18n().setLocale('zh-CN'); vi.mocked(getSubscriptionRenewalPreview).mockResolvedValue(preview); });
   async function openRenewal() {
@@ -301,5 +301,75 @@ describe('同套餐提前续期', () => {
     const wrapper = mount(PaidSubscriptionPurchase, { props: { tenantId: id(1), packages: [pkg], renewal: true,
       source: { subscriptionId: id(11), packageId: pkg.id } }, global: globalFor(pinia) });
     expect(wrapper.find('[data-testid="subscription-renewal"]').exists()).toBe(false); wrapper.unmount();
+  });
+});
+
+describe('下周期换套餐', () => {
+  const next = { ...pkg, id: id(22), name: 'Next plan' }; const other = { ...pkg, id: id(23), name: 'Other active plan' };
+  const nextOffer = { ...offer, packageId: next.id, version: 1, amountMinor: 25000, durationDays: 60, seatLimit: 1, storageLimit: 1 };
+  const proposal = { tenantId: id(1), sourceSubscriptionId: id(11), sourcePackageId: pkg.id, sourceVersion: 7,
+    effectiveFromUtc: '2026-12-01T00:00:00Z', offer: nextOffer, readAtUtc: '2026-11-05T00:00:00Z' };
+  beforeEach(() => { vi.resetAllMocks(); useAdminI18n().setLocale('zh-CN'); vi.mocked(getSubscriptionRenewalPreview).mockResolvedValue(proposal); });
+  async function prepare() {
+    const state = sessionSetup(); const wrapper = mount(PaidSubscriptionPurchase, { props: { tenantId: id(1), packages: [{ ...pkg, isActive: false }, next, other],
+      changePackage: true, source: { subscriptionId: id(11), packageId: pkg.id } }, global: globalFor(state.pinia) });
+    await wrapper.get('[data-testid="subscription-package-change"]').trigger('click');
+    wrapper.findComponent(ElSelect).vm.$emit('update:modelValue', next.id); wrapper.findComponent(ElSelect).vm.$emit('change', next.id); await flushPromises();
+    await wrapper.findAll('button').find(button => button.text() === '读取报价')!.trigger('click'); await flushPromises();
+    return { wrapper, ...state };
+  }
+  it('原套餐退售仍可选择活动目标，固定起点和独立账单条款', async () => {
+    const { wrapper } = await prepare(); expect(getSubscriptionRenewalPreview).toHaveBeenCalledWith(id(1), id(11), expect.any(AbortSignal), next.id);
+    expect(getPackageOffer).not.toHaveBeenCalled(); expect(createPaidSubscription).not.toHaveBeenCalled();
+    expect(wrapper.get('[data-testid="package-change-source"]').text()).toBe(pkg.id);
+    expect(wrapper.get('[data-testid="paid-subscription-start"]').attributes('readonly')).toBeDefined();
+    vi.mocked(createPaidSubscription).mockImplementation(async (tenant, body) => ({ ...nextOffer, tenantId: tenant, subscriptionId: id(5), paymentOperationId: id(7),
+      subject: 'Frozen next plan', offerVersion: body.offerVersion, effectiveFromUtc: body.effectiveFromUtc, effectiveToUtc: '2027-01-30T00:00:00Z',
+      renewalOfSubscriptionId: id(11), renewalSourceVersion: 7 }));
+    await wrapper.get('[data-testid="confirm"]').trigger('click'); await flushPromises();
+    expect(vi.mocked(createPaidSubscription).mock.calls[0]![1]).toMatchObject({ packageId: next.id, offerVersion: 1,
+      renewalOfSubscriptionId: id(11), renewalSourceVersion: 7, effectiveFromUtc: proposal.effectiveFromUtc });
+    expect(wrapper.text()).toContain('Frozen next plan'); expect(wrapper.text()).toContain(next.id); expect(checkoutSubscription).not.toHaveBeenCalled(); wrapper.unmount();
+  });
+  it('确认态固定目标，显式重选清除旧提案且不自动请求', async () => {
+    const { wrapper } = await prepare(); expect(wrapper.findComponent(ElSelect).exists()).toBe(false);
+    await wrapper.get('[data-testid="package-change-target-reset"]').trigger('click'); await flushPromises();
+    expect(wrapper.find('[data-testid="confirm"]').exists()).toBe(false); expect(wrapper.findComponent(ElSelect).exists()).toBe(true);
+    expect(getSubscriptionRenewalPreview).toHaveBeenCalledTimes(1); expect(createPaidSubscription).not.toHaveBeenCalled(); wrapper.unmount();
+  });
+  it('目标随后退售仍可关闭重开并原样恢复未知请求', async () => {
+    const { wrapper } = await prepare(); vi.mocked(createPaidSubscription).mockRejectedValue(new Error('lost'));
+    await wrapper.get('[data-testid="confirm"]').trigger('click'); await flushPromises(); const first = vi.mocked(createPaidSubscription).mock.calls[0]![1];
+    await wrapper.setProps({ packages: [{ ...pkg, isActive: false }, { ...next, isActive: false }] });
+    await wrapper.get('[data-testid="close"]').trigger('click'); await wrapper.get('[data-testid="subscription-package-change"]').trigger('click');
+    await wrapper.get('[data-testid="confirm"]').trigger('click'); await flushPromises();
+    expect(vi.mocked(createPaidSubscription).mock.calls[1]![1]).toBe(first); expect(getSubscriptionRenewalPreview).toHaveBeenCalledTimes(1); wrapper.unmount();
+  });
+  it('正式目标停用拒绝后显式重选，读取新提案不自动创建', async () => {
+    const { wrapper } = await prepare(); vi.mocked(createPaidSubscription).mockRejectedValueOnce({ status: 400, code: 'tenancy.tenant_package.inactive', title: 'inactive' }).mockRejectedValueOnce(new Error('lost'));
+    await wrapper.get('[data-testid="confirm"]').trigger('click'); await flushPromises(); const first = vi.mocked(createPaidSubscription).mock.calls[0]![1];
+    await wrapper.get('[data-testid="subscription-reconfirm-quote"]').trigger('click'); await flushPromises();
+    expect(getSubscriptionRenewalPreview).toHaveBeenCalledTimes(1); expect(createPaidSubscription).toHaveBeenCalledTimes(1);
+    wrapper.findComponent(ElSelect).vm.$emit('update:modelValue', other.id); wrapper.findComponent(ElSelect).vm.$emit('change', other.id);
+    await flushPromises();
+    vi.mocked(getSubscriptionRenewalPreview).mockResolvedValue({ ...proposal, offer: { ...nextOffer, packageId: other.id } });
+    await wrapper.findAll('button').find(button => button.text() === '读取报价')!.trigger('click'); await flushPromises(); expect(createPaidSubscription).toHaveBeenCalledTimes(1);
+    expect(getSubscriptionRenewalPreview).toHaveBeenLastCalledWith(id(1), id(11), expect.any(AbortSignal), other.id);
+    await wrapper.get('[data-testid="confirm"]').trigger('click'); await flushPromises(); const second = vi.mocked(createPaidSubscription).mock.calls[1]![1];
+    expect(second.packageId).toBe(other.id); expect(second.idempotencyKey).not.toBe(first.idempotencyKey); expect(second.renewalOfSubscriptionId).toBe(first.renewalOfSubscriptionId); wrapper.unmount();
+  });
+  it('预览的原套餐不匹配时不形成账单提案', async () => {
+    vi.mocked(getSubscriptionRenewalPreview).mockResolvedValue({ ...proposal, sourcePackageId: id(99) }); const { wrapper } = await prepare();
+    expect(wrapper.find('[data-testid="confirm"]').exists()).toBe(false); expect(createPaidSubscription).not.toHaveBeenCalled(); wrapper.unmount();
+  });
+  it('模式改变取消原目标的晚到报价', async () => {
+    const pending = deferred<typeof proposal>(); vi.mocked(getSubscriptionRenewalPreview).mockReturnValue(pending.promise); const { wrapper } = await prepare();
+    const signal = vi.mocked(getSubscriptionRenewalPreview).mock.calls[0]![2]; await wrapper.setProps({ changePackage: false, renewal: true }); expect(signal?.aborted).toBe(true);
+    pending.resolve(proposal); await flushPromises(); expect(wrapper.find('[data-testid="confirm"]').exists()).toBe(false); wrapper.unmount();
+  });
+  it('没有其他活动套餐时不显示新提案入口', () => {
+    const { pinia } = sessionSetup(); const wrapper = mount(PaidSubscriptionPurchase, { props: { tenantId: id(1), packages: [pkg, { ...next, isActive: false }],
+      changePackage: true, source: { subscriptionId: id(11), packageId: pkg.id } }, global: globalFor(pinia) });
+    expect(wrapper.find('[data-testid="subscription-package-change"]').exists()).toBe(false); wrapper.unmount();
   });
 });

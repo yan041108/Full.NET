@@ -7,7 +7,7 @@ import { http } from './http';
 
 // 统一使用生成 Operation 的响应守卫；付款入口只提交冻结账单身份。
 export const getPackageOffer = (packageId: string, signal?: AbortSignal) => tenancyGetPackageOffer(http, { packageId }, signal);
-export const getSubscriptionRenewalPreview = (tenantId: string, subscriptionId: string, signal?: AbortSignal) => tenancyGetSubscriptionRenewalPreview(http, { tenantId, subscriptionId }, signal);
+export const getSubscriptionRenewalPreview = (tenantId: string, subscriptionId: string, signal?: AbortSignal, targetPackageId?: string) => tenancyGetSubscriptionRenewalPreview(http, { tenantId, subscriptionId, ...(targetPackageId ? { targetPackageId } : {}) }, signal);
 export const getSubscriptionInvoice = (tenantId: string, subscriptionId: string, signal?: AbortSignal) => tenancyGetSubscriptionInvoice(http, { tenantId, subscriptionId }, signal);
 export const savePackageOffer = (packageId: string, body: UpsertTenantPackageOfferRequest, signal?: AbortSignal) => tenancySavePackageOffer(http, { packageId, body }, signal);
 export const listBillingFeatures = (signal?: AbortSignal) => tenancyListEntitlementCatalog(http, {}, signal);

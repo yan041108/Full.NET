@@ -8240,7 +8240,7 @@ export function readTenantSubscriptionRenewalPreviewResponse(value: unknown): Te
 }
 
 function isTenantSubscriptionRenewalPreviewResponse(value: unknown): value is TenantSubscriptionRenewalPreviewResponse {
-  return isRecord(value) && (typeof value["effectiveFromUtc"] === 'string') && (isTenantPackageOfferResponse(value["offer"])) && (typeof value["readAtUtc"] === 'string') && (typeof value["sourceSubscriptionId"] === 'string' && guidPattern.test(value["sourceSubscriptionId"])) && (Number.isSafeInteger(value["sourceVersion"])) && (typeof value["tenantId"] === 'string' && guidPattern.test(value["tenantId"]));
+  return isRecord(value) && (typeof value["effectiveFromUtc"] === 'string') && (isTenantPackageOfferResponse(value["offer"])) && (typeof value["readAtUtc"] === 'string') && (typeof value["sourcePackageId"] === 'string' && guidPattern.test(value["sourcePackageId"])) && (typeof value["sourceSubscriptionId"] === 'string' && guidPattern.test(value["sourceSubscriptionId"])) && (Number.isSafeInteger(value["sourceVersion"])) && (typeof value["tenantId"] === 'string' && guidPattern.test(value["tenantId"]));
 }
 
 export function readTenantSubscriptionResponse(value: unknown): TenantSubscriptionResponse {

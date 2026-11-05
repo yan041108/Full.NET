@@ -128,6 +128,20 @@ public sealed class TenantSubscriptionBillingTests
         Assert.AreEqual(expected, (await f.Service.ReadRenewalSourceAsync(f.Invoice.TenantId, f.Invoice.Id, default)).IsSuccess);
     }
 
+    [TestMethod]
+    public async Task Retired_source_catalog_does_not_erase_paid_period_qualification()
+    {
+        var f = new Fixture("Applied");
+        f.Queries.QuerySingleOrDefaultAsync<TenantEntitlementEnforcementRecord>(TenantEntitlementSql.GetEnforcementPhase,
+            Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(new TenantEntitlementEnforcementRecord(TenantEntitlementEnforcementPhases.Enforced, 1));
+        f.Queries.QuerySingleOrDefaultAsync<TenantSubscriptionRecord>(TenantSubscriptionSql.FindById,
+            Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(new TenantSubscriptionRecord(f.Invoice.Id, f.Invoice.TenantId,
+                f.Invoice.PackageId, TenantSubscriptionStatuses.Active, null, f.Invoice.EffectiveFromUtc, f.Invoice.EffectiveToUtc, null, 2));
+        f.Queries.QuerySingleOrDefaultAsync<TenantPackageIdentityRecord>(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>())
+            .Returns(new TenantPackageIdentityRecord(f.Invoice.PackageId, "retired", "Retired plan", null, false, 2));
+        Assert.IsTrue((await f.Service.ReadRenewalSourceAsync(f.Invoice.TenantId, f.Invoice.Id, default)).IsSuccess);
+    }
+
     private sealed class Fixture
     {
         internal readonly ICommandExecutor Commands = Substitute.For<ICommandExecutor>();

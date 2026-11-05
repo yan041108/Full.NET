@@ -61395,6 +61395,14 @@
               "format": "uuid",
               "type": "string"
             }
+          },
+          {
+            "in": "query",
+            "name": "targetPackageId",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -104908,6 +104916,10 @@
             "format": "date-time",
             "type": "string"
           },
+          "sourcePackageId": {
+            "format": "uuid",
+            "type": "string"
+          },
           "sourceSubscriptionId": {
             "format": "uuid",
             "type": "string"
@@ -104928,6 +104940,7 @@
         "required": [
           "tenantId",
           "sourceSubscriptionId",
+          "sourcePackageId",
           "sourceVersion",
           "effectiveFromUtc",
           "offer",

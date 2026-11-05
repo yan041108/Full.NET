@@ -17258,6 +17258,7 @@ export async function tenancyGetSubscriptionInvoice(
 export interface TenancyGetSubscriptionRenewalPreviewParameters {
   readonly tenantId: string;
   readonly subscriptionId: string;
+  readonly targetPackageId?: string;
 }
 
 export async function tenancyGetSubscriptionRenewalPreview(
@@ -17266,7 +17267,11 @@ export async function tenancyGetSubscriptionRenewalPreview(
   signal?: AbortSignal,
   options?: RequestOptions
 ): Promise<TenantSubscriptionRenewalPreviewResponse> {
-  const path = `/api/v1/tenancy/tenants/${encodeURIComponent(String(parameters.tenantId))}/subscriptions/${encodeURIComponent(String(parameters.subscriptionId))}/renewal-preview`;
+  const query = new URLSearchParams();
+  if (parameters.targetPackageId !== undefined) {
+    query.set('targetPackageId', String(parameters.targetPackageId));
+  }
+  const path = query.size === 0 ? `/api/v1/tenancy/tenants/${encodeURIComponent(String(parameters.tenantId))}/subscriptions/${encodeURIComponent(String(parameters.subscriptionId))}/renewal-preview` : `/api/v1/tenancy/tenants/${encodeURIComponent(String(parameters.tenantId))}/subscriptions/${encodeURIComponent(String(parameters.subscriptionId))}/renewal-preview?${query.toString()}`;
   const init: RequestInit = { method: 'GET' };
   const value = await requestJsonOperation(http, path, init, signal, options);
   return readTenantSubscriptionRenewalPreviewResponse(value);

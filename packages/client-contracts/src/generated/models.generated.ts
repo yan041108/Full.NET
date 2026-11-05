@@ -7019,6 +7019,7 @@ export interface TenantSubscriptionRenewalPreviewResponse {
   readonly effectiveFromUtc: string;
   readonly offer: TenantPackageOfferResponse;
   readonly readAtUtc: string;
+  readonly sourcePackageId: string;
   readonly sourceSubscriptionId: string;
   readonly sourceVersion: number;
   readonly tenantId: string;

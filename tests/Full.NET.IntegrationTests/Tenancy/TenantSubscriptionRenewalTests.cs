@@ -22,9 +22,11 @@ namespace Full.NET.IntegrationTests.Tenancy;
 public sealed class TenantSubscriptionRenewalTests
 {
     [TestMethod]
-    [DataRow(DatabaseProvider.SqlServer)]
-    [DataRow(DatabaseProvider.MySql)]
-    public async Task Renewal_is_independent_serialized_and_does_not_replace_current_quota_early(DatabaseProvider provider)
+    [DataRow(DatabaseProvider.SqlServer, false)]
+    [DataRow(DatabaseProvider.MySql, false)]
+    [DataRow(DatabaseProvider.SqlServer, true)]
+    [DataRow(DatabaseProvider.MySql, true)]
+    public async Task Renewal_is_independent_serialized_and_does_not_replace_current_quota_early(DatabaseProvider provider, bool changePackage)
     {
         var cs = provider == DatabaseProvider.SqlServer ? await SharedDatabaseFixture.CreateSqlServerDatabaseAsync()
             : await SharedDatabaseFixture.CreateMySqlDatabaseAsync();
@@ -69,12 +71,30 @@ public sealed class TenantSubscriptionRenewalTests
         Assert.IsTrue((await billing.ApplyVerifiedPaymentAsync(paid)).IsSuccess);
         var preview = (await previewService.GetAsync(tenant, original.SubscriptionId, default)).Value!;
         Assert.AreEqual(original.EffectiveToUtc, preview.EffectiveFromUtc); Assert.AreEqual(2, preview.SourceVersion);
-        await VerifyPreviewAuthorizationAsync(factory, tenant, original.SubscriptionId);
+        await VerifyPreviewAuthorizationAsync(factory, tenant, original.SubscriptionId, packageId);
         await VerifyInvoiceHistoryAsync(factory, tenant, original, "Applied");
-        Assert.IsTrue((await offers.SaveAsync(packageId, new(tenant, merchant, 25000, "CNY", 1, 1, 60, [], true, 1), default)).IsSuccess);
-        preview = (await previewService.GetAsync(tenant, original.SubscriptionId, default)).Value!;
-        var request = new CreatePaidTenantSubscriptionRequest(packageId, preview.Offer.Version, preview.EffectiveFromUtc, Guid.CreateVersion7())
+        var targetPackageId = packageId;
+        if (changePackage)
+        {
+            var target = await sp.GetRequiredService<HostTenantPackageManagementService>().CreateAsync(new("next-" + Guid.NewGuid().ToString("N"), "Next period plan", null));
+            Assert.IsTrue(target.IsSuccess); targetPackageId = target.Value!.Id;
+            Assert.IsTrue((await offers.SaveAsync(targetPackageId, new(tenant, merchant, 25000, "CNY", 1, 1, 60, [], true, 0), default)).IsSuccess);
+            await db.ExecuteAsync("UPDATE fn_tenancy_tenant_package SET IsActive=0,Version=Version+1 WHERE Id=@Id", new { Id = packageId });
+            Assert.IsFalse((await previewService.GetAsync(tenant, original.SubscriptionId, default)).IsSuccess, "退出销售的原套餐不能原样续期");
+            await VerifyPreviewAuthorizationAsync(factory, tenant, original.SubscriptionId, packageId, targetPackageId);
+        }
+        else Assert.IsTrue((await offers.SaveAsync(packageId, new(tenant, merchant, 25000, "CNY", 1, 1, 60, [], true, 1), default)).IsSuccess);
+        preview = (await previewService.GetAsync(tenant, original.SubscriptionId, default, targetPackageId)).Value!;
+        Assert.AreEqual(packageId, preview.SourcePackageId); Assert.AreEqual(targetPackageId, preview.Offer.PackageId);
+        var request = new CreatePaidTenantSubscriptionRequest(targetPackageId, preview.Offer.Version, preview.EffectiveFromUtc, Guid.CreateVersion7())
             { RenewalOfSubscriptionId = original.SubscriptionId, RenewalSourceVersion = preview.SourceVersion };
+        if (changePackage)
+        {
+            await db.ExecuteAsync("UPDATE fn_tenancy_tenant_package SET IsActive=0,Version=Version+1 WHERE Id=@Id", new { Id = targetPackageId });
+            Assert.IsFalse((await previewService.GetAsync(tenant, original.SubscriptionId, default, targetPackageId)).IsSuccess);
+            Assert.IsFalse((await billing.CreateAsync(tenant, request, default)).IsSuccess, "停用目标不能创建下一周期");
+            await db.ExecuteAsync("UPDATE fn_tenancy_tenant_package SET IsActive=1,Version=Version+1 WHERE Id=@Id", new { Id = targetPackageId });
+        }
         Assert.IsFalse((await billing.CreateAsync(tenant, request with { RenewalSourceVersion = 1 }, default)).IsSuccess);
         Assert.IsFalse((await billing.CreateAsync(tenant, request with { EffectiveFromUtc = preview.EffectiveFromUtc.AddSeconds(1) }, default)).IsSuccess);
         Assert.IsFalse((await billing.CreateAsync(tenant, request with { PackageId = Guid.CreateVersion7() }, default)).IsSuccess);
@@ -82,12 +102,12 @@ public sealed class TenantSubscriptionRenewalTests
         var cancelled = await sp.GetRequiredService<TenantSubscriptionManagementService>().CancelAsync(tenant, original.SubscriptionId,
             new(preview.SourceVersion), default);
         Assert.IsTrue(cancelled.IsSuccess, cancelled.Error?.Code);
-        Assert.IsFalse((await billing.CreateAsync(tenant, originalRequest with { IdempotencyKey = Guid.CreateVersion7(), OfferVersion = 2 }, default)).IsSuccess,
+        Assert.IsFalse((await billing.CreateAsync(tenant, new(targetPackageId, preview.Offer.Version, clock.UtcNow, Guid.CreateVersion7()), default)).IsSuccess,
             "仍有效的已付款取消周期必须阻止普通新购");
         Assert.IsFalse((await sp.GetRequiredService<TenantSubscriptionManagementService>().CreateAsync(tenant,
-            new(packageId, TenantSubscriptionStatuses.Trial, clock.UtcNow.AddDays(30), clock.UtcNow, clock.UtcNow.AddDays(30)))).IsSuccess,
+            new(targetPackageId, TenantSubscriptionStatuses.Trial, clock.UtcNow.AddDays(30), clock.UtcNow, clock.UtcNow.AddDays(30)))).IsSuccess,
             "试用入口也不能绕过仍有效的已付款取消周期");
-        preview = (await previewService.GetAsync(tenant, original.SubscriptionId, default)).Value!;
+        preview = (await previewService.GetAsync(tenant, original.SubscriptionId, default, targetPackageId)).Value!;
         request = request with { RenewalSourceVersion = preview.SourceVersion };
         var results = await Task.WhenAll(CreateInOwnScope(request), CreateInOwnScope(request with { IdempotencyKey = Guid.CreateVersion7() }));
         Assert.AreEqual(1, results.Count(result => result.IsSuccess), "并发只能接受一个未来周期");
@@ -98,6 +118,8 @@ public sealed class TenantSubscriptionRenewalTests
         Assert.AreEqual(original.SubscriptionId, renewed.RenewalOfSubscriptionId); Assert.AreEqual(preview.SourceVersion, renewed.RenewalSourceVersion);
         Assert.AreEqual(original.EffectiveToUtc, renewed.EffectiveFromUtc); Assert.AreEqual(renewed.EffectiveFromUtc.AddDays(60), renewed.EffectiveToUtc);
         Assert.AreEqual(25000L, renewed.AmountMinor);
+        Assert.AreEqual(targetPackageId, renewed.PackageId);
+        Assert.AreEqual(packageId, await db.ExecuteScalarAsync<Guid>("SELECT TenantPackageId FROM fn_tenancy_tenant WHERE Id=@Tenant", new { Tenant = tenant }));
         await VerifyInvoiceHistoryAsync(factory, tenant, renewed, "Pending");
         var nextReceipt = Receipt(renewed, clock.UtcNow);
         Assert.IsFalse((await billing.ApplyVerifiedPaymentAsync(nextReceipt)).IsSuccess);
@@ -109,6 +131,7 @@ public sealed class TenantSubscriptionRenewalTests
         Assert.IsFalse((await billing.CreateAsync(tenant, accepted with { RenewalSourceVersion = 999 }, default)).IsSuccess);
         clock.UtcNow = renewed.EffectiveFromUtc.AddSeconds(1);
         Assert.IsTrue((await billing.ApplyVerifiedPaymentAsync(nextReceipt)).IsSuccess);
+        Assert.AreEqual(targetPackageId, await db.ExecuteScalarAsync<Guid>("SELECT TenantPackageId FROM fn_tenancy_tenant WHERE Id=@Tenant", new { Tenant = tenant }));
         await AssertQuotaAsync(renewed.SubscriptionId, 1);
         Assert.IsTrue((await billing.ApplyVerifiedRefundAsync(new(paid, Guid.CreateVersion7(), paid.AmountMinor))).IsSuccess);
         await AssertQuotaAsync(renewed.SubscriptionId, 1);
@@ -163,10 +186,11 @@ public sealed class TenantSubscriptionRenewalTests
         Assert.AreEqual(HttpStatusCode.NotFound, emptySubscription.StatusCode);
     }
 
-    private static async Task VerifyPreviewAuthorizationAsync(FullNetApiFactory factory, Guid tenant, Guid source)
+    private static async Task VerifyPreviewAuthorizationAsync(FullNetApiFactory factory, Guid tenant, Guid source, Guid sourcePackageId, Guid? targetPackageId = null)
     {
         using var client = factory.CreateClientForHost("localhost");
         var path = $"/api/v1/tenancy/tenants/{tenant:D}/subscriptions/{source:D}/renewal-preview";
+        if (targetPackageId is { } target) path += $"?targetPackageId={target:D}";
         using var anonymous = await client.GetAsync(path); Assert.AreEqual(HttpStatusCode.Unauthorized, anonymous.StatusCode);
         foreach (var missing in new[] { "tenancy.tenant_subscriptions.read", "tenancy.tenant_packages.read" })
         {
@@ -178,6 +202,7 @@ public sealed class TenantSubscriptionRenewalTests
         Assert.IsTrue(response.Headers.CacheControl!.NoStore);
         var preview = (await response.Content.ReadFromJsonAsync<TenantSubscriptionRenewalPreviewResponse>())!;
         Assert.AreEqual(tenant, preview.TenantId); Assert.AreEqual(source, preview.SourceSubscriptionId);
+        Assert.AreEqual(sourcePackageId, preview.SourcePackageId); Assert.AreEqual(targetPackageId ?? sourcePackageId, preview.Offer.PackageId);
     }
 
     private static TenantSubscriptionPaymentReceipt Receipt(TenantSubscriptionPaymentTerms terms, DateTimeOffset now) =>

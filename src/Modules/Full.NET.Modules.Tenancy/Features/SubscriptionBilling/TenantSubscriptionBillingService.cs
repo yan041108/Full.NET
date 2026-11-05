@@ -57,7 +57,7 @@ internal sealed partial class TenantSubscriptionBillingService(IQueryExecutor qu
                 if (!source.IsSuccess) return Result<TenantSubscriptionPaymentTerms>.Failure(source.Error!);
                 if (source.Value!.Version != request.RenewalSourceVersion)
                     return Failure<TenantSubscriptionPaymentTerms>(TenancyErrorCodes.SubscriptionVersionConflict, ErrorType.Conflict);
-                if (source.Value.PackageId != request.PackageId || source.Value.CurrentPeriodEndUtc != start)
+                if (source.Value.CurrentPeriodEndUtc != start)
                     return Failure<TenantSubscriptionPaymentTerms>(TenancyErrorCodes.SubscriptionPeriodInvalid, ErrorType.Validation);
             }
             var count = await queries.QuerySingleOrDefaultAsync<long>(TenantSubscriptionSql.CountBlockingCreation,

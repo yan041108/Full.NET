@@ -219,7 +219,7 @@ for (const width of [1440, 390]) {
     await page.route(`**/api/v1/tenancy/tenants/${tenantId}/subscriptions?*`, r => json(r, { items: [source], total: 1, page: 1, pageSize: 20 }));
     let previews = 0, purchases = [], checkouts = 0;
     await page.route(`**/api/v1/tenancy/tenants/${tenantId}/subscriptions/${subscriptionId}/renewal-preview`, r => {
-      previews++; return json(r, { tenantId, sourceSubscriptionId: subscriptionId, sourceVersion: 2,
+      previews++; return json(r, { tenantId, sourceSubscriptionId: subscriptionId, sourcePackageId: packageId, sourceVersion: 2,
         effectiveFromUtc: source.currentPeriodEndUtc, readAtUtc: '2026-11-05T00:00:00Z', offer });
     });
     await page.route(`**/api/v1/tenancy/tenants/${tenantId}/subscriptions/paid`, r => {
@@ -323,5 +323,55 @@ for (const width of [1440, 390]) {
     expect(detailIds).toEqual([subscriptionId, sourceId]); expect(lists).toBe(1); expect(invoiceReads).toBe(1); expect(writes).toBe(0);
     expect((await new AxeBuilder({ page }).include('.art-form-dialog').withTags(['wcag2a', 'wcag2aa']).analyze()).violations).toEqual([]);
     await page.getByRole('dialog').last().screenshot({ path: info.outputPath('renewal-source-' + width + '.png'), animations: 'disabled' });
+  });
+}
+
+for (const width of [1440, 390]) {
+  test('下周期迁往新套餐并原样恢复独立账单 ' + width, async ({ page }, info) => {
+    await page.setViewportSize({ width: 1440, height: 1000 }); await setup(page);
+    const next = { ...pkg, id: id(40), name: 'Next billing plan', assignedTenantCount: 0 };
+    const nextOffer = { ...offer, packageId: next.id, version: 1, amountMinor: 25000, durationDays: 60, seatLimit: 1, storageLimit: 1 };
+    const source = { id: subscriptionId, tenantId, packageId, status: 'Active', version: 2, trialEndsAtUtc: null,
+      currentPeriodStartUtc: '2026-11-01T00:00:00Z', currentPeriodEndUtc: '2026-12-01T00:00:00Z', cancelledAtUtc: null };
+    await page.route('**/api/v1/tenancy/tenant-packages?*', r => json(r, { items: [{ ...pkg, isActive: false }, next], total: 2, page: 1,
+      pageSize: Number(new URL(r.request().url()).searchParams.get('pageSize')) }));
+    await page.route(`**/api/v1/tenancy/tenants/${tenantId}/subscriptions?*`, r => json(r, { items: [source], total: 1, page: 1, pageSize: 20 }));
+    let previews = 0, checkouts = 0; const purchases = [];
+    await page.route(`**/api/v1/tenancy/tenants/${tenantId}/subscriptions/${subscriptionId}/renewal-preview?*`, r => {
+      previews++; expect(new URL(r.request().url()).searchParams.get('targetPackageId')).toBe(next.id);
+      return json(r, { tenantId, sourceSubscriptionId: subscriptionId, sourcePackageId: packageId, sourceVersion: 2,
+        effectiveFromUtc: source.currentPeriodEndUtc, offer: nextOffer, readAtUtc: '2026-11-05T00:00:00Z' });
+    });
+    await page.route(`**/api/v1/tenancy/tenants/${tenantId}/subscriptions/paid`, r => {
+      const body = r.request().postDataJSON(); purchases.push(body);
+      if (purchases.length === 1) return json(r, { status: 503, title: 'unconfirmed', code: 'test.unconfirmed' }, 503);
+      return json(r, { subscriptionId: id(41), tenantId, paymentTenantId: tenantId, paymentOperationId: id(42), merchantConfigId: merchantId,
+        packageId: next.id, offerVersion: 1, amountMinor: 25000, currency: 'CNY', effectiveFromUtc: body.effectiveFromUtc,
+        effectiveToUtc: '2027-01-30T00:00:00Z', subject: 'Frozen replacement plan', renewalOfSubscriptionId: subscriptionId, renewalSourceVersion: 2 });
+    });
+    await page.route('**/checkout', r => { checkouts++; return r.abort(); });
+    await page.goto('/#/tenants'); await page.getByRole('link', { name: '租户管理', exact: true }).click(); await page.setViewportSize({ width, height: 1000 });
+    await page.getByTestId('tenants-action-subscriptions').click(); await expect(page.getByTestId('subscription-renewal')).toHaveCount(0);
+    await page.getByTestId('subscription-package-change').click(); let modal = page.getByRole('dialog').last();
+    await expect(page.getByTestId('package-change-source')).toHaveText(packageId); await expect(page.getByTestId('paid-subscription-confirm')).toHaveCount(0);
+    await modal.getByRole('combobox').focus(); await page.keyboard.press('ArrowDown'); await expect(page.getByRole('option')).toHaveCount(1);
+    await page.getByRole('option', { name: next.name, exact: true }).click();
+    await expect(modal.getByRole('button', { name: '读取报价', exact: true })).toBeEnabled();
+    await modal.getByRole('button', { name: '读取报价', exact: true }).click(); await expect(page.getByTestId('paid-subscription-start')).toHaveValue(source.currentPeriodEndUtc);
+    await expect(page.getByTestId('paid-subscription-start')).toHaveAttribute('readonly', ''); await expect(modal).toContainText(next.id); expect(purchases).toHaveLength(0);
+    await expect(modal.getByRole('combobox')).toHaveCount(0);
+    await expect(page.getByTestId('package-change-target-reset')).toBeVisible();
+    expect((await new AxeBuilder({ page }).include('.art-form-dialog').withTags(['wcag2a', 'wcag2aa']).analyze()).violations).toEqual([]);
+    await modal.screenshot({ path: info.outputPath('package-change-proposal-' + width + '.png'), animations: 'disabled' });
+    await page.getByTestId('paid-subscription-confirm').click(); await expect(page.getByTestId('subscription-invoice-recovery')).toBeVisible();
+    expect((await new AxeBuilder({ page }).include('.art-form-dialog').withTags(['wcag2a', 'wcag2aa']).analyze()).violations).toEqual([]);
+    await modal.screenshot({ path: info.outputPath('package-change-unconfirmed-' + width + '.png'), animations: 'disabled' });
+    await modal.getByRole('button', { name: '关闭', exact: true }).click(); await page.getByTestId('subscription-package-change').click();
+    await page.getByTestId('paid-subscription-confirm').click(); modal = page.getByRole('dialog').last(); await expect(modal).toContainText('Frozen replacement plan');
+    await expect(modal).toContainText(next.id); await expect(modal).toContainText(source.currentPeriodEndUtc);
+    expect(purchases).toHaveLength(2); expect(purchases[1]).toEqual(purchases[0]); expect(purchases[0]).toMatchObject({ packageId: next.id, offerVersion: 1,
+      renewalOfSubscriptionId: subscriptionId, renewalSourceVersion: 2, effectiveFromUtc: source.currentPeriodEndUtc });
+    expect(previews).toBe(1); expect(checkouts).toBe(0);
+    await modal.screenshot({ path: info.outputPath('package-change-created-' + width + '.png'), animations: 'disabled' });
   });
 }

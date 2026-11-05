@@ -37,20 +37,21 @@ public sealed record TenantPackageOfferResponse(Guid PackageId, Guid PaymentTena
 public sealed record CreatePaidTenantSubscriptionRequest(Guid PackageId, int OfferVersion,
     DateTimeOffset EffectiveFromUtc, Guid IdempotencyKey)
 {
-    /// <summary>提前续期所依据的原订阅，必须与来源版本同时提供。</summary>
+    /// <summary>下一周期所依据的原订阅，必须与来源版本同时提供。</summary>
     public Guid? RenewalOfSubscriptionId { get; init; }
     /// <summary>确认提案时见到的原订阅版本；创建时在租户根锁内复核。</summary>
     public int? RenewalSourceVersion { get; init; }
 }
 
-/// <summary>同套餐续期提案；固定下一周期起点，创建时仍须重新校验来源与报价。</summary>
+/// <summary>下一周期提案；固定起点并区分原套餐与目标报价，创建时仍须重新校验。</summary>
 /// <param name="TenantId">权益受益企业。</param>
 /// <param name="SourceSubscriptionId">已履约的当前周期。</param>
+/// <param name="SourcePackageId">原周期套餐；允许退出销售后显式选择其他活动套餐。</param>
 /// <param name="SourceVersion">原订阅版本。</param>
 /// <param name="EffectiveFromUtc">固定为原周期结束时间。</param>
 /// <param name="Offer">当前发布的同套餐报价。</param>
 /// <param name="ReadAtUtc">服务器读取时间。</param>
-public sealed record TenantSubscriptionRenewalPreviewResponse(Guid TenantId, Guid SourceSubscriptionId,
+public sealed record TenantSubscriptionRenewalPreviewResponse(Guid TenantId, Guid SourceSubscriptionId, Guid SourcePackageId,
     int SourceVersion, DateTimeOffset EffectiveFromUtc, TenantPackageOfferResponse Offer, DateTimeOffset ReadAtUtc);
 
 /// <summary>原冻结账单的只读快照；历史接收阶段不替代当前资金或权益判断。</summary>

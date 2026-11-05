@@ -2,6 +2,9 @@ import type { SupportedLocale } from '@fullnet/admin-i18n';
 
 // 资金和权益状态使用独立固定文案，不能把渠道成功误显示为已完成授权。
 const zh = {
+  packageChangeRejected: '目标套餐已停止接受新账单，本次未创建。请重新选择活动套餐并读取新提案。', packageChangeReselect: '重新选择新周期套餐',
+  packageChange: '下周期换套餐', sourcePackage: '原周期套餐 ID', targetPackage: '新周期套餐',
+  packageChangePolicy: '选择其他活动套餐，按其当前报价创建独立账单，起点固定为原付费周期结束。新周期实际履约后切换套餐和限额，保留已有用量与预留；两个周期各自取消和退款，不做比例结算或自动抵扣。',
   invoiceReadSource: '查看原续期来源',
   frozenInvoice: '原冻结付费账单', invoiceRead: '读取原账单', invoiceRefresh: '刷新原账单', invoiceSubject: '原商品名称', invoiceSourceVersion: '原续期来源版本', invoicePaymentOrder: '已接收的付款订单',
   invoicePhase: '账单事实接收阶段', invoicePending: '本账单待履约', invoiceApplied: '本账单已履约', invoiceRefunded: '已接收退款事实',
@@ -56,6 +59,9 @@ const zh = {
   safeRetry: '网络重试复用原账单；履约重试不会再次扣款。'
 };
 const en: Record<keyof typeof zh, string> = {
+  packageChangeRejected: 'The target plan is no longer accepting new invoices. No invoice was created. Choose an active plan and read a new proposal.', packageChangeReselect: 'Choose another next period plan',
+  packageChange: 'Change next period plan', sourcePackage: 'Previous period package ID', targetPackage: 'Next period plan',
+  packageChangePolicy: 'Choose another active plan and create an independent invoice using its current offer, starting at the end of the paid period. Fulfillment switches the plan and limits while preserving existing usage and reservations. Each period is cancelled and refunded separately, without prorating or automatic credit.',
   invoiceReadSource: 'Read renewal source',
   frozenInvoice: 'Original frozen invoice', invoiceRead: 'Read original invoice', invoiceRefresh: 'Refresh original invoice', invoiceSubject: 'Original product name', invoiceSourceVersion: 'Renewal source version', invoicePaymentOrder: 'Received payment order',
   invoicePhase: 'Invoice receipt phase', invoicePending: 'This invoice is pending fulfillment', invoiceApplied: 'This invoice was fulfilled', invoiceRefunded: 'Refund fact received',

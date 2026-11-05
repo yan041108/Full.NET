@@ -1,6 +1,5 @@
 using Full.NET.Abstractions.Results;
 using Full.NET.Modules.Tenancy.Contracts;
-using Full.NET.Modules.Tenancy.Features.ManageHostTenantPackages;
 using Full.NET.Modules.Tenancy.Features.ManageTenantEntitlements.Persistence;
 using Full.NET.Modules.Tenancy.Features.ManageTenantSubscriptions.Persistence;
 using Full.NET.Modules.Tenancy.Persistence;
@@ -31,9 +30,7 @@ internal sealed partial class TenantSubscriptionBillingService
             || invoice is not { Phase: "Applied" } || source.PackageId != invoice.PackageId
             || source.CurrentPeriodStartUtc != invoice.EffectiveFromUtc || source.CurrentPeriodEndUtc != invoice.EffectiveToUtc)
             return Failure<TenantSubscriptionRecord>(TenancyErrorCodes.SubscriptionStatusInvalid, ErrorType.Conflict);
-        var package = await queries.QuerySingleOrDefaultAsync<TenantPackageIdentityRecord>(TenantPackageSql.FindPackageById,
-            TenancySqlParameters.Create(("PackageId", invoice.PackageId)), token).ConfigureAwait(false);
-        return package is { IsActive: true } ? Result<TenantSubscriptionRecord>.Success(source)
-            : Failure<TenantSubscriptionRecord>(TenancyErrorCodes.PackageInactive, ErrorType.BusinessRule);
+        // 来源资格由原已付款周期决定；目标套餐的销售状态由预览和创建分别复核。
+        return Result<TenantSubscriptionRecord>.Success(source);
     }
 }

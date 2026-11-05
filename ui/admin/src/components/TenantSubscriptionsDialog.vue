@@ -195,6 +195,9 @@ function paidCreated() { emit('changed'); status.value = ''; page.value = 1; voi
         <PaidSubscriptionPurchase v-if="canManage && ['Active', 'Cancelled'].includes(row.status) && row.packageId && tenant?.isActive"
           :key="'renewal-' + row.id" renewal :tenant-id="tenant.id" :packages="packages" :source="{ subscriptionId: row.id, packageId: row.packageId }"
           :disabled="loading || !hasRead || uncertain" @created="paidCreated" @dialog-open="paidOpen = $event" />
+        <PaidSubscriptionPurchase v-if="canManage && ['Active', 'Cancelled'].includes(row.status) && row.packageId && tenant?.isActive"
+          :key="'package-change-' + row.id" change-package :tenant-id="tenant.id" :packages="packages" :source="{ subscriptionId: row.id, packageId: row.packageId }"
+          :disabled="loading || !hasRead || uncertain" @created="paidCreated" @dialog-open="paidOpen = $event" />
         <PaidSubscriptionPurchase v-if="canManage && row.status === 'Expired' && row.packageId && tenant?.isActive && session.can('tenancy.tenant_packages.read')"
           :key="'repurchase-' + row.id" :tenant-id="tenant.id" :packages="packages" :source="{ subscriptionId: row.id, packageId: row.packageId }"
           :disabled="loading || !hasRead || uncertain || hasActive" @created="paidCreated" @dialog-open="paidOpen = $event" />
