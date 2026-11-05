@@ -27,6 +27,7 @@ import ArtTableActionGroup from '../framework/art-design/components/ArtTableActi
 import ArtTableHeader from '../framework/art-design/components/ArtTableHeader.vue';
 import { useArtCrudTableLayout } from '../framework/art-design/composables/useArtCrudTableLayout';
 import PermissionGate from '../components/PermissionGate.vue';
+import PaymentMerchantDetailDialog from '../components/PaymentMerchantDetailDialog.vue';
 import { useAdminI18n } from '../i18n/adminI18n';
 import { useSessionStore } from '../auth/session';
 import { useAuthorizedViewScope } from '../composables/useAuthorizedViewScope';
@@ -77,6 +78,8 @@ const editorForm = reactive({
 });
 
 const isAlipayPage = computed(() => editorForm.channelKey === 'alipay_page');
+const detailOpen = ref(false), detailInput = ref(''), detailTargetId = ref('');
+const detailReference = ref<Pick<PaymentMerchantConfigListItem, 'tenantId' | 'channelKey' | 'version'>>();
 const filters = reactive({ tenantId: '', channel: 'all', enabled: 'all', name: '' });
 let appliedFilters = { ...filters }; let invalidFilters = false; let listSequence = 0; let editSequence = 0;
 let listPending: { cancel(): void } | undefined; let editPending: { cancel(): void } | undefined;
@@ -88,6 +91,7 @@ function resetEditor() { editorOpen.value = false; editing.value = null; Object.
 function clearList() { listSequence++; listPending?.cancel(); listPending = undefined; items.value = []; loading.value = false; }
 const scope = useAuthorizedViewScope(session, () => {
   clearList(); total.value = 0; page.value = 1; problem.value = undefined; resetEditor(); disableTarget.value = undefined; changing.value = false;
+  detailOpen.value = false; detailInput.value = ''; detailTargetId.value = ''; detailReference.value = undefined;
   editSequence++; editPending?.cancel(); editPending = undefined;
   Object.assign(filters, { tenantId: '', channel: 'all', enabled: 'all', name: '' }); appliedFilters = { ...filters }; invalidFilters = false;
 }, () => { void load(); });
@@ -151,6 +155,13 @@ function search() {
 }
 function resetFilters() { Object.assign(filters, { tenantId: '', channel: 'all', enabled: 'all', name: '' }); search(); }
 function changePage(value: number) { if (value !== page.value) { page.value = value; void load(); } }
+function readDetail(row?: PaymentMerchantConfigListItem) {
+  if (!canRead.value) return; const id = (row?.id ?? detailInput.value).trim();
+  if (!validId(id)) { problem.value = { type: 'about:blank', status: 400, code: 'client.invalid_merchant_id', title: text('invalidId') }; return; }
+  if (problem.value?.code === 'client.invalid_merchant_id') problem.value = undefined;
+  detailInput.value = id; detailTargetId.value = id; detailReference.value = row ? { tenantId: row.tenantId, channelKey: row.channelKey, version: row.version } : undefined;
+  detailOpen.value = true;
+}
 
 function openCreate(): void {
   if (!host.value || !session.can('payments.merchants.create') || changing.value) return;
@@ -299,6 +310,10 @@ onBeforeUnmount(() => viewportQuery?.removeEventListener?.('change', updateViewp
         <div class="merchant-filter-actions"><ElButton native-type="submit" :disabled="!canRead" data-testid="merchant-filter-search">{{ text('search') }}</ElButton><ElButton :disabled="!canRead" data-testid="merchant-filter-reset" @click="resetFilters">{{ text('reset') }}</ElButton></div>
       </ElForm>
       <p class="merchant-filter-hint">{{ text('hint') }}</p>
+      <ElForm class="merchant-lookup" label-position="top" @submit.prevent="readDetail()">
+        <ElFormItem :label="text('id')"><ElInput v-model="detailInput" data-testid="merchant-exact-id" /></ElFormItem>
+        <ElButton native-type="submit" :disabled="!canRead" data-testid="merchant-read-id">{{ text('readById') }}</ElButton>
+      </ElForm>
       <ArtTableHeader @refresh="load">
         <template #left>
           <PermissionGate code="payments.merchants.create">
@@ -335,6 +350,7 @@ onBeforeUnmount(() => viewportQuery?.removeEventListener?.('change', updateViewp
           <el-table-column :label="t('paymentMerchantConfigs.actions')" width="180" :fixed="narrowViewport ? undefined : 'right'">
             <template #default="{ row }">
               <ArtTableActionGroup>
+                <ElButton v-if="canRead" link type="primary" :data-testid="`merchant-detail-${row.id}`" @click="readDetail(row)">{{ text('detail') }}</ElButton>
                 <PermissionGate code="payments.merchants.update">
                   <ArtTableActionButton type="edit" :disabled="changing || !canRead" :test-id="`merchant-edit-${row.id}`" :title="t('paymentMerchantConfigs.actionEdit')" :aria-label="t('paymentMerchantConfigs.actionEdit')" @click="openEdit(row)" />
                   <ArtTableActionButton type="delete" :disabled="changing || !row.isEnabled || !host" :test-id="`merchant-disable-${row.id}`" :title="t('paymentMerchantConfigs.actionDisable')" :aria-label="t('paymentMerchantConfigs.actionDisable')" @click="disableRow(row)" />
@@ -354,6 +370,7 @@ onBeforeUnmount(() => viewportQuery?.removeEventListener?.('change', updateViewp
       />
     </el-card>
 
+    <PaymentMerchantDetailDialog v-model:open="detailOpen" :merchant-config-id="detailTargetId" :reference="detailReference" />
     <ArtFormDialog :open="!!disableTarget && host && session.can('payments.merchants.update')" :title="t('paymentMerchantConfigs.actionDisable')" :saving="changing"
       :confirm-disabled="changing" :confirm-label="text('confirm')" :cancel-label="text('close')" confirm-test-id="merchant-disable-confirm" trap-focus
       width="min(560px, calc(100vw - 32px))" @update:open="disableTarget = undefined" @confirm="confirmDisable">
@@ -419,4 +436,6 @@ onBeforeUnmount(() => viewportQuery?.removeEventListener?.('change', updateViewp
 .merchant-filter-actions { display: flex; align-items: end; gap: 8px; padding-bottom: 8px; flex-wrap: wrap; }
 .merchant-filter-actions :deep(.el-button + .el-button) { margin-left: 0; }
 .merchant-filter-hint, .merchant-identity { overflow-wrap: anywhere; }
+.merchant-lookup { display: flex; align-items: end; flex-wrap: wrap; gap: 8px 12px; margin-bottom: 16px; }
+.merchant-lookup :deep(.el-form-item) { width: min(420px, 100%); margin-bottom: 0; }
 </style>

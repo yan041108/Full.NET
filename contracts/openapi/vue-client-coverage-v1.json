@@ -1654,6 +1654,7 @@
       "apiModule": "ui/admin/src/api/payment-merchant-configs.ts",
       "consumers": [
         "ui/admin/src/views/PaymentMerchantConfigsView.vue",
+        "ui/admin/src/components/PaymentMerchantDetailDialog.vue",
         "ui/admin/src/views/PaymentOrdersView.vue"
       ]
     },
