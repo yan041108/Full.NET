@@ -61326,6 +61326,54 @@
         ]
       }
     },
+    "/api/v1/tenancy/tenants/{tenantId}/subscriptions/{subscriptionId}/renewal-preview": {
+      "get": {
+        "operationId": "tenancyGetSubscriptionRenewalPreview",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "tenantId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "subscriptionId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TenantSubscriptionRenewalPreviewResponse"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          },
+          {
+            "ApiKey": []
+          }
+        ],
+        "tags": [
+          "TenancySubscriptionBilling"
+        ]
+      }
+    },
     "/api/v1/tenancy/tenants/{tenantId}/subscriptions/paid": {
       "post": {
         "operationId": "tenancyCreatePaidSubscription",
@@ -82873,6 +82921,22 @@
           "packageId": {
             "format": "uuid",
             "type": "string"
+          },
+          "renewalOfSubscriptionId": {
+            "format": "uuid",
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "renewalSourceVersion": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ]
           }
         },
         "required": [
@@ -104643,6 +104707,22 @@
             "format": "uuid",
             "type": "string"
           },
+          "renewalOfSubscriptionId": {
+            "format": "uuid",
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "renewalSourceVersion": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ]
+          },
           "subject": {
             "type": "string"
           },
@@ -104668,6 +104748,46 @@
           "effectiveFromUtc",
           "effectiveToUtc",
           "subject"
+        ],
+        "type": "object"
+      },
+      "TenantSubscriptionRenewalPreviewResponse": {
+        "properties": {
+          "effectiveFromUtc": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "offer": {
+            "$ref": "#/components/schemas/TenantPackageOfferResponse"
+          },
+          "readAtUtc": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "sourceSubscriptionId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "sourceVersion": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "tenantId": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "tenantId",
+          "sourceSubscriptionId",
+          "sourceVersion",
+          "effectiveFromUtc",
+          "offer",
+          "readAtUtc"
         ],
         "type": "object"
       },

@@ -43,7 +43,13 @@ public interface ITenantSubscriptionBillingPort
 /// <param name="Subject">冻结商品名称，重试不会随套餐改名或界面语言变化。</param>
 public sealed record TenantSubscriptionPaymentTerms(Guid SubscriptionId, Guid TenantId, Guid PaymentTenantId,
     Guid PaymentOperationId, Guid MerchantConfigId, Guid PackageId, int OfferVersion, long AmountMinor,
-    string Currency, DateTimeOffset EffectiveFromUtc, DateTimeOffset EffectiveToUtc, string Subject);
+    string Currency, DateTimeOffset EffectiveFromUtc, DateTimeOffset EffectiveToUtc, string Subject)
+{
+    /// <summary>本次独立账单的续期来源；普通购买为空。</summary>
+    public Guid? RenewalOfSubscriptionId { get; init; }
+    /// <summary>创建账单时核验的来源版本。</summary>
+    public int? RenewalSourceVersion { get; init; }
+}
 
 /// <summary>已验证支付事实；金额、商户、收款和受益租户均须匹配原报价。</summary>
 /// <param name="SubscriptionId">原订阅。</param>

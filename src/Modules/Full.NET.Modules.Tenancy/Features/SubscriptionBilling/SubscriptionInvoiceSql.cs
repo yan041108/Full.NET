@@ -6,7 +6,7 @@ namespace Full.NET.Modules.Tenancy.Features.SubscriptionBilling;
 /// <summary>订阅根写入统一先锁租户，再锁报价/账单；资金事实与权益只在本模块事务内收敛。</summary>
 internal static class SubscriptionInvoiceSql
 {
-    private const string Columns = "Id,TenantId,RequestId,RequestHash,PackageId,PackageVersion,OfferVersion,PaymentTenantId,MerchantConfigId,PaymentOperationId,PaymentOrderId,ProviderTransactionId,AmountMinor,Currency,SeatLimit,StorageLimit,EffectiveFromUtc,EffectiveToUtc,Phase,LastRefundId,RefundAmountMinor,CreatedAtUtc,UpdatedAtUtc,Version,Subject";
+    private const string Columns = "Id,TenantId,RequestId,RequestHash,PackageId,PackageVersion,OfferVersion,PaymentTenantId,MerchantConfigId,PaymentOperationId,PaymentOrderId,ProviderTransactionId,AmountMinor,Currency,SeatLimit,StorageLimit,EffectiveFromUtc,EffectiveToUtc,Phase,LastRefundId,RefundAmountMinor,CreatedAtUtc,UpdatedAtUtc,Version,Subject,RenewalOfSubscriptionId,RenewalSourceVersion";
     internal static readonly SqlStatement LockTenantSqlServer = new("tenancy.subscription_billing.lock_tenant.sql_server",
         "SELECT Id FROM fn_tenancy_tenant WITH (UPDLOCK,HOLDLOCK) WHERE Id=@TenantId AND (@RequireActive=0 OR LifecycleStatus='Active')", SqlDataScope.HostOnly);
     internal static readonly SqlStatement LockTenantMySql = new("tenancy.subscription_billing.lock_tenant.my_sql",
@@ -40,7 +40,7 @@ internal static class SubscriptionInvoiceSql
         INSERT INTO fn_tenancy_subscription_invoice ({Columns}) VALUES
           (@Id,@TenantId,@RequestId,@RequestHash,@PackageId,@PackageVersion,@OfferVersion,@PaymentTenantId,@MerchantConfigId,
            @PaymentOperationId,NULL,NULL,@AmountMinor,@Currency,@SeatLimit,@StorageLimit,@EffectiveFromUtc,@EffectiveToUtc,
-           'Pending',NULL,0,@Now,@Now,1,@Subject)
+           'Pending',NULL,0,@Now,@Now,1,@Subject,@RenewalOfSubscriptionId,@RenewalSourceVersion)
         """, SqlDataScope.HostOnly);
     internal static readonly SqlStatement InsertEntitlement = new("tenancy.subscription_invoice.insert_entitlement", """
         INSERT INTO fn_tenancy_invoice_entitlement (Id,InvoiceId,EntitlementId,EntitlementCode,CreatedAtUtc)
@@ -88,10 +88,12 @@ internal sealed record SubscriptionInvoiceRecord(Guid Id, Guid TenantId, Guid Re
     Guid PackageId, int PackageVersion, int OfferVersion, Guid PaymentTenantId, Guid MerchantConfigId,
     Guid PaymentOperationId, Guid? PaymentOrderId, string? ProviderTransactionId, long AmountMinor, string Currency,
     long SeatLimit, long StorageLimit, DateTimeOffset EffectiveFromUtc, DateTimeOffset EffectiveToUtc, string Phase,
-    Guid? LastRefundId, long RefundAmountMinor, DateTimeOffset CreatedAtUtc, DateTimeOffset UpdatedAtUtc, int Version, string Subject)
+    Guid? LastRefundId, long RefundAmountMinor, DateTimeOffset CreatedAtUtc, DateTimeOffset UpdatedAtUtc, int Version, string Subject,
+    Guid? RenewalOfSubscriptionId = null, int? RenewalSourceVersion = null)
 {
     internal TenantSubscriptionPaymentTerms Terms() => new(Id, TenantId, PaymentTenantId, PaymentOperationId,
-        MerchantConfigId, PackageId, OfferVersion, AmountMinor, Currency, EffectiveFromUtc, EffectiveToUtc, Subject);
+        MerchantConfigId, PackageId, OfferVersion, AmountMinor, Currency, EffectiveFromUtc, EffectiveToUtc, Subject)
+        { RenewalOfSubscriptionId = RenewalOfSubscriptionId, RenewalSourceVersion = RenewalSourceVersion };
 }
 
 /// <summary>订阅实际获得的目录快照；授权仍要求当前目录有效。</summary>

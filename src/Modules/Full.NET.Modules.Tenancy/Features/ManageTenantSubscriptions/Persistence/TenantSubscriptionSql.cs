@@ -23,6 +23,16 @@ internal static class TenantSubscriptionSql
         WHERE TenantId = @TenantId AND Status IN ('Trial', 'Active', 'PastDue')
         """, SqlDataScope.HostOnly);
 
+    // 取消续订不撤销已付款周期；新建只能排除经过验证的唯一续期来源。
+    internal static readonly SqlStatement CountBlockingCreation = new("tenancy.subscriptions.count_blocking_creation", """
+        SELECT COUNT(1) FROM fn_tenancy_tenant_subscription s
+        WHERE s.TenantId=@TenantId AND (@IgnoredSubscriptionId IS NULL OR s.Id<>@IgnoredSubscriptionId) AND (
+          s.Status IN ('Trial','Active','PastDue') OR (
+            s.Status='Cancelled' AND s.CurrentPeriodStartUtc<=@NowUtc AND s.CurrentPeriodEndUtc>@NowUtc
+            AND EXISTS (SELECT 1 FROM fn_tenancy_subscription_invoice i
+              WHERE i.Id=s.Id AND i.TenantId=s.TenantId AND i.Phase='Applied')))
+        """, SqlDataScope.HostOnly);
+
     public static readonly SqlStatement FindById = new(
         "tenancy.subscriptions.find_by_id",
         """

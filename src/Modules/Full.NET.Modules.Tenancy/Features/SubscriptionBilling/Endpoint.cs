@@ -13,6 +13,16 @@ internal static class Endpoint
 {
     internal static void Map(IEndpointRouteBuilder endpoints)
     {
+        endpoints.MapGet("/api/v1/tenancy/tenants/{tenantId:guid}/subscriptions/{subscriptionId:guid}/renewal-preview", async (
+            Guid tenantId, Guid subscriptionId, TenantSubscriptionRenewalPreviewService service,
+            IApiResultMapper mapper, HttpContext context, CancellationToken token) =>
+        {
+            context.Response.Headers.CacheControl = "no-store";
+            return mapper.Map(await service.GetAsync(tenantId, subscriptionId, token).ConfigureAwait(false), context);
+        }).WithName("tenancyGetSubscriptionRenewalPreview").WithTags("TenancySubscriptionBilling")
+            .Produces<TenantSubscriptionRenewalPreviewResponse>()
+            .RequireAuthorization(FullNetPermissionPolicies.For(TenancyTenantSubscriptionPermissions.Read),
+                FullNetPermissionPolicies.For(TenancyTenantPackagePermissions.Read));
         endpoints.MapGet("/api/v1/tenancy/tenant-packages/{packageId:guid}/offer", async (
             Guid packageId, TenantPackageOfferService service, IApiResultMapper mapper, HttpContext context, CancellationToken token) =>
             mapper.Map(await service.GetAsync(packageId, token).ConfigureAwait(false), context))

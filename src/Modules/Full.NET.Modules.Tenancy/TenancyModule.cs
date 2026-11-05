@@ -103,6 +103,7 @@ public sealed class TenancyModule : IFullNetModule
         services.AddScoped<Features.ManageTenantSubscriptions.TenantSubscriptionQueryService>();
         services.AddScoped<Features.ManageTenantSubscriptions.TenantSubscriptionManagementService>();
         services.TryAddScoped<Features.SubscriptionBilling.TenantPackageOfferService>();
+        services.TryAddScoped<Features.SubscriptionBilling.TenantSubscriptionRenewalPreviewService>();
         services.TryAddScoped<ITenantQuotaReservationService, Features.ReserveTenantQuota.TenantQuotaReservationService>();
         services.AddScoped<Features.ReserveTenantQuota.TenantQuotaReservationService>();
         services.AddScoped<ITenantMemberSeatQuotaPort, Features.ReserveTenantQuota.TenantMemberSeatQuotaPort>();

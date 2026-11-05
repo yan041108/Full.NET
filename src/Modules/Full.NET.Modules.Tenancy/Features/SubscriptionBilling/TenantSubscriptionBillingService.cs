@@ -29,13 +29,19 @@ internal sealed partial class TenantSubscriptionBillingService(IQueryExecutor qu
         CancellationToken token, Guid? actorUserId = null)
     {
         if (tenantId == Guid.Empty || request.PackageId == Guid.Empty || request.IdempotencyKey == Guid.Empty
-            || request.OfferVersion < 1 || request.EffectiveFromUtc.Year is < 2000 or > 9988)
+            || request.OfferVersion < 1 || request.EffectiveFromUtc.Year is < 2000 or > 9988
+            || request.RenewalOfSubscriptionId.HasValue != request.RenewalSourceVersion.HasValue
+            || request.RenewalOfSubscriptionId == Guid.Empty || request.RenewalSourceVersion is < 1)
             return Task.FromResult(Failure<TenantSubscriptionPaymentTerms>("tenancy.subscription_billing.invalid", ErrorType.Validation));
         // 两种正式提供程序共同保留微秒；首次响应、持久化与幂等重放必须使用相同精度。
         var utc = request.EffectiveFromUtc.ToUniversalTime();
         var start = utc.AddTicks(-(utc.Ticks % 10));
-        var hash = Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(string.Join("|",
-            request.PackageId.ToString("D"), request.OfferVersion.ToString(CultureInfo.InvariantCulture), start.ToString("O", CultureInfo.InvariantCulture)))));
+        var identity = string.Join("|", request.PackageId.ToString("D"),
+            request.OfferVersion.ToString(CultureInfo.InvariantCulture), start.ToString("O", CultureInfo.InvariantCulture));
+        if (request.RenewalOfSubscriptionId is { } sourceId)
+            identity = string.Join("|", "renewal", sourceId.ToString("D"),
+                request.RenewalSourceVersion!.Value.ToString(CultureInfo.InvariantCulture), identity);
+        var hash = Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(identity)));
         return transaction.ExecuteResultAsync(async local =>
         {
             if (!await boundary.EnterAsync(tenantId, local).ConfigureAwait(false))
@@ -45,8 +51,18 @@ internal sealed partial class TenantSubscriptionBillingService(IQueryExecutor qu
             if (previous is not null)
                 return previous.RequestHash == hash ? Result<TenantSubscriptionPaymentTerms>.Success(previous.Terms())
                     : Failure<TenantSubscriptionPaymentTerms>("tenancy.subscription_billing.request_conflict", ErrorType.Conflict);
-            var count = await queries.QuerySingleOrDefaultAsync<long>(TenantSubscriptionSql.CountActive,
-                TenancySqlParameters.Create(("TenantId", tenantId)), local).ConfigureAwait(false);
+            if (request.RenewalOfSubscriptionId is { } renewalId)
+            {
+                var source = await ReadRenewalSourceAsync(tenantId, renewalId, local).ConfigureAwait(false);
+                if (!source.IsSuccess) return Result<TenantSubscriptionPaymentTerms>.Failure(source.Error!);
+                if (source.Value!.Version != request.RenewalSourceVersion)
+                    return Failure<TenantSubscriptionPaymentTerms>(TenancyErrorCodes.SubscriptionVersionConflict, ErrorType.Conflict);
+                if (source.Value.PackageId != request.PackageId || source.Value.CurrentPeriodEndUtc != start)
+                    return Failure<TenantSubscriptionPaymentTerms>(TenancyErrorCodes.SubscriptionPeriodInvalid, ErrorType.Validation);
+            }
+            var count = await queries.QuerySingleOrDefaultAsync<long>(TenantSubscriptionSql.CountBlockingCreation,
+                TenancySqlParameters.Create(("TenantId", tenantId), ("IgnoredSubscriptionId", request.RenewalOfSubscriptionId),
+                    ("NowUtc", clock.UtcNow)), local).ConfigureAwait(false);
             if (count != 0) return Failure<TenantSubscriptionPaymentTerms>(TenancyErrorCodes.SubscriptionStatusInvalid, ErrorType.Conflict);
             var phase = await queries.QuerySingleOrDefaultAsync<TenantEntitlementEnforcementRecord>(TenantEntitlementSql.GetEnforcementPhase,
                 TenancySqlParameters.Create(("SettingsId", TenancySettingsConstants.SettingsId)), local).ConfigureAwait(false);
@@ -82,7 +98,9 @@ internal sealed partial class TenantSubscriptionBillingService(IQueryExecutor qu
                 ("PackageVersion", package.Version), ("OfferVersion", offer.Version), ("PaymentTenantId", offer.PaymentTenantId),
                 ("MerchantConfigId", offer.MerchantConfigId), ("PaymentOperationId", operation), ("AmountMinor", offer.AmountMinor),
                 ("Currency", offer.Currency), ("SeatLimit", offer.SeatLimit), ("StorageLimit", offer.StorageLimit),
-                ("EffectiveFromUtc", start), ("EffectiveToUtc", end), ("Subject", package.Name), ("Now", now)), local).ConfigureAwait(false) != 1)
+                ("EffectiveFromUtc", start), ("EffectiveToUtc", end), ("Subject", package.Name), ("Now", now),
+                ("RenewalOfSubscriptionId", request.RenewalOfSubscriptionId),
+                ("RenewalSourceVersion", request.RenewalSourceVersion)), local).ConfigureAwait(false) != 1)
                 throw new InvalidOperationException("Subscription invoice was not persisted.");
             foreach (var entitlement in entitlements)
                 if (await commands.ExecuteAsync(SubscriptionInvoiceSql.InsertEntitlement, TenancySqlParameters.Create(
@@ -92,7 +110,8 @@ internal sealed partial class TenantSubscriptionBillingService(IQueryExecutor qu
             await audit.WriteAsync(new(TenancyDomainAuditActionKeys.SubscriptionInvoiceCreated, subscription, tenantId,
                 TenancyDomainAuditOutcomes.Success, actorUserId, null, null), local).ConfigureAwait(false);
             return Result<TenantSubscriptionPaymentTerms>.Success(new(subscription, tenantId, offer.PaymentTenantId, operation,
-                offer.MerchantConfigId, offer.Id, offer.Version, offer.AmountMinor, offer.Currency, start, end, package.Name));
+                offer.MerchantConfigId, offer.Id, offer.Version, offer.AmountMinor, offer.Currency, start, end, package.Name)
+                { RenewalOfSubscriptionId = request.RenewalOfSubscriptionId, RenewalSourceVersion = request.RenewalSourceVersion });
         }, token);
     }
 

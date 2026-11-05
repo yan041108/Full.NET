@@ -42,7 +42,8 @@ internal sealed class TenancyDapperAotMaterializerContributor : IDapperAotMateri
             r.GetInt64(12), r.GetString(13), r.GetInt64(14), r.GetInt64(15), AotDataReaderExtensions.ReadDateTimeOffset(r, 16),
             AotDataReaderExtensions.ReadDateTimeOffset(r, 17), r.GetString(18), AotDataReaderExtensions.ReadNullableGuid(r, 19),
             r.GetInt64(20), AotDataReaderExtensions.ReadDateTimeOffset(r, 21), AotDataReaderExtensions.ReadDateTimeOffset(r, 22),
-            AotDataReaderExtensions.ReadInt32(r, 23), r.GetString(24)));
+            AotDataReaderExtensions.ReadInt32(r, 23), r.GetString(24), AotDataReaderExtensions.ReadNullableGuid(r, 25),
+            r.IsDBNull(26) ? null : AotDataReaderExtensions.ReadInt32(r, 26)));
         registrar.Register<HostTenantRecord>(ReadHostTenantRecord);
         registrar.Register<TenantResolutionRecord>(ReadTenantResolutionRecord);
         registrar.Register<TenantBrandingRecord>(ReadTenantBrandingRecord);

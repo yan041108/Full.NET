@@ -5248,6 +5248,12 @@
       "apiModule": "ui/admin/src/api/tenant-quota.ts",
       "generatedGroup": "tenant-quota",
       "status": "generated"
+    },
+    {
+      "operationId": "tenancyGetSubscriptionRenewalPreview",
+      "apiModule": "ui/admin/src/api/subscription-billing.ts",
+      "generatedGroup": "subscription-billing",
+      "status": "generated"
     }
   ]
 }

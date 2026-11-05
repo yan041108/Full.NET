@@ -8,9 +8,9 @@ import SubscriptionCheckoutAction from './SubscriptionCheckoutAction.vue';
 import SubscriptionFulfillmentAction from './SubscriptionFulfillmentAction.vue';
 import { useSessionStore } from '../auth/session';
 import { useAdminI18n } from '../i18n/adminI18n';
-import { createPaidSubscription, getPackageOffer, checkoutSubscription, getSubscriptionFulfillment, retrySubscriptionFulfillment } from '../api/subscription-billing';
+import { createPaidSubscription, getPackageOffer, getSubscriptionRenewalPreview, checkoutSubscription, getSubscriptionFulfillment, retrySubscriptionFulfillment } from '../api/subscription-billing';
 
-vi.mock('../api/subscription-billing', () => ({ createPaidSubscription: vi.fn(), getPackageOffer: vi.fn(), checkoutSubscription: vi.fn(), getSubscriptionFulfillment: vi.fn(), retrySubscriptionFulfillment: vi.fn() }));
+vi.mock('../api/subscription-billing', () => ({ createPaidSubscription: vi.fn(), getPackageOffer: vi.fn(), getSubscriptionRenewalPreview: vi.fn(), checkoutSubscription: vi.fn(), getSubscriptionFulfillment: vi.fn(), retrySubscriptionFulfillment: vi.fn() }));
 const id = (n: number) => `019bc2b1-2a40-7cc3-8992-a80de51bf2${String(n).padStart(2, '0')}`;
 const permissions = ['tenancy.tenant_packages.read', 'tenancy.tenant_subscriptions.manage', 'payments.orders.create', 'payments.orders.read', 'tenancy.tenant_subscriptions.read', 'payments.orders.reconcile'];
 const pkg = { id: id(2), code: 'plan', name: 'Plan', description: null, isActive: true, version: 1, assignedTenantCount: 0 };
@@ -236,5 +236,70 @@ describe('付费账单原请求恢复', () => {
     const signal = vi.mocked(getSubscriptionFulfillment).mock.calls[0]![1]; await wrapper.setProps({ orderId: id(8) });
     expect(signal?.aborted).toBe(true); pending.resolve(fulfillment); await flushPromises();
     expect(wrapper.find('[data-testid="subscription-fulfillment-retry"]').exists()).toBe(false); expect(getSubscriptionFulfillment).toHaveBeenCalledTimes(1); wrapper.unmount();
+  });
+});
+
+describe('同套餐提前续期', () => {
+  const preview = { tenantId: id(1), sourceSubscriptionId: id(11), sourceVersion: 7,
+    effectiveFromUtc: '2026-12-01T00:00:00Z', offer, readAtUtc: '2026-11-05T00:00:00Z' };
+  beforeEach(() => { vi.resetAllMocks(); useAdminI18n().setLocale('zh-CN'); vi.mocked(getSubscriptionRenewalPreview).mockResolvedValue(preview); });
+  async function openRenewal() {
+    const state = sessionSetup();
+    const wrapper = mount(PaidSubscriptionPurchase, { props: { tenantId: id(1), packages: [pkg], renewal: true,
+      source: { subscriptionId: id(11), packageId: pkg.id } }, global: globalFor(state.pinia) });
+    await wrapper.get('[data-testid="subscription-renewal"]').trigger('click');
+    await wrapper.findAll('button').find(button => button.text() === '读取报价')!.trigger('click'); await flushPromises();
+    return { wrapper, ...state };
+  }
+  it('服务端预览冻结来源版本和周期，确认前无写入', async () => {
+    const { wrapper } = await openRenewal();
+    expect(getSubscriptionRenewalPreview).toHaveBeenCalledWith(id(1), id(11), expect.any(AbortSignal));
+    expect(getPackageOffer).not.toHaveBeenCalled(); expect(createPaidSubscription).not.toHaveBeenCalled();
+    expect(wrapper.get('[data-testid="paid-subscription-start"]').attributes('readonly')).toBeDefined();
+    vi.mocked(createPaidSubscription).mockRejectedValueOnce(new Error('lost'));
+    await wrapper.get('[data-testid="confirm"]').trigger('click'); await flushPromises();
+    const body = vi.mocked(createPaidSubscription).mock.calls[0]![1];
+    expect(body).toMatchObject({ packageId: pkg.id, offerVersion: 3, effectiveFromUtc: preview.effectiveFromUtc,
+      renewalOfSubscriptionId: id(11), renewalSourceVersion: 7 });
+    expect(checkoutSubscription).not.toHaveBeenCalled(); wrapper.unmount();
+  });
+  it('结果不明关闭重开和同身份刷新仍原样恢复完整请求', async () => {
+    const { wrapper } = await openRenewal(); vi.mocked(createPaidSubscription).mockRejectedValue(new Error('lost'));
+    await wrapper.get('[data-testid="confirm"]').trigger('click'); await flushPromises();
+    const original = vi.mocked(createPaidSubscription).mock.calls[0]![1];
+    await wrapper.setProps({ source: { subscriptionId: id(11), packageId: pkg.id } });
+    await wrapper.get('[data-testid="close"]').trigger('click'); await wrapper.get('[data-testid="subscription-renewal"]').trigger('click');
+    await wrapper.get('[data-testid="confirm"]').trigger('click'); await flushPromises();
+    expect(vi.mocked(createPaidSubscription).mock.calls[1]![1]).toBe(original);
+    expect(getSubscriptionRenewalPreview).toHaveBeenCalledTimes(1); wrapper.unmount();
+  });
+  it('明确来源版本冲突后重新读取提案并确认新身份', async () => {
+    const { wrapper } = await openRenewal();
+    vi.mocked(createPaidSubscription).mockRejectedValue({ status: 409, code: 'tenancy.tenant_subscription.version_conflict', title: 'changed' });
+    await wrapper.get('[data-testid="confirm"]').trigger('click'); await flushPromises();
+    const original = vi.mocked(createPaidSubscription).mock.calls[0]![1];
+    vi.mocked(getSubscriptionRenewalPreview).mockResolvedValue({ ...preview, sourceVersion: 8 });
+    await wrapper.get('[data-testid="subscription-reconfirm-quote"]').trigger('click'); await flushPromises();
+    await wrapper.get('[data-testid="confirm"]').trigger('click'); await flushPromises();
+    const next = vi.mocked(createPaidSubscription).mock.calls[1]![1];
+    expect(next.renewalSourceVersion).toBe(8); expect(next.idempotencyKey).not.toBe(original.idempotencyKey);
+    expect(getSubscriptionRenewalPreview).toHaveBeenCalledTimes(2); wrapper.unmount();
+  });
+  it('异租户预览不能形成可提交提案', async () => {
+    vi.mocked(getSubscriptionRenewalPreview).mockResolvedValue({ ...preview, tenantId: id(99) });
+    const { wrapper } = await openRenewal(); expect(wrapper.find('[data-testid="confirm"]').exists()).toBe(false);
+    expect(createPaidSubscription).not.toHaveBeenCalled(); wrapper.unmount();
+  });
+  it('来源身份改变取消迟到读取', async () => {
+    const pending = deferred<typeof preview>(); vi.mocked(getSubscriptionRenewalPreview).mockReturnValue(pending.promise);
+    const { wrapper } = await openRenewal(); const signal = vi.mocked(getSubscriptionRenewalPreview).mock.calls[0]![2];
+    await wrapper.setProps({ source: { subscriptionId: id(12), packageId: pkg.id } }); expect(signal?.aborted).toBe(true);
+    pending.resolve(preview); await flushPromises(); expect(wrapper.find('[data-testid="confirm"]').exists()).toBe(false); wrapper.unmount();
+  });
+  it('缺少原订阅读取权限时没有续期入口', () => {
+    const { pinia, session } = sessionSetup(); session.currentUser!.permissions = permissions.filter(p => p !== 'tenancy.tenant_subscriptions.read');
+    const wrapper = mount(PaidSubscriptionPurchase, { props: { tenantId: id(1), packages: [pkg], renewal: true,
+      source: { subscriptionId: id(11), packageId: pkg.id } }, global: globalFor(pinia) });
+    expect(wrapper.find('[data-testid="subscription-renewal"]').exists()).toBe(false); wrapper.unmount();
   });
 });

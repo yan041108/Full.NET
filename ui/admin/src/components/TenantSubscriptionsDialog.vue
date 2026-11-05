@@ -180,6 +180,9 @@ function paidCreated() { emit('changed'); status.value = ''; page.value = 1; voi
       <ElTableColumn :label="t('tenancy.tenantSubscriptions.periodEnd')" min-width="200"><template #default="{ row }">{{ formatDate(row.currentPeriodEndUtc) }}</template></ElTableColumn>
       <ElTableColumn :label="t('users.columnActions')" :width="canManage ? 240 : 100" fixed="right"><template #default="{ row }">
         <ElButton link type="primary" data-testid="tenant-subscription-detail" :disabled="loading || !hasRead" @click="openDetail(row as TenantSubscription)">{{ text('detailAction') }}</ElButton>
+        <PaidSubscriptionPurchase v-if="canManage && ['Active', 'Cancelled'].includes(row.status) && row.packageId && tenant?.isActive"
+          :key="'renewal-' + row.id" renewal :tenant-id="tenant.id" :packages="packages" :source="{ subscriptionId: row.id, packageId: row.packageId }"
+          :disabled="loading || !hasRead || uncertain" @created="paidCreated" @dialog-open="paidOpen = $event" />
         <PaidSubscriptionPurchase v-if="canManage && row.status === 'Expired' && row.packageId && tenant?.isActive && session.can('tenancy.tenant_packages.read')"
           :key="'repurchase-' + row.id" :tenant-id="tenant.id" :packages="packages" :source="{ subscriptionId: row.id, packageId: row.packageId }"
           :disabled="loading || !hasRead || uncertain || hasActive" @created="paidCreated" @dialog-open="paidOpen = $event" />

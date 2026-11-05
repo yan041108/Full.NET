@@ -2637,6 +2637,8 @@ export interface CreatePaidTenantSubscriptionRequest {
   readonly idempotencyKey: string;
   readonly offerVersion: number;
   readonly packageId: string;
+  readonly renewalOfSubscriptionId?: null | string;
+  readonly renewalSourceVersion?: null | number;
 }
 
 export interface CreatePaymentMerchantConfigRequest {
@@ -6987,8 +6989,19 @@ export interface TenantSubscriptionPaymentTerms {
   readonly packageId: string;
   readonly paymentOperationId: string;
   readonly paymentTenantId: string;
+  readonly renewalOfSubscriptionId?: null | string;
+  readonly renewalSourceVersion?: null | number;
   readonly subject: string;
   readonly subscriptionId: string;
+  readonly tenantId: string;
+}
+
+export interface TenantSubscriptionRenewalPreviewResponse {
+  readonly effectiveFromUtc: string;
+  readonly offer: TenantPackageOfferResponse;
+  readonly readAtUtc: string;
+  readonly sourceSubscriptionId: string;
+  readonly sourceVersion: number;
   readonly tenantId: string;
 }
 

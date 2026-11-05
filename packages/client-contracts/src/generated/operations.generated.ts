@@ -830,6 +830,7 @@ import type {
   TenantQuotaUsageSummaryResponse,
   TenantRuntimeBrandingResponse,
   TenantSubscriptionPaymentTerms,
+  TenantSubscriptionRenewalPreviewResponse,
   TenantSubscriptionResponse,
   TenantSummary,
   TestAiModelConfigResult,
@@ -1404,6 +1405,7 @@ import {
   readTenantQuotaUsageSummaryResponse,
   readTenantRuntimeBrandingResponse,
   readTenantSubscriptionPaymentTerms,
+  readTenantSubscriptionRenewalPreviewResponse,
   readTenantSubscriptionResponse,
   readTenantSummary,
   readTestAiModelConfigResult,
@@ -17232,6 +17234,23 @@ export async function tenancyGetRuntimeBranding(
   const init: RequestInit = { method: 'GET' };
   const value = await requestJsonOperation(http, path, init, signal, options);
   return readTenantRuntimeBrandingResponse(value);
+}
+
+export interface TenancyGetSubscriptionRenewalPreviewParameters {
+  readonly tenantId: string;
+  readonly subscriptionId: string;
+}
+
+export async function tenancyGetSubscriptionRenewalPreview(
+  http: HttpClient,
+  parameters: TenancyGetSubscriptionRenewalPreviewParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<TenantSubscriptionRenewalPreviewResponse> {
+  const path = `/api/v1/tenancy/tenants/${encodeURIComponent(String(parameters.tenantId))}/subscriptions/${encodeURIComponent(String(parameters.subscriptionId))}/renewal-preview`;
+  const init: RequestInit = { method: 'GET' };
+  const value = await requestJsonOperation(http, path, init, signal, options);
+  return readTenantSubscriptionRenewalPreviewResponse(value);
 }
 
 export interface TenancyGetTenantLifecycleParameters {

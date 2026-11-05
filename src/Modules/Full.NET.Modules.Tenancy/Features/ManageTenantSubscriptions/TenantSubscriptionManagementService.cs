@@ -80,8 +80,9 @@ internal sealed class TenantSubscriptionManagementService(
         if (!await boundary.EnterAsync(tenantId, cancellationToken).ConfigureAwait(false))
             return Result<TenantSubscriptionResponse>.Failure(new Error(TenancyErrorCodes.NotFound, "Tenant was not found or is inactive.", ErrorType.NotFound));
         var existingActive = await queryExecutor.QuerySingleOrDefaultAsync<long>(
-            TenantSubscriptionSql.CountActive,
-            Tenancy.Persistence.TenancySqlParameters.Create(("TenantId", tenantId)), cancellationToken).ConfigureAwait(false) > 0;
+            TenantSubscriptionSql.CountBlockingCreation,
+            Tenancy.Persistence.TenancySqlParameters.Create(("TenantId", tenantId),
+                ("IgnoredSubscriptionId", null), ("NowUtc", clock.UtcNow)), cancellationToken).ConfigureAwait(false) > 0;
         if (existingActive)
         {
             return Result<TenantSubscriptionResponse>.Failure(new Error(

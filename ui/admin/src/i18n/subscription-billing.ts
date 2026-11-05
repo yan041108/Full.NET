@@ -2,6 +2,8 @@ import type { SupportedLocale } from '@fullnet/admin-i18n';
 
 // 资金和权益状态使用独立固定文案，不能把渠道成功误显示为已完成授权。
 const zh = {
+  renewalChanged: '续期来源或报价版本已变化，本次未创建账单。请重新读取提案，核对来源和新条款后确认。',
+  renewal: '同套餐续期', renewalPolicy: '创建独立续期账单，开始时间固定为原付费周期结束。采用当前报价，付款不提前覆盖当前权益；取消或退款原周期不会自动取消新周期。新限额保留现有占用，超限时停止新增。',
   lookupLabel: '输入原订阅 ID（UUID）', lookupAction: '按 ID 读取', lookupHint: '仅在当前企业内精确读取原订阅，不改变列表筛选，不创建或取消订阅。',
   detailRefresh: '刷新原订阅', detailAbsent: '原订阅不存在或已不可读取，请核对原 ID。', detailForbidden: '当前会话无权读取原订阅，请核对权限或重新登录。',
   retryConfirmTitle: '确认重试原订单的内部履约', retryConfirmHint: '以下为最近一次读取的原订单与订阅。确认后由服务端核对当前状态；不会创建新订单或再次扣款。',
@@ -49,6 +51,8 @@ const zh = {
   safeRetry: '网络重试复用原账单；履约重试不会再次扣款。'
 };
 const en: Record<keyof typeof zh, string> = {
+  renewalChanged: 'The renewal source or offer version changed. No invoice was created. Read the proposal again and confirm its source and new terms.',
+  renewal: 'Renew this plan', renewalPolicy: 'Create an independent invoice starting at the end of the paid period using the current offer. Payment does not replace current access early. Cancelling or refunding the previous period does not cancel the new period. Existing usage remains; a lower limit can block new usage.',
   lookupLabel: 'Original subscription ID (UUID)', lookupAction: 'Read by ID', lookupHint: 'Read the original subscription within this tenant. The list filter is unchanged; no subscription is created or cancelled.',
   detailRefresh: 'Refresh original subscription', detailAbsent: 'The original subscription is missing or unavailable. Check its ID.', detailForbidden: 'This session cannot read the original subscription. Check permissions or sign in again.',
   retryConfirmTitle: 'Confirm original fulfillment retry', retryConfirmHint: 'This is the last read of the original order and subscription. The server validates current state after confirmation; no new order or charge is created.',

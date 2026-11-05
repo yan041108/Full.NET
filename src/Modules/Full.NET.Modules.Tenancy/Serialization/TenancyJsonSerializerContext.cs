@@ -47,6 +47,7 @@ namespace Full.NET.Modules.Tenancy.Serialization;
 [JsonSerializable(typeof(CreateTenantSubscriptionRequest))]
 [JsonSerializable(typeof(UpsertTenantPackageOfferRequest))]
 [JsonSerializable(typeof(TenantPackageOfferResponse))]
+[JsonSerializable(typeof(TenantSubscriptionRenewalPreviewResponse))]
 [JsonSerializable(typeof(CreatePaidTenantSubscriptionRequest))]
 [JsonSerializable(typeof(TenantSubscriptionPaymentTerms))]
 [JsonSerializable(typeof(CancelTenantSubscriptionRequest))]

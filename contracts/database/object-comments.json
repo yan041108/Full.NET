@@ -3846,6 +3846,8 @@
         "Phase": "待付款已履约退款或核对阶段",
         "ProviderTransactionId": "已验证的渠道交易标识",
         "RefundAmountMinor": "最近已验证退款金额",
+        "RenewalOfSubscriptionId": "本次独立账单的原续期订阅",
+        "RenewalSourceVersion": "创建时核验的原订阅版本",
         "RequestHash": "冻结购买输入摘要",
         "RequestId": "调用方固定创建身份",
         "SeatLimit": "冻结席位限额",
