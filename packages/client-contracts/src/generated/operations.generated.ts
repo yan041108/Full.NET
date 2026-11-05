@@ -15369,6 +15369,7 @@ export interface ReportingListExportTasksParameters {
   readonly page?: number;
   readonly pageSize?: number;
   readonly definitionId?: string;
+  readonly statusKey?: string;
 }
 
 export async function reportingListExportTasks(
@@ -15386,6 +15387,9 @@ export async function reportingListExportTasks(
   }
   if (parameters.definitionId !== undefined) {
     query.set('definitionId', String(parameters.definitionId));
+  }
+  if (parameters.statusKey !== undefined) {
+    query.set('statusKey', String(parameters.statusKey));
   }
   const path = query.size === 0 ? `/api/v1/reporting/export-tasks` : `/api/v1/reporting/export-tasks?${query.toString()}`;
   const init: RequestInit = { method: 'GET' };

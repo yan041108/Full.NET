@@ -5,11 +5,11 @@ import {
   isReportingExportTaskPage,
   type CreateReportingExportTaskRequest,
   type ReportingExportTaskDetail,
-  type ReportingExportTaskPage
+  type ReportingExportTaskPage,
+  type ReportingExportTaskListQuery
 } from '@fullnet/client-contracts';
 import { request, requestBlob } from './http';
 import { http } from './http';
-import {  } from '@fullnet/client-contracts';
 
 export async function createReportingExportTask(
   body: CreateReportingExportTaskRequest,
@@ -37,11 +37,11 @@ export async function createReportingExportTask(
 }
 
 export async function listReportingExportTasks(
-  page = 1,
-  pageSize = 20,
-  definitionId?: string,
+  query: ReportingExportTaskListQuery = {},
   signal?: AbortSignal
 ): Promise<ReportingExportTaskPage> {
+  const { page = 1, pageSize = 20, definitionId } = query;
+  const statusKey = query.statusKey?.trim() || undefined;
   const params = new URLSearchParams({
     page: String(page),
     pageSize: String(pageSize)
@@ -49,6 +49,7 @@ export async function listReportingExportTasks(
   if (definitionId) {
     params.set('definitionId', definitionId);
   }
+  if (statusKey) params.set('statusKey', statusKey);
   const value = await request<unknown>(
     `/api/v1/reporting/export-tasks?${params.toString()}`,
     { method: 'GET' },
@@ -56,7 +57,8 @@ export async function listReportingExportTasks(
   );
   if (!isReportingExportTaskPage(value) || value.page !== page || value.pageSize !== pageSize || !Number.isSafeInteger(value.total) || value.total < 0 || value.items.length > pageSize
     || new Set(value.items.map(row => row.id.toLowerCase())).size !== value.items.length
-    || value.items.some(row => row.id === '00000000-0000-0000-0000-000000000000' || definitionId !== undefined && row.definitionId.toLowerCase() !== definitionId.toLowerCase())) {
+    || value.items.some(row => row.id === '00000000-0000-0000-0000-000000000000' || definitionId !== undefined && row.definitionId.toLowerCase() !== definitionId.toLowerCase()
+      || statusKey !== undefined && row.statusKey !== statusKey)) {
     throw new Error('client.invalid_reporting_export_task_page');
   }
   return value;

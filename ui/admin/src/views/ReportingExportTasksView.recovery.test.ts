@@ -66,7 +66,7 @@ describe('报表导出目录与任务恢复', () => {
   it('错误页回包不能改写请求页或接入旧行', async () => { await setup(); state().page = 2; await state().load(); expect(state().page).toBe(2); expect(state().items).toEqual([]); });
   it('页大小变化回第一页，重复受控change不再读取', async () => {
     await setup(); const pager = wrapper.getComponent(ElPagination); pager.vm.$emit('change', 1, 20); await flushPromises(); expect(api.listReportingExportTasks).toHaveBeenCalledOnce();
-    vi.mocked(api.listReportingExportTasks).mockResolvedValueOnce({ items: [], page: 1, pageSize: 50, total: 0 }); pager.vm.$emit('update:pageSize', 50); pager.vm.$emit('update:currentPage', 3); pager.vm.$emit('change', 3, 50); await flushPromises(); expect(api.listReportingExportTasks).toHaveBeenLastCalledWith(1, 50, undefined, expect.any(AbortSignal));
+    vi.mocked(api.listReportingExportTasks).mockResolvedValueOnce({ items: [], page: 1, pageSize: 50, total: 0 }); pager.vm.$emit('update:pageSize', 50); pager.vm.$emit('update:currentPage', 3); pager.vm.$emit('change', 3, 50); await flushPromises(); expect(api.listReportingExportTasks).toHaveBeenLastCalledWith({ page: 1, pageSize: 50, statusKey: undefined }, expect.any(AbortSignal));
   });
   it('空越界页最多补读一次末页', async () => {
     await setup(); state().page = 3; vi.mocked(api.listReportingExportTasks).mockResolvedValueOnce({ items: [], page: 3, pageSize: 20, total: 21 }).mockResolvedValueOnce({ items: [], page: 2, pageSize: 20, total: 0 }); await state().load(); expect(api.listReportingExportTasks).toHaveBeenCalledTimes(3); expect(state().page).toBe(2);

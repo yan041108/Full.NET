@@ -19,7 +19,7 @@ async function setup(permissions = ['reporting.export_tasks.read']) {
 }
 async function lookup(value: string) { await wrapper.get('[data-testid="reporting-export-exact-id"]').setValue(value); await wrapper.get('form.reporting-task-lookup').trigger('submit'); await flushPromises(); }
 beforeEach(() => { vi.resetAllMocks(); vi.mocked(api.getReportingExportTask).mockResolvedValue({ ...exportTask });
-  vi.mocked(api.listReportingExportTasks).mockImplementation(async (page = 1, pageSize = 20) => ({ items: [], page, pageSize, total: 40 })); });
+  vi.mocked(api.listReportingExportTasks).mockImplementation(async (query = {}) => ({ items: [], page: query.page ?? 1, pageSize: query.pageSize ?? 20, total: 40 })); });
 afterEach(() => wrapper?.unmount());
 it('空列表只读按 ID 定位，去空格/规范大小写，不下载或写入', async () => {
   await setup(); await lookup(` ${exportTask.id.toUpperCase()} `);
@@ -59,6 +59,6 @@ it('会话变化取消并清除 ID 草稿，迟到旧数据不回写', async () 
 });
 it('列表换页保持精确详情目标和只读快照', async () => {
   await setup(); await lookup(exportTask.id); wrapper.getComponent(ElPagination).vm.$emit('change', 2, 20); await flushPromises();
-  expect(vi.mocked(api.listReportingExportTasks).mock.lastCall![0]).toBe(2); expect(wrapper.get('[data-testid="reporting-export-detail-id"]').text()).toBe(exportTask.id);
+  expect(vi.mocked(api.listReportingExportTasks).mock.lastCall![0]?.page).toBe(2); expect(wrapper.get('[data-testid="reporting-export-detail-id"]').text()).toBe(exportTask.id);
   expect(api.getReportingExportTask).toHaveBeenCalledTimes(1);
 });

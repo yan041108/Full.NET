@@ -66,6 +66,8 @@ onDeactivated(() => { pageActive.value = false; }); onBeforeUnmount(() => { page
 const { t, locale } = useAdminI18n();
 const items = ref<ReportingExportTask[]>([]);
 const taskLookup = ref('');
+const statusDraft = ref('all'); const appliedStatus = ref<string>(); let invalidStatus = false;
+const taskStatuses = ['queued', 'processing', 'succeeded', 'failed', 'canceled'] as const;
 const definitions = ref<ReportingPublishedDefinition[]>([]);
 const loading = ref(false);
 const creating = ref(false);
@@ -128,13 +130,14 @@ const createIntent = computed(() => regeneration.value ? creationKey(regeneratio
 const createBlocked = computed(() => creationBlocks.value.has(createIntent.value));
 let creatingIntent: { key: string; receipt: Receipt } | undefined;
 let cancellingTask: { task: ReportingExportTask; receipt: Receipt } | undefined;
-let lastQuery: { page: number; pageSize: number } | undefined;
+let lastQuery: { page: number; pageSize: number; statusKey?: string } | undefined;
 interface ListControls { token: number; refresh: () => void; create: () => void; page: (value: number) => void; size: (value: number) => void; change: (nextPage: number, nextSize: number) => void }
 const listControls = ref<ListControls>(makeListControls());
 function makeListControls(): ListControls {
   const token = ++listSequence, owned = () => token === listControls.value.token && canRead();
-  return { token, refresh: () => { if (owned()) refreshResults(); }, create: () => { if (owned()) openCreateDialog(); }, page: value => { if (owned() && Number.isSafeInteger(value) && value > 0) page.value = value; }, size: value => { if (owned() && [10, 20, 50].includes(value)) pageSize.value = value; },
-    change: (nextPage, nextSize) => { if (!owned() || !Number.isSafeInteger(nextPage) || nextPage < 1 || ![10, 20, 50].includes(nextSize)) return;
+  const canPage = () => owned() && !loading.value && !invalidStatus && !(problem.value && !items.value.length);
+  return { token, refresh: () => { if (owned()) refreshResults(); }, create: () => { if (owned()) openCreateDialog(); }, page: value => { if (canPage() && Number.isSafeInteger(value) && value > 0) page.value = value; }, size: value => { if (canPage() && [10, 20, 50].includes(value)) pageSize.value = value; },
+    change: (nextPage, nextSize) => { if (!canPage() || !Number.isSafeInteger(nextPage) || nextPage < 1 || ![10, 20, 50].includes(nextSize)) return;
       page.value = lastQuery?.pageSize !== nextSize ? 1 : nextPage; pageSize.value = nextSize; if (lastQuery?.page !== page.value || lastQuery.pageSize !== nextSize) void load(); } };
 }
 type ReportingExportTaskRow = ReportingExportTask & { detail: () => void; download: () => void; cancel: () => void };
@@ -168,6 +171,7 @@ const scope = useAuthorizedViewScope(session, () => {
   cancelConfirmation.value = undefined; cancelling.value = false;
   unavailableFiles.reset();
   items.value = []; taskLookup.value = ''; definitions.value = []; selectedDefinitionVersionKey.value = ''; total.value = 0; page.value = 1;
+  statusDraft.value = 'all'; appliedStatus.value = undefined; invalidStatus = false;
   problem.value = undefined; createDialogVisible.value = false; loading.value = false; creating.value = false; downloading.value = false;
   regeneration.value = undefined; resetParameters();
   detailOwner.value++; detailTargetId.value = ''; detailProblem.value = undefined; definitionsProblem.value = undefined; definitionsLoading.value = false;
@@ -218,6 +222,15 @@ function lookupTask() {
   if (problem.value?.code === 'client.invalid_reporting_export_task_id') problem.value = undefined;
   taskLookup.value = id; void openDetail(id);
 }
+function searchStatus() {
+  if (!canRead() || busy.value || createDialogVisible.value || cancelDialogVisible.value) return;
+  if (statusDraft.value !== 'all' && !taskStatuses.some(status => status === statusDraft.value)) {
+    invalidStatus = true; loadRequest?.cancel(); loading.value = false; items.value = []; total.value = 0; page.value = 1; listControls.value = makeListControls();
+    problem.value = { type: 'about:blank', status: 400, code: 'client.invalid_export_status', title: recoveryText('invalidStatus') }; return;
+  }
+  invalidStatus = false; appliedStatus.value = statusDraft.value === 'all' ? undefined : statusDraft.value; page.value = 1; void load();
+}
+function resetStatus() { statusDraft.value = 'all'; searchStatus(); }
 async function refreshDetail(id: string, open = false): Promise<void> {
   if (!canRead() || !isGuid(id) || !sameId(id, detailTargetId.value) || !open && !detailVisible.value) return;
   detailRequest?.cancel(); const request = begin('reporting.export_tasks.read'); if (!request) return; detailRequest = request;
@@ -311,27 +324,32 @@ watch(() => session.switching, switching => {
 }, { flush: 'sync' });
 
 async function load(recoverPage = true): Promise<boolean> {
+  if (invalidStatus) return false;
   if (!canRead() || !Number.isSafeInteger(page.value) || page.value < 1 || ![10, 20, 50].includes(pageSize.value)) return false;
   loadRequest?.cancel(); const request = begin('reporting.export_tasks.read'); loadRequest = request;
   if (!request) return false;
-  const query = { page: page.value, pageSize: pageSize.value };
-  if (!lastQuery || lastQuery.page !== query.page || lastQuery.pageSize !== query.pageSize) {
-    downloadRequest?.cancel(); downloading.value = false; items.value = []; total.value = 0; listControls.value = makeListControls();
+  const query = { page: page.value, pageSize: pageSize.value, statusKey: appliedStatus.value };
+  const changedQuery = !lastQuery || lastQuery.page !== query.page || lastQuery.pageSize !== query.pageSize || lastQuery.statusKey !== query.statusKey;
+  if (changedQuery) {
+    // 读取中保留分页总数，避免第二页被临时归零夹回首页；旧行先失效。
+    downloadRequest?.cancel(); downloading.value = false; items.value = []; listControls.value = makeListControls();
   }
   lastQuery = query;
   loading.value = true;
   problem.value = undefined;
   try {
-    const result = await listReportingExportTasks(query.page, query.pageSize, undefined, request.signal);
+    const result = await listReportingExportTasks(query, request.signal);
     if (!request.current()) return false;
     if (result.page !== query.page || result.pageSize !== query.pageSize) throw new Error('client.invalid_reporting_export_task_page');
     const lastPage = Math.max(1, Math.ceil(result.total / query.pageSize));
     if (recoverPage && !result.items.length && query.page > lastPage) { page.value = lastPage; return await load(false); }
-    items.value = result.items.map(row => { const confirmed = confirmedCancellations.value.get(row.id.toLowerCase()); if (confirmed && !sameTaskSource(row, confirmed)) throw new Error('client.invalid_reporting_export_task_identity'); return confirmed ?? row; });
+    const rows = result.items.map(row => { const confirmed = confirmedCancellations.value.get(row.id.toLowerCase()); if (confirmed && !sameTaskSource(row, confirmed)) throw new Error('client.invalid_reporting_export_task_identity'); return confirmed ?? row; });
+    if (query.statusKey && rows.some(row => row.statusKey !== query.statusKey)) throw new Error('client.invalid_reporting_export_task_status_page');
+    items.value = rows;
     total.value = result.total;
     return request.current();
   } catch (error: unknown) {
-    if (request.current()) problem.value = toProblem(error, 'reportingExportTasks.loadFailed');
+    if (request.current()) { problem.value = toProblem(error, 'reportingExportTasks.loadFailed'); if (changedQuery) total.value = 0; }
     return false;
   } finally {
     if (request.current()) { loading.value = false; void syncTableLayout(); } request.finish();
@@ -384,7 +402,7 @@ async function submitCreate(): Promise<void> {
     createDialogVisible.value = false;
     // 创建回包已经是权威详情，直接显示本次任务，避免额外 GET 或自动触发下载。
     clearDetail(); detailTargetId.value = task.id; detailVisible.value = true; selectedTask.value = task;
-    if (page.value === 1) { const existed = items.value.some(row => sameId(row.id, task.id)); items.value = [task, ...items.value.filter(row => !sameId(row.id, task.id))].slice(0, pageSize.value); if (!existed) total.value++; }
+    if (page.value === 1 && (!appliedStatus.value || task.statusKey === appliedStatus.value)) { const existed = items.value.some(row => sameId(row.id, task.id)); items.value = [task, ...items.value.filter(row => !sameId(row.id, task.id))].slice(0, pageSize.value); if (!existed) total.value++; }
     await load();
   } catch (error: unknown) {
     if (request.current()) {
@@ -542,7 +560,9 @@ async function confirmCancellation(token = cancelSequence) {
     cancellingTask = undefined; loadRequest?.cancel(); detailRequest?.cancel(); loading.value = false; detailLoading.value = false;
     receipt.value = { ...receipt.value!, outcome: 'succeeded' };
     confirmedCancellations.value = new Map(confirmedCancellations.value).set(result.id.toLowerCase(), result);
-    items.value = items.value.map(item => item.id.toLowerCase() === current.id.toLowerCase() ? result : item);
+    const wasListed = items.value.some(item => sameId(item.id, current.id));
+    items.value = items.value.flatMap(item => sameId(item.id, current.id) ? (!appliedStatus.value || result.statusKey === appliedStatus.value ? [result] : []) : [item]);
+    if (wasListed && appliedStatus.value && result.statusKey !== appliedStatus.value) total.value = Math.max(0, total.value - 1);
     if (detailVisible.value && selectedTask.value?.id.toLowerCase() === current.id.toLowerCase()) selectedTask.value = result;
     ElMessage.success(t('reportingExportTasks.cancelSuccess'));
     await load();
@@ -574,6 +594,14 @@ function markCancelUnconfirmed(): void {
       <p v-if="receipt.kind === 'cancel' && receipt.outcome === 'unconfirmed'">{{ t('reportingExportTasks.cancelRecoveryHint') }}</p>
     </div>
     <ElCard shadow="never" class="art-table-card art-full-height">
+        <ElForm class="reporting-status-filter" label-position="top" @submit.prevent="searchStatus">
+          <ElFormItem :label="t('reportingExportTasks.fieldStatus')"><ElSelect v-model="statusDraft" data-testid="reporting-export-filter-status" :aria-label="t('reportingExportTasks.fieldStatus')">
+            <ElOption :label="recoveryText('allStatuses')" value="all" /><ElOption v-for="status in taskStatuses" :key="status" :label="statusLabel(status)" :value="status" />
+          </ElSelect></ElFormItem>
+          <ElButton native-type="submit" :disabled="busy" data-testid="reporting-export-filter-submit">{{ recoveryText('applyStatus') }}</ElButton>
+          <ElButton :disabled="busy" data-testid="reporting-export-filter-reset" @click="resetStatus">{{ recoveryText('resetStatus') }}</ElButton>
+        </ElForm>
+        <p>{{ recoveryText('statusHint') }} <span data-testid="reporting-export-applied-status">{{ recoveryText('submittedStatus') }} {{ appliedStatus ? statusLabel(appliedStatus) : recoveryText('allStatuses') }}</span></p>
         <ElForm class="reporting-task-lookup" label-position="top" @submit.prevent="lookupTask">
           <ElFormItem :label="recoveryText('lookupId')"><ElInput v-model="taskLookup" data-testid="reporting-export-exact-id" /></ElFormItem>
           <ElButton native-type="submit" :disabled="busy" data-testid="reporting-export-read-id">{{ recoveryText('readById') }}</ElButton>
@@ -609,6 +637,7 @@ function markCancelUnconfirmed(): void {
           v-if="problem"
           type="error"
           :title="problem.title"
+          :description="`${recoveryText('requestedPage')} ${page}`"
           show-icon
           class="mb-4"
         />
@@ -672,6 +701,7 @@ function markCancelUnconfirmed(): void {
 
       <ElPagination
         :current-page="page"
+        :disabled="loading || !!problem && items.length === 0"
         :page-size="pageSize"
         :page-sizes="[10, 20, 50]"
         class="art-table-pagination center custom-pagination"
@@ -797,4 +827,7 @@ function markCancelUnconfirmed(): void {
 .reporting-task-lookup { display: flex; gap: 8px 12px; flex-wrap: wrap; align-items: end; margin-bottom: 12px; }
 .reporting-task-lookup :deep(.el-form-item) { width: min(420px, 100%); margin-bottom: 0; }
 .reporting-task-identity { overflow-wrap: anywhere; }
+.reporting-status-filter { display: flex; align-items: end; flex-wrap: wrap; gap: 8px 12px; margin-bottom: 8px; }
+.reporting-status-filter :deep(.el-form-item) { width: min(260px, 100%); margin-bottom: 0; }
+.reporting-status-filter :deep(.el-select) { width: 100%; }
 </style>

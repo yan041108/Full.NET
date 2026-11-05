@@ -67,18 +67,20 @@ internal static class Endpoint
             int? page,
             int? pageSize,
             Guid? definitionId,
+            string? statusKey,
             ReportingExportTaskQueryService queries,
             IApiResultMapper mapper,
             HttpContext httpContext,
             CancellationToken cancellationToken) =>
         {
             var result = await queries
-                .ListAsync(page ?? 1, pageSize ?? 20, definitionId, cancellationToken)
+                .ListAsync(page ?? 1, pageSize ?? 20, definitionId, statusKey, cancellationToken)
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
         .WithName("reportingListExportTasks")
         .Produces<PagedResult<ReportingExportTaskResponse>>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
         .RequireAuthorization(FullNetPermissionPolicies.For(ReportingExportTaskPermissions.Read));
 
         group.MapGet("/{taskId:guid}", async (

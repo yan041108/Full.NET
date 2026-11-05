@@ -78,7 +78,7 @@ describe('ReportingExportTasksView', () => {
   });
   it('切换租户时取消旧读取，迟到页面结果不能进入新上下文', async () => {
     let resolve!: (value: unknown) => void; api.listReportingExportTasks.mockImplementationOnce(() => new Promise(done => { resolve = done; }));
-    const { wrapper, session } = render(); await flushPromises(); const signal = api.listReportingExportTasks.mock.calls[0]![3] as AbortSignal;
+    const { wrapper, session } = render(); await flushPromises(); const signal = api.listReportingExportTasks.mock.calls[0]![1] as AbortSignal;
     session.switching = true; await flushPromises(); expect(signal.aborted).toBe(true);
     resolve(page([task('succeeded')])); await flushPromises(); expect(wrapper.text()).not.toContain('Visible report');
     expect(wrapper.find('section').exists()).toBe(false);

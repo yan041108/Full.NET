@@ -19,8 +19,12 @@ internal sealed class ReportingExportTaskQueryService(
         int page,
         int pageSize,
         Guid? definitionId,
+        string? statusKey = null,
         CancellationToken cancellationToken = default)
     {
+        var status = string.IsNullOrWhiteSpace(statusKey) ? null : statusKey.Trim();
+        if (status is not null && !KnownStatuses.Contains(status, StringComparer.Ordinal))
+            return Result<PagedResult<ReportingExportTaskResponse>>.Failure(InvalidQuery());
         page = Math.Max(page, 1);
         pageSize = Math.Clamp(pageSize, 1, 100);
         var offset = ((long)page - 1) * pageSize;
@@ -36,6 +40,7 @@ internal sealed class ReportingExportTaskQueryService(
                 statement,
                 ReportingSqlParameters.Create(
                     ("DefinitionId", definitionId),
+                    ("StatusKey", status),
                     ("Offset", offset),
                     ("PageSize", pageSize)),
                 async (reader, _) =>

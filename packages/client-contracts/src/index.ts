@@ -619,6 +619,7 @@ export type {
   ReportingExportTask,
   ReportingExportTaskDetail,
   ReportingExportTaskPage,
+  ReportingExportTaskListQuery,
   ReportingExportTaskParameterValue
 } from './reporting-export-tasks.js';
 

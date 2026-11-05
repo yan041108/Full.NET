@@ -40,6 +40,14 @@ export interface ReportingExportTaskPage {
   total: number;
 }
 
+/** 后台导出历史查询；状态筛选使用服务端稳定机器键。 */
+export interface ReportingExportTaskListQuery {
+  page?: number;
+  pageSize?: number;
+  definitionId?: string;
+  statusKey?: string;
+}
+
 const guidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 function isGuid(value: unknown): value is string {

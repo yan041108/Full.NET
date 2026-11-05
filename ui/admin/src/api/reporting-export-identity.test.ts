@@ -7,6 +7,13 @@ const other = '019bc2b1-2a40-7cc3-8992-a80de51bf298';
 const body = () => ({ definitionId: exportTask.definitionId, versionNumber: 1, formatKey: 'excel', parameters: [{ parameterKey: 'year', value: '2026' }] });
 beforeEach(() => vi.resetAllMocks());
 describe('报表导出查询与创建归属', () => {
+  it('查询对象保留定义和规范状态，透传取消并拒绝错配状态', async () => {
+    const signal = new AbortController().signal;
+    vi.mocked(request).mockResolvedValue({ items: [exportTask], page: 1, pageSize: 20, total: 1 });
+    await listReportingExportTasks({ definitionId: exportTask.definitionId, statusKey: ' succeeded ' }, signal);
+    expect(vi.mocked(request).mock.lastCall).toEqual([`/api/v1/reporting/export-tasks?page=1&pageSize=20&definitionId=${exportTask.definitionId}&statusKey=succeeded`, { method: 'GET' }, signal]);
+    await expect(listReportingExportTasks({ statusKey: 'failed' })).rejects.toThrow('client.invalid_reporting_export_task_page');
+  });
   it.each([
     { items: [exportTask], page: 2, pageSize: 20, total: 1 }, { items: [exportTask], page: 1, pageSize: 10, total: 1 },
     { items: [exportTask, { ...exportTask, id: exportTask.id.toUpperCase() }], page: 1, pageSize: 20, total: 2 },
@@ -15,7 +22,7 @@ describe('报表导出查询与创建归属', () => {
     vi.mocked(request).mockResolvedValue(value); await expect(listReportingExportTasks()).rejects.toThrow(/^client.invalid_reporting_export_task_page$/u);
   });
   it('指定定义过滤接受UUID大小写等价，拒绝错定义', async () => {
-    vi.mocked(request).mockResolvedValue({ items: [exportTask], page: 1, pageSize: 20, total: 1 }); await expect(listReportingExportTasks(1, 20, exportTask.definitionId.toUpperCase())).resolves.toMatchObject({ items: [exportTask] }); await expect(listReportingExportTasks(1, 20, other)).rejects.toThrow(/^client.invalid_reporting_export_task_page$/u);
+    vi.mocked(request).mockResolvedValue({ items: [exportTask], page: 1, pageSize: 20, total: 1 }); await expect(listReportingExportTasks({ page: 1, pageSize: 20, definitionId: exportTask.definitionId.toUpperCase() })).resolves.toMatchObject({ items: [exportTask] }); await expect(listReportingExportTasks({ page: 1, pageSize: 20, definitionId: other })).rejects.toThrow(/^client.invalid_reporting_export_task_page$/u);
   });
   it.each([{ definitionId: other }, { versionNumber: 2 }, { formatKey: 'pdf' }, { parameters: [{ parameterKey: 'year', value: '2025' }] }, { parameters: [] }])('创建拒绝错配定义、版本、格式或参数 %j', async change => {
     vi.mocked(request).mockResolvedValue({ ...exportTask, parameters: body().parameters, ...change }); await expect(createReportingExportTask(body())).rejects.toThrow(/^client.invalid_reporting_export_task_identity$/u);

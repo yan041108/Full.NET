@@ -133,7 +133,7 @@ describe('报表导出任务操作意图', () => {
   });
   it('路由离开取消目录读取且不接入晚结果，返回后重新读取', async () => {
     const pending = deferred<Awaited<ReturnType<typeof api.listReportingExportTasks>>>(); vi.mocked(api.listReportingExportTasks).mockReturnValueOnce(pending.promise);
-    const { route } = await setup(all, false, true); const signal = vi.mocked(api.listReportingExportTasks).mock.calls[0]?.[3];
+    const { route } = await setup(all, false, true); const signal = vi.mocked(api.listReportingExportTasks).mock.calls[0]?.[1];
     route.name = 'elsewhere'; await flushPromises(); expect(signal?.aborted).toBe(true);
     pending.resolve({ items: [{ ...exportTask, definitionName: '旧路由结果' }], page: 1, pageSize: 20, total: 1 }); await flushPromises(); expect(wrapper!.text()).not.toContain('旧路由结果');
     route.name = 'reporting-export-tasks'; await flushPromises(); expect(api.listReportingExportTasks).toHaveBeenCalledTimes(2); expect(wrapper!.text()).toContain(exportTask.definitionName);
