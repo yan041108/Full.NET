@@ -54,16 +54,16 @@ internal static class DocumentFileReleaseAssertions
                 "SELECT COUNT(*) FROM fn_document_version WHERE Id = @Id", new { Id = versions[1].Id }, cancellationToken: ct)));
             Assert.AreEqual(0, await db.QuerySingleAsync<int>(new CommandDefinition(
                 "SELECT COUNT(*) FROM fn_document_version_deletion_audit WHERE VersionId = @Id", new { Id = versions[1].Id }, cancellationToken: ct)));
-            Assert.AreEqual(1, (await FactsAsync(db, item.Id, p.GetRequiredService<IIntegrationEventSerializer>(), ct)).Count);
+            Assert.AreEqual(1, (await FactsAsync(db, versions.Select(value => value.Id).ToArray(), p.GetRequiredService<IIntegrationEventSerializer>(), ct)).Count);
             Assert.IsTrue(await p.GetRequiredService<DocumentVersionDeletionService>().TryDeleteVersionForRetentionAsync(item.Id, versions[1].Id, ct));
             using (var deleted = await SendAsync(client, token, HttpMethod.Post, Items + $"/{item.Id}/delete",
                 new DeleteHostDocumentItemRequest(item.Version), ct)) Assert.AreEqual(HttpStatusCode.OK, deleted.StatusCode);
             using (var purged = await SendAsync(client, token, HttpMethod.Post, $"/api/v1/document/host/recycle-bin/{item.Id}/purge", null, ct))
                 Assert.AreEqual(HttpStatusCode.OK, purged.StatusCode, await purged.Content.ReadAsStringAsync(ct));
-            var facts = await FactsAsync(db, item.Id, p.GetRequiredService<IIntegrationEventSerializer>(), ct);
+            var facts = await FactsAsync(db, versions.Select(value => value.Id).ToArray(), p.GetRequiredService<IIntegrationEventSerializer>(), ct);
             Assert.AreEqual(4, facts.Count);
             Assert.AreEqual(4, await CountStateAsync(db, versions.Select(v => v.Id).ToArray(), "active", ct));
-            var handler = p.GetServices<IIntegrationEventHandler>().Single(h => h.EventType == DocumentVersionDeletedOutbox.EventType);
+            var handler = p.GetServices<IIntegrationEventHandler>().Single(h => h.EventType == DocumentFileReferenceEventTypes.Released);
             foreach (var fact in facts)
             {
                 var context = new IntegrationEventContext(fact.Id, handler.EventType, 1, null, null, DateTimeOffset.UtcNow);
@@ -99,19 +99,19 @@ internal static class DocumentFileReleaseAssertions
             new DeleteHostDocumentItemRequest(item.Version), ct)) Assert.AreEqual(HttpStatusCode.OK, deleted.StatusCode);
         using (var purged = await SendAsync(client, token, HttpMethod.Post, $"/api/v1/document/host/recycle-bin/{item.Id}/purge", null, ct))
             Assert.AreEqual(HttpStatusCode.OK, purged.StatusCode, await purged.Content.ReadAsStringAsync(ct));
-        var facts = await FactsAsync(db, item.Id, serializer, ct);
+        var facts = await FactsAsync(db, ids, serializer, ct);
         Assert.AreEqual(135, facts.Count);
-        CollectionAssert.AreEquivalent(ids.ToArray(), facts.Select(f => serializer.Deserialize<DocumentVersionDeletedIntegrationEvent>(f.Payload).VersionId).ToArray());
+        CollectionAssert.AreEquivalent(ids.ToArray(), facts.Select(f => serializer.Deserialize<DocumentFileReferenceReleased>(f.Payload).ReferenceId).ToArray());
         Assert.AreEqual(0, await db.QuerySingleAsync<int>(new CommandDefinition(
             "SELECT COUNT(*) FROM fn_document_version WHERE DocumentItemId = @Id", new { Id = item.Id }, cancellationToken: ct)));
     }
 
-    internal static async Task<List<Fact>> FactsAsync(System.Data.Common.DbConnection db, Guid item,
+    internal static async Task<List<Fact>> FactsAsync(System.Data.Common.DbConnection db, IReadOnlyCollection<Guid> references,
         IIntegrationEventSerializer serializer, CancellationToken ct)
     {
         var rows = await db.QueryAsync<Fact>(new CommandDefinition(
-            "SELECT Id, Payload FROM fn_outbox_message WHERE MessageType = @Type", new { Type = DocumentVersionDeletedOutbox.EventType }, cancellationToken: ct));
-        return rows.Where(f => serializer.Deserialize<DocumentVersionDeletedIntegrationEvent>(f.Payload).DocumentItemId == item).ToList();
+            "SELECT Id, Payload FROM fn_outbox_message WHERE MessageType = @Type", new { Type = DocumentFileReferenceEventTypes.Released }, cancellationToken: ct));
+        return rows.Where(f => references.Contains(serializer.Deserialize<DocumentFileReferenceReleased>(f.Payload).ReferenceId)).ToList();
     }
 
     private static Task<int> CountStateAsync(System.Data.Common.DbConnection db, Guid[] references, string state, CancellationToken ct) =>

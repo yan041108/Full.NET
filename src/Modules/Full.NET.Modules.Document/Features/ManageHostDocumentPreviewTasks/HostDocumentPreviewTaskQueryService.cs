@@ -70,10 +70,14 @@ internal sealed class HostDocumentPreviewTaskQueryService(
         Guid taskId,
         CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         var task = await queryExecutor.QuerySingleOrDefaultAsync<DocumentPreviewTaskRecord>(
             DocumentPreviewTaskSql.FindById, DocumentSqlParameters.Create(("Id", taskId)), cancellationToken).ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
         if (task is null) return Result<HostDocumentPreviewTaskResponse>.Failure(TaskNotFoundError());
-        if (await accessPolicy.CheckAsync(task.DocumentItemId, DocumentOperation.Read, cancellationToken).ConfigureAwait(false) is { } error)
+        var error = await accessPolicy.CheckAsync(task.DocumentItemId, DocumentOperation.Read, cancellationToken).ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
+        if (error is not null)
             return Result<HostDocumentPreviewTaskResponse>.Failure(error);
         return await GetAuthorizedAsync(taskId, cancellationToken).ConfigureAwait(false);
     }

@@ -38,7 +38,7 @@ internal static class DocumentLifecycleAssertions
             : "SELECT 1 FROM fn_document_item WITH (UPDLOCK, HOLDLOCK) WHERE Id = @Id AND TenantId IS NULL",
             new { item.Id }, transaction, cancellationToken: ct));
         var requests = Enumerable.Range(0, 2).Select(_ => SendAsync(client, token, HttpMethod.Post,
-            Items + $"/{item.Id}/versions", new AddHostDocumentVersionRequest(first.CurrentVersion!.FileId), ct)).ToArray();
+            Items + $"/{item.Id}/versions", new AddHostDocumentVersionRequest(first.CurrentVersion!.FileId) { RequestKey = Guid.CreateVersion7() }, ct)).ToArray();
         var committed = false;
         try
         {
@@ -48,7 +48,7 @@ internal static class DocumentLifecycleAssertions
                 JOIN performance_schema.threads r ON r.THREAD_ID = w.REQUESTING_THREAD_ID
                 JOIN performance_schema.data_locks l ON l.ENGINE = w.ENGINE AND l.ENGINE_LOCK_ID = w.REQUESTING_ENGINE_LOCK_ID
                 WHERE b.PROCESSLIST_ID = @HolderId AND l.OBJECT_SCHEMA = DATABASE() AND l.OBJECT_NAME = 'fn_document_item'
-                  AND l.LOCK_MODE LIKE 'X%' AND r.PROCESSLIST_INFO LIKE '%SELECT 1 FROM fn_document_item%'
+                  AND l.LOCK_MODE LIKE 'X%' AND r.PROCESSLIST_INFO LIKE '%FROM fn_document_item AS i%'
                 """ : """
                 WITH WaitTree AS (
                     SELECT r.session_id FROM sys.dm_exec_requests r
@@ -60,7 +60,7 @@ internal static class DocumentLifecycleAssertions
                 SELECT COUNT_BIG(DISTINCT r.session_id) FROM WaitTree w JOIN sys.dm_exec_requests r ON r.session_id = w.session_id
                 CROSS APPLY sys.dm_exec_sql_text(r.sql_handle) s
                 WHERE r.database_id = DB_ID()
-                  AND s.text LIKE '%SELECT 1 FROM fn_document_item%' AND s.text LIKE '%UPDLOCK, HOLDLOCK%'
+                  AND s.text LIKE '%FROM fn_document_item AS i%' AND s.text LIKE '%UPDLOCK, ROWLOCK%'
                 OPTION (MAXRECURSION 16)
                 """;
             var waiting = 0L;
@@ -77,7 +77,7 @@ internal static class DocumentLifecycleAssertions
                     SELECT DISTINCT r.PROCESSLIST_ID AS Requester, b.PROCESSLIST_ID AS Blocker,
                         l.OBJECT_NAME AS ObjectName, l.LOCK_MODE AS LockMode,
                         CASE WHEN r.PROCESSLIST_INFO IS NULL THEN 1 ELSE 0 END AS InfoMissing,
-                        CASE WHEN r.PROCESSLIST_INFO LIKE '%SELECT 1 FROM fn_document_item%' THEN 1 ELSE 0 END AS ItemGuard
+                        CASE WHEN r.PROCESSLIST_INFO LIKE '%FROM fn_document_item AS i%' THEN 1 ELSE 0 END AS ItemGuard
                     FROM performance_schema.data_lock_waits w
                     JOIN performance_schema.threads b ON b.THREAD_ID = w.BLOCKING_THREAD_ID
                     JOIN performance_schema.threads r ON r.THREAD_ID = w.REQUESTING_THREAD_ID
@@ -85,7 +85,7 @@ internal static class DocumentLifecycleAssertions
                     WHERE l.OBJECT_SCHEMA = DATABASE()
                     """ : """
                     SELECT r.session_id AS Requester, r.blocking_session_id AS Blocker,
-                        CASE WHEN s.text LIKE '%SELECT 1 FROM fn_document_item%' THEN 1 ELSE 0 END AS ItemGuard,
+                        CASE WHEN s.text LIKE '%FROM fn_document_item AS i%' THEN 1 ELSE 0 END AS ItemGuard,
                         CASE WHEN s.text LIKE '%fn_files_file%' THEN 1 ELSE 0 END AS FileOperation
                     FROM sys.dm_exec_requests r CROSS APPLY sys.dm_exec_sql_text(r.sql_handle) s
                     WHERE r.database_id = DB_ID() AND r.blocking_session_id > 0
@@ -94,7 +94,7 @@ internal static class DocumentLifecycleAssertions
                     .Cast<IDictionary<string, object>>().Select(row => new Dictionary<string, object>(row)).ToArray();
                 Console.WriteLine("Document admission diagnostic holder=" + holderId + ": " + JsonSerializer.Serialize(diagnostics));
             }
-            // SQL Server 会串联 U 锁等待者；MySQL 依据主表 X 锁及准入 SELECT 判断，不匹配易变的语句尾部。
+            // SQL Server 会串联 U 锁等待者；按当前根快照锁定语句核对，两库均须有两个真实等待者。
             Assert.AreEqual(2L, waiting, "Both version requests must wait at the parent admission SELECT.");
             await transaction.CommitAsync(ct);
             committed = true;
@@ -182,6 +182,7 @@ internal static class DocumentLifecycleAssertions
         var file = new ByteArrayContent([1, 2, 3, (byte)index]);
         file.Headers.ContentType = new MediaTypeHeaderValue("application/vnd.openxmlformats-officedocument.wordprocessingml.document");
         body.Add(file, "file", $"lifecycle-{index}.docx");
+        body.Add(new StringContent(Guid.CreateVersion7().ToString("D")), "requestKey");
         using var request = new HttpRequestMessage(HttpMethod.Post, Items + $"/{id}/versions/upload") { Content = body };
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
         using var response = await client.SendAsync(request, ct);

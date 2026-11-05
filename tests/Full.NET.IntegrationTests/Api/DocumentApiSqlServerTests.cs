@@ -20,7 +20,10 @@ public sealed class DocumentApiSqlServerTests
     {
         using var factory = new FullNetApiFactory(
             DatabaseProvider.SqlServer,
-            await SharedDatabaseFixture.CreateSqlServerDatabaseAsync());
+            await SharedDatabaseFixture.CreateSqlServerDatabaseAsync(),
+            new Dictionary<string, string?> { ["Document:OfficePreviewConversion:Enabled"] = "true",
+                ["Document:OfficePreviewConversion:ProviderKey"] = "external_http",
+                ["Document:OfficePreviewConversion:ExternalHttp:BaseUrl"] = "https://example.test/convert" });
 
         await DocumentHostItemAssertions.VerifyAsync(factory);
     }

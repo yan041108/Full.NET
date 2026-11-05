@@ -34,6 +34,7 @@ internal sealed class HostDocumentItemQueryService(
         HostDocumentStatus? status = null,
         HostDocumentType? documentType = null)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         if (keyword?.Length > 256 || status.HasValue && !Enum.IsDefined(status.Value)
             || documentType.HasValue && !Enum.IsDefined(documentType.Value))
             return Result<PagedResult<HostDocumentItemResponse>>.Failure(
@@ -69,11 +70,13 @@ internal sealed class HostDocumentItemQueryService(
                 cancellationToken)
             .ConfigureAwait(false);
 
+        cancellationToken.ThrowIfCancellationRequested();
         var itemIds = pageResult.Rows.Select(row => row.Id).ToArray();
         var tagsByItem = await documentItemTagAssignmentService
             .ListByDocumentItemIdsAsync(itemIds, cancellationToken)
             .ConfigureAwait(false);
 
+        cancellationToken.ThrowIfCancellationRequested();
         return Result<PagedResult<HostDocumentItemResponse>>.Success(
             new PagedResult<HostDocumentItemResponse>(
                 pageResult.Rows
@@ -88,11 +91,17 @@ internal sealed class HostDocumentItemQueryService(
                 pageResult.Total));
     }
 
-    public Task<Result<HostDocumentItemResponse>> GetByIdAsync(
+    public async Task<Result<HostDocumentItemResponse>> GetByIdAsync(
         Guid itemId,
-        CancellationToken cancellationToken = default) =>
-        accessPolicy.AuthorizeAsync(itemId, DocumentOperation.Read,
-            () => GetByIdAuthorizedAsync(itemId, cancellationToken), cancellationToken);
+        CancellationToken cancellationToken = default)
+    {
+        // 元数据也须在授权返回后复核取消，不能把迟到的拒绝或快照交给已结束观察。
+        cancellationToken.ThrowIfCancellationRequested();
+        var error = await accessPolicy.CheckAsync(itemId, DocumentOperation.Read, cancellationToken).ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
+        return error is null ? await GetByIdAuthorizedAsync(itemId, cancellationToken).ConfigureAwait(false)
+            : Result<HostDocumentItemResponse>.Failure(error);
+    }
 
     private async Task<Result<HostDocumentItemResponse>> GetByIdAuthorizedAsync(
         Guid itemId,
@@ -104,6 +113,7 @@ internal sealed class HostDocumentItemQueryService(
                 DocumentSqlParameters.Create(("Id", itemId)),
                 cancellationToken)
             .ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
         if (record is null)
         {
             return NotFound();
@@ -112,6 +122,7 @@ internal sealed class HostDocumentItemQueryService(
         var tagsByItem = await documentItemTagAssignmentService
             .ListByDocumentItemIdsAsync([itemId], cancellationToken)
             .ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
         tagsByItem.TryGetValue(itemId, out var tags);
         return Result<HostDocumentItemResponse>.Success(Map(record, tags));
     }
@@ -155,11 +166,16 @@ internal sealed class HostDocumentItemQueryService(
         return await RevalidateContentAsync(itemId, contentResult, accessObservation, cancellationToken).ConfigureAwait(false);
     }
 
-    public Task<Result<PagedResult<HostDocumentVersionResponse>>> ListVersionsAsync(
+    public async Task<Result<PagedResult<HostDocumentVersionResponse>>> ListVersionsAsync(
         Guid itemId,
-        CancellationToken cancellationToken = default, int page = 1, int pageSize = 20) =>
-        accessPolicy.AuthorizeAsync(itemId, DocumentOperation.Read,
-            () => ListVersionsAuthorizedAsync(itemId, page, pageSize, cancellationToken), cancellationToken);
+        CancellationToken cancellationToken = default, int page = 1, int pageSize = 20)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var error = await accessPolicy.CheckAsync(itemId, DocumentOperation.Read, cancellationToken).ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
+        return error is null ? await ListVersionsAuthorizedAsync(itemId, page, pageSize, cancellationToken).ConfigureAwait(false)
+            : Result<PagedResult<HostDocumentVersionResponse>>.Failure(error);
+    }
 
     private async Task<Result<PagedResult<HostDocumentVersionResponse>>> ListVersionsAuthorizedAsync(
         Guid itemId, int page, int pageSize,
@@ -174,6 +190,7 @@ internal sealed class HostDocumentItemQueryService(
                 DocumentSqlParameters.Create(("Id", itemId)),
                 cancellationToken)
             .ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
         if (item is null)
         {
             return Result<PagedResult<HostDocumentVersionResponse>>.Failure(NotFoundError());
@@ -181,6 +198,7 @@ internal sealed class HostDocumentItemQueryService(
 
         var total = await queryExecutor.QuerySingleOrDefaultAsync<long>(
             DocumentItemSql.CountVersionsByItemId, parameters, cancellationToken).ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
         var versions = await queryExecutor
             .QueryAsync<DocumentVersionRecord>(
                 databaseOptions.Value.Provider == DatabaseProvider.MySql
@@ -189,6 +207,7 @@ internal sealed class HostDocumentItemQueryService(
                 cancellationToken)
             .ConfigureAwait(false);
 
+        cancellationToken.ThrowIfCancellationRequested();
         return Result<PagedResult<HostDocumentVersionResponse>>.Success(
             new PagedResult<HostDocumentVersionResponse>(versions.Select(HostDocumentItemResponseMapper.MapVersion).ToArray(), page, pageSize, total));
     }

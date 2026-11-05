@@ -156,14 +156,28 @@ public sealed class DocumentContentHandoffBoundaryTests
     [DataRow("item-list", "tags")]
     [DataRow("item-detail", "tags")]
     [DataRow("versions", "versions-list")]
+    [DataRow("versions", "versions-count")]
     public async Task Ignored_page_tag_or_version_list_cancellation_cannot_produce_metadata_response(string operation, string stage)
     {
         using var fixture = new Fixture(stage);
         await Assert.ThrowsExactlyAsync<OperationCanceledException>(() => fixture.Metadata(operation));
         Assert.AreEqual(operation.EndsWith("list", StringComparison.Ordinal) ? 1 : 0, fixture.Multi.ReceivedCalls().Count());
-        Assert.AreEqual(stage == "page" ? 0 : operation == "item-list" ? 1 : 2, fixture.Query.ReceivedCalls().Count());
+        Assert.AreEqual(stage == "page" ? 0 : operation == "item-list" ? 1 : stage == "versions-list" ? 3 : 2, fixture.Query.ReceivedCalls().Count());
         Assert.AreEqual(0, fixture.FileCalls);
         Assert.AreEqual(0, fixture.Command.ReceivedCalls().Count());
+    }
+
+    [TestMethod]
+    [DataRow("item-detail", false)] [DataRow("item-detail", true)]
+    [DataRow("versions", false)] [DataRow("versions", true)]
+    [DataRow("task-detail", false)] [DataRow("task-detail", true)]
+    public async Task Metadata_authorization_cancellation_stops_before_followup_or_denied_response(string operation, bool denied)
+    {
+        using var fixture = new Fixture(denied ? "policy-denied" : "policy-granted");
+        await Assert.ThrowsExactlyAsync<OperationCanceledException>(() => fixture.Metadata(operation));
+        Assert.AreEqual(operation == "task-detail" ? 1 : 0, fixture.Query.ReceivedCalls().Count());
+        Assert.AreEqual(0, fixture.Multi.ReceivedCalls().Count()); Assert.AreEqual(0, fixture.Command.ReceivedCalls().Count());
+        Assert.AreEqual(0, fixture.FileCalls);
     }
 
     private sealed class Fixture : IDisposable
@@ -232,7 +246,12 @@ public sealed class DocumentContentHandoffBoundaryTests
                 if (stage == "tags") Cancellation.Cancel();
                 return Array.Empty<DocumentTagAssignmentRow>();
             });
-            Query.QueryAsync<DocumentVersionRecord>(DocumentItemSql.ListVersionsByItemId, Arg.Any<object>(), Arg.Any<CancellationToken>()).Returns(_ =>
+            Query.QuerySingleOrDefaultAsync<long>(DocumentItemSql.CountVersionsByItemId, Arg.Any<object>(), Arg.Any<CancellationToken>()).Returns(_ =>
+            {
+                if (stage == "versions-count") Cancellation.Cancel();
+                return 1L;
+            });
+            Query.QueryAsync<DocumentVersionRecord>(DocumentItemSql.ListVersionsPageSqlServer, Arg.Any<object>(), Arg.Any<CancellationToken>()).Returns(_ =>
             {
                 if (stage == "versions-list") Cancellation.Cancel();
                 return Array.Empty<DocumentVersionRecord>();
@@ -249,8 +268,9 @@ public sealed class DocumentContentHandoffBoundaryTests
                 if (stage == "page") Cancellation.Cancel();
                 return (Total: 1L, Rows: (IReadOnlyList<DocumentPreviewTaskRecord>)new[] { new DocumentPreviewTaskRecord { Id = taskId, DocumentItemId = itemId } });
             });
-            items = new(Multi, Query, files, recorder, new(Query, Command, null!), database, new TestDocumentAccessPolicy());
-            tasks = new(Query, Multi, files, database, new TestDocumentAccessPolicy(), recorder);
+            IDocumentAccessPolicy policy = stage.StartsWith("policy-", StringComparison.Ordinal) ? new CancellingAccessPolicy(Cancellation, stage == "policy-denied") : new TestDocumentAccessPolicy();
+            items = new(Multi, Query, files, recorder, new(Query, Command, null!), database, policy);
+            tasks = new(Query, Multi, files, database, policy, recorder);
             shares = new(Query, Command, Transaction, null!, null!, tasks, clock, Substitute.For<IIdGenerator>(), hasher, new TestDocumentAccessPolicy(), null!, null!, recorder);
         }
 
@@ -272,6 +292,16 @@ public sealed class DocumentContentHandoffBoundaryTests
             _ => tasks.GetAsync(taskId, Cancellation.Token),
         };
         public void Dispose() { Stream.Dispose(); Cancellation.Dispose(); }
+    }
+
+    private sealed class CancellingAccessPolicy(CancellationTokenSource source, bool denied) : IDocumentAccessPolicy
+    {
+        public Guid? ActorUserId => Guid.Empty;
+        public Task<Error?> CheckAsync(Guid documentId, DocumentOperation operation, CancellationToken cancellationToken)
+        {
+            source.Cancel();
+            return Task.FromResult<Error?>(denied ? new(Errors.AccessDenied, "fixture denied", ErrorType.Forbidden) : null);
+        }
     }
 
     private sealed class CountingStream : MemoryStream
