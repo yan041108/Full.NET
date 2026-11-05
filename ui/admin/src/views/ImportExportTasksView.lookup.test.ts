@@ -18,7 +18,7 @@ async function setup(permissions = ['import_export.import_tasks.read'], host = f
 async function lookup(value: string) { await wrapper.get('[data-testid="import-task-exact-id"]').setValue(value); await wrapper.get('form.import-task-lookup').trigger('submit'); await flushPromises(); }
 beforeEach(() => {
   vi.resetAllMocks(); vi.mocked(api.getImportExportTask).mockResolvedValue({ ...task });
-  vi.mocked(api.listImportExportTasks).mockImplementation(async (page = 1, pageSize = 20) => ({ items: [], page, pageSize, total: 40 }));
+  vi.mocked(api.listImportExportTasks).mockImplementation(async (query = {}) => ({ items: [], page: query.page ?? 1, pageSize: query.pageSize ?? 20, total: 40 }));
 });
 afterEach(() => wrapper?.unmount());
 
@@ -55,7 +55,7 @@ it.each(['session', 'account', 'tenant', 'permissions'] as const)('%s 变化清�
 });
 it('分页不替换精确目标，新会话中空输入回调仍可操作', async () => {
   const { session } = await setup(); session.currentUser!.sessionId = otherId; await flushPromises(); await lookup(task.id); wrapper.getComponent(ElPagination).vm.$emit('change', 2, 20); await flushPromises();
-  expect(api.listImportExportTasks).toHaveBeenLastCalledWith(2, 20, undefined, expect.any(AbortSignal)); expect(wrapper.get('[data-testid="import-task-detail-id"]').text()).toBe(task.id); expect(api.getImportExportTask).toHaveBeenCalledTimes(1);
+  expect(api.listImportExportTasks).toHaveBeenLastCalledWith({ page: 2, pageSize: 20, schemaKey: undefined, statusKey: undefined }, expect.any(AbortSignal)); expect(wrapper.get('[data-testid="import-task-detail-id"]').text()).toBe(task.id); expect(api.getImportExportTask).toHaveBeenCalledTimes(1);
 });
 it('第二页读取中保留总数，失败保留目标页且显式刷新只重读原页', async () => {
   await setup(); const pending = deferred<Awaited<ReturnType<typeof api.listImportExportTasks>>>(); vi.mocked(api.listImportExportTasks).mockReturnValueOnce(pending.promise);
@@ -63,7 +63,7 @@ it('第二页读取中保留总数，失败保留目标页且显式刷新只重�
   expect(state.page).toBe(2); expect(state.total).toBe(40); wrapper.getComponent(ElPagination).vm.$emit('change', 1, 20); expect(state.page).toBe(2);
   pending.reject({ status: 503, title: '读取失败' }); await flushPromises(); expect(state.page).toBe(2); expect(state.total).toBe(0);
   wrapper.getComponent(ElPagination).vm.$emit('change', 1, 20); await flushPromises(); expect(api.listImportExportTasks).toHaveBeenCalledTimes(2);
-  await (wrapper.vm as unknown as { refreshResults(): void }).refreshResults(); await flushPromises(); expect(api.listImportExportTasks).toHaveBeenLastCalledWith(2, 20, undefined, expect.any(AbortSignal));
+  await (wrapper.vm as unknown as { refreshResults(): void }).refreshResults(); await flushPromises(); expect(api.listImportExportTasks).toHaveBeenLastCalledWith({ page: 2, pageSize: 20, schemaKey: undefined, statusKey: undefined }, expect.any(AbortSignal));
 });
 it.each(['tenantId', 'sourceFileId', 'schemaKey', 'worksheetKey', 'requestedByUserId', 'version'] as const)('拒绝原行 %s 漂移或任务修订倒退', async field => {
   vi.mocked(api.listImportExportTasks).mockResolvedValue({ items: [{ ...task, version: 4 }], page: 1, pageSize: 20, total: 1 });

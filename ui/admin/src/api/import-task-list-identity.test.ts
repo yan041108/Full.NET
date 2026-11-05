@@ -17,7 +17,14 @@ describe('导入任务列表查询归属', () => {
   it('冻结页码和Schema参数并保留取消信号，筛选比较遵循数据库语义', async () => {
     const signal = new AbortController().signal;
     vi.mocked(importExportListImportTasks).mockResolvedValue({ items: [importTask], page: 1, pageSize: 20, total: 1 });
-    await expect(listImportExportTasks(1, 20, importTask.schemaKey.toUpperCase(), signal)).resolves.toMatchObject({ items: [importTask] });
-    expect(importExportListImportTasks).toHaveBeenCalledWith({}, { page: 1, pageSize: 20, schemaKey: importTask.schemaKey.toUpperCase() }, signal);
+    await expect(listImportExportTasks({ schemaKey: importTask.schemaKey.toUpperCase() }, signal)).resolves.toMatchObject({ items: [importTask] });
+    expect(importExportListImportTasks).toHaveBeenCalledWith({}, { page: 1, pageSize: 20, schemaKey: importTask.schemaKey.toUpperCase(), statusKey: undefined }, signal);
+  });
+  it('规范状态作为服务端条件发送，错误状态源页整页拒绝', async () => {
+    const signal = new AbortController().signal;
+    vi.mocked(importExportListImportTasks).mockResolvedValue({ items: [importTask], page: 1, pageSize: 20, total: 1 });
+    await listImportExportTasks({ schemaKey: ' ' + importTask.schemaKey + ' ', statusKey: ' preview_succeeded ' }, signal);
+    expect(importExportListImportTasks).toHaveBeenLastCalledWith({}, { page: 1, pageSize: 20, schemaKey: importTask.schemaKey, statusKey: 'preview_succeeded' }, signal);
+    await expect(listImportExportTasks({ statusKey: 'execution_failed' })).rejects.toThrow('client.invalid_import_export_task_page');
   });
 });

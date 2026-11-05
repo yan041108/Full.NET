@@ -547,6 +547,7 @@ export {
 export type {
   ImportExportTaskDetailResponse,
   ImportExportTaskPage,
+  ImportTaskListQuery,
   ImportExportTaskResponse,
   StaticImportRowPreviewResult,
   StaticImportSchemaDefinition,

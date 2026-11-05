@@ -177,7 +177,7 @@ describe('导入任务请求归属', () => {
   it('离开页面取消列表并忽略迟到失败', async () => {
     const pending = deferred<{ items: typeof importTask[]; page: number; pageSize: number; total: number }>();
     vi.mocked(api.listImportExportTasks).mockReturnValue(pending.promise); await setup([read]); wrapper!.unmount(); wrapper = undefined;
-    expect(vi.mocked(api.listImportExportTasks).mock.calls[0]?.[3]?.aborted).toBe(true);
+    expect(vi.mocked(api.listImportExportTasks).mock.calls[0]?.[1]?.aborted).toBe(true);
     pending.reject(new Error('late')); await flushPromises();
   });
 });

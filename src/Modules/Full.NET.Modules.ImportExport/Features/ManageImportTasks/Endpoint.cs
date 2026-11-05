@@ -121,18 +121,20 @@ internal static class Endpoint
             int? page,
             int? pageSize,
             string? schemaKey,
+            string? statusKey,
             ImportExportTaskQueryService queries,
             IApiResultMapper mapper,
             HttpContext httpContext,
             CancellationToken cancellationToken) =>
         {
             var result = await queries
-                .ListAsync(page ?? 1, pageSize ?? 20, schemaKey, cancellationToken)
+                .ListAsync(page ?? 1, pageSize ?? 20, schemaKey, statusKey, cancellationToken)
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
         .WithName("importExportListImportTasks")
         .Produces<PagedResult<ImportExportTaskResponse>>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
         .ProducesProblem(StatusCodes.Status401Unauthorized)
         .ProducesProblem(StatusCodes.Status403Forbidden)
         .RequireAuthorization(FullNetPermissionPolicies.For(ImportExportPermissions.ImportTasksRead));

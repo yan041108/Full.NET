@@ -10047,6 +10047,7 @@ export interface ImportExportListImportTasksParameters {
   readonly page?: number;
   readonly pageSize?: number;
   readonly schemaKey?: string;
+  readonly statusKey?: string;
 }
 
 export async function importExportListImportTasks(
@@ -10064,6 +10065,9 @@ export async function importExportListImportTasks(
   }
   if (parameters.schemaKey !== undefined) {
     query.set('schemaKey', String(parameters.schemaKey));
+  }
+  if (parameters.statusKey !== undefined) {
+    query.set('statusKey', String(parameters.statusKey));
   }
   const path = query.size === 0 ? `/api/v1/import-export/tasks` : `/api/v1/import-export/tasks?${query.toString()}`;
   const init: RequestInit = { method: 'GET' };

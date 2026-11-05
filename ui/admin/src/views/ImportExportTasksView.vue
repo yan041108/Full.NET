@@ -13,6 +13,8 @@ import {
   ElDialog,
   ElMessage,
   ElInput,
+  ElSelect,
+  ElOption,
   ElPagination,
   ElTable,
   ElTableColumn,
@@ -55,6 +57,10 @@ onDeactivated(() => { pageActive.value = false; }); onBeforeUnmount(() => { page
 const { t, locale } = useAdminI18n();
 const lookupText = (key: Parameters<typeof translateImportTaskLookup>[1]) => translateImportTaskLookup(locale.value, key);
 const taskLookup = ref(''), lookupProblem = ref<string>(), lookupSequence = ref(0);
+const schemaDraft = ref(''), statusDraft = ref('all'), appliedSchema = ref<string>(), appliedStatus = ref<string>();
+const statusKeys = ['uploaded', 'preview_succeeded', 'preview_failed', 'queued', 'executing', 'execution_succeeded', 'execution_partial', 'execution_failed', 'canceled'] as const;
+let invalidQuery = false;
+const confirmedTasks = new Map<string, ImportExportTaskResponse>();
 let detailBaseline: ImportExportTaskResponse | undefined;
 const items = ref<ImportExportTaskResponse[]>([]);
 const loading = ref(false);
@@ -111,7 +117,7 @@ interface ListControls { token: number; refresh: () => void; create: () => void;
 const listControls = ref<ListControls>(makeListControls());
 function makeListControls(): ListControls {
   const token = ++controlsSequence, owned = () => listControls.value.token === token && canRead();
-  const canPage = () => owned() && !loading.value && !(problem.value && items.value.length === 0);
+  const canPage = () => owned() && !invalidQuery && !loading.value && !(problem.value && items.value.length === 0);
   return { token, refresh: () => { if (owned()) refreshResults(); }, create: () => { if (owned() && canCreate()) createOpen.value = true; },
     page: value => { if (canPage() && Number.isSafeInteger(value) && value > 0) page.value = value; },
     size: value => { if (canPage() && [10, 20, 50].includes(value)) pageSize.value = value; },
@@ -126,6 +132,7 @@ const tableRows = computed(() => {
   return items.value.map(row => { const { id, version } = row; return { ...row, open: () => { if (listControls.value.token === token && canRead() && items.value.some(item => sameId(item.id, id) && item.version === version)) void openDetail(id); } }; });
 });
 const scope = useAuthorizedViewScope(session, () => {
+  schemaDraft.value = ''; statusDraft.value = 'all'; appliedSchema.value = undefined; appliedStatus.value = undefined; invalidQuery = false; confirmedTasks.clear();
   lookupSequence.value++; taskLookup.value = ''; lookupProblem.value = undefined; detailBaseline = undefined;
   linkBlocked = true; linkedTaskId = undefined;
   cancelConfirmation.value = undefined;
@@ -138,7 +145,7 @@ watch(() => session.switching, switching => { scope.invalidate(); if (!switching
 let listRequest: ReturnType<typeof scope.begin>;
 let detailRequest: ReturnType<typeof scope.begin>;
 let actionRequest: ReturnType<typeof scope.begin>;
-let lastQuery: { page: number; pageSize: number } | undefined;
+let lastQuery: { page: number; pageSize: number; schemaKey?: string; statusKey?: string } | undefined;
 
 // 抽屉关闭或重新选择任务后，旧详情、执行和下载均失去接入资格。
 function cancelDetail(): void {
@@ -238,22 +245,28 @@ const executionStats = computed(() => {
 });
 
 async function load(recoverPage = true): Promise<boolean> {
-  if (!canRead() || !Number.isSafeInteger(page.value) || page.value < 1 || ![10, 20, 50].includes(pageSize.value)) return false;
+  if (!canRead() || invalidQuery || !Number.isSafeInteger(page.value) || page.value < 1 || ![10, 20, 50].includes(pageSize.value)) return false;
   listRequest?.cancel(); const request = begin('import_export.import_tasks.read'); listRequest = request;
   if (!request) return false;
-  const query = { page: page.value, pageSize: pageSize.value };
-  const changedQuery = !lastQuery || lastQuery.page !== query.page || lastQuery.pageSize !== query.pageSize;
+  const query = { page: page.value, pageSize: pageSize.value, schemaKey: appliedSchema.value, statusKey: appliedStatus.value };
+  const changedQuery = !lastQuery || lastQuery.page !== query.page || lastQuery.pageSize !== query.pageSize || lastQuery.schemaKey !== query.schemaKey || lastQuery.statusKey !== query.statusKey;
   if (changedQuery) { items.value = []; listControls.value = makeListControls(); }
   lastQuery = query;
   loading.value = true;
   problem.value = undefined;
   try {
-    const result = await listImportExportTasks(query.page, query.pageSize, undefined, request.signal);
+    const result = await listImportExportTasks(query, request.signal);
     if (!request.current()) return false;
     if (result.page !== query.page || result.pageSize !== query.pageSize || result.items.some(row => !sameId(row.tenantId, session.currentUser?.tenantId))) throw new Error('client.invalid_import_export_task_page');
     const lastPage = Math.max(1, Math.ceil(result.total / query.pageSize));
     if (recoverPage && !result.items.length && query.page > lastPage) { page.value = lastPage; return await load(false); }
-    items.value = result.items.map(row => { const existing = items.value.find(item => sameId(item.id, row.id)); return existing && existing.version > row.version ? existing : row; });
+    const rows = result.items.map(row => {
+      const confirmed = confirmedTasks.get(row.id.toLowerCase()), existing = items.value.find(item => sameId(item.id, row.id));
+      return confirmed && sameTaskIdentity(confirmed, row) && confirmed.version > row.version ? confirmed : existing && existing.version > row.version ? existing : row;
+    });
+    // Schema 比较沿用既有数据库排序语义，客户端不以字符串大小写替代服务端查询。
+    if (rows.some(row => query.statusKey && row.statusKey !== query.statusKey)) throw new Error('client.invalid_import_export_task_page');
+    items.value = rows;
     total.value = result.total;
     return request.current();
   } catch (error) {
@@ -262,6 +275,16 @@ async function load(recoverPage = true): Promise<boolean> {
   } finally {
     if (request.current()) { loading.value = false; void syncTableLayout(); } request.finish();
   }
+}
+
+async function applyFilter(): Promise<void> {
+  if (!canRead() || actionLoading.value || createOpen.value || cancelDialogVisible.value) return;
+  const schemaKey = schemaDraft.value.trim() || undefined, statusKey = statusDraft.value === 'all' ? undefined : statusDraft.value;
+  if (schemaKey && schemaKey.length > 128 || statusKey && !statusKeys.includes(statusKey as typeof statusKeys[number])) {
+    invalidQuery = true; listRequest?.cancel(); loading.value = false; items.value = []; total.value = 0; page.value = 1; listControls.value = makeListControls();
+    problem.value = { status: 400, code: 'client.invalid_import_task_query', title: lookupText(schemaKey && schemaKey.length > 128 ? 'invalidSchema' : 'invalidStatus') }; return;
+  }
+  invalidQuery = false; appliedSchema.value = schemaKey; appliedStatus.value = statusKey; page.value = 1; await load();
 }
 
 async function openDetail(taskId: string) {
@@ -366,7 +389,15 @@ async function runAction(kind: ActionKind) {
     if (snapshot !== taskSnapshot(selectedTask.value) || !sameTaskIdentity(detail, target) || !Number.isSafeInteger(detail.version) || detail.version < target.version) throw new Error('client.invalid_import_export_task_identity');
     mutation.dispatched = false; listRequest?.cancel(); detailRequest?.cancel(); loading.value = false; detailLoading.value = false;
     selectedTask.value = detail;
-    items.value = items.value.map(row => sameId(row.id, detail.id) && row.version <= detail.version ? { ...row, ...detail } : row);
+    // 已确认写回执是会话内的修订下界，旧状态页不能覆盖已确认的新状态。
+    const { previewRows: _previewRows, columnMappings: _columnMappings, ...summary } = detail;
+    confirmedTasks.delete(detail.id.toLowerCase()); confirmedTasks.set(detail.id.toLowerCase(), summary);
+    // 历史行保留权威摘要下界，避免累计保存行级预览和映射；离开作用域统一释放。
+    while (confirmedTasks.size > 128) confirmedTasks.delete(confirmedTasks.keys().next().value!);
+    const wasListed = items.value.some(row => sameId(row.id, detail.id));
+    const matches = !appliedStatus.value || detail.statusKey === appliedStatus.value;
+    items.value = items.value.flatMap(row => sameId(row.id, detail.id) && row.version <= detail.version ? matches ? [{ ...row, ...detail }] : [] : [row]);
+    if (wasListed && !matches) total.value = Math.max(0, total.value - 1);
     actionReceipt.value = { taskId: target.id, kind, outcome: 'succeeded', errorCode: null };
     ElMessage.success(t('importExportTasks.actionSuccess'));
     await load();
@@ -470,6 +501,14 @@ function refreshResults() {
       <p v-if="actionReceipt.outcome === 'unconfirmed'">{{ t('importExportTasks.recoveryHint') }}</p>
     </div>
     <el-card class="art-table-card" shadow="never">
+      <form class="import-task-filter" @submit.prevent="applyFilter">
+        <label for="import-task-schema-filter">{{ lookupText('schemaKey') }}<ElInput id="import-task-schema-filter" v-model="schemaDraft" data-testid="import-task-schema-filter" :disabled="actionLoading || createOpen || cancelDialogVisible" clearable /></label>
+        <label>{{ t('importExportTasks.status') }}<ElSelect v-model="statusDraft" data-testid="import-task-status-filter" :aria-label="t('importExportTasks.status')" :disabled="actionLoading || createOpen || cancelDialogVisible">
+          <ElOption value="all" :label="lookupText('allStatuses')" /><ElOption v-for="key in statusKeys" :key="key" :value="key" :label="statusLabel(key)" />
+        </ElSelect></label>
+        <ElButton native-type="submit" data-testid="import-task-filter-submit" :disabled="actionLoading || createOpen || cancelDialogVisible">{{ lookupText('apply') }}</ElButton>
+      </form>
+      <p data-testid="import-task-applied-query">{{ lookupText('submitted') }} {{ appliedSchema ?? lookupText('allSchemas') }} · {{ appliedStatus ? statusLabel(appliedStatus) : lookupText('allStatuses') }}</p>
       <form class="import-task-lookup" @submit.prevent="lookupControls.submit">
         <label for="import-task-exact-id">{{ lookupText('taskId') }}</label>
         <div class="import-task-lookup__controls">
@@ -725,4 +764,6 @@ function refreshResults() {
 .import-task-lookup__controls { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 8px; }
 .import-task-lookup__controls :deep(.el-input) { flex: 1 1 240px; max-width: 520px; }
 .import-task-identity { overflow-wrap: anywhere; }
+.import-task-filter { display: flex; flex-wrap: wrap; align-items: end; gap: 12px; }
+.import-task-filter label { display: grid; gap: 8px; width: 260px; max-width: 100%; }
 </style>

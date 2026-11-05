@@ -19,8 +19,14 @@ internal sealed class ImportExportTaskQueryService(
         int page,
         int pageSize,
         string? schemaKey,
+        string? statusKey = null,
         CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
+        schemaKey = string.IsNullOrWhiteSpace(schemaKey) ? null : schemaKey.Trim();
+        statusKey = string.IsNullOrWhiteSpace(statusKey) ? null : statusKey.Trim();
+        if (schemaKey?.Length > 128 || statusKey is not null && !ImportExportTaskStatusKeys.All.Contains(statusKey, StringComparer.Ordinal))
+            return Result<PagedResult<ImportExportTaskResponse>>.Failure(InvalidQuery());
         page = Math.Max(page, 1);
         pageSize = Math.Clamp(pageSize, 1, 100);
         var offset = ((long)page - 1) * pageSize;
@@ -36,6 +42,7 @@ internal sealed class ImportExportTaskQueryService(
                 statement,
                 ImportExportSqlParameters.Create(
                     ("SchemaKey", schemaKey),
+                    ("StatusKey", statusKey),
                     ("Offset", offset),
                     ("PageSize", pageSize)),
                 async (reader, _) =>
@@ -47,6 +54,7 @@ internal sealed class ImportExportTaskQueryService(
                 cancellationToken)
             .ConfigureAwait(false);
 
+        cancellationToken.ThrowIfCancellationRequested();
         var items = pageResult.Rows.Select(record => ImportExportTaskMapper.MapSummary(record, clock.UtcNow)).ToArray();
         return Result<PagedResult<ImportExportTaskResponse>>.Success(
             new PagedResult<ImportExportTaskResponse>(items, page, pageSize, pageResult.Total));

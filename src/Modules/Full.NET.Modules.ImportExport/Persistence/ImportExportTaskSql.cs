@@ -94,11 +94,13 @@ internal static class ImportExportTaskSql
         $"""
         SELECT COUNT(1)
         FROM fn_import_export_task
-        WHERE TenantId = @TenantId AND (@SchemaKey IS NULL OR SchemaKey = @SchemaKey);
+        WHERE TenantId = @TenantId AND (@SchemaKey IS NULL OR SchemaKey = @SchemaKey)
+          AND (@StatusKey IS NULL OR StatusKey = @StatusKey);
 
         SELECT {SelectColumns}
         FROM fn_import_export_task
         WHERE TenantId = @TenantId AND (@SchemaKey IS NULL OR SchemaKey = @SchemaKey)
+          AND (@StatusKey IS NULL OR StatusKey = @StatusKey)
         ORDER BY CreatedAtUtc DESC, Id DESC
         OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY;
         """,
@@ -109,11 +111,13 @@ internal static class ImportExportTaskSql
         $"""
         SELECT COUNT(1)
         FROM fn_import_export_task
-        WHERE TenantId = @TenantId AND (@SchemaKey IS NULL OR SchemaKey = @SchemaKey);
+        WHERE TenantId = @TenantId AND (@SchemaKey IS NULL OR SchemaKey = @SchemaKey)
+          AND (@StatusKey IS NULL OR StatusKey = @StatusKey);
 
         SELECT {SelectColumns}
         FROM fn_import_export_task
         WHERE TenantId = @TenantId AND (@SchemaKey IS NULL OR SchemaKey = @SchemaKey)
+          AND (@StatusKey IS NULL OR StatusKey = @StatusKey)
         ORDER BY CreatedAtUtc DESC, Id DESC
         LIMIT @PageSize OFFSET @Offset;
         """,

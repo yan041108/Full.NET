@@ -16,6 +16,7 @@ import {
   type ImportExportTaskDetailResponse,
   type ImportColumnMappingRequest,
   type ImportExportTaskPage,
+  type ImportTaskListQuery,
   type StaticImportSchemaDefinition
 } from '@fullnet/client-contracts';
 import { http } from './http';
@@ -56,19 +57,19 @@ export async function listStaticImportSchemas(
 
 /** 分页查询导入任务。 */
 export async function listImportExportTasks(
-  page = 1,
-  pageSize = 20,
-  schemaKey?: string,
+  query: ImportTaskListQuery = {},
   signal?: AbortSignal
 ): Promise<ImportExportTaskPage> {
+  const { page = 1, pageSize = 20 } = query;
+  const schemaKey = query.schemaKey?.trim() || undefined, statusKey = query.statusKey?.trim() || undefined;
   const value = await importExportListImportTasks(
     http,
-    { page, pageSize, schemaKey },
+    { page, pageSize, schemaKey, statusKey },
     signal
   );
   if (!isImportExportTaskPage(value) || value.page !== page || value.pageSize !== pageSize
     || new Set(value.items.map(row => row.id.toLowerCase())).size !== value.items.length
-    || value.items.some(row => row.id === '00000000-0000-0000-0000-000000000000')) {
+    || value.items.some(row => row.id === '00000000-0000-0000-0000-000000000000' || statusKey !== undefined && row.statusKey !== statusKey)) {
     throw new Error('client.invalid_import_export_task_page');
   }
   return value;

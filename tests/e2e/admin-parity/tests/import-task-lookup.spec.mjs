@@ -6,7 +6,7 @@ const record = n => ({ id: id(n), tenantId: id(8), schemaKey: 'organization.tena
   totalRows: 1, validRowCount: 1, invalidRowCount: 0, errorCode: null, requestedByUserId: id(9), createdAtUtc: '2026-11-06T00:00:00Z', previewCompletedAtUtc: null, processedRowCount: 0, succeededRowCount: 0,
   executionFailedRowCount: 0, nextLineNumber: 0, executionStartedAtUtc: null, executionCompletedAtUtc: null, hasErrorReceipt: false, version: 4, previewRows: [],
   sourceRetention: { expiresAtUtc: '2099-01-01T00:00:00Z', stateKey: 'available', releasedAtUtc: null } });
-async function boot(page, locale) {
+async function boot(page, locale, statusMode = false) {
   await page.setViewportSize({ width: 1440, height: 1000 }); await page.addInitScript(value => localStorage.setItem('fullnet.admin.locale', value), locale);
   await page.route('**/api/v1/**', route => route.fulfill({ status: 404 })); const reads = [], lists = []; let mode = 'ok', writes = 0, downloads = 0;
   await page.route('**/api/v1/import-export/**', route => { if (route.request().method() !== 'GET') writes++; if (route.request().url().includes('error-receipt')) downloads++; return route.fulfill({ status: 404 }); });
@@ -18,7 +18,10 @@ async function boot(page, locale) {
   await page.route('**/api/v1/import-export/tasks?*', async route => {
     const query = Object.fromEntries(new URL(route.request().url()).searchParams); lists.push(query); await new Promise(resolve => setTimeout(resolve, 80));
     if (mode === 'list-failed' && query.page === '2') return route.fulfill({ status: 503 });
-    const rows = Array.from({ length: 40 }, (_, n) => record(11 + n)); return json(route, { items: rows.slice((Number(query.page) - 1) * Number(query.pageSize), Number(query.page) * Number(query.pageSize)), page: Number(query.page), pageSize: Number(query.pageSize), total: 40 });
+    const rows = statusMode ? [...Array.from({ length: 60 }, (_, n) => record(11 + n)), ...Array.from({ length: 60 }, (_, n) => ({ ...record(1011 + n), schemaKey: 'retired.fixture', statusKey: 'execution_failed' })), ...Array.from({ length: 60 }, (_, n) => ({ ...record(2011 + n), schemaKey: 'other.fixture', statusKey: 'execution_failed' }))] : Array.from({ length: 40 }, (_, n) => record(11 + n));
+    const filtered = rows.filter(row => (!query.schemaKey || row.schemaKey === query.schemaKey) && (!query.statusKey || row.statusKey === query.statusKey));
+    const items = mode === 'list-mismatch' ? [{ ...record(11), schemaDisplayName: 'WRONG-STATE' }] : filtered.slice((Number(query.page) - 1) * Number(query.pageSize), Number(query.page) * Number(query.pageSize));
+    return json(route, { items, page: Number(query.page), pageSize: Number(query.pageSize), total: filtered.length });
   });
   await page.route('**/api/v1/import-export/tasks/*', route => {
     const target = new URL(route.request().url()).pathname.split('/').at(-1); reads.push(target);
@@ -36,6 +39,29 @@ async function settle(page) {
   await expect.poll(async () => { const box = await page.getByRole('dialog').boundingBox(); return !!box && Math.abs(box.x + box.width - page.viewportSize().width) < 2; }).toBe(true);
 }
 for (const [width, locale] of [[1440, 'en-US'], [390, 'zh-CN']]) {
+  test('导入 Schema/状态提交、草稿独立及来源状态拒绝 ' + width, async ({ page }, info) => {
+    const trace = await boot(page, locale, true); await page.setViewportSize({ width, height: 1000 }); const view = page.locator('.import-export-tasks-view');
+    await page.getByTestId('import-task-schema-filter').fill(' retired.fixture '); await page.getByTestId('import-task-status-filter').click(); await page.getByRole('option', { name: locale === 'zh-CN' ? '执行失败' : 'Execution failed', exact: true }).click();
+    await page.getByTestId('import-task-filter-submit').click(); await expect(view.locator('.el-table__body-wrapper')).toContainText('Import 1011');
+    await page.getByTestId('import-task-schema-filter').fill('other.fixture'); await page.getByTestId('import-task-status-filter').click(); await page.getByRole('option', { name: locale === 'zh-CN' ? '已取消' : 'Canceled', exact: true }).click();
+    await view.locator('.el-pagination .btn-next').click(); await expect(view.locator('.el-table__body-wrapper')).toContainText('Import 1031'); await expect(view.locator('.el-pager .is-active')).toHaveText('2');
+    await view.getByRole('button', { name: locale === 'zh-CN' ? '刷新' : 'Refresh', exact: true }).click(); await expect(view.locator('.el-loading-mask')).toHaveCount(0);
+    expect(trace.lists.at(-1)).toEqual({ page: '2', pageSize: '20', schemaKey: 'retired.fixture', statusKey: 'execution_failed' }); await expect(page.getByTestId('import-task-applied-query')).toContainText('retired.fixture');
+    await page.screenshot({ path: info.outputPath(`import-status-page-two-${width}.png`), animations: 'disabled' }); expect((await new AxeBuilder({ page }).include('.import-export-tasks-view').withTags(['wcag2a', 'wcag2aa']).analyze()).violations).toEqual([]);
+    trace.mode('list-mismatch'); await page.getByTestId('import-task-filter-submit').click(); await expect(view.locator('.el-alert--error')).toBeVisible(); await expect(view.locator('.el-table__body-wrapper .el-table__row')).toHaveCount(0); await expect(view).not.toContainText('WRONG-STATE');
+    expect(trace.lists.at(-1)).toEqual({ page: '1', pageSize: '20', schemaKey: 'other.fixture', statusKey: 'canceled' });
+    trace.mode('ok'); await page.getByTestId('import-task-schema-filter').fill(''); await page.getByTestId('import-task-status-filter').click(); await page.getByRole('option', { name: locale === 'zh-CN' ? '全部状态' : 'All statuses', exact: true }).click(); await page.getByTestId('import-task-filter-submit').click(); await expect(view.locator('.el-table__body-wrapper')).toContainText('Import 11');
+    expect(trace.lists.at(-1)).toEqual({ page: '1', pageSize: '20' }); expect(trace.writes()).toBe(0); expect(trace.downloads()).toBe(0);
+  });
+  test('导入状态源第二页失败后保持条件并独立读取其他状态详情 ' + width, async ({ page }, info) => {
+    const trace = await boot(page, locale, true); await page.setViewportSize({ width, height: 1000 }); const view = page.locator('.import-export-tasks-view');
+    await page.getByTestId('import-task-schema-filter').fill('retired.fixture'); await page.getByTestId('import-task-status-filter').click(); await page.getByRole('option', { name: locale === 'zh-CN' ? '执行失败' : 'Execution failed', exact: true }).click(); await page.getByTestId('import-task-filter-submit').click(); await expect(view.locator('.el-table__body-wrapper')).toContainText('Import 1011');
+    trace.mode('list-failed'); await view.locator('.el-pagination .btn-next').click(); await expect(page.getByTestId('import-task-requested-page')).toContainText('2'); await expect(view.locator('.el-loading-mask')).toHaveCount(0); await expect(view.locator('.el-table__body-wrapper .el-table__row')).toHaveCount(0);
+    await page.screenshot({ path: info.outputPath(`import-status-read-failed-${width}.png`), animations: 'disabled' }); expect(trace.lists).toHaveLength(3);
+    trace.mode('ok'); await view.getByRole('button', { name: locale === 'zh-CN' ? '刷新' : 'Refresh', exact: true }).click(); await expect(view.locator('.el-table__body-wrapper')).toContainText('Import 1031'); await expect(view.locator('.el-loading-mask')).toHaveCount(0);
+    expect(trace.lists).toHaveLength(4); expect(trace.lists.at(-1)).toEqual({ page: '2', pageSize: '20', schemaKey: 'retired.fixture', statusKey: 'execution_failed' });
+    await lookup(page, id(99)); await expect(page.getByTestId('import-task-detail-id')).toHaveText(id(99)); await expect(page.getByRole('dialog')).toContainText(locale === 'zh-CN' ? '预校验成功' : 'Preview succeeded'); expect(trace.lists).toHaveLength(4); expect(trace.writes()).toBe(0); expect(trace.downloads()).toBe(0);
+  });
   test('导入只读页外定位、原来源身份和失败重读 ' + width, async ({ page }, info) => {
     const trace = await boot(page, locale); await page.setViewportSize({ width, height: 1000 }); await lookup(page, ` ${id(99).toUpperCase()} `);
     await expect(page.getByTestId('import-task-detail-id')).toHaveText(id(99)); await expect(page.getByTestId('import-task-source-file')).toHaveText(id(5));

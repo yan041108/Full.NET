@@ -17,7 +17,7 @@ vi.mock('../api/import-export-tasks', () => ({
 }));
 vi.mock('../api/reporting-definitions', () => ({ listReportingDefinitions: vi.fn() }));
 vi.mock('../api/reporting-export-tasks', () => ({ getReportingExportTask: vi.fn(), cancelReportingExportTask: vi.fn(), listReportingExportTasks: vi.fn(), createReportingExportTask: vi.fn(), downloadReportingExportTask: vi.fn() }));
-vi.mock('../api/document-preview-tasks', () => ({ cancelDocumentPreviewTask: vi.fn(), listDocumentPreviewTasks: vi.fn(), createDocumentPreviewTask: vi.fn(), openDocumentPreviewTaskContent: vi.fn() }));
+vi.mock('../api/document-preview-tasks', () => ({ getDocumentPreviewCapabilities: vi.fn(), getDocumentPreviewTask: vi.fn(), retryDocumentPreviewTask: vi.fn(), cancelDocumentPreviewTask: vi.fn(), listDocumentPreviewTasks: vi.fn(), createDocumentPreviewTask: vi.fn(), openDocumentPreviewTaskContent: vi.fn() }));
 
 let wrapper: VueWrapper | undefined;
 const cases = [
@@ -32,6 +32,7 @@ beforeEach(() => {
   for (const api of [imports, exports, previews]) for (const operation of Object.values(api)) {
     if (vi.isMockFunction(operation)) operation.mockReset();
   }
+  vi.mocked(previews.getDocumentPreviewCapabilities).mockResolvedValue({ enabled: true, providerKey: 'fixture', allowedMimeTypes: [], maxInputBytes: 1024, maxAttempts: 3 });
   vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] }); vi.spyOn(document, 'hidden', 'get').mockReturnValue(false);
 });
 afterEach(() => { wrapper?.unmount(); wrapper = undefined; vi.restoreAllMocks(); vi.useRealTimers(); });
@@ -95,7 +96,7 @@ it('导入轮询列表等待期间撤权，旧轮次不能继续请求详情或�
   vi.mocked(imports.getImportExportTask).mockResolvedValue({ ...importTask, statusKey: 'executing' });
   const session = await setup(entry); await wrapper!.get('[data-testid="import-export-task-detail"]').trigger('click'); await flushPromises(); await tick();
   session.currentUser!.permissions = []; await flushPromises();
-  expect(entry.list.mock.calls[1]?.[3]?.aborted).toBe(true);
+  expect(entry.list.mock.calls[1]?.[1]?.aborted).toBe(true);
   waiting.resolve(page(importTask)); await flushPromises(); await tick(20_000);
   expect(imports.getImportExportTask).toHaveBeenCalledTimes(1); expect(wrapper!.find('[data-testid="import-task-preview-rows"]').exists()).toBe(false);
 });
@@ -107,7 +108,7 @@ it('手动列表替换自动列表请求后，旧轮次不得继续读取详情'
   vi.mocked(imports.getImportExportTask).mockResolvedValue({ ...importTask, statusKey: 'executing' });
   await setup(entry); await wrapper!.get('[data-testid="import-export-task-detail"]').trigger('click'); await flushPromises(); await tick();
   wrapper!.getComponent(ArtTableHeader).vm.$emit('refresh'); await flushPromises();
-  expect(entry.list.mock.calls[1]?.[3]?.aborted).toBe(true);
+  expect(entry.list.mock.calls[1]?.[1]?.aborted).toBe(true);
   oldRead.resolve(page(importTask)); await flushPromises();
   expect(imports.getImportExportTask).toHaveBeenCalledTimes(1);
   manualRead.resolve(page({ ...importTask, statusKey: 'execution_succeeded' })); await flushPromises();

@@ -95,7 +95,7 @@ describe('导入任务归属与失败恢复', () => {
     pagination.vm.$emit('change', 1, 20); await flushPromises(); expect(api.listImportExportTasks).toHaveBeenCalledOnce();
     vi.mocked(api.listImportExportTasks).mockResolvedValueOnce({ items: [], page: 1, pageSize: 50, total: 0 });
     pagination.vm.$emit('update:pageSize', 50); pagination.vm.$emit('update:currentPage', 3); pagination.vm.$emit('change', 3, 50); await flushPromises();
-    expect(api.listImportExportTasks).toHaveBeenLastCalledWith(1, 50, undefined, expect.any(AbortSignal)); expect(api.listImportExportTasks).toHaveBeenCalledTimes(2);
+    expect(api.listImportExportTasks).toHaveBeenLastCalledWith({ page: 1, pageSize: 50, schemaKey: undefined, statusKey: undefined }, expect.any(AbortSignal)); expect(api.listImportExportTasks).toHaveBeenCalledTimes(2);
   });
   it('越界空页最多恢复读取一次末页', async () => {
     await setup(); state().page = 3; vi.mocked(api.listImportExportTasks).mockResolvedValueOnce({ items: [], page: 3, pageSize: 20, total: 21 }).mockResolvedValueOnce({ items: [], page: 2, pageSize: 20, total: 0 }); await state().load();

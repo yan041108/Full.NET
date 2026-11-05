@@ -1,5 +1,8 @@
 import type { ImportColumnMapping } from './generated/models.generated.js';
 
+/** 导入历史的已提交查询；状态和 Schema 与分页共同作用于服务端结果。 */
+export interface ImportTaskListQuery { page?: number; pageSize?: number; schemaKey?: string; statusKey?: string }
+
 export interface StaticImportWorksheetDefinition {
   worksheetKey: string;
   displayName: string;
