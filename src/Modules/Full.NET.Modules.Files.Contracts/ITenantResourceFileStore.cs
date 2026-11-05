@@ -21,6 +21,7 @@ public interface ITenantResourceFileStore
         CancellationToken cancellationToken = default);
 
     /// <summary>仅打开当前租户、模块和资源共同拥有的就绪文件。</summary>
+    /// <remarks>元数据读取前、外部对象打开前及交付前核对原租户仍为活动状态。交付前拒绝、取消或复核异常时由 Files 释放流；成功交付后由调用方释放，并继续承担自身业务授权复核。</remarks>
     /// <param name="ownerModuleKey">受信所属模块键。</param>
     /// <param name="resourceId">已授权的资源标识。</param>
     /// <param name="fileId">文件引用。</param>

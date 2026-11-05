@@ -221,8 +221,10 @@ internal sealed class TenantResourceFileStore(IQueryExecutor queries, ICommandEx
     public async Task<Result<TenantResourceFileContent>> OpenReadyContentAsync(string ownerModuleKey,
         Guid resourceId, Guid fileId, CancellationToken cancellationToken = default)
     {
-        RequireScope(ownerModuleKey, resourceId);
+        var originalTenantId = RequireScope(ownerModuleKey, resourceId);
         RequireNoTransaction();
+        if (!await CanReadOriginalTenantAsync().ConfigureAwait(false))
+            return Failure<TenantResourceFileContent>(FilesErrorCodes.TenantInactive, ErrorType.Validation);
         var record = await queries.QuerySingleOrDefaultAsync<TenantResourceFileRecord>(TenantResourceFileSql.FindOwned,
             Parameters(ownerModuleKey, resourceId, fileId), cancellationToken).ConfigureAwait(false);
         if (record is null)
@@ -240,11 +242,33 @@ internal sealed class TenantResourceFileStore(IQueryExecutor queries, ICommandEx
         {
             return Failure<TenantResourceFileContent>(FilesErrorCodes.FileNotFound, ErrorType.NotFound);
         }
+        // 元数据和所属模块授权都可能跨越停用；接触外部对象前再次核对原租户。
+        if (!await CanReadOriginalTenantAsync().ConfigureAwait(false))
+            return Failure<TenantResourceFileContent>(FilesErrorCodes.TenantInactive, ErrorType.Validation);
         var content = await FileStorageContentReader.OpenAsync(
             providers.Resolve(record.ProviderKey), record.StorageKey, cancellationToken).ConfigureAwait(false);
-        return content.IsSuccess
-            ? Result<TenantResourceFileContent>.Success(new(content.Value!, record.ContentType, record.OriginalFileName))
-            : Result<TenantResourceFileContent>.Failure(content.Error!);
+        if (!content.IsSuccess) return Result<TenantResourceFileContent>.Failure(content.Error!);
+        var transferred = false;
+        try
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (!await CanReadOriginalTenantAsync().ConfigureAwait(false))
+                return Failure<TenantResourceFileContent>(FilesErrorCodes.TenantInactive, ErrorType.Validation);
+            cancellationToken.ThrowIfCancellationRequested();
+            transferred = true;
+            return Result<TenantResourceFileContent>.Success(new(content.Value!, record.ContentType, record.OriginalFileName));
+        }
+        finally
+        {
+            // 成功交付前，拒绝、取消及活动目录异常均由 Files 释放已打开的流。
+            if (!transferred) await content.Value!.DisposeAsync().ConfigureAwait(false);
+        }
+
+        async Task<bool> CanReadOriginalTenantAsync()
+        {
+            bool Matches() => tenant.IsAvailable && !tenant.IsHost && tenant.Id == originalTenantId;
+            return Matches() && await activeTenants.IsActiveTenantAsync(originalTenantId, cancellationToken).ConfigureAwait(false) && Matches();
+        }
     }
 
     /// <inheritdoc />

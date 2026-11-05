@@ -19,6 +19,67 @@ namespace Full.NET.UnitTests.Files;
 [TestClass]
 public sealed class TenantResourceFileStoreTests
 {
+    /// <summary>非活动企业在读取元数据或打开外部对象前即拒绝。</summary>
+    [TestMethod]
+    [DataRow(false)]
+    [DataRow(true)]
+    public async Task Open_revalidates_tenant_before_metadata_and_external_object(bool revokedAfterMetadata)
+    {
+        var tenant = new CurrentTenantAccessor(); var tenantId = Guid.NewGuid(); tenant.SetTenant(new(tenantId, "a", "A"));
+        var queries = Substitute.For<IQueryExecutor>(); var fileId = Guid.NewGuid();
+        queries.QuerySingleOrDefaultAsync<TenantResourceFileRecord>(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>())
+            .Returns(new TenantResourceFileRecord(fileId, "file.txt", "text/plain", 1, "hash", "test", "object-key", "ready"));
+        var directory = Substitute.For<IIdentityActiveTenantDirectory>();
+        directory.IsActiveTenantAsync(tenantId, Arg.Any<CancellationToken>()).Returns(revokedAfterMetadata, false);
+        var storage = Substitute.For<IFileStorageProvider>(); storage.ProviderKey.Returns("test");
+        var store = Create(queries, Substitute.For<ICommandExecutor>(), tenant, Substitute.For<IDataTransactionState>(), storage,
+            Substitute.For<IIdGenerator>(), activeTenants: directory);
+        var result = await store.OpenReadyContentAsync("reporting", Guid.NewGuid(), fileId);
+        Assert.IsFalse(result.IsSuccess); Assert.AreEqual(FilesErrorCodes.TenantInactive, result.Error!.Code);
+        await queries.Received(revokedAfterMetadata ? 1 : 0).QuerySingleOrDefaultAsync<TenantResourceFileRecord>(
+            Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>());
+        await storage.DidNotReceive().OpenReadAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
+    }
+
+    /// <summary>外部对象已经打开时，晚到的撤销、上下文变化、取消或目录异常不能泄露流。</summary>
+    [TestMethod]
+    [DataRow("inactive")]
+    [DataRow("scope")]
+    [DataRow("host")]
+    [DataRow("cleared")]
+    [DataRow("exception")]
+    [DataRow("cancel")]
+    public async Task Open_releases_stream_when_original_tenant_cannot_receive_content(string mode)
+    {
+        var tenant = new CurrentTenantAccessor(); var tenantId = Guid.NewGuid(); tenant.SetTenant(new(tenantId, "a", "A"));
+        var queries = Substitute.For<IQueryExecutor>(); var fileId = Guid.NewGuid();
+        queries.QuerySingleOrDefaultAsync<TenantResourceFileRecord>(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>())
+            .Returns(new TenantResourceFileRecord(fileId, "file.txt", "text/plain", 1, "hash", "test", "object-key", "ready"));
+        var directory = Substitute.For<IIdentityActiveTenantDirectory>(); var checks = 0;
+        using var cancellation = new CancellationTokenSource();
+        directory.IsActiveTenantAsync(tenantId, Arg.Any<CancellationToken>()).Returns(_ => {
+            checks++;
+            if (checks == 3 && mode == "exception") throw new InvalidOperationException("directory unavailable");
+            return checks < 3 || mode != "inactive";
+        });
+        var content = new MemoryStream(new byte[] { 1 });
+        var storage = Substitute.For<IFileStorageProvider>(); storage.ProviderKey.Returns("test");
+        storage.OpenReadAsync("object-key", Arg.Any<CancellationToken>()).Returns(_ => {
+            if (mode == "scope") tenant.SetTenant(new(Guid.NewGuid(), "b", "B"));
+            if (mode == "host") tenant.SetHost();
+            if (mode == "cleared") tenant.Clear();
+            if (mode == "cancel") cancellation.Cancel();
+            return content;
+        });
+        var store = Create(queries, Substitute.For<ICommandExecutor>(), tenant, Substitute.For<IDataTransactionState>(), storage,
+            Substitute.For<IIdGenerator>(), activeTenants: directory);
+        if (mode == "exception") await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => store.OpenReadyContentAsync("reporting", Guid.NewGuid(), fileId, cancellation.Token));
+        else if (mode == "cancel") await Assert.ThrowsExactlyAsync<OperationCanceledException>(() => store.OpenReadyContentAsync("reporting", Guid.NewGuid(), fileId, cancellation.Token));
+        else { var result = await store.OpenReadyContentAsync("reporting", Guid.NewGuid(), fileId, cancellation.Token); Assert.IsFalse(result.IsSuccess); Assert.AreEqual(FilesErrorCodes.TenantInactive, result.Error!.Code); }
+        Assert.IsFalse(content.CanRead, "未交付的流必须释放。");
+        await storage.Received(1).OpenReadAsync("object-key", Arg.Any<CancellationToken>());
+    }
+
     [TestMethod]
     [DataRow(false)]
     [DataRow(true)]
