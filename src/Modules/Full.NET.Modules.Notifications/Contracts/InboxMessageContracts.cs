@@ -47,6 +47,12 @@ public static class InboxMessageStatuses
 /// <param name="ReadAtUtc">首次阅读时间（UTC），未读时为 null。</param>
 /// <param name="CreatedAtUtc">消息发送时间（UTC）。</param>
 /// <param name="CreatedByUserId">发送者用户标识；系统消息时为 null。</param>
+/// <param name="ArchivedAtUtc">归档时间（UTC）；未归档时为 null。</param>
+/// <param name="RevokedAtUtc">撤回时间（UTC）；未撤回时为 null。</param>
+/// <param name="RevocationReason">撤回原因；未撤回时为 null。</param>
+/// <param name="DeepLink">登录后资源深链；无跳转目标时为 null。</param>
+/// <param name="ProducerKey">创建该消息的稳定生产者键；无来源时为空。</param>
+/// <param name="SceneKey">稳定场景键，用于按来源场景过滤；无场景时为空。</param>
 public sealed record InboxMessageResponse(
     Guid Id,
     string Title,
@@ -72,6 +78,9 @@ public sealed record InboxUnreadCountResponse(int UnreadCount);
 /// <summary>站内信列表查询过滤条件；空值表示不过滤。</summary>
 /// <param name="Title">标题包含匹配，服务端做 LIKE 模糊查询。</param>
 /// <param name="Status">读取状态稳定机器码，取值自 InboxMessageStatuses。</param>
+/// <param name="Archived">是否筛选已归档消息；默认 false 表示仅未归档。</param>
+/// <param name="ProducerKey">按生产者键精确过滤；null 表示不过滤。</param>
+/// <param name="SceneKey">按场景键精确过滤；null 表示不过滤。</param>
 public sealed record InboxMessageListFilter(
     string? Title = null,
     string? Status = null,

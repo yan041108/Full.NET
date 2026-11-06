@@ -45,6 +45,10 @@ public sealed partial class LogFileControlPlane
     private readonly string? _logRootPath;
     private readonly Action<string>? _beforeOpenTestHook;
 
+    /// <summary>以宿主配置与环境构造日志文件控制面。</summary>
+    /// <param name="options">可观测性管理模块的日志根路径等选项。</param>
+    /// <param name="environment">用于解析相对日志根路径的宿主环境。</param>
+    /// <param name="loggingOptions">决定本地文件投递是否启用的日志选项。</param>
     public LogFileControlPlane(
         IOptions<ObservabilityAdminOptions> options,
         IHostEnvironment environment,
@@ -76,6 +80,8 @@ public sealed partial class LogFileControlPlane
     /// 枚举日志根目录下的普通日志文件，按最后修改时间倒序返回受 MaximumListFiles 限制的摘要列表；
     /// 每次调用都重新枚举顶层目录，不缓存文件名映射以抵御软链接逃逸。
     /// </summary>
+    /// <param name="cancellationToken">取消当前枚举操作的令牌。</param>
+    /// <returns>按最后修改时间倒序的摘要列表，并标记是否因条目上限或扫描上限被截断。</returns>
     public LogFileList List(CancellationToken cancellationToken = default)
     {
         var scan = EnumerateCandidates(_options.MaximumScanEntries, cancellationToken);
@@ -100,6 +106,7 @@ public sealed partial class LogFileControlPlane
     /// <param name="maximumLines">返回的最大行数；为空时使用 DefaultTailLines。</param>
     /// <param name="maximumBytes">读取的最大字节数；为空时使用 DefaultTailBytes。</param>
     /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>受行数与字节上限约束的尾部片段；标识无效或文件非安全普通文件时返回 <see langword="null"/>。</returns>
     public async Task<LogFileTail?> ReadTailAsync(
         string id,
         int? maximumLines,
@@ -185,6 +192,8 @@ public sealed partial class LogFileControlPlane
     /// 调用方负责释放返回的流；标识无效或文件非安全普通文件时返回 <see langword="null"/>。
     /// </summary>
     /// <param name="id">由文件名 SHA-256 计算的 64 位十六进制标识。</param>
+    /// <param name="cancellationToken">取消当前异步操作的令牌。</param>
+    /// <returns>包含文件名、大小与最后修改时间的下载句柄，其流由调用方负责释放；标识无效或文件非安全普通文件时返回 <see langword="null"/>。</returns>
     public LogFileDownload? OpenDownload(string id, CancellationToken cancellationToken = default)
     {
         var opened = ResolveAndOpen(id, cancellationToken);

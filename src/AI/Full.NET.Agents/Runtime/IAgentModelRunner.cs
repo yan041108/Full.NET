@@ -28,6 +28,7 @@ public interface IAgentModelRunner
 /// <param name="OutputTokens">本次输出令牌数；供应商未报告时为 <see langword="null"/>。</param>
 public sealed record AgentModelResult(string Text, JsonElement Session, long? InputTokens, long? OutputTokens)
 {
-    // 模型输出和会话可能含用户隐私，日志不得通过 record 的自动诊断文本复制载荷。
+    /// <summary>仅输出计量字段的可读摘要；模型输出与会话可能含用户隐私，不得经此自动诊断文本复制载荷。</summary>
+    /// <returns>仅含输入/输出令牌数的摘要字符串；不包含模型输出文本与会话快照。</returns>
     public override string ToString() => $"AgentModelResult {{ InputTokens = {InputTokens}, OutputTokens = {OutputTokens} }}";
 }

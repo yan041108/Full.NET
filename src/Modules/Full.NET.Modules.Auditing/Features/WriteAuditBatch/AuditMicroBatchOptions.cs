@@ -7,6 +7,7 @@ namespace Full.NET.Modules.Auditing.Features.WriteAuditBatch;
 /// </summary>
 public sealed class AuditMicroBatchOptions
 {
+    /// <summary>配置节名称。</summary>
     public const string SectionName = "Auditing:MicroBatch";
 
     /// <summary>有界队列容量；满载后在入队超时内无法入队则 fail-open。</summary>

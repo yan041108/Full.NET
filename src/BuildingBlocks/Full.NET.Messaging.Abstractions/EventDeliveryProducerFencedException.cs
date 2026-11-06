@@ -10,7 +10,9 @@ public sealed class EventDeliveryProducerFencedException(
     : InvalidOperationException(
         $"Event stream ('{eventType}', schema {schemaVersion}) is fenced for delivery rollback.")
 {
+    /// <summary>被 fence 的事件契约类型名。</summary>
     public string EventType { get; } = eventType;
 
+    /// <summary>该事件契约的 Schema 版本号。</summary>
     public int SchemaVersion { get; } = schemaVersion;
 }

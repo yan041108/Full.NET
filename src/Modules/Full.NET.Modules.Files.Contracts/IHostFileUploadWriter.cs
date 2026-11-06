@@ -20,10 +20,10 @@ public interface IHostFileUploadWriter
         CancellationToken cancellationToken = default, Guid? reservedFileId = null);
 
     /// <summary>按操作键和可信所有者恢复上传收据；不存在返回空，未就绪返回冲突，禁止换键重传。</summary>
-    /// <param name="reservedFileId">可选的服务端预留 UUID v7，先持久化消费方引用意图后再上传；不能来自不可信 HTTP 输入。</param>
     /// <param name="operationKey">预先持久化的上传操作键。</param>
     /// <param name="createdByUserId">操作绑定的可信用户。</param>
     /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>已就绪的上传结果；从未登记时返回空值，尚未就绪时返回冲突，二者均禁止换键盲目重试。</returns>
     Task<Result<HostFileUploadResult?>> FindUploadAsync(string operationKey, Guid createdByUserId, CancellationToken cancellationToken = default);
     /// <summary>将上传流写入 Files 状态机并返回不透明文件引用；大文件由实现方分块持久化。</summary>
     /// <param name="createdByUserId">发起上传的可信用户标识，用于审计与归属。</param>

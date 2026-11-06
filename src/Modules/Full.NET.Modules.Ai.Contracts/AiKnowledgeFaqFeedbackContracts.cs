@@ -17,6 +17,7 @@ public sealed record AiKnowledgeFaqFeedbackDraftInput(string Question, IReadOnly
 public sealed record AiKnowledgeFaqFeedbackPreview(string Digest, string SourceHash, AiKnowledgeFaqFeedbackSource Feedback, string Answer,
     IReadOnlyList<AiKnowledgeSearchSource> Sources, AiKnowledgeFaqSourceGraph? Graph)
 {
+    /// <summary>预览引用的个人日程来源选择；无相关来源时为 <see langword="null"/>。</summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public IReadOnlyList<AiPersonalScheduleSourceSelection>? PersonalSchedules { get; init; }
 }

@@ -46,10 +46,13 @@ public sealed record AiKnowledgeFaqDraftWorkspace(Guid Id, Guid KnowledgeBaseId,
     string Origin, string? Basis, string SourceHash, IReadOnlyList<AiKnowledgeSearchSource> Sources, int HeadVersion,
     AiKnowledgeFaqDraftRevision Revision)
 {
+    /// <summary>草稿的来源图；未携带有权来源时为 <see langword="null"/>。</summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public AiKnowledgeFaqSourceGraph? Graph { get; init; }
+    /// <summary>草稿由反馈生成的准确反馈来源；普通来源草稿为 <see langword="null"/>。</summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public AiKnowledgeFaqFeedbackSource? Feedback { get; init; }
+    /// <summary>草稿引用的个人日程来源选择；无相关来源时为 <see langword="null"/>。</summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public IReadOnlyList<AiPersonalScheduleSourceSelection>? PersonalSchedules { get; init; }
 }
@@ -63,7 +66,9 @@ public sealed record AiKnowledgeFaqDraftRevisionPage(IReadOnlyList<AiKnowledgeFa
 /// <summary>草稿维护精确权限，Host 与 Tenant 使用相同的可信隔离边界。</summary>
 public static class AiKnowledgeFaqPermissions
 {
+    /// <summary>读取当前作用域的 FAQ 草稿工作区与修订历史。</summary>
     public const string Read = "ai.knowledge_faqs.read";
+    /// <summary>创建和修改 FAQ 草稿及其来源引用。</summary>
     public const string Write = "ai.knowledge_faqs.write";
     /// <summary>窄用途读取已批准私人回答及其派生 FAQ；不授予任意聊天会话读取权。</summary>
     public const string Feedback = "ai.knowledge_faqs.feedback";

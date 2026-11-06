@@ -5,7 +5,9 @@ namespace Full.NET.Modules.Organization.Contracts;
 /// <summary>直属汇报关系涉及全租户人员，不隐含在机构改名或成员隶属权限中。</summary>
 public static class OrganizationReportingLinePermissions
 {
+    /// <summary>读取当前租户的直属汇报关系。</summary>
     public const string Read = "organization.reporting_lines.read";
+    /// <summary>设置人员的直属上级并推进关系修订。</summary>
     public const string Update = "organization.reporting_lines.update";
 }
 

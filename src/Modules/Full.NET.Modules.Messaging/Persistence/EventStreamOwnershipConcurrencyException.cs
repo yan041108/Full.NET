@@ -9,6 +9,11 @@ namespace Full.NET.Modules.Messaging.Persistence;
 /// </summary>
 public sealed class EventStreamOwnershipConcurrencyException : Exception
 {
+    /// <summary>以 CAS 冲突的事件身份与读写到的所有权构造异常。</summary>
+    /// <param name="messageType">发生 CAS 冲突的事件消息类型全名。</param>
+    /// <param name="schemaVersion">发生 CAS 冲突的事件 Schema 版本号。</param>
+    /// <param name="expectedOwner">写入前读到的期望所有权归属。</param>
+    /// <param name="actualOwner">提交时数据库中实际的所有权归属。</param>
     public EventStreamOwnershipConcurrencyException(
         string messageType,
         int schemaVersion,

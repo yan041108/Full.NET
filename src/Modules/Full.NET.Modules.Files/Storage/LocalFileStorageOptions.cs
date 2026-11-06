@@ -3,6 +3,7 @@ namespace Full.NET.Modules.Files.Storage;
 /// <summary>本地磁盘文件存储配置；RootPath 由宿主配置提供。</summary>
 public sealed class LocalFileStorageOptions
 {
+    /// <summary>配置节名称。</summary>
     public const string SectionName = "Files:Local";
 
     /// <summary>文件落盘根目录。</summary>

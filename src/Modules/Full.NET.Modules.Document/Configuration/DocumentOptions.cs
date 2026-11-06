@@ -5,6 +5,7 @@ namespace Full.NET.Modules.Document.Configuration;
 /// </summary>
 public sealed class DocumentOptions
 {
+    /// <summary>配置节名称。</summary>
     public const string SectionName = "Document";
 
     /// <summary>

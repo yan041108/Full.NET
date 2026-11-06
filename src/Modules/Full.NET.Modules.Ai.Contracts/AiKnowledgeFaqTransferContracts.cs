@@ -11,10 +11,13 @@ public sealed record AiKnowledgeFaqTransferItem(Guid FaqId, Guid KnowledgeBaseId
     string Origin, string? Basis, string SourceHash, string ContentHash, AiKnowledgeFaqContent Content,
     IReadOnlyList<AiKnowledgeSearchSource> Sources)
 {
+    /// <summary>导出条目的来源图；未携带有权来源时为 <see langword="null"/>。</summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public AiKnowledgeFaqSourceGraph? Graph { get; init; }
+    /// <summary>导出条目绑定的准确反馈来源；非来源反馈条目为 <see langword="null"/>。</summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public AiKnowledgeFaqFeedbackSource? Feedback { get; init; }
+    /// <summary>导出条目引用的个人日程来源选择；无相关来源时为 <see langword="null"/>。</summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public IReadOnlyList<AiPersonalScheduleSourceSelection>? PersonalSchedules { get; init; }
 }

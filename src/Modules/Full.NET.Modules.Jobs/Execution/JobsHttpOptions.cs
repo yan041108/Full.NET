@@ -6,6 +6,7 @@ namespace Full.NET.Modules.Jobs.Execution;
 /// <summary>HTTP 任务出站网络安全选项；Production 强制禁止私网访问。</summary>
 public sealed class JobsHttpOptions
 {
+    /// <summary>配置节名称。</summary>
     public const string SectionName = "Jobs:Http";
 
     /// <summary>非 Production 下允许访问私网/环回；Production 必须为 false。</summary>

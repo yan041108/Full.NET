@@ -7,6 +7,7 @@ namespace Full.NET.Hosting.Observability;
 /// </summary>
 public sealed class HttpOperationLogOptions
 {
+    /// <summary>配置节名称。</summary>
     public const string SectionName = "Observability:HttpOperation";
 
     /// <summary>总开关；false 等同于 CaptureMode=Disabled。</summary>

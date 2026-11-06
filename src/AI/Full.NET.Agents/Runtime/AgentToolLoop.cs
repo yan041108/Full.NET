@@ -266,5 +266,6 @@ public sealed record AgentToolLoopResult(
 /// <summary>达到工具迭代或模型／工具累计步数上限。</summary>
 public sealed class AgentToolLoopBudgetExceededException : InvalidOperationException
 {
+    /// <summary>以固定诊断消息构造异常；消息不包含会话快照或工具载荷。</summary>
     public AgentToolLoopBudgetExceededException() : base("Agent tool loop exceeded the execution budget.") { }
 }

@@ -8,6 +8,7 @@ namespace Full.NET.Host.Worker;
 /// </summary>
 public sealed class MessagingWorkerOptions
 {
+    /// <summary>配置节名称。</summary>
     public const string SectionName = "Messaging:Worker";
 
     /// <summary>

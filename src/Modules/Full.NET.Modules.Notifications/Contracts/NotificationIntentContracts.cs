@@ -11,6 +11,8 @@ namespace Full.NET.Modules.Notifications.Contracts;
 /// <param name="Parameters">模板参数 JSON；键名必须命中模板声明，未知键失败关闭。</param>
 /// <param name="IdempotencyKey">调用方幂等键；同一 Producer + IdempotencyKey 重放返回同一 IntentId。</param>
 /// <param name="AttachmentFileIds">附件文件 Id 集合；为 <see langword="null"/> 表示无附件。</param>
+/// <param name="ExpiresAtUtc">意图过期时间（UTC）；为 <see langword="null"/> 表示不过期。</param>
+/// <param name="DeepLink">登录后资源深链；为 <see langword="null"/> 表示无跳转目标。</param>
 public sealed record CreateNotificationIntentRequest(
     string ProducerKey,
     string SceneKey,
@@ -57,6 +59,7 @@ public sealed record NotificationRecipientInput(
 /// <param name="Recipients">已解析收件人快照集合；幂等回放返回同一集合。</param>
 /// <param name="Attachments">已绑定附件元数据集合；不含文件内容。</param>
 /// <param name="CreatedAtUtc">意图受理时间（UTC）。</param>
+/// <param name="Revision">并发控制版本号，初始为 1，每次状态迁移递增。</param>
 public sealed record NotificationIntentResponse(
     Guid Id,
     string ProducerKey,

@@ -7,6 +7,7 @@ namespace Full.NET.Data.Abstractions;
 /// </summary>
 public sealed class FrameworkManifestMigrationOptions
 {
+    /// <summary>配置节名称。</summary>
     public const string SectionName = "FullNet:FrameworkManifest";
 
     /// <summary>应用内容根；默认使用进程当前工作目录。</summary>
@@ -21,6 +22,11 @@ public sealed class FrameworkManifestMigrationOptions
 /// </summary>
 public static class FrameworkManifestMigrationScope
 {
+    /// <summary>从 preset-scoped 的 <c>framework-manifest.json</c> 解析允许执行的迁移脚本名集合。</summary>
+    /// <param name="options">manifest 的内容根与相对路径配置。</param>
+    /// <returns>返回允许脚本名集合；未声明生成应用且清单无限定时返回 <see langword="null"/>，表示保持框架兼容的全量迁移模式。</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="options"/> 为 <see langword="null"/> 时抛出。</exception>
+    /// <exception cref="InvalidOperationException">已声明生成应用却缺失或无限定清单，或清单 selectionStatus/scripts 结构非法、为空或含重名脚本时抛出。</exception>
     public static HashSet<string>? TryLoadAllowedScriptNames(
         FrameworkManifestMigrationOptions options)
     {
@@ -97,6 +103,10 @@ public static class FrameworkManifestMigrationScope
         return allowed;
     }
 
+    /// <summary>校验清单允许的脚本集合同时被 SQL Server 与 MySQL 的成对嵌入资源覆盖。</summary>
+    /// <param name="allowed">允许脚本名集合；为 <see langword="null"/> 表示无限定兼容模式，直接跳过校验。</param>
+    /// <param name="resourceNames">待校验的迁移嵌入资源名集合。</param>
+    /// <exception cref="InvalidOperationException">允许集合中存在未被某一 Provider 的嵌入资源承载的脚本名时抛出。</exception>
     public static void ValidateEmbeddedScriptNames(HashSet<string>? allowed, IEnumerable<string> resourceNames)
     {
         // 无限定清单的框架兼容模式保持不变；显式子集必须由真实双库资源承载。
@@ -113,6 +123,10 @@ public static class FrameworkManifestMigrationScope
         }
     }
 
+    /// <summary>从嵌入资源全名中截取指定 Provider 段之后的脚本名。</summary>
+    /// <param name="resourceName">迁移嵌入资源全名。</param>
+    /// <param name="providerSegment">Provider 资源段，例如 <c>.Migrations.SqlServer.</c>。</param>
+    /// <returns>截取到的脚本名；资源名不含该段时返回 <see langword="null"/>。</returns>
     public static string? GetEmbeddedScriptName(string resourceName, string providerSegment)
     {
         var index = resourceName.IndexOf(providerSegment, StringComparison.Ordinal);

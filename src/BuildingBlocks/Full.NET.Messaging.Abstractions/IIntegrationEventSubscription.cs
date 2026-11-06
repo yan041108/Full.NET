@@ -7,12 +7,16 @@ namespace Full.NET.Messaging.Abstractions;
 /// </summary>
 public interface IIntegrationEventSubscription
 {
+    /// <summary>消费方稳定名称，与事件类型、模式版本共同构成路由键；发布方不应假设其取值。</summary>
     string ConsumerName { get; }
 
+    /// <summary>订阅的事件稳定类型名，参与路由键匹配。</summary>
     string EventType { get; }
 
+    /// <summary>载荷模式版本，参与路由键并决定反序列化方式；升级须保留旧版本处理器。</summary>
     int SchemaVersion { get; }
 
+    /// <summary>该订阅采取的去重策略；实现须据此保证至少一次投递下的业务幂等。</summary>
     IntegrationEventIdempotencyStrategy IdempotencyStrategy { get; }
 
     /// <summary>

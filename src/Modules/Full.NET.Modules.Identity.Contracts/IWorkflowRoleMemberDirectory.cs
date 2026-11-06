@@ -46,6 +46,7 @@ public interface IWorkflowRoleMemberDirectory
 
     /// <summary>按角色批量解析有界的活动成员，调用方通过上限加一判断超限，禁止当作完整角色名册。</summary>
     /// <param name="roleIds">待解析的角色标识集合。</param>
+    /// <param name="maximumMembersPerRole">每个角色返回成员的上限；调用方应传入「期望值加一」以判定是否超限。</param>
     /// <param name="cancellationToken">请求取消令牌。</param>
     /// <returns>以角色标识为键的活动成员；活动空角色保留空列表，无效或跨作用域角色缺键。</returns>
     Task<IReadOnlyDictionary<Guid, IReadOnlyList<Guid>>> FindActiveMemberUserIdsByRoleIdsAsync(

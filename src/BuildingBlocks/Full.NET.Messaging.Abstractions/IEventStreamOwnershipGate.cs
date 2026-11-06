@@ -69,12 +69,18 @@ public readonly record struct EventStreamConsumerFenceResult(
     bool OwnershipExists,
     EventDeliveryOwner? CurrentOwner)
 {
+    /// <summary>当前存储不支持该优化路径（例如目标库缺少所有权表）时的读取结果。</summary>
     public static EventStreamConsumerFenceResult Unsupported { get; } =
         new(IsSupported: false, OwnershipExists: false, CurrentOwner: null);
 
+    /// <summary>存储支持检查，但数据库中不存在该事件流的所有权记录。</summary>
     public static EventStreamConsumerFenceResult Missing { get; } =
         new(IsSupported: true, OwnershipExists: false, CurrentOwner: null);
 
+    /// <summary>构造已取得所有权记录的成功结果。</summary>
+    /// <param name="currentOwner">数据库中当前拥有该事件流的所有者，必须为已定义的枚举值。</param>
+    /// <returns>表示成功取得 Consumer Fence 的读取结果。</returns>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="currentOwner"/> 不是已定义的 <see cref="EventDeliveryOwner"/> 值时抛出。</exception>
     public static EventStreamConsumerFenceResult Acquired(EventDeliveryOwner currentOwner)
     {
         if (!Enum.IsDefined(currentOwner))

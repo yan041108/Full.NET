@@ -5,7 +5,9 @@ namespace Full.NET.Modules.Organization.Contracts;
 /// <summary>机构领导权配置与普通机构编辑分开授权，防止改名权限隐式授予审批分配权。</summary>
 public static class OrganizationUnitLeadershipPermissions
 {
+    /// <summary>读取当前租户的机构领导配置。</summary>
     public const string Read = "organization.unit_leadership.read";
+    /// <summary>设置机构负责人并推进领导配置修订。</summary>
     public const string Update = "organization.unit_leadership.update";
 }
 

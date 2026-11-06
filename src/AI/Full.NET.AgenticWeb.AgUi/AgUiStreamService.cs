@@ -10,11 +10,15 @@ namespace Full.NET.AgenticWeb.AgUi;
 /// <summary>只读重放持久事件；每条连接独立开始，在完整快照之后仅发送一次最终边界。</summary>
 public sealed class AgUiStreamService(IAgentRunAgUiReader reader, ILogger<AgUiStreamService>? logger = null)
 {
+    /// <summary>持久事件重放的默认批大小。</summary>
     public const int DefaultBatchSize = 100;
+    /// <summary>空闲时的轮询间隔，控制重放跟随的实时性。</summary>
     public static readonly TimeSpan PollInterval = TimeSpan.FromSeconds(1);
     internal static readonly TimeSpan FrameWriteTimeout = TimeSpan.FromSeconds(10);
 
     /// <summary>按原请求当前资格重放既有运行；游标非负，重连不会创建或恢复业务运行。</summary>
+    /// <returns>成功且已发送终态边界时返回 <see langword="true"/>；客户端断开或写入超时等取消场景返回 <see langword="false"/>；
+    /// 资格失效、游标过期或未预期错误返回对应失败。</returns>
     public async Task<Result<bool>> StreamOwnedRunAsync(Guid runId, string scopeKey, Guid actorUserId,
         long afterSequence, HttpContext httpContext, CancellationToken cancellationToken = default)
     {

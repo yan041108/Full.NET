@@ -7,6 +7,7 @@ namespace Full.NET.Modules.Files.Storage;
 /// <summary>Files 存储路由配置；默认 Provider 只能由受信任的宿主配置指定。</summary>
 public sealed class FileStorageOptions
 {
+    /// <summary>配置节名称。</summary>
     public const string SectionName = "Files:Storage";
 
     /// <summary>新对象使用的默认 Provider 稳定机器码。</summary>

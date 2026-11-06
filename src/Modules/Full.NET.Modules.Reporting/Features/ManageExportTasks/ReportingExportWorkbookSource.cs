@@ -76,7 +76,7 @@ internal sealed class ReportingExportWorkbookSource(
     }
 
     /// <summary>按页收集导出行，并在超限时立即失败。</summary>
-    /// <param name="definitionId">报表定义。</param>
+    /// <param name="task">待执行的报表导出任务记录。</param>
     /// <param name="request">执行请求。</param>
     /// <param name="principal">列权限主体。</param>
     /// <param name="cancellationToken">取消令牌。</param>

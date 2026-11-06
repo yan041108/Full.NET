@@ -85,6 +85,14 @@ public sealed class DbUpMigrationRunner : IDatabaseMigrationRunner
     {
     }
 
+    /// <summary>
+    /// 在四参数构造函数基础上追加框架清单闭包配置，限定仅执行 manifest 允许的框架迁移脚本。
+    /// </summary>
+    /// <param name="databaseOptions">数据库连接、Provider 与命令超时等配置。</param>
+    /// <param name="loggerFactory">用于桥接 DbUp 日志到 .NET 日志管道的工厂。</param>
+    /// <param name="contractOptions">UUID Binary Contract 维护证据。</param>
+    /// <param name="namingContractOptions">Pre-V1 Naming Contract 维护证据。</param>
+    /// <param name="manifestOptions">生成应用的 framework-manifest 迁移闭包配置。</param>
     public DbUpMigrationRunner(
         IOptions<DatabaseOptions> databaseOptions,
         ILoggerFactory loggerFactory,

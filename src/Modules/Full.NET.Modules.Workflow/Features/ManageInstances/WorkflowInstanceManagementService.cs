@@ -857,14 +857,6 @@ internal sealed partial class WorkflowInstanceManagementService(
         return Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(value)));
     }
 
-    /// <summary>在事务内取消运行中或已暂停实例，并关闭仍活动的步骤与待办。</summary>
-    /// <param name="instanceId">工作流实例标识。</param>
-    /// <param name="actorUserId">执行取消的用户标识。</param>
-    /// <param name="request">已通过边界校验的取消请求。</param>
-    /// <param name="scope">可信工作流作用域。</param>
-    /// <param name="requestHash">规范请求摘要。</param>
-    /// <param name="token">取消当前事务操作的令牌。</param>
-    /// <returns>取消后的实例快照或导致回滚的失败结果。</returns>
     /// <summary>父活动关闭后的内部取消使用系统归因；父项证明、子根状态及取消更新在本模块边界内复核。</summary>
     internal async Task<Result<WorkflowInstanceResponse>> CancelFromParentAsync(Guid childId, WorkflowChildStartContext parentContext, CancellationToken token)
     {
@@ -883,6 +875,16 @@ internal sealed partial class WorkflowInstanceManagementService(
         }, token).ConfigureAwait(false);
     }
 
+    /// <summary>在事务内取消运行中或已暂停实例，并关闭仍活动的步骤与待办。</summary>
+    /// <param name="instanceId">工作流实例标识。</param>
+    /// <param name="actorUserId">执行取消的用户标识。</param>
+    /// <param name="request">已通过边界校验的取消请求。</param>
+    /// <param name="scope">可信工作流作用域。</param>
+    /// <param name="requestHash">规范请求摘要。</param>
+    /// <param name="token">取消当前事务操作的令牌。</param>
+    /// <param name="systemContext">系统发起的父项取消证明；普通用户取消时为 null。</param>
+    /// <param name="collaborationContext">协作取消上下文；非协作路径为 null。</param>
+    /// <returns>取消后的实例快照或导致回滚的失败结果。</returns>
     private async Task<Result<WorkflowInstanceResponse>> CancelCoreAsync(
         Guid instanceId,
         Guid actorUserId,

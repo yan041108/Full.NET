@@ -8,6 +8,7 @@ namespace Full.NET.Hosting.Security;
 /// </summary>
 public sealed class DataProtectionOptions
 {
+    /// <summary>配置节名称。</summary>
     public const string SectionName = "DataProtection";
 
     /// <summary>稳定应用名；API/Worker 必须一致。</summary>

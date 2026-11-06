@@ -21,9 +21,11 @@ public static partial class HttpOperationLogSanitizer
         "nonce", "sessionid", "totp",
     ];
 
+    /// <summary>敏感字段被脱敏后的统一占位符。</summary>
     public const string Redacted = "[REDACTED]";
 
     /// <summary>移除敏感 Query、截断长度，并剥离 CR/LF。</summary>
+    /// <returns>脱敏并截断后的路径与查询串；输入为空或空白时返回 <c>"/"</c>，敏感字段值替换为 <see cref="Redacted"/>。</returns>
     public static string SanitizeUrl(string? url, int maxLength = 512)
     {
         if (string.IsNullOrWhiteSpace(url))
@@ -67,6 +69,7 @@ public static partial class HttpOperationLogSanitizer
     }
 
     /// <summary>Referer/Origin 仅保留 HTTP(S) 来源站点，不输出凭据、路径、Query 或 Fragment。</summary>
+    /// <returns>仅含方案、主机与非默认端口的来源站点；输入为空、超长、非 HTTP(S) 绝对地址或结果超出上限时返回 <see langword="null"/>。</returns>
     public static string? SanitizeSourceUrl(string? sourceUrl, int maxLength = 256)
     {
         const int MaxInputLength = 2048;
@@ -97,6 +100,7 @@ public static partial class HttpOperationLogSanitizer
     /// <summary>
     /// 对客户端 IP 做 SHA256 指纹化，输出小写十六进制字符串，避免明文 IP 进入 B2 日志。
     /// </summary>
+    /// <returns>地址的 SHA-256 小写十六进制指纹；输入为空或空白时返回空字符串。</returns>
     public static string FingerprintClientIp(string? address)
     {
         if (string.IsNullOrWhiteSpace(address))
@@ -122,6 +126,7 @@ public static partial class HttpOperationLogSanitizer
     /// <summary>
     /// 按字段白名单投影 JSON；敏感键替换为 REDACTED，超深/超长截断。
     /// </summary>
+    /// <returns>按白名单投影并脱敏后的 JSON 文本；输入为空、超长、非对象、超出字节上限或解析失败时返回 <see langword="null"/>。</returns>
     public static string? ProjectJsonPayload(
         string? rawJson,
         IReadOnlyCollection<string> allowedFields,
@@ -181,6 +186,7 @@ public static partial class HttpOperationLogSanitizer
     /// <summary>
     /// 判断键名是否命中敏感片段（password、token、secret、cookie、connectionstring 等），大小写不敏感。
     /// </summary>
+    /// <returns>命中敏感片段或超长动态键时返回 <see langword="true"/>；未命中或键名为空时返回 <see langword="false"/>。</returns>
     public static bool IsSensitiveKey(string? key)
     {
         return key is not null && IsSensitiveKey(key.AsSpan());
@@ -275,6 +281,7 @@ public static partial class HttpOperationLogSanitizer
     }
 
     /// <summary>按最大长度截断字符串；不超过长度时原样返回。</summary>
+    /// <returns>不超过 <paramref name="maxLength"/> 的原字符串，或截断后的前缀。</returns>
     public static string Truncate(string value, int maxLength)
     {
         if (value.Length <= maxLength)
@@ -286,6 +293,7 @@ public static partial class HttpOperationLogSanitizer
     }
 
     /// <summary>移除字符串中的 CR/LF 及其他控制字符，防止日志注入。</summary>
+    /// <returns>已移除 CR/LF 及其他控制字符的字符串；无匹配字符时原样返回。</returns>
     public static string StripControlChars(string value) =>
         ControlCharRegex().Replace(value, string.Empty);
 

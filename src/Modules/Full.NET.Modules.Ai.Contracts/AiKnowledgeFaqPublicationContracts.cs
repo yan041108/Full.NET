@@ -24,10 +24,13 @@ public sealed record AiKnowledgeFaqPublication(Guid Id, Guid FaqId, Guid Revisio
     Guid RequestedByUserId, Guid? ReviewedByUserId, int Version, AiKnowledgeFaqContent Content, string Origin,
     string? Basis, string SourceHash, IReadOnlyList<AiKnowledgeSearchSource> Sources, bool Current)
 {
+    /// <summary>发布申请冻结的来源图；未携带有权来源时为 <see langword="null"/>。</summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public AiKnowledgeFaqSourceGraph? Graph { get; init; }
+    /// <summary>发布申请绑定的准确反馈来源；非来源反馈申请为 <see langword="null"/>。</summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public AiKnowledgeFaqFeedbackSource? Feedback { get; init; }
+    /// <summary>发布申请引用的个人日程来源选择；无相关来源时为 <see langword="null"/>。</summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public IReadOnlyList<AiPersonalScheduleSourceSelection>? PersonalSchedules { get; init; }
 }
@@ -37,10 +40,13 @@ public sealed record AiKnowledgeFaqPublishedContent(Guid FaqId, Guid RevisionId,
     string SourceHash, AiKnowledgeFaqContent Content, IReadOnlyList<AiKnowledgeSearchSource> Sources,
     DateTimeOffset EffectiveFromUtc, DateTimeOffset EffectiveToUtc)
 {
+    /// <summary>正式 FAQ 交付的来源图；未携带有权来源时为 <see langword="null"/>。</summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public AiKnowledgeFaqSourceGraph? Graph { get; init; }
+    /// <summary>正式 FAQ 绑定的准确反馈来源；非来源反馈发布为 <see langword="null"/>。</summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public AiKnowledgeFaqFeedbackSource? Feedback { get; init; }
+    /// <summary>正式 FAQ 引用的个人日程来源选择；无相关来源时为 <see langword="null"/>。</summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public IReadOnlyList<AiPersonalScheduleSourceSelection>? PersonalSchedules { get; init; }
 }

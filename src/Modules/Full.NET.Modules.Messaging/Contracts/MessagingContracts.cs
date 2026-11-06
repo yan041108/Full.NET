@@ -134,6 +134,7 @@ public sealed record DeadLetterResponse(
 /// </remarks>
 /// <param name="ConsumerName">死信所属的消费者名。</param>
 /// <param name="MessageId">原始集成事件的 MessageId。</param>
+/// <param name="Reason">重放原因说明，仅用于审计留痕，不参与匹配。</param>
 public sealed record ReplayDeadLetterRequest(string ConsumerName, Guid MessageId, string Reason);
 
 /// <summary>死信重放响应契约，<c>Outcome</c> 取 <see cref="DeadLetterReplayOutcomes"/> 的稳定值。</summary>

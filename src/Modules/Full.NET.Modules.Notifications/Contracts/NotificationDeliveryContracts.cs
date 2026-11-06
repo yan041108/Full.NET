@@ -15,6 +15,9 @@ namespace Full.NET.Modules.Notifications.Contracts;
 /// <param name="UpdatedAtUtc">记录最近更新时间（UTC）；未更新时为 <see langword="null"/>。</param>
 /// <param name="Attempts">按时间顺序排列的 Provider 调用尝试。</param>
 /// <param name="Receipts">按接收时间排列的外部渠道回执。</param>
+/// <param name="PreferenceVersion">解析投递时使用的收件偏好版本；未记录时为 <see langword="null"/>。</param>
+/// <param name="PolicyDecisionKey">投递策略判定结果稳定键；未记录时为 <see langword="null"/>。</param>
+/// <param name="SuppressionReasonCode">抑制原因稳定机器码；未抑制时为 <see langword="null"/>。</param>
 public sealed record NotificationDeliveryResponse(
     Guid Id,
     Guid IntentId,

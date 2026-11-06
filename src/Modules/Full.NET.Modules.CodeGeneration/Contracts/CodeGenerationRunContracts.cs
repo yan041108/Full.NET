@@ -262,6 +262,8 @@ public sealed record CodeGenerationClientRouteTargetRequest(
 /// <param name="ArtifactCount">本次写入的产物总数。</param>
 /// <param name="ChangedArtifactCount">本次实际变更的产物数。</param>
 /// <param name="ManifestSha256">产物清单 SHA-256 摘要。</param>
+/// <param name="PublicationStatus">发布状态稳定机器码；默认 "disabled" 表示未启用发布。</param>
+/// <param name="CommitSha">发布提交摘要；未启用发布或未提交时为 <see langword="null"/>。</param>
 public sealed record CodeGenerationRunApplyResponse(
     Guid RunId,
     Guid PreviewRunId,
@@ -288,6 +290,8 @@ public sealed record CodeGenerationRunRollbackRequest(Guid ApplyRunId);
 /// <param name="ArtifactCount">本次回滚涉及的产物总数。</param>
 /// <param name="ChangedArtifactCount">本次实际变更的产物数。</param>
 /// <param name="ManifestSha256">回滚后产物清单 SHA-256 摘要。</param>
+/// <param name="PublicationStatus">发布状态稳定机器码；默认 "disabled" 表示未启用发布。</param>
+/// <param name="CommitSha">发布提交摘要；未启用发布或未提交时为 <see langword="null"/>。</param>
 public sealed record CodeGenerationRunRollbackResponse(
     Guid RunId,
     Guid ApplyRunId,
@@ -333,6 +337,8 @@ public sealed record CodeGenerationRunRollbackChainResponse(
 /// <param name="StartedAtUtc">运行开始时间（UTC）。</param>
 /// <param name="FinishedAtUtc">运行结束时间（UTC）；运行中为 <see langword="null"/>。</param>
 /// <param name="SourceApplyRunId">回滚操作指向的 Apply 运行标识；非回滚为 <see langword="null"/>。</param>
+/// <param name="PublicationStatus">发布状态稳定机器码；默认 "unavailable" 表示暂不可用。</param>
+/// <param name="CommitSha">发布提交摘要；未发布时为 <see langword="null"/>。</param>
 public sealed record CodeGenerationRunResponse(
     Guid Id,
     Guid? TemplateId,

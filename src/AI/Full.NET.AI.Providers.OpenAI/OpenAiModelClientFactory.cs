@@ -11,6 +11,8 @@ namespace Full.NET.AI.Providers.OpenAI;
 /// <param name="dataProtection">与历史配置兼容的凭据保护服务。</param>
 /// <param name="credentials">请求作用域内的授权凭据读取服务。</param>
 /// <param name="gatewayPolicy">可信宿主的网关能力快照。</param>
+/// <param name="dataPolicy">数据出境与处理策略；为 null 表示不施加额外处理限制。</param>
+/// <param name="inputPolicy">聊天输入准入策略；为 null 表示不做额外准入校验。</param>
 public sealed class OpenAiModelClientFactory(IHttpClientFactory httpClientFactory, IDataProtectionProvider dataProtection, IProtectedModelCredentialStore credentials, OpenAiGatewayPolicy gatewayPolicy, AiDataProcessingPolicy? dataPolicy = null, AiChatInputAdmissionPolicy? inputPolicy = null) : IAiModelClientFactory, IAiModelConnectivityProbe
 {
     /// <summary>保留旧构造 ABI；新宿主组合根使用带冻结策略的完整构造。</summary>

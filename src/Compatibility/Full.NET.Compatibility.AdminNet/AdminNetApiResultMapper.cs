@@ -12,6 +12,7 @@ namespace Full.NET.Compatibility.AdminNet;
 /// </summary>
 /// <param name="localizer">与标准 API 共用的错误显示文本本地化器。</param>
 /// <param name="localeContext">当前请求已经规范化的语言上下文。</param>
+/// <param name="legacyErrorCodeProfile">v1 之前的旧错误码映射配置，仅在 Admin.NET 兼容层生效。</param>
 public sealed class AdminNetApiResultMapper(
     IErrorMessageLocalizer localizer,
     ILocaleContext localeContext,

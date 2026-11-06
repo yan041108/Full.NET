@@ -293,6 +293,7 @@ public static class HttpOperationLogPayloadCapture
     /// <summary>HttpContext.Items 中存储捕获请求体 JSON 的键；由 Endpoint 写入、中间件读取，发布后不可改名。</summary>
     public const string ItemKey = "FullNet.HttpOperation.RequestPayload";
 
+    /// <summary>请求体载荷捕获的默认浅层字段白名单；仅列出的 JSON 字段可进入请求摘要，未列出的字段被丢弃。</summary>
     public static readonly string[] DefaultAllowedFields =
     [
         "id",
@@ -302,6 +303,9 @@ public static class HttpOperationLogPayloadCapture
         "pageSize",
     ];
 
+    /// <summary>端点登记请求体 JSON 的入口；按隐私约束不接受目的地许可与预算时一律不留存，仅清理既有捕获项。</summary>
+    /// <param name="httpContext">当前 HTTP 上下文。</param>
+    /// <param name="json">待登记的请求体 JSON；本实现不会读取或持久化其内容。</param>
     public static void CaptureRequestJson(HttpContext httpContext, string json)
     {
         ArgumentNullException.ThrowIfNull(httpContext);

@@ -5,6 +5,7 @@ namespace Full.NET.Hosting.RateLimiting;
 /// </summary>
 public sealed class RateLimitingOptions
 {
+    /// <summary>配置节名称。</summary>
     public const string SectionName = "RateLimiting";
 
     /// <summary>

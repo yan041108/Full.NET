@@ -39,10 +39,16 @@ public sealed record AiKnowledgePublicationHeadResponse(Guid DocumentId, Guid? P
 /// <summary>发布治理采用独立精确权限；文件夹管理不能赋予来源读取或发布资格。</summary>
 public static class AiKnowledgePublicationPermissions
 {
+    /// <summary>读取发布头与发布记录投影。</summary>
     public const string Read = "ai.knowledge_publications.read";
+    /// <summary>以原申请人身份提交发布快照请求。</summary>
     public const string Request = "ai.knowledge_publications.request";
+    /// <summary>独立审核待发布快照的策略与有效期。</summary>
     public const string Review = "ai.knowledge_publications.review";
+    /// <summary>发布已审核的快照并推进发布头版本。</summary>
     public const string Publish = "ai.knowledge_publications.publish";
+    /// <summary>撤销已发布内容，发布头保留空身份而非回退旧版。</summary>
     public const string Withdraw = "ai.knowledge_publications.withdraw";
+    /// <summary>管理知识目录结构；不授予来源读取或发布资格。</summary>
     public const string DirectoryManage = "ai.knowledge_directories.manage";
 }

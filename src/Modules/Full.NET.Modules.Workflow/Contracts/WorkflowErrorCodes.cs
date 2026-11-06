@@ -184,6 +184,7 @@ public static class WorkflowErrorCodes
     /// <summary>签名文件不可用、越权或内容不符合要求。</summary>
     public const string TodoSignatureInvalid = Prefix + "todo.signature_invalid";
 
+    /// <summary>全部工作流错误码的只读快照，供契约测试与错误目录校验枚举；顺序稳定，新增只能追加。</summary>
     public static IReadOnlyList<string> All { get; } = Array.AsReadOnly(
     [
         DefinitionNodeTypeUnknown,

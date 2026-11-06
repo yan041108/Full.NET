@@ -10,6 +10,8 @@ namespace Full.NET.AI.Providers.Ollama;
 /// <param name="httpClientFactory">受宿主配置的 HTTP 客户端工厂。</param>
 /// <param name="dataProtection">与历史配置兼容的凭据保护服务。</param>
 /// <param name="credentials">请求作用域内的授权凭据读取服务。</param>
+/// <param name="dataPolicy">数据出境与处理策略；为 null 表示不施加额外处理限制。</param>
+/// <param name="inputPolicy">聊天输入准入策略；为 null 表示不做额外准入校验。</param>
 public sealed class OllamaModelClientFactory(IHttpClientFactory httpClientFactory, IDataProtectionProvider dataProtection, IProtectedModelCredentialStore credentials, AiDataProcessingPolicy? dataPolicy = null, AiChatInputAdmissionPolicy? inputPolicy = null) : IAiModelClientFactory, IAiModelConnectivityProbe
 {
     /// <summary>保留旧构造 ABI；新宿主使用完整冻结策略构造。</summary>

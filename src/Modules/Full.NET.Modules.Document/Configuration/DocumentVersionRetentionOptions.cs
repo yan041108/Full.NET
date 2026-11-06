@@ -5,6 +5,7 @@ using Microsoft.Extensions.Options;
 /// <summary>文档历史版本保留策略；当前版本永远不可被自动或手动删除逻辑绕过。</summary>
 public sealed class DocumentVersionRetentionOptions
 {
+    /// <summary>配置节名称。</summary>
     public const string SectionName = "Document:VersionRetention";
 
     /// <summary>每个文档项至少保留的版本总数（含当前版本）。</summary>

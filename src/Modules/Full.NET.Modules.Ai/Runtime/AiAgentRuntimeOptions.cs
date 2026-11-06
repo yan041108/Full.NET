@@ -3,6 +3,7 @@ namespace Full.NET.Modules.Ai.Runtime;
 /// <summary>持久 Agent 运行时门禁；默认关闭新 Run 直至 Worker 心跳与版本匹配。</summary>
 public sealed class AiAgentRuntimeOptions
 {
+    /// <summary>配置节名称。</summary>
     public const string SectionName = "FullNet:Ai:AgentRuntime";
 
     /// <summary>是否允许 API 接受新运行；仍要求新鲜 Worker 心跳。</summary>

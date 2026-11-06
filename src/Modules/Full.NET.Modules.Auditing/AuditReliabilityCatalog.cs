@@ -43,6 +43,10 @@ public sealed class AuditReliabilityCatalog
         new("auditing.access_log.write", AuditReliabilityClass.BestEffort),
     ];
 
+    /// <summary>以启动期显式注册的条目构造目录。</summary>
+    /// <param name="entries">Endpoint/ActionKey 可靠性分类条目集合。</param>
+    /// <exception cref="ArgumentNullException"><paramref name="entries"/> 为 <see langword="null"/> 时抛出。</exception>
+    /// <exception cref="InvalidOperationException">存在重复 ActionKey 时抛出，使配置错误在宿主启动阶段即失败。</exception>
     public AuditReliabilityCatalog(IEnumerable<AuditReliabilityCatalogEntry> entries)
     {
         ArgumentNullException.ThrowIfNull(entries);
@@ -63,12 +67,14 @@ public sealed class AuditReliabilityCatalog
     /// <summary>
     /// 使用 Full.NET 官方模块的已知清单构造默认目录；供模块注册阶段以单例形式装配。
     /// </summary>
+    /// <returns>包含官方模块已知条目、且 ActionKey 唯一的新目录实例。</returns>
     public static AuditReliabilityCatalog CreateDefault() => new(WellKnownEntries);
 
     /// <summary>
     /// 查询指定 ActionKey 的审计可靠性等级；未注册的 ActionKey 必须让调用方立即失败。
     /// </summary>
     /// <param name="actionKey">稳定的审计 ActionKey。</param>
+    /// <returns>该 ActionKey 声明的审计可靠性等级。</returns>
     /// <exception cref="InvalidOperationException">
     /// ActionKey 未在目录中注册时抛出；调用方不得吞掉该异常并回退到默认可靠性等级。
     /// </exception>
