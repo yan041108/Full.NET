@@ -73,7 +73,9 @@ internal static class NotificationIntentDeliveryProgressAssertions
                     {
                         ["Id"] = id, ["IntentId"] = intent.Id, ["RecipientId"] = recipientId,
                         ["ChannelKey"] = "email", ["ProviderProfileVersionId"] = null, ["BindingVersionId"] = null,
-                        ["StatusKey"] = state.Status, ["NextAttemptAtUtc"] = state.Next, ["CreatedAtUtc"] = now
+                        ["StatusKey"] = state.Status, ["NextAttemptAtUtc"] = state.Next, ["CreatedAtUtc"] = now,
+                        ["ContentSnapshotJson"] = null, ["PreferenceVersion"] = null,
+                        ["PolicyDecisionKey"] = null, ["SuppressionReasonCode"] = null
                     }, cancellationToken).ConfigureAwait(false));
             }
             var progress = await directory.FindByIdempotencyAsync(producerKey, idempotencyKey, cancellationToken).ConfigureAwait(false);

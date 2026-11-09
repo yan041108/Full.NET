@@ -44,7 +44,7 @@ internal sealed class TestNotificationProvider(TestNotificationProviderHarness h
         {
             await onSendAsync(request, cancellationToken).ConfigureAwait(false);
         }
-        switch (harness.Mode)
+        switch (harness.ModeForDelivery?.Invoke(request.DeliveryId) ?? harness.Mode)
         {
             case TestNotificationProviderMode.Slow:
                 await Task.Delay(harness.SlowDelay, cancellationToken).ConfigureAwait(false);
@@ -177,6 +177,9 @@ internal sealed class TestNotificationProviderHarness
 
     public TestNotificationProviderMode Mode { get; set; } = TestNotificationProviderMode.Succeed;
 
+    /// <summary>为单条测试投递控制失败，避免同一批次中的其他意图改变故障转移条件。</summary>
+    public Func<Guid, TestNotificationProviderMode>? ModeForDelivery { get; set; }
+
     /// <summary>测试中显式声明“厂商可按幂等键去重”，用于覆盖结果未知时的自动重试分支。</summary>
     public bool AllowsAutomaticRetryAfterUnknownResult { get; set; }
 
@@ -209,6 +212,7 @@ internal sealed class TestNotificationProviderHarness
         if (Volatile.Read(ref _active) != 0) throw new InvalidOperationException("不能重置仍在发送的测试提供程序。");
         Volatile.Write(ref _peak, 0);
         Mode = mode;
+        ModeForDelivery = null;
         OnSend = null;
         OnSendAsync = null;
         while (_idempotencyKeys.TryTake(out _))

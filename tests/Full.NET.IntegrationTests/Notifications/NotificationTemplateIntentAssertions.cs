@@ -310,6 +310,8 @@ internal static class NotificationTemplateIntentAssertions
 
         var tenantContext = await EnterAcmeTenantAsync(tenantClient, tenantSwitchToken, cancellationToken);
         var tenantToken = tenantContext.AccessToken;
+        await NotificationProfileBindingAssertions.CreateProducerSceneAsync(
+            tenantClient, tenantToken, "tests.notifications", "order.paid", "inbox", cancellationToken);
         var tenantKey = $"tenant-{Guid.NewGuid():N}"[..20];
         using var tenantCreate = CreateBearerJsonRequest(
             HttpMethod.Post,

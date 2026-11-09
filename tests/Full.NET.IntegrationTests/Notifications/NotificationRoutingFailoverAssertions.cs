@@ -100,26 +100,18 @@ internal static class NotificationRoutingFailoverAssertions
         var preferredAfter = await GetDeliveryAsync(client, token, preferredDeliveries[0].Id, cancellationToken);
         Assert.AreEqual("sent", preferredAfter.StatusKey);
         Assert.AreEqual(1, preferredAfter.Attempts.Count);
-        Assert.AreEqual(1, harness.SendCount, "首选成功后不得再发送备用目标。");
+        Assert.HasCount(1, harness.IdempotencyKeysFor(preferredAfter.Id), "首选投递只应调用厂商一次。");
         Assert.AreEqual(
             1,
             (await ListDeliveriesForIntentAsync(client, token, preferred.Id, cancellationToken)).Count,
             "首选成功后不得创建备用投递。");
 
         // 允许的瞬时失败：首选进入失败终态，原子推进备用并只发送一次。
-        var sends = 0;
-        harness.Reset(TestNotificationProviderMode.Transient);
-        harness.OnSend = () =>
-        {
-            if (Interlocked.Increment(ref sends) > 1)
-            {
-                harness.Mode = TestNotificationProviderMode.Succeed;
-            }
-        };
         var failover = await CreateIntentAsync(
             client, token, producer, scene, templateKey, recipientUserId, new { orderNo = "F-2" }, cancellationToken);
+        var failoverPrimary = (await ListDeliveriesForIntentAsync(client, token, failover.Id, cancellationToken)).Single().Id;
+        FailOnly(harness, failoverPrimary, TestNotificationProviderMode.Transient);
         await DrainPendingAsync(factory, cancellationToken);
-        harness.OnSend = null;
 
         var failoverDeliveries = await ListDeliveriesForIntentAsync(client, token, failover.Id, cancellationToken);
         Assert.AreEqual(2, failoverDeliveries.Count, "瞬时失败后才应推进备用目标。");
@@ -128,21 +120,24 @@ internal static class NotificationRoutingFailoverAssertions
         Assert.AreEqual("failed", failedPrimary.StatusKey);
         Assert.AreEqual("transient", failedPrimary.Attempts.Single().ResultCategoryKey);
         Assert.AreEqual("sent", activatedBackup.StatusKey);
-        Assert.AreEqual(2, harness.SendCount, "瞬时失败换厂商只应各发送一次。");
+        Assert.HasCount(1, harness.IdempotencyKeysFor(failedPrimary.Id), "首选只应外发一次。");
+        Assert.HasCount(1, harness.IdempotencyKeysFor(activatedBackup.Id), "备用只应外发一次。");
 
         // 永久错误：不换厂商，只保留首选失败终态。
-        harness.Reset(TestNotificationProviderMode.Permanent);
         var permanent = await CreateIntentAsync(
             client, token, producer, scene, templateKey, recipientUserId, new { orderNo = "F-3" }, cancellationToken);
+        var permanentPrimary = (await ListDeliveriesForIntentAsync(client, token, permanent.Id, cancellationToken)).Single().Id;
+        FailOnly(harness, permanentPrimary, TestNotificationProviderMode.Permanent);
         await DrainPendingAsync(factory, cancellationToken);
         var permanentDeliveries = await ListDeliveriesForIntentAsync(client, token, permanent.Id, cancellationToken);
         Assert.AreEqual(1, permanentDeliveries.Count, "永久错误不得换厂商。");
         Assert.AreEqual("failed", permanentDeliveries[0].StatusKey);
 
         // 结果未知：渠道无法证明不重复发送时暂挂，不换厂商也不自动重发。
-        harness.Reset(TestNotificationProviderMode.Unknown);
         var unknown = await CreateIntentAsync(
             client, token, producer, scene, templateKey, recipientUserId, new { orderNo = "F-4" }, cancellationToken);
+        var unknownPrimary = (await ListDeliveriesForIntentAsync(client, token, unknown.Id, cancellationToken)).Single().Id;
+        FailOnly(harness, unknownPrimary, TestNotificationProviderMode.Unknown);
         await DrainPendingAsync(factory, cancellationToken);
         var unknownDeliveries = await ListDeliveriesForIntentAsync(client, token, unknown.Id, cancellationToken);
         Assert.AreEqual(1, unknownDeliveries.Count, "结果未知不得换厂商。");
@@ -194,23 +189,13 @@ internal static class NotificationRoutingFailoverAssertions
             $"ct-{Guid.NewGuid():N}"[..16],
             cancellationToken);
 
-        // 首次发送保持瞬时失败以触发故障转移，第二次发送切换到成功，避免备用自身失败干扰并发断言。
-        var sends = 0;
-        harness.Reset(TestNotificationProviderMode.Transient);
-        harness.OnSend = () =>
-        {
-            if (Interlocked.Increment(ref sends) > 1)
-            {
-                harness.Mode = TestNotificationProviderMode.Succeed;
-            }
-        };
-
         var raced = await CreateIntentAsync(
             client, token, producer, scene, templateKey, recipientUserId, new { orderNo = "C-1" }, cancellationToken);
+        var racedPrimary = (await ListDeliveriesForIntentAsync(client, token, raced.Id, cancellationToken)).Single().Id;
+        FailOnly(harness, racedPrimary, TestNotificationProviderMode.Transient);
         await Task.WhenAll(
             ProcessPendingOnceAsync(factory, cancellationToken),
             ProcessPendingOnceAsync(factory, cancellationToken));
-        harness.OnSend = null;
 
         var racedDeliveries = await ListDeliveriesForIntentAsync(client, token, raced.Id, cancellationToken);
         Assert.AreEqual(
@@ -229,19 +214,24 @@ internal static class NotificationRoutingFailoverAssertions
             racedFailed.Attempts.Count,
             "同一投递在双 Worker 竞争下只允许产生一次发送尝试。");
 
-        harness.Mode = TestNotificationProviderMode.Succeed;
         await DrainPendingAsync(factory, cancellationToken);
         racedDeliveries = await ListDeliveriesForIntentAsync(client, token, raced.Id, cancellationToken);
         Assert.AreEqual(2, racedDeliveries.Count, "故障转移只允许存在首选与备用两条投递。");
         foreach (var delivery in racedDeliveries)
         {
             Assert.AreEqual(1, delivery.Attempts.Count, "每个目标都只能发送一次。");
+            Assert.HasCount(1, harness.IdempotencyKeysFor(delivery.Id), "每条投递只能实际调用厂商一次。");
         }
 
         Assert.AreEqual("sent", racedDeliveries
             .Single(item => item.ProviderProfileVersionId == secondary.LatestPublishedVersionId).StatusKey);
-        Assert.AreEqual(2, harness.SendCount, "首选与备用各发送一次，共两次。");
         harness.Reset(TestNotificationProviderMode.Succeed);
+    }
+
+    private static void FailOnly(TestNotificationProviderHarness harness, Guid deliveryId, TestNotificationProviderMode mode)
+    {
+        harness.Reset();
+        harness.ModeForDelivery = id => id == deliveryId ? mode : TestNotificationProviderMode.Succeed;
     }
 
     /// <summary>
