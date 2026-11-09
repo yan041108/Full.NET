@@ -87,6 +87,24 @@ describe('导入任务请求归属', () => {
     await wrapper!.get('[data-testid="import-cancel-confirm"]').trigger('click'); await flushPromises();
     expect(api.cancelImportExportTask).not.toHaveBeenCalled(); expect(warning).toHaveBeenCalledOnce();
   });
+  it('源工作簿已释放时仍可显式下载原任务的错误回执', async () => {
+    vi.mocked(api.getImportExportTask).mockResolvedValue({
+      ...importTask, hasErrorReceipt: true,
+      sourceRetention: { stateKey: 'released', expiresAtUtc: '2026-01-01T00:00:00Z', releasedAtUtc: '2026-01-02T00:00:00Z' }
+    });
+    const receipt = new Blob(['fixture']);
+    vi.mocked(api.downloadImportExportTaskErrorReceipt).mockResolvedValue(receipt);
+    const createUrl = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:historical-receipt');
+    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+    await setup([read]); await detail();
+    expect(wrapper!.get('[data-testid="import-source-state"]').text()).toBe('源工作簿已清理');
+    expect(api.downloadImportExportTaskErrorReceipt).not.toHaveBeenCalled();
+    await wrapper!.get('[data-testid="import-export-task-error-receipt"]').trigger('click');
+    await flushPromises();
+    expect(api.downloadImportExportTaskErrorReceipt).toHaveBeenCalledExactlyOnceWith(importTask.id, expect.any(AbortSignal));
+    expect(createUrl).toHaveBeenCalledOnce();
+    expect(wrapper!.find('[data-testid="import-result-unavailable"]').exists()).toBe(false);
+  });
   it('文件404显示结果不可用并停止重复下载，其他任务不受影响', async () => {
     vi.mocked(api.getImportExportTask).mockResolvedValue({ ...importTask, hasErrorReceipt: true });
     vi.mocked(api.downloadImportExportTaskErrorReceipt).mockRejectedValue({ title: 'missing', status: 404, code: 'files.file.not_found' });
