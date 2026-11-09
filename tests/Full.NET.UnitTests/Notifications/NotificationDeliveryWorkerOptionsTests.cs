@@ -1,8 +1,12 @@
+using System.Diagnostics;
+using Full.NET.Abstractions.Results;
 using Full.NET.Abstractions.Time;
 using Full.NET.Modules.Notifications.Execution;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
+using NSubstitute;
 
 namespace Full.NET.UnitTests.Notifications;
 
@@ -47,6 +51,49 @@ public sealed class NotificationDeliveryWorkerOptionsTests
 public sealed class NotificationDeliveryHostedProcessorTests
 {
     [TestMethod]
+    [DataRow(ServiceCapacityFailureKind.Rejected)]
+    [DataRow(ServiceCapacityFailureKind.Timeout)]
+    public async Task Capacity_pressure_defers_polling_and_keeps_other_failures_visible(ServiceCapacityFailureKind kind)
+    {
+        using var budget = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        var token = budget.Token;
+        var scopes = Substitute.For<IServiceScopeFactory>();
+        var retry = new TaskCompletionSource<TimeSpan>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var unexpected = new InvalidOperationException("受控通知故障");
+        long firstAttempt = 0;
+        var attempts = 0;
+        scopes.CreateScope().Returns(_ =>
+        {
+            if (Interlocked.Increment(ref attempts) == 1)
+            {
+                firstAttempt = Stopwatch.GetTimestamp();
+                throw new ServiceCapacityExceededException(kind, TimeSpan.FromMilliseconds(500));
+            }
+            retry.TrySetResult(Stopwatch.GetElapsedTime(firstAttempt));
+            throw unexpected;
+        });
+        var logger = new PollLog();
+        using var processor = new NotificationDeliveryHostedProcessor(scopes, new SystemClock(),
+            Options.Create(new NotificationDeliveryWorkerOptions { PollMilliseconds = 100 }), logger);
+        await processor.StartAsync(token);
+        try
+        {
+            var first = await logger.First.Task.WaitAsync(token);
+            Assert.AreEqual(LogLevel.Warning, first.Level);
+            StringAssert.Contains(first.Message, kind.ToString());
+            Assert.IsNull(first.Exception);
+            Assert.IsTrue(await retry.Task.WaitAsync(token) >= TimeSpan.FromMilliseconds(490));
+            var next = await logger.Next.Task.WaitAsync(token);
+            Assert.AreEqual(LogLevel.Error, next.Level);
+            Assert.AreSame(unexpected, next.Exception);
+        }
+        finally
+        {
+            await processor.StopAsync(token);
+        }
+    }
+
+    [TestMethod]
     public void GetDelayAfterBatch_is_zero_when_batch_is_full()
     {
         using var provider = new ServiceCollection().BuildServiceProvider();
@@ -65,4 +112,19 @@ public sealed class NotificationDeliveryHostedProcessorTests
         Assert.AreEqual(TimeSpan.FromMilliseconds(250), processor.GetDelayAfterBatch(6));
         Assert.AreEqual(TimeSpan.FromMilliseconds(250), processor.GetDelayAfterBatch(0));
     }
+
+    private sealed class PollLog : ILogger<NotificationDeliveryHostedProcessor>
+    {
+        internal TaskCompletionSource<Entry> First { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        internal TaskCompletionSource<Entry> Next { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+        public bool IsEnabled(LogLevel logLevel) => true;
+        public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter)
+        {
+            var entry = new Entry(logLevel, formatter(state, exception), exception);
+            if (!First.TrySetResult(entry)) Next.TrySetResult(entry);
+        }
+    }
+
+    private sealed record Entry(LogLevel Level, string Message, Exception? Exception);
 }

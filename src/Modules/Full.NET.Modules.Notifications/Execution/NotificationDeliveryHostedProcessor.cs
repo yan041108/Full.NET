@@ -1,3 +1,4 @@
+using Full.NET.Abstractions.Results;
 using Full.NET.Abstractions.Time;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -23,6 +24,7 @@ internal sealed class NotificationDeliveryHostedProcessor(
         while (!stoppingToken.IsCancellationRequested)
         {
             var processedCount = 0;
+            TimeSpan? capacityDelay = null;
             try
             {
                 processedCount = await ProcessOnceAsync(stoppingToken).ConfigureAwait(false);
@@ -31,12 +33,22 @@ internal sealed class NotificationDeliveryHostedProcessor(
             {
                 break;
             }
+            catch (ServiceCapacityExceededException exception)
+            {
+                // 准入压力遵守数据库等待提示，并用有界抖动错开多个通知实例的重试。
+                var pollingDelay = PollingDelay;
+                var minimum = exception.RetryAfter > pollingDelay ? exception.RetryAfter : pollingDelay;
+                var jitterLimit = Math.Min(pollingDelay.TotalMilliseconds / 4, 1000);
+                capacityDelay = minimum + TimeSpan.FromMilliseconds(Random.Shared.NextDouble() * jitterLimit);
+                logger.LogWarning("Notification delivery polling delayed by database capacity ({CapacityFailure}) for {RetryDelayMilliseconds} ms.",
+                    exception.Kind, capacityDelay.Value.TotalMilliseconds);
+            }
             catch (Exception exception)
             {
                 logger.LogError(exception, "Notification delivery worker iteration failed.");
             }
 
-            var delay = GetDelayAfterBatch(processedCount);
+            var delay = capacityDelay ?? GetDelayAfterBatch(processedCount);
             if (delay > TimeSpan.Zero)
             {
                 await Task.Delay(delay, stoppingToken).ConfigureAwait(false);
