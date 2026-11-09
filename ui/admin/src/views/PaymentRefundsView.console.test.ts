@@ -2,19 +2,34 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { flushPromises, mount, type VueWrapper } from '@vue/test-utils';
 import { reactive } from 'vue';
 import { createPinia, setActivePinia } from 'pinia';
-import type { PaymentRefund, PaymentRefundPage } from '@fullnet/client-contracts';
+import type { PaymentOrder, PaymentRefund, PaymentRefundPage } from '@fullnet/client-contracts';
 import PaymentRefundsView from './PaymentRefundsView.vue';
 import { useSessionStore } from '../auth/session';
 import { getPaymentRefund, listPaymentRefunds } from '../api/payment-refunds';
+import { createPaymentRefund, getPaymentOrder, reconcilePaymentOrder } from '../api/payment-orders';
 const routing = vi.hoisted(() => ({ route: undefined as undefined | { query: Record<string, unknown> }, replace: vi.fn() }));
 vi.mock('vue-router', async original => ({ ...await original<typeof import('vue-router')>(), useRoute: () => routing.route, useRouter: () => ({ replace: routing.replace }) }));
 vi.mock('../api/payment-refunds', () => ({ getPaymentRefund: vi.fn(), listPaymentRefunds: vi.fn() }));
+vi.mock('../api/payment-orders', () => ({ createPaymentRefund: vi.fn(), getPaymentOrder: vi.fn(), reconcilePaymentOrder: vi.fn() }));
 const id = (n: number) => `019bc2b1-2a40-7cc3-8992-a80de51bf2${String(n).padStart(2, '0')}`;
 const row: PaymentRefund = { id: id(1), orderId: id(2), tenantId: id(3), merchantConfigId: id(4), outTradeNo: 'original-order',
   outRefundNo: 'original-refund', refundStateKey: 'provider_unknown', amountMinor: '29', currency: 'CNY', reason: 'original reason', providerRefundId: null,
   failMessage: 'unconfirmed', createdAtUtc: '2026-11-05T00:00:00Z', updatedAtUtc: null, completedAtUtc: null, version: 2 };
+const processing = { ...row, refundStateKey: 'processing' };
+const order: PaymentOrder = {
+  id: row.orderId, tenantId: row.tenantId, merchantConfigId: row.merchantConfigId, outTradeNo: row.outTradeNo,
+  currency: row.currency, channelKey: 'wechat_native', tradeStateKey: 'refunding', amountMinor: '100',
+  subject: 'Order', description: null, codeUrl: null, providerTransactionId: null, failMessage: null,
+  createdAtUtc: row.createdAtUtc, updatedAtUtc: null, paidAtUtc: null, version: 1
+};
 const page = (items: PaymentRefund[] = [row], current = 1, total = 41): PaymentRefundPage => ({ items, page: current, pageSize: 20, total });
-const dialog = { props: ['open', 'showConfirm'], emits: ['update:open'], template: '<section v-if="open" data-testid="test-refund-dialog"><slot/><button data-testid="test-refund-close" @click="$emit(\'update:open\', false)">Close</button></section>' };
+const dialog = {
+  props: ['open', 'showConfirm', 'confirmDisabled', 'confirmTestId'],
+  emits: ['update:open', 'confirm'],
+  template: '<section v-if="open" data-testid="test-refund-dialog"><slot/>'
+    + '<button v-if="confirmTestId" :data-testid="confirmTestId" :disabled="confirmDisabled" @click="$emit(\'confirm\')">Confirm</button>'
+    + '<button data-testid="test-refund-close" @click="$emit(\'update:open\', false)">Close</button></section>'
+};
 const wrappers: VueWrapper[] = [];
 function deferred<T>() { let resolve!: (value: T) => void; const promise = new Promise<T>(done => { resolve = done; }); return { promise, resolve }; }
 async function panel(permissions = ['payments.refunds.read'], tenantId: string | null = null) {
@@ -31,7 +46,80 @@ beforeEach(() => {
   vi.mocked(getPaymentRefund).mockResolvedValue(row);
 });
 afterEach(() => wrappers.splice(0).forEach(wrapper => wrapper.unmount()));
+
+async function openOriginalOrder(wrapper: VueWrapper) {
+  await wrapper.get('[data-testid="refunds-exact-id"]').setValue(row.id);
+  await wrapper.get('[data-testid="refunds-read-id"]').trigger('click');
+  await flushPromises();
+  await wrapper.get('[data-testid="refund-read-original-order"]').trigger('click');
+  await flushPromises();
+}
+
 describe('原退款记录核对控制台', () => {
+  it('处理中退款从匹配的原订单确认对账，只读回原退款', async () => {
+    vi.mocked(getPaymentRefund).mockResolvedValueOnce(processing).mockResolvedValueOnce({ ...processing, refundStateKey: 'succeeded', version: 3 });
+    vi.mocked(getPaymentOrder).mockResolvedValue(order);
+    vi.mocked(reconcilePaymentOrder).mockResolvedValue({ ...order, tradeStateKey: 'refunded', version: 2 });
+    const { wrapper } = await panel(['payments.refunds.read', 'payments.orders.read', 'payments.orders.reconcile']);
+    await openOriginalOrder(wrapper);
+    expect(reconcilePaymentOrder).not.toHaveBeenCalled();
+    await wrapper.get('[data-testid="payment-order-detail-reconcile-refund"]').trigger('click');
+    await flushPromises();
+    expect(getPaymentOrder).toHaveBeenCalledTimes(2);
+    expect(reconcilePaymentOrder).not.toHaveBeenCalled();
+    await wrapper.get('[data-testid="payment-reconcile-confirm"]').trigger('click');
+    await flushPromises();
+    expect(reconcilePaymentOrder).toHaveBeenCalledExactlyOnceWith(row.orderId, expect.any(AbortSignal));
+    expect(vi.mocked(getPaymentRefund).mock.calls.map(([id]) => id)).toEqual([row.id, row.id]);
+    expect(wrapper.find('[data-testid="refund-detail-snapshot"]').exists()).toBe(true);
+    expect(listPaymentRefunds).toHaveBeenCalledOnce();
+    expect(createPaymentRefund).not.toHaveBeenCalled();
+  });
+
+  it.each(['只读', '商户错配', '原单终态', '退款终态'])('%s 保留只读能力并拒绝对账', async scenario => {
+    vi.mocked(getPaymentRefund).mockResolvedValue(scenario === '退款终态' ? { ...processing, refundStateKey: 'succeeded' } : processing);
+    vi.mocked(getPaymentOrder).mockResolvedValue(scenario === '商户错配'
+      ? { ...order, merchantConfigId: id(20) }
+      : scenario === '原单终态' ? { ...order, tradeStateKey: 'refunded' } : order);
+    const permissions = ['payments.refunds.read', 'payments.orders.read'];
+    if (scenario !== '只读') permissions.push('payments.orders.reconcile');
+    const { wrapper } = await panel(permissions);
+    await openOriginalOrder(wrapper);
+    expect(getPaymentOrder).toHaveBeenCalledOnce();
+    expect(wrapper.find('[data-testid="payment-order-detail-reconcile-refund"]').exists()).toBe(false);
+    expect(reconcilePaymentOrder).not.toHaveBeenCalled();
+  });
+
+  it('进入确认后重读发现原单已终态，禁止提交对账', async () => {
+    vi.mocked(getPaymentRefund).mockResolvedValue(processing);
+    vi.mocked(getPaymentOrder).mockResolvedValueOnce(order).mockResolvedValueOnce({ ...order, tradeStateKey: 'succeeded', version: 2 });
+    const { wrapper } = await panel(['payments.refunds.read', 'payments.orders.read', 'payments.orders.reconcile']);
+    await openOriginalOrder(wrapper);
+    await wrapper.get('[data-testid="payment-order-detail-reconcile-refund"]').trigger('click');
+    await flushPromises();
+    expect(wrapper.get('[data-testid="payment-reconcile-confirm"]').attributes('disabled')).toBeDefined();
+    expect(reconcilePaymentOrder).not.toHaveBeenCalled();
+  });
+
+  it('切换会话取消在途对账，迟到回执不能触发退款重读', async () => {
+    vi.mocked(getPaymentRefund).mockResolvedValue(processing);
+    vi.mocked(getPaymentOrder).mockResolvedValue(order);
+    const result = deferred<PaymentOrder>();
+    vi.mocked(reconcilePaymentOrder).mockReturnValue(result.promise);
+    const { wrapper, session } = await panel(['payments.refunds.read', 'payments.orders.read', 'payments.orders.reconcile']);
+    await openOriginalOrder(wrapper);
+    await wrapper.get('[data-testid="payment-order-detail-reconcile-refund"]').trigger('click');
+    await flushPromises();
+    await wrapper.get('[data-testid="payment-reconcile-confirm"]').trigger('click');
+    const signal = vi.mocked(reconcilePaymentOrder).mock.calls[0]![1]!;
+    session.currentUser!.sessionId = id(20);
+    await flushPromises();
+    expect(signal.aborted).toBe(true);
+    result.resolve({ ...order, tradeStateKey: 'refunded', version: 2 });
+    await flushPromises();
+    expect(getPaymentRefund).toHaveBeenCalledOnce();
+    expect(wrapper.find('[data-testid="refund-detail-snapshot"]').exists()).toBe(false);
+  });
   it('深链接按原订单在来源分页，不自动读取详情', async () => {
     routing.route!.query = { orderId: row.orderId }; await panel();
     expect(listPaymentRefunds).toHaveBeenCalledWith({ page: 1, pageSize: 20, orderId: row.orderId, refundStateKey: undefined }, expect.any(AbortSignal));

@@ -10,6 +10,18 @@ const refund = { id: id(5), tenantId: order.tenantId, orderId: order.id, merchan
   outRefundNo: 'original-refund', refundStateKey: 'processing', amountMinor: '29', currency: 'CNY', reason: 'original reason',
   providerRefundId: 'provider-refund', failMessage: null, createdAtUtc: order.createdAtUtc, updatedAtUtc: null, completedAtUtc: null, version: 1 };
 
+async function mockPaymentIdentity(page, locale, reconcile = false) {
+  await page.route('**/api/v1/auth/refresh', route => json(route, { accessToken: 'fixture', tokenType: 'Bearer', expiresAtUtc: '2099-01-01T00:00:00Z' }));
+  await page.route('**/api/v1/me', route => json(route, { id: id(9), username: 'operator', displayName: 'Payment operator', actorScope: 'host', scope: 'host',
+    tenantId: null, isSuperAdministrator: false, sessionId: id(10), preferredLocale: locale, profileVersion: 1, passwordChangeRequired: false,
+    permissions: ['identity.navigation.read', 'payments.orders.read', 'payments.refunds.read', ...(reconcile ? ['payments.orders.reconcile'] : [])] }));
+  await page.route('**/api/v1/navigation', route => json(route, [['payments-orders', '/payments/orders', 'payments.orders.read'], ['payments-refunds', '/payments/refunds', 'payments.refunds.read']]
+    .map(([key, path, permission], index) => ({ id: key, parentId: null, routeName: key, componentKey: key, path, title: key,
+      caption: '', icon: 'setting', order: index, requiredPermission: permission, children: [] }))));
+  await page.route('**/api/v1/tenancy/available', route => json(route, []));
+  await page.route('**/api/v1/notifications/my-inbox-messages/unread-count', route => json(route, { unreadCount: 0 }));
+}
+
 for (const [width, locale] of [[1440, 'en-US'], [390, 'zh-CN']]) {
   test('列表外订单精确读取及退款追溯原订单 ' + width, async ({ page }, info) => {
     await page.setViewportSize({ width: 1440, height: 1000 });
@@ -18,15 +30,7 @@ for (const [width, locale] of [[1440, 'en-US'], [390, 'zh-CN']]) {
     let writes = 0, paymentLinks = 0, orderReads = 0; let mode = 'ok', showRow = false;
     await page.route('https://example.com/payment-link', route => { paymentLinks++; return route.fulfill({ status: 404 }); });
     await page.route('**/api/v1/payments/**', route => { if (route.request().method() !== 'GET') writes++; return route.fulfill({ status: 404 }); });
-    await page.route('**/api/v1/auth/refresh', route => json(route, { accessToken: 'fixture', tokenType: 'Bearer', expiresAtUtc: '2099-01-01T00:00:00Z' }));
-    await page.route('**/api/v1/me', route => json(route, { id: id(9), username: 'readonly', displayName: 'Read only', actorScope: 'host', scope: 'host',
-      tenantId: null, isSuperAdministrator: false, sessionId: id(10), preferredLocale: locale, profileVersion: 1, passwordChangeRequired: false,
-      permissions: ['identity.navigation.read', 'payments.orders.read', 'payments.refunds.read'] }));
-    await page.route('**/api/v1/navigation', route => json(route, [['payments-orders', '/payments/orders', 'payments.orders.read'], ['payments-refunds', '/payments/refunds', 'payments.refunds.read']]
-      .map(([key, path, permission], index) => ({ id: key, parentId: null, routeName: key, componentKey: key, path, title: key,
-        caption: '', icon: 'setting', order: index, requiredPermission: permission, children: [] }))));
-    await page.route('**/api/v1/tenancy/available', route => json(route, []));
-    await page.route('**/api/v1/notifications/my-inbox-messages/unread-count', route => json(route, { unreadCount: 0 }));
+    await mockPaymentIdentity(page, locale);
     await page.route('**/api/v1/payments/orders?*', route => json(route, { items: showRow ? [order] : [], page: 1, pageSize: 20, total: showRow ? 1 : 0 }));
     await page.route(`**/api/v1/payments/orders/${order.id}`, route => {
       expect(route.request().method()).toBe('GET'); orderReads++;
@@ -60,6 +64,7 @@ for (const [width, locale] of [[1440, 'en-US'], [390, 'zh-CN']]) {
     await page.getByTestId('refund-read-original-order').click();
     await expect(page.getByTestId('payment-order-detail-snapshot')).toContainText(order.outTradeNo);
     await expect(page.getByTestId('payment-order-detail-id')).toHaveText(order.id); expect(orderReads).toBe(4);
+    await expect(page.getByTestId('payment-order-detail-reconcile-refund')).toHaveCount(0);
     await page.getByRole('dialog').last().screenshot({ path: info.outputPath('payment-order-from-refund-' + width + '.png'), animations: 'disabled' });
     expect((await new AxeBuilder({ page }).include('.order-detail-content').withTags(['wcag2a', 'wcag2aa']).analyze()).violations).toEqual([]);
     mode = 'mismatch'; await page.getByTestId('payment-order-detail-refresh').click();
@@ -68,3 +73,41 @@ for (const [width, locale] of [[1440, 'en-US'], [390, 'zh-CN']]) {
     expect(orderReads).toBe(5); expect(writes).toBe(0); expect(paymentLinks).toBe(0);
   });
 }
+
+test('处理中退款从原订单确认对账后只重读原退款', async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem('fullnet.admin.locale', 'zh-CN'));
+  await page.route('**/api/v1/**', route => route.fulfill({ status: 404 }));
+  await mockPaymentIdentity(page, 'zh-CN', true);
+  const paymentWrites = [];
+  const refundReads = [];
+  let orderReads = 0;
+  let reconciled = false;
+  page.on('request', request => {
+    const path = new URL(request.url()).pathname;
+    if (path.startsWith('/api/v1/payments/') && request.method() !== 'GET') paymentWrites.push(path);
+  });
+  await page.route('**/api/v1/payments/refunds?*', route => json(route, { items: [refund], page: 1, pageSize: 20, total: 1 }));
+  await page.route(`**/api/v1/payments/refunds/${refund.id}`, route => {
+    refundReads.push(new URL(route.request().url()).pathname);
+    return json(route, reconciled ? { ...refund, refundStateKey: 'succeeded', version: 2 } : refund);
+  });
+  await page.route(`**/api/v1/payments/orders/${order.id}`, route => { orderReads++; return json(route, order); });
+  await page.route(`**/api/v1/payments/orders/${order.id}/reconcile`, route => {
+    expect(route.request().method()).toBe('POST');
+    reconciled = true;
+    return json(route, { ...order, tradeStateKey: 'refunded', version: 8 });
+  });
+
+  await page.goto('/#/payments/refunds');
+  await page.getByTestId('refunds-exact-id').fill(refund.id);
+  await page.getByTestId('refunds-read-id').click();
+  await page.getByTestId('refund-read-original-order').click();
+  await page.getByTestId('payment-order-detail-reconcile-refund').click();
+  await expect(page.getByTestId('payment-reconcile-snapshot')).toBeVisible();
+  expect(orderReads).toBe(2);
+  expect(paymentWrites).toHaveLength(0);
+  await page.getByTestId('payment-reconcile-confirm').click();
+  await expect(page.getByTestId('refund-detail-snapshot')).toBeVisible();
+  expect(refundReads).toEqual(Array(2).fill(`/api/v1/payments/refunds/${refund.id}`));
+  expect(paymentWrites).toEqual([`/api/v1/payments/orders/${order.id}/reconcile`]);
+});

@@ -12,7 +12,7 @@ import { isNonnegativeInt64String } from '../utils/exact-integer';
 import { translatePaymentReconciliation } from '@fullnet/admin-i18n';
 import { translateRuntimeMessage } from '../i18n/runtimeMessage';
 
-const props = defineProps<{ open: boolean; reference?: Readonly<PaymentOrderListItem> }>();
+const props = defineProps<{ open: boolean; reference?: Readonly<PaymentOrderListItem>; refundOnly?: boolean }>();
 const emit = defineEmits<{ 'update:open': [value: boolean]; updated: [order: PaymentOrder]; busy: [value: boolean] }>();
 const session = useSessionStore(); const { t, locale } = useAdminI18n();
 const text = (key: Parameters<typeof translatePaymentReconciliation>[1]) => translatePaymentReconciliation(locale.value, key);
@@ -49,8 +49,12 @@ function matches(value: PaymentOrder, original: Readonly<PaymentOrderListItem>) 
     && Number.isSafeInteger(value.version) && value.version >= 1
     && ['created', 'awaiting_payment', 'succeeded', 'closed', 'failed', 'provider_unknown', 'refunding', 'refunded'].includes(value.tradeStateKey);
 }
-const eligible = computed(() => snapshot.value && snapshot.value.tradeStateKey !== 'refunded'
-  && (snapshot.value.tradeStateKey !== 'refunding' || snapshot.value.channelKey === 'wechat_native'));
+const eligible = computed(() => {
+  const order = snapshot.value;
+  if (!order) return false;
+  if (props.refundOnly) return order.tradeStateKey === 'refunding' && order.channelKey === 'wechat_native';
+  return order.tradeStateKey !== 'refunded' && (order.tradeStateKey !== 'refunding' || order.channelKey === 'wechat_native');
+});
 const canConfirm = computed(() => allowed.value && !!eligible.value && !busy.value && !confirmed.value && !outcome.value);
 function stateLabel(value: string) { const key = `paymentOrders.status.${value}`; const label = translateRuntimeMessage(t, key); return label === key ? value : label; }
 function mismatch(): FullNetProblemDetails { return { type: 'about:blank', status: 502, code: 'client.reconcile_order_mismatch', title: text('mismatch') }; }

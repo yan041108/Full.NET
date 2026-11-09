@@ -17,7 +17,7 @@ import {
   ElTableColumn,
   ElTag
 } from 'element-plus';
-import type { PaymentRefund, PaymentRefundListItem, FullNetProblemDetails } from '@fullnet/client-contracts';
+import type { PaymentOrder, PaymentRefund, PaymentRefundListItem, FullNetProblemDetails } from '@fullnet/client-contracts';
 import { isFullNetProblemDetails, isGuid } from '@fullnet/client-contracts';
 import ArtTableHeader from '../framework/art-design/components/ArtTableHeader.vue';
 import ArtFormDialog from '../framework/art-design/components/ArtFormDialog.vue';
@@ -31,6 +31,7 @@ import { formatPaymentAmount } from '../utils/payment-amount';
 import { isNonnegativeInt64String } from '../utils/exact-integer';
 import PermissionGate from '../components/PermissionGate.vue';
 import PaymentOrderDetailDialog from '../components/PaymentOrderDetailDialog.vue';
+import PaymentOrderReconcileDialog from '../components/PaymentOrderReconcileDialog.vue';
 
 defineOptions({ name: 'PaymentRefundsView' });
 
@@ -45,6 +46,9 @@ const refundIdInput = ref(''); const detailId = ref(''); const detailOpen = ref(
 const detail = ref<PaymentRefund>(); const detailLoading = ref(false); const detailProblem = ref<FullNetProblemDetails>();
 const originalOrderOpen = ref(false); const originalOrderId = ref('');
 const originalOrderReference = ref<Pick<PaymentRefund, 'tenantId' | 'merchantConfigId' | 'outTradeNo' | 'currency'>>();
+const originalRefund = ref<Readonly<PaymentRefund>>();
+const reconcileOpen = ref(false);
+const reconcileTarget = ref<Readonly<PaymentOrder>>();
 const items = ref<PaymentRefundListItem[]>([]);
 const total = ref(0);
 const page = ref(1);
@@ -64,6 +68,7 @@ const scope = useAuthorizedViewScope(session, () => {
   appliedFilters = { orderId: '', state: 'all' };
   detail.value = undefined; detailId.value = ''; detailOpen.value = false; detailLoading.value = false; detailProblem.value = undefined;
   originalOrderOpen.value = false; originalOrderId.value = ''; originalOrderReference.value = undefined;
+  originalRefund.value = undefined; reconcileOpen.value = false; reconcileTarget.value = undefined;
 }, () => { readRoute(); void load(); });
 
 const {
@@ -140,12 +145,40 @@ function readOriginalOrder() {
   if (!allowed.value || !session.can('payments.orders.read') || !source || !validId(source.orderId)) return;
   originalOrderId.value = source.orderId;
   originalOrderReference.value = { tenantId: source.tenantId, merchantConfigId: source.merchantConfigId, outTradeNo: source.outTradeNo, currency: source.currency };
+  originalRefund.value = Object.freeze({ ...source });
   closeDetail(); originalOrderOpen.value = true;
 }
-async function readDetail(input = refundIdInput.value) {
+function matchesOriginalOrder(order: PaymentOrder, refund: Readonly<PaymentRefund>): boolean {
+  return sameId(order.id, refund.orderId) && sameId(order.tenantId, refund.tenantId)
+    && sameId(order.merchantConfigId, refund.merchantConfigId)
+    && order.outTradeNo === refund.outTradeNo && order.currency === refund.currency;
+}
+function beginOriginalReconcile(order: PaymentOrder) {
+  const source = originalRefund.value;
+  if (!allowed.value || session.switching || !session.can('payments.orders.read') || !session.can('payments.orders.reconcile')
+    || !originalOrderOpen.value || source?.refundStateKey !== 'processing'
+    || order.tradeStateKey !== 'refunding' || order.channelKey !== 'wechat_native'
+    || !matchesOriginalOrder(order, source)) return;
+  reconcileTarget.value = Object.freeze({ ...order });
+  originalOrderOpen.value = false;
+  reconcileOpen.value = true;
+}
+function refreshOriginalRefund(order: PaymentOrder) {
+  const source = originalRefund.value;
+  if (!allowed.value || session.switching || !session.can('payments.orders.reconcile')
+    || !reconcileOpen.value || !source || !matchesOriginalOrder(order, source)) return;
+  reconcileOpen.value = false;
+  reconcileTarget.value = undefined;
+  void readDetail(source.id, source);
+}
+async function readDetail(input = refundIdInput.value, original?: Readonly<PaymentRefund>) {
   if (!allowed.value) return;
   const id = input.trim();
   if (!validId(id)) { problem.value = { code: 'client.invalid_refund_id', type: 'about:blank', status: 400, title: t('paymentRefunds.invalidId') }; return; }
+  if (!original) {
+    originalOrderOpen.value = false; originalRefund.value = undefined;
+    reconcileOpen.value = false; reconcileTarget.value = undefined;
+  }
   const sequence = ++detailSequence; detailPending?.cancel(); detail.value = undefined; detailProblem.value = undefined;
   detailId.value = id; refundIdInput.value = id; detailOpen.value = true;
   const operation = scope.begin(permission); if (!operation) return;
@@ -157,7 +190,11 @@ async function readDetail(input = refundIdInput.value) {
       || typeof value.outRefundNo !== 'string' || typeof value.outTradeNo !== 'string' || typeof value.reason !== 'string'
       || typeof value.currency !== 'string' || !/^[A-Z]{3}$/.test(value.currency) || typeof value.refundStateKey !== 'string'
       || !isNonnegativeInt64String(value.amountMinor) || value.amountMinor === '0'
-      || !Number.isSafeInteger(value.version) || value.version < 1 || !Number.isFinite(Date.parse(value.createdAtUtc))) throw mismatch();
+      || !Number.isSafeInteger(value.version) || value.version < 1 || !Number.isFinite(Date.parse(value.createdAtUtc))
+      || (original && (!sameId(value.orderId, original.orderId) || !sameId(value.tenantId, original.tenantId)
+        || !sameId(value.merchantConfigId, original.merchantConfigId) || value.currency !== original.currency
+        || value.outTradeNo !== original.outTradeNo || value.outRefundNo !== original.outRefundNo
+        || value.version < original.version))) throw mismatch();
     detail.value = value;
   } catch (error) {
     if (operation.current() && sequence === detailSequence) { detail.value = undefined; detailProblem.value = toProblem(error, 'paymentRefunds.detailFailed'); }
@@ -236,7 +273,9 @@ async function readDetail(input = refundIdInput.value) {
         <ElDescriptionsItem :label="t('paymentRefunds.fieldFailMessage')">{{ detail.failMessage || '—' }}</ElDescriptionsItem>
       </ElDescriptions>
     </ArtFormDialog>
-    <PaymentOrderDetailDialog v-model:open="originalOrderOpen" :order-id="originalOrderId" :reference="originalOrderReference" />
+    <PaymentOrderDetailDialog v-model:open="originalOrderOpen" :order-id="originalOrderId" :reference="originalOrderReference"
+      :show-refund-reconcile="originalRefund?.refundStateKey === 'processing'" @reconcile="beginOriginalReconcile" />
+    <PaymentOrderReconcileDialog v-model:open="reconcileOpen" :reference="reconcileTarget" refund-only @updated="refreshOriginalRefund" />
     </template>
   </section>
 </template>

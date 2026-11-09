@@ -10,13 +10,16 @@ import { useAdminI18n } from '../i18n/adminI18n';
 import { formatPaymentAmount } from '../utils/payment-amount';
 import { isNonnegativeInt64String } from '../utils/exact-integer';
 
-const props = defineProps<{ open: boolean; orderId: string;
+const props = defineProps<{ open: boolean; orderId: string; showRefundReconcile?: boolean;
   reference?: Pick<PaymentOrder, 'tenantId' | 'merchantConfigId' | 'outTradeNo' | 'currency'> }>();
-const emit = defineEmits<{ 'update:open': [value: boolean] }>();
+const emit = defineEmits<{ 'update:open': [value: boolean]; reconcile: [order: PaymentOrder] }>();
 const { t } = useAdminI18n(); const session = useSessionStore();
 const allowed = computed(() => session.state === 'authenticated' && session.currentUser?.tenantId === null
   && session.currentUser.actorScope === 'host' && session.can('payments.orders.read'));
 const visible = ref(false), busy = ref(false); const detail = ref<PaymentOrder>();
+const canReconcileRefund = computed(() => props.showRefundReconcile && allowed.value && !session.switching
+  && session.can('payments.orders.reconcile') && detail.value?.tradeStateKey === 'refunding'
+  && detail.value.channelKey === 'wechat_native');
 const problem = ref<FullNetProblemDetails>(); const readAt = ref('');
 let sequence = 0; let pending: { cancel(): void } | undefined;
 const validId = (value: unknown): value is string => isGuid(value) && value !== '00000000-0000-0000-0000-000000000000';
@@ -68,6 +71,9 @@ async function read() {
       <p>{{ t('paymentOrders.orderId') }} <code data-testid="payment-order-detail-id">{{ orderId }}</code></p>
       <p>{{ t('paymentOrders.detailReadOnly') }}</p>
       <ElButton :loading="busy" data-testid="payment-order-detail-refresh" @click="read">{{ t('common.refresh') }}</ElButton>
+      <ElButton v-if="canReconcileRefund && detail" data-testid="payment-order-detail-reconcile-refund" @click="emit('reconcile', detail)">
+        {{ t('paymentRefunds.reconcileOriginal') }}
+      </ElButton>
       <ElAlert v-if="problem" type="warning" :closable="false" :title="problem.title" data-testid="payment-order-detail-problem" />
       <ElDescriptions v-if="detail" :column="1" border data-testid="payment-order-detail-snapshot">
         <ElDescriptionsItem :label="t('paymentOrders.fieldTenantId')">{{ detail.tenantId }}</ElDescriptionsItem>
