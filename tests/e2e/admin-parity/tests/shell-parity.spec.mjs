@@ -2015,7 +2015,7 @@ test('Host 文件列表与上传删除在两端保持一致', async ({ page }, t
   if (clientKind === 'vue') {
     const receipt = hostFilesView.getByRole('region', { name: '文件上传回执' });
     await expect(receipt.getByText(fileId, { exact: true })).toBeVisible();
-    await expect(receipt.getByText('在下方文件目录中预览、下载或管理已上传的文件。')).toBeVisible();
+    await expect(receipt.getByText('在下方文件目录中操作已上传的文件。')).toBeVisible();
     await expect(matchingFiles).toHaveCount(2);
     await expect(newFileRow).not.toContainText(fileId);
 
