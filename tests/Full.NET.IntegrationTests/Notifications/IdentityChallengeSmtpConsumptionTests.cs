@@ -79,6 +79,7 @@ public sealed class IdentityChallengeSmtpConsumptionTests
             });
         await factory.InitializeAsync(TestContext.CancellationToken);
         using var client = factory.CreateClientForHost("localhost");
+        client.DefaultRequestHeaders.AcceptLanguage.ParseAdd("en-US");
         var adminToken = await AccountLifecycleAssertions.LoginAsHostAdminAsync(client, TestContext.CancellationToken);
         var profile = await NotificationProfileBindingAssertions.CreateProfileAsync(client, adminToken,
             $"smtp-{Guid.NewGuid():N}"[..20], "email.smtp", inbox.Configuration, "test://smtp", TestContext.CancellationToken);
@@ -120,7 +121,10 @@ public sealed class IdentityChallengeSmtpConsumptionTests
             }
             finally { context.Clear(); }
             if (purpose == IdentityAccountChallengePurpose.PasswordRecovery)
-                await AccountLifecycleAssertions.CreateHostUserWithEmailAsync(client, adminToken, email, TestContext.CancellationToken);
+            {
+                var recoveryAdmin = await AccountLifecycleAssertions.LoginAsHostAdminAsync(client, TestContext.CancellationToken);
+                await AccountLifecycleAssertions.CreateHostUserWithEmailAsync(client, recoveryAdmin, email, TestContext.CancellationToken);
+            }
             var originalUser = await query.QuerySingleOrDefaultAsync<IdentityUserRecord>(AccountLifecycleSql.FindUserByProfileEmail,
                 IdentitySqlParameters.Create(("Email", email)), TestContext.CancellationToken);
 
@@ -187,7 +191,7 @@ public sealed class IdentityChallengeSmtpConsumptionTests
             }, observation.Message.Subject);
             var bodyText = observation.Message.TextBody;
             Assert.IsNotNull(bodyText);
-            var match = Regex.Match(bodyText, @"^Your verification code is ([0-9]{6})\. It expires at ");
+            var match = Regex.Match(bodyText, @"^Your verification code is ([0-9]{6})\. Valid until ");
             Assert.IsTrue(match.Success, "必须从实际收到的 MIME 正文取得凭据。");
             var credential = match.Groups[1].Value;
             Assert.IsFalse(record.CredentialHash == credential);
