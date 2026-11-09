@@ -13,6 +13,7 @@ import { buildMigrationInventory, buildPresetMigrationInventory, buildSeedInvent
 import { projectPresetComposition } from './project-preset-composition.mjs';
 import { verifyCreatedApp } from './verify-created-app.mjs';
 import { createApplicationPackage } from './application-package.mjs';
+import { verifyDistributionManifest } from './distribution-manifest.mjs';
 
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
 
@@ -170,7 +171,8 @@ function projectApplicationDiagnostics(appRoot) {
   writeFileSync(packagePath, JSON.stringify(applicationPackage, null, 2) + '\n');
 }
 
-export function createApp({ packageRoot, output, name, ownerKey, database = 'sqlserver', preset = 'minimal', httpPort = 5180, run = spawnSync }) {
+export function createApp({ packageRoot, output, name, ownerKey, database = 'sqlserver', preset = 'minimal', httpPort = 5180,
+  distributionDigest, run = spawnSync }) {
   validateOwnerKey(ownerKey);
   const modules = resolvePresetModules(preset);
   if (!['sqlserver', 'mysql'].includes(database)) throw new Error('Unknown database provider');
@@ -186,6 +188,7 @@ export function createApp({ packageRoot, output, name, ownerKey, database = 'sql
   }
   if (!packageRoot) throw new Error('Missing template package directory');
   const templateRoot = resolve(packageRoot);
+  verifyDistributionManifest(templateRoot, distributionDigest);
   assertPackageIntegrity(templateRoot, true);
 
   mkdirSync(dirname(appRoot), { recursive: true });
@@ -233,6 +236,7 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
       database: options.database,
       preset: options.preset,
       httpPort: options['http-port'] ?? 5180,
+      distributionDigest: options['distribution-sha256'],
     });
     console.log('Created Full.NET application: ' + appRoot);
   } catch (error) {

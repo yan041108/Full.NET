@@ -3,6 +3,7 @@ import { readFile, access } from 'node:fs/promises';
 import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
+import { PRESET_MODULE_CLOSURE } from '../../scripts/templates/preset-modules.mjs';
 
 const repositoryRoot = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -47,7 +48,7 @@ test('FullNetModuleSelection lists Webhooks official module', async () => {
   assert.match(selection, /"Webhooks"/);
 });
 
-test('Enterprise preset closure includes workflow delivery and EnterpriseRequest', async () => {
+test('Enterprise preset matches the template closure and ships EnterpriseRequest as a separate sample', async () => {
   const selection = await read(
     'src/Composition/Full.NET.Composition/FullNetModuleSelection.cs'
   );
@@ -56,9 +57,10 @@ test('Enterprise preset closure includes workflow delivery and EnterpriseRequest
     selection.indexOf('EnterprisePresetModuleNames'),
     selection.indexOf('/// <summary>', selection.indexOf('EnterprisePresetModuleNames') + 1)
   );
-  assert.match(block, /"EnterpriseRequest"/);
-  assert.match(block, /"Workflow"/);
-  assert.match(block, /"ImportExport"/);
+  const modules = [...block.matchAll(/"([A-Za-z]+)"/g)].map((match) => match[1]);
+  assert.deepEqual(modules, PRESET_MODULE_CLOSURE.enterprise);
+  assert.doesNotMatch(block, /"EnterpriseRequest"/);
+  assert.ok(await exists('samples/enterprise-request/src/Full.NET.Modules.EnterpriseRequest/Full.NET.Modules.EnterpriseRequest.csproj'));
   const options = await read(
     'src/Composition/Full.NET.Composition/FullNetModuleSelectionOptions.cs'
   );

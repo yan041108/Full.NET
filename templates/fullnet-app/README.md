@@ -4,11 +4,13 @@ This template creates an independently buildable Full.NET application with a ver
 
 New applications expose their own root commands: `pnpm dev:api`, `pnpm dev:worker`, `pnpm dev:admin`, `pnpm build:api`, `pnpm build:worker`, `pnpm build:migrator`, `pnpm build:admin`, and `pnpm typecheck:admin`. Run `pnpm db:migrate` to migrate without seeding, or explicitly choose `pnpm db:seed:baseline`. `pnpm generate:crud --schema schema.json --workspace .` previews CRUD; append `--apply` only when writing is intended. `pnpm generate:client` and `pnpm check:client` invoke the shipped OpenAPI tools and accept their explicit input/manifest/output options. Configure dependencies and secrets before starting hosts; these commands do not provision infrastructure. Dependency versions, workspace safety overrides, and patch files remain frozen with the package; repository-only tests and release commands are excluded.
 
-From the Full.NET source checkout, first assemble the template package into an empty output directory:
+From the Full.NET source checkout, assemble the template package into an empty output directory.
 
 ```bash
-node scripts/templates/build-app-template.mjs --output artifacts/templates/fullnet-app-package
+node scripts/templates/build-app-template.mjs --output ./fullnet-app-package
 ```
+
+For a release candidate, use `--source-commit <full HEAD SHA>` to select the committed tree explicitly. The packager requires its own tools to match the commit and takes the source and template files from Git. Record the printed `distribution-manifest.json` SHA-256 with the candidate's commit. The package contains the distribution and framework manifests, the MIT license and third-party notices.
 
 ## Parameters
 
@@ -26,10 +28,16 @@ node scripts/templates/build-app-template.mjs --output artifacts/templates/fulln
 Use the package's validated creator so invalid owner keys, modified or unlisted framework files, and existing output paths are rejected before instantiation. It builds in a temporary sibling directory and publishes the app only after verification succeeds:
 
 ```bash
-node artifacts/templates/fullnet-app-package/.fullnet-tools/create-app.mjs --output Demo --name Demo --owner-key demo --database mysql --preset platform --http-port 5180
+node fullnet-app-package/.fullnet-tools/create-app.mjs --output Demo --name Demo --owner-key demo --database mysql --preset platform --http-port 5180
 ```
 
-The creator uses an isolated `dotnet new` template hive and projects the selected modules into the generated Composition source and project references. It selects a Worker health port adjacent to the API port, using 65534 when the API uses 65535. Its manifest validates the managed framework bundle; it is not a signature for the outer template files. Direct `dotnet new fullnet-app` installation remains possible, but does not perform these checks or the Composition projection; provide distinct `--http-port` and `--worker-http-port` values when using it directly.
+To consume a fixed candidate, use the creator from a trusted Full.NET checkout and the expected manifest SHA-256 obtained from the release record. The creator verifies outer template files and the inner framework inventory before calling `dotnet new`.
+
+```bash
+node scripts/templates/create-app.mjs --package ./fullnet-app-package --distribution-sha256 "$MANIFEST_SHA256" --output Demo --name Demo --owner-key acme --database sqlserver --preset minimal --http-port 5180
+```
+
+The creator uses an isolated `dotnet new` template hive and projects the selected modules into the generated Composition source and project references. It selects a Worker health port adjacent to the API port, using 65534 when the API uses 65535. Direct `dotnet new fullnet-app` installation requires distinct `--http-port` and `--worker-http-port` values. Use the validated creator for integrity checks and Composition projection.
 
 Before publishing the created directory, the structure verifier requires the sole API host's matching application Composition project and `ApplicationModuleCatalog.cs`. Required application, host, and Composition paths must be files; directories cannot satisfy these checks. This verifies layout only; compilation and runtime acceptance remain separate gates.
 
@@ -53,7 +61,21 @@ After generation, build the API and Worker with `dotnet build src/<name>.Host.Ap
 
 Run `pnpm run diagnose:development` from the generated app root to check its host layout, frozen preset and database provider, selected module references, and configuration placeholders. The application-owned Node entry first probes the SDK selected by the app workspace and reports `DIAG_SDK_MISSING` or `DIAG_SDK_INCOMPATIBLE` with exit code 1 before CLR startup, without echoing raw SDK errors or installing anything. With a compatible SDK it delegates to the existing .NET CLI and preserves its exit code. It compares the root, API, and any declared matching Migrator base configuration with the frozen application profile; missing or invalid files return redacted errors. Older applications without a Migrator remain supported. Use `pnpm run diagnose:production` for production configuration checks. Existing application scripts are not automatically replaced. The command reads files and environment metadata without initializing the database and does not validate every ASP.NET Core configuration override.
 
-The generated Composition project references only selected module implementations. The framework source bundle still contains source for all modules, and transitive project reference closure, migrations, login, and dual-database acceptance remain separate gates.
+The generated Composition project references the selected official modules. The source bundle also contains the separate Enterprise Request sample, which requires explicit application composition. Transitive project references, migrations, login and dual-database acceptance remain separate gates.
+
+## Minimal / SQL Server candidate configuration
+
+The source candidate projects Identity, Tenancy, Settings and Organization into the application. `fullnet-app.json` records the selected provider and preset. The generated `framework-manifest.json` freezes the matching migration and seed inventory. Keep these files with the application and its publish output.
+
+| Scope | Configuration keys and secret references |
+| --- | --- |
+| API, Worker and Migrator | Provide `ConnectionStrings__app` through the runtime secret system, with a role-appropriate SQL Server login, TLS and server certificate validation. Keep `Database__ConnectionName` and the selected provider aligned with the application declaration. |
+| Identity | Supply `Identity__ActiveKeyId` and `Identity__SigningKeys__<id>__PublicKeyPem` / `Identity__SigningKeys__<id>__PrivateKeyPem` from the managed signing material. Set `Identity__AllowedOrigins__0` to the exact HTTPS admin origin and `Tenancy__HostDomains__0` to the exact Host name. |
+| API and Worker data protection | Set the same `DataProtection__ApplicationName`, a persistent absolute `DataProtection__KeyRingPath`, and `DataProtection__CertificatePath`. Inject `DataProtection__CertificatePassword` from the secret store when the certificate is password protected. |
+| Cache and logging | Set `Cache__RedisConnectionString` for shared Redis deployments. For a single-instance production deployment using Local logging, set `FullNet__Logging__DeliveryMode=Local`, `FullNet__Logging__LocalFile__Enabled=true` and a writable persistent `FullNet__Logging__LocalFile__Directory`. |
+| Initial baseline seed | Provide `Identity__Bootstrap__Username` and `Identity__Bootstrap__Password` to the explicit seed command when provisioning the first administrator. |
+
+Use the actual target settings with `pnpm diagnose:production`. For an existing database, apply the upgrade gates before `pnpm db:migrate`; for initial provisioning, run `pnpm db:seed:baseline` as a separate step when required. Start Worker before API, confirm the readiness probes, and check the published admin frontend through its configured HTTPS origin. Candidate evidence records separately which of these runtime checks were executed.
 
 Declare business modules in the application-owned `ApplicationModuleCatalog.CreateModules()` and reference their projects from the application Composition project. API, Worker, and Migrator call this catalog with their respective profiles; it combines the frozen official preset with the explicit application list and validates dependencies before registration. Migrator registers only migration and seed capabilities. Worker compiles the bundled framework Worker processing pipeline and uses `ApplicationWorkerModuleCatalog` to register the application modules. This keeps Outbox and messaging behavior aligned with the bundled framework version; the generated Worker is JIT only until its own Native AOT publish and runtime path are verified. For CLI integration, target this application-owned project and catalog, not files under `framework/fullnet/`. Application migrations and full generated-business acceptance still require their own verification.
 

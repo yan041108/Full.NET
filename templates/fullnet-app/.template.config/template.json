@@ -11,7 +11,7 @@
     {
       "source": "./",
       "target": "./",
-      "exclude": [".template.config/**/*", ".fullnet-tools/*.mjs"],
+      "exclude": [".template.config/**/*", ".fullnet-tools/*.mjs", "distribution-manifest.json", "LICENSE", "THIRD-PARTY-NOTICES"],
       "copyOnly": ["framework/**/*", "framework-manifest.json", ".fullnet-tools/openapi/**/*", "contracts/openapi/**/*", "contracts/workflow/**/*", "ui/**/*", "packages/**/*", "patches/**/*", "pnpm-lock.yaml", "pnpm-workspace.yaml"]
     },
     {
@@ -47,7 +47,7 @@
         { "choice": "minimal", "description": "Identity, Tenancy, Settings, Organization" },
         { "choice": "platform", "description": "Minimal plus platform modules" },
         { "choice": "saas", "description": "Platform plus Payments and Webhooks" },
-        { "choice": "enterprise", "description": "Platform plus workflow, data delivery, and Enterprise Request sample" }
+        { "choice": "enterprise", "description": "Platform plus workflow, import/export, reporting, and printing" }
       ],
       "defaultValue": "minimal",
       "replaces": "minimal",

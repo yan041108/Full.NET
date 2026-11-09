@@ -50,6 +50,8 @@ const INCLUDE_FILES = [
   'Directory.Build.targets',
   'global.json',
   'nuget.config',
+  'LICENSE',
+  'THIRD-PARTY-NOTICES',
   'package.json',
   'pnpm-lock.yaml',
   'pnpm-workspace.yaml',
@@ -68,26 +70,16 @@ export const TEMPLATE_INPUT_ROOTS = ['templates/fullnet-app', 'scripts/templates
 const EXCLUDED_DIR_NAMES = new Set(['bin', 'obj', '.vs', 'node_modules']);
 const SECRET_FILE_PATTERN = /(?:^|\/)(?:\.env|secrets?\.json|appsettings\.(?:Production|Local)\.json)$/i;
 
-function parseArgs(argv) {
-  let output = DEFAULT_OUTPUT;
-  for (let i = 0; i < argv.length; i += 1) {
-    const arg = argv[i];
-    if (arg === '--output') {
-      const value = argv[i + 1];
-      if (!value) {
-        throw new Error('Missing value for --output');
-      }
-      output = resolve(value);
-      i += 1;
-      continue;
+export function parseBundleArguments(argv, defaultOutput = DEFAULT_OUTPUT) {
+  const values = new Map();
+  for (let i = 0; i < argv.length; i += 2) {
+    const [key, value] = argv.slice(i, i + 2);
+    if (!['--output', '--source-commit'].includes(key) || values.has(key) || !value || value.startsWith('--')) {
+      throw new Error('Expected unique --output dir or --source-commit full-sha arguments');
     }
-    if (arg === '--help' || arg === '-h') {
-      console.log('Usage: node scripts/templates/build-source-bundle.mjs [--output dir]');
-      process.exit(0);
-    }
-    throw new Error('Unknown argument: ' + arg);
+    values.set(key, value);
   }
-  return { output };
+  return { output: resolve(values.get('--output') ?? defaultOutput), sourceCommit: values.get('--source-commit') };
 }
 
 function readGitCommit(run) {
@@ -117,14 +109,13 @@ export function assertArchiveEntryModes(treeOutput) {
   }
 }
 
-function assertCommittedBundleInputs(run) {
-  assertCleanBundleInputStatus(readBundleInputStatus(run));
-}
-
 /** 供模板测试在脏工作区跳过需完整打包的用例；CI 干净提交仍必须跑绿。 */
 export function readBundleInputStatus(run = spawnSync) {
-  const pathspecs = [...INCLUDE_ROOTS, ...INCLUDE_FILES, ...TEMPLATE_INPUT_ROOTS].map(toPosixPath);
-  const result = run('git', ['status', '--porcelain', '--untracked-files=all', '--', ...pathspecs], {
+  return readStatus(run, [...INCLUDE_ROOTS, ...INCLUDE_FILES, ...TEMPLATE_INPUT_ROOTS]);
+}
+
+function readStatus(run, paths) {
+  const result = run('git', ['status', '--porcelain', '--untracked-files=all', '--', ...paths.map(toPosixPath)], {
     cwd: REPO_ROOT,
     encoding: 'utf8',
   });
@@ -132,6 +123,20 @@ export function readBundleInputStatus(run = spawnSync) {
     throw new Error('Unable to check source bundle inputs: ' + (result.stderr || 'unknown error'));
   }
   return result.stdout ?? '';
+}
+
+/** 显式候选只从已提交树归档，仍要求正在执行的打包工具与该提交一致。 */
+function assertBundleInputs(run, sourceCommit, pinnedCommit) {
+  if (pinnedCommit === undefined) {
+    assertCleanBundleInputStatus(readBundleInputStatus(run));
+    return;
+  }
+  if (!/^[a-f0-9]{40}$/.test(pinnedCommit) || pinnedCommit !== sourceCommit || readGitCommit(run) !== sourceCommit) {
+    throw new Error('Explicit source commit must be the full commit SHA of current HEAD');
+  }
+  if (readStatus(run, ['scripts/templates']).trim()) {
+    throw new Error('Template packaging tools contain uncommitted changes');
+  }
 }
 
 export function areBundleInputsClean() {
@@ -201,9 +206,7 @@ function collectManagedFiles(bundleRoot) {
 }
 
 function copyIncludedPaths(bundleRoot, sourceCommit, run) {
-  const pathspecs = [...INCLUDE_ROOTS, ...INCLUDE_FILES]
-    .filter((relativePath) => existsSync(join(REPO_ROOT, relativePath)))
-    .map(toPosixPath);
+  const pathspecs = [...INCLUDE_ROOTS, ...INCLUDE_FILES].map(toPosixPath);
   const archivePath = join(bundleRoot, '.fullnet-source.tar');
   const tree = run('git', ['ls-tree', '-r', '-z', sourceCommit, '--', ...pathspecs], {
     cwd: REPO_ROOT,
@@ -214,10 +217,13 @@ function copyIncludedPaths(bundleRoot, sourceCommit, run) {
     throw new Error('Unable to inspect committed source: ' + (tree.stderr || 'unknown error'));
   }
   assertArchiveEntryModes(tree.stdout);
+  const committedPaths = tree.stdout.split('\0').filter(Boolean).map(entry => entry.slice(entry.indexOf('\t') + 1));
+  const committedPathspecs = pathspecs.filter(spec => committedPaths.some(path => path === spec || path.startsWith(spec + '/')));
+  if (!committedPathspecs.length) throw new Error('Source commit has no included paths');
   // 直接导出固定提交，忽略文件和本机密钥永远不进入分发包。
   try {
     const archive = run('git', [
-      'archive', '--format=tar', '--output', archivePath, sourceCommit, ...pathspecs,
+      'archive', '--format=tar', '--output', archivePath, sourceCommit, ...committedPathspecs,
     ], { cwd: REPO_ROOT, encoding: 'utf8' });
     if (archive.status !== 0) {
       throw new Error('Unable to archive committed source: ' + (archive.stderr || 'unknown error'));
@@ -272,10 +278,10 @@ function buildManifest(sourceCommit, managedFiles, bundleRoot) {
   };
 }
 
-export function buildSourceBundle({ output = DEFAULT_OUTPUT, run = spawnSync } = {}) {
+export function buildSourceBundle({ output = DEFAULT_OUTPUT, sourceCommit: pinnedCommit, run = spawnSync } = {}) {
   const bundleRoot = resolve(output);
   const sourceCommit = readGitCommit(run);
-  assertCommittedBundleInputs(run);
+  assertBundleInputs(run, sourceCommit, pinnedCommit);
 
   // 构建器不拥有调用方既有目录；拒绝覆盖，避免删除应用文件或人工修改。
   if (existsSync(bundleRoot) && readdirSync(bundleRoot).length > 0) {
@@ -285,7 +291,7 @@ export function buildSourceBundle({ output = DEFAULT_OUTPUT, run = spawnSync } =
 
   copyIncludedPaths(bundleRoot, sourceCommit, run);
   pruneExcluded(bundleRoot);
-  assertCommittedBundleInputs(run);
+  assertBundleInputs(run, sourceCommit, pinnedCommit);
 
   const managedFiles = collectManagedFiles(bundleRoot);
   if (Object.keys(managedFiles).length === 0) {
@@ -304,8 +310,12 @@ function isMainModule() {
 
 if (isMainModule()) {
   try {
-    const { output } = parseArgs(process.argv.slice(2));
-    const { bundleRoot, manifest } = buildSourceBundle({ output });
+    const args = process.argv.slice(2);
+    if (args.length === 1 && ['--help', '-h'].includes(args[0])) {
+      console.log('Usage: node scripts/templates/build-source-bundle.mjs [--output dir] [--source-commit full-sha]');
+      process.exit(0);
+    }
+    const { bundleRoot, manifest } = buildSourceBundle(parseBundleArguments(args));
     console.log('Wrote framework bundle to ' + bundleRoot);
     console.log('Managed files: ' + Object.keys(manifest.managedFiles).length);
     console.log('Source commit: ' + manifest.sourceCommit);

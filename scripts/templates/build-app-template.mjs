@@ -7,9 +7,10 @@ import { tmpdir } from 'node:os';
 import { spawnSync } from 'node:child_process';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { buildSourceBundle, TEMPLATE_INPUT_ROOTS } from './build-source-bundle.mjs';
+import { assertArchiveEntryModes, buildSourceBundle, parseBundleArguments, TEMPLATE_INPUT_ROOTS } from './build-source-bundle.mjs';
 import { copyApplicationClientTools } from './application-client-tools.mjs';
 import { createApplicationPackage } from './application-package.mjs';
+import { writeDistributionManifest } from './distribution-manifest.mjs';
 
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(SCRIPT_DIR, '..', '..');
@@ -18,6 +19,11 @@ const DEFAULT_OUTPUT = join(REPO_ROOT, 'artifacts', 'templates', 'fullnet-app-pa
 function extractTemplateInputs(sourceCommit, run) {
   const root = mkdtempSync(join(tmpdir(), 'fullnet-template-inputs-'));
   try {
+    const tree = run('git', ['ls-tree', '-r', '-z', sourceCommit, '--', ...TEMPLATE_INPUT_ROOTS], {
+      cwd: REPO_ROOT, encoding: 'utf8', timeout: 30_000, windowsHide: true,
+    });
+    if (tree.status !== 0) throw new Error('Cannot inspect frozen template inputs: ' + (tree.stderr || tree.error || 'git'));
+    assertArchiveEntryModes(tree.stdout);
     const archive = join(root, 'inputs.tar');
     for (const [command, args] of [['git', ['archive', '--format=tar', '--output', archive, sourceCommit, ...TEMPLATE_INPUT_ROOTS]],
       ['tar', ['-xf', archive, '-C', root]]]) {
@@ -29,16 +35,14 @@ function extractTemplateInputs(sourceCommit, run) {
   } catch (error) { rmSync(root, { recursive: true, force: true }); throw error; }
 }
 
-export function buildAppTemplate({ output = DEFAULT_OUTPUT, run = spawnSync } = {}) {
+export function buildAppTemplate({ output = DEFAULT_OUTPUT, sourceCommit, run = spawnSync } = {}) {
   const templateRoot = resolve(output);
   // 分发包只允许写入空目录，避免模板构建覆盖应用或其他人工文件。
   if (existsSync(templateRoot) && readdirSync(templateRoot).length > 0) {
     throw new Error('Template output directory must be empty: ' + templateRoot);
   }
-  mkdirSync(templateRoot, { recursive: true });
-  const { bundleRoot } = buildSourceBundle({ output: join(templateRoot, 'framework', 'fullnet'), run });
-  const sourceCommit = JSON.parse(readFileSync(join(bundleRoot, 'framework-manifest.json'), 'utf8')).sourceCommit;
-  const frozenInputs = extractTemplateInputs(sourceCommit, run);
+  const { bundleRoot, manifest } = buildSourceBundle({ output: join(templateRoot, 'framework', 'fullnet'), sourceCommit, run });
+  const frozenInputs = extractTemplateInputs(manifest.sourceCommit, run);
   try {
     // 模板和创建工具也来自同一 Git 提交，不能把工作树中的新文件混入旧提交分发包。
     cpSync(join(frozenInputs, 'templates', 'fullnet-app'), templateRoot, { recursive: true, force: false });
@@ -56,7 +60,7 @@ export function buildAppTemplate({ output = DEFAULT_OUTPUT, run = spawnSync } = 
     ]) {
       cpSync(join(bundleRoot, relative), join(templateRoot, relative), { recursive: true, force: false });
     }
-    for (const relative of ['package.json', 'pnpm-lock.yaml', 'pnpm-workspace.yaml', 'contracts/workflow/gateway-limits.json', 'contracts/workflow/vform3-runtime-release.json']) {
+    for (const relative of ['LICENSE', 'THIRD-PARTY-NOTICES', 'package.json', 'pnpm-lock.yaml', 'pnpm-workspace.yaml', 'contracts/workflow/gateway-limits.json', 'contracts/workflow/vform3-runtime-release.json']) {
       mkdirSync(dirname(join(templateRoot, relative)), { recursive: true });
       copyFileSync(join(bundleRoot, relative), join(templateRoot, relative));
     }
@@ -75,24 +79,24 @@ export function buildAppTemplate({ output = DEFAULT_OUTPUT, run = spawnSync } = 
     rmSync(configTemplate);
     const toolRoot = join(templateRoot, '.fullnet-tools');
     mkdirSync(toolRoot);
-    for (const tool of ['create-app.mjs', 'diagnose-app.mjs', 'application-package.mjs', 'framework-manifest-utils.mjs', 'migration-script-modules.mjs', 'preset-modules.mjs', 'project-preset-composition.mjs', 'verify-created-app.mjs', 'upgrade-framework.mjs', 'framework-upgrade-integrity.mjs', 'framework-upgrade-store.mjs']) {
+    for (const tool of ['create-app.mjs', 'diagnose-app.mjs', 'application-package.mjs', 'distribution-manifest.mjs', 'framework-manifest-utils.mjs', 'migration-script-modules.mjs', 'preset-modules.mjs', 'project-preset-composition.mjs', 'verify-created-app.mjs', 'upgrade-framework.mjs', 'framework-upgrade-integrity.mjs', 'framework-upgrade-store.mjs']) {
       copyFileSync(join(frozenInputs, 'scripts', 'templates', tool), join(toolRoot, tool));
     }
     copyApplicationClientTools(bundleRoot, templateRoot);
-    return { templateRoot };
+    return { templateRoot, distributionDigest: writeDistributionManifest(templateRoot) };
   } finally { rmSync(frozenInputs, { recursive: true, force: true }); }
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   try {
-    if (process.argv.length > 4 || (process.argv[2] && process.argv[2] !== '--output')) {
-      throw new Error('Usage: node scripts/templates/build-app-template.mjs [--output dir]');
+    const args = process.argv.slice(2);
+    if (args.length === 1 && ['--help', '-h'].includes(args[0])) {
+      console.log('Usage: node scripts/templates/build-app-template.mjs [--output dir] [--source-commit full-sha]');
+      process.exit(0);
     }
-    if (process.argv[2] === '--output' && !process.argv[3]) {
-      throw new Error('Missing value for --output');
-    }
-    const { templateRoot } = buildAppTemplate({ output: process.argv[3] ?? DEFAULT_OUTPUT });
+    const { templateRoot, distributionDigest } = buildAppTemplate(parseBundleArguments(args, DEFAULT_OUTPUT));
     console.log('Wrote application template to ' + templateRoot);
+    console.log('Distribution manifest SHA-256: ' + distributionDigest);
   } catch (error) {
     console.error(error instanceof Error ? error.message : String(error));
     process.exit(1);

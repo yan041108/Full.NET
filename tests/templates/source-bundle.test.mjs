@@ -4,7 +4,7 @@ import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSy
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import test from 'node:test';
-import { assertArchiveEntryModes, assertCleanBundleInputStatus, assertManagedPath, areBundleInputsClean, buildSourceBundle } from '../../scripts/templates/build-source-bundle.mjs';
+import { assertArchiveEntryModes, assertCleanBundleInputStatus, assertManagedPath, areBundleInputsClean, buildSourceBundle, parseBundleArguments } from '../../scripts/templates/build-source-bundle.mjs';
 import { buildMigrationInventory, buildSeedInventory } from '../../scripts/templates/framework-manifest-utils.mjs';
 
 const skipBundleIntegration = areBundleInputsClean()
@@ -14,6 +14,16 @@ const skipBundleIntegration = areBundleInputsClean()
 test('source bundle rejects a dirty source tree before assigning a commit', () => {
   assert.throws(() => assertCleanBundleInputStatus(' M src/Modules/Full.NET.Modules.Identity/IdentityModule.cs'), /uncommitted/);
   assert.doesNotThrow(() => assertCleanBundleInputStatus(''));
+});
+
+test('explicit candidate requires current full HEAD and committed packaging tools', () => {
+  const head = 'a'.repeat(40);
+  assert.equal(parseBundleArguments(['--source-commit', head]).sourceCommit, head);
+  assert.throws(() => parseBundleArguments(['--source-commit', head, '--source-commit', head]), /unique/);
+  const run = (_command, [action]) => ({ status: 0, stdout: action === 'rev-parse' ? head : ' M scripts/templates/create-app.mjs' });
+  assert.throws(() => buildSourceBundle({ sourceCommit: head.slice(0, 7), run }), /full commit SHA/);
+  assert.throws(() => buildSourceBundle({ sourceCommit: 'b'.repeat(40), run }), /current HEAD/);
+  assert.throws(() => buildSourceBundle({ sourceCommit: head, run }), /packaging tools contain uncommitted changes/);
 });
 
 test('source bundle rejects symlinks and submodules in committed inputs', () => {
