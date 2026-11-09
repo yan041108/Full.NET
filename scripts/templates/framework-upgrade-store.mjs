@@ -13,7 +13,7 @@ export function assertNoPendingUpgrade(appRoot) {
 }
 
 /** 不触碰应用宿主和业务文件；旧框架与清单在成功或失败后均保留。 */
-export function commitFrameworkUpgrade({ appRoot, files, nextManifest, expectedSnapshot, verifyUnchanged }) {
+export function commitFrameworkUpgrade({ appRoot, files, removals, nextManifest, expectedSnapshot, verifyUnchanged }) {
   const frameworkRoot = join(appRoot, 'framework/fullnet');
   const manifestPath = join(appRoot, 'framework-manifest.json');
   assertFrameworkTreeUnlinked(frameworkRoot);
@@ -31,6 +31,7 @@ export function commitFrameworkUpgrade({ appRoot, files, nextManifest, expectedS
     const nextManifestPath = join(recoveryRoot, 'next-manifest.json');
     const encoded = JSON.stringify(nextManifest, null, 2) + '\n';
     const nextEntries = new Map(Object.entries(expectedSnapshot));
+    for (const path of removals) nextEntries.delete(path);
     for (const [path, content] of files) {
       const segments = path.split('/');
       for (let count = 1; count < segments.length; count += 1) nextEntries.set(segments.slice(0, count).join('/'), 'directory');
@@ -57,6 +58,8 @@ export function commitFrameworkUpgrade({ appRoot, files, nextManifest, expectedS
       }
     };
     assertSnapshot(nextRoot);
+    // 只在暂存副本中移除已退役的文件，原目录随备份一起保留。
+    for (const path of removals) unlinkSync(join(nextRoot, path));
     for (const [relative, content] of files) {
       const target = join(nextRoot, relative);
       assertUnlinkedPath(target, true);

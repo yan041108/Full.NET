@@ -107,6 +107,7 @@ function prepareUpgrade({ appRoot, packageRoot, distributionDigest, allowPending
     nextManifest.migrationInventory = buildPresetMigrationInventory(packageManifest.migrationInventory, preset, modules);
   }
   const updates = [];
+  const removals = [];
   const conflicts = [];
   const paths = new Set([...Object.keys(currentManifest.managedFiles), ...Object.keys(nextManifest.managedFiles)]);
   const currentFiles = Object.fromEntries([...paths].map((path) => {
@@ -131,10 +132,14 @@ function prepareUpgrade({ appRoot, packageRoot, distributionDigest, allowPending
     }
   }
 
-  for (const relativePath of Object.keys(currentManifest.managedFiles)) {
-    if (!(relativePath in nextManifest.managedFiles)) {
-      conflicts.push({ path: relativePath, reason: 'managed file removal requires an explicit recovery policy' });
+  for (const [path, digest] of Object.entries(currentManifest.managedFiles)) {
+    if (Object.hasOwn(nextManifest.managedFiles, path)) continue;
+    // 仅移除字节与旧清单相符的受管文件，旧框架副本仍可用于回退。
+    if (currentFiles[path] !== digest) {
+      conflicts.push({ path, reason: 'retired managed file is missing or was customized locally' });
+      continue;
     }
+    removals.push(path);
   }
 
   const plan = {
@@ -143,6 +148,7 @@ function prepareUpgrade({ appRoot, packageRoot, distributionDigest, allowPending
     distributionDigest: verifiedDistributionDigest,
     dryRun: true,
     updates,
+    removals,
     conflicts,
     nextManifest,
     currentManifest,
@@ -171,7 +177,7 @@ export function applyFrameworkUpgrade({ appRoot, packageRoot, distributionDigest
   };
   const prepared = verifyUnchanged();
   if (prepared.plan.conflicts.length) throw new Error('Cannot apply upgrade while conflicts remain');
-  plan.recoveryRoot = commitFrameworkUpgrade({ appRoot: resolve(appRoot), files: prepared.files,
+  plan.recoveryRoot = commitFrameworkUpgrade({ appRoot: resolve(appRoot), files: prepared.files, removals: prepared.plan.removals,
     nextManifest: prepared.plan.nextManifest, expectedSnapshot: prepared.plan.frameworkSnapshot,
     verifyUnchanged: () => verifyUnchanged(true) });
   return plan;

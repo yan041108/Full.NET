@@ -55,13 +55,37 @@ test('upgrade reports missing previously managed files as conflicts', (t) => {
   assert.ok(plan.conflicts.some((entry) => entry.path === 'Directory.Packages.props'));
 });
 
-test('upgrade refuses managed file removal until a deletion recovery policy exists', (t) => {
+const retiredPath = 'Directory.Packages.props';
+function retireManagedFile(packageRoot) {
+  const manifest = JSON.parse(readFileSync(join(packageRoot, 'framework-manifest.json')));
+  delete manifest.managedFiles[retiredPath];
+  rmSync(join(packageRoot, 'framework/fullnet', retiredPath));
+  saveManifest(packageRoot, manifest);
+}
+
+test('upgrade removes an unchanged retired file and retains it in the previous framework', (t) => {
   const f = fixture(t);
-  const manifest = JSON.parse(readFileSync(join(f.packageRoot, 'framework-manifest.json')));
-  delete manifest.managedFiles['Directory.Packages.props'];
-  rmSync(join(f.packageRoot, 'framework/fullnet/Directory.Packages.props'));
-  saveManifest(f.packageRoot, manifest);
-  assert.ok(planFrameworkUpgrade(f).conflicts.some((entry) => entry.path === 'Directory.Packages.props'));
+  retireManagedFile(f.packageRoot);
+  const installedPath = join(f.appRoot, 'framework/fullnet', retiredPath);
+  const plan = planFrameworkUpgrade(f);
+  assert.deepEqual(plan.conflicts, []);
+  assert.deepEqual(plan.removals, [retiredPath]);
+  assert.equal(readFileSync(installedPath, 'utf8'), f.oldFiles[retiredPath]);
+  applyFrameworkUpgrade({ ...f, plan });
+  assert.equal(existsSync(installedPath), false);
+  assert.equal(readFileSync(join(plan.recoveryRoot, 'previous', retiredPath), 'utf8'), f.oldFiles[retiredPath]);
+  assert.deepEqual(planFrameworkUpgrade(f).removals, []);
+});
+
+test('upgrade blocks retirement of customized or missing managed files', (t) => {
+  const f = fixture(t);
+  retireManagedFile(f.packageRoot);
+  const installedPath = join(f.appRoot, 'framework/fullnet', retiredPath);
+  writeFileSync(installedPath, 'customized');
+  assert.throws(() => upgradeFramework({ ...f, dryRun: false }), /conflicts remain/);
+  assert.equal(readFileSync(installedPath, 'utf8'), 'customized');
+  rmSync(installedPath);
+  assert.deepEqual(planFrameworkUpgrade(f).conflicts.map(conflict => conflict.path), [retiredPath]);
 });
 
 test('upgrade preserves selected modules and scoped migrations', (t) => {
@@ -150,6 +174,7 @@ test('upgrade refuses a pending interruption marker and preserves its recovery l
 for (const failurePoint of ['framework-install', 'manifest-install']) {
   test(`upgrade rolls back and retains recovery material after ${failurePoint} I/O failure`, (t) => {
     const f = fixture(t);
+    retireManagedFile(f.packageRoot);
     const plan = planFrameworkUpgrade(f);
     const beforeManifest = readFileSync(join(f.appRoot, 'framework-manifest.json'));
     const originalRename = fs.renameSync;
@@ -173,6 +198,7 @@ for (const failurePoint of ['framework-install', 'manifest-install']) {
     }
     assert.equal(injected, true);
     assert.equal(readFileSync(join(f.appRoot, 'framework/fullnet/global.json'), 'utf8'), f.oldFiles['global.json']);
+    assert.equal(readFileSync(join(f.appRoot, 'framework/fullnet', retiredPath), 'utf8'), f.oldFiles[retiredPath]);
     assert.deepEqual(readFileSync(join(f.appRoot, 'framework-manifest.json')), beforeManifest);
     assert.deepEqual(readFileSync(join(f.appRoot, 'framework/fullnet/framework-manifest.json')), beforeManifest);
     assert.equal(existsSync(join(f.appRoot, '.fullnet-upgrade.lock')), false);

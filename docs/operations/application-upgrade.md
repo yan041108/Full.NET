@@ -11,7 +11,7 @@ Full.NET 生成应用升级遵循 **Migrator → Worker → Api** 顺序，与 `
 
 ## 升级步骤
 
-0. **预览受管框架升级**。从受信任的 Full.NET 源码树运行 `node scripts/templates/upgrade-framework.mjs --app <AppRoot> --package <NewTemplatePackage> --dry-run`。升级到固定候选时，预览和应用均传入 `--distribution-sha256 <SHA-256>`，摘要从受信任的发布记录获取。核对预览后，以 `--apply` 替换 `--dry-run` 提交受管更新。应用自有 `src/` 由应用团队维护。
+0. **预览受管框架升级**。从受信任的 Full.NET 源码树运行 `node scripts/templates/upgrade-framework.mjs --app <AppRoot> --package <NewTemplatePackage> --dry-run`。升级到固定候选时，预览和应用均传入 `--distribution-sha256 <SHA-256>`，摘要从受信任的发布记录获取。核对预览的 `updates`、`removals` 和 `conflicts` 后，以 `--apply` 替换 `--dry-run` 提交。退役文件仅在字节与旧清单一致时从新框架移除，原件保存在返回的 `recoveryRoot/previous` 中。已定制或缺失的退役文件需先解决冲突。应用自有 `src/` 由应用团队维护。
 1. **Migrator**：应用 SQL Server/MySQL 成对迁移
 2. **Worker**：滚动重启，等待 Outbox/Jobs 消费追平
 3. **Api**：滚动重启，验证健康检查与关键读取路径
