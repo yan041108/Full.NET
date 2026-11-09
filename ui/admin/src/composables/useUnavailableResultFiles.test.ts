@@ -28,4 +28,17 @@ describe('结果文件不可用状态', () => {
     expect(old.markUnavailable(missing)).toBe(false);
     expect(files.begin('a').markUnavailable(missing)).toBe(true);
   });
+
+  it('仅显示本次观察到的读取结果，限流和旧响应不会冒充当前结果', () => {
+    const files = useUnavailableResultFiles();
+    const read = files.begin('a');
+    expect(files.availabilityMessageKey('a')).toBe('dataOutput.resultPendingVerification');
+    read.markReadable();
+    expect(files.availabilityMessageKey('a')).toBe('dataOutput.resultLastRead');
+    expect(read.markUnavailable({ status: 429, code: 'hosting.rate_limit.exceeded' })).toBe(false);
+    expect(files.availabilityMessageKey('a')).toBe('dataOutput.resultPendingVerification');
+    files.reset();
+    read.markReadable();
+    expect(files.availabilityMessageKey('a')).toBe('dataOutput.resultPendingVerification');
+  });
 });

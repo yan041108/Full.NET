@@ -501,6 +501,7 @@ async function downloadTask(row: ReportingExportTask): Promise<void> {
   try {
     const blob = await downloadReportingExportTask(task.id, request.signal);
     if (!request.current() || !fileRequest.current() || !currentTask(task)) return;
+    fileRequest.markReadable();
     const url = URL.createObjectURL(blob);
     try {
       const anchor = document.createElement('a');
@@ -722,6 +723,10 @@ function markCancelUnconfirmed(): void {
           <ElDescriptionsItem :label="t('reportingExportTasks.fieldDefinition')">{{ selectedTask.definitionName }}</ElDescriptionsItem>
           <ElDescriptionsItem :label="t('reportingExportTasks.fieldVersion')">{{ selectedTask.versionNumber }}</ElDescriptionsItem>
           <ElDescriptionsItem :label="t('reportingExportTasks.fieldStatus')">{{ statusLabel(selectedTask.statusKey) }}</ElDescriptionsItem>
+          <ElDescriptionsItem v-if="selectedTask.statusKey === 'succeeded' && canDownload() && sameId(selectedTask.requestedByUserId, session.currentUser?.id)"
+            :label="t('dataOutput.resultAvailability')">
+            <span role="status" data-testid="reporting-export-result-availability">{{ t(unavailableFiles.availabilityMessageKey(selectedTask.id)) }}</span>
+          </ElDescriptionsItem>
           <ElDescriptionsItem :label="t('reportingExportTasks.fieldRowCount')">{{ selectedTask.rowCount }}</ElDescriptionsItem>
           <ElDescriptionsItem v-if="selectedTask.errorMessage || selectedTask.errorCode" :label="t('importExportTasks.failureReason')">
             {{ selectedTask.errorMessage || selectedTask.errorCode }}
@@ -735,7 +740,6 @@ function markCancelUnconfirmed(): void {
           <PermissionGate code="reporting.export_tasks.download"><ElButton v-if="selectedTask.statusKey === 'succeeded' && sameId(selectedTask.requestedByUserId, session.currentUser?.id)"
             data-testid="reporting-export-detail-download" :data-task-id="selectedTask.id" :disabled="detailLoading || downloading || cancelling || unavailableFiles.isUnavailable(selectedTask.id)"
             v-on="{ click: detailControls.download }">{{ t('reportingExportTasks.download') }}</ElButton></PermissionGate>
-          <span v-if="unavailableFiles.isUnavailable(selectedTask.id)" role="status">{{ t('dataOutput.resultUnavailable') }}</span>
           <ElButton v-if="(['failed', 'canceled'].includes(selectedTask.statusKey) || selectedTask.statusKey === 'succeeded' && unavailableFiles.isUnavailable(selectedTask.id)) && canCreate() && sameId(selectedTask.requestedByUserId, session.currentUser?.id)"
             data-testid="reporting-export-regenerate" :disabled="!canRegenerate(selectedTask)" v-on="{ click: detailControls.regenerate }">{{ recoveryText('action') }}</ElButton>
           <ElButton v-if="isCancellable(selectedTask) || selectedTask.statusKey === 'queued' && sameId(selectedTask.requestedByUserId, session.currentUser?.id) && session.can('reporting.export_tasks.cancel')" data-testid="reporting-export-detail-cancel" :disabled="detailLoading || cancelling || creating || downloading || cancellationBlocks.has(selectedTask.id.toLowerCase())"

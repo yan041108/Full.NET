@@ -496,6 +496,7 @@ async function openPdf(row: HostDocumentPreviewTaskResponse) {
   const fileRequest = unavailableFiles.begin(task.id);
   try {
     await openDocumentPreviewTaskContent(task.id, request.signal);
+    if (request.current() && fileRequest.current() && currentTask(task)) fileRequest.markReadable();
   } catch (error) {
     if (request.current() && fileRequest.current() && currentTask(task)) problem.value = fileRequest.markUnavailable(error)
       ? { title: t('dataOutput.resultUnavailable'), status: 404, code: 'files.file.not_found' }
@@ -742,6 +743,9 @@ function toProblem(
           <ElDescriptionsItem :label="t('documentPreviewTasks.documentTitle')">{{ selectedTask.documentTitle }}</ElDescriptionsItem>
           <ElDescriptionsItem :label="t('documentPreviewTasks.documentItemId')">{{ selectedTask.documentItemId }}</ElDescriptionsItem>
           <ElDescriptionsItem :label="t('documentPreviewTasks.status')">{{ statusLabel(selectedTask.statusKey) }}</ElDescriptionsItem>
+          <ElDescriptionsItem v-if="selectedTask.statusKey === 'succeeded' && canRead()" :label="t('dataOutput.resultAvailability')">
+            <span role="status" data-testid="document-preview-result-availability">{{ t(unavailableFiles.availabilityMessageKey(selectedTask.id)) }}</span>
+          </ElDescriptionsItem>
           <ElDescriptionsItem :label="t('documentPreviewTasks.provider')">{{ selectedTask.providerKey }}</ElDescriptionsItem>
           <ElDescriptionsItem :label="t('documentPreviewTasks.createdAtUtc')">{{ selectedTask.createdAtUtc }}</ElDescriptionsItem>
           <ElDescriptionsItem v-if="selectedTask.errorCode" :label="t('documentPreviewTasks.failureReason')">{{ documentPreviewFailureLabel(selectedTask.errorCode, t) }}</ElDescriptionsItem>
@@ -750,7 +754,6 @@ function toProblem(
           <ElButton v-if="selectedTask.statusKey === 'succeeded'" data-testid="document-preview-detail-open-pdf"
             :disabled="detailLoading || changing || editorOpen || cancelDialogVisible || unavailableFiles.isUnavailable(selectedTask.id)"
              v-on="{ click: detailControls.pdf }">{{ t('documentPreviewTasks.openPdf') }}</ElButton>
-          <span v-if="unavailableFiles.isUnavailable(selectedTask.id)" role="status">{{ t('dataOutput.resultUnavailable') }}</span>
           <ElButton v-if="canRegenerate(selectedTask)" data-testid="document-preview-detail-regenerate" :disabled="changing || detailLoading || editorOpen || cancelDialogVisible" v-on="{ click: detailControls.regenerate }">{{ t('documentPreviewTasks.regenerate') }}</ElButton>
           <ElButton v-if="retryEligible(selectedTask)" data-testid="document-preview-detail-retry" :disabled="changing || detailLoading || editorOpen || cancelDialogVisible || retryBlocked(selectedTask)" v-on="{ click: detailControls.retry }">{{ t('documentPreviewTasks.retryTask') }}</ElButton>
           <ElButton v-if="retryEligible(selectedTask) && retryBlocked(selectedTask)" data-testid="document-preview-detail-review-retry" :disabled="changing || detailLoading || loading" v-on="{ click: detailControls.reviewRetry }">{{ t('documentPreviewTasks.reviewCreation') }}</ElButton>

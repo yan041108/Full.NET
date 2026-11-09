@@ -33,6 +33,12 @@ it('只读 Host 在空页外按 ID 读取并核对完整文件身份，不打开
   }
   expect(api.openDocumentPreviewTaskContent).not.toHaveBeenCalled(); expect(api.createDocumentPreviewTask).not.toHaveBeenCalled(); expect(api.retryDocumentPreviewTask).not.toHaveBeenCalled(); expect(api.cancelDocumentPreviewTask).not.toHaveBeenCalled();
   expect(wrapper.find('[data-testid="document-preview-detail-cancel"]').exists()).toBe(false);
+  const availability = wrapper.get('[data-testid="document-preview-result-availability"]');
+  expect(availability.text()).toContain('待核对');
+  vi.mocked(api.openDocumentPreviewTaskContent).mockResolvedValue(undefined);
+  await wrapper.get('[data-testid="document-preview-detail-open-pdf"]').trigger('click');
+  await flushPromises();
+  expect(availability.text()).toBe('最近一次读取成功。');
 });
 it.each(['bad', '', '00000000-0000-0000-0000-000000000000'])('非法 ID %j 不读取、不触发列表回退', async value => {
   await setup(); await lookup(value); expect(api.getDocumentPreviewTask).not.toHaveBeenCalled(); expect(api.listDocumentPreviewTasks).toHaveBeenCalledTimes(1);

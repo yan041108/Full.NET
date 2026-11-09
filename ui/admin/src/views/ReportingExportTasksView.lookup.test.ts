@@ -26,7 +26,15 @@ it('空列表只读按 ID 定位，去空格/规范大小写，不下载或写�
   expect(api.getReportingExportTask).toHaveBeenCalledExactlyOnceWith(exportTask.id, expect.any(AbortSignal));
   expect(wrapper.get('[data-testid="reporting-export-detail-id"]').text()).toBe(exportTask.id);
   expect(wrapper.get('[data-testid="reporting-export-requester"]').text()).toBe(exportTask.requestedByUserId);
+  expect(wrapper.find('[data-testid="reporting-export-result-availability"]').exists()).toBe(false);
   expect(api.downloadReportingExportTask).not.toHaveBeenCalled(); expect(api.createReportingExportTask).not.toHaveBeenCalled(); expect(api.cancelReportingExportTask).not.toHaveBeenCalled();
+});
+it('本人成功结果在详情独立显示待核对，读取详情不会下载', async () => {
+  vi.mocked(api.getReportingExportTask).mockResolvedValue({ ...exportTask, statusKey: 'succeeded' });
+  await setup(['reporting.export_tasks.read', 'reporting.export_tasks.download']);
+  await lookup(exportTask.id);
+  expect(wrapper.get('[data-testid="reporting-export-result-availability"]').text()).toContain('待核对');
+  expect(api.downloadReportingExportTask).not.toHaveBeenCalled();
 });
 it.each(['bad', '00000000-0000-0000-0000-000000000000'])('非法 ID %s 不读取、不触发列表回退', async value => {
   await setup(); await lookup(value); expect(api.getReportingExportTask).not.toHaveBeenCalled(); expect(api.listReportingExportTasks).toHaveBeenCalledTimes(1);
