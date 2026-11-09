@@ -7,6 +7,13 @@ namespace Full.NET.IntegrationTests.Api;
 [TestClass]
 public sealed class NotificationsApiMySqlTests
 {
+    [TestMethod]
+    public async Task Host_announcement_archive_preserves_lifecycle_and_receipts_with_mysql()
+    {
+        using var factory = new FullNetApiFactory(DatabaseProvider.MySql, await SharedDatabaseFixture.CreateMySqlDatabaseAsync());
+        await NotificationsHostAnnouncementAssertions.VerifyArchiveAsync(factory);
+    }
+
     /// <summary>验证公告、收件箱、平台配置、本人端点与投递 Worker 契约。</summary>
     /// <returns>表示异步测试执行的任务。</returns>
     [TestMethod]

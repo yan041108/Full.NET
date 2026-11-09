@@ -196,6 +196,7 @@ import type {
   CancelWorkflowTodoCountersignRequest,
   CaptureAiKnowledgeEvaluationStrategy,
   ChangeDeliveryOwnerRequest,
+  ChangeHostAnnouncementArchiveRequest,
   ChangeHostDocumentStatusRequest,
   ChangeHostJobScheduleStateRequest,
   ChangeKafkaReplayOperationRequest,
@@ -2700,6 +2701,15 @@ function isChangeDeliveryOwnerRequest(value: unknown): value is ChangeDeliveryOw
   return isRecord(value) && (typeof value["eventType"] === 'string') && (typeof value["reason"] === 'string') && (Number.isSafeInteger(value["schemaVersion"])) && (isEventDeliveryOwner(value["targetOwner"]));
 }
 
+export function readChangeHostAnnouncementArchiveRequest(value: unknown): ChangeHostAnnouncementArchiveRequest {
+  const normalizedValue = normalizeChangeHostAnnouncementArchiveRequestIntegerJson(value);
+  return requireValidResponse(normalizedValue, isChangeHostAnnouncementArchiveRequest(normalizedValue), 'change_host_announcement_archive_request') as ChangeHostAnnouncementArchiveRequest;
+}
+
+function isChangeHostAnnouncementArchiveRequest(value: unknown): value is ChangeHostAnnouncementArchiveRequest {
+  return isRecord(value) && (Number.isSafeInteger(value["version"]));
+}
+
 export function readChangeHostDocumentStatusRequest(value: unknown): ChangeHostDocumentStatusRequest {
   const normalizedValue = normalizeChangeHostDocumentStatusRequestIntegerJson(value);
   return requireValidResponse(normalizedValue, isChangeHostDocumentStatusRequest(normalizedValue), 'change_host_document_status_request') as ChangeHostDocumentStatusRequest;
@@ -4435,7 +4445,7 @@ export function readHostAnnouncementResponse(value: unknown): HostAnnouncementRe
 }
 
 function isHostAnnouncementResponse(value: unknown): value is HostAnnouncementResponse {
-  return isRecord(value) && (typeof value["audienceKind"] === 'string') && (typeof value["content"] === 'string') && (typeof value["createdAtUtc"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["kind"] === 'string') && ((value["publishedAtUtc"] === null) || (typeof value["publishedAtUtc"] === 'string')) && ((value["publishedByUserId"] === null) || (typeof value["publishedByUserId"] === 'string' && guidPattern.test(value["publishedByUserId"]))) && ((value["retractedAtUtc"] === null) || (typeof value["retractedAtUtc"] === 'string')) && ((value["retractedByUserId"] === null) || (typeof value["retractedByUserId"] === 'string' && guidPattern.test(value["retractedByUserId"]))) && (typeof value["status"] === 'string') && (Array.isArray(value["targetOrganizations"]) && value["targetOrganizations"].every(item28 => isHostAnnouncementTargetOrganization(item28))) && (Array.isArray(value["targetUserIds"]) && value["targetUserIds"].every(item22 => typeof item22 === 'string' && guidPattern.test(item22))) && (typeof value["title"] === 'string') && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && (Number.isSafeInteger(value["version"]));
+  return isRecord(value) && (value["archivedAtUtc"] === undefined || ((value["archivedAtUtc"] === null) || (typeof value["archivedAtUtc"] === 'string'))) && (typeof value["audienceKind"] === 'string') && (typeof value["content"] === 'string') && (typeof value["createdAtUtc"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["kind"] === 'string') && ((value["publishedAtUtc"] === null) || (typeof value["publishedAtUtc"] === 'string')) && ((value["publishedByUserId"] === null) || (typeof value["publishedByUserId"] === 'string' && guidPattern.test(value["publishedByUserId"]))) && ((value["retractedAtUtc"] === null) || (typeof value["retractedAtUtc"] === 'string')) && ((value["retractedByUserId"] === null) || (typeof value["retractedByUserId"] === 'string' && guidPattern.test(value["retractedByUserId"]))) && (typeof value["status"] === 'string') && (Array.isArray(value["targetOrganizations"]) && value["targetOrganizations"].every(item28 => isHostAnnouncementTargetOrganization(item28))) && (Array.isArray(value["targetUserIds"]) && value["targetUserIds"].every(item22 => typeof item22 === 'string' && guidPattern.test(item22))) && (typeof value["title"] === 'string') && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && (Number.isSafeInteger(value["version"]));
 }
 
 export function readHostAnnouncementTargetOrganization(value: unknown): HostAnnouncementTargetOrganization {
@@ -10644,6 +10654,10 @@ function normalizeCaptureAiKnowledgeEvaluationStrategyIntegerJson(value: unknown
 
 function normalizeChangeDeliveryOwnerRequestIntegerJson(value: unknown): unknown {
   return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "schemaVersion") ? { ["schemaVersion"]: normalizeWireInteger(value["schemaVersion"]) } : {}) } : value);
+}
+
+function normalizeChangeHostAnnouncementArchiveRequestIntegerJson(value: unknown): unknown {
+  return (isRecord(value) ? { ...value, ...(Object.hasOwn(value, "version") ? { ["version"]: normalizeWireInteger(value["version"]) } : {}) } : value);
 }
 
 function normalizeChangeHostDocumentStatusRequestIntegerJson(value: unknown): unknown {

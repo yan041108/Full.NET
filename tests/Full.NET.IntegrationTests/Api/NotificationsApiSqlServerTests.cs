@@ -7,6 +7,13 @@ namespace Full.NET.IntegrationTests.Api;
 [TestClass]
 public sealed class NotificationsApiSqlServerTests
 {
+    [TestMethod]
+    public async Task Host_announcement_archive_preserves_lifecycle_and_receipts_with_sql_server()
+    {
+        using var factory = new FullNetApiFactory(DatabaseProvider.SqlServer, await SharedDatabaseFixture.CreateSqlServerDatabaseAsync());
+        await NotificationsHostAnnouncementAssertions.VerifyArchiveAsync(factory);
+    }
+
     /// <summary>验证公告、收件箱、平台配置、本人端点与投递 Worker 契约。</summary>
     /// <returns>表示异步测试执行的任务。</returns>
     [TestMethod]

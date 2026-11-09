@@ -36,6 +36,8 @@ internal sealed class AnnouncementRecord
     public Guid? UpdatedByUserId { get; set; }
 
     public int Version { get; set; }
+
+    public DateTimeOffset? ArchivedAtUtc { get; set; }
 }
 
 /// <summary>公告用户受众子表行投影。</summary>

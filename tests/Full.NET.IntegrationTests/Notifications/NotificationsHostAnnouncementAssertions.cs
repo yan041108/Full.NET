@@ -1,4 +1,5 @@
 using System.Net;
+using System.Data.Common;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
@@ -6,8 +7,10 @@ using Full.NET.Abstractions.Results;
 using Full.NET.Abstractions.Tenancy;
 using Full.NET.Data.Abstractions;
 using Full.NET.IntegrationTests.Api;
+using Full.NET.IntegrationTests.Migrations;
 using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Notifications.Contracts;
+using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Full.NET.IntegrationTests.Notifications;
@@ -15,6 +18,95 @@ namespace Full.NET.IntegrationTests.Notifications;
 /// <summary>Host 公告纵向切片验收夹具。</summary>
 internal static class NotificationsHostAnnouncementAssertions
 {
+    public static async Task VerifyArchiveAsync(FullNetApiFactory factory, CancellationToken cancellationToken = default)
+    {
+        await factory.InitializeAsync(cancellationToken);
+        using var client = factory.CreateClientForHost("localhost");
+        var admin = await LoginAsHostAdminAsync(client, cancellationToken);
+        var archiveToken = await factory.CreateHostAccessTokenAsync(
+            [HostAnnouncementPermissions.Read, HostAnnouncementPermissions.Archive], cancellationToken);
+        var restoreToken = await factory.CreateHostAccessTokenAsync(
+            [HostAnnouncementPermissions.Read, HostAnnouncementPermissions.Restore], cancellationToken);
+        const string collection = "/api/v1/notifications/host-announcements";
+        var title = $"archive-{Guid.NewGuid():N}";
+        var draft = await SendAsync<HostAnnouncementResponse>(HttpMethod.Post, collection, admin,
+            new CreateHostAnnouncementRequest(title, "Archive test content"), HttpStatusCode.Created);
+        var item = $"{collection}/{draft.Id:D}";
+        var archive = $"{item}/archive";
+        var restore = $"{item}/restore";
+        await AssertAnnouncementPermissionDeniedAsync(client, restoreToken, HttpMethod.Post, archive,
+            cancellationToken, new ChangeHostAnnouncementArchiveRequest(draft.Version));
+        var archived = await ChangeAsync(archive, archiveToken, draft.Version);
+        Assert.AreEqual(AnnouncementStatuses.Draft, archived.Status);
+        Assert.IsNotNull(archived.ArchivedAtUtc);
+        Assert.AreEqual(draft.Version + 1, archived.Version);
+        var sqlServer = factory.Provider == DatabaseProvider.SqlServer;
+        await using DbConnection database = sqlServer ? new SqlConnection(factory.ConnectionString)
+            : ReviewFixMigrationRecoverySupport.MySqlConnection(factory.ConnectionString);
+        await database.OpenAsync(cancellationToken);
+        await ReviewFixMigrationRecoverySupport.DeleteScriptAsync(database, "378_NotificationsAnnouncementArchive.sql", sqlServer);
+        var migration = ReviewFixMigrationRecoverySupport.CreateRunner(factory.Provider, factory.ConnectionString);
+        Assert.AreEqual(1, (await migration.MigrateAsync(cancellationToken)).ExecutedScriptCount);
+        Assert.AreEqual(0, (await migration.MigrateAsync(cancellationToken)).ExecutedScriptCount);
+        var repeated = await ChangeAsync(archive, archiveToken, archived.Version);
+        Assert.AreEqual(archived.Version, repeated.Version);
+        Assert.AreEqual(archived.ArchivedAtUtc, repeated.ArchivedAtUtc);
+        await AssertAnnouncementPermissionDeniedAsync(client, archiveToken, HttpMethod.Post, restore,
+            cancellationToken, new ChangeHostAnnouncementArchiveRequest(archived.Version));
+        await AssertFailureAsync(restore, restoreToken, new ChangeHostAnnouncementArchiveRequest(draft.Version), HttpStatusCode.Conflict);
+        await AssertFailureAsync($"{item}/publish", admin, new PublishHostAnnouncementRequest(archived.Version), HttpStatusCode.BadRequest);
+        var activePage = await ListAsync(false);
+        Assert.AreEqual(0L, activePage.Total);
+        var archivePage = await ListAsync(true);
+        Assert.AreEqual(1L, archivePage.Total);
+        Assert.AreEqual(draft.Id, archivePage.Items.Single().Id);
+
+        var restored = await ChangeAsync(restore, restoreToken, archived.Version);
+        Assert.IsNull(restored.ArchivedAtUtc);
+        Assert.AreEqual(draft.Content, restored.Content);
+        var published = await SendAsync<HostAnnouncementResponse>(HttpMethod.Post, $"{item}/publish", admin,
+            new PublishHostAnnouncementRequest(restored.Version));
+        await AssertFailureAsync(archive, archiveToken, new ChangeHostAnnouncementArchiveRequest(published.Version), HttpStatusCode.BadRequest);
+        await SendAsync<ReceivedHostAnnouncementDetailResponse>(HttpMethod.Post,
+            $"/api/v1/notifications/my-host-announcements/{draft.Id:D}/read", admin, null);
+        var retracted = await SendAsync<HostAnnouncementResponse>(HttpMethod.Post, $"{item}/retract", admin,
+            new RetractHostAnnouncementRequest(published.Version));
+        var archivedRetracted = await ChangeAsync(archive, archiveToken, retracted.Version);
+        Assert.AreEqual(AnnouncementStatuses.Retracted, archivedRetracted.Status);
+        Assert.AreEqual(retracted.RetractedAtUtc, archivedRetracted.RetractedAtUtc);
+        var stats = await SendAsync<HostAnnouncementReadStatsResponse>(HttpMethod.Get, $"{item}/read-stats", admin, null);
+        Assert.AreEqual(1, stats.ReadCount);
+        var restoredRetracted = await ChangeAsync(restore, restoreToken, archivedRetracted.Version);
+        Assert.AreEqual(AnnouncementStatuses.Retracted, restoredRetracted.Status);
+        Assert.IsNull(restoredRetracted.ArchivedAtUtc);
+        await OpenApiNotificationsHostAnnouncementsContractAssertions.VerifyAsync(client, cancellationToken);
+
+        Task<HostAnnouncementResponse> ChangeAsync(string path, string token, int version) =>
+            SendAsync<HostAnnouncementResponse>(HttpMethod.Post, path, token, new ChangeHostAnnouncementArchiveRequest(version));
+
+        Task<PagedHostAnnouncementResponses> ListAsync(bool archivedOnly) =>
+            SendAsync<PagedHostAnnouncementResponses>(HttpMethod.Get,
+                $"{collection}?title={title}&archived={archivedOnly}", admin, null);
+
+        async Task AssertFailureAsync(string path, string token, object body, HttpStatusCode expected)
+        {
+            using var request = CreateBearerJsonRequest(HttpMethod.Post, path, token, body);
+            using var response = await client.SendAsync(request, cancellationToken);
+            Assert.AreEqual(expected, response.StatusCode, await response.Content.ReadAsStringAsync(cancellationToken));
+        }
+
+        async Task<T> SendAsync<T>(HttpMethod method, string path, string token, object? body, HttpStatusCode expected = HttpStatusCode.OK)
+        {
+            using var request = new HttpRequestMessage(method, path);
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            if (body is not null) request.Content = JsonContent.Create(body);
+            using var response = await client.SendAsync(request, cancellationToken);
+            Assert.AreEqual(expected, response.StatusCode, await response.Content.ReadAsStringAsync(cancellationToken));
+            return await response.Content.ReadFromJsonAsync<T>(cancellationToken)
+                ?? throw new InvalidOperationException($"Missing response for {path}.");
+        }
+    }
+
     public static async Task VerifyAsync(
         FullNetApiFactory factory,
         CancellationToken cancellationToken = default)

@@ -3,6 +3,8 @@ import {
   isHostAnnouncementPage,
   isHostAnnouncementReadReceiptPage,
   isHostAnnouncementReadStats,
+  notificationsArchiveHostAnnouncement,
+  notificationsRestoreHostAnnouncement,
   type CreateHostAnnouncementRequest,
   type HostAnnouncement,
   type HostAnnouncementListQuery,
@@ -11,7 +13,7 @@ import {
   type HostAnnouncementReadStats,
   type UpdateHostAnnouncementRequest
 } from '@fullnet/client-contracts';
-import { request } from './http';
+import { http, request } from './http';
 
 function buildListQuery(query: HostAnnouncementListQuery): string {
   const params = new URLSearchParams();
@@ -28,6 +30,9 @@ function buildListQuery(query: HostAnnouncementListQuery): string {
   }
   if (query.audienceKind) {
     params.set('audienceKind', query.audienceKind);
+  }
+  if (query.archived) {
+    params.set('archived', 'true');
   }
   return params.toString();
 }
@@ -133,6 +138,21 @@ export async function retractHostAnnouncement(
     throw new Error('client.invalid_host_announcement');
   }
 
+  return value;
+}
+
+/** 归档或恢复公告，并携带当前版本以防止并发覆盖。 */
+export async function changeHostAnnouncementArchiveState(
+  id: string,
+  version: number,
+  archived: boolean,
+  signal?: AbortSignal
+): Promise<HostAnnouncement> {
+  const operation = archived ? notificationsArchiveHostAnnouncement : notificationsRestoreHostAnnouncement;
+  const value = await operation(http, { announcementId: id, body: { version } }, signal);
+  if (!isHostAnnouncement(value)) {
+    throw new Error('client.invalid_host_announcement');
+  }
   return value;
 }
 

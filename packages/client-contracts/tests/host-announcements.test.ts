@@ -20,6 +20,7 @@ describe('host-announcements contracts', () => {
     publishedByUserId: null,
     retractedAtUtc: null,
     retractedByUserId: null,
+    archivedAtUtc: null,
     targetUserIds: [],
     targetOrganizations: [],
     createdAtUtc: '2026-07-26T00:00:00Z',

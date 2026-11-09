@@ -2062,10 +2062,10 @@ test('Host 公告列表与创建发布在两端保持一致', async ({ page }, t
   await mockAuthenticatedSession(page);
   const operations = [];
   const announcementId = '01912345-6789-7abc-8def-0123456789b1';
-  const state = { hasItem: false, published: false };
+  const state = { hasItem: false, published: false, archivedAtUtc: null, version: 1 };
 
-  const listBody = () => {
-    if (!state.hasItem) {
+  const listBody = (archived = false) => {
+    if (!state.hasItem || Boolean(state.archivedAtUtc) !== archived) {
       return JSON.stringify({ items: [], page: 1, pageSize: 20, total: 0 });
     }
 
@@ -2081,11 +2081,12 @@ test('Host 公告列表与创建发布在两端保持一致', async ({ page }, t
         publishedByUserId: state.published ? '01912345-6789-7abc-8def-0123456789ac' : null,
         retractedAtUtc: null,
         retractedByUserId: null,
+        archivedAtUtc: state.archivedAtUtc,
         targetUserIds: [],
         targetOrganizations: [],
         createdAtUtc: '2026-07-26T00:00:00Z',
         updatedAtUtc: null,
-        version: state.published ? 2 : 1
+        version: state.version
       }],
       page: 1,
       pageSize: 20,
@@ -2099,8 +2100,17 @@ test('Host 公告列表与创建发布在两端保持一致', async ({ page }, t
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: listBody()
+        body: listBody(new URL(route.request().url()).searchParams.get('archived') === 'true')
       });
+      return;
+    }
+
+    const archiveAction = new URL(route.request().url()).pathname.match(/\/(archive|restore)$/)?.[1];
+    if (route.request().method() === 'POST' && archiveAction) {
+      operations.push({ type: archiveAction, version: route.request().postDataJSON().version });
+      state.archivedAtUtc = archiveAction === 'archive' ? '2026-07-26T00:00:00Z' : null;
+      state.version++;
+      await route.fulfill({ status: 200, json: JSON.parse(listBody(Boolean(state.archivedAtUtc))).items[0] });
       return;
     }
 
@@ -2122,6 +2132,7 @@ test('Host 公告列表与创建发布在两端保持一致', async ({ page }, t
           publishedByUserId: null,
           retractedAtUtc: null,
           retractedByUserId: null,
+          archivedAtUtc: null,
           targetUserIds: [],
           targetOrganizations: [],
           createdAtUtc: '2026-07-26T00:00:00Z',
@@ -2136,6 +2147,7 @@ test('Host 公告列表与创建发布在两端保持一致', async ({ page }, t
       && route.request().url().includes(`/host-announcements/${announcementId}/publish`)) {
       operations.push({ type: 'publish' });
       state.published = true;
+      state.version++;
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -2150,11 +2162,12 @@ test('Host 公告列表与创建发布在两端保持一致', async ({ page }, t
           publishedByUserId: '01912345-6789-7abc-8def-0123456789ac',
           retractedAtUtc: null,
           retractedByUserId: null,
+          archivedAtUtc: null,
           targetUserIds: [],
           targetOrganizations: [],
           createdAtUtc: '2026-07-26T00:00:00Z',
           updatedAtUtc: '2026-07-26T00:00:00Z',
-          version: 2
+          version: state.version
         })
       });
       return;
@@ -2181,6 +2194,21 @@ test('Host 公告列表与创建发布在两端保持一致', async ({ page }, t
   await announcementEditor.getByTestId('host-announcements-editor-submit').click();
   await expect.poll(() => operations.some(operation => operation.type === 'create')).toBe(true);
   await expect(announcementsView.getByText('parity-announcement', { exact: true })).toBeVisible();
+
+  if (clientKind === 'vue') {
+    await announcementsView.getByTestId('host-announcements-archive').click();
+    await page.getByRole('dialog').getByRole('button', { name: '归档', exact: true }).click();
+    await expect(announcementsView.getByText('parity-announcement', { exact: true })).toHaveCount(0);
+    await announcementsView.getByTestId('host-announcements-toggle-archive').click();
+    await expect(announcementsView.getByText('parity-announcement', { exact: true })).toBeVisible();
+    await expect(announcementsView.getByTestId('host-announcements-publish')).toHaveCount(0);
+    await announcementsView.getByTestId('host-announcements-restore').click();
+    await page.getByRole('dialog').getByRole('button', { name: '恢复', exact: true }).click();
+    await expect(announcementsView.getByText('parity-announcement', { exact: true })).toHaveCount(0);
+    await announcementsView.getByTestId('host-announcements-toggle-archive').click();
+    await expect(announcementsView.getByText('parity-announcement', { exact: true })).toBeVisible();
+    expect(operations.slice(1)).toEqual([{ type: 'archive', version: 1 }, { type: 'restore', version: 2 }]);
+  }
 
   await announcementsView.getByRole('button', { name: '发布' }).click();
   if (clientKind === 'vue') {
@@ -4467,6 +4495,8 @@ function currentUserResponse(activeTenantId = null) {
       'notifications.announcements.create',
       'notifications.announcements.update',
       'notifications.announcements.publish',
+      'notifications.announcements.archive',
+      'notifications.announcements.restore',
       'notifications.inbox.read',
       'notifications.inbox.send',
       'notifications.inbox.mark_read',

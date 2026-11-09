@@ -2028,6 +2028,18 @@
       "status": "generated"
     },
     {
+      "operationId": "notificationsArchiveHostAnnouncement",
+      "apiModule": "ui/admin/src/api/host-announcements.ts",
+      "generatedGroup": "notifications-host-announcements",
+      "status": "generated"
+    },
+    {
+      "operationId": "notificationsRestoreHostAnnouncement",
+      "apiModule": "ui/admin/src/api/host-announcements.ts",
+      "generatedGroup": "notifications-host-announcements",
+      "status": "generated"
+    },
+    {
       "operationId": "notificationsGetHostAnnouncementReadStats",
       "apiModule": "ui/admin/src/api/host-announcements.ts",
       "generatedGroup": "notifications-host-announcement-receipts",

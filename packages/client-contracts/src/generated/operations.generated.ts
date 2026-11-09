@@ -197,6 +197,7 @@ import type {
   CancelWorkflowTodoCountersignRequest,
   CaptureAiKnowledgeEvaluationStrategy,
   ChangeDeliveryOwnerRequest,
+  ChangeHostAnnouncementArchiveRequest,
   ChangeHostDocumentStatusRequest,
   ChangeHostJobScheduleStateRequest,
   ChangeKafkaReplayOperationRequest,
@@ -11328,6 +11329,27 @@ export async function messagingVerifyCutoverEvidence(
   return readCutoverEvidenceResponse(value);
 }
 
+export interface NotificationsArchiveHostAnnouncementParameters {
+  readonly announcementId: string;
+  readonly body: ChangeHostAnnouncementArchiveRequest;
+}
+
+export async function notificationsArchiveHostAnnouncement(
+  http: HttpClient,
+  parameters: NotificationsArchiveHostAnnouncementParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<HostAnnouncementResponse> {
+  const path = `/api/v1/notifications/host-announcements/${encodeURIComponent(String(parameters.announcementId))}/archive`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = await requestJsonOperation(http, path, init, signal, options);
+  return readHostAnnouncementResponse(value);
+}
+
 export interface NotificationsArchiveMyInboxMessageParameters {
   readonly messageId: string;
 }
@@ -11838,6 +11860,7 @@ export interface NotificationsListHostAnnouncementsParameters {
   readonly status?: string;
   readonly kind?: string;
   readonly audienceKind?: string;
+  readonly archived?: boolean;
 }
 
 export async function notificationsListHostAnnouncements(
@@ -11864,6 +11887,9 @@ export async function notificationsListHostAnnouncements(
   }
   if (parameters.audienceKind !== undefined) {
     query.set('audienceKind', String(parameters.audienceKind));
+  }
+  if (parameters.archived !== undefined) {
+    query.set('archived', String(parameters.archived));
   }
   const path = query.size === 0 ? `/api/v1/notifications/host-announcements` : `/api/v1/notifications/host-announcements?${query.toString()}`;
   const init: RequestInit = { method: 'GET' };
@@ -12274,6 +12300,27 @@ export async function notificationsReconcileDelivery(
   };
   const value = await requestJsonOperation(http, path, init, signal, options);
   return readNotificationDeliveryResponse(value);
+}
+
+export interface NotificationsRestoreHostAnnouncementParameters {
+  readonly announcementId: string;
+  readonly body: ChangeHostAnnouncementArchiveRequest;
+}
+
+export async function notificationsRestoreHostAnnouncement(
+  http: HttpClient,
+  parameters: NotificationsRestoreHostAnnouncementParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<HostAnnouncementResponse> {
+  const path = `/api/v1/notifications/host-announcements/${encodeURIComponent(String(parameters.announcementId))}/restore`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = await requestJsonOperation(http, path, init, signal, options);
+  return readHostAnnouncementResponse(value);
 }
 
 export interface NotificationsRetryDeliveryParameters {

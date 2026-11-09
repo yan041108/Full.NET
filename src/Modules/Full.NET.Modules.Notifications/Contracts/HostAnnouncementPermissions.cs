@@ -21,6 +21,12 @@ public static class HostAnnouncementPermissions
     /// <summary>允许将 Published 状态的 Host 公告撤回为 Retracted 状态。</summary>
     public const string Retract = "notifications.announcements.retract";
 
+    /// <summary>允许归档草稿和已撤回的 Host 公告。</summary>
+    public const string Archive = "notifications.announcements.archive";
+
+    /// <summary>允许将已归档的 Host 公告恢复到日常管理列表。</summary>
+    public const string Restore = "notifications.announcements.restore";
+
     /// <summary>查看我收到的 Host 公告列表、详情与未读计数。</summary>
     public const string ReceivedRead = "notifications.announcements.received.read";
 

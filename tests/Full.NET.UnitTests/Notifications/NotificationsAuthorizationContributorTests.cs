@@ -24,6 +24,8 @@ public sealed class NotificationsAuthorizationContributorTests
                 HostAnnouncementPermissions.ReceivedMarkRead,
                 HostAnnouncementPermissions.ReceivedRead,
                 HostAnnouncementPermissions.Retract,
+                HostAnnouncementPermissions.Archive,
+                HostAnnouncementPermissions.Restore,
                 HostAnnouncementPermissions.Update,
                 InboxPermissions.MarkAllRead,
                 InboxPermissions.MarkRead,
@@ -49,6 +51,8 @@ public sealed class NotificationsAuthorizationContributorTests
                 HostAnnouncementPermissions.Publish,
                 HostAnnouncementPermissions.Retract,
                 HostAnnouncementPermissions.ReadStats,
+                HostAnnouncementPermissions.Archive,
+                HostAnnouncementPermissions.Restore,
             },
             catalog.Actions
                 .Where(action => action.NavigationId == "host-announcements")

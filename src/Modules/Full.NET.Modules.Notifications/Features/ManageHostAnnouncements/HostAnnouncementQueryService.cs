@@ -117,6 +117,7 @@ internal sealed class HostAnnouncementQueryService(
             ["Status"] = NormalizeFilterValue(filter.Status),
             ["Kind"] = NormalizeFilterValue(filter.Kind),
             ["AudienceKind"] = NormalizeFilterValue(filter.AudienceKind),
+            ["Archived"] = filter.Archived,
         };
     }
 
@@ -141,7 +142,8 @@ internal sealed class HostAnnouncementQueryService(
             targets.GetOrganizations(record.Id),
             record.CreatedAtUtc,
             record.UpdatedAtUtc,
-            record.Version);
+            record.Version,
+            record.ArchivedAtUtc);
 
     private static Result<HostAnnouncementResponse> NotFound() =>
         Result<HostAnnouncementResponse>.Failure(new Error(

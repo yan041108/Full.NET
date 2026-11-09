@@ -23,6 +23,7 @@ export interface HostAnnouncement {
   createdAtUtc: string;
   updatedAtUtc: string | null;
   version: number;
+  archivedAtUtc?: string | null;
 }
 
 export interface HostAnnouncementPage {
@@ -66,6 +67,7 @@ export interface HostAnnouncementListQuery {
   status?: AnnouncementStatus | '';
   kind?: AnnouncementKind | '';
   audienceKind?: AnnouncementAudienceKind | '';
+  archived?: boolean;
 }
 
 export interface ReceivedHostAnnouncementListItem {
@@ -141,6 +143,7 @@ export function isHostAnnouncement(value: unknown): value is HostAnnouncement {
     && value.targetOrganizations.every(isHostAnnouncementTargetOrganization)
     && typeof value.createdAtUtc === 'string'
     && (value.updatedAtUtc === null || typeof value.updatedAtUtc === 'string')
+    && (value.archivedAtUtc == null || typeof value.archivedAtUtc === 'string')
     && Number.isInteger(value.version);
 }
 

@@ -1791,6 +1791,10 @@ export interface ChangeDeliveryOwnerRequest {
   readonly targetOwner: EventDeliveryOwner;
 }
 
+export interface ChangeHostAnnouncementArchiveRequest {
+  readonly version: number;
+}
+
 export interface ChangeHostDocumentStatusRequest {
   readonly version: number;
 }
@@ -3337,6 +3341,7 @@ export interface HostAnnouncementReadStatsResponse {
 }
 
 export interface HostAnnouncementResponse {
+  readonly archivedAtUtc?: null | string;
   readonly audienceKind: string;
   readonly content: string;
   readonly createdAtUtc: string;

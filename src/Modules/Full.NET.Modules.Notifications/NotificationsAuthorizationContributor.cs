@@ -42,6 +42,8 @@ internal sealed class NotificationsAuthorizationContributor
             HostAnnouncementPermissions.Retract,
             "撤回公告",
             AuthorizationScope.Host),
+        new PermissionDefinition(HostAnnouncementPermissions.Archive, "归档公告", AuthorizationScope.Host),
+        new PermissionDefinition(HostAnnouncementPermissions.Restore, "恢复归档公告", AuthorizationScope.Host),
         new PermissionDefinition(
             HostAnnouncementPermissions.ReceivedRead,
             "查看我收到的公告",
@@ -193,6 +195,12 @@ internal sealed class NotificationsAuthorizationContributor
             "撤回公告",
             "retract",
             40),
+        new AuthorizationActionDefinition(
+            HostAnnouncementPermissions.Archive, "host-announcements", HostAnnouncementPermissions.Archive,
+            "归档公告", "archive", 60),
+        new AuthorizationActionDefinition(
+            HostAnnouncementPermissions.Restore, "host-announcements", HostAnnouncementPermissions.Restore,
+            "恢复归档公告", "restore", 70),
         new AuthorizationActionDefinition(
             "notifications.announcements.read_stats",
             "host-announcements",

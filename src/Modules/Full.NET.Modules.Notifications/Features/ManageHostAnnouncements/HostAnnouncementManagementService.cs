@@ -50,7 +50,8 @@ internal sealed class HostAnnouncementManagementService(
             AnnouncementSql.FindHostById, new Dictionary<string, object?> { ["Id"] = announcementId }, cancellationToken).ConfigureAwait(false);
         if (existing is null) return NotFound();
         if (existing.Version != request.Version) return ConcurrencyConflict();
-        if (existing.Status != AnnouncementStatuses.Draft) return InvalidStatus("Only draft announcements can be updated.");
+        if (existing.Status != AnnouncementStatuses.Draft || existing.ArchivedAtUtc is not null)
+            return InvalidStatus("Only unarchived draft announcements can be updated.");
         var targets = await LoadExistingTargetsAsync(announcementId, cancellationToken).ConfigureAwait(false);
         var audience = await audienceValidator.ValidateAsync(request.Kind ?? existing.Kind, request.AudienceKind ?? existing.AudienceKind,
             request.TargetUserIds ?? targets.TargetUserIds, request.TargetOrganizations ?? targets.TargetOrganizations,
@@ -90,6 +91,38 @@ internal sealed class HostAnnouncementManagementService(
         transaction.ExecuteAsync(
             token => RetractCoreAsync(actorUserId, announcementId, version, token),
             cancellationToken);
+
+    /// <summary>归档或恢复管理列表中的公告，保留原生命周期、受众和已读回执。</summary>
+    public Task<Result<HostAnnouncementResponse>> ChangeArchiveStateAsync(
+        Guid actorUserId, Guid announcementId, int version, bool archived, CancellationToken cancellationToken) =>
+        transaction.ExecuteResultAsync(async token =>
+        {
+            var existing = await queryExecutor.QuerySingleOrDefaultAsync<AnnouncementRecord>(
+                AnnouncementSql.FindHostById, new Dictionary<string, object?> { ["Id"] = announcementId }, token).ConfigureAwait(false);
+            if (existing is null) return NotFound();
+            if (existing.Version != version) return ConcurrencyConflict();
+            if (existing.Status is not (AnnouncementStatuses.Draft or AnnouncementStatuses.Retracted))
+                return InvalidStatus("Only draft or retracted announcements can change archive state.");
+            if ((existing.ArchivedAtUtc is not null) == archived)
+                return await queries.GetByIdAsync(announcementId, token).ConfigureAwait(false);
+
+            var now = clock.UtcNow;
+            var affected = await commandExecutor.ExecuteAsync(AnnouncementSql.ChangeArchiveState,
+                new Dictionary<string, object?>
+                {
+                    ["Id"] = announcementId,
+                    ["DraftStatus"] = AnnouncementStatuses.Draft,
+                    ["RetractedStatus"] = AnnouncementStatuses.Retracted,
+                    ["ArchivedAtUtc"] = archived ? now : (DateTimeOffset?)null,
+                    ["UpdatedAtUtc"] = now,
+                    ["UpdatedByUserId"] = actorUserId,
+                    ["Version"] = version,
+                    ["NextVersion"] = version + 1,
+                }, token).ConfigureAwait(false);
+            return affected == 0
+                ? ConcurrencyConflict()
+                : await queries.GetByIdAsync(announcementId, token).ConfigureAwait(false);
+        }, cancellationToken);
 
     private async Task<Result<HostAnnouncementResponse>> CreateCoreAsync(
         Guid actorUserId,
@@ -154,9 +187,9 @@ internal sealed class HostAnnouncementManagementService(
             return NotFound();
         }
 
-        if (!string.Equals(existing.Status, AnnouncementStatuses.Draft, StringComparison.Ordinal))
+        if (existing.Status != AnnouncementStatuses.Draft || existing.ArchivedAtUtc is not null)
         {
-            return InvalidStatus("Only draft announcements can be updated.");
+            return InvalidStatus("Only unarchived draft announcements can be updated.");
         }
 
         var now = clock.UtcNow;
@@ -214,9 +247,9 @@ internal sealed class HostAnnouncementManagementService(
                 .ConfigureAwait(false);
         }
 
-        if (!string.Equals(existing.Status, AnnouncementStatuses.Draft, StringComparison.Ordinal))
+        if (existing.Status != AnnouncementStatuses.Draft || existing.ArchivedAtUtc is not null)
         {
-            return InvalidStatus("Only draft announcements can be published.");
+            return InvalidStatus("Only unarchived draft announcements can be published.");
         }
 
         var now = clock.UtcNow;

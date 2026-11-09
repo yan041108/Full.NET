@@ -69,6 +69,7 @@ public sealed record HostAnnouncementTargetOrganization(
 /// <param name="CreatedAtUtc">创建时间（UTC）。</param>
 /// <param name="UpdatedAtUtc">最近更新时间（UTC）；未更新为 <see langword="null"/>。</param>
 /// <param name="Version">乐观并发版本号，用于 CAS 守卫。</param>
+/// <param name="ArchivedAtUtc">归档时间（UTC）；未归档为 <see langword="null"/>。</param>
 public sealed record HostAnnouncementResponse(
     Guid Id,
     string Title,
@@ -84,7 +85,8 @@ public sealed record HostAnnouncementResponse(
     IReadOnlyList<HostAnnouncementTargetOrganization> TargetOrganizations,
     DateTimeOffset CreatedAtUtc,
     DateTimeOffset? UpdatedAtUtc,
-    int Version);
+    int Version,
+    DateTimeOffset? ArchivedAtUtc = null);
 
 /// <summary>创建 Host 公告的请求契约，新建公告初始为草稿状态。</summary>
 /// <remarks>字段顺序发布后不可调整；新增字段只能追加到末尾，以保持线格式兼容。 Kind 与 AudienceKind 缺省时由服务端填充默认值。</remarks>
@@ -130,17 +132,23 @@ public sealed record PublishHostAnnouncementRequest(int Version);
 /// <param name="Version">期望的当前版本号，不匹配时返回 CAS 冲突错误。</param>
 public sealed record RetractHostAnnouncementRequest(int Version);
 
+/// <summary>归档或恢复公告时要求的当前乐观版本。</summary>
+/// <param name="Version">期望的当前版本号。</param>
+public sealed record ChangeHostAnnouncementArchiveRequest(int Version);
+
 /// <summary>Host 公告列表查询过滤条件。</summary>
 /// <remarks>字段顺序发布后不可调整；新增字段只能追加到末尾，以保持线格式兼容。 Status、Kind、AudienceKind 为稳定机器码。</remarks>
 /// <param name="Title">标题模糊匹配关键字；缺省时不过滤。</param>
 /// <param name="Status">按公告状态稳定机器码精确过滤；缺省时不过滤。</param>
 /// <param name="Kind">按公告类型稳定机器码精确过滤；缺省时不过滤。</param>
 /// <param name="AudienceKind">按受众范围稳定机器码精确过滤；缺省时不过滤。</param>
+/// <param name="Archived">为真时仅查询归档公告；否则仅查询日常管理列表。</param>
 public sealed record HostAnnouncementListFilter(
     string? Title = null,
     string? Status = null,
     string? Kind = null,
-    string? AudienceKind = null);
+    string? AudienceKind = null,
+    bool Archived = false);
 
 /// <summary>我收到的 Host 公告列表项。</summary>
 /// <remarks>字段顺序发布后不可调整；新增字段只能追加到末尾，以保持线格式兼容。 Kind 与 AudienceKind 为稳定机器码。</remarks>

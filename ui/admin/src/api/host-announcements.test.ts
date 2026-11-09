@@ -1,15 +1,17 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { request } from './http';
 import {
+  changeHostAnnouncementArchiveState,
   createHostAnnouncement,
   listHostAnnouncements,
   publishHostAnnouncement,
   retractHostAnnouncement
 } from './host-announcements';
 
-vi.mock('./http', () => ({
-  request: vi.fn()
-}));
+vi.mock('./http', () => {
+  const request = vi.fn();
+  return { request, http: { request } };
+});
 
 const requestMock = vi.mocked(request);
 
@@ -24,6 +26,7 @@ const announcement = {
   publishedByUserId: null,
   retractedAtUtc: null,
   retractedByUserId: null,
+  archivedAtUtc: null,
   targetUserIds: [],
   targetOrganizations: [],
   createdAtUtc: '2026-07-26T00:00:00Z',
@@ -34,6 +37,21 @@ const announcement = {
 describe('host-announcements api', () => {
   beforeEach(() => {
     requestMock.mockReset();
+  });
+
+  it('发送归档列表条件和两个带版本的归档操作', async () => {
+    const archived = { ...announcement, version: 2, archivedAtUtc: '2026-07-27T00:00:00Z' };
+    requestMock.mockResolvedValueOnce({ items: [archived], page: 1, pageSize: 20, total: 1 })
+      .mockResolvedValueOnce(archived).mockResolvedValueOnce({ ...announcement, version: 3 });
+    await expect(listHostAnnouncements({ archived: true })).resolves.toMatchObject({ items: [archived] });
+    expect(requestMock).toHaveBeenNthCalledWith(1,
+      '/api/v1/notifications/host-announcements?page=1&pageSize=20&archived=true', { method: 'GET' }, undefined);
+    await expect(changeHostAnnouncementArchiveState(announcement.id, 1, true)).resolves.toMatchObject({ version: 2 });
+    await expect(changeHostAnnouncementArchiveState(announcement.id, 2, false)).resolves.toMatchObject({ archivedAtUtc: null });
+    expect(requestMock).toHaveBeenNthCalledWith(2, `/api/v1/notifications/host-announcements/${announcement.id}/archive`,
+      expect.objectContaining({ method: 'POST', body: JSON.stringify({ version: 1 }) }), undefined);
+    expect(requestMock).toHaveBeenNthCalledWith(3, `/api/v1/notifications/host-announcements/${announcement.id}/restore`,
+      expect.objectContaining({ method: 'POST', body: JSON.stringify({ version: 2 }) }), undefined);
   });
 
   it('lists announcements with server-side filters', async () => {

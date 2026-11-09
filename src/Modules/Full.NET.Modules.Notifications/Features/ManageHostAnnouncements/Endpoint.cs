@@ -25,6 +25,7 @@ internal static class Endpoint
             string? status,
             string? kind,
             string? audienceKind,
+            bool? archived,
             HostAnnouncementQueryService queries,
             IApiResultMapper mapper,
             HttpContext httpContext,
@@ -33,7 +34,7 @@ internal static class Endpoint
             var result = await queries.ListAsync(
                     page ?? 1,
                     pageSize ?? 20,
-                    new HostAnnouncementListFilter(title, status, kind, audienceKind),
+                    new HostAnnouncementListFilter(title, status, kind, audienceKind, archived ?? false),
                     cancellationToken)
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
@@ -182,6 +183,34 @@ internal static class Endpoint
         .ProducesProblem(StatusCodes.Status409Conflict)
         .RequireAuthorization(FullNetPermissionPolicies.For(HostAnnouncementPermissions.Retract));
 
+        group.MapPost("/{announcementId:guid}/archive", (
+            Guid announcementId, ChangeHostAnnouncementArchiveRequest request,
+            HostAnnouncementManagementService service, IApiResultMapper mapper,
+            HttpContext context, CancellationToken cancellationToken) =>
+            ChangeArchiveStateAsync(announcementId, request.Version, true, service, mapper, context, cancellationToken))
+        .WithName("notificationsArchiveHostAnnouncement")
+        .Produces<HostAnnouncementResponse>()
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status409Conflict)
+        .RequireAuthorization(FullNetPermissionPolicies.For(HostAnnouncementPermissions.Archive));
+
+        group.MapPost("/{announcementId:guid}/restore", (
+            Guid announcementId, ChangeHostAnnouncementArchiveRequest request,
+            HostAnnouncementManagementService service, IApiResultMapper mapper,
+            HttpContext context, CancellationToken cancellationToken) =>
+            ChangeArchiveStateAsync(announcementId, request.Version, false, service, mapper, context, cancellationToken))
+        .WithName("notificationsRestoreHostAnnouncement")
+        .Produces<HostAnnouncementResponse>()
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status409Conflict)
+        .RequireAuthorization(FullNetPermissionPolicies.For(HostAnnouncementPermissions.Restore));
+
         group.MapGet("/{announcementId:guid}/read-stats", async (
             Guid announcementId,
             HostAnnouncementReadStatsQueryService queries,
@@ -223,6 +252,16 @@ internal static class Endpoint
         .ProducesProblem(StatusCodes.Status403Forbidden)
         .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAuthorization(FullNetPermissionPolicies.For(HostAnnouncementPermissions.ReadStats));
+    }
+
+    private static async Task<IResult> ChangeArchiveStateAsync(
+        Guid announcementId, int version, bool archived, HostAnnouncementManagementService service,
+        IApiResultMapper mapper, HttpContext context, CancellationToken cancellationToken)
+    {
+        if (!TryResolveUserId(context, out var userId)) return Results.Unauthorized();
+        var result = await service.ChangeArchiveStateAsync(userId, announcementId, version, archived, cancellationToken)
+            .ConfigureAwait(false);
+        return mapper.Map(result, context);
     }
 
     private static bool TryResolveUserId(HttpContext httpContext, out Guid userId)

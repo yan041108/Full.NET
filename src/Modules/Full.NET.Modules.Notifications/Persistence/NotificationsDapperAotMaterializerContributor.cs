@@ -148,6 +148,7 @@ internal sealed class NotificationsDapperAotMaterializerContributor : IDapperAot
             CreatedByUserId = reader.GetGuid(13),
             UpdatedByUserId = AotDataReaderExtensions.ReadNullableGuid(reader, 14),
             Version = reader.GetInt32(15),
+            ArchivedAtUtc = AotDataReaderExtensions.ReadNullableDateTimeOffset(reader, 16),
         };
 
     /// <summary>

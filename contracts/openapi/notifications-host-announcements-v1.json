@@ -62,6 +62,30 @@
           "responseSchema": "HostAnnouncementResponse"
         }
       ]
+    },
+    {
+      "path": "/api/v1/notifications/host-announcements/{announcementId}/archive",
+      "operations": [
+        {
+          "method": "POST",
+          "permission": "notifications.announcements.archive",
+          "successStatus": 200,
+          "requestSchema": "ChangeHostAnnouncementArchiveRequest",
+          "responseSchema": "HostAnnouncementResponse"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/notifications/host-announcements/{announcementId}/restore",
+      "operations": [
+        {
+          "method": "POST",
+          "permission": "notifications.announcements.restore",
+          "successStatus": 200,
+          "requestSchema": "ChangeHostAnnouncementArchiveRequest",
+          "responseSchema": "HostAnnouncementResponse"
+        }
+      ]
     }
   ],
   "schemas": {
@@ -81,7 +105,8 @@
         "targetOrganizations",
         "createdAtUtc",
         "updatedAtUtc",
-        "version"
+        "version",
+        "archivedAtUtc"
       ]
     },
     "HostAnnouncementResponsePage": {
@@ -119,6 +144,11 @@
       ]
     },
     "RetractHostAnnouncementRequest": {
+      "properties": [
+        "version"
+      ]
+    },
+    "ChangeHostAnnouncementArchiveRequest": {
       "properties": [
         "version"
       ]

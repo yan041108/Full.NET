@@ -42,6 +42,7 @@ import PermissionGate from '../components/PermissionGate.vue';
 import { useSessionStore } from '../auth/session';
 import { useAdminI18n } from '../i18n/adminI18n';
 import {
+  changeHostAnnouncementArchiveState,
   createHostAnnouncement,
   getHostAnnouncementReadStats,
   listHostAnnouncementReadReceipts,
@@ -78,6 +79,7 @@ const pagedItems = ref<HostAnnouncement[]>([]);
 const page = ref(1);
 const pageSize = ref(20);
 const total = ref(0);
+const archivedOnly = ref(false);
 const loading = ref(false);
 const changing = ref(false);
 const problem = ref<FullNetProblemDetails>();
@@ -191,6 +193,8 @@ const canCreate = computed(() => session.can('notifications.announcements.create
 const canUpdate = computed(() => session.can('notifications.announcements.update'));
 const canPublish = computed(() => session.can('notifications.announcements.publish'));
 const canRetract = computed(() => session.can('notifications.announcements.retract'));
+const canArchive = computed(() => session.can('notifications.announcements.archive'));
+const canRestore = computed(() => session.can('notifications.announcements.restore'));
 const canReadStats = computed(() => session.can('notifications.announcements.read_stats'));
 const readStatsOpen = ref(false);
 const readStatsLoading = ref(false);
@@ -470,6 +474,7 @@ function applyFieldErrors(): boolean {
 async function load(): Promise<void> {
   loading.value = true;
   problem.value = undefined;
+  const archived = archivedOnly.value;
   try {
     const filters = appliedFilters.value;
     const response = await listHostAnnouncements({
@@ -478,8 +483,10 @@ async function load(): Promise<void> {
       title: filters.title,
       status: filters.status,
       kind: filters.kind,
-      audienceKind: filters.audienceKind
+      audienceKind: filters.audienceKind,
+      archived
     });
+    if (archived !== archivedOnly.value) return;
     pagedItems.value = response.items;
     total.value = response.total;
     await nextTick(updateTableHeight);
@@ -488,6 +495,14 @@ async function load(): Promise<void> {
   } finally {
     loading.value = false;
   }
+}
+
+function toggleArchiveList(): void {
+  archivedOnly.value = !archivedOnly.value;
+  resetPage();
+  pagedItems.value = [];
+  total.value = 0;
+  void load();
 }
 
 function handleSearch(params: Record<string, string | undefined>): void {
@@ -520,7 +535,7 @@ function openCreate(): void {
 }
 
 function openEdit(item: HostAnnouncement): void {
-  if (changing.value || item.status !== 'draft') {
+  if (changing.value || item.status !== 'draft' || item.archivedAtUtc != null) {
     return;
   }
   editorMode.value = 'edit';
@@ -604,7 +619,7 @@ async function saveEdit(): Promise<void> {
 }
 
 async function publish(item: HostAnnouncement): Promise<void> {
-  if (changing.value || item.status !== 'draft' || !canPublish.value) {
+  if (changing.value || item.status !== 'draft' || item.archivedAtUtc != null || !canPublish.value) {
     return;
   }
   try {
@@ -654,6 +669,29 @@ async function retract(item: HostAnnouncement): Promise<void> {
       return;
     }
     problem.value = toProblem(error, 'hostAnnouncements.operationFailed');
+  } finally {
+    changing.value = false;
+  }
+}
+
+async function changeArchiveState(item: HostAnnouncement, archived: boolean): Promise<void> {
+  if (changing.value || item.status === 'published' || (archived ? !canArchive.value : !canRestore.value)) {
+    return;
+  }
+  const action = t(archived ? 'hostDocumentItems.archive' : 'hostDocumentItems.restore');
+  changing.value = true;
+  try {
+    await ElMessageBox.confirm(
+      item.title,
+      action,
+      { type: 'warning', confirmButtonText: action, cancelButtonText: t('users.cancel') }
+    );
+    await changeHostAnnouncementArchiveState(item.id, item.version, archived);
+    ElMessage.success(t('common.saved'));
+    if (pagedItems.value.length === 1 && page.value > 1) page.value--;
+    await load();
+  } catch (error: unknown) {
+    if (error !== 'cancel' && error !== 'close') problem.value = toProblem(error, 'hostAnnouncements.operationFailed');
   } finally {
     changing.value = false;
   }
@@ -771,7 +809,7 @@ function toProblem(
           @refresh="load"
         >
           <template #left>
-            <PermissionGate code="notifications.announcements.create">
+            <PermissionGate v-if="!archivedOnly" code="notifications.announcements.create">
               <el-button
                 type="primary"
                 plain
@@ -782,6 +820,15 @@ function toProblem(
                 {{ t('hostAnnouncements.addAnnouncement') }}
               </el-button>
             </PermissionGate>
+            <el-button
+              data-testid="host-announcements-toggle-archive"
+              :type="archivedOnly ? 'primary' : 'default'"
+              :aria-pressed="archivedOnly"
+              :disabled="loading || changing"
+              @click="toggleArchiveList"
+            >
+              {{ t('inboxMessages.archived') }}
+            </el-button>
           </template>
         </ArtTableHeader>
 
@@ -863,13 +910,13 @@ function toProblem(
 
             <el-table-column
               :label="t('users.columnActions')"
-              width="168"
+              width="220"
               fixed="right"
               align="center"
             >
               <template #default="{ row }">
-                <ArtTableActionGroup v-if="row.status === 'draft'">
-                  <PermissionGate code="notifications.announcements.update">
+                <ArtTableActionGroup>
+                  <PermissionGate v-if="row.status === 'draft' && !row.archivedAtUtc" code="notifications.announcements.update">
                     <ArtTableActionButton
                       type="edit"
                       test-id="host-announcements-edit"
@@ -878,7 +925,7 @@ function toProblem(
                   @click="openEdit(row as HostAnnouncement)"
                     />
                   </PermissionGate>
-                  <PermissionGate code="notifications.announcements.publish">
+                  <PermissionGate v-if="row.status === 'draft' && !row.archivedAtUtc" code="notifications.announcements.publish">
                     <ArtTableActionButton
                       type="view"
                       test-id="host-announcements-publish"
@@ -887,8 +934,6 @@ function toProblem(
                   @click="publish(row as HostAnnouncement)"
                     />
                   </PermissionGate>
-                </ArtTableActionGroup>
-                <ArtTableActionGroup v-else-if="canShowReadStats(row.status)">
                   <PermissionGate v-if="row.status === 'published'" code="notifications.announcements.retract">
                     <ArtTableActionButton
                       type="delete"
@@ -898,7 +943,7 @@ function toProblem(
                   @click="retract(row as HostAnnouncement)"
                     />
                   </PermissionGate>
-                  <PermissionGate code="notifications.announcements.read_stats">
+                  <PermissionGate v-if="canShowReadStats(row.status)" code="notifications.announcements.read_stats">
                     <el-button
                       plain
                       size="small"
@@ -907,6 +952,18 @@ function toProblem(
                       @click="openReadStats(row as HostAnnouncement)"
                     >
                       {{ t('hostAnnouncements.readStats') }}
+                    </el-button>
+                  </PermissionGate>
+                  <PermissionGate v-if="row.status !== 'published' && !row.archivedAtUtc" code="notifications.announcements.archive">
+                    <el-button plain size="small" data-testid="host-announcements-archive" :disabled="changing"
+                      @click="changeArchiveState(row as HostAnnouncement, true)">
+                      {{ t('hostDocumentItems.archive') }}
+                    </el-button>
+                  </PermissionGate>
+                  <PermissionGate v-if="row.archivedAtUtc" code="notifications.announcements.restore">
+                    <el-button plain size="small" data-testid="host-announcements-restore" :disabled="changing"
+                      @click="changeArchiveState(row as HostAnnouncement, false)">
+                      {{ t('hostDocumentItems.restore') }}
                     </el-button>
                   </PermissionGate>
                 </ArtTableActionGroup>

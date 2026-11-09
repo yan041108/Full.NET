@@ -19,6 +19,7 @@ namespace Full.NET.Modules.Notifications.Serialization;
 [JsonSerializable(typeof(UpdateHostAnnouncementRequest))]
 [JsonSerializable(typeof(PublishHostAnnouncementRequest))]
 [JsonSerializable(typeof(RetractHostAnnouncementRequest))]
+[JsonSerializable(typeof(ChangeHostAnnouncementArchiveRequest))]
 [JsonSerializable(typeof(ReceivedHostAnnouncementListItemResponse))]
 [JsonSerializable(typeof(PagedResult<ReceivedHostAnnouncementListItemResponse>))]
 [JsonSerializable(typeof(ReceivedHostAnnouncementDetailResponse))]

@@ -2527,6 +2527,7 @@
     "fn_notifications_announcement": {
       "comment": "通知公告表",
       "columns": {
+        "ArchivedAtUtc": "公告移出日常管理列表的时间(UTC)；NULL 表示未归档",
         "AudienceKind": "公告受众类型键",
         "Content": "内容",
         "CreatedAtUtc": "创建时间(UTC)",

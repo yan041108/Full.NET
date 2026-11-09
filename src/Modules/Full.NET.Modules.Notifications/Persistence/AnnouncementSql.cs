@@ -17,12 +17,13 @@ internal static class AnnouncementSql
         """
         Id, TenantId, Title, Content, Kind, AudienceKind, Status,
         PublishedAtUtc, PublishedByUserId, RetractedAtUtc, RetractedByUserId,
-        CreatedAtUtc, UpdatedAtUtc, CreatedByUserId, UpdatedByUserId, Version
+        CreatedAtUtc, UpdatedAtUtc, CreatedByUserId, UpdatedByUserId, Version, ArchivedAtUtc
         """;
 
     private const string HostWhereClause =
         """
         TenantId IS NULL
+          AND ((@Archived = 0 AND ArchivedAtUtc IS NULL) OR (@Archived = 1 AND ArchivedAtUtc IS NOT NULL))
           AND (@Title IS NULL OR Title LIKE @TitlePattern)
           AND (@Status IS NULL OR Status = @Status)
           AND (@Kind IS NULL OR Kind = @Kind)
@@ -103,6 +104,7 @@ internal static class AnnouncementSql
             WHERE Id = @Id
               AND TenantId IS NULL
               AND Status = @DraftStatus
+              AND ArchivedAtUtc IS NULL
               AND Version = @Version
             """,
             SqlDataScope.HostOnly);
@@ -121,6 +123,7 @@ internal static class AnnouncementSql
             WHERE Id = @Id
               AND TenantId IS NULL
               AND Status = @DraftStatus
+              AND ArchivedAtUtc IS NULL
               AND Version = @Version
             """,
             SqlDataScope.HostOnly);
@@ -139,6 +142,23 @@ internal static class AnnouncementSql
             WHERE Id = @Id
               AND TenantId IS NULL
               AND Status = @PublishedStatus
+              AND Version = @Version
+            """,
+            SqlDataScope.HostOnly);
+
+    /// <summary>只在草稿或撤回状态切换归档标记，原业务状态及收件数据继续保留。</summary>
+    public static readonly SqlStatement ChangeArchiveState =
+        new(
+            "notifications.change_host_announcement_archive_state",
+            """
+            UPDATE fn_notifications_announcement
+            SET ArchivedAtUtc = @ArchivedAtUtc,
+                UpdatedAtUtc = @UpdatedAtUtc,
+                UpdatedByUserId = @UpdatedByUserId,
+                Version = @NextVersion
+            WHERE Id = @Id
+              AND TenantId IS NULL
+              AND Status IN (@DraftStatus, @RetractedStatus)
               AND Version = @Version
             """,
             SqlDataScope.HostOnly);
