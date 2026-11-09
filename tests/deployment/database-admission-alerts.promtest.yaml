@@ -1,0 +1,41 @@
+# 同角色的不同副本保留各自的告警身份，并在争用结束后恢复。
+rule_files:
+  - ../../deploy/observability/prometheus-rules.yaml
+evaluation_interval: 1m
+tests:
+  - name: worker-admission-alerts-preserve-instance-and-outcome
+    interval: 1m
+    input_series:
+      - series: 'fullnet_db_connection_acquire_total{job="fullnet-worker",instance="worker-a",provider="mysql",host_role="worker",outcome="rejected"}'
+        values: '0+1x6 6+0x6'
+      - series: 'fullnet_db_connection_acquire_total{job="fullnet-worker",instance="worker-b",provider="mysql",host_role="worker",outcome="timeout"}'
+        values: '0+1x6 6+0x6'
+      - series: 'fullnet_db_connection_acquire_total{job="fullnet-worker",instance="worker-c",provider="mysql",host_role="worker",outcome="success"}'
+        values: '0+15x13'
+    alert_rule_test:
+      - eval_time: 2m
+        alertname: FullNetDatabaseConnectionAdmissionRejected
+        exp_alerts: []
+      - eval_time: 2m
+        alertname: FullNetDatabaseConnectionAcquireTimeout
+        exp_alerts: []
+      - eval_time: 3m
+        alertname: FullNetDatabaseConnectionAdmissionRejected
+        exp_alerts:
+          - exp_labels: {job: fullnet-worker, instance: worker-a, provider: mysql, host_role: worker, severity: warning}
+            exp_annotations:
+              summary: Database admission queue rejected requests
+              description: Compare permits, queued requests and delivery backlog for this instance and check whether pressure is shared by other replicas.
+      - eval_time: 3m
+        alertname: FullNetDatabaseConnectionAcquireTimeout
+        exp_alerts:
+          - exp_labels: {job: fullnet-worker, instance: worker-b, provider: mysql, host_role: worker, severity: critical}
+            exp_annotations:
+              summary: Database connection acquisition timed out
+              description: Compare admission, connection-open and hold durations for this instance before changing the pool budget.
+      - eval_time: 12m
+        alertname: FullNetDatabaseConnectionAdmissionRejected
+        exp_alerts: []
+      - eval_time: 12m
+        alertname: FullNetDatabaseConnectionAcquireTimeout
+        exp_alerts: []

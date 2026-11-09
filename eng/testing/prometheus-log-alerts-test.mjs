@@ -45,4 +45,9 @@ if (process.argv.includes('--help')) {
     '--workdir', '/work/tests/deployment', image,
     'test', 'rules', 'cache-alerts.promtest.yaml',
   ]);
+  docker([
+    'run', '--rm', '--cpus', '1', '--memory', '256m', '--entrypoint', '/bin/promtool', '--mount', mount,
+    '--workdir', '/work/tests/deployment', image,
+    'test', 'rules', 'database-admission-alerts.promtest.yaml',
+  ]);
 }

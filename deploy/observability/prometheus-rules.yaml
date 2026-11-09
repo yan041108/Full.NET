@@ -275,20 +275,22 @@ groups:
           summary: Database connection pool wait elevated
 
       - alert: FullNetDatabaseConnectionAcquireTimeout
-        expr: sum(increase(fullnet_db_connection_acquire_total{outcome="timeout"}[5m])) by (provider, host_role) > 0
+        expr: sum(increase(fullnet_db_connection_acquire_total{outcome="timeout"}[5m])) by (job, instance, provider, host_role) > 0
         for: 2m
         labels:
           severity: critical
         annotations:
           summary: Database connection acquisition timed out
+          description: Compare admission, connection-open and hold durations for this instance before changing the pool budget.
 
       - alert: FullNetDatabaseConnectionAdmissionRejected
-        expr: sum(increase(fullnet_db_connection_acquire_total{outcome="rejected"}[5m])) by (provider, host_role) > 0
+        expr: sum(increase(fullnet_db_connection_acquire_total{outcome="rejected"}[5m])) by (job, instance, provider, host_role) > 0
         for: 2m
         labels:
           severity: warning
         annotations:
           summary: Database admission queue rejected requests
+          description: Compare permits, queued requests and delivery backlog for this instance and check whether pressure is shared by other replicas.
 
       - alert: FullNetOutboxJobsBacklogAge
         expr: max(fullnet_outbox_backlog_oldest_age_seconds) > 300 or max(fullnet_jobs_backlog_oldest_age_seconds) > 300
