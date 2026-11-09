@@ -5,14 +5,17 @@ import DocumentPublicShareView from './DocumentPublicShareView.vue';
 import * as api from '../api/document-shares';
 import { openDocumentBlob } from '../api/host-document-items';
 import { deferred, outputId } from '../test/data-output-fixtures';
-import { documentPreviewTask as task } from '../test/task-lifecycle-fixtures';
+import { publicDocumentPreviewTask as task, publicShareCapabilities } from '../test/task-lifecycle-fixtures';
+import { getDocumentPreviewCapabilities } from '../api/document-preview-tasks';
 const routing=vi.hoisted(()=>({ route: undefined as unknown }));
 vi.mock('vue-router',()=>({ useRoute:()=>routing.route }));
 vi.mock('../api/document-shares',()=>({ accessDocumentShareByCode:vi.fn(),createDocumentSharePreviewTaskByCode:vi.fn(),getDocumentSharePreviewTaskByCode:vi.fn(),loadDocumentShareContentByCode:vi.fn(),loadDocumentSharePreviewTaskContentByCode:vi.fn() }));
-vi.mock('../api/host-document-items',()=>({openDocumentBlob:vi.fn()}));
+vi.mock('../api/host-document-items',()=>({openDocumentBlob:vi.fn(),safeDocumentPreviewBlob:(blob:Blob)=>blob}));
+vi.mock('../api/document-preview-tasks',()=>({getDocumentPreviewCapabilities:vi.fn()}));
 let route: {params:{shareCode:string}};let wrapper:VueWrapper|undefined;
-const access={shareId:outputId,documentId:outputId,shareCode:'OLD',title:'旧分享敏感文档',fileName:'spec.docx',mimeType:'application/vnd.openxmlformats-officedocument.wordprocessingml.document',fileSizeBytes:12,hasPassword:false,accessCountRemaining:9};
+const access={shareId:outputId,documentId:outputId,shareCode:'OLD',title:'旧分享敏感文档',fileName:'spec.docx',mimeType:'application/vnd.openxmlformats-officedocument.wordprocessingml.document',fileSizeBytes:12,hasPassword:false,accessCountRemaining:9,previewGrant:'fixture-grant'};
 beforeEach(()=>{vi.resetAllMocks();route=reactive({params:{shareCode:'OLD'}});routing.route=route;
+ vi.mocked(getDocumentPreviewCapabilities).mockResolvedValue(publicShareCapabilities);
  vi.mocked(api.accessDocumentShareByCode).mockResolvedValue(access);vi.mocked(api.createDocumentSharePreviewTaskByCode).mockResolvedValue(task);
  vi.mocked(api.getDocumentSharePreviewTaskByCode).mockResolvedValue(task);vi.mocked(api.loadDocumentSharePreviewTaskContentByCode).mockResolvedValue(new Blob(['pdf']));
  vi.mocked(api.loadDocumentShareContentByCode).mockResolvedValue(new Blob(['source']));vi.spyOn(URL,'createObjectURL').mockReturnValue('blob:preview');vi.spyOn(URL,'revokeObjectURL').mockImplementation(()=>{});
@@ -33,7 +36,7 @@ describe('公开文档分享请求与轮询归属',()=>{
   await start();const signal=vi.mocked(api.loadDocumentSharePreviewTaskContentByCode).mock.calls[0]?.[3];route.params.shareCode='NEW';expect(signal?.aborted).toBe(true);await flushPromises();
   pending.resolve(new Blob(['old']));await flushPromises();expect(URL.createObjectURL).toHaveBeenCalledOnce();expect(wrapper!.text()).toContain('新分享');
  });
- it.each([{documentItemId:'019bc2b1-2a40-7cc3-8992-a80de51bf298'},{versionId:outputId}])('创建预览文档或版本错配不轮询 %j',async change=>{
+ it.each([{documentItemId:'019bc2b1-2a40-7cc3-8992-a80de51bf298'},{versionId:null}])('创建预览文档错配或缺固定版本时不轮询 %j',async change=>{
   vi.mocked(api.createDocumentSharePreviewTaskByCode).mockResolvedValue({...task,...change});await start();
   expect(api.getDocumentSharePreviewTaskByCode).not.toHaveBeenCalled();expect(api.loadDocumentSharePreviewTaskContentByCode).not.toHaveBeenCalled();expect(wrapper!.find('.el-alert').exists()).toBe(true);
  });
@@ -53,11 +56,13 @@ describe('公开文档分享请求与轮询归属',()=>{
  it('非ProblemDetails访问失败仍显示可重试错误',async()=>{
   vi.mocked(api.accessDocumentShareByCode).mockRejectedValueOnce(new Error('transport')).mockResolvedValueOnce(access);await start();
   expect(wrapper!.find('.el-alert').exists()).toBe(true);await wrapper!.get('[data-testid="document-public-share-submit"]').trigger('click');await flushPromises();expect(wrapper!.text()).toContain(access.title);
+  const [first, second] = vi.mocked(api.accessDocumentShareByCode).mock.calls;
+  expect(first?.[1]?.requestKey).toBeTruthy(); expect(second?.[1]?.requestKey).toBe(first?.[1]?.requestKey);
  });
 });
 
 describe('公开分享密码重试',()=>{
- it('要求密码后输错仍可改正，并使用本次访问密码读取内容',async()=>{
+ it('要求密码后输错仍可改正，并使用本次分享凭据读取内容',async()=>{
   vi.mocked(api.accessDocumentShareByCode).mockRejectedValueOnce({status:400,code:'document.host_share.password_required',title:'需要密码'})
    .mockRejectedValueOnce({status:403,code:'document.host_share.access_denied',title:'拒绝访问'}).mockResolvedValueOnce({...access,hasPassword:true});
   await start();await wrapper!.get('[data-testid="document-public-share-password"]').setValue('wrong');
@@ -65,8 +70,8 @@ describe('公开分享密码重试',()=>{
   expect(wrapper!.find('[data-testid="document-public-share-password"]').exists()).toBe(true);expect(wrapper!.text()).toContain('拒绝访问');
   await wrapper!.get('[data-testid="document-public-share-password"]').setValue('correct');
   await wrapper!.get('[data-testid="document-public-share-submit"]').trigger('click');await flushPromises();
-  expect(api.accessDocumentShareByCode).toHaveBeenNthCalledWith(3,'OLD',{password:'correct'},expect.any(AbortSignal));
-  expect(api.createDocumentSharePreviewTaskByCode).toHaveBeenCalledWith('OLD',{password:'correct'},expect.any(AbortSignal));
+  expect(api.accessDocumentShareByCode).toHaveBeenNthCalledWith(3,'OLD',{password:'correct',requestKey:expect.any(String)},expect.any(AbortSignal));
+  expect(api.createDocumentSharePreviewTaskByCode).toHaveBeenCalledWith('OLD',{previewGrant:'fixture-grant'},expect.any(AbortSignal));
   expect(wrapper!.text()).toContain(access.title);
  });
 });

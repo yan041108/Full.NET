@@ -6,14 +6,17 @@ import View from './DocumentPublicShareView.vue';
 import * as api from '../api/document-shares';
 import { openDocumentBlob } from '../api/host-document-items';
 import { deferred, outputId } from '../test/data-output-fixtures';
-import { documentPreviewTask as task } from '../test/task-lifecycle-fixtures';
+import { publicDocumentPreviewTask as task, publicShareCapabilities } from '../test/task-lifecycle-fixtures';
+import { getDocumentPreviewCapabilities } from '../api/document-preview-tasks';
 vi.mock('../api/document-shares', () => ({ accessDocumentShareByCode: vi.fn(), createDocumentSharePreviewTaskByCode: vi.fn(), getDocumentSharePreviewTaskByCode: vi.fn(), loadDocumentShareContentByCode: vi.fn(), loadDocumentSharePreviewTaskContentByCode: vi.fn() }));
-vi.mock('../api/host-document-items', () => ({ openDocumentBlob: vi.fn() }));
-const access = { shareId: outputId, documentId: outputId, shareCode: 'OLD', title: '文档', fileName: 'file.docx', mimeType: 'application/msword', fileSizeBytes: 12, hasPassword: false, accessCountRemaining: 9 };
+vi.mock('../api/host-document-items', () => ({ openDocumentBlob: vi.fn(), safeDocumentPreviewBlob: (blob: Blob) => blob }));
+vi.mock('../api/document-preview-tasks', () => ({ getDocumentPreviewCapabilities: vi.fn() }));
+const access = { shareId: outputId, documentId: outputId, shareCode: 'OLD', title: '文档', fileName: 'file.docx', mimeType: 'application/msword', fileSizeBytes: 12, hasPassword: false, accessCountRemaining: 9, previewGrant: 'fixture-grant' };
 let wrapper: VueWrapper, router: Router;
 const button = (id: string) => wrapper.findAllComponents(ElButton).find(item => item.attributes('data-testid') === id)!;
 beforeEach(() => {
   vi.resetAllMocks(); vi.mocked(api.accessDocumentShareByCode).mockImplementation(async code => ({ ...access, shareCode: code })); vi.mocked(api.createDocumentSharePreviewTaskByCode).mockResolvedValue(task); vi.mocked(api.getDocumentSharePreviewTaskByCode).mockResolvedValue(task); vi.mocked(api.loadDocumentShareContentByCode).mockResolvedValue(new Blob(['source'])); vi.mocked(api.loadDocumentSharePreviewTaskContentByCode).mockResolvedValue(new Blob(['pdf'], { type: 'application/pdf' })); vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:public'); vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
+  vi.mocked(getDocumentPreviewCapabilities).mockResolvedValue(publicShareCapabilities);
 });
 afterEach(() => { wrapper?.unmount(); vi.useRealTimers(); vi.restoreAllMocks(); });
 async function setup() {
@@ -41,8 +44,15 @@ describe('公开分享内容和任务恢复', () => {
   it('明确创建拒绝允许手动内容重试，不重新访问分享', async () => {
     vi.mocked(api.createDocumentSharePreviewTaskByCode).mockRejectedValueOnce({ status: 409, code: 'conflict', title: 'conflict' }); await setup(); await wrapper.get('[data-testid="document-public-share-content-retry"]').trigger('click'); await flushPromises(); expect(api.createDocumentSharePreviewTaskByCode).toHaveBeenCalledTimes(2); expect(api.accessDocumentShareByCode).toHaveBeenCalledOnce();
   });
-  it('已失败任务可明确释放后人工再创建，不自动重复任务', async () => {
-    vi.mocked(api.getDocumentSharePreviewTaskByCode).mockResolvedValueOnce({ ...task, statusKey: 'failed' }); await setup(); await wrapper.get('[data-testid="document-public-share-preview-recovery"]').trigger('click'); await flushPromises(); await wrapper.get('[data-testid="document-public-share-preview-recovery-confirm"]').trigger('click'); expect(api.createDocumentSharePreviewTaskByCode).toHaveBeenCalledOnce(); await wrapper.get('[data-testid="document-public-share-content-retry"]').trigger('click'); await flushPromises(); expect(api.createDocumentSharePreviewTaskByCode).toHaveBeenCalledTimes(2);
+  it('已失败任务保留固定身份，显式重读不创建同会话的新任务', async () => {
+    vi.mocked(api.getDocumentSharePreviewTaskByCode).mockResolvedValue({ ...task, statusKey: 'failed' });
+    await setup();
+    expect(wrapper.find('[data-testid="document-public-share-preview-recovery"]').exists()).toBe(false);
+    await wrapper.get('[data-testid="document-public-share-content-retry"]').trigger('click');
+    await flushPromises();
+    expect(api.createDocumentSharePreviewTaskByCode).toHaveBeenCalledOnce();
+    expect(api.getDocumentSharePreviewTaskByCode).toHaveBeenCalledTimes(2);
+    expect(api.loadDocumentSharePreviewTaskContentByCode).not.toHaveBeenCalled();
   });
   it('任务状态回退或来源改变不读取输出，重试保留旧任务身份', async () => {
     vi.mocked(api.getDocumentSharePreviewTaskByCode).mockResolvedValueOnce({ ...task, version: 3, statusKey: 'failed' }).mockResolvedValueOnce({ ...task, version: 2 }); await setup(); await wrapper.get('[data-testid="document-public-share-content-retry"]').trigger('click'); await flushPromises(); expect(api.loadDocumentSharePreviewTaskContentByCode).not.toHaveBeenCalled(); expect(api.createDocumentSharePreviewTaskByCode).toHaveBeenCalledOnce();

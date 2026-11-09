@@ -141,18 +141,19 @@ export async function batchCreateDocumentShares(
   return value;
 }
 
-/** 公开读取只携带本次冻结的口令副本，不混入管理会话字段。 */
+/** 公开请求仅携带本次操作的口令、幂等键或匿名分享凭据。 */
 function publicShareInput(shareCode: string, req: AccessHostDocumentShareRequest) {
   const code = shareCode.trim();
   if (!code) throw new Error('client.invalid_public_document_share_code');
   if (!isAccessHostDocumentShareRequest(req)) throw new Error('client.invalid_access_document_share_request');
-  return { shareCode: code, body: req.password === undefined ? {} : { password: req.password } };
+  const { password, requestKey, previewGrant, accessTypeKey } = req;
+  return { shareCode: code, body: { password, requestKey, previewGrant, accessTypeKey } };
 }
 const nonNilGuid = (value: string) => isGuid(value) && value !== '00000000-0000-0000-0000-000000000000';
 function checkPublicPreviewTask(task: Omit<HostDocumentPreviewTaskResponse, 'outputAvailabilityKey'> & { outputAvailabilityKey?: unknown }): asserts task is HostDocumentPreviewTaskResponse {
   if (task.outputAvailabilityKey != null
     || !nonNilGuid(task.id) || !nonNilGuid(task.documentItemId) || !nonNilGuid(task.sourceFileId)
-    || task.versionId !== null || !Number.isSafeInteger(task.version) || task.version < 1)
+    || task.versionId === null || !nonNilGuid(task.versionId) || !Number.isSafeInteger(task.version) || task.version < 1)
     throw new Error('client.invalid_document_preview_task_identity');
 }
 /** 通过分享码访问文档分享，可附带访问密码等公开访问参数。 */
@@ -175,7 +176,7 @@ export async function accessDocumentShareByCode(
   return value;
 }
 
-/** 通过分享码读取文档文件内容（匿名，可附带访问密码）。 */
+/** 使用匿名分享凭据读取会话绑定的文件。 */
 export async function loadDocumentShareContentByCode(
   shareCode: string,
   req: AccessHostDocumentShareRequest = {},

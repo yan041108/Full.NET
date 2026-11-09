@@ -3,10 +3,19 @@ import AxeBuilder from '@axe-core/playwright';
 import path from 'node:path';
 const id='019bc2b1-2a40-7cc3-8992-a80de51bf299',other='019bc2b1-2a40-7cc3-8992-a80de51bf298';
 const task={id,documentItemId:id,documentTitle:'预览归属样例',versionId:null,sourceFileId:id,outputFileId:id,statusKey:'succeeded',providerKey:'fixture',errorCode:null,requestedByUserId:id,createdAtUtc:'2026-10-10T00:00:00Z',startedAtUtc:null,completedAtUtc:null,version:1};
-const access=(code,title,mimeType='text/plain')=>({shareId:id,documentId:id,shareCode:code,title,fileName:'spec.docx',mimeType,fileSizeBytes:12,hasPassword:false,accessCountRemaining:9});
+const publicTask={...task,versionId:other,requestedByUserId:null,previewGrant:'fixture-grant',previewPollUntilUtc:'2099-01-01T00:00:00Z'};
+const access=(code,title,mimeType='text/plain')=>({shareId:id,documentId:id,shareCode:code,title,fileName:'spec.docx',mimeType,fileSizeBytes:12,hasPassword:false,accessCountRemaining:9,previewGrant:'fixture-grant'});
 const json=(route,value)=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(value)});
 const office='application/vnd.openxmlformats-officedocument.wordprocessingml.document';
 async function publicBoot(page){await page.addInitScript(()=>localStorage.setItem('fullnet.admin.locale','zh-CN'));await page.route('**/api/v1/**',route=>route.fulfill({status:404}));}
+async function officeBoot(page){
+ await publicBoot(page);
+ await page.route('**/api/v1/document/public/preview-capabilities',route=>json(route,{enabled:true,allowedMimeTypes:[office],maxInputBytes:52428800,maxAttempts:3,providerKey:'fixture'}));
+ await page.route('**/api/v1/document/public/shares/OLD/access',route=>{
+  expect(route.request().postDataJSON().requestKey).toMatch(/^[0-9a-f-]{36}$/);
+  return json(route,access('OLD','当前分享',office));
+ });
+}
 
 test('公开分享切换码后重读新分享，旧访问迟到不能覆盖',async({page})=>{
  await publicBoot(page);let release,started=false,finished=false,oldCancelled=false;page.on('requestfailed',request=>{if(request.url().endsWith('/OLD/access'))oldCancelled=true;});const pending=new Promise(resolve=>{release=resolve;});
@@ -17,23 +26,34 @@ test('公开分享切换码后重读新分享，旧访问迟到不能覆盖',asy
  await page.goto('/#/document/share/NEW');await expect(page.getByText('新分享文档',{exact:true})).toBeVisible();release();await expect.poll(()=>finished).toBe(true);await expect.poll(()=>oldCancelled).toBe(true);
  await expect(page.getByText('旧分享敏感文档')).toHaveCount(0);await expect(page.locator('iframe')).toBeVisible();
 });
-for(const change of [{documentItemId:other},{versionId:other}]){
+for(const change of [{documentItemId:other},{versionId:null}]){
  test('公开分享拒绝错配预览创建 '+Object.keys(change)[0],async({page})=>{
-  await publicBoot(page);let polls=0,contents=0;
-  await page.route('**/api/v1/document/public/shares/OLD/access',route=>json(route,access('OLD','当前分享',office)));
-  await page.route('**/api/v1/document/public/shares/OLD/preview-task',route=>json(route,{...task,...change}));
+  await officeBoot(page);let polls=0,contents=0;
+  await page.route('**/api/v1/document/public/shares/OLD/preview-task',route=>json(route,{...publicTask,...change}));
   await page.route('**/api/v1/document/public/shares/OLD/preview-tasks/*',route=>{polls++;return json(route,task);});
   await page.route('**/api/v1/document/public/shares/OLD/preview-tasks/*/content',route=>{contents++;return route.fulfill({status:200,contentType:'application/pdf',body:'controlled'});});
   await page.goto('/#/document/share/OLD');await expect(page.locator('.el-alert')).toBeVisible();expect(polls).toBe(0);expect(contents).toBe(0);await expect(page.locator('iframe')).toHaveCount(0);
  });
 }
 test('公开分享轮询拒绝其他任务ID，不下载输出',async({page})=>{
- await publicBoot(page);let contents=0;
- await page.route('**/api/v1/document/public/shares/OLD/access',route=>json(route,access('OLD','当前分享',office)));
- await page.route('**/api/v1/document/public/shares/OLD/preview-task',route=>json(route,task));
- await page.route('**/api/v1/document/public/shares/OLD/preview-tasks/'+id,route=>json(route,{...task,id:other}));
+ await officeBoot(page);let contents=0;
+ await page.route('**/api/v1/document/public/shares/OLD/preview-task',route=>json(route,publicTask));
+ await page.route('**/api/v1/document/public/shares/OLD/preview-tasks/'+id,route=>json(route,{...publicTask,id:other}));
  await page.route('**/api/v1/document/public/shares/OLD/preview-tasks/*/content',route=>{contents++;return route.fulfill({status:200,contentType:'application/pdf',body:'controlled'});});
  await page.goto('/#/document/share/OLD');await expect(page.locator('.el-alert')).toBeVisible();expect(contents).toBe(0);await expect(page.locator('iframe')).toHaveCount(0);
+});
+test('公开分享凭据贯穿固定版本的创建、轮询和 PDF 读取',async({page})=>{
+ await officeBoot(page);const calls=[];
+ for(const [suffix,kind] of [['preview-task','create'],[`preview-tasks/${id}`,'poll'],[`preview-tasks/${id}/content`,'content']]){
+  await page.route(`**/api/v1/document/public/shares/OLD/${suffix}`,route=>{
+   expect(route.request().postDataJSON()).toEqual({previewGrant:'fixture-grant'});
+   expect(route.request().headers().authorization).toBeUndefined();calls.push(kind);
+   return kind==='content' ? route.fulfill({status:200,contentType:'application/pdf',body:'%PDF-1.7\nfixture'}) : json(route,publicTask);
+  });
+ }
+ await page.goto('/#/document/share/OLD');
+ await expect(page.locator('iframe')).toBeVisible();
+ expect(calls).toEqual(['create','poll','content']);
 });
 async function hostBoot(page,rows=[]){
  await publicBoot(page);let lists=0;
@@ -92,7 +112,10 @@ test('公开分享输错密码后仍能输入正确密码完成预览',async({pa
   if(body.password!=='correct')return route.fulfill({status:403,contentType:'application/problem+json',body:JSON.stringify({status:403,code:'document.host_share.access_denied',title:'密码错误'})});
   return json(route,access('OLD','密码分享文档'));
  });
- await page.route('**/api/v1/document/public/shares/OLD/content',route=>{expect(route.request().postDataJSON().password).toBe('correct');return route.fulfill({status:200,contentType:'text/plain',body:'controlled'});});
+ await page.route('**/api/v1/document/public/shares/OLD/content',route=>{
+  const body=route.request().postDataJSON();expect(body.previewGrant).toBe('fixture-grant');expect(body.accessTypeKey).toBe('preview');expect(body.password).toBeUndefined();
+  return route.fulfill({status:200,contentType:'text/plain',body:'controlled'});
+ });
  await page.goto('/#/document/share/OLD');await page.getByTestId('document-public-share-password').fill('wrong');await page.getByTestId('document-public-share-submit').click();
  await expect(page.getByText('密码错误',{exact:true})).toBeVisible();await expect(page.getByTestId('document-public-share-password')).toBeVisible();
  await page.getByTestId('document-public-share-password').fill('correct');await page.getByTestId('document-public-share-submit').click();

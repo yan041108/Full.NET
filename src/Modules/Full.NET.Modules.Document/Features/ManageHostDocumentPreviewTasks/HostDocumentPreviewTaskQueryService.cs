@@ -131,27 +131,34 @@ internal sealed class HostDocumentPreviewTaskQueryService(
         Guid taskId,
         CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         var task = await queryExecutor.QuerySingleOrDefaultAsync<DocumentPreviewTaskRecord>(
             DocumentPreviewTaskSql.FindById, DocumentSqlParameters.Create(("Id", taskId)), cancellationToken).ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
         if (task is null) return Result<HostFileContent>.Failure(TaskNotFoundError());
-        if (await accessPolicy.CheckAsync(task.DocumentItemId, DocumentOperation.Read, cancellationToken).ConfigureAwait(false) is { } error)
-            return Result<HostFileContent>.Failure(error);
+        var error = await accessPolicy.CheckAsync(task.DocumentItemId, DocumentOperation.Read, cancellationToken).ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
+        if (error is not null) return Result<HostFileContent>.Failure(error);
         // 状态判断和打开文件使用同一已授权快照，避免完成竞态把旧空输出与新结果比较成 404。
         var content = await OpenOutputSnapshotAsync(task, cancellationToken).ConfigureAwait(false);
         if (!content.IsSuccess) return content;
         var transferred = false;
         try
         {
-            if (await accessPolicy.CheckAsync(task.DocumentItemId, DocumentOperation.Read, cancellationToken).ConfigureAwait(false) is { } denied)
-                return Result<HostFileContent>.Failure(denied);
+            var denied = await accessPolicy.CheckAsync(task.DocumentItemId, DocumentOperation.Read, cancellationToken).ConfigureAwait(false);
+            cancellationToken.ThrowIfCancellationRequested();
+            if (denied is not null) return Result<HostFileContent>.Failure(denied);
             var item = await queryExecutor.QuerySingleOrDefaultAsync<DocumentItemDetailRecord>(DocumentItemSql.FindActiveById,
                 DocumentSqlParameters.Create(("Id", task.DocumentItemId)), cancellationToken).ConfigureAwait(false);
+            cancellationToken.ThrowIfCancellationRequested();
             var current = await queryExecutor.QuerySingleOrDefaultAsync<DocumentPreviewTaskRecord>(DocumentPreviewTaskSql.FindById,
                 DocumentSqlParameters.Create(("Id", taskId)), cancellationToken).ConfigureAwait(false);
+            cancellationToken.ThrowIfCancellationRequested();
             if (item is null || current?.StatusKey != HostDocumentPreviewTaskStatusKeys.Succeeded || current.OutputFileId != task.OutputFileId)
                 return Result<HostFileContent>.Failure(TaskNotFoundError());
             await logs.RecordAsync(task.DocumentItemId, task.DocumentTitle, HostDocumentAccessTypeKeys.Preview,
                 HostDocumentAccessSourceKeys.Authenticated, accessPolicy.ActorUserId, null, cancellationToken, taskId).ConfigureAwait(false);
+            cancellationToken.ThrowIfCancellationRequested();
             transferred = true;
             return content;
         }

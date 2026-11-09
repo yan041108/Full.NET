@@ -131,7 +131,7 @@ internal sealed class HostDocumentItemQueryService(
         Guid itemId,
         DocumentAccessObservation? accessObservation = null,
         CancellationToken cancellationToken = default) =>
-        accessPolicy.AuthorizeAsync(itemId, DocumentOperation.Read,
+        AuthorizeContentAsync(itemId,
             () => OpenCurrentVersionContentAuthorizedAsync(itemId, accessObservation, cancellationToken), cancellationToken);
 
     internal async Task<Result<HostFileContent>> OpenCurrentVersionContentAuthorizedAsync(
@@ -139,12 +139,14 @@ internal sealed class HostDocumentItemQueryService(
         DocumentAccessObservation? accessObservation = null,
         CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         var record = await queryExecutor
             .QuerySingleOrDefaultAsync<DocumentItemDetailRecord>(
                 DocumentItemSql.FindActiveById,
                 DocumentSqlParameters.Create(("Id", itemId)),
                 cancellationToken)
             .ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
         if (record is null)
         {
             return Result<HostFileContent>.Failure(NotFoundError());
@@ -160,10 +162,11 @@ internal sealed class HostDocumentItemQueryService(
             .ConfigureAwait(false);
         if (!contentResult.IsSuccess)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             return contentResult;
         }
 
-        return await RevalidateContentAsync(itemId, contentResult, accessObservation, cancellationToken).ConfigureAwait(false);
+        return await RevalidateContentAsync(itemId, contentResult, accessObservation, false, cancellationToken).ConfigureAwait(false);
     }
 
     public async Task<Result<PagedResult<HostDocumentVersionResponse>>> ListVersionsAsync(
@@ -217,8 +220,17 @@ internal sealed class HostDocumentItemQueryService(
         Guid? versionId,
         DocumentAccessObservation? accessObservation = null,
         CancellationToken cancellationToken = default) =>
-        accessPolicy.AuthorizeAsync(itemId, DocumentOperation.Read,
+        AuthorizeContentAsync(itemId,
             () => OpenVersionPreviewAuthorizedAsync(itemId, versionId, accessObservation, cancellationToken), cancellationToken);
+
+    private async Task<Result<HostFileContent>> AuthorizeContentAsync(Guid itemId, Func<Task<Result<HostFileContent>>> read,
+        CancellationToken token)
+    {
+        token.ThrowIfCancellationRequested();
+        var denied = await accessPolicy.CheckAsync(itemId, DocumentOperation.Read, token).ConfigureAwait(false);
+        token.ThrowIfCancellationRequested();
+        return denied is null ? await read().ConfigureAwait(false) : Result<HostFileContent>.Failure(denied);
+    }
 
     private async Task<Result<HostFileContent>> OpenVersionPreviewAuthorizedAsync(
         Guid itemId,
@@ -232,6 +244,7 @@ internal sealed class HostDocumentItemQueryService(
                 DocumentSqlParameters.Create(("Id", itemId)),
                 cancellationToken)
             .ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
         if (item is null)
         {
             return Result<HostFileContent>.Failure(NotFoundError());
@@ -249,16 +262,11 @@ internal sealed class HostDocumentItemQueryService(
             .ConfigureAwait(false);
         if (!contentResult.IsSuccess)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             return contentResult;
         }
 
-        if (!IsPreviewSupportedMime(contentResult.Value!.ContentType))
-        {
-            contentResult.Value.Content.Dispose();
-            return Result<HostFileContent>.Failure(PreviewNotSupportedError());
-        }
-
-        return await RevalidateContentAsync(itemId, contentResult, accessObservation, cancellationToken).ConfigureAwait(false);
+        return await RevalidateContentAsync(itemId, contentResult, accessObservation, true, cancellationToken).ConfigureAwait(false);
     }
 
     private async Task<Result<Guid>> ResolvePreviewFileIdAsync(
@@ -274,6 +282,7 @@ internal sealed class HostDocumentItemQueryService(
                     DocumentSqlParameters.Create(("Id", itemId)),
                     cancellationToken)
                 .ConfigureAwait(false);
+            cancellationToken.ThrowIfCancellationRequested();
             if (record is null)
             {
                 return Result<Guid>.Failure(NotFoundError());
@@ -293,6 +302,7 @@ internal sealed class HostDocumentItemQueryService(
                 DocumentSqlParameters.Create(("VersionId", versionId.Value), ("DocumentItemId", itemId)),
                 cancellationToken)
             .ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
         if (version is null)
         {
             return Result<Guid>.Failure(NotFoundError());
@@ -303,17 +313,23 @@ internal sealed class HostDocumentItemQueryService(
 
     /// <summary>文件读取可能等待外部存储；移交流前重查撤权与删除，拒绝或异常时本层负责释放。</summary>
     private async Task<Result<HostFileContent>> RevalidateContentAsync(Guid itemId,
-        Result<HostFileContent> content, DocumentAccessObservation? observation, CancellationToken token)
+        Result<HostFileContent> content, DocumentAccessObservation? observation, bool requirePreviewMime, CancellationToken token)
     {
         var transferred = false;
         try
         {
-            if (await accessPolicy.CheckAsync(itemId, DocumentOperation.Read, token).ConfigureAwait(false) is { } denied)
-                return Result<HostFileContent>.Failure(denied);
+            token.ThrowIfCancellationRequested();
+            if (requirePreviewMime && !IsPreviewSupportedMime(content.Value!.ContentType))
+                return Result<HostFileContent>.Failure(PreviewNotSupportedError());
+            var denied = await accessPolicy.CheckAsync(itemId, DocumentOperation.Read, token).ConfigureAwait(false);
+            token.ThrowIfCancellationRequested();
+            if (denied is not null) return Result<HostFileContent>.Failure(denied);
             var current = await queryExecutor.QuerySingleOrDefaultAsync<DocumentItemDetailRecord>(DocumentItemSql.FindActiveById,
                 DocumentSqlParameters.Create(("Id", itemId)), token).ConfigureAwait(false);
+            token.ThrowIfCancellationRequested();
             if (current is null) return Result<HostFileContent>.Failure(NotFoundError());
             await TryRecordAccessAsync(current, observation, token).ConfigureAwait(false);
+            token.ThrowIfCancellationRequested();
             transferred = true;
             return content;
         }

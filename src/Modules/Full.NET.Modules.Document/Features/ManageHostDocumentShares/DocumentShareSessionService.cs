@@ -85,6 +85,7 @@ internal sealed class DocumentShareSessionService(
 
     private async Task<Result<AuthorizedShareSession>> ResolveSnapshotAsync(string code, string? credential, CancellationToken token)
     {
+        token.ThrowIfCancellationRequested();
         if (string.IsNullOrEmpty(credential) || credential.Length > 4096) return Denied<AuthorizedShareSession>();
         Guid sessionId;
         try
@@ -94,10 +95,13 @@ internal sealed class DocumentShareSessionService(
         catch (System.Security.Cryptography.CryptographicException) { return Denied<AuthorizedShareSession>(); }
         var session = await queries.QuerySingleOrDefaultAsync<DocumentShareSessionRecord>(DocumentShareSessionSql.FindById,
             DocumentSqlParameters.Create(("Id", sessionId)), token).ConfigureAwait(false);
+        token.ThrowIfCancellationRequested();
         if (session is null) return Denied<AuthorizedShareSession>();
         var share = await FindShareAsync(code, token).ConfigureAwait(false);
+        token.ThrowIfCancellationRequested();
         var item = await queries.QuerySingleOrDefaultAsync<DocumentItemDetailRecord>(DocumentItemSql.FindActiveById,
             DocumentSqlParameters.Create(("Id", session.DocumentId)), token).ConfigureAwait(false);
+        token.ThrowIfCancellationRequested();
         return item is not null && share is not null && share.Id == session.ShareId && Matches(session, item, share)
             ? Result<AuthorizedShareSession>.Success(new(session, item.Title)) : Denied<AuthorizedShareSession>();
     }
@@ -105,6 +109,7 @@ internal sealed class DocumentShareSessionService(
     internal async Task<Result<HostFileContent>> ReadAsync(string code, AccessHostDocumentShareRequest request,
         string? fingerprint, CancellationToken token)
     {
+        token.ThrowIfCancellationRequested();
         if (request.AccessTypeKey is not null && request.AccessTypeKey != HostDocumentAccessTypeKeys.Download
             && request.AccessTypeKey != HostDocumentAccessTypeKeys.Preview) return Denied<HostFileContent>();
         var authorized = await ResolveSnapshotAsync(code, request.PreviewGrant, token).ConfigureAwait(false);
@@ -112,9 +117,14 @@ internal sealed class DocumentShareSessionService(
         var session = authorized.Value!.Session;
         var version = await queries.QuerySingleOrDefaultAsync<DocumentVersionRecord>(DocumentItemSql.FindVersionById,
             DocumentSqlParameters.Create(("DocumentItemId", session.DocumentId), ("VersionId", session.VersionId)), token).ConfigureAwait(false);
+        token.ThrowIfCancellationRequested();
         if (version is null) return Denied<HostFileContent>();
         var opened = await contentReader.OpenReadyContentAsync(version.FileId, token).ConfigureAwait(false);
-        if (!opened.IsSuccess) return opened;
+        if (!opened.IsSuccess)
+        {
+            token.ThrowIfCancellationRequested();
+            return opened;
+        }
         var transferred = false;
         try
         {
@@ -122,6 +132,7 @@ internal sealed class DocumentShareSessionService(
             if (!current.IsSuccess) return Result<HostFileContent>.Failure(current.Error!);
             await logs.RecordAsync(session.DocumentId, current.Value!.DocumentTitle, (request.AccessTypeKey ?? HostDocumentAccessTypeKeys.Download),
                 HostDocumentAccessSourceKeys.Share, null, fingerprint, token, request.RequestKey == Guid.Empty ? session.Id : request.RequestKey).ConfigureAwait(false);
+            token.ThrowIfCancellationRequested();
             transferred = true;
             return opened;
         }

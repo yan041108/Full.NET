@@ -15,3 +15,12 @@ export const documentPreviewTask: HostDocumentPreviewTaskResponse = {
   outputFileId: outputId, statusKey: 'succeeded', providerKey: 'fixture', errorCode: null, requestedByUserId: outputId,
   createdAtUtc: importTask.createdAtUtc, startedAtUtc: null, completedAtUtc: importTask.createdAtUtc, version: 1
 };
+export const publicDocumentPreviewTask: HostDocumentPreviewTaskResponse = {
+  ...documentPreviewTask, versionId: '019bc2b1-2a40-7cc3-8992-a80de51bf297', requestedByUserId: null,
+  previewGrant: 'fixture-grant', previewPollUntilUtc: '2099-01-01T00:00:00Z'
+};
+export const publicShareCapabilities = {
+  enabled: true,
+  allowedMimeTypes: ['application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'],
+  maxInputBytes: 52428800, maxAttempts: 3, providerKey: 'external_http'
+};

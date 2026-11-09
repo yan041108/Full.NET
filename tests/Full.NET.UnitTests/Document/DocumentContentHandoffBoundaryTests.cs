@@ -11,6 +11,7 @@ using Full.NET.Modules.Document.Features.ManageHostDocumentShares;
 using Full.NET.Modules.Document.Persistence;
 using Full.NET.Modules.Document.Security;
 using Full.NET.Modules.Files.Contracts;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.Extensions.Options;
 using NSubstitute;
 using Errors = Full.NET.Modules.Document.Contracts.DocumentErrorCodes;
@@ -60,10 +61,10 @@ public sealed class DocumentContentHandoffBoundaryTests
     [DataRow("share-task", "final-share")]
     [DataRow("share-current", "final-document")]
     [DataRow("share-task", "final-document")]
-    [DataRow("share-current", "password")]
-    [DataRow("share-task", "password")]
-    [DataRow("share-current", "password-denied")]
-    [DataRow("share-task", "password-denied")]
+    [DataRow("share-current", "session")]
+    [DataRow("share-task", "session")]
+    [DataRow("share-current", "session-missing")]
+    [DataRow("share-task", "session-missing")]
     [DataRow("share-current", "share-initial")]
     [DataRow("share-task", "share-initial")]
     [DataRow("share-current", "share-initial-missing")]
@@ -196,6 +197,7 @@ public sealed class DocumentContentHandoffBoundaryTests
         private readonly HostDocumentItemQueryService items;
         private readonly HostDocumentPreviewTaskQueryService tasks;
         private readonly HostDocumentShareManagementService shares;
+        private readonly AccessHostDocumentShareRequest shareRequest;
 
         public Fixture(string stage)
         {
@@ -215,13 +217,14 @@ public sealed class DocumentContentHandoffBoundaryTests
             {
                 if (stage is "source" or "source-missing" || stage == "final-document" && HandedOff) Cancellation.Cancel();
                 if (stage == "source-missing" || stage == "final-document" && HandedOff) return null;
-                return new DocumentItemDetailRecord { Id = itemId, FileId = fileId };
+                return new DocumentItemDetailRecord { Id = itemId, FileId = fileId, VersionId = versionId,
+                    Status = (int)HostDocumentStatus.Published };
             });
             Query.QuerySingleOrDefaultAsync<DocumentPreviewTaskRecord>(DocumentPreviewTaskSql.FindById, Arg.Any<object>(), Arg.Any<CancellationToken>()).Returns(_ =>
             {
                 if (stage is "source" or "source-missing") Cancellation.Cancel();
                 return stage == "source-missing" ? null : new DocumentPreviewTaskRecord
-                { Id = taskId, DocumentItemId = itemId, OutputFileId = fileId, StatusKey = HostDocumentPreviewTaskStatusKeys.Succeeded };
+                { Id = taskId, DocumentItemId = itemId, VersionId = versionId, OutputFileId = fileId, StatusKey = HostDocumentPreviewTaskStatusKeys.Succeeded };
             });
             Query.QuerySingleOrDefaultAsync<DocumentVersionRecord>(DocumentItemSql.FindVersionById, Arg.Any<object>(), Arg.Any<CancellationToken>()).Returns(_ =>
             {
@@ -233,11 +236,15 @@ public sealed class DocumentContentHandoffBoundaryTests
                 if (stage is "share-initial" or "share-initial-missing") Cancellation.Cancel();
                 if (stage == "share-initial-missing") return null;
                 if (stage == "final-share" && HandedOff) { Cancellation.Cancel(); return null; }
-                return new DocumentShareRecord { Id = shareId, DocumentId = itemId, IsEnabled = true, ExpireTime = now.AddHours(1), AccessCount = 1,
-                    PasswordHash = stage is "password" or "password-denied" ? "fixture-hash" : null };
+                return new DocumentShareRecord { Id = shareId, DocumentId = itemId, IsEnabled = true, ExpireTime = now.AddHours(1), AccessCount = 1 };
+            });
+            Query.QuerySingleOrDefaultAsync<DocumentShareSessionRecord>(DocumentShareSessionSql.FindById, Arg.Any<object>(), Arg.Any<CancellationToken>()).Returns(_ =>
+            {
+                if (stage is "session" or "session-missing") Cancellation.Cancel();
+                return stage == "session-missing" ? null : new DocumentShareSessionRecord
+                { Id = taskId, ShareId = shareId, DocumentId = itemId, VersionId = versionId, ExpiresAtUtc = now.AddMinutes(15) };
             });
             var hasher = Substitute.For<IDocumentSharePasswordHasher>();
-            hasher.Verify(shareId, "fixture-hash", "fixture-password").Returns(_ => { Cancellation.Cancel(); return stage != "password-denied"; });
             var clock = Substitute.For<IClock>(); clock.UtcNow.Returns(now);
             var database = Options.Create(new DatabaseOptions { Provider = DatabaseProvider.SqlServer });
             var recorder = new DocumentAccessLogRecorder(Command, Transaction, clock, Substitute.For<IIdGenerator>());
@@ -271,7 +278,13 @@ public sealed class DocumentContentHandoffBoundaryTests
             IDocumentAccessPolicy policy = stage.StartsWith("policy-", StringComparison.Ordinal) ? new CancellingAccessPolicy(Cancellation, stage == "policy-denied") : new TestDocumentAccessPolicy();
             items = new(Multi, Query, files, recorder, new(Query, Command, null!), database, policy);
             tasks = new(Query, Multi, files, database, policy, recorder, null!);
-            shares = new(Query, Command, Transaction, null!, null!, tasks, clock, Substitute.For<IIdGenerator>(), hasher, new TestDocumentAccessPolicy(), null!, null!, recorder);
+            var protection = new EphemeralDataProtectionProvider();
+            var ids = Substitute.For<IIdGenerator>();
+            var sessions = new DocumentShareSessionService(Query, Command, Transaction, null!, clock, ids, hasher,
+                protection, files, recorder, Options.Create(new DocumentShareSessionOptions()));
+            shareRequest = new() { PreviewGrant = protection.CreateProtector("Full.NET.Document.ShareSession.v1").Protect(taskId.ToString("N")) };
+            shares = new(Query, Command, Transaction, null!, null!, tasks, clock, ids, hasher,
+                new TestDocumentAccessPolicy(), sessions, null!, recorder);
         }
 
         public Task<Result<HostFileContent>> Open(string entry) => entry switch
@@ -280,8 +293,8 @@ public sealed class DocumentContentHandoffBoundaryTests
             "preview-current" => items.OpenVersionPreviewAsync(itemId, null, cancellationToken: Cancellation.Token),
             "preview-version" => items.OpenVersionPreviewAsync(itemId, versionId, cancellationToken: Cancellation.Token),
             "task" => tasks.OpenOutputContentAsync(taskId, Cancellation.Token),
-            "share-current" => shares.OpenAnonymousContentAsync("share", new("fixture-password"), null, Cancellation.Token),
-            _ => shares.OpenAnonymousPreviewTaskContentAsync("share", taskId, new("fixture-password"), Cancellation.Token),
+            "share-current" => shares.OpenAnonymousContentAsync("share", shareRequest, null, Cancellation.Token),
+            _ => shares.OpenAnonymousPreviewTaskContentAsync("share", taskId, shareRequest, Cancellation.Token),
         };
         public Task Metadata(string operation) => operation switch
         {

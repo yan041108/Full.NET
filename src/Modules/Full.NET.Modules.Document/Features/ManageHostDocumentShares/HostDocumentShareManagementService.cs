@@ -254,6 +254,7 @@ internal sealed class HostDocumentShareManagementService(
             if (!current.IsSuccess) return Result<HostFileContent>.Failure(current.Error!);
             await accessLogs.RecordAsync(task.Value!.DocumentItemId, task.Value.DocumentTitle, HostDocumentAccessTypeKeys.Preview,
                 HostDocumentAccessSourceKeys.Share, null, null, cancellationToken, current.Value!.Id).ConfigureAwait(false);
+            cancellationToken.ThrowIfCancellationRequested();
             transferred = true;
             return content;
         }

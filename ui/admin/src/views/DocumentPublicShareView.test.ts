@@ -3,6 +3,7 @@ import { flushPromises, mount, type VueWrapper } from '@vue/test-utils';
 import { reactive } from 'vue';
 import DocumentPublicShareView from './DocumentPublicShareView.vue';
 import { getDocumentPreviewCapabilities } from '../api/document-preview-tasks';
+import { publicDocumentPreviewTask } from '../test/task-lifecycle-fixtures';
 import {
   accessDocumentShareByCode,
   createDocumentSharePreviewTaskByCode,
@@ -31,8 +32,10 @@ const directMock = vi.mocked(loadDocumentShareContentByCode);
 const officeAccess = {
   title: 'Office 文件', fileName: 'preview.docx', accessCountRemaining: 3,
   mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-  fileSizeBytes: 1024, previewGrant: 'access-only-grant'
+  fileSizeBytes: 1024, previewGrant: 'access-only-grant', documentId: publicDocumentPreviewTask.documentItemId,
+  shareId: publicDocumentPreviewTask.id, shareCode: 'alpha', hasPassword: false
 };
+const originalTask = publicDocumentPreviewTask;
 let wrapper: VueWrapper | undefined;
 
 function render() {
@@ -48,10 +51,10 @@ describe('匿名 Office 预览凭据与生命周期', () => {
     routing.route = reactive({ params: { shareCode: 'alpha' } });
     accessMock.mockReset().mockResolvedValue(officeAccess as never);
     createMock.mockReset().mockResolvedValue({
-      id: 'task-alpha', previewGrant: 'task-only-grant',
+      ...originalTask, previewGrant: 'task-only-grant',
       previewPollUntilUtc: new Date(Date.now() + 60_000).toISOString()
     } as never);
-    pollMock.mockReset().mockResolvedValue({ statusKey: 'succeeded' } as never);
+    pollMock.mockReset().mockResolvedValue({ ...originalTask, statusKey: 'succeeded' } as never);
     contentMock.mockReset().mockResolvedValue(new Blob(['pdf'], { type: 'application/pdf' }));
     directMock.mockReset().mockResolvedValue(new Blob(['new'], { type: 'application/pdf' }));
     vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:preview');
@@ -69,7 +72,7 @@ describe('匿名 Office 预览凭据与生命周期', () => {
     await flushPromises();
     expect(createMock).toHaveBeenCalledExactlyOnceWith('alpha',
       { previewGrant: 'access-only-grant' }, expect.any(AbortSignal));
-    expect(pollMock).toHaveBeenCalledExactlyOnceWith('alpha', 'task-alpha',
+    expect(pollMock).toHaveBeenCalledExactlyOnceWith('alpha', originalTask.id,
       { previewGrant: 'task-only-grant' }, expect.any(AbortSignal));
     await vi.advanceTimersByTimeAsync(1999);
     expect(pollMock).toHaveBeenCalledTimes(1);
@@ -77,9 +80,9 @@ describe('匿名 Office 预览凭据与生命周期', () => {
     await vi.advanceTimersByTimeAsync(1);
     await flushPromises();
     expect(pollMock).toHaveBeenCalledTimes(2);
-    expect(pollMock).toHaveBeenLastCalledWith('alpha', 'task-alpha',
+    expect(pollMock).toHaveBeenLastCalledWith('alpha', originalTask.id,
       { previewGrant: 'task-only-grant' }, expect.any(AbortSignal));
-    expect(contentMock).toHaveBeenCalledExactlyOnceWith('alpha', 'task-alpha',
+    expect(contentMock).toHaveBeenCalledExactlyOnceWith('alpha', originalTask.id,
       { previewGrant: 'task-only-grant' }, expect.any(AbortSignal));
     expect(directMock).not.toHaveBeenCalled();
     expect(accessMock).toHaveBeenCalledTimes(1);
@@ -87,9 +90,9 @@ describe('匿名 Office 预览凭据与生命周期', () => {
   });
 
   it('轮询响应不能延长创建时的固定截止，也不能替换任务凭据', async () => {
-    createMock.mockResolvedValueOnce({ id: 'task-alpha', previewGrant: 'task-only-grant',
+    createMock.mockResolvedValueOnce({ ...originalTask, previewGrant: 'task-only-grant',
       previewPollUntilUtc: new Date(Date.now() + 3000).toISOString() } as never);
-    pollMock.mockResolvedValue({ statusKey: 'queued', previewGrant: 'replacement-grant',
+    pollMock.mockResolvedValue({ ...originalTask, statusKey: 'pending', previewGrant: 'replacement-grant',
       previewPollUntilUtc: new Date(Date.now() + 86400_000).toISOString() } as never);
     render(); await flushPromises();
     await vi.advanceTimersByTimeAsync(3000); await flushPromises();
@@ -105,7 +108,7 @@ describe('匿名 Office 预览凭据与生命周期', () => {
     pollMock.mockReturnValueOnce(old.promise);
     const page = render(); await flushPromises();
     const oldSignal = pollMock.mock.calls[0]![3]!;
-    accessMock.mockResolvedValueOnce({ ...officeAccess, title: '新分享', mimeType: 'application/pdf' } as never);
+    accessMock.mockResolvedValueOnce({ ...officeAccess, shareCode: 'beta', title: '新分享', mimeType: 'application/pdf' });
     routing.route!.params.shareCode = 'beta'; await flushPromises();
     expect(oldSignal.aborted).toBe(true);
     expect(directMock).toHaveBeenCalledWith('beta', expect.objectContaining({ previewGrant: 'access-only-grant', accessTypeKey: 'preview', requestKey: expect.any(String) }), expect.any(AbortSignal));
@@ -133,7 +136,7 @@ describe('匿名 Office 预览凭据与生命周期', () => {
     await flushPromises();
     expect(directMock).toHaveBeenCalledExactlyOnceWith('alpha', {
       previewGrant: 'access-only-grant', requestKey: expect.any(String), accessTypeKey: 'download'
-    });
+    }, expect.any(AbortSignal));
   });
 
   it('服务端关闭转换时不建任务且不把 Office 原文件装进预览框', async () => {
