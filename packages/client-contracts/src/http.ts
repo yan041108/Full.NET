@@ -1,5 +1,12 @@
 import { readProblemDetails } from './problem-details.js';
 
+/** 请求尚未取得 HTTP 响应，供界面区分连接故障和服务端拒绝。 */
+export class FullNetNetworkError extends TypeError {
+  constructor() {
+    super('The request did not receive an HTTP response.');
+  }
+}
+
 export interface AuthenticationBridge {
   getAccessToken: () => string | undefined;
   refresh: () => Promise<boolean>;
@@ -182,12 +189,20 @@ export function createHttpClient(apiBaseUrl = ''): HttpClient {
       }
     }
 
-    return await fetch(`${apiBaseUrl}${path}`, {
-      ...init,
-      credentials: 'include',
-      headers,
-      signal: signal ?? init.signal
-    });
+    const requestSignal = signal ?? init.signal;
+    try {
+      return await fetch(`${apiBaseUrl}${path}`, {
+        ...init,
+        credentials: 'include',
+        headers,
+        signal: requestSignal
+      });
+    } catch (error: unknown) {
+      if (!requestSignal?.aborted && error instanceof TypeError) {
+        throw new FullNetNetworkError();
+      }
+      throw error;
+    }
   }
 
   return {

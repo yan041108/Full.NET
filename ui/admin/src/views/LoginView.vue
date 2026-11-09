@@ -1,11 +1,7 @@
 <script setup lang="ts">
 import { computed, onActivated, onDeactivated, onMounted, onUnmounted, ref } from 'vue';
 import { ElButton, ElInput } from 'element-plus';
-import {
-  isFullNetProblemDetails,
-  type FullNetProblemDetails,
-  type PublicOAuthProvider
-} from '@fullnet/client-contracts';
+import type { FullNetProblemDetails, PublicOAuthProvider } from '@fullnet/client-contracts';
 import { useSessionStore } from '../auth/session';
 import LocaleSelector from '../i18n/LocaleSelector.vue';
 import { useAdminI18n } from '../i18n/adminI18n';
@@ -13,7 +9,7 @@ import ArtLoginLeftPanel from '../framework/art-design/auth/ArtLoginLeftPanel.vu
 import { buildOAuthAuthorizeUrl } from '../api/oauth-links';
 import { listPublicOAuthProviders } from '../api/oauth-providers';
 import { beginAdminOidcCenterLogin } from '../auth/oidc-center-login';
-import { resolveLoginProblemTitle } from '../auth/login-problem';
+import { resolveLoginProblemTitle, toLoginProblem } from '../auth/login-problem';
 import { adminIdentityAuthMode } from '../config/identity-auth';
 import { useRoute } from 'vue-router';
 
@@ -70,9 +66,7 @@ async function submitOidcCenter(): Promise<void> {
     await beginAdminOidcCenterLogin(route?.query.redirect);
   } catch (error: unknown) {
     if (inactive || current !== operation) return;
-    problem.value = isFullNetProblemDetails(error)
-      ? error
-      : { status: 500, code: 'client.oidc_login_failed', title: t('auth.oidcCenterFailed') };
+    problem.value = toLoginProblem(error, 'client.oidc_login_failed');
     oidcSubmitting.value = false;
   }
 }
@@ -89,9 +83,7 @@ async function submit(): Promise<void> {
     await session.login(username.value, password.value, controller.signal);
   } catch (error: unknown) {
     if (inactive || current !== operation) return;
-    problem.value = isFullNetProblemDetails(error)
-      ? error
-      : { status: 500, code: 'client.login_failed', title: t('auth.loginFailed') };
+    problem.value = toLoginProblem(error, 'client.login_failed');
   } finally {
     if (current === operation) {
       password.value = ''; submitting.value = false; loginController = undefined;

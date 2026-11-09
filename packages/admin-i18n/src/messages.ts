@@ -298,6 +298,11 @@ export const zhCN = {
   'auth.tokenNotice': '系统不会在浏览器持久化 Access Token',
   'auth.oauthTitle': '或使用外部身份登录',
   'auth.loginFailed': '登录请求未完成',
+  'auth.loginRateLimited': '登录请求过于频繁，请稍后再试。',
+  'auth.loginRateLimitedWithDelay': '登录请求过于频繁，请在 {seconds} 秒后再试。',
+  'auth.loginCsrfFailed': '当前页面的安全校验已失效，请刷新页面后重新登录。',
+  'auth.loginSessionUnavailable': '登录会话已失效或在其他位置更新，请重新登录。',
+  'auth.loginNetworkUnavailable': '未能连接到登录服务，请检查网络后重试。',
   'auth.insufficientPermissions':
     '账号密码已通过校验，但未分配可进入控制台的角色权限。请使用管理员在「用户管理」中为其配置角色（至少包含「导航读取」identity.navigation.read 及所需业务读权限）。',
   'auth.passwordChangeRequired':
@@ -6151,6 +6156,11 @@ const enUS = {
   'auth.tokenNotice': 'The browser never persists the access token',
   'auth.oauthTitle': 'Or sign in with an external identity',
   'auth.loginFailed': 'Sign-in request did not complete',
+  'auth.loginRateLimited': 'Too many sign-in requests. Try again later.',
+  'auth.loginRateLimitedWithDelay': 'Too many sign-in requests. Try again in {seconds} seconds.',
+  'auth.loginCsrfFailed': 'The security check for this page has expired. Reload the page and sign in again.',
+  'auth.loginSessionUnavailable': 'The session expired or changed elsewhere. Sign in again.',
+  'auth.loginNetworkUnavailable': 'Could not connect to the sign-in service. Check your connection and try again.',
   'auth.insufficientPermissions':
     'Your credentials were accepted, but no role grants access to the admin console. Ask an administrator to assign a role in User Management (at least identity.navigation.read and the required read permissions).',
   'auth.passwordChangeRequired':

@@ -71,6 +71,31 @@ describe('Vue 登录页', () => {
     await wrapper.get('input[name="password"]').setValue('Retry!123'); await wrapper.get('form').trigger('submit'); await flushPromises(); expect(login).toHaveBeenCalledTimes(2);
   });
 
+  it('实际登录请求未收到 HTTP 响应时显示连接诊断且不自动重试', async () => {
+    const pinia = createPinia();
+    setActivePinia(pinia);
+    const transport = vi.fn(async (path: string) => {
+      if (path === '/api/v1/auth/login') throw new TypeError('browser transport failure');
+      return new Response(null, { status: 404 });
+    });
+    vi.stubGlobal('fetch', transport);
+    const wrapper = mount(LoginView, { global: { plugins: [pinia] } });
+    try {
+      await wrapper.get('input[name="username"]').setValue('admin');
+      await wrapper.get('input[name="password"]').setValue('Password!123');
+      await wrapper.get('form').trigger('submit');
+      await flushPromises();
+      const alert = wrapper.get('[role="alert"]');
+      expect(alert.text()).toContain('client.network_unavailable');
+      expect(alert.text()).toContain('未能连接到登录服务');
+      expect(alert.text()).not.toContain('browser transport failure');
+      expect(transport.mock.calls.filter(([path]) => path === '/api/v1/auth/login')).toHaveLength(1);
+    } finally {
+      wrapper.unmount();
+      vi.unstubAllGlobals();
+    }
+  });
+
   it('离开页面取消本次登录请求', async () => {
     setActivePinia(createPinia()); let finish!: () => void;
     const login = vi.spyOn(useSessionStore(), 'login').mockImplementation(() => new Promise<void>(resolve => { finish = resolve; }));

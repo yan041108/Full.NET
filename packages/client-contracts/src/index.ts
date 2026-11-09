@@ -28,7 +28,8 @@ export {
 } from './self-service-profile.js';
 
 export {
-  createHttpClient
+  createHttpClient,
+  FullNetNetworkError
 } from './http.js';
 
 export type {
