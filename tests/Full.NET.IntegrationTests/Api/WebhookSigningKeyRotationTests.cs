@@ -6,6 +6,7 @@ using Full.NET.Abstractions.Messaging;
 using Full.NET.Abstractions.Tenancy;
 using Full.NET.Abstractions.Time;
 using Full.NET.Data.Abstractions;
+using Full.NET.IntegrationTests.Data;
 using Full.NET.IntegrationTests.Migrations;
 using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Identity.Security;
@@ -25,6 +26,58 @@ public sealed class WebhookSigningKeyRotationTests
 {
     private static readonly string[] Rights=[WebhookPermissions.SubscriptionsRead,WebhookPermissions.SubscriptionsManage,WebhookPermissions.SigningKeysRotate,"tenancy.tenants.switch"];
     private const string OldSecret="rotation-old-protected-secret",NewSecret="rotation-new-protected-secret";
+
+    [TestMethod]
+    [DataRow(DatabaseProvider.SqlServer)]
+    [DataRow(DatabaseProvider.MySql)]
+    public async Task Accepted_webhook_is_recorded_while_the_normal_permit_is_occupied(DatabaseProvider provider)
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(3));
+        var token = timeout.Token;
+        await using var fixture = await Fixture.CreateAsync(provider, token, withWorkerAdmission: true);
+        var eventId = await fixture.EnqueueAsync(token);
+        var releasePermit = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var permitHeld = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var sending = fixture.ProcessAsync(token);
+        Task? holding = null;
+        try
+        {
+            await fixture.Receiver.Started.Task.WaitAsync(TimeSpan.FromSeconds(10), token);
+            holding = HoldNormalPermitAsync();
+            await permitHeld.Task.WaitAsync(TimeSpan.FromSeconds(10), token);
+            fixture.Receiver.Release.TrySetResult();
+            Assert.AreEqual(1, await sending.WaitAsync(TimeSpan.FromSeconds(10), token));
+            var stamp = fixture.Receiver.Items.Single().Stamp;
+            Assert.AreEqual(eventId, stamp.EventId);
+            var recorded = await fixture.Db.ExecuteScalarAsync<long>(new CommandDefinition("""
+                SELECT COUNT(1) FROM fn_webhooks_delivery delivery
+                INNER JOIN fn_webhooks_delivery_attempt attempt ON attempt.DeliveryId=delivery.Id
+                WHERE delivery.Id=@Id AND delivery.EventId=@EventId AND delivery.Status='Delivered' AND delivery.AttemptCount=1
+                  AND attempt.OutcomeKey='delivered' AND attempt.HttpStatus=200 AND attempt.AppliedToDelivery=1
+                """, new { Id = stamp.DeliveryId, EventId = eventId }, cancellationToken: token));
+            Assert.AreEqual(1L, recorded, "普通许可释放前必须读回原应答和唯一成功尝试。");
+        }
+        finally
+        {
+            releasePermit.TrySetResult();
+            fixture.Receiver.Release.TrySetResult();
+            if (holding is not null) await holding;
+            if (!sending.IsCompleted) await sending;
+        }
+        Assert.AreEqual(0, await fixture.ProcessAsync(token));
+        Assert.HasCount(1, fixture.Receiver.Items);
+
+        async Task HoldNormalPermitAsync()
+        {
+            await using var scope = fixture.Factory.Services.CreateAsyncScope();
+            await scope.ServiceProvider.GetRequiredService<ICommandTransaction>().ExecuteAsync(async cancellationToken =>
+            {
+                permitHeld.TrySetResult();
+                await releasePermit.Task.WaitAsync(cancellationToken);
+                return true;
+            }, token);
+        }
+    }
 
     [TestMethod]
     [DataRow(DatabaseProvider.SqlServer)]
@@ -279,11 +332,15 @@ public sealed class WebhookSigningKeyRotationTests
     private sealed class Fixture:IAsyncDisposable
     {
         internal FullNetApiFactory Factory=null!;internal HttpClient Client=null!;internal DbConnection Db=null!;internal WebhookSubscriptionResponse Subscription=null!;internal string Path="";internal string? CreatedTenantDomain;internal readonly Clock Clock=new();internal readonly Receiver Receiver=new();internal bool ExpireAtCommit;
-        internal static async Task<Fixture> CreateAsync(DatabaseProvider provider,CancellationToken token, TenantActivityGate? activityGate = null)
+        internal static async Task<Fixture> CreateAsync(DatabaseProvider provider,CancellationToken token, TenantActivityGate? activityGate = null,
+            bool withWorkerAdmission = false)
         {
             var f=new Fixture();try{
             var cs=provider==DatabaseProvider.SqlServer?await SharedDatabaseFixture.CreateSqlServerDatabaseAsync():await SharedDatabaseFixture.CreateMySqlDatabaseAsync();
-            f.Factory=new(provider,cs,configureTestServices:services=>{services.RemoveAll<IClock>();services.AddSingleton<IClock>(f.Clock);services.RemoveAll<IHttpClientFactory>();services.AddSingleton<IHttpClientFactory>(f.Receiver);
+            if (withWorkerAdmission) cs = WorkerAdmissionTestConfiguration.WithSmallPool(provider, cs);
+            var settings = withWorkerAdmission ? WorkerAdmissionTestConfiguration.CreateSettings() : null;
+            f.Factory=new(provider,cs,settings,configureTestServices:services=>{services.RemoveAll<IClock>();services.AddSingleton<IClock>(f.Clock);services.RemoveAll<IHttpClientFactory>();services.AddSingleton<IHttpClientFactory>(f.Receiver);
+                if (withWorkerAdmission) services.PostConfigure<WebhookDeliveryWorkerOptions>(options => options.BatchSize = 1);
                 services.AddScoped<IndependentCurrentSessionAuthorization>();services.RemoveAll<IIndependentCurrentSessionAuthorization>();services.AddScoped<IIndependentCurrentSessionAuthorization>(sp=>new ExpiringAuthorization(sp.GetRequiredService<IndependentCurrentSessionAuthorization>(),()=>{if(f.ExpireAtCommit){f.ExpireAtCommit=false;f.Clock.Offset=TimeSpan.FromDays(2);}}));
                 if (activityGate is not null)
                 {

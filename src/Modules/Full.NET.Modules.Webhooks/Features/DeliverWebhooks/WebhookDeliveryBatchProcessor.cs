@@ -29,7 +29,8 @@ internal sealed class WebhookDeliveryBatchProcessor(
     IOptions<WebhookDeliveryWorkerOptions> workerOptions,
     ILogger<WebhookDeliveryBatchProcessor> logger,
     IIdGenerator idGenerator,
-    ITenantActivityReadPort tenantActivity)
+    ITenantActivityReadPort tenantActivity,
+    IDatabaseAdmissionPriorityScope admissionPriority)
 {
     internal const string TenantInactive = "webhooks.delivery.tenant_inactive";
     internal const string TenantClosed = "webhooks.delivery.tenant_closed";
@@ -104,9 +105,10 @@ internal sealed class WebhookDeliveryBatchProcessor(
         using var attemptCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         attemptCancellation.CancelAfter(TimeSpan.FromSeconds(Math.Clamp(_options.TimeoutSeconds, 1, LeaseSeconds - 5)));
         AttemptOutcome outcome;
+        var requestStarted = false;
         try
         {
-            outcome = await SendAsync(item, attemptCancellation.Token).ConfigureAwait(false);
+            outcome = await SendAsync(item, () => requestStarted = true, attemptCancellation.Token).ConfigureAwait(false);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }
         catch (OperationCanceledException)
@@ -124,6 +126,8 @@ internal sealed class WebhookDeliveryBatchProcessor(
         }
 
         // 落账异常必须向上传播并保留未确认尝试，不能被外发异常分支误记为接收端失败。
+        // 只在已开始外发后的结果事务使用关键许可，领取、校验与网络调用不占用预留连接。
+        using var priority = requestStarted ? admissionPriority.EnterCritical() : null;
         if (IsAdmissionCode(outcome.ErrorCode))
             await MarkNotSentAsync(item, outcome.ErrorCode!, cancellationToken).ConfigureAwait(false);
         else if (outcome.Error is null)
@@ -132,7 +136,7 @@ internal sealed class WebhookDeliveryBatchProcessor(
             await MarkFailureAsync(item, outcome.Error, outcome.ErrorCode!, outcome.HttpStatus, cancellationToken).ConfigureAwait(false);
     }
 
-    private async Task<AttemptOutcome> SendAsync(WebhookDeliveryWorkItem item, CancellationToken token)
+    private async Task<AttemptOutcome> SendAsync(WebhookDeliveryWorkItem item, Action markRequestStarted, CancellationToken token)
     {
         if (!Uri.TryCreate(item.TargetUrl, UriKind.Absolute, out var targetUri))
             return new("Target URL is invalid.", "webhooks.delivery.target_invalid", null);
@@ -173,6 +177,7 @@ internal sealed class WebhookDeliveryBatchProcessor(
         request.Headers.Add("X-FullNet-Delivery-Id", item.Id.ToString("D"));
         request.Headers.Add("X-FullNet-Event-Type", item.EventType);
         request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+        markRequestStarted();
         using var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, token).ConfigureAwait(false);
         return response.IsSuccessStatusCode ? new(null, null, (int)response.StatusCode)
             : new($"HTTP {(int)response.StatusCode}", "webhooks.delivery.http_error", (int)response.StatusCode);

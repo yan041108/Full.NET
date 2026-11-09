@@ -4,11 +4,10 @@ using Full.NET.Abstractions.Messaging;
 using Full.NET.Abstractions.Results;
 using Full.NET.Data.Abstractions;
 using Full.NET.IntegrationTests.Api;
+using Full.NET.IntegrationTests.Data;
 using Full.NET.Modules.Notifications.Contracts;
 using Full.NET.Modules.Notifications.Execution;
-using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.DependencyInjection;
-using MySqlConnector;
 
 namespace Full.NET.IntegrationTests.Notifications;
 
@@ -24,26 +23,11 @@ public sealed class NotificationWorkerAdmissionTests
     {
         using var budget = new CancellationTokenSource(TimeSpan.FromMinutes(3));
         var token = budget.Token;
-        var connectionString = provider == DatabaseProvider.SqlServer
-            ? new SqlConnectionStringBuilder(await SharedDatabaseFixture.CreateSqlServerDatabaseAsync()) { MaxPoolSize = 4 }.ConnectionString
-            : new MySqlConnectionStringBuilder(await SharedDatabaseFixture.CreateMySqlDatabaseAsync()) { MaximumPoolSize = 4 }.ConnectionString;
-        var settings = new Dictionary<string, string?>
-        {
-            ["DatabaseCapacity:Enabled"] = "true",
-            ["DatabaseCapacity:HostRole"] = "Worker",
-            ["DatabaseCapacity:PermitLimit"] = "1",
-            ["DatabaseCapacity:QueueLimit"] = "1",
-            ["DatabaseCapacity:AcquireTimeoutMilliseconds"] = "1500",
-            ["DatabaseCapacity:ExpectedMaxPoolSize"] = "4",
-            ["DatabaseCapacity:HealthReserve"] = "1",
-            ["DatabaseCapacity:CriticalWorkerReserve"] = "1",
-            ["DatabaseCapacity:AuthorizationReadReserve"] = "1",
-            ["DatabaseCapacity:ApiMaxReplicas"] = "1",
-            ["DatabaseCapacity:ApiMaxPoolSize"] = "4",
-            ["DatabaseCapacity:WorkerMaxReplicas"] = "2",
-            ["DatabaseCapacity:WorkerMaxPoolSize"] = "4",
-            ["DatabaseCapacity:TotalBudget"] = "12"
-        };
+        var database = provider == DatabaseProvider.SqlServer
+            ? await SharedDatabaseFixture.CreateSqlServerDatabaseAsync()
+            : await SharedDatabaseFixture.CreateMySqlDatabaseAsync();
+        var connectionString = WorkerAdmissionTestConfiguration.WithSmallPool(provider, database);
+        var settings = WorkerAdmissionTestConfiguration.CreateSettings();
         using var first = new FullNetApiFactory(provider, connectionString, settings,
             configureTestServices: ConfigureWorker);
         await first.InitializeAsync(token, useSchemaTemplate: false);
