@@ -1,3 +1,4 @@
+using Full.NET.Abstractions.Results;
 using Full.NET.Abstractions.Time;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -29,21 +30,31 @@ internal sealed class WorkflowRecoveryHostedProcessor(
     {
         while (!stoppingToken.IsCancellationRequested)
         {
-            var processedCount = 0;
+            var delay = PollingDelay;
             try
             {
-                processedCount = await ProcessOnceAsync(stoppingToken).ConfigureAwait(false);
+                var processedCount = await ProcessOnceAsync(stoppingToken).ConfigureAwait(false);
+                delay = GetDelayAfterBatch(processedCount);
             }
-            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+            catch (Exception) when (stoppingToken.IsCancellationRequested)
             {
+                // 停机取消可能由数据库驱动包装，宿主已停止时无需再次轮询。
                 break;
+            }
+            catch (ServiceCapacityExceededException exception)
+            {
+                // 遵守数据库准入的退避提示，再加有界抖动避免多个恢复实例同相重试。
+                var minimum = exception.RetryAfter > delay ? exception.RetryAfter : delay;
+                var jitterLimit = Math.Min(delay.TotalMilliseconds / 4, 1000);
+                delay = minimum + TimeSpan.FromMilliseconds(Random.Shared.NextDouble() * jitterLimit);
+                logger.LogWarning("Workflow recovery polling delayed by database capacity ({CapacityFailure}) for {RetryDelayMilliseconds} ms.",
+                    exception.Kind, delay.TotalMilliseconds);
             }
             catch (Exception exception)
             {
                 logger.LogError(exception, "Workflow recovery worker iteration failed.");
             }
 
-            var delay = GetDelayAfterBatch(processedCount);
             if (delay > TimeSpan.Zero)
             {
                 await Task.Delay(delay, stoppingToken).ConfigureAwait(false);
