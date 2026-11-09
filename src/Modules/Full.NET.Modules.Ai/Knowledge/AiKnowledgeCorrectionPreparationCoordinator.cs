@@ -1,3 +1,4 @@
+using Full.NET.Abstractions.Results;
 using Full.NET.Abstractions.Tenancy;
 using Full.NET.Abstractions.Time;
 using Full.NET.Data.Abstractions;
@@ -51,6 +52,11 @@ internal sealed class AiKnowledgeCorrectionPreparationCoordinator(IQueryExecutor
                 if (result is null) await queue.FailAsync(binding, held.Id, lease, token).ConfigureAwait(false);
             }
             catch (OperationCanceledException) when (token.IsCancellationRequested) { throw; }
+            catch (ServiceCapacityExceededException)
+            {
+                // 临时准入压力交给宿主退避，原准备记录由现有租约恢复路径接手。
+                throw;
+            }
             catch (Exception exception)
             {
                 Guard(token); await queue.FailAsync(binding, held.Id, lease, token).ConfigureAwait(false);

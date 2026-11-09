@@ -21,6 +21,7 @@ using Full.NET.Modules.Ai.Persistence;
 using Full.NET.Modules.Identity.Contracts;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -88,9 +89,28 @@ public sealed class AiKnowledgeCorrectionWorkbenchApiTests
             var snapshot = await db.QuerySingleAsync<string>("SELECT RequestHash FROM fn_ai_knowledge_correction_preparation WHERE Id=@Id", new { queued.Id });
             Assert.IsFalse(string.IsNullOrWhiteSpace(snapshot));
             Assert.AreEqual(0, await SourceCount());
+            var failureKind = scoped ? ServiceCapacityFailureKind.Timeout : ServiceCapacityFailureKind.Rejected;
+            using (var worker = await BuildWorkerAsync(services => services.Replace(
+                ServiceDescriptor.Scoped<IBackgroundSessionAuthorization>(_ => new BusyAuthorization(failureKind)))))
+            {
+                await using var pressure = worker.Services.CreateAsyncScope();
+                var coordinator = pressure.ServiceProvider.GetRequiredService<AiKnowledgeCorrectionPreparationCoordinator>();
+                var failure = await Assert.ThrowsExactlyAsync<ServiceCapacityExceededException>(() => coordinator.ProcessPendingAsync(default));
+                Assert.AreEqual(failureKind, failure.Kind);
+            }
+            var retained = (await client.GetFromJsonAsync<AiKnowledgeCorrectionPreparationResponse>(correctionPath + "/preparations/" + queued.Id))!;
+            Assert.AreEqual("running", retained.State);
+            Assert.AreEqual(1, retained.AttemptCount);
+            Assert.IsNull(retained.SourceId);
+            Assert.IsNull(retained.FailureCode);
+            Assert.AreEqual(0, await SourceCount());
+            Assert.AreEqual(1, await db.ExecuteAsync(
+                "UPDATE fn_ai_knowledge_correction_preparation SET LeaseExpiresAtUtc=@Past WHERE Id=@Id AND StateKey='running'",
+                new { queued.Id, Past = DateTime.UtcNow.AddMinutes(-1) }));
             await RunWorkerUntil(queued.Id, "completed");
             var completed = (await client.GetFromJsonAsync<AiKnowledgeCorrectionPreparationResponse>(correctionPath + "/preparations/" + queued.Id))!;
-            Assert.IsNotNull(completed.SourceId); Assert.AreEqual(1, completed.AttemptCount); Assert.AreEqual("completed", completed.State);
+            Assert.IsNotNull(completed.SourceId); Assert.AreEqual(2, completed.AttemptCount); Assert.AreEqual("completed", completed.State);
+            Assert.AreEqual(queued.Id, completed.Id);
             using (var status = await client.GetAsync(correctionPath + "/preparations/" + queued.Id))
             {
                 Assert.IsTrue(status.Headers.CacheControl!.NoStore);
@@ -179,11 +199,7 @@ public sealed class AiKnowledgeCorrectionWorkbenchApiTests
             }
             async Task RunWorkerUntil(Guid id, string expected)
             {
-                using var worker = await IntegrationWorkerHostFactory.BuildAsync(provider, connection, new Dictionary<string, string?>
-                {
-                    [$"{AiKnowledgeIndexWorkerOptions.SectionName}:Enabled"] = "false", [$"{AiKnowledgeIndexWorkerOptions.SectionName}:CorrectionPreparationEnabled"] = "true",
-                    [$"{AiKnowledgeIndexWorkerOptions.SectionName}:BatchSize"] = "2", [$"{AiKnowledgeIndexWorkerOptions.SectionName}:PollMilliseconds"] = "250"
-                }, "CorrectionPreparationRestart", nameof(AiKnowledgeIndexHostedProcessor), root);
+                using var worker = await BuildWorkerAsync();
                 await worker.StartAsync();
                 try
                 {
@@ -192,6 +208,12 @@ public sealed class AiKnowledgeCorrectionWorkbenchApiTests
                 }
                 finally { await worker.StopAsync(); }
             }
+            Task<IHost> BuildWorkerAsync(Action<IServiceCollection>? configure = null) =>
+                IntegrationWorkerHostFactory.BuildAsync(provider, connection, new Dictionary<string, string?>
+                {
+                    [$"{AiKnowledgeIndexWorkerOptions.SectionName}:Enabled"] = "false", [$"{AiKnowledgeIndexWorkerOptions.SectionName}:CorrectionPreparationEnabled"] = "true",
+                    [$"{AiKnowledgeIndexWorkerOptions.SectionName}:BatchSize"] = "2", [$"{AiKnowledgeIndexWorkerOptions.SectionName}:PollMilliseconds"] = "250"
+                }, "CorrectionPreparationRestart", nameof(AiKnowledgeIndexHostedProcessor), root, configureTargetServices: configure);
             Task<int> SourceCount() => db.QuerySingleAsync<int>("SELECT COUNT(*) FROM fn_ai_knowledge_correction_source WHERE VersionId=@Id", new { Id = version });
         }
         Assert.AreEqual(beforeBudget, await db.QuerySingleAsync<int>("SELECT COUNT(*) FROM fn_ai_operation_budget"));
@@ -202,6 +224,16 @@ public sealed class AiKnowledgeCorrectionWorkbenchApiTests
         }
         Assert.AreEqual(12, await db.QuerySingleAsync<int>("SELECT COUNT(*) FROM fn_ai_knowledge_correction_preparation"));
     }
+    private sealed class BusyAuthorization(ServiceCapacityFailureKind kind) : IBackgroundSessionAuthorization
+    {
+        public Task<AuthorizedSessionActor?> AuthorizeAsync(SessionBindingSnapshot binding, string permissionCode, CancellationToken cancellationToken = default) =>
+            AuthorizeAllAsync(binding, [permissionCode], cancellationToken);
+
+        public Task<AuthorizedSessionActor?> AuthorizeAllAsync(SessionBindingSnapshot binding, IReadOnlyCollection<string> permissionCodes,
+            CancellationToken cancellationToken = default) =>
+            Task.FromException<AuthorizedSessionActor?>(new ServiceCapacityExceededException(kind, TimeSpan.FromMilliseconds(500)));
+    }
+
     private static string Hash(string text) => Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(text)));
     /// <summary>保留正式 HTTP 错误响应，仅让测试失败时能定位真实异常；不改变生产日志脱敏。</summary>
     private sealed class DiagnosticMapper(IApiResultMapper inner, ConcurrentQueue<Exception> failures) : IApiResultMapper

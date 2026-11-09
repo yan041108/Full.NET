@@ -1,18 +1,23 @@
+using System.Diagnostics;
+using Full.NET.Abstractions.Results;
 using Full.NET.Abstractions.Time;
 using Full.NET.Abstractions.Tenancy;
 using Full.NET.Abstractions.Ids;
 using Full.NET.Data.Abstractions;
+using Full.NET.Data.Dapper;
 using Full.NET.Modules.Ai;
 using Full.NET.Modules.Ai.Knowledge;
 using Full.NET.Modules.Ai.Diagnostics;
 using Full.NET.Modules.Ai.Persistence;
 using Full.NET.Modules.Ai.Contracts;
+using Full.NET.Modules.Files.Contracts;
 using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Identity.Authorization;
 using Full.NET.Modules.Identity.Persistence;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using NSubstitute;
@@ -23,6 +28,127 @@ namespace Full.NET.UnitTests.Ai;
 [TestClass]
 public sealed class AiKnowledgeIndexWorkerTests
 {
+    [TestMethod]
+    [DataRow(ServiceCapacityFailureKind.Rejected, "capacity_rejected", false)]
+    [DataRow(ServiceCapacityFailureKind.Timeout, "capacity_timeout", false)]
+    [DataRow(ServiceCapacityFailureKind.Rejected, "capacity_rejected", true)]
+    [DataRow(ServiceCapacityFailureKind.Timeout, "capacity_timeout", true)]
+    public async Task Knowledge_worker_backs_off_without_failing_claimed_correction_on_admission_pressure(
+        ServiceCapacityFailureKind kind, string category, bool duringAuthorization)
+    {
+        using var budget = new CancellationTokenSource(TimeSpan.FromSeconds(8));
+        var token = budget.Token;
+        var query = new AdmissionQuery(kind, duringAuthorization);
+        var configuration = Options.Create(new AiKnowledgeIndexWorkerOptions
+            { Enabled = true, CorrectionPreparationEnabled = true, PollMilliseconds = 250, BatchSize = 1 });
+        var database = Options.Create(new DatabaseOptions { Provider = DatabaseProvider.SqlServer });
+        var clock = new SystemClock();
+        var ids = new GuidV7IdGenerator();
+        var commands = Substitute.For<ICommandExecutor>();
+        commands.ExecuteAsync(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>())
+            .Returns(1);
+        var state = Substitute.For<IDataTransactionState>();
+        var authorization = Substitute.For<IBackgroundSessionAuthorization>();
+        authorization.AuthorizeAllAsync(Arg.Any<SessionBindingSnapshot>(), Arg.Any<IReadOnlyCollection<string>>(), Arg.Any<CancellationToken>())
+            .Returns(_ => Task.FromException<AuthorizedSessionActor?>(query.Reject()));
+        var services = new ServiceCollection();
+        services.AddScoped<CurrentTenantAccessor>();
+        services.AddScoped<ICurrentTenantContextWriter>(p => p.GetRequiredService<CurrentTenantAccessor>());
+        services.AddScoped(p => new AiKnowledgeCorrectionPreparationQueue(query, commands,
+            new DapperCommandTransaction(new RecordingDbTransactionCoordinator()), state,
+            p.GetRequiredService<CurrentTenantAccessor>(), clock, ids, database));
+        services.AddScoped(p =>
+        {
+            var tenant = p.GetRequiredService<CurrentTenantAccessor>();
+            var authority = new AiKnowledgeCorrectionAuthority(query, state, tenant,
+                authorization, Substitute.For<IHostFileReferenceReader>(),
+                Substitute.For<ITenantResourceFileDescriptorReader>());
+            var store = new AiKnowledgeCorrectionStore(query, commands,
+                new DapperCommandTransaction(new RecordingDbTransactionCoordinator()), state, tenant, clock, ids, database);
+            return new AiKnowledgeCorrectionPreparationService(authority, store, state,
+                Substitute.For<IHostFileContentReader>(), Substitute.For<ITenantResourceFileStore>());
+        });
+        services.AddScoped(p => new AiKnowledgeCorrectionPreparationCoordinator(query, state,
+            p.GetRequiredService<IServiceScopeFactory>(), clock, database, configuration,
+            NullLogger<AiKnowledgeCorrectionPreparationCoordinator>.Instance));
+        services.AddScoped(p => new AiKnowledgeIndexWorkerCoordinator(query, state,
+            p.GetRequiredService<IServiceScopeFactory>(), clock, database, configuration,
+            NullLogger<AiKnowledgeIndexWorkerCoordinator>.Instance));
+        await using var provider = services.BuildServiceProvider();
+        var logger = new FailureCaptureLogger<AiKnowledgeIndexHostedProcessor>();
+        using var hosted = new AiKnowledgeIndexHostedProcessor(provider.GetRequiredService<IServiceScopeFactory>(), configuration, logger);
+        await hosted.StartAsync(token);
+        TimeSpan elapsed;
+        try
+        {
+            elapsed = await query.Retry.Task.WaitAsync(token);
+        }
+        finally
+        {
+            await hosted.StopAsync(token);
+        }
+        await commands.Received(1).ExecuteAsync(AiKnowledgeCorrectionPreparationSql.ClaimTenant,
+            Arg.Any<object?>(), Arg.Any<CancellationToken>());
+        if (duringAuthorization)
+            await commands.DidNotReceive().ExecuteAsync(AiKnowledgeCorrectionPreparationSql.FailTenant,
+                Arg.Any<object?>(), Arg.Any<CancellationToken>());
+        Assert.IsTrue(elapsed >= TimeSpan.FromMilliseconds(490), $"准入压力后的重试仅等待了 {elapsed.TotalMilliseconds:F1} 毫秒。");
+        var entry = logger.Entries.Single();
+        Assert.AreEqual(LogLevel.Warning, entry.Level);
+        Assert.AreEqual(category, entry.State["FailureCategory"]);
+        Assert.IsNull(entry.Exception);
+    }
+
+    private sealed class AdmissionQuery(ServiceCapacityFailureKind kind, bool duringAuthorization) : IQueryExecutor
+    {
+        private readonly AiKnowledgeCorrectionPreparationCandidate _candidate =
+            new(Guid.CreateVersion7(), Guid.CreateVersion7(), Guid.CreateVersion7(), Guid.CreateVersion7(),
+                Guid.CreateVersion7(), Guid.CreateVersion7(), 1, "text/plain");
+        private readonly Guid _lease = Guid.CreateVersion7();
+        private int _corrections;
+        private int _indexScans;
+        private int _reads;
+        private long _rejectedAt;
+        internal TaskCompletionSource<TimeSpan> Retry { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        internal ServiceCapacityExceededException Reject()
+        {
+            _rejectedAt = Stopwatch.GetTimestamp();
+            return new ServiceCapacityExceededException(kind, TimeSpan.FromMilliseconds(500));
+        }
+
+        public Task<IReadOnlyList<T>> QueryAsync<T>(SqlStatement statement, object? parameters = null, CancellationToken cancellationToken = default)
+        {
+            if (statement == AiKnowledgeCorrectionPreparationSql.ScanSqlServer)
+            {
+                IReadOnlyList<AiKnowledgeCorrectionPreparationCandidate> rows = ++_corrections == 1 ? [_candidate] : [];
+                if (duringAuthorization && _corrections == 2)
+                    Retry.TrySetResult(Stopwatch.GetElapsedTime(_rejectedAt));
+                return Task.FromResult((IReadOnlyList<T>)rows);
+            }
+            Assert.AreSame(AiKnowledgeIndexWorkerSql.ScanSqlServer, statement);
+            if (!duringAuthorization && ++_indexScans == 1) throw Reject();
+            if (!duringAuthorization) Retry.TrySetResult(Stopwatch.GetElapsedTime(_rejectedAt));
+            return Task.FromResult<IReadOnlyList<T>>([]);
+        }
+
+        public Task<T?> QuerySingleOrDefaultAsync<T>(SqlStatement statement, object? parameters = null, CancellationToken cancellationToken = default)
+        {
+            if (statement == AiKnowledgePublicationSql.LockFor(DatabaseProvider.SqlServer, true))
+                return Task.FromResult<T?>((T)(object)_candidate.DocumentId);
+            Assert.AreSame(AiKnowledgeCorrectionPreparationSql.ReadTenant, statement);
+            var claimed = ++_reads > 1;
+            return Task.FromResult<T?>((T)(object)new AiKnowledgeCorrectionPreparationRecord
+            {
+                Id = _candidate.Id, ActorUserId = _candidate.OwnerUserId, TenantId = _candidate.TenantId, IsCurrent = 1,
+                SessionId = duringAuthorization ? _candidate.OwnerUserId : Guid.Empty,
+                SessionKind = SessionBindingKinds.Refresh, SecurityStamp = "fixture", ActorScope = "tenant", EffectiveScope = "tenant",
+                StateKey = claimed ? "running" : "queued", LeaseToken = claimed ? _lease : null,
+                LeaseExpiresAtUtc = DateTimeOffset.UtcNow.AddMinutes(1), ParserRuntimeId = "managed:utf8-text-v1"
+            });
+        }
+    }
+
     [TestMethod] [DataRow(false)] [DataRow(true)]
     public async Task Background_catalog_preserves_normal_users_exact_index_permissions(bool tenant)
     {

@@ -48,9 +48,7 @@ internal sealed class AiAgentRunHostedProcessor(
             catch (ServiceCapacityExceededException exception)
             {
                 // 即使领取已满批，后续扫描遇到准入压力也要退避并错开实例重试。
-                var minimum = exception.RetryAfter > pollingDelay ? exception.RetryAfter : pollingDelay;
-                var jitterLimit = Math.Min(pollingDelay.TotalMilliseconds / 4, 1000);
-                capacityDelay = minimum + TimeSpan.FromMilliseconds(Random.Shared.NextDouble() * jitterLimit);
+                capacityDelay = AiWorkerAdmissionBackoff.GetDelay(pollingDelay, exception.RetryAfter);
                 AiFailureLog.Write(logger, LogLevel.Warning, AiFailureStage.AgentRunIteration, exception);
             }
             catch (Exception exception)
