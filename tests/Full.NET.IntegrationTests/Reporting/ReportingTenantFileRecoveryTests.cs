@@ -38,7 +38,13 @@ public sealed class ReportingTenantFileRecoveryTests
     public Task Worker_process_crash_reattaches_original_uploaded_report(DatabaseProvider provider) =>
         VerifyRecoveryAsync(provider, crashProcess: true);
 
-    private static async Task VerifyRecoveryAsync(DatabaseProvider provider, bool crashProcess)
+    [TestMethod]
+    [DataRow(DatabaseProvider.SqlServer)]
+    [DataRow(DatabaseProvider.MySql)]
+    public Task Legacy_uploaded_report_remains_pending_without_duplicate_output(DatabaseProvider provider) =>
+        VerifyRecoveryAsync(provider, crashProcess: false, legacyOutput: true);
+
+    private static async Task VerifyRecoveryAsync(DatabaseProvider provider, bool crashProcess, bool legacyOutput = false)
     {
         var connection = provider == DatabaseProvider.SqlServer
             ? await SharedDatabaseFixture.CreateSqlServerDatabaseAsync()
@@ -102,7 +108,8 @@ public sealed class ReportingTenantFileRecoveryTests
         var workbook = new Workbook();
         var gate = new FileGate(taskId);
         var firstCompleted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        using (var worker = await BuildWorkerAsync(0, FileMode.FailAfterUpload, firstCompleted))
+        using (var worker = await BuildWorkerAsync(0,
+            legacyOutput ? FileMode.LegacyFailAfterUpload : FileMode.FailAfterUpload, firstCompleted))
         {
             await worker.StartAsync();
             try
@@ -118,6 +125,40 @@ public sealed class ReportingTenantFileRecoveryTests
         var existing = await ListFilesAsync();
         Assert.HasCount(1, existing);
         Assert.AreEqual(gate.Uploaded.Task.Result, existing.Single().FileId);
+        if (legacyOutput)
+        {
+            var original = existing.Single();
+            Assert.AreEqual("recovery.xlsx", original.OriginalFileName);
+            var bytes = await ReadReadyBytesAsync(original.FileId);
+            var previousLease = before.LeaseId;
+            // 两次后续领取使用真实持久化文件，以证实旧名不会让恢复路径猜测行数或重复上传。
+            foreach (var minutes in new[] { 2, 4 })
+            {
+                var retryCompleted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+                using var worker = await BuildWorkerAsync(minutes, FileMode.Observe, retryCompleted);
+                await worker.StartAsync();
+                try { await retryCompleted.Task.WaitAsync(TimeSpan.FromSeconds(40)); }
+                finally { await worker.StopAsync(); }
+
+                var pending = await ReadTaskAsync();
+                Assert.AreEqual(ReportingExportTaskStatusKeys.Processing, pending.StatusKey);
+                Assert.AreEqual(before.RowCount, pending.RowCount);
+                Assert.IsNull(pending.OutputFileId);
+                Assert.IsNull(pending.ErrorCode);
+                Assert.IsNotNull(pending.LeaseId);
+                Assert.AreNotEqual(previousLease, pending.LeaseId);
+                previousLease = pending.LeaseId;
+            }
+            Assert.AreEqual(original.FileId, (await ListFilesAsync()).Single().FileId);
+            Assert.AreEqual(1, Volatile.Read(ref gate.Uploads));
+            Assert.AreEqual(1, Volatile.Read(ref workbook.Calls));
+            CollectionAssert.AreEqual(bytes, await ReadReadyBytesAsync(original.FileId));
+            using var unavailable = await tenantClient.GetAsync($"/api/v1/reporting/export-tasks/{taskId:D}/download");
+            Assert.AreEqual(HttpStatusCode.BadRequest, unavailable.StatusCode);
+            using var problem = JsonDocument.Parse(await unavailable.Content.ReadAsStringAsync());
+            Assert.AreEqual(ReportingErrorCodes.ExportTaskNotReady, problem.RootElement.GetProperty("code").GetString());
+            return;
+        }
 
         var secondCompleted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         TenantSummary? suspended = null;
@@ -220,6 +261,19 @@ public sealed class ReportingTenantFileRecoveryTests
             return await scope.ServiceProvider.GetRequiredService<ITenantResourceFileStore>().ListReadyAsync("reporting", taskId);
         }
 
+        async Task<byte[]> ReadReadyBytesAsync(Guid fileId)
+        {
+            await using var scope = api.Services.CreateAsyncScope();
+            scope.ServiceProvider.GetRequiredService<CurrentTenantAccessor>().SetTenant(tenantContext);
+            var result = await scope.ServiceProvider.GetRequiredService<ITenantResourceFileStore>()
+                .OpenReadyContentAsync("reporting", taskId, fileId);
+            Assert.IsTrue(result.IsSuccess, result.Error?.Code);
+            await using var original = result.Value!.Content;
+            using var copy = new MemoryStream();
+            await original.CopyToAsync(copy);
+            return copy.ToArray();
+        }
+
         async Task VerifyProcessCrashAsync()
         {
             var uploaded = Path.Combine(filesRoot.Path, "uploaded.gate");
@@ -243,17 +297,7 @@ public sealed class ReportingTenantFileRecoveryTests
                 Assert.AreEqual(originalId, (await ListFilesAsync()).Single().FileId);
                 await first.CrashAsync();
             }
-            await using (var scope = api.Services.CreateAsyncScope())
-            {
-                scope.ServiceProvider.GetRequiredService<CurrentTenantAccessor>().SetTenant(tenantContext);
-                var result = await scope.ServiceProvider.GetRequiredService<ITenantResourceFileStore>()
-                    .OpenReadyContentAsync("reporting", taskId, originalId);
-                Assert.IsTrue(result.IsSuccess, result.Error?.Code);
-                await using var original = result.Value!.Content;
-                using var copy = new MemoryStream();
-                await original.CopyToAsync(copy);
-                originalBytes = copy.ToArray();
-            }
+            originalBytes = await ReadReadyBytesAsync(originalId);
             Assert.HasCount(1, await File.ReadAllLinesAsync(uploaded + ".queries"));
             await using var replacement = await EnterpriseRequestWorkerProcess.StartAsync(api, filesRoot.Path, "reporting-recovery", reuploaded, 2,
                 dataTaskId: taskId);
@@ -291,7 +335,7 @@ public sealed class ReportingTenantFileRecoveryTests
         return json.RootElement.Clone();
     }
 
-    private enum FileMode { FailAfterUpload, PauseList, Observe }
+    private enum FileMode { FailAfterUpload, LegacyFailAfterUpload, PauseList, Observe }
     private sealed class FilesRoot : IDisposable
     {
         internal string Path { get; } = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "fullnet-report-recovery-" + Guid.NewGuid().ToString("N"));
@@ -336,9 +380,11 @@ public sealed class ReportingTenantFileRecoveryTests
         public async Task<Result<TenantResourceFileReference>> UploadAsync(string ownerModuleKey, Guid resourceId, Guid actorUserId,
             string originalFileName, string contentType, Stream content, long contentLength, CancellationToken cancellationToken = default)
         {
-            if (ownerModuleKey == "reporting" && resourceId == gate.TaskId) Interlocked.Increment(ref gate.Uploads);
+            var isTargetReport = ownerModuleKey == "reporting" && resourceId == gate.TaskId;
+            if (isTargetReport) Interlocked.Increment(ref gate.Uploads);
+            if (isTargetReport && mode == FileMode.LegacyFailAfterUpload) originalFileName = "recovery.xlsx";
             var result = await inner.UploadAsync(ownerModuleKey, resourceId, actorUserId, originalFileName, contentType, content, contentLength, cancellationToken);
-            if (mode == FileMode.FailAfterUpload && ownerModuleKey == "reporting" && resourceId == gate.TaskId && result.IsSuccess)
+            if (isTargetReport && result.IsSuccess && mode is FileMode.FailAfterUpload or FileMode.LegacyFailAfterUpload)
             {
                 gate.Uploaded.TrySetResult(result.Value!.FileId);
                 throw new IOException("测试上传成功后丢失响应。");
