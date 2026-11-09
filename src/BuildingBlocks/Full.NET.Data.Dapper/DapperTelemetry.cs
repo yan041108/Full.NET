@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Diagnostics.Metrics;
 using System.Globalization;
+using Full.NET.Abstractions.Results;
 using Full.NET.Data.Abstractions;
 using Microsoft.Data.SqlClient;
 using MySqlConnector;
@@ -121,6 +122,7 @@ internal static class DapperTelemetry
         {
             null => "none",
             OperationCanceledException => "canceled",
+            ServiceCapacityExceededException capacity => GetAdmissionReason(capacity.Kind),
             SqlException { Number: 1205 } => "deadlock",
             SqlException { Number: -2 } => "command_timeout",
             MySqlException
@@ -140,6 +142,7 @@ internal static class DapperTelemetry
     internal static string GetDatabaseErrorCode(Exception exception) =>
         exception switch
         {
+            ServiceCapacityExceededException capacity => GetAdmissionReason(capacity.Kind),
             SqlException sqlException =>
                 sqlException.Number.ToString(CultureInfo.InvariantCulture),
             MySqlException mySqlException =>
@@ -150,4 +153,12 @@ internal static class DapperTelemetry
                     CultureInfo.InvariantCulture),
             _ => "not_available",
         };
+
+    // 准入失败发生在发送 SQL 前，不混入数据库错误码或应用异常。
+    private static string GetAdmissionReason(ServiceCapacityFailureKind kind) => kind switch
+    {
+        ServiceCapacityFailureKind.Rejected => "admission_rejected",
+        ServiceCapacityFailureKind.Timeout => "admission_timeout",
+        _ => "admission_unavailable",
+    };
 }

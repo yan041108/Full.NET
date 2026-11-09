@@ -1,5 +1,6 @@
 using System.Diagnostics.Metrics;
 using Full.NET.Benchmarks.MixedLoad;
+using Full.NET.Abstractions.Results;
 using Full.NET.Data.Abstractions;
 using Full.NET.Data.Dapper;
 
@@ -129,10 +130,21 @@ public sealed class DapperTelemetryTests
             DapperOperation.Execute,
             TimeSpan.FromMilliseconds(5),
             new InvalidOperationException("database failure"));
+        foreach (var (kind, reason) in new[]
+        {
+            (ServiceCapacityFailureKind.Rejected, "admission_rejected"),
+            (ServiceCapacityFailureKind.Timeout, "admission_timeout"),
+        })
+        {
+            var capacity = new ServiceCapacityExceededException(kind, TimeSpan.FromMilliseconds(100));
+            Assert.AreEqual(reason, DapperTelemetry.GetDatabaseErrorCode(capacity));
+            DapperTelemetry.Record("outbox.claim", DatabaseProvider.MySql, DapperOperation.Query,
+                TimeSpan.FromMilliseconds(100), capacity);
+        }
 
         var snapshot = telemetry.Snapshot();
 
-        Assert.AreEqual(1L, snapshot.Failures);
+        Assert.AreEqual(3L, snapshot.Failures);
         Assert.AreEqual(1L, snapshot.Cancellations);
         Assert.AreEqual(
             1L,
@@ -142,6 +154,8 @@ public sealed class DapperTelemetryTests
         Assert.AreEqual(
             1L,
             snapshot.FailureReasons["application_error"]);
+        Assert.AreEqual(1L, snapshot.FailureReasons["admission_rejected"]);
+        Assert.AreEqual(1L, snapshot.FailureReasons["admission_timeout"]);
     }
 
     private static MeterListener CreateListener(List<Measurement> measurements)

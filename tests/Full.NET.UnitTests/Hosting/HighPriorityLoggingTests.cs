@@ -224,10 +224,18 @@ public sealed class HighPriorityLoggingTests
         {
             logger.Information("general snapshot");
             logger.Error("priority snapshot");
+            var fusion = logger.ForContext("SourceContext", "ZiggyCreatures.Caching.Fusion.FusionCache");
+            const string remove = "FUSION (K={CacheKey}): RemoveAsync call {Options}";
+            var probeKey = $"fullnet:health:backplane:{Guid.CreateVersion7():N}";
+            fusion.Information(remove, probeKey, "routine heartbeat");
+            fusion.Warning(remove, probeKey, "heartbeat warning");
+            fusion.Information(remove, "business:cache", "business cache");
         }
 
-        Assert.HasCount(2, snapshots);
+        Assert.HasCount(4, snapshots);
         Assert.HasCount(1, snapshots.Where(snapshot => snapshot.IsHighPriority));
+        Assert.IsFalse(snapshots.Any(snapshot =>
+            System.Text.Encoding.UTF8.GetString(snapshot.Utf8Json.Span).Contains("routine heartbeat", StringComparison.Ordinal)));
         foreach (var snapshot in snapshots)
         {
             Assert.IsTrue(Guid.TryParseExact(snapshot.LogEventId, "D", out _));

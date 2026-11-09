@@ -30,6 +30,7 @@ internal static class FullNetLoggingPipeline
         configuration
             .MinimumLevel.Information()
             .MinimumLevel.Override("Microsoft.AspNetCore", LogEventLevel.Warning)
+            .Filter.ByExcluding(IsRoutineCacheHeartbeat)
             // 对解构输入先限长、限深和限集合，避免普通业务对象在入队前扩成无界属性图。
             .Destructure.ToMaximumDepth(4)
             .Destructure.ToMaximumCollectionCount(16)
@@ -44,4 +45,15 @@ internal static class FullNetLoggingPipeline
             externalExporter, localFiles));
         return configuration;
     }
+
+    // 只过滤已识别的常驻背板探测调用记录，故障、状态变化和业务缓存继续进入日志管道。
+    private static bool IsRoutineCacheHeartbeat(LogEvent log) =>
+        log.Level == LogEventLevel.Information && log.Exception is null
+        && log.MessageTemplate.Text.EndsWith(": RemoveAsync call {Options}", StringComparison.Ordinal)
+        && log.Properties.TryGetValue("SourceContext", out var source)
+        && source is ScalarValue { Value: "ZiggyCreatures.Caching.Fusion.FusionCache" }
+        && log.Properties.TryGetValue("CacheKey", out var cacheKey)
+        && cacheKey is ScalarValue { Value: string key }
+        && key.StartsWith("fullnet:health:backplane:", StringComparison.Ordinal)
+        && Guid.TryParseExact(key.AsSpan("fullnet:health:backplane:".Length), "N", out _);
 }
