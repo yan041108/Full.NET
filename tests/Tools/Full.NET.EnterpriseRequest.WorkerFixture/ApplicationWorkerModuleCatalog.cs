@@ -13,6 +13,7 @@ internal static class ApplicationWorkerModuleCatalog
     {
         var existing = services.Where(d => d.ServiceType == typeof(IHostedService)).ToHashSet();
         services.AddFullNetApplicationModules(configuration, FullNetHostProfile.Worker, [new EnterpriseRequestModule()]);
+        if (AdmissionPressureFixture.TryRegister(services, configuration, existing)) return;
         var receiver=configuration["RecoveryFixture:WebhookReceiverUrl"];
         var withWebhooks=!string.IsNullOrWhiteSpace(receiver);
         if (ReportingRecoveryFixture.TryRegister(services, configuration, existing)) return;
