@@ -42,6 +42,8 @@ public sealed class NotificationsModuleRegistrationTests
                 typeof(WorkflowTodoAssignedIntegrationEventHandler),
                 typeof(WorkflowTodoReminderRequestedIntegrationEventHandler),
                 typeof(WorkflowTodoEscalationRequestedIntegrationEventHandler),
+                typeof(WorkflowActivityListenerIntegrationEventHandler),
+                typeof(WorkflowManualReminderIntegrationEventHandler),
             },
             handlerTypes);
         CollectionAssert.AreEquivalent(
