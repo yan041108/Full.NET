@@ -24,7 +24,7 @@ internal static class SettingsDictTypeManagementAssertions
         await VerifyListRequiresReadPermissionAsync(factory, client, cancellationToken);
         await VerifyCreateRejectsDuplicateCodeAsync(client, cancellationToken);
         await VerifyUpdateWithOptimisticVersionAsync(client, cancellationToken);
-        await VerifyDisableRejectsActiveItemsAsync(client, cancellationToken);
+        await VerifyDisableAndDeleteBoundariesAsync(factory, client, cancellationToken);
         await VerifyDictItemLifecycleAsync(client, cancellationToken);
         await VerifyExactDictTypeActionPermissionBoundariesAsync(
             factory,
@@ -137,7 +137,8 @@ internal static class SettingsDictTypeManagementAssertions
             problem.RootElement.GetProperty("code").GetString());
     }
 
-    private static async Task VerifyDisableRejectsActiveItemsAsync(
+    private static async Task VerifyDisableAndDeleteBoundariesAsync(
+        FullNetApiFactory factory,
         HttpClient client,
         CancellationToken cancellationToken)
     {
@@ -154,6 +155,13 @@ internal static class SettingsDictTypeManagementAssertions
         var dictType = await createTypeResponse.Content.ReadFromJsonAsync<DictTypeResponse>(
             cancellationToken);
         Assert.IsNotNull(dictType);
+        var deletePath = $"/api/v1/settings/dict-types/{dictType.Id:D}/delete";
+        using var prematureDelete = CreateBearerJsonRequest(
+            HttpMethod.Post, deletePath, adminToken, new DeleteDictTypeRequest(dictType.Version));
+        using var prematureDeleteResponse = await client.SendAsync(prematureDelete, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.UnprocessableEntity, prematureDeleteResponse.StatusCode);
+        using var activeTypeProblem = JsonDocument.Parse(await prematureDeleteResponse.Content.ReadAsStringAsync(cancellationToken));
+        Assert.AreEqual(SettingsErrorCodes.DictTypeNotDisabled, activeTypeProblem.RootElement.GetProperty("code").GetString());
 
         var itemValue = $"v-{Guid.NewGuid():N}"[..10];
         using var createItemRequest = CreateBearerJsonRequest(
@@ -202,6 +210,26 @@ internal static class SettingsDictTypeManagementAssertions
             cancellationToken);
         Assert.IsNotNull(disabledType);
         Assert.IsFalse(disabledType.IsActive);
+
+        var readToken = await factory.CreateHostAccessTokenAsync(["settings.dict_types.read"], cancellationToken);
+        using var forbiddenDelete = CreateBearerJsonRequest(
+            HttpMethod.Post, deletePath, readToken, new DeleteDictTypeRequest(disabledType.Version));
+        using var forbiddenDeleteResponse = await client.SendAsync(forbiddenDelete, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Forbidden, forbiddenDeleteResponse.StatusCode);
+
+        using var staleDelete = CreateBearerJsonRequest(
+            HttpMethod.Post, deletePath, adminToken, new DeleteDictTypeRequest(dictType.Version));
+        using var staleDeleteResponse = await client.SendAsync(staleDelete, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Conflict, staleDeleteResponse.StatusCode);
+
+        using var delete = CreateBearerJsonRequest(
+            HttpMethod.Post, deletePath, adminToken, new DeleteDictTypeRequest(disabledType.Version));
+        using var deleteResponse = await client.SendAsync(delete, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.NoContent, deleteResponse.StatusCode);
+        using var replayDelete = CreateBearerJsonRequest(
+            HttpMethod.Post, deletePath, adminToken, new DeleteDictTypeRequest(disabledType.Version));
+        using var replayDeleteResponse = await client.SendAsync(replayDelete, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.NotFound, replayDeleteResponse.StatusCode);
     }
 
     private static async Task VerifyDictItemLifecycleAsync(
