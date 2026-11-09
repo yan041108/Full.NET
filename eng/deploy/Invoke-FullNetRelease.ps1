@@ -5,6 +5,7 @@
 .DESCRIPTION
   使用同一 Chart 的三个独立 Release（单一角色）。任一阶段失败立即停止。
   数据库变更遵循 Expand/Contract；本脚本不自动回滚已完成的 Migrator。
+  报表输出身份切版使用 -ReportingOutputCutover，操作步骤见 docs/operations/reporting-output-cutover.md。
 #>
 [CmdletBinding()]
 param(
@@ -22,7 +23,18 @@ param(
 
     [string] $EdgeAndDpValuesFile = (Join-Path $PSScriptRoot '..\..\deploy\helm\fullnet\ci\values-role-api.yaml'),
 
-    [int] $TimeoutSeconds = 1800
+    [int] $TimeoutSeconds = 1800,
+
+    [string] $KubeContext,
+
+    [switch] $ReportingOutputCutover,
+
+    [ValidateSet('SqlServer', 'MySql')] [string] $ReportingDatabaseProvider,
+    [string] $ReportingDatabaseServer,
+    [string] $ReportingDatabaseName,
+    [string] $ReportingMySqlLoginPath,
+    [string] $ReportingMySqlCaFile,
+    [ValidateRange(1, 65535)] [int] $ReportingMySqlPort = 3306
 )
 
 Set-StrictMode -Version Latest
@@ -52,8 +64,10 @@ function Invoke-HelmUpgrade {
         '-f', $RoleValuesFile,
         '--set', "image.tag=$ImageTag",
         '--wait',
+        '--wait-for-jobs',
         '--timeout', "${TimeoutSeconds}s"
     ) + $ExtraSet
+    if ($KubeContext) { $args += @('--kube-context', $KubeContext) }
 
     Write-Host ">>> helm $($args -join ' ')"
     & helm @args
@@ -75,6 +89,16 @@ $roleRoot = Join-Path $ChartPath 'ci'
 $migratorValues = Join-Path $roleRoot 'values-role-migrator.yaml'
 $workerValues = Join-Path $roleRoot 'values-role-worker.yaml'
 $apiValues = Join-Path $roleRoot 'values-role-api.yaml'
+
+if ($ReportingOutputCutover) {
+    if (-not $KubeContext -or -not $ReportingDatabaseProvider -or -not $ReportingDatabaseServer -or -not $ReportingDatabaseName) {
+        throw 'Reporting cutover requires an explicit Kubernetes context, database provider, server and database name.'
+    }
+    & (Join-Path $PSScriptRoot 'reporting-cutover/Assert-ReportingCutover.ps1') `
+        -Context $KubeContext -Namespace $Namespace -Provider $ReportingDatabaseProvider `
+        -Server $ReportingDatabaseServer -Database $ReportingDatabaseName `
+        -MySqlLoginPath $ReportingMySqlLoginPath -MySqlCaFile $ReportingMySqlCaFile -MySqlPort $ReportingMySqlPort
+}
 
 Write-Host 'Stage 1/3: Migrator Job (Expand/Contract gate)'
 Invoke-HelmUpgrade -ReleaseName 'fullnet-migrator' -RoleValuesFile $migratorValues
