@@ -1,4 +1,5 @@
 using Full.NET.Modules.Ai.Diagnostics;
+using Full.NET.Abstractions.Results;
 using Full.NET.Abstractions.Time;
 using Full.NET.Abstractions.Tenancy;
 using Full.NET.Data.Abstractions;
@@ -59,10 +60,12 @@ internal sealed class AiKnowledgeIndexWorkerCoordinator(IQueryExecutor query, ID
             acquired++;
             // 同一任务作用域只接收消费者已经验证的快照，内层退出后仍覆盖本层失败记录。
             using var correlation = provider.GetRequiredService<AiBackgroundLogCorrelation>().BeginCapture();
+            var dispatchRead = false;
             try
             {
                 // 扫描只引导作用域；领取后从权威任务读取冻结身份，人工输入不能被 MIME 路由送回原文解析。
                 var source = await tasks.ReadDispatchAsync(binding, row.TaskId, leaseToken, token).ConfigureAwait(false);
+                dispatchRead = true;
                 Guard(token, childTransactions);
                 var completed = false;
                 if (source is not null && source.ContentType == row.ContentType && source.ParsingPolicyKey == row.ParsingPolicyKey && source.FaqRevisionId == row.FaqRevisionId)
@@ -87,6 +90,11 @@ internal sealed class AiKnowledgeIndexWorkerCoordinator(IQueryExecutor query, ID
             {
                 Guard(token, childTransactions);
                 await tasks.FailAsync(binding, row.TaskId, leaseToken, exception.Failure, token).ConfigureAwait(false);
+            }
+            catch (ServiceCapacityExceededException) when (!dispatchRead)
+            {
+                // 派发读取尚未完成，保留原租约，由宿主退避及到期接管路径恢复。
+                throw;
             }
             catch (Exception exception)
             {

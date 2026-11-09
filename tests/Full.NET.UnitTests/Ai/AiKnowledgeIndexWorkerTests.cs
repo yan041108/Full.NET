@@ -356,8 +356,8 @@ public sealed class AiKnowledgeIndexWorkerTests
 
     private sealed class ScopeDisposal(Action dispose) : IDisposable { public void Dispose() => dispose(); }
 
-    [TestMethod] [DataRow(false)] [DataRow(true)]
-    public async Task Acquired_candidate_rechecks_authority_and_rejects_changed_format_before_resolving_consumer(bool changedFormat)
+    [TestMethod] [DataRow(false, false)] [DataRow(true, false)] [DataRow(false, true)]
+    public async Task Acquired_candidate_checks_dispatch_before_resolving_consumer(bool changedFormat, bool capacityBeforeDispatch)
     {
         var row = Row(null); var lease = Guid.CreateVersion7(); var now = DateTimeOffset.UtcNow; var dispatches = 0; var failures = 0; var resolutions = 0;
         var query = new WorkerQuery { Scan = (_, _) => [row] };
@@ -365,6 +365,7 @@ public sealed class AiKnowledgeIndexWorkerTests
         {
             if (type == typeof(AiKnowledgeIndexTaskRecord)) return new AiKnowledgeIndexTaskRecord { Id = row.TaskId, StateKey = "running", LeaseToken = lease, LeaseExpiresAtUtc = now.AddSeconds(30) };
             Assert.AreEqual(typeof(AiKnowledgeIndexDispatchRecord), type); dispatches++;
+            if (capacityBeforeDispatch) throw new ServiceCapacityExceededException(ServiceCapacityFailureKind.Rejected, TimeSpan.FromMilliseconds(500));
             return changedFormat ? new AiKnowledgeIndexDispatchRecord { TaskId = row.TaskId, DocumentId = row.DocumentId, VersionId = row.VersionId,
                 DocumentVersion = 1, KnowledgeBaseVersion = 1, LeaseToken = lease, LeaseExpiresAtUtc = now.AddSeconds(30), ContentType = "text/markdown" } : null;
         };
@@ -389,7 +390,18 @@ public sealed class AiKnowledgeIndexWorkerTests
         using var provider = services.BuildServiceProvider();
         var coordinator = new AiKnowledgeIndexWorkerCoordinator(query, Substitute.For<IDataTransactionState>(), provider.GetRequiredService<IServiceScopeFactory>(), clock,
             Options.Create(new DatabaseOptions()), Options.Create(new AiKnowledgeIndexWorkerOptions { Enabled = true }), NullLogger<AiKnowledgeIndexWorkerCoordinator>.Instance);
-        Assert.AreEqual(1, await coordinator.ProcessPendingAsync(default)); Assert.AreEqual(1, dispatches); Assert.AreEqual(1, failures); Assert.AreEqual(0, resolutions);
+        if (capacityBeforeDispatch)
+        {
+            await Assert.ThrowsExactlyAsync<ServiceCapacityExceededException>(() => coordinator.ProcessPendingAsync(default));
+            Assert.AreEqual(0, failures);
+        }
+        else
+        {
+            Assert.AreEqual(1, await coordinator.ProcessPendingAsync(default));
+            Assert.AreEqual(1, failures);
+        }
+        Assert.AreEqual(1, dispatches);
+        Assert.AreEqual(0, resolutions);
     }
 
     // 泛型内部投影不能由动态代理自动造值；夹具只替换执行器 Port，不扩大生产类型可见性。

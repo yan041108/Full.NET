@@ -67,8 +67,26 @@ public sealed class AiKnowledgeCorrectionWorkerTests
             Assert.AreEqual("failed", await db.QuerySingleAsync<string>("SELECT StateKey FROM fn_ai_knowledge_index_task WHERE Id=@Id", new { Id = task.Value }));
             Assert.AreEqual(0, await db.QuerySingleAsync<int>("SELECT COUNT(*) FROM fn_ai_knowledge_index_batch WHERE IndexTaskId=@Id", new { Id = task.Value }));
             controls.Denied = false; controls.Ready = true; Assert.IsTrue(await tasks.RetryAsync(binding, task.Value, default));
+            var pressureKind = scoped ? ServiceCapacityFailureKind.Timeout : ServiceCapacityFailureKind.Rejected;
+            controls.DispatchPressure = pressureKind;
+            try
+            {
+                var pressure = await Assert.ThrowsExactlyAsync<ServiceCapacityExceededException>(Run);
+                Assert.AreEqual(pressureKind, pressure.Kind);
+            }
+            finally { controls.DispatchPressure = null; }
+            Assert.AreEqual(calls, controls.Calls);
+            Assert.AreEqual(0, controls.Opens);
+            Assert.AreEqual(1, await db.QuerySingleAsync<int>("""
+                SELECT COUNT(*) FROM fn_ai_knowledge_index_task
+                WHERE Id=@Id AND StateKey='running' AND AttemptCount=1 AND FailureCode IS NULL AND LeaseToken IS NOT NULL
+                """, new { Id = task.Value }));
+            Assert.AreEqual(1, await db.ExecuteAsync(
+                "UPDATE fn_ai_knowledge_index_task SET LeaseExpiresAtUtc=@Past WHERE Id=@Id AND StateKey='running'",
+                new { Id = task.Value, Past = DateTime.UtcNow.AddMinutes(-1) }));
             Assert.AreEqual(1, await Run()); Assert.AreEqual(calls + 2, controls.Calls);
             Assert.AreEqual("completed", await db.QuerySingleAsync<string>("SELECT StateKey FROM fn_ai_knowledge_index_task WHERE Id=@Id", new { Id = task.Value }));
+            Assert.AreEqual(2, await db.QuerySingleAsync<int>("SELECT AttemptCount FROM fn_ai_knowledge_index_task WHERE Id=@Id", new { Id = task.Value }));
             Assert.AreEqual(2, await db.QuerySingleAsync<int>("SELECT COUNT(*) FROM fn_ai_knowledge_index_batch AS batch INNER JOIN fn_ai_operation_budget AS ledger ON ledger.Id=batch.Id WHERE batch.IndexTaskId=@Id AND ledger.Outcome='succeeded' AND ledger.SettledAtUtc IS NOT NULL", new { Id = task.Value }));
             Assert.AreEqual(2, await db.QuerySingleAsync<int>("SELECT COUNT(*) FROM fn_ai_knowledge_index_vector AS vector INNER JOIN fn_ai_knowledge_index_batch AS batch ON batch.Id=vector.Id WHERE batch.IndexTaskId=@Id AND vector.FormatKey='knowledge-correction-vector-v1'", new { Id = task.Value }));
             Assert.AreEqual(0, await Run()); Assert.AreEqual(calls + 2, controls.Calls); Assert.AreEqual(session.TenantId, tenant.Id);
@@ -98,6 +116,7 @@ public sealed class AiKnowledgeCorrectionWorkerTests
     private sealed class Controls
     {
         internal Input Current = null!; internal bool Denied, Ready = true; internal int Opens;
+        internal ServiceCapacityFailureKind? DispatchPressure { get; set; }
         private readonly List<AiKnowledgeCorrectionVectorTests.Model> models = [];
         internal int Calls => models.Sum(m => m.Calls);
         internal void Register(IServiceCollection services)
@@ -117,7 +136,20 @@ public sealed class AiKnowledgeCorrectionWorkerTests
             services.RemoveAll<ITenantResourceFileStore>(); services.AddScoped<ITenantResourceFileStore>(p => p.GetRequiredService<Ports>());
             services.RemoveAll<IAiModelClientFactory>(); services.AddScoped<IAiModelClientFactory>(p =>
             { var model = new AiKnowledgeCorrectionVectorTests.Model(p.GetRequiredService<IDataTransactionState>()); models.Add(model); return model; });
+            var queryFactory = services.Last(descriptor => descriptor.ServiceType == typeof(IQueryExecutor)).ImplementationFactory!;
+            services.Replace(ServiceDescriptor.Scoped<IQueryExecutor>(provider =>
+                new DispatchPressureQuery((IQueryExecutor)queryFactory(provider), this)));
         }
+    }
+    private sealed class DispatchPressureQuery(IQueryExecutor inner, Controls controls) : IQueryExecutor
+    {
+        public Task<IReadOnlyList<T>> QueryAsync<T>(SqlStatement statement, object? parameters = null, CancellationToken cancellationToken = default) =>
+            inner.QueryAsync<T>(statement, parameters, cancellationToken);
+
+        public Task<T?> QuerySingleOrDefaultAsync<T>(SqlStatement statement, object? parameters = null, CancellationToken cancellationToken = default) =>
+            typeof(T) == typeof(AiKnowledgeIndexDispatchRecord) && controls.DispatchPressure is { } kind
+                ? Task.FromException<T?>(new ServiceCapacityExceededException(kind, TimeSpan.FromMilliseconds(500)))
+                : inner.QuerySingleOrDefaultAsync<T>(statement, parameters, cancellationToken);
     }
     private sealed class Ports(Controls controls, IDataTransactionState state, ICurrentTenant tenant) : IBackgroundSessionAuthorization,
         IHostFileReferenceReader, ITenantResourceFileDescriptorReader, IHostFileContentReader, ITenantResourceFileStore
