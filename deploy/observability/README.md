@@ -113,7 +113,9 @@ The application permits `Collector` after local acceptance. Before applying thes
 
 ```bash
 helm upgrade --install fullnet-fluent-bit <fluent-bit-chart> -f deploy/observability/fluent-bit-values.yaml
-helm upgrade --install fullnet-otel <otel-collector-chart> -f deploy/observability/otel-collector-values.yaml
+helm upgrade --install fullnet-otel opentelemetry-collector \
+  --repo https://open-telemetry.github.io/opentelemetry-helm-charts --version 0.178.2 \
+  --namespace observability --create-namespace -f deploy/observability/otel-collector-values.yaml
 kubectl apply -f deploy/observability/prometheus-rules.yaml
 # Import grafana-dashboard.json into Grafana
 ```

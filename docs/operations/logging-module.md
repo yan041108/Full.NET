@@ -479,7 +479,7 @@ LogEventId 映射 document_id，使用 index 动作，使同一事件重试始�
 
 2026-10-18 B1 指标独立专项 `auditing-metrics` 已 1/1 通过、0 失败/跳过：真实 API Host 与 SQL Server 产生健康、约束失败和超大拒绝指标，经固定 Collector 写入 Prometheus；`FullNetAuditB1QueuePressure`、`FullNetAuditB1WaitOrFailure` 保持正式五分钟窗口和持续条件，均验证 firing/resolved。停止负载后所有接受调用完成、数据库与计数对账、队列/在途字节归零及低基数标签检查通过。夹具的固定并发与可取消等待仅用于维持压力，不是默认配置或容量结果；详细边界和原始证据见[验收计划](../superpowers/plans/2026-10-17-logging-remediation.md#b1-正式指标与告警闭环批次)。
 
-`node eng/testing/otel-collector-config-test.mjs` 使用固定镜像严格校验 overlay 中的实际 `config`，并模拟存储挂载；它不渲染或安装第三方 Helm Chart，也不证明下游收到指标。集成聚焦集 `logging-metrics` 通过真实 Host 队列阻塞/丢弃、OTLP 和 Prometheus 验证字段及优先丢弃告警的触发/恢复，`auditing-metrics` 独立验证 B1；具体状态见活动整改计划，不以静态字段匹配代替真实导出。
+`node eng/testing/otel-collector-config-test.mjs` 使用固定镜像校验 Collector 配置并模拟 Pod 卷权限验证非 root 启动。Helm 渲染需单独检查 Chart 是否保留存储组和挂载，以及默认日志管道是否已移除。集成聚焦集 `logging-metrics` 通过真实 Host 队列阻塞和丢弃、OTLP 和 Prometheus 验证字段及优先丢弃告警的触发与恢复。`auditing-metrics` 独立验证 B1，具体验收状态见活动整改计划。
 
 Host 的 Trace/Metrics `service.instance.id` 与日志 `Instance` 共用同一启动标识，服务名默认取宿主名，可通过 `OTEL_SERVICE_NAME` 覆盖；保留平台配置的 `service.namespace`。指标不附加用户、租户、IP 或 URL 标签。监控器通过 DI 工厂创建并由 Host 释放，完全释放后注销仪器；Logger 停止期间仍保留终态累计计数。真实指标测试隔离运行机的 OTLP 地址、认证头及资源覆盖，仅向自有本地容器发送样本，并按部署 WAL 周期计算观察预算。
 

@@ -92,6 +92,8 @@ config:
   service:
     extensions: [file_storage, health_check]
     pipelines:
+      # 禁用上游 Chart 默认的 OTLP 日志调试管道。应用日志走独立的 Fluent Bit 链路。
+      logs: null
       traces:
         receivers: [otlp]
         processors: [memory_limiter, batch, attributes/drop_high_cardinality]
@@ -120,11 +122,3 @@ resources:
   limits:
     cpu: "1"
     memory: 1Gi
-
-fullnetContract:
-  memoryLimiter: true
-  batch: true
-  retry: true
-  fileStorage: true
-  recursiveSinkWriteback: false
-  durableAuditDuplication: false

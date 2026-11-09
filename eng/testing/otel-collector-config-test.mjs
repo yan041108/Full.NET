@@ -34,6 +34,8 @@ if (process.argv.includes('--help')) {
     const config = [];
     for (const line of lines.slice(start + 1)) {
       if (/^[^\s#]/u.test(line)) break;
+      // Helm 合并时用 null 删除默认日志管道；直接加载 Collector YAML 时省略该删除指令。
+      if (line === '      logs: null') continue;
       config.push(line.replace(/^  /u, ''));
     }
     assert.ok(config.some(line => line === 'service:'));

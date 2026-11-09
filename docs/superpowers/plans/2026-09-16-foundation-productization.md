@@ -5851,3 +5851,15 @@ Edge 桌面英文/手机中文 6/6（28.6 秒），axe 零发现，四张原来�
 - 固定 Collector Contrib 0.163.1 以 UID/GID 10001 运行。以不可写卷复现 Trace 持久队列创建失败并导致启动中止。参考 Helm values 通过 Pod `fsGroup: 10001` 授予存储组写权限。定向部署契约 1/1，真实镜像配置校验和模拟同组卷权限的非 root 启动通过。
 - 本地 Windows Docker 用固定 Collector 与 Prometheus 3.15.0，发送两组模拟 Worker 的 OTLP 样本，经实际 Remote Write 和 WAL 到达 Prometheus。五项指标查询均区分两个实例，覆盖连接获取、排队、许可证占用、等待和准入阶段；超时、拒绝告警表达式分别仅返回对应实例。此验证使用同一 Collector、合成 SQL Server 样本及本地接收端。
 - 发布环境需核对实际 Helm 卷挂载、Worker 指标标签、长时积压及通知送达，再按 D08-13 的容量方案实测，保持 `Capacity-not-verified`。
+
+### 8.204 D08-14 Collector Helm 渲染与数据库告警通知（2026-11-09）
+
+- 真实 Helm 3.20.0 与上游 Collector Chart 0.178.2 复现严格 Schema 拒绝自定义 `fullnetContract` 字段。移除未参与运行的字段，并显式删除 Chart 默认 OTLP 日志调试管道，保留独立 Fluent Bit 日志链路。安装示例固定已验证的 Chart 版本。
+- 真实渲染核对 Pod 存储组、卷挂载和仅启用 Trace、Metrics 的管道，渲染后的 Collector 配置通过固定镜像严格校验。定向部署契约 1/1，裸容器配置校验和非 root 启动通过。
+- 延续 §8.203 的合成 Worker OTLP 数据，经实际 Collector、Remote Write WAL、Prometheus、Alertmanager 0.34.0 到本地隔离 Webhook。正式两分钟保持期后，两实例分别送达超时和拒绝的触发通知，窗口退出后各送达恢复通知。四条通知的实例、Provider、宿主角色和严重级别匹配，同一告警触发与恢复指纹一致。
+- 发布环境的告警接收方、抓取配置、持续日志与积压窗口仍待现场复核。本地通知演练使用合成 SQL Server 指标和单个 Collector，保留 `Capacity-not-verified`。
+
+### 8.205 D08-08 菜单路径反馈复验（2026-11-09）
+
+- 复用 `093dd8053` 已交付的字段内提示。Windows Edge 的 Vue Mock 场景 1/1，覆盖空路径阻止提交、格式错误文字、输入控件关联错误、修正后提交原表单。未重复实现 BUG-15。
+- `App.test.ts` 8/8，包含 403 页面、切换语言、GoView 导航和可信导航名称更新时同步浏览器标题。报告所列路由在正式发布环境的导航和直接访问继续按 D08-08 核对。
