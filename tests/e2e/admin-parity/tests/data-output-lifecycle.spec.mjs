@@ -127,6 +127,49 @@ test('导出查看及下载不请求创建目录，真实浏览器下载保留�
   expect(definitions).toBe(0); expect(downloads).toBe(1);
 });
 
+for (const scenario of [
+  { name: '报表导出', component: 'reporting-export-tasks', path: '/reporting/export-tasks', endpoint: '/reporting/export-tasks',
+    scope: 'tenant', permission: 'reporting.export_tasks.read', extraPermissions: ['reporting.export_tasks.download'],
+    listDetail: 'reporting-export-detail', prefix: 'reporting-export', read: 'reporting-export-detail-download',
+    regenerate: 'reporting-export-regenerate', contentPath: 'download',
+    fields: { definitionId: id, definitionKey: 'fixture', definitionName: '报表夹具', versionNumber: 1,
+      formatKey: 'excel', rowCount: 1, outputFileName: 'fixture.xlsx', errorMessage: null, version: 1, parameters: [] } },
+  { name: '文档预览', component: 'document-preview-tasks', path: '/document/preview-tasks', endpoint: '/document/host/preview-tasks',
+    scope: 'host', permission: 'document.host_preview_tasks.read', extraPermissions: [],
+    listDetail: 'document-preview-task-detail', prefix: 'document-preview', read: 'document-preview-detail-open-pdf',
+    regenerate: 'document-preview-detail-regenerate', contentPath: 'content',
+    fields: { documentItemId: id, documentTitle: '文档夹具', versionId: nextId, sourceFileId: id,
+      providerKey: 'fixture', startedAtUtc: null, version: 1 } }
+]) {
+  test(`${scenario.name}刷新同一详情识别权威释放，保持零自动文件读取`, async ({ page }) => {
+    await boot(page, scenario.component, scenario.path, scenario.permission,
+      [scenario.permission, ...scenario.extraPermissions], scenario.scope);
+    const task = { ...scenario.fields, id, outputFileId: nextId, statusKey: 'succeeded', errorCode: null,
+      requestedByUserId: id, createdAtUtc, completedAtUtc: createdAtUtc };
+    const endpoint = `**/api/v1${scenario.endpoint}`;
+    let detailReads = 0;
+    let contentReads = 0;
+    let writes = 0;
+    page.on('request', request => { if (request.method() === 'POST' && request.url().includes(scenario.endpoint)) writes++; });
+    await page.route(`${endpoint}?*`, route => json(route, { items: [task], page: 1, pageSize: 20, total: 1 }));
+    await page.route(`${endpoint}/${id}`, route =>
+      json(route, { ...task, outputAvailabilityKey: ++detailReads === 1 ? 'registered' : 'released' }));
+    await page.route(`${endpoint}/${id}/${scenario.contentPath}`, route => { contentReads++; return route.fulfill({ status: 404 }); });
+    await page.goto(`/#${scenario.path}`);
+    await page.getByTestId(scenario.listDetail).click();
+    const availability = page.getByTestId(`${scenario.prefix}-result-availability`);
+    await expect(availability).toHaveText('已登记，内容待核对。');
+    await expect(page.getByTestId(scenario.read)).toBeEnabled();
+    await page.getByTestId(`${scenario.prefix}-detail-refresh`).click();
+    await expect(availability).toHaveText('结果文件已释放。');
+    await expect(page.getByTestId(scenario.read)).toBeDisabled();
+    await expect(page.getByTestId(scenario.regenerate)).toHaveCount(0);
+    expect(detailReads).toBe(2);
+    expect(contentReads).toBe(0);
+    expect(writes).toBe(0);
+  });
+}
+
 const importTask = { id, tenantId: id, schemaKey: 'organization.tenant_positions', schemaDisplayName: '租户职位',
   worksheetKey: 'positions', sourceFileId: id, sourceFileName: 'positions.xlsx', statusKey: 'preview_succeeded',
   totalRows: 1, validRowCount: 1, invalidRowCount: 0, errorCode: null, requestedByUserId: id, createdAtUtc,

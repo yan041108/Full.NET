@@ -22,6 +22,7 @@ export interface HostDocumentPreviewTaskResponse {
   versionId: string | null;
   sourceFileId: string;
   outputFileId: string | null;
+  outputAvailabilityKey?: 'registered' | 'released' | null;
   statusKey: string;
   providerKey: string;
   errorCode: string | null;
@@ -94,6 +95,9 @@ export function isHostDocumentPreviewTaskResponse(
     && isNullableGuid(value.versionId)
     && isGuid(value.sourceFileId)
     && isNullableGuid(value.outputFileId)
+    && (value.outputAvailabilityKey == null
+      || (isGuid(value.outputFileId) && value.statusKey === 'succeeded'
+        && (value.outputAvailabilityKey === 'registered' || value.outputAvailabilityKey === 'released')))
     && typeof value.statusKey === 'string'
     && typeof value.providerKey === 'string'
     && isNullableString(value.errorCode)

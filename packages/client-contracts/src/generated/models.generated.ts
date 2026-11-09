@@ -3505,6 +3505,7 @@ export interface HostDocumentPreviewTaskResponse {
   readonly errorCode: null | string;
   readonly id: string;
   readonly nextAttemptAtUtc?: null | string;
+  readonly outputAvailabilityKey?: null | string;
   readonly outputFileId: null | string;
   readonly previewGrant?: null | string;
   readonly previewPollUntilUtc?: null | string;
@@ -6252,6 +6253,7 @@ export interface ReportingExportTaskDetailResponse {
   readonly errorMessage: null | string;
   readonly formatKey: string;
   readonly id: string;
+  readonly outputAvailabilityKey?: null | string;
   readonly outputFileId: null | string;
   readonly outputFileName: null | string;
   readonly parameters: Array<ReportingExecutionParameterValue>;

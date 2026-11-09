@@ -109,6 +109,8 @@ public sealed record HostDocumentPreviewTaskResponse(
     public DateTimeOffset? NextAttemptAtUtc { get; init; }
     /// <summary>服务端允许客户端等待的截止时间；超出后用户可显式重试。</summary>
     public DateTimeOffset? PreviewPollUntilUtc { get; init; }
+    /// <summary>仅受保护的任务详情可返回原输出的登记或释放状态；未核对时为空。</summary>
+    public string? OutputAvailabilityKey { get; init; }
 }
 
 /// <summary>服务端当前转换能力，不包含供应商密钥或本地路径。</summary>

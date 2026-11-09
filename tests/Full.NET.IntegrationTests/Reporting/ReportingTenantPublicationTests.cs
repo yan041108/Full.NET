@@ -8,6 +8,7 @@ using Full.NET.Data.Abstractions;
 using Full.NET.Abstractions.Tenancy;
 using Full.NET.IntegrationTests.Api;
 using Full.NET.IntegrationTests.Migrations;
+using Full.NET.Modules.Files.Contracts;
 using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Reporting.Contracts;
 using Full.NET.Modules.Reporting.Features.ManageExportTasks;
@@ -65,7 +66,9 @@ public sealed class ReportingTenantPublicationTests
         using var member = factory.CreateClientForHost("localhost");
         var memberHostToken = await IntegrationTestAuthHelper.LoginAsHostUserAsync(member, username);
         member.DefaultRequestHeaders.Authorization = new("Bearer", memberHostToken);
-        await SendAsync(member, HttpMethod.Post, $"/api/v1/me/tenant-invitations/{invitation.GetProperty("invitation").GetProperty("id").GetGuid():D}/accept", new { }, HttpStatusCode.OK);
+        // 测试账号邮箱未验证，使用正式的一次性凭据接受本次邀请。
+        await SendAsync(member, HttpMethod.Post, "/api/v1/identity/tenant-invitations/accept",
+            new AcceptTenantInvitationRequest(invitation.GetProperty("invitationToken").GetString()!), HttpStatusCode.OK);
         member.DefaultRequestHeaders.Authorization = new("Bearer", await IntegrationTestTenantContextHelper.SwitchToTenantAsync(member, memberHostToken, tenant.Id));
         Assert.IsFalse((await member.GetFromJsonAsync<JsonElement>("/api/v1/me")).GetProperty("isSuperAdministrator").GetBoolean());
         // 默认没有租户发布；没有授权时分页总数也必须为零。
@@ -108,21 +111,38 @@ public sealed class ReportingTenantPublicationTests
             await worker.StartAsync(); await WaitAsync(taskId, "succeeded"); await worker.StopAsync();
         }
         Assert.AreEqual(1, external.QueryCount);
+        var detailPath = $"/api/v1/reporting/export-tasks/{taskId:D}";
+        var ready = await member.GetFromJsonAsync<ReportingExportTaskDetailResponse>(detailPath);
+        Assert.IsNotNull(ready);
+        Assert.AreEqual(FileAvailabilityKeys.Registered, ready.OutputAvailabilityKey);
+        Assert.IsNotNull(ready.OutputFileId);
         using (var download = await member.GetAsync($"/api/v1/reporting/export-tasks/{taskId:D}/download"))
         {
             Assert.AreEqual(HttpStatusCode.OK, download.StatusCode, await download.Content.ReadAsStringAsync());
             using var zip = new ZipArchive(new MemoryStream(await download.Content.ReadAsByteArrayAsync()));
             Assert.IsNotNull(zip.GetEntry("xl/worksheets/sheet1.xml"));
         }
+        await using (var scope = factory.Services.CreateAsyncScope())
+        {
+            scope.ServiceProvider.GetRequiredService<CurrentTenantAccessor>().SetTenant(new(tenant.Id, tenant.Identifier, tenant.Name));
+            await scope.ServiceProvider.GetRequiredService<ITenantResourceFileStore>()
+                .ReleaseAsync("reporting", taskId, ready.OutputFileId.Value);
+        }
+        var released = await member.GetFromJsonAsync<ReportingExportTaskDetailResponse>(detailPath);
+        Assert.AreEqual(FileAvailabilityKeys.Released, released!.OutputAvailabilityKey);
+        Assert.AreEqual(ready.StatusKey, released.StatusKey);
+        Assert.AreEqual(ready.OutputFileId, released.OutputFileId);
         owner.DefaultRequestHeaders.Authorization = null;
         var alternateHost = await IntegrationTestAuthHelper.LoginAsHostUserAsync(owner, "admin");
         owner.DefaultRequestHeaders.Authorization = new("Bearer", await IntegrationTestTenantContextHelper.SwitchToTenantAsync(owner, alternateHost, tenant.Id));
+        Assert.IsNull((await owner.GetFromJsonAsync<ReportingExportTaskDetailResponse>(detailPath))!.OutputAvailabilityKey);
         await SendAsync(owner, HttpMethod.Get, $"/api/v1/reporting/export-tasks/{taskId:D}/download", null, HttpStatusCode.Forbidden);
         host.DefaultRequestHeaders.Authorization = null;
         host.DefaultRequestHeaders.Authorization = new("Bearer", await IntegrationTestAuthHelper.LoginAsHostUserAsync(host, "admin"));
         // 停止循环后排队，再撤销授权；下一 Worker 必须先拒绝，不能读取外部源或绑定既有对象。
         var queued = await SendAsync(member, HttpMethod.Post, "/api/v1/reporting/export-tasks", CreateTask(), HttpStatusCode.Created);
         await SendAsync(host, HttpMethod.Put, grantPath, new SetReportingDefinitionTenantGrantRequest(false, grant.GetProperty("version").GetInt32()), HttpStatusCode.OK);
+        Assert.IsNull((await member.GetFromJsonAsync<ReportingExportTaskDetailResponse>(detailPath))!.OutputAvailabilityKey);
         await SendAsync(member, HttpMethod.Get, $"/api/v1/reporting/export-tasks/{taskId:D}/download", null, HttpStatusCode.Forbidden);
         using (var worker = await BuildWorkerAsync())
         {

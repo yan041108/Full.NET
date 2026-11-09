@@ -87373,6 +87373,12 @@
               "string"
             ]
           },
+          "outputAvailabilityKey": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
           "outputFileId": {
             "format": "uuid",
             "type": [
@@ -101604,6 +101610,12 @@
           "id": {
             "format": "uuid",
             "type": "string"
+          },
+          "outputAvailabilityKey": {
+            "type": [
+              "null",
+              "string"
+            ]
           },
           "outputFileId": {
             "format": "uuid",

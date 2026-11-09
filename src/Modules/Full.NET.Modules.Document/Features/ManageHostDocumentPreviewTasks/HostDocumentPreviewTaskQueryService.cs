@@ -18,7 +18,8 @@ internal sealed class HostDocumentPreviewTaskQueryService(
     IHostFileContentReader hostFileContentReader,
     IOptions<DatabaseOptions> databaseOptions,
     IDocumentAccessPolicy accessPolicy,
-    DocumentAccessLogRecorder logs)
+    DocumentAccessLogRecorder logs,
+    IHostFileDescriptorReader files)
 {
     public async Task<Result<PagedResult<HostDocumentPreviewTaskResponse>>> ListAsync(
         int page,
@@ -79,7 +80,34 @@ internal sealed class HostDocumentPreviewTaskQueryService(
         cancellationToken.ThrowIfCancellationRequested();
         if (error is not null)
             return Result<HostDocumentPreviewTaskResponse>.Failure(error);
-        return await GetAuthorizedAsync(taskId, cancellationToken).ConfigureAwait(false);
+        var response = HostDocumentPreviewTaskMapper.Map(task);
+        if (task.StatusKey != HostDocumentPreviewTaskStatusKeys.Succeeded || task.OutputFileId is not { } fileId)
+            return Result<HostDocumentPreviewTaskResponse>.Success(response);
+        try
+        {
+            var state = task.OutputReferenceId is { } referenceId
+                ? await queryExecutor.QuerySingleOrDefaultAsync<string>(DocumentPreviewReferenceSql.FindOutputState,
+                    DocumentSqlParameters.Create(("ReferenceId", referenceId), ("TaskId", taskId),
+                        ("DocumentId", task.DocumentItemId), ("FileId", fileId)), cancellationToken).ConfigureAwait(false)
+                : null;
+            var availability = state == "released" ? FileAvailabilityKeys.Released
+                : (task.OutputReferenceId is null || state == "claimed")
+                    && await files.GetReadyDescriptorAsync(fileId, cancellationToken).ConfigureAwait(false) is not null
+                    ? FileAvailabilityKeys.Registered : null;
+            if (availability is not null)
+            {
+                error = await accessPolicy.CheckAsync(task.DocumentItemId, DocumentOperation.Read, cancellationToken).ConfigureAwait(false);
+                cancellationToken.ThrowIfCancellationRequested();
+                if (error is not null) return Result<HostDocumentPreviewTaskResponse>.Failure(error);
+                response = response with { OutputAvailabilityKey = availability };
+            }
+        }
+        catch (ServiceCapacityExceededException)
+        {
+            // 结果状态读取繁忙时保留已授权任务的执行事实。
+            cancellationToken.ThrowIfCancellationRequested();
+        }
+        return Result<HostDocumentPreviewTaskResponse>.Success(response);
     }
 
     internal async Task<Result<HostDocumentPreviewTaskResponse>> GetAuthorizedAsync(

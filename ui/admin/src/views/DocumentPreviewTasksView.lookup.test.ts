@@ -40,6 +40,16 @@ it('只读 Host 在空页外按 ID 读取并核对完整文件身份，不打开
   await flushPromises();
   expect(availability.text()).toBe('最近一次读取成功。');
 });
+it('文档明确释放后仅有创建权限才出现重生成，打开内容保持禁用', async () => {
+  vi.mocked(api.getDocumentPreviewTask).mockResolvedValue({ ...task, versionId: otherId, outputAvailabilityKey: 'released' });
+  await setup();
+  await lookup(task.id);
+  expect(wrapper.get('[data-testid="document-preview-result-availability"]').text()).toBe('结果文件已释放。');
+  expect((wrapper.get('[data-testid="document-preview-detail-open-pdf"]').element as HTMLButtonElement).disabled).toBe(true);
+  expect(wrapper.find('[data-testid="document-preview-detail-regenerate"]').exists()).toBe(false);
+  expect(api.openDocumentPreviewTaskContent).not.toHaveBeenCalled();
+  expect(api.createDocumentPreviewTask).not.toHaveBeenCalled();
+});
 it.each(['bad', '', '00000000-0000-0000-0000-000000000000'])('非法 ID %j 不读取、不触发列表回退', async value => {
   await setup(); await lookup(value); expect(api.getDocumentPreviewTask).not.toHaveBeenCalled(); expect(api.listDocumentPreviewTasks).toHaveBeenCalledTimes(1);
   expect(wrapper.get('[data-testid="document-preview-lookup-problem"]').text()).toContain('请输入非零预览任务 UUID');

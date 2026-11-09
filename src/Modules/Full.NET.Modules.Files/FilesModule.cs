@@ -148,6 +148,7 @@ public sealed class FilesModule : IFullNetModule
         services.AddScoped<ITenantResourceFileStorageUsagePort, Features.TenantResourceFiles.TenantResourceFileStorageUsagePort>();
         services.TryAddScoped<ITenantResourceFileStore, Features.TenantResourceFiles.TenantResourceFileStore>();
         services.TryAddScoped<ITenantResourceFileDescriptorReader, Features.TenantResourceFiles.TenantResourceFileDescriptorReader>();
+        services.TryAddScoped<ITenantResourceFileAvailabilityReader, Features.TenantResourceFiles.TenantResourceFileDescriptorReader>();
         services.TryAddScoped<Features.WorkflowReadCapabilities.WorkflowFileReadCapabilityStore>();
         services.TryAddScoped<IWorkflowFileReadCapabilityStore>(provider => provider.GetRequiredService<Features.WorkflowReadCapabilities.WorkflowFileReadCapabilityStore>());
         services.TryAddScoped<ITenantResourceFileCleanup, Features.TenantResourceFiles.TenantResourceFileStore>();

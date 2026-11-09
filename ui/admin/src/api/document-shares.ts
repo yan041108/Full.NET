@@ -149,8 +149,11 @@ function publicShareInput(shareCode: string, req: AccessHostDocumentShareRequest
   return { shareCode: code, body: req.password === undefined ? {} : { password: req.password } };
 }
 const nonNilGuid = (value: string) => isGuid(value) && value !== '00000000-0000-0000-0000-000000000000';
-function checkPublicPreviewTask(task: HostDocumentPreviewTaskResponse): void {
-  if (!nonNilGuid(task.id) || !nonNilGuid(task.documentItemId) || !nonNilGuid(task.sourceFileId) || task.versionId !== null || !Number.isSafeInteger(task.version) || task.version < 1) throw new Error('client.invalid_document_preview_task_identity');
+function checkPublicPreviewTask(task: Omit<HostDocumentPreviewTaskResponse, 'outputAvailabilityKey'> & { outputAvailabilityKey?: unknown }): asserts task is HostDocumentPreviewTaskResponse {
+  if (task.outputAvailabilityKey != null
+    || !nonNilGuid(task.id) || !nonNilGuid(task.documentItemId) || !nonNilGuid(task.sourceFileId)
+    || task.versionId !== null || !Number.isSafeInteger(task.version) || task.version < 1)
+    throw new Error('client.invalid_document_preview_task_identity');
 }
 /** 通过分享码访问文档分享，可附带访问密码等公开访问参数。 */
 export async function accessDocumentShareByCode(

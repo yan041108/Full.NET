@@ -16,7 +16,7 @@ public sealed class DocumentPreviewStatusFilterTests
     public async Task Invalid_status_never_reaches_database(string status)
     {
         var queries = Substitute.For<IQueryExecutor>(); var multiple = Substitute.For<IMultiResultQueryExecutor>();
-        var service = new HostDocumentPreviewTaskQueryService(queries, multiple, null!, null!, null!, null!);
+        var service = new HostDocumentPreviewTaskQueryService(queries, multiple, null!, null!, null!, null!, null!);
         var result = await service.ListAsync(1, 20, null, status);
         Assert.IsFalse(result.IsSuccess); Assert.AreEqual(CommonErrorCodes.RequestInvalid, result.Error!.Code);
         Assert.AreEqual(ErrorType.Validation, result.Error.Type);

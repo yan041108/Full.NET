@@ -36,6 +36,19 @@ it('本人成功结果在详情独立显示待核对，读取详情不会下载'
   expect(wrapper.get('[data-testid="reporting-export-result-availability"]').text()).toContain('待核对');
   expect(api.downloadReportingExportTask).not.toHaveBeenCalled();
 });
+it.each([
+  ['registered', '已登记，内容待核对。', false],
+  ['released', '结果文件已释放。', true]
+] as const)('报表详情识别服务端状态 %s，保持读取与重生成显式触发', async (state, label, blocked) => {
+  vi.mocked(api.getReportingExportTask).mockResolvedValue({ ...exportTask, statusKey: 'succeeded', outputFileId: otherId, outputAvailabilityKey: state });
+  await setup(['reporting.export_tasks.read', 'reporting.export_tasks.download', 'reporting.export_tasks.create', 'reporting.published_definitions.read']);
+  await lookup(exportTask.id);
+  expect(wrapper.get('[data-testid="reporting-export-result-availability"]').text()).toBe(label);
+  expect((wrapper.get('[data-testid="reporting-export-detail-download"]').element as HTMLButtonElement).disabled).toBe(blocked);
+  expect(wrapper.find('[data-testid="reporting-export-regenerate"]').exists()).toBe(blocked);
+  expect(api.downloadReportingExportTask).not.toHaveBeenCalled();
+  expect(api.createReportingExportTask).not.toHaveBeenCalled();
+});
 it.each(['bad', '00000000-0000-0000-0000-000000000000'])('非法 ID %s 不读取、不触发列表回退', async value => {
   await setup(); await lookup(value); expect(api.getReportingExportTask).not.toHaveBeenCalled(); expect(api.listReportingExportTasks).toHaveBeenCalledTimes(1);
   expect(wrapper.text()).toContain('请输入非零导出任务 UUID');

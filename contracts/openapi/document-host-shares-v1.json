@@ -217,7 +217,8 @@
         "createdAtUtc",
         "startedAtUtc",
         "completedAtUtc",
-        "version"
+        "version",
+        "outputAvailabilityKey"
       ]
     },
     "Stream": {

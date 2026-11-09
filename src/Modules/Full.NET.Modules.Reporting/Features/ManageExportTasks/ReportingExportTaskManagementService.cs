@@ -152,12 +152,7 @@ internal sealed class ReportingExportTaskManagementService(
         }
         if (!ReportingExportSessionBinding.TryRead(principal, currentTenant.Id, out var caller) || caller.UserId != record.RequestedByUserId)
             return Result<TenantResourceFileContent>.Failure(ReportingExportTaskAuthority.Denied());
-        var initialActor = await sessions.AuthorizeAsync(caller, ReportingExportTaskPermissions.Download, cancellationToken).ConfigureAwait(false);
-        cancellationToken.ThrowIfCancellationRequested();
-        if (initialActor is null || initialActor.UserId != caller.UserId || initialActor.TenantId != caller.TenantId || initialActor.SessionId != caller.SessionId
-            || currentTenant.Id != caller.TenantId) return Result<TenantResourceFileContent>.Failure(ReportingExportTaskAuthority.Denied());
-        var denied = await authority.ValidateAsync(record, cancellationToken).ConfigureAwait(false);
-        cancellationToken.ThrowIfCancellationRequested();
+        var denied = await AuthorizeOutputAsync(record, caller, cancellationToken).ConfigureAwait(false);
         if (denied is not null) return Result<TenantResourceFileContent>.Failure(denied);
 
         if (!string.Equals(record.StatusKey, ReportingExportTaskStatusKeys.Succeeded, StringComparison.Ordinal)
@@ -182,10 +177,7 @@ internal sealed class ReportingExportTaskManagementService(
         try
         {
             cancellationToken.ThrowIfCancellationRequested();
-            var actor = await sessions.AuthorizeAsync(caller, ReportingExportTaskPermissions.Download, cancellationToken).ConfigureAwait(false);
-            cancellationToken.ThrowIfCancellationRequested();
-            if (currentTenant.Id != caller.TenantId || actor is null || actor.UserId != caller.UserId || actor.TenantId != caller.TenantId || actor.SessionId != caller.SessionId
-                || await authority.ValidateAsync(record, cancellationToken).ConfigureAwait(false) is not null)
+            if (await AuthorizeOutputAsync(record, caller, cancellationToken).ConfigureAwait(false) is not null)
                 return Result<TenantResourceFileContent>.Failure(ReportingExportTaskAuthority.Denied());
             cancellationToken.ThrowIfCancellationRequested();
             var result = Result<TenantResourceFileContent>.Success(new TenantResourceFileContent(
@@ -193,6 +185,22 @@ internal sealed class ReportingExportTaskManagementService(
             transferred = true; return result;
         }
         finally { if (!transferred) await file.Content.DisposeAsync().ConfigureAwait(false); }
+    }
+
+    /// <summary>文件内容与元数据共用原任务、当前会话及受保护列的授权边界。</summary>
+    internal async Task<Error?> AuthorizeOutputAsync(ReportingExportTaskRecord record, SessionBindingSnapshot caller,
+        CancellationToken cancellationToken)
+    {
+        if (caller.UserId != record.RequestedByUserId || currentTenant.Id != caller.TenantId)
+            return ReportingExportTaskAuthority.Denied();
+        var actor = await sessions.AuthorizeAsync(caller, ReportingExportTaskPermissions.Download, cancellationToken).ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
+        if (currentTenant.Id != caller.TenantId || actor is null || actor.UserId != caller.UserId
+            || actor.TenantId != caller.TenantId || actor.SessionId != caller.SessionId)
+            return ReportingExportTaskAuthority.Denied();
+        var denied = await authority.ValidateAsync(record, cancellationToken).ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
+        return currentTenant.Id == caller.TenantId ? denied : ReportingExportTaskAuthority.Denied();
     }
 
     /// <summary>把持久化终态映射为创建 API 结果，失败任务仍返回业务错误。</summary>

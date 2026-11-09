@@ -11,6 +11,10 @@ internal static class DocumentPreviewReferenceSql
         SELECT Id, DocumentId, TaskId, FileId, Purpose, StateKey, ReleaseAfterUtc, CreatedAtUtc
         FROM fn_document_preview_reference WHERE TaskId = @TaskId
         """, SqlDataScope.HostOnly);
+    internal static readonly SqlStatement FindOutputState = new("document.preview_reference.find_output_state", """
+        SELECT StateKey FROM fn_document_preview_reference
+        WHERE Id = @ReferenceId AND TaskId = @TaskId AND DocumentId = @DocumentId AND FileId = @FileId AND Purpose = 'output'
+        """, SqlDataScope.HostOnly);
     internal static readonly SqlStatement Claim = new("document.preview_reference.claim", """
         UPDATE fn_document_preview_reference SET StateKey = 'claimed' WHERE Id = @Id AND StateKey = 'preparing'
         """, SqlDataScope.HostOnly);

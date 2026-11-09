@@ -49,6 +49,24 @@ public sealed class DocumentPreviewStatusFilterApiTests
         }
         Assert.AreEqual(18L, (await Read("?pageSize=100")).Total); Assert.AreEqual(18L, (await Read("?statusKey=%20%20")).Total);
         Assert.AreEqual(3L, (await Read("?statusKey=%20succeeded%20")).Total);
+        var success = (await Read("?statusKey=succeeded&documentItemId=" + first)).Items.First();
+        var reference = Guid.CreateVersion7();
+        var output = Guid.CreateVersion7();
+        await database.ExecuteAsync("UPDATE fn_document_preview_task SET OutputFileId=@Output, OutputReferenceId=@Reference WHERE Id=@Id",
+            new { Output = output, Reference = reference, success.Id });
+        await database.ExecuteAsync("""
+            INSERT INTO fn_document_preview_reference (Id,DocumentId,TaskId,FileId,Purpose,StateKey,CreatedAtUtc)
+            VALUES (@Reference,@Document,@Task,@OtherFile,'output','released',@Now)
+            """, new { Reference = reference, Document = success.DocumentItemId, Task = success.Id, OtherFile = Guid.CreateVersion7(), Now = now });
+        var detailPath = $"/api/v1/document/host/preview-tasks/{success.Id:D}";
+        Assert.IsNull((await client.GetFromJsonAsync<HostDocumentPreviewTaskResponse>(detailPath))!.OutputAvailabilityKey);
+        await database.ExecuteAsync("UPDATE fn_document_preview_reference SET FileId=@Output WHERE Id=@Reference",
+            new { Output = output, Reference = reference });
+        var released = await client.GetFromJsonAsync<HostDocumentPreviewTaskResponse>(detailPath);
+        Assert.AreEqual("released", released!.OutputAvailabilityKey);
+        Assert.AreEqual("succeeded", released.StatusKey);
+        Assert.AreEqual(output, released.OutputFileId);
+        Assert.IsTrue((await Read("?statusKey=succeeded")).Items.All(row => row.OutputAvailabilityKey is null));
         foreach (var value in new[] { "unknown", "SUCCEEDED", "failed%27%20OR%201=1" })
         {
             using var response = await client.GetAsync("/api/v1/document/host/preview-tasks?statusKey=" + value); Assert.AreEqual(HttpStatusCode.BadRequest, response.StatusCode);

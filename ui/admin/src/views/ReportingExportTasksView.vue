@@ -424,7 +424,7 @@ function sameTaskSource(left: ReportingExportTask, right: ReportingExportTask): 
 }
 const isUnknown = (error: unknown) => !isFullNetProblemDetails(error) || error.status < 400 || error.status >= 500 || error.status === 408;
 function canRegenerate(task: ReportingExportTaskDetail) {
-  return canCreate() && (['failed', 'canceled'].includes(task.statusKey) || task.statusKey === 'succeeded' && unavailableFiles.isUnavailable(task.id))
+  return canCreate() && (['failed', 'canceled'].includes(task.statusKey) || task.statusKey === 'succeeded' && resultUnavailable(task))
     && task.formatKey === 'excel' && sameId(task.requestedByUserId, session.currentUser?.id)
     && !busy.value && !detailLoading.value && !detailProblem.value && !cancelDialogVisible.value;
 }
@@ -439,6 +439,7 @@ async function prepareRegeneration(source: ReportingExportTaskDetail) {
       || !isGuid(current.id) || current.id === '00000000-0000-0000-0000-000000000000' || !isGuid(current.definitionId) || current.definitionId === '00000000-0000-0000-0000-000000000000'
       || !Number.isSafeInteger(current.version) || current.version < original.version
       || current.outputFileId !== original.outputFileId || !sameId(current.requestedByUserId, session.currentUser?.id)
+      || original.outputAvailabilityKey === 'released' && current.outputAvailabilityKey !== 'released'
       || !Number.isSafeInteger(current.versionNumber) || current.versionNumber < 1
       || new Set(current.parameters.map(parameter => parameter.parameterKey)).size !== current.parameters.length
       || current.parameters.some(parameter => !parameter.parameterKey.trim() || parameter.value !== null && typeof parameter.value !== 'string')
@@ -475,6 +476,10 @@ function resultFileId(task: ReportingExportTask): string | undefined {
   // 列表协议只公开文件摘要，详情额外公开文件标识；只复核当前协议实际提供的字段。
   return 'outputFileId' in task && typeof task.outputFileId === 'string' ? task.outputFileId.toLowerCase() : undefined;
 }
+function resultUnavailable(task: ReportingExportTask): boolean {
+  const detail = detailVisible.value ? selectedTask.value : undefined;
+  return unavailableFiles.isUnavailable(task.id, detail && sameTaskSource(task, detail) ? detail.outputAvailabilityKey : undefined);
+}
 function taskVersion(task: ReportingExportTask): number | undefined {
   return 'version' in task && typeof task.version === 'number' ? task.version : undefined;
 }
@@ -492,7 +497,7 @@ function currentTask(target: ReportingExportTask): ReportingExportTask | undefin
 async function downloadTask(row: ReportingExportTask): Promise<void> {
   const current = currentTask(row); if (!current) return;
   const task = { ...current };
-  if (!canDownload() || !sameId(task.requestedByUserId, session.currentUser?.id) || task.statusKey !== 'succeeded' || detailLoading.value || creating.value || createDialogVisible.value || cancelDialogVisible.value || downloading.value || cancelling.value || unavailableFiles.isUnavailable(task.id)) {
+  if (!canDownload() || !sameId(task.requestedByUserId, session.currentUser?.id) || task.statusKey !== 'succeeded' || detailLoading.value || creating.value || createDialogVisible.value || cancelDialogVisible.value || downloading.value || cancelling.value || resultUnavailable(task)) {
     return;
   }
   const request = begin('reporting.export_tasks.download'); if (!request) return; downloadRequest = request; downloading.value = true;
@@ -683,7 +688,7 @@ function markCancelUnconfirmed(): void {
                     type="primary"
                     data-testid="reporting-export-download"
                     :data-task-id="row.id"
-                    :disabled="downloading || cancelling || unavailableFiles.isUnavailable(row.id)"
+                    :disabled="downloading || cancelling || resultUnavailable(row)"
                     v-on="{ click: row.download }"
                   >
                     {{ t('reportingExportTasks.download') }}
@@ -725,7 +730,7 @@ function markCancelUnconfirmed(): void {
           <ElDescriptionsItem :label="t('reportingExportTasks.fieldStatus')">{{ statusLabel(selectedTask.statusKey) }}</ElDescriptionsItem>
           <ElDescriptionsItem v-if="selectedTask.statusKey === 'succeeded' && canDownload() && sameId(selectedTask.requestedByUserId, session.currentUser?.id)"
             :label="t('dataOutput.resultAvailability')">
-            <span role="status" data-testid="reporting-export-result-availability">{{ t(unavailableFiles.availabilityMessageKey(selectedTask.id)) }}</span>
+            <span role="status" data-testid="reporting-export-result-availability">{{ t(unavailableFiles.availabilityMessageKey(selectedTask.id, selectedTask.outputAvailabilityKey)) }}</span>
           </ElDescriptionsItem>
           <ElDescriptionsItem :label="t('reportingExportTasks.fieldRowCount')">{{ selectedTask.rowCount }}</ElDescriptionsItem>
           <ElDescriptionsItem v-if="selectedTask.errorMessage || selectedTask.errorCode" :label="t('importExportTasks.failureReason')">
@@ -738,9 +743,9 @@ function markCancelUnconfirmed(): void {
           <ElTable :data="selectedTask.parameters" class="mt-4"><ElTableColumn prop="parameterKey" :label="t('reportingExportTasks.parameterKey')" /><ElTableColumn prop="value" :label="t('reportingExportTasks.parameterValue')" /></ElTable>
 
           <PermissionGate code="reporting.export_tasks.download"><ElButton v-if="selectedTask.statusKey === 'succeeded' && sameId(selectedTask.requestedByUserId, session.currentUser?.id)"
-            data-testid="reporting-export-detail-download" :data-task-id="selectedTask.id" :disabled="detailLoading || downloading || cancelling || unavailableFiles.isUnavailable(selectedTask.id)"
+            data-testid="reporting-export-detail-download" :data-task-id="selectedTask.id" :disabled="detailLoading || downloading || cancelling || resultUnavailable(selectedTask)"
             v-on="{ click: detailControls.download }">{{ t('reportingExportTasks.download') }}</ElButton></PermissionGate>
-          <ElButton v-if="(['failed', 'canceled'].includes(selectedTask.statusKey) || selectedTask.statusKey === 'succeeded' && unavailableFiles.isUnavailable(selectedTask.id)) && canCreate() && sameId(selectedTask.requestedByUserId, session.currentUser?.id)"
+          <ElButton v-if="(['failed', 'canceled'].includes(selectedTask.statusKey) || selectedTask.statusKey === 'succeeded' && resultUnavailable(selectedTask)) && canCreate() && sameId(selectedTask.requestedByUserId, session.currentUser?.id)"
             data-testid="reporting-export-regenerate" :disabled="!canRegenerate(selectedTask)" v-on="{ click: detailControls.regenerate }">{{ recoveryText('action') }}</ElButton>
           <ElButton v-if="isCancellable(selectedTask) || selectedTask.statusKey === 'queued' && sameId(selectedTask.requestedByUserId, session.currentUser?.id) && session.can('reporting.export_tasks.cancel')" data-testid="reporting-export-detail-cancel" :disabled="detailLoading || cancelling || creating || downloading || cancellationBlocks.has(selectedTask.id.toLowerCase())"
             v-on="{ click: detailControls.cancel }">{{ t('common.cancel') }}</ElButton>

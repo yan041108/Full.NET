@@ -121,4 +121,8 @@ public sealed record ReportingExportTaskDetailResponse(
     Guid RequestedByUserId,
     DateTimeOffset CreatedAtUtc,
     DateTimeOffset? CompletedAtUtc,
-    long Version);
+    long Version)
+{
+    /// <summary>经原下载授权确认的结果登记或释放状态；未核对时为空。</summary>
+    public string? OutputAvailabilityKey { get; init; }
+}

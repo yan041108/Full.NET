@@ -118,7 +118,7 @@ public sealed class DocumentPreviewOutputBoundaryTests
             Reader = new(State, Stream); Queries = new(State); Policy = new(State);
             Commands = new(State); Transaction = new(State);
             var logs = new DocumentAccessLogRecorder(Commands, Transaction, new FixedClock(), new GuidV7IdGenerator());
-            Service = new(Queries, null!, Reader, null!, Policy, logs);
+            Service = new(Queries, null!, Reader, null!, Policy, logs, null!);
         }
 
         internal async Task<Result<HostFileContent>> ReadAfterAsync(Action change, CancellationToken token = default)

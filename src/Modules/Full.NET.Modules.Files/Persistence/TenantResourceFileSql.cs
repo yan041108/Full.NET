@@ -59,6 +59,12 @@ internal static class TenantResourceFileSql
         WHERE TenantId = @TenantId AND Id = @Id AND OwnerModuleKey = @OwnerModuleKey AND ResourceId = @ResourceId
         """, SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
 
+    /// <summary>只查原资源文件状态，避免把存储路径或凭据带入只读探测。</summary>
+    public static readonly SqlStatement FindOwnedStatus = new("files.tenant_resource_file.find_owned_status", """
+        SELECT StatusKey FROM fn_files_tenant_resource_file
+        WHERE TenantId = @TenantId AND Id = @Id AND OwnerModuleKey = @OwnerModuleKey AND ResourceId = @ResourceId
+        """, SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
+
     /// <summary>列出所属资源全部就绪文件，供任务在上传成功后崩溃时绑定已有对象。</summary>
     public static readonly SqlStatement ListReady = new("files.tenant_resource_file.list_ready", """
         SELECT Id, OriginalFileName, CreatedAtUtc

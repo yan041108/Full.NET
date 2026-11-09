@@ -1,6 +1,8 @@
+using System.Security.Claims;
 using Full.NET.Abstractions.Results;
 using Full.NET.Abstractions.Tenancy;
 using Full.NET.Data.Abstractions;
+using Full.NET.Modules.Files.Contracts;
 using Full.NET.Modules.Reporting.Contracts;
 using Full.NET.Modules.Reporting.Persistence;
 using Microsoft.Extensions.Options;
@@ -12,7 +14,9 @@ internal sealed class ReportingExportTaskQueryService(
     IQueryExecutor queryExecutor,
     IMultiResultQueryExecutor multiResultQueryExecutor,
     IOptions<DatabaseOptions> databaseOptions,
-    ICurrentTenant currentTenant)
+    ICurrentTenant currentTenant,
+    ReportingExportTaskManagementService management,
+    ITenantResourceFileAvailabilityReader files)
 {
     /// <summary>分页查询导出任务。</summary>
     public async Task<Result<PagedResult<ReportingExportTaskResponse>>> ListAsync(
@@ -60,6 +64,7 @@ internal sealed class ReportingExportTaskQueryService(
     /// <summary>按标识读取导出任务详情。</summary>
     public async Task<Result<ReportingExportTaskDetailResponse>> GetAsync(
         Guid taskId,
+        ClaimsPrincipal principal,
         CancellationToken cancellationToken = default)
     {
         var record = await queryExecutor
@@ -68,9 +73,27 @@ internal sealed class ReportingExportTaskQueryService(
                 ReportingSqlParameters.Create(("Id", taskId)),
                 cancellationToken)
             .ConfigureAwait(false);
-        return record is null
-            ? Result<ReportingExportTaskDetailResponse>.Failure(TaskNotFoundError())
-            : Result<ReportingExportTaskDetailResponse>.Success(ReportingExportTaskMapper.MapDetail(record));
+        if (record is null) return Result<ReportingExportTaskDetailResponse>.Failure(TaskNotFoundError());
+        var response = ReportingExportTaskMapper.MapDetail(record);
+        if (record.StatusKey != ReportingExportTaskStatusKeys.Succeeded || record.OutputFileId is not { } fileId
+            || !ReportingExportSessionBinding.TryRead(principal, currentTenant.Id, out var caller)
+            || caller.UserId != record.RequestedByUserId)
+            return Result<ReportingExportTaskDetailResponse>.Success(response);
+        try
+        {
+            if (await management.AuthorizeOutputAsync(record, caller, cancellationToken).ConfigureAwait(false) is null)
+            {
+                var status = await files.GetAvailabilityKeyAsync("reporting", taskId, fileId, cancellationToken).ConfigureAwait(false);
+                if (status is not null && await management.AuthorizeOutputAsync(record, caller, cancellationToken).ConfigureAwait(false) is null)
+                    response = response with { OutputAvailabilityKey = status };
+            }
+        }
+        catch (ServiceCapacityExceededException)
+        {
+            // 附加状态的准入不足时仍可读原任务，且不推断结果已丢失。
+            cancellationToken.ThrowIfCancellationRequested();
+        }
+        return Result<ReportingExportTaskDetailResponse>.Success(response);
     }
 
     private static Error TaskNotFoundError() =>

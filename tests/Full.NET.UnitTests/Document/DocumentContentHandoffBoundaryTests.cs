@@ -270,7 +270,7 @@ public sealed class DocumentContentHandoffBoundaryTests
             });
             IDocumentAccessPolicy policy = stage.StartsWith("policy-", StringComparison.Ordinal) ? new CancellingAccessPolicy(Cancellation, stage == "policy-denied") : new TestDocumentAccessPolicy();
             items = new(Multi, Query, files, recorder, new(Query, Command, null!), database, policy);
-            tasks = new(Query, Multi, files, database, policy, recorder);
+            tasks = new(Query, Multi, files, database, policy, recorder, null!);
             shares = new(Query, Command, Transaction, null!, null!, tasks, clock, Substitute.For<IIdGenerator>(), hasher, new TestDocumentAccessPolicy(), null!, null!, recorder);
         }
 

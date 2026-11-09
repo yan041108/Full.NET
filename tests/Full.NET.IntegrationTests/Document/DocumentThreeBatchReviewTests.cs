@@ -45,7 +45,8 @@ public sealed partial class DocumentBatchThreeTests
             s.GetRequiredService<DocumentAccessLogRecorder>(), s.GetRequiredService<DocumentItemTagAssignmentService>(),
             s.GetRequiredService<IOptions<DatabaseOptions>>(), policy);
         var previews = new HostDocumentPreviewTaskQueryService(queries, s.GetRequiredService<IMultiResultQueryExecutor>(), reader,
-            s.GetRequiredService<IOptions<DatabaseOptions>>(), policy, s.GetRequiredService<DocumentAccessLogRecorder>());
+            s.GetRequiredService<IOptions<DatabaseOptions>>(), policy, s.GetRequiredService<DocumentAccessLogRecorder>(),
+            s.GetRequiredService<IHostFileDescriptorReader>());
         Func<Task<Result<HostFileContent>>>[] paths = [
             () => items.OpenCurrentVersionContentAsync(item.Id),
             () => items.OpenVersionPreviewAsync(item.Id, item.CurrentVersion!.Id),

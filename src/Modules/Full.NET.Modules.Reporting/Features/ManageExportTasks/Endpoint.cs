@@ -90,7 +90,8 @@ internal static class Endpoint
             HttpContext httpContext,
             CancellationToken cancellationToken) =>
         {
-            var result = await queries.GetAsync(taskId, cancellationToken).ConfigureAwait(false);
+            httpContext.Response.Headers.CacheControl = "no-store";
+            var result = await queries.GetAsync(taskId, httpContext.User, cancellationToken).ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
         .WithName("reportingGetExportTask")

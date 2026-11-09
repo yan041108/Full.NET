@@ -99,6 +99,7 @@ internal static class Endpoint
             HttpContext httpContext,
             CancellationToken cancellationToken) =>
         {
+            httpContext.Response.Headers.CacheControl = "no-store";
             var result = await queries.GetAsync(taskId, cancellationToken).ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })

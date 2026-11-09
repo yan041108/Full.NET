@@ -30,6 +30,7 @@ export interface ReportingExportTask {
 export interface ReportingExportTaskDetail extends ReportingExportTask {
   version: number;
   outputFileId: string | null;
+  outputAvailabilityKey?: 'registered' | 'released' | null;
   parameters: ReportingExportTaskParameterValue[];
 }
 
@@ -91,6 +92,9 @@ export function isReportingExportTaskDetail(value: unknown): value is ReportingE
     && isRecord(value)
     && Number.isSafeInteger(value.version) && Number(value.version) > 0
     && (value.outputFileId === null || isGuid(value.outputFileId))
+    && (value.outputAvailabilityKey == null
+      || (isGuid(value.outputFileId) && value.statusKey === 'succeeded'
+        && (value.outputAvailabilityKey === 'registered' || value.outputAvailabilityKey === 'released')))
     && Array.isArray(value.parameters)
     && value.parameters.every(isReportingExportTaskParameterValue);
 }

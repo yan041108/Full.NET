@@ -8,10 +8,12 @@ export function useUnavailableResultFiles() {
   const readable = ref(new Set<string>());
   let generation = 0;
   return {
-    isUnavailable: (key: string) => unavailable.value.has(key),
-    availabilityMessageKey(key: string): MessageKey {
+    isUnavailable: (key: string, state?: string | null) => state === 'released' || unavailable.value.has(key),
+    availabilityMessageKey(key: string, state?: string | null): MessageKey {
+      if (state === 'released') return 'dataOutput.released';
       if (unavailable.value.has(key)) return 'dataOutput.resultUnavailable';
       if (readable.value.has(key)) return 'dataOutput.resultLastRead';
+      if (state === 'registered') return 'dataOutput.registered';
       return 'dataOutput.resultPendingVerification';
     },
     reset() {

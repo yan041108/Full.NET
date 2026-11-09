@@ -15,7 +15,7 @@ public sealed class DocumentPreviewReadAdmissionTests
     public async Task Missing_task_fails_closed_before_any_unguarded_second_read(bool output)
     {
         var queries = new MissingOnceQueries();
-        var service = new HostDocumentPreviewTaskQueryService(queries, null!, null!, null!, null!, null!);
+        var service = new HostDocumentPreviewTaskQueryService(queries, null!, null!, null!, null!, null!, null!);
         var error = output ? (await service.OpenOutputContentAsync(Guid.CreateVersion7())).Error
             : (await service.GetAsync(Guid.CreateVersion7())).Error;
         Assert.IsNotNull(error); Assert.AreEqual(Full.NET.Modules.Document.Contracts.DocumentErrorCodes.PreviewTaskNotFound, error.Code);
@@ -30,7 +30,7 @@ public sealed class DocumentPreviewReadAdmissionTests
         var taskId = Guid.CreateVersion7();
         var queries = new CompletingQueries(taskId, status);
         // 本次快照未成功就不能进入存储或成功日志，依赖为空可确保没有隐藏副作用。
-        var service = new HostDocumentPreviewTaskQueryService(queries, null!, null!, null!, new TestDocumentAccessPolicy(), null!);
+        var service = new HostDocumentPreviewTaskQueryService(queries, null!, null!, null!, new TestDocumentAccessPolicy(), null!, null!);
         var result = await service.OpenOutputContentAsync(taskId);
         Assert.IsFalse(result.IsSuccess);
         Assert.AreEqual(Full.NET.Modules.Document.Contracts.DocumentErrorCodes.PreviewTaskNotReady, result.Error!.Code);

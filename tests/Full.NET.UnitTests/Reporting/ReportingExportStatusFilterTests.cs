@@ -19,7 +19,7 @@ public sealed class ReportingExportStatusFilterTests
     {
         var queries = Substitute.For<IQueryExecutor>(); var multiple = Substitute.For<IMultiResultQueryExecutor>();
         var service = new ReportingExportTaskQueryService(queries, multiple,
-            Options.Create(new DatabaseOptions { Provider = DatabaseProvider.SqlServer }), Substitute.For<ICurrentTenant>());
+            Options.Create(new DatabaseOptions { Provider = DatabaseProvider.SqlServer }), Substitute.For<ICurrentTenant>(), null!, null!);
         var result = await service.ListAsync(1, 20, null, status);
         Assert.IsFalse(result.IsSuccess); Assert.AreEqual(CommonErrorCodes.RequestInvalid, result.Error!.Code);
         Assert.AreEqual(ErrorType.Validation, result.Error.Type);
