@@ -320,6 +320,8 @@ internal sealed class JobExecutionRunner(
             executionCancellation,
             scopedQueryExecutor,
             cancellationToken);
+        // Handler 已成功后，落账异常应交给 Worker 恢复处理，不能再改写成 Handler 失败。
+        var handlerCompleted = false;
         try
         {
             var context = new JobExecutionContext(
@@ -331,6 +333,7 @@ internal sealed class JobExecutionRunner(
                 execution.TriggerKind);
             await executor.ExecuteAsync(context, executionCancellation.Token)
                 .ConfigureAwait(false);
+            handlerCompleted = true;
             var succeededRows = await MarkSucceededAsync(
                     execution.Id,
                     leaseId,
@@ -344,7 +347,8 @@ internal sealed class JobExecutionRunner(
             }
         }
         catch (OperationCanceledException)
-            when (executionCancellation.IsCancellationRequested
+            when (!handlerCompleted
+                  && executionCancellation.IsCancellationRequested
                   && !cancellationToken.IsCancellationRequested)
         {
             var cancelledRows = await MarkCancelledAsync(
@@ -365,7 +369,7 @@ internal sealed class JobExecutionRunner(
             // 宿主取消不属于业务失败；保留当前租约，由过期恢复路径重新领取未完成任务。
             throw;
         }
-        catch (RetryableJobException exception)
+        catch (RetryableJobException exception) when (!handlerCompleted)
         {
             JobExecutionRunnerLog.ExecutionFailed(
                 scopedLogger,
@@ -413,7 +417,7 @@ internal sealed class JobExecutionRunner(
                     .ConfigureAwait(false);
             }
         }
-        catch (Exception exception)
+        catch (Exception exception) when (!handlerCompleted)
         {
             JobExecutionRunnerLog.ExecutionFailed(
                 scopedLogger,

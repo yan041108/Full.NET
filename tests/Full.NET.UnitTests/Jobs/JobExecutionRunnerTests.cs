@@ -1,6 +1,7 @@
 using System.Diagnostics.Metrics;
 using Full.NET.Abstractions.Ids;
 using Full.NET.Abstractions.Messaging;
+using Full.NET.Abstractions.Results;
 using Full.NET.Abstractions.Tenancy;
 using Full.NET.Abstractions.Time;
 using Full.NET.Data.Abstractions;
@@ -470,6 +471,30 @@ public sealed class JobExecutionRunnerTests
             "fullnet.jobs.retry.exhausted",
             expectedCount: 0);
 
+    }
+
+    [TestMethod]
+    public async Task ProcessPendingAsync_WhenSuccessWriteTimesOut_DoesNotMarkHandlerFailed()
+    {
+        var capacityFailure = new ServiceCapacityExceededException(
+            ServiceCapacityFailureKind.Timeout, TimeSpan.FromSeconds(1));
+        var commandExecutor = new FailureRecordingCommandExecutor(successWriteFailure: capacityFailure);
+        var runner = CreateFailureRunner(new ImmediateJobHandler(), attemptCount: 1,
+            maxAttempts: 3, retryDelaySeconds: 30, DateTimeOffset.UtcNow, commandExecutor);
+
+        ServiceCapacityExceededException? failure = null;
+        try
+        {
+            await runner.ProcessPendingAsync(1, CancellationToken.None);
+        }
+        catch (ServiceCapacityExceededException exception)
+        {
+            failure = exception;
+        }
+
+        CollectionAssert.Contains(commandExecutor.Statements, JobSql.MarkExecutionSucceeded);
+        CollectionAssert.DoesNotContain(commandExecutor.Statements, JobSql.MarkExecutionFailed);
+        Assert.AreSame(capacityFailure, failure);
     }
 
     [TestMethod]
@@ -1088,7 +1113,8 @@ public sealed class JobExecutionRunnerTests
     }
 
     private sealed class FailureRecordingCommandExecutor(
-        int affectedRows = 1) : ICommandExecutor
+        int affectedRows = 1,
+        Exception? successWriteFailure = null) : ICommandExecutor
     {
         private readonly Dictionary<SqlStatement, object?> _parameters = [];
 
@@ -1101,6 +1127,10 @@ public sealed class JobExecutionRunnerTests
         {
             Statements.Add(statement);
             _parameters[statement] = parameters;
+            if (statement == JobSql.MarkExecutionSucceeded && successWriteFailure is not null)
+            {
+                return Task.FromException<int>(successWriteFailure);
+            }
             return Task.FromResult(affectedRows);
         }
 
