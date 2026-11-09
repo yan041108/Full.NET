@@ -424,17 +424,17 @@ export function createAppRouter(
         component: () => import('../views/AiAgentRunsView.vue')
       },
       {
-        name: 'payment-merchant-configs',
+        name: 'payments-merchant-configs',
         path: '/payments/merchant-configs',
         component: () => import('../views/PaymentMerchantConfigsView.vue')
       },
       {
-        name: 'payment-orders',
+        name: 'payments-orders',
         path: '/payments/orders',
         component: () => import('../views/PaymentOrdersView.vue')
       },
       {
-        name: 'payment-refunds',
+        name: 'payments-refunds',
         path: '/payments/refunds',
         component: () => import('../views/PaymentRefundsView.vue')
       },

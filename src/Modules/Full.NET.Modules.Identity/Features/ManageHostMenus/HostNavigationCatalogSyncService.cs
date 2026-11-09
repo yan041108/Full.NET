@@ -87,6 +87,13 @@ internal sealed class HostNavigationCatalogSyncService(
             AND RouteName='module-notifications' AND Path='/modules/notifications' AND RequiredPermission LIKE 'notifications.%'
         """, SqlDataScope.HostOnly);
 
+    // 支付目录只负责分组，订单和退款读取不应依赖商户配置权限。
+    internal static readonly SqlStatement RepairPaymentsDirectoryPermission = new("identity.navigation.repair_payments_directory_permission", """
+        UPDATE fn_identity_navigation SET RequiredPermission=@RequiredPermission, UpdatedAtUtc=@Now, Version=Version+1
+        WHERE ScopeKey='host' AND TenantId IS NULL AND IsSystem=1 AND MenuType='directory'
+            AND RouteName='module-payments' AND Path='/modules/payments' AND RequiredPermission='payments.merchants.read'
+        """, SqlDataScope.HostOnly);
+
     public async Task<(int Created, int Skipped, int Reparented, int PermissionUpdated)> SyncMissingCatalogEntriesAsync(
         CancellationToken cancellationToken = default)
     {
@@ -106,6 +113,8 @@ internal sealed class HostNavigationCatalogSyncService(
         permissionUpdated += await commandExecutor.ExecuteAsync(RepairAiDirectoryPermission,
             new Dictionary<string, object?> { ["RequiredPermission"] = IdentityAuthorizationContributor.NavigationRead, ["Now"] = clock.UtcNow }, cancellationToken).ConfigureAwait(false);
         permissionUpdated += await commandExecutor.ExecuteAsync(RepairNotificationsDirectoryPermission,
+            new Dictionary<string, object?> { ["RequiredPermission"] = IdentityAuthorizationContributor.NavigationRead, ["Now"] = clock.UtcNow }, cancellationToken).ConfigureAwait(false);
+        permissionUpdated += await commandExecutor.ExecuteAsync(RepairPaymentsDirectoryPermission,
             new Dictionary<string, object?> { ["RequiredPermission"] = IdentityAuthorizationContributor.NavigationRead, ["Now"] = clock.UtcNow }, cancellationToken).ConfigureAwait(false);
         permissionUpdated += await commandExecutor.ExecuteAsync(RepairReportingDirectoryPermission,
             new Dictionary<string, object?> { ["RequiredPermission"] = IdentityAuthorizationContributor.NavigationRead, ["Now"] = clock.UtcNow }, cancellationToken).ConfigureAwait(false);
@@ -582,7 +591,7 @@ internal sealed class HostNavigationCatalogSyncService(
     {
         if (moduleKey == "workflow") return IdentityAuthorizationContributor.NavigationRead;
         if (moduleKey == "ai") return IdentityAuthorizationContributor.NavigationRead;
-        if (moduleKey is "notifications" or "reporting" or "platform" or "printing") return IdentityAuthorizationContributor.NavigationRead;
+        if (moduleKey is "notifications" or "reporting" or "platform" or "printing" or "payments") return IdentityAuthorizationContributor.NavigationRead;
         foreach (var navigation in authorizationCatalog.Navigation)
         {
             if (authorizationCatalog.NavigationModuleKeys.TryGetValue(navigation.Id, out var mappedModuleKey)

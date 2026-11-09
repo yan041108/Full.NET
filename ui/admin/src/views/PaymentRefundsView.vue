@@ -132,7 +132,7 @@ function readRoute() {
 watch(() => route?.query.orderId, () => { scope.invalidate(); readRoute(); void load(); }, { flush: 'sync' });
 function search() { invalidRoute.value = false; appliedFilters = { orderId: orderFilter.value.trim(), state: stateFilter.value }; page.value = 1; void load(); }
 function reset() {
-  if (router && route?.query.orderId !== undefined) { void router.replace({ name: 'payment-refunds', query: {} }); return; }
+  if (router && route?.query.orderId !== undefined) { void router.replace({ name: 'payments-refunds', query: {} }); return; }
   orderFilter.value = ''; stateFilter.value = 'all'; search();
 }
 function changePage(value: number) { if (value !== page.value) { page.value = value; void load(); } }

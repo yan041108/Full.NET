@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, onMounted, onScopeDispose, reactive, ref, watch } from 'vue';
+import { computed, nextTick, onDeactivated, onMounted, onScopeDispose, reactive, ref, watch } from 'vue';
 import { useBlobPreview } from '../composables/useBlobPreview';
 import { useRouter } from 'vue-router';
 import {
@@ -438,6 +438,12 @@ async function saveEdit(): Promise<void> {
 function openSubscriptions(tenant: HostTenant): void {
   subscriptionTenant.value = tenant; subscriptionDialogOpen.value = true;
 }
+
+// 页面由 KeepAlive 缓存，离开时关闭订阅弹窗并释放原企业目标。
+onDeactivated(() => {
+  subscriptionDialogOpen.value = false;
+  subscriptionTenant.value = null;
+});
 
 async function assignPackage(
   tenant: HostTenant,

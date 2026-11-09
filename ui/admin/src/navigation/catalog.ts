@@ -17,6 +17,9 @@ const navigationCatalog = createAdminNavigationCatalog();
 /** 组件键到本地文案键的闭合映射；缺任何一侧都按未知导航失败关闭。 */
 const messageKeys = new Map<string, Pick<LocalNavigationDefinition, 'titleKey' | 'captionKey'>>([
   ['webhook-subscriptions', { titleKey: 'navigation.webhooks.title', captionKey: 'navigation.webhooks.caption' }],
+  ['payments-merchant-configs', { titleKey: 'navigation.paymentMerchantConfigs.title', captionKey: 'navigation.paymentMerchantConfigs.caption' }],
+  ['payments-orders', { titleKey: 'navigation.paymentOrders.title', captionKey: 'navigation.paymentOrders.caption' }],
+  ['payments-refunds', { titleKey: 'navigation.paymentRefunds.title', captionKey: 'navigation.paymentRefunds.caption' }],
   ['overview', {
     titleKey: 'navigation.overview.title',
     captionKey: 'navigation.overview.caption'

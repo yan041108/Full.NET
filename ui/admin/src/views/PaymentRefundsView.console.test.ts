@@ -132,7 +132,7 @@ describe('原退款记录核对控制台', () => {
     routing.route!.query = { orderId: value }; const { wrapper } = await panel();
     expect(listPaymentRefunds).not.toHaveBeenCalled(); expect(wrapper.text()).toContain('不会回退为全部');
     await wrapper.get('[data-testid="refunds-reset"]').trigger('click'); await flushPromises();
-    expect(routing.replace).toHaveBeenCalledWith({ name: 'payment-refunds', query: {} }); expect(listPaymentRefunds).toHaveBeenCalledTimes(1);
+    expect(routing.replace).toHaveBeenCalledWith({ name: 'payments-refunds', query: {} }); expect(listPaymentRefunds).toHaveBeenCalledTimes(1);
   });
   it('筛选回首页；翻页只携带已提交条件，输入草稿不隐式改变页范围', async () => {
     const { wrapper } = await panel();

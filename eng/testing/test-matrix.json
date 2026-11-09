@@ -2727,6 +2727,12 @@
         "minimumPassedOnTestcontainers": 1,
         "timeout": "10m"
       },
+      "subscription-billing-browser": {
+        "filter": "FullyQualifiedName~SubscriptionBillingBrowserUiTests",
+        "minimum": 1,
+        "minimumPassedOnTestcontainers": 1,
+        "timeout": "8m"
+      },
       "identity-oidc-network-interop": {
         "filter": "FullyQualifiedName~IdentityOidcNetworkInteropTests",
         "minimum": 2,

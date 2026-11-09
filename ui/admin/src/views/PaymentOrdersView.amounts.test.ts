@@ -35,7 +35,7 @@ describe('支付页面金额提交', () => {
     expect(wrapper.find('[data-testid="payment-order-refund-reason"]').exists()).toBe(false);
     expect(createPaymentRefund).not.toHaveBeenCalled();
     await wrapper.get(`[data-testid="payment-order-refund-records-${order.id}"]`).trigger('click');
-    expect(navigation.push).toHaveBeenCalledWith({ name: 'payment-refunds', query: { orderId: order.id } });
+    expect(navigation.push).toHaveBeenCalledWith({ name: 'payments-refunds', query: { orderId: order.id } });
   });
   it('退款结果未确认时可按原订单跳转只读记录，不再次提交退款', async () => {
     const wrapper = await panel(); useSessionStore().currentUser!.permissions.push('payments.refunds.read'); await flushPromises();
@@ -45,7 +45,7 @@ describe('支付页面金额提交', () => {
     await wrapper.get('[data-testid="payment-order-refund-amount"]').setValue('0.29');
     await wrapper.get('[data-testid="payment-order-refund-confirm"]').trigger('click'); await flushPromises();
     await wrapper.get('[data-testid="payment-refund-check-records"]').trigger('click'); await flushPromises();
-    expect(navigation.push).toHaveBeenCalledWith({ name: 'payment-refunds', query: { orderId: order.id } });
+    expect(navigation.push).toHaveBeenCalledWith({ name: 'payments-refunds', query: { orderId: order.id } });
     expect(createPaymentRefund).toHaveBeenCalledTimes(1); expect(wrapper.find('[data-testid="payment-order-refund-amount"]').exists()).toBe(false);
   });
   it('退款入口只认后端现有精确权限，不接受不存在的旧权限码', async () => {

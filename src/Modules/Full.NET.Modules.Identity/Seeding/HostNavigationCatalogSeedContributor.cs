@@ -14,7 +14,7 @@ internal sealed class HostNavigationCatalogSeedContributor(
     public string Name => "identity.host_navigation_catalog";
 
     // 版本推进使既有 Baseline 在 Migrator 重跑目录修复，API 与 Worker 不播种。
-    public int Version => 6;
+    public int Version => 7;
 
     public IReadOnlySet<SeedProfile> Profiles { get; } =
         new HashSet<SeedProfile> { SeedProfile.Baseline };

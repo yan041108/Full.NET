@@ -190,7 +190,7 @@ function readOrder(input = orderIdInput.value) {
 function readRefundRecords(orderId: string): void {
   if (changing.value || !session.can('payments.refunds.read') || !isGuid(orderId) || orderId === '00000000-0000-0000-0000-000000000000') return;
   refundOpen.value = false;
-  void router?.push({ name: 'payment-refunds', query: { orderId } });
+  void router?.push({ name: 'payments-refunds', query: { orderId } });
 }
 
 async function submitRefund(): Promise<void> {

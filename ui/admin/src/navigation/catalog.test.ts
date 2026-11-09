@@ -27,6 +27,15 @@ function createNode(
 }
 
 describe('Vue 本地导航目录', () => {
+  it.each([
+    ['payments-merchant-configs', '/payments/merchant-configs', 'navigation.paymentMerchantConfigs.title'],
+    ['payments-orders', '/payments/orders', 'navigation.paymentOrders.title'],
+    ['payments-refunds', '/payments/refunds', 'navigation.paymentRefunds.title']
+  ])('按服务端发布的组件键绑定 %s', (componentKey, path, titleKey) => {
+    expect(localNavigationFor(componentKey)).toMatchObject({ routeName: componentKey, path, titleKey });
+    expect(isSupportedNavigationTree([createNode(componentKey, { path })])).toBe(true);
+  });
+
   it('只接受 Vue 已发布的本地组件键', () => {
     expect(isSupportedNavigationTree([
       createNode('overview'),

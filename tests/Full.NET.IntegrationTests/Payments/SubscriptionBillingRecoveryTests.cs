@@ -32,21 +32,27 @@ namespace Full.NET.IntegrationTests.Payments;
 
 /// <summary>真实双库和正式事务，渠道仅使用确定性替身；不向真实商户发起扣款。</summary>
 [TestClass]
-public sealed class SubscriptionBillingRecoveryTests
+public sealed partial class SubscriptionBillingRecoveryTests
 {
     [TestMethod]
     [DataRow(DatabaseProvider.SqlServer)]
     [DataRow(DatabaseProvider.MySql)]
-    public async Task Paid_outbox_and_receiver_recover_then_refund_revokes_only_subscription_source(DatabaseProvider provider)
+    public Task Paid_outbox_and_receiver_recover_then_refund_revokes_only_subscription_source(DatabaseProvider provider) =>
+        VerifyBillingRecoveryAsync(provider, null);
+
+    private static async Task VerifyBillingRecoveryAsync(DatabaseProvider provider, BillingBrowser? browser)
     {
         var cs = provider == DatabaseProvider.SqlServer ? await SharedDatabaseFixture.CreateSqlServerDatabaseAsync()
             : await SharedDatabaseFixture.CreateMySqlDatabaseAsync();
         var channel = new Channel();
-        using var factory = new FullNetApiFactory(provider, cs, configureTestServices: services =>
+        using var factory = new FullNetApiFactory(provider, cs, browser?.Settings, configureTestServices: services =>
             services.Replace(ServiceDescriptor.Singleton<IWeChatNativePayClient>(channel)));
+        browser?.UseKestrel(factory);
         await factory.InitializeAsync();
-        using var client = factory.CreateClientForHost("acme.localhost");
-        var tenant = (await IntegrationTestTenantContextHelper.GetCurrentTenantAsync(client, default)).Id;
+        HttpClient CreateClient(string host) => browser is null ? factory.CreateClientForHost(host) : browser.CreateClient(factory, host);
+        using var client = CreateClient("acme.localhost");
+        var tenantContext = await IntegrationTestTenantContextHelper.GetCurrentTenantAsync(client, default);
+        var tenant = tenantContext.Id;
         await using var connection = Open(provider, cs);
         await connection.OpenAsync();
         await using var scope = factory.Services.CreateAsyncScope();
@@ -100,16 +106,17 @@ public sealed class SubscriptionBillingRecoveryTests
         var checkoutPath = $"/api/v1/payments/subscriptions/{tenant:D}/{terms.SubscriptionId:D}/checkout";
         var orderPath = $"/api/v1/payments/orders/{orderId:D}";
         var fulfillmentPath = orderPath + "/subscription-fulfillment";
-        using var reader = factory.CreateClientForHost("localhost");
-        using var subscriptionOperator = factory.CreateClientForHost("localhost");
-        using var reconciler = factory.CreateClientForHost("localhost");
+        using var reader = CreateClient("localhost");
+        using var subscriptionOperator = CreateClient("localhost");
+        using var reconciler = CreateClient("localhost");
         reader.DefaultRequestHeaders.Authorization = new("Bearer", await factory.CreateHostAccessTokenAsync(
-            [TenancyTenantSubscriptionPermissions.Read, PaymentOrderPermissions.Read, PaymentRefundPermissions.Read]));
+            ["identity.navigation.read", TenancyTenantSubscriptionPermissions.Read, PaymentOrderPermissions.Read, PaymentRefundPermissions.Read]));
         subscriptionOperator.DefaultRequestHeaders.Authorization = new("Bearer", await factory.CreateHostAccessTokenAsync(
             [TenancyTenantSubscriptionPermissions.Read, TenancyTenantSubscriptionPermissions.Manage, PaymentOrderPermissions.Read, PaymentOrderPermissions.Create]));
         reconciler.DefaultRequestHeaders.Authorization = new("Bearer", await factory.CreateHostAccessTokenAsync(
             [PaymentOrderPermissions.Read, PaymentOrderPermissions.Reconcile, PaymentRefundPermissions.Read]));
 
+        await AssertPaymentNavigationAsync(sp, connection, reader);
         var invoice = await reader.GetFromJsonAsync<TenantSubscriptionInvoiceResponse>(subscriptionPath + "/invoice");
         Assert.IsNotNull(invoice);
         Assert.AreEqual(terms.SubscriptionId, invoice.SubscriptionId);
@@ -141,6 +148,11 @@ public sealed class SubscriptionBillingRecoveryTests
         Assert.AreEqual(orderId, operatorReceipt.Order.Id);
         Assert.AreEqual(12500, checkout.Value.Order.AmountMinor);
         Assert.AreEqual("Frozen billing plan", checkout.Value.Order.Subject);
+        if (browser is not null)
+        {
+            await browser.CreateUsersAsync(factory);
+            await browser.RunAsync(factory, tenantContext.Name, terms.SubscriptionId, orderId, null);
+        }
         Assert.AreEqual(1, channel.CreateCount);
 
         // Outbox 写入故障必须回滚付款状态，不能出现成功订单没有可靠事实。
@@ -206,6 +218,8 @@ public sealed class SubscriptionBillingRecoveryTests
         Assert.IsNotNull(refundedFulfillment);
         Assert.AreEqual("Refunded", refundedFulfillment.StateKey);
         Assert.AreEqual(orderId, refundedFulfillment.PaymentOrderId);
+        if (browser is not null)
+            await browser.RunAsync(factory, tenantContext.Name, terms.SubscriptionId, orderId, refundReadback.Id);
         Assert.AreEqual(0L, await ActiveFeature(sp, tenant, code));
         Assert.AreEqual(1, await SourceCount(connection, terms.SubscriptionId));
         Assert.IsFalse((await billing.ApplyVerifiedPaymentAsync(new(terms.SubscriptionId, tenant, tenant, terms.PaymentOperationId,
@@ -247,7 +261,8 @@ public sealed class SubscriptionBillingRecoveryTests
             PaymentOperationId = expiring.Value.PaymentOperationId })).IsSuccess);
         Assert.AreEqual(1L, await ActiveFeature(sp, tenant, code));
 
-        await VerifyFutureReviewRetryAsync(sp, connection, billing, package.Value.Id, tenant, now, paidBytes, refundBytes);
+        await VerifyFutureReviewRetryAsync(sp, connection, billing, package.Value.Id, tenant, now, paidBytes, refundBytes,
+            browser is null ? null : (subscription, order, phase) => browser.RunAsync(factory, tenantContext.Name, subscription, order, null, phase));
 
     }
 
@@ -260,7 +275,8 @@ public sealed class SubscriptionBillingRecoveryTests
 
     /// <summary>未来付款的人工重试保持生效门槛，未来账单的退款不受该门槛延误。</summary>
     private static async Task VerifyFutureReviewRetryAsync(IServiceProvider sp, DbConnection connection,
-        TenantSubscriptionBillingService billing, Guid packageId, Guid tenant, DateTimeOffset now, byte[] paidBytes, byte[] refundBytes)
+        TenantSubscriptionBillingService billing, Guid packageId, Guid tenant, DateTimeOffset now, byte[] paidBytes, byte[] refundBytes,
+        Func<Guid, Guid, string, Task>? verifyBrowser = null)
     {
         var queries = sp.GetRequiredService<IQueryExecutor>();
         var paidHandler = sp.GetServices<IIntegrationEventHandler>().OfType<PaymentPaidFactHandler>().Single();
@@ -277,6 +293,7 @@ public sealed class SubscriptionBillingRecoveryTests
         await paidHandler.HandleAsync(futurePaid, default);
         await MarkFutureReviewAsync();
         await VerifyScheduleSnapshotAsync(sp, futureOrder, "Review", future.Value.EffectiveFromUtc, null);
+        if (verifyBrowser is not null) await verifyBrowser(future.Value.SubscriptionId, futureOrder, "Review");
         var recovery = sp.GetRequiredService<SubscriptionFulfillmentProcessor>();
         Assert.AreEqual(1, await recovery.RetryAsync(futureOrder, default));
         var waiting = (await queries.QuerySingleOrDefaultAsync<SubscriptionFulfillmentRecord>(SubscriptionFulfillmentSql.Find,
@@ -284,6 +301,7 @@ public sealed class SubscriptionBillingRecoveryTests
         Assert.AreEqual("ReadyPaid", waiting.Phase); Assert.AreEqual(future.Value.EffectiveFromUtc, waiting.DueAtUtc);
         Assert.AreEqual(0, waiting.Attempt); Assert.IsNull(waiting.ErrorCode);
         await VerifyScheduleSnapshotAsync(sp, futureOrder, "ReadyPaid", future.Value.EffectiveFromUtc, future.Value.EffectiveFromUtc);
+        if (verifyBrowser is not null) await verifyBrowser(future.Value.SubscriptionId, futureOrder, "ReadyPaid");
         var early = await recovery.ProcessAsync(future.Value.PaymentOperationId, default);
         Assert.IsTrue(early.IsSuccess); Assert.IsFalse(early.Value);
         await paidHandler.HandleAsync(futurePaid, default);
