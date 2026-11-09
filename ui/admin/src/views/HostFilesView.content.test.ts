@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { Blob as NodeBlob } from 'node:buffer';
 import { flushPromises, mount, type VueWrapper } from '@vue/test-utils';
 import { defineComponent, h, KeepAlive, ref } from 'vue';
 import { ElMessage } from 'element-plus';
@@ -93,15 +94,36 @@ describe('Host 上传回执与内容读取归属', () => {
     expect(signal?.aborted).toBe(true); expect(URL.createObjectURL).not.toHaveBeenCalled(); expect(state().previewDialogVisible).toBe(false);
   });
   it('已打开预览在同修订内容元数据变化时也释放URL', async () => {
-    await setup(); vi.mocked(api.previewHostFileContent).mockResolvedValueOnce(new Blob(['ok'], { type: 'text/plain' })); await call('preview', file);
+    await setup(); vi.mocked(api.previewHostFileContent).mockResolvedValueOnce(new Blob(['ok'], { type: 'image/png' })); await call('preview', file);
     state().items = [{ ...file, contentType: 'image/png' }, other]; await flushPromises(); expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:file'); expect(state().previewDialogVisible).toBe(false);
   });
   it('预览拒绝实际返回的主动内容类型', async () => {
     await setup(); vi.mocked(api.previewHostFileContent).mockResolvedValueOnce(new Blob(['<script/>'], { type: 'text/html' })); await call('preview', file);
     expect(URL.createObjectURL).not.toHaveBeenCalled(); expect(state().previewDialogVisible).toBe(false);
   });
+  it('纯文本预览只渲染有限字节，文件里的标记原样显示', async () => {
+    await setup();
+    const markup = '<script>fixture()</script>';
+    const blob = new NodeBlob([markup, 'x'.repeat(256 * 1024)], { type: 'text/plain' }) as unknown as Blob;
+    vi.mocked(api.previewHostFileContent).mockResolvedValueOnce(blob);
+    await call('preview', file);
+    const text = wrapper!.get('[data-testid="host-files-preview-text"]');
+    expect(text.text()).toHaveLength(256 * 1024);
+    expect(text.text()).toContain(markup);
+    expect(text.find('script').exists()).toBe(false);
+    expect(URL.createObjectURL).not.toHaveBeenCalled();
+  });
+  it('PDF 使用显式新标签预览链接，不嵌入 Blob iframe', async () => {
+    await setup();
+    vi.mocked(api.previewHostFileContent).mockResolvedValueOnce(new Blob(['%PDF-1.7'], { type: 'application/pdf' }));
+    await call('preview', file);
+    const dialog = wrapper!.get('[data-testid="host-files-preview"]');
+    const link = dialog.get('a');
+    expect(link.attributes()).toMatchObject({ href: 'blob:file', target: '_blank', rel: 'noopener noreferrer' });
+    expect(dialog.find('iframe').exists()).toBe(false);
+  });
   it('旧预览关闭回调不能关闭新文件预览', async () => {
-    await setup(); vi.mocked(api.previewHostFileContent).mockResolvedValue(new Blob(['ok'], { type: 'text/plain' })); await call('preview', file); await flushPromises();
+    await setup(); vi.mocked(api.previewHostFileContent).mockResolvedValue(new Blob(['ok'], { type: 'image/png' })); await call('preview', file); await flushPromises();
     const dialog = wrapper!.findAllComponents({ name: 'ElDialog' }).find(item => item.attributes('data-testid') === 'host-files-preview')!;
     const update = dialog.vm.$.vnode.props!['onUpdate:modelValue'] as (open: boolean) => void;
     await call('closePreviewDialog'); await call('preview', other); update(false); await flushPromises(); expect(state().previewDialogVisible).toBe(true);

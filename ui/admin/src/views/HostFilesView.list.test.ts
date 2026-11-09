@@ -111,7 +111,7 @@ describe('文件目录与分页查询意图', () => {
     vi.mocked(api.listHostFiles).mockResolvedValueOnce({ items: [other], page: 2, pageSize: 20, total: 1 }); await call('load'); await call('upload'); expect(api.uploadHostFile).toHaveBeenCalledOnce(); expect(state().items.map(item => item.id)).toEqual([file.id, other.id]);
   });
   it('显式新查询立即关闭已打开预览并回收URL', async () => {
-    await setup(); vi.mocked(api.previewHostFileContent).mockResolvedValueOnce(new Blob(['plain'], { type: 'text/plain' })); await call('preview', file);
+    await setup(); vi.mocked(api.previewHostFileContent).mockResolvedValueOnce(new Blob(['image'], { type: 'image/png' })); await call('preview', file);
     const pending = deferred<Awaited<ReturnType<typeof api.listHostFiles>>>(); vi.mocked(api.listHostFiles).mockReturnValueOnce(pending.promise); await call('handleSearch', { fileName: 'new' });
     expect(state().previewDialogVisible).toBe(false); expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:file'); pending.resolve({ items: [], page: 1, pageSize: 20, total: 0 }); await flushPromises();
   });

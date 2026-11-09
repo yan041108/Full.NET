@@ -1923,7 +1923,8 @@ test('Host 文件列表与上传删除在两端保持一致', async ({ page }, t
   await mockAuthenticatedSession(page);
   const operations = [];
   const fileId = '01912345-6789-7abc-8def-0123456789b0';
-  const state = { hasFile: false };
+  const otherId = '01912345-6789-7abc-8def-0123456789b1';
+  const state = { hasFile: false, hasSameNameFile: false };
 
   const hostFileBody = () => hostFileFixture({
     id: fileId,
@@ -1931,16 +1932,10 @@ test('Host 文件列表与上传删除在两端保持一致', async ({ page }, t
   });
 
   const listBody = () => {
-    if (!state.hasFile) {
-      return JSON.stringify({ items: [], page: 1, pageSize: 20, total: 0 });
-    }
-
-    return JSON.stringify({
-      items: [hostFileBody()],
-      page: 1,
-      pageSize: 20,
-      total: 1
-    });
+    const items = [];
+    if (state.hasFile) items.push(hostFileBody());
+    if (state.hasSameNameFile) items.push(hostFileFixture({ id: otherId, sizeBytes: 23 }));
+    return JSON.stringify({ items, page: 1, pageSize: 20, total: items.length });
   };
 
   await page.route('**/api/v1/files/host-folders/tree', route => route.fulfill({
@@ -1949,6 +1944,11 @@ test('Host 文件列表与上传删除在两端保持一致', async ({ page }, t
     body: JSON.stringify([])
   }));
   await page.route('**/api/v1/files/host-files**', async route => {
+    if (route.request().method() === 'GET' && new URL(route.request().url()).pathname.endsWith(`/${fileId}/preview`)) {
+      operations.push({ type: 'preview' });
+      await route.fulfill({ status: 200, contentType: 'text/plain', body: 'parity-bytes' });
+      return;
+    }
     if (route.request().method() === 'GET' && new URL(route.request().url()).pathname.endsWith(`/${fileId}/content`)) {
       await route.fulfill({ status: 200, contentType: 'text/plain', body: 'parity-bytes' });
       return;
@@ -1967,6 +1967,7 @@ test('Host 文件列表与上传删除在两端保持一致', async ({ page }, t
       && !route.request().url().includes('/delete')) {
       operations.push({ type: 'upload' });
       state.hasFile = true;
+      state.hasSameNameFile = clientKind === 'vue';
       await route.fulfill({
         status: 201,
         contentType: 'application/json',
@@ -2007,22 +2008,37 @@ test('Host 文件列表与上传删除在两端保持一致', async ({ page }, t
   const fileDirectory = clientKind === 'vue'
     ? hostFilesView.locator('.art-crud-data-table')
     : hostFilesView;
-  await expect(fileDirectory.getByText('parity.txt', { exact: true })).toBeVisible();
+  const matchingFiles = fileDirectory.getByText('parity.txt', { exact: true });
+  const directoryRows = fileDirectory.getByRole('row').filter({ has: page.getByText('parity.txt', { exact: true }) });
+  const newFileRow = directoryRows.first();
 
   if (clientKind === 'vue') {
-    await hostFilesView.getByTestId('art-table-action-more').click();
+    const receipt = hostFilesView.getByRole('region', { name: '文件上传回执' });
+    await expect(receipt.getByText(fileId, { exact: true })).toBeVisible();
+    await expect(receipt.getByText('在下方文件目录中预览、下载或管理已上传的文件。')).toBeVisible();
+    await expect(matchingFiles).toHaveCount(2);
+    await expect(newFileRow).not.toContainText(fileId);
+
+    await newFileRow.getByRole('button', { name: '预览', exact: true }).click();
+    const preview = page.getByRole('dialog', { name: 'parity.txt' });
+    await expect(preview.getByTestId('host-files-preview-text')).toHaveText('parity-bytes');
+    expect(operations.filter(operation => operation.type === 'preview')).toHaveLength(1);
+    await preview.locator('.el-dialog__headerbtn').click();
+    await expect(preview).toBeHidden();
+
     const downloading = page.waitForEvent('download');
-    await page.getByTestId('host-files-download').click();
+    await newFileRow.getByTestId('host-files-download').click();
     const download = await downloading;
     expect(download.suggestedFilename()).toBe('parity.txt');
     const chunks = [];
     for await (const chunk of await download.createReadStream()) chunks.push(chunk);
     expect(Buffer.concat(chunks).toString()).toBe('parity-bytes');
     expect(page.context().pages().some(tab => tab.url().startsWith('blob:'))).toBe(false);
-    await expect(fileDirectory.getByText('parity.txt', { exact: true })).toBeVisible();
+    await expect(matchingFiles).toHaveCount(2);
   }
-  await hostFilesView.getByTestId('art-table-action-more').click();
-  const deleteButton = page.getByTestId('host-files-delete');
+  const more = clientKind === 'vue' ? newFileRow.getByTestId('art-table-action-more') : hostFilesView.getByTestId('art-table-action-more');
+  await more.click();
+  const deleteButton = page.getByTestId('host-files-delete').filter({ visible: true });
   await expect(deleteButton).toBeEnabled();
   await deleteButton.click();
   if (clientKind === 'vue') {
@@ -2032,7 +2048,13 @@ test('Host 文件列表与上传删除在两端保持一致', async ({ page }, t
     await page.locator('.layui-layer-btn0').click();
   }
   await expect.poll(() => operations.some(operation => operation.type === 'delete')).toBe(true);
-  await expect(page.getByText('尚无文件', { exact: true })).toBeVisible();
+  if (clientKind === 'vue') {
+    await expect(matchingFiles).toHaveCount(1);
+    await expect(directoryRows).toContainText('23');
+    await expect(directoryRows.getByTestId('art-table-action-more')).toBeEnabled();
+  } else {
+    await expect(page.getByText('尚无文件', { exact: true })).toBeVisible();
+  }
 });
 
 test('Host 公告列表与创建发布在两端保持一致', async ({ page }, testInfo) => {

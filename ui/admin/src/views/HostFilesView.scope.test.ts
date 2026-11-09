@@ -105,7 +105,7 @@ describe('Host 文件整页请求与意图归属', () => {
     expect(vi.mocked(api.listHostFileReferences).mock.calls[0]![3]!.aborted).toBe(true);
   });
   it('KeepAlive 停用释放预览，恢复仅重读当前列表和目录', async () => {
-    vi.mocked(api.previewHostFileContent).mockResolvedValue(new Blob(['plain'], { type: 'text/plain' })); await setup(permissions, true); await call('preview', file);
+    vi.mocked(api.previewHostFileContent).mockResolvedValue(new Blob(['image'], { type: 'image/png' })); await setup(permissions, true); await call('preview', file);
     visible.value = false; await flushPromises(); expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:file'); visible.value = true; await flushPromises();
     expect(api.listHostFiles).toHaveBeenCalledTimes(2); expect(api.listHostFolderTree).toHaveBeenCalledTimes(2);
   });

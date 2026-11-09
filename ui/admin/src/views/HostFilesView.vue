@@ -96,6 +96,9 @@ const previewTarget = ref<HostFile>();
 const previewIntent = ref<{ token: number; update: (open: boolean) => void }>();
 const filePreview = useBlobPreview();
 const previewUrl = filePreview.url;
+const previewText = ref<{ content: string; truncated: boolean }>();
+const previewIsImage = ref(false);
+const previewTextLimit = 256 * 1024;
 const previewTitle = ref('');
 const loading = ref(false);
 const changing = ref(false);
@@ -210,7 +213,7 @@ function askConfirmation(title: string, message: string, value?: string): Promis
 const scope = useAuthorizedViewScope(session, () => {
   finishConfirmation(false); deleteReceipt.value = undefined; unconfirmedFileIds.value = new Set(); unconfirmedFolderIds.value = new Set(); folderCreationUnconfirmed.value = false; items.value = []; folderTree.value = []; selectedFolder.value = null;
   selectedFiles.value = []; if (fileInput.value) fileInput.value.value = ''; selectedRows.value = []; uploadReceipt.value = undefined; uploadUnconfirmed.value = false; page.value = 1; pageSize.value = 20; total.value = 0;
-  previewDialogVisible.value = false; filePreview.clear(); previewTitle.value = ''; metadataDialogVisible.value = false; editingFile.value = null;
+  previewDialogVisible.value = false; clearPreviewContent(); previewTitle.value = ''; metadataDialogVisible.value = false; editingFile.value = null;
   metadataForm.value = { originalFileName: '', folderId: '' }; referencesDrawerVisible.value = false; references.value = []; referencesPage.value = 1; referencesTotal.value = 0; referencesProblem.value = undefined;
   previewTarget.value = undefined; previewIntent.value = undefined; referencesTarget.value = undefined; referencesIntent.value = undefined; downloadTarget.value = undefined;
   searchForm.value = {}; appliedFilters.value = { fileName: '' }; lastListQueryKey = undefined; listingControls.value = createListingControls(); newFolderName.value = ''; problem.value = undefined; loading.value = false; changing.value = false;
@@ -303,7 +306,7 @@ watch(metadataDialogVisible, open => { if (!open) {
   cancelAction(metadataRequest); metadataRequest = undefined; metadataIntent.value = undefined; editingFile.value = null; metadataForm.value = { originalFileName: '', folderId: '' };
 } }, { flush: 'sync' });
 watch(items, () => { if (editingFile.value && !currentFile(editingFile.value)) metadataDialogVisible.value = false; }, { flush: 'sync', deep: true });
-watch(previewDialogVisible, open => { if (!open) { cancelAction(previewRequest); previewRequest = undefined; previewTarget.value = undefined; previewIntent.value = undefined; filePreview.clear(); previewTitle.value = ''; } }, { flush: 'sync' });
+watch(previewDialogVisible, open => { if (!open) { cancelAction(previewRequest); previewRequest = undefined; previewTarget.value = undefined; previewIntent.value = undefined; clearPreviewContent(); previewTitle.value = ''; } }, { flush: 'sync' });
 watch(referencesDrawerVisible, open => { if (!open) {
   cancelAction(referencesRequest); referencesRequest = undefined; referencesTarget.value = undefined; referencesIntent.value = undefined;
   references.value = []; referencesPage.value = 1; referencesTotal.value = 0; referencesProblem.value = undefined;
@@ -498,18 +501,36 @@ async function removeSelected(): Promise<void> {
 
 async function preview(file: HostFile): Promise<void> {
   const current = findCurrentFile(file); if (!current || fileUnconfirmed(current.id) || !canPreviewFile(current)) return;
+  cancelAction(previewRequest);
   const target = { ...current }, request = beginAction('files.files.read'); if (!request) return; previewRequest = request;
   const token = ++readSequence; previewIntent.value = { token, update: open => { if (!open) closePreviewDialog(token); } };
+  previewText.value = undefined;
+  previewIsImage.value = false;
   previewTarget.value = target; previewTitle.value = target.originalFileName; previewDialogVisible.value = true;
+  const stillCurrent = () => request.current() && previewIntent.value?.token === token && contentTargetCurrent(target);
   try { await filePreview.load(async () => {
     const blob = await previewHostFileContent(target.id, request.signal);
-    if (!request.current() || !contentTargetCurrent(target)) return null;
+    if (!stillCurrent()) return null;
     if (!isPassiveContentType(blob.type)) throw new Error('client.invalid_host_file_content_type');
+    const contentType = blob.type.split(';', 1)[0]?.trim().toLowerCase();
+    if (contentType === 'text/plain') {
+      // 纯文本用 Vue 转义渲染，避免 CSP 拦截 Blob iframe，并限制进入 DOM 的字节数。
+      const content = await blob.slice(0, previewTextLimit).text();
+      if (stillCurrent()) previewText.value = { content, truncated: blob.size > previewTextLimit };
+      return null;
+    }
+    previewIsImage.value = contentType?.startsWith('image/') === true;
     return blob;
   }); }
-  catch (error) { if (request.current()) { problem.value = toProblem(error); closePreviewDialog(); } }
+  catch (error) { if (stillCurrent()) { problem.value = toProblem(error); closePreviewDialog(token); } }
   finally { finishAction(request); }
 }
+function clearPreviewContent(): void {
+  filePreview.clear();
+  previewText.value = undefined;
+  previewIsImage.value = false;
+}
+
 function closePreviewDialog(token = previewIntent.value?.token): void { if (previewIntent.value?.token === token) previewDialogVisible.value = false; }
 
 function canPreviewFile(file: HostFile): boolean {
@@ -718,26 +739,23 @@ function toProblem(
             >
               {{ t('hostFiles.upload') }}
             </el-button>
-            <div v-if="uploadReceipt" role="status">
-              <p>{{ t('hostFiles.batchUploadSummary', { succeeded: uploadReceipt.succeeded, total: uploadReceipt.total }) }}</p>
-              <p>{{ t('hostFiles.uploadReceiptHint') }}</p>
-            </div>
-            <el-table
-              v-if="uploadReceipt"
-              :data="uploadReceipt.items"
-              :max-height="200"
-              size="small"
-              class="host-files-upload-results"
-            >
-              <el-table-column prop="name" :label="t('hostFiles.fileName')" />
-              <el-table-column prop="fileId" :label="t('hostFiles.resultFileId')" />
-              <el-table-column :label="t('hostFiles.uploadResult')" width="120">
-                <template #default="{ row }">
-                  {{ t(row.outcome === 'succeeded' ? 'hostFiles.uploadSucceeded' : row.outcome === 'failed' ? 'hostFiles.uploadFailed' : row.outcome === 'processing' ? 'hostFiles.deleteProcessing' : 'hostFiles.deleteUnconfirmed') }}
-                </template>
-              </el-table-column>
-              <el-table-column prop="errorCode" :label="t('hostFiles.errorCode')" />
-            </el-table>
+            <section v-if="uploadReceipt" class="host-files-upload-results"
+              aria-labelledby="upload-host-file-receipt-title" data-testid="host-files-upload-receipt">
+              <h3 id="upload-host-file-receipt-title">{{ t('hostFiles.uploadReceiptTitle') }}</h3>
+              <p role="status">{{ t('hostFiles.batchUploadSummary', { succeeded: uploadReceipt.succeeded, total: uploadReceipt.total }) }}</p>
+              <p>{{ t('hostFiles.uploadReceiptDirectoryHint') }}</p>
+              <p v-if="uploadReceipt.succeeded !== uploadReceipt.total">{{ t('hostFiles.uploadReceiptHint') }}</p>
+              <el-table :data="uploadReceipt.items" :max-height="200" size="small">
+                <el-table-column prop="name" :label="t('hostFiles.fileName')" />
+                <el-table-column prop="fileId" :label="t('hostFiles.resultFileId')" />
+                <el-table-column :label="t('hostFiles.uploadResult')" width="120">
+                  <template #default="{ row }">
+                    {{ t(row.outcome === 'succeeded' ? 'hostFiles.uploadSucceeded' : row.outcome === 'failed' ? 'hostFiles.uploadFailed' : row.outcome === 'processing' ? 'hostFiles.deleteProcessing' : 'hostFiles.deleteUnconfirmed') }}
+                  </template>
+                </el-table-column>
+                <el-table-column prop="errorCode" :label="t('hostFiles.errorCode')" />
+              </el-table>
+            </section>
           </el-card>
         </PermissionGate>
 
@@ -929,14 +947,17 @@ function toProblem(
       :title="previewTitle"
       width="70%"
     >
-      <iframe
-        v-if="previewUrl"
+      <template v-if="previewText">
+        <pre class="host-files-preview-text" data-testid="host-files-preview-text" translate="no">{{ previewText.content }}</pre>
+        <p v-if="previewText.truncated">{{ t('hostFiles.previewTextTruncated') }}</p>
+      </template>
+      <img
+        v-else-if="previewUrl && previewIsImage"
         :src="previewUrl"
-        class="host-files-preview-frame"
-        :title="previewTitle"
-        sandbox=""
-        referrerpolicy="no-referrer"
+        class="host-files-preview-image"
+        :alt="previewTitle"
       />
+      <a v-else-if="previewUrl" :href="previewUrl" target="_blank" rel="noopener noreferrer">{{ t('hostFiles.previewPdfInNewTab') }}</a>
     </el-dialog>
 
     <el-drawer v-if="referencesIntent" :key="referencesIntent.token" :model-value="referencesDrawerVisible" :title="t('hostFiles.references')" size="40%"
@@ -990,11 +1011,27 @@ function toProblem(
 
 .host-files-upload-results {
   margin-top: 12px;
+  padding: 12px;
+  border: 1px solid var(--el-border-color-light);
+  border-radius: var(--el-border-radius-base);
 }
 
-.host-files-preview-frame {
-  width: 100%;
-  min-height: 480px;
-  border: 0;
+.host-files-upload-results h3 {
+  margin: 0 0 8px;
+}
+
+.host-files-preview-text {
+  max-height: 65vh;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.host-files-preview-image {
+  display: block;
+  max-width: 100%;
+  max-height: 65vh;
+  margin: auto;
+  object-fit: contain;
 }
 </style>
