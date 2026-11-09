@@ -23,6 +23,37 @@ Platform-owned Fluent Bit / OpenTelemetry Collector / Prometheus rules / Grafana
 
 ## Platform apply example
 
+### Ubuntu 对象存储容量告警
+
+`fullnet-object-capacity.timer` 每五分钟从本机 SeaweedFS Master 读取卷槽，并检查对象存储目录所在文件系统的空闲空间。服务把结果原子写入 `/var/lib/fullnet-object-capacity/fullnet_object_storage_capacity.prom`。`growth_state` 的值 `0` 为余量充足，`1` 为低于一批增长所需的 7 个卷槽，`2` 为无空闲槽或磁盘空闲不高于 4 GiB。巡检失败时发布 `probe_success=0` 和新的采样时间，容量值随该次替换移除。巡检只读查看增长条件，实际写入资格仍由发布验证确认。
+
+首次安装对象存储时安装脚本会安装新版巡检。已有主机可单独安装新版脚本及 unit，然后让巡检立即产生一份样本。
+
+```bash
+sudo install -m 0755 eng/deploy/ubuntu/Verify-ObjectStorageCapacity.py /usr/local/lib/fullnet/Verify-ObjectStorageCapacity.py
+sudo install -m 0644 eng/deploy/ubuntu/fullnet-object-capacity.{service,timer} /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now fullnet-object-capacity.timer
+sudo systemctl start fullnet-object-capacity.service
+sudo journalctl -u fullnet-object-capacity.service -n 10 --no-pager
+```
+
+巡检在容量风险或阻断时返回 `1`，观测或指标写入失败时返回 `2`。容量风险和阻断仍有可采集样本。由平台在对象存储主机的 Node Exporter 中配置 `--collector.textfile.directory=/var/lib/fullnet-object-capacity`。如果采集器运行在容器中，将该目录只读挂载到其文本采集目录。使用内网受控的既有采集地址，为对象存储节点创建独立的 Prometheus job 并加载本目录的规则。
+
+```yaml
+scrape_configs:
+  - job_name: fullnet-object-capacity
+    scheme: https
+    static_configs:
+      - targets: [storage-node.internal:9100]
+    metric_relabel_configs:
+      - source_labels: [__name__]
+        regex: fullnet_object_storage_capacity_.+
+        action: keep
+```
+
+发布验证应确认该 job 中的 `up`、`probe_success`、`growth_state` 和采样时间。告警会区分容量低、增长阻断和观测不可用。采样超过十二分钟时，规则停止沿用其增长状态。观测告警要求目标已登记，目标从采集配置中删除后需要通过平台的目标清单核对。由现有告警路由接收并复验发送与恢复。`pnpm test:observability-alerts` 覆盖规则的保持、触发和恢复，`python3 -B tests/deployment/test_object_storage_capacity.py` 检查巡检输出和原子替换。 [Node Exporter 文本采集说明](https://github.com/prometheus/node_exporter#textfile-collector)
+
 ### Independent log consumer monitoring
 
 `pnpm test:log-consumer:throughput:live` extends the isolated local Kubernetes delivery runner with a bounded 1000-record burst after the TLS revocation/recovery checks. Each JSON event is exactly 2048 UTF-8 bytes; all IDs and complete document contents must match Elasticsearch, the DLQ must not grow, and the final committed Offset must reach 1003 with zero lag within a 120-second total observation budget. The `throughput` report records observed rates including Kafka CLI startup and commit-query overhead, consumer cgroup CPU/throttling deltas, Pod-lifetime memory peak and final downstream resource samples. Top-level functional counts retain the original three-record phase. This is a single-partition, single-consumer burst baseline, not maximum throughput, sustained capacity or API P99. Results are published after cleanup to `artifacts/log-consumer-throughput/result.json`; use `pnpm test:log-consumer:throughput-proof` for quick reconciliation tests.

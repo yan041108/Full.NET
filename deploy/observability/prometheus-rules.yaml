@@ -1,4 +1,46 @@
 groups:
+  - name: fullnet-object-storage-capacity
+    rules:
+      # 巡检每五分钟执行。超过十二分钟或时间明显超前的样本只能触发观测异常告警。
+      - record: fullnet:object_storage_capacity_sample_fresh
+        expr: |
+          up{job="fullnet-object-capacity"} == 1
+          and on (job, instance)
+          (fullnet_object_storage_capacity_probe_success{job="fullnet-object-capacity"} == 1)
+          and on (job, instance)
+          (fullnet_object_storage_capacity_sample_timestamp_seconds{job="fullnet-object-capacity"} > time() - 720)
+          and on (job, instance)
+          (fullnet_object_storage_capacity_sample_timestamp_seconds{job="fullnet-object-capacity"} <= time() + 60)
+
+      - alert: FullNetObjectStorageGrowthAtRisk
+        expr: |
+          fullnet_object_storage_capacity_growth_state{job="fullnet-object-capacity"} == 1
+          and on (job, instance) fullnet:object_storage_capacity_sample_fresh
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: Object storage volume growth headroom is low
+
+      - alert: FullNetObjectStorageGrowthBlocked
+        expr: |
+          fullnet_object_storage_capacity_growth_state{job="fullnet-object-capacity"} == 2
+          and on (job, instance) fullnet:object_storage_capacity_sample_fresh
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: Object storage has no free volume slots or has reached its disk reserve
+
+      - alert: FullNetObjectStorageCapacityProbeUnavailable
+        expr: up{job="fullnet-object-capacity"} unless on (job, instance) fullnet:object_storage_capacity_sample_fresh
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: Object storage capacity probe data is unavailable
+          description: Check the node exporter, the capacity timer and the object storage master on this host.
+
   - name: fullnet-notifications
     rules:
       - alert: FullNetNotificationBacklogAging
