@@ -1060,6 +1060,11 @@
           "minimum": 2,
           "timeout": "5m"
         },
+        "notifications-worker-admission": {
+          "filter": "FullyQualifiedName~NotificationWorkerAdmissionTests",
+          "minimum": 2,
+          "timeout": "5m"
+        },
         "enterprise-request-member-access": {
           "filter": "FullyQualifiedName~EnterpriseRequestAccessMatrixTests.Active_members_respect_department_tenant_detail_and_document_permissions",
           "minimum": 2,

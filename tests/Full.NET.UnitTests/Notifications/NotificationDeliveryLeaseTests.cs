@@ -3,6 +3,7 @@ using System.Collections.Concurrent;
 using Full.NET.Abstractions.Tenancy;
 using Full.NET.Abstractions.Ids;
 using Full.NET.Abstractions.Messaging;
+using Full.NET.Abstractions.Results;
 using Full.NET.Abstractions.Time;
 using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Notifications.Domain;
@@ -64,7 +65,7 @@ public sealed class NotificationDeliveryLeaseTests
                 new NotificationRecipientEndpointProtector(new EphemeralDataProtectionProvider()),
                 null!,
                 NullLogger<NotificationDeliveryBatchProcessor>.Instance, sp.GetRequiredService<IServiceScopeFactory>(),
-                Substitute.For<ITenantActivityReadPort>());
+                Substitute.For<ITenantActivityReadPort>(), Substitute.For<IDatabaseAdmissionPriorityScope>());
         });
         await using var provider = services.BuildServiceProvider();
         await using var scope = provider.CreateAsyncScope();
@@ -124,29 +125,22 @@ public sealed class NotificationDeliveryLeaseTests
         commands.ExecuteAsync(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>())
             .Returns(call =>
             {
-                if (call.Arg<SqlStatement>()!.Name != "notifications.platform.delivery.mark_smtp_inflight") return 1;
+                if (call.Arg<SqlStatement>() != NotificationLifecycleSql.EnterSendBoundary) return 1;
                 marked = markerAccepted;
                 return markerAccepted ? 1 : 0;
             });
         var delivery = new NotificationDeliveryRecord(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(),
             "email", Guid.NewGuid(), null, "accepted", 1, "worker", now.AddMinutes(1), 1, null, now, null, null, null, null, null);
-        queries.PoisonAttemptBudget = true;
         var adapter = new ObservedSmtpAdapter(_ =>
         {
             Assert.IsTrue(marked, "外部发送必须发生在持久化标记成功之后。");
             return ValueTask.FromResult(new NotificationProviderResult(false, NotificationDeliveryRetry.Unknown, null, null));
         });
-        var processor = new NotificationDeliveryBatchProcessor(queries, commands, Substitute.For<ICommandTransaction>(),
-            [adapter], new NotificationAttachmentLoader(queries, null!), null!, clock, Substitute.For<IIdGenerator>(),
-            Options.Create(new DatabaseOptions { Provider = DatabaseProvider.SqlServer }),
-            Options.Create(new NotificationDeliveryWorkerOptions()),
-            new NotificationRecipientEndpointProtector(new EphemeralDataProtectionProvider()),
-            null!, NullLogger<NotificationDeliveryBatchProcessor>.Instance, null!, Substitute.For<ITenantActivityReadPort>());
+        var processor = CreateSmtpProcessor(queries, commands, clock, adapter, NullLogger<NotificationDeliveryBatchProcessor>.Instance);
         var task = (Task)typeof(NotificationDeliveryBatchProcessor)
             .GetMethod("ProcessOneAsync", BindingFlags.Instance | BindingFlags.NonPublic)!
             .Invoke(processor, [delivery, CancellationToken.None])!;
-        if (markerAccepted) await Assert.ThrowsExactlyAsync<AttemptBudgetReachedException>(() => task);
-        else await task;
+        await task;
         Assert.AreEqual(markerAccepted ? 1 : 0, adapter.SendCount);
         Assert.AreEqual(markerAccepted, marked);
     }
@@ -158,7 +152,7 @@ public sealed class NotificationDeliveryLeaseTests
     [DataRow("host_cancel")]
     [DataRow("provider_timeout")]
     [DataRow("crash")]
-    [DataRow("marker_expired")]
+    [DataRow("lease_expired")]
     public async Task Smtp_worker_preserves_uncertain_delivery_and_lease_budget(string scenario)
     {
         var now = DateTimeOffset.UtcNow;
@@ -170,10 +164,11 @@ public sealed class NotificationDeliveryLeaseTests
         Dictionary<string, object?>? completion = null;
         commands.ExecuteAsync(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(call =>
         {
-            if (call.Arg<SqlStatement>() == NotificationPlatformSql.MarkSmtpDeliveryInFlight)
+            if (call.Arg<SqlStatement>() == NotificationLifecycleSql.EnterSendBoundary)
             {
-                marked = true;
-                if (scenario == "marker_expired") clock.UtcNow.Returns(now.AddMinutes(2));
+                // 模拟数据库在写标记时发现租约已过期。
+                marked = scenario != "lease_expired";
+                return marked ? 1 : 0;
             }
             if (call.Arg<SqlStatement>() == NotificationPlatformSql.CompleteDelivery)
                 completion = (Dictionary<string, object?>)call.ArgAt<object>(1)!;
@@ -189,28 +184,19 @@ public sealed class NotificationDeliveryLeaseTests
             if (scenario == "crash") throw new IOException("private-provider-error");
             return ValueTask.FromResult(new NotificationProviderResult(false, scenario, null, null));
         });
-        var transaction = Substitute.For<ICommandTransaction>();
-        transaction.ExecuteAsync(Arg.Any<Func<CancellationToken, Task<int>>>(), Arg.Any<CancellationToken>())
-            .Returns(call => call.Arg<Func<CancellationToken, Task<int>>>()!(call.Arg<CancellationToken>()));
-        var processor = new NotificationDeliveryBatchProcessor(queries, commands, transaction, [adapter],
-            new NotificationAttachmentLoader(queries, null!),
-            new NotificationIntentAttachmentCoordinator(null!, null!, queries, commands, clock, Substitute.For<IIdGenerator>()),
-            clock, Substitute.For<IIdGenerator>(), Options.Create(new DatabaseOptions { Provider = DatabaseProvider.SqlServer }),
-            Options.Create(new NotificationDeliveryWorkerOptions()),
-            new NotificationRecipientEndpointProtector(new EphemeralDataProtectionProvider()),
-            null!, log, null!, Substitute.For<ITenantActivityReadPort>());
+        var processor = CreateSmtpProcessor(queries, commands, clock, adapter, log);
         var delivery = new NotificationDeliveryRecord(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "email",
             Guid.NewGuid(), null, "accepted", 7, "worker", now.AddMinutes(1), 3, null, now, null, null, null, null, null);
         var task = (Task)typeof(NotificationDeliveryBatchProcessor).GetMethod("ProcessOneAsync", BindingFlags.Instance | BindingFlags.NonPublic)!
             .Invoke(processor, [delivery, cancellation.Token])!;
         if (scenario == "host_cancel") await Assert.ThrowsExactlyAsync<OperationCanceledException>(() => task);
         else await task;
-        Assert.IsTrue(marked);
-        Assert.AreEqual(scenario == "marker_expired" ? 0 : 1, adapter.SendCount);
-        if (scenario is "unknown" or "transient" or "provider_timeout")
+        Assert.AreEqual(scenario != "lease_expired", marked);
+        Assert.AreEqual(scenario == "lease_expired" ? 0 : 1, adapter.SendCount);
+        if (scenario is "unknown" or "transient" or "provider_timeout" or "crash")
         {
             Assert.IsNotNull(completion);
-            Assert.AreEqual(8L, completion["Revision"]);
+            Assert.AreEqual(7L, completion["Revision"]);
             Assert.AreEqual(scenario == "transient" ? "accepted" : "unknown", completion["StatusKey"]);
             Assert.AreEqual(scenario != "transient", completion["NextAttemptAtUtc"] is null);
         }
@@ -224,13 +210,46 @@ public sealed class NotificationDeliveryLeaseTests
         }
     }
 
+    private static NotificationDeliveryBatchProcessor CreateSmtpProcessor(PreparedSmtpQueries queries,
+        ICommandExecutor commands, IClock clock, INotificationProviderAdapter adapter, ILogger<NotificationDeliveryBatchProcessor> logger)
+    {
+        var transaction = new ImmediateTransaction();
+        var database = Options.Create(new DatabaseOptions { Provider = DatabaseProvider.SqlServer });
+        var ids = Substitute.For<IIdGenerator>();
+        return new NotificationDeliveryBatchProcessor(queries, commands, transaction, [adapter],
+            new NotificationAttachmentLoader(queries, null!),
+            new NotificationIntentAttachmentCoordinator(null!, null!, queries, commands, clock, ids),
+            clock, ids, database, Options.Create(new NotificationDeliveryWorkerOptions()),
+            new NotificationRecipientEndpointProtector(new EphemeralDataProtectionProvider()),
+            new NotificationQuotaGovernor(queries, commands, transaction, clock, ids, database), logger, null!,
+            Substitute.For<ITenantActivityReadPort>(), Substitute.For<IDatabaseAdmissionPriorityScope>());
+    }
+
+    /// <summary>运行事务委托并保留准入前取消语义，真实锁和提交由双库测试覆盖。</summary>
+    private sealed class ImmediateTransaction : ICommandTransaction
+    {
+        public Task<T> ExecuteAsync<T>(Func<CancellationToken, Task<T>> action, CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            return action(cancellationToken);
+        }
+
+        public Task ExecuteAsync(Func<CancellationToken, Task> action, CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            return action(cancellationToken);
+        }
+
+        public Task<Result<T>> ExecuteResultAsync<T>(Func<CancellationToken, Task<Result<T>>> action, CancellationToken cancellationToken = default) =>
+            ExecuteAsync(action, cancellationToken);
+    }
+
     /// <summary>显式类型投影避免测试代理内部泛型集合时绕过真实外发路径。</summary>
     private sealed class PreparedSmtpQueries(DateTimeOffset now) : IQueryExecutor
     {
-        public bool PoisonAttemptBudget { get; set; }
+        private readonly Guid _id = Guid.CreateVersion7();
         public Task<T?> QuerySingleOrDefaultAsync<T>(SqlStatement statement, object? parameters = null, CancellationToken cancellationToken = default)
         {
-            if (typeof(T) == typeof(long) && PoisonAttemptBudget) throw new AttemptBudgetReachedException();
             object? row = typeof(T) == typeof(NotificationProviderProfileVersionRecord)
                 ? new NotificationProviderProfileVersionRecord(Guid.NewGuid(), Guid.NewGuid(), 1, "email.smtp", "1.0.0", "{}", null, "hash", Guid.NewGuid(), now)
                 : typeof(T) == typeof(NotificationIntentRecord)
@@ -239,11 +258,15 @@ public sealed class NotificationDeliveryLeaseTests
                         ? new NotificationRecipientRecord(Guid.NewGuid(), Guid.NewGuid(), "email", "receiver@example.test", null, null, "resolved", now)
                         : typeof(T) == typeof(NotificationTemplateVersionRecord)
                             ? new NotificationTemplateVersionRecord(Guid.NewGuid(), Guid.NewGuid(), "en", 1, 1, "test", "{}", "{}", "transactional", "hash", Guid.NewGuid(), now)
-                            : typeof(T) == typeof(long) ? 0L : typeof(T) == typeof(int) ? (object)1 : null;
+                            : typeof(T) == typeof(NotificationProducerSceneRecord)
+                                ? new NotificationProducerSceneRecord(_id, null, "host", "host", "test", "test", "transactional", """["email"]""", false, true, _id, now, now, 1)
+                                : typeof(T) == typeof(Guid) ? _id : typeof(T) == typeof(long) ? 1L : typeof(T) == typeof(int) ? (object)1 : null;
             return Task.FromResult(row is null ? default : (T?)row);
         }
         public Task<IReadOnlyList<T>> QueryAsync<T>(SqlStatement statement, object? parameters = null, CancellationToken cancellationToken = default)
-            => Task.FromResult<IReadOnlyList<T>>([]);
+            => statement == NotificationPlatformSql.ListReservedQuotaReservations && typeof(T) == typeof(NotificationQuotaReservationRecord)
+                ? Task.FromResult<IReadOnlyList<T>>([(T)(object)new NotificationQuotaReservationRecord(_id, _id, "provider", now)])
+                : Task.FromResult<IReadOnlyList<T>>([]);
     }
 
     /// <summary>只观察外发调用次数和先后顺序，不实现生产状态机。</summary>
@@ -285,12 +308,12 @@ public sealed class NotificationDeliveryLeaseTests
             Arg.Any<object?>(), Arg.Any<CancellationToken>())
             .Returns<int>(_ => throw new AttemptBudgetReachedException());
         var processor = new NotificationDeliveryBatchProcessor(queries, commands,
-            Substitute.For<ICommandTransaction>(), [], null!, null!, clock, Substitute.For<IIdGenerator>(),
+            new ImmediateTransaction(), [], null!, null!, clock, Substitute.For<IIdGenerator>(),
             Options.Create(new DatabaseOptions { Provider = DatabaseProvider.SqlServer }),
             Options.Create(new NotificationDeliveryWorkerOptions()),
             new NotificationRecipientEndpointProtector(new EphemeralDataProtectionProvider()),
             null!,
-            NullLogger<NotificationDeliveryBatchProcessor>.Instance, null!, Substitute.For<ITenantActivityReadPort>());
+            NullLogger<NotificationDeliveryBatchProcessor>.Instance, null!, Substitute.For<ITenantActivityReadPort>(), Substitute.For<IDatabaseAdmissionPriorityScope>());
         var delivery = new NotificationDeliveryRecord(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(),
             "email", Guid.NewGuid(), null, "accepted", 1, "worker", now.AddMinutes(1), 1, null, now, null, null, null, null, null);
 
@@ -324,7 +347,7 @@ public sealed class NotificationDeliveryLeaseTests
             Options.Create(new NotificationDeliveryWorkerOptions()),
             new NotificationRecipientEndpointProtector(new EphemeralDataProtectionProvider()),
             null!,
-            NullLogger<NotificationDeliveryBatchProcessor>.Instance, null!, Substitute.For<ITenantActivityReadPort>());
+            NullLogger<NotificationDeliveryBatchProcessor>.Instance, null!, Substitute.For<ITenantActivityReadPort>(), Substitute.For<IDatabaseAdmissionPriorityScope>());
         var delivery = new NotificationDeliveryRecord(
             Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "email", Guid.NewGuid(), null,
             "accepted", 1, "old-worker", now.AddSeconds(secondsUntilExpiry), 1, null, now, null, null, null, null, null);

@@ -41,6 +41,7 @@ public sealed class NotificationFinalSendGovernanceTests
         ids.NewId().Returns(_ => Guid.CreateVersion7());
         var transaction = new ImmediateTransaction();
         var adapter = new CapturingAdapter();
+        var admissionPriority = Substitute.For<IDatabaseAdmissionPriorityScope>();
         var options = Options.Create(new DatabaseOptions { Provider = DatabaseProvider.SqlServer });
         var governor = new NotificationQuotaGovernor(query, command, transaction, clock, ids, options);
         var processor = new NotificationDeliveryBatchProcessor(query, command, transaction, [adapter],
@@ -49,11 +50,13 @@ public sealed class NotificationFinalSendGovernanceTests
             clock, ids, options,
             Options.Create(new NotificationDeliveryWorkerOptions { BatchSize = 1, MaxConcurrency = 1 }),
             new NotificationRecipientEndpointProtector(new EphemeralDataProtectionProvider()),
-            governor, NullLogger<NotificationDeliveryBatchProcessor>.Instance, null!, Substitute.For<ITenantActivityReadPort>());
+            governor, NullLogger<NotificationDeliveryBatchProcessor>.Instance, null!,
+            Substitute.For<ITenantActivityReadPort>(), admissionPriority);
 
         Assert.AreEqual(1, await processor.ProcessPendingAsync(CancellationToken.None));
         Assert.IsTrue(query.Changed, "替身必须在初次许可检查之后改变权威状态。");
         Assert.AreEqual(0, adapter.Calls);
+        admissionPriority.DidNotReceive().EnterCritical();
         await command.Received(1).ExecuteAsync(NotificationPlatformSql.ReleaseQuotaCounter,
             Arg.Any<object?>(), Arg.Any<CancellationToken>());
         await command.DidNotReceive().ExecuteAsync(NotificationPlatformSql.ConsumeQuotaCounter,

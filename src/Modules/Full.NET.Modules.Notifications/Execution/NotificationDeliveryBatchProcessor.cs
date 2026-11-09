@@ -33,7 +33,8 @@ internal sealed class NotificationDeliveryBatchProcessor(
     NotificationQuotaGovernor quotaGovernor,
     ILogger<NotificationDeliveryBatchProcessor> logger,
     IServiceScopeFactory executionScopeFactory,
-    ITenantActivityReadPort tenantActivity)
+    ITenantActivityReadPort tenantActivity,
+    IDatabaseAdmissionPriorityScope admissionPriority)
 {
     internal const string TenantInactive = "notifications.tenant_inactive";
     internal const string TenantActivityUnavailable = "notifications.tenant_activity_unavailable";
@@ -380,44 +381,33 @@ internal sealed class NotificationDeliveryBatchProcessor(
         }
 
         stopwatch.Stop();
-        var lastAttemptNumber = await queryExecutor.QuerySingleOrDefaultAsync<int>(
-                NotificationPlatformSql.FindLastAttemptNumber,
-                NotificationPlatformSqlParameters.Create(("DeliveryId", delivery.Id)),
-                cancellationToken)
-            .ConfigureAwait(false);
-        // 尝试序号保留历史记录顺序；自动重试上限独立使用持久化预算，不受治理领取或人工重试影响。
-        var attemptNumber = NotificationDeliveryRetry.ResolveAttemptNumber(
-            lastAttemptNumber,
-            budgetUsed);
-        var now = clock.UtcNow;
-        var (status, nextAttempt) = resultCategory switch
-        {
-            "suppressed" => ("suppressed", (DateTimeOffset?)null),
-            // 已进入未知态的历史请求仍可能完成，只延后允许的重试。
-            TenantDeferred => (delivery.StatusKey, deferUntil),
-            _ => NotificationDeliveryRetry.ResolveDeliveryOutcome(
-                resultCategory,
-                (int)Math.Min(budgetUsed, int.MaxValue),
-                now,
-                retryAfter,
-                _options,
-                allowsRetryAfterUnknown,
-                deferUntil),
-        };
         var skippedByGovernance = resultCategory is TenantDeferred or NotificationDeliveryRetry.QuotaBlocked
             or NotificationDeliveryRetry.QuotaMissing or NotificationDeliveryRetry.QuietHoursDeferred;
-        var failoverTarget = await ResolveFailoverTargetAsync(delivery, resultCategory, cancellationToken)
-            .ConfigureAwait(false);
-        if (failoverTarget is not null)
+        int committed;
+        // 关键许可只覆盖已进入渠道的结果提交。领取、外发和提交后的清理使用普通许可。
+        using (providerCallStarted ? admissionPriority.EnterCritical() : null)
         {
-            // 故障转移只推进备用目标，当前目标进入失败终态，防止同一 Profile 与备用同时重试。
-            status = "failed";
-            nextAttempt = null;
-        }
-
-        var committed = await transaction.ExecuteAsync(
+            committed = await transaction.ExecuteAsync(
                 async token =>
                 {
+                    var failoverTarget = await ResolveFailoverTargetAsync(delivery, resultCategory, token)
+                        .ConfigureAwait(false);
+                    var now = clock.UtcNow;
+                    var (status, nextAttempt) = resultCategory switch
+                    {
+                        "suppressed" => ("suppressed", (DateTimeOffset?)null),
+                        // 已进入未知态的历史请求仍可能完成，只延后允许的重试。
+                        TenantDeferred => (delivery.StatusKey, deferUntil),
+                        _ => NotificationDeliveryRetry.ResolveDeliveryOutcome(resultCategory,
+                            (int)Math.Min(budgetUsed, int.MaxValue), now, retryAfter, _options,
+                            allowsRetryAfterUnknown, deferUntil),
+                    };
+                    if (failoverTarget is not null)
+                    {
+                        // 故障转移只推进备用目标，当前目标进入失败终态。
+                        status = "failed";
+                        nextAttempt = null;
+                    }
                     var completed = await commandExecutor.ExecuteAsync(
                             NotificationPlatformSql.CompleteDelivery,
                             NotificationPlatformSqlParameters.Create(
@@ -451,6 +441,11 @@ internal sealed class NotificationDeliveryBatchProcessor(
                     // 治理阻止本轮发送时，没有厂商 Attempt，也不消耗厂商尝试预算。
                     else
                     {
+                        var lastAttemptNumber = await queryExecutor.QuerySingleOrDefaultAsync<int>(
+                            NotificationPlatformSql.FindLastAttemptNumber,
+                            NotificationPlatformSqlParameters.Create(("DeliveryId", delivery.Id)), token).ConfigureAwait(false);
+                        // 尝试序号延续历史，自动重试仍使用单独的持久预算。
+                        var attemptNumber = NotificationDeliveryRetry.ResolveAttemptNumber(lastAttemptNumber, budgetUsed);
                         await commandExecutor.ExecuteAsync(
                                 NotificationPlatformSql.InsertAttempt,
                                 NotificationPlatformSqlParameters.Create(
@@ -523,7 +518,8 @@ internal sealed class NotificationDeliveryBatchProcessor(
                     return completed;
                 },
                 cancellationToken)
-            .ConfigureAwait(false);
+                .ConfigureAwait(false);
+        }
         NotificationDeliveryTelemetry.RecordAttempt(
             providerType,
             delivery.ChannelKey,
