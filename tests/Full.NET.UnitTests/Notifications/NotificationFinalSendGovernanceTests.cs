@@ -1,6 +1,7 @@
 using Full.NET.Abstractions.Ids;
 using Full.NET.Abstractions.Messaging;
 using Full.NET.Abstractions.Results;
+using Full.NET.Abstractions.Tenancy;
 using Full.NET.Abstractions.Time;
 using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Notifications.Contracts;
@@ -48,7 +49,7 @@ public sealed class NotificationFinalSendGovernanceTests
             clock, ids, options,
             Options.Create(new NotificationDeliveryWorkerOptions { BatchSize = 1, MaxConcurrency = 1 }),
             new NotificationRecipientEndpointProtector(new EphemeralDataProtectionProvider()),
-            governor, NullLogger<NotificationDeliveryBatchProcessor>.Instance, null!);
+            governor, NullLogger<NotificationDeliveryBatchProcessor>.Instance, null!, Substitute.For<ITenantActivityReadPort>());
 
         Assert.AreEqual(1, await processor.ProcessPendingAsync(CancellationToken.None));
         Assert.IsTrue(query.Changed, "替身必须在初次许可检查之后改变权威状态。");

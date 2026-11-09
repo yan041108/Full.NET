@@ -32,8 +32,12 @@ internal sealed class NotificationDeliveryBatchProcessor(
     NotificationRecipientEndpointProtector recipientEndpointProtector,
     NotificationQuotaGovernor quotaGovernor,
     ILogger<NotificationDeliveryBatchProcessor> logger,
-    IServiceScopeFactory executionScopeFactory)
+    IServiceScopeFactory executionScopeFactory,
+    ITenantActivityReadPort tenantActivity)
 {
+    internal const string TenantInactive = "notifications.tenant_inactive";
+    internal const string TenantActivityUnavailable = "notifications.tenant_activity_unavailable";
+    private const string TenantDeferred = "tenant_deferred";
     private readonly NotificationDeliveryWorkerOptions _options = workerOptions.Value;
     private readonly IReadOnlyDictionary<string, INotificationProviderAdapter> _adapters =
         adapters.ToDictionary(item => item.Descriptor.ProviderTypeKey, StringComparer.Ordinal);
@@ -316,30 +320,41 @@ internal sealed class NotificationDeliveryBatchProcessor(
                         }
                         else
                         {
-                        subscriptionReserved = prepared.ProviderTypeKey == WeChatMiniProgramNotificationProviderAdapter.ProviderTypeKeyValue;
-                        if (!await EnterSendBoundaryAsync(delivery, prepared, cancellationToken).ConfigureAwait(false))
-                        {
-                            // 尚未开始外发，撤回或过期的赢家阻止本轮调用；释放本轮确定未使用的许可。
-                            await transaction.ExecuteAsync(async token =>
+                            subscriptionReserved = prepared.ProviderTypeKey == WeChatMiniProgramNotificationProviderAdapter.ProviderTypeKeyValue;
+                            // 企业状态属于 Tenancy；在本模块外发事务之外读取，避免跨模块锁和连接。
+                            var tenantBlock = await CheckTenantDispatchAsync(prepared, cancellationToken).ConfigureAwait(false);
+                            if (tenantBlock is not null)
                             {
-                                await quotaGovernor.ResolveAsync(delivery.Id, delivery.LeaseGeneration,
-                                    NotificationQuotaReservationStates.Released, token).ConfigureAwait(false);
-                                await commandExecutor.ExecuteAsync(NotificationSubscriptionGrantSql.Resolve,
-                                    NotificationPlatformSqlParameters.Create(("DeliveryId", delivery.Id),
-                                        ("LeaseGeneration", delivery.LeaseGeneration), ("StateKey", "available")), token).ConfigureAwait(false);
-                                return 0;
-                            }, cancellationToken).ConfigureAwait(false);
-                            return;
-                        }
-                        allowsRetryAfterUnknown = prepared.Adapter.AllowsAutomaticRetryAfterUnknownResult;
-                        using var providerCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-                        providerCancellation.CancelAfter(TimeSpan.FromSeconds(_options.LeaseSeconds * 0.8));
-                        providerCallStarted = true;
-                        var send = await prepared.Adapter.SendAsync(prepared.Request!, providerCancellation.Token)
-                            .ConfigureAwait(false);
-                        resultCategory = NormalizeCategory(send);
-                        providerMessageId = send.ProviderMessageId;
-                        retryAfter = send.RetryAfter;
+                                resultCategory = TenantDeferred;
+                                if (delivery.StatusKey != "unknown") suppressionReasonCode = tenantBlock;
+                                deferUntil = clock.UtcNow.AddSeconds(tenantBlock == TenantInactive ? 300 : 30);
+                            }
+                            else if (!await EnterSendBoundaryAsync(delivery, prepared, cancellationToken).ConfigureAwait(false))
+                            {
+                                // 尚未开始外发，撤回或过期的赢家阻止本轮调用；释放本轮确定未使用的许可。
+                                await transaction.ExecuteAsync(async token =>
+                                {
+                                    await quotaGovernor.ResolveAsync(delivery.Id, delivery.LeaseGeneration,
+                                        NotificationQuotaReservationStates.Released, token).ConfigureAwait(false);
+                                    await commandExecutor.ExecuteAsync(NotificationSubscriptionGrantSql.Resolve,
+                                        NotificationPlatformSqlParameters.Create(("DeliveryId", delivery.Id),
+                                            ("LeaseGeneration", delivery.LeaseGeneration), ("StateKey", "available")), token).ConfigureAwait(false);
+                                    return 0;
+                                }, cancellationToken).ConfigureAwait(false);
+                                return;
+                            }
+                            else
+                            {
+                                allowsRetryAfterUnknown = prepared.Adapter.AllowsAutomaticRetryAfterUnknownResult;
+                                using var providerCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+                                providerCancellation.CancelAfter(TimeSpan.FromSeconds(_options.LeaseSeconds * 0.8));
+                                providerCallStarted = true;
+                                var send = await prepared.Adapter.SendAsync(prepared.Request!, providerCancellation.Token)
+                                    .ConfigureAwait(false);
+                                resultCategory = NormalizeCategory(send);
+                                providerMessageId = send.ProviderMessageId;
+                                retryAfter = send.RetryAfter;
+                            }
                         }
                     }
                 }
@@ -375,16 +390,22 @@ internal sealed class NotificationDeliveryBatchProcessor(
             lastAttemptNumber,
             budgetUsed);
         var now = clock.UtcNow;
-        var (status, nextAttempt) = resultCategory == "suppressed"
-            ? ("suppressed", (DateTimeOffset?)null)
-            : NotificationDeliveryRetry.ResolveDeliveryOutcome(
+        var (status, nextAttempt) = resultCategory switch
+        {
+            "suppressed" => ("suppressed", (DateTimeOffset?)null),
+            // 已进入未知态的历史请求仍可能完成，只延后允许的重试。
+            TenantDeferred => (delivery.StatusKey, deferUntil),
+            _ => NotificationDeliveryRetry.ResolveDeliveryOutcome(
                 resultCategory,
                 (int)Math.Min(budgetUsed, int.MaxValue),
                 now,
                 retryAfter,
                 _options,
                 allowsRetryAfterUnknown,
-                deferUntil);
+                deferUntil),
+        };
+        var skippedByGovernance = resultCategory is TenantDeferred or NotificationDeliveryRetry.QuotaBlocked
+            or NotificationDeliveryRetry.QuotaMissing or NotificationDeliveryRetry.QuietHoursDeferred;
         var failoverTarget = await ResolveFailoverTargetAsync(delivery, resultCategory, cancellationToken)
             .ConfigureAwait(false);
         if (failoverTarget is not null)
@@ -415,9 +436,7 @@ internal sealed class NotificationDeliveryBatchProcessor(
                         return 0;
                     }
 
-                    if (resultCategory is NotificationDeliveryRetry.QuotaBlocked
-                        or NotificationDeliveryRetry.QuotaMissing
-                        or NotificationDeliveryRetry.QuietHoursDeferred)
+                    if (skippedByGovernance)
                     {
                         await commandExecutor.ExecuteAsync(
                                 NotificationPlatformSql.RefundGovernanceAttemptBudget,
@@ -429,10 +448,8 @@ internal sealed class NotificationDeliveryBatchProcessor(
                             .ConfigureAwait(false);
                     }
 
-                    // 配额阻塞、缺失配置与静默延迟都没有调用厂商，不写入 Attempt、也不消耗厂商尝试预算。
-                    if (resultCategory is not (NotificationDeliveryRetry.QuotaBlocked
-                        or NotificationDeliveryRetry.QuotaMissing
-                        or NotificationDeliveryRetry.QuietHoursDeferred))
+                    // 治理阻止本轮发送时，没有厂商 Attempt，也不消耗厂商尝试预算。
+                    else
                     {
                         await commandExecutor.ExecuteAsync(
                                 NotificationPlatformSql.InsertAttempt,
@@ -836,7 +853,27 @@ internal sealed class NotificationDeliveryBatchProcessor(
             null,
             intent.TenantScopeKey,
             intent.ProducerKey,
-            intent.SceneKey);
+            intent.SceneKey,
+            TenantId: intent.TenantId);
+    }
+
+    private async Task<string?> CheckTenantDispatchAsync(PreparedSend prepared, CancellationToken cancellationToken)
+    {
+        if (prepared.TenantId is not { } tenantId)
+        {
+            return prepared.TenantScopeKey == "host" ? null : TenantActivityUnavailable;
+        }
+
+        try
+        {
+            return await tenantActivity.IsActiveTenantAsync(tenantId, cancellationToken).ConfigureAwait(false)
+                ? null : TenantInactive;
+        }
+        catch (Exception exception) when (!cancellationToken.IsCancellationRequested)
+        {
+            logger.LogWarning("Notification tenant activity check failed. ExceptionType={ExceptionType}", exception.GetType().Name);
+            return TenantActivityUnavailable;
+        }
     }
 
     /// <summary>耗时准备完成后重新校验可撤销的发送许可，不重渲染已冻结内容或重新读取附件。</summary>
@@ -1130,7 +1167,8 @@ internal sealed class NotificationDeliveryBatchProcessor(
         string TenantScopeKey,
         string ProducerKey,
         string SceneKey,
-        DateTimeOffset? DeferUntilUtc = null);
+        DateTimeOffset? DeferUntilUtc = null,
+        Guid? TenantId = null);
 
     private sealed record RenderedContentSnapshot(string Subject, string Body);
 }

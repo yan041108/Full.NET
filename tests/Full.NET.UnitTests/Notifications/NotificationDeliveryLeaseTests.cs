@@ -63,7 +63,8 @@ public sealed class NotificationDeliveryLeaseTests
                 Options.Create(new NotificationDeliveryWorkerOptions { MaxConcurrency = 2, BatchSize = 8 }),
                 new NotificationRecipientEndpointProtector(new EphemeralDataProtectionProvider()),
                 null!,
-                NullLogger<NotificationDeliveryBatchProcessor>.Instance, sp.GetRequiredService<IServiceScopeFactory>());
+                NullLogger<NotificationDeliveryBatchProcessor>.Instance, sp.GetRequiredService<IServiceScopeFactory>(),
+                Substitute.For<ITenantActivityReadPort>());
         });
         await using var provider = services.BuildServiceProvider();
         await using var scope = provider.CreateAsyncScope();
@@ -140,7 +141,7 @@ public sealed class NotificationDeliveryLeaseTests
             Options.Create(new DatabaseOptions { Provider = DatabaseProvider.SqlServer }),
             Options.Create(new NotificationDeliveryWorkerOptions()),
             new NotificationRecipientEndpointProtector(new EphemeralDataProtectionProvider()),
-            null!, NullLogger<NotificationDeliveryBatchProcessor>.Instance, null!);
+            null!, NullLogger<NotificationDeliveryBatchProcessor>.Instance, null!, Substitute.For<ITenantActivityReadPort>());
         var task = (Task)typeof(NotificationDeliveryBatchProcessor)
             .GetMethod("ProcessOneAsync", BindingFlags.Instance | BindingFlags.NonPublic)!
             .Invoke(processor, [delivery, CancellationToken.None])!;
@@ -197,7 +198,7 @@ public sealed class NotificationDeliveryLeaseTests
             clock, Substitute.For<IIdGenerator>(), Options.Create(new DatabaseOptions { Provider = DatabaseProvider.SqlServer }),
             Options.Create(new NotificationDeliveryWorkerOptions()),
             new NotificationRecipientEndpointProtector(new EphemeralDataProtectionProvider()),
-            null!, log, null!);
+            null!, log, null!, Substitute.For<ITenantActivityReadPort>());
         var delivery = new NotificationDeliveryRecord(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "email",
             Guid.NewGuid(), null, "accepted", 7, "worker", now.AddMinutes(1), 3, null, now, null, null, null, null, null);
         var task = (Task)typeof(NotificationDeliveryBatchProcessor).GetMethod("ProcessOneAsync", BindingFlags.Instance | BindingFlags.NonPublic)!
@@ -289,7 +290,7 @@ public sealed class NotificationDeliveryLeaseTests
             Options.Create(new NotificationDeliveryWorkerOptions()),
             new NotificationRecipientEndpointProtector(new EphemeralDataProtectionProvider()),
             null!,
-            NullLogger<NotificationDeliveryBatchProcessor>.Instance, null!);
+            NullLogger<NotificationDeliveryBatchProcessor>.Instance, null!, Substitute.For<ITenantActivityReadPort>());
         var delivery = new NotificationDeliveryRecord(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(),
             "email", Guid.NewGuid(), null, "accepted", 1, "worker", now.AddMinutes(1), 1, null, now, null, null, null, null, null);
 
@@ -323,7 +324,7 @@ public sealed class NotificationDeliveryLeaseTests
             Options.Create(new NotificationDeliveryWorkerOptions()),
             new NotificationRecipientEndpointProtector(new EphemeralDataProtectionProvider()),
             null!,
-            NullLogger<NotificationDeliveryBatchProcessor>.Instance, null!);
+            NullLogger<NotificationDeliveryBatchProcessor>.Instance, null!, Substitute.For<ITenantActivityReadPort>());
         var delivery = new NotificationDeliveryRecord(
             Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "email", Guid.NewGuid(), null,
             "accepted", 1, "old-worker", now.AddSeconds(secondsUntilExpiry), 1, null, now, null, null, null, null, null);

@@ -123,6 +123,24 @@ describe('Vue 投递运维页', () => {
     expect(wrapper.find('[data-testid="notification-deliveries-retry"]').exists()).toBe(true);
   });
 
+  it('在原投递详情说明企业暂停和复核时间，保持待发送及原权限', async () => {
+    getMock.mockResolvedValueOnce({
+      ...delivery('accepted'),
+      suppressionReasonCode: 'notifications.tenant_inactive',
+      nextAttemptAtUtc: '2026-11-09T04:30:00Z'
+    });
+    const wrapper = mountWithPermissions(['notifications.deliveries.read']);
+    await flushPromises();
+    await wrapper.get('[data-testid="notification-deliveries-load"]').trigger('click');
+    await flushPromises();
+    const notice = wrapper.get('[data-testid="notification-deliveries-tenant-hold"]');
+    expect(notice.text()).toContain('本次未调用外发渠道');
+    expect(notice.text()).toContain('再次检查企业状态');
+    expect(notice.get('code').text()).toBe('notifications.tenant_inactive');
+    expect(wrapper.find('[data-testid="notification-deliveries-detail-status-accepted"]').exists()).toBe(true);
+    expect(wrapper.find('[data-testid="notification-deliveries-retry"]').exists()).toBe(false);
+  });
+
   it('Unknown 对账独立授权，证据引用及当前 Revision 传到 API', async () => {
     getMock.mockResolvedValueOnce(delivery('unknown'));
     vi.mocked(reconcileNotificationDelivery).mockResolvedValueOnce(delivery('sent'));

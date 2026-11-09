@@ -643,7 +643,9 @@ internal static class NotificationPlatformSql
         """
         UPDATE fn_notifications_delivery
         SET StatusKey = @StatusKey,
-            SuppressionReasonCode = COALESCE(@SuppressionReasonCode, SuppressionReasonCode),
+            SuppressionReasonCode = COALESCE(@SuppressionReasonCode,
+                CASE WHEN SuppressionReasonCode IN ('notifications.tenant_inactive', 'notifications.tenant_activity_unavailable')
+                    THEN NULL ELSE SuppressionReasonCode END),
             LeaseOwnerKey = NULL,
             LeaseExpiresAtUtc = NULL,
             NextAttemptAtUtc = @NextAttemptAtUtc,

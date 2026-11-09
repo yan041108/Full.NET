@@ -61,6 +61,16 @@ const summaryUnavailable = ref(false);
 const items = ref<NotificationDeliveryResponse[]>([]);
 const selectedId = ref<string>();
 const selected = ref<NotificationDeliveryResponse>();
+const tenantHoldMessage = computed(() => {
+  switch (selected.value?.suppressionReasonCode) {
+    case 'notifications.tenant_inactive':
+      return t('notificationDeliveries.tenantInactive');
+    case 'notifications.tenant_activity_unavailable':
+      return t('notificationDeliveries.tenantActivityUnavailable');
+    default:
+      return undefined;
+  }
+});
 const detailLoading = ref(false);
 const page = ref(1);
 const pageSize = ref(20);
@@ -477,7 +487,14 @@ function toProblem(
             <ElButton data-testid="notification-reconcile-accepted" :disabled="changing" @click="reconcile('confirmed_accepted')">{{ t('notificationDeliveries.confirmCalled') }}</ElButton>
             <ElButton data-testid="notification-reconcile-not-called" :disabled="changing" @click="reconcile('confirmed_not_called')">{{ t('notificationDeliveries.confirmNotCalled') }}</ElButton>
           </PermissionGate>
-          <p v-if="selected.suppressionReasonCode" translate="no">{{ selected.suppressionReasonCode }}</p>
+          <div v-if="tenantHoldMessage" class="art-inline-alert" role="status" data-testid="notification-deliveries-tenant-hold">
+            <span>{{ tenantHoldMessage }}</span>
+            <span v-if="selected.nextAttemptAtUtc">
+              {{ t('notificationDeliveries.nextTenantCheck', { time: formatDateTime(selected.nextAttemptAtUtc) }) }}
+            </span>
+            <code translate="no">{{ selected.suppressionReasonCode }}</code>
+          </div>
+          <p v-else-if="selected.suppressionReasonCode" translate="no">{{ selected.suppressionReasonCode }}</p>
           <dl class="notification-deliveries-detail__meta">
             <div>
               <dt>{{ t('notificationDeliveries.fieldStatus') }}</dt>
