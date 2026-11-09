@@ -275,14 +275,32 @@ internal sealed class TenantResourceFileStore(IQueryExecutor queries, ICommandEx
     public async Task<IReadOnlyList<TenantResourceFileReadyItem>> ListReadyAsync(string ownerModuleKey,
         Guid resourceId, CancellationToken cancellationToken = default)
     {
-        RequireScope(ownerModuleKey, resourceId);
+        var originalTenantId = RequireScope(ownerModuleKey, resourceId);
+        RequireNoTransaction();
+        await EnsureOriginalTenantAsync().ConfigureAwait(false);
         var rows = await queries.QueryAsync<TenantResourceFileReadyRecord>(
                 TenantResourceFileSql.ListReady,
                 new Dictionary<string, object?> { ["OwnerModuleKey"] = ownerModuleKey, ["ResourceId"] = resourceId },
                 cancellationToken)
             .ConfigureAwait(false);
+        // 恢复使用文件名和标识判断已上传对象，不能把停用或上下文切换当成空列表。
+        await EnsureOriginalTenantAsync().ConfigureAwait(false);
         return rows.Select(row => new TenantResourceFileReadyItem(row.Id, row.OriginalFileName, row.CreatedAtUtc))
             .ToArray();
+
+        async Task EnsureOriginalTenantAsync()
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            bool Matches() => tenant.IsAvailable && !tenant.IsHost && tenant.Id == originalTenantId;
+            if (!Matches()
+                || !await activeTenants.IsActiveTenantAsync(originalTenantId, cancellationToken).ConfigureAwait(false)
+                || !Matches())
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                throw new TenantResourceFileUnavailableException();
+            }
+            cancellationToken.ThrowIfCancellationRequested();
+        }
     }
 
     /// <inheritdoc />

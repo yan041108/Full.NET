@@ -21,7 +21,7 @@ internal sealed class EnterpriseRequestWorkerProcess : IAsyncDisposable
         errors = PumpAsync(process.StandardError, log + ".stderr.log");
     }
 
-    internal static async Task<EnterpriseRequestWorkerProcess> StartAsync(FullNetApiFactory factory, string evidence, string mode, string gateFile, int sequence, string? webhookReceiverUrl=null, bool webhookFailAfterEnqueueOnce=false)
+    internal static async Task<EnterpriseRequestWorkerProcess> StartAsync(FullNetApiFactory factory, string evidence, string mode, string gateFile, int sequence, string? webhookReceiverUrl=null, bool webhookFailAfterEnqueueOnce=false, Guid? dataTaskId=null)
     {
         var root = FullNetApiFactory.FindRepositoryRoot();
         var directory = Environment.GetEnvironmentVariable("FULLNET_ENTERPRISE_WORKER_FIXTURE_OUTPUT")
@@ -48,10 +48,26 @@ internal sealed class EnterpriseRequestWorkerProcess : IAsyncDisposable
             ["OutboxWorker:LeaseSeconds"] = "10", ["OutboxWorker:LeaseRenewalSeconds"] = "3", ["OutboxWorker:MaxConcurrency"] = "1",
             ["OutboxWorker:MaxAttempts"] = webhookFailAfterEnqueueOnce?"3":"1",
             ["RecoveryFixture:Pause"] = mode, ["RecoveryFixture:GateFile"] = gateFile,
+            ["RecoveryFixture:DataTaskId"] = dataTaskId?.ToString("D"),
+            ["FullNet:Reporting:Export:PollSeconds"] = mode.StartsWith("reporting-", StringComparison.Ordinal) ? "5" : null,
+            ["FullNet:Reporting:Export:LeaseSeconds"] = mode.StartsWith("reporting-", StringComparison.Ordinal) ? "30" : null,
+            ["FullNet:ImportExport:PollSeconds"] = mode.StartsWith("import-", StringComparison.Ordinal) ? "5" : null,
+            ["FullNet:ImportExport:LeaseSeconds"] = mode.StartsWith("import-", StringComparison.Ordinal) ? "30" : null,
+            ["FullNet:ImportExport:ExecutionEnabled"] = mode.StartsWith("import-", StringComparison.Ordinal) ? "true" : null,
             ["RecoveryFixture:WebhookReceiverUrl"] = webhookReceiverUrl, ["Webhooks:Delivery:PollMilliseconds"]="100",
             ["RecoveryFixture:WebhookFailAfterEnqueueOnce"]=webhookFailAfterEnqueueOnce.ToString(),
             ["Notifications:Worker:PollMilliseconds"] = "100", ["Workflow:RecoveryWorker:PollMilliseconds"] = "100"
         };
+        if (mode is "office-conversion" or "office-recovery")
+        {
+            settings["Document:OfficePreviewConversion:Enabled"] = "true";
+            settings["Document:OfficePreviewConversion:ProviderKey"] = "external_http";
+            settings["Document:OfficePreviewConversion:ExternalHttp:BaseUrl"] = "https://example.test/convert";
+            settings["Document:OfficePreviewConversion:MaxAttempts"] = "1";
+            settings["Document:OfficePreviewConversion:TimeoutSeconds"] = "15";
+            settings["Document:OfficePreviewConversion:PollSeconds"] = "5";
+            settings["Document:OfficePreviewConversion:TempRootPath"] = Path.Combine(evidence, "office-work");
+        }
         foreach (var setting in settings) if (setting.Value is not null) start.Environment[setting.Key.Replace(":", "__", StringComparison.Ordinal)] = setting.Value;
         var child = Process.Start(start) ?? throw new InvalidOperationException("无法启动业务恢复 Worker。");
         var host = new EnterpriseRequestWorkerProcess(child, Path.Combine(evidence, $"worker-{sequence}-{child.Id}"));

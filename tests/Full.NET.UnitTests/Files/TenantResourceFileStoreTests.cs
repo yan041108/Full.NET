@@ -19,6 +19,105 @@ namespace Full.NET.UnitTests.Files;
 [TestClass]
 public sealed class TenantResourceFileStoreTests
 {
+    [TestMethod]
+    [DataRow(false)]
+    [DataRow(true)]
+    public async Task List_ready_rejects_inactive_tenant_before_or_after_query(bool afterQuery)
+    {
+        var tenant = new CurrentTenantAccessor(); var tenantId = Guid.NewGuid(); tenant.SetTenant(new(tenantId, "a", "A"));
+        var queries = Substitute.For<IQueryExecutor>();
+        queries.QueryAsync<TenantResourceFileReadyRecord>(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>())
+            .Returns([new(Guid.NewGuid(), "private.txt", DateTimeOffset.UtcNow)]);
+        var active = Substitute.For<IIdentityActiveTenantDirectory>();
+        active.IsActiveTenantAsync(tenantId, Arg.Any<CancellationToken>()).Returns(afterQuery, false);
+        var storage = Substitute.For<IFileStorageProvider>(); storage.ProviderKey.Returns("test");
+        var store = Create(queries, Substitute.For<ICommandExecutor>(), tenant, Substitute.For<IDataTransactionState>(),
+            storage, Substitute.For<IIdGenerator>(), activeTenants: active);
+        await Assert.ThrowsExactlyAsync<TenantResourceFileUnavailableException>(() => store.ListReadyAsync("reporting", Guid.NewGuid()));
+        await queries.Received(afterQuery ? 1 : 0).QueryAsync<TenantResourceFileReadyRecord>(
+            TenantResourceFileSql.ListReady, Arg.Any<object?>(), Arg.Any<CancellationToken>());
+    }
+
+    [TestMethod]
+    [DataRow("inactive")]
+    [DataRow("tenant")]
+    [DataRow("host")]
+    [DataRow("cleared")]
+    [DataRow("cancel")]
+    public async Task List_ready_discards_rows_when_authority_changes_during_query(string mode)
+    {
+        var tenant = new CurrentTenantAccessor(); var tenantId = Guid.NewGuid(); tenant.SetTenant(new(tenantId, "a", "A"));
+        var queries = Substitute.For<IQueryExecutor>();
+        var pending = new TaskCompletionSource<IReadOnlyList<TenantResourceFileReadyRecord>>(TaskCreationOptions.RunContinuationsAsynchronously);
+        queries.QueryAsync<TenantResourceFileReadyRecord>(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(pending.Task);
+        var active = CreateActiveTenants(true);
+        var storage = Substitute.For<IFileStorageProvider>(); storage.ProviderKey.Returns("test");
+        var store = Create(queries, Substitute.For<ICommandExecutor>(), tenant, Substitute.For<IDataTransactionState>(),
+            storage, Substitute.For<IIdGenerator>(), activeTenants: active);
+        using var cancellation = new CancellationTokenSource();
+        var operation = store.ListReadyAsync("reporting", Guid.NewGuid(), cancellation.Token);
+        if (mode == "inactive") active.IsActiveTenantAsync(tenantId, Arg.Any<CancellationToken>()).Returns(false);
+        else if (mode == "tenant") tenant.SetTenant(new(Guid.NewGuid(), "b", "B"));
+        else if (mode == "host") tenant.SetHost();
+        else if (mode == "cleared") tenant.Clear();
+        else cancellation.Cancel();
+        pending.SetResult([new(Guid.NewGuid(), "private.txt", DateTimeOffset.UtcNow)]);
+        if (mode == "cancel") await Assert.ThrowsExactlyAsync<OperationCanceledException>(() => operation);
+        else await Assert.ThrowsExactlyAsync<TenantResourceFileUnavailableException>(() => operation);
+    }
+
+    [TestMethod]
+    [DataRow(false)]
+    [DataRow(true)]
+    public async Task List_ready_discards_active_directory_result_after_context_change(bool afterQuery)
+    {
+        var tenant = new CurrentTenantAccessor(); var tenantId = Guid.NewGuid(); tenant.SetTenant(new(tenantId, "a", "A"));
+        var queries = Substitute.For<IQueryExecutor>();
+        queries.QueryAsync<TenantResourceFileReadyRecord>(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>())
+            .Returns([new(Guid.NewGuid(), "private.txt", DateTimeOffset.UtcNow)]);
+        var active = CreateActiveTenants(true); var checks = 0;
+        var pending = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        active.IsActiveTenantAsync(tenantId, Arg.Any<CancellationToken>())
+            .Returns(_ => ++checks == (afterQuery ? 2 : 1) ? pending.Task : Task.FromResult(true));
+        var storage = Substitute.For<IFileStorageProvider>(); storage.ProviderKey.Returns("test");
+        var store = Create(queries, Substitute.For<ICommandExecutor>(), tenant, Substitute.For<IDataTransactionState>(),
+            storage, Substitute.For<IIdGenerator>(), activeTenants: active);
+        var operation = store.ListReadyAsync("reporting", Guid.NewGuid());
+        tenant.SetHost(); pending.SetResult(true);
+        await Assert.ThrowsExactlyAsync<TenantResourceFileUnavailableException>(() => operation);
+        await queries.Received(afterQuery ? 1 : 0).QueryAsync<TenantResourceFileReadyRecord>(
+            TenantResourceFileSql.ListReady, Arg.Any<object?>(), Arg.Any<CancellationToken>());
+    }
+
+    [TestMethod]
+    public async Task List_ready_returns_original_files_for_active_tenant()
+    {
+        var tenant = new CurrentTenantAccessor(); tenant.SetTenant(new(Guid.NewGuid(), "a", "A"));
+        var queries = Substitute.For<IQueryExecutor>(); var file = Guid.NewGuid(); var resource = Guid.NewGuid();
+        queries.QueryAsync<TenantResourceFileReadyRecord>(TenantResourceFileSql.ListReady,
+            Arg.Is<Dictionary<string, object?>>(p => p != null && (string)p["OwnerModuleKey"]! == "reporting" && (Guid)p["ResourceId"]! == resource),
+            Arg.Any<CancellationToken>()).Returns([new(file, "report.xlsx", DateTimeOffset.UtcNow)]);
+        var storage = Substitute.For<IFileStorageProvider>(); storage.ProviderKey.Returns("test");
+        var store = Create(queries, Substitute.For<ICommandExecutor>(), tenant, Substitute.For<IDataTransactionState>(),
+            storage, Substitute.For<IIdGenerator>());
+        var result = await store.ListReadyAsync("reporting", resource);
+        Assert.AreEqual(1, result.Count); Assert.AreEqual(file, result[0].FileId); Assert.AreEqual("report.xlsx", result[0].OriginalFileName);
+    }
+
+    [TestMethod]
+    public async Task List_ready_rejects_foreign_transaction_before_activity_check()
+    {
+        var tenant = new CurrentTenantAccessor(); tenant.SetTenant(new(Guid.NewGuid(), "a", "A"));
+        var queries = Substitute.For<IQueryExecutor>(); var active = CreateActiveTenants(true);
+        var state = Substitute.For<IDataTransactionState>(); state.HasTransaction.Returns(true);
+        var storage = Substitute.For<IFileStorageProvider>(); storage.ProviderKey.Returns("test");
+        var store = Create(queries, Substitute.For<ICommandExecutor>(), tenant, state, storage,
+            Substitute.For<IIdGenerator>(), activeTenants: active);
+        await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => store.ListReadyAsync("reporting", Guid.NewGuid()));
+        Assert.AreEqual(0, queries.ReceivedCalls().Count());
+        Assert.AreEqual(0, active.ReceivedCalls().Count());
+    }
+
     /// <summary>非活动企业在读取元数据或打开外部对象前即拒绝。</summary>
     [TestMethod]
     [DataRow(false)]

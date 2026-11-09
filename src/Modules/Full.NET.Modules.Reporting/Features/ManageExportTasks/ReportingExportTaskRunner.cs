@@ -204,13 +204,14 @@ internal sealed class ReportingExportTaskRunner(
 
             var file = generated.Value!;
             if (!await EnsureAuthorityAsync(task, lease, cancellationToken).ConfigureAwait(false)) return;
+            var storageFileName = ReportingExportOutputIdentity.BuildStorageFileName(file.FileName, file.RowCount);
             await using var uploadStream = new MemoryStream(file.Content, writable: false);
             var uploadResult = await resourceFiles
                 .UploadAsync(
                     "reporting",
                     task.Id,
                     task.RequestedByUserId,
-                    file.FileName,
+                    storageFileName,
                     WorkbookContentType,
                     uploadStream,
                     file.Content.LongLength,
@@ -276,12 +277,15 @@ internal sealed class ReportingExportTaskRunner(
             return false;
         }
 
+        // 行数属于具体上传对象，不能使用其他尝试留下的任务快照。
+        if (!ReportingExportOutputIdentity.TryRead(latest.OriginalFileName, out var fileName, out var rowCount))
+            throw new InvalidDataException("The reporting output identity is unavailable.");
         return await CompleteSucceededAsync(
                 task,
                 lease,
                 latest.FileId,
-                latest.OriginalFileName,
-                task.RowCount,
+                fileName,
+                rowCount,
                 cancellationToken)
             .ConfigureAwait(false);
     }

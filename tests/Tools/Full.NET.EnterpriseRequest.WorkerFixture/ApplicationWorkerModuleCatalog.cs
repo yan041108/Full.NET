@@ -15,6 +15,9 @@ internal static class ApplicationWorkerModuleCatalog
         services.AddFullNetApplicationModules(configuration, FullNetHostProfile.Worker, [new EnterpriseRequestModule()]);
         var receiver=configuration["RecoveryFixture:WebhookReceiverUrl"];
         var withWebhooks=!string.IsNullOrWhiteSpace(receiver);
+        if (ReportingRecoveryFixture.TryRegister(services, configuration, existing)) return;
+        if (ImportCheckpointRecoveryFixture.TryRegister(services, configuration, existing)) return;
+        if (OfficePreviewRecoveryFixture.TryRegister(services, configuration, existing)) return;
         // 只保留本次业务恢复直接使用的模块循环；官方入口随后照常注册生产 Outbox。
         foreach (var descriptor in services.Where(d => d.ServiceType == typeof(IHostedService) && !existing.Contains(d)
             && d.ImplementationType?.Name is not ("WorkflowRecoveryHostedProcessor" or "NotificationDeliveryHostedProcessor")

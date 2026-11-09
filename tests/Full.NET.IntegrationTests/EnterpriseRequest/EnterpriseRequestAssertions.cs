@@ -186,9 +186,10 @@ internal static partial class EnterpriseRequestAssertions
         }
         Assert.AreEqual(ImportExportTaskStatusKeys.ExecutionSucceeded, executed!.StatusKey);
         Assert.AreEqual(1, executed.SucceededRowCount); Assert.AreEqual(1, executed.NextLineNumber);
-        // 模拟业务已提交、调度检查点尚未提交的恢复窗口，正式处理器重放必须返回同一个实体。
-        await using (var scope = factory.Services.CreateAsyncScope())
+        // 已有独立进程接管证据时直接复核业务列表，避免由测试再调用业务处理器。
+        if (executeQueued is null)
         {
+            await using var scope = factory.Services.CreateAsyncScope();
             var tenant = scope.ServiceProvider.GetRequiredService<CurrentTenantAccessor>();
             tenant.SetTenant(new TenantContext(created.TenantId, "acme", "Acme"));
             try

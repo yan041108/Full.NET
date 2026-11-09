@@ -27,7 +27,8 @@ public sealed class ReportingExportTaskRecoveryTests
         var fixture = CreateFixture();
         var task = SeedProcessing(fixture, leaseExpired: true);
         var fileId = Guid.NewGuid();
-        fixture.Files.ReadyFiles.Add(new TenantResourceFileReadyItem(fileId, "report.xlsx", fixture.Clock.UtcNow));
+        fixture.Files.ReadyFiles.Add(new TenantResourceFileReadyItem(fileId,
+            ReportingExportOutputIdentity.BuildStorageFileName("report.xlsx", 1), fixture.Clock.UtcNow));
 
         var processed = await fixture.Runner.ProcessPendingAsync(CancellationToken.None);
 
@@ -36,7 +37,98 @@ public sealed class ReportingExportTaskRecoveryTests
         var stored = fixture.Store.Tasks[task.Id];
         Assert.AreEqual(ReportingExportTaskStatusKeys.Succeeded, stored.StatusKey);
         Assert.AreEqual(fileId, stored.OutputFileId);
+        Assert.AreEqual(1, stored.RowCount);
+        Assert.AreEqual("report.xlsx", stored.OutputFileName);
         Assert.IsNull(stored.LeaseId);
+    }
+
+    /// <summary>企业文件暂不可读取时保留任务，恢复后重新绑定原文件。</summary>
+    [TestMethod]
+    public async Task Unavailable_file_list_preserves_task_and_rebinds_existing_output_after_lease()
+    {
+        var fixture = CreateFixture();
+        var task = SeedProcessing(fixture, leaseExpired: true);
+        var fileId = Guid.NewGuid();
+        fixture.Files.ReadyFiles.Add(new TenantResourceFileReadyItem(fileId,
+            ReportingExportOutputIdentity.BuildStorageFileName("report.xlsx", 1), fixture.Clock.UtcNow));
+        fixture.Files.ListUnavailable = true;
+
+        Assert.AreEqual(1, await fixture.Runner.ProcessPendingAsync(CancellationToken.None));
+        Assert.AreEqual(1, fixture.Files.ListAttempts);
+        Assert.AreEqual(ReportingExportTaskStatusKeys.Processing, task.StatusKey);
+        Assert.IsNull(task.OutputFileId);
+        Assert.IsNull(task.ErrorCode);
+        Assert.AreEqual(0, fixture.GenerateCount);
+        Assert.AreEqual(0, fixture.Files.UploadCount);
+        Assert.IsNotNull(task.LeaseId);
+
+        fixture.Files.ListUnavailable = false;
+        fixture.Clock.Advance(TimeSpan.FromSeconds(301));
+        Assert.AreEqual(1, await fixture.Runner.ProcessPendingAsync(CancellationToken.None));
+        Assert.AreEqual(2, fixture.Files.ListAttempts);
+        Assert.AreEqual(ReportingExportTaskStatusKeys.Succeeded, task.StatusKey);
+        Assert.AreEqual(fileId, task.OutputFileId);
+        Assert.AreEqual(1, task.RowCount);
+        Assert.AreEqual("report.xlsx", task.OutputFileName);
+        Assert.IsNull(task.LeaseId);
+        Assert.AreEqual(0, fixture.GenerateCount);
+        Assert.AreEqual(0, fixture.Files.UploadCount);
+    }
+
+    [TestMethod]
+    public async Task Recovery_uses_row_count_of_the_bound_file_not_another_attempt()
+    {
+        var fixture = CreateFixture();
+        var task = SeedProcessing(fixture, leaseExpired: true);
+        var latestId = Guid.NewGuid();
+        task.RowCount = 99;
+        fixture.Files.ReadyFiles.Add(new(Guid.NewGuid(),
+            ReportingExportOutputIdentity.BuildStorageFileName("older.xlsx", 7), fixture.Clock.UtcNow.AddMinutes(-1)));
+        fixture.Files.ReadyFiles.Add(new(latestId,
+            ReportingExportOutputIdentity.BuildStorageFileName("latest.xlsx", 0), fixture.Clock.UtcNow));
+
+        Assert.AreEqual(1, await fixture.Runner.ProcessPendingAsync(CancellationToken.None));
+        Assert.AreEqual(ReportingExportTaskStatusKeys.Succeeded, task.StatusKey);
+        Assert.AreEqual(latestId, task.OutputFileId);
+        Assert.AreEqual(0, task.RowCount);
+        Assert.AreEqual("latest.xlsx", task.OutputFileName);
+        Assert.AreEqual(0, fixture.GenerateCount);
+        Assert.AreEqual(0, fixture.Files.UploadCount);
+    }
+
+    [TestMethod]
+    public async Task Unrecognized_output_identity_does_not_guess_count_or_reupload()
+    {
+        var fixture = CreateFixture();
+        var task = SeedProcessing(fixture, leaseExpired: true);
+        fixture.Files.ReadyFiles.Add(new(Guid.NewGuid(), "reporting-rows-5001-report.xlsx", fixture.Clock.UtcNow));
+
+        Assert.AreEqual(1, await fixture.Runner.ProcessPendingAsync(CancellationToken.None));
+        Assert.AreEqual(ReportingExportTaskStatusKeys.Processing, task.StatusKey);
+        Assert.IsNull(task.OutputFileId);
+        Assert.IsNull(task.ErrorCode);
+        Assert.AreEqual(0, fixture.GenerateCount);
+        Assert.AreEqual(0, fixture.Files.UploadCount);
+        Assert.IsNotNull(task.LeaseId);
+    }
+
+    [TestMethod]
+    public void Output_identity_rejects_invalid_names_and_counts()
+    {
+        foreach (var value in new[]
+        {
+            "report.xlsx", "reporting-rows--report.xlsx", "reporting-rows--1-report.xlsx",
+            "reporting-rows-5001-report.xlsx", "reporting-rows-1-../report.xlsx",
+            "reporting-rows-1- report.xlsx", "reporting-rows-1-",
+        })
+            Assert.IsFalse(ReportingExportOutputIdentity.TryRead(value, out _, out _), value);
+        Assert.ThrowsExactly<InvalidDataException>(() => ReportingExportOutputIdentity.BuildStorageFileName("report.xlsx", -1));
+        Assert.ThrowsExactly<InvalidDataException>(() => ReportingExportOutputIdentity.BuildStorageFileName("../report.xlsx", 1));
+        Assert.ThrowsExactly<InvalidDataException>(() => ReportingExportOutputIdentity.BuildStorageFileName(new string('a', 255), 1));
+        var name = ReportingExportOutputIdentity.BuildStorageFileName("report.xlsx", 5000);
+        Assert.IsTrue(ReportingExportOutputIdentity.TryRead(name, out var fileName, out var rowCount));
+        Assert.AreEqual("report.xlsx", fileName);
+        Assert.AreEqual(5000, rowCount);
     }
 
     /// <summary>有效租约禁止第二个 Worker 领取。</summary>
@@ -131,7 +223,8 @@ public sealed class ReportingExportTaskRecoveryTests
     public async Task Revocation_prevents_recovery_from_attaching_an_existing_uploaded_file()
     {
         var fixture = CreateFixture(new StageAuthority(2)); var task = SeedProcessing(fixture, true);
-        fixture.Files.ReadyFiles.Add(new(Guid.NewGuid(), "sensitive.xlsx", fixture.Clock.UtcNow));
+        fixture.Files.ReadyFiles.Add(new(Guid.NewGuid(),
+            ReportingExportOutputIdentity.BuildStorageFileName("sensitive.xlsx", 1), fixture.Clock.UtcNow));
         await fixture.Runner.ProcessPendingAsync(CancellationToken.None);
         Assert.AreEqual(ReportingExportTaskStatusKeys.Failed, task.StatusKey); Assert.IsNull(task.OutputFileId);
         Assert.AreEqual(0, fixture.GenerateCount); Assert.AreEqual(0, fixture.Files.UploadCount);
@@ -271,7 +364,8 @@ public sealed class ReportingExportTaskRecoveryTests
 
     private sealed class MutableClock(DateTimeOffset utcNow) : IClock
     {
-        public DateTimeOffset UtcNow { get; } = utcNow;
+        public DateTimeOffset UtcNow { get; private set; } = utcNow;
+        public void Advance(TimeSpan duration) => UtcNow += duration;
     }
 
     private sealed class OptionsMonitorStub<T>(T current) : IOptionsMonitor<T>
@@ -285,6 +379,8 @@ public sealed class ReportingExportTaskRecoveryTests
     private sealed class FakeFileStore : ITenantResourceFileStore
     {
         public int UploadCount { get; private set; }
+        public int ListAttempts { get; private set; }
+        public bool ListUnavailable { get; set; }
         public List<TenantResourceFileReadyItem> ReadyFiles { get; } = [];
 
         public Task<Result<TenantResourceFileReference>> UploadAsync(
@@ -301,8 +397,12 @@ public sealed class ReportingExportTaskRecoveryTests
                 new Error("files.not_found", "not found", ErrorType.NotFound)));
 
         public Task<IReadOnlyList<TenantResourceFileReadyItem>> ListReadyAsync(
-            string ownerModuleKey, Guid resourceId, CancellationToken cancellationToken = default) =>
-            Task.FromResult<IReadOnlyList<TenantResourceFileReadyItem>>(ReadyFiles);
+            string ownerModuleKey, Guid resourceId, CancellationToken cancellationToken = default)
+        {
+            ListAttempts++;
+            if (ListUnavailable) throw new TenantResourceFileUnavailableException();
+            return Task.FromResult<IReadOnlyList<TenantResourceFileReadyItem>>(ReadyFiles);
+        }
 
         public Task ReleaseAsync(string ownerModuleKey, Guid resourceId, Guid fileId,
             CancellationToken cancellationToken = default) => Task.CompletedTask;

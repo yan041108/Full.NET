@@ -15,7 +15,6 @@ using Full.NET.Modules.Organization.Contracts;
 using Full.NET.Modules.ImportExport.Features.ManageImportTasks;
 using Full.NET.Modules.ImportExport.Persistence;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 
 namespace Full.NET.IntegrationTests.ImportExport;
@@ -52,48 +51,78 @@ internal static partial class ImportExportWorkerAssertions
         });
     }
 
-    /// <summary>业务行提交后故意让任务检查点写入失败；新宿主用到期租约重放，不能重复创建业务实体。</summary>
+    /// <summary>业务行提交后强退独立 Worker，由新进程在自然到期后重放原检查点。</summary>
     internal static async Task VerifyCheckpointRestartAsync(DatabaseProvider provider, string connectionString)
     {
+        var evidence = Directory.CreateTempSubdirectory("fullnet-import-process-");
         var settings = Settings();
-        using var api = new FullNetApiFactory(provider, connectionString, settings);
-        await EnterpriseRequestAssertions.VerifyTenantDemoEnterpriseRequestsWorkbookImportAsync(api, executeQueued: async (task, _) =>
+        settings["Files:Local:RootPath"] = Path.Combine(evidence.FullName, "files");
+        settings["DataProtection:KeyRingPath"] = Path.Combine(evidence.FullName, "keys");
+        try
         {
-            var interrupted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-            using (var firstWorker = await BuildWorkerAsync(api, settings, services =>
-                   {
-                       var descriptor = services.Single(item => item.ServiceType == typeof(ICommandExecutor));
-                       services.Remove(descriptor);
-                       services.AddScoped<ICommandExecutor>(scope => new InterruptedProgressExecutor(
-                           (ICommandExecutor)descriptor.ImplementationFactory!(scope), task.Id, interrupted));
-                   }))
+            using var api = new FullNetApiFactory(provider, connectionString, settings, includeEnterpriseRequest: true);
+            await EnterpriseRequestAssertions.VerifyTenantDemoEnterpriseRequestsWorkbookImportAsync(api, executeQueued: async (task, _) =>
             {
-                await firstWorker.StartAsync();
-                try { await interrupted.Task.WaitAsync(TimeSpan.FromSeconds(40)); }
-                finally { await firstWorker.StopAsync(); }
-            }
-            var stranded = await LoadTaskAsync(api, task);
-            Assert.AreEqual(ImportExportTaskStatusKeys.Executing, stranded.StatusKey);
-            Assert.AreEqual(0, stranded.NextLineNumber); Assert.AreEqual(0, stranded.SucceededRowCount);
-            Assert.IsNotNull(stranded.LeaseId);
+                var gate = Path.Combine(evidence.FullName, "checkpoint.gate");
+                int firstPid;
+                Guid? committedId;
+                DateTimeOffset leaseExpires;
+                await using (var first = await EnterpriseRequestWorkerProcess.StartAsync(api, evidence.FullName, "import-checkpoint", gate, 1,
+                    dataTaskId: task.Id))
+                {
+                    firstPid = first.Id;
+                    var deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+                    while (!File.Exists(gate))
+                    {
+                        var current = await LoadTaskAsync(api, task);
+                        Assert.IsFalse(current.StatusKey is ImportExportTaskStatusKeys.ExecutionFailed or ImportExportTaskStatusKeys.ExecutionPartial,
+                            $"检查点前已进入终态：{current.StatusKey} {current.ErrorCode}");
+                        Assert.IsTrue(DateTimeOffset.UtcNow < deadline, $"等待检查点超时：{current.StatusKey} {current.ErrorCode}");
+                        await Task.Delay(150);
+                    }
+                    Assert.AreEqual(task.Id, Guid.Parse(await File.ReadAllTextAsync(gate)));
+                    var stranded = await LoadTaskAsync(api, task);
+                    Assert.AreEqual(ImportExportTaskStatusKeys.Executing, stranded.StatusKey);
+                    Assert.AreEqual(0, stranded.NextLineNumber);
+                    Assert.AreEqual(0, stranded.SucceededRowCount);
+                    Assert.IsNotNull(stranded.LeaseExpiresAtUtc);
+                    leaseExpires = stranded.LeaseExpiresAtUtc.Value;
+                    committedId = await ReadImportedEntityAsync(api, task);
+                    Assert.IsNotNull(committedId);
+                    await first.CrashAsync();
+                }
 
-            // 仅推进本测试新宿主时钟，避免等待真实租约超时或修改其他 Worker 的共享状态。
-            using var restartedWorker = await BuildWorkerAsync(api, settings, services =>
-            {
-                services.RemoveAll<IClock>(); services.AddSingleton<IClock>(new AdvancedClock());
-            });
-            await restartedWorker.StartAsync();
-            try
-            {
+                await using var replacement = await EnterpriseRequestWorkerProcess.StartAsync(api, evidence.FullName,
+                    "import-recovery", gate, 2, dataTaskId: task.Id);
+                Assert.AreNotEqual(firstPid, replacement.Id);
                 var recovered = await WaitForTaskAsync(api, task, ImportExportTaskStatusKeys.ExecutionSucceeded);
-                Assert.AreEqual(1, recovered.NextLineNumber); Assert.AreEqual(1, recovered.SucceededRowCount);
-                var state = ImportExportTaskMapper.DeserializeExecutionState((await LoadTaskAsync(api, task)).ExecutionRowsJson);
-                Assert.IsFalse(string.IsNullOrEmpty((await LoadTaskAsync(api, task)).ActorSessionBindingJson)); Assert.AreEqual(1, state.Rows.Count);
-                Assert.IsTrue(state.Rows.Single().Succeeded); Assert.IsNotNull(state.Rows.Single().EntityId);
+                Assert.AreEqual(1, recovered.NextLineNumber);
+                Assert.AreEqual(1, recovered.SucceededRowCount);
+                var stored = await LoadTaskAsync(api, task);
+                Assert.IsTrue(stored.ExecutionCompletedAtUtc >= leaseExpires);
+                Assert.IsNull(stored.LeaseId);
+                var state = ImportExportTaskMapper.DeserializeExecutionState(stored.ExecutionRowsJson);
+                Assert.IsFalse(string.IsNullOrEmpty(stored.ActorSessionBindingJson));
+                Assert.HasCount(1, state.Rows);
+                Assert.IsTrue(state.Rows.Single().Succeeded);
+                Assert.AreEqual(committedId, state.Rows.Single().EntityId);
+                Assert.AreEqual(committedId, await ReadImportedEntityAsync(api, task));
                 return recovered;
-            }
-            finally { await restartedWorker.StopAsync(); }
-        });
+            });
+        }
+        finally { evidence.Delete(recursive: true); }
+    }
+
+    private static async Task<Guid?> ReadImportedEntityAsync(FullNetApiFactory api, ImportExportTaskDetailResponse task)
+    {
+        await using var scope = api.Services.CreateAsyncScope();
+        scope.ServiceProvider.GetRequiredService<CurrentTenantAccessor>().SetTenant(new TenantContext(task.TenantId, "acme", "Acme"));
+        return await scope.ServiceProvider.GetRequiredService<IQueryExecutor>().QuerySingleOrDefaultAsync<Guid?>(
+            new SqlStatement("tests.import_recovery.receipt", """
+                SELECT RequestId FROM demo_enterprise_request_import_row
+                WHERE TenantId = @TenantId AND TaskId = @TaskId AND LineNumber = 2
+                """, SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId),
+            new Dictionary<string, object?> { ["TaskId"] = task.Id });
     }
 
     /// <summary>排队后通过正式在线会话 API 撤销原会话，Worker 必须拒绝；重新登录并重试才允许执行。</summary>

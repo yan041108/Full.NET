@@ -35,6 +35,8 @@ public interface ITenantResourceFileStore
     /// <param name="resourceId">已授权的资源标识。</param>
     /// <param name="cancellationToken">取消令牌。</param>
     /// <returns>按创建时间升序的就绪文件；没有时返回空列表。</returns>
+    /// <exception cref="TenantResourceFileUnavailableException">原企业已停用或可信上下文变化；调用方不得将其视为文件不存在。</exception>
+    /// <exception cref="InvalidOperationException">调用方持有业务事务时不能跨模块复核企业状态。</exception>
     Task<IReadOnlyList<TenantResourceFileReadyItem>> ListReadyAsync(string ownerModuleKey, Guid resourceId,
         CancellationToken cancellationToken = default);
 

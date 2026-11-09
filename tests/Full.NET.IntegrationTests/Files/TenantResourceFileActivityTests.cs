@@ -47,16 +47,33 @@ public sealed class TenantResourceFileActivityTests
         var fileId = uploaded.Value!.FileId;
         await AssertReadableAsync();
         await AssertDescriptorAsync(true);
+        await AssertListAsync(true);
         using var paused = await host.PostAsJsonAsync($"/api/v1/tenancy/tenants/{original.Id:D}/suspend", new SuspendTenantRequest(original.Version));
         Assert.AreEqual(HttpStatusCode.OK, paused.StatusCode, await paused.Content.ReadAsStringAsync());
         var suspended = (await paused.Content.ReadFromJsonAsync<TenantSummary>())!;
         var denied = await InOriginalTenantAsync(store => store.OpenReadyContentAsync("import_export", resourceId, fileId));
         Assert.IsFalse(denied.IsSuccess); Assert.AreEqual(FilesErrorCodes.TenantInactive, denied.Error!.Code);
         await AssertDescriptorAsync(false);
+        await AssertListAsync(false);
         using var resumed = await host.PostAsJsonAsync($"/api/v1/tenancy/tenants/{original.Id:D}/reactivate", new ReactivateTenantRequest(suspended.Version));
         Assert.AreEqual(HttpStatusCode.OK, resumed.StatusCode, await resumed.Content.ReadAsStringAsync());
         await AssertReadableAsync();
         await AssertDescriptorAsync(true);
+        await AssertListAsync(true);
+
+        async Task AssertListAsync(bool expected)
+        {
+            if (!expected)
+            {
+                await Assert.ThrowsExactlyAsync<TenantResourceFileUnavailableException>(() =>
+                    InOriginalTenantAsync(store => store.ListReadyAsync("import_export", resourceId)));
+                return;
+            }
+            var items = await InOriginalTenantAsync(store => store.ListReadyAsync("import_export", resourceId));
+            Assert.AreEqual(1, items.Count);
+            Assert.AreEqual(fileId, items[0].FileId);
+            Assert.AreEqual("activity.bin", items[0].OriginalFileName);
+        }
 
         async Task AssertDescriptorAsync(bool expected)
         {
