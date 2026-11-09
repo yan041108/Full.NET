@@ -11,6 +11,7 @@ import { useAuthorizedViewScope } from '../../composables/useAuthorizedViewScope
 import { getWebhookDeliveryHistory, listWebhookDeliveryHistory } from '../../api/webhook-subscriptions';
 import WebhookDeliveryAttemptsPanel from './WebhookDeliveryAttemptsPanel.vue';
 import WebhookDeliveryReplayPanel from './WebhookDeliveryReplayPanel.vue';
+import { webhookDeliveryFailure } from './webhook-delivery-failure';
 import type { WebhookDeliveryReplayReceipt } from '@fullnet/client-contracts';
 
 const props = defineProps<{ subscription: WebhookSubscription }>();
@@ -39,9 +40,7 @@ const statuses: WebhookDeliveryStatusKey[] = ['pending','processing','delivered'
 const statusLabel = (value: WebhookDeliveryStatusKey) => t(`webhooks.history.${value}`);
 const time = (value: string | null) => value ? new Date(value).toLocaleString(locale.value, { timeZone: 'UTC' }) + ' UTC' : '—';
 function failure(row: WebhookDeliveryHistory) {
-  if (row.lastErrorCode === 'webhooks.delivery.http_error') return t('webhooks.history.httpError', { status: row.lastHttpStatus ?? '' });
-  if (row.lastErrorCode === 'webhooks.delivery.timeout') return t('webhooks.history.timeout');
-  return row.lastErrorCode ? t('webhooks.history.otherError') : '—';
+  return webhookDeliveryFailure(t, row.lastErrorCode, row.lastHttpStatus);
 }
 function close() { scope.invalidate(); emit('close'); }
 async function load(recover = true) {

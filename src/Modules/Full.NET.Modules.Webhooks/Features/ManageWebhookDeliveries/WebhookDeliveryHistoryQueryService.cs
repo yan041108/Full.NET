@@ -6,6 +6,7 @@ using Full.NET.Abstractions.Time;
 using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Webhooks.Contracts;
 using Full.NET.Modules.Webhooks.Delivery;
+using Full.NET.Modules.Webhooks.Features.DeliverWebhooks;
 using Full.NET.Modules.Webhooks.Features.ManageWebhookDeliveries.Persistence;
 using Full.NET.Modules.Webhooks.Features.ManageWebhookSubscriptions;
 using Full.NET.Modules.Webhooks.Features.ManageWebhookSubscriptions.Persistence;
@@ -30,7 +31,9 @@ internal sealed class WebhookDeliveryHistoryQueryService(IQueryExecutor queries,
         var deadline = clock.UtcNow.AddSeconds(-Math.Clamp(workerOptions.Value.LeaseSeconds, 60, 3600));
         var items = rows.Select(row => {
             var outcome = row.OutcomeKey == "started" ? row.CurrentStatus == "processing" && row.ClaimVersion == row.CurrentVersion && row.CurrentUpdatedAtUtc > deadline ? "processing" : "unconfirmed" : row.OutcomeKey;
-            var error = row.ErrorCode is null or "webhooks.delivery.http_error" or "webhooks.delivery.timeout" or "webhooks.delivery.target_invalid" or "webhooks.delivery.target_blocked" or "webhooks.delivery.transport_error" ? row.ErrorCode : "webhooks.delivery.failed";
+            var error = WebhookDeliveryBatchProcessor.IsAdmissionCode(row.ErrorCode)
+                || row.ErrorCode is null or "webhooks.delivery.http_error" or "webhooks.delivery.timeout" or "webhooks.delivery.target_invalid" or "webhooks.delivery.target_blocked" or "webhooks.delivery.transport_error"
+                ? row.ErrorCode : "webhooks.delivery.failed";
             return new WebhookDeliveryAttemptResponse(row.Id, row.TenantId, row.SubscriptionId, row.DeliveryId, outcome, row.StartedAtUtc, row.CompletedAtUtc, row.HttpStatus, error, row.AppliedToDelivery);
         }).ToArray();
         return Result<PagedResult<WebhookDeliveryAttemptResponse>>.Success(new(items, page, pageSize, count));
@@ -80,6 +83,8 @@ internal sealed class WebhookDeliveryHistoryQueryService(IQueryExecutor queries,
             if (row.LastError.Length == 8 && row.LastError.StartsWith("HTTP ", StringComparison.Ordinal)
                 && int.TryParse(row.LastError.AsSpan(5), NumberStyles.None, CultureInfo.InvariantCulture, out var parsed) && parsed is >= 100 and <= 599)
             { error = "webhooks.delivery.http_error"; httpStatus = parsed; }
+            else if (WebhookDeliveryBatchProcessor.IsAdmissionCode(row.LastError))
+                error = row.LastError;
             else error = row.LastError == "Webhook delivery timed out." ? "webhooks.delivery.timeout" : "webhooks.delivery.failed";
         }
         return new(row.Id, row.TenantId, row.SubscriptionId, row.EventId, row.Status.ToLowerInvariant(), row.AttemptCount,

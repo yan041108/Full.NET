@@ -119,7 +119,7 @@ public sealed class WebhookDeliveryTests
             new FixedClock(DateTimeOffset.Parse("2026-09-17T00:00:00Z")),
             Options.Create(new DatabaseOptions { Provider = DatabaseProvider.SqlServer }),
             Options.Create(new WebhookDeliveryWorkerOptions()),
-            NullLogger<WebhookDeliveryBatchProcessor>.Instance, NewIds());
+            NullLogger<WebhookDeliveryBatchProcessor>.Instance, NewIds(), ActiveTenants());
         var services = new ServiceCollection();
         services.AddScoped<ICurrentTenantContextWriter>(_ => tenant);
         services.AddScoped(_ => processor);
@@ -282,7 +282,7 @@ public sealed class WebhookDeliveryTests
             new FixedClock(DateTimeOffset.Parse("2026-09-17T00:00:00Z")),
             Options.Create(new DatabaseOptions { Provider = DatabaseProvider.SqlServer }),
             Options.Create(new WebhookDeliveryWorkerOptions()),
-            NullLogger<WebhookDeliveryBatchProcessor>.Instance, NewIds());
+            NullLogger<WebhookDeliveryBatchProcessor>.Instance, NewIds(), ActiveTenants());
 
         var processed = await processor.ProcessPendingAsync(CancellationToken.None);
 
@@ -336,7 +336,7 @@ public sealed class WebhookDeliveryTests
             new FixedClock(DateTimeOffset.Parse("2026-09-17T00:00:00Z")),
             Options.Create(new DatabaseOptions { Provider = DatabaseProvider.SqlServer }),
             Options.Create(new WebhookDeliveryWorkerOptions()),
-            NullLogger<WebhookDeliveryBatchProcessor>.Instance, NewIds());
+            NullLogger<WebhookDeliveryBatchProcessor>.Instance, NewIds(), ActiveTenants());
 
         var processed = await processor.ProcessPendingAsync(CancellationToken.None);
         Assert.AreEqual(1, processed);
@@ -375,7 +375,7 @@ public sealed class WebhookDeliveryTests
         var processor = new WebhookDeliveryBatchProcessor(query, commands,
             new DapperCommandTransaction(new RecordingDbTransactionCoordinator()), clients, protector,
             new FixedClock(DateTimeOffset.UtcNow), Options.Create(new DatabaseOptions()),
-            Options.Create(new WebhookDeliveryWorkerOptions()), NullLogger<WebhookDeliveryBatchProcessor>.Instance, NewIds());
+            Options.Create(new WebhookDeliveryWorkerOptions()), NullLogger<WebhookDeliveryBatchProcessor>.Instance, NewIds(), ActiveTenants());
         Assert.AreEqual(2, await processor.ProcessPendingAsync(default));
         await commands.Received(1).ExecuteAsync(WebhookDeliverySql.MarkFailed,
             Arg.Is<IReadOnlyDictionary<string, object?>>(p => (Guid)p!["DeliveryId"]! == first.Id && (int)p!["Version"]! == 2), Arg.Any<CancellationToken>());
@@ -396,9 +396,58 @@ public sealed class WebhookDeliveryTests
             new DapperCommandTransaction(new RecordingDbTransactionCoordinator()), clients,
             new WebhookSigningSecretProtector(DataProtectionProvider.Create(nameof(WebhookDeliveryTests))),
             new FixedClock(DateTimeOffset.UtcNow), Options.Create(new DatabaseOptions()),
-            Options.Create(new WebhookDeliveryWorkerOptions()), NullLogger<WebhookDeliveryBatchProcessor>.Instance, NewIds());
+            Options.Create(new WebhookDeliveryWorkerOptions()), NullLogger<WebhookDeliveryBatchProcessor>.Instance, NewIds(), ActiveTenants());
         Assert.AreEqual(0, await processor.ProcessPendingAsync(default));
         clients.DidNotReceive().CreateClient(Arg.Any<string>());
+    }
+
+    [TestMethod]
+    public async Task Inactive_or_unavailable_tenant_defers_without_dispatch_or_channel_attempt()
+    {
+        foreach (var code in new[] { WebhookDeliveryBatchProcessor.TenantInactive, WebhookDeliveryBatchProcessor.TenantStateUnavailable })
+        {
+            var now = DateTimeOffset.UtcNow;
+            var item = new WebhookDeliveryWorkItem(Guid.CreateVersion7(), Guid.CreateVersion7(), Guid.CreateVersion7(), "{}",
+                4, 1, Guid.CreateVersion7(), "https://93.184.216.34/hooks", "unused", "test.event", Guid.CreateVersion7());
+            var query = Substitute.For<IQueryExecutor>();
+            query.QueryAsync<WebhookDeliveryWorkItem>(Arg.Any<SqlStatement>(), Arg.Any<IReadOnlyDictionary<string, object?>>(),
+                Arg.Any<CancellationToken>()).Returns(Task.FromResult<IReadOnlyList<WebhookDeliveryWorkItem>>([item]),
+                Task.FromResult<IReadOnlyList<WebhookDeliveryWorkItem>>([]));
+            query.QuerySingleOrDefaultAsync<WebhookSigningProfileRecord>(WebhookDeliverySql.FindSigningProfile,
+                Arg.Any<IReadOnlyDictionary<string, object?>>(), Arg.Any<CancellationToken>())
+                .Returns(new WebhookSigningProfileRecord(item.SigningKeyId, "unused"));
+            var directory = Substitute.For<ITenantActivityReadPort>();
+            directory.IsActiveTenantAsync(item.TenantId, Arg.Any<CancellationToken>()).Returns(
+                code == WebhookDeliveryBatchProcessor.TenantInactive
+                    ? Task.FromResult(false) : Task.FromException<bool>(new TimeoutException()));
+            var commands = Substitute.For<ICommandExecutor>();
+            commands.ExecuteAsync(Arg.Any<SqlStatement>(), Arg.Any<IReadOnlyDictionary<string, object?>>(),
+                Arg.Any<CancellationToken>()).Returns(1);
+            var clients = Substitute.For<IHttpClientFactory>();
+            var processor = new WebhookDeliveryBatchProcessor(query, commands,
+                new DapperCommandTransaction(new RecordingDbTransactionCoordinator()), clients,
+                new WebhookSigningSecretProtector(DataProtectionProvider.Create(nameof(WebhookDeliveryTests))),
+                new FixedClock(now), Options.Create(new DatabaseOptions()),
+                Options.Create(new WebhookDeliveryWorkerOptions { MaxAttempts = 5 }),
+                NullLogger<WebhookDeliveryBatchProcessor>.Instance, NewIds(), directory);
+
+            Assert.AreEqual(1, await processor.ProcessPendingAsync(default));
+            clients.DidNotReceive().CreateClient(Arg.Any<string>());
+            await commands.DidNotReceive().ExecuteAsync(WebhookDeliverySql.MarkFailed,
+                Arg.Any<IReadOnlyDictionary<string, object?>>(), Arg.Any<CancellationToken>());
+            await commands.Received(1).ExecuteAsync(WebhookDeliverySql.Defer,
+                Arg.Is<IReadOnlyDictionary<string, object?>>(p => p != null
+                    && (Guid)p["DeliveryId"]! == item.Id
+                    && (string)p["ErrorCode"]! == code && (DateTimeOffset)p["NextAttemptAtUtc"]! > now),
+                Arg.Any<CancellationToken>());
+        }
+    }
+
+    private static ITenantActivityReadPort ActiveTenants()
+    {
+        var directory = Substitute.For<ITenantActivityReadPort>();
+        directory.IsActiveTenantAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>()).Returns(true);
+        return directory;
     }
 
     private static IIdGenerator NewIds() { var ids = Substitute.For<IIdGenerator>(); ids.NewId().Returns(_ => Guid.CreateVersion7()); return ids; }

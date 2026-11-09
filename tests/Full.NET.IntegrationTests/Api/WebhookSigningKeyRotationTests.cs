@@ -55,6 +55,40 @@ public sealed class WebhookSigningKeyRotationTests
         var first=f.Receiver.Items[0];var second=f.Receiver.Items[1];Assert.AreEqual(f.Subscription.SigningKeyId,first.Stamp.KeyId);Assert.AreEqual((await f.CurrentAsync(token)).SigningKeyId,second.Stamp.KeyId);
         Assert.AreEqual(WebhookSignatureHelper.ComputeSignature(OldSecret,first.Body,first.Stamp),first.Signature);Assert.AreEqual(WebhookSignatureHelper.ComputeSignature(NewSecret,second.Body,second.Stamp),second.Signature);
         Assert.AreEqual(2L,await f.Db.ExecuteScalarAsync<long>("SELECT COUNT(*) FROM fn_webhooks_delivery WHERE Status='Delivered' AND AttemptCount=1"));
+
+        await VerifyTenantPauseAsync(f, token);
+    }
+
+    private static async Task VerifyTenantPauseAsync(Fixture f, CancellationToken token)
+    {
+        await f.EnqueueAsync(token);
+        _ = await f.AccessAsync(Guid.NewGuid(), Rights, token, createTenant: true);
+        using var host = f.Factory.CreateClientForHost("localhost");
+        host.DefaultRequestHeaders.Authorization = new("Bearer", await f.Factory.CreateHostAccessTokenAsync(
+            ["tenancy.tenant_lifecycle.read", "tenancy.tenant_lifecycle.suspend", "tenancy.tenant_lifecycle.reactivate"], token));
+        var path = $"/api/v1/tenancy/tenants/{f.Subscription.TenantId:D}";
+        var active = await host.GetFromJsonAsync<TenantSummary>(path + "/lifecycle", token);
+        Assert.IsNotNull(active);
+        using var paused = await host.PostAsJsonAsync(path + "/suspend", new { active.Version }, token);
+        Assert.AreEqual(HttpStatusCode.OK, paused.StatusCode, await paused.Content.ReadAsStringAsync(token));
+        var inactive = await paused.Content.ReadFromJsonAsync<TenantSummary>(token);
+        Assert.IsNotNull(inactive);
+
+        Assert.AreEqual(1, await f.ProcessAsync(token));
+        Assert.HasCount(2, f.Receiver.Items);
+        Assert.AreEqual(0, await f.ProcessAsync(token));
+        var original = await f.Db.QuerySingleAsync<(Guid Id, Guid EventId)>(
+            "SELECT Id, EventId FROM fn_webhooks_delivery WHERE LOWER(Status)='pending' AND AttemptCount=0 AND LastError=@Code",
+            new { Code = WebhookDeliveryBatchProcessor.TenantInactive });
+
+        using var recovered = await host.PostAsJsonAsync(path + "/reactivate", new ReactivateTenantRequest(inactive.Version), token);
+        Assert.AreEqual(HttpStatusCode.OK, recovered.StatusCode, await recovered.Content.ReadAsStringAsync(token));
+        f.Clock.Offset = TimeSpan.FromMinutes(6);
+        Assert.AreEqual(1, await f.ProcessAsync(token));
+        Assert.HasCount(3, f.Receiver.Items);
+        Assert.AreEqual(original.Id, f.Receiver.Items[^1].Stamp.DeliveryId);
+        Assert.AreEqual(original.EventId, f.Receiver.Items[^1].Stamp.EventId);
+        Assert.AreEqual(1, await f.Db.ExecuteScalarAsync<int>("SELECT AttemptCount FROM fn_webhooks_delivery WHERE Id=@Id", new { original.Id }));
     }
 
     [TestMethod]

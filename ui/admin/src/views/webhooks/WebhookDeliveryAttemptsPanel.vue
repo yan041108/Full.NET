@@ -7,6 +7,7 @@ import { useSessionStore } from '../../auth/session';
 import { useAdminI18n } from '../../i18n/adminI18n';
 import { useAuthorizedViewScope } from '../../composables/useAuthorizedViewScope';
 import { listWebhookDeliveryAttempts } from '../../api/webhook-subscriptions';
+import { webhookDeliveryFailure } from './webhook-delivery-failure';
 const props = defineProps<{ delivery: WebhookDeliveryHistory }>();
 const emit = defineEmits<{ close: [] }>();
 const session = useSessionStore(), { t, locale } = useAdminI18n();
@@ -20,8 +21,7 @@ watch(() => session.switching, switching => { scope.invalidate(); if (!switching
 const time = (value: string | null) => value ? new Date(value).toLocaleString(locale.value, { timeZone: 'UTC' }) + ' UTC' : '—';
 const label = (value: WebhookDeliveryAttempt['outcomeKey']) => t(`webhooks.attempts.${value}`);
 function failure(row: WebhookDeliveryAttempt) {
-  if (row.errorCode === 'webhooks.delivery.http_error') return t('webhooks.history.httpError', { status: row.httpStatus ?? '' });
-  return row.errorCode === 'webhooks.delivery.timeout' ? t('webhooks.history.timeout') : row.errorCode ? t('webhooks.history.otherError') : '—';
+  return webhookDeliveryFailure(t, row.errorCode, row.httpStatus);
 }
 async function load(recover = true) {
   if (!canRead()) return;

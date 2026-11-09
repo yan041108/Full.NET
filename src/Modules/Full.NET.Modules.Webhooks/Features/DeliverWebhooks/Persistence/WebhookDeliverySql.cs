@@ -7,7 +7,7 @@ internal static class WebhookDeliverySql
 {
     /// <summary>每次实际发送前读取一份原子密钥快照，批量领取的旧秘密不用于后续发送。</summary>
     internal static readonly SqlStatement FindSigningProfile = new("webhooks.deliveries.find_signing_profile",
-        "SELECT SigningKeyId,SigningSecretHash FROM fn_webhooks_subscription WHERE Id=@SubscriptionId AND TenantId=@TenantId",SqlDataScope.HostOnly);
+        "SELECT SigningKeyId,SigningSecretHash FROM fn_webhooks_subscription WHERE Id=@SubscriptionId AND TenantId=@TenantId AND IsActive=1",SqlDataScope.HostOnly);
     public static readonly SqlStatement ListTargetIdsSqlServer = new(
         "webhooks.subscriptions.target_ids.sql_server",
         """
@@ -166,6 +166,15 @@ internal static class WebhookDeliverySql
           AND Version = @Version AND Status = 'processing'
         """,
         SqlDataScope.HostOnly);
+    /// <summary>准入未通过时归还投递，保留原身份且不消耗实际渠道尝试次数。</summary>
+    public static readonly SqlStatement Defer = new(
+        "webhooks.deliveries.defer",
+        """
+        UPDATE fn_webhooks_delivery
+        SET Status = @Status, NextAttemptAtUtc = @NextAttemptAtUtc, LastError = @ErrorCode,
+            UpdatedAtUtc = @UpdatedAtUtc, Version = Version + 1
+        WHERE Id = @DeliveryId AND Version = @Version AND Status = 'processing'
+        """, SqlDataScope.HostOnly);
 }
 
 /// <summary>单次实际发送的当前密钥身份和受保护材料必须来自同一行快照。</summary>
