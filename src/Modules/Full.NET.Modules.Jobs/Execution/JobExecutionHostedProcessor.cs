@@ -1,3 +1,4 @@
+using Full.NET.Abstractions.Results;
 using Full.NET.Abstractions.Tenancy;
 using Full.NET.Abstractions.Time;
 using Full.NET.Modules.Jobs.Scheduling;
@@ -35,6 +36,7 @@ internal sealed class JobExecutionHostedProcessor(
         while (!stoppingToken.IsCancellationRequested)
         {
             var processedCount = 0;
+            TimeSpan? capacityDelay = null;
             try
             {
                 processedCount = await ProcessOnceAsync(stoppingToken)
@@ -49,12 +51,21 @@ internal sealed class JobExecutionHostedProcessor(
                 // SQL Server 可能把命令取消包装为 SqlException；停机信号已成立时属于预期终止，不应触发故障告警。
                 break;
             }
+            catch (ServiceCapacityExceededException exception)
+            {
+                // 尊重准入等待提示，并错开多个 Worker 的重新领取。
+                var pollingDelay = PollingDelay;
+                var minimum = exception.RetryAfter > pollingDelay ? exception.RetryAfter : pollingDelay;
+                var jitterLimit = Math.Min(pollingDelay.TotalMilliseconds / 4, 1000);
+                capacityDelay = minimum + TimeSpan.FromMilliseconds(Random.Shared.NextDouble() * jitterLimit);
+                JobExecutionHostedProcessorLog.DatabaseCapacityUnavailable(logger, exception.Kind, capacityDelay.Value.TotalMilliseconds);
+            }
             catch (Exception exception)
             {
                 JobExecutionHostedProcessorLog.IterationFailed(logger, exception);
             }
 
-            var delay = GetDelayAfterBatch(processedCount);
+            var delay = capacityDelay ?? GetDelayAfterBatch(processedCount);
             if (delay > TimeSpan.Zero)
             {
                 await Task.Delay(delay, stoppingToken).ConfigureAwait(false);
@@ -126,6 +137,13 @@ internal sealed class JobExecutionHostedProcessor(
 
 internal static partial class JobExecutionHostedProcessorLog
 {
+    [LoggerMessage(
+        EventId = 4003,
+        Level = LogLevel.Warning,
+        Message = "Job execution polling delayed by database capacity ({CapacityFailure}) for {RetryDelayMilliseconds} ms.")]
+    public static partial void DatabaseCapacityUnavailable(
+        ILogger logger, ServiceCapacityFailureKind capacityFailure, double retryDelayMilliseconds);
+
     [LoggerMessage(
         EventId = 4001,
         Level = LogLevel.Error,

@@ -1,5 +1,7 @@
+using System.Diagnostics;
 using Full.NET.Abstractions.Ids;
 using Full.NET.Abstractions.Messaging;
+using Full.NET.Abstractions.Results;
 using Full.NET.Abstractions.Tenancy;
 using Full.NET.Abstractions.Time;
 using Full.NET.Data.Abstractions;
@@ -7,8 +9,10 @@ using Full.NET.Modules.Jobs.Execution;
 using Full.NET.Modules.Jobs.Persistence;
 using Full.NET.Modules.Jobs.Scheduling;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
+using NSubstitute;
 
 namespace Full.NET.UnitTests.Jobs;
 
@@ -16,6 +20,42 @@ namespace Full.NET.UnitTests.Jobs;
 [TestClass]
 public sealed class JobExecutionHostedProcessorTests
 {
+    [TestMethod]
+    [DataRow(ServiceCapacityFailureKind.Rejected)]
+    [DataRow(ServiceCapacityFailureKind.Timeout)]
+    public async Task Admission_pressure_waits_for_database_hint_before_next_job_poll(ServiceCapacityFailureKind kind)
+    {
+        using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        var token = deadline.Token;
+        var scopes = Substitute.For<IServiceScopeFactory>();
+        var retry = new TaskCompletionSource<TimeSpan>(TaskCreationOptions.RunContinuationsAsynchronously);
+        long firstAttempt = 0;
+        var attempts = 0;
+        scopes.CreateScope().Returns(_ =>
+        {
+            if (Interlocked.Increment(ref attempts) == 1)
+            {
+                firstAttempt = Stopwatch.GetTimestamp();
+                throw new ServiceCapacityExceededException(kind, TimeSpan.FromMilliseconds(500));
+            }
+            retry.TrySetResult(Stopwatch.GetElapsedTime(firstAttempt));
+            throw new InvalidOperationException("受控轮询停止");
+        });
+        var logger = new JobProcessorRecordingLogger();
+        using var hosted = new JobExecutionHostedProcessor(scopes, new SystemClock(),
+            Options.Create(new JobsWorkerOptions { PollMilliseconds = 100 }), logger);
+        await hosted.StartAsync(token);
+        TimeSpan elapsed;
+        try { elapsed = await retry.Task.WaitAsync(token); }
+        finally { await hosted.StopAsync(token); }
+
+        Assert.IsTrue(elapsed >= TimeSpan.FromMilliseconds(490), $"准入压力后的重试仅等待 {elapsed.TotalMilliseconds:F1} 毫秒。");
+        var entry = logger.Entries[0];
+        Assert.AreEqual(LogLevel.Warning, entry.Level);
+        Assert.AreEqual(4003, entry.EventId.Id);
+        Assert.IsNull(entry.Exception);
+    }
+
     [TestMethod]
     public async Task ProcessOnceAsync_UsesConfiguredBatchAndPollingValues()
     {
