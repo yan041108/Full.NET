@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, defineAsyncComponent, onMounted, ref, watch } from 'vue';
+import { computed, defineAsyncComponent, onMounted, reactive, ref, watch } from 'vue';
 import {
   ElButton,
   ElCard,
@@ -19,6 +19,7 @@ import {
 } from '@fullnet/client-contracts';
 import PermissionGate from '../components/PermissionGate.vue';
 import { useSessionStore } from '../auth/session';
+import { useAuthorizedViewScope } from '../composables/useAuthorizedViewScope';
 import { useAdminI18n } from '../i18n/adminI18n';
 import { personalScheduleAssistantText } from '../i18n/personal-schedule-assistant';
 import { personalScheduleCompletionText } from '../i18n/personal-schedule-completion';
@@ -51,8 +52,21 @@ const problem = ref<FullNetProblemDetails>();
 const dialogVisible = ref(false);
 const editingSchedule = ref<PersonalSchedule>();
 const formContent = ref('');
-const formStartAtUtc = ref('');
-const formEndAtUtc = ref('');
+const formStart = ref<Date | null>(null);
+const formEnd = ref<Date | null>(null);
+const dialogSaving = ref(false);
+const dialogProblem = ref<FullNetProblemDetails>();
+const fieldErrors = reactive({ content: '', start: '', end: '' });
+const dialogScope = useAuthorizedViewScope(session, () => {
+  dialogVisible.value = false;
+  dialogSaving.value = false;
+  editingSchedule.value = undefined;
+  formContent.value = '';
+  formStart.value = null;
+  formEnd.value = null;
+  clearDialogFeedback();
+}, () => {});
+watch(() => session.switching, value => { if (value) dialogScope.invalidate(); }, { flush: 'sync' });
 const filterStatus = ref<'' | PersonalSchedule['status']>('');
 const sourceSchedule = ref<Pick<PersonalSchedule, 'id' | 'version'>>();
 const SourceDialog = defineAsyncComponent(() => import('../components/AiPersonalScheduleSourceDialog.vue'));
@@ -183,10 +197,6 @@ function overlapsRange(
   return start <= rangeEnd.getTime() && end >= rangeStart.getTime();
 }
 
-function toUtcIso(value: string): string {
-  return new Date(value).toISOString();
-}
-
 function formatDateTime(value: string): string {
   return new Date(value).toLocaleString(locale.value);
 }
@@ -210,7 +220,7 @@ function statusTagType(status: PersonalSchedule['status']): 'success' | 'info' {
   return status === PERSONAL_SCHEDULE_STATUSES.completed ? 'success' : 'info';
 }
 
-async function loadMonthSchedules(): Promise<void> {
+async function loadMonthSchedules(signal?: AbortSignal): Promise<void> {
   sourceSchedule.value = undefined;
   loading.value = true;
   problem.value = undefined;
@@ -223,10 +233,10 @@ async function loadMonthSchedules(): Promise<void> {
       status: filterStatus.value,
       fromUtc,
       toUtc
-    });
-    schedules.value = page.items;
+    }, signal);
+    if (!signal?.aborted) schedules.value = page.items;
   } catch (error: unknown) {
-    problem.value = toProblem(error, 'personalSchedules.loadFailed');
+    if (!signal?.aborted) problem.value = toProblem(error, 'personalSchedules.loadFailed');
   } finally {
     loading.value = false;
   }
@@ -255,58 +265,73 @@ function goToToday(): void {
 }
 
 function openCreateDialog(): void {
+  if (changing.value || dialogSaving.value || session.switching || !canCreate.value) return;
+  clearDialogFeedback();
   editingSchedule.value = undefined;
   const base = selectedDate.value;
-  const start = new Date(base.getFullYear(), base.getMonth(), base.getDate(), 9, 0, 0);
-  const end = new Date(base.getFullYear(), base.getMonth(), base.getDate(), 10, 0, 0);
   formContent.value = '';
-  formStartAtUtc.value = start.toISOString();
-  formEndAtUtc.value = end.toISOString();
+  formStart.value = new Date(base.getFullYear(), base.getMonth(), base.getDate(), 9, 0, 0);
+  formEnd.value = new Date(base.getFullYear(), base.getMonth(), base.getDate(), 10, 0, 0);
   dialogVisible.value = true;
 }
 
 function openEditDialog(schedule: PersonalSchedule): void {
+  if (changing.value || dialogSaving.value || session.switching || !canUpdate.value) return;
+  clearDialogFeedback();
   editingSchedule.value = schedule;
   formContent.value = schedule.content;
-  formStartAtUtc.value = schedule.startAtUtc;
-  formEndAtUtc.value = schedule.endAtUtc;
+  formStart.value = new Date(schedule.startAtUtc);
+  formEnd.value = new Date(schedule.endAtUtc);
   dialogVisible.value = true;
 }
 
-async function submitDialog(): Promise<void> {
-  if (changing.value || !showDialogActions.value) {
-    return;
-  }
-  const content = formContent.value.trim();
-  if (!content || !formStartAtUtc.value || !formEndAtUtc.value) {
-    return;
-  }
+function clearDialogFeedback(): void {
+  dialogProblem.value = undefined;
+  fieldErrors.content = '';
+  fieldErrors.start = '';
+  fieldErrors.end = '';
+}
 
-  changing.value = true;
-  problem.value = undefined;
+async function submitDialog(): Promise<void> {
+  if (!dialogVisible.value || changing.value || dialogSaving.value || session.switching || !showDialogActions.value) {
+    return;
+  }
+  clearDialogFeedback();
+  const content = formContent.value.trim();
+  const start = formStart.value;
+  const end = formEnd.value;
+  if (!content) fieldErrors.content = t('personalSchedules.contentRequired');
+  if (!(start instanceof Date) || !Number.isFinite(start.getTime())) fieldErrors.start = t('personalSchedules.startRequired');
+  if (!(end instanceof Date) || !Number.isFinite(end.getTime())) fieldErrors.end = t('personalSchedules.endRequired');
+  if (fieldErrors.content || fieldErrors.start || fieldErrors.end || !start || !end) {
+    return;
+  }
+  if (end < start) {
+    fieldErrors.end = t('personalSchedules.invalidTimeRange');
+    return;
+  }
+  const existing = editingSchedule.value;
+  const operation = dialogScope.begin(existing ? 'calendar.personal_schedules.update' : 'calendar.personal_schedules.create');
+  if (!operation) return;
+
+  dialogSaving.value = true;
+  // 日期选择器使用本地 Date；只在发送时转 UTC，避免把本地钟点直接标成 Z。
+  const body = { content, startAtUtc: start.toISOString(), endAtUtc: end.toISOString() };
   try {
-    if (editingSchedule.value) {
-      await updatePersonalSchedule(editingSchedule.value.id, {
-        content,
-        startAtUtc: toUtcIso(formStartAtUtc.value),
-        endAtUtc: toUtcIso(formEndAtUtc.value),
-        version: editingSchedule.value.version
-      });
-      ElMessage.success(t('personalSchedules.updateSuccess'));
+    if (existing) {
+      await updatePersonalSchedule(existing.id, { ...body, version: existing.version }, operation.signal);
     } else {
-      await createPersonalSchedule({
-        content,
-        startAtUtc: toUtcIso(formStartAtUtc.value),
-        endAtUtc: toUtcIso(formEndAtUtc.value)
-      });
-      ElMessage.success(t('personalSchedules.createSuccess'));
+      await createPersonalSchedule(body, operation.signal);
     }
+    if (!operation.current()) return;
+    ElMessage.success(t(existing ? 'personalSchedules.updateSuccess' : 'personalSchedules.createSuccess'));
     dialogVisible.value = false;
-    await loadMonthSchedules();
+    await loadMonthSchedules(operation.signal);
   } catch (error: unknown) {
-    problem.value = toProblem(error);
+    if (operation.current()) dialogProblem.value = toProblem(error);
   } finally {
-    changing.value = false;
+    if (operation.current()) dialogSaving.value = false;
+    operation.finish();
   }
 }
 
@@ -529,44 +554,57 @@ function toProblem(
       v-model="dialogVisible"
       :title="editingSchedule ? t('personalSchedules.editTitle') : t('personalSchedules.createTitle')"
       width="520px"
+      :close-on-click-modal="!dialogSaving"
+      :close-on-press-escape="!dialogSaving"
+      :show-close="!dialogSaving"
       data-testid="personal-schedules-dialog"
     >
+      <div v-if="dialogProblem" class="art-inline-alert" role="alert" data-testid="personal-schedules-submit-problem">
+        <strong translate="no">{{ dialogProblem.code }}</strong>
+        <span>{{ dialogProblem.title }}</span>
+        <code v-if="dialogProblem.traceId" translate="no">{{ dialogProblem.traceId }}</code>
+      </div>
       <label>
         <span>{{ t('personalSchedules.fieldContent') }}</span>
         <el-input
           v-model="formContent"
           maxlength="256"
           data-testid="personal-schedules-content"
+          @update:model-value="fieldErrors.content = ''"
         />
+        <span v-if="fieldErrors.content" role="alert">{{ fieldErrors.content }}</span>
       </label>
       <label>
         <span>{{ t('personalSchedules.fieldStartAt') }}</span>
         <el-date-picker
-          v-model="formStartAtUtc"
+          v-model="formStart"
+          id="personal-schedules-start"
           type="datetime"
-          value-format="YYYY-MM-DDTHH:mm:ss.SSS[Z]"
           data-testid="personal-schedules-start"
           style="width: 100%"
+          @change="fieldErrors.start = ''; fieldErrors.end = ''"
         />
+        <span v-if="fieldErrors.start" role="alert">{{ fieldErrors.start }}</span>
       </label>
       <label>
         <span>{{ t('personalSchedules.fieldEndAt') }}</span>
         <el-date-picker
-          v-model="formEndAtUtc"
+          v-model="formEnd"
+          id="personal-schedules-end"
           type="datetime"
-          value-format="YYYY-MM-DDTHH:mm:ss.SSS[Z]"
           data-testid="personal-schedules-end"
           style="width: 100%"
+          @change="fieldErrors.end = ''"
         />
+        <span v-if="fieldErrors.end" role="alert">{{ fieldErrors.end }}</span>
       </label>
       <template #footer>
-        <el-button @click="dialogVisible = false">{{ t('personalSchedules.cancel') }}</el-button>
+        <el-button :disabled="dialogSaving" @click="dialogVisible = false">{{ t('personalSchedules.cancel') }}</el-button>
         <el-button
           v-if="showDialogActions"
           type="primary"
           data-testid="personal-schedules-submit"
-          :loading="changing"
-          :disabled="!formContent.trim() || !formStartAtUtc || !formEndAtUtc"
+          :loading="dialogSaving"
           @click="submitDialog"
         >
           {{ editingSchedule ? t('personalSchedules.save') : t('personalSchedules.create') }}
