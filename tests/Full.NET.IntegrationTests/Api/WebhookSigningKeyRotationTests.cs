@@ -94,6 +94,75 @@ public sealed class WebhookSigningKeyRotationTests
     [TestMethod]
     [DataRow(DatabaseProvider.SqlServer)]
     [DataRow(DatabaseProvider.MySql)]
+    public async Task Claimed_webhook_honors_tenant_pause_without_holding_another_tenant(DatabaseProvider provider)
+    {
+        using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(120));
+        var token = deadline.Token;
+        var gate = new TenantActivityGate();
+        await using var f = await Fixture.CreateAsync(provider, token, gate);
+        gate.TargetTenantId = f.Subscription.TenantId;
+        var originalEventId = await f.EnqueueAsync(token);
+
+        var otherAccess = await f.AccessAsync(Guid.CreateVersion7(), Rights, token, createTenant: true);
+        using var other = f.Factory.CreateClientForHost(f.CreatedTenantDomain!);
+        other.DefaultRequestHeaders.Authorization = new("Bearer", otherAccess);
+        using var created = await other.PostAsJsonAsync("/api/v1/webhooks/subscriptions",
+            new CreateWebhookSubscriptionRequest(f.Subscription.EventType, "https://93.184.216.34/other", OldSecret), token);
+        Assert.AreEqual(HttpStatusCode.OK, created.StatusCode, await created.Content.ReadAsStringAsync(token));
+        var otherSubscription = await created.Content.ReadFromJsonAsync<WebhookSubscriptionResponse>(token);
+        Assert.IsNotNull(otherSubscription);
+        var otherEventId = await f.EnqueueAsync(token, otherSubscription);
+
+        using var host = f.Factory.CreateClientForHost("localhost");
+        host.DefaultRequestHeaders.Authorization = new("Bearer", await f.Factory.CreateHostAccessTokenAsync(
+            [TenancyTenantLifecyclePermissions.Read, TenancyTenantLifecyclePermissions.Suspend,
+                TenancyTenantLifecyclePermissions.Reactivate], token));
+        var path = $"/api/v1/tenancy/tenants/{f.Subscription.TenantId:D}";
+        var active = await host.GetFromJsonAsync<TenantSummary>(path + "/lifecycle", token);
+        Assert.IsNotNull(active);
+        f.Receiver.Release.TrySetResult();
+        var processing = f.ProcessAsync(token);
+        TenantSummary inactive;
+        Guid deliveryId;
+        try
+        {
+            await gate.Entered.Task.WaitAsync(token);
+            var claimed = await f.Db.QuerySingleAsync<(Guid Id, string Status, int AttemptCount)>(
+                "SELECT Id, Status, AttemptCount FROM fn_webhooks_delivery WHERE EventId=@EventId",
+                new { EventId = originalEventId });
+            Assert.AreEqual("processing", claimed.Status.ToLowerInvariant());
+            Assert.AreEqual(0, claimed.AttemptCount);
+            deliveryId = claimed.Id;
+            using var paused = await host.PostAsJsonAsync(path + "/suspend", new SuspendTenantRequest(active.Version), token);
+            Assert.AreEqual(HttpStatusCode.OK, paused.StatusCode, await paused.Content.ReadAsStringAsync(token));
+            inactive = (await paused.Content.ReadFromJsonAsync<TenantSummary>(token))!;
+            Assert.IsFalse(inactive.IsActive);
+        }
+        finally
+        {
+            gate.Release.TrySetResult();
+        }
+
+        Assert.AreEqual(2, await processing);
+        Assert.AreEqual(otherEventId, f.Receiver.Items.Single().Stamp.EventId);
+        var deferred = await f.Db.QuerySingleAsync<(string Status, int AttemptCount, string LastError)>(
+            "SELECT Status, AttemptCount, LastError FROM fn_webhooks_delivery WHERE Id=@Id", new { Id = deliveryId });
+        Assert.AreEqual("pending", deferred.Status.ToLowerInvariant());
+        Assert.AreEqual(0, deferred.AttemptCount);
+        Assert.AreEqual(WebhookDeliveryBatchProcessor.TenantInactive, deferred.LastError);
+
+        using var recovered = await host.PostAsJsonAsync(path + "/reactivate", new ReactivateTenantRequest(inactive.Version), token);
+        Assert.AreEqual(HttpStatusCode.OK, recovered.StatusCode, await recovered.Content.ReadAsStringAsync(token));
+        f.Clock.Offset = TimeSpan.FromMinutes(6);
+        Assert.AreEqual(1, await f.ProcessAsync(token));
+        Assert.HasCount(2, f.Receiver.Items);
+        Assert.AreEqual(originalEventId, f.Receiver.Items[1].Stamp.EventId);
+        Assert.AreEqual(deliveryId, f.Receiver.Items[1].Stamp.DeliveryId);
+    }
+
+    [TestMethod]
+    [DataRow(DatabaseProvider.SqlServer)]
+    [DataRow(DatabaseProvider.MySql)]
     public async Task Concurrent_prepares_reserve_once_and_authorized_cancellation_keeps_old_key_and_cross_tenant_boundaries(DatabaseProvider provider)
     {
         using var timeout=new CancellationTokenSource(TimeSpan.FromSeconds(150));var token=timeout.Token;await using var f=await Fixture.CreateAsync(provider,token);
@@ -143,6 +212,31 @@ public sealed class WebhookSigningKeyRotationTests
     }
 
     private sealed class Clock:IClock{internal TimeSpan Offset;public DateTimeOffset UtcNow=>DateTimeOffset.UtcNow+Offset;}
+    private sealed class TenantActivityGate
+    {
+        internal Guid TargetTenantId;
+        internal readonly TaskCompletionSource Entered = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        internal readonly TaskCompletionSource Release = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private int paused;
+
+        internal async Task<bool> CheckAsync(ITenantActivityReadPort inner, Guid tenantId, CancellationToken token)
+        {
+            if (tenantId == TargetTenantId && Interlocked.Exchange(ref paused, 1) == 0)
+            {
+                // 只冻结第一次权威查询；真实领取已提交，暂停后仍由正式查询决定是否外发。
+                Entered.TrySetResult();
+                await Release.Task.WaitAsync(token);
+            }
+            return await inner.IsActiveTenantAsync(tenantId, token);
+        }
+    }
+
+    private sealed class GatedTenantActivity(ITenantActivityReadPort inner, TenantActivityGate gate) : ITenantActivityReadPort
+    {
+        public Task<bool> IsActiveTenantAsync(Guid tenantId, CancellationToken cancellationToken = default) =>
+            gate.CheckAsync(inner, tenantId, cancellationToken);
+    }
+
     private sealed class ExpiringAuthorization(IIndependentCurrentSessionAuthorization actual,Action before):IIndependentCurrentSessionAuthorization
     {
         public bool HasIndependentReadCapacity=>actual.HasIndependentReadCapacity;
@@ -161,12 +255,19 @@ public sealed class WebhookSigningKeyRotationTests
     private sealed class Fixture:IAsyncDisposable
     {
         internal FullNetApiFactory Factory=null!;internal HttpClient Client=null!;internal DbConnection Db=null!;internal WebhookSubscriptionResponse Subscription=null!;internal string Path="";internal string? CreatedTenantDomain;internal readonly Clock Clock=new();internal readonly Receiver Receiver=new();internal bool ExpireAtCommit;
-        internal static async Task<Fixture> CreateAsync(DatabaseProvider provider,CancellationToken token)
+        internal static async Task<Fixture> CreateAsync(DatabaseProvider provider,CancellationToken token, TenantActivityGate? activityGate = null)
         {
             var f=new Fixture();try{
             var cs=provider==DatabaseProvider.SqlServer?await SharedDatabaseFixture.CreateSqlServerDatabaseAsync():await SharedDatabaseFixture.CreateMySqlDatabaseAsync();
             f.Factory=new(provider,cs,configureTestServices:services=>{services.RemoveAll<IClock>();services.AddSingleton<IClock>(f.Clock);services.RemoveAll<IHttpClientFactory>();services.AddSingleton<IHttpClientFactory>(f.Receiver);
-                services.AddScoped<IndependentCurrentSessionAuthorization>();services.RemoveAll<IIndependentCurrentSessionAuthorization>();services.AddScoped<IIndependentCurrentSessionAuthorization>(sp=>new ExpiringAuthorization(sp.GetRequiredService<IndependentCurrentSessionAuthorization>(),()=>{if(f.ExpireAtCommit){f.ExpireAtCommit=false;f.Clock.Offset=TimeSpan.FromDays(2);}}));});
+                services.AddScoped<IndependentCurrentSessionAuthorization>();services.RemoveAll<IIndependentCurrentSessionAuthorization>();services.AddScoped<IIndependentCurrentSessionAuthorization>(sp=>new ExpiringAuthorization(sp.GetRequiredService<IndependentCurrentSessionAuthorization>(),()=>{if(f.ExpireAtCommit){f.ExpireAtCommit=false;f.Clock.Offset=TimeSpan.FromDays(2);}}));
+                if (activityGate is not null)
+                {
+                    var actual = services.Single(item => item.ServiceType == typeof(ITenantActivityReadPort));
+                    services.Remove(actual);
+                    services.AddScoped<ITenantActivityReadPort>(sp => new GatedTenantActivity((ITenantActivityReadPort)actual.ImplementationFactory!(sp), activityGate));
+                }
+            });
             await f.Factory.InitializeAsync(token);f.Client=f.Factory.CreateClientForHost("acme.localhost");var tenant=await IntegrationTestTenantContextHelper.GetCurrentTenantAsync(f.Client,token);f.Client.DefaultRequestHeaders.Authorization=new("Bearer",await f.AccessAsync(tenant.Id,Rights,token));
             using var response=await f.Client.PostAsJsonAsync("/api/v1/webhooks/subscriptions",new CreateWebhookSubscriptionRequest("fullnet.workflow.instance.completed","https://93.184.216.34/rotating",OldSecret),token);Assert.AreEqual(HttpStatusCode.OK,response.StatusCode);f.Subscription=(await response.Content.ReadFromJsonAsync<WebhookSubscriptionResponse>(token))!;
             f.Path=$"/api/v1/webhooks/subscriptions/{f.Subscription.Id:D}/signing-key-rotations";f.Db=provider==DatabaseProvider.SqlServer?new SqlConnection(cs):ReviewFixMigrationRecoverySupport.MySqlConnection(cs);await f.Db.OpenAsync(token);return f;
@@ -181,7 +282,22 @@ public sealed class WebhookSigningKeyRotationTests
         internal async Task<WebhookSubscriptionResponse> CurrentAsync(CancellationToken token)=>(await Client.GetFromJsonAsync<WebhookSubscriptionResponse[]>("/api/v1/webhooks/subscriptions",token))!.Single(row=>row.Id==Subscription.Id);
         internal async Task<WebhookSigningKeyRotationReceipt> PrepareAsync(PrepareWebhookSigningKeyRotationRequest request,CancellationToken token){using var response=await Client.PostAsJsonAsync(Path,request,token);Assert.AreEqual(HttpStatusCode.OK,response.StatusCode,await response.Content.ReadAsStringAsync(token));return(await response.Content.ReadFromJsonAsync<WebhookSigningKeyRotationReceipt>(token))!;}
         internal async Task<WebhookSigningKeyRotationReceipt> CompleteAsync(Guid operation,CompleteWebhookSigningKeyRotationRequest request,bool activate,CancellationToken token){using var response=await Client.PostAsJsonAsync(Path+"/"+operation+(activate?"/activate":"/cancel"),request,token);Assert.AreEqual(HttpStatusCode.OK,response.StatusCode,await response.Content.ReadAsStringAsync(token));return(await response.Content.ReadFromJsonAsync<WebhookSigningKeyRotationReceipt>(token))!;}
-        internal async Task EnqueueAsync(CancellationToken token){await using var scope=Factory.Services.CreateAsyncScope();scope.ServiceProvider.GetRequiredService<CurrentTenantAccessor>().SetHost();var id=Guid.CreateVersion7();var envelope=new WebhookEventEnvelope(Subscription.EventType,id,Subscription.TenantId,Clock.UtcNow,new(Guid.CreateVersion7(),Guid.CreateVersion7(),"rotation","fixture"));await scope.ServiceProvider.GetRequiredService<ICommandTransaction>().ExecuteAsync(async cancellation=>{await scope.ServiceProvider.GetRequiredService<WebhookEventEnqueueService>().EnqueueAsync(Subscription.TenantId,Subscription.EventType,id,envelope,cancellation);return 0;},token);}
+        internal async Task<Guid> EnqueueAsync(CancellationToken token, WebhookSubscriptionResponse? target = null)
+        {
+            var subscription = target ?? Subscription;
+            await using var scope = Factory.Services.CreateAsyncScope();
+            scope.ServiceProvider.GetRequiredService<CurrentTenantAccessor>().SetHost();
+            var id = Guid.CreateVersion7();
+            var envelope = new WebhookEventEnvelope(subscription.EventType, id, subscription.TenantId, Clock.UtcNow,
+                new(Guid.CreateVersion7(), Guid.CreateVersion7(), "rotation", "fixture"));
+            await scope.ServiceProvider.GetRequiredService<ICommandTransaction>().ExecuteAsync(async cancellation =>
+            {
+                await scope.ServiceProvider.GetRequiredService<WebhookEventEnqueueService>()
+                    .EnqueueAsync(subscription.TenantId, subscription.EventType, id, envelope, cancellation);
+                return 0;
+            }, token);
+            return id;
+        }
         internal async Task<int> ProcessAsync(CancellationToken token){await using var scope=Factory.Services.CreateAsyncScope();scope.ServiceProvider.GetRequiredService<CurrentTenantAccessor>().SetHost();return await scope.ServiceProvider.GetRequiredService<WebhookDeliveryBatchProcessor>().ProcessPendingAsync(token);}
         public async ValueTask DisposeAsync(){Receiver.Release.TrySetResult();Client?.Dispose();if(Db is not null)await Db.DisposeAsync();Factory?.Dispose();}
     }
