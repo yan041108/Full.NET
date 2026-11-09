@@ -1,4 +1,5 @@
 using Full.NET.AI.Abstractions.Models;
+using Full.NET.Abstractions.Results;
 using Full.NET.Modules.Ai.Diagnostics;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -19,31 +20,47 @@ internal sealed class AiAgentRunHostedProcessor(
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
+        var pollingDelay = TimeSpan.FromMilliseconds(_options.PollMilliseconds);
         while (!stoppingToken.IsCancellationRequested)
         {
             using var observationScope = AiDataObservationScope.Enter(dataPolicy ?? AiDataProcessingPolicy.Default);
             var processed = 0;
+            TimeSpan? capacityDelay = null;
             try
             {
                 await using var scope = scopeFactory.CreateAsyncScope();
                 processed = await scope.ServiceProvider.GetRequiredService<AiAgentRunCoordinator>()
                     .ProcessPendingAsync(stoppingToken).ConfigureAwait(false);
                 var repair = scope.ServiceProvider.GetRequiredService<AiAgentTerminalBudgetRepairProcessor>();
-                processed += await repair.ProcessPendingAsync(stoppingToken, _terminalBudgetCursor).ConfigureAwait(false);
-                _terminalBudgetCursor = repair.LastScannedRunId;
+                try
+                {
+                    processed += await repair.ProcessPendingAsync(stoppingToken, _terminalBudgetCursor).ConfigureAwait(false);
+                }
+                finally
+                {
+                    _terminalBudgetCursor = repair.LastScannedRunId;
+                }
             }
-            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+            catch (Exception) when (stoppingToken.IsCancellationRequested)
             {
                 break;
+            }
+            catch (ServiceCapacityExceededException exception)
+            {
+                // 即使领取已满批，后续扫描遇到准入压力也要退避并错开实例重试。
+                var minimum = exception.RetryAfter > pollingDelay ? exception.RetryAfter : pollingDelay;
+                var jitterLimit = Math.Min(pollingDelay.TotalMilliseconds / 4, 1000);
+                capacityDelay = minimum + TimeSpan.FromMilliseconds(Random.Shared.NextDouble() * jitterLimit);
+                AiFailureLog.Write(logger, LogLevel.Warning, AiFailureStage.AgentRunIteration, exception);
             }
             catch (Exception exception)
             {
                 AiFailureLog.Write(logger, LogLevel.Error, AiFailureStage.AgentRunIteration, exception);
             }
 
-            if (processed < _options.BatchSize)
+            if (capacityDelay.HasValue || processed < _options.BatchSize)
             {
-                await Task.Delay(TimeSpan.FromMilliseconds(_options.PollMilliseconds), stoppingToken).ConfigureAwait(false);
+                await Task.Delay(capacityDelay ?? pollingDelay, stoppingToken).ConfigureAwait(false);
             }
         }
     }

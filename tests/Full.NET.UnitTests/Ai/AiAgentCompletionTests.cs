@@ -1,12 +1,21 @@
+using System.Diagnostics;
 using System.Text.Json;
 using Full.NET.AI.Abstractions.Budgets;
+using Full.NET.Abstractions.Ids;
+using Full.NET.Abstractions.Messaging;
+using Full.NET.Abstractions.Results;
 using Full.NET.Agents.Definitions;
 using Full.NET.Agents.Runtime;
 using Full.NET.Agents.Workflows;
 using Full.NET.Data.Abstractions;
 using Full.NET.Data.Dapper;
 using Full.NET.Modules.Ai.Persistence;
+using Full.NET.Modules.Ai.Runtime;
 using Microsoft.Extensions.AI;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 using NSubstitute;
 
 namespace Full.NET.UnitTests.Ai;
@@ -14,6 +23,91 @@ namespace Full.NET.UnitTests.Ai;
 /// <summary>单元测试分片：AiAgentRunCoordinator。</summary>
 public sealed partial class AiAgentRunCoordinatorTests
 {
+    [TestMethod]
+    [DataRow(ServiceCapacityFailureKind.Rejected, "capacity_rejected", false)]
+    [DataRow(ServiceCapacityFailureKind.Timeout, "capacity_timeout", false)]
+    [DataRow(ServiceCapacityFailureKind.Rejected, "capacity_rejected", true)]
+    [DataRow(ServiceCapacityFailureKind.Timeout, "capacity_timeout", true)]
+    public async Task Full_run_batch_waits_when_terminal_budget_scan_hits_admission_pressure(
+        ServiceCapacityFailureKind kind, string category, bool duringRow)
+    {
+        using var budget = new CancellationTokenSource(TimeSpan.FromSeconds(8));
+        var token = budget.Token;
+        var fixture = await CompletionFixtureAsync(AgentDefinitionRegistry.SingleTextKey, [], batchSize: 1);
+        var options = Options.Create(new AiAgentRuntimeOptions { BatchSize = 1, PollMilliseconds = 100 });
+        var queries = Substitute.For<IQueryExecutor>();
+        var checkedRun = Guid.CreateVersion7();
+        var blockedRun = Guid.CreateVersion7();
+        var laterRun = Guid.CreateVersion7();
+        var visited = new List<Guid>();
+        var scans = 0;
+        long rejectedAt = 0;
+        (TimeSpan Elapsed, Guid? Cursor) retryScan = default;
+        var retry = new TaskCompletionSource<(TimeSpan Elapsed, Guid? Cursor)>(TaskCreationOptions.RunContinuationsAsynchronously);
+        queries.QueryAsync<Guid>(AiAgentRunSql.ScanTerminalBudgetSqlServer, Arg.Any<object?>(), Arg.Any<CancellationToken>())
+            .Returns(call =>
+            {
+                if (++scans == 1)
+                {
+                    if (duringRow) return Task.FromResult<IReadOnlyList<Guid>>([checkedRun, blockedRun, laterRun]);
+                    rejectedAt = Stopwatch.GetTimestamp();
+                    throw new ServiceCapacityExceededException(kind, TimeSpan.FromMilliseconds(400));
+                }
+                var parameters = (IReadOnlyDictionary<string, object?>)call[1]!;
+                if (scans == 2)
+                {
+                    retryScan = (Stopwatch.GetElapsedTime(rejectedAt), (Guid?)parameters["AfterRunId"]);
+                    if (!duringRow) retry.TrySetResult(retryScan);
+                }
+                return Task.FromResult<IReadOnlyList<Guid>>(scans == 2 && duringRow ? [blockedRun, laterRun] : []);
+            });
+        queries.QuerySingleOrDefaultAsync<AiAgentRunRecord>(AiAgentRunSql.FindById, Arg.Any<object?>(), Arg.Any<CancellationToken>())
+            .Returns(call =>
+            {
+                var parameters = (IReadOnlyDictionary<string, object?>)call[1]!;
+                var id = (Guid)parameters["RunId"]!;
+                visited.Add(id);
+                if (id == blockedRun && scans == 1)
+                {
+                    rejectedAt = Stopwatch.GetTimestamp();
+                    throw new ServiceCapacityExceededException(kind, TimeSpan.FromMilliseconds(400));
+                }
+                if (id == laterRun && scans == 2) retry.TrySetResult(retryScan);
+                return Task.FromResult<AiAgentRunRecord?>(null);
+            });
+        var store = new AiAgentRunStore(queries, fixture.Commands, Substitute.For<ICommandTransaction>(),
+            Substitute.For<IIdGenerator>(), fixture.Clock, Options.Create(new DatabaseOptions { Provider = DatabaseProvider.SqlServer }));
+        await using var provider = new ServiceCollection()
+            .AddSingleton(fixture.Coordinator)
+            .AddSingleton(store)
+            .AddScoped(services => new AiAgentTerminalBudgetRepairProcessor(
+                services.GetRequiredService<IServiceScopeFactory>(), store, options,
+                NullLogger<AiAgentTerminalBudgetRepairProcessor>.Instance))
+            .BuildServiceProvider();
+        var logger = new FailureCaptureLogger<AiAgentRunHostedProcessor>();
+        using var worker = new AiAgentRunHostedProcessor(provider.GetRequiredService<IServiceScopeFactory>(), options, logger);
+        await worker.StartAsync(token);
+        (TimeSpan Elapsed, Guid? Cursor) attempt;
+        try
+        {
+            attempt = await retry.Task.WaitAsync(token);
+        }
+        finally
+        {
+            await worker.StopAsync(token);
+        }
+
+        Assert.IsTrue(attempt.Elapsed >= TimeSpan.FromMilliseconds(390),
+            $"准入压力后的重试仅等待了 {attempt.Elapsed.TotalMilliseconds:F1} 毫秒。");
+        Assert.AreEqual(duringRow ? checkedRun : (Guid?)null, attempt.Cursor);
+        if (duringRow)
+            CollectionAssert.AreEqual(new[] { checkedRun, blockedRun, blockedRun, laterRun }, visited);
+        var entry = logger.Entries.Single();
+        Assert.AreEqual(LogLevel.Warning, entry.Level);
+        Assert.AreEqual(category, entry.State["FailureCategory"]);
+        Assert.IsNull(entry.Exception);
+    }
+
     [TestMethod]
     [DataRow(AgentDefinitionRegistry.SingleTextKey)]
     [DataRow(AgentDefinitionRegistry.ReadOnlyToolLoopKey)]
@@ -58,7 +152,7 @@ public sealed partial class AiAgentRunCoordinatorTests
     }
 
     private static Task<CoordinatorFixture> CompletionFixtureAsync(string definition,
-        List<RecordingDbTransactionCoordinator> transactions)
+        List<RecordingDbTransactionCoordinator> transactions, int batchSize = 4)
     {
         var client = Substitute.For<IChatClient>();
         client.GetResponseAsync(Arg.Any<IEnumerable<ChatMessage>>(), Arg.Any<ChatOptions?>(), Arg.Any<CancellationToken>())
@@ -67,7 +161,8 @@ public sealed partial class AiAgentRunCoordinatorTests
         runner.RunAsync(Arg.Any<IChatClient>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
             .Returns(call => new AgentModelResult(call.ArgAt<string>(1).Contains("decision", StringComparison.Ordinal)
                 ? "{\"decision\":\"approved\"}" : "Title", JsonSerializer.SerializeToElement(true), 2, 1));
-        return CreateFixtureAsync(definitionKey: definition, chatClient: client, runner: runner, transactionCreated: transactions.Add);
+        return CreateFixtureAsync(definitionKey: definition, chatClient: client, runner: runner,
+            transactionCreated: transactions.Add, batchSize: batchSize);
     }
 
     [TestMethod]

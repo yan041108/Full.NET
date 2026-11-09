@@ -253,7 +253,8 @@ public sealed partial class AiAgentRunCoordinatorTests
         Action<ICommandExecutor>? configureCommands = null,
         long priorEventSequence = 0,
         Action<RecordingDbTransactionCoordinator>? transactionCreated = null,
-        ILogger<AiAgentRunCoordinator>? logger = null)
+        ILogger<AiAgentRunCoordinator>? logger = null,
+        int batchSize = 4)
     {
         var runId = Guid.CreateVersion7();
         var modelId = Guid.CreateVersion7();
@@ -354,7 +355,7 @@ public sealed partial class AiAgentRunCoordinatorTests
             resolvedRunner,
             clock,
             ids,
-            Options.Create(new AiAgentRuntimeOptions { BatchSize = 4, LeaseSeconds = leaseSeconds }),
+            Options.Create(new AiAgentRuntimeOptions { BatchSize = batchSize, LeaseSeconds = leaseSeconds }),
             logger ?? NullLogger<AiAgentRunCoordinator>.Instance);
         await heartbeat.UpsertAsync().ConfigureAwait(false);
         return new CoordinatorFixture(runId, commands, budget, coordinator, resolvedRunner, resolvedToolExecutor, coordinatorScope.GetRequiredService<IAiModelClientFactory>(), scopeFactory, clock);

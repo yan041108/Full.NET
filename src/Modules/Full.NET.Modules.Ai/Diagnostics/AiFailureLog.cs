@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.ObjectModel;
 using System.Globalization;
 using Full.NET.AI.Abstractions.Budgets;
+using Full.NET.Abstractions.Results;
 using Full.NET.Hosting.Observability;
 using Full.NET.Modules.Ai.Runtime;
 using Microsoft.Extensions.Logging;
@@ -51,6 +52,8 @@ internal static class AiFailureLog
 
     private static string FailureCategory(AiFailureStage stage, Exception? failure) => failure switch
     {
+        ServiceCapacityExceededException { Kind: ServiceCapacityFailureKind.Rejected } => "capacity_rejected",
+        ServiceCapacityExceededException { Kind: ServiceCapacityFailureKind.Timeout } => "capacity_timeout",
         OperationCanceledException => "cancelled", TimeoutException => "timeout",
         UnauthorizedAccessException => "authorization", AiBudgetException or AiRunOutputBudgetException => "budget",
         HttpRequestException => "provider", InvalidDataException or ArgumentException => "invalid",

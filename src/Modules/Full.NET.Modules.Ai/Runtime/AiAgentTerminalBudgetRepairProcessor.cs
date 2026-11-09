@@ -1,4 +1,5 @@
 using Full.NET.Modules.Ai.Diagnostics;
+using Full.NET.Abstractions.Results;
 using Full.NET.Abstractions.Tenancy;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -15,13 +16,16 @@ internal sealed class AiAgentTerminalBudgetRepairProcessor(IServiceScopeFactory 
 
     internal async Task<int> ProcessPendingAsync(CancellationToken cancellationToken, Guid? afterRunId = null)
     {
+        LastScannedRunId = afterRunId;
         var reconcileReceipts = options.Value.ReconcileCompletedReceipts;
         var runIds = await store.ScanTerminalUnsettledAsync(options.Value.BatchSize, cancellationToken, afterRunId, reconcileReceipts).ConfigureAwait(false);
-        LastScannedRunId = null;
+        if (runIds.Count == 0)
+            LastScannedRunId = null;
         var repaired = 0;
         foreach (var runId in runIds)
         {
             cancellationToken.ThrowIfCancellationRequested();
+            var previous = LastScannedRunId;
             LastScannedRunId = runId;
             try
             {
@@ -46,6 +50,12 @@ internal sealed class AiAgentTerminalBudgetRepairProcessor(IServiceScopeFactory 
                 finally { writer.Clear(); }
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }
+            catch (ServiceCapacityExceededException)
+            {
+                // 准入失败保留当前行，宿主退避后从最后已检查的记录继续。
+                LastScannedRunId = previous;
+                throw;
+            }
             catch (Exception exception) { AiFailureLog.Write(logger, LogLevel.Error, AiFailureStage.AgentBudgetRepair, exception, runId); }
         }
         return repaired;
