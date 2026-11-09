@@ -17,6 +17,8 @@ using Full.NET.Modules.Payments.Features.ManageRefunds;
 using Full.NET.Modules.Payments.Features.SubscriptionBilling;
 using Full.NET.Modules.Payments.Persistence;
 using Full.NET.Modules.Payments.Serialization;
+using Full.NET.Modules.Identity.Contracts;
+using Full.NET.Modules.Identity.Features.ManageTenantMembers;
 using Full.NET.Modules.Tenancy.Contracts;
 using Full.NET.Modules.Tenancy.Features.ManageHostTenantPackages;
 using Full.NET.Modules.Tenancy.Features.ManageTenantEntitlements.Persistence;
@@ -192,6 +194,7 @@ public sealed partial class SubscriptionBillingRecoveryTests
 
         // 不能只用直接预留代替真实消费者：已履约的存储额度必须支持实际上传并确认字节占用。
         var storedFile = await VerifyStorageConsumerAsync(sp, connection, tenant, allowed: true);
+        var activeMember = await VerifySeatConsumerAsync(sp, connection, tenant, allowed: true);
 
         // 未记账迁移重跑保留资金、工作项和快照，SQL Server 补回缺失索引。
         if (provider == DatabaseProvider.SqlServer)
@@ -227,6 +230,10 @@ public sealed partial class SubscriptionBillingRecoveryTests
         Assert.IsFalse((await sp.GetRequiredService<ITenantQuotaReservationService>().ReserveAsync(tenant,
             new(TenantQuotaMetricCodes.IdentitySeats, "after-refund", 1))).IsSuccess);
         await VerifyStorageConsumerAsync(sp, connection, tenant, allowed: false);
+        await VerifySeatConsumerAsync(sp, connection, tenant, allowed: false);
+        Assert.AreEqual(TenantMemberStatuses.Active, await connection.QuerySingleAsync<string>(
+            "SELECT Status FROM fn_identity_tenant_member WHERE TenantId=@Tenant AND Id=@Id",
+            new { Tenant = tenant, Id = activeMember }));
         // 退款阻止新增占用，但保留已存在业务文件，不能冒充删除或重建成功。
         await VerifyStoredContentAsync(sp, tenant, storedFile.ResourceId, storedFile.FileId);
 
@@ -377,6 +384,47 @@ public sealed partial class SubscriptionBillingRecoveryTests
 
         Task<(long Used, long Reserved)> ReadUsageAsync() => connection.QuerySingleAsync<(long Used, long Reserved)>(
             "SELECT UsedValue,ReservedValue FROM fn_tenancy_quota_metric WHERE TenantId=@Tenant AND MetricCode='files.storage_bytes' AND PeriodKey='default'",
+            new { Tenant = tenant });
+    }
+
+    /// <summary>真实成员激活必须消耗席位，退款拒绝新增时保留原有成员并收敛失败意图。</summary>
+    private static async Task<Guid> VerifySeatConsumerAsync(IServiceProvider sp, DbConnection connection, Guid tenant, bool allowed)
+    {
+        var username = "paid-seat-" + Guid.NewGuid().ToString("N")[..12];
+        var before = await ReadUsageAsync();
+        var context = sp.GetRequiredService<ICurrentTenantContextWriter>();
+        context.SetTenant(new(tenant, "acme", "Acme"));
+        Guid memberId = default;
+        try
+        {
+            var result = await sp.GetRequiredService<TenantMemberProvisionService>().ProvisionAsync(
+                new(username, "Paid Seat", FullNetApiFactory.TestPassword, TenantMemberRoles.Member, null));
+            Assert.AreEqual(allowed, result.IsSuccess, result.Error?.Code);
+            if (allowed)
+            {
+                memberId = result.Value!.Id;
+                Assert.AreEqual(TenantMemberStatuses.Active, result.Value.Status);
+            }
+            else
+            {
+                Assert.AreEqual(TenancyErrorCodes.QuotaExceeded, result.Error!.Code);
+            }
+        }
+        finally { context.SetHost(); }
+
+        var after = await ReadUsageAsync();
+        Assert.AreEqual(before.Used + (allowed ? 1 : 0), after.Used);
+        Assert.AreEqual(before.Reserved, after.Reserved, "成员激活或拒绝后不遗留新席位预留。");
+        var status = await connection.QuerySingleAsync<string>("""
+            SELECT member.Status FROM fn_identity_tenant_member member
+            INNER JOIN fn_identity_user account ON account.Id=member.UserId
+            WHERE member.TenantId=@Tenant AND account.NormalizedUsername=@Username
+            """, new { Tenant = tenant, Username = username.ToUpperInvariant() });
+        Assert.AreEqual(allowed ? TenantMemberStatuses.Active : TenantMemberStatuses.Removed, status);
+        return memberId;
+
+        Task<(long Used, long Reserved)> ReadUsageAsync() => connection.QuerySingleAsync<(long Used, long Reserved)>(
+            "SELECT UsedValue,ReservedValue FROM fn_tenancy_quota_metric WHERE TenantId=@Tenant AND MetricCode='identity.seats' AND PeriodKey='default'",
             new { Tenant = tenant });
     }
 

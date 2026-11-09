@@ -925,6 +925,11 @@
           "minimum": 2,
           "timeout": "5m"
         },
+        "subscription-paid-term-boundary": {
+          "filter": "FullyQualifiedName~SubscriptionPaidTermBoundaryTests",
+          "minimum": 4,
+          "timeout": "5m"
+        },
         "tenant-file-content-activity": {
           "filter": "FullyQualifiedName~TenantResourceFileActivityTests",
           "minimum": 2,
@@ -2293,6 +2298,10 @@
       },
       "376": {
         "filter": "FullyQualifiedName~Migration376SubscriptionRenewalRecoveryTests",
+        "minimum": 2
+      },
+      "377": {
+        "filter": "FullyQualifiedName~Migration377SubscriptionPeriodSlotsTests",
         "minimum": 2
       },
       "008": {

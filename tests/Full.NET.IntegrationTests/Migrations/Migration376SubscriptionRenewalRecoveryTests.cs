@@ -32,7 +32,7 @@ public sealed class Migration376SubscriptionRenewalRecoveryTests
         var check=provider==DatabaseProvider.SqlServer?"SELECT COUNT(*) FROM sys.check_constraints WHERE parent_object_id=OBJECT_ID(N'dbo.fn_tenancy_subscription_invoice') AND name='ck_fn_tenancy_subscription_invoice_renewal_source' AND is_disabled=0 AND is_not_trusted=0":"SELECT COUNT(*) FROM information_schema.TABLE_CONSTRAINTS WHERE CONSTRAINT_SCHEMA=DATABASE() AND TABLE_NAME='fn_tenancy_subscription_invoice' AND CONSTRAINT_NAME='ck_fn_tenancy_subscription_invoice_renewal_source' AND ENFORCED='YES'";
         Assert.AreEqual(1L,await db.ExecuteScalarAsync<long>(check));
     }
-    private sealed class ThroughScope:IDisposable
+    internal sealed class ThroughScope:IDisposable
     {
         private readonly string directory=Directory.CreateTempSubdirectory("fullnet-renewal376-").FullName;
         internal DbUpMigrationRunner Runner{get;}
