@@ -2,7 +2,7 @@
   "title": "Full.NET High Concurrency",
   "timezone": "browser",
   "schemaVersion": 39,
-  "version": 1,
+  "version": 2,
   "tags": ["fullnet", "capacity-not-verified"],
   "templating": {
     "list": [
@@ -91,6 +91,48 @@
         },
         {
           "expr": "sum(rate(fullnet_messaging_kafka_commit_results_total[5m])) by (topic_code, consumer_code, result)"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Worker database permits and queue",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 28 },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "fullnet_db_connection_admission_in_use{host_role=\"worker\"}",
+          "legendFormat": "{{job}} / {{instance}} / {{provider}} in use"
+        },
+        {
+          "refId": "B",
+          "expr": "fullnet_db_connection_admission_queued{host_role=\"worker\"}",
+          "legendFormat": "{{job}} / {{instance}} / {{provider}} queued"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Worker database acquisition failures (5m)",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 28 },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(increase(fullnet_db_connection_acquire_total{host_role=\"worker\",outcome=~\"rejected|timeout\"}[5m])) by (job, instance, provider, outcome)",
+          "legendFormat": "{{job}} / {{instance}} / {{provider}} / {{outcome}}"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Worker database phase duration P95",
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 36 },
+      "fieldConfig": { "defaults": { "unit": "s" }, "overrides": [] },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.95, sum(rate(fullnet_db_connection_phase_duration_seconds_bucket{host_role=\"worker\"}[5m])) by (le, job, instance, provider, access_mode, phase))",
+          "legendFormat": "{{job}} / {{instance}} / {{provider}} / {{access_mode}} / {{phase}}"
         }
       ]
     }

@@ -73,6 +73,8 @@ MySQL 容器名 `fullnet-diagnostics-mysql`，镜像 `mysql:8.0`，库名 `fulln
 
 按 `service.instance.id`、`host_role=worker` 和 `provider` 查看同一时间窗。运行配置已有 `OTEL_EXPORTER_OTLP_ENDPOINT` 时，从既有采集端读取指标。缺少样本时先确认导出、采集间隔和实例是否重启，再解释零值。
 
+Full.NET High Concurrency 看板包含 Worker 许可及队列、五分钟拒绝及超时计数和分阶段 P95 三组视图。按同一 `job`、`instance` 与 Provider 对照，确认 Prometheus 目标身份能映射回告警来源。阶段 P95 以秒显示，并保留普通、关键和授权模式。[看板定义](../../deploy/observability/grafana-dashboard.json)
+
 | 观测 | 同一时间窗内核对 |
 | --- | --- |
 | `fullnet.db.connection.acquire` | 分开统计 `outcome=rejected` 和 `outcome=timeout`，并用 Dapper 的 `admission_rejected`、`admission_timeout` 定位具体 `statement_name`。 |
