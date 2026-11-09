@@ -11,6 +11,8 @@ Full.NET 生成应用升级遵循 **Migrator → Worker → Api** 顺序，与 `
 
 ## 升级步骤
 
+涉及报表输出格式变更时，先完成[报表切版门禁](./reporting-output-cutover.md)，由发布负责人维持旧写入方停稳。
+
 0. **预览受管框架升级**。从受信任的 Full.NET 源码树运行 `node scripts/templates/upgrade-framework.mjs --app <AppRoot> --package <NewTemplatePackage> --dry-run`。升级到固定候选时，预览和应用均传入 `--distribution-sha256 <SHA-256>`，摘要从受信任的发布记录获取。核对预览的 `updates`、`removals` 和 `conflicts` 后，以 `--apply` 替换 `--dry-run` 提交。退役文件仅在字节与旧清单一致时从新框架移除，原件保存在返回的 `recoveryRoot/previous` 中。已定制或缺失的退役文件需先解决冲突。应用自有 `src/` 由应用团队维护。
 1. **Migrator**：应用 SQL Server/MySQL 成对迁移
 2. **Worker**：滚动重启，等待 Outbox/Jobs 消费追平
@@ -20,7 +22,7 @@ Full.NET 生成应用升级遵循 **Migrator → Worker → Api** 顺序，与 `
 
 - 仅追加列/表时使用 Expand；删除或重命名列前必须 Contract 旧读路径
 - 跨版本框架源码升级时合并 `framework/fullnet/`，保留 `src/` 业务所有权
-- 升级器校验完整包摘要、清单副本、路径与链接，并重新投影应用既定模块预设和双库迁移清单；预览后的输入变化会拒绝提交。模块闭包改变或删除旧受管文件须另行设计迁移，自动升级不会执行删除。
+- 升级器校验完整包摘要、清单副本、路径与链接，并重新投影应用既定模块预设和双库迁移清单；预览后的输入变化会拒绝提交。模块闭包改变须另行设计迁移。退役受管文件按预览清单处理，数据库结构变更仍由 Migrator 执行。
 - 固定预设执行历史 203 UUID 修复时，Migrator 按清单内的建表来源保留所选表的完整校验与恢复；未选表必须同时不存在于数据库，否则拒绝预设漂移。变换仅匹配两库历史全文摘要，不改写资源或 DbUp 记账名称；无清单的完整底座仍执行原脚本。此适配不支持通过修改清单删除已有模块，也不替代模块新增/退役的数据迁移设计。
 - 应用根目录的依赖锁文件、Vue 骨架和宿主属于应用资产，升级器只更新 `framework/fullnet/`；应用资产的兼容合并仍需开发者处理和验证。
 
