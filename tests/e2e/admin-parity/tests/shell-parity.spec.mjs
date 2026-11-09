@@ -2,6 +2,44 @@ import { expect, test } from '@playwright/test';
 
 const tenantId = '019bc2b1-2a40-7cc3-8992-a80de51bf294';
 
+for (const scenario of [
+  { name: 'Host 订阅读取', tenant: null, read: true, destination: '/tenants' },
+  { name: 'Host 缺少订阅读取', tenant: null, read: false, destination: '/403' },
+  { name: '企业普通成员', tenant: tenantId, read: false, destination: '/403' }
+]) {
+  test(`旧订阅地址冷启动 ${scenario.name}`, async ({ page }, testInfo) => {
+    test.skip(testInfo.project.metadata.clientKind !== 'vue');
+    await mockAuthenticatedSession(page, { initialTenantId: scenario.tenant });
+    await page.route('**/api/v1/me', route => {
+      const user = currentUserResponse(scenario.tenant);
+      return route.fulfill({ json: {
+        ...user,
+        isSuperAdministrator: false,
+        actorScope: scenario.tenant ? 'tenant' : 'host',
+        permissions: scenario.tenant
+          ? ['identity.navigation.read']
+          : ['identity.navigation.read', 'tenancy.tenants.read', 'tenancy.host_tenants.read',
+            ...(scenario.read ? ['tenancy.tenant_subscriptions.read'] : [])]
+      } });
+    });
+    await page.route('**/api/v1/tenancy/tenants?*', route =>
+      route.fulfill({ json: { items: [], page: 1, pageSize: 20, total: 0 } }));
+    await page.route('**/api/v1/tenancy/tenant-packages?*', route =>
+      route.fulfill({ json: { items: [], page: 1, pageSize: 100, total: 0 } }));
+    const subscriptionRequests = [];
+    page.on('request', request => {
+      if (/\/api\/v1\/tenancy\/tenants\/[^/]+\/subscriptions(?:\/|\?|$)/u.test(request.url())) {
+        subscriptionRequests.push(request.method());
+      }
+    });
+
+    await page.goto('/#/tenancy/tenant-subscriptions');
+    await expect(page).toHaveURL(url => url.hash === `#${scenario.destination}`);
+    if (scenario.read) await expect(page.getByRole('heading', { name: '租户管理', exact: true })).toBeVisible();
+    expect(subscriptionRequests).toHaveLength(0);
+  });
+}
+
 for (const width of [1440, 390]) {
   test(`工作台访问采集状态 ${width}`, async ({ page }, testInfo) => {
     await page.setViewportSize({ width, height: 844 });

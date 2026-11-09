@@ -13,7 +13,7 @@
 - [x] 租户订阅 API（Tenancy ManageTenantSubscriptions）— `TenantSubscriptionAssertions` + `TenancyApiSqlServerTests`
 - [x] Webhook 订阅 API（Webhooks ManageWebhookSubscriptions）— `WebhookDeliveryAssertions` + 单元投递测
 - [x] Enterprise Request 样例 Schema 测试通过 — `samples/enterprise-request/tests/schema.test.mjs`
-- [x] 管理端 `/tenancy/tenant-subscriptions` 路由可加载 — `ui/admin/src/router/index.ts`（既有）
+- [x] Host 在企业管理中维护订阅。旧订阅地址检查当前 Host 上下文和订阅读取权限后转入企业管理。
 
 ## 部署
 

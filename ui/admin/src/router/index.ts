@@ -131,7 +131,7 @@ export function createAppRouter(
       {
         name: 'tenant-subscription',
         path: '/tenancy/tenant-subscriptions',
-        component: () => import('../views/TenantSubscriptionView.vue')
+        redirect: { name: 'tenant-management' }
       },
       {
         name: 'users',
@@ -738,12 +738,21 @@ export function createAppRouter(
   });
 
   /** 已认证用户只能访问服务端已下发并被本地白名单认可的导航路径。 */
-  router.beforeEach(to => {
+  router.beforeEach(async to => {
     const session = useSessionStore(pinia);
+    const subscriptionShortcut = to.name === 'tenant-management' && to.redirectedFrom?.name === 'tenant-subscription';
+    if (subscriptionShortcut && session.state === 'initializing') {
+      // 冷启动直达时，复用会话恢复任务后再读取当前作用域和权限。
+      await session.restore();
+    }
     if (session.isAuthenticated
       && session.currentUser?.passwordChangeRequired
       && to.path !== '/account/security') {
       return '/account/security?forced=1';
+    }
+    if (subscriptionShortcut && session.isAuthenticated && (session.switching || session.currentUser?.tenantId !== null
+      || !session.can('tenancy.tenants.read') || !session.can('tenancy.tenant_subscriptions.read'))) {
+      return '/403';
     }
 
     if (!session.isAuthenticated

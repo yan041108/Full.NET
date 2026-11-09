@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createPinia, setActivePinia } from 'pinia';
 import { createMemoryHistory } from 'vue-router';
 import { createAppRouter } from './index';
@@ -117,6 +117,56 @@ describe('Vue 管理端路由守卫', () => {
     await router.push('/identity/users');
     await router.isReady();
 
+    expect(router.currentRoute.value.path).toBe('/403');
+  });
+
+  it.each([
+    { role: 'Host 只读', tenant: false, read: true, manage: false, switching: false, allowed: true },
+    { role: 'Host 运营', tenant: false, read: true, manage: true, switching: false, allowed: true },
+    { role: 'Host 缺少订阅读取', tenant: false, read: false, manage: false, switching: false, allowed: false },
+    { role: '企业上下文即使残留 Host 导航', tenant: true, read: true, manage: false, switching: false, allowed: false },
+    { role: '正在切换上下文', tenant: false, read: true, manage: false, switching: true, allowed: false }
+  ])('旧订阅地址按当前上下文与精确权限交给企业管理 $role', async scenario => {
+    const pinia = createPinia();
+    setActivePinia(pinia);
+    const tenantId = scenario.tenant ? '01936c8a-7b3e-7c5d-9f2a-1b2c3d4e5f62' : null;
+    const permissions = ['tenancy.tenants.read'];
+    if (scenario.read) permissions.push('tenancy.tenant_subscriptions.read');
+    if (scenario.manage) permissions.push('tenancy.tenant_subscriptions.manage');
+    useSessionStore().$patch({
+      state: 'authenticated',
+      switching: scenario.switching,
+      currentUser: { ...createSessionUser(), isSuperAdministrator: false, tenantId, permissions },
+      navigation: [{
+        ...overviewNavigation[0]!,
+        id: 'tenants',
+        routeName: 'tenant-management',
+        path: '/tenants',
+        componentKey: 'tenants',
+        requiredPermission: 'tenancy.tenants.read'
+      }]
+    });
+    const router = createAppRouter(createMemoryHistory(), pinia);
+    await router.push('/tenancy/tenant-subscriptions');
+    await router.isReady();
+    expect(router.currentRoute.value.path).toBe(scenario.allowed ? '/tenants' : '/403');
+  });
+
+  it('冷启动直达旧订阅地址先恢复会话，再拒绝没有订阅读取权限的 Host', async () => {
+    const pinia = createPinia();
+    const session = useSessionStore(pinia);
+    const restore = vi.spyOn(session, 'restore').mockImplementation(async () => {
+      session.$patch({
+        state: 'authenticated',
+        currentUser: { ...createSessionUser(), permissions: ['tenancy.tenants.read'] },
+        navigation: [{ ...overviewNavigation[0]!, path: '/tenants', routeName: 'tenant-management' }]
+      });
+      return true;
+    });
+    const router = createAppRouter(createMemoryHistory(), pinia);
+    await router.push('/tenancy/tenant-subscriptions');
+    await router.isReady();
+    expect(restore).toHaveBeenCalledOnce();
     expect(router.currentRoute.value.path).toBe('/403');
   });
 
