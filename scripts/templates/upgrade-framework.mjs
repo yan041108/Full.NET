@@ -6,6 +6,7 @@ import { existsSync, lstatSync, readFileSync } from 'node:fs';
 import { isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { isDeepStrictEqual } from 'node:util';
+import { verifyDistributionManifest } from './distribution-manifest.mjs';
 import { buildPresetMigrationInventory, isUpgradeAllowed } from './framework-manifest-utils.mjs';
 import { projectCompositionSource } from './project-preset-composition.mjs';
 import { resolvePresetModules } from './preset-modules.mjs';
@@ -15,6 +16,7 @@ import { assertNoPendingUpgrade, commitFrameworkUpgrade } from './framework-upgr
 function parseArgs(argv) {
   let appRoot;
   let packageRoot;
+  let distributionDigest;
   let dryRun = true;
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
@@ -26,6 +28,14 @@ function parseArgs(argv) {
       packageRoot = argv[++i];
       continue;
     }
+    if (arg === '--distribution-sha256') {
+      const digest = argv[++i];
+      if (!digest || digest.startsWith('--') || distributionDigest !== undefined) {
+        throw new Error('Expected one SHA-256 value for --distribution-sha256');
+      }
+      distributionDigest = digest;
+      continue;
+    }
     if (arg === '--apply') {
       dryRun = false;
       continue;
@@ -35,7 +45,7 @@ function parseArgs(argv) {
       continue;
     }
     if (arg === '--help' || arg === '-h') {
-      console.log('Usage: node upgrade-framework.mjs --app <dir> --package <template-package> [--dry-run|--apply]');
+      console.log('Usage: node upgrade-framework.mjs --app <dir> --package <template-package> [--distribution-sha256 <sha256>] [--dry-run|--apply]');
       process.exit(0);
     }
     throw new Error('Unknown argument: ' + arg);
@@ -43,11 +53,11 @@ function parseArgs(argv) {
   if (!appRoot || !packageRoot) {
     throw new Error('Both --app and --package are required');
   }
-  return { appRoot: resolve(appRoot), packageRoot: resolve(packageRoot), dryRun };
+  return { appRoot: resolve(appRoot), packageRoot: resolve(packageRoot), distributionDigest, dryRun };
 }
 
 /** 预设是应用已冻结的选择，包升级不得重新启用未选择模块。 */
-function prepareUpgrade({ appRoot, packageRoot, allowPending = false }) {
+function prepareUpgrade({ appRoot, packageRoot, distributionDigest, allowPending = false }) {
   appRoot = resolve(appRoot);
   packageRoot = resolve(packageRoot);
   const distance = relative(appRoot, packageRoot);
@@ -57,6 +67,7 @@ function prepareUpgrade({ appRoot, packageRoot, allowPending = false }) {
     throw new Error('Upgrade package and application roots must be separate');
   }
   if (!allowPending) assertNoPendingUpgrade(appRoot);
+  const verifiedDistributionDigest = verifyDistributionManifest(packageRoot, distributionDigest);
   const { manifest: currentManifest } = readUpgradeManifest(appRoot);
   const profilePath = join(appRoot, 'fullnet-app.json');
   let applicationProfile = null;
@@ -129,6 +140,7 @@ function prepareUpgrade({ appRoot, packageRoot, allowPending = false }) {
   const plan = {
     currentVersion: currentManifest.frameworkVersion,
     targetVersion: nextManifest.frameworkVersion,
+    distributionDigest: verifiedDistributionDigest,
     dryRun: true,
     updates,
     conflicts,
@@ -145,13 +157,13 @@ export function planFrameworkUpgrade(options) {
   return prepareUpgrade(options).plan;
 }
 
-export function applyFrameworkUpgrade({ appRoot, packageRoot, plan }) {
+export function applyFrameworkUpgrade({ appRoot, packageRoot, distributionDigest, plan }) {
   if (plan.conflicts.length > 0) {
     throw new Error('Cannot apply upgrade while conflicts remain');
   }
   const comparable = (candidate) => { const copy = { ...candidate }; delete copy.dryRun; delete copy.recoveryRoot; return copy; };
   const verifyUnchanged = (allowPending = false) => {
-    const prepared = prepareUpgrade({ appRoot, packageRoot, allowPending });
+    const prepared = prepareUpgrade({ appRoot, packageRoot, distributionDigest, allowPending });
     if (!isDeepStrictEqual(comparable(prepared.plan), comparable(plan))) {
       throw new Error('Upgrade preview changed; regenerate the plan before applying');
     }

@@ -49,10 +49,12 @@ export function verifyDistributionManifest(root, expectedDigest) {
   }
   if (!lstatSync(file).isFile()) throw new Error('Distribution manifest must be a file');
   const bytes = readFileSync(file);
-  if (expectedDigest !== undefined && hashBytes(bytes) !== expectedDigest) {
+  const digest = hashBytes(bytes);
+  if (expectedDigest !== undefined && digest !== expectedDigest) {
     throw new Error('Distribution manifest digest mismatch');
   }
   if (!isDeepStrictEqual(JSON.parse(bytes), describeDistribution(root))) {
     throw new Error('Distribution files do not match the manifest');
   }
+  return digest;
 }
