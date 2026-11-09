@@ -1,4 +1,6 @@
 using System.Data.Common;
+using System.Net;
+using System.Net.Http.Json;
 using System.Text.Json;
 using Dapper;
 using Full.NET.Abstractions.Results;
@@ -93,9 +95,52 @@ public sealed class SubscriptionBillingRecoveryTests
         var checkout = await sp.GetRequiredService<SubscriptionCheckoutService>().CheckoutAsync(tenant, terms.SubscriptionId, default);
         Assert.IsTrue(checkout.IsSuccess, checkout.Error?.Code);
         var orderId = checkout.Value!.Order.Id;
+        var subscriptionsPath = $"/api/v1/tenancy/tenants/{tenant:D}/subscriptions";
+        var subscriptionPath = $"{subscriptionsPath}/{terms.SubscriptionId:D}";
+        var checkoutPath = $"/api/v1/payments/subscriptions/{tenant:D}/{terms.SubscriptionId:D}/checkout";
+        var orderPath = $"/api/v1/payments/orders/{orderId:D}";
+        var fulfillmentPath = orderPath + "/subscription-fulfillment";
+        using var reader = factory.CreateClientForHost("localhost");
+        using var subscriptionOperator = factory.CreateClientForHost("localhost");
+        using var reconciler = factory.CreateClientForHost("localhost");
+        reader.DefaultRequestHeaders.Authorization = new("Bearer", await factory.CreateHostAccessTokenAsync(
+            [TenancyTenantSubscriptionPermissions.Read, PaymentOrderPermissions.Read, PaymentRefundPermissions.Read]));
+        subscriptionOperator.DefaultRequestHeaders.Authorization = new("Bearer", await factory.CreateHostAccessTokenAsync(
+            [TenancyTenantSubscriptionPermissions.Read, TenancyTenantSubscriptionPermissions.Manage, PaymentOrderPermissions.Read, PaymentOrderPermissions.Create]));
+        reconciler.DefaultRequestHeaders.Authorization = new("Bearer", await factory.CreateHostAccessTokenAsync(
+            [PaymentOrderPermissions.Read, PaymentOrderPermissions.Reconcile, PaymentRefundPermissions.Read]));
+
+        var invoice = await reader.GetFromJsonAsync<TenantSubscriptionInvoiceResponse>(subscriptionPath + "/invoice");
+        Assert.IsNotNull(invoice);
+        Assert.AreEqual(terms.SubscriptionId, invoice.SubscriptionId);
+        Assert.AreEqual("12500", invoice.AmountMinor);
+        Assert.AreEqual(orderId, (await reader.GetFromJsonAsync<PaymentOrderResponse>(orderPath))!.Id);
+        Assert.AreEqual(terms.SubscriptionId,
+            (await reader.GetFromJsonAsync<SubscriptionFulfillmentStatusResponse>(fulfillmentPath))!.SubscriptionId);
+
+        // 读、订阅运营、资金对账权限各自独立，已知有效资源也必须按精确权限拒绝。
+        await AssertForbiddenAsync(reader, HttpMethod.Post, subscriptionsPath + "/paid", request);
+        await AssertForbiddenAsync(reader, HttpMethod.Post, subscriptionPath + "/cancel", new CancelTenantSubscriptionRequest(1));
+        await AssertForbiddenAsync(reader, HttpMethod.Post, checkoutPath);
+        await AssertForbiddenAsync(reader, HttpMethod.Post, orderPath + "/reconcile");
+        await AssertForbiddenAsync(reader, HttpMethod.Post, orderPath + "/refunds", new CreatePaymentRefundRequest(1, "read-only"));
+        await AssertForbiddenAsync(reader, HttpMethod.Post, fulfillmentPath + "/retry");
+        await AssertForbiddenAsync(subscriptionOperator, HttpMethod.Post, orderPath + "/reconcile");
+        await AssertForbiddenAsync(subscriptionOperator, HttpMethod.Post, fulfillmentPath + "/retry");
+        await AssertForbiddenAsync(reconciler, HttpMethod.Get, subscriptionPath + "/invoice");
+        await AssertForbiddenAsync(reconciler, HttpMethod.Get, fulfillmentPath);
+        await AssertForbiddenAsync(reconciler, HttpMethod.Post, checkoutPath);
+        await AssertForbiddenAsync(reconciler, HttpMethod.Post, fulfillmentPath + "/retry");
+        await AssertForbiddenAsync(reconciler, HttpMethod.Post, orderPath + "/refunds", new CreatePaymentRefundRequest(1, "reconcile-only"));
+
+        using var operatorCheckout = await subscriptionOperator.PostAsync(checkoutPath, null);
+        Assert.AreEqual(HttpStatusCode.OK, operatorCheckout.StatusCode, await operatorCheckout.Content.ReadAsStringAsync());
+        var operatorReceipt = await operatorCheckout.Content.ReadFromJsonAsync<SubscriptionCheckoutResponse>();
+        Assert.IsNotNull(operatorReceipt);
+        Assert.AreEqual(terms.SubscriptionId, operatorReceipt.SubscriptionId);
+        Assert.AreEqual(orderId, operatorReceipt.Order.Id);
         Assert.AreEqual(12500, checkout.Value.Order.AmountMinor);
         Assert.AreEqual("Frozen billing plan", checkout.Value.Order.Subject);
-        Assert.AreEqual(orderId, (await sp.GetRequiredService<SubscriptionCheckoutService>().CheckoutAsync(tenant, terms.SubscriptionId, default)).Value!.Order.Id);
         Assert.AreEqual(1, channel.CreateCount);
 
         // Outbox 写入故障必须回滚付款状态，不能出现成功订单没有可靠事实。
@@ -105,11 +150,21 @@ public sealed class SubscriptionBillingRecoveryTests
         await connection.ExecuteAsync(provider == DatabaseProvider.SqlServer
             ? "ALTER TABLE fn_outbox_message DROP CONSTRAINT CK_test_billing_outbox"
             : "ALTER TABLE fn_outbox_message DROP CHECK CK_test_billing_outbox");
-        Assert.IsTrue((await sp.GetRequiredService<PaymentOrderReconciliationService>().ReconcileAsync(orderId)).IsSuccess);
+        using var reconciled = await reconciler.PostAsync(orderPath + "/reconcile", null);
+        Assert.AreEqual(HttpStatusCode.OK, reconciled.StatusCode, await reconciled.Content.ReadAsStringAsync());
+        var paidOrder = await reconciled.Content.ReadFromJsonAsync<PaymentOrderResponse>();
+        Assert.IsNotNull(paidOrder);
+        Assert.AreEqual(orderId, paidOrder.Id);
+        Assert.AreEqual(PaymentTradeStateKeys.Succeeded, paidOrder.TradeStateKey);
         var paidBytes = await connection.QuerySingleAsync<byte[]>("SELECT Payload FROM fn_outbox_message WHERE MessageType='fullnet.payments.order.paid'");
         var paidHandler = sp.GetServices<IIntegrationEventHandler>().OfType<PaymentPaidFactHandler>().Single();
         var refundHandler = sp.GetServices<IIntegrationEventHandler>().OfType<PaymentRefundFactHandler>().Single();
         await paidHandler.HandleAsync(paidBytes, default);
+        var pendingFulfillment = await reader.GetFromJsonAsync<SubscriptionFulfillmentStatusResponse>(fulfillmentPath);
+        Assert.IsNotNull(pendingFulfillment);
+        Assert.AreEqual("ReadyPaid", pendingFulfillment.StateKey);
+        Assert.AreEqual(orderId, pendingFulfillment.PaymentOrderId);
+        Assert.AreEqual(terms.SubscriptionId, pendingFulfillment.SubscriptionId);
 
         // 接收端提交后丢失响应，使用新恢复器重放原事实，不重复发放。
         var lost = new LostResponsePort(billing);
@@ -142,6 +197,15 @@ public sealed class SubscriptionBillingRecoveryTests
         Assert.IsTrue((await sp.GetRequiredService<SubscriptionFulfillmentProcessor>().ProcessAsync(terms.PaymentOperationId, default)).Value);
         await refundHandler.HandleAsync(refundBytes, default);
         Assert.AreEqual("Refunded", await connection.QuerySingleAsync<string>("SELECT Phase FROM fn_payment_subscription_fulfillment WHERE Id=@Id", new { Id = terms.PaymentOperationId }));
+        var refundReadback = await reconciler.GetFromJsonAsync<PaymentRefundResponse>($"/api/v1/payments/refunds/{refund.Value!.Id:D}");
+        Assert.IsNotNull(refundReadback);
+        Assert.AreEqual(refund.Value.Id, refundReadback.Id);
+        Assert.AreEqual(orderId, refundReadback.OrderId);
+        Assert.AreEqual(PaymentRefundStateKeys.Succeeded, refundReadback.RefundStateKey);
+        var refundedFulfillment = await reader.GetFromJsonAsync<SubscriptionFulfillmentStatusResponse>(fulfillmentPath);
+        Assert.IsNotNull(refundedFulfillment);
+        Assert.AreEqual("Refunded", refundedFulfillment.StateKey);
+        Assert.AreEqual(orderId, refundedFulfillment.PaymentOrderId);
         Assert.AreEqual(0L, await ActiveFeature(sp, tenant, code));
         Assert.AreEqual(1, await SourceCount(connection, terms.SubscriptionId));
         Assert.IsFalse((await billing.ApplyVerifiedPaymentAsync(new(terms.SubscriptionId, tenant, tenant, terms.PaymentOperationId,
@@ -185,6 +249,13 @@ public sealed class SubscriptionBillingRecoveryTests
 
         await VerifyFutureReviewRetryAsync(sp, connection, billing, package.Value.Id, tenant, now, paidBytes, refundBytes);
 
+    }
+
+    private static async Task AssertForbiddenAsync(HttpClient client, HttpMethod method, string path, object? body = null)
+    {
+        using var request = new HttpRequestMessage(method, path) { Content = body is null ? null : JsonContent.Create(body) };
+        using var response = await client.SendAsync(request);
+        Assert.AreEqual(HttpStatusCode.Forbidden, response.StatusCode, path + " " + await response.Content.ReadAsStringAsync());
     }
 
     /// <summary>未来付款的人工重试保持生效门槛，未来账单的退款不受该门槛延误。</summary>
