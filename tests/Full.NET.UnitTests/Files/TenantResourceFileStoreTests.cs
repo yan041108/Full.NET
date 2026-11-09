@@ -303,15 +303,23 @@ public sealed class TenantResourceFileStoreTests
             .Returns(_ => cleanupTracked ? new(fileId, "probe.txt", "application/test", 1, "hash", "test", key, "released") : null);
         var quota = Substitute.For<ITenantFileStorageQuotaPort>();
         quota.TryReserveAsync(Arg.Any<Guid>(), Arg.Any<string>(), Arg.Any<long>(), Arg.Any<CancellationToken>()).Returns(Result<bool>.Success(true));
+        quota.ConfirmAsync(Arg.Any<Guid>(), Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(Result<bool>.Success(true));
         quota.ReleaseAsync(Arg.Any<Guid>(), Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(_ => {
             if (quotaFails) { Assert.IsTrue(cleanupTracked, "配额释放异常之前也必须有可发现墓碑。"); return Task.FromException<Result<bool>>(new IOException("Injected quota release failure.")); }
             return Task.FromResult(Result<bool>.Success(true));
         });
         var store = Create(queries, commands, tenant, Substitute.For<IDataTransactionState>(), storage, ids, quota);
         using var stream = new MemoryStream([1]);
-        Task Upload() => store.UploadAsync("reporting", resourceId, Guid.NewGuid(), "probe.txt", "application/test", stream, 1, cancellation.Token);
+        Task<Result<TenantResourceFileReference>> Upload() => store.UploadAsync("reporting", resourceId, Guid.NewGuid(), "probe.txt", "application/test", stream, 1, cancellation.Token);
         if (cancelled) await Assert.ThrowsExactlyAsync<OperationCanceledException>(Upload);
-        else await Assert.ThrowsExactlyAsync<IOException>(Upload);
+        else if (quotaFails) await Assert.ThrowsExactlyAsync<IOException>(Upload);
+        else
+        {
+            var conflict = await Upload();
+            Assert.IsFalse(conflict.IsSuccess);
+            Assert.AreEqual(FilesErrorCodes.RevisionConflict, conflict.Error?.Code);
+        }
+        Assert.IsTrue(cleanupTracked);
         await commands.DidNotReceive().ExecuteAsync(TenantResourceFileSql.PurgeReleased, Arg.Any<object?>(), Arg.Any<CancellationToken>());
         // 使用同一精确墓碑运行真实 Worker；第二次删除成功后才能清除记录。
         queries.QueryAsync<TenantResourceFileReconciliationRecord>(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>())
@@ -323,7 +331,7 @@ public sealed class TenantResourceFileStoreTests
             new FileStorageProviderRegistry([storage], Options.Create(new FileStorageOptions { DefaultProviderKey = "test" })),
             [], resolver, tenant, Options.Create(new DatabaseOptions { Provider = DatabaseProvider.SqlServer }), clock, new NullTenantFileStorageQuotaPort());
         var result = await runner.RunOnceAsync(new() { Enabled = true, BatchSize = 100, MaxBatchesPerRun = 1, MinimumAgeSeconds = 30 }, CancellationToken.None);
-        Assert.AreEqual(1, result.Released); Assert.AreEqual(quotaFails ? 1 : 2, attempts); Assert.IsFalse(cleanupTracked);
+        Assert.AreEqual(1, result.Released); Assert.AreEqual(2, attempts); Assert.IsFalse(cleanupTracked);
     }
     /// <summary>隔离租户和资源所有权，并验证释放后不可继续读取。</summary>
     [TestMethod]

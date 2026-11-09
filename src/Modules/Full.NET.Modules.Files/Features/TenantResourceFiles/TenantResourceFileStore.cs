@@ -141,7 +141,7 @@ internal sealed class TenantResourceFileStore(IQueryExecutor queries, ICommandEx
             throw;
         }
 
-        var published = false;
+        var cleanupPending = true;
         try
         {
             // 对象存在不代表配额已计量。未知确认结果保持 pending，由 Worker 使用原操作键幂等确认。
@@ -163,17 +163,21 @@ internal sealed class TenantResourceFileStore(IQueryExecutor queries, ICommandEx
             if (await commands.ExecuteAsync(TenantResourceFileSql.MarkReady,
                 Parameters(ownerModuleKey, resourceId, fileId), cancellationToken).ConfigureAwait(false) != 1)
             {
+                // 先登记晚到对象的清理意图，配额释放失败或请求取消后仍可按原文件重试。
+                await DeleteRevokedObjectAsync(ownerModuleKey, resourceId, fileId, provider, storageKey, parameters).ConfigureAwait(false);
+                cleanupPending = false;
+                cancellationToken.ThrowIfCancellationRequested();
                 await ReleaseQuotaReservationAsync(tenantId, operationId, cancellationToken).ConfigureAwait(false);
                 return Failure<TenantResourceFileReference>(FilesErrorCodes.RevisionConflict, ErrorType.Conflict);
             }
 
-            published = true;
+            cleanupPending = false;
             return Result<TenantResourceFileReference>.Success(new(fileId, buffered.Length, digest));
         }
         finally
         {
             // 响应失败、异常或取消都可能晚于租约清理；独立短令牌只删除权威已撤销的对象。
-            if (!published)
+            if (cleanupPending)
                 await DeleteRevokedObjectAsync(ownerModuleKey, resourceId, fileId, provider, storageKey, parameters).ConfigureAwait(false);
         }
     }
