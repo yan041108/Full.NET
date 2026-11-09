@@ -51,6 +51,8 @@ internal static partial class NotificationTemplateCompiler
     };
 
     private static readonly JsonElement EmptyObject = JsonDocument.Parse("{}").RootElement.Clone();
+    private static readonly IReadOnlyDictionary<string, object?> NoValidationArguments =
+        new Dictionary<string, object?>();
 
     public static Result<string> NormalizeStableKey(string? value, string fieldName)
     {
@@ -92,7 +94,8 @@ internal static partial class NotificationTemplateCompiler
         var normalized = contentCategoryKey?.Trim() ?? string.Empty;
         return ContentCategories.Contains(normalized)
             ? Result<string>.Success(normalized)
-            : Result<string>.Failure(TemplateValidation("The content category is invalid."));
+            : Result<string>.Failure(TemplateFieldError(
+                "contentCategoryKey", "category", "Select a supported content category."));
     }
 
     public static Result<string> NormalizeClassification(string? contentClassificationKey)
@@ -100,7 +103,8 @@ internal static partial class NotificationTemplateCompiler
         var normalized = contentClassificationKey?.Trim() ?? string.Empty;
         return Classifications.Contains(normalized)
             ? Result<string>.Success(normalized)
-            : Result<string>.Failure(TemplateValidation("The content classification is invalid."));
+            : Result<string>.Failure(TemplateFieldError(
+                "contentClassificationKey", "classification", "Select a supported content classification."));
     }
 
     public static Result<NormalizedTemplateDraft> NormalizeDraft(
@@ -112,14 +116,14 @@ internal static partial class NotificationTemplateCompiler
         if (normalizedSubject.Length is < 1 or > MaxSubjectLength)
         {
             return Result<NormalizedTemplateDraft>.Failure(
-                TemplateValidation("The template subject is invalid."));
+                TemplateFieldError("draftSubject", "subject_length", "Enter a subject of 1 to 200 characters."));
         }
 
         var text = body?.Text?.Trim() ?? string.Empty;
         if (text.Length is < 1 or > MaxBodyLength)
         {
             return Result<NormalizedTemplateDraft>.Failure(
-                TemplateValidation("The template body is invalid."));
+                TemplateFieldError("draftBody.text", "body_length", "Enter a body of 1 to 4000 characters."));
         }
 
         var schemaResult = NormalizeSchema(schema);
@@ -131,13 +135,16 @@ internal static partial class NotificationTemplateCompiler
         var parameterNames = schemaResult.Value!.Parameters
             .Select(parameter => parameter.Name)
             .ToHashSet(StringComparer.Ordinal);
-        foreach (var placeholder in CollectPlaceholders(normalizedSubject).Concat(CollectPlaceholders(text)))
+        if (CollectPlaceholders(normalizedSubject).Any(placeholder => !parameterNames.Contains(placeholder)))
         {
-            if (!parameterNames.Contains(placeholder))
-            {
-                return Result<NormalizedTemplateDraft>.Failure(
-                    TemplateValidation("The template contains an unknown placeholder."));
-            }
+            return Result<NormalizedTemplateDraft>.Failure(TemplateFieldError(
+                "draftSubject", "unknown_placeholder", "Define every placeholder used in this field in the parameter list."));
+        }
+
+        if (CollectPlaceholders(text).Any(placeholder => !parameterNames.Contains(placeholder)))
+        {
+            return Result<NormalizedTemplateDraft>.Failure(TemplateFieldError(
+                "draftBody.text", "unknown_placeholder", "Define every placeholder used in this field in the parameter list."));
         }
 
         return Result<NormalizedTemplateDraft>.Success(new NormalizedTemplateDraft(
@@ -153,32 +160,32 @@ internal static partial class NotificationTemplateCompiler
         if (schema is null || schema.SchemaVersion != SchemaVersion)
         {
             return Result<NormalizedParameterSchema>.Failure(
-                TemplateValidation("The parameter schema version is invalid."));
+                TemplateFieldError("parameterSchema", "schema_version", "Use parameter schema version 1."));
         }
 
-        if (schema.Parameters is null
-            || schema.Parameters.Count is < 1 or > MaxParameters)
+        // 纯文本模板允许显式空列表；占位符仍须在同一 Schema 中声明。
+        if (schema.Parameters is null || schema.Parameters.Count > MaxParameters)
         {
             return Result<NormalizedParameterSchema>.Failure(
-                TemplateValidation("The parameter schema size is invalid."));
+                TemplateFieldError("parameterSchema.parameters", "schema_size", "Provide a parameter list with at most 32 entries."));
         }
 
         var seen = new HashSet<string>(StringComparer.Ordinal);
         var normalized = new List<NotificationTemplateParameterDefinition>(schema.Parameters.Count);
         foreach (var parameter in schema.Parameters)
         {
-            var name = parameter.Name?.Trim() ?? string.Empty;
-            if (!ParameterNamePattern().IsMatch(name) || !seen.Add(name))
+            var name = parameter?.Name?.Trim() ?? string.Empty;
+            if (parameter is null || !ParameterNamePattern().IsMatch(name) || !seen.Add(name))
             {
                 return Result<NormalizedParameterSchema>.Failure(
-                    TemplateValidation("The parameter schema names are invalid."));
+                    TemplateFieldError("parameterSchema.parameters", "parameter_name", "Use unique parameter names of 1 to 32 characters, starting with a letter and containing only letters, digits, or underscores."));
             }
 
             var typeKey = parameter.TypeKey?.Trim() ?? string.Empty;
             if (!ParameterTypes.Contains(typeKey))
             {
                 return Result<NormalizedParameterSchema>.Failure(
-                    TemplateValidation("The parameter schema types are invalid."));
+                    TemplateFieldError("parameterSchema.parameters", "parameter_type", "Use string, integer, or boolean as the parameter type."));
             }
 
             int? maxLength = null;
@@ -187,7 +194,7 @@ internal static partial class NotificationTemplateCompiler
                 if (parameter.MaxLength is not int length || length is < 1 or > 512)
                 {
                     return Result<NormalizedParameterSchema>.Failure(
-                        TemplateValidation("String parameters require an explicit maxLength."));
+                        TemplateFieldError("parameterSchema.parameters", "parameter_length", "Set a maximum length of 1 to 512 for string parameters only."));
                 }
 
                 maxLength = length;
@@ -195,7 +202,7 @@ internal static partial class NotificationTemplateCompiler
             else if (parameter.MaxLength is not null)
             {
                 return Result<NormalizedParameterSchema>.Failure(
-                    TemplateValidation("Non-string parameters must not declare maxLength."));
+                    TemplateFieldError("parameterSchema.parameters", "parameter_length", "Set a maximum length of 1 to 512 for string parameters only."));
             }
 
             normalized.Add(new NotificationTemplateParameterDefinition(
@@ -436,6 +443,16 @@ internal static partial class NotificationTemplateCompiler
 
     private static Error TemplateValidation(string message) =>
         new(NotificationsErrorCodes.TemplateValidationFailed, message, ErrorType.Validation);
+
+    internal static Error TemplateFieldError(string field, string reason, string message) =>
+        WithTemplateField(TemplateValidation(message), field, $"notifications.template_field.{reason}");
+
+    internal static Error WithTemplateField(Error error, string field, string code) =>
+        error with
+        {
+            ValidationErrors = new Dictionary<string, string[]> { [field] = [error.DefaultMessage] },
+            ValidationViolations = [new ValidationViolation(field, code, NoValidationArguments)]
+        };
 
     private static Error ParameterInvalid() =>
         new(

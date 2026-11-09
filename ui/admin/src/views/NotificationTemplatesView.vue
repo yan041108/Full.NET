@@ -161,6 +161,12 @@ async function validateEditorForm(): Promise<boolean> {
 
 function clearEditorValidation(): void {
   editorFormRef.value?.clearValidate();
+  problem.value = undefined;
+}
+
+function fieldError(field: string): string | undefined {
+  const errors = problem.value?.errors?.[field];
+  return Array.isArray(errors) && typeof errors[0] === 'string' ? errors[0] : undefined;
 }
 
 function addParameter(): void {
@@ -417,6 +423,7 @@ function toProblem(
             v-else
             prop="templateKey"
             :label="t('notificationTemplates.fieldKey')"
+            :error="fieldError('templateKey')"
             required
           >
             <ElInput v-model="editorForm.templateKey" data-testid="notification-templates-key" maxlength="128" />
@@ -436,12 +443,12 @@ function toProblem(
               <ElOption v-for="option in localeOptions" :key="option" :label="option" :value="option" />
             </ElSelect>
           </ElFormItem>
-          <ElFormItem v-if="!selected" :label="t('notificationTemplates.fieldChannel')" required>
+          <ElFormItem v-if="!selected" :label="t('notificationTemplates.fieldChannel')" :error="fieldError('channelKey')" required>
             <ElSelect v-model="editorForm.channelKey" data-testid="notification-templates-channel">
               <ElOption v-for="option in channelOptions" :key="option" :label="option" :value="option" />
             </ElSelect>
           </ElFormItem>
-          <ElFormItem :label="t('notificationTemplates.fieldCategory')" required>
+          <ElFormItem :label="t('notificationTemplates.fieldCategory')" :error="fieldError('contentCategoryKey')" required>
             <ElSelect v-model="editorForm.contentCategoryKey" data-testid="notification-templates-category">
               <ElOption :label="t('notificationTemplates.categoryMandatory')" value="mandatory" />
               <ElOption :label="t('notificationTemplates.categoryTransactional')" value="transactional" />
@@ -449,7 +456,7 @@ function toProblem(
               <ElOption :label="t('notificationTemplates.categoryMarketing')" value="marketing" />
             </ElSelect>
           </ElFormItem>
-          <ElFormItem v-if="selected && canPublish" :label="t('notificationTemplates.fieldClassification')" required>
+          <ElFormItem v-if="selected && canPublish" :label="t('notificationTemplates.fieldClassification')" :error="fieldError('contentClassificationKey')" required>
             <ElSelect v-model="classificationKey" data-testid="notification-templates-classification">
               <ElOption label="c0" value="c0" />
               <ElOption label="c1" value="c1" />
@@ -460,6 +467,7 @@ function toProblem(
             class="notification-templates-editor__full"
             prop="draftSubject"
             :label="t('notificationTemplates.fieldSubject')"
+            :error="fieldError('draftSubject')"
             required
           >
             <ElInput v-model="editorForm.draftSubject" data-testid="notification-templates-subject" maxlength="200" />
@@ -468,12 +476,17 @@ function toProblem(
             class="notification-templates-editor__full"
             prop="draftBody"
             :label="t('notificationTemplates.fieldBody')"
+            :error="fieldError('draftBody.text')"
             required
           >
             <ElInput v-model="editorForm.draftBody" type="textarea" :rows="4" data-testid="notification-templates-body" />
           </ElFormItem>
 
-          <ElFormItem class="notification-templates-editor__full notification-templates-params" :label="t('notificationTemplates.addParameter')">
+          <ElFormItem
+            class="notification-templates-editor__full notification-templates-params"
+            :label="t('notificationTemplates.addParameter')"
+            :error="fieldError('parameterSchema.parameters') ?? fieldError('parameterSchema')"
+          >
             <div class="notification-templates-params__row">
               <ElInput
                 v-model="parameterName"

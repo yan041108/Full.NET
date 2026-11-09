@@ -107,13 +107,15 @@ internal sealed class NotificationTemplateService(
         var key = NotificationTemplateCompiler.NormalizeStableKey(request.TemplateKey, "TemplateKey");
         if (!key.IsSuccess)
         {
-            return Result<NotificationTemplateResponse>.Failure(key.Error!);
+            return Result<NotificationTemplateResponse>.Failure(NotificationTemplateCompiler.TemplateFieldError(
+                "templateKey", "key", "Use 1 to 128 characters without whitespace or slashes for the template key."));
         }
 
         var channel = NotificationTemplateCompiler.NormalizeChannel(request.ChannelKey, catalog);
-        if (!channel.IsSuccess)
+        if (channel.Error is { } channelError)
         {
-            return Result<NotificationTemplateResponse>.Failure(channel.Error!);
+            return Result<NotificationTemplateResponse>.Failure(NotificationTemplateCompiler.WithTemplateField(
+                channelError, "channelKey", channelError.Code));
         }
 
         var category = NotificationTemplateCompiler.NormalizeContentCategory(request.ContentCategoryKey);

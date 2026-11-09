@@ -105,14 +105,32 @@ public sealed class NotificationTemplateCompilerTests
     [TestMethod]
     public void Unknown_placeholder_fails_before_publish()
     {
+        var emptySchema = new NotificationTemplateParameterSchema(1, []);
+        var staticDraft = NotificationTemplateCompiler.NormalizeDraft(
+            "Static subject", new NotificationTemplateBody("Static body"), emptySchema);
+        Assert.IsTrue(staticDraft.IsSuccess);
+        var snapshot = NotificationTemplateCompiler.ValidateAndSnapshotParameters(
+            staticDraft.Value!.Schema, default);
+        Assert.IsTrue(snapshot.IsSuccess);
+        Assert.AreEqual("{}", snapshot.Value);
+
         var draft = NotificationTemplateCompiler.NormalizeDraft(
             "Hello {unknownName}",
             new NotificationTemplateBody("body"),
-            new NotificationTemplateParameterSchema(
-                1,
-                [new NotificationTemplateParameterDefinition("orderNo", "string", true, 32)]));
+            emptySchema);
         Assert.IsFalse(draft.IsSuccess);
         Assert.AreEqual(NotificationsErrorCodes.TemplateValidationFailed, draft.Error!.Code);
+        var violation = draft.Error.ValidationViolations!.Single();
+        Assert.AreEqual("draftSubject", violation.Field);
+        Assert.AreEqual("notifications.template_field.unknown_placeholder", violation.Code);
+
+        var body = NotificationTemplateCompiler.NormalizeDraft(
+            "Static subject", new NotificationTemplateBody("Body {unknownName}"), emptySchema);
+        Assert.AreEqual("draftBody.text", body.Error?.ValidationViolations?.Single().Field);
+
+        var invalidSchema = NotificationTemplateCompiler.NormalizeSchema(
+            new NotificationTemplateParameterSchema(1, [null!]));
+        Assert.AreEqual("parameterSchema.parameters", invalidSchema.Error?.ValidationViolations?.Single().Field);
     }
 
     private static NormalizedParameterSchema MustNormalize(NotificationTemplateParameterSchema schema)

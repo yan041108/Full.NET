@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { flushPromises, mount } from '@vue/test-utils';
 import { createPinia, setActivePinia } from 'pinia';
+import { ElLoading } from 'element-plus';
 import NotificationTemplatesView from './NotificationTemplatesView.vue';
 import { useSessionStore } from '../auth/session';
 import {
@@ -63,7 +64,7 @@ function mountWithPermissions(permissions: string[]) {
     preferredLocale: 'zh-CN',
     profileVersion: 1
   };
-  return mount(NotificationTemplatesView, { global: { plugins: [pinia] } });
+  return mount(NotificationTemplatesView, { global: { plugins: [pinia, ElLoading] } });
 }
 
 describe('Vue 通知模板页', () => {
@@ -160,8 +161,12 @@ describe('Vue 通知模板页', () => {
     expect(wrapper.get('[data-testid="notification-templates-missing-locale"]').text()).toBe('en-US');
   });
 
-  it('创建草稿时提交所选语言版本', async () => {
-    vi.mocked(createNotificationTemplate).mockResolvedValue({
+  it('定位正文错误并保留输入，修正后按所选语言创建纯文本草稿', async () => {
+    vi.mocked(createNotificationTemplate).mockRejectedValueOnce({
+      status: 400,
+      code: 'notifications.template_validation_failed',
+      errors: { 'draftBody.text': ['请声明正文占位符。'] }
+    }).mockResolvedValueOnce({
       ...template,
       localeTag: 'en-US',
       defaultLocaleTag: 'en-US'
@@ -182,11 +187,19 @@ describe('Vue 通知模板页', () => {
       .setValue('en-US');
     await wrapper.get('[data-testid="notification-templates-key"]').setValue('order.shipped.en');
     await wrapper.get('[data-testid="notification-templates-subject"]').setValue('Shipped');
-    await wrapper.get('[data-testid="notification-templates-body"]').setValue('Your order shipped');
+    const body = wrapper.get<HTMLTextAreaElement>('[data-testid="notification-templates-body"]');
+    await body.setValue('Your order {orderNo}');
+    await wrapper.get('[data-testid="notification-templates-create"]').trigger('click');
+    await flushPromises();
+    expect(body.element.value).toBe('Your order {orderNo}');
+    await vi.waitFor(() => expect(body.element.closest('.el-form-item')?.textContent)
+      .toContain('请声明正文占位符。'));
+
+    await body.setValue('Your order shipped');
     await wrapper.get('[data-testid="notification-templates-create"]').trigger('click');
     await flushPromises();
 
-    expect(createNotificationTemplate).toHaveBeenCalledWith({
+    expect(createNotificationTemplate).toHaveBeenLastCalledWith({
       templateKey: 'order.shipped.en',
       localeTag: 'en-US',
       defaultLocaleTag: 'en-US',

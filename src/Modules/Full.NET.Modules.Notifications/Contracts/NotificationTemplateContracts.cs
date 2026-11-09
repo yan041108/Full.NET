@@ -8,7 +8,7 @@ public sealed record NotificationTemplateBody(string Text);
 /// <summary>闭合参数 Schema；未知类型、缺失上限或超限必须失败关闭。</summary>
 /// <remarks>字段顺序发布后不可调整；新增字段只能追加到末尾，以保持线格式兼容。</remarks>
 /// <param name="SchemaVersion">Schema 版本号；版本不一致视为不兼容。</param>
-/// <param name="Parameters">参数定义集合；顺序为模板渲染入参顺序。</param>
+/// <param name="Parameters">最多 32 项参数定义；没有占位符的模板可提供显式空列表。</param>
 public sealed record NotificationTemplateParameterSchema(
     int SchemaVersion,
     IReadOnlyList<NotificationTemplateParameterDefinition> Parameters);

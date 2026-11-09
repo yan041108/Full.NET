@@ -371,6 +371,51 @@ internal static class NotificationTemplateIntentAssertions
             cancellationToken);
     }
 
+    internal static async Task VerifyParameterlessDraftAsync(
+        HttpClient client, string token, CancellationToken cancellationToken)
+    {
+        const string endpoint = "/api/v1/notifications/templates";
+        var key = $"static-{Guid.NewGuid():N}";
+        object Draft(string text) => new
+        {
+            templateKey = key,
+            channelKey = "inbox",
+            contentCategoryKey = "transactional",
+            draftSubject = "服务维护",
+            draftBody = new { text },
+            parameterSchema = new { schemaVersion = 1, parameters = Array.Empty<object>() },
+        };
+
+        using var invalid = CreateBearerJsonRequest(HttpMethod.Post, endpoint, token, Draft("正文 {unknownName}"));
+        invalid.Headers.AcceptLanguage.ParseAdd("zh-CN");
+        using var rejected = await client.SendAsync(invalid, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.BadRequest, rejected.StatusCode);
+        using var problem = JsonDocument.Parse(await rejected.Content.ReadAsStringAsync(cancellationToken));
+        Assert.AreEqual(NotificationsErrorCodes.TemplateValidationFailed, problem.RootElement.GetProperty("code").GetString());
+        Assert.AreEqual("请在参数列表中声明此字段使用的所有占位符。",
+            problem.RootElement.GetProperty("errors").GetProperty("draftBody.text")[0].GetString());
+        Assert.IsFalse(problem.RootElement.GetRawText().Contains("unknownName", StringComparison.Ordinal));
+
+        using var create = CreateBearerJsonRequest(HttpMethod.Post, endpoint, token, Draft("请保存工作。"));
+        using var response = await client.SendAsync(create, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Created, response.StatusCode);
+        var created = await response.Content.ReadFromJsonAsync<NotificationTemplateResponse>(cancellationToken);
+        Assert.IsNotNull(created);
+        var published = await PublishTemplateAsync(client, token, created.Id, created.Version, "c0", cancellationToken);
+        Assert.AreEqual(1, published.LatestPublishedVersionNumber);
+
+        using var read = new HttpRequestMessage(HttpMethod.Get, $"{endpoint}/{created.Id:D}");
+        read.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        using var readResponse = await client.SendAsync(read, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, readResponse.StatusCode);
+        var stored = await readResponse.Content.ReadFromJsonAsync<NotificationTemplateResponse>(cancellationToken);
+        Assert.IsNotNull(stored);
+        Assert.AreEqual("服务维护", stored.DraftSubject);
+        Assert.AreEqual(published.LatestPublishedVersionId, stored.LatestPublishedVersionId);
+        using var schema = JsonDocument.Parse(stored.DraftParameterSchemaJson);
+        Assert.AreEqual(0, schema.RootElement.GetProperty("parameters").GetArrayLength());
+    }
+
     private static async Task<NotificationTemplateResponse> CreateTemplateAsync(
         HttpClient client,
         string token,

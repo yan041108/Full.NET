@@ -40,6 +40,17 @@
   <data name="notifications.template_not_found" xml:space="preserve"><value>未找到该通知模板。</value></data>
   <data name="notifications.template_not_published" xml:space="preserve"><value>通知模板尚未发布，不能创建意图。</value></data>
   <data name="notifications.template_validation_failed" xml:space="preserve"><value>通知模板草稿或内容无效。</value></data>
+  <data name="notifications.template_field.category" xml:space="preserve"><value>请选择受支持的内容类别。</value></data>
+  <data name="notifications.template_field.classification" xml:space="preserve"><value>请选择受支持的内容分级。</value></data>
+  <data name="notifications.template_field.subject_length" xml:space="preserve"><value>主题须为 1 至 200 个字符。</value></data>
+  <data name="notifications.template_field.body_length" xml:space="preserve"><value>正文须为 1 至 4000 个字符。</value></data>
+  <data name="notifications.template_field.unknown_placeholder" xml:space="preserve"><value>请在参数列表中声明此字段使用的所有占位符。</value></data>
+  <data name="notifications.template_field.schema_version" xml:space="preserve"><value>请使用版本 1 的参数定义。</value></data>
+  <data name="notifications.template_field.schema_size" xml:space="preserve"><value>请提供参数列表，最多 32 项。</value></data>
+  <data name="notifications.template_field.parameter_name" xml:space="preserve"><value>参数名不能重复，须为 1 至 32 个字符，以英文字母开头，只能包含英文字母、数字或下划线。</value></data>
+  <data name="notifications.template_field.parameter_type" xml:space="preserve"><value>参数类型须为 string、integer 或 boolean。</value></data>
+  <data name="notifications.template_field.parameter_length" xml:space="preserve"><value>仅字符串参数须设置最大长度，范围为 1 至 512。</value></data>
+  <data name="notifications.template_field.key" xml:space="preserve"><value>模板键须为 1 至 128 个字符，不能包含空白或斜杠。</value></data>
   <data name="notifications.template_concurrency_conflict" xml:space="preserve"><value>通知模板已被其他操作更新，请刷新后重试。</value></data>
   <data name="notifications.template_key_conflict" xml:space="preserve"><value>同一作用域下该模板键已存在。</value></data>
   <data name="notifications.template_parameter_invalid" xml:space="preserve"><value>通知模板参数无效。</value></data>
