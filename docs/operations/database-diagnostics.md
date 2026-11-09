@@ -69,6 +69,19 @@ MySQL 容器名 `fullnet-diagnostics-mysql`，镜像 `mysql:8.0`，库名 `fulln
 4. 锁等待／请求超时用 `blocking` 并对照 API/Worker 的时间、Trace 和事务边界；空结果只表示该时点、权限与查询范围内未发现，不能排除瞬时或其他类型等待。慢查询先分析源码和索引，必要时使用项目性能 skill；不自动开启 profiler、全局日志、执行生产 EXPLAIN ANALYZE、终止会话或创建索引。
 5. 给出证据、候选根因、最小修复及验证范围。用户要求修复后遵循仓库双库与测试规则；保留其他会话改动。连接成功只证明诊断路径，不替代 API、迁移、租户隔离或端到端测试。
 
+## Worker 数据库准入排查
+
+按 `service.instance.id`、`host_role=worker` 和 `provider` 查看同一时间窗。运行配置已有 `OTEL_EXPORTER_OTLP_ENDPOINT` 时，从既有采集端读取指标。缺少样本时先确认导出、采集间隔和实例是否重启，再解释零值。
+
+| 观测 | 同一时间窗内核对 |
+| --- | --- |
+| `fullnet.db.connection.acquire` | 分开统计 `outcome=rejected` 和 `outcome=timeout`，并用 Dapper 的 `admission_rejected`、`admission_timeout` 定位具体 `statement_name`。 |
+| `fullnet.db.connection.admission.in_use`、`fullnet.db.connection.admission.queued` | 与该实例的普通许可、预留和等待队列上限对照。`in_use` 包含多个准入模式。 |
+| `fullnet.db.connection.phase.duration` | 按 `access_mode` 区分普通、关键与授权许可，再比较 `phase=admission`、`phase=open` 和 `phase=hold` 的尾部耗时。连接打开或持有时间升高时，对照数据库侧锁等待和慢语句。 |
+| `fullnet.notifications.delivery.backlog`、`fullnet.notifications.delivery.oldest_age` | 同库多个 Worker 各自采样整体投递积压，查看各副本的时间序列并避免把采样相加。将等待人工对账的 `fullnet.notifications.delivery.awaiting_reconciliation` 单独看待。 |
+
+在隔离环境以两个 Worker 和可识别的有限投递批次复现争用。记录固定窗口内的准入拒绝、超时和积压年龄，释放压力后按原投递 ID 核对排空及渠道调用次数。以同一配置和数据重复验证调度候选，连接预算沿用现有配置。
+
 ## PostgreSQL／Oracle 新 Provider 支持矩阵
 
 用户已提出将 PostgreSQL、Oracle 作为新增 Provider 的方向；本轮登记接入范围，运行时枚举与正式双库基线保持当前实现。下表中“现有”表示仓库已有实现，具体验收仍以该功能的最新测试为准；“待实现”不得标成已支持。
