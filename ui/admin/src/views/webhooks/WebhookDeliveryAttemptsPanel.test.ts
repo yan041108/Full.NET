@@ -17,6 +17,15 @@ async function setup(permissions=[read,history]){const context=createOutputSessi
 it('未知结果按原事实展示，读取无需创建或状态权限',async()=>{await setup();expect(wrapper.text()).toContain('结果未确认');expect(wrapper.text()).not.toContain('已更新当前投递状态');expect(listWebhookDeliveryAttempts).toHaveBeenCalledExactlyOnceWith(outputId,outputId,1,20,expect.any(AbortSignal));});
 it('没有历史读取权不查询，跨企业结果拒绝接纳',async()=>{await setup([read]);expect(listWebhookDeliveryAttempts).not.toHaveBeenCalled();wrapper.unmount();vi.mocked(listWebhookDeliveryAttempts).mockResolvedValue({items:[{...attempt,tenantId:other}],page:1,pageSize:20,total:1});await setup();expect(state().items).toEqual([]);expect(state().problem).not.toBe('');});
 it('完成但未推进当前租约的结果独立保留',async()=>{vi.mocked(listWebhookDeliveryAttempts).mockResolvedValue({items:[{...attempt,outcomeKey:'delivered',completedAtUtc:'2026-11-04T00:01:00Z',httpStatus:200,appliedToDelivery:false}],page:1,pageSize:20,total:1});await setup();expect(wrapper.text()).toContain('收到成功应答');expect(wrapper.text()).toContain('当前租约已变化');});
+it('企业关闭展示正式终态原因', async () => {
+  vi.mocked(listWebhookDeliveryAttempts).mockResolvedValue({
+    items: [{ ...attempt, outcomeKey: 'failed', completedAtUtc: '2026-11-04T00:01:00Z',
+      errorCode: 'webhooks.delivery.tenant_closed', appliedToDelivery: true }],
+    page: 1, pageSize: 20, total: 1
+  });
+  await setup();
+  expect(wrapper.text()).toContain('企业已关闭。');
+});
 it('翻页仅接入新页，旧分页回调失效',async()=>{await setup();const old=state().controls;state().controls.page(2);await flushPromises();expect(listWebhookDeliveryAttempts).toHaveBeenLastCalledWith(outputId,outputId,2,20,expect.any(AbortSignal));old.page(3);expect(listWebhookDeliveryAttempts).toHaveBeenCalledTimes(2);});
 it('空尾页回退一次，旧记录无明细不补造',async()=>{await setup();state().page=3;vi.mocked(listWebhookDeliveryAttempts).mockResolvedValueOnce({items:[],page:3,pageSize:20,total:0}).mockResolvedValueOnce({items:[],page:1,pageSize:20,total:0});await state().load();await flushPromises();expect(state().page).toBe(1);expect(wrapper.text()).toContain('部署前的历史尝试不会补造');expect(state().items).toEqual([]);});
 it('读取失败只人工刷新，不自动重试',async()=>{vi.mocked(listWebhookDeliveryAttempts).mockRejectedValueOnce(new Error('offline'));await setup();expect(state().problem).not.toBe('');expect(listWebhookDeliveryAttempts).toHaveBeenCalledOnce();state().controls.refresh();await flushPromises();expect(state().problem).toBe('');expect(state().items).toHaveLength(1);});

@@ -63,6 +63,16 @@ internal static class TenantSql
         """,
         SqlDataScope.Global);
 
+    // 标量编码与 TenantActivityState 对齐；缺行使用默认的 Inactive，不能推断为 Closed。
+    public static readonly SqlStatement FindActivityById = new(
+        "tenancy.find_activity_by_id",
+        """
+        SELECT CASE WHEN LifecycleStatus = 'Closed' THEN 2 WHEN IsActive = 1 THEN 1 ELSE 0 END
+        FROM fn_tenancy_tenant
+        WHERE Id = @TenantId
+        """,
+        SqlDataScope.Global);
+
     public static readonly SqlStatement GetAvailable = new(
         "tenancy.get_available_for_host_administrator",
         """

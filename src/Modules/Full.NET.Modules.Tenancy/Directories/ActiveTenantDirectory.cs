@@ -23,4 +23,13 @@ internal sealed class ActiveTenantDirectory(IQueryExecutor queryExecutor)
             .ConfigureAwait(false);
         return tenant is not null && tenant.IsActive;
     }
+
+    /// <inheritdoc />
+    public async Task<TenantActivityState> ReadActivityAsync(Guid tenantId, CancellationToken cancellationToken = default)
+    {
+        var state = await queryExecutor.QuerySingleOrDefaultAsync<int>(
+            TenantSql.FindActivityById, TenancySqlParameters.Create(("TenantId", tenantId)),
+            cancellationToken).ConfigureAwait(false);
+        return (TenantActivityState)state;
+    }
 }

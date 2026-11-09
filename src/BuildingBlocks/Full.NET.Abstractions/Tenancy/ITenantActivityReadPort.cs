@@ -14,4 +14,18 @@ public interface ITenantActivityReadPort
     Task<bool> IsActiveTenantAsync(
         Guid tenantId,
         CancellationToken cancellationToken = default);
+
+    /// <summary>读取活动状态并区分已确认不可恢复的关闭，供有待办记录的消费者选择终态。</summary>
+    Task<TenantActivityState> ReadActivityAsync(Guid tenantId, CancellationToken cancellationToken = default);
+}
+
+/// <summary>跨模块只读的租户活动分类，避免用非活动快照推断关闭。</summary>
+public enum TenantActivityState
+{
+    /// <summary>当前不可用，但未取得已关闭的权威事实。</summary>
+    Inactive = 0,
+    /// <summary>当前可用。</summary>
+    Active = 1,
+    /// <summary>已正式关闭且不可恢复。</summary>
+    Closed = 2
 }

@@ -6,6 +6,7 @@ export function webhookDeliveryFailure(t: AdminI18n['t'], code: string | null | 
     case 'webhooks.delivery.http_error': return t('webhooks.history.httpError', { status: status ?? '' });
     case 'webhooks.delivery.timeout': return t('webhooks.history.timeout');
     case 'webhooks.delivery.tenant_inactive': return t('webhooks.history.tenantInactive');
+    case 'webhooks.delivery.tenant_closed': return t('webhooks.history.tenantClosed');
     case 'webhooks.delivery.tenant_state_unavailable': return t('webhooks.history.tenantStateUnavailable');
     case 'webhooks.delivery.subscription_inactive': return t('webhooks.history.subscriptionInactive');
     case null:

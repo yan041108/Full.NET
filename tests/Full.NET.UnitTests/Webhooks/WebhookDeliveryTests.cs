@@ -402,10 +402,12 @@ public sealed class WebhookDeliveryTests
     }
 
     [TestMethod]
-    public async Task Inactive_or_unavailable_tenant_defers_without_dispatch_or_channel_attempt()
+    public async Task Inactive_or_unavailable_tenant_defers_but_closed_tenant_ends_without_channel_attempt()
     {
-        foreach (var code in new[] { WebhookDeliveryBatchProcessor.TenantInactive, WebhookDeliveryBatchProcessor.TenantStateUnavailable })
+        foreach (var code in new[] { WebhookDeliveryBatchProcessor.TenantInactive, WebhookDeliveryBatchProcessor.TenantStateUnavailable,
+            WebhookDeliveryBatchProcessor.TenantClosed })
         {
+            var isClosed = code == WebhookDeliveryBatchProcessor.TenantClosed;
             var now = DateTimeOffset.UtcNow;
             var item = new WebhookDeliveryWorkItem(Guid.CreateVersion7(), Guid.CreateVersion7(), Guid.CreateVersion7(), "{}",
                 4, 1, Guid.CreateVersion7(), "https://93.184.216.34/hooks", "unused", "test.event", Guid.CreateVersion7());
@@ -417,9 +419,10 @@ public sealed class WebhookDeliveryTests
                 Arg.Any<IReadOnlyDictionary<string, object?>>(), Arg.Any<CancellationToken>())
                 .Returns(new WebhookSigningProfileRecord(item.SigningKeyId, "unused"));
             var directory = Substitute.For<ITenantActivityReadPort>();
-            directory.IsActiveTenantAsync(item.TenantId, Arg.Any<CancellationToken>()).Returns(
-                code == WebhookDeliveryBatchProcessor.TenantInactive
-                    ? Task.FromResult(false) : Task.FromException<bool>(new TimeoutException()));
+            directory.ReadActivityAsync(item.TenantId, Arg.Any<CancellationToken>()).Returns(
+                code == WebhookDeliveryBatchProcessor.TenantStateUnavailable
+                    ? Task.FromException<TenantActivityState>(new TimeoutException())
+                    : Task.FromResult(isClosed ? TenantActivityState.Closed : TenantActivityState.Inactive));
             var commands = Substitute.For<ICommandExecutor>();
             commands.ExecuteAsync(Arg.Any<SqlStatement>(), Arg.Any<IReadOnlyDictionary<string, object?>>(),
                 Arg.Any<CancellationToken>()).Returns(1);
@@ -438,7 +441,9 @@ public sealed class WebhookDeliveryTests
             await commands.Received(1).ExecuteAsync(WebhookDeliverySql.Defer,
                 Arg.Is<IReadOnlyDictionary<string, object?>>(p => p != null
                     && (Guid)p["DeliveryId"]! == item.Id
-                    && (string)p["ErrorCode"]! == code && (DateTimeOffset)p["NextAttemptAtUtc"]! > now),
+                    && (string)p["ErrorCode"]! == code
+                    && (string)p["Status"]! == (isClosed ? WebhookDeliveryStatuses.Failed : WebhookDeliveryStatuses.Pending)
+                    && (isClosed ? p["NextAttemptAtUtc"] == null : (DateTimeOffset)p["NextAttemptAtUtc"]! > now)),
                 Arg.Any<CancellationToken>());
         }
     }
@@ -446,7 +451,7 @@ public sealed class WebhookDeliveryTests
     private static ITenantActivityReadPort ActiveTenants()
     {
         var directory = Substitute.For<ITenantActivityReadPort>();
-        directory.IsActiveTenantAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>()).Returns(true);
+        directory.ReadActivityAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>()).Returns(TenantActivityState.Active);
         return directory;
     }
 

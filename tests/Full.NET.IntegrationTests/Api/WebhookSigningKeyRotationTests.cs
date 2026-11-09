@@ -116,7 +116,7 @@ public sealed class WebhookSigningKeyRotationTests
         using var host = f.Factory.CreateClientForHost("localhost");
         host.DefaultRequestHeaders.Authorization = new("Bearer", await f.Factory.CreateHostAccessTokenAsync(
             [TenancyTenantLifecyclePermissions.Read, TenancyTenantLifecyclePermissions.Suspend,
-                TenancyTenantLifecyclePermissions.Reactivate], token));
+                TenancyTenantLifecyclePermissions.Reactivate, TenancyTenantLifecyclePermissions.Close], token));
         var path = $"/api/v1/tenancy/tenants/{f.Subscription.TenantId:D}";
         var active = await host.GetFromJsonAsync<TenantSummary>(path + "/lifecycle", token);
         Assert.IsNotNull(active);
@@ -158,6 +158,27 @@ public sealed class WebhookSigningKeyRotationTests
         Assert.HasCount(2, f.Receiver.Items);
         Assert.AreEqual(originalEventId, f.Receiver.Items[1].Stamp.EventId);
         Assert.AreEqual(deliveryId, f.Receiver.Items[1].Stamp.DeliveryId);
+
+        var closingEventId = await f.EnqueueAsync(token);
+        var activeAgain = await recovered.Content.ReadFromJsonAsync<TenantSummary>(token);
+        Assert.IsNotNull(activeAgain);
+        using var closed = await host.PostAsJsonAsync(path + "/close", new CloseTenantRequest(activeAgain.Version), token);
+        Assert.AreEqual(HttpStatusCode.OK, closed.StatusCode, await closed.Content.ReadAsStringAsync(token));
+        Assert.AreEqual(1, await f.ProcessAsync(token));
+        var ended = await f.Db.QuerySingleAsync<(Guid Id, string Status, int AttemptCount, string LastError, int IsTerminal)>(
+            """
+            SELECT Id, Status, AttemptCount, LastError, CASE WHEN NextAttemptAtUtc IS NULL THEN 1 ELSE 0 END
+            FROM fn_webhooks_delivery WHERE EventId=@EventId
+            """, new { EventId = closingEventId });
+        Assert.AreEqual("failed", ended.Status.ToLowerInvariant());
+        Assert.AreEqual(0, ended.AttemptCount);
+        Assert.AreEqual(1, ended.IsTerminal);
+        Assert.AreEqual(WebhookDeliveryBatchProcessor.TenantClosed, ended.LastError);
+        Assert.AreEqual(WebhookDeliveryBatchProcessor.TenantClosed, await f.Db.ExecuteScalarAsync<string>(
+            "SELECT ErrorCode FROM fn_webhooks_delivery_attempt WHERE DeliveryId=@Id", new { ended.Id }));
+        f.Clock.Offset = TimeSpan.FromMinutes(12);
+        Assert.AreEqual(0, await f.ProcessAsync(token));
+        Assert.HasCount(2, f.Receiver.Items);
     }
 
     [TestMethod]
@@ -219,7 +240,7 @@ public sealed class WebhookSigningKeyRotationTests
         internal readonly TaskCompletionSource Release = new(TaskCreationOptions.RunContinuationsAsynchronously);
         private int paused;
 
-        internal async Task<bool> CheckAsync(ITenantActivityReadPort inner, Guid tenantId, CancellationToken token)
+        internal async Task<TenantActivityState> CheckAsync(ITenantActivityReadPort inner, Guid tenantId, CancellationToken token)
         {
             if (tenantId == TargetTenantId && Interlocked.Exchange(ref paused, 1) == 0)
             {
@@ -227,13 +248,16 @@ public sealed class WebhookSigningKeyRotationTests
                 Entered.TrySetResult();
                 await Release.Task.WaitAsync(token);
             }
-            return await inner.IsActiveTenantAsync(tenantId, token);
+            return await inner.ReadActivityAsync(tenantId, token);
         }
     }
 
     private sealed class GatedTenantActivity(ITenantActivityReadPort inner, TenantActivityGate gate) : ITenantActivityReadPort
     {
         public Task<bool> IsActiveTenantAsync(Guid tenantId, CancellationToken cancellationToken = default) =>
+            inner.IsActiveTenantAsync(tenantId, cancellationToken);
+
+        public Task<TenantActivityState> ReadActivityAsync(Guid tenantId, CancellationToken cancellationToken = default) =>
             gate.CheckAsync(inner, tenantId, cancellationToken);
     }
 

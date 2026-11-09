@@ -32,11 +32,12 @@ internal sealed class WebhookDeliveryBatchProcessor(
     ITenantActivityReadPort tenantActivity)
 {
     internal const string TenantInactive = "webhooks.delivery.tenant_inactive";
+    internal const string TenantClosed = "webhooks.delivery.tenant_closed";
     internal const string TenantStateUnavailable = "webhooks.delivery.tenant_state_unavailable";
     internal const string SubscriptionInactive = "webhooks.delivery.subscription_inactive";
 
     internal static bool IsAdmissionCode(string? code) =>
-        code is TenantInactive or TenantStateUnavailable or SubscriptionInactive;
+        code is TenantInactive or TenantClosed or TenantStateUnavailable or SubscriptionInactive;
 
     private readonly WebhookDeliveryWorkerOptions _options = workerOptions.Value;
 
@@ -123,8 +124,8 @@ internal sealed class WebhookDeliveryBatchProcessor(
         }
 
         // 落账异常必须向上传播并保留未确认尝试，不能被外发异常分支误记为接收端失败。
-        if (outcome.Deferred)
-            await MarkDeferredAsync(item, outcome.ErrorCode!, cancellationToken).ConfigureAwait(false);
+        if (IsAdmissionCode(outcome.ErrorCode))
+            await MarkNotSentAsync(item, outcome.ErrorCode!, cancellationToken).ConfigureAwait(false);
         else if (outcome.Error is null)
             await MarkDeliveredAsync(item, outcome.HttpStatus!.Value, cancellationToken).ConfigureAwait(false);
         else
@@ -140,19 +141,20 @@ internal sealed class WebhookDeliveryBatchProcessor(
         // 每次外发只增加一次有界单行读取；不可沿用整批领取时缓存的旧身份/秘密。
         var profile = await queryExecutor.QuerySingleOrDefaultAsync<WebhookSigningProfileRecord>(WebhookDeliverySql.FindSigningProfile,
             WebhookSqlParameters.Create(("SubscriptionId", item.SubscriptionId), ("TenantId", item.TenantId)), token).ConfigureAwait(false);
-        if (profile is null)
-            return new(null, SubscriptionInactive, null, Deferred: true);
-
         // 企业活动状态来自 Tenancy，不能由订阅开关或领取时快照推断。
         try
         {
-            if (!await tenantActivity.IsActiveTenantAsync(item.TenantId, token).ConfigureAwait(false))
-                return new(null, TenantInactive, null, Deferred: true);
+            var activity = await tenantActivity.ReadActivityAsync(item.TenantId, token).ConfigureAwait(false);
+            if (activity != TenantActivityState.Active)
+                return new(null, activity == TenantActivityState.Closed ? TenantClosed : TenantInactive, null);
         }
         catch (Exception)
         {
-            return new(null, TenantStateUnavailable, null, Deferred: true);
+            return new(null, TenantStateUnavailable, null);
         }
+
+        if (profile is null)
+            return new(null, SubscriptionInactive, null);
 
         token.ThrowIfCancellationRequested();
         var secret = signingSecretProtector.Unprotect(profile.SigningSecretHash);
@@ -176,19 +178,20 @@ internal sealed class WebhookDeliveryBatchProcessor(
             : new($"HTTP {(int)response.StatusCode}", "webhooks.delivery.http_error", (int)response.StatusCode);
     }
 
-    private sealed record AttemptOutcome(string? Error, string? ErrorCode, int? HttpStatus, bool Deferred = false);
+    private sealed record AttemptOutcome(string? Error, string? ErrorCode, int? HttpStatus);
 
     private Task MarkDeliveredAsync(WebhookDeliveryWorkItem item, int httpStatus, CancellationToken token) =>
         RecordOutcomeAsync(item, WebhookDeliverySql.MarkDelivered, WebhookSqlParameters.Create(
             ("DeliveryId", item.Id), ("Status", WebhookDeliveryStatuses.Delivered), ("UpdatedAtUtc", clock.UtcNow), ("Version", item.Version)),
             "delivered", httpStatus, null, token);
 
-    private Task MarkDeferredAsync(WebhookDeliveryWorkItem item, string code, CancellationToken token)
+    private Task MarkNotSentAsync(WebhookDeliveryWorkItem item, string code, CancellationToken token)
     {
         var now = clock.UtcNow;
+        var closed = code == TenantClosed;
         return RecordOutcomeAsync(item, WebhookDeliverySql.Defer, WebhookSqlParameters.Create(
-            ("DeliveryId", item.Id), ("Status", WebhookDeliveryStatuses.Pending), ("UpdatedAtUtc", now),
-            ("NextAttemptAtUtc", now.AddSeconds(code == TenantStateUnavailable ? 30 : 300)),
+            ("DeliveryId", item.Id), ("Status", closed ? WebhookDeliveryStatuses.Failed : WebhookDeliveryStatuses.Pending), ("UpdatedAtUtc", now),
+            ("NextAttemptAtUtc", closed ? null : now.AddSeconds(code == TenantStateUnavailable ? 30 : 300)),
             ("Version", item.Version), ("ErrorCode", code)), "failed", null, code, token);
     }
 
