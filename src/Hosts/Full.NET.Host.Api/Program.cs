@@ -41,13 +41,19 @@ builder.Services.AddFullNetApplicationModules(
 
 var app = builder.Build();
 app.UseFullNetApiPipeline();
-app.MapFullNetOpenApi();
-app.MapScalarApiReference(options =>
+var exposeApiDocumentation = app.Configuration.GetValue<bool?>("OpenApi:Enabled")
+    ?? (app.Environment.IsDevelopment() || app.Environment.IsEnvironment("Testing"));
+if (exposeApiDocumentation)
 {
-    options
-        .WithTitle(FullNetOpenApiExtensions.ApiTitle)
-        .WithOpenApiRoutePattern(FullNetOpenApiExtensions.OpenApiRoutePattern);
-});
+    // 生产默认不映射运行时文档；保留开发和测试生成所需的服务注册。
+    app.MapFullNetOpenApi();
+    app.MapScalarApiReference(options =>
+    {
+        options
+            .WithTitle(FullNetOpenApiExtensions.ApiTitle)
+            .WithOpenApiRoutePattern(FullNetOpenApiExtensions.OpenApiRoutePattern);
+    });
+}
 app.MapFullNetHealthEndpoints();
 app.MapFullNetRealtime();
 app.MapFullNetModules();

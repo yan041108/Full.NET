@@ -52,14 +52,21 @@ app.UseFullNetModuleMiddleware(ModulePipelineStage.BeforeAuthorization);
 app.UseAuthorization();
 app.UseFullNetModuleMiddleware(ModulePipelineStage.BeforeEndpoints);
 
-// 5. Endpoints：OpenAPI/Scalar、Health、SignalR Hub 与模块 Endpoint
-app.MapFullNetOpenApi();
-app.MapScalarApiReference();
+// 5. Endpoints：按环境和显式配置映射文档，再映射 Health、SignalR Hub 与模块 Endpoint。
+var exposeApiDocumentation = app.Configuration.GetValue<bool?>("OpenApi:Enabled")
+    ?? (app.Environment.IsDevelopment() || app.Environment.IsEnvironment("Testing"));
+if (exposeApiDocumentation)
+{
+    app.MapFullNetOpenApi();
+    app.MapScalarApiReference();
+}
 app.MapFullNetHealthEndpoints();
 app.MapFullNetRealtime();
 app.MapFullNetModules();
 app.Run();
 ```
+
+OpenAPI JSON 和 Scalar 默认只在 Development、Testing 映射。受控文档环境可设置 `OpenApi__Enabled=true`，也可显式设置为 `false` 关闭。Vue 生产构建默认隐藏文档链接，和受控文档环境配套构建时使用 `VITE_ENABLE_API_DOCUMENTATION=1`。
 
 > 模块装配只能经组合根 `AddFullNetApplicationModules` 完成；中间件按 `BeforeAuthentication → Authentication → BeforeAuthorization → Authorization → BeforeEndpoints` 四阶段插入模块钩子。
 

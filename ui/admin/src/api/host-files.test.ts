@@ -107,18 +107,24 @@ describe('Vue Host 文件 API', () => {
     expect(requestMock.mock.calls[0]?.[2]).toBe(controller.signal);
   });
 
-  it('打开 Blob 时创建并回收对象 URL', () => {
+  it('下载文本 Blob 时保留文件名且不打开预览标签页', () => {
     const blob = new Blob(['hello'], { type: 'text/plain' });
     const createUrl = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:temp');
     const revokeUrl = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => undefined);
     const open = vi.spyOn(window, 'open').mockReturnValue({} as Window);
+    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (this: HTMLAnchorElement) {
+      expect(this.download).toBe('report.txt');
+      expect(this.href).toBe('blob:temp');
+    });
 
-    openHostFileBlob(blob);
+    openHostFileBlob(blob, 'report.txt');
 
-    expect(createUrl).toHaveBeenCalledWith(blob);
-    expect(open).toHaveBeenCalledWith('blob:temp', '_blank', 'noopener,noreferrer');
+    expect(createUrl).toHaveBeenCalledWith(expect.objectContaining({ type: 'application/octet-stream' }));
+    expect(click).toHaveBeenCalledTimes(1);
+    expect(open).not.toHaveBeenCalled();
     createUrl.mockRestore();
     revokeUrl.mockRestore();
     open.mockRestore();
+    click.mockRestore();
   });
 });

@@ -260,6 +260,9 @@ public static class ServiceDefaultsExtensions
             CommonErrorResourceSource>());
         builder.Services.TryAddEnumerable(ServiceDescriptor.Singleton<
             IErrorResourceSource,
+            HostingErrorResourceSource>());
+        builder.Services.TryAddEnumerable(ServiceDescriptor.Singleton<
+            IErrorResourceSource,
             AuthorizationErrorResourceSource>());
         builder.Services.TryAddEnumerable(ServiceDescriptor.Singleton<
             IErrorResourceSource,

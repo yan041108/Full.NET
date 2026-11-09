@@ -51,6 +51,15 @@ public sealed class NavigationProjectorTests
             [additional]);
 
         Assert.IsTrue(result.Any(node => node.RouteName == "custom-menu"));
+
+        // 持久化菜单可另取 ID，但相同组件仍受运行时能力限制。
+        var oidcAlias = additional with { ComponentKey = "oidc-clients" };
+        Assert.IsFalse(projector.Project(["parent.read"], true, [oidcAlias])
+            .Any(node => node.RouteName == "custom-menu"));
+        Assert.IsTrue(projector.Project(["parent.read"], true, [oidcAlias], oidcCenterEnabled: true)
+            .Any(node => node.RouteName == "custom-menu"));
+        Assert.IsFalse(projector.Project([], true, [oidcAlias], oidcCenterEnabled: true)
+            .Any(node => node.RouteName == "custom-menu"));
     }
 
     [TestMethod]

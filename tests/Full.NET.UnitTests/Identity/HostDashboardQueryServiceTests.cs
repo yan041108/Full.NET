@@ -281,14 +281,14 @@ public sealed class HostDashboardQueryServiceTests
 
         public DateTimeOffset ToUtc { get; private set; }
 
-        public Task<HostDashboardTrafficTrendResponse> ReadAccessTrendAsync(
+        public Task<HostDashboardTrafficTrendResponse?> ReadAccessTrendAsync(
             DateTimeOffset fromUtc,
             DateTimeOffset toUtc,
             CancellationToken cancellationToken = default)
         {
             FromUtc = fromUtc;
             ToUtc = toUtc;
-            return Task.FromResult(trend);
+            return Task.FromResult<HostDashboardTrafficTrendResponse?>(trend);
         }
     }
 

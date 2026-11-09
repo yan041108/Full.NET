@@ -1,3 +1,5 @@
+using System.Globalization;
+using System.Threading.RateLimiting;
 using Full.NET.Abstractions.Results;
 using Full.NET.Hosting.Api;
 using Microsoft.AspNetCore.Builder;
@@ -53,6 +55,13 @@ public static class FullNetRateLimitExtensions
             rateLimiter.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
             rateLimiter.OnRejected = async (context, _) =>
             {
+                if (context.Lease.TryGetMetadata(MetadataName.RetryAfter, out var delay))
+                {
+                    // 向上取整，避免客户端在当前配额窗口恢复前立即重试。
+                    var seconds = Math.Max(1, (long)Math.Ceiling(delay.TotalSeconds));
+                    context.HttpContext.Response.Headers.RetryAfter = seconds.ToString(CultureInfo.InvariantCulture);
+                }
+
                 var policyName = context.HttpContext.GetEndpoint()
                     ?.Metadata.GetMetadata<EnableRateLimitingAttribute>()?.PolicyName;
                 var registry = context.HttpContext.RequestServices

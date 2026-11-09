@@ -37,8 +37,8 @@ public interface IHostDashboardAuditTrendReader
     /// <param name="fromUtc">统计窗口起点（UTC）。</param>
     /// <param name="toUtc">统计窗口终点（UTC）。</param>
     /// <param name="cancellationToken">请求取消令牌。</param>
-    /// <returns>按时间升序排列的访问流量趋势。</returns>
-    Task<HostDashboardTrafficTrendResponse> ReadAccessTrendAsync(
+    /// <returns>按时间升序排列的访问流量趋势；采集不可用时为空。</returns>
+    Task<HostDashboardTrafficTrendResponse?> ReadAccessTrendAsync(
         DateTimeOffset fromUtc,
         DateTimeOffset toUtc,
         CancellationToken cancellationToken = default);
@@ -102,12 +102,12 @@ public static class HostDashboardBusinessEntryKeys
 
 /// <summary>审计模块向 Host 工作台提供的最小只读投影。</summary>
 /// <remarks>字段顺序发布后不可调整；新增字段只能追加到末尾，以保持线格式兼容。</remarks>
-/// <param name="TodayRequestCount">统计起点至今的请求总量。</param>
-/// <param name="TodayErrorRate">统计起点至今的错误率；取值 0-1 之间。</param>
+/// <param name="TodayRequestCount">统计起点至今的请求总量；访问采集关闭时为空。</param>
+/// <param name="TodayErrorRate">统计起点至今的错误率；取值 0-1 之间，访问采集关闭时为空。</param>
 /// <param name="RecentActivities">最近活动记录；顺序按发生时间倒序。</param>
 public sealed record HostDashboardAuditMetrics(
-    long TodayRequestCount,
-    decimal TodayErrorRate,
+    long? TodayRequestCount,
+    decimal? TodayErrorRate,
     HostDashboardActivityResponse[] RecentActivities);
 
 /// <summary>Host 工作台展示的单条最近活动记录。</summary>

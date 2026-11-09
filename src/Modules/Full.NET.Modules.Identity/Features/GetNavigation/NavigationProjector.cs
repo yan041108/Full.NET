@@ -15,7 +15,8 @@ internal sealed class NavigationProjector(AuthorizationCatalog catalog)
     public IReadOnlyList<NavigationNodeResponse> Project(
         IEnumerable<string> permissions,
         bool isHostDataContext,
-        IEnumerable<NavigationDefinition>? additionalDefinitions = null)
+        IEnumerable<NavigationDefinition>? additionalDefinitions = null,
+        bool oidcCenterEnabled = false)
     {
         ArgumentNullException.ThrowIfNull(permissions);
         var granted = permissions.ToHashSet(StringComparer.Ordinal);
@@ -27,6 +28,8 @@ internal sealed class NavigationProjector(AuthorizationCatalog catalog)
             .Where(item => !persistedIds.Contains(item.Id));
         var allDefinitions = catalogOnly
             .Concat(persisted)
+            // 运行时能力同样约束已持久化的目录和别名。
+            .Where(item => oidcCenterEnabled || !RequiresOidcCenter(item))
             .ToArray();
         var childrenByParent = allDefinitions
             .Where(item => item.ParentId is not null)
@@ -43,6 +46,10 @@ internal sealed class NavigationProjector(AuthorizationCatalog catalog)
             .OfType<NavigationNodeResponse>()
             .ToArray();
     }
+
+    private static bool RequiresOidcCenter(NavigationDefinition item) =>
+        item.ComponentKey is "oidc-clients" or "oidc-authorizations" or "oidc-signing-keys"
+        || item.Path is "/identity/oidc-clients" or "/identity/oidc-authorizations" or "/identity/oidc-signing-keys";
 
     private NavigationNodeResponse? ProjectNode(
         NavigationDefinition definition,

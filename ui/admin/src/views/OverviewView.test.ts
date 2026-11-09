@@ -8,8 +8,8 @@ vi.mock('../api/platform-dashboard', () => ({
     todayErrorRate: 0,
     recentActivities: [],
     accessTrafficTrend: {
-      windowStartUtc: '2026-09-23T00:00:00Z',
-      windowEndUtc: '2026-09-23T12:00:00Z',
+      fromUtc: '2026-09-23T00:00:00Z',
+      toUtc: '2026-09-23T12:00:00Z',
       bucketSizeMinutes: 60,
       buckets: [{ bucketStartUtc: '2026-09-23T11:00:00Z', eventCount: 4, errorCount: 0 }]
     },
@@ -25,6 +25,7 @@ vi.mock('../api/platform-dashboard', () => ({
 }));
 
 import OverviewView from './OverviewView.vue';
+import { getHostDashboardSummary } from '../api/platform-dashboard';
 
 const mountedWrappers: ReturnType<typeof mount>[] = [];
 
@@ -37,10 +38,11 @@ function mountOverview() {
 afterEach(() => {
   mountedWrappers.splice(0).forEach(wrapper => wrapper.unmount());
   vi.unstubAllGlobals();
+  vi.unstubAllEnvs();
 });
 
 describe('Vue 管理端概览页', () => {
-  it('呈现运营指标、系统脉搏和最近活动分区', async () => {
+  it('呈现真实运营指标与最近活动，移除固定健康度', async () => {
     const wrapper = mountOverview();
 
     await flushPromises();
@@ -50,11 +52,41 @@ describe('Vue 管理端概览页', () => {
         ? `${String(import.meta.env.VITE_API_PROXY_TARGET).replace(/\/$/, '')}/scalar/v1`
         : '/scalar/v1'
     );
-    expect(wrapper.text()).toContain('系统脉搏');
+    expect(wrapper.text()).not.toContain('98.6');
+    expect(wrapper.text()).not.toContain('实时运行中');
     expect(wrapper.text()).toContain('待办事项');
     expect(wrapper.text()).toContain('最近活动');
     expect(wrapper.text()).toContain('运行态势');
     expect(wrapper.text()).toContain('工作流待办');
+  });
+
+  it('区分访问统计不可用与已采集的空窗口', async () => {
+    vi.stubEnv('VITE_ENABLE_API_DOCUMENTATION', '0');
+    const summary = {
+      activeTenantCount: 3, onlineSessionCount: null, todayRequestCount: null, todayErrorRate: null,
+      recentActivities: [], accessTrafficTrend: null, businessEntries: []
+    };
+    vi.mocked(getHostDashboardSummary)
+      .mockResolvedValueOnce(summary)
+      .mockResolvedValueOnce({
+        ...summary,
+        todayRequestCount: 0,
+        accessTrafficTrend: {
+          fromUtc: '2026-09-23T00:00:00Z',
+          toUtc: '2026-09-23T12:00:00Z',
+          bucketSizeMinutes: 60,
+          buckets: []
+        }
+      });
+    const unavailable = mountOverview();
+    const empty = mountOverview();
+    await flushPromises();
+
+    expect(unavailable.text()).toContain('访问流量统计暂不可用');
+    expect(unavailable.find('[data-testid="open-api-docs"]').exists()).toBe(false);
+    expect(unavailable.text()).not.toContain('今日请求');
+    expect(empty.text()).toContain('暂无可视化数据');
+    expect(empty.text()).toContain('今日请求');
   });
 
   it('接口失败时展示稳定错误码和 TraceId', async () => {

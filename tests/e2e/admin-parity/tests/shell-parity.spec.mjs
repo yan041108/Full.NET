@@ -2,6 +2,41 @@ import { expect, test } from '@playwright/test';
 
 const tenantId = '019bc2b1-2a40-7cc3-8992-a80de51bf294';
 
+for (const width of [1440, 390]) {
+  test(`工作台访问采集状态 ${width}`, async ({ page }, testInfo) => {
+    await page.setViewportSize({ width, height: 844 });
+    await mockAuthenticatedSession(page);
+    let enabled = false;
+    await page.route('**/api/v1/platform/host-dashboard-summary', route => route.fulfill({ json: {
+      activeTenantCount: 3,
+      onlineSessionCount: 1,
+      todayRequestCount: enabled ? 0 : null,
+      todayErrorRate: enabled ? 0 : null,
+      recentActivities: [],
+      accessTrafficTrend: enabled ? {
+        fromUtc: '2026-11-09T00:00:00Z',
+        toUtc: '2026-11-09T12:00:00Z',
+        bucketSizeMinutes: 60,
+        buckets: []
+      } : null,
+      businessEntries: []
+    } }));
+
+    await page.goto('/');
+    const chart = page.getByTestId('traffic-chart');
+    await expect(chart.getByRole('status')).toHaveText('访问流量统计暂不可用');
+    await expect(page.getByText('今日请求', { exact: true })).toHaveCount(0);
+    await expect(page.getByText('98.6', { exact: true })).toHaveCount(0);
+    expect(await chart.evaluate(element => element.getBoundingClientRect().right)).toBeLessThanOrEqual(width);
+    await page.screenshot({ path: testInfo.outputPath('overview-unavailable.png') });
+
+    enabled = true;
+    await page.reload();
+    await expect(chart.getByRole('status')).toHaveText('暂无可视化数据');
+    await expect(page.getByText('今日请求', { exact: true })).toBeVisible();
+  });
+}
+
 // 浏览器只提交筛选与分页，跨模块关联和总数由服务端负责。
 for (const entity of ['unit', 'position']) {
   for (const viewport of [{ width: 1440, height: 1000 }, { width: 390, height: 844 }]) {
@@ -1876,6 +1911,10 @@ test('Host 文件列表与上传删除在两端保持一致', async ({ page }, t
     body: JSON.stringify([])
   }));
   await page.route('**/api/v1/files/host-files**', async route => {
+    if (route.request().method() === 'GET' && new URL(route.request().url()).pathname.endsWith(`/${fileId}/content`)) {
+      await route.fulfill({ status: 200, contentType: 'text/plain', body: 'parity-bytes' });
+      return;
+    }
     if (route.request().method() === 'GET'
       && route.request().url().includes('page=1')) {
       await route.fulfill({
@@ -1932,6 +1971,18 @@ test('Host 文件列表与上传删除在两端保持一致', async ({ page }, t
     : hostFilesView;
   await expect(fileDirectory.getByText('parity.txt', { exact: true })).toBeVisible();
 
+  if (clientKind === 'vue') {
+    await hostFilesView.getByTestId('art-table-action-more').click();
+    const downloading = page.waitForEvent('download');
+    await page.getByTestId('host-files-download').click();
+    const download = await downloading;
+    expect(download.suggestedFilename()).toBe('parity.txt');
+    const chunks = [];
+    for await (const chunk of await download.createReadStream()) chunks.push(chunk);
+    expect(Buffer.concat(chunks).toString()).toBe('parity-bytes');
+    expect(page.context().pages().some(tab => tab.url().startsWith('blob:'))).toBe(false);
+    await expect(fileDirectory.getByText('parity.txt', { exact: true })).toBeVisible();
+  }
   await hostFilesView.getByTestId('art-table-action-more').click();
   const deleteButton = page.getByTestId('host-files-delete');
   await expect(deleteButton).toBeEnabled();

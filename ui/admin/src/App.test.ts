@@ -212,6 +212,16 @@ describe('Vue 管理端壳层', () => {
     expect(wrapper.text()).not.toContain('SERVER CONTROLLED TITLE');
     expect(document.documentElement.lang).toBe('en-US');
     expect(document.title).toBe('Overview · Full.NET');
+    session.currentUser!.permissions.push('goview.projects.read');
+    session.navigation.push({
+      id: 'goview-projects', parentId: null, routeName: 'goview-projects', path: '/goview/projects',
+      componentKey: 'goview-projects', title: 'Project screens', caption: 'GoView',
+      icon: 'dashboard', order: 30, requiredPermission: 'goview.projects.read', children: []
+    });
+    await router.push('/goview/projects');
+    await vi.waitFor(() => expect(document.title).toBe('Project screens · Full.NET'));
+    session.navigation.at(-1)!.title = 'Updated project screens';
+    await vi.waitFor(() => expect(document.title).toBe('Updated project screens · Full.NET'));
     wrapper.unmount();
   });
 });

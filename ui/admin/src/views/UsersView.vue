@@ -1724,8 +1724,12 @@ async function retire(user: HostUser): Promise<void> {
   }
 }
 
+function canEnableUser(user: HostUser): boolean {
+  return !user.isActive && user.retiredAtUtc == null;
+}
+
 async function enable(user: HostUser): Promise<void> {
-  if (changing.value || user.isActive) {
+  if (changing.value || !canEnableUser(user)) {
     return;
   }
 
@@ -1912,7 +1916,7 @@ async function batchEnableSelected(): Promise<void> {
     return;
   }
   const userIds = selectedUsers.value
-    .filter(user => !user.isActive)
+    .filter(canEnableUser)
     .map(user => user.id);
   if (userIds.length === 0) {
     ElMessage.warning(t('users.batchEmpty'));
@@ -2221,7 +2225,7 @@ function toSubmitProblem(error: unknown): FullNetProblemDetails {
                 <el-button
                   data-testid="users-action-batch-enable"
                   plain
-                  :disabled="changing"
+                  :disabled="changing || !selectedUsers.some(canEnableUser)"
                   @click="batchEnableSelected"
                 >
                   {{ t('users.batchEnable') }}
@@ -2297,7 +2301,7 @@ function toSubmitProblem(error: unknown): FullNetProblemDetails {
               <el-table-column :label="t('users.status')" width="100" align="center">
                 <template #default="{ row }">
                   <el-tag size="small" :type="row.isActive ? 'success' : 'info'">
-                    {{ t(row.isActive ? 'users.active' : 'users.inactive') }}
+                    {{ t(row.retiredAtUtc ? 'users.retired' : row.isActive ? 'users.active' : 'users.inactive') }}
                   </el-tag>
                 </template>
               </el-table-column>
@@ -2398,7 +2402,7 @@ function toSubmitProblem(error: unknown): FullNetProblemDetails {
                       </el-button>
                     </PermissionGate>
                     <PermissionGate
-                      v-if="!row.isActive && session.can('identity.users.enable')"
+                      v-if="canEnableUser(row as UserRow) && session.can('identity.users.enable')"
                       key="enable-user"
                       code="identity.users.enable"
                     >

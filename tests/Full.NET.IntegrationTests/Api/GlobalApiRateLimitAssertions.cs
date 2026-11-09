@@ -22,6 +22,7 @@ internal static class GlobalApiRateLimitAssertions
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
             "Bearer",
             accessToken);
+        client.DefaultRequestHeaders.AcceptLanguage.ParseAdd("zh-CN");
 
         for (var attempt = 0; attempt < 3; attempt++)
         {
@@ -35,6 +36,7 @@ internal static class GlobalApiRateLimitAssertions
             "/api/v1/me",
             cancellationToken);
         Assert.AreEqual(HttpStatusCode.TooManyRequests, rejectedResponse.StatusCode);
+        Assert.IsTrue(rejectedResponse.Headers.RetryAfter?.Delta > TimeSpan.Zero);
         Assert.AreEqual(
             "application/problem+json",
             rejectedResponse.Content.Headers.ContentType?.MediaType);
@@ -43,5 +45,7 @@ internal static class GlobalApiRateLimitAssertions
         Assert.AreEqual(
             CommonErrorCodes.RateLimited,
             problem.RootElement.GetProperty("code").GetString());
+        Assert.AreEqual("请求过于频繁，请稍后再试。", problem.RootElement.GetProperty("title").GetString());
+        Assert.AreEqual("zh-CN", rejectedResponse.Content.Headers.ContentLanguage.Single());
     }
 }

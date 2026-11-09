@@ -20,6 +20,11 @@ internal sealed class AuthorizationErrorResourceSource()
         CommonErrorCodes.AuthorizationPrefix,
         CommonErrorResourceSource.CreateResourceManager());
 
+internal sealed class HostingErrorResourceSource()
+    : ResourceManagerErrorResourceSource(
+        "hosting.",
+        CommonErrorResourceSource.CreateResourceManager());
+
 internal sealed class ValidationErrorResourceSource()
     : ResourceManagerErrorResourceSource(
         ValidationErrorCodes.Prefix,

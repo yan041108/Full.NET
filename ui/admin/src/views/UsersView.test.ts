@@ -537,10 +537,22 @@ describe('Vue 用户管理页', () => {
   });
 
   it('仅授予启用权限时只对禁用用户显示启用按钮', async () => {
+    listUsersMock.mockResolvedValueOnce({
+      items: [inactiveUser, {
+        ...inactiveUser,
+        id: '019bc2b1-2a40-7cc3-8992-a80de51bf299',
+        username: 'retired-user',
+        retiredAtUtc: '2026-11-09T00:00:00Z'
+      }],
+      page: 1, pageSize: 20, total: 2
+    });
     const wrapper = mountUsers(['identity.users.read', 'identity.users.enable']);
     await flushPromises();
 
     expect(wrapper.find('[data-testid="users-action-enable"]').exists()).toBe(true);
+    const retired = wrapper.findAll('tr').find(row => row.text().includes('retired-user'));
+    expect(retired?.text()).toContain('已退役');
+    expect(retired?.find('[data-testid="users-action-enable"]').exists()).toBe(false);
     expect(wrapper.find('[data-testid="users-action-disable"]').exists()).toBe(false);
   });
 

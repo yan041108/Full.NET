@@ -12,7 +12,7 @@ describe('Vue 管理端语言状态', () => {
     });
 
     i18n.setLocale('en-US');
-    i18n.setPageTitle('navigation.overview.title');
+    i18n.setPageTitle(i18n.t('navigation.overview.title'));
 
     expect(i18n.locale.value).toBe('en-US');
     expect(storage.getItem(localeStorageKey)).toBe('en-US');

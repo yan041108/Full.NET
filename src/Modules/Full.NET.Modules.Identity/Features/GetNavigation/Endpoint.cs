@@ -1,11 +1,14 @@
 using System.Security.Claims;
 using Full.NET.Abstractions.Tenancy;
 using Full.NET.Modules.Identity.Authorization;
+using Full.NET.Modules.Identity.Configuration;
 using Full.NET.Modules.Identity.Security;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Routing;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 
 /// <summary>Navigation读取 API 路由注册。</summary>
 namespace Full.NET.Modules.Identity.Features.GetNavigation;
@@ -14,6 +17,8 @@ internal static class Endpoint
 {
     public static void Map(IEndpointRouteBuilder endpoints)
     {
+        var oidcCenterEnabled = endpoints.ServiceProvider.GetRequiredService<IConfiguration>()
+            .GetValue<bool>($"{IdentityOidcOptions.SectionName}:Enable");
         endpoints.MapGet(
                 "/api/v1/navigation",
                 async (
@@ -32,7 +37,8 @@ internal static class Endpoint
                     return Results.Ok(projector.Project(
                         permissions,
                         isHostDataContext,
-                        additionalDefinitions));
+                        additionalDefinitions,
+                        oidcCenterEnabled));
                 })
             .WithTags("Identity")
             .RequireFullNetPermission(IdentityAuthorizationContributor.NavigationRead);

@@ -27,7 +27,6 @@ import { createElementLocaleController } from './i18n/elementLocale';
 import { useAdminI18n } from './i18n/adminI18n';
 import ReleaseNoteUnreadPrompt from './components/ReleaseNoteUnreadPrompt.vue';
 import { buildShellNavigation } from './framework/art-design/adapters/fullNetShellAdapter';
-import { localNavigationFor } from './navigation/catalog';
 import { createObjectSearchSources } from './search/objectSearchSources';
 import {
   canAccessGoViewDetailRoute,
@@ -269,10 +268,10 @@ function refreshShellPage(): void {
     [route.path]: (pageCacheVersions.value[route.path] ?? 0) + 1
   };
 }
-const activePageTitleKey = computed<MessageKey>(() => {
+const activePageTitle = computed(() => {
   const statusKey = statusTitleKeys.get(route.path);
   if (statusKey) {
-    return statusKey;
+    return t(statusKey);
   }
 
   const navigation = buildShellNavigation({
@@ -280,8 +279,8 @@ const activePageTitleKey = computed<MessageKey>(() => {
     translate: t
   });
   const active = navigation.find(item => item.path === route.path);
-  const local = localNavigationFor(active?.componentKey ?? 'overview');
-  return local?.titleKey ?? 'navigation.status.title';
+  // 复用已获授权的壳层标题，动态页缺少本地文案时仍保留服务端提供的名称。
+  return active?.title ?? t(route.path === '/' ? 'navigation.overview.title' : 'navigation.status.title');
 });
 
 async function switchFromSelector(value: string): Promise<void> {
@@ -336,10 +335,8 @@ watch(
 );
 
 watch(
-  () => [route.path, locale.value, session.state] as const,
-  () => {
-    setPageTitle(activePageTitleKey.value);
-  },
+  [activePageTitle, locale],
+  ([title]) => setPageTitle(title),
   { immediate: true }
 );
 

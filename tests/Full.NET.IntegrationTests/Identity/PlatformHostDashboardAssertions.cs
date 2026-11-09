@@ -1,11 +1,13 @@
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
-using Full.NET.Data.Abstractions;
 using Full.NET.IntegrationTests.Api;
-using Full.NET.Modules.Auditing.Persistence;
+using Full.NET.Modules.Auditing.Features.WriteAccessLogs;
 using Full.NET.Modules.Identity.Contracts;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 
 namespace Full.NET.IntegrationTests.Identity;
 
@@ -22,12 +24,21 @@ internal static class PlatformHostDashboardAssertions
         FullNetApiFactory factory,
         CancellationToken cancellationToken = default)
     {
-        await factory.InitializeAsync(cancellationToken);
+        await factory.InitializeAsync(cancellationToken, useSchemaTemplate: false);
         using var client = factory.CreateClientForHost("localhost");
 
         await VerifyRequiresDashboardPermissionAsync(factory, client, cancellationToken);
         await VerifySummaryReturnsLiveMetricsAsync(factory, client, cancellationToken);
         await OpenApiPlatformHostDashboardContractAssertions.VerifyAsync(client, cancellationToken);
+        // 另建宿主验证关闭开关改变实际端点映射，不依赖前端入口显隐。
+        using var docsDisabled = factory.WithWebHostBuilder(builder =>
+            builder.ConfigureAppConfiguration((_, configuration) => configuration.AddInMemoryCollection(
+                new Dictionary<string, string?> { ["OpenApi:Enabled"] = "false" })));
+        using var docsDisabledClient = docsDisabled.CreateClient();
+        using var json = await docsDisabledClient.GetAsync("/openapi/v1.json", cancellationToken);
+        using var scalar = await docsDisabledClient.GetAsync("/scalar/v1", cancellationToken);
+        Assert.AreEqual(HttpStatusCode.NotFound, json.StatusCode);
+        Assert.AreEqual(HttpStatusCode.NotFound, scalar.StatusCode);
     }
 
     private static async Task VerifyRequiresDashboardPermissionAsync(
@@ -50,7 +61,7 @@ internal static class PlatformHostDashboardAssertions
     /// <summary>
     /// 验证工作台能够从审计表返回实时汇总指标与最近活动。
     /// </summary>
-    /// <param name="factory">已初始化的真实测试宿主。</param>
+    /// <param name="factory">当前测试独享的 API 宿主。</param>
     /// <param name="client">已连接真实测试宿主的 HTTP 客户端。</param>
     /// <param name="cancellationToken">用于取消 HTTP 调用与等待的令牌。</param>
     /// <returns>表示异步验证执行的任务。</returns>
@@ -60,8 +71,6 @@ internal static class PlatformHostDashboardAssertions
         CancellationToken cancellationToken)
     {
         var adminToken = await LoginAsHostAdminAsync(client, cancellationToken);
-
-        await SeedAccessMetricAsync(factory, cancellationToken);
 
         using var probeRequest = new HttpRequestMessage(HttpMethod.Get, "/api/v1/me");
         probeRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", adminToken);
@@ -96,12 +105,13 @@ internal static class PlatformHostDashboardAssertions
             summary = await summaryResponse.Content.ReadFromJsonAsync<HostDashboardSummaryResponse>(
                 cancellationToken);
             Assert.IsNotNull(summary);
-            if (summary.TodayRequestCount >= 1)
+            if (summary.TodayRequestCount >= 1 && summary.RecentActivities?.Length == 5
+                && summary.AccessTrafficTrend?.Buckets.Any(bucket => bucket.EventCount > 0) == true)
             {
                 break;
             }
 
-            // OperationLog 仍通过微批落库，轮询权威查询避免依赖固定机器时序。
+            // 访问与操作日志分别微批落库，轮询真实汇总避免依赖固定机器时序。
             await Task.Delay(TimeSpan.FromMilliseconds(250), cancellationToken);
         }
 
@@ -117,6 +127,7 @@ internal static class PlatformHostDashboardAssertions
         Assert.IsNotNull(summary.RecentActivities);
         Assert.HasCount(5, summary.RecentActivities);
         Assert.IsNotNull(summary.AccessTrafficTrend);
+        Assert.IsTrue(summary.AccessTrafficTrend.Buckets.Any(bucket => bucket.EventCount > 0));
         Assert.IsNotNull(summary.BusinessEntries);
         Assert.IsTrue(summary.BusinessEntries.Length >= 1);
         Assert.IsFalse(string.IsNullOrWhiteSpace(summary.RecentActivities[0].RequestPath));
@@ -126,36 +137,21 @@ internal static class PlatformHostDashboardAssertions
                 summary.RecentActivities[index].OccurredAtUtc,
                 summary.RecentActivities[index - 1].OccurredAtUtc);
         }
-    }
 
-    /// <summary>
-    /// 写入一条可预期的访问指标，避免把 B2 结构化 HTTP 日志误当成审计表写入链。
-    /// </summary>
-    /// <param name="factory">已初始化的真实测试宿主。</param>
-    /// <param name="cancellationToken">用于取消数据库写入的令牌。</param>
-    /// <returns>表示异步操作的任务。</returns>
-    private static async Task SeedAccessMetricAsync(
-        FullNetApiFactory factory,
-        CancellationToken cancellationToken)
-    {
-        await using var scope = factory.Services.CreateAsyncScope();
-        var commandExecutor = scope.ServiceProvider.GetRequiredService<ICommandExecutor>();
-        await commandExecutor.ExecuteAsync(
-            AccessLogSql.Insert,
-            AuditingSqlParameters.Create(
-                ("Id", Guid.CreateVersion7()),
-                ("OccurredAtUtc", DateTimeOffset.UtcNow),
-                ("HttpMethod", "GET"),
-                ("RequestPath", "/api/v1/me"),
-                ("StatusCode", (int)HttpStatusCode.OK),
-                ("DurationMs", 1),
-                ("UserId", null),
-                ("TenantId", null),
-                ("TraceId", "dashboard-integration-probe"),
-                ("ClientIpFingerprint", null),
-                ("IsAuthenticated", true),
-                ("CorrelationJson", null)),
-            cancellationToken);
+        // 切换测试宿主的采集选项，验证停用时旧日志不再冒充现行流量。
+        var capture = factory.Services.GetRequiredService<IOptions<AccessLogCaptureOptions>>().Value;
+        capture.Enabled = false;
+        using var disabledRequest = new HttpRequestMessage(HttpMethod.Get, "/api/v1/platform/host-dashboard-summary");
+        disabledRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", adminToken);
+        using var disabledResponse = await client.SendAsync(disabledRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, disabledResponse.StatusCode);
+        var disabled = await disabledResponse.Content.ReadFromJsonAsync<HostDashboardSummaryResponse>(cancellationToken);
+        Assert.IsNotNull(disabled);
+        Assert.IsNull(disabled.TodayRequestCount);
+        Assert.IsNull(disabled.TodayErrorRate);
+        Assert.IsNull(disabled.AccessTrafficTrend);
+        Assert.IsNotNull(disabled.RecentActivities);
+        Assert.HasCount(5, disabled.RecentActivities);
     }
 
     private static async Task<string> LoginAsHostAdminAsync(

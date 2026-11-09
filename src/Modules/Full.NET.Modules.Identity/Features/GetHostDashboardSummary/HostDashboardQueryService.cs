@@ -102,7 +102,7 @@ internal sealed class HostDashboardQueryService(
             pendingTasks.Add(auditMetricsTask);
         }
 
-        Task<HostDashboardTrafficTrendResponse>? auditTrendTask = null;
+        Task<HostDashboardTrafficTrendResponse?>? auditTrendTask = null;
         if (isHostScope && canReadAuditTrends && auditTrendReader is not null)
         {
             auditTrendTask = auditTrendReader.ReadAccessTrendAsync(

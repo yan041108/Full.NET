@@ -21,7 +21,7 @@ export interface AdminI18n {
   locale: DeepReadonly<Ref<SupportedLocale>>;
   t: (key: MessageKey, parameters?: MessageParameters) => string;
   setLocale: (value: SupportedLocale) => void;
-  setPageTitle: (key: MessageKey) => void;
+  setPageTitle: (title: string) => void;
 }
 
 /**
@@ -50,11 +50,11 @@ export function createAdminI18n(options: AdminI18nOptions = {}): AdminI18n {
   }
 
   /** 同步更新页面标题，并保持 `Full.NET` 品牌后缀一致。 */
-  function setPageTitle(key: MessageKey): void {
+  function setPageTitle(title: string): void {
     applyDocumentLocale(
       targetDocument,
       locale.value,
-      `${t(key)} · Full.NET`
+      `${title} · Full.NET`
     );
   }
 

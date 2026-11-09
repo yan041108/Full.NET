@@ -6,6 +6,7 @@ export interface HostUser {
   isActive: boolean;
   createdAtUtc: string;
   updatedAtUtc: string | null;
+  retiredAtUtc?: string | null;
   version: number;
   projectedFields?: HostUserProjectedFields | null;
   profile?: HostUserProfile | null;
@@ -209,6 +210,7 @@ export function isHostUser(value: unknown): value is HostUser {
     && typeof value.accountType === 'string'
     && value.accountType.length > 0
     && typeof value.isActive === 'boolean'
+    && (value.retiredAtUtc == null || typeof value.retiredAtUtc === 'string')
     && isText(value.createdAtUtc)
     && (value.updatedAtUtc === null || isText(value.updatedAtUtc))
     && typeof value.version === 'number'

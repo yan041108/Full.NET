@@ -18,8 +18,8 @@ function defaultFileName(type: string): string {
 }
 
 /** 主动及未知内容按二进制下载；一分钟后调度 URL 回收，不凭 noopener 的返回句柄判断打开成功。 */
-export function openContentBlob(blob: Blob, fileName = defaultFileName(blob.type)): void {
-  const passive = isPassiveContentType(blob.type);
+export function openContentBlob(blob: Blob, fileName = defaultFileName(blob.type), mode: 'preview' | 'download' = 'preview'): void {
+  const passive = mode === 'preview' && isPassiveContentType(blob.type);
   const url = URL.createObjectURL(passive ? blob : new Blob([blob], { type: 'application/octet-stream' }));
   let delivered = false;
   try {

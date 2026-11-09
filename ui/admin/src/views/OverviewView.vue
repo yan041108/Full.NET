@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, defineAsyncComponent, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
-import { ElCol, ElRow, ElButton, ElProgress, ElTag } from 'element-plus';
+import { ElCol, ElRow, ElButton, ElTag } from 'element-plus';
 import {
   DataLine,
   PieChart,
@@ -23,6 +23,8 @@ import ArtMetricCard from '../framework/art-design/components/ArtMetricCard.vue'
 import type { HostDashboardBusinessEntry } from '@fullnet/client-contracts';
 
 const router = useRouter();
+const showApiDocumentation = import.meta.env.VITE_ENABLE_API_DOCUMENTATION === '1'
+  || (import.meta.env.DEV && import.meta.env.VITE_ENABLE_API_DOCUMENTATION !== '0');
 
 const FullNetChart = defineAsyncComponent(() =>
   import('../framework/art-design/charts/FullNetChart.vue')
@@ -236,8 +238,8 @@ async function loadCurrentUser(): Promise<void> {
     <h1 class="art-sr-heading" data-route-heading tabindex="-1">{{ t('overview.title') }}</h1>
 
     <div class="overview__toolbar">
-      <span class="overview__live"><i aria-hidden="true" />{{ t('overview.live') }}</span>
       <a
+        v-if="showApiDocumentation"
         class="overview__docs-link"
         :href="apiDocumentationUrl"
         target="_blank"
@@ -287,51 +289,30 @@ async function loadCurrentUser(): Promise<void> {
     </section>
 
     <el-row :gutter="20">
-      <el-col :sm="24" :md="12" :lg="14">
+      <el-col :span="24">
         <article class="art-card art-panel-card panel--chart">
           <header class="art-panel-card__header">
             <h2>{{ t('overview.trafficTitle') }}</h2>
             <span class="art-panel-card__meta">{{ t('overview.lastTwelveHours') }}</span>
           </header>
-          <FullNetChart
-            data-testid="traffic-chart"
-            :option="trafficOption"
-            :height="290"
-            :ariaLabel="t('overview.chartLabel')"
-            :summary="trafficSummary"
-            :emptyLabel="t('overview.chartEmpty')"
-            :locale="locale"
-            :themeMode="chartThemeMode"
-          />
+          <div data-testid="traffic-chart">
+            <FullNetChart
+              v-if="trafficPoints.length > 0"
+              :option="trafficOption"
+              :height="290"
+              :ariaLabel="t('overview.chartLabel')"
+              :summary="trafficSummary"
+              :emptyLabel="t('overview.chartEmpty')"
+              :locale="locale"
+              :themeMode="chartThemeMode"
+            />
+            <p v-else class="overview__traffic-state" role="status">
+              {{ t(summary?.accessTrafficTrend == null ? 'overview.trafficUnavailable' : 'overview.chartEmpty') }}
+            </p>
+          </div>
         </article>
       </el-col>
 
-      <el-col :sm="24" :md="12" :lg="10">
-        <article class="art-card art-panel-card">
-          <header class="art-panel-card__header">
-            <h2>{{ t('overview.pulseTitle') }}</h2>
-            <span class="overview__status-dot" role="img" :aria-label="t('overview.serviceHealthy')" />
-          </header>
-          <div class="overview__pulse-score">
-            <strong>98.6</strong>
-            <span>{{ t('overview.healthScore') }}</span>
-          </div>
-          <div class="overview__pulse-list">
-            <div>
-              <span>{{ t('overview.apiAvailability') }}</span>
-              <el-progress :percentage="99" :show-text="false" :stroke-width="6" :aria-label="t('overview.apiAvailability')" />
-            </div>
-            <div>
-              <span>{{ t('overview.cacheHitRate') }}</span>
-              <el-progress :percentage="94" :show-text="false" :stroke-width="6" :aria-label="t('overview.cacheHitRate')" />
-            </div>
-            <div>
-              <span>{{ t('overview.jobPunctuality') }}</span>
-              <el-progress :percentage="97" :show-text="false" :stroke-width="6" :aria-label="t('overview.jobPunctuality')" />
-            </div>
-          </div>
-        </article>
-      </el-col>
     </el-row>
 
     <el-row :gutter="20">
@@ -409,63 +390,17 @@ async function loadCurrentUser(): Promise<void> {
   --el-button-hover-border-color: #0a3d87;
 }
 
-.overview__live {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  color: var(--fullnet-color-success);
-  font-size: 12px;
-  font-weight: 600;
-}
-
-.overview__live i {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--art-theme-color);
-  box-shadow: 0 0 0 4px rgb(64 158 255 / 12%);
-}
-
-.overview__status-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--fullnet-color-success);
-  box-shadow: 0 0 0 4px rgb(39 136 94 / 12%);
-}
-
 .panel--chart {
   padding-bottom: 8px;
 }
 
-.overview__pulse-score {
-  display: flex;
-  align-items: baseline;
-  gap: 10px;
-  margin-bottom: 8px;
-}
-
-.overview__pulse-score strong {
-  color: var(--art-gray-800);
-  font-size: 42px;
-  font-weight: 600;
-  line-height: 1;
-}
-
-.overview__pulse-score span {
-  color: var(--art-gray-600);
-  font-size: 12px;
-}
-
-.overview__pulse-list {
+.overview__traffic-state {
   display: grid;
-  gap: 16px;
-}
-
-.overview__pulse-list > div > span {
-  display: block;
-  margin-bottom: 8px;
-  color: var(--art-gray-600);
+  place-items: center;
+  min-height: 180px;
+  border: 1px dashed var(--fullnet-color-line);
+  border-radius: var(--fullnet-radius-sm);
+  color: var(--fullnet-color-ink-muted);
   font-size: 12px;
 }
 

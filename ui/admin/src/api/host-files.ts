@@ -222,8 +222,8 @@ export async function listHostFileReferences(
   return result;
 }
 
-/** 复用文档/文件一致的内容策略与有界对象 URL 生命周期。 */
-export function openHostFileBlob(blob: Blob, fileName?: string): void { openContentBlob(blob, fileName); }
+/** 下载动作保存文件；内联查看由独立预览入口负责。 */
+export function openHostFileBlob(blob: Blob, fileName?: string): void { openContentBlob(blob, fileName, 'download'); }
 
 export type {
   HostFile,
