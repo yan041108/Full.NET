@@ -470,8 +470,11 @@ function validatePath(): string {
     return '';
   }
   const path = editorForm.path.trim();
-  if (!path || !path.startsWith('/') || path.length > 256) {
-    return t('menus.pathPlaceholder');
+  if (!path) {
+    return t('menus.pathRequired');
+  }
+  if (!path.startsWith('/') || path.length > 256) {
+    return t('menus.pathInvalid');
   }
   return '';
 }
@@ -612,6 +615,7 @@ async function submitEditor(): Promise<void> {
   if (changing.value) {
     return;
   }
+  problem.value = undefined;
   if (editorMode.value === 'create') {
     editorForm.routeName = normalizeRouteName(editorForm.routeName);
   }
@@ -1144,13 +1148,21 @@ function toProblem(
           prop="path"
           required
           :error="fieldErrors.path || undefined"
+          :show-message="false"
         >
-          <el-input
-            v-model="editorForm.path"
-            :disabled="editorMode === 'edit' && editingMenu?.isSystem === true"
-            :placeholder="t('menus.pathPlaceholder')"
-            @update:model-value="fieldErrors.path = validatePath()"
-          />
+          <div class="menus-directory-path">
+            <el-input
+              v-model="editorForm.path"
+              :disabled="editorMode === 'edit' && editingMenu?.isSystem === true"
+              :placeholder="t('menus.pathPlaceholder')"
+              :aria-invalid="fieldErrors.path ? 'true' : undefined"
+              :aria-describedby="fieldErrors.path ? 'menus-directory-path-error' : undefined"
+              @update:model-value="fieldErrors.path = validatePath()"
+            />
+            <p v-if="fieldErrors.path" id="menus-directory-path-error" class="menus-directory-path__error" role="status">
+              {{ fieldErrors.path }}
+            </p>
+          </div>
         </el-form-item>
 
         <el-form-item
@@ -1290,6 +1302,16 @@ function toProblem(
 
 .menus-editor-form {
   padding-top: 8px;
+}
+
+.menus-directory-path {
+  width: 100%;
+}
+
+.menus-directory-path__error {
+  margin: 0.25rem 0 0;
+  color: var(--el-color-danger);
+  line-height: 1.4;
 }
 
 .menus-editor-form--cols-2 {

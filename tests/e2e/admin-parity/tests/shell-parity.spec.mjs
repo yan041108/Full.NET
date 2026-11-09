@@ -2780,6 +2780,10 @@ test('菜单列表、创建与禁用在两端保持一致', async ({ page }, tes
   const menuEditor = page.getByRole('dialog');
   await menuEditor.getByLabel('路由名', { exact: true }).fill('parity-menu');
   await menuEditor.getByLabel('显示标题', { exact: true }).fill('对等菜单');
+  if (clientKind === 'vue') {
+    await menuEditor.getByLabel('组件键', { exact: true }).press('ArrowDown');
+    await page.getByRole('option', { name: 'overview', exact: true }).click();
+  }
   await menuEditor.getByTestId('menus-editor-submit').click();
   await expect.poll(() => operations.filter(operation => operation.type === 'create')).toEqual([{
     type: 'create',
@@ -2803,6 +2807,25 @@ test('菜单列表、创建与禁用在两端保持一致', async ({ page }, tes
   }
   await expect.poll(() => operations.some(operation => operation.type === 'disable')).toBe(true);
   await expect(menuRow.getByRole('switch')).not.toBeChecked();
+
+  if (clientKind === 'vue') {
+    await menusView.getByTestId('menus-action-create').click();
+    await menuEditor.getByText('目录', { exact: true }).click();
+    await menuEditor.getByLabel('路由名', { exact: true }).fill('parity-directory');
+    await menuEditor.getByLabel('显示标题', { exact: true }).fill('对等目录');
+    const path = menuEditor.getByLabel('路由路径', { exact: true });
+    await menuEditor.getByTestId('menus-editor-submit').click();
+    await expect(menuEditor.locator('#menus-directory-path-error')).toHaveText('请输入目录的路由路径。');
+    await expect(path).toHaveAttribute('aria-describedby', 'menus-directory-path-error');
+    expect(operations.filter(operation => operation.type === 'create')).toHaveLength(1);
+    await path.fill('missing-slash');
+    await expect(menuEditor.locator('#menus-directory-path-error')).toHaveText('路由路径必须以 / 开头，且不超过 256 个字符。');
+    await path.fill('/parity-directory');
+    await expect(menuEditor.locator('#menus-directory-path-error')).toHaveCount(0);
+    await menuEditor.getByTestId('menus-editor-submit').click();
+    await expect.poll(() => operations.filter(operation => operation.type === 'create').at(-1)?.body)
+      .toEqual(expect.objectContaining({ routeName: 'parity-directory', menuType: 'directory', path: '/parity-directory' }));
+  }
 });
 
 test('机构列表、创建与禁用在两端保持一致', async ({ page }, testInfo) => {
