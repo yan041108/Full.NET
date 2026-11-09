@@ -11,6 +11,7 @@ using Full.NET.Modules.Jobs.Persistence;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
+using NSubstitute;
 
 namespace Full.NET.UnitTests.Jobs;
 
@@ -58,6 +59,7 @@ public sealed class JobExecutionRunnerTests
             provider.GetRequiredService<CurrentTenantAccessor>());
         services.AddScoped<ExecutionScopeIdentity>();
         services.AddScoped<ICommandExecutor, ScopedRecordingCommandExecutor>();
+        services.AddScoped(_ => Substitute.For<IDatabaseAdmissionPriorityScope>());
         services.AddScoped<IJobHandlerExecutor>(
             provider => new CoordinatedJobHandler(
                 definitions[0].JobKey,
@@ -498,6 +500,24 @@ public sealed class JobExecutionRunnerTests
     }
 
     [TestMethod]
+    public async Task ProcessPendingAsync_WhenCancellationPollingIsBusy_ResumesAndObservesCancellation()
+    {
+        using var budget = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        var handler = new CancellationAwaitingJobHandler();
+        var commands = new FailureRecordingCommandExecutor();
+        var polls = 0;
+        var runner = CreateFailureRunner(handler, attemptCount: 1, maxAttempts: 3, retryDelaySeconds: 30,
+            DateTimeOffset.UtcNow, commands, cancellationCheck: () => ++polls == 1
+                ? throw new ServiceCapacityExceededException(ServiceCapacityFailureKind.Rejected, TimeSpan.FromMilliseconds(50))
+                : 1L);
+
+        Assert.AreEqual(1, await runner.ProcessPendingAsync(1, budget.Token));
+        Assert.AreEqual(2, polls);
+        CollectionAssert.Contains(commands.Statements, JobSql.MarkExecutionCancelled);
+        CollectionAssert.DoesNotContain(commands.Statements, JobSql.MarkExecutionFailed);
+    }
+
+    [TestMethod]
     public async Task ProcessPendingAsync_WhenExponentialRetryIsConfigured_UsesAttemptBasedDelay()
     {
         var now = new DateTimeOffset(
@@ -663,7 +683,8 @@ public sealed class JobExecutionRunnerTests
         DateTimeOffset now,
         FailureRecordingCommandExecutor commandExecutor,
         JobsWorkerOptions? workerOptions = null,
-        IJobsRetryJitterSource? retryJitterSource = null)
+        IJobsRetryJitterSource? retryJitterSource = null,
+        Func<long>? cancellationCheck = null)
     {
         var definitionId = Guid.CreateVersion7();
         return new JobExecutionRunner(
@@ -681,7 +702,7 @@ public sealed class JobExecutionRunnerTests
                     JobKey = handler.HandlerKind,
                     HandlerKind = handler.HandlerKind,
                     IsEnabled = true,
-                }),
+                }, cancellationCheck),
             commandExecutor,
             new RecordingTransaction(),
             new JobHandlerKindRegistry([handler]),
@@ -952,7 +973,8 @@ public sealed class JobExecutionRunnerTests
 
     private sealed class StubQueryExecutor(
         JobExecutionRecord execution,
-        JobDefinitionRecord definition) : IQueryExecutor
+        JobDefinitionRecord definition,
+        Func<long>? cancellationCheck = null) : IQueryExecutor
     {
         public Task<T?> QuerySingleOrDefaultAsync<T>(
             SqlStatement statement,
@@ -962,7 +984,7 @@ public sealed class JobExecutionRunnerTests
             if (typeof(T) == typeof(long)
                 && statement == JobSql.IsExecutionCancellationRequested)
             {
-                return Task.FromResult<T?>((T)(object)0L);
+                return Task.FromResult<T?>((T)(object)(cancellationCheck?.Invoke() ?? 0L));
             }
 
             throw new InvalidOperationException(

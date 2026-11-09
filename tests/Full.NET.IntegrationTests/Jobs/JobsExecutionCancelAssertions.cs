@@ -132,7 +132,7 @@ internal static class JobsExecutionCancelAssertions
         Assert.AreEqual(HttpStatusCode.Conflict, cancelResponse.StatusCode);
     }
 
-    private static async Task SeedDefinitionAndPendingExecutionAsync(
+    internal static async Task SeedDefinitionAndPendingExecutionAsync(
         FullNetApiFactory factory,
         Guid definitionId,
         Guid executionId,

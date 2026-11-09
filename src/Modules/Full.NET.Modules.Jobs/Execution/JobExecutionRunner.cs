@@ -1,6 +1,7 @@
 using System.Runtime.ExceptionServices;
 using Full.NET.Abstractions.Ids;
 using Full.NET.Abstractions.Messaging;
+using Full.NET.Abstractions.Results;
 using Full.NET.Abstractions.Tenancy;
 using Full.NET.Abstractions.Time;
 using Full.NET.Data.Abstractions;
@@ -144,7 +145,7 @@ internal sealed class JobExecutionRunner(
         {
             foreach (var execution in acquired)
             {
-                await ProcessOneAsync(
+                await ProcessOneInScopeAsync(
                         execution,
                         definitionsById,
                         leaseId,
@@ -198,7 +199,15 @@ internal sealed class JobExecutionRunner(
         Guid leaseId,
         CancellationToken cancellationToken)
     {
-        await using var scope = executionScopeFactory!.CreateAsyncScope();
+        if (executionScopeFactory is null)
+        {
+            await ProcessOneAsync(execution, definitionsById, leaseId, cancellationToken)
+                .ConfigureAwait(false);
+            return;
+        }
+
+        // 结果关键许可必须和批次续租、取消轮询的作用域分开。
+        await using var scope = executionScopeFactory.CreateAsyncScope();
         var services = scope.ServiceProvider;
         var currentTenant = services.GetRequiredService<ICurrentTenantContextWriter>();
         currentTenant.SetHost();
@@ -210,12 +219,15 @@ internal sealed class JobExecutionRunner(
                     leaseId,
                     cancellationToken,
                     queryExecutor,
-                    services.GetRequiredService<JobHandlerKindRegistry>(),
+                    _workerOptions.MaxConcurrency == 1
+                        ? handlerKindRegistry
+                        : services.GetRequiredService<JobHandlerKindRegistry>(),
                     services.GetRequiredService<ICommandExecutor>(),
                     services.GetRequiredService<IClock>(),
                     _workerOptions,
                     logger,
-                    _retryJitterSource)
+                    _retryJitterSource,
+                    services.GetRequiredService<IDatabaseAdmissionPriorityScope>())
                 .ConfigureAwait(false);
         }
         finally
@@ -235,21 +247,39 @@ internal sealed class JobExecutionRunner(
         {
             await Task.Delay(renewalInterval, cancellationToken)
                 .ConfigureAwait(false);
-            var renewed = await commandExecutor.ExecuteAsync(
-                    JobSql.RenewExecutionLease,
-                    JobsSqlParameters.Create(
-                        ("LeaseId", leaseId),
-                        ("LeaseExpiresAtUtc", clock.UtcNow.Add(leaseDuration)),
-                        ("RunningStatus", JobExecutionStatuses.Running),
-                        ("CancellingStatus", JobExecutionStatuses.Cancelling)
-                    ),
-                    cancellationToken)
-                .ConfigureAwait(false);
+            var renewed = await RenewLeaseAsync(leaseId, leaseDuration, cancellationToken).ConfigureAwait(false);
             if (renewed == 0)
             {
                 throw new InvalidOperationException(
                     $"Job execution lease '{leaseId:D}' is no longer owned.");
             }
+        }
+    }
+
+    private async Task<int> RenewLeaseAsync(Guid leaseId, TimeSpan leaseDuration, CancellationToken cancellationToken)
+    {
+        // 续租使用独立作用域和短时关键许可，普通扫描或取消轮询不会抢占已执行任务的租约推进。
+        await using var scope = executionScopeFactory?.CreateAsyncScope();
+        var services = scope?.ServiceProvider;
+        var tenant = services?.GetRequiredService<ICurrentTenantContextWriter>();
+        tenant?.SetHost();
+        try
+        {
+            var renewalCommand = services?.GetRequiredService<ICommandExecutor>() ?? commandExecutor;
+            using var priority = services?.GetRequiredService<IDatabaseAdmissionPriorityScope>().EnterCritical();
+            return await renewalCommand.ExecuteAsync(
+                    JobSql.RenewExecutionLease,
+                    JobsSqlParameters.Create(
+                        ("LeaseId", leaseId),
+                        ("LeaseExpiresAtUtc", clock.UtcNow.Add(leaseDuration)),
+                        ("RunningStatus", JobExecutionStatuses.Running),
+                        ("CancellingStatus", JobExecutionStatuses.Cancelling)),
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
+        finally
+        {
+            tenant?.Clear();
         }
     }
 
@@ -269,7 +299,8 @@ internal sealed class JobExecutionRunner(
             clock,
             _workerOptions,
             logger,
-            _retryJitterSource);
+            _retryJitterSource,
+            null);
 
     private static async Task ProcessOneCoreAsync(
         JobExecutionRecord execution,
@@ -282,7 +313,8 @@ internal sealed class JobExecutionRunner(
         IClock scopedClock,
         JobsWorkerOptions scopedWorkerOptions,
         ILogger<JobExecutionRunner> scopedLogger,
-        IJobsRetryJitterSource retryJitterSource)
+        IJobsRetryJitterSource retryJitterSource,
+        IDatabaseAdmissionPriorityScope? admissionPriority)
     {
         if (!definitionsById.TryGetValue(
                 execution.JobDefinitionId,
@@ -318,8 +350,7 @@ internal sealed class JobExecutionRunner(
         var cancelPollTask = PollCancellationRequestedAsync(
             execution.Id,
             executionCancellation,
-            scopedQueryExecutor,
-            cancellationToken);
+            scopedQueryExecutor);
         // Handler 已成功后，落账异常应交给 Worker 恢复处理，不能再改写成 Handler 失败。
         var handlerCompleted = false;
         try
@@ -334,6 +365,7 @@ internal sealed class JobExecutionRunner(
             await executor.ExecuteAsync(context, executionCancellation.Token)
                 .ConfigureAwait(false);
             handlerCompleted = true;
+            using var priority = admissionPriority?.EnterCritical();
             var succeededRows = await MarkSucceededAsync(
                     execution.Id,
                     leaseId,
@@ -351,6 +383,7 @@ internal sealed class JobExecutionRunner(
                   && executionCancellation.IsCancellationRequested
                   && !cancellationToken.IsCancellationRequested)
         {
+            using var priority = admissionPriority?.EnterCritical();
             var cancelledRows = await MarkCancelledAsync(
                     execution.Id,
                     leaseId,
@@ -371,6 +404,7 @@ internal sealed class JobExecutionRunner(
         }
         catch (RetryableJobException exception) when (!handlerCompleted)
         {
+            using var priority = admissionPriority?.EnterCritical();
             JobExecutionRunnerLog.ExecutionFailed(
                 scopedLogger,
                 exception,
@@ -419,6 +453,7 @@ internal sealed class JobExecutionRunner(
         }
         catch (Exception exception) when (!handlerCompleted)
         {
+            using var priority = admissionPriority?.EnterCritical();
             JobExecutionRunnerLog.ExecutionFailed(
                 scopedLogger,
                 exception,
@@ -445,15 +480,7 @@ internal sealed class JobExecutionRunner(
         finally
         {
             executionCancellation.Cancel();
-            try
-            {
-                await cancelPollTask.ConfigureAwait(false);
-            }
-            catch (OperationCanceledException)
-                when (cancellationToken.IsCancellationRequested)
-            {
-                // 宿主退出时取消轮询属于预期路径。
-            }
+            await cancelPollTask.ConfigureAwait(false);
         }
     }
 
@@ -472,24 +499,34 @@ internal sealed class JobExecutionRunner(
     private static async Task PollCancellationRequestedAsync(
         Guid executionId,
         CancellationTokenSource executionCancellation,
-        IQueryExecutor scopedQueryExecutor,
-        CancellationToken hostCancellationToken)
+        IQueryExecutor scopedQueryExecutor)
     {
+        var token = executionCancellation.Token;
+        var interval = TimeSpan.FromMilliseconds(250);
+        var delay = interval;
         try
         {
-            while (!executionCancellation.IsCancellationRequested)
+            while (!token.IsCancellationRequested)
             {
-                await Task.Delay(
-                        TimeSpan.FromMilliseconds(250),
-                        hostCancellationToken)
-                    .ConfigureAwait(false);
-                var requested = await scopedQueryExecutor.QuerySingleOrDefaultAsync<long>(
-                        JobSql.IsExecutionCancellationRequested,
-                        JobsSqlParameters.Create(
-                            ("Id", executionId),
-                            ("CancellingStatus", JobExecutionStatuses.Cancelling)),
-                        hostCancellationToken)
-                    .ConfigureAwait(false);
+                await Task.Delay(delay, token).ConfigureAwait(false);
+                long requested;
+                try
+                {
+                    requested = await scopedQueryExecutor.QuerySingleOrDefaultAsync<long>(
+                            JobSql.IsExecutionCancellationRequested,
+                            JobsSqlParameters.Create(
+                                ("Id", executionId),
+                                ("CancellingStatus", JobExecutionStatuses.Cancelling)),
+                            token)
+                        .ConfigureAwait(false);
+                }
+                catch (ServiceCapacityExceededException exception)
+                {
+                    // 准入繁忙只推迟下一次取消检查，持续采样由现有 Dapper 指标记录。
+                    delay = exception.RetryAfter > interval ? exception.RetryAfter : interval;
+                    continue;
+                }
+                delay = interval;
                 if (requested > 0)
                 {
                     executionCancellation.Cancel();
@@ -497,10 +534,9 @@ internal sealed class JobExecutionRunner(
                 }
             }
         }
-        catch (OperationCanceledException)
-            when (hostCancellationToken.IsCancellationRequested)
+        catch (Exception) when (token.IsCancellationRequested)
         {
-            executionCancellation.Cancel();
+            // Handler 完成和宿主停止都会结束取消轮询。
         }
     }
 
