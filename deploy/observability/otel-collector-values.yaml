@@ -9,6 +9,10 @@ image:
 command:
   name: otelcol-contrib
 
+# 为固定镜像的非 root 进程授予 emptyDir 写权限，Trace 队列和 Metrics WAL 共用该卷。
+podSecurityContext:
+  fsGroup: 10001
+
 config:
   receivers:
     otlp:

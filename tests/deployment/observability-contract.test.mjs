@@ -223,6 +223,9 @@ test('OTel Collector contract: memory_limiter, batch, retry, file_storage', asyn
   assert.match(metrics, /wal:[\s\S]*directory:\s*\/var\/otel-collector\/storage\/prometheus/);
   assert.match(text, /repository:\s*ghcr\.io\/open-telemetry\/opentelemetry-collector-releases\/opentelemetry-collector-contrib/);
   assert.match(text, /digest:\s*sha256:[a-f0-9]{64}/);
+  assert.match(text, /^podSecurityContext:\s*\r?\n  fsGroup: 10001$/m);
+  assert.match(text, /name: otel-storage\s+emptyDir:/);
+  assert.match(text, /name: otel-storage\s+mountPath: \/var\/otel-collector\/storage/);
   assert.match(text, /recursiveSinkWriteback:\s*false/);
   assert.match(text, /durableAuditDuplication:\s*false/);
   assert.match(text, /key:\s*DiagnosticGroup[\s\S]*action:\s*delete/);
