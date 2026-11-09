@@ -1,0 +1,7 @@
+[Unit]
+Description=Refresh the Full.NET application CA CRL daily
+[Timer]
+OnCalendar=daily
+Persistent=true
+[Install]
+WantedBy=timers.target

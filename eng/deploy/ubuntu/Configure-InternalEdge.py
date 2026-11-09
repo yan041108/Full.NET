@@ -35,6 +35,12 @@ server {{ listen {primary}:80 default_server; server_name _;
   access_log /var/log/nginx/access.log fullnet_edge;
   # NGINX 请求错误日志格式固定，可能带完整请求行。请求诊断使用上面的结构化日志。
   error_log /dev/null;
+  location = /pki/application.crl {{
+    alias /var/lib/fullnet-pki/application.crl;
+    types {{ }}
+    default_type application/pkix-crl;
+    add_header Cache-Control "no-cache";
+  }}
   location /pki/ {{ alias /var/lib/fullnet-pki/; }}
   location / {{ return 308 https://{primary}$request_uri; }}
 }}

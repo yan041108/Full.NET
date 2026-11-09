@@ -1,0 +1,6 @@
+[Unit]
+Description=Refresh the Full.NET application CA certificate revocation list
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 /usr/local/lib/fullnet/Manage-ApplicationCrl.py --refresh
+UMask=0077
