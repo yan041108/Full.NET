@@ -16,7 +16,7 @@ import {
 import { dirname, join, posix, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { PRESET_MODULE_CLOSURE, VALID_PRESETS } from './preset-modules.mjs';
-import { buildMigrationInventory, buildSeedInventory } from './framework-manifest-utils.mjs';
+import { buildMigrationInventory, buildPresetMigrationInventory, buildSeedInventory } from './framework-manifest-utils.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(__dirname, '..', '..');
@@ -266,13 +266,18 @@ function pruneExcluded(bundleRoot) {
 }
 
 function buildManifest(sourceCommit, managedFiles, bundleRoot) {
+  const migrationInventory = buildMigrationInventory(managedFiles);
+  // 分发前验证各预设的迁移归属，避免缺失映射直到安装才暴露。
+  for (const [preset, modules] of Object.entries(PRESET_MODULE_CLOSURE)) {
+    buildPresetMigrationInventory(migrationInventory, preset, modules);
+  }
   return {
     schemaVersion: SCHEMA_VERSION,
     sourceCommit,
     frameworkVersion: FRAMEWORK_VERSION,
     presetModules: PRESET_MODULE_CLOSURE,
     validPresets: VALID_PRESETS,
-    migrationInventory: buildMigrationInventory(managedFiles),
+    migrationInventory,
     seedInventory: buildSeedInventory(managedFiles, (path) => readFileSync(join(bundleRoot, path), 'utf8'), PRESET_MODULE_CLOSURE),
     managedFiles,
   };

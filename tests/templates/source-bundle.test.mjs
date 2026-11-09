@@ -5,7 +5,8 @@ import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import test from 'node:test';
 import { assertArchiveEntryModes, assertCleanBundleInputStatus, assertManagedPath, areBundleInputsClean, buildSourceBundle, parseBundleArguments } from '../../scripts/templates/build-source-bundle.mjs';
-import { buildMigrationInventory, buildSeedInventory } from '../../scripts/templates/framework-manifest-utils.mjs';
+import { buildMigrationInventory, buildPresetMigrationInventory, buildSeedInventory } from '../../scripts/templates/framework-manifest-utils.mjs';
+import { resolvePresetModules } from '../../scripts/templates/preset-modules.mjs';
 
 const skipBundleIntegration = areBundleInputsClean()
   ? false
@@ -93,6 +94,14 @@ test('build-source-bundle writes manifest with sha256 managed files', { skip: sk
 test('migration inventory rejects a missing provider counterpart', () => {
   const prefix = 'src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/';
   assert.throws(() => buildMigrationInventory({ [`${prefix}SqlServer/001_Foundation.sql`]: '0'.repeat(64) }), /missing MySql counterpart/);
+});
+
+test('preset migration projection keeps subscription renewal and periods in Minimal', () => {
+  const names = ['376_SubscriptionRenewalSource.sql', '377_SubscriptionPeriodSlots.sql', '378_NotificationsAnnouncementArchive.sql'];
+  const inventory = { scripts: names.map(name => ({ name })) };
+  const project = (preset) => buildPresetMigrationInventory(inventory, preset, resolvePresetModules(preset)).scripts.map(({ name }) => name);
+  assert.deepEqual(project('minimal'), names.slice(0, 2));
+  assert.deepEqual(project('platform'), names);
 });
 
 test('seed inventory follows migration registrations and selected module closure', () => {

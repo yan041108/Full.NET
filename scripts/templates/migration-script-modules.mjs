@@ -43,6 +43,8 @@ const SHARED_MODULE_REQUIREMENTS = new Map([
 ]);
 
 const STEM_MODULE_OVERRIDES = new Map([
+  ['SubscriptionRenewalSource', 'Tenancy'],
+  ['SubscriptionPeriodSlots', 'Tenancy'],
   ['TenantOwnerTransferReceipt', 'Identity'],
   ['HostRoleDataScope', 'Identity'],
   ['IdentityHostUserProfileAuthority', 'Identity'],
