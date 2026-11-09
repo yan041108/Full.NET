@@ -1,0 +1,13 @@
+[Unit]
+Description=Check Full.NET object storage growth headroom
+After=fullnet-object-storage.service
+
+[Service]
+Type=oneshot
+User=fullnet-storage
+ExecStart=/usr/bin/python3 -B /usr/local/lib/fullnet/Verify-ObjectStorageCapacity.py
+TimeoutStartSec=10
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true

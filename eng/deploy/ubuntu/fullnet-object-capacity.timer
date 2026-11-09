@@ -1,0 +1,10 @@
+[Unit]
+Description=Check Full.NET object storage growth every five minutes
+
+[Timer]
+OnBootSec=2min
+OnUnitInactiveSec=5min
+Unit=fullnet-object-capacity.service
+
+[Install]
+WantedBy=timers.target
