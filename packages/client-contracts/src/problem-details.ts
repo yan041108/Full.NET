@@ -27,11 +27,8 @@ export function isFullNetProblemDetails(value: unknown): value is FullNetProblem
  * 读取标准错误响应；当网关返回 HTML、空响应或损坏 JSON 时返回安全的统一错误。
  */
 export async function readProblemDetails(response: Response): Promise<FullNetProblemDetails> {
-  const retryAfter = response.headers.get('retry-after');
-  const seconds = retryAfter && /^\d+$/.test(retryAfter.trim()) ? Number(retryAfter)
-    : retryAfter ? Math.ceil((Date.parse(retryAfter) - Date.now()) / 1000) : NaN;
-  const retryMetadata = Number.isFinite(seconds) && seconds >= 0
-    ? { retryAfterSeconds: Math.min(3600, Math.max(1, seconds)) } : {};
+  const retryAfterSeconds = readRetryAfterSeconds(response.headers);
+  const retryMetadata = retryAfterSeconds === undefined ? {} : { retryAfterSeconds };
   const contentType = response.headers.get('content-type')?.toLowerCase() ?? '';
   if (contentType.includes('json')) {
     try {
@@ -50,4 +47,12 @@ export async function readProblemDetails(response: Response): Promise<FullNetPro
     code: 'http.unexpected_response',
     title: response.statusText || '请求失败'
   };
+}
+
+/** 将 Retry-After 的秒数或 HTTP 日期转换为有界等待时间。 */
+export function readRetryAfterSeconds(headers: Headers): number | undefined {
+  const retryAfter = headers.get('retry-after');
+  const seconds = retryAfter && /^\d+$/.test(retryAfter.trim()) ? Number(retryAfter)
+    : retryAfter ? Math.ceil((Date.parse(retryAfter) - Date.now()) / 1000) : NaN;
+  return Number.isFinite(seconds) && seconds >= 0 ? Math.min(3600, Math.max(1, seconds)) : undefined;
 }

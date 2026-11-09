@@ -11,6 +11,7 @@ import {
 describe('Notifications 实时客户端', () => {
   afterEach(() => {
     vi.useRealTimers();
+    vi.unstubAllGlobals();
   });
 
   it('只接受稳定机器码和结构化数据', () => {
@@ -203,6 +204,48 @@ describe('Notifications 实时客户端', () => {
     await controller.dispose();
   });
 
+  it('实际 SignalR 协商遵守 Retry-After，收到 401 后等待新的会话', async () => {
+    vi.useFakeTimers();
+    const session = createSession();
+    const negotiate = vi.fn()
+      .mockResolvedValueOnce(new Response(null, { status: 429, headers: { 'Retry-After': '12' } }))
+      .mockResolvedValue(new Response(null, { status: 401 }));
+    vi.stubGlobal('fetch', negotiate);
+    const controller = createNotificationsRealtimeController({
+      session,
+      hubPath: 'https://notifications.example.test/hubs/notifications',
+      onMessage: vi.fn()
+    });
+    const snapshot = authenticatedSnapshot(null);
+
+    try {
+      session.publish(snapshot);
+      session.publish(snapshot);
+      await controller.whenSettled();
+      expect(negotiate).toHaveBeenCalledOnce();
+      expect(negotiate).toHaveBeenCalledWith(
+        'https://notifications.example.test/hubs/notifications/negotiate?negotiateVersion=1',
+        expect.objectContaining({ method: 'POST', headers: expect.objectContaining({ Authorization: 'Bearer host-token' }) })
+      );
+      await vi.advanceTimersByTimeAsync(11_999);
+      expect(negotiate).toHaveBeenCalledOnce();
+      await vi.advanceTimersByTimeAsync(1);
+      await controller.whenSettled();
+      expect(negotiate).toHaveBeenCalledTimes(2);
+
+      session.publish(snapshot);
+      await vi.advanceTimersByTimeAsync(120_000);
+      expect(negotiate).toHaveBeenCalledTimes(2);
+      session.token = 'replacement-token';
+      session.publish({ ...snapshot, currentUser: { ...snapshot.currentUser!, sessionId: 'replacement-session' } });
+      await controller.whenSettled();
+      expect(negotiate).toHaveBeenCalledTimes(3);
+      expect(negotiate.mock.lastCall?.[1].headers.Authorization).toBe('Bearer replacement-token');
+    } finally {
+      await controller.dispose();
+    }
+  });
+
   it('自动重连成功后通知上层修复可能遗漏的业务状态', async () => {
     const session = createSession();
     const connection = createConnection();
@@ -233,6 +276,7 @@ describe('Notifications 实时客户端', () => {
     const session = createSession();
     const first = createConnection();
     const second = createConnection();
+    const onReconnected = vi.fn();
     const connections = [first, second];
     const connectionFactory = vi.fn(options => {
       const connection = connections.shift()!;
@@ -242,6 +286,7 @@ describe('Notifications 实时客户端', () => {
     const controller = createNotificationsRealtimeController({
       session,
       onMessage: vi.fn(),
+      onReconnected,
       connectionFactory
     });
 
@@ -253,6 +298,7 @@ describe('Notifications 实时客户端', () => {
 
     expect(second.start).toHaveBeenCalledOnce();
     expect(connectionFactory).toHaveBeenCalledTimes(2);
+    expect(onReconnected).toHaveBeenCalledOnce();
 
     await controller.dispose();
     await second.close();

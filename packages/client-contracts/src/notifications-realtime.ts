@@ -56,8 +56,14 @@ export interface NotificationsRealtimeController {
 
 const clientMethodName = 'ReceiveMessageAsync';
 const reconnectDelays = [0, 2_000, 10_000, 30_000] as const;
-const initialRetryDelays = reconnectDelays;
 const supportedCodes = new Set<string>(Object.values(NOTIFICATIONS_REALTIME_CODES));
+
+/** 传输层返回已知协商状态，控制器可在不读取响应正文的情况下决定是否重试。 */
+export class NotificationsHubHttpFailure extends Error {
+  constructor(readonly status: number, readonly retryAfterSeconds?: number) {
+    super(`Notifications Hub HTTP ${status}`);
+  }
+}
 
 /** 验证 SignalR 下行信封，只允许已登记机器码和普通对象数据进入管理端状态。 */
 export function isRealtimeMessage(value: unknown): value is RealtimeMessage {
@@ -77,12 +83,14 @@ export function createNotificationsRealtimeController(
   options: NotificationsRealtimeOptions
 ): NotificationsRealtimeController {
   const connectionFactory = options.connectionFactory ?? createSignalRConnection;
-  let activeKey: string | undefined;
+  let activeGeneration = 0;
   let activeConnection: NotificationsHubConnection | undefined;
   let activeHandler: ((message: unknown) => void) | undefined;
   let desiredKey: string | undefined;
+  let generation = 0;
   let retryTimer: ReturnType<typeof setTimeout> | undefined;
   let retryAttempt = 0;
+  let recovering = false;
   let disposed = false;
   let transition = Promise.resolve();
 
@@ -93,72 +101,58 @@ export function createNotificationsRealtimeController(
     }
 
     desiredKey = nextKey;
-    cancelInitialRetry();
+    const ticket = ++generation;
+    cancelRetry();
     transition = transition
-      .then(() => synchronize(nextKey))
+      .then(() => synchronize(ticket))
       .catch(() => undefined);
   });
 
-  async function synchronize(targetKey: string | undefined): Promise<void> {
-    if (disposed && targetKey !== undefined) {
-      return;
-    }
-
-    if (activeKey === targetKey) {
-      return;
-    }
+  async function synchronize(ticket: number): Promise<void> {
+    if (ticket !== generation || (activeConnection && activeGeneration === ticket)) return;
 
     await stopActiveConnection();
-    if (targetKey === undefined) {
-      return;
-    }
+    if (disposed || ticket !== generation || desiredKey === undefined) return;
 
     let connection: NotificationsHubConnection;
     try {
       connection = await connectionFactory({
         hubPath: options.hubPath ?? '/hubs/notifications',
-        accessTokenFactory: () => options.session.readAccessToken(),
+        accessTokenFactory: () => !disposed && ticket === generation ? options.session.readAccessToken() : undefined,
         headers: options.session.readCsrfToken?.() ? { 'X-CSRF-Token': options.session.readCsrfToken!()! } : undefined,
         reconnectDelays
       });
     } catch {
       // 延迟传输包加载失败沿用首次连接退避，不阻断 HTTP 会话，也不遗留未处理拒绝。
-      scheduleInitialRetry(targetKey);
+      scheduleRetry(ticket);
       return;
     }
     // 加载期间可能退出、撤销会话或切换租户，旧上下文不得越过外部连接边界。
-    if (disposed || desiredKey !== targetKey) {
+    if (disposed || ticket !== generation) {
       return;
     }
     const handler = (value: unknown) => {
-      if (isRealtimeMessage(value)) {
+      if (!disposed && ticket === generation && isRealtimeMessage(value)) {
         options.onMessage(value);
       }
     };
     connection.on(clientMethodName, handler);
     connection.onreconnected(() => {
-      if (disposed
-        || desiredKey !== targetKey
-        || activeConnection !== connection) {
-        return;
-      }
-
-      void Promise.resolve(options.onReconnected?.()).catch(() => undefined);
+      if (!disposed && ticket === generation && activeConnection === connection) notifyReconnected(ticket);
     });
-    connection.onclose(() => {
+    connection.onclose(error => {
       if (activeConnection !== connection) {
         return;
       }
 
       activeConnection = undefined;
       activeHandler = undefined;
-      activeKey = undefined;
       connection.off(clientMethodName, handler);
-      scheduleInitialRetry(targetKey);
+      scheduleRetry(ticket, error, true);
     });
     try {
       await connection.start();
-      if (disposed || desiredKey !== targetKey) {
+      if (disposed || ticket !== generation) {
         connection.off(clientMethodName, handler);
         await connection.stop();
         return;
@@ -166,46 +160,59 @@ export function createNotificationsRealtimeController(
 
       activeConnection = connection;
       activeHandler = handler;
-      activeKey = targetKey;
+      activeGeneration = ticket;
+      if (recovering || retryAttempt > 0) notifyReconnected(ticket);
       retryAttempt = 0;
-    } catch {
+      recovering = false;
+    } catch (error) {
       connection.off(clientMethodName, handler);
       try {
         await connection.stop();
       } catch {
         // 初始连接可能尚未进入可停止状态；保持 HTTP 主流程可用即可。
       }
-      scheduleInitialRetry(targetKey);
+      scheduleRetry(ticket, error);
     }
   }
 
-  function scheduleInitialRetry(targetKey: string): void {
-    // SignalR 自动重连不覆盖首次 start；计时器绑定认证上下文，避免旧租户在切换后恢复连接。
-    if (disposed || desiredKey !== targetKey || retryTimer !== undefined) {
+  function notifyReconnected(ticket: number): void {
+    void Promise.resolve().then(() => {
+      if (!disposed && ticket === generation) return options.onReconnected?.();
+    }).catch(() => undefined);
+  }
+
+  function scheduleRetry(ticket: number, error?: unknown, afterClose = false): void {
+    if (disposed || ticket !== generation || retryTimer !== undefined) {
       return;
     }
 
-    const delayIndex = Math.min(retryAttempt, initialRetryDelays.length - 1);
-    const delay = initialRetryDelays[delayIndex];
+    // 同一认证上下文收到拒绝后停止协商，HTTP 会话仍由现有身份流程维护。
+    const failure = error instanceof NotificationsHubHttpFailure ? error : undefined;
+    if (failure?.status === 401 || failure?.status === 403) return;
+    recovering ||= afterClose;
+    const delayIndex = Math.min(retryAttempt, reconnectDelays.length - 1);
+    const retryDelay = reconnectDelays[delayIndex];
+    const delay = failure?.status === 429 ? Math.max(retryDelay, (failure.retryAfterSeconds ?? 30) * 1000) : retryDelay;
     retryAttempt += 1;
     retryTimer = setTimeout(() => {
       retryTimer = undefined;
-      if (disposed || desiredKey !== targetKey) {
+      if (disposed || ticket !== generation) {
         return;
       }
 
       transition = transition
-        .then(() => synchronize(targetKey))
+        .then(() => synchronize(ticket))
         .catch(() => undefined);
     }, delay);
   }
 
-  function cancelInitialRetry(): void {
+  function cancelRetry(): void {
     if (retryTimer !== undefined) {
       clearTimeout(retryTimer);
       retryTimer = undefined;
     }
     retryAttempt = 0;
+    recovering = false;
   }
 
   async function stopActiveConnection(): Promise<void> {
@@ -213,7 +220,6 @@ export function createNotificationsRealtimeController(
     const handler = activeHandler;
     activeConnection = undefined;
     activeHandler = undefined;
-    activeKey = undefined;
     if (connection === undefined) {
       return;
     }
@@ -239,9 +245,10 @@ export function createNotificationsRealtimeController(
       disposed = true;
       unsubscribe();
       desiredKey = undefined;
-      cancelInitialRetry();
+      const ticket = ++generation;
+      cancelRetry();
       transition = transition
-        .then(() => synchronize(undefined))
+        .then(() => synchronize(ticket))
         .catch(() => undefined);
       await transition;
     }
@@ -249,7 +256,7 @@ export function createNotificationsRealtimeController(
 }
 
 function readConnectionKey(snapshot: IdentitySessionSnapshot): string | undefined {
-  if (snapshot.state !== 'authenticated' || snapshot.currentUser === undefined) {
+  if (snapshot.state !== 'authenticated' || snapshot.switching || snapshot.currentUser === undefined) {
     return undefined;
   }
 
