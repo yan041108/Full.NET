@@ -14,6 +14,7 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 $PSNativeCommandUseErrorActionPreference = $false
+. (Join-Path $PSScriptRoot 'Read-ReportingCutoverQuery.ps1')
 
 function Read-ClusterList {
     param([string] $Resource, [string] $Selector)
@@ -52,19 +53,9 @@ function Assert-OldHostsStopped {
 }
 
 Assert-OldHostsStopped
-if ($Provider -eq 'SqlServer') {
-    $result = & sqlcmd -S $Server -d $Database -N -b -h -1 -W -l 10 -t 15 -i (Join-Path $PSScriptRoot 'sqlserver.sql') 2>$null
-} else {
-    if (-not $MySqlLoginPath -or -not $MySqlCaFile -or -not (Test-Path -LiteralPath $MySqlCaFile -PathType Leaf)) {
-        throw 'Reporting cutover requires a MySQL login path and a trusted CA file.'
-    }
-    $query = Get-Content -LiteralPath (Join-Path $PSScriptRoot 'mysql.sql') -Raw
-    $result = & mysql --no-defaults "--login-path=$MySqlLoginPath" --protocol=TCP "--host=$Server" "--port=$MySqlPort" `
-        "--database=$Database" --ssl-mode=VERIFY_IDENTITY "--ssl-ca=$MySqlCaFile" --batch --skip-column-names `
-        --connect-timeout=10 --skip-reconnect --execute $query 2>$null
-}
-if ($LASTEXITCODE -ne 0) { throw 'Reporting cutover could not read the export state from the configured database.' }
-$count = ($result -join "`n").Trim()
+$queryFile = Join-Path $PSScriptRoot ($Provider.ToLowerInvariant() + '.sql')
+$count = Read-ReportingCutoverQuery -Provider $Provider -Server $Server -Database $Database `
+    -MySqlLoginPath $MySqlLoginPath -MySqlCaFile $MySqlCaFile -MySqlPort $MySqlPort -QueryFile $queryFile
 if ($count -eq '-1') { throw 'Reporting cutover requires a writable primary database endpoint.' }
 if ($count -cnotmatch '\A[0-9]+\z') { throw 'Invalid reporting cutover database result.' }
 if ($count -cne '0') { throw "Reporting cutover blocked by $count unfinished or leased export tasks." }

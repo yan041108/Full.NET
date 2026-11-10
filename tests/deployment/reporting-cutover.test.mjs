@@ -5,6 +5,70 @@ import test from 'node:test';
 
 const root = fileURLToPath(new URL('../..', import.meta.url));
 
+function runEvidence(scenario, provider = 'SqlServer') {
+  const script = String.raw`
+$tenant = '00000000-0000-7000-8000-000000000001'
+$task = '00000000-0000-7000-8000-000000000002'
+$scenario = $env:FULLNET_CUTOVER_TEST_CASE
+function Reply {
+    if ($scenario -eq 'invalid-id') { throw 'Database must not be called.' }
+    if ($args[0] -notlike "*$tenant*" -or $args[0] -notlike "*$task*" -or $args[0] -like '*{{*') { throw 'UUID bindings missing.' }
+    $global:LASTEXITCODE = 0
+    switch ($scenario) {
+        'missing' { 'null' }
+        'malformed' { 'malformed-result' }
+        'wrong-tenant' { @{tenantId=$task;taskId=$task} | ConvertTo-Json -Compress }
+        default { @{tenantId=$tenant;taskId=$task;hasLease=1;hasRowIdentityPrefix=0;fileCount=2} | ConvertTo-Json -Compress }
+    }
+}
+function sqlcmd {
+    if ('-N' -notin $args -or '-C' -in $args -or '-x' -notin $args -or '-Q' -notin $args) { throw 'Unexpected SQL Server transport.' }
+    Reply $args[-1]
+}
+function mysql {
+    if ('--ssl-mode=VERIFY_IDENTITY' -notin $args -or '--raw' -notin $args) { throw 'Unexpected MySQL transport.' }
+    Reply $args[-1]
+}
+function helm { throw 'Evidence must not call Helm.' }
+$parameters = @{Provider=$env:FULLNET_CUTOVER_TEST_PROVIDER;Server='fixture.invalid';Database='fixture';TenantId=$tenant;TaskId=$task;
+    MySqlLoginPath='fixture-reader';MySqlCaFile='./eng/deploy/reporting-cutover/mysql.sql'}
+if ($scenario -eq 'invalid-id') { $parameters.TaskId = 'invalid-id' }
+& './eng/deploy/reporting-cutover/Get-ReportingCutoverEvidence.ps1' @parameters
+`;
+  const result = spawnSync('pwsh', ['-NoProfile', '-NonInteractive', '-Command', script], {
+    cwd: root, encoding: 'utf8', timeout: 20_000, windowsHide: true,
+    env: { ...process.env, FULLNET_CUTOVER_TEST_CASE: scenario, FULLNET_CUTOVER_TEST_PROVIDER: provider }
+  });
+  assert.ifError(result.error);
+  return result;
+}
+
+for (const provider of ['SqlServer', 'MySql']) {
+  test(`${provider} evidence returns the requested task without invoking deployment`, () => {
+    const { status, stdout, stderr } = runEvidence('ready', provider);
+    assert.equal(status, 0, stderr);
+    const record = JSON.parse(stdout);
+    assert.equal(record.fileCount, 2);
+    assert.equal(record.hasLease, true);
+    assert.equal(record.hasRowIdentityPrefix, false);
+  });
+}
+
+for (const [scenario, message] of [
+  ['missing', /No reporting task found/],
+  ['malformed', /Invalid reporting cutover evidence result/],
+  ['wrong-tenant', /Invalid reporting cutover evidence result/],
+  ['invalid-id', /Cannot process argument transformation on parameter 'TaskId'/],
+]) {
+  test(`${scenario} evidence fails without returning a record`, () => {
+    const { status, stdout, stderr } = runEvidence(scenario);
+    assert.notEqual(status, 0);
+    assert.equal(stdout.trim(), '');
+    assert.match(stderr, message);
+    assert.doesNotMatch(stderr, /Database must not be called|malformed-result/);
+  });
+}
+
 function run(scenario, provider = 'SqlServer') {
   const script = String.raw`
 $scenario = $env:FULLNET_CUTOVER_TEST_CASE
