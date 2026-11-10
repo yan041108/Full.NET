@@ -40,7 +40,7 @@ function target(value, field) {
 export function verifyFullNetRecoveryEvidence(directory, expectedCandidateSha256) {
   requireCondition(typeof expectedCandidateSha256 === 'string' && sha256.test(expectedCandidateSha256), 'Expected a trusted candidate SHA-256');
   const { data: manifest } = readReceipt(directory, 'recovery.json');
-  requireCondition(manifest.schemaVersion === 1 && manifest.candidateSha256 === expectedCandidateSha256
+  requireCondition(manifest.schemaVersion === 2 && manifest.candidateSha256 === expectedCandidateSha256
     && typeof manifest.drillId === 'string' && /^[a-z0-9][a-z0-9-]{0,63}$/u.test(manifest.drillId), 'Invalid recovery manifest identity');
   const started = time(manifest.drillStartedAtUtc, 'drillStartedAtUtc');
   const fault = time(manifest.faultAtUtc, 'faultAtUtc');
@@ -57,7 +57,7 @@ export function verifyFullNetRecoveryEvidence(directory, expectedCandidateSha256
   const checked = new Map();
   for (const check of checks) {
     const { data, digest } = readReceipt(directory, `${check}.json`);
-    requireCondition(manifest.receipts?.[check] === digest && data.schemaVersion === 1 && data.check === check
+    requireCondition(manifest.receipts?.[check] === digest && data.schemaVersion === 2 && data.check === check
       && data.drillId === manifest.drillId && data.candidateSha256 === expectedCandidateSha256 && data.outcome === 'passed',
     `${check} receipt identity, digest or outcome is invalid`);
     const checkedAt = time(data.checkedAtUtc, `${check}.checkedAtUtc`);
@@ -65,6 +65,14 @@ export function verifyFullNetRecoveryEvidence(directory, expectedCandidateSha256
     if (check === 'database' || check === 'files') {
       const recoveredThrough = time(data.recoveredThroughUtc, `${check}.recoveredThroughUtc`);
       requireCondition(recoveryPoint <= recoveredThrough && recoveredThrough <= fault, `${check} does not cover the joint recovery point`);
+    }
+    if (check === 'access') {
+      const comparedThrough = time(data.revocationsComparedThroughUtc, 'access.revocationsComparedThroughUtc');
+      requireCondition(comparedThrough >= fault && comparedThrough <= checkedAt, 'Access revocation evidence must cover the fault and precede its check');
+      requireCondition(data.unresolvedRevocations === 0, 'Access has unresolved or unreported revocations');
+    }
+    if (check === 'dispatch') {
+      requireCondition(data.unresolvedExternalOutcomes === 0, 'Dispatch has unresolved or unreported external outcomes');
     }
     checked.set(check, checkedAt);
   }

@@ -48,9 +48,11 @@
 | `access.json` | 隔离 API 的关键读取、登录及权限复核，撤销差异已核清 |
 | `dispatch.json` | 外发对账、发布者唯一性、Worker 受控处理与重复防护 |
 
-每份回执使用 `schemaVersion: 1`，包含 `drillId`、`candidateSha256`、`check`（不带扩展名的固定文件名）、`outcome` 和 `checkedAtUtc`。数据库和文件回执另含 `recoveredThroughUtc`，记录各自可证实的恢复上界。回执中仅保存脱敏结果及受控证据的引用。
+每份回执使用 `schemaVersion: 2`，包含 `drillId`、`candidateSha256`、`check`（不带扩展名的固定文件名）、`outcome` 和 `checkedAtUtc`。数据库和文件回执另含 `recoveredThroughUtc`，记录各自可证实的恢复上界。回执中仅保存脱敏结果及受控证据的引用。
 
 同目录的 `recovery.json` 使用相同的 `schemaVersion`、`drillId` 和 `candidateSha256`。`receipts` 按 `check` 保存各回执文件原始字节的 SHA-256。另记录 `rpoTargetSeconds`、`rtoTargetSeconds` 两个演练前冻结的整数秒目标，以及 `drillStartedAtUtc`、`faultAtUtc`、`isolatedAtUtc`、`lastTrustedCommitAtUtc`、`verifiedRecoveryPointAtUtc` 和 `businessRecoveredAtUtc`。所有时间使用 UTC `Z` 格式，支持毫秒。联合恢复点须已对账，且不晚于数据库或文件的已证实上界。
+
+`access.json` 另须记录 `revocationsComparedThroughUtc` 和 `unresolvedRevocations`。可信撤权来源至少覆盖到故障时刻，再按原用户、租户和资源身份通过正式管理入口重放所需撤销，并验证原凭据和资源访问被拒绝。核对上界不能晚于实际检查时间，未解决数量须为 0。`dispatch.json` 的 `unresolvedExternalOutcomes` 同样须为 0。缺少可信来源、未解决项尚存或只核对到旧备份时，不签发通过回执。
 
 ```powershell
 node eng/deploy/Verify-FullNetRecoveryEvidence.mjs $EvidenceDirectory $TrustedCandidateSha256

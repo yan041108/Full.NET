@@ -15,7 +15,7 @@ const entry = fileURLToPath(new URL('../../eng/deploy/Verify-FullNetRecoveryEvid
 function fixture(t) {
   const directory = mkdtempSync(join(tmpdir(), 'fullnet-recovery-evidence-'));
   t.after(() => rmSync(directory, { recursive: true, force: true }));
-  const identity = { schemaVersion: 1, drillId: 'isolated-drill', candidateSha256: candidate };
+  const identity = { schemaVersion: 2, drillId: 'isolated-drill', candidateSha256: candidate };
   const manifest = { ...identity, drillStartedAtUtc: time(0), faultAtUtc: time(60), isolatedAtUtc: time(62),
     lastTrustedCommitAtUtc: time(58), verifiedRecoveryPointAtUtc: time(55), businessRecoveredAtUtc: time(100),
     rpoTargetSeconds: 3, rtoTargetSeconds: 40, receipts: {} };
@@ -29,8 +29,8 @@ function fixture(t) {
   write('database', time(70), { recoveredThroughUtc: time(57) });
   write('files', time(71), { recoveredThroughUtc: time(55) });
   write('keys', time(72));
-  write('access', time(80));
-  write('dispatch', time(95));
+  write('access', time(80), { revocationsComparedThroughUtc: time(60), unresolvedRevocations: 0 });
+  write('dispatch', time(95), { unresolvedExternalOutcomes: 0 });
   return { directory, manifest, write, writeManifest, verify: () => verifyFullNetRecoveryEvidence(directory, candidate) };
 }
 
@@ -56,7 +56,12 @@ for (const [name, alter, error] of [
   ['failed dispatch', f => f.write('dispatch', time(95), { outcome: 'failed' }), /dispatch receipt identity, digest or outcome/],
   ['file snapshot too old', f => f.write('files', time(71), { recoveredThroughUtc: time(54) }), /files does not cover the joint recovery point/],
   ['access before isolation', f => f.write('access', time(61)), /access was checked outside the isolated recovery window/],
-  ['dispatch before access', f => f.write('dispatch', time(79)), /dispatch must follow access/],
+  ['dispatch before access', f => f.write('dispatch', time(79), { unresolvedExternalOutcomes: 0 }), /dispatch must follow access/],
+  ['missing revocation reconciliation', f => f.write('access', time(80)), /access.revocationsComparedThroughUtc/],
+  ['revocations checked only through the backup', f => f.write('access', time(80), { revocationsComparedThroughUtc: time(55), unresolvedRevocations: 0 }), /revocation evidence must cover the fault/],
+  ['unresolved revocation', f => f.write('access', time(80), { revocationsComparedThroughUtc: time(60), unresolvedRevocations: 1 }), /unresolved or unreported revocations/],
+  ['unreported external outcomes', f => f.write('dispatch', time(95)), /unresolved or unreported external outcomes/],
+  ['unknown external outcome', f => f.write('dispatch', time(95), { unresolvedExternalOutcomes: 1 }), /unresolved or unreported external outcomes/],
   ['nonexistent calendar date', f => { f.manifest.faultAtUtc = '2026-02-30T00:00:00Z'; f.writeManifest(); }, /faultAtUtc is not a valid UTC timestamp/],
 ]) {
   test(`${name} fails recovery evidence verification`, t => {
