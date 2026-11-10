@@ -62,6 +62,10 @@ Worker 恢复前还应核对这些账号的在途任务。对原会话已失效�
 
 在隔离环境逐个验证已撤销 `kid` 的旧令牌返回 401，新登录签发预期的新 `kid`，新令牌能通过当前权限校验。保持原 Data Protection 材料，并通过依赖受保护配置的实际操作核验解密能力。OIDC 的 `Identity:Oidc:SigningKeys`、活动策略、退役记录及 JWKS 有各自治理流程，恢复时另行对照当前可信状态核验。
 
+OIDC 恢复时，先核对可信记录中的活动 `kid`、各公钥摘要及已退役项，再读取恢复环境的 `/api/v1/identity/oidc-signing-keys` 和 `/.well-known/jwks`。数据库备份可能同时回退活动策略和退役记录，单独恢复秘密配置不足以确认治理状态。按当前可信记录通过 `/{keyId}/activate`、`/{keyId}/retire` 重放合法变更，再重启并复核活动策略与 JWKS。管理路径均相对于 `/api/v1/identity/oidc-signing-keys`。
+
+激活继续满足预发布时间、签发私钥及节点就绪要求。实际调用签发节点的 `/health/ready`，确认签名材料及策略校验通过、就绪租约已更新。曾使用的旧密钥继续满足保留窗口，窗口内退役被拒绝时保持相应公开材料。确认退役后，检查该 `kid` 已从 JWKS 移除、重新发布被拒绝，并核对配置中的旧材料未在重启后重新启用。缺少保留期公钥、材料摘要不符或可信治理记录不完整时继续隔离。
+
 ```powershell
 node eng/deploy/Verify-FullNetRecoveryEvidence.mjs $EvidenceDirectory $TrustedCandidateSha256
 ```
