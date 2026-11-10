@@ -58,6 +58,10 @@
 
 Worker 恢复前还应核对这些账号的在途任务。对原会话已失效的排队导出，验证 Worker 以 `reporting.export_authority_denied` 收口，且未生成新文件。原来已经完成的任务及文件继续保留，下载权限按当前账号、会话和资源授权复核。
 
+应用 JWT 的签名配置使用 `Identity:ActiveKeyId` 和 `Identity:SigningKeys`。恢复时，从当前可信秘密版本核对活动私钥和全部允许验签的公钥。已撤销的旧密钥须从验签集合中移除，并使所有签发节点、API 和 Worker 使用该配置。仅切换 `ActiveKeyId` 时，仍保留在 `SigningKeys` 中的旧公钥继续参与验签。
+
+在隔离环境逐个验证已撤销 `kid` 的旧令牌返回 401，新登录签发预期的新 `kid`，新令牌能通过当前权限校验。保持原 Data Protection 材料，并通过依赖受保护配置的实际操作核验解密能力。OIDC 的 `Identity:Oidc:SigningKeys`、活动策略、退役记录及 JWKS 有各自治理流程，恢复时另行对照当前可信状态核验。
+
 ```powershell
 node eng/deploy/Verify-FullNetRecoveryEvidence.mjs $EvidenceDirectory $TrustedCandidateSha256
 ```
