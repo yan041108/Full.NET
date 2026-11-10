@@ -54,6 +54,10 @@
 
 `access.json` 另须记录 `revocationsComparedThroughUtc` 和 `unresolvedRevocations`。可信撤权来源至少覆盖到故障时刻，再按原用户、租户和资源身份通过正式管理入口重放所需撤销，并验证原凭据和资源访问被拒绝。核对上界不能晚于实际检查时间，未解决数量须为 0。`dispatch.json` 的 `unresolvedExternalOutcomes` 同样须为 0。缺少可信来源、未解决项尚存或只核对到旧备份时，不签发通过回执。
 
+账号与会话撤销对账时，按可信撤销记录中的用户 UUID，在恢复环境调用 `POST /api/v1/identity/online-sessions/users/{userId}/revoke-all`，并用原会话确认受保护入口返回 401。该操作需要 `identity.sessions.revoke`。若该账号还应保持禁用，再调用 `POST /api/v1/identity/users/{userId}/disable`，核对账号状态及新登录被拒绝。该操作需要 `identity.users.disable`。保留接口回执及拒绝结果，处理失败时继续隔离。
+
+Worker 恢复前还应核对这些账号的在途任务。对原会话已失效的排队导出，验证 Worker 以 `reporting.export_authority_denied` 收口，且未生成新文件。原来已经完成的任务及文件继续保留，下载权限按当前账号、会话和资源授权复核。
+
 ```powershell
 node eng/deploy/Verify-FullNetRecoveryEvidence.mjs $EvidenceDirectory $TrustedCandidateSha256
 ```
