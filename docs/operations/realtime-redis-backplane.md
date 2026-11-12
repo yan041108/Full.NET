@@ -3,6 +3,10 @@
 本文说明 SignalR 多 API 节点使用 Redis Backplane 时的就绪信号、故障边界和恢复步骤。
 它不把即时消息提升为可靠业务事件，也不替代业务查询或事务 Outbox。
 
+## 安全更新
+
+.NET 10 部署须同时核对 API 产物中的 `Microsoft.AspNetCore.SignalR.StackExchangeRedis` 和实际运行的 ASP.NET Core 版本。针对 CVE-2026-114147，两者均需达到 `10.0.15`。更新包后重新构建和部署 API。框架依赖部署还需更新共享运行时后重启。标准容器的 `ASPNET_RUNTIME_VERSION` 默认选用已修复的基础镜像。自包含或 Native AOT 产物应使用已修复的运行时重新发布。上线后核对实际版本和跨节点投递。见[微软安全公告](https://github.com/dotnet/aspnetcore/security/advisories/GHSA-wr8v-9x5q-ggcm)。
+
 ## 配置与信号
 
 优先使用独立配置，避免把 Realtime 的发布拓扑与缓存连接生命周期隐式绑定：

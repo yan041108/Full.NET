@@ -35,7 +35,10 @@ test('Dockerfile exposes api/worker/migrator final targets from one SDK build', 
   assert.match(dockerfile, /Full\.NET\.Host\.Migrator\.dll/);
   assert.match(dockerfile, /SOURCE_COMMIT/);
   assert.match(dockerfile, /mcr\.microsoft\.com\/dotnet\/sdk:\$\{DOTNET_VERSION\}/);
-  assert.match(dockerfile, /mcr\.microsoft\.com\/dotnet\/aspnet:\$\{DOTNET_VERSION\}/);
+  const runtimeVersion = /^ARG ASPNET_RUNTIME_VERSION=10\.0\.(\d+)$/mu.exec(dockerfile);
+  assert.ok(runtimeVersion && Number(runtimeVersion[1]) >= 15, '基础运行时必须包含 CVE-2026-114147 修复');
+  for (const host of ['api', 'worker', 'migrator'])
+    assert.ok(dockerfile.includes('FROM mcr.microsoft.com/dotnet/aspnet:${ASPNET_RUNTIME_VERSION} AS ' + host));
 });
 
 test('container image contract runner exists for post-build verification', async () => {

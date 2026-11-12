@@ -4,6 +4,8 @@
 # 最终层只复制 publish 产物，并以非 root 用户运行。
 
 ARG DOTNET_VERSION=10.0
+# Redis 背板安全修复同时依赖已修复的 ASP.NET Core 运行时。
+ARG ASPNET_RUNTIME_VERSION=10.0.15
 
 FROM mcr.microsoft.com/dotnet/sdk:${DOTNET_VERSION} AS build
 ARG BUILD_CONFIGURATION=Release
@@ -34,7 +36,7 @@ RUN dotnet publish src/Hosts/Full.NET.Host.Api/Full.NET.Host.Api.csproj \
       --no-restore \
       /p:SourceRevisionId=${SOURCE_COMMIT}
 
-FROM mcr.microsoft.com/dotnet/aspnet:${DOTNET_VERSION} AS api
+FROM mcr.microsoft.com/dotnet/aspnet:${ASPNET_RUNTIME_VERSION} AS api
 ARG SOURCE_COMMIT=unknown
 WORKDIR /app
 COPY --from=build /app/publish/api .
@@ -48,7 +50,7 @@ LABEL org.opencontainers.image.title="Full.NET API" \
 USER $APP_UID
 ENTRYPOINT ["dotnet", "Full.NET.Host.Api.dll"]
 
-FROM mcr.microsoft.com/dotnet/aspnet:${DOTNET_VERSION} AS worker
+FROM mcr.microsoft.com/dotnet/aspnet:${ASPNET_RUNTIME_VERSION} AS worker
 ARG SOURCE_COMMIT=unknown
 WORKDIR /app
 COPY --from=build /app/publish/worker .
@@ -60,7 +62,7 @@ LABEL org.opencontainers.image.title="Full.NET Worker" \
 USER $APP_UID
 ENTRYPOINT ["dotnet", "Full.NET.Host.Worker.dll"]
 
-FROM mcr.microsoft.com/dotnet/aspnet:${DOTNET_VERSION} AS migrator
+FROM mcr.microsoft.com/dotnet/aspnet:${ASPNET_RUNTIME_VERSION} AS migrator
 ARG SOURCE_COMMIT=unknown
 WORKDIR /app
 COPY --from=build /app/publish/migrator .

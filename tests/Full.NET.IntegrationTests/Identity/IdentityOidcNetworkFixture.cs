@@ -141,7 +141,7 @@ internal sealed class IdentityOidcNetworkFixture(DatabaseProvider provider) : IA
         var arguments = new[] { "run", "--rm", "--name", _workerName, "--network", _network, "--cpus", "2", "--memory", "2g", "--mount", $"type=bind,source={_repository},target=/src,readonly",
             "--mount", $"type=bind,source={_root},target=/run/oidc,readonly", "-w", "/run/oidc", "-e", "ASPNETCORE_ENVIRONMENT=Testing", "-e", "DOTNET_ENVIRONMENT=Testing",
             "-e", "ASPNETCORE_CONTENTROOT=/run/oidc", "-e", "SSL_CERT_FILE=/run/oidc/tls.pem", "-e", "DOTNET_PROCESSOR_COUNT=2",
-            "fullnet-native-aot-publish-sdk:10.0.402", "dotnet", "/src/src/Hosts/Full.NET.Host.Worker/bin/Release/net10.0/Full.NET.Host.Worker.dll" };
+            "fullnet-native-aot-publish-sdk:10.0.404", "dotnet", "/src/src/Hosts/Full.NET.Host.Worker/bin/Release/net10.0/Full.NET.Host.Worker.dll" };
         var start = StartInfo("docker", arguments); _worker = Process.Start(start)!;
         _workerOut = _worker.StandardOutput.ReadToEndAsync(); _workerError = _worker.StandardError.ReadToEndAsync();
         try { await WaitUntilAsync(async () => !_worker.HasExited && await ScalarAsync("SELECT COUNT(1) FROM fn_identity_oidc_signing_node WHERE RoleKey = 'worker'") > previousNodes, TimeSpan.FromSeconds(40)); }

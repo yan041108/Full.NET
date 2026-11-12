@@ -130,9 +130,9 @@ OIDC 客户端以数据库为唯一权威源。`Identity:Oidc:Clients` 仅由 Mi
 
 节点声明仅保存公开材料摘要、密钥标识和租约，不存储私钥。签发时缺少活动私钥或权威状态不可用即失败关闭；退役状态校验故障也不放行 Bearer。首次就绪后，已知 JWKS 可在数据库短暂不可用时继续提供。聚焦验证与尚未证明的生产范围见[唯一活动计划](../superpowers/plans/2026-09-13-identity-oidc-sso-evolution.md)。
 
-OIDC 浏览器定向验收使用 `pnpm test:e2e:real:oidc-center`（或 `node scripts/testing/run-identity-oidc-runtime.mjs`）：夹具自动准备双库、临时 HTTPS Vue 代理、双 Kestrel API、独立 HTTPS RP 和桌面/移动浏览器。Windows 需安装 Edge；其他平台需已安装 Playwright Chromium。Linux Native AOT 对应 `node scripts/testing/run-identity-oidc-runtime.mjs --native`，要求 Docker 和既定 `fullnet-native-aot-publish-sdk:10.0.402` 镜像，真实发布并运行 ELF，不以 Windows 跳过代替。Native 构建申请 12 GiB，资源门禁另预留 4 GiB，Linux guest 可用内存需至少 10 GiB；实际能否启动仍由门禁判断。源码只读挂载，运行目录位于系统 TEMP；成功自动清理，失败保留诊断记录，结束后清理可再生二进制。测试证书只用于本轮进程信任，不安装到机器根证书库。
+OIDC 浏览器定向验收使用 `pnpm test:e2e:real:oidc-center`（或 `node scripts/testing/run-identity-oidc-runtime.mjs`）：夹具自动准备双库、临时 HTTPS Vue 代理、双 Kestrel API、独立 HTTPS RP 和桌面/移动浏览器。Windows 需安装 Edge；其他平台需已安装 Playwright Chromium。Linux Native AOT 对应 `node scripts/testing/run-identity-oidc-runtime.mjs --native`，要求 Docker 和既定 `fullnet-native-aot-publish-sdk:10.0.404` 镜像，真实发布并运行 ELF，不以 Windows 跳过代替。Native 构建申请 12 GiB，资源门禁另预留 4 GiB，Linux guest 可用内存需至少 10 GiB；实际能否启动仍由门禁判断。源码只读挂载，运行目录位于系统 TEMP；成功自动清理，失败保留诊断记录，结束后清理可再生二进制。测试证书只用于本轮进程信任，不安装到机器根证书库。
 
-首次缺少发布 SDK 镜像时，使用仓库的 [Dockerfile](../../eng/docker/Dockerfile.api-native-aot-linux-sdk) 准备：`docker build -t fullnet-native-aot-publish-sdk:10.0.402 -f eng/docker/Dockerfile.api-native-aot-linux-sdk eng/docker`。这一步只准备 SDK 与原生链接工具，不运行业务验收。
+首次缺少发布 SDK 镜像时，使用仓库的 [Dockerfile](../../eng/docker/Dockerfile.api-native-aot-linux-sdk) 准备：`docker build -t fullnet-native-aot-publish-sdk:10.0.404 -f eng/docker/Dockerfile.api-native-aot-linux-sdk eng/docker`。这一步只准备 SDK 与原生链接工具，不运行业务验收。
 
 历史 HTTP `vue-admin-oidc-center` SPA 项目及其令牌读取夹具已退出活动 Playwright 配置；旧业务探针文件保留作场景追踪，不再是 BFF 验收入口，也不计入新入口的通过数量。普通 legacy 管理端与独立协议 RP 夹具仍由原真实栈入口维护。改造结论只覆盖本轮定向场景，不能据此声称历史全部业务探针已在 BFF 下重跑。
 
@@ -201,7 +201,7 @@ pnpm test:identity:oidc:interop
 pnpm test:identity:oidc:interop --conformance --evidence docs/verification/2026-10-27-identity-oidc-interop-results.json
 ```
 
-该入口需要 Docker Desktop Linux、.NET 10 SDK、Node 24、SQL Server/MySQL 测试镜像、`redis:8.6` 和已准备的 `fullnet-native-aot-publish-sdk:10.0.402`。官方模块额外需要 `mongo:6.0.13` 与研究报告 §16.7 所锁定的套件镜像，Docker 内须能通过 `host.docker.internal` 访问宿主临时 HTTPS 端口。证书仅信任于本轮 Node/JVM/.NET 客户端，私钥和客户端 secret 从系统 TEMP 文件加载，结束后清理；无需修改机器根证书或提供外部部署密钥。真实 Worker 使用本轮数据库和独立 Redis，Outbox 轮询 100 ms、最大空闲轮询 1000 ms；传播预算只用于此本地回归。
+该入口需要 Docker Desktop Linux、.NET 10 SDK、Node 24、SQL Server/MySQL 测试镜像、`redis:8.6` 和已准备的 `fullnet-native-aot-publish-sdk:10.0.404`。官方模块额外需要 `mongo:6.0.13` 与研究报告 §16.7 所锁定的套件镜像，Docker 内须能通过 `host.docker.internal` 访问宿主临时 HTTPS 端口。证书仅信任于本轮 Node/JVM/.NET 客户端，私钥和客户端 secret 从系统 TEMP 文件加载，结束后清理；无需修改机器根证书或提供外部部署密钥。真实 Worker 使用本轮数据库和独立 Redis，Outbox 轮询 100 ms、最大空闲轮询 1000 ms；传播预算只用于此本地回归。
 
 issuer 含 `/identity` 时，默认 Discovery 为 `/identity/.well-known/openid-configuration`。当前应用退出 API 要求有效 Bearer，且 client 必须匹配该令牌，只撤销其应用会话；BFF 页面使用 Cookie/CSRF 退出入口。网络入口不进入普通 infrastructure/full 分片；所选官方模块通过不代表完整 profile 认证。结果与容量边界见[联调报告](../verification/2026-09-13-identity-oidc-sso-research-validation.md#167-2026-10-27-独立-rp真实网络与官方套件补验)。
 

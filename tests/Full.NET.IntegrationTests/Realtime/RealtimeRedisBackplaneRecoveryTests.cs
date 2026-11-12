@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Net;
 using System.Net.Sockets;
 using System.Threading.Channels;
+using Full.NET.Abstractions.Tenancy;
 using Full.NET.Data.Abstractions;
 using Full.NET.IntegrationTests.Api;
 using Full.NET.Realtime;
@@ -88,8 +89,10 @@ public sealed class RealtimeRedisBackplaneRecoveryTests
         await connection.StartAsync();
 
         await cacheRedis.StopAsync();
-        var publisher = publisherFactory.Services
-            .GetRequiredService<IRealtimePublisher>();
+        // 订阅者是 Host 用户，发布端按同一可信范围解析其私有组。
+        await using var publisherScope = publisherFactory.Services.CreateAsyncScope();
+        publisherScope.ServiceProvider.GetRequiredService<CurrentTenantAccessor>().SetHost();
+        var publisher = publisherScope.ServiceProvider.GetRequiredService<IRealtimePublisher>();
         await PublishUntilReceivedAsync(
             publisher,
             identity.UserId,
@@ -171,8 +174,9 @@ public sealed class RealtimeRedisBackplaneRecoveryTests
             message => receivedMessages.Writer.TryWrite(message));
         await connection.StartAsync();
 
-        var publisher = publisherFactory.Services
-            .GetRequiredService<IRealtimePublisher>();
+        await using var publisherScope = publisherFactory.Services.CreateAsyncScope();
+        publisherScope.ServiceProvider.GetRequiredService<CurrentTenantAccessor>().SetHost();
+        var publisher = publisherScope.ServiceProvider.GetRequiredService<IRealtimePublisher>();
         await PublishUntilReceivedAsync(
             publisher,
             identity.UserId,

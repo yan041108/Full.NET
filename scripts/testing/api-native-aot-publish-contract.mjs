@@ -18,10 +18,10 @@ export const apiNativeAotPublishContract = {
   publishLogRelativePath: 'artifacts/native-aot/linux-x64/publish.log',
   executableName: 'Full.NET.Host.Api',
   runtimeIdentifier: 'linux-x64',
-  minimumSdkVersion: '10.0.402',
-  sdkImage: 'mcr.microsoft.com/dotnet/sdk:10.0.402',
-  publishSdkImage: 'fullnet-native-aot-publish-sdk:10.0.402',
-  sdkImageLabel: 'fullnet-native-aot-publish-sdk:10.0.402 (Debian SDK 10.0.402 + clang/zlib for Native AOT)',
+  minimumSdkVersion: '10.0.404',
+  sdkImage: 'mcr.microsoft.com/dotnet/sdk:10.0.404',
+  publishSdkImage: 'fullnet-native-aot-publish-sdk:10.0.404',
+  sdkImageLabel: 'fullnet-native-aot-publish-sdk:10.0.404 (Debian SDK 10.0.404 + clang/zlib for Native AOT)',
   minimumExecutableBytes: 8_000_000,
   // API 可达闭包的实际 ILC 在 12 GiB 容器内内存不足；扩容仍经过正式资源准入。
   buildBudget: Object.freeze({ cpu: 2, memoryGiB: 16 }),
@@ -30,7 +30,7 @@ export const apiNativeAotPublishContract = {
     RuntimeIdentifier: 'linux-x64',
     SelfContained: 'true',
     FullNetPublishMode: 'NativeAot',
-    RuntimeFrameworkVersion: '10.0.13',
+    RuntimeFrameworkVersion: '10.0.15',
   },
 };
 
