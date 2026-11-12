@@ -74,7 +74,9 @@ node eng/deploy/Verify-FullNetRecoveryEvidence.mjs $EvidenceDirectory $TrustedCa
 
 ### Webhook 未确认投递对账
 
-保持 Webhook Worker 和外发隔离。核对租户订阅的投递和尝试记录，并从接收方的权威业务回执取得同一故障范围的证据。两个文件均使用 JSON 数组，每项包含 `tenantId`、`subscriptionId`、`eventId`、`deliveryId` 以及原始 HTTP 请求体 UTF-8 字节的 `payloadSha256`。接收方回执另含 `outcome`，可证实业务效果已提交时为 `applied`，其余未确认结果为 `unknown`。租户和订阅标识由可信业务记录或接收方的已验证路由关联。保存摘要和标识，避免把业务正文或签名密钥写入演练回执。
+保持 Webhook 外发隔离。确认旧 Worker 已停止领取和发送后，可用 `Webhooks__Delivery__Enabled=false` 启动恢复环境的所有 Worker，暂停 Webhook 领取及外发，其他后台处理可按恢复步骤受控启动。该值在宿主启动时读取。检查 Worker 日志中的 `Webhook delivery is disabled by Worker configuration.`，并核对原投递状态和尝试数量。恢复 Webhook 时，先完成投递处置和放行复核，再以 `Webhooks__Delivery__Enabled=true` 重启对应 Worker。
+
+核对租户订阅的投递和尝试记录，并从接收方的权威业务回执取得同一故障范围的证据。两个文件均使用 JSON 数组，每项包含 `tenantId`、`subscriptionId`、`eventId`、`deliveryId` 以及原始 HTTP 请求体 UTF-8 字节的 `payloadSha256`。接收方回执另含 `outcome`，可证实业务效果已提交时为 `applied`，其余未确认结果为 `unknown`。租户和订阅标识由可信业务记录或接收方的已验证路由关联。保存摘要和标识，避免把业务正文或签名密钥写入演练回执。
 
 ```powershell
 node eng/deploy/Compare-FullNetWebhookRecoveryEvidence.mjs $RestoredDeliveriesJson $ReceiverReceiptsJson

@@ -17,6 +17,12 @@ internal sealed class WebhookDeliveryHostedProcessor(
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
+        if (!_options.Enabled)
+        {
+            logger.LogInformation("Webhook delivery is disabled by Worker configuration.");
+            return;
+        }
+
         while (!stoppingToken.IsCancellationRequested)
         {
             var processed = 0;

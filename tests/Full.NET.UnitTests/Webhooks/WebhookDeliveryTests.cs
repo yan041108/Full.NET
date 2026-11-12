@@ -97,6 +97,19 @@ public sealed class WebhookDeliveryTests
     }
 
     [TestMethod]
+    public async Task Worker_disabled_at_startup_never_opens_a_delivery_scope()
+    {
+        var scopes = Substitute.For<IServiceScopeFactory>();
+        using var worker = new WebhookDeliveryHostedProcessor(
+            scopes,
+            Options.Create(new WebhookDeliveryWorkerOptions { Enabled = false }),
+            NullLogger<WebhookDeliveryHostedProcessor>.Instance);
+        await worker.StartAsync(CancellationToken.None);
+        await worker.ExecuteTask!.WaitAsync(TimeSpan.FromSeconds(5));
+        scopes.DidNotReceive().CreateScope();
+    }
+
+    [TestMethod]
     public async Task Worker_iteration_uses_host_context_for_delivery_sql()
     {
         var tenant = new CurrentTenantAccessor();

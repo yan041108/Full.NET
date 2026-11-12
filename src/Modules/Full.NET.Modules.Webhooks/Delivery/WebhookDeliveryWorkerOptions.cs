@@ -5,6 +5,9 @@ internal sealed class WebhookDeliveryWorkerOptions
 {
     public const string SectionName = "Webhooks:Delivery";
 
+    /// <summary>恢复对账期间可在 Worker 启动配置中暂停领取和外发。</summary>
+    public bool Enabled { get; set; } = true;
+
     public int PollMilliseconds { get; set; } = 1000;
 
     public int BatchSize { get; set; } = 10;
