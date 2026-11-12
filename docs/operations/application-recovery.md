@@ -72,6 +72,16 @@ node eng/deploy/Verify-FullNetRecoveryEvidence.mjs $EvidenceDirectory $TrustedCa
 
 候选摘要取自已冻结的发布记录。工具核对回执文件摘要、演练身份和事件顺序，报告以毫秒计的 RPO/RTO。回执缺失、校验失败或任一目标未达到时退出 1。结果仅用于复核已提交的回执。恢复执行、原始证据核验和放行仍由恢复负责人完成。
 
+### Webhook 未确认投递对账
+
+保持 Webhook Worker 和外发隔离。核对租户订阅的投递和尝试记录，并从接收方的权威业务回执取得同一故障范围的证据。两个文件均使用 JSON 数组，每项包含 `tenantId`、`subscriptionId`、`eventId`、`deliveryId` 以及原始 HTTP 请求体 UTF-8 字节的 `payloadSha256`。接收方回执另含 `outcome`，可证实业务效果已提交时为 `applied`，其余未确认结果为 `unknown`。租户和订阅标识由可信业务记录或接收方的已验证路由关联。保存摘要和标识，避免把业务正文或签名密钥写入演练回执。
+
+```powershell
+node eng/deploy/Compare-FullNetWebhookRecoveryEvidence.mjs $RestoredDeliveriesJson $ReceiverReceiptsJson
+```
+
+缺失回执、身份或摘要冲突、结果未知以及仅接收方存在的回执均需继续对账。工具会返回未解决项及非零退出码。匹配的已提交回执用于确认外部效果，若对应投递在恢复库仍待发送，应保持隔离，直到按受控流程处置。工具只读取文件，不会改变投递状态或触发重放。签发 `dispatch.json` 前，由负责人确认对账范围完整，并复核每项已确认外部效果在恢复库中的处置结果。
+
 ## 禁止事项
 
 - 不要在生产直接修改业务表绕过模块边界
