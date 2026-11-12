@@ -22,6 +22,7 @@ internal sealed class WebhooksAuthorizationContributor : IAuthorizationCatalogCo
         new PermissionDefinition(WebhookPermissions.SubscriptionsSetStatus, "暂停或恢复 Webhook 订阅", AuthorizationScope.Tenant),
         new PermissionDefinition(WebhookPermissions.DeliveriesRead, "读取 Webhook 投递历史", AuthorizationScope.Tenant),
         new PermissionDefinition(WebhookPermissions.DeliveriesReplay, "手动重放失败 Webhook 投递", AuthorizationScope.Tenant),
+        new PermissionDefinition(WebhookPermissions.DeliveriesReconcile, "确认接收方已提交的 Webhook 投递", AuthorizationScope.Tenant),
         new PermissionDefinition(WebhookPermissions.SigningKeysRotate, "轮换 Webhook 签名密钥", AuthorizationScope.Tenant),
     ];
 
@@ -34,5 +35,6 @@ internal sealed class WebhooksAuthorizationContributor : IAuthorizationCatalogCo
      new(WebhookPermissions.SubscriptionsSetStatus, "webhook-subscriptions", WebhookPermissions.SubscriptionsSetStatus, "暂停或恢复订阅", "set-status", 20),
      new(WebhookPermissions.DeliveriesRead, "webhook-subscriptions", WebhookPermissions.DeliveriesRead, "读取投递历史", "deliveries", 30),
      new(WebhookPermissions.DeliveriesReplay, "webhook-subscriptions", WebhookPermissions.DeliveriesReplay, "手动重放失败投递", "replay", 40),
-     new(WebhookPermissions.SigningKeysRotate, "webhook-subscriptions", WebhookPermissions.SigningKeysRotate, "轮换签名密钥", "rotate-signing-key", 50)];
+     new(WebhookPermissions.SigningKeysRotate, "webhook-subscriptions", WebhookPermissions.SigningKeysRotate, "轮换签名密钥", "rotate-signing-key", 50),
+     new(WebhookPermissions.DeliveriesReconcile, "webhook-subscriptions", WebhookPermissions.DeliveriesReconcile, "确认恢复投递", "reconcile", 60)];
 }

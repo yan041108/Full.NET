@@ -47,6 +47,7 @@ public sealed class WebhooksModule : IFullNetModule
         services.AddScoped<Features.ManageWebhookSubscriptions.WebhookSubscriptionManagementService>();
         services.AddScoped<Features.ManageWebhookDeliveries.WebhookDeliveryHistoryQueryService>();
         services.AddScoped<Features.ManageWebhookDeliveries.WebhookDeliveryReplayService>();
+        services.AddScoped<Features.ManageWebhookDeliveries.WebhookDeliveryRecoveryService>();
         services.AddScoped<Features.RotateSigningKey.WebhookSigningKeyRotationService>();
         services.ConfigureHttpJsonOptions(options =>
             options.SerializerOptions.TypeInfoResolverChain.Insert(

@@ -3,6 +3,7 @@
 
 import type {
   CompleteWebhookSigningKeyRotationRequest,
+  ConfirmWebhookDeliveryRequest,
   CreateWebhookSubscriptionRequest,
   PrepareWebhookSigningKeyRotationRequest,
   ProblemDetails,
@@ -12,6 +13,7 @@ import type {
   WebhookDeliveryAttemptResponse,
   WebhookDeliveryHistoryPageResponse,
   WebhookDeliveryHistoryResponse,
+  WebhookDeliveryRecoveryReceipt,
   WebhookDeliveryReplayReceipt,
   WebhookSigningKeyRotationReceipt,
   WebhookSubscriptionResponse,
@@ -25,6 +27,14 @@ export function readCompleteWebhookSigningKeyRotationRequest(value: unknown): Co
 
 function isCompleteWebhookSigningKeyRotationRequest(value: unknown): value is CompleteWebhookSigningKeyRotationRequest {
   return isRecord(value) && (typeof value["signingKeyId"] === 'string' && guidPattern.test(value["signingKeyId"])) && (Number.isSafeInteger(value["version"]));
+}
+
+export function readConfirmWebhookDeliveryRequest(value: unknown): ConfirmWebhookDeliveryRequest {
+  return requireValidResponse(value, isConfirmWebhookDeliveryRequest(value), 'confirm_webhook_delivery_request') as ConfirmWebhookDeliveryRequest;
+}
+
+function isConfirmWebhookDeliveryRequest(value: unknown): value is ConfirmWebhookDeliveryRequest {
+  return isRecord(value) && (typeof value["eventId"] === 'string' && guidPattern.test(value["eventId"])) && (typeof value["operationId"] === 'string' && guidPattern.test(value["operationId"])) && (typeof value["payloadSha256"] === 'string') && (typeof value["receiverReceiptSha256"] === 'string') && (Number.isSafeInteger(value["version"]));
 }
 
 export function readCreateWebhookSubscriptionRequest(value: unknown): CreateWebhookSubscriptionRequest {
@@ -97,6 +107,14 @@ export function readWebhookDeliveryHistoryResponse(value: unknown): WebhookDeliv
 
 function isWebhookDeliveryHistoryResponse(value: unknown): value is WebhookDeliveryHistoryResponse {
   return isRecord(value) && (Number.isSafeInteger(value["attemptCount"])) && (typeof value["createdAtUtc"] === 'string') && (typeof value["eventId"] === 'string' && guidPattern.test(value["eventId"])) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && ((typeof value["lastErrorCode"] === 'string' && [null, "webhooks.delivery.http_error", "webhooks.delivery.timeout", "webhooks.delivery.failed"].includes(value["lastErrorCode"])) || (value["lastErrorCode"] === null)) && ((Number.isSafeInteger(value["lastHttpStatus"])) || (value["lastHttpStatus"] === null)) && ((typeof value["nextAttemptAtUtc"] === 'string') || (value["nextAttemptAtUtc"] === null)) && (typeof value["statusKey"] === 'string' && ["pending", "processing", "delivered", "failed"].includes(value["statusKey"])) && (typeof value["subscriptionId"] === 'string' && guidPattern.test(value["subscriptionId"])) && (typeof value["tenantId"] === 'string' && guidPattern.test(value["tenantId"])) && (typeof value["updatedAtUtc"] === 'string') && (Number.isSafeInteger(value["version"]));
+}
+
+export function readWebhookDeliveryRecoveryReceipt(value: unknown): WebhookDeliveryRecoveryReceipt {
+  return requireValidResponse(value, isWebhookDeliveryRecoveryReceipt(value), 'webhook_delivery_recovery_receipt') as WebhookDeliveryRecoveryReceipt;
+}
+
+function isWebhookDeliveryRecoveryReceipt(value: unknown): value is WebhookDeliveryRecoveryReceipt {
+  return isRecord(value) && (Number.isSafeInteger(value["attemptCount"])) && (typeof value["confirmedAtUtc"] === 'string') && (typeof value["deliveryId"] === 'string' && guidPattern.test(value["deliveryId"])) && (typeof value["eventId"] === 'string' && guidPattern.test(value["eventId"])) && (typeof value["operationId"] === 'string' && guidPattern.test(value["operationId"])) && (typeof value["payloadSha256"] === 'string') && (Number.isSafeInteger(value["previousVersion"])) && (typeof value["receiverReceiptSha256"] === 'string') && (typeof value["subscriptionId"] === 'string' && guidPattern.test(value["subscriptionId"])) && (typeof value["tenantId"] === 'string' && guidPattern.test(value["tenantId"])) && (Number.isSafeInteger(value["version"]));
 }
 
 export function readWebhookDeliveryReplayReceipt(value: unknown): WebhookDeliveryReplayReceipt {

@@ -58,3 +58,22 @@ test('受控重放固定操作和原修订，回执不包含正文或操作者�
  for(const key of ['payloadBody','payloadDigest','signingSecret','actorSessionId'])assert.equal(key in fields,false);
  assert.ok('previousVersion' in fields);assert.ok('queuedAtUtc' in fields);
 });
+
+test('恢复确认绑定原事件和两个摘要，仅公开对账回执', () => {
+  const fixture = JSON.parse(fs.readFileSync('contracts/openapi/webhook-subscriptions-v1.json', 'utf8'));
+  const path = '/api/v1/webhooks/subscriptions/{subscriptionId}/deliveries/{deliveryId}/reconciliations';
+  const operation = fixture.paths[path].post;
+  assert.equal(operation.operationId, 'webhooksConfirmRecoveredDelivery');
+  assert.deepEqual(Object.keys(operation.responses), ['200', '400', '401', '403', '404', '409', '503']);
+  const request = fixture.components.schemas.ConfirmWebhookDeliveryRequest;
+  assert.deepEqual(request.required, ['operationId', 'version', 'eventId', 'payloadSha256', 'receiverReceiptSha256']);
+  const receipt = fixture.components.schemas.WebhookDeliveryRecoveryReceipt;
+  for (const field of ['payloadSha256', 'receiverReceiptSha256']) {
+    const pattern = new RegExp(request.properties[field].pattern);
+    assert.ok(pattern.test('Aa'.repeat(32)));
+    assert.ok(!pattern.test('g'.repeat(64)));
+    assert.ok(receipt.required.includes(field));
+  }
+  for (const field of ['payloadBody', 'signingSecret', 'actorUserId', 'actorSessionId'])
+    assert.ok(!(field in receipt.properties));
+});

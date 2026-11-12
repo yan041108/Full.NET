@@ -5793,6 +5793,25 @@
         "AppliedToDelivery": "该完成是否推进原租约版本的投递状态"
       }
     },
+    "fn_webhooks_delivery_recovery": {
+      "comment": "接收方已提交投递的恢复确认和同事务审计",
+      "columns": {
+        "Id": "应用端 UUID v7 回执主键",
+        "TenantId": "可信租户标识",
+        "OperationId": "固定操作标识",
+        "ActorUserId": "提交确认的操作者",
+        "ActorSessionId": "提交确认时的会话",
+        "SubscriptionId": "原订阅标识",
+        "DeliveryId": "原投递标识",
+        "EventId": "原事件标识",
+        "PreviousVersion": "对账前投递修订",
+        "Version": "确认后投递修订",
+        "AttemptCount": "发送方原实际尝试次数",
+        "PayloadSha256": "原 HTTP 请求体 SHA-256",
+        "ReceiverReceiptSha256": "权威接收方证据原始字节 SHA-256",
+        "ConfirmedAtUtc": "确认提交时间 UTC"
+      }
+    },
     "fn_webhooks_delivery_replay": {
       "comment": "手动重放的不可变排队回执及同事务领域审计",
       "columns": {

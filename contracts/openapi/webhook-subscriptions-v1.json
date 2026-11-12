@@ -1139,6 +1139,118 @@
           }
         }
       }
+    },
+    "/api/v1/webhooks/subscriptions/{subscriptionId}/deliveries/{deliveryId}/reconciliations": {
+      "post": {
+        "operationId": "webhooksConfirmRecoveredDelivery",
+        "security": [
+          {
+            "Bearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "subscriptionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "deliveryId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConfirmWebhookDeliveryRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Original committed delivery reconciliation receipt",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WebhookDeliveryRecoveryReceipt"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "ProblemDetails",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "ProblemDetails",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "ProblemDetails",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "ProblemDetails",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "ProblemDetails",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "ProblemDetails",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -1707,6 +1819,114 @@
             "format": "int32",
             "minimum": 3,
             "maximum": 2147483647
+          }
+        }
+      },
+      "ConfirmWebhookDeliveryRequest": {
+        "type": "object",
+        "required": [
+          "operationId",
+          "version",
+          "eventId",
+          "payloadSha256",
+          "receiverReceiptSha256"
+        ],
+        "properties": {
+          "operationId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "version": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 1,
+            "maximum": 2147483646
+          },
+          "eventId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "payloadSha256": {
+            "type": "string",
+            "minLength": 64,
+            "maxLength": 64,
+            "pattern": "^[0-9A-Fa-f]{64}$"
+          },
+          "receiverReceiptSha256": {
+            "type": "string",
+            "minLength": 64,
+            "maxLength": 64,
+            "pattern": "^[0-9A-Fa-f]{64}$"
+          }
+        }
+      },
+      "WebhookDeliveryRecoveryReceipt": {
+        "type": "object",
+        "required": [
+          "operationId",
+          "tenantId",
+          "subscriptionId",
+          "deliveryId",
+          "eventId",
+          "previousVersion",
+          "version",
+          "attemptCount",
+          "payloadSha256",
+          "receiverReceiptSha256",
+          "confirmedAtUtc"
+        ],
+        "properties": {
+          "operationId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "tenantId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "subscriptionId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "deliveryId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "eventId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "previousVersion": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 1,
+            "maximum": 2147483646
+          },
+          "version": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 2
+          },
+          "attemptCount": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "payloadSha256": {
+            "type": "string",
+            "minLength": 64,
+            "maxLength": 64,
+            "pattern": "^[0-9A-Fa-f]{64}$"
+          },
+          "receiverReceiptSha256": {
+            "type": "string",
+            "minLength": 64,
+            "maxLength": 64,
+            "pattern": "^[0-9A-Fa-f]{64}$"
+          },
+          "confirmedAtUtc": {
+            "type": "string",
+            "format": "date-time"
           }
         }
       }

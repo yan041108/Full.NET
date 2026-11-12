@@ -26,6 +26,135 @@ public sealed class WebhookDeliveryReplayTests
 {
     private static readonly string[] Rights = [WebhookPermissions.SubscriptionsRead, WebhookPermissions.SubscriptionsManage,
         WebhookPermissions.SubscriptionsSetStatus, WebhookPermissions.DeliveriesRead, WebhookPermissions.DeliveriesReplay];
+    private static readonly string[] RecoveryRights = [.. Rights, WebhookPermissions.DeliveriesReconcile];
+
+    [TestMethod]
+    [DataRow(DatabaseProvider.SqlServer)]
+    [DataRow(DatabaseProvider.MySql)]
+    public async Task Recovery_confirmation_closes_pending_delivery_once_without_sending(DatabaseProvider provider)
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(120));
+        var token = timeout.Token;
+        await using var f = await Fixture.CreateAsync(provider, token, processInitially: false);
+        var delivery = await f.DetailAsync(token);
+        var request = await CreateConfirmationAsync(f, delivery);
+        var path = f.Path + "/reconciliations";
+        Assert.AreEqual("pending", delivery.StatusKey);
+        Assert.AreEqual(0, delivery.AttemptCount);
+
+        using var readOnly = f.Factory.CreateClientForHost("acme.localhost");
+        readOnly.DefaultRequestHeaders.Authorization = new("Bearer", await f.AccessAsync(delivery.TenantId, Rights, token));
+        using (var denied = await readOnly.PostAsJsonAsync(path, request, token))
+            Assert.AreEqual(HttpStatusCode.Forbidden, denied.StatusCode);
+
+        var foreignDomain = "webhook-recovery-" + Guid.CreateVersion7().ToString("N") + ".localhost";
+        TenantSummary foreignTenant;
+        await using (var scope = f.Factory.Services.CreateAsyncScope())
+        {
+            scope.ServiceProvider.GetRequiredService<CurrentTenantAccessor>().SetHost();
+            var result = await scope.ServiceProvider.GetRequiredService<ITenantProvisioningService>().ProvisionAsync(
+                new("webhook-recovery-" + Guid.CreateVersion7().ToString("N"), "Webhook recovery", foreignDomain), token);
+            Assert.IsTrue(result.IsSuccess);
+            foreignTenant = result.Value!;
+        }
+        using var foreign = f.Factory.CreateClientForHost(foreignDomain);
+        foreign.DefaultRequestHeaders.Authorization = new("Bearer", await f.AccessAsync(foreignTenant.Id, RecoveryRights, token));
+        using (var hidden = await foreign.PostAsJsonAsync(path, request, token))
+            Assert.AreEqual(HttpStatusCode.NotFound, hidden.StatusCode);
+
+        foreach (var mismatch in new[] { request with { PayloadSha256 = new('F', 64) },
+            request with { EventId = Guid.CreateVersion7() }, request with { Version = request.Version + 1 } })
+        {
+            using var rejected = await f.Client.PostAsJsonAsync(path, mismatch, token);
+            Assert.AreEqual(HttpStatusCode.Conflict, rejected.StatusCode);
+        }
+        using (var invalid = await f.Client.PostAsJsonAsync(path, request with { ReceiverReceiptSha256 = "invalid" }, token))
+            Assert.AreEqual(HttpStatusCode.BadRequest, invalid.StatusCode);
+
+        var competing = request with { OperationId = Guid.CreateVersion7() };
+        var responses = await Task.WhenAll(f.Client.PostAsJsonAsync(path, request, token),
+            f.Client.PostAsJsonAsync(path, competing, token));
+        using var first = responses[0];
+        using var second = responses[1];
+        Assert.AreEqual(1, responses.Count(response => response.StatusCode == HttpStatusCode.OK));
+        Assert.AreEqual(1, responses.Count(response => response.StatusCode == HttpStatusCode.Conflict));
+        var receipt = (await responses.Single(response => response.IsSuccessStatusCode)
+            .Content.ReadFromJsonAsync<WebhookDeliveryRecoveryReceipt>(token))!;
+        var winningRequest = receipt.OperationId == request.OperationId ? request : competing;
+        using var retried = await f.Client.PostAsJsonAsync(path, winningRequest with
+        {
+            PayloadSha256 = winningRequest.PayloadSha256.ToLowerInvariant(),
+            ReceiverReceiptSha256 = winningRequest.ReceiverReceiptSha256.ToLowerInvariant()
+        }, token);
+        Assert.AreEqual(HttpStatusCode.OK, retried.StatusCode);
+        Assert.AreEqual(receipt, await retried.Content.ReadFromJsonAsync<WebhookDeliveryRecoveryReceipt>(token));
+        using var changed = await f.Client.PostAsJsonAsync(path, winningRequest with { ReceiverReceiptSha256 = new('B', 64) }, token);
+        Assert.AreEqual(HttpStatusCode.Conflict, changed.StatusCode);
+        var delivered = await f.DetailAsync(token);
+        Assert.AreEqual("delivered", delivered.StatusKey);
+        Assert.AreEqual(delivery.Version + 1, delivered.Version);
+        Assert.AreEqual(delivered.Version, receipt.Version);
+        Assert.AreEqual(delivery.EventId, receipt.EventId);
+        Assert.AreEqual(delivery.AttemptCount, delivered.AttemptCount);
+        Assert.IsNull(delivered.NextAttemptAtUtc);
+        Assert.AreEqual(0, await f.ProcessAsync(token));
+        Assert.IsEmpty(f.Receiver.Bodies);
+        var attempts = await f.Client.GetFromJsonAsync<PagedResult<WebhookDeliveryAttemptResponse>>(f.Path + "/attempts", token);
+        Assert.AreEqual(0L, attempts!.Total);
+
+        // 模拟表与回执已提交、迁移日志未记账，SQL Server 同时恢复未完成的列说明。
+        var sqlServer = provider == DatabaseProvider.SqlServer;
+        if (sqlServer)
+            await f.Database.ExecuteAsync("""
+                EXEC sys.sp_dropextendedproperty @name=N'MS_Description',@level0type=N'SCHEMA',@level0name=N'dbo',
+                    @level1type=N'TABLE',@level1name=N'fn_webhooks_delivery_recovery',
+                    @level2type=N'COLUMN',@level2name=N'ReceiverReceiptSha256'
+                """);
+        await ReviewFixMigrationRecoverySupport.DeleteScriptAsync(f.Database, "379_WebhookDeliveryRecovery.sql", sqlServer);
+        var migration = ReviewFixMigrationRecoverySupport.CreateRunner(provider, f.ConnectionString);
+        Assert.AreEqual(1, (await migration.MigrateAsync(token)).ExecutedScriptCount);
+        Assert.AreEqual(0, (await migration.MigrateAsync(token)).ExecutedScriptCount);
+        Assert.AreEqual(1L, await f.Database.ExecuteScalarAsync<long>(
+            """
+            SELECT COUNT(*) FROM fn_webhooks_delivery_recovery WHERE DeliveryId=@Id AND OperationId=@OperationId
+              AND ReceiverReceiptSha256=@ReceiverReceiptSha256 AND ActorUserId IS NOT NULL AND ActorSessionId IS NOT NULL
+            """, new { delivery.Id, receipt.OperationId, receipt.ReceiverReceiptSha256 }));
+    }
+
+    [TestMethod]
+    [DataRow(DatabaseProvider.SqlServer)]
+    [DataRow(DatabaseProvider.MySql)]
+    public async Task Recovery_confirmation_rolls_back_on_audit_failure_and_expired_session(DatabaseProvider provider)
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(120));
+        var token = timeout.Token;
+        await using var f = await Fixture.CreateAsync(provider, token, expireAtCommit: true, processInitially: false);
+        var before = await f.DetailAsync(token);
+        var request = await CreateConfirmationAsync(f, before);
+        var path = f.Path + "/reconciliations";
+        await f.Database.ExecuteAsync("ALTER TABLE fn_webhooks_delivery_recovery ADD CONSTRAINT CK_test_webhooks_recovery_insert CHECK (1=0)");
+        using (var failed = await f.Client.PostAsJsonAsync(path, request, token))
+            Assert.AreEqual(HttpStatusCode.InternalServerError, failed.StatusCode);
+        Assert.AreEqual(before, await f.DetailAsync(token));
+        await f.Database.ExecuteAsync(provider == DatabaseProvider.SqlServer
+            ? "ALTER TABLE fn_webhooks_delivery_recovery DROP CONSTRAINT CK_test_webhooks_recovery_insert"
+            : "ALTER TABLE fn_webhooks_delivery_recovery DROP CHECK CK_test_webhooks_recovery_insert");
+        f.ExpireBeforeRead = true;
+        using (var denied = await f.Client.PostAsJsonAsync(path, request, token))
+            Assert.AreEqual(HttpStatusCode.Forbidden, denied.StatusCode);
+        f.Clock.Offset = TimeSpan.Zero;
+        Assert.AreEqual(before, await f.DetailAsync(token));
+        Assert.AreEqual(0L, await f.Database.ExecuteScalarAsync<long>("SELECT COUNT(*) FROM fn_webhooks_delivery_recovery"));
+        using var retry = await f.Client.PostAsJsonAsync(path, request, token);
+        Assert.AreEqual(HttpStatusCode.OK, retry.StatusCode);
+    }
+
+    private static async Task<ConfirmWebhookDeliveryRequest> CreateConfirmationAsync(Fixture f, WebhookDeliveryHistoryResponse delivery)
+    {
+        var digest = await f.Database.ExecuteScalarAsync<string>(
+            "SELECT PayloadDigest FROM fn_webhooks_delivery WHERE Id=@Id", new { delivery.Id });
+        return new(Guid.CreateVersion7(), delivery.Version, delivery.EventId, digest!, new('A', 64));
+    }
 
     [TestMethod]
     [DataRow(DatabaseProvider.SqlServer)]
@@ -151,25 +280,28 @@ public sealed class WebhookDeliveryReplayTests
     private sealed class Fixture : IAsyncDisposable
     {
         internal FullNetApiFactory Factory = null!; internal HttpClient Client = null!; internal DbConnection Database = null!; internal string Path = "";
+        internal string ConnectionString = "";
         internal readonly Clock Clock = new(); internal readonly Receiver Receiver = new(); internal bool ExpireBeforeRead;
-        internal static async Task<Fixture> CreateAsync(DatabaseProvider provider, CancellationToken token, bool expireAtCommit = false)
+        internal static async Task<Fixture> CreateAsync(DatabaseProvider provider, CancellationToken token,
+            bool expireAtCommit = false, bool processInitially = true)
         {
             var f = new Fixture();
             try
             {
                 var cs = provider == DatabaseProvider.SqlServer ? await SharedDatabaseFixture.CreateSqlServerDatabaseAsync() : await SharedDatabaseFixture.CreateMySqlDatabaseAsync();
+                f.ConnectionString = cs;
                 f.Factory = new(provider, cs, configureTestServices: services => {
                     services.RemoveAll<IClock>(); services.AddSingleton<IClock>(f.Clock); services.RemoveAll<IHttpClientFactory>(); services.AddSingleton<IHttpClientFactory>(f.Receiver);
                     services.Configure<WebhookDeliveryWorkerOptions>(options => options.MaxAttempts = 1);
                     if (expireAtCommit) { services.AddScoped<IndependentCurrentSessionAuthorization>(); services.RemoveAll<IIndependentCurrentSessionAuthorization>(); services.AddScoped<IIndependentCurrentSessionAuthorization>(sp => new ExpiringAuthorization(sp.GetRequiredService<IndependentCurrentSessionAuthorization>(), () => { if (f.ExpireBeforeRead) { f.ExpireBeforeRead = false; f.Clock.Offset = TimeSpan.FromDays(2); } })); }
                 });
                 await f.Factory.InitializeAsync(token); f.Client = f.Factory.CreateClientForHost("acme.localhost"); var tenant = await IntegrationTestTenantContextHelper.GetCurrentTenantAsync(f.Client, token);
-                f.Client.DefaultRequestHeaders.Authorization = new("Bearer", await f.AccessAsync(tenant.Id, Rights, token));
+                f.Client.DefaultRequestHeaders.Authorization = new("Bearer", await f.AccessAsync(tenant.Id, processInitially ? Rights : RecoveryRights, token));
                 using var created = await f.Client.PostAsJsonAsync("/api/v1/webhooks/subscriptions", new CreateWebhookSubscriptionRequest("fullnet.workflow.instance.completed", "https://93.184.216.34/replay", "replay-independent-secret"), token); Assert.AreEqual(HttpStatusCode.OK, created.StatusCode);
                 var subscription = (await created.Content.ReadFromJsonAsync<WebhookSubscriptionResponse>(token))!; var eventId = Guid.CreateVersion7();
                 await using (var scope = f.Factory.Services.CreateAsyncScope())
                 { scope.ServiceProvider.GetRequiredService<CurrentTenantAccessor>().SetHost(); await scope.ServiceProvider.GetRequiredService<ICommandTransaction>().ExecuteAsync(async cancellation => { await scope.ServiceProvider.GetRequiredService<WebhookEventEnqueueService>().EnqueueAsync(tenant.Id, subscription.EventType, eventId, new(subscription.EventType, eventId, tenant.Id, DateTimeOffset.UtcNow, new(Guid.CreateVersion7(), Guid.CreateVersion7(), "test", "original")), cancellation); return 0; }, token); }
-                Assert.AreEqual(1, await f.ProcessAsync(token));
+                if (processInitially) Assert.AreEqual(1, await f.ProcessAsync(token));
                 var rows = await f.Client.GetFromJsonAsync<PagedResult<WebhookDeliveryHistoryResponse>>($"/api/v1/webhooks/subscriptions/{subscription.Id:D}/deliveries", token); var delivery = rows!.Items.Single();
                 f.Path = $"/api/v1/webhooks/subscriptions/{subscription.Id:D}/deliveries/{delivery.Id:D}";
                 f.Database = provider == DatabaseProvider.SqlServer ? new SqlConnection(cs) : ReviewFixMigrationRecoverySupport.MySqlConnection(cs); await f.Database.OpenAsync(token); return f;

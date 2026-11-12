@@ -9,6 +9,7 @@
   <data name="webhooks.fanout_budget_exceeded" xml:space="preserve"><value>当前企业的该事件已达到 500 个订阅上限。</value></data>
   <data name="webhooks.delivery.not_found" xml:space="preserve"><value>未找到该企业订阅下的投递记录。</value></data>
   <data name="webhooks.delivery.replay_conflict" xml:space="preserve"><value>原操作、投递修订、状态或订阅启用条件冲突。请读取原回执和投递后再确认。</value></data>
+  <data name="webhooks.delivery.recovery_conflict" xml:space="preserve"><value>恢复操作、投递状态、原修订或证据冲突。请复核投递与原证据。</value></data>
   <data name="webhooks.delivery.replay_receipt_not_found" xml:space="preserve"><value>未找到当前操作者在该投递下的原重放回执。</value></data>
   <data name="webhooks.signing_key_rotation.conflict" xml:space="preserve"><value>轮换或订阅修订已变化。请读取原轮换记录和当前订阅后再明确确认。</value></data>
   <data name="webhooks.signing_key_rotation.not_found" xml:space="preserve"><value>未找到原订阅下的轮换记录或待处理身份。</value></data>

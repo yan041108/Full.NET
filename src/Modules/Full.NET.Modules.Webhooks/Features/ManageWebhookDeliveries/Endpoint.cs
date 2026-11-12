@@ -40,5 +40,10 @@ internal static class Endpoint
             mapper.Map(await service.ReadAsync(subscriptionId, deliveryId, operationId, token).ConfigureAwait(false), context))
             .WithName("webhooksGetDeliveryReplayReceipt").Produces<WebhookDeliveryReplayReceipt>()
             .ProducesProblem(401).ProducesProblem(403).ProducesProblem(404);
+        group.MapPost("/{deliveryId:guid}/reconciliations", async (Guid subscriptionId, Guid deliveryId, ConfirmWebhookDeliveryRequest request, WebhookDeliveryRecoveryService service, IApiResultMapper mapper, HttpContext context, CancellationToken token) =>
+            mapper.Map(await service.ConfirmAsync(subscriptionId, deliveryId, request, token).ConfigureAwait(false), context))
+            .WithName("webhooksConfirmRecoveredDelivery").Produces<WebhookDeliveryRecoveryReceipt>()
+            .ProducesProblem(400).ProducesProblem(401).ProducesProblem(403).ProducesProblem(404).ProducesProblem(409).ProducesProblem(503)
+            .RequireAuthorization(FullNetPermissionPolicies.For(WebhookPermissions.DeliveriesReconcile));
     }
 }

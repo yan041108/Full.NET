@@ -12,7 +12,13 @@ async function server(t,handler){const instance=http.createServer(handler);await
 const json=(response,status,value,headers={})=>{response.writeHead(status,{'Content-Type':'application/json',...headers});response.end(JSON.stringify(value));};
 const options=baseUrl=>({baseUrl,tenantId,allowHttpLocalhost:true,getCredentials:()=> ({accessToken:'fixture-token',tenantId})});
 
-test('生成内容与模块契约一致，独立入口仅提供当前 Webhook 操作',async()=>{const files=await generateIntegrationSdk({check:true});assert.equal(files.length,4);const sdk=await import('../packages/integration-sdk/dist/index.js');assert.equal(Object.keys(sdk).filter(key=>/^webhooks[A-Z]/u.test(key)).length,13);});
+test('生成内容与模块契约一致，独立入口仅提供当前 Webhook 操作', async () => {
+  const files = await generateIntegrationSdk({ check: true });
+  assert.equal(files.length, 4);
+  const sdk = await import('../packages/integration-sdk/dist/index.js');
+  assert.equal(Object.keys(sdk).filter(key => /^webhooks[A-Z]/u.test(key)).length, 14);
+  assert.equal(typeof sdk.webhooksConfirmRecoveredDelivery, 'function');
+});
 test('真实 GET 暂时故障有界重试且重新读取凭据，语言使用规范 BCP47',async t=>{
  let calls=0;const credentials=[];const url=await server(t,(request,response)=>{credentials.push(request.headers.authorization);assert.equal(request.headers['accept-language'],'en-US');calls++;json(response,calls===1?503:200,calls===1?{code:'test.busy'}:[row],{'Retry-After':'0'});});
  let tokens=0;const client=createIntegrationClient({...options(url),locale:'en-us',getCredentials:()=>({accessToken:`token-${++tokens}`,tenantId})});assert.deepEqual(await webhooksListSubscriptions(client,{}),[row]);assert.equal(calls,2);assert.deepEqual(credentials,['Bearer token-1','Bearer token-2']);

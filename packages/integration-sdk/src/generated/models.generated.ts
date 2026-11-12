@@ -6,6 +6,14 @@ export interface CompleteWebhookSigningKeyRotationRequest {
   readonly version: number;
 }
 
+export interface ConfirmWebhookDeliveryRequest {
+  readonly eventId: string;
+  readonly operationId: string;
+  readonly payloadSha256: string;
+  readonly receiverReceiptSha256: string;
+  readonly version: number;
+}
+
 export interface CreateWebhookSubscriptionRequest {
   readonly eventType: string;
   readonly signingSecret: string;
@@ -74,6 +82,20 @@ export interface WebhookDeliveryHistoryResponse {
   readonly subscriptionId: string;
   readonly tenantId: string;
   readonly updatedAtUtc: string;
+  readonly version: number;
+}
+
+export interface WebhookDeliveryRecoveryReceipt {
+  readonly attemptCount: number;
+  readonly confirmedAtUtc: string;
+  readonly deliveryId: string;
+  readonly eventId: string;
+  readonly operationId: string;
+  readonly payloadSha256: string;
+  readonly previousVersion: number;
+  readonly receiverReceiptSha256: string;
+  readonly subscriptionId: string;
+  readonly tenantId: string;
   readonly version: number;
 }
 

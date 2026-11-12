@@ -60,6 +60,8 @@ try {
 
 生成操作还包括创建/列表、暂停恢复、历史分页/详情、逐次尝试和原回执查询。重放仍要求平台交互会话及独立重放权限，SDK 不提供授权旁路。密钥轮换使用 `webhooksPrepareSigningKeyRotation`、`webhooksGetPendingSigningKeyRotation`、`webhooksGetSigningKeyRotation`、`webhooksActivateSigningKeyRotation`、`webhooksCancelSigningKeyRotation`：先固定准备操作及原修订，接收端配置返回的新 KeyId/秘密与旧键截止时间，再由操作者明确激活。所有 POST 均不重试；未知激活结果须保留原操作、KeyId 和确认修订后读取或明确重试，不能取后来修订当作原确认。取消清除准备秘密，原活动密钥不变。完整步骤和权限见仓库开发入门 §15 及签名协议。
 
+恢复期间经权威回执确认接收方已提交的待发送投递，可由有独立对账权限的租户操作员调用 `webhooksConfirmRecoveredDelivery`。固定原版本、事件标识、载荷与证据摘要，并保留原操作标识以便明确重试。证据核对及 Worker 隔离步骤见仓库恢复手册。
+
 GET 对网络故障及 429/502/503/504 默认最多重试两次，可设 `maxGetRetries: 0..3`；遵守有界 Retry-After/退避，取消或总体超时立即停止。所有 POST（含创建、状态变更及重放）均不自动重试，401/403/404 不重试；凭据撤销须经所属身份入口处理，调用方重新授权后再明确发起请求。`IntegrationHttpError.problem` 保留有界状态、机器码和排错字段，`IntegrationProtocolError` 表示作用域、正文或协议不符。SDK 不自动记录正文或凭据。
 
 ## 接收事件

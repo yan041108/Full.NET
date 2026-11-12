@@ -18,6 +18,8 @@ namespace Full.NET.Modules.Webhooks.Serialization;
 [JsonSerializable(typeof(WebhookDeliveryResponse))]
 [JsonSerializable(typeof(ReplayWebhookDeliveryRequest))]
 [JsonSerializable(typeof(WebhookDeliveryReplayReceipt))]
+[JsonSerializable(typeof(ConfirmWebhookDeliveryRequest))]
+[JsonSerializable(typeof(WebhookDeliveryRecoveryReceipt))]
 [JsonSerializable(typeof(PrepareWebhookSigningKeyRotationRequest))]
 [JsonSerializable(typeof(CompleteWebhookSigningKeyRotationRequest))]
 [JsonSerializable(typeof(WebhookSigningKeyRotationReceipt))]

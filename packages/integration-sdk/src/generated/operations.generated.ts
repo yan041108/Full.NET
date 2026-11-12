@@ -4,6 +4,7 @@
 import type { HttpClient, RequestOptions } from '../http.js';
 import type {
   CompleteWebhookSigningKeyRotationRequest,
+  ConfirmWebhookDeliveryRequest,
   CreateWebhookSubscriptionRequest,
   PrepareWebhookSigningKeyRotationRequest,
   ProblemDetails,
@@ -13,6 +14,7 @@ import type {
   WebhookDeliveryAttemptResponse,
   WebhookDeliveryHistoryPageResponse,
   WebhookDeliveryHistoryResponse,
+  WebhookDeliveryRecoveryReceipt,
   WebhookDeliveryReplayReceipt,
   WebhookSigningKeyRotationReceipt,
   WebhookSubscriptionResponse,
@@ -23,6 +25,7 @@ import {
   readWebhookDeliveryAttemptPageResponse,
   readWebhookDeliveryHistoryPageResponse,
   readWebhookDeliveryHistoryResponse,
+  readWebhookDeliveryRecoveryReceipt,
   readWebhookDeliveryReplayReceipt,
   readWebhookSigningKeyRotationReceipt,
   readWebhooksListSubscriptionsResponse,
@@ -87,6 +90,28 @@ export async function webhooksCancelSigningKeyRotation(
   };
   const value = await requestJsonOperation(http, path, init, signal, options);
   return readWebhookSigningKeyRotationReceipt(value);
+}
+
+export interface WebhooksConfirmRecoveredDeliveryParameters {
+  readonly subscriptionId: string;
+  readonly deliveryId: string;
+  readonly body: ConfirmWebhookDeliveryRequest;
+}
+
+export async function webhooksConfirmRecoveredDelivery(
+  http: HttpClient,
+  parameters: WebhooksConfirmRecoveredDeliveryParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<WebhookDeliveryRecoveryReceipt> {
+  const path = `/api/v1/webhooks/subscriptions/${encodeURIComponent(String(parameters.subscriptionId))}/deliveries/${encodeURIComponent(String(parameters.deliveryId))}/reconciliations`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = await requestJsonOperation(http, path, init, signal, options);
+  return readWebhookDeliveryRecoveryReceipt(value);
 }
 
 export interface WebhooksCreateSubscriptionParameters {

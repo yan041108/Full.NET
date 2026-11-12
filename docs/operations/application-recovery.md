@@ -82,7 +82,11 @@ node eng/deploy/Verify-FullNetRecoveryEvidence.mjs $EvidenceDirectory $TrustedCa
 node eng/deploy/Compare-FullNetWebhookRecoveryEvidence.mjs $RestoredDeliveriesJson $ReceiverReceiptsJson
 ```
 
-缺失回执、身份或摘要冲突、结果未知以及仅接收方存在的回执均需继续对账。工具会返回未解决项及非零退出码。匹配的已提交回执用于确认外部效果，若对应投递在恢复库仍待发送，应保持隔离，直到按受控流程处置。工具只读取文件，不会改变投递状态或触发重放。签发 `dispatch.json` 前，由负责人确认对账范围完整，并复核每项已确认外部效果在恢复库中的处置结果。
+缺失回执、身份或摘要冲突、结果未知以及仅接收方存在的回执均需继续对账。工具只比较文件，会报告未解决项并以非零状态退出。签发 `dispatch.json` 前，由负责人确认对账范围完整，并复核每项已确认外部效果在恢复库中的处置结果。
+
+对已匹配、接收方业务效果已提交且恢复库仍为 `pending` 的记录，保持 Worker 和外发隔离，在对应租户调用 `POST /api/v1/webhooks/subscriptions/{subscriptionId}/deliveries/{deliveryId}/reconciliations`。操作人需要订阅读取、投递读取及独立的 `webhooks.deliveries.reconcile` 权限。请求填写固定 UUID `operationId`、投递详情的原 `version`、匹配的 `eventId` 与 `payloadSha256`，以及从已验证的接收方证据文件原始字节计算的 `receiverReceiptSha256`。操作人负责核验权威来源并按操作标识保存该证据。服务核对当前租户、原投递和载荷摘要，并把证据摘要与操作者写入审计。
+
+保存返回的对账回执，复核投递为 `delivered`、版本增加 1、已清除下次发送时间，并核对尝试次数和尝试记录。原操作人用相同操作标识和内容重试可取回原回执。若返回 409，重新读取投递并核对原证据，保持隔离直到差异解决。处置入口只接受 `pending`，领取中的记录仍按外部结果和恢复步骤人工复核。
 
 ## 禁止事项
 

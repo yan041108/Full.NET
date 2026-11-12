@@ -33,6 +33,10 @@ internal sealed class WebhooksDapperAotMaterializerContributor : IDapperAotMater
         registrar.Register<WebhookDeliveryReplayRecord>(reader => new(
             reader.GetGuid(0), reader.GetGuid(1), reader.GetGuid(2), reader.GetGuid(3), reader.GetGuid(4), reader.GetGuid(5), reader.GetGuid(6),
             reader.GetInt32(7), reader.GetInt32(8), reader.GetInt32(9), AotDataReaderExtensions.ReadDateTimeOffset(reader, 10)));
+        registrar.Register<WebhookDeliveryRecoveryRecord>(reader => new(
+            reader.GetGuid(0), reader.GetGuid(1), reader.GetGuid(2), reader.GetGuid(3), reader.GetGuid(4), reader.GetGuid(5),
+            reader.GetInt32(6), reader.GetInt32(7), reader.GetInt32(8), reader.GetString(9), reader.GetString(10),
+            AotDataReaderExtensions.ReadDateTimeOffset(reader, 11)));
     }
 
     private static WebhookSubscriptionRecord ReadWebhookSubscriptionRecord(DbDataReader reader) =>

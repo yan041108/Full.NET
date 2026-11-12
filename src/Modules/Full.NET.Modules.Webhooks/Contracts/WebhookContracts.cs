@@ -21,6 +21,9 @@ public static class WebhookPermissions
     /// <summary>允许按原版本手动排队本企业的终态失败投递。</summary>
     public const string DeliveriesReplay = "webhooks.deliveries.replay";
 
+    /// <summary>确认接收方已提交的恢复投递。</summary>
+    public const string DeliveriesReconcile = "webhooks.deliveries.reconcile";
+
     /// <summary>允许准备、明确激活或取消本企业订阅的签名密钥轮换。</summary>
     public const string SigningKeysRotate = "webhooks.subscriptions.rotate_signing_key";
 }
@@ -65,6 +68,9 @@ public static class WebhookErrorCodes
 
     /// <summary>重放操作键、版本、订阅启用条件或原投递状态冲突。</summary>
     public const string ReplayConflict = "webhooks.delivery.replay_conflict";
+
+    /// <summary>恢复操作身份、投递状态或证据冲突。</summary>
+    public const string RecoveryConflict = "webhooks.delivery.recovery_conflict";
 
     /// <summary>当前操作者在原资源下没有对应重放回执。</summary>
     public const string ReplayReceiptNotFound = "webhooks.delivery.replay_receipt_not_found";
