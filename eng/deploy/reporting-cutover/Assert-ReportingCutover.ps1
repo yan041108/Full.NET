@@ -28,14 +28,37 @@ function Read-ClusterList {
     return $list.items
 }
 
+function Get-ControllerUid {
+    param([System.Collections.IDictionary] $Resource, [string] $Kind)
+    foreach ($owner in $Resource.metadata['ownerReferences']) {
+        if ($owner['controller'] -eq $true -and $owner.kind -ceq $Kind) { return $owner.uid }
+    }
+}
+
+function Test-ReplicaSetPod {
+    param([System.Collections.IDictionary] $Pod, [array] $ReplicaSets)
+    $owner = Get-ControllerUid -Resource $Pod -Kind ReplicaSet
+    foreach ($replicaSet in $ReplicaSets) {
+        # 脱离选择器的 Pod 会被控制器释放，生成时的名称前缀仍可用于阻断。
+        if ($owner -ceq $replicaSet.metadata.uid `
+            -or ($Pod.metadata['name'] -and $Pod.metadata.name.StartsWith("$($replicaSet.metadata.name)-", [StringComparison]::Ordinal))) {
+            return $true
+        }
+    }
+    return $false
+}
+
 function Assert-OldHostsStopped {
     $autoscalers = @(Read-ClusterList -Resource hpa)
+    $replicaSets = @(Read-ClusterList -Resource replicasets)
+    $pods = @(Read-ClusterList -Resource pods)
     foreach ($role in 'api', 'worker') {
         $selector = "app.kubernetes.io/instance=fullnet-$role"
         $deployments = @(Read-ClusterList -Resource deployments -Selector $selector)
         if ($deployments.Count -ne 1) { throw "Reporting cutover requires exactly one existing $role deployment." }
         $deployment = $deployments[0]
         if ($deployment.metadata.labels['app.kubernetes.io/component'] -cne $role `
+            -or -not $deployment.metadata['uid'] `
             -or $deployment.spec.replicas -ne 0 `
             -or $null -eq $deployment.metadata.generation `
             -or $deployment.status.observedGeneration -ne $deployment.metadata.generation `
@@ -46,8 +69,22 @@ function Assert-OldHostsStopped {
                         -and $_.spec.scaleTargetRef.name -eq $deployment.metadata.name }).Count -ne 0) {
             throw "Reporting cutover requires removing the autoscaler for the old $role deployment."
         }
-        if (@(Read-ClusterList -Resource pods -Selector $selector).Count -ne 0) {
+        # 标签可能在停稳前被改动，按控制器 UID 核对 Deployment → ReplicaSet → Pod 归属链。
+        $instance = "fullnet-$role"
+        $ownedReplicaSets = @($replicaSets | Where-Object {
+            (Get-ControllerUid -Resource $_ -Kind Deployment) -ceq $deployment.metadata.uid `
+                -or ($_.metadata['labels'] -and $_.metadata.labels['app.kubernetes.io/instance'] -ceq $instance)
+        })
+        if (@($pods | Where-Object {
+            ($_.metadata['labels'] -and $_.metadata.labels['app.kubernetes.io/instance'] -ceq $instance) `
+                -or (Test-ReplicaSetPod -Pod $_ -ReplicaSets $ownedReplicaSets)
+        }).Count -ne 0) {
             throw "Reporting cutover requires all old $role pods to terminate."
+        }
+        if (@($ownedReplicaSets | Where-Object {
+            $_.spec.replicas -ne 0 -or ($_['status'] -and ($_.status['replicas'] ?? 0) -ne 0)
+        }).Count -ne 0) {
+            throw "Reporting cutover requires all old $role replica sets to stop."
         }
     }
 }

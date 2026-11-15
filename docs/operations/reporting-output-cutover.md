@@ -28,7 +28,7 @@
    ./eng/deploy/Invoke-FullNetRelease.ps1 @release
    ```
 
-脚本要求两个旧 Deployment 已确认零副本，相关 Pod 均已退出，主库阻断任务数为零。查询结束后会再次核对旧宿主状态。发布协调者须在检查与发布期间维持上述停写条件，直至新版本就绪。
+脚本要求两个旧 Deployment 已确认零副本、关联 ReplicaSet 已停稳、相关 Pod 均已退出，主库阻断任务数为零。检查使用 Helm 实例标签、控制器 UID 和现存 ReplicaSet 生成的 Pod 名称前缀。操作账号需能列出命名空间内的 Deployment、ReplicaSet、Pod 和 HPA。查询结束后会再次核对旧宿主状态。发布协调者须在检查与发布期间维持上述停写条件，直至新版本就绪。
 
 ## 已完成导出的复核
 

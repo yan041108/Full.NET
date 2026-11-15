@@ -86,11 +86,26 @@ function kubectl {
         'deployments' {
             $replicas = if ($role -eq 'api' -and ($scenario -eq 'active' -or ($scenario -eq 'restarted' -and $global:probeRan))) { 1 } else { 0 }
             $observed = if ($scenario -eq 'stale') { 1 } else { 2 }
-            $items = @(@{metadata=@{name="$role-fixture";generation=2;labels=@{'app.kubernetes.io/component'=$role}};
+            $items = @(@{metadata=@{name="$role-fixture";uid="$role-uid";generation=2;labels=@{'app.kubernetes.io/component'=$role}};
                 spec=@{replicas=$replicas};status=@{observedGeneration=$observed}})
         }
+        'replicasets' {
+            $replicas = if ($scenario -eq 'active-replicaset') { 1 } else { 0 }
+            $items = @(@{metadata=@{uid='worker-rs';name='worker-fixture-hash';ownerReferences=@(@{controller=$true;kind='Deployment';uid='worker-uid'})};
+                spec=@{replicas=$replicas};status=@{replicas=$replicas}})
+        }
         'pods' {
-            if ($role -eq 'worker' -and $scenario -eq 'terminating') { $items = @(@{metadata=@{deletionTimestamp='2026-11-10T00:00:00Z'}}) }
+            $items = @(@{metadata=@{labels=@{'app.kubernetes.io/instance'='unrelated'}}})
+            if ($scenario -eq 'terminating') {
+                $items += @{metadata=@{deletionTimestamp='2026-11-10T00:00:00Z';labels=@{'app.kubernetes.io/instance'='fullnet-worker'}}}
+            }
+            if ($scenario -eq 'relabeled-pod' -or ($scenario -eq 'relabeled-during-probe' -and $global:probeRan)) {
+                $items += @{metadata=@{ownerReferences=@(@{controller=$true;kind='ReplicaSet';uid='worker-rs'});
+                    labels=@{'app.kubernetes.io/instance'='different'}}}
+            }
+            if ($scenario -eq 'released-pod') {
+                $items += @{metadata=@{name='worker-fixture-hash-abcde';labels=@{'app.kubernetes.io/instance'='different'}}}
+            }
             if ($scenario -eq 'cluster-unavailable') { $global:LASTEXITCODE = 1; return }
         }
         default { throw 'Unexpected fixture command.' }
@@ -159,6 +174,10 @@ for (const [scenario, message, probesDatabase] of [
   ['active', /stopped and reconciled/, false],
   ['stale', /stopped and reconciled/, false],
   ['terminating', /pods to terminate/, false],
+  ['relabeled-pod', /pods to terminate/, false],
+  ['relabeled-during-probe', /pods to terminate/, true],
+  ['released-pod', /pods to terminate/, false],
+  ['active-replicaset', /replica sets to stop/, false],
   ['autoscaler', /removing the autoscaler/, false],
   ['cluster-unavailable', /cannot read Kubernetes pods/, false],
   ['pending', /blocked by 2 unfinished/, true],
