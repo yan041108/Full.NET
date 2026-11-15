@@ -134,11 +134,25 @@ function mysql {
 function helm {
     if ($args[-2] -ne '--kube-context' -or $args[-1] -ne 'isolated-test') { throw 'Unexpected Helm context.' }
     if ('--wait' -notin $args -or '--wait-for-jobs' -notin $args) { throw 'Missing Helm wait flags.' }
+    $secret = @($args | Where-Object { $_ -like 'database.connectionSecretName=*' })
+    if ($scenario -eq 'role-secrets') {
+        if ($secret.Count -ne 1 -or $secret[0] -cne "database.connectionSecretName=$($args[2]).db" -or '--set-string' -notin $args) {
+            throw 'The release did not receive its own Secret.'
+        }
+    } elseif ($secret.Count -ne 0) {
+        throw 'Unspecified Secret override must use chart values.'
+    }
     $global:LASTEXITCODE = if ($scenario -eq 'migrator-failed' -and $args[2] -eq 'fullnet-migrator') { 1 } else { 0 }
     Write-Host "helm-stage=$($args[2])"
 }
 $parameters = @{ Namespace='fixture'; ImageTag='fixed-test'; KubeContext='isolated-test' }
-if ($scenario -ne 'normal') {
+if ($scenario -in 'role-secrets', 'invalid-role-secret') {
+    $parameters.ApiDatabaseSecretName = 'fullnet-api.db'
+    $parameters.WorkerDatabaseSecretName = 'fullnet-worker.db'
+    $parameters.MigratorDatabaseSecretName = 'fullnet-migrator.db'
+    if ($scenario -eq 'invalid-role-secret') { $parameters.ApiDatabaseSecretName = 'db,image.tag=injected' }
+}
+if ($scenario -notin 'normal', 'role-secrets', 'invalid-role-secret') {
     $parameters.ReportingOutputCutover = $true
     $parameters.ReportingDatabaseProvider = $provider
     $parameters.ReportingDatabaseServer = 'db.example.invalid'
@@ -200,6 +214,16 @@ test('ordinary release keeps the stage order without probing reporting', () => {
   assert.equal(status, 0, stderr);
   assert.doesNotMatch(stdout, /database-probed/);
   assert.match(stdout, /helm-stage=fullnet-migrator[\s\S]+helm-stage=fullnet-worker[\s\S]+helm-stage=fullnet-api/);
+});
+
+test('each Helm stage can select its database Secret and invalid values fail before mutation', () => {
+  const accepted = run('role-secrets');
+  assert.equal(accepted.status, 0, accepted.stderr);
+  assert.match(accepted.stdout, /helm-stage=fullnet-migrator[\s\S]+helm-stage=fullnet-worker[\s\S]+helm-stage=fullnet-api/);
+  const rejected = run('invalid-role-secret');
+  assert.notEqual(rejected.status, 0);
+  assert.match(rejected.stderr, /ApiDatabaseSecretName/);
+  assert.doesNotMatch(rejected.stdout, /helm-stage|database-probed/);
 });
 
 test('a failed Migrator stops the cutover before releasing Worker and API', () => {

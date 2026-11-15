@@ -15,6 +15,9 @@
        ValuesFile = $ApplicationValues
        ProviderValuesFile = $ActualProviderValues
        EdgeAndDpValuesFile = $ActualEdgeValues
+       ApiDatabaseSecretName = $ApiDatabaseSecret
+       WorkerDatabaseSecretName = $WorkerDatabaseSecret
+       MigratorDatabaseSecretName = $MigratorDatabaseSecret
        ReportingOutputCutover = $true
        ReportingDatabaseProvider = $ActualProvider # SqlServer 或 MySql
        ReportingDatabaseServer = $ReportingPrimary
@@ -31,6 +34,8 @@
 脚本要求两个旧 Deployment 已确认零副本、关联 ReplicaSet 已停稳、相关 Pod 均已退出，主库阻断任务数为零。检查使用 Helm 实例标签、控制器 UID 和现存 ReplicaSet 生成的 Pod 名称前缀。操作账号需能列出命名空间内的 Deployment、ReplicaSet、Pod 和 HPA。查询结束后会再次核对旧宿主状态。发布协调者须在检查与发布期间维持上述停写条件，直至新版本就绪。
 
 Migrator 每次发布创建带 Helm 修订号的 Job，与其 ConfigMap 和 ServiceAccount 一起由 Helm 创建。发布脚本等待本次 Job 完成才启动 Worker 阶段，随后等待 API 就绪。单独调用 Helm 时，Migrator 阶段也须传入 `--wait --wait-for-jobs`。
+
+三个数据库 Secret 指向同一业务主库，分别使用宿主所需权限及与 Chart 预算一致的最大连接池大小。未传角色专用参数时，该角色使用 values 中的 `database.connectionSecretName`。
 
 ## 已完成导出的复核
 

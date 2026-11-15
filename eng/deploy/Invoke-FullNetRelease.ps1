@@ -27,6 +27,15 @@ param(
 
     [string] $KubeContext,
 
+    [ValidatePattern('\A(?=.{1,253}\z)(?-i:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)*)\z')]
+    [string] $ApiDatabaseSecretName,
+
+    [ValidatePattern('\A(?=.{1,253}\z)(?-i:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)*)\z')]
+    [string] $WorkerDatabaseSecretName,
+
+    [ValidatePattern('\A(?=.{1,253}\z)(?-i:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)*)\z')]
+    [string] $MigratorDatabaseSecretName,
+
     [switch] $ReportingOutputCutover,
 
     [ValidateSet('SqlServer', 'MySql')] [string] $ReportingDatabaseProvider,
@@ -51,7 +60,7 @@ function Invoke-HelmUpgrade {
     param(
         [string] $ReleaseName,
         [string] $RoleValuesFile,
-        [string[]] $ExtraSet = @()
+        [string] $DatabaseSecretName
     )
 
     $args = @(
@@ -66,7 +75,9 @@ function Invoke-HelmUpgrade {
         '--wait',
         '--wait-for-jobs',
         '--timeout', "${TimeoutSeconds}s"
-    ) + $ExtraSet
+    )
+    # 角色的连接串与各自连接池预算成对配置，Helm 仅接收 Secret 名称。
+    if ($DatabaseSecretName) { $args += @('--set-string', "database.connectionSecretName=$DatabaseSecretName") }
     if ($KubeContext) { $args += @('--kube-context', $KubeContext) }
 
     Write-Host ">>> helm $($args -join ' ')"
@@ -101,13 +112,13 @@ if ($ReportingOutputCutover) {
 }
 
 Write-Host 'Stage 1/3: Migrator Job (Expand/Contract gate)'
-Invoke-HelmUpgrade -ReleaseName 'fullnet-migrator' -RoleValuesFile $migratorValues
+Invoke-HelmUpgrade -ReleaseName 'fullnet-migrator' -RoleValuesFile $migratorValues -DatabaseSecretName $MigratorDatabaseSecretName
 
 Write-Host 'Stage 2/3: Worker consumers'
-Invoke-HelmUpgrade -ReleaseName 'fullnet-worker' -RoleValuesFile $workerValues
+Invoke-HelmUpgrade -ReleaseName 'fullnet-worker' -RoleValuesFile $workerValues -DatabaseSecretName $WorkerDatabaseSecretName
 
 Write-Host 'Stage 3/3: API rolling readiness'
-Invoke-HelmUpgrade -ReleaseName 'fullnet-api' -RoleValuesFile $apiValues
+Invoke-HelmUpgrade -ReleaseName 'fullnet-api' -RoleValuesFile $apiValues -DatabaseSecretName $ApiDatabaseSecretName
 
 Write-Host 'Full.NET release order completed successfully.'
 Write-Host 'Capacity status remains Capacity-not-verified until dedicated hardware certification.'
