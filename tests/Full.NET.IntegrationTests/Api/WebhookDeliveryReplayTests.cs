@@ -124,6 +124,48 @@ public sealed class WebhookDeliveryReplayTests
     [TestMethod]
     [DataRow(DatabaseProvider.SqlServer)]
     [DataRow(DatabaseProvider.MySql)]
+    public async Task Recovery_confirmation_closes_only_expired_claimed_delivery_without_sending(DatabaseProvider provider)
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(120));
+        var token = timeout.Token;
+        await using var f = await Fixture.CreateAsync(provider, token, processInitially: false);
+        Assert.AreEqual(1, await f.ClaimAsync(token));
+        var claimed = await f.DetailAsync(token);
+        Assert.AreEqual("processing", claimed.StatusKey);
+        Assert.AreEqual(0, claimed.AttemptCount);
+        var request = await CreateConfirmationAsync(f, claimed);
+        var path = f.Path + "/reconciliations";
+
+        using (var active = await f.Client.PostAsJsonAsync(path, request, token))
+            Assert.AreEqual(HttpStatusCode.Conflict, active.StatusCode);
+        Assert.AreEqual(claimed, await f.DetailAsync(token));
+
+        f.Clock.Offset = TimeSpan.FromSeconds(61);
+        using var confirmed = await f.Client.PostAsJsonAsync(path, request, token);
+        Assert.AreEqual(HttpStatusCode.OK, confirmed.StatusCode);
+        var receipt = (await confirmed.Content.ReadFromJsonAsync<WebhookDeliveryRecoveryReceipt>(token))!;
+        var delivered = await f.DetailAsync(token);
+        Assert.AreEqual("delivered", delivered.StatusKey);
+        Assert.AreEqual(claimed.Version + 1, delivered.Version);
+        Assert.AreEqual(delivered.Version, receipt.Version);
+        Assert.AreEqual(claimed.AttemptCount, delivered.AttemptCount);
+        Assert.IsNull(delivered.NextAttemptAtUtc);
+        Assert.AreEqual(0, await f.ProcessAsync(token));
+        Assert.IsEmpty(f.Receiver.Bodies);
+
+        var attempts = await f.Client.GetFromJsonAsync<PagedResult<WebhookDeliveryAttemptResponse>>(path[..^"/reconciliations".Length] + "/attempts", token);
+        var attempt = attempts!.Items.Single();
+        Assert.AreEqual("unconfirmed", attempt.OutcomeKey);
+        Assert.AreEqual(claimed.Version, await f.Database.ExecuteScalarAsync<int>(
+            "SELECT ClaimVersion FROM fn_webhooks_delivery_attempt WHERE DeliveryId=@Id", new { claimed.Id }));
+        using var retried = await f.Client.PostAsJsonAsync(path, request, token);
+        Assert.AreEqual(HttpStatusCode.OK, retried.StatusCode);
+        Assert.AreEqual(receipt, await retried.Content.ReadFromJsonAsync<WebhookDeliveryRecoveryReceipt>(token));
+    }
+
+    [TestMethod]
+    [DataRow(DatabaseProvider.SqlServer)]
+    [DataRow(DatabaseProvider.MySql)]
     public async Task Recovery_confirmation_rolls_back_on_audit_failure_and_expired_session(DatabaseProvider provider)
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(120));
@@ -310,6 +352,7 @@ public sealed class WebhookDeliveryReplayTests
         }
         internal async Task<string> AccessAsync(Guid tenant, IReadOnlyCollection<string> rights, CancellationToken token) { using var host = Factory.CreateClientForHost("localhost"); return await IntegrationTestTenantContextHelper.SwitchToTenantAsync(host, await Factory.CreateHostAccessTokenAsync([.. rights, "tenancy.tenants.switch"], token), tenant, token); }
         internal async Task<int> ProcessAsync(CancellationToken token) { await using var scope = Factory.Services.CreateAsyncScope(); scope.ServiceProvider.GetRequiredService<CurrentTenantAccessor>().SetHost(); return await scope.ServiceProvider.GetRequiredService<WebhookDeliveryBatchProcessor>().ProcessPendingAsync(token); }
+        internal async Task<int> ClaimAsync(CancellationToken token) { await using var scope = Factory.Services.CreateAsyncScope(); scope.ServiceProvider.GetRequiredService<CurrentTenantAccessor>().SetHost(); return (await scope.ServiceProvider.GetRequiredService<WebhookDeliveryBatchProcessor>().ClaimAsync(token)).Count; }
         internal async Task<WebhookDeliveryHistoryResponse> DetailAsync(CancellationToken token) => (await Client.GetFromJsonAsync<WebhookDeliveryHistoryResponse>(Path, token))!;
         internal async Task<WebhookDeliveryReplayReceipt> ReplayAsync(ReplayWebhookDeliveryRequest request, CancellationToken token) { using var response = await Client.PostAsJsonAsync(Path + "/replays", request, token); Assert.AreEqual(HttpStatusCode.OK, response.StatusCode, await response.Content.ReadAsStringAsync(token)); return (await response.Content.ReadFromJsonAsync<WebhookDeliveryReplayReceipt>(token))!; }
         internal async Task StatusAsync(bool active, int version, CancellationToken token) { using var response = await Client.PostAsJsonAsync(Path[..Path.IndexOf("/deliveries", StringComparison.Ordinal)] + "/status", new SetWebhookSubscriptionStatusRequest(active, version), token); Assert.AreEqual(HttpStatusCode.OK, response.StatusCode); }

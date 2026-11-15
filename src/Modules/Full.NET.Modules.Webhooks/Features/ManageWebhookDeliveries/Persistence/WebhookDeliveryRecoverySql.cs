@@ -16,7 +16,8 @@ internal static class WebhookDeliveryRecoverySql
         UPDATE fn_webhooks_delivery
         SET Status=@DeliveredStatus,NextAttemptAtUtc=NULL,LastError=NULL,UpdatedAtUtc=@ConfirmedAtUtc,Version=Version+1
         WHERE Id=@DeliveryId AND SubscriptionId=@SubscriptionId AND EventId=@EventId
-          AND Version=@PreviousVersion AND Status=@PendingStatus AND PayloadDigest=@PayloadSha256
+          AND Version=@PreviousVersion AND PayloadDigest=@PayloadSha256
+          AND (Status=@PendingStatus OR (Status=@ProcessingStatus AND UpdatedAtUtc<=@ExpiredBefore))
           AND EXISTS (SELECT 1 FROM fn_webhooks_subscription subscription
             WHERE subscription.Id=@SubscriptionId AND subscription.TenantId=@TenantId)
         """, SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);

@@ -8,8 +8,10 @@ using Full.NET.Abstractions.Time;
 using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Webhooks.Contracts;
+using Full.NET.Modules.Webhooks.Delivery;
 using Full.NET.Modules.Webhooks.Features.ManageWebhookDeliveries.Persistence;
 using Full.NET.Modules.Webhooks.Features.ManageWebhookSubscriptions;
+using Microsoft.Extensions.Options;
 
 namespace Full.NET.Modules.Webhooks.Features.ManageWebhookDeliveries;
 
@@ -17,7 +19,8 @@ namespace Full.NET.Modules.Webhooks.Features.ManageWebhookDeliveries;
 internal sealed class WebhookDeliveryRecoveryService(IQueryExecutor queries, ICommandExecutor commands,
     ICommandTransaction transaction, IDatabaseTransactionBoundSessionLock locks, ICurrentTenant tenant,
     ICurrentSessionAuthorization sessions, IIndependentCurrentSessionAuthorization independent,
-    WebhookDeliveryHistoryQueryService history, IClock clock, IIdGenerator ids)
+    WebhookDeliveryHistoryQueryService history, IClock clock, IIdGenerator ids,
+    IOptions<WebhookDeliveryWorkerOptions> workerOptions)
 {
     private static readonly string[] Rights =
         [WebhookPermissions.SubscriptionsRead, WebhookPermissions.DeliveriesRead, WebhookPermissions.DeliveriesReconcile];
@@ -55,14 +58,19 @@ internal sealed class WebhookDeliveryRecoveryService(IQueryExecutor queries, ICo
             if (previous is not null) return Match(previous, actor, subscriptionId, deliveryId, request);
 
             var delivery = owned.Value!;
-            if (delivery.StatusKey != "pending" || delivery.Version != request.Version || delivery.EventId != request.EventId)
+            var confirmedAt = clock.UtcNow;
+            var expiredBefore = confirmedAt.AddSeconds(-Math.Clamp(workerOptions.Value.LeaseSeconds, 60, 3600));
+            var canConfirm = delivery.StatusKey == "pending" || (delivery.StatusKey == "processing"
+                && delivery.UpdatedAtUtc <= expiredBefore);
+            if (!canConfirm || delivery.Version != request.Version || delivery.EventId != request.EventId)
                 return Conflict();
             var values = WebhookSqlParameters.Create(("Id", ids.NewId()), ("OperationId", request.OperationId),
                 ("ActorUserId", actor.UserId), ("ActorSessionId", actor.SessionId), ("SubscriptionId", subscriptionId),
                 ("DeliveryId", deliveryId), ("EventId", request.EventId), ("PreviousVersion", request.Version),
                 ("Version", request.Version + 1), ("AttemptCount", delivery.AttemptCount),
                 ("PayloadSha256", request.PayloadSha256), ("ReceiverReceiptSha256", request.ReceiverReceiptSha256),
-                ("ConfirmedAtUtc", clock.UtcNow), ("PendingStatus", WebhookDeliveryStatuses.Pending),
+                ("ConfirmedAtUtc", confirmedAt), ("ExpiredBefore", expiredBefore),
+                ("PendingStatus", WebhookDeliveryStatuses.Pending), ("ProcessingStatus", "processing"),
                 ("DeliveredStatus", WebhookDeliveryStatuses.Delivered));
             if (await commands.ExecuteAsync(WebhookDeliveryRecoverySql.Confirm, values, cancellation).ConfigureAwait(false) != 1)
                 return Conflict();
