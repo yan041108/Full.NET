@@ -1,0 +1,110 @@
+import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
+import test from 'node:test';
+
+const root = fileURLToPath(new URL('../..', import.meta.url));
+
+function verify(scenario) {
+  const script = String.raw`
+$ErrorActionPreference = 'Stop'
+$fixture = [IO.Directory]::CreateTempSubdirectory('fullnet-reporting-workbook-')
+try {
+    $workbookPath = Join-Path $fixture.FullName 'original.xlsx'
+    $evidencePath = Join-Path $fixture.FullName 'evidence.json'
+    $scenario = $env:FULLNET_REPORTING_WORKBOOK_CASE
+    $ns = 'http://schemas.openxmlformats.org/spreadsheetml/2006/main'
+    $office = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships'
+    $package = 'http://schemas.openxmlformats.org/package/2006/relationships'
+    $second = '<row r="2"><c r="A2" t="inlineStr"><is><t>private fixture</t></is></c></row>'
+    if ($scenario -eq 'skipped-row') { $second = $second.Replace('r="2"', 'r="3"') }
+    if ($scenario -eq 'formula') { $second = $second.Replace('<is><t>private fixture</t></is>', '<f>1+1</f>') }
+    if ($scenario -eq 'header-only') { $second = '' }
+    $target = if ($scenario -eq 'redirect') { 'worksheets/another.xml' } else { 'worksheets/sheet1.xml' }
+    $parts = @{
+        '[Content_Types].xml' = '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"/>'
+        '_rels/.rels' = "<Relationships xmlns='$package'><Relationship Id='rId1' Type='$office/officeDocument' Target='xl/workbook.xml'/></Relationships>"
+        'xl/workbook.xml' = "<workbook xmlns='$ns' xmlns:r='$office'><sheets><sheet name='Export' sheetId='1' r:id='rId1'/></sheets></workbook>"
+        'xl/_rels/workbook.xml.rels' = "<Relationships xmlns='$package'><Relationship Id='rId1' Type='$office/worksheet' Target='$target'/></Relationships>"
+        'xl/worksheets/sheet1.xml' = "<worksheet xmlns='$ns'><sheetData><row r='1'><c r='A1' t='inlineStr'><is><t>Header</t></is></c></row>$second</sheetData></worksheet>"
+    }
+    if ($scenario -eq 'doctype') { $parts['xl/worksheets/sheet1.xml'] = '<!DOCTYPE worksheet []>' + $parts['xl/worksheets/sheet1.xml'] }
+    if ($scenario -eq 'extra-part') { $parts['xl/worksheets/sheet2.xml'] = '<worksheet/>' }
+    if ($scenario -eq 'document-redirect') { $parts['_rels/.rels'] = $parts['_rels/.rels'].Replace('xl/workbook.xml', 'xl/other.xml') }
+    $file = [IO.File]::Create($workbookPath)
+    try {
+        $archive = [IO.Compression.ZipArchive]::new($file, 'Create', $true)
+        try {
+            foreach ($entry in $parts.GetEnumerator()) {
+                $writer = [IO.StreamWriter]::new($archive.CreateEntry($entry.Key).Open())
+                try { $writer.Write($entry.Value) } finally { $writer.Dispose() }
+            }
+        } finally { $archive.Dispose() }
+    } finally { $file.Dispose() }
+    $evidence = @{
+        tenantId = '00000000-0000-7000-8000-000000000001'
+        taskId = '00000000-0000-7000-8000-000000000002'
+        latestReadyFileId = '00000000-0000-7000-8000-000000000003'
+        statusKey = 'processing'
+        outputFileId = $null
+        hasRowIdentityPrefix = $false
+        fileCount = 1
+        readyFileCount = 1
+        pendingFileCount = 0
+        latestReadySha256 = (Get-FileHash -LiteralPath $workbookPath).Hash
+        latestReadyBytes = (Get-Item -LiteralPath $workbookPath).Length
+        recordedRowCount = 99
+    }
+    if ($scenario -eq 'different-digest') { $evidence.latestReadySha256 = 'A' * 64 }
+    if ($scenario -eq 'size-mismatch') { $evidence.latestReadyBytes++ }
+    if ($scenario -eq 'multiple-ready') { $evidence.fileCount = 2; $evidence.readyFileCount = 2 }
+    $evidence | ConvertTo-Json | Set-Content -LiteralPath $evidencePath
+    & ./eng/deploy/reporting-cutover/Measure-ReportingCutoverWorkbook.ps1 -EvidencePath $evidencePath -WorkbookPath $workbookPath
+} finally {
+    foreach ($name in 'original.xlsx', 'evidence.json') {
+        $path = Join-Path $fixture.FullName $name
+        if (Test-Path -LiteralPath $path) { Remove-Item -LiteralPath $path }
+    }
+    $fixture.Delete()
+}
+`;
+  const result = spawnSync('pwsh', ['-NoProfile', '-NonInteractive', '-Command', script], {
+    cwd: root,
+    encoding: 'utf8',
+    timeout: 20_000,
+    windowsHide: true,
+    env: { ...process.env, FULLNET_REPORTING_WORKBOOK_CASE: scenario },
+  });
+  assert.ifError(result.error);
+  return result;
+}
+
+for (const [scenario, rowCount] of [['one-row', 1], ['header-only', 0]]) {
+  test(`legacy workbook ${scenario} counts only fully matched data rows`, () => {
+    const result = verify(scenario);
+    assert.equal(result.status, 0, result.stderr);
+    const evidence = JSON.parse(result.stdout);
+    assert.equal(evidence.dataRowCount, rowCount);
+    assert.equal(evidence.fileId, '00000000-0000-7000-8000-000000000003');
+    assert.doesNotMatch(result.stdout, /private fixture|original.xlsx|recordedRowCount/);
+  });
+}
+
+for (const [scenario, failure] of [
+  ['different-digest', /digest does not match/],
+  ['size-mismatch', /size does not match/],
+  ['multiple-ready', /single unbound legacy/],
+  ['skipped-row', /worksheet row sequence/],
+  ['formula', /worksheet cell/],
+  ['doctype', /DTD/],
+  ['redirect', /worksheet mapping/],
+  ['document-redirect', /document mapping/],
+  ['extra-part', /package layout/],
+]) {
+  test(`legacy workbook ${scenario} fails without emitting evidence`, () => {
+    const result = verify(scenario);
+    assert.notEqual(result.status, 0);
+    assert.equal(result.stdout.trim(), '');
+    assert.match(result.stderr, failure);
+  });
+}
