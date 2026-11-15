@@ -16,22 +16,19 @@ import {
 import path from 'node:path';
 import process from 'node:process';
 import {
-  apiNativeAotPublishContract,
+  nativeAotPublishContract,
   resolveRepositoryPath,
-  workerNativeAotPublishContract,
 } from './api-native-aot-publish-contract.mjs';
 import { validatePublishWarnings } from './api-native-aot-publish-warnings.mjs';
 import { probeNativeAotSdk } from './native-aot-sdk-policy.mjs';
 
 const hostIndex = process.argv.indexOf('--host');
 const requestedHost = hostIndex >= 0 ? process.argv[hostIndex + 1] : 'api';
-if (requestedHost !== 'api' && requestedHost !== 'worker') {
-  console.error("--host 只接受 'api' 或 'worker'。");
+if (!['api', 'worker', 'migrator', 'log-consumer'].includes(requestedHost)) {
+  console.error("--host 只接受 'api'、'worker'、'migrator' 或 'log-consumer'。");
   process.exit(1);
 }
-const contract = requestedHost === 'worker'
-  ? workerNativeAotPublishContract
-  : apiNativeAotPublishContract;
+const contract = nativeAotPublishContract(requestedHost);
 const outputDir = resolveRepositoryPath(contract.outputRelativeDir);
 const manifestPath = resolveRepositoryPath(contract.manifestRelativePath);
 const publishLogPath = resolveRepositoryPath(contract.publishLogRelativePath);
@@ -212,6 +209,14 @@ function dockerPublishArgs(publishImage) {
   return [
     'run',
     '--rm',
+    '--cpus',
+    String(contract.buildBudget.cpu),
+    '--memory',
+    `${contract.buildBudget.memoryGiB}g`,
+    '--memory-swap',
+    `${contract.buildBudget.memoryGiB}g`,
+    '-e',
+    'MSBUILDDISABLENODEREUSE=1',
     ...volumeMounts.flatMap((mount) => ['-v', mount]),
     '-w',
     '/src',
