@@ -183,11 +183,15 @@ test('config map wires static database capacity budget and role-specific admissi
   assert.match(configMap, /\.Values\.roles\.worker/);
 });
 
-test('Migrator is a Helm hook Job', async () => {
+test('Migrator waits for ordinary dependency resources and uses a new Job on every revision', async () => {
   const job = await read('deploy/helm/fullnet/templates/migrator-job.yaml');
   assert.match(job, /kind:\s*Job/);
-  assert.match(job, /helm\.sh\/hook/);
-  assert.match(job, /hook-weight/);
+  assert.doesNotMatch(job, /helm\.sh\/hook/);
+  assert.match(job, /\.Release\.Revision/);
+  assert.match(job, /configMapRef/);
+  assert.match(job, /serviceAccountName/);
+  const release = await read('eng/deploy/Invoke-FullNetRelease.ps1');
+  assert.match(release, /--wait-for-jobs/);
 });
 
 test('Ingress defaults to cookie affinity and never trusts raw client XFF alone', async () => {

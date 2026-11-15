@@ -5,7 +5,7 @@ Role(s): api={{ .Values.roles.api }} worker={{ .Values.roles.worker }} migrator=
 Capacity status: Capacity-not-verified
 
 Production release order (Invoke-FullNetRelease.ps1):
-  1) fullnet-migrator (Job hook completes)
+  1) fullnet-migrator (versioned Job completes with --wait-for-jobs)
   2) fullnet-worker (consumer ready)
   3) fullnet-api (rolling ready)
 

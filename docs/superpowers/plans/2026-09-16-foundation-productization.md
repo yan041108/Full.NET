@@ -4138,7 +4138,7 @@ F09–F11 使用受控已有成员与站内通知即可验证业务接入，不�
 **复用：** 已交付源码升级器、manifest 冲突保护、Helm、备份执行器与运行角色；本节补交付场景和演练，不重建运维平台。
 
 - [x] F15-R1：Minimal / SQL Server 固定源码候选已生成并安装，分发摘要、配置与秘密键清单见 §8.208。该组合的运行与恢复取证归 F15-R2/R3、F16-R。
-- [ ] F15-R2：Minimal / SQL Server 已验证源码升级、迁移中断重跑、字典和权限保留。Enterprise / SQL Server 已验证旧 API 停止准入、旧 Worker 排空、完成任务与文件引用保留及授权变化后的下载（§8.212–8.214）。已提供双库单任务只读取证及处置手册（§8.215）。真实 Kubernetes 已完成旧宿主停稳门禁定向验证（§8.230）。剩余固定候选结合真实报表队列的 Helm 发布演练，以及真实未知结果任务按证据完成处置。复用 §8.209 的双库原文件保护证据。
+- [ ] F15-R2：Minimal / SQL Server 已验证源码升级、迁移中断重跑、字典和权限保留。Enterprise / SQL Server 已验证旧 API 停止准入、旧 Worker 排空、完成任务与文件引用保留及授权变化后的下载（§8.212–8.214）。已提供双库单任务只读取证及处置手册（§8.215）。真实 Kubernetes 已完成旧宿主停稳定向验证，以及真实 MySQL / Helm 的夹具切版与首次发布（§8.230–8.231）。剩余以 Full.NET 固定候选验证真实报表队列自然排空、实际迁移与结果未知任务处置。复用 §8.209 的双库原文件保护证据。
 - [ ] F15-R3：Enterprise / SQL Server 已完成联合恢复和权限、会话、账号、应用 JWT、OIDC 治理复核（§8.217–8.221）。Webhook 已交付接收方回执对账、独立 Worker 暂停外发、已提交待发送投递的受控确认，以及含 SignalR 安全补丁的固定候选实栈联合复验（§8.222–8.226）：领取中投递按操作员证据受控确认且不重复外发，恢复后到期投递仅发送一次。Enterprise / MySQL 固定候选联合恢复已完成（§8.228）：逻辑一致性备份、恢复后原文件与原记录可读、备份后写入不可见、领取中投递仅外发一次，RPO 1.434 秒、RTO 119.854 秒。剩余其他交易渠道、非 Webhook 外发及选用 Provider/原生路径。复用[联合恢复顺序与回执复核](../../operations/application-recovery.md#联合演练回执复核)。
 - [ ] F16-R1：Minimal / SQL Server 固定候选已完成备份恢复、Migrator→API/Worker 启动、双实例故障接管及 RPO/RTO 实测（§8.227）；Enterprise 预设联合恢复由 F15-R3 覆盖。受影响原生路径已在同一固定候选上实测：linux-x64 Native AOT 发布 API、Worker、Migrator、LogConsumer 四个宿主均 exit 0 并产出合格 ELF64（§8.229），该轮使用候选源码加仅改编排参数与宿主选择的运行器补丁；服务级冒烟已用原生 Migrator 在隔离库执行 389 条脚本、原生 Api 监听并返回 200/200 Healthy 与 200 Degraded、原生 Worker 启动并轮询（`/health/ready` 因 Backplane 无证据为 Degraded）。真实 Kubernetes 停稳演练、多副本与容量仍开放（前者归 F15-R2）。
 - [x] F16-R2：有效证据与已知限制已汇总到[发布验收清单](../../verification/f16-release-checklist.md#f16-r2-证据汇总与已知限制2026-11-15)（2026-11-15）：按固定候选列出 F15-R1/R2/R3 与 F16-R1 的实测输入、结论与边界，并逐项判定未覆盖项。未选模块不阻塞发布候选；外部渠道（F03-R1/F12-R1）、生产启用、原生路径与真实集群单独判定；容量未实测继续 `Capacity-not-verified`。
@@ -6314,3 +6314,9 @@ Release 集成工程单节点构建及 Identity 模块隔离 AOT 分析均零警
 - 切版前及数据库检查后同时按 Helm 实例、控制器 UID 和 ReplicaSet 的 Pod 名称前缀检查旧宿主。旧 ReplicaSet 仍声明或报告副本时阻断。
 - kind 0.33.0 / Kubernetes 1.37.0 的独立集群使用 NGINX 容器扮演旧 API/Worker。验证 Deployment 未停稳、滚动完成后 Pod 仍在退出、修改标签后已被 ReplicaSet 释放但仍运行的 Pod、以及受控数据库返回阻断行均不会调用 Helm。清零后脚本请求 Migrator、Worker、API 三阶段，SQL 返回值与 Helm 调用使用测试替身。
 - 停稳与证据命令定向回归 25/25。真实候选镜像、报表旧队列排空与实际 Helm 发布仍由 F15-R2 持续验收。
+
+### 8.231 F15-R2 Helm 首次发布与 MySQL 切版门禁实测（2026-11-16）
+
+- 用 4713bcf99 的固定 Chart 在干净命名空间复现首次发布超时。Kubernetes 事件证实预安装钩子引用了尚未创建的 ServiceAccount；该 Job 也依赖同一 Release 的普通 ConfigMap。改为带 Helm 修订号的普通 Job，发布脚本通过已有 wait 参数等待本次 Job 完成。
+- kind 0.33.0 / Kubernetes 1.35.0、Helm 3.16.4、MySQL 8.0.46。真实 MySQL 以仅有 SELECT 权限的账号通过 VERIFY_IDENTITY 连接（TLS_AES_256_GCM_SHA384）。正式切版脚本识别处理中任务和终态残留租约共两项，确认 Helm 修订号未变。清零夹具状态后完成实际 Helm 升级，Migrator 新修订 Job 完成后才创建两组新版 Worker 和 API Pod。
+- 三类工作负载使用专用容器夹具，数据库使用报表切版查询所需列的最小夹具；排空状态通过测试设置。未验证真实 Full.NET 宿主镜像、业务报表自然排空、实际迁移与未知任务处置。相关契约和切版脚本测试 28/28。
