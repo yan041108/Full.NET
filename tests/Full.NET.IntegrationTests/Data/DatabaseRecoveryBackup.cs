@@ -3,10 +3,10 @@ using Full.NET.Data.Abstractions;
 using Full.NET.IntegrationTests.Ai;
 using Microsoft.Data.SqlClient;
 
-namespace Full.NET.IntegrationTests.Notifications;
+namespace Full.NET.IntegrationTests.Data;
 
-/// <summary>通过测试容器的原生备份工具将通知数据复制到新登记的恢复库。</summary>
-internal static class NotificationRecoveryBackup
+/// <summary>通过测试容器的原生工具将备份恢复到独立登记的新库。</summary>
+internal static class DatabaseRecoveryBackup
 {
     internal static Task<string> RestoreAsync(DatabaseProvider provider, string sourceConnection,
         Func<Task> afterBackup, CancellationToken token) => provider == DatabaseProvider.SqlServer
@@ -41,7 +41,7 @@ internal static class NotificationRecoveryBackup
         var source = SharedDatabaseFixture.GetMySqlDatabaseName(sourceConnection);
         var targetConnection = await SharedDatabaseFixture.CreateMySqlDatabaseAsync();
         var target = SharedDatabaseFixture.GetMySqlDatabaseName(targetConnection);
-        var media = $"/tmp/fullnet-notification-recovery-{Guid.NewGuid():N}.sql";
+        var media = $"/tmp/fullnet-database-recovery-{Guid.NewGuid():N}.sql";
         try
         {
             await RunMySqlAsync("""
@@ -60,7 +60,7 @@ internal static class NotificationRecoveryBackup
 
         async Task RunMySqlAsync(string command, string database)
         {
-            var result = await container.ExecAsync(["sh", "-c", command, "fullnet-notification-recovery", database, media], token);
+            var result = await container.ExecAsync(["sh", "-c", command, "fullnet-database-recovery", database, media], token);
             Assert.AreEqual(0L, result.ExitCode, "MySQL 原生备份或恢复失败。");
         }
     }

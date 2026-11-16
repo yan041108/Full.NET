@@ -4,6 +4,7 @@ using Dapper;
 using Full.NET.Data.Abstractions;
 using Full.NET.Data.MySql;
 using Full.NET.IntegrationTests.Api;
+using Full.NET.IntegrationTests.Data;
 using Full.NET.Modules.Notifications.Contracts;
 using Full.NET.Modules.Notifications.Execution;
 using Full.NET.Modules.Notifications.Providers.Smtp;
@@ -44,7 +45,7 @@ public sealed partial class NotificationWorkerAdmissionTests
         Assert.AreEqual("accepted", original.StatusKey);
 
         string? messageId = null;
-        var restored = await NotificationRecoveryBackup.RestoreAsync(provider, database, async () =>
+        var restored = await DatabaseRecoveryBackup.RestoreAsync(provider, database, async () =>
         {
             using var sender = await BuildWorkerAsync(database, "Notifications.SourceAfterBackup", sourceProtection);
             var received = inbox.ReceiveAsync("accepted", token);

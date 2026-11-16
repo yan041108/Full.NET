@@ -97,7 +97,7 @@ public sealed partial class NotificationWorkerAdmissionTests
         var recoveryProtection = restoredKeys?.GetRequiredService<IDataProtectionProvider>() ?? sourceProtection;
         Guid? afterBackupDeliveryId = null;
         var recoveryDatabase = restoreBackup
-            ? await NotificationRecoveryBackup.RestoreAsync(provider, database, async () =>
+            ? await DatabaseRecoveryBackup.RestoreAsync(provider, database, async () =>
             {
                 var intent = await NotificationDeliveryWorkerAssertions.CreateIntentAsync(
                     client, access, route, user.Id, "created-after-backup", token);

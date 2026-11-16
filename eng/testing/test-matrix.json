@@ -1754,6 +1754,11 @@
           "minimum": 2,
           "timeout": "5m"
         },
+        "payment-refund-backup-recovery": {
+          "filter": "FullyQualifiedName~PaymentRefundBackupRecoveryApiTests",
+          "minimum": 2,
+          "timeout": "8m"
+        },
         "reporting-export-status-filter": {
           "filter": "FullyQualifiedName~ReportingExportStatusFilterApiTests",
           "minimum": 2,
