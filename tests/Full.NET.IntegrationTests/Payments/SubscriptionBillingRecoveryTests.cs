@@ -42,7 +42,7 @@ public sealed partial class SubscriptionBillingRecoveryTests
     public Task Paid_outbox_and_receiver_recover_then_refund_revokes_only_subscription_source(DatabaseProvider provider) =>
         VerifyBillingRecoveryAsync(provider, null);
 
-    private static async Task VerifyBillingRecoveryAsync(DatabaseProvider provider, BillingBrowser? browser)
+    private static async Task VerifyBillingRecoveryAsync(DatabaseProvider provider, BillingBrowser? browser, bool verifyRestoredConsumption = false)
     {
         var cs = provider == DatabaseProvider.SqlServer ? await SharedDatabaseFixture.CreateSqlServerDatabaseAsync()
             : await SharedDatabaseFixture.CreateMySqlDatabaseAsync();
@@ -50,7 +50,7 @@ public sealed partial class SubscriptionBillingRecoveryTests
         using var factory = new FullNetApiFactory(provider, cs, browser?.Settings, configureTestServices: services =>
             services.Replace(ServiceDescriptor.Singleton<IWeChatNativePayClient>(channel)));
         browser?.UseKestrel(factory);
-        await factory.InitializeAsync();
+        await factory.InitializeAsync(useSchemaTemplate: !verifyRestoredConsumption);
         HttpClient CreateClient(string host) => browser is null ? factory.CreateClientForHost(host) : browser.CreateClient(factory, host);
         using var client = CreateClient("acme.localhost");
         var tenantContext = await IntegrationTestTenantContextHelper.GetCurrentTenantAsync(client, default);
@@ -191,6 +191,12 @@ public sealed partial class SubscriptionBillingRecoveryTests
         Assert.AreEqual(beforeUsage, await connection.QuerySingleAsync<long>("SELECT UsedValue FROM fn_tenancy_quota_metric WHERE TenantId=@Tenant AND MetricCode=@Metric AND PeriodKey=@Period",
             new { Tenant = tenant, Metric = TenantQuotaMetricCodes.IdentitySeats, Period = TenantQuotaDefaults.PeriodKey }));
         Assert.AreEqual(1L, await ActiveFeature(sp, tenant, code));
+
+        if (verifyRestoredConsumption)
+        {
+            await VerifyRestoredRefundConsumptionAsync(factory, connection, sp, reconciler, channel, terms, orderPath, orderId, entitlement, code);
+            return;
+        }
 
         // 不能只用直接预留代替真实消费者：已履约的存储额度必须支持实际上传并确认字节占用。
         var storedFile = await VerifyStorageConsumerAsync(sp, connection, tenant, allowed: true);
@@ -465,14 +471,26 @@ public sealed partial class SubscriptionBillingRecoveryTests
     private sealed class Channel : IWeChatNativePayClient
     {
         internal int CreateCount;
+        internal bool HoldRefundForRecovery { get; set; }
+        internal int RefundCreateCount { get; private set; }
+        private WeChatRefundQueryResult? pendingRefund;
         // 同一订单重查保持渠道身份，新增订单不能复用首单金额或流水。
         private readonly Dictionary<string, long> amounts = new(StringComparer.Ordinal);
         private string? firstTradeNo;
         public Task<WeChatNativePayResult> CreateNativeOrderAsync(PaymentMerchantConfigRecord merchantConfig, string outTradeNo, long amountMinor, string currency, string description, CancellationToken cancellationToken = default)
         { CreateCount++; firstTradeNo ??= outTradeNo; amounts[outTradeNo] = amountMinor; return Task.FromResult(WeChatNativePayResult.Success("weixin://test-only")); }
         public Task<WeChatTransactionQueryResult> QueryTransactionByOutTradeNoAsync(PaymentMerchantConfigRecord merchantConfig, string outTradeNo, CancellationToken cancellationToken = default) => Task.FromResult(WeChatTransactionQueryResult.Success("SUCCESS", outTradeNo == firstTradeNo ? "wx-paid" : "wx-paid-" + outTradeNo, amounts[outTradeNo]));
-        public Task<WeChatRefundResult> CreateDomesticRefundAsync(PaymentMerchantConfigRecord merchantConfig, string outTradeNo, string outRefundNo, long amountMinor, long totalMinor, string currency, string reason, CancellationToken cancellationToken = default) => Task.FromResult(WeChatRefundResult.Success(outTradeNo == firstTradeNo ? "wx-refund" : "wx-refund-" + outRefundNo, "SUCCESS"));
-        public Task<WeChatRefundQueryResult> QueryDomesticRefundAsync(PaymentMerchantConfigRecord merchantConfig, string outRefundNo, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<WeChatRefundResult> CreateDomesticRefundAsync(PaymentMerchantConfigRecord merchantConfig, string outTradeNo, string outRefundNo, long amountMinor, long totalMinor, string currency, string reason, CancellationToken cancellationToken = default)
+        {
+            RefundCreateCount++;
+            var providerRefundId = outTradeNo == firstTradeNo ? "wx-refund" : "wx-refund-" + outRefundNo;
+            if (HoldRefundForRecovery)
+                pendingRefund = new(true, providerRefundId, outRefundNo, "SUCCESS", amountMinor, currency, null);
+            return Task.FromResult(WeChatRefundResult.Success(providerRefundId, HoldRefundForRecovery ? "PROCESSING" : "SUCCESS"));
+        }
+
+        public Task<WeChatRefundQueryResult> QueryDomesticRefundAsync(PaymentMerchantConfigRecord merchantConfig, string outRefundNo, CancellationToken cancellationToken = default) =>
+            pendingRefund is { } refund && refund.OutRefundNo == outRefundNo ? Task.FromResult(refund) : throw new NotSupportedException();
     }
     private sealed class FutureClock(DateTimeOffset now) : IClock { public DateTimeOffset UtcNow => now; }
 }
