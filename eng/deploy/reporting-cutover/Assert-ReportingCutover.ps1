@@ -49,6 +49,7 @@ function Test-ReplicaSetPod {
 }
 
 function Assert-OldHostsStopped {
+    $stoppedDeployments = @{}
     $autoscalers = @(Read-ClusterList -Resource hpa)
     $replicaSets = @(Read-ClusterList -Resource replicasets)
     $pods = @(Read-ClusterList -Resource pods)
@@ -86,10 +87,15 @@ function Assert-OldHostsStopped {
         }).Count -ne 0) {
             throw "Reporting cutover requires all old $role replica sets to stop."
         }
+        $stoppedDeployments[$role] = @{
+            Uid = $deployment.metadata.uid
+            Generation = $deployment.metadata.generation
+        }
     }
+    return $stoppedDeployments
 }
 
-Assert-OldHostsStopped
+$before = Assert-OldHostsStopped
 $queryFile = Join-Path $PSScriptRoot ($Provider.ToLowerInvariant() + '.sql')
 $count = Read-ReportingCutoverQuery -Provider $Provider -Server $Server -Database $Database `
     -MySqlLoginPath $MySqlLoginPath -MySqlCaFile $MySqlCaFile -MySqlPort $MySqlPort -QueryFile $queryFile
@@ -97,6 +103,11 @@ if ($count -eq '-1') { throw 'Reporting cutover requires a writable primary data
 if ($count -cnotmatch '\A[0-9]+\z') { throw 'Invalid reporting cutover database result.' }
 if ($count -cne '0') { throw "Reporting cutover blocked by $count export resources with unfinished tasks, leases or unresolved files." }
 
-# 查询之后再核对一次旧实例，拒绝查询期间已恢复的部署。
-Assert-OldHostsStopped
+# 查询后确认同一部署仍停稳，并拒绝两次检查间曾恢复又停下的旧部署。
+$after = Assert-OldHostsStopped
+foreach ($role in 'api', 'worker') {
+    if ($before[$role].Uid -cne $after[$role].Uid -or $before[$role].Generation -ne $after[$role].Generation) {
+        throw "Reporting cutover blocked because the $role deployment changed during the database check."
+    }
+}
 Write-Host 'Reporting cutover preflight passed.'

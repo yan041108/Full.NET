@@ -31,7 +31,7 @@
    ./eng/deploy/Invoke-FullNetRelease.ps1 @release
    ```
 
-脚本要求两个旧 Deployment 已确认零副本、关联 ReplicaSet 已停稳、相关 Pod 均已退出，主库的报表阻断资源数也须为零。未完成任务、残留租约、未确认上传和未绑定的就绪文件均会阻断。同一租户及任务只计一次；终态或原任务缺失时，未处置的文件依然会阻断。检查使用 Helm 实例标签、控制器 UID 和现存 ReplicaSet 生成的 Pod 名称前缀。操作账号需能列出命名空间内的 Deployment、ReplicaSet、Pod 和 HPA。查询结束后会再次核对旧宿主状态。发布协调者须在检查与发布期间维持上述停写条件，直至新版本就绪。
+脚本要求两个旧 Deployment 已确认零副本、关联 ReplicaSet 已停稳、相关 Pod 均已退出，主库的报表阻断资源数也须为零。未完成任务、残留租约、未确认上传和未绑定的就绪文件均会阻断。同一租户及任务只计一次；终态或原任务缺失时，未处置的文件依然会阻断。检查使用 Helm 实例标签、控制器 UID 和现存 ReplicaSet 生成的 Pod 名称前缀。操作账号需能列出命名空间内的 Deployment、ReplicaSet、Pod 和 HPA。查询前后均须停稳，且两个旧 Deployment 的 UID 和 generation 须分别一致。查询期间发生过重新伸缩或重建时，先重新确认停写和排空，再从头执行发布门禁。发布协调者须在检查与发布期间维持上述停写条件，直至新版本就绪。
 
 Migrator 每次发布创建带 Helm 修订号的 Job，与其 ConfigMap 和 ServiceAccount 一起由 Helm 创建。发布脚本等待本次 Job 完成才启动 Worker 阶段，随后等待 API 就绪。单独调用 Helm 时，Migrator 阶段也须传入 `--wait --wait-for-jobs`。
 

@@ -85,8 +85,10 @@ function kubectl {
         }
         'deployments' {
             $replicas = if ($role -eq 'api' -and ($scenario -eq 'active' -or ($scenario -eq 'restarted' -and $global:probeRan))) { 1 } else { 0 }
-            $observed = if ($scenario -eq 'stale') { 1 } else { 2 }
-            $items = @(@{metadata=@{name="$role-fixture";uid="$role-uid";generation=2;labels=@{'app.kubernetes.io/component'=$role}};
+            $generation = if ($role -eq 'worker' -and $scenario -eq 'cycled-during-probe' -and $global:probeRan) { 4 } else { 2 }
+            $uid = if ($role -eq 'api' -and $scenario -eq 'replaced-during-probe' -and $global:probeRan) { 'replacement-uid' } else { "$role-uid" }
+            $observed = if ($scenario -eq 'stale') { 1 } else { $generation }
+            $items = @(@{metadata=@{name="$role-fixture";uid=$uid;generation=$generation;labels=@{'app.kubernetes.io/component'=$role}};
                 spec=@{replicas=$replicas};status=@{observedGeneration=$observed}})
         }
         'replicasets' {
@@ -190,6 +192,8 @@ for (const [scenario, message, probesDatabase] of [
   ['terminating', /pods to terminate/, false],
   ['relabeled-pod', /pods to terminate/, false],
   ['relabeled-during-probe', /pods to terminate/, true],
+  ['cycled-during-probe', /worker deployment changed during the database check/, true],
+  ['replaced-during-probe', /api deployment changed during the database check/, true],
   ['released-pod', /pods to terminate/, false],
   ['active-replicaset', /replica sets to stop/, false],
   ['autoscaler', /removing the autoscaler/, false],
