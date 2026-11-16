@@ -58,12 +58,14 @@ public sealed class NotificationWorkerAdmissionTests
         var database = provider == DatabaseProvider.SqlServer
             ? await SharedDatabaseFixture.CreateSqlServerDatabaseAsync()
             : await SharedDatabaseFixture.CreateMySqlDatabaseAsync();
-        var protection = new EphemeralDataProtectionProvider();
+        using var keyRing = inbox is null ? null : new NotificationRecoveryKeyRing();
+        using var sourceKeys = keyRing?.OpenSource();
+        var sourceProtection = sourceKeys?.GetRequiredService<IDataProtectionProvider>() ?? new EphemeralDataProtectionProvider();
         var settings = new Dictionary<string, string?>
         {
             ["Notifications:Providers:Smtp:Enabled"] = inbox is null ? "false" : "true"
         };
-        using var api = new FullNetApiFactory(provider, database, settings, configureTestServices: ConfigureHost);
+        using var api = new FullNetApiFactory(provider, database, settings, configureTestServices: services => ConfigureHost(services, sourceProtection));
         await api.InitializeAsync(token, useSchemaTemplate: false);
         using var client = api.CreateClientForHost("localhost");
         var access = await NotificationProfileBindingAssertions.LoginAsHostAdminAsync(client, token);
@@ -75,7 +77,7 @@ public sealed class NotificationWorkerAdmissionTests
         var sentIntent = await NotificationDeliveryWorkerAssertions.CreateIntentAsync(
             client, access, route, user.Id, "sent-before-pause", token);
         var originalSent = await NotificationDeliveryWorkerAssertions.WaitDeliveryAsync(client, access, sentIntent.Id, token);
-        using var initialWorker = await BuildWorkerAsync(database, "Notifications.BeforePause", enabled: true);
+        using var initialWorker = await BuildWorkerAsync(database, "Notifications.BeforePause", sourceProtection, enabled: true);
         var initialMail = inbox?.ReceiveAsync("accepted", token);
         await initialWorker.StartAsync(token);
         try
@@ -91,6 +93,8 @@ public sealed class NotificationWorkerAdmissionTests
         var queued = await NotificationDeliveryWorkerAssertions.WaitDeliveryAsync(client, access, pendingIntent.Id, token);
         Assert.AreEqual("accepted", queued.StatusKey);
         Assert.HasCount(0, queued.Attempts);
+        using var restoredKeys = keyRing?.Restore(sourceProtection);
+        var recoveryProtection = restoredKeys?.GetRequiredService<IDataProtectionProvider>() ?? sourceProtection;
         Guid? afterBackupDeliveryId = null;
         var recoveryDatabase = restoreBackup
             ? await NotificationRecoveryBackup.RestoreAsync(provider, database, async () =>
@@ -101,7 +105,7 @@ public sealed class NotificationWorkerAdmissionTests
             }, token)
             : database;
         using var recoveredApi = restoreBackup
-            ? new FullNetApiFactory(provider, recoveryDatabase, settings, configureTestServices: ConfigureHost)
+            ? new FullNetApiFactory(provider, recoveryDatabase, settings, configureTestServices: services => ConfigureHost(services, recoveryProtection))
             : null;
         using var recoveredClient = recoveredApi?.CreateClientForHost("localhost");
         var targetClient = recoveredClient ?? client;
@@ -114,7 +118,7 @@ public sealed class NotificationWorkerAdmissionTests
             Assert.AreEqual(HttpStatusCode.NotFound, response.StatusCode, "恢复库只能包含备份时已经提交的记录。");
         }
 
-        using var pausedWorker = await BuildWorkerAsync(recoveryDatabase, "Notifications.Paused", enabled: false);
+        using var pausedWorker = await BuildWorkerAsync(recoveryDatabase, "Notifications.Paused", recoveryProtection, enabled: false);
         await pausedWorker.StartAsync(token);
         try
         {
@@ -131,7 +135,7 @@ public sealed class NotificationWorkerAdmissionTests
         }
         finally { await pausedWorker.StopAsync(CancellationToken.None); }
 
-        using var resumedWorker = await BuildWorkerAsync(recoveryDatabase, "Notifications.Resumed", enabled: true);
+        using var resumedWorker = await BuildWorkerAsync(recoveryDatabase, "Notifications.Resumed", recoveryProtection, enabled: true);
         var resumedMail = inbox?.ReceiveAsync("accepted", token);
         await resumedWorker.StartAsync(token);
         try
@@ -159,14 +163,14 @@ public sealed class NotificationWorkerAdmissionTests
             Assert.AreEqual(queued.StatusKey, source.StatusKey);
         }
 
-        Task<IHost> BuildWorkerAsync(string connection, string name, bool enabled) => IntegrationWorkerHostFactory.BuildAsync(provider, connection,
+        Task<IHost> BuildWorkerAsync(string connection, string name, IDataProtectionProvider protection, bool enabled) => IntegrationWorkerHostFactory.BuildAsync(provider, connection,
             new Dictionary<string, string?>(settings)
             {
                 ["Notifications:Worker:Enabled"] = enabled ? "true" : "false",
                 ["Notifications:Worker:PollMilliseconds"] = "100"
-            }, name, nameof(NotificationDeliveryHostedProcessor), configureTargetServices: ConfigureHost);
+            }, name, nameof(NotificationDeliveryHostedProcessor), configureTargetServices: services => ConfigureHost(services, protection));
 
-        void ConfigureHost(IServiceCollection services)
+        void ConfigureHost(IServiceCollection services, IDataProtectionProvider protection)
         {
             services.AddSingleton<IDataProtectionProvider>(protection);
             ConfigureWorker(services);
