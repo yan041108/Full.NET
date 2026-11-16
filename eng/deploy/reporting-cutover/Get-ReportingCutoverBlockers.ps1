@@ -6,6 +6,8 @@ param(
     [Parameter(Mandatory)] [string] $Server,
     [Parameter(Mandatory)] [string] $Database,
     [ValidateRange(1, 100)] [int] $Limit = 25,
+    [guid] $AfterTenantId,
+    [guid] $AfterTaskId,
     [string] $MySqlLoginPath,
     [string] $MySqlCaFile,
     [ValidateRange(1, 65535)] [int] $MySqlPort = 3306
@@ -15,7 +17,20 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'Read-ReportingCutoverQuery.ps1')
 
-# 与切版计数共用阻断条件，仅替换输出列和行数上限。
+$filter = ''
+if ($PSBoundParameters.ContainsKey('AfterTenantId') -or $PSBoundParameters.ContainsKey('AfterTaskId')) {
+    if (-not $PSBoundParameters.ContainsKey('AfterTenantId') -or -not $PSBoundParameters.ContainsKey('AfterTaskId') `
+        -or $AfterTenantId -eq [guid]::Empty -or $AfterTaskId -eq [guid]::Empty) {
+        throw 'AfterTenantId and AfterTaskId must be supplied together as non-empty UUIDs.'
+    }
+    # 游标采用与 ORDER BY 相同的原生 UUID 比较，避免字符串排序与 SQL Server 排序不一致。
+    $uuid = if ($Provider -eq 'SqlServer') { "CONVERT(uniqueidentifier, '{0}')" } else { "UUID_TO_BIN('{0}', 0)" }
+    $tenant = $uuid -f $AfterTenantId.ToString('D')
+    $task = $uuid -f $AfterTaskId.ToString('D')
+    $filter = " AND (b.TenantId > $tenant OR (b.TenantId = $tenant AND b.ResourceId > $task))"
+}
+
+# 与切版计数共用阻断条件，列表投影按游标过滤并限制输出行数。
 $queryFile = Join-Path $PSScriptRoot ($Provider.ToLowerInvariant() + '.sql')
 $parts = (Get-Content -LiteralPath $queryFile -Raw) -split '(?m)^-- Result projection\r?\n', 2
 if ($parts.Count -ne 2) { throw 'Reporting cutover query is missing its result projection marker.' }
@@ -27,7 +42,7 @@ SELECT TOP ($take) CASE WHEN p.IsWritable = 0 THEN '-1'
     ELSE CONCAT(CONVERT(char(36), b.TenantId), CHAR(9), CONVERT(char(36), b.ResourceId)) END
 FROM primary_state AS p
 LEFT JOIN blocking_resources AS b ON p.IsWritable = 1
-WHERE p.IsWritable = 0 OR b.ResourceId IS NOT NULL
+WHERE p.IsWritable = 0 OR (b.ResourceId IS NOT NULL$filter)
 ORDER BY b.TenantId, b.ResourceId;
 "@
 } else {
@@ -37,7 +52,7 @@ SELECT /*+ MAX_EXECUTION_TIME(15000) */ CASE WHEN p.IsWritable = 0 THEN '-1'
     ELSE CONCAT(BIN_TO_UUID(b.TenantId, 0), CHAR(9), BIN_TO_UUID(b.ResourceId, 0)) END
 FROM primary_state AS p
 LEFT JOIN blocking_resources AS b ON p.IsWritable = 1
-WHERE p.IsWritable = 0 OR b.ResourceId IS NOT NULL
+WHERE p.IsWritable = 0 OR (b.ResourceId IS NOT NULL$filter)
 ORDER BY b.TenantId, b.ResourceId LIMIT $take;
 "@
 }

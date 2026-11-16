@@ -10,6 +10,7 @@ function runBlockers(scenario, provider) {
 $scenario = $env:FULLNET_CUTOVER_TEST_CASE
 function Probe([string]$query) {
     if ($query -notmatch 'WITH blocking_resources AS' -or $query -notmatch 'TOP \(2\)|LIMIT 2') { throw 'Unexpected blocker query.' }
+    if ($scenario -in @('half-cursor', 'empty-cursor')) { throw 'Database must not be called.' }
     $global:LASTEXITCODE = 0
     $first = '00000000-0000-7000-8000-000000000001'
     $second = '00000000-0000-7000-8000-000000000002'
@@ -18,12 +19,20 @@ function Probe([string]$query) {
         'readonly' { '-1' }
         'invalid' { "$first$([char]9)bad" }
         'duplicate' { "$first$([char]9)$second"; "$first$([char]9)$second" }
+        'next-page' {
+            if ($query -notmatch 'b.TenantId > ' -or $query -notmatch 'b.TenantId = .+ AND b.ResourceId > ' -or $query -notlike "*$first*") { throw 'Missing cursor predicate.' }
+            "$first$([char]9)$second"
+        }
         default { "$first$([char]9)$first"; "$first$([char]9)$second" }
     }
 }
 function sqlcmd { Probe $args[-1] }
 function mysql { Probe $args[-1] }
-& './eng/deploy/reporting-cutover/Get-ReportingCutoverBlockers.ps1' -Provider $env:FULLNET_CUTOVER_TEST_PROVIDER -Server fixture.invalid -Database fixture -Limit 1 -MySqlLoginPath fixture-reader -MySqlCaFile './eng/deploy/reporting-cutover/mysql.sql'
+$parameters = @{ Provider=$env:FULLNET_CUTOVER_TEST_PROVIDER;Server='fixture.invalid';Database='fixture';Limit=1;MySqlLoginPath='fixture-reader';MySqlCaFile='./eng/deploy/reporting-cutover/mysql.sql' }
+if ($scenario -in @('next-page', 'half-cursor')) { $parameters.AfterTenantId = '00000000-0000-7000-8000-000000000001' }
+if ($scenario -eq 'next-page') { $parameters.AfterTaskId = $parameters.AfterTenantId }
+if ($scenario -eq 'empty-cursor') { $parameters.AfterTenantId = [guid]::Empty; $parameters.AfterTaskId = [guid]::Empty }
+& './eng/deploy/reporting-cutover/Get-ReportingCutoverBlockers.ps1' @parameters
 `;
   const result = spawnSync('pwsh', ['-NoProfile', '-NonInteractive', '-Command', script], {
     cwd: root, encoding: 'utf8', timeout: 20_000, windowsHide: true,
@@ -34,12 +43,29 @@ function mysql { Probe $args[-1] }
 }
 
 for (const provider of ['SqlServer', 'MySql']) {
+  test(`${provider} blocker lookup continues after a tenant and task cursor`, () => {
+    const { status, stdout, stderr } = runBlockers('next-page', provider);
+    assert.equal(status, 0, stderr);
+    assert.deepEqual(JSON.parse(stdout), { hasMore: false, items: [{
+      tenantId: '00000000-0000-7000-8000-000000000001', taskId: '00000000-0000-7000-8000-000000000002'
+    }] });
+  });
+
   test(`${provider} blocker lookup returns at most the requested limit`, () => {
     const { status, stdout, stderr } = runBlockers('truncated', provider);
     assert.equal(status, 0, stderr);
     assert.deepEqual(JSON.parse(stdout), { hasMore: true, items: [{
       tenantId: '00000000-0000-7000-8000-000000000001', taskId: '00000000-0000-7000-8000-000000000001'
     }] });
+  });
+}
+
+for (const scenario of ['half-cursor', 'empty-cursor']) {
+  test(`${scenario} blocker lookup rejects an invalid cursor before connecting`, () => {
+    const { status, stdout, stderr } = runBlockers(scenario, 'SqlServer');
+    assert.notEqual(status, 0);
+    assert.equal(stdout.trim(), '');
+    assert.match(stderr, /must be supplied together as non-empty UUIDs/);
   });
 }
 
