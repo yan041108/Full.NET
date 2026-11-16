@@ -85,10 +85,14 @@ internal static class TenantResourceFilePersistenceAssertions
     /// <param name="provider">正式支持的数据库提供程序。</param>
     public static async Task Pending_promote_and_purge_stay_owner_bound_async(DatabaseProvider provider)
     {
-        var (connection, unused, tenantA, tenantB, resourceA, _, fileId) =
+        var (connection, unused, tenantA, tenantB, resourceA, resourceB, fileId) =
             await SeedPendingPairAsync(provider).ConfigureAwait(false);
         await using var first = connection;
         await using var second = unused;
+        Assert.AreEqual(1, await HasPendingAsync(tenantA, "import_export", resourceA).ConfigureAwait(false));
+        Assert.AreEqual(0, await HasPendingAsync(tenantB, "import_export", resourceA).ConfigureAwait(false));
+        Assert.AreEqual(0, await HasPendingAsync(tenantA, "reporting", resourceA).ConfigureAwait(false));
+        Assert.AreEqual(0, await HasPendingAsync(tenantA, "import_export", resourceB).ConfigureAwait(false));
         Assert.AreEqual(0, await first.ExecuteAsync(
             TenantResourceFileSql.PurgePending.Text,
             new { TenantId = tenantB, Id = fileId, OwnerModuleKey = "import_export", ResourceId = resourceA }).ConfigureAwait(false));
@@ -97,6 +101,7 @@ internal static class TenantResourceFilePersistenceAssertions
             TenantResourceFileSql.PromotePending.Text,
             new { TenantId = tenantA, Id = fileId, OwnerModuleKey = "import_export", ResourceId = resourceA }).ConfigureAwait(false));
         Assert.AreEqual("ready", await StatusAsync(first, fileId).ConfigureAwait(false));
+        Assert.AreEqual(0, await HasPendingAsync(tenantA, "import_export", resourceA).ConfigureAwait(false));
         Assert.AreEqual(0, await first.ExecuteAsync(
             TenantResourceFileSql.PurgePending.Text,
             new { TenantId = tenantA, Id = fileId, OwnerModuleKey = "import_export", ResourceId = resourceA }).ConfigureAwait(false));
@@ -110,6 +115,10 @@ internal static class TenantResourceFilePersistenceAssertions
             new { TenantId = tenantB, Id = lateId, OwnerModuleKey = "import_export", ResourceId = resourceA }).ConfigureAwait(false));
         Assert.AreEqual(1, await first.ExecuteAsync(TenantResourceFileSql.PurgeReleased.Text,
             new { TenantId = tenantA, Id = lateId, OwnerModuleKey = "import_export", ResourceId = resourceA }).ConfigureAwait(false));
+
+        Task<int> HasPendingAsync(Guid tenantId, string owner, Guid resourceId) =>
+            first.ExecuteScalarAsync<int>(TenantResourceFileSql.HasPendingUpload.Text,
+                new { TenantId = tenantId, OwnerModuleKey = owner, ResourceId = resourceId });
     }
 
     /// <summary>写入一条租户 A 的 pending 文件，并预留租户 B 与另一资源标识。</summary>

@@ -30,7 +30,8 @@ internal sealed class TenantResourceFileStore(IQueryExecutor queries, ICommandEx
     ICurrentTenantContextWriter tenant, IDataTransactionState transactionState, FileStorageProviderRegistry providers,
     IEnumerable<ITenantResourceFileOwner> resourceOwners, IClock clock, IIdGenerator ids,
     IOptions<LocalFileStorageOptions> options, ITenantFileStorageQuotaPort storageQuotaPort,
-    IIdentityActiveTenantDirectory activeTenants, IOptions<DatabaseOptions> database) : ITenantResourceFileStore, ITenantResourceFileCleanup
+    IIdentityActiveTenantDirectory activeTenants, IOptions<DatabaseOptions> database) :
+    ITenantResourceFileStore, ITenantResourceFileCleanup, ITenantResourcePendingUploadReader
 {
     /// <inheritdoc />
     public async Task<Result<TenantResourceFileReference>> UploadAsync(string ownerModuleKey, Guid resourceId,
@@ -276,35 +277,49 @@ internal sealed class TenantResourceFileStore(IQueryExecutor queries, ICommandEx
     }
 
     /// <inheritdoc />
+    public async Task<bool> HasPendingUploadAsync(string ownerModuleKey, Guid resourceId,
+        CancellationToken cancellationToken = default)
+    {
+        var originalTenantId = RequireScope(ownerModuleKey, resourceId);
+        RequireNoTransaction();
+        await EnsureOriginalTenantAsync(originalTenantId, cancellationToken).ConfigureAwait(false);
+        var found = await queries.QuerySingleOrDefaultAsync<int>(TenantResourceFileSql.HasPendingUpload,
+            new Dictionary<string, object?> { ["OwnerModuleKey"] = ownerModuleKey, ["ResourceId"] = resourceId },
+            cancellationToken).ConfigureAwait(false);
+        await EnsureOriginalTenantAsync(originalTenantId, cancellationToken).ConfigureAwait(false);
+        return found != 0;
+    }
+
+    /// <inheritdoc />
     public async Task<IReadOnlyList<TenantResourceFileReadyItem>> ListReadyAsync(string ownerModuleKey,
         Guid resourceId, CancellationToken cancellationToken = default)
     {
         var originalTenantId = RequireScope(ownerModuleKey, resourceId);
         RequireNoTransaction();
-        await EnsureOriginalTenantAsync().ConfigureAwait(false);
+        await EnsureOriginalTenantAsync(originalTenantId, cancellationToken).ConfigureAwait(false);
         var rows = await queries.QueryAsync<TenantResourceFileReadyRecord>(
                 TenantResourceFileSql.ListReady,
                 new Dictionary<string, object?> { ["OwnerModuleKey"] = ownerModuleKey, ["ResourceId"] = resourceId },
                 cancellationToken)
             .ConfigureAwait(false);
         // 恢复使用文件名和标识判断已上传对象，不能把停用或上下文切换当成空列表。
-        await EnsureOriginalTenantAsync().ConfigureAwait(false);
+        await EnsureOriginalTenantAsync(originalTenantId, cancellationToken).ConfigureAwait(false);
         return rows.Select(row => new TenantResourceFileReadyItem(row.Id, row.OriginalFileName, row.CreatedAtUtc))
             .ToArray();
+    }
 
-        async Task EnsureOriginalTenantAsync()
+    private async Task EnsureOriginalTenantAsync(Guid originalTenantId, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        bool Matches() => tenant.IsAvailable && !tenant.IsHost && tenant.Id == originalTenantId;
+        if (!Matches()
+            || !await activeTenants.IsActiveTenantAsync(originalTenantId, cancellationToken).ConfigureAwait(false)
+            || !Matches())
         {
             cancellationToken.ThrowIfCancellationRequested();
-            bool Matches() => tenant.IsAvailable && !tenant.IsHost && tenant.Id == originalTenantId;
-            if (!Matches()
-                || !await activeTenants.IsActiveTenantAsync(originalTenantId, cancellationToken).ConfigureAwait(false)
-                || !Matches())
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                throw new TenantResourceFileUnavailableException();
-            }
-            cancellationToken.ThrowIfCancellationRequested();
+            throw new TenantResourceFileUnavailableException();
         }
+        cancellationToken.ThrowIfCancellationRequested();
     }
 
     /// <inheritdoc />

@@ -147,6 +147,7 @@ public sealed class FilesModule : IFullNetModule
         services.TryAddScoped<ITenantFileStorageQuotaPort, Features.TenantResourceFiles.NullTenantFileStorageQuotaPort>();
         services.AddScoped<ITenantResourceFileStorageUsagePort, Features.TenantResourceFiles.TenantResourceFileStorageUsagePort>();
         services.TryAddScoped<ITenantResourceFileStore, Features.TenantResourceFiles.TenantResourceFileStore>();
+        services.TryAddScoped<ITenantResourcePendingUploadReader, Features.TenantResourceFiles.TenantResourceFileStore>();
         services.TryAddScoped<ITenantResourceFileDescriptorReader, Features.TenantResourceFiles.TenantResourceFileDescriptorReader>();
         services.TryAddScoped<ITenantResourceFileAvailabilityReader, Features.TenantResourceFiles.TenantResourceFileDescriptorReader>();
         services.TryAddScoped<Features.WorkflowReadCapabilities.WorkflowFileReadCapabilityStore>();

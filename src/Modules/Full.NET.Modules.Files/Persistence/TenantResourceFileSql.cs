@@ -65,6 +65,14 @@ internal static class TenantResourceFileSql
         WHERE TenantId = @TenantId AND Id = @Id AND OwnerModuleKey = @OwnerModuleKey AND ResourceId = @ResourceId
         """, SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
 
+    /// <summary>只判断当前租户和资源所有者的 pending 上传是否存在。</summary>
+    public static readonly SqlStatement HasPendingUpload = new("files.tenant_resource_file.has_pending_upload", """
+        SELECT CASE WHEN EXISTS (
+            SELECT 1 FROM fn_files_tenant_resource_file
+            WHERE TenantId = @TenantId AND OwnerModuleKey = @OwnerModuleKey AND ResourceId = @ResourceId AND StatusKey = 'pending'
+        ) THEN 1 ELSE 0 END
+        """, SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
+
     /// <summary>列出所属资源全部就绪文件，供任务在上传成功后崩溃时绑定已有对象。</summary>
     public static readonly SqlStatement ListReady = new("files.tenant_resource_file.list_ready", """
         SELECT Id, OriginalFileName, CreatedAtUtc

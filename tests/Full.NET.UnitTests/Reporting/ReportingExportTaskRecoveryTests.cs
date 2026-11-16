@@ -149,6 +149,46 @@ public sealed class ReportingExportTaskRecoveryTests
     }
 
     [TestMethod]
+    public async Task Upload_error_with_pending_intent_waits_and_binds_the_confirmed_file()
+    {
+        var fixture = CreateFixture();
+        var task = SeedQueued(fixture);
+        fixture.Files.LeavePendingOnUpload = true;
+        Assert.AreEqual(1, await fixture.Runner.ProcessPendingAsync(CancellationToken.None));
+        Assert.AreEqual(ReportingExportTaskStatusKeys.Processing, task.StatusKey);
+        Assert.IsNull(task.ErrorCode);
+
+        fixture.Clock.Advance(TimeSpan.FromMinutes(6));
+        Assert.AreEqual(1, await fixture.Runner.ProcessPendingAsync(CancellationToken.None));
+        Assert.AreEqual(ReportingExportTaskStatusKeys.Processing, task.StatusKey);
+        Assert.AreEqual(1, fixture.GenerateCount);
+        Assert.AreEqual(1, fixture.Files.UploadCount);
+
+        var originalId = Guid.NewGuid();
+        fixture.Files.Pending = false;
+        fixture.Files.ReadyFiles.Add(new(originalId,
+            ReportingExportOutputIdentity.BuildStorageFileName("report.xlsx", 1), fixture.Clock.UtcNow));
+        fixture.Clock.Advance(TimeSpan.FromMinutes(6));
+        Assert.AreEqual(1, await fixture.Runner.ProcessPendingAsync(CancellationToken.None));
+        Assert.AreEqual(ReportingExportTaskStatusKeys.Succeeded, task.StatusKey);
+        Assert.AreEqual(originalId, task.OutputFileId);
+        Assert.AreEqual(1, fixture.GenerateCount);
+        Assert.AreEqual(1, fixture.Files.UploadCount);
+    }
+
+    [TestMethod]
+    public async Task Definitive_upload_rejection_without_an_intent_still_marks_the_task_failed()
+    {
+        var fixture = CreateFixture();
+        var task = SeedQueued(fixture);
+        fixture.Files.RejectUpload = true;
+        Assert.AreEqual(1, await fixture.Runner.ProcessPendingAsync(CancellationToken.None));
+        Assert.AreEqual(ReportingExportTaskStatusKeys.Failed, task.StatusKey);
+        Assert.IsNull(task.OutputFileId);
+        Assert.AreEqual(1, fixture.Files.UploadCount);
+    }
+
+    [TestMethod]
     public void Output_identity_rejects_invalid_names_and_counts()
     {
         foreach (var value in new[]
@@ -311,6 +351,7 @@ public sealed class ReportingExportTaskRecoveryTests
             store,
             new DapperCommandTransaction(new RecordingDbTransactionCoordinator()),
             files,
+            files,
             workbook,
             authority ?? new LeaseOnlyAuthority(),
             resolver,
@@ -412,11 +453,14 @@ public sealed class ReportingExportTaskRecoveryTests
         public IDisposable? OnChange(Action<T, string?> listener) => null;
     }
 
-    private sealed class FakeFileStore : ITenantResourceFileStore
+    private sealed class FakeFileStore : ITenantResourceFileStore, ITenantResourcePendingUploadReader
     {
         public int UploadCount { get; private set; }
         public int ListAttempts { get; private set; }
         public bool ListUnavailable { get; set; }
+        public bool LeavePendingOnUpload { get; set; }
+        public bool RejectUpload { get; set; }
+        public bool Pending { get; set; }
         public List<TenantResourceFileReadyItem> ReadyFiles { get; } = [];
 
         public Task<Result<TenantResourceFileReference>> UploadAsync(
@@ -424,8 +468,17 @@ public sealed class ReportingExportTaskRecoveryTests
             string contentType, Stream content, long contentLength, CancellationToken cancellationToken = default)
         {
             UploadCount++;
+            if (LeavePendingOnUpload || RejectUpload)
+            {
+                Pending = LeavePendingOnUpload;
+                return Task.FromResult(Result<TenantResourceFileReference>.Failure(
+                    new Error("files.storage_quota_exceeded", "Upload quota confirmation failed.", ErrorType.Conflict)));
+            }
             return Task.FromResult(Result<TenantResourceFileReference>.Success(new(Guid.NewGuid(), contentLength, "hash")));
         }
+
+        public Task<bool> HasPendingUploadAsync(string ownerModuleKey, Guid resourceId, CancellationToken cancellationToken = default) =>
+            Task.FromResult(Pending);
 
         public Task<Result<TenantResourceFileContent>> OpenReadyContentAsync(
             string ownerModuleKey, Guid resourceId, Guid fileId, CancellationToken cancellationToken = default) =>

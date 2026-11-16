@@ -22,6 +22,7 @@ namespace Full.NET.Modules.Reporting.Features.ManageExportTasks;
 /// <param name="commandExecutor">受租户守卫保护的写执行器。</param>
 /// <param name="transaction">MySQL 领取短事务。</param>
 /// <param name="resourceFiles">租户资源文件存储。</param>
+/// <param name="pendingUploads">Files 持久化的待确认上传探测。</param>
 /// <param name="workbookSource">工作簿生成。</param>
 /// <param name="tenantResolver">活动租户解析。</param>
 /// <param name="currentTenant">当前租户写入器。</param>
@@ -34,6 +35,7 @@ internal sealed class ReportingExportTaskRunner(
     ICommandExecutor commandExecutor,
     ICommandTransaction transaction,
     ITenantResourceFileStore resourceFiles,
+    ITenantResourcePendingUploadReader pendingUploads,
     IReportingExportWorkbookSource workbookSource,
     IReportingExportTaskAuthority authority,
     IActiveTenantContextResolver tenantResolver,
@@ -181,8 +183,7 @@ internal sealed class ReportingExportTaskRunner(
         try
         {
             if (!await EnsureAuthorityAsync(task, lease, cancellationToken).ConfigureAwait(false)) return;
-            var existing = await TryAttachExistingOutputAsync(task, lease, cancellationToken).ConfigureAwait(false);
-            if (existing)
+            if (await TryHandleExistingOutputAsync(task, lease, cancellationToken).ConfigureAwait(false))
             {
                 return;
             }
@@ -219,6 +220,8 @@ internal sealed class ReportingExportTaskRunner(
                 .ConfigureAwait(false);
             if (!uploadResult.IsSuccess)
             {
+                // 上传返回错误时 Files 仍可能已持久化意图或对象，使用同一恢复判断。
+                if (await TryHandleExistingOutputAsync(task, lease, cancellationToken).ConfigureAwait(false)) return;
                 await CompleteFailedAsync(
                         task,
                     lease,
@@ -249,10 +252,10 @@ internal sealed class ReportingExportTaskRunner(
         }
     }
 
-    /// <summary>发现已绑定或就绪的原文件时尝试完成任务，本轮不再生成工作簿。</summary>
+    /// <summary>发现待确认上传时保留任务；发现已绑定或就绪的文件时尝试完成原任务。</summary>
     /// <param name="task">领取快照。</param>
     /// <param name="cancellationToken">取消令牌。</param>
-    private async Task<bool> TryAttachExistingOutputAsync(
+    private async Task<bool> TryHandleExistingOutputAsync(
         ReportingExportTaskRecord task,
         ExecutionLeaseMonitor lease,
         CancellationToken cancellationToken)
@@ -270,6 +273,8 @@ internal sealed class ReportingExportTaskRunner(
             return true;
         }
 
+        // 先查 pending，再查 ready，避免在两次读取间发生 pending → ready 时误判为没有原文件。
+        if (await pendingUploads.HasPendingUploadAsync("reporting", task.Id, cancellationToken).ConfigureAwait(false)) return true;
         var ready = await resourceFiles.ListReadyAsync("reporting", task.Id, cancellationToken)
             .ConfigureAwait(false);
         var latest = ready.LastOrDefault();
