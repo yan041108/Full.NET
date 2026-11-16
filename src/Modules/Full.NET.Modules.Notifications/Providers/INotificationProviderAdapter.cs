@@ -42,7 +42,12 @@ internal sealed record NotificationProviderRequest(
     string Subject,
     string Body,
     string IdempotencyKey,
-    IReadOnlyList<NotificationProviderAttachment> Attachments);
+    IReadOnlyList<NotificationProviderAttachment> Attachments)
+{
+    /// <summary>同一通知意图、收件人和渠道版本在发送与恢复中共享原幂等标识。</summary>
+    internal static string BuildDeliveryIdempotencyKey(Guid intentId, Guid recipientId, Guid profileVersionId) =>
+        $"{intentId:N}:{recipientId:N}:{profileVersionId:N}";
+}
 
 /// <summary>Provider 调用结果；Accepted 不等于 Delivered。</summary>
 internal sealed record NotificationProviderResult(

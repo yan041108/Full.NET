@@ -12,6 +12,8 @@ internal sealed class SmtpNotificationProviderAdapter(
     INotificationSecretResolver secretResolver,
     ISmtpMailTransport transport) : INotificationProviderAdapter
 {
+    internal const string ProviderTypeKeyValue = "email.smtp";
+
     private static readonly HashSet<string> AllowedConfigFields = new(StringComparer.Ordinal)
     {
         "host",
@@ -23,7 +25,7 @@ internal sealed class SmtpNotificationProviderAdapter(
     };
 
     public NotificationProviderTypeDescriptor Descriptor { get; } = new(
-        "email.smtp",
+        ProviderTypeKeyValue,
         "1.0.0",
         ["email"],
         [

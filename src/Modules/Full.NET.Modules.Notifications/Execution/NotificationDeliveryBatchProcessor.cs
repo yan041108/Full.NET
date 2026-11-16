@@ -840,7 +840,7 @@ internal sealed class NotificationDeliveryBatchProcessor(
             profileVersion.SecretReference,
             subject,
             body,
-            $"{intent.Id:N}:{recipient.Id:N}:{profileVersionId:N}",
+            NotificationProviderRequest.BuildDeliveryIdempotencyKey(intent.Id, recipient.Id, profileVersionId),
             loadedAttachments.Value!);
         return new PreparedSend(
             profileVersion.ProviderTypeKey,

@@ -30,6 +30,18 @@ internal static class NotificationLifecycleSql
         WHERE Id = @Id AND Revision = @Revision AND StatusKey IN ('unknown', 'dead_lettered')
           AND (LeaseExpiresAtUtc IS NULL OR LeaseExpiresAtUtc <= @Now)
         """, SqlDataScope.Global);
+
+    // 确认备份中尚未外发的原 SMTP 记录时，再次约束租户、业务身份、渠道、版本与租约。
+    public static readonly SqlStatement ReconcileRestoredSmtp = new("notifications.lifecycle.reconcile_restored_smtp", """
+        UPDATE fn_notifications_delivery
+        SET StatusKey = 'sent', NextAttemptAtUtc = NULL, LeaseOwnerKey = NULL, LeaseExpiresAtUtc = NULL,
+            Revision = Revision + 1, UpdatedAtUtc = @Now
+        WHERE Id = @Id AND Revision = @Revision AND StatusKey = 'accepted' AND ChannelKey = 'email'
+          AND IntentId = @IntentId AND RecipientId = @RecipientId AND ProviderProfileVersionId = @ProfileVersionId
+          AND (LeaseExpiresAtUtc IS NULL OR LeaseExpiresAtUtc <= @Now)
+          AND EXISTS (SELECT 1 FROM fn_notifications_intent WHERE Id = @IntentId AND TenantScopeKey = @TenantScopeKey)
+          AND EXISTS (SELECT 1 FROM fn_notifications_provider_profile_version WHERE Id = @ProfileVersionId AND ProviderTypeKey = @ProviderTypeKey)
+        """, SqlDataScope.Global);
     public static readonly SqlStatement PendingQuotas = new("notifications.lifecycle.pending_quotas", """
         SELECT Id, PolicyId, DimensionKey, WindowStartUtc
         FROM fn_notifications_quota_reservation WHERE DeliveryId = @DeliveryId

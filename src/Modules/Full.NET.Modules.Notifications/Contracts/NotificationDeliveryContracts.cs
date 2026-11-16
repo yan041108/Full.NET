@@ -89,6 +89,9 @@ public sealed record RetryNotificationDeliveryRequest(
     string Reason);
 
 /// <summary>人工对账仅确认调用事实；证据引用进入同事务审计，不作为可信送达回执。</summary>
+/// <param name="Revision">投递当前版本。</param>
+/// <param name="OutcomeKey">确认受理、确认未调用，或在恢复期间确认仍待发的原 SMTP 投递。</param>
+/// <param name="EvidenceReference">短证据引用。恢复 SMTP 待发记录时填写权威渠道记录中原邮件的 Message-ID，不含尖括号。</param>
 public sealed record ReconcileNotificationDeliveryRequest(long Revision, string OutcomeKey, string EvidenceReference);
 
 /// <summary>回执受理结果；重复与乱序不回退终态。</summary>

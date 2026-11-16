@@ -1061,7 +1061,7 @@
           "timeout": "5m"
         },
         "notifications-worker-admission": {
-          "filter": "FullyQualifiedName~NotificationWorkerAdmissionTests&FullyQualifiedName!~Crashed_smtp_worker_leaves_accepted_mail_for_reconciliation_without_resending",
+          "filter": "FullyQualifiedName~NotificationWorkerAdmissionTests&FullyQualifiedName!~Crashed_smtp_worker_leaves_accepted_mail_for_reconciliation_without_resending&FullyQualifiedName!~Restored_smtp_backlog_reconciles_original_external_acceptance_without_resending",
           "minimum": 2,
           "timeout": "5m"
         },
@@ -1082,6 +1082,11 @@
         },
         "notifications-worker-smtp-crash": {
           "filter": "FullyQualifiedName~NotificationWorkerAdmissionTests.Crashed_smtp_worker_leaves_accepted_mail_for_reconciliation_without_resending",
+          "minimum": 2,
+          "timeout": "8m"
+        },
+        "notifications-worker-smtp-reconciliation": {
+          "filter": "FullyQualifiedName~NotificationWorkerAdmissionTests.Restored_smtp_backlog_reconciles_original_external_acceptance_without_resending",
           "minimum": 2,
           "timeout": "8m"
         },

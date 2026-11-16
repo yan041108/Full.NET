@@ -215,7 +215,8 @@ internal sealed class MailKitSmtpTransport : ISmtpMailTransport
     internal static bool IsMessageAlreadyAccepted(SmtpTransportStage stage) =>
         stage == SmtpTransportStage.Disconnect;
 
-    private static string CreateMessageId(string idempotencyKey)
+    /// <summary>投递和恢复对账使用同一个确定性 Message-ID。</summary>
+    internal static string CreateMessageId(string idempotencyKey)
     {
         var hash = SHA256.HashData(Encoding.UTF8.GetBytes(idempotencyKey));
         return $"fullnet-{Convert.ToHexString(hash).ToLowerInvariant()}@local.invalid";

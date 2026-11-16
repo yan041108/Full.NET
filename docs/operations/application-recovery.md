@@ -78,6 +78,8 @@ node eng/deploy/Verify-FullNetRecoveryEvidence.mjs $EvidenceDirectory $TrustedCa
 
 在 `GET /api/v1/notifications/deliveries/{deliveryId}` 核对原投递和尝试记录，按业务身份与渠道证据确认已发送、未调用和未知结果。对 `unknown` 或 `dead_lettered` 且没有有效租约的记录，有 `notifications.deliveries.reconcile` 权限的操作员可调用 `POST /api/v1/notifications/deliveries/{deliveryId}/reconcile`，提交当前 `revision`、已核实的 `outcomeKey`（`confirmed_accepted` 或 `confirmed_not_called`）以及简短的 `evidenceReference`。若归属、渠道结果或版本仍有差异，保持隔离。恢复库中仍为待发送但外部结果未知的记录不符合当前对账入口的状态条件，须继续保留待处置。
 
+如果恢复库的 SMTP 邮件仍为 `accepted`，且邮件中继的权威记录证实原邮件已经受理，保持外发暂停并提交同一对账入口。`outcomeKey` 填 `confirmed_smtp_accepted`，`revision` 填恢复库当前版本，`evidenceReference` 填中继记录的原始 Message-ID，去掉外围尖括号。保存可核验的中继记录和恢复操作关联。服务验证租户归属，并按原意图、收件人及 SMTP Profile 版本重算 Message-ID。证据、版本、状态或租约冲突返回 409。确认后原投递进入 `sent`，记录对账审计，尝试历史保持原样。缺少中继受理证据时继续隔离该记录。
+
 完成通知对账及放行复核后，恢复对应配置为 `true`，重启 Worker 并观察原队列接续。配置缺省为启用。
 
 ### Webhook 未确认投递对账

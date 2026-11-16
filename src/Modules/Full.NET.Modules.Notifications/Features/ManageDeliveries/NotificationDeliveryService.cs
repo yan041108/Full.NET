@@ -7,6 +7,8 @@ using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Notifications.Contracts;
 using Full.NET.Modules.Notifications.Domain;
 using Full.NET.Modules.Notifications.Persistence;
+using Full.NET.Modules.Notifications.Providers;
+using Full.NET.Modules.Notifications.Providers.Smtp;
 using Microsoft.Extensions.Options;
 
 namespace Full.NET.Modules.Notifications.Features.ManageDeliveries;
@@ -21,23 +23,42 @@ internal sealed class NotificationDeliveryService(
     IIdGenerator idGenerator,
     IOptions<DatabaseOptions> databaseOptions)
 {
-    /// <summary>只有获独立权限的人工证据可以解除 Unknown；同事务收敛额度与本地许可。</summary>
+    /// <summary>按渠道证据确认待对账投递；恢复中的 SMTP 待发记录还需匹配原 Message-ID。</summary>
     public Task<Result<NotificationDeliveryResponse>> ReconcileAsync(Guid actor, Guid deliveryId,
         ReconcileNotificationDeliveryRequest request, Execution.NotificationQuotaGovernor governor,
         CancellationToken cancellationToken) => transaction.ExecuteResultAsync(async token =>
     {
         var evidence = request.EvidenceReference?.Trim() ?? string.Empty;
-        if (request.OutcomeKey is not ("confirmed_accepted" or "confirmed_not_called")
+        var restoredSmtp = request.OutcomeKey == "confirmed_smtp_accepted";
+        if ((!restoredSmtp && request.OutcomeKey is not ("confirmed_accepted" or "confirmed_not_called"))
             || evidence.Length is < 1 or > 128 || evidence.Any(char.IsControl))
             return Result<NotificationDeliveryResponse>.Failure(new Error(NotificationsErrorCodes.DeliveryRetryInvalid,
                 "A controlled outcome and short evidence reference are required.", ErrorType.Validation));
-        if (await FindAsync(deliveryId, token).ConfigureAwait(false) is null) return NotFound();
-        var called = request.OutcomeKey == "confirmed_accepted";
-        if (await commandExecutor.ExecuteAsync(NotificationLifecycleSql.Reconcile,
-            NotificationPlatformSqlParameters.Create(("Id", deliveryId), ("Revision", request.Revision),
-                ("StatusKey", called ? "sent" : "failed"), ("Now", clock.UtcNow)), token).ConfigureAwait(false) == 0)
-            return Result<NotificationDeliveryResponse>.Failure(new Error(NotificationsErrorCodes.DeliveryRetryConflict,
-                "The delivery changed or has an active lease.", ErrorType.Conflict));
+        var row = await FindAsync(deliveryId, token).ConfigureAwait(false);
+        if (row is null) return NotFound();
+        var called = restoredSmtp || request.OutcomeKey == "confirmed_accepted";
+        var scope = NotificationInboxScope.Resolve(currentTenant);
+        var now = clock.UtcNow;
+        int changed;
+        if (restoredSmtp)
+        {
+            if (row.ProviderProfileVersionId is not { } version || !string.Equals(evidence,
+                MailKitSmtpTransport.CreateMessageId(NotificationProviderRequest.BuildDeliveryIdempotencyKey(row.IntentId, row.RecipientId, version)),
+                StringComparison.Ordinal)) return ReconcileConflict();
+
+            changed = await commandExecutor.ExecuteAsync(NotificationLifecycleSql.ReconcileRestoredSmtp,
+                NotificationPlatformSqlParameters.Create(("Id", deliveryId), ("Revision", request.Revision), ("Now", now),
+                    ("IntentId", row.IntentId), ("RecipientId", row.RecipientId), ("ProfileVersionId", version),
+                    ("TenantScopeKey", scope.TenantScopeKey), ("ProviderTypeKey", SmtpNotificationProviderAdapter.ProviderTypeKeyValue)),
+                token).ConfigureAwait(false);
+        }
+        else
+        {
+            changed = await commandExecutor.ExecuteAsync(NotificationLifecycleSql.Reconcile,
+                NotificationPlatformSqlParameters.Create(("Id", deliveryId), ("Revision", request.Revision),
+                    ("StatusKey", called ? "sent" : "failed"), ("Now", now)), token).ConfigureAwait(false);
+        }
+        if (changed == 0) return ReconcileConflict();
         var parameters = NotificationPlatformSqlParameters.Create(("DeliveryId", deliveryId),
             // 确认未调用也不能复活可能已撤销的旧许可；需要用户再次明确同意。
             ("StateKey", called ? "consumed" : "revoked"));
@@ -46,15 +67,18 @@ internal sealed class NotificationDeliveryService(
         await governor.ResolveRowsAsync(quotas, called ? NotificationQuotaReservationStates.Consumed
             : NotificationQuotaReservationStates.Released, token).ConfigureAwait(false);
         await commandExecutor.ExecuteAsync(NotificationLifecycleSql.ReconcileSubscription, parameters, token).ConfigureAwait(false);
-        var scope = NotificationInboxScope.Resolve(currentTenant);
         await commandExecutor.ExecuteAsync(scope.IsHost ? NotificationPlatformSql.InsertDomainAuditHost : NotificationPlatformSql.InsertDomainAuditTenant,
             NotificationPlatformSqlParameters.Create(("Id", idGenerator.NewId()), ("OperationKey", "delivery.reconcile"),
                 ("ActorUserId", actor), ("ResourceTypeKey", "delivery"), ("ResourceId", deliveryId), ("OutcomeKey", request.OutcomeKey),
                 ("DetailJson", new System.Text.Json.Nodes.JsonObject { ["evidenceReference"] = evidence }.ToJsonString()),
                 ("CorrelationJson", Full.NET.Abstractions.Observability.LogCorrelationContext.Capture().ToJson()),
-                ("CreatedAtUtc", clock.UtcNow)), token).ConfigureAwait(false);
+                ("CreatedAtUtc", now)), token).ConfigureAwait(false);
         return await GetByIdAsync(deliveryId, token).ConfigureAwait(false);
     }, cancellationToken);
+
+    private static Result<NotificationDeliveryResponse> ReconcileConflict() =>
+        Result<NotificationDeliveryResponse>.Failure(new Error(NotificationsErrorCodes.DeliveryRetryConflict,
+            "The delivery state, evidence or lease conflicts with the reconciliation.", ErrorType.Conflict));
 
     public async Task<Result<IReadOnlyList<NotificationDeliverySummaryResponse>>> SummaryAsync(
         Providers.INotificationProviderTypeCatalog catalog, CancellationToken cancellationToken)
