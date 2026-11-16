@@ -9,6 +9,7 @@ using Full.NET.Modules.Notifications.Contracts;
 using Full.NET.Modules.Notifications.Execution;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Data.SqlClient;
 using MySqlConnector;
 
@@ -19,6 +20,100 @@ namespace Full.NET.IntegrationTests.Notifications;
 [DoNotParallelize]
 public sealed class NotificationWorkerAdmissionTests
 {
+    [TestMethod]
+    [DataRow(DatabaseProvider.SqlServer)]
+    [DataRow(DatabaseProvider.MySql)]
+    public async Task Restarting_paused_worker_keeps_backlog_until_enabled_and_does_not_repeat_sent_delivery(DatabaseProvider provider)
+    {
+        using var budget = new CancellationTokenSource(TimeSpan.FromMinutes(3));
+        var token = budget.Token;
+        var database = provider == DatabaseProvider.SqlServer
+            ? await SharedDatabaseFixture.CreateSqlServerDatabaseAsync()
+            : await SharedDatabaseFixture.CreateMySqlDatabaseAsync();
+        var protection = new EphemeralDataProtectionProvider();
+        using var api = new FullNetApiFactory(provider, database, configureTestServices: ConfigureHost);
+        await api.InitializeAsync(token, useSchemaTemplate: false);
+        using var client = api.CreateClientForHost("localhost");
+        var access = await NotificationProfileBindingAssertions.LoginAsHostAdminAsync(client, token);
+        var user = await NotificationProfileBindingAssertions.GetCurrentUserAsync(client, access, token);
+        var route = await NotificationDeliveryWorkerAssertions.CreateRouteAsync(client, access, user.Id, token);
+
+        var sentIntent = await NotificationDeliveryWorkerAssertions.CreateIntentAsync(
+            client, access, route, user.Id, "sent-before-pause", token);
+        var originalSent = await NotificationDeliveryWorkerAssertions.WaitDeliveryAsync(client, access, sentIntent.Id, token);
+        using var initialWorker = await BuildWorkerAsync("Notifications.BeforePause", enabled: true);
+        await initialWorker.StartAsync(token);
+        try
+        {
+            originalSent = await WaitSentAsync(originalSent.Id);
+            Assert.HasCount(1, initialWorker.Services.GetRequiredService<TestNotificationProviderHarness>().IdempotencyKeysFor(originalSent.Id));
+        }
+        finally { await initialWorker.StopAsync(CancellationToken.None); }
+
+        var pendingIntent = await NotificationDeliveryWorkerAssertions.CreateIntentAsync(
+            client, access, route, user.Id, "pending-during-pause", token);
+        var queued = await NotificationDeliveryWorkerAssertions.WaitDeliveryAsync(client, access, pendingIntent.Id, token);
+        Assert.AreEqual("accepted", queued.StatusKey);
+        Assert.HasCount(0, queued.Attempts);
+        using var pausedWorker = await BuildWorkerAsync("Notifications.Paused", enabled: false);
+        await pausedWorker.StartAsync(token);
+        try
+        {
+            var loop = pausedWorker.Services.GetServices<IHostedService>().OfType<NotificationDeliveryHostedProcessor>().Single();
+            Assert.IsNotNull(loop.ExecuteTask);
+            await loop.ExecuteTask.WaitAsync(TimeSpan.FromSeconds(5), token);
+            var paused = await NotificationDeliveryWorkerAssertions.GetDeliveryAsync(client, access, queued.Id, token);
+            Assert.AreEqual(queued.StatusKey, paused.StatusKey);
+            Assert.AreEqual(queued.Revision, paused.Revision);
+            Assert.AreEqual(queued.NextAttemptAtUtc, paused.NextAttemptAtUtc);
+            Assert.HasCount(0, paused.Attempts);
+            Assert.AreEqual(0, pausedWorker.Services.GetRequiredService<TestNotificationProviderHarness>().SendCount);
+        }
+        finally { await pausedWorker.StopAsync(CancellationToken.None); }
+
+        using var resumedWorker = await BuildWorkerAsync("Notifications.Resumed", enabled: true);
+        await resumedWorker.StartAsync(token);
+        try
+        {
+            var resumed = await WaitSentAsync(queued.Id);
+            Assert.AreEqual(pendingIntent.Id, resumed.IntentId);
+            Assert.HasCount(1, resumed.Attempts);
+            var earlier = await NotificationDeliveryWorkerAssertions.GetDeliveryAsync(client, access, originalSent.Id, token);
+            Assert.AreEqual(originalSent.Revision, earlier.Revision);
+            Assert.HasCount(1, earlier.Attempts);
+            var harness = resumedWorker.Services.GetRequiredService<TestNotificationProviderHarness>();
+            Assert.HasCount(1, harness.IdempotencyKeysFor(queued.Id));
+            Assert.HasCount(0, harness.IdempotencyKeysFor(originalSent.Id));
+        }
+        finally { await resumedWorker.StopAsync(CancellationToken.None); }
+
+        Task<IHost> BuildWorkerAsync(string name, bool enabled) => IntegrationWorkerHostFactory.BuildAsync(provider, database,
+            new Dictionary<string, string?>
+            {
+                ["Notifications:Worker:Enabled"] = enabled ? "true" : "false",
+                ["Notifications:Worker:PollMilliseconds"] = "100"
+            }, name, nameof(NotificationDeliveryHostedProcessor), configureTargetServices: ConfigureHost);
+
+        void ConfigureHost(IServiceCollection services)
+        {
+            services.AddSingleton<IDataProtectionProvider>(protection);
+            ConfigureWorker(services);
+        }
+
+        async Task<NotificationDeliveryResponse> WaitSentAsync(Guid id)
+        {
+            using var window = CancellationTokenSource.CreateLinkedTokenSource(token);
+            window.CancelAfter(TimeSpan.FromSeconds(15));
+            while (true)
+            {
+                var delivery = await NotificationDeliveryWorkerAssertions.GetDeliveryAsync(client, access, id, window.Token);
+                if (delivery.StatusKey == "sent") return delivery;
+                Assert.AreEqual("accepted", delivery.StatusKey, "投递应在宿主重启后接续原队列。");
+                await Task.Delay(100, window.Token);
+            }
+        }
+    }
+
     [TestMethod]
     [DataRow(DatabaseProvider.SqlServer)]
     [DataRow(DatabaseProvider.MySql)]
