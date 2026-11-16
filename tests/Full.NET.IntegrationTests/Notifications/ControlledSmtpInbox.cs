@@ -79,6 +79,8 @@ internal sealed class ControlledSmtpInbox : IAsyncDisposable
         return session;
     }
 
+    public bool HasPendingConnection => listener.Pending();
+
     private async Task<Observation> ReceiveCoreAsync(string outcome, CancellationToken token)
     {
         using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(token, shutdown.Token);

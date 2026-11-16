@@ -4,13 +4,19 @@ using System.Net;
 using System.Net.Http.Headers;
 using Full.NET.Abstractions.Messaging;
 using Full.NET.Abstractions.Results;
+using Full.NET.Abstractions.Tenancy;
 using Full.NET.Data.Abstractions;
 using Full.NET.IntegrationTests.Api;
 using Full.NET.IntegrationTests.Data;
 using Full.NET.Modules.Notifications.Contracts;
+using Full.NET.Modules.Notifications.Domain;
 using Full.NET.Modules.Notifications.Execution;
+using Full.NET.Modules.Notifications.Features.ManageRecipientEndpoints;
+using Full.NET.Modules.Notifications.Providers;
+using Full.NET.Modules.Notifications.Providers.Smtp;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Data.SqlClient;
 using MySqlConnector;
@@ -22,6 +28,8 @@ namespace Full.NET.IntegrationTests.Notifications;
 [DoNotParallelize]
 public sealed class NotificationWorkerAdmissionTests
 {
+    private const string RecoveryMailbox = "notification-recovery@example.test";
+
     [TestMethod]
     [DataRow(DatabaseProvider.SqlServer)]
     [DataRow(DatabaseProvider.MySql)]
@@ -34,7 +42,16 @@ public sealed class NotificationWorkerAdmissionTests
     public Task Restoring_database_backup_preserves_sent_and_pending_notification_identity(DatabaseProvider provider) =>
         VerifyPausedDeliveryAsync(provider, restoreBackup: true);
 
-    private static async Task VerifyPausedDeliveryAsync(DatabaseProvider provider, bool restoreBackup)
+    [TestMethod]
+    [DataRow(DatabaseProvider.SqlServer, false)]
+    [DataRow(DatabaseProvider.MySql, true)]
+    public async Task Restored_notification_worker_delivers_only_the_original_pending_mail_over_tls(DatabaseProvider provider, bool startTls)
+    {
+        await using var inbox = new ControlledSmtpInbox(startTls);
+        await VerifyPausedDeliveryAsync(provider, restoreBackup: true, inbox);
+    }
+
+    private static async Task VerifyPausedDeliveryAsync(DatabaseProvider provider, bool restoreBackup, ControlledSmtpInbox? inbox = null)
     {
         using var budget = new CancellationTokenSource(TimeSpan.FromMinutes(3));
         var token = budget.Token;
@@ -42,22 +59,30 @@ public sealed class NotificationWorkerAdmissionTests
             ? await SharedDatabaseFixture.CreateSqlServerDatabaseAsync()
             : await SharedDatabaseFixture.CreateMySqlDatabaseAsync();
         var protection = new EphemeralDataProtectionProvider();
-        using var api = new FullNetApiFactory(provider, database, configureTestServices: ConfigureHost);
+        var settings = new Dictionary<string, string?>
+        {
+            ["Notifications:Providers:Smtp:Enabled"] = inbox is null ? "false" : "true"
+        };
+        using var api = new FullNetApiFactory(provider, database, settings, configureTestServices: ConfigureHost);
         await api.InitializeAsync(token, useSchemaTemplate: false);
         using var client = api.CreateClientForHost("localhost");
         var access = await NotificationProfileBindingAssertions.LoginAsHostAdminAsync(client, token);
         var user = await NotificationProfileBindingAssertions.GetCurrentUserAsync(client, access, token);
-        var route = await NotificationDeliveryWorkerAssertions.CreateRouteAsync(client, access, user.Id, token);
+        var route = inbox is null
+            ? await NotificationDeliveryWorkerAssertions.CreateRouteAsync(client, access, user.Id, token)
+            : await CreateSmtpRouteAsync(api.Services, client, access, user.Id, inbox, token);
 
         var sentIntent = await NotificationDeliveryWorkerAssertions.CreateIntentAsync(
             client, access, route, user.Id, "sent-before-pause", token);
         var originalSent = await NotificationDeliveryWorkerAssertions.WaitDeliveryAsync(client, access, sentIntent.Id, token);
         using var initialWorker = await BuildWorkerAsync(database, "Notifications.BeforePause", enabled: true);
+        var initialMail = inbox?.ReceiveAsync("accepted", token);
         await initialWorker.StartAsync(token);
         try
         {
             originalSent = await WaitSentAsync(client, access, originalSent.Id);
-            Assert.HasCount(1, initialWorker.Services.GetRequiredService<TestNotificationProviderHarness>().IdempotencyKeysFor(originalSent.Id));
+            if (initialMail is not null) await VerifyMailAsync(initialMail, "sent-before-pause", token);
+            else Assert.HasCount(1, initialWorker.Services.GetRequiredService<TestNotificationProviderHarness>().IdempotencyKeysFor(originalSent.Id));
         }
         finally { await initialWorker.StopAsync(CancellationToken.None); }
 
@@ -76,7 +101,7 @@ public sealed class NotificationWorkerAdmissionTests
             }, token)
             : database;
         using var recoveredApi = restoreBackup
-            ? new FullNetApiFactory(provider, recoveryDatabase, configureTestServices: ConfigureHost)
+            ? new FullNetApiFactory(provider, recoveryDatabase, settings, configureTestServices: ConfigureHost)
             : null;
         using var recoveredClient = recoveredApi?.CreateClientForHost("localhost");
         var targetClient = recoveredClient ?? client;
@@ -102,10 +127,12 @@ public sealed class NotificationWorkerAdmissionTests
             Assert.AreEqual(queued.NextAttemptAtUtc, paused.NextAttemptAtUtc);
             Assert.HasCount(0, paused.Attempts);
             Assert.AreEqual(0, pausedWorker.Services.GetRequiredService<TestNotificationProviderHarness>().SendCount);
+            Assert.IsFalse(inbox?.HasPendingConnection ?? false);
         }
         finally { await pausedWorker.StopAsync(CancellationToken.None); }
 
         using var resumedWorker = await BuildWorkerAsync(recoveryDatabase, "Notifications.Resumed", enabled: true);
+        var resumedMail = inbox?.ReceiveAsync("accepted", token);
         await resumedWorker.StartAsync(token);
         try
         {
@@ -115,11 +142,16 @@ public sealed class NotificationWorkerAdmissionTests
             var earlier = await NotificationDeliveryWorkerAssertions.GetDeliveryAsync(targetClient, targetAccess, originalSent.Id, token);
             Assert.AreEqual(originalSent.Revision, earlier.Revision);
             Assert.HasCount(1, earlier.Attempts);
-            var harness = resumedWorker.Services.GetRequiredService<TestNotificationProviderHarness>();
-            Assert.HasCount(1, harness.IdempotencyKeysFor(queued.Id));
-            Assert.HasCount(0, harness.IdempotencyKeysFor(originalSent.Id));
+            if (resumedMail is not null) await VerifyMailAsync(resumedMail, "pending-during-pause", token);
+            else
+            {
+                var harness = resumedWorker.Services.GetRequiredService<TestNotificationProviderHarness>();
+                Assert.HasCount(1, harness.IdempotencyKeysFor(queued.Id));
+                Assert.HasCount(0, harness.IdempotencyKeysFor(originalSent.Id));
+            }
         }
         finally { await resumedWorker.StopAsync(CancellationToken.None); }
+        Assert.IsFalse(inbox?.HasPendingConnection ?? false);
         if (restoreBackup)
         {
             var source = await NotificationDeliveryWorkerAssertions.GetDeliveryAsync(client, access, queued.Id, token);
@@ -128,7 +160,7 @@ public sealed class NotificationWorkerAdmissionTests
         }
 
         Task<IHost> BuildWorkerAsync(string connection, string name, bool enabled) => IntegrationWorkerHostFactory.BuildAsync(provider, connection,
-            new Dictionary<string, string?>
+            new Dictionary<string, string?>(settings)
             {
                 ["Notifications:Worker:Enabled"] = enabled ? "true" : "false",
                 ["Notifications:Worker:PollMilliseconds"] = "100"
@@ -138,6 +170,14 @@ public sealed class NotificationWorkerAdmissionTests
         {
             services.AddSingleton<IDataProtectionProvider>(protection);
             ConfigureWorker(services);
+            if (inbox is not null)
+            {
+                // 保留正式 SMTP 适配器，仅注入测试根证书信任和夹具凭据。
+                services.RemoveAll<ISmtpMailTransport>();
+                services.AddSingleton<ISmtpMailTransport>(inbox.CreateTransport());
+                services.RemoveAll<INotificationSecretResolver>();
+                services.AddSingleton<INotificationSecretResolver>(new ControlledSmtpInbox.ProtocolSecretResolver());
+            }
         }
 
         async Task<NotificationDeliveryResponse> WaitSentAsync(HttpClient observer, string authorization, Guid id)
@@ -152,6 +192,41 @@ public sealed class NotificationWorkerAdmissionTests
                 await Task.Delay(100, window.Token);
             }
         }
+    }
+
+    private static async Task<NotificationDeliveryWorkerAssertions.RouteFixture> CreateSmtpRouteAsync(
+        IServiceProvider services, HttpClient client, string access, Guid userId, ControlledSmtpInbox inbox, CancellationToken token)
+    {
+        const string channel = "email";
+        var suffix = Guid.NewGuid().ToString("N")[..12];
+        var profile = await NotificationProfileBindingAssertions.CreateProfileAsync(client, access,
+            $"recovery-{suffix}", "email.smtp", inbox.Configuration, "test://smtp", token);
+        profile = await NotificationProfileBindingAssertions.PublishAndEnableAsync(client, access, profile, token);
+        Assert.IsNotNull(profile.LatestPublishedVersionId);
+        await using (var scope = services.CreateAsyncScope())
+        {
+            scope.ServiceProvider.GetRequiredService<ICurrentTenantContextWriter>().SetHost();
+            var stored = await scope.ServiceProvider.GetRequiredService<RecipientEndpointStore>().UpsertAsync(userId,
+                profile.LatestPublishedVersionId.Value, channel, RecoveryMailbox, NotificationRecipientEndpointStatuses.Verified, token);
+            Assert.IsTrue(stored.IsSuccess);
+        }
+
+        var route = new NotificationDeliveryWorkerAssertions.RouteFixture($"tests.smtp.{suffix}", "order.recovery", $"smtp-{suffix}");
+        await NotificationProfileBindingAssertions.CreateAndPublishBindingAsync(client, access, $"smtp-binding-{suffix}",
+            route.Producer, route.Scene, profile.ProfileKey, channel, token);
+        await NotificationProfileBindingAssertions.CreateProducerSceneAsync(client, access, route.Producer, route.Scene, channel, token);
+        await NotificationProfileBindingAssertions.CreateAndPublishTestTemplateAsync(client, access, route.TemplateKey, channel, token);
+        return route;
+    }
+
+    private static async Task VerifyMailAsync(Task<ControlledSmtpInbox.Observation> observation, string content, CancellationToken token)
+    {
+        var received = await observation.WaitAsync(TimeSpan.FromSeconds(15), token);
+        Assert.IsTrue(received.Authenticated);
+        var message = received.Message;
+        Assert.IsNotNull(message);
+        Assert.AreEqual(RecoveryMailbox, message.To.Mailboxes.Single().Address);
+        StringAssert.Contains(message.TextBody, content);
     }
 
     [TestMethod]

@@ -1075,6 +1075,11 @@
           "minimum": 2,
           "timeout": "8m"
         },
+        "notifications-worker-smtp-recovery": {
+          "filter": "FullyQualifiedName~NotificationWorkerAdmissionTests.Restored_notification_worker_delivers_only_the_original_pending_mail_over_tls",
+          "minimum": 2,
+          "timeout": "8m"
+        },
         "enterprise-request-member-access": {
           "filter": "FullyQualifiedName~EnterpriseRequestAccessMatrixTests.Active_members_respect_department_tenant_detail_and_document_permissions",
           "minimum": 2,
