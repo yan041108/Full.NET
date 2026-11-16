@@ -7,6 +7,7 @@ using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Files.Contracts;
 using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Reporting.Contracts;
+using Full.NET.Modules.Reporting.Configuration;
 using Full.NET.Modules.Reporting.Features.ManageDefinitions;
 using Full.NET.Modules.Reporting.Features.ManageExportTasks;
 using Full.NET.Modules.Reporting.Features.PublishedDefinitions;
@@ -113,8 +114,11 @@ public sealed class ReportingExportDownloadAuthorizationTests
             });
         var authorization = new ReportingExportTaskAuthority(identity, definitions, tenant);
         Full.NET.UnitTests.TestInfrastructure.BackgroundSessionAuthorizationTestAdapter.DelegateAllToSingle(identity);
+        var exportOptions = Substitute.For<IOptionsMonitor<ReportingExportOptions>>();
+        exportOptions.CurrentValue.Returns(new ReportingExportOptions());
         var service = new ReportingExportTaskManagementService(definitions, files, query, Substitute.For<ICommandExecutor>(),
-            authorization, identity, tenant, Substitute.For<IClock>(), Substitute.For<IIdGenerator>(), database, Substitute.For<IIdentityPermissionEvaluator>());
+            authorization, identity, tenant, Substitute.For<IClock>(), Substitute.For<IIdGenerator>(), database, Substitute.For<IIdentityPermissionEvaluator>(),
+            exportOptions);
         if (reason is "lateFailure" or "lateCancel" or "lateRequestCancel")
         {
             if (reason == "lateFailure") await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => service.OpenDownloadAsync(task.Id, Full.NET.Testing.SessionBindingTestPrincipal.Create(binding), cancellation.Token));

@@ -7,6 +7,7 @@ using Full.NET.Abstractions.Time;
 using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Files.Contracts;
 using Full.NET.Modules.Identity.Contracts;
+using Full.NET.Modules.Reporting.Configuration;
 using Full.NET.Modules.Reporting.Contracts;
 using Full.NET.Modules.Reporting.Features.ManageDefinitions;
 using Full.NET.Modules.Reporting.Features.ExecuteDefinitions;
@@ -24,6 +25,7 @@ namespace Full.NET.Modules.Reporting.Features.ManageExportTasks;
 /// <param name="currentTenant">当前可信租户。</param>
 /// <param name="clock">时钟。</param>
 /// <param name="idGenerator">任务 UUID。</param>
+/// <param name="exportOptions">独立控制 API 受理新导出任务的配置。</param>
 internal sealed class ReportingExportTaskManagementService(
     ReportingExecutionCatalog definitionQueries,
     ITenantResourceFileStore resourceFiles,
@@ -35,7 +37,8 @@ internal sealed class ReportingExportTaskManagementService(
     IClock clock,
     IIdGenerator idGenerator,
     IOptions<DatabaseOptions> databaseOptions,
-    IIdentityPermissionEvaluator permissionEvaluator)
+    IIdentityPermissionEvaluator permissionEvaluator,
+    IOptionsMonitor<ReportingExportOptions> exportOptions)
 {
     private const string WorkbookContentType =
         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
@@ -56,6 +59,11 @@ internal sealed class ReportingExportTaskManagementService(
         var tenantId = currentTenant.Id!.Value;
         if (!ReportingExportSessionBinding.TryRead(principal, tenantId, out var binding) || binding.UserId != requestedByUserId)
             return Result<ReportingExportTaskDetailResponse>.Failure(ReportingExportTaskAuthority.Denied());
+
+        // 暂停只限制新请求，旧任务的领取、读取和下载仍使用原授权边界。
+        if (!exportOptions.CurrentValue.AdmissionEnabled)
+            return Result<ReportingExportTaskDetailResponse>.Failure(new Error(ReportingErrorCodes.ExportAdmissionPaused,
+                "New report exports are temporarily paused.", ErrorType.ServiceUnavailable));
 
         if (request is null || request.Parameters is null || request.Parameters.Any(parameter => parameter is null))
             return Result<ReportingExportTaskDetailResponse>.Failure(ExportFailedError("The export request is invalid."));

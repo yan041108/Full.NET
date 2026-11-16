@@ -7,9 +7,11 @@ using Full.NET.Data.Abstractions;
 using Full.NET.Data.MySql;
 using Full.NET.IntegrationTests.Api;
 using Full.NET.Modules.Identity.Contracts;
+using Full.NET.Modules.Reporting.Configuration;
 using Full.NET.Modules.Reporting.Contracts;
 using Full.NET.Modules.Reporting.Features.ManageExportTasks;
 using Full.NET.Modules.Tenancy.Contracts;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using MySqlConnector;
 
@@ -50,7 +52,7 @@ public sealed class ReportingExportCancellationTests
         host.DefaultRequestHeaders.Authorization = new("Bearer", await IntegrationTestTenantContextHelper.SwitchToTenantAsync(host, hostToken, tenant.Id));
         var owner = await MemberAsync("owner", Permissions); using var client = owner.Client;
         var other = await MemberAsync("other", Permissions); using var otherClient = other.Client;
-        var denied = await MemberAsync("denied", Permissions.Where(permission => permission != ReportingExportTaskPermissions.Cancel).ToArray()); using var deniedClient = denied.Client;
+        var denied = await MemberAsync("denied", Permissions.Where(permission => permission is not (ReportingExportTaskPermissions.Cancel or ReportingExportTaskPermissions.Create)).ToArray()); using var deniedClient = denied.Client;
         var queued = await CreateAsync(); var id = Id(queued); Assert.AreEqual(1L, Version(queued));
         await using var database = MyTasksApiTests.Open(provider, connection); await database.OpenAsync(); var frozen = await FrozenAsync(id);
         await SendAsync(otherClient, HttpMethod.Post, $"{Tasks}/{id:D}/cancel", new CancelReportingExportTaskRequest(1), HttpStatusCode.NotFound);
@@ -71,6 +73,43 @@ public sealed class ReportingExportCancellationTests
         var latest = await SendAsync(client, HttpMethod.Get, $"{Tasks}/{raceId:D}", null, HttpStatusCode.OK);
         if (response.StatusCode == HttpStatusCode.OK) { Assert.AreEqual(0, processed); Assert.AreEqual("canceled", latest.GetProperty("statusKey").GetString()); Assert.AreEqual(0, external.QueryCount); }
         else { Assert.AreEqual(1, processed); Assert.AreEqual("succeeded", latest.GetProperty("statusKey").GetString()); Assert.AreEqual(1, external.QueryCount); }
+
+        var closing = await CreateAsync();
+        var discard = await CreateAsync();
+        var beforePause = await database.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM fn_reporting_export_task");
+        var configuration = (IConfigurationRoot)factory.Services.GetRequiredService<IConfiguration>();
+        SetAdmission(false);
+        try
+        {
+            await SendAsync(deniedClient, HttpMethod.Post, Tasks, Request(), HttpStatusCode.Forbidden);
+            foreach (var (language, title) in new[]
+            {
+                ("zh-CN", "暂时停止受理新的报表导出，请稍后再试。"),
+                ("en-US", "New report exports are temporarily paused. Try again later.")
+            })
+            {
+                client.DefaultRequestHeaders.AcceptLanguage.Clear();
+                client.DefaultRequestHeaders.AcceptLanguage.ParseAdd(language);
+                var paused = await SendAsync(client, HttpMethod.Post, Tasks, Request(), HttpStatusCode.ServiceUnavailable);
+                Assert.AreEqual(ReportingErrorCodes.ExportAdmissionPaused, paused.GetProperty("code").GetString());
+                Assert.AreEqual(title, paused.GetProperty("title").GetString());
+            }
+            Assert.AreEqual(beforePause, await database.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM fn_reporting_export_task"));
+            await CancelAsync(Id(discard), Version(discard), HttpStatusCode.OK);
+            Assert.AreEqual(1, await ProcessAsync());
+            var closingId = Id(closing);
+            var completed = await SendAsync(client, HttpMethod.Get, $"{Tasks}/{closingId:D}", null, HttpStatusCode.OK);
+            Assert.AreEqual(ReportingExportTaskStatusKeys.Succeeded, completed.GetProperty("statusKey").GetString());
+            using var download = await client.GetAsync($"{Tasks}/{closingId:D}/download");
+            Assert.AreEqual(HttpStatusCode.OK, download.StatusCode);
+            Assert.IsGreaterThan(0, (await download.Content.ReadAsByteArrayAsync()).Length);
+        }
+        finally
+        {
+            SetAdmission(true);
+            client.DefaultRequestHeaders.AcceptLanguage.Clear();
+        }
+
         var running = await CreateAsync(); var runningId = Id(running);
         await database.ExecuteAsync("UPDATE fn_reporting_export_task SET StatusKey='processing',LeaseId=@Lease,LeaseExpiresAtUtc=@Until,Version=Version+1 WHERE Id=@Id",
             new { Id = runningId, Lease = Guid.CreateVersion7(), Until = DateTime.UtcNow.AddMinutes(5) });
@@ -96,6 +135,11 @@ public sealed class ReportingExportCancellationTests
         await ddl.ExecuteAsync(script); await ddl.ExecuteAsync(script); Assert.AreEqual(frozen, await FrozenAsync(id));
 
         CreateReportingExportTaskRequest Request() => new(definitionId, "excel", 1, [new("topN", "20")]);
+        void SetAdmission(bool enabled)
+        {
+            configuration[$"{ReportingExportOptions.SectionName}:AdmissionEnabled"] = enabled.ToString();
+            configuration.Reload();
+        }
         Task<JsonElement> CreateAsync() => SendAsync(client, HttpMethod.Post, Tasks, Request(), HttpStatusCode.Created);
         Task<JsonElement> CancelAsync(Guid taskId, long version, HttpStatusCode expected) => SendAsync(client, HttpMethod.Post, $"{Tasks}/{taskId:D}/cancel", new CancelReportingExportTaskRequest(version), expected);
         Task<(string Parameters, string Permissions, string Binding, int Publication)> FrozenAsync(Guid taskId) => database.QuerySingleAsync<(string, string, string, int)>("SELECT ParametersJson,ActorPermissionCodesJson,ActorSessionBindingJson,VersionNumber FROM fn_reporting_export_task WHERE Id=@Id", new { Id = taskId });
@@ -106,7 +150,9 @@ public sealed class ReportingExportCancellationTests
             var email = name + "@example.com"; await factory.EnsureHostUserProfileEmailAsync(identity.UserId, email, name);
             var invitation = await SendAsync(host, HttpMethod.Post, "/api/v1/identity/tenant-members/invitations", new CreateTenantInvitationRequest(email, TenantMemberRoles.Member), HttpStatusCode.OK);
             var member = factory.CreateClientForHost("localhost"); var token = await IntegrationTestAuthHelper.LoginAsHostUserAsync(member, name); member.DefaultRequestHeaders.Authorization = new("Bearer", token);
-            await SendAsync(member, HttpMethod.Post, $"/api/v1/me/tenant-invitations/{invitation.GetProperty("invitation").GetProperty("id").GetGuid():D}/accept", new { }, HttpStatusCode.OK);
+            // 测试账号的邮箱未经验证，使用邀请响应提供的一次性凭据绑定成员。
+            await SendAsync(member, HttpMethod.Post, "/api/v1/identity/tenant-invitations/accept",
+                new AcceptTenantInvitationRequest(invitation.GetProperty("invitationToken").GetString()!), HttpStatusCode.OK);
             member.DefaultRequestHeaders.Authorization = new("Bearer", await IntegrationTestTenantContextHelper.SwitchToTenantAsync(member, token, tenant.Id)); return (member, identity.UserId);
         }
     }

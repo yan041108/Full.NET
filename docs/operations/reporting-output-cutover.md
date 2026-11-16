@@ -3,7 +3,7 @@
 本流程适用于使用 `fullnet-api` 和 `fullnet-worker` Helm Release 的部署。`Invoke-FullNetRelease.ps1 -ReportingOutputCutover` 在任何 Helm 发布阶段前核对旧宿主和目标数据库。
 
 1. 核对候选镜像、实际 Helm values、集群 context、命名空间和发布使用的主库。为检查命令准备仅能读取报表导出任务表和租户资源文件元数据表的账号。执行期间暂停会恢复副本的 GitOps、伸缩器和外部发布流程。其他命名空间、独立宿主和外部生产者如连接同库，也须先停稳。
-2. 在入口停止新导出准入，等待已进入的请求结束。将旧 API 副本降为零，等待 Pod 正常终止。保持旧 Worker 处理存量，使用同一主库核对队列和处理中的任务。两库的只读查询位于 `eng/deploy/reporting-cutover/`。未知状态及残留租约也阻断切版。
+2. 在入口停止新导出准入，等待已进入的请求结束。支持导出准入开关的旧版可将 Helm `api.reportingExportAdmissionEnabled` 设为 `false`，先以相同镜像更新 API，并在滚动完成后核对所有实例的导出 POST 均返回 503 和 `reporting.export_task.admission_paused`。独立部署可设置 `FullNet__Reporting__Export__AdmissionEnabled=false`。此前仍在运行的请求须等待结束，旧版不支持该开关时继续从入口阻止请求。保持旧 Worker 的 `ExecutionEnabled` 启用，用原任务查询、取消或下载核对进度和结果。将旧 API 副本降为零后等待 Pod 正常终止，再用同一主库检查全部存量。两库的只读查询位于 `eng/deploy/reporting-cutover/`。未知状态及残留租约也阻断切版。
 3. 排空后将旧 Worker 副本降为零，等待 Pod 正常终止，移除两套旧 Deployment 的 HPA。节点失联或无法证明旧进程退出时暂停切版。遇到旧格式文件上传结果未知的任务，保留任务、原文件和相关证据，暂缓切版并结合[升级说明](application-upgrade.md)核对处置范围。
 4. 使用下列参数执行发布。`KubeContext` 同时用于门禁和 Helm，数据库参数须指向该部署实际使用的主库。SQL Server 使用 ODBC `sqlcmd`，按环境提供集成认证或受控的 `SQLCMDUSER`、`SQLCMDPASSWORD`。MySQL 使用受控 login path 及服务器 CA。两种客户端均验证数据库服务器证书。
 
@@ -33,7 +33,7 @@
 
 脚本要求两个旧 Deployment 已确认零副本、关联 ReplicaSet 已停稳、相关 Pod 均已退出，主库的报表阻断资源数也须为零。未完成任务、残留租约、未确认上传和未绑定的就绪文件均会阻断。同一租户及任务只计一次；终态或原任务缺失时，未处置的文件依然会阻断。检查使用 Helm 实例标签、控制器 UID 和现存 ReplicaSet 生成的 Pod 名称前缀。操作账号需能列出命名空间内的 Deployment、ReplicaSet、Pod 和 HPA。查询前后均须停稳，且两个旧 Deployment 的 UID 和 generation 须分别一致。查询期间发生过重新伸缩或重建时，先重新确认停写和排空，再从头执行发布门禁。发布协调者须在检查与发布期间维持上述停写条件，直至新版本就绪。
 
-Migrator 每次发布创建带 Helm 修订号的 Job，与其 ConfigMap 和 ServiceAccount 一起由 Helm 创建。发布脚本等待本次 Job 完成才启动 Worker 阶段，随后等待 API 就绪。单独调用 Helm 时，Migrator 阶段也须传入 `--wait --wait-for-jobs`。
+Migrator 每次发布创建带 Helm 修订号的 Job，与其 ConfigMap 和 ServiceAccount 一起由 Helm 创建。发布脚本等待本次 Job 完成才启动 Worker 阶段，随后等待 API 就绪。单独调用 Helm 时，Migrator 阶段也须传入 `--wait --wait-for-jobs`。完成切版和放行复核后，将导出准入开关恢复为 `true`，该值也是缺省配置。
 
 三个数据库 Secret 指向同一业务主库，分别使用宿主所需权限及与 Chart 预算一致的最大连接池大小。未传角色专用参数时，该角色使用 values 中的 `database.connectionSecretName`。
 

@@ -50,6 +50,8 @@ spec:
 {{- include "fullnet.loggingModeEnv" . | nindent 12 }}
 {{- include "fullnet.loggingKafkaEnv" . | nindent 12 }}
 {{- include "fullnet.loggingLocalFileEnv" . | nindent 12 }}
+            - name: FullNet__Reporting__Export__AdmissionEnabled
+              value: {{ .Values.api.reportingExportAdmissionEnabled | quote }}
             - name: Database__ConnectionString
               valueFrom:
                 secretKeyRef:

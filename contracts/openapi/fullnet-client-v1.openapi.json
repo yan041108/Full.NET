@@ -54510,6 +54510,16 @@
               }
             },
             "description": "Created"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Service Unavailable"
           }
         },
         "security": [

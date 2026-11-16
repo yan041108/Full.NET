@@ -192,6 +192,7 @@ public sealed class StandardApiResultMapper(
         ErrorType.Conflict => StatusCodes.Status409Conflict,
         ErrorType.BusinessRule => StatusCodes.Status422UnprocessableEntity,
         ErrorType.RateLimited => StatusCodes.Status429TooManyRequests,
+        ErrorType.ServiceUnavailable => StatusCodes.Status503ServiceUnavailable,
         _ => StatusCodes.Status500InternalServerError
     };
 }

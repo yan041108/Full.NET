@@ -13,6 +13,7 @@ using Full.NET.Modules.ImportExport.Domain;
 using Full.NET.Modules.ImportExport.Features.ManageImportTasks;
 using Full.NET.Modules.ImportExport.Persistence;
 using Full.NET.Modules.Reporting.Contracts;
+using Full.NET.Modules.Reporting.Configuration;
 using Full.NET.Modules.Reporting.Features.ManageDefinitions;
 using Full.NET.Modules.Reporting.Features.ManageExportTasks;
 using Full.NET.Modules.Reporting.Features.PublishedDefinitions;
@@ -283,7 +284,9 @@ public sealed class OutputTaskBoundaryTests
             reportingAuthorization = new(identity, definitions, Tenant);
             var permissions = Substitute.For<IIdentityPermissionEvaluator>();
             permissions.ResolvePermissions(Arg.Any<ClaimsPrincipal>()).Returns(Array.Empty<string>());
-            reporting = new(definitions, files, Query, Command, reportingAuthorization, identity, Tenant, clock, id, database, permissions);
+            var exportOptions = Substitute.For<IOptionsMonitor<ReportingExportOptions>>();
+            exportOptions.CurrentValue.Returns(new ReportingExportOptions());
+            reporting = new(definitions, files, Query, Command, reportingAuthorization, identity, Tenant, clock, id, database, permissions, exportOptions);
             var handler = Substitute.For<IStaticImportSchemaHandler>(); handler.SchemaKey.Returns("positions");
             handler.GetDefinition().Returns(new StaticImportSchemaDefinition("positions", "Positions", "tenant", "positions.import", [new("rows", "Rows", [])]));
             handler.ExecutionCapabilityPermissions.Returns(stage == "capability-missing" ? ["assign"] : []);

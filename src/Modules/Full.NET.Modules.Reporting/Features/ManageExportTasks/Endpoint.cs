@@ -47,6 +47,7 @@ internal static class Endpoint
         })
         .WithName("reportingCreateExportTask")
         .Produces<ReportingExportTaskDetailResponse>(StatusCodes.Status201Created)
+        .ProducesProblem(StatusCodes.Status503ServiceUnavailable)
         .RequireAuthorization(FullNetPermissionPolicies.For(ReportingExportTaskPermissions.Create));
 
         // 本人查询不接受用户或租户参数；身份只来自已认证主体和可信上下文。

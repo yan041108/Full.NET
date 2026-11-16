@@ -150,6 +150,7 @@
       "type": "object",
       "properties": {
         "replicaCount": { "type": "integer", "minimum": 1 },
+        "reportingExportAdmissionEnabled": { "type": "boolean" },
         "kafkaReplay": {
           "type": "object",
           "required": [

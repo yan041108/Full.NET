@@ -2,12 +2,15 @@ using Microsoft.Extensions.Options;
 
 namespace Full.NET.Modules.Reporting.Configuration;
 
-/// <summary>报表导出后台领取与租约配置。</summary>
+/// <summary>报表导出准入、后台领取与租约配置。</summary>
 /// <remarks>绑定属性必须可写；Native AOT 配置源生成器不为 init 属性赋值，不能静默回退到默认执行策略。</remarks>
 public sealed class ReportingExportOptions
 {
     /// <summary>配置节名称。</summary>
     public const string SectionName = "FullNet:Reporting:Export";
+
+    /// <summary>是否受理新的导出请求，与 Worker 的存量执行开关独立。</summary>
+    public bool AdmissionEnabled { get; set; } = true;
 
     /// <summary>是否启用 Worker 崩溃恢复循环。</summary>
     public bool ExecutionEnabled { get; set; } = true;

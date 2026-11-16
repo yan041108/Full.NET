@@ -36,5 +36,9 @@ public enum ErrorType
     /// <summary>
     /// 未分类的意外错误，通常对应系统内部异常，不应直接暴露细节给客户端。
     /// </summary>
-    Unexpected
+    Unexpected,
+    /// <summary>
+    /// 当前服务因维护或运行状态暂时无法接收请求。
+    /// </summary>
+    ServiceUnavailable
 }

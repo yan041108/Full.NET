@@ -95,6 +95,9 @@ public static class ReportingErrorCodes
     /// <summary>报表导出任务不存在。</summary>
     public const string ExportTaskNotFound = "reporting.export_task.not_found";
 
+    /// <summary>维护期间暂停受理新的导出任务。</summary>
+    public const string ExportAdmissionPaused = "reporting.export_task.admission_paused";
+
     /// <summary>报表导出格式不受支持。</summary>
     public const string ExportFormatUnsupported = "reporting.export_task.format_unsupported";
 

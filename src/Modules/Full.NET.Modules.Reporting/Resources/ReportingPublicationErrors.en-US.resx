@@ -14,4 +14,5 @@
   <data name="reporting.definition.not_published" xml:space="preserve"><value>Enable and publish the reporting definition first.</value></data>
   <data name="reporting.grant.source_unavailable" xml:space="preserve"><value>The published data source is disabled or unavailable to the target tenant.</value></data>
   <data name="reporting.export_task.cancel_conflict" xml:space="preserve"><value>The task changed or is being generated. Refresh its details. Processing tasks cannot be canceled.</value></data>
+  <data name="reporting.export_task.admission_paused" xml:space="preserve"><value>New report exports are temporarily paused. Try again later.</value></data>
 </root>

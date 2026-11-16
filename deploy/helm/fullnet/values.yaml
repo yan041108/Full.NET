@@ -140,6 +140,8 @@ logging:
 
 api:
   replicaCount: 3
+  # 切版准备可暂停 API 新导出，让旧 Worker 继续排空。
+  reportingExportAdmissionEnabled: true
   kafkaReplay:
     # 同步范围重放默认关闭；启用时必须单独提供 API 角色可读的 Kafka Secret。
     enabled: false

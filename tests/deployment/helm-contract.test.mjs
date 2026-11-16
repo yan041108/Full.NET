@@ -11,6 +11,27 @@ const repositoryRoot = path.resolve(
 );
 const chartDir = path.join(repositoryRoot, 'deploy/helm/fullnet');
 
+test('reporting export admission can pause API submissions while leaving Worker execution enabled', () => {
+  const helm = process.env.FULLNET_HELM_BINARY ?? 'helm';
+  const render = (role, extra = []) => spawnSync(helm, ['template', 'reporting-cutover', chartDir,
+    '-f', path.join(chartDir, `ci/values-role-${role}.yaml`), '-f', path.join(chartDir, 'ci/values-provider-sqlserver.yaml'), ...extra],
+  { encoding: 'utf8', cwd: repositoryRoot });
+  const envKey = 'FullNet__Reporting__Export__AdmissionEnabled';
+  const defaultApi = render('api');
+  assert.equal(defaultApi.status, 0, defaultApi.stderr);
+  assert.match(defaultApi.stdout, new RegExp(`${envKey}\\s+value: "true"`));
+  const paused = ['--set', 'api.reportingExportAdmissionEnabled=false'];
+  const pausedApi = render('api', paused);
+  assert.equal(pausedApi.status, 0, pausedApi.stderr);
+  assert.match(pausedApi.stdout, new RegExp(`${envKey}\\s+value: "false"`));
+  const worker = render('worker', paused);
+  assert.equal(worker.status, 0, worker.stderr);
+  assert.doesNotMatch(worker.stdout, /FullNet__Reporting__Export__(Admission|Execution)Enabled/);
+  const invalid = render('api', ['--set-string', 'api.reportingExportAdmissionEnabled=false']);
+  assert.notEqual(invalid.status, 0);
+  assert.match(invalid.stderr, /reportingExportAdmissionEnabled/);
+});
+
 test('CDC multi-stream retention mappings render independent IDs and reject ambiguous or unbounded identities', async () => {
   const { mkdtemp, writeFile, rm } = await import('node:fs/promises');
   const { tmpdir } = await import('node:os');

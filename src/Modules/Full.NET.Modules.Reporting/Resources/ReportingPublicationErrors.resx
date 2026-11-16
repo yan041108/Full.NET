@@ -14,4 +14,5 @@
   <data name="reporting.definition.not_published" xml:space="preserve"><value>请先启用并发布报表定义。</value></data>
   <data name="reporting.grant.source_unavailable" xml:space="preserve"><value>发布的数据源已停用或不属于目标租户。</value></data>
   <data name="reporting.export_task.cancel_conflict" xml:space="preserve"><value>任务已变更或正在生成，请刷新详情。处理中任务不能取消。</value></data>
+  <data name="reporting.export_task.admission_paused" xml:space="preserve"><value>暂时停止受理新的报表导出，请稍后再试。</value></data>
 </root>
