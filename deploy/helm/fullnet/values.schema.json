@@ -198,6 +198,7 @@
         "replicaCount": { "type": "integer", "minimum": 1 },
         "maxConcurrency": { "type": "integer", "const": 1 },
         "databaseCapacityBackoffMilliseconds": { "type": "integer", "minimum": 100, "maximum": 300000 },
+        "notificationDeliveryEnabled": { "type": "boolean" },
         "messaging": {
           "type": "object",
   "properties": {

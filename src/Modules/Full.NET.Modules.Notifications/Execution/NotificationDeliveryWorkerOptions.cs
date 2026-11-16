@@ -2,10 +2,13 @@ using Microsoft.Extensions.Options;
 
 namespace Full.NET.Modules.Notifications.Execution;
 
-/// <summary>Delivery Worker 的批大小、租约、退避与积压采样边界。</summary>
+/// <summary>Delivery Worker 的启动、批大小、租约、退避与积压采样边界。</summary>
 internal sealed class NotificationDeliveryWorkerOptions
 {
     public const string SectionName = "Notifications:Worker";
+
+    /// <summary>是否在宿主启动后领取积压通知并调用投递渠道。</summary>
+    public bool Enabled { get; set; } = true;
 
     /// <summary>每轮最多领取的投递数量。</summary>
     public int BatchSize { get; set; } = 10;

@@ -201,6 +201,7 @@ worker:
   replicaCount: 2
   maxConcurrency: 1
   databaseCapacityBackoffMilliseconds: 1000
+  notificationDeliveryEnabled: true
   messaging:
     mode: LegacyPolling
     # 只读 CDC 观测默认关闭；显式启用前配置数据库读取权限和专用控制面映射。

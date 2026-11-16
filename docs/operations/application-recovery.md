@@ -72,6 +72,14 @@ node eng/deploy/Verify-FullNetRecoveryEvidence.mjs $EvidenceDirectory $TrustedCa
 
 候选摘要取自已冻结的发布记录。工具核对回执文件摘要、演练身份和事件顺序，报告以毫秒计的 RPO/RTO。回执缺失、校验失败或任一目标未达到时退出 1。结果仅用于复核已提交的回执。恢复执行、原始证据核验和放行仍由恢复负责人完成。
 
+### 通知队列外发隔离
+
+确认旧 Worker 已停止后，在恢复环境所有通知 Worker 上设置 `Notifications__Worker__Enabled=false` 再启动。Helm 部署在恢复环境的 values 中设置 `worker.notificationDeliveryEnabled: false`。Worker 启动时读取该值并记录 `Notification delivery is disabled by Worker configuration.`。通知入队仍可继续，暂停期间投递循环不会领取记录、调用渠道或采样该 Worker 的积压指标。DingTalk 审批同步、API 内的同步验证码或收件端点验证使用各自的入口，恢复时继续隔离相应外部出口与 API 写入。
+
+在 `GET /api/v1/notifications/deliveries/{deliveryId}` 核对原投递和尝试记录，按业务身份与渠道证据确认已发送、未调用和未知结果。对 `unknown` 或 `dead_lettered` 且没有有效租约的记录，有 `notifications.deliveries.reconcile` 权限的操作员可调用 `POST /api/v1/notifications/deliveries/{deliveryId}/reconcile`，提交当前 `revision`、已核实的 `outcomeKey`（`confirmed_accepted` 或 `confirmed_not_called`）以及简短的 `evidenceReference`。若归属、渠道结果或版本仍有差异，保持隔离。恢复库中仍为待发送但外部结果未知的记录不符合当前对账入口的状态条件，须继续保留待处置。
+
+完成通知对账及放行复核后，恢复对应配置为 `true`，重启 Worker 并观察原队列接续。配置缺省为启用。
+
 ### Webhook 未确认投递对账
 
 保持 Webhook 外发隔离。确认旧 Worker 已停止领取和发送后，可用 `Webhooks__Delivery__Enabled=false` 启动恢复环境的所有 Worker，暂停 Webhook 领取及外发，其他后台处理可按恢复步骤受控启动。该值在宿主启动时读取。检查 Worker 日志中的 `Webhook delivery is disabled by Worker configuration.`，并核对原投递状态和尝试数量。恢复 Webhook 时，先完成投递处置和放行复核，再以 `Webhooks__Delivery__Enabled=true` 重启对应 Worker。

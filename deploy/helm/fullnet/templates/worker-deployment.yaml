@@ -51,6 +51,8 @@ spec:
                 secretKeyRef:
                   name: {{ .Values.database.connectionSecretName }}
                   key: {{ .Values.database.connectionSecretKey }}
+            - name: Notifications__Worker__Enabled
+              value: {{ .Values.worker.notificationDeliveryEnabled | quote }}
 {{- if eq .Values.worker.messaging.mode "HybridKafka" }}
             - name: Messaging__Kafka__Enabled
               value: "true"

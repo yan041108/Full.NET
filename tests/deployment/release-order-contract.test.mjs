@@ -50,3 +50,14 @@ test('production role overlays enable exactly one role each', async () => {
   assert.match(migrator, /migrator:\s*true/);
   assert.match(migrator, /api:\s*false/);
 });
+
+test('Helm wires the notification delivery pause into the Worker Pod environment', async () => {
+  const values = await read('deploy/helm/fullnet/values.yaml');
+  const schema = JSON.parse(await read('deploy/helm/fullnet/values.schema.json'));
+  const worker = await read('deploy/helm/fullnet/templates/worker-deployment.yaml');
+  const api = await read('deploy/helm/fullnet/templates/api-deployment.yaml');
+  assert.match(values, /^worker:\r?\n(?:^  [^\r\n]+\r?\n)*?^  notificationDeliveryEnabled: true$/m);
+  assert.equal(schema.properties.worker.properties.notificationDeliveryEnabled.type, 'boolean');
+  assert.match(worker, /- name: Notifications__Worker__Enabled\s+value: {{ \.Values\.worker\.notificationDeliveryEnabled \| quote }}/);
+  assert.doesNotMatch(api, /Notifications__Worker__Enabled/);
+});

@@ -1,7 +1,9 @@
 using System.Diagnostics;
 using Full.NET.Abstractions.Results;
 using Full.NET.Abstractions.Time;
+using Full.NET.Modules.Notifications;
 using Full.NET.Modules.Notifications.Execution;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -50,6 +52,29 @@ public sealed class NotificationDeliveryWorkerOptionsTests
 [TestClass]
 public sealed class NotificationDeliveryHostedProcessorTests
 {
+    [TestMethod]
+    public async Task Disabled_delivery_worker_reads_startup_setting_and_never_creates_polling_scope()
+    {
+        using var budget = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        var config = new ConfigurationBuilder().AddInMemoryCollection(
+            new Dictionary<string, string?> { ["Notifications:Worker:Enabled"] = "false" }).Build();
+        var services = new ServiceCollection();
+        new NotificationsModule().AddBackgroundServices(services, config);
+        using var provider = services.BuildServiceProvider();
+        var options = provider.GetRequiredService<IOptions<NotificationDeliveryWorkerOptions>>();
+        var scopes = Substitute.For<IServiceScopeFactory>();
+        var logger = new PollLog();
+        using var processor = new NotificationDeliveryHostedProcessor(scopes, new SystemClock(), options, logger);
+
+        await processor.StartAsync(budget.Token);
+        await processor.ExecuteTask!.WaitAsync(budget.Token);
+
+        var entry = await logger.First.Task.WaitAsync(budget.Token);
+        Assert.AreEqual(LogLevel.Information, entry.Level);
+        StringAssert.Contains(entry.Message, "disabled by Worker configuration");
+        scopes.DidNotReceive().CreateScope();
+    }
+
     [TestMethod]
     [DataRow(ServiceCapacityFailureKind.Rejected)]
     [DataRow(ServiceCapacityFailureKind.Timeout)]

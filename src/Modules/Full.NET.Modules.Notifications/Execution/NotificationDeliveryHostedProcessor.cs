@@ -21,6 +21,12 @@ internal sealed class NotificationDeliveryHostedProcessor(
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
+        if (!_options.Enabled)
+        {
+            logger.LogInformation("Notification delivery is disabled by Worker configuration.");
+            return;
+        }
+
         while (!stoppingToken.IsCancellationRequested)
         {
             var processedCount = 0;
