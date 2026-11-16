@@ -252,7 +252,7 @@ internal sealed class ReportingExportTaskRunner(
         }
     }
 
-    /// <summary>发现待确认上传时保留任务；发现已绑定或就绪的文件时尝试完成原任务。</summary>
+    /// <summary>保留待确认上传或归属不明确的任务；使用原绑定或唯一可识别的就绪文件完成任务。</summary>
     /// <param name="task">领取快照。</param>
     /// <param name="cancellationToken">取消令牌。</param>
     private async Task<bool> TryHandleExistingOutputAsync(
@@ -277,16 +277,15 @@ internal sealed class ReportingExportTaskRunner(
         if (await pendingUploads.HasPendingUploadAsync("reporting", task.Id, cancellationToken).ConfigureAwait(false)) return true;
         var ready = await resourceFiles.ListReadyAsync("reporting", task.Id, cancellationToken)
             .ConfigureAwait(false);
-        var latest = ready.LastOrDefault();
-        if (latest is null)
-        {
-            return false;
-        }
+        if (ready.Count == 0) return false;
+        // 多个就绪对象缺少权威选择依据。保留全部证据并等待处置，不按时间猜测或重新生成。
+        if (ready.Count > 1) return true;
 
+        var existing = ready[0];
         // 行数属于具体上传对象，不能使用其他尝试留下的任务快照。
-        if (!ReportingExportOutputIdentity.TryRead(latest.OriginalFileName, out var fileName, out var rowCount))
+        if (!ReportingExportOutputIdentity.TryRead(existing.OriginalFileName, out var fileName, out var rowCount))
             throw new InvalidDataException("The reporting output identity is unavailable.");
-        await CompleteSucceededAsync(task, lease, latest.FileId, fileName, rowCount, cancellationToken)
+        await CompleteSucceededAsync(task, lease, existing.FileId, fileName, rowCount, cancellationToken)
             .ConfigureAwait(false);
         // 写入条件未命中也只结束本轮，旧领取者不能把已有文件降级成重新生成。
         return true;

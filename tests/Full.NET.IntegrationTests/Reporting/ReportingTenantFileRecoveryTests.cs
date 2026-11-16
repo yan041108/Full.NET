@@ -41,7 +41,7 @@ public sealed class ReportingTenantFileRecoveryTests
     [TestMethod]
     [DataRow(DatabaseProvider.SqlServer)]
     [DataRow(DatabaseProvider.MySql)]
-    public Task Legacy_uploaded_report_remains_pending_without_duplicate_output(DatabaseProvider provider) =>
+    public Task Legacy_or_ambiguous_report_remains_pending_without_duplicate_output(DatabaseProvider provider) =>
         VerifyRecoveryAsync(provider, crashProcess: false, legacyOutput: true);
 
     private static async Task VerifyRecoveryAsync(DatabaseProvider provider, bool crashProcess, bool legacyOutput = false)
@@ -130,10 +130,20 @@ public sealed class ReportingTenantFileRecoveryTests
             var original = existing.Single();
             Assert.AreEqual("recovery.xlsx", original.OriginalFileName);
             var bytes = await ReadReadyBytesAsync(original.FileId);
+            var alternativeBytes = ReportingExcelExportRenderer.Render([new("SchemaName", "Schema")],
+                [new(new Dictionary<string, string?> { ["SchemaName"] = "alternate first row" }),
+                 new(new Dictionary<string, string?> { ["SchemaName"] = "alternate second row" })]);
+            Guid? alternativeFileId = null;
             var previousLease = before.LeaseId;
-            // 两次后续领取使用真实持久化文件，以证实旧名不会让恢复路径猜测行数或重复上传。
+            // 先核对单个旧文件，再增加一个足以骗过按时间选择逻辑的就绪文件。
             foreach (var minutes in new[] { 2, 4 })
             {
+                if (minutes == 4)
+                {
+                    Assert.AreEqual(original.FileId, (await ListFilesAsync()).Single().FileId);
+                    alternativeFileId = await UploadAlternateAsync(before.RequestedByUserId, alternativeBytes);
+                    Assert.AreEqual(alternativeFileId, (await ListFilesAsync()).Last().FileId);
+                }
                 var retryCompleted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
                 using var worker = await BuildWorkerAsync(minutes, FileMode.Observe, retryCompleted);
                 await worker.StartAsync();
@@ -149,10 +159,13 @@ public sealed class ReportingTenantFileRecoveryTests
                 Assert.AreNotEqual(previousLease, pending.LeaseId);
                 previousLease = pending.LeaseId;
             }
-            Assert.AreEqual(original.FileId, (await ListFilesAsync()).Single().FileId);
+            Assert.IsNotNull(alternativeFileId);
+            CollectionAssert.AreEquivalent(new[] { original.FileId, alternativeFileId.Value },
+                (await ListFilesAsync()).Select(file => file.FileId).ToArray());
             Assert.AreEqual(1, Volatile.Read(ref gate.Uploads));
             Assert.AreEqual(1, Volatile.Read(ref workbook.Calls));
             CollectionAssert.AreEqual(bytes, await ReadReadyBytesAsync(original.FileId));
+            CollectionAssert.AreEqual(alternativeBytes, await ReadReadyBytesAsync(alternativeFileId.Value));
             using var unavailable = await tenantClient.GetAsync($"/api/v1/reporting/export-tasks/{taskId:D}/download");
             Assert.AreEqual(HttpStatusCode.BadRequest, unavailable.StatusCode);
             using var problem = JsonDocument.Parse(await unavailable.Content.ReadAsStringAsync());
@@ -259,6 +272,18 @@ public sealed class ReportingTenantFileRecoveryTests
             await using var scope = api.Services.CreateAsyncScope();
             scope.ServiceProvider.GetRequiredService<CurrentTenantAccessor>().SetTenant(tenantContext);
             return await scope.ServiceProvider.GetRequiredService<ITenantResourceFileStore>().ListReadyAsync("reporting", taskId);
+        }
+
+        async Task<Guid> UploadAlternateAsync(Guid actorUserId, byte[] bytes)
+        {
+            await using var scope = api.Services.CreateAsyncScope();
+            scope.ServiceProvider.GetRequiredService<CurrentTenantAccessor>().SetTenant(tenantContext);
+            using var content = new MemoryStream(bytes, writable: false);
+            var reference = await scope.ServiceProvider.GetRequiredService<ITenantResourceFileStore>()
+                .UploadAsync("reporting", taskId, actorUserId, ReportingExportOutputIdentity.BuildStorageFileName("alternate.xlsx", 2),
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", content, bytes.LongLength);
+            Assert.IsTrue(reference.IsSuccess, reference.Error?.Code);
+            return reference.Value!.FileId;
         }
 
         async Task<byte[]> ReadReadyBytesAsync(Guid fileId)
