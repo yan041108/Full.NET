@@ -113,6 +113,42 @@ public sealed class ReportingExportTaskRecoveryTests
     }
 
     [TestMethod]
+    [DataRow(false)]
+    [DataRow(true)]
+    public async Task Completion_conflict_does_not_regenerate_an_existing_workbook(bool alreadyBound)
+    {
+        var fixture = CreateFixture();
+        var task = SeedProcessing(fixture, leaseExpired: true);
+        var originalFileId = Guid.NewGuid();
+        if (alreadyBound)
+        {
+            task.OutputFileId = originalFileId;
+            task.OutputFileName = "original.xlsx";
+        }
+        else
+        {
+            fixture.Files.ReadyFiles.Add(new(originalFileId,
+                ReportingExportOutputIdentity.BuildStorageFileName("original.xlsx", 3), fixture.Clock.UtcNow));
+        }
+        fixture.Store.RejectSuccessWrites = true;
+
+        Assert.AreEqual(1, await fixture.Runner.ProcessPendingAsync(CancellationToken.None));
+        Assert.AreEqual(ReportingExportTaskStatusKeys.Processing, task.StatusKey);
+        Assert.AreEqual(alreadyBound ? originalFileId : (Guid?)null, task.OutputFileId);
+        Assert.AreEqual(0, fixture.GenerateCount);
+        Assert.AreEqual(0, fixture.Files.UploadCount);
+
+        // 下一次有效领取继续使用原文件，并能正常提交。
+        fixture.Store.RejectSuccessWrites = false;
+        fixture.Clock.Advance(TimeSpan.FromMinutes(6));
+        Assert.AreEqual(1, await fixture.Runner.ProcessPendingAsync(CancellationToken.None));
+        Assert.AreEqual(ReportingExportTaskStatusKeys.Succeeded, task.StatusKey);
+        Assert.AreEqual(originalFileId, task.OutputFileId);
+        Assert.AreEqual(0, fixture.GenerateCount);
+        Assert.AreEqual(0, fixture.Files.UploadCount);
+    }
+
+    [TestMethod]
     public void Output_identity_rejects_invalid_names_and_counts()
     {
         foreach (var value in new[]
@@ -411,6 +447,7 @@ public sealed class ReportingExportTaskRecoveryTests
     private sealed class ExportTaskStore(ICurrentTenant tenant) : IQueryExecutor, ICommandExecutor
     {
         public Dictionary<Guid, ReportingExportTaskRecord> Tasks { get; } = [];
+        public bool RejectSuccessWrites { get; set; }
 
         public Task<T?> QuerySingleOrDefaultAsync<T>(SqlStatement statement, object? parameters = null,
             CancellationToken cancellationToken = default)
@@ -483,6 +520,7 @@ public sealed class ReportingExportTaskRecoveryTests
             if (statement.Name == ReportingExportTaskSql.CompleteSucceeded.Name
                 || statement.Name == ReportingExportTaskSql.CompleteSucceededSqlServer.Name)
             {
+                if (RejectSuccessWrites) return Task.FromResult(0);
                 current.StatusKey = ReportingExportTaskStatusKeys.Succeeded;
                 current.OutputFileId = (Guid)values["OutputFileId"]!;
                 current.OutputFileName = values["OutputFileName"] as string;

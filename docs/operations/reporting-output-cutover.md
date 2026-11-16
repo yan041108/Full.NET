@@ -56,6 +56,7 @@ Migrator 每次发布创建带 Helm 修订号的 Job，与其 ConfigMap 和 Serv
 只读证据依赖 `fn_reporting_export_task` 的 `TenantId`、`Id`、`StatusKey`、`OutputFileId`、`RowCount`、`LeaseId`、`LeaseExpiresAtUtc`，以及 `fn_files_tenant_resource_file` 的 `TenantId`、`ResourceId`、`OwnerModuleKey`、`StatusKey`、`Id`、`CreatedAtUtc`、`OriginalFileName`、`SizeBytes`、`ContentHash`。查询按租户、任务和 `reporting` 所有权限制文件。输出包含最新就绪文件的标识、大小和记录哈希，不包含文件名、存储键或文件内容。`hasRowIdentityPrefix` 仅说明文件名是否有新版前缀。
 
 - 已就绪但任务未绑定时，保留原对象和文件引用。使用受控对象存储路径核验实际字节数和 SHA-256，对照旧 Worker 记录确认原始导出和行数。`recordedRowCount` 是当前任务快照，不能作为尚未绑定文件的行数。
+- Worker 发现已存在的原输出并尝试绑定时，若租约条件更新未命中，本轮结束。后续有效领取会重新核对任务和原文件。只要任务仍有未完成状态或残留租约，切版门禁继续阻断。
 - 对于只有一个旧格式就绪文件的未绑定任务，可保存上述 JSON，并从受控存储路径取回该文件的原始字节。运行以下命令会核对文件大小、SHA-256 和 Full.NET 固定 XLSX 工作表结构，返回去掉表头的数据行数。将结果和旧 Worker 记录一起交给报表与文件负责人复核，命令只读取本地证据和工作簿。
 
   ```powershell

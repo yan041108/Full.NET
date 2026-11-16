@@ -249,7 +249,7 @@ internal sealed class ReportingExportTaskRunner(
         }
     }
 
-    /// <summary>上传成功但完成写入失败时，把资源上已有就绪文件绑定为输出。</summary>
+    /// <summary>发现已绑定或就绪的原文件时尝试完成任务，本轮不再生成工作簿。</summary>
     /// <param name="task">领取快照。</param>
     /// <param name="cancellationToken">取消令牌。</param>
     private async Task<bool> TryAttachExistingOutputAsync(
@@ -259,7 +259,7 @@ internal sealed class ReportingExportTaskRunner(
     {
         if (task.OutputFileId is not null)
         {
-            return await CompleteSucceededAsync(
+            await CompleteSucceededAsync(
                     task,
                 lease,
                     task.OutputFileId.Value,
@@ -267,6 +267,7 @@ internal sealed class ReportingExportTaskRunner(
                     task.RowCount,
                     cancellationToken)
                 .ConfigureAwait(false);
+            return true;
         }
 
         var ready = await resourceFiles.ListReadyAsync("reporting", task.Id, cancellationToken)
@@ -280,23 +281,19 @@ internal sealed class ReportingExportTaskRunner(
         // 行数属于具体上传对象，不能使用其他尝试留下的任务快照。
         if (!ReportingExportOutputIdentity.TryRead(latest.OriginalFileName, out var fileName, out var rowCount))
             throw new InvalidDataException("The reporting output identity is unavailable.");
-        return await CompleteSucceededAsync(
-                task,
-                lease,
-                latest.FileId,
-                fileName,
-                rowCount,
-                cancellationToken)
+        await CompleteSucceededAsync(task, lease, latest.FileId, fileName, rowCount, cancellationToken)
             .ConfigureAwait(false);
+        // 写入条件未命中也只结束本轮，旧领取者不能把已有文件降级成重新生成。
+        return true;
     }
 
-    /// <summary>按当前租约完成成功；已终态时视为幂等成功。</summary>
+    /// <summary>按当前租约尝试完成成功；条件未命中时交给权威状态或后续恢复。</summary>
     /// <param name="task">领取快照。</param>
     /// <param name="outputFileId">输出文件。</param>
     /// <param name="outputFileName">下载名。</param>
     /// <param name="rowCount">行数。</param>
     /// <param name="cancellationToken">取消令牌。</param>
-    private async Task<bool> CompleteSucceededAsync(
+    private async Task CompleteSucceededAsync(
         ReportingExportTaskRecord task,
         ExecutionLeaseMonitor lease,
         Guid outputFileId,
@@ -304,8 +301,8 @@ internal sealed class ReportingExportTaskRunner(
         int rowCount,
         CancellationToken cancellationToken)
     {
-        if (!await EnsureAuthorityAsync(task, lease, cancellationToken).ConfigureAwait(false)) return true;
-        var affected = await ExecuteHeldLeaseAsync(lease,
+        if (!await EnsureAuthorityAsync(task, lease, cancellationToken).ConfigureAwait(false)) return;
+        await ExecuteHeldLeaseAsync(lease,
                 databaseOptions.Value.Provider == DatabaseProvider.SqlServer
                     ? ReportingExportTaskSql.CompleteSucceededSqlServer
                     : ReportingExportTaskSql.CompleteSucceeded,
@@ -320,19 +317,6 @@ internal sealed class ReportingExportTaskRunner(
                     ("CompletedAtUtc", clock.UtcNow)),
                 cancellationToken)
             .ConfigureAwait(false);
-        if (affected > 0)
-        {
-            return true;
-        }
-
-        var current = await queryExecutor
-            .QuerySingleOrDefaultAsync<ReportingExportTaskRecord>(
-                ReportingExportTaskSql.FindByIdFor(databaseOptions.Value.Provider),
-                ReportingSqlParameters.Create(("Id", task.Id)),
-                cancellationToken)
-            .ConfigureAwait(false);
-        return current is not null
-            && string.Equals(current.StatusKey, ReportingExportTaskStatusKeys.Succeeded, StringComparison.Ordinal);
     }
 
     /// <summary>按当前租约写入失败；已被抢走租约时停止。</summary>
