@@ -58,9 +58,9 @@ public sealed class PaymentRefundReconciliationTests
         var tenantId = Guid.NewGuid();
         var merchant = new PaymentMerchantConfigRecord { Id = Guid.NewGuid(), IsEnabled = true, TenantId = tenantId, ChannelKey = PaymentChannelKeys.WeChatNative };
         var order = new PaymentOrderRecord { Id = Guid.NewGuid(), MerchantConfigId = merchant.Id,
-            TenantId = tenantId, ChannelKey = PaymentChannelKeys.WeChatNative, AmountMinor = 500, Currency = "CNY", ProviderTransactionId = "transaction-1",
+            TenantId = tenantId, ChannelKey = PaymentChannelKeys.WeChatNative, OutTradeNo = "trade-1", AmountMinor = 500, Currency = "CNY", ProviderTransactionId = "transaction-1",
             PaidAtUtc = DateTimeOffset.UtcNow.AddMinutes(-5), TradeStateKey = PaymentTradeStateKeys.Refunding, Version = 2 };
-        var refund = new PaymentRefundRecord { Id = Guid.NewGuid(), OrderId = order.Id, MerchantConfigId = merchant.Id,
+        var refund = new PaymentRefundRecord { Id = Guid.NewGuid(), OrderId = order.Id, TenantId = tenantId, MerchantConfigId = merchant.Id, OutTradeNo = order.OutTradeNo,
             OutRefundNo = "refund-1", AmountMinor = 500, Currency = "CNY", Version = 1 };
         var queries = Substitute.For<IQueryExecutor>();
         queries.QueryAsync<PaymentRefundRecord>(PaymentRefundSql.ListUnsettledByOrderId,

@@ -60,6 +60,21 @@ public sealed class PaymentOrderReconciliationBoundaryApiTests
                 Assert.AreEqual("provider_unknown", await database.ExecuteScalarAsync<string>("SELECT TradeStateKey FROM fn_payment_order WHERE Id=@Id", new { Id = order }));
             }
             await database.ExecuteAsync("UPDATE fn_payment_merchant_config SET TenantId=@Tenant,ChannelKey=@Channel WHERE Id=@Id", new { Tenant = tenant, Channel = channel, Id = merchant });
+            if (channel == "wechat_native")
+            {
+                // 恢复库仅留有原订单时，渠道的订单摘要不能代替缺失的退款意图。
+                channels.WeChatTradeState = "REFUND";
+                using var conflict = await host.PostAsync($"/api/v1/payments/orders/{order:D}/reconcile", null);
+                Assert.AreEqual(HttpStatusCode.Conflict, conflict.StatusCode, await conflict.Content.ReadAsStringAsync());
+                var problem = await conflict.Content.ReadFromJsonAsync<JsonElement>();
+                Assert.AreEqual(PaymentErrorCodes.OrderStateInvalid, problem.GetProperty("code").GetString());
+                Assert.AreEqual(1, await database.ExecuteScalarAsync<int>("SELECT Version FROM fn_payment_order WHERE Id=@Id", new { Id = order }));
+                Assert.AreEqual("provider_unknown", await database.ExecuteScalarAsync<string>("SELECT TradeStateKey FROM fn_payment_order WHERE Id=@Id", new { Id = order }));
+                Assert.AreEqual(0, await database.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM fn_payment_refund WHERE OrderId=@Id", new { Id = order }));
+                calls++;
+                Assert.AreEqual(calls, channels.Calls);
+                channels.WeChatTradeState = "NOTPAY";
+            }
             using var accepted = await host.PostAsync($"/api/v1/payments/orders/{order:D}/reconcile", null); accepted.EnsureSuccessStatusCode();
             var receipt = await accepted.Content.ReadFromJsonAsync<PaymentOrderResponse>(); Assert.AreEqual(order, receipt!.Id);
             Assert.AreEqual(2, receipt.Version); Assert.AreEqual("awaiting_payment", receipt.TradeStateKey); Assert.AreEqual(calls + 1, channels.Calls);
@@ -69,8 +84,9 @@ public sealed class PaymentOrderReconciliationBoundaryApiTests
     private sealed class ControlledChannels : IWeChatNativePayClient, IAlipayPagePayClient
     {
         internal int Calls { get; private set; }
+        internal string WeChatTradeState { get; set; } = "NOTPAY";
         public Task<WeChatTransactionQueryResult> QueryTransactionByOutTradeNoAsync(PaymentMerchantConfigRecord merchantConfig, string outTradeNo, CancellationToken cancellationToken = default)
-        { Calls++; return Task.FromResult(WeChatTransactionQueryResult.Success("NOTPAY", null, 100)); }
+        { Calls++; return Task.FromResult(WeChatTransactionQueryResult.Success(WeChatTradeState, WeChatTradeState == "REFUND" ? "original-paid" : null, 100)); }
         public Task<AlipayTradeQueryResult> QueryTradeByOutTradeNoAsync(PaymentMerchantConfigRecord merchantConfig, string outTradeNo, CancellationToken cancellationToken = default)
         { Calls++; return Task.FromResult(AlipayTradeQueryResult.Success("WAIT_BUYER_PAY", null, 100)); }
         public Task<WeChatNativePayResult> CreateNativeOrderAsync(PaymentMerchantConfigRecord merchantConfig, string outTradeNo, long amountMinor, string currency, string description, CancellationToken cancellationToken = default) => throw new InvalidOperationException("Reconciliation cannot create payment orders.");

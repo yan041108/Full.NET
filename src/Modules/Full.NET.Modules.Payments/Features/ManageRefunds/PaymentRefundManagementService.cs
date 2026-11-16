@@ -153,7 +153,7 @@ internal sealed class PaymentRefundManagementService(
                 ErrorType.Validation));
         }
 
-        var channelError = PaymentRefundChannelGuard.Validate(order, merchantConfig);
+        var channelError = PaymentRefundGuard.ValidateChannel(order, merchantConfig);
         if (channelError is not null)
             return Result<PreparedPaymentRefund>.Failure(channelError);
 
@@ -251,13 +251,14 @@ internal sealed class PaymentRefundManagementService(
         CreatePaymentRefundRequest request,
         CancellationToken cancellationToken)
     {
-        var recoverable = await queryExecutor.QueryAsync<PaymentRefundRecord>(
-                PaymentRefundSql.ListRecoverableByOrderId,
+        var unsettled = await queryExecutor.QueryAsync<PaymentRefundRecord>(
+                PaymentRefundSql.ListUnsettledByOrderId,
                 PaymentSqlParameters.Create(("OrderId", order.Id)),
                 cancellationToken)
             .ConfigureAwait(false);
-        var refund = recoverable.FirstOrDefault();
-        if (refund is null)
+        var refund = unsettled.FirstOrDefault();
+        if (refund is null || (unsettled.Count == 1
+            && refund.RefundStateKey is not (PaymentRefundStateKeys.Created or PaymentRefundStateKeys.ProviderUnknown)))
         {
             return Result<PreparedPaymentRefund>.Failure(new Error(
                 PaymentErrorCodes.OrderStateInvalid,
@@ -266,12 +267,9 @@ internal sealed class PaymentRefundManagementService(
         }
 
         // 订单处于退款中不代表本次参数已获确认；在领取和渠道调用之前核对单一原意图。
-        if (recoverable.Count != 1 || refund.AmountMinor != (request.AmountMinor ?? order.AmountMinor)
+        if (unsettled.Count != 1 || refund.AmountMinor != (request.AmountMinor ?? order.AmountMinor)
             || !string.Equals(refund.Reason, request.Reason.Trim(), StringComparison.Ordinal)
-            || refund.OrderId != order.Id || refund.TenantId != order.TenantId
-            || refund.MerchantConfigId != order.MerchantConfigId
-            || !string.Equals(refund.OutTradeNo, order.OutTradeNo, StringComparison.Ordinal)
-            || !string.Equals(refund.Currency, order.Currency, StringComparison.Ordinal))
+            || !PaymentRefundGuard.MatchesOriginalOrder(order, refund))
         {
             return Result<PreparedPaymentRefund>.Failure(new Error(PaymentErrorCodes.RefundRequestConflict,
                 "The refund request does not match the original refund intent.", ErrorType.Conflict));

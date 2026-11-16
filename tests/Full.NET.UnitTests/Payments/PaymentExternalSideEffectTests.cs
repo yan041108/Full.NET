@@ -443,14 +443,14 @@ public sealed class PaymentExternalSideEffectTests
             CancellationToken cancellationToken = default)
         {
             if (typeof(T) == typeof(PaymentRefundRecord)
-                && statement.Name == PaymentRefundSql.ListRecoverableByOrderId.Name)
+                && statement.Name == PaymentRefundSql.ListUnsettledByOrderId.Name)
             {
                 var orderId = (Guid)Params(parameters)["OrderId"]!;
                 IReadOnlyList<PaymentRefundRecord> rows = [.. Refunds.Values
                     .Where(row => row.OrderId == orderId
-                        && row.RefundStateKey is PaymentRefundStateKeys.Created
-                            or PaymentRefundStateKeys.ProviderUnknown)
-                    .OrderBy(row => row.CreatedAtUtc)
+                        && (row.RefundStateKey is PaymentRefundStateKeys.Created or PaymentRefundStateKeys.ProviderUnknown or PaymentRefundStateKeys.Processing
+                            || row.RefundStateKey == PaymentRefundStateKeys.Failed && !string.IsNullOrEmpty(row.ProviderRefundId)))
+                    .OrderByDescending(row => row.CreatedAtUtc)
                     .ThenBy(row => row.Id)];
                 return Task.FromResult((IReadOnlyList<T>)rows);
             }

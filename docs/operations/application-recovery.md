@@ -82,6 +82,12 @@ node eng/deploy/Verify-FullNetRecoveryEvidence.mjs $EvidenceDirectory $TrustedCa
 
 完成通知对账及放行复核后，恢复对应配置为 `true`，重启 Worker 并观察原队列接续。配置缺省为启用。
 
+### 支付和退款对账
+
+保持恢复环境的支付写入和资金履约消费隔离，按原商户、租户、商户订单号和商户退款单号核对渠道权威记录。操作员用 `GET /api/v1/payments/orders/{orderId}` 读取原订单，再以 `payments.orders.reconcile` 权限调用 `POST /api/v1/payments/orders/{orderId}/reconcile` 查询渠道并应用一致的结果。
+
+订单处于 `refunding` 时，对账要求唯一的原退款意图，并核对退款归属、原商户订单号、币种、金额和已登记的渠道退款标识。若渠道订单摘要显示已退款但恢复库缺少原退款链路，保留原订单和渠道证据，将差异交给资金负责人。对账未收敛期间保持隔离，避免通过新建订单或退款补齐丢失的记录。
+
 ### Webhook 未确认投递对账
 
 保持 Webhook 外发隔离。确认旧 Worker 已停止领取和发送后，可用 `Webhooks__Delivery__Enabled=false` 启动恢复环境的所有 Worker，暂停 Webhook 领取及外发，其他后台处理可按恢复步骤受控启动。该值在宿主启动时读取。检查 Worker 日志中的 `Webhook delivery is disabled by Worker configuration.`，并核对原投递状态和尝试数量。恢复 Webhook 时，先完成投递处置和放行复核，再以 `Webhooks__Delivery__Enabled=true` 重启对应 Worker。

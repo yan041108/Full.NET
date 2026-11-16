@@ -75,24 +75,14 @@ internal static class PaymentRefundSql
         """,
         SqlDataScope.HostOnly);
 
-    /// <summary>查找可恢复的退款意图，供订单进入退款中后的崩溃重试使用。</summary>
-    public static readonly SqlStatement ListRecoverableByOrderId = new(
-        "payments.list_recoverable_refunds_by_order",
-        $"""
-        SELECT {SelectColumns}
-        FROM fn_payment_refund AS refunds
-        WHERE refunds.OrderId = @OrderId
-          AND refunds.RefundStateKey IN ('created', 'provider_unknown')
-        ORDER BY refunds.CreatedAtUtc, refunds.Id
-        """,
-        SqlDataScope.HostOnly);
-
+    /// <summary>列出仍需收敛的原意图。渠道异常退款保有渠道编号，提交被拒的历史失败行不参与。</summary>
     public static readonly SqlStatement ListUnsettledByOrderId = new(
         "payments.list_unsettled_refunds_by_order",
         $"""
         SELECT {SelectColumns} FROM fn_payment_refund AS refunds
         WHERE refunds.OrderId = @OrderId
-          AND refunds.RefundStateKey IN ('created', 'provider_unknown', 'processing', 'failed')
+          AND (refunds.RefundStateKey IN ('created', 'provider_unknown', 'processing')
+            OR (refunds.RefundStateKey = 'failed' AND refunds.ProviderRefundId IS NOT NULL AND refunds.ProviderRefundId <> ''))
         ORDER BY refunds.CreatedAtUtc DESC, refunds.Id
         """, SqlDataScope.HostOnly);
 

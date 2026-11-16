@@ -17,19 +17,24 @@ internal sealed class PaymentRefundReconciliationService(IQueryExecutor queries,
     {
         var rows = await queries.QueryAsync<PaymentRefundRecord>(PaymentRefundSql.ListUnsettledByOrderId,
             PaymentSqlParameters.Create(("OrderId", order.Id)), cancellationToken).ConfigureAwait(false);
-        var refund = rows.FirstOrDefault();
         var merchant = await queries.QuerySingleOrDefaultAsync<PaymentMerchantConfigRecord>(PaymentMerchantConfigSql.FindById,
             PaymentSqlParameters.Create(("MerchantConfigId", order.MerchantConfigId)), cancellationToken).ConfigureAwait(false);
-        if (refund is null || merchant is null || refund.MerchantConfigId != merchant.Id)
+        if (rows.Count == 0 || merchant is null)
             return Failure("No matching refund intent or merchant is available.");
-        var channelError = PaymentRefundChannelGuard.Validate(order, merchant);
+        var channelError = PaymentRefundGuard.ValidateChannel(order, merchant);
         if (channelError is not null) return Result<bool>.Failure(channelError);
+        // 恢复点可能缺少原意图或仍保留冲突记录，只对唯一且归属一致的退款查询渠道。
+        if (rows.Count != 1 || !PaymentRefundGuard.MatchesOriginalOrder(order, rows[0]))
+            return Result<bool>.Failure(new Error(PaymentErrorCodes.RefundRequestConflict,
+                "The original refund intent could not be uniquely matched.", ErrorType.Conflict));
+        var refund = rows[0];
         WeChatRefundQueryResult snapshot;
         try { snapshot = await client.QueryDomesticRefundAsync(merchant, refund.OutRefundNo, cancellationToken).ConfigureAwait(false); }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }
         catch (Exception) { return Failure("Refund provider query failed."); }
         if (!snapshot.Succeeded || snapshot.OutRefundNo != refund.OutRefundNo || snapshot.AmountMinor != refund.AmountMinor
-            || snapshot.Currency != refund.Currency || string.IsNullOrWhiteSpace(snapshot.ProviderRefundId))
+            || snapshot.Currency != refund.Currency || string.IsNullOrWhiteSpace(snapshot.ProviderRefundId)
+            || (refund.ProviderRefundId is { } recordedId && !string.Equals(recordedId, snapshot.ProviderRefundId, StringComparison.Ordinal)))
             return Failure("Refund provider snapshot does not match the local intent.");
         var state = snapshot.StatusKey switch
         {

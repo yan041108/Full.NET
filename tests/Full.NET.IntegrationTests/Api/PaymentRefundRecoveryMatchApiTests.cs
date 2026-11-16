@@ -47,7 +47,7 @@ public sealed class PaymentRefundRecoveryMatchApiTests
         Assert.AreEqual(PaymentErrorCodes.RefundProviderUnknown, (await first.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("code").GetString());
         await using var database = MyTasksApiTests.Open(provider, connection); await database.OpenAsync();
         var original = (await scope.ServiceProvider.GetRequiredService<IQueryExecutor>().QueryAsync<PaymentRefundRecord>(
-            PaymentRefundSql.ListRecoverableByOrderId, P(("OrderId", order)))).Single();
+            PaymentRefundSql.ListUnsettledByOrderId, P(("OrderId", order)))).Single();
         var orderVersion = await database.ExecuteScalarAsync<int>("SELECT Version FROM fn_payment_order WHERE Id=@Id", new { Id = order });
         var conflictTitle = "本次退款参数与原退款意图不一致，请核对原退款记录。";
         foreach (var request in new[] { new CreatePaymentRefundRequest(30, "original"), new(29, "changed"), new(null, "original") })
@@ -66,13 +66,15 @@ public sealed class PaymentRefundRecoveryMatchApiTests
             await AssertConflictAsync(new(29, "original"));
             await database.ExecuteAsync("UPDATE fn_payment_refund SET TenantId=@TenantId,MerchantConfigId=@MerchantConfigId,Currency=@Currency WHERE Id=@Id", original);
         }
-        var duplicate = Guid.CreateVersion7();
-        await commands.ExecuteAsync(PaymentRefundSql.Insert, P(("Id", duplicate), ("TenantId", tenant), ("OrderId", order),
-            ("MerchantConfigId", merchant), ("OutTradeNo", original.OutTradeNo), ("OutRefundNo", "duplicate-" + duplicate.ToString("N")),
-            ("RefundStateKey", "provider_unknown"), ("AmountMinor", 29L), ("Currency", "CNY"), ("Reason", "original"),
-            ("ProviderRefundId", null), ("FailMessage", null), ("CreatedAtUtc", now), ("UpdatedAtUtc", now), ("CompletedAtUtc", null), ("Version", 1)));
-        await AssertConflictAsync(new(29, "original"));
-        await database.ExecuteAsync("DELETE FROM fn_payment_refund WHERE Id=@Id", new { Id = duplicate });
+        foreach (var state in new[] { "provider_unknown", "processing", "failed" })
+        {
+            var duplicate = Guid.CreateVersion7();
+            await InsertAdditionalRefundAsync(duplicate, state, state == "failed" ? "abnormal-provider-refund" : null);
+            await AssertConflictAsync(new(29, "original"));
+            await database.ExecuteAsync("DELETE FROM fn_payment_refund WHERE Id=@Id", new { Id = duplicate });
+        }
+        var historical = Guid.CreateVersion7();
+        await InsertAdditionalRefundAsync(historical, "failed", null);
         Assert.AreEqual(orderVersion, await database.ExecuteScalarAsync<int>("SELECT Version FROM fn_payment_order WHERE Id=@Id", new { Id = order }));
         channel.Unknown = false;
         using var recovered = await host.PostAsJsonAsync(path, new CreatePaymentRefundRequest(29, " original "));
@@ -81,7 +83,13 @@ public sealed class PaymentRefundRecoveryMatchApiTests
         Assert.AreEqual(original.Id, receipt.GetProperty("id").GetGuid()); Assert.AreEqual(original.OutRefundNo, receipt.GetProperty("outRefundNo").GetString());
         Assert.AreEqual("29", receipt.GetProperty("amountMinor").GetString());
         Assert.AreEqual(2, channel.OutRefundNos.Count); Assert.AreEqual(channel.OutRefundNos[0], channel.OutRefundNos[1]);
-        Assert.AreEqual(1, await database.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM fn_payment_refund WHERE OrderId=@Id", new { Id = order }));
+        Assert.AreEqual(2, await database.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM fn_payment_refund WHERE OrderId=@Id", new { Id = order }));
+        Assert.AreEqual(1, await database.ExecuteScalarAsync<int>("SELECT Version FROM fn_payment_refund WHERE Id=@Id", new { Id = historical }));
+
+        Task<int> InsertAdditionalRefundAsync(Guid id, string state, string? providerRefundId) => commands.ExecuteAsync(PaymentRefundSql.Insert,
+            P(("Id", id), ("TenantId", tenant), ("OrderId", order), ("MerchantConfigId", merchant), ("OutTradeNo", original.OutTradeNo),
+                ("OutRefundNo", id.ToString("N")), ("RefundStateKey", state), ("AmountMinor", 29L), ("Currency", "CNY"), ("Reason", "original"),
+                ("ProviderRefundId", providerRefundId), ("FailMessage", null), ("CreatedAtUtc", now), ("UpdatedAtUtc", now), ("CompletedAtUtc", null), ("Version", 1)));
 
         async Task AssertConflictAsync(CreatePaymentRefundRequest body)
         {

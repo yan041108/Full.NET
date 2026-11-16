@@ -22,7 +22,7 @@ public sealed class PaymentRefundChannelBoundaryApiTests
     {
         var connection = provider == DatabaseProvider.SqlServer ? await SharedDatabaseFixture.CreateSqlServerDatabaseAsync()
             : await SharedDatabaseFixture.CreateMySqlDatabaseAsync();
-        var channel = new UnusedRefundChannel();
+        var channel = new ControlledRefundChannel();
         using var factory = new FullNetApiFactory(provider, connection, configureTestServices: services =>
             services.Replace(ServiceDescriptor.Singleton<IWeChatNativePayClient>(channel)));
         await factory.InitializeAsync(); using var host = factory.CreateClientForHost("localhost");
@@ -75,6 +75,51 @@ public sealed class PaymentRefundChannelBoundaryApiTests
                 Assert.AreEqual(0, channel.Calls);
             }
         }
+
+        await database.ExecuteAsync("UPDATE fn_payment_merchant_config SET TenantId=@Tenant WHERE Id=@Id", new { Tenant = tenant, Id = merchant });
+        var duplicate = Guid.CreateVersion7();
+        await commands.ExecuteAsync(PaymentRefundSql.Insert, P(("Id", duplicate), ("TenantId", tenant), ("OrderId", order),
+            ("MerchantConfigId", merchant), ("OutTradeNo", order.ToString("N")), ("OutRefundNo", duplicate.ToString("N")),
+            ("RefundStateKey", "processing"), ("AmountMinor", 29L), ("Currency", "CNY"), ("Reason", "duplicate"),
+            ("ProviderRefundId", null), ("FailMessage", null), ("CreatedAtUtc", now), ("UpdatedAtUtc", now), ("CompletedAtUtc", null), ("Version", 1)));
+        await AssertIntentConflictAsync(PaymentErrorCodes.RefundRequestConflict, 0);
+        await database.ExecuteAsync("UPDATE fn_payment_refund SET RefundStateKey='failed' WHERE Id=@Id", new { Id = duplicate });
+
+        var originalOutTradeNo = order.ToString("N");
+        await SetIntentIdentityAsync(Guid.CreateVersion7(), originalOutTradeNo, "CNY");
+        await AssertIntentConflictAsync(PaymentErrorCodes.RefundRequestConflict, 0);
+        await SetIntentIdentityAsync(tenant, "other-trade", "CNY");
+        await AssertIntentConflictAsync(PaymentErrorCodes.RefundRequestConflict, 0);
+        await SetIntentIdentityAsync(tenant, originalOutTradeNo, "USD");
+        await AssertIntentConflictAsync(PaymentErrorCodes.RefundRequestConflict, 0);
+        await SetIntentIdentityAsync(tenant, originalOutTradeNo, "CNY");
+
+        await database.ExecuteAsync("UPDATE fn_payment_refund SET RefundStateKey='failed', ProviderRefundId='original-provider-refund' WHERE Id=@Id", new { Id = refund });
+        channel.ProviderRefundId = "other-provider-refund";
+        await AssertIntentConflictAsync(PaymentErrorCodes.RefundProviderUnknown, 1);
+        channel.ProviderRefundId = "original-provider-refund";
+        using var accepted = await host.PostAsync($"/api/v1/payments/orders/{order:D}/reconcile", null);
+        Assert.AreEqual(HttpStatusCode.OK, accepted.StatusCode, await accepted.Content.ReadAsStringAsync());
+        Assert.AreEqual(2, channel.Calls);
+        Assert.AreEqual(refund.ToString("N"), channel.LastOutRefundNo);
+        Assert.AreEqual("refunded", await database.ExecuteScalarAsync<string>("SELECT TradeStateKey FROM fn_payment_order WHERE Id=@Id", new { Id = order }));
+        Assert.AreEqual("succeeded", await database.ExecuteScalarAsync<string>("SELECT RefundStateKey FROM fn_payment_refund WHERE Id=@Id", new { Id = refund }));
+        Assert.AreEqual(1, await database.ExecuteScalarAsync<int>("SELECT Version FROM fn_payment_refund WHERE Id=@Id", new { Id = duplicate }));
+
+        Task<int> SetIntentIdentityAsync(Guid owner, string outTradeNo, string currency) => database.ExecuteAsync(
+            "UPDATE fn_payment_refund SET TenantId=@Owner,OutTradeNo=@OutTradeNo,Currency=@Currency WHERE Id=@Id",
+            new { Owner = owner, OutTradeNo = outTradeNo, Currency = currency, Id = refund });
+
+        async Task AssertIntentConflictAsync(string code, int calls)
+        {
+            using var response = await host.PostAsync($"/api/v1/payments/orders/{order:D}/reconcile", null);
+            Assert.AreEqual(HttpStatusCode.Conflict, response.StatusCode, await response.Content.ReadAsStringAsync());
+            var problem = await response.Content.ReadFromJsonAsync<JsonElement>();
+            Assert.AreEqual(code, problem.GetProperty("code").GetString());
+            Assert.AreEqual(calls, channel.Calls);
+            Assert.AreEqual(1, await database.ExecuteScalarAsync<int>("SELECT Version FROM fn_payment_order WHERE Id=@Id", new { Id = order }));
+            Assert.AreEqual(1, await database.ExecuteScalarAsync<int>("SELECT Version FROM fn_payment_refund WHERE Id=@Id", new { Id = refund }));
+        }
     }
 
     private static async Task AssertRejected(HttpResponseMessage response, bool unsupported, string language)
@@ -93,13 +138,19 @@ public sealed class PaymentRefundChannelBoundaryApiTests
 
     private static Dictionary<string, object?> P(params (string Key, object? Value)[] values) => values.ToDictionary(item => item.Key, item => item.Value);
 
-    private sealed class UnusedRefundChannel : IWeChatNativePayClient
+    private sealed class ControlledRefundChannel : IWeChatNativePayClient
     {
         internal int Calls;
+        internal string ProviderRefundId { get; set; } = "original-provider-refund";
+        internal string? LastOutRefundNo { get; private set; }
         public Task<WeChatNativePayResult> CreateNativeOrderAsync(PaymentMerchantConfigRecord merchantConfig, string outTradeNo, long amountMinor, string currency, string description, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<WeChatTransactionQueryResult> QueryTransactionByOutTradeNoAsync(PaymentMerchantConfigRecord merchantConfig, string outTradeNo, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<WeChatRefundQueryResult> QueryDomesticRefundAsync(PaymentMerchantConfigRecord merchantConfig, string outRefundNo, CancellationToken cancellationToken = default)
-        { Calls++; throw new InvalidOperationException("Rejected channel must never reach the provider."); }
+        {
+            Calls++;
+            LastOutRefundNo = outRefundNo;
+            return Task.FromResult(new WeChatRefundQueryResult(true, ProviderRefundId, outRefundNo, "SUCCESS", 29, "CNY", null));
+        }
         public Task<WeChatRefundResult> CreateDomesticRefundAsync(PaymentMerchantConfigRecord merchantConfig, string outTradeNo, string outRefundNo, long amountMinor, long totalMinor, string currency, string reason, CancellationToken cancellationToken = default)
         { Calls++; throw new InvalidOperationException("Rejected channel must never reach the provider."); }
     }

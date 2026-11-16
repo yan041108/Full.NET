@@ -60,7 +60,7 @@ internal sealed class PaymentOrderReconciliationService(
         {
             return Result<PaymentOrderResponse>.Failure(new Error(
                 PaymentErrorCodes.OrderStateInvalid,
-                "Refunding orders cannot be reconciled.",
+                "Refunded orders cannot be reconciled.",
                 ErrorType.Validation));
         }
 
@@ -115,6 +115,10 @@ internal sealed class PaymentOrderReconciliationService(
         }
 
         var mappedState = MapTradeState(order.ChannelKey, providerSnapshot.TradeState);
+        // 订单查询中的退款摘要无法确认原退款单号、金额和履约事实，恢复点缺少退款意图时保留原订单。
+        if (mappedState == PaymentTradeStateKeys.Refunded)
+            return Result<PaymentOrderResponse>.Failure(new Error(PaymentErrorCodes.OrderStateInvalid,
+                "The provider reports a refund without a matching local refund intent.", ErrorType.Conflict));
         if (mappedState is null)
         {
             return Result<PaymentOrderResponse>.Failure(new Error(
