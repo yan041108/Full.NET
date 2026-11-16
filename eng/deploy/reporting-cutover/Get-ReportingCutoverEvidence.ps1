@@ -22,7 +22,7 @@ $queryFile = Join-Path $PSScriptRoot ($Provider.ToLowerInvariant() + '-evidence.
 $query = (Get-Content -LiteralPath $queryFile -Raw).Replace('{{TENANT_ID}}', $TenantId.ToString('D')).Replace('{{TASK_ID}}', $TaskId.ToString('D'))
 $result = Read-ReportingCutoverQuery -Provider $Provider -Server $Server -Database $Database `
     -MySqlLoginPath $MySqlLoginPath -MySqlCaFile $MySqlCaFile -MySqlPort $MySqlPort -EvidenceQuery $query
-if ($result -ceq 'null') { throw 'No reporting task found for the specified tenant and task.' }
+if ($result -ceq 'null') { throw 'No reporting task or owned files found for the specified tenant and task.' }
 try { $evidence = $result | ConvertFrom-Json -AsHashtable -NoEnumerate }
 catch { throw 'Invalid reporting cutover evidence result.' }
 if ($evidence -isnot [System.Collections.IDictionary] -or $evidence['tenantId'] -ne $TenantId.ToString('D') `
@@ -30,6 +30,7 @@ if ($evidence -isnot [System.Collections.IDictionary] -or $evidence['tenantId'] 
     throw 'Invalid reporting cutover evidence result.'
 }
 # MySQL 的条件结果为整数，SQL Server 的 bit 结果为布尔值。
+$evidence['taskExists'] = [bool] $evidence['taskExists']
 $evidence['hasLease'] = [bool] $evidence['hasLease']
 if ($null -ne $evidence['hasRowIdentityPrefix']) { $evidence['hasRowIdentityPrefix'] = [bool] $evidence['hasRowIdentityPrefix'] }
 $evidence | ConvertTo-Json -Depth 3

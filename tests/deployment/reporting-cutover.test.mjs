@@ -18,7 +18,8 @@ function Reply {
         'missing' { 'null' }
         'malformed' { 'malformed-result' }
         'wrong-tenant' { @{tenantId=$task;taskId=$task} | ConvertTo-Json -Compress }
-        default { @{tenantId=$tenant;taskId=$task;hasLease=1;hasRowIdentityPrefix=0;fileCount=2} | ConvertTo-Json -Compress }
+        'orphan' { @{tenantId=$tenant;taskId=$task;taskExists=0;statusKey=$null;hasLease=0;pendingFileCount=1;readyFileCount=1;unresolvedFileCount=2} | ConvertTo-Json -Compress }
+        default { @{tenantId=$tenant;taskId=$task;taskExists=1;hasLease=1;hasRowIdentityPrefix=0;fileCount=2;unresolvedFileCount=1} | ConvertTo-Json -Compress }
     }
 }
 function sqlcmd {
@@ -49,13 +50,24 @@ for (const provider of ['SqlServer', 'MySql']) {
     assert.equal(status, 0, stderr);
     const record = JSON.parse(stdout);
     assert.equal(record.fileCount, 2);
+    assert.equal(record.taskExists, true);
+    assert.equal(record.unresolvedFileCount, 1);
     assert.equal(record.hasLease, true);
     assert.equal(record.hasRowIdentityPrefix, false);
+  });
+  test(`${provider} evidence preserves orphan file blockers without an export task`, () => {
+    const { status, stdout, stderr } = runEvidence('orphan', provider);
+    assert.equal(status, 0, stderr);
+    const record = JSON.parse(stdout);
+    assert.equal(record.taskExists, false);
+    assert.equal(record.statusKey, null);
+    assert.equal(record.hasLease, false);
+    assert.equal(record.unresolvedFileCount, 2);
   });
 }
 
 for (const [scenario, message] of [
-  ['missing', /No reporting task found/],
+  ['missing', /No reporting task or owned files found/],
   ['malformed', /Invalid reporting cutover evidence result/],
   ['wrong-tenant', /Invalid reporting cutover evidence result/],
   ['invalid-id', /Cannot process argument transformation on parameter 'TaskId'/],
