@@ -22,6 +22,7 @@ $queryFile = Join-Path $PSScriptRoot ($Provider.ToLowerInvariant() + '-evidence.
 $query = (Get-Content -LiteralPath $queryFile -Raw).Replace('{{TENANT_ID}}', $TenantId.ToString('D')).Replace('{{TASK_ID}}', $TaskId.ToString('D'))
 $result = Read-ReportingCutoverQuery -Provider $Provider -Server $Server -Database $Database `
     -MySqlLoginPath $MySqlLoginPath -MySqlCaFile $MySqlCaFile -MySqlPort $MySqlPort -EvidenceQuery $query
+if ($result -ceq '-1') { throw 'Reporting cutover requires a writable primary database endpoint.' }
 if ($result -ceq 'null') { throw 'No reporting task or owned files found for the specified tenant and task.' }
 try { $evidence = $result | ConvertFrom-Json -AsHashtable -NoEnumerate }
 catch { throw 'Invalid reporting cutover evidence result.' }

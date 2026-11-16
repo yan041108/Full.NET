@@ -45,7 +45,16 @@ Migrator 每次发布创建带 Helm 修订号的 Job，与其 ConfigMap 和 Serv
 
 ## 上传结果未知时的取证
 
-门禁报出阻断数量后，可在同一主库用同一只读账号列出阻断项。此命令仅返回租户和任务资源 UUID，包含已找不到原任务的文件。默认列出 25 项，`-Limit` 可设为 1～100。`hasMore` 为 `true` 时，将本页最后一项的 `tenantId` 与 `taskId` 传给 `-AfterTenantId` 和 `-AfterTaskId` 读取下一页。全程使用同一数据库，并维持停写条件。取证完成后仍须重新运行切版门禁，确认阻断项归零。
+门禁报出阻断数量后，可在同一主库用同一只读账号列出阻断项。每项返回租户和任务资源 UUID 以及 `reasons` 数组，覆盖已找不到原任务的文件。同一任务可同时有多个原因。
+
+| 原因 | 核对内容 |
+| --- | --- |
+| `task_unfinished` | 任务仍在排队、处理中，或状态值无法识别。 |
+| `task_has_lease` | 任务仍有租约标识或到期时间，包含已到期的残留租约。 |
+| `pending_upload` | Files 仍有待确认的上传。 |
+| `ready_file_unbound` | 已就绪文件没有被同一租户的原任务绑定。 |
+
+默认列出 25 项，`-Limit` 可设为 1～100。`hasMore` 为 `true` 时，将本页最后一项的 `tenantId` 与 `taskId` 传给 `-AfterTenantId` 和 `-AfterTaskId` 读取下一页。全程使用同一主库，并维持停写条件。需要核对单个对象时继续读取下面的证据。取证完成后仍须重新运行切版门禁，确认阻断项归零。
 
 ```powershell
 $query = @{ Provider = 'SqlServer'; Server = $ReportingPrimary; Database = $ApplicationDatabase }
@@ -58,7 +67,7 @@ if ($page.hasMore) {
 }
 ```
 
-保持发布暂停，停止该库的旧写入方，记录已知的租户 UUID、任务 UUID 与故障时间。使用受控的数据库只读账号，在同一目标库核对一个任务。SQL Server 与 MySQL 沿用上面的 TLS 及认证配置，MySQL 额外传入 `MySqlLoginPath`、`MySqlCaFile` 和实际端口。
+保持发布暂停，停止该库的旧写入方，记录已知的租户 UUID、任务 UUID 与故障时间。使用受控的数据库只读账号，在同一可写主库上核对一个任务。命令会拒绝只读数据库实例。SQL Server 与 MySQL 沿用上面的 TLS 及认证配置，MySQL 额外传入 `MySqlLoginPath`、`MySqlCaFile` 和实际端口。
 
 ```powershell
 ./eng/deploy/reporting-cutover/Get-ReportingCutoverEvidence.ps1 `

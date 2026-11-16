@@ -9,27 +9,32 @@ function runBlockers(scenario, provider) {
   const script = String.raw`
 $scenario = $env:FULLNET_CUTOVER_TEST_CASE
 function Probe([string]$query) {
-    if ($query -notmatch 'WITH blocking_resources AS' -or $query -notmatch 'TOP \(2\)|LIMIT 2') { throw 'Unexpected blocker query.' }
+    if ($query -notmatch 'blocking_resources AS' -or $query -notmatch 'TOP \(2\)|LIMIT 2' -or $query -notmatch 'b.HasUnboundReadyFile') { throw 'Unexpected blocker query.' }
     if ($scenario -in @('half-cursor', 'empty-cursor')) { throw 'Database must not be called.' }
     $global:LASTEXITCODE = 0
-    $first = '00000000-0000-7000-8000-000000000001'
-    $second = '00000000-0000-7000-8000-000000000002'
+    $first = '00000000-0000-7000-8000-00000000000a'
+    $second = '00000000-0000-7000-8000-00000000000b'
+    $tab = [char]9
     switch ($scenario) {
         'empty' { return }
         'readonly' { '-1' }
-        'invalid' { "$first$([char]9)bad" }
-        'duplicate' { "$first$([char]9)$second"; "$first$([char]9)$second" }
+        'invalid' { $first, 'bad', '1010' -join $tab }
+        'missing-reason' { $first, $second -join $tab }
+        'invalid-reason' { $first, $second, '1200' -join $tab }
+        'empty-reason' { $first, $second, '0000' -join $tab }
+        'duplicate' { $first, $second, '0010' -join $tab; $first.ToUpperInvariant(), $second, '0001' -join $tab }
+        'multi-reason' { $first, $second, '1111' -join $tab }
         'next-page' {
             if ($query -notmatch 'b.TenantId > ' -or $query -notmatch 'b.TenantId = .+ AND b.ResourceId > ' -or $query -notlike "*$first*") { throw 'Missing cursor predicate.' }
-            "$first$([char]9)$second"
+            $first, $second, '0100' -join $tab
         }
-        default { "$first$([char]9)$first"; "$first$([char]9)$second" }
+        default { $first, $first, '1000' -join $tab; $first, $second, '0011' -join $tab }
     }
 }
 function sqlcmd { Probe $args[-1] }
 function mysql { Probe $args[-1] }
 $parameters = @{ Provider=$env:FULLNET_CUTOVER_TEST_PROVIDER;Server='fixture.invalid';Database='fixture';Limit=1;MySqlLoginPath='fixture-reader';MySqlCaFile='./eng/deploy/reporting-cutover/mysql.sql' }
-if ($scenario -in @('next-page', 'half-cursor')) { $parameters.AfterTenantId = '00000000-0000-7000-8000-000000000001' }
+if ($scenario -in @('next-page', 'half-cursor')) { $parameters.AfterTenantId = '00000000-0000-7000-8000-00000000000a' }
 if ($scenario -eq 'next-page') { $parameters.AfterTaskId = $parameters.AfterTenantId }
 if ($scenario -eq 'empty-cursor') { $parameters.AfterTenantId = [guid]::Empty; $parameters.AfterTaskId = [guid]::Empty }
 & './eng/deploy/reporting-cutover/Get-ReportingCutoverBlockers.ps1' @parameters
@@ -47,7 +52,8 @@ for (const provider of ['SqlServer', 'MySql']) {
     const { status, stdout, stderr } = runBlockers('next-page', provider);
     assert.equal(status, 0, stderr);
     assert.deepEqual(JSON.parse(stdout), { hasMore: false, items: [{
-      tenantId: '00000000-0000-7000-8000-000000000001', taskId: '00000000-0000-7000-8000-000000000002'
+      tenantId: '00000000-0000-7000-8000-00000000000a', taskId: '00000000-0000-7000-8000-00000000000b',
+      reasons: ['task_has_lease']
     }] });
   });
 
@@ -55,8 +61,16 @@ for (const provider of ['SqlServer', 'MySql']) {
     const { status, stdout, stderr } = runBlockers('truncated', provider);
     assert.equal(status, 0, stderr);
     assert.deepEqual(JSON.parse(stdout), { hasMore: true, items: [{
-      tenantId: '00000000-0000-7000-8000-000000000001', taskId: '00000000-0000-7000-8000-000000000001'
+      tenantId: '00000000-0000-7000-8000-00000000000a', taskId: '00000000-0000-7000-8000-00000000000a',
+      reasons: ['task_unfinished']
     }] });
+  });
+
+  test(`${provider} blocker lookup returns every applicable reason for one resource`, () => {
+    const { status, stdout, stderr } = runBlockers('multi-reason', provider);
+    assert.equal(status, 0, stderr);
+    assert.deepEqual(JSON.parse(stdout).items[0].reasons,
+      ['task_unfinished', 'task_has_lease', 'pending_upload', 'ready_file_unbound']);
   });
 }
 
@@ -75,7 +89,7 @@ test('an empty blocker lookup returns an empty array', () => {
   assert.deepEqual(JSON.parse(stdout), { hasMore: false, items: [] });
 });
 
-for (const scenario of ['readonly', 'invalid', 'duplicate']) {
+for (const scenario of ['readonly', 'invalid', 'missing-reason', 'invalid-reason', 'empty-reason', 'duplicate']) {
   test(`${scenario} blocker lookup fails without emitting records`, () => {
     const { status, stdout, stderr } = runBlockers(scenario, 'MySql');
     assert.notEqual(status, 0);
@@ -94,6 +108,7 @@ function Reply {
     if ($args[0] -notlike "*$tenant*" -or $args[0] -notlike "*$task*" -or $args[0] -like '*{{*') { throw 'UUID bindings missing.' }
     $global:LASTEXITCODE = 0
     switch ($scenario) {
+        'readonly' { '-1' }
         'missing' { 'null' }
         'malformed' { 'malformed-result' }
         'wrong-tenant' { @{tenantId=$task;taskId=$task} | ConvertTo-Json -Compress }
@@ -142,6 +157,13 @@ for (const provider of ['SqlServer', 'MySql']) {
     assert.equal(record.statusKey, null);
     assert.equal(record.hasLease, false);
     assert.equal(record.unresolvedFileCount, 2);
+  });
+
+  test(`${provider} evidence rejects read-only database state`, () => {
+    const { status, stdout, stderr } = runEvidence('readonly', provider);
+    assert.notEqual(status, 0);
+    assert.equal(stdout.trim(), '');
+    assert.match(stderr, /writable primary/);
   });
 }
 

@@ -1,7 +1,8 @@
 -- 只核对一个明确的租户任务。文件名、对象存储键和凭据不进入证据输出。
 SET NOCOUNT ON;
 DECLARE @TenantId uniqueidentifier = '{{TENANT_ID}}', @TaskId uniqueidentifier = '{{TASK_ID}}';
-SELECT CAST(COALESCE(NULLIF((
+SELECT CASE WHEN DATABASEPROPERTYEX(DB_NAME(), 'Updateability') = 'READ_WRITE'
+    THEN CAST(COALESCE(NULLIF((
     SELECT @TenantId AS tenantId, @TaskId AS taskId,
         CAST(CASE WHEN t.Id IS NULL THEN 0 ELSE 1 END AS bit) AS taskExists, t.StatusKey AS statusKey,
         t.OutputFileId AS outputFileId, t.[RowCount] AS recordedRowCount,
@@ -29,4 +30,4 @@ SELECT CAST(COALESCE(NULLIF((
     ) AS latest
     WHERE t.Id IS NOT NULL OR counts.total > 0
     FOR JSON PATH, WITHOUT_ARRAY_WRAPPER, INCLUDE_NULL_VALUES
-), N''), N'null') AS nvarchar(2000));
+), N''), N'null') AS nvarchar(2000)) ELSE N'-1' END;
