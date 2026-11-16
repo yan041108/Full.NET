@@ -6,11 +6,16 @@ import View from './ReportingExecuteView.vue';
 import { listReportingPublishedVersions } from '../api/reporting-definitions';
 import { executeReportingDefinition } from '../api/reporting-executions';
 import { createReportingExportTask } from '../api/reporting-export-tasks';
+import { showWarning } from '../feedback/fullNetMessage';
 import { createOutputSession, deferred, exportTask, publishedReportDefinition, reportResult } from '../test/data-output-fixtures';
 vi.mock('../api/reporting-definitions', () => ({ listReportingPublishedVersions: vi.fn() }));
 vi.mock('../api/reporting-executions', () => ({ executeReportingDefinition: vi.fn() }));
 vi.mock('../api/reporting-export-tasks', () => ({ createReportingExportTask: vi.fn() }));
-vi.mock('../feedback/fullNetMessage', () => ({ showSuccess: vi.fn() }));
+vi.mock('../feedback/fullNetMessage', async importOriginal => ({
+  ...await importOriginal<typeof import('../feedback/fullNetMessage')>(),
+  showSuccess: vi.fn(),
+  showWarning: vi.fn()
+}));
 const definition = { ...publishedReportDefinition, parameterSchema: [{ parameterKey: 'filter', displayName: '筛选', dataTypeKey: 'string', isRequired: false, defaultValue: 'original' }] };
 let wrapper: VueWrapper, router: Router;
 interface State { parameterValues: Map<string, string>; selectedDefinitionVersionKey: string; result?: typeof reportResult; page: number; receipt?: { outcome: string; taskId?: string }; loadDefinitions: () => Promise<void>; runExecute: () => Promise<void>; exportCurrent: () => Promise<void> }
@@ -71,6 +76,21 @@ describe('报表查询与导出恢复', () => {
   });
   it('明确409拒绝允许手工重试', async () => {
     await setup(); vi.mocked(createReportingExportTask).mockRejectedValueOnce({ status: 409, code: 'export.conflict', title: 'conflict' }); await state().exportCurrent(); expect(state().receipt?.outcome).toBe('failed'); await state().exportCurrent(); expect(createReportingExportTask).toHaveBeenCalledTimes(2);
+  });
+  it('导出暂停时提示原因并保留同一参数供手工重试', async () => {
+    await setup();
+    const title = '暂时停止受理新的报表导出，请稍后再试。';
+    vi.mocked(createReportingExportTask).mockRejectedValueOnce({ status: 503, code: 'reporting.export_task.admission_paused', title });
+    await state().exportCurrent();
+    expect(showWarning).toHaveBeenCalledExactlyOnceWith(title);
+    expect(state().receipt?.outcome).toBe('failed');
+    expect(state().parameterValues.get('filter')).toBe('original');
+    expect(createReportingExportTask).toHaveBeenCalledOnce();
+    expect(button('reporting-execute-export-recovery')).toBeUndefined();
+    await state().exportCurrent();
+    expect(createReportingExportTask).toHaveBeenCalledTimes(2);
+    expect(vi.mocked(createReportingExportTask).mock.calls[1]![0]).toEqual(vi.mocked(createReportingExportTask).mock.calls[0]![0]);
+    expect(state().receipt?.outcome).toBe('succeeded');
   });
   it('在途导出参数直接变化标记结果不确定，旧完成不导航', async () => {
     await setup(); const pending = deferred<typeof exportTask>(); vi.mocked(createReportingExportTask).mockReturnValueOnce(pending.promise); const creating = state().exportCurrent(), signal = vi.mocked(createReportingExportTask).mock.calls[0]![1]!;

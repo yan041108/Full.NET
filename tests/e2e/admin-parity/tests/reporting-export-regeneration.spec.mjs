@@ -6,7 +6,7 @@ const original = { id: id(1), definitionId: id(2), definitionKey: 'original', de
   outputFileName: 'original.xlsx', outputFileId: id(3), errorCode: null, errorMessage: null, requestedByUserId: id(9), createdAtUtc: '2026-11-05T00:00:00Z', completedAtUtc: '2026-11-05T00:01:00Z', version: 2,
   parameters: [{ parameterKey: 'year', value: '2026' }, { parameterKey: 'department', value: null }, { parameterKey: 'empty', value: '' }] };
 const listRow = value => { const { version, outputFileId, parameters, ...row } = value; return row; };
-async function boot(page, locale, lost, sourceStatus = 'succeeded', allowDownload = true) {
+async function boot(page, locale, firstSubmission = 'accepted', sourceStatus = 'succeeded', allowDownload = true) {
   const source = { ...original, statusKey: sourceStatus, outputFileId: sourceStatus === 'succeeded' ? original.outputFileId : null };
   await page.setViewportSize({ width: 1440, height: 1000 }); await page.addInitScript(value => localStorage.setItem('fullnet.admin.locale', value), locale);
   await page.route('**/api/v1/**', route => route.fulfill({ status: 404 })); const writes = []; let catalogReads = 0, latest;
@@ -28,7 +28,11 @@ async function boot(page, locale, lost, sourceStatus = 'succeeded', allowDownloa
     body: JSON.stringify({ type: 'about:blank', status: 404, code: 'files.file.not_found', title: 'Original result unavailable' }) }));
   await page.route('**/api/v1/reporting/export-tasks', route => {
     expect(route.request().method()).toBe('POST'); const body = route.request().postDataJSON(); writes.push(body);
-    if (lost) return route.fulfill({ status: 503 });
+    if (firstSubmission === 'unknown') return route.fulfill({ status: 503 });
+    if (firstSubmission === 'paused' && writes.length === 1) return route.fulfill({ status: 503, contentType: 'application/problem+json', body: JSON.stringify({
+      status: 503, code: 'reporting.export_task.admission_paused',
+      title: locale === 'zh-CN' ? '暂时停止受理新的报表导出，请稍后再试。' : 'New report exports are temporarily paused. Try again later.'
+    }) });
     latest = { ...original, id: id(4), statusKey: 'queued', rowCount: 0, outputFileName: null, outputFileId: null, completedAtUtc: null, version: 1, parameters: body.parameters };
     return json(route, latest);
   });
@@ -37,7 +41,7 @@ async function boot(page, locale, lost, sourceStatus = 'succeeded', allowDownloa
 }
 for (const [width, locale] of [[1440, 'en-US'], [390, 'zh-CN']]) {
   test('明确缺失结果按原版本与原参数创建独立导出 ' + width, async ({ page }, info) => {
-    const trace = await boot(page, locale, false); await page.setViewportSize({ width, height: 1000 });
+    const trace = await boot(page, locale); await page.setViewportSize({ width, height: 1000 });
     await page.getByTestId('reporting-export-detail').click(); await page.getByTestId('reporting-export-detail-download').click();
     await page.getByTestId('reporting-export-regenerate').click(); const snapshot = page.getByTestId('reporting-export-regeneration-snapshot');
     await expect(snapshot).toContainText(original.id); await expect(snapshot).toContainText(locale === 'zh-CN' ? '未提供（null）' : 'Not provided (null)');
@@ -54,7 +58,7 @@ for (const [width, locale] of [[1440, 'en-US'], [390, 'zh-CN']]) {
     await expect(page.getByTestId('reporting-export-detail-download')).toHaveCount(0);
   });
   test('独立重生成响应未知后关闭重开仍需核对，不自动再发 ' + width, async ({ page }) => {
-    const trace = await boot(page, locale, true); await page.setViewportSize({ width, height: 1000 });
+    const trace = await boot(page, locale, 'unknown'); await page.setViewportSize({ width, height: 1000 });
     await page.getByTestId('reporting-export-detail').click(); await page.getByTestId('reporting-export-detail-download').click(); await page.getByTestId('reporting-export-regenerate').click();
     await page.getByTestId('reporting-export-submit').click(); await expect(page.getByTestId('reporting-export-submit')).toBeDisabled(); expect(trace.writes).toHaveLength(1);
     await page.getByRole('dialog').last().getByRole('button', { name: locale === 'zh-CN' ? '取消' : 'Cancel', exact: true }).click(); await expect(page.getByRole('dialog')).toHaveCount(0);
@@ -62,8 +66,28 @@ for (const [width, locale] of [[1440, 'en-US'], [390, 'zh-CN']]) {
     await expect(page.getByTestId('reporting-export-recovery')).toBeVisible(); await expect(page.getByTestId('reporting-export-submit')).toBeDisabled();
     expect(trace.writes).toHaveLength(1); expect(trace.catalogReads()).toBe(0);
   });
+  test('切版暂停提示保留原参数并允许手动重生成 ' + width, async ({ page }) => {
+    const trace = await boot(page, locale, 'paused', 'canceled');
+    await page.setViewportSize({ width, height: 1000 });
+    await page.getByTestId('reporting-export-detail').click();
+    await page.getByTestId('reporting-export-regenerate').click();
+    const snapshot = page.getByTestId('reporting-export-regeneration-snapshot');
+    const submit = page.getByTestId('reporting-export-submit');
+    await submit.click();
+    await expect(page.getByRole('alert').filter({ hasText: locale === 'zh-CN' ? '暂时停止受理新的报表导出' : 'New report exports are temporarily paused' })).toBeVisible();
+    await expect(snapshot).toContainText(original.id);
+    await expect(snapshot).toContainText('2026');
+    await expect(submit).toBeEnabled();
+    await expect(page.getByTestId('reporting-export-recovery')).toHaveCount(0);
+    expect(trace.writes).toHaveLength(1);
+    await submit.focus();
+    await page.keyboard.press('Enter');
+    await expect(page.getByTestId('reporting-export-receipt')).toContainText(id(4));
+    const expected = { definitionId: original.definitionId, versionNumber: 3, formatKey: 'excel', parameters: original.parameters };
+    expect(trace.writes).toEqual([expected, expected]);
+  });
   test('已取消原导出按当前授权另建且不需要下载或取消权限 ' + width, async ({ page }, info) => {
-    const trace = await boot(page, locale, false, 'canceled', false); await page.setViewportSize({ width, height: 1000 });
+    const trace = await boot(page, locale, 'accepted', 'canceled', false); await page.setViewportSize({ width, height: 1000 });
     await page.getByTestId('reporting-export-detail').click(); await expect(page.getByTestId('reporting-export-detail-download')).toHaveCount(0);
     await page.getByTestId('reporting-export-regenerate').click(); await expect(page.getByTestId('reporting-export-regeneration-snapshot')).toContainText(original.id);
     await expect(page.getByTestId('reporting-export-regeneration-snapshot')).toContainText(locale === 'zh-CN' ? '原任务已失败或取消' : 'original task failed or was cancelled');

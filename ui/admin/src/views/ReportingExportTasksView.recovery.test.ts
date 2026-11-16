@@ -100,6 +100,20 @@ describe('报表导出目录与任务恢复', () => {
   it('明确409创建拒绝可人工重试', async () => {
     await setup(); await state().openCreateDialog(); vi.mocked(api.createReportingExportTask).mockRejectedValueOnce({ status: 409, code: 'reporting.export.rejected' }); await state().submitCreate(); expect(state().receipt?.outcome).toBe('failed'); await state().submitCreate(); expect(api.createReportingExportTask).toHaveBeenCalledTimes(2);
   });
+  it('导出暂停保留创建对话框并允许手工重试', async () => {
+    await setup();
+    await state().openCreateDialog();
+    vi.mocked(api.createReportingExportTask).mockRejectedValueOnce({
+      status: 503, code: 'reporting.export_task.admission_paused', title: '暂时停止受理新的报表导出，请稍后再试。'
+    });
+    await state().submitCreate();
+    expect(state().createDialogVisible).toBe(true);
+    expect(state().receipt?.outcome).toBe('failed');
+    expect(api.createReportingExportTask).toHaveBeenCalledOnce();
+    await state().submitCreate();
+    expect(api.createReportingExportTask).toHaveBeenCalledTimes(2);
+    expect(vi.mocked(api.createReportingExportTask).mock.calls[1]![0]).toEqual(vi.mocked(api.createReportingExportTask).mock.calls[0]![0]);
+  });
   it('取消确认后补读失败保留终态和回执', async () => {
     await setup(); state().requestCancellation(queued); vi.mocked(api.listReportingExportTasks).mockRejectedValueOnce(new Error('offline')); await state().confirmCancellation(); expect(state().items[0]?.statusKey).toBe('canceled'); expect(state().receipt).toMatchObject({ kind: 'cancel', taskId: exportTask.id, outcome: 'succeeded' });
   });

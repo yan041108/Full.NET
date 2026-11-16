@@ -32,7 +32,7 @@ import { useSessionStore } from '../auth/session';
 import { isTenantSessionContext } from '../auth/tenant-session-context';
 import { useAuthorizedViewScope } from '../composables/useAuthorizedViewScope';
 import { createReportingExportTask } from '../api/reporting-export-tasks';
-import { showSuccess } from '../feedback/fullNetMessage';
+import { formatProblemMessage, showSuccess, showWarning } from '../feedback/fullNetMessage';
 
 defineOptions({ name: 'ReportingExecuteView' });
 
@@ -215,10 +215,13 @@ async function exportCurrent(): Promise<void> {
   } catch (error) {
     if (exportRequest === request && request.current()) {
       const failure = toProblem(error, 'reportingExportTasks.createFailed');
-      const unknown = !isFullNetProblemDetails(error) || error.status < 400 || error.status >= 500 || error.status === 408;
+      // 服务端在写入前拒绝暂停期间的请求，允许手动重试原参数。
+      const paused = failure.status === 503 && failure.code === 'reporting.export_task.admission_paused';
+      const unknown = !paused && (!isFullNetProblemDetails(error) || error.status < 400 || error.status >= 500 || error.status === 408);
       receipt.value = { ...attempt.receipt, outcome: unknown ? 'unconfirmed' : 'failed', errorCode: failure.code };
       if (unknown) exportBlocks.value = new Map(exportBlocks.value).set(attempt.key, receipt.value);
-      problem.value = failure;
+      if (paused) showWarning(formatProblemMessage(failure));
+      else problem.value = failure;
     }
   } finally { if (exportRequest === request) { if (request.current()) exporting.value = false; exportRequest = undefined; exportingIntent = undefined; } request.finish(); }
 }

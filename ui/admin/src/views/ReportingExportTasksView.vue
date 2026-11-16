@@ -41,6 +41,7 @@ import { useAdminI18n } from '../i18n/adminI18n';
 import { useAuthorizedViewScope } from '../composables/useAuthorizedViewScope';
 import { useBoundedPolling } from '../composables/useBoundedPolling';
 import { useUnavailableResultFiles } from '../composables/useUnavailableResultFiles';
+import { formatProblemMessage, showWarning } from '../feedback/fullNetMessage';
 import { listReportingPublishedDefinitions } from '../api/reporting-publications';
 import { translateReportingExportRecovery } from '@fullnet/admin-i18n';
 import {
@@ -407,11 +408,14 @@ async function submitCreate(): Promise<void> {
   } catch (error: unknown) {
     if (request.current()) {
       const failure = toProblem(error, 'reportingExportTasks.createFailed');
+      // 暂停仅拒绝本次创建，原输入和重生成快照仍由当前对话框持有。
+      const paused = failure.status === 503 && failure.code === 'reporting.export_task.admission_paused';
       if (creatingIntent) {
-        if (isUnknown(error)) { creationBlocks.value = new Map(creationBlocks.value).set(creatingIntent.key, creatingIntent.receipt.sequence); receipt.value = { ...creatingIntent.receipt, outcome: 'unconfirmed', errorCode: failure.code }; }
+        if (!paused && isUnknown(error)) { creationBlocks.value = new Map(creationBlocks.value).set(creatingIntent.key, creatingIntent.receipt.sequence); receipt.value = { ...creatingIntent.receipt, outcome: 'unconfirmed', errorCode: failure.code }; }
         else receipt.value = { ...creatingIntent.receipt, outcome: 'failed', errorCode: failure.code };
       }
-      problem.value = failure;
+      if (paused) showWarning(formatProblemMessage(failure));
+      else problem.value = failure;
     }
   } finally {
     if (createRequest === request) { if (request.current()) creating.value = false; createRequest = undefined; creatingIntent = undefined; } request.finish();
