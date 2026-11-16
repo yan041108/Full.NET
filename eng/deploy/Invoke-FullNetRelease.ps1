@@ -5,7 +5,7 @@
 .DESCRIPTION
   使用同一 Chart 的三个独立 Release（单一角色）。任一阶段失败立即停止。
   数据库变更遵循 Expand/Contract；本脚本不自动回滚已完成的 Migrator。
-  报表输出身份切版使用 -ReportingOutputCutover，操作步骤见 docs/operations/reporting-output-cutover.md。
+  报表输出身份切版使用 -ReportingOutputCutover，新 API 保持暂停接收导出，放行步骤见 docs/operations/reporting-output-cutover.md。
 #>
 [CmdletBinding()]
 param(
@@ -78,6 +78,10 @@ function Invoke-HelmUpgrade {
     )
     # 角色的连接串与各自连接池预算成对配置，Helm 仅接收 Secret 名称。
     if ($DatabaseSecretName) { $args += @('--set-string', "database.connectionSecretName=$DatabaseSecretName") }
+    # 新 API 在原结果复核期间维持暂停，运行就绪后由发布负责人单独恢复接收。
+    if ($ReportingOutputCutover -and $ReleaseName -ceq 'fullnet-api') {
+        $args += @('--set', 'api.reportingExportAdmissionEnabled=false')
+    }
     if ($KubeContext) { $args += @('--kube-context', $KubeContext) }
 
     Write-Host ">>> helm $($args -join ' ')"

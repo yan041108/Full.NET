@@ -249,6 +249,17 @@ function mysql {
 function helm {
     if ($args[-2] -ne '--kube-context' -or $args[-1] -ne 'isolated-test') { throw 'Unexpected Helm context.' }
     if ('--wait' -notin $args -or '--wait-for-jobs' -notin $args) { throw 'Missing Helm wait flags.' }
+    $admission = @($args | Where-Object { $_ -like 'api.reportingExportAdmissionEnabled=*' })
+    $expectedPause = $scenario -notin 'normal', 'role-secrets', 'invalid-role-secret' -and $args[2] -ceq 'fullnet-api'
+    if ($expectedPause) {
+        $index = [array]::IndexOf($args, 'api.reportingExportAdmissionEnabled=false')
+        if ($admission.Count -ne 1 -or $index -le 0 -or $args[$index - 1] -cne '--set') {
+            throw 'The cutover API must receive exactly one boolean admission pause.'
+        }
+        Write-Host 'reporting-admission=paused'
+    } elseif ($admission.Count -ne 0) {
+        throw 'Unexpected admission override for a non-cutover API stage.'
+    }
     $secret = @($args | Where-Object { $_ -like 'database.connectionSecretName=*' })
     if ($scenario -eq 'role-secrets') {
         if ($secret.Count -ne 1 -or $secret[0] -cne "database.connectionSecretName=$($args[2]).db" -or '--set-string' -notin $args) {
@@ -289,12 +300,13 @@ if ($scenario -notin 'normal', 'role-secrets', 'invalid-role-secret') {
 }
 
 for (const provider of ['SqlServer', 'MySql']) {
-  test(`${provider} zero pending after stop allows the exact three release stages`, () => {
+  test(`${provider} zero pending allows the exact three release stages and publishes the API paused`, () => {
     const { status, stdout, stderr } = run('ready', provider);
     assert.equal(status, 0, stderr);
     assert.match(stdout, /database-probed[\s\S]+preflight passed/);
     assert.deepEqual([...stdout.matchAll(/helm-stage=(fullnet-[a-z]+)/g)].map(match => match[1]),
       ['fullnet-migrator', 'fullnet-worker', 'fullnet-api']);
+    assert.match(stdout, /helm-stage=fullnet-worker[\s\S]+reporting-admission=paused[\s\S]+helm-stage=fullnet-api/);
   });
 }
 
