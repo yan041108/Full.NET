@@ -80,6 +80,10 @@
   <data name="identity.tenant_members.already_active" xml:space="preserve"><value>The user is already an active tenant member.</value></data>
   <data name="identity.tenant_members.tenant_inactive" xml:space="preserve"><value>The tenant is suspended or inactive.</value></data>
   <data name="identity.tenant_members.seat_quota_unavailable" xml:space="preserve"><value>Tenant seat quota services are unavailable.</value></data>
+  <data name="identity.tenant_ownership.conflict" xml:space="preserve"><value>The ownership or member version changed. Refresh and review the current members.</value></data>
+  <data name="identity.tenant_ownership.forbidden" xml:space="preserve"><value>The current session cannot perform this tenant ownership operation.</value></data>
+  <data name="identity.tenant_ownership.not_found" xml:space="preserve"><value>The ownership operation or tenant member was not found.</value></data>
+  <data name="identity.tenant_ownership.strong_authentication_required" xml:space="preserve"><value>Production ownership changes require an eligible strong reauthentication provider.</value></data>
   <data name="identity.tenant_invitations.invalid" xml:space="preserve"><value>The tenant invitation is invalid, expired, or revoked.</value></data>
   <data name="identity.tenant_invitations.not_found" xml:space="preserve"><value>The tenant invitation was not found.</value></data>
   <data name="identity.api_keys.invalid_permissions" xml:space="preserve"><value>The API key permission list is invalid.</value></data>

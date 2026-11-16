@@ -80,6 +80,10 @@
   <data name="identity.tenant_members.already_active" xml:space="preserve"><value>用户已是活动租户成员。</value></data>
   <data name="identity.tenant_members.tenant_inactive" xml:space="preserve"><value>租户已暂停或未激活，不能执行该操作。</value></data>
   <data name="identity.tenant_members.seat_quota_unavailable" xml:space="preserve"><value>租户席位配额服务不可用。</value></data>
+  <data name="identity.tenant_ownership.conflict" xml:space="preserve"><value>租户所有权或成员记录已更新，请刷新后核对当前成员。</value></data>
+  <data name="identity.tenant_ownership.forbidden" xml:space="preserve"><value>当前会话无权执行此租户所有权操作。</value></data>
+  <data name="identity.tenant_ownership.not_found" xml:space="preserve"><value>未找到该所有权操作或租户成员。</value></data>
+  <data name="identity.tenant_ownership.strong_authentication_required" xml:space="preserve"><value>生产环境变更租户所有权需要符合要求的重新认证服务。</value></data>
   <data name="identity.tenant_invitations.invalid" xml:space="preserve"><value>租户邀请无效、已过期或已撤销。</value></data>
   <data name="identity.tenant_invitations.not_found" xml:space="preserve"><value>租户邀请不存在。</value></data>
   <data name="identity.api_keys.invalid_permissions" xml:space="preserve"><value>API Key 权限列表无效。</value></data>
