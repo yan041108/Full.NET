@@ -5,6 +5,59 @@ import test from 'node:test';
 
 const root = fileURLToPath(new URL('../..', import.meta.url));
 
+function runBlockers(scenario, provider) {
+  const script = String.raw`
+$scenario = $env:FULLNET_CUTOVER_TEST_CASE
+function Probe([string]$query) {
+    if ($query -notmatch 'WITH blocking_resources AS' -or $query -notmatch 'TOP \(2\)|LIMIT 2') { throw 'Unexpected blocker query.' }
+    $global:LASTEXITCODE = 0
+    $first = '00000000-0000-7000-8000-000000000001'
+    $second = '00000000-0000-7000-8000-000000000002'
+    switch ($scenario) {
+        'empty' { return }
+        'readonly' { '-1' }
+        'invalid' { "$first$([char]9)bad" }
+        'duplicate' { "$first$([char]9)$second"; "$first$([char]9)$second" }
+        default { "$first$([char]9)$first"; "$first$([char]9)$second" }
+    }
+}
+function sqlcmd { Probe $args[-1] }
+function mysql { Probe $args[-1] }
+& './eng/deploy/reporting-cutover/Get-ReportingCutoverBlockers.ps1' -Provider $env:FULLNET_CUTOVER_TEST_PROVIDER -Server fixture.invalid -Database fixture -Limit 1 -MySqlLoginPath fixture-reader -MySqlCaFile './eng/deploy/reporting-cutover/mysql.sql'
+`;
+  const result = spawnSync('pwsh', ['-NoProfile', '-NonInteractive', '-Command', script], {
+    cwd: root, encoding: 'utf8', timeout: 20_000, windowsHide: true,
+    env: { ...process.env, FULLNET_CUTOVER_TEST_CASE: scenario, FULLNET_CUTOVER_TEST_PROVIDER: provider }
+  });
+  assert.ifError(result.error);
+  return result;
+}
+
+for (const provider of ['SqlServer', 'MySql']) {
+  test(`${provider} blocker lookup returns at most the requested limit`, () => {
+    const { status, stdout, stderr } = runBlockers('truncated', provider);
+    assert.equal(status, 0, stderr);
+    assert.deepEqual(JSON.parse(stdout), { hasMore: true, items: [{
+      tenantId: '00000000-0000-7000-8000-000000000001', taskId: '00000000-0000-7000-8000-000000000001'
+    }] });
+  });
+}
+
+test('an empty blocker lookup returns an empty array', () => {
+  const { status, stdout, stderr } = runBlockers('empty', 'SqlServer');
+  assert.equal(status, 0, stderr);
+  assert.deepEqual(JSON.parse(stdout), { hasMore: false, items: [] });
+});
+
+for (const scenario of ['readonly', 'invalid', 'duplicate']) {
+  test(`${scenario} blocker lookup fails without emitting records`, () => {
+    const { status, stdout, stderr } = runBlockers(scenario, 'MySql');
+    assert.notEqual(status, 0);
+    assert.equal(stdout.trim(), '');
+    assert.match(stderr, scenario === 'readonly' ? /writable primary/ : /Invalid reporting cutover blocker result/);
+  });
+}
+
 function runEvidence(scenario, provider = 'SqlServer') {
   const script = String.raw`
 $tenant = '00000000-0000-7000-8000-000000000001'

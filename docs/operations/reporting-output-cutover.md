@@ -45,6 +45,13 @@ Migrator 每次发布创建带 Helm 修订号的 Job，与其 ConfigMap 和 Serv
 
 ## 上传结果未知时的取证
 
+门禁报出阻断数量后，可在同一主库用同一只读账号列出阻断项。此命令仅返回租户和任务资源 UUID，包含已找不到原任务的文件。默认列出 25 项，`-Limit` 可设为 1～100。`hasMore` 为 `true` 时仍有未列出的阻断项，处理当前结果后可再次查询。
+
+```powershell
+./eng/deploy/reporting-cutover/Get-ReportingCutoverBlockers.ps1 `
+    -Provider SqlServer -Server $ReportingPrimary -Database $ApplicationDatabase
+```
+
 保持发布暂停，停止该库的旧写入方，记录已知的租户 UUID、任务 UUID 与故障时间。使用受控的数据库只读账号，在同一目标库核对一个任务。SQL Server 与 MySQL 沿用上面的 TLS 及认证配置，MySQL 额外传入 `MySqlLoginPath`、`MySqlCaFile` 和实际端口。
 
 ```powershell
