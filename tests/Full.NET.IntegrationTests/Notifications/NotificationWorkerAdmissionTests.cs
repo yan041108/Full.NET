@@ -26,7 +26,7 @@ namespace Full.NET.IntegrationTests.Notifications;
 /// <summary>用独立准入实例和真实数据库验证通知在争用期间的提交及恢复。</summary>
 [TestClass]
 [DoNotParallelize]
-public sealed class NotificationWorkerAdmissionTests
+public sealed partial class NotificationWorkerAdmissionTests
 {
     private const string RecoveryMailbox = "notification-recovery@example.test";
 
@@ -199,12 +199,13 @@ public sealed class NotificationWorkerAdmissionTests
     }
 
     private static async Task<NotificationDeliveryWorkerAssertions.RouteFixture> CreateSmtpRouteAsync(
-        IServiceProvider services, HttpClient client, string access, Guid userId, ControlledSmtpInbox inbox, CancellationToken token)
+        IServiceProvider services, HttpClient client, string access, Guid userId, ControlledSmtpInbox inbox, CancellationToken token,
+        string secretReference = "test://smtp")
     {
         const string channel = "email";
         var suffix = Guid.NewGuid().ToString("N")[..12];
         var profile = await NotificationProfileBindingAssertions.CreateProfileAsync(client, access,
-            $"recovery-{suffix}", "email.smtp", inbox.Configuration, "test://smtp", token);
+            $"recovery-{suffix}", "email.smtp", inbox.Configuration, secretReference, token);
         profile = await NotificationProfileBindingAssertions.PublishAndEnableAsync(client, access, profile, token);
         Assert.IsNotNull(profile.LatestPublishedVersionId);
         await using (var scope = services.CreateAsyncScope())

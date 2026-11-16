@@ -19,6 +19,9 @@ internal sealed class NotificationRecoveryKeyRing : IDisposable
     private readonly DirectoryInfo root = Directory.CreateTempSubdirectory("fullnet-notification-keyring-");
     private readonly string password = Convert.ToHexString(RandomNumberGenerator.GetBytes(24));
 
+    public Dictionary<string, string?> SourceSettings => SettingsFor(Path.Combine(root.FullName, "source", "keys"),
+        Path.Combine(root.FullName, "source", "active.pfx"));
+
     public ServiceProvider OpenSource()
     {
         var source = root.CreateSubdirectory("source");
@@ -67,14 +70,16 @@ internal sealed class NotificationRecoveryKeyRing : IDisposable
     private ServiceProvider Open(DirectoryInfo keys, string certificate)
     {
         var builder = new HostApplicationBuilder(new HostApplicationBuilderSettings { EnvironmentName = "Testing", DisableDefaults = true });
-        builder.Configuration.AddInMemoryCollection(new Dictionary<string, string?>
-        {
-            ["DataProtection:ApplicationName"] = ApplicationName,
-            ["DataProtection:KeyRingPath"] = keys.FullName,
-            ["DataProtection:CertificatePath"] = certificate,
-            ["DataProtection:CertificatePassword"] = password
-        });
+        builder.Configuration.AddInMemoryCollection(SettingsFor(keys.FullName, certificate));
         builder.Services.AddFullNetDataProtection(builder.Configuration, builder.Environment);
         return builder.Services.BuildServiceProvider();
     }
+
+    private Dictionary<string, string?> SettingsFor(string keys, string certificate) => new()
+    {
+        ["DataProtection:ApplicationName"] = ApplicationName,
+        ["DataProtection:KeyRingPath"] = keys,
+        ["DataProtection:CertificatePath"] = certificate,
+        ["DataProtection:CertificatePassword"] = password
+    };
 }

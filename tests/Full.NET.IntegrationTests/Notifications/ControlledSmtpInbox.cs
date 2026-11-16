@@ -72,20 +72,22 @@ internal sealed class ControlledSmtpInbox : IAsyncDisposable
 
     }
 
-    public Task<Observation> ReceiveAsync(string outcome, CancellationToken token)
+    public Task<Observation> ReceiveAsync(string outcome, CancellationToken token, TaskCompletionSource<Observation>? quitGate = null)
     {
-        var session = ReceiveCoreAsync(outcome, token);
+        var session = ReceiveCoreAsync(outcome, token, quitGate);
         sessions.Add(session);
         return session;
     }
 
     public bool HasPendingConnection => listener.Pending();
 
-    private async Task<Observation> ReceiveCoreAsync(string outcome, CancellationToken token)
+    public string CertificateFingerprint => certificate.GetCertHashString(HashAlgorithmName.SHA256);
+
+    private async Task<Observation> ReceiveCoreAsync(string outcome, CancellationToken token, TaskCompletionSource<Observation>? quitGate)
     {
         using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(token, shutdown.Token);
         var observation = new Observation();
-        await ServeAsync(listener, certificate, startTls, outcome, observation, cancellation.Token);
+        await ServeAsync(listener, certificate, startTls, outcome, observation, cancellation.Token, quitGate);
         return observation;
     }
 
@@ -105,7 +107,7 @@ internal sealed class ControlledSmtpInbox : IAsyncDisposable
     }
 
     private static async Task ServeAsync(TcpListener listener, X509Certificate2 certificate, bool startTls,
-        string outcome, Observation observation, CancellationToken token)
+        string outcome, Observation observation, CancellationToken token, TaskCompletionSource<Observation>? quitGate)
     {
         using var client = await listener.AcceptTcpClientAsync(token);
         await using var network = client.GetStream();
@@ -127,6 +129,15 @@ internal sealed class ControlledSmtpInbox : IAsyncDisposable
         while (await encryptedReader.ReadLineAsync(token) is { } line)
         {
             var verb = line.Split(' ', 2)[0];
+            if (verb == "QUIT" && quitGate is not null)
+            {
+                // 客户端收到 DATA 成功响应才会发送 QUIT；延迟应答，直到测试进程被终止。
+                Assert.IsNotNull(observation.Message);
+                quitGate.SetResult(observation);
+                try { Assert.IsNull(await encryptedReader.ReadLineAsync(token)); }
+                catch (IOException) { /* 进程终止可能以连接重置结束。 */ }
+                return;
+            }
             var response = verb switch
             {
                 "EHLO" => "250-localhost\r\n250 AUTH PLAIN",
