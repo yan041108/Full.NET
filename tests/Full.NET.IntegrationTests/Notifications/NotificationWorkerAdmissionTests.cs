@@ -1,5 +1,7 @@
 using System.Collections.Concurrent;
 using System.Diagnostics.Metrics;
+using System.Net;
+using System.Net.Http.Headers;
 using Full.NET.Abstractions.Messaging;
 using Full.NET.Abstractions.Results;
 using Full.NET.Data.Abstractions;
@@ -23,7 +25,16 @@ public sealed class NotificationWorkerAdmissionTests
     [TestMethod]
     [DataRow(DatabaseProvider.SqlServer)]
     [DataRow(DatabaseProvider.MySql)]
-    public async Task Restarting_paused_worker_keeps_backlog_until_enabled_and_does_not_repeat_sent_delivery(DatabaseProvider provider)
+    public Task Restarting_paused_worker_keeps_backlog_until_enabled_and_does_not_repeat_sent_delivery(DatabaseProvider provider) =>
+        VerifyPausedDeliveryAsync(provider, restoreBackup: false);
+
+    [TestMethod]
+    [DataRow(DatabaseProvider.SqlServer)]
+    [DataRow(DatabaseProvider.MySql)]
+    public Task Restoring_database_backup_preserves_sent_and_pending_notification_identity(DatabaseProvider provider) =>
+        VerifyPausedDeliveryAsync(provider, restoreBackup: true);
+
+    private static async Task VerifyPausedDeliveryAsync(DatabaseProvider provider, bool restoreBackup)
     {
         using var budget = new CancellationTokenSource(TimeSpan.FromMinutes(3));
         var token = budget.Token;
@@ -41,11 +52,11 @@ public sealed class NotificationWorkerAdmissionTests
         var sentIntent = await NotificationDeliveryWorkerAssertions.CreateIntentAsync(
             client, access, route, user.Id, "sent-before-pause", token);
         var originalSent = await NotificationDeliveryWorkerAssertions.WaitDeliveryAsync(client, access, sentIntent.Id, token);
-        using var initialWorker = await BuildWorkerAsync("Notifications.BeforePause", enabled: true);
+        using var initialWorker = await BuildWorkerAsync(database, "Notifications.BeforePause", enabled: true);
         await initialWorker.StartAsync(token);
         try
         {
-            originalSent = await WaitSentAsync(originalSent.Id);
+            originalSent = await WaitSentAsync(client, access, originalSent.Id);
             Assert.HasCount(1, initialWorker.Services.GetRequiredService<TestNotificationProviderHarness>().IdempotencyKeysFor(originalSent.Id));
         }
         finally { await initialWorker.StopAsync(CancellationToken.None); }
@@ -55,14 +66,37 @@ public sealed class NotificationWorkerAdmissionTests
         var queued = await NotificationDeliveryWorkerAssertions.WaitDeliveryAsync(client, access, pendingIntent.Id, token);
         Assert.AreEqual("accepted", queued.StatusKey);
         Assert.HasCount(0, queued.Attempts);
-        using var pausedWorker = await BuildWorkerAsync("Notifications.Paused", enabled: false);
+        Guid? afterBackupDeliveryId = null;
+        var recoveryDatabase = restoreBackup
+            ? await NotificationRecoveryBackup.RestoreAsync(provider, database, async () =>
+            {
+                var intent = await NotificationDeliveryWorkerAssertions.CreateIntentAsync(
+                    client, access, route, user.Id, "created-after-backup", token);
+                afterBackupDeliveryId = (await NotificationDeliveryWorkerAssertions.WaitDeliveryAsync(client, access, intent.Id, token)).Id;
+            }, token)
+            : database;
+        using var recoveredApi = restoreBackup
+            ? new FullNetApiFactory(provider, recoveryDatabase, configureTestServices: ConfigureHost)
+            : null;
+        using var recoveredClient = recoveredApi?.CreateClientForHost("localhost");
+        var targetClient = recoveredClient ?? client;
+        var targetAccess = restoreBackup ? await NotificationProfileBindingAssertions.LoginAsHostAdminAsync(targetClient, token) : access;
+        if (afterBackupDeliveryId is { } excluded)
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Get, $"/api/v1/notifications/deliveries/{excluded:D}");
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", targetAccess);
+            using var response = await targetClient.SendAsync(request, token);
+            Assert.AreEqual(HttpStatusCode.NotFound, response.StatusCode, "恢复库只能包含备份时已经提交的记录。");
+        }
+
+        using var pausedWorker = await BuildWorkerAsync(recoveryDatabase, "Notifications.Paused", enabled: false);
         await pausedWorker.StartAsync(token);
         try
         {
             var loop = pausedWorker.Services.GetServices<IHostedService>().OfType<NotificationDeliveryHostedProcessor>().Single();
             Assert.IsNotNull(loop.ExecuteTask);
             await loop.ExecuteTask.WaitAsync(TimeSpan.FromSeconds(5), token);
-            var paused = await NotificationDeliveryWorkerAssertions.GetDeliveryAsync(client, access, queued.Id, token);
+            var paused = await NotificationDeliveryWorkerAssertions.GetDeliveryAsync(targetClient, targetAccess, queued.Id, token);
             Assert.AreEqual(queued.StatusKey, paused.StatusKey);
             Assert.AreEqual(queued.Revision, paused.Revision);
             Assert.AreEqual(queued.NextAttemptAtUtc, paused.NextAttemptAtUtc);
@@ -71,14 +105,14 @@ public sealed class NotificationWorkerAdmissionTests
         }
         finally { await pausedWorker.StopAsync(CancellationToken.None); }
 
-        using var resumedWorker = await BuildWorkerAsync("Notifications.Resumed", enabled: true);
+        using var resumedWorker = await BuildWorkerAsync(recoveryDatabase, "Notifications.Resumed", enabled: true);
         await resumedWorker.StartAsync(token);
         try
         {
-            var resumed = await WaitSentAsync(queued.Id);
+            var resumed = await WaitSentAsync(targetClient, targetAccess, queued.Id);
             Assert.AreEqual(pendingIntent.Id, resumed.IntentId);
             Assert.HasCount(1, resumed.Attempts);
-            var earlier = await NotificationDeliveryWorkerAssertions.GetDeliveryAsync(client, access, originalSent.Id, token);
+            var earlier = await NotificationDeliveryWorkerAssertions.GetDeliveryAsync(targetClient, targetAccess, originalSent.Id, token);
             Assert.AreEqual(originalSent.Revision, earlier.Revision);
             Assert.HasCount(1, earlier.Attempts);
             var harness = resumedWorker.Services.GetRequiredService<TestNotificationProviderHarness>();
@@ -86,8 +120,14 @@ public sealed class NotificationWorkerAdmissionTests
             Assert.HasCount(0, harness.IdempotencyKeysFor(originalSent.Id));
         }
         finally { await resumedWorker.StopAsync(CancellationToken.None); }
+        if (restoreBackup)
+        {
+            var source = await NotificationDeliveryWorkerAssertions.GetDeliveryAsync(client, access, queued.Id, token);
+            Assert.AreEqual(queued.Revision, source.Revision);
+            Assert.AreEqual(queued.StatusKey, source.StatusKey);
+        }
 
-        Task<IHost> BuildWorkerAsync(string name, bool enabled) => IntegrationWorkerHostFactory.BuildAsync(provider, database,
+        Task<IHost> BuildWorkerAsync(string connection, string name, bool enabled) => IntegrationWorkerHostFactory.BuildAsync(provider, connection,
             new Dictionary<string, string?>
             {
                 ["Notifications:Worker:Enabled"] = enabled ? "true" : "false",
@@ -100,13 +140,13 @@ public sealed class NotificationWorkerAdmissionTests
             ConfigureWorker(services);
         }
 
-        async Task<NotificationDeliveryResponse> WaitSentAsync(Guid id)
+        async Task<NotificationDeliveryResponse> WaitSentAsync(HttpClient observer, string authorization, Guid id)
         {
             using var window = CancellationTokenSource.CreateLinkedTokenSource(token);
             window.CancelAfter(TimeSpan.FromSeconds(15));
             while (true)
             {
-                var delivery = await NotificationDeliveryWorkerAssertions.GetDeliveryAsync(client, access, id, window.Token);
+                var delivery = await NotificationDeliveryWorkerAssertions.GetDeliveryAsync(observer, authorization, id, window.Token);
                 if (delivery.StatusKey == "sent") return delivery;
                 Assert.AreEqual("accepted", delivery.StatusKey, "投递应在宿主重启后接续原队列。");
                 await Task.Delay(100, window.Token);

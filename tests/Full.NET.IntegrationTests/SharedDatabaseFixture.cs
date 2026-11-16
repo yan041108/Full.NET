@@ -269,7 +269,7 @@ public static class SharedDatabaseFixture
         if (role == "elasticsearch") parameters.Labels["fullnet.logging.es-cpus"] = cpuCount.ToString(System.Globalization.CultureInfo.InvariantCulture);
     }
 
-    private static async Task<MsSqlContainer> GetOrStartSqlServerAsync()
+    internal static async Task<MsSqlContainer> GetOrStartSqlServerAsync()
     {
         EnsureOpen();
         if (_sqlServer is not null)
@@ -342,7 +342,7 @@ public static class SharedDatabaseFixture
         }
     }
 
-    private static async Task<MySqlContainer> GetOrStartMySqlAsync()
+    internal static async Task<MySqlContainer> GetOrStartMySqlAsync()
     {
         EnsureOpen();
         if (_mySql is not null)
@@ -520,6 +520,13 @@ public static class SharedDatabaseFixture
 
     internal static string GetSqlServerDatabaseName(string connectionString) =>
         new SqlConnectionStringBuilder(connectionString).InitialCatalog;
+
+    internal static async Task<string> RegisterRestoredSqlServerDatabaseAsync(Func<string, Task> restore)
+    {
+        var master = await GetSqlServerMasterConnectionStringAsync();
+        var target = await Databases.CreateAsync(restore, name => DropSqlServerDatabaseAsync(master, name));
+        return new SqlConnectionStringBuilder(master) { InitialCatalog = target }.ConnectionString;
+    }
 
     internal static string GetMySqlDatabaseName(string connectionString) =>
         new MySqlConnectionStringBuilder(connectionString).Database;
