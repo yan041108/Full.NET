@@ -191,7 +191,7 @@ public sealed class OutputTaskBoundaryTests
         }, affected);
         await Assert.ThrowsExactlyAsync<OperationCanceledException>(() => fixture.Queue(action));
         Assert.AreEqual(1, fixture.Command.ReceivedCalls().Count());
-        Assert.AreEqual(0, fixture.FileCalls);
+        Assert.AreEqual(1, fixture.FileCalls);
         // 写端口可能已经提交；这里只证明取消传播，不把已发生的写入声称为回滚。
     }
 
@@ -228,6 +228,7 @@ public sealed class OutputTaskBoundaryTests
         {
             isImport = module == "import";
             var tenantId = Guid.CreateVersion7();
+            var importSourceId = Guid.CreateVersion7();
             Tenant.SetTenant(new(tenantId, "acme", "Acme"));
             Binding = new(Guid.CreateVersion7(), tenantId, Guid.CreateVersion7(), "stamp", "host", $"tenant:{tenantId:N}");
             var identity = Substitute.For<IBackgroundSessionAuthorization>();
@@ -243,9 +244,11 @@ public sealed class OutputTaskBoundaryTests
                 return new AuthorizedSessionActor(Binding.UserId, !isImport && stage == "scope-identity" ? Tenant.Id : tenantId, Binding.SessionId);
             });
             var files = Substitute.For<ITenantResourceFileStore>();
-            files.OpenReadyContentAsync(Arg.Any<string>(), taskId, Arg.Any<Guid>(), Arg.Any<CancellationToken>()).Returns(_ =>
+            files.OpenReadyContentAsync(Arg.Any<string>(), taskId, Arg.Any<Guid>(), Arg.Any<CancellationToken>()).Returns(call =>
             {
                 FileCalls++;
+                if (stage == "transition")
+                    Assert.AreEqual(importSourceId, call.ArgAt<Guid>(2));
                 if (stage is "file" or "file-failed") Cancellation.Cancel();
                 if (stage == "scope-file") Tenant.SetTenant(new(Guid.CreateVersion7(), "other", "Other"));
                 if (stage == "file-failed") return Result<TenantResourceFileContent>.Failure(new("fixture.file_failure", "fixture", ErrorType.Validation));
@@ -254,7 +257,12 @@ public sealed class OutputTaskBoundaryTests
             });
             var provider = module == "reporting-mysql" ? DatabaseProvider.MySql : DatabaseProvider.SqlServer;
             if (stage == "transition") Command.ExecuteAsync(ImportExportTaskSql.QueueExecution, Arg.Any<object>(), Arg.Any<CancellationToken>())
-                .Returns(_ => { Cancellation.Cancel(); return affected; });
+                .Returns(_ =>
+                {
+                    Assert.AreEqual(1, Stream.DisposeCalls);
+                    Cancellation.Cancel();
+                    return affected;
+                });
             var database = Options.Create(new DatabaseOptions { Provider = provider });
             var definition = new ReportingDefinitionRecord { Id = DefinitionId, IsEnabled = true, LatestPublishedVersionNumber=1, DefinitionKey = "engine", Name = "Engine" };
             var version = new ReportingDefinitionVersionRecord { DefinitionId = DefinitionId, VersionNumber = 1, QueryPortKey = "reporting.database_engine_version", DataSourceId=Guid.CreateVersion7() };
@@ -292,7 +300,7 @@ public sealed class OutputTaskBoundaryTests
             handler.ExecutionCapabilityPermissions.Returns(stage == "capability-missing" ? ["assign"] : []);
             var importTask = new ImportExportTaskRecord {
                 SourceExpiresAtUtc = DateTimeOffset.UtcNow.AddDays(7), Id = taskId, TenantId = tenantId, RequestedByUserId = Binding.UserId,
-                SchemaKey = "positions", WorksheetKey="rows", SourceFileName = "positions.xlsx", ErrorReceiptFileId = Guid.CreateVersion7(), ExecutionFailedRowCount = 1,
+                SchemaKey = "positions", WorksheetKey="rows", SourceFileId = importSourceId, SourceFileName = "positions.xlsx", ErrorReceiptFileId = Guid.CreateVersion7(), ExecutionFailedRowCount = 1,
                 StatusKey = importStatus ?? ImportExportTaskStatusKeys.ExecutionFailed,
                 ExecutionRowsJson = ImportExportTaskMapper.SerializeExecutionState(new(new Dictionary<string, bool> { ["assign"] = stage == "capability-missing" }, [])) };
             Query.QuerySingleOrDefaultAsync<ImportExportTaskRecord>(ImportExportTaskSql.FindById, Arg.Any<object>(), Arg.Any<CancellationToken>()).Returns(_ =>
