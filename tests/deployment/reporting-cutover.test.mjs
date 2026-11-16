@@ -194,7 +194,7 @@ for (const [scenario, message, probesDatabase] of [
   ['active-replicaset', /replica sets to stop/, false],
   ['autoscaler', /removing the autoscaler/, false],
   ['cluster-unavailable', /cannot read Kubernetes pods/, false],
-  ['pending', /blocked by 2 unfinished/, true],
+  ['pending', /blocked by 2 export resources with unfinished tasks, leases or unresolved files/, true],
   ['readonly', /writable primary/, true],
   ['unexpected', /Invalid reporting cutover database result/, true],
   ['db-error', /could not read the export state/, true],

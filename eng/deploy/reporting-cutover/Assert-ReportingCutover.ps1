@@ -95,7 +95,7 @@ $count = Read-ReportingCutoverQuery -Provider $Provider -Server $Server -Databas
     -MySqlLoginPath $MySqlLoginPath -MySqlCaFile $MySqlCaFile -MySqlPort $MySqlPort -QueryFile $queryFile
 if ($count -eq '-1') { throw 'Reporting cutover requires a writable primary database endpoint.' }
 if ($count -cnotmatch '\A[0-9]+\z') { throw 'Invalid reporting cutover database result.' }
-if ($count -cne '0') { throw "Reporting cutover blocked by $count unfinished or leased export tasks." }
+if ($count -cne '0') { throw "Reporting cutover blocked by $count export resources with unfinished tasks, leases or unresolved files." }
 
 # 查询之后再核对一次旧实例，拒绝查询期间已恢复的部署。
 Assert-OldHostsStopped
