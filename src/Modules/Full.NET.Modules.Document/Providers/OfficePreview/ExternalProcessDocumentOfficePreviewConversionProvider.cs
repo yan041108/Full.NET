@@ -17,6 +17,7 @@ internal sealed class ExternalProcessDocumentOfficePreviewConversionProvider(
         string workingDirectory,
         CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         var snapshot = options.CurrentValue;
         var processOptions = snapshot.ExternalProcess;
         if (string.IsNullOrWhiteSpace(processOptions.ExecutablePath))
@@ -28,150 +29,134 @@ internal sealed class ExternalProcessDocumentOfficePreviewConversionProvider(
                     ErrorType.BusinessRule));
         }
 
-        using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        timeoutCts.CancelAfter(TimeSpan.FromSeconds(Math.Clamp(snapshot.TimeoutSeconds, 5, 3600)));
-        var inputPath = Path.Combine(workingDirectory, DocumentPreviewProcessArguments.InputFileName(request.SourceMimeType));
-        var outputPath = Path.Combine(workingDirectory, "output.pdf");
-        await using (var inputFile = File.Create(inputPath))
-        {
-            await OfficePreviewInputBudget.CopyAsync(request.SourceContent, inputFile,
-                Math.Min(snapshot.MaxInputBytes, snapshot.MaxTemporaryBytes), timeoutCts.Token).ConfigureAwait(false);
-        }
-
-        var startInfo = new ProcessStartInfo
-        {
-            FileName = processOptions.ExecutablePath,
-            WorkingDirectory = workingDirectory,
-            RedirectStandardError = true,
-            RedirectStandardOutput = true,
-            UseShellExecute = false,
-            CreateNoWindow = true,
-        };
-
-        // 文件名与参数边界由模块控制，上传名称不能注入转换器选项。
-        foreach (var argument in DocumentPreviewProcessArguments.Build(processOptions.ArgumentTemplate, inputPath, outputPath))
-            startInfo.ArgumentList.Add(argument);
-        using var process = new Process { StartInfo = startInfo };
-        if (!process.Start())
-        {
-            return Result<DocumentOfficePreviewConversionOutput>.Failure(
-                new Error(
-                    DocumentErrorCodes.OfficePreviewConversionFailed,
-                    "External process office preview conversion could not start.",
-                    ErrorType.BusinessRule));
-        }
-
-        // 不保留转换器原始输出，持续消费两个管道避免日志写满后子进程阻塞。
-        var stdout = DrainAsync(process.StandardOutput);
-        var stderr = DrainAsync(process.StandardError);
-        using var monitorStop = new CancellationTokenSource();
-        var diskBudgetExceeded = false;
-        var diskMonitor = MonitorDirectoryAsync(workingDirectory, outputPath, snapshot,
-            () => { diskBudgetExceeded = true; timeoutCts.Cancel(); }, monitorStop.Token);
+        using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        deadline.CancelAfter(TimeSpan.FromSeconds(Math.Clamp(snapshot.TimeoutSeconds, 5, 3600)));
         try
         {
-            await process.WaitForExitAsync(timeoutCts.Token).ConfigureAwait(false);
-            await Task.WhenAll(stdout, stderr).WaitAsync(timeoutCts.Token).ConfigureAwait(false);
+            var inputBudget = Math.Min(snapshot.MaxInputBytes, snapshot.MaxTemporaryBytes);
+            DocumentPreviewContentBudget.CheckDeclaredLength(request.SourceLength, inputBudget, DocumentErrorCodes.OfficePreviewInputTooLarge);
+            workingDirectory = Path.GetFullPath(workingDirectory);
+            var inputPath = Path.Combine(workingDirectory, DocumentPreviewProcessArguments.InputFileName(request.SourceMimeType));
+            var outputPath = Path.Combine(workingDirectory, "output.pdf");
+            using (var source = new DocumentPreviewBudgetStream(request.SourceContent, inputBudget, DocumentErrorCodes.OfficePreviewInputTooLarge))
+            await using (var input = File.Create(inputPath))
+                await source.CopyToAsync(input, deadline.Token).ConfigureAwait(false);
+
+            var startInfo = new ProcessStartInfo
+            {
+                FileName = processOptions.ExecutablePath,
+                WorkingDirectory = workingDirectory,
+                RedirectStandardError = true,
+                RedirectStandardOutput = true,
+                UseShellExecute = false,
+                CreateNoWindow = true,
+            };
+
+            // 文件名与参数边界由模块控制，上传名称不能注入转换器选项。
+            foreach (var argument in DocumentPreviewProcessArguments.Build(processOptions.ArgumentTemplate, inputPath, outputPath))
+                startInfo.ArgumentList.Add(argument);
+
+            var exitCode = await ConvertWithDiskBudgetAsync(startInfo, outputPath, snapshot, deadline.Token).ConfigureAwait(false);
+            var output = new FileInfo(outputPath);
+            if (exitCode != 0 || !output.Exists || output.Attributes.HasFlag(FileAttributes.ReparsePoint))
+                return Failure(DocumentErrorCodes.OfficePreviewConversionFailed, "External process did not produce a usable preview PDF.");
+            return await OpenResultAsync(output, snapshot.MaxOutputBytes, deadline.Token).ConfigureAwait(false);
         }
-        catch (OperationCanceledException)
+        catch (DocumentPreviewContentLimitException limit)
         {
-            try
-            {
-                process.Kill(entireProcessTree: true);
-            }
-            catch
-            {
-                // 进程可能已退出，忽略清理异常。
-            }
-
-            try { await process.WaitForExitAsync(CancellationToken.None).WaitAsync(TimeSpan.FromSeconds(5)).ConfigureAwait(false); }
-            catch (TimeoutException) { }
-            await Task.WhenAll(stdout, stderr).WaitAsync(TimeSpan.FromSeconds(5)).ConfigureAwait(false);
             cancellationToken.ThrowIfCancellationRequested();
-            return Result<DocumentOfficePreviewConversionOutput>.Failure(
-                new Error(
-                    DocumentErrorCodes.OfficePreviewConversionFailed,
-                    diskBudgetExceeded ? "External process office preview conversion exceeded its disk budget."
-                        : "External process office preview conversion timed out.",
-                    ErrorType.BusinessRule));
+            return Failure(limit.Code, limit.Message);
         }
+        catch (OperationCanceledException) when (deadline.IsCancellationRequested)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            return Failure(DocumentErrorCodes.OfficePreviewConversionFailed, "External process office preview conversion timed out.");
+        }
+    }
 
+    private static async Task<Result<DocumentOfficePreviewConversionOutput>> OpenResultAsync(FileInfo output, long budget, CancellationToken token)
+    {
+        var stream = output.OpenRead();
+        var transferred = false;
+        try
+        {
+            token.ThrowIfCancellationRequested();
+            var length = stream.Length;
+            DocumentPreviewContentBudget.CheckDeclaredLength(length, budget, DocumentErrorCodes.OfficePreviewOutputTooLarge);
+            if (length == 0)
+                return Failure(DocumentErrorCodes.OfficePreviewConversionFailed, "External process produced an empty preview PDF.");
+            transferred = true;
+            return Result<DocumentOfficePreviewConversionOutput>.Success(new(stream, length));
+        }
+        finally
+        {
+            if (!transferred) await stream.DisposeAsync().ConfigureAwait(false);
+        }
+    }
+
+    private static async Task<int> ConvertWithDiskBudgetAsync(ProcessStartInfo startInfo, string outputPath,
+        DocumentOfficePreviewConversionOptions limits, CancellationToken token)
+    {
+        using var processCancellation = CancellationTokenSource.CreateLinkedTokenSource(token);
+        using var monitorStop = new CancellationTokenSource();
+        var monitor = MonitorDirectoryAsync(startInfo.WorkingDirectory, outputPath, limits, processCancellation, monitorStop.Token);
+        int exitCode;
+        try
+        {
+            exitCode = await DocumentPreviewProcessLifetime.RunAsync(startInfo, processCancellation.Token).ConfigureAwait(false);
+        }
         finally
         {
             await monitorStop.CancelAsync().ConfigureAwait(false);
-            await diskMonitor.ConfigureAwait(false);
+            await monitor.ConfigureAwait(false);
         }
-
-        if (process.ExitCode != 0 || !File.Exists(outputPath))
-        {
-            return Result<DocumentOfficePreviewConversionOutput>.Failure(
-                new Error(
-                    DocumentErrorCodes.OfficePreviewConversionFailed,
-                    "External process office preview conversion returned a non-zero exit code.",
-                    ErrorType.BusinessRule));
-        }
-
-        var pdfStream = File.OpenRead(outputPath);
-        var length = pdfStream.Length;
-        if (length > snapshot.MaxOutputBytes)
-        {
-            await pdfStream.DisposeAsync().ConfigureAwait(false);
-            return Result<DocumentOfficePreviewConversionOutput>.Failure(new Error(
-                DocumentErrorCodes.OfficePreviewConversionFailed, "Converted PDF exceeds its byte budget.", ErrorType.BusinessRule));
-        }
-        return Result<DocumentOfficePreviewConversionOutput>.Success(
-            new DocumentOfficePreviewConversionOutput(pdfStream, length));
+        // 转换器可能在两次采样之间写完并退出；最终验收必须再核对磁盘和 PDF 大小。
+        CheckDirectoryBudget(startInfo.WorkingDirectory, outputPath, limits, token);
+        token.ThrowIfCancellationRequested();
+        return exitCode;
     }
 
     private static async Task MonitorDirectoryAsync(string directory, string outputPath,
-        DocumentOfficePreviewConversionOptions limits, Action exceeded, CancellationToken cancellationToken)
+        DocumentOfficePreviewConversionOptions limits, CancellationTokenSource processCancellation, CancellationToken token)
     {
         using var timer = new PeriodicTimer(TimeSpan.FromMilliseconds(250));
         try
         {
             do
             {
-                long bytes = 0;
-                var entries = 0;
-                foreach (var path in Directory.EnumerateFileSystemEntries(directory, "*", new EnumerationOptions
-                { RecurseSubdirectories = true, AttributesToSkip = FileAttributes.ReparsePoint, IgnoreInaccessible = false }))
-                {
-                    cancellationToken.ThrowIfCancellationRequested();
-                    if (++entries > 1024) { exceeded(); return; }
-                    if (Directory.Exists(path)) continue;
-                    var info = new FileInfo(path);
-                    if (!info.Exists) continue;
-                    bytes = checked(bytes + info.Length);
-                    if (bytes > limits.MaxTemporaryBytes || (string.Equals(path, outputPath, StringComparison.OrdinalIgnoreCase)
-                        && info.Length > limits.MaxOutputBytes)) { exceeded(); return; }
-                }
+                CheckDirectoryBudget(directory, outputPath, limits, token);
             }
-            while (await timer.WaitForNextTickAsync(cancellationToken).ConfigureAwait(false));
+            while (await timer.WaitForNextTickAsync(token).ConfigureAwait(false));
         }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { }
-        catch (IOException) { exceeded(); }
-        catch (UnauthorizedAccessException) { exceeded(); }
-    }
-
-    private static async Task DrainAsync(StreamReader reader)
-    {
-        var buffer = new char[4096];
-        while (await reader.ReadAsync(buffer.AsMemory()).ConfigureAwait(false) != 0) { }
-    }
-
-    private static string SanitizeFileName(string fileName)
-    {
-        var safeName = Path.GetFileName(fileName);
-        if (string.IsNullOrWhiteSpace(safeName))
+        catch (OperationCanceledException) when (token.IsCancellationRequested) { }
+        catch
         {
-            return "source.bin";
+            await processCancellation.CancelAsync().ConfigureAwait(false);
+            throw;
         }
-
-        foreach (var invalid in Path.GetInvalidFileNameChars())
-        {
-            safeName = safeName.Replace(invalid, '_');
-        }
-
-        return safeName;
     }
+
+    private static void CheckDirectoryBudget(string directory, string outputPath,
+        DocumentOfficePreviewConversionOptions limits, CancellationToken token)
+    {
+        long bytes = 0;
+        var entries = 0;
+        var comparison = OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
+        foreach (var entry in new DirectoryInfo(directory).EnumerateFileSystemInfos("*", new EnumerationOptions
+            { RecurseSubdirectories = true, AttributesToSkip = FileAttributes.ReparsePoint, IgnoreInaccessible = false }))
+        {
+            token.ThrowIfCancellationRequested();
+            if (++entries > 1024)
+                throw new DocumentPreviewContentLimitException(DocumentErrorCodes.OfficePreviewOutputTooLarge);
+            if (entry is not FileInfo file || !file.Exists) continue;
+            var length = file.Length;
+            if (length > limits.MaxTemporaryBytes - bytes
+                || (string.Equals(file.FullName, outputPath, comparison) && length > limits.MaxOutputBytes))
+                throw new DocumentPreviewContentLimitException(DocumentErrorCodes.OfficePreviewOutputTooLarge);
+            bytes += length;
+        }
+    }
+
+    private static Result<DocumentOfficePreviewConversionOutput> Failure(string code, string message) =>
+        Result<DocumentOfficePreviewConversionOutput>.Failure(new Error(code, message, ErrorType.BusinessRule));
 }

@@ -54,7 +54,8 @@ public sealed class DocumentPreviewProcessProviderTests
         {
             var ids = await fixture.WaitForReadyAsync();
             cancellation.Cancel();
-            await Assert.ThrowsAsync<OperationCanceledException>(() => pending.WaitAsync(TimeSpan.FromSeconds(15)));
+            var canceled = await Assert.ThrowsAsync<OperationCanceledException>(() => pending.WaitAsync(TimeSpan.FromSeconds(15)));
+            Assert.AreEqual(cancellation.Token, canceled.CancellationToken);
             Assert.IsFalse(fixture.IsOwnedRunning(ids.Pid));
             Assert.IsTrue(input.CanRead);
             // Kill(true) 异步终止后代；父进程退出不代表后代已经完成 OS 收尾，不能要求同一时刻消失。
@@ -136,6 +137,19 @@ public sealed class DocumentPreviewProcessProviderTests
         Assert.IsFalse(File.Exists(Path.Combine(fixture.Directory, "output.pdf")));
     }
 
+    [TestMethod]
+    public async Task Final_disk_budget_includes_scratch_files_when_converter_exits_quickly()
+    {
+        using var fixture = new Fixture();
+        using var input = new MemoryStream([1]);
+
+        var result = await fixture.Provider("scratch", temporaryBudget: 8192).ConvertAsync(Input(input), fixture.Directory);
+
+        Assert.IsFalse(result.IsSuccess);
+        Assert.AreEqual(Errors.OfficePreviewOutputTooLarge, result.Error!.Code);
+        Assert.IsTrue(input.CanRead);
+    }
+
     private static DocumentOfficePreviewConversionInput Input(Stream input) =>
         new("../../name\" --unsafe.docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document", input, 1);
 
@@ -152,6 +166,7 @@ public sealed class DocumentPreviewProcessProviderTests
             System.IO.Directory.CreateDirectory(Directory);
             File.WriteAllText(ScriptPath, """
                 import { writeFileSync } from 'node:fs';
+                import { dirname, join } from 'node:path';
                 import { spawn } from 'node:child_process';
                 const [mode, input, output, receipt] = process.argv.slice(2);
                 if (mode === 'cancel') {
@@ -165,6 +180,7 @@ public sealed class DocumentPreviewProcessProviderTests
                       stream.write(Buffer.alloc(65536), error => error ? reject(error) : resolve()))));
                   }
                   if (mode !== 'missing' && mode !== 'fail') writeFileSync(output, Buffer.from(mode === 'empty' ? [] : mode === 'oversize' ? [1,2,3,4] : [1,2,3]));
+                  if (mode === 'scratch') writeFileSync(join(dirname(output), 'scratch.bin'), Buffer.alloc(16384));
                   process.exitCode = mode === 'fail' ? 23 : 0;
                 }
                 """);
@@ -176,12 +192,12 @@ public sealed class DocumentPreviewProcessProviderTests
             ArgumentList = { ScriptPath, mode, Path.Combine(Directory, "source.docx"), Path.Combine(Directory, "output.pdf"), ReadyPath },
         };
 
-        public ExternalProcessDocumentOfficePreviewConversionProvider Provider(string mode)
+        public ExternalProcessDocumentOfficePreviewConversionProvider Provider(string mode, long temporaryBudget = 157_286_400)
         {
             var options = Substitute.For<IOptionsMonitor<DocumentOfficePreviewConversionOptions>>();
             options.CurrentValue.Returns(new DocumentOfficePreviewConversionOptions
             {
-                MaxInputBytes = 3, MaxOutputBytes = 3, TimeoutSeconds = 30,
+                MaxInputBytes = 3, MaxOutputBytes = 3, MaxTemporaryBytes = temporaryBudget, TimeoutSeconds = 30,
                 ExternalProcess = new() { ExecutablePath = "node", ArgumentTemplate = $"\"{ScriptPath}\" {mode} \"{{inputPath}}\" \"{{outputPath}}\" \"{ReadyPath}\"" },
             });
             return new(options);
