@@ -35,6 +35,19 @@ public sealed partial class AiChatPaidBoundaryTests
         var model = PaidChatFactory.Model(); var owner = Guid.CreateVersion7(); var session = Guid.CreateVersion7();
         query.QuerySingleOrDefaultAsync<AiChatSessionRecord>(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(new AiChatSessionRecord { Id = session, OwnerUserId = owner, ModelConfigId = model.Id });
         query.QuerySingleOrDefaultAsync<AiModelConfigRecord>(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(model);
+        var options = Options.Create(new DatabaseOptions());
+        var completionLock = AiKnowledgeAnswerSql.LockFor(options.Value.Provider, scoped);
+        var completionCheck = AiKnowledgeAnswerSql.CurrentFor(options.Value.Provider, scoped);
+        // 完成事务先锁定本代会话，写入后再次复核所有权；夹具只确认当前所有者。
+        query.QuerySingleOrDefaultAsync<Guid>(Arg.Is<SqlStatement>(statement => statement == completionLock || statement == completionCheck),
+                Arg.Is<IReadOnlyDictionary<string, object?>>(parameters =>
+                    parameters != null
+                    && Equals(parameters["MessageId"], generation)
+                    && Equals(parameters["SessionId"], session)
+                    && Equals(parameters["OwnerUserId"], owner)
+                    && Equals(parameters["TenantId"], scoped ? tenantContext.Id : (Guid?)null)),
+                Arg.Any<CancellationToken>())
+            .Returns(generation);
         query.ReturnsForAll<Task<IReadOnlyList<AiChatMessageRecord>>>(Task.FromResult<IReadOnlyList<AiChatMessageRecord>>([new() { RoleKey = "user", Content = "问题" }]));
         if (fault.StartsWith("history-", StringComparison.Ordinal))
             query.ReturnsForAll<Task<IReadOnlyList<AiChatMessageRecord>>>(Task.FromResult<IReadOnlyList<AiChatMessageRecord>>(
@@ -50,7 +63,7 @@ public sealed partial class AiChatPaidBoundaryTests
         var resolver = Substitute.For<IActiveTenantContextResolver>(); resolver.ResolveActiveByIdAsync(tenantContext.Id, Arg.Any<CancellationToken>()).Returns(tenantContext);
         await using var services = new ServiceCollection().AddScoped<ICurrentTenantContextWriter, CurrentTenantAccessor>().AddSingleton(resolver)
             .AddScoped<ICommandExecutor>(_ => command).AddScoped<IAiOperationBudgetStore>(_ => budget).BuildServiceProvider();
-        var scopes = services.GetRequiredService<IServiceScopeFactory>(); var options = Options.Create(new DatabaseOptions());
+        var scopes = services.GetRequiredService<IServiceScopeFactory>();
         var factory = new PaidChatFactory(fault, cancellation); using var bindings = new AiModelBindingScope();
         var registry = new AiChatGenerationRegistry(); var output = new Output(fault);
         var service = new AiChatStreamService(query, command, transaction, new(query, tenant, options, clock), new([factory], bindings), registry,
