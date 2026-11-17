@@ -91,6 +91,22 @@ public sealed class PendingReconciliationCycleTests
     }
 
     [TestMethod]
+    [DataRow(DatabaseProvider.SqlServer)]
+    [DataRow(DatabaseProvider.MySql)]
+    public async Task Tighter_claim_release_grace_protects_the_next_page_of_the_current_scan(DatabaseProvider provider)
+    {
+        var f = new Fixture(provider, "claim");
+        Assert.AreEqual(0, (await f.RunAsync()).Written);
+
+        var result = await f.RunAsync(grace: 7200);
+
+        Assert.AreEqual(1, result.Scanned);
+        Assert.AreEqual(0, result.Written);
+        Assert.AreEqual(0, f.Commands);
+        Assert.HasCount(2, f.Rows);
+    }
+
+    [TestMethod]
     [DataRow(DatabaseProvider.SqlServer, "upload")]
     [DataRow(DatabaseProvider.MySql, "upload")]
     [DataRow(DatabaseProvider.SqlServer, "claim")]

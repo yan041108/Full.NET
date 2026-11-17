@@ -37,6 +37,21 @@ internal sealed class PendingHostFileReconciliationRunner(
         PendingHostFileReconciliationOptions options,
         CancellationToken cancellationToken)
     {
+        ArgumentNullException.ThrowIfNull(options);
+        if (!options.Enabled)
+        {
+            return PendingHostFileReconciliationResult.Empty;
+        }
+
+        var validation = new PendingHostFileReconciliationOptionsValidator().Validate(null, options);
+        if (validation.Failed)
+        {
+            throw new OptionsValidationException(
+                PendingHostFileReconciliationOptions.SectionName,
+                typeof(PendingHostFileReconciliationOptions),
+                validation.Failures);
+        }
+
         await _cursor.Gate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
@@ -51,13 +66,12 @@ internal sealed class PendingHostFileReconciliationRunner(
     private async Task<PendingHostFileReconciliationResult> RunCoreAsync(
         PendingHostFileReconciliationOptions options, CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(options);
-        if (!options.Enabled)
-        {
-            return PendingHostFileReconciliationResult.Empty;
-        }
-
-        var createdBeforeUtc = _cursor.CutoffUtc ??= clock.UtcNow.AddSeconds(-options.MinimumAgeSeconds);
+        var cutoff = clock.UtcNow.AddSeconds(-options.MinimumAgeSeconds);
+        // 当前环扫沿用历史上界，配置收紧时立即缩小本轮候选范围。
+        var createdBeforeUtc = _cursor.CutoffUtc is { } previous && previous < cutoff
+            ? previous
+            : cutoff;
+        _cursor.CutoffUtc = createdBeforeUtc;
         var scanned = 0;
         var promoted = 0;
         var purged = 0;
@@ -71,6 +85,7 @@ internal sealed class PendingHostFileReconciliationRunner(
 
         while (batches < options.MaxBatchesPerRun)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             var records = await queryExecutor.QueryAsync<PendingHostFileRecord>(
                     SelectStatement(),
                     new Dictionary<string, object?>
@@ -83,6 +98,7 @@ internal sealed class PendingHostFileReconciliationRunner(
                     },
                     cancellationToken)
                 .ConfigureAwait(false);
+            cancellationToken.ThrowIfCancellationRequested();
             batches++;
             if (records.Count == 0)
             {
@@ -115,6 +131,7 @@ internal sealed class PendingHostFileReconciliationRunner(
                     continue;
                 }
 
+                cancellationToken.ThrowIfCancellationRequested();
                 if (!exists
                     && string.Equals(
                         record.StorageState,
@@ -133,6 +150,7 @@ internal sealed class PendingHostFileReconciliationRunner(
                     continue;
                 }
 
+                cancellationToken.ThrowIfCancellationRequested();
                 var affectedRows = await commandExecutor.ExecuteAsync(
                         exists ? HostFileSql.ReconcileReady : HostFileSql.PurgePending,
                         new Dictionary<string, object?>

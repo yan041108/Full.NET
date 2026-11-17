@@ -48,6 +48,21 @@ internal sealed class PendingHostFileReferenceClaimReconciliationRunner(
         PendingHostFileReferenceClaimReconciliationOptions options,
         CancellationToken cancellationToken)
     {
+        ArgumentNullException.ThrowIfNull(options);
+        if (!options.Enabled)
+        {
+            return PendingHostFileReferenceClaimReconciliationResult.Empty;
+        }
+
+        var validation = new PendingHostFileReferenceClaimReconciliationOptionsValidator().Validate(null, options);
+        if (validation.Failed)
+        {
+            throw new OptionsValidationException(
+                PendingHostFileReferenceClaimReconciliationOptions.SectionName,
+                typeof(PendingHostFileReferenceClaimReconciliationOptions),
+                validation.Failures);
+        }
+
         await _cursor.Gate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
@@ -62,14 +77,18 @@ internal sealed class PendingHostFileReferenceClaimReconciliationRunner(
     private async Task<PendingHostFileReferenceClaimReconciliationResult> RunCoreAsync(
         PendingHostFileReferenceClaimReconciliationOptions options, CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(options);
-        if (!options.Enabled)
-        {
-            return PendingHostFileReferenceClaimReconciliationResult.Empty;
-        }
-
-        var staleBeforeUtc = _cursor.CutoffUtc ??= clock.UtcNow.AddSeconds(-options.MinimumAgeSeconds);
-        var releaseBeforeUtc = _cursor.ReleaseBeforeUtc ??= clock.UtcNow.AddSeconds(-options.ReleaseGraceSeconds);
+        var now = clock.UtcNow;
+        var staleCutoff = now.AddSeconds(-options.MinimumAgeSeconds);
+        var releaseCutoff = now.AddSeconds(-options.ReleaseGraceSeconds);
+        // 当前环扫的候选与释放窗口都可立即收紧，放宽从下一轮生效。
+        var staleBeforeUtc = _cursor.CutoffUtc is { } previousStale && previousStale < staleCutoff
+            ? previousStale
+            : staleCutoff;
+        var releaseBeforeUtc = _cursor.ReleaseBeforeUtc is { } previousRelease && previousRelease < releaseCutoff
+            ? previousRelease
+            : releaseCutoff;
+        _cursor.CutoffUtc = staleBeforeUtc;
+        _cursor.ReleaseBeforeUtc = releaseBeforeUtc;
         var scanned = 0;
         var promoted = 0;
         var released = 0;
@@ -81,6 +100,7 @@ internal sealed class PendingHostFileReferenceClaimReconciliationRunner(
 
         while (batches < options.MaxBatchesPerRun)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             var records = await queryExecutor.QueryAsync<HostFileReferenceClaimRecord>(
                     SelectStatement(),
                     new Dictionary<string, object?>
@@ -94,6 +114,7 @@ internal sealed class PendingHostFileReferenceClaimReconciliationRunner(
                     },
                     cancellationToken)
                 .ConfigureAwait(false);
+            cancellationToken.ThrowIfCancellationRequested();
             batches++;
             if (records.Count == 0)
             {
@@ -125,6 +146,13 @@ internal sealed class PendingHostFileReferenceClaimReconciliationRunner(
                     throw;
                 }
                 catch
+                {
+                    probeFailures++;
+                    continue;
+                }
+
+                cancellationToken.ThrowIfCancellationRequested();
+                if (probeResult is null)
                 {
                     probeFailures++;
                     continue;
