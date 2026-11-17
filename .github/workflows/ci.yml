@@ -35,11 +35,16 @@ jobs:
           python-version: "3.12"
 
       - name: Install client dependencies
-        run: pnpm install --frozen-lockfile
+        run: |
+          # 许可证报告还读取未链接的可选依赖索引，预取不执行包脚本。
+          pnpm fetch --force --ignore-scripts
+          pnpm install --frozen-lockfile
 
       - name: Audit client dependencies
+        run: pnpm audit:clients
+
+      - name: Export client dependency licenses
         run: |
-          pnpm audit:clients
           pnpm licenses list --prod --json > client-production-licenses.json
           pnpm licenses list --json > client-development-licenses.json
 
