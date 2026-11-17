@@ -79,6 +79,13 @@ test('核心API跨宿主恢复与Worker专项均登记必需场景', async () =>
   assert.equal(searchAnswer.filter, 'FullyQualifiedName~Full.NET.IntegrationTests.NativeAot.' + searchAnswerType);
   assert.deepEqual(searchAnswer.requiredTestTypes, [searchAnswerType]);
   assert.equal(searchAnswer.minimum, 2);
+  const knowledgeModels = matrix.nativeKnowledgeModelRuntimeIntegration;
+  const modelTypes = ['NativeKnowledgeSearchComparisonE2ETests', 'NativeKnowledgeSearchRefinementE2ETests',
+    'NativeKnowledgeFaqSearchE2ETests'];
+  assert.deepEqual(knowledgeModels.requiredTestTypes, modelTypes);
+  assert.equal(knowledgeModels.filter, modelTypes.map(type => 'FullyQualifiedName~' + type).join('|'));
+  assert.equal(knowledgeModels.minimum, 6);
+  for (const type of modelTypes) assert.ok(api.filter.split('&').includes('FullyQualifiedName!~' + type));
   const evaluation = matrix.nativeKnowledgeEvaluationRuntimeIntegration;
   const evaluationTypes = ['NativeKnowledgeEvaluationPrivateRunE2ETests', 'NativeKnowledgeEvaluationRunE2ETests',
     'NativeKnowledgeEvaluationSourceE2ETests'];
@@ -137,6 +144,8 @@ for (const role of ['api', 'worker']) {
       assert.ok(integrationBuild >= 0 && chat > integrationBuild && chat < runtime, '原生聊天专项必须复用已构建控制器');
       const searchAnswer = steps.findIndex(step => step.includes('run-native-generation.mjs --search-answer'));
       assert.ok(searchAnswer > integrationBuild && searchAnswer < runtime, '原生检索答案须在隔离模型环境中运行');
+      const knowledgeModels = steps.findIndex(step => step.includes('run-native-generation.mjs --knowledge-models'));
+      assert.ok(knowledgeModels > integrationBuild && knowledgeModels < runtime, '原生比较、改写和 FAQ 须在隔离模型环境中运行');
       const isolationRunner = await read('tests/ai-parsing/run-native-generation.mjs');
       assert.match(isolationRunner, /--list-tests json .* --results-directory \/out\/results/,
         '发现用例也必须将结果写到可写的隔离目录');

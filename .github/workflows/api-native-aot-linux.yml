@@ -117,6 +117,7 @@ jobs:
           docker pull "$ryuk"
           node tests/ai-parsing/run-native-generation.mjs --chat "$RUNNER_TEMP/fullnet-native-chat"
           node tests/ai-parsing/run-native-generation.mjs --search-answer "$RUNNER_TEMP/fullnet-native-search-answer"
+          node tests/ai-parsing/run-native-generation.mjs --knowledge-models "$RUNNER_TEMP/fullnet-native-knowledge-models"
           node tests/ai-parsing/run-native-generation.mjs --evaluation "$RUNNER_TEMP/fullnet-native-evaluation"
 
       - name: Run Native structured knowledge E2E
@@ -158,5 +159,6 @@ jobs:
             TestResults/**
             ${{ runner.temp }}/fullnet-native-chat/**
             ${{ runner.temp }}/fullnet-native-search-answer/**
+            ${{ runner.temp }}/fullnet-native-knowledge-models/**
             ${{ runner.temp }}/fullnet-native-evaluation/**
             ${{ runner.temp }}/fullnet-native-structured/**

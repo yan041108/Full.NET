@@ -13,6 +13,7 @@ const [argument,resultsDirectory,...extra]=process.argv.slice(2);
 const isolatedSuites=new Map([
   ['--chat',{key:'nativeChatRuntimeIntegration',report:'native-chat.trx',label:'chat'}],
   ['--search-answer',{key:'nativeKnowledgeSearchAnswerRuntimeIntegration',report:'native-search-answer.trx',label:'search-answer'}],
+  ['--knowledge-models',{key:'nativeKnowledgeModelRuntimeIntegration',report:'native-knowledge-models.trx',label:'knowledge-models'}],
   ['--evaluation',{key:'nativeKnowledgeEvaluationRuntimeIntegration',report:'native-evaluation.trx',label:'evaluation'}],
   ['--structured',{key:'nativeKnowledgeStructuredRuntimeIntegration',report:'native-structured.trx',label:'structured'}],
 ]);
