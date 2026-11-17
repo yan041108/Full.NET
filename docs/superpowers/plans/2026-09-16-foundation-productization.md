@@ -6751,3 +6751,8 @@ Release 集成工程单节点构建及 Identity 模块隔离 AOT 分析均零警
 
 - `--knowledge-models` 接入 SQL Server 与 MySQL 的检索比较、改写、FAQ 搜索及历史引用。实际 Native API 使用隔离 TLS 模型，核对单次结算、原作用域和来源权限。各场景现有的可选浏览器桥接仍可独立运行。
 - 本机复用 Linux Native API，6/6 通过，零失败、零跳过，耗时 24 分 43 秒。发现 UID 与 TRX 匹配，核心套件实际发现 129 项，与本专项无重叠。定向发布规则 3/3。官方作业待复验。
+
+### 8.309 隔离模型作业的 SQL Server 镜像准备（2026-11-17）
+
+- GitHub 作业已通过只读程序集发现，聊天 MySQL 用例完成。SQL Server 夹具按有界模式拒绝隐式拉取，在 Docker 引擎中找不到预期镜像。CI 在所有隔离模型用例前显式准备 `mcr.microsoft.com/mssql/server:2022-CU14-ubuntu-22.04`，沿用现有镜像和资源约束。
+- 定向发布规则 3/3，镜像清单查询和本地 Linux/amd64 身份检查通过。新 GitHub 作业的双库复验待执行。[原失败作业](https://github.com/yan041108/Full.NET/actions/runs/44101827026/job/134103580900)。

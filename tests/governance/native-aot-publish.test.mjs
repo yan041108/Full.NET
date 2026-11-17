@@ -142,6 +142,8 @@ for (const role of ['api', 'worker']) {
       const integrationBuild = steps.findIndex(step => step.startsWith('name: Build integration tests'));
       const chat = steps.findIndex(step => step.includes('run-native-generation.mjs --chat'));
       assert.ok(integrationBuild >= 0 && chat > integrationBuild && chat < runtime, '原生聊天专项必须复用已构建控制器');
+      assert.match(steps[chat], /docker pull mcr\.microsoft\.com\/mssql\/server:2022-CU14-ubuntu-22\.04[\s\S]*--chat/,
+        '有界运行须在双库场景开始前准备 SQL Server 镜像');
       const searchAnswer = steps.findIndex(step => step.includes('run-native-generation.mjs --search-answer'));
       assert.ok(searchAnswer > integrationBuild && searchAnswer < runtime, '原生检索答案须在隔离模型环境中运行');
       const knowledgeModels = steps.findIndex(step => step.includes('run-native-generation.mjs --knowledge-models'));

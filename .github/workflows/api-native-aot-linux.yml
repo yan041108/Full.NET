@@ -113,6 +113,7 @@ jobs:
       - name: Run isolated Native AI model E2E
         run: |
           docker pull mcr.microsoft.com/dotnet/sdk:10.0.404
+          docker pull mcr.microsoft.com/mssql/server:2022-CU14-ubuntu-22.04
           ryuk="$(node --input-type=module -e 'import { boundedRyukImage } from "./scripts/testing/bounded-testcontainers-reaper.mjs"; console.log(boundedRyukImage)')"
           docker pull "$ryuk"
           node tests/ai-parsing/run-native-generation.mjs --chat "$RUNNER_TEMP/fullnet-native-chat"
