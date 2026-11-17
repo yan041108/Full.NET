@@ -116,6 +116,7 @@ function Reply {
         default { @{tenantId=$tenant;taskId=$task;taskExists=1;hasLease=1;hasRowIdentityPrefix=0;fileCount=2;unresolvedFileCount=1} | ConvertTo-Json -Compress }
     }
 }
+
 function sqlcmd {
     if ('-N' -notin $args -or '-C' -in $args -or '-x' -notin $args -or '-Q' -notin $args) { throw 'Unexpected SQL Server transport.' }
     Reply $args[-1]
@@ -179,6 +180,99 @@ for (const [scenario, message] of [
     assert.equal(stdout.trim(), '');
     assert.match(stderr, message);
     assert.doesNotMatch(stderr, /Database must not be called|malformed-result/);
+  });
+}
+
+function runFileCandidates(scenario, provider) {
+  const script = String.raw`
+$tenant = '00000000-0000-7000-8000-000000000001'
+$task = '00000000-0000-7000-8000-000000000002'
+$fileA = '00000000-0000-7000-8000-00000000000a'
+$fileB = '00000000-0000-7000-8000-00000000000b'
+$scenario = $env:FULLNET_CUTOVER_TEST_CASE
+function ReadCandidates([string] $Query) {
+    if ($scenario -eq 'empty-cursor') { throw 'Database must not be called.' }
+    if ($Query -notlike "*$tenant*" -or $Query -notlike "*$task*" -or $Query -like '*{{*' -or
+        $Query -notmatch 'f.TenantId = @TenantId AND f.ResourceId = @TaskId' -or
+        $Query -notmatch "f.OwnerModuleKey = 'reporting'" -or $Query -notmatch 'TOP \(2\)|LIMIT 2') {
+        throw 'Unexpected candidate query.'
+    }
+    $global:LASTEXITCODE = 0
+    $first = $fileA, 'ready', '1200', ('A' * 64), '2026-11-17T00:00:00Z', 1 -join [char]9
+    $second = $fileB, 'pending', '3400', ('b' * 64), '2026-11-17T00:00:01.123456Z', 0 -join [char]9
+    switch ($scenario) {
+        'empty' { return }
+        'readonly' { '-1' }
+        'malformed' { $first; $second.Replace(('b' * 64), 'not-a-hash') }
+        'duplicate' { $first; $first.ToUpperInvariant() }
+        'next' {
+            if ($Query -notlike "*$fileA*" -or $Query -notmatch 'f.Id > @AfterFileId') { throw 'Missing file cursor.' }
+            $second
+        }
+        default { $first; $second }
+    }
+}
+function sqlcmd {
+    if ('-N' -notin $args -or '-C' -in $args -or '-x' -notin $args) { throw 'Unexpected SQL Server transport.' }
+    ReadCandidates $args[-1]
+}
+function mysql {
+    if ('--ssl-mode=VERIFY_IDENTITY' -notin $args -or '--raw' -notin $args) { throw 'Unexpected MySQL transport.' }
+    ReadCandidates $args[-1]
+}
+$parameters = @{Provider=$env:FULLNET_CUTOVER_TEST_PROVIDER;Server='fixture.invalid';Database='fixture';TenantId=$tenant;TaskId=$task;Limit=1;
+    MySqlLoginPath='fixture-reader';MySqlCaFile='./eng/deploy/reporting-cutover/mysql.sql'}
+if ($scenario -eq 'next') { $parameters.AfterFileId = $fileA }
+if ($scenario -eq 'empty-cursor') { $parameters.AfterFileId = [guid]::Empty }
+& './eng/deploy/reporting-cutover/Get-ReportingCutoverFiles.ps1' @parameters
+`;
+  const result = spawnSync('pwsh', ['-NoProfile', '-NonInteractive', '-Command', script], {
+    cwd: root, encoding: 'utf8', timeout: 20_000, windowsHide: true,
+    env: { ...process.env, FULLNET_CUTOVER_TEST_CASE: scenario, FULLNET_CUTOVER_TEST_PROVIDER: provider }
+  });
+  assert.ifError(result.error);
+  return result;
+}
+
+for (const provider of ['SqlServer', 'MySql']) {
+  test(`${provider} file candidates return bounded data and continue from the last file`, () => {
+    const first = runFileCandidates('first', provider);
+    assert.equal(first.status, 0, first.stderr);
+    assert.deepEqual(JSON.parse(first.stdout), {
+      tenantId: '00000000-0000-7000-8000-000000000001',
+      taskId: '00000000-0000-7000-8000-000000000002',
+      hasMore: true,
+      items: [{
+        fileId: '00000000-0000-7000-8000-00000000000a', statusKey: 'ready', sizeBytes: 1200,
+        sha256: 'a'.repeat(64), createdAtUtc: '2026-11-17T00:00:00Z', isBound: true
+      }]
+    });
+    const next = runFileCandidates('next', provider);
+    assert.equal(next.status, 0, next.stderr);
+    assert.deepEqual(JSON.parse(next.stdout).items, [{
+      fileId: '00000000-0000-7000-8000-00000000000b', statusKey: 'pending', sizeBytes: 3400,
+      sha256: 'b'.repeat(64), createdAtUtc: '2026-11-17T00:00:01.123456Z', isBound: false
+    }]);
+    assert.equal(JSON.parse(next.stdout).hasMore, false);
+  });
+}
+
+test('a file candidate lookup with no active files returns an empty array', () => {
+  const result = runFileCandidates('empty', 'SqlServer');
+  assert.equal(result.status, 0, result.stderr);
+  assert.deepEqual(JSON.parse(result.stdout).items, []);
+  assert.equal(JSON.parse(result.stdout).hasMore, false);
+});
+
+for (const [scenario, error] of [
+  ['readonly', /writable primary/], ['malformed', /Invalid reporting cutover file result/],
+  ['duplicate', /Invalid reporting cutover file result/], ['empty-cursor', /AfterFileId must be a non-empty UUID/]
+]) {
+  test(`file candidate lookup rejects ${scenario} without emitting a partial page`, () => {
+    const { status, stdout, stderr } = runFileCandidates(scenario, 'MySql');
+    assert.notEqual(status, 0);
+    assert.equal(stdout.trim(), '');
+    assert.match(stderr, error);
   });
 }
 
