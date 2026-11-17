@@ -101,10 +101,9 @@ public sealed class WorkflowManagementContractTests
             .Select(property => property.Name)
             .ToHashSet(StringComparer.Ordinal);
 
-        CollectionAssert.IsSubsetOf(
-            new[] { "TargetStepId", "ExpectedRevision", "FieldPatch", "Comment", "IdempotencyKey" },
+        CollectionAssert.AreEquivalent(
+            new[] { "TargetStepId", "ExpectedRevision", "FieldPatch", "Comment", "IdempotencyKey", "ExpectedFormRevision", "SignatureFileId" },
             propertyNames.ToArray());
-        Assert.HasCount(5, propertyNames);
         Assert.IsFalse(propertyNames.Contains("InstanceId"));
         Assert.IsFalse(propertyNames.Contains("TenantScopeKey"));
     }
@@ -113,10 +112,15 @@ public sealed class WorkflowManagementContractTests
     [TestMethod]
     public void Todo_return_target_sql_fails_closed_for_automatic_and_rolled_back_steps()
     {
-        StringAssert.Contains(WorkflowSql.ListTodoReturnTargetsSqlServer.Text, "step.InstanceId = @InstanceId");
-        StringAssert.Contains(WorkflowSql.ListTodoReturnTargetsSqlServer.Text, "step.NodeTypeKey = 'human.approval'");
-        StringAssert.Contains(WorkflowSql.ListTodoReturnTargetsSqlServer.Text, "step.StatusKey = 'completed'");
+        foreach (var statement in new[] { WorkflowSql.ListTodoReturnTargetsSqlServer, WorkflowSql.ListTodoReturnTargetsMySql, WorkflowSql.FindTodoReturnTarget })
+        {
+            StringAssert.Contains(statement.Text, "step.InstanceId = @InstanceId");
+            StringAssert.Contains(statement.Text, "step.Id IN @AncestorStepIds");
+            StringAssert.Contains(statement.Text, "step.NodeTypeKey IN ('human.approval', 'human.group_approval', 'human.task')");
+            StringAssert.Contains(statement.Text, "step.StatusKey = 'completed'");
+            StringAssert.Contains(statement.Text, "instance.StatusKey = 'active'");
+            StringAssert.Contains(statement.Text, "instance.TenantScopeKey = @TenantScopeKey");
+        }
         StringAssert.Contains(WorkflowSql.FindTodoReturnTarget.Text, "step.Id = @TargetStepId");
-        StringAssert.Contains(WorkflowSql.FindTodoReturnTarget.Text, "step.InstanceId = @InstanceId");
     }
 }

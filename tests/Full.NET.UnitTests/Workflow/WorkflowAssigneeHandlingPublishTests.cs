@@ -53,9 +53,14 @@ public sealed class WorkflowAssigneeHandlingPublishTests
         var main = Guid.CreateVersion7(); var empty = Guid.CreateVersion7(); var missing = Guid.CreateVersion7(); var roles = Substitute.For<IWorkflowRoleMemberDirectory>();
         roles.FindActiveRolesAsync(Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>()).Returns(call =>
             call.ArgAt<IReadOnlyCollection<Guid>>(0).Where(id => id != missing).ToDictionary(id => id, id => new WorkflowRoleDirectoryEntry(id, "role", "Role")));
+        var member = Guid.CreateVersion7();
         roles.FindActiveMemberUserIdsByRoleIdsAsync(Arg.Any<IReadOnlyCollection<Guid>>(), 1, Arg.Any<CancellationToken>())
-            .Returns(new Dictionary<Guid, IReadOnlyList<Guid>> { [main] = [Guid.CreateVersion7()] });
-        var validator = new WorkflowAssigneePublishValidator(Substitute.For<IHostUserBatchSelectionDirectory>(), Substitute.For<ITenantMemberSelectionDirectory>(), roles, Substitute.For<IWorkflowOrganizationAssigneeDirectory>());
+            .Returns(new Dictionary<Guid, IReadOnlyList<Guid>> { [main] = [member] });
+        var hostUsers = Substitute.For<IHostUserBatchSelectionDirectory>();
+        hostUsers.FindActiveHostUsersAsync(Arg.Is<IReadOnlyCollection<Guid>>(users => users != null && users.Count == 1 && users.Contains(member)),
+                Arg.Any<CancellationToken>())
+            .Returns(new Dictionary<Guid, HostUserDirectoryEntry> { [member] = new(member, "active", "Active") });
+        var validator = new WorkflowAssigneePublishValidator(hostUsers, Substitute.For<ITenantMemberSelectionDirectory>(), roles, Substitute.For<IWorkflowOrganizationAssigneeDirectory>());
         WorkflowAssigneePolicy Role(Guid id) => new([new(WorkflowAssigneePolicy.RoleMembers, [], [id], null, null)]);
         var policy = Role(main) with { Handling = new(new("error", []), new("assign", [Role(empty)])) };
         Assert.IsTrue(await validator.ValidatePolicyAsync(policy, new(null, "host", "host"), default));

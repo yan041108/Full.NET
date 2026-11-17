@@ -63,8 +63,9 @@ public sealed class PrintingHtmlRendererTests
     [TestMethod]
     [DataRow("<script>a</script><p>ok</p><script>b</script>", "<p>ok</p>")]
     [DataRow("<ScRiPt type='x'>a<em>b</em></sCrIpT><p>ok</p>", "<p>ok</p>")]
-    [DataRow("<script>unfinished", "<script>unfinished")]
-    public void Script_preprocessing_keeps_existing_scope_and_complete_block_semantics(string layout, string expected)
+    [DataRow("<script>unfinished", "")]
+    [DataRow("<p>ok</p><script>unfinished", "<p>ok</p>")]
+    public void Script_preprocessing_removes_complete_and_unclosed_scripts(string layout, string expected)
     {
         Assert.AreEqual(expected, PrintingHtmlRenderer.SanitizeLayoutHtml(layout));
     }

@@ -46,7 +46,7 @@ public sealed class EnterpriseRequestStateWriteTests
         var f = new Fixture();
         var result = await f.Service.CreateAsync(f.Create with { Status = status }, f.Actor, f.Unit);
         Assert.IsFalse(result.IsSuccess);
-        Assert.AreEqual(EnterpriseRequestWorkflowErrorCodes.InvalidStatus, result.Error!.Code);
+        Assert.AreEqual(status.Length == 0 ? ValidationErrorCodes.Failed : EnterpriseRequestWorkflowErrorCodes.InvalidStatus, result.Error!.Code);
         Assert.AreEqual(0, f.Commands.ReceivedCalls().Count());
     }
 
@@ -201,6 +201,12 @@ public sealed class EnterpriseRequestStateWriteTests
             Create = new("REQ", "Draft request", "Draft", 1m, Actor);
             Update = new("REQ", "Edited draft", "Draft", 1m, Actor, 1);
             Queries.QuerySingleOrDefaultAsync<EnterpriseRequestRecord>(Arg.Any<SqlStatement>(), Arg.Any<object>(), Arg.Any<CancellationToken>()).Returns(_ => Row);
+            Queries.QuerySingleOrDefaultAsync<string>(Arg.Is<SqlStatement>(sql => sql != null && sql.Name == "enterprise_request.draft_mutation.lock_parent"),
+                Arg.Any<object>(), Arg.Any<CancellationToken>()).Returns(_ =>
+                {
+                    Assert.IsTrue(Coordinator.HasTransaction);
+                    return Row.Status;
+                });
             Commands.ExecuteAsync(Arg.Any<SqlStatement>(), Arg.Any<object>(), Arg.Any<CancellationToken>()).Returns(1);
             var transaction = new DapperCommandTransaction(Coordinator);
             var authorizer = Substitute.For<IOrganizationOwnedEntityWriteAuthorizer>();
