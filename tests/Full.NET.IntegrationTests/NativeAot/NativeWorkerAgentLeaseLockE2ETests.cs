@@ -22,6 +22,11 @@ namespace Full.NET.IntegrationTests.NativeAot;
 [DoNotParallelize]
 public sealed class NativeWorkerAgentLeaseLockE2ETests
 {
+    private DirectoryInfo? _temporaryRoot;
+
+    [TestCleanup]
+    public void RemoveTemporaryFiles() => _temporaryRoot?.Delete(recursive: true);
+
     [TestMethod]
     [DataRow(DatabaseProvider.SqlServer)]
     [DataRow(DatabaseProvider.MySql)]
@@ -49,16 +54,15 @@ public sealed class NativeWorkerAgentLeaseLockE2ETests
         });
         await modelServer.StartAsync();
         var origin = modelServer.Urls.Single();
+        // 共享夹具登记独立数据库并在程序集收尾回收，无需外部数据库登记文件。
         var connection = provider == DatabaseProvider.SqlServer
             ? await SharedDatabaseFixture.CreateSqlServerDatabaseAsync() : await SharedDatabaseFixture.CreateMySqlDatabaseAsync();
         var stamp = Guid.CreateVersion7().ToString("N");
-        var files = Path.Combine(Path.GetTempPath(), "fullnet-a06-native-agent-files", stamp);
-        var keys = Path.Combine(Path.GetTempPath(), "fullnet-a06-native-agent-keys", stamp);
+        _temporaryRoot = Directory.CreateTempSubdirectory("fullnet-native-agent-lease-");
+        var files = Path.Combine(_temporaryRoot.FullName, "files");
+        var keys = Path.Combine(_temporaryRoot.FullName, "keys");
         await using var db = Migration246AiKnowledgeIndexTaskRecoveryTests.Connection(provider == DatabaseProvider.SqlServer, connection);
         await db.OpenAsync();
-        var registry = Environment.GetEnvironmentVariable("FULLNET_A06_AGENT_NATIVE_DATABASE_REGISTRY")
-            ?? throw new InvalidOperationException("必须准确登记本批数据库。");
-        await File.AppendAllTextAsync(registry, JsonSerializer.Serialize(new { provider = provider.ToString(), database = db.Database, filesRoot = files, keysRoot = keys }) + "\n");
         var settings = AiAgentRuntimeTestSettings.ForIntegrationTests();
         settings["FullNet:Ai:Network:OllamaAllowedOrigins:0"] = origin;
         settings["Files:Local:RootPath"] = files;
