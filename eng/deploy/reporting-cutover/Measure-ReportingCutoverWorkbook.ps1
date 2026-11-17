@@ -39,7 +39,15 @@ function Measure-WorksheetRows {
     $rows = 0
     $cells = 0
     $columns = 0
+    $rowNumber = ''
     $hasSheetData = $false
+    $cellHasInline = $false
+    $cellHasText = $false
+    # 预计算渲染器支持的 Excel 列名，逐单元格核对坐标与表头布局。
+    $columnNames = for ($column = 0; $column -lt 256; $column++) {
+        $prefix = if ($column -ge 26) { [char] (64 + [int] [math]::Floor($column / 26)) } else { '' }
+        "$prefix$([char] (65 + ($column % 26)))"
+    }
     try {
         $reader = [Xml.XmlReader]::Create($stream, $settings)
         try {
@@ -47,6 +55,12 @@ function Measure-WorksheetRows {
                 if ($reader.NodeType -eq [Xml.XmlNodeType]::EndElement -and $reader.Depth -eq 2) {
                     if ($rows -eq 1) { $columns = $cells }
                     if ($cells -lt 1 -or $cells -ne $columns) { throw 'Unexpected reporting worksheet column count.' }
+                }
+                if ($reader.NodeType -eq [Xml.XmlNodeType]::EndElement -and $reader.Depth -eq 3 -and -not $cellHasText) {
+                    throw 'Unexpected reporting worksheet cell.'
+                }
+                if ($reader.NodeType -in [Xml.XmlNodeType]::Text, [Xml.XmlNodeType]::CDATA -and $reader.Depth -ne 6) {
+                    throw 'Unexpected reporting worksheet cell content.'
                 }
                 if ($reader.NodeType -ne [Xml.XmlNodeType]::Element) { continue }
                 if ($reader.NamespaceURI -cne $spreadsheetNamespace) { throw 'Unexpected reporting worksheet namespace.' }
@@ -58,20 +72,34 @@ function Measure-WorksheetRows {
                     }
                     2 {
                         $rows++
+                        $rowNumber = $rows.ToString([Globalization.CultureInfo]::InvariantCulture)
                         if ($reader.LocalName -cne 'row' -or $reader.IsEmptyElement -or $rows -gt 5001 -or
-                            $reader.GetAttribute('r') -cne $rows.ToString([Globalization.CultureInfo]::InvariantCulture)) {
+                            $reader.GetAttribute('r') -cne $rowNumber) {
                             throw 'Unexpected reporting worksheet row sequence.'
                         }
                         $cells = 0
                     }
                     3 {
-                        $cells++
-                        if ($reader.LocalName -cne 'c' -or $reader.GetAttribute('t') -cne 'inlineStr' -or $cells -gt 256) {
+                        if ($reader.LocalName -cne 'c' -or $reader.IsEmptyElement -or
+                            $reader.GetAttribute('t') -cne 'inlineStr' -or $cells -ge $columnNames.Count -or
+                            $reader.GetAttribute('r') -cne ($columnNames[$cells] + $rowNumber)) {
                             throw 'Unexpected reporting worksheet cell.'
                         }
+                        $cells++
+                        $cellHasInline = $false
+                        $cellHasText = $false
                     }
-                    4 { if ($reader.LocalName -cne 'is') { throw 'Unexpected reporting worksheet cell.' } }
-                    5 { if ($reader.LocalName -cne 't') { throw 'Unexpected reporting worksheet cell.' } }
+                    4 {
+                        if ($reader.LocalName -cne 'is' -or $reader.IsEmptyElement -or $cellHasInline) {
+                            throw 'Unexpected reporting worksheet cell.'
+                        }
+                        $cellHasInline = $true
+                    }
+                    5 {
+                        # 空文本仍有一个 t 元素。等到 c 结束时确认它已经出现。
+                        if ($reader.LocalName -cne 't' -or $cellHasText) { throw 'Unexpected reporting worksheet cell.' }
+                        $cellHasText = $true
+                    }
                     default { throw 'Unexpected reporting worksheet structure.' }
                 }
             }

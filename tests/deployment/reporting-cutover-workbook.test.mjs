@@ -19,14 +19,28 @@ try {
     $second = '<row r="2"><c r="A2" t="inlineStr"><is><t>private fixture</t></is></c></row>'
     if ($scenario -eq 'skipped-row') { $second = $second.Replace('r="2"', 'r="3"') }
     if ($scenario -eq 'formula') { $second = $second.Replace('<is><t>private fixture</t></is>', '<f>1+1</f>') }
+    if ($scenario -eq 'wrong-cell') { $second = $second.Replace('r="A2"', 'r="B2"') }
+    if ($scenario -eq 'missing-inline') { $second = '<row r="2"><c r="A2" t="inlineStr"/></row>' }
+    if ($scenario -eq 'missing-text') { $second = $second.Replace('<is><t>private fixture</t></is>', '<is/>') }
+    if ($scenario -eq 'duplicate-inline') { $second = $second.Replace('</c>', '<is><t>duplicate</t></is></c>') }
+    if ($scenario -eq 'stray-text') { $second = $second.Replace('<is>', '<is>outside t') }
+    if ($scenario -eq 'empty-text') { $second = $second.Replace('<t>private fixture</t>', '<t xml:space="preserve"/>') }
     if ($scenario -eq 'header-only') { $second = '' }
+    $header = "<row r='1'><c r='A1' t='inlineStr'><is><t>Header</t></is></c></row>"
+    if ($scenario -eq 'wide-row') {
+        $columnNames = ('A'..'Z') + 'AA'
+        $headerCells = ($columnNames | ForEach-Object { "<c r='$($_)1' t='inlineStr'><is><t>Header</t></is></c>" }) -join ''
+        $dataCells = ($columnNames | ForEach-Object { "<c r='$($_)2' t='inlineStr'><is><t/></is></c>" }) -join ''
+        $header = "<row r='1'>$headerCells</row>"
+        $second = "<row r='2'>$dataCells</row>"
+    }
     $target = if ($scenario -eq 'redirect') { 'worksheets/another.xml' } else { 'worksheets/sheet1.xml' }
     $parts = @{
         '[Content_Types].xml' = '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"/>'
         '_rels/.rels' = "<Relationships xmlns='$package'><Relationship Id='rId1' Type='$office/officeDocument' Target='xl/workbook.xml'/></Relationships>"
         'xl/workbook.xml' = "<workbook xmlns='$ns' xmlns:r='$office'><sheets><sheet name='Export' sheetId='1' r:id='rId1'/></sheets></workbook>"
         'xl/_rels/workbook.xml.rels' = "<Relationships xmlns='$package'><Relationship Id='rId1' Type='$office/worksheet' Target='$target'/></Relationships>"
-        'xl/worksheets/sheet1.xml' = "<worksheet xmlns='$ns'><sheetData><row r='1'><c r='A1' t='inlineStr'><is><t>Header</t></is></c></row>$second</sheetData></worksheet>"
+        'xl/worksheets/sheet1.xml' = "<worksheet xmlns='$ns'><sheetData>$header$second</sheetData></worksheet>"
     }
     if ($scenario -eq 'doctype') { $parts['xl/worksheets/sheet1.xml'] = '<!DOCTYPE worksheet []>' + $parts['xl/worksheets/sheet1.xml'] }
     if ($scenario -eq 'extra-part') { $parts['xl/worksheets/sheet2.xml'] = '<worksheet/>' }
@@ -95,7 +109,7 @@ try {
   return result;
 }
 
-for (const [scenario, rowCount] of [['one-row', 1], ['header-only', 0]]) {
+for (const [scenario, rowCount] of [['one-row', 1], ['header-only', 0], ['empty-text', 1], ['wide-row', 1]]) {
   test(`legacy workbook ${scenario} counts only fully matched data rows`, () => {
     const result = verify(scenario);
     assert.equal(result.status, 0, result.stderr);
@@ -121,6 +135,11 @@ for (const [scenario, failure] of [
   ['multiple-ready', /single unbound legacy/],
   ['skipped-row', /worksheet row sequence/],
   ['formula', /worksheet cell/],
+  ['wrong-cell', /worksheet cell/],
+  ['missing-inline', /worksheet cell/],
+  ['missing-text', /worksheet cell/],
+  ['duplicate-inline', /worksheet cell/],
+  ['stray-text', /worksheet cell content/],
   ['doctype', /DTD/],
   ['redirect', /worksheet mapping/],
   ['document-redirect', /document mapping/],
