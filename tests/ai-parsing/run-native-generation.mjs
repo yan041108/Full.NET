@@ -15,6 +15,7 @@ const isolatedSuites=new Map([
   ['--search-answer',{key:'nativeKnowledgeSearchAnswerRuntimeIntegration',report:'native-search-answer.trx',label:'search-answer'}],
   ['--knowledge-models',{key:'nativeKnowledgeModelRuntimeIntegration',report:'native-knowledge-models.trx',label:'knowledge-models'}],
   ['--faq-provenance',{key:'nativeKnowledgeFaqProvenanceRuntimeIntegration',report:'native-faq-provenance.trx',label:'faq-provenance'}],
+  ['--schedule-models',{key:'nativePersonalScheduleModelRuntimeIntegration',report:'native-schedule-models.trx',label:'schedule-models'}],
   ['--evaluation',{key:'nativeKnowledgeEvaluationRuntimeIntegration',report:'native-evaluation.trx',label:'evaluation'}],
   ['--structured',{key:'nativeKnowledgeStructuredRuntimeIntegration',report:'native-structured.trx',label:'structured'}],
 ]);

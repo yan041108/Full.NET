@@ -92,6 +92,12 @@ test('核心API跨宿主恢复与Worker专项均登记必需场景', async () =>
   assert.equal(faqProvenance.filter, faqTypes.map(type => 'FullyQualifiedName~' + type).join('|'));
   assert.equal(faqProvenance.minimum, 4);
   for (const type of faqTypes) assert.ok(api.filter.split('&').includes('FullyQualifiedName!~' + type));
+  const scheduleModels = matrix.nativePersonalScheduleModelRuntimeIntegration;
+  const scheduleTypes = ['NativePersonalScheduleAnswerE2ETests', 'NativePersonalScheduleFeedbackE2ETests'];
+  assert.deepEqual(scheduleModels.requiredTestTypes, scheduleTypes);
+  assert.equal(scheduleModels.filter, scheduleTypes.map(type => 'FullyQualifiedName~' + type).join('|'));
+  assert.equal(scheduleModels.minimum, 4);
+  for (const type of scheduleTypes) assert.ok(api.filter.split('&').includes('FullyQualifiedName!~' + type));
   const evaluation = matrix.nativeKnowledgeEvaluationRuntimeIntegration;
   const evaluationTypes = ['NativeKnowledgeEvaluationPrivateRunE2ETests', 'NativeKnowledgeEvaluationRunE2ETests',
     'NativeKnowledgeEvaluationSourceE2ETests'];
@@ -160,6 +166,8 @@ for (const role of ['api', 'worker']) {
       assert.ok(knowledgeModels > integrationBuild && knowledgeModels < runtime, '原生比较、改写和 FAQ 须在隔离模型环境中运行');
       const faqProvenance = steps.findIndex(step => step.includes('run-native-generation.mjs --faq-provenance'));
       assert.ok(faqProvenance > integrationBuild && faqProvenance < runtime, 'FAQ 祖先和反馈验证须在隔离模型环境中运行');
+      const scheduleModels = steps.findIndex(step => step.includes('run-native-generation.mjs --schedule-models'));
+      assert.ok(scheduleModels > integrationBuild && scheduleModels < runtime, '日程问答和反馈须在隔离模型环境中运行');
       const isolationRunner = await read('tests/ai-parsing/run-native-generation.mjs');
       assert.match(isolationRunner, /--list-tests json .* --results-directory \/out\/results/,
         '发现用例也必须将结果写到可写的隔离目录');

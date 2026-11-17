@@ -120,6 +120,7 @@ jobs:
           node tests/ai-parsing/run-native-generation.mjs --search-answer "$RUNNER_TEMP/fullnet-native-search-answer"
           node tests/ai-parsing/run-native-generation.mjs --knowledge-models "$RUNNER_TEMP/fullnet-native-knowledge-models"
           node tests/ai-parsing/run-native-generation.mjs --faq-provenance "$RUNNER_TEMP/fullnet-native-faq-provenance"
+          node tests/ai-parsing/run-native-generation.mjs --schedule-models "$RUNNER_TEMP/fullnet-native-schedule-models"
           node tests/ai-parsing/run-native-generation.mjs --evaluation "$RUNNER_TEMP/fullnet-native-evaluation"
 
       - name: Run Native structured knowledge E2E
@@ -163,5 +164,6 @@ jobs:
             ${{ runner.temp }}/fullnet-native-search-answer/**
             ${{ runner.temp }}/fullnet-native-knowledge-models/**
             ${{ runner.temp }}/fullnet-native-faq-provenance/**
+            ${{ runner.temp }}/fullnet-native-schedule-models/**
             ${{ runner.temp }}/fullnet-native-evaluation/**
             ${{ runner.temp }}/fullnet-native-structured/**
