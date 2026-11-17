@@ -98,9 +98,9 @@ public sealed class RealtimeBackplaneRegistrationTests
             .Value
             .Registrations;
 
-        Assert.IsTrue(registrations.Any(registration =>
-            registration.Name == "realtime-backplane"
-            && registration.Tags.Contains("ready")));
+        var registration = registrations.Single(item => item.Name == "realtime-backplane");
+        Assert.IsTrue(registration.Tags.Contains("ready"));
+        Assert.AreSame(provider.GetRequiredService<RealtimeBackplaneHealthCheck>(), registration.Factory(provider));
     }
 
     [TestMethod]
@@ -160,9 +160,9 @@ public sealed class RealtimeBackplaneRegistrationTests
             .GetRequiredService<IOptions<HealthCheckServiceOptions>>()
             .Value
             .Registrations;
-        Assert.IsTrue(registrations.Any(registration =>
-            registration.Name == "realtime-backplane"
-            && registration.Tags.Contains("ready")));
+        var registration = registrations.Single(item => item.Name == "realtime-backplane");
+        Assert.IsTrue(registration.Tags.Contains("ready"));
+        Assert.AreSame(provider.GetRequiredService<RealtimeBackplaneHealthCheck>(), registration.Factory(provider));
         Assert.IsNotNull(
             provider.GetRequiredService<IRealtimeBackplaneProbe>());
         Assert.IsNotNull(provider.GetRequiredService<MeterProvider>());

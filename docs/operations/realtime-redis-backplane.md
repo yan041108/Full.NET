@@ -63,11 +63,12 @@ Hub 分组使用认证主体中的 `sub`、`fullnet_scope` 与可选 `fullnet_te
 
 - `/health/live`：只表示 API 进程存活，不检查 Backplane。
 - `/health/startup`：只检查 Schema Contract，不检查 Backplane。
-- `/health/ready`：配置 Backplane 后包含 `realtime-backplane`；Redis 不可达时返回
-  503，恢复后自动回到 200。
+- `/health/ready` 包含已配置的 `realtime-backplane`。一次探测失败时健康项为 `Degraded`，连续两次失败后为 `Unhealthy` 并返回 503。下一次成功探测清除该健康项的失败状态，返回码仍取决于所有就绪项。
 
 健康检查使用独立短连接、两秒总预算、无重试 `PING`，不会输出连接字符串、异常堆栈
 或 Redis 内部类型。
+
+`RealtimeBackplaneHealthCheck` 在进入不健康状态时写 Error，持续不健康时每五分钟最多写一条提醒，恢复时写一次 Information。Full.NET 日志管道过滤同一健康项的重复框架错误摘要，同时记录框架执行异常和其他健康项错误。每次探针仍记录指标和健康结果。
 
 ## 指标与告警基线
 
@@ -76,7 +77,7 @@ Realtime 启用后，API 与发布端宿主会注册 `fullnet.realtime` Meter；
 
 | Instrument | 类型/单位 | 标签 | 语义 |
 |---|---|---|---|
-| `fullnet.realtime.backplane.readiness.state` | Gauge / `{state}` | 无 | 本次探针成功为 `1`，超时或失败为 `0` |
+| `fullnet.realtime.backplane.readiness.state` | Gauge / `{state}` | 无 | 连续两次探针失败后为 `0`，其余就绪状态为 `1` |
 | `fullnet.realtime.backplane.readiness.checks` | Counter / `{check}` | `outcome` | 按 `healthy`、`timeout`、`failure` 累计探针结果 |
 | `fullnet.realtime.backplane.readiness.duration` | Histogram / `ms` | `outcome` | 按同一结果枚举记录探针端到端耗时 |
 | `fullnet.realtime.publish.attempts` | Counter / `{attempt}` | `target`、`outcome` | 按 `user|group` 与 `success|timeout|failure|canceled` 累计发布结果 |
@@ -93,8 +94,7 @@ Realtime 启用后，API 与发布端宿主会注册 `fullnet.realtime` Meter；
 
 生产初始告警按实际 ready 调用周期换算，且必须逐实例计算：
 
-1. 任一实例连续两个 ready 周期 `state=0` 时告警并停止向该实例继续分配新流量；不得用
-   全体副本平均值掩盖单实例持续失败。
+1. 参考规则 `FullNetRealtimeBackplaneUnavailable` 按 `job` 和 `instance` 识别持续两分钟的 `state=0`。规则要求状态样本在 120 秒内更新，且近三分钟有新的探针计数。恢复就绪后告警结束。采集缺失另根据目标清单核对。
 2. 15 分钟窗口至少有 20 次探针时，非 `healthy` 比例超过 1% 触发预警；5 分钟窗口超过
    20% 触发升级。上线后保留至少七天基线，再根据已记录的变更窗口和误报调整阈值。
 3. `timeout` 同时覆盖本地两秒探针预算与 Redis 客户端原生超时，优先检查 Redis 饱和、

@@ -31,6 +31,7 @@ internal static class FullNetLoggingPipeline
             .MinimumLevel.Information()
             .MinimumLevel.Override("Microsoft.AspNetCore", LogEventLevel.Warning)
             .Filter.ByExcluding(IsRoutineCacheHeartbeat)
+            .Filter.ByExcluding(IsRealtimeBackplaneProbeErrorSummary)
             // 对解构输入先限长、限深和限集合，避免普通业务对象在入队前扩成无界属性图。
             .Destructure.ToMaximumDepth(4)
             .Destructure.ToMaximumCollectionCount(16)
@@ -56,4 +57,15 @@ internal static class FullNetLoggingPipeline
         && cacheKey is ScalarValue { Value: string key }
         && key.StartsWith("fullnet:health:backplane:", StringComparison.Ordinal)
         && Guid.TryParseExact(key.AsSpan("fullnet:health:backplane:".Length), "N", out _);
+
+    // Realtime 组件自己记录首次故障、持续故障和恢复；保留框架执行异常与其他健康检查日志。
+    private static bool IsRealtimeBackplaneProbeErrorSummary(LogEvent log) =>
+        log.Level == LogEventLevel.Error && log.Exception is null
+        && log.Properties.TryGetValue("SourceContext", out var source)
+        && source is ScalarValue { Value: "Microsoft.Extensions.Diagnostics.HealthChecks.DefaultHealthCheckService" }
+        && log.Properties.TryGetValue("HealthCheckName", out var check)
+        && check is ScalarValue { Value: "realtime-backplane" }
+        && log.Properties.TryGetValue("EventId", out var eventId)
+        && eventId is StructureValue details
+        && details.Properties.Any(property => property is { Name: "Name", Value: ScalarValue { Value: "HealthCheckEnd" } });
 }

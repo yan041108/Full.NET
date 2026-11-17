@@ -6538,3 +6538,12 @@ Release 集成工程单节点构建及 Identity 模块隔离 AOT 分析均零警
 - `c7ec896b8` 的 API 和 Worker 原生流水线已进入 NuGet 审计，Aspire 13.4.6 触发 `NU1904` 与 `NU1903`。微软公告将 Dashboard SDK、Hosting 和 Hosting.AppHost 的修复版本标为 13.6.5。[CVE-2026-118740](https://github.com/dotnet/announcements/issues/526)，[CVE-2026-120006](https://github.com/dotnet/announcements/issues/503)。
 - AppHost SDK 与 SQL Server、MySQL、Redis 集成统一到 13.6.5，集中依赖同步提升为还原所需的 MessagePack 2.5.307 与 .NET 扩展包 10.0.14。还原使用现行 NuGet 全依赖审计策略。
 - Windows `dotnet restore Full.NET.slnx` 通过。AppHost Release 构建零错误，保留一条关于默认 CLI Bundle 配置的 `ASPIRE010` 警告。解析的 `Aspire.Hosting`、`Aspire.Hosting.AppHost` 和本机 Dashboard SDK 均为 13.6.5。
+- 新版依赖在 `5f338bd8d` 的 Linux API 和 Worker 流水线均通过解决方案还原步骤。[API 流水线](https://github.com/yan041108/Full.NET/actions/runs/44005658756)，[Worker 流水线](https://github.com/yan041108/Full.NET/actions/runs/44005658767)。
+
+### 8.270 D08-14 发布就绪故障与 Realtime 日志告警（2026-11-17）
+
+- 通过现有 SSH 连接开展只读检查。主节点 Ready，辅助节点关机并显示 `NodeStatusUnknown`。API、Worker 部署均为 0/2 Ready，镜像标签为 `20261107-2`。主节点两 Pod 直接探测均为 live 200、ready 503。两条替补 Pod 受拓扑分布与节点污点限制停在 Pending。该窗口无就绪 API Endpoint。
+- 主节点一小时结构化日志中，API 有 741 条、Worker 有 383 条 `realtime-backplane` 不健康事件。已检查的集群工作负载和主节点服务清单未见运行中的 Collector、Prometheus 或 Alertmanager。故障所在的 Realtime Redis、监控接收方和辅助节点恢复继续按发布复核处理。
+- 持续故障的就绪结果和探针指标继续逐次输出。组件在首次不健康、每五分钟持续提醒和恢复时记录状态，管道过滤这一健康项的重复框架错误摘要。参考 Prometheus 告警按实例使用新鲜状态和实际探针计数判断持续故障。
+- Release 定向单测 10/10，零跳过，覆盖 API/Worker 注册、日志间隔与恢复、框架过滤和其他检查错误。Prometheus 3.15.0 的规则校验和定向时序通过。Collector 0.163.1 通过实际 Remote Write 将两个合成副本的状态和探针计数送达 Prometheus，指标名和 `job`、`instance` 标签与规则匹配。发布接线、真实通知和双 Worker 容量继续待验。
+- Hosting 与 Realtime.SignalR 的 AOT 分析构建零警告、零错误。

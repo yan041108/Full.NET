@@ -1,0 +1,40 @@
+# 同一角色的多个副本分别报告故障，旧读数和静止计数不作为当前故障证据。
+rule_files:
+  - ../../deploy/observability/prometheus-rules.yaml
+evaluation_interval: 1m
+tests:
+  - name: realtime-backplane-alerts-per-instance-with-fresh-probes
+    interval: 1m
+    input_series:
+      - series: 'fullnet_realtime_backplane_readiness_state{job="fullnet-worker",instance="worker-a"}'
+        values: '1 0 0 0 1 1 1'
+      - series: 'fullnet_realtime_backplane_readiness_checks_total{job="fullnet-worker",instance="worker-a",outcome="failure"}'
+        values: '0 4 8 12 12 12 12'
+      - series: 'fullnet_realtime_backplane_readiness_checks_total{job="fullnet-worker",instance="worker-a",outcome="healthy"}'
+        values: '4 4 4 4 8 12 16'
+      - series: 'fullnet_realtime_backplane_readiness_state{job="fullnet-worker",instance="worker-b"}'
+        values: '1+0x6'
+      - series: 'fullnet_realtime_backplane_readiness_checks_total{job="fullnet-worker",instance="worker-b",outcome="healthy"}'
+        values: '4+4x6'
+      - series: 'fullnet_realtime_backplane_readiness_state{job="fullnet-api",instance="api-stopped-probing"}'
+        values: '0+0x6'
+      - series: 'fullnet_realtime_backplane_readiness_checks_total{job="fullnet-api",instance="api-stopped-probing",outcome="timeout"}'
+        values: '24+0x6'
+      - series: 'fullnet_realtime_backplane_readiness_state{job="fullnet-api",instance="api-stale-state"}'
+        values: '0 _ _ _ _ _ _'
+      - series: 'fullnet_realtime_backplane_readiness_checks_total{job="fullnet-api",instance="api-stale-state",outcome="timeout"}'
+        values: '1+2x6'
+    alert_rule_test:
+      - eval_time: 2m
+        alertname: FullNetRealtimeBackplaneUnavailable
+        exp_alerts: []
+      - eval_time: 3m
+        alertname: FullNetRealtimeBackplaneUnavailable
+        exp_alerts:
+          - exp_labels: {job: fullnet-worker, instance: worker-a, severity: critical}
+            exp_annotations:
+              summary: Realtime Redis backplane is unavailable
+              description: Check the realtime-backplane readiness result, dedicated Redis service and network from this instance.
+      - eval_time: 4m
+        alertname: FullNetRealtimeBackplaneUnavailable
+        exp_alerts: []

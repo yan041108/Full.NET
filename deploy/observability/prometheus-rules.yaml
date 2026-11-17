@@ -1,4 +1,20 @@
 groups:
+  - name: fullnet-realtime-readiness
+    rules:
+      - alert: FullNetRealtimeBackplaneUnavailable
+        expr: |
+          (fullnet_realtime_backplane_readiness_state{job!="",instance!=""} == 0)
+          and on (job, instance)
+          (timestamp(fullnet_realtime_backplane_readiness_state{job!="",instance!=""}) > time() - 120)
+          and on (job, instance)
+          (sum(increase(fullnet_realtime_backplane_readiness_checks_total{job!="",instance!=""}[3m])) by (job, instance) > 0)
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: Realtime Redis backplane is unavailable
+          description: Check the realtime-backplane readiness result, dedicated Redis service and network from this instance.
+
   - name: fullnet-object-storage-capacity
     rules:
       # 巡检每五分钟执行。超过十二分钟或时间明显超前的样本只能触发观测异常告警。

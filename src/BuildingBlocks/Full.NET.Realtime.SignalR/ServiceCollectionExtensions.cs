@@ -148,6 +148,7 @@ public static class ServiceCollectionExtensions
             services.TryAddSingleton<
                 IRealtimeBackplaneProbe,
                 RealtimeBackplaneProbe>();
+            services.TryAddSingleton(TimeProvider.System);
             services.TryAddSingleton<RealtimeBackplaneHealthCheck>();
             services.AddHealthChecks()
                 .Add(new HealthCheckRegistration(

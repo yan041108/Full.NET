@@ -2,6 +2,8 @@ using System.Diagnostics.Metrics;
 using Full.NET.Realtime.SignalR;
 using Full.NET.Realtime.SignalR.Health;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 
 namespace Full.NET.UnitTests.Realtime;
@@ -80,9 +82,13 @@ public sealed class RealtimeBackplaneTelemetryTests
     public async Task Probe_failure_records_failure_without_exposing_details()
     {
         using var capture = new MetricCapture();
+        var clock = new ManualTimeProvider();
+        var log = new HealthLogCapture();
+        var failing = true;
         var healthCheck = CreateHealthCheck(
-            _ => Task.FromException(
-                new InvalidOperationException("Redis endpoint secret")));
+            _ => failing ? Task.FromException(new InvalidOperationException("Redis endpoint secret")) : Task.CompletedTask,
+            clock,
+            log);
 
         _ = await healthCheck.CheckHealthAsync(new HealthCheckContext());
         var result = await healthCheck.CheckHealthAsync(
@@ -98,6 +104,28 @@ public sealed class RealtimeBackplaneTelemetryTests
             result.Description,
             StringComparison.OrdinalIgnoreCase);
         AssertOutcome(capture, "failure", expectedState: 0);
+
+        clock.Advance(TimeSpan.FromSeconds(299));
+        for (var probe = 0; probe < 12; probe++)
+        {
+            Assert.AreEqual(HealthStatus.Unhealthy, (await healthCheck.CheckHealthAsync(new())).Status);
+        }
+        Assert.HasCount(1, log.Events);
+        clock.Advance(TimeSpan.FromSeconds(1));
+        Assert.AreEqual(HealthStatus.Unhealthy, (await healthCheck.CheckHealthAsync(new())).Status);
+        Assert.HasCount(2, log.Events);
+
+        failing = false;
+        Assert.AreEqual(HealthStatus.Healthy, (await healthCheck.CheckHealthAsync(new())).Status);
+        Assert.AreEqual(HealthStatus.Healthy, (await healthCheck.CheckHealthAsync(new())).Status);
+        AssertOutcome(capture, "healthy", expectedState: 1);
+        failing = true;
+        Assert.AreEqual(HealthStatus.Degraded, (await healthCheck.CheckHealthAsync(new())).Status);
+        Assert.AreEqual(HealthStatus.Unhealthy, (await healthCheck.CheckHealthAsync(new())).Status);
+        CollectionAssert.AreEqual(
+            new[] { LogLevel.Error, LogLevel.Error, LogLevel.Information, LogLevel.Error },
+            log.Events.Select(entry => entry.Level).ToArray());
+        Assert.IsTrue(log.Events.All(entry => !entry.Message.Contains("secret", StringComparison.OrdinalIgnoreCase)));
     }
 
     [TestMethod]
@@ -151,13 +179,36 @@ public sealed class RealtimeBackplaneTelemetryTests
     }
 
     private static RealtimeBackplaneHealthCheck CreateHealthCheck(
-        Func<CancellationToken, Task> pingAsync) =>
+        Func<CancellationToken, Task> pingAsync,
+        TimeProvider? timeProvider = null,
+        ILogger<RealtimeBackplaneHealthCheck>? logger = null) =>
         new(
             Options.Create(new RealtimeOptions
             {
                 RedisBackplaneConnectionString = "127.0.0.1:6379",
             }),
-            new StubRealtimeBackplaneProbe(pingAsync));
+            new StubRealtimeBackplaneProbe(pingAsync),
+            timeProvider ?? TimeProvider.System,
+            logger ?? NullLogger<RealtimeBackplaneHealthCheck>.Instance);
+
+    private sealed class ManualTimeProvider : TimeProvider
+    {
+        private long _timestamp;
+        public override long TimestampFrequency => TimeSpan.TicksPerSecond;
+        public override long GetTimestamp() => _timestamp;
+        public void Advance(TimeSpan amount) => _timestamp += amount.Ticks;
+    }
+
+    private sealed class HealthLogCapture : ILogger<RealtimeBackplaneHealthCheck>
+    {
+        public List<(LogLevel Level, string Message)> Events { get; } = [];
+
+        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+        public bool IsEnabled(LogLevel logLevel) => true;
+
+        public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception,
+            Func<TState, Exception?, string> formatter) => Events.Add((logLevel, formatter(state, exception)));
+    }
 
     private static void AssertOutcome(
         MetricCapture capture,

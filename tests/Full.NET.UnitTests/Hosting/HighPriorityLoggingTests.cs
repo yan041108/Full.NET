@@ -206,7 +206,7 @@ public sealed class HighPriorityLoggingTests
     }
 
     [TestMethod]
-    public void External_snapshot_contract_carries_matching_event_id_and_priority()
+    public async Task External_snapshot_contract_carries_matching_event_id_and_priority()
     {
         using var monitors = new FullNetLoggingMonitors();
         var snapshots = new ConcurrentBag<HostLogSnapshot>();
@@ -230,12 +230,27 @@ public sealed class HighPriorityLoggingTests
             fusion.Information(remove, probeKey, "routine heartbeat");
             fusion.Warning(remove, probeKey, "heartbeat warning");
             fusion.Information(remove, "business:cache", "business cache");
+            using var loggerFactory = LoggerFactory.Create(builder => builder.AddSerilog(logger));
+            var services = new ServiceCollection();
+            services.AddSingleton<ILoggerFactory>(loggerFactory);
+            services.AddLogging();
+            services.AddHealthChecks()
+                .AddCheck("realtime-backplane", () => HealthCheckResult.Unhealthy("backplane probe result"))
+                .AddCheck("database", () => HealthCheckResult.Unhealthy("database probe result"));
+            using var provider = services.BuildServiceProvider();
+            var report = await provider.GetRequiredService<HealthCheckService>().CheckHealthAsync();
+            Assert.AreEqual(HealthStatus.Unhealthy, report.Entries["realtime-backplane"].Status);
+            var healthChecks = loggerFactory.CreateLogger("Microsoft.Extensions.Diagnostics.HealthChecks.DefaultHealthCheckService");
+            healthChecks.LogError(new EventId(3, "HealthCheckError"), new InvalidOperationException("Test health check failure"),
+                "Check failed {HealthCheckName}", "realtime-backplane");
         }
 
-        Assert.HasCount(4, snapshots);
-        Assert.HasCount(1, snapshots.Where(snapshot => snapshot.IsHighPriority));
+        Assert.HasCount(6, snapshots);
+        Assert.HasCount(3, snapshots.Where(snapshot => snapshot.IsHighPriority));
         Assert.IsFalse(snapshots.Any(snapshot =>
             System.Text.Encoding.UTF8.GetString(snapshot.Utf8Json.Span).Contains("routine heartbeat", StringComparison.Ordinal)));
+        Assert.IsFalse(snapshots.Any(snapshot =>
+            System.Text.Encoding.UTF8.GetString(snapshot.Utf8Json.Span).Contains("backplane probe result", StringComparison.Ordinal)));
         foreach (var snapshot in snapshots)
         {
             Assert.IsTrue(Guid.TryParseExact(snapshot.LogEventId, "D", out _));
