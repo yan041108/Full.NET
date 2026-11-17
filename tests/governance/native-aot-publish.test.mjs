@@ -104,6 +104,10 @@ for (const role of ['api', 'worker']) {
       ? 'name: Run Native AOT external-process E2E' : 'name: Run Worker Native AOT dual-database E2E'));
     assert.ok(publish >= 0 && artifact > publish && artifact < runtime, '可复用产物须在运行门禁之前上传');
     assert.ok(runtime > artifact, '保留后续原生运行门禁');
+    if (role === 'api') {
+      const chromium = steps.findIndex(step => step.includes('playwright install --with-deps chromium'));
+      assert.ok(chromium >= 0 && chromium < runtime, '日程原生浏览器用例须在 Chromium 准备后运行');
+    }
     assert.match(steps[artifact], /if: success\(\)/);
     assert.match(steps[artifact], /if-no-files-found: error/);
     const prefix = role === 'api' ? 'artifacts/native-aot/linux-x64' : 'artifacts/native-aot/worker/linux-x64';

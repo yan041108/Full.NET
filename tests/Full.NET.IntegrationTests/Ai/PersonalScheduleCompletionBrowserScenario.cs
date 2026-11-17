@@ -16,15 +16,16 @@ internal static class PersonalScheduleCompletionBrowserScenario
 {
     internal static async Task VerifyAsync()
     {
-        var bridge=Environment.GetEnvironmentVariable("FULLNET_K06_COMPLETION_BROWSER_BRIDGE");
-        if(string.IsNullOrWhiteSpace(bridge)||Directory.Exists(bridge))throw new InvalidOperationException("必须提供全新完成动作桥接目录。");
-        Directory.CreateDirectory(bridge);
+        await using var browser = new PersonalScheduleBrowserRun("FULLNET_K06_COMPLETION_BROWSER_BRIDGE");
+        var bridge = browser.Bridge;
         if(!NativeWorkerArtifactLocator.TryResolve(out var workerArtifact,out var reason))throw new InvalidOperationException(reason);
         var connection=await SharedDatabaseFixture.CreateMySqlDatabaseAsync();var stamp=Guid.CreateVersion7().ToString("N");
         var settings=AiAgentRuntimeTestSettings.ForIntegrationTests();
-        settings["Files:Local:RootPath"]=Path.Combine(Path.GetTempPath(),"fullnet-k06-completion-files",stamp);
-        settings["DataProtection:KeyRingPath"]=Path.Combine(Path.GetTempPath(),"fullnet-k06-completion-keys",stamp);
-        settings["Identity:AllowedOrigins:1"]="http://localhost:34492";settings["Tenancy:HostDomains:1"]="127.0.0.1";
+        settings["Files:Local:RootPath"] = browser.OwnedDirectory is { } root
+            ? Path.Combine(root, "files") : Path.Combine(Path.GetTempPath(), "fullnet-k06-completion-files", stamp);
+        settings["DataProtection:KeyRingPath"] = browser.OwnedDirectory is { } keys
+            ? Path.Combine(keys, "keys") : Path.Combine(Path.GetTempPath(), "fullnet-k06-completion-keys", stamp);
+        settings["Identity:AllowedOrigins:1"] = browser.AdminOrigin;settings["Tenancy:HostDomains:1"]="127.0.0.1";
         settings["FullNet:Ai:AgentRuntime:PollMilliseconds"]="1000";
         await using var db=Migration246AiKnowledgeIndexTaskRecoveryTests.Connection(false,connection);await db.OpenAsync();
         if(Environment.GetEnvironmentVariable("FULLNET_K06_COMPLETION_DATABASE_REGISTRY") is {Length:>0} registry)
@@ -42,7 +43,7 @@ internal static class PersonalScheduleCompletionBrowserScenario
             pairs.Add((owner,reviewer));
         }
         await using var api=await NativeApiProcessHost.StartAsync(NativeApiArtifactLocator.RequireArtifact(),DatabaseProvider.MySql,connection,settings,
-            NativeAotTestTimeouts.ProcessStartup,listenAddress:new Uri("http://0.0.0.0:64215/"));
+            NativeAotTestTimeouts.ProcessStartup,listenAddress:browser.ApiListenAddress);
         using var client=api.CreateClient();var admin=await NativeApiE2EAssertions.LoginAsync(client,api.LogFilePath);
         using var modelRequest=new HttpRequestMessage(HttpMethod.Post,"/api/v1/ai/model-configs")
         {Content=JsonContent.Create(new CreateAiModelConfigRequest(null,"完成动作配置（无模型派发）","ollama","https://provider.test","metadata",null,null,false,true))};
@@ -62,17 +63,13 @@ internal static class PersonalScheduleCompletionBrowserScenario
         await using var worker=await NativeWorkerProcessHost.StartAsync(workerArtifact,DatabaseProvider.MySql,connection,NativeAotTestTimeouts.ProcessStartup,additionalSettings:settings);
         await File.WriteAllTextAsync(Path.Combine(bridge,"ready.writing.json"),JsonSerializer.Serialize(new{password=FullNetApiFactory.TestPassword,modelId=model.Id,modelName=model.Name,users=prepared}));
         File.Move(Path.Combine(bridge,"ready.writing.json"),Path.Combine(bridge,"ready.json"));
-        foreach(var width in new[]{1440,390})await Wait("complete-"+width+".json");
+        browser.Start(api.BaseAddress, "playwright.personal-schedule-completion.config.mjs", "FULLNET_K06_COMPLETION_BROWSER_READY");
+        foreach (var width in new[] { 1440, 390 })
+            await browser.WaitForMarkerAsync($"complete-{width}.json", "passed", "failed.json");
+        await browser.RequireSuccessAsync();
         Assert.AreEqual(2,await db.QuerySingleAsync<int>("SELECT COUNT(*) FROM fn_calendar_schedule_completion WHERE Outcome='completed'"));
         Assert.AreEqual(2,await db.QuerySingleAsync<int>("SELECT COUNT(*) FROM fn_ai_schedule_completion_intent WHERE Outcome='completed'"));
         Assert.AreEqual(0,await db.QuerySingleAsync<int>("SELECT COUNT(*) FROM fn_ai_operation_budget"));
         Assert.AreEqual(0,await db.QuerySingleAsync<int>("SELECT COUNT(*) FROM fn_files_file"));
-        async Task Wait(string file)
-        {
-            using var timeout=new CancellationTokenSource(TimeSpan.FromMinutes(10));
-            while(!File.Exists(Path.Combine(bridge,file)))
-            {if(File.Exists(Path.Combine(bridge,"failed.json")))Assert.Fail("真实页面失败，保留原记录。");await Task.Delay(250,timeout.Token);}
-            using var value=JsonDocument.Parse(await File.ReadAllTextAsync(Path.Combine(bridge,file),timeout.Token));Assert.IsTrue(value.RootElement.GetProperty("passed").GetBoolean());
-        }
     }
 }

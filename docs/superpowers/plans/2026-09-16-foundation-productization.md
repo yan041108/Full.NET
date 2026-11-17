@@ -6698,7 +6698,7 @@ Release 集成工程单节点构建及 Identity 模块隔离 AOT 分析均零警
 ### 8.299 报表发布版本列表的原生 OpenAPI 元数据（2026-11-17）
 
 - 原始原生 API 产物在匹配 glibc 的隔离容器启动后，`/openapi/v1.json` 实际返回 500。现有架构测试禁用反射兜底后复现唯一缺失的根类型 `IReadOnlyList<ReportingPublishedVersionResponse>`；补入 Reporting 源生成上下文，覆盖报表发布版本端点的响应和 OpenAPI Schema。
-- Reporting 与架构 Release 构建零警告、零错误。定向架构 2/2，完整模块路由的 OpenAPI 生成在无反射兜底时通过。修复后的原生 HTTP 复验待新发布产物。
+- Reporting 与架构 Release 构建零警告、零错误。定向架构 2/2，完整模块路由的 OpenAPI 生成在无反射兜底时通过。随后核对 Actions 产物归档摘要和 API 清单，在 Ubuntu 24.04、glibc 2.39 上实际启动修复后的 Native API，`/openapi/v1.json` 返回 200，并包含报表发布版本列表的响应 Schema。[API 发布产物](https://github.com/yan041108/Full.NET/actions/runs/44082055446/artifacts/14330525402)。
 
 ### 8.300 原生租约、工作流改派与专项入口（2026-11-17）
 
@@ -6712,3 +6712,13 @@ Release 集成工程单节点构建及 Identity 模块隔离 AOT 分析均零警
 - Native API 用例自动启动现有 Node 官方 SDK 客户端，用当前原生进程的动态回环地址验证每个数据库；临时目录随测试回收，数据库由共享夹具登记。保留显式桥接模式供原有独立运行使用。
 - 复用现有 Linux Native API，SQL Server 和 MySQL 2/2，零跳过。四个数据库与身份作用域组合均核对 205 条唯一事件、断线续传、慢订阅者、会话撤销、越权拒绝和全程只读。协议终态 17/17，基于同轮 .NET 生成语料的官方 SDK 7/7，均零跳过。
 - A04 的标准客户端前置已接入原生用例。个人日程来源及完成的 Playwright 桥接、其余 AI 专项前置继续待接入。新提交的官方 Linux 作业待复验。
+
+### 8.302 Native 发布架构门禁回归（2026-11-17）
+
+- Worker 已在 Noble 完成原生发布，随后的架构步骤仍校验旧 Ubuntu runner 与旧文档编号物化写法。架构测试同时同步 Worker 单宿主筛选条件，保留原有必需场景验证。定向架构 3/3，零跳过。[原失败作业](https://github.com/yan041108/Full.NET/actions/runs/44081321059/job/134032354840)。
+
+### 8.303 K06 日程来源与完成的原生浏览器验收（2026-11-17）
+
+- 核心 Native API 用例自动创建隔离桥接目录，启动正式 Vue 和 Playwright，检查两个视口全部通过，并回收临时令牌、密钥和产物。API 作业在运行前准备锁文件对应的 Chromium。保留显式外部桥接用于跨宿主复现。
+- 本机 Linux 容器读取 Windows 挂载的源码时，VForm 运行时构建超过启动期限。随后通过显式桥接，用 Windows Edge 连接 Linux Native API、Native Worker 与临时 MySQL，原生集成 2/2、页面 4/4，零跳过。1440 和 390 像素均覆盖日程来源及撤回、独立审批与完成回执；后台继续核对持久化结果和无模型预算、无文件写入。Linux 自动 Chromium 全链路待官方作业复验。
+- 后续原生 AI 前置仍需接入。已核对跨实例取消和知识用例在模型夹具启动前缺少隔离模型地址与 TLS 证书，结构化知识、答案与 FAQ 的解析及浏览器资源继续按独立验收入口推进。
