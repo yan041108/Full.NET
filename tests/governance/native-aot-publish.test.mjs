@@ -80,6 +80,12 @@ test('核心API跨宿主恢复与Worker专项均登记必需场景', async () =>
   assert.equal(evaluation.filter, evaluationTypes.map(type => 'FullyQualifiedName~' + type).join('|'));
   assert.equal(evaluation.minimum, 6);
   for (const type of evaluationTypes) assert.ok(api.filter.split('&').includes('FullyQualifiedName!~' + type));
+  const structured = matrix.nativeKnowledgeStructuredRuntimeIntegration;
+  const structuredMethod = 'NativeHumanKnowledgePublicationE2ETests.Native_structured_source_edit_index_publication_and_history_preserve_real_positions';
+  assert.equal(structured.filter, 'FullyQualifiedName~' + structuredMethod);
+  assert.equal(structured.minimum, 4);
+  assert.ok(api.filter.split('&').includes('FullyQualifiedName!~' + structuredMethod));
+  assert.ok(api.requiredTestTypes.includes('NativeHumanKnowledgePublicationE2ETests'));
   assert.ok(api.requiredTestTypes.includes('NativeWorkerPdfE2ETests'));
   assert.ok(api.requiredTestTypes.includes('NativeApiKafkaLogMySqlE2ETests'));
   assert.ok(worker.requiredTestTypes.includes('NativeWorkerKafkaLogMySqlE2ETests'));
@@ -123,8 +129,15 @@ for (const role of ['api', 'worker']) {
       const integrationBuild = steps.findIndex(step => step.startsWith('name: Build integration tests'));
       const chat = steps.findIndex(step => step.includes('run-native-generation.mjs --chat'));
       assert.ok(integrationBuild >= 0 && chat > integrationBuild && chat < runtime, '原生聊天专项必须复用已构建控制器');
+      const isolationRunner = await read('tests/ai-parsing/run-native-generation.mjs');
+      assert.match(isolationRunner, /--list-tests json .* --results-directory \/out\/results/,
+        '发现用例也必须将结果写到可写的隔离目录');
       const evaluation = steps.findIndex(step => step.includes('run-native-generation.mjs --evaluation'));
       assert.ok(evaluation > integrationBuild && evaluation < runtime, '原生知识评估须在隔离模型环境中运行');
+      const structured = steps.findIndex(step => step.includes('run-native-generation.mjs --structured'));
+      assert.ok(structured > integrationBuild && structured < runtime, '结构化原生用例必须先准备解析镜像');
+      assert.match(steps[structured], /docker build --platform linux\/amd64 --tag/);
+      assert.match(steps[structured], /docker image inspect --format '\{\{\.Id\}\}'/);
     }
     assert.match(steps[artifact], /if: success\(\)/);
     assert.match(steps[artifact], /if-no-files-found: error/);

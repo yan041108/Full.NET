@@ -3,6 +3,7 @@ import hashlib
 import json
 from pathlib import Path
 import sys
+from base64 import b64encode
 from PIL import Image, ImageDraw, ImageFont
 
 root = Path(sys.argv[1])
@@ -15,3 +16,9 @@ image.save(root / "correction-ocr.png", format="PNG")
 proof = [{"name": file.name, "bytes": file.stat().st_size, "sha256": hashlib.sha256(file.read_bytes()).hexdigest()}
          for file in [root / "correction-table.csv", root / "correction-ocr.png"]]
 (root / "correction-fixtures.json").write_text(json.dumps(proof, ensure_ascii=False, indent=2), encoding="utf-8")
+
+if sys.argv[2:] == ["--emit-base64"]:
+    print(json.dumps([
+        {**entry, "data": b64encode((root / entry["name"]).read_bytes()).decode("ascii")}
+        for entry in proof
+    ]))

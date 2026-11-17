@@ -118,6 +118,13 @@ jobs:
           node tests/ai-parsing/run-native-generation.mjs --chat "$RUNNER_TEMP/fullnet-native-chat"
           node tests/ai-parsing/run-native-generation.mjs --evaluation "$RUNNER_TEMP/fullnet-native-evaluation"
 
+      - name: Run Native structured knowledge E2E
+        run: |
+          parser="fullnet-native-structured-parser:$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+          docker build --platform linux/amd64 --tag "$parser" src/Tools/Full.NET.Ai.DocumentParser
+          export FULLNET_NATIVE_STRUCTURED_PARSER_IMAGE="$(docker image inspect --format '{{.Id}}' "$parser")"
+          node tests/ai-parsing/run-native-generation.mjs --structured "$RUNNER_TEMP/fullnet-native-structured"
+
       - name: Install Chromium for Native AOT browser E2E
         run: pnpm --filter @fullnet/admin-real-stack-e2e exec playwright install --with-deps chromium
 
@@ -150,3 +157,4 @@ jobs:
             TestResults/**
             ${{ runner.temp }}/fullnet-native-chat/**
             ${{ runner.temp }}/fullnet-native-evaluation/**
+            ${{ runner.temp }}/fullnet-native-structured/**

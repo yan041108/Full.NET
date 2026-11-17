@@ -111,7 +111,8 @@ public sealed class NativeHumanKnowledgePublicationE2ETests
             sourceBytes = await File.ReadAllBytesAsync(Path.Combine(fixtures!, fileName));
             settings["FullNet:Ai:KnowledgeDocuments:Enabled"] = "true";
             settings["FullNet:Ai:KnowledgeDocuments:NodeExecutablePath"] = "/usr/local/bin/node";
-            settings["FullNet:Ai:KnowledgeDocuments:CliScriptPath"] = "/repo/scripts/ai/document-sandbox-cli.mjs";
+            settings["FullNet:Ai:KnowledgeDocuments:CliScriptPath"] = Path.Combine(
+                FullNetApiFactory.FindRepositoryRoot(), "scripts", "ai", "document-sandbox-cli.mjs");
             settings["FullNet:Ai:KnowledgeDocuments:ImageId"] = image;
         }
         var model = new AiKnowledgeIndexEmbeddingAssertions.ControlledFactory();
