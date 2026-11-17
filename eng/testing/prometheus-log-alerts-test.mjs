@@ -58,6 +58,11 @@ if (process.argv.includes('--help')) {
   docker([
     'run', '--rm', '--cpus', '1', '--memory', '256m', '--entrypoint', '/bin/promtool', '--mount', mount,
     '--workdir', '/work/tests/deployment', image,
+    'test', 'rules', 'fullnet-deployment-availability-alerts.promtest.yaml',
+  ]);
+  docker([
+    'run', '--rm', '--cpus', '1', '--memory', '256m', '--entrypoint', '/bin/promtool', '--mount', mount,
+    '--workdir', '/work/tests/deployment', image,
     'test', 'rules', 'object-storage-capacity-alerts.promtest.yaml',
   ]);
 }

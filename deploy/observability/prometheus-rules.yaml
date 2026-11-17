@@ -1,4 +1,28 @@
 groups:
+  - name: fullnet-kubernetes-availability
+    rules:
+      - alert: FullNetDeploymentNoAvailableReplicas
+        # 按集群和工作负载归并重复抓取，并仅使用仍在刷新中的 Deployment 观测。
+        expr: |
+          (max by (cluster, namespace, deployment) (
+            kube_deployment_status_replicas_available
+            and (timestamp(kube_deployment_status_replicas_available) > time() - 120)
+          ) == 0)
+          and on (cluster, namespace, deployment)
+          (max by (cluster, namespace, deployment) (
+            kube_deployment_spec_replicas
+            and (timestamp(kube_deployment_spec_replicas) > time() - 120)
+          ) > 0)
+          and on (cluster, namespace, deployment)
+          (kube_deployment_labels{label_app_kubernetes_io_part_of="fullnet",label_app_kubernetes_io_component=~"api|worker"}
+            and (timestamp(kube_deployment_labels{label_app_kubernetes_io_part_of="fullnet",label_app_kubernetes_io_component=~"api|worker"}) > time() - 120))
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: Full.NET deployment has no available replicas
+          description: Inspect Deployment events, node readiness and dependency health for this workload.
+
   - name: fullnet-realtime-readiness
     rules:
       - alert: FullNetRealtimeBackplaneUnavailable

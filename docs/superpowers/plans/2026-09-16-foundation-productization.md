@@ -6547,3 +6547,9 @@ Release 集成工程单节点构建及 Identity 模块隔离 AOT 分析均零警
 - 持续故障的就绪结果和探针指标继续逐次输出。组件在首次不健康、每五分钟持续提醒和恢复时记录状态，管道过滤这一健康项的重复框架错误摘要。参考 Prometheus 告警按实例使用新鲜状态和实际探针计数判断持续故障。
 - Release 定向单测 10/10，零跳过，覆盖 API/Worker 注册、日志间隔与恢复、框架过滤和其他检查错误。Prometheus 3.15.0 的规则校验和定向时序通过。Collector 0.163.1 通过实际 Remote Write 将两个合成副本的状态和探针计数送达 Prometheus，指标名和 `job`、`instance` 标签与规则匹配。发布接线、真实通知和双 Worker 容量继续待验。
 - Hosting 与 Realtime.SignalR 的 AOT 分析构建零警告、零错误。
+
+### 8.271 D08-14 API 和 Worker 零可用副本告警（2026-11-17）
+
+- 继续只读核查时，发布环境 API 和 Worker 仍均为 0/2 Ready。新增 `FullNetDeploymentNoAvailableReplicas`，基于 Kubernetes 的期望及可用副本数，按 `cluster`、`namespace`、`deployment` 核对过去 120 秒的观测。API 或 Worker 持续两分钟没有可用副本时触发，副本恢复或主动缩容为零时解除。
+- Promtool 定向两组时序覆盖副本全部不可用、恢复、自定义部署名、跨集群同名、重复采集、主动缩容和缺失或陈旧样本。真实 kube-state-metrics 2.19.0 读取隔离的测试 Deployment 数据，由 Prometheus 3.15.0 抓取，Alertmanager 0.34.0 向本地隔离接收器交付 API 和 Worker 各一条触发与一条恢复。每个 Deployment 的两次通知指纹一致。
+- [观察部署说明](../../../deploy/observability/README.md#api-and-worker-deployment-availability)补充采集指标、Deployment 标签白名单与多集群标签约束。目标发布仍需核对 kube-state-metrics 抓取和真实通知接线。
