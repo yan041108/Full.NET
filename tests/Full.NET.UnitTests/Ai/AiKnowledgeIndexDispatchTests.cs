@@ -111,7 +111,7 @@ public sealed class AiKnowledgeIndexDispatchTests
     public void Native_reader_preserves_source_and_model_snapshot(bool mysql)
     {
         using var table = new DataTable();
-        foreach (var column in new[] { "TaskId", "DocumentId", "VersionId", "ModelConfigId", "LeaseToken", "FileId" }) table.Columns.Add(column, typeof(Guid));
+        foreach (var column in new[] { "TaskId", "DocumentId", "VersionId", "ModelConfigId", "LeaseToken", "FileId", "FaqRevisionId" }) table.Columns.Add(column, typeof(Guid));
         foreach (var column in new[] { "DocumentVersion", "KnowledgeBaseVersion", "ModelConfigVersion" }) table.Columns.Add(column, typeof(int));
         table.Columns.Add("ContentHash", typeof(string)); table.Columns.Add("ContentType", typeof(string)); table.Columns.Add("ParsingPolicyKey", typeof(string));
         foreach (var column in new[] { "DataClassification", "ModelProviderKey", "ModelId", "ModelEndpointBaseUrl", "ModelOrganizationId" }) table.Columns.Add(column, typeof(string));
@@ -132,6 +132,7 @@ public sealed class AiKnowledgeIndexDispatchTests
         Assert.AreEqual((Guid)data["TaskId"], row.TaskId); Assert.AreEqual((Guid)data["DocumentId"], row.DocumentId);
         Assert.AreEqual((Guid)data["VersionId"], row.VersionId); Assert.AreEqual((Guid)data["ModelConfigId"], row.ModelConfigId);
         Assert.AreEqual((Guid)data["FileId"], row.FileId); Assert.AreEqual((Guid)data["LeaseToken"], row.LeaseToken);
+        Assert.IsNull(row.FaqRevisionId);
         Assert.AreEqual(9, row.DocumentVersion); Assert.AreEqual(6, row.KnowledgeBaseVersion); Assert.AreEqual(3, row.ModelConfigVersion);
         Assert.AreEqual("trusted-hash", row.ContentHash); Assert.AreEqual("text/plain", row.ContentType);
         Assert.AreEqual(123L, row.SizeBytes); Assert.AreEqual(Now, row.LeaseExpiresAtUtc);
@@ -151,19 +152,24 @@ public sealed class AiKnowledgeIndexDispatchTests
             "mysql-host" => AiKnowledgeIndexActivationSql.AuthorityMySqlHost, _ => AiKnowledgeIndexActivationSql.AuthorityMySqlTenant
         };
         // 从生产 SELECT 的实际列形状构造行，避免手工补列让原生读取回归被 JIT 默认值掩盖。
-        var head = statement.Text[..statement.Text.IndexOf(" FROM ", StringComparison.Ordinal)]["SELECT ".Length..];
-        var columns = new List<string>(); var start = 0; var depth = 0;
-        for (var index = 0; index <= head.Length; index++)
+        var sql = statement.Text;
+        var columns = new List<string>(); var start = "SELECT ".Length; var depth = 0;
+        for (var index = start; index < sql.Length; index++)
         {
-            if (index < head.Length && head[index] == '(') depth++;
-            if (index < head.Length && head[index] == ')') depth--;
-            if (index < head.Length && (head[index] != ',' || depth != 0)) continue;
-            columns.Add(System.Text.RegularExpressions.Regex.Match(head[start..index].Trim(), @"[A-Za-z_][A-Za-z_0-9]*$").Value); start = index + 1;
+            if (sql[index] == '(') depth++;
+            if (sql[index] == ')') depth--;
+            if (depth != 0) continue;
+            var endOfProjection = sql.AsSpan(index).StartsWith(" FROM ", StringComparison.Ordinal);
+            if (sql[index] != ',' && !endOfProjection) continue;
+            columns.Add(System.Text.RegularExpressions.Regex.Match(sql[start..index].Trim(), @"[A-Za-z_][A-Za-z_0-9]*$").Value);
+            if (endOfProjection) break;
+            start = index + 1;
         }
         var values = new Dictionary<string, object>
         {
             ["TaskId"] = Guid.CreateVersion7(), ["DocumentId"] = Guid.CreateVersion7(), ["VersionId"] = Guid.CreateVersion7(),
-            ["ModelConfigId"] = Guid.CreateVersion7(), ["LeaseToken"] = Guid.CreateVersion7(), ["FileId"] = Guid.CreateVersion7(),
+            ["ModelConfigId"] = Guid.CreateVersion7(), ["LeaseToken"] = Guid.CreateVersion7(), ["FileId"] = DBNull.Value,
+            ["FaqRevisionId"] = Guid.CreateVersion7(),
             ["DocumentVersion"] = 1, ["KnowledgeBaseVersion"] = 1, ["ModelConfigVersion"] = 1,
             ["ContentHash"] = "hash", ["ContentType"] = "application/pdf", ["ParsingPolicyKey"] = "default", ["SizeBytes"] = 123L, ["LeaseExpiresAtUtc"] = Now,
             ["DataClassification"] = "internal", ["ModelProviderKey"] = "openai_compatible", ["ModelId"] = "text-embedding-3-small",
@@ -177,6 +183,7 @@ public sealed class AiKnowledgeIndexDispatchTests
         var row = AiBudgetRowReaders.ReadKnowledgeIndexDispatch(reader);
         Assert.AreEqual("internal", row.DataClassification); Assert.AreEqual("https://api.openai.com/v1", row.ModelEndpointBaseUrl);
         Assert.AreEqual("openai_compatible", row.ModelProviderKey); Assert.AreEqual("text-embedding-3-small", row.ModelId); Assert.IsNull(row.ModelOrganizationId);
+        Assert.IsNull(row.FileId); Assert.AreEqual((Guid)values["FaqRevisionId"], row.FaqRevisionId);
         Assert.AreEqual(values["CorrectionSourceId"], row.CorrectionSourceId); Assert.AreEqual(values["CorrectionRevisionId"], row.CorrectionRevisionId);
         Assert.AreEqual(2, row.CorrectionHeadVersion); Assert.AreEqual(new string('a', 64), row.CorrectionSourceHash); Assert.AreEqual(new string('b', 64), row.CorrectionPayloadHash);
     }

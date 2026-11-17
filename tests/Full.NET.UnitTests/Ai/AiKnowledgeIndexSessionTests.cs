@@ -32,6 +32,7 @@ public sealed class AiKnowledgeIndexSessionTests
     {
         var f = new Fixture(tenant, kind); Assert.AreEqual(f.TaskId, await f.Service.EnqueueAsync(f.Binding, f.Session, default));
         Assert.AreEqual(2, f.Writes); Assert.AreEqual(1, f.Commits); Assert.AreEqual(0, f.Rollbacks);
+        Assert.AreEqual(1, f.GuardWrites);
         Assert.IsTrue(f.PermissionCalls >= 8); Assert.IsNotNull(f.Row);
         Assert.AreEqual(f.Session, await f.Service.ReadHeldAsync(f.Binding, f.TaskId, f.Lease, default));
     }
@@ -58,6 +59,18 @@ public sealed class AiKnowledgeIndexSessionTests
     {
         var f = new Fixture(false) { DeniedPermission = permission };
         Assert.IsNull(await f.Service.EnqueueAsync(f.Binding, f.Session, default)); Assert.AreEqual(0, f.Writes);
+    }
+
+    [TestMethod] [DataRow(false)] [DataRow(true)]
+    public async Task Missing_source_guard_does_not_insert_task_or_binding(bool tenant)
+    {
+        var f = new Fixture(tenant) { GuardWrite = 0 };
+
+        Assert.IsNull(await f.Service.EnqueueAsync(f.Binding, f.Session, default));
+
+        Assert.AreEqual(1, f.GuardWrites);
+        Assert.AreEqual(0, f.Writes);
+        Assert.IsNull(f.Row);
     }
 
     [TestMethod]
@@ -210,6 +223,7 @@ public sealed class AiKnowledgeIndexSessionTests
         internal Action? AtRenew;
         internal string? DeniedPermission;
         internal int Writes, Commits, Rollbacks, PermissionCalls, TaskWrite = 1, SessionWrite = 1;
+        internal int GuardWrites, GuardWrite = 1;
         internal bool UniqueRace, InfrastructureFailure;
         internal Action? AfterCommit;
         private readonly DateTimeOffset now = DateTimeOffset.UtcNow;
@@ -229,18 +243,28 @@ public sealed class AiKnowledgeIndexSessionTests
             Query.QuerySingleOrDefaultAsync<AiKnowledgeIndexDispatchRecord>(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(_ => Source);
             command.ExecuteAsync(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(call =>
             {
-                if (((SqlStatement)call[0]!).Name.Contains(".renew_", StringComparison.Ordinal))
+                var statement = (SqlStatement)call[0]!;
+                if (statement.Name.Contains(".renew_", StringComparison.Ordinal))
                 {
                     Assert.IsFalse(State.HasTransaction); RenewWrites++;
                     var expiry = (DateTimeOffset)((Dictionary<string, object?>)call[1]!)["LeaseExpiresAtUtc"]!;
                     Row = Row! with { LeaseExpiresAtUtc = expiry }; Source = NewSource(expiry, Source!.FileId); AtRenew?.Invoke(); return RenewCount;
                 }
-                Assert.IsTrue(State.HasTransaction); Writes++;
-                if (((SqlStatement)call[0]!).Name.Contains("index_task", StringComparison.Ordinal))
+                Assert.IsTrue(State.HasTransaction);
+                if (statement == (scoped ? AiKnowledgeIndexCorrectionSql.LockTenant : AiKnowledgeIndexCorrectionSql.LockHost))
+                {
+                    Assert.AreEqual(0, Writes);
+                    GuardWrites++;
+                    return GuardWrite;
+                }
+                Assert.AreEqual(1, GuardWrites);
+                Writes++;
+                if (statement == (scoped ? AiKnowledgeIndexTaskSql.EnqueueTenant : AiKnowledgeIndexTaskSql.EnqueueHost))
                 {
                     if (UniqueRace) throw new DataCommandException(DataCommandFailureKind.UniqueConstraint, new IOException());
                     return TaskWrite;
                 }
+                Assert.AreSame(scoped ? AiKnowledgeIndexSessionSql.InsertTenant : AiKnowledgeIndexSessionSql.InsertHost, statement);
                 if (InfrastructureFailure) throw new IOException("second write failed");
                 if (SessionWrite == 1) Row = NewRow(); return SessionWrite;
             });

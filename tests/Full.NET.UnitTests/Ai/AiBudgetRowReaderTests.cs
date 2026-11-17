@@ -73,16 +73,19 @@ public sealed class AiBudgetRowReaderTests
     public void Index_status_maps_optional_joins_and_provider_integer_flags(bool mysql, bool absent)
     {
         using var table = new DataTable(); var id = Guid.CreateVersion7();
-        foreach (var name in new[] { "KnowledgeBaseId", "DocumentId", "VersionId", "OwnerUserId", "FileId", "TaskId", "CorrectionRevisionId", "ActiveTaskId", "ActiveLeaseToken", "PublicationId", "ModelConfigId", "GenerationModelConfigId" }) table.Columns.Add(name, typeof(Guid));
+        foreach (var name in new[] { "KnowledgeBaseId", "DocumentId", "VersionId", "OwnerUserId", "FileId", "FaqRevisionId", "TaskId", "CorrectionRevisionId", "ActiveTaskId", "ActiveLeaseToken", "PublicationId", "ModelConfigId", "GenerationModelConfigId" }) table.Columns.Add(name, typeof(Guid));
         foreach (var name in new[] { "DocumentVersion", "KnowledgeBaseVersion", "IsDeleted", "CleanupPending", "HasDerivedData", "IsCurrent", "SizeBytes", "ModelConfigVersion", "GenerationModelVersion" }) table.Columns.Add(name, mysql ? typeof(long) : typeof(int));
         foreach (var name in new[] { "DataClassification", "StateKey", "ActiveReceiptHash", "ActiveManifestHash", "ActivePlanHash", "ContentHash", "ContentType", "ParsingPolicyKey", "ProviderKey", "ModelId" }) table.Columns.Add(name, typeof(string));
         var row = table.NewRow();
         foreach (DataColumn column in table.Columns) row[column] = column.DataType == typeof(Guid) ? id : column.DataType == typeof(string) ? "test" : 1;
         if (absent) foreach (var name in new[] { "TaskId", "CorrectionRevisionId", "ActiveTaskId", "ActiveLeaseToken", "PublicationId", "ModelConfigId", "GenerationModelConfigId", "ModelConfigVersion", "GenerationModelVersion", "StateKey", "ActiveReceiptHash", "ActiveManifestHash", "ActivePlanHash", "ProviderKey", "ModelId" }) row[name] = DBNull.Value;
+        row[absent ? "FaqRevisionId" : "FileId"] = DBNull.Value;
         table.Rows.Add(row); using var reader = table.CreateDataReader(); Assert.IsTrue(reader.Read());
         var result = AiBudgetRowReaders.ReadKnowledgeIndexStatus(reader);
         Assert.AreEqual(absent ? null : (Guid?)id, result.PublicationId);
         Assert.AreEqual(absent ? null : (Guid?)id, result.CorrectionRevisionId);
+        Assert.AreEqual(absent ? id : (Guid?)null, result.FileId);
+        Assert.AreEqual(absent ? null : (Guid?)id, result.FaqRevisionId);
         Assert.AreEqual("test", result.DataClassification); Assert.AreEqual("test", result.ParsingPolicyKey);
         Assert.AreEqual(absent ? null : (Guid?)id, result.GenerationModelConfigId);
         Assert.AreEqual(absent ? null : (int?)1, result.GenerationModelVersion);
@@ -110,17 +113,18 @@ public sealed class AiBudgetRowReaderTests
     public void Worker_projection_maps_original_scope_and_bounded_metadata(bool tenant)
     {
         using var table = new DataTable();
-        var names = new[] { "TaskId", "TenantId", "KnowledgeBaseId", "DocumentId", "VersionId", "OwnerUserId" };
+        var names = new[] { "TaskId", "TenantId", "KnowledgeBaseId", "DocumentId", "VersionId", "OwnerUserId", "FaqRevisionId" };
         foreach (var name in names) table.Columns.Add(name, typeof(Guid));
         table.Columns.Add("DocumentVersion", typeof(long)); table.Columns.Add("KnowledgeBaseVersion", typeof(decimal));
         table.Columns.Add("ContentType", typeof(string)); table.Columns.Add("ParsingPolicyKey", typeof(string));
         var ids = names.Select(_ => Guid.CreateVersion7()).ToArray();
-        table.Rows.Add(ids[0], tenant ? (object)ids[1] : DBNull.Value, ids[2], ids[3], ids[4], ids[5], 2L, 3m, "application/pdf", "default");
+        table.Rows.Add(ids[0], tenant ? (object)ids[1] : DBNull.Value, ids[2], ids[3], ids[4], ids[5], tenant ? (object)ids[6] : DBNull.Value, 2L, 3m, "application/pdf", "default");
         using var reader = table.CreateDataReader(); Assert.IsTrue(reader.Read());
         var row = AiBudgetRowReaders.ReadKnowledgeWorker(reader);
         Assert.AreEqual(ids[0], row.TaskId); Assert.AreEqual(tenant ? ids[1] : (Guid?)null, row.TenantId);
         Assert.AreEqual(ids[2], row.KnowledgeBaseId); Assert.AreEqual(ids[3], row.DocumentId); Assert.AreEqual(ids[4], row.VersionId);
         Assert.AreEqual(ids[5], row.OwnerUserId); Assert.AreEqual(2, row.DocumentVersion); Assert.AreEqual(3, row.KnowledgeBaseVersion);
+        Assert.AreEqual(tenant ? ids[6] : (Guid?)null, row.FaqRevisionId);
         Assert.AreEqual("application/pdf", row.ContentType); Assert.AreEqual("default", row.ParsingPolicyKey);
     }
 
