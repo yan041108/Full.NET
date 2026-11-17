@@ -341,6 +341,36 @@ function mysql {
     Invoke-TestDatabaseProbe
 }
 function helm {
+    if ($args[0] -eq 'template') {
+        $release = $args[1]
+        if ('--is-upgrade' -notin $args -or '--show-only' -notin $args -or 'templates/configmap.yaml' -notin $args) {
+            throw 'Unexpected chart preview.'
+        }
+        if (($release -ceq 'fullnet-api') -ne ('api.reportingExportAdmissionEnabled=false' -in $args)) { throw 'Preview uses a different admission override.' }
+        Write-Host "chart-preview=$release"
+        if ($env:FULLNET_CUTOVER_REAL_HELM -and $scenario -in 'ready', 'provider-mismatch') {
+            & $env:FULLNET_CUTOVER_REAL_HELM @args
+            return
+        }
+        if ($scenario -eq 'render-failed' -and $release -eq 'fullnet-worker') {
+            $global:LASTEXITCODE = 1
+            'sensitive-render-diagnostic'
+            return
+        }
+        $global:LASTEXITCODE = 0
+        $chartProvider = if ($scenario -eq 'provider-mismatch' -and $release -eq 'fullnet-worker') { 'MySql' } else { $provider }
+        'sensitive-render-diagnostic'
+        '  Database__Provider: "{0}"' -f $chartProvider
+        if ($release -eq 'fullnet-api' -and $scenario -ne 'admission-missing') {
+            '            - name: FullNet__Reporting__Export__AdmissionEnabled'
+            if ($scenario -eq 'admission-enabled') { '              value: "true"' } else { '              value: "false"' }
+            if ($scenario -eq 'admission-duplicate') {
+                '            - name: FullNet__Reporting__Export__AdmissionEnabled'
+                '              value: "true"'
+            }
+        }
+        return
+    }
     if ($args[-2] -ne '--kube-context' -or $args[-1] -ne 'isolated-test') { throw 'Unexpected Helm context.' }
     if ('--wait' -notin $args -or '--wait-for-jobs' -notin $args) { throw 'Missing Helm wait flags.' }
     $admission = @($args | Where-Object { $_ -like 'api.reportingExportAdmissionEnabled=*' })
@@ -380,6 +410,10 @@ if ($scenario -notin 'normal', 'role-secrets', 'invalid-role-secret') {
     if ($provider -eq 'MySql') {
         $parameters.ReportingMySqlLoginPath = 'fixture-reader'
         $parameters.ReportingMySqlCaFile = './eng/deploy/reporting-cutover/mysql.sql'
+        $parameters.ProviderValuesFile = './deploy/helm/fullnet/ci/values-provider-mysql.yaml'
+    }
+    if ($env:FULLNET_CUTOVER_REAL_HELM -and $scenario -eq 'provider-mismatch') {
+        $parameters.ProviderValuesFile = './deploy/helm/fullnet/ci/values-provider-mysql.yaml'
     }
     if ($scenario -eq 'missing-context') { $parameters.Remove('KubeContext') }
 }
@@ -397,10 +431,27 @@ for (const provider of ['SqlServer', 'MySql']) {
   test(`${provider} zero pending allows the exact three release stages and publishes the API paused`, () => {
     const { status, stdout, stderr } = run('ready', provider);
     assert.equal(status, 0, stderr);
+    assert.match(stdout, /chart-preview=fullnet-migrator[\s\S]+chart-preview=fullnet-worker[\s\S]+chart-preview=fullnet-api[\s\S]+database-probed/);
     assert.match(stdout, /database-probed[\s\S]+preflight passed/);
     assert.deepEqual([...stdout.matchAll(/helm-stage=(fullnet-[a-z]+)/g)].map(match => match[1]),
       ['fullnet-migrator', 'fullnet-worker', 'fullnet-api']);
     assert.match(stdout, /helm-stage=fullnet-worker[\s\S]+reporting-admission=paused[\s\S]+helm-stage=fullnet-api/);
+  });
+}
+
+for (const [scenario, message] of [
+  ['render-failed', /could not render the chart for 'fullnet-worker'/],
+  ['provider-mismatch', process.env.FULLNET_CUTOVER_REAL_HELM
+    ? /provider does not match the probe for 'fullnet-migrator'/ : /provider does not match the probe for 'fullnet-worker'/],
+  ['admission-missing', /exactly one disabled API export admission/],
+  ['admission-enabled', /exactly one disabled API export admission/],
+  ['admission-duplicate', /exactly one disabled API export admission/],
+]) {
+  test(`${scenario} chart preview blocks the database probe and release stages`, () => {
+    const { status, stdout, stderr } = run(scenario);
+    assert.notEqual(status, 0);
+    assert.match(stderr, message);
+    assert.doesNotMatch(stdout + stderr, /helm-stage|database-probed|sensitive-render-diagnostic/);
   });
 }
 
@@ -435,7 +486,7 @@ for (const [scenario, message, probesDatabase] of [
 test('ordinary release keeps the stage order without probing reporting', () => {
   const { status, stdout, stderr } = run('normal');
   assert.equal(status, 0, stderr);
-  assert.doesNotMatch(stdout, /database-probed/);
+  assert.doesNotMatch(stdout, /database-probed|chart-preview/);
   assert.match(stdout, /helm-stage=fullnet-migrator[\s\S]+helm-stage=fullnet-worker[\s\S]+helm-stage=fullnet-api/);
 });
 

@@ -56,7 +56,7 @@ function Assert-Command {
     }
 }
 
-function Invoke-HelmUpgrade {
+function Get-HelmRoleValues {
     param(
         [string] $ReleaseName,
         [string] $RoleValuesFile,
@@ -64,17 +64,11 @@ function Invoke-HelmUpgrade {
     )
 
     $args = @(
-        'upgrade', '--install', $ReleaseName, $ChartPath,
-        '--namespace', $Namespace,
-        '--create-namespace',
         '-f', $ValuesFile,
         '-f', $ProviderValuesFile,
         '-f', $EdgeAndDpValuesFile,
         '-f', $RoleValuesFile,
-        '--set', "image.tag=$ImageTag",
-        '--wait',
-        '--wait-for-jobs',
-        '--timeout', "${TimeoutSeconds}s"
+        '--set', "image.tag=$ImageTag"
     )
     # 角色的连接串与各自连接池预算成对配置，Helm 仅接收 Secret 名称。
     if ($DatabaseSecretName) { $args += @('--set-string', "database.connectionSecretName=$DatabaseSecretName") }
@@ -82,6 +76,49 @@ function Invoke-HelmUpgrade {
     if ($ReportingOutputCutover -and $ReleaseName -ceq 'fullnet-api') {
         $args += @('--set', 'api.reportingExportAdmissionEnabled=false')
     }
+    return $args
+}
+
+function Assert-ReportingCutoverChart {
+    param(
+        [string] $ReleaseName,
+        [string] $RoleValuesFile,
+        [string] $DatabaseSecretName,
+        [string] $WorkloadTemplate
+    )
+
+    # 与实际发布使用同一组角色参数。只在本地渲染，校验失败时隐藏清单和 Helm 原始诊断。
+    $args = @('template', $ReleaseName, $ChartPath, '--namespace', $Namespace, '--is-upgrade',
+        '--show-only', 'templates/configmap.yaml', '--show-only', "templates/$WorkloadTemplate")
+    $args += @(Get-HelmRoleValues $ReleaseName $RoleValuesFile $DatabaseSecretName)
+    $PSNativeCommandUseErrorActionPreference = $false
+    $manifest = & helm @args 2>$null
+    if ($LASTEXITCODE -ne 0) { throw "Reporting cutover could not render the chart for '$ReleaseName'." }
+
+    $rendered = $manifest -join "`n"
+    $providers = [regex]::Matches($rendered, '(?m)^  Database__Provider:[ \t]*(?<value>[^\r\n]*)\r?$')
+    $expectedProvider = '"{0}"' -f $ReportingDatabaseProvider
+    if ($providers.Count -ne 1 -or $providers[0].Groups['value'].Value.Trim() -ne $expectedProvider) {
+        throw "Reporting cutover chart database provider does not match the probe for '$ReleaseName'."
+    }
+    if ($ReleaseName -ceq 'fullnet-api') {
+        $admission = [regex]::Matches($rendered, '(?m)^(?<indent> +)- name: FullNet__Reporting__Export__AdmissionEnabled[ \t]*\r?$(?:\n\k<indent>  value:[ \t]*(?<value>[^\r\n]*))?')
+        if ($admission.Count -ne 1 -or $admission[0].Groups['value'].Value.Trim() -cne '"false"') {
+            throw 'Reporting cutover chart must render exactly one disabled API export admission setting.'
+        }
+    }
+}
+
+function Invoke-HelmUpgrade {
+    param(
+        [string] $ReleaseName,
+        [string] $RoleValuesFile,
+        [string] $DatabaseSecretName
+    )
+
+    $args = @('upgrade', '--install', $ReleaseName, $ChartPath, '--namespace', $Namespace, '--create-namespace',
+        '--wait', '--wait-for-jobs', '--timeout', "${TimeoutSeconds}s")
+    $args += @(Get-HelmRoleValues $ReleaseName $RoleValuesFile $DatabaseSecretName)
     if ($KubeContext) { $args += @('--kube-context', $KubeContext) }
 
     Write-Host ">>> helm $($args -join ' ')"
@@ -109,6 +146,9 @@ if ($ReportingOutputCutover) {
     if (-not $KubeContext -or -not $ReportingDatabaseProvider -or -not $ReportingDatabaseServer -or -not $ReportingDatabaseName) {
         throw 'Reporting cutover requires an explicit Kubernetes context, database provider, server and database name.'
     }
+    Assert-ReportingCutoverChart 'fullnet-migrator' $migratorValues $MigratorDatabaseSecretName 'migrator-job.yaml'
+    Assert-ReportingCutoverChart 'fullnet-worker' $workerValues $WorkerDatabaseSecretName 'worker-deployment.yaml'
+    Assert-ReportingCutoverChart 'fullnet-api' $apiValues $ApiDatabaseSecretName 'api-deployment.yaml'
     & (Join-Path $PSScriptRoot 'reporting-cutover/Assert-ReportingCutover.ps1') `
         -Context $KubeContext -Namespace $Namespace -Provider $ReportingDatabaseProvider `
         -Server $ReportingDatabaseServer -Database $ReportingDatabaseName `

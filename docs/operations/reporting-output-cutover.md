@@ -34,6 +34,8 @@
 
 脚本要求两个旧 Deployment 已确认零副本、关联 ReplicaSet 已停稳、相关 Pod 均已退出，主库的报表阻断资源数也须为零。未完成任务、残留租约、未确认上传和未绑定的就绪文件均会阻断。同一租户及任务只计一次；终态或原任务缺失时，未处置的文件依然会阻断。检查使用 Helm 实例标签、控制器 UID 和现存 ReplicaSet 生成的 Pod 名称前缀。操作账号需能列出命名空间内的 Deployment、ReplicaSet、Pod 和 HPA。查询前后均须停稳，且两个旧 Deployment 的 UID 和 generation 须分别一致。查询期间发生过重新伸缩或重建时，先重新确认停写和排空，再从头执行发布门禁。发布协调者须在检查与发布期间维持上述停写条件，直至新版本就绪。
 
+检查旧宿主和数据库前，脚本使用同一组 values 和角色参数在本地渲染三角色。三份清单中的数据库类型必须与探测参数一致，API 清单必须有唯一的导出暂停配置。渲染失败或上述配置不符会在任何发布阶段之前终止。
+
 Migrator 每次发布创建带 Helm 修订号的 Job，与其 ConfigMap 和 ServiceAccount 一起由 Helm 创建。发布脚本等待本次 Job 完成才启动 Worker 阶段，随后将 API 以 `api.reportingExportAdmissionEnabled=false` 发布并等待就绪。单独调用 Helm 时，Migrator 阶段也须传入 `--wait --wait-for-jobs`，API 阶段须显式暂停导出准入。
 
 三个数据库 Secret 指向同一业务主库，分别使用宿主所需权限及与 Chart 预算一致的最大连接池大小。未传角色专用参数时，该角色使用 values 中的 `database.connectionSecretName`。
