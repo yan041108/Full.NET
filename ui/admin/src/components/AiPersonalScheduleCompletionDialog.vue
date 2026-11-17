@@ -115,5 +115,10 @@ onMounted(() => act(async (current, signal) => { const value = await listAiModel
 <style scoped>
 .schedule-completion { display: grid; gap: .8rem; min-width: 0; overflow-wrap: anywhere; }
 .schedule-completion p { margin: 0; }.schedule-completion :deep(.el-select) { width: 100%; }
+/* 原运行锁定后，配置名称仍是回执信息，须保持正文对比度并隔离遮罩背景。 */
+.schedule-completion :deep(.el-select__selected-item.el-select__placeholder > span) {
+  color: var(--el-text-color-primary);
+  background-color: var(--el-fill-color-blank);
+}
 .schedule-completion__actions { display: flex; flex-wrap: wrap; gap: .6rem; }.schedule-completion__actions :deep(.el-button) { margin-left: 0; max-width: 100%; white-space: normal; height: auto; min-height: 32px; }
 </style>
