@@ -2127,16 +2127,19 @@ public sealed class DiagnoseCommandTests
         using var output = new StringWriter();
         using var error = new StringWriter();
         var result = await CodeGenerationCli.RunAsync(["diagnose", "--workspace", fixture.Root, "--profile", profile], output, error);
-        // 通用秘密断言保持不变；整体退出码还须服从真实缓存注册的共享连接约束。
+        // 已声明 Cache 时，用真实注册核对其静态诊断；其余用例仅核对秘密检查。
         var cacheInvalid = false;
-        try
+        if (runtime.GetChildren().Any(section => string.Equals(section.Key, "Cache", StringComparison.OrdinalIgnoreCase)))
         {
-            _ = new ServiceCollection().AddFullNetCaching(runtime, profile == "production" ? "Production" : "Development");
-        }
-        catch (Exception exception) when (exception is OptionsValidationException or InvalidOperationException
-            or ArgumentException or FormatException or OverflowException)
-        {
-            cacheInvalid = true;
+            try
+            {
+                _ = new ServiceCollection().AddFullNetCaching(runtime, profile == "production" ? "Production" : "Development");
+            }
+            catch (Exception exception) when (exception is OptionsValidationException or InvalidOperationException
+                or ArgumentException or FormatException or OverflowException)
+            {
+                cacheInvalid = true;
+            }
         }
         Assert.AreEqual((profile == "production" && placeholders > 0) || cacheInvalid ? 1 : 0, result, output.ToString());
         Assert.AreEqual(cacheInvalid, output.ToString().Contains("code_generation.cache.configuration.invalid error", StringComparison.Ordinal));

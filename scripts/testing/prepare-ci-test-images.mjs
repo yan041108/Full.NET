@@ -5,6 +5,7 @@ import { withTestRun, testRunEnvironment } from './test-run-context.mjs';
 
 const imageIdPattern = /^sha256:[a-f0-9]{64}$/;
 const rateLimitPattern = /\b(?:toomanyrequests|rate exceeded)\b/iu;
+const bandwidthLimitPattern = /\bdata limit exceeded\b/iu;
 
 // 仅下载限额允许转向同标签 Docker 官方源；权限、网络和后续核对错误保持失败。
 async function pullOfficialImage(target, run, wait) {
@@ -14,9 +15,10 @@ async function pullOfficialImage(target, run, wait) {
       try { run(['pull', source]); return source; }
       catch (error) {
         const message = String(error?.message ?? error);
-        if (!rateLimitPattern.test(message)) throw error;
+        const bandwidthExhausted = bandwidthLimitPattern.test(message);
+        if (!bandwidthExhausted && !rateLimitPattern.test(message)) throw error;
         // 带宽配额耗尽不会因短退避恢复；短时请求限流仍沿用两次有界退避。
-        if (/\bdata limit exceeded\b/iu.test(message) || attempt >= 2) {
+        if (bandwidthExhausted || attempt >= 2) {
           if (index === sources.length - 1) throw error;
           console.warn(`测试镜像源限额耗尽，切换同标签 Docker 官方源：${target}`);
           break;

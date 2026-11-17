@@ -539,6 +539,7 @@ public sealed class StandaloneDiagnoseConfigurationTests
         public StandaloneWorkspace(bool migrator = true, bool worker = true)
         {
             // 仅构造诊断读取所需布局；不编译项目，不启动宿主或连接数据库。
+            Write("global.json", """{"sdk":{"version":"10.0.100","rollForward":"latestFeature","allowPrerelease":true}}""");
             Write("fullnet-app.json", worker
                 ? """{"preset":"minimal","databaseProvider":"mysql","workerHttpPort":5181}"""
                 : """{"preset":"minimal","databaseProvider":"mysql"}""");

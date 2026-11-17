@@ -89,8 +89,8 @@
     },
     {
       "path": "index.html",
-      "bytes": 601,
-      "sha256": "b71dce0708fea6a2b4a81e5dd12b79ea4653b27ec3c5ca367b22ba34b1a09502"
+      "bytes": 597,
+      "sha256": "f9323fd9156de05d534e4d63d84060e49ae5992b68314709800203880763e264"
     },
     {
       "path": "templates/json1.txt",
@@ -173,5 +173,5 @@
       "sha256": "22bf19fd1117d39234cc29a1daf6c861a978176e0bc210f8368165452a2fce79"
     }
   ],
-  "contentHash": "e59c5cf235ded3c08375146a71d7d680d81c213d673a8f8160d3a56f077d5bf4"
+  "contentHash": "5c920a3ae3e58591343602bacfc6bf0505fc9d6f65ae26795352acd41bcadd7c"
 }

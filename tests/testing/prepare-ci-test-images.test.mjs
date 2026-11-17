@@ -114,7 +114,7 @@ test('真实数据库 CI 在昂贵构建之前准备官方测试镜像', async (
 });
 
 test('带宽限额耗尽直接切换同标签Docker官方源并核对实际镜像ID',async()=>{
- const delays=[];const adapter=recorder(args=>{if(args[0]==='pull'&&args[1]==='public.ecr.aws/docker/library/mysql:8.0')throw new Error('toomanyrequests: Data limit exceeded');});
+ const delays=[];const adapter=recorder(args=>{if(args[0]==='pull'&&args[1]==='public.ecr.aws/docker/library/mysql:8.0')throw new Error('Error response from daemon: error from registry: Data limit exceeded');});
  assert.deepEqual(await prepareCiTestImages({...adapter,wait:async ms=>delays.push(ms)}),['mysql:8.0','redis:8.6']);
  assert.deepEqual(delays,[]);
  assert.deepEqual(adapter.calls.filter(args=>args[0]==='pull').map(args=>args[1]),['public.ecr.aws/docker/library/mysql:8.0','docker.io/library/mysql:8.0','public.ecr.aws/docker/library/redis:8.6']);

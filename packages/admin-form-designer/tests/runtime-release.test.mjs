@@ -5,6 +5,16 @@ import { createRequire } from 'node:module';
 import os from 'node:os';
 import path from 'node:path';
 import { createRuntimeRelease, verifyRuntimeRelease } from '../runtime-release.mjs';
+import runtimeConfig from '../vite.runtime.config.mjs';
+
+test('入口文档发布内容与 Git 检出的换行无关', () => {
+  const { handler } = runtimeConfig.plugins.find(plugin => plugin.name === 'fullnet-vform-assets').transformIndexHtml;
+  const html = '<head>\n<script type="module" src="/vform3/@vite/client"></script>\n</head>\n';
+  const expected = '<head>\n\n</head>\n';
+  assert.equal(handler(html), expected);
+  assert.equal(handler(html.replaceAll('\n', '\r\n')), expected);
+});
+
 test('Element Plus 的共享运行时声明与实际解析都固定到当前 Vue 版本', async () => {
   const runtimeRequire = createRequire(new URL('../package.json', import.meta.url));
   const elementPlusRequire = createRequire(runtimeRequire.resolve('element-plus/package.json'));

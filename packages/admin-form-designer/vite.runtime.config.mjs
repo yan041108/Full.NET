@@ -55,7 +55,12 @@ export default defineConfig({
           res.setHeader('Content-Type', 'text/javascript'); res.setHeader('Access-Control-Allow-Origin', '*'); res.end(readFileSync(path.join(ace, match[1] + '.js')));
         });
       },
-      transformIndexHtml: { order: 'post', handler: html => html.replace(/<script type="module" src="[^"]*\/@vite\/client"><\/script>/g, '') },
+      transformIndexHtml: {
+        order: 'post',
+        // 固定入口文档的换行，避免 Windows 和 Linux 签入检出方式改变发布摘要。
+        handler: html => html.replace(/<script type="module" src="[^"]*\/@vite\/client"><\/script>/g, '')
+          .replace(/\r\n?/g, '\n')
+      },
       transform(code, id) {
         // ElSwitch 会在挂载时把 null 回写为 false；属性面板只显示布尔投影，用户操作时才修改原值。
         if (id.endsWith('/field-switch/switch-defaultValue-editor.vue')) return code.replace('v-model="optionModel.defaultValue"', ':model-value="optionModel.defaultValue ?? false" @update:model-value="optionModel.defaultValue = $event"');
