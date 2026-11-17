@@ -6779,3 +6779,9 @@ Release 集成工程单节点构建及 Identity 模块隔离 AOT 分析均零警
 - 23:22–23:24（北京时间）只读复核。辅助节点 `NotReady`，API 和 Worker 仍均为 0/2 Ready。主节点两 Pod 的 live 均为 200、ready 均为 503，API EndpointSlice 没有就绪地址。两 Pod 最近 15 分钟分别记录 184、93 条 `realtime-backplane` 日志，网关刷新服务最近退出码为 1。
 - 已部署的 Realtime Redis 端点固定到辅助节点，主节点到该地址 TCP 不通；同一检查中主节点 Cache Redis 可达。只读取了端点和探测结果。证据确认独立的 Realtime 端点失联会同时影响 API 与 Worker 就绪，辅助节点功能恢复和网关动态上游待现场复验。
 - 优先恢复并核对 Realtime 端点可达、两类宿主由 503 回到 200、API EndpointSlice 和网关收敛、已认证客户端跨节点投递。随后在隔离目标验证 Realtime 的单故障域接管和恢复时间，维持既有缓存隔离与就绪判定，按 §8.271 核对告警触发及恢复。已将检查顺序更新到 [Realtime 运行手册](../../operations/realtime-redis-backplane.md#节点故障与发布验收)。本次现场仅只读。
+
+### 8.314 K04 FAQ 祖先及私有反馈的原生模型前置（2026-11-17）
+
+- API CI 通过 `--faq-provenance` 为既有 FAQ 祖先图、私有反馈转换场景准备隔离 TLS 模型。专项要求 SQL Server 与 MySQL 四项原生回执，核心集合排除对应用例，保留原有可选页面桥接。
+- 复用已校验摘要的 Linux Native API，本机 4/4 通过，零失败、零跳过，35 分 31 秒。发现 UID 与 TRX 完全匹配，初始专项发现 4 项、核心 125 项且无重叠。定向发布治理 3/3。完整官方作业待复验。
+- §8.312 的新版官方作业已通过镜像准备，已进入原生构建及架构检查。SQL Server 隔离模型及完成审批浏览器回执仍待后续步骤。[作业](https://github.com/yan041108/Full.NET/actions/runs/44110345735/job/134133906493)。
