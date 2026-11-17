@@ -132,7 +132,8 @@ internal sealed class DocumentDapperAotMaterializerContributor
     private static DocumentItemDetailRecord ReadItemDetail(DbDataReader reader) => new()
     {
         Id = ReadGuid(reader, "Id"),
-        DocumentNo = ReadOptionalString(reader, "DocumentNo"),
+        // 编号列在双库仍可为空；沿用 JIT 对空值保留默认空字符串的行为。
+        DocumentNo = ReadOptionalNullableString(reader, "DocumentNo") ?? string.Empty,
         Title = ReadString(reader, "Title"),
         Description = ReadNullableString(reader, "Description"),
         CategoryId = ReadNullableGuid(reader, "CategoryId"),
@@ -379,12 +380,6 @@ internal sealed class DocumentDapperAotMaterializerContributor
     {
         var ordinal = RequiredOrdinal(reader, name);
         return AotDataReaderExtensions.ReadNullableDateTimeOffset(reader, ordinal);
-    }
-
-    private static string ReadOptionalString(DbDataReader reader, string name)
-    {
-        var ordinal = OptionalOrdinal(reader, name);
-        return ordinal < 0 ? string.Empty : reader.GetString(ordinal);
     }
 
     private static string? ReadOptionalNullableString(DbDataReader reader, string name)

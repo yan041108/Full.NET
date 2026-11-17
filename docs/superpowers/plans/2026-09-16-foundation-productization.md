@@ -6684,3 +6684,8 @@ Release 集成工程单节点构建及 Identity 模块隔离 AOT 分析均零警
 
 - 原生用例模拟对象落盘后进程中断，但缺少原文件操作的已确认配额；现行 Tenant 文件补偿在缺少确认时保留原状态。JIT 与原生共用配额确认准备，继续要求首批保留、后序推进，失败时报告上传、缺失对象、引用和租户文件各自的状态。[原生失败作业](https://github.com/yan041108/Full.NET/actions/runs/44033501282/job/133870751945)。
 - SQL Server/MySQL 的同场景 JIT 集成 2/2，零跳过。首次 MySQL 在数据库迁移前连接中断，重新创建两库容器后通过。原生双库进程待复验。
+
+### 8.297 Native Worker 文档保留策略的空编号读取（2026-11-17）
+
+- 原生 Worker 的文档根锁定读取在 SQL Server 抛出 `SqlNullValueException`，在 MySQL 抛出 `InvalidCastException`，启用后的历史版本裁剪均停在删除前。两库 `DocumentNo` 均允许 NULL，原生物化改为复用可空读取并沿用 JIT 的空字符串默认值。双库原生回归显式保留空编号输入。[原生失败作业](https://github.com/yan041108/Full.NET/actions/runs/44033501282/job/133870751945)。
+- Document AOT 分析构建零警告、零错误。直接调用该构建中的物化器验证投影缺列、数据库 NULL 和非空编号，3/3 通过。新原生 Worker 的双库裁剪流程待复验。

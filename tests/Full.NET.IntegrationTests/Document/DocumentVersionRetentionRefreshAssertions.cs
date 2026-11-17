@@ -78,9 +78,9 @@ internal static class DocumentVersionRetentionRefreshAssertions
             """, new { Id = Guid.Parse("01950000-0000-7000-8000-000000000232"), Timestamp = timestamp }, transaction, cancellationToken: cancellationToken));
         await connection.ExecuteAsync(new CommandDefinition("""
             INSERT INTO fn_document_item
-                (Id, TenantId, CategoryId, CurrentVersionId, Title, Description, IsDeleted, DeletedAtUtc,
+                (Id, TenantId, CategoryId, CurrentVersionId, Title, DocumentNo, Description, IsDeleted, DeletedAtUtc,
                  DeletedByUserId, CreatedAtUtc, CreatedByUserId, UpdatedAtUtc, UpdatedByUserId, Version)
-            VALUES (@Id, NULL, NULL, NULL, 'Native retention refresh', NULL, 0, NULL, NULL, @Timestamp, @Actor, NULL, NULL, 1)
+            VALUES (@Id, NULL, NULL, NULL, 'Native retention refresh', NULL, NULL, 0, NULL, NULL, @Timestamp, @Actor, NULL, NULL, 1)
             """, new { Id = itemId, Timestamp = timestamp, Actor = actor }, transaction, cancellationToken: cancellationToken));
         Guid currentId = Guid.Empty;
         for (var number = 1; number <= 4; number++)
