@@ -55,15 +55,22 @@ if(structured&&!structuredDriver){
 }
 
 async function prepareStructuredFixtures(labels){
-  const generator=path.join(repository,'tests/ai-parsing/generate-correction-fixtures.py');
-  const generated=JSON.parse(await docker(['run','--pull=never','--rm',...labels,'--network','none','--read-only',
-    '--cap-drop','ALL','--security-opt','no-new-privileges','--memory','512m','--cpus','1','--pids-limit','64',
-    '--tmpfs','/tmp:rw,noexec,nosuid,size=16m,uid=65532,gid=65532,mode=0700',
-    '--mount',`type=bind,source=${generator},target=/fixture-generator.py,readonly`,
-    '--entrypoint','/opt/ocr/bin/python',config.parserImage,'-B','/fixture-generator.py','/tmp/fixtures','--emit-base64']));
-  const names=['correction-ocr.png','correction-table.csv'];
-  if(!Array.isArray(generated)||generated.map(item=>item.name).sort().join(',')!==names.join(','))
-    throw new Error('结构化来源生成器未提供精确的 CSV 与 OCR 文件');
+  const generate=async script=>{
+    const entries=JSON.parse(await docker(['run','--pull=never','--rm',...labels,'--network','none','--read-only',
+      '--cap-drop','ALL','--security-opt','no-new-privileges','--memory','512m','--cpus','1','--pids-limit','64',
+      '--tmpfs','/tmp:rw,noexec,nosuid,size=16m,uid=65532,gid=65532,mode=0700',
+      '--mount',`type=bind,source=${path.join(repository,script)},target=/fixture-generator.py,readonly`,
+      '--entrypoint','/opt/ocr/bin/python',config.parserImage,'-B','/fixture-generator.py','/tmp/fixtures','--emit-base64']));
+    if(!Array.isArray(entries))throw new Error(`结构化来源生成器未返回文件清单：${script}`);
+    return entries;
+  };
+  const generated=[
+    ...await generate('tests/ai-parsing/generate-correction-fixtures.py'),
+    ...await generate('tests/fixtures/ai/generate-knowledge-relations.py'),
+  ];
+  const names=['correction-ocr.png','correction-parent-child.docx','correction-table.csv'];
+  if(generated.map(item=>item.name).sort().join(',')!==names.join(','))
+    throw new Error('结构化来源生成器未提供精确的 CSV、OCR 与 DOCX 文件');
   const fixtures=path.join(output,'fixtures');
   await mkdir(fixtures);
   for(const {name,data,bytes,sha256} of generated){

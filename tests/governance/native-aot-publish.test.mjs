@@ -101,9 +101,12 @@ test('核心API跨宿主恢复与Worker专项均登记必需场景', async () =>
   for (const type of evaluationTypes) assert.ok(api.filter.split('&').includes('FullyQualifiedName!~' + type));
   const structured = matrix.nativeKnowledgeStructuredRuntimeIntegration;
   const structuredMethod = 'NativeHumanKnowledgePublicationE2ETests.Native_structured_source_edit_index_publication_and_history_preserve_real_positions';
-  assert.equal(structured.filter, 'FullyQualifiedName~' + structuredMethod);
-  assert.equal(structured.minimum, 4);
+  const relationsType = 'NativeKnowledgeSearchRelationsE2ETests';
+  assert.equal(structured.filter, [structuredMethod, relationsType].map(type => 'FullyQualifiedName~' + type).join('|'));
+  assert.deepEqual(structured.requiredTestTypes, ['NativeHumanKnowledgePublicationE2ETests', relationsType]);
+  assert.equal(structured.minimum, 6);
   assert.ok(api.filter.split('&').includes('FullyQualifiedName!~' + structuredMethod));
+  assert.ok(api.filter.split('&').includes('FullyQualifiedName!~' + relationsType));
   assert.ok(api.requiredTestTypes.includes('NativeHumanKnowledgePublicationE2ETests'));
   assert.ok(api.requiredTestTypes.includes('NativeWorkerPdfE2ETests'));
   assert.ok(api.requiredTestTypes.includes('NativeApiKafkaLogMySqlE2ETests'));
@@ -143,6 +146,7 @@ for (const role of ['api', 'worker']) {
     assert.ok(publish >= 0 && artifact > publish && artifact < runtime, '可复用产物须在运行门禁之前上传');
     assert.ok(runtime > artifact, '保留后续原生运行门禁');
     if (role === 'api') {
+      assert.match(workflow, /^    timeout-minutes: 240$/m, 'API 作业须容纳模型、解析和核心原生专项');
       const chromium = steps.findIndex(step => step.includes('playwright install --with-deps chromium'));
       assert.ok(chromium >= 0 && chromium < runtime, '日程原生浏览器用例须在 Chromium 准备后运行');
       const integrationBuild = steps.findIndex(step => step.startsWith('name: Build integration tests'));

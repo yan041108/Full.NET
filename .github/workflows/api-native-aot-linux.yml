@@ -41,7 +41,7 @@ jobs:
   linux-native-aot:
     # 原生链接需匹配发布运行镜像的 Noble glibc 基线。
     runs-on: ubuntu-24.04
-    timeout-minutes: 180
+    timeout-minutes: 240
     steps:
       - uses: actions/checkout@v4
 

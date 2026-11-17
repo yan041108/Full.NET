@@ -1,4 +1,5 @@
 """生成自有 DOCX 嵌入图片样本；实际生产解析器负责 OCR 和父锚点证明。"""
+from base64 import b64encode
 import hashlib
 import io
 import json
@@ -33,4 +34,9 @@ if target.exists() and target.read_bytes() != payload:
     raise RuntimeError("Existing relation fixture differs")
 if not target.exists():
     target.write_bytes(payload)
-print(json.dumps({"source": target.name, "bytes": len(payload), "sha256": hashlib.sha256(payload).hexdigest(), "query": "FULLNET"}))
+sha256 = hashlib.sha256(payload).hexdigest()
+if sys.argv[2:] == ["--emit-base64"]:
+    print(json.dumps([{"name": target.name, "bytes": len(payload), "sha256": sha256,
+                       "data": b64encode(payload).decode("ascii")}]))
+else:
+    print(json.dumps({"source": target.name, "bytes": len(payload), "sha256": sha256, "query": "FULLNET"}))

@@ -1827,7 +1827,7 @@
   },
   "nativeAotIntegration": {
     "project": "tests/Full.NET.IntegrationTests/Full.NET.IntegrationTests.csproj",
-    "filter": "FullyQualifiedName~Full.NET.IntegrationTests.NativeAot&FullyQualifiedName!~NativeApiS3&FullyQualifiedName!~NativeApiKafkaReplay&FullyQualifiedName!~NativeApiNotifications&FullyQualifiedName!~NativeApiSettings&FullyQualifiedName!~NativeApiJobs&FullyQualifiedName!~NativeApiOidc&FullyQualifiedName!~NativeApiMessagingConfigurationE2ETests&FullyQualifiedName!~NativeEnterpriseBusiness&FullyQualifiedName!~NativeWorkerKnowledgeGenerationE2ETests&FullyQualifiedName!~NativeWorkerCorrectionGenerationE2ETests&FullyQualifiedName!~NativeMigratorE2ETests&FullyQualifiedName!~NativeLogConsumerE2ETests&FullyQualifiedName!~NativeChatCrossInstanceCancellationTests&FullyQualifiedName!~NativeKnowledgeEvaluationPrivateRunE2ETests&FullyQualifiedName!~NativeKnowledgeEvaluationRunE2ETests&FullyQualifiedName!~NativeKnowledgeEvaluationSourceE2ETests&FullyQualifiedName!~NativeHumanKnowledgePublicationE2ETests.Native_structured_source_edit_index_publication_and_history_preserve_real_positions&FullyQualifiedName!~NativeKnowledgeSearchAnswerE2ETests&FullyQualifiedName!~NativeKnowledgeSearchComparisonE2ETests&FullyQualifiedName!~NativeKnowledgeSearchRefinementE2ETests&FullyQualifiedName!~NativeKnowledgeFaqSearchE2ETests&FullyQualifiedName!~NativeKnowledgeFaqParentE2ETests&FullyQualifiedName!~NativeKnowledgeFaqFeedbackE2ETests",
+    "filter": "FullyQualifiedName~Full.NET.IntegrationTests.NativeAot&FullyQualifiedName!~NativeApiS3&FullyQualifiedName!~NativeApiKafkaReplay&FullyQualifiedName!~NativeApiNotifications&FullyQualifiedName!~NativeApiSettings&FullyQualifiedName!~NativeApiJobs&FullyQualifiedName!~NativeApiOidc&FullyQualifiedName!~NativeApiMessagingConfigurationE2ETests&FullyQualifiedName!~NativeEnterpriseBusiness&FullyQualifiedName!~NativeWorkerKnowledgeGenerationE2ETests&FullyQualifiedName!~NativeWorkerCorrectionGenerationE2ETests&FullyQualifiedName!~NativeMigratorE2ETests&FullyQualifiedName!~NativeLogConsumerE2ETests&FullyQualifiedName!~NativeChatCrossInstanceCancellationTests&FullyQualifiedName!~NativeKnowledgeEvaluationPrivateRunE2ETests&FullyQualifiedName!~NativeKnowledgeEvaluationRunE2ETests&FullyQualifiedName!~NativeKnowledgeEvaluationSourceE2ETests&FullyQualifiedName!~NativeHumanKnowledgePublicationE2ETests.Native_structured_source_edit_index_publication_and_history_preserve_real_positions&FullyQualifiedName!~NativeKnowledgeSearchAnswerE2ETests&FullyQualifiedName!~NativeKnowledgeSearchComparisonE2ETests&FullyQualifiedName!~NativeKnowledgeSearchRefinementE2ETests&FullyQualifiedName!~NativeKnowledgeFaqSearchE2ETests&FullyQualifiedName!~NativeKnowledgeFaqParentE2ETests&FullyQualifiedName!~NativeKnowledgeFaqFeedbackE2ETests&FullyQualifiedName!~NativeKnowledgeSearchRelationsE2ETests",
     "requiredTestTypes": [
       "NativeApiCacheE2ETests",
       "NativeApiLocalFileMySqlE2ETests",
@@ -1892,10 +1892,10 @@
   },
   "nativeKnowledgeStructuredRuntimeIntegration": {
     "project": "tests/Full.NET.IntegrationTests/Full.NET.IntegrationTests.csproj",
-    "filter": "FullyQualifiedName~NativeHumanKnowledgePublicationE2ETests.Native_structured_source_edit_index_publication_and_history_preserve_real_positions",
-    "requiredTestTypes": ["NativeHumanKnowledgePublicationE2ETests"],
-    "minimum": 4,
-    "timeout": "20m"
+    "filter": "FullyQualifiedName~NativeHumanKnowledgePublicationE2ETests.Native_structured_source_edit_index_publication_and_history_preserve_real_positions|FullyQualifiedName~NativeKnowledgeSearchRelationsE2ETests",
+    "requiredTestTypes": ["NativeHumanKnowledgePublicationE2ETests", "NativeKnowledgeSearchRelationsE2ETests"],
+    "minimum": 6,
+    "timeout": "30m"
   },
   "nativeKnowledgeGenerationIntegration": {
     "project": "tests/Full.NET.IntegrationTests/Full.NET.IntegrationTests.csproj",
