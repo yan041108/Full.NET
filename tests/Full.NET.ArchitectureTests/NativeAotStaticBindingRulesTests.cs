@@ -1,4 +1,6 @@
 using System.Text.RegularExpressions;
+using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace Full.NET.ArchitectureTests;
 
@@ -14,15 +16,15 @@ public sealed class NativeAotStaticBindingRulesTests
     [DataRow("Settings", "SettingsDomainAuditDiffRecord", "Auditing/SettingsDomainAuditChangeDiffReader.cs")]
     [DataRow("Identity", "WorkflowRoleListRow", "Workflow/WorkflowRoleMemberDirectory.cs")]
     [DataRow("Identity", "WorkflowRoleMemberRow", "Workflow/WorkflowRoleMemberDirectory.cs")]
-    [DataRow("Organization", "WorkflowOrganizationUnitListRow", "TenantUnits/WorkflowUnitLeaderDirectory.cs")]
-    [DataRow("Organization", "WorkflowUnitLeaderRow", "TenantUnits/WorkflowUnitLeaderDirectory.cs")]
+    [DataRow("Organization", "WorkflowOrganizationUnitListRow", "TenantUnits/WorkflowOrganizationAssigneeDirectory.cs")]
+    [DataRow("Organization", "WorkflowOrganizationAssigneeMemberRow", "TenantUnits/WorkflowOrganizationAssigneeDirectory.cs")]
     [DataRow("Organization", "OrganizationMembershipRecord", "HostDashboard/TenantOrganizationUserMembershipReader.cs")]
-    [DataRow("Organization", "OrganizationMembershipUserRecord", "HostDashboard/TenantOrganizationUserMembershipReader.cs")]
+    [DataRow("Organization", "OrganizationUserUnitListRow", "Features/HostUserManagementReference/HostUserManagementReferenceService.cs")]
     [DataRow("Notifications", "DingTalkApprovalSyncRecord", "Features/ManageDingTalkApprovalSync/DingTalkApprovalSyncService.cs")]
     [DataRow("Notifications", "WeChatMiniProgramBindingRecord", "Features/ManageWeChatMiniProgramBindings/WeChatMiniProgramBindingService.cs")]
     [DataRow("Notifications", "WeChatMiniProgramSubscriptionRecord", "Features/ManageWeChatMiniProgramBindings/WeChatMiniProgramBindingService.cs")]
     [DataRow("Tenancy", "OutstandingReservationRow", "Features/ReconcileQuotaReservationMetricIds/TenantQuotaMetricIdReconciliationService.cs")]
-    [DataRow("Tenancy", "TenantQuotaMetricBackfillCandidate", "Features/ReconcileQuotaUsageBaseline/TenantQuotaUsageBaselineService.cs")]
+    [DataRow("Tenancy", "TenantQuotaUsageBaselineRecord", "Features/ReconcileQuotaUsageBaseline/TenantQuotaUsageBaselineService.cs")]
     public void ManagementReadProjection_HasStaticMaterializer(string module, string row, string query)
     {
         var directory = Path.Combine(ArchitectureRepositoryRoot.Find(), "src", "Modules", $"Full.NET.Modules.{module}");
@@ -557,7 +559,8 @@ public sealed class NativeAotStaticBindingRulesTests
             + "CutoffEventId, CutoffOccurredAtUtc, CdcSourcePositionJson, OperatorUserId, "
             + "Reason, RollbackBoundaryEventId, RollbackOccurredAtUtc, "
             + "RollbackState, RollbackGeneration, RollbackPreparedAtUtc, "
-            + "CreatedAtUtc, UpdatedAtUtc";
+            + "CreatedAtUtc, UpdatedAtUtc, CdcKafkaBindingJson";
+        StringAssert.Contains(contributorSource, "CdcKafkaBindingJson = AotDataReaderExtensions.ReadNullableString(reader, 17)");
         foreach (var statement in new[] { "FindByStream", "ListAll" })
         {
             Assert.AreEqual(
@@ -679,7 +682,8 @@ public sealed class NativeAotStaticBindingRulesTests
         const string announcementProjection =
             "Id, TenantId, Title, Content, Kind, AudienceKind, Status, "
             + "PublishedAtUtc, PublishedByUserId, RetractedAtUtc, RetractedByUserId, "
-            + "CreatedAtUtc, UpdatedAtUtc, CreatedByUserId, UpdatedByUserId, Version";
+            + "CreatedAtUtc, UpdatedAtUtc, CreatedByUserId, UpdatedByUserId, Version, ArchivedAtUtc";
+        StringAssert.Contains(contributorSource, "ArchivedAtUtc = AotDataReaderExtensions.ReadNullableDateTimeOffset(reader, 16)");
         foreach (var statement in new[]
                  {
                      "ListHostSqlServer",
@@ -1088,8 +1092,13 @@ public sealed class NativeAotStaticBindingRulesTests
         StringAssert.Contains(
             contributorSource,
             "DocumentNo = ReadOptionalString(reader, \"DocumentNo\")");
-        StringAssert.Contains(contributorSource, "LeaseId = ReadNullableGuid(reader, \"LeaseId\")");
-        StringAssert.Contains(contributorSource, "LeaseExpiresAtUtc = ReadNullableDateTimeOffset(reader, \"LeaseExpiresAtUtc\")");
+        var previewReader = CSharpSyntaxTree.ParseText(contributorSource, CSharpParseOptions.Default.WithPreprocessorSymbols("FULLNET_AOT_COMPILE"))
+            .GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>()
+            .Single(method => method.Identifier.ValueText == "ReadPreviewTask").ToString();
+        StringAssert.Contains(previewReader, "Version = ReadInt64(reader, \"Version\")");
+        StringAssert.Contains(previewReader, "LeaseExpiresAtUtc = ReadNullableDateTimeOffset(reader, \"LeaseExpiresAtUtc\")");
+        StringAssert.Contains(previewReader, "OutputReferenceId = ReadNullableGuid(reader, \"OutputReferenceId\")");
+        StringAssert.Contains(previewReader, "AttemptCount = ReadInt32(reader, \"AttemptCount\")");
         StringAssert.Contains(
             contributorSource,
             "ChangeDescription = ReadOptionalNullableString(reader, \"ChangeDescription\")");
@@ -1877,21 +1886,8 @@ public sealed class NativeAotStaticBindingRulesTests
                         ["Full.NET.Modules.".Length..] + "Module.cs"),
             })
             .Where(item => File.Exists(item.ModulePath))
-            .Select(item => new
-            {
-                item.ModuleName,
-                item.ContributorName,
-                MethodBody = ExtractMethodBody(
-                    File.ReadAllText(item.ModulePath),
-                    "AddBackgroundServices"),
-            })
-            .Where(item => !string.IsNullOrEmpty(item.MethodBody))
-            .Where(item => !Regex.IsMatch(
-                item.MethodBody,
-                @"#if\s+FULLNET_AOT_COMPILE[\s\S]*?new\s+(?:Persistence\.)?"
-                    + Regex.Escape(item.ContributorName)
-                    + @"\s*\(\s*\)[\s\S]*?\.RegisterMaterializers\s*\([\s\S]*?#endif",
-                RegexOptions.CultureInvariant))
+            .Where(item => FindsWorkerMaterializerRegistration(File.ReadAllText(item.ModulePath),
+                item.ModuleName + "Module", item.ContributorName) == false)
             .Select(item => item.ModuleName)
             .OrderBy(module => module, StringComparer.Ordinal)
             .ToArray();
@@ -1933,38 +1929,68 @@ public sealed class NativeAotStaticBindingRulesTests
         source.Contains("new {", StringComparison.Ordinal)
         || Regex.IsMatch(source, @"new\s*\{", RegexOptions.CultureInvariant);
 
-    private static string ExtractMethodBody(string source, string methodName)
+    private static bool? FindsWorkerMaterializerRegistration(string source, string moduleType, string contributor)
     {
-        var declaration = Regex.Match(
-            source,
-            @"\bpublic\s+void\s+" + Regex.Escape(methodName) + @"\s*\(",
-            RegexOptions.CultureInvariant);
-        if (!declaration.Success)
+        var aotOptions = CSharpParseOptions.Default.WithPreprocessorSymbols("FULLNET_AOT_COMPILE");
+        var aotMethods = ReadModuleMethods(source, moduleType, aotOptions);
+        var entry = aotMethods.SingleOrDefault(method => method.Identifier.ValueText == "AddBackgroundServices");
+        if (entry is null)
         {
-            return string.Empty;
+            return null;
+        }
+        // Printing 的 Worker 入口只注册纯表单渲染器；入口形状变化后重新要求物化注册。
+        if (moduleType == "PrintingModule" && entry.ExpressionBody is { Expression: var renderer }
+            && SyntaxFactory.AreEquivalent(renderer, SyntaxFactory.ParseExpression(
+                "services.TryAddSingleton<IPrintingFormRenderer, Features.RenderForms.PrintingFormRenderer>()")))
+        {
+            return null;
         }
 
-        var braceIndex = source.IndexOf('{', declaration.Index + declaration.Length);
-        if (braceIndex < 0)
-        {
-            return string.Empty;
-        }
-
-        var depth = 0;
-        for (var index = braceIndex; index < source.Length; index++)
-        {
-            if (source[index] == '{')
-            {
-                depth++;
-            }
-            else if (source[index] == '}' && --depth == 0)
-            {
-                return source[braceIndex..(index + 1)];
-            }
-        }
-
-        return string.Empty;
+        var jitMethods = ReadModuleMethods(source, moduleType, CSharpParseOptions.Default);
+        var jitEntry = jitMethods.SingleOrDefault(method => method.Identifier.ValueText == "AddBackgroundServices");
+        return RegistersFromWorkerEntry(entry, aotMethods, contributor)
+            && (jitEntry is null || !RegistersFromWorkerEntry(jitEntry, jitMethods, contributor));
     }
+
+    private static MethodDeclarationSyntax[] ReadModuleMethods(string source, string moduleType, CSharpParseOptions options) =>
+        CSharpSyntaxTree.ParseText(source, options).GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>()
+            .Where(type => type.Identifier.ValueText == moduleType)
+            .SelectMany(type => type.Members.OfType<MethodDeclarationSyntax>()).ToArray();
+
+    private static bool RegistersFromWorkerEntry(MethodDeclarationSyntax entry, MethodDeclarationSyntax[] methods, string contributor)
+    {
+        // 只沿入口直接执行的调用检查一层同步共享注册方法，后台委托和条件分支不能提供启动保证。
+        foreach (var invocation in DirectInvocations(entry))
+        {
+            if (IsMaterializerRegistration(invocation, contributor)) return true;
+            if (invocation.Expression is not IdentifierNameSyntax called) continue;
+            var candidates = methods.Where(method => method.Identifier.ValueText == called.Identifier.ValueText
+                && method.Modifiers.Any(token => token.RawKind == (int)SyntaxKind.PrivateKeyword)
+                && method.Modifiers.Any(token => token.RawKind == (int)SyntaxKind.StaticKeyword)
+                && !method.Modifiers.Any(token => token.RawKind == (int)SyntaxKind.AsyncKeyword)
+                && method.ReturnType is PredefinedTypeSyntax { Keyword.RawKind: (int)SyntaxKind.VoidKeyword }
+                && method.ParameterList.Parameters.Count == invocation.ArgumentList.Arguments.Count).Take(2).ToArray();
+            if (candidates.Length == 1 && DirectInvocations(candidates[0]).Any(call => IsMaterializerRegistration(call, contributor)))
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static IEnumerable<InvocationExpressionSyntax> DirectInvocations(MethodDeclarationSyntax method) =>
+        method.ExpressionBody?.Expression is InvocationExpressionSyntax expression
+            ? [expression]
+            : method.Body?.Statements.OfType<ExpressionStatementSyntax>().Select(statement => statement.Expression)
+                .OfType<InvocationExpressionSyntax>() ?? [];
+
+    private static bool IsMaterializerRegistration(InvocationExpressionSyntax invocation, string contributor) =>
+        invocation.Expression is MemberAccessExpressionSyntax
+        {
+            Name.Identifier.ValueText: "RegisterMaterializers",
+            Expression: ObjectCreationExpressionSyntax creation,
+        }
+        && creation.Type.GetLastToken().ValueText == contributor;
 
     private static string ExtractSelectProjection(string source, string statementField)
     {
