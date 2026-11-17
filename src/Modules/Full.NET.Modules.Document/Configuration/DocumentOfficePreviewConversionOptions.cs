@@ -39,10 +39,10 @@ public sealed class DocumentOfficePreviewConversionOptions
     /// <summary>每轮最多领取任务数。</summary>
     public int BatchSize { get; set; } = 5;
 
-    /// <summary>单任务最多领取次数，含进程崩溃重领；人工重试建立新任务。</summary>
+    /// <summary>单任务最多执行次数，包含进程崩溃前已登记的尝试；人工重试建立新任务。</summary>
     public int MaxAttempts { get; set; } = 3;
 
-    /// <summary>瞬时转换失败的退避基数秒数，按已领取次数递增。</summary>
+    /// <summary>瞬时转换失败的退避基数秒数，按已登记的执行次数递增。</summary>
     public int RetryBackoffSeconds { get; set; } = 15;
 
     /// <summary>永久删除最小事实保留天数，独立于原始访问日志。</summary>

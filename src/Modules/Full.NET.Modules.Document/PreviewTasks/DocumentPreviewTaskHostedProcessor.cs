@@ -1,3 +1,4 @@
+using Full.NET.Abstractions.Results;
 using Full.NET.Abstractions.Tenancy;
 using Full.NET.Modules.Document.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -18,6 +19,7 @@ internal sealed class DocumentPreviewTaskHostedProcessor(
         while (!stoppingToken.IsCancellationRequested)
         {
             var processed = 0;
+            TimeSpan? capacityDelay = null;
             try
             {
                 processed = await ProcessOnceAsync(stoppingToken).ConfigureAwait(false);
@@ -26,12 +28,20 @@ internal sealed class DocumentPreviewTaskHostedProcessor(
             {
                 break;
             }
+            catch (ServiceCapacityExceededException exception)
+            {
+                // 领取和执行遇到准入压力时一并暂停，恢复后按原 PDF 收据和租约继续。
+                var pollingDelay = GetDelayAfterBatch(0);
+                var minimumDelay = exception.RetryAfter > pollingDelay ? exception.RetryAfter : pollingDelay;
+                capacityDelay = minimumDelay + TimeSpan.FromMilliseconds(Random.Shared.Next(1000));
+                DocumentPreviewTaskHostedProcessorLog.CapacityBackoff(logger, exception.Kind, capacityDelay.Value.TotalMilliseconds);
+            }
             catch (Exception exception)
             {
                 DocumentPreviewTaskHostedProcessorLog.IterationFailed(logger, exception);
             }
 
-            var delay = GetDelayAfterBatch(processed);
+            var delay = capacityDelay ?? GetDelayAfterBatch(processed);
             if (delay > TimeSpan.Zero) await Task.Delay(delay, stoppingToken).ConfigureAwait(false);
         }
     }
@@ -79,4 +89,10 @@ internal static partial class DocumentPreviewTaskHostedProcessorLog
         Level = LogLevel.Error,
         Message = "Document preview task worker iteration failed")]
     public static partial void IterationFailed(ILogger logger, Exception exception);
+
+    [LoggerMessage(
+        EventId = 4713,
+        Level = LogLevel.Warning,
+        Message = "Document preview worker polling delayed by database capacity ({CapacityFailure}) for {RetryDelayMilliseconds} ms")]
+    public static partial void CapacityBackoff(ILogger logger, ServiceCapacityFailureKind capacityFailure, double retryDelayMilliseconds);
 }

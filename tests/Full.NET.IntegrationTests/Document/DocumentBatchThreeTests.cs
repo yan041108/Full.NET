@@ -49,7 +49,25 @@ public sealed partial class DocumentBatchThreeTests
         Assert.AreEqual(HostFileReferenceClaimProbeOutcome.Exists,
             (await services.GetServices<IHostFileReferenceClaimProbe>().Single(p => p.ConsumerModule == "document").ProbeReferenceAsync(output.Id, output.FileId)).Outcome);
         var converter = new Converter(); var runner = Runner(services, converter);
+        var query = services.GetRequiredService<IQueryExecutor>();
+        var liveOptions = services.GetRequiredService<IOptionsMonitor<DocumentOfficePreviewConversionOptions>>().CurrentValue;
+        liveOptions.MaxAttempts = 1;
+        var kind = provider == DatabaseProvider.SqlServer ? ServiceCapacityFailureKind.Rejected : ServiceCapacityFailureKind.Timeout;
+        var overloaded = Runner(services, converter, new AdmissionLimitedSource(kind));
+        var pressure = await Assert.ThrowsExactlyAsync<ServiceCapacityExceededException>(() => overloaded.ProcessPendingAsync(CancellationToken.None));
+        Assert.AreEqual(kind, pressure.Kind);
+        var waiting = (await lifecycle.FindAsync(created.Id, CancellationToken.None))!;
+        Assert.AreEqual("processing", waiting.StatusKey);
+        Assert.IsNull(waiting.ErrorCode);
+        Assert.AreEqual(0, waiting.AttemptCount);
+        Assert.AreEqual(0L, await CountAsync(query, "fn_document_preview_attempt", "TaskId = @Id", ("Id", created.Id)));
+        Assert.AreEqual(0, converter.Calls);
+        Assert.HasCount(0, await runner.ClaimAsync(1, CancellationToken.None));
+        clock.Advance(TimeSpan.FromSeconds(181));
+
         var stale = (await runner.ClaimAsync(1, CancellationToken.None)).Single();
+        Assert.IsTrue(await lifecycle.TryBeginAttemptAsync(stale, Guid.CreateVersion7(), 1, CancellationToken.None));
+        Assert.IsFalse(await lifecycle.TryBeginAttemptAsync(stale, Guid.CreateVersion7(), 2, CancellationToken.None));
         var writer = services.GetRequiredService<IHostFileUploadWriter>();
         await using var bytes = new MemoryStream(Pdf);
         var uploaded = await writer.UploadIdempotentAsync(DocumentPreviewLifecycle.UploadKey(output.Id), item.CreatedByUserId,
@@ -59,7 +77,6 @@ public sealed partial class DocumentBatchThreeTests
         await using var wrongReservation = new MemoryStream(Pdf);
         Assert.IsFalse((await writer.UploadIdempotentAsync(DocumentPreviewLifecycle.UploadKey(output.Id), item.CreatedByUserId,
             "recovery.pdf", "application/pdf", wrongReservation, wrongReservation.Length, reservedFileId: Guid.CreateVersion7())).IsSuccess);
-        var liveOptions = services.GetRequiredService<IOptionsMonitor<DocumentOfficePreviewConversionOptions>>().CurrentValue;
         liveOptions.TimeoutSeconds = 5; clock.Advance(TimeSpan.FromSeconds(70));
         Assert.HasCount(0, await runner.ClaimAsync(1, CancellationToken.None), "热缩短配置不能提前回收旧租约。");
         liveOptions.TimeoutSeconds = 120;
@@ -69,12 +86,11 @@ public sealed partial class DocumentBatchThreeTests
         Assert.AreEqual(0, converter.Calls, "恢复既有就绪收据时不应再次转换。");
         var done = (await lifecycle.FindAsync(created.Id, CancellationToken.None))!;
         Assert.AreEqual("succeeded", done.StatusKey, done.ErrorCode); Assert.AreEqual(output.FileId, done.OutputFileId);
-        Assert.AreEqual(2, done.AttemptCount);
+        Assert.AreEqual(1, done.AttemptCount);
         Assert.IsFalse(await lifecycle.CompleteAsync(stale, output.FileId, CancellationToken.None));
         Assert.IsTrue(await claims.HasOpenClaimsAsync(output.FileId));
-        var query = services.GetRequiredService<IQueryExecutor>();
         Assert.AreEqual(1L, await CountAsync(query, "fn_files_file", "UploadOperationKey = @Key", ("Key", DocumentPreviewLifecycle.UploadKey(output.Id))));
-        Assert.AreEqual(2L, await CountAsync(query, "fn_document_preview_attempt", "TaskId = @Id", ("Id", created.Id)));
+        Assert.AreEqual(1L, await CountAsync(query, "fn_document_preview_attempt", "TaskId = @Id", ("Id", created.Id)));
         using var content = await SendAsync(client, actor.AccessToken, HttpMethod.Get, Tasks + $"/{created.Id}/content");
         Assert.AreEqual(HttpStatusCode.OK, content.StatusCode); CollectionAssert.AreEqual(Pdf, await content.Content.ReadAsByteArrayAsync());
     }
@@ -181,10 +197,14 @@ public sealed partial class DocumentBatchThreeTests
         await lifecycle.PrepareAsync((await lifecycle.FindAsync(created.Id, CancellationToken.None))!, CancellationToken.None);
         for (var attempt = 1; attempt <= 3; attempt++)
         {
-            var claimed = (await runner.ClaimAsync(1, CancellationToken.None)).Single(); Assert.AreEqual(attempt, claimed.AttemptCount);
+            var claimed = (await runner.ClaimAsync(1, CancellationToken.None)).Single();
+            Assert.AreEqual(attempt - 1, claimed.AttemptCount);
+            Assert.IsTrue(await lifecycle.TryBeginAttemptAsync(claimed, Guid.CreateVersion7(), 3, CancellationToken.None));
+            Assert.AreEqual(attempt, claimed.AttemptCount);
             clock.Advance(TimeSpan.FromSeconds(181));
         }
-        var exhausted = (await runner.ClaimAsync(1, CancellationToken.None)).Single();
+        Assert.AreEqual(1, await runner.ProcessPendingAsync(CancellationToken.None));
+        var exhausted = (await lifecycle.FindAsync(created.Id, CancellationToken.None))!;
         Assert.AreEqual("failed", exhausted.StatusKey); Assert.AreEqual(3, exhausted.AttemptCount); Assert.AreEqual("document.preview.attempts_exhausted", exhausted.ErrorCode);
         Assert.HasCount(0, await runner.ClaimAsync(1, CancellationToken.None));
         Assert.AreEqual(3L, await CountAsync(services.GetRequiredService<IQueryExecutor>(), "fn_document_preview_attempt", "TaskId = @Id", ("Id", created.Id)));
@@ -253,8 +273,8 @@ public sealed partial class DocumentBatchThreeTests
             });
         await factory.InitializeAsync(); return factory;
     }
-    private static DocumentPreviewTaskRunner Runner(IServiceProvider s, Converter converter) => new(s.GetRequiredService<IQueryExecutor>(), s.GetRequiredService<ICommandExecutor>(),
-        s.GetRequiredService<ICommandTransaction>(), s.GetRequiredService<IHostFileContentReader>(), s.GetRequiredService<IHostFileUploadWriter>(),
+    private static DocumentPreviewTaskRunner Runner(IServiceProvider s, Converter converter, IHostFileContentReader? source = null) => new(s.GetRequiredService<IQueryExecutor>(), s.GetRequiredService<ICommandExecutor>(),
+        s.GetRequiredService<ICommandTransaction>(), source ?? s.GetRequiredService<IHostFileContentReader>(), s.GetRequiredService<IHostFileUploadWriter>(),
         new DocumentOfficePreviewConversionProviderResolver([converter], new Monitor(s.GetRequiredService<IOptionsMonitor<DocumentOfficePreviewConversionOptions>>().CurrentValue)),
         s.GetRequiredService<IClock>(), s.GetRequiredService<IOptions<DatabaseOptions>>(), s.GetRequiredService<IOptionsMonitor<DocumentOfficePreviewConversionOptions>>(),
         s.GetRequiredService<DocumentPreviewLifecycle>(), s.GetRequiredService<IIdGenerator>());
@@ -285,6 +305,12 @@ public sealed partial class DocumentBatchThreeTests
         public DateTimeOffset UtcNow { get; private set; } = DateTimeOffset.UtcNow;
         internal void Advance(TimeSpan amount) => UtcNow += amount;
     }
+    private sealed class AdmissionLimitedSource(ServiceCapacityFailureKind kind) : IHostFileContentReader
+    {
+        public Task<Result<HostFileContent>> OpenReadyContentAsync(Guid fileId, CancellationToken cancellationToken = default) =>
+            throw new ServiceCapacityExceededException(kind, TimeSpan.FromSeconds(5));
+    }
+
     private sealed class Converter : IDocumentOfficePreviewConversionProvider
     {
         public string ProviderKey => "external_http"; internal int Calls { get; private set; }

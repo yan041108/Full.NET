@@ -38,7 +38,7 @@ internal sealed class DocumentPreviewTaskRecord
     public Guid? SourceReferenceId { get; init; }
     public Guid? OutputReferenceId { get; init; }
     public Guid? OutputOwnerId { get; init; }
-    public int AttemptCount { get; init; }
+    public int AttemptCount { get; set; }
     public DateTimeOffset? NextAttemptAtUtc { get; init; }
     /// <summary>持久化领取时的租约截止，配置热更新不得提前回收在途资源。</summary>
     public DateTimeOffset? LeaseExpiresAtUtc { get; init; }

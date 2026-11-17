@@ -39,10 +39,8 @@ internal static class DocumentPreviewTaskSql
         WITH candidates AS (
         SELECT TOP (@BatchSize) Id FROM fn_document_preview_task WITH (UPDLOCK, ROWLOCK, READPAST)
         WHERE ((StatusKey = 'pending' AND (NextAttemptAtUtc IS NULL OR NextAttemptAtUtc <= @Now)) OR (StatusKey = 'processing' AND ((LeaseExpiresAtUtc IS NOT NULL AND LeaseExpiresAtUtc <= @Now) OR (LeaseExpiresAtUtc IS NULL AND StartedAtUtc <= @ExpiredBefore)))) AND SourceReferenceId IS NOT NULL ORDER BY CreatedAtUtc, Id)
-        UPDATE task SET StatusKey = CASE WHEN task.AttemptCount >= @MaxAttempts THEN 'failed' ELSE 'processing' END,
-        ErrorCode = CASE WHEN task.AttemptCount >= @MaxAttempts THEN 'document.preview.attempts_exhausted' ELSE NULL END,
-        CompletedAtUtc = CASE WHEN task.AttemptCount >= @MaxAttempts THEN @Now ELSE NULL END,
-        StartedAtUtc = @Now, LeaseExpiresAtUtc = @LeaseExpiresAtUtc, AttemptCount = task.AttemptCount + CASE WHEN task.AttemptCount >= @MaxAttempts THEN 0 ELSE 1 END, Version = task.Version + 1
+        UPDATE task SET StatusKey = 'processing', ErrorCode = NULL, CompletedAtUtc = NULL,
+        StartedAtUtc = @Now, LeaseExpiresAtUtc = @LeaseExpiresAtUtc, Version = task.Version + 1
         OUTPUT inserted.Id, inserted.DocumentItemId, inserted.VersionId, inserted.DocumentTitle, inserted.SourceFileId, inserted.SourceFileName, inserted.SourceMimeType, inserted.OutputFileId, inserted.StatusKey, inserted.ProviderKey, inserted.ErrorCode, inserted.RequestedByUserId, inserted.CreatedAtUtc, inserted.StartedAtUtc, inserted.CompletedAtUtc, inserted.Version, inserted.SourceReferenceId, inserted.OutputReferenceId, inserted.OutputOwnerId, inserted.AttemptCount, inserted.NextAttemptAtUtc, inserted.LeaseExpiresAtUtc
         FROM fn_document_preview_task AS task INNER JOIN candidates ON candidates.Id = task.Id;
         """, SqlDataScope.HostOnly);
@@ -51,10 +49,8 @@ internal static class DocumentPreviewTaskSql
         ORDER BY CreatedAtUtc, Id LIMIT @BatchSize FOR UPDATE SKIP LOCKED
         """, SqlDataScope.HostOnly);
     internal static readonly SqlStatement ClaimByIdsMySql = new("document.preview_task.claim_by_ids.mysql", """
-        UPDATE fn_document_preview_task SET StatusKey = CASE WHEN AttemptCount >= @MaxAttempts THEN 'failed' ELSE 'processing' END,
-        ErrorCode = CASE WHEN AttemptCount >= @MaxAttempts THEN 'document.preview.attempts_exhausted' ELSE NULL END,
-        CompletedAtUtc = CASE WHEN AttemptCount >= @MaxAttempts THEN @Now ELSE NULL END,
-        StartedAtUtc = @Now, LeaseExpiresAtUtc = @LeaseExpiresAtUtc, AttemptCount = AttemptCount + CASE WHEN AttemptCount >= @MaxAttempts THEN 0 ELSE 1 END, Version = Version + 1
+        UPDATE fn_document_preview_task SET StatusKey = 'processing', ErrorCode = NULL, CompletedAtUtc = NULL,
+        StartedAtUtc = @Now, LeaseExpiresAtUtc = @LeaseExpiresAtUtc, Version = Version + 1
         WHERE Id IN @Ids AND ((StatusKey = 'pending' AND (NextAttemptAtUtc IS NULL OR NextAttemptAtUtc <= @Now)) OR (StatusKey = 'processing' AND ((LeaseExpiresAtUtc IS NOT NULL AND LeaseExpiresAtUtc <= @Now) OR (LeaseExpiresAtUtc IS NULL AND StartedAtUtc <= @ExpiredBefore)))) AND SourceReferenceId IS NOT NULL
         """, SqlDataScope.HostOnly);
     internal static readonly SqlStatement SelectByIds = new("document.preview_task.select_by_ids", """
@@ -62,6 +58,13 @@ internal static class DocumentPreviewTaskSql
         """, SqlDataScope.HostOnly);
     internal static readonly SqlStatement RenewLease = new("document.preview_task.renew_lease", """
         UPDATE fn_document_preview_task SET StartedAtUtc = @Now, LeaseExpiresAtUtc = @LeaseExpiresAtUtc WHERE Id = @Id AND Version = @Version AND StatusKey = 'processing' AND LeaseExpiresAtUtc > @Now
+        """, SqlDataScope.HostOnly);
+    internal static readonly SqlStatement BeginAttempt = new("document.preview_task.begin_attempt", """
+        UPDATE fn_document_preview_task SET AttemptCount = AttemptCount + 1
+        WHERE Id = @Id AND Version = @Version AND StatusKey = 'processing' AND LeaseExpiresAtUtc > @Now
+          AND AttemptCount < @MaxAttempts AND NOT EXISTS (
+            SELECT 1 FROM fn_document_preview_attempt WHERE TaskId = @Id AND ClaimVersion = @Version
+          )
         """, SqlDataScope.HostOnly);
     internal static readonly SqlStatement MakeRunnable = new("document.preview_task.make_runnable", """
         UPDATE fn_document_preview_task SET StatusKey = 'pending', Version = Version + 1 WHERE Id = @Id AND StatusKey = 'preparing'

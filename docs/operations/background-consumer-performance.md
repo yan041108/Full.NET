@@ -20,6 +20,8 @@ Reporting 导出 Worker 遇到数据库准入拒绝或等待超时时，按建�
 
 ImportExport 导入 Worker 应用相同的准入退避，读取 `FullNet:ImportExport:PollSeconds`，通过事件 `6613` 记录 Warning。已领取的任务保留租约与最后提交的行检查点，恢复时从该检查点继续。
 
+Document Office 预览 Worker 读取 `Document:OfficePreviewConversion:PollSeconds` 执行准入退避，事件 `4713` 记录 Warning。领取仅更新执行租约，准备阶段的准入拒绝保留转换预算。Worker 先恢复已就绪的原 PDF 收据，再在开始转换前原子登记次数和尝试记录。已经用尽 `MaxAttempts` 时仍可绑定已有收据，缺少收据时任务按 `document.preview.attempts_exhausted` 结束。
+
 Document 版本保留的 `BatchSize` 限制整轮实际尝试删除的历史版本数，失败尝试同样消耗预算。有效历史保留数取配置上限与 `MinimumRetainedVersionsPerItem - 1` 的较大值，避免不可删除候选持续占用首批。
 
 Host 文件目录 `/api/v1/files/host-folders/tree` 返回 `parentId` 的直接子目录，省略参数只读根目录；节点用 `hasChildren` 表示可展开，不再携带递归 `children`。单父目录最多返回 1000 项，超过返回 `files.folder.query_limit_exceeded` / HTTP 422；目录创建最多 32 层。Vue 逐层请求，刷新取消旧请求，不缓存授权。

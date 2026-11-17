@@ -35,6 +35,27 @@ internal sealed class DocumentPreviewLifecycle(
                 ("Version", task.Version), ("Now", now), ("LeaseExpiresAtUtc", now.AddSeconds(timeoutSeconds + 60))), ct).ConfigureAwait(false) == 1;
         }, token);
 
+    /// <summary>以当前租约登记一次执行尝试；次数与尝试记录同事务提交。</summary>
+    internal async Task<bool> TryBeginAttemptAsync(DocumentPreviewTaskRecord task, Guid attemptId, int maxAttempts, CancellationToken token)
+    {
+        var started = await transaction.ExecuteAsync(async ct =>
+        {
+            var item = await guard.LockAsync(task.DocumentItemId, ct).ConfigureAwait(false);
+            if (item is null || item.DeletedAtUtc is not null || item.IsPurging) return false;
+            var now = clock.UtcNow;
+            var changed = await commands.ExecuteAsync(DocumentPreviewTaskSql.BeginAttempt,
+                DocumentSqlParameters.Create(("Id", task.Id), ("Version", task.Version), ("Now", now), ("MaxAttempts", maxAttempts)), ct)
+                .ConfigureAwait(false);
+            if (changed != 1) return false;
+            var inserted = await commands.ExecuteAsync(DocumentPreviewTaskSql.InsertAttempt, DocumentSqlParameters.Create(
+                ("AttemptId", attemptId), ("Id", task.Id), ("Version", task.Version), ("Now", now)), ct).ConfigureAwait(false);
+            if (inserted != 1) throw new InvalidOperationException("The preview conversion attempt could not be recorded.");
+            return true;
+        }, token).ConfigureAwait(false);
+        if (started) task.AttemptCount++;
+        return started;
+    }
+
     internal async Task PrepareAsync(DocumentPreviewTaskRecord task, CancellationToken token)
     {
         var source = (await ReferencesAsync(task.Id, token).ConfigureAwait(false)).SingleOrDefault(r => r.Purpose == "source");

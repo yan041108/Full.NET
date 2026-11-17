@@ -39,7 +39,6 @@ internal sealed class DocumentPreviewTaskRunner(
         foreach (var task in claimed)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            if (task.StatusKey != "processing") continue;
             await ProcessOneAsync(task, cancellationToken).ConfigureAwait(false);
         }
 
@@ -55,6 +54,8 @@ internal sealed class DocumentPreviewTaskRunner(
         if (!await lifecycle.RenewAsync(task, now, timeoutSeconds, cancellationToken).ConfigureAwait(false)) return;
         using var attempt = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         attempt.CancelAfter(TimeSpan.FromSeconds(timeoutSeconds));
+        var maxAttempts = options.CurrentValue.MaxAttempts;
+        var attemptRecorded = false;
         string? workingDirectory = null;
         try
         {
@@ -72,6 +73,12 @@ internal sealed class DocumentPreviewTaskRunner(
             {
                 if (receipt.FileId != outputReference.FileId) throw new InvalidOperationException("Preview upload identity mismatch.");
                 await lifecycle.CompleteAsync(task, receipt.FileId, attempt.Token).ConfigureAwait(false);
+                return;
+            }
+            // 即使转换次数已经用尽，也先尝试绑定上一轮持久化的 PDF 收据。
+            if (task.AttemptCount >= maxAttempts)
+            {
+                await lifecycle.FailAsync(task, "document.preview.attempts_exhausted", false, attempt.Token).ConfigureAwait(false);
                 return;
             }
             var sourceResult = await hostFileContentReader
@@ -98,6 +105,8 @@ internal sealed class DocumentPreviewTaskRunner(
 
                 workingDirectory = CreateWorkingDirectory(options.CurrentValue);
                 var provider = providerResolver.ResolveCurrent();
+                attemptRecorded = await lifecycle.TryBeginAttemptAsync(task, idGenerator.NewId(), maxAttempts, attempt.Token).ConfigureAwait(false);
+                if (!attemptRecorded) return;
                 var conversionResult = await provider
                     .ConvertAsync(
                         new DocumentOfficePreviewConversionInput(
@@ -143,8 +152,11 @@ internal sealed class DocumentPreviewTaskRunner(
             }
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }
-        catch (Exception)
+        catch (Exception exception) when (exception is not ServiceCapacityExceededException)
         {
+            // 其他准备异常也占用原有失败预算，避免持久错误在次数为零时反复重试。
+            if (!attemptRecorded && task.AttemptCount < maxAttempts
+                && !await lifecycle.TryBeginAttemptAsync(task, idGenerator.NewId(), maxAttempts, cancellationToken).ConfigureAwait(false)) return;
             await MarkFailedAsync(
                 task,
                 DocumentErrorCodes.OfficePreviewConversionFailed,
@@ -176,7 +188,7 @@ internal sealed class DocumentPreviewTaskRunner(
     {
         var now = clock.UtcNow;
         var parameters = DocumentSqlParameters.Create(("BatchSize", batchSize), ("Now", now),
-            ("ExpiredBefore", now.AddSeconds(-LeaseSeconds)), ("LeaseExpiresAtUtc", now.AddSeconds(LeaseSeconds)), ("MaxAttempts", options.CurrentValue.MaxAttempts));
+            ("ExpiredBefore", now.AddSeconds(-LeaseSeconds)), ("LeaseExpiresAtUtc", now.AddSeconds(LeaseSeconds)));
         return await transaction.ExecuteAsync(async token =>
         {
             IReadOnlyList<DocumentPreviewTaskRecord> tasks;
@@ -187,14 +199,12 @@ internal sealed class DocumentPreviewTaskRunner(
                 var ids = await queryExecutor.QueryAsync<Guid>(DocumentPreviewTaskSql.SelectClaimableIdsMySql, parameters, token).ConfigureAwait(false);
                 if (ids.Count == 0) return Array.Empty<DocumentPreviewTaskRecord>();
                 await commandExecutor.ExecuteAsync(DocumentPreviewTaskSql.ClaimByIdsMySql,
-                    DocumentSqlParameters.Create(("Ids", ids.ToArray()), ("Now", now), ("ExpiredBefore", now.AddSeconds(-LeaseSeconds)), ("LeaseExpiresAtUtc", now.AddSeconds(LeaseSeconds)), ("MaxAttempts", options.CurrentValue.MaxAttempts)), token).ConfigureAwait(false);
+                    DocumentSqlParameters.Create(("Ids", ids.ToArray()), ("Now", now), ("ExpiredBefore", now.AddSeconds(-LeaseSeconds)), ("LeaseExpiresAtUtc", now.AddSeconds(LeaseSeconds))), token).ConfigureAwait(false);
                 tasks = await queryExecutor.QueryAsync<DocumentPreviewTaskRecord>(DocumentPreviewTaskSql.SelectByIds, DocumentSqlParameters.Create(("Ids", ids.ToArray())), token).ConfigureAwait(false);
             }
             foreach (var claimed in tasks)
             {
                 await commandExecutor.ExecuteAsync(DocumentPreviewTaskSql.ExpirePreviousAttempts, DocumentSqlParameters.Create(("Id", claimed.Id), ("Version", claimed.Version), ("Now", now)), token).ConfigureAwait(false);
-                if (claimed.StatusKey == "processing") await commandExecutor.ExecuteAsync(DocumentPreviewTaskSql.InsertAttempt,
-                    DocumentSqlParameters.Create(("AttemptId", idGenerator.NewId()), ("Id", claimed.Id), ("Version", claimed.Version), ("Now", now)), token).ConfigureAwait(false);
             }
             return tasks;
         }, cancellationToken).ConfigureAwait(false);
