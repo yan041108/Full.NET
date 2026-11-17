@@ -6532,3 +6532,9 @@ Release 集成工程单节点构建及 Identity 模块隔离 AOT 分析均零警
 
 - `5432fc685` 的 API 和 Worker 原生流水线都在还原 `Full.NET.slnx` 时报告 `MSB4249`，父提交同样受影响。Linux SDK 10.0.404 容器在 `ValidateSolutionConfiguration` 复现该错误。
 - `1fcfeea72` 移除四个以旧式 ASP.NET 网站登记的资料目录。Windows 与 Linux 的 `ValidateSolutionConfiguration` 通过，并逐项核对了解决方案的 99 条 `.csproj` 声明。完整的远端原生运行以对应流水线结果为准。
+
+### 8.269 AppHost Aspire 依赖安全更新（2026-11-17）
+
+- `c7ec896b8` 的 API 和 Worker 原生流水线已进入 NuGet 审计，Aspire 13.4.6 触发 `NU1904` 与 `NU1903`。微软公告将 Dashboard SDK、Hosting 和 Hosting.AppHost 的修复版本标为 13.6.5。[CVE-2026-118740](https://github.com/dotnet/announcements/issues/526)，[CVE-2026-120006](https://github.com/dotnet/announcements/issues/503)。
+- AppHost SDK 与 SQL Server、MySQL、Redis 集成统一到 13.6.5，集中依赖同步提升为还原所需的 MessagePack 2.5.307 与 .NET 扩展包 10.0.14。还原使用现行 NuGet 全依赖审计策略。
+- Windows `dotnet restore Full.NET.slnx` 通过。AppHost Release 构建零错误，保留一条关于默认 CLI Bundle 配置的 `ASPIRE010` 警告。解析的 `Aspire.Hosting`、`Aspire.Hosting.AppHost` 和本机 Dashboard SDK 均为 13.6.5。
