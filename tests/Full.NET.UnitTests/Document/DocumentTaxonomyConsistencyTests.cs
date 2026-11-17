@@ -5,6 +5,7 @@ using Full.NET.Abstractions.Time;
 using Full.NET.Data.Abstractions;
 using Full.NET.Data.Dapper;
 using Full.NET.Modules.Document.Contracts;
+using Full.NET.Modules.Document.Features;
 using Full.NET.Modules.Document.Features.ManageHostDocumentCategories;
 using Full.NET.Modules.Document.Features.ManageHostDocumentItems;
 using Full.NET.Modules.Document.Features.ManageHostDocumentTags;
@@ -26,16 +27,18 @@ public sealed class DocumentTaxonomyConsistencyTests
     {
         var fixture = new Fixture();
         var guard = new DocumentTaxonomyWriteGuard(fixture, Options.Create(new DatabaseOptions { Provider = provider }));
-        await guard.LockCategoriesAsync(CancellationToken.None);
+        await fixture.CategoryGuard().LockAsync(CancellationToken.None);
         await guard.LockTagsAsync(CancellationToken.None);
-        CollectionAssert.AreEqual(new[] { DocumentTaxonomyWriteGuard.CategoryGuardId, DocumentTaxonomyWriteGuard.TagGuardId }, fixture.GuardKeys.ToArray());
+        Assert.HasCount(2, fixture.GuardKeys);
+        Assert.AreEqual(DocumentTaxonomyWriteGuard.TagGuardId, fixture.GuardKeys[1]);
         Assert.AreNotEqual(fixture.GuardKeys[0], fixture.GuardKeys[1]);
-        foreach (var statement in fixture.Statements)
-        {
-            Assert.AreEqual(SqlDataScope.HostOnly, statement.Scope);
-            StringAssert.Contains(statement.Text, "Id = @Id AND TenantId IS NULL");
-            StringAssert.Contains(statement.Text, provider == DatabaseProvider.SqlServer ? "UPDLOCK, HOLDLOCK" : "FOR UPDATE");
-        }
+        var categoryGate = fixture.Statements[0];
+        Assert.AreSame(DocumentCategorySql.LockTree, categoryGate);
+        Assert.AreEqual(SqlDataScope.HostOnly, categoryGate.Scope);
+        var tagGate = fixture.Statements[1];
+        Assert.AreEqual(SqlDataScope.HostOnly, tagGate.Scope);
+        StringAssert.Contains(tagGate.Text, "Id = @Id AND TenantId IS NULL");
+        StringAssert.Contains(tagGate.Text, provider == DatabaseProvider.SqlServer ? "UPDLOCK, HOLDLOCK" : "FOR UPDATE");
     }
 
     [TestMethod]
@@ -44,7 +47,7 @@ public sealed class DocumentTaxonomyConsistencyTests
     public async Task Missing_catalog_guard_fails_closed_before_other_queries(bool categories)
     {
         var fixture = new Fixture { GuardMissing = true };
-        await Assert.ThrowsAsync<InvalidOperationException>(() => categories ? fixture.Guard().LockCategoriesAsync(CancellationToken.None) : fixture.Guard().LockTagsAsync(CancellationToken.None));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => categories ? fixture.CategoryGuard().LockAsync(CancellationToken.None) : fixture.Guard().LockTagsAsync(CancellationToken.None));
         Assert.AreEqual(1, fixture.Statements.Count);
         Assert.AreEqual(0, fixture.Writes);
     }
@@ -83,7 +86,8 @@ public sealed class DocumentTaxonomyConsistencyTests
     {
         var fixture = new Fixture { EmptyCategories = operation == "category-create" };
         Assert.IsNull(await fixture.ExecuteAsync(operation));
-        Assert.IsTrue(fixture.Statements[0].Text.Contains("fn_document_taxonomy_write_guard", StringComparison.Ordinal),
+        var guard = operation.StartsWith("category", StringComparison.Ordinal) ? DocumentCategorySql.LockTree : DocumentTaxonomySql.LockWriteSqlServer;
+        Assert.AreSame(guard, fixture.Statements[0],
             "A row-independent admission guard must exist before reading the catalog or counting names.");
     }
 
@@ -129,14 +133,26 @@ public sealed class DocumentTaxonomyConsistencyTests
             // 执行正式 Dapper 事务实现，观察底层提交/回滚调用，不复制 Result 事务策略。
             Transaction = new DapperCommandTransaction(Coordinator);
             ids.NewId().Returns(Id);
-            Commands.ExecuteAsync(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(_ => { Writes++; return 1; });
+            Commands.ExecuteAsync(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(call =>
+            {
+                var statement = (SqlStatement)call[0]!;
+                Statements.Add(statement);
+                if (statement == DocumentCategorySql.LockTree)
+                {
+                    GuardKeys.Add((Guid)((Dictionary<string, object?>)call[1]!)["Id"]!);
+                    return GuardMissing ? 0 : 1;
+                }
+                Writes++;
+                return 1;
+            });
         }
 
         internal DocumentTaxonomyWriteGuard Guard() => new(this, Options.Create(new DatabaseOptions { Provider = DatabaseProvider.SqlServer }));
+        internal DocumentCategoryGuard CategoryGuard() => new(Commands);
 
         internal async Task<Error?> ExecuteAsync(string operation)
         {
-            var categories = new HostDocumentCategoryManagementService(this, Commands, Transaction, new(this), clock, ids, new Full.NET.Modules.Document.Features.DocumentCategoryGuard(Commands));
+            var categories = new HostDocumentCategoryManagementService(this, Commands, Transaction, new(this), clock, ids, CategoryGuard());
             var tags = new HostDocumentTagManagementService(this, Commands, Transaction, new(this), clock, ids, Guard());
             return operation switch
             {

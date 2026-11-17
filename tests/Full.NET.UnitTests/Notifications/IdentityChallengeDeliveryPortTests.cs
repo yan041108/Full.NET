@@ -1,5 +1,6 @@
 using Full.NET.Abstractions.Time;
 using Full.NET.Data.Abstractions;
+using Full.NET.Localization;
 using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Notifications.Contracts;
 using Full.NET.Modules.Notifications.Features.SendIdentityChallenge;
@@ -127,17 +128,23 @@ public sealed class IdentityChallengeDeliveryPortTests
     }
 
     [TestMethod]
-    [DataRow(DatabaseProvider.MySql, IdentityAccountChallengePurpose.RegistrationEmailVerification, "Full.NET registration verification")]
-    [DataRow(DatabaseProvider.SqlServer, IdentityAccountChallengePurpose.RegistrationEmailVerification, "Full.NET registration verification")]
-    [DataRow(DatabaseProvider.MySql, IdentityAccountChallengePurpose.PasswordRecovery, "Full.NET password recovery")]
-    [DataRow(DatabaseProvider.SqlServer, IdentityAccountChallengePurpose.PasswordRecovery, "Full.NET password recovery")]
-    [DataRow(DatabaseProvider.MySql, IdentityAccountChallengePurpose.InvitationEmailVerification, "Full.NET invitation verification")]
-    [DataRow(DatabaseProvider.SqlServer, IdentityAccountChallengePurpose.InvitationEmailVerification, "Full.NET invitation verification")]
+    [DataRow(DatabaseProvider.MySql, IdentityAccountChallengePurpose.RegistrationEmailVerification, LocaleCatalog.English, "Full.NET registration verification")]
+    [DataRow(DatabaseProvider.SqlServer, IdentityAccountChallengePurpose.RegistrationEmailVerification, LocaleCatalog.English, "Full.NET registration verification")]
+    [DataRow(DatabaseProvider.MySql, IdentityAccountChallengePurpose.PasswordRecovery, LocaleCatalog.English, "Full.NET password recovery")]
+    [DataRow(DatabaseProvider.SqlServer, IdentityAccountChallengePurpose.PasswordRecovery, LocaleCatalog.English, "Full.NET password recovery")]
+    [DataRow(DatabaseProvider.MySql, IdentityAccountChallengePurpose.InvitationEmailVerification, LocaleCatalog.English, "Full.NET invitation verification")]
+    [DataRow(DatabaseProvider.SqlServer, IdentityAccountChallengePurpose.InvitationEmailVerification, LocaleCatalog.English, "Full.NET invitation verification")]
+    [DataRow(DatabaseProvider.MySql, IdentityAccountChallengePurpose.RegistrationEmailVerification, LocaleCatalog.Chinese, "Full.NET 注册验证")]
+    [DataRow(DatabaseProvider.SqlServer, IdentityAccountChallengePurpose.RegistrationEmailVerification, LocaleCatalog.Chinese, "Full.NET 注册验证")]
+    [DataRow(DatabaseProvider.MySql, IdentityAccountChallengePurpose.PasswordRecovery, LocaleCatalog.Chinese, "Full.NET 找回密码")]
+    [DataRow(DatabaseProvider.SqlServer, IdentityAccountChallengePurpose.PasswordRecovery, LocaleCatalog.Chinese, "Full.NET 找回密码")]
+    [DataRow(DatabaseProvider.MySql, IdentityAccountChallengePurpose.InvitationEmailVerification, LocaleCatalog.Chinese, "Full.NET 邀请验证")]
+    [DataRow(DatabaseProvider.SqlServer, IdentityAccountChallengePurpose.InvitationEmailVerification, LocaleCatalog.Chinese, "Full.NET 邀请验证")]
     public async Task Supported_purposes_keep_recipient_credential_and_provider_sql(
-        DatabaseProvider provider, IdentityAccountChallengePurpose purpose, string subject)
+        DatabaseProvider provider, IdentityAccountChallengePurpose purpose, string locale, string subject)
     {
         var fixture = new Fixture(provider);
-        var intent = fixture.Intent with { Purpose = purpose };
+        var intent = fixture.Intent with { Purpose = purpose, LocaleTag = locale };
 
         var result = await fixture.Port.SendAsync(intent);
 
