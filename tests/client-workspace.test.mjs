@@ -71,14 +71,15 @@ assert.equal(
 // DCloud 的 H5 构建从公共 hoist 解析编译器，因此根工作区必须钉住与 Vue I18n 同版的实现。
 assert.equal(
   packageDefinition.pnpm.overrides['@intlify/message-compiler'],
-  '9.14.5',
+  '11.4.14',
   'vue-i18n 与 DCloud 公共依赖提升必须统一使用已验证的消息编译器版本'
 );
 assert.deepEqual(packageDefinition.pnpm.overrides, {
-  glob: '10.5.0',
-  '@intlify/message-compiler': '9.14.5',
-  '@dcloudio/uni-cli-shared>@intlify/core-base': '9.14.5',
-  '@dcloudio/uni-cli-shared>@intlify/shared': '9.14.5',
+  glob: '14.0.2',
+  'minimatch@>=7 <11.0.1': '11.0.1',
+  '@intlify/message-compiler': '11.4.14',
+  '@dcloudio/uni-cli-shared>@intlify/core-base': '11.4.14',
+  '@dcloudio/uni-cli-shared>@intlify/shared': '11.4.14',
   '@intlify/message-resolver@9.1.9': '9.1.11',
   '@intlify/message-resolver@9.1.10': '9.1.11',
   '@jimp/jpeg>jpeg-js': '0.4.4',
@@ -89,28 +90,33 @@ assert.deepEqual(packageDefinition.pnpm.overrides, {
   '@vue/server-renderer': '3.5.42',
   'vitest@3.2.6>tinypool': '2.1.2',
   nanoid: '3.3.18',
-  undici: '7.29.1',
+  undici: '7.30.1',
   'brace-expansion': '2.1.7',
   '@grpc/grpc-js': '1.14.5',
   braces: 'workspace:@fullnet/braces@0.1.0',
   vue: '3.5.42',
-  '@vue/server-renderer': '3.5.42',
-  'source-map-js': '1.2.2',
   'proxy-addr': '2.0.8',
   '@dcloudio/vite-plugin-uni>@vitejs/plugin-legacy': '6.1.1',
   '@dcloudio/vite-plugin-uni>@vitejs/plugin-vue-jsx': '4.2.0',
   '@dcloudio/uni-cli-shared>esbuild': '0.25.12',
   '@dcloudio/vite-plugin-uni>express': '4.22.3',
+  'express@4.22.3>body-parser': '1.20.9',
+  'axios@1.20.0>follow-redirects': '1.16.2',
   '@babel/core@7.25.2': '7.29.7',
   postcss: '8.5.23',
   'postcss-selector-parser': '7.1.6',
   qs: '6.16.1',
   'dockerode>uuid': '11.1.1',
-  '@dcloudio/uni-mp-weixin>jimp': '1.6.1'
+  '@dcloudio/uni-mp-weixin>jimp': '1.6.1',
+  'zod@^3': '4.6.7',
+  'vite@8.1.5': '8.1.6',
+  'vitest@4.1.11': '4.1.12'
 });
 assert.deepEqual(packageDefinition.pnpm.peerDependencyRules, {
   allowedVersions: {
-    '@dcloudio/vite-plugin-uni>vite': '6.4.4'
+    '@dcloudio/vite-plugin-uni>vite': '6.4.5',
+    'vitest>vite': '6.4.5 || 8.1.6',
+    '@vitest/mocker>vite': '6.4.5 || 8.1.6'
   }
 });
 
@@ -123,8 +129,8 @@ assert.equal(uniappDefinition.scripts.typecheck, 'vue-tsc --noEmit -p tsconfig.j
 assert.equal(uniappDefinition.scripts['build:h5'], 'uni build -p h5');
 assert.equal(uniappDefinition.scripts['build:mp-weixin'], 'uni build -p mp-weixin');
 assert.equal(uniappDefinition.scripts['build:mp-alipay'], 'uni build -p mp-alipay');
-assert.equal(uniappDefinition.dependencies['vue-i18n'], '9.14.5');
-assert.equal(uniappDefinition.devDependencies.vite, '6.4.4');
+assert.equal(uniappDefinition.dependencies['vue-i18n'], '11.4.14');
+assert.equal(uniappDefinition.devDependencies.vite, '6.4.5');
 assert.equal(uniappDefinition.devDependencies.vitest, '4.1.11');
 // 小程序内置 CSS 插件按 sass 名称加载，与 H5 共用同版 Embedded 实现。
 assert.equal(uniappDefinition.devDependencies.sass, 'npm:sass-embedded@1.100.0');

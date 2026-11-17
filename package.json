@@ -124,10 +124,11 @@
       }
     },
     "overrides": {
-      "glob": "10.5.0",
-      "@intlify/message-compiler": "9.14.5",
-      "@dcloudio/uni-cli-shared>@intlify/core-base": "9.14.5",
-      "@dcloudio/uni-cli-shared>@intlify/shared": "9.14.5",
+      "glob": "14.0.2",
+      "minimatch@>=7 <11.0.1": "11.0.1",
+      "@intlify/message-compiler": "11.4.14",
+      "@dcloudio/uni-cli-shared>@intlify/core-base": "11.4.14",
+      "@dcloudio/uni-cli-shared>@intlify/shared": "11.4.14",
       "@intlify/message-resolver@9.1.9": "9.1.11",
       "@intlify/message-resolver@9.1.10": "9.1.11",
       "@jimp/jpeg>jpeg-js": "0.4.4",
@@ -138,18 +139,18 @@
       "@vue/server-renderer": "3.5.42",
       "vitest@3.2.6>tinypool": "2.1.2",
       "nanoid": "3.3.18",
-      "undici": "7.29.1",
+      "undici": "7.30.1",
       "brace-expansion": "2.1.7",
       "@grpc/grpc-js": "1.14.5",
       "braces": "workspace:@fullnet/braces@0.1.0",
       "vue": "3.5.42",
-      "@vue/server-renderer": "3.5.42",
-      "source-map-js": "1.2.2",
       "proxy-addr": "2.0.8",
       "@dcloudio/vite-plugin-uni>@vitejs/plugin-legacy": "6.1.1",
       "@dcloudio/vite-plugin-uni>@vitejs/plugin-vue-jsx": "4.2.0",
       "@dcloudio/uni-cli-shared>esbuild": "0.25.12",
       "@dcloudio/vite-plugin-uni>express": "4.22.3",
+      "express@4.22.3>body-parser": "1.20.9",
+      "axios@1.20.0>follow-redirects": "1.16.2",
       "@babel/core@7.25.2": "7.29.7",
       "postcss": "8.5.23",
       "postcss-selector-parser": "7.1.6",
@@ -162,9 +163,9 @@
     },
     "peerDependencyRules": {
       "allowedVersions": {
-        "@dcloudio/vite-plugin-uni>vite": "6.4.4",
-        "vitest>vite": "6.4.4 || 8.1.6",
-        "@vitest/mocker>vite": "6.4.4 || 8.1.6"
+        "@dcloudio/vite-plugin-uni>vite": "6.4.5",
+        "vitest>vite": "6.4.5 || 8.1.6",
+        "@vitest/mocker>vite": "6.4.5 || 8.1.6"
       }
     },
     "patchedDependencies": {

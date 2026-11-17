@@ -116,11 +116,17 @@ function createReport(advisories) {
 }
 
 if (typeof evaluateAuditReport === 'function') {
-  test('production policy has no vulnerability exceptions and still rejects High/Critical findings', () => {
+  test('production policy limits the reviewed Quill path and rejects High/Critical findings', () => {
     assert.equal(productionPolicy.version, 1);
     assert.equal(productionPolicy.registry, 'https://registry.npmjs.org');
     assert.equal(productionPolicy.minimumSeverity, 'low');
-    assert.deepEqual(productionPolicy.exceptions, []);
+    assert.deepEqual(productionPolicy.exceptions.map(({ advisory, package: packageName, allowedPaths }) => ({
+      advisory, packageName, allowedPaths
+    })), [{
+      advisory: 'GHSA-v3m3-f69x-jf25',
+      packageName: 'quill',
+      allowedPaths: ['packages__admin-form-designer>quill']
+    }]);
     assert.throws(() => evaluateAuditReport(createReport([createAdvisory()]), productionPolicy), /Unreviewed high advisory/u);
     assert.throws(() => evaluateAuditReport(createReport([createAdvisory({ severity: 'critical' })]), productionPolicy), /Critical advisory is never allowed/u);
   });
