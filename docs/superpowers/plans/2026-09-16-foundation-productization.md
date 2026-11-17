@@ -6694,3 +6694,8 @@ Release 集成工程单节点构建及 Identity 模块隔离 AOT 分析均零警
 
 - Actions 的 `ubuntu-latest` 已切到 Ubuntu 26.04，发布入口在 Linux 直接链接。下载同次原生 API 产物，在当前运行镜像中启动时报告缺少 `GLIBC_2.43`；镜像实测为 2.39。API 与 Worker 发布作业固定 Ubuntu 24.04，保持与 Noble 运行时一致。[API 原生发布作业](https://github.com/yan041108/Full.NET/actions/runs/44033501286/job/133870751821)。
 - 发布、产物上传和原生运行验证的定向规则测试先失败 2 项，更新后 2/2 通过。新发布产物及独立运行仍待复验。原生 OpenAPI 500 和需要额外前置资源的专项用例继续保留为独立待处理项。
+
+### 8.299 报表发布版本列表的原生 OpenAPI 元数据（2026-11-17）
+
+- 原始原生 API 产物在匹配 glibc 的隔离容器启动后，`/openapi/v1.json` 实际返回 500。现有架构测试禁用反射兜底后复现唯一缺失的根类型 `IReadOnlyList<ReportingPublishedVersionResponse>`；补入 Reporting 源生成上下文，覆盖报表发布版本端点的响应和 OpenAPI Schema。
+- Reporting 与架构 Release 构建零警告、零错误。定向架构 2/2，完整模块路由的 OpenAPI 生成在无反射兜底时通过。修复后的原生 HTTP 复验待新发布产物。

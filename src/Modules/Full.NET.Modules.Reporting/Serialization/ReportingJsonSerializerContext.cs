@@ -44,6 +44,7 @@ namespace Full.NET.Modules.Reporting.Serialization;
 [JsonSerializable(typeof(string[]))]
 [JsonSerializable(typeof(ReportingPublishedDefinitionResponse))]
 [JsonSerializable(typeof(IReadOnlyList<ReportingPublishedDefinitionResponse>))]
+[JsonSerializable(typeof(IReadOnlyList<ReportingPublishedVersionResponse>))]
 [JsonSerializable(typeof(Full.NET.Modules.Reporting.Features.ManageExportTasks.ReportingExportAuthorizationSnapshot))]
 // OpenAPI 使用端点声明的集合接口类型，数组元数据不能替代集合根类型。
 [JsonSerializable(typeof(IReadOnlyList<ReportingGroupResponse>))]
