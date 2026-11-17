@@ -6773,3 +6773,9 @@ Release 集成工程单节点构建及 Identity 模块隔离 AOT 分析均零警
 
 - 最新 API 作业在公共 ECR 拉取 `redis:8.6` 时等待响应头超时，构建及 SQL Server 新预拉取步骤均未执行。共享准备脚本对这类明确超时沿用 5 秒、15 秒退避，每源最多三次。主源耗尽后使用同标签 Docker 官方源，成功拉取后核对实际镜像 ID 与别名。[原失败作业](https://github.com/yan041108/Full.NET/actions/runs/44108828688/job/134128510633)。
 - 从原始错误增加两项回归，修复前均失败，修复后镜像准备契约 15/15 通过，覆盖备用源成功、两源耗尽、鉴权和镜像核对失败。官方作业恢复及 SQL Server 隔离模型运行待复验。
+
+### 8.313 D08-14 发布环境 Realtime Redis 单节点依赖（2026-11-17）
+
+- 23:22–23:24（北京时间）只读复核。辅助节点 `NotReady`，API 和 Worker 仍均为 0/2 Ready。主节点两 Pod 的 live 均为 200、ready 均为 503，API EndpointSlice 没有就绪地址。两 Pod 最近 15 分钟分别记录 184、93 条 `realtime-backplane` 日志，网关刷新服务最近退出码为 1。
+- 已部署的 Realtime Redis 端点固定到辅助节点，主节点到该地址 TCP 不通；同一检查中主节点 Cache Redis 可达。只读取了端点和探测结果。证据确认独立的 Realtime 端点失联会同时影响 API 与 Worker 就绪，辅助节点功能恢复和网关动态上游待现场复验。
+- 优先恢复并核对 Realtime 端点可达、两类宿主由 503 回到 200、API EndpointSlice 和网关收敛、已认证客户端跨节点投递。随后在隔离目标验证 Realtime 的单故障域接管和恢复时间，维持既有缓存隔离与就绪判定，按 §8.271 核对告警触发及恢复。已将检查顺序更新到 [Realtime 运行手册](../../operations/realtime-redis-backplane.md#节点故障与发布验收)。本次现场仅只读。
