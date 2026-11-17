@@ -6706,3 +6706,9 @@ Release 集成工程单节点构建及 Identity 模块隔离 AOT 分析均零警
 - Workflow 原生回归通过改派候选接口取得待办 ID 和修订号，验证改派后生成新待办，移除成员后以更新的待办修订拒绝该成员。复用现有 Linux Native API 产物，SQL Server 和 MySQL 2/2，零跳过。
 - Tenant 准入和 Prompt 旧代次对照在 API 与 Worker 已齐备的核心套件执行。知识生成和人工修订恢复由 `tests/ai-parsing/run-native-generation.mjs` 准备解析镜像和模型 TLS。Migrator、LogConsumer 通过各自校验产物身份的专项入口运行。核心 API、Worker、知识生成、Migrator、LogConsumer 实际发现分别为 149、41、12、4、4，定向规则检查 2/2。分流后的完整 Linux 套件待重新运行。
 - 核心 API 剩余前置工作为 A04 标准客户端与个人日程的浏览器桥接，以及 AI 专项的模型、解析和浏览器夹具。继续逐组核对缺失前置与业务失败，保留已通过的专项记录。
+
+### 8.301 A04 原生 AG-UI 标准客户端接入（2026-11-17）
+
+- Native API 用例自动启动现有 Node 官方 SDK 客户端，用当前原生进程的动态回环地址验证每个数据库；临时目录随测试回收，数据库由共享夹具登记。保留显式桥接模式供原有独立运行使用。
+- 复用现有 Linux Native API，SQL Server 和 MySQL 2/2，零跳过。四个数据库与身份作用域组合均核对 205 条唯一事件、断线续传、慢订阅者、会话撤销、越权拒绝和全程只读。协议终态 17/17，基于同轮 .NET 生成语料的官方 SDK 7/7，均零跳过。
+- A04 的标准客户端前置已接入原生用例。个人日程来源及完成的 Playwright 桥接、其余 AI 专项前置继续待接入。新提交的官方 Linux 作业待复验。

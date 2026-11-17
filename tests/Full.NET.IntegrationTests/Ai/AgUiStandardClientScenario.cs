@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
@@ -19,8 +20,26 @@ internal static class AgUiStandardClientScenario
 {
     internal static async Task VerifyAsync(DatabaseProvider provider, bool native)
     {
-        var root = Environment.GetEnvironmentVariable("FULLNET_A04_AGUI_BRIDGE")
-            ?? throw new InvalidOperationException("必须指定全新A04标准客户端桥接目录。");
+        if (Environment.GetEnvironmentVariable("FULLNET_A04_AGUI_BRIDGE") is { Length: > 0 } externalBridge)
+        {
+            await VerifyAsync(provider, native, externalBridge, ownedRoot: null);
+            return;
+        }
+        if (!native) throw new InvalidOperationException("必须指定全新A04标准客户端桥接目录。");
+        var temporary = Directory.CreateTempSubdirectory("fullnet-native-agui-");
+        try
+        {
+            await VerifyAsync(provider, native, Path.Combine(temporary.FullName, "bridge"), temporary.FullName);
+        }
+        finally
+        {
+            // 桥接标记包含临时令牌，测试成功或失败均须回收。
+            temporary.Delete(recursive: true);
+        }
+    }
+
+    private static async Task VerifyAsync(DatabaseProvider provider, bool native, string root, string? ownedRoot)
+    {
         var bridge = Path.Combine(root, provider.ToString());
         if (Directory.Exists(bridge)) throw new InvalidOperationException("不得采用已有桥接结果。");
         Directory.CreateDirectory(bridge);
@@ -30,20 +49,28 @@ internal static class AgUiStandardClientScenario
         var settings = AiAgentRuntimeTestSettings.ForIntegrationTests();
         // 外部Node使用Docker发布的回环地址；它是本夹具明确批准的Host别名，不修改生产域名或租户策略。
         settings["Tenancy:HostDomains:1"] = "127.0.0.1";
-        settings["Files:Local:RootPath"] = Path.Combine(Path.GetTempPath(), "fullnet-a04-agui-files", stamp);
-        settings["DataProtection:KeyRingPath"] = Path.Combine(Path.GetTempPath(), "fullnet-a04-agui-keys", stamp);
+        settings["Files:Local:RootPath"] = ownedRoot is null
+            ? Path.Combine(Path.GetTempPath(), "fullnet-a04-agui-files", stamp) : Path.Combine(ownedRoot, "files");
+        settings["DataProtection:KeyRingPath"] = ownedRoot is null
+            ? Path.Combine(Path.GetTempPath(), "fullnet-a04-agui-keys", stamp) : Path.Combine(ownedRoot, "keys");
         await using var db = Migration246AiKnowledgeIndexTaskRecoveryTests.Connection(provider == DatabaseProvider.SqlServer, connection);
         await db.OpenAsync();
-        var registry = Environment.GetEnvironmentVariable("FULLNET_A04_DATABASE_REGISTRY")
-            ?? throw new InvalidOperationException("必须准确登记本批数据库。");
-        await File.AppendAllTextAsync(registry, JsonSerializer.Serialize(new
-        { provider = provider.ToString(), database = db.Database, native, filesRoot = settings["Files:Local:RootPath"], keysRoot = settings["DataProtection:KeyRingPath"] }) + "\n");
+        if (ownedRoot is null)
+        {
+            var registry = Environment.GetEnvironmentVariable("FULLNET_A04_DATABASE_REGISTRY")
+                ?? throw new InvalidOperationException("必须准确登记本批数据库。");
+            await File.AppendAllTextAsync(registry, JsonSerializer.Serialize(new
+            { provider = provider.ToString(), database = db.Database, native, filesRoot = settings["Files:Local:RootPath"], keysRoot = settings["DataProtection:KeyRingPath"] }) + "\n");
+        }
         using var factory = new FullNetApiFactory(provider, connection, settings);
         // .NET 10正式测试宿主支持Kestrel，避免把TestServer内存Handler当标准客户端网络证据。
         if (!native) factory.UseKestrel(options => options.ListenAnyIP(64215));
         await factory.InitializeAsync();
+        var externalListen = ownedRoot is null ? new Uri("http://0.0.0.0:64215/") : null;
         await using var api = native ? await NativeApiProcessHost.StartAsync(NativeApiArtifactLocator.RequireArtifact(), provider,
-            connection, settings, NativeAotTestTimeouts.ProcessStartup, listenAddress: new Uri("http://0.0.0.0:64215/")) : null;
+            connection, settings, NativeAotTestTimeouts.ProcessStartup, listenAddress: externalListen) : null;
+        var origin = api?.BaseAddress ?? new Uri("http://127.0.0.1:64215/");
+        await using var peer = ownedRoot is null ? null : StandardClientProcess.Start(root, origin, provider);
         using var adminClient = Client();
         using var ownerClient = Client();
         using var otherClient = Client();
@@ -127,7 +154,9 @@ internal static class AgUiStandardClientScenario
             }
         }
 
-        HttpClient Client() { var client = new HttpClient { BaseAddress = new Uri("http://127.0.0.1:64215"), Timeout = TimeSpan.FromSeconds(40) }; client.DefaultRequestHeaders.Host = "localhost"; return client; }
+        if (peer is not null) await peer.RequireSuccessAsync();
+
+        HttpClient Client() { var client = new HttpClient { BaseAddress = origin, Timeout = TimeSpan.FromSeconds(40) }; client.DefaultRequestHeaders.Host = "localhost"; return client; }
         Task<Guid> Thread(Guid run) => db.QuerySingleAsync<Guid>("SELECT SessionId FROM fn_ai_agent_run WHERE Id=@Id", new { Id = run });
         Task<int> Events(Guid run) => db.QuerySingleAsync<int>("SELECT COUNT(*) FROM fn_ai_agent_event WHERE RunId=@Id", new { Id = run });
         Task<int> Count(string table) => db.QuerySingleAsync<int>("SELECT COUNT(*) FROM " + table);
@@ -144,9 +173,52 @@ internal static class AgUiStandardClientScenario
         {
             using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(4));
             while (!File.Exists(Path.Combine(directory, name + ".json")))
-            { if (File.Exists(Path.Combine(root, "failed.json"))) Assert.Fail("标准客户端失败，保留原证据。"); await Task.Delay(100, timeout.Token); }
+            {
+                if (File.Exists(Path.Combine(root, "failed.json"))) Assert.Fail("标准客户端失败，请检查进程输出。");
+                peer?.RequireRunning();
+                await Task.Delay(100, timeout.Token);
+            }
             using var result = JsonDocument.Parse(await File.ReadAllTextAsync(Path.Combine(directory, name + ".json"), timeout.Token));
             Assert.IsTrue(result.RootElement.GetProperty("passed").GetBoolean());
+        }
+    }
+
+    private sealed class StandardClientProcess(Process process) : IAsyncDisposable
+    {
+        public static StandardClientProcess Start(string bridge, Uri origin, DatabaseProvider provider)
+        {
+            var repository = FullNetApiFactory.FindRepositoryRoot();
+            var start = new ProcessStartInfo("node") { WorkingDirectory = repository, UseShellExecute = false };
+            start.ArgumentList.Add(Path.Combine(repository, "tests", "e2e", "admin-real-stack", "scripts", "agui-standard-network.mjs"));
+            start.Environment["FULLNET_A04_AGUI_BRIDGE"] = bridge;
+            start.Environment["FULLNET_A04_AGUI_ORIGIN"] = origin.GetLeftPart(UriPartial.Authority);
+            start.Environment["FULLNET_A04_AGUI_PROVIDER"] = provider.ToString();
+            return new StandardClientProcess(Process.Start(start)
+                ?? throw new InvalidOperationException("无法启动官方 AG-UI 标准客户端。"));
+        }
+
+        public void RequireRunning()
+        {
+            if (process.HasExited) Assert.Fail($"标准客户端提前退出，退出码 {process.ExitCode}。");
+        }
+
+        public async Task RequireSuccessAsync()
+        {
+            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(20));
+            await process.WaitForExitAsync(timeout.Token);
+            Assert.AreEqual(0, process.ExitCode, "标准客户端必须完整完成当前库的两个作用域。");
+        }
+
+        public async ValueTask DisposeAsync()
+        {
+            using (process)
+            {
+                if (process.HasExited) return;
+                try { process.Kill(entireProcessTree: true); }
+                catch (InvalidOperationException) when (process.HasExited) { }
+                using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+                await process.WaitForExitAsync(timeout.Token);
+            }
         }
     }
 }

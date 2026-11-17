@@ -6,7 +6,14 @@ import { ReplayLedger, replayOwnedRun } from './agui-replay-client.mjs';
 // 此驱动消费正在运行的正式API；ready只传递本批临时登录凭据，结果文件不保存令牌或原正文。
 const root=process.env.FULLNET_A04_AGUI_BRIDGE;
 if(!root)throw Error('Provide a fresh A04 bridge.');
-const origin='http://127.0.0.1:64215';
+const target=new URL(process.env.FULLNET_A04_AGUI_ORIGIN??'http://127.0.0.1:64215');
+if(target.protocol!=='http:'||target.hostname!=='127.0.0.1'||target.username||target.password||target.pathname!=='/'||target.search||target.hash)
+  throw Error('A04 requires a local loopback origin.');
+const origin=target.origin;
+const allProviders=['SqlServer','MySql'];
+const selectedProvider=process.env.FULLNET_A04_AGUI_PROVIDER;
+if(selectedProvider&&!allProviders.includes(selectedProvider))throw Error('Unknown A04 database provider.');
+const providers=selectedProvider?[selectedProvider]:allProviders;
 const results=[];
 const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 async function exists(file){try{await fs.access(file);return true;}catch{return false;}}
@@ -81,5 +88,5 @@ async function runProvider(provider){
     results.push(result);await write(scopeDirectory,'complete',result);await write(root,'network-results',{passed:true,scopes:results});
   }
 }
-try{await Promise.all(['SqlServer','MySql'].map(runProvider));assert.equal(results.length,4);console.log(JSON.stringify({passed:true,scopes:results}));}
+try{await Promise.all(providers.map(runProvider));assert.equal(results.length,providers.length*2);console.log(JSON.stringify({passed:true,scopes:results}));}
 catch(error){await fs.mkdir(root,{recursive:true});await write(root,'failed',{passed:false,errorType:error?.constructor?.name??'Error'});throw error;}
