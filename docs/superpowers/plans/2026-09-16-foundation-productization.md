@@ -6582,3 +6582,9 @@ Release 集成工程单节点构建及 Identity 模块隔离 AOT 分析均零警
 - 升级 uni-app 的 Vite 至 6.4.5、Vue I18n 及 DCloud 实际解析的 Intlify 编译器和共享依赖至 11.4.14。更新 body-parser、undici、follow-redirects、glob 和 minimatch 的受影响依赖，并合并两组相同的重复覆盖项。`pnpm audit:clients` 无未审核的 Low 或更高公告，现有 Quill 限期例外仍仅允许表单设计器路径。
 - 表单设计器的标准测试入口分别用 Vitest/jsdom 执行组件测试、用 Node 执行文件和发布契约。工作区规则与工具链 35/35，设计器 26/26，uni-app 国际化 6/6。两包类型检查、设计器生产运行包及 uni-app H5、微信和支付宝构建通过，H5 产物未包含开发桥。Testcontainers 实际归档路径与设计器格式化调用通过。
 - 本地 Edge 的 uni-app H5 国际化验收 5/5，覆盖匿名持久化、模拟账号保存与冲突、键盘提交及 320 × 720 视口双语交互。小程序真机与真实后端账户语言保存未在此批执行。
+
+### 8.277 VForm 发布摘要失败诊断（2026-11-17）
+
+- `1f3135196` 的 SQL Server 与 MySQL 真实栈、Production TOTP 作业均在 Vue 管理端启动时报告 `vform.runtime_release_mismatch`，未到业务浏览器步骤。[主 CI](https://github.com/yan041108/Full.NET/actions/runs/44016953311)。
+- 复用相同提交的表单设计器源文件、冻结锁文件和 pnpm 10.26.0，在 Linux Node 24.22.2 完整安装后从管理端目录构建，实际摘要与签入值一致。当前候选在 Windows 和 Linux 的构建也取得同一摘要。远端差异的根因待下一次运行取证。
+- 发布校验失败时记录签入、构建写出和按文件重算的摘要，并列出缺失、新增和内容变化的相对产物路径。设计器测试 26/26，覆盖内容变化、文件增删和写出清单损坏的诊断，继续要求实际产物与审查清单完全一致。

@@ -39,6 +39,23 @@ export async function verifyRuntimeRelease(directory, expected) {
   expected ??= JSON.parse(await readFile(new URL('../../contracts/workflow/vform3-runtime-release.json', import.meta.url), 'utf8'));
   const emitted = JSON.parse(await readFile(path.join(directory, 'runtime-release.json'), 'utf8'));
   const actual = await createRuntimeRelease(directory);
-  if (JSON.stringify(actual) !== JSON.stringify(expected) || JSON.stringify(emitted) !== JSON.stringify(expected)) throw new Error('vform.runtime_release_mismatch: regenerate the reviewed runtime release before deployment');
+  const expectedJson = JSON.stringify(expected);
+  if (JSON.stringify(actual) !== expectedJson || JSON.stringify(emitted) !== expectedJson) {
+    const expectedAssets = Array.isArray(expected?.assets) ? expected.assets : [];
+    const actualByPath = new Map(actual.assets.map(asset => [asset.path, asset]));
+    const expectedPaths = new Set(expectedAssets.map(asset => asset.path));
+    const missing = expectedAssets.filter(asset => !actualByPath.has(asset.path));
+    const added = actual.assets.filter(asset => !expectedPaths.has(asset.path));
+    const changed = expectedAssets.filter(asset => {
+      const observed = actualByPath.get(asset.path);
+      return observed && (observed.bytes !== asset.bytes || observed.sha256 !== asset.sha256);
+    });
+    const describe = assets => `${assets.length} ${JSON.stringify(assets.slice(0, 8).map(asset => asset.path))}`;
+    const describeHash = release => /^[a-f0-9]{64}$/u.test(release?.contentHash) ? release.contentHash : 'invalid';
+    // 仅输出摘要和相对产物路径，帮助 CI 区分文件漂移与清单本身损坏。
+    throw new Error('vform.runtime_release_mismatch: reviewed runtime release differs from build output'
+      + `; expected=${describeHash(expected)}; emitted=${describeHash(emitted)}; actual=${describeHash(actual)}`
+      + `; missing=${describe(missing)}; added=${describe(added)}; changed=${describe(changed)}`);
+  }
   return actual;
 }

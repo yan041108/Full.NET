@@ -23,10 +23,15 @@ test('实际运行文件变化导致发布摘要不匹配，清单自身不进�
     await writeFile(path.join(directory, 'runtime-release.json'), JSON.stringify(expected));
     assert.deepEqual(await verifyRuntimeRelease(directory, expected), expected);
     await writeFile(path.join(directory, 'main.js'), 'export const version = 2;');
-    await assert.rejects(verifyRuntimeRelease(directory, expected), /runtime_release_mismatch/);
+    await assert.rejects(verifyRuntimeRelease(directory, expected), /runtime_release_mismatch.*changed=1 \["main\.js"\]/u);
     await writeFile(path.join(directory, 'main.js'), 'export const version = 1;');
+    await writeFile(path.join(directory, 'runtime-release.json'), JSON.stringify({ ...expected, contentHash: 'stale' }));
+    await assert.rejects(verifyRuntimeRelease(directory, expected), /runtime_release_mismatch.*emitted=invalid.*changed=0 \[\]/u);
+    await writeFile(path.join(directory, 'runtime-release.json'), JSON.stringify(expected));
     await mkdir(path.join(directory, 'nested'));
     await writeFile(path.join(directory, 'nested/runtime-release.json'), 'unexpected file');
-    await assert.rejects(verifyRuntimeRelease(directory, expected), /runtime_release_mismatch/);
+    await assert.rejects(verifyRuntimeRelease(directory, expected), /runtime_release_mismatch.*added=1 \["nested\/runtime-release\.json"\]/u);
+    await rm(path.join(directory, 'main.js'));
+    await assert.rejects(verifyRuntimeRelease(directory, expected), /runtime_release_mismatch.*missing=1 \["main\.js"\]/u);
   } finally { await rm(directory, { recursive: true, force: true }); }
 });
