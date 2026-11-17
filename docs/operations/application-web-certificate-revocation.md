@@ -24,3 +24,9 @@
 - `/etc/fullnet/application-pki/` 包含应用 CA 的吊销账本和 CRL 序号，纳入受控 PKI 备份。恢复时使用与 CA 匹配的当前账本。已有公开 CRL 而账本缺失时，配置命令会要求恢复原账本。
 - Web 续签继续使用 `web.extensions`。配置命令重复执行会验证并重载现有合格证书。换证重载失败时脚本恢复换证前的证书和模板。发布后仍应独立确认网关实际提供的证书。
 - 客户端可按 CRL 有效期缓存副本，吊销后的现场复核应包含独立客户端和实际取得的 CRL 时间。
+
+## 2026-11-18 发布环境复验
+
+网关 `192.168.31.229` 已安装现有 CRL 管理脚本和每日刷新定时器，使用既有应用 CA 和 Web 私钥签发带分发点的 Web 证书。HTTP CRL 返回 200 和 `application/pkix-crl`，签名验证通过。Windows Schannel curl 使用系统信任和默认吊销校验访问 live、ready 均为 200。
+
+首次配置前的证书、模板和网关配置保存在目标机 `/etc/fullnet/certificates/.crl-enable-backup-0ia7d1oh/`。重复执行配置后证书序列号相同，NGINX 检查及重载通过，严格客户端 ready 继续为 200。刷新服务退出码为 0，定时器为 active。CA 吊销账本按上述受控 PKI 备份要求维护。
