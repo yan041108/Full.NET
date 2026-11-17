@@ -4,6 +4,7 @@ import test from 'node:test';
 import { prepareCiTestImages } from '../../scripts/testing/prepare-ci-test-images.mjs';
 
 const imageId = `sha256:${'a'.repeat(64)}`;
+const registryTimeout = 'net/http: request canceled while waiting for connection (Client.Timeout exceeded while awaiting headers)';
 
 test('拉取限流按5秒和15秒退避，成功后才设置别名', async () => {
   let pulls = 0;
@@ -26,6 +27,33 @@ test('两官方源持续限流各三次耗尽，不设置别名或准备下一�
   assert.equal(adapter.calls.length, 6);
   assert.deepEqual(delays, [5000, 15000, 5000, 15000]);
   assert.deepEqual(adapter.calls.map(args => args[1]), [...Array(3).fill('public.ecr.aws/docker/library/mysql:8.0'), ...Array(3).fill('docker.io/library/mysql:8.0')]);
+});
+
+test('主源持续等待响应头超时后，从备用官方源拉取并核对同标签镜像', async () => {
+  const primary = 'public.ecr.aws/docker/library/redis:8.6';
+  const fallback = 'docker.io/library/redis:8.6';
+  const adapter = recorder(args => {
+    if (args[0] === 'pull' && args[1] === primary) throw new Error(registryTimeout);
+  });
+  const delays = [];
+  assert.deepEqual(await prepareCiTestImages({ ...adapter, redisOnly: true,
+    wait: async ms => delays.push(ms) }), ['redis:8.6']);
+  assert.deepEqual(delays, [5000, 15000]);
+  assert.deepEqual(adapter.calls, [
+    ['pull', primary], ['pull', primary], ['pull', primary], ['pull', fallback],
+    ['image', 'inspect', '--format', '{{.Id}}', fallback],
+    ['tag', fallback, 'redis:8.6'],
+    ['image', 'inspect', '--format', '{{.Id}}', 'redis:8.6'],
+  ]);
+});
+
+test('两官方源持续等待响应头超时，耗尽各自重试预算后失败', async () => {
+  const adapter = recorder(() => { throw new Error(registryTimeout); });
+  const delays = [];
+  await assert.rejects(() => prepareCiTestImages({ ...adapter, wait: async ms => delays.push(ms) }),
+    { message: registryTimeout });
+  assert.deepEqual(adapter.calls.map(args => args[0]), Array(6).fill('pull'));
+  assert.deepEqual(delays, [5000, 15000, 5000, 15000]);
 });
 
 test('EOF和权限错误立即失败，镜像核对错误也不能重试', async () => {

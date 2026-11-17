@@ -6768,3 +6768,8 @@ Release 集成工程单节点构建及 Identity 模块隔离 AOT 分析均零警
 - 当前分类契约用 `document.host_category.invalid_parent` 拒绝无效引用。共享用例验证完整 PUT 用显式分类 ID 保留引用，用 `null` 清除引用，以及引用清除后允许删除分类。[文档设计](../specs/2026-08-02-document-module-design.md)。
 - 活跃文档和回收站条目均阻止删除仍被引用的分类。复用通过 API 正常删除的分类构造历史引用，验证两个恢复入口均能清除该失效引用。并发删除与恢复验证合法分类保留，统计继续验证越界分类不可见。
 - 基于冻结的 Linux Native API 发布产物，SQL Server 与 MySQL 关键 HTTP 流程 2/2 通过、零跳过，六项文档分类定向单测通过。更新后的官方作业待复验。[原失败作业](https://github.com/yan041108/Full.NET/actions/runs/44087347187/job/134053118190)，[复验产物](https://github.com/yan041108/Full.NET/actions/runs/44082055446/artifacts/14330525402)。
+
+### 8.312 CI 官方镜像源响应头超时恢复（2026-11-17）
+
+- 最新 API 作业在公共 ECR 拉取 `redis:8.6` 时等待响应头超时，构建及 SQL Server 新预拉取步骤均未执行。共享准备脚本对这类明确超时沿用 5 秒、15 秒退避，每源最多三次。主源耗尽后使用同标签 Docker 官方源，成功拉取后核对实际镜像 ID 与别名。[原失败作业](https://github.com/yan041108/Full.NET/actions/runs/44108828688/job/134128510633)。
+- 从原始错误增加两项回归，修复前均失败，修复后镜像准备契约 15/15 通过，覆盖备用源成功、两源耗尽、鉴权和镜像核对失败。官方作业恢复及 SQL Server 隔离模型运行待复验。

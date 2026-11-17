@@ -6,8 +6,9 @@ import { withTestRun, testRunEnvironment } from './test-run-context.mjs';
 const imageIdPattern = /^sha256:[a-f0-9]{64}$/;
 const rateLimitPattern = /\b(?:toomanyrequests|rate exceeded)\b/iu;
 const bandwidthLimitPattern = /\bdata limit exceeded\b/iu;
+const registryTimeoutPattern = /\bClient\.Timeout exceeded while awaiting headers\b/u;
 
-// 仅下载限额允许转向同标签 Docker 官方源；权限、网络和后续核对错误保持失败。
+// 下载限额和已知的仓库响应头超时允许切换同标签官方源；其余失败直接报告。
 async function pullOfficialImage(target, run, wait) {
   const sources = [`public.ecr.aws/docker/library/${target}`, `docker.io/library/${target}`];
   for (const [index, source] of sources.entries()) {
@@ -16,15 +17,17 @@ async function pullOfficialImage(target, run, wait) {
       catch (error) {
         const message = String(error?.message ?? error);
         const bandwidthExhausted = bandwidthLimitPattern.test(message);
-        if (!bandwidthExhausted && !rateLimitPattern.test(message)) throw error;
-        // 带宽配额耗尽不会因短退避恢复；短时请求限流仍沿用两次有界退避。
+        const registryTimedOut = registryTimeoutPattern.test(message);
+        if (!bandwidthExhausted && !registryTimedOut && !rateLimitPattern.test(message)) throw error;
+        // 带宽配额耗尽直接切换源。短时限流和响应头超时沿用两次有界退避。
         if (bandwidthExhausted || attempt >= 2) {
           if (index === sources.length - 1) throw error;
-          console.warn(`测试镜像源限额耗尽，切换同标签 Docker 官方源：${target}`);
+          console.warn(`测试镜像源下载失败，切换同标签 Docker 官方源：${source}`);
           break;
         }
         const milliseconds = [5000, 15000][attempt];
-        console.warn(`测试镜像下载限流，${milliseconds / 1000}秒后重试：${target}（${attempt + 2}/3）`);
+        const reason = registryTimedOut ? '等待响应头超时' : '限流';
+        console.warn(`测试镜像下载${reason}，${milliseconds / 1000}秒后重试：${source}（${attempt + 2}/3）`);
         await wait(milliseconds);
       }
     }
