@@ -1091,7 +1091,7 @@ public sealed class NativeAotStaticBindingRulesTests
             "private static int RequiredOrdinal(DbDataReader reader, string name) => reader.GetOrdinal(name);");
         StringAssert.Contains(
             contributorSource,
-            "DocumentNo = ReadOptionalString(reader, \"DocumentNo\")");
+            "DocumentNo = ReadOptionalNullableString(reader, \"DocumentNo\") ?? string.Empty");
         var previewReader = CSharpSyntaxTree.ParseText(contributorSource, CSharpParseOptions.Default.WithPreprocessorSymbols("FULLNET_AOT_COMPILE"))
             .GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>()
             .Single(method => method.Identifier.ValueText == "ReadPreviewTask").ToString();

@@ -75,7 +75,8 @@ public sealed class NativeAotLinuxPublishRulesTests
         Assert.IsTrue(File.Exists(workflowPath), "缺少 api-native-aot-linux.yml CI 工作流。");
         var workflow = File.ReadAllText(workflowPath);
         Assert.Contains("pnpm test:aot:publish:linux", workflow, StringComparison.Ordinal);
-        Assert.Contains("ubuntu-latest", workflow, StringComparison.Ordinal);
+        Assert.Contains("runs-on: ubuntu-24.04", workflow, StringComparison.Ordinal,
+            "Native 链接环境须匹配 Noble 运行镜像。");
         Assert.DoesNotContain("windows-latest", workflow, StringComparison.Ordinal);
     }
 
@@ -159,7 +160,10 @@ public sealed class NativeAotLinuxPublishRulesTests
         var integrationGate = matrix.RootElement.GetProperty("workerNativeAotIntegration");
         // 可变发现数量仅由矩阵维护；架构门禁保护筛选边界和必需场景，避免新增用例后旧常量阻断验收。
         Assert.IsTrue(integrationGate.GetProperty("minimum").GetInt32() > 0);
-        Assert.AreEqual("FullyQualifiedName~NativeWorker", integrationGate.GetProperty("filter").GetString());
+        var predicates = integrationGate.GetProperty("filter").GetString()!.Split('&');
+        Assert.AreEqual("FullyQualifiedName~NativeWorker", predicates[0]);
+        Assert.IsTrue(predicates.Skip(1).All(predicate => predicate.StartsWith("FullyQualifiedName!~NativeWorker", StringComparison.Ordinal)),
+            "Worker 单宿主门禁只排除已转入具有所需产物的专项。");
         var requiredTypes = integrationGate.GetProperty("requiredTestTypes")
             .EnumerateArray().Select(value => value.GetString()).ToArray();
         CollectionAssert.Contains(requiredTypes, "NativeWorkerKafkaLogMySqlE2ETests");
