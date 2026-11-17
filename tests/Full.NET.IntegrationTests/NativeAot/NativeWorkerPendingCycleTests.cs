@@ -30,13 +30,14 @@ public sealed class NativeWorkerPendingCycleTests
                     ["Files__TenantResourceReconciliation__BatchSize"] = "1",
                     ["Files__TenantResourceReconciliation__MaxBatchesPerRun"] = "1",
                 });
-            var deadline = DateTimeOffset.UtcNow.AddSeconds(45); var done = false;
-            while (DateTimeOffset.UtcNow < deadline)
+            var deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+            var progress = await scenario.ReadProgressAsync(provider, cs);
+            while (!progress.IsComplete && DateTimeOffset.UtcNow < deadline)
             {
-                if (await scenario.IsCompleteAsync(provider, cs)) { done = true; break; }
                 await Task.Delay(100);
+                progress = await scenario.ReadProgressAsync(provider, cs);
             }
-            Assert.IsTrue(done, "原生 Worker 必须越过三种首批保留记录恢复后序对象。" + worker.LogFilePath);
+            Assert.IsTrue(progress.IsComplete, $"原生 Worker 未恢复三个后序对象：{progress}。日志：{worker.LogFilePath}");
             await scenario.AssertHeldAsync(provider, cs);
             await worker.StopGracefullyAsync(TimeSpan.FromSeconds(30), default); worker.AssertNoFatalMarkersInLogs();
         }
