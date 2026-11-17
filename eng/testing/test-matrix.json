@@ -1810,12 +1810,12 @@
   },
   "workerNativeAotIntegration": {
     "project": "tests/Full.NET.IntegrationTests/Full.NET.IntegrationTests.csproj",
-    "filter": "FullyQualifiedName~NativeWorker",
+    "filter": "FullyQualifiedName~NativeWorker&FullyQualifiedName!~NativeWorkerTenantAuthorityE2ETests&FullyQualifiedName!~NativeWorkerPromptE2ETests&FullyQualifiedName!~NativeWorkerKnowledgeGenerationE2ETests&FullyQualifiedName!~NativeWorkerCorrectionGenerationE2ETests",
     "requiredTestTypes": [
       "NativeWorkerKafkaLogMySqlE2ETests",
       "NativeWorkerPdfE2ETests",
       "NativeWorkerKnowledgeRetirementE2ETests",
-      "NativeWorkerTenantAuthorityE2ETests",
+      "NativeWorkerAgentLeaseLockE2ETests",
       "NativeWorkerClaimSnapshotTests",
       "NativeWorkerDocumentFileReleaseTests",
       "NativeWorkerActiveDocumentClaimTests",
@@ -1827,7 +1827,7 @@
   },
   "nativeAotIntegration": {
     "project": "tests/Full.NET.IntegrationTests/Full.NET.IntegrationTests.csproj",
-    "filter": "FullyQualifiedName~Full.NET.IntegrationTests.NativeAot&FullyQualifiedName!~NativeApiS3&FullyQualifiedName!~NativeApiKafkaReplay&FullyQualifiedName!~NativeApiNotifications&FullyQualifiedName!~NativeApiSettings&FullyQualifiedName!~NativeApiJobs&FullyQualifiedName!~NativeApiOidc&FullyQualifiedName!~NativeApiMessagingConfigurationE2ETests&FullyQualifiedName!~NativeEnterpriseBusiness",
+    "filter": "FullyQualifiedName~Full.NET.IntegrationTests.NativeAot&FullyQualifiedName!~NativeApiS3&FullyQualifiedName!~NativeApiKafkaReplay&FullyQualifiedName!~NativeApiNotifications&FullyQualifiedName!~NativeApiSettings&FullyQualifiedName!~NativeApiJobs&FullyQualifiedName!~NativeApiOidc&FullyQualifiedName!~NativeApiMessagingConfigurationE2ETests&FullyQualifiedName!~NativeEnterpriseBusiness&FullyQualifiedName!~NativeWorkerKnowledgeGenerationE2ETests&FullyQualifiedName!~NativeWorkerCorrectionGenerationE2ETests&FullyQualifiedName!~NativeMigratorE2ETests&FullyQualifiedName!~NativeLogConsumerE2ETests",
     "requiredTestTypes": [
       "NativeApiCacheE2ETests",
       "NativeApiLocalFileMySqlE2ETests",
@@ -1835,6 +1835,7 @@
       "NativeWorkerPdfE2ETests",
       "NativeWorkerKnowledgeRetirementE2ETests",
       "NativeWorkerTenantAuthorityE2ETests",
+      "NativeWorkerPromptE2ETests",
       "NativeApiCacheColdStartE2ETests",
       "NativeApiKnowledgeIncrementalIndexE2ETests",
       "NativeKnowledgePublicationE2ETests",
@@ -1848,14 +1849,15 @@
   },
   "nativeKnowledgeGenerationIntegration": {
     "project": "tests/Full.NET.IntegrationTests/Full.NET.IntegrationTests.csproj",
-    "filter": "FullyQualifiedName~NativeWorkerKnowledgeGenerationE2ETests|FullyQualifiedName~NativeWorkerPdfE2ETests|FullyQualifiedName~NativeApiAiE2ETests|FullyQualifiedName~NativeWorkerDataApprovalRecoveryE2ETests",
+    "filter": "FullyQualifiedName~NativeWorkerKnowledgeGenerationE2ETests|FullyQualifiedName~NativeWorkerCorrectionGenerationE2ETests|FullyQualifiedName~NativeWorkerPdfE2ETests|FullyQualifiedName~NativeApiAiE2ETests|FullyQualifiedName~NativeWorkerDataApprovalRecoveryE2ETests",
     "requiredTestTypes": [
       "NativeWorkerKnowledgeGenerationE2ETests",
+      "NativeWorkerCorrectionGenerationE2ETests",
       "NativeWorkerPdfE2ETests",
       "NativeApiAiE2ETests",
       "NativeWorkerDataApprovalRecoveryE2ETests"
     ],
-    "minimum": 10,
+    "minimum": 12,
     "timeout": "45m"
   },
   "nativeAotVFormIntegration": {

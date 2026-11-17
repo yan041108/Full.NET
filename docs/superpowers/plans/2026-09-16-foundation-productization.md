@@ -6699,3 +6699,10 @@ Release 集成工程单节点构建及 Identity 模块隔离 AOT 分析均零警
 
 - 原始原生 API 产物在匹配 glibc 的隔离容器启动后，`/openapi/v1.json` 实际返回 500。现有架构测试禁用反射兜底后复现唯一缺失的根类型 `IReadOnlyList<ReportingPublishedVersionResponse>`；补入 Reporting 源生成上下文，覆盖报表发布版本端点的响应和 OpenAPI Schema。
 - Reporting 与架构 Release 构建零警告、零错误。定向架构 2/2，完整模块路由的 OpenAPI 生成在无反射兜底时通过。修复后的原生 HTTP 复验待新发布产物。
+
+### 8.300 原生租约、工作流改派与专项入口（2026-11-17）
+
+- Agent 租约测试通过共享夹具登记和回收独立测试数据库，临时文件与密钥随测试回收。复用现有 Linux Native Worker 产物，SQL Server 和 MySQL 2/2，零跳过，双库均实际观测到行锁等待并验证过期所有者无法提交旧进度。
+- Workflow 原生回归通过改派候选接口取得待办 ID 和修订号，验证改派后生成新待办，移除成员后以更新的待办修订拒绝该成员。复用现有 Linux Native API 产物，SQL Server 和 MySQL 2/2，零跳过。
+- Tenant 准入和 Prompt 旧代次对照在 API 与 Worker 已齐备的核心套件执行。知识生成和人工修订恢复由 `tests/ai-parsing/run-native-generation.mjs` 准备解析镜像和模型 TLS。Migrator、LogConsumer 通过各自校验产物身份的专项入口运行。核心 API、Worker、知识生成、Migrator、LogConsumer 实际发现分别为 149、41、12、4、4，定向规则检查 2/2。分流后的完整 Linux 套件待重新运行。
+- 核心 API 剩余前置工作为 A04 标准客户端与个人日程的浏览器桥接，以及 AI 专项的模型、解析和浏览器夹具。继续逐组核对缺失前置与业务失败，保留已通过的专项记录。

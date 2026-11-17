@@ -415,28 +415,50 @@ internal static class NativeApiWorkflowE2EAssertions
             "Start native member-assigned Workflow", cancellationToken, logPath).ConfigureAwait(false);
         using var instance = JsonDocument.Parse(await start.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false));
         var instanceId = instance.RootElement.GetProperty("id").GetGuid();
-        var revision = instance.RootElement.GetProperty("revision").GetInt32();
+        var revision = instance.RootElement.GetProperty("revision").GetInt64();
+        var todoId = instance.RootElement.GetProperty("activeTodoId").GetGuid();
+        var todoRevision = await ReadTodoRevisionAsync(todoId, revision).ConfigureAwait(false);
         using var reassigned = await client.SendAsync(AuthorizedJson(HttpMethod.Post,
             $"/api/v1/workflow/instances/{instanceId:D}/reassign", token,
-            new { assigneeUserId = nextUserId, expectedRevision = revision, reason = "原生成员交接", idempotencyKey = $"reassign-{Guid.NewGuid():N}" }),
+            new { assigneeUserId = nextUserId, todoId, expectedTodoRevision = todoRevision, expectedRevision = revision,
+                reason = "原生成员交接", idempotencyKey = $"reassign-{Guid.NewGuid():N}" }),
             cancellationToken).ConfigureAwait(false);
         await NativeApiE2EAssertions.AssertStatusAsync(reassigned, HttpStatusCode.OK,
             "Reassign native Workflow to active member", cancellationToken, logPath).ConfigureAwait(false);
         using var updated = JsonDocument.Parse(await reassigned.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false));
-        revision = updated.RootElement.GetProperty("revision").GetInt32();
+        var nextTodoId = updated.RootElement.GetProperty("activeTodoId").GetGuid();
+        var nextRevision = updated.RootElement.GetProperty("revision").GetInt64();
+        Assert.AreNotEqual(todoId, nextTodoId);
+        Assert.IsGreaterThan(revision, nextRevision);
+        var nextTodoRevision = await ReadTodoRevisionAsync(nextTodoId, nextRevision).ConfigureAwait(false);
         using var removal = await client.SendAsync(AuthorizedJson(HttpMethod.Delete,
             $"/api/v1/identity/tenant-members/{memberId:D}?version={memberVersion}", token, new { }), cancellationToken).ConfigureAwait(false);
         await NativeApiE2EAssertions.AssertStatusAsync(removal, HttpStatusCode.OK,
             "Remove native Workflow tenant member", cancellationToken, logPath).ConfigureAwait(false);
         using var rejected = await client.SendAsync(AuthorizedJson(HttpMethod.Post,
             $"/api/v1/workflow/instances/{instanceId:D}/reassign", token,
-            new { assigneeUserId = nextUserId, expectedRevision = revision, reason = "已撤销成员", idempotencyKey = $"removed-{Guid.NewGuid():N}" }),
+            new { assigneeUserId = nextUserId, todoId = nextTodoId, expectedTodoRevision = nextTodoRevision, expectedRevision = nextRevision,
+                reason = "已撤销成员", idempotencyKey = $"removed-{Guid.NewGuid():N}" }),
             cancellationToken).ConfigureAwait(false);
         await NativeApiE2EAssertions.AssertStatusAsync(rejected, HttpStatusCode.BadRequest,
             "Reject removed native Workflow member", cancellationToken, logPath).ConfigureAwait(false);
         // 相同办理人也会返回 400，必须核对资格错误码，避免错误拒绝路径造成假绿。
         using var problem = JsonDocument.Parse(await rejected.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false));
         Assert.AreEqual(WorkflowErrorCodes.TodoAssigneeNotFound, problem.RootElement.GetProperty("code").GetString());
+
+        async Task<long> ReadTodoRevisionAsync(Guid activeTodoId, long instanceRevision)
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Get,
+                $"/api/v1/workflow/instances/{instanceId:D}/reassignment-candidates?todoId={activeTodoId:D}&page=1&pageSize=1");
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            using var response = await client.SendAsync(request, cancellationToken).ConfigureAwait(false);
+            await NativeApiE2EAssertions.AssertStatusAsync(response, HttpStatusCode.OK,
+                "Read native Workflow reassignment snapshot", cancellationToken, logPath).ConfigureAwait(false);
+            using var snapshot = JsonDocument.Parse(await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false));
+            Assert.AreEqual(activeTodoId, snapshot.RootElement.GetProperty("todoId").GetGuid());
+            Assert.AreEqual(instanceRevision, snapshot.RootElement.GetProperty("instanceRevision").GetInt64());
+            return snapshot.RootElement.GetProperty("todoRevision").GetInt64();
+        }
     }
 
     private static HttpRequestMessage AuthorizedJson<TRequest>(

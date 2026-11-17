@@ -64,11 +64,31 @@ async function readNativeRunner(relativePath) {
 
 test('核心API跨宿主恢复与Worker专项均登记必需场景', async () => {
   const matrix = JSON.parse(await read('eng/testing/test-matrix.json'));
-  // 核心API套件含当前跨Host恢复用例，须保留真实Worker程序；专项仍固定选择Worker用例。
-  assert.ok(matrix.nativeAotIntegration.requiredTestTypes.includes('NativeWorkerPdfE2ETests'));
-  assert.equal(matrix.workerNativeAotIntegration.filter, 'FullyQualifiedName~NativeWorker');
-  assert.ok(matrix.nativeAotIntegration.requiredTestTypes.includes('NativeApiKafkaLogMySqlE2ETests'));
-  assert.ok(matrix.workerNativeAotIntegration.requiredTestTypes.includes('NativeWorkerKafkaLogMySqlE2ETests'));
+  const api = matrix.nativeAotIntegration;
+  const worker = matrix.workerNativeAotIntegration;
+  const knowledge = matrix.nativeKnowledgeGenerationIntegration;
+  assert.ok(api.requiredTestTypes.includes('NativeWorkerPdfE2ETests'));
+  assert.ok(api.requiredTestTypes.includes('NativeApiKafkaLogMySqlE2ETests'));
+  assert.ok(worker.requiredTestTypes.includes('NativeWorkerKafkaLogMySqlE2ETests'));
+  assert.ok(worker.requiredTestTypes.includes('NativeWorkerAgentLeaseLockE2ETests'));
+  for (const type of ['NativeWorkerTenantAuthorityE2ETests', 'NativeWorkerPromptE2ETests']) {
+    assert.ok(worker.filter.split('&').includes('FullyQualifiedName!~' + type));
+    assert.ok(api.requiredTestTypes.includes(type));
+  }
+  for (const type of ['NativeWorkerKnowledgeGenerationE2ETests', 'NativeWorkerCorrectionGenerationE2ETests']) {
+    assert.ok(api.filter.split('&').includes('FullyQualifiedName!~' + type));
+    assert.ok(worker.filter.split('&').includes('FullyQualifiedName!~' + type));
+    assert.ok(knowledge.filter.split('|').includes('FullyQualifiedName~' + type));
+    assert.ok(knowledge.requiredTestTypes.includes(type));
+  }
+  for (const [type, gate] of [
+    ['NativeMigratorE2ETests', matrix.migratorNativeAotIntegration],
+    ['NativeLogConsumerE2ETests', matrix.logConsumerNativeAotIntegration],
+  ]) {
+    assert.ok(api.filter.split('&').includes('FullyQualifiedName!~' + type));
+    assert.equal(gate.filter, 'FullyQualifiedName~Full.NET.IntegrationTests.NativeAot.' + type);
+    assert.equal(gate.minimum, 4);
+  }
 });
 
 for (const role of ['api', 'worker']) {
@@ -394,9 +414,9 @@ test('OIDC Native AOT 门禁登记矩阵、脚本、工作流与专用 TRX', asy
   );
 });
 
-test('Worker Native AOT 发现门禁包含 Kafka、PDF、旧代次清理与租户准入原生用例', async () => {
+test('Worker Native AOT 发现门禁包含 Kafka、PDF、旧代次清理与租约原生用例', async () => {
   const matrix = JSON.parse(await read('eng/testing/test-matrix.json'));
   const runner = await readNativeRunner('scripts/testing/run-native-aot-worker-e2e.mjs');
-  for (const required of ['NativeWorkerKafkaLogMySqlE2ETests', 'NativeWorkerPdfE2ETests', 'NativeWorkerKnowledgeRetirementE2ETests', 'NativeWorkerTenantAuthorityE2ETests', 'NativeWorkerClaimSnapshotTests']) assert.ok(matrix.workerNativeAotIntegration.requiredTestTypes.includes(required), required);
+  for (const required of ['NativeWorkerKafkaLogMySqlE2ETests', 'NativeWorkerPdfE2ETests', 'NativeWorkerKnowledgeRetirementE2ETests', 'NativeWorkerAgentLeaseLockE2ETests', 'NativeWorkerClaimSnapshotTests']) assert.ok(matrix.workerNativeAotIntegration.requiredTestTypes.includes(required), required);
   assert.match(runner, /discoveredTypes\.has\(requiredType\)/);
 });
