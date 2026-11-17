@@ -6762,3 +6762,9 @@ Release 集成工程单节点构建及 Identity 模块隔离 AOT 分析均零警
 
 - 官方作业的 Worker 日志记录了两条完成请求均已处理，页面用例的原失败标记没有视口或断言。Playwright 现在原子写入失败视口和有界断言，先遮蔽桥接登录夹具。控制器可在另一个视口仍运行时报告断言。
 - 以受控失败验证标记生成、遮蔽和托管控制器实际报错，桌面与移动的 Playwright 用例均发现，集成 Release 构建零警告、零错误。Linux 完成审批页的失败原因待下一轮带诊断日志确认。
+
+### 8.311 原生关键 HTTP 流程的文档分类契约（2026-11-17）
+
+- 当前分类契约用 `document.host_category.invalid_parent` 拒绝无效引用。共享用例验证完整 PUT 用显式分类 ID 保留引用，用 `null` 清除引用，以及引用清除后允许删除分类。[文档设计](../specs/2026-08-02-document-module-design.md)。
+- 活跃文档和回收站条目均阻止删除仍被引用的分类。复用通过 API 正常删除的分类构造历史引用，验证两个恢复入口均能清除该失效引用。并发删除与恢复验证合法分类保留，统计继续验证越界分类不可见。
+- 基于冻结的 Linux Native API 发布产物，SQL Server 与 MySQL 关键 HTTP 流程 2/2 通过、零跳过，六项文档分类定向单测通过。更新后的官方作业待复验。[原失败作业](https://github.com/yan041108/Full.NET/actions/runs/44087347187/job/134053118190)，[复验产物](https://github.com/yan041108/Full.NET/actions/runs/44082055446/artifacts/14330525402)。

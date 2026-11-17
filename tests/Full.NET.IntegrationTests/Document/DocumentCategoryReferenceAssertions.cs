@@ -104,24 +104,37 @@ internal static class DocumentCategoryReferenceAssertions
         {
             using var response = await SendAsync(client, HttpMethod.Post, Items, token,
                 new CreateHostDocumentItemRequest("invalid-" + Guid.NewGuid().ToString("N"), null) { CategoryId = invalid }, cancellationToken);
-            await ErrorAsync(response, HttpStatusCode.BadRequest, DocumentErrorCodes.Invalid, cancellationToken);
+            await ErrorAsync(response, HttpStatusCode.BadRequest, DocumentErrorCodes.CategoryInvalidParent, cancellationToken);
         }
 
         var category = await CategoryAsync(client, token, cancellationToken);
         var item = await ItemAsync(client, token, category.Id, cancellationToken);
         using (var response = await SendAsync(client, HttpMethod.Put, $"{Items}/{item.Id:D}", token,
             new UpdateHostDocumentItemRequest(item.Title, null, null, null, 0, [], item.Version) { CategoryId = foreign.Id }, cancellationToken))
-            await ErrorAsync(response, HttpStatusCode.BadRequest, DocumentErrorCodes.Invalid, cancellationToken);
+            await ErrorAsync(response, HttpStatusCode.BadRequest, DocumentErrorCodes.CategoryInvalidParent, cancellationToken);
+        HostDocumentItemResponse? updated;
         using (var response = await SendAsync(client, HttpMethod.Put, $"{Items}/{item.Id:D}", token,
-            new UpdateHostDocumentItemRequest(item.Title, null, null, null, 0, [], item.Version), cancellationToken))
+            new UpdateHostDocumentItemRequest(item.Title, null, category.Id, null, 0, [], item.Version), cancellationToken))
         {
             Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
-            var updated = await response.Content.ReadFromJsonAsync<HostDocumentItemResponse>(cancellationToken);
+            updated = await response.Content.ReadFromJsonAsync<HostDocumentItemResponse>(cancellationToken);
             Assert.IsNotNull(updated);
             Assert.AreEqual(category.Id, updated.CategoryId);
         }
         using (var response = await DeleteCategoryAsync(client, token, category, cancellationToken))
             await ErrorAsync(response, HttpStatusCode.UnprocessableEntity, DocumentErrorCodes.CategoryInUse, cancellationToken);
+
+        // 完整 PUT 显式清空分类后，原分类不再阻止删除。
+        using (var response = await SendAsync(client, HttpMethod.Put, $"{Items}/{item.Id:D}", token,
+            new UpdateHostDocumentItemRequest(updated.Title, null, null, null, 0, [], updated.Version), cancellationToken))
+        {
+            Assert.AreEqual(HttpStatusCode.OK, response.StatusCode, await response.Content.ReadAsStringAsync(cancellationToken));
+            var cleared = await response.Content.ReadFromJsonAsync<HostDocumentItemResponse>(cancellationToken);
+            Assert.IsNotNull(cleared);
+            Assert.IsNull(cleared.CategoryId);
+        }
+        using (var response = await DeleteCategoryAsync(client, token, category, cancellationToken))
+            Assert.AreEqual(HttpStatusCode.OK, response.StatusCode, await response.Content.ReadAsStringAsync(cancellationToken));
 
         foreach (var recycle in new[] { false, true })
         {
@@ -129,7 +142,11 @@ internal static class DocumentCategoryReferenceAssertions
             var trash = await ItemAsync(client, token, parent.Id, cancellationToken);
             await DeleteItemAsync(client, token, trash, cancellationToken);
             using (var response = await DeleteCategoryAsync(client, token, parent, cancellationToken))
-                Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
+                await ErrorAsync(response, HttpStatusCode.UnprocessableEntity, DocumentErrorCodes.CategoryInUse, cancellationToken);
+            // 现行删除会保护回收站引用。将既有历史记录指向此前已正常删除的分类，验证恢复时降为未分类。
+            Assert.AreEqual(1, await database.ExecuteAsync(new CommandDefinition(
+                "UPDATE fn_document_item SET CategoryId = @CategoryId WHERE Id = @Id",
+                new { trash.Id, CategoryId = deleted.Id }, cancellationToken: cancellationToken)));
             using (var response = await RestoreAsync(client, token, trash, recycle, cancellationToken))
             {
                 Assert.AreEqual(HttpStatusCode.OK, response.StatusCode, await response.Content.ReadAsStringAsync(cancellationToken));
@@ -164,19 +181,19 @@ internal static class DocumentCategoryReferenceAssertions
             {
                 if (responses[0].StatusCode == HttpStatusCode.OK)
                 {
-                    if (operation is "restore" or "recycle")
-                    {
-                        Assert.AreEqual(HttpStatusCode.OK, responses[1].StatusCode);
-                        var restored = await responses[1].Content.ReadFromJsonAsync<HostDocumentItemResponse>(cancellationToken);
-                        Assert.IsNotNull(restored);
-                        Assert.IsNull(restored.CategoryId);
-                    }
-                    else await ErrorAsync(responses[1], HttpStatusCode.BadRequest, DocumentErrorCodes.Invalid, cancellationToken);
+                    Assert.IsTrue(operation is "create" or "update", "回收站引用必须阻止删除分类。");
+                    await ErrorAsync(responses[1], HttpStatusCode.BadRequest, DocumentErrorCodes.CategoryInvalidParent, cancellationToken);
                 }
                 else
                 {
                     await ErrorAsync(responses[0], HttpStatusCode.UnprocessableEntity, DocumentErrorCodes.CategoryInUse, cancellationToken);
                     Assert.AreEqual(operation == "create" ? HttpStatusCode.Created : HttpStatusCode.OK, responses[1].StatusCode);
+                    if (operation is "restore" or "recycle")
+                    {
+                        var restored = await responses[1].Content.ReadFromJsonAsync<HostDocumentItemResponse>(cancellationToken);
+                        Assert.IsNotNull(restored);
+                        Assert.AreEqual(parent.Id, restored.CategoryId);
+                    }
                 }
             }
             finally { foreach (var response in responses) response.Dispose(); }
