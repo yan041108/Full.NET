@@ -6822,3 +6822,15 @@ Release 集成工程单节点构建及 Identity 模块隔离 AOT 分析均零警
 - 原部署 Web 证书缺少吊销分发点，Windows Schannel curl 实际复现 `CRYPT_E_NO_REVOCATION_CHECK`。部署现有 CRL 管理工具、精确 HTTP 路由与每日刷新定时器，用现有应用 CA、CSR 和 Web 私钥签发带分发点的证书。
 - HTTP CRL 返回 200、`application/pkix-crl`，签名核对通过，刷新服务 exit 0、定时器 active。Windows 使用系统信任和默认吊销校验，HTTPS live/ready 均为 200。重复配置保持同一证书序列号，NGINX 检查、重载及严格 ready 复验通过。
 - 原证书、模板和网关配置留存于目标机的受控恢复目录，位置及刷新要求已写入 [Web CRL 运行手册](../../operations/application-web-certificate-revocation.md#2026-11-18-发布环境复验)。API 与 Worker 均持续 2/2 Available。本项关闭本次 D08-10 的发布差集。
+
+### 8.320 D08-12 发布网关新请求日志脱敏（2026-11-18）
+
+- 现网 NGINX 原站点继承默认日志格式。应用已交付的结构化日志配置，按规范路径、请求标识、状态和耗时定位请求；HTTP、HTTPS 两个 server 均采用相同格式。请求错误诊断沿现有网关方案收敛到结构化状态记录。
+- 合成哨兵经查询参数、Authorization 和 Referer 进入网关，HTTP 重定向 308、HTTPS 健康 200、API 拒绝 401 和 WebSocket 拒绝 401 均取得新结构化记录。验证期间访问日志和错误日志新增范围内哨兵及查询凭据计数为零，每条访问记录保留请求标识与规范路径。
+- 配置检查和热重载通过，旧配置保存在主节点 `/etc/fullnet/.edge-log-backup-e6usvpqb/`。既有历史日志的归档及保留处置继续按 §8.186 跟踪，本次完成新请求日志的发布差集。
+
+### 8.321 D08-11 发布对象存储的卷槽扩容（2026-11-18）
+
+- 辅助节点恢复后，实际 SeaweedFS 服务仍为旧的五卷配置，卷槽 5/5 已用、空闲 0，磁盘约 48 GB 可用。使用现有受限升级渲染器替换容量参数，采用 32 卷槽、1 GiB 目标卷大小和 4 GiB 磁盘保留量，原数据目录继续承载存量。
+- 实际服务重启及读写检查通过。原有五个数据卷全部存在，既有受控持久化探针的旧版本读回原字节，升级后创建并读回第二个版本。S3 TLS、SigV4、版本控制和匿名 403 验证通过。跨节点管理端口由主节点独立验证为阻断，本机 S3 检查与该网络检查分别取证。
+- 容量巡检返回 `growth_headroom_available`，32 个卷槽、空闲 27 个，五分钟定时器已安装并启用。旧服务配置和原探针版本清单保存在辅助节点 `/etc/fullnet/object-storage/.capacity-upgrade-j4ds0_q2/`。真实告警接收和持续容量仍归 D08-14。
