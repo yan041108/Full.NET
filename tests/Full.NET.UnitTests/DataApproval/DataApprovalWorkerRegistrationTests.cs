@@ -20,7 +20,10 @@ public sealed class DataApprovalWorkerRegistrationTests
     [TestMethod]
     public async Task Worker_composition_resolves_recovery_and_authoritative_entitlement_port()
     {
-        var builder = Microsoft.Extensions.Hosting.Host.CreateApplicationBuilder();
+        var builder = Microsoft.Extensions.Hosting.Host.CreateApplicationBuilder(new HostApplicationBuilderSettings
+        {
+            EnvironmentName = "Testing",
+        });
         builder.Configuration.AddInMemoryCollection(new Dictionary<string, string?>
         {
             ["FullNet:Modules:Preset"] = "full",

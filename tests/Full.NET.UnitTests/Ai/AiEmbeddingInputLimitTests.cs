@@ -132,7 +132,7 @@ public sealed class AiEmbeddingInputLimitTests
         var model = Model("text-embedding-3-small"); var taskId = Guid.CreateVersion7(); var lease = Guid.CreateVersion7();
         query.QuerySingleOrDefaultAsync<AiKnowledgeIndexDispatchRecord>(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(
             new AiKnowledgeIndexDispatchRecord { TaskId = taskId, DocumentId = binding.DocumentId, VersionId = binding.VersionId,
-                DocumentVersion = 1, KnowledgeBaseVersion = 1,
+                DocumentVersion = 1, KnowledgeBaseVersion = 1, FileId = Guid.CreateVersion7(),
                 DataClassification = "internal", ModelProviderKey = model.ProviderKey, ModelId = model.ModelId,
                 ModelEndpointBaseUrl = model.EndpointBaseUrl, ModelOrganizationId = model.OrganizationId,
                 ModelConfigId = model.Id, ModelConfigVersion = 1, LeaseToken = lease, LeaseExpiresAtUtc = DateTimeOffset.UtcNow.AddMinutes(1) });
@@ -140,6 +140,9 @@ public sealed class AiEmbeddingInputLimitTests
         var tasks = new AiKnowledgeIndexTaskStore(query, command, tenant, clock, ids);
         var service = new AiKnowledgeIndexBudgetService(query, tasks, new(query, command, tasks, ids), budget);
         await Assert.ThrowsExactlyAsync<InvalidDataException>(() => service.ReserveAsync(binding, taskId, lease, 0, [Excess()], default));
+        await query.Received(1).QuerySingleOrDefaultAsync<AiModelConfigRecord>(
+            scoped ? AiModelConfigSql.FindAvailableForTenantChat : AiModelConfigSql.FindAvailableForHostChat,
+            Arg.Any<object?>(), Arg.Any<CancellationToken>());
         Assert.AreEqual(0, budget.ReceivedCalls().Count()); Assert.AreEqual(0, command.ReceivedCalls().Count()); Assert.AreEqual(0, ids.ReceivedCalls().Count());
     }
 }
