@@ -103,7 +103,13 @@ internal sealed class PersonalScheduleBrowserRun : IAsyncDisposable
         // 页面可先写失败标记再退出；应保留本次进程输出，避免把依赖故障误报成结果文件超时。
         if (_process is { HasExited: true })
             Assert.Fail("日程浏览器进程提前退出。\n" + await ReadProcessOutputAsync());
-        if (!File.Exists(failed) || await ReadFlagAsync(failed, "passed", token)) return;
+        if (!File.Exists(failed)) return;
+        using var failure = JsonDocument.Parse(await File.ReadAllTextAsync(failed, token));
+        var marker = failure.RootElement;
+        if (marker.TryGetProperty("passed", out var passed) && passed.ValueKind is JsonValueKind.True) return;
+        // 另一个视口仍在运行时，失败用例的 Playwright 报告可能尚未完成。
+        if (marker.TryGetProperty("diagnostic", out var diagnostic) && diagnostic.ValueKind is JsonValueKind.String)
+            Assert.Fail("日程浏览器用例失败。\n" + diagnostic.GetString());
         if (_process is not null)
         {
             using var outputTimeout = CancellationTokenSource.CreateLinkedTokenSource(token);

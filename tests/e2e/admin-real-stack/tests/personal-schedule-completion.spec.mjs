@@ -5,8 +5,15 @@ import path from 'node:path';
 import {loginAsHostUser} from './support/real-stack-auth.mjs';
 const ready=process.env.FULLNET_K06_COMPLETION_BROWSER_READY;if(!ready)throw Error('Missing new completion bridge');
 const fixture=JSON.parse(readFileSync(ready,'utf8'));const bridge=path.dirname(ready);
-function marker(name,value){const file=path.join(bridge,name+'.writing');writeFileSync(file,JSON.stringify(value));renameSync(file,path.join(bridge,name+'.json'));}
-test.afterEach(async({},info)=>{if(info.status!==info.expectedStatus)marker('failed',{passed:false});});
+function marker(name,value){const file=path.join(bridge,name+'-'+process.pid+'.writing');writeFileSync(file,JSON.stringify(value));renameSync(file,path.join(bridge,name+'.json'));}
+test.afterEach(({},info)=>{
+  if(info.status===info.expectedStatus)return;
+  let diagnostic=info.errors.map(error=>error.message??'').join('\n');
+  // 保留本轮视口与断言。桥接中的登录夹具只供当前浏览器使用。
+  for(const value of [fixture.password,...fixture.users.flatMap(user=>[user.username,user.reviewer])])
+    if(value)diagnostic=diagnostic.replaceAll(value,'[redacted]');
+  marker('failed',{passed:false,diagnostic:info.title+'\n'+diagnostic.slice(0,2000)});
+});
 for(const [index,viewport] of [{width:1440,height:1000},{width:390,height:844}].entries())test(`独立审批与准确日程完成回执 ${viewport.width}`,async({page,browser},info)=>{
   test.setTimeout(240_000);page.setDefaultTimeout(15_000);const user=fixture.users[index];const errors=[];let paid=0,created=0;
   page.on('pageerror',error=>errors.push(error.message));page.on('request',request=>{if(request.method()==='POST'&&/\/(ask|responses|embeddings)$/.test(request.url()))paid++;if(request.method()==='POST'&&request.url().endsWith('/api/v1/ai/agent/runs'))created++;});
