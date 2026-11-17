@@ -6553,3 +6553,9 @@ Release 集成工程单节点构建及 Identity 模块隔离 AOT 分析均零警
 - 继续只读核查时，发布环境 API 和 Worker 仍均为 0/2 Ready。新增 `FullNetDeploymentNoAvailableReplicas`，基于 Kubernetes 的期望及可用副本数，按 `cluster`、`namespace`、`deployment` 核对过去 120 秒的观测。API 或 Worker 持续两分钟没有可用副本时触发，副本恢复或主动缩容为零时解除。
 - Promtool 定向两组时序覆盖副本全部不可用、恢复、自定义部署名、跨集群同名、重复采集、主动缩容和缺失或陈旧样本。真实 kube-state-metrics 2.19.0 读取隔离的测试 Deployment 数据，由 Prometheus 3.15.0 抓取，Alertmanager 0.34.0 向本地隔离接收器交付 API 和 Worker 各一条触发与一条恢复。每个 Deployment 的两次通知指纹一致。
 - [观察部署说明](../../../deploy/observability/README.md#api-and-worker-deployment-availability)补充采集指标、Deployment 标签白名单与多集群标签约束。目标发布仍需核对 kube-state-metrics 抓取和真实通知接线。
+
+### 8.272 发布网关的空就绪端点处理（2026-11-17）
+
+- 发布只读核查确认 API EndpointSlice 的就绪端点为零，NGINX 仍配置一个旧上游地址。现场 `Refresh-Edge.py` 在成功读取空集合后退出，遗留该地址。受信 HTTPS 的网关存活探针在五秒内未取得响应。
+- 将现有刷新脚本纳入版本管理并修正空集合路径。有效快照只接纳就绪、未终止且可服务的 Pod 地址。空集合写入全部停用的上游；端点恢复后重新写入有效地址。刷新共用锁，配置通过原子替换和 NGINX 校验，更新失败后恢复旧配置。
+- Python 定向测试 5/5，覆盖端点筛选、重复刷新、空快照、恢复、读取失败及 NGINX 校验和重载失败回退。隔离 NGINX 与发布环境使用相同的 1.24.0 版本，后端保持存活时新网关请求依次返回 200、502、200。目标定时器应用和发布环境恢复待验。

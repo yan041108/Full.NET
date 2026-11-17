@@ -52,6 +52,8 @@ TrustedProxy → Localization → RequestLogging
 
 Tenancy 解析在 Identity 认证前后由模块中间件与 `ICurrentTenant` 协作完成；详见 [`code-wiki/architecture-overview.md`](../../code-wiki/architecture-overview.md)。
 
+内网 K3s 网关通过 [Refresh-Edge.py](../../eng/deploy/ubuntu/Refresh-Edge.py) 根据 API 的 EndpointSlice 更新上游地址。读取成功且没有就绪端点时，刷新会将上游设为停用，NGINX 对新代理请求返回 502。就绪端点恢复后，下次刷新接回流量。EndpointSlice 读取失败时保留最后一份配置，NGINX 校验或重载失败时回退本次变更。[NGINX upstream 文档](https://nginx.org/en/docs/http/ngx_http_upstream_module.html#server)
+
 ## 缓存与实时
 
 | 组件 | 位置 | 说明 |
