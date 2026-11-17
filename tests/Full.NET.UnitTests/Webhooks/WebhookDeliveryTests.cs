@@ -1,11 +1,13 @@
 using Full.NET.Abstractions.Ids;
 using Full.NET.Data.Dapper;
+using System.Diagnostics;
 using System.Net;
 using System.Text;
 using System.Text.Json;
 using Full.NET.Modules.Webhooks.Serialization;
 using Full.NET.Modules.Webhooks;
 using Full.NET.Abstractions.Messaging;
+using Full.NET.Abstractions.Results;
 using Full.NET.Abstractions.Time;
 using Full.NET.Abstractions.Tenancy;
 using Full.NET.Data.Abstractions;
@@ -13,11 +15,13 @@ using Full.NET.Modules.Webhooks.Contracts;
 using Full.NET.Modules.Webhooks.Delivery;
 using Full.NET.Modules.Webhooks.Features.DeliverWebhooks;
 using Full.NET.Modules.Webhooks.Features.DeliverWebhooks.Persistence;
+using Full.NET.Modules.Webhooks.Features.ManageWebhookDeliveries.Persistence;
 using Full.NET.Modules.Webhooks.Features.ManageWebhookSubscriptions;
 using Full.NET.Modules.Webhooks.Security;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using NSubstitute;
@@ -149,6 +153,78 @@ public sealed class WebhookDeliveryTests
             WebhookDeliverySql.ClaimPendingSqlServer,
             Arg.Any<IReadOnlyDictionary<string, object?>>(),
             Arg.Any<CancellationToken>());
+    }
+
+    [TestMethod]
+    [DataRow(ServiceCapacityFailureKind.Rejected)]
+    [DataRow(ServiceCapacityFailureKind.Timeout)]
+    public async Task Worker_waits_for_capacity_before_opening_another_scope(ServiceCapacityFailureKind kind)
+    {
+        using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(6));
+        var scopes = Substitute.For<IServiceScopeFactory>();
+        var retry = new TaskCompletionSource<TimeSpan>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var unexpected = new InvalidOperationException("受控 Webhook 故障");
+        var opened = 0;
+        long startedAt = 0;
+        scopes.CreateScope().Returns(_ =>
+        {
+            if (Interlocked.Increment(ref opened) == 1)
+            {
+                startedAt = Stopwatch.GetTimestamp();
+                throw new ServiceCapacityExceededException(kind, TimeSpan.FromMilliseconds(500));
+            }
+
+            retry.TrySetResult(Stopwatch.GetElapsedTime(startedAt));
+            throw unexpected;
+        });
+        var logger = new DeliveryPollLog();
+        using var worker = new WebhookDeliveryHostedProcessor(scopes,
+            Options.Create(new WebhookDeliveryWorkerOptions { PollMilliseconds = 100 }), logger);
+        await worker.StartAsync(deadline.Token);
+        try
+        {
+            var first = await logger.Warning.Task.WaitAsync(deadline.Token);
+            StringAssert.Contains(first, kind.ToString());
+            Assert.IsTrue(await retry.Task.WaitAsync(deadline.Token) >= TimeSpan.FromMilliseconds(490));
+            Assert.AreSame(unexpected, await logger.Error.Task.WaitAsync(deadline.Token));
+        }
+        finally
+        {
+            await worker.StopAsync(deadline.Token);
+        }
+    }
+
+    [TestMethod]
+    public async Task Signing_profile_capacity_failure_preserves_the_claim_without_sending_or_marking_failure()
+    {
+        var item = new WebhookDeliveryWorkItem(Guid.CreateVersion7(), Guid.CreateVersion7(), Guid.CreateVersion7(), "{}",
+            4, 1, Guid.CreateVersion7(), "https://93.184.216.34/hooks", "unused", "test.event", Guid.CreateVersion7());
+        var query = Substitute.For<IQueryExecutor>();
+        query.QueryAsync<WebhookDeliveryWorkItem>(Arg.Any<SqlStatement>(), Arg.Any<IReadOnlyDictionary<string, object?>>(),
+            Arg.Any<CancellationToken>()).Returns(Task.FromResult<IReadOnlyList<WebhookDeliveryWorkItem>>([item]));
+        var capacity = new ServiceCapacityExceededException(ServiceCapacityFailureKind.Rejected, TimeSpan.FromMilliseconds(500));
+        query.QuerySingleOrDefaultAsync<WebhookSigningProfileRecord>(WebhookDeliverySql.FindSigningProfile,
+            Arg.Any<IReadOnlyDictionary<string, object?>>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromException<WebhookSigningProfileRecord?>(capacity));
+        var commands = Substitute.For<ICommandExecutor>();
+        commands.ExecuteAsync(Arg.Any<SqlStatement>(), Arg.Any<IReadOnlyDictionary<string, object?>>(),
+            Arg.Any<CancellationToken>()).Returns(1);
+        var clients = Substitute.For<IHttpClientFactory>();
+        var admission = Substitute.For<IDatabaseAdmissionPriorityScope>();
+        var processor = new WebhookDeliveryBatchProcessor(query, commands,
+            new DapperCommandTransaction(new RecordingDbTransactionCoordinator()), clients,
+            new WebhookSigningSecretProtector(DataProtectionProvider.Create(nameof(WebhookDeliveryTests))),
+            new FixedClock(DateTimeOffset.UtcNow), Options.Create(new DatabaseOptions()),
+            Options.Create(new WebhookDeliveryWorkerOptions { MaxAttempts = 5 }), NullLogger<WebhookDeliveryBatchProcessor>.Instance,
+            NewIds(), ActiveTenants(), admission);
+
+        Assert.AreSame(capacity, await Assert.ThrowsExactlyAsync<ServiceCapacityExceededException>(() => processor.ProcessPendingAsync(default)));
+        clients.DidNotReceive().CreateClient(Arg.Any<string>());
+        admission.DidNotReceive().EnterCritical();
+        await commands.DidNotReceive().ExecuteAsync(WebhookDeliverySql.MarkFailed,
+            Arg.Any<IReadOnlyDictionary<string, object?>>(), Arg.Any<CancellationToken>());
+        await commands.DidNotReceive().ExecuteAsync(WebhookDeliveryAttemptSql.Complete,
+            Arg.Any<IReadOnlyDictionary<string, object?>>(), Arg.Any<CancellationToken>());
     }
 
     [TestMethod]
@@ -494,5 +570,20 @@ public sealed class WebhookDeliveryTests
     private sealed class FixedClock(DateTimeOffset utcNow) : IClock
     {
         public DateTimeOffset UtcNow => utcNow;
+    }
+
+    private sealed class DeliveryPollLog : ILogger<WebhookDeliveryHostedProcessor>
+    {
+        internal TaskCompletionSource<string> Warning { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        internal TaskCompletionSource<Exception?> Error { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+        public bool IsEnabled(LogLevel logLevel) => true;
+
+        public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter)
+        {
+            if (logLevel == LogLevel.Warning) Warning.TrySetResult(formatter(state, exception));
+            if (logLevel == LogLevel.Error) Error.TrySetResult(exception);
+        }
     }
 }

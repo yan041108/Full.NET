@@ -3,6 +3,7 @@ using System.Net;
 using System.Net.Http.Headers;
 using Full.NET.Abstractions.Messaging;
 using Full.NET.Abstractions.Ids;
+using Full.NET.Abstractions.Results;
 using Full.NET.Abstractions.Tenancy;
 using Full.NET.Abstractions.Time;
 using Full.NET.Data.Abstractions;
@@ -115,6 +116,11 @@ internal sealed class WebhookDeliveryBatchProcessor(
         {
             outcome = new("Webhook delivery timed out.", "webhooks.delivery.timeout", null);
         }
+        catch (ServiceCapacityExceededException) when (!requestStarted)
+        {
+            // 签名配置或租户准入尚未读完，原租约等待接管。这里只通知宿主退避。
+            throw;
+        }
         catch (Exception exception)
         {
             logger.LogWarning(
@@ -152,7 +158,7 @@ internal sealed class WebhookDeliveryBatchProcessor(
             if (activity != TenantActivityState.Active)
                 return new(null, activity == TenantActivityState.Closed ? TenantClosed : TenantInactive, null);
         }
-        catch (Exception)
+        catch (Exception exception) when (exception is not ServiceCapacityExceededException)
         {
             return new(null, TenantStateUnavailable, null);
         }

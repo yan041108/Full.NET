@@ -14,6 +14,8 @@ ImportExport 与 Reporting 按数据库原生 UUID 顺序保存进程内候选�
 
 Notifications 每波只领取 `MaxConcurrency` 个可立即执行的槽位，波次结束后才继续领取，整轮不超过 `BatchSize`。因此等待后续波次的任务不提前持有租约；原有续租、外发前核验、幂等键、超时和终态 CAS 继续生效。
 
+Webhook Worker 遇到数据库准入拒绝或等待超时时，按建议等待时间与 `Webhooks:Delivery:PollMilliseconds` 的较大值退避，并加入小幅抖动。Warning 包含准入分类和等待毫秒数。若投递已领取且发送前读取签名或租户状态受阻，保留原租约和已用渠道次数，由后续领取重新核对并发送。
+
 Document 版本保留的 `BatchSize` 限制整轮实际尝试删除的历史版本数，失败尝试同样消耗预算。有效历史保留数取配置上限与 `MinimumRetainedVersionsPerItem - 1` 的较大值，避免不可删除候选持续占用首批。
 
 Host 文件目录 `/api/v1/files/host-folders/tree` 返回 `parentId` 的直接子目录，省略参数只读根目录；节点用 `hasChildren` 表示可展开，不再携带递归 `children`。单父目录最多返回 1000 项，超过返回 `files.folder.query_limit_exceeded` / HTTP 422；目录创建最多 32 层。Vue 逐层请求，刷新取消旧请求，不缓存授权。

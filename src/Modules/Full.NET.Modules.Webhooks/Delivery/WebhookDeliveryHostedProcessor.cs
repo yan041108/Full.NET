@@ -1,3 +1,4 @@
+using Full.NET.Abstractions.Results;
 using Full.NET.Abstractions.Tenancy;
 using Full.NET.Modules.Webhooks.Features.DeliverWebhooks;
 using Microsoft.Extensions.DependencyInjection;
@@ -26,6 +27,7 @@ internal sealed class WebhookDeliveryHostedProcessor(
         while (!stoppingToken.IsCancellationRequested)
         {
             var processed = 0;
+            TimeSpan? capacityDelay = null;
             try
             {
                 processed = await ProcessOnceAsync(stoppingToken).ConfigureAwait(false);
@@ -34,15 +36,27 @@ internal sealed class WebhookDeliveryHostedProcessor(
             {
                 break;
             }
+            catch (ServiceCapacityExceededException exception)
+            {
+                // 准入退避遵守数据库建议，多副本在正常轮询间隔内加入小幅抖动。
+                var pollingDelay = TimeSpan.FromMilliseconds(_options.PollMilliseconds);
+                var minimumDelay = exception.RetryAfter > pollingDelay ? exception.RetryAfter : pollingDelay;
+                var jitterLimit = Math.Min(pollingDelay.TotalMilliseconds / 4, 1000);
+                capacityDelay = minimumDelay + TimeSpan.FromMilliseconds(Random.Shared.NextDouble() * jitterLimit);
+                logger.LogWarning("Webhook delivery polling delayed by database capacity ({CapacityFailure}) for {RetryDelayMilliseconds} ms.",
+                    exception.Kind, capacityDelay.Value.TotalMilliseconds);
+            }
             catch (Exception exception)
             {
                 logger.LogError(exception, "Webhook delivery worker iteration failed.");
             }
 
-            if (processed < Math.Clamp(_options.BatchSize, 1, 50))
+            var delay = capacityDelay ?? (processed < Math.Clamp(_options.BatchSize, 1, 50)
+                ? TimeSpan.FromMilliseconds(_options.PollMilliseconds)
+                : TimeSpan.Zero);
+            if (delay > TimeSpan.Zero)
             {
-                await Task.Delay(TimeSpan.FromMilliseconds(_options.PollMilliseconds), stoppingToken)
-                    .ConfigureAwait(false);
+                await Task.Delay(delay, stoppingToken).ConfigureAwait(false);
             }
         }
     }

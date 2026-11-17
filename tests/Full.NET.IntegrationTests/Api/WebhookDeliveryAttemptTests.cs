@@ -29,10 +29,12 @@ public sealed class WebhookDeliveryAttemptTests
     {
         using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(120)); var token = deadline.Token;
         var clock = new AdjustableClock(); var transport = new Receiver();
+        var tenantAdmission = new CapacityTenantDirectory();
         var cs = provider == DatabaseProvider.SqlServer ? await SharedDatabaseFixture.CreateSqlServerDatabaseAsync() : await SharedDatabaseFixture.CreateMySqlDatabaseAsync();
         using var factory = new FullNetApiFactory(provider, cs, configureTestServices: services => {
             services.RemoveAll<IClock>(); services.AddSingleton<IClock>(clock);
             services.RemoveAll<IHttpClientFactory>(); services.AddSingleton<IHttpClientFactory>(transport);
+            services.RemoveAll<ITenantActivityReadPort>(); services.AddSingleton<ITenantActivityReadPort>(tenantAdmission);
         });
         await factory.InitializeAsync(token); using var client = factory.CreateClientForHost("acme.localhost");
         var prepared = await PrepareAsync(factory, client, token); clock.Freeze(); var path = $"/api/v1/webhooks/subscriptions/{prepared.Subscription.Id:D}/deliveries/{prepared.Delivery.Id:D}";
@@ -47,15 +49,28 @@ public sealed class WebhookDeliveryAttemptTests
         var attempts = await client.GetFromJsonAsync<PagedResult<WebhookDeliveryAttemptResponse>>(path + "/attempts", token); Assert.IsNotNull(attempts); Assert.AreEqual(completionFailure ? 1L : 0L, attempts.Total);
         if (completionFailure) { Assert.IsNull(attempts.Items[0].CompletedAtUtc); Assert.IsNull(attempts.Items[0].AppliedToDelivery); }
         await db.ExecuteAsync(provider == DatabaseProvider.SqlServer ? "ALTER TABLE fn_webhooks_delivery_attempt DROP CONSTRAINT CK_test_webhooks_attempt_write" : "ALTER TABLE fn_webhooks_delivery_attempt DROP CHECK CK_test_webhooks_attempt_write");
-        if (completionFailure)
+        if (!completionFailure)
         {
-            clock.Offset = TimeSpan.FromSeconds(70);
-            var unknown = await client.GetFromJsonAsync<PagedResult<WebhookDeliveryAttemptResponse>>(path + "/attempts", token); Assert.AreEqual("unconfirmed", unknown!.Items[0].OutcomeKey);
+            tenantAdmission.Blocked = true;
+            await Assert.ThrowsExactlyAsync<ServiceCapacityExceededException>(() => ProcessAsync(factory, token));
+            tenantAdmission.Blocked = false;
+            var held = await client.GetFromJsonAsync<WebhookDeliveryHistoryResponse>(path, token);
+            Assert.IsNotNull(held);
+            Assert.AreEqual("processing", held.StatusKey);
+            Assert.AreEqual(0, held.AttemptCount);
+            Assert.AreEqual(0, transport.Count);
+            Assert.AreEqual(0, await ProcessAsync(factory, token));
         }
+        clock.Offset = TimeSpan.FromSeconds(70);
+        var unknown = await client.GetFromJsonAsync<PagedResult<WebhookDeliveryAttemptResponse>>(path + "/attempts", token);
+        Assert.IsNotNull(unknown);
+        Assert.AreEqual("unconfirmed", unknown.Items.Single().OutcomeKey);
+        Assert.IsNull(unknown.Items.Single().CompletedAtUtc);
         Assert.AreEqual(1, await ProcessAsync(factory, token));
         var final = await client.GetFromJsonAsync<PagedResult<WebhookDeliveryAttemptResponse>>(path + "/attempts", token); Assert.IsNotNull(final);
-        Assert.AreEqual(completionFailure ? 2L : 1L, final.Total); Assert.AreEqual(1, final.Items.Count(row => row.OutcomeKey == "delivered" && row.AppliedToDelivery == true));
+        Assert.AreEqual(2L, final.Total); Assert.AreEqual(1, final.Items.Count(row => row.OutcomeKey == "delivered" && row.AppliedToDelivery == true));
         Assert.AreEqual(1, transport.UniqueEventCount);
+        if (!completionFailure) Assert.AreEqual(1, transport.Count);
         var delivered = await client.GetFromJsonAsync<WebhookDeliveryHistoryResponse>(path, token); Assert.AreEqual("delivered", delivered!.StatusKey); Assert.AreEqual(1, delivered.AttemptCount);
         Assert.AreEqual(0, await ProcessAsync(factory, token));
     }
@@ -121,6 +136,20 @@ public sealed class WebhookDeliveryAttemptTests
     private static async Task<int> ProcessAsync(FullNetApiFactory factory, CancellationToken token)
     { await using var scope = factory.Services.CreateAsyncScope(); scope.ServiceProvider.GetRequiredService<CurrentTenantAccessor>().SetHost(); return await scope.ServiceProvider.GetRequiredService<WebhookDeliveryBatchProcessor>().ProcessPendingAsync(token); }
     private sealed class AdjustableClock : IClock { private DateTimeOffset? frozen; internal TimeSpan Offset; internal void Freeze() { var now = DateTimeOffset.UtcNow; frozen = new DateTimeOffset(now.Ticks - now.Ticks % 10, TimeSpan.Zero); } public DateTimeOffset UtcNow => (frozen ?? DateTimeOffset.UtcNow) + Offset; }
+    private sealed class CapacityTenantDirectory : ITenantActivityReadPort
+    {
+        internal bool Blocked { get; set; }
+
+        public async Task<bool> IsActiveTenantAsync(Guid tenantId, CancellationToken cancellationToken = default) =>
+            await ReadActivityAsync(tenantId, cancellationToken).ConfigureAwait(false) == TenantActivityState.Active;
+
+        public Task<TenantActivityState> ReadActivityAsync(Guid tenantId, CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (Blocked) throw new ServiceCapacityExceededException(ServiceCapacityFailureKind.Timeout, TimeSpan.FromMilliseconds(500));
+            return Task.FromResult(TenantActivityState.Active);
+        }
+    }
     private sealed class Receiver : IHttpClientFactory
     {
         private readonly HashSet<Guid> events = []; private int count;
