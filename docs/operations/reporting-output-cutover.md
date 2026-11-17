@@ -38,7 +38,7 @@
 
 Migrator 每次发布创建带 Helm 修订号的 Job，与其 ConfigMap 和 ServiceAccount 一起由 Helm 创建。发布脚本等待本次 Job 完成才启动 Worker 阶段，随后将 API 以 `api.reportingExportAdmissionEnabled=false` 发布并等待就绪。单独调用 Helm 时，Migrator 阶段也须传入 `--wait --wait-for-jobs`，API 阶段须显式暂停导出准入。
 
-三个数据库 Secret 指向同一业务主库，分别使用宿主所需权限及与 Chart 预算一致的最大连接池大小。未传角色专用参数时，该角色使用 values 中的 `database.connectionSecretName`。
+三个数据库 Secret 须指向同一业务主库，分别使用宿主所需权限及与 Chart 预算一致的最大连接池大小。预检核对清单中的连接配置引用唯一的 Secret 和键。传入角色专用参数时，清单必须引用指定 Secret。未传角色专用参数时，该角色使用 values 中的 `database.connectionSecretName`。预检只读取渲染后的引用，发布负责人仍须核对实际数据库目标。
 
 ## 已完成导出的复核
 

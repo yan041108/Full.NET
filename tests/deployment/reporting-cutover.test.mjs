@@ -348,7 +348,7 @@ function helm {
         }
         if (($release -ceq 'fullnet-api') -ne ('api.reportingExportAdmissionEnabled=false' -in $args)) { throw 'Preview uses a different admission override.' }
         Write-Host "chart-preview=$release"
-        if ($env:FULLNET_CUTOVER_REAL_HELM -and $scenario -in 'ready', 'provider-mismatch') {
+        if ($env:FULLNET_CUTOVER_REAL_HELM -and $scenario -in 'ready', 'provider-mismatch', 'cutover-role-secrets') {
             & $env:FULLNET_CUTOVER_REAL_HELM @args
             return
         }
@@ -361,6 +361,18 @@ function helm {
         $chartProvider = if ($scenario -eq 'provider-mismatch' -and $release -eq 'fullnet-worker') { 'MySql' } else { $provider }
         'sensitive-render-diagnostic'
         '  Database__Provider: "{0}"' -f $chartProvider
+        $secret = @($args | Where-Object { $_ -like 'database.connectionSecretName=*' })
+        $secretName = if ($secret.Count -eq 1) { $secret[0].Split('=')[1] } else { 'fullnet-database' }
+        if ($release -eq 'fullnet-worker' -and $scenario -eq 'secret-mismatch') { $secretName = 'fullnet-api.db' }
+        '            - name: Database__ConnectionString'
+        if ($release -eq 'fullnet-api' -and $scenario -eq 'connection-inline') {
+            '              value: "fixture-private-value"'
+        } else {
+            '              valueFrom:'
+            '                secretKeyRef:'
+            '                  name: {0}' -f $secretName
+            '                  key: connectionString'
+        }
         if ($release -eq 'fullnet-api' -and $scenario -ne 'admission-missing') {
             '            - name: FullNet__Reporting__Export__AdmissionEnabled'
             if ($scenario -eq 'admission-enabled') { '              value: "true"' } else { '              value: "false"' }
@@ -385,7 +397,7 @@ function helm {
         throw 'Unexpected admission override for a non-cutover API stage.'
     }
     $secret = @($args | Where-Object { $_ -like 'database.connectionSecretName=*' })
-    if ($scenario -eq 'role-secrets') {
+    if ($scenario -in 'role-secrets', 'cutover-role-secrets', 'secret-mismatch') {
         if ($secret.Count -ne 1 -or $secret[0] -cne "database.connectionSecretName=$($args[2]).db" -or '--set-string' -notin $args) {
             throw 'The release did not receive its own Secret.'
         }
@@ -396,7 +408,7 @@ function helm {
     Write-Host "helm-stage=$($args[2])"
 }
 $parameters = @{ Namespace='fixture'; ImageTag='fixed-test'; KubeContext='isolated-test' }
-if ($scenario -in 'role-secrets', 'invalid-role-secret') {
+if ($scenario -in 'role-secrets', 'invalid-role-secret', 'cutover-role-secrets', 'secret-mismatch') {
     $parameters.ApiDatabaseSecretName = 'fullnet-api.db'
     $parameters.WorkerDatabaseSecretName = 'fullnet-worker.db'
     $parameters.MigratorDatabaseSecretName = 'fullnet-migrator.db'
@@ -446,12 +458,14 @@ for (const [scenario, message] of [
   ['admission-missing', /exactly one disabled API export admission/],
   ['admission-enabled', /exactly one disabled API export admission/],
   ['admission-duplicate', /exactly one disabled API export admission/],
+  ['connection-inline', /exactly one database connection Secret reference for 'fullnet-api'/],
+  ['secret-mismatch', /does not use the requested database Secret for 'fullnet-worker'/],
 ]) {
   test(`${scenario} chart preview blocks the database probe and release stages`, () => {
     const { status, stdout, stderr } = run(scenario);
     assert.notEqual(status, 0);
     assert.match(stderr, message);
-    assert.doesNotMatch(stdout + stderr, /helm-stage|database-probed|sensitive-render-diagnostic/);
+    assert.doesNotMatch(stdout + stderr, /helm-stage|database-probed|sensitive-render-diagnostic|fixture-private-value/);
   });
 }
 
@@ -498,6 +512,14 @@ test('each Helm stage can select its database Secret and invalid values fail bef
   assert.notEqual(rejected.status, 0);
   assert.match(rejected.stderr, /ApiDatabaseSecretName/);
   assert.doesNotMatch(rejected.stdout, /helm-stage|database-probed/);
+});
+
+test('cutover preview and actual Helm arguments preserve the three explicit role Secrets', () => {
+  const { status, stdout, stderr } = run('cutover-role-secrets');
+  assert.equal(status, 0, stderr);
+  assert.match(stdout, /chart-preview=fullnet-migrator[\s\S]+chart-preview=fullnet-worker[\s\S]+chart-preview=fullnet-api[\s\S]+database-probed/);
+  assert.deepEqual([...stdout.matchAll(/helm-stage=(fullnet-[a-z]+)/g)].map(match => match[1]),
+    ['fullnet-migrator', 'fullnet-worker', 'fullnet-api']);
 });
 
 test('a failed Migrator stops the cutover before releasing Worker and API', () => {

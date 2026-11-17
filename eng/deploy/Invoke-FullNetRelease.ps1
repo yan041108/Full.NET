@@ -101,6 +101,24 @@ function Assert-ReportingCutoverChart {
     if ($providers.Count -ne 1 -or $providers[0].Groups['value'].Value.Trim() -ne $expectedProvider) {
         throw "Reporting cutover chart database provider does not match the probe for '$ReleaseName'."
     }
+    # 核对容器的实际 Secret 引用。显式角色覆盖必须落到对应的 workload。
+    $connectionPattern = @'
+(?mx)
+^(?<indent>[ ]+)-[ ]name:[ ]Database__ConnectionString[ \t]*\r?$
+(?:
+    \n\k<indent>[ ]{2}valueFrom:[ \t]*\r?
+    \n\k<indent>[ ]{4}secretKeyRef:[ \t]*\r?
+    \n\k<indent>[ ]{6}name:[ \t]*(?<nameQuote>["']?)(?<name>[a-z0-9][a-z0-9.-]*)\k<nameQuote>[ \t]*\r?
+    \n\k<indent>[ ]{6}key:[ \t]*(?<keyQuote>["']?)[a-zA-Z0-9_.-]+\k<keyQuote>[ \t]*\r?$
+)?
+'@
+    $connection = [regex]::Matches($rendered, $connectionPattern)
+    if ($connection.Count -ne 1 -or -not $connection[0].Groups['name'].Success) {
+        throw "Reporting cutover chart must render exactly one database connection Secret reference for '$ReleaseName'."
+    }
+    if ($DatabaseSecretName -and $connection[0].Groups['name'].Value -cne $DatabaseSecretName) {
+        throw "Reporting cutover chart does not use the requested database Secret for '$ReleaseName'."
+    }
     if ($ReleaseName -ceq 'fullnet-api') {
         $admission = [regex]::Matches($rendered, '(?m)^(?<indent> +)- name: FullNet__Reporting__Export__AdmissionEnabled[ \t]*\r?$(?:\n\k<indent>  value:[ \t]*(?<value>[^\r\n]*))?')
         if ($admission.Count -ne 1 -or $admission[0].Groups['value'].Value.Trim() -cne '"false"') {
