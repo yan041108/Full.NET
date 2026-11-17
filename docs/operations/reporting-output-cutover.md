@@ -107,7 +107,14 @@ if ($filePage.hasMore) {
       -EvidencePath $SavedEvidenceJson -WorkbookPath $OriginalWorkbook
   ```
 
-- 原任务尚未绑定且存在多个就绪文件时，Worker 保留这些文件和待恢复任务，等待核对原证据。创建时间靠后的文件仍需核对。摘要不符或归属不清时也应保留证据。
+- 原任务尚未绑定且存在多个就绪文件时，Worker 保留文件和待恢复任务。保存对应的候选页 JSON，使用受控存储路径取得候选的工作簿，传入该页上明确的文件 ID 逐份核对。
+
+  ```powershell
+  ./eng/deploy/reporting-cutover/Measure-ReportingCutoverWorkbook.ps1 `
+      -EvidencePath $SavedCandidatePageJson -WorkbookPath $CandidateWorkbook -FileId $CandidateFileId
+  ```
+
+  命令要求该 ID 在本页恰好匹配一项就绪记录，核对记录大小、摘要和工作簿结构后返回该文件的实际行数。文件选择还须依据旧 Worker 的原上传记录、任务归属及处置授权。
 - 未找到就绪文件时，结合 pending 记录及对象存储和 Worker 日志核对上传结果。缺失元数据或已到期的租约本身不能证明上传未发生。
 - 取证结果的 `taskExists` 说明是否找到原任务，`unresolvedFileCount` 统计该租户和任务下仍待确认或尚未绑定的就绪文件。原任务缺失时，只要还有归属匹配的文件就会返回文件证据，任务状态和行数为空。原任务与文件均缺失时，命令返回错误。
 - 报表任务仍可恢复且 Files 保留 pending 时，后续领取会等待上传确认为就绪、释放或清理。在待确认期内，报表 Worker 保留原任务和文件。队列排空前需确认 Files 的恢复处理已收敛。

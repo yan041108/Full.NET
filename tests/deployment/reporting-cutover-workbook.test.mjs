@@ -58,8 +58,24 @@ try {
     if ($scenario -eq 'different-digest') { $evidence.latestReadySha256 = 'A' * 64 }
     if ($scenario -eq 'size-mismatch') { $evidence.latestReadyBytes++ }
     if ($scenario -eq 'multiple-ready') { $evidence.fileCount = 2; $evidence.readyFileCount = 2 }
+    $measure = @{ EvidencePath = $evidencePath; WorkbookPath = $workbookPath }
+    if ($scenario -like 'candidate-*') {
+        $original = @{ fileId=$evidence.latestReadyFileId; statusKey='ready'; sizeBytes=$evidence.latestReadyBytes; sha256=$evidence.latestReadySha256 }
+        $other = @{ fileId='00000000-0000-7000-8000-000000000004'; statusKey='ready'; sizeBytes=$original.sizeBytes; sha256=('a' * 64) }
+        $evidence = @{ tenantId=$evidence.tenantId; taskId=$evidence.taskId; items=@($original, $other); hasMore=$true }
+        $measure.FileId = $original.fileId
+        switch ($scenario) {
+            'candidate-other' { $measure.FileId = $other.fileId }
+            'candidate-missing' { $measure.FileId = '00000000-0000-7000-8000-000000000005' }
+            'candidate-empty-id' { $measure.FileId = [guid]::Empty }
+            'candidate-implicit' { $measure.Remove('FileId') }
+            'candidate-pending' { $original.statusKey = 'pending' }
+            'candidate-duplicate' { $evidence.items += $original }
+            'candidate-invalid-size' { $original.sizeBytes = [string] $original.sizeBytes }
+        }
+    }
     $evidence | ConvertTo-Json | Set-Content -LiteralPath $evidencePath
-    & ./eng/deploy/reporting-cutover/Measure-ReportingCutoverWorkbook.ps1 -EvidencePath $evidencePath -WorkbookPath $workbookPath
+    & ./eng/deploy/reporting-cutover/Measure-ReportingCutoverWorkbook.ps1 @measure
 } finally {
     foreach ($name in 'original.xlsx', 'evidence.json') {
         $path = Join-Path $fixture.FullName $name
@@ -90,6 +106,15 @@ for (const [scenario, rowCount] of [['one-row', 1], ['header-only', 0]]) {
   });
 }
 
+test('an explicit ready candidate can be measured even when a later candidate exists', () => {
+  const { status, stdout, stderr } = verify('candidate-selected');
+  assert.equal(status, 0, stderr);
+  const evidence = JSON.parse(stdout);
+  assert.equal(evidence.dataRowCount, 1);
+  assert.equal(evidence.fileId, '00000000-0000-7000-8000-000000000003');
+  assert.doesNotMatch(stdout, /private fixture|original.xlsx|000000000004/);
+});
+
 for (const [scenario, failure] of [
   ['different-digest', /digest does not match/],
   ['size-mismatch', /size does not match/],
@@ -100,8 +125,15 @@ for (const [scenario, failure] of [
   ['redirect', /worksheet mapping/],
   ['document-redirect', /document mapping/],
   ['extra-part', /package layout/],
+  ['candidate-other', /digest does not match/],
+  ['candidate-missing', /exactly one ready workbook/],
+  ['candidate-empty-id', /FileId must be a non-empty UUID/],
+  ['candidate-implicit', /single unbound legacy/],
+  ['candidate-pending', /exactly one ready workbook/],
+  ['candidate-duplicate', /exactly one ready workbook/],
+  ['candidate-invalid-size', /Invalid reporting workbook size or digest/],
 ]) {
-  test(`legacy workbook ${scenario} fails without emitting evidence`, () => {
+  test(`workbook evidence ${scenario} fails without emitting a result`, () => {
     const result = verify(scenario);
     assert.notEqual(result.status, 0);
     assert.equal(result.stdout.trim(), '');

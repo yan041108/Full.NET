@@ -3,7 +3,8 @@
 [CmdletBinding()]
 param(
     [Parameter(Mandatory)] [string] $EvidencePath,
-    [Parameter(Mandatory)] [string] $WorkbookPath
+    [Parameter(Mandatory)] [string] $WorkbookPath,
+    [guid] $FileId
 )
 
 Set-StrictMode -Version Latest
@@ -80,17 +81,42 @@ function Measure-WorksheetRows {
     return $rows - 1
 }
 
-if ((Get-Item -LiteralPath $EvidencePath).Length -gt 8KB) { throw 'Reporting cutover evidence exceeds the expected size.' }
+$selectCandidate = $PSBoundParameters.ContainsKey('FileId')
+if ($selectCandidate -and $FileId -eq [guid]::Empty) { throw 'FileId must be a non-empty UUID.' }
+$evidenceLimit = if ($selectCandidate) { 64KB } else { 8KB }
+if ((Get-Item -LiteralPath $EvidencePath).Length -gt $evidenceLimit) { throw 'Reporting cutover evidence exceeds the expected size.' }
 $evidence = Get-Content -LiteralPath $EvidencePath -Raw | ConvertFrom-Json -AsHashtable -NoEnumerate
-if ($evidence -isnot [Collections.IDictionary] -or -not $evidence.Contains('outputFileId') -or $evidence['statusKey'] -cne 'processing' -or
-    $null -ne $evidence['outputFileId'] -or $evidence['hasRowIdentityPrefix'] -isnot [bool] -or $evidence['hasRowIdentityPrefix'] -or
-    $evidence['fileCount'] -ne 1 -or $evidence['readyFileCount'] -ne 1 -or $evidence['pendingFileCount'] -ne 0 -or
-    $evidence['latestReadySha256'] -notmatch '\A[0-9a-fA-F]{64}\z') {
-    throw 'Evidence must identify a single unbound legacy reporting workbook.'
+if ($evidence -isnot [Collections.IDictionary]) { throw 'Invalid reporting cutover evidence.' }
+
+if ($selectCandidate) {
+    if ($evidence['items'] -isnot [array] -or $evidence['items'].Length -gt 100) { throw 'Invalid reporting cutover file page.' }
+    $selectedFileId = $FileId.ToString('D')
+    # 多份就绪文件仅按显式文件 ID 取证。摘要与行数不能作为分配或绑定依据。
+    $candidates = @($evidence['items'] | Where-Object {
+        $_ -is [Collections.IDictionary] -and $_['fileId'] -is [string] -and $_['fileId'] -eq $selectedFileId
+    })
+    if ($candidates.Count -ne 1 -or $candidates[0]['statusKey'] -cne 'ready') {
+        throw 'FileId must identify exactly one ready workbook in the evidence page.'
+    }
+    $expectedSize = $candidates[0]['sizeBytes']
+    $expectedDigest = $candidates[0]['sha256']
+} else {
+    if (-not $evidence.Contains('outputFileId') -or $evidence['statusKey'] -cne 'processing' -or
+        $null -ne $evidence['outputFileId'] -or $evidence['hasRowIdentityPrefix'] -isnot [bool] -or $evidence['hasRowIdentityPrefix'] -or
+        $evidence['fileCount'] -ne 1 -or $evidence['readyFileCount'] -ne 1 -or $evidence['pendingFileCount'] -ne 0) {
+        throw 'Evidence must identify a single unbound legacy reporting workbook.'
+    }
+    $selectedFileId = $evidence['latestReadyFileId']
+    $expectedSize = $evidence['latestReadyBytes']
+    $expectedDigest = $evidence['latestReadySha256']
 }
-foreach ($key in 'tenantId', 'taskId', 'latestReadyFileId') {
+if (($expectedSize -isnot [int] -and $expectedSize -isnot [long]) -or $expectedSize -lt 1 -or
+    $expectedDigest -isnot [string] -or $expectedDigest -notmatch '\A[0-9a-fA-F]{64}\z') {
+    throw 'Invalid reporting workbook size or digest in the evidence.'
+}
+foreach ($identity in $evidence['tenantId'], $evidence['taskId'], $selectedFileId) {
     [guid] $id = [guid]::Empty
-    if (-not [guid]::TryParseExact($evidence[$key], 'D', [ref] $id) -or $id -eq [guid]::Empty) {
+    if (-not [guid]::TryParseExact($identity, 'D', [ref] $id) -or $id -eq [guid]::Empty) {
         throw 'Evidence contains an invalid reporting identity.'
     }
 }
@@ -98,11 +124,11 @@ foreach ($key in 'tenantId', 'taskId', 'latestReadyFileId') {
 # 在同一只读句柄上核对摘要和结构，避免从不同版本的本地文件取证。
 $file = [IO.File]::Open((Resolve-Path -LiteralPath $WorkbookPath).ProviderPath, 'Open', 'Read', 'Read')
 try {
-    if ($file.Length -lt 1 -or $file.Length -gt 10MB -or $file.Length -ne $evidence['latestReadyBytes']) {
+    if ($file.Length -lt 1 -or $file.Length -gt 10MB -or $file.Length -ne $expectedSize) {
         throw 'Reporting workbook size does not match the evidence.'
     }
     $digest = [Convert]::ToHexString([Security.Cryptography.SHA256]::HashData($file))
-    if ($digest -ne $evidence['latestReadySha256']) { throw 'Reporting workbook digest does not match the evidence.' }
+    if ($digest -ne $expectedDigest) { throw 'Reporting workbook digest does not match the evidence.' }
     $file.Position = 0
     $archive = [IO.Compression.ZipArchive]::new($file, 'Read', $true)
     try {
@@ -135,8 +161,8 @@ try {
 [ordered] @{
     tenantId = $evidence['tenantId']
     taskId = $evidence['taskId']
-    fileId = $evidence['latestReadyFileId']
-    sizeBytes = $evidence['latestReadyBytes']
+    fileId = $selectedFileId
+    sizeBytes = $expectedSize
     sha256 = $digest
     dataRowCount = $rows
 } | ConvertTo-Json
