@@ -57,7 +57,7 @@ public sealed class EnterpriseRequestImportTests
     public async Task Preview_counts_real_rows_and_reports_invalid_values_without_writing()
     {
         var bytes = Workbook([
-            ["REQ-1", "标题,含逗号", "12.5", Guid.NewGuid().ToString(), Guid.NewGuid().ToString()],
+            ["REQ-1", "标题,含逗号", "12.5000", Guid.NewGuid().ToString(), Guid.NewGuid().ToString()],
             ["REQ-2", "bad amount", "12,5", Guid.NewGuid().ToString(), Guid.NewGuid().ToString()],
             ["REQ-3", "bad identity", "1", "not-a-guid", Guid.NewGuid().ToString()]
         ]);
@@ -75,15 +75,14 @@ public sealed class EnterpriseRequestImportTests
     {
         var bytes = Encoding.UTF8.GetBytes(string.Join(',', Headers) + "\nREQ-1,title,1,user,unit");
         using var stream = new MemoryStream(bytes);
-        var result = await handler.PreviewAsync(stream, bytes.Length, Context);
-        Assert.IsFalse(result.IsSuccess); Assert.IsNotNull(result.Error);
+        await Assert.ThrowsExactlyAsync<InvalidDataException>(() => handler.PreviewAsync(stream, bytes.Length, Context));
     }
 
     [TestMethod]
     public async Task Preview_requires_exact_length_and_propagates_cancellation()
     {
         var bytes = Workbook([]); using var stream = new MemoryStream(bytes);
-        Assert.IsFalse((await handler.PreviewAsync(stream, bytes.Length + 1, Context)).IsSuccess);
+        await Assert.ThrowsExactlyAsync<InvalidDataException>(() => handler.PreviewAsync(stream, bytes.Length + 1, Context));
         using var canceled = new CancellationTokenSource(); canceled.Cancel(); stream.Position = 0;
         await Assert.ThrowsAsync<OperationCanceledException>(() => handler.PreviewAsync(stream, bytes.Length, Context, canceled.Token));
     }
@@ -92,9 +91,11 @@ public sealed class EnterpriseRequestImportTests
     public async Task Preview_rejects_formula_and_header_drift()
     {
         var bytes = Workbook([], sheet => sheet.Descendants().First(node => node.Name.LocalName == "c").Add(new XElement(sheet.Name.Namespace + "f", "1+1")));
-        using var formula = new MemoryStream(bytes); Assert.IsFalse((await handler.PreviewAsync(formula, bytes.Length, Context)).IsSuccess);
+        using var formula = new MemoryStream(bytes);
+        await Assert.ThrowsExactlyAsync<InvalidDataException>(() => handler.PreviewAsync(formula, bytes.Length, Context));
         bytes = Workbook([], sheet => sheet.Descendants().First(node => node.Name.LocalName == "t").Value = "wrong");
-        using var drift = new MemoryStream(bytes); Assert.IsFalse((await handler.PreviewAsync(drift, bytes.Length, Context)).IsSuccess);
+        using var drift = new MemoryStream(bytes);
+        await Assert.ThrowsExactlyAsync<InvalidDataException>(() => handler.PreviewAsync(drift, bytes.Length, Context));
     }
 
     [TestMethod]
@@ -111,24 +112,34 @@ public sealed class EnterpriseRequestImportTests
     public async Task Preview_rejects_duplicate_cells_external_relationships_and_row_limit()
     {
         var bytes = Workbook([], sheet => { var row = sheet.Descendants().First(node => node.Name.LocalName == "row"); row.Add(new XElement(row.Elements().First())); });
-        using var duplicate = new MemoryStream(bytes); Assert.IsFalse((await handler.PreviewAsync(duplicate, bytes.Length, Context)).IsSuccess);
+        using var duplicate = new MemoryStream(bytes);
+        await Assert.ThrowsExactlyAsync<InvalidDataException>(() => handler.PreviewAsync(duplicate, bytes.Length, Context));
         using var archiveBytes = new MemoryStream(); archiveBytes.Write(Workbook([]));
         using (var archive = new ZipArchive(archiveBytes, ZipArchiveMode.Update, true))
-        using (var writer = new StreamWriter(archive.CreateEntry("xl/_rels/workbook.xml.rels").Open()))
-            writer.Write("<Relationships xmlns='http://schemas.openxmlformats.org/package/2006/relationships'><Relationship TargetMode='External' Target='https://example.test'/></Relationships>");
+        using (var relationStream = archive.GetEntry("xl/_rels/workbook.xml.rels")!.Open())
+        {
+            var relationships = XDocument.Load(relationStream);
+            var root = relationships.Root!;
+            root.Add(new XElement(root.Name.Namespace + "Relationship", new XAttribute("TargetMode", "External"),
+                new XAttribute("Target", "https://example.test")));
+            relationStream.SetLength(0);
+            relationships.Save(relationStream);
+        }
         bytes = archiveBytes.ToArray(); using var external = new MemoryStream(bytes);
-        Assert.IsFalse((await handler.PreviewAsync(external, bytes.Length, Context)).IsSuccess);
+        await Assert.ThrowsExactlyAsync<InvalidDataException>(() => handler.PreviewAsync(external, bytes.Length, Context));
         bytes = Workbook(Enumerable.Range(0, 1001).Select(_ => new[] { "a", "b", "1", Guid.NewGuid().ToString(), Guid.NewGuid().ToString() }).ToArray());
-        using var oversized = new MemoryStream(bytes); Assert.IsFalse((await handler.PreviewAsync(oversized, bytes.Length, Context)).IsSuccess);
+        using var oversized = new MemoryStream(bytes);
+        await Assert.ThrowsExactlyAsync<InvalidDataException>(() => handler.PreviewAsync(oversized, bytes.Length, Context));
     }
 
     [TestMethod]
     public async Task Execution_requires_persisted_task_and_valid_batch_boundaries()
     {
-        foreach (var item in new[] { (Context, 0, 1), (Context with { TaskId = Guid.NewGuid() }, -1, 1), (Context with { TaskId = Guid.NewGuid() }, 0, 0) })
+        foreach (var item in new[] { (Context, 0, 1), (Context with { TaskId = Guid.Empty }, 0, 1),
+            (Context with { TaskId = Guid.NewGuid() }, -1, 1), (Context with { TaskId = Guid.NewGuid() }, 0, 0) })
         {
             using var content = new MemoryStream(Workbook([]));
-            Assert.IsFalse((await handler.ExecuteBatchAsync(content, content.Length, item.Item2, item.Item3, item.Item1)).IsSuccess);
+            await Assert.ThrowsExactlyAsync<InvalidDataException>(() => handler.ExecuteBatchAsync(content, content.Length, item.Item2, item.Item3, item.Item1));
         }
     }
 
@@ -140,7 +151,7 @@ public sealed class EnterpriseRequestImportTests
         Assert.IsTrue(result.IsSuccess); Assert.AreEqual(0, result.Value!.ValidRowCount); Assert.AreEqual(1, result.Value.InvalidRowCount);
     }
 
-    internal static byte[] Workbook(string[][] rows, Action<XElement>? edit = null)
+    private byte[] Workbook(string[][] rows, Action<XElement>? edit = null)
     {
         XNamespace ns = "http://schemas.openxmlformats.org/spreadsheetml/2006/main";
         var all = new[] { Headers }.Concat(rows);
@@ -150,10 +161,12 @@ public sealed class EnterpriseRequestImportTests
                     new XElement(ns + "is", new XElement(ns + "t", value))))))));
         edit?.Invoke(sheet);
         using var output = new MemoryStream();
-        using (var zip = new ZipArchive(output, ZipArchiveMode.Create, true))
+        output.Write(handler.CreateTemplate("requests"));
+        using (var zip = new ZipArchive(output, ZipArchiveMode.Update, true))
+        using (var sheetStream = zip.GetEntry("xl/worksheets/sheet1.xml")!.Open())
         {
-            using var writer = new StreamWriter(zip.CreateEntry("xl/worksheets/sheet1.xml").Open(), new UTF8Encoding(false));
-            writer.Write(sheet.ToString());
+            sheetStream.SetLength(0);
+            sheet.Save(sheetStream);
         }
         return output.ToArray();
     }

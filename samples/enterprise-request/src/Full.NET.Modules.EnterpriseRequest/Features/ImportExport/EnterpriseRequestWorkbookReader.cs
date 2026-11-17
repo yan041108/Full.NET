@@ -17,12 +17,16 @@ internal static class EnterpriseRequestWorkbookReader
 
     internal static async Task<IReadOnlyList<Row>> ReadAsync(Stream stream, long length, CancellationToken token, ImportColumnMappingRequest? columnMapping = null)
     {
+        token.ThrowIfCancellationRequested();
         if (length is <= 0 or > 1024 * 1024) throw new InvalidDataException("Invalid workbook size.");
         using var buffer = new MemoryStream();
         var chunk = new byte[8192];
-        int read;
-        while ((read = await stream.ReadAsync(chunk, token).ConfigureAwait(false)) > 0)
+        while (true)
         {
+            var read = await stream.ReadAsync(chunk, token).ConfigureAwait(false);
+            // 源流可以在返回 EOF 时才观察到取消，解析归档前仍须以取消为准。
+            token.ThrowIfCancellationRequested();
+            if (read == 0) break;
             if (buffer.Length + read > length) throw new InvalidDataException("Workbook exceeds declared size.");
             buffer.Write(chunk, 0, read);
         }
@@ -123,8 +127,13 @@ internal static class EnterpriseRequestWorkbookReader
         // 预览与执行使用同一字段边界；不把解析成功或有效 GUID 当作数据权限授权。
         var valid = !string.IsNullOrWhiteSpace(values[0]) && values[0].Length <= 64
             && !string.IsNullOrWhiteSpace(values[1]) && values[1].Length <= 200;
-        valid &= decimal.TryParse(values[2], NumberStyles.AllowLeadingSign | NumberStyles.AllowDecimalPoint,
-            CultureInfo.InvariantCulture, out var amount) && decimal.Round(amount, 2) == amount
+        var amountText = values[2].AsSpan();
+        var decimalPoint = amountText.IndexOf('.');
+        // 先按原文检查小数精度，避免 decimal 解析将极小非零金额舍入为零。
+        var hasExtraPrecision = decimalPoint >= 0 && amountText.Length > decimalPoint + 3
+            && amountText[(decimalPoint + 3)..].IndexOfAnyExcept('0') >= 0;
+        valid &= decimal.TryParse(amountText, NumberStyles.AllowLeadingSign | NumberStyles.AllowDecimalPoint,
+            CultureInfo.InvariantCulture, out var amount) && !hasExtraPrecision
             && amount > -10000000000000000m && amount < 10000000000000000m;
         valid &= Guid.TryParseExact(values[3], "D", out var applicant) && applicant != Guid.Empty;
         valid &= Guid.TryParseExact(values[4], "D", out var organization) && organization != Guid.Empty;

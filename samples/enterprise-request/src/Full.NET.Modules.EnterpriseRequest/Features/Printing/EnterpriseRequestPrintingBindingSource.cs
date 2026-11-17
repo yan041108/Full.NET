@@ -30,8 +30,11 @@ internal sealed class EnterpriseRequestPrintingBindingSource(
         cancellationToken.ThrowIfCancellationRequested();
         if (actor is null || actor.UserId != userId || actor.TenantId != tenantId || !IsOriginalTenant(tenantId)) return Denied();
         var printActor = await authorization.AuthorizeAsync(EnterpriseRequestDeliveryPermissions.Print, cancellationToken).ConfigureAwait(false);
-        if (printActor != actor) return Denied();
+        cancellationToken.ThrowIfCancellationRequested();
+        if (printActor != actor || !IsOriginalTenant(tenantId)) return Denied();
         var amountActor = await authorization.AuthorizeAsync(EnterpriseRequestDeliveryPermissions.AmountsRead, cancellationToken).ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
+        if (!IsOriginalTenant(tenantId)) return Denied();
         var includesAmounts = amountActor == actor;
         var superAdministrator = bool.TryParse(principal.FindFirstValue(FullNetIdentityClaimTypes.SuperAdministrator), out var enabled) && enabled;
         var result = await queries.GetByIdAsync(recordId, actor.UserId, superAdministrator, cancellationToken).ConfigureAwait(false);
@@ -42,10 +45,15 @@ internal sealed class EnterpriseRequestPrintingBindingSource(
         var finalActor = await authorization.AuthorizeAsync(EnterpriseRequestPermissions.Read, cancellationToken).ConfigureAwait(false);
         cancellationToken.ThrowIfCancellationRequested();
         if (finalActor != actor || result.Value.TenantId != tenantId || !IsOriginalTenant(tenantId)) return Denied();
-        if (await authorization.AuthorizeAsync(EnterpriseRequestDeliveryPermissions.Print, cancellationToken).ConfigureAwait(false) != actor)
-            return Denied();
-        if (includesAmounts && await authorization.AuthorizeAsync(EnterpriseRequestDeliveryPermissions.AmountsRead, cancellationToken).ConfigureAwait(false) != actor)
-            return Denied();
+        var finalPrintActor = await authorization.AuthorizeAsync(EnterpriseRequestDeliveryPermissions.Print, cancellationToken).ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
+        if (finalPrintActor != actor || !IsOriginalTenant(tenantId)) return Denied();
+        if (includesAmounts)
+        {
+            var finalAmountActor = await authorization.AuthorizeAsync(EnterpriseRequestDeliveryPermissions.AmountsRead, cancellationToken).ConfigureAwait(false);
+            cancellationToken.ThrowIfCancellationRequested();
+            if (finalAmountActor != actor || !IsOriginalTenant(tenantId)) return Denied();
+        }
         var record = result.Value;
         return Result<IReadOnlyDictionary<string, string?>>.Success(new Dictionary<string, string?>(StringComparer.Ordinal)
         {

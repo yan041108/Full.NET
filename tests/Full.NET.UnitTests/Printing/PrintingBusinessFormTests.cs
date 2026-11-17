@@ -3,6 +3,7 @@ using Full.NET.Abstractions.Results;
 using Full.NET.Abstractions.Tenancy;
 using Full.NET.Abstractions.Time;
 using Full.NET.Data.Abstractions;
+using Full.NET.Modules.EnterpriseRequest.Contracts;
 using Full.NET.Modules.EnterpriseRequest.Features.Printing;
 using Full.NET.Modules.EnterpriseRequest.Generated;
 using Full.NET.Modules.Identity.Contracts;
@@ -54,6 +55,8 @@ public sealed class PrintingBusinessFormTests
         authorization.AuthorizeAsync(EnterpriseRequestPermissions.Read, Arg.Any<CancellationToken>()).Returns(
             scenario == "denied" ? null : scenario == "foreign-actor" ? actor with { TenantId = Guid.CreateVersion7() } : actor,
             scenario == "changed-session" ? actor with { SessionId = Guid.CreateVersion7() } : actor);
+        authorization.AuthorizeAsync(EnterpriseRequestDeliveryPermissions.Print, Arg.Any<CancellationToken>()).Returns(actor);
+        authorization.AuthorizeAsync(EnterpriseRequestDeliveryPermissions.AmountsRead, Arg.Any<CancellationToken>()).Returns(actor);
         var executor = Substitute.For<IQueryExecutor>(); var recordId = Guid.CreateVersion7();
         SqlStatement? executed = null;
         executor.QuerySingleOrDefaultAsync<EnterpriseRequestRecord>(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>())

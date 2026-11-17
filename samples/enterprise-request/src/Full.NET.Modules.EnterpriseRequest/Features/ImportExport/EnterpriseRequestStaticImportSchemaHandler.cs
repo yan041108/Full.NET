@@ -43,6 +43,8 @@ internal sealed class EnterpriseRequestStaticImportSchemaHandler(
     public async Task<Result<StaticImportBatchExecutionResult>> ExecuteBatchAsync(Stream content, long contentLength,
         int startLineNumber, int batchSize, StaticImportPreviewContext context, CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
+        if (context.TaskId is not { } taskId || taskId == Guid.Empty) throw new InvalidDataException("A persisted import task is required.");
         if (startLineNumber < 0 || batchSize is < 1 or > 200) throw new InvalidDataException("Invalid batch bounds.");
         var parsed = await EnterpriseRequestWorkbookReader.ReadAsync(content, contentLength, cancellationToken, context.ColumnMapping).ConfigureAwait(false);
         var results = new List<StaticImportRowExecutionResult>();

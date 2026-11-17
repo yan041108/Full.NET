@@ -2,6 +2,7 @@ using System.Security.Claims;
 using Full.NET.Abstractions.Results;
 using Full.NET.Abstractions.Tenancy;
 using Full.NET.Data.Abstractions;
+using Full.NET.Modules.EnterpriseRequest.Contracts;
 using Full.NET.Modules.EnterpriseRequest.Features.Printing;
 using Full.NET.Modules.EnterpriseRequest.Generated;
 using Full.NET.Modules.Identity.Contracts;
@@ -19,10 +20,14 @@ public sealed class EnterpriseRequestPrintingBoundaryTests
     [DataRow("entry-invalid")]
     [DataRow("initial")]
     [DataRow("initial-null")]
+    [DataRow("initial-print")]
+    [DataRow("initial-amounts")]
     [DataRow("record")]
     [DataRow("record-null")]
     [DataRow("final")]
     [DataRow("final-null")]
+    [DataRow("final-print")]
+    [DataRow("final-amounts")]
     public async Task Ignored_cancellation_does_not_release_business_fields(string stage)
     {
         using var fixture = new Fixture(stage);
@@ -36,6 +41,8 @@ public sealed class EnterpriseRequestPrintingBoundaryTests
     [DataRow("scope-initial")]
     [DataRow("scope-record")]
     [DataRow("scope-final")]
+    [DataRow("scope-final-print")]
+    [DataRow("scope-final-amounts")]
     public async Task Scope_changed_by_dependency_cannot_become_a_new_record_binding(string stage)
     {
         using var fixture = new Fixture(stage);
@@ -43,6 +50,17 @@ public sealed class EnterpriseRequestPrintingBoundaryTests
         Assert.AreEqual(CommonErrorCodes.PermissionDenied, result.Error!.Code);
         Assert.IsNull(result.Value);
         Assert.AreEqual(stage == "scope-initial" ? 0 : 1, fixture.Query.ReceivedCalls().Count());
+    }
+
+    [TestMethod]
+    public async Task Session_without_amounts_permission_only_releases_non_amount_fields()
+    {
+        using var fixture = new Fixture("hide-amounts");
+        var result = await fixture.Resolve();
+
+        Assert.IsTrue(result.IsSuccess);
+        Assert.AreEqual("REQ-1", result.Value!["requestNumber"]);
+        Assert.IsNull(result.Value["totalAmount"]);
     }
 
     [TestMethod]
@@ -81,6 +99,21 @@ public sealed class EnterpriseRequestPrintingBoundaryTests
                 if (stage == "scope-final" && Authorizations == 2) tenant.SetTenant(new(Guid.CreateVersion7(), "other", "Other"));
                 return stage == "initial-null" && Authorizations == 1 || stage == "final-null" && Authorizations == 2 ? null : actor;
             });
+            ConfigureDeliveryPermission(EnterpriseRequestDeliveryPermissions.Print, "print");
+            ConfigureDeliveryPermission(EnterpriseRequestDeliveryPermissions.AmountsRead, "amounts");
+
+            void ConfigureDeliveryPermission(string permission, string field)
+            {
+                var calls = 0;
+                authorization.AuthorizeAsync(permission, Arg.Any<CancellationToken>()).Returns(_ =>
+                {
+                    var phase = ++calls == 1 ? "initial" : "final";
+                    if (stage == $"{phase}-{field}") Cancellation.Cancel();
+                    if (stage == $"scope-{phase}-{field}") tenant.SetTenant(new(Guid.CreateVersion7(), "other", "Other"));
+                    return stage == "hide-amounts" && permission == EnterpriseRequestDeliveryPermissions.AmountsRead ? null : actor;
+                });
+            }
+
             Query.QuerySingleOrDefaultAsync<EnterpriseRequestRecord>(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(_ =>
             {
                 if (stage is "record" or "record-null") Cancellation.Cancel();

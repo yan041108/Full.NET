@@ -8,11 +8,14 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
+using Full.NET.Data.Abstractions;
 using Full.NET.IntegrationTests.Api;
 using Full.NET.Modules.EnterpriseRequest.Contracts;
 using Full.NET.Modules.EnterpriseRequest.Generated;
 using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.ImportExport.Contracts;
+using Full.NET.Modules.ImportExport.Persistence;
+using Full.NET.Modules.ImportExport.Serialization;
 using Full.NET.Modules.Organization.Contracts;
 using Full.NET.Modules.Tenancy.Contracts;
 
@@ -140,7 +143,7 @@ internal static partial class EnterpriseRequestAssertions
                 var entry = archive.GetEntry("xl/worksheets/sheet1.xml")!;
                 XDocument document; using (var input = entry.Open()) document = XDocument.Load(input);
                 XNamespace ns = "http://schemas.openxmlformats.org/spreadsheetml/2006/main";
-                var values = new[] { requestNumber, "Imported row, with comma", "12.5", applicantUserId.ToString("D"), organizationUnitId.ToString("D") };
+                var values = new[] { requestNumber, "Imported row, with comma", "12.5000", applicantUserId.ToString("D"), organizationUnitId.ToString("D") };
                 document.Root!.Element(ns + "sheetData")!.Add(new XElement(ns + "row", new XAttribute("r", 2),
                     values.Select((value, index) => new XElement(ns + "c", new XAttribute("r", $"{(char)('A' + index)}2"),
                         new XAttribute("t", "inlineStr"), new XElement(ns + "is", new XElement(ns + "t", value))))));
@@ -195,13 +198,25 @@ internal static partial class EnterpriseRequestAssertions
             try
             {
                 var handler = scope.ServiceProvider.GetServices<IStaticImportSchemaHandler>().Single(item => item.SchemaKey == created.SchemaKey);
-                var context = new StaticImportPreviewContext(created.RequestedByUserId, new Dictionary<string, bool>()) { TaskId = created.Id };
+                var stored = await scope.ServiceProvider.GetRequiredService<IQueryExecutor>().QuerySingleOrDefaultAsync<ImportExportTaskRecord>(
+                    ImportExportTaskSql.FindById, ImportExportSqlParameters.Create(("Id", created.Id)), cancellationToken);
+                Assert.IsNotNull(stored);
+                Assert.IsNotNull(stored.ActorSessionBindingJson);
+                var binding = JsonSerializer.Deserialize(stored.ActorSessionBindingJson, ImportExportJsonSerializerContext.Default.SessionBindingSnapshot);
+                Assert.IsNotNull(binding);
+                var context = new StaticImportPreviewContext(stored.RequestedByUserId, new Dictionary<string, bool>())
+                {
+                    TaskId = stored.Id, SourceFileId = stored.SourceFileId, SessionBinding = binding,
+                };
                 using var replayContent = new MemoryStream(workbookBytes);
                 var replay = await handler.ExecuteBatchAsync(replayContent, replayContent.Length, 0, 1, context, cancellationToken);
-                Assert.IsTrue(replay.IsSuccess); Assert.IsTrue(replay.Value!.Rows.Single().Succeeded);
+                Assert.IsTrue(replay.IsSuccess);
+                var replayedRow = replay.Value!.Rows.Single();
+                Assert.IsTrue(replayedRow.Succeeded, replayedRow.ErrorCode);
+                Assert.IsNotNull(replayedRow.EntityId);
                 using var secondContent = new MemoryStream(workbookBytes);
                 var second = await handler.ExecuteBatchAsync(secondContent, secondContent.Length, 0, 1, context, cancellationToken);
-                Assert.AreEqual(replay.Value.Rows.Single().EntityId, second.Value!.Rows.Single().EntityId);
+                Assert.AreEqual(replayedRow.EntityId, second.Value!.Rows.Single().EntityId);
             }
             finally { tenant.Clear(); }
         }
