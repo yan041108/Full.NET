@@ -29,15 +29,15 @@ public sealed class WorkflowRecoveryTaskIdentityTests
         => await AssertReceiptAsync(false, true, false);
 
     [TestMethod]
-    public async Task Reconcile_replays_matching_task_receipt_without_executing_commands()
+    public async Task Reconcile_replays_matching_task_receipt_without_mutating_recovery_state()
         => await AssertReceiptAsync(true, true, false);
 
     [TestMethod]
-    public async Task Retry_rejects_ambiguous_legacy_receipt_without_writes()
+    public async Task Retry_rejects_ambiguous_legacy_receipt_without_mutating_recovery_state()
         => await AssertReceiptAsync(false, true, true);
 
     [TestMethod]
-    public async Task Reconcile_rejects_ambiguous_legacy_receipt_without_writes()
+    public async Task Reconcile_rejects_ambiguous_legacy_receipt_without_mutating_recovery_state()
         => await AssertReceiptAsync(true, true, true);
 
     private static async Task AssertReceiptAsync(bool reconcile, bool sameTask, bool legacy)
@@ -57,13 +57,19 @@ public sealed class WorkflowRecoveryTaskIdentityTests
         queries.QuerySingleOrDefaultAsync<WorkflowRecoveryTaskRecord>(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(task);
         queries.QuerySingleOrDefaultAsync<WorkflowActionReceiptRecord>(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(receipt);
         var commands = Substitute.For<ICommandExecutor>();
-        var commandCount = 0;
-        commands.ExecuteAsync(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(_ => { commandCount++; return 1; });
+        var coordinator = new RecordingDbTransactionCoordinator();
+        commands.ExecuteAsync(WorkflowSql.LockInstanceForTodoAction, Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(call =>
+        {
+            Assert.IsTrue(coordinator.HasTransaction);
+            var parameters = (Dictionary<string, object?>)call[1]!;
+            Assert.AreEqual(task.InstanceId, parameters["Id"]);
+            Assert.AreEqual("host", parameters["TenantScopeKey"]);
+            return 1;
+        });
         var tenant = Substitute.For<ICurrentTenant>();
         tenant.IsHost.Returns(true);
         var clock = Substitute.For<IClock>();
         clock.UtcNow.Returns(now);
-        var coordinator = new RecordingDbTransactionCoordinator();
         var service = new WorkflowRecoveryTaskService(queries, commands, new DapperCommandTransaction(coordinator), tenant, clock,
             Substitute.For<IIdGenerator>(), Options.Create(new DatabaseOptions()),
             new Full.NET.Modules.Workflow.Features.WorkflowCollaborationListAuthorization(queries, Substitute.For<IDataTransactionState>(), tenant, clock,
@@ -82,7 +88,8 @@ public sealed class WorkflowRecoveryTaskIdentityTests
             Assert.AreEqual(task.StatusKey, value.StatusKey);
         }
         else Assert.AreEqual(WorkflowErrorCodes.RevisionConflict, result.Error!.Code);
-        Assert.AreEqual(0, commandCount);
+        await commands.Received(1).ExecuteAsync(WorkflowSql.LockInstanceForTodoAction, Arg.Any<object?>(), Arg.Any<CancellationToken>());
+        Assert.HasCount(1, commands.ReceivedCalls());
         Assert.IsFalse(coordinator.HasTransaction);
     }
 }

@@ -30,7 +30,8 @@ public sealed class WorkflowAsyncResumeProofTests
         Assert.IsFalse(WorkflowActivityWorkProcessor.MatchesResumeProof(work with{InputFormRevision=2},proof));
     }
     private static WorkflowActivityWorkRecord Work()=>new(Guid.NewGuid(),Guid.NewGuid(),"host","consumer","{}",
-        Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes("{}"))),1,1,null,null,1,1,Guid.NewGuid());
+        Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes("{}"))),1,1,null,null,1,1,
+        ExecutionEpochId: Guid.NewGuid(), ResumeBarrierId: Guid.NewGuid());
     private static WorkflowAsyncBarrierRecord Proof(WorkflowActivityWorkRecord work)=>new(work.ResumeBarrierId!.Value,work.InstanceId,work.TenantScopeKey,work.NodeKey,
         "[]",new string('b',64),"{}",work.InputHash,1,work.ParallelJoinId,work.ParallelBranchKey,"released",1,null,null,0,2,work.Id,work.InputJson,work.InputHash,
         work.InputFormRevision,DateTimeOffset.UtcNow,DateTimeOffset.UtcNow,DateTimeOffset.UtcNow,null);

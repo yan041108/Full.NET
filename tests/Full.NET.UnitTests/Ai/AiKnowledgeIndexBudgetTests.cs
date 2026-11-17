@@ -155,6 +155,7 @@ public sealed class AiKnowledgeIndexBudgetTests
         internal readonly AiKnowledgeIndexBatchStore Batches;
         private readonly AiKnowledgeIndexBudgetService service;
         private readonly DateTimeOffset now = DateTimeOffset.UtcNow;
+        private readonly Guid sourceFileId = Guid.CreateVersion7();
         private Dictionary<string, object?>? persisted;
         internal int DispatchReads;
         internal bool LoseAuthority, WrongBatchHash, PersistedBeforeReserve, Human;
@@ -174,7 +175,7 @@ public sealed class AiKnowledgeIndexBudgetTests
                 {
                     TaskId = TaskId, DocumentId = Binding.DocumentId, VersionId = Binding.VersionId,
                     DocumentVersion = 1, KnowledgeBaseVersion = 1, ModelConfigId = Model.Id, ModelConfigVersion = 1,
-                    LeaseToken = Lease, LeaseExpiresAtUtc = now.AddSeconds(30),
+                    LeaseToken = Lease, LeaseExpiresAtUtc = now.AddSeconds(30), FileId = sourceFileId,
                     DataClassification = "internal", ModelProviderKey = Model.ProviderKey, ModelId = Model.ModelId,
                     ModelEndpointBaseUrl = Model.EndpointBaseUrl, ModelOrganizationId = Model.OrganizationId,
                     CorrectionSourceId = Human ? TaskId : null, CorrectionRevisionId = Human ? OperationId : null,

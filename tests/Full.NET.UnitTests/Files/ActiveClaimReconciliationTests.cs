@@ -1,6 +1,6 @@
 using Full.NET.Abstractions.Time;
 using Full.NET.Data.Abstractions;
-using Full.NET.Modules.Document;
+using Full.NET.Modules.Document.Features.HostFileReferences;
 using Full.NET.Modules.Document.Persistence;
 using Full.NET.Modules.Files.Contracts;
 using Full.NET.Modules.Files.Features.HostFileReferenceClaims;
@@ -15,19 +15,19 @@ namespace Full.NET.UnitTests.Files;
 public sealed class ActiveClaimReconciliationTests
 {
     [TestMethod]
-    [DataRow(DatabaseProvider.SqlServer)]
-    [DataRow(DatabaseProvider.MySql)]
-    public async Task Missing_document_version_releases_stale_active_claim(DatabaseProvider provider)
+    [DataRow(DatabaseProvider.SqlServer, false)]
+    [DataRow(DatabaseProvider.MySql, false)]
+    [DataRow(DatabaseProvider.SqlServer, true)]
+    [DataRow(DatabaseProvider.MySql, true)]
+    public async Task Stale_active_claim_is_released_only_when_document_reference_is_missing(DatabaseProvider provider, bool versionExists)
     {
         var now = new DateTimeOffset(2026, 10, 13, 8, 0, 0, TimeSpan.Zero);
         var record = new HostFileReferenceClaimRecord(Guid.CreateVersion7(), "historical-active", Guid.CreateVersion7(),
             HostFileReferenceClaimConsumerModules.Document, Guid.CreateVersion7(), HostFileReferenceClaimStates.Active,
             null, 1, now.AddHours(-2), now.AddHours(-1), now.AddHours(-1), null);
-        // 内部版本记录不授予代理程序集访问；手写查询替身保持生产封装和真实探测路径。
-        var queries = new TestQueries(record);
-        var probeType = typeof(DocumentModule).Assembly.GetType(
-            "Full.NET.Modules.Document.Features.HostFileReferences.HostDocumentVersionReferenceProbe", throwOnError: true)!;
-        var probe = (IHostFileReferenceClaimProbe)Activator.CreateInstance(probeType, queries)!;
+        var queries = new TestQueries(record, versionExists);
+        var clock = Substitute.For<IClock>(); clock.UtcNow.Returns(now);
+        var probe = new HostDocumentVersionReferenceProbe(queries, clock);
         var commands = Substitute.For<ICommandExecutor>();
         SqlStatement? release = null;
         Dictionary<string, object?>? parameters = null;
@@ -37,20 +37,17 @@ public sealed class ActiveClaimReconciliationTests
             parameters = (Dictionary<string, object?>)call.ArgAt<object>(1);
             return Task.FromResult(1);
         });
-        var clock = Substitute.For<IClock>(); clock.UtcNow.Returns(now);
-        // 首个 RED 通过已存在的真实 Document 探测进入缺失能力；测试反射不进入生产闭包。
-        var assembly = typeof(PendingHostFileReferenceClaimReconciliationRunner).Assembly;
-        var runnerType = assembly.GetType("Full.NET.Modules.Files.Reconciliation.ActiveHostFileReferenceClaimReconciliationRunner");
-        Assert.IsNotNull(runnerType, "Active orphan reconciliation has not been implemented.");
-        var optionsType = assembly.GetType("Full.NET.Modules.Files.Reconciliation.ActiveHostFileReferenceClaimReconciliationOptions", true)!;
-        var options = Activator.CreateInstance(optionsType)!;
-        optionsType.GetProperty("MaxBatchesPerRun")!.SetValue(options, 1);
-        var runner = Activator.CreateInstance(runnerType, queries, commands, new[] { probe },
-            Options.Create(new DatabaseOptions { Provider = provider }), clock, null)!;
-        var task = (Task)runnerType.GetMethod("RunOnceAsync")!.Invoke(runner, [options, CancellationToken.None])!;
-        await task;
-        var result = task.GetType().GetProperty("Result")!.GetValue(task)!;
-        Assert.AreEqual(1, result.GetType().GetProperty("Released")!.GetValue(result));
+        var runner = new ActiveHostFileReferenceClaimReconciliationRunner(queries, commands, [probe],
+            Options.Create(new DatabaseOptions { Provider = provider }), clock);
+        var result = await runner.RunOnceAsync(new() { MaxBatchesPerRun = 1 }, CancellationToken.None);
+        Assert.AreEqual(1, result.Scanned);
+        Assert.AreEqual(0, result.ProbeFailures);
+        Assert.AreEqual(versionExists ? 0 : 1, result.Released);
+        if (versionExists)
+        {
+            Assert.IsNull(release);
+            return;
+        }
         Assert.IsNotNull(release); Assert.IsNotNull(parameters);
         StringAssert.Contains(release.Text, "State = @ActiveState");
         StringAssert.Contains(release.Text, "UpdatedAtUtc = @ObservedUpdatedAtUtc");
@@ -60,10 +57,16 @@ public sealed class ActiveClaimReconciliationTests
         Assert.AreEqual(SqlDataScope.HostOnly, release.Scope);
     }
 
-    private sealed class TestQueries(HostFileReferenceClaimRecord record) : IQueryExecutor
+    private sealed class TestQueries(HostFileReferenceClaimRecord record, bool versionExists) : IQueryExecutor
     {
-        public Task<IReadOnlyList<T>> QueryAsync<T>(SqlStatement statement, object? parameters = null, CancellationToken cancellationToken = default) =>
-            Task.FromResult<IReadOnlyList<T>>(typeof(T) == typeof(HostFileReferenceClaimRecord) ? new[] { (T)(object)record } : []);
+        public Task<IReadOnlyList<T>> QueryAsync<T>(SqlStatement statement, object? parameters = null, CancellationToken cancellationToken = default)
+        {
+            IReadOnlyList<T> rows = typeof(T) == typeof(HostFileReferenceClaimRecord) ? [(T)(object)record]
+                : statement == DocumentItemSql.FindVersionsForClaimProbe && versionExists
+                    ? [(T)(object)new DocumentVersionRecord { Id = record.ConsumerReferenceId, FileId = record.FileId }]
+                    : [];
+            return Task.FromResult(rows);
+        }
         public Task<T?> QuerySingleOrDefaultAsync<T>(SqlStatement statement, object? parameters = null, CancellationToken cancellationToken = default) =>
             Task.FromResult(default(T));
     }
