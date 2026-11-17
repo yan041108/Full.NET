@@ -116,6 +116,7 @@ jobs:
           ryuk="$(node --input-type=module -e 'import { boundedRyukImage } from "./scripts/testing/bounded-testcontainers-reaper.mjs"; console.log(boundedRyukImage)')"
           docker pull "$ryuk"
           node tests/ai-parsing/run-native-generation.mjs --chat "$RUNNER_TEMP/fullnet-native-chat"
+          node tests/ai-parsing/run-native-generation.mjs --search-answer "$RUNNER_TEMP/fullnet-native-search-answer"
           node tests/ai-parsing/run-native-generation.mjs --evaluation "$RUNNER_TEMP/fullnet-native-evaluation"
 
       - name: Run Native structured knowledge E2E
@@ -156,5 +157,6 @@ jobs:
             artifacts/**/*.log
             TestResults/**
             ${{ runner.temp }}/fullnet-native-chat/**
+            ${{ runner.temp }}/fullnet-native-search-answer/**
             ${{ runner.temp }}/fullnet-native-evaluation/**
             ${{ runner.temp }}/fullnet-native-structured/**

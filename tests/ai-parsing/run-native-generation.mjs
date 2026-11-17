@@ -12,13 +12,14 @@ import {validateNativeAotRuntimeResults} from '../../scripts/testing/native-aot-
 const [argument,resultsDirectory,...extra]=process.argv.slice(2);
 const isolatedSuites=new Map([
   ['--chat',{key:'nativeChatRuntimeIntegration',report:'native-chat.trx',label:'chat'}],
+  ['--search-answer',{key:'nativeKnowledgeSearchAnswerRuntimeIntegration',report:'native-search-answer.trx',label:'search-answer'}],
   ['--evaluation',{key:'nativeKnowledgeEvaluationRuntimeIntegration',report:'native-evaluation.trx',label:'evaluation'}],
   ['--structured',{key:'nativeKnowledgeStructuredRuntimeIntegration',report:'native-structured.trx',label:'structured'}],
 ]);
 const isolated=isolatedSuites.get(argument);
 const structured=argument==='--structured';
 if(!argument||extra.length||(isolated?!resultsDirectory:argument.startsWith('--')||resultsDirectory!==undefined))
-  throw new Error('用法：run-native-generation.mjs <生成配置.json> | (--chat | --evaluation | --structured) <仓库外的全新结果目录>');
+  throw new Error(`用法：run-native-generation.mjs <生成配置.json> | (${[...isolatedSuites.keys()].join(' | ')}) <仓库外的全新结果目录>`);
 const repository=await realpath(fileURLToPath(new URL('../..',import.meta.url)));
 const matrix=JSON.parse(await readFile(path.join(repository,'eng/testing/test-matrix.json'),'utf8'));
 const gate=matrix[isolated?.key??'nativeKnowledgeGenerationIntegration'];
