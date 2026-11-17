@@ -6,7 +6,6 @@ using Full.NET.Modules.Document.Contracts;
 using Full.NET.Modules.Document.Features.ManageHostDocumentCategories;
 using Full.NET.Modules.Document.Persistence;
 using NSubstitute;
-using Microsoft.Extensions.Options;
 
 namespace Full.NET.UnitTests.Document;
 
@@ -16,7 +15,7 @@ public sealed class DocumentCategoryHierarchyTests
     [TestMethod]
     [DataRow(2)]
     [DataRow(5)]
-    public async Task Moving_category_under_its_descendant_is_rejected_without_writing(int depth)
+    public async Task Moving_category_under_its_descendant_is_rejected_without_writing_category(int depth)
     {
         var rows = Enumerable.Range(0, depth).Select(_ => new DocumentCategoryRecord
         {
@@ -33,13 +32,13 @@ public sealed class DocumentCategoryHierarchyTests
 
         Assert.IsFalse(result.IsSuccess);
         Assert.AreEqual(Full.NET.Modules.Document.Contracts.DocumentErrorCodes.CategoryInvalidParent, result.Error!.Code);
-        await commands.DidNotReceiveWithAnyArgs().ExecuteAsync(default!, default, default);
+        await AssertOnlyTreeLockAsync(commands);
     }
 
     [TestMethod]
     [DataRow(true)]
     [DataRow(false)]
-    public async Task Invalid_existing_parent_chain_is_rejected_without_writing(bool cycle)
+    public async Task Invalid_existing_parent_chain_is_rejected_without_writing_category(bool cycle)
     {
         var target = Guid.CreateVersion7();
         var parent = Guid.CreateVersion7();
@@ -57,7 +56,7 @@ public sealed class DocumentCategoryHierarchyTests
 
         Assert.IsFalse(result.IsSuccess);
         Assert.AreEqual(Full.NET.Modules.Document.Contracts.DocumentErrorCodes.CategoryInvalidParent, result.Error!.Code);
-        await commands.DidNotReceiveWithAnyArgs().ExecuteAsync(default!, default, default);
+        await AssertOnlyTreeLockAsync(commands);
     }
 
     [TestMethod]
@@ -73,29 +72,39 @@ public sealed class DocumentCategoryHierarchyTests
     }
 
     [TestMethod]
-    [DataRow(DatabaseProvider.SqlServer, "create")]
-    [DataRow(DatabaseProvider.SqlServer, "update")]
-    [DataRow(DatabaseProvider.SqlServer, "delete")]
-    [DataRow(DatabaseProvider.MySql, "create")]
-    [DataRow(DatabaseProvider.MySql, "update")]
-    [DataRow(DatabaseProvider.MySql, "delete")]
-    public async Task Every_category_mutation_locks_host_hierarchy_before_reading_or_writing(DatabaseProvider provider, string operation)
+    [DataRow("create")]
+    [DataRow("update")]
+    [DataRow("delete")]
+    public async Task Every_category_mutation_acquires_the_tree_guard_before_reading_or_writing(string operation)
     {
         var id = Guid.CreateVersion7();
-        var queries = new TestQueries([new() { Id = id, Name = "target", Version = 1 }]);
+        var statements = new List<SqlStatement>();
+        var queries = new TestQueries([new() { Id = id, Name = "target", Version = 1 }], statements);
         var commands = Substitute.For<ICommandExecutor>();
-        commands.ExecuteAsync(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(1);
-        var service = CreateService(queries, commands, provider);
+        commands.ExecuteAsync(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(call =>
+        {
+            var statement = call.Arg<SqlStatement>();
+            Assert.IsNotNull(statement);
+            statements.Add(statement);
+            return 1;
+        });
+        var service = CreateService(queries, commands);
         if (operation == "create") await service.CreateAsync(new("new", null, 0));
         else if (operation == "update") await service.UpdateAsync(id, new("updated", null, 0, 1));
         else await service.DeleteAsync(id, Guid.CreateVersion7(), new(1));
 
-        var statement = queries.FirstStatement;
-        Assert.IsNotNull(statement);
-        Assert.AreEqual(SqlDataScope.HostOnly, statement.Scope);
-        StringAssert.Contains(statement.Text, "TenantId IS NULL AND IsDeleted = 0");
-        StringAssert.Contains(statement.Text, provider == DatabaseProvider.SqlServer ? "UPDLOCK, HOLDLOCK" : "FOR UPDATE");
-        StringAssert.Contains(statement.Text, "ORDER BY Id");
+        Assert.IsTrue(statements.Count >= 3);
+        Assert.AreEqual(1, statements.Count(statement => statement == DocumentCategorySql.LockTree));
+        Assert.AreSame(DocumentCategorySql.LockTree, statements[0]);
+        Assert.AreEqual(SqlDataScope.HostOnly, statements[0].Scope);
+        Assert.AreSame(operation == "create" ? DocumentCategorySql.ListActive : DocumentCategorySql.FindActiveById, statements[1]);
+        var mutation = operation switch
+        {
+            "create" => DocumentCategorySql.Insert,
+            "update" => DocumentCategorySql.Update,
+            _ => DocumentCategorySql.SoftDelete,
+        };
+        Assert.IsTrue(statements.Contains(mutation));
     }
 
     [TestMethod]
@@ -108,29 +117,35 @@ public sealed class DocumentCategoryHierarchyTests
         var rows = new List<DocumentCategoryRecord> { new() { Id = parent, ParentId = other, Name = "parent", Version = 1 } };
         if (cycle) rows.Add(new() { Id = other, ParentId = parent, Name = "cycle", Version = 1 });
         var commands = Substitute.For<ICommandExecutor>();
+        commands.ExecuteAsync(DocumentCategorySql.LockTree, Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(1);
         var result = await CreateService(new(rows), commands).CreateAsync(new("new", parent, 0));
         Assert.IsFalse(result.IsSuccess);
         Assert.AreEqual(Full.NET.Modules.Document.Contracts.DocumentErrorCodes.CategoryInvalidParent, result.Error!.Code);
-        await commands.DidNotReceiveWithAnyArgs().ExecuteAsync(default!, default, default);
+        await AssertOnlyTreeLockAsync(commands);
     }
 
-    private static HostDocumentCategoryManagementService CreateService(TestQueries queries, ICommandExecutor commands,
-        DatabaseProvider provider = DatabaseProvider.SqlServer) =>
+    private static HostDocumentCategoryManagementService CreateService(TestQueries queries, ICommandExecutor commands) =>
         new(queries, commands, new InlineTransaction(), new(queries), Substitute.For<IClock>(), Substitute.For<IIdGenerator>(),
             new Full.NET.Modules.Document.Features.DocumentCategoryGuard(commands));
 
     [TestMethod]
-    [DataRow(DatabaseProvider.SqlServer)]
-    [DataRow(DatabaseProvider.MySql)]
-    public async Task Delete_rechecks_children_after_waiting_hierarchy_scan(DatabaseProvider provider)
+    public async Task Delete_rechecks_children_after_acquiring_the_tree_guard()
     {
         var id = Guid.CreateVersion7();
         var queries = new TestQueries([new() { Id = id, Name = "parent", Version = 1 }]) { ChildCount = 1 };
         var commands = Substitute.For<ICommandExecutor>();
-        var result = await CreateService(queries, commands, provider).DeleteAsync(id, Guid.CreateVersion7(), new(1));
+        commands.ExecuteAsync(DocumentCategorySql.LockTree, Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(1);
+        var result = await CreateService(queries, commands).DeleteAsync(id, Guid.CreateVersion7(), new(1));
         Assert.IsFalse(result.IsSuccess);
         Assert.AreEqual(Full.NET.Modules.Document.Contracts.DocumentErrorCodes.CategoryHasChildren, result.Error!.Code);
-        await commands.DidNotReceiveWithAnyArgs().ExecuteAsync(default!, default, default);
+        await AssertOnlyTreeLockAsync(commands);
+    }
+
+    private static async Task AssertOnlyTreeLockAsync(ICommandExecutor commands)
+    {
+        await commands.Received(1).ExecuteAsync(DocumentCategorySql.LockTree, Arg.Any<object?>(), Arg.Any<CancellationToken>());
+        await commands.DidNotReceive().ExecuteAsync(Arg.Is<SqlStatement>(statement => statement != DocumentCategorySql.LockTree),
+            Arg.Any<object?>(), Arg.Any<CancellationToken>());
     }
 
     private sealed class InlineTransaction : ICommandTransaction
@@ -138,17 +153,14 @@ public sealed class DocumentCategoryHierarchyTests
         public Task<T> ExecuteAsync<T>(Func<CancellationToken, Task<T>> action, CancellationToken cancellationToken) => action(cancellationToken);
     }
 
-    private sealed class TestQueries(IEnumerable<DocumentCategoryRecord> rows) : IQueryExecutor
+    private sealed class TestQueries(IEnumerable<DocumentCategoryRecord> rows, List<SqlStatement>? statements = null) : IQueryExecutor
     {
         private readonly Dictionary<Guid, DocumentCategoryRecord> categories = rows.ToDictionary(row => row.Id);
-        public SqlStatement? FirstStatement { get; private set; }
         public long ChildCount { get; init; }
 
         public Task<T?> QuerySingleOrDefaultAsync<T>(SqlStatement statement, object? parameters = null, CancellationToken cancellationToken = default)
         {
-            // 新技术门禁独立于既有目录锁断言，后者仍验证完整活动父链的锁定读取。
-            if (typeof(T) == typeof(int)) return Task.FromResult((T?)(object)1);
-            FirstStatement ??= statement;
+            statements?.Add(statement);
             if (statement == DocumentCategorySql.CountActiveChildren)
                 return Task.FromResult((T?)(object)ChildCount);
             if (typeof(T) == typeof(DocumentCategoryRecord))
@@ -161,7 +173,7 @@ public sealed class DocumentCategoryHierarchyTests
 
         public Task<IReadOnlyList<T>> QueryAsync<T>(SqlStatement statement, object? parameters = null, CancellationToken cancellationToken = default)
         {
-            FirstStatement ??= statement;
+            statements?.Add(statement);
             return Task.FromResult<IReadOnlyList<T>>(categories.Values.Cast<T>().ToArray());
         }
     }

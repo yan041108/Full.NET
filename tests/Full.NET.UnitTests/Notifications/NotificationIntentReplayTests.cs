@@ -109,9 +109,10 @@ public sealed class NotificationIntentReplayTests
         var schema = NotificationTemplateCompiler.NormalizeSchema(definition.ParameterSchema).Value!;
         var snapshot = NotificationTemplateCompiler.ValidateAndSnapshotParameters(schema, request.Parameters).Value!;
         var queries = new ReplayQueries();
+        var routeSnapshot = NotificationMessageMetadata.Freeze("[]", request.ExpiresAtUtc, request.DeepLink, policyVersion: 1);
         queries.Rows[typeof(NotificationIntentRecord)] = new NotificationIntentRecord(intentId, tenantId,
             scope.TenantScopeKey, tenantScoped ? "tenant" : "host", request.ProducerKey, request.SceneKey, request.IdempotencyKey,
-            versionId, null, "transactional", "single", "{}", snapshot, "accepted", userId, now, 1);
+            versionId, null, "transactional", "single", routeSnapshot, snapshot, "accepted", userId, now, 1);
         queries.Rows[typeof(NotificationTemplateVersionRecord)] = new NotificationTemplateVersionRecord(versionId, templateId,
             "zh-CN", 1, 1, draft.Subject, draft.BodyJson, draft.ParameterSchemaJson, "public", "hash", userId, now);
         queries.Rows[typeof(NotificationTemplateRecord)] = new NotificationTemplateRecord(templateId, tenantId,

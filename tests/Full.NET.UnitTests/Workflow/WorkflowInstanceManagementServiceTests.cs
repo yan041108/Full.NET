@@ -470,7 +470,7 @@ public sealed class WorkflowInstanceManagementServiceTests
         using var json = System.Text.Json.JsonDocument.Parse("{}");
         var id = Guid.CreateVersion7(); var actor = Guid.CreateVersion7(); var definition = Guid.CreateVersion7();
         var request = new StartWorkflowInstanceRequest(definition, "leave", "LEAVE-001", json.RootElement.Clone(), "start-001");
-        var hash = Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes($"{definition:D}\nleave\nLEAVE-001\n{{}}")));
+        var hash = HashPinnedStartFixture(definition);
         var query = CreateQuery(id, actor, status, 3, Guid.CreateVersion7(),
             new WorkflowActionReceiptRecord("start", actor, 1, request.IdempotencyKey, hash, null));
         var row = await query.QuerySingleOrDefaultAsync<WorkflowInstanceRecord>(WorkflowSql.FindInstanceById, null);
@@ -495,7 +495,7 @@ public sealed class WorkflowInstanceManagementServiceTests
         using var json = System.Text.Json.JsonDocument.Parse("{}");
         var id = Guid.CreateVersion7(); var actor = Guid.CreateVersion7(); var definition = Guid.CreateVersion7();
         var request = new StartWorkflowInstanceRequest(definition, "leave", "LEAVE-001", json.RootElement.Clone(), "start-001");
-        var hash = Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes($"{definition:D}\nleave\nLEAVE-001\n{{}}")));
+        var hash = HashPinnedStartFixture(definition);
         var query = CreateQuery(id, actor, "completed", 3, Guid.CreateVersion7(),
             new WorkflowActionReceiptRecord(mismatch == "action" ? "cancel" : "start", mismatch == "actor" ? Guid.CreateVersion7() : actor,
                 1, request.IdempotencyKey, mismatch == "hash" ? "different" : hash, null));
@@ -507,6 +507,10 @@ public sealed class WorkflowInstanceManagementServiceTests
         Assert.IsFalse(result.IsSuccess); Assert.AreEqual(WorkflowErrorCodes.ActiveInstanceExists, result.Error!.Code);
         Assert.AreEqual(0, command.ReceivedCalls().Count());
     }
+
+    // 回执绑定完整启动上下文，包括空业务标题和默认的非审批启动模式。
+    private static string HashPinnedStartFixture(Guid definition) =>
+        Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes($"{definition:D}\nleave\nLEAVE-001\n{{}}\n\nFalse")));
 
     private static WorkflowInstanceManagementService CreateService(
         IQueryExecutor query,
