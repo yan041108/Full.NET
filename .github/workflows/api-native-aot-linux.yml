@@ -41,7 +41,7 @@ jobs:
   linux-native-aot:
     # 原生链接需匹配发布运行镜像的 Noble glibc 基线。
     runs-on: ubuntu-24.04
-    timeout-minutes: 120
+    timeout-minutes: 180
     steps:
       - uses: actions/checkout@v4
 
@@ -110,12 +110,13 @@ jobs:
       - name: Build integration tests
         run: dotnet build tests/Full.NET.IntegrationTests/Full.NET.IntegrationTests.csproj -c Release --no-restore
 
-      - name: Run isolated Native AI chat E2E
+      - name: Run isolated Native AI model E2E
         run: |
           docker pull mcr.microsoft.com/dotnet/sdk:10.0.404
           ryuk="$(node --input-type=module -e 'import { boundedRyukImage } from "./scripts/testing/bounded-testcontainers-reaper.mjs"; console.log(boundedRyukImage)')"
           docker pull "$ryuk"
           node tests/ai-parsing/run-native-generation.mjs --chat "$RUNNER_TEMP/fullnet-native-chat"
+          node tests/ai-parsing/run-native-generation.mjs --evaluation "$RUNNER_TEMP/fullnet-native-evaluation"
 
       - name: Install Chromium for Native AOT browser E2E
         run: pnpm --filter @fullnet/admin-real-stack-e2e exec playwright install --with-deps chromium
@@ -148,3 +149,4 @@ jobs:
             artifacts/**/*.log
             TestResults/**
             ${{ runner.temp }}/fullnet-native-chat/**
+            ${{ runner.temp }}/fullnet-native-evaluation/**

@@ -1827,7 +1827,7 @@
   },
   "nativeAotIntegration": {
     "project": "tests/Full.NET.IntegrationTests/Full.NET.IntegrationTests.csproj",
-    "filter": "FullyQualifiedName~Full.NET.IntegrationTests.NativeAot&FullyQualifiedName!~NativeApiS3&FullyQualifiedName!~NativeApiKafkaReplay&FullyQualifiedName!~NativeApiNotifications&FullyQualifiedName!~NativeApiSettings&FullyQualifiedName!~NativeApiJobs&FullyQualifiedName!~NativeApiOidc&FullyQualifiedName!~NativeApiMessagingConfigurationE2ETests&FullyQualifiedName!~NativeEnterpriseBusiness&FullyQualifiedName!~NativeWorkerKnowledgeGenerationE2ETests&FullyQualifiedName!~NativeWorkerCorrectionGenerationE2ETests&FullyQualifiedName!~NativeMigratorE2ETests&FullyQualifiedName!~NativeLogConsumerE2ETests&FullyQualifiedName!~NativeChatCrossInstanceCancellationTests",
+    "filter": "FullyQualifiedName~Full.NET.IntegrationTests.NativeAot&FullyQualifiedName!~NativeApiS3&FullyQualifiedName!~NativeApiKafkaReplay&FullyQualifiedName!~NativeApiNotifications&FullyQualifiedName!~NativeApiSettings&FullyQualifiedName!~NativeApiJobs&FullyQualifiedName!~NativeApiOidc&FullyQualifiedName!~NativeApiMessagingConfigurationE2ETests&FullyQualifiedName!~NativeEnterpriseBusiness&FullyQualifiedName!~NativeWorkerKnowledgeGenerationE2ETests&FullyQualifiedName!~NativeWorkerCorrectionGenerationE2ETests&FullyQualifiedName!~NativeMigratorE2ETests&FullyQualifiedName!~NativeLogConsumerE2ETests&FullyQualifiedName!~NativeChatCrossInstanceCancellationTests&FullyQualifiedName!~NativeKnowledgeEvaluationPrivateRunE2ETests&FullyQualifiedName!~NativeKnowledgeEvaluationRunE2ETests&FullyQualifiedName!~NativeKnowledgeEvaluationSourceE2ETests",
     "requiredTestTypes": [
       "NativeApiCacheE2ETests",
       "NativeApiLocalFileMySqlE2ETests",
@@ -1853,6 +1853,17 @@
     "requiredTestTypes": ["NativeChatCrossInstanceCancellationTests"],
     "minimum": 2,
     "timeout": "15m"
+  },
+  "nativeKnowledgeEvaluationRuntimeIntegration": {
+    "project": "tests/Full.NET.IntegrationTests/Full.NET.IntegrationTests.csproj",
+    "filter": "FullyQualifiedName~NativeKnowledgeEvaluationPrivateRunE2ETests|FullyQualifiedName~NativeKnowledgeEvaluationRunE2ETests|FullyQualifiedName~NativeKnowledgeEvaluationSourceE2ETests",
+    "requiredTestTypes": [
+      "NativeKnowledgeEvaluationPrivateRunE2ETests",
+      "NativeKnowledgeEvaluationRunE2ETests",
+      "NativeKnowledgeEvaluationSourceE2ETests"
+    ],
+    "minimum": 6,
+    "timeout": "45m"
   },
   "nativeKnowledgeGenerationIntegration": {
     "project": "tests/Full.NET.IntegrationTests/Full.NET.IntegrationTests.csproj",

@@ -9,15 +9,19 @@ import {startBoundedResourceReaper} from '../../scripts/testing/bounded-testcont
 import {validateNativeAotRuntimeResults} from '../../scripts/testing/native-aot-runtime-results.mjs';
 
 // 只允许当前工作树与显式临时输出；不修改宿主 DNS、证书库或生产网络策略。
-const [argument,chatOutput,...extra]=process.argv.slice(2);
-const chat=argument==='--chat';
-if(!argument||extra.length||(chat?!chatOutput:chatOutput!==undefined))
-  throw new Error('用法：run-native-generation.mjs <生成配置.json> | --chat <仓库外的全新结果目录>');
+const [argument,resultsDirectory,...extra]=process.argv.slice(2);
+const isolatedSuites=new Map([
+  ['--chat',{key:'nativeChatRuntimeIntegration',report:'native-chat.trx',label:'chat'}],
+  ['--evaluation',{key:'nativeKnowledgeEvaluationRuntimeIntegration',report:'native-evaluation.trx',label:'evaluation'}],
+]);
+const isolated=isolatedSuites.get(argument);
+if(!argument||extra.length||(isolated?!resultsDirectory:argument.startsWith('--')||resultsDirectory!==undefined))
+  throw new Error('用法：run-native-generation.mjs <生成配置.json> | (--chat | --evaluation) <仓库外的全新结果目录>');
 const repository=await realpath(fileURLToPath(new URL('../..',import.meta.url)));
 const matrix=JSON.parse(await readFile(path.join(repository,'eng/testing/test-matrix.json'),'utf8'));
-const gate=chat?matrix.nativeChatRuntimeIntegration:matrix.nativeKnowledgeGenerationIntegration;
-const config=chat?{
-  outputDirectory:chatOutput,
+const gate=matrix[isolated?.key??'nativeKnowledgeGenerationIntegration'];
+const config=isolated?{
+  outputDirectory:resultsDirectory,
   apiPublishDirectory:process.env.FULLNET_NATIVE_AOT_PUBLISH_DIR??path.dirname(path.join(repository,matrix.nativeAotPublish.executableRelativePath)),
   assembly:await realpath(path.join(repository,matrix.integration.assembly)),
   sdkImage:'mcr.microsoft.com/dotnet/sdk:10.0.404',
@@ -25,20 +29,20 @@ const config=chat?{
 if(!Number.isSafeInteger(gate.minimum)||gate.minimum<1||!/^[\w.~|&!=]+$/.test(gate.filter)||!/^\d+m$/.test(gate.timeout))throw new Error('原生模型验证矩阵不合法');
 const output=path.resolve(config.outputDirectory);
 if(output===repository||output.startsWith(repository+path.sep))throw new Error('原生验收输出必须位于仓库外');
-const mounts=chat?['apiPublishDirectory']:['apiPublishDirectory','workerPublishDirectory','fixturesDirectory','nugetDirectory'];
+const mounts=isolated?['apiPublishDirectory']:['apiPublishDirectory','workerPublishDirectory','fixturesDirectory','nugetDirectory'];
 for(const key of mounts)config[key]=await realpath(config[key]);
-if(!chat&&!/^sha256:[a-f0-9]{64}$/.test(config.parserImage))throw new Error('需要不可变解析镜像摘要');
-await mkdir(output,{recursive:!chat});
+if(!isolated&&!/^sha256:[a-f0-9]{64}$/.test(config.parserImage))throw new Error('需要不可变解析镜像摘要');
+await mkdir(output,{recursive:!isolated});
 const execute=promisify(execFile),owner=randomUUID();
 const docker=async args=>(await execute('docker',args,{windowsHide:true,maxBuffer:16*1024*1024})).stdout;
 const journal=entry=>appendFile(path.join(output,'resources.jsonl'),JSON.stringify(entry)+'\n');
-const report=chat?'native-chat.trx':'native-generation.trx';
-const chatAssembly=chat?path.relative(repository,config.assembly).split(path.sep).join('/'):'';
-if(chat&&(!/^tests\/[\w./-]+\.dll$/.test(chatAssembly)||chatAssembly.split('/').includes('..')))
-  throw new Error('聊天消费者程序集必须位于本次挂载的仓库中');
-const prepareController=chat?`
+const report=isolated?.report??'native-generation.trx';
+const controllerPath=isolated?path.relative(repository,config.assembly).split(path.sep).join('/'):'';
+if(isolated&&(!/^tests\/[\w./-]+\.dll$/.test(controllerPath)||controllerPath.split('/').includes('..')))
+  throw new Error('消费者程序集必须位于本次挂载的仓库中');
+const prepareController=isolated?`
 # 复用上一步编译的消费者程序集，挂载为只读。
-assembly=/src/${chatAssembly}`:`
+assembly=/src/${controllerPath}`:`
 export FULLNET_NATIVE_KNOWLEDGE_FIXTURES=/fixtures FULLNET_NATIVE_KNOWLEDGE_NODE=/usr/local/bin/node
 export FULLNET_NATIVE_KNOWLEDGE_CLI=/src/scripts/ai/document-sandbox-cli.mjs
 export FULLNET_WORKER_NATIVE_AOT_PUBLISH_DIR=/native-worker
@@ -86,8 +90,8 @@ await withTestRun({cwd:output,buildBudget:{cpu:2,memoryGiB:0.5}},async()=>{
   if(actualNetwork.Id!==network||!actualNetwork.Internal||actualNetwork.Labels['fullnet.bounded-owner']!==reaper.session||actualNetwork.IPAM.Config[0].Subnet!=='93.184.216.0/29')throw new Error('模型网络归属或隔离不符');
   await journal({stage:'model-network',network,session:reaper.session,internal:true});
   const env={...reaper.environment,TESTCONTAINERS_HOST_OVERRIDE:'host.docker.internal'};
-  if(!chat)env.FULLNET_NATIVE_KNOWLEDGE_IMAGE=config.parserImage;
-  const generationMounts=chat?[]
+  if(!isolated)env.FULLNET_NATIVE_KNOWLEDGE_IMAGE=config.parserImage;
+  const generationMounts=isolated?[]
    : ['--mount',`type=bind,source=${config.workerPublishDirectory},target=/native-worker,readonly`,
       '--mount',`type=bind,source=${config.fixturesDirectory},target=/fixtures,readonly`,
       '--mount',`type=bind,source=${config.nugetDirectory},target=/root/.nuget/packages`];
@@ -113,6 +117,6 @@ await withTestRun({cwd:output,buildBudget:{cpu:2,memoryGiB:0.5}},async()=>{
   const discovery=JSON.parse(await readFile(path.join(output,'results/discovery.json'),'utf8'));
   if(discovery.tests.length!==gate.minimum||gate.requiredTestTypes.some(type=>!discovery.tests.some(test=>test.type?.typeName===type)))throw new Error('原生生成影响集发现数或类型不符');
   const result=validateNativeAotRuntimeResults(await readFile(path.join(output,'results',report),'utf8'),discovery.tests.map(x=>x.uid));
-  console.log(`Native ${chat?'chat':'generation'}: ${result.passed} passed, zero failure/skip`);
+  console.log(`Native ${isolated?.label??'generation'}: ${result.passed} passed, zero failure/skip`);
  }finally{await stopOwned();await reaper.close();}
 });

@@ -73,6 +73,13 @@ test('核心API跨宿主恢复与Worker专项均登记必需场景', async () =>
   assert.equal(chat.filter, 'FullyQualifiedName~Full.NET.IntegrationTests.NativeAot.' + chatType);
   assert.deepEqual(chat.requiredTestTypes, [chatType]);
   assert.equal(chat.minimum, 2);
+  const evaluation = matrix.nativeKnowledgeEvaluationRuntimeIntegration;
+  const evaluationTypes = ['NativeKnowledgeEvaluationPrivateRunE2ETests', 'NativeKnowledgeEvaluationRunE2ETests',
+    'NativeKnowledgeEvaluationSourceE2ETests'];
+  assert.deepEqual(evaluation.requiredTestTypes, evaluationTypes);
+  assert.equal(evaluation.filter, evaluationTypes.map(type => 'FullyQualifiedName~' + type).join('|'));
+  assert.equal(evaluation.minimum, 6);
+  for (const type of evaluationTypes) assert.ok(api.filter.split('&').includes('FullyQualifiedName!~' + type));
   assert.ok(api.requiredTestTypes.includes('NativeWorkerPdfE2ETests'));
   assert.ok(api.requiredTestTypes.includes('NativeApiKafkaLogMySqlE2ETests'));
   assert.ok(worker.requiredTestTypes.includes('NativeWorkerKafkaLogMySqlE2ETests'));
@@ -116,6 +123,8 @@ for (const role of ['api', 'worker']) {
       const integrationBuild = steps.findIndex(step => step.startsWith('name: Build integration tests'));
       const chat = steps.findIndex(step => step.includes('run-native-generation.mjs --chat'));
       assert.ok(integrationBuild >= 0 && chat > integrationBuild && chat < runtime, '原生聊天专项必须复用已构建控制器');
+      const evaluation = steps.findIndex(step => step.includes('run-native-generation.mjs --evaluation'));
+      assert.ok(evaluation > integrationBuild && evaluation < runtime, '原生知识评估须在隔离模型环境中运行');
     }
     assert.match(steps[artifact], /if: success\(\)/);
     assert.match(steps[artifact], /if-no-files-found: error/);
