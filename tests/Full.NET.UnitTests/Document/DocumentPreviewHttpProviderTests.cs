@@ -11,6 +11,11 @@ namespace Full.NET.UnitTests.Document;
 [TestClass]
 public sealed class DocumentPreviewHttpProviderTests
 {
+    private readonly DirectoryInfo workingDirectory = Directory.CreateTempSubdirectory("fullnet-preview-http-");
+
+    [TestCleanup]
+    public void ReleaseWorkingDirectory() => workingDirectory.Delete();
+
     [TestMethod]
     [DataRow(true)]
     [DataRow(false)]
@@ -24,7 +29,7 @@ public sealed class DocumentPreviewHttpProviderTests
             StringAssert.Contains(payload, "application/msword; charset=utf-8");
             return Response(body);
         }));
-        var result = await provider.ConvertAsync(Input(input), "unused");
+        var result = await provider.ConvertAsync(Input(input, 2), workingDirectory.FullName);
         Assert.IsTrue(result.IsSuccess);
         Assert.IsTrue(body.Disposed);
         Assert.IsFalse(input.Disposed);
@@ -45,7 +50,7 @@ public sealed class DocumentPreviewHttpProviderTests
         using var input = new TrackedStream([1]);
         var body = new TrackedStream([1, 2, 3, 4], false);
         var provider = Provider(new Handler((_, _) => Task.FromResult(Response(body, declared < 0 ? null : declared))));
-        var result = await provider.ConvertAsync(Input(input), "unused");
+        var result = await provider.ConvertAsync(Input(input), workingDirectory.FullName);
         Assert.IsFalse(result.IsSuccess);
         Assert.AreEqual(Errors.OfficePreviewOutputTooLarge, result.Error!.Code);
         Assert.IsTrue(body.Disposed);
@@ -63,7 +68,7 @@ public sealed class DocumentPreviewHttpProviderTests
             called = true;
             return Response(new TrackedStream([1]));
         }));
-        var result = await provider.ConvertAsync(Input(input, 1), "unused");
+        var result = await provider.ConvertAsync(Input(input, 1), workingDirectory.FullName);
         Assert.IsFalse(result.IsSuccess);
         Assert.AreEqual(Errors.OfficePreviewInputTooLarge, result.Error!.Code);
         Assert.IsFalse(called);
@@ -76,7 +81,7 @@ public sealed class DocumentPreviewHttpProviderTests
         using var input = new TrackedStream([1]);
         var called = false;
         var provider = Provider(new Handler((_, _) => { called = true; return Task.FromResult(Response(new TrackedStream([1]))); }));
-        var result = await provider.ConvertAsync(Input(input, 4), "unused");
+        var result = await provider.ConvertAsync(Input(input, 4), workingDirectory.FullName);
         Assert.AreEqual(Errors.OfficePreviewInputTooLarge, result.Error!.Code);
         Assert.IsFalse(called);
         Assert.AreEqual(0L, input.Position);
@@ -87,7 +92,7 @@ public sealed class DocumentPreviewHttpProviderTests
     {
         using var input = new TrackedStream([1]);
         var body = new TrackedStream([]);
-        var result = await Provider(new Handler((_, _) => Task.FromResult(Response(body)))).ConvertAsync(Input(input), "unused");
+        var result = await Provider(new Handler((_, _) => Task.FromResult(Response(body)))).ConvertAsync(Input(input), workingDirectory.FullName);
         Assert.AreEqual(Errors.OfficePreviewConversionFailed, result.Error!.Code);
         Assert.IsTrue(body.Disposed);
     }
@@ -99,10 +104,11 @@ public sealed class DocumentPreviewHttpProviderTests
         using var cancellation = new CancellationTokenSource();
         var body = new WaitingStream();
         var pending = Provider(new Handler((_, _) => Task.FromResult(Response(body))))
-            .ConvertAsync(Input(input), "unused", cancellation.Token);
+            .ConvertAsync(Input(input), workingDirectory.FullName, cancellation.Token);
         await body.Entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
         cancellation.Cancel();
-        await Assert.ThrowsAsync<OperationCanceledException>(() => pending);
+        var canceled = await Assert.ThrowsAsync<OperationCanceledException>(() => pending);
+        Assert.AreEqual(cancellation.Token, canceled.CancellationToken);
         Assert.IsTrue(body.Disposed);
         Assert.IsFalse(input.Disposed);
     }
@@ -113,7 +119,7 @@ public sealed class DocumentPreviewHttpProviderTests
         using var input = new TrackedStream([1]);
         var body = new WaitingStream();
         var pending = Provider(new Handler((_, _) => Task.FromResult(Response(body))))
-            .ConvertAsync(Input(input), "unused");
+            .ConvertAsync(Input(input), workingDirectory.FullName);
         var result = await pending.WaitAsync(TimeSpan.FromSeconds(15));
         Assert.AreEqual(Errors.OfficePreviewConversionFailed, result.Error!.Code);
         Assert.IsTrue(body.Entered.Task.IsCompletedSuccessfully);
@@ -125,18 +131,30 @@ public sealed class DocumentPreviewHttpProviderTests
     {
         using var input = new TrackedStream([1]);
         await Assert.ThrowsExactlyAsync<HttpRequestException>(() => Provider(new Handler((_, _) =>
-            throw new HttpRequestException("fixture transport failure"))).ConvertAsync(Input(input), "unused"));
+            throw new HttpRequestException("fixture transport failure"))).ConvertAsync(Input(input), workingDirectory.FullName));
         Assert.IsFalse(input.Disposed);
     }
 
-    private static ExternalHttpDocumentOfficePreviewConversionProvider Provider(HttpMessageHandler handler)
+    [TestMethod]
+    public async Task Exhausted_combined_budget_rejects_conversion_before_sending()
+    {
+        using var input = new TrackedStream([1, 2, 3]);
+        var provider = Provider(new Handler((_, _) => throw new InvalidOperationException("An exhausted budget must stop the request.")), 3);
+
+        var result = await provider.ConvertAsync(Input(input, 3), workingDirectory.FullName);
+
+        Assert.AreEqual(Errors.OfficePreviewOutputTooLarge, result.Error!.Code);
+        Assert.IsFalse(input.Disposed);
+    }
+
+    private static ExternalHttpDocumentOfficePreviewConversionProvider Provider(HttpMessageHandler handler, long temporaryBudget = 6)
     {
         var factory = Substitute.For<IHttpClientFactory>();
         factory.CreateClient(Arg.Any<string>()).Returns(_ => new HttpClient(handler));
         var options = Substitute.For<IOptionsMonitor<DocumentOfficePreviewConversionOptions>>();
         options.CurrentValue.Returns(new DocumentOfficePreviewConversionOptions
         {
-            MaxInputBytes = 3, MaxOutputBytes = 3, TimeoutSeconds = 5,
+            MaxInputBytes = 3, MaxOutputBytes = 3, MaxTemporaryBytes = temporaryBudget, TimeoutSeconds = 5,
             ExternalHttp = new() { BaseUrl = "https://preview.invalid/convert" },
         });
         return new(factory, options);

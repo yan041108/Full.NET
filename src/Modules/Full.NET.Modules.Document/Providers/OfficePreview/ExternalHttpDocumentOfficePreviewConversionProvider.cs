@@ -1,4 +1,3 @@
-using Full.NET.Hosting.Http;
 using System.Net.Http.Headers;
 using Full.NET.Abstractions.Results;
 using Full.NET.Modules.Document.Configuration;
@@ -19,6 +18,7 @@ internal sealed class ExternalHttpDocumentOfficePreviewConversionProvider(
         string workingDirectory,
         CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         var snapshot = options.CurrentValue;
         var current = snapshot.ExternalHttp;
         if (string.IsNullOrWhiteSpace(current.BaseUrl))
@@ -30,57 +30,82 @@ internal sealed class ExternalHttpDocumentOfficePreviewConversionProvider(
                     ErrorType.BusinessRule));
         }
 
-        using var client = httpClientFactory.CreateClient(nameof(ExternalHttpDocumentOfficePreviewConversionProvider));
-        client.Timeout = TimeSpan.FromSeconds(Math.Clamp(snapshot.TimeoutSeconds, 5, 3600));
         using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         deadline.CancelAfter(TimeSpan.FromSeconds(Math.Clamp(snapshot.TimeoutSeconds, 5, 3600)));
-        cancellationToken = deadline.Token;
-        var inputPath = Path.Combine(workingDirectory, $"http-input-{Guid.NewGuid():N}.bin");
-        await using var input = new FileStream(inputPath, FileMode.CreateNew, FileAccess.ReadWrite, FileShare.None,
-            16 * 1024, FileOptions.Asynchronous | FileOptions.DeleteOnClose);
-        await OfficePreviewInputBudget.CopyAsync(request.SourceContent, input,
-            Math.Min(snapshot.MaxInputBytes, snapshot.MaxTemporaryBytes), cancellationToken).ConfigureAwait(false);
-        input.Position = 0;
-        using var form = new MultipartFormDataContent();
-        var streamContent = new StreamContent(input);
-        streamContent.Headers.ContentType = new MediaTypeHeaderValue(request.SourceMimeType);
-        form.Add(streamContent, "file", request.SourceFileName);
-
-        using var httpRequest = new HttpRequestMessage(HttpMethod.Post, current.BaseUrl)
-        {
-            Content = form,
-        };
-        if (!string.IsNullOrWhiteSpace(current.ApiKey))
-        {
-            httpRequest.Headers.TryAddWithoutValidation("X-Api-Key", current.ApiKey);
-        }
-
-        using var response = await client.SendAsync(httpRequest, HttpCompletionOption.ResponseHeadersRead, cancellationToken)
-            .ConfigureAwait(false);
-        if (!response.IsSuccessStatusCode)
-        {
-            return Result<DocumentOfficePreviewConversionOutput>.Failure(
-                new Error(
-                    DocumentErrorCodes.OfficePreviewConversionFailed,
-                    "External HTTP office preview conversion failed.",
-                    ErrorType.BusinessRule));
-        }
-
-        // 转存到本次任务目录，不能返回随 response 释放的网络流，也不能把整个 PDF 堆积到内存。
-        var path = Path.Combine(workingDirectory, $"http-preview-{Guid.NewGuid():N}.pdf");
-        var output = new FileStream(path, FileMode.CreateNew, FileAccess.ReadWrite, FileShare.None,
-            16 * 1024, FileOptions.Asynchronous | FileOptions.DeleteOnClose);
         try
         {
-            var length = await BoundedHttpContent.CopyToAsync(response.Content, output,
-                Math.Min(snapshot.MaxOutputBytes, snapshot.MaxTemporaryBytes - input.Length), cancellationToken).ConfigureAwait(false);
-            output.Position = 0;
-            return Result<DocumentOfficePreviewConversionOutput>.Success(new(output, length));
+            var inputBudget = Math.Min(snapshot.MaxInputBytes, snapshot.MaxTemporaryBytes);
+            DocumentPreviewContentBudget.CheckDeclaredLength(request.SourceLength, inputBudget, DocumentErrorCodes.OfficePreviewInputTooLarge);
+            await using var input = CreateTemporaryFile(workingDirectory, "input.bin");
+            using (var source = new DocumentPreviewBudgetStream(request.SourceContent, inputBudget, DocumentErrorCodes.OfficePreviewInputTooLarge))
+                await source.CopyToAsync(input, deadline.Token).ConfigureAwait(false);
+            input.Position = 0;
+
+            var outputBudget = Math.Min(snapshot.MaxOutputBytes, snapshot.MaxTemporaryBytes - input.Length);
+            if (outputBudget <= 0)
+                return Failure(DocumentErrorCodes.OfficePreviewOutputTooLarge, "No temporary byte budget remains for the converted PDF.");
+
+            using var client = httpClientFactory.CreateClient(nameof(ExternalHttpDocumentOfficePreviewConversionProvider));
+            // 同一截止时间覆盖输入转存、发送、响应头和完整响应正文。
+            client.Timeout = Timeout.InfiniteTimeSpan;
+            using var form = new MultipartFormDataContent();
+            var streamContent = new StreamContent(input);
+            streamContent.Headers.ContentType = MediaTypeHeaderValue.Parse(request.SourceMimeType);
+            form.Add(streamContent, "file", request.SourceFileName);
+
+            using var httpRequest = new HttpRequestMessage(HttpMethod.Post, current.BaseUrl) { Content = form };
+            if (!string.IsNullOrWhiteSpace(current.ApiKey))
+                httpRequest.Headers.TryAddWithoutValidation("X-Api-Key", current.ApiKey);
+
+            using var response = await client.SendAsync(httpRequest, HttpCompletionOption.ResponseHeadersRead, deadline.Token)
+                .ConfigureAwait(false);
+            deadline.Token.ThrowIfCancellationRequested();
+            if (!response.IsSuccessStatusCode)
+                return Failure(DocumentErrorCodes.OfficePreviewConversionFailed, "External HTTP office preview conversion failed.");
+
+            return await ReadOutputAsync(response.Content, workingDirectory, outputBudget, deadline.Token).ConfigureAwait(false);
         }
-        catch
+        catch (DocumentPreviewContentLimitException limit)
         {
-            await output.DisposeAsync().ConfigureAwait(false);
-            throw;
+            return Failure(limit.Code, limit.Message);
+        }
+        catch (OperationCanceledException) when (deadline.IsCancellationRequested)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            return Failure(DocumentErrorCodes.OfficePreviewConversionFailed, "External HTTP office preview conversion timed out.");
         }
     }
+
+    private static async Task<Result<DocumentOfficePreviewConversionOutput>> ReadOutputAsync(
+        HttpContent content, string workingDirectory, long budget, CancellationToken token)
+    {
+        DocumentPreviewContentBudget.CheckDeclaredLength(content.Headers.ContentLength ?? 0, budget, DocumentErrorCodes.OfficePreviewOutputTooLarge);
+        await using var source = await content.ReadAsStreamAsync(token).ConfigureAwait(false);
+        using var limited = new DocumentPreviewBudgetStream(source, budget, DocumentErrorCodes.OfficePreviewOutputTooLarge);
+        // 转存到任务目录，让成功结果独立于响应生命周期并限制内存占用。
+        var output = CreateTemporaryFile(workingDirectory, "preview.pdf");
+        var transferred = false;
+        try
+        {
+            await limited.CopyToAsync(output, token).ConfigureAwait(false);
+            token.ThrowIfCancellationRequested();
+            var length = output.Length;
+            if (length == 0)
+                return Failure(DocumentErrorCodes.OfficePreviewConversionFailed, "External HTTP office preview conversion returned no content.");
+            output.Position = 0;
+            transferred = true;
+            return Result<DocumentOfficePreviewConversionOutput>.Success(new(output, length));
+        }
+        finally
+        {
+            if (!transferred) await output.DisposeAsync().ConfigureAwait(false);
+        }
+    }
+
+    private static FileStream CreateTemporaryFile(string directory, string name) => new(
+        Path.Combine(directory, $"http-{Guid.NewGuid():N}-{name}"), FileMode.CreateNew, FileAccess.ReadWrite, FileShare.None,
+        16 * 1024, FileOptions.Asynchronous | FileOptions.DeleteOnClose);
+
+    private static Result<DocumentOfficePreviewConversionOutput> Failure(string code, string message) =>
+        Result<DocumentOfficePreviewConversionOutput>.Failure(new Error(code, message, ErrorType.BusinessRule));
 }
