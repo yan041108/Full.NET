@@ -49,7 +49,6 @@ internal static partial class DiagnoseCommand
         }
 
         const string clientsPath = "Identity:Oidc:Clients";
-        var count = 0;
         var valid = true;
         var ids = new HashSet<string>(StringComparer.Ordinal);
         foreach (var child in Children(clientsPath))
@@ -62,10 +61,9 @@ internal static partial class DiagnoseCommand
                 valid = false;
                 break;
             }
-            // Binder 在数组内跳过布尔属性转换失败的整个客户端，不能把该项纳入有效数量或去重。
+            // Binder 在数组内跳过布尔属性转换失败的整个客户端，该项不参加标识去重。
             var firstParty = Read(path + ":IsFirstParty");
             if (firstParty is not null && !bool.TryParse(firstParty, out _)) continue;
-            count++;
             var id = Read(path + ":ClientId");
             if (string.IsNullOrWhiteSpace(id) || !ids.Add(id)
                 || !ValidUris(path + ":RedirectUris", required: true)
@@ -76,11 +74,12 @@ internal static partial class DiagnoseCommand
             }
         }
 
-        findings.Add(valid && count > 0
+        // 空列表是宿主允许的初始状态；每个已绑定客户端仍必须满足回调规则。
+        findings.Add(valid
             ? DiagnoseFinding.Ok("DIAG_OIDC_CLIENTS_CONFIGURED",
                 "OIDC 客户端标识和回调白名单已通过配置检查；未认证客户端秘密、其他选项或完整协议启动。")
             : DiagnoseFinding.Error("DIAG_OIDC_CLIENTS_INVALID",
-                "已启用的 OIDC 缺少有效客户端，或客户端标识、回调白名单无效。",
+                "已启用的 OIDC 存在无效的客户端、标识或回调白名单。",
                 "配置 Identity:Oidc:Clients，使用非空且区分大小写唯一的 ClientId；RedirectUris 必填，回调须为精确 HTTP(S) 绝对地址，不含通配符、凭据或片段，尾斜线归一后不得重复。诊断不会输出客户端标识、地址或秘密。"));
     }
 }

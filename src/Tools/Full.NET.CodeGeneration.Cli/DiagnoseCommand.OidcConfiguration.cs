@@ -5,7 +5,7 @@ namespace Full.NET.CodeGeneration.Cli;
 
 internal static partial class DiagnoseCommand
 {
-    // 只核对已启用 OIDC 的地址与可选加密配置前提；关闭或布尔绑定失败交由签名诊断处理。
+    // 核对已启用 OIDC 的地址和加密配置前提；关闭或布尔绑定失败交由签名诊断处理。
     private static void CheckOidcIssuerAndEncryption(
         JsonElement root, JsonDocument? profileSettings, string workspacePath, string profile,
         List<DiagnoseFinding> findings)
@@ -19,14 +19,16 @@ internal static partial class DiagnoseCommand
 
         if (!bool.TryParse(Read("Enable"), out var enabled) || !enabled) return;
 
+        var production = string.Equals(profile, "production", StringComparison.OrdinalIgnoreCase);
         var issuer = Read("Issuer");
         if (string.IsNullOrWhiteSpace(issuer) || !Uri.TryCreate(issuer, UriKind.Absolute, out var uri)
             || (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps)
-            || !string.IsNullOrEmpty(uri.UserInfo))
+            || (production && uri.Scheme != Uri.UriSchemeHttps)
+            || !string.IsNullOrEmpty(uri.UserInfo) || !string.IsNullOrEmpty(uri.Query) || !string.IsNullOrEmpty(uri.Fragment))
         {
             findings.Add(DiagnoseFinding.Error("DIAG_OIDC_ISSUER_INVALID",
-                "已启用 OIDC 的 Issuer 缺失或不是合法的无凭据 HTTP(S) 绝对地址。",
-                "核对 Identity:Oidc:Issuer；诊断不访问该地址，也不回显地址或凭据。"));
+                "已启用 OIDC 的 Issuer 缺失或不符合当前环境的地址规则。",
+                "核对 Identity:Oidc:Issuer，使用无凭据、查询或片段的绝对地址，Production 使用 HTTPS；诊断不访问或回显地址。"));
         }
         else
         {
@@ -35,8 +37,14 @@ internal static partial class DiagnoseCommand
         }
 
         var encryption = Read("EncryptionKeyBase64");
-        // 与现有 Validator 一致，空值仍是可选配置；不擅自增加生产必填策略。
-        if (string.IsNullOrWhiteSpace(encryption)) return;
+        if (string.IsNullOrWhiteSpace(encryption))
+        {
+            if (production)
+                findings.Add(DiagnoseFinding.Error("DIAG_OIDC_ENCRYPTION_INVALID",
+                    "Production 已启用的 OIDC 缺少加密密钥配置。",
+                    "配置 Identity:Oidc:EncryptionKeyBase64 为有效的 256 位 Base64 密钥；诊断不生成或回显密钥。"));
+            return;
+        }
 
         Span<byte> decoded = stackalloc byte[32];
         try

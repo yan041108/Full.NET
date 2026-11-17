@@ -24,7 +24,8 @@ internal static partial class DiagnoseCommand
             {
                 var privateKey = Read("SigningKeys:" + name + ":PrivateKeyPem");
                 if (string.Equals(name, active, StringComparison.Ordinal))
-                    return IsUsableSigningValue(privateKey);
+                    return IsUsableSigningValue(privateKey)
+                        && (!oidc || IsUsableSigningValue(Read("SigningKeys:" + name + ":PublicKeyPem")));
 
                 // JWT 的非活动项只用公钥；OIDC 非活动项优先用非空私钥，否则用公钥。
                 if (oidc && !string.IsNullOrWhiteSpace(privateKey))
@@ -34,9 +35,9 @@ internal static partial class DiagnoseCommand
         var code = oidc ? "DIAG_OIDC_SIGNING_" : "DIAG_IDENTITY_SIGNING_";
         findings.Add(configured
             ? DiagnoseFinding.Ok(code + "CONFIGURED",
-                "已配置开发签名环的活动私钥与验证字段齐全；不会使用临时回退，未验证 PEM 或密码学有效性。")
+                "已配置开发签名环的活动密钥与验证字段齐全；不会使用临时回退，未验证 PEM 或密码学有效性。")
             : DiagnoseFinding.Error(code + "REQUIRED",
                 "已配置的开发签名环缺少匹配的活动私钥或验证字段，不能回退到临时密钥。",
-                "修正精确匹配的活动 KeyId 及密钥环所需字段；仅无任何密钥条目时才能使用开发临时回退，诊断不会输出 KeyId 或密钥。"));
+                "修正精确匹配的活动 KeyId 及密钥环所需字段，OIDC 活动项需要公钥和私钥；诊断不会输出 KeyId 或密钥。"));
     }
 }

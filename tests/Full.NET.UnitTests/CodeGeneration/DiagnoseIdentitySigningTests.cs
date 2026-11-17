@@ -219,7 +219,7 @@ public sealed class DiagnoseIdentitySigningTests
     [DataRow("""{"Enable":false,"AllowDevelopmentEphemeralSigningKey":true}""", "production", true, "DIAG_OIDC_DISABLED ok")]
     [DataRow("""{"AllowDevelopmentEphemeralSigningKey":true}""", "development", true, "DIAG_OIDC_EPHEMERAL_SIGNING warn")]
     [DataRow("""{"AllowDevelopmentEphemeralSigningKey":true}""", "production", false, "DIAG_OIDC_EPHEMERAL_SIGNING error")]
-    [DataRow("""{"ActiveSigningKeyId":"oidc-signing-probe","SigningKeys":{"oidc-signing-probe":{"PublicKeyPem":"public-signing-probe","PrivateKeyPem":"private-signing-probe"}}}""", "production", true, "DIAG_OIDC_SIGNING_CONFIGURED ok")]
+    [DataRow("complete", "production", true, "DIAG_OIDC_SIGNING_CONFIGURED ok")]
     [DataRow("""{"ActiveSigningKeyId":"OIDC-SIGNING-PROBE","SigningKeys":{"oidc-signing-probe":{"PublicKeyPem":"public-signing-probe","PrivateKeyPem":"private-signing-probe"}}}""", "production", false, "DIAG_OIDC_SIGNING_REQUIRED error")]
     [DataRow("""{"ActiveSigningKeyId":"oidc-signing-probe","SigningKeys":{"oidc-signing-probe":{"PublicKeyPem":"public-signing-probe"}}}""", "production", false, "DIAG_OIDC_SIGNING_REQUIRED error")]
     [DataRow("""{"Enable":"signing-probe"}""", "development", false, "DIAG_OIDC_SIGNING_OPTIONS_INVALID error")]
@@ -227,7 +227,7 @@ public sealed class DiagnoseIdentitySigningTests
     public async Task Oidc_signing_prerequisites_match_its_separate_runtime_validator(
         string fragment, string profile, bool valid, string finding)
     {
-        using var fixture = new Workspace(OidcIdentity(fragment));
+        using var fixture = new Workspace(OidcIdentity(fragment == "complete" ? OidcProbeSigningSettings().ToJsonString() : fragment));
         Assert.AreEqual(valid, RuntimeOidcValid(fixture.Configuration, profile));
         await AssertDiagnostic(fixture, profile, finding);
     }
@@ -253,9 +253,14 @@ public sealed class DiagnoseIdentitySigningTests
     [DataRow("environment", "production")]
     public async Task Oidc_signing_values_follow_all_supported_configuration_sources(string source, string profile)
     {
-        const string configured = """{"ActiveSigningKeyId":"oidc-signing-probe","SigningKeys":{"oidc-signing-probe":{"PublicKeyPem":"public-signing-probe","PrivateKeyPem":"private-signing-probe"}}}""";
-        using var fixture = new Workspace(OidcIdentity(source == "base" ? configured : """{"Enable":false}"""));
-        const string overlay = """{"identity:oidc:enable":true,"Identity:Oidc:ActiveSigningKeyId":"oidc-signing-probe","IDENTITY:OIDC:SIGNINGKEYS:oidc-signing-probe:PublicKeyPem":"public-signing-probe","identity:oidc:signingkeys:oidc-signing-probe:privatekeypem":"private-signing-probe"}""";
+        using var fixture = new Workspace(OidcIdentity(source == "base" ? OidcProbeSigningSettings().ToJsonString() : """{"Enable":false}"""));
+        var overlay = new JsonObject
+        {
+            ["identity:oidc:enable"] = true,
+            ["Identity:Oidc:ActiveSigningKeyId"] = "oidc-signing-probe",
+            ["IDENTITY:OIDC:SIGNINGKEYS:oidc-signing-probe:PublicKeyPem"] = DevelopmentProbePem.Value.Public,
+            ["identity:oidc:signingkeys:oidc-signing-probe:privatekeypem"] = DevelopmentProbePem.Value.Private,
+        }.ToJsonString();
         Assert.IsTrue(RuntimeOidcValid(fixture.Configuration, profile, source == "base" ? null : overlay));
         if (source == "profile") fixture.WriteProfile(profile, overlay);
         if (source == "secrets") fixture.WriteSecrets(overlay);
@@ -271,7 +276,7 @@ public sealed class DiagnoseIdentitySigningTests
     [DataRow("environment")]
     public async Task Oidc_higher_priority_key_spelling_must_still_match_active_id_exactly(string source)
     {
-        using var fixture = new Workspace(OidcIdentity("""{"ActiveSigningKeyId":"oidc-signing-probe","SigningKeys":{"oidc-signing-probe":{"PublicKeyPem":"public-signing-probe","PrivateKeyPem":"private-signing-probe"}}}"""));
+        using var fixture = new Workspace(ReadyOidcIdentity("{}"));
         const string overlay = """{"Identity:Oidc:SigningKeys:OIDC-SIGNING-PROBE:PrivateKeyPem":"override-signing-probe"}""";
         Assert.IsFalse(RuntimeOidcValid(fixture.Configuration, "development", overlay));
         if (source == "profile") fixture.WriteProfile("development", overlay);
@@ -294,7 +299,7 @@ public sealed class DiagnoseIdentitySigningTests
     public async Task Oidc_placeholder_key_cannot_be_reported_as_configured()
     {
         using var fixture = new Workspace(OidcIdentity("""{"ActiveSigningKeyId":"oidc-signing-probe","SigningKeys":{"oidc-signing-probe":{"PublicKeyPem":"YOUR_public-signing-probe","PrivateKeyPem":"CHANGEME_private-signing-probe"}}}"""));
-        Assert.IsTrue(RuntimeOidcValid(fixture.Configuration, "production"));
+        Assert.IsFalse(RuntimeOidcValid(fixture.Configuration, "production"));
         await AssertDiagnostic(fixture, "production", "DIAG_OIDC_SIGNING_REQUIRED error");
     }
 
@@ -316,8 +321,8 @@ public sealed class DiagnoseIdentitySigningTests
             {
                 [key] = new JsonObject
                 {
-                    ["PublicKeyPem"] = "public-signing-probe",
-                    ["PrivateKeyPem"] = "private-signing-probe"
+                    ["PublicKeyPem"] = oidc ? DevelopmentProbePem.Value.Public : "public-signing-probe",
+                    ["PrivateKeyPem"] = oidc ? DevelopmentProbePem.Value.Private : "private-signing-probe"
                 }
             }
         }.ToJsonString();
@@ -338,6 +343,9 @@ public sealed class DiagnoseIdentitySigningTests
     [DataRow("\"https://user:private-signing-probe@issuer.example.invalid\"", "production", false)]
     [DataRow("\"https://issuer.example.invalid\"", "production", true)]
     [DataRow("\"http://localhost:5180\"", "development", true)]
+    [DataRow("\"http://issuer.example.invalid\"", "production", false)]
+    [DataRow("\"https://issuer.example.invalid?probe=1\"", "development", false)]
+    [DataRow("\"https://issuer.example.invalid#probe\"", "production", false)]
     public async Task Oidc_issuer_preflight_matches_runtime_validator(string issuerJson, string profile, bool valid)
     {
         using var fixture = new Workspace(ReadyOidcIdentity("{\"Issuer\":" + issuerJson + "}"));
@@ -347,13 +355,14 @@ public sealed class DiagnoseIdentitySigningTests
 
     [TestMethod]
     [DataRow("null", "development", true)]
-    [DataRow("\"\"", "production", true)]
+    [DataRow("null", "production", false)]
+    [DataRow("\"\"", "production", false)]
     [DataRow("\" \"", "development", true)]
     [DataRow("false", "production", false)]
     [DataRow("42", "development", false)]
     [DataRow("\"encryption-signing-probe\"", "production", false)]
     [DataRow("\"====\"", "development", false)]
-    public async Task Oidc_optional_encryption_preflight_matches_runtime_validator(string keyJson, string profile, bool valid)
+    public async Task Oidc_encryption_preflight_matches_environment_and_runtime_validator(string keyJson, string profile, bool valid)
     {
         using var fixture = new Workspace(ReadyOidcIdentity("{\"EncryptionKeyBase64\":" + keyJson + "}"));
         Assert.AreEqual(valid, RuntimeOidcValid(fixture.Configuration, profile));
@@ -1390,7 +1399,7 @@ public sealed class DiagnoseIdentitySigningTests
     [DataRow(false, "public-only", false)]
     [DataRow(true, "public-only", false)]
     [DataRow(false, "private-only", true)]
-    [DataRow(true, "private-only", true)]
+    [DataRow(true, "private-only", false)]
     [DataRow(false, "complete", true)]
     [DataRow(true, "complete", true)]
     [DataRow(false, "wrong-case", false)]
@@ -1537,7 +1546,11 @@ public sealed class DiagnoseIdentitySigningTests
             {
                 var options = new IdentityOidcOptions(); config.GetSection("Identity:Oidc").Bind(options);
                 Assert.AreEqual(count, options.SigningKeys.Count);
-                Assert.IsTrue(new IdentityOidcOptionsValidator(host).Validate(null, options).Succeeded);
+                if (new IdentityOidcOptionsValidator(host).Validate(null, options).Failed)
+                {
+                    Assert.IsFalse(valid);
+                    return;
+                }
                 using var ring = new IdentityOidcSigningKeyRing(Options.Create(options), NullLogger<IdentityOidcSigningKeyRing>.Instance);
                 Assert.IsTrue(valid); Assert.AreEqual(count == 0, ring.UsesEphemeralDevelopmentKey);
             }
@@ -1582,14 +1595,28 @@ public sealed class DiagnoseIdentitySigningTests
 
     private static string ReadyOidcIdentity(string fragment)
     {
-        var identity = JsonNode.Parse(OidcIdentity("""{"ActiveSigningKeyId":"oidc-signing-probe","SigningKeys":{"oidc-signing-probe":{"PublicKeyPem":"public-signing-probe","PrivateKeyPem":"private-signing-probe"}}}"""))!.AsObject();
-        foreach (var entry in JsonNode.Parse(fragment)!.AsObject()) identity["Oidc"]![entry.Key] = entry.Value?.DeepClone();
-        return identity.ToJsonString();
+        var settings = OidcProbeSigningSettings();
+        foreach (var entry in JsonNode.Parse(fragment)!.AsObject()) settings[entry.Key] = entry.Value?.DeepClone();
+        return OidcIdentity(settings.ToJsonString());
     }
+
+    private static JsonObject OidcProbeSigningSettings() => new()
+    {
+        ["ActiveSigningKeyId"] = "oidc-signing-probe",
+        ["SigningKeys"] = new JsonObject
+        {
+            ["oidc-signing-probe"] = new JsonObject
+            {
+                ["PublicKeyPem"] = DevelopmentProbePem.Value.Public,
+                ["PrivateKeyPem"] = DevelopmentProbePem.Value.Private,
+            },
+        },
+    };
 
     private static string OidcIdentity(string fragment)
     {
         var oidc = JsonNode.Parse("""{"Enable":true,"Issuer":"https://issuer.example.invalid","Clients":[{"ClientId":"client-signing-probe","RedirectUris":["https://client.example.invalid/callback"]}]}""")!.AsObject();
+        oidc["EncryptionKeyBase64"] = SyntheticEncryptionKey(32);
         foreach (var entry in JsonNode.Parse(fragment)!.AsObject()) oidc[entry.Key] = entry.Value?.DeepClone();
         return new JsonObject { ["EnableTokenEndpoints"] = false, ["Oidc"] = oidc }.ToJsonString();
     }
