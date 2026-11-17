@@ -6689,3 +6689,8 @@ Release 集成工程单节点构建及 Identity 模块隔离 AOT 分析均零警
 
 - 原生 Worker 的文档根锁定读取在 SQL Server 抛出 `SqlNullValueException`，在 MySQL 抛出 `InvalidCastException`，启用后的历史版本裁剪均停在删除前。两库 `DocumentNo` 均允许 NULL，原生物化改为复用可空读取并沿用 JIT 的空字符串默认值。双库原生回归显式保留空编号输入。[原生失败作业](https://github.com/yan041108/Full.NET/actions/runs/44033501282/job/133870751945)。
 - Document AOT 分析构建零警告、零错误。直接调用该构建中的物化器验证投影缺列、数据库 NULL 和非空编号，3/3 通过。新原生 Worker 的双库裁剪流程待复验。
+
+### 8.298 Native AOT 发布的 Linux 运行基线（2026-11-17）
+
+- Actions 的 `ubuntu-latest` 已切到 Ubuntu 26.04，发布入口在 Linux 直接链接。下载同次原生 API 产物，在当前运行镜像中启动时报告缺少 `GLIBC_2.43`；镜像实测为 2.39。API 与 Worker 发布作业固定 Ubuntu 24.04，保持与 Noble 运行时一致。[API 原生发布作业](https://github.com/yan041108/Full.NET/actions/runs/44033501286/job/133870751821)。
+- 发布、产物上传和原生运行验证的定向规则测试先失败 2 项，更新后 2/2 通过。新发布产物及独立运行仍待复验。原生 OpenAPI 500 和需要额外前置资源的专项用例继续保留为独立待处理项。

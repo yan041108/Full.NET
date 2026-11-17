@@ -39,7 +39,8 @@ concurrency:
 
 jobs:
   linux-native-aot:
-    runs-on: ubuntu-latest
+    # 原生链接需匹配发布运行镜像的 Noble glibc 基线。
+    runs-on: ubuntu-24.04
     timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4

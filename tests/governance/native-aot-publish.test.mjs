@@ -74,6 +74,7 @@ test('核心API跨宿主恢复与Worker专项均登记必需场景', async () =>
 for (const role of ['api', 'worker']) {
   test(`${role} 成功发布后立即上传可复用产物，运行证据仍在原生测试之后`, async () => {
     const workflow = await read(`.github/workflows/${role}-native-aot-linux.yml`);
+    assert.match(workflow, /^    runs-on: ubuntu-24\.04$/m, '发布链接环境须和 Noble 运行镜像使用同一 glibc 基线');
     const steps = workflow.split(/^      - /m).slice(1);
     const publish = steps.findIndex(step => step.includes(role === 'api'
       ? 'run: pnpm test:aot:publish:linux' : 'run: pnpm test:aot:worker:publish:linux'));
