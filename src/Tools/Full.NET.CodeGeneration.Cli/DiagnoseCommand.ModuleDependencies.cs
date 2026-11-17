@@ -56,9 +56,7 @@ internal static partial class DiagnoseCommand
     private static StaticModuleDependencies ReadStaticModuleDependencies(string workspacePath, string name)
     {
         // 模块键已通过官方名单和安装范围准入，固定路径不接受配置提供的任意文件位置。
-        var relative = name == "EnterpriseRequest"
-            ? "samples/enterprise-request/src/Full.NET.Modules.EnterpriseRequest/EnterpriseRequestModule.cs"
-            : "src/Modules/Full.NET.Modules." + name + "/" + name + "Module.cs";
+        var relative = "src/Modules/Full.NET.Modules." + name + "/" + name + "Module.cs";
         // 只读取文件语法根节点；不调用编译或程序集加载入口。
         var root = SyntaxFactory.ParseCompilationUnit(File.ReadAllText(Path.Combine(workspacePath, "framework/fullnet", relative)));
         if (root.GetDiagnostics().Any(diagnostic => diagnostic.Severity == DiagnosticSeverity.Error))

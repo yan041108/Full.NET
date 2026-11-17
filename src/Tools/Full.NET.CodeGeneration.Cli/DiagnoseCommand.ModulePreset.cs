@@ -16,7 +16,7 @@ internal static partial class DiagnoseCommand
         "Identity", "Auditing", "Files", "Document", "Notifications", "Calendar", "Platform", "Regions",
         "Jobs", "Messaging", "Tenancy", "Organization", "ImportExport", "Reporting", "Printing", "Ai",
         "Settings", "CodeGeneration", "SerialNumbers", "DataApproval", "ObservabilityAdmin", "Workflow",
-        "Mqtt", "Webhooks", "Cryptography", "Payments", "GoView", "K3Cloud", "Ocr", "EnterpriseRequest",
+        "Mqtt", "Webhooks", "Cryptography", "Payments", "GoView", "K3Cloud", "Ocr",
     ];
 
     private sealed record DiagnosticModuleSelection(string? Preset, IReadOnlySet<string>? Enabled);

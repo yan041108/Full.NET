@@ -67,7 +67,6 @@ public sealed class StandaloneModuleDependencyTests
     [DataRow("GoView")]
     [DataRow("K3Cloud")]
     [DataRow("Ocr")]
-    [DataRow("EnterpriseRequest")]
     public async Task Official_literal_sources_match_the_actual_runtime_dependency_closure(string name)
     {
         var selected = new HashSet<string>(StringComparer.Ordinal);
@@ -77,6 +76,19 @@ public sealed class StandaloneModuleDependencyTests
         using var fixture = new Workspace();
         fixture.Select(selected);
         await Diagnose(fixture, 0, "DIAG_RUNTIME_MODULE_DEPENDENCIES_CLOSED ok");
+    }
+
+    [TestMethod]
+    public async Task Application_owned_enterprise_sample_is_rejected_in_the_official_enabled_list()
+    {
+        var selected = new[] { "Identity", "EnterpriseRequest" };
+        using var config = Config(selected);
+        Assert.ThrowsExactly<InvalidOperationException>(() =>
+            FullNetModuleSelection.ResolveEnabledModules(config, Official.Values.ToArray()));
+
+        using var fixture = new Workspace();
+        fixture.Select(selected);
+        await Diagnose(fixture, 1, "DIAG_MODULE_ENABLED_INVALID error", dependencyApplicable: false);
     }
 
     [TestMethod]
@@ -221,17 +233,14 @@ public sealed class StandaloneModuleDependencyTests
             foreach (var module in modules)
             {
                 Write("framework/fullnet/src/Modules/Full.NET.Modules." + module + "/Full.NET.Modules." + module + ".csproj", "<Project />");
-                var relative = module == "EnterpriseRequest"
-                    ? "samples/enterprise-request/src/Full.NET.Modules.EnterpriseRequest/EnterpriseRequestModule.cs"
-                    : "src/Modules/Full.NET.Modules." + module + "/" + module + "Module.cs";
+                var relative = "src/Modules/Full.NET.Modules." + module + "/" + module + "Module.cs";
                 Source(module, File.ReadAllText(Path.Combine(repo.FullName, relative)));
             }
             Select(["Identity"]);
         }
 
-        public string SourcePath(string module) => Path.Combine(Root, "framework/fullnet", module == "EnterpriseRequest"
-            ? "samples/enterprise-request/src/Full.NET.Modules.EnterpriseRequest/EnterpriseRequestModule.cs"
-            : "src/Modules/Full.NET.Modules." + module + "/" + module + "Module.cs");
+        public string SourcePath(string module) => Path.Combine(Root, "framework/fullnet",
+            "src/Modules/Full.NET.Modules." + module + "/" + module + "Module.cs");
         public void Source(string module, string source) => Write(Path.GetRelativePath(Root, SourcePath(module)), source);
         public void Select(IEnumerable<string> selected)
         {
