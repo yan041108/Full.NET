@@ -16,6 +16,11 @@ namespace Full.NET.IntegrationTests.NativeAot;
 [DoNotParallelize]
 public sealed class NativeChatCrossInstanceCancellationTests
 {
+    private DirectoryInfo? _temporary;
+
+    [TestCleanup]
+    public void RemoveTemporaryFiles() => _temporary?.Delete(recursive: true);
+
     [TestMethod]
     [DataRow(DatabaseProvider.SqlServer)]
     [DataRow(DatabaseProvider.MySql)]
@@ -27,20 +32,18 @@ public sealed class NativeChatCrossInstanceCancellationTests
             ? await SharedDatabaseFixture.CreateSqlServerDatabaseAsync()
             : await SharedDatabaseFixture.CreateMySqlDatabaseAsync();
         var stamp = Guid.CreateVersion7().ToString("N");
+        // 数据库由共享夹具登记；两个 API 的文件和密钥由本用例统一回收。
+        _temporary = Directory.CreateTempSubdirectory("fullnet-native-chat-");
         var settings = new Dictionary<string, string?>
         {
             ["Identity:SessionLoginPolicy"] = "AllowMultiple",
-            ["Files:Local:RootPath"] = Path.Combine(Path.GetTempPath(), "fullnet-a06-native-chat-files", stamp),
-            ["DataProtection:KeyRingPath"] = Path.Combine(Path.GetTempPath(), "fullnet-a06-native-chat-keys", stamp),
-            ["CodeGeneration:Artifacts:RootDirectory"] = Path.Combine(Path.GetTempPath(), "fullnet-a06-native-chat-codegen", stamp),
+            ["Files:Local:RootPath"] = Path.Combine(_temporary.FullName, "files"),
+            ["DataProtection:KeyRingPath"] = Path.Combine(_temporary.FullName, "keys"),
+            ["CodeGeneration:Artifacts:RootDirectory"] = Path.Combine(_temporary.FullName, "codegen"),
         };
         Directory.CreateDirectory(settings["CodeGeneration:Artifacts:RootDirectory"]!);
         await using var db = Migration246AiKnowledgeIndexTaskRecoveryTests.Connection(provider == DatabaseProvider.SqlServer, connection);
         await db.OpenAsync();
-        var registry = Environment.GetEnvironmentVariable("FULLNET_A06_CHAT_NATIVE_DATABASE_REGISTRY")
-            ?? throw new InvalidOperationException("必须准确登记原生验收数据库。");
-        await File.AppendAllTextAsync(registry, JsonSerializer.Serialize(new { provider = provider.ToString(), database = db.Database,
-            filesRoot = settings["Files:Local:RootPath"], keysRoot = settings["DataProtection:KeyRingPath"], codegenRoot = settings["CodeGeneration:Artifacts:RootDirectory"] }) + "\n");
         using var factory = new FullNetApiFactory(provider, connection, settings);
         await factory.InitializeAsync();
         var actorName = "a06-chat-" + stamp;

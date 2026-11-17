@@ -1827,7 +1827,7 @@
   },
   "nativeAotIntegration": {
     "project": "tests/Full.NET.IntegrationTests/Full.NET.IntegrationTests.csproj",
-    "filter": "FullyQualifiedName~Full.NET.IntegrationTests.NativeAot&FullyQualifiedName!~NativeApiS3&FullyQualifiedName!~NativeApiKafkaReplay&FullyQualifiedName!~NativeApiNotifications&FullyQualifiedName!~NativeApiSettings&FullyQualifiedName!~NativeApiJobs&FullyQualifiedName!~NativeApiOidc&FullyQualifiedName!~NativeApiMessagingConfigurationE2ETests&FullyQualifiedName!~NativeEnterpriseBusiness&FullyQualifiedName!~NativeWorkerKnowledgeGenerationE2ETests&FullyQualifiedName!~NativeWorkerCorrectionGenerationE2ETests&FullyQualifiedName!~NativeMigratorE2ETests&FullyQualifiedName!~NativeLogConsumerE2ETests",
+    "filter": "FullyQualifiedName~Full.NET.IntegrationTests.NativeAot&FullyQualifiedName!~NativeApiS3&FullyQualifiedName!~NativeApiKafkaReplay&FullyQualifiedName!~NativeApiNotifications&FullyQualifiedName!~NativeApiSettings&FullyQualifiedName!~NativeApiJobs&FullyQualifiedName!~NativeApiOidc&FullyQualifiedName!~NativeApiMessagingConfigurationE2ETests&FullyQualifiedName!~NativeEnterpriseBusiness&FullyQualifiedName!~NativeWorkerKnowledgeGenerationE2ETests&FullyQualifiedName!~NativeWorkerCorrectionGenerationE2ETests&FullyQualifiedName!~NativeMigratorE2ETests&FullyQualifiedName!~NativeLogConsumerE2ETests&FullyQualifiedName!~NativeChatCrossInstanceCancellationTests",
     "requiredTestTypes": [
       "NativeApiCacheE2ETests",
       "NativeApiLocalFileMySqlE2ETests",
@@ -1846,6 +1846,13 @@
     ],
     "minimum": 60,
     "timeout": "90m"
+  },
+  "nativeChatRuntimeIntegration": {
+    "project": "tests/Full.NET.IntegrationTests/Full.NET.IntegrationTests.csproj",
+    "filter": "FullyQualifiedName~Full.NET.IntegrationTests.NativeAot.NativeChatCrossInstanceCancellationTests",
+    "requiredTestTypes": ["NativeChatCrossInstanceCancellationTests"],
+    "minimum": 2,
+    "timeout": "15m"
   },
   "nativeKnowledgeGenerationIntegration": {
     "project": "tests/Full.NET.IntegrationTests/Full.NET.IntegrationTests.csproj",

@@ -67,6 +67,12 @@ test('核心API跨宿主恢复与Worker专项均登记必需场景', async () =>
   const api = matrix.nativeAotIntegration;
   const worker = matrix.workerNativeAotIntegration;
   const knowledge = matrix.nativeKnowledgeGenerationIntegration;
+  const chat = matrix.nativeChatRuntimeIntegration;
+  const chatType = 'NativeChatCrossInstanceCancellationTests';
+  assert.ok(api.filter.split('&').includes('FullyQualifiedName!~' + chatType));
+  assert.equal(chat.filter, 'FullyQualifiedName~Full.NET.IntegrationTests.NativeAot.' + chatType);
+  assert.deepEqual(chat.requiredTestTypes, [chatType]);
+  assert.equal(chat.minimum, 2);
   assert.ok(api.requiredTestTypes.includes('NativeWorkerPdfE2ETests'));
   assert.ok(api.requiredTestTypes.includes('NativeApiKafkaLogMySqlE2ETests'));
   assert.ok(worker.requiredTestTypes.includes('NativeWorkerKafkaLogMySqlE2ETests'));
@@ -107,6 +113,9 @@ for (const role of ['api', 'worker']) {
     if (role === 'api') {
       const chromium = steps.findIndex(step => step.includes('playwright install --with-deps chromium'));
       assert.ok(chromium >= 0 && chromium < runtime, '日程原生浏览器用例须在 Chromium 准备后运行');
+      const integrationBuild = steps.findIndex(step => step.startsWith('name: Build integration tests'));
+      const chat = steps.findIndex(step => step.includes('run-native-generation.mjs --chat'));
+      assert.ok(integrationBuild >= 0 && chat > integrationBuild && chat < runtime, '原生聊天专项必须复用已构建控制器');
     }
     assert.match(steps[artifact], /if: success\(\)/);
     assert.match(steps[artifact], /if-no-files-found: error/);

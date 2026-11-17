@@ -110,6 +110,13 @@ jobs:
       - name: Build integration tests
         run: dotnet build tests/Full.NET.IntegrationTests/Full.NET.IntegrationTests.csproj -c Release --no-restore
 
+      - name: Run isolated Native AI chat E2E
+        run: |
+          docker pull mcr.microsoft.com/dotnet/sdk:10.0.404
+          ryuk="$(node --input-type=module -e 'import { boundedRyukImage } from "./scripts/testing/bounded-testcontainers-reaper.mjs"; console.log(boundedRyukImage)')"
+          docker pull "$ryuk"
+          node tests/ai-parsing/run-native-generation.mjs --chat "$RUNNER_TEMP/fullnet-native-chat"
+
       - name: Install Chromium for Native AOT browser E2E
         run: pnpm --filter @fullnet/admin-real-stack-e2e exec playwright install --with-deps chromium
 
@@ -140,3 +147,4 @@ jobs:
             artifacts/**/*.trx
             artifacts/**/*.log
             TestResults/**
+            ${{ runner.temp }}/fullnet-native-chat/**
