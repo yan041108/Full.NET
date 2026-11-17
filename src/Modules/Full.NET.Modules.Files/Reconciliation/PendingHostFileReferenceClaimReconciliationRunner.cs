@@ -135,11 +135,12 @@ internal sealed class PendingHostFileReferenceClaimReconciliationRunner(
                 HostFileReferenceClaimProbeResult probeResult;
                 try
                 {
-                    probeResult = await probe.ProbeReferenceAsync(
-                            record.ConsumerReferenceId,
-                            record.FileId,
-                            cancellationToken)
-                        .ConfigureAwait(false);
+                    // 可复用引用必须匹配扫描到的绑定键，避免同一文件的其他绑定代际误确认。
+                    probeResult = probe is IHostFileReferenceBindingClaimProbe bindingProbe
+                        ? await bindingProbe.ProbeBindingAsync(record.ConsumerReferenceId, record.FileId,
+                            record.IdempotencyKey, cancellationToken).ConfigureAwait(false)
+                        : await probe.ProbeReferenceAsync(record.ConsumerReferenceId, record.FileId,
+                            cancellationToken).ConfigureAwait(false);
                 }
                 catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
                 {
