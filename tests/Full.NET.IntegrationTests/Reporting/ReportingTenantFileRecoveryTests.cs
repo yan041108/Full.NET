@@ -29,7 +29,7 @@ public sealed class ReportingTenantFileRecoveryTests
     [TestMethod]
     [DataRow(DatabaseProvider.SqlServer)]
     [DataRow(DatabaseProvider.MySql)]
-    public Task Suspended_tenant_preserves_uploaded_report_until_reactivation(DatabaseProvider provider) =>
+    public Task Admission_pressure_and_tenant_suspension_preserve_uploaded_report(DatabaseProvider provider) =>
         VerifyRecoveryAsync(provider, crashProcess: false);
 
     [TestMethod]
@@ -108,20 +108,39 @@ public sealed class ReportingTenantFileRecoveryTests
         var workbook = new Workbook();
         var gate = new FileGate(taskId);
         var firstCompleted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var firstIteration = new TaskCompletionSource<IterationOutcome>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var capacityFailure = provider == DatabaseProvider.SqlServer ? ServiceCapacityFailureKind.Rejected : ServiceCapacityFailureKind.Timeout;
+        var retryAfter = TimeSpan.FromSeconds(provider == DatabaseProvider.SqlServer ? 6 : 4);
         using (var worker = await BuildWorkerAsync(0,
-            legacyOutput ? FileMode.LegacyFailAfterUpload : FileMode.FailAfterUpload, firstCompleted))
+            legacyOutput ? FileMode.LegacyFailAfterUpload : FileMode.CapacityAfterUpload, firstCompleted, firstIteration))
         {
             await worker.StartAsync();
             try
             {
                 await gate.Uploaded.Task.WaitAsync(TimeSpan.FromSeconds(40));
-                await firstCompleted.Task.WaitAsync(TimeSpan.FromSeconds(40));
+                if (legacyOutput)
+                {
+                    await firstCompleted.Task.WaitAsync(TimeSpan.FromSeconds(40));
+                }
+                else
+                {
+                    var outcome = await firstIteration.Task.WaitAsync(TimeSpan.FromSeconds(40));
+                    Assert.AreEqual(LogLevel.Warning, outcome.Level);
+                    Assert.AreEqual(6713, outcome.EventId);
+                    Assert.AreEqual(capacityFailure, outcome.CapacityFailure);
+                    Assert.IsNotNull(outcome.RetryDelayMilliseconds);
+                    var minimumDelay = provider == DatabaseProvider.SqlServer ? 6000 : 5000;
+                    var delay = outcome.RetryDelayMilliseconds.Value;
+                    Assert.IsTrue(delay >= minimumDelay && delay <= minimumDelay + 1000, $"Unexpected retry delay: {delay} ms.");
+                }
             }
             finally { await worker.StopAsync(); }
         }
         var before = await ReadTaskAsync();
         Assert.AreEqual(ReportingExportTaskStatusKeys.Processing, before.StatusKey);
         Assert.IsNull(before.OutputFileId);
+        Assert.IsNull(before.ErrorCode);
+        Assert.IsNotNull(before.LeaseId);
         var existing = await ListFilesAsync();
         Assert.HasCount(1, existing);
         Assert.AreEqual(gate.Uploaded.Task.Result, existing.Single().FileId);
@@ -237,7 +256,8 @@ public sealed class ReportingTenantFileRecoveryTests
         Assert.AreEqual((byte)'P', content[0]);
         Assert.AreEqual((byte)'K', content[1]);
 
-        async Task<IHost> BuildWorkerAsync(int minutes, FileMode mode, TaskCompletionSource completion) =>
+        async Task<IHost> BuildWorkerAsync(int minutes, FileMode mode, TaskCompletionSource completion,
+            TaskCompletionSource<IterationOutcome>? firstOutcome = null) =>
             await IntegrationWorkerHostFactory.BuildAsync(provider, connection,
                 new Dictionary<string, string?>
                 {
@@ -251,12 +271,12 @@ public sealed class ReportingTenantFileRecoveryTests
                     services.AddSingleton<IClock>(new RecoveryClock(minutes));
                     services.RemoveAll<IReportingExportWorkbookSource>();
                     services.AddSingleton<IReportingExportWorkbookSource>(workbook);
-                    services.AddSingleton<ILogger<ReportingExportTaskHostedProcessor>>(new IterationLogger(completion));
+                    services.AddSingleton<ILogger<ReportingExportTaskHostedProcessor>>(new IterationLogger(completion, firstOutcome));
                     var descriptor = services.Single(item => item.ServiceType == typeof(ITenantResourceFileStore));
                     services.Remove(descriptor);
                     services.AddScoped<ITenantResourceFileStore>(scope => new ControlledFiles(
                         (ITenantResourceFileStore)(descriptor.ImplementationFactory?.Invoke(scope)
-                            ?? ActivatorUtilities.CreateInstance(scope, descriptor.ImplementationType!)), gate, mode));
+                            ?? ActivatorUtilities.CreateInstance(scope, descriptor.ImplementationType!)), gate, mode, capacityFailure, retryAfter));
                 });
         async Task<ReportingExportTaskRecord> ReadTaskAsync()
         {
@@ -360,7 +380,7 @@ public sealed class ReportingTenantFileRecoveryTests
         return json.RootElement.Clone();
     }
 
-    private enum FileMode { FailAfterUpload, LegacyFailAfterUpload, PauseList, Observe }
+    private enum FileMode { CapacityAfterUpload, LegacyFailAfterUpload, PauseList, Observe }
     private sealed class FilesRoot : IDisposable
     {
         internal string Path { get; } = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "fullnet-report-recovery-" + Guid.NewGuid().ToString("N"));
@@ -390,7 +410,10 @@ public sealed class ReportingTenantFileRecoveryTests
             return Task.FromResult(Result<ReportingExportGeneratedFile>.Success(new(1, "recovery.xlsx", bytes)));
         }
     }
-    private sealed class IterationLogger(TaskCompletionSource completed) : ILogger<ReportingExportTaskHostedProcessor>
+    private sealed record IterationOutcome(LogLevel Level, int EventId, ServiceCapacityFailureKind? CapacityFailure, double? RetryDelayMilliseconds);
+
+    private sealed class IterationLogger(TaskCompletionSource completed, TaskCompletionSource<IterationOutcome>? firstOutcome)
+        : ILogger<ReportingExportTaskHostedProcessor>
     {
         public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
         public bool IsEnabled(LogLevel logLevel) => true;
@@ -398,9 +421,17 @@ public sealed class ReportingTenantFileRecoveryTests
         {
             if (eventId.Id == 6711 && state is IEnumerable<KeyValuePair<string, object?>> values
                 && values.Any(value => value.Key == "ProcessedCount" && Equals(value.Value, 1))) completed.TrySetResult();
+            if (firstOutcome is not null && eventId.Id is 6711 or 6712 or 6713)
+            {
+                var fields = (IEnumerable<KeyValuePair<string, object?>>)state!;
+                firstOutcome.TrySetResult(new(logLevel, eventId.Id,
+                    fields.FirstOrDefault(field => field.Key == "CapacityFailure").Value as ServiceCapacityFailureKind?,
+                    fields.FirstOrDefault(field => field.Key == "RetryDelayMilliseconds").Value as double?));
+            }
         }
     }
-    private sealed class ControlledFiles(ITenantResourceFileStore inner, FileGate gate, FileMode mode) : ITenantResourceFileStore
+    private sealed class ControlledFiles(ITenantResourceFileStore inner, FileGate gate, FileMode mode,
+        ServiceCapacityFailureKind capacityFailure, TimeSpan retryAfter) : ITenantResourceFileStore
     {
         public async Task<Result<TenantResourceFileReference>> UploadAsync(string ownerModuleKey, Guid resourceId, Guid actorUserId,
             string originalFileName, string contentType, Stream content, long contentLength, CancellationToken cancellationToken = default)
@@ -409,9 +440,13 @@ public sealed class ReportingTenantFileRecoveryTests
             if (isTargetReport) Interlocked.Increment(ref gate.Uploads);
             if (isTargetReport && mode == FileMode.LegacyFailAfterUpload) originalFileName = "recovery.xlsx";
             var result = await inner.UploadAsync(ownerModuleKey, resourceId, actorUserId, originalFileName, contentType, content, contentLength, cancellationToken);
-            if (isTargetReport && result.IsSuccess && mode is FileMode.FailAfterUpload or FileMode.LegacyFailAfterUpload)
+            if (isTargetReport && result.IsSuccess && mode is FileMode.CapacityAfterUpload or FileMode.LegacyFailAfterUpload)
             {
                 gate.Uploaded.TrySetResult(result.Value!.FileId);
+                if (mode == FileMode.CapacityAfterUpload)
+                {
+                    throw new ServiceCapacityExceededException(capacityFailure, retryAfter);
+                }
                 throw new IOException("测试上传成功后丢失响应。");
             }
             return result;

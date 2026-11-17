@@ -66,7 +66,14 @@ internal sealed class ReportingExportTaskRunner(
         }
 
         // 即使同一请求恢复执行，也只使用持久化的列权限快照，不能借新权限扩大旧任务输出。
-        await ExecuteClaimedAsync(claimed, RebuildPrincipal(claimed), cancellationToken).ConfigureAwait(false);
+        try
+        {
+            await ExecuteClaimedAsync(claimed, RebuildPrincipal(claimed), cancellationToken).ConfigureAwait(false);
+        }
+        catch (ServiceCapacityExceededException)
+        {
+            // 创建方已持久化任务，领取后的准入拒绝交由 Worker 在租约到期后恢复。
+        }
     }
 
     /// <summary>按租户目录领取过期或排队的导出任务并恢复执行。</summary>
@@ -246,7 +253,7 @@ internal sealed class ReportingExportTaskRunner(
         {
             // 请求或宿主取消后保留 processing，租约到期后由 Worker 恢复。
         }
-        catch (Exception)
+        catch (Exception exception) when (exception is not ServiceCapacityExceededException)
         {
             // 生成或上传可能已产生对象；保留 processing 以便绑定已有文件或重试生成。
         }

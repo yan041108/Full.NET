@@ -263,7 +263,7 @@ internal sealed class ImportExportTaskRunner(
         {
             await MarkExecutionFailedAsync(task, lease, ImportExportErrorCodes.FileInvalid, clock.UtcNow, cancellationToken).ConfigureAwait(false);
         }
-        catch (Exception)
+        catch (Exception exception) when (exception is not ServiceCapacityExceededException)
         {
             // 批次可能已写入业务数据但进度未提交；保留 executing 供租约到期后按同一 NextLineNumber 重试。
         }

@@ -152,6 +152,23 @@ public sealed class ImportMembershipRevocationTests
             {
                 Assert.AreEqual(0, await ProcessAsync()); Assert.IsNotNull(aAfter.LeaseExpiresAtUtc);
                 clock.Offset = aAfter.LeaseExpiresAtUtc.Value - DateTimeOffset.UtcNow + TimeSpan.FromSeconds(1);
+
+                // 检查点恢复时模拟进入逐行写入前的准入拒绝；当前领取保留到租约到期。
+                var kind = provider == DatabaseProvider.SqlServer ? ServiceCapacityFailureKind.Rejected : ServiceCapacityFailureKind.Timeout;
+                pause.AdmissionFailure = new ServiceCapacityExceededException(kind, TimeSpan.FromSeconds(2));
+                var capacityFailure = await Assert.ThrowsExactlyAsync<ServiceCapacityExceededException>(() => ProcessAsync());
+                Assert.AreEqual(kind, capacityFailure.Kind);
+                var awaitingAdmission = await ReadAsync(aContext, aTask.Id);
+                Assert.AreEqual(ImportExportTaskStatusKeys.Executing, awaitingAdmission.StatusKey);
+                Assert.AreEqual(aAfter.Version + 1, awaitingAdmission.Version);
+                Assert.AreEqual(aAfter.NextLineNumber, awaitingAdmission.NextLineNumber);
+                Assert.AreEqual(aAfter.ExecutionRowsJson, awaitingAdmission.ExecutionRowsJson);
+                Assert.IsNull(awaitingAdmission.ErrorCode);
+                Assert.IsNull(awaitingAdmission.ErrorReceiptFileId);
+                Assert.IsNotNull(awaitingAdmission.LeaseExpiresAtUtc);
+                Assert.AreEqual(0, await ProcessAsync());
+                Assert.AreEqual(0, await PositionCountAsync(aContext));
+                clock.Offset = awaitingAdmission.LeaseExpiresAtUtc.Value - DateTimeOffset.UtcNow + TimeSpan.FromSeconds(1);
             }
             pause.TaskId = null; Assert.AreEqual(1, await ProcessAsync());
             var completed = await ReadAsync(aContext, aTask.Id);
@@ -195,6 +212,7 @@ public sealed class ImportMembershipRevocationTests
     private sealed class Pause
     {
         internal Guid? TaskId;
+        internal ServiceCapacityExceededException? AdmissionFailure;
         internal readonly TaskCompletionSource Entered = new(TaskCreationOptions.RunContinuationsAsynchronously), Release = new(TaskCreationOptions.RunContinuationsAsynchronously);
     }
     private sealed class AdjustableClock : IClock
@@ -214,7 +232,12 @@ public sealed class ImportMembershipRevocationTests
             StaticImportPreviewContext context, CancellationToken cancellationToken = default)
         {
             // 处于调度器核证之后、实际逐行处理之前；恢复时仍调用原生产处理器重新授权每一行。
-            if (context.TaskId == pause.TaskId) { pause.Entered.TrySetResult(); await pause.Release.Task.WaitAsync(cancellationToken); }
+            if (context.TaskId == pause.TaskId)
+            {
+                pause.Entered.TrySetResult();
+                await pause.Release.Task.WaitAsync(cancellationToken);
+                if (pause.AdmissionFailure is { } failure) throw failure;
+            }
             return await inner.ExecuteBatchAsync(content, contentLength, startLineNumber, batchSize, context, cancellationToken);
         }
     }

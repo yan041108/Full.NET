@@ -1,3 +1,4 @@
+using Full.NET.Abstractions.Results;
 using Full.NET.Modules.Reporting.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -21,6 +22,7 @@ internal sealed class ReportingExportTaskHostedProcessor(
         while (!stoppingToken.IsCancellationRequested)
         {
             var processed = 0;
+            TimeSpan? capacityDelay = null;
             try
             {
                 processed = await ProcessOnceAsync(stoppingToken).ConfigureAwait(false);
@@ -29,12 +31,20 @@ internal sealed class ReportingExportTaskHostedProcessor(
             {
                 break;
             }
+            catch (ServiceCapacityExceededException exception)
+            {
+                // 遵守准入建议并错开多副本的下一次扫描。
+                var pollingDelay = GetDelayAfterBatch(0);
+                var minimumDelay = exception.RetryAfter > pollingDelay ? exception.RetryAfter : pollingDelay;
+                capacityDelay = minimumDelay + TimeSpan.FromMilliseconds(Random.Shared.Next(1000));
+                ReportingExportTaskHostedProcessorLog.CapacityBackoff(logger, exception.Kind, capacityDelay.Value.TotalMilliseconds);
+            }
             catch (Exception exception)
             {
                 ReportingExportTaskHostedProcessorLog.IterationFailed(logger, exception);
             }
 
-            var delay = GetDelayAfterBatch(processed);
+            var delay = capacityDelay ?? GetDelayAfterBatch(processed);
             try
             {
                 if (delay > TimeSpan.Zero) await Task.Delay(delay, stoppingToken).ConfigureAwait(false);
@@ -95,4 +105,11 @@ internal static partial class ReportingExportTaskHostedProcessorLog
         Level = LogLevel.Error,
         Message = "Reporting export worker iteration failed")]
     public static partial void IterationFailed(ILogger logger, Exception exception);
+
+    /// <summary>记录准入失败类型和下一次轮询前的等待时间。</summary>
+    [LoggerMessage(
+        EventId = 6713,
+        Level = LogLevel.Warning,
+        Message = "Reporting export worker polling delayed by database capacity ({CapacityFailure}) for {RetryDelayMilliseconds} ms")]
+    public static partial void CapacityBackoff(ILogger logger, ServiceCapacityFailureKind capacityFailure, double retryDelayMilliseconds);
 }

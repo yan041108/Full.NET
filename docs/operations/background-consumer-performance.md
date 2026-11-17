@@ -4,7 +4,7 @@
 
 `Notifications:Worker:MaxConcurrency` 默认 1，范围 1–16 且不能超过 `BatchSize`。大于 1 时每条投递使用独立作用域、租户上下文、连接和事务；完成顺序不保证与领取顺序一致。准备前、外发前仍检查租约，终态仍比较持有者、代次和修订号。增加并发前应按副本数核对数据库连接预算与提供程序限流；本轮没有提高默认并发或生产容量状态。
 
-Document 预览、ImportExport 导入、Reporting 导出取满当前有效批次时立即继续；空批、未满批次和故障按当前 `PollSeconds` 退避。取消仍由宿主令牌传播，外部调用的超时与租约约束保持独立。
+Document 预览、ImportExport 导入、Reporting 导出取满当前有效批次时立即继续。空批、未满批次和一般轮询故障按当前 `PollSeconds` 退避。取消由宿主令牌传播，外部调用的超时与租约约束保持独立。
 
 行政区域管理页通过 children API 逐层展开，刷新或成功变更后清空旧树缓存并取消旧请求。显式 tree API 在数据库内限制请求父节点及相对深度（1–5），最多返回 10,000 节点；超过预算以 `regions.administrative_region_tree_too_large` / HTTP 422 拒绝，应缩小父节点或深度。
 
@@ -15,6 +15,10 @@ ImportExport 与 Reporting 按数据库原生 UUID 顺序保存进程内候选�
 Notifications 每波只领取 `MaxConcurrency` 个可立即执行的槽位，波次结束后才继续领取，整轮不超过 `BatchSize`。因此等待后续波次的任务不提前持有租约；原有续租、外发前核验、幂等键、超时和终态 CAS 继续生效。
 
 Webhook Worker 遇到数据库准入拒绝或等待超时时，按建议等待时间与 `Webhooks:Delivery:PollMilliseconds` 的较大值退避，并加入小幅抖动。Warning 包含准入分类和等待毫秒数。若投递已领取且发送前读取签名或租户状态受阻，保留原租约和已用渠道次数，由后续领取重新核对并发送。
+
+Reporting 导出 Worker 遇到数据库准入拒绝或等待超时时，按建议等待时间与 `FullNet:Reporting:Export:PollSeconds` 的较大值退避，额外加入最多 1 秒抖动。事件 `6713` 以 Warning 记录 `CapacityFailure` 和 `RetryDelayMilliseconds`。已领取的任务继续等待原租约到期，接管者先核对并绑定已写入的工作簿。
+
+ImportExport 导入 Worker 应用相同的准入退避，读取 `FullNet:ImportExport:PollSeconds`，通过事件 `6613` 记录 Warning。已领取的任务保留租约与最后提交的行检查点，恢复时从该检查点继续。
 
 Document 版本保留的 `BatchSize` 限制整轮实际尝试删除的历史版本数，失败尝试同样消耗预算。有效历史保留数取配置上限与 `MinimumRetainedVersionsPerItem - 1` 的较大值，避免不可删除候选持续占用首批。
 

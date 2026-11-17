@@ -1,3 +1,4 @@
+using Full.NET.Abstractions.Results;
 using Full.NET.Modules.ImportExport.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -17,6 +18,7 @@ internal sealed class ImportExportTaskHostedProcessor(
         while (!stoppingToken.IsCancellationRequested)
         {
             var processed = 0;
+            TimeSpan? capacityDelay = null;
             try
             {
                 processed = await ProcessOnceAsync(stoppingToken).ConfigureAwait(false);
@@ -25,12 +27,20 @@ internal sealed class ImportExportTaskHostedProcessor(
             {
                 break;
             }
+            catch (ServiceCapacityExceededException exception)
+            {
+                // 各副本遵循准入建议暂停领取，并错开重试。
+                var pollingDelay = GetDelayAfterBatch(0);
+                var minimumDelay = exception.RetryAfter > pollingDelay ? exception.RetryAfter : pollingDelay;
+                capacityDelay = minimumDelay + TimeSpan.FromMilliseconds(Random.Shared.Next(1000));
+                ImportExportTaskHostedProcessorLog.CapacityBackoff(logger, exception.Kind, capacityDelay.Value.TotalMilliseconds);
+            }
             catch (Exception exception)
             {
                 ImportExportTaskHostedProcessorLog.IterationFailed(logger, exception);
             }
 
-            var delay = GetDelayAfterBatch(processed);
+            var delay = capacityDelay ?? GetDelayAfterBatch(processed);
             if (delay > TimeSpan.Zero) await Task.Delay(delay, stoppingToken).ConfigureAwait(false);
         }
     }
@@ -75,4 +85,10 @@ internal static partial class ImportExportTaskHostedProcessorLog
         Level = LogLevel.Error,
         Message = "ImportExport task worker iteration failed")]
     public static partial void IterationFailed(ILogger logger, Exception exception);
+
+    [LoggerMessage(
+        EventId = 6613,
+        Level = LogLevel.Warning,
+        Message = "ImportExport task worker polling delayed by database capacity ({CapacityFailure}) for {RetryDelayMilliseconds} ms")]
+    public static partial void CapacityBackoff(ILogger logger, ServiceCapacityFailureKind capacityFailure, double retryDelayMilliseconds);
 }

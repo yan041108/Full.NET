@@ -76,17 +76,27 @@ public sealed class ReportingExportTaskRecoveryTests
     }
 
     [TestMethod]
-    public async Task Recovery_uses_row_count_of_the_bound_file_not_another_attempt()
+    public async Task Recovery_defers_ambiguous_files_and_uses_the_remaining_files_row_count()
     {
         var fixture = CreateFixture();
         var task = SeedProcessing(fixture, leaseExpired: true);
         var latestId = Guid.NewGuid();
         task.RowCount = 99;
-        fixture.Files.ReadyFiles.Add(new(Guid.NewGuid(),
-            ReportingExportOutputIdentity.BuildStorageFileName("older.xlsx", 7), fixture.Clock.UtcNow.AddMinutes(-1)));
+        var older = new TenantResourceFileReadyItem(Guid.NewGuid(),
+            ReportingExportOutputIdentity.BuildStorageFileName("older.xlsx", 7), fixture.Clock.UtcNow.AddMinutes(-1));
+        fixture.Files.ReadyFiles.Add(older);
         fixture.Files.ReadyFiles.Add(new(latestId,
             ReportingExportOutputIdentity.BuildStorageFileName("latest.xlsx", 0), fixture.Clock.UtcNow));
 
+        Assert.AreEqual(1, await fixture.Runner.ProcessPendingAsync(CancellationToken.None));
+        Assert.AreEqual(ReportingExportTaskStatusKeys.Processing, task.StatusKey);
+        Assert.IsNull(task.OutputFileId);
+        Assert.AreEqual(99, task.RowCount);
+        Assert.HasCount(2, fixture.Files.ReadyFiles);
+
+        // 归属核对后只剩唯一就绪文件，恢复应使用该文件绑定的行数。
+        fixture.Files.ReadyFiles.Remove(older);
+        fixture.Clock.Advance(TimeSpan.FromSeconds(301));
         Assert.AreEqual(1, await fixture.Runner.ProcessPendingAsync(CancellationToken.None));
         Assert.AreEqual(ReportingExportTaskStatusKeys.Succeeded, task.StatusKey);
         Assert.AreEqual(latestId, task.OutputFileId);
