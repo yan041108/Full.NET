@@ -7309,9 +7309,12 @@ Release 集成工程单节点构建及 Identity 模块隔离 AOT 分析均零警
 
 | 固定任务 | 当前状态 | 完成条件 |
 | --- | --- | --- |
-| F16-NetworkRedisAuth | 已实现，待定向验收 | 匿名 PING 仅接受有界完整 NOAUTH，显式检查不受 -O 影响，处理分片、超时、截断、伪前缀与错误脱敏；真实回环连接验收。 |
-| F16-NetworkMySqlTls | 已实现，待定向验收 | 分帧解析 greeting 并验证能力，真实 SSLRequest/TLS 握手核对 CA 与 DNS/IP 身份；错误 CA/身份、截断、无 TLS 能力及握手超时均拒绝且不留局部成功。 |
+| F16-NetworkRedisAuth | 已交付，真实回环定向验收通过 | 匿名 PING 仅接受有界完整 NOAUTH，显式检查不受 -O 影响，处理分片、超时、截断、伪前缀与错误脱敏；真实回环连接验收。 |
+| F16-NetworkMySqlTls | 已交付，真实 TLS 定向验收通过 | 分帧解析 greeting 并验证能力，真实 SSLRequest/TLS 握手核对 CA 与 DNS/IP 身份；错误 CA/身份、截断、无 TLS 能力及握手超时均拒绝且不留局部成功。 |
 
 - 基线 `09043156d2c7b497ca1a3550723cd902789437b8`，复用快照 `network-readiness-protocol-20261118`。原 Verify-Network.py SHA-256 `f0600da91e2ea19591de107759a756da1cbd2ccf7f41d9a7b6ecf8400df58376`。原 Redis assert 在优化模式消失，MySQL 单次 recv 假设完整握手；本批接续现有 F16 网络准入，不重复已完成的缓存注册、双进程探针或发布编排。
 - 冻结两个任务及二十三条定向方法，Ubuntu 24.04 / Python 3.12 -O；测试使用非特权回环临时端口、临时 CA/密钥与真实 TLS，运行结束释放线程、套接字及临时材料。不调用在线 Redis/MySQL，不发送数据库登录或 SQL，不修改 .NET 运行代码，不扩展全量测试。
 - 两项规定验收完成后交付；发布节点实际网络、CRL、登录权限、集群故障域和容量仍由原专项保留，Capacity-not-verified。不自动纳入其他未提交 Ubuntu 脚本。
+
+- 候选 `c222417e7` 的 [网络定向作业](https://github.com/yan041108/Full.NET/actions/runs/44335566457/job/134911201420) 实际 23/23（4.389 秒），零失败/跳过，源码状态守卫通过；Ubuntu 24.04、Python 3.12.16 -O、OpenSSL 3.0.13。真实回环 TCP 分片、SSLRequest 字节与真实 TLS 握手均进入执行，错误 CA/目标 IP、超时、截断、错误能力及匿名 PONG 均拒绝，MySQL 失败不输出 Redis 局部成功。参数/无效 CA 的建连前拒绝使用受控边界断言。
+- 本批两个冻结任务及规定验收完成，剩余开发 0、待验收 0；源码、参数说明和回执已合入 main。实际发布节点网络、数据库登录、CRL、缓存多节点与容量不在本次证据内，继续保留原专项状态；未运行 .NET 或全量测试，未接管其余工作区脚本和测试报告。
