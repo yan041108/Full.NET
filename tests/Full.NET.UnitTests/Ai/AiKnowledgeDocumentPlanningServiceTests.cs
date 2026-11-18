@@ -311,6 +311,56 @@ public sealed partial class AiKnowledgeDocumentPlanningServiceTests
     }
 
     [TestMethod]
+    public async Task Tenant_file_list_unavailable_before_reservation_rejects_without_charging()
+    {
+        using var f = new Fixture(true) { FilesUnavailable = true };
+        var execution = f.Paid();
+        await Assert.ThrowsAsync<TenantResourceFileUnavailableException>(
+            () => execution.ExecuteAsync(f.Binding, f.TaskId, f.Lease, 0, default));
+        Assert.IsTrue(f.Stream.Closed);
+        Assert.AreEqual(0, f.Generator.Calls);
+        Assert.IsFalse(f.Budget.ReceivedCalls().Any());
+        Assert.IsNull(f.ManifestRow);
+        Assert.IsTrue(f.FileListCalls > 0);
+    }
+
+    [TestMethod]
+    [DataRow(false)]
+    [DataRow(true)]
+    public async Task Tenant_file_list_unavailable_after_dispatch_preserves_usage_and_prevents_replay(bool unknownUsage)
+    {
+        using var f = new Fixture(true);
+        var execution = f.Paid();
+        f.Generator.BeforeReturn = _ =>
+        {
+            f.FilesUnavailable = true;
+            if (unknownUsage) throw new IOException("synthetic model failure");
+        };
+        if (unknownUsage)
+            await Assert.ThrowsAsync<IOException>(() => execution.ExecuteAsync(f.Binding, f.TaskId, f.Lease, 0, default));
+        else
+            await Assert.ThrowsAsync<TenantResourceFileUnavailableException>(
+                () => execution.ExecuteAsync(f.Binding, f.TaskId, f.Lease, 0, default));
+        Assert.AreEqual(1, f.Generator.Calls);
+        Assert.IsNotNull(f.ManifestRow);
+        await f.Budget.Received(1).SettleAsync(f.OperationId,
+            unknownUsage ? new(null, null) : new(7, 0), "failed", CancellationToken.None);
+
+        f.Duplicate = true;
+        await Assert.ThrowsAsync<TenantResourceFileUnavailableException>(
+            () => execution.ExecuteAsync(f.Binding, f.TaskId, f.Lease, 0, default));
+        f.FilesUnavailable = false;
+        f.Lose("session");
+        Assert.IsNull(await execution.ExecuteAsync(f.Binding, f.TaskId, f.Lease, 0, default));
+        f.Session = f.FrozenSession;
+        Assert.IsNull(await execution.ExecuteAsync(f.Binding, f.TaskId, f.Lease, 0, default));
+        Assert.AreEqual(1, f.TenantCalls);
+        Assert.AreEqual(1, f.Generator.Calls);
+        await f.Budget.Received(2).ReserveAsync(Arg.Any<AiOperationRequest>(), Arg.Any<CancellationToken>());
+        await f.Budget.Received(1).SettleAsync(Arg.Any<Guid>(), Arg.Any<AiOperationUsage>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
+    }
+
+    [TestMethod]
     [DataRow("manifest")]
     [DataRow("reservation")]
     [DataRow("factory")]
@@ -599,8 +649,8 @@ public sealed partial class AiKnowledgeDocumentPlanningServiceTests
         internal string? DeniedPermission, InitialFault;
         internal string OpenMime = "application/vnd.openxmlformats-officedocument.wordprocessingml.document", Classification = "internal", Endpoint = "https://api.openai.com/v1";
         internal string? Organization;
-        internal bool SourceDenied;
-        internal int ReferenceCalls, HostCalls, TenantCalls, Commands, AuthCalls, DispatchCalls;
+        internal bool SourceDenied, FilesUnavailable;
+        internal int ReferenceCalls, HostCalls, TenantCalls, Commands, AuthCalls, DispatchCalls, FileListCalls;
         internal Action? AfterReference, AfterOpen, AfterModel, AfterAuthorize;
         internal Action? AfterDispatch;
         internal Func<CancellationToken, Task>? BeforeOpen;
@@ -649,7 +699,12 @@ public sealed partial class AiKnowledgeDocumentPlanningServiceTests
             Sessions = sessions;
             var references = Substitute.For<IHostFileReferenceReader>(); var host = Substitute.For<IHostFileContentReader>(); var files = Substitute.For<ITenantResourceFileStore>();
             files.ListReadyAsync("ai", Binding.VersionId, Arg.Any<CancellationToken>())
-                .Returns(_ => (IReadOnlyList<TenantResourceFileReadyItem>)[new(FileId, "source.docx", Now)]);
+                .Returns(_ =>
+                {
+                    FileListCalls++;
+                    if (FilesUnavailable) throw new TenantResourceFileUnavailableException();
+                    return (IReadOnlyList<TenantResourceFileReadyItem>)[new(FileId, "source.docx", Now)];
+                });
             references.GetReadyReferenceAsync(FileId, Arg.Any<CancellationToken>()).Returns<Task<HostFileReference?>>(async _ => { ReferenceCalls++; AfterReference?.Invoke();
                 if (BeforeReferenceAsync is not null) await BeforeReferenceAsync(_.ArgAt<CancellationToken>(1)); return Reference; });
             host.OpenReadyContentAsync(FileId, Arg.Any<CancellationToken>()).Returns(async call =>
