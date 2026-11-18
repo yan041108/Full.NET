@@ -340,21 +340,35 @@ internal sealed class S3HostFileBlobStorage : IFileStorageProvider, IDisposable
     internal static AWSCredentials? ResolveCredentials()
     {
         var accessKey = Environment.GetEnvironmentVariable(
-                S3FileStorageOptions.AccessKeyEnvironmentVariable)
-            ?? Environment.GetEnvironmentVariable("AWS_ACCESS_KEY_ID");
+            S3FileStorageOptions.AccessKeyEnvironmentVariable);
         var secretKey = Environment.GetEnvironmentVariable(
-                S3FileStorageOptions.SecretKeyEnvironmentVariable)
-            ?? Environment.GetEnvironmentVariable("AWS_SECRET_ACCESS_KEY");
-        if (string.IsNullOrWhiteSpace(accessKey) || string.IsNullOrWhiteSpace(secretKey))
+            S3FileStorageOptions.SecretKeyEnvironmentVariable);
+        var session = Environment.GetEnvironmentVariable(
+            S3FileStorageOptions.SessionTokenEnvironmentVariable);
+        var dedicated = accessKey is not null || secretKey is not null || session is not null;
+        if (!dedicated)
         {
-            // 回退到 SDK 默认链（实例角色 / Web Identity 等）。
+            accessKey = Environment.GetEnvironmentVariable("AWS_ACCESS_KEY_ID");
+            secretKey = Environment.GetEnvironmentVariable("AWS_SECRET_ACCESS_KEY");
+            session = Environment.GetEnvironmentVariable("AWS_SESSION_TOKEN");
+        }
+        if (accessKey is null && secretKey is null && session is null)
+        {
+            // 没有显式静态凭据时才交给 SDK 默认链；半配置不得悄悄换用另一身份。
             return null;
         }
+        if (string.IsNullOrWhiteSpace(accessKey) || string.IsNullOrWhiteSpace(secretKey))
+        {
+            throw new InvalidOperationException(
+                $"{S3FileStorageOptions.SectionName}:{(dedicated ? "Files__S3" : "AWS")} credentials require both access key and secret key from the same environment source.");
+        }
+        if (session is not null && string.IsNullOrWhiteSpace(session))
+        {
+            throw new InvalidOperationException(
+                $"{S3FileStorageOptions.SectionName}:SessionToken must not be blank when explicitly configured.");
+        }
 
-        var session = Environment.GetEnvironmentVariable(
-                S3FileStorageOptions.SessionTokenEnvironmentVariable)
-            ?? Environment.GetEnvironmentVariable("AWS_SESSION_TOKEN");
-        return string.IsNullOrWhiteSpace(session)
+        return session is null
             ? new BasicAWSCredentials(accessKey, secretKey)
             : new SessionAWSCredentials(accessKey, secretKey, session);
     }

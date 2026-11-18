@@ -79,11 +79,8 @@ internal sealed class OssFileStorageOptionsValidator(
                 $"{OssFileStorageOptions.SectionName}:RequestTimeout must be in (0, 30 minutes].");
         }
 
-        if (requireComplete
-            && string.IsNullOrWhiteSpace(
-                Environment.GetEnvironmentVariable(OssFileStorageOptions.AccessKeyIdEnvironmentVariable))
-            && string.IsNullOrWhiteSpace(
-                Environment.GetEnvironmentVariable(OssFileStorageOptions.AccessKeySecretEnvironmentVariable)))
+        var (accessKeyId, accessKeySecret) = OssHostFileBlobStorage.ResolveCredentials();
+        if (accessKeyId is null || accessKeySecret is null)
         {
             failures.Add(
                 $"{OssFileStorageOptions.SectionName}:credentials must come from environment "

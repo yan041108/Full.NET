@@ -21,6 +21,12 @@ Files__Cleanup__PollSeconds=300
 S3、OSS 未选为默认且没有存储身份配置时可以不配置。提供桶名、端点或 S3 Region 后，
 该提供商继续接受完整校验；生产 HTTPS 及环境变量/工作负载凭据约束不变。
 
+S3 的 `Files__S3__AccessKeyId`、`Files__S3__SecretAccessKey`、可选的 `Files__S3__SessionToken`
+按同一组选择，专用组优先于 `AWS_ACCESS_KEY_ID`、`AWS_SECRET_ACCESS_KEY`、`AWS_SESSION_TOKEN`。
+显式设置任一项后，AccessKey 与 Secret 必须完整，不能从另一组补齐；显式空白的令牌会被拒绝。
+没有显式静态组时才保留现有 SDK 默认链入口，其外部身份与 Native 认证范围仍按 ADR-0009 单独验证。
+OSS 的 `Files__Oss__AccessKeyId` 与 `Files__Oss__AccessKeySecret` 同样必须同时完整。
+
 迁移 `047_FilesStorageProvider` 会把存量对象归属回填为 `local`。新上传使用当时配置的默认
 Provider，并把 `ProviderKey` 与 `StorageKey` 一起持久化；下载、删除、补偿和后台墓碑清理始终按
 记录中的 Provider 路由。切换默认配置只影响新对象，未知或不规范的存量机器码会失败关闭，禁止

@@ -21,7 +21,7 @@ public sealed class S3FileStorageOptions
     /// <summary>配置节名称。</summary>
     public const string SectionName = "Files:S3";
 
-    /// <summary>凭据环境变量：优先 Files 专用键，其次标准 AWS 键。</summary>
+    /// <summary>凭据环境变量：Files 专用组优先于标准 AWS 组，同组密钥必须完整。</summary>
     public const string AccessKeyEnvironmentVariable = "Files__S3__AccessKeyId";
 
     /// <summary>Secret Access Key 环境变量；同 AccessKey 解析优先级。</summary>
@@ -137,20 +137,22 @@ internal sealed class S3FileStorageOptionsValidator(
                 break;
         }
 
-        if (requireComplete
-            && string.IsNullOrWhiteSpace(
-                Environment.GetEnvironmentVariable(S3FileStorageOptions.AccessKeyEnvironmentVariable))
-            && string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("AWS_ACCESS_KEY_ID"))
-            && string.IsNullOrWhiteSpace(
-                Environment.GetEnvironmentVariable("AWS_CONTAINER_CREDENTIALS_RELATIVE_URI"))
-            && string.IsNullOrWhiteSpace(
-                Environment.GetEnvironmentVariable("AWS_WEB_IDENTITY_TOKEN_FILE")))
+        try
         {
-            // 工作负载身份或挂载 Secret 通常注入上述环境变量之一；均缺失则启动失败。
-            failures.Add(
-                $"{S3FileStorageOptions.SectionName}:credentials must come from environment "
-                + $"({S3FileStorageOptions.AccessKeyEnvironmentVariable}/AWS_ACCESS_KEY_ID) "
-                + "or workload identity; do not store secrets in appsettings.");
+            // 与真实客户端使用同一解析边界；这里只构造静态凭据，不访问 SDK 默认链或网络。
+            if (S3HostFileBlobStorage.ResolveCredentials() is null
+                && string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("AWS_CONTAINER_CREDENTIALS_RELATIVE_URI"))
+                && string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("AWS_WEB_IDENTITY_TOKEN_FILE")))
+            {
+                failures.Add(
+                    $"{S3FileStorageOptions.SectionName}:credentials must come from environment "
+                    + $"({S3FileStorageOptions.AccessKeyEnvironmentVariable}/AWS_ACCESS_KEY_ID) "
+                    + "or workload identity; do not store secrets in appsettings.");
+            }
+        }
+        catch (InvalidOperationException error)
+        {
+            failures.Add(error.Message);
         }
 
         return failures.Count == 0
