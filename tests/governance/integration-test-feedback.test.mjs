@@ -225,7 +225,7 @@ test('CI 真实栈门禁显式执行当前 HTTPS BFF 与生产 TOTP 入口', asy
   assert.match(browser, /FULLNET_BFF_UI_ORIGIN/);
   assert.match(browser, /name:\s*'desktop'/);
   assert.match(browser, /name:\s*'mobile'/);
-  assert.match(runner, /FullyQualifiedName~IdentityBrowserUiTests/);
+  assert.match(runner, /FullyQualifiedName=Full\.NET\.IntegrationTests\.Identity\.IdentityBrowserUiTests\.Real_browser_https_bff_desktop_and_mobile_preserve_server_side_credentials/);
   assert.match(runner, /'--minimum-expected-tests', '2'/);
   assert.match(runner, /result\.total !== 2 \|\| result\.outcomes\.Passed !== 2/);
 });
