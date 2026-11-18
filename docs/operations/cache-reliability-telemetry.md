@@ -140,3 +140,16 @@ dotnet $probe $run a
 成功回执包含两个不同的 PID/缓存实例、双向 L1 失效观察、L2 删除、回填及健康状态。通知实验使用两分钟 L1 TTL，并要求五秒内观察失效，避免将过期误报为通知成功；另外仅对一个临时键禁发一次通知，单独观察短 TTL 收敛。失败只输出角色与异常类型，连接参数不进入诊断。
 
 本地或 CI 中的两个进程只能证明对应配置下的功能行为。回执中的单次毫秒值不是性能基线、撤销 SLA、独立节点故障域或容量证明；实际业务消费者仍按条目的一致性类别执行权威读取和 TTL/版本兜底。
+
+### 两节点编排入口
+
+`eng/deploy/ubuntu/Verify-CacheBackplane.py` 在明确指定的命名空间与 Helm 发布中选择两个 Ready API Pod，要求它们位于不同节点。输入目录须为探针的完整框架依赖发布目录，包含 DLL、deps.json、runtimeconfig.json 及依赖；两个目标容器须提供 .NET 10、GNU `timeout` 和 kubectl cp 所需的 tar。使用当前受控 Kubernetes 身份执行：
+
+```bash
+python3 eng/deploy/ubuntu/Verify-CacheBackplane.py "$PROBE_PUBLISH_DIRECTORY" "$NEW_EVIDENCE_FILE" \
+  --namespace fullnet-production --release fullnet-api --container api --kubectl k3s
+```
+
+普通 kubectl 使用 `--kubectl kubectl`，可用 `--context` 明确集群；命名空间必须显式指定，输出文件必须尚不存在。脚本校验本轮角色、运行标识、缓存实例、删除/回填、健康和时间窗；Pod UID 与节点在运行前后必须一致。不同 Pod 中的 PID 可相同，不能据此误判为同一进程。
+
+远端进程有独立硬期限。成功或失败后均尝试清理本轮协调键和目录，Pod 被替换时不向新 UID 删除旧资源；任一检查或清理未完成都不签发成功回执。回执仅包含已校验字段与 Kubernetes 权威身份，不透传未知进程字段或命令错误正文。此入口验证独立 SDK 进程，常驻 API/Worker 的真实业务健康和容量仍须分别核对。

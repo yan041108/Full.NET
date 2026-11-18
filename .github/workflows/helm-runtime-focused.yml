@@ -2,6 +2,19 @@ name: helm-runtime-focused
 
 on:
   workflow_dispatch:
+    inputs:
+      scenario:
+        description: 仅执行明确的部署工具场景
+        required: true
+        default: runtime-config
+        type: choice
+        options: [runtime-config, cdc-identities, cache-cluster-driver]
+      helm_version:
+        description: Helm 场景使用的固定版本
+        required: true
+        default: v3.16.4
+        type: choice
+        options: [v3.16.4, v4.0.0]
 
 permissions:
   contents: read
@@ -11,17 +24,61 @@ jobs:
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
     timeout-minutes: 10
+    env:
+      PYTHONDONTWRITEBYTECODE: '1'
     steps:
       - uses: actions/checkout@v4
+      - name: Validate the selected deployment scope
+        env:
+          SCENARIO: ${{ inputs.scenario }}
+          HELM_VERSION: ${{ inputs.helm_version }}
+        run: |
+          case "$SCENARIO" in runtime-config|cdc-identities|cache-cluster-driver) ;; *) exit 64 ;; esac
+          case "$HELM_VERSION" in v3.16.4|v4.0.0) ;; *) exit 64 ;; esac
       - uses: actions/setup-node@v4
+        if: inputs.scenario != 'cache-cluster-driver'
         with:
           node-version: 24
-      - uses: azure/setup-helm@v4
+      - uses: actions/setup-python@v5
+        if: inputs.scenario == 'cache-cluster-driver'
         with:
-          version: v3.16.4
-      - name: Verify only the three-role runtime configuration
+          python-version: '3.12'
+      - uses: azure/setup-helm@v4
+        if: inputs.scenario != 'cache-cluster-driver'
+        with:
+          version: ${{ inputs.helm_version }}
+      - name: Verify only the selected deployment scenario
+        env:
+          SCENARIO: ${{ inputs.scenario }}
         run: |
+          set -euo pipefail
           before="$(git status --porcelain --untracked-files=all)"
-          helm version --short
-          node --test tests/deployment/helm-runtime-config.test.mjs
+          case "$SCENARIO" in
+            runtime-config)
+              helm version --short
+              node --test tests/deployment/helm-runtime-config.test.mjs ;;
+            cdc-identities)
+              helm version --short
+              node --test --test-reporter=tap --test-name-pattern='^CDC multi-stream retention mappings render independent IDs and reject ambiguous or unbounded identities$' tests/deployment/helm-contract.test.mjs | tee "$RUNNER_TEMP/cdc-focused.log"
+              CDC_LOG="$RUNNER_TEMP/cdc-focused.log" node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          import assert from 'node:assert/strict';
+          const log = fs.readFileSync(process.env.CDC_LOG, 'utf8');
+          for (const [name, value] of Object.entries({tests: 1, pass: 1, fail: 0, cancelled: 0, skipped: 0}))
+            assert.match(log, new RegExp('^# ' + name + '\\s+' + value + '$', 'm'));
+          NODE
+              ;;
+            cache-cluster-driver)
+              python3 --version
+              python3 -O - <<'PY'
+          import unittest
+          suite = unittest.defaultTestLoader.discover('tests/deployment', pattern='cache_cluster_verifier_test.py')
+          result = unittest.TextTestRunner(verbosity=2).run(suite)
+          if not result.wasSuccessful() or result.skipped or result.testsRun < 15:
+              raise SystemExit(1)
+          print(f'cache_cluster_driver: passed={result.testsRun} failed=0 skipped=0')
+          PY
+              ;;
+            *) exit 64 ;;
+          esac
           test "$before" = "$(git status --porcelain --untracked-files=all)"

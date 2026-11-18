@@ -63,7 +63,8 @@ test('CDC multi-stream retention mappings render independent IDs and reject ambi
     ]) {
       const invalid = await render(monitoring);
       assert.notEqual(invalid.status, 0, 'Invalid monitoring identity unexpectedly rendered');
-      assert.match(invalid.stderr, /cdcMonitoring/);
+      // Helm 4 的 Schema 路径诊断与 Helm 3 不同；有效对照通过后，检查无效配置确实被校验拒绝。
+      assert.match(invalid.stderr, /schema|CDC|cdcMonitoring/i);
     }
   } finally { await rm(directory, { recursive: true, force: true }); }
 });
