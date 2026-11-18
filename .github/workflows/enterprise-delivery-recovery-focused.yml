@@ -1,0 +1,33 @@
+name: enterprise-delivery-recovery-focused
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  recovery:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+      - name: Prepare the two database providers
+        run: node scripts/testing/prepare-ci-test-images.mjs
+      - name: Restore the frozen integration inputs
+        run: dotnet restore tests/Full.NET.IntegrationTests/Full.NET.IntegrationTests.csproj --force-evaluate
+      - name: Run only the two delivery recovery database rows
+        run: |
+          git rev-parse HEAD
+          before="$(git status --porcelain --untracked-files=all)"
+          node scripts/testing/run-dotnet-test-suite.mjs workflowActivityIntegration \
+            --filter 'FullyQualifiedName=Full.NET.IntegrationTests.EnterpriseRequest.EnterpriseRequestDeliveryRecoveryTests.Files_and_reports_recover_without_reupload_and_cancel_or_stale_source_denies_download' \
+            --minimum-expected-tests 2
+          test "$before" = "$(git status --porcelain --untracked-files=all)"

@@ -108,6 +108,11 @@ internal sealed class EnterpriseRequestDeliveryProcessor(IQueryExecutor queries,
             if (!result.IsSuccess) await MoveAsync(work, lease, "FailedCleanup", result.Error!.Code, ct).ConfigureAwait(false);
             return result;
         }
+        catch (TenantResourceFileUnavailableException)
+        {
+            // 企业暂不可读取不是文件缺失或永久失败，保留原任务和文件等待恢复。
+            throw;
+        }
         catch (Exception) when (work.Kind == "Report" && work.Attempt >= 3)
         {
             await MoveAsync(work, lease, "FailedCleanup", "enterprise_request.delivery_failed", CancellationToken.None).ConfigureAwait(false);

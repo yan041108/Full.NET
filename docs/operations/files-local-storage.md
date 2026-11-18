@@ -18,12 +18,17 @@ Files__Cleanup__PollSeconds=300
 必须大于零。API Host 使用 `ValidateOnStart`，Provider 重复、默认 Provider 未注册或配置无效时拒绝
 启动，不会延迟到首个上传请求。
 
+S3、OSS 未选为默认且没有存储身份配置时可以不配置。提供桶名、端点或 S3 Region 后，
+该提供商继续接受完整校验；生产 HTTPS 及环境变量/工作负载凭据约束不变。
+
 迁移 `047_FilesStorageProvider` 会把存量对象归属回填为 `local`。新上传使用当时配置的默认
 Provider，并把 `ProviderKey` 与 `StorageKey` 一起持久化；下载、删除、补偿和后台墓碑清理始终按
 记录中的 Provider 路由。切换默认配置只影响新对象，未知或不规范的存量机器码会失败关闭，禁止
 回退到当前默认 Provider。
 
-Development 默认使用 `App_Data/files`。Production 应显式配置挂载到持久卷的目录，不应依赖容器临时文件系统或可随发布覆盖的应用目录。
+仍承载历史对象的非默认 Provider 必须保留原配置和凭据；启动校验不会扫描历史记录确认其是否已无使用者。
+
+Development 默认使用 `App_Data/files`。Production 默认必须选择 `s3` 或 `oss`；保留历史本地对象时，应显式配置挂载到持久卷的本地根目录，不应依赖容器临时文件系统或可随发布覆盖的应用目录。
 
 软删除 Blob 清理只由 Worker Profile 承载且默认关闭。只有 Worker 与 API 能访问同一持久化
 `RootPath` 时才可启用；启用但未配置有效根目录会拒绝 Worker 启动。每轮最多处理
@@ -74,5 +79,5 @@ Development 默认使用 `App_Data/files`。Production 应显式配置挂载到�
 
 禁止用递归删除命令直接清空根目录。
 
-当前发布物只包含 `local` Provider。S3、OSS、MinIO 等外部实现必须单独完成依赖与许可证审查、
-启动期配置校验和 Provider 专属集成环境，不得仅靠实现接口宣称可用。
+当前实现已注册 `local`、`s3`、`oss`；MinIO 等 S3 兼容存储使用 S3 的 Custom 端点模式。
+实际部署仍须验证所选端点、凭据、版本控制和对应 Provider 环境，启动校验通过不等同外部存储认证。

@@ -18,6 +18,7 @@ using Full.NET.Modules.Files.Features.TenantResourceFiles;
 using Full.NET.Modules.Organization.Contracts;
 using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Abstractions.Tenancy;
+using Full.NET.Modules.Tenancy.Contracts;
 using Full.NET.Modules.EnterpriseRequest.Persistence;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.DependencyInjection;
@@ -58,6 +59,19 @@ public sealed partial class EnterpriseRequestDeliveryRecoveryTests
         var organization = await EnterpriseRequestAssertions.CreateOrganizationUnitAsync(client, jwt, default);
         var user = await EnterpriseRequestAssertions.GetCurrentUserIdAsync(client, jwt, default);
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", jwt);
+        using var tenantClient = factory.CreateClientForHost("acme.localhost");
+        var tenant = await IntegrationTestTenantContextHelper.GetCurrentTenantAsync(tenantClient);
+        using var management = factory.CreateClientForHost("localhost");
+        management.DefaultRequestHeaders.Authorization = new("Bearer", await factory.CreateHostAccessTokenAsync(
+            ["tenancy.host_tenants.read", "tenancy.tenant_lifecycle.suspend", "tenancy.tenant_lifecycle.reactivate"]));
+        await using (var spareScope = factory.Services.CreateAsyncScope())
+        {
+            spareScope.ServiceProvider.GetRequiredService<ICurrentTenantContextWriter>().SetHost();
+            var identifier = "delivery-spare-" + Guid.NewGuid().ToString("N")[..10];
+            var spare = await spareScope.ServiceProvider.GetRequiredService<ITenantProvisioningService>().ProvisionAsync(
+                new ProvisionTenantRequest(identifier, "Delivery spare", identifier + ".localhost"));
+            Assert.IsTrue(spare.IsSuccess, spare.Error?.Code);
+        }
         const string root = "/api/v1/enterprise_request/enterprise-requests";
         using var create = new HttpRequestMessage(HttpMethod.Post, root) { Content = JsonContent.Create(new
         { requestNumber = "DEL-" + Guid.NewGuid().ToString("N")[..12], title = "=delivery <probe>", status = "Draft", totalAmount = "12.50", applicantUserId = user }) };
@@ -106,12 +120,67 @@ public sealed partial class EnterpriseRequestDeliveryRecoveryTests
         fault.LoseNext = true;
         await Due(); await worker.RunBatchAsync(default); await WaitPhase(report.Id, "Running");
         var afterReportUpload = fault.Uploads;
+        var originalReportFile = fault.LastUploadedFile;
+        Assert.IsNotNull(originalReportFile);
+        // 已上传对象必须留在原任务；企业不可读不应被多次重试解释为永久失败。
+        await db.ExecuteAsync("UPDATE demo_enterprise_request_delivery SET Attempt=3 WHERE Id=@Id", new { Id = report.Id });
+        fault.ListUnavailable = true;
+        await Due(); await worker.RunBatchAsync(default); await WaitPhase(report.Id, "Running");
+        Assert.AreEqual(afterReportUpload, fault.Uploads);
+        Assert.AreEqual(1, fault.ListFailures, "必须实际到达文件列表不可读取分支。");
+        fault.ListUnavailable = false;
+        fault.ListGate = new();
+        await Due();
+        var processing = worker.RunBatchAsync(default);
+        TenantSummary? suspended = null;
+        try
+        {
+            if (await Task.WhenAny(fault.ListGate.Entered.Task, processing).WaitAsync(TimeSpan.FromSeconds(40)) == processing)
+                Assert.Fail("Worker ended before the real file list was reached.");
+            using var currentResponse = await management.GetAsync($"/api/v1/tenancy/tenants/{tenant.Id:D}");
+            Assert.AreEqual(HttpStatusCode.OK, currentResponse.StatusCode);
+            var current = await currentResponse.Content.ReadFromJsonAsync<TenantSummary>();
+            Assert.IsNotNull(current);
+            using var response = await management.PostAsJsonAsync($"/api/v1/tenancy/tenants/{tenant.Id:D}/suspend",
+                new SuspendTenantRequest(current.Version));
+            Assert.AreEqual(HttpStatusCode.OK, response.StatusCode, await response.Content.ReadAsStringAsync());
+            suspended = await response.Content.ReadFromJsonAsync<TenantSummary>();
+            Assert.IsNotNull(suspended);
+            fault.ListGate.Release.TrySetResult();
+            await fault.ListGate.Unavailable.Task.WaitAsync(TimeSpan.FromSeconds(40));
+            await processing.WaitAsync(TimeSpan.FromSeconds(40));
+        }
+        finally
+        {
+            fault.ListGate.Release.TrySetResult();
+            try { await processing.WaitAsync(TimeSpan.FromSeconds(40)); } catch { }
+        }
+        await WaitPhase(report.Id, "Running");
+        Assert.AreEqual(afterReportUpload, fault.Uploads);
+        Assert.IsNull(await db.ExecuteScalarAsync<Guid?>("SELECT FileId FROM demo_enterprise_request_delivery WHERE Id=@Id", new { Id = report.Id }));
+        Assert.AreEqual(1, await db.ExecuteScalarAsync<int>(
+            "SELECT COUNT(*) FROM demo_enterprise_request_delivery WHERE Id=@Id AND LeaseId IS NULL AND LeaseUntilUtc IS NULL", new { Id = report.Id }));
+        using (var response = await management.PostAsJsonAsync($"/api/v1/tenancy/tenants/{tenant.Id:D}/reactivate",
+            new ReactivateTenantRequest(suspended!.Version)))
+            Assert.AreEqual(HttpStatusCode.OK, response.StatusCode, await response.Content.ReadAsStringAsync());
+        fault.ListGate = null;
         await db.ExecuteAsync("UPDATE demo_enterprise_request_delivery SET LeaseId=@Lease,LeaseUntilUtc=@Until WHERE Id=@Id",
             new { Id = report.Id, Lease = Guid.CreateVersion7(), Until = DateTimeOffset.UtcNow.AddMinutes(1) });
         await Due(); await worker.RunBatchAsync(default); Assert.AreEqual(afterReportUpload, fault.Uploads);
         await db.ExecuteAsync("UPDATE demo_enterprise_request_delivery SET LeaseUntilUtc=@Until WHERE Id=@Id", new { Id = report.Id, Until = DateTimeOffset.UtcNow.AddMinutes(-1) });
         await Due(); await worker.RunBatchAsync(default); await WaitPhase(report.Id, "Ready");
         Assert.AreEqual(afterReportUpload, fault.Uploads, "过期租约恢复必须找回原工作簿，不能重复渲染上传。");
+        Assert.AreEqual(originalReportFile, await db.ExecuteScalarAsync<Guid?>(
+            "SELECT FileId FROM demo_enterprise_request_delivery WHERE Id=@Id", new { Id = report.Id }));
+        await using (var fileScope = factory.Services.CreateAsyncScope())
+        {
+            fileScope.ServiceProvider.GetRequiredService<ICurrentTenantContextWriter>()
+                .SetTenant(new TenantContext(tenant.Id, "acme", "Acme"));
+            var files = await fileScope.ServiceProvider.GetRequiredService<ITenantResourceFileStore>()
+                .ListReadyAsync("enterprise_request_report", report.Id);
+            Assert.HasCount(1, files);
+            Assert.AreEqual(originalReportFile, files.Single().FileId);
+        }
         using (var export = await client.GetAsync($"{path}/reports/{report.Id:D}/download"))
         {
             Assert.AreEqual(HttpStatusCode.OK, export.StatusCode, await export.Content.ReadAsStringAsync());
@@ -218,7 +287,13 @@ public sealed partial class EnterpriseRequestDeliveryRecoveryTests
         }
     }
 
-    private sealed class UploadFault { public bool LoseNext; public bool DenyAmounts; public int Uploads; public Func<Task>? Opened; }
+    private sealed class UploadFault { public bool LoseNext; public bool DenyAmounts; public bool ListUnavailable; public int ListFailures; public int Uploads; public Guid? LastUploadedFile; public Func<Task>? Opened; public ListGate? ListGate; }
+    private sealed class ListGate
+    {
+        internal TaskCompletionSource Entered { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        internal TaskCompletionSource Release { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        internal TaskCompletionSource Unavailable { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+    }
     private sealed class FieldAuthorization(IBackgroundSessionAuthorization inner, UploadFault fault) : IBackgroundSessionAuthorization
     {
         public Task<AuthorizedSessionActor?> AuthorizeAsync(SessionBindingSnapshot binding, string permissionCode, CancellationToken cancellationToken = default) =>
@@ -235,6 +310,7 @@ public sealed partial class EnterpriseRequestDeliveryRecoveryTests
         {
             fault.Uploads++;
             var result = await inner.UploadAsync(ownerModuleKey, resourceId, actorUserId, originalFileName, contentType, content, length, cancellationToken);
+            if (result.IsSuccess) fault.LastUploadedFile = result.Value!.FileId;
             if (result.IsSuccess && fault.LoseNext) { fault.LoseNext = false; throw new IOException("Committed file response lost."); }
             return result;
         }
@@ -244,7 +320,19 @@ public sealed partial class EnterpriseRequestDeliveryRecoveryTests
             if (result.IsSuccess && fault.Opened is { } callback) { fault.Opened = null; await callback(); }
             return result;
         }
-        public Task<IReadOnlyList<TenantResourceFileReadyItem>> ListReadyAsync(string ownerModuleKey, Guid resourceId, CancellationToken cancellationToken = default) => inner.ListReadyAsync(ownerModuleKey, resourceId, cancellationToken);
+        public async Task<IReadOnlyList<TenantResourceFileReadyItem>> ListReadyAsync(string ownerModuleKey, Guid resourceId, CancellationToken cancellationToken = default)
+        {
+            if (fault.ListUnavailable)
+            {
+                fault.ListFailures++;
+                throw new TenantResourceFileUnavailableException();
+            }
+            if (fault.ListGate is not { } gate) return await inner.ListReadyAsync(ownerModuleKey, resourceId, cancellationToken);
+            gate.Entered.TrySetResult();
+            await gate.Release.Task.WaitAsync(cancellationToken);
+            try { return await inner.ListReadyAsync(ownerModuleKey, resourceId, cancellationToken); }
+            catch (TenantResourceFileUnavailableException) { gate.Unavailable.TrySetResult(); throw; }
+        }
         public Task ReleaseAsync(string ownerModuleKey, Guid resourceId, Guid fileId, CancellationToken cancellationToken = default) => inner.ReleaseAsync(ownerModuleKey, resourceId, fileId, cancellationToken);
     }
 }
