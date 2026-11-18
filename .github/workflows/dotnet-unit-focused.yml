@@ -80,8 +80,8 @@ jobs:
         id: fixtures
         if: inputs.prepare_codegen_fixtures
         run: |
-          dotnet tests/Tools/Full.NET.CodeGeneration.Fixtures/bin/Release/net10.0/Full.NET.CodeGeneration.Fixtures.dll --write
-          dotnet tests/Tools/Full.NET.CodeGeneration.Fixtures/bin/Release/net10.0/Full.NET.CodeGeneration.Fixtures.dll --check
+          dotnet tests/Tools/Full.NET.CodeGeneration.Fixtures/bin/Release/net10.0/Full.NET.CodeGeneration.Fixtures.dll --write --catalog
+          dotnet tests/Tools/Full.NET.CodeGeneration.Fixtures/bin/Release/net10.0/Full.NET.CodeGeneration.Fixtures.dll --check --catalog
           node --input-type=module <<'NODE'
           import {execFileSync} from 'node:child_process';
           const allowed = new Set([
