@@ -100,9 +100,9 @@ internal static class NativeApiNotificationsE2EAssertions
                 cancellationToken)
             .ConfigureAwait(false);
 
-        await NativeNotificationGovernanceProbe.VerifyApiAsync(client, token, provider, connectionString, cancellationToken).ConfigureAwait(false);
-        // 机构场景会切换会话租户；先结束已完成的实时订阅，避免继续使用旧上下文令牌。
+        // 后续治理与机构场景会切换会话租户；结束已完成的实时订阅后再推进上下文。
         await connection.StopAsync(cancellationToken).ConfigureAwait(false);
+        token = await NativeNotificationGovernanceProbe.VerifyApiAsync(client, token, provider, connectionString, cancellationToken).ConfigureAwait(false);
         await NativeApiNotificationChannelReadAssertions.VerifyAsync(client, token, host.LogFilePath,
             provider, connectionString, cancellationToken).ConfigureAwait(false);
         await NativeApiOrganizationAnnouncementAssertions.VerifyAsync(client, token, host.LogFilePath, cancellationToken)

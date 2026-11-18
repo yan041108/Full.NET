@@ -28,7 +28,7 @@ function runDotnet(cwd, args, env, capture) {
 
 /** 多个专项共享同一构建身份，仍保留各自的发现门禁、运行期限和独立报告。 */
 export async function runNativeSuite({suite, results, trx, label = 'Native AOT', discoveryOnlyOnNonLinux = false},
-  {cwd = repositoryRoot, platform = process.platform, lockRoot, signal, timeoutMs, sdkVersion,
+  {cwd = repositoryRoot, platform = process.platform, lockRoot, signal, timeoutMs, sdkVersion, resourceProbe,
     runCommand = (args, env, capture) => runDotnet(cwd, args, env, capture)} = {}) {
   const matrixPath = path.join(cwd, 'eng/testing/test-matrix.json');
   const matrixText = readFileSync(matrixPath, 'utf8');
@@ -49,7 +49,7 @@ export async function runNativeSuite({suite, results, trx, label = 'Native AOT',
       build: env => runCommand(args, env, false)});
   };
   return withPreparedTestRun({cwd, heavy: platform === 'linux', disposableBuild: true,
-    lockRoot, signal, timeoutMs, prepare}, async () => {
+    lockRoot, signal, timeoutMs, resourceProbe, prepare}, async () => {
     const discovery = JSON.parse(await runCommand([assembly, '--list-tests', 'json', '--no-ansi', '--filter', nativeGate.filter],
       testRunEnvironment(), true));
     const discovered = discovery.tests ?? [];

@@ -7,6 +7,8 @@ using Full.NET.Abstractions.Results;
 using Full.NET.Data.Abstractions;
 using Full.NET.Data.MySql;
 using Full.NET.Modules.Notifications.Contracts;
+using Full.NET.Modules.Identity.Contracts;
+using Full.NET.Modules.Tenancy.Contracts;
 using Full.NET.IntegrationTests.Notifications;
 using Microsoft.Data.SqlClient;
 using MySqlConnector;
@@ -22,7 +24,7 @@ internal static class NativeNotificationGovernanceProbe
         ["Notifications:SecretReferences:email.smtp:0"] = "env://FULLNET_NATIVE_NOTIFICATIONS_UNCONFIGURED_SECRET",
     };
 
-    internal static async Task VerifyApiAsync(HttpClient client, string token, DatabaseProvider provider,
+    internal static async Task<string> VerifyApiAsync(HttpClient client, string token, DatabaseProvider provider,
         string connectionString, CancellationToken ct)
     {
         const string root = "/api/v1/notifications";
@@ -131,6 +133,16 @@ internal static class NativeNotificationGovernanceProbe
         using var crossScope = await SendAsync(client, tenantToken, HttpMethod.Post, root + $"/intents/{intent.Id:D}/revoke",
             new RevokeNotificationIntentRequest(intent.Revision, "cross-scope"), ct);
         Assert.AreEqual(HttpStatusCode.NotFound, crossScope.StatusCode);
+        // 上下文切换会撤销原令牌，后续 Host 场景必须沿用切回后签发的同会话令牌。
+        var returned = await CallAsync<TenantContextTokenResponse>(client, tenantToken, HttpMethod.Put,
+            "/api/v1/tenancy/context", new ChangeTenantContextRequest(null), HttpStatusCode.OK, ct);
+        Assert.IsFalse(string.IsNullOrWhiteSpace(returned.AccessToken));
+        var restoredUser = await NotificationProfileBindingAssertions.GetCurrentUserAsync(client, returned.AccessToken, ct);
+        Assert.AreEqual(user.Id, restoredUser.Id);
+        Assert.AreEqual(user.SessionId, restoredUser.SessionId);
+        Assert.IsNull(restoredUser.TenantId);
+        Assert.AreEqual("host", restoredUser.Scope);
+        return returned.AccessToken;
     }
 
     internal static async Task<NotificationDeliveryWorkerAssertions.RouteFixture> CreateEmailRouteAsync(

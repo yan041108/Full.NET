@@ -36,6 +36,8 @@ async function assertNativeResultDestination(runner, gateKey, gate, trxName) {
       const calls=[];
       await runNativeSuite({suite:gateKey,results:'native-aot/linux-x64/test-results',trx:trxName}, {
         cwd:root,platform:'win32',sdkVersion:'test-sdk',lockRoot:path.join(root,'locks'),
+        // 编排契约只运行注入的 SDK 边界，资源采样也使用受控输入。
+        resourceProbe:async()=>({cpuCount:8,freePhysicalGiB:32,freeCommitGiB:32}),
         runCommand:async(args)=>{
           calls.push(args);
           if(args[0]==='build'){await mkdir(path.join(root,'bin'));await writeFile(path.join(root,assembly),'compiled');return '';}
@@ -158,8 +160,9 @@ for (const role of ['api', 'worker']) {
       const integrationBuild = steps.findIndex(step => step.startsWith('name: Build integration tests'));
       const chat = steps.findIndex(step => step.includes('run-native-generation.mjs --chat'));
       assert.ok(integrationBuild >= 0 && chat > integrationBuild && chat < runtime, '原生聊天专项必须复用已构建控制器');
-      assert.match(steps[chat], /docker pull mcr\.microsoft\.com\/mssql\/server:2022-CU14-ubuntu-22\.04[\s\S]*--chat/,
-        '有界运行须在双库场景开始前准备 SQL Server 镜像');
+      const sqlServer = steps.findIndex(step => step.includes('docker pull mcr.microsoft.com/mssql/server:2022-CU14-ubuntu-22.04'));
+      assert.ok(sqlServer > integrationBuild && sqlServer < chat, '原生双库专项须提前准备 SQL Server 镜像');
+      assert.match(steps[sqlServer], /pnpm test:aot:native:notifications:e2e/, '首个通知专项必须在镜像准备后运行');
       const searchAnswer = steps.findIndex(step => step.includes('run-native-generation.mjs --search-answer'));
       assert.ok(searchAnswer > integrationBuild && searchAnswer < runtime, '原生检索答案须在隔离模型环境中运行');
       const knowledgeModels = steps.findIndex(step => step.includes('run-native-generation.mjs --knowledge-models'));
@@ -360,9 +363,11 @@ test('Notifications Native AOT 门禁登记矩阵、脚本、工作流与专用 
 
   const externalE2EIndex = workflow.indexOf('Run Native AOT external-process E2E');
   const notificationsE2EIndex = workflow.indexOf('Run Native AOT Notifications E2E');
+  const integrationBuildIndex = workflow.indexOf('name: Build integration tests');
   const s3E2EIndex = workflow.indexOf('Run Native AOT S3 Provider E2E');
   assert.ok(externalE2EIndex >= 0);
-  assert.ok(notificationsE2EIndex > externalE2EIndex);
+  assert.ok(integrationBuildIndex >= 0 && notificationsE2EIndex > integrationBuildIndex);
+  assert.ok(notificationsE2EIndex < externalE2EIndex);
   assert.ok(s3E2EIndex > notificationsE2EIndex);
   assert.match(workflow, /pnpm test:aot:native:notifications:e2e/);
 
