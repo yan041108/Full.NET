@@ -2,6 +2,26 @@
 
 > 本文规定联合恢复的操作门禁，不表示备份、恢复演练或 RPO/RTO 已通过。先在隔离环境演练并按实际部署填写恢复清单；备份执行器的成功记录不等于可恢复证明。
 
+## Ubuntu 基础设施备份的生成与完整性
+
+`eng/deploy/ubuntu/Backup-Infrastructure.sh` 用于现有 Ubuntu/MySQL/Redis/单节点对象存储参考部署，只生成新目录，不恢复数据库、不覆盖历史备份。配套的 `Verify-InfrastructureBackup.py`、`fullnet-backup.service` 和 `fullnet-backup.timer` 必须一起部署；生成器在签发 COMPLETE 前调用同目录下的校验器，缺少校验器会使本轮备份失败。
+
+安装脚本到 `/usr/local/lib/fullnet/` 时使用 root 属主和 `0700`，服务与定时器安装到 `/etc/systemd/system/`，使用 `0644` 并重载 systemd。服务限制三十分钟和 512 MiB；定时器以 UTC 每日 19:00 加随机延迟执行。此处是部署说明，本项目的工具测试不会在目标服务器启用定时器。
+
+生成器由受控的 `/etc/fullnet/infrastructure-installed` 读取 primary/secondary，按角色生成必需归档、ROLE 与 SHA256SUMS。primary 的 MySQL 快照位点来自 `mysqldump --source-data=2 --single-transaction` 写入的转储注释，不使用转储结束后查询的当前位置。该方式的一致性范围为事务表，期间仍须禁止相冲突的 DDL，见 [MySQL 8.0 官方转储说明](https://dev.mysql.com/doc/refman/8.0/en/mysqldump.html)。
+
+secondary 即使对象服务原本已关闭也要备份磁盘数据；原本运行时短暂停服取得归档，再恢复原运行状态，原本关闭时保持关闭。服务处于启动/停止过渡状态、数据目录缺失、归档或恢复运行状态失败时，不生成 COMPLETE。应用侧须按实际部署安排这一单节点存储的短暂停服窗口。
+
+独立完整性核对不需要启动数据库或服务：
+
+```bash
+python3 /usr/local/lib/fullnet/Verify-InfrastructureBackup.py "$BACKUP_DIRECTORY" --role primary
+```
+
+secondary 使用 `--role secondary`。校验器要求私有目录和载荷权限、必需文件、K3s 数据/密钥成对、精确且无重复或越界路径的摘要清单以及全部 SHA-256 相符；链接和未知文件会被拒绝。`--staging` 仅供生成器检查尚未完成的输出，返回 state=staged，不能作为完整备份放行。
+
+COMPLETE 只证明本轮归档流程和完整性检查成功，不证明数据库、文件和密钥处于同一个恢复点。Data Protection、K3s 等条件归档按现场安装状态生成，是否满足选定应用仍须在恢复前复核。RESTORE-VERIFIED 等后续标记不会使校验器返回恢复已验证；实际隔离恢复、撤权与外部回执对账及 RPO/RTO 仍按下文执行。旧格式备份须保留原证据单独核对，不通过补写 ROLE 或标记冒充新格式验收。
+
 ## 场景
 
 | 场景 | 首要动作 |

@@ -1,0 +1,11 @@
+[Unit]
+Description=Full.NET daily backup schedule
+
+[Timer]
+# 使用 UTC，错过执行时间时在下次开机补跑。
+OnCalendar=*-*-* 19:00:00 UTC
+RandomizedDelaySec=300
+Persistent=true
+
+[Install]
+WantedBy=timers.target

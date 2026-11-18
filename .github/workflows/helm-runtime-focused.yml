@@ -8,7 +8,7 @@ on:
         required: true
         default: runtime-config
         type: choice
-        options: [runtime-config, cdc-identities, cache-cluster-driver]
+        options: [runtime-config, cdc-identities, cache-cluster-driver, infrastructure-backup]
       helm_version:
         description: Helm 场景使用的固定版本
         required: true
@@ -33,10 +33,10 @@ jobs:
           SCENARIO: ${{ inputs.scenario }}
           HELM_VERSION: ${{ inputs.helm_version }}
         run: |
-          case "$SCENARIO" in runtime-config|cdc-identities|cache-cluster-driver) ;; *) exit 64 ;; esac
+          case "$SCENARIO" in runtime-config|cdc-identities|cache-cluster-driver|infrastructure-backup) ;; *) exit 64 ;; esac
           case "$HELM_VERSION" in v3.16.4|v4.0.0) ;; *) exit 64 ;; esac
       - uses: actions/setup-node@v4
-        if: inputs.scenario != 'cache-cluster-driver'
+        if: inputs.scenario == 'runtime-config' || inputs.scenario == 'cdc-identities'
         with:
           node-version: 24
       - uses: actions/setup-python@v5
@@ -44,7 +44,7 @@ jobs:
         with:
           python-version: '3.12'
       - uses: azure/setup-helm@v4
-        if: inputs.scenario != 'cache-cluster-driver'
+        if: inputs.scenario == 'runtime-config' || inputs.scenario == 'cdc-identities'
         with:
           version: ${{ inputs.helm_version }}
       - name: Verify only the selected deployment scenario
@@ -54,6 +54,21 @@ jobs:
           set -euo pipefail
           before="$(git status --porcelain --untracked-files=all)"
           case "$SCENARIO" in
+            infrastructure-backup)
+              docker pull python:3.12-slim-bookworm
+              docker image inspect python:3.12-slim-bookworm --format '{{.Id}}'
+              docker run --rm -i --network none --cpus 1 --memory 256m --pids-limit 128 \
+                --mount "type=bind,source=$PWD,target=/workspace,readonly" -w /workspace \
+                -e FULLNET_BACKUP_TEST_CONTAINER=isolated -e PYTHONDONTWRITEBYTECODE=1 \
+                python:3.12-slim-bookworm python3 -O - <<'PY'
+          import unittest
+          suite = unittest.defaultTestLoader.discover('tests/deployment', pattern='infrastructure_backup_test.py')
+          result = unittest.TextTestRunner(verbosity=2).run(suite)
+          if not result.wasSuccessful() or result.skipped or result.testsRun < 28:
+              raise SystemExit(1)
+          print(f'infrastructure_backup: passed={result.testsRun} failed=0 skipped=0')
+          PY
+              ;;
             runtime-config)
               helm version --short
               node --test tests/deployment/helm-runtime-config.test.mjs ;;
