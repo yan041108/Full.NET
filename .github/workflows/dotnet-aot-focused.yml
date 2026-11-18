@@ -8,6 +8,11 @@ on:
         required: true
         type: choice
         options: [api, worker]
+      publish:
+        description: 分析后仅发布该宿主的 linux-x64 原生程序，不执行整套 E2E
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -16,7 +21,7 @@ jobs:
   analyze:
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
-    timeout-minutes: 35
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -38,6 +43,25 @@ jobs:
           before="$(git status --porcelain --untracked-files=all)"
           node scripts/testing/run-build-with-resources.mjs --cpu 2 --memory-gib 4 -- node "$script"
           test "$before" = "$(git status --porcelain --untracked-files=all)"
+      - name: Publish only the selected Native host
+        if: inputs.publish
+        env:
+          HOST_ROLE: ${{ inputs.host }}
+        run: |
+          case "$HOST_ROLE" in api|worker) ;; *) exit 64 ;; esac
+          before="$(git status --porcelain --untracked-files=all)"
+          node scripts/testing/run-api-aot-publish-linux.mjs --host "$HOST_ROLE"
+          test "$before" = "$(git status --porcelain --untracked-files=all)"
+      - name: Preserve minimal Native publish receipts
+        if: always() && inputs.publish
+        uses: actions/upload-artifact@v4
+        with:
+          name: focused-native-${{ inputs.host }}-receipts
+          retention-days: 1
+          if-no-files-found: warn
+          path: |
+            artifacts/native-aot/**/publish-manifest.json
+            artifacts/native-aot/**/publish.log
       - name: Diagnose failed analysis inputs
         if: failure()
         run: git status --short --untracked-files=all
