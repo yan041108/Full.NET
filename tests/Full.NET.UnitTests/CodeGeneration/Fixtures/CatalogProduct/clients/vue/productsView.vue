@@ -225,7 +225,7 @@ async function submitEdit(): Promise<void> {
 async function confirmDelete(): Promise<void> {
   if (!deleteOpen.value || !deleting.value) return;
   const ticket = deleteTicket; const scopeTicket = scopeVersion.value;
-  const succeeded = await disable(deleting.value);
+  const succeeded = await remove(deleting.value);
   if (succeeded && ticket === deleteTicket && scopeTicket === scopeVersion.value && deleteOpen.value) {
     deleteOpen.value = false;
   }
