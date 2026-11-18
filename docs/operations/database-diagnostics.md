@@ -26,6 +26,24 @@ node scripts/database/diagnose.mjs --provider SqlServer --check all
 
 ## 本机凭据与权限
 
+### Ubuntu 跨节点协议准入
+
+从实际应用节点执行只读网络检查，无需数据库账号或 Redis 密码：
+
+```bash
+python3 eng/deploy/ubuntu/Verify-Network.py --redis redis.internal \
+  --mysql mysql.internal --ca /etc/fullnet/pki/mysql-ca.pem
+# 自定义端口与单阶段预算（秒），只检查 Redis 时省略 mysql 和 ca。
+python3 eng/deploy/ubuntu/Verify-Network.py --redis redis.internal --redis-port 6379 \
+  --mysql 192.0.2.20 --mysql-port 3306 --ca /etc/fullnet/pki/mysql-ca.pem --timeout 5
+```
+
+所有选定检查通过才向 stdout 写一条 JSON；运行失败退出 1，stderr 仅写稳定机器码，不回显远端错误内容、证书或路径；参数错误退出 2。MySQL 与 CA 必须同时指定，端口为 1～65535，预算为大于零且不超过 30 秒的有限数。每次 TCP 建连使用该超时，建连后各协议阶段共享一次读取/握手截止时间，DNS 解析不提供全程硬期限保证。
+
+Redis 仅发送匿名 PING，要求完整且有界的 RESP NOAUTH 错误；PONG、其他错误、伪造前缀、截断和超时均失败。MySQL 按协议帧读取 greeting，要求协议 4.1/TLS 能力，发送 SSLRequest 后执行 TLS 1.2 或更新版本握手，验证受信 CA 及所传 DNS/IP 身份，不发送数据库登录或 SQL。配置里的目标必须与证书 SAN 匹配，不能通过关闭身份验证绕过错误。
+
+这只证明所选网络路径、匿名 PING 拒绝及 TLS 身份；不证明完整 Redis ACL、数据库登录权限、CRL 吊销、双节点缓存失效、备份恢复或容量。协议布局依据 [MySQL 8.0 greeting](https://dev.mysql.com/doc/dev/mysql-server/8.0.45/page_protocol_connection_phase_packets_protocol_handshake_v10.html)、[SSLRequest](https://dev.mysql.com/doc/dev/mysql-server/latest/page_protocol_connection_phase_packets_protocol_ssl_request.html) 与 [Redis NOAUTH](https://redis.io/docs/latest/develop/reference/errors/common/noauth/)。定向入口为 helm-runtime-focused / network-readiness，使用回环服务和临时证书，不访问发布节点。
+
 默认先读取对应进程环境变量；未设置时读取本工具的 .NET User Secrets：
 
 | Provider | 环境变量 | User Secrets 键 |

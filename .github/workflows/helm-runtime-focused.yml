@@ -8,7 +8,7 @@ on:
         required: true
         default: runtime-config
         type: choice
-        options: [runtime-config, cdc-identities, cache-cluster-driver, infrastructure-backup, ubuntu-role-release]
+        options: [runtime-config, cdc-identities, cache-cluster-driver, infrastructure-backup, ubuntu-role-release, network-readiness]
       helm_version:
         description: Helm 场景使用的固定版本
         required: true
@@ -33,14 +33,14 @@ jobs:
           SCENARIO: ${{ inputs.scenario }}
           HELM_VERSION: ${{ inputs.helm_version }}
         run: |
-          case "$SCENARIO" in runtime-config|cdc-identities|cache-cluster-driver|infrastructure-backup|ubuntu-role-release) ;; *) exit 64 ;; esac
+          case "$SCENARIO" in runtime-config|cdc-identities|cache-cluster-driver|infrastructure-backup|ubuntu-role-release|network-readiness) ;; *) exit 64 ;; esac
           case "$HELM_VERSION" in v3.16.4|v4.0.0) ;; *) exit 64 ;; esac
       - uses: actions/setup-node@v4
         if: inputs.scenario == 'runtime-config' || inputs.scenario == 'cdc-identities'
         with:
           node-version: 24
       - uses: actions/setup-python@v5
-        if: inputs.scenario == 'cache-cluster-driver'
+        if: inputs.scenario == 'cache-cluster-driver' || inputs.scenario == 'network-readiness'
         with:
           python-version: '3.12'
       - uses: azure/setup-helm@v4
@@ -119,6 +119,18 @@ jobs:
           if not result.wasSuccessful() or result.skipped or result.testsRun < 15:
               raise SystemExit(1)
           print(f'cache_cluster_driver: passed={result.testsRun} failed=0 skipped=0')
+          PY
+              ;;
+            network-readiness)
+              python3 --version
+              openssl version
+              python3 -O - <<'PY'
+          import unittest
+          suite = unittest.defaultTestLoader.discover('tests/deployment', pattern='network_readiness_test.py')
+          result = unittest.TextTestRunner(verbosity=2).run(suite)
+          if not result.wasSuccessful() or result.skipped or result.testsRun != 23:
+              raise SystemExit(1)
+          print(f'network_readiness: passed={result.testsRun} failed=0 skipped=0')
           PY
               ;;
             *) exit 64 ;;
