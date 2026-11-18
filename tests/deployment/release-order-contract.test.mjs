@@ -25,10 +25,10 @@ async function exists(relativePath) {
 test('Invoke-FullNetRelease.ps1 enforces migrator -> worker -> api order', async () => {
   assert.equal(await exists('eng/deploy/Invoke-FullNetRelease.ps1'), true);
   const script = await read('eng/deploy/Invoke-FullNetRelease.ps1');
-  const migrator = script.indexOf('fullnet-migrator');
-  const worker = script.indexOf('fullnet-worker');
-  const api = script.indexOf('fullnet-api');
-  assert.ok(migrator >= 0 && worker > migrator && api > worker);
+  // 前置渲染会先读取各角色配置，只有实际升级调用决定发布顺序。
+  const upgrades = [...script.matchAll(/^Invoke-HelmUpgrade\s+-ReleaseName\s+'([^']+)'/gm)]
+    .map(match => match[1]);
+  assert.deepEqual(upgrades, ['fullnet-migrator', 'fullnet-worker', 'fullnet-api']);
   assert.match(script, /Stage 1\/3/);
   assert.match(script, /Stage 2\/3/);
   assert.match(script, /Stage 3\/3/);

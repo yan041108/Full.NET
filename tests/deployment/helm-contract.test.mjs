@@ -569,7 +569,9 @@ test('production Local files require persistent storage and an exclusive single 
   assert.doesNotMatch(accepted.stdout, /kind: HorizontalPodAutoscaler/);
   assert.notEqual(render(['--set','logging.ingress=Collector', '--set','logging.localFile.existingClaimName=log-files']).status, 0);
   const nonLocal=render(['--set','logging.ingress=Collector','--set','logging.localFile.enabled=false','--set','api.replicaCount=1']);
-  assert.notEqual(nonLocal.status,0);assert.match(nonLocal.stderr,/minimum/);
+  assert.notEqual(nonLocal.status,0);
+  assert.match(nonLocal.stderr,/(?:api\.replicaCount|\/api\/replicaCount)/);
+  assert.match(nonLocal.stderr,/minimum|greater than or equal to 2/i);
   const worker=render(['--set','roles.api=false','--set','roles.worker=true','--set','logging.localFile.existingClaimName=log-files','--set','worker.replicaCount=1']);
   assert.notEqual(worker.status,0);assert.match(worker.stderr,/API\/Worker HPA disabled/);
   const workerAccepted=render(['--set','roles.api=false','--set','roles.worker=true','--set','logging.localFile.existingClaimName=log-files','--set','worker.replicaCount=1','--set','worker.hpa.enabled=false']);
