@@ -8,7 +8,7 @@ on:
         required: true
         default: enterprise-delivery
         type: choice
-        options: [enterprise-delivery, oidc-proof, import-receipt, ai-files-tenant, identity-browser, password-recovery-session, tenant-seat-process]
+        options: [enterprise-delivery, oidc-proof, import-receipt, ai-files-tenant, identity-browser, password-recovery-session, tenant-seat-process, cache-backplane-process]
 
 permissions:
   contents: read
@@ -36,6 +36,7 @@ jobs:
         with:
           global-json-file: global.json
       - name: Prepare the two database providers
+        if: inputs.scenario != 'cache-backplane-process'
         run: node scripts/testing/prepare-ci-test-images.mjs
       - name: Restore the frozen integration inputs
         run: |
@@ -69,6 +70,9 @@ jobs:
             tenant-seat-process)
               filter='FullyQualifiedName=Full.NET.IntegrationTests.Identity.TenantSeatProcessRecoveryTests.Worker_crash_after_seat_confirmation_recovers_without_duplicate_consumption|FullyQualifiedName=Full.NET.IntegrationTests.EnterpriseRequest.EnterpriseRequestAccessMatrixTests.Worker_process_crashes_recover_submission_and_business_writeback_without_duplicate_effects'
               minimum=4 ;;
+            cache-backplane-process)
+              filter='FullyQualifiedName~Full.NET.IntegrationTests.Caching.CacheBackplaneProcessTests.'
+              minimum=2 ;;
             *) exit 64 ;;
           esac
           git rev-parse HEAD

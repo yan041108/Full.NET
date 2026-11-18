@@ -5,6 +5,7 @@
   </Target>
   <ItemGroup Condition="'$(FullNetWorkflowNativeFocused)' != 'true' and '$(FullNetIndependentHostNativeFocused)' != 'true' and '$(FullNetCorrectionReadFocused)' != 'true' and '$(FullNetCorrectionWorkerNativeFocused)' != 'true'">
     <ProjectReference Include="../Tools/Full.NET.EnterpriseRequest.WorkerFixture/Full.NET.EnterpriseRequest.WorkerFixture.csproj" ReferenceOutputAssembly="false" />
+    <ProjectReference Include="../Tools/Full.NET.CacheBackplaneProbe/Full.NET.CacheBackplaneProbe.csproj" ReferenceOutputAssembly="false" />
     <Compile Include="../Shared/Testing/ApprovalProgressReadPolling.cs" Link="Testing/ApprovalProgressReadPolling.cs" />
     <Compile Include="../Shared/Testing/NativeMigratorProcess.cs" Link="Testing/NativeMigratorProcess.cs" />
     <Compile Include="../Shared/CodeGeneration/GeneratedMigrationRecoveryFixture.cs" Link="CodeGeneration/GeneratedMigrationRecoveryFixture.cs" />
