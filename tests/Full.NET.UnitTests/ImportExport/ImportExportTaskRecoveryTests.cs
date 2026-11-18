@@ -155,6 +155,51 @@ public sealed class ImportExportTaskRecoveryTests
         Assert.AreEqual(ImportExportTaskStatusKeys.ExecutionFailed, fixture.Store.Tasks[task.Id].StatusKey);
     }
 
+    /// <summary>回执列表不可读时保留检查点，租约到期后绑定相同的已有回执。</summary>
+    [TestMethod]
+    public async Task Unavailable_receipt_list_preserves_checkpoint_and_rebinds_existing_receipt()
+    {
+        var fixture = CreateFixture();
+        var task = SeedQueuedTask(fixture, validRowCount: 1);
+        var receiptId = Guid.NewGuid();
+        var rows = new[] { new StaticImportRowExecutionResult(1, false, null, ImportExportErrorCodes.ExecutionFailed, "row") };
+        fixture.Files.ReadyFiles.Add(new TenantResourceFileReadyItem(task.SourceFileId, "source.xlsx", fixture.Clock.UtcNow));
+        fixture.Files.ReadyFiles.Add(new TenantResourceFileReadyItem(receiptId,
+            ImportExportErrorReceiptIdentity.BuildStorageFileName(task.SourceFileName, rows), fixture.Clock.UtcNow));
+        var offsets = new List<int>();
+        fixture.Handler.ExecuteBatchAsync(
+                Arg.Any<Stream>(), Arg.Any<long>(), Arg.Any<int>(), Arg.Any<int>(),
+                Arg.Any<StaticImportPreviewContext>(), Arg.Any<CancellationToken>())
+            .Returns(call =>
+            {
+                offsets.Add(call.ArgAt<int>(2));
+                return Result<StaticImportBatchExecutionResult>.Success(new StaticImportBatchExecutionResult(rows));
+            });
+        fixture.Files.ListUnavailable = true;
+
+        Assert.AreEqual(1, await fixture.Runner.ProcessPendingAsync(CancellationToken.None));
+        var stranded = fixture.Store.Tasks[task.Id];
+        Assert.AreEqual(1, fixture.Files.ListAttempts);
+        Assert.AreEqual(ImportExportTaskStatusKeys.Executing, stranded.StatusKey);
+        Assert.AreEqual(0, stranded.NextLineNumber);
+        Assert.AreEqual(0, stranded.ProcessedRowCount);
+        Assert.IsNull(stranded.ErrorReceiptFileId);
+        Assert.IsNotNull(stranded.LeaseId);
+        Assert.AreEqual(0, fixture.Files.UploadCount);
+
+        fixture.Files.ListUnavailable = false;
+        fixture.Clock.UtcNow += TimeSpan.FromSeconds(121);
+        Assert.AreEqual(1, await fixture.Runner.ProcessPendingAsync(CancellationToken.None));
+        var recovered = fixture.Store.Tasks[task.Id];
+        CollectionAssert.AreEqual(new[] { 0, 0 }, offsets);
+        Assert.AreEqual(2, fixture.Files.ListAttempts);
+        Assert.AreEqual(ImportExportTaskStatusKeys.ExecutionFailed, recovered.StatusKey);
+        Assert.AreEqual(1, recovered.NextLineNumber);
+        Assert.AreEqual(receiptId, recovered.ErrorReceiptFileId);
+        Assert.IsNull(recovered.LeaseId);
+        Assert.AreEqual(0, fixture.Files.UploadCount);
+    }
+
     /// <summary>组装使用内存存储的生产 Runner。</summary>
     [TestMethod]
     public async Task Inactive_candidate_page_does_not_starve_next_active_tenant()
@@ -349,6 +394,8 @@ public sealed class ImportExportTaskRecoveryTests
     private sealed class FakeFileStore : ITenantResourceFileStore
     {
         public int UploadCount { get; private set; }
+        public int ListAttempts { get; private set; }
+        public bool ListUnavailable { get; set; }
         public List<TenantResourceFileReadyItem> ReadyFiles { get; } = [];
 
         public Task<Result<TenantResourceFileReference>> UploadAsync(
@@ -367,8 +414,12 @@ public sealed class ImportExportTaskRecoveryTests
                 new TenantResourceFileContent(new MemoryStream([1, 2, 3]), "application/test", "source.xlsx")));
 
         public Task<IReadOnlyList<TenantResourceFileReadyItem>> ListReadyAsync(
-            string ownerModuleKey, Guid resourceId, CancellationToken cancellationToken = default) =>
-            Task.FromResult<IReadOnlyList<TenantResourceFileReadyItem>>(ReadyFiles);
+            string ownerModuleKey, Guid resourceId, CancellationToken cancellationToken = default)
+        {
+            ListAttempts++;
+            if (ListUnavailable) throw new TenantResourceFileUnavailableException();
+            return Task.FromResult<IReadOnlyList<TenantResourceFileReadyItem>>(ReadyFiles);
+        }
 
         public Task ReleaseAsync(string ownerModuleKey, Guid resourceId, Guid fileId,
             CancellationToken cancellationToken = default) => Task.CompletedTask;
