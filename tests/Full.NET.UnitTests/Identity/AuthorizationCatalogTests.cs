@@ -382,6 +382,8 @@ public sealed class AuthorizationCatalogTests
             ["create"] = "organization.units.create",
             ["update"] = "organization.units.update",
             ["disable"] = "organization.units.disable",
+            ["read_leadership"] = OrganizationUnitLeadershipPermissions.Read,
+            ["set_leadership"] = OrganizationUnitLeadershipPermissions.Update,
         };
 
         var unitActions = catalog.Actions
@@ -494,6 +496,8 @@ public sealed class AuthorizationCatalogTests
             ["create"] = "organization.user_units.create",
             ["update"] = "organization.user_units.update",
             ["disable"] = "organization.user_units.disable",
+            ["read_reporting"] = OrganizationReportingLinePermissions.Read,
+            ["set_reporting"] = OrganizationReportingLinePermissions.Update,
         };
 
         var userUnitActions = catalog.Actions

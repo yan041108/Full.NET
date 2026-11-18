@@ -17,6 +17,19 @@ public sealed class AiAuthorizationContributorTests
         CollectionAssert.AreEquivalent(
             new[]
             {
+                AiKnowledgeOperationsPermissions.Read, AiKnowledgeFinancePermissions.Read,
+                AiKnowledgeEvaluationRunPermissions.Read, AiKnowledgeEvaluationRunPermissions.Plan,
+                AiKnowledgeEvaluationRunPermissions.Create, AiKnowledgeEvaluationRunPermissions.Execute,
+                AiKnowledgeEvaluationRunPermissions.Skip, AiKnowledgeEvaluationRunPermissions.Review, AiKnowledgeEvaluationRunPermissions.CloseUnknown,
+                AiKnowledgeEvaluationPermissions.Read, AiKnowledgeEvaluationPermissions.Create, AiKnowledgeEvaluationPermissions.Append,
+                AiKnowledgeEvaluationPermissions.Freeze, AiKnowledgeEvaluationPermissions.Restore, AiKnowledgeEvaluationPermissions.Copy,
+                AiKnowledgeEvaluationPermissions.Approve, AiKnowledgeEvaluationPermissions.Withdraw, AiKnowledgeEvaluationPermissions.Feedback,
+                AiKnowledgeFaqPermissions.Read, AiKnowledgeFaqPermissions.Write, AiKnowledgeFaqPermissions.Feedback, AiKnowledgeFaqPermissions.Index,
+                AiKnowledgeFaqPermissions.Review, AiKnowledgeFaqPermissions.Publish, AiKnowledgeFaqPermissions.Export, AiKnowledgeFaqPermissions.Import,
+                AiKnowledgeSearchPermissions.Read, AiKnowledgeSearchPermissions.Diagnostics, AiKnowledgeSearchPermissions.Compare, AiKnowledgeSearchPermissions.Refine,
+                AiKnowledgeCorrectionPermissions.Read, AiKnowledgeCorrectionPermissions.Prepare, AiKnowledgeCorrectionPermissions.Edit, AiKnowledgeCorrectionPermissions.Restore,
+                AiKnowledgePublicationPermissions.Read, AiKnowledgePublicationPermissions.Request, AiKnowledgePublicationPermissions.Review,
+                AiKnowledgePublicationPermissions.Publish, AiKnowledgePublicationPermissions.Withdraw, AiKnowledgePublicationPermissions.DirectoryManage,
                 AiPromptPermissions.Read, AiPromptPermissions.Create, AiPromptPermissions.Append, AiPromptPermissions.Publish,
                 AiPromptPermissions.Deactivate, AiPromptPermissions.Rollback, AiPromptPermissions.Use,
                 AiKnowledgeAnswerFeedbackPermissions.Read,

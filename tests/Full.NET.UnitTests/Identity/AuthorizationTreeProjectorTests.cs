@@ -6,6 +6,7 @@ using Full.NET.Modules.Identity.Features.GetAuthorizationTree;
 using Full.NET.Modules.Organization;
 using Full.NET.Modules.Settings;
 using Full.NET.Modules.Tenancy;
+using Full.NET.Modules.Tenancy.Contracts;
 
 namespace Full.NET.UnitTests.Identity;
 
@@ -123,8 +124,10 @@ public sealed class AuthorizationTreeProjectorTests
             .Pages.Single(page => page.Id == "tenant-context");
 
         Assert.AreEqual(
-            IdentityAuthorizationContributor.NavigationRead,
-            overviewPage.Actions.Single().PermissionCode);
+            IdentityAuthorizationContributor.DashboardRead,
+            overviewPage.PermissionCode);
+        Assert.AreEqual(0, overviewPage.Actions.Count);
+        Assert.AreEqual(TenancyTenantManagementPermissions.Read, tenantContextPage.PermissionCode);
         Assert.AreEqual(
             TenancyAuthorizationContributor.TenantsSwitch,
             tenantContextPage.Actions.Single().PermissionCode);
