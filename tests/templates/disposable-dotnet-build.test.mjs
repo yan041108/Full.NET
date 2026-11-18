@@ -30,8 +30,13 @@ test('生成应用 dotnet 调用继承集中验收环境并保留运行时配置
   assert.deepEqual(flags.map(name => process.env[name]), before);
   await withTestRun({ cwd: root, lock: false }, async () => {
     runDotnet(['build', 'Application.csproj'], root, {}, 300_000, undefined,
-      (_, __, options) => { assert.deepEqual(flags.map(name => options.env[name]), before); return { status: 0 }; });
+      (_, __, options) => {
+        assert.deepEqual(flags.map(name => options.env[name]), ['false', '1', '0']);
+        assert.equal(options.env.TEMP, testRunEnvironment().TEMP);
+        return { status: 0 };
+      });
   });
+  assert.deepEqual(flags.map(name => process.env[name]), before);
 });
 
 test('应用编排与 CRUD 直接探针继承集中验收构建环境', async t => {

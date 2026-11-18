@@ -34,6 +34,8 @@ for (const [name, build] of [['源码包', buildSourceBundle], ['应用模板', 
     assert.throws(() => build({ output: join(root, 'package'), run: (binary, args) => {
       commands.push([binary, args[0]]);
       if (binary === 'tar') throw expired;
+      // 预算场景必须先通过真实树清单的非空校验，才能抵达解包进程边界。
+      if (args[0] === 'ls-tree') return { status: 0, stdout: `100644 blob ${'b'.repeat(40)}\tglobal.json\0`, stderr: '' };
       return { status: 0, stdout: args[0] === 'rev-parse' ? 'a'.repeat(40) : '', stderr: '' };
     } }), error => error === expired);
     assert.deepEqual(commands, [['git', 'rev-parse'], ['git', 'status'], ['git', 'ls-tree'], ['git', 'archive'], ['tar', '-xf']]);
