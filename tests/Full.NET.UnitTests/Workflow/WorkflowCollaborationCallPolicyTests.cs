@@ -83,13 +83,13 @@ public sealed class WorkflowCollaborationCallPolicyTests
     }
 
     [TestMethod]
-    public void Internal_wait_can_be_built_but_public_design_and_publish_remain_closed()
+    public void Published_collaboration_node_compiles_fixed_policy_and_builds_a_durable_wait()
     {
         var draft = new WorkflowDefinitionDraft(1,
             [new("start", "start", 1, JsonSerializer.SerializeToElement(new { nextNodeKeys = new[] { "collaborate" } })),
              new("collaborate", WorkflowCollaborationCallPolicy.NodeType, 1, Config()), new("end", "end", 1, JsonSerializer.SerializeToElement(new { }))], "automation");
-        Assert.IsFalse(WorkflowNodeTypeCatalog.TryGet(WorkflowCollaborationCallPolicy.NodeType, out _));
-        Assert.AreEqual(WorkflowErrorCodes.DefinitionNodeTypeUnknown, WorkflowDefinitionCompiler.Compile(draft).ErrorCode);
+        Assert.IsTrue(WorkflowNodeTypeCatalog.TryGet(WorkflowCollaborationCallPolicy.NodeType, out _));
+        Assert.IsTrue(WorkflowDefinitionCompiler.Compile(draft).IsSuccess);
         Assert.IsTrue(WorkflowRuntimePlan.TryCreate(draft, Schema(), out var plan));
         Assert.IsTrue(plan!.RequiresExecutionBudget);
         Assert.IsTrue(plan.TryResolveStart(new Dictionary<string, JsonElement>(), out var transition));

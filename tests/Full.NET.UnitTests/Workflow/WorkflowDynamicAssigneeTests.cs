@@ -74,7 +74,11 @@ public sealed class WorkflowDynamicAssigneeTests
         Assert.IsFalse(deferred.TryGet("second", out _)); Assert.AreEqual(0, hosts.ReceivedCalls().Count());
         var unbound = await preparation.PrepareAsync(next, new(null, "host", "host"), actor, default, instanceId: Guid.CreateVersion7());
         Assert.IsTrue(unbound.TryGet("second",out var missing)); Assert.IsFalse(missing.IsSuccess);
-        Assert.AreEqual(0,query.ReceivedCalls().Count());
+        await query.DidNotReceive().QueryAsync<WorkflowPreviousActorRecord>(WorkflowDynamicAssigneeSql.ListPreviousActors,
+            Arg.Any<object?>(), Arg.Any<CancellationToken>());
+        // 普通实例同样必须核对协作来源，不能把该隔离读取误算为提前读取本次活动处理人。
+        await query.Received(2).QuerySingleOrDefaultAsync<WorkflowCollaborationOriginRecord>(WorkflowCollaborationRelaySql.FindOrigin,
+            Arg.Any<object?>(), Arg.Any<CancellationToken>());
         var epoch=Guid.CreateVersion7();
         var resumed = await preparation.PrepareAsync(next, new(null, "host", "host"), actor, default, instanceId: Guid.CreateVersion7(), executionEpochId: epoch);
         Assert.IsTrue(resumed.TryGet("second", out var snapshot)); Assert.IsTrue(snapshot.IsSuccess);
