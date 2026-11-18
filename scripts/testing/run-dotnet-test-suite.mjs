@@ -133,7 +133,7 @@ export function argumentsForSuite(suiteName, suiteOptions = {}) {
     '--progress',
     'off',
     '--timeout',
-    suite.timeout
+    selection?.timeout ?? suite.timeout
   ];
 
   if (filter) {

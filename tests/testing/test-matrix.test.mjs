@@ -216,6 +216,25 @@ test('快速套件从测试矩阵解析命名聚焦集', () => {
   });
 });
 
+test('命名聚焦集使用自己的超时并在缺省时继承套件', () => {
+  const matrix = loadTestMatrix();
+  for (const [suiteName, selectionName] of [
+    ['unit', 'ai-document-tenant-file-recovery'],
+    ['workflowActivityIntegration', 'identity-browser-mfa']
+  ]) {
+    const selection = matrix.dotnetSuites[suiteName].selections[selectionName];
+    const args = commandsForSuite(suiteName, { selection: selectionName }).at(-1).args;
+    assert.equal(args[args.indexOf('--timeout') + 1], selection.timeout);
+  }
+  const suite = matrix.dotnetSuites.unit;
+  const inherited = Object.entries(suite.selections).find(([, selection]) => selection.timeout == null)?.[0];
+  assert.ok(inherited, '必须保留真实的缺省超时选择边界');
+  for (const options of [{ selection: inherited }, {}]) {
+    const args = argumentsForSuite('unit', options);
+    assert.equal(args[args.indexOf('--timeout') + 1], suite.timeout);
+  }
+});
+
 test('原始聚焦过滤必须携带正整数最低发现数且不能覆盖命名聚焦集', () => {
   assert.throws(
     () => parseSuiteOptions(['--filter', 'FullyQualifiedName~NativeAot']),
