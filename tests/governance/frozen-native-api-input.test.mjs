@@ -12,6 +12,7 @@ function input() {
       workflow_run: {id: 42, head_sha: sha}, digest: 'sha256:' + 'b'.repeat(64)},
     jobs: [{name: 'linux-native-aot', steps: [{name: 'Publish linux-x64 Native AOT artifact', conclusion: 'success'}]}],
     changedPaths: ['tests/NativeFixture.cs', 'docs/plan.md', 'security/client-audit-policy.json',
+      'contracts/sql-safety/waivers.json',
       '.github/workflows/native-notifications-focused.yml', 'scripts/testing/frozen-native-api-input.mjs']
   };
 }
@@ -22,7 +23,8 @@ test('frozen Native input accepts consumer changes with an exact producer identi
 
 test('frozen Native input rejects production, build and unknown input changes', () => {
   for (const file of ['src/Host.cs', 'Directory.Build.props', 'global.json', 'Directory.Packages.props',
-    'eng/docker/Dockerfile.api-native-aot-linux-sdk', 'scripts/testing/publish.mjs', 'tests/../src/Host.cs']) {
+    'eng/docker/Dockerfile.api-native-aot-linux-sdk', 'scripts/testing/publish.mjs',
+    'contracts/sql-safety/other.json', 'tests/../src/Host.cs']) {
     assert.throws(() => validateFrozenNativeApiInput({...input(), changedPaths: [file]}), /必须重新发布/u);
   }
 });

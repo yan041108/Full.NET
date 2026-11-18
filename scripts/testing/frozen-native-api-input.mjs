@@ -3,6 +3,8 @@ import assert from 'node:assert/strict';
 // 只允许不参与原生生产构建的变更；未知输入默认要求重新发布。
 const consumerOnlyPaths = new Set([
   'security/client-audit-policy.json',
+  // 此文件只参与 Node SQL 治理，不进入原生 API 的编译或资源闭包。
+  'contracts/sql-safety/waivers.json',
   '.github/workflows/native-notifications-focused.yml',
   'scripts/testing/frozen-native-api-input.mjs'
 ]);
