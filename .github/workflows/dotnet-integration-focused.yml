@@ -8,7 +8,7 @@ on:
         required: true
         default: enterprise-delivery
         type: choice
-        options: [enterprise-delivery, oidc-proof]
+        options: [enterprise-delivery, oidc-proof, import-receipt]
 
 permissions:
   contents: read
@@ -45,6 +45,9 @@ jobs:
             oidc-proof)
               filter='FullyQualifiedName~Full.NET.IntegrationTests.Identity.IdentityOidcInteractiveIntegrationTests.|FullyQualifiedName~Full.NET.IntegrationTests.Identity.AuthenticationAuditRecoveryTests.'
               minimum=10 ;;
+            import-receipt)
+              filter='FullyQualifiedName=Full.NET.IntegrationTests.ImportExport.ImportReceiptTenantActivityTests.Suspended_tenant_preserves_uploaded_receipt_until_reactivation'
+              minimum=2 ;;
             *) exit 64 ;;
           esac
           git rev-parse HEAD
