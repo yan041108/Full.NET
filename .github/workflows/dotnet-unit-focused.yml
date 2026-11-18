@@ -44,6 +44,27 @@ jobs:
           MINIMUM_TESTS: ${{ inputs.minimum_expected_tests }}
         run: node scripts/testing/run-focused-unit.mjs --validate
 
+      # SDK 隐式引入的链接器版本也受锁文件约束；先还原再冻结，不接受编译期间改写输入。
+      - name: Restore Unit inputs
+        run: |
+          dotnet --version
+          dotnet restore tests/Full.NET.UnitTests/Full.NET.UnitTests.csproj --force-evaluate
+
+      - name: Verify restored tool lockfiles
+        id: locks
+        run: git diff --quiet -- src/Tools/Full.NET.Ai.DocxParser/packages.lock.json src/Tools/Full.NET.Ai.PdfParser/packages.lock.json
+
+      - name: Preserve regenerated tool lockfiles
+        if: failure() && steps.locks.conclusion == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: restored-parser-lockfiles
+          if-no-files-found: error
+          retention-days: 1
+          path: |
+            src/Tools/Full.NET.Ai.DocxParser/packages.lock.json
+            src/Tools/Full.NET.Ai.PdfParser/packages.lock.json
+
       - name: Run focused Unit tests
         env:
           TARGET_CLASS: ${{ inputs.test_class }}
