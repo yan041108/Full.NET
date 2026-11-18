@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Sockets;
+using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using System.Text.Json;
 using Full.NET.AgenticWeb.Mcp.Client;
@@ -17,12 +18,16 @@ namespace Full.NET.UnitTests.Ai;
 public sealed class McpRealTlsTests
 {
     [TestMethod]
-    public async Task Trusted_tls_succeeds_and_untrusted_certificate_is_rejected()
+    [DataRow("untrusted")]
+    [DataRow("wrong-name")]
+    [DataRow("expired")]
+    public async Task Trusted_tls_succeeds_and_untrusted_certificate_is_rejected(string rejectedCertificate)
     {
-        var trustedPath = Environment.GetEnvironmentVariable("FULLNET_A04_MCP_TRUSTED_PFX") ?? throw new InvalidOperationException("缺少测试证书。");
-        var untrustedPath = Environment.GetEnvironmentVariable("FULLNET_A04_MCP_UNTRUSTED_PFX") ?? throw new InvalidOperationException("缺少测试证书。");
-        using var trusted = X509CertificateLoader.LoadPkcs12FromFile(trustedPath, "", X509KeyStorageFlags.EphemeralKeySet);
-        using var untrusted = X509CertificateLoader.LoadPkcs12FromFile(untrustedPath, "", X509KeyStorageFlags.EphemeralKeySet);
+        using var root = CreateAuthority();
+        using var otherRoot = CreateAuthority();
+        using var trusted = CreateServerCertificate(root, "localhost", expired: false);
+        using var untrusted = CreateServerCertificate(rejectedCertificate == "untrusted" ? otherRoot : root,
+            rejectedCertificate == "wrong-name" ? "wrong.example" : "localhost", rejectedCertificate == "expired");
         static int ReservePort() { using var socket = new TcpListener(IPAddress.Loopback, 0); socket.Start(); return ((IPEndPoint)socket.LocalEndpoint).Port; }
         var trustedPort = ReservePort(); var untrustedPort = ReservePort(); Assert.AreNotEqual(trustedPort, untrustedPort);
         var builder = WebApplication.CreateSlimBuilder();
@@ -64,6 +69,24 @@ public sealed class McpRealTlsTests
                 ["FullNet:Ai:Mcp:Client:ApprovedOrigins:1"] = bad,
             }).Build();
             var services = new ServiceCollection().AddLogging(); services.AddFullNetMcpClient(configuration);
+            services.AddHttpClient(nameof(McpClientConnectionManager)).ConfigurePrimaryHttpMessageHandler((handler, _) =>
+            {
+                // 只为本轮客户端增加独立信任根，复用正式网络策略处理器和系统 TLS 主机名/有效期校验。
+                while (handler is DelegatingHandler layer) handler = layer.InnerHandler!;
+                Assert.IsInstanceOfType<SocketsHttpHandler>(handler);
+                var socketHandler = (SocketsHttpHandler)handler;
+                Assert.IsNull(socketHandler.SslOptions.RemoteCertificateValidationCallback);
+                var policy = new X509ChainPolicy
+                {
+                    TrustMode = X509ChainTrustMode.CustomRootTrust,
+                    RevocationMode = X509RevocationMode.NoCheck,
+                    VerificationFlags = X509VerificationFlags.NoFlag,
+                    DisableCertificateDownloads = true,
+                };
+                policy.CustomTrustStore.Add(root);
+                policy.ApplicationPolicy.Add(new Oid("1.3.6.1.5.5.7.3.1"));
+                socketHandler.SslOptions.CertificateChainPolicy = policy;
+            });
             await using var provider = services.BuildServiceProvider(); await using var scope = provider.CreateAsyncScope();
             var manager = scope.ServiceProvider.GetRequiredService<McpClientConnectionManager>();
             var client = await manager.GetClientAsync(Guid.CreateVersion7(), new Uri(good + "/mcp"), "synthetic-service-token", deadline.Token);
@@ -78,5 +101,33 @@ public sealed class McpRealTlsTests
             Console.WriteLine($"MCP real TLS: protocol={revision}, trustedRequests={trustedRequests}, untrustedHttpRequests={untrustedRequests}");
         }
         finally { await app.StopAsync(); }
+    }
+
+    // 根和叶证书仅在内存中存活，不安装系统根、不读取用户密钥，也不依赖预置 PFX。
+    private static X509Certificate2 CreateAuthority()
+    {
+        using var key = RSA.Create(2048);
+        var request = new CertificateRequest("CN=FullNET-MCP-" + Guid.NewGuid().ToString("N"), key,
+            HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
+        request.CertificateExtensions.Add(new X509BasicConstraintsExtension(true, false, 0, true));
+        request.CertificateExtensions.Add(new X509KeyUsageExtension(X509KeyUsageFlags.KeyCertSign, true));
+        request.CertificateExtensions.Add(new X509SubjectKeyIdentifierExtension(request.PublicKey, false));
+        return request.CreateSelfSigned(DateTimeOffset.UtcNow.AddDays(-2), DateTimeOffset.UtcNow.AddDays(2));
+    }
+
+    private static X509Certificate2 CreateServerCertificate(X509Certificate2 issuer, string name, bool expired)
+    {
+        using var key = RSA.Create(2048);
+        var request = new CertificateRequest("CN=" + name, key, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
+        var names = new SubjectAlternativeNameBuilder();
+        names.AddDnsName(name);
+        request.CertificateExtensions.Add(names.Build());
+        request.CertificateExtensions.Add(new X509BasicConstraintsExtension(false, false, 0, true));
+        request.CertificateExtensions.Add(new X509KeyUsageExtension(X509KeyUsageFlags.DigitalSignature | X509KeyUsageFlags.KeyEncipherment, true));
+        request.CertificateExtensions.Add(new X509EnhancedKeyUsageExtension(new OidCollection { new("1.3.6.1.5.5.7.3.1") }, true));
+        var now = DateTimeOffset.UtcNow;
+        using var certificate = request.Create(issuer, now.AddHours(-2), expired ? now.AddHours(-1) : now.AddHours(1),
+            RandomNumberGenerator.GetBytes(16));
+        return certificate.CopyWithPrivateKey(key);
     }
 }
