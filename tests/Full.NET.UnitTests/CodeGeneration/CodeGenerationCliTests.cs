@@ -435,7 +435,9 @@ public sealed class CodeGenerationCliTests
     }
 
     [TestMethod]
-    public async Task Import_database_requires_existing_connection_environment_variable()
+    [DataRow(false)]
+    [DataRow(true)]
+    public async Task Import_database_requires_existing_connection_environment_variable(bool apply)
     {
         using var fixture = CliFixture.Create();
         using var output = new StringWriter();
@@ -444,10 +446,10 @@ public sealed class CodeGenerationCliTests
             $"FULLNET_CODEGEN_MISSING_{Guid.NewGuid():N}";
         Environment.SetEnvironmentVariable(environmentVariable, null);
 
+        var arguments = DatabaseImportArguments(fixture.WorkspacePath, environmentVariable);
+        if (apply) arguments = [.. arguments, "--apply"];
         var exitCode = await CodeGenerationCli.RunAsync(
-            DatabaseImportArguments(
-                fixture.WorkspacePath,
-                environmentVariable),
+            arguments,
             output,
             error);
 
@@ -618,7 +620,9 @@ public sealed class CodeGenerationCliTests
     }
 
     [TestMethod]
-    public async Task Preview_database_batch_rejects_empty_mapping_and_unknown_json()
+    [DataRow(false)]
+    [DataRow(true)]
+    public async Task Preview_database_batch_rejects_empty_mapping_and_unknown_json(bool apply)
     {
         using var fixture = CliFixture.Create();
         var mappingPath = Path.Combine(fixture.RootPath, "batch-mapping.json");
@@ -633,7 +637,8 @@ public sealed class CodeGenerationCliTests
             DatabaseBatchArguments(
                 fixture.WorkspacePath,
                 mappingPath,
-                "FULLNET_CODEGEN_UNUSED"),
+                "FULLNET_CODEGEN_UNUSED",
+                command: apply ? "apply-database-batch" : "preview-database-batch"),
             emptyOutput,
             emptyError);
 
@@ -650,7 +655,8 @@ public sealed class CodeGenerationCliTests
             DatabaseBatchArguments(
                 fixture.WorkspacePath,
                 mappingPath,
-                "FULLNET_CODEGEN_UNUSED"),
+                "FULLNET_CODEGEN_UNUSED",
+                command: apply ? "apply-database-batch" : "preview-database-batch"),
             unknownOutput,
             unknownError);
 
@@ -660,6 +666,7 @@ public sealed class CodeGenerationCliTests
         StringAssert.Contains(unknownError.ToString(), "unexpected");
         Assert.AreEqual(string.Empty, emptyOutput.ToString());
         Assert.AreEqual(string.Empty, unknownOutput.ToString());
+        Assert.AreEqual(0, Directory.GetFiles(fixture.WorkspacePath, "*", SearchOption.AllDirectories).Length);
     }
 
     [TestMethod]
@@ -691,7 +698,13 @@ public sealed class CodeGenerationCliTests
     }
 
     [TestMethod]
-    public async Task Apply_database_batch_requires_existing_connection_environment_variable()
+    [DataRow(false, "missing")]
+    [DataRow(true, "missing")]
+    [DataRow(false, "empty")]
+    [DataRow(true, "empty")]
+    [DataRow(false, "whitespace")]
+    [DataRow(true, "whitespace")]
+    public async Task Apply_database_batch_requires_existing_connection_environment_variable(bool apply, string connectionState)
     {
         using var fixture = CliFixture.Create();
         var mappingPath = Path.Combine(fixture.RootPath, "batch-mapping.json");
@@ -701,18 +714,31 @@ public sealed class CodeGenerationCliTests
             new UTF8Encoding(false, true));
         var environmentVariable =
             $"FULLNET_CODEGEN_BATCH_MISSING_{Guid.NewGuid():N}";
-        Environment.SetEnvironmentVariable(environmentVariable, null);
+        Environment.SetEnvironmentVariable(environmentVariable, connectionState switch
+        {
+            "empty" => string.Empty,
+            "whitespace" => " \t ",
+            _ => null,
+        });
         using var output = new StringWriter();
         using var error = new StringWriter();
 
-        var exitCode = await CodeGenerationCli.RunAsync(
-            DatabaseBatchArguments(
-                fixture.WorkspacePath,
-                mappingPath,
-                environmentVariable,
-                command: "apply-database-batch"),
-            output,
-            error);
+        int exitCode;
+        try
+        {
+            exitCode = await CodeGenerationCli.RunAsync(
+                DatabaseBatchArguments(
+                    fixture.WorkspacePath,
+                    mappingPath,
+                    environmentVariable,
+                    command: apply ? "apply-database-batch" : "preview-database-batch"),
+                output,
+                error);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable(environmentVariable, null);
+        }
 
         Assert.AreEqual(64, exitCode);
         var firstErrorLine = error.ToString().Split(

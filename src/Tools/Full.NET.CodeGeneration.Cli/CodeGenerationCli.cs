@@ -113,6 +113,16 @@ internal static class CodeGenerationCli
                 return SuccessExitCode;
             }
 
+            // 参数错误不能初始化持久化工作区身份；先完成只读前检，取得租约后仍覆盖整个规划与提交。
+            var databaseBatchMappings = options.DatabaseBatch is { } batch
+                ? await DatabaseBatchMappingDocument.LoadAsync(batch.MappingPath, cancellationToken)
+                : null;
+            var databaseConnection = options.DatabaseBatch is { } batchConnection
+                ? ReadConnectionString(batchConnection.ConnectionEnvironmentVariable)
+                : options.DatabaseImport is { } importConnection
+                    ? ReadConnectionString(importConnection.ConnectionEnvironmentVariable)
+                    : null;
+
             var mutates = options.Apply || options.ModuleIntegration?.Mode == ModuleIntegrationCliMode.ApplyHost;
             var operationRoot = options.ModuleIntegration?.RepositoryPath ?? options.WorkspacePath;
             await using var operationLease = mutates
@@ -192,15 +202,10 @@ internal static class CodeGenerationCli
 
             if (options.DatabaseBatch is not null)
             {
-                var mappings = await DatabaseBatchMappingDocument.LoadAsync(
-                    options.DatabaseBatch.MappingPath,
-                    cancellationToken);
                 var schemas = await DatabaseBatchImportCommand.ImportAsync(
                     options.DatabaseBatch,
-                    mappings,
-                    ReadConnectionString(
-                        options.DatabaseBatch
-                            .ConnectionEnvironmentVariable),
+                    databaseBatchMappings!,
+                    databaseConnection!,
                     cancellationToken);
 
                 GenerationWritePlan batchPlan;
@@ -241,8 +246,7 @@ internal static class CodeGenerationCli
             {
                 schema = await DatabaseCrudImportCommand.ImportAsync(
                     options.DatabaseImport,
-                    ReadConnectionString(
-                        options.DatabaseImport.ConnectionEnvironmentVariable),
+                    databaseConnection!,
                     cancellationToken);
             }
 
