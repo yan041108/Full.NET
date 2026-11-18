@@ -23,9 +23,7 @@ public sealed class GeneratedOrganizationScopeRuntimeTests
     [DataRow(DatabaseProvider.MySql)]
     public async Task Scoped_count_and_list_preserve_tenant_and_organization_filters(DatabaseProvider provider)
     {
-        var query = Substitute.For<IQueryExecutor>();
-        query.QueryAsync<OrganizationChildRecord>(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>())
-            .Returns(Array.Empty<OrganizationChildRecord>());
+        var query = new RecordingQueryExecutor();
         var resolver = Substitute.For<IUserDataScopeResolver>();
         var builder = Substitute.For<IDataScopeSqlFilterBuilder>();
         var actorId = Guid.NewGuid();
@@ -41,12 +39,12 @@ public sealed class GeneratedOrganizationScopeRuntimeTests
         var result = await service.ListAsync(actorId, false, 2, 10);
 
         Assert.IsTrue(result.IsSuccess);
-        var calls = query.ReceivedCalls().ToArray();
+        var calls = query.Calls;
         Assert.HasCount(2, calls, "总数和分页查询都必须实际执行作用域拼接。");
         foreach (var call in calls)
         {
-            var statement = (SqlStatement)call.GetArguments()[0]!;
-            var parameters = (IReadOnlyDictionary<string, object?>)call.GetArguments()[1]!;
+            var statement = call.Statement;
+            var parameters = (IReadOnlyDictionary<string, object?>)call.Parameters!;
             StringAssert.Contains(statement.Text, "AND TenantId = @TenantId AND (OrganizationUnitId = @ScopeUnitId)");
             Assert.AreEqual(SqlDataScope.TenantRequired, statement.Scope);
             Assert.AreEqual(SqlTenantBinding.CurrentTenantId, statement.TenantBinding);
@@ -96,5 +94,25 @@ public sealed class GeneratedOrganizationScopeRuntimeTests
             .Single(item => item.RelativePath == $"backend/{schema.ClrTypeName}RelationLookup.g.cs");
         Assert.IsFalse(artifact.Content.Split('\n').Any(line => line.Length > 0 && string.IsNullOrWhiteSpace(line)),
             "可选搜索保护为空时不能产生带尾随空格的行。");
+    }
+
+    // 内部生成记录不能交给动态代理自动创建集合；显式记录实际 SQL 边界，不开放生产类型可见性。
+    private sealed class RecordingQueryExecutor : IQueryExecutor
+    {
+        internal List<(SqlStatement Statement, object? Parameters)> Calls { get; } = [];
+
+        public Task<T?> QuerySingleOrDefaultAsync<T>(SqlStatement statement, object? parameters = null,
+            CancellationToken cancellationToken = default)
+        {
+            Calls.Add((statement, parameters));
+            return Task.FromResult<T?>(default);
+        }
+
+        public Task<IReadOnlyList<T>> QueryAsync<T>(SqlStatement statement, object? parameters = null,
+            CancellationToken cancellationToken = default)
+        {
+            Calls.Add((statement, parameters));
+            return Task.FromResult<IReadOnlyList<T>>(Array.Empty<T>());
+        }
     }
 }
