@@ -83,7 +83,11 @@ public sealed class WorkflowDynamicAssigneeTests
         var resumed = await preparation.PrepareAsync(next, new(null, "host", "host"), actor, default, instanceId: Guid.CreateVersion7(), executionEpochId: epoch);
         Assert.IsTrue(resumed.TryGet("second", out var snapshot)); Assert.IsTrue(snapshot.IsSuccess);
         CollectionAssert.AreEqual(new[] { actor }, snapshot.Value!.Task!.MemberUserIds.ToArray());
-        Assert.IsTrue(query.ReceivedCalls().Any(call=>call.GetArguments()[1] is IReadOnlyDictionary<string,object?> values && Equals(values["ExecutionEpochId"],epoch)));
+        var participantQueries = query.ReceivedCalls()
+            .Where(call => Equals(call.GetArguments()[0], WorkflowDynamicAssigneeSql.ListPreviousActors)).ToArray();
+        Assert.HasCount(1, participantQueries);
+        var participantParameters = (IReadOnlyDictionary<string, object?>)participantQueries[0].GetArguments()[1]!;
+        Assert.AreEqual(epoch, participantParameters["ExecutionEpochId"]);
     }
 
     [TestMethod]
