@@ -8,7 +8,7 @@ on:
         required: true
         default: enterprise-delivery
         type: choice
-        options: [enterprise-delivery, oidc-proof, import-receipt, ai-files-tenant, identity-browser]
+        options: [enterprise-delivery, oidc-proof, import-receipt, ai-files-tenant, identity-browser, password-recovery-session]
 
 permissions:
   contents: read
@@ -63,6 +63,9 @@ jobs:
             identity-browser)
               filter='FullyQualifiedName~Full.NET.IntegrationTests.Identity.IdentityBrowserUiTests.'
               minimum=6 ;;
+            password-recovery-session)
+              filter='FullyQualifiedName=Full.NET.IntegrationTests.Identity.PasswordRecoveryBrowserSessionTests.Password_recovery_revokes_original_browser_and_center_sessions'
+              minimum=2 ;;
             *) exit 64 ;;
           esac
           git rev-parse HEAD
