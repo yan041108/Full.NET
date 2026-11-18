@@ -3,6 +3,7 @@ using System.IO.Compression;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Full.NET.Abstractions.Ids;
+using Full.NET.Abstractions.Messaging;
 using Full.NET.Abstractions.Tenancy;
 using Full.NET.Abstractions.Time;
 using Full.NET.Data.Abstractions;
@@ -161,7 +162,7 @@ public sealed class WorkflowCalendarTimeZoneTests
         var row = new WorkflowCalendarVersionRecord(Guid.NewGuid(), Guid.NewGuid(), 1, calendar!.CanonicalJson,
             tampered ? new string('f', 64) : calendar.ContentHash, "UTC", Guid.NewGuid(), DateTimeOffset.UtcNow, "host");
         var query = Substitute.For<IQueryExecutor>();
-        query.QuerySingleOrDefaultAsync<WorkflowCalendarVersionRecord>(Arg.Is<SqlStatement>(sql => sql.Equals(WorkflowCalendarSql.FindVersion)),
+        query.QuerySingleOrDefaultAsync<WorkflowCalendarVersionRecord>(Arg.Is<SqlStatement>(sql => sql == WorkflowCalendarSql.FindVersion),
             Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(Task.FromResult<WorkflowCalendarVersionRecord?>(row));
         var tenant = Substitute.For<ICurrentTenant>(); tenant.IsHost.Returns(true);
         var service = new WorkflowWorkCalendarService(query, Substitute.For<ICommandExecutor>(), Substitute.For<ICommandTransaction>(),
