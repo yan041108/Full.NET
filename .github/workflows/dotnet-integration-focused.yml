@@ -8,7 +8,7 @@ on:
         required: true
         default: enterprise-delivery
         type: choice
-        options: [enterprise-delivery, oidc-proof, import-receipt]
+        options: [enterprise-delivery, oidc-proof, import-receipt, ai-index-tenant]
 
 permissions:
   contents: read
@@ -47,6 +47,9 @@ jobs:
               minimum=10 ;;
             import-receipt)
               filter='FullyQualifiedName=Full.NET.IntegrationTests.ImportExport.ImportReceiptTenantActivityTests.Suspended_tenant_preserves_uploaded_receipt_until_reactivation'
+              minimum=2 ;;
+            ai-index-tenant)
+              filter='FullyQualifiedName=Full.NET.IntegrationTests.Ai.AiKnowledgeIndexTenantFileRecoveryTests.Suspended_tenant_requires_explicit_index_retry'
               minimum=2 ;;
             *) exit 64 ;;
           esac
