@@ -1,20 +1,31 @@
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
-import { createRequire } from 'node:module';
+import { createRequire, registerHooks } from 'node:module';
 import { mkdir } from 'node:fs/promises';
 import path from 'node:path';
 import test from 'node:test';
-import { zhCN } from '../../packages/admin-i18n/src/messages.ts';
 import { verifyEnterpriseRequestCrudBrowser } from './support/application-enterprise-crud-browser.mjs';
 import { withTestRun } from '../../scripts/testing/test-run-context.mjs';
 
 const requireE2e = createRequire(new URL('../e2e/admin-real-stack/package.json', import.meta.url));
 const { chromium } = requireE2e('@playwright/test');
 
-test('当前中文表单标签贯通企业申请浏览器 CRUD 与离页输入丢弃', { timeout: 30_000 }, async () => {
+// 语言包采用 NodeNext 的 .js 引用；本测试直接读取真实 TS 消息，不依赖未提交的编译产物。
+const i18nSources = new URL('../../packages/admin-i18n/src/', import.meta.url).href;
+const sourceResolution = registerHooks({ resolve(specifier, context, next) {
+  if (context.parentURL?.startsWith(i18nSources) && specifier.startsWith('./') && specifier.endsWith('.js'))
+    return next(new URL(specifier.slice(0, -3) + '.ts', context.parentURL).href, context);
+  return next(specifier, context);
+} });
+let messages;
+try { messages = await import('../../packages/admin-i18n/src/messages.ts'); }
+finally { sourceResolution.deregister(); }
+const { zhCN } = messages;
+
+test('当前中文表单标签贯通企业申请浏览器 CRUD 与离页输入丢弃', { timeout: 30_000 }, async t => {
   const runtimeRoot = path.resolve('.tmp/enterprise-crud-browser-localization');
   await mkdir(runtimeRoot, { recursive: true });
-  await withTestRun({ cwd: runtimeRoot, disposableBuild: true }, async () => {
+  await withTestRun({ cwd: runtimeRoot, build: false, signal: t.signal }, async () => {
     const fields = ['organizationUnitId', 'requestNumber', 'title', 'totalAmount', 'applicantUserId'];
     const labels = Object.fromEntries(fields.map(key => [key, zhCN['enterpriseRequests.' + key]]));
     const calls = []; let record; let browser;
