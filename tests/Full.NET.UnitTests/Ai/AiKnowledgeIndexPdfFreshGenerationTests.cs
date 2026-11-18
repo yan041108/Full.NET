@@ -10,6 +10,23 @@ namespace Full.NET.UnitTests.Ai;
 public sealed partial class AiKnowledgeIndexPdfPlanningServiceTests
 {
     [TestMethod] [DataRow(false)] [DataRow(true)]
+    public async Task Fresh_pdf_generation_rejects_activation_without_the_publication_root(bool tenant)
+    {
+        using var f = new Fixture(tenant, pageCount: 17);
+        var generation = new FreshGeneration(f);
+        f.Query.QuerySingleOrDefaultAsync<Guid>(AiKnowledgePublicationSql.LockFor(DatabaseProvider.SqlServer, f.Tasks.Scope.IsTenant),
+            Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(Guid.Empty);
+
+        Assert.IsFalse(await generation.Consumer.ExecuteGenerationAsync(f.Binding, f.TaskId, f.Lease, default));
+        Assert.AreEqual(2, f.Generator.Calls);
+        Assert.HasCount(2, generation.Rows);
+        Assert.HasCount(2, generation.Settled);
+        Assert.IsFalse(generation.Completed);
+        Assert.IsNull(generation.Pointer);
+        Assert.AreEqual(0, generation.ActivationWrites);
+    }
+
+    [TestMethod] [DataRow(false)] [DataRow(true)]
     public async Task Fresh_pdf_generation_freezes_complete_pages_pays_each_batch_and_activates_once(bool tenant)
     {
         using var f = new Fixture(tenant, pageCount: 17); var g = new FreshGeneration(f);
@@ -94,6 +111,9 @@ public sealed partial class AiKnowledgeIndexPdfPlanningServiceTests
             f.Budget.SettleAsync(Arg.Any<Guid>(), Arg.Any<AiOperationUsage>(), Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(c =>
             { if (c.ArgAt<string>(2) == "succeeded") Settled.Add(c.ArgAt<Guid>(0)); return Task.CompletedTask; });
             var query = new GenerationQuery(f.Query, this); var options = Options.Create(new DatabaseOptions());
+            // 激活必须取得同一文档的发布根锁；替身返回真实绑定，不能依赖 Guid 的默认空值。
+            f.Query.QuerySingleOrDefaultAsync<Guid>(AiKnowledgePublicationSql.LockFor(options.Value.Provider, f.Tasks.Scope.IsTenant),
+                Arg.Any<object?>(), Arg.Any<CancellationToken>()).Returns(f.Binding.DocumentId);
             var manifests = new AiKnowledgeIndexPdfManifestStore(query, f.Command, f.Transaction, f.State, f.Tenant, f.Clock, f.Tasks, f.Sessions, f.Authorization, options);
             var vectors = new AiKnowledgeIndexPdfVectorStore(query, f.Command, f.Transaction, f.State, f.Tenant, f.Clock, f.Tasks, f.Sessions, f.Authorization, options);
             var activations = new AiKnowledgeIndexPdfActivationStore(query, f.Command, f.Transaction, f.State, f.Tenant, f.Clock, f.Ids, (f.Tasks).Scope, f.Authorization, options);

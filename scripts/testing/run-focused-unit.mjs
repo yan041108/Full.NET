@@ -1,4 +1,4 @@
-import { readFile } from 'node:fs/promises';
+import { readFile, readdir } from 'node:fs/promises';
 import { spawnSync } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -28,22 +28,45 @@ export function focusedUnitSelection(targetClass, minimumTests, methodName = '')
   };
 }
 
-/** 源文件必须声明同名正式测试类；失配时在昂贵构建之前失败。 */
-export function validateFocusedUnitSource(selection, source) {
+function declaresClass(selection, source, partial = false) {
   const namespacePattern = selection.namespace.replaceAll('.', '\\.');
-  if (!new RegExp(`\\bnamespace\\s+${namespacePattern}\\s*[;{]`, 'u').test(source)
-    || !new RegExp(`\\[TestClass\\]\\s*(?:public\\s+)?(?:sealed\\s+)?(?:partial\\s+)?class\\s+${selection.className}\\b`, 'u').test(source)) {
+  const declaration = partial ? `(?:public\\s+)?(?:sealed\\s+)?partial\\s+class\\s+${selection.className}\\b`
+    : `\\[TestClass\\]\\s*(?:public\\s+)?(?:sealed\\s+)?(?:partial\\s+)?class\\s+${selection.className}\\b`;
+  return new RegExp(`\\bnamespace\\s+${namespacePattern}\\s*[;{]`, 'u').test(source)
+    && new RegExp(declaration, 'u').test(source);
+}
+
+/** 只接受同一正式类及其同命名空间的分部声明；文件名不能代替实际类归属。 */
+export function validateFocusedUnitSource(selection, source, partialSources = []) {
+  if (!declaresClass(selection, source)) {
     throw new Error('指定文件未声明匹配的正式测试类。');
   }
+  if (partialSources.length && (!declaresClass(selection, source, true)
+    || partialSources.some(part => !declaresClass(selection, part, true)))) throw new Error('分部源码未声明匹配的分部测试类。');
   for (const methodName of selection.methodNames) {
-    if (!new RegExp(`\\[TestMethod\\][^{};]*\\b${methodName}\\s*\\(`, 'u').test(source)) throw new Error('指定文件未声明匹配的正式测试方法。');
+    const method = new RegExp(`\\[TestMethod\\][^{};]*\\b${methodName}\\s*\\(`, 'u');
+    if (![source, ...partialSources].some(part => method.test(part))) throw new Error('指定文件未声明匹配的正式测试方法。');
   }
+}
+
+/** 在固定命名空间目录内核对正式类，支持不同文件名和跨文件分部方法，不递归扩大测试范围。 */
+export async function validateFocusedUnitFiles(selection, root = repositoryRoot) {
+  const directory = path.dirname(path.join(root, selection.sourcePath));
+  const entries = await readdir(directory, { withFileTypes: true });
+  const sources = await Promise.all(entries.filter(entry => entry.isFile() && entry.name.endsWith('.cs'))
+    .map(entry => readFile(path.join(directory, entry.name), 'utf8')));
+  const owners = sources.filter(source => declaresClass(selection, source));
+  if (owners.length !== 1) throw new Error('命名空间目录必须有唯一匹配的正式测试类声明。');
+  const source = owners[0];
+  const partials = declaresClass(selection, source, true)
+    ? sources.filter(part => part !== source && declaresClass(selection, part, true)) : [];
+  validateFocusedUnitSource(selection, source, partials);
 }
 
 async function main() {
   if (process.argv.slice(2).some(argument => argument !== '--validate')) throw new Error('不支持的执行参数。');
   const selection = focusedUnitSelection(process.env.TARGET_CLASS, process.env.MINIMUM_TESTS, process.env.TARGET_METHOD ?? '');
-  validateFocusedUnitSource(selection, await readFile(path.join(repositoryRoot, selection.sourcePath), 'utf8'));
+  await validateFocusedUnitFiles(selection);
   console.log(`聚焦测试：${process.env.TARGET_CLASS}${selection.methodNames.length ? ' [' + selection.methodNames.join(', ') + ']' : ''}，最低发现数：${process.env.MINIMUM_TESTS}`);
   if (process.argv.includes('--validate')) return;
   const result = spawnSync(process.execPath, [path.join(repositoryRoot, 'scripts/testing/run-dotnet-test-suite.mjs'), ...selection.args],

@@ -1,9 +1,43 @@
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
+import { readFile, mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
 import test from 'node:test';
-import { focusedUnitSelection, validateFocusedUnitSource } from '../../scripts/testing/run-focused-unit.mjs';
+import { focusedUnitSelection, validateFocusedUnitSource, validateFocusedUnitFiles } from '../../scripts/testing/run-focused-unit.mjs';
 
 const target = 'Full.NET.UnitTests.Organization.OrganizationPositionWorkbookCodecTests';
+
+test('分部方法必须属于同命名空间同名分部类，普通类不能借用其他文件的方法', () => {
+  const selected = focusedUnitSelection(target, '1', 'Continued');
+  const owner = 'namespace Full.NET.UnitTests.Organization; [TestClass] public sealed partial class OrganizationPositionWorkbookCodecTests {}';
+  const part = 'namespace Full.NET.UnitTests.Organization; public sealed partial class OrganizationPositionWorkbookCodecTests { [TestMethod] public void Continued() {} }';
+  validateFocusedUnitSource(selected, owner, [part]);
+  for (const invalid of [part.replace('UnitTests.Organization;', 'UnitTests.Other;'),
+    part.replace('WorkbookCodecTests {', 'WorkbookCodecTestsExtra {'), part.replace('partial class', 'class')])
+    assert.throws(() => validateFocusedUnitSource(selected, owner, [invalid]));
+  assert.throws(() => validateFocusedUnitSource(selected, owner.replace('partial class', 'class'), [part]));
+});
+
+test('实际声明支持非同名文件、分部方法并拒绝重复正式归属', async t => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'fullnet-focused-source-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const directory = path.join(root, 'tests/Full.NET.UnitTests/Organization');
+  await mkdir(directory, { recursive: true });
+  const selected = focusedUnitSelection(target, '1', 'Continued');
+  const owner = 'namespace Full.NET.UnitTests.Organization; [TestClass] public sealed partial class OrganizationPositionWorkbookCodecTests {}';
+  await writeFile(path.join(directory, 'DifferentName.cs'), owner);
+  await writeFile(path.join(directory, 'Continuation.cs'), 'namespace Full.NET.UnitTests.Organization; public sealed partial class OrganizationPositionWorkbookCodecTests { [TestMethod] public void Continued() {} }');
+  await validateFocusedUnitFiles(selected, root);
+  await writeFile(path.join(directory, 'Duplicate.cs'), owner);
+  await assert.rejects(validateFocusedUnitFiles(selected, root), /唯一/u);
+});
+
+test('真实分部 AI 场景和非同名 Messaging 类都可以精确定位', async () => {
+  for (const [type, method] of [
+    ['Full.NET.UnitTests.Ai.AiKnowledgeDocumentPlanningServiceTests', 'Fresh_docx_generation_freezes_complete_blocks_pays_each_batch_and_activates_once'],
+    ['Full.NET.UnitTests.Messaging.MessagingAuthorizationContributorTests', 'Contributor_publishes_exact_messaging_permissions_actions_and_navigation']
+  ]) await validateFocusedUnitFiles(focusedUnitSelection(type, '1', method));
+});
 
 test('聚焦入口绑定实际测试源码与完整类型分隔符', async () => {
   const selected = focusedUnitSelection(target, '6');
