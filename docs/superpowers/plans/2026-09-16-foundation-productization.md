@@ -6862,3 +6862,15 @@ Release 集成工程单节点构建及 Identity 模块隔离 AOT 分析均零警
 - 发布节点的现行 NGINX 策略每日轮转并保留 14 轮。只在节点上扫描访问及错误日志，定位两份历史轮转文件中的 7,561 处非空 `access_token` 查询引用，当前访问和错误日志的同类引用为 0。凭据值始终留在节点内。
 - 将这两份历史文件限制为 root:root、0600，逐份核对设备、inode、字节数及内容 SHA-256。原权限和摘要元数据保存在主节点 `/etc/fullnet/.gateway-credential-log-permissions-jxa5e5_2/permissions.json`，目录 0700、清单 0600。实际 `www-data` 身份无法读取两份历史文件，默认严格 HTTPS ready 仍为 200。
 - 此项与 §8.320 的新请求日志共同关闭本次 D08-12 差集。日志继续采用现有轮转保留策略，后续日志量、磁盘预算和实际告警路由仍归 D08-14。
+
+### 8.326 客户端 Picomatch 公告的构建路径复核（2026-11-18）
+
+- 当前基线 `8cbfd4ee5`，快照 `client-picomatch-advisory-20261118`。[本次 CI](https://github.com/yan041108/Full.NET/actions/runs/44251492544/job/134623009146) 被新收录的 `GHSA-fc5q-39xc-vjpf` High 公告阻断。[官方公告](https://github.com/advisories/GHSA-fc5q-39xc-vjpf) 没有修复发行；npm 注册表最新为 4.0.7，仍在公告范围。
+- 官方 npm 报告只有 uni-app 的 `uni-cli-shared → @rollup/pluginutils`、`uni-cli-shared → unimport` 两条受影响路径，实际解析为 Picomatch 2.3.2、4.0.5。核对 DCloud 构建过滤及自动导入入口，模式来自仓库配置；开发服务只监听本机，客户端发布采用静态产物。按既有依赖规则为这两条精确路径登记限时例外，2026-11-21 复核、2026-11-25 到期。新增路径、其他未审公告和所有 Critical 继续阻断。
+- 审计策略定向测试 16/16、零跳过，包含新路径及到期拒绝；实际 `pnpm audit:clients` 通过。当前未更改依赖版本或业务实现，未重跑客户端构建。此项完成本次路径与风险审查，漏洞本身保持未修复，上游修复可用后升级并删除例外。
+
+### 8.327 D08-14 发布采集链路及日志占用复核（2026-11-18）
+
+- 两节点未发现 Prometheus、Alertmanager、Node Exporter 或 Collector 的 Pod、服务及常用监听端口，也没有对应 Prometheus/Alertmanager 配置文件。辅助节点的容量 `.prom` 样本持续更新，`probe_success=1`、空闲卷槽 20，但尚无实际抓取和告警接收证据。
+- 当前主、辅节点 `/var/log` 所在磁盘分别约有 65.5 GB、47.6 GB 空闲。NGINX 文件合计约 395 KB，Pod 日志逻辑大小约 62.5 MB、3.7 MB；journald 自报实际占用约 316 MB、791 MB。本次快照未见磁盘压力，没有清理日志或改变保留策略。
+- D08-14 后续先部署并核对平台采集链路、实例标签及样本新鲜度，再接入获准的真实通知路由，验证触发与恢复送达。仅巡检文件和隔离通知成功不足以关闭发布告警任务；Redis 单故障域恢复仍按 §8.313 单独验证。

@@ -116,19 +116,46 @@ function createReport(advisories) {
 }
 
 if (typeof evaluateAuditReport === 'function') {
-  test('production policy limits the reviewed Quill path and rejects High/Critical findings', () => {
+  test('production policy limits reviewed paths and rejects other High/Critical findings', () => {
     assert.equal(productionPolicy.version, 1);
     assert.equal(productionPolicy.registry, 'https://registry.npmjs.org');
     assert.equal(productionPolicy.minimumSeverity, 'low');
     assert.deepEqual(productionPolicy.exceptions.map(({ advisory, package: packageName, allowedPaths }) => ({
       advisory, packageName, allowedPaths
     })), [{
+      advisory: 'GHSA-fc5q-39xc-vjpf',
+      packageName: 'picomatch',
+      allowedPaths: [
+        'clients__uniapp>@dcloudio/uni-cli-shared>@rollup/pluginutils>picomatch',
+        'clients__uniapp>@dcloudio/uni-cli-shared>unimport>picomatch'
+      ]
+    }, {
       advisory: 'GHSA-v3m3-f69x-jf25',
       packageName: 'quill',
       allowedPaths: ['packages__admin-form-designer>quill']
     }]);
     assert.throws(() => evaluateAuditReport(createReport([createAdvisory()]), productionPolicy), /Unreviewed high advisory/u);
     assert.throws(() => evaluateAuditReport(createReport([createAdvisory({ severity: 'critical' })]), productionPolicy), /Critical advisory is never allowed/u);
+  });
+
+  test('Picomatch review accepts only the two build paths and expires automatically', () => {
+    const advisory = createAdvisory({
+      ghsa: 'GHSA-fc5q-39xc-vjpf', packageName: 'picomatch',
+      paths: [
+        'clients__uniapp>@dcloudio/uni-cli-shared>@rollup/pluginutils>picomatch',
+        'clients__uniapp>@dcloudio/uni-cli-shared>unimport>picomatch'
+      ]
+    });
+    const reviewed = new Date('2026-11-18T00:00:00Z');
+    const result = evaluateAuditReport(createReport([advisory]), productionPolicy, reviewed);
+    assert.deepEqual(result.acceptedExceptions[0].paths, advisory.findings[0].paths);
+    const outsidePath = createAdvisory({
+      ghsa: advisory.github_advisory_id, packageName: 'picomatch', paths: ['ui__admin>picomatch']
+    });
+    assert.throws(() => evaluateAuditReport(createReport([outsidePath]), productionPolicy, reviewed), /outside the reviewed/u);
+    assert.throws(() => evaluateAuditReport(createReport([advisory]), productionPolicy,
+      new Date('2026-11-26T00:00:00Z')), /expired on 2026-11-25/u);
+    assert.throws(() => evaluateAuditReport(createReport([{ ...advisory, severity: 'critical' }]), productionPolicy, reviewed), /Critical advisory is never allowed/u);
   });
 
   test('accepts only the reviewed Vite advisory on exact uni-app toolchain paths', () => {
