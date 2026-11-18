@@ -95,32 +95,32 @@ public sealed class DapperCancellationTests
     }
 
     /// <summary>
-    /// 取消与真实故障竞态时，查询保留原故障；写入仍优先保持唯一键和死锁分类。
+    /// 取消与真实故障竞态时，读写均保留死锁分类；唯一键仅在写入映射，其他查询保留原故障。
     /// </summary>
     [TestMethod]
-    [DataRow(DatabaseProvider.SqlServer, -2)]
-    [DataRow(DatabaseProvider.SqlServer, 102)]
-    [DataRow(DatabaseProvider.SqlServer, 229)]
-    [DataRow(DatabaseProvider.SqlServer, 18456)]
-    [DataRow(DatabaseProvider.SqlServer, 2601)]
-    [DataRow(DatabaseProvider.SqlServer, 1205)]
-    [DataRow(DatabaseProvider.MySql, 1205)]
-    [DataRow(DatabaseProvider.MySql, 1064)]
-    [DataRow(DatabaseProvider.MySql, 1142)]
-    [DataRow(DatabaseProvider.MySql, 1045)]
-    [DataRow(DatabaseProvider.MySql, 1062)]
-    [DataRow(DatabaseProvider.MySql, 1213)]
-    public async Task Cancellation_does_not_mask_database_failures(DatabaseProvider provider, int number)
+    [DataRow(DatabaseProvider.SqlServer, -2, null)]
+    [DataRow(DatabaseProvider.SqlServer, 102, null)]
+    [DataRow(DatabaseProvider.SqlServer, 229, null)]
+    [DataRow(DatabaseProvider.SqlServer, 18456, null)]
+    [DataRow(DatabaseProvider.SqlServer, 2601, DataCommandFailureKind.UniqueConstraint)]
+    [DataRow(DatabaseProvider.SqlServer, 1205, DataCommandFailureKind.Deadlock)]
+    [DataRow(DatabaseProvider.MySql, 1205, null)]
+    [DataRow(DatabaseProvider.MySql, 1064, null)]
+    [DataRow(DatabaseProvider.MySql, 1142, null)]
+    [DataRow(DatabaseProvider.MySql, 1045, null)]
+    [DataRow(DatabaseProvider.MySql, 1062, DataCommandFailureKind.UniqueConstraint)]
+    [DataRow(DatabaseProvider.MySql, 1213, DataCommandFailureKind.Deadlock)]
+    public async Task Cancellation_does_not_mask_database_failures(DatabaseProvider provider, int number, DataCommandFailureKind? expectedKind)
     {
         var original = CreateProviderException(provider, number);
         foreach (var operation in Operations)
         {
             using var cancellation = new CancellationTokenSource();
             var caught = await CaptureAsync(operation, provider, original, cancellation, true);
-            if ((operation is "execute" or "typed") && DataCommandExceptionMapper.TryMap(original, out var expected))
+            if (expectedKind is not null && (operation is "execute" or "typed" || expectedKind == DataCommandFailureKind.Deadlock))
             {
                 Assert.IsInstanceOfType<DataCommandException>(caught);
-                Assert.AreEqual(expected.Kind, ((DataCommandException)caught).Kind);
+                Assert.AreEqual(expectedKind.Value, ((DataCommandException)caught).Kind);
                 Assert.AreSame(original, caught.InnerException);
             }
             else
