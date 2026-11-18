@@ -55,7 +55,7 @@ Redis Pub/Sub 不持久化断连期间的通知，也不为重连订阅者重放
 
 `distributed-cache` ready 检查同时使用受管理 L2 GET 和现有 SDK Backplane 的实际结果。初始状态、重连后缺少新的成功证据为 Degraded（HTTP 200），不会仅因重复检查升级为 Unhealthy。订阅或发布已失败时，首次检查 Degraded、连续第二次 Unhealthy（HTTP 503）；L2 GET 成功不会清除该失败。订阅完成或收到有效消息可以恢复订阅侧，只有真实发布成功才能恢复发布侧；SDK 熔断计时闭合、连接建立或收到消息均不能清除发布失败。两侧成功且 L2 GET 成功后才 Healthy。
 
-该观察复用 SDK 已注册的 Backplane，不新增连接、独立订阅 Worker 或探针广播。重连使旧成功证据失效；操作开始序号和实例代际隔离迟到结果及已退役回调。请求取消不记为 Redis 故障，描述不包含原异常、键或载荷。它是被动观察，不会主动测试每一项 ACL，也无法立即发现空闲期间尚未触发操作的权限变更或静默断连。冷启动或长期没有真实发布的实例可持续 Degraded；不能为消除该状态频繁发送探针广播，更不能将其解释为已证明全节点失效。
+健康查询本身保持只读，观察器复用 SDK 已注册的 Backplane，不新增连接或独立订阅。启用背板的宿主另由 `CacheBackplaneHeartbeat` 每十五秒通过同一 SDK 失效一个进程专属空键，跳过 L2 读写；单次操作受 `Cache:RedisOperationTimeout` 约束，用实际通信结果补齐空闲实例的发布证据。定时器不能直接写成成功，心跳也不代表所有节点均已清除业务 L1。重连使旧成功证据失效；操作开始序号和实例代际隔离迟到结果及退役回调。请求取消不记为 Redis 故障，描述不包含原异常、键或载荷；没有成功通信时保持未知或失败状态，不因检查次数增加而假定恢复，也不声称立即发现全部 ACL 变化或静默断连。
 
 Grid 偏好的 S2 合同允许迟到回填：请求已读到旧快照、随后写操作提交并删除缓存、旧请求最后完成时，旧值仍可能重新进入 L1/L2，并由另一节点读到。`Version` 用于保存时的冲突检测，当前不承担缓存回填栅栏。两台实例各自过期，某一台恢复不能证明全部恢复。默认 L1 一分钟、L2 十五分钟并不代表提交后一分内最新；评估窗口必须包含在途回源耗时、回填后的 L2 寿命、L2 再次进入 L1 的寿命与抖动，开启 Fail-Safe 还须另计显式保留期限。没有在途读取耗时上界时，不给出从事务提交起算的固定最大陈旧时间。需要写后权威读取的部署可将该条目配置为 C0/N0，不能依赖增发一次通知达到该合同。
 
@@ -122,3 +122,21 @@ Native AOT 的 L2 元数据必须覆盖 SDK 实际传入的 `FusionCacheDistribu
 - 历史双库记录见文首链接；不能替代本轮新增准入/故障场景。当前实施与未验证项以[统一计划](../superpowers/plans/2026-10-03-cache-hardening.md)为准。
 - 真实栈：E2E bootstrap 已配置 `Cache:RedisConnectionString` 时，
   `/health/ready` 应包含分布式缓存探针（见 `redis-ready-health.spec.mjs`）
+
+## 显式双进程功能核对
+
+`tests/Tools/Full.NET.CacheBackplaneProbe` 使用正式缓存注册，两个进程共享同一组受控 `Cache__RedisConnectionString` 和 `Cache__ApplicationName` 环境配置。它只读取环境配置，使用 Production 命名空间，不加载 API 的 appsettings。构建可复用 Integration 输出，单独构建仍使用资源准入：
+
+```powershell
+node scripts/testing/run-build-with-resources.mjs --cpu 2 --memory-gib 2 -- dotnet build tests/Tools/Full.NET.CacheBackplaneProbe/Full.NET.CacheBackplaneProbe.csproj --configuration Release
+$probe = Join-Path $PWD 'tests/Tools/Full.NET.CacheBackplaneProbe/bin/Release/net10.0/Full.NET.CacheBackplaneProbe.dll'
+$run = [Guid]::NewGuid().ToString('N')
+$run
+dotnet $probe $run a
+```
+
+在第二个终端使用相同的探针路径、配置和第一终端生成的 32 位运行标识，启动 `dotnet $probe $run b`。两进程都有六十秒期限；双方结束后运行 `dotnet $probe $run cleanup` 清理本轮协调标记。探针只操作随机运行前缀下的临时值和两分钟协调键，不清库、不改变 ACL、不停用 Redis。
+
+成功回执包含两个不同的 PID/缓存实例、双向 L1 失效观察、L2 删除、回填及健康状态。通知实验使用两分钟 L1 TTL，并要求五秒内观察失效，避免将过期误报为通知成功；另外仅对一个临时键禁发一次通知，单独观察短 TTL 收敛。失败只输出角色与异常类型，连接参数不进入诊断。
+
+本地或 CI 中的两个进程只能证明对应配置下的功能行为。回执中的单次毫秒值不是性能基线、撤销 SLA、独立节点故障域或容量证明；实际业务消费者仍按条目的一致性类别执行权威读取和 TTL/版本兜底。
