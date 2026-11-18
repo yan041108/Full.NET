@@ -53,7 +53,7 @@ public sealed class S3FileStorageOptions
 }
 
 /// <summary>
-/// 校验 S3 配置；Production 或默认 Provider 为 s3 时必须完整可用。
+/// 校验 S3 配置；默认或显式配置的 Provider 必须完整可用，未配置的备用 Provider 不阻塞启动。
 /// defaultProviderKey 在模块注册时从配置快照注入，避免 Options 校验与 Provider 解析形成 DI 环。
 /// </summary>
 internal sealed class S3FileStorageOptionsValidator(
@@ -63,14 +63,16 @@ internal sealed class S3FileStorageOptionsValidator(
     public ValidateOptionsResult Validate(string? name, S3FileStorageOptions options)
     {
         ArgumentNullException.ThrowIfNull(options);
-        var requireComplete = environment.IsProduction()
+        var requireComplete = !string.IsNullOrWhiteSpace(options.BucketName)
+            || !string.IsNullOrWhiteSpace(options.ServiceUrl)
+            || !string.IsNullOrWhiteSpace(options.Region)
             || string.Equals(
                 defaultProviderKey,
                 S3HostFileBlobStorage.Key,
                 StringComparison.Ordinal);
         if (!requireComplete)
         {
-            // 开发默认仍用 local：允许未配置 S3，避免本机无凭据时启动失败。
+            // 默认存储由注册表独立校验；备用 Provider 没有任何配置时不要求购买第二种存储。
             if (string.IsNullOrWhiteSpace(options.BucketName)
                 && string.IsNullOrWhiteSpace(options.ServiceUrl)
                 && string.IsNullOrWhiteSpace(options.Region))

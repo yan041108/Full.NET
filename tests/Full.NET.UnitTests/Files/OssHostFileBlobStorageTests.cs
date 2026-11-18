@@ -120,6 +120,41 @@ public sealed class OssHostFileBlobStorageTests
 public sealed class OssFileStorageOptionsValidatorTests
 {
     [TestMethod]
+    [DataRow("Production", "bucket")]
+    [DataRow("Production", "endpoint")]
+    [DataRow("Development", "bucket")]
+    [DataRow("Development", "endpoint")]
+    public void Alternate_provider_is_optional_but_partial_configuration_is_rejected(string environmentName, string field)
+    {
+        var environment = Substitute.For<Microsoft.Extensions.Hosting.IHostEnvironment>();
+        environment.EnvironmentName.Returns(environmentName);
+        var validator = new OssFileStorageOptionsValidator(environment, "s3");
+        Assert.IsTrue(validator.Validate(null, new OssFileStorageOptions()).Succeeded);
+        Assert.IsTrue(validator.Validate(null, new OssFileStorageOptions
+        {
+            BucketName = field == "bucket" ? "partial" : string.Empty,
+            Endpoint = field == "endpoint" ? "https://storage.example.test" : string.Empty,
+        }).Failed);
+        Assert.IsTrue(new OssFileStorageOptionsValidator(environment, "oss")
+            .Validate(null, new OssFileStorageOptions()).Failed);
+    }
+
+    [TestMethod]
+    [DataRow("s3")]
+    [DataRow("oss")]
+    public void Configured_provider_preserves_production_https_requirement(string defaultProvider)
+    {
+        var environment = Substitute.For<Microsoft.Extensions.Hosting.IHostEnvironment>();
+        environment.EnvironmentName.Returns(Microsoft.Extensions.Hosting.Environments.Production);
+        var result = new OssFileStorageOptionsValidator(environment, defaultProvider).Validate(null, new OssFileStorageOptions
+        {
+            BucketName = "bucket", Endpoint = "http://storage.example.test", AllowInsecureEndpoint = true,
+        });
+        Assert.IsTrue(result.Failed);
+        Assert.IsTrue(result.Failures!.Any(failure => failure.Contains("Endpoint must be a valid HTTPS", StringComparison.Ordinal)));
+    }
+
+    [TestMethod]
     public void Production_requires_object_storage_as_default_provider()
     {
         var environment = Substitute.For<Microsoft.Extensions.Hosting.IHostEnvironment>();

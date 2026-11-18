@@ -124,6 +124,46 @@ public sealed class S3HostFileBlobStorageTests
 public sealed class S3FileStorageOptionsValidatorTests
 {
     [TestMethod]
+    [DataRow("Production", "bucket")]
+    [DataRow("Production", "endpoint")]
+    [DataRow("Production", "region")]
+    [DataRow("Development", "bucket")]
+    [DataRow("Development", "endpoint")]
+    [DataRow("Development", "region")]
+    public void Alternate_provider_is_optional_but_partial_configuration_is_rejected(string environmentName, string field)
+    {
+        var environment = Substitute.For<Microsoft.Extensions.Hosting.IHostEnvironment>();
+        environment.EnvironmentName.Returns(environmentName);
+        var validator = new S3FileStorageOptionsValidator(environment, "oss");
+        Assert.IsTrue(validator.Validate(null, new S3FileStorageOptions()).Succeeded);
+        var partial = new S3FileStorageOptions
+        {
+            BucketName = field == "bucket" ? "partial" : string.Empty,
+            ServiceUrl = field == "endpoint" ? "https://storage.example.test" : null,
+            Region = field == "region" ? "us-east-1" : null,
+        };
+        Assert.IsTrue(validator.Validate(null, partial).Failed);
+        Assert.IsTrue(new S3FileStorageOptionsValidator(environment, "s3")
+            .Validate(null, new S3FileStorageOptions()).Failed);
+    }
+
+    [TestMethod]
+    [DataRow("s3")]
+    [DataRow("oss")]
+    public void Configured_provider_preserves_production_https_requirement(string defaultProvider)
+    {
+        var environment = Substitute.For<Microsoft.Extensions.Hosting.IHostEnvironment>();
+        environment.EnvironmentName.Returns(Microsoft.Extensions.Hosting.Environments.Production);
+        var result = new S3FileStorageOptionsValidator(environment, defaultProvider).Validate(null, new S3FileStorageOptions
+        {
+            BucketName = "bucket", EndpointMode = S3EndpointMode.Custom, ServiceUrl = "http://storage.example.test",
+            Region = "us-east-1", ForcePathStyle = true, AllowInsecureServiceUrl = true,
+        });
+        Assert.IsTrue(result.Failed);
+        Assert.IsTrue(result.Failures!.Any(failure => failure.Contains("ServiceUrl must be HTTPS", StringComparison.Ordinal)));
+    }
+
+    [TestMethod]
     public void Production_requires_object_storage_as_default_provider()
     {
         var environment = Substitute.For<Microsoft.Extensions.Hosting.IHostEnvironment>();

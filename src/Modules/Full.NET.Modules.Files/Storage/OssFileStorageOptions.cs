@@ -31,7 +31,7 @@ public sealed class OssFileStorageOptions
 }
 
 /// <summary>
-/// 校验 OSS 配置；Production 或默认 Provider 为 oss 时必须完整可用。
+/// 校验 OSS 配置；默认或显式配置的 Provider 必须完整可用，未配置的备用 Provider 不阻塞启动。
 /// </summary>
 internal sealed class OssFileStorageOptionsValidator(
     IHostEnvironment environment,
@@ -40,7 +40,8 @@ internal sealed class OssFileStorageOptionsValidator(
     public ValidateOptionsResult Validate(string? name, OssFileStorageOptions options)
     {
         ArgumentNullException.ThrowIfNull(options);
-        var requireComplete = environment.IsProduction()
+        var requireComplete = !string.IsNullOrWhiteSpace(options.BucketName)
+            || !string.IsNullOrWhiteSpace(options.Endpoint)
             || string.Equals(
                 defaultProviderKey,
                 OssHostFileBlobStorage.Key,
