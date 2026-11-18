@@ -30,6 +30,10 @@ internal static class NativeApiNotificationChannelReadAssertions
             ? new SqlConnection(connectionString)
             : new MySqlConnection(MySqlConnectionStringPolicy.Create(connectionString,
                 MySqlGuidStorageMode.Binary16, allowUserVariables: false));
+        // 前置治理场景可能已有同作用域绑定。保留并核对原记录，新增夹具仍须严格满足用户与租户边界。
+        var existingSyncIds = ReadIds((await GetAsync(syncPath)).GetProperty("items"));
+        var existingBindingIds = ReadIds((await GetAsync(bindingPath)).GetProperty("items"));
+        var existingMineIds = ReadIds(await GetAsync(bindingPath + "/mine"));
         for (var index = 0; index < 4; index++)
         {
             var syncId = Guid.CreateVersion7();
@@ -83,7 +87,7 @@ internal static class NativeApiNotificationChannelReadAssertions
         }
 
         var syncs = (await GetAsync(syncPath)).GetProperty("items").EnumerateArray().ToArray();
-        CollectionAssert.AreEquivalent(syncIds.Take(3).ToArray(), syncs.Select(row => row.GetProperty("id").GetGuid()).ToArray());
+        CollectionAssert.AreEquivalent(existingSyncIds.Concat(syncIds.Take(3)).ToArray(), syncs.Select(row => row.GetProperty("id").GetGuid()).ToArray());
         for (var index = 0; index < 2; index++)
         {
             var row = await GetAsync($"{syncPath}/{syncIds[index]}");
@@ -111,10 +115,10 @@ internal static class NativeApiNotificationChannelReadAssertions
         }
         await GetAsync($"{syncPath}/{syncIds[3]}", HttpStatusCode.NotFound);
         var bindings = (await GetAsync(bindingPath)).GetProperty("items").EnumerateArray().ToArray();
-        CollectionAssert.AreEquivalent(bindingIds.Take(3).ToArray(), bindings.Select(row => row.GetProperty("id").GetGuid()).ToArray());
+        CollectionAssert.AreEquivalent(existingBindingIds.Concat(bindingIds.Take(3)).ToArray(), bindings.Select(row => row.GetProperty("id").GetGuid()).ToArray());
         var mine = (await GetAsync(bindingPath + "/mine")).EnumerateArray().ToArray();
-        CollectionAssert.AreEquivalent(bindingIds.Take(2).ToArray(), mine.Select(row => row.GetProperty("id").GetGuid()).ToArray());
-        foreach (var row in mine)
+        CollectionAssert.AreEquivalent(existingMineIds.Concat(bindingIds.Take(2)).ToArray(), mine.Select(row => row.GetProperty("id").GetGuid()).ToArray());
+        foreach (var row in mine.Where(row => bindingIds.Contains(row.GetProperty("id").GetGuid())))
         {
             var index = bindingIds.IndexOf(row.GetProperty("id").GetGuid());
             Assert.AreEqual(actorId, row.GetProperty("userId").GetGuid());
@@ -143,6 +147,8 @@ internal static class NativeApiNotificationChannelReadAssertions
         await GetAsync(syncPath, HttpStatusCode.Unauthorized, anonymous: true);
         await GetAsync(bindingPath, HttpStatusCode.Unauthorized, anonymous: true);
         await GetAsync(bindingPath + "/mine", HttpStatusCode.Unauthorized, anonymous: true);
+
+        static Guid[] ReadIds(JsonElement rows) => rows.EnumerateArray().Select(row => row.GetProperty("id").GetGuid()).ToArray();
 
         async Task<JsonElement> GetAsync(string path, HttpStatusCode expected = HttpStatusCode.OK, bool anonymous = false)
         {

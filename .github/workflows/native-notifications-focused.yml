@@ -1,0 +1,118 @@
+name: native-notifications-focused
+
+on:
+  workflow_dispatch:
+    inputs:
+      artifact_run_id:
+        description: 已完成 API 原生发布的 main 作业 ID
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  notifications:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      # 复用只针对消费者变更，业务源码、SDK、依赖或构建参数变化必须重新发布。
+      - name: Validate frozen Native API inputs
+        id: frozen
+        uses: actions/github-script@v7
+        env:
+          SOURCE_RUN_ID: ${{ inputs.artifact_run_id }}
+        with:
+          script: |
+            const {execFileSync} = require('node:child_process');
+            const {pathToFileURL} = require('node:url');
+            const {validateFrozenNativeApiInput} = await import(pathToFileURL(process.cwd() + '/scripts/testing/frozen-native-api-input.mjs'));
+            if (!/^[1-9][0-9]*$/.test(process.env.SOURCE_RUN_ID)) throw new Error('来源作业 ID 无效');
+            const run_id = Number(process.env.SOURCE_RUN_ID);
+            if (!Number.isSafeInteger(run_id)) throw new Error('来源作业 ID 超界');
+            const repo = context.repo;
+            const {data: run} = await github.rest.actions.getWorkflowRun({...repo, run_id});
+            if (!/^[a-f0-9]{40}$/.test(run.head_sha)) throw new Error('来源提交无效');
+            execFileSync('git', ['merge-base', '--is-ancestor', run.head_sha, context.sha]);
+            const changedPaths = execFileSync('git', ['diff', '--name-only', '-z', run.head_sha, context.sha], {encoding: 'utf8'}).split('\0').filter(Boolean);
+            const {data: listing} = await github.rest.actions.listWorkflowRunArtifacts({...repo, run_id, per_page: 100});
+            const artifacts = listing.artifacts.filter(item => item.name === 'api-native-aot-linux-manifest');
+            if (artifacts.length !== 1) throw new Error('必须有唯一的原生发布归档');
+            const {data: jobs} = await github.rest.actions.listJobsForWorkflowRun({...repo, run_id, per_page: 100});
+            const input = validateFrozenNativeApiInput({repository: repo.owner + '/' + repo.repo, run, artifact: artifacts[0], jobs: jobs.jobs, changedPaths});
+            core.setOutput('artifact_id', input.artifactId);
+            core.setOutput('digest', input.digest);
+            core.info('复用原生 API 来源提交 ' + input.sourceSha);
+
+      - name: Download and verify frozen Native API
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ARTIFACT_ID: ${{ steps.frozen.outputs.artifact_id }}
+          EXPECTED_DIGEST: ${{ steps.frozen.outputs.digest }}
+        run: |
+          archive="$RUNNER_TEMP/frozen-native-api.zip"
+          gh api "repos/$GITHUB_REPOSITORY/actions/artifacts/$ARTIFACT_ID/zip" > "$archive"
+          printf '%s  %s\n' "$EXPECTED_DIGEST" "$archive" | sha256sum --check --status
+          mkdir -p artifacts/native-aot/linux-x64/publish
+          unzip -p "$archive" linux-x64/publish/Full.NET.Host.Api > artifacts/native-aot/linux-x64/publish/Full.NET.Host.Api
+          unzip -p "$archive" linux-x64/publish-manifest.json > artifacts/native-aot/linux-x64/publish-manifest.json
+          rm -f -- "$archive"
+          chmod 0755 artifacts/native-aot/linux-x64/publish/Full.NET.Host.Api
+          node --input-type=module <<'JS'
+          import assert from 'node:assert/strict';
+          import {readFileSync, statSync} from 'node:fs';
+          import {apiNativeAotPublishContract as contract} from './scripts/testing/api-native-aot-publish-contract.mjs';
+          const manifest = JSON.parse(readFileSync(contract.manifestRelativePath, 'utf8'));
+          const executable = contract.outputRelativeDir + '/' + contract.executableName;
+          const bytes = statSync(executable).size;
+          assert.equal(manifest.runtimeIdentifier, contract.runtimeIdentifier);
+          assert.equal(manifest.executableBytes, bytes);
+          assert.ok(bytes >= contract.minimumExecutableBytes);
+          assert.equal(readFileSync(executable).subarray(0, 6).toString('hex'), '7f454c460201');
+          assert.deepEqual(manifest.msBuildProperties, contract.publishMsBuildProperties);
+          JS
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.26.0
+
+      - name: Install workspace tooling
+        run: pnpm install --frozen-lockfile
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('**/packages.lock.json', '**/Directory.Packages.props', 'global.json') }}
+          restore-keys: nuget-${{ runner.os }}-
+
+      - name: Prepare notification database images
+        run: |
+          node scripts/testing/prepare-ci-test-images.mjs
+          docker pull mcr.microsoft.com/mssql/server:2022-CU14-ubuntu-22.04
+
+      - name: Run only Native AOT Notifications E2E
+        run: pnpm test:aot:native:notifications:e2e
+
+      - name: Upload notification receipts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: native-notifications-focused-receipts
+          if-no-files-found: warn
+          path: |
+            artifacts/native-aot/linux-x64/test-results/**
+            artifacts/**/*.log
