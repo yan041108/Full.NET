@@ -49,6 +49,8 @@ public sealed class WorkflowWorkCalendarTests
     public void Daylight_transition_uses_actual_utc_work_intersection(string start,int hours,string expected)
     {
         Assert.IsTrue(WorkflowWorkCalendar.TryCreate(new(1,"America/New_York",[new(0,[new("00:00","04:00")])]),out var calendar));
+        using var snapshot=JsonDocument.Parse(calendar!.CanonicalJson);
+        Assert.IsTrue(WorkflowWorkCalendar.TryRead(snapshot.RootElement,out calendar));
         Assert.IsTrue(calendar!.TryAddWorkingMilliseconds(At(start),Hours(hours),out var due));Assert.AreEqual(At(expected),due);
         Assert.IsTrue(calendar.TryRemainingWorkingMilliseconds(At(start),due,out var remaining));Assert.AreEqual(Hours(hours),remaining);
     }
@@ -58,6 +60,8 @@ public sealed class WorkflowWorkCalendarTests
     public void Missing_or_ambiguous_local_window_endpoint_is_rejected(string start,string from,string to)
     {
         Assert.IsTrue(WorkflowWorkCalendar.TryCreate(new(1,"America/New_York",[new(0,[new(from,to)])]),out var calendar));
+        using var snapshot=JsonDocument.Parse(calendar!.CanonicalJson);
+        Assert.IsTrue(WorkflowWorkCalendar.TryRead(snapshot.RootElement,out calendar));
         Assert.IsFalse(calendar!.TryAddWorkingMilliseconds(At(start),1,out _));
     }
     [TestMethod]

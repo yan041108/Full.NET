@@ -121,7 +121,7 @@ internal sealed class WorkflowWorkCalendarService(IQueryExecutor query,ICommandE
             using var json=JsonDocument.Parse(row.CanonicalJson);
             if(!WorkflowWorkCalendar.TryRead(json.RootElement,out var calendar) || calendar!.ContentHash!=row.ContentHash || calendar.TimeZoneKey!=row.TimeZoneKey)return null;
             var snapshot=json.RootElement.Deserialize(WorkflowJsonSerializerContext.Default.WorkflowWorkCalendarSnapshot)!;
-            return new(row.Id,row.CalendarId,row.VersionNumber,new(snapshot.SchemaVersion,snapshot.TimeZoneKey,snapshot.Weekdays,snapshot.Exceptions),row.ContentHash,row.TimeZoneKey,row.PublishedAtUtc);
+            return new(row.Id,row.CalendarId,row.VersionNumber,new(1,snapshot.TimeZoneKey,snapshot.Weekdays,snapshot.Exceptions),row.ContentHash,row.TimeZoneKey,row.PublishedAtUtc);
         }
         catch(JsonException){return null;}
     }

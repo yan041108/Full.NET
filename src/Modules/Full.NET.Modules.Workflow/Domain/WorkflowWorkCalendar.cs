@@ -34,10 +34,10 @@ internal sealed class WorkflowWorkCalendar
 {
     internal const int MaximumSearchDays=3660;
     internal const long MaximumWorkMilliseconds=WorkflowDelayPolicy.MaximumDurationSeconds*1000;
-    private readonly TimeZoneInfo zone;
+    private readonly WorkflowCalendarTimeZone zone;
     private readonly IReadOnlyDictionary<int,CalendarRange[]> weekdays;
     private readonly IReadOnlyDictionary<DateOnly,CalendarRange[]> exceptions;
-    private WorkflowWorkCalendar(TimeZoneInfo zone,Dictionary<int,CalendarRange[]> weekdays,Dictionary<DateOnly,CalendarRange[]> exceptions,string json)
+    private WorkflowWorkCalendar(WorkflowCalendarTimeZone zone,Dictionary<int,CalendarRange[]> weekdays,Dictionary<DateOnly,CalendarRange[]> exceptions,string json)
     {this.zone=zone;this.weekdays=weekdays;this.exceptions=exceptions;CanonicalJson=json;ContentHash=Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(json)));}
     public string CanonicalJson{get;}
     public string ContentHash{get;}
@@ -49,10 +49,8 @@ internal sealed class WorkflowWorkCalendar
         try
         {
             var snapshot=value.Deserialize(WorkflowJsonSerializerContext.Default.WorkflowWorkCalendarSnapshot);
-            if(snapshot is not{SchemaVersion:1} || string.IsNullOrEmpty(snapshot.TimeZoneRules) || snapshot.TimeZoneRules.Length>65536)return false;
-            var zone=TimeZoneInfo.FromSerializedString(snapshot.TimeZoneRules);
-            if(zone.Id!=snapshot.TimeZoneKey)return false;
-            return TryBuild(new(snapshot.SchemaVersion,snapshot.TimeZoneKey,snapshot.Weekdays,snapshot.Exceptions),zone,out calendar);
+            if(snapshot is null || !WorkflowCalendarTimeZone.TryRead(snapshot.SchemaVersion,snapshot.TimeZoneKey,snapshot.TimeZoneRules,out var zone))return false;
+            return TryBuild(new(1,snapshot.TimeZoneKey,snapshot.Weekdays,snapshot.Exceptions),zone!,out calendar);
         }
         catch(Exception error) when(error is JsonException or ArgumentException or System.Runtime.Serialization.SerializationException){return false;}
     }
@@ -62,10 +60,11 @@ internal sealed class WorkflowWorkCalendar
         calendar=null;
         if(draft is not{SchemaVersion:1} || string.IsNullOrWhiteSpace(draft.TimeZoneKey) || draft.TimeZoneKey.Length>128 ||
             !TimeZoneInfo.TryFindSystemTimeZoneById(draft.TimeZoneKey,out var zone))return false;
-        return TryBuild(draft,zone,out calendar);
+        try{return WorkflowCalendarTimeZone.TryCapture(zone,out var snapshot) && TryBuild(draft,snapshot!,out calendar);}
+        catch(Exception error) when(error is ArgumentException or InvalidOperationException){return false;}
     }
 
-    private static bool TryBuild(WorkflowWorkCalendarDraft draft,TimeZoneInfo zone,out WorkflowWorkCalendar? calendar)
+    private static bool TryBuild(WorkflowWorkCalendarDraft draft,WorkflowCalendarTimeZone zone,out WorkflowWorkCalendar? calendar)
     {
         calendar=null;
         if(draft.Weekdays is null || draft.Weekdays.Count>7 || (draft.Exceptions?.Count??0)>366)return false;
@@ -83,8 +82,8 @@ internal sealed class WorkflowWorkCalendar
         }
         if(!weekdays.Values.Any(ranges=>ranges.Length!=0) && !exceptions.Values.Any(ranges=>ranges.Length!=0))return false;
         var json=WorkflowJsonCanonicalizer.Compile(writer=>{
-            writer.WriteStartObject();writer.WriteNumber("schemaVersion",1);writer.WriteString("timeZoneKey",zone.Id);
-            writer.WriteString("timeZoneRules",zone.ToSerializedString());
+            writer.WriteStartObject();writer.WriteNumber("schemaVersion",zone.SchemaVersion);writer.WriteString("timeZoneKey",zone.Id);
+            writer.WriteString("timeZoneRules",zone.Rules);
             writer.WriteStartArray("weekdays");
             foreach(var pair in weekdays.OrderBy(pair=>pair.Key))
             {writer.WriteStartObject();writer.WriteNumber("dayOfWeek",pair.Key);WriteRanges(writer,pair.Value);writer.WriteEndObject();}
@@ -146,8 +145,8 @@ internal sealed class WorkflowWorkCalendar
     private bool TryLocalDate(DateTimeOffset instant,out DateOnly date)
     {
         date=default;if(instant.Year is <1000 or >=9999)return false;
-        var local=TimeZoneInfo.ConvertTime(instant,zone);if(local.Year is <1000 or >=9999)return false;
-        date=DateOnly.FromDateTime(local.DateTime);return true;
+        if(!zone.TryToLocal(instant,out var local) || local.Year is <1000 or >=9999)return false;
+        date=DateOnly.FromDateTime(local);return true;
     }
     private bool TryUtcRanges(DateOnly date,out IReadOnlyList<UtcRange> ranges)
     {
@@ -157,8 +156,7 @@ internal sealed class WorkflowWorkCalendar
         foreach(var window in windows)
         {
             var from=midnight.AddMinutes(window.StartMinutes);var to=midnight.AddMinutes(window.EndMinutes);
-            if(zone.IsInvalidTime(from) || zone.IsInvalidTime(to) || zone.IsAmbiguousTime(from) || zone.IsAmbiguousTime(to))return false;
-            var begin=new DateTimeOffset(TimeZoneInfo.ConvertTimeToUtc(from,zone));var end=new DateTimeOffset(TimeZoneInfo.ConvertTimeToUtc(to,zone));
+            if(!zone.TryToUtc(from,out var begin) || !zone.TryToUtc(to,out var end))return false;
             if(begin>=end)return false;result.Add(new(begin,end));
         }
         ranges=result;return true;
