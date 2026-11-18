@@ -5,7 +5,7 @@ on:
     inputs:
       test_class:
         description: 完整测试类名，仅执行该类，禁止命名空间或通配符
-        required: true
+        required: false
         type: string
       test_method:
         description: 可选精确方法名，以逗号分隔且最多十个；留空执行该类
@@ -13,10 +13,15 @@ on:
         type: string
       minimum_expected_tests:
         description: 此次聚焦范围的最低发现数
-        required: true
+        required: false
         type: string
       prepare_codegen_fixtures:
         description: 先用现有生成工具更新其拥有的三个 Catalog 固定产物
+        required: false
+        default: false
+        type: boolean
+      preview_codegen_remediation:
+        description: 只读预览共享生成恢复夹具，不执行 Unit 或改写源码
         required: false
         default: false
         type: boolean
@@ -41,8 +46,22 @@ jobs:
         with:
           dotnet-version: 10.0.x
 
-      # 提前拒绝不存在的类及筛选表达式，再由既有入口构建和执行聚焦范围。
+      - name: Validate execution mode
+        env:
+          PREVIEW: ${{ inputs.preview_codegen_remediation }}
+          PREPARE: ${{ inputs.prepare_codegen_fixtures }}
+          TARGET_CLASS: ${{ inputs.test_class }}
+          TARGET_METHOD: ${{ inputs.test_method }}
+          MINIMUM_TESTS: ${{ inputs.minimum_expected_tests }}
+        run: |
+          node --input-type=module <<'NODE'
+          if (process.env.PREVIEW === 'true' && (process.env.PREPARE === 'true' || process.env.TARGET_CLASS || process.env.TARGET_METHOD || process.env.MINIMUM_TESTS))
+            throw new Error('只读预览不能与写入或测试选择同时使用。');
+          NODE
+
+      # 非预览模式仍必须提供明确类及最低发现数，不能因输入可省略而退化为全量。
       - name: Validate focused test identity
+        if: ${{ !inputs.preview_codegen_remediation }}
         env:
           TARGET_CLASS: ${{ inputs.test_class }}
           TARGET_METHOD: ${{ inputs.test_method }}
@@ -51,12 +70,14 @@ jobs:
 
       # SDK 隐式引入的链接器版本也受锁文件约束；先还原再冻结，不接受编译期间改写输入。
       - name: Restore Unit inputs
+        if: ${{ !inputs.preview_codegen_remediation }}
         run: |
           dotnet --version
           dotnet restore tests/Full.NET.UnitTests/Full.NET.UnitTests.csproj --force-evaluate
 
       - name: Verify restored tool lockfiles
         id: locks
+        if: ${{ !inputs.preview_codegen_remediation }}
         run: git diff --quiet -- src/Tools/Full.NET.Ai.DocxParser/packages.lock.json src/Tools/Full.NET.Ai.PdfParser/packages.lock.json
 
       - name: Preserve regenerated tool lockfiles
@@ -71,10 +92,29 @@ jobs:
             src/Tools/Full.NET.Ai.PdfParser/packages.lock.json
 
       - name: Build owned code generation fixture tool
-        if: inputs.prepare_codegen_fixtures
+        if: inputs.prepare_codegen_fixtures || inputs.preview_codegen_remediation
         run: >-
           node scripts/testing/run-build-with-resources.mjs --cpu 2 --memory-gib 2 --
           dotnet build tests/Tools/Full.NET.CodeGeneration.Fixtures/Full.NET.CodeGeneration.Fixtures.csproj --configuration Release
+
+      - name: Preview shared generated fixtures without writes
+        id: preview
+        if: inputs.preview_codegen_remediation
+        run: |
+          before="$(git status --porcelain --untracked-files=all)"
+          dotnet tests/Tools/Full.NET.CodeGeneration.Fixtures/bin/Release/net10.0/Full.NET.CodeGeneration.Fixtures.dll --preview --remediation > "$RUNNER_TEMP/codegen-remediation-preview.json"
+          after="$(git status --porcelain --untracked-files=all)"
+          test "$before" = "$after"
+          node scripts/testing/codegen-fixture-preview.mjs "$RUNNER_TEMP/codegen-remediation-preview.json"
+
+      - name: Preserve read-only generated fixture preview
+        if: inputs.preview_codegen_remediation && steps.preview.conclusion == 'success'
+        uses: actions/upload-artifact@v4
+        with:
+          name: codegen-remediation-preview
+          if-no-files-found: error
+          retention-days: 1
+          path: ${{ runner.temp }}/codegen-remediation-preview.json
 
       - name: Generate and verify owned fixtures
         id: fixtures
@@ -109,6 +149,7 @@ jobs:
             tests/Full.NET.UnitTests/CodeGeneration/Fixtures/CatalogProduct/reports/products.generation.json
 
       - name: Run focused Unit tests
+        if: ${{ !inputs.preview_codegen_remediation }}
         env:
           TARGET_CLASS: ${{ inputs.test_class }}
           TARGET_METHOD: ${{ inputs.test_method }}
