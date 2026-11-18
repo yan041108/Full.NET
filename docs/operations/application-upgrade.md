@@ -26,6 +26,20 @@ Full.NET 生成应用升级遵循 **Migrator → Worker → Api** 顺序，与 `
 2. **Worker**：滚动重启，等待 Outbox/Jobs 消费追平
 3. **Api**：滚动重启，验证健康检查与关键读取路径
 
+## Ubuntu/MySQL 的单角色发布步骤
+
+`eng/deploy/ubuntu/Release-Application.sh CHART ROLE [--plan]` 接续 Ubuntu 参考部署，读取已审核的 `/etc/fullnet/release/common.json` 和对应角色 values。安装脚本到 `/usr/local/lib/fullnet/` 时使用 root 属主与 `0700`；migrator 依赖已经安装的备份服务，api 仍沿已有入口刷新网关。
+
+`--plan` 先冻结两份 values、打包候选 Chart 并实际渲染，输出角色和候选摘要，不启动备份、不改 MySQL、不访问集群或升级资源。正式执行在该次调用内复用同一冻结包和 values，强制 production 及单一选定角色，防止配置漂移把 worker 发布到 api Release。重新执行会重新冻结输入，输入发生变化时需重新审查。每次命令只负责一个角色，发布协调者仍按 Migrator → Worker → API 推进。
+
+```bash
+sudo /usr/local/lib/fullnet/Release-Application.sh "$CANDIDATE_CHART" migrator --plan
+```
+
+migrator 在候选渲染通过、备份服务成功后才开启临时 DDL 设置；读取原值、确认启用、发布后恢复并复核，恢复失败不输出成功结果。SET 响应丢失也会执行恢复。包和渲染有六十秒期限，Helm 操作使用自身十分钟等待及外层硬期限。可处理的退出和 TERM/INT 会执行清理；强杀进程或主机异常后的参数状态仍需人工核对，不能由预览或脚本存在推断恢复已经完成。
+
+成功清理本轮暂存目录；失败仅保留私有且有界的原始诊断，values 与候选副本会被移除，秘密不直接回显到终端。该普通角色步骤不承担报表输出切版、旧消费者排空或联合恢复；涉及这些变更时使用上方对应手册和正式门禁。
+
 ## Expand/Contract
 
 - 仅追加列/表时使用 Expand；删除或重命名列前必须 Contract 旧读路径
