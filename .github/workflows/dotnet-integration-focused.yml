@@ -8,7 +8,7 @@ on:
         required: true
         default: enterprise-delivery
         type: choice
-        options: [enterprise-delivery, oidc-proof, import-receipt, ai-files-tenant, identity-browser, password-recovery-session]
+        options: [enterprise-delivery, oidc-proof, import-receipt, ai-files-tenant, identity-browser, password-recovery-session, tenant-seat-process]
 
 permissions:
   contents: read
@@ -66,6 +66,9 @@ jobs:
             password-recovery-session)
               filter='FullyQualifiedName=Full.NET.IntegrationTests.Identity.PasswordRecoveryBrowserSessionTests.Password_recovery_revokes_original_browser_and_center_sessions'
               minimum=2 ;;
+            tenant-seat-process)
+              filter='FullyQualifiedName=Full.NET.IntegrationTests.Identity.TenantSeatProcessRecoveryTests.Worker_crash_after_seat_confirmation_recovers_without_duplicate_consumption|FullyQualifiedName=Full.NET.IntegrationTests.EnterpriseRequest.EnterpriseRequestAccessMatrixTests.Worker_process_crashes_recover_submission_and_business_writeback_without_duplicate_effects'
+              minimum=4 ;;
             *) exit 64 ;;
           esac
           git rev-parse HEAD

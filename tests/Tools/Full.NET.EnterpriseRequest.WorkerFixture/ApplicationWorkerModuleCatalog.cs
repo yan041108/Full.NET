@@ -1,6 +1,8 @@
 using Full.NET.Abstractions.Messaging;
+using Full.NET.Abstractions.Results;
 using Full.NET.Composition;
 using Full.NET.Modules.EnterpriseRequest;
+using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Workflow.Contracts;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 
@@ -15,14 +17,17 @@ internal static class ApplicationWorkerModuleCatalog
         services.AddFullNetApplicationModules(configuration, FullNetHostProfile.Worker, [new EnterpriseRequestModule()]);
         if (NotificationSmtpRecoveryFixture.TryRegister(services, configuration, existing)) return;
         if (AdmissionPressureFixture.TryRegister(services, configuration, existing)) return;
-        var receiver=configuration["RecoveryFixture:WebhookReceiverUrl"];
-        var withWebhooks=!string.IsNullOrWhiteSpace(receiver);
         if (ReportingRecoveryFixture.TryRegister(services, configuration, existing)) return;
         if (ImportCheckpointRecoveryFixture.TryRegister(services, configuration, existing)) return;
         if (OfficePreviewRecoveryFixture.TryRegister(services, configuration, existing)) return;
+        var receiver=configuration["RecoveryFixture:WebhookReceiverUrl"];
+        var withWebhooks=!string.IsNullOrWhiteSpace(receiver);
+        var mode = configuration["RecoveryFixture:Pause"] ?? "none";
+        var withSeats = mode is "seat-confirm" or "seat-recovery";
         // 只保留本次业务恢复直接使用的模块循环；官方入口随后照常注册生产 Outbox。
         foreach (var descriptor in services.Where(d => d.ServiceType == typeof(IHostedService) && !existing.Contains(d)
             && d.ImplementationType?.Name is not ("WorkflowRecoveryHostedProcessor" or "NotificationDeliveryHostedProcessor")
+            && !(withSeats && d.ImplementationType?.Name == "TenantSeatRecoveryWorker")
             && !(withWebhooks&&d.ImplementationType?.Name=="WebhookDeliveryHostedProcessor")).ToArray()) services.Remove(descriptor);
         if(withWebhooks)
         {
@@ -38,12 +43,18 @@ internal static class ApplicationWorkerModuleCatalog
                     (IWorkflowInstanceCompletedSink)ActivatorUtilities.CreateInstance(sp,original.ImplementationType!),state),original.Lifetime));
             }
         }
-        var mode = configuration["RecoveryFixture:Pause"] ?? "none";
-        if (mode == "none") return;
+        if (mode is "none" or "seat-recovery") return;
         var file = configuration["RecoveryFixture:GateFile"] ?? throw new InvalidOperationException("缺少本测试拥有的故障检查点文件。");
-        if (mode == "submission")
+        if (mode == "seat-confirm")
         {
-            var original = services.Single(d => d.ServiceType == typeof(IIntegrationEventHandler) && d.ImplementationType?.Name == "EnterpriseRequestSubmittedHandler");
+            var original = services.Single(d => d.ServiceType == typeof(ITenantMemberSeatQuotaPort));
+            services.Remove(original);
+            services.Add(ServiceDescriptor.Describe(typeof(ITenantMemberSeatQuotaPort), sp =>
+                new SeatConfirmationGate((ITenantMemberSeatQuotaPort)ActivatorUtilities.CreateInstance(sp, original.ImplementationType!), file), original.Lifetime));
+        }
+        else if (mode == "submission")
+        {
+            var original = services.Single(d => d.ServiceType == typeof(IIntegrationEventHandler) && d.ImplementationType?.Name == "EnterpriseRequestApprovalSubmittedHandler");
             services.Remove(original);
             services.Add(ServiceDescriptor.Describe(typeof(IIntegrationEventHandler), sp =>
                 new SubmittedGate((IIntegrationEventHandler)ActivatorUtilities.CreateInstance(sp, original.ImplementationType!), file), original.Lifetime));
@@ -56,6 +67,28 @@ internal static class ApplicationWorkerModuleCatalog
                 new OutcomeGate((IWorkflowInstanceCompletedSink)ActivatorUtilities.CreateInstance(sp, original.ImplementationType!), file), original.Lifetime));
         }
         else throw new InvalidOperationException("不支持的恢复测试挂起点。");
+    }
+
+    private sealed class SeatConfirmationGate(ITenantMemberSeatQuotaPort original, string file) : ITenantMemberSeatQuotaPort
+    {
+        public Task<Result<bool>> TryReserveAsync(Guid tenantId, string operationId, CancellationToken cancellationToken = default) =>
+            original.TryReserveAsync(tenantId, operationId, cancellationToken);
+        public Task<Result<bool>> ReleaseAsync(Guid tenantId, string operationId, CancellationToken cancellationToken = default) =>
+            original.ReleaseAsync(tenantId, operationId, cancellationToken);
+        public Task<Result<bool>> CancelConsumptionAsync(Guid tenantId, string operationId, CancellationToken cancellationToken = default) =>
+            original.CancelConsumptionAsync(tenantId, operationId, cancellationToken);
+        public async Task<Result<bool>> ConfirmAsync(Guid tenantId, string operationId, CancellationToken cancellationToken = default)
+        {
+            var result = await original.ConfirmAsync(tenantId, operationId, cancellationToken);
+            if (result.IsSuccess && result.Value)
+            {
+                // 配额确认已提交而 Identity 阶段尚未推进，父进程在此终止本测试 Worker。
+                await File.WriteAllTextAsync(file + ".tmp", operationId, cancellationToken);
+                File.Move(file + ".tmp", file);
+                await Task.Delay(Timeout.Infinite, cancellationToken);
+            }
+            return result;
+        }
     }
 
     private sealed class ReceiverForwarder(Uri receiver):DelegatingHandler(new SocketsHttpHandler{AllowAutoRedirect=false,UseProxy=false,UseCookies=false})
