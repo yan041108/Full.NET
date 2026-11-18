@@ -1,0 +1,46 @@
+name: dotnet-unit-focused
+
+on:
+  workflow_dispatch:
+    inputs:
+      test_class:
+        description: 完整测试类名，仅执行该类，禁止命名空间或通配符
+        required: true
+        type: string
+      minimum_expected_tests:
+        description: 此次聚焦范围的最低发现数
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  unit:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.26.0
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      # 提前拒绝不存在的类及筛选表达式，再由既有入口构建和执行聚焦范围。
+      - name: Validate focused test identity
+        env:
+          TARGET_CLASS: ${{ inputs.test_class }}
+          MINIMUM_TESTS: ${{ inputs.minimum_expected_tests }}
+        run: node scripts/testing/run-focused-unit.mjs --validate
+
+      - name: Run focused Unit tests
+        env:
+          TARGET_CLASS: ${{ inputs.test_class }}
+          MINIMUM_TESTS: ${{ inputs.minimum_expected_tests }}
+        run: node scripts/testing/run-focused-unit.mjs
