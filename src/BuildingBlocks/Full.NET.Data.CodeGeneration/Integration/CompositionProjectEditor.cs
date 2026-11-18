@@ -294,7 +294,11 @@ public static class CompositionProjectEditor
             segments.Add(segment);
         }
 
-        return string.Join('/', segments);
+        // 去除空段会丢失 Unix/UNC 根前缀，绝对目标随后永远无法命中，重复接入便会追加同一引用。
+        var normalizedProject = Normalize(projectPath);
+        var rootPrefix = normalizedProject.StartsWith("//", StringComparison.Ordinal) ? "//"
+            : normalizedProject.StartsWith('/') ? "/" : string.Empty;
+        return rootPrefix + string.Join('/', segments);
     }
 
     private static int FindClosingLine(

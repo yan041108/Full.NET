@@ -7,6 +7,35 @@ namespace Full.NET.UnitTests.CodeGeneration;
 public sealed class CompositionIntegrationEditorTests
 {
     [TestMethod]
+    [DataRow("/checkout/application")]
+    [DataRow("C:/checkout/application")]
+    [DataRow("//server/share/application")]
+    public void Project_edit_preserves_rooted_reference_identity_on_repeat(string root)
+    {
+        const string source = """
+            <Project Sdk="Microsoft.NET.Sdk">
+              <ItemGroup>
+                <ProjectReference Include="../Demo.Modules.Probe/Demo.Modules.Probe.csproj" />
+              </ItemGroup>
+            </Project>
+            """;
+        var composition = root + "/src/Demo.Composition/Demo.Composition.csproj";
+        var module = root + "/src/Demo.Modules.Catalog/Demo.Modules.Catalog.csproj";
+
+        var first = CompositionProjectEditor.Edit(source, composition, module);
+        Assert.IsTrue(first.Succeeded);
+        Assert.IsTrue(first.Changed);
+        var second = CompositionProjectEditor.Edit(first.DesiredContent, composition, module);
+
+        Assert.IsTrue(second.Succeeded);
+        Assert.IsFalse(second.Changed, "同一绝对模块路径不得在重复接入时新增引用。");
+        Assert.AreEqual(first.DesiredContent, second.DesiredContent);
+        var references = System.Xml.Linq.XDocument.Parse(second.DesiredContent).Descendants("ProjectReference").ToArray();
+        Assert.HasCount(2, references);
+        Assert.AreEqual("../Demo.Modules.Probe/Demo.Modules.Probe.csproj", references[0].Attribute("Include")!.Value);
+    }
+
+    [TestMethod]
     public void Project_edit_adds_exact_relative_reference_to_existing_group()
     {
         var result = CompositionProjectEditor.Edit(
