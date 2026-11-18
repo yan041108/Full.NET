@@ -119,6 +119,7 @@
   <Folder Name="/tests/">
     <Project Path="tests/Full.NET.CodeGeneration.NativeSmoke/Full.NET.CodeGeneration.NativeSmoke.csproj" />
     <Project Path="tests/Tools/Full.NET.CodeGeneration.Fixtures/Full.NET.CodeGeneration.Fixtures.csproj" />
+    <Project Path="tests/Tools/Full.NET.EnterpriseRequest.WorkerFixture/Full.NET.EnterpriseRequest.WorkerFixture.csproj" />
     <Project Path="tests/Full.NET.ArchitectureTests/Full.NET.ArchitectureTests.csproj" />
     <Project Path="tests/Full.NET.CompatibilityTests/Full.NET.CompatibilityTests.csproj" />
     <Project Path="tests/Full.NET.IntegrationTests/Full.NET.IntegrationTests.csproj" />

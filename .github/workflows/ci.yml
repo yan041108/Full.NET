@@ -256,7 +256,10 @@ jobs:
       - name: Install Playwright Chromium
         run: pnpm --filter @fullnet/admin-real-stack-e2e exec playwright install --with-deps chromium
 
-      - name: Verify real backend admin smoke (legacy + oidc-center)
+      - name: Verify HTTPS BFF browser sessions (SqlServer + MySQL)
+        run: pnpm test:e2e:real:oidc-center
+
+      - name: Verify real backend admin smoke (legacy business screens)
         env:
           FULLNET_E2E_BUILD_ROOT: ${{ runner.temp }}/fullnet-real-stack-build
           FULLNET_E2E_LOG_ROOT: ${{ runner.temp }}/fullnet-real-stack-logs

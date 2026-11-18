@@ -203,20 +203,29 @@ test('Playwright 本地必须压低 Vite 日志并允许复用已有 dev server'
   assert.match(realStack, /FULLNET_E2E_REUSE_SERVER/);
 });
 
-test('CI 真实栈门禁必须执行含 oidc-center 的 Playwright 全量套件', async () => {
+test('CI 真实栈门禁显式执行当前 HTTPS BFF 与生产 TOTP 入口', async () => {
   const workflow = await read('.github/workflows/ci.yml');
   const rootPackage = await read('package.json');
   const realStack = await read(
     'tests/e2e/admin-real-stack/playwright.config.mjs'
   );
+  const browser = await read('tests/e2e/admin-real-stack/playwright.bff.config.mjs');
+  const runner = await read('scripts/testing/run-identity-oidc-runtime.mjs');
 
   assert.match(workflow, /real-stack-e2e:/);
   assert.match(workflow, /real-stack-e2e-production-totp:/);
   assert.match(workflow, /pnpm test:e2e:real/);
+  assert.match(workflow, /run:\s*pnpm test:e2e:real:oidc-center(?:\s|$)/);
   assert.match(workflow, /pnpm test:e2e:real:production-totp/);
   assert.match(rootPackage, /"test:e2e:real:oidc-center"/);
   assert.match(rootPackage, /"test:e2e:real:production-totp"/);
-  assert.match(realStack, /name:\s*'vue-admin-oidc-center'/);
-  assert.match(realStack, /testMatch:\s*'\*\*\/admin-oidc-center\.spec\.mjs'/);
-  assert.match(realStack, /testIgnore:\s*'\*\*\/admin-oidc-center\.spec\.mjs'/);
+  // 旧 SPA 中心用例已经退役，正式回执必须来自 HTTPS BFF 的双库后端与桌面/移动页面。
+  assert.match(realStack, /testIgnore:[\s\S]*admin-oidc-center\.spec\.mjs/);
+  assert.match(browser, /testDir:\s*'\.\/bff-tests'/);
+  assert.match(browser, /FULLNET_BFF_UI_ORIGIN/);
+  assert.match(browser, /name:\s*'desktop'/);
+  assert.match(browser, /name:\s*'mobile'/);
+  assert.match(runner, /FullyQualifiedName~IdentityBrowserUiTests/);
+  assert.match(runner, /'--minimum-expected-tests', '2'/);
+  assert.match(runner, /result\.total !== 2 \|\| result\.outcomes\.Passed !== 2/);
 });
