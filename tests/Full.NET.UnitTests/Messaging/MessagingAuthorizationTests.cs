@@ -22,8 +22,8 @@ public sealed class MessagingAuthorizationContributorTests
                 MessagingPermissions.DeliveryRollback,
                 MessagingPermissions.EventsRead,
                 MessagingPermissions.KafkaRangeReplay,
-                MessagingPermissions.LegacyDeadLettersRequeue,
                 MessagingPermissions.OperationsRead,
+                MessagingPermissions.LegacyDeadLettersRequeue,
             },
             catalog.Permissions.Select(permission => permission.Code).ToArray());
 
