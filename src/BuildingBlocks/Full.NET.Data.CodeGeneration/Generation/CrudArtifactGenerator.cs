@@ -11,7 +11,7 @@ namespace Full.NET.Data.CodeGeneration.Generation;
 public static class CrudArtifactGenerator
 {
     /// <summary>冻结到预览与下载摘要的内置模板版本，模板行为变化时显式演进。</summary>
-    public const string GeneratorVersion = "2026.11.18.1";
+    public const string GeneratorVersion = "2026.11.18.2";
     private static readonly JsonSerializerOptions ReportJsonOptions = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,

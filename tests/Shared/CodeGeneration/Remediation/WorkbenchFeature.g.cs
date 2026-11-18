@@ -16,7 +16,7 @@ using Microsoft.Extensions.Options;
 
 namespace Acme.Remediation.Generated;
 
-internal sealed class WorkbenchQueryService(
+internal sealed partial class WorkbenchQueryService(
     IQueryExecutor queryExecutor,
     IMultiResultQueryExecutor multiResultQueryExecutor,
     IOptions<DatabaseOptions> databaseOptions)
@@ -106,7 +106,7 @@ internal sealed class WorkbenchQueryService(
 
 }
 
-internal sealed class WorkbenchManagementService(
+internal sealed partial class WorkbenchManagementService(
     IQueryExecutor queryExecutor,
     ICommandExecutor commandExecutor,
     ICommandTransaction transaction,
@@ -157,11 +157,27 @@ CancellationToken cancellationToken = default)
             return validationError;
         }
 
+        Error? domainError = null;
+        ValidateCreateDomain(request, ref domainError);
+        if (domainError is not null) return Result<WorkbenchResponse>.Failure(domainError);
         var workbenchId = idGenerator.NewId();
 
         var affectedRows = await commandExecutor.ExecuteAsync(
                 WorkbenchSql.InsertStatement,
-                new Dictionary<string, object?> { ["Id"] = workbenchId, ["Name"] = request.Name, ["Quantity"] = request.Quantity, ["Price"] = request.Price, ["IsReady"] = request.IsReady, ["ReferenceId"] = request.ReferenceId, ["OccurredAtUtc"] = request.OccurredAtUtc?.ToUniversalTime(), ["Version"] = 1L, ["IsDeleted"] = false, ["DeletedAtUtc"] = (DateTimeOffset?)null, ["DeletedById"] = (Guid?)null },
+                new Dictionary<string, object?>
+                {
+                    ["Id"] = workbenchId,
+                    ["Name"] = request.Name,
+                    ["Quantity"] = request.Quantity,
+                    ["Price"] = request.Price,
+                    ["IsReady"] = request.IsReady,
+                    ["ReferenceId"] = request.ReferenceId,
+                    ["OccurredAtUtc"] = request.OccurredAtUtc?.ToUniversalTime(),
+                    ["Version"] = 1L,
+                    ["IsDeleted"] = false,
+                    ["DeletedAtUtc"] = (DateTimeOffset?)null,
+                    ["DeletedById"] = (Guid?)null
+                },
                 cancellationToken)
             .ConfigureAwait(false);
         if (affectedRows != 1)
@@ -176,6 +192,10 @@ CancellationToken cancellationToken = default)
             .ConfigureAwait(false);
     }
 
+
+    // 领域读取只在存在实现时执行，普通生成 CRUD 不增加数据库往返。
+    partial void ValidateUpdateDomain(Guid id, UpdateWorkbenchRequest request,
+        CancellationToken cancellationToken, ref Task<Error?>? validation);
 
     public Task<Result<WorkbenchResponse>> UpdateAsync(
         Guid workbenchId,
@@ -206,9 +226,30 @@ CancellationToken cancellationToken = default)
         return validationError;
     }
 
+        Task<Error?>? domainValidation = null;
+        ValidateUpdateDomain(workbenchId, request, cancellationToken, ref domainValidation);
+        if (domainValidation is not null)
+        {
+            var domainError = await domainValidation.ConfigureAwait(false);
+            if (domainError is not null)
+            {
+                return Result<WorkbenchResponse>.Failure(domainError);
+            }
+        }
+
         var affectedRows = await commandExecutor.ExecuteAsync(
                 WorkbenchSql.UpdateStatement,
-                new Dictionary<string, object?> { ["Id"] = workbenchId, ["Name"] = request.Name, ["Quantity"] = request.Quantity, ["Price"] = request.Price, ["IsReady"] = request.IsReady, ["ReferenceId"] = request.ReferenceId, ["OccurredAtUtc"] = request.OccurredAtUtc?.ToUniversalTime(), ["Version"] = request.Version },
+                new Dictionary<string, object?>
+                {
+                    ["Id"] = workbenchId,
+                    ["Name"] = request.Name,
+                    ["Quantity"] = request.Quantity,
+                    ["Price"] = request.Price,
+                    ["IsReady"] = request.IsReady,
+                    ["ReferenceId"] = request.ReferenceId,
+                    ["OccurredAtUtc"] = request.OccurredAtUtc?.ToUniversalTime(),
+                    ["Version"] = request.Version
+                },
                 cancellationToken)
             .ConfigureAwait(false);
         if (affectedRows != 1)
@@ -225,12 +266,15 @@ CancellationToken cancellationToken = default)
             .ConfigureAwait(false);
     }
 
+    // 删除约束先于级联写入，不能只在父行删除后判断领域状态。
+    partial void ValidateDeleteDomain(WorkbenchResponse existing, long? expectedVersion, ref Error? error);
+
     public Task<Result<WorkbenchResponse>> DeleteAsync(
         Guid workbenchId,
             DeleteWorkbenchRequest request,
         Guid actorUserId,
         CancellationToken cancellationToken = default) =>
-        ExecuteWriteAsync(
+        transaction.ExecuteResultAsync(
             token => DeleteCoreAsync(
                 workbenchId, request,
                 actorUserId,
@@ -254,9 +298,22 @@ CancellationToken cancellationToken = default)
         }
 
 
-                    var affectedRows = await commandExecutor.ExecuteAsync(
+        Error? domainError = null;
+        ValidateDeleteDomain(existing.Value!, request.Version, ref domainError);
+        if (domainError is not null)
+        {
+            return Result<WorkbenchResponse>.Failure(domainError);
+        }
+
+                var affectedRows = await commandExecutor.ExecuteAsync(
                 WorkbenchSql.DeleteStatement,
-                new Dictionary<string, object?> { ["Id"] = workbenchId, ["DeletedAtUtc"] = clock.UtcNow, ["DeletedById"] = actorUserId, ["Version"] = request.Version },
+                new Dictionary<string, object?>
+                {
+                    ["Id"] = workbenchId,
+                    ["DeletedAtUtc"] = clock.UtcNow,
+                    ["DeletedById"] = actorUserId,
+                    ["Version"] = request.Version
+                },
                 cancellationToken)
             .ConfigureAwait(false);
         if (affectedRows != 1)
@@ -269,6 +326,9 @@ CancellationToken cancellationToken = default)
 
         return existing;
     }
+    // 在独立手写 partial 文件实现领域约束；未实现时编译器移除调用。
+    partial void ValidateCreateDomain(CreateWorkbenchRequest request, ref Error? error);
+
     private void EnsureTenantContext()
     {
         if (!currentTenant.IsAvailable

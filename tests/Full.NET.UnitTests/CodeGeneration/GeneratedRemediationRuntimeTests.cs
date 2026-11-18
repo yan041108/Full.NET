@@ -109,7 +109,12 @@ public sealed class GeneratedRemediationRuntimeTests
     public void Generated_runtime_fixtures_match_current_generator()
     {
         var directory = new DirectoryInfo(CodeGenerationRemediationSchemas.RepositoryRoot());
-        foreach (var schema in new[] { CodeGenerationRemediationSchemas.Product(), CodeGenerationRemediationSchemas.ProductItem(), CodeGenerationRemediationSchemas.ProductTag() })
+        foreach (var schema in new[] { CodeGenerationRemediationSchemas.Product(), CodeGenerationRemediationSchemas.ProductItem(),
+            CodeGenerationRemediationSchemas.ProductTag(), CodeGenerationRemediationSchemas.Workbench(), CodeGenerationRemediationSchemas.TreeNode(),
+            CodeGenerationRemediationSchemas.OrganizationTreeNode(), CodeGenerationRemediationSchemas.OrganizationParent(),
+            CodeGenerationRemediationSchemas.OrganizationParent().Relationships[0].DependentSchema!, CodeGenerationRemediationSchemas.OrganizationLink(),
+            CodeGenerationRemediationSchemas.OrganizationLink().Relationships[0].PrincipalSchema!,
+            CodeGenerationRemediationSchemas.OrganizationLink().Relationships[1].PrincipalSchema! })
         foreach (var artifact in CrudArtifactGenerator.Generate(schema).Where(item => item.Kind == GeneratedArtifactKind.Backend
             && item.RelativePath.EndsWith(".g.cs", StringComparison.Ordinal) && !item.RelativePath.EndsWith("Endpoint.g.cs", StringComparison.Ordinal)))
         {

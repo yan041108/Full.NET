@@ -16,7 +16,7 @@ using Microsoft.Extensions.Options;
 
 namespace Acme.Remediation.Generated;
 
-internal sealed class ProductTagQueryService(
+internal sealed partial class ProductTagQueryService(
     IQueryExecutor queryExecutor,
     IMultiResultQueryExecutor multiResultQueryExecutor,
     IOptions<DatabaseOptions> databaseOptions)
@@ -102,7 +102,7 @@ internal sealed class ProductTagQueryService(
 
 }
 
-internal sealed class ProductTagManagementService(
+internal sealed partial class ProductTagManagementService(
     IQueryExecutor queryExecutor,
     ICommandExecutor commandExecutor,
     ICommandTransaction transaction,
@@ -152,6 +152,9 @@ CancellationToken cancellationToken = default)
             return validationError;
         }
 
+        Error? domainError = null;
+        ValidateCreateDomain(request, ref domainError);
+        if (domainError is not null) return Result<ProductTagResponse>.Failure(domainError);
         var productTagId = idGenerator.NewId();
         var removedPair = await queryExecutor.QuerySingleOrDefaultAsync<ProductTagRecord>(
             new SqlStatement("catalog.product_tag.removed_pair", "SELECT Id, TenantId, ProductId AS ProductReferenceId, TagId, Version, IsDeleted, DeletedAtUtc, DeletedById FROM acme_catalog_product_tag WHERE ProductId = @ProductId AND TagId = @TagId AND TenantId = @TenantId AND IsDeleted = 1", SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId),
@@ -186,7 +189,16 @@ CancellationToken cancellationToken = default)
         }
         var affectedRows = await commandExecutor.ExecuteAsync(
                 ProductTagSql.InsertStatement,
-                new Dictionary<string, object?> { ["Id"] = productTagId, ["ProductId"] = request.ProductReferenceId, ["TagId"] = request.TagId, ["Version"] = 1L, ["IsDeleted"] = false, ["DeletedAtUtc"] = (DateTimeOffset?)null, ["DeletedById"] = (Guid?)null },
+                new Dictionary<string, object?>
+                {
+                    ["Id"] = productTagId,
+                    ["ProductId"] = request.ProductReferenceId,
+                    ["TagId"] = request.TagId,
+                    ["Version"] = 1L,
+                    ["IsDeleted"] = false,
+                    ["DeletedAtUtc"] = (DateTimeOffset?)null,
+                    ["DeletedById"] = (Guid?)null
+                },
                 cancellationToken)
             .ConfigureAwait(false);
         if (affectedRows != 1)
@@ -201,6 +213,10 @@ CancellationToken cancellationToken = default)
             .ConfigureAwait(false);
     }
 
+
+    // 领域读取只在存在实现时执行，普通生成 CRUD 不增加数据库往返。
+    partial void ValidateUpdateDomain(Guid id, UpdateProductTagRequest request,
+        CancellationToken cancellationToken, ref Task<Error?>? validation);
 
     public Task<Result<ProductTagResponse>> UpdateAsync(
         Guid productTagId,
@@ -248,9 +264,26 @@ CancellationToken cancellationToken = default)
             return tagIdPrincipalError;
         }
 
+        Task<Error?>? domainValidation = null;
+        ValidateUpdateDomain(productTagId, request, cancellationToken, ref domainValidation);
+        if (domainValidation is not null)
+        {
+            var domainError = await domainValidation.ConfigureAwait(false);
+            if (domainError is not null)
+            {
+                return Result<ProductTagResponse>.Failure(domainError);
+            }
+        }
+
         var affectedRows = await commandExecutor.ExecuteAsync(
                 ProductTagSql.UpdateStatement,
-                new Dictionary<string, object?> { ["Id"] = productTagId, ["ProductId"] = request.ProductReferenceId, ["TagId"] = request.TagId, ["Version"] = request.Version },
+                new Dictionary<string, object?>
+                {
+                    ["Id"] = productTagId,
+                    ["ProductId"] = request.ProductReferenceId,
+                    ["TagId"] = request.TagId,
+                    ["Version"] = request.Version
+                },
                 cancellationToken)
             .ConfigureAwait(false);
         if (affectedRows != 1)
@@ -267,12 +300,15 @@ CancellationToken cancellationToken = default)
             .ConfigureAwait(false);
     }
 
+    // 删除约束先于级联写入，不能只在父行删除后判断领域状态。
+    partial void ValidateDeleteDomain(ProductTagResponse existing, long? expectedVersion, ref Error? error);
+
     public Task<Result<ProductTagResponse>> DeleteAsync(
         Guid productTagId,
             DeleteProductTagRequest request,
         Guid actorUserId,
         CancellationToken cancellationToken = default) =>
-        ExecuteWriteAsync(
+        transaction.ExecuteResultAsync(
             token => DeleteCoreAsync(
                 productTagId, request,
                 actorUserId,
@@ -296,9 +332,22 @@ CancellationToken cancellationToken = default)
         }
 
 
-                    var affectedRows = await commandExecutor.ExecuteAsync(
+        Error? domainError = null;
+        ValidateDeleteDomain(existing.Value!, request.Version, ref domainError);
+        if (domainError is not null)
+        {
+            return Result<ProductTagResponse>.Failure(domainError);
+        }
+
+                var affectedRows = await commandExecutor.ExecuteAsync(
                 ProductTagSql.DeleteStatement,
-                new Dictionary<string, object?> { ["Id"] = productTagId, ["DeletedAtUtc"] = clock.UtcNow, ["DeletedById"] = actorUserId, ["Version"] = request.Version },
+                new Dictionary<string, object?>
+                {
+                    ["Id"] = productTagId,
+                    ["DeletedAtUtc"] = clock.UtcNow,
+                    ["DeletedById"] = actorUserId,
+                    ["Version"] = request.Version
+                },
                 cancellationToken)
             .ConfigureAwait(false);
         if (affectedRows != 1)
@@ -311,6 +360,9 @@ CancellationToken cancellationToken = default)
 
         return existing;
     }
+    // 在独立手写 partial 文件实现领域约束；未实现时编译器移除调用。
+    partial void ValidateCreateDomain(CreateProductTagRequest request, ref Error? error);
+
     private void EnsureTenantContext()
     {
         if (!currentTenant.IsAvailable
@@ -379,7 +431,12 @@ private async Task<Result<ProductTagResponse>?> EnsureProductIdPrincipalExistsAs
                 "SELECT Id FROM acme_catalog_product WHERE Id = @Id AND TenantId = @TenantId AND IsDeleted = 0",
                 SqlDataScope.TenantRequired,
                 SqlTenantBinding.CurrentTenantId),
-            new Dictionary<string, object?> { ["Id"] = principalId, ["TenantId"] = currentTenant.Id!.Value },
+            new Dictionary<string, object?>
+            {
+                ["Id"] = principalId,
+                            ["TenantId"] = currentTenant.Id!.Value,
+
+            },
             cancellationToken)
         .ConfigureAwait(false);
     return found is null
@@ -399,7 +456,12 @@ private async Task<Result<ProductTagResponse>?> EnsureTagIdPrincipalExistsAsync(
                 "SELECT Id FROM acme_catalog_tag WHERE Id = @Id AND TenantId = @TenantId AND IsDeleted = 0",
                 SqlDataScope.TenantRequired,
                 SqlTenantBinding.CurrentTenantId),
-            new Dictionary<string, object?> { ["Id"] = principalId, ["TenantId"] = currentTenant.Id!.Value },
+            new Dictionary<string, object?>
+            {
+                ["Id"] = principalId,
+                            ["TenantId"] = currentTenant.Id!.Value,
+
+            },
             cancellationToken)
         .ConfigureAwait(false);
     return found is null

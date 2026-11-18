@@ -16,7 +16,7 @@ using Microsoft.Extensions.Options;
 
 namespace Acme.Remediation.Generated;
 
-internal sealed class ProductQueryService(
+internal sealed partial class ProductQueryService(
     IQueryExecutor queryExecutor,
     IMultiResultQueryExecutor multiResultQueryExecutor,
     IOptions<DatabaseOptions> databaseOptions)
@@ -104,7 +104,7 @@ internal sealed class ProductQueryService(
 
 }
 
-internal sealed class ProductManagementService(
+internal sealed partial class ProductManagementService(
     IQueryExecutor queryExecutor,
     ICommandExecutor commandExecutor,
     ICommandTransaction transaction,
@@ -155,6 +155,9 @@ CancellationToken cancellationToken = default)
             return validationError;
         }
 
+        Error? domainError = null;
+        ValidateCreateDomain(request, ref domainError);
+        if (domainError is not null) return Result<ProductResponse>.Failure(domainError);
         var productId = idGenerator.NewId();
 
         var nameUniqueError = await EnsureUniqueNameAsync(
@@ -189,7 +192,18 @@ CancellationToken cancellationToken = default)
 
         var affectedRows = await commandExecutor.ExecuteAsync(
                 ProductSql.InsertStatement,
-                new Dictionary<string, object?> { ["Id"] = productId, ["Name"] = request.Name, ["Number"] = request.Number, ["Price"] = request.Price, ["OptionalCode"] = request.OptionalCode, ["Version"] = 1L, ["IsDeleted"] = false, ["DeletedAtUtc"] = (DateTimeOffset?)null, ["DeletedById"] = (Guid?)null },
+                new Dictionary<string, object?>
+                {
+                    ["Id"] = productId,
+                    ["Name"] = request.Name,
+                    ["Number"] = request.Number,
+                    ["Price"] = request.Price,
+                    ["OptionalCode"] = request.OptionalCode,
+                    ["Version"] = 1L,
+                    ["IsDeleted"] = false,
+                    ["DeletedAtUtc"] = (DateTimeOffset?)null,
+                    ["DeletedById"] = (Guid?)null
+                },
                 cancellationToken)
             .ConfigureAwait(false);
         if (affectedRows != 1)
@@ -204,6 +218,10 @@ CancellationToken cancellationToken = default)
             .ConfigureAwait(false);
     }
 
+
+    // 领域读取只在存在实现时执行，普通生成 CRUD 不增加数据库往返。
+    partial void ValidateUpdateDomain(Guid id, UpdateProductRequest request,
+        CancellationToken cancellationToken, ref Task<Error?>? validation);
 
     public Task<Result<ProductResponse>> UpdateAsync(
         Guid productId,
@@ -264,9 +282,28 @@ CancellationToken cancellationToken = default)
             return optionalCodeUniqueError;
         }
 
+        Task<Error?>? domainValidation = null;
+        ValidateUpdateDomain(productId, request, cancellationToken, ref domainValidation);
+        if (domainValidation is not null)
+        {
+            var domainError = await domainValidation.ConfigureAwait(false);
+            if (domainError is not null)
+            {
+                return Result<ProductResponse>.Failure(domainError);
+            }
+        }
+
         var affectedRows = await commandExecutor.ExecuteAsync(
                 ProductSql.UpdateStatement,
-                new Dictionary<string, object?> { ["Id"] = productId, ["Name"] = request.Name, ["Number"] = request.Number, ["Price"] = request.Price, ["OptionalCode"] = request.OptionalCode, ["Version"] = request.Version },
+                new Dictionary<string, object?>
+                {
+                    ["Id"] = productId,
+                    ["Name"] = request.Name,
+                    ["Number"] = request.Number,
+                    ["Price"] = request.Price,
+                    ["OptionalCode"] = request.OptionalCode,
+                    ["Version"] = request.Version
+                },
                 cancellationToken)
             .ConfigureAwait(false);
         if (affectedRows != 1)
@@ -283,12 +320,15 @@ CancellationToken cancellationToken = default)
             .ConfigureAwait(false);
     }
 
+    // 删除约束先于级联写入，不能只在父行删除后判断领域状态。
+    partial void ValidateDeleteDomain(ProductResponse existing, long? expectedVersion, ref Error? error);
+
     public Task<Result<ProductResponse>> DeleteAsync(
         Guid productId,
             DeleteProductRequest request,
         Guid actorUserId,
         CancellationToken cancellationToken = default) =>
-        ExecuteWriteAsync(
+        transaction.ExecuteResultAsync(
             token => DeleteCoreAsync(
                 productId, request,
                 actorUserId,
@@ -312,14 +352,27 @@ CancellationToken cancellationToken = default)
         }
 
 
-            await CascadeDeleteDependentsAsync(
+        Error? domainError = null;
+        ValidateDeleteDomain(existing.Value!, request.Version, ref domainError);
+        if (domainError is not null)
+        {
+            return Result<ProductResponse>.Failure(domainError);
+        }
+
+        await CascadeDeleteDependentsAsync(
             existing.Value!,
             actorUserId,
             cancellationToken)
             .ConfigureAwait(false);
                 var affectedRows = await commandExecutor.ExecuteAsync(
                 ProductSql.DeleteStatement,
-                new Dictionary<string, object?> { ["Id"] = productId, ["DeletedAtUtc"] = clock.UtcNow, ["DeletedById"] = actorUserId, ["Version"] = request.Version },
+                new Dictionary<string, object?>
+                {
+                    ["Id"] = productId,
+                    ["DeletedAtUtc"] = clock.UtcNow,
+                    ["DeletedById"] = actorUserId,
+                    ["Version"] = request.Version
+                },
                 cancellationToken)
             .ConfigureAwait(false);
         if (affectedRows != 1)
@@ -332,6 +385,9 @@ CancellationToken cancellationToken = default)
 
         return existing;
     }
+    // 在独立手写 partial 文件实现领域约束；未实现时编译器移除调用。
+    partial void ValidateCreateDomain(CreateProductRequest request, ref Error? error);
+
     private void EnsureTenantContext()
     {
         if (!currentTenant.IsAvailable
@@ -407,7 +463,12 @@ private async Task<Result<ProductResponse>?> EnsureUniqueNameAsync(
                 "SELECT Id FROM acme_catalog_product WHERE Name = @Value AND Id <> @Id AND TenantId = @TenantId",
                 SqlDataScope.TenantRequired,
                 SqlTenantBinding.CurrentTenantId),
-            new Dictionary<string, object?> { ["Value"] = value, ["Id"] = productId, ["TenantId"] = currentTenant.Id!.Value },
+            new Dictionary<string, object?>
+            {
+                ["Value"] = value,
+                ["Id"] = productId,
+                            ["TenantId"] = currentTenant.Id!.Value,
+            },
             cancellationToken)
         .ConfigureAwait(false);
     return existingId is null
@@ -428,7 +489,12 @@ private async Task<Result<ProductResponse>?> EnsureUniqueNumberAsync(
                 "SELECT Id FROM acme_catalog_product WHERE Number = @Value AND Id <> @Id AND TenantId = @TenantId",
                 SqlDataScope.TenantRequired,
                 SqlTenantBinding.CurrentTenantId),
-            new Dictionary<string, object?> { ["Value"] = value, ["Id"] = productId, ["TenantId"] = currentTenant.Id!.Value },
+            new Dictionary<string, object?>
+            {
+                ["Value"] = value,
+                ["Id"] = productId,
+                            ["TenantId"] = currentTenant.Id!.Value,
+            },
             cancellationToken)
         .ConfigureAwait(false);
     return existingId is null
@@ -449,7 +515,12 @@ private async Task<Result<ProductResponse>?> EnsureUniqueOptionalCodeAsync(
                 "SELECT Id FROM acme_catalog_product WHERE OptionalCode = @Value AND Id <> @Id AND TenantId = @TenantId",
                 SqlDataScope.TenantRequired,
                 SqlTenantBinding.CurrentTenantId),
-            new Dictionary<string, object?> { ["Value"] = value, ["Id"] = productId, ["TenantId"] = currentTenant.Id!.Value },
+            new Dictionary<string, object?>
+            {
+                ["Value"] = value,
+                ["Id"] = productId,
+                            ["TenantId"] = currentTenant.Id!.Value,
+            },
             cancellationToken)
         .ConfigureAwait(false);
     return existingId is null
@@ -468,7 +539,14 @@ private async Task<Result<ProductResponse>?> EnsureUniqueOptionalCodeAsync(
                     "UPDATE acme_catalog_product_item SET IsDeleted = 1, DeletedAtUtc = @DeletedAtUtc, DeletedById = @DeletedById, Version = Version + 1 WHERE ProductId = @Id AND TenantId = @TenantId AND IsDeleted = 0",
                     SqlDataScope.TenantRequired,
                     SqlTenantBinding.CurrentTenantId),
-                new Dictionary<string, object?> { ["Id"] = principal.Id, ["TenantId"] = currentTenant.Id!.Value, ["DeletedAtUtc"] = clock.UtcNow, ["DeletedById"] = actorUserId },
+                new Dictionary<string, object?>
+                {
+                    ["Id"] = principal.Id,
+                                    ["TenantId"] = currentTenant.Id!.Value,
+
+                    ["DeletedAtUtc"] = clock.UtcNow,
+                    ["DeletedById"] = actorUserId,
+                },
                 cancellationToken)
             .ConfigureAwait(false);
                 }

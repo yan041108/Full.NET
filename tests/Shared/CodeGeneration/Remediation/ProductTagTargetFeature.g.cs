@@ -16,7 +16,7 @@ using Microsoft.Extensions.Options;
 
 namespace Acme.Remediation.Generated;
 
-internal sealed class ProductTagTargetQueryService(
+internal sealed partial class ProductTagTargetQueryService(
     IQueryExecutor queryExecutor,
     IMultiResultQueryExecutor multiResultQueryExecutor,
     IOptions<DatabaseOptions> databaseOptions)
@@ -101,7 +101,7 @@ internal sealed class ProductTagTargetQueryService(
 
 }
 
-internal sealed class ProductTagTargetManagementService(
+internal sealed partial class ProductTagTargetManagementService(
     IQueryExecutor queryExecutor,
     ICommandExecutor commandExecutor,
     ICommandTransaction transaction,
@@ -150,11 +150,22 @@ CancellationToken cancellationToken = default)
             return validationError;
         }
 
+        Error? domainError = null;
+        ValidateCreateDomain(request, ref domainError);
+        if (domainError is not null) return Result<ProductTagTargetResponse>.Failure(domainError);
         var productTagTargetId = idGenerator.NewId();
 
         var affectedRows = await commandExecutor.ExecuteAsync(
                 ProductTagTargetSql.InsertStatement,
-                new Dictionary<string, object?> { ["Id"] = productTagTargetId, ["Name"] = request.Name, ["Version"] = 1L, ["IsDeleted"] = false, ["DeletedAtUtc"] = (DateTimeOffset?)null, ["DeletedById"] = (Guid?)null },
+                new Dictionary<string, object?>
+                {
+                    ["Id"] = productTagTargetId,
+                    ["Name"] = request.Name,
+                    ["Version"] = 1L,
+                    ["IsDeleted"] = false,
+                    ["DeletedAtUtc"] = (DateTimeOffset?)null,
+                    ["DeletedById"] = (Guid?)null
+                },
                 cancellationToken)
             .ConfigureAwait(false);
         if (affectedRows != 1)
@@ -169,6 +180,10 @@ CancellationToken cancellationToken = default)
             .ConfigureAwait(false);
     }
 
+
+    // 领域读取只在存在实现时执行，普通生成 CRUD 不增加数据库往返。
+    partial void ValidateUpdateDomain(Guid id, UpdateProductTagTargetRequest request,
+        CancellationToken cancellationToken, ref Task<Error?>? validation);
 
     public Task<Result<ProductTagTargetResponse>> UpdateAsync(
         Guid productTagTargetId,
@@ -197,9 +212,25 @@ CancellationToken cancellationToken = default)
         return validationError;
     }
 
+        Task<Error?>? domainValidation = null;
+        ValidateUpdateDomain(productTagTargetId, request, cancellationToken, ref domainValidation);
+        if (domainValidation is not null)
+        {
+            var domainError = await domainValidation.ConfigureAwait(false);
+            if (domainError is not null)
+            {
+                return Result<ProductTagTargetResponse>.Failure(domainError);
+            }
+        }
+
         var affectedRows = await commandExecutor.ExecuteAsync(
                 ProductTagTargetSql.UpdateStatement,
-                new Dictionary<string, object?> { ["Id"] = productTagTargetId, ["Name"] = request.Name, ["Version"] = request.Version },
+                new Dictionary<string, object?>
+                {
+                    ["Id"] = productTagTargetId,
+                    ["Name"] = request.Name,
+                    ["Version"] = request.Version
+                },
                 cancellationToken)
             .ConfigureAwait(false);
         if (affectedRows != 1)
@@ -216,12 +247,15 @@ CancellationToken cancellationToken = default)
             .ConfigureAwait(false);
     }
 
+    // 删除约束先于级联写入，不能只在父行删除后判断领域状态。
+    partial void ValidateDeleteDomain(ProductTagTargetResponse existing, long? expectedVersion, ref Error? error);
+
     public Task<Result<ProductTagTargetResponse>> DeleteAsync(
         Guid productTagTargetId,
             DeleteProductTagTargetRequest request,
         Guid actorUserId,
         CancellationToken cancellationToken = default) =>
-        ExecuteWriteAsync(
+        transaction.ExecuteResultAsync(
             token => DeleteCoreAsync(
                 productTagTargetId, request,
                 actorUserId,
@@ -245,9 +279,22 @@ CancellationToken cancellationToken = default)
         }
 
 
-                    var affectedRows = await commandExecutor.ExecuteAsync(
+        Error? domainError = null;
+        ValidateDeleteDomain(existing.Value!, request.Version, ref domainError);
+        if (domainError is not null)
+        {
+            return Result<ProductTagTargetResponse>.Failure(domainError);
+        }
+
+                var affectedRows = await commandExecutor.ExecuteAsync(
                 ProductTagTargetSql.DeleteStatement,
-                new Dictionary<string, object?> { ["Id"] = productTagTargetId, ["DeletedAtUtc"] = clock.UtcNow, ["DeletedById"] = actorUserId, ["Version"] = request.Version },
+                new Dictionary<string, object?>
+                {
+                    ["Id"] = productTagTargetId,
+                    ["DeletedAtUtc"] = clock.UtcNow,
+                    ["DeletedById"] = actorUserId,
+                    ["Version"] = request.Version
+                },
                 cancellationToken)
             .ConfigureAwait(false);
         if (affectedRows != 1)
@@ -260,6 +307,9 @@ CancellationToken cancellationToken = default)
 
         return existing;
     }
+    // 在独立手写 partial 文件实现领域约束；未实现时编译器移除调用。
+    partial void ValidateCreateDomain(CreateProductTagTargetRequest request, ref Error? error);
+
     private void EnsureTenantContext()
     {
         if (!currentTenant.IsAvailable

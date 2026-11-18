@@ -16,7 +16,7 @@ using Microsoft.Extensions.Options;
 using Full.NET.Modules.Organization.Contracts;
 namespace Acme.Remediation.Generated;
 
-internal sealed class OrganizationLinkQueryService(
+internal sealed partial class OrganizationLinkQueryService(
     IQueryExecutor queryExecutor,
     IOptions<DatabaseOptions> databaseOptions,
     IUserDataScopeResolver dataScopeResolver,
@@ -52,10 +52,12 @@ internal sealed class OrganizationLinkQueryService(
                     DatabaseProvider.MySql => OrganizationLinkSql.QueryCountMySqlStatement,
                     _ => throw new InvalidOperationException("The configured database provider is not supported."),
                 };
+                // 计数与分页共用固定租户条件追加范围，不依赖 WHERE 前导项或排版。
+                ConfigureReadDataScope(scope, currentUserId, ref filter);
                 var countStatement = GeneratedTenantDataScopeComposer.ApplyDataScopeFilter(
                     countBase,
                     filter,
-                    "WHERE TenantId = @TenantId");
+                    "AND TenantId = @TenantId");
                 var total = await queryExecutor.QuerySingleOrDefaultAsync<long>(
                         countStatement,
                         GeneratedTenantDataScopeComposer.MergeParameters(query.Parameters(offset, pageSize), filter),
@@ -73,7 +75,7 @@ internal sealed class OrganizationLinkQueryService(
                 var listStatement = GeneratedTenantDataScopeComposer.ApplyDataScopeFilter(
                     baseStatement,
                     filter,
-                    "WHERE 1 = 1\n            AND TenantId = @TenantId");
+                    "AND TenantId = @TenantId");
                 var rows = await queryExecutor
                     .QueryAsync<OrganizationLinkRecord>(
                         listStatement,
@@ -105,6 +107,7 @@ internal sealed class OrganizationLinkQueryService(
                     scope,
                     "OrganizationUnitId",
                     currentUserId);
+                ConfigureReadDataScope(scope, currentUserId, ref filter);
                 var statement = GeneratedTenantDataScopeComposer.ApplyDataScopeFilter(
                     OrganizationLinkSql.FindByIdStatement,
                     filter,
@@ -152,6 +155,10 @@ internal sealed class OrganizationLinkQueryService(
 
     private static Result<OrganizationLinkResponse> NotFound() =>
         OrganizationLinkFeatureErrors.NotFound();
+
+    // 在独立手写 partial 中细化业务记录范围；未实现时编译器移除调用。
+    partial void ConfigureReadDataScope(
+        EffectiveUserDataScope scope, Guid currentUserId, ref DataScopeSqlFilter? filter);
 
     private static class GeneratedTenantDataScopeComposer
     {
@@ -234,7 +241,7 @@ internal sealed class OrganizationLinkQueryService(
     }
 }
 
-internal sealed class OrganizationLinkManagementService(
+internal sealed partial class OrganizationLinkManagementService(
     IQueryExecutor queryExecutor,
     ICommandExecutor commandExecutor,
     ICommandTransaction transaction,
@@ -286,9 +293,10 @@ CancellationToken cancellationToken = default)
                             actorUserId,
                             cancellationToken)
                         .ConfigureAwait(false);
-                    if (!authorization.IsSuccess)
+                    if (!authorization.IsSuccess || !authorization.Value)
                     {
-                        return Result<OrganizationLinkResponse>.Failure(authorization.Error!);
+                        return Result<OrganizationLinkResponse>.Failure(authorization.Error ?? new Error(
+                            OrganizationErrorCodes.WriteAccessDenied, "Write access to the organization unit was denied.", ErrorType.Forbidden));
                     }        var validationError = ValidateWriteRequest(
             request.SourceId,
             request.TargetId);
@@ -297,6 +305,9 @@ CancellationToken cancellationToken = default)
             return validationError;
         }
 
+        Error? domainError = null;
+        ValidateCreateDomain(request, ref domainError);
+        if (domainError is not null) return Result<OrganizationLinkResponse>.Failure(domainError);
         var organizationLinkId = idGenerator.NewId();
         var removedPair = await queryExecutor.QuerySingleOrDefaultAsync<OrganizationLinkRecord>(
             new SqlStatement("catalog.organization_link.removed_pair", "SELECT Id, TenantId, OrganizationUnitId, SourceId, TargetId, Version, IsDeleted, DeletedAtUtc, DeletedById FROM acme_catalog_organization_link WHERE SourceId = @SourceId AND TargetId = @TargetId AND TenantId = @TenantId AND OrganizationUnitId = @OrganizationUnitId AND IsDeleted = 1", SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId),
@@ -333,7 +344,17 @@ CancellationToken cancellationToken = default)
         }
         var affectedRows = await commandExecutor.ExecuteAsync(
                 OrganizationLinkSql.InsertStatement,
-                new Dictionary<string, object?> { ["Id"] = organizationLinkId, ["OrganizationUnitId"] = organizationUnitId, ["SourceId"] = request.SourceId, ["TargetId"] = request.TargetId, ["Version"] = 1L, ["IsDeleted"] = false, ["DeletedAtUtc"] = (DateTimeOffset?)null, ["DeletedById"] = (Guid?)null },
+                new Dictionary<string, object?>
+                {
+                    ["Id"] = organizationLinkId,
+                    ["OrganizationUnitId"] = organizationUnitId,
+                    ["SourceId"] = request.SourceId,
+                    ["TargetId"] = request.TargetId,
+                    ["Version"] = 1L,
+                    ["IsDeleted"] = false,
+                    ["DeletedAtUtc"] = (DateTimeOffset?)null,
+                    ["DeletedById"] = (Guid?)null
+                },
                 cancellationToken)
             .ConfigureAwait(false);
         if (affectedRows != 1)
@@ -348,6 +369,10 @@ CancellationToken cancellationToken = default)
             .ConfigureAwait(false);
     }
 
+
+    // 领域读取只在存在实现时执行，普通生成 CRUD 不增加数据库往返。
+    partial void ValidateUpdateDomain(Guid id, UpdateOrganizationLinkRequest request,
+        CancellationToken cancellationToken, ref Task<Error?>? validation);
 
     public Task<Result<OrganizationLinkResponse>> UpdateAsync(
         Guid organizationLinkId,
@@ -385,9 +410,10 @@ CancellationToken cancellationToken = default)
                         actorUserId,
                         cancellationToken)
                     .ConfigureAwait(false);
-                if (!authorization.IsSuccess)
+                if (!authorization.IsSuccess || !authorization.Value)
                 {
-                    return Result<OrganizationLinkResponse>.Failure(authorization.Error!);
+                    return Result<OrganizationLinkResponse>.Failure(authorization.Error ?? new Error(
+                        OrganizationErrorCodes.WriteAccessDenied, "Write access to the organization unit was denied.", ErrorType.Forbidden));
                 }    var validationError = ValidateWriteRequest(
         request.SourceId,
         request.TargetId);
@@ -416,9 +442,26 @@ CancellationToken cancellationToken = default)
             return targetIdPrincipalError;
         }
 
+        Task<Error?>? domainValidation = null;
+        ValidateUpdateDomain(organizationLinkId, request, cancellationToken, ref domainValidation);
+        if (domainValidation is not null)
+        {
+            var domainError = await domainValidation.ConfigureAwait(false);
+            if (domainError is not null)
+            {
+                return Result<OrganizationLinkResponse>.Failure(domainError);
+            }
+        }
+
         var affectedRows = await commandExecutor.ExecuteAsync(
                 OrganizationLinkSql.UpdateStatement,
-                new Dictionary<string, object?> { ["Id"] = organizationLinkId, ["SourceId"] = request.SourceId, ["TargetId"] = request.TargetId, ["Version"] = request.Version },
+                new Dictionary<string, object?>
+                {
+                    ["Id"] = organizationLinkId,
+                    ["SourceId"] = request.SourceId,
+                    ["TargetId"] = request.TargetId,
+                    ["Version"] = request.Version
+                },
                 cancellationToken)
             .ConfigureAwait(false);
         if (affectedRows != 1)
@@ -435,12 +478,15 @@ CancellationToken cancellationToken = default)
             .ConfigureAwait(false);
     }
 
+    // 删除约束先于级联写入，不能只在父行删除后判断领域状态。
+    partial void ValidateDeleteDomain(OrganizationLinkResponse existing, long? expectedVersion, ref Error? error);
+
     public Task<Result<OrganizationLinkResponse>> DeleteAsync(
         Guid organizationLinkId,
             DeleteOrganizationLinkRequest request,
         Guid actorUserId,
         CancellationToken cancellationToken = default) =>
-        ExecuteWriteAsync(
+        transaction.ExecuteResultAsync(
             token => DeleteCoreAsync(
                 organizationLinkId, request,
                 actorUserId,
@@ -470,13 +516,27 @@ CancellationToken cancellationToken = default)
                             actorUserId,
                             cancellationToken)
                         .ConfigureAwait(false);
-                    if (!authorization.IsSuccess)
+                    if (!authorization.IsSuccess || !authorization.Value)
                     {
-                        return Result<OrganizationLinkResponse>.Failure(authorization.Error!);
+                        return Result<OrganizationLinkResponse>.Failure(authorization.Error ?? new Error(
+                            OrganizationErrorCodes.WriteAccessDenied, "Write access to the organization unit was denied.", ErrorType.Forbidden));
                     }
-                    var affectedRows = await commandExecutor.ExecuteAsync(
+        Error? domainError = null;
+        ValidateDeleteDomain(existing.Value!, request.Version, ref domainError);
+        if (domainError is not null)
+        {
+            return Result<OrganizationLinkResponse>.Failure(domainError);
+        }
+
+                var affectedRows = await commandExecutor.ExecuteAsync(
                 OrganizationLinkSql.DeleteStatement,
-                new Dictionary<string, object?> { ["Id"] = organizationLinkId, ["DeletedAtUtc"] = clock.UtcNow, ["DeletedById"] = actorUserId, ["Version"] = request.Version },
+                new Dictionary<string, object?>
+                {
+                    ["Id"] = organizationLinkId,
+                    ["DeletedAtUtc"] = clock.UtcNow,
+                    ["DeletedById"] = actorUserId,
+                    ["Version"] = request.Version
+                },
                 cancellationToken)
             .ConfigureAwait(false);
         if (affectedRows != 1)
@@ -489,6 +549,9 @@ CancellationToken cancellationToken = default)
 
         return existing;
     }
+    // 在独立手写 partial 文件实现领域约束；未实现时编译器移除调用。
+    partial void ValidateCreateDomain(CreateOrganizationLinkRequest request, ref Error? error);
+
     private void EnsureTenantContext()
     {
         if (!currentTenant.IsAvailable
@@ -558,7 +621,12 @@ private async Task<Result<OrganizationLinkResponse>?> EnsureSourceIdPrincipalExi
                 "SELECT Id FROM acme_catalog_organization_source WHERE Id = @Id AND TenantId = @TenantId AND IsDeleted = 0 AND OrganizationUnitId = @OrganizationUnitId",
                 SqlDataScope.TenantRequired,
                 SqlTenantBinding.CurrentTenantId),
-            new Dictionary<string, object?> { ["Id"] = principalId, ["TenantId"] = currentTenant.Id!.Value, ["OrganizationUnitId"] = organizationUnitId },
+            new Dictionary<string, object?>
+            {
+                ["Id"] = principalId,
+                            ["TenantId"] = currentTenant.Id!.Value,
+                ["OrganizationUnitId"] = organizationUnitId,
+            },
             cancellationToken)
         .ConfigureAwait(false);
     return found is null
@@ -579,7 +647,12 @@ private async Task<Result<OrganizationLinkResponse>?> EnsureTargetIdPrincipalExi
                 "SELECT Id FROM acme_catalog_organization_target WHERE Id = @Id AND TenantId = @TenantId AND IsDeleted = 0 AND OrganizationUnitId = @OrganizationUnitId",
                 SqlDataScope.TenantRequired,
                 SqlTenantBinding.CurrentTenantId),
-            new Dictionary<string, object?> { ["Id"] = principalId, ["TenantId"] = currentTenant.Id!.Value, ["OrganizationUnitId"] = organizationUnitId },
+            new Dictionary<string, object?>
+            {
+                ["Id"] = principalId,
+                            ["TenantId"] = currentTenant.Id!.Value,
+                ["OrganizationUnitId"] = organizationUnitId,
+            },
             cancellationToken)
         .ConfigureAwait(false);
     return found is null
