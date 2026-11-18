@@ -2,6 +2,17 @@
   "schemaVersion": 1,
   "items": [
     {
+      "ruleId": "FNSAFETY004",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/277_AiKnowledgeDocumentParsing.sql",
+      "line": 7,
+      "actual": "RENAME",
+      "reason": "277 在旧表存在且目标表不存在时原子更名，保留原清单载荷和引用。SQL 及对应双库恢复用例自 362400d34 未变；2026-10-23 验证旧载荷、未记账重放与约束恢复。2026-11-18 已核对发布主节点完成备份 20261117T190353Z-MPZuWt 的数据库归档摘要、gzip CRC 和目标清单表结构，详见活动计划 §8.333。",
+      "risk": "更名对旧表消费者不兼容，发布前须停稳旧消费者并复核目标备份可恢复。本次备份介质检查不等于恢复该现场数据库；迁移失败按元数据重跑或依已验证的备份恢复流程处理。",
+      "backupVerified": true,
+      "reviewer": "migration277-sql-gate-review-20261118",
+      "removalMilestone": "M1.0 迁移基线归并时复核并移除"
+    },
+    {
       "ruleId": "FNSAFETY003",
       "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/SqlServer/109_WorkflowSuspendedInstanceOccupancy.sql",
       "line": 19,
