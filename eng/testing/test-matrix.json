@@ -7,6 +7,11 @@
       "minimum": 9715,
       "timeout": "10m",
       "selections": {
+        "ai-document-tenant-file-recovery": {
+          "filter": "FullyQualifiedName=Full.NET.UnitTests.Ai.AiKnowledgeDocumentPlanningServiceTests.Tenant_file_list_unavailable_before_reservation_rejects_without_charging|FullyQualifiedName=Full.NET.UnitTests.Ai.AiKnowledgeDocumentPlanningServiceTests.Tenant_file_list_unavailable_after_dispatch_preserves_usage_and_prevents_replay",
+          "minimum": 3,
+          "timeout": "3m"
+        },
         "subscription-original-detail": {
           "filter": "FullyQualifiedName~TenantSubscriptionQueryTests.Get_",
           "minimum": 2,
@@ -909,6 +914,36 @@
           "filter": "FullyQualifiedName~TenantSubscriptionStatusFilterApiTests",
           "minimum": 2,
           "timeout": "5m"
+        },
+        "identity-browser-mfa": {
+          "filter": "FullyQualifiedName=Full.NET.IntegrationTests.Identity.IdentityBrowserUiTests.Real_browser_mfa_requires_second_factor_before_host_session",
+          "minimum": 2,
+          "timeout": "8m"
+        },
+        "identity-browser-invitation": {
+          "filter": "FullyQualifiedName=Full.NET.IntegrationTests.Identity.IdentityBrowserUiTests.Real_browser_mfa_invitation_requires_explicit_claim",
+          "minimum": 2,
+          "timeout": "8m"
+        },
+        "identity-password-recovery-session": {
+          "filter": "FullyQualifiedName=Full.NET.IntegrationTests.Identity.PasswordRecoveryBrowserSessionTests.Password_recovery_revokes_original_browser_and_center_sessions",
+          "minimum": 2,
+          "timeout": "5m"
+        },
+        "identity-seat-process-recovery": {
+          "filter": "FullyQualifiedName=Full.NET.IntegrationTests.Identity.TenantSeatProcessRecoveryTests.Worker_crash_after_seat_confirmation_recovers_without_duplicate_consumption",
+          "minimum": 2,
+          "timeout": "8m"
+        },
+        "import-receipt-tenant-activity": {
+          "filter": "FullyQualifiedName=Full.NET.IntegrationTests.ImportExport.ImportReceiptTenantActivityTests.Suspended_tenant_preserves_uploaded_receipt_until_reactivation",
+          "minimum": 2,
+          "timeout": "8m"
+        },
+        "ai-index-tenant-file-recovery": {
+          "filter": "FullyQualifiedName=Full.NET.IntegrationTests.Ai.AiKnowledgeIndexTenantFileRecoveryTests.Suspended_tenant_requires_explicit_index_retry",
+          "minimum": 2,
+          "timeout": "8m"
         },
         "subscription-future-retry": {
           "filter": "FullyQualifiedName~SubscriptionBillingRecoveryTests",
