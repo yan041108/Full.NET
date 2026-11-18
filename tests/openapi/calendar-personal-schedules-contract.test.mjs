@@ -15,7 +15,7 @@ const contractsSourcePath = path.join(
 );
 const permissionsSourcePath = path.join(
   repositoryRoot,
-  'src/Modules/Full.NET.Modules.Calendar/Contracts/CalendarPermissions.cs'
+  'src/Modules/Full.NET.Modules.Calendar.Contracts/CalendarPermissions.cs'
 );
 const endpointPath = path.join(
   repositoryRoot,

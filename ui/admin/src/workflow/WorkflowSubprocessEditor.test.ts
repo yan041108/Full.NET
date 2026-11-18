@@ -3,14 +3,14 @@ import { createPinia } from 'pinia';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ElOption, ElSelect } from 'element-plus';
 import type { WorkflowFormField } from '@fullnet/client-contracts';
-import { getSubprocessAsset, listSubprocessDefinitions, listSubprocessVersions, type SubprocessAsset } from '../api/workflow-subprocesses';
+import { getSubprocessAsset, listSubprocessDefinitions, listSubprocessVersions } from '../api/workflow-subprocesses';
 import { useSessionStore } from '../auth/session';
 import WorkflowSubprocessEditor from './WorkflowSubprocessEditor.vue';
 import WorkflowVue3Designer from './WorkflowVue3Designer.vue';
 vi.mock('../api/workflow-subprocesses', () => ({ getSubprocessAsset: vi.fn(), listSubprocessDefinitions: vi.fn(), listSubprocessVersions: vi.fn() }));
 const version = '11111111-1111-4111-8111-111111111111'; const definition = '22222222-2222-4222-8222-222222222222';
 const field = (fieldKey: string): WorkflowFormField => ({ fieldKey, fieldTypeKey: 'text', required: false, constraints: {} });
-const fields = [field('title'), field('result')]; const child: SubprocessAsset = { definitionId: definition, versionId: version, fields: [field('subject'), field('answer')] };
+const fields = [field('title'), field('result')]; const child: Awaited<ReturnType<typeof getSubprocessAsset>> = { definitionId: definition, versionId: version, fields: [field('subject'), field('answer')] };
 const config = { subprocessPolicy: { definitionVersionId: version, inputFields: { subject: 'title' }, outputFields: { result: 'answer' } }, fieldPolicies: { title: 'readOnly', result: 'editable' } };
 beforeEach(() => {
   vi.clearAllMocks(); vi.mocked(getSubprocessAsset).mockResolvedValue(child);
@@ -46,7 +46,7 @@ describe('子流程配置抽屉', () => {
     try { await flushPromises(); expect(missing.get('[data-testid="subprocess-save"]').attributes('disabled')).toBeDefined(); } finally { missing.unmount(); }
   });
   it('身份切换使迟到的子资产失效', async () => {
-    let resolve!: (value: SubprocessAsset) => void;
+    let resolve!: (value: Awaited<ReturnType<typeof getSubprocessAsset>>) => void;
     vi.mocked(getSubprocessAsset).mockImplementationOnce(() => new Promise(done => { resolve = done; }));
     const pinia = createPinia(); const wrapper = mount(WorkflowSubprocessEditor, { props: { modelValue: config, fields, disabled: false }, global: { plugins: [pinia] } });
     try { await flushPromises(); const session = useSessionStore(pinia); session.switching = true; await flushPromises(); resolve(child); await flushPromises();

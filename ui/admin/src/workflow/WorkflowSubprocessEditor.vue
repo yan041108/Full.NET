@@ -3,7 +3,7 @@ import { computed, onBeforeUnmount, ref, watch } from 'vue';
 import { ElButton, ElOption, ElSelect } from 'element-plus';
 import type { WorkflowFormField } from '@fullnet/client-contracts';
 import { useSessionStore } from '../auth/session';
-import { getSubprocessAsset, listSubprocessDefinitions, listSubprocessVersions, type SubprocessAsset } from '../api/workflow-subprocesses';
+import { getSubprocessAsset, listSubprocessDefinitions, listSubprocessVersions } from '../api/workflow-subprocesses';
 import { useAdminI18n } from '../i18n/adminI18n';
 import { readWorkflowMultiInstance, readWorkflowSubprocess, readWorkflowSubprocessStarter, type WorkflowSubprocessTimeoutPolicy, type WorkflowSubprocessConfiguration } from './workflow-subprocess';
 import WorkflowMultiInstanceEditor from './WorkflowMultiInstanceEditor.vue';
@@ -14,7 +14,7 @@ const emit = defineEmits<{ save: [value: WorkflowSubprocessConfiguration]; cance
 const { t } = useAdminI18n(); const session = useSessionStore();
 const definitions = ref<Awaited<ReturnType<typeof listSubprocessDefinitions>>>([]);
 const versions = ref<Awaited<ReturnType<typeof listSubprocessVersions>>>([]);
-const definitionId = ref(''); const versionId = ref(''); const asset = ref<SubprocessAsset>();
+const definitionId = ref(''); const versionId = ref(''); const asset = ref<Awaited<ReturnType<typeof getSubprocessAsset>>>();
 const inputs = ref<Record<string, string>>({}); const outputs = ref<Record<string, string>>({});
 const multi = ref<unknown>();
 const starter = ref<unknown>();

@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { adminBrowserSession, beginAdminOidcCenterLogin, clearAdminOidcSessionCredentials, completeAdminOidcCallback, readAdminBrowserCsrfToken } from './oidc-center-login';
 import { takeLoginDestination } from './login-destination';
 import { configureAuthentication } from '../api/http';
-import { browserFixture, csrf } from './browser-session-test-fixture';
+import { browserFixture, csrf } from '../../test-support/browser-session-fixture';
 beforeEach(() => { clearAdminOidcSessionCredentials(); sessionStorage.clear(); });
 afterEach(() => { configureAuthentication(); vi.unstubAllGlobals(); });
 describe('BFF callback adapter', () => {

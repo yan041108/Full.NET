@@ -8,9 +8,9 @@ import { getWorkflowStarterSelections, listWorkflowStarterSelectionCandidates, t
 import { useSessionStore } from '../auth/session';
 import { useAdminI18n } from '../i18n/adminI18n';
 import { getWorkflowSimulationStarterSelections, listWorkflowSimulationStarterSelectionCandidates,
-  type WorkflowSimulationSelectionSource } from '../api/workflow-observability';
+  type WorkflowSimulationSelectionQuery } from '../api/workflow-observability';
 
-const props = defineProps<{ source: { readonly kind: 'published'; readonly versionId: string } | WorkflowSimulationSelectionSource;
+const props = defineProps<{ source: { readonly kind: 'published'; readonly versionId: string } | WorkflowSimulationSelectionQuery;
   modelValue: WorkflowAssigneeSelections }>();
 const emit = defineEmits<{ 'update:modelValue': [value: WorkflowAssigneeSelections]; ready: [value: boolean] }>();
 const session = useSessionStore(); const { t } = useAdminI18n();

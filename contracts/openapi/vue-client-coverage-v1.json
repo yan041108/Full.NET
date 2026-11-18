@@ -2,16 +2,27 @@
   "schemaVersion": 1,
   "entries": [
     {
-      "clientContractModules": ["packages/client-contracts/src/generated/index.generated.ts"],
+      "clientContractModules": [
+        "packages/client-contracts/src/generated/index.generated.ts"
+      ],
       "openApiFixture": "contracts/openapi/fullnet-client-v1.openapi.json",
       "apiModule": "ui/admin/src/api/my-tasks.ts",
-      "routePrefixes": ["/api/v1/import-export/tasks/mine", "/api/v1/reporting/export-tasks/mine", "/api/v1/ai/agent/runs/mine"]
+      "routePrefixes": [
+        "/api/v1/import-export/tasks/mine",
+        "/api/v1/reporting/export-tasks/mine",
+        "/api/v1/ai/agent/runs/mine"
+      ]
     },
     {
-      "clientContractModules": ["packages/client-contracts/src/generated/index.generated.ts"],
+      "clientContractModules": [
+        "packages/client-contracts/src/generated/index.generated.ts"
+      ],
       "openApiFixture": "contracts/openapi/fullnet-client-v1.openapi.json",
       "apiModule": "ui/admin/src/api/tenant-quota.ts",
-      "routePrefixes": ["/api/v1/tenancy/tenants", "/api/v1/tenancy/quota/usage-baseline"]
+      "routePrefixes": [
+        "/api/v1/tenancy/tenants",
+        "/api/v1/tenancy/quota/usage-baseline"
+      ]
     },
     {
       "clientContractModules": [
@@ -793,7 +804,8 @@
     },
     {
       "clientContractModules": [
-        "packages/client-contracts/src/workflow-runtime.ts"
+        "packages/client-contracts/src/workflow-runtime.ts",
+        "packages/client-contracts/src/generated/index.generated.ts"
       ],
       "openApiFixture": "contracts/openapi/fullnet-client-v1.openapi.json",
       "apiModule": "ui/admin/src/api/workflow-runtime.ts",
@@ -1342,7 +1354,7 @@
       "openApiFixture": "contracts/openapi/fullnet-client-v1.openapi.json",
       "apiModule": "ui/admin/src/api/enterprise-request-delivery.ts",
       "routePrefixes": [
-        "/api/v1/enterprise_request/enterprise-requests/"
+        "/api/v1/enterprise_request/enterprise-requests"
       ]
     },
     {
@@ -1382,7 +1394,7 @@
         "packages/client-contracts/src/generated/index.generated.ts"
       ],
       "openApiFixture": "contracts/openapi/fullnet-client-v1.openapi.json",
-      "apiModule": "ui/admin/src/workflow/workflow-form-attachments.ts",
+      "apiModule": "ui/admin/src/api/workflow-form-attachments.ts",
       "routePrefixes": [
         "/api/v1/workflow/instances",
         "/api/v1/workflow/todos",
@@ -1442,6 +1454,309 @@
         "/api/v1/webhooks/subscriptions"
       ],
       "openApiFixture": "contracts/openapi/webhook-subscriptions-v1.json"
+    },
+    {
+      "clientContractModules": [
+        "packages/client-contracts/src/generated/index.generated.ts"
+      ],
+      "openApiFixture": "contracts/openapi/fullnet-client-v1.openapi.json",
+      "apiModule": "ui/admin/src/api/ai-knowledge-evaluation-runs.ts",
+      "routePrefixes": [
+        "/api/v1/ai/knowledge-bases/{knowledgeBaseId}",
+        "/api/v1/ai/knowledge-bases/{knowledgeBaseId}/evaluation-runs",
+        "/api/v1/ai/knowledge-bases/{knowledgeBaseId}/evaluation-runs/{runId}",
+        "/api/v1/ai/knowledge-bases/{knowledgeBaseId}/evaluation-runs/{runId}/cases/{caseId}",
+        "/api/v1/ai/knowledge-bases/{knowledgeBaseId}/evaluation-runs/{runId}/cases/{caseId}/close-unknown",
+        "/api/v1/ai/knowledge-bases/{knowledgeBaseId}/evaluation-runs/{runId}/cases/{caseId}/execute",
+        "/api/v1/ai/knowledge-bases/{knowledgeBaseId}/evaluation-runs/{runId}/cases/{caseId}/reviews",
+        "/api/v1/ai/knowledge-bases/{knowledgeBaseId}/evaluation-runs/{runId}/cases/{caseId}/skip",
+        "/api/v1/ai/knowledge-bases/{knowledgeBaseId}/evaluation-strategies",
+        "/api/v1/ai/knowledge-bases/{knowledgeBaseId}/evaluation-strategies/{strategyId}",
+        "/api/v1/ai/knowledge-bases/{knowledgeBaseId}/evaluation-strategies/{strategyId}/admission",
+        "/api/v1/ai/knowledge-bases/{knowledgeBaseId}/evaluation-strategies/{strategyId}/runs",
+        "/api/v1/ai/knowledge-bases/{knowledgeBaseId}/quality-observations",
+        "/api/v1/ai/knowledge-finance"
+      ]
+    },
+    {
+      "clientContractModules": [
+        "packages/client-contracts/src/generated/index.generated.ts"
+      ],
+      "openApiFixture": "contracts/openapi/fullnet-client-v1.openapi.json",
+      "apiModule": "ui/admin/src/api/ai-knowledge-evaluation.ts",
+      "routePrefixes": [
+        "/api/v1/ai/knowledge-bases/{knowledgeBaseId}/evaluation-sets",
+        "/api/v1/ai/knowledge-bases/{knowledgeBaseId}/evaluation-sets/feedback-candidates",
+        "/api/v1/ai/knowledge-bases/{knowledgeBaseId}/evaluation-sets/{setId}",
+        "/api/v1/ai/knowledge-bases/{knowledgeBaseId}/evaluation-sets/{setId}/approvals",
+        "/api/v1/ai/knowledge-bases/{knowledgeBaseId}/evaluation-sets/{setId}/copy",
+        "/api/v1/ai/knowledge-bases/{knowledgeBaseId}/evaluation-sets/{setId}/restore",
+        "/api/v1/ai/knowledge-bases/{knowledgeBaseId}/evaluation-sets/{setId}/withdrawals"
+      ]
+    },
+    {
+      "clientContractModules": [
+        "packages/client-contracts/src/generated/index.generated.ts"
+      ],
+      "openApiFixture": "contracts/openapi/fullnet-client-v1.openapi.json",
+      "apiModule": "ui/admin/src/api/ai-knowledge-faq-feedback.ts",
+      "routePrefixes": [
+        "/api/v1/ai/knowledge-bases/{knowledgeBaseId}/faq-drafts/feedback-preview",
+        "/api/v1/ai/knowledge-bases/{knowledgeBaseId}/faq-drafts/from-feedback"
+      ]
+    },
+    {
+      "clientContractModules": [
+        "packages/client-contracts/src/generated/index.generated.ts"
+      ],
+      "openApiFixture": "contracts/openapi/fullnet-client-v1.openapi.json",
+      "apiModule": "ui/admin/src/api/ai-knowledge-faq-transfer.ts",
+      "routePrefixes": [
+        "/api/v1/ai/knowledge-bases/{knowledgeBaseId}/faq-transfer/export",
+        "/api/v1/ai/knowledge-bases/{knowledgeBaseId}/faq-transfer/import",
+        "/api/v1/ai/knowledge-bases/{knowledgeBaseId}/faq-transfer/preview"
+      ]
+    },
+    {
+      "clientContractModules": [
+        "packages/client-contracts/src/generated/index.generated.ts"
+      ],
+      "openApiFixture": "contracts/openapi/fullnet-client-v1.openapi.json",
+      "apiModule": "ui/admin/src/api/ai-knowledge-operations.ts",
+      "routePrefixes": [
+        "/api/v1/ai/knowledge-operations"
+      ]
+    },
+    {
+      "clientContractModules": [
+        "packages/client-contracts/src/generated/index.generated.ts"
+      ],
+      "openApiFixture": "contracts/openapi/fullnet-client-v1.openapi.json",
+      "apiModule": "ui/admin/src/api/ai-knowledge-search.ts",
+      "routePrefixes": [
+        "/api/v1/ai/knowledge-search",
+        "/api/v1/ai/knowledge-search/compare",
+        "/api/v1/ai/knowledge-search/context",
+        "/api/v1/ai/knowledge-search/refine",
+        "/api/v1/ai/knowledge-search/relations"
+      ]
+    },
+    {
+      "clientContractModules": [
+        "packages/client-contracts/src/generated/index.generated.ts"
+      ],
+      "openApiFixture": "contracts/openapi/fullnet-client-v1.openapi.json",
+      "apiModule": "ui/admin/src/api/ai-personal-schedule-assistant.ts",
+      "routePrefixes": [
+        "/api/v1/ai/personal-schedule-assistant/sources/preview"
+      ]
+    },
+    {
+      "clientContractModules": [
+        "packages/client-contracts/src/query-schemes.ts"
+      ],
+      "openApiFixture": "contracts/openapi/enterprise-requests.generated.openapi.json",
+      "apiModule": "ui/admin/src/api/enterprise-request-aggregate.ts",
+      "routePrefixes": [
+        "/api/v1/enterprise_request/enterprise-requests"
+      ]
+    },
+    {
+      "clientContractModules": [
+        "packages/client-contracts/src/generated/index.generated.ts"
+      ],
+      "openApiFixture": "contracts/openapi/fullnet-client-v1.openapi.json",
+      "apiModule": "ui/admin/src/api/import-profiles.ts",
+      "routePrefixes": [
+        "/api/v1/me/import-profiles/{schemaKey}/{worksheetKey}",
+        "/api/v1/me/import-profiles/{schemaKey}/{worksheetKey}/{profileId}"
+      ]
+    },
+    {
+      "clientContractModules": [
+        "packages/client-contracts/src/messaging-operations.ts"
+      ],
+      "openApiFixture": "contracts/openapi/fullnet-client-v1.openapi.json",
+      "apiModule": "ui/admin/src/api/messaging-delivery.ts",
+      "routePrefixes": [
+        "/api/v1/messaging/delivery",
+        "/api/v1/messaging/delivery-status",
+        "/api/v1/messaging/delivery/cutover-evidence",
+        "/api/v1/messaging/delivery/rollback-operations",
+        "/api/v1/messaging/delivery/shadow-captures",
+        "/api/v1/messaging/kafka/replay-operations"
+      ]
+    },
+    {
+      "clientContractModules": [
+        "packages/client-contracts/src/generated/index.generated.ts"
+      ],
+      "openApiFixture": "contracts/openapi/fullnet-client-v1.openapi.json",
+      "apiModule": "ui/admin/src/api/object-search.ts",
+      "routePrefixes": [
+        "/api/v1/document/host/items/search",
+        "/api/v1/enterprise_request/enterprise-requests/search"
+      ]
+    },
+    {
+      "clientContractModules": [
+        "packages/client-contracts/src/generated/index.generated.ts"
+      ],
+      "openApiFixture": "contracts/openapi/fullnet-client-v1.openapi.json",
+      "apiModule": "ui/admin/src/api/org-reporting-lines.ts",
+      "routePrefixes": [
+        "/api/v1/organization/users",
+        "/api/v1/organization/users/{employeeUserId}/reporting-line",
+        "/api/v1/organization/users/{employeeUserId}/reporting-line/candidates"
+      ]
+    },
+    {
+      "clientContractModules": [
+        "packages/client-contracts/src/generated/index.generated.ts"
+      ],
+      "openApiFixture": "contracts/openapi/fullnet-client-v1.openapi.json",
+      "apiModule": "ui/admin/src/api/org-unit-leadership.ts",
+      "routePrefixes": [
+        "/api/v1/organization/units",
+        "/api/v1/organization/units/{unitId}/leadership",
+        "/api/v1/organization/units/{unitId}/leadership/candidates"
+      ]
+    },
+    {
+      "clientContractModules": [
+        "packages/client-contracts/src/generated/index.generated.ts"
+      ],
+      "openApiFixture": "contracts/openapi/fullnet-client-v1.openapi.json",
+      "apiModule": "ui/admin/src/api/query-schemes.ts",
+      "routePrefixes": [
+        "/api/v1/me/query-schemes/{gridKey}",
+        "/api/v1/me/query-schemes/{gridKey}/default",
+        "/api/v1/me/query-schemes/{gridKey}/schema",
+        "/api/v1/me/query-schemes/{gridKey}/{schemeId}",
+        "/api/v1/me/query-schemes/{gridKey}/{schemeId}/sharing"
+      ]
+    },
+    {
+      "clientContractModules": [
+        "packages/client-contracts/src/generated/index.generated.ts"
+      ],
+      "openApiFixture": "contracts/openapi/fullnet-client-v1.openapi.json",
+      "apiModule": "ui/admin/src/api/reporting-publications.ts",
+      "routePrefixes": [
+        "/api/v1/reporting/definitions/{definitionId}/tenant-grants",
+        "/api/v1/reporting/definitions/{definitionId}/tenant-grants/{tenantId}",
+        "/api/v1/reporting/published-definitions"
+      ]
+    },
+    {
+      "clientContractModules": [
+        "packages/client-contracts/src/generated/index.generated.ts"
+      ],
+      "openApiFixture": "contracts/openapi/fullnet-client-v1.openapi.json",
+      "apiModule": "ui/admin/src/api/workflow-business-actions.ts",
+      "routePrefixes": [
+        "/api/v1/workflow/definitions/business-action-catalog"
+      ]
+    },
+    {
+      "clientContractModules": [
+        "packages/client-contracts/src/generated/index.generated.ts"
+      ],
+      "openApiFixture": "contracts/openapi/fullnet-client-v1.openapi.json",
+      "apiModule": "ui/admin/src/api/workflow-calendars.ts",
+      "routePrefixes": [
+        "/api/v1/workflow/work-calendars",
+        "/api/v1/workflow/work-calendars/versions/{versionId}",
+        "/api/v1/workflow/work-calendars/{calendarId}",
+        "/api/v1/workflow/work-calendars/{calendarId}/draft",
+        "/api/v1/workflow/work-calendars/{calendarId}/publish",
+        "/api/v1/workflow/work-calendars/{calendarId}/versions"
+      ]
+    },
+    {
+      "clientContractModules": [
+        "packages/client-contracts/src/generated/index.generated.ts"
+      ],
+      "openApiFixture": "contracts/openapi/fullnet-client-v1.openapi.json",
+      "apiModule": "ui/admin/src/api/workflow-claims.ts",
+      "routePrefixes": [
+        "/api/v1/workflow/claim-pools",
+        "/api/v1/workflow/claim-pools/{poolId}/assign",
+        "/api/v1/workflow/claim-pools/{poolId}/claim",
+        "/api/v1/workflow/todos/{todoId}/release"
+      ]
+    },
+    {
+      "clientContractModules": [
+        "packages/client-contracts/src/generated/index.generated.ts"
+      ],
+      "openApiFixture": "contracts/openapi/fullnet-client-v1.openapi.json",
+      "apiModule": "ui/admin/src/api/workflow-connectors.ts",
+      "routePrefixes": [
+        "/api/v1/workflow/definitions/connectors",
+        "/api/v1/workflow/instances/{instanceId}/connector-calls",
+        "/api/v1/workflow/instances/{instanceId}/connector-calls/{callId}",
+        "/api/v1/workflow/instances/{instanceId}/connector-calls/{callId}/reconcile"
+      ]
+    },
+    {
+      "clientContractModules": [
+        "packages/client-contracts/src/generated/index.generated.ts"
+      ],
+      "openApiFixture": "contracts/openapi/fullnet-client-v1.openapi.json",
+      "apiModule": "ui/admin/src/api/workflow-delegations.ts",
+      "routePrefixes": [
+        "/api/v1/workflow/todos/{todoId}/delegate",
+        "/api/v1/workflow/todos/{todoId}/delegation",
+        "/api/v1/workflow/todos/{todoId}/delegation-candidates",
+        "/api/v1/workflow/todos/{todoId}/delegation/recall"
+      ]
+    },
+    {
+      "clientContractModules": [
+        "packages/client-contracts/src/generated/index.generated.ts"
+      ],
+      "openApiFixture": "contracts/openapi/fullnet-client-v1.openapi.json",
+      "apiModule": "ui/admin/src/api/workflow-reminders.ts",
+      "routePrefixes": [
+        "/api/v1/workflow/instances/{instanceId}/remind",
+        "/api/v1/workflow/instances/{instanceId}/reminder-targets"
+      ]
+    },
+    {
+      "clientContractModules": [
+        "packages/client-contracts/src/generated/index.generated.ts"
+      ],
+      "openApiFixture": "contracts/openapi/fullnet-client-v1.openapi.json",
+      "apiModule": "ui/admin/src/api/workflow-routes.ts",
+      "routePrefixes": [
+        "/api/v1/workflow/instances/{instanceId}/routes/{routeId}",
+        "/api/v1/workflow/instances/{instanceId}/routes/{routeId}/reconcile"
+      ]
+    },
+    {
+      "clientContractModules": [
+        "packages/client-contracts/src/generated/index.generated.ts"
+      ],
+      "openApiFixture": "contracts/openapi/fullnet-client-v1.openapi.json",
+      "apiModule": "ui/admin/src/api/workflow-starter-selections.ts",
+      "routePrefixes": [
+        "/api/v1/workflow/definition-versions/{versionId}/starter-selections",
+        "/api/v1/workflow/definition-versions/{versionId}/starter-selections/{selectionKey}/candidates"
+      ]
+    },
+    {
+      "clientContractModules": [
+        "packages/client-contracts/src/generated/index.generated.ts"
+      ],
+      "openApiFixture": "contracts/openapi/fullnet-client-v1.openapi.json",
+      "apiModule": "ui/admin/src/api/workflow-subprocesses.ts",
+      "routePrefixes": [
+        "/api/v1/workflow/definition-versions/{versionId}",
+        "/api/v1/workflow/definitions",
+        "/api/v1/workflow/definitions/{definitionId}/versions",
+        "/api/v1/workflow/form-versions/{versionId}"
+      ]
     }
   ],
   "infrastructureModules": [
@@ -1450,11 +1765,18 @@
   "consumerModules": [
     {
       "apiModule": "ui/admin/src/api/my-tasks.ts",
-      "consumers": ["ui/admin/src/tasks/myTasks.ts"]
+      "consumers": [
+        "ui/admin/src/tasks/myTasks.ts"
+      ]
     },
     {
       "apiModule": "ui/admin/src/api/tenant-quota.ts",
-      "consumers": ["ui/admin/src/components/TenantQuotaUsageDialog.vue", "ui/admin/src/components/TenantQuotaBaselinePreview.vue", "ui/admin/src/components/TenantQuotaUsageDiagnostic.vue", "ui/admin/src/components/SubscriptionQuotaImpact.vue"]
+      "consumers": [
+        "ui/admin/src/components/TenantQuotaUsageDialog.vue",
+        "ui/admin/src/components/TenantQuotaBaselinePreview.vue",
+        "ui/admin/src/components/TenantQuotaUsageDiagnostic.vue",
+        "ui/admin/src/components/SubscriptionQuotaImpact.vue"
+      ]
     },
     {
       "apiModule": "ui/admin/src/api/tenant-ownership.ts",
@@ -2193,7 +2515,6 @@
     {
       "apiModule": "ui/admin/src/api/tenant-subscriptions.ts",
       "consumers": [
-        "ui/admin/src/views/TenantSubscriptionView.vue",
         "ui/admin/src/components/TenantSubscriptionsDialog.vue"
       ]
     },
@@ -2288,7 +2609,7 @@
       ]
     },
     {
-      "apiModule": "ui/admin/src/workflow/workflow-form-attachments.ts",
+      "apiModule": "ui/admin/src/api/workflow-form-attachments.ts",
       "consumers": [
         "ui/admin/src/workflow/WorkflowFormRenderer.vue"
       ]
@@ -2314,6 +2635,194 @@
         "ui/admin/src/views/webhooks/WebhookDeliveryAttemptsPanel.vue",
         "ui/admin/src/views/webhooks/WebhookDeliveryReplayPanel.vue",
         "ui/admin/src/views/webhooks/WebhookSigningKeyRotationPanel.vue"
+      ]
+    },
+    {
+      "apiModule": "ui/admin/src/api/ai-knowledge-evaluation-runs.ts",
+      "consumers": [
+        "ui/admin/src/components/AiKnowledgeEvaluationRunsPanel.vue",
+        "ui/admin/src/components/AiKnowledgeQualityPanel.vue"
+      ]
+    },
+    {
+      "apiModule": "ui/admin/src/api/ai-knowledge-evaluation.ts",
+      "consumers": [
+        "ui/admin/src/components/AiKnowledgeEvaluationWorkbench.vue"
+      ]
+    },
+    {
+      "apiModule": "ui/admin/src/api/ai-knowledge-faq-feedback.ts",
+      "consumers": [
+        "ui/admin/src/components/AiKnowledgeFaqFeedbackDialog.vue"
+      ]
+    },
+    {
+      "apiModule": "ui/admin/src/api/ai-knowledge-faq-transfer.ts",
+      "consumers": [
+        "ui/admin/src/components/AiKnowledgeFaqTransferDialog.vue"
+      ]
+    },
+    {
+      "apiModule": "ui/admin/src/api/ai-knowledge-operations.ts",
+      "consumers": [
+        "ui/admin/src/views/AiKnowledgeOperationsView.vue"
+      ]
+    },
+    {
+      "apiModule": "ui/admin/src/api/ai-knowledge-search.ts",
+      "consumers": [
+        "ui/admin/src/components/AiKnowledgeEvaluationRunsPanel.vue",
+        "ui/admin/src/components/AiKnowledgeQualityPanel.vue",
+        "ui/admin/src/components/AiKnowledgeSearchComparisonDialog.vue",
+        "ui/admin/src/components/AiKnowledgeSearchContextDialog.vue",
+        "ui/admin/src/components/AiKnowledgeSearchRefinementDialog.vue",
+        "ui/admin/src/components/AiKnowledgeSearchRelationsDialog.vue",
+        "ui/admin/src/views/AiKnowledgeSearchView.vue"
+      ]
+    },
+    {
+      "apiModule": "ui/admin/src/api/ai-personal-schedule-assistant.ts",
+      "consumers": [
+        "ui/admin/src/components/AiKnowledgeFaqDraftDialog.vue",
+        "ui/admin/src/components/AiPersonalScheduleSourceDialog.vue"
+      ]
+    },
+    {
+      "apiModule": "ui/admin/src/api/enterprise-request-aggregate.ts",
+      "consumers": [
+        "ui/admin/src/components/EnterpriseRequestAggregateEditor.vue",
+        "ui/admin/src/views/enterprise-requests/enterprise-request-query.ts"
+      ]
+    },
+    {
+      "apiModule": "ui/admin/src/api/import-profiles.ts",
+      "consumers": [
+        "ui/admin/src/components/ImportProfileEditor.vue",
+        "ui/admin/src/components/ImportTaskCreateDialog.vue"
+      ]
+    },
+    {
+      "apiModule": "ui/admin/src/api/messaging-delivery.ts",
+      "consumers": [
+        "ui/admin/src/views/HostMessagingOverviewPanel.vue",
+        "ui/admin/src/views/HostMessagingReplayPanel.vue",
+        "ui/admin/src/views/HostMessagingShadowCaptureDialog.vue"
+      ]
+    },
+    {
+      "apiModule": "ui/admin/src/api/object-search.ts",
+      "consumers": [
+        "ui/admin/src/search/objectSearchSources.ts"
+      ]
+    },
+    {
+      "apiModule": "ui/admin/src/api/org-reporting-lines.ts",
+      "consumers": [
+        "ui/admin/src/organization/OrgReportingLineDialog.vue"
+      ]
+    },
+    {
+      "apiModule": "ui/admin/src/api/org-unit-leadership.ts",
+      "consumers": [
+        "ui/admin/src/organization/OrgUnitLeadershipDialog.vue"
+      ]
+    },
+    {
+      "apiModule": "ui/admin/src/api/query-schemes.ts",
+      "consumers": [
+        "ui/admin/src/components/QuerySchemePanel.vue"
+      ]
+    },
+    {
+      "apiModule": "ui/admin/src/api/reporting-publications.ts",
+      "consumers": [
+        "ui/admin/src/components/ReportingDefinitionGrantsDialog.vue",
+        "ui/admin/src/views/ReportingExportTasksView.vue"
+      ]
+    },
+    {
+      "apiModule": "ui/admin/src/api/workflow-business-actions.ts",
+      "consumers": [
+        "ui/admin/src/workflow/WorkflowBusinessCommandEditor.vue"
+      ]
+    },
+    {
+      "apiModule": "ui/admin/src/api/workflow-calendars.ts",
+      "consumers": [
+        "ui/admin/src/views/WorkflowCalendarsView.vue",
+        "ui/admin/src/workflow/WorkflowWorkCalendarPicker.vue"
+      ]
+    },
+    {
+      "apiModule": "ui/admin/src/api/workflow-claims.ts",
+      "consumers": [
+        "ui/admin/src/views/WorkflowClaimPoolsView.vue",
+        "ui/admin/src/views/WorkflowTodosView.vue"
+      ]
+    },
+    {
+      "apiModule": "ui/admin/src/api/workflow-connectors.ts",
+      "consumers": [
+        "ui/admin/src/workflow/WorkflowConnectorCallsPanel.vue",
+        "ui/admin/src/workflow/WorkflowConnectorEditor.vue"
+      ]
+    },
+    {
+      "apiModule": "ui/admin/src/api/workflow-delegations.ts",
+      "consumers": [
+        "ui/admin/src/views/WorkflowTodosView.vue",
+        "ui/admin/src/workflow/WorkflowTodoHandoffPicker.vue"
+      ]
+    },
+    {
+      "apiModule": "ui/admin/src/api/workflow-reminders.ts",
+      "consumers": [
+        "ui/admin/src/workflow/WorkflowManualReminderPanel.vue"
+      ]
+    },
+    {
+      "apiModule": "ui/admin/src/api/workflow-routes.ts",
+      "consumers": [
+        "ui/admin/src/workflow/WorkflowRoutesPanel.vue"
+      ]
+    },
+    {
+      "apiModule": "ui/admin/src/api/workflow-starter-selections.ts",
+      "consumers": [
+        "ui/admin/src/views/DataApprovalScenariosView.vue",
+        "ui/admin/src/views/WorkflowDefinitionsView.vue",
+        "ui/admin/src/workflow/WorkflowOperations.vue",
+        "ui/admin/src/workflow/WorkflowSimulation.vue",
+        "ui/admin/src/workflow/WorkflowStarterSelectionPicker.vue",
+        "ui/admin/src/workflow/WorkflowVersionCompare.vue"
+      ]
+    },
+    {
+      "apiModule": "ui/admin/src/api/workflow-subprocesses.ts",
+      "consumers": [
+        "ui/admin/src/workflow/WorkflowSubprocessEditor.vue"
+      ]
+    },
+    {
+      "apiModule": "ui/admin/src/api/workflow-observability.ts",
+      "consumers": [
+        "ui/admin/src/workflow/WorkflowOperations.vue",
+        "ui/admin/src/workflow/WorkflowSimulation.vue",
+        "ui/admin/src/workflow/WorkflowStarterSelectionPicker.vue"
+      ]
+    },
+    {
+      "apiModule": "ui/admin/src/api/ai-knowledge-faqs.ts",
+      "consumers": [
+        "ui/admin/src/components/AiKnowledgeFaqDraftDialog.vue",
+        "ui/admin/src/views/AiKnowledgeFaqsView.vue"
+      ]
+    },
+    {
+      "apiModule": "ui/admin/src/api/ai-knowledge-faq-lifecycle.ts",
+      "consumers": [
+        "ui/admin/src/components/AiKnowledgeFaqLifecycleDialog.vue",
+        "ui/admin/src/components/AiKnowledgeFaqSourcePreview.vue"
       ]
     }
   ]

@@ -10,6 +10,7 @@ import {
   workflowReassignInstance as reassignInstance,
   workflowResumeInstance as resumeInstance,
   type CancelWorkflowInstanceRequest,
+  type WithdrawWorkflowInstanceRequest,
   type PauseWorkflowInstanceRequest,
   type RecoverWorkflowInstanceRequest,
   type ReassignWorkflowInstanceRequest as GeneratedReassignWorkflowInstanceRequest,
@@ -42,7 +43,7 @@ function normalizeQuery(query: InstanceQuery): InstanceQuery & { page: number; p
 
 type WorkflowWithdrawalAvailability = { readonly canWithdraw: boolean; readonly modeKey: string };
 type WorkflowInstanceResponse = GeneratedWorkflowInstanceResponse & { readonly withdrawal?: WorkflowWithdrawalAvailability | null };
-export interface WithdrawWorkflowInstanceRequest { readonly expectedRevision: number; readonly idempotencyKey: string; readonly reason?: string | null }
+export type { WithdrawWorkflowInstanceRequest } from '@fullnet/client-contracts';
 
 /** 受控的撤回只读能力仍需与平台精确权限相交，提交时由服务端锁内重验。 */
 function readWithdrawalProjection(value: GeneratedWorkflowInstanceResponse): WorkflowInstanceResponse {

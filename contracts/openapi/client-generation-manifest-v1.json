@@ -193,7 +193,7 @@
     },
     {
       "operationId": "workflowDownloadTodoFormAttachment",
-      "apiModule": "ui/admin/src/workflow/workflow-form-attachments.ts",
+      "apiModule": "ui/admin/src/api/workflow-form-attachments.ts",
       "generatedGroup": "workflow-todos",
       "status": "generated"
     },
@@ -361,7 +361,7 @@
     },
     {
       "operationId": "workflowListDefinitions",
-      "apiModule": "ui/admin/src/api/workflow-runtime.ts",
+      "apiModule": "packages/client-contracts/src/generated/index.generated.ts",
       "generatedGroup": "workflow-definitions",
       "status": "generated"
     },
@@ -433,7 +433,7 @@
     },
     {
       "operationId": "workflowListDefinitionVersions",
-      "apiModule": "ui/admin/src/api/workflow-runtime.ts",
+      "apiModule": "packages/client-contracts/src/generated/index.generated.ts",
       "generatedGroup": "workflow-definitions",
       "status": "generated"
     },
@@ -445,7 +445,7 @@
     },
     {
       "operationId": "workflowGetFormVersion",
-      "apiModule": "ui/admin/src/api/workflow-runtime.ts",
+      "apiModule": "packages/client-contracts/src/generated/index.generated.ts",
       "generatedGroup": "workflow-forms",
       "status": "generated"
     },
@@ -4699,13 +4699,13 @@
     },
     {
       "operationId": "workflowUploadStartFormAttachment",
-      "apiModule": "ui/admin/src/workflow/workflow-form-attachments.ts",
+      "apiModule": "ui/admin/src/api/workflow-form-attachments.ts",
       "generatedGroup": "workflow-todos",
       "status": "generated"
     },
     {
       "operationId": "workflowUploadTodoFormAttachment",
-      "apiModule": "ui/admin/src/workflow/workflow-form-attachments.ts",
+      "apiModule": "ui/admin/src/api/workflow-form-attachments.ts",
       "generatedGroup": "workflow-todos",
       "status": "generated"
     },

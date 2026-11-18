@@ -1,3 +1,4 @@
+// 仅供单元测试消费，不能从生产认证实现导入测试替身。
 import { vi } from 'vitest';
 export const csrf = 'C'.repeat(43);
 export const tenantId = '019bc2b1-2a40-7cc3-8992-a80de51bf294';

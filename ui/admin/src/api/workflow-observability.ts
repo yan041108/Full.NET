@@ -6,12 +6,13 @@ import { workflowSimulateDefinition, workflowListOperationsSteps, workflowListOp
 import { http } from './http';
 import { readWorkflowStarterSelectionDescriptors } from './workflow-starter-selections';
 
-export interface WorkflowSimulationSelectionSource {
+/** 仿真页面的客户端查询锚点，kind 不进入服务端请求。 */
+export interface WorkflowSimulationSelectionQuery {
   readonly kind: 'simulation'; readonly definitionId: string; readonly draftRevision: number; readonly formVersionId: string;
 }
 
 /** 只发送服务器草稿锚点，不能传候选范围或借用历史发布版本。 */
-export async function getWorkflowSimulationStarterSelections(source: WorkflowSimulationSelectionSource, signal?: AbortSignal) {
+export async function getWorkflowSimulationStarterSelections(source: WorkflowSimulationSelectionQuery, signal?: AbortSignal) {
   const value = await workflowGetSimulationStarterSelections(http,
     { definitionId: source.definitionId, expectedRevision: source.draftRevision, formVersionId: source.formVersionId }, signal);
   if (value.definitionId !== source.definitionId || value.draftRevision !== source.draftRevision || value.formVersionId !== source.formVersionId)
@@ -19,7 +20,7 @@ export async function getWorkflowSimulationStarterSelections(source: WorkflowSim
   return { ...value, items: readWorkflowStarterSelectionDescriptors(value.items) };
 }
 
-export async function listWorkflowSimulationStarterSelectionCandidates(source: WorkflowSimulationSelectionSource, selectionKey: string,
+export async function listWorkflowSimulationStarterSelectionCandidates(source: WorkflowSimulationSelectionQuery, selectionKey: string,
   page: number, signal?: AbortSignal): Promise<WorkflowRecipientCandidatePageResponse> {
   const value = await workflowListSimulationStarterSelectionCandidates(http, { definitionId: source.definitionId,
     expectedRevision: source.draftRevision, formVersionId: source.formVersionId, selectionKey, page, pageSize: 20 }, signal);

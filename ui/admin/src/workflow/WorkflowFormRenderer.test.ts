@@ -2,8 +2,10 @@ import { flushPromises, mount } from '@vue/test-utils';
 import { describe, expect, it, vi } from 'vitest';
 import type { WorkflowFormSchema } from '@fullnet/client-contracts';
 import WorkflowFormRenderer from './WorkflowFormRenderer.vue';
-import { downloadWorkflowTodoFormAttachment, openWorkflowFormAttachmentBlob, uploadWorkflowFormAttachment } from './workflow-form-attachments';
-vi.mock('./workflow-form-attachments', () => ({ downloadWorkflowFormAttachment: vi.fn(), downloadWorkflowTodoFormAttachment: vi.fn(), openWorkflowFormAttachmentBlob: vi.fn(), uploadWorkflowFormAttachment: vi.fn() }));
+import { downloadWorkflowTodoFormAttachment, uploadWorkflowFormAttachment } from '../api/workflow-form-attachments';
+import { openWorkflowFormAttachmentBlob } from './workflow-form-attachments';
+vi.mock('../api/workflow-form-attachments', () => ({ downloadWorkflowFormAttachment: vi.fn(), downloadWorkflowTodoFormAttachment: vi.fn(), uploadWorkflowFormAttachment: vi.fn() }));
+vi.mock('./workflow-form-attachments', () => ({ openWorkflowFormAttachmentBlob: vi.fn() }));
 
 const schema = {
   schemaVersion: 1,

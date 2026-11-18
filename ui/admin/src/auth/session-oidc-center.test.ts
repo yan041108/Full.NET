@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createPinia, setActivePinia } from 'pinia';
 import { configureAuthentication } from '../api/http';
 import { useSessionStore } from './session';
-import { browserFixture, csrf, tenantId, userSessionId } from './browser-session-test-fixture';
+import { browserFixture, csrf, tenantId, userSessionId } from '../../test-support/browser-session-fixture';
 vi.mock('../config/identity-auth', () => ({ adminIdentityAuthMode: 'oidc-center', resolveAdminOidcClientId: () => 'fullnet-admin-bff' }));
 beforeEach(() => { setActivePinia(createPinia()); sessionStorage.clear(); });
 afterEach(() => { configureAuthentication(); vi.unstubAllGlobals(); vi.restoreAllMocks(); });

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { http } from '../api/http';
-import { downloadWorkflowFormAttachment, downloadWorkflowTodoFormAttachment, uploadWorkflowFormAttachment } from './workflow-form-attachments';
+import { downloadWorkflowFormAttachment, downloadWorkflowTodoFormAttachment, uploadWorkflowFormAttachment } from '../api/workflow-form-attachments';
 
 vi.mock('../api/http', () => ({ http: { request: vi.fn(), requestBlob: vi.fn() } }));
 

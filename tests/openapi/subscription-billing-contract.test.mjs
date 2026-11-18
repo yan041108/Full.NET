@@ -11,7 +11,10 @@ test('付费订阅页面通过共享契约、生成操作和实际消费绑定�
 test('HTTP 付款输入不接收金额、商户或成功标记', async () => {
   const document = JSON.parse(await readFile(new URL('../../contracts/openapi/fullnet-client-v1.openapi.json', import.meta.url), 'utf8'));
   const create = document.components.schemas.CreatePaidTenantSubscriptionRequest;
-  assert.deepEqual(Object.keys(create.properties).sort(), ['effectiveFromUtc', 'idempotencyKey', 'offerVersion', 'packageId']);
+  assert.deepEqual(Object.keys(create.properties).sort(), [
+    'effectiveFromUtc', 'idempotencyKey', 'offerVersion', 'packageId',
+    'renewalOfSubscriptionId', 'renewalSourceVersion'
+  ]);
   const checkout = document.paths['/api/v1/payments/subscriptions/{tenantId}/{subscriptionId}/checkout'].post;
   assert.equal(checkout.requestBody, undefined);
   assert.ok(checkout.security.length > 0);

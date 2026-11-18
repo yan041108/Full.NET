@@ -17,10 +17,10 @@ import { useAdminI18n } from '../i18n/adminI18n';
 import {
   downloadWorkflowFormAttachment,
   downloadWorkflowTodoFormAttachment,
-  openWorkflowFormAttachmentBlob,
   uploadWorkflowFormAttachment
-} from './workflow-form-attachments';
-import type { WorkflowAttachmentUploadContext } from './workflow-form-attachments';
+} from '../api/workflow-form-attachments';
+import type { WorkflowAttachmentUploadContext } from '../api/workflow-form-attachments';
+import { openWorkflowFormAttachmentBlob } from './workflow-form-attachments';
 
 const props = defineProps<{
   schema: WorkflowFormSchema;

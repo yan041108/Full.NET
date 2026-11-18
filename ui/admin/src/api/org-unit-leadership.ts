@@ -1,13 +1,9 @@
 import { http } from './http';
 import { organizationGetTenantUnitLeadership, organizationSetTenantUnitLeadership, organizationListTenantUnitLeaderCandidates } from '@fullnet/client-contracts';
 
-export interface OrganizationUnitLeadership {
-  unitId: string; unitVersion: number; isUnitActive: boolean; leaderUserId: string | null; revision: number;
-  updatedById: string | null; updatedAtUtc: string | null; leaderDisplayName: string | null;
-}
-export interface OrganizationUnitLeaderCandidate { id: string; username: string; displayName: string }
-export interface OrganizationUnitLeaderCandidates { items: OrganizationUnitLeaderCandidate[]; page: number; pageSize: number; total: number }
-export interface SetOrganizationUnitLeadership { leaderUserId: string | null; expectedUnitVersion: number; expectedRevision: number }
+// 负责人响应及修改输入由服务端生成契约定义，界面不维护平行 DTO。
+import type { OrganizationUnitLeadershipResponse as OrganizationUnitLeadership, PagedResultOfOrganizationUnitLeaderCandidateResponse as OrganizationUnitLeaderCandidates, SetOrganizationUnitLeadershipRequest as SetOrganizationUnitLeadership } from '@fullnet/client-contracts';
+export type { OrganizationUnitLeadershipResponse as OrganizationUnitLeadership, PagedResultOfOrganizationUnitLeaderCandidateResponse as OrganizationUnitLeaderCandidates } from '@fullnet/client-contracts';
 const object = (value: unknown): value is Record<string, unknown> => value !== null && typeof value === 'object' && !Array.isArray(value);
 const uuid = (value: unknown): value is string => typeof value === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value) && !/^0{8}-0{4}-0{4}-0{4}-0{12}$/.test(value);
 const invalid = (): never => { throw new TypeError('client.invalid_organization_unit_leadership'); };

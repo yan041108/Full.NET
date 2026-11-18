@@ -12,6 +12,8 @@ const user = { id, username: 'user', displayName: 'User' };
 const metadata = { definitionVersionId: id, items: [{ selectionKey: 'review', nodeKey: 'review', nodeName: 'Review', modeKey: 'single' as const, maximumUsers: 1, rangeKey: 'role_members' as const }] };
 function setup(permissions = ['workflow.instances.start']) {
   const pinia = createPinia(); setActivePinia(pinia); const session = useSessionStore();
+  // 权限仅在已认证会话生效，单独填充用户投影不能模拟登录。
+  session.state = 'authenticated';
   session.currentUser = { id, username: 'starter', displayName: 'Starter', tenantId: null, actorScope: 'host', scope: 'host',
     isSuperAdministrator: false, passwordChangeRequired: false, permissions, sessionId: id, preferredLocale: 'zh-CN', profileVersion: 1 };
   const wrapper = mount(WorkflowStarterSelectionPicker, { props: { source: { kind: 'published', versionId: id }, modelValue: {} }, global: { plugins: [pinia] } });
@@ -20,6 +22,12 @@ function setup(permissions = ['workflow.instances.start']) {
 beforeEach(() => { vi.clearAllMocks(); vi.mocked(getWorkflowStarterSelections).mockResolvedValue(metadata);
   vi.mocked(listWorkflowStarterSelectionCandidates).mockResolvedValue({ items: [user], page: 1, pageSize: 20, total: 1 }); });
 describe('发起人真实选择', () => {
+  it('保留用户投影的匿名会话不能继续读取候选', async () => {
+    const { wrapper, session } = setup([]); await flushPromises();
+    session.state = 'anonymous'; session.currentUser = { ...session.currentUser!, permissions: ['workflow.instances.start'] };
+    await flushPromises(); expect(getWorkflowStarterSelections).not.toHaveBeenCalled();
+    expect(wrapper.find('[data-testid^="workflow-starter-candidate-"]').exists()).toBe(false); wrapper.unmount();
+  });
   it('只具有定义权限不加载启动候选', async () => {
     const { wrapper } = setup(['workflow.definitions.read']); await flushPromises(); expect(getWorkflowStarterSelections).not.toHaveBeenCalled(); wrapper.unmount();
   });

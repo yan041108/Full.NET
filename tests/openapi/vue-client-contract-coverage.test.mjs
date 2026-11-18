@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { readFile } from 'node:fs/promises';
 import {
   collectProductionApiModules,
   validateVueClientContractCoverage
@@ -7,7 +8,9 @@ import {
 
 test('Vue 生产 API 模块与 manifest 一一对应', async () => {
   const modules = await collectProductionApiModules();
-  assert.equal(modules.length, 160);
+  const manifest = JSON.parse(await readFile(new URL('../../contracts/openapi/vue-client-coverage-v1.json', import.meta.url), 'utf8'));
+  assert.deepEqual([...modules].sort(), manifest.entries.map(entry => entry.apiModule).sort());
+  assert.ok(modules.includes('ui/admin/src/api/workflow-form-attachments.ts'));
   assert.ok(modules.includes('ui/admin/src/api/log-timeline.ts'));
   assert.ok(modules.includes('ui/admin/src/api/ai-index-grants.ts'));
   assert.ok(modules.includes('ui/admin/src/api/ai-feedback-evaluation.ts'));

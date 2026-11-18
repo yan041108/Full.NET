@@ -1,9 +1,9 @@
 import { http } from './http';
 import { organizationGetReportingLine, organizationSetReportingLine, organizationListReportingCandidates } from '@fullnet/client-contracts';
 
-export interface OrganizationReportingLine { employeeUserId: string; managerUserId: string | null; revision: number;
-  updatedById: string | null; updatedAtUtc: string | null; managerDisplayName: string | null }
-export interface OrganizationReportingCandidates { items: { id: string; username: string; displayName: string }[]; page: number; pageSize: number; total: number }
+// 响应结构复用生成契约，客户端额外核对主体、修订及分页语义。
+import type { OrganizationReportingLineResponse as OrganizationReportingLine, PagedResultOfOrganizationReportingCandidate as OrganizationReportingCandidates } from '@fullnet/client-contracts';
+export type { OrganizationReportingLineResponse as OrganizationReportingLine, PagedResultOfOrganizationReportingCandidate as OrganizationReportingCandidates } from '@fullnet/client-contracts';
 const object = (value: unknown): value is Record<string, unknown> => value !== null && typeof value === 'object' && !Array.isArray(value);
 const uuid = (value: unknown): value is string => typeof value === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value) && !/^0{8}-0{4}-0{4}-0{4}-0{12}$/.test(value);
 const invalid = (): never => { throw new TypeError('client.invalid_organization_reporting_line'); };

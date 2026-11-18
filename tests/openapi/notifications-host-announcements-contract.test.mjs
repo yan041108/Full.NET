@@ -37,7 +37,7 @@ test('Host 公告 OpenAPI 夹具结构完整且路径唯一', async () => {
       seen.add(key);
       assert.match(
         operation.permission,
-        /^notifications\.announcements\.(read|create|update|publish|retract)$/u
+        /^notifications\.announcements\.(read|create|update|publish|retract|archive|restore)$/u
       );
       assert.ok(typeof operation.successStatus === 'number');
       if (operation.requestSchema) {
@@ -60,6 +60,7 @@ test('Host 公告 OpenAPI 夹具与 C# 契约和端点源码一致', async () =>
   assert.match(contractsSource, /record UpdateHostAnnouncementRequest/u);
   assert.match(contractsSource, /record PublishHostAnnouncementRequest/u);
   assert.match(contractsSource, /record RetractHostAnnouncementRequest/u);
+  assert.match(contractsSource, /record ChangeHostAnnouncementArchiveRequest/u);
   assert.match(
     endpointSource,
     /MapGroup\("\/api\/v1\/notifications\/host-announcements"\)/u
@@ -70,8 +71,13 @@ test('Host 公告 OpenAPI 夹具与 C# 契约和端点源码一致', async () =>
   assert.match(endpointSource, /WithName\("notificationsUpdateHostAnnouncement"\)/u);
   assert.match(endpointSource, /WithName\("notificationsPublishHostAnnouncement"\)/u);
   assert.match(endpointSource, /WithName\("notificationsRetractHostAnnouncement"\)/u);
+  assert.match(endpointSource, /WithName\("notificationsArchiveHostAnnouncement"\)/u);
 
+  assert.match(endpointSource, /WithName\("notificationsRestoreHostAnnouncement"\)/u);
   const relativeRoutes = new Map([
+    ['/api/v1/notifications/host-announcements/{announcementId}/restore', {
+      markers: new Map([['POST', 'MapPost("/{announcementId:guid}/restore",']])
+    }],
     ['/api/v1/notifications/host-announcements', {
       markers: new Map([
         ['GET', 'MapGet("/",'],
@@ -87,6 +93,11 @@ test('Host 公告 OpenAPI 夹具与 C# 契约和端点源码一致', async () =>
     ['/api/v1/notifications/host-announcements/{announcementId}/publish', {
       markers: new Map([
         ['POST', 'MapPost("/{announcementId:guid}/publish",']
+      ])
+    }],
+    ['/api/v1/notifications/host-announcements/{announcementId}/archive', {
+      markers: new Map([
+        ['POST', 'MapPost("/{announcementId:guid}/archive",']
       ])
     }],
     ['/api/v1/notifications/host-announcements/{announcementId}/retract', {
