@@ -21,6 +21,8 @@ internal static class OrganizationPositionWorkbookCodec
     internal const int MaximumDataRows = 1_000;
     internal const long MaximumUploadBytes = 1024 * 1024;
 
+    // 工作表坐标与导入条数分开限制，稀疏行不能被当作已导入数据量。
+    private const int MaximumWorksheetRow = 1_048_576;
     private const int MaximumArchiveEntries = 32;
     private const long MaximumUncompressedBytes = 4 * 1024 * 1024;
     private const long MaximumXmlCharacters = 2 * 1024 * 1024;
@@ -330,7 +332,7 @@ internal static class OrganizationPositionWorkbookCodec
         {
             cancellationToken.ThrowIfCancellationRequested();
             var physicalLine = RowNumber(row, previousLine + 1);
-            if (physicalLine <= previousLine || physicalLine > MaximumDataRows + 1)
+            if (physicalLine <= previousLine || physicalLine > MaximumWorksheetRow)
                 throw new InvalidDataException("职位导入工作簿行号无效或超过上限。");
             previousLine = physicalLine;
             var sourceCells = ReadRow(row, sharedStrings, columnBudget, physicalLine, cancellationToken);

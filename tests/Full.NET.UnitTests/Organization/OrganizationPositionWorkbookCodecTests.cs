@@ -19,6 +19,10 @@ public sealed class OrganizationPositionWorkbookCodecTests
     [DataRow("nested-sheet-data", true)]
     [DataRow("row-zero", false)]
     [DataRow("row-zero", true)]
+    [DataRow("row-over-sheet", false)]
+    [DataRow("row-over-sheet", true)]
+    [DataRow("row-duplicate", false)]
+    [DataRow("row-duplicate", true)]
     [DataRow("row-malformed", false)]
     [DataRow("row-malformed", true)]
     [DataRow("cell-mismatch", false)]
@@ -38,13 +42,16 @@ public sealed class OrganizationPositionWorkbookCodecTests
     [DataRow("missing-row-reference", true)]
     [DataRow("sparse-row", false)]
     [DataRow("sparse-row", true)]
+    [DataRow("worksheet-last-row", false)]
+    [DataRow("worksheet-last-row", true)]
     public async Task Compatible_missing_and_sparse_row_metadata_keep_existing_business_rows(string kind, bool shared)
     {
         var workbook = MutateWorkbook(CreateImportWorkbook(shared, [["code", "name", "displayOrder", "unitCode", "positionLevelCode"], ["engineer", "Engineer", "10", "", ""]]), kind);
         await using var source = new MemoryStream(workbook);
-        var rows = await OrganizationPositionWorkbookCodec.ParseImportAsync(source, workbook.LongLength, default);
+        var rows = await OrganizationPositionWorkbookCodec.ParseImportRowsAsync(source, workbook.LongLength, default);
         Assert.HasCount(1, rows);
-        Assert.AreEqual("Engineer", rows[0].Name);
+        Assert.AreEqual("Engineer", rows[0].Row.Name);
+        Assert.AreEqual(kind switch { "sparse-row" => 4096, "worksheet-last-row" => 1_048_576, _ => 2 }, rows[0].LineNumber);
         Assert.IsTrue(source.CanRead);
     }
 
@@ -71,7 +78,14 @@ public sealed class OrganizationPositionWorkbookCodecTests
                     case "cell-mismatch": cell.SetAttributeValue("r", "A99"); break;
                     case "error-type": cell.SetAttributeValue("t", "e"); cell.ReplaceNodes(new XElement(SpreadsheetNamespace + "v", "#VALUE!")); break;
                     case "missing-row-reference": row.Attribute("r")!.Remove(); break;
-                    case "sparse-row": row.SetAttributeValue("r", "4096"); foreach (var item in row.Elements()) item.SetAttributeValue("r", ((string)item.Attribute("r")!)[0] + "4096"); break;
+                    case "sparse-row":
+                    case "worksheet-last-row":
+                    case "row-over-sheet":
+                    case "row-duplicate":
+                        var line = kind switch { "sparse-row" => "4096", "worksheet-last-row" => "1048576", "row-over-sheet" => "1048577", _ => "1" };
+                        row.SetAttributeValue("r", line);
+                        foreach (var item in row.Elements()) item.SetAttributeValue("r", ((string)item.Attribute("r")!)[0] + line);
+                        break;
                 }
                 archive.GetEntry(path)!.Delete(); WriteEntry(archive, path, document.ToString());
             }
