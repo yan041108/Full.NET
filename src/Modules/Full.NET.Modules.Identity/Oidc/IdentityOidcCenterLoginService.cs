@@ -18,11 +18,13 @@ internal sealed record IdentityOidcCenterLoginResult(
     string[]? AuthenticationMethods = null,
     bool PasswordChangeRequired = false);
 
-/// <summary>内部认证结果；仅用于安全审计，对外仍返回统一的凭据拒绝。</summary>
+/// <summary>内部认证结果与回滚提示；对外仍返回统一的凭据拒绝。</summary>
 internal sealed record IdentityOidcCenterLoginAttempt(
     IdentityOidcCenterLoginResult? Login,
     Guid? UserId,
-    string ResultCode);
+    string ResultCode,
+    bool RequiresRollback = false,
+    bool ConsumedSecondFactor = false);
 
 /// <summary>中心登录凭据校验；不创建旧 Refresh Session，仅返回账号权威状态。</summary>
 internal sealed class IdentityOidcCenterLoginService(
@@ -131,12 +133,15 @@ internal sealed class IdentityOidcCenterLoginService(
                 .ConfigureAwait(false);
             if (successRows == 0)
             {
-                if (methods.Length > 1) return new IdentityOidcCenterLoginAttempt(null, user.Id, "identity.login-contention");
+                if (methods.Length > 1)
+                    return new IdentityOidcCenterLoginAttempt(null, user.Id, "identity.login-contention",
+                        RequiresRollback: true, ConsumedSecondFactor: true);
                 continue;
             }
             if (successRows != 1)
             {
-                return new IdentityOidcCenterLoginAttempt(null, user.Id, "identity.login-update-failed");
+                return new IdentityOidcCenterLoginAttempt(null, user.Id, "identity.login-update-failed",
+                    RequiresRollback: true, ConsumedSecondFactor: methods.Length > 1);
             }
 
             return new IdentityOidcCenterLoginAttempt(

@@ -1,0 +1,67 @@
+name: dotnet-integration-focused
+
+on:
+  workflow_dispatch:
+    inputs:
+      scenario:
+        description: 仅执行明确的恢复批次
+        required: true
+        default: enterprise-delivery
+        type: choice
+        options: [enterprise-delivery, oidc-proof]
+
+permissions:
+  contents: read
+
+jobs:
+  recovery:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+      - name: Prepare the two database providers
+        run: node scripts/testing/prepare-ci-test-images.mjs
+      - name: Restore the frozen integration inputs
+        run: |
+          dotnet restore tests/Full.NET.IntegrationTests/Full.NET.IntegrationTests.csproj --force-evaluate
+          git diff --quiet
+          test -z "$(git status --porcelain --untracked-files=all)"
+      - name: Run only the selected recovery batch
+        env:
+          SCENARIO: ${{ inputs.scenario }}
+        run: |
+          set -euo pipefail
+          case "$SCENARIO" in
+            enterprise-delivery)
+              filter='FullyQualifiedName=Full.NET.IntegrationTests.EnterpriseRequest.EnterpriseRequestDeliveryRecoveryTests.Files_and_reports_recover_without_reupload_and_cancel_or_stale_source_denies_download'
+              minimum=2 ;;
+            oidc-proof)
+              filter='FullyQualifiedName~Full.NET.IntegrationTests.Identity.IdentityOidcInteractiveIntegrationTests.|FullyQualifiedName~Full.NET.IntegrationTests.Identity.AuthenticationAuditRecoveryTests.'
+              minimum=10 ;;
+            *) exit 64 ;;
+          esac
+          git rev-parse HEAD
+          before="$(git status --porcelain --untracked-files=all)"
+          node scripts/testing/run-dotnet-test-suite.mjs workflowActivityIntegration \
+            --filter "$filter" --minimum-expected-tests "$minimum" | tee "$RUNNER_TEMP/focused-integration.log"
+          MINIMUM="$minimum" node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          import assert from 'node:assert/strict';
+          const text = fs.readFileSync(process.env.RUNNER_TEMP + '/focused-integration.log', 'utf8');
+          const start = text.lastIndexOf('Test run summary:');
+          assert.ok(start >= 0, '缺少实际业务测试摘要');
+          const summary = text.slice(start);
+          const count = key => { const match = summary.match(new RegExp('^\\s*' + key + ':\\s*(\\d+)\\s*$', 'm')); assert.ok(match, '缺少计数 ' + key); return Number(match[1]); };
+          assert.equal(count('failed'), 0);
+          assert.equal(count('skipped'), 0);
+          assert.equal(count('total'), count('succeeded'));
+          assert.ok(count('succeeded') >= Number(process.env.MINIMUM));
+          NODE
+          test "$before" = "$(git status --porcelain --untracked-files=all)"

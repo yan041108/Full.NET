@@ -23,24 +23,30 @@ internal sealed class IdentityOidcAccountService(ICommandTransaction transaction
     IOptions<Configuration.IdentityOptions> options)
 {
     public Task<Result<bool>> ChangeByCredentialsAsync(string username, string password, string? secondFactor,
-        string nextPassword, CancellationToken token) => InHostAsync(() => transaction.ExecuteAsync(async ct =>
+        string nextPassword, CancellationToken token) => InHostAsync(() => ExecuteProofTransactionAsync(async ct =>
     {
         if (string.IsNullOrEmpty(nextPassword) || nextPassword.Length > 1024
-            || IdentityPasswordPolicy.Validate(nextPassword).Count != 0) return Invalid(ValidationErrorCodes.Failed);
+            || IdentityPasswordPolicy.Validate(nextPassword).Count != 0) return CommitFailure(ValidationErrorCodes.Failed);
         var attempt = await login.AuthenticateWithOutcomeAsync(username, password, ct, secondFactor).ConfigureAwait(false);
-        if (attempt.Login is null) return Invalid(IdentityErrorCodes.InvalidCredentials);
-        return await UpdateAsync(attempt.Login.UserId, password, nextPassword, false, ct).ConfigureAwait(false);
+        if (attempt.Login is null)
+        {
+            var rejected = Invalid(IdentityErrorCodes.InvalidCredentials);
+            // 只有已经写入成功状态或消费一次性因子的争用才回滚安全记录。
+            return attempt.RequiresRollback
+                ? RollbackOnFailure(rejected) : Result<Result<bool>>.Success(rejected);
+        }
+        return RollbackOnFailure(await UpdateAsync(attempt.Login.UserId, password, nextPassword, false, ct).ConfigureAwait(false));
     }, token));
 
     public Task<Result<bool>> ChangeAuthenticatedAsync(Guid userId, string password, string nextPassword,
         CancellationToken token) => InHostAsync(() => transaction.ExecuteAsync(ct => UpdateAsync(userId, password, nextPassword, false, ct), token));
 
     public Task<Result<bool>> RecoverAsync(string username, string recoveryCode, string nextPassword, CancellationToken token)
-        => InHostAsync(() => transaction.ExecuteAsync(async ct =>
+        => InHostAsync(() => ExecuteProofTransactionAsync(async ct =>
         {
             if (string.IsNullOrWhiteSpace(username) || username.Length > 128 || string.IsNullOrEmpty(nextPassword)
                 || nextPassword.Length > 1024 || IdentityPasswordPolicy.Validate(nextPassword).Count != 0)
-                return Invalid(ValidationErrorCodes.Failed);
+                return CommitFailure(ValidationErrorCodes.Failed);
             var user = await queries.QuerySingleOrDefaultAsync<IdentityUserRecord>(IdentitySql.FindUserByScopeAndUsername,
                 IdentitySqlParameters.Create(("ScopeKey", "host"), ("NormalizedUsername", username.Trim().ToUpperInvariant())), ct)
                 .ConfigureAwait(false);
@@ -49,10 +55,22 @@ internal sealed class IdentityOidcAccountService(ICommandTransaction transaction
             {
                 await audit.WriteAsync(user?.Id, username.Trim().ToUpperInvariant(), "password.recovery",
                     "identity.invalid_recovery_proof", false, ct).ConfigureAwait(false);
-                return Invalid(IdentityErrorCodes.MfaRecoveryCodeInvalid);
+                return CommitFailure(IdentityErrorCodes.MfaRecoveryCodeInvalid);
             }
-            return await UpdateAsync(user.Id, null, nextPassword, true, ct).ConfigureAwait(false);
+            return RollbackOnFailure(await UpdateAsync(user.Id, null, nextPassword, true, ct).ConfigureAwait(false));
         }, token));
+
+    private async Task<Result<bool>> ExecuteProofTransactionAsync(
+        Func<CancellationToken, Task<Result<Result<bool>>>> action, CancellationToken token)
+    {
+        var result = await transaction.ExecuteResultAsync(action, token).ConfigureAwait(false);
+        return result.IsSuccess ? result.Value! : Result<bool>.Failure(result.Error!);
+    }
+
+    // 外层成功允许提交拒绝审计；证明通过后的失败必须使整个事务回滚。
+    private static Result<Result<bool>> CommitFailure(string code) => Result<Result<bool>>.Success(Invalid(code));
+    private static Result<Result<bool>> RollbackOnFailure(Result<bool> result) => result.IsSuccess
+        ? Result<Result<bool>>.Success(result) : Result<Result<bool>>.Failure(result.Error!);
 
     private async Task<Result<bool>> UpdateAsync(Guid id, string? password, string nextPassword, bool recovered, CancellationToken token)
     {

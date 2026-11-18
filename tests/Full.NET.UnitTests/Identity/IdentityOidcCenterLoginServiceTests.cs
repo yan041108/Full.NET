@@ -123,6 +123,8 @@ public sealed class IdentityOidcCenterLoginServiceTests
             "password" => "identity.invalid-password",
             _ => "identity.login-contention"
         }, attempt.ResultCode);
+        Assert.IsFalse(attempt.RequiresRollback);
+        Assert.IsFalse(attempt.ConsumedSecondFactor);
         await command.Received(change == "contention" ? 32 : 1).ExecuteAsync(
             IdentitySql.UpdateLoginSuccess, Arg.Any<object?>(), Arg.Any<CancellationToken>());
     }

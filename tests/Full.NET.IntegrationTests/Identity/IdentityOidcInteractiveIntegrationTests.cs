@@ -15,6 +15,7 @@ using Full.NET.Modules.Identity.Persistence;
 using Full.NET.Modules.Identity.Security;
 using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using OpenIddict.Abstractions;
 
 namespace Full.NET.IntegrationTests.Identity;
@@ -86,7 +87,14 @@ public sealed class IdentityOidcInteractiveIntegrationTests
     [DataRow(DatabaseProvider.MySql)]
     public async Task Mfa_is_not_inferred_from_password_cookie_and_totp_cannot_be_replayed(DatabaseProvider provider)
     {
-        using var factory = new FullNetApiFactory(provider, await IdentityBrowserTestSupport.DatabaseAsync(provider), IdentityOidcProtocolAssertions.Settings);
+        var rejectLoginUpdate = false;
+        using var factory = new FullNetApiFactory(provider, await IdentityBrowserTestSupport.DatabaseAsync(provider),
+            IdentityOidcProtocolAssertions.Settings, configureTestServices: services =>
+            {
+                var original = services.Last(item => item.ServiceType == typeof(ICommandExecutor));
+                services.Replace(ServiceDescriptor.Scoped<ICommandExecutor>(sp =>
+                    new RejectLoginUpdate((ICommandExecutor)original.ImplementationFactory!(sp), () => rejectLoginUpdate)));
+            });
         await factory.InitializeAsync(); using var passwordBrowser = IdentityBrowserTestSupport.Browser(factory);
         var old = await IdentityOidcRelyingPartyFixture.RunAuthorizationCodeFlowAsync(passwordBrowser,
             IdentityOidcRelyingPartyFixture.PublicClientId, IdentityOidcRelyingPartyFixture.PublicRedirectUri, null,
@@ -99,6 +107,27 @@ public sealed class IdentityOidcInteractiveIntegrationTests
         var secret = begun.Value!.SharedSecretBase32;
         var otp = TotpAlgorithm.ComputeCode(TotpAlgorithm.DecodeSharedSecret(secret), DateTimeOffset.UtcNow);
         Assert.IsTrue((await enrollment.ConfirmAsync(principal, otp)).IsSuccess);
+        var accounts = scope.ServiceProvider.GetRequiredService<IdentityOidcAccountService>();
+        Assert.IsFalse((await accounts.ChangeByCredentialsAsync("admin", "wrong-password", null,
+            "Changed!2026Password", default)).IsSuccess);
+        Assert.IsFalse((await accounts.ChangeByCredentialsAsync("admin", FullNetApiFactory.TestPassword, "invalid-recovery-code",
+            "Changed!2026Password", default)).IsSuccess);
+        var queries = scope.ServiceProvider.GetRequiredService<IQueryExecutor>();
+        var failedCount = await queries.QuerySingleOrDefaultAsync<int>(new SqlStatement("test.password_change_failed_count",
+            "SELECT FailedLoginCount FROM fn_identity_user WHERE Id = @UserId", SqlDataScope.HostOnly),
+            IdentitySqlParameters.Create(("UserId", userId)));
+        Assert.AreEqual(2, failedCount);
+        var rejectedProofs = await queries.QuerySingleOrDefaultAsync<int>(new SqlStatement("test.password_change_rejected_proof",
+            "SELECT COUNT(1) FROM fn_identity_auth_audit WHERE UserId = @UserId AND EventType = 'mfa.recovery_code_consumed' AND Succeeded = 0",
+            SqlDataScope.HostOnly), IdentitySqlParameters.Create(("UserId", userId)));
+        Assert.AreEqual(1, rejectedProofs);
+        var sameTotpPassword = await accounts.ChangeByCredentialsAsync("admin", FullNetApiFactory.TestPassword, otp,
+            FullNetApiFactory.TestPassword, default);
+        Assert.AreEqual(IdentityErrorCodes.NewPasswordSameAsCurrent, sameTotpPassword.Error!.Code);
+        failedCount = await queries.QuerySingleOrDefaultAsync<int>(new SqlStatement("test.password_change_failed_count_after_rollback",
+            "SELECT FailedLoginCount FROM fn_identity_user WHERE Id = @UserId", SqlDataScope.HostOnly),
+            IdentitySqlParameters.Create(("UserId", userId)));
+        Assert.AreEqual(2, failedCount);
         var manager = scope.ServiceProvider.GetRequiredService<IOpenIddictApplicationManager>();
         var application = await manager.FindByClientIdAsync(IdentityOidcRelyingPartyFixture.PublicClientId);
         var descriptor = new OpenIddictApplicationDescriptor(); await manager.PopulateAsync(descriptor, application!);
@@ -111,6 +140,10 @@ public sealed class IdentityOidcInteractiveIntegrationTests
         var fields = IdentityBrowserTestSupport.Hidden(html); fields["username"] = "admin"; fields["password"] = FullNetApiFactory.TestPassword;
         using (var missing = await browser.PostAsync("/connect/authorize", new FormUrlEncodedContent(fields))) Assert.AreEqual(HttpStatusCode.Unauthorized, missing.StatusCode);
         fields["second_factor"] = otp;
+        rejectLoginUpdate = true;
+        using (var contended = await browser.PostAsync("/connect/authorize", new FormUrlEncodedContent(fields)))
+            Assert.AreEqual(HttpStatusCode.Unauthorized, contended.StatusCode);
+        rejectLoginUpdate = false;
         using var success = await browser.PostAsync("/connect/authorize", new FormUrlEncodedContent(fields)); Assert.AreEqual(HttpStatusCode.Redirect, success.StatusCode);
         var code = QueryHelpers.ParseQuery(success.Headers.Location!.Query)["code"].ToString();
         var exchange = await IdentityOidcRelyingPartyFixture.ExchangeAuthorizationCodeAsync(browser, code, verifier,
@@ -130,6 +163,10 @@ public sealed class IdentityOidcInteractiveIntegrationTests
         var recoveryFields = IdentityBrowserTestSupport.Hidden(await recoveryPage.Content.ReadAsStringAsync());
         recoveryFields["username"] = "admin"; recoveryFields["password"] = FullNetApiFactory.TestPassword;
         recoveryFields["second_factor"] = recovery.Value!.RecoveryCodes[1];
+        rejectLoginUpdate = true;
+        using (var contended = await recoveryBrowser.PostAsync("/connect/authorize", new FormUrlEncodedContent(recoveryFields)))
+            Assert.AreEqual(HttpStatusCode.Unauthorized, contended.StatusCode);
+        rejectLoginUpdate = false;
         using var recoveryLogin = await recoveryBrowser.PostAsync("/connect/authorize", new FormUrlEncodedContent(recoveryFields));
         Assert.AreEqual(HttpStatusCode.Redirect, recoveryLogin.StatusCode);
         var recoveryExchange = await IdentityOidcRelyingPartyFixture.ExchangeAuthorizationCodeAsync(recoveryBrowser,
@@ -141,14 +178,70 @@ public sealed class IdentityOidcInteractiveIntegrationTests
             "test.mfa_authentication_events", "SELECT COUNT(1) FROM fn_identity_auth_audit WHERE UserId = @UserId AND EventType = 'oidc.center_login' AND AuthenticationMethod = 'mfa' AND Succeeded = 1", SqlDataScope.HostOnly),
             IdentitySqlParameters.Create(("UserId", userId)));
         Assert.AreEqual(2, mfaEvents);
-        var recovered = await scope.ServiceProvider.GetRequiredService<IdentityOidcAccountService>().RecoverAsync("admin",
+        var contentionEvents = await queries.QuerySingleOrDefaultAsync<int>(new SqlStatement(
+            "test.mfa_login_contention_events", "SELECT COUNT(1) FROM fn_identity_auth_audit WHERE UserId = @UserId AND EventType = 'oidc.center_login' AND ResultCode = 'identity.login-contention' AND AuthenticationMethod = 'mfa' AND Succeeded = 0", SqlDataScope.HostOnly),
+            IdentitySqlParameters.Create(("UserId", userId)));
+        Assert.AreEqual(2, contentionEvents);
+        var sameCredentialPassword = await accounts.ChangeByCredentialsAsync("admin", FullNetApiFactory.TestPassword,
+            recovery.Value!.RecoveryCodes[2], FullNetApiFactory.TestPassword, default);
+        Assert.AreEqual(IdentityErrorCodes.NewPasswordSameAsCurrent, sameCredentialPassword.Error!.Code);
+        var changed = await accounts.ChangeByCredentialsAsync("admin", FullNetApiFactory.TestPassword,
+            recovery.Value.RecoveryCodes[2], "Changed!2026Password", default);
+        Assert.IsTrue(changed.IsSuccess);
+        Assert.IsFalse((await accounts.ChangeByCredentialsAsync("admin", "Changed!2026Password",
+            recovery.Value.RecoveryCodes[2], "Another!2026Password", default)).IsSuccess);
+        using var beforeRecoveryBrowser = IdentityBrowserTestSupport.Browser(factory);
+        using var beforeRecoveryPage = await beforeRecoveryBrowser.GetAsync(url);
+        var beforeRecoveryFields = IdentityBrowserTestSupport.Hidden(await beforeRecoveryPage.Content.ReadAsStringAsync());
+        beforeRecoveryFields["username"] = "admin";
+        beforeRecoveryFields["password"] = "Changed!2026Password";
+        beforeRecoveryFields["second_factor"] = recovery.Value.RecoveryCodes[3];
+        using var beforeRecoveryLogin = await beforeRecoveryBrowser.PostAsync("/connect/authorize",
+            new FormUrlEncodedContent(beforeRecoveryFields));
+        Assert.AreEqual(HttpStatusCode.Redirect, beforeRecoveryLogin.StatusCode);
+        var beforeRecoveryExchange = await IdentityOidcRelyingPartyFixture.ExchangeAuthorizationCodeAsync(beforeRecoveryBrowser,
+            QueryHelpers.ParseQuery(beforeRecoveryLogin.Headers.Location!.Query)["code"].ToString(), verifier,
+            IdentityOidcRelyingPartyFixture.PublicClientId, IdentityOidcRelyingPartyFixture.PublicRedirectUri, null);
+        using (var active = new HttpRequestMessage(HttpMethod.Get, "/api/v1/me"))
+        {
+            active.Headers.Authorization = new AuthenticationHeaderValue("Bearer", beforeRecoveryExchange.AccessToken);
+            using var accepted = await beforeRecoveryBrowser.SendAsync(active);
+            Assert.AreEqual(HttpStatusCode.OK, accepted.StatusCode);
+        }
+        Assert.IsFalse((await accounts.RecoverAsync("admin", "invalid-recovery-code", "Recovered!2026Identity", default)).IsSuccess);
+        var rejectedRecovery = await queries.QuerySingleOrDefaultAsync<int>(new SqlStatement("test.password_recovery_rejection",
+            "SELECT COUNT(1) FROM fn_identity_auth_audit WHERE UserId = @UserId AND EventType = 'password.recovery' AND Succeeded = 0",
+            SqlDataScope.HostOnly), IdentitySqlParameters.Create(("UserId", userId)));
+        Assert.AreEqual(1, rejectedRecovery);
+        var samePassword = await accounts.RecoverAsync("admin", recovery.Value.RecoveryCodes[0], "Changed!2026Password", default);
+        Assert.IsFalse(samePassword.IsSuccess);
+        Assert.AreEqual(IdentityErrorCodes.NewPasswordSameAsCurrent, samePassword.Error!.Code);
+        var recovered = await accounts.RecoverAsync("admin",
             recovery.Value!.RecoveryCodes[0], "Recovered!2026Identity", default);
         Assert.IsTrue(recovered.IsSuccess);
         Assert.IsFalse((await scope.ServiceProvider.GetRequiredService<IdentityOidcAccountService>().RecoverAsync("admin",
             recovery.Value.RecoveryCodes[0], "Another!2026Password", default)).IsSuccess);
         using var stale = new HttpRequestMessage(HttpMethod.Get, "/api/v1/me");
-        stale.Headers.Authorization = new AuthenticationHeaderValue("Bearer", exchange.AccessToken);
-        using var rejected = await browser.SendAsync(stale); Assert.AreEqual(HttpStatusCode.Unauthorized, rejected.StatusCode);
+        stale.Headers.Authorization = new AuthenticationHeaderValue("Bearer", beforeRecoveryExchange.AccessToken);
+        using var rejected = await beforeRecoveryBrowser.SendAsync(stale); Assert.AreEqual(HttpStatusCode.Unauthorized, rejected.StatusCode);
+
+        var lockedUser = await factory.CreateHostIdentityAsync("change-lockout-" + Guid.NewGuid().ToString("N"),
+            [], password: FullNetApiFactory.TestPassword);
+        Assert.IsFalse((await accounts.ChangeAuthenticatedAsync(lockedUser.UserId, "wrong-password",
+            "Changed!2026Password", default)).IsSuccess);
+        for (var attempt = 0; attempt < 4; attempt++)
+            Assert.IsFalse((await accounts.ChangeByCredentialsAsync(lockedUser.Username, "wrong-password", null,
+                "Changed!2026Password", default)).IsSuccess);
+        var locked = await queries.QuerySingleOrDefaultAsync<int>(new SqlStatement("test.password_change_lockout",
+            "SELECT COUNT(1) FROM fn_identity_user WHERE Id = @UserId AND FailedLoginCount = 5 AND LockoutEndUtc IS NOT NULL",
+            SqlDataScope.HostOnly), IdentitySqlParameters.Create(("UserId", lockedUser.UserId)));
+        Assert.AreEqual(1, locked);
+        var selfChangeRejections = await queries.QuerySingleOrDefaultAsync<int>(new SqlStatement("test.self_change_rejection",
+            "SELECT COUNT(1) FROM fn_identity_auth_audit WHERE UserId = @UserId AND EventType = 'password.self_change' AND Succeeded = 0",
+            SqlDataScope.HostOnly), IdentitySqlParameters.Create(("UserId", lockedUser.UserId)));
+        Assert.AreEqual(1, selfChangeRejections);
+        Assert.IsFalse((await accounts.ChangeByCredentialsAsync(lockedUser.Username, FullNetApiFactory.TestPassword, null,
+            "Changed!2026Password", default)).IsSuccess);
     }
 
     [TestMethod]
@@ -180,6 +273,13 @@ public sealed class IdentityOidcInteractiveIntegrationTests
         fields["username"] = "admin"; fields["password"] = "Changed!2026Password";
         using var signedIn = await browser.PostAsync("/connect/authorize", new FormUrlEncodedContent(fields));
         Assert.AreEqual(HttpStatusCode.Redirect, signedIn.StatusCode);
+    }
+
+    private sealed class RejectLoginUpdate(ICommandExecutor inner, Func<bool> reject) : ICommandExecutor
+    {
+        public Task<int> ExecuteAsync(SqlStatement statement, object? parameters = null, CancellationToken cancellationToken = default) =>
+            statement.Name == IdentitySql.UpdateLoginSuccess.Name && reject()
+                ? Task.FromResult(0) : inner.ExecuteAsync(statement, parameters, cancellationToken);
     }
 
     private static (string Url, string Verifier) AuthorizeUrl(string client)

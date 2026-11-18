@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using System.Collections.Immutable;
 using Full.NET.Abstractions.Messaging;
+using Full.NET.Abstractions.Results;
 using Full.NET.Abstractions.Tenancy;
 using Full.NET.Abstractions.Time;
 using Full.NET.Data.Abstractions;
@@ -100,7 +101,8 @@ internal sealed class IdentityOidcAuthorizationService(
         string? secondFactor = null)
     {
         // 凭据状态、中心会话和对应事件共用 Identity 本地事务。
-        var (login, centerSession) = await transaction.ExecuteAsync(async token =>
+        IdentityOidcCenterLoginAttempt? rollbackAttempt = null;
+        var result = await transaction.ExecuteResultAsync(async token =>
         {
             var attempt = await centerLoginService.AuthenticateWithOutcomeAsync(
                     username, password, token, secondFactor)
@@ -108,20 +110,25 @@ internal sealed class IdentityOidcAuthorizationService(
             var authenticated = attempt.Login;
             if (authenticated is null)
             {
+                if (attempt.RequiresRollback)
+                {
+                    rollbackAttempt = attempt;
+                    return Result<(IdentityOidcCenterLoginResult? Login, IdentityOidcCenterSession? Session)>.Failure(
+                        new Error(attempt.ResultCode, "The account state changed during authentication.", ErrorType.Conflict));
+                }
                 await authenticationEvents.WriteAsync(
                     attempt.UserId, username.Trim().ToUpperInvariant(),
                     OidcAuthenticationEventWriter.CenterLogin,
                     attempt.ResultCode, false, token, authenticationMethod: attempt.ResultCode == "identity.mfa_invalid" ? "mfa" : "password")
                     .ConfigureAwait(false);
-                return (Login: (IdentityOidcCenterLoginResult?)null,
-                    Session: (IdentityOidcCenterSession?)null);
+                return Result<(IdentityOidcCenterLoginResult? Login, IdentityOidcCenterSession? Session)>.Success((null, null));
             }
 
             if (authenticated.PasswordChangeRequired)
             {
                 await authenticationEvents.WriteAsync(authenticated.UserId, username.Trim().ToUpperInvariant(),
                     OidcAuthenticationEventWriter.CenterLogin, "identity.password_change_required", false, token).ConfigureAwait(false);
-                return (Login: (IdentityOidcCenterLoginResult?)authenticated, Session: (IdentityOidcCenterSession?)null);
+                return Result<(IdentityOidcCenterLoginResult? Login, IdentityOidcCenterSession? Session)>.Success((authenticated, null));
             }
             var session = await sessionService.CreateCenterSessionAsync(
                     authenticated.UserId,
@@ -135,9 +142,17 @@ internal sealed class IdentityOidcAuthorizationService(
                 "identity.oidc_center_login_succeeded", true, token,
                 session.Id, authenticationMethod: authenticated.AuthenticationMethods?.Length > 1 ? "mfa" : "password")
                 .ConfigureAwait(false);
-            return (Login: (IdentityOidcCenterLoginResult?)authenticated,
-                Session: (IdentityOidcCenterSession?)session);
+            return Result<(IdentityOidcCenterLoginResult? Login, IdentityOidcCenterSession? Session)>.Success((authenticated, session));
         }, cancellationToken).ConfigureAwait(false);
+        if (!result.IsSuccess)
+        {
+            // 一次性因子的消费已回滚，拒绝事件须在回滚后另行写入。
+            await authenticationEvents.WriteAsync(rollbackAttempt!.UserId, username.Trim().ToUpperInvariant(),
+                OidcAuthenticationEventWriter.CenterLogin, rollbackAttempt.ResultCode, false, cancellationToken,
+                authenticationMethod: rollbackAttempt.ConsumedSecondFactor ? "mfa" : "password").ConfigureAwait(false);
+            return AuthenticateResult.Fail("Invalid credentials.");
+        }
+        var (login, centerSession) = result.Value;
         if (login?.PasswordChangeRequired == true) return AuthenticateResult.Fail("password_change_required");
         if (login is null || centerSession is null)
         {
