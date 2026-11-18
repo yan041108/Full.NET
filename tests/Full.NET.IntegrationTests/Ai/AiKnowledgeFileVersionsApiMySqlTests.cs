@@ -10,9 +10,10 @@ public sealed class AiKnowledgeFileVersionsApiMySqlTests
     [TestMethod]
     public async Task MySql_tenant_import_survives_quota_response_loss_and_worker_recovery()
     {
-        var recovery = new AiKnowledgeTenantImportRecovery();
-        using var factory = new FullNetApiFactory(DatabaseProvider.MySql, await SharedDatabaseFixture.CreateMySqlDatabaseAsync(), configureTestServices: recovery.Configure);
-        await AiKnowledgeTenantImportRecovery.VerifyAsync(factory);
+        using var recovery = new AiKnowledgeTenantImportRecovery();
+        using var factory = new FullNetApiFactory(DatabaseProvider.MySql, await SharedDatabaseFixture.CreateMySqlDatabaseAsync(),
+            new Dictionary<string, string?> { ["Files:Local:RootPath"] = recovery.FilesRoot }, configureTestServices: recovery.Configure);
+        await AiKnowledgeTenantImportRecovery.VerifyAsync(factory, recovery);
     }
     [TestMethod]
     public async Task MySql_import_recovery_preserves_unknown_commit_and_deleted_cleanup()

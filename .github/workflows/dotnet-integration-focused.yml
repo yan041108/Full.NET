@@ -8,7 +8,7 @@ on:
         required: true
         default: enterprise-delivery
         type: choice
-        options: [enterprise-delivery, oidc-proof, import-receipt, ai-index-tenant]
+        options: [enterprise-delivery, oidc-proof, import-receipt, ai-files-tenant]
 
 permissions:
   contents: read
@@ -48,9 +48,9 @@ jobs:
             import-receipt)
               filter='FullyQualifiedName=Full.NET.IntegrationTests.ImportExport.ImportReceiptTenantActivityTests.Suspended_tenant_preserves_uploaded_receipt_until_reactivation'
               minimum=2 ;;
-            ai-index-tenant)
-              filter='FullyQualifiedName=Full.NET.IntegrationTests.Ai.AiKnowledgeIndexTenantFileRecoveryTests.Suspended_tenant_requires_explicit_index_retry'
-              minimum=2 ;;
+            ai-files-tenant)
+              filter='FullyQualifiedName=Full.NET.IntegrationTests.Ai.AiKnowledgeIndexTenantFileRecoveryTests.Suspended_tenant_requires_explicit_index_retry|FullyQualifiedName=Full.NET.IntegrationTests.Ai.AiKnowledgeFileVersionsApiSqlServerTests.SqlServer_tenant_import_survives_quota_response_loss_and_worker_recovery|FullyQualifiedName=Full.NET.IntegrationTests.Ai.AiKnowledgeFileVersionsApiMySqlTests.MySql_tenant_import_survives_quota_response_loss_and_worker_recovery'
+              minimum=4 ;;
             *) exit 64 ;;
           esac
           git rev-parse HEAD

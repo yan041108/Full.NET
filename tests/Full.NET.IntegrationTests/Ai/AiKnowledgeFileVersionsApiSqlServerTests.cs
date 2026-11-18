@@ -10,9 +10,10 @@ public sealed class AiKnowledgeFileVersionsApiSqlServerTests
     [TestMethod]
     public async Task SqlServer_tenant_import_survives_quota_response_loss_and_worker_recovery()
     {
-        var recovery = new AiKnowledgeTenantImportRecovery();
-        using var factory = new FullNetApiFactory(DatabaseProvider.SqlServer, await SharedDatabaseFixture.CreateSqlServerDatabaseAsync(), configureTestServices: recovery.Configure);
-        await AiKnowledgeTenantImportRecovery.VerifyAsync(factory);
+        using var recovery = new AiKnowledgeTenantImportRecovery();
+        using var factory = new FullNetApiFactory(DatabaseProvider.SqlServer, await SharedDatabaseFixture.CreateSqlServerDatabaseAsync(),
+            new Dictionary<string, string?> { ["Files:Local:RootPath"] = recovery.FilesRoot }, configureTestServices: recovery.Configure);
+        await AiKnowledgeTenantImportRecovery.VerifyAsync(factory, recovery);
     }
     [TestMethod]
     public async Task SqlServer_import_recovery_preserves_unknown_commit_and_deleted_cleanup()
