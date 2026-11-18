@@ -7,6 +7,14 @@ import { focusedUnitSelection, validateFocusedUnitSource, validateFocusedUnitFil
 
 const target = 'Full.NET.UnitTests.Organization.OrganizationPositionWorkbookCodecTests';
 
+test('正式测试类可以并列其他 MSTest 特性，但其他特性不能替代 TestClass', () => {
+  const selection = focusedUnitSelection(target, '1', 'Sample');
+  const declaration = 'public sealed class OrganizationPositionWorkbookCodecTests { [TestMethod] public void Sample() {} }';
+  for (const attributes of ['[TestClass] [DoNotParallelize]', '[DoNotParallelize] [TestClass]', '[TestClass] [TestCategory("scope")] [DoNotParallelize]'])
+    validateFocusedUnitSource(selection, 'namespace Full.NET.UnitTests.Organization; ' + attributes + ' ' + declaration);
+  assert.throws(() => validateFocusedUnitSource(selection, 'namespace Full.NET.UnitTests.Organization; [DoNotParallelize] ' + declaration));
+});
+
 test('分部方法必须属于同命名空间同名分部类，普通类不能借用其他文件的方法', () => {
   const selected = focusedUnitSelection(target, '1', 'Continued');
   const owner = 'namespace Full.NET.UnitTests.Organization; [TestClass] public sealed partial class OrganizationPositionWorkbookCodecTests {}';

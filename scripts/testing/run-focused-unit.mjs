@@ -31,7 +31,7 @@ export function focusedUnitSelection(targetClass, minimumTests, methodName = '')
 function declaresClass(selection, source, partial = false) {
   const namespacePattern = selection.namespace.replaceAll('.', '\\.');
   const declaration = partial ? `(?:public\\s+)?(?:sealed\\s+)?partial\\s+class\\s+${selection.className}\\b`
-    : `\\[TestClass\\]\\s*(?:public\\s+)?(?:sealed\\s+)?(?:partial\\s+)?class\\s+${selection.className}\\b`;
+    : `\\[TestClass\\](?:\\s*\\[[^\\]\\r\\n]+\\])*\\s*(?:public\\s+)?(?:sealed\\s+)?(?:partial\\s+)?class\\s+${selection.className}\\b`;
   return new RegExp(`\\bnamespace\\s+${namespacePattern}\\s*[;{]`, 'u').test(source)
     && new RegExp(declaration, 'u').test(source);
 }
