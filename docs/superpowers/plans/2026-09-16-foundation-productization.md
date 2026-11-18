@@ -6874,3 +6874,9 @@ Release 集成工程单节点构建及 Identity 模块隔离 AOT 分析均零警
 - 两节点未发现 Prometheus、Alertmanager、Node Exporter 或 Collector 的 Pod、服务及常用监听端口，也没有对应 Prometheus/Alertmanager 配置文件。辅助节点的容量 `.prom` 样本持续更新，`probe_success=1`、空闲卷槽 20，但尚无实际抓取和告警接收证据。
 - 当前主、辅节点 `/var/log` 所在磁盘分别约有 65.5 GB、47.6 GB 空闲。NGINX 文件合计约 395 KB，Pod 日志逻辑大小约 62.5 MB、3.7 MB；journald 自报实际占用约 316 MB、791 MB。本次快照未见磁盘压力，没有清理日志或改变保留策略。
 - D08-14 后续先部署并核对平台采集链路、实例标签及样本新鲜度，再接入获准的真实通知路由，验证触发与恢复送达。仅巡检文件和隔离通知成功不足以关闭发布告警任务；Redis 单故障域恢复仍按 §8.313 单独验证。
+
+### 8.328 打印草稿取消回归的事务与锁定读取夹具（2026-11-18）
+
+- 基线 `f1e61c1fb`，快照 `printing-cancellation-fixture-20261118`。[当前官方单测作业](https://github.com/yan041108/Full.NET/actions/runs/44251492544/job/134623009195) 的两项打印取消断言失败。正式服务已经在草稿读取后检查取消，夹具却仍模拟 `ExecuteAsync` 和普通 ID 查询，没有进入现行 `ExecuteResultAsync` 与锁定读取。
+- 夹具对齐结果事务及 SQL Server/MySQL 锁语句，为两种 Provider 分别覆盖创建、更新；额外核对实际发生一次目标读取，并继续断言没有任何写命令。没有修改业务实现或 SQL。
+- 当前仅完成实现与差异检查，四项实际执行待验收；本机 .NET 构建仍因可提交内存不足排队。此修复不关闭同一作业的其他失败。

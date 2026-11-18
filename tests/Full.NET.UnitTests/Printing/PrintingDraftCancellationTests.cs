@@ -15,25 +15,30 @@ namespace Full.NET.UnitTests.Printing;
 public sealed class PrintingDraftCancellationTests
 {
     [TestMethod]
-    [DataRow(false)]
-    [DataRow(true)]
-    public async Task Cancelled_draft_read_cannot_continue_to_write_when_query_ignores_token(bool update)
+    [DataRow(false, DatabaseProvider.SqlServer)]
+    [DataRow(true, DatabaseProvider.SqlServer)]
+    [DataRow(false, DatabaseProvider.MySql)]
+    [DataRow(true, DatabaseProvider.MySql)]
+    public async Task Cancelled_draft_read_cannot_continue_to_write_when_query_ignores_token(bool update, DatabaseProvider provider)
     {
         using var cancellation = new CancellationTokenSource();
         var id = Guid.CreateVersion7(); var queries = Substitute.For<IQueryExecutor>();
-        queries.QuerySingleOrDefaultAsync<PrintingTemplateRecord>(PrintingTemplateSql.FindTemplateByKey, Arg.Any<object?>(), Arg.Any<CancellationToken>())
-            .Returns(_ => { cancellation.Cancel(); return (PrintingTemplateRecord?)null; });
-        queries.QuerySingleOrDefaultAsync<PrintingTemplateRecord>(PrintingTemplateSql.FindTemplateById, Arg.Any<object?>(), Arg.Any<CancellationToken>())
-            .Returns(_ => { cancellation.Cancel(); return new PrintingTemplateRecord { Id = id, Version = 1 }; });
+        var statement = update
+            ? provider == DatabaseProvider.MySql ? PrintingTemplateSql.LockTemplateMySql : PrintingTemplateSql.LockTemplateSqlServer
+            : PrintingTemplateSql.FindTemplateByKey;
+        queries.QuerySingleOrDefaultAsync<PrintingTemplateRecord>(statement, Arg.Any<object?>(), Arg.Any<CancellationToken>())
+            .Returns(_ => { cancellation.Cancel(); return update ? new PrintingTemplateRecord { Id = id, Version = 1 } : null; });
         var commands = Substitute.For<ICommandExecutor>();
         var transaction = Substitute.For<ICommandTransaction>();
-        transaction.ExecuteAsync(Arg.Any<Func<CancellationToken, Task<Result<PrintingTemplateResponse>>>>(), Arg.Any<CancellationToken>())
+        // 结果事务及锁定读取与正式入口一致，保证取消发生在读取完成后，确实验证后继写入被阻止。
+        transaction.ExecuteResultAsync(Arg.Any<Func<CancellationToken, Task<Result<PrintingTemplateResponse>>>>(), Arg.Any<CancellationToken>())
             .Returns(call => call.ArgAt<Func<CancellationToken, Task<Result<PrintingTemplateResponse>>>>(0)(call.ArgAt<CancellationToken>(1)));
         var service = new PrintingTemplateManagementService(queries, commands, transaction, new(queries),
             Substitute.For<IClock>(), Substitute.For<IIdGenerator>(),
-            Microsoft.Extensions.Options.Options.Create(new DatabaseOptions()), new([]));
+            Microsoft.Extensions.Options.Options.Create(new DatabaseOptions { Provider = provider }), new([]));
         if (update) await Assert.ThrowsExactlyAsync<OperationCanceledException>(() => service.UpdateAsync(id, new("Profile", "<p>ok</p>", true, 1), cancellation.Token));
         else await Assert.ThrowsExactlyAsync<OperationCanceledException>(() => service.CreateAsync(new("profile", "Profile", PrintingFormSchemaKeys.TenantProfileCard, "<p>ok</p>", true), cancellation.Token));
+        Assert.AreEqual(statement, queries.ReceivedCalls().Single().GetArguments()[0]);
         Assert.AreEqual(0, commands.ReceivedCalls().Count());
     }
 }
