@@ -1,0 +1,27 @@
+name: helm-runtime-focused
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  runtime:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - uses: azure/setup-helm@v4
+        with:
+          version: v3.16.4
+      - name: Verify only the three-role runtime configuration
+        run: |
+          before="$(git status --porcelain --untracked-files=all)"
+          helm version --short
+          node --test tests/deployment/helm-runtime-config.test.mjs
+          test "$before" = "$(git status --porcelain --untracked-files=all)"

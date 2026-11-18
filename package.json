@@ -59,7 +59,7 @@
     "test:integration:tooling": "node --test tests/testing/*.test.mjs",
     "test:naming": "node --test tests/naming/*.test.mjs tests/database/uuid-storage-contract.test.mjs",
     "test:sql-safety": "node --test tests/sql/*.test.mjs",
-    "test:helm": "node --test tests/deployment/helm-contract.test.mjs tests/deployment/log-consumer-contract.test.mjs tests/deployment/release-order-contract.test.mjs tests/deployment/container-image-contract.test.mjs",
+    "test:helm": "node --test tests/deployment/helm-contract.test.mjs tests/deployment/helm-runtime-config.test.mjs tests/deployment/log-consumer-contract.test.mjs tests/deployment/release-order-contract.test.mjs tests/deployment/container-image-contract.test.mjs",
     "test:container-images": "node scripts/testing/run-container-image-contracts.mjs",
     "test:observability-deploy": "node --test tests/deployment/observability-contract.test.mjs tests/deployment/log-alert-webhook-receiver.test.mjs tests/deployment/log-alert-restart-proof.test.mjs",
     "test:observability-alerts": "node eng/testing/prometheus-log-alerts-test.mjs",

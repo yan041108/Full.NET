@@ -6,6 +6,14 @@ production: true
 # 与 Host 实际环境保持一致；非生产日志入口预览显式设置为 Staging 或 Development。
 dotnetEnvironment: Production
 
+# 部署环境配置只引用外部对象；密码、签名密钥和证书内容不得进入 values。
+# 对象须已存在于发布命名空间；额外卷名和挂载路径须避开图表内置项。
+runtime:
+  configMapName: ""
+  secretName: ""
+  volumes: []
+  volumeMounts: []
+
 roles:
   api: false
   worker: false

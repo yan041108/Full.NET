@@ -42,6 +42,14 @@ spec:
           envFrom:
             - configMapRef:
                 name: {{ include "fullnet.fullname" . }}-config
+{{- if .Values.runtime.configMapName }}
+            - configMapRef:
+                name: {{ .Values.runtime.configMapName | quote }}
+{{- end }}
+{{- if .Values.runtime.secretName }}
+            - secretRef:
+                name: {{ .Values.runtime.secretName | quote }}
+{{- end }}
           env:
 {{- include "fullnet.loggingModeEnv" . | nindent 12 }}
 {{- include "fullnet.loggingKafkaEnv" . | nindent 12 }}
@@ -124,6 +132,9 @@ spec:
             - name: DataProtection__KeyRingPath
               value: /var/fullnet/data-protection-keys
           volumeMounts:
+{{- with .Values.runtime.volumeMounts }}
+{{ toYaml . | indent 12 }}
+{{- end }}
 {{- include "fullnet.loggingKafkaCaMount" . | nindent 12 }}
 {{- include "fullnet.loggingLocalFileMount" . | nindent 12 }}
             - name: data-protection-certificate
@@ -166,6 +177,9 @@ spec:
           resources:
             {{- toYaml .Values.worker.resources | nindent 12 }}
       volumes:
+{{- with .Values.runtime.volumes }}
+{{ toYaml . | indent 8 }}
+{{- end }}
 {{- include "fullnet.loggingKafkaCaVolume" . | nindent 8 }}
 {{- include "fullnet.loggingLocalFileVolume" . | nindent 8 }}
         - name: tmp

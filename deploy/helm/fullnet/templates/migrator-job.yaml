@@ -33,6 +33,14 @@ spec:
           envFrom:
             - configMapRef:
                 name: {{ include "fullnet.fullname" . }}-config
+{{- if .Values.runtime.configMapName }}
+            - configMapRef:
+                name: {{ .Values.runtime.configMapName | quote }}
+{{- end }}
+{{- if .Values.runtime.secretName }}
+            - secretRef:
+                name: {{ .Values.runtime.secretName | quote }}
+{{- end }}
           env:
             - name: Database__ConnectionString
               valueFrom:
@@ -40,11 +48,17 @@ spec:
                   name: {{ .Values.database.connectionSecretName }}
                   key: {{ .Values.database.connectionSecretKey }}
           volumeMounts:
+{{- with .Values.runtime.volumeMounts }}
+{{ toYaml . | indent 12 }}
+{{- end }}
             - name: tmp
               mountPath: /tmp
           resources:
             {{- toYaml .Values.migrator.resources | nindent 12 }}
       volumes:
+{{- with .Values.runtime.volumes }}
+{{ toYaml . | indent 8 }}
+{{- end }}
         - name: tmp
           emptyDir: {}
 {{- end }}

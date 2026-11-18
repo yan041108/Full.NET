@@ -22,6 +22,16 @@
     "else": {"properties": {"api": {"properties": {"replicaCount": {"minimum": 2}}}, "worker": {"properties": {"replicaCount": {"minimum": 2}}}}}
   }],
   "properties": {
+    "runtime": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "configMapName": { "type": "string" },
+        "secretName": { "type": "string" },
+        "volumes": { "type": "array", "items": { "type": "object" } },
+        "volumeMounts": { "type": "array", "items": { "type": "object" } }
+      }
+    },
     "dataProtection": {
       "type": "object",
       "properties": {
