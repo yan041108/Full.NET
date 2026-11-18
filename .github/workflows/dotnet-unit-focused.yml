@@ -50,3 +50,8 @@ jobs:
           TARGET_METHOD: ${{ inputs.test_method }}
           MINIMUM_TESTS: ${{ inputs.minimum_expected_tests }}
         run: node scripts/testing/run-focused-unit.mjs
+
+      - name: Diagnose failed focused inputs
+        if: failure()
+        # 仅保留路径与状态，禁止输出源码差异、环境变量或秘密值。
+        run: git status --short --untracked-files=all

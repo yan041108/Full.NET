@@ -52,17 +52,23 @@ async function inputs(cwd, frozenDependencies) {
       && (!compiled || !file.endsWith('.cs') || compiled.includes(file))
   ).sort();
   const hash = createHash('sha256');
+  const fileDigests = new Map();
   if (compiled) hash.update('test-with-frozen-project-references-v1\0').update(JSON.stringify(compiled));
   for (const file of files) {
     hash.update(file).update('\0');
-    try { hash.update(digest(await readFile(path.join(cwd, file)))); }
-    catch (error) { if (error.code !== 'ENOENT') throw error; hash.update('deleted'); }
+    let value;
+    try { value = digest(await readFile(path.join(cwd, file))); }
+    catch (error) { if (error.code !== 'ENOENT') throw error; value = 'deleted'; }
+    fileDigests.set(file, value);
+    hash.update(value);
   }
   for (const file of frozenArtifacts ?? []) {
     // 项目引用的 ref DLL 与实际运行闭包均由调用方动态发现；新增、删除及字节变化都使登记失效。
-    hash.update(file).update('\0').update(digest(await readFile(file)));
+    const value = digest(await readFile(file));
+    fileDigests.set(file, value);
+    hash.update(file).update('\0').update(value);
   }
-  return hash.digest('hex');
+  return { digest: hash.digest('hex'), fileDigests };
 }
 
 async function outputs(directory) {
@@ -102,7 +108,8 @@ export async function prepareTestBuild({ cwd, project, assembly, args, build, mo
   const environment = Object.fromEntries(Object.entries(env).filter(([name]) =>
     !/^(?:TEMP|TMP|TMPDIR)$/iu.test(name)
   ).sort(([left], [right]) => left.localeCompare(right)));
-  const source = await inputs(cwd, frozenDependencies);
+  const sourceInputs = await inputs(cwd, frozenDependencies);
+  const source = sourceInputs.digest;
   const sourceRevision = await revision(cwd);
   const identity = digest(JSON.stringify({ source, sourceRevision, sdkVersion, args, environment }));
   const recordPath = path.join(cwd, '.tmp', 'test-builds', `${digest(project)}.json`);
@@ -124,7 +131,13 @@ export async function prepareTestBuild({ cwd, project, assembly, args, build, mo
   if (mode === 'verify') throw new Error('构建输入或产物已改变/缺少有效记录；先执行 --reuse-build 或正常构建入口。');
   try { await unlink(recordPath); } catch (error) { if (error.code !== 'ENOENT') throw error; }
   await build(env);
-  if (await inputs(cwd, frozenDependencies) !== source) throw new Error('构建期间源码发生变化，不能登记或运行该产物。');
+  const currentInputs = await inputs(cwd, frozenDependencies);
+  if (currentInputs.digest !== source) {
+    // 只报告有界路径，不输出文件内容、环境值或凭据；失败关闭同时提供可定位证据。
+    const changed = [...new Set([...sourceInputs.fileDigests.keys(), ...currentInputs.fileDigests.keys()])]
+      .filter(file => sourceInputs.fileDigests.get(file) !== currentInputs.fileDigests.get(file)).sort();
+    throw new Error(`构建期间源码发生变化，不能登记或运行该产物。变更输入：${changed.slice(0, 10).join('、') || '输入集合'}${changed.length > 10 ? '等' : ''}`);
+  }
   if (await revision(cwd) !== sourceRevision) throw new Error('构建期间 Git 修订发生变化，不能登记或运行该产物。');
   await readFile(assemblyPath);
   output = await outputs(path.dirname(assemblyPath));

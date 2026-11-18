@@ -90,7 +90,29 @@ test('失败或构建中源码变化不产生可复用记录', async t => {
   await assert.rejects(f.run({ build: async () => {
     await f.options.build();
     await writeFile(path.join(f.cwd, 'src/source.cs'), 'class DuringBuild {}');
-  } }), /构建期间/);
+  } }), error => {
+    assert.match(error.message, /构建期间/);
+    assert.match(error.message, /src\/source\.cs/);
+    assert.ok(!error.message.includes('class DuringBuild'));
+    return true;
+  });
+  await assert.rejects(f.run({ mode: 'verify' }), /构建|记录/);
+});
+
+test('构建输入漂移只报告有界路径，新增输入不能被默许登记', async t => {
+  const f = await fixture(t);
+  await assert.rejects(f.run({ build: async () => {
+    await f.options.build();
+    for (let index = 0; index < 12; index++) {
+      await writeFile(path.join(f.cwd, `src/drift-${String(index).padStart(2, '0')}.cs`), 'private-build-input');
+    }
+  } }), error => {
+    assert.match(error.message, /src\/drift-00\.cs/);
+    assert.match(error.message, /src\/drift-09\.cs/);
+    assert.ok(!error.message.includes('drift-10.cs') && !error.message.includes('private-build-input'));
+    assert.ok(error.message.endsWith('等'));
+    return true;
+  });
   await assert.rejects(f.run({ mode: 'verify' }), /构建|记录/);
 });
 
