@@ -16,13 +16,15 @@ function read(value: unknown, unitId: string): OrganizationUnitLeadership {
   if (!object(value) || !uuid(value.unitId) || value.unitId.toLowerCase() !== unitId.toLowerCase() || typeof value.isUnitActive !== 'boolean' ||
     value.leaderUserId !== null && !uuid(value.leaderUserId) || value.updatedById !== null && !uuid(value.updatedById) ||
     value.updatedAtUtc !== null && (typeof value.updatedAtUtc !== 'string' || !Number.isFinite(Date.parse(value.updatedAtUtc))) ||
-    value.leaderDisplayName !== null && typeof value.leaderDisplayName !== 'string') return invalid();
+    value.leaderDisplayName != null && typeof value.leaderDisplayName !== 'string') return invalid();
+  // 显示名是可选展示投影；缺省规范化为空，不改变负责人身份或配置修订。
+  const leaderDisplayName = typeof value.leaderDisplayName === 'string' ? value.leaderDisplayName : null;
   const revision = integer(value.revision, 0);
   if (revision === 0 && (value.leaderUserId !== null || value.updatedById !== null || value.updatedAtUtc !== null) ||
-    revision > 0 && (value.updatedById === null || value.updatedAtUtc === null) || value.leaderUserId === null && value.leaderDisplayName !== null) return invalid();
+    revision > 0 && (value.updatedById === null || value.updatedAtUtc === null) || value.leaderUserId === null && leaderDisplayName !== null) return invalid();
   return { unitId: value.unitId.toLowerCase(), unitVersion: integer(value.unitVersion, 1), isUnitActive: value.isUnitActive,
     leaderUserId: typeof value.leaderUserId === 'string' ? value.leaderUserId.toLowerCase() : null, revision, updatedById: typeof value.updatedById === 'string' ? value.updatedById.toLowerCase() : null,
-    updatedAtUtc: value.updatedAtUtc as string | null, leaderDisplayName: value.leaderDisplayName as string | null };
+    updatedAtUtc: value.updatedAtUtc as string | null, leaderDisplayName };
 }
 
 /** 只读取已授权机构的权威配置；版本和负责人不从列表行或候选排序推定。 */

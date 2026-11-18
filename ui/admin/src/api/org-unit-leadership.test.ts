@@ -9,6 +9,20 @@ const value = { unitId: unit, unitVersion: 3, isUnitActive: true, leaderUserId: 
   updatedById: actor, updatedAtUtc: '2026-10-25T00:00:00Z', leaderDisplayName: 'Leader' };
 beforeEach(() => vi.clearAllMocks());
 describe('机构领导权传输', () => {
+  it.each([false, true])('允许省略契约中的可选显示名，已分配负责人：%s', async assigned => {
+    const { leaderDisplayName: _, ...withoutName } = assigned ? value : {
+      ...value, leaderUserId: null, revision: 0, updatedById: null, updatedAtUtc: null
+    };
+    vi.mocked(http.request).mockResolvedValueOnce(withoutName);
+    expect(await getOrganizationUnitLeadership(unit)).toEqual({ ...withoutName, leaderDisplayName: null });
+  });
+  it('可选显示名仍拒绝非文本以及未配置负责人的矛盾名称', async () => {
+    for (const response of [{ ...value, leaderDisplayName: 1 },
+      { ...value, leaderUserId: null, revision: 0, updatedById: null, updatedAtUtc: null }]) {
+      vi.mocked(http.request).mockResolvedValueOnce(response);
+      await expect(getOrganizationUnitLeadership(unit)).rejects.toThrow();
+    }
+  });
   it('读取绑定准确机构，规范化UUID及安全整数，不接受其他资源的回包', async () => {
     vi.mocked(http.request).mockResolvedValueOnce({ ...value, revision: '1' });
     expect(await getOrganizationUnitLeadership(unit.toUpperCase())).toEqual(value);
