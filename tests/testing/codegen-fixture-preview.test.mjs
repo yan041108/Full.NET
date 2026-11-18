@@ -17,6 +17,12 @@ test('带摘要的只读生成预览保持输入不变，也允许确实缺失�
   value.changes[0].beforeHash = null; assert.equal(validateCodegenFixturePreview(value).changed, 1);
 });
 
+test('实际聚合服务产物属于明确支持的生成文件类型', () => {
+  const value = fixture(); value.ownedPaths = ['ProductAggregate.g.cs', 'OrganizationParentAggregate.g.cs']
+    .map(file => 'tests/Shared/CodeGeneration/Remediation/' + file); value.changes = [];
+  assert.deepEqual(validateCodegenFixturePreview(value), { owned: 2, changed: 0, bytes: 0 });
+});
+
 test('越界、路径穿越、悬空和重复所有权不能进入预览', () => {
   for (const path of ['src/secret.cs', name.replace('ProductFeature', '../ProductFeature'), name + '/other', name.replace('ProductFeature', 'ProductEndpoint')]) {
     const value = fixture(); value.ownedPaths = [path]; value.changes[0].path = path;

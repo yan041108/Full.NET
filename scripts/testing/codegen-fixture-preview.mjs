@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
-const ownedPath = /^tests\/Shared\/CodeGeneration\/Remediation\/[A-Z][A-Za-z0-9]*(?:Contracts|Feature|Record|Sql|RelationLookup)\.g\.cs$/u;
+const ownedPath = /^tests\/Shared\/CodeGeneration\/Remediation\/[A-Z][A-Za-z0-9]*(?:Contracts|Feature|Record|Sql|RelationLookup|Aggregate)\.g\.cs$/u;
 const hashPattern = /^[a-f0-9]{64}$/u;
 
 /** 只接受生成工具明确拥有的恢复夹具及带摘要的规范内容，不能将目录当成任意写入许可。 */

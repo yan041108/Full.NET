@@ -7005,3 +7005,5 @@ Release 集成工程单节点构建及 Identity 模块隔离 AOT 分析均零警
 - 基线 `0b7bef67e`，快照 `codegen-shared-fixture-review-20261118`。延续原 `Generated_runtime_fixtures_match_current_generator` 失败，先审查已观察到的 Shared/Remediation 生成漂移，不把它重复安排成新模块。
 - 现有工具提供 --preview --remediation，输出明确所有权、原始摘要、生成摘要及实际差异内容，换行按生成器 LF 规范核对；只读模式不创建目录或改写文件。CI 单独验证工作区状态前后不变，跳过 Unit 与 Unit 还原，只保存一日的最小差异清单。
 - 十项直接 Node 门禁通过，覆盖只读清单、路径穿越/悬空/重复、内容篡改、摘要、范围和大小限制，以及原聚焦选择器边界；YAML、模式互斥和内嵌脚本语法核对通过。远端真实预览、差异审查和必要的后续同步仍待执行，不提前接受整个生成目录。
+
+- §8.344 首次远端工具构建零警告/错误，工作区前后状态一致；清单校验在文件类型处拒绝。查明遗漏现有生成器明确产生的 `ProductAggregate.g.cs`、`OrganizationParentAggregate.g.cs`，已只补充 Aggregate 类型及实际正例，Endpoint 和目录级任意文件仍拒绝。五项预览门禁通过，待新回执。
