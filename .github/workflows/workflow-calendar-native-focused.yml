@@ -1,0 +1,32 @@
+name: workflow-calendar-native-focused
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  calendar:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+      - name: Publish and execute the actual calendar implementation
+        run: |
+          git rev-parse HEAD
+          before="$(git status --porcelain --untracked-files=all)"
+          output="$RUNNER_TEMP/fullnet-calendar-native"
+          node scripts/testing/run-build-with-resources.mjs --cpu 2 --memory-gib 2 -- \
+            dotnet publish tests/Tools/Full.NET.WorkflowCalendar.NativeProbe/Full.NET.WorkflowCalendar.NativeProbe.csproj \
+            --configuration Release --runtime linux-x64 --self-contained true --output "$output"
+          node -e 'const fs=require("node:fs");const assert=require("node:assert/strict");assert.equal(fs.readFileSync(process.argv[1]).subarray(0,6).toString("hex"),"7f454c460201");' "$output/Full.NET.WorkflowCalendar.NativeProbe"
+          "$output/Full.NET.WorkflowCalendar.NativeProbe"
+          test "$before" = "$(git status --porcelain --untracked-files=all)"

@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <PublishAot>true</PublishAot>
+    <IsAotCompatible>true</IsAotCompatible>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="NodaTime" />
+    <!-- 编译实际实现；禁止探针维护另一份规则引擎或依赖整仓源码副本。 -->
+    <Compile Include="../../../src/Modules/Full.NET.Modules.Workflow/Domain/WorkflowCalendarTimeZone.cs" Link="WorkflowCalendarTimeZone.cs" />
+  </ItemGroup>
+</Project>
