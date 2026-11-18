@@ -9,6 +9,7 @@ using Full.NET.Modules.Files.Contracts;
 using Full.NET.Modules.ImportExport.Configuration;
 using Full.NET.Modules.ImportExport.Contracts;
 using Full.NET.Modules.ImportExport.Domain;
+using Full.NET.Modules.ImportExport.Features.ManageImportTasks;
 using Full.NET.Modules.ImportExport.ImportTasks;
 using Full.NET.Modules.ImportExport.Persistence;
 using Microsoft.Extensions.Options;
@@ -28,7 +29,7 @@ public sealed class ImportExportTaskRecoveryTests
     public async Task Expired_executing_lease_is_reclaimed_from_checkpoint_async()
     {
         var fixture = CreateFixture();
-        var task = SeedExecutingTask(fixture, leaseExpired: true, nextLineNumber: 2, succeededRowCount: 2);
+        var task = SeedExecutingTask(fixture, leaseExpired: true, nextLineNumber: 2, succeededRowCount: 2, validRowCount: 3);
         fixture.Handler.ExecuteBatchAsync(
                 Arg.Any<Stream>(),
                 Arg.Any<long>(),
@@ -133,8 +134,10 @@ public sealed class ImportExportTaskRecoveryTests
         var fixture = CreateFixture();
         var task = SeedQueuedTask(fixture, validRowCount: 1);
         var receiptId = Guid.NewGuid();
+        var rows = new[] { new StaticImportRowExecutionResult(1, false, null, ImportExportErrorCodes.ExecutionFailed, "row") };
         fixture.Files.ReadyFiles.Add(new TenantResourceFileReadyItem(task.SourceFileId, "source.xlsx", fixture.Clock.UtcNow));
-        fixture.Files.ReadyFiles.Add(new TenantResourceFileReadyItem(receiptId, "source-errors.xlsx", fixture.Clock.UtcNow));
+        fixture.Files.ReadyFiles.Add(new TenantResourceFileReadyItem(receiptId,
+            ImportExportErrorReceiptIdentity.BuildStorageFileName(task.SourceFileName, rows), fixture.Clock.UtcNow));
         fixture.Handler.ExecuteBatchAsync(
                 Arg.Any<Stream>(),
                 Arg.Any<long>(),
@@ -143,10 +146,7 @@ public sealed class ImportExportTaskRecoveryTests
                 Arg.Any<StaticImportPreviewContext>(),
                 Arg.Any<CancellationToken>())
             .Returns(Result<StaticImportBatchExecutionResult>.Success(
-                new StaticImportBatchExecutionResult(
-                [
-                    new StaticImportRowExecutionResult(1, false, null, ImportExportErrorCodes.ExecutionFailed, "row"),
-                ])));
+                new StaticImportBatchExecutionResult(rows)));
 
         await fixture.Runner.ProcessPendingAsync(CancellationToken.None);
 
@@ -240,7 +240,8 @@ public sealed class ImportExportTaskRecoveryTests
         Fixture fixture,
         bool leaseExpired,
         int nextLineNumber,
-        int succeededRowCount)
+        int succeededRowCount,
+        int validRowCount = 2)
     {
         var leaseId = Guid.NewGuid();
         var expires = leaseExpired ? fixture.Clock.UtcNow.AddMinutes(-1) : fixture.Clock.UtcNow.AddMinutes(5);
@@ -250,7 +251,8 @@ public sealed class ImportExportTaskRecoveryTests
             nextLineNumber,
             succeededRowCount,
             leaseId,
-            expires);
+            expires,
+            validRowCount);
     }
 
     private static ImportExportTaskRecord SeedTask(
