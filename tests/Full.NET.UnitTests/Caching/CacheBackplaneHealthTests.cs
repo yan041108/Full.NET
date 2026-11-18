@@ -17,6 +17,54 @@ namespace Full.NET.UnitTests.Caching;
 public sealed class CacheBackplaneHealthTests
 {
     [TestMethod]
+    public async Task Heartbeat_publishes_real_invalidation_without_writing_L2_and_idle_host_becomes_healthy()
+    {
+        var backplane = new TestBackplane();
+        await using var provider = CreateProvider(backplane);
+        var heartbeat = provider.GetServices<Microsoft.Extensions.Hosting.IHostedService>()
+            .OfType<CacheBackplaneHeartbeat>().Single();
+        await backplane.Started.Task.WaitAsync(TimeSpan.FromSeconds(2));
+        await heartbeat.PulseAsync(CancellationToken.None);
+        Assert.IsGreaterThan(0, backplane.Publications);
+        Assert.AreEqual(HealthStatus.Healthy, await CheckAsync(provider));
+        var distributed = provider.GetRequiredService<IDistributedCache>();
+        await distributed.DidNotReceive().SetAsync(Arg.Any<string>(), Arg.Any<byte[]>(),
+            Arg.Any<DistributedCacheEntryOptions>(), Arg.Any<CancellationToken>());
+        await distributed.DidNotReceive().RemoveAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
+    }
+
+    [TestMethod]
+    public async Task Heartbeat_cannot_mark_denied_publication_healthy()
+    {
+        var backplane = new TestBackplane { PublishFailure = new RedisServerException("NOPERM fixture-secret") };
+        await using var provider = CreateProvider(backplane);
+        var heartbeat = provider.GetServices<Microsoft.Extensions.Hosting.IHostedService>()
+            .OfType<CacheBackplaneHeartbeat>().Single();
+        await backplane.Started.Task.WaitAsync(TimeSpan.FromSeconds(2));
+        try { await heartbeat.PulseAsync(CancellationToken.None); }
+        catch (Exception) { /* SDK 包装方式不影响断言；健康结果必须保留真实失败。 */ }
+        Assert.IsGreaterThan(0, backplane.Publications);
+        Assert.AreEqual(HealthStatus.Degraded, await CheckAsync(provider));
+        Assert.AreEqual(HealthStatus.Unhealthy, await CheckAsync(provider));
+    }
+
+    [TestMethod]
+    public async Task Cancelled_heartbeat_does_not_publish_and_preserves_the_callers_token()
+    {
+        var backplane = new TestBackplane();
+        await using var provider = CreateProvider(backplane);
+        var heartbeat = provider.GetServices<Microsoft.Extensions.Hosting.IHostedService>()
+            .OfType<CacheBackplaneHeartbeat>().Single();
+        await backplane.Started.Task.WaitAsync(TimeSpan.FromSeconds(2));
+        using var cancellation = new CancellationTokenSource();
+        cancellation.Cancel();
+        var error = await Assert.ThrowsAsync<OperationCanceledException>(async () =>
+            await heartbeat.PulseAsync(cancellation.Token));
+        Assert.AreEqual(cancellation.Token, error.CancellationToken);
+        Assert.AreEqual(0, backplane.Publications);
+    }
+
+    [TestMethod]
     public async Task Unknown_backplane_is_degraded_and_health_probe_does_not_publish_or_subscribe()
     {
         var backplane = new TestBackplane();

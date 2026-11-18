@@ -140,6 +140,7 @@ public static class ServiceCollectionExtensions
             // 保留 SDK 已注册的连接和生命周期，只在工厂边界添加结果观察，避免 DI 装饰递归。
             fusionBuilder.WithBackplane(sp => new ObservedFusionCacheBackplane(
                 sp.GetRequiredService<IFusionCacheBackplane>(), sp.GetRequiredService<CacheBackplaneHealthState>()));
+            services.TryAddEnumerable(ServiceDescriptor.Singleton<IHostedService, CacheBackplaneHeartbeat>());
         }
         fusionBuilder.AsHybridCache();
 
