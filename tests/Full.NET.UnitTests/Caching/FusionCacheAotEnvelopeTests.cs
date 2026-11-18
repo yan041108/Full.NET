@@ -33,9 +33,17 @@ public sealed class FusionCacheAotEnvelopeTests
         var payload = new DiagnosticPolicyDocument(7, LoggingPressureState.Normal, []);
         var entry = new FusionCacheDistributedEntry<DiagnosticPolicyDocument>(payload, 1, 2, null, null);
         if (asynchronous)
+        {
             await Assert.ThrowsExactlyAsync<NotSupportedException>(async () => { await serializer.SerializeAsync(entry); });
+            await Assert.ThrowsExactlyAsync<NotSupportedException>(async () =>
+                { await serializer.DeserializeAsync<FusionCacheDistributedEntry<DiagnosticPolicyDocument>>("{}"u8.ToArray()); });
+        }
         else
+        {
             Assert.ThrowsExactly<NotSupportedException>(() => serializer.Serialize(entry));
+            Assert.ThrowsExactly<NotSupportedException>(() =>
+                serializer.Deserialize<FusionCacheDistributedEntry<DiagnosticPolicyDocument>>("{}"u8.ToArray()));
+        }
     }
 
     [TestMethod]

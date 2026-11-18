@@ -11,11 +11,12 @@ internal static partial class DiagnoseCommand
         JsonElement root, JsonDocument? profileSettings, string workspacePath, string profile,
         List<DiagnoseFinding> findings)
     {
-        // 无效秘密来源已有专属错误；未声明缓存时保持既有诊断范围。
+        // 无效秘密来源已有专属错误；不能以缺少 Cache 节绕过生产环境的必需 L2 校验。
         if (findings.Any(finding => finding.Code == "DIAG_USER_SECRETS_INVALID" && finding.Severity == "error"))
             return;
         var paths = ReadRuntimeConfigurationPaths(root, profileSettings, workspacePath, profile);
-        if (!paths.Any(path => string.Equals(path, "Cache", StringComparison.OrdinalIgnoreCase)
+        var production = string.Equals(profile, "production", StringComparison.OrdinalIgnoreCase);
+        if (!production && !paths.Any(path => string.Equals(path, "Cache", StringComparison.OrdinalIgnoreCase)
             || path.StartsWith("Cache:", StringComparison.OrdinalIgnoreCase)))
             return;
         try
@@ -25,7 +26,7 @@ internal static partial class DiagnoseCommand
             using var configurationLifetime = configuration as IDisposable;
             // 仅执行现有启动注册校验，不构建宿主或解析缓存、Backplane、连接及 HostedService。
             _ = new ServiceCollection().AddFullNetCaching(configuration,
-                string.Equals(profile, "production", StringComparison.OrdinalIgnoreCase) ? "Production" : "Development");
+                production ? "Production" : "Development");
             findings.Add(DiagnoseFinding.Ok("code_generation.cache.configuration.configured",
                 "缓存配置绑定及现有静态约束已通过；未验证 Redis 可用性、物理隔离或实际缓存行为。"));
         }

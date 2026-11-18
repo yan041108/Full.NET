@@ -1,0 +1,43 @@
+name: dotnet-aot-focused
+
+on:
+  workflow_dispatch:
+    inputs:
+      host:
+        description: 只执行指定宿主的现有 AOT 分析入口
+        required: true
+        type: choice
+        options: [api, worker]
+
+permissions:
+  contents: read
+
+jobs:
+  analyze:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+      - name: Analyze the frozen host closure
+        env:
+          HOST_ROLE: ${{ inputs.host }}
+        run: |
+          case "$HOST_ROLE" in
+            api) script=scripts/testing/run-api-aot-analyzers.mjs ;;
+            worker) script=scripts/testing/run-worker-aot-analyzers.mjs ;;
+            *) exit 64 ;;
+          esac
+          git rev-parse HEAD
+          before="$(git status --porcelain --untracked-files=all)"
+          node scripts/testing/run-build-with-resources.mjs --cpu 2 --memory-gib 4 -- node "$script"
+          test "$before" = "$(git status --porcelain --untracked-files=all)"
+      - name: Diagnose failed analysis inputs
+        if: failure()
+        run: git status --short --untracked-files=all

@@ -94,7 +94,8 @@ public sealed class DiagnoseCachingConfigurationTests
                 break;
         }
         using var fixture = new Workspace(settings.ToJsonString());
-        var valid = shape is "missing" or "valid" or "zero-jitter" or "valid-redis" || shape == "shared-allowed" && profile == "development";
+        var valid = shape == "valid-redis" || (profile == "development"
+            && (shape is "missing" or "valid" or "zero-jitter" or "shared-allowed"));
         Assert.AreEqual(valid, RuntimeValid(fixture.Configuration, null, profile), "先核对真实缓存注册，不解析缓存或连接服务。");
         await AssertDiagnostic(fixture, profile, valid);
     }
