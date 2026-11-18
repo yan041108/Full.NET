@@ -77,6 +77,12 @@ public sealed class DocumentPreviewProcessArgumentsTests
     }
 
     [TestMethod]
-    public void Default_output_budget_matches_existing_file_upload_default() =>
-        Assert.AreEqual(10_485_760L, new DocumentOfficePreviewConversionOptions().MaxOutputBytes);
+    public void Default_conversion_budgets_match_the_documented_limits()
+    {
+        var options = new DocumentOfficePreviewConversionOptions();
+        Assert.AreEqual(52_428_800L, options.MaxInputBytes);
+        Assert.AreEqual(52_428_800L, options.MaxOutputBytes);
+        Assert.AreEqual(157_286_400L, options.MaxTemporaryBytes);
+        Assert.IsTrue(new DocumentOfficePreviewConversionOptionsValidator().Validate(null, options).Succeeded);
+    }
 }

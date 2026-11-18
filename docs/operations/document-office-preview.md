@@ -11,7 +11,8 @@ Host 文档预览任务由 Worker 调用可插拔 Provider 转为 PDF；API 负�
       "Enabled": true,
       "ProviderKey": "external_http",
       "MaxInputBytes": 52428800,
-      "MaxOutputBytes": 10485760,
+      "MaxOutputBytes": 52428800,
+      "MaxTemporaryBytes": 157286400,
       "TimeoutSeconds": 120,
       "LeaseDurationSeconds": 0,
       "PollSeconds": 15,
@@ -24,7 +25,7 @@ Host 文档预览任务由 Worker 调用可插拔 Provider 转为 PDF；API 负�
 }
 ```
 
-`MaxInputBytes` 按声明长度预检并按实际读取字节限制输入。`MaxOutputBytes` 同样限制声明及实际 PDF 大小，默认 10 MiB，与 Files 默认上传预算一致；范围为 1 到 `Int32.MaxValue`。Files 自身的类型、大小、扫描与就绪要求仍然执行，调整转换预算时需一起核对 Files 配置。Worker 包装自定义 Provider 的输入和上传输出，不能仅通过低报长度绕过预算。
+`MaxInputBytes` 按声明长度预检并按实际读取字节限制输入，默认 50 MiB。`MaxOutputBytes` 同样限制声明及实际 PDF 大小，默认 50 MiB；两者范围均为 1 到 `Int32.MaxValue`。`MaxTemporaryBytes` 限制本地转换临时目录的输入、输出和转换器临时文件总量，默认 150 MiB，配置至少覆盖单个输入及单个输出预算。Files 自身的类型、大小、扫描与就绪要求独立执行，调整转换预算时需一起核对 Files 配置，不能将转换上限视为上传许可。Worker 包装自定义 Provider 的输入和上传输出，不能仅通过低报长度绕过预算。
 
 `external_http` 接受 `multipart/form-data` 的 `file` 字段，成功返回 PDF 字节流。`ExternalHttp:ApiKey` 可由秘密配置提供，作为 `X-Api-Key` 发送，不应写入仓库。官方 Provider 的 `TimeoutSeconds` 覆盖上传、响应头及完整正文读取；返回独立拥有的有界 PDF 流，响应释放后仍能读取。空正文和已知转换失败使用 `document.office_preview.conversion_failed`，输入、输出超限分别使用 `document.office_preview.input_too_large` 与 `document.office_preview.output_too_large`。
 
