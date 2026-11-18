@@ -29,3 +29,15 @@ test('普通类、错误命名空间和同名前缀类不能冒充指定测试�
     'namespace Full.NET.UnitTests.Organization; [TestClass] public sealed class OrganizationPositionWorkbookCodecTestsExtra {}'
   ]) assert.throws(() => validateFocusedUnitSource(selection, source));
 });
+
+test('可按精确方法选择其全部数据行，拒绝不存在的方法和筛选表达式', async () => {
+  const method = 'Compatible_missing_and_sparse_row_metadata_keep_existing_business_rows';
+  const selection = focusedUnitSelection(target, '6', method);
+  const source = await readFile(new URL('../../' + selection.sourcePath, import.meta.url), 'utf8');
+  validateFocusedUnitSource(selection, source);
+  assert.equal(selection.args[2], `FullyQualifiedName=${target}.${method}`);
+  assert.throws(() => validateFocusedUnitSource(focusedUnitSelection(target, '1', 'Missing'), source));
+  for (const value of ['*', method + '|Other', 'Type.' + method, '']) {
+    if (value) assert.throws(() => focusedUnitSelection(target, '1', value));
+  }
+});

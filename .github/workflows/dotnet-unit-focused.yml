@@ -7,6 +7,10 @@ on:
         description: 完整测试类名，仅执行该类，禁止命名空间或通配符
         required: true
         type: string
+      test_method:
+        description: 可选精确方法名；留空执行该类
+        required: false
+        type: string
       minimum_expected_tests:
         description: 此次聚焦范围的最低发现数
         required: true
@@ -36,11 +40,13 @@ jobs:
       - name: Validate focused test identity
         env:
           TARGET_CLASS: ${{ inputs.test_class }}
+          TARGET_METHOD: ${{ inputs.test_method }}
           MINIMUM_TESTS: ${{ inputs.minimum_expected_tests }}
         run: node scripts/testing/run-focused-unit.mjs --validate
 
       - name: Run focused Unit tests
         env:
           TARGET_CLASS: ${{ inputs.test_class }}
+          TARGET_METHOD: ${{ inputs.test_method }}
           MINIMUM_TESTS: ${{ inputs.minimum_expected_tests }}
         run: node scripts/testing/run-focused-unit.mjs
