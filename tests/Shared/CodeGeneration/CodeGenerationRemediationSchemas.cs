@@ -47,14 +47,31 @@ public static class CodeGenerationRemediationSchemas
         new("OccurredAtUtc", "OccurredAtUtc", "occurredAtUtc", FullNetScalarType.DateTimeUtc, IsNullable: true),
     ], resourceName: "workbenches");
 
-    /// <summary>从编译输入定位仓库，支持测试产物位于独立系统临时目录。</summary>
-    public static string RepositoryRoot([System.Runtime.CompilerServices.CallerFilePath] string sourceFile = "")
+    /// <summary>优先使用实际运行目录定位仓库，支持确定性编译重写源码路径和临时测试输出。</summary>
+    public static string RepositoryRoot([System.Runtime.CompilerServices.CallerFilePath] string sourceFile = "") =>
+        LocateRepositoryRoot(Environment.GetEnvironmentVariable("FULLNET_TEST_REPOSITORY_ROOT"),
+            [Directory.GetCurrentDirectory(), AppContext.BaseDirectory, Path.GetDirectoryName(sourceFile)]);
+
+    /// <summary>显式仓库绑定失效时拒绝回退，防止验收读取另一个工作区的输入。</summary>
+    internal static string LocateRepositoryRoot(string? explicitRoot, IEnumerable<string?> startingDirectories)
     {
-        var directory = new DirectoryInfo(Path.GetDirectoryName(sourceFile)!);
-        while (directory is not null)
+        if (!string.IsNullOrWhiteSpace(explicitRoot))
         {
-            if (File.Exists(Path.Combine(directory.FullName, "Full.NET.slnx"))) return directory.FullName;
-            directory = directory.Parent;
+            var root = Path.GetFullPath(explicitRoot);
+            return File.Exists(Path.Combine(root, "Full.NET.slnx")) ? root
+                : throw new DirectoryNotFoundException("显式绑定的 Full.NET 测试仓库无效。");
+        }
+
+        // CallerFilePath 在 CI 中可能是 /_/tests；不能把映射后的虚拟路径当作唯一来源。
+        foreach (var startingDirectory in startingDirectories)
+        {
+            if (string.IsNullOrWhiteSpace(startingDirectory)) continue;
+            var directory = new DirectoryInfo(startingDirectory);
+            while (directory is not null)
+            {
+                if (File.Exists(Path.Combine(directory.FullName, "Full.NET.slnx"))) return directory.FullName;
+                directory = directory.Parent;
+            }
         }
         throw new DirectoryNotFoundException("无法从测试输入定位 Full.NET 仓库。");
     }
