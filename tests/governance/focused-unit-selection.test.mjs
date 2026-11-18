@@ -41,3 +41,13 @@ test('可按精确方法选择其全部数据行，拒绝不存在的方法和�
     if (value) assert.throws(() => focusedUnitSelection(target, '1', value));
   }
 });
+
+test('多个精确方法合并为有界并集，拒绝空段、重复及越界数量', async () => {
+  const names = ['Compatible_missing_and_sparse_row_metadata_keep_existing_business_rows', 'ParseImportAsync_rejects_unknown_headers_and_excess_rows'];
+  const selection = focusedUnitSelection(target, '7', names.join(', '));
+  validateFocusedUnitSource(selection, await readFile(new URL('../../' + selection.sourcePath, import.meta.url), 'utf8'));
+  assert.equal(selection.args[2], names.map(name => `FullyQualifiedName=${target}.${name}`).join('|'));
+  for (const value of ['a,', ',a', 'a,,b', 'a,a', Array.from({ length: 11 }, (_, index) => 'method' + index).join(',')]) {
+    assert.throws(() => focusedUnitSelection(target, '1', value));
+  }
+});

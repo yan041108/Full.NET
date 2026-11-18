@@ -99,6 +99,7 @@ public sealed class CodeGenerationCliTests
     public async Task Diagnose_minimal_workspace_emits_machine_readable_lines()
     {
         using var fixture = CliFixture.Create();
+        fixture.UseRepositorySdkPolicy();
         foreach (var marker in new[]
                  {
                      "src/Composition",
@@ -145,6 +146,7 @@ public sealed class CodeGenerationCliTests
     public async Task Diagnose_generated_app_accepts_standalone_layout_and_runtime_host_config()
     {
         using var fixture = CliFixture.Create();
+        fixture.UseRepositorySdkPolicy();
         var composition = Path.Combine(fixture.WorkspacePath,
             "framework/fullnet/src/Composition/Full.NET.Composition");
         Directory.CreateDirectory(composition);
@@ -2011,6 +2013,11 @@ public sealed class CodeGenerationCliTests
         public string SchemaPath { get; }
 
         public string WorkspacePath { get; }
+
+        /// <summary>SDK 探测在目标目录运行，临时应用必须携带真实框架基线，不能依赖机器全局默认 SDK。</summary>
+        public void UseRepositorySdkPolicy() => File.Copy(
+            Path.Combine(Full.NET.Tests.CodeGeneration.CodeGenerationRemediationSchemas.RepositoryRoot(), "global.json"),
+            Path.Combine(WorkspacePath, "global.json"));
 
         public static CliFixture Create()
         {

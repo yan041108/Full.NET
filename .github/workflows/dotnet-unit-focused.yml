@@ -8,7 +8,7 @@ on:
         required: true
         type: string
       test_method:
-        description: 可选精确方法名；留空执行该类
+        description: 可选精确方法名，以逗号分隔且最多十个；留空执行该类
         required: false
         type: string
       minimum_expected_tests:
