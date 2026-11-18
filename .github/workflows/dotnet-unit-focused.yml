@@ -15,6 +15,11 @@ on:
         description: 此次聚焦范围的最低发现数
         required: true
         type: string
+      prepare_codegen_fixtures:
+        description: 先用现有生成工具更新其拥有的三个 Catalog 固定产物
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -64,6 +69,44 @@ jobs:
           path: |
             src/Tools/Full.NET.Ai.DocxParser/packages.lock.json
             src/Tools/Full.NET.Ai.PdfParser/packages.lock.json
+
+      - name: Build owned code generation fixture tool
+        if: inputs.prepare_codegen_fixtures
+        run: >-
+          node scripts/testing/run-build-with-resources.mjs --cpu 2 --memory-gib 2 --
+          dotnet build tests/Tools/Full.NET.CodeGeneration.Fixtures/Full.NET.CodeGeneration.Fixtures.csproj --configuration Release
+
+      - name: Generate and verify owned fixtures
+        id: fixtures
+        if: inputs.prepare_codegen_fixtures
+        run: |
+          dotnet tests/Tools/Full.NET.CodeGeneration.Fixtures/bin/Release/net10.0/Full.NET.CodeGeneration.Fixtures.dll --write
+          dotnet tests/Tools/Full.NET.CodeGeneration.Fixtures/bin/Release/net10.0/Full.NET.CodeGeneration.Fixtures.dll --check
+          node --input-type=module <<'NODE'
+          import {execFileSync} from 'node:child_process';
+          const allowed = new Set([
+            'tests/Full.NET.UnitTests/CodeGeneration/Fixtures/CatalogProduct/backend/ProductEndpoint.g.cs',
+            'tests/Full.NET.UnitTests/CodeGeneration/Fixtures/CatalogProduct/clients/vue/productsView.vue',
+            'tests/Full.NET.UnitTests/CodeGeneration/Fixtures/CatalogProduct/reports/products.generation.json'
+          ]);
+          const paths = [...execFileSync('git', ['diff', '--name-only', '-z']).toString().split('\0'),
+            ...execFileSync('git', ['ls-files', '--others', '--exclude-standard', '-z']).toString().split('\0')].filter(Boolean);
+          const unexpected = paths.filter(name => !allowed.has(name));
+          if (unexpected.length) throw new Error('生成夹具越界：' + unexpected.slice(0, 10).join('、'));
+          console.log('生成器拥有的变更路径：' + paths.join('、'));
+          NODE
+
+      - name: Preserve owned generated fixtures
+        if: inputs.prepare_codegen_fixtures && steps.fixtures.conclusion == 'success'
+        uses: actions/upload-artifact@v4
+        with:
+          name: owned-codegen-fixtures
+          if-no-files-found: error
+          retention-days: 1
+          path: |
+            tests/Full.NET.UnitTests/CodeGeneration/Fixtures/CatalogProduct/backend/ProductEndpoint.g.cs
+            tests/Full.NET.UnitTests/CodeGeneration/Fixtures/CatalogProduct/clients/vue/productsView.vue
+            tests/Full.NET.UnitTests/CodeGeneration/Fixtures/CatalogProduct/reports/products.generation.json
 
       - name: Run focused Unit tests
         env:

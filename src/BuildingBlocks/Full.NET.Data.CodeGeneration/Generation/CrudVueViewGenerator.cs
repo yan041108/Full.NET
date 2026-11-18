@@ -58,9 +58,10 @@ internal static class CrudVueViewGenerator
             || schema.UsesLegacyEntityCapabilities
             ? "update"
             : string.Empty;
+        // 旧模型的 disable 在视图中已解构为 remove，本地确认函数必须调用同一个别名。
         var removeAction = schema.EntityCapabilities.CanDelete
             || schema.UsesLegacyEntityCapabilities
-            ? schema.UsesLegacyEntityCapabilities ? "disable" : "remove"
+            ? "remove"
             : string.Empty;
         var deleteWarning = !schema.UsesLegacyEntityCapabilities
             && schema.EntityCapabilities.DeleteMode == FullNetCrudDeleteMode.HardDelete

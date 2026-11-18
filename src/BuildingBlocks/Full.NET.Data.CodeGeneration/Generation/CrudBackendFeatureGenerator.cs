@@ -574,9 +574,6 @@ internal static class CrudBackendFeatureGenerator
                         services.AddSingleton<IErrorResourceSource>(new GeneratedCrudErrorResourceSource("{{schema.ModuleKey}}.{{schema.PermissionResourceName}}."));
                     services.TryAddScoped<{{schema.ClrTypeName}}QueryService>();
                     services.TryAddScoped<{{schema.ClrTypeName}}ManagementService>();
-            #if FULLNET_AOT_COMPILE
-                    {{schema.ClrTypeName}}RecordAotMaterializer.Register();
-            #endif
                     services.ConfigureHttpJsonOptions(options =>
                         options.SerializerOptions.TypeInfoResolverChain.Insert(
                             0,

@@ -4,6 +4,9 @@ using Acme.Modules.Catalog.Generated;
 using Full.NET.Data.Abstractions;
 using Full.NET.Data.CodeGeneration.Generation;
 using Full.NET.Data.CodeGeneration.Schema;
+using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.Extensions.Options;
 
 namespace Full.NET.UnitTests.CodeGeneration;
@@ -27,10 +30,13 @@ public sealed class CrudArtifactGeneratorTests
         var artifacts = GenerateWithLayui(schema);
         var sql = Artifact(artifacts, "backend/ProductSql.g.cs");
         var feature = Artifact(artifacts, "backend/ProductFeature.g.cs");
-        StringAssert.Contains(sql, "DisplayName = @Name");
-        Assert.AreEqual(2, feature.Split("[\"Name\"] = request.Name", StringSplitOptions.None).Length - 1,
-            "创建和更新的参数名跟随 SQL 占位符，数据库列名只用于 SQL 列投影。");
-        Assert.IsFalse(feature.Contains("[\"DisplayName\"] = request.Name", StringComparison.Ordinal));
+        StringAssert.Contains(sql, "DisplayName AS Name");
+        var assignment = System.Text.RegularExpressions.Regex.Match(sql, @"DisplayName\s*=\s*@(?<parameter>[A-Za-z_][A-Za-z0-9_]*)");
+        Assert.IsTrue(assignment.Success);
+        // 参数名可以采用物理名，关键是 SQL 占位符与绑定值一致，且取值仍来自 CLR 属性。
+        var binding = $"[\"{assignment.Groups["parameter"].Value}\"] = request.Name";
+        Assert.AreEqual(2, feature.Split(binding, StringSplitOptions.None).Length - 1,
+            "创建和更新必须以 SQL 使用的同一参数名绑定 CLR 属性。");
     }
 
     [TestMethod]
@@ -61,7 +67,28 @@ public sealed class CrudArtifactGeneratorTests
         var record = Artifact(artifacts, "backend/ProductRecord.g.cs");
         var endpoint = Artifact(artifacts, "backend/ProductEndpoint.g.cs");
         StringAssert.Contains(record, "Register<ProductRecord>");
-        StringAssert.Contains(endpoint, "ProductRecordAotMaterializer.Register()");
+        var options = CSharpParseOptions.Default.WithPreprocessorSymbols("FULLNET_AOT_COMPILE");
+        var registrations = CSharpSyntaxTree.ParseText(endpoint, options).GetRoot().DescendantNodes()
+            .OfType<InvocationExpressionSyntax>()
+            .Where(invocation => invocation.Expression.ToString().EndsWith("Materializer.Register", StringComparison.Ordinal)).ToArray();
+        Assert.HasCount(1, registrations, "只调用本次生成的唯一物化器，不能残留不存在的旧类型。");
+        var registry = File.ReadAllText(Path.Combine(FindRepositoryRoot(), "src/BuildingBlocks/Full.NET.Data.Dapper/DapperAotMaterializerRegistry.cs"));
+        var probe = $$"""
+            global using System;
+            global using System.Collections.Generic;
+            namespace {{schema.RootNamespace}}.Generated;
+            internal static class RegistrationProbe
+            {
+                internal static void Register() { {{registrations[0]}}; }
+            }
+            """;
+        var references = ((string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES")!).Split(Path.PathSeparator)
+            .Select(path => MetadataReference.CreateFromFile(path));
+        var compilation = CSharpCompilation.Create("GeneratedMaterializerProbe",
+            new[] { record, registry, probe }.Select(source => CSharpSyntaxTree.ParseText(source, options)), references,
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, nullableContextOptions: NullableContextOptions.Enable));
+        var errors = compilation.GetDiagnostics().Where(diagnostic => diagnostic.Severity == DiagnosticSeverity.Error).ToArray();
+        Assert.HasCount(0, errors, string.Join(Environment.NewLine, errors.Select(error => error.ToString())));
     }
 
     [TestMethod]
@@ -105,11 +132,13 @@ public sealed class CrudArtifactGeneratorTests
         var view = Artifact(GenerateWithLayui(FullNetCrudSchemaTests.CreateProductSchema(columns: columns)),
             "clients/vue/productsView.vue");
         Assert.IsFalse(view.Contains("Object.assign(editForm, item)", StringComparison.Ordinal));
-        StringAssert.Contains(view, "const initialEditForm = () => ({");
+        StringAssert.Contains(view, "const initialCreateForm = defaults; const initialEditForm = defaults;");
         StringAssert.Contains(view, "Object.assign(editForm, initialEditForm())");
         StringAssert.Contains(view, "description: item.description");
         StringAssert.Contains(view, "if (succeeded && ticket === editTicket");
-        StringAssert.Contains(view, "await disable(deleting.value)");
+        StringAssert.Contains(view, "disable: remove");
+        StringAssert.Contains(view, "await remove(deleting.value)");
+        Assert.IsFalse(view.Contains("await disable(deleting.value)", StringComparison.Ordinal));
     }
 
     [TestMethod]
@@ -125,7 +154,9 @@ public sealed class CrudArtifactGeneratorTests
         var view = Artifact(artifacts, "clients/vue/productsView.vue");
         StringAssert.Contains(model, "contextKey: () => string;");
         StringAssert.Contains(model, "if (!request.current()) return false;");
-        StringAssert.Contains(model, "api.list(nextPage, nextPageSize, request.signal)");
+        StringAssert.Contains(model, mode == "legacy"
+            ? "api.list(nextPage, nextPageSize, { ...query }, request.signal)"
+            : "api.list(nextPage, nextPageSize, frozenQuery, request.signal)");
         StringAssert.Contains(model, "onDeactivated(suspend)");
         StringAssert.Contains(model, "flush: 'sync'");
         StringAssert.Contains(view, "contextKey: () => JSON.stringify");
