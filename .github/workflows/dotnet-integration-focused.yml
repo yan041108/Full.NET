@@ -4,11 +4,11 @@ on:
   workflow_dispatch:
     inputs:
       scenario:
-        description: 仅执行明确的恢复批次
+        description: 仅执行明确的验收批次
         required: true
         default: enterprise-delivery
         type: choice
-        options: [enterprise-delivery, oidc-proof, import-receipt, ai-files-tenant]
+        options: [enterprise-delivery, oidc-proof, import-receipt, ai-files-tenant, identity-browser]
 
 permissions:
   contents: read
@@ -23,6 +23,15 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 24
+      - uses: pnpm/action-setup@v4
+        if: inputs.scenario == 'identity-browser'
+        with:
+          version: 10.26.0
+      - name: Prepare the selected real browser dependencies
+        if: inputs.scenario == 'identity-browser'
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm --filter @fullnet/admin-real-stack-e2e exec playwright install --with-deps chromium
       - uses: actions/setup-dotnet@v4
         with:
           global-json-file: global.json
@@ -51,6 +60,9 @@ jobs:
             ai-files-tenant)
               filter='FullyQualifiedName=Full.NET.IntegrationTests.Ai.AiKnowledgeIndexTenantFileRecoveryTests.Suspended_tenant_requires_explicit_index_retry|FullyQualifiedName=Full.NET.IntegrationTests.Ai.AiKnowledgeFileVersionsApiSqlServerTests.SqlServer_tenant_import_survives_quota_response_loss_and_worker_recovery|FullyQualifiedName=Full.NET.IntegrationTests.Ai.AiKnowledgeFileVersionsApiMySqlTests.MySql_tenant_import_survives_quota_response_loss_and_worker_recovery'
               minimum=4 ;;
+            identity-browser)
+              filter='FullyQualifiedName~Full.NET.IntegrationTests.Identity.IdentityBrowserUiTests.'
+              minimum=6 ;;
             *) exit 64 ;;
           esac
           git rev-parse HEAD

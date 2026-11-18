@@ -3,7 +3,7 @@ import path from 'node:path';
 
 // 独立真实后端夹具提供 HTTPS 和数据库，不能落回旧 SPA 令牌夹具或 Mock。
 export default defineConfig({
-  testDir: './bff-tests', workers: 1, retries: 0, timeout: 90_000,
+  testDir: './bff-tests', testMatch: 'browser-session.spec.mjs', workers: 1, retries: 0, timeout: 90_000,
   outputDir: process.env.FULLNET_BFF_UI_OUTPUT,
   reporter: [['list'], ['json', { outputFile: path.join(process.env.FULLNET_BFF_UI_OUTPUT, 'results.json') }]],
   use: { baseURL: process.env.FULLNET_BFF_UI_ORIGIN, ignoreHTTPSErrors: true,

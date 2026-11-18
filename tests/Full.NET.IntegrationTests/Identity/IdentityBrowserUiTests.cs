@@ -1,6 +1,8 @@
 using System.Diagnostics;
 using System.Net;
+using System.Net.Http.Json;
 using System.Net.Sockets;
+using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using System.Text.RegularExpressions;
@@ -9,8 +11,12 @@ using System.Text.Json;
 using Full.NET.Data.Abstractions;
 using Full.NET.IntegrationTests.Api;
 using Full.NET.Abstractions.Tenancy;
+using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Identity.Oidc;
 using Full.NET.Modules.Identity.Persistence;
+using Full.NET.Modules.Identity.Features.ManageTotp;
+using Full.NET.Modules.Identity.Security;
+using Full.NET.Abstractions.Time;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Hosting.Server.Features;
@@ -28,6 +34,21 @@ public sealed class IdentityBrowserUiTests
     [DataRow(DatabaseProvider.SqlServer)]
     [DataRow(DatabaseProvider.MySql)]
     public async Task Real_browser_https_bff_desktop_and_mobile_preserve_server_side_credentials(DatabaseProvider provider)
+        => await RunBrowserAsync(provider, false, false);
+
+    [TestMethod]
+    [DataRow(DatabaseProvider.SqlServer)]
+    [DataRow(DatabaseProvider.MySql)]
+    public async Task Real_browser_mfa_requires_second_factor_before_host_session(DatabaseProvider provider)
+        => await RunBrowserAsync(provider, true, false);
+
+    [TestMethod]
+    [DataRow(DatabaseProvider.SqlServer)]
+    [DataRow(DatabaseProvider.MySql)]
+    public async Task Real_browser_mfa_invitation_requires_explicit_claim(DatabaseProvider provider)
+        => await RunBrowserAsync(provider, true, true);
+
+    private static async Task RunBrowserAsync(DatabaseProvider provider, bool mfa, bool invitation)
     {
         var repository = new DirectoryInfo(AppContext.BaseDirectory);
         while (repository is not null && !File.Exists(Path.Combine(repository.FullName, "Full.NET.slnx"))) repository = repository.Parent;
@@ -61,11 +82,51 @@ public sealed class IdentityBrowserUiTests
         settings["Identity:Oidc:Clients:2:IsFirstParty"] = "true";
         var connection = await IdentityBrowserTestSupport.DatabaseAsync(provider);
         Guid bootstrapNode;
+        var mfaAccounts = new Dictionary<string, (string Username, Guid Id, string Secret, string? InvitationToken, Guid TenantId)>();
         // 先完成旧材料的受控初始化，再部署新候选材料；Migrator 不得自动覆盖后续治理事实。
-        using (var bootstrap = new FullNetApiFactory(provider, connection, settings))
+        try
         {
+            using var bootstrap = new FullNetApiFactory(provider, connection, settings);
             await bootstrap.InitializeAsync();
             bootstrapNode = bootstrap.Services.GetRequiredService<IdentityOidcSigningNodeIdentity>().Id;
+            // 邀请管理使用独立的正式测试宿主，不能向启用 OIDC 的浏览器宿主提交旧式令牌。
+            using var invitationFactory = invitation ? new FullNetApiFactory(provider, connection,
+                new Dictionary<string, string?> { ["DataProtection:KeyRingPath"] = Path.Combine(root, "management-keys") }) : null;
+            if (invitationFactory is not null) await invitationFactory.InitializeAsync();
+            if (mfa)
+            {
+                foreach (var viewport in new[] { "desktop", "mobile" })
+                {
+                    var username = "browser-mfa-" + Guid.NewGuid().ToString("N");
+                    var account = await bootstrap.CreateHostIdentityAsync(username,
+                        ["platform.dashboard.read", "tenancy.tenants.read"], password: FullNetApiFactory.TestPassword);
+                    await using var enrollmentScope = bootstrap.Services.CreateAsyncScope();
+                    enrollmentScope.ServiceProvider.GetRequiredService<CurrentTenantAccessor>().SetHost();
+                    var enrollment = enrollmentScope.ServiceProvider.GetRequiredService<TotpEnrollmentService>();
+                    var principal = new ClaimsPrincipal(new ClaimsIdentity([new Claim("sub", account.UserId.ToString("D"))], "test-enrollment"));
+                    var pending = await enrollment.BeginAsync(principal);
+                    Assert.IsTrue(pending.IsSuccess, pending.Error?.Code);
+                    var secret = pending.Value!.SharedSecretBase32;
+                    var keyBytes = TotpAlgorithm.DecodeSharedSecret(secret);
+                    try
+                    {
+                        var confirmed = await enrollment.ConfirmAsync(principal,
+                            TotpAlgorithm.ComputeCode(keyBytes, enrollmentScope.ServiceProvider.GetRequiredService<IClock>().UtcNow));
+                        Assert.IsTrue(confirmed.IsSuccess, confirmed.Error?.Code);
+                    }
+                    finally { CryptographicOperations.ZeroMemory(keyBytes); }
+                    string? invitationToken = null;
+                    var tenantId = Guid.Empty;
+                    if (invitation)
+                        (invitationToken, tenantId) = await CreateInvitationAsync(invitationFactory!, account.UserId, username);
+                    mfaAccounts.Add(viewport, (username, account.UserId, secret, invitationToken, tenantId));
+                }
+            }
+        }
+        catch
+        {
+            if (Directory.Exists(root)) Directory.Delete(root, recursive: true);
+            throw;
         }
         using var nextSigningKey = RSA.Create(2048);
         settings["Identity:Oidc:SigningKeys:browser-next:PublicKeyPem"] = nextSigningKey.ExportRSAPublicKeyPem();
@@ -111,6 +172,18 @@ public sealed class IdentityBrowserUiTests
                 ["FULLNET_E2E_TLS_CERT"] = pem, ["FULLNET_E2E_TLS_KEY"] = key, ["FULLNET_E2E_BIND_HOST"] = "127.0.0.1",
                 ["FULLNET_BFF_UI_OUTPUT"] = Path.Combine(root, "playwright")
             };
+            foreach (var (viewport, account) in mfaAccounts)
+            {
+                var prefix = "FULLNET_BFF_MFA_" + viewport.ToUpperInvariant();
+                environment[prefix + "_USER"] = account.Username;
+                environment[prefix + "_ID"] = account.Id.ToString("D");
+                environment[prefix + "_SECRET"] = account.Secret;
+                if (account.InvitationToken is not null)
+                {
+                    environment[prefix + "_INVITATION"] = account.InvitationToken;
+                    environment[prefix + "_TENANT"] = account.TenantId.ToString("D");
+                }
+            }
             relyingParty = Start(repository.FullName, environment, "tests/e2e/admin-real-stack/scripts/serve-oidc-fixture.mjs",
                 relyingPartyPort.ToString(), Path.Combine(repository.FullName, "tests", "e2e", "admin-real-stack", "fixtures", "oidc-rp-b"));
             relyingPartyOutput = relyingParty.StandardOutput.ReadToEndAsync(); relyingPartyErrors = relyingParty.StandardError.ReadToEndAsync();
@@ -129,11 +202,24 @@ public sealed class IdentityBrowserUiTests
             }
             Assert.IsTrue(ready, "HTTPS Vue 开发服务器未就绪。");
             using var browser = Start(repository.FullName, environment, "tests/e2e/admin-real-stack/node_modules/@playwright/test/cli.js",
-                "test", "--config", "tests/e2e/admin-real-stack/playwright.bff.config.mjs");
+                "test", "--config", invitation ? "tests/e2e/admin-real-stack/playwright.bff-invitation.config.mjs"
+                    : mfa ? "tests/e2e/admin-real-stack/playwright.bff-mfa.config.mjs"
+                    : "tests/e2e/admin-real-stack/playwright.bff.config.mjs");
             var browserOutput = browser.StandardOutput.ReadToEndAsync(); var browserErrors = browser.StandardError.ReadToEndAsync();
             try { await browser.WaitForExitAsync().WaitAsync(TimeSpan.FromMinutes(6)); }
             finally { if (!browser.HasExited) { browser.Kill(entireProcessTree: true); await browser.WaitForExitAsync(); } }
             var diagnostic = SafeLog(await browserOutput + "\n" + await browserErrors);
+            if (mfa)
+            {
+                diagnostic = diagnostic.Replace(FullNetApiFactory.TestPassword, "[redacted]", StringComparison.Ordinal);
+                foreach (var account in mfaAccounts.Values)
+                {
+                    diagnostic = diagnostic.Replace(account.Secret, "[redacted]", StringComparison.Ordinal);
+                    if (account.InvitationToken is not null)
+                        diagnostic = diagnostic.Replace(account.InvitationToken, "[redacted]", StringComparison.Ordinal);
+                }
+                diagnostic = Regex.Replace(diagnostic, @"(?<!\d)\d{6}(?!\d)", "[redacted]");
+            }
             await File.WriteAllTextAsync(Path.Combine(root, "playwright.log"), diagnostic);
             Assert.AreEqual(0, browser.ExitCode, "真实浏览器 BFF 验收失败：\n" + diagnostic[^Math.Min(6000, diagnostic.Length)..]);
             using var report = JsonDocument.Parse(await File.ReadAllTextAsync(Path.Combine(root, "playwright", "results.json")));
@@ -160,9 +246,37 @@ public sealed class IdentityBrowserUiTests
                 File.Delete(pem); File.Delete(key);
                 var protection = Path.Combine(root, "keys");
                 if (Directory.Exists(protection)) Directory.Delete(protection, recursive: true);
-                Console.WriteLine("浏览器失败最小记录：" + Path.Combine(root, "playwright"));
+                var managementProtection = Path.Combine(root, "management-keys");
+                if (Directory.Exists(managementProtection)) Directory.Delete(managementProtection, recursive: true);
+                // 失败页面快照和 JSON 报告可能含验证码或表单内容，只保留脱敏文本。
+                var playwright = Path.Combine(root, "playwright");
+                if (mfa && Directory.Exists(playwright)) Directory.Delete(playwright, recursive: true);
+                Console.WriteLine("浏览器失败最小记录：" + (mfa ? Path.Combine(root, "playwright.log") : playwright));
             }
         }
+    }
+
+    private static async Task<(string Token, Guid TenantId)> CreateInvitationAsync(FullNetApiFactory factory, Guid userId, string username)
+    {
+        var email = username + "@example.test";
+        await factory.EnsureHostUserProfileEmailAsync(userId, email, "Browser invited account");
+        using var host = factory.CreateClientForHost("localhost");
+        using var tenantClient = factory.CreateClientForHost("acme.localhost");
+        var tenant = await IntegrationTestTenantContextHelper.GetCurrentTenantAsync(tenantClient);
+        var hostToken = await factory.CreateHostAccessTokenAsync(
+            [IdentityTenantMembershipPermissions.Invite, "tenancy.tenants.switch"]);
+        var token = await IntegrationTestTenantContextHelper.SwitchToTenantAsync(host, hostToken, tenant.Id);
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/api/v1/identity/tenant-members/invitations")
+        {
+            Content = JsonContent.Create(new CreateTenantInvitationRequest(email, TenantMemberRoles.Member))
+        };
+        request.Headers.Authorization = new("Bearer", token);
+        request.Headers.Add("Origin", "http://localhost");
+        using var response = await tenantClient.SendAsync(request);
+        Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
+        var created = await response.Content.ReadFromJsonAsync<CreateTenantInvitationResult>();
+        Assert.IsNotNull(created);
+        return (created.InvitationToken, tenant.Id);
     }
 
     private static int FreePort()

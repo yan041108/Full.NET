@@ -33,7 +33,7 @@ await withTestRun({ cwd: repository, buildBudget: { cpu: 2, memoryGiB: native ? 
   const assembly = 'tests/Full.NET.IntegrationTests/bin/Release/net10.0/Full.NET.IntegrationTests.dll';
   if (!native) {
     await enterHeavyTestPhase();
-    await run('dotnet', [assembly, '--filter', 'FullyQualifiedName~IdentityBrowserUiTests', '--minimum-expected-tests', '2',
+    await run('dotnet', [assembly, '--filter', 'FullyQualifiedName=Full.NET.IntegrationTests.Identity.IdentityBrowserUiTests.Real_browser_https_bff_desktop_and_mobile_preserve_server_side_credentials', '--minimum-expected-tests', '2',
       '--timeout', '8m', '--no-ansi', '--progress', 'off', '--results-directory', root,
       '--report-trx', '--report-trx-filename', 'browser.trx'], 'browser');
   } else {
