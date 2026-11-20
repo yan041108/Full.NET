@@ -7357,3 +7357,5 @@ Release 集成工程单节点构建及 Identity 模块隔离 AOT 分析均零警
 - 基线 `6a344e8cfbe724eda5eff43fe5f613f50f6a37cb`，快照 `object-restore-exit-20261120`；原 Verify-ObjectRestore.sh SHA-256 `58e261a0450f4ab45502d499a07c217dcfeab6fa7f021ca76537c807b09fddb5`。原入口自动选最新 COMPLETE，只按清单通用校验，且在 EXIT 清理前写成功标记；停止/进程退出/目录清理失败后会遗留本轮“通过”。接续 F15-R3 的既有对象恢复，不新增恢复平台或重排已完成的应用双库联合恢复。
 - 冻结两项，集中选择二十八条定向方法。一次性 Linux 禁网容器、源码只读、CPU 1/内存 256 MiB，真实 Bash/tar/gzip/摘要/锁/权限/清理与受控 systemd、nsenter、SeaweedFS；复用既有只读备份校验器，不运行无影响的全量或双库测试，不向目标发布节点发送命令。
 - 两任务及规定验收完成后交付；实际对象服务、目标 namespace、证书/真实 S3、主机强杀和应用 RPO/RTO 仍归原 F15/F16 状态，Capacity-not-verified。其他未提交脚本不接管。
+
+- 首轮候选 `6a02fb8ce` 的 [定向作业](https://github.com/yan041108/Full.NET/actions/runs/44711685291/job/136204692164) 实际发现 28 条，27 通过、1 错误、零跳过；信号用例等待十秒后超时，未升级通过状态。定位为 Bash 前台命令等待延后退出处理，检查的 timeout 进程组未及时取消。改为后台检查/可中断 wait，清理先终止本轮检查进程组；同一方法同时覆盖进程组 TERM 和仅脚本 PID TERM，保留十秒原期限，不放宽断言。

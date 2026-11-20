@@ -319,19 +319,25 @@ class ObjectRestoreTests(unittest.TestCase):
         self.assertEqual(self.commands(),[])
 
     def test_signal_stops_owned_unit_without_success_marker(self):
-        self.configure(wait_signal=True)
-        with subprocess.Popen(["bash",str(SCRIPT),"192.0.2.20",str(self.backup)],env=self.env,
-                              stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True,start_new_session=True) as process:
-            deadline=time.monotonic()+10
-            while not self.wait.exists() and process.poll() is None and time.monotonic()<deadline: time.sleep(.02)
-            self.assertTrue(self.wait.exists())
-            os.killpg(process.pid,signal.SIGTERM)
-            output,error=process.communicate(timeout=10)
-            self.assertNotEqual(process.returncode,0)
-            self.assertNotIn("隔离恢复通过",output)
-        self.assertFalse((self.backup/"OBJECT-RESTORE-VERIFIED").exists())
-        self.assertFalse(json.loads(self.state.read_text())["active"])
-        self.assertEqual(set(Path("/var/tmp").glob("fullnet-object-restore-*")),self.before_work)
+        for process_group in (True,False):
+            with self.subTest(process_group=process_group):
+                self.wait.unlink(missing_ok=True)
+                self.configure(wait_signal=True)
+                with subprocess.Popen(["bash",str(SCRIPT),"192.0.2.20",str(self.backup)],env=self.env,
+                                      stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True,start_new_session=True) as process:
+                    deadline=time.monotonic()+10
+                    while not self.wait.exists() and process.poll() is None and time.monotonic()<deadline: time.sleep(.02)
+                    self.assertTrue(self.wait.exists())
+                    if process_group:
+                        os.killpg(process.pid,signal.SIGTERM)
+                    else:
+                        process.send_signal(signal.SIGTERM)
+                    output,error=process.communicate(timeout=10)
+                    self.assertNotEqual(process.returncode,0)
+                    self.assertNotIn("隔离恢复通过",output)
+                self.assertFalse((self.backup/"OBJECT-RESTORE-VERIFIED").exists())
+                self.assertFalse(json.loads(self.state.read_text())["active"])
+                self.assertEqual(set(Path("/var/tmp").glob("fullnet-object-restore-*")),self.before_work)
 
 
 if __name__=="__main__":

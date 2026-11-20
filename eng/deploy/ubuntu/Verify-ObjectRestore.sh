@@ -23,7 +23,19 @@ started=$(date -u +%FT%TZ)
 temporary=$(mktemp -d /var/tmp/fullnet-object-restore-XXXXXX)
 unit="fullnet-object-restore-${temporary##*-}"
 unit_started=false
+probe_pid=''
+stop_probe() {
+  if [[ -n $probe_pid ]]; then
+    # timeout 为本轮只读检查建立独立进程组；信号退出先结束检查，再停止服务与删数据。
+    kill -TERM -- "-$probe_pid" 2>/dev/null || true
+    kill -KILL -- "-$probe_pid" 2>/dev/null || true
+    kill -KILL "$probe_pid" 2>/dev/null || true
+    wait "$probe_pid" 2>/dev/null || true
+    probe_pid=''
+  fi
+}
 cleanup() {
+  stop_probe
   if [[ $unit_started == true ]]; then
     timeout 100s systemctl stop "$unit.service" >/dev/null 2>&1 || return 1
     [[ $(timeout 10s systemctl show "$unit.service" -p MainPID --value 2>/dev/null) == 0 ]] || return 1
@@ -115,11 +127,15 @@ for attempt in {1..45}; do
   remaining=$((deadline - SECONDS))
   [[ $remaining -gt 0 ]] || break
   # -I 忽略 PYTHONOPTIMIZE 等外部环境，保留既有对象协议探针的断言门禁。
-  if (ulimit -f 64; exec timeout --signal=TERM --kill-after=5s "${remaining}s" nsenter -t "$pid" -n \
-      python3 -I /usr/local/lib/fullnet/Verify-ObjectStorage.py "https://$address:8334" check isolated) >"$temporary/result.log" 2>&1; then
+  (ulimit -f 64; exec timeout --signal=TERM --kill-after=5s "${remaining}s" nsenter -t "$pid" -n \
+      python3 -I /usr/local/lib/fullnet/Verify-ObjectStorage.py "https://$address:8334" check isolated) >"$temporary/result.log" 2>&1 &
+  probe_pid=$!
+  if wait "$probe_pid"; then
+    probe_pid=''
     verified=true
     break
   fi
+  probe_pid=''
   sleep 1
 done
 [[ $verified == true ]] || { echo '对象存储隔离恢复检查失败。' >&2; exit 1; }
