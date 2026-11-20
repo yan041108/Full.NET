@@ -342,6 +342,20 @@ class OciPackagingTests(unittest.TestCase):
         self.assertEqual(list(self.cache.iterdir()), [])
         self.assertFalse(self.output.exists())
 
+    def test_cli_failure_classes_are_redacted(self):
+        for error, expected in ((subprocess.CalledProcessError(63, ["curl", "private-url"]), "image_download_failed_63"),
+                                (OSError(28, "private-path"), "image_io_failed_28"),
+                                (KeyError("private-field"), "image_metadata_invalid"),
+                                (tarfile.ReadError("private-content"), "image_archive_invalid")):
+            with self.subTest(expected=expected):
+                output, errors = io.StringIO(), io.StringIO()
+                with mock.patch.object(module, "pack", side_effect=error), contextlib.redirect_stdout(output), contextlib.redirect_stderr(errors):
+                    status = module.main(["--publish", "unused", "--role", "api", "--tag", "test", "--output", "unused", "--cache", "unused"])
+                self.assertEqual(status, 1)
+                self.assertEqual(output.getvalue(), "")
+                self.assertEqual(json.loads(errors.getvalue()), {"status": "failed", "code": expected})
+                self.assertNotIn("private", errors.getvalue())
+
 
 if __name__ == "__main__":
     unittest.main()

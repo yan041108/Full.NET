@@ -325,7 +325,15 @@ def main(argv=None):
         result = pack(args)
     except InvalidImage as error:
         code = str(error)
-    except (OSError, ValueError, KeyError, TypeError, tarfile.TarError, subprocess.SubprocessError):
+    except subprocess.CalledProcessError as error:
+        code = f"image_download_failed_{error.returncode}"
+    except OSError as error:
+        code = f"image_io_failed_{error.errno or 0}"
+    except (ValueError, KeyError, TypeError):
+        code = "image_metadata_invalid"
+    except tarfile.TarError:
+        code = "image_archive_invalid"
+    except subprocess.SubprocessError:
         code = "image_pack_failed"
     else:
         print(json.dumps(result, separators=(",", ":")))
