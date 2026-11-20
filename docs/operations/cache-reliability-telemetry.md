@@ -153,3 +153,11 @@ python3 eng/deploy/ubuntu/Verify-CacheBackplane.py "$PROBE_PUBLISH_DIRECTORY" "$
 普通 kubectl 使用 `--kubectl kubectl`，可用 `--context` 明确集群；命名空间必须显式指定，输出文件必须尚不存在。脚本校验本轮角色、运行标识、缓存实例、删除/回填、健康和时间窗；Pod UID 与节点在运行前后必须一致。不同 Pod 中的 PID 可相同，不能据此误判为同一进程。
 
 远端进程有独立硬期限。成功或失败后均尝试清理本轮协调键和目录，Pod 被替换时不向新 UID 删除旧资源；任一检查或清理未完成都不签发成功回执。回执仅包含已校验字段与 Kubernetes 权威身份，不透传未知进程字段或命令错误正文。此入口验证独立 SDK 进程，常驻 API/Worker 的真实业务健康和容量仍须分别核对。
+
+### 独立 Kubernetes 两工作节点验收
+
+手动入口 helm-runtime-focused / cache-cluster-runtime 仅选择两条真实场景：一个检查跨节点通知/L1 失效、L2 删除、权威回填及丢通知后的 TTL 收敛，另一个真实将两个 Pod 放到同一节点，要求编排器在复制或执行前拒绝，不写成功回执或协调键。复用上面的正式探针及 Verify-CacheBackplane.py，不使用模拟 Redis 或重写缓存注册。
+
+该入口只在显式隔离 Linux、本机 Unix socket Docker 上创建唯一 Kind 集群和独立 kubeconfig。两个带 api 容器名的 .NET 10 运行时容器仅承载 SDK 进程，不启动业务宿主；另有独立 Redis 8.6，使用本轮临时 Secret 鉴权，未使用真实账号或连接配置。各 Pod 非 root、根文件系统只读、临时目录为本轮 emptyDir、禁用自动挂载 SA Token，构建/包缓存/回执均在系统临时目录。
+
+成功路径再次核对无关哨兵值保留、本轮协调键与远端目录已清理；每个场景删除本轮命名空间，结束删除唯一集群并确认无其容器。回执包含节点/Pod UID、缓存实例和实际毫秒值，只证明该轮功能窗口；本机 Kind 的两个工作节点不代表两台物理主机、常驻 API/Worker、Redis 高可用故障接管、生产 CNI、吞吐或万级容量，仍保持 Capacity-not-verified。不会执行全量或重跑既有受控 kubectl 用例。

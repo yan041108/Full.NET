@@ -7403,3 +7403,15 @@ Release 集成工程单节点构建及 Identity 模块隔离 AOT 分析均零警
 - 候选 `90c087cad` 的 [双节点网络定向作业](https://github.com/yan041108/Full.NET/actions/runs/44717796773/job/136225505091) 实际 18/18（76.019 秒），零失败/跳过，源码状态守卫通过。Ubuntu 24.04、Python 3.12、Kind v0.30.0、Kubernetes v1.34.0 固定节点摘要、Docker 28.0.4；Kind 官方二进制校验和通过。十七条受控边界核对响应丢失、身份变更、删除失败、信号和脱敏；真实场景创建一个控制节点及两个工作节点，分别在不同工作节点启动探针，完成集群 DNS 与 Pod IP HTTP 的本轮随机值校验。
 - 实际 Pod 位于两个不同工作节点、不同 UID/容器，使用相同 imageID，前后身份复核一致；探针镜像 registry digest `sha256:101b4afd76732482eff9b95cae5f94bcf295e521fbec4e01b69c5421f3f3f3e5`。成功回执 namespaceDeleted=true 后再次按 runId 查询命名空间为空；Kind 删除后按唯一集群标签查询容器为空，独立 kubeconfig/临时配置随本轮目录回收。未连接发布 Kubernetes 或修改业务配置。
 - 本批两个固定开发项与规定验收已完成，剩余开发 0、待验收 0；使用说明已同步。实际覆盖同一执行机上的两个 Kubernetes 工作节点，不升级为多台物理节点、生产 CNI、业务故障接管或容量证明，Capacity-not-verified 保持；其他工作区改动保留。
+
+### 8.382 当前冻结批次：F16 正式缓存注册的真实 Kubernetes 跨节点验证（2026-11-20）
+
+| 固定任务 | 当前状态 | 完成条件 |
+| --- | --- | --- |
+| F16-ClusterBackplaneRuntime | 已实现，待真实场景验收 | 两个不同 Kind 工作节点的独立进程复用正式 AddFullNetCaching，真实认证 Redis，双向失效、L2 删除、权威回填、Healthy 及丢通知后 TTL 收敛均满足原窗口。 |
+| F16-ClusterBackplaneIsolation | 已实现，待真实场景验收 | 哨兵保留、随机协调键/远端目录清零、命名空间与集群删除；实际同节点对照在写探针状态前拒绝，无成功回执。 |
+
+- 基线 `794f3c0f022e629f110cb32612858693b8a936a3`，快照 `cache-backplane-real-cluster-20261120`。接续 §8.372 同机真实进程、§8.373 受控编排与 §8.381 真实跨节点网络之后的实际缓存差集；复用既有探针和验证器，不重写生产缓存策略或重复旧方法。按 fullnet-performance-hardening 的缓存证据边界执行，只验功能，不主张性能改善。
+- 冻结两项，集中两条真实方法，SDK 仅发布现有缓存探针及直接依赖，不运行整个 Host 或双库/全量。Kind v0.30.0、Kubernetes v1.34.0 固定节点摘要、独立 kubeconfig/唯一集群；两个 .NET 运行时 holder 与认证 Redis 8.6 只承载本轮进程/键，临时 Secret 不打印或进入 Git。每场景独立命名空间并清理，构建/包缓存/回执进入系统临时目录。
+- 成功后核对各 Pod 所在节点与 UID、缓存实例、五秒 L1 失效/两分钟 TTL 对照、四秒丢通知收敛、L2 和回填。独立同节点对照不得复制或执行探针；无关哨兵和原临时目录状态保留，集群结束时回收本轮容器与临时输入。
+- 两任务和规定验收完成后交付；只证明同一执行机上的两个 Kubernetes 工作节点，不升级为物理故障域、常驻业务宿主、多 Redis 故障接管或容量认证，Capacity-not-verified 保持，不连接发布集群。
