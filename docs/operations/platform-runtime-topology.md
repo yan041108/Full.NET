@@ -63,7 +63,7 @@ sudo python3 /usr/local/lib/fullnet/Configure-InternalEdge.py --check \
   PRIMARY_IPV4 SECONDARY_IPV4 MANAGEMENT_IPV4 /srv/fullnet/releases/RELEASE
 ```
 
-准入要求 root、有效且不同的基础设施节点地址；发布目录必须实际位于 /srv/fullnet/releases/ 下，发布祖先、frontend、非空 index.html 及证书/密钥路径须为 root 所有、无组/其他用户写权限且无不受控链接，私钥不能被其他用户读取。当前 current-web 必须不存在或为指向发布根内的 root 链接；既有 .next-web（包括悬空链接）会被保留并拒绝覆盖。既有 NGINX 配置路径不能为链接、非普通文件或不安全权限。所有检查在修改集群、包管理器、NGINX、UFW 或前端指针之前完成，Python -O 不会跳过。
+准入要求 root、有效且不同的基础设施节点地址；发布目录必须实际位于 /srv/fullnet/releases/ 下，发布祖先、frontend、非空 index.html 及证书/密钥路径须为 root 所有、无组/其他用户写权限且无不受控链接，私钥不能授予 other 类别权限。当前 current-web 必须不存在或为指向发布根内的 root 链接；既有 .next-web（包括悬空链接）会被保留并拒绝覆盖。既有 NGINX 配置路径不能为链接、非普通文件或不安全权限。所有检查在修改集群、包管理器、NGINX、UFW 或前端指针之前完成，Python -O 不会跳过。
 
 成功的 --check 回执仅为 status=admitted、changesApplied=false、runtimeActivationVerified=false，证明本次文件结构和调用准入；不读取私钥内容、不校验证书密码学或发布包摘要、不证明 NGINX/集群权限及在线状态。--render PRIMARY_IPV4 继续只输出配置且无需 root。失败回执为固定码和 modificationsMayHaveOccurred；前置失败为 false，进入配置流程后的失败为 true，不能据此假定已有修改已回滚。
 
