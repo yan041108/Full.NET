@@ -1,11 +1,84 @@
 #!/usr/bin/env python3
 """配置单入口 HTTPS 网关、全局额度与代理信任边界；只更新入口，不处理业务数据。"""
+import argparse
 import ipaddress
 import json
 import os
 import pathlib
+import stat
 import subprocess
 import sys
+
+RELEASES = pathlib.Path("/srv/fullnet/releases")
+CURRENT = pathlib.Path("/srv/fullnet/current-web")
+PENDING = pathlib.Path("/srv/fullnet/.next-web")
+CONFIGURATION = pathlib.Path("/etc/nginx/conf.d/fullnet.conf")
+WEB_CERTIFICATE = pathlib.Path("/etc/fullnet/certificates/web.pem")
+WEB_KEY = pathlib.Path("/etc/fullnet/certificates/web.key")
+
+
+class AdmissionFailure(Exception):
+    """固定准入码，失败不回显文件内容或底层命令响应。"""
+
+
+def require(condition, code):
+    if not condition:
+        raise AdmissionFailure(code)
+
+
+def trusted(path, directory=False, private=False):
+    info = path.lstat()
+    require((stat.S_ISDIR(info.st_mode) if directory else stat.S_ISREG(info.st_mode)) and
+            info.st_uid == 0 and info.st_mode & 0o022 == 0, "deployment_path_permissions_invalid")
+    require(path.resolve(strict=True) == path, "deployment_path_symlink_invalid")
+    if not directory:
+        require(info.st_size > 0 and info.st_nlink == 1, "deployment_file_invalid")
+    if private:
+        require(info.st_mode & 0o007 == 0, "web_key_permissions_invalid")
+
+
+def address(value):
+    parsed = ipaddress.IPv4Address(value)
+    require(not (parsed.is_loopback or parsed.is_link_local or parsed.is_multicast or parsed.is_unspecified
+                 or int(parsed) == 0xFFFFFFFF), "gateway_address_invalid")
+    return str(parsed)
+
+
+def check_pointer():
+    if CURRENT.exists() or CURRENT.is_symlink():
+        require(CURRENT.is_symlink() and CURRENT.lstat().st_uid == 0, "frontend_pointer_invalid")
+        require(CURRENT.resolve(strict=False).is_relative_to(RELEASES), "frontend_pointer_outside_releases")
+    # lexists 语义同时拒绝悬空链接，不能覆盖其他调用遗留的暂存。
+    require(not PENDING.exists() and not PENDING.is_symlink(), "frontend_pending_conflict")
+
+
+def preflight(primary, secondary, management, release):
+    # 所有准入都在集群、包管理器、服务与文件修改之前执行，不能使用可被 -O 删除的 assert。
+    require(os.geteuid() == 0, "root_required")
+    primary, secondary, management = map(address, (primary, secondary, management))
+    require(primary != secondary, "infrastructure_nodes_not_distinct")
+    trusted(RELEASES, directory=True)
+    trusted(CURRENT.parent, directory=True)
+    release_path = pathlib.Path(release).resolve(strict=True)
+    require(release_path != RELEASES and release_path.is_relative_to(RELEASES), "release_outside_releases")
+    cursor = release_path
+    while cursor != RELEASES:
+        trusted(cursor, directory=True)
+        cursor = cursor.parent
+    frontend = release_path / "frontend"
+    trusted(frontend, directory=True)
+    trusted(frontend / "index.html")
+    check_pointer()
+    parent = CONFIGURATION.parent
+    while not parent.exists() and not parent.is_symlink():
+        parent = parent.parent
+    trusted(parent, directory=True)
+    if CONFIGURATION.exists() or CONFIGURATION.is_symlink():
+        trusted(CONFIGURATION)
+    for path in (WEB_CERTIFICATE, WEB_KEY):
+        trusted(path.parent, directory=True)
+        trusted(path, private=path == WEB_KEY)
+    return primary, secondary, management, release_path
 
 
 def run(command, **kwargs):
@@ -90,18 +163,7 @@ server {{
 '''
 
 
-def main():
-    if len(sys.argv) == 3 and sys.argv[1] == "--render":
-        print(render_configuration(str(ipaddress.IPv4Address(sys.argv[2]))), end="")
-        return
-
-    primary, secondary, management, release = sys.argv[1:5]
-    for value in [primary, secondary, management]:
-        ipaddress.IPv4Address(value)
-    assert os.geteuid() == 0
-    release_path = pathlib.Path(release).resolve(strict=True)
-    assert release_path.is_relative_to("/srv/fullnet/releases") and (release_path / "frontend/index.html").is_file()
-
+def configure(primary, secondary, management, release_path):
     # Traefik 保留集群内入口能力，释放主机标准 80/443 给唯一的全局额度网关。
     apply({"apiVersion": "helm.cattle.io/v1", "kind": "HelmChartConfig", "metadata": {"name": "traefik", "namespace": "kube-system"},
            "spec": {"valuesContent": "service:\n  spec:\n    type: ClusterIP\n"}})
@@ -122,18 +184,46 @@ def main():
     default = pathlib.Path("/etc/nginx/sites-enabled/default")
     if default.is_symlink():
         default.unlink()
-    current = pathlib.Path("/srv/fullnet/current-web")
-    assert not current.exists() or current.is_symlink()
-    pending = pathlib.Path("/srv/fullnet/.next-web")
-    assert not pending.exists()
-    pending.symlink_to(release_path / "frontend")
-    pending.replace(current)
+    check_pointer()
+    PENDING.symlink_to(release_path / "frontend")
+    PENDING.replace(CURRENT)
     configuration = render_configuration(primary)
-    pathlib.Path("/etc/nginx/conf.d/fullnet.conf").write_text(configuration)
+    CONFIGURATION.write_text(configuration)
     run(["ufw", "allow", "from", str(ipaddress.IPv4Network(management + "/24", strict=False)), "to", primary, "port", "443", "proto", "tcp"])
     run(["ufw", "allow", "from", str(ipaddress.IPv4Network(management + "/24", strict=False)), "to", primary, "port", "80", "proto", "tcp"])
     print("内网 HTTPS 配置已写入；启动前须刷新就绪 API 上游并通过 nginx -t。")
 
 
+def main(argv=None):
+    parser = argparse.ArgumentParser(description=__doc__)
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument("--render", action="store_true")
+    mode.add_argument("--check", action="store_true")
+    parser.add_argument("parameters", nargs="+")
+    options = parser.parse_args(argv)
+    if len(options.parameters) != (1 if options.render else 4):
+        parser.error("--render 需要一个 IPv4；配置或 --check 需要 primary secondary management release。")
+    started = False
+    try:
+        if options.render:
+            print(render_configuration(address(options.parameters[0])), end="")
+        else:
+            inputs = preflight(*options.parameters)
+            if options.check:
+                print(json.dumps({"status": "admitted", "changesApplied": False,
+                                  "runtimeActivationVerified": False}, separators=(",", ":")))
+            else:
+                started = True
+                configure(*inputs)
+        return 0
+    except AdmissionFailure as error:
+        code = str(error)
+    except (OSError, ValueError, subprocess.SubprocessError):
+        code = "gateway_configuration_failed"
+    print(json.dumps({"status": "failed", "code": code, "modificationsMayHaveOccurred": started},
+                     separators=(",", ":")), file=sys.stderr)
+    return 1
+
+
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

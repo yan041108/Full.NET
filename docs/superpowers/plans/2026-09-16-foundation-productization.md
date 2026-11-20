@@ -7482,3 +7482,13 @@ Release 集成工程单节点构建及 Identity 模块隔离 AOT 分析均零警
 - 真实 API 首次创建精确两个 /32 源的 NetworkPolicy 并条件替换 ConfigMap，旧代理第九项及旧宽网段消失，无关值保留；重复调用的两个资源 resourceVersion 均不变。实际读取后插入并发配置修改，原 UID/resourceVersion 补丁被服务器拒绝，回执 networkPolicy=verified、runtimeConfig=not_verified，未覆盖并发值；再次正常执行删除残余旧项并保留并发值。成功回执仍明确 API 需滚动、runtimeActivationVerified=false。
 - 十九条受控方法覆盖节点歧义/未就绪/变化、危险 CIDR、身份/版本冲突、immutable/binaryData、响应丢失的本轮标记与内容复核、读回篡改、部分状态、期限和错误脱敏。该组不替代真实 CNI、其他策略许可并集、Flannel SNAT 或 Host 转发 Header 验证。Kind 集群与其容器已删除（own_cluster_containers=0），私有 kubeconfig/临时目录回收。
 - 本批两个固定任务及规定验收均完成，剩余开发 0、待验收 0。未连接发布节点、读取 Secret、滚动业务宿主或修改业务库；未运行无影响的 .NET/双库/全量。发布窗口实际配置合并、网络及运行验证仍归原 F15/F16，Capacity-not-verified 保持，其他工作区改动保留。
+### 8.387 当前冻结批次：F15 内网网关配置前置准入（2026-11-20）
+
+| 固定任务 | 当前状态 | 完成条件 |
+| --- | --- | --- |
+| F15-GatewayConfigurationAdmission | 已实现，本地定向验收通过 | root/IP/发布根、前端入口、指针/暂存冲突、配置与证书路径在首次修改前显式校验，不受 -O 影响；--check 只输出结构准入结果，失败零修改。 |
+
+- 基线 `7189c0bc891cae2c4f1c7cd57d0756013fb947d3`，快照 `gateway-configure-admission-20261120`。接续 F15/F16 的既有网关部署入口，原 Configure-InternalEdge.py 使用 assert 检查 root、发布根及当前前端路径，-O 会移除；真实禁网 Python -O 容器最小复现中，非 root 模型与发布根外目录抵达首次修改函数，已由受控替身截断，未执行真实修改。属于原发布链的明确准入缺陷，不重建网关或部署平台。
+- 本批仅冻结一项完整准入功能：受控真实文件系统、-O CLI 及修改调用替身验证允许/拒绝与零修改边界，保持正常配置步骤和 --render 输出用途。--check 不证明证书密码学、NGINX 激活、集群权限、容量或无中断发布；本轮不操作目标节点、Kubernetes、包管理器、UFW、NGINX 或真实证书。
+- 仅修改此入口、对应测试、定向工作流、现有运行手册及本计划；完成规定验收后交付，不运行无影响的 .NET/双库/全量，不接管其他未提交部署脚本，Capacity-not-verified 保持。
+- 集中二十条方法已在本地 Python 3.12 -O、一次性禁网容器（CPU 1/内存 128 MiB）实际 20/20（0.557 秒），零失败/跳过。实际文件所有权、链接/硬链接、权限、旧文件字节保留、-O 下真实降权 CLI、越界/普通当前文件首次修改前拒绝、只读 --check 和 --render 均覆盖；修改函数和系统命令为截断替身，不以此认证正常安装/激活流程。本批集中实现已完成，补入同候选聚焦工作流后收齐终态再交付。

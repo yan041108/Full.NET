@@ -8,7 +8,7 @@ on:
         required: true
         default: runtime-config
         type: choice
-        options: [runtime-config, cdc-identities, cache-cluster-driver, infrastructure-backup, ubuntu-role-release, network-readiness, release-evidence, oci-packaging, object-restore, oci-runtime, cluster-network, cache-cluster-runtime, object-certificate, edge-reload-recovery, web-certificate-recovery, gateway-trust]
+        options: [runtime-config, cdc-identities, cache-cluster-driver, infrastructure-backup, ubuntu-role-release, network-readiness, release-evidence, oci-packaging, object-restore, oci-runtime, cluster-network, cache-cluster-runtime, object-certificate, edge-reload-recovery, web-certificate-recovery, gateway-trust, gateway-configuration-admission]
       helm_version:
         description: Helm 场景使用的固定版本
         required: true
@@ -33,7 +33,7 @@ jobs:
           SCENARIO: ${{ inputs.scenario }}
           HELM_VERSION: ${{ inputs.helm_version }}
         run: |
-          case "$SCENARIO" in runtime-config|cdc-identities|cache-cluster-driver|infrastructure-backup|ubuntu-role-release|network-readiness|release-evidence|oci-packaging|object-restore|oci-runtime|cluster-network|cache-cluster-runtime|object-certificate|edge-reload-recovery|web-certificate-recovery|gateway-trust) ;; *) exit 64 ;; esac
+          case "$SCENARIO" in runtime-config|cdc-identities|cache-cluster-driver|infrastructure-backup|ubuntu-role-release|network-readiness|release-evidence|oci-packaging|object-restore|oci-runtime|cluster-network|cache-cluster-runtime|object-certificate|edge-reload-recovery|web-certificate-recovery|gateway-trust|gateway-configuration-admission) ;; *) exit 64 ;; esac
           case "$HELM_VERSION" in v3.16.4|v4.0.0) ;; *) exit 64 ;; esac
       - uses: actions/setup-node@v4
         if: inputs.scenario == 'runtime-config' || inputs.scenario == 'cdc-identities'
@@ -308,6 +308,20 @@ jobs:
           if not result.wasSuccessful() or result.skipped or result.testsRun != 20:
               raise SystemExit(1)
           print(f'gateway_trust: passed={result.testsRun} failed=0 skipped=0')
+          PY
+              ;;
+            gateway-configuration-admission)
+              docker run --rm -i --network none --cpus 1 --memory 128m --pids-limit 64 \
+                -e PYTHONDONTWRITEBYTECODE=1 --mount "type=bind,source=$PWD,target=/repository,readonly" \
+                -w /repository python:3.12-alpine python3 -O - <<'PY'
+          import sys
+          import unittest
+          print(sys.version)
+          suite = unittest.defaultTestLoader.discover('tests/deployment', pattern='gateway_configuration_admission_test.py')
+          result = unittest.TextTestRunner(verbosity=2).run(suite)
+          if not result.wasSuccessful() or result.skipped or result.testsRun != 20:
+              raise SystemExit(1)
+          print(f'gateway_configuration_admission: passed={result.testsRun} failed=0 skipped=0')
           PY
               ;;
             *) exit 64 ;;

@@ -54,6 +54,21 @@ Tenancy 解析在 Identity 认证前后由模块中间件与 `ICurrentTenant` �
 
 内网 K3s 网关通过 [Refresh-Edge.py](../../eng/deploy/ubuntu/Refresh-Edge.py) 根据 API 的 EndpointSlice 更新上游地址。读取成功且没有就绪端点时，刷新会将上游设为停用，NGINX 对新代理请求返回 502。就绪端点恢复后，下次刷新接回流量。EndpointSlice 读取失败时保留最后一份配置，NGINX 校验失败时恢复原文件；重载失败或响应丢失时，恢复原文件后再次校验并重载，以处理新配置可能已经生效的情况。刷新只调用 reload，不隐式启动或重启服务。失败退出码为 1，标准错误只含固定码与 configRestored、rollbackReloadAcknowledged；恢复文件失败或恢复重载失败会分别标记，不能把磁盘恢复当作在线路由恢复。即使恢复命令得到确认，本轮更新仍报告失败；实际运行状态须另行观察新连接响应和 worker 排空。[NGINX upstream 文档](https://nginx.org/en/docs/http/ngx_http_upstream_module.html#server)
 
+## 内网网关配置预检
+
+正式配置前可用原四个参数执行只读准入，且正常配置入口也会重新执行同样检查：
+
+```bash
+sudo python3 /usr/local/lib/fullnet/Configure-InternalEdge.py --check \
+  PRIMARY_IPV4 SECONDARY_IPV4 MANAGEMENT_IPV4 /srv/fullnet/releases/RELEASE
+```
+
+准入要求 root、有效且不同的基础设施节点地址；发布目录必须实际位于 /srv/fullnet/releases/ 下，发布祖先、frontend、非空 index.html 及证书/密钥路径须为 root 所有、无组/其他用户写权限且无不受控链接，私钥不能被其他用户读取。当前 current-web 必须不存在或为指向发布根内的 root 链接；既有 .next-web（包括悬空链接）会被保留并拒绝覆盖。既有 NGINX 配置路径不能为链接、非普通文件或不安全权限。所有检查在修改集群、包管理器、NGINX、UFW 或前端指针之前完成，Python -O 不会跳过。
+
+成功的 --check 回执仅为 status=admitted、changesApplied=false、runtimeActivationVerified=false，证明本次文件结构和调用准入；不读取私钥内容、不校验证书密码学或发布包摘要、不证明 NGINX/集群权限及在线状态。--render PRIMARY_IPV4 继续只输出配置且无需 root。失败回执为固定码和 modificationsMayHaveOccurred；前置失败为 false，进入配置流程后的失败为 true，不能据此假定已有修改已回滚。
+
+不加 --check 时仍执行既有部署配置步骤，可能修改集群和停止 NGINX；本项不提供无中断发布或跨资源回滚。只读准入完成后仍应按授权维护窗口执行、刷新就绪上游、检查 nginx -t，并独立确认线上运行。定向入口 helm-runtime-focused / gateway-configuration-admission 在一次性禁网容器内使用真实临时文件系统、-O 与实际降权子进程，所有系统修改调用被截断，不访问发布环境。
+
 ## 内网网关代理信任更新
 
 在既有部署流程中，Configure-GatewayTrust.py GATEWAY_IPV4 默认要求 root，并绑定 /etc/rancher/k3s/k3s.yaml；调用者原入口保持不变。显式使用其他 kubectl 时必须同时提供 --kubectl 和 --context，不能借环境当前 context 选择目标。操作仅针对 fullnet-production 的 fullnet-runtime ConfigMap 和 fullnet-internal-edge NetworkPolicy，不读取 Secret，不滚动 API。
