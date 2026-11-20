@@ -7408,10 +7408,14 @@ Release 集成工程单节点构建及 Identity 模块隔离 AOT 分析均零警
 
 | 固定任务 | 当前状态 | 完成条件 |
 | --- | --- | --- |
-| F16-ClusterBackplaneRuntime | 已实现，待真实场景验收 | 两个不同 Kind 工作节点的独立进程复用正式 AddFullNetCaching，真实认证 Redis，双向失效、L2 删除、权威回填、Healthy 及丢通知后 TTL 收敛均满足原窗口。 |
-| F16-ClusterBackplaneIsolation | 已实现，待真实场景验收 | 哨兵保留、随机协调键/远端目录清零、命名空间与集群删除；实际同节点对照在写探针状态前拒绝，无成功回执。 |
+| F16-ClusterBackplaneRuntime | 已交付，真实双节点验收通过 | 两个不同 Kind 工作节点的独立进程复用正式 AddFullNetCaching，真实认证 Redis，双向失效、L2 删除、权威回填、Healthy 及丢通知后 TTL 收敛均满足原窗口。 |
+| F16-ClusterBackplaneIsolation | 已交付，真实隔离与清理验收通过 | 哨兵保留、随机协调键/远端目录清零、命名空间与集群删除；实际同节点对照在写探针状态前拒绝，无成功回执。 |
 
 - 基线 `794f3c0f022e629f110cb32612858693b8a936a3`，快照 `cache-backplane-real-cluster-20261120`。接续 §8.372 同机真实进程、§8.373 受控编排与 §8.381 真实跨节点网络之后的实际缓存差集；复用既有探针和验证器，不重写生产缓存策略或重复旧方法。按 fullnet-performance-hardening 的缓存证据边界执行，只验功能，不主张性能改善。
 - 冻结两项，集中两条真实方法，SDK 仅发布现有缓存探针及直接依赖，不运行整个 Host 或双库/全量。Kind v0.30.0、Kubernetes v1.34.0 固定节点摘要、独立 kubeconfig/唯一集群；两个 .NET 运行时 holder 与认证 Redis 8.6 只承载本轮进程/键，临时 Secret 不打印或进入 Git。每场景独立命名空间并清理，构建/包缓存/回执进入系统临时目录。
 - 成功后核对各 Pod 所在节点与 UID、缓存实例、五秒 L1 失效/两分钟 TTL 对照、四秒丢通知收敛、L2 和回填。独立同节点对照不得复制或执行探针；无关哨兵和原临时目录状态保留，集群结束时回收本轮容器与临时输入。
 - 两任务和规定验收完成后交付；只证明同一执行机上的两个 Kubernetes 工作节点，不升级为物理故障域、常驻业务宿主、多 Redis 故障接管或容量认证，Capacity-not-verified 保持，不连接发布集群。
+
+- 候选 `c46b9f7d5` 的 [真实缓存集群作业](https://github.com/yan041108/Full.NET/actions/runs/44738873642/job/136297120775) 实际 2/2（120.910 秒），零失败/跳过，源码状态守卫通过。Ubuntu 24.04、Kind v0.30.0、Kubernetes v1.34.0 固定节点摘要、Docker 28.0.4；现有探针实际 Release 发布并经正式编排器复制到两个工作节点内的独立 .NET 进程，Redis 8.6 使用本轮 Secret 鉴权。运行时镜像 registry digest `sha256:12b1135f5f8b3c0a214f2a680ff2033dff4f684f445d6c697d9524ceeb303586`，Redis digest `sha256:8b30009c0de4fdb3fb67deb8afab050fe454e9b233c6a2c142ec34fcc51fa7f5`。
+- 两个不同节点/Pod UID/缓存实例均回执 Healthy，双向失效单次功能观察为 21.809 / 37.9619 毫秒（L1 TTL 对照 120 秒），L2 删除与原值回填通过；丢一次通知后的单次收敛观察为 1175.8708 毫秒，低于原四秒门槛。以上只记录本轮功能窗口，不能作为吞吐或延迟分位基线。哨兵 unchanged，本轮协调键 0、远端目录 0；同节点真实对照在写入前被拒绝，未产生回执或探针状态。
+- 两场景的独立命名空间均删除，本轮 Kind 集群容器为 0，私有 kubeconfig、合成 Secret 清单、构建/包缓存与回执随系统临时目录回收。两个固定任务与规定验收均完成，剩余开发 0、待验收 0；生产缓存源码、真实配置及业务库未改。常驻业务宿主、两台物理主机、Redis 故障接管、生产发布与容量仍由原 F16 保留，Capacity-not-verified 不升级，其他工作区改动保留。
