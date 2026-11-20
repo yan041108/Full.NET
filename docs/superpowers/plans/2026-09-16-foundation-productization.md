@@ -7368,11 +7368,11 @@ Release 集成工程单节点构建及 Identity 模块隔离 AOT 分析均零警
 
 | 固定任务 | 当前状态 | 完成条件 |
 | --- | --- | --- |
-| F15-R2-OciRuntimeImport | 已实现，待真实运行验收 | 正式打包入口使用真实 MCR 运行时，三个角色探针实际发布、导入 Docker 并以镜像自身非 root 身份/只读/禁网运行，实际层与 OCI DiffID 一致。 |
-| F15-R2-OciRuntimeUpdate | 已实现，待真实运行验收 | 复用原基础层离线打包 API 新代次，真实运行确认新内容及旧文件消失；错误代次实际失败，所有本轮容器/镜像与临时产物回收。 |
+| F15-R2-OciRuntimeImport | 已交付，真实容器验收通过 | 正式打包入口使用真实 MCR 运行时，三个角色探针实际发布、导入 Docker 并以镜像自身非 root 身份/只读/禁网运行，实际层与 OCI DiffID 一致。 |
+| F15-R2-OciRuntimeUpdate | 已交付，真实离线更新验收通过 | 复用原基础层离线打包 API 新代次，真实运行确认新内容及旧文件消失；错误代次实际失败，所有本轮容器/镜像与临时产物回收。 |
 
 - 基线 `c203dd01a001cabb793feec68c9e99244e0a3b16`，快照 `oci-runtime-roundtrip-20261120`。接续 §8.378 明确保留的真实导入/运行缺口，不重跑三十条已验归档规则，不新增业务模块或改变生产版本。
-- 冻结两项，集中运行三条精确方法（含三角色子场景）：Microsoft.NET.Sdk/net10.0 无第三方业务依赖探针、Python 3.12 -O、Skopeo 与本机 Docker。实际 MCR 下载和正式打包、四个镜像导入、五次容器执行（包含一个错误代次对照）；build/obj/publish/cache/归档均进入系统临时目录，容器禁网/只读/CPU 1/内存 128 MiB/进程 64，只清理本轮登记的唯一资源。
+- 冻结两项，集中运行三条实际运行方法（含三角色子场景）及四条直接故障边界，共七条：Microsoft.NET.Sdk/net10.0 无第三方业务依赖探针、Python 3.12 -O、Skopeo 与本机 Docker。实际 MCR 下载和正式打包、四个镜像导入、五次容器执行（包含一个错误代次对照）；build/obj/publish/cache/归档均进入系统临时目录，容器禁网/只读/CPU 1/内存 128 MiB/进程 64，只清理本轮登记的唯一资源。
 - 当前本机无可用 Python，复用手动聚焦 Ubuntu 24.04 入口，新增场景单独设置二十分钟总期限，其余场景仍十分钟。只构建本次小型探针，不构建或运行 Full.NET 业务宿主，不触发全量、双库或 Native；生产切版和完整宿主另归原 F15/F16。
 - 两项规定范围运行通过并收齐清理证据后交付，不把镜像探针升级为完整业务预设、目标节点或容量认证，保持 Capacity-not-verified。
 
@@ -7383,3 +7383,7 @@ Release 集成工程单节点构建及 Identity 模块隔离 AOT 分析均零警
 - 第三轮 `5e141e88d` / [作业 136215514108](https://github.com/yan041108/Full.NET/actions/runs/44714853151/job/136215514108) 已真实下载并生成 API 归档（基础 manifest `sha256:3a31a3c8c41f487ecab474cf6dcf152489fedca9fd145b0b49a4b9e616cd6dde`），三条下载/错误边界通过；导入在 Skopeo 解开 OCI root 所有权时返回 operation not permitted，实际运行仍未通过。仅让本轮 Skopeo 导入使用执行机现有 sudo -n 权限，并显式绑定已核对的本机 Unix socket；不改归档所有权、应用 User 或隔离参数。Docker context 与 DOCKER_HOST 必须一致，防止提升后的导入器切换守护进程。
 
 - 第四轮 `11a7f210d` / [作业 136217091805](https://github.com/yan041108/Full.NET/actions/runs/44715308808/job/136217091805) 已读取实际基础层，但 Skopeo 明确拒绝 OCI manifest 内继承的 Docker layer mediaType。修复输出描述符类型为 OCI tar+gzip，保留层字节、size、digest 和 rootfs DiffID；新增精确 Docker 基础夹具，实际核对类型规范化与内容身份不变。原三运行方法加四条直接变化边界合计七条，保留既有源 OCI 夹具，不通过更换导入器来绕过格式错误。
+
+- 最终候选 `953c2c071` 的 [真实 OCI 作业](https://github.com/yan041108/Full.NET/actions/runs/44715764316/job/136218635602) 实际 7/7（23.784 秒），零失败/跳过，源码状态守卫通过。Ubuntu 24.04、SDK 10.0.404、Python 3.12.16、Skopeo 1.13.3、Docker 28.0.4，容器实际 .NET 10.0.15；MCR 基础 manifest `sha256:3a31a3c8c41f487ecab474cf6dcf152489fedca9fd145b0b49a4b9e616cd6dde`。三个探针实际 Release 发布，四个候选均成功导入且每个七层，Docker 真实 RootFS DiffID 与 OCI 配置一致；四次正常入口加一次预期失败，共五次只读/禁网/UID 1654 容器执行。
+- API 新代次以旧 API manifest 为离线基础，实际读到 current、原 old-only.txt 消失、点文件保留，运行时层描述符/字节身份保持一致；旧代次按 current 执行真实退出 3。独立回执核对归档摘要，四个导入 imageID 与四份 manifest/archive 摘要保留在该作业；清理守卫确认本轮容器和镜像标签为零、临时文件已移除。下载分类、传输开销/精确大小不混用与 Docker→OCI 类型规范化四条边界全部通过，未重跑无变化的归档方法。
+- 本批两个冻结项及规定验收完成，剩余开发 0、待验收 0；真实运行过程中发现的下载和混合介质格式缺陷已一并修复。小型探针没有业务依赖，不能据此关闭完整 Host.Api/Worker/Migrator、数据库迁移、Native 或目标 Kubernetes；F15/F16 原专项与 Capacity-not-verified 保持，其他工作区改动保留。

@@ -54,7 +54,9 @@ python3 eng/deploy/ubuntu/Pack-OciImage.py --publish api-linux-x64.tar --role ap
 
 role 支持 api/worker/migrator；对应宿主 DLL、deps.json、runtimeconfig.json 必须存在且非空。基础 OCI 必须为单一 linux/amd64 镜像，引用的 SHA-256、大小和 rootfs 层数必须一致；--base-digest 固定预期镜像 manifest，不是 OCI 外层 tar 摘要。需要先从受信交付取得该值，摘要校验不代替来源认证。不传 --base-oci 时仍仅从微软 MCR 的 ASP.NET 10.0 下载，解析 amd64 平台并验证描述符；建议显式固定 --base-digest，成功 JSON 会记录实际基础 manifest，下载使用 curl 的证书校验和有界期限。
 
-离线输入可为干净运行时包，或旧 Full.NET 包；后者仅当最后应用历史标记、app/ 路径和未压缩 DiffID 均核对通过时才替换旧应用层，运行时层保持不变。拒绝归档越界、重复规范路径、链接、设备、FIFO、whiteout 和文件/目录冲突。只接受 JIT 入口，不把 Native AOT 产物包当作 DLL 发布包。应用层排序、权限、时间戳和 gzip 头规范化，同样的受信基础与应用内容可复现；点文件保持原名，可执行位保留，容器使用 UID 1654。
+离线输入可为干净运行时包，或旧 Full.NET 包；后者仅当最后应用历史标记、app/ 路径和未压缩 DiffID 均核对通过时才替换旧应用层，运行时层字节和摘要保持不变；Docker 基础层的 mediaType 会规范为 OCI tar+gzip，避免混合类型 manifest 被导入器拒绝。拒绝归档越界、重复规范路径、链接、设备、FIFO、whiteout 和文件/目录冲突。只接受 JIT 入口，不把 Native AOT 产物包当作 DLL 发布包。应用层排序、权限、时间戳和 gzip 头规范化，同样的受信基础与应用内容可复现；点文件保持原名，可执行位保留，容器使用 UID 1654。
+
+在线 blob 下载为重定向预留至少 64 KiB 的有界传输预算，但最终大小与 SHA-256 仍须精确匹配 descriptor；只跟随 HTTPS，最多五次。下载、IO、元数据、归档失败分别输出固定分类（下载/IO 含数字退出码），不输出原始 URL、路径或远端响应。
 
 生成 OCI tar 与同名 .manifest.json，目标存在即拒绝覆盖；归档最后排他提交，普通失败清理本轮 sidecar 和暂存文件，成功输出 manifest/base/archive 三种摘要。输出父目录须预先存在；cache 是操作者明确指定的复用位置，不作为发布成功标记。每个归档条目与展开范围上限 4 GiB、最多五万成员，基础最多 128 层，仅支持 sha256 和 tar/gzip 层。强杀或掉电可能留下独立 sidecar，保留并核对后另选输出，不自动删除历史文件或把 sidecar 当作完整镜像。
 
@@ -62,7 +64,7 @@ role 支持 api/worker/migrator；对应宿主 DLL、deps.json、runtimeconfig.j
 
 需要验证真实导入与入口时，选择手动入口 helm-runtime-focused / oci-runtime：只发布 tests/deployment/fixtures/oci-runtime/ 的无业务依赖 .NET 10 探针，正式 Pack-OciImage.py 从 MCR 获取运行时并输出基础/候选/归档摘要，通过 Skopeo 导入本机 Docker。三个角色的入口分别以镜像自身 UID 1654 启动，运行时再核对工作目录、环境、点文件和应用代次；API 离线更新验证运行时层保留、旧应用文件消失，错误代次须真实退出失败。
 
-该入口仅接受显式隔离 Linux 和本地 Unix socket Docker context。探针容器禁用网络、根文件系统只读、CPU 1/内存 128 MiB/进程 64，命令有硬期限；构建输出、下载缓存和 OCI 包均在系统临时目录，结束只删除本轮唯一标签/名称的镜像和容器，不执行 prune 或复制整仓。Skopeo 使用 [OCI archive 到 Docker daemon 传输](https://github.com/containers/image/blob/main/docs/containers-transports.5.md)，不向远端仓库推送。通过结果只认证镜像传输与 .NET 探针入口，不替代 Full.NET 三个完整业务宿主、数据库迁移、Native AOT 或生产 Kubernetes 的验收。
+该入口仅接受显式隔离 Linux 和本地 Unix socket Docker context，且要求 DOCKER_HOST 与该 context 一致。导入器使用执行机已有 sudo -n 权限处理归档内的 root 所有权，目标守护进程显式绑定，容器应用权限不提升。探针容器禁用网络、根文件系统只读、CPU 1/内存 128 MiB/进程 64，命令有硬期限；构建输出、下载缓存和 OCI 包均在系统临时目录，结束只删除本轮唯一标签/名称的镜像和容器，不执行 prune 或复制整仓。Skopeo 使用 [OCI archive 到 Docker daemon 传输](https://github.com/containers/image/blob/main/docs/containers-transports.5.md)，不向远端仓库推送。通过结果只认证镜像传输与 .NET 探针入口，不替代 Full.NET 三个完整业务宿主、数据库迁移、Native AOT 或生产 Kubernetes 的验收。
 
 ### 采集并封存运行快照
 
