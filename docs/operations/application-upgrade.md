@@ -42,6 +42,26 @@ migrator 在候选渲染通过、备份服务成功后才开启临时 DDL 设置
 
 ## Ubuntu 发布运行证据封存
 
+### 生成角色更新 OCI 包
+
+使用既有 Linux x64 JIT publish tar 和受信基础 OCI 包，不依赖 Docker 守护进程：
+
+```bash
+python3 eng/deploy/ubuntu/Pack-OciImage.py --publish api-linux-x64.tar --role api \
+  --tag CANDIDATE --base-oci reviewed-base.oci.tar --base-digest sha256:REVIEWED_MANIFEST_DIGEST \
+  --cache /var/cache/fullnet/oci --output /srv/fullnet/releases/CANDIDATE/api.oci.tar
+```
+
+role 支持 api/worker/migrator；对应宿主 DLL、deps.json、runtimeconfig.json 必须存在且非空。基础 OCI 必须为单一 linux/amd64 镜像，引用的 SHA-256、大小和 rootfs 层数必须一致；--base-digest 固定预期镜像 manifest，不是 OCI 外层 tar 摘要。需要先从受信交付取得该值，摘要校验不代替来源认证。不传 --base-oci 时仍仅从微软 MCR 的 ASP.NET 10.0 下载，解析 amd64 平台并验证描述符；建议显式固定 --base-digest，成功 JSON 会记录实际基础 manifest，下载使用 curl 的证书校验和有界期限。
+
+离线输入可为干净运行时包，或旧 Full.NET 包；后者仅当最后应用历史标记、app/ 路径和未压缩 DiffID 均核对通过时才替换旧应用层，运行时层保持不变。拒绝归档越界、重复规范路径、链接、设备、FIFO、whiteout 和文件/目录冲突。只接受 JIT 入口，不把 Native AOT 产物包当作 DLL 发布包。应用层排序、权限、时间戳和 gzip 头规范化，同样的受信基础与应用内容可复现；点文件保持原名，可执行位保留，容器使用 UID 1654。
+
+生成 OCI tar 与同名 .manifest.json，目标存在即拒绝覆盖；归档最后排他提交，普通失败清理本轮 sidecar 和暂存文件，成功输出 manifest/base/archive 三种摘要。输出父目录须预先存在；cache 是操作者明确指定的复用位置，不作为发布成功标记。每个归档条目与展开范围上限 4 GiB、最多五万成员，基础最多 128 层，仅支持 sha256 和 tar/gzip 层。强杀或掉电可能留下独立 sidecar，保留并核对后另选输出，不自动删除历史文件或把 sidecar 当作完整镜像。
+
+定向验收 helm-runtime-focused / oci-packaging 使用合成基础层和 publish 内容，仅证明 OCI 结构、摘要和打包行为，不证明运行时来源、真实程序集启动、容器导入或 Kubernetes 发布。参考 [OCI 描述符](https://github.com/opencontainers/image-spec/blob/main/descriptor.md)与 [DiffID 规则](https://github.com/opencontainers/image-spec/blob/main/config.md)。
+
+### 采集并封存运行快照
+
 角色升级结束后，使用已有只读 Kubernetes 权限采集一次运行快照。入口不读取管理员密码或 Key Ring，不执行 MySQL，不写 Nginx 或修改工作负载；凭据交付、配置生效和密钥恢复各自按原步骤验证。
 
 ```bash
