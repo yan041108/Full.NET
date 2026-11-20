@@ -40,6 +40,23 @@ migrator 在候选渲染通过、备份服务成功后才开启临时 DDL 设置
 
 成功清理本轮暂存目录；失败仅保留私有且有界的原始诊断，values 与候选副本会被移除，秘密不直接回显到终端。该普通角色步骤不承担报表输出切版、旧消费者排空或联合恢复；涉及这些变更时使用上方对应手册和正式门禁。
 
+## 双节点集群网络核对
+
+使用已有 Kubernetes 授权，显式指定两个不同的 Ready、可调度节点和目标 context：
+
+```bash
+eng/deploy/ubuntu/Verify-Cluster.sh PRIMARY_NODE SECONDARY_NODE \
+  --kubectl kubectl --context TARGET_CONTEXT
+```
+
+省略 --kubectl 时复用 k3s kubectl；不修改 kubeconfig，也不创建或提升权限。调用方需要读取节点，以及创建/读取/等待/删除本轮 Namespace、Pod 和执行 Pod 命令的权限。入口会实际创建随机 fullnet-infra-check-* 命名空间，仅在其中创建两个探针 Pod，不操作业务命名空间。--image 可显式给出预载镜像或固定摘要；默认 rancher/mirrored-library-busybox:1.37.0，镜像须提供 sh/httpd/nslookup/wget/sleep。
+
+先核对节点 UID、Ready 与可调度性，再把 server/client 固定在不同节点。Pod 非 root、根文件系统只读、禁用自动挂载 SA Token，资源上限 CPU 100m/内存 64 MiB、生命周期 300 秒，服务内容只写本轮 emptyDir。实际执行集群 DNS 解析和客户端到服务端 Pod IP 的 HTTP 请求，响应必须是本轮随机值；复核 Pod UID、容器/镜像及节点 UID 未更换后再清理。每次命令有超时和 4 MiB 输出上限，不把远端原始错误或 kubeconfig 回显到终端。
+
+创建响应丢失或信号中断也按本轮标签核对归属；清理时命名空间 UID/标签不符会停止删除并报告失败。必须等待删除并再次查询确认不存在，才输出 status=passed、namespaceDeleted=true 的单条 JSON；删除失败/假删除只输出失败和本轮命名空间定位码，不能按旧摘要判定成功。节点更换、命名空间终止异常和物理主机掉电仍需人工复核，不以本探针证明业务故障接管、外部渠道或容量。
+
+手动聚焦入口 helm-runtime-focused / cluster-network 运行十七条受控命令用例及一次真实 Kind 两工作节点场景。Kind v0.30.0 使用官方校验和，Kubernetes v1.34.0 节点镜像固定发布摘要，独立 kubeconfig 和唯一集群不连接发布环境；结束复核临时命名空间和集群容器均已删除。它验证同一执行机上两个 Kubernetes 节点的实际协议，生产 CNI、物理故障域和 Capacity-not-verified 状态另保留。固定测试镜像依据 [Kind v0.30.0 发布记录](https://github.com/kubernetes-sigs/kind/releases/tag/v0.30.0)。
+
 ## Ubuntu 发布运行证据封存
 
 ### 生成角色更新 OCI 包

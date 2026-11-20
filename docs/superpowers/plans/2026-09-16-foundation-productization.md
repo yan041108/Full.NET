@@ -7387,3 +7387,15 @@ Release 集成工程单节点构建及 Identity 模块隔离 AOT 分析均零警
 - 最终候选 `953c2c071` 的 [真实 OCI 作业](https://github.com/yan041108/Full.NET/actions/runs/44715764316/job/136218635602) 实际 7/7（23.784 秒），零失败/跳过，源码状态守卫通过。Ubuntu 24.04、SDK 10.0.404、Python 3.12.16、Skopeo 1.13.3、Docker 28.0.4，容器实际 .NET 10.0.15；MCR 基础 manifest `sha256:3a31a3c8c41f487ecab474cf6dcf152489fedca9fd145b0b49a4b9e616cd6dde`。三个探针实际 Release 发布，四个候选均成功导入且每个七层，Docker 真实 RootFS DiffID 与 OCI 配置一致；四次正常入口加一次预期失败，共五次只读/禁网/UID 1654 容器执行。
 - API 新代次以旧 API manifest 为离线基础，实际读到 current、原 old-only.txt 消失、点文件保留，运行时层描述符/字节身份保持一致；旧代次按 current 执行真实退出 3。独立回执核对归档摘要，四个导入 imageID 与四份 manifest/archive 摘要保留在该作业；清理守卫确认本轮容器和镜像标签为零、临时文件已移除。下载分类、传输开销/精确大小不混用与 Docker→OCI 类型规范化四条边界全部通过，未重跑无变化的归档方法。
 - 本批两个冻结项及规定验收完成，剩余开发 0、待验收 0；真实运行过程中发现的下载和混合介质格式缺陷已一并修复。小型探针没有业务依赖，不能据此关闭完整 Host.Api/Worker/Migrator、数据库迁移、Native 或目标 Kubernetes；F15/F16 原专项与 Capacity-not-verified 保持，其他工作区改动保留。
+
+### 8.381 当前冻结批次：F16 双节点网络验收与命名空间退出（2026-11-20）
+
+| 固定任务 | 当前状态 | 完成条件 |
+| --- | --- | --- |
+| F16-ClusterNetworkProbe | 已实现，待集中验收 | 两个不同 Ready/可调度节点、固定 Pod 节点与镜像身份、DNS 和本轮随机 HTTP 响应、前后节点/Pod 身份一致；真实独立 Kind 两工作节点验证。 |
+| F16-ClusterNetworkExit | 已实现，待集中验收 | 创建响应丢失及信号失败也清理本轮随机标签/UID 的命名空间，确认删除后才报告成功；身份变化不删除，失败回执不泄露原始命令输出。 |
+
+- 基线 `0dbbd44f76bc49fceb8c11b8a885cf08e1de93d2`，快照 `cluster-network-delivery-20261120`；原 Verify-Cluster.sh SHA-256 `0a9d6a2b3acb16c128bc3b959ee1d795e26e394f4a0af47ee7198a53c2c0130a`。原脚本允许相同节点、秒级命名空间可能冲突，未核对 Pod 身份/所在节点，在异步删除前打印成功。接续 F16 跨节点网络准入，不以新探针重复缓存背板或业务多副本故障验收。
+- 冻结两项，集中十八条方法：十七条受控 kubectl 行为覆盖及一条真实 Kind 场景。Kind v0.30.0 / 固定 Kubernetes v1.34.0 节点镜像摘要，独立 kubeconfig、唯一集群/命名空间，不使用发布 context；两个工作节点上的 BusyBox Pod 实际 DNS 和 HTTP，禁用 SA Token、非 root/只读根文件系统、CPU/内存限制，清理后再次查无本轮命名空间和集群容器。
+- 受控场景覆盖同节点/未就绪/不可调度、创建响应丢失、部分 Pod 创建、错误节点/IP、身份变化、DNS/HTTP 失败、假删除/删除失败、命名空间 UID 变化及 TERM。只运行本次新入口，不执行 .NET/双库/全量；真实 Kind 只证明同一执行机的两个 Kubernetes 节点，物理故障域、生产集群与容量仍待原 F16 验证，保持 Capacity-not-verified。
+- 两项及规定验收完成后交付；其他部署脚本与测试报告不接管，不向目标发布集群创建资源。
