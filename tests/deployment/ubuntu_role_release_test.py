@@ -279,7 +279,8 @@ class RealHelmRolePlanTests(_Base):
 
     def test_batch_actual_chart_renders_each_role_once_with_one_package(self):
         self.chart = REPOSITORY / 'deploy/helm/fullnet'
-        self.common.write_text((REPOSITORY / 'deploy/helm/fullnet/examples/values-sqlserver.yaml').read_text())
+        self.common.write_text((self.chart / 'ci/values-role-api.yaml').read_text() + '\n'
+                               + (self.chart / 'ci/values-provider-sqlserver.yaml').read_text())
         self.configure(real_helm=True)
         result = self.execute('all', '--plan')
         self.assertEqual(result.returncode, 0, result.stderr)
