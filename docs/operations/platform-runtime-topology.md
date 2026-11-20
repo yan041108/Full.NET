@@ -54,6 +54,16 @@ Tenancy 解析在 Identity 认证前后由模块中间件与 `ICurrentTenant` �
 
 内网 K3s 网关通过 [Refresh-Edge.py](../../eng/deploy/ubuntu/Refresh-Edge.py) 根据 API 的 EndpointSlice 更新上游地址。读取成功且没有就绪端点时，刷新会将上游设为停用，NGINX 对新代理请求返回 502。就绪端点恢复后，下次刷新接回流量。EndpointSlice 读取失败时保留最后一份配置，NGINX 校验失败时恢复原文件；重载失败或响应丢失时，恢复原文件后再次校验并重载，以处理新配置可能已经生效的情况。刷新只调用 reload，不隐式启动或重启服务。失败退出码为 1，标准错误只含固定码与 configRestored、rollbackReloadAcknowledged；恢复文件失败或恢复重载失败会分别标记，不能把磁盘恢复当作在线路由恢复。即使恢复命令得到确认，本轮更新仍报告失败；实际运行状态须另行观察新连接响应和 worker 排空。[NGINX upstream 文档](https://nginx.org/en/docs/http/ngx_http_upstream_module.html#server)
 
+## 内网网关代理信任更新
+
+在既有部署流程中，Configure-GatewayTrust.py GATEWAY_IPV4 默认要求 root，并绑定 /etc/rancher/k3s/k3s.yaml；调用者原入口保持不变。显式使用其他 kubectl 时必须同时提供 --kubectl 和 --context，不能借环境当前 context 选择目标。操作仅针对 fullnet-production 的 fullnet-runtime ConfigMap 和 fullnet-internal-edge NetworkPolicy，不读取 Secret，不滚动 API。
+
+先要求网关 InternalIP 唯一对应一个未删除的 Ready 节点，IPv4 PodCIDR 为私有、/16—/30 且不与网关地址重叠。保留既有 Flannel 主机地址推导约定，只把节点 PodCIDR 的 network_address 作为单个 /32；此推导不代替现场观察 SNAT 来源。更新移除 ConfigMap 全部大小写变体的 TrustedProxy 配置项，精确写入 Enabled=true、ForwardLimit=1 和网关/Flannel 两个 KnownProxies，无关数据和元数据保留；正式宿主默认 KnownProxies/KnownNetworks 为空。其他配置来源和实际生效值仍须在目标发布窗口核对。
+
+对已有资源使用 UID、resourceVersion 的 JSON Patch 条件测试，拒绝并发覆盖；先写固定 NetworkPolicy 的完整精确 spec，再写 ConfigMap。跨资源无事务，后一步失败不会自动恢复旧宽策略或旧宽信任。每次写入附本轮标记，命令响应丢失后只有资源身份、标记和完整内容均吻合才接受；最终重新检查节点和资源。每条 kubectl 请求十五秒、进程二十秒，错误输出只含固定阶段码及 networkPolicy/runtimeConfig 部分状态。unknown 或 not_verified 都不能作完成回执，应核对现状后重新执行，禁止以失败为由自动放宽信任。
+
+成功 JSON 明确 apiRolloutRequired=true、runtimeActivationVerified=false。必须在授权发布窗口滚动 API 并验证实际转发 Header、客户端地址与隔离。NetworkPolicy 的许可按所有适用策略合并，且由目标 CNI 执行；单份精确资源不能证明没有其他宽规则或网络已限制。定向入口 helm-runtime-focused / gateway-trust 仅验证合成边界及独立 Kind 的真实资源更新、幂等和版本冲突，不认证 Flannel、CNI、现有 API 或生产容量。协议依据 [Kubernetes 条件更新](https://kubernetes.io/docs/reference/using-api/api-concepts/) 和 [NetworkPolicy 语义](https://kubernetes.io/docs/concepts/services-networking/network-policies/)。
+
 ## 缓存与实时
 
 | 组件 | 位置 | 说明 |
