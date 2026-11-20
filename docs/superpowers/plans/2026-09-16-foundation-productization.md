@@ -7470,10 +7470,15 @@ Release 集成工程单节点构建及 Identity 模块隔离 AOT 分析均零警
 
 | 固定任务 | 当前状态 | 完成条件 |
 | --- | --- | --- |
-| F16-GatewayTrustAdmission | 已实现，函数验收通过 | 明确节点/IP/PodCIDR 准入，精确替换 TrustedProxy 配置并删除旧数组/网段项；UID/resourceVersion 防并发覆盖，保留无关配置，失败不扩大信任。 |
-| F16-GatewayTrustWriteProof | 用例已实现，待真实 API 验收 | 写后核对资源内容及身份，响应丢失须只读确认本轮写入；失败报告部分状态，真实隔离 Kubernetes API 验证补丁、幂等和冲突拒绝。 |
+| F16-GatewayTrustAdmission | 已完成，定向验收通过 | 明确节点/IP/PodCIDR 准入，精确替换 TrustedProxy 配置并删除旧数组/网段项；UID/resourceVersion 防并发覆盖，保留无关配置，失败不扩大信任。 |
+| F16-GatewayTrustWriteProof | 已完成，真实 API 验收通过 | 写后核对资源内容及身份，响应丢失须只读确认本轮写入；失败报告部分状态，真实隔离 Kubernetes API 验证补丁、幂等和冲突拒绝。 |
 
 - 基线 `a0fbc77998a21ea4e2e2203390c956d09df33cc6`，快照 `gateway-trust-admission-20261120`。接续既有内网网关及 F16 发布边界；原 Configure-GatewayTrust.py 在 Python -O 最小受控复现中保留 TrustedProxy__KnownProxies__2 和 TrustedProxy__KnownNetworks__0，不能保证打印所称的两个精确信任源。原更新无资源版本检查。此为已有脚本缺陷，不重排业务模块或自动接管其他部署脚本。
 - 冻结两项，仅改此入口、精确测试、受影响手册及本计划。先更新固定 NetworkPolicy，再更新 ConfigMap；跨资源不声称事务，后一步失败不自动回退到宽信任。记录明确部分状态，不滚动/重启 API。默认绑定本机 K3s kubeconfig，自定义 kubectl 必须显式 context。按 Kubernetes [条件更新](https://kubernetes.io/docs/reference/using-api/api-concepts/) 与 [NetworkPolicy](https://kubernetes.io/docs/concepts/services-networking/network-policies/) 语义复核。
 - 集中运行定向 Python -O 边界及独立 Kind API 测试；不接触发布节点、Secret 或业务库，不运行无影响的 .NET/双库/全量，不把资源内容验证当作 CNI、Flannel SNAT、Header 或线上 API 已采用新配置的证明。完成本批及规定验收后交付，其他待办和 Capacity-not-verified 保持。
-- 集中选择十九条定向函数/CLI 边界与一条真实 Kind API 方法，共二十条。首轮本地 17/19、两条篡改读回用例未按预期拒绝，定位到假 API 与期望输入共享可变字典，修正替身为真实 JSON 传输的值复制，保留原断言；复验 Python 3.12 -O 禁网容器 19/19、0.006 秒、零跳过。真实 API 方法包含首次写入、资源版本不变的幂等、实际并发修改后的条件补丁拒绝及自然重试；规定组完整结果待运行。
+- 集中选择十九条定向函数/CLI 边界与一条真实 Kind API 方法，共二十条。首轮本地 17/19、两条篡改读回用例未按预期拒绝，定位到假 API 与期望输入共享可变字典，修正替身为真实 JSON 传输的值复制，保留原断言；复验 Python 3.12 -O 禁网容器 19/19、0.006 秒、零跳过。真实 API 方法包含首次写入、资源版本不变的幂等、实际并发修改后的条件补丁拒绝及自然重试；规定组完整结果见下方终态，不保留为待办。
+
+- 候选 `26ceee3db5635bda8d0474570eea2405b07fd437` 的 [网关信任定向作业](https://github.com/yan041108/Full.NET/actions/runs/44745472919/job/136319537156) 实际 20/20（49.212 秒），零失败/跳过，源码状态守卫通过。Ubuntu 24.04、Python 3.12.16 -O、Kind v0.30.0、kubectl/Kubernetes v1.34.0，节点镜像使用既有固定摘要；独立本机 Unix Docker 与私有 kubeconfig，不访问其他集群。
+- 真实 API 首次创建精确两个 /32 源的 NetworkPolicy 并条件替换 ConfigMap，旧代理第九项及旧宽网段消失，无关值保留；重复调用的两个资源 resourceVersion 均不变。实际读取后插入并发配置修改，原 UID/resourceVersion 补丁被服务器拒绝，回执 networkPolicy=verified、runtimeConfig=not_verified，未覆盖并发值；再次正常执行删除残余旧项并保留并发值。成功回执仍明确 API 需滚动、runtimeActivationVerified=false。
+- 十九条受控方法覆盖节点歧义/未就绪/变化、危险 CIDR、身份/版本冲突、immutable/binaryData、响应丢失的本轮标记与内容复核、读回篡改、部分状态、期限和错误脱敏。该组不替代真实 CNI、其他策略许可并集、Flannel SNAT 或 Host 转发 Header 验证。Kind 集群与其容器已删除（own_cluster_containers=0），私有 kubeconfig/临时目录回收。
+- 本批两个固定任务及规定验收均完成，剩余开发 0、待验收 0。未连接发布节点、读取 Secret、滚动业务宿主或修改业务库；未运行无影响的 .NET/双库/全量。发布窗口实际配置合并、网络及运行验证仍归原 F15/F16，Capacity-not-verified 保持，其他工作区改动保留。
