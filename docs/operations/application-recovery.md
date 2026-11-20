@@ -22,6 +22,24 @@ secondary 使用 `--role secondary`。校验器要求私有目录和载荷权限
 
 COMPLETE 只证明本轮归档流程和完整性检查成功，不证明数据库、文件和密钥处于同一个恢复点。Data Protection、K3s 等条件归档按现场安装状态生成，是否满足选定应用仍须在恢复前复核。RESTORE-VERIFIED 等后续标记不会使校验器返回恢复已验证；实际隔离恢复、撤权与外部回执对账及 RPO/RTO 仍按下文执行。旧格式备份须保留原证据单独核对，不通过补写 ROLE 或标记冒充新格式验收。
 
+## 对象存储隔离恢复入口
+
+在已安装对应运维脚本的 secondary 节点，以 root 显式选择一个完整备份：
+
+```bash
+sudo /usr/local/lib/fullnet/Verify-ObjectRestore.sh 192.0.2.20 /var/backups/fullnet/BACKUP_ID
+```
+
+第一个参数为恢复服务所用、与原对象证书匹配的 IPv4；第二个参数必须是 /var/backups/fullnet/ 内的明确目录，不再自动选“最新”备份。先按 secondary 角色校验 ROLE、COMPLETE、权限与精确摘要，再将对象归档复制到本轮临时目录并复核。归档仅允许 srv/fullnet/object-storage/ 下普通文件和目录，拒绝越界、规范路径重复、链接、设备、FIFO、父文件冲突、空数据及空间不足；最多十万成员。不会恢复或初始化在线数据库。
+
+恢复与备份生成共用读写互斥锁，对象恢复另有单实例锁。SeaweedFS 只在本轮独立数据目录、PrivateNetwork=yes 的 transient unit 中运行；先复核 MainPID、PrivateNetwork、WorkingDirectory，再为独立网络配置证书目标地址。协议探针使用隔离 Python 模式，检查原持久化值、版本控制与鉴权，忽略 PYTHONOPTIMIZE 对断言的影响；不会对在线对象服务执行 prepare。检查最多四十五次、总预算一百八十秒，服务有三百秒运行上限。
+
+通过后再核对原备份完整性，随后停止本轮 unit、复核 MainPID=0 并删除临时数据，最后才排他创建私有 OBJECT-RESTORE-VERIFIED JSON 回执，包含原清单/归档摘要和完成时间。停止、进程退出、目录清理或回执提交任一失败均不签发本轮成功；旧标记一律保留并拒绝覆盖，重新演练前须将旧证据归档到备份目录以外，不以旧日期标记代表本次运行。启动响应丢失、TERM/INT 和失败退出也会尝试清理本轮 unit。
+
+失败原始诊断仅保留 /var/log/fullnet/fullnet-object-restore-*.log，私有且最多 64 KiB，不回显认证错误正文。诊断保存失败仍继续停止实例；若停止或删除失败，保留相关运行目录并明确报告 unit 名，人工核对该 unit 的 MainPID 与 WorkingDirectory 后再处理，不能直接删除正在使用的数据。强杀、主机掉电与本入口之外的 systemd 状态仍需人工复核。
+
+定向入口 helm-runtime-focused / object-restore 在一次性禁网容器中执行真实 Bash、归档/摘要/锁/文件权限与清理，systemd、网络命名空间和 SeaweedFS 为受控替身，不代表目标实际恢复、真实 S3、RPO/RTO 或容量已通过。完整应用仍须按下文恢复数据库、密钥、授权和外部回执。
+
 ## 场景
 
 | 场景 | 首要动作 |
