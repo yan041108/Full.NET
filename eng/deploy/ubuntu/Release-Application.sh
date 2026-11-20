@@ -1,15 +1,21 @@
 #!/usr/bin/env bash
-# 单角色普通发布：冻结候选并先渲染；不创建数据库、不播种或自动回滚迁移。
+# 普通角色发布：一次冻结/渲染，批量按迁移、Worker、API 推进；不自动回滚业务状态。
 set -Eeuo pipefail
 umask 077
 [[ $EUID == 0 ]] || exit 2
-[[ $# == 2 || ( $# == 3 && $3 == --plan ) ]] || { echo '用法：Release-Application.sh CHART migrator|worker|api [--plan]' >&2; exit 2; }
+[[ $# == 2 || $# == 3 ]] || { echo '用法：Release-Application.sh CHART migrator|worker|api [--plan]；CHART all --plan|--ordinary-upgrade' >&2; exit 2; }
 chart=$1
 role=$2
-[[ $role == migrator || $role == worker || $role == api ]] || exit 2
+requested_role=$role
+[[ $role == migrator || $role == worker || $role == api || $role == all ]] || exit 2
+mode=${3:-}
+[[ -z $mode || $mode == --plan || ( $role == all && $mode == --ordinary-upgrade ) ]] || exit 2
+[[ $role != all || $mode == --plan || $mode == --ordinary-upgrade ]] || { echo '批量须明确 --plan 或 --ordinary-upgrade；报表格式切版仍走专用门禁。' >&2; exit 2; }
 [[ -d $chart && -f $chart/Chart.yaml ]] || { echo '候选 Chart 目录无效。' >&2; exit 2; }
 plan=false
-if [[ $# == 3 ]]; then plan=true; fi
+if [[ $mode == --plan ]]; then plan=true; fi
+roles=("$role")
+if [[ $role == all ]]; then roles=(migrator worker api); fi
 export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
 exec 9>/run/fullnet-release.lock
 flock -n 9 || { echo '已有发布正在执行。' >&2; exit 1; }
@@ -19,6 +25,15 @@ original=''
 action=''
 chart_digest=''
 failure_logs=()
+completed_roles=()
+values_digest_json=''
+
+roles_json() {
+  local separator=''
+  printf '['
+  for member in "$@"; do printf '%s"%s"' "$separator" "$member"; separator=','; done
+  printf ']'
+}
 
 perform() {
   local phase=$1
@@ -71,8 +86,13 @@ finish() {
     done
     echo "发布未完成，私有诊断目录：$work" >&2
   fi
+  if [[ $result != 0 ]]; then
+    printf '{"status":"failed","requestedRole":"%s","completedRoles":%s,"ddlRestorePending":%s}\n' \
+      "$requested_role" "$(roles_json "${completed_roles[@]}")" "$restore_required" >&2
+  fi
   if [[ $result == 0 ]]; then
-    printf '{"schemaVersion":1,"role":"%s","namespace":"fullnet-production","action":"%s","chartSha256":"%s"}\n' "$role" "$action" "$chart_digest"
+    printf '{"schemaVersion":1,"role":"%s","roles":%s,"completedRoles":%s,"namespace":"fullnet-production","action":"%s","chartSha256":"%s","valuesSha256":{%s}}\n' \
+      "$requested_role" "$(roles_json "${roles[@]}")" "$(roles_json "${completed_roles[@]}")" "$action" "$chart_digest" "$values_digest_json"
   fi
   exit "$result"
 }
@@ -80,7 +100,9 @@ trap finish EXIT
 trap 'exit 143' TERM INT
 
 perform common-values cp -- /etc/fullnet/release/common.json "$work/common.json"
-perform role-values cp -- "/etc/fullnet/release/$role.json" "$work/role.json"
+for role in "${roles[@]}"; do
+  perform "$role-values" cp -- "/etc/fullnet/release/$role.json" "$work/$role.json"
+done
 perform package timeout --foreground --kill-after=5s 60s helm package "$chart" --destination "$work"
 shopt -s nullglob
 packages=("$work"/*.tgz)
@@ -88,33 +110,62 @@ packages=("$work"/*.tgz)
 package=${packages[0]}
 chart_digest=$(sha256sum "$package")
 chart_digest=${chart_digest%% *}
-# 显式绑定生产与单一角色，拒绝 values 漂移把 worker 作为 api Release 发布。
-values=(-f "$work/common.json" -f "$work/role.json" --set production=true \
-  --set roles.api=false,roles.worker=false,roles.migrator=false --set "roles.$role=true")
-perform render timeout --foreground --kill-after=5s 60s helm template "fullnet-$role" "$package" \
-  --namespace fullnet-production "${values[@]}"
+frozen_files=("$package" "$work/common.json")
+values_digest=$(sha256sum "$work/common.json")
+values_digest_json="\"common\":\"${values_digest%% *}\""
+for role in "${roles[@]}"; do
+  frozen_files+=("$work/$role.json")
+  values_digest=$(sha256sum "$work/$role.json")
+  values_digest_json+=",\"$role\":\"${values_digest%% *}\""
+done
+perform frozen-digests sha256sum "${frozen_files[@]}"
+digest_file=$last_output
+
+verify_frozen() {
+  perform frozen-inputs sha256sum --check "$digest_file"
+}
+
+select_values() {
+  # 每个 Release 强制生产及单一角色，不能由原 values 同时启用其他宿主。
+  values=(-f "$work/common.json" -f "$work/$role.json" --set production=true \
+    --set roles.api=false,roles.worker=false,roles.migrator=false --set "roles.$role=true")
+}
+
+for role in "${roles[@]}"; do
+  verify_frozen
+  select_values
+  perform "$role-render" timeout --foreground --kill-after=5s 60s helm template "fullnet-$role" "$package" \
+    --namespace fullnet-production "${values[@]}"
+done
+verify_frozen
 if [[ $plan == true ]]; then action=plan; exit 0; fi
 
-if [[ $role == migrator ]]; then
-  perform backup systemctl start fullnet-backup.service
-  perform backup-result systemctl show fullnet-backup.service -p Result --value
-  [[ $(< "$last_output") == success ]] || { gate_failure backup-result-value '备份服务没有成功完成。'; exit 1; }
-  perform ddl-original timeout --foreground --kill-after=5s 30s mysql --connect-timeout=5 --protocol=socket -uroot \
-    -NBe 'SELECT @@GLOBAL.log_bin_trust_function_creators;'
-  original=$(< "$last_output")
-  [[ $original == 0 || $original == 1 ]] || { gate_failure ddl-original-value 'MySQL 临时 DDL 原值无效。'; exit 1; }
-  # 在 SET 之前登记恢复义务；响应丢失也不能遗漏可能已经提交的全局设置。
-  restore_required=true
-  perform ddl-enable timeout --foreground --kill-after=5s 30s mysql --connect-timeout=5 --protocol=socket -uroot \
-    -e 'SET GLOBAL log_bin_trust_function_creators=1;'
-  perform ddl-enabled-value timeout --foreground --kill-after=5s 30s mysql --connect-timeout=5 --protocol=socket -uroot \
-    -NBe 'SELECT @@GLOBAL.log_bin_trust_function_creators;'
-  [[ $(< "$last_output") == 1 ]] || { gate_failure ddl-enable-value 'MySQL 临时 DDL 设置未生效。'; exit 1; }
-fi
-perform upgrade timeout --foreground --kill-after=5s 660s helm upgrade --install "fullnet-$role" "$package" \
-  --namespace fullnet-production "${values[@]}" --wait --wait-for-jobs --timeout 10m
-restore_ddl
-if [[ $role == api && -f /etc/nginx/conf.d/fullnet.conf ]]; then
-  perform gateway timeout --foreground --kill-after=5s 60s python3 /usr/local/lib/fullnet/Refresh-Edge.py
-fi
+for role in "${roles[@]}"; do
+  verify_frozen
+  select_values
+  if [[ $role == migrator ]]; then
+    perform backup systemctl start fullnet-backup.service
+    perform backup-result systemctl show fullnet-backup.service -p Result --value
+    [[ $(< "$last_output") == success ]] || { gate_failure backup-result-value '备份服务没有成功完成。'; exit 1; }
+    perform ddl-original timeout --foreground --kill-after=5s 30s mysql --connect-timeout=5 --protocol=socket -uroot \
+      -NBe 'SELECT @@GLOBAL.log_bin_trust_function_creators;'
+    original=$(< "$last_output")
+    [[ $original == 0 || $original == 1 ]] || { gate_failure ddl-original-value 'MySQL 临时 DDL 原值无效。'; exit 1; }
+    # 在 SET 之前登记恢复义务；响应丢失也不能遗漏可能已经提交的全局设置。
+    restore_required=true
+    perform ddl-enable timeout --foreground --kill-after=5s 30s mysql --connect-timeout=5 --protocol=socket -uroot \
+      -e 'SET GLOBAL log_bin_trust_function_creators=1;'
+    perform ddl-enabled-value timeout --foreground --kill-after=5s 30s mysql --connect-timeout=5 --protocol=socket -uroot \
+      -NBe 'SELECT @@GLOBAL.log_bin_trust_function_creators;'
+    [[ $(< "$last_output") == 1 ]] || { gate_failure ddl-enable-value 'MySQL 临时 DDL 设置未生效。'; exit 1; }
+  fi
+  verify_frozen
+  perform "$role-upgrade" timeout --foreground --kill-after=5s 660s helm upgrade --install "fullnet-$role" "$package" \
+    --namespace fullnet-production "${values[@]}" --wait --wait-for-jobs --timeout 10m
+  restore_ddl
+  if [[ $role == api && -f /etc/nginx/conf.d/fullnet.conf ]]; then
+    perform gateway timeout --foreground --kill-after=5s 60s python3 /usr/local/lib/fullnet/Refresh-Edge.py
+  fi
+  completed_roles+=("$role")
+done
 action=applied

@@ -132,6 +132,28 @@ sudo python3 /usr/local/lib/fullnet/Finalize-Application.py /srv/fullnet/release
 - 框架源码：升级输出 `recoveryRoot`，其中 `previous/` 与 `previous-manifest.json` 保存原框架及根清单，成功后也不自动清理。普通提交失败会恢复原目录与清单；失败的新内容保留在恢复区。
 - 进程中断：应用根目录存在 `.fullnet-upgrade.lock` 时，后续升级失败关闭。停止所有相关进程，按锁内 `recoveryRoot` 核对 `previous/`、`next/`、活动目录及两份清单；保留全部内容后恢复匹配的框架/清单。完成检查后再人工移除锁；不能直接重试或删除恢复区。源码恢复不代替数据库、密钥或对象文件恢复。
 
+## Ubuntu 三角色集中发布
+
+普通升级可一次准备三个角色，减少重复打包和配置读取。先用同一候选 Chart 集中预览：
+
+```bash
+sudo /usr/local/lib/fullnet/Release-Application.sh "$CANDIDATE_CHART" all --plan
+```
+
+一次调用持有同一个发布锁，只打包一次 Chart，在第一次渲染前冻结 common.json、migrator.json、worker.json、api.json。三个角色分别强制 production=true 和单一角色；全部渲染通过后才允许任何备份、DDL 或 Helm upgrade。每次渲染/升级前及集中渲染结束均复核冻结输入摘要；原配置后续变化不改变本批，冻结副本篡改则立即拒绝。
+
+只有已确认不涉及报表输出格式切版、无需专门旧消费者门禁的普通升级，才使用显式执行模式：
+
+```bash
+sudo /usr/local/lib/fullnet/Release-Application.sh "$CANDIDATE_CHART" all --ordinary-upgrade
+```
+
+执行顺序固定 Migrator → Worker → API。只在 Migrator 前启动备份，沿原流程启用/恢复临时 DDL；恢复并核对原值后才能继续 Worker。API 完成后沿原入口刷新网关。任一阶段失败立即停止，不执行后续角色，也不自动回滚已经完成的数据库或宿主发布。涉及报表格式变化仍须先走本文开头及 reporting-output-cutover.md 的既有专用门禁，不能用 ordinary 标志跳过。
+
+成功回执保留 role/action/chartSha256，增加有序 roles、completedRoles 及四份 valuesSha256；plan 的 completedRoles 为空，不能当成发布完成。失败标准错误报告 completedRoles 和 ddlRestorePending，标准输出无成功回执；只有完成实际 DDL 恢复和暂存清理才输出成功。执行与先前预览是不同调用，应逐项比较候选及四份配置摘要；文件变化时重新审查，不以旧预览批准新输入。单角色入口仍可独立使用。
+
+定向入口 helm-runtime-focused / ubuntu-role-batch 复用一个隔离环境集中覆盖直接受影响的单角色控制流与批量顺序、冻结、失败停止、DDL 恢复、部分进度；真实 Helm 3/4 只做渲染，不连接发布集群。计划核对不证明镜像内容、真实数据库迁移、线上切换、恢复目标或容量。
+
 ## 验证
 
 - `tests/deployment/foundation-preset-release.test.mjs`

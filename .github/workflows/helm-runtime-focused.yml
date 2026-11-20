@@ -8,7 +8,7 @@ on:
         required: true
         default: runtime-config
         type: choice
-        options: [runtime-config, cdc-identities, cache-cluster-driver, infrastructure-backup, ubuntu-role-release, network-readiness, release-evidence, oci-packaging, object-restore, oci-runtime, cluster-network, cache-cluster-runtime, object-certificate, edge-reload-recovery, web-certificate-recovery, gateway-trust, gateway-configuration-admission]
+        options: [runtime-config, cdc-identities, cache-cluster-driver, infrastructure-backup, ubuntu-role-release, network-readiness, release-evidence, oci-packaging, object-restore, oci-runtime, cluster-network, cache-cluster-runtime, object-certificate, edge-reload-recovery, web-certificate-recovery, gateway-trust, gateway-configuration-admission, ubuntu-role-batch]
       helm_version:
         description: Helm 场景使用的固定版本
         required: true
@@ -33,7 +33,7 @@ jobs:
           SCENARIO: ${{ inputs.scenario }}
           HELM_VERSION: ${{ inputs.helm_version }}
         run: |
-          case "$SCENARIO" in runtime-config|cdc-identities|cache-cluster-driver|infrastructure-backup|ubuntu-role-release|network-readiness|release-evidence|oci-packaging|object-restore|oci-runtime|cluster-network|cache-cluster-runtime|object-certificate|edge-reload-recovery|web-certificate-recovery|gateway-trust|gateway-configuration-admission) ;; *) exit 64 ;; esac
+          case "$SCENARIO" in runtime-config|cdc-identities|cache-cluster-driver|infrastructure-backup|ubuntu-role-release|network-readiness|release-evidence|oci-packaging|object-restore|oci-runtime|cluster-network|cache-cluster-runtime|object-certificate|edge-reload-recovery|web-certificate-recovery|gateway-trust|gateway-configuration-admission|ubuntu-role-batch) ;; *) exit 64 ;; esac
           case "$HELM_VERSION" in v3.16.4|v4.0.0) ;; *) exit 64 ;; esac
       - uses: actions/setup-node@v4
         if: inputs.scenario == 'runtime-config' || inputs.scenario == 'cdc-identities'
@@ -76,7 +76,7 @@ jobs:
           docker --version
           dotnet --version
       - uses: azure/setup-helm@v4
-        if: inputs.scenario == 'runtime-config' || inputs.scenario == 'cdc-identities' || inputs.scenario == 'ubuntu-role-release'
+        if: inputs.scenario == 'runtime-config' || inputs.scenario == 'cdc-identities' || inputs.scenario == 'ubuntu-role-release' || inputs.scenario == 'ubuntu-role-batch'
         with:
           version: ${{ inputs.helm_version }}
       - name: Verify only the selected deployment scenario
@@ -87,7 +87,7 @@ jobs:
           set -euo pipefail
           before="$(git status --porcelain --untracked-files=all)"
           case "$SCENARIO" in
-            ubuntu-role-release)
+            ubuntu-role-release|ubuntu-role-batch)
               helm version --short
               helm_binary="$(command -v helm)"
               docker pull python:3.12-slim-bookworm
@@ -96,19 +96,26 @@ jobs:
                 --mount "type=bind,source=$PWD,target=/workspace,readonly" \
                 --mount "type=bind,source=$helm_binary,target=/tools/helm,readonly" -w /workspace \
                 -e FULLNET_RELEASE_TEST_CONTAINER=isolated -e FULLNET_TEST_REAL_HELM=/tools/helm \
-                -e "FULLNET_TEST_HELM_VERSION=$HELM_VERSION" -e PYTHONDONTWRITEBYTECODE=1 \
+                -e "FULLNET_TEST_HELM_VERSION=$HELM_VERSION" -e "FULLNET_TEST_RELEASE_MODE=$SCENARIO" -e PYTHONDONTWRITEBYTECODE=1 \
                 python:3.12-slim-bookworm python3 -O - <<'PY'
           import os, sys, unittest
           sys.path.insert(0, 'tests/deployment')
           import ubuntu_role_release_test as fixture
+          batch = os.environ['FULLNET_TEST_RELEASE_MODE'] == 'ubuntu-role-batch'
+          real_method = 'test_batch_actual_chart_renders_each_role_once_with_one_package' if batch else 'test_actual_chart_renders_exactly_the_selected_role_despite_all_roles_in_values'
+          real = unittest.TestSuite([fixture.RealHelmRolePlanTests(real_method)])
           if os.environ['FULLNET_TEST_HELM_VERSION'] == 'v4.0.0':
-              suite = unittest.defaultTestLoader.loadTestsFromTestCase(fixture.RealHelmRolePlanTests)
-              minimum = 1
+              suite, expected = real, 1
           else:
-              suite = unittest.defaultTestLoader.loadTestsFromModule(fixture)
-              minimum = 19
+              suite = unittest.TestSuite([unittest.defaultTestLoader.loadTestsFromTestCase(fixture.ReleaseControlTests), real])
+              expected = 19
+              if batch:
+                  import ubuntu_batch_release_test as batches
+                  suite.addTests(unittest.defaultTestLoader.loadTestsFromTestCase(batches.BatchReleaseTests))
+                  suite.addTest(fixture.RealHelmRolePlanTests('test_actual_chart_renders_exactly_the_selected_role_despite_all_roles_in_values'))
+                  expected = 35
           result = unittest.TextTestRunner(verbosity=2).run(suite)
-          if not result.wasSuccessful() or result.skipped or result.testsRun < minimum:
+          if not result.wasSuccessful() or result.skipped or result.testsRun != expected:
               raise SystemExit(1)
           print(f'ubuntu_role_release: passed={result.testsRun} failed=0 skipped=0')
           PY

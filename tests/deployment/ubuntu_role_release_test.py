@@ -35,11 +35,15 @@ elif name=='mysql':
         if value==1 and state.get('enable_response_lost'): fail()
 elif name=='helm':
     operation=args[0]
+    role=args[1].removeprefix('fullnet-') if operation=='template' else args[2].removeprefix('fullnet-') if operation=='upgrade' else None
     if state.get('real_helm'):
         result=subprocess.run([os.environ['FULLNET_TEST_REAL_HELM']]+args,capture_output=True,text=True)
-        if operation=='template': pathlib.Path(os.environ['FULLNET_RELEASE_TEST_RENDER']).write_text(result.stdout)
+        if operation=='template':
+            rendered=pathlib.Path(os.environ['FULLNET_RELEASE_TEST_RENDER'])
+            rendered.write_text(result.stdout)
+            rendered.with_name(rendered.stem+'-'+role+'.yaml').write_text(result.stdout)
         sys.stdout.write(result.stdout);sys.stderr.write(result.stderr);save();sys.exit(result.returncode)
-    if state.get('fail_phase')==operation: fail()
+    if state.get('fail_phase')==operation and (not state.get('fail_role') or state['fail_role']==role): fail()
     if operation=='package':
         target=pathlib.Path(args[args.index('--destination')+1])/'fullnet-fixture.tgz'
         target.write_bytes(b'frozen-chart-fixture')
@@ -48,8 +52,14 @@ elif name=='helm':
         values=[pathlib.Path(args[index+1]) for index,value in enumerate(args) if value=='-f']
         state[operation+'_values']=[file.read_text() for file in values]
         state[operation+'_package']=hashlib.sha256(package.read_bytes()).hexdigest()
+        state.setdefault(operation+'_records',[]).append({'role':role,'values':state[operation+'_values'],
+            'package':state[operation+'_package'],'mysql_value':state.get('mysql_value',0)})
         if operation=='template' and state.get('mutate_original'):
             pathlib.Path('/etc/fullnet/release/common.json').write_text('changed-after-render')
+            for member in ('migrator','worker','api'):
+                pathlib.Path('/etc/fullnet/release/'+member+'.json').write_text('changed-original-'+member)
+        if operation=='template' and state.get('tamper_frozen') and role==state.get('tamper_after_role','migrator'):
+            (values[0].parent/(state['tamper_frozen']+'.json')).write_text('changed-frozen-input')
         if operation=='upgrade' and state.get('wait_for_signal'):
             pathlib.Path(os.environ['FULLNET_RELEASE_TEST_WAIT']).touch();save();time.sleep(30)
 save()
@@ -266,6 +276,25 @@ class RealHelmRolePlanTests(_Base):
                 self.assertIn('app.kubernetes.io/component: ' + role, manifest)
                 self.assertEqual(role, json.loads(result.stdout)['role'])
                 self.assertFalse(any(event[0] in ('mysql', 'systemctl') for event in self.state()['events']))
+
+    def test_batch_actual_chart_renders_each_role_once_with_one_package(self):
+        self.chart = REPOSITORY / 'deploy/helm/fullnet'
+        self.common.write_text((REPOSITORY / 'deploy/helm/fullnet/examples/values-sqlserver.yaml').read_text())
+        self.configure(real_helm=True)
+        result = self.execute('all', '--plan')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        receipt = json.loads(result.stdout)
+        self.assertEqual(receipt['roles'], ['migrator', 'worker', 'api'])
+        self.assertEqual(receipt['completedRoles'], [])
+        self.assertEqual(set(receipt['valuesSha256']), {'common', 'migrator', 'worker', 'api'})
+        for role in ('migrator', 'worker', 'api'):
+            manifest = self.render.with_name(self.render.stem + '-' + role + '.yaml').read_text()
+            self.assertEqual(1 if role in ('api', 'worker') else 0, len(re.findall(r'^kind: Deployment$', manifest, re.M)))
+            self.assertEqual(1 if role == 'migrator' else 0, len(re.findall(r'^kind: Job$', manifest, re.M)))
+            self.assertIn('app.kubernetes.io/component: ' + role, manifest)
+        events = self.state()['events']
+        self.assertEqual(len([event for event in events if event[:2] == ['helm', 'package']]), 1)
+        self.assertFalse(any(event[0] in ('mysql', 'systemctl') or event[1] == 'upgrade' for event in events))
 
 
 if __name__ == '__main__':
