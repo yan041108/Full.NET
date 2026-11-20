@@ -6,6 +6,7 @@ import os
 from pathlib import Path
 import stat
 import subprocess
+import sys
 import tempfile
 
 
@@ -16,6 +17,24 @@ LIST_ENDPOINTS = [
     "k3s", "kubectl", "get", "endpointslices", "-n", "fullnet-production",
     "-l", "kubernetes.io/service-name=fullnet-api-headless", "-o", "json",
 ]
+
+
+class RefreshFailure(Exception):
+    """只报告恢复阶段和命令确认，不把文件恢复或重载命令成功当作在线响应证明。"""
+
+    def __init__(self, code, config_restored, rollback_reload_acknowledged=False):
+        super().__init__(code)
+        self.config_restored = config_restored
+        self.rollback_reload_acknowledged = rollback_reload_acknowledged
+
+
+def validate_nginx():
+    subprocess.run(["nginx", "-t"], check=True, timeout=15, capture_output=True)
+
+
+def reload_nginx():
+    # 更新就绪路由只允许重载；服务停机时失败，不悄悄转为启动或重启。
+    subprocess.run(["systemctl", "reload", "nginx"], check=True, timeout=15, capture_output=True)
 
 
 def ready_addresses(payload):
@@ -58,33 +77,56 @@ def atomic_write(target, content, mode):
 
 def refresh(target):
     # 先完成权威读取。成功返回的空端点集需要立即替换旧地址。
-    addresses = ready_addresses(json.loads(subprocess.check_output(LIST_ENDPOINTS, timeout=15)))
+    addresses = ready_addresses(json.loads(subprocess.check_output(LIST_ENDPOINTS, timeout=15, stderr=subprocess.PIPE)))
     content = render_upstream(addresses).encode("utf-8")
     previous = target.read_bytes() if target.exists() else None
     if previous != content:
         mode = stat.S_IMODE(target.stat().st_mode) if previous is not None else 0o644
         atomic_write(target, content, mode)
+        reload_attempted = False
         try:
-            subprocess.run(["nginx", "-t"], check=True, timeout=15)
-            subprocess.run(["systemctl", "reload-or-restart", "nginx"], check=True, timeout=15)
+            validate_nginx()
+            reload_attempted = True
+            reload_nginx()
         except (OSError, subprocess.SubprocessError):
-            if previous is None:
-                target.unlink()
-            else:
-                atomic_write(target, previous, mode)
-            raise
+            try:
+                if previous is None:
+                    target.unlink()
+                else:
+                    atomic_write(target, previous, mode)
+            except OSError:
+                raise RefreshFailure("edge_rollback_file_failed", False) from None
+            if reload_attempted:
+                # 重载报错也可能已生效；回写文件后必须另行重载，不能留下磁盘/进程分歧。
+                try:
+                    validate_nginx()
+                    reload_nginx()
+                except (OSError, subprocess.SubprocessError):
+                    raise RefreshFailure("edge_rollback_reload_failed", True) from None
+            code = "edge_reload_failed" if reload_attempted else "edge_validation_failed"
+            raise RefreshFailure(code, True, reload_attempted) from None
     return len(addresses)
 
 
 def main():
     import fcntl
 
-    with REFRESH_LOCK.open("a") as lock:
-        # 定时器与手动刷新共用一个锁，配置回退始终对应本次读取。
-        fcntl.flock(lock, fcntl.LOCK_EX)
-        count = refresh(TARGET)
+    try:
+        with REFRESH_LOCK.open("a") as lock:
+            # 定时器与手动刷新共用一个锁，配置回退始终对应本次读取。
+            fcntl.flock(lock, fcntl.LOCK_EX)
+            count = refresh(TARGET)
         print(f"网关就绪上游数量：{count}")
+        return 0
+    except RefreshFailure as error:
+        report = {"status": "failed", "code": str(error), "configRestored": error.config_restored,
+                  "rollbackReloadAcknowledged": error.rollback_reload_acknowledged}
+    except (OSError, ValueError, KeyError, TypeError, subprocess.SubprocessError):
+        report = {"status": "failed", "code": "edge_refresh_failed", "configRestored": None,
+                  "rollbackReloadAcknowledged": False}
+    print(json.dumps(report, separators=(",", ":")), file=sys.stderr)
+    return 1
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

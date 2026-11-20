@@ -52,7 +52,7 @@ TrustedProxy → Localization → RequestLogging
 
 Tenancy 解析在 Identity 认证前后由模块中间件与 `ICurrentTenant` 协作完成；详见 [`code-wiki/architecture-overview.md`](../../code-wiki/architecture-overview.md)。
 
-内网 K3s 网关通过 [Refresh-Edge.py](../../eng/deploy/ubuntu/Refresh-Edge.py) 根据 API 的 EndpointSlice 更新上游地址。读取成功且没有就绪端点时，刷新会将上游设为停用，NGINX 对新代理请求返回 502。就绪端点恢复后，下次刷新接回流量。EndpointSlice 读取失败时保留最后一份配置，NGINX 校验或重载失败时回退本次变更。[NGINX upstream 文档](https://nginx.org/en/docs/http/ngx_http_upstream_module.html#server)
+内网 K3s 网关通过 [Refresh-Edge.py](../../eng/deploy/ubuntu/Refresh-Edge.py) 根据 API 的 EndpointSlice 更新上游地址。读取成功且没有就绪端点时，刷新会将上游设为停用，NGINX 对新代理请求返回 502。就绪端点恢复后，下次刷新接回流量。EndpointSlice 读取失败时保留最后一份配置，NGINX 校验失败时恢复原文件；重载失败或响应丢失时，恢复原文件后再次校验并重载，以处理新配置可能已经生效的情况。刷新只调用 reload，不隐式启动或重启服务。失败退出码为 1，标准错误只含固定码与 configRestored、rollbackReloadAcknowledged；恢复文件失败或恢复重载失败会分别标记，不能把磁盘恢复当作在线路由恢复。即使恢复命令得到确认，本轮更新仍报告失败；实际运行状态须另行观察新连接响应和 worker 排空。[NGINX upstream 文档](https://nginx.org/en/docs/http/ngx_http_upstream_module.html#server)
 
 ## 缓存与实时
 
@@ -79,6 +79,8 @@ Tenancy 解析在 Identity 认证前后由模块中间件与 `ICurrentTenant` �
 DeliveryMode 与平台 ingress/transport 一致；准入后按配置选择，直发须具备构建能力，仅注入最小 Producer 写凭据，采集器排除同流，不默认双写/自动切路。比较请求 P99、每实例字节吞吐、总 CPU/内存、丢弃和恢复，不能凭队列或集群微基准选型。默认产物不强制引入日志客户端；运行时关闭不等于 native 包退出发布闭包。
 
 Restricted 请求/返回/IP 详情仍仅存 B1，由独立 Worker 清理。关闭组件不连接，Broker/ES/消费者不放进应用 Chart，不复用业务 Outbox/Inbox。ES 固定事件日期索引，ACK/Bulk/恢复按组合准入；直发默认无 Spool，未确认崩溃缺口须披露。这是 [ADR-0012](../architecture/adr/ADR-0012-configurable-log-delivery.md)规划，实施见[开发计划](../superpowers/plans/2026-09-28-configurable-log-delivery.md)，不改写其他拓扑的历史证据。
+
+网关恢复定向入口为 helm-runtime-focused / edge-reload-recovery，仅选择恢复函数回归与真实临时 NGINX 进程：先实际加载停用配置并观察 502，再模拟重载响应超时，恢复后核对原代理响应及 master PID 未变；另验空上游停用、就绪恢复。测试只使用回环上游和临时配置，下载并解包 NGINX 二进制而不安装系统服务，不连接发布节点。[NGINX 配置重载及旧 worker 排空说明](https://nginx.org/en/docs/control.html)。
 
 ## 相关文档
 
