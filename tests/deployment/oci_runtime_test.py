@@ -34,6 +34,9 @@ class OciRuntimeTests(unittest.TestCase):
         context = json.loads(run(["docker", "context", "inspect"]).stdout)[0]
         if not context["Endpoints"]["docker"]["Host"].startswith("unix://"):
             raise RuntimeError("拒绝操作远程 Docker context")
+        cls.daemon_host = context["Endpoints"]["docker"]["Host"]
+        if os.environ.get("DOCKER_HOST") and os.environ["DOCKER_HOST"] != cls.daemon_host:
+            raise RuntimeError("Docker context 与环境端点不一致")
         cls.temporary = tempfile.TemporaryDirectory(prefix="fullnet-oci-runtime-")
         cls.root = Path(cls.temporary.name)
         cls.run_id = uuid.uuid4().hex
@@ -120,7 +123,9 @@ class OciRuntimeTests(unittest.TestCase):
             raise RuntimeError("镜像名称已存在")
         cls.references.append(reference)
         print("oci_runtime_stage: importing " + suffix, flush=True)
-        run(["skopeo", "copy", "--format", "v2s2", "oci-archive:" + str(archive), "docker-daemon:" + reference], seconds=180)
+        # OCI 层以 root 所有权记录；只提升本轮导入器，实际应用仍使用镜像自身 UID。
+        run(["sudo", "-n", "skopeo", "copy", "--dest-daemon-host", cls.daemon_host, "--format", "v2s2",
+             "oci-archive:" + str(archive), "docker-daemon:" + reference], seconds=180)
         with tarfile.open(archive) as source:
             index = json.load(source.extractfile("index.json"))
             manifest = json.load(source.extractfile("blobs/sha256/" + index["manifests"][0]["digest"][7:]))
