@@ -7454,10 +7454,15 @@ Release 集成工程单节点构建及 Identity 模块隔离 AOT 分析均零警
 
 | 固定任务 | 当前状态 | 完成条件 |
 | --- | --- | --- |
-| D08-WebCertificateRecovery | 已实现，待定向验收 | 切换后重载失败须恢复原证书/模板并重新加载；恢复失败明确状态，文件恢复失败保留尚需恢复的私有副本，不输出原始命令错误。 |
-| D08-WebCertificateTlsProof | 用例已实现，待真实 TLS 验收 | 用真实临时 CA、CRL、NGINX 和 TLS 握手验证新证书生效后响应丢失仍恢复旧证书，以及正常配置/幂等重试；仅选择改变的边界。 |
+| D08-WebCertificateRecovery | 已完成，定向验收通过 | 切换后重载失败须恢复原证书/模板并重新加载；恢复失败明确状态，文件恢复失败保留尚需恢复的私有副本，不输出原始命令错误。 |
+| D08-WebCertificateTlsProof | 已完成，真实 TLS 验收通过 | 用真实临时 CA、CRL、NGINX 和 TLS 握手验证新证书生效后响应丢失仍恢复旧证书，以及正常配置/幂等重试；仅选择改变的边界。 |
 
 - 基线 `bb34ebf824c50b8a7606411510dfca09f9bbde8c`，快照 `web-certificate-recovery-20261120`。接续 §8.319 既有 Web CRL 与上一批重载恢复。原 configure_web 的受控最小复现为 certificateFileRestored=true、activeCertificateRestored=false、reloadAttempts=1；原 TemporaryDirectory 还会在恢复异常时删除剩余 previous 副本。前者是受控进程模型，不称线上实测；后者按异常路径明确保留恢复材料，不接管其他 PKI 脚本。
 - 冻结两项，保持原 CA/私钥及 CRL 签发/账本所有权，集中覆盖当前函数的提交/恢复、命令期限、错误脱敏及真实 TLS 响应。临时回环 NGINX 使用独立 master 和配置，测试不运行宿主 systemctl、不修改 /etc/nginx、不连接发布节点，不运行无影响的 .NET/双库/全量。
 - 完成两项及规定验收后交付；正式 CA 轮换、线上重载、外部渠道和容量不由此关闭，Capacity-not-verified 保持，其他改动保留。
 - 已完成本批关联实现，定向选择十条 CRL/换证函数边界与两条真实 NGINX/TLS 方法，共十二条，Python 3.12 -O，要求零跳过；文件恢复失败的备份留存、部分提交、命令期限、输出脱敏、原 CA/私钥和幂等证书均纳入。服务单元与其他 PKI 脚本未改。
+
+- 候选 `f738419b2487e1dc8377b8df5d6ff1ae9f3e97bd` 的 [Web 证书恢复定向作业](https://github.com/yan041108/Full.NET/actions/runs/44743971400/job/136314397796) 实际 12/12（6.889 秒），零失败/跳过，源码状态守卫通过。Ubuntu 24.04、Python 3.12.16 -O、OpenSSL 3.0.13、NGINX 1.24.0（Ubuntu，二进制 SHA-256 `6fa7bcff852a5498e63940784fb42f1419e7a54ac4272ea470bec9c46f2fb254`）；只解包本轮 NGINX，未安装系统服务。
+- 真实临时 CA/原私钥签发带 CRL 分发点的新证书，TLS 客户端核对 CA/IP 并观察新指纹后才注入控制响应超时；恢复后重新握手取得原指纹，原证书和模板字节一致，两次重载且 master PID 未变，原更新仍返回失败。正常配置与重试均保持同一新证书 inode/mtime、CA/私钥不变，公开 CRL 签名有效。TLS 观察不认证 Windows Schannel 或客户端 CRL 缓存行为。
+- 函数边界实际覆盖部分文件提交、文件恢复失败、恢复重载失败、已有证书重载失败不重签、命令期限和固定错误输出。文件恢复失败期间，0700 恢复目录和原 web.pem.previous 的字节确实保留，未谎报 filesRestored=true；测试结束时只回收临时合成材料。正常/已恢复路径无遗留本轮换证目录，独立 NGINX 正常退出，解包工具回收。
+- 本批两个固定任务及规定验收均完成，剩余开发 0、待验收 0。未运行无影响的 .NET/双库/全量，未连接发布节点或操作正式 CA、私钥、CRL、证书与服务；线上复验、强杀/掉电、外部渠道和容量按原任务保留，Capacity-not-verified 不升级，其他工作区改动保留。
