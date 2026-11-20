@@ -215,6 +215,10 @@ def base_layers(args, cache):
             layers.pop()
             rootfs["diff_ids"].pop()
             history.pop()
+        # 输出为 OCI manifest 时，其基础层描述符也应使用 OCI 类型；压缩字节与摘要保持原值。
+        for layer in layers:
+            if layer["mediaType"] == "application/vnd.docker.image.rootfs.diff.tar.gzip":
+                layer["mediaType"] = OCI + "layer.v1.tar+gzip"
         return configuration, layers, manifest_digest
     finally:
         if archive is not None:

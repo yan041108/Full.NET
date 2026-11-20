@@ -53,14 +53,14 @@ class OciPackagingTests(unittest.TestCase):
         self.make_base()
         self.make_publish()
 
-    def make_base(self, previous=False, unsafe_old=False, mutate_config=None, extra=None, duplicate=False):
+    def make_base(self, previous=False, unsafe_old=False, mutate_config=None, extra=None, duplicate=False, docker=False):
         self.base_blobs = {}
         def save(content, media):
             item = descriptor(content, media)
             self.base_blobs[item["digest"]] = content
             return item
         raw = tar_bytes([("usr/share/dotnet/runtime.txt", b"runtime-fixture", tarfile.REGTYPE, 0o644)])
-        layers = [save(gzip.compress(raw, mtime=0), OCI + "layer.v1.tar+gzip")]
+        layers = [save(gzip.compress(raw, mtime=0), "application/vnd.docker.image.rootfs.diff.tar.gzip" if docker else OCI + "layer.v1.tar+gzip")]
         diffs = ["sha256:" + hashlib.sha256(raw).hexdigest()]
         history = [{"created_by": "runtime-fixture"}]
         if previous:
@@ -72,9 +72,9 @@ class OciPackagingTests(unittest.TestCase):
                             "history": history, "config": {"Env": ["RUNTIME_FIXTURE=1"]}}
         if mutate_config:
             mutate_config(self.base_config)
-        config = save(module.encode(self.base_config), OCI + "config.v1+json")
-        self.base_manifest = {"schemaVersion": 2, "mediaType": OCI + "manifest.v1+json", "config": config, "layers": layers}
-        manifest = save(module.encode(self.base_manifest), OCI + "manifest.v1+json")
+        config = save(module.encode(self.base_config), "application/vnd.docker.container.image.v1+json" if docker else OCI + "config.v1+json")
+        self.base_manifest = {"schemaVersion": 2, "mediaType": "application/vnd.docker.distribution.manifest.v2+json" if docker else OCI + "manifest.v1+json", "config": config, "layers": layers}
+        manifest = save(module.encode(self.base_manifest), self.base_manifest["mediaType"])
         self.base_descriptor = manifest
         self.base_digest = manifest["digest"]
         self.base_entries = [("oci-layout", b'{"imageLayoutVersion":"1.0.0"}', tarfile.REGTYPE, 0o644),
@@ -370,6 +370,18 @@ class OciPackagingTests(unittest.TestCase):
                 module.pack(args)
         self.assertEqual(list(self.cache.iterdir()), [])
         self.assertFalse(self.output.exists())
+
+    def test_docker_base_layers_use_oci_types_without_rewriting_content(self):
+        self.make_base(docker=True)
+        result = self.cli()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        manifest, _, _, _ = self.inspect()
+        self.assertEqual(manifest["mediaType"], OCI + "manifest.v1+json")
+        self.assertEqual(manifest["config"]["mediaType"], OCI + "config.v1+json")
+        self.assertEqual({layer["mediaType"] for layer in manifest["layers"]}, {OCI + "layer.v1.tar+gzip"})
+        self.assertEqual(manifest["layers"][0]["digest"], self.base_manifest["layers"][0]["digest"])
+        self.assertEqual(manifest["layers"][0]["size"], self.base_manifest["layers"][0]["size"])
+        self.assertEqual(json.loads(result.stdout)["baseManifestDigest"], self.base_digest)
 
 
 if __name__ == "__main__":
