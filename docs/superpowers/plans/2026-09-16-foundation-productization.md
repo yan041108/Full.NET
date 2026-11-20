@@ -7392,10 +7392,14 @@ Release 集成工程单节点构建及 Identity 模块隔离 AOT 分析均零警
 
 | 固定任务 | 当前状态 | 完成条件 |
 | --- | --- | --- |
-| F16-ClusterNetworkProbe | 已实现，待集中验收 | 两个不同 Ready/可调度节点、固定 Pod 节点与镜像身份、DNS 和本轮随机 HTTP 响应、前后节点/Pod 身份一致；真实独立 Kind 两工作节点验证。 |
-| F16-ClusterNetworkExit | 已实现，待集中验收 | 创建响应丢失及信号失败也清理本轮随机标签/UID 的命名空间，确认删除后才报告成功；身份变化不删除，失败回执不泄露原始命令输出。 |
+| F16-ClusterNetworkProbe | 已交付，真实双节点验收通过 | 两个不同 Ready/可调度节点、固定 Pod 节点与镜像身份、DNS 和本轮随机 HTTP 响应、前后节点/Pod 身份一致；真实独立 Kind 两工作节点验证。 |
+| F16-ClusterNetworkExit | 已交付，退出与清理验收通过 | 创建响应丢失及信号失败也清理本轮随机标签/UID 的命名空间，确认删除后才报告成功；身份变化不删除，失败回执不泄露原始命令输出。 |
 
 - 基线 `0dbbd44f76bc49fceb8c11b8a885cf08e1de93d2`，快照 `cluster-network-delivery-20261120`；原 Verify-Cluster.sh SHA-256 `0a9d6a2b3acb16c128bc3b959ee1d795e26e394f4a0af47ee7198a53c2c0130a`。原脚本允许相同节点、秒级命名空间可能冲突，未核对 Pod 身份/所在节点，在异步删除前打印成功。接续 F16 跨节点网络准入，不以新探针重复缓存背板或业务多副本故障验收。
 - 冻结两项，集中十八条方法：十七条受控 kubectl 行为覆盖及一条真实 Kind 场景。Kind v0.30.0 / 固定 Kubernetes v1.34.0 节点镜像摘要，独立 kubeconfig、唯一集群/命名空间，不使用发布 context；两个工作节点上的 BusyBox Pod 实际 DNS 和 HTTP，禁用 SA Token、非 root/只读根文件系统、CPU/内存限制，清理后再次查无本轮命名空间和集群容器。
 - 受控场景覆盖同节点/未就绪/不可调度、创建响应丢失、部分 Pod 创建、错误节点/IP、身份变化、DNS/HTTP 失败、假删除/删除失败、命名空间 UID 变化及 TERM。只运行本次新入口，不执行 .NET/双库/全量；真实 Kind 只证明同一执行机的两个 Kubernetes 节点，物理故障域、生产集群与容量仍待原 F16 验证，保持 Capacity-not-verified。
 - 两项及规定验收完成后交付；其他部署脚本与测试报告不接管，不向目标发布集群创建资源。
+
+- 候选 `90c087cad` 的 [双节点网络定向作业](https://github.com/yan041108/Full.NET/actions/runs/44717796773/job/136225505091) 实际 18/18（76.019 秒），零失败/跳过，源码状态守卫通过。Ubuntu 24.04、Python 3.12、Kind v0.30.0、Kubernetes v1.34.0 固定节点摘要、Docker 28.0.4；Kind 官方二进制校验和通过。十七条受控边界核对响应丢失、身份变更、删除失败、信号和脱敏；真实场景创建一个控制节点及两个工作节点，分别在不同工作节点启动探针，完成集群 DNS 与 Pod IP HTTP 的本轮随机值校验。
+- 实际 Pod 位于两个不同工作节点、不同 UID/容器，使用相同 imageID，前后身份复核一致；探针镜像 registry digest `sha256:101b4afd76732482eff9b95cae5f94bcf295e521fbec4e01b69c5421f3f3f3e5`。成功回执 namespaceDeleted=true 后再次按 runId 查询命名空间为空；Kind 删除后按唯一集群标签查询容器为空，独立 kubeconfig/临时配置随本轮目录回收。未连接发布 Kubernetes 或修改业务配置。
+- 本批两个固定开发项与规定验收已完成，剩余开发 0、待验收 0；使用说明已同步。实际覆盖同一执行机上的两个 Kubernetes 工作节点，不升级为多台物理节点、生产 CNI、业务故障接管或容量证明，Capacity-not-verified 保持；其他工作区改动保留。
