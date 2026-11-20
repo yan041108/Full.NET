@@ -1,5 +1,8 @@
 import importlib.util
+import contextlib
+import io
 import ipaddress
+import json
 from pathlib import Path
 import subprocess
 import tempfile
@@ -79,8 +82,11 @@ class ApplicationCrlTests(unittest.TestCase):
     def test_failed_reload_restores_previous_certificate_and_template(self):
         self.reload_fails = True
         old_web, old_extensions = self.web.read_bytes(), self.extensions.read_bytes()
-        with self.assertRaises(subprocess.CalledProcessError):
+        with self.assertRaises(APP.WebCertificateFailure) as failure:
             APP.manage(self.address)
+        self.assertEqual(str(failure.exception), "web_rollback_reload_failed")
+        self.assertTrue(failure.exception.files_restored)
+        self.assertFalse(failure.exception.rollback_reload_acknowledged)
         self.assertEqual(self.web.read_bytes(), old_web)
         self.assertEqual(self.extensions.read_bytes(), old_extensions)
         self.reload_fails = False
@@ -112,6 +118,104 @@ class ApplicationCrlTests(unittest.TestCase):
             APP.manage(self.address)
         self.assertEqual(self.crl.read_bytes(), prior)
 
+    def test_applied_reload_timeout_restores_active_certificate(self):
+        old_web, old_extensions = self.web.read_bytes(), self.extensions.read_bytes()
+        active, calls = [old_web], []
+        def reload():
+            active[0] = self.web.read_bytes()
+            calls.append(active[0])
+            if len(calls) == 1:
+                self.assertNotEqual(active[0], old_web)
+                raise subprocess.TimeoutExpired("private-command", 15)
+        with patch.object(APP, "reload_nginx", side_effect=reload):
+            with self.assertRaises(APP.WebCertificateFailure) as failure:
+                APP.manage(self.address)
+        self.assertEqual(str(failure.exception), "web_reload_failed")
+        self.assertTrue(failure.exception.files_restored)
+        self.assertTrue(failure.exception.rollback_reload_acknowledged)
+        self.assertEqual(active[0], old_web)
+        self.assertEqual(self.web.read_bytes(), old_web)
+        self.assertEqual(self.extensions.read_bytes(), old_extensions)
+        self.assertEqual(len(calls), 2)
+        self.assertEqual(list(self.certificates.glob(".web-crl-*")), [])
 
+    def test_failed_file_restore_retains_private_recovery_copy(self):
+        original_replace = Path.replace
+        old_web = self.web.read_bytes()
+        def replace(path, destination):
+            if path.name == "web.pem.previous":
+                raise OSError("private-recovery-error")
+            return original_replace(path, destination)
+        with (patch.object(Path, "replace", replace),
+              patch.object(APP, "reload_nginx", side_effect=OSError("private-reload-error"))):
+            with self.assertRaises(APP.WebCertificateFailure) as failure:
+                APP.manage(self.address)
+        self.assertEqual(str(failure.exception), "web_rollback_file_failed")
+        self.assertFalse(failure.exception.files_restored)
+        self.assertFalse(failure.exception.rollback_reload_acknowledged)
+        recovery = Path(failure.exception.recovery_directory)
+        self.assertEqual(recovery.parent, self.certificates)
+        self.assertEqual(recovery.stat().st_mode & 0o777, 0o700)
+        self.assertEqual((recovery / "web.pem.previous").read_bytes(), old_web)
+        self.assertNotEqual(self.web.read_bytes(), old_web)
+
+    def test_partial_install_failure_restores_both_files_without_reload(self):
+        original_replace = Path.replace
+        old_web, old_extensions = self.web.read_bytes(), self.extensions.read_bytes()
+        def replace(path, destination):
+            if path.name == "web.pem" and path.parent.name.startswith(".web-crl-"):
+                raise OSError("private-install-error")
+            return original_replace(path, destination)
+        with patch.object(Path, "replace", replace), patch.object(APP, "reload_nginx") as reload:
+            with self.assertRaises(APP.WebCertificateFailure) as failure:
+                APP.manage(self.address)
+        self.assertEqual(str(failure.exception), "web_install_failed")
+        self.assertTrue(failure.exception.files_restored)
+        self.assertFalse(failure.exception.rollback_reload_acknowledged)
+        reload.assert_not_called()
+        self.assertEqual(self.web.read_bytes(), old_web)
+        self.assertEqual(self.extensions.read_bytes(), old_extensions)
+        self.assertEqual(list(self.certificates.glob(".web-crl-*")), [])
+
+    def test_existing_certificate_reload_failure_does_not_reissue_or_rewrite(self):
+        APP.manage(self.address)
+        old_web, old_extensions = self.web.read_bytes(), self.extensions.read_bytes()
+        before = self.web.stat()
+        with patch.object(APP, "reload_nginx", side_effect=OSError("private-reload-error")):
+            with self.assertRaises(APP.WebCertificateFailure) as failure:
+                APP.manage(self.address)
+        self.assertEqual(str(failure.exception), "web_existing_reload_failed")
+        self.assertTrue(failure.exception.files_restored)
+        self.assertFalse(failure.exception.rollback_reload_acknowledged)
+        self.assertEqual(self.web.read_bytes(), old_web)
+        self.assertEqual(self.extensions.read_bytes(), old_extensions)
+        self.assertEqual(self.web.stat().st_ino, before.st_ino)
+        self.assertEqual(self.web.stat().st_mtime_ns, before.st_mtime_ns)
+
+    def test_main_failure_reports_state_without_raw_command_output(self):
+        for error, code in ((APP.WebCertificateFailure("web_rollback_file_failed", False, recovery_directory="/controlled/recovery"), "web_rollback_file_failed"),
+                            (subprocess.TimeoutExpired("private-command", 15, stderr="private-response"), "application_crl_failed")):
+            with self.subTest(code=code):
+                output, errors = io.StringIO(), io.StringIO()
+                with (patch.object(APP.os, "geteuid", return_value=0), patch.object(APP.os, "umask"),
+                      patch.object(APP, "manage", side_effect=error),
+                      contextlib.redirect_stdout(output), contextlib.redirect_stderr(errors)):
+                    status = APP.main(["--configure", "127.0.0.1"])
+                self.assertEqual(status, 1)
+                self.assertEqual(output.getvalue(), "")
+                report = json.loads(errors.getvalue())
+                self.assertEqual(report["code"], code)
+                self.assertFalse(report["rollbackReloadAcknowledged"])
+                self.assertNotIn("private", errors.getvalue())
+
+    def test_crypto_validation_and_reload_commands_have_bounded_deadlines(self):
+        with patch.object(APP.subprocess, "run", return_value=subprocess.CompletedProcess([], 0, stdout="ok")) as command:
+            self.assertEqual(APP.openssl("version"), "ok")
+            APP.reload_nginx()
+        self.assertEqual(command.call_count, 3)
+        for call in command.call_args_list:
+            self.assertEqual(call.kwargs["timeout"], 15)
+            self.assertTrue(call.kwargs["capture_output"])
+            self.assertTrue(call.kwargs["check"])
 if __name__ == "__main__":
     unittest.main()

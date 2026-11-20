@@ -8,7 +8,7 @@ on:
         required: true
         default: runtime-config
         type: choice
-        options: [runtime-config, cdc-identities, cache-cluster-driver, infrastructure-backup, ubuntu-role-release, network-readiness, release-evidence, oci-packaging, object-restore, oci-runtime, cluster-network, cache-cluster-runtime, object-certificate, edge-reload-recovery]
+        options: [runtime-config, cdc-identities, cache-cluster-driver, infrastructure-backup, ubuntu-role-release, network-readiness, release-evidence, oci-packaging, object-restore, oci-runtime, cluster-network, cache-cluster-runtime, object-certificate, edge-reload-recovery, web-certificate-recovery]
       helm_version:
         description: Helm 场景使用的固定版本
         required: true
@@ -33,14 +33,14 @@ jobs:
           SCENARIO: ${{ inputs.scenario }}
           HELM_VERSION: ${{ inputs.helm_version }}
         run: |
-          case "$SCENARIO" in runtime-config|cdc-identities|cache-cluster-driver|infrastructure-backup|ubuntu-role-release|network-readiness|release-evidence|oci-packaging|object-restore|oci-runtime|cluster-network|cache-cluster-runtime|object-certificate|edge-reload-recovery) ;; *) exit 64 ;; esac
+          case "$SCENARIO" in runtime-config|cdc-identities|cache-cluster-driver|infrastructure-backup|ubuntu-role-release|network-readiness|release-evidence|oci-packaging|object-restore|oci-runtime|cluster-network|cache-cluster-runtime|object-certificate|edge-reload-recovery|web-certificate-recovery) ;; *) exit 64 ;; esac
           case "$HELM_VERSION" in v3.16.4|v4.0.0) ;; *) exit 64 ;; esac
       - uses: actions/setup-node@v4
         if: inputs.scenario == 'runtime-config' || inputs.scenario == 'cdc-identities'
         with:
           node-version: 24
       - uses: actions/setup-python@v5
-        if: inputs.scenario == 'cache-cluster-driver' || inputs.scenario == 'network-readiness' || inputs.scenario == 'release-evidence' || inputs.scenario == 'oci-packaging' || inputs.scenario == 'oci-runtime' || inputs.scenario == 'cluster-network' || inputs.scenario == 'cache-cluster-runtime' || inputs.scenario == 'object-certificate' || inputs.scenario == 'edge-reload-recovery'
+        if: inputs.scenario == 'cache-cluster-driver' || inputs.scenario == 'network-readiness' || inputs.scenario == 'release-evidence' || inputs.scenario == 'oci-packaging' || inputs.scenario == 'oci-runtime' || inputs.scenario == 'cluster-network' || inputs.scenario == 'cache-cluster-runtime' || inputs.scenario == 'object-certificate' || inputs.scenario == 'edge-reload-recovery' || inputs.scenario == 'web-certificate-recovery'
         with:
           python-version: '3.12'
       - uses: actions/setup-dotnet@v4
@@ -271,6 +271,31 @@ jobs:
           if not result.wasSuccessful() or result.skipped or result.testsRun != 13:
               raise SystemExit(1)
           print(f'edge_reload_recovery: passed={result.testsRun} failed=0 skipped=0')
+          PY
+              ;;
+            web-certificate-recovery)
+              tool_directory=$(mktemp -d "$RUNNER_TEMP/fullnet-web-nginx-XXXXXX")
+              trap 'rm -rf -- "$tool_directory"' EXIT
+              mkdir "$tool_directory/download"
+              sudo apt-get update -qq
+              (cd "$tool_directory/download" && apt-get download nginx)
+              for package in "$tool_directory"/download/*.deb; do
+                dpkg-deb -x "$package" "$tool_directory/runtime"
+              done
+              export PATH="$tool_directory/runtime/usr/sbin:$PATH"
+              python3 --version
+              openssl version
+              nginx -v
+              sha256sum "$tool_directory/runtime/usr/sbin/nginx"
+              python3 -O - <<'PY'
+          import unittest
+          suite = unittest.TestSuite()
+          for pattern in ('test_application_crl.py', 'web_certificate_runtime_test.py'):
+              suite.addTests(unittest.defaultTestLoader.discover('tests/deployment', pattern=pattern))
+          result = unittest.TextTestRunner(verbosity=2).run(suite)
+          if not result.wasSuccessful() or result.skipped or result.testsRun != 12:
+              raise SystemExit(1)
+          print(f'web_certificate_recovery: passed={result.testsRun} failed=0 skipped=0')
           PY
               ;;
             *) exit 64 ;;

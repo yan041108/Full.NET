@@ -3,10 +3,12 @@
 import argparse
 import fcntl
 import ipaddress
+import json
 import os
 from pathlib import Path
 import shutil
 import subprocess
+import sys
 import tempfile
 
 
@@ -14,8 +16,18 @@ ROOT = Path("/etc/fullnet")
 PUBLIC = Path("/var/lib/fullnet-pki")
 
 
+class WebCertificateFailure(Exception):
+    """固定阶段码与恢复状态；文件恢复失败时保留私有恢复目录，不泄漏命令响应。"""
+
+    def __init__(self, code, files_restored, rollback_reload_acknowledged=False, recovery_directory=None):
+        super().__init__(code)
+        self.files_restored = files_restored
+        self.rollback_reload_acknowledged = rollback_reload_acknowledged
+        self.recovery_directory = recovery_directory
+
+
 def openssl(*args):
-    return subprocess.run(["openssl", *args], check=True, capture_output=True, text=True).stdout
+    return subprocess.run(["openssl", *args], check=True, capture_output=True, text=True, timeout=15).stdout
 
 
 def ensure_state(state, ca, key):
@@ -53,8 +65,35 @@ def publish_crl(state, ca, work):
 
 
 def reload_nginx():
-    subprocess.run(["nginx", "-t"], check=True)
-    subprocess.run(["systemctl", "reload", "nginx"], check=True)
+    subprocess.run(["nginx", "-t"], check=True, capture_output=True, timeout=15)
+    subprocess.run(["systemctl", "reload", "nginx"], check=True, capture_output=True, timeout=15)
+
+
+def activate_web(files, work):
+    reload_attempted = False
+    try:
+        for old, new in files:
+            new.replace(old)
+        reload_attempted = True
+        reload_nginx()
+    except BaseException:
+        restored = True
+        for old, _ in files:
+            try:
+                (work / f"{old.name}.previous").replace(old)
+            except OSError:
+                restored = False
+        if not restored:
+            # 已恢复的文件不再回滚；保留未恢复副本供操作员处理，禁止清理唯一恢复材料。
+            raise WebCertificateFailure("web_rollback_file_failed", False, recovery_directory=str(work)) from None
+        if reload_attempted:
+            try:
+                # 首次重载报错不能证明证书未生效；必须重载恢复后的原证书。
+                reload_nginx()
+            except (OSError, subprocess.SubprocessError):
+                raise WebCertificateFailure("web_rollback_reload_failed", True) from None
+        code = "web_reload_failed" if reload_attempted else "web_install_failed"
+        raise WebCertificateFailure(code, True, reload_attempted) from None
 
 
 def configure_web(certificates, ca, key, crl, address):
@@ -67,10 +106,14 @@ def configure_web(certificates, ca, key, crl, address):
     # 重试沿用已签发证书，重载处理上次在文件切换后中断的情况。
     if extension in current.splitlines() and url in openssl("x509", "-in", web, "-noout", "-ext", "crlDistributionPoints").split():
         openssl(*verify, web)
-        reload_nginx()
+        try:
+            reload_nginx()
+        except (OSError, subprocess.SubprocessError):
+            raise WebCertificateFailure("web_existing_reload_failed", True) from None
         return
-    with tempfile.TemporaryDirectory(prefix=".web-crl-", dir=certificates) as directory:
-        work = Path(directory)
+    work = Path(tempfile.mkdtemp(prefix=".web-crl-", dir=certificates))
+    preserve_recovery = False
+    try:
         new_web, new_extensions = work / "web.pem", work / "web.extensions"
         lines = [line for line in current.splitlines() if line.split("=", 1)[0].strip().lower() != "crldistributionpoints"]
         new_extensions.write_text("\n".join([*lines, extension, ""]), encoding="utf-8")
@@ -81,7 +124,8 @@ def configure_web(certificates, ca, key, crl, address):
         openssl(*verify, new_web)
         if openssl("x509", "-in", new_web, "-pubkey", "-noout") != openssl("pkey", "-in", certificates / "web.key", "-pubout"):
             raise ValueError("Web CSR 与现有私钥不匹配。")
-        files = [(web, new_web), (extensions, new_extensions)]
+        # 先切换续签模板，再切证书；任一文件失败均恢复整组，不触发未完成的重载。
+        files = [(extensions, new_extensions), (web, new_web)]
         for old, new in files:
             previous = work / f"{old.name}.previous"
             metadata = old.stat()
@@ -89,14 +133,13 @@ def configure_web(certificates, ca, key, crl, address):
             os.chown(previous, metadata.st_uid, metadata.st_gid)
             new.chmod(metadata.st_mode & 0o777)
             os.chown(new, metadata.st_uid, metadata.st_gid)
-        try:
-            new_extensions.replace(extensions)
-            new_web.replace(web)
-            reload_nginx()
-        except BaseException:
-            for old, _ in files:
-                (work / f"{old.name}.previous").replace(old)
-            raise
+        activate_web(files, work)
+    except WebCertificateFailure as error:
+        preserve_recovery = error.recovery_directory is not None
+        raise
+    finally:
+        if not preserve_recovery:
+            shutil.rmtree(work)
 
 
 def manage(address):
@@ -121,22 +164,29 @@ def manage(address):
                 configure_web(certificates, ca, key, crl, address)
 
 
-def main():
+def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     command = parser.add_mutually_exclusive_group(required=True)
     command.add_argument("--configure", type=ipaddress.IPv4Address, metavar="GATEWAY_IP")
     command.add_argument("--refresh", action="store_true")
-    options = parser.parse_args()
+    options = parser.parse_args(argv)
     if os.geteuid() != 0:
         parser.error("需要 root 权限。")
     os.umask(0o077)
     try:
         manage(options.configure)
-    except subprocess.CalledProcessError as error:
-        parser.exit(1, f"应用 CA 吊销配置失败（{error.cmd[0]}）。\n{error.stderr or ''}")
-    except (OSError, ValueError) as error:
-        parser.exit(1, f"应用 CA 吊销配置失败。{error}\n")
+    except WebCertificateFailure as error:
+        report = {"status": "failed", "code": str(error), "filesRestored": error.files_restored,
+                  "rollbackReloadAcknowledged": error.rollback_reload_acknowledged,
+                  "recoveryDirectory": error.recovery_directory}
+    except (OSError, ValueError, subprocess.SubprocessError):
+        report = {"status": "failed", "code": "application_crl_failed", "filesRestored": None,
+                  "rollbackReloadAcknowledged": False, "recoveryDirectory": None}
+    else:
+        return 0
+    print(json.dumps(report, separators=(",", ":")), file=sys.stderr)
+    return 1
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())
