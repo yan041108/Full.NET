@@ -52,7 +52,7 @@ sudo /usr/local/lib/fullnet/Receive-ObjectCertificate.sh PRIMARY_IPV4
 
 接收器对输入文件做所有权、类型、链接和权限检查；私钥仅在内存中经 stdin 提取公钥，不复制到新的文件、命令参数或输出。独占 .certificate-sync.lock，提交前再次核对本地输入未变；不使用或覆盖固定 object.next。校验完成后在同文件系统原子替换为当前执行者所有、fullnet-storage 组、0640 的 object.pem，同证书且元数据正确时不改 inode。自定义部署可显式给出 --directory、--port、--group；目录必须由调用者拥有且不可被组/其他用户写入，正式默认目录仍要求 root。
 
-成功输出一条 status=updated/unchanged JSON，含公开证书 SHA-256 指纹及本轮 certificateInstalled；所有回执的 serviceActivationVerified=false。提交前失败保留原证书，错误只报告固定码；如提交已完成但暂存清理失败，则失败回执明确 certificateInstalled=true，不能推断旧文件仍有效。可处理的 TERM/INT 会清理本轮暂存，强杀、掉电和在线对象服务是否加载新证书仍须另行核对。
+成功输出一条 status=updated/unchanged JSON，含公开证书 SHA-256 指纹及本轮 certificateInstalled；成功回执的 serviceActivationVerified=false。提交前失败保留原证书，错误只报告固定码；如提交已完成但暂存清理失败，则失败回执明确 certificateInstalled=true，不能推断旧文件仍有效。可处理的 TERM/INT 会清理本轮暂存，强杀、掉电和在线对象服务是否加载新证书仍须另行核对。
 
 提供 fullnet-object-certificate.service/.timer 源码，保留 UTC 18:10 每日同步及最多五分钟随机延迟；服务期限九十秒、内存 128 MiB，仅允许写证书目录。这些单元不会由本次开发或测试安装、启用或触发。定向入口 helm-runtime-focused / object-certificate 只使用临时 CA/私钥、真实 OpenSSL 与回环 HTTP/TLS，检查签名/IP/用途/有效期/公钥、并发锁、原子读者、旧文件保留及提交状态，不访问部署节点。验证语义依据 [OpenSSL 3.0 证书验证选项](https://docs.openssl.org/3.0/man1/openssl-verification-options/)与 [公钥导出](https://docs.openssl.org/3.0/man1/openssl-pkey/)。
 
