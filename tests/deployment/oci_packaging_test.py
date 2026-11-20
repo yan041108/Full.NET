@@ -321,6 +321,8 @@ class OciPackagingTests(unittest.TestCase):
         def download(command, **kwargs):
             self.assertEqual(command[0], "curl")
             self.assertIs(kwargs["stderr"], subprocess.DEVNULL)
+            self.assertEqual(command[command.index("--max-filesize") + 1], "65536")
+            self.assertEqual(command[command.index("--proto-redir") + 1], "=https")
             digest = command[command.index("-o") - 1].rsplit("/", 1)[-1]
             Path(command[command.index("-o") + 1]).write_bytes(self.base_blobs[digest])
             return subprocess.CompletedProcess(command, 0)
@@ -355,6 +357,19 @@ class OciPackagingTests(unittest.TestCase):
                 self.assertEqual(output.getvalue(), "")
                 self.assertEqual(json.loads(errors.getvalue()), {"status": "failed", "code": expected})
                 self.assertNotIn("private", errors.getvalue())
+
+    def test_transport_budget_never_weakens_exact_descriptor_size(self):
+        args = self.args()
+        args.base_oci = None
+        def oversized(command, **_):
+            digest = command[command.index("-o") - 1].rsplit("/", 1)[-1]
+            Path(command[command.index("-o") + 1]).write_bytes(self.base_blobs[digest] + b"x")
+            return subprocess.CompletedProcess(command, 0)
+        with mock.patch.object(module, "fetch_json", return_value=(module.encode(self.base_manifest), self.base_manifest)), mock.patch.object(module.subprocess, "run", side_effect=oversized):
+            with self.assertRaisesRegex(module.InvalidImage, "^download_integrity_failed$"):
+                module.pack(args)
+        self.assertEqual(list(self.cache.iterdir()), [])
+        self.assertFalse(self.output.exists())
 
 
 if __name__ == "__main__":

@@ -112,8 +112,12 @@ def online_base(cache):
                 handle, name = tempfile.mkstemp(prefix=".download-", dir=cache)
                 os.close(handle)
                 temporary = Path(name)
+                # 旧版 curl 也可能用大小预算检查重定向响应；小 blob 仍需容纳有界的协议开销。
+                # 接收后继续按 descriptor 精确核对大小与摘要，传输预算不能成为内容放行条件。
+                transport_limit = max(65536, descriptor["size"])
                 subprocess.run(["curl", "-4", "-fsSL", "--connect-timeout", "10", "--max-time", "300",
-                                "--max-filesize", str(descriptor["size"]), REPOSITORY + "/blobs/" + descriptor["digest"],
+                                "--max-filesize", str(transport_limit), "--proto", "=https", "--proto-redir", "=https",
+                                "--max-redirs", "5", REPOSITORY + "/blobs/" + descriptor["digest"],
                                 "-o", str(temporary)], check=True, stderr=subprocess.DEVNULL, timeout=305)
                 require(temporary.stat().st_size == descriptor["size"] and digest_file(temporary) == descriptor["digest"],
                         "download_integrity_failed")

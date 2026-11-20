@@ -166,7 +166,7 @@ jobs:
           import unittest
           suite = unittest.defaultTestLoader.discover('tests/deployment', pattern='release_evidence_test.py')
           result = unittest.TextTestRunner(verbosity=2).run(suite)
-          if not result.wasSuccessful() or result.skipped or result.testsRun != 31:
+          if not result.wasSuccessful() or result.skipped or result.testsRun != 32:
               raise SystemExit(1)
           print(f'release_evidence: passed={result.testsRun} failed=0 skipped=0')
           PY
@@ -188,8 +188,10 @@ jobs:
           sys.path.insert(0, 'tests/deployment')
           suite = unittest.defaultTestLoader.discover('tests/deployment', pattern='oci_runtime_test.py')
           suite.addTests(unittest.defaultTestLoader.loadTestsFromName('oci_packaging_test.OciPackagingTests.test_cli_failure_classes_are_redacted'))
+          suite.addTests(unittest.defaultTestLoader.loadTestsFromName('oci_packaging_test.OciPackagingTests.test_online_index_and_downloads_verify_declared_digests'))
+          suite.addTests(unittest.defaultTestLoader.loadTestsFromName('oci_packaging_test.OciPackagingTests.test_transport_budget_never_weakens_exact_descriptor_size'))
           result = unittest.TextTestRunner(verbosity=2).run(suite)
-          if not result.wasSuccessful() or result.skipped or result.testsRun != 4:
+          if not result.wasSuccessful() or result.skipped or result.testsRun != 6:
               raise SystemExit(1)
           print(f'oci_runtime: passed={result.testsRun} failed=0 skipped=0')
           PY
