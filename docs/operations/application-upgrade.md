@@ -60,6 +60,10 @@ role 支持 api/worker/migrator；对应宿主 DLL、deps.json、runtimeconfig.j
 
 定向验收 helm-runtime-focused / oci-packaging 使用合成基础层和 publish 内容，仅证明 OCI 结构、摘要和打包行为，不证明运行时来源、真实程序集启动、容器导入或 Kubernetes 发布。参考 [OCI 描述符](https://github.com/opencontainers/image-spec/blob/main/descriptor.md)与 [DiffID 规则](https://github.com/opencontainers/image-spec/blob/main/config.md)。
 
+需要验证真实导入与入口时，选择手动入口 helm-runtime-focused / oci-runtime：只发布 tests/deployment/fixtures/oci-runtime/ 的无业务依赖 .NET 10 探针，正式 Pack-OciImage.py 从 MCR 获取运行时并输出基础/候选/归档摘要，通过 Skopeo 导入本机 Docker。三个角色的入口分别以镜像自身 UID 1654 启动，运行时再核对工作目录、环境、点文件和应用代次；API 离线更新验证运行时层保留、旧应用文件消失，错误代次须真实退出失败。
+
+该入口仅接受显式隔离 Linux 和本地 Unix socket Docker context。探针容器禁用网络、根文件系统只读、CPU 1/内存 128 MiB/进程 64，命令有硬期限；构建输出、下载缓存和 OCI 包均在系统临时目录，结束只删除本轮唯一标签/名称的镜像和容器，不执行 prune 或复制整仓。Skopeo 使用 [OCI archive 到 Docker daemon 传输](https://github.com/containers/image/blob/main/docs/containers-transports.5.md)，不向远端仓库推送。通过结果只认证镜像传输与 .NET 探针入口，不替代 Full.NET 三个完整业务宿主、数据库迁移、Native AOT 或生产 Kubernetes 的验收。
+
 ### 采集并封存运行快照
 
 角色升级结束后，使用已有只读 Kubernetes 权限采集一次运行快照。入口不读取管理员密码或 Key Ring，不执行 MySQL，不写 Nginx 或修改工作负载；凭据交付、配置生效和密钥恢复各自按原步骤验证。
