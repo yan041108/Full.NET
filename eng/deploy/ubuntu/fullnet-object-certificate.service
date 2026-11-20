@@ -1,0 +1,17 @@
+[Unit]
+Description=Receive and verify Full.NET object storage TLS certificate
+After=network-online.target
+Wants=network-online.target
+[Service]
+Type=oneshot
+EnvironmentFile=/etc/fullnet/object-storage/deployment.env
+ExecStart=/usr/local/lib/fullnet/Receive-ObjectCertificate.sh ${PRIMARY_ADDRESS}
+UMask=0077
+TimeoutStartSec=90
+MemoryMax=128M
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/etc/fullnet/object-storage
+RestrictAddressFamilies=AF_UNIX AF_INET

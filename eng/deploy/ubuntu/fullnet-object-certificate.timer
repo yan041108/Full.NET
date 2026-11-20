@@ -1,0 +1,8 @@
+[Unit]
+Description=Daily Full.NET object TLS certificate synchronization
+[Timer]
+OnCalendar=*-*-* 18:10:00 UTC
+RandomizedDelaySec=300
+Persistent=true
+[Install]
+WantedBy=timers.target

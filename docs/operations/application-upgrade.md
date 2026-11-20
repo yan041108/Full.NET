@@ -40,6 +40,22 @@ migrator 在候选渲染通过、备份服务成功后才开启临时 DDL 设置
 
 成功清理本轮暂存目录；失败仅保留私有且有界的原始诊断，values 与候选副本会被移除，秘密不直接回显到终端。该普通角色步骤不承担报表输出切版、旧消费者排空或联合恢复；涉及这些变更时使用上方对应手册和正式门禁。
 
+## 对象存储公开证书同步
+
+在已安装对象存储的 secondary 节点执行既有入口，参数为公开 PKI 路由所在的 primary IPv4：
+
+```bash
+sudo /usr/local/lib/fullnet/Receive-ObjectCertificate.sh PRIMARY_IPV4
+```
+
+默认从 primary 的 80 端口 /pki/object-server.pem 下载到 /etc/fullnet/object-storage/ 下本轮私有暂存目录；使用固定地址、二十秒下载预算和 32 KiB 上限，不经过环境代理、不跟随重定向，要求 HTTP 200。证书是公开数据，内容身份依赖本地受信 application-ca.pem、server.env 中的 OBJECT_BIND_ADDRESS、sslserver 用途/有效期和原 object.key 的公钥，不能把网络可达或 HTTP 成功当作证书可信。仅接收签发器当前提供的单个 PEM 叶证书，不轮换本地 CA 或私钥，不判断 CRL/OCSP 或发行版本新旧。
+
+接收器对输入文件做所有权、类型、链接和权限检查；私钥仅在内存中经 stdin 提取公钥，不复制到新的文件、命令参数或输出。独占 .certificate-sync.lock，提交前再次核对本地输入未变；不使用或覆盖固定 object.next。校验完成后在同文件系统原子替换为当前执行者所有、fullnet-storage 组、0640 的 object.pem，同证书且元数据正确时不改 inode。自定义部署可显式给出 --directory、--port、--group；目录必须由调用者拥有且不可被组/其他用户写入，正式默认目录仍要求 root。
+
+成功输出一条 status=updated/unchanged JSON，含公开证书 SHA-256 指纹及本轮 certificateInstalled；所有回执的 serviceActivationVerified=false。提交前失败保留原证书，错误只报告固定码；如提交已完成但暂存清理失败，则失败回执明确 certificateInstalled=true，不能推断旧文件仍有效。可处理的 TERM/INT 会清理本轮暂存，强杀、掉电和在线对象服务是否加载新证书仍须另行核对。
+
+提供 fullnet-object-certificate.service/.timer 源码，保留 UTC 18:10 每日同步及最多五分钟随机延迟；服务期限九十秒、内存 128 MiB，仅允许写证书目录。这些单元不会由本次开发或测试安装、启用或触发。定向入口 helm-runtime-focused / object-certificate 只使用临时 CA/私钥、真实 OpenSSL 与回环 HTTP/TLS，检查签名/IP/用途/有效期/公钥、并发锁、原子读者、旧文件保留及提交状态，不访问部署节点。验证语义依据 [OpenSSL 3.0 证书验证选项](https://docs.openssl.org/3.0/man1/openssl-verification-options/)与 [公钥导出](https://docs.openssl.org/3.0/man1/openssl-pkey/)。
+
 ## 双节点集群网络核对
 
 使用已有 Kubernetes 授权，显式指定两个不同的 Ready、可调度节点和目标 context：
