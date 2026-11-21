@@ -24,6 +24,7 @@ restore_required=false
 original=''
 action=''
 chart_digest=''
+chart_content_digest=''
 failure_logs=()
 completed_roles=()
 values_digest_json=''
@@ -92,8 +93,8 @@ finish() {
       "$requested_role" "$(roles_json "${completed_roles[@]}")" "$restore_required" >&2
   fi
   if [[ $result == 0 ]]; then
-    printf '{"schemaVersion":1,"role":"%s","roles":%s,"completedRoles":%s,"namespace":"fullnet-production","action":"%s","chartSha256":"%s","valuesSha256":{%s},"candidateImageTag":%s}\n' \
-      "$requested_role" "$(roles_json "${roles[@]}")" "$(roles_json "${completed_roles[@]}")" "$action" "$chart_digest" "$values_digest_json" "$candidate_image_tag_json"
+    printf '{"schemaVersion":1,"role":"%s","roles":%s,"completedRoles":%s,"namespace":"fullnet-production","action":"%s","chartSha256":"%s","chartContentSha256":"%s","valuesSha256":{%s},"candidateImageTag":%s}\n' \
+      "$requested_role" "$(roles_json "${roles[@]}")" "$(roles_json "${completed_roles[@]}")" "$action" "$chart_digest" "$chart_content_digest" "$values_digest_json" "$candidate_image_tag_json"
   fi
   exit "$result"
 }
@@ -149,6 +150,33 @@ packages=("$work"/*.tgz)
 package=${packages[0]}
 chart_digest=$(sha256sum "$package")
 chart_digest=${chart_digest%% *}
+perform chart-content python3 - "$package" <<'PY'
+import hashlib,json,sys,tarfile
+try:
+    manifest={}
+    with tarfile.open(sys.argv[1],'r:gz') as archive:
+        for member in archive:
+            if member.isdir(): continue
+            if not member.isfile() or member.name in manifest: raise ValueError()
+            if member.name.startswith('/') or any(part in ('','.', '..') for part in member.name.split('/')): raise ValueError()
+            if len(manifest)>=4096 or member.size>16777216: raise ValueError()
+            content=archive.extractfile(member)
+            digest=hashlib.sha256()
+            size=0
+            while chunk:=content.read(65536):
+                size+=len(chunk)
+                digest.update(chunk)
+            if size!=member.size: raise ValueError()
+            manifest[member.name]={'size':size,'sha256':digest.hexdigest()}
+    if not manifest: raise ValueError()
+    # 路径与原始文件字节纳入身份；忽略 tar/gzip 的打包时间、属主及权限元数据。
+    canonical=json.dumps(manifest,sort_keys=True,separators=(',',':'),ensure_ascii=True).encode('ascii')
+    print(hashlib.sha256(canonical).hexdigest())
+except (OSError,ValueError,tarfile.TarError,EOFError):
+    print('候选 Chart 内容不能生成稳定身份。',file=sys.stderr)
+    sys.exit(1)
+PY
+chart_content_digest=$(< "$last_output")
 frozen_files=("$package" "$work/common.json")
 values_digest=$(sha256sum "$work/common.json")
 values_digest_json="\"common\":\"${values_digest%% *}\""

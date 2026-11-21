@@ -126,7 +126,8 @@ jobs:
                   import ubuntu_batch_release_test as batches
                   suite.addTests(unittest.defaultTestLoader.loadTestsFromTestCase(batches.BatchReleaseTests))
                   suite.addTest(fixture.RealHelmRolePlanTests('test_actual_chart_renders_exactly_the_selected_role_despite_all_roles_in_values'))
-                  expected = 40
+                  suite.addTest(fixture.RealHelmRolePlanTests('test_content_identity_survives_repackaging_and_changes_with_file_bytes'))
+                  expected = 42
           result = unittest.TextTestRunner(verbosity=2).run(suite)
           if not result.wasSuccessful() or result.skipped or result.testsRun != expected:
               raise SystemExit(1)

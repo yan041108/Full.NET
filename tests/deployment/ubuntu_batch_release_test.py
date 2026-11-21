@@ -19,6 +19,13 @@ class BatchReleaseTests(_Base):
     def batch(self, plan=False):
         return self.execute('all', '--plan' if plan else '--ordinary-upgrade')
 
+    def test_untrustworthy_chart_content_never_starts_release_actions(self):
+        for kind in ('escape', 'link', 'duplicate', 'empty'):
+            self.configure(invalid_chart_content=kind)
+            self.assert_no_success(self.batch())
+            events=self.state()['events']
+            self.assertFalse(any(event[0] in ('mysql','systemctl') or event[:2] in (['helm','template'],['helm','upgrade']) for event in events))
+
     def test_missing_or_latest_tag_blocks_every_release_command(self):
         for image in ({}, {'tag': 'latest'}, {'tag': ''}, {'tag': True}):
             self.common.write_text(json.dumps({'image': image}))

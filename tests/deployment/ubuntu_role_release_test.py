@@ -46,7 +46,14 @@ elif name=='helm':
     if state.get('fail_phase')==operation and (not state.get('fail_role') or state['fail_role']==role): fail()
     if operation=='package':
         target=pathlib.Path(args[args.index('--destination')+1])/'fullnet-fixture.tgz'
-        target.write_bytes(b'frozen-chart-fixture')
+        import io,tarfile
+        with tarfile.open(target,'w:gz') as archive:
+            entry=tarfile.TarInfo('fullnet/Chart.yaml');entry.size=7
+            invalid=state.get('invalid_chart_content')
+            if invalid=='escape':entry.name='../escape'
+            if invalid=='link':entry.type=tarfile.SYMTYPE;entry.linkname='/etc/passwd';entry.size=0
+            if invalid!='empty':archive.addfile(entry,io.BytesIO(b'fixture'))
+            if invalid=='duplicate':archive.addfile(entry,io.BytesIO(b'fixture'))
     if operation in ('template','upgrade'):
         package=pathlib.Path(args[2] if operation=='template' else args[3])
         values=[pathlib.Path(args[index+1]) for index,value in enumerate(args) if value=='-f']
@@ -263,6 +270,24 @@ class ReleaseControlTests(_Base):
 
 
 class RealHelmRolePlanTests(_Base):
+    def test_content_identity_survives_repackaging_and_changes_with_file_bytes(self):
+        templates=self.chart/'templates';templates.mkdir()
+        template=templates/'fixture.yaml'
+        template.write_text('apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: fixture\ndata:\n  marker: first\n')
+        self.configure(real_helm=True)
+        def receipt():
+            result=self.execute('api','--plan')
+            self.assertEqual(result.returncode,0,result.stderr)
+            return json.loads(result.stdout)
+        first=receipt()
+        time.sleep(1.2)
+        second=receipt()
+        self.assertNotEqual(first['chartSha256'],second['chartSha256'])
+        self.assertEqual(first['chartContentSha256'],second['chartContentSha256'])
+        template.write_text(template.read_text().replace('first','second'))
+        changed=receipt()
+        self.assertNotEqual(first['chartContentSha256'],changed['chartContentSha256'])
+
     def test_actual_chart_renders_exactly_the_selected_role_despite_all_roles_in_values(self):
         self.chart = REPOSITORY / 'deploy/helm/fullnet'
         common = (self.chart / 'ci/values-role-api.yaml').read_text() + '\n' + (self.chart / 'ci/values-provider-sqlserver.yaml').read_text()
