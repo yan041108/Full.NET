@@ -210,7 +210,7 @@ bash eng/deploy/Render-Observability.sh --set cluster=reference-primary \
 probeAlert 默认关闭，显式启用才增加 FullNetTelemetryPipelineProbe（fullnet_pipeline_probe_state == 1，持续十秒）；生产既有规则及阈值保留。定向入口 helm-runtime-focused / metrics-platform 覆盖渲染边界和固定镜像真实配置校验、OTLP→查询→firing/resolved→自有 TLS 接收器，以及错误 CA 拒绝，合成身份值在点标签与 target_info 中均应移除。所有容器/网络/CA/Token 由本轮持有并回收，不发送真实通知；合成回路不是现网应用采集、KSM 实际 watch、正式地址送达或生产认证。
 
 配置语义依据 [Collector 内部指标](https://opentelemetry.io/docs/collector/internal-telemetry/) 和 [kube-state-metrics 2.17 CLI](https://github.com/kubernetes/kube-state-metrics/blob/v2.17.0/docs/developer/cli-arguments.md)。Prometheus/Alertmanager/Collector 复用仓库既有固定摘要；KSM 固定官方 registry 的 2.17.0 摘要。平台尚须按现场逐项核对采集新鲜度、实例标签、持久卷、真实告警路由、接收恢复及故障域，D08-14 不因本包渲染而整体关闭。
-本渲染包保留全部原有规则，但提供 Deployment/HPA/PDB 与 Collector 的抓取和外部 OTLP 指标入口。Node、Ingress/WAF 等其他 exporter 未由本包提供；不能用规则文件存在推导全部规则都有数据或能够报警。五秒 WAL 参数只用于本派生平台，不改现有通用 Collector values，不据功能窗口推导吞吐、分位延迟或容量。WAL 低流量批次行为参见[对应 exporter 实现](https://github.com/open-telemetry/opentelemetry-collector-contrib/blob/v0.163.0/exporter/prometheusremotewriteexporter/wal.go)。
+本渲染包保留全部原有规则，但提供 Deployment/HPA/PDB 与 Collector 的抓取、外部 OTLP 指标入口及 externalScrapes 显式外部源接线。Node、Ingress/WAF 等 exporter 不由本包自动安装；不能用规则文件存在推导全部规则都有数据或能够报警。五秒 WAL 参数只用于本派生平台，不改现有通用 Collector values，不据功能窗口推导吞吐、分位延迟或容量。WAL 低流量批次行为参见[对应 exporter 实现](https://github.com/open-telemetry/opentelemetry-collector-contrib/blob/v0.163.0/exporter/prometheusremotewriteexporter/wal.go)。
 
 ### 隔离 Kubernetes 部署验证
 
@@ -251,3 +251,5 @@ bash eng/deploy/Render-Observability.sh --set cluster=reference-primary \
 抓取周期十五秒、超时五秒、响应体上限 5 MB、每轮两万样本、每样本最多三十二个标签，标签名/值分别限制 128/1024 字节；超预算按失败处理，观察 up 和抓取错误。固定 job/instance/cluster 标签，不信任 exporter 覆盖目标标签，也不采纳其显式样本时间戳；对象容量的 sample_timestamp_seconds 指标值仍用于原十二分钟新鲜度规则。禁止 HTTP 重定向；文件凭据不以头部明文写入配置。外部 exporter 自身仍需控制敏感字段与标签基数。
 
 本入口不安装 exporter、开启宿主端口或放行出站网络；目标、DNS、端口、Prometheus 出口许可与 exporter 访问策略必须在启用前核对。Secret 更新后显式滚动/验证 Prometheus，不能假定 CA/客户端状态已经热更新。对象容量 job 应指向已安装的 Node Exporter textfile 端点并确认定时样本确实更新；新增目标和规则存在都不能代替实际数据、持续窗口和正式通知送达证据。配置语义依据 [Prometheus 3.15 配置](https://github.com/prometheus/prometheus/blob/v3.15.0/docs/configuration/configuration.md)。定向 workflow 场景为 external-metrics-scrapes，实际证书与 Token 测试只使用本轮自有 HTTPS 夹具。
+
+此配置入口已通过本地真实 Helm 定向检查及[真实 Kubernetes HTTPS/Secret 投影作业](https://github.com/yan041108/Full.NET/actions/runs/44849608109/job/136677573725)；错误 CA、错误 Token、重定向均被拒绝。该证明只覆盖自有合成目标，不表示真实 exporter、现场采集或通知已启用。

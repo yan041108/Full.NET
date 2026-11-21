@@ -7577,8 +7577,12 @@ Release 集成工程单节点构建及 Identity 模块隔离 AOT 分析均零警
 
 | 固定任务 | 当前状态 | 完成条件 |
 | --- | --- | --- |
-| D08-ExternalMetricsScrapes | 已实现，待集中验收 | 默认无外部目标，显式配置既有规则 job 与受限静态地址；Prometheus 独占投影 CA/Token，真实 HTTPS/Bearer 采集与错误 CA/Token/重定向拒绝通过，原阈值保持。 |
+| D08-ExternalMetricsScrapes | 已完成，渲染与真实 TLS 抓取通过 | 默认无外部目标，显式配置既有规则 job 与受限静态地址；Prometheus 独占投影 CA/Token，真实 HTTPS/Bearer 采集与错误 CA/Token/重定向拒绝通过，原阈值保持。 |
 
 - 基线 2d84f5c7be50540fd0a12520ef334d3d0492c6d6，快照 external-metrics-scrapes-20261121。既有对象容量 textfile、Fluent Bit/边缘规则已有实现或场景证据，但新平台只内置 KSM/Collector 抓取；补齐受限外部源接线，关闭 D08-14 该部署配置缺口，不重做已有探针/exporter。
-- 冻结范围为观测平台 values/schema/模板、使用示例与手册、直接相关渲染及实际 Kubernetes TLS/Secret 投影验证。默认 externalScrapes 为空，允许六种规则 job、每类最多八个 DNS/IPv4:port 目标；不接收任意配置块、内嵌凭据、跳过 TLS 验证或明文凭据传输。目标 job/端点由运维显式审批配置，不自动发现或访问现网。
+- 冻结范围为观测平台 values/schema/模板、使用示例与手册、直接相关渲染及实际 Kubernetes TLS/Secret 投影验证。默认 externalScrapes 为空，允许六种规则 job、每类最多八个 DNS/IPv4:port 目标；不接收任意配置块、内嵌凭据、跳过 TLS 验证或明文凭据传输。目标 job/端点由运维显式配置，不自动发现或访问现网。
 - 集中验证新外部抓取渲染边界、原阈值保持及一个实际 Prometheus/HTTPS 夹具，不重跑 HPA/PDB、原通知回路、双 PVC 恢复、.NET/双库/全量。合成 TLS 指标不冒充真实 Node Exporter/Fluent Bit/WAF 或现场新鲜度与告警送达，生产 CNI/出口策略、证书和目标仍需现场验证；Capacity-not-verified 保持。
+- 实现与验收源码固定为 87640a138436227a0211895ca656ad6b214ee5b4。本地一次性 Python 3.12 Debian 容器（CPU 1/内存 256 MiB/进程 128、禁网、仓库和既有 Helm 工具只读）用真实 Helm 3.16.4 执行新外部抓取三方法及原规则阈值方法，4/4（7.889 秒），零失败/跳过；非法 job/目标/端口/重复/明文凭据/未知配置和有界输入拒绝实际通过。Workflow/example YAML 与 schema JSON 结构检查通过；提交前后模板与测试输入未改，复用该本地结果，不在 CI 重复四条。
+- [external-metrics-scrapes 精确运行作业](https://github.com/yan041108/Full.NET/actions/runs/44849608109/job/136677573725) 为 1/1（106.006 秒），零失败、零跳过，源码状态守卫通过。Linux/Python 3.12、kind 0.30.0/固定 Kubernetes 1.34.0 节点、原 Prometheus 3.15.0 固定镜像；非 root Prometheus 通过真实 Kubernetes Secret 投影读取 CA 和 Bearer 文件，实际 HTTPS 抓取本轮端点，得到固定 cluster/job/instance 的合成容量样本，原 fullnet:object_storage_capacity_sample_fresh 记录规则返回 1。
+- 同一自有 TLS 服务的三个独立目标分别使用错误 CA、错误 Token 和 302 路径；实际 target lastError 对应 x509、401、302，up 均为 0，三个失败 job 均无被测容量成功样本。不跳过证书校验、不跟随跳转、不用文件配置断言替代实际读取与传输；这些 job 只是本轮拒绝夹具，不冒充真实 WAF/Fluent Bit/DDoS 系统。合成端点不是已安装的 Node Exporter 或现场容量探针，也没有走真实告警持续窗口/通知。
+- 本批固定任务关闭：剩余开发 0、待验收 0。本地四条与 CI 一条为五个不重叠定向方法；Kind 容器实际回收为 0，临时 CA/私钥/Token/kubeconfig/配置随夹具清理，本地验证容器 --rm 回收；既有 Helm 工具仅只读复用，没有新增根 artifacts 或源码复制。外部指标的安全接线能力已交付，不再重复安排该配置入口；实际 exporter 安装、已存在宿主容量样本的现场抓取/新鲜度、目标出口策略、正式通知以及 Node 状态等其他未提供源仍归 D08-14/F15/F16，Capacity-not-verified 保持。未操作现网、读取真实凭据或运行无影响的 .NET/双库/全量。
