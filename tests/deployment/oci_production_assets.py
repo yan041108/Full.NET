@@ -53,10 +53,8 @@ def prepare(root, database, redis, password):
         "Cache": {"RedisConnectionString": redis + ":6379,password=" + password + ",abortConnect=false"},
         "Realtime": {"Enabled": False, "AllowSharedRedisInDevelopment": False},
         "Files": {"Storage": {"DefaultProviderKey": "s3"},
-                  "S3": {"BucketName": "candidate-startup", "Region": "us-east-1",
-                         "AccessKeyId": "candidate-startup", "SecretAccessKey": password},
-                  "Oss": {"BucketName": "candidate-startup", "Endpoint": "https://oss.example.invalid",
-                          "AccessKeyId": "candidate-startup", "AccessKeySecret": password}},
+                  "S3": {"BucketName": "candidate-startup", "Region": "us-east-1"},
+                  "Oss": {"BucketName": "candidate-startup", "Endpoint": "https://oss.example.invalid"}},
     }
     configuration = private / "appsettings.Production.json"
     configuration.write_text(json.dumps(settings))

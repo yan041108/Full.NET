@@ -7852,3 +7852,4 @@ Release 集成工程单节点构建及 Identity 模块隔离 AOT 分析均零警
 - 基线 a6ee0637611230e073258bbd2c33d3e023a3bc7a，快照 candidate-production-startup-20261121。冻结范围为原导入/启动工作流、Production 资产夹具与原手册/计划；不改应用实现、不重复编译。新增 host_environment 显式选择，默认 Testing，只有 verify_hosts=true 才执行业务 Host 检查；只派发新 Production/MySQL 差集，不重跑完整矩阵或旧 Testing 验收。
 - 复用已导入候选和隔离内网，独立随机本轮密钥/CA，MySQL 服务证书 SAN 匹配容器 DNS、VerifyFull 和 require_secure_transport=ON；真实有密码 Redis，真实 X509/PFX 保护共享 Key Ring，显式 RSA 签名且禁止开发临时签名。密钥仅供本轮私有目录和必要只读挂载，不入产物；API/Worker UID 1654、只读根和资源限额保持。云存储配置仅满足启动校验，内网禁止外联，不认证 Provider 调用。
 - 仍先执行空库备份恢复与正式 Migrator，再检查两角色三健康端点和正常停止，记录数据库 TLS 实际接入计数及依赖镜像身份，独立清理。完成条件限定隔离 Production 配置，不外推现场部署、SQL Server、AOT、完整业务、生产恢复或容量；其他外部主任务保持开放。
+- 首次 Production 作业 44907117783 完成迁移后在 Files S3/Oss 凭据来源校验失败，API 未进入服务，Worker 未启动；容器/网络及导入镜像均清理通过。根因为夹具把占位凭据写入临时 appsettings，而正式生产校验要求环境来源；改为仅在私有 env-file 提供本轮占位，配置文件移除这些字段，保留原来源校验和内网外联限制，未修改产品代码或关闭云 Provider 校验。

@@ -91,6 +91,10 @@ def verify(root):
     ]) + "\n")
     if not production:
         env.write_text(env.read_text() + "Identity__AllowDevelopmentEphemeralSigningKey=true\nIdentity__RequireSecureCookies=false\nDataProtection__KeyRingPath=/tmp/keys\n")
+    else:
+        # 云 Provider 的生产校验要求环境来源；这些仅为本轮占位，内网不允许实际调用。
+        env.write_text(env.read_text() + "Files__S3__AccessKeyId=candidate-startup\nFiles__S3__SecretAccessKey=" + password +
+                       "\nFiles__Oss__AccessKeyId=candidate-startup\nFiles__Oss__AccessKeySecret=" + password + "\n")
     env.chmod(0o600)
     database_env = root / "database.env"
     database_env.write_text("MYSQL_ROOT_PASSWORD=" + password + "\nMYSQL_ROOT_HOST=%\nMYSQL_DATABASE=fullnet_candidate\n")
