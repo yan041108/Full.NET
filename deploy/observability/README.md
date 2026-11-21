@@ -297,7 +297,7 @@ sudo python3 eng/deploy/ubuntu/Install-ObjectCapacityExporter.py \
 
 安装/启用失败或受控中断时只回收本轮创建的目录/unit；一旦尝试启动，先 disable --now 并复核停止再删除。停止无法确认或资源身份改变则返回 rollback_incomplete_preserved，保留现场供人工核对，不报告安装成功。并发使用独占安装锁，锁文件作为持续协调入口保留。installed 仅表示 unit 校验、启用及当时 ActiveState 核对通过，scrapeVerified/notificationVerified 始终 false；仍需从实际 Prometheus 验证 mTLS、up、textfile 错误、容量新鲜度、告警触发及恢复送达。断电/强制 SIGKILL、升级和无中断证书轮换不由首次安装事务保证。
 
-[官方归档与实际单元校验](https://github.com/yan041108/Full.NET/actions/runs/44863386267/job/136721568526) 已通过，使用真实 Node Exporter 1.13.1 归档和 Ubuntu systemd 255.4。服务控制器使用受控执行器，真实 systemctl 只读核对未安装状态，不写宿主服务；因此此证据覆盖包、证书准入、文件安装和 unit 语法，实际 systemd 启动及发布环境安装仍需单独验收。
+[官方归档与实际单元校验](https://github.com/yan041108/Full.NET/actions/runs/44863386267/job/136721568526) 已通过，使用真实 Node Exporter 1.13.1 归档和 Ubuntu systemd 255.4。该作业的服务控制器使用受控执行器，真实 systemctl 只读核对未安装状态，不写宿主服务；这份证据本身覆盖包、证书准入、文件安装和 unit 语法。后续真实 systemd/凭据运行证据见下文，发布环境安装仍需单独执行和验收。
 
 #### 只读容量采集验收
 
@@ -323,6 +323,8 @@ python3 eng/deploy/ubuntu/Verify-ObjectCapacityScrape.py \
 | verification_failed | 2 | API/证书/输入/样本契约异常；code 为固定机器码，不输出凭据或原始响应。 |
 
 异常状态不输出旧 freeSlots/freeBytes；失败巡检仍携带容量读数时拒绝该不一致快照。JSON 始终输出到标准输出，供现有发布检查读取；工具不写配置或服务、不自动重试/修复、不发送通知。一次成功仅证明所选目标在查询时刻可用，不能代替告警持续窗口、正式通知、实际磁盘/SeaweedFS 巡检、跨节点故障或容量认证。查询语义依据 [Prometheus 3.15 HTTP API](https://github.com/prometheus/prometheus/blob/v3.15.0/docs/querying/api.md) 和 [timestamp 函数](https://github.com/prometheus/prometheus/blob/v3.15.0/docs/querying/functions.md#timestamp)。
+
+[实际 systemd 与验收工具链路](https://github.com/yan041108/Full.NET/actions/runs/44864480831/job/136724968240) 已通过：一次性 Ubuntu/systemd 255 环境由正式安装函数生成并启用临时 unit，Node Exporter 以动态非 root UID、零有效 capabilities 运行，使用 LoadCredential 中的证书完成 mTLS；真实 Prometheus 抓取正式函数发布的 textfile。验收 CLI 实际观察正常→阻断→巡检失败，退出码分别为 0/1/2，失败结果无旧容量读数。服务、unit 和容器已回收；容量评估输入为合成数据，unit 位于本轮 /run/systemd/system，其他文件在专有临时目录，不代表发布节点安装、实际磁盘/SeaweedFS、正式通知或容量通过。
 
 ### 可选节点条件与日志 DaemonSet 状态
 

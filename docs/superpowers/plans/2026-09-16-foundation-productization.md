@@ -7662,9 +7662,13 @@ Release 集成工程单节点构建及 Identity 模块隔离 AOT 分析均零警
 
 | 固定任务 | 当前状态 | 完成条件 |
 | --- | --- | --- |
-| D08-ObjectCapacityScrapeVerification | 实现中，待集中验收 | 只读精确目标查询，在同一时刻核对抓取/巡检新鲜度和容量，拒绝缺失/重复/异常输入；真实 systemd 动态账号/凭据服务与真实 Prometheus 上运行该入口。 |
+| D08-ObjectCapacityScrapeVerification | 已完成，真实 systemd 与采集验收入口通过 | 只读精确目标查询，在同一时刻核对抓取/巡检新鲜度和容量，拒绝缺失/重复/异常输入；真实 systemd 动态账号/凭据服务与真实 Prometheus 上运行该入口。 |
 
 - 基线 1a4b54e2e9a2bdb8ff7e0687926bae8e2e7e59a5，快照 object-capacity-verification-20261121。§8.398 仅完成受控服务控制与 unit 语法，现场仍需逐项手查目标和样本，且真实 systemd 启动未验证；本批补齐只读验收工具并验证安装器运行时边界，不重做已交付 mTLS/发布函数或现场安装。
 - 冻结只读 Prometheus 验收器、直接相关受控 HTTP/TLS 用例、一个一次性 CI 真实 systemd/Prometheus 场景、精确手动工作流及既有手册。指定 cluster/instance，固定 job，查询有界、禁用代理/重定向、HTTPS 验证 CA，Token 只从私有文件读取且不通过 HTTP 发送；只允许回环明文入口。保留原十二分钟容量新鲜度，不发送通知、不改平台清单。
 - 集中验收工具的成功/容量风险/阻断、缺目标/up=0、textfile/probe 失败、时间异常、重复及非有限样本、HTTPS/凭据边界。真实场景仅对本轮专有临时资源运行固定官方 Node Exporter/Prometheus，按原安装器生成 unit，实际 systemd 启停并核对非 root 进程及 mTLS 读取；不向发布环境安装或读取真实凭据。真实磁盘/SeaweedFS、Kubernetes 投影、正式告警送达、生产存储/故障域仍保留，Capacity-not-verified 保持；不运行旧回路、.NET/双库或全量。
 - 本地集中新增十二个方法 12/12（13.267 秒），零失败/跳过；真实回环 HTTP/TLS、CA/主机名/Bearer、代理禁用、重定向/部分/超限拒绝、慢速字节流八秒总期限及状态/身份/新鲜度边界均通过。单查询显式按 __name__/job/cluster/instance 合并原始抓取时间后，仅复验一条直接 HTTP 查询方法 1/1（1.104 秒），其余输入未变结果复用，不累加方法数。Python 3.12 Debian 一次性容器、禁网、CPU 1/内存 256 MiB/进程 128、只读源码/根与有界临时目录；实际 systemd/Prometheus 方法尚待执行。新 Python、workflow 和差异结构检查通过。
+- 实现/验收源码 aa565b6b746eb0d973a2a400c129cfc0777b04c8 的 [object-capacity-verification 精确作业](https://github.com/yan041108/Full.NET/actions/runs/44864480831/job/136724968240) 为 1/1（54.283 秒），零失败、零跳过，源码状态守卫通过。Ubuntu 24.04/Python 3.12/systemd 255.4-1ubuntu8.18、Helm 3.16.4、固定官方 Node Exporter 1.13.1 归档及平台既有 Prometheus 3.15.0 镜像；容器为非 root/只读/有界资源，Prometheus API 仅回环监听。测试先拒绝远程 Docker/不一致 DOCKER_HOST 与既有同名 unit，不接触发布节点。
+- 正式 prepare/install 函数实际生成服务并经 systemctl 启用，unit 写入本轮 /run/systemd/system，配置/二进制/textfile 位于专有临时根；没有以受控服务控制器代替此次启动。实际 MainPID 指向固定二进制，/proc 中 UID=65203（动态、非 root）、CapEff=0；LoadCredential 运行时配置和叶子凭据实际供服务使用，Prometheus 用真实 Helm 派生的客户端证书/CA 路径成功 mTLS 抓取。此项关闭 §8.398 的动态账号/凭据实际进程启动差集，不重复列为未验证；默认 /etc 安装路径与具体发布节点仍需现场验证。
+- 正式 publish_metrics 使用合成评估原子发布正常→增长阻断→巡检失败，真实验收 CLI 通过一次精确 PromQL 查询实际给出 growth_headroom_available/0、growth_blocked/1、probe_unavailable/2；正常 freeSlots=24、阻断=0、失败结果无旧容量，服务 MainPID 始终未变。保留原十五秒抓取与十二分钟新鲜度，不加载无关告警或启动通知接收器；不将合成容量、运行中的服务或一次成功查询外推为实际磁盘/SeaweedFS、持续告警/正式通知或容量认证。
+- 本批固定任务关闭：剩余开发 0、待验收 0。十二个本地独立方法与一个真实运行方法为十三个不重叠方法。本轮 Prometheus 容器实测回收为 0；systemctl 停止复核通过、临时 unit 删除并 daemon-reload，专有 PKI/安装文件及官方归档随夹具/工作流清理。本地验证容器 --rm 回收，无仓库 artifacts 或整仓复制。只读容量采集验收入口和真实 systemd 接线差集已闭合；现场平台/采集器安装与真实巡检、网络策略、Kubernetes 客户端凭据投影、正式通知及生产故障域/容量仍归 D08-14/F15/F16。未运行旧 mTLS/Host/OTLP/Kubernetes/PVC、.NET/双库或全量，Capacity-not-verified 保持。
