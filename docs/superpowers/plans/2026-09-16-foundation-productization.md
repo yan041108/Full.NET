@@ -7573,3 +7573,12 @@ Release 集成工程单节点构建及 Identity 模块隔离 AOT 分析均零警
 - 原 Role 精确增加 autoscaling/horizontalpodautoscalers 与 policy/poddisruptionbudgets 的 get/list/watch，仍限定 applicationNamespace，无 ClusterRole/ClusterRoleBinding、Secret 或写入权限。真实 RBAC 的同命名空间列表允许、其他命名空间两类列表拒绝、两类 patch 拒绝及 Secret 列表拒绝均通过；不由隐藏入口或模拟权限替代实际 API 授权检查。
 - 实际 KSM→Prometheus 查询观察 HPA maxReplicas 4→6、当前副本系列存在；PDB 控制器对两个 Ready 测试副本的 minAvailable 1→2 实际给出允许中断数 1→0，并进入 Prometheus。删除两个本轮合成资源后，对应系列查询为空，未保留旧值。未用手写指标替代这两类资源状态，没有人工写 HPA/PDB status；没有 Metrics Server、自动伸缩、真实驱逐或告警送达结论。原 HPA 十五分钟与 PDB 十分钟窗口在渲染边界保持，未为测试缩短或宣称已经走完持续窗口。
 - 本批固定任务关闭：剩余开发 0、待验收 0。Kind 容器实际回收为 0，独立 kubeconfig/配置随夹具清理；未创建仓库 artifacts、操作现网、发送真实通知或运行原 Collector/通知/PVC 恢复、.NET/双库/全量。§8.389 的 HPA/PDB 数据源缺口已在本平台闭合，不再重复列为未提供；Node/Ingress/WAF 等其他源、现场平台发布、实际 Host 链路、正式通知与生产故障域/容量仍按 D08-14/F15/F16 保留，Capacity-not-verified 保持。
+### 8.393 D08-14 外部指标源接线（2026-11-21）
+
+| 固定任务 | 当前状态 | 完成条件 |
+| --- | --- | --- |
+| D08-ExternalMetricsScrapes | 已实现，待集中验收 | 默认无外部目标，显式配置既有规则 job 与受限静态地址；Prometheus 独占投影 CA/Token，真实 HTTPS/Bearer 采集与错误 CA/Token/重定向拒绝通过，原阈值保持。 |
+
+- 基线 2d84f5c7be50540fd0a12520ef334d3d0492c6d6，快照 external-metrics-scrapes-20261121。既有对象容量 textfile、Fluent Bit/边缘规则已有实现或场景证据，但新平台只内置 KSM/Collector 抓取；补齐受限外部源接线，关闭 D08-14 该部署配置缺口，不重做已有探针/exporter。
+- 冻结范围为观测平台 values/schema/模板、使用示例与手册、直接相关渲染及实际 Kubernetes TLS/Secret 投影验证。默认 externalScrapes 为空，允许六种规则 job、每类最多八个 DNS/IPv4:port 目标；不接收任意配置块、内嵌凭据、跳过 TLS 验证或明文凭据传输。目标 job/端点由运维显式审批配置，不自动发现或访问现网。
+- 集中验证新外部抓取渲染边界、原阈值保持及一个实际 Prometheus/HTTPS 夹具，不重跑 HPA/PDB、原通知回路、双 PVC 恢复、.NET/双库/全量。合成 TLS 指标不冒充真实 Node Exporter/Fluent Bit/WAF 或现场新鲜度与告警送达，生产 CNI/出口策略、证书和目标仍需现场验证；Capacity-not-verified 保持。

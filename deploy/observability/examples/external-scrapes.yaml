@@ -1,0 +1,11 @@
+# 仅作审查输入；必须替换为已批准的目标和同命名空间既有 Secret，不自动安装 exporter。
+externalScrapes:
+  - job: fullnet-object-capacity
+    targets: [storage-metrics.internal:9100]
+    caSecretName: approved-exporter-ca
+    authorizationSecretName: approved-exporter-token
+  # Fluent Bit 的内部无凭据端点必须明确选择 HTTP；已有访问控制时改用 HTTPS/Secret。
+  - job: fluent-bit
+    targets: [logs-metrics.monitoring.svc:2020]
+    scheme: http
+    metricsPath: /api/v1/metrics/prometheus

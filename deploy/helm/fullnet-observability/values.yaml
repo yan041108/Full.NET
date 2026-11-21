@@ -7,6 +7,8 @@ rulesSource: ""
 collectorSource: ""
 probeAlert: false
 evaluationInterval: 15s
+# 仅显式列出的外部指标目标；默认无外部抓取，凭据/私有 CA 仅引用既有 Secret。
+externalScrapes: []
 receiver:
   enabled: false
   url: ""

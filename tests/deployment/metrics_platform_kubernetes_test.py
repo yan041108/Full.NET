@@ -15,6 +15,34 @@ from cluster_network_test import NODE_IMAGE, real_command
 from metrics_platform_test import bundle, deployments
 
 
+SCRAPE_SERVER = r'''
+import http.server, pathlib, ssl, time
+class Handler(http.server.BaseHTTPRequestHandler):
+    def do_GET(self):
+        expected = pathlib.Path('/auth/token').read_text().strip()
+        if self.headers.get('Authorization') != 'Bearer ' + expected:
+            self.send_error(401); return
+        if self.path != '/metrics':
+            self.send_response(302); self.send_header('Location', '/metrics'); self.end_headers(); return
+        body = ('# TYPE fullnet_object_storage_capacity_probe_success gauge\n'
+            'fullnet_object_storage_capacity_probe_success 1\n'
+            '# TYPE fullnet_object_storage_capacity_sample_timestamp_seconds gauge\n'
+            'fullnet_object_storage_capacity_sample_timestamp_seconds ' + str(time.time()) + '\n'
+            '# TYPE fullnet_object_storage_capacity_growth_state gauge\n'
+            'fullnet_object_storage_capacity_growth_state 0\n').encode()
+        self.send_response(200)
+        self.send_header('Content-Type', 'text/plain; version=0.0.4')
+        self.send_header('Content-Length', str(len(body)))
+        self.end_headers(); self.wfile.write(body)
+    def log_message(self, *_): pass
+server = http.server.HTTPServer(('0.0.0.0', 8443), Handler)
+context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+context.load_cert_chain('/certificate/cert.pem', '/certificate/key.pem')
+server.socket = context.wrap_socket(server.socket, server_side=True)
+server.serve_forever()
+'''
+
+
 class MetricsPlatformKubernetesTests(unittest.TestCase):
     def command(self, arguments, seconds=180):
         return real_command(arguments, self.environment, seconds).strip()
@@ -105,6 +133,88 @@ class MetricsPlatformKubernetesTests(unittest.TestCase):
         new = json.loads(self.kubectl('-n', 'observability', 'get', 'pods', '-l', selector, '-o', 'json'))['items']
         self.assertEqual(len(new), 1)
         self.assertNotEqual(new[0]['metadata']['uid'], old_uid)
+
+    def test_external_scrapes_use_projected_ca_and_token_and_reject_tls_auth_and_redirect_errors(self):
+        target = 'metrics-source.observability.svc:8443'
+        sources = [
+            {'job': 'fullnet-object-capacity', 'targets': [target], 'caSecretName': 'exporter-ca',
+                'authorizationSecretName': 'exporter-token'},
+            {'job': 'waf', 'targets': [target], 'caSecretName': 'exporter-wrong-ca',
+                'authorizationSecretName': 'exporter-token'},
+            {'job': 'fluent-bit', 'targets': [target], 'caSecretName': 'exporter-ca',
+                'authorizationSecretName': 'exporter-wrong-token'},
+            {'job': 'ddos', 'targets': [target], 'caSecretName': 'exporter-ca',
+                'authorizationSecretName': 'exporter-token', 'metricsPath': '/api/v1/metrics/prometheus'}]
+        platform = bundle('--set-json', 'externalScrapes=' + json.dumps(sources))
+        self.apply(next(item for item in platform['items'] if item['kind'] == 'Namespace'))
+        for name in ('server', 'wrong-ca'):
+            self.command(['openssl', 'req', '-x509', '-newkey', 'rsa:2048', '-nodes', '-days', '1',
+                '-subj', '/CN=' + name, '-addext', 'subjectAltName=DNS:metrics-source.observability.svc',
+                '-keyout', self.root / (name + '.key'), '-out', self.root / (name + '.pem')], 30)
+        for name in ('token', 'wrong-token'):
+            (self.root / name).write_text(uuid.uuid4().hex)
+        for name, files in (
+                ('exporter-ca', {'ca.pem': 'server.pem'}),
+                ('exporter-wrong-ca', {'ca.pem': 'wrong-ca.pem'}),
+                ('exporter-token', {'token': 'token'}), ('exporter-wrong-token', {'token': 'wrong-token'}),
+                ('exporter-server', {'cert.pem': 'server.pem', 'key.pem': 'server.key'})):
+            # 凭据只通过私有临时文件和 API Secret 传递，不进入参数、ConfigMap 或输出。
+            self.kubectl('-n', 'observability', 'create', 'secret', 'generic', name,
+                *['--from-file=' + key + '=' + str(self.root / file) for key, file in files.items()])
+        self.apply({'apiVersion': 'v1', 'kind': 'PersistentVolumeClaim',
+            'metadata': {'name': 'prometheus-data', 'namespace': 'observability'},
+            'spec': {'accessModes': ['ReadWriteOnce'], 'storageClassName': 'standard',
+                'resources': {'requests': {'storage': '1Gi'}}}})
+        platform['items'] = [item for item in platform['items']
+            if item['kind'] in ('Namespace', 'ConfigMap', 'NetworkPolicy') or
+            (item['kind'] in ('Deployment', 'Service') and item['metadata']['name'] == 'prometheus')]
+        self.apply(platform)
+        self.apply({'apiVersion': 'v1', 'kind': 'ConfigMap',
+            'metadata': {'name': 'metrics-source-program', 'namespace': 'observability'},
+            'data': {'server.py': SCRAPE_SERVER}})
+        for name in ('metrics-source', 'metrics-observer'):
+            server = name == 'metrics-source'
+            volumes = [
+                {'name': 'program', 'configMap': {'name': 'metrics-source-program'}},
+                {'name': 'certificate', 'secret': {'secretName': 'exporter-server', 'defaultMode': 288}},
+                {'name': 'auth', 'secret': {'secretName': 'exporter-token', 'defaultMode': 288}}] if server else []
+            mounts = [{'name': item['name'], 'mountPath': '/' + item['name'], 'readOnly': True} for item in volumes]
+            self.apply({'apiVersion': 'apps/v1', 'kind': 'Deployment',
+                'metadata': {'name': name, 'namespace': 'observability'},
+                'spec': {'replicas': 1, 'selector': {'matchLabels': {'app': name}},
+                    'template': {'metadata': {'labels': {'app': name}}, 'spec': {
+                        'automountServiceAccountToken': False,
+                        'securityContext': {'runAsNonRoot': True, 'runAsUser': 65534, 'fsGroup': 65534,
+                            'seccompProfile': {'type': 'RuntimeDefault'}}, 'volumes': volumes,
+                        'containers': [{'name': 'fixture', 'image': 'python:3.12-slim-bookworm',
+                            'command': ['python3', '-u', '/program/server.py'] if server else
+                                ['python3', '-c', 'import time; time.sleep(3600)'],
+                            'volumeMounts': mounts,
+                            'resources': {'requests': {'cpu': '50m', 'memory': '32Mi'},
+                                'limits': {'cpu': '200m', 'memory': '128Mi'}},
+                            'securityContext': {'readOnlyRootFilesystem': True, 'allowPrivilegeEscalation': False,
+                                'capabilities': {'drop': ['ALL']}}}]}}}})
+        self.apply({'apiVersion': 'v1', 'kind': 'Service',
+            'metadata': {'name': 'metrics-source', 'namespace': 'observability'},
+            'spec': {'selector': {'app': 'metrics-source'}, 'ports': [{'port': 8443, 'targetPort': 8443}]}})
+        for name in ('metrics-source', 'metrics-observer', 'prometheus'):
+            self.kubectl('-n', 'observability', 'rollout', 'status', 'deployment/' + name, '--timeout=180s', seconds=190)
+        good = '{job="fullnet-object-capacity",cluster="test-cluster",instance="' + target + '"}'
+        self.wait(lambda: any(float(v['value'][1]) == 1 for v in self.query('up' + good)))
+        self.wait(lambda: bool(self.query('fullnet:object_storage_capacity_sample_fresh' + good)))
+        self.assertEqual(float(self.query('fullnet_object_storage_capacity_growth_state' + good)[0]['value'][1]), 0)
+        expected_errors = {'waf': 'x509', 'fluent-bit': '401', 'ddos': '302'}
+        def rejected():
+            targets = self.http('http://prometheus.observability.svc:9090/api/v1/targets')['data']['activeTargets']
+            observed = {item['labels']['job']: item for item in targets if item['labels']['job'] in expected_errors}
+            return len(observed) == len(expected_errors) and all(
+                item['health'] == 'down' and expected_errors[name] in item['lastError']
+                for name, item in observed.items())
+        self.wait(rejected)
+        for job in expected_errors:
+            self.assertEqual(float(self.query('up{job="' + job + '"}')[0]['value'][1]), 0)
+            self.assertEqual(self.query('fullnet_object_storage_capacity_probe_success{job="' + job + '"}'), [])
+        print('external_scrapes_runtime: projected_ca_and_bearer=accepted capacity_freshness=1 wrong_ca=x509 wrong_token=401 redirect=302', flush=True)
 
     def test_hpa_and_pdb_changes_reach_prometheus_with_namespace_only_read_permissions(self):
         platform = bundle()

@@ -235,3 +235,19 @@ Kind 默认 CNI 不执行 NetworkPolicy，此入口不认证网络隔离；同�
 定向 workflow 场景 workload-metrics-watch 使用真实 Kubernetes API/KSM/Prometheus 验证 HPA 上限变化、当前副本系列存在、PDB 控制器计算的可中断数变化及删除后的陈旧系列移除，并核对命名空间只读权限。该入口不安装 Metrics Server、不模拟 HPA 自动伸缩或执行驱逐，不缩短原告警窗口，也不宣称正式告警已送达。指标名称和标签依据 [KSM 2.17 HPA](https://github.com/kubernetes/kube-state-metrics/blob/v2.17.0/docs/metrics/workload/horizontalpodautoscaler-metrics.md) 与 [PDB](https://github.com/kubernetes/kube-state-metrics/blob/v2.17.0/docs/metrics/policy/poddisruptionbudget-metrics.md)。
 
 该 HPA/PDB 采集与权限范围已在[真实 Kubernetes 定向作业](https://github.com/yan041108/Full.NET/actions/runs/44848124013/job/136672778561)通过；实际伸缩、驱逐、原告警持续窗口及正式通知仍须按各自范围验证。
+
+### 显式外部指标源
+
+externalScrapes 默认 []，不会访问外部 exporter。需要采集已有对象容量 textfile、Fluent Bit 或边缘指标时，使用下方示例值文件，替换为已批准目标与本平台命名空间中的既有 Secret，然后只渲染并审查：
+
+```bash
+bash eng/deploy/Render-Observability.sh --set cluster=reference-primary \
+  --set prometheusClaim=platform-prometheus-data,alertmanagerClaim=platform-alertmanager-data \
+  --values deploy/observability/examples/external-scrapes.yaml
+```
+
+允许的 job 为 fullnet-object-capacity、fluent-bit、fullnet-edge、waf、ddos、distributed-rate-limit，每种只允许配置一次，每种最多八个去重目标。targets 使用小写 DNS 名或 IPv4 加端口（1—65535），不含 scheme、路径、凭据或查询；IPv6 不在本切片范围。metricsPath 仅允许 /metrics 或 Fluent Bit 的 /api/v1/metrics/prometheus，默认 /metrics。scheme 默认 https，始终验证证书；私有 CA 引用 caSecretName 的 ca.pem，Bearer 认证引用 authorizationSecretName 的 token。CA/Token 以只读 Secret 文件投影到 Prometheus，其他平台组件不挂载、不输出 Secret 内容或创建 Secret。HTTP 只用于明确的内部无凭据 exporter，必须显式 scheme: http，禁止同时配置 CA/凭据。
+
+抓取周期十五秒、超时五秒、响应体上限 5 MB、每轮两万样本、每样本最多三十二个标签，标签名/值分别限制 128/1024 字节；超预算按失败处理，观察 up 和抓取错误。固定 job/instance/cluster 标签，不信任 exporter 覆盖目标标签，也不采纳其显式样本时间戳；对象容量的 sample_timestamp_seconds 指标值仍用于原十二分钟新鲜度规则。禁止 HTTP 重定向；文件凭据不以头部明文写入配置。外部 exporter 自身仍需控制敏感字段与标签基数。
+
+本入口不安装 exporter、开启宿主端口或放行出站网络；目标、DNS、端口、Prometheus 出口许可与 exporter 访问策略必须在启用前核对。Secret 更新后显式滚动/验证 Prometheus，不能假定 CA/客户端状态已经热更新。对象容量 job 应指向已安装的 Node Exporter textfile 端点并确认定时样本确实更新；新增目标和规则存在都不能代替实际数据、持续窗口和正式通知送达证据。配置语义依据 [Prometheus 3.15 配置](https://github.com/prometheus/prometheus/blob/v3.15.0/docs/configuration/configuration.md)。定向 workflow 场景为 external-metrics-scrapes，实际证书与 Token 测试只使用本轮自有 HTTPS 夹具。
