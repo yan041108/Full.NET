@@ -1,0 +1,77 @@
+{{/* 仅渲染平台 Kubernetes List；既有规则/Collector 以 --set-file 注入，不维护第二份副本。 */}}
+{{- $ns := .Release.Namespace -}}
+{{- $app := .Values.applicationNamespace -}}
+{{- range $value := list $ns $app .Values.cluster .Values.prometheusClaim .Values.alertmanagerClaim -}}
+{{- if not (regexMatch "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$" $value) -}}{{- fail "explicit DNS names and storage claims are required" -}}{{- end -}}
+{{- end -}}
+{{- if or (eq $ns $app) (eq $ns "kube-system") (eq .Values.prometheusClaim .Values.alertmanagerClaim) -}}{{- fail "dedicated namespace and distinct claims are required" -}}{{- end -}}
+{{- if not (regexMatch "^[1-9][0-9]*(s|m)$" .Values.evaluationInterval) -}}{{- fail "invalid evaluation interval" -}}{{- end -}}
+{{- $rules := fromYaml (required "rulesSource is required" .Values.rulesSource) -}}
+{{- $original := fromYaml (required "collectorSource is required" .Values.collectorSource) -}}
+{{- if or (not (kindIs "slice" $rules.groups)) (not $original.config.service.pipelines.metrics) -}}{{- fail "rules and metrics collector configuration are required" -}}{{- end -}}
+{{- $collector := deepCopy $original.config -}}
+{{/* 同时清除点标签和资源标签，防止 target_info 将身份维度带回指标。 */}}
+{{- $drop := index $collector.processors "attributes/drop_high_cardinality" -}}
+{{- $_ := set $collector.processors "resource/drop_high_cardinality" (dict "attributes" (deepCopy $drop.actions)) -}}
+{{- $_ := set $collector.service "pipelines" (dict "metrics" $collector.service.pipelines.metrics) -}}
+{{- $_ := set $collector.service.pipelines.metrics "processors" (list "memory_limiter" "resource/drop_high_cardinality" "attributes/drop_high_cardinality" "batch") -}}
+{{- $_ := set $collector "exporters" (dict "prometheus_remote_write" $collector.exporters.prometheus_remote_write) -}}
+{{- $_ := set $collector.exporters.prometheus_remote_write.http "endpoint" (printf "http://prometheus.%s.svc:9090/api/v1/write" $ns) -}}
+{{- $_ := set $collector.service.telemetry "metrics" (dict "readers" (list (dict "pull" (dict "exporter" (dict "prometheus" (dict "host" "0.0.0.0" "port" 8888)))))) -}}
+{{- $groups := $rules.groups -}}
+{{- if .Values.probeAlert -}}
+{{- $groups = append $groups (dict "name" "fullnet-explicit-pipeline-probe" "rules" (list (dict "alert" "FullNetTelemetryPipelineProbe" "expr" "fullnet_pipeline_probe_state == 1" "for" "10s" "labels" (dict "severity" "info") "annotations" (dict "summary" "Full.NET telemetry pipeline probe")))) -}}
+{{- end -}}
+{{- $receivers := list (dict "name" "discard") -}}
+{{- $route := dict "receiver" "discard" "group_by" (list "alertname" "cluster" "job" "instance") "group_wait" "1s" "group_interval" "5s" "repeat_interval" "1h" -}}
+{{- $amVolumes := list (dict "name" "configuration" "configMap" (dict "name" "fullnet-metrics-config")) (dict "name" "data" "persistentVolumeClaim" (dict "claimName" .Values.alertmanagerClaim)) -}}
+{{- $amMounts := list (dict "name" "configuration" "mountPath" "/etc/fullnet" "readOnly" true) (dict "name" "data" "mountPath" "/alertmanager") -}}
+{{- if .Values.receiver.enabled -}}
+{{- $url := urlParse .Values.receiver.url -}}
+{{- if or (ne $url.scheme "https") (empty $url.host) (not (empty $url.userinfo)) (not (empty $url.query)) (not (empty $url.fragment)) (empty .Values.receiver.caSecretName) -}}{{- fail "receiver requires HTTPS, CA Secret and no embedded credentials/query/fragment" -}}{{- end -}}
+{{- $http := dict "follow_redirects" false "tls_config" (dict "ca_file" "/etc/alert-ca/ca.pem") -}}
+{{- $amVolumes = append $amVolumes (dict "name" "receiver-ca" "secret" (dict "secretName" .Values.receiver.caSecretName "items" (list (dict "key" "ca.pem" "path" "ca.pem")))) -}}
+{{- $amMounts = append $amMounts (dict "name" "receiver-ca" "mountPath" "/etc/alert-ca" "readOnly" true) -}}
+{{- if .Values.receiver.authorizationSecretName -}}
+{{- $_ := set $http "authorization" (dict "type" "Bearer" "credentials_file" "/etc/alert-auth/token") -}}
+{{- $amVolumes = append $amVolumes (dict "name" "receiver-auth" "secret" (dict "secretName" .Values.receiver.authorizationSecretName "items" (list (dict "key" "token" "path" "token")))) -}}
+{{- $amMounts = append $amMounts (dict "name" "receiver-auth" "mountPath" "/etc/alert-auth" "readOnly" true) -}}
+{{- end -}}
+{{- $receivers = append $receivers (dict "name" "verified-webhook" "webhook_configs" (list (dict "url" .Values.receiver.url "send_resolved" true "http_config" $http))) -}}
+{{- if .Values.receiver.probeOnly -}}
+{{- $_ := set $route "routes" (list (dict "receiver" "verified-webhook" "matchers" (list "alertname=\"FullNetTelemetryPipelineProbe\""))) -}}
+{{- else -}}{{- $_ := set $route "receiver" "verified-webhook" -}}{{- end -}}
+{{- end -}}
+{{- $scrapes := list -}}
+{{- range $item := list (dict "name" "fullnet-kube-state-metrics" "target" (printf "kube-state-metrics.%s.svc:8080" $ns)) (dict "name" "fullnet-collector" "target" (printf "telemetry-collector.%s.svc:8888" $ns)) -}}
+{{- $scrapes = append $scrapes (dict "job_name" $item.name "static_configs" (list (dict "targets" (list $item.target) "labels" (dict "cluster" $.Values.cluster)))) -}}
+{{- end -}}
+{{- $alertTarget := dict "static_configs" (list (dict "targets" (list (printf "alertmanager.%s.svc:9093" $ns)))) -}}
+{{- $prom := dict "global" (dict "scrape_interval" "15s" "evaluation_interval" .Values.evaluationInterval) "rule_files" (list "/etc/fullnet/rules.json") "scrape_configs" $scrapes "alerting" (dict "alertmanagers" (list $alertTarget)) -}}
+{{- $data := dict "collector.json" (toJson $collector) "prometheus.json" (toJson $prom) "alertmanager.json" (toJson (dict "route" $route "receivers" $receivers)) "rules.json" (toJson (dict "groups" $groups)) -}}
+{{- $checksum := sha256sum (toJson $data) -}}
+{{- $items := list (dict "apiVersion" "v1" "kind" "Namespace" "metadata" (dict "name" $ns "labels" (dict "pod-security.kubernetes.io/enforce" "restricted"))) (dict "apiVersion" "v1" "kind" "ConfigMap" "metadata" (dict "name" "fullnet-metrics-config" "namespace" $ns) "data" $data) -}}
+{{- $items = append $items (dict "apiVersion" "v1" "kind" "ServiceAccount" "metadata" (dict "name" "fullnet-metrics-reader" "namespace" $ns)) -}}
+{{- $items = append $items (dict "apiVersion" "rbac.authorization.k8s.io/v1" "kind" "Role" "metadata" (dict "name" "fullnet-metrics-reader" "namespace" $app) "rules" (list (dict "apiGroups" (list "apps") "resources" (list "deployments") "verbs" (list "get" "list" "watch")))) -}}
+{{- $items = append $items (dict "apiVersion" "rbac.authorization.k8s.io/v1" "kind" "RoleBinding" "metadata" (dict "name" "fullnet-metrics-reader" "namespace" $app) "subjects" (list (dict "kind" "ServiceAccount" "name" "fullnet-metrics-reader" "namespace" $ns)) "roleRef" (dict "apiGroup" "rbac.authorization.k8s.io" "kind" "Role" "name" "fullnet-metrics-reader")) -}}
+{{- $configVolume := dict "name" "configuration" "configMap" (dict "name" "fullnet-metrics-config") -}}
+{{- $configMount := dict "name" "configuration" "mountPath" "/etc/fullnet" "readOnly" true -}}
+{{- $definitions := list
+ (dict "name" "prometheus" "image" "prom/prometheus:v3.15.0@sha256:efd719c99d83b060d9daefdcf00360461adf279f45ef5391f8d111892118753e" "uid" 65534 "args" (list "--config.file=/etc/fullnet/prometheus.json" "--storage.tsdb.path=/prometheus" "--storage.tsdb.retention.time=7d" "--storage.tsdb.retention.size=10GB" "--web.enable-remote-write-receiver") "ports" (list (dict "name" "http" "containerPort" 9090)) "mounts" (list $configMount (dict "name" "data" "mountPath" "/prometheus")) "volumes" (list $configVolume (dict "name" "data" "persistentVolumeClaim" (dict "claimName" .Values.prometheusClaim))))
+ (dict "name" "alertmanager" "image" "quay.io/prometheus/alertmanager:v0.34.0@sha256:690c7b525f4367aa91f73e2f91c632206d32e97c6384bdbf2fb7a861b420340d" "uid" 65534 "args" (list "--config.file=/etc/fullnet/alertmanager.json" "--storage.path=/alertmanager" "--cluster.listen-address=") "ports" (list (dict "name" "http" "containerPort" 9093)) "mounts" $amMounts "volumes" $amVolumes)
+ (dict "name" "telemetry-collector" "image" (printf "%s:%s@%s" $original.image.repository $original.image.tag $original.image.digest) "uid" 10001 "args" (list "--config=/etc/fullnet/collector.json") "ports" (list (dict "name" "otlp-grpc" "containerPort" 4317) (dict "name" "otlp-http" "containerPort" 4318) (dict "name" "metrics" "containerPort" 8888) (dict "name" "health" "containerPort" 13133)) "mounts" (list $configMount (dict "name" "data" "mountPath" "/var/otel-collector/storage")) "volumes" (list $configVolume (dict "name" "data" "emptyDir" (dict "sizeLimit" "2Gi"))))
+ (dict "name" "kube-state-metrics" "image" "registry.k8s.io/kube-state-metrics/kube-state-metrics:v2.17.0@sha256:2bbc915567334b13632bf62c0a97084aff72a36e13c4dabd5f2f11c898c5bacd" "uid" 65534 "args" (list "--resources=deployments" (printf "--namespaces=%s" $app) "--metric-labels-allowlist=deployments=[app.kubernetes.io/part-of,app.kubernetes.io/component]") "ports" (list (dict "name" "http" "containerPort" 8080)) "mounts" (list) "volumes" (list)) -}}
+{{- range $definition := $definitions -}}
+{{- $_ := set $definition "namespace" $ns -}}{{- $_ := set $definition "checksum" $checksum -}}
+{{- $deployment := include "fullnet.monitor.deployment" $definition | fromJson -}}
+{{- $items = append $items $deployment -}}
+{{- $ports := list -}}
+{{- range $port := $definition.ports -}}{{- $ports = append $ports (dict "name" $port.name "port" $port.containerPort "targetPort" $port.containerPort) -}}{{- end -}}
+{{- $items = append $items (dict "apiVersion" "v1" "kind" "Service" "metadata" (dict "name" $definition.name "namespace" $ns) "spec" (dict "type" "ClusterIP" "selector" $deployment.spec.selector.matchLabels "ports" $ports)) -}}
+{{- end -}}
+{{- $platformSource := dict "namespaceSelector" (dict "matchLabels" (dict "kubernetes.io/metadata.name" $ns)) -}}
+{{- $applicationSource := dict "namespaceSelector" (dict "matchLabels" (dict "kubernetes.io/metadata.name" $app)) -}}
+{{- $ingress := list (dict "from" (list $platformSource)) (dict "from" (list $applicationSource) "ports" (list (dict "protocol" "TCP" "port" 4317) (dict "protocol" "TCP" "port" 4318))) -}}
+{{- $policySpec := dict "podSelector" (dict "matchLabels" (dict "app.kubernetes.io/part-of" "fullnet-observability")) "policyTypes" (list "Ingress") "ingress" $ingress -}}
+{{- $items = append $items (dict "apiVersion" "networking.k8s.io/v1" "kind" "NetworkPolicy" "metadata" (dict "name" "fullnet-metrics-ingress" "namespace" $ns) "spec" $policySpec) -}}
+{{- toJson (dict "apiVersion" "v1" "kind" "List" "items" $items) -}}

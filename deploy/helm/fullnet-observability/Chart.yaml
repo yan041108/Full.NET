@@ -1,0 +1,6 @@
+apiVersion: v2
+name: fullnet-observability
+description: Platform metrics manifest renderer; render then review/apply the Kubernetes List
+type: application
+version: 0.1.0
+appVersion: "1.0.0"

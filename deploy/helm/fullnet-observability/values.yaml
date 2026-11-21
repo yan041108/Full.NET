@@ -1,0 +1,15 @@
+# 平台资源与应用 Chart 分离；必须提供既有存储，不隐式创建后端卷或外部接收器。
+cluster: ""
+applicationNamespace: fullnet-production
+prometheusClaim: ""
+alertmanagerClaim: ""
+rulesSource: ""
+collectorSource: ""
+probeAlert: false
+evaluationInterval: 15s
+receiver:
+  enabled: false
+  url: ""
+  caSecretName: ""
+  authorizationSecretName: ""
+  probeOnly: true
