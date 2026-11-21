@@ -14,7 +14,7 @@ on:
         required: true
         default: v3.16.4
         type: choice
-        options: [v3.16.4, v4.0.0]
+        options: [v3.16.4, v4.0.0, v4.3.1]
 
 permissions:
   contents: read
@@ -34,7 +34,7 @@ jobs:
           HELM_VERSION: ${{ inputs.helm_version }}
         run: |
           case "$SCENARIO" in runtime-config|cdc-identities|cache-cluster-driver|infrastructure-backup|ubuntu-role-release|network-readiness|release-evidence|oci-packaging|object-restore|oci-runtime|cluster-network|cache-cluster-runtime|object-certificate|edge-reload-recovery|web-certificate-recovery|gateway-trust|gateway-configuration-admission|ubuntu-role-batch|metrics-platform|metrics-kubernetes|workload-metrics-watch|external-metrics-scrapes|infrastructure-state-metrics|metrics-cluster-context|node-exporter-mtls|object-capacity-exporter-install|object-capacity-verification|metrics-network-egress) ;; *) exit 64 ;; esac
-          case "$HELM_VERSION" in v3.16.4|v4.0.0) ;; *) exit 64 ;; esac
+          case "$HELM_VERSION" in v3.16.4|v4.0.0|v4.3.1) ;; *) exit 64 ;; esac
       - uses: actions/setup-node@v4
         if: inputs.scenario == 'runtime-config' || inputs.scenario == 'cdc-identities'
         with:
@@ -79,6 +79,19 @@ jobs:
         if: inputs.scenario == 'runtime-config' || inputs.scenario == 'cdc-identities' || inputs.scenario == 'ubuntu-role-release' || inputs.scenario == 'ubuntu-role-batch' || inputs.scenario == 'metrics-platform' || inputs.scenario == 'metrics-cluster-context' || inputs.scenario == 'object-capacity-verification' || inputs.scenario == 'node-exporter-mtls' || inputs.scenario == 'metrics-kubernetes' || inputs.scenario == 'metrics-network-egress' || inputs.scenario == 'workload-metrics-watch' || inputs.scenario == 'external-metrics-scrapes' || inputs.scenario == 'infrastructure-state-metrics'
         with:
           version: ${{ inputs.helm_version }}
+      - name: Verify the Helm 4.3.1 binary against the official archive
+        if: inputs.helm_version == 'v4.3.1' && (inputs.scenario == 'ubuntu-role-release' || inputs.scenario == 'ubuntu-role-batch')
+        run: |
+          set -euo pipefail
+          tool_directory=$(mktemp -d "$RUNNER_TEMP/fullnet-helm431-XXXXXX")
+          trap 'rm -rf -- "$tool_directory"' EXIT
+          curl -4 -fsSL --proto '=https' --proto-redir '=https' --connect-timeout 10 --max-time 120 --max-filesize 67108864 \
+            https://get.helm.sh/helm-v4.3.1-linux-amd64.tar.gz -o "$tool_directory/helm.tar.gz"
+          echo "0403a88ae20913d11b10a2467b50087721fea7581736da6b9d3992f5357fe54b  $tool_directory/helm.tar.gz" | sha256sum -c -
+          tar -xzf "$tool_directory/helm.tar.gz" -C "$tool_directory" linux-amd64/helm
+          cmp -- "$tool_directory/linux-amd64/helm" "$(command -v helm)"
+          test "$(helm version --template '{{.Version}}')" = v4.3.1
+          helm version --short
       - name: Verify only the selected deployment scenario
         env:
           SCENARIO: ${{ inputs.scenario }}
@@ -104,7 +117,7 @@ jobs:
           batch = os.environ['FULLNET_TEST_RELEASE_MODE'] == 'ubuntu-role-batch'
           real_method = 'test_batch_actual_chart_renders_each_role_once_with_one_package' if batch else 'test_actual_chart_renders_exactly_the_selected_role_despite_all_roles_in_values'
           real = unittest.TestSuite([fixture.RealHelmRolePlanTests(real_method)])
-          if os.environ['FULLNET_TEST_HELM_VERSION'] == 'v4.0.0':
+          if os.environ['FULLNET_TEST_HELM_VERSION'] in ('v4.0.0', 'v4.3.1'):
               suite, expected = real, 1
           else:
               suite = unittest.TestSuite([unittest.defaultTestLoader.loadTestsFromTestCase(fixture.ReleaseControlTests), real])
