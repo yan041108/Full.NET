@@ -1,4 +1,4 @@
-{{/* 所有组件默认禁用服务账号令牌；只有只读 Deployment 观测器允许挂载。 */}}
+{{/* 所有组件默认禁用服务账号令牌；只有命名空间内的只读工作负载观测器允许挂载。 */}}
 {{- define "fullnet.monitor.deployment" -}}
 {{- $container := dict "name" .name "image" .image "args" .args "ports" .ports "volumeMounts" .mounts "resources" (dict "requests" (dict "cpu" "100m" "memory" "128Mi") "limits" (dict "cpu" "1" "memory" "1Gi")) "securityContext" (dict "allowPrivilegeEscalation" false "readOnlyRootFilesystem" true "capabilities" (dict "drop" (list "ALL"))) -}}
 {{- $path := "/-/ready" -}}{{- $port := 9090 -}}

@@ -7560,3 +7560,12 @@ Release 集成工程单节点构建及 Identity 模块隔离 AOT 分析均零警
 - 原清单实际通过 Kubernetes 就绪、非 root/只读根和服务账号令牌分配；KSM 以平台服务账号观察应用 Deployment 可用副本 2→1，实际 Prometheus 查询确认变化，RBAC 实际 list Secrets 和 list default 命名空间 Deployment 均拒绝。合成 OTLP 从应用命名空间发往 Collector，查询由平台观察器发起；实际样本时间戳与本轮发出时间对应且在四十五秒窗口内，不把查询结果的查询时刻当作采集时刻。
 - 两个 1 GiB 动态 PVC 实际 Bound，原 fsGroup 权限下启动成功；删除并重建 Prometheus、Alertmanager 的 Pod，分别读到原合成指标值及原 active 测试 silence，新旧 Pod UID 不同、两个 PVC UID 保持。未向真实接收器投递；该本地动态卷证据不外推到生产 StorageClass、物理故障或 HA，也不认证 Kind 默认 CNI 未实施的 NetworkPolicy。
 - 固定任务关闭：剩余开发 0、待验收 0。本轮 Kind 容器已实际回收为 0，临时 kubeconfig/配置随夹具回收；无仓库 artifacts 或整仓复制。未运行既有纯容器回路、.NET、双库或全量。现场平台安装/新版本发布、实际 Host→该平台采集、正式通知触发与恢复及生产存储/CNI/故障域仍保留在 D08-14/F15/F16；本批仅关闭原清单的本地 Kubernetes 部署差集，不重复安排已通过的 watch 和同节点 Pod/PVC 恢复场景，Capacity-not-verified 保持。
+### 8.392 D08-14 HPA/PDB 状态指标采集（2026-11-21）
+
+| 固定任务 | 当前状态 | 完成条件 |
+| --- | --- | --- |
+| D08-WorkloadStateMetrics | 已实现，待集中验收 | 原 KSM 增加应用命名空间内 HPA/PDB 只读采集；实际 API 变化进入 Prometheus，删除后系列消失，跨命名空间/写入/Secret 访问拒绝；保留原告警阈值。 |
+
+- 基线 05e34e2e76e94e9676e9141e5a0a26d3f73a7e54，快照 workload-metrics-watch-20261121。原 FullNetHpaAtMaxReplicas、FullNetPdbUnsatisfied 已存在，但 §8.389 的 KSM 仅监听 Deployment；补齐两类源属于 D08-14 既有采集缺口，不创建另一套监控后端或新告警体系。
+- 冻结范围为原 KSM flags/命名空间 Role、直接相关渲染和真实 Kubernetes 观察用例、定向工作流及手册。集中运行三个直接相关渲染方法和一个新 Kubernetes 方法；后者只启动 KSM/Prometheus 与必要夹具，不重复原 Collector/通知、双 PVC 恢复、.NET、双库或全量。
+- 不创建现网 HPA/PDB，不改生产副本、实际伸缩或驱逐策略；只在唯一隔离集群操作合成资源。原十五分钟/十分钟告警窗口不缩短；指标/规则接线不等于实测自动伸缩、实际驱逐、生产告警送达或容量。Node/Ingress/WAF 等尚无源的规则继续保持未验证，Capacity-not-verified 保持。

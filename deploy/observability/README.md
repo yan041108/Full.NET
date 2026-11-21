@@ -179,9 +179,9 @@ bash eng/deploy/Render-Observability.sh \
   --set alertmanagerClaim=platform-alertmanager-data > /PRIVATE_REVIEW_DIRECTORY/metrics.json
 ```
 
-输出包括独立 observability 命名空间、四个固定摘要镜像的单副本 Deployment/ClusterIP Service、配置、只读 Deployment 观测角色及入口 NetworkPolicy。Prometheus 与 Alertmanager 必须引用两个不同的既有 PVC，本包不创建卷，不选择 StorageClass。Prometheus 数据保留上限为七天/10 GB，运维应为其单独准备至少 20 GiB 的存储并核对权限/备份；两者 Recreate，不能作为高可用或无中断方案。Collector WAL 复用原有 emptyDir 边界，Pod 替换/节点丢失可能丢失在途指标。本次未认证 PVC、CNI、存储故障或容量。
+输出包括独立 observability 命名空间、四个固定摘要镜像的单副本 Deployment/ClusterIP Service、配置、只读工作负载状态观测角色及入口 NetworkPolicy。Prometheus 与 Alertmanager 必须引用两个不同的既有 PVC，本包不创建卷，不选择 StorageClass。Prometheus 数据保留上限为七天/10 GB，运维应为其单独准备至少 20 GiB 的存储并核对权限/备份；两者 Recreate，不能作为高可用或无中断方案。Collector WAL 复用原有 emptyDir 边界，Pod 替换/节点丢失可能丢失在途指标。本次未认证 PVC、CNI、存储故障或容量。
 
-kube-state-metrics 只读取 applicationNamespace（默认 fullnet-production）的 Deployment，保留 Full.NET 角色/归属标签，Role 只含 get/list/watch deployments，无 Secret 或全局权限。其余组件禁用服务账号 Token。全部容器非 root、只读根文件系统、去除 capabilities，具有资源预算及启动/就绪探针。服务仅 ClusterIP；NetworkPolicy 允许平台内部访问和应用命名空间的 OTLP 4317/4318，不代替实际 CNI 验证或其他适用策略的许可并集核对。不要向已有平台命名空间盲目应用命名空间标签/同名资源。
+kube-state-metrics 只读取 applicationNamespace（默认 fullnet-production）的 Deployment、HPA 和 PDB，保留 Full.NET 角色/归属标签。Role 仅允许 get/list/watch apps/deployments、autoscaling/horizontalpodautoscalers、policy/poddisruptionbudgets；无 Secret、写入或集群级权限。其余组件禁用服务账号 Token。全部容器非 root、只读根文件系统、去除 capabilities，具有资源预算及启动/就绪探针。服务仅 ClusterIP；NetworkPolicy 允许平台内部访问和应用命名空间的 OTLP 4317/4318，不代替实际 CNI 验证或其他适用策略的许可并集核对。不要向已有平台命名空间盲目应用命名空间标签/同名资源。
 
 该派生 Collector **仅接收指标**，从现有配置复用单消费者、单请求并发、WAL、指标名翻译和点标签过滤；该平台派生配置将 WAL 刷新/截断周期明确设为五秒，防止低流量等待原一分钟周期而延迟可见性，并补充资源属性过滤，移除 tenant_id/user_id/DiagnosticGroup，避免 target_info 再携带这些属性。这不能代替应用自己的低基数与敏感信息策略，也不代表处理任意未知敏感字段。内部 metrics 8888 显式绑定所有容器接口，平台 Prometheus 抓取该端点与 Deployment 观测器。
 
@@ -210,7 +210,7 @@ bash eng/deploy/Render-Observability.sh --set cluster=reference-primary \
 probeAlert 默认关闭，显式启用才增加 FullNetTelemetryPipelineProbe（fullnet_pipeline_probe_state == 1，持续十秒）；生产既有规则及阈值保留。定向入口 helm-runtime-focused / metrics-platform 覆盖渲染边界和固定镜像真实配置校验、OTLP→查询→firing/resolved→自有 TLS 接收器，以及错误 CA 拒绝，合成身份值在点标签与 target_info 中均应移除。所有容器/网络/CA/Token 由本轮持有并回收，不发送真实通知；合成回路不是现网应用采集、KSM 实际 watch、正式地址送达或生产认证。
 
 配置语义依据 [Collector 内部指标](https://opentelemetry.io/docs/collector/internal-telemetry/) 和 [kube-state-metrics 2.17 CLI](https://github.com/kubernetes/kube-state-metrics/blob/v2.17.0/docs/developer/cli-arguments.md)。Prometheus/Alertmanager/Collector 复用仓库既有固定摘要；KSM 固定官方 registry 的 2.17.0 摘要。平台尚须按现场逐项核对采集新鲜度、实例标签、持久卷、真实告警路由、接收恢复及故障域，D08-14 不因本包渲染而整体关闭。
-本渲染包保留全部原有规则，但只提供 Deployment/Collector 的抓取与外部 OTLP 指标入口。Node、HPA、Ingress/WAF 等其他 exporter 未由本包提供；不能用规则文件存在推导全部规则都有数据或能够报警。五秒 WAL 参数只用于本派生平台，不改现有通用 Collector values，不据功能窗口推导吞吐、分位延迟或容量。WAL 低流量批次行为参见[对应 exporter 实现](https://github.com/open-telemetry/opentelemetry-collector-contrib/blob/v0.163.0/exporter/prometheusremotewriteexporter/wal.go)。
+本渲染包保留全部原有规则，但提供 Deployment/HPA/PDB 与 Collector 的抓取和外部 OTLP 指标入口。Node、Ingress/WAF 等其他 exporter 未由本包提供；不能用规则文件存在推导全部规则都有数据或能够报警。五秒 WAL 参数只用于本派生平台，不改现有通用 Collector values，不据功能窗口推导吞吐、分位延迟或容量。WAL 低流量批次行为参见[对应 exporter 实现](https://github.com/open-telemetry/opentelemetry-collector-contrib/blob/v0.163.0/exporter/prometheusremotewriteexporter/wal.go)。
 
 ### 隔离 Kubernetes 部署验证
 
@@ -218,7 +218,8 @@ probeAlert 默认关闭，显式启用才增加 FullNetTelemetryPipelineProbe（
 
 ```bash
 FULLNET_METRICS_KUBERNETES=isolated FULLNET_TEST_REAL_HELM=helm PYTHONDONTWRITEBYTECODE=1 \
-  python3 -O -m unittest discover -s tests/deployment -p metrics_platform_kubernetes_test.py -v
+  PYTHONPATH=tests/deployment python3 -O -m unittest -v \
+  metrics_platform_kubernetes_test.MetricsPlatformKubernetesTests.test_original_manifests_watch_deployments_and_preserve_both_pvc_states_after_pod_replacement
 ```
 
 该入口创建唯一 Kind 集群和独立 kubeconfig，应用本渲染包的原始清单。两个 1 GiB 动态 PVC 只是本轮夹具，不改变生产存储建议；测试 Deployment 使用合成身份，应用命名空间只发 OTLP，平台命名空间执行内部查询。验证四个组件就绪、非 root/只读根、服务账号令牌分配、Deployment watch、副本变化、Secret/其他命名空间读取拒绝和 OTLP 时间戳；更换 Prometheus、Alertmanager Pod 后分别读取原样本与原测试 silence，并核对 PVC UID 保持。测试 silence 无真实通知地址，默认 discard 保持。
@@ -226,3 +227,9 @@ FULLNET_METRICS_KUBERNETES=isolated FULLNET_TEST_REAL_HELM=helm PYTHONDONTWRITEB
 Kind 默认 CNI 不执行 NetworkPolicy，此入口不认证网络隔离；同节点动态卷恢复也不认证生产卷、节点丢失或 HA。HTTP OTLP 源为合成夹具，不替代实际 Host 到本平台的现场链路。入口结束回收本轮集群和临时文件，失败或跳过不得报告为通过；对应手动 workflow 场景为 metrics-kubernetes，不触发其他平台或 .NET 套件。
 
 本清单的首次实际 Kubernetes 部署及上述 watch/PVC 场景已在[定向作业](https://github.com/yan041108/Full.NET/actions/runs/44847175955/job/136669650127)通过；该结果只覆盖原始组件与隔离集群，不代表现网已安装。
+
+### HPA 与 PDB 状态来源
+
+平台 KSM 复用同一服务账号和应用命名空间边界，额外采集 autoscaling/v2 HPA 和 policy/v1 PDB；不创建 HPA/PDB，也不取得修改或驱逐权限。HPA 上限规则消费 kube_horizontalpodautoscaler_status_current_replicas 与 kube_horizontalpodautoscaler_spec_max_replicas，原保持期为十五分钟；PDB 规则消费 kube_poddisruptionbudget_status_pod_disruptions_allowed，原保持期为十分钟。HPA 名称需匹配 .*fullnet-(api|worker).*，PDB 名称需匹配 .*fullnet.* 才被现有对应规则选中。
+
+定向 workflow 场景 workload-metrics-watch 使用真实 Kubernetes API/KSM/Prometheus 验证 HPA 上限变化、当前副本系列存在、PDB 控制器计算的可中断数变化及删除后的陈旧系列移除，并核对命名空间只读权限。该入口不安装 Metrics Server、不模拟 HPA 自动伸缩或执行驱逐，不缩短原告警窗口，也不宣称正式告警已送达。指标名称和标签依据 [KSM 2.17 HPA](https://github.com/kubernetes/kube-state-metrics/blob/v2.17.0/docs/metrics/workload/horizontalpodautoscaler-metrics.md) 与 [PDB](https://github.com/kubernetes/kube-state-metrics/blob/v2.17.0/docs/metrics/policy/poddisruptionbudget-metrics.md)。

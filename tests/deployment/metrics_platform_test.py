@@ -64,6 +64,8 @@ class MetricsPlatformTests(unittest.TestCase):
         self.assertEqual({rule['alert'] for rule in rules if 'alert' in rule}, set(re.findall(r'^\s+- alert: (\S+)', original, re.M)))
         no_replicas = next(rule for rule in rules if rule.get('alert') == 'FullNetDeploymentNoAvailableReplicas')
         self.assertEqual(no_replicas['for'], '2m')
+        for name, window in (('FullNetHpaAtMaxReplicas', '15m'), ('FullNetPdbUnsatisfied', '10m')):
+            self.assertEqual(next(rule for rule in rules if rule.get('alert') == name)['for'], window)
 
     def test_collector_is_metrics_only_with_bounded_existing_wal_and_translation(self):
         config = configuration(bundle())['collector.json']
@@ -88,11 +90,17 @@ class MetricsPlatformTests(unittest.TestCase):
         self.assertIn('resource/drop_high_cardinality', processors)
         self.assertIn('attributes/drop_high_cardinality', processors)
 
-    def test_reader_has_only_deployment_read_permission_in_application_namespace(self):
+    def test_reader_has_only_workload_read_permissions_in_application_namespace(self):
         value = bundle()
         role = next(item for item in value['items'] if item['kind'] == 'Role')
         self.assertEqual(role['metadata']['namespace'], 'fullnet-production')
-        self.assertEqual(role['rules'], [{'apiGroups': ['apps'], 'resources': ['deployments'], 'verbs': ['get', 'list', 'watch']}])
+        self.assertEqual(role['rules'], [
+            {'apiGroups': ['apps'], 'resources': ['deployments'], 'verbs': ['get', 'list', 'watch']},
+            {'apiGroups': ['autoscaling'], 'resources': ['horizontalpodautoscalers'], 'verbs': ['get', 'list', 'watch']},
+            {'apiGroups': ['policy'], 'resources': ['poddisruptionbudgets'], 'verbs': ['get', 'list', 'watch']}])
+        reader = deployments(value)['kube-state-metrics']['spec']['template']['spec']['containers'][0]
+        self.assertIn('--resources=deployments,horizontalpodautoscalers,poddisruptionbudgets', reader['args'])
+        self.assertIn('--namespaces=fullnet-production', reader['args'])
         for name, deployment in deployments(value).items():
             pod = deployment['spec']['template']['spec']
             self.assertEqual(pod['automountServiceAccountToken'], name == 'kube-state-metrics')

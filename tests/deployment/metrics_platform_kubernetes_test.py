@@ -106,6 +106,80 @@ class MetricsPlatformKubernetesTests(unittest.TestCase):
         self.assertEqual(len(new), 1)
         self.assertNotEqual(new[0]['metadata']['uid'], old_uid)
 
+    def test_hpa_and_pdb_changes_reach_prometheus_with_namespace_only_read_permissions(self):
+        platform = bundle()
+        self.kubectl('create', 'namespace', 'fullnet-production')
+        self.apply(next(item for item in platform['items'] if item['kind'] == 'Namespace'))
+        self.apply({'apiVersion': 'v1', 'kind': 'PersistentVolumeClaim',
+            'metadata': {'name': 'prometheus-data', 'namespace': 'observability'},
+            'spec': {'accessModes': ['ReadWriteOnce'], 'storageClassName': 'standard',
+                'resources': {'requests': {'storage': '1Gi'}}}})
+        # 本场景只需要 KSM 与 Prometheus，不重跑 Collector、通知或既有双卷恢复。
+        platform['items'] = [item for item in platform['items'] if item['kind'] not in ('Deployment', 'Service')
+            or item['metadata']['name'] in ('kube-state-metrics', 'prometheus')]
+        self.apply(platform)
+        security = {'runAsNonRoot': True, 'runAsUser': 65534, 'seccompProfile': {'type': 'RuntimeDefault'}}
+        container = {'name': 'fixture', 'image': 'python:3.12-slim-bookworm',
+            'command': ['python3', '-c', 'import time; time.sleep(3600)'],
+            'resources': {'requests': {'cpu': '50m', 'memory': '32Mi'}, 'limits': {'cpu': '200m', 'memory': '128Mi'}},
+            'securityContext': {'allowPrivilegeEscalation': False, 'readOnlyRootFilesystem': True,
+                'capabilities': {'drop': ['ALL']}}}
+        for name, namespace, replicas in (('resource-client', 'fullnet-production', 2),
+                ('metrics-observer', 'observability', 1)):
+            self.apply({'apiVersion': 'apps/v1', 'kind': 'Deployment',
+                'metadata': {'name': name, 'namespace': namespace},
+                'spec': {'replicas': replicas, 'selector': {'matchLabels': {'app': name}}, 'template': {
+                    'metadata': {'labels': {'app': name}}, 'spec': {'automountServiceAccountToken': False,
+                        'securityContext': security, 'containers': [container]}}}})
+        hpa = {'apiVersion': 'autoscaling/v2', 'kind': 'HorizontalPodAutoscaler',
+            'metadata': {'name': 'fullnet-api-resource-fixture', 'namespace': 'fullnet-production'},
+            'spec': {'minReplicas': 2, 'maxReplicas': 4,
+                'scaleTargetRef': {'apiVersion': 'apps/v1', 'kind': 'Deployment', 'name': 'resource-client'},
+                'metrics': [{'type': 'Resource', 'resource': {'name': 'cpu',
+                    'target': {'type': 'Utilization', 'averageUtilization': 50}}}]}}
+        pdb = {'apiVersion': 'policy/v1', 'kind': 'PodDisruptionBudget',
+            'metadata': {'name': 'fullnet-resource-fixture', 'namespace': 'fullnet-production'},
+            'spec': {'minAvailable': 1, 'selector': {'matchLabels': {'app': 'resource-client'}}}}
+        self.apply(hpa)
+        self.apply(pdb)
+        for name, namespace in (('prometheus', 'observability'), ('kube-state-metrics', 'observability'),
+                ('resource-client', 'fullnet-production'), ('metrics-observer', 'observability')):
+            self.kubectl('-n', namespace, 'rollout', 'status', 'deployment/' + name, '--timeout=180s', seconds=190)
+        identity = 'system:serviceaccount:observability:fullnet-metrics-reader'
+        for verb, resource, namespace, allowed in (
+                ('list', 'horizontalpodautoscalers.autoscaling', 'fullnet-production', True),
+                ('list', 'poddisruptionbudgets.policy', 'fullnet-production', True),
+                ('list', 'horizontalpodautoscalers.autoscaling', 'default', False),
+                ('list', 'poddisruptionbudgets.policy', 'default', False),
+                ('patch', 'horizontalpodautoscalers.autoscaling', 'fullnet-production', False),
+                ('patch', 'poddisruptionbudgets.policy', 'fullnet-production', False),
+                ('list', 'secrets', 'fullnet-production', False)):
+            result = subprocess.run(['kubectl', '--context', 'kind-' + self.name, 'auth', 'can-i', verb,
+                resource, '-n', namespace, '--as=' + identity], env=self.environment,
+                capture_output=True, text=True, timeout=20)
+            self.assertEqual(result.returncode, 0 if allowed else 1)
+            self.assertEqual(result.stdout.strip(), 'yes' if allowed else 'no')
+        hpa_max = ('kube_horizontalpodautoscaler_spec_max_replicas{cluster="test-cluster",'
+            'namespace="fullnet-production",horizontalpodautoscaler="fullnet-api-resource-fixture"}')
+        hpa_current = hpa_max.replace('spec_max_replicas', 'status_current_replicas')
+        pdb_allowed = ('kube_poddisruptionbudget_status_pod_disruptions_allowed{cluster="test-cluster",'
+            'namespace="fullnet-production",poddisruptionbudget="fullnet-resource-fixture"}')
+        self.wait(lambda: any(float(v['value'][1]) == 4 for v in self.query(hpa_max)))
+        self.wait(lambda: len(self.query(hpa_current)) == 1)
+        self.wait(lambda: any(float(v['value'][1]) == 1 for v in self.query(pdb_allowed)))
+        hpa['spec']['maxReplicas'] = 6
+        pdb['spec']['minAvailable'] = 2
+        self.apply(hpa)
+        self.apply(pdb)
+        self.wait(lambda: any(float(v['value'][1]) == 6 for v in self.query(hpa_max)))
+        self.wait(lambda: any(float(v['value'][1]) == 0 for v in self.query(pdb_allowed)))
+        # 删除本轮 HPA/PDB，确认 exporter 的陈旧系列被标记移除，不能保留旧状态假报正常。
+        self.kubectl('-n', 'fullnet-production', 'delete', 'hpa/fullnet-api-resource-fixture',
+            'pdb/fullnet-resource-fixture', '--wait=true')
+        self.wait(lambda: not self.query(hpa_max) and not self.query(hpa_current) and not self.query(pdb_allowed))
+        print('workload_metrics_watch: hpa_max=4->6 current_series=present pdb_allowed=1->0 deleted_series=absent', flush=True)
+        print('workload_metrics_rbac: namespace_reads=allowed foreign_reads=denied writes=denied secrets=denied', flush=True)
+
     def test_original_manifests_watch_deployments_and_preserve_both_pvc_states_after_pod_replacement(self):
         platform = bundle()
         definitions = deployments(platform)
