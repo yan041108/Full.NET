@@ -7778,8 +7778,11 @@ Release 集成工程单节点构建及 Identity 模块隔离 AOT 分析均零警
 
 | 固定任务 | 当前状态 | 完成条件 |
 | --- | --- | --- |
-| F15-SourceCandidateArtifact | 已实现，待实际生成 | 干净 main 上复用正式分发构建器，核对全部文件摘要，提供绑定提交/归档/清单的可下载候选回执。 |
+| F15-SourceCandidateArtifact | 已完成，实际候选生成和上传通过 | 干净 main 上复用正式分发构建器，核对全部文件摘要，提供绑定提交/归档/清单的可下载候选回执。 |
 
 - 基线 16f0b31a3607298b690056dd61c081fdf75bb1d9，快照 source-candidate-delivery-20261121。当前构建器已有源提交与逐文件摘要，但缺少本轮 main 的可下载正式候选入口；只新增手动工作流，不重建分发器、不采用本地未提交内容或复制整仓做测试快照。正式源码分发输出限构建器已有白名单，放入 RUNNER_TEMP，产物保留三天。
 - 固定范围为该入口、原交付手册和计划。仅 main、contents:read，独立检查所有文件/符号链接/清单摘要与前后提交状态；candidate.json 绑定 sourceCommit、归档与清单摘要、文件数。只交付 framework-source，明确 runtimeBuildVerified/deploymentVerified/capacityVerified=false，不冒充 JIT/Native/前端发布包或线上候选已安装。
 - 仅执行这一正式打包流程及其内建完整性核对，不运行 .NET/客户端构建、双库或全量测试，不上传发布节点或重试受限预演。无本地源码冻结副本，正式 CI 下载产物按明确范围保存，暂存随工作流清理。
+- 实现/候选源码 a5f1d34356dad20e3c114e2550aa5bda98689328 的 [source-candidate 实际作业](https://github.com/yan041108/Full.NET/actions/runs/44903514174/job/136844176936) 全部步骤成功。Ubuntu 24.04/Node 24、GitHub 干净 main 检出，正式构建器生成 6,581 个受管文件，独立完整性阶段逐个核对全部 SHA-256、精确文件集合/无链接、manifest schema=3 和 sourceCommit；前后源码状态守卫通过。未安装依赖或运行编译/测试矩阵。
+- 实际上传 artifact id=14707260372，名称 fullnet-source-a5f1d34356dad20e3c114e2550aa5bda98689328，大小 9,430,446 字节，API 确认 expired=false，2026-11-24 12:22:07 UTC 到期。内层归档 SHA-256 为 9979375c25a4132fc3199d19741dc1cafd56fbc7c0cf55946d148790fd09bcec，framework-manifest SHA-256 为 988d0c4c93b5fc501bfe87ed143bff179ff2bf9aac4073c956a2ac3d18a16079。candidate.json 明确 scope=framework-source，runtimeBuildVerified/deploymentVerified/capacityVerified 均为 false；没有把 6,581 文件核对数量说成测试方法数。
+- 本批剩余开发 0、待验收 0。正式产物按明确保留范围存于 Actions，暂存清理步骤成功；无本地整仓复制或仓库 artifacts，工作区原改动未纳入候选。当前 main 后续文档提交不改变已上传包的 sourceCommit。源码候选交付入口关闭，应用二进制/镜像构建、真实候选发布、旧报表处置与 D08 现场复验仍按 F15-R2 保留；目标预演受限、Quill 到期处置与 Capacity-not-verified 状态不变。

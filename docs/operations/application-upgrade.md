@@ -176,5 +176,9 @@ sudo /usr/local/lib/fullnet/Release-Application.sh "$CANDIDATE_CHART" all --plan
 
 ## 验证
 
+需要从固定 main 取得正式框架源码候选时，手动运行 source-candidate 工作流。它复用现有 build-source-bundle.mjs，前后核对干净提交，独立验证清单覆盖、无符号链接及全部受管文件 SHA-256，上传 fullnet-source-<完整提交> 产物，保留三天；内含源码归档和 candidate.json，后者绑定归档/清单摘要、源码提交和文件数。输出仅为 framework-source，不是已编译应用、独立应用安装包或运行镜像，也不表示完成迁移、现场预演或发布。运行时构建/部署/容量三个状态明确为 false。
+
+[首个固定候选作业](https://github.com/yan041108/Full.NET/actions/runs/44903514174) 绑定 a5f1d34356dad20e3c114e2550aa5bda98689328，实际核对 6,581 个受管文件；从作业 Artifacts 下载后，按 candidate.json 核对源码归档 SHA-256，再解压到独立目录检查 framework-manifest.json。超过保留期重新运行得到新的显式源码提交，不能把之后 main 的提交号写成旧归档的来源。工作流仅用 GitHub 干净检出，不采纳本地未提交文件，正式分发白名单以构建器为准。
+
 - `tests/deployment/foundation-preset-release.test.mjs`
 - 发布清单：`docs/verification/f16-release-checklist.md`
