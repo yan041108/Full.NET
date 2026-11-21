@@ -7627,3 +7627,14 @@ Release 集成工程单节点构建及 Identity 模块隔离 AOT 分析均零警
 - [metrics-cluster-context 精确作业](https://github.com/yan041108/Full.NET/actions/runs/44860483409/job/136712475935) 为 1/1（23.671 秒），零失败、零跳过，源码状态守卫通过。Linux/Python 3.12、真实 Helm 3.16.4，原 Collector 0.163.1/Prometheus 3.15.0 固定镜像及 Python 探针，均在私有 internal 网络、无宿主发布端口；仅准备本场景需要的两后端，不运行 Alertmanager/TLS 通知或 KSM。
 - 一次成功接收的 OTLP 载荷包含缺失 cluster 和伪造资源字符串/点整数 cluster 的两种资源；真实 Gauge 7/9 与 Cumulative Counter 2 全部以 cluster=test-cluster 进入 Prometheus，原 job/instance 与合法 route 保留。两个 target_info 同样归一，已知身份哨兵在点和资源输出中均不存在，伪造归属查询为空。保留原五秒 WAL，成功接收后不再发送同时间戳来掩盖低流量问题；不将该数据流证明升级为客户端身份认证或全量业务指标审计。
 - 本批固定任务关闭：剩余开发 0、待验收 0。五个本地方向方法加一个真实数据流方法为六个不重叠方法；本轮容器实际回收为 0，私有网络删除，临时配置随夹具清理，本地验证容器 --rm 回收，既有 Helm 工具只读复用。仅修改平台派生动作，不改通用 values 或增加处理阶段；cluster 是保留标签，变更值会改变序列标识，不重写历史数据。OTLP 平台归属差集闭合，现场启用/实际源/正式通知、物理故障域及容量仍归 D08-14/F15/F16；未重跑五分钟 Host、TLS/Kubernetes/双卷、.NET/双库或全量，Capacity-not-verified 保持。
+
+### 8.397 D08-14 对象容量 textfile 与外部 mTLS（2026-11-21）
+
+| 固定任务 | 当前状态 | 完成条件 |
+| --- | --- | --- |
+| D08-ExternalMetricsMtls | 实现中，待集中验收 | HTTPS 客户端证书仅引用既有 Secret；正式发布函数经真实 Node Exporter 到 Prometheus，正常/阻断/不可用样本可观察，缺证书、错误签发者或 SAN 均拒绝。 |
+
+- 基线 35ef15f8caec243336478856e80b807c27055d1a，快照 external-metrics-mtls-20261121。§8.393 仅有服务端 CA/Bearer 与合成 exporter，未覆盖客户端证书或真实 Node Exporter；本批补齐既有 D08-14 外部源边界，不重复原 Kubernetes/Host/OTLP/状态采集任务。
+- 冻结 externalScrapes 的 clientCertificateSecretName/schema/只读投影、示例与手册、直接渲染用例和一个真实 exporter 方法、精确手动工作流。客户端证书 Secret 使用 tls.crt/tls.key，只投影 Prometheus、权限 0440，不产生 Secret 或明文凭据；HTTP 配合客户端证书直接拒绝。服务端验证与既有抓取预算保持。
+- 本地集中两条新增 mTLS 方法及三条直接受影响外部抓取方法；复用后 CI 仅运行新增真实 Node Exporter 方法。正式 publish_metrics 使用合成容量评估，不调用 collect 或真实磁盘/SeaweedFS；原十二分钟新鲜度和告警窗口不变。使用自有临时 PKI、私有 internal 网络、固定官方镜像，无宿主端口、安装、现网部署或凭据读取。不运行 .NET/双库、Host/通知/Kubernetes/PVC 旧回路或全量，Capacity-not-verified 保持。
+- 本地实现批次：Python 3.12 Debian 一次性容器、禁网、CPU 1/内存 256 MiB/进程 128，源码与既有 Helm 3.16.4 只读。两条新增 mTLS 与三条原外部抓取方法集中 5/5（14.660 秒），零失败/跳过；配置投影、HTTP/内嵌凭据拒绝、默认无目标、CA/Bearer/标签和预算边界通过。新 Python 语法与 workflow/schema/两个示例结构检查通过；实际 Node Exporter 方法尚待执行，不提前登记通过。

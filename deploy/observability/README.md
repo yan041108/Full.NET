@@ -254,6 +254,23 @@ bash eng/deploy/Render-Observability.sh --set cluster=reference-primary \
 
 此配置入口已通过本地真实 Helm 定向检查及[真实 Kubernetes HTTPS/Secret 投影作业](https://github.com/yan041108/Full.NET/actions/runs/44849608109/job/136677573725)；错误 CA、错误 Token、重定向均被拒绝。该证明只覆盖自有合成目标，不表示真实 exporter、现场采集或通知已启用。
 
+#### Node Exporter textfile 与双向 TLS
+
+使用 [mTLS 抓取示例](examples/node-exporter-mtls.yaml) 配置既有目标。clientCertificateSecretName 引用平台命名空间中的既有 Secret，必须包含 tls.crt 与 tls.key；渲染器仅将这两个文件以 0440、只读方式投影到 Prometheus，不生成凭据。客户端证书可与 CA/Bearer 引用组合使用，但禁止配合 HTTP，也不接受内嵌私钥或关闭服务端证书验证。默认 externalScrapes 仍为空。
+
+[Exporter Web 配置](examples/node-exporter-web.json) 是 exporter-toolkit 可读取的 JSON 格式 YAML，要求受信客户端证书并精确匹配 prometheus.observability.svc 的 SAN。部署前替换为实际批准的客户端身份与证书路径：服务端叶子证书需要 serverAuth 和目标 DNS/IP SAN，Prometheus 客户端叶子证书需要 clientAuth 和允许的 SAN；两端分别信任相应签发 CA，不向容器或仓库分发 CA 私钥。配置与叶子私钥应只允许运行账号读取，按现有凭据管理流程提供，不执行示例自动签发或安装。
+
+已安装的 Node Exporter 可按下列参数接入现有定时巡检目录；INTERNAL_IP 必须是已批准的内网绑定地址，网络只允许 Prometheus 来源。容器部署时将该 textfile 目录及必要凭据目录只读挂载；本场景仅开启 textfile，无需宿主根目录、特权模式或其他默认采集器。
+
+```bash
+node_exporter --web.listen-address="${INTERNAL_IP}:9100" \
+  --web.config.file=/etc/node-exporter/web.json \
+  --collector.disable-defaults --collector.textfile \
+  --collector.textfile.directory=/var/lib/fullnet-object-capacity
+```
+
+手动定向入口 node-exporter-mtls 使用固定 Node Exporter 1.13.1 镜像、正式容量发布函数和本轮临时证书，验证正常→阻断→观测不可用的样本变化与客户端拒绝。容量评估输入为合成数据，不调用真实磁盘/SeaweedFS 巡检，不代表现场安装、Kubernetes 客户端证书实际投影、持续容量告警或正式通知通过。协议依据 [exporter-toolkit 0.20.0 Web 配置](https://github.com/prometheus/exporter-toolkit/blob/v0.20.0/docs/web-configuration.md)；正式 textfile 目录仍由既有巡检服务更新。
+
 ### 可选节点条件与日志 DaemonSet 状态
 
 nodeState.enabled 默认为 false，daemonSetNamespace 默认为空。只有显式开启才渲染额外的 kube-state-nodes 或 kube-state-daemonsets Deployment/ClusterIP 及抓取任务，复用原固定 KSM 镜像和资源预算；不创建宿主 Agent 或日志 DaemonSet。下面的例子只渲染，日志命名空间必须已存在：

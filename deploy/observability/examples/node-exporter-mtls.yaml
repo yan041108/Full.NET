@@ -1,0 +1,6 @@
+# 使用平台已有 Secret，仅启用双方证书认证的 textfile 指标源，不安装宿主服务。
+externalScrapes:
+  - job: fullnet-object-capacity
+    targets: [storage-metrics.internal:9100]
+    caSecretName: object-exporter-ca
+    clientCertificateSecretName: object-exporter-client
