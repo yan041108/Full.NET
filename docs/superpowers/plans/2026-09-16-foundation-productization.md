@@ -7837,3 +7837,4 @@ Release 集成工程单节点构建及 Identity 模块隔离 AOT 分析均零警
 - 基线 9d572bc6ae3aca25d2019db2de7f1cc4bb70a3f3，快照 candidate-host-startup-20261121。冻结范围为既有导入工作流的显式 verify_hosts 开关、专用启动夹具、原手册与计划；复用三角色已发布镜像，不重新编译。只验证 Testing/MySQL 组合，不据此认证 Production 配置、SQL Server、完整业务或 Native AOT。
 - 数据库镜像实际身份写入回执；容器使用随机本轮凭据、内网、不映射宿主端口和临时数据库存储。实际 Migrator 先执行必要 schema，API/Worker 再以镜像自身入口、UID、只读根、无附加 capability 和资源限额启动；检查 live/startup/ready=Healthy、SIGTERM 后 exit=0 且无 OOM。所有新资源先登记唯一名称与标签，always 独立清理并检查零残留。失败诊断只输出脱敏有界日志，随机凭据不入产物。
 - 本批只运行这条候选启动流程和直接结构检查，不运行测试矩阵/全量，不连接发布节点或重试受限操作。实际业务进程启动和一次性数据库迁移通过时才更新对应回执；部署/容量/生产配置仍 false，现场任务保持开放。
+- 首次作业 44906029311 在 UUID 009 maintenance mode 门禁处实际失败，尚未启动 API/Worker；always 清理确认容器/网络及镜像均零残留。定位为夹具未提供 Contract 维护证据，未修改应用或迁移。夹具修正为先独立查询确认本轮目标库确实为空，再实际 mysqldump 并恢复至同容器独立校验库、检查空库一致后删除校验库；仅向 Migrator 注入 UUID/Naming 既有维护参数，记录 ci-empty-作业号与备份摘要。API/Worker 不继承维护参数，不跳过门禁，也不将一次性空库恢复说成生产备份认证。

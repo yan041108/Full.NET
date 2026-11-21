@@ -1,4 +1,5 @@
 """用已导入的真实候选在隔离内网完成 MySQL 迁移、Host 健康检查和正常停止。"""
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -11,10 +12,10 @@ import urllib.request
 SOCKET = "unix:///var/run/docker.sock"
 
 
-def run(*arguments, timeout=60):
+def run(*arguments, timeout=60, input_text=None):
     try:
         return subprocess.check_output(["docker", "--host", SOCKET, *arguments], text=True,
-                                       stderr=subprocess.STDOUT, timeout=timeout).strip()
+                                       stderr=subprocess.STDOUT, timeout=timeout, input=input_text).strip()
     except subprocess.SubprocessError:
         # Docker exec 的环境参数含本轮密码，异常不能回显原始命令和数据库响应。
         raise RuntimeError("candidate_docker_command_failed") from None
@@ -82,6 +83,7 @@ def verify(root):
     database_env = root / "database.env"
     database_env.write_text("MYSQL_ROOT_PASSWORD=" + password + "\nMYSQL_ROOT_HOST=%\nMYSQL_DATABASE=fullnet_candidate\n")
     database_env.chmod(0o600)
+    migrator_env = root / "migrator.env"
 
     def save():
         state.write_text(json.dumps(owned))
@@ -115,12 +117,35 @@ def verify(root):
             if time.monotonic() >= deadline:
                 raise RuntimeError("candidate_database_not_ready")
             time.sleep(1)
+        mysql = ["exec", "-e", "MYSQL_PWD=" + password, containers["database"], "mysql", "-uroot", "-Nse"]
+        if run(*mysql, "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='fullnet_candidate'") != "0":
+            raise RuntimeError("candidate_initial_database_not_empty")
+        # 空库也必须提供真实可恢复备份；只在本轮数据库内恢复到独立校验库后启用迁移门禁。
+        backup = run("exec", "-e", "MYSQL_PWD=" + password, containers["database"], "mysqldump", "-uroot",
+                     "--no-tablespaces", "--set-gtid-purged=OFF", "fullnet_candidate")
+        if not backup.startswith("-- MySQL dump") or len(backup) < 100:
+            raise RuntimeError("candidate_initial_backup_invalid")
+        run(*mysql, "CREATE DATABASE fullnet_backup_check")
+        run("exec", "-i", "-e", "MYSQL_PWD=" + password, containers["database"], "mysql", "-uroot",
+            "fullnet_backup_check", input_text=backup)
+        if run(*mysql, "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='fullnet_backup_check'") != "0":
+            raise RuntimeError("candidate_initial_restore_mismatch")
+        run(*mysql, "DROP DATABASE fullnet_backup_check")
+        backup_digest = hashlib.sha256(backup.encode()).hexdigest()
+        gates = []
+        for section in ("UuidBinaryContract", "PreV1NamingContract"):
+            for flag in ("MaintenanceMode", "BackupVerified", "LegacyWritersStopped"):
+                gates.append(section + "__" + flag + "=true")
+            gates.append(section + "__DestructiveDdlApprovalId=ci-empty-" + os.environ["GITHUB_RUN_ID"])
+        gates.append("PreV1NamingContract__LegacyOutboxDrained=true")
+        migrator_env.write_text(env.read_text() + "\n".join(gates) + "\n")
+        migrator_env.chmod(0o600)
         shared = ["--read-only", "--tmpfs", "/tmp:rw,nosuid,nodev,mode=1777,size=128m", "--memory", "768m",
                   "--cpus", "1", "--pids-limit", "128", "--cap-drop", "ALL", "--security-opt", "no-new-privileges",
                   "--env-file", str(env)]
         def image(role):
             return "fullnet-oci-import-" + role + ":" + os.environ["GITHUB_RUN_ID"]
-        start("migrator", *shared, image("migrator"))
+        start("migrator", *shared, "--env-file", str(migrator_env), image("migrator"))
         if run("wait", containers["migrator"], timeout=240) != "0":
             raise RuntimeError("candidate_migration_failed")
         count = run("exec", "-e", "MYSQL_PWD=" + password, containers["database"], "mysql", "-uroot", "-Nse",
@@ -156,6 +181,7 @@ def verify(root):
             checks[role]["gracefulStopExitCode"] = 0
         return {"environment": "Testing", "provider": "MySql", "databaseImageId": database_image["Id"],
                 "databaseRepoDigests": database_image["RepoDigests"], "migrationJournalCount": int(count),
+                "initialEmptyDatabaseBackupSha256": backup_digest, "initialEmptyDatabaseRestoreVerified": True,
                 "hosts": checks, "runtimeStartupVerified": True, "databaseMigrationVerified": True,
                 "productionConfigurationVerified": False}
     except Exception:
@@ -167,3 +193,4 @@ def verify(root):
     finally:
         env.unlink(missing_ok=True)
         database_env.unlink(missing_ok=True)
+        migrator_env.unlink(missing_ok=True)
