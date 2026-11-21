@@ -279,8 +279,12 @@ class RealHelmRolePlanTests(_Base):
 
     def test_batch_actual_chart_renders_each_role_once_with_one_package(self):
         self.chart = REPOSITORY / 'deploy/helm/fullnet'
-        self.common.write_text((self.chart / 'ci/values-role-api.yaml').read_text() + '\n'
-                               + (self.chart / 'ci/values-provider-sqlserver.yaml').read_text())
+        self.common.write_text(json.dumps({'image': {'tag': 'fixed-candidate'},
+            'dataProtection': {'existingClaimName': 'fullnet-data-protection-rwx'},
+            'codeGeneration': {'workspace': {'existingClaimName': 'fullnet-codegeneration-rwx'}},
+            'edgeProtection': {'declared': True, 'provider': 'WAF', 'globalRateLimitPerSecond': 100,
+                'globalBurst': 200, 'globalConcurrentConnections': 5000, 'unavailablePolicy': 'fail-closed',
+                'secretName': 'fullnet-edge', 'serviceName': 'fullnet-edge'}}))
         self.configure(real_helm=True)
         result = self.execute('all', '--plan')
         self.assertEqual(result.returncode, 0, result.stderr)

@@ -103,6 +103,33 @@ perform common-values cp -- /etc/fullnet/release/common.json "$work/common.json"
 for role in "${roles[@]}"; do
   perform "$role-values" cp -- "/etc/fullnet/release/$role.json" "$work/$role.json"
 done
+if [[ $requested_role == all ]]; then
+  # 批量共用一个候选；禁止角色覆盖成不同版本，且不依赖 Chart 的隐含默认镜像标签。
+  perform batch-image-version python3 - "$work/common.json" "$work/migrator.json" "$work/worker.json" "$work/api.json" <<'PY'
+import json,re,sys
+try:
+    documents=[]
+    for filename in sys.argv[1:]:
+        with open(filename, encoding='utf-8') as stream:
+            content=stream.read(1048577)
+        if len(content)>1048576: raise ValueError()
+        document=json.loads(content)
+        if not isinstance(document,dict) or not isinstance(document.get('image',{}),dict): raise ValueError()
+        documents.append(document.get('image',{}))
+    identities=[]
+    for overlay in documents[1:]:
+        image={**documents[0],**overlay}
+        tag=image.get('tag')
+        if not isinstance(tag,str) or not re.fullmatch(r'[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}',tag) or tag.lower()=='latest': raise ValueError()
+        identity=(image.get('registry',''),image.get('repository'),tag)
+        if any(value is not None and not isinstance(value,str) for value in identity): raise ValueError()
+        identities.append(identity)
+    if len(set(identities))!=1: raise ValueError()
+except (ValueError,TypeError,OSError):
+    print('批量 values 必须为有界 JSON 对象，并显式解析为同一镜像 registry/repository/tag，禁止 latest。',file=sys.stderr)
+    sys.exit(1)
+PY
+fi
 perform package timeout --foreground --kill-after=5s 60s helm package "$chart" --destination "$work"
 shopt -s nullglob
 packages=("$work"/*.tgz)

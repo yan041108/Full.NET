@@ -142,6 +142,8 @@ sudo /usr/local/lib/fullnet/Release-Application.sh "$CANDIDATE_CHART" all --plan
 
 一次调用持有同一个发布锁，只打包一次 Chart，在第一次渲染前冻结 common.json、migrator.json、worker.json、api.json。三个角色分别强制 production=true 和单一角色；全部渲染通过后才允许任何备份、DDL 或 Helm upgrade。每次渲染/升级前及集中渲染结束均复核冻结输入摘要；原配置后续变化不改变本批，冻结副本篡改则立即拒绝。
 
+批量入口要求这四份文件为 JSON 对象，每份最多 1,048,576 个字符。common 与每个角色的 image 配置合并后，registry/repository/tag 必须一致，tag 须显式设置为有效镜像标签且不能为 latest；例如在 common.json 中统一提供 image.tag，并避免角色覆盖为另一候选。不同角色仍使用仓库名后的 -migrator/-worker/-api 后缀。缺失标签、混合版本、异常类型或无效 JSON 在 Chart 打包、备份、DDL 和升级之前拒绝；单角色入口不受此批量检查影响。同名标签不是镜像内容摘要证明，仍须按候选镜像完整性和实际运行证据核对内容，不据此绕过报表切版门禁。
+
 只有已确认不涉及报表输出格式切版、无需专门旧消费者门禁的普通升级，才使用显式执行模式：
 
 ```bash

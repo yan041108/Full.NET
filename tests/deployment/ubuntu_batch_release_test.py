@@ -12,11 +12,37 @@ ROLES = ['migrator', 'worker', 'api']
 class BatchReleaseTests(_Base):
     def setUp(self):
         super().setUp()
+        self.common.write_text(json.dumps({'fixture': 'secret-sentinel', 'image': {'tag': '1.0.0-fixture'}}))
         for role in ROLES:
             pathlib.Path('/etc/fullnet/release/' + role + '.json').write_text(json.dumps({'selectedRole': role}))
 
     def batch(self, plan=False):
         return self.execute('all', '--plan' if plan else '--ordinary-upgrade')
+
+    def test_missing_or_latest_tag_blocks_every_release_command(self):
+        for image in ({}, {'tag': 'latest'}, {'tag': ''}, {'tag': True}):
+            self.common.write_text(json.dumps({'image': image}))
+            result = self.batch(plan=True)
+            self.assert_no_success(result)
+            self.assertEqual(self.state()['events'], [])
+
+    def test_role_image_override_cannot_mix_candidates(self):
+        for image in ({'tag': 'different'}, {'registry': 'other.internal'}, {'repository': 'other'}):
+            pathlib.Path('/etc/fullnet/release/worker.json').write_text(json.dumps({'image': image}))
+            self.assert_no_success(self.batch())
+            self.assertEqual(self.state()['events'], [])
+
+    def test_invalid_json_shape_and_unbounded_values_are_rejected(self):
+        for content in ('image:\n  tag: legacy-yaml', '[]', '{"image":null}', ' ' * 1048577):
+            self.common.write_text(content)
+            self.assert_no_success(self.batch(plan=True))
+            self.assertEqual(self.state()['events'], [])
+
+    def test_identical_explicit_role_overrides_are_allowed(self):
+        for role in ROLES:
+            pathlib.Path('/etc/fullnet/release/' + role + '.json').write_text(json.dumps({'image': {'tag': 'same-candidate'}}))
+        result = self.batch(plan=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
 
     def failure_receipt(self, result):
         self.assert_no_success(result)
