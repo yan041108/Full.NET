@@ -1,7 +1,6 @@
 """现有容量 textfile 发布器→真实 Node Exporter→Prometheus mTLS，不接触宿主服务。"""
 import importlib.util
 import json
-from pathlib import Path
 import shutil
 import unittest
 import urllib.parse
@@ -66,7 +65,7 @@ class NodeExporterMtlsTests(runtime.MetricsPlatformRuntimeFixture):
         publisher = importlib.util.module_from_spec(specification)
         specification.loader.exec_module(publisher)
         publisher.publish_metrics(metrics, {'state': 'growth_headroom_available', 'freeSlots': 24, 'freeBytes': 8 * 1024**3})
-        self.run_container('node-exporter', NODE_EXPORTER,
+        node_exporter = self.run_container('node-exporter', NODE_EXPORTER,
             ['--web.listen-address=:9100', '--web.config.file=/etc/node-exporter/web.json',
                 '--collector.disable-defaults', '--collector.textfile', '--collector.textfile.directory=/textfile'],
             mounts=[(exporter, '/etc/node-exporter'), (metrics, '/textfile')], alias='node-exporter.observability.svc')
@@ -107,7 +106,17 @@ class NodeExporterMtlsTests(runtime.MetricsPlatformRuntimeFixture):
         targets = self.request('http://prometheus.observability.svc:9090/api/v1/targets')['data']['activeTargets']
         denied = [target for target in targets if target['labels']['job'] in ('waf', 'fluent-bit', 'ddos')]
         self.assertEqual(len(denied), 3)
-        self.assertTrue(all(target['health'] == 'down' and 'tls' in target['lastError'].lower() for target in denied))
+        errors = {target['labels']['job']: target['lastError'] for target in denied}
+        self.assertTrue(all(target['health'] == 'down' and target['lastError'] for target in denied), errors)
+        # Go 客户端可将对端握手拒绝报告为 EOF；用真实服务端拒绝原因核对 TLS 边界。
+        log_result = runtime.subprocess.run(['docker', 'logs', '--tail', '40', node_exporter],
+            capture_output=True, text=True, timeout=10)
+        self.assertEqual(log_result.returncode, 0)
+        exporter_logs = log_result.stdout + log_result.stderr
+        self.assertIn('TLS handshake error', exporter_logs)
+        self.assertIn("client didn't provide a certificate", exporter_logs)
+        self.assertIn('could not find allowed SANs in client cert', exporter_logs)
+        print('node_exporter_mtls_rejections: ' + json.dumps(errors, sort_keys=True), flush=True)
         publisher.publish_metrics(metrics, {'state': 'growth_blocked', 'freeSlots': 0, 'freeBytes': 8 * 1024**3})
         self.wait(lambda: value_is('fullnet_object_storage_capacity_growth_state', 2))
         publisher.publish_metrics(metrics, {'state': 'probe_unavailable'})
