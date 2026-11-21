@@ -14,6 +14,8 @@
 {{- $collector := deepCopy $original.config -}}
 {{/* 同时清除点标签和资源标签，防止 target_info 将身份维度带回指标。 */}}
 {{- $drop := index $collector.processors "attributes/drop_high_cardinality" -}}
+{{/* 在同一受控遍历中写入平台归属；upsert 同时覆盖客户端资源/点的伪造值并补齐缺失值。 */}}
+{{- $_ := set $drop "actions" (append $drop.actions (dict "key" "cluster" "action" "upsert" "value" .Values.cluster)) -}}
 {{- $_ := set $collector.processors "resource/drop_high_cardinality" (dict "attributes" (deepCopy $drop.actions)) -}}
 {{- $_ := set $collector.service "pipelines" (dict "metrics" $collector.service.pipelines.metrics) -}}
 {{- $_ := set $collector.service.pipelines.metrics "processors" (list "memory_limiter" "resource/drop_high_cardinality" "attributes/drop_high_cardinality" "batch") -}}

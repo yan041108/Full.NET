@@ -7614,3 +7614,12 @@ Release 集成工程单节点构建及 Identity 模块隔离 AOT 分析均零警
 - 实际 Helm 3.16.4 从本轮源码取当前清单，验证两个镜像摘要与配置一致、Collector 仅 metrics 管道、WAL 五秒。真实 Full.NET 默认 Host 只配置 OTEL_EXPORTER_OTLP_METRICS_ENDPOINT/PROTOCOL，全局地址为空；Collector 以 UID 10001 和有界临时 WAL 运行。普通/优先通道真实日志产生的队列、容量、在途字节、等待年龄及丢弃计数实际进入 Prometheus，饱和阶段匹配该 Host 公开资源中的 job/instance，释放后字节归零。
 - 真实 FullNetPriorityLogDrop 在原一分钟 for 后进入 firing，并按同一 job/instance 验证；保留当前十五秒评估和原五分钟 increase，窗口自然滚动后计数增量归零、告警退出 firing。Collector 完成日志未发现既有用例检测的 out of order sample 拒绝。没有缩短规则、改用合成 probe、手写业务指标或以 HTTP 接收成功代替该完整链路。
 - 本批固定任务关闭：剩余开发 0、待验收 0。两后端通过 await using 释放，Host/Console 阻塞在 finally 恢复并释放，Helm 子进程在取消时由本轮终止；未新增源码复制流程或提交运行产物。此证据只覆盖通用 Host 注册与当前平台的隔离配置链路，不表示完整 Api/Worker 业务宿主、Kubernetes/CNI/存储、现场配置或正式通知已认证。实际发布/现场源/正式通知及物理故障域继续归 D08-14/F15/F16，Capacity-not-verified 保持；未运行数据库、浏览器、完整 Native 或全量。
+### 8.396 D08-14 OTLP 指标的平台 cluster 归属（2026-11-21）
+
+| 固定任务 | 当前状态 | 完成条件 |
+| --- | --- | --- |
+| D08-MetricClusterContext | 已实现，待真实运行验收 | OTLP 资源与点统一使用平台 cluster；缺失/伪造输入实际归一，Gauge/Counter/target_info 保留 job/instance 和合法维度，身份属性仍移除。 |
+
+- 基线 4ee2b2aec10c040a20294f939084c7816b1d475f，快照 metrics-cluster-context-20261121。当前平台只在 Prometheus 抓取目标注入 cluster，OTLP 两类处理动作均缺少该键；本地真实 Helm 只读探测确认 point/resource 的 cluster 动作均为 false。补齐既有 D08-14 标签一致性，不重新开发或重复验收已关闭的 Host 导出/告警链路。
+- 冻结派生 Collector 两个处理动作、直接相关渲染/固定镜像数据流用例、工作流与手册；在原遍历内追加 upsert，不加新阶段或修改原通用 values、规则阈值及接口。提取原 Docker 夹具为无测试方法的共享基座，新方法只准备 Prometheus/Collector/Python，旧平台回路发现数保持；共用基座在资源创建前也拒绝与本地 Unix context 不一致的 DOCKER_HOST，不向远程引擎创建资源。
+- 本地四条真实 Helm 相关方法已通过，新增远程覆盖拒绝一条单独通过；复用这些输入未变结果，CI 只运行新 Gauge/Counter/target_info 真实样本方法。资源和点分别带缺失或不同伪造 cluster/身份属性，成功接收后不重复注入同时间戳来掩盖低流量问题。不重跑五分钟 Host 告警、TLS 通知、Kubernetes 状态/双卷、.NET/双库/全量；Capacity-not-verified 保持。

@@ -183,7 +183,7 @@ bash eng/deploy/Render-Observability.sh \
 
 kube-state-metrics 只读取 applicationNamespace（默认 fullnet-production）的 Deployment、HPA 和 PDB，保留 Full.NET 角色/归属标签。Role 仅允许 get/list/watch apps/deployments、autoscaling/horizontalpodautoscalers、policy/poddisruptionbudgets；无 Secret、写入或集群级权限。可选节点/DaemonSet 观察器各用独立只读账号，应用账号不共享它们的权限；其余后端禁用服务账号 Token。全部容器非 root、只读根文件系统、去除 capabilities，具有资源预算及启动/就绪探针。服务仅 ClusterIP；NetworkPolicy 允许平台内部访问和应用命名空间的 OTLP 4317/4318，不代替实际 CNI 验证或其他适用策略的许可并集核对。不要向已有平台命名空间盲目应用命名空间标签/同名资源。
 
-该派生 Collector **仅接收指标**，从现有配置复用单消费者、单请求并发、WAL、指标名翻译和点标签过滤；该平台派生配置将 WAL 刷新/截断周期明确设为五秒，防止低流量等待原一分钟周期而延迟可见性，并补充资源属性过滤，移除 tenant_id/user_id/DiagnosticGroup，避免 target_info 再携带这些属性。这不能代替应用自己的低基数与敏感信息策略，也不代表处理任意未知敏感字段。内部 metrics 8888 显式绑定所有容器接口，平台 Prometheus 抓取该端点与 Deployment 观测器。
+该派生 Collector **仅接收指标**，从现有配置复用单消费者、单请求并发、WAL、指标名翻译和点标签过滤；该平台派生配置将 WAL 刷新/截断周期明确设为五秒，防止低流量等待原一分钟周期而延迟可见性，并补充资源属性过滤，移除 tenant_id/user_id/DiagnosticGroup，避免 target_info 再携带这些属性。同时在资源与指标点上以 upsert 写入配置中的 cluster，覆盖客户端同名值，使应用与平台抓取指标具有同一归属。这不能代替应用自己的低基数与敏感信息策略，也不代表处理任意未知敏感字段。内部 metrics 8888 显式绑定所有容器接口，平台 Prometheus 抓取该端点与 Deployment 观测器。
 
 应用端使用更新后的 Host 时，无全局 OTEL_EXPORTER_OTLP_ENDPOINT 也能按显式 METRICS/TRACES 端点独立导出，仅配置指标时不启用追踪或日志出口。每种信号的 PROTOCOL、HEADERS、TIMEOUT（正整数毫秒）、COMPRESSION（none/gzip）优先于通用 OTLP 配置；未设置协议沿用 SDK 的 gRPC 默认值，HTTP 必须显式使用 http/protobuf。信号 ENDPOINT 必须是完整 http/https URL，HTTP 路径不自动追加；配置错误在注册时失败且只报告键名。标准指标配置如下，设置后须重启应用；这些变量应由应用 Chart 的显式环境配置注入，不由本平台渲染包改写。
 
@@ -279,3 +279,9 @@ FullNetNodeDiskPressure 观察 DiskPressure=true；Fluent Bit 可用性规则选
 本用例移除未启动服务的抓取/通知，只验证真实 Full.NET 默认 Host 注册、双日志通道指标、共享实例标识、Prometheus 原告警 firing/恢复及 Remote Write 无乱序拒绝。运行环境需 .NET 10、真实 Helm 3.16.4、本地 Docker 及两个实际固定镜像；定向入口会按当前清单准备镜像。它不代表完整 Api/Worker 业务启动、Kubernetes 放置/存储/CNI、正式通知或容量已认证。
 
 [仅指标 Host 的实际链路作业](https://github.com/yan041108/Full.NET/actions/runs/44858176487/job/136705165930)已通过，同一 Host 实例的双通道指标、优先丢弃告警触发及原五分钟窗口后的恢复均实际验证。该范围仍是通用注册与隔离两后端，不替代完整业务宿主、现场网络或正式通知送达。
+
+### OTLP 平台归属标签
+
+平台 cluster 不仅用于 Prometheus 抓取目标，也在派生 Collector 的资源和指标点处理中统一 upsert。缺失值补齐，客户端同名值（包括不同类型）被平台配置覆盖；target_info 同样使用该归属。job/instance 及其他合法维度保留，tenant_id/user_id/DiagnosticGroup 继续从资源和点删除。cluster 是平台保留标签，业务指标不得用它表达另一种分组；它只是配置归属，不证明客户端已经通过认证，实际入口访问控制仍须成立。
+
+只在此平台派生配置中写入，不改通用 Collector values；不增加按请求产生的动态维度或额外处理阶段。改变 cluster 会改变时间序列标识，已有历史数据不会被重写。语义依据 [Attributes upsert](https://github.com/open-telemetry/opentelemetry-collector-contrib/blob/v0.163.0/processor/attributesprocessor/README.md) 和 [Resource processor](https://github.com/open-telemetry/opentelemetry-collector-contrib/blob/v0.163.0/processor/resourceprocessor/README.md)。定向运行入口 metrics-cluster-context 使用实际固定镜像和原五秒 WAL，核对缺失/伪造归属、Gauge/Counter 值及 target_info，不重复通知或业务宿主验收。

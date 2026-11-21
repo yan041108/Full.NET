@@ -43,11 +43,15 @@ def command(arguments, seconds=120):
     return result.stdout.strip()
 
 
-class MetricsPlatformRuntimeTests(unittest.TestCase):
+class MetricsPlatformRuntimeFixture(unittest.TestCase):
+    components = None
+
     def setUp(self):
         self.assertTrue(os.environ.get('FULLNET_METRICS_REAL') == 'isolated')
         context = json.loads(command(['docker', 'context', 'inspect']))[0]
-        self.assertTrue(context['Endpoints']['docker']['Host'].startswith('unix://'))
+        endpoint = context['Endpoints']['docker']['Host']
+        self.assertTrue(endpoint.startswith('unix://'))
+        self.assertTrue(os.environ.get('DOCKER_HOST', endpoint) in ('', endpoint), '拒绝不一致的 Docker 连接')
         self.temporary = tempfile.TemporaryDirectory(prefix='fullnet-metrics-runtime-')
         self.addCleanup(self.temporary.cleanup)
         self.root = Path(self.temporary.name)
@@ -65,7 +69,8 @@ class MetricsPlatformRuntimeTests(unittest.TestCase):
             path = self.config_directory / name
             path.write_text(json.dumps(value))
             path.chmod(0o644)
-        images = [value['spec']['template']['spec']['containers'][0]['image'] for value in self.definitions.values()]
+        images = [self.definitions[name]['spec']['template']['spec']['containers'][0]['image']
+                  for name in (self.components or self.definitions)]
         images.append('python:3.12-slim-bookworm')
         with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
             list(executor.map(lambda image: command(['docker', 'pull', image], seconds=180), images))
@@ -138,6 +143,7 @@ class MetricsPlatformRuntimeTests(unittest.TestCase):
             logs.append((result.stdout + result.stderr)[-1500:])
         self.fail('本轮指标回路未满足有界条件：' + repr(logs))
 
+class MetricsPlatformRuntimeTests(MetricsPlatformRuntimeFixture):
     def test_rendered_images_validate_and_complete_metrics_alert_tls_loop(self):
         for name, entrypoint, args in (
             ('prometheus', '/bin/promtool', ['check', 'config', '/etc/fullnet/prometheus.json']),
