@@ -7804,8 +7804,12 @@ Release 集成工程单节点构建及 Identity 模块隔离 AOT 分析均零警
 
 | 固定任务 | 当前状态 | 完成条件 |
 | --- | --- | --- |
-| F15-LinuxOciCandidate | 已实现，待实际打包 | 复用成功 main JIT 作业和正式 OCI 打包器，交付三角色镜像，绑定应用提交/打包提交/基础运行时及全部归档摘要。 |
+| F15-LinuxOciCandidate | 已完成，实际三角色打包和完整性核对通过 | 复用成功 main JIT 作业和正式 OCI 打包器，交付三角色镜像，绑定应用提交/打包提交/基础运行时及全部归档摘要。 |
 
 - 基线 3b0a37eb4c1f2adb11b3681045695d79f57407d9，快照 linux-oci-candidate-20261121。接续 §8.409 的实际发布包，仅补手动工作流，不修改正式打包器或重复编译。冻结范围为工作流、原手册和计划；从同仓成功 main/workflow_dispatch 的指定 JIT 作业读取精确 artifact，核对来源回执、完整文件集合、各归档和全部文件 SHA-256 后才取得 MCR 基础运行时。
 - 首角色在线使用正式打包器，后两角色按首角色 manifest 摘要离线替换应用层，核对三者运行时层完全一致。逐一验证 OCI 描述符大小/摘要、linux/amd64、UID 1654、角色入口、应用 DiffID 与全部应用文件。候选分别记录 sourceCommit 和 packagingCommit，不把后续编排代码提交冒充程序集来源。
 - 本批只执行这一正式打包与内建完整性核对，不运行测试矩阵、业务进程或数据库，不导入远程容器平台、连接发布环境或重试受限操作。imageBuildVerified 与导入/启动/迁移/部署/容量分开记录，后者保持 false；Actions 正式产物保留三天，工作流清理本轮暂存。实际完成以作业回执为准。
+- 工作流 YAML 和内嵌 Python 语法检查通过（一次性 Python 3.12 容器 --rm、禁网），未因宿主 Python 不可用声称已执行成功。实现/打包源码 a879e7ed16b45291d922c4cc76d55fdd04dd2aad 的 [linux-oci-candidate 实际作业](https://github.com/yan041108/Full.NET/actions/runs/44904939460/job/136848399109) 全部步骤成功，读取 §8.409 作业 44903920154 和应用源码 06caddffeb4f227f54acc38543a7d8f436c105a8。未重新编译或执行测试套件。
+- 三角色实际镜像分别从应用层核对 Migrator 291、Worker 296、Api 298 个文件，全部 blob 大小/摘要、linux/amd64、角色入口和 UID 1654、应用 DiffID 通过，三份运行时层完全一致。首角色实际 MCR 基础 manifest 为 sha256:3a31a3c8c41f487ecab474cf6dcf152489fedca9fd145b0b49a4b9e616cd6dde；后两者以首角色镜像 manifest 为受信离线输入，其回执 baseManifestDigest 记录该输入，顶层 runtimeBaseManifestDigest 保留最初运行时来源，不把二者混同。
+- 实际上传 artifact id=14707756527，名称 fullnet-linux-oci-06caddffeb4f227f54acc38543a7d8f436c105a8，大小 428,809,015 字节，API 确认 expired=false，2026-11-24 12:39:55 UTC 到期；各归档/manifest 摘要及基础层描述符保存在 candidate.json。前后源码守卫和暂存清理成功。Actions 依赖出现 Node 20 弃用/强制 Node 24 的工具提示，作业实际成功；未据此声称工具零告警或调整无关工作流。
+- 本批剩余开发 0、待验收 0。关闭可下载三角色真实 OCI 候选缺口；imageImportVerified/runtimeStartupVerified/databaseMigrationVerified/deploymentVerified/nativeAotVerified/capacityVerified 保持 false。原手册已补作业输入、两种源码身份、归档核对和基础镜像重新取得的语义。真实候选导入/启动/发布、旧报表处置和 D08 现场复验仍开放；目标预演受限、其他主工作包、Quill 到期处置、Capacity-not-verified 及既有工作区改动保持。无整仓复制、仓库 artifacts 或发布环境变更。

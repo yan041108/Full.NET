@@ -184,5 +184,9 @@ sudo /usr/local/lib/fullnet/Release-Application.sh "$CANDIDATE_CHART" all --plan
 
 [首个三角色 JIT 作业](https://github.com/yan041108/Full.NET/actions/runs/44903920154) 绑定 06caddffeb4f227f54acc38543a7d8f436c105a8，实际使用 SDK 10.0.404，分别验证 Migrator 291、Worker 296、Api 298 个文件及归档读回摘要。Development 配置已排除，链接、私钥及环境文件被拒绝。回执仅 jitPublishVerified=true；进程启动、Native AOT、OCI 镜像、数据库迁移、部署和容量仍未验证，下载包不能替代后续发布门禁。产物过期后重新运行，并使用新回执记录的源码提交。
 
+需要 OCI 镜像候选时，手动运行 linux-oci-candidate，以 jit_run_id 指定同仓成功的 main/linux-jit-candidate 手动作业。入口核对正式来源、JIT 回执及所有输入摘要，复用 Pack-OciImage.py；首次从 MCR 获取运行时，后两角色离线复用该镜像的运行时层，三者必须完全一致。输出 fullnet-linux-oci-<应用完整提交>，保留三天，包含三个 .oci.tar、各自 .manifest.json 及 candidate.json；镜像引用为 docker.io/library/fullnet-<角色>:<应用完整提交>。下载后先按 roles.<角色>.archiveSha256 核对归档，按 manifestDigest 核对 OCI manifest，再使用既有导入和发布门禁；同名 sidecar 仅为 manifest，不代表已经导入或部署。
+
+[首个三角色 OCI 作业](https://github.com/yan041108/Full.NET/actions/runs/44904939460) 输入 jit_run_id=44903920154，应用 sourceCommit=06caddffeb4f227f54acc38543a7d8f436c105a8，打包 packagingCommit=a879e7ed16b45291d922c4cc76d55fdd04dd2aad；两者分别表示程序集与打包入口来源。回执记录 MCR runtimeBaseManifestDigest、共享运行时层及各镜像摘要，实际核对全部 OCI blob、角色入口、UID、应用 DiffID 与文件字节。仅 imageBuildVerified=true，导入、启动、迁移、部署、AOT 和容量仍为 false。重新打包会重新取得上游基础镜像，必须使用新回执摘要，不能仅凭应用标签认定运行时未变化；不向注册表或发布节点上传。
+
 - `tests/deployment/foundation-preset-release.test.mjs`
 - 发布清单：`docs/verification/f16-release-checklist.md`
