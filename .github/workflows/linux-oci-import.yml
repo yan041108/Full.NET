@@ -12,6 +12,14 @@ on:
         required: true
         default: false
         type: boolean
+      host_environment:
+        description: Isolated host configuration to verify when verify_hosts is true
+        required: true
+        default: Testing
+        type: choice
+        options:
+          - Testing
+          - Production
 
 permissions:
   contents: read
@@ -74,6 +82,7 @@ jobs:
           OCI_PACKAGING: ${{ steps.upstream.outputs.packaging }}
           OCI_RUN_ID: ${{ inputs.oci_run_id }}
           VERIFY_HOSTS: ${{ inputs.verify_hosts }}
+          HOST_ENVIRONMENT: ${{ inputs.host_environment }}
         run: |
           set -euo pipefail
           python3 - <<'PY'

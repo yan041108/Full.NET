@@ -7842,3 +7842,13 @@ Release 集成工程单节点构建及 Identity 模块隔离 AOT 分析均零警
 - 最终验收源码 b74a267b05ed26086140a8e1fca466e6e1e298fe 的 [实际 Host 作业](https://github.com/yan041108/Full.NET/actions/runs/44906515239/job/136853159954) 全部步骤成功；应用仍为 06caddffeb4f227f54acc38543a7d8f436c105a8，镜像打包仍为 a879e7ed16b45291d922c4cc76d55fdd04dd2aad。实际下载 1,719 字节验收 artifact 并在内存解压核对 verification.json：Testing/MySql、Migrator exit=0、journal 397 条、API/Worker 六个端点均 200/Healthy、两者正常停止 exit=0 且无 OOM。397 为数据库 journal 行数，不是测试用例数量。
 - 数据库实际 mysql@sha256:7dcddc01f13bab2f15cde676d44d01f61fc9f99fe7785e86196dfc07d358ae2b，镜像 ID sha256:6cd09145362dfe6831b14545de3d5fd6cc75c37cfd6ef8561429c1fc73518b39；空库备份 SHA-256 de04e28ec91b0ce7e6977594bf0e018d52129aff74b6819e87c78ffef5d76df3、实际恢复校验 true。容器/网络及导入镜像独立清理后均无本轮残留，暂存清理与前后源码守卫通过。正式回执 artifact id=14707149762、名称 fullnet-oci-import-44906515239，API 确认 expired=false，2026-11-24 12:59:45 UTC 到期；本地仅内存读取回执，无候选源码副本或下载包堆积。
 - 本批剩余开发 0、待验收 0。闭合实际候选 Testing/MySQL 的三角色启动顺序、必要迁移、健康与停止缺口，未改业务源代码或迁移门禁。原候选历史回执不修改，新的 verification.json 顶层 runtimeStartupVerified/databaseMigrationVerified=true，hostVerification 明确 environment/provider 和 productionConfigurationVerified=false；Native AOT、SQL Server、完整业务、生产配置、现场部署、旧报表处置、D08 现场复验和容量仍未认证。运维手册同步显式开关与边界；其他主工作包、受限预演、Quill 到期处置、Capacity-not-verified 和既有工作区改动保持。
+
+### 8.413 F15 实际候选的 Production 配置启动（2026-11-21）
+
+| 固定任务 | 当前状态 | 完成条件 |
+| --- | --- | --- |
+| F15-CandidateProductionStartup | 已实现，待实际启动 | 同一 OCI 候选以 Production 环境在隔离 MySQL/Redis 中启动，启用真实证书与签名密钥、MySQL VerifyFull 和强制 TLS，健康/停止/清理通过。 |
+
+- 基线 a6ee0637611230e073258bbd2c33d3e023a3bc7a，快照 candidate-production-startup-20261121。冻结范围为原导入/启动工作流、Production 资产夹具与原手册/计划；不改应用实现、不重复编译。新增 host_environment 显式选择，默认 Testing，只有 verify_hosts=true 才执行业务 Host 检查；只派发新 Production/MySQL 差集，不重跑完整矩阵或旧 Testing 验收。
+- 复用已导入候选和隔离内网，独立随机本轮密钥/CA，MySQL 服务证书 SAN 匹配容器 DNS、VerifyFull 和 require_secure_transport=ON；真实有密码 Redis，真实 X509/PFX 保护共享 Key Ring，显式 RSA 签名且禁止开发临时签名。密钥仅供本轮私有目录和必要只读挂载，不入产物；API/Worker UID 1654、只读根和资源限额保持。云存储配置仅满足启动校验，内网禁止外联，不认证 Provider 调用。
+- 仍先执行空库备份恢复与正式 Migrator，再检查两角色三健康端点和正常停止，记录数据库 TLS 实际接入计数及依赖镜像身份，独立清理。完成条件限定隔离 Production 配置，不外推现场部署、SQL Server、AOT、完整业务、生产恢复或容量；其他外部主任务保持开放。

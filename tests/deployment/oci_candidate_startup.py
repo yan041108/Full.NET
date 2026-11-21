@@ -26,7 +26,7 @@ def names():
     if not run_id.isdigit():
         raise RuntimeError("startup_run_id_invalid")
     prefix = "fullnet-candidate-startup-" + run_id
-    return prefix, {role: prefix + "-" + role for role in ("database", "migrator", "api", "worker")}
+    return prefix, {role: prefix + "-" + role for role in ("database", "redis", "migrator", "api", "worker")}
 
 
 def clean(root):
@@ -56,7 +56,7 @@ def clean(root):
 
 
 def verify(root):
-    """仅在隔离 CI 使用 Testing 配置，不把探针结果外推为生产或完整业务认证。"""
+    """仅在隔离 CI 验证选定环境的启动，不把探针结果外推为现场或完整业务认证。"""
     network, containers = names()
     if os.environ.get("CI") != "true" or not Path("/var/run/docker.sock").is_socket():
         raise RuntimeError("startup_isolated_ci_required")
@@ -68,17 +68,29 @@ def verify(root):
         if run("ps", "-aq", "--filter", "name=^/" + name + "$"):
             raise RuntimeError("startup_resources_already_exist")
     password = "Fn9!" + secrets.token_hex(24)
+    environment = os.environ.get("HOST_ENVIRONMENT", "Testing")
+    if environment not in ("Testing", "Production"):
+        raise RuntimeError("candidate_host_environment_invalid")
+    production = None
+    if environment == "Production":
+        import importlib.util
+        spec = importlib.util.spec_from_file_location("production_assets", Path(__file__).with_name("oci_production_assets.py"))
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        production = module.prepare(root, containers["database"], containers["redis"], password)
     root.chmod(0o700)
     env = root / "host.env"
     env.write_text("\n".join([
-        "DOTNET_ENVIRONMENT=Testing", "ASPNETCORE_ENVIRONMENT=Testing", "ASPNETCORE_URLS=http://+:8080",
+        "DOTNET_ENVIRONMENT=" + environment, "ASPNETCORE_ENVIRONMENT=" + environment, "ASPNETCORE_URLS=http://+:8080",
         "Database__Provider=MySql", "Database__MySqlGuidStorageMode=Binary16",
-        "Database__ConnectionString=Server=" + containers["database"] + ";Port=3306;Database=fullnet_candidate;User ID=root;Password=" + password + ";SslMode=None;AllowPublicKeyRetrieval=True",
-        "Identity__AllowDevelopmentEphemeralSigningKey=true", "Identity__RequireSecureCookies=false",
+        "Database__ConnectionString=Server=" + containers["database"] + ";Port=3306;Database=fullnet_candidate;User ID=root;Password=" + password +
+        (";SslMode=VerifyFull;SslCa=/var/fullnet/pki/ca.crt" if production else ";SslMode=None;AllowPublicKeyRetrieval=True"),
         "Identity__AllowedOrigins__0=http://localhost", "Tenancy__HostDomains__0=localhost",
-        "Realtime__Enabled=false", "DataProtection__KeyRingPath=/tmp/keys", "Files__Local__RootPath=/tmp/files",
+        "Realtime__Enabled=false", "Files__Local__RootPath=/tmp/files",
         "CodeGeneration__Artifacts__RootDirectory=/tmp/codegen",
     ]) + "\n")
+    if not production:
+        env.write_text(env.read_text() + "Identity__AllowDevelopmentEphemeralSigningKey=true\nIdentity__RequireSecureCookies=false\nDataProtection__KeyRingPath=/tmp/keys\n")
     env.chmod(0o600)
     database_env = root / "database.env"
     database_env.write_text("MYSQL_ROOT_PASSWORD=" + password + "\nMYSQL_ROOT_HOST=%\nMYSQL_DATABASE=fullnet_candidate\n")
@@ -99,12 +111,19 @@ def verify(root):
         # 拉取仅供一次性数据库使用的镜像，实际摘要写入回执；内网创建后禁止容器外联。
         run("pull", "mysql:8.0", timeout=240)
         database_image = json.loads(run("image", "inspect", "mysql:8.0"))[0]
+        redis_image = None
+        if production:
+            run("pull", "redis:7.4", timeout=180)
+            redis_image = json.loads(run("image", "inspect", "redis:7.4"))[0]
         owned["network"] = network
         save()
         run("network", "create", "--internal", "--label", "fullnet.candidate-startup=" + network, network)
         start("database", "--memory", "1g", "--cpus", "2", "--pids-limit", "256", "--env-file", str(database_env),
-              "--tmpfs", "/var/lib/mysql:rw,nosuid,nodev,size=512m", database_image["Id"],
-              "--log-bin-trust-function-creators=1")
+              "--tmpfs", "/var/lib/mysql:rw,nosuid,nodev,size=512m", *(production["databaseArguments"] if production else []),
+              database_image["Id"], "--log-bin-trust-function-creators=1", *(production["databaseOptions"] if production else []))
+        if production:
+            start("redis", "--memory", "128m", "--cpus", "1", "--pids-limit", "64", *production["redisArguments"],
+                  redis_image["Id"], "redis-server", "/candidate-redis.conf")
         deadline = time.monotonic() + 120
         while True:
             try:
@@ -144,6 +163,8 @@ def verify(root):
                   "--tmpfs", "/tmp/codegen:rw,nosuid,nodev,uid=1654,gid=1654,mode=0700,size=16m", "--memory", "768m",
                   "--cpus", "1", "--pids-limit", "128", "--cap-drop", "ALL", "--security-opt", "no-new-privileges",
                   "--env-file", str(env)]
+        if production:
+            shared += production["hostArguments"]
         def image(role):
             return "fullnet-oci-import-" + role + ":" + os.environ["GITHUB_RUN_ID"]
         start("migrator", *shared, "--env-file", str(migrator_env), image("migrator"))
@@ -180,11 +201,18 @@ def verify(root):
             if status["Running"] or status["ExitCode"] != 0 or status["OOMKilled"]:
                 raise RuntimeError("candidate_host_shutdown_failed_" + role)
             checks[role]["gracefulStopExitCode"] = 0
-        return {"environment": "Testing", "provider": "MySql", "databaseImageId": database_image["Id"],
+        evidence = None
+        if production:
+            tls = run(*mysql, "SHOW GLOBAL STATUS LIKE 'Ssl_accepts'").split()
+            if len(tls) != 2 or not tls[1].isdigit() or int(tls[1]) < 1:
+                raise RuntimeError("candidate_mysql_tls_not_observed")
+            evidence = {**production["evidence"], "mysqlObservedTlsAccepts": int(tls[1]),
+                        "redisImageId": redis_image["Id"], "redisRepoDigests": redis_image["RepoDigests"]}
+        return {"environment": environment, "provider": "MySql", "databaseImageId": database_image["Id"],
                 "databaseRepoDigests": database_image["RepoDigests"], "migrationJournalCount": int(count),
                 "initialEmptyDatabaseBackupSha256": backup_digest, "initialEmptyDatabaseRestoreVerified": True,
                 "hosts": checks, "runtimeStartupVerified": True, "databaseMigrationVerified": True,
-                "productionConfigurationVerified": False}
+                "productionConfigurationVerified": bool(production), "productionEvidence": evidence}
     except Exception:
         # 只保留本轮有界尾日志，先替换随机凭据，避免将连接密码写入公开作业日志。
         for role in ("migrator", "api", "worker"):
