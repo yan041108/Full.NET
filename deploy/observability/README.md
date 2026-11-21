@@ -277,3 +277,5 @@ FullNetNodeDiskPressure 观察 DiskPressure=true；Fluent Bit 可用性规则选
 手动工作流 dotnet-integration-focused / host-platform-metrics 只运行现有 HostLoggingMetricsPipelineTests 的链路方法。用例从当前本地 Helm 清单读取实际 Collector/Prometheus 配置与规则，Host 只设置指标端点与协议，Collector 使用 UID 10001 和有界临时 WAL；不需要数据库或业务账号。保留当前十五秒规则评估、一分钟优先日志丢弃 for 及五分钟 increase/恢复窗口，因此真实窗口需要数分钟，不能用快速合成 probe 替代。
 
 本用例移除未启动服务的抓取/通知，只验证真实 Full.NET 默认 Host 注册、双日志通道指标、共享实例标识、Prometheus 原告警 firing/恢复及 Remote Write 无乱序拒绝。运行环境需 .NET 10、真实 Helm 3.16.4、本地 Docker 及两个实际固定镜像；定向入口会按当前清单准备镜像。它不代表完整 Api/Worker 业务启动、Kubernetes 放置/存储/CNI、正式通知或容量已认证。
+
+[仅指标 Host 的实际链路作业](https://github.com/yan041108/Full.NET/actions/runs/44858176487/job/136705165930)已通过，同一 Host 实例的双通道指标、优先丢弃告警触发及原五分钟窗口后的恢复均实际验证。该范围仍是通用注册与隔离两后端，不替代完整业务宿主、现场网络或正式通知送达。

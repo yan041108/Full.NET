@@ -7604,8 +7604,13 @@ Release 集成工程单节点构建及 Identity 模块隔离 AOT 分析均零警
 
 | 固定任务 | 当前状态 | 完成条件 |
 | --- | --- | --- |
-| D08-HostPlatformMetricsLoop | 已实现，待集中验收 | 真实 Host 仅配置指标端点，经当前 Helm 派生 Collector 到 Prometheus，验证双通道和共享实例；原一分钟告警触发、原五分钟窗口滚动恢复，无乱序拒绝。 |
+| D08-HostPlatformMetricsLoop | 已完成，真实 Host 链路与原窗口通过 | 真实 Host 仅配置指标端点，经当前 Helm 派生 Collector 到 Prometheus，验证双通道和共享实例；原一分钟告警触发、原五分钟窗口滚动恢复，无乱序拒绝。 |
 
 - 基线 eda13251b2cd3ed691e192ed3626a3b9929c0794，快照 host-platform-metrics-chain-20261121。§8.390 的真实 HTTP 接收与 §8.389/391 平台回路分别通过，不能直接拼成同一路径证明；将已有 HostLoggingMetricsPipelineTests 直接升级到当前 Helm 清单/仅指标入口，不保留仅用于旧配置的并行测试版本。
 - 冻结原链路用例、精确集成工作流和手册。实际 Helm 从同一工作树生成 Collector/Prometheus/原规则与镜像；只替换本轮两容器地址/规则挂载，移除未启动 KSM/Alertmanager 的抓取和通知。保留真实五秒 WAL、十五秒评估、一分钟 for 与五分钟 increase。Collector 以原 UID 10001 和有界临时存储运行，不改生产代码或配置。
 - 集中只执行这一条 Integration 方法，原测试数量不变，矩阵既有 logging-metrics 范围复用；只准备实际两个固定镜像，不运行数据库、浏览器、完整 Native 或全量。证明 Full.NET 服务默认注册到平台指标配置的隔离链路，不冒充完整 Api/Worker 业务宿主、现场部署、真实通知或容量；Capacity-not-verified 保持。
+- 首轮 f8eedfcc6ff294515f0ac3197f3d62e692e266cb 的 [作业 136703631294](https://github.com/yan041108/Full.NET/actions/runs/44857693772/job/136703631294) 在测试编译阶段报 CS0122：集成工程无权读取内部 LoggingResourceMetadata/Instance，未执行用例。改用 OpenTelemetry 公开 MeterProvider.GetResource() 读取 service.instance.id，不扩大产品类型可见性、不增加友元权限、不改变生产实现或既定窗口。
+- 修正源码 cf9b83453b9abd3846139254bd465f4c1f12a277 的 [host-platform-metrics 精确作业](https://github.com/yan041108/Full.NET/actions/runs/44858176487/job/136705165930) 为 1/1（5 分 15.456 秒），零失败、零跳过；.NET 10/Linux x64 Release 构建零警告、零错误，源码状态守卫通过。只准备原清单中的 Prometheus 3.15.0 与 Collector 0.163.1 固定镜像，不准备数据库、不运行其他分片；原 logging-metrics 一条数量不变，未接管工作区矩阵改动。
+- 实际 Helm 3.16.4 从本轮源码取当前清单，验证两个镜像摘要与配置一致、Collector 仅 metrics 管道、WAL 五秒。真实 Full.NET 默认 Host 只配置 OTEL_EXPORTER_OTLP_METRICS_ENDPOINT/PROTOCOL，全局地址为空；Collector 以 UID 10001 和有界临时 WAL 运行。普通/优先通道真实日志产生的队列、容量、在途字节、等待年龄及丢弃计数实际进入 Prometheus，饱和阶段匹配该 Host 公开资源中的 job/instance，释放后字节归零。
+- 真实 FullNetPriorityLogDrop 在原一分钟 for 后进入 firing，并按同一 job/instance 验证；保留当前十五秒评估和原五分钟 increase，窗口自然滚动后计数增量归零、告警退出 firing。Collector 完成日志未发现既有用例检测的 out of order sample 拒绝。没有缩短规则、改用合成 probe、手写业务指标或以 HTTP 接收成功代替该完整链路。
+- 本批固定任务关闭：剩余开发 0、待验收 0。两后端通过 await using 释放，Host/Console 阻塞在 finally 恢复并释放，Helm 子进程在取消时由本轮终止；未新增源码复制流程或提交运行产物。此证据只覆盖通用 Host 注册与当前平台的隔离配置链路，不表示完整 Api/Worker 业务宿主、Kubernetes/CNI/存储、现场配置或正式通知已认证。实际发布/现场源/正式通知及物理故障域继续归 D08-14/F15/F16，Capacity-not-verified 保持；未运行数据库、浏览器、完整 Native 或全量。
