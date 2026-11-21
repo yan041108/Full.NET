@@ -7813,3 +7813,13 @@ Release 集成工程单节点构建及 Identity 模块隔离 AOT 分析均零警
 - 三角色实际镜像分别从应用层核对 Migrator 291、Worker 296、Api 298 个文件，全部 blob 大小/摘要、linux/amd64、角色入口和 UID 1654、应用 DiffID 通过，三份运行时层完全一致。首角色实际 MCR 基础 manifest 为 sha256:3a31a3c8c41f487ecab474cf6dcf152489fedca9fd145b0b49a4b9e616cd6dde；后两者以首角色镜像 manifest 为受信离线输入，其回执 baseManifestDigest 记录该输入，顶层 runtimeBaseManifestDigest 保留最初运行时来源，不把二者混同。
 - 实际上传 artifact id=14707756527，名称 fullnet-linux-oci-06caddffeb4f227f54acc38543a7d8f436c105a8，大小 428,809,015 字节，API 确认 expired=false，2026-11-24 12:39:55 UTC 到期；各归档/manifest 摘要及基础层描述符保存在 candidate.json。前后源码守卫和暂存清理成功。Actions 依赖出现 Node 20 弃用/强制 Node 24 的工具提示，作业实际成功；未据此声称工具零告警或调整无关工作流。
 - 本批剩余开发 0、待验收 0。关闭可下载三角色真实 OCI 候选缺口；imageImportVerified/runtimeStartupVerified/databaseMigrationVerified/deploymentVerified/nativeAotVerified/capacityVerified 保持 false。原手册已补作业输入、两种源码身份、归档核对和基础镜像重新取得的语义。真实候选导入/启动/发布、旧报表处置和 D08 现场复验仍开放；目标预演受限、其他主工作包、Quill 到期处置、Capacity-not-verified 及既有工作区改动保持。无整仓复制、仓库 artifacts 或发布环境变更。
+
+### 8.411 F15 实际候选的本机 Docker 导入（2026-11-21）
+
+| 固定任务 | 当前状态 | 完成条件 |
+| --- | --- | --- |
+| F15-LinuxOciImport | 已实现，待实际导入 | 固定成功的三角色 OCI 作业，核对输入后导入隔离本机 Docker，验证实际角色配置/所有层与 .NET 10 运行时，回收独占资源并交付回执。 |
+
+- 基线 749ec82743084eef1a049ad3674d47998ad3011a，快照 linux-oci-import-20261121。接续 §8.410 实际镜像，冻结范围为独立手动工作流、原手册与计划；不重复编译或取得新基础镜像。只消费同仓 main 成功手动 OCI 工作流的唯一未过期产物，核对应用/打包提交、精确文件集合、三个归档、manifest sidecar 和全部 OCI blob 后才导入。
+- 复用既有真实 Skopeo→Docker 验收路径，强制本机 Unix socket；以本轮唯一名称排他登记镜像/容器，实际导入后核对 OS/架构、User、目录、入口、参数、环境与全部 RootFS DiffID。在禁网、只读、128 MiB/CPU 1/PID 64、无附加 capability 的容器中只运行 dotnet --list-runtimes，验证 NETCore/ASP.NET Core 10，不启动业务 Host 或数据库。
+- 独立 always 步骤只回收本轮登记资源，检查无残留，成功后上传 verification.json 并清理本轮暂存；导入/运行时发现与业务启动/AOT/迁移/部署/容量分别记录。只执行本批正式导入流程和内建核对，不运行全量或测试矩阵，不连接发布节点或重试受限命令。实际完成以作业回执为准。
