@@ -123,13 +123,6 @@ if (typeof evaluateAuditReport === 'function') {
     assert.deepEqual(productionPolicy.exceptions.map(({ advisory, package: packageName, allowedPaths }) => ({
       advisory, packageName, allowedPaths
     })), [{
-      advisory: 'GHSA-fc5q-39xc-vjpf',
-      packageName: 'picomatch',
-      allowedPaths: [
-        'clients__uniapp>@dcloudio/uni-cli-shared>@rollup/pluginutils>picomatch',
-        'clients__uniapp>@dcloudio/uni-cli-shared>unimport>picomatch'
-      ]
-    }, {
       advisory: 'GHSA-v3m3-f69x-jf25',
       packageName: 'quill',
       allowedPaths: ['packages__admin-form-designer>quill']
@@ -138,7 +131,7 @@ if (typeof evaluateAuditReport === 'function') {
     assert.throws(() => evaluateAuditReport(createReport([createAdvisory({ severity: 'critical' })]), productionPolicy), /Critical advisory is never allowed/u);
   });
 
-  test('Picomatch review accepts only the two build paths and expires automatically', () => {
+  test('withdrawn Picomatch advisory has no exception and any renewed finding fails closed', () => {
     const advisory = createAdvisory({
       ghsa: 'GHSA-fc5q-39xc-vjpf', packageName: 'picomatch',
       paths: [
@@ -147,14 +140,14 @@ if (typeof evaluateAuditReport === 'function') {
       ]
     });
     const reviewed = new Date('2026-11-18T00:00:00Z');
-    const result = evaluateAuditReport(createReport([advisory]), productionPolicy, reviewed);
-    assert.deepEqual(result.acceptedExceptions[0].paths, advisory.findings[0].paths);
+    assert.equal(productionPolicy.exceptions.some(item => item.advisory === advisory.github_advisory_id), false);
+    assert.throws(() => evaluateAuditReport(createReport([advisory]), productionPolicy, reviewed), /Unreviewed high advisory/u);
     const outsidePath = createAdvisory({
       ghsa: advisory.github_advisory_id, packageName: 'picomatch', paths: ['ui__admin>picomatch']
     });
-    assert.throws(() => evaluateAuditReport(createReport([outsidePath]), productionPolicy, reviewed), /outside the reviewed/u);
+    assert.throws(() => evaluateAuditReport(createReport([outsidePath]), productionPolicy, reviewed), /Unreviewed high advisory/u);
     assert.throws(() => evaluateAuditReport(createReport([advisory]), productionPolicy,
-      new Date('2026-11-26T00:00:00Z')), /expired on 2026-11-25/u);
+      new Date('2026-11-26T00:00:00Z')), /Unreviewed high advisory/u);
     assert.throws(() => evaluateAuditReport(createReport([{ ...advisory, severity: 'critical' }]), productionPolicy, reviewed), /Critical advisory is never allowed/u);
   });
 

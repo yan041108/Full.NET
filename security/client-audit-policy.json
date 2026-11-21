@@ -4,23 +4,6 @@
   "minimumSeverity": "low",
   "exceptions": [
     {
-      "advisory": "GHSA-fc5q-39xc-vjpf",
-      "package": "picomatch",
-      "allowedPaths": [
-        "clients__uniapp>@dcloudio/uni-cli-shared>@rollup/pluginutils>picomatch",
-        "clients__uniapp>@dcloudio/uni-cli-shared>unimport>picomatch"
-      ],
-      "rationale": "2026-11-18 官方公告及 npm 注册表尚无修复版本。当前两条路径分别解析至 2.3.2、4.0.5，用于 uni-app 本地构建过滤和自动导入扫描；模式来自受版本控制的构建配置，不接受业务请求或用户提供的 glob。此例外仅接受这两条已核对的工具链路径，不表示漏洞已经修复。",
-      "mitigations": [
-        "构建输入、插件及 glob 配置必须来自受信任的仓库；不在服务中提供任意项目或任意 glob 的远程构建。",
-        "开发服务仅监听 127.0.0.1；发布静态客户端产物，不部署 uni-app Node 构建工具或开发服务器。",
-        "保持依赖锁定及精确路径审计，新增路径继续阻断；上游发布修复后优先升级并移除此例外。"
-      ],
-      "owner": "Full.NET frontend maintainers",
-      "reviewBy": "2026-11-21",
-      "expiresOn": "2026-11-25"
-    },
-    {
       "advisory": "GHSA-v3m3-f69x-jf25",
       "package": "quill",
       "allowedPaths": [

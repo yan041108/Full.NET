@@ -7688,3 +7688,14 @@ Release 集成工程单节点构建及 Identity 模块隔离 AOT 分析均零警
 - 原应用三个基线 NetworkPolicy 在 fullnet-production 实际读回，API/Worker 开启前的新连接均拒绝；DNS 解析与不受出口隔离的观察器访问 Service 成功，排除服务尚未就绪。新增正式 Helm 策略后 API 经 Service DNS 访问 4318、Worker 经 ClusterIP 访问 4317 成功，均为客户端工作节点到服务端控制平面节点的跨节点路径；三个端口服务器均有实际成功对照。
 - 未叠加平台入口前，错误目标命名空间、同平台错误 Pod 标签、额外 9090 端口、同 Release 的 Migrator 标签、未获许可的另一 Release 均连续新连接拒绝，直接验证本次出口交集。再应用现有平台入口策略，API 仍可达，其他命名空间来源被拒绝；显式删除两个新出口策略后 API/Worker 新连接再次拒绝，而平台观察器仍可访问。三个服务器 UID 与 Running 状态保持，未通过停服务/换 Pod 或 DNS 故障冒充隔离。
 - 本批固定任务关闭：剩余开发 0、待验收 0。五个本地独立方法与一个真实 CNI 方法为六个不重叠方法。本轮 Kind 容器实际回收为 0，临时 kubeconfig/Calico 清单随夹具与工作流清理，本地容器 --rm 回收；既有 Helm 工具只读复用，无整仓复制或仓库 artifacts。API/Worker 到平台 Collector 的可配置出口与本地 Calico 隔离差集闭合，不再重复安排；现场配置/实际生产 CNI/完整 Host 指标与外部采集、正式通知及物理故障域/容量继续归 D08-14/F15/F16。用端口夹具验证网络，不宣称真实业务/OTLP 协议或完整生产网络认证；未运行旧 Host/采集/PVC/通知、.NET/双库或全量，Capacity-not-verified 保持。
+
+### 8.401 Picomatch 公告到期复核与过时例外清理（2026-11-21）
+
+| 固定任务 | 当前状态 | 完成条件 |
+| --- | --- | --- |
+| Dependency-PicomatchReview | 已完成，公告撤回及实际审计核对通过 | 核对官方状态、当前锁文件和原两条构建依赖路径；撤回公告不遗留放行规则，再次报告时仍拒绝。 |
+
+- 基线 4a0c5916acd97b2088c19675733b0c91dc95338a，快照 client-advisory-review-20261121。只读依赖评估使用 resolve-dependency-alert 技能，核对当前已跟踪且未修改的 pnpm-lock.yaml，SHA-256 为 a4053772a09ce8eb6f3ce8df525aede94c3b4c5d8c101785978636ed88171f3c；仍解析 Picomatch 2.3.2/4.0.5，uni-app 的 pluginutils/unimport 路径保持。没有更新版本或锁文件，不将维护动作写成部署修复。
+- [官方 GHSA-fc5q-39xc-vjpf](https://github.com/advisories/GHSA-fc5q-39xc-vjpf) 当前明确为 Withdrawn：2026-11-18 撤回、11-19 更新，原因为不构成安全问题。§8.326 的原审查保留历史事实，本轮依据新状态关闭其待复核项。只读评估结束后，按已授权的本地维护范围移除过时 Picomatch 例外，不延长有效期、不将撤回状态泛化为所有 Picomatch 公告安全，也不操作任何外部扫描平台的 dismissal。
+- 更新原两个直接相关测试：生产策略仅保留现有 Quill 精确路径，Picomatch 原路径/新增路径若再次作为 High 报告均拒绝，Critical 继续不可接受。Node 24.20.0 精确名称过滤实际 2/2（53.8872 毫秒），零失败/跳过；pnpm audit:clients 实际使用官方 registry.npmjs.org 通过，只有原 GHSA-v3m3-f69x-jf25/Quill 例外被接受。未执行整文件测试、客户端构建、依赖安装、.NET/双库或全量。
+- 本批剩余开发 0、待验收 0；锁文件及应用实现未变，无构建产物。七个主交付工作包仍按原归属开放，Picomatch 的 11-21 复核/11-25 例外已关闭，不重复安排。Quill 的既有限时例外仍为 2026-11-23 到期，官方公告尚无修复版本，此事项没有借本轮撤回或审计通过延期/关闭，仍需独立处置。Capacity-not-verified 保持。
