@@ -7699,3 +7699,15 @@ Release 集成工程单节点构建及 Identity 模块隔离 AOT 分析均零警
 - [官方 GHSA-fc5q-39xc-vjpf](https://github.com/advisories/GHSA-fc5q-39xc-vjpf) 当前明确为 Withdrawn：2026-11-18 撤回、11-19 更新，原因为不构成安全问题。§8.326 的原审查保留历史事实，本轮依据新状态关闭其待复核项。只读评估结束后，按已授权的本地维护范围移除过时 Picomatch 例外，不延长有效期、不将撤回状态泛化为所有 Picomatch 公告安全，也不操作任何外部扫描平台的 dismissal。
 - 更新原两个直接相关测试：生产策略仅保留现有 Quill 精确路径，Picomatch 原路径/新增路径若再次作为 High 报告均拒绝，Critical 继续不可接受。Node 24.20.0 精确名称过滤实际 2/2（53.8872 毫秒），零失败/跳过；pnpm audit:clients 实际使用官方 registry.npmjs.org 通过，只有原 GHSA-v3m3-f69x-jf25/Quill 例外被接受。未执行整文件测试、客户端构建、依赖安装、.NET/双库或全量。
 - 本批剩余开发 0、待验收 0；锁文件及应用实现未变，无构建产物。七个主交付工作包仍按原归属开放，Picomatch 的 11-21 复核/11-25 例外已关闭，不重复安排。Quill 的既有限时例外仍为 2026-11-23 到期，官方公告尚无修复版本，此事项没有借本轮撤回或审计通过延期/关闭，仍需独立处置。Capacity-not-verified 保持。
+
+### 8.402 Quill 限时例外的上游与消费边界复核（2026-11-21）
+
+| 固定任务 | 当前状态 | 完成条件 |
+| --- | --- | --- |
+| Dependency-QuillReview | 只读复核完成，修复及到期处置仍开放 | 有可验证的上游修复或经批准的替代方案，并完成实际 HTML 边界验证后移除例外；现有例外不自动延期。 |
+
+- 基线 a7907f7538d615f57afc9c7d5496257ca588ce1b。只读依赖评估复用 resolve-dependency-alert，未执行包管理器、构建或测试脚本。当前 pnpm-lock.yaml 已跟踪且未修改，SHA-256 为 a4053772a09ce8eb6f3ce8df525aede94c3b4c5d8c101785978636ed88171f3c；消费路径 packages__admin-form-designer>quill，manifest/lock 均为 2.0.3，npm 官方注册表 dist-tags.latest 仍为 2.0.3，没有 2.0.4/2.0.5 发行时间。
+- [GHSA-v3m3-f69x-jf25](https://github.com/advisories/GHSA-v3m3-f69x-jf25) 仍为有效 Low 公告，影响 2.0.3、Patched versions=None；没有复用 Picomatch 的撤回结论。官方元数据来源为 https://registry.npmjs.org/quill 。仅包清单刷新或锁文件更新不能构成现有正式版本的修复；不引入未经评估的实验发行版。
+- 当前 runtime/quill.js 对 HTML 输入、text-change 回传和 getSemanticHTML 导出使用 DOMPurify；VForm 完整源码浏览器用例覆盖带 onerror 的富文本导入、编辑器 DOM 和 getFormData 回传。此为源码与既有用例核对，本轮没有执行这些用例，不能报告为新鲜验证或上游漏洞已修复。完整 HTML 导出的真实攻击载荷验证须在实际变更时选取精确场景。
+- 本轮仅将复核结论写回唯一计划。依赖、适配器和安全策略均未修改，未延期 reviewBy/expiresOn、未新增风险接受、未操作外部告警 dismissal。既有例外仍在 2026-11-23 到期，适用范围和 DOMPurify/隔离缓解继续保持；若到期前仍无已验证修复，现有审计门禁按原规则失败，不通过延期或删公告制造通过。
+- 复核子项已完成，修复/到期处置待办 1；其关闭条件为核对正式修复发行及兼容性后升级并移除例外，或依据明确批准的替代方案完成实现与验证。七个主交付工作包保持，F12-R3 仍 Deferred；不把这项上游依赖等待扩展为其他开发停工。无构建或临时产物，其他工作区改动保留。
