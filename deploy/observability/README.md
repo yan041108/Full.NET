@@ -285,3 +285,5 @@ FullNetNodeDiskPressure 观察 DiskPressure=true；Fluent Bit 可用性规则选
 平台 cluster 不仅用于 Prometheus 抓取目标，也在派生 Collector 的资源和指标点处理中统一 upsert。缺失值补齐，客户端同名值（包括不同类型）被平台配置覆盖；target_info 同样使用该归属。job/instance 及其他合法维度保留，tenant_id/user_id/DiagnosticGroup 继续从资源和点删除。cluster 是平台保留标签，业务指标不得用它表达另一种分组；它只是配置归属，不证明客户端已经通过认证，实际入口访问控制仍须成立。
 
 只在此平台派生配置中写入，不改通用 Collector values；不增加按请求产生的动态维度或额外处理阶段。改变 cluster 会改变时间序列标识，已有历史数据不会被重写。语义依据 [Attributes upsert](https://github.com/open-telemetry/opentelemetry-collector-contrib/blob/v0.163.0/processor/attributesprocessor/README.md) 和 [Resource processor](https://github.com/open-telemetry/opentelemetry-collector-contrib/blob/v0.163.0/processor/resourceprocessor/README.md)。定向运行入口 metrics-cluster-context 使用实际固定镜像和原五秒 WAL，核对缺失/伪造归属、Gauge/Counter 值及 target_info，不重复通知或业务宿主验收。
+
+[固定镜像真实归属数据流](https://github.com/yan041108/Full.NET/actions/runs/44860483409/job/136712475935)已通过缺失/伪造 cluster、Gauge/Counter/target_info 一致性和身份过滤验证；只证明本平台归属处理，不证明客户端真实性、现场网络或正式通知。

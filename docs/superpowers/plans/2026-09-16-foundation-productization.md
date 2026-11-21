@@ -7618,8 +7618,12 @@ Release 集成工程单节点构建及 Identity 模块隔离 AOT 分析均零警
 
 | 固定任务 | 当前状态 | 完成条件 |
 | --- | --- | --- |
-| D08-MetricClusterContext | 已实现，待真实运行验收 | OTLP 资源与点统一使用平台 cluster；缺失/伪造输入实际归一，Gauge/Counter/target_info 保留 job/instance 和合法维度，身份属性仍移除。 |
+| D08-MetricClusterContext | 已完成，实际指标归属验收通过 | OTLP 资源与点统一使用平台 cluster；缺失/伪造输入实际归一，Gauge/Counter/target_info 保留 job/instance 和合法维度，身份属性仍移除。 |
 
 - 基线 4ee2b2aec10c040a20294f939084c7816b1d475f，快照 metrics-cluster-context-20261121。当前平台只在 Prometheus 抓取目标注入 cluster，OTLP 两类处理动作均缺少该键；本地真实 Helm 只读探测确认 point/resource 的 cluster 动作均为 false。补齐既有 D08-14 标签一致性，不重新开发或重复验收已关闭的 Host 导出/告警链路。
 - 冻结派生 Collector 两个处理动作、直接相关渲染/固定镜像数据流用例、工作流与手册；在原遍历内追加 upsert，不加新阶段或修改原通用 values、规则阈值及接口。提取原 Docker 夹具为无测试方法的共享基座，新方法只准备 Prometheus/Collector/Python，旧平台回路发现数保持；共用基座在资源创建前也拒绝与本地 Unix context 不一致的 DOCKER_HOST，不向远程引擎创建资源。
 - 本地四条真实 Helm 相关方法已通过，新增远程覆盖拒绝一条单独通过；复用这些输入未变结果，CI 只运行新 Gauge/Counter/target_info 真实样本方法。资源和点分别带缺失或不同伪造 cluster/身份属性，成功接收后不重复注入同时间戳来掩盖低流量问题。不重跑五分钟 Host 告警、TLS 通知、Kubernetes 状态/双卷、.NET/双库/全量；Capacity-not-verified 保持。
+- 实现/验收源码为 e66dff6a7b2d8e1dbe36e767d74c4c400795d7d0。本地一次性 Python 3.12 Debian 容器（CPU 1/内存 256 MiB/进程 128、禁网、源码/既有 Helm 工具只读），真实 Helm 3.16.4 四条定向方法 4/4（1.441 秒），零失败/跳过；point/resource 均 upsert 平台 cluster，另一个平台配置使用自己的值，原隐私动作与规则窗口保持。共享夹具远程覆盖拒绝单独 1/1（0.082 秒），证明在网络/容器创建前停止；其余四条未因该独立保护重复执行。旧平台发现仍为十四条，未把抽出的无测试方法基座或新增样本混入旧回路。
+- [metrics-cluster-context 精确作业](https://github.com/yan041108/Full.NET/actions/runs/44860483409/job/136712475935) 为 1/1（23.671 秒），零失败、零跳过，源码状态守卫通过。Linux/Python 3.12、真实 Helm 3.16.4，原 Collector 0.163.1/Prometheus 3.15.0 固定镜像及 Python 探针，均在私有 internal 网络、无宿主发布端口；仅准备本场景需要的两后端，不运行 Alertmanager/TLS 通知或 KSM。
+- 一次成功接收的 OTLP 载荷包含缺失 cluster 和伪造资源字符串/点整数 cluster 的两种资源；真实 Gauge 7/9 与 Cumulative Counter 2 全部以 cluster=test-cluster 进入 Prometheus，原 job/instance 与合法 route 保留。两个 target_info 同样归一，已知身份哨兵在点和资源输出中均不存在，伪造归属查询为空。保留原五秒 WAL，成功接收后不再发送同时间戳来掩盖低流量问题；不将该数据流证明升级为客户端身份认证或全量业务指标审计。
+- 本批固定任务关闭：剩余开发 0、待验收 0。五个本地方向方法加一个真实数据流方法为六个不重叠方法；本轮容器实际回收为 0，私有网络删除，临时配置随夹具清理，本地验证容器 --rm 回收，既有 Helm 工具只读复用。仅修改平台派生动作，不改通用 values 或增加处理阶段；cluster 是保留标签，变更值会改变序列标识，不重写历史数据。OTLP 平台归属差集闭合，现场启用/实际源/正式通知、物理故障域及容量仍归 D08-14/F15/F16；未重跑五分钟 Host、TLS/Kubernetes/双卷、.NET/双库或全量，Capacity-not-verified 保持。
