@@ -7590,8 +7590,13 @@ Release 集成工程单节点构建及 Identity 模块隔离 AOT 分析均零警
 
 | 固定任务 | 当前状态 | 完成条件 |
 | --- | --- | --- |
-| D08-InfrastructureStateMetrics | 已实现，待集中验收 | 默认不增加权限或组件；显式开启独立 Node/DaemonSet 观察器，只读账号隔离，实际状态变化进入 Prometheus、越界/代理/写入拒绝，原一分钟阈值保持。 |
+| D08-InfrastructureStateMetrics | 已完成，实际状态与权限验收通过 | 默认不增加权限或组件；显式开启独立 Node/DaemonSet 观察器，只读账号隔离，实际状态变化进入 Prometheus、越界/代理/写入拒绝，原一分钟阈值保持。 |
 
 - 基线 1934105ec724143eccb2456a9b2b6473e2144ce1，快照 infrastructure-state-metrics-20261121。FullNetNodeDiskPressure/FullNetFluentBitDaemonSetUnavailable 已有规则，但原平台 KSM 不读取 Node 或日志命名空间 DaemonSet；补齐既有 D08-14 状态源，不新建日志收集系统或宿主 exporter。
 - nodeState.enabled 默认 false，daemonSetNamespace 默认空。启用后复用原 KSM 固定镜像、独立服务与账号：节点只授予 core/nodes 的 get/list/watch，DaemonSet 只授予显式既有命名空间 apps/daemonsets 的 get/list/watch；默认应用账号、无 Secret/日志/代理/写入权限及后端 Token 禁用保持。只输出所需状态指标，不挂载宿主路径或依赖特权。
 - 冻结模板/配置/直接相关测试、定向工作流和手册；本地集中六条真实 Helm 方法，复用后 CI 仅执行新增实际 Kubernetes 方法，不重跑 HPA/PDB、外部 HTTPS、通知、双卷恢复或 .NET/双库/全量。运行时用真实 DaemonSet 就绪变化和无 kubelet 的不可调度、带阻断污点的合成 Node；不改真实节点条件、不制造磁盘压力，不冒充物理故障、真实 Fluent Bit 或现场告警送达。Capacity-not-verified 保持。
+- 实现/验收源码为 6b95a8f836a37d33e7c6f38ad357931af473fcb8。本地一次性 Python 3.12 Debian 容器（CPU 1/内存 256 MiB/进程 128、禁网、源码和既有 Helm 工具只读），真实 Helm 3.16.4 六条定向方法 6/6（3.761 秒），零失败/跳过：默认无额外 ClusterRole、显式范围/账号分离、两个选项独立及非法配置拒绝、原应用权限、公共容器安全/存储边界和原阈值均通过。两个原告警仍为一分钟；无变化输入结果复用，CI 未重复这六条。Workflow/schema/example/Python 结构检查通过。
+- [infrastructure-state-metrics 精确作业](https://github.com/yan041108/Full.NET/actions/runs/44850873746/job/136681668955) 为 1/1（156.607 秒），零失败、零跳过，源码状态守卫通过。Linux/Python 3.12、kind 0.30.0/固定 Kubernetes 1.34.0 节点、原 KSM 2.17.0 与 Prometheus 3.15.0 固定镜像。只运行新增三个后端及必要夹具；真实 DaemonSet 就绪文件切换经控制器给出不可用数 0→1→0，再由 KSM→Prometheus 查询实际观察。
+- Node 场景只创建无 kubelet、unschedulable 且带 fullnet.io/fixture:NoSchedule 污点的合成 Node，由本轮管理凭据写该对象条件；DiskPressure 序列 0→1→0 实际进入 Prometheus，未写真实节点条件或制造物理故障。删除后该序列消失，同时节点读取器 up=1，DaemonSet 恢复数据仍在，避免以读取器停止造成的整体消失冒充删除观察成功。未把合成状态升级为物理压力、真实 Fluent Bit、持续告警或生产可用性证明。
+- 实际 API 权限检查通过：节点账号允许 list nodes，但拒绝 nodes/proxy、patch nodes、Secret 与日志命名空间 DaemonSet；DaemonSet 账号只允许选定命名空间 list daemonsets，其他命名空间、nodes、patch daemonsets、pods/log 均拒绝。两个账号不共享角色，原应用账号不扩权。默认关闭仅表示不渲染这些资源；曾启用的部署仍须按手册显式撤销旧绑定和回收对象，不能把重新 apply 省略项当作撤权。
+- 本批固定任务关闭：剩余开发 0、待验收 0。本地六条加 CI 一条为七个不重叠方法；Kind 容器实际回收为 0，合成资源、临时 kubeconfig 和配置随本轮夹具回收，本地验证容器 --rm 回收，既有 Helm 工具只读复用。节点条件与日志 DaemonSet 状态源的框架接线已闭合，不再重复安排；现场启用及实际日志 Agent、Node Exporter/外部源、实际 Host 链路、正式通知和生产故障域/容量仍归 D08-14/F15/F16。未操作现网或运行 HPA/PDB、HTTPS/通知/PVC 恢复、.NET/双库/全量，Capacity-not-verified 保持。

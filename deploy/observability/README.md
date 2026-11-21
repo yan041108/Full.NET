@@ -269,3 +269,5 @@ bash eng/deploy/Render-Observability.sh --set cluster=reference-primary \
 FullNetNodeDiskPressure 观察 DiskPressure=true；Fluent Bit 可用性规则选择 daemonset=fullnet-fluent-bit，两个原保持期均为一分钟。新增指标源不会代替实际探针/告警持续窗口、正式通知、物理磁盘故障或 Node Exporter 的文件系统容量。实现依据 [KSM 2.17 Node](https://github.com/kubernetes/kube-state-metrics/blob/v2.17.0/docs/metrics/cluster/node-metrics.md) 与 [DaemonSet](https://github.com/kubernetes/kube-state-metrics/blob/v2.17.0/docs/metrics/workload/daemonset-metrics.md)。
 
 本工具是清单渲染器，不管理资源删除：已启用后仅改回 false/空再 apply 不会自动删除旧观察器或撤销已创建权限。停用时先核对对象归属并撤销对应 ClusterRoleBinding/RoleBinding，再回收观察 Deployment、Service、ServiceAccount 及专属 Role/ClusterRole；不要删除原应用观察器的授权。定向运行场景为 infrastructure-state-metrics，只在自有集群验证；节点条件使用不可调度的合成 Node，真实节点不改。
+
+默认关闭、显式账号范围与原阈值已通过真实 Helm 定向检查；[实际 Kubernetes 状态和权限作业](https://github.com/yan041108/Full.NET/actions/runs/44850873746/job/136681668955)通过合成节点条件与测试 DaemonSet 的变化/恢复。此证据不代表物理磁盘压力、真实日志 Agent 或现网告警已经验证。
