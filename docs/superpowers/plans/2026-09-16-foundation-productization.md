@@ -7518,8 +7518,8 @@ Release 集成工程单节点构建及 Identity 模块隔离 AOT 分析均零警
 
 | 固定任务 | 当前状态 | 完成条件 |
 | --- | --- | --- |
-| D08-MetricsPlatformBundle | 已实现，定向渲染通过 | 平台独立渲染包复用既有 Collector 和 Prometheus 规则，明确存储引用、只读 Deployment 指标权限、内部服务与受控通知引用；不在应用 Chart 安装后端。 |
-| D08-MetricsAlertLoop | 用例已实现，待真实镜像回路 | 真实固定镜像验证 OTLP→Collector→Prometheus 查询及合成告警 firing/resolved 到自有 TLS 接收器；无真实收件人，失败不假报全链路通过。 |
+| D08-MetricsPlatformBundle | 已完成，渲染/固定镜像校验通过 | 平台独立渲染包复用既有 Collector 和 Prometheus 规则，明确存储引用、只读 Deployment 指标权限、内部服务与受控通知引用；不在应用 Chart 安装后端。 |
+| D08-MetricsAlertLoop | 已完成，真实隔离回路通过 | 真实固定镜像验证 OTLP→Collector→Prometheus 查询及合成告警 firing/resolved 到自有 TLS 接收器；无真实收件人，失败不假报全链路通过。 |
 
 - 基线 `17e6501a75eb979be23721feed12ad721bbf85c0`，快照 `metrics-platform-batch-20261121`。只读 SSH 确认现网无 Prometheus/Alertmanager/Collector 等监控 Pod、无 monitoring.coreos.com CRD，接续 §8.327 的 D08-14 平台采集缺口。本批不重试已被自动审批拒绝的 F15 整批 plan，也不将其阻塞扩大为其他独立工作停工。
 - 复用已有 OTel Contrib 0.163.1、Prometheus 3.15.0、Alertmanager 0.34.0 固定镜像和现有规则；kube-state-metrics 固定 2.17.0 与官方 registry 摘要。只提供平台独立渲染及隔离验证，不修改应用 Chart、业务数据或生产资源。指标后端与通知配置分开准入，默认无外部接收器，显式配置仅引用 CA/凭据 Secret，不嵌入秘密。
@@ -7529,3 +7529,8 @@ Release 集成工程单节点构建及 Identity 模块隔离 AOT 分析均零警
 - 候选 2c4fd42a9 的 [首次真实镜像作业](https://github.com/yan041108/Full.NET/actions/runs/44842295498/job/136653415003) 为 12/13（14.589 秒），零跳过；四个镜像的真实配置/CLI 校验完成，但在读取 Prometheus 宿主映射端口时错误，尚未进入 OTLP 链路。最小真实 Docker 复现中进程仍 running，HostConfig 已配置发布而 internal 网络的 Ports 为空；将请求改为在本轮内部接收器内执行，不关闭 internal 网络或公开端口。增加布尔 schema 和一条字符串 false 拒绝用例，避免通知开关字符串被当作 true；后续集中十四条，原失败与清理零容器记录保留。
 - 候选 73b051a06 的 [第二次真实镜像作业](https://github.com/yan041108/Full.NET/actions/runs/44842841625/job/136655242823) 为 13/14（64.980 秒），零跳过；私有网络已连通、OTLP 接收成功，单条指标在原四十五秒查询窗口不可见。对应 0.163.0 exporter 实现显示 WAL 不满 buffer 时等待刷新/截断周期，原 values 为一分钟；新平台派生配置明确五秒，保留 WAL/单消费者/原窗口/单点，不靠灌流或延长超时过关。通用 Collector values 不改，补单点可见时间作为功能观察，不主张吞吐、分位或容量改善；相关 exporter 实现来源 https://github.com/open-telemetry/opentelemetry-collector-contrib/blob/v0.163.0/exporter/prometheusremotewriteexporter/wal.go。两轮失败均确认本轮容器/网络已回收。
 - 候选 dcc27f031 的 [第三次真实镜像作业](https://github.com/yan041108/Full.NET/actions/runs/44843260627/job/136656655310) 为 13/14（28.965 秒），零跳过；五秒派生配置下原单点/原窗口已通过 OTLP→查询、job/instance 与点标签拒绝泄漏。唯一失败是夹具过滤后无非标识资源属性，未产生 target_info，尚未走到告警送达。补固定 service.version=isolated-fixture，并同时要求 target_info 非空、版本存在与身份值不存在，保留原隐私断言，不把目标缺席当成清洗通过；容器/网络仍全部回收。
+- 候选 `953dc3c5bf154d2f0e4532dd3dacdc94e661b0f1` 的 [平台指标/告警定向作业](https://github.com/yan041108/Full.NET/actions/runs/44843612026/job/136657832008) 实际 14/14（40.953 秒），零失败/跳过，源码状态守卫通过。Ubuntu 24.04、Python 3.12.16 -O、Helm 3.16.4；Prometheus 3.15.0、Alertmanager 0.34.0、OTel Contrib 0.163.1、KSM 2.17.0 均按清单固定 digest 实际拉取并执行配置/CLI 校验。真实镜像数据回路在 Docker internal 网络内执行，无宿主发布端口，不连接任何真实通知人。
+- 单条合成 OTLP 指标被接收并经正式派生 Collector/WAL 导出，初次查询可见的单轮观察为 5918.498 毫秒，仍使用原四十五秒窗口且未灌流；job/instance 精确，点属性及非空 target_info 的三类身份属性均移除，固定 service.version 保留。该数值只说明本轮功能窗口，不代表分位、吞吐或容量。
+- Prometheus 的专用十秒合成规则实际 firing→resolved，Alertmanager 以 CA 校验及 credentials_file 合成凭据请求本轮 TLS 接收器（未验证 Kubernetes Secret 投影），两次状态使用同一指纹。错误 CA 独立对照实际出现 x509 拒绝，未增加接收事件；该对照只证明 TLS 拒绝，不冒充另一条 Prometheus 规则链。原规则名字和阈值保留、默认 discard/禁用合成告警、字符串布尔拒绝、只读权限及 PVC/Secret 引用均通过规定边界。
+- 本轮五个运行容器及四个校验容器均回收，私有网络删除（own_containers=0），合成 CA/密钥/Token 与配置随夹具目录回收。独立 Windows 临时 Helm 工具目录 `C:\Users\dai27\AppData\Local\Temp\fullnet-monitor-helm-2dd462dfc6484d66a2d4b8762e90499f` 的清理在执行前被自动审批审查拒绝，仅返回 blocked by policy，未提供具体原因；74,520,601 字节（约 71.1 MiB）保留，未换方式绕过或报告已清理。
+- 本批两个固定开发项及规定功能验收均完成，剩余开发 0、功能待验收 0、临时工具清理受限 1。补充只读全 Pod 镜像清单确认现场仅有 Kubernetes metrics-server，未发现本批 Prometheus/Alertmanager/Collector/KSM 的 Pod、无 monitoring.coreos.com CRD；平台采集链仍需授权安装和验证；Host 全局 OTLP/分信号导出接线、真实 Deployment watch/CNI/PVC、Node/HPA 等未提供源、正式告警地址及故障域继续归 D08-14/F16，不能据合成回路关闭整体任务。F15 原目标整批预演受限状态保留，未重试。未操作生产或运行无影响的 .NET/双库/全量，Capacity-not-verified 和其他工作区改动保持。
