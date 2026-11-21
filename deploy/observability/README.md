@@ -233,3 +233,5 @@ Kind 默认 CNI 不执行 NetworkPolicy，此入口不认证网络隔离；同�
 平台 KSM 复用同一服务账号和应用命名空间边界，额外采集 autoscaling/v2 HPA 和 policy/v1 PDB；不创建 HPA/PDB，也不取得修改或驱逐权限。HPA 上限规则消费 kube_horizontalpodautoscaler_status_current_replicas 与 kube_horizontalpodautoscaler_spec_max_replicas，原保持期为十五分钟；PDB 规则消费 kube_poddisruptionbudget_status_pod_disruptions_allowed，原保持期为十分钟。HPA 名称需匹配 .*fullnet-(api|worker).*，PDB 名称需匹配 .*fullnet.* 才被现有对应规则选中。
 
 定向 workflow 场景 workload-metrics-watch 使用真实 Kubernetes API/KSM/Prometheus 验证 HPA 上限变化、当前副本系列存在、PDB 控制器计算的可中断数变化及删除后的陈旧系列移除，并核对命名空间只读权限。该入口不安装 Metrics Server、不模拟 HPA 自动伸缩或执行驱逐，不缩短原告警窗口，也不宣称正式告警已送达。指标名称和标签依据 [KSM 2.17 HPA](https://github.com/kubernetes/kube-state-metrics/blob/v2.17.0/docs/metrics/workload/horizontalpodautoscaler-metrics.md) 与 [PDB](https://github.com/kubernetes/kube-state-metrics/blob/v2.17.0/docs/metrics/policy/poddisruptionbudget-metrics.md)。
+
+该 HPA/PDB 采集与权限范围已在[真实 Kubernetes 定向作业](https://github.com/yan041108/Full.NET/actions/runs/44848124013/job/136672778561)通过；实际伸缩、驱逐、原告警持续窗口及正式通知仍须按各自范围验证。
