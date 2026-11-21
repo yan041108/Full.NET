@@ -297,6 +297,8 @@ sudo python3 eng/deploy/ubuntu/Install-ObjectCapacityExporter.py \
 
 安装/启用失败或受控中断时只回收本轮创建的目录/unit；一旦尝试启动，先 disable --now 并复核停止再删除。停止无法确认或资源身份改变则返回 rollback_incomplete_preserved，保留现场供人工核对，不报告安装成功。并发使用独占安装锁，锁文件作为持续协调入口保留。installed 仅表示 unit 校验、启用及当时 ActiveState 核对通过，scrapeVerified/notificationVerified 始终 false；仍需从实际 Prometheus 验证 mTLS、up、textfile 错误、容量新鲜度、告警触发及恢复送达。断电/强制 SIGKILL、升级和无中断证书轮换不由首次安装事务保证。
 
+[官方归档与实际单元校验](https://github.com/yan041108/Full.NET/actions/runs/44863386267/job/136721568526) 已通过，使用真实 Node Exporter 1.13.1 归档和 Ubuntu systemd 255.4。服务控制器使用受控执行器，真实 systemctl 只读核对未安装状态，不写宿主服务；因此此证据覆盖包、证书准入、文件安装和 unit 语法，实际 systemd 启动及发布环境安装仍需单独验收。
+
 ### 可选节点条件与日志 DaemonSet 状态
 
 nodeState.enabled 默认为 false，daemonSetNamespace 默认为空。只有显式开启才渲染额外的 kube-state-nodes 或 kube-state-daemonsets Deployment/ClusterIP 及抓取任务，复用原固定 KSM 镜像和资源预算；不创建宿主 Agent 或日志 DaemonSet。下面的例子只渲染，日志命名空间必须已存在：

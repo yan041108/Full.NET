@@ -7648,9 +7648,12 @@ Release 集成工程单节点构建及 Identity 模块隔离 AOT 分析均零警
 
 | 固定任务 | 当前状态 | 完成条件 |
 | --- | --- | --- |
-| D08-ObjectCapacityExporterInstall | 实现中，待集中验收 | 默认只预检；固定官方离线包、证书和明确内网绑定准入，显式安装生成受限服务；已有安装拒绝，失败仅回收本轮资源，停止未确认保留现场。 |
+| D08-ObjectCapacityExporterInstall | 已完成，受控安装及真实包/单元验证通过 | 默认只预检；固定官方离线包、证书和明确内网绑定准入，显式安装生成受限服务；已有安装拒绝，失败仅回收本轮资源，停止未确认保留现场。 |
 
 - 基线 02f2df08d06f854320db424ee29e6ef72ebbafb4，快照 object-capacity-exporter-install-20261121。§8.397 已关闭 mTLS 与正式 textfile 到真实 exporter 的链路，现场仍缺 Ubuntu 安装入口；本批交付安装脚本，不重复采集链路，不在发布环境执行安装。
 - 冻结一个安装器、直接相关用例、精确手动工作流和现有运维手册。Linux amd64/Node Exporter 1.13.1 官方离线包固定摘要，拒绝不安全条目；服务端证书验证用途/IP/有效期/私钥匹配、客户端 CA 和明确 DNS SAN 准入。使用 systemd 255 已有 DynamicUser/LoadCredential，私钥不进环境、命令行或公开 unit；仅 textfile，不开放默认采集器或防火墙。
 - 先集中完成安装/失败回收实现，再运行本轮受控安装用例；另用官方真实归档及实际 systemd-analyze 校验新 unit，不将受控 systemctl 或语法校验冒充实际服务启动、生产安装、Kubernetes 投影、网络可达或通知送达。保留现场安装与正式端到端验收；不运行 .NET/双库、旧采集回路或全量，Capacity-not-verified 保持。
 - 本地集中受控安装方法首轮 14/14（0.665 秒），零失败/跳过。随后收紧客户端 CA 起止时间校验、可读目录和 /run 安全锁路径，仅复验九个受影响方法 9/9（0.584 秒）；二进制目录显式 chmod 防止调用者 umask=077 阻断动态账号执行后，仅三个写入/回收方法 3/3（0.503 秒）。独立方法数仍为十四，不累加重复方法。全部在一次性 Python 3.12 Debian 容器、禁网、CPU 1/内存 256 MiB/进程 128、只读源码与根文件系统、有界 tmpfs 中执行，systemctl 为受控执行器，PKI 校验使用实际 OpenSSL。归档/权限/并发/信号/启动未知结果/停止未确认边界通过；真实官方包与 systemd 单元校验尚待执行。workflow/新 Python 语法和差异结构检查通过。
+- 实现/验收源码 1e3bf15761d2678caf0e0b81e27df1e364416422 的 [object-capacity-exporter-install 精确作业](https://github.com/yan041108/Full.NET/actions/runs/44863386267/job/136721568526) 为 1/1（0.795 秒），零失败、零跳过，源码状态守卫通过。Ubuntu 24.04/Python 3.12、实际 systemd 255.4-1ubuntu8.18；官方 Node Exporter 1.13.1 linux-amd64 归档 SHA-256 为 5c00c5234f1ee45900b25539a5a0ab82146a098c15c16a4ec3bc855b597a6477，下载与正式安装器两次独立核对通过，真实二进制 --version 确认为 1.13.1。
+- 使用真实 OpenSSL 临时 PKI 通过完整预检，正式安装函数写入自有隔离目录，证书副本与固定二进制/许可文件匹配；systemd-analyze verify 实际校验生成的 unit。真实 systemctl 只读查询确认同名服务 LoadState=not-found，安装/启停使用受控执行器，不创建或运行宿主服务、不改网络。并未将真实工具语法校验冒充 DynamicUser/LoadCredential 实际进程启动或现场 TLS 验收。
+- 本批固定任务关闭：剩余开发 0、待验收 0，十四个本地独立方法与一个真实包/单元方法共十五个不重叠方法。全部临时 PKI、安装目录和官方包由本轮夹具/工作流 trap 清理，本地验证容器 --rm 回收，无源码复制或仓库 artifacts。Ubuntu 首次安装入口已交付，不重复排为功能缺失；真实 systemd 启动、现场安装与 Prometheus 采集/新鲜度、获准网络策略、正式通知及物理故障域/容量仍归 D08-14/F15/F16。未执行实际发布、旧 mTLS/OTLP/Host/通知/Kubernetes/PVC、.NET/双库或全量，Capacity-not-verified 保持。
