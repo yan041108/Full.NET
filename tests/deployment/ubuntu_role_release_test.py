@@ -270,6 +270,24 @@ class ReleaseControlTests(_Base):
 
 
 class RealHelmRolePlanTests(_Base):
+    def test_expected_plan_accepts_repackaging_and_rejects_changed_content(self):
+        self.common.write_text(json.dumps({'image':{'tag':'candidate'}}))
+        templates=self.chart/'templates';templates.mkdir()
+        template=templates/'fixture.yaml'
+        template.write_text('apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: fixture\ndata:\n  marker: first\n')
+        self.configure(real_helm=True)
+        first=self.execute('all','--plan')
+        self.assertEqual(first.returncode,0,first.stderr)
+        path=self.root/'expected.json';path.write_text(first.stdout);path.chmod(0o600)
+        time.sleep(1.2)
+        second=self.execute('all','--plan','--expected-plan',str(path))
+        self.assertEqual(second.returncode,0,second.stderr)
+        self.assertIs(json.loads(second.stdout)['expectedPlanMatched'],True)
+        self.assertNotEqual(json.loads(first.stdout)['chartSha256'],json.loads(second.stdout)['chartSha256'])
+        template.write_text(template.read_text().replace('first','changed'))
+        self.assert_no_success(self.execute('all','--ordinary-upgrade','--expected-plan',str(path)))
+        self.assertFalse(any(event[0] in ('systemctl','mysql') or event[:2]==['helm','upgrade'] for event in self.state()['events']))
+
     def test_content_identity_survives_repackaging_and_changes_with_file_bytes(self):
         templates=self.chart/'templates';templates.mkdir()
         template=templates/'fixture.yaml'

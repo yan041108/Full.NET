@@ -3,12 +3,17 @@
 set -Eeuo pipefail
 umask 077
 [[ $EUID == 0 ]] || exit 2
-[[ $# == 2 || $# == 3 ]] || { echo '用法：Release-Application.sh CHART migrator|worker|api [--plan]；CHART all --plan|--ordinary-upgrade' >&2; exit 2; }
+[[ $# == 2 || $# == 3 || $# == 5 ]] || { echo '用法：Release-Application.sh CHART ROLE [MODE]；批量可追加 --expected-plan FILE' >&2; exit 2; }
 chart=$1
 role=$2
 requested_role=$role
 [[ $role == migrator || $role == worker || $role == api || $role == all ]] || exit 2
 mode=${3:-}
+expected_plan=''
+if [[ $# == 5 ]]; then
+  [[ $role == all && $4 == --expected-plan && -n $5 ]] || exit 2
+  expected_plan=$5
+fi
 [[ -z $mode || $mode == --plan || ( $role == all && $mode == --ordinary-upgrade ) ]] || exit 2
 [[ $role != all || $mode == --plan || $mode == --ordinary-upgrade ]] || { echo '批量须明确 --plan 或 --ordinary-upgrade；报表格式切版仍走专用门禁。' >&2; exit 2; }
 [[ -d $chart && -f $chart/Chart.yaml ]] || { echo '候选 Chart 目录无效。' >&2; exit 2; }
@@ -29,6 +34,7 @@ failure_logs=()
 completed_roles=()
 values_digest_json=''
 candidate_image_tag_json=null
+expected_plan_matched=null
 
 roles_json() {
   local separator=''
@@ -93,13 +99,46 @@ finish() {
       "$requested_role" "$(roles_json "${completed_roles[@]}")" "$restore_required" >&2
   fi
   if [[ $result == 0 ]]; then
-    printf '{"schemaVersion":1,"role":"%s","roles":%s,"completedRoles":%s,"namespace":"fullnet-production","action":"%s","chartSha256":"%s","chartContentSha256":"%s","valuesSha256":{%s},"candidateImageTag":%s}\n' \
-      "$requested_role" "$(roles_json "${roles[@]}")" "$(roles_json "${completed_roles[@]}")" "$action" "$chart_digest" "$chart_content_digest" "$values_digest_json" "$candidate_image_tag_json"
+    printf '{"schemaVersion":1,"role":"%s","roles":%s,"completedRoles":%s,"namespace":"fullnet-production","action":"%s","chartSha256":"%s","chartContentSha256":"%s","valuesSha256":{%s},"candidateImageTag":%s,"expectedPlanMatched":%s}\n' \
+      "$requested_role" "$(roles_json "${roles[@]}")" "$(roles_json "${completed_roles[@]}")" "$action" "$chart_digest" "$chart_content_digest" "$values_digest_json" "$candidate_image_tag_json" "$expected_plan_matched"
   fi
   exit "$result"
 }
 trap finish EXIT
 trap 'exit 143' TERM INT
+
+if [[ -n $expected_plan ]]; then
+  # 预期回执只表示输入一致性，不是权限或签名；在读取候选前冻结受保护的普通文件。
+  perform expected-plan-freeze python3 - "$expected_plan" "$work/expected-plan.json" <<'PY'
+import json,os,re,stat,sys
+def unique(pairs):
+    value={}
+    for key,item in pairs:
+        if key in value: raise ValueError()
+        value[key]=item
+    return value
+def invalid(_value): raise ValueError()
+try:
+    descriptor=os.open(sys.argv[1],os.O_RDONLY|os.O_NOFOLLOW|os.O_NONBLOCK)
+    with os.fdopen(descriptor,'rb') as stream:
+        info=os.fstat(stream.fileno())
+        if not stat.S_ISREG(info.st_mode) or info.st_uid!=os.geteuid() or info.st_nlink!=1 or info.st_mode&0o022 or not 0<info.st_size<=65536: raise ValueError()
+        content=stream.read(65537)
+        if len(content)!=info.st_size: raise ValueError()
+    value=json.loads(content,object_pairs_hook=unique,parse_constant=invalid)
+    if not isinstance(value,dict) or type(value.get('schemaVersion')) is not int or value['schemaVersion']!=1: raise ValueError()
+    if value.get('role')!='all' or value.get('roles')!=['migrator','worker','api'] or value.get('completedRoles')!=[] or value.get('action')!='plan' or value.get('namespace')!='fullnet-production': raise ValueError()
+    hashes=value.get('valuesSha256')
+    if not isinstance(hashes,dict) or set(hashes)!={'common','migrator','worker','api'}: raise ValueError()
+    if not all(isinstance(item,str) and re.fullmatch('[0-9a-f]{64}',item) for item in [value.get('chartContentSha256'),*hashes.values()]): raise ValueError()
+    tag=value.get('candidateImageTag')
+    if not isinstance(tag,str) or not re.fullmatch(r'[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}',tag) or tag.lower()=='latest': raise ValueError()
+    with open(sys.argv[2],'x',encoding='utf-8') as output: json.dump(value,output,separators=(',',':'))
+except (OSError,ValueError,TypeError):
+    print('预期 plan 回执无效或文件权限不安全。',file=sys.stderr)
+    sys.exit(1)
+PY
+fi
 
 perform common-values cp -- /etc/fullnet/release/common.json "$work/common.json"
 for role in "${roles[@]}"; do
@@ -178,6 +217,7 @@ except (OSError,ValueError,tarfile.TarError,EOFError):
 PY
 chart_content_digest=$(< "$last_output")
 frozen_files=("$package" "$work/common.json")
+if [[ -n $expected_plan ]]; then frozen_files+=("$work/expected-plan.json"); fi
 values_digest=$(sha256sum "$work/common.json")
 values_digest_json="\"common\":\"${values_digest%% *}\""
 for role in "${roles[@]}"; do
@@ -205,6 +245,19 @@ for role in "${roles[@]}"; do
     --namespace fullnet-production "${values[@]}"
 done
 verify_frozen
+if [[ -n $expected_plan ]]; then
+  perform expected-plan-match python3 - "$work/expected-plan.json" "$chart_content_digest" "$candidate_image_tag_json" "$work" <<'PY'
+import hashlib,json,pathlib,sys
+try:
+    expected=json.loads(pathlib.Path(sys.argv[1]).read_text())
+    actual={name:hashlib.sha256((pathlib.Path(sys.argv[4])/(name+'.json')).read_bytes()).hexdigest() for name in ('common','migrator','worker','api')}
+    if expected['chartContentSha256']!=sys.argv[2] or expected['candidateImageTag']!=json.loads(sys.argv[3]) or expected['valuesSha256']!=actual: raise ValueError()
+except (OSError,ValueError,KeyError):
+    print('当前候选或 values 与预期 plan 不一致。',file=sys.stderr)
+    sys.exit(1)
+PY
+  expected_plan_matched=true
+fi
 if [[ $plan == true ]]; then action=plan; exit 0; fi
 
 for role in "${roles[@]}"; do

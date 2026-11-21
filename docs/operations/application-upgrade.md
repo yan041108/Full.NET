@@ -160,6 +160,20 @@ sudo /usr/local/lib/fullnet/Release-Application.sh "$CANDIDATE_CHART" all --ordi
 
 该手动入口可选 v3.16.4、v4.0.0 或现场读到的 v4.3.1；两个 Helm 4 版本仅执行相应真实渲染方法，不重复受控控制流集合。v4.3.1 在执行前独立校验官方归档 SHA-256、与安装二进制逐字节比较及版本号。[现场同版定向作业](https://github.com/yan041108/Full.NET/actions/runs/44902114817/job/136840004791) 已用 v4.3.1+gc0d08d0 验证当前三角色同包渲染与候选版本回执；这份隔离结果不表示目标节点已完成预演或升级。
 
+批量入口支持追加 --expected-plan FILE，在所有渲染后、任何备份/DDL/升级前，自动核对 chartContentSha256、四份 valuesSha256 与 candidateImageTag；可同时用于 --plan 和 --ordinary-upgrade。该文件须为 root 所有、不可组/全局写、无链接的普通文件，最多 64 KiB，且是 fullnet-production 的 all/plan、正确顺序 roles、空 completedRoles 的 schemaVersion=1 回执。文件在本次读取候选前冻结并纳入后续摘要保护，不读取变化后的原回执。
+
+保存每次独立的 plan 文件时由 root 创建，禁止覆盖已有回执，再显式用于候选复核或普通升级：
+
+```bash
+sudo install -d -m 0700 /var/lib/fullnet/release-plans
+sudo bash -c 'set -C; umask 077; /usr/local/lib/fullnet/Release-Application.sh "$1" all --plan > "$2"' \
+  fullnet-plan "$CANDIDATE_CHART" /var/lib/fullnet/release-plans/expected.json
+sudo /usr/local/lib/fullnet/Release-Application.sh "$CANDIDATE_CHART" all --plan \
+  --expected-plan /var/lib/fullnet/release-plans/expected.json
+```
+
+确认普通升级的既有门禁后，将第二条调用的 --plan 改为 --ordinary-upgrade 才执行升级。成功回执 expectedPlanMatched=true 表示匹配该次预期输入；未提供时为 null。相同 Chart 重新打包的归档摘要不同仍可匹配，内容、配置或版本漂移必须重新审查并产生新 plan。匹配不表示签名、授权、实际镜像认证或允许绕过报表切版门禁；单角色拒绝此参数，已执行回执和缺少内容身份的旧回执也拒绝。
+
 ## 验证
 
 - `tests/deployment/foundation-preset-release.test.mjs`

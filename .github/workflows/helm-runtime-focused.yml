@@ -127,7 +127,8 @@ jobs:
                   suite.addTests(unittest.defaultTestLoader.loadTestsFromTestCase(batches.BatchReleaseTests))
                   suite.addTest(fixture.RealHelmRolePlanTests('test_actual_chart_renders_exactly_the_selected_role_despite_all_roles_in_values'))
                   suite.addTest(fixture.RealHelmRolePlanTests('test_content_identity_survives_repackaging_and_changes_with_file_bytes'))
-                  expected = 42
+                  suite.addTest(fixture.RealHelmRolePlanTests('test_expected_plan_accepts_repackaging_and_rejects_changed_content'))
+                  expected = 47
           result = unittest.TextTestRunner(verbosity=2).run(suite)
           if not result.wasSuccessful() or result.skipped or result.testsRun != expected:
               raise SystemExit(1)

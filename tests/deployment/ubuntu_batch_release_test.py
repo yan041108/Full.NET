@@ -19,6 +19,47 @@ class BatchReleaseTests(_Base):
     def batch(self, plan=False):
         return self.execute('all', '--plan' if plan else '--ordinary-upgrade')
 
+    def expected(self):
+        result=self.batch(plan=True)
+        self.assertEqual(result.returncode,0,result.stderr)
+        path=self.root/'expected.json'
+        path.write_text(result.stdout);path.chmod(0o600)
+        self.configure(events=[])
+        return path
+
+    def test_matching_expected_plan_allows_execution_and_reports_match(self):
+        path=self.expected()
+        result=self.execute('all','--ordinary-upgrade','--expected-plan',str(path))
+        self.assertEqual(result.returncode,0,result.stderr)
+        self.assertIs(json.loads(result.stdout)['expectedPlanMatched'],True)
+
+    def test_changed_content_tag_or_values_blocks_before_service_and_upgrade(self):
+        path=self.expected()
+        baseline=json.loads(path.read_text())
+        for key in ('chartContentSha256','candidateImageTag','valuesSha256'):
+            value={**baseline,key:({'common':'0'*64,**{role:baseline['valuesSha256'][role] for role in ROLES}} if key=='valuesSha256'
+                else 'other-tag' if key=='candidateImageTag' else '0'*64)}
+            path.write_text(json.dumps(value));self.configure(events=[])
+            self.assert_no_success(self.execute('all','--ordinary-upgrade','--expected-plan',str(path)))
+            self.assertFalse(any(event[0] in ('systemctl','mysql') or event[:2]==['helm','upgrade'] for event in self.state()['events']))
+
+    def test_non_plan_receipts_and_unsafe_files_are_rejected_before_helm(self):
+        path=self.expected();baseline=json.loads(path.read_text())
+        for change in ({'action':'applied'},{'completedRoles':ROLES},{'namespace':'other'},{'role':'api'},{'schemaVersion':True},{'chartContentSha256':None}):
+            path.write_text(json.dumps({**baseline,**change}));self.configure(events=[])
+            self.assert_no_success(self.execute('all','--plan','--expected-plan',str(path)))
+            self.assertEqual(self.state()['events'],[])
+        path.write_text(json.dumps(baseline));path.chmod(0o666)
+        self.assert_no_success(self.execute('all','--plan','--expected-plan',str(path)))
+        path.chmod(0o600)
+        linked=self.root/'linked.json';linked.symlink_to(path)
+        self.assert_no_success(self.execute('all','--plan','--expected-plan',str(linked)))
+        self.assertEqual(self.state()['events'],[])
+
+    def test_expected_plan_option_is_rejected_for_single_role(self):
+        self.assert_no_success(self.execute('api','--plan','--expected-plan','unused'))
+        self.assertEqual(self.state()['events'],[])
+
     def test_untrustworthy_chart_content_never_starts_release_actions(self):
         for kind in ('escape', 'link', 'duplicate', 'empty'):
             self.configure(invalid_chart_content=kind)
