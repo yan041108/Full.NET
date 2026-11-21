@@ -180,5 +180,9 @@ sudo /usr/local/lib/fullnet/Release-Application.sh "$CANDIDATE_CHART" all --plan
 
 [首个固定候选作业](https://github.com/yan041108/Full.NET/actions/runs/44903514174) 绑定 a5f1d34356dad20e3c114e2550aa5bda98689328，实际核对 6,581 个受管文件；从作业 Artifacts 下载后，按 candidate.json 核对源码归档 SHA-256，再解压到独立目录检查 framework-manifest.json。超过保留期重新运行得到新的显式源码提交，不能把之后 main 的提交号写成旧归档的来源。工作流仅用 GitHub 干净检出，不采纳本地未提交文件，正式分发白名单以构建器为准。
 
+需要已编译的 Linux x64 JIT 候选时，手动运行 linux-jit-candidate 工作流。它在干净 main 上顺序发布 Migrator、Worker、Api，采用框架依赖模式（需要目标 .NET 10 运行时），上传 fullnet-linux-jit-<完整提交>，保留三天。产物包含三个角色的 tar.gz 和 candidate.json；先核对 sourceCommit、runtimeIdentifier、各 archiveSha256，再按 files 清单核对解包后的文件摘要。归档根目录直接包含 Host DLL、deps.json 与 runtimeconfig.json，可作为前述 Pack-OciImage.py 的应用输入。
+
+[首个三角色 JIT 作业](https://github.com/yan041108/Full.NET/actions/runs/44903920154) 绑定 06caddffeb4f227f54acc38543a7d8f436c105a8，实际使用 SDK 10.0.404，分别验证 Migrator 291、Worker 296、Api 298 个文件及归档读回摘要。Development 配置已排除，链接、私钥及环境文件被拒绝。回执仅 jitPublishVerified=true；进程启动、Native AOT、OCI 镜像、数据库迁移、部署和容量仍未验证，下载包不能替代后续发布门禁。产物过期后重新运行，并使用新回执记录的源码提交。
+
 - `tests/deployment/foundation-preset-release.test.mjs`
 - 发布清单：`docs/verification/f16-release-checklist.md`

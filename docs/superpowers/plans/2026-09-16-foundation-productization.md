@@ -7791,8 +7791,11 @@ Release 集成工程单节点构建及 Identity 模块隔离 AOT 分析均零警
 
 | 固定任务 | 当前状态 | 完成条件 |
 | --- | --- | --- |
-| F15-LinuxJitCandidate | 已实现，待实际 publish | 干净固定 main 上发布 API/Worker/Migrator，检查 RID/依赖清单、全部归档字节与来源回执并提供下载。 |
+| F15-LinuxJitCandidate | 已完成，实际三角色 publish 与归档校验通过 | 干净固定 main 上发布 API/Worker/Migrator，检查 RID/依赖清单、全部归档字节与来源回执并提供下载。 |
 
 - 基线 be0a25efcacc581d2ea88d5823a050d7491775bf，快照 linux-jit-candidate-20261121。接续 framework-source 候选，新增独立手动入口生成三个 Host 的框架依赖 Linux x64 JIT 发布包，不重建源码分发器。Microsoft Learn 官方部署文档核对 Release/RID/UseAppHost=false，沿项目 FullNetPublishMode=Jit，不修改 Native AOT 状态或抑制告警。
 - 固定范围为工作流及现有手册/计划。只编译三个 Host 的必要依赖，单节点顺序 publish、不启动数据库/业务进程或测试套件。产物位于 RUNNER_TEMP，拒绝链接/私钥/环境文件，排除 Development 配置；核对 Host 三件套、net10.0/linux-x64、全部文件及归档读回摘要。candidate.json 绑定源提交/SDK/三个归档与逐文件摘要，仅 jitPublishVerified=true，其余启动、AOT、镜像、迁移、部署和容量均 false。
 - 正式候选保留三天，上传完成后回收暂存；不采纳本地脏文件、不复制整仓、不进行现场上传/预演或实际发布。未运行全量或双库测试，实际完成以工作流结果为准。
+- 实现/候选源码 06caddffeb4f227f54acc38543a7d8f436c105a8 的 [linux-jit-candidate 实际作业](https://github.com/yan041108/Full.NET/actions/runs/44903920154/job/136845376337) 成功。Ubuntu 24.04/.NET SDK 10.0.404，三个 Host 顺序 Release/linux-x64、self-contained=false、UseAppHost=false 发布通过；Migrator 291、Worker 296、Api 298 个文件均从实际 tar.gz 读回核对 SHA-256，全部归档条目和运行目标检查通过。未将文件数当成测试用例数，也未执行测试矩阵。
+- 实际上传 artifact id=14707301210，名称 fullnet-linux-jit-06caddffeb4f227f54acc38543a7d8f436c105a8，大小 117,050,190 字节，API 确认 expired=false，2026-11-24 12:31:48 UTC 到期。归档与逐文件摘要保存在 candidate.json；源码前后守卫和暂存清理步骤成功。运维手册已补下载、校验、运行时要求和 OCI 打包衔接说明，后续文档提交不改写候选来源。
+- 本批剩余开发 0、待验收 0。只关闭三角色 JIT 编译发布与候选下载缺口；进程启动、Native AOT、OCI 镜像、真实迁移/部署、旧报表处置与 D08 现场复验保持开放。没有连接发布节点或重试受限命令，没有整仓快照或仓库 artifacts；其他工作区改动、Quill 到期处置及 Capacity-not-verified 保持。
