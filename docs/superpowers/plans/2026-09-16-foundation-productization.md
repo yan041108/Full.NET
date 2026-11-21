@@ -7818,8 +7818,12 @@ Release 集成工程单节点构建及 Identity 模块隔离 AOT 分析均零警
 
 | 固定任务 | 当前状态 | 完成条件 |
 | --- | --- | --- |
-| F15-LinuxOciImport | 已实现，待实际导入 | 固定成功的三角色 OCI 作业，核对输入后导入隔离本机 Docker，验证实际角色配置/所有层与 .NET 10 运行时，回收独占资源并交付回执。 |
+| F15-LinuxOciImport | 已完成，实际三角色导入、运行时发现和清理通过 | 固定成功的三角色 OCI 作业，核对输入后导入隔离本机 Docker，验证实际角色配置/所有层与 .NET 10 运行时，回收独占资源并交付回执。 |
 
 - 基线 749ec82743084eef1a049ad3674d47998ad3011a，快照 linux-oci-import-20261121。接续 §8.410 实际镜像，冻结范围为独立手动工作流、原手册与计划；不重复编译或取得新基础镜像。只消费同仓 main 成功手动 OCI 工作流的唯一未过期产物，核对应用/打包提交、精确文件集合、三个归档、manifest sidecar 和全部 OCI blob 后才导入。
 - 复用既有真实 Skopeo→Docker 验收路径，强制本机 Unix socket；以本轮唯一名称排他登记镜像/容器，实际导入后核对 OS/架构、User、目录、入口、参数、环境与全部 RootFS DiffID。在禁网、只读、128 MiB/CPU 1/PID 64、无附加 capability 的容器中只运行 dotnet --list-runtimes，验证 NETCore/ASP.NET Core 10，不启动业务 Host 或数据库。
 - 独立 always 步骤只回收本轮登记资源，检查无残留，成功后上传 verification.json 并清理本轮暂存；导入/运行时发现与业务启动/AOT/迁移/部署/容量分别记录。只执行本批正式导入流程和内建核对，不运行全量或测试矩阵，不连接发布节点或重试受限命令。实际完成以作业回执为准。
+- YAML 和两段内嵌 Python 语法检查通过，使用禁网、CPU 1/内存 128 MiB/PID 64 的一次性 Python 3.12 容器，不创建整仓副本。实现/验收源码 c43f02c68a0943780ed366600a45432123508154 的 [linux-oci-import 实际作业](https://github.com/yan041108/Full.NET/actions/runs/44905410676/job/136849811664) 全部步骤成功；Ubuntu 24.04、Skopeo 1.13.3，输入作业 44904939460，应用源码仍为 06caddffeb4f227f54acc38543a7d8f436c105a8，不将验收代码提交冒充应用来源。
+- 实际 Docker 镜像 ID：Migrator sha256:203ee4edc7cfe991ee20b783d2ef20da8f9d9fe14450ba2c7e4d2ad31269da1c，Worker sha256:6dee650abc2c6ade270e8354ee0425f4147d01eacfcb877f6ac3eb8ca0dbc7f7，Api sha256:2ed69f4fd14ebf3f4189afce27eb32878990b79a5fc50a7d922e5069630d274e。三个角色的实际配置和全部 RootFS DiffID 均与原 OCI 一致，三个受限容器均实际发现 NETCore/ASP.NET Core 10。没有将 Docker 配置检查或运行时发现说成 Host 业务入口启动。
+- 独立清理日志确认 owned_images=0、owned_containers=0，暂存清理成功，源码前后守卫通过。实际上传 artifact id=14707926530，名称 fullnet-oci-import-44905410676，大小 1,382 字节，API 确认 expired=false，2026-11-24 12:45:27 UTC 到期；verification.json 含原 candidate.json SHA-256、三类提交身份、镜像 ID、层身份及运行时读数，供原候选的补充回执，不修改原包。
+- 本批剩余开发 0、待验收 0。仅关闭实际候选的隔离本机导入和运行时发现缺口；业务 Host 启动、数据库迁移、Native AOT、现场发布、旧报表处置和 D08 现场复验保持开放。运维手册已补参数、回执下载和能力边界；无重新编译、基础镜像重打包、测试矩阵或全量，无发布节点变更、整仓快照或仓库 artifacts。其他主工作包、受限目标预演、Quill 到期处置、Capacity-not-verified 及既有工作区改动保持。

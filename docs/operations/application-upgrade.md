@@ -188,5 +188,9 @@ sudo /usr/local/lib/fullnet/Release-Application.sh "$CANDIDATE_CHART" all --plan
 
 [首个三角色 OCI 作业](https://github.com/yan041108/Full.NET/actions/runs/44904939460) 输入 jit_run_id=44903920154，应用 sourceCommit=06caddffeb4f227f54acc38543a7d8f436c105a8，打包 packagingCommit=a879e7ed16b45291d922c4cc76d55fdd04dd2aad；两者分别表示程序集与打包入口来源。回执记录 MCR runtimeBaseManifestDigest、共享运行时层及各镜像摘要，实际核对全部 OCI blob、角色入口、UID、应用 DiffID 与文件字节。仅 imageBuildVerified=true，导入、启动、迁移、部署、AOT 和容量仍为 false。重新打包会重新取得上游基础镜像，必须使用新回执摘要，不能仅凭应用标签认定运行时未变化；不向注册表或发布节点上传。
 
+需要对现有候选做真实导入验证时，手动运行 linux-oci-import，以 oci_run_id 指定成功的 main/linux-oci-candidate 作业。它核对归档、manifest 和各 blob，使用 Skopeo 导入隔离执行机的本机 Docker，实际比较入口、参数、用户、目录、环境和全部 RootFS DiffID；不重新构建镜像。随后只在禁网、只读且资源受限的容器中运行 dotnet --list-runtimes，检查 NETCore/ASP.NET Core 10。本轮专属镜像与容器会在独立清理步骤回收并检查零残留，不连接目标集群或启动业务 Host。
+
+[首个实际候选导入作业](https://github.com/yan041108/Full.NET/actions/runs/44905410676) 输入 oci_run_id=44904939460，三角色均通过；Artifacts 中 fullnet-oci-import-44905410676 的 verification.json 绑定原候选回执摘要、应用/打包/验收提交、镜像 ID、层 DiffID 和实际运行时读数，保留三天。其 imageImportVerified/runtimeDiscoveryVerified=true，runtimeStartupVerified/databaseMigrationVerified/deploymentVerified/nativeAotVerified/capacityVerified=false。此回执补充原 candidate.json，不改写已上传候选的历史状态；运行时发现不能作为业务启动、迁移或现场发布验收。
+
 - `tests/deployment/foundation-preset-release.test.mjs`
 - 发布清单：`docs/verification/f16-release-checklist.md`
