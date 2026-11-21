@@ -140,7 +140,8 @@ def verify(root):
         gates.append("PreV1NamingContract__LegacyOutboxDrained=true")
         migrator_env.write_text(env.read_text() + "\n".join(gates) + "\n")
         migrator_env.chmod(0o600)
-        shared = ["--read-only", "--tmpfs", "/tmp:rw,nosuid,nodev,mode=1777,size=128m", "--memory", "768m",
+        shared = ["--read-only", "--tmpfs", "/tmp:rw,nosuid,nodev,mode=1777,size=128m",
+                  "--tmpfs", "/tmp/codegen:rw,nosuid,nodev,uid=1654,gid=1654,mode=0700,size=16m", "--memory", "768m",
                   "--cpus", "1", "--pids-limit", "128", "--cap-drop", "ALL", "--security-opt", "no-new-privileges",
                   "--env-file", str(env)]
         def image(role):
