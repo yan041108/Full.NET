@@ -211,3 +211,16 @@ probeAlert 默认关闭，显式启用才增加 FullNetTelemetryPipelineProbe（
 
 配置语义依据 [Collector 内部指标](https://opentelemetry.io/docs/collector/internal-telemetry/) 和 [kube-state-metrics 2.17 CLI](https://github.com/kubernetes/kube-state-metrics/blob/v2.17.0/docs/developer/cli-arguments.md)。Prometheus/Alertmanager/Collector 复用仓库既有固定摘要；KSM 固定官方 registry 的 2.17.0 摘要。平台尚须按现场逐项核对采集新鲜度、实例标签、持久卷、真实告警路由、接收恢复及故障域，D08-14 不因本包渲染而整体关闭。
 本渲染包保留全部原有规则，但只提供 Deployment/Collector 的抓取与外部 OTLP 指标入口。Node、HPA、Ingress/WAF 等其他 exporter 未由本包提供；不能用规则文件存在推导全部规则都有数据或能够报警。五秒 WAL 参数只用于本派生平台，不改现有通用 Collector values，不据功能窗口推导吞吐、分位延迟或容量。WAL 低流量批次行为参见[对应 exporter 实现](https://github.com/open-telemetry/opentelemetry-collector-contrib/blob/v0.163.0/exporter/prometheusremotewriteexporter/wal.go)。
+
+### 隔离 Kubernetes 部署验证
+
+在 Linux、仅连接本机 Unix Socket 的 Docker、kind 0.30.0、kubectl 和 Helm 就绪后，可执行定向入口：
+
+```bash
+FULLNET_METRICS_KUBERNETES=isolated FULLNET_TEST_REAL_HELM=helm PYTHONDONTWRITEBYTECODE=1 \
+  python3 -O -m unittest discover -s tests/deployment -p metrics_platform_kubernetes_test.py -v
+```
+
+该入口创建唯一 Kind 集群和独立 kubeconfig，应用本渲染包的原始清单。两个 1 GiB 动态 PVC 只是本轮夹具，不改变生产存储建议；测试 Deployment 使用合成身份，应用命名空间只发 OTLP，平台命名空间执行内部查询。验证四个组件就绪、非 root/只读根、服务账号令牌分配、Deployment watch、副本变化、Secret/其他命名空间读取拒绝和 OTLP 时间戳；更换 Prometheus、Alertmanager Pod 后分别读取原样本与原测试 silence，并核对 PVC UID 保持。测试 silence 无真实通知地址，默认 discard 保持。
+
+Kind 默认 CNI 不执行 NetworkPolicy，此入口不认证网络隔离；同节点动态卷恢复也不认证生产卷、节点丢失或 HA。HTTP OTLP 源为合成夹具，不替代实际 Host 到本平台的现场链路。入口结束回收本轮集群和临时文件，失败或跳过不得报告为通过；对应手动 workflow 场景为 metrics-kubernetes，不触发其他平台或 .NET 套件。

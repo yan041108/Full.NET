@@ -7548,3 +7548,11 @@ Release 集成工程单节点构建及 Identity 模块隔离 AOT 分析均零警
 - 修正测试源码 8f2fc51588a1115b640861bc1f41c32fe3fd3bac 的 [定向 Unit 作业](https://github.com/yan041108/Full.NET/actions/runs/44845764403/job/136664959705) 为 22/22（5.876 秒），零失败、零跳过；Release 构建零警告/错误。六种真实回环 HTTP 场景覆盖仅指标、仅追踪、两者、禁用、全局、全局信号覆盖；断言实际 protobuf POST、完整路径、唯一出口、指标名、追踪名和日志共享实例标识。仅分信号模式没有日志 POST；无出口时请求数为零。命名配置隔离/覆盖及九组非法配置拒绝也实际通过。配置测试不外发到真实后端；gRPC、压缩、Header 和超时的选项断言不外推为对应远端传输验收。
 - 生产实现候选 421632979 的 [API 分析作业](https://github.com/yan041108/Full.NET/actions/runs/44845048801/job/136662574064) 与 [Worker 分析作业](https://github.com/yan041108/Full.NET/actions/runs/44845053252/job/136662589045) 均通过，零警告/零错误；Worker 后续 JIT 恢复构建也通过。测试修正提交仅改测试文件，收据补充仅为注释、手册、计划及 JSON 等价缩进，未改变分析覆盖的运行实现；复用该精确实现结果，不运行完整 Native 发布/Provider 或全量测试，不升级为新的 Aot-published 认证。
 - 本批两个固定项关闭：剩余开发 0、功能待验收 0。运行夹具持有的回环接收器和 Host 随测试释放；未创建本地平台容器或发布目录。Host 无全局地址时按指标/追踪独立导出已关闭，不再重复安排；应用 Chart 既有 runtime.configMapName/runtime.secretName 注入入口已说明。现网仍需固定新版本发布、平台部署、实际应用到 Collector 的采集/新鲜度、真实 Deployment watch/CNI/PVC、正式通知触发与恢复送达，继续归 D08-14/F15/F16。HTTP 接收器验收与 §8.389 合成平台回路是各自边界证据，不能拼接宣称现网端到端通过；Capacity-not-verified 保持。
+### 8.391 D08-14 Kubernetes 平台实际部署与持久化（2026-11-21）
+
+| 固定任务 | 当前状态 | 完成条件 |
+| --- | --- | --- |
+| D08-MetricsKubernetesDeploy | 已实现，待集中验收 | 在唯一隔离 Kind 集群应用原始平台清单，四个实际镜像就绪；真实 Deployment watch、RBAC 拒绝、OTLP 样本新鲜度、Prometheus 与 Alertmanager 独立 PVC 重建 Pod 后保留数据通过。 |
+
+- 基线 b99e43682c0903998d1bc56ebb69fdcf5edf1ddb；快照 metrics-kubernetes-runtime-20261121。承接 §8.389/8.390 尚未验证的 Kubernetes 部署边界，只使用自有临时集群、配置和测试数据；失败直接修复本范围清单。测试是该完整部署能力的内部检查，不增加顶层任务。集中执行新增精确场景；不重复纯容器通知回路或无影响的 .NET/双库/全量。
+- 本批不安装到发布环境，不使用真实通知地址；Kind 默认 CNI 不执行 NetworkPolicy，不能据成功连通证明网络隔离。本地动态 PVC 的 Pod 重建恢复不代表生产存储、节点故障或 HA。实际 Host→该平台端到端及正式通知送达保留现场范围，不拼接独立证据；Capacity-not-verified 保持。
