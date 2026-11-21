@@ -131,8 +131,12 @@ def verify(root):
         deadline = time.monotonic() + 120
         while True:
             try:
+                # 官方镜像初始化时会启动禁用 TCP 的临时实例；只探测 TCP 正式实例，避免误报就绪。
+                transport = ["--protocol=TCP", "-h", containers["database"]]
+                if production:
+                    transport += ["--ssl-mode=VERIFY_IDENTITY", "--ssl-ca=/candidate-pki/ca.crt"]
                 value = run("exec", "-e", "MYSQL_PWD=" + password, containers["database"],
-                            "mysql", "-uroot", "-Nse", "SELECT 1", timeout=5)
+                            "mysql", "-uroot", *transport, "-Nse", "SELECT 1", timeout=5)
                 if value == "1":
                     break
             except RuntimeError:
@@ -219,9 +223,9 @@ def verify(root):
                 "productionConfigurationVerified": bool(production), "productionEvidence": evidence}
     except Exception:
         # 只保留本轮有界尾日志，先替换随机凭据，避免将连接密码写入公开作业日志。
-        for role in ("migrator", "api", "worker"):
+        for role in ("database", "redis", "migrator", "api", "worker"):
             if containers[role] in owned["containers"] and run("ps", "-aq", "--filter", "name=^/" + containers[role] + "$"):
-                print("candidate_host_diagnostic: " + role + "\n" + run("logs", "--tail", "35", containers[role]).replace(password, "[redacted]"), flush=True)
+                print("candidate_host_diagnostic: " + role + "\n" + run("logs", "--tail", "35", containers[role]).replace(password, "[redacted]")[-16384:], flush=True)
         raise
     finally:
         env.unlink(missing_ok=True)
