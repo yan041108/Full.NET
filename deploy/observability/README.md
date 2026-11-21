@@ -206,6 +206,8 @@ metricsNamespace 默认空，不新增出口。非空时生成独立的“应用
 
 停用或更换命名空间后，按当前发布管理方式核对旧策略已删除；仅重新 apply 省略对象的清单不会撤销旧许可。定向场景 metrics-network-egress 用独立双节点 Kind、固定 Calico 清单与镜像验证网络边界，不变更生产 CNI 选型，也不重复 OTLP 协议/应用指标/正式通知测试。策略语义见 [Kubernetes NetworkPolicy](https://kubernetes.io/docs/concepts/services-networking/network-policies/)。
 
+[实际 CNI 网络边界作业](https://github.com/yan041108/Full.NET/actions/runs/44865991751/job/136729655352) 已通过：Calico 3.33.0/双节点 Kubernetes 1.34，原应用策略在正确命名空间阻断私网，显式新增策略后 API/Worker 通过 Service DNS/ClusterIP 访问指定端口，删除许可后新连接再次拒绝。错误角色、未获许可的 Release、命名空间/Pod 标签和其他端口均拒绝；叠加平台真实入口策略后正确来源仍可达、其他命名空间来源被拒绝。端口夹具的 Pod UID 保持稳定，避免服务停止冒充拒绝；本轮集群已回收。该证据只覆盖这组策略与 Calico 的隔离路径，不表示生产 CNI、实际 Host/Collector 数据流、通知或容量已认证。
+
 API、Worker 使用现有应用 Chart 的 runtime.configMapName 引用发布命名空间内的配置对象，由其 data 提供上述键；需要鉴权的 OTLP HEADERS 通过 runtime.secretName 引用的 Secret 注入，禁止放进 values、普通 ConfigMap 或日志。更新环境配置后需显式滚动应用；运行中的进程不会自动重读这些导出选项。启用前同时检查现有通用键和同名 Secret 键，避免意外覆盖或继续启用旧全局出口。
 
 已有全局出口时仍使用 SDK 全信号注册及其标准覆盖规则，不重复添加分信号导出器；该模式与分信号注册不可混用。禁止把指标专用后端设置为全局目的地。只有追踪后端时可单独配置 OTEL_EXPORTER_OTLP_TRACES_ENDPOINT 及协议。应用入口的现有 Egress 策略、TLS/CA 与实际可见性须在现场启用前核对；本轮不改现网配置，也不由回环 HTTP 接收测试推导生产采集完成。配置语义依据 [OpenTelemetry .NET 1.17 OTLP 配置](https://github.com/open-telemetry/opentelemetry-dotnet/blob/core-1.17.0/src/OpenTelemetry.Exporter.OpenTelemetryProtocol/README.md)。

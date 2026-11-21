@@ -7677,10 +7677,14 @@ Release 集成工程单节点构建及 Identity 模块隔离 AOT 分析均零警
 
 | 固定任务 | 当前状态 | 完成条件 |
 | --- | --- | --- |
-| D08-MetricsNetworkEgress | 实现中，待集中验收 | 显式配置目标命名空间后，仅本 Release 的 API/Worker 可访问平台 Collector 的 TCP 4317/4318；默认和 Migrator 不新增出口，选择器及端口越界拒绝。 |
+| D08-MetricsNetworkEgress | 已完成，真实 CNI 放行与撤销验收通过 | 显式配置目标命名空间后，仅本 Release 的 API/Worker 可访问平台 Collector 的 TCP 4317/4318；默认和 Migrator 不新增出口，选择器及端口越界拒绝。 |
 
 - 基线 9cf59fe200db342de0aceff95ec8255136ad01f9，快照 metrics-network-egress-20261121。应用 Chart 原策略排除 RFC 1918 网段，平台入口已存在，但缺少两者之间可复现的精确出口许可；本批补齐既有 D08-14 网络接线，不改变业务 Host、全局出口或平台发布环境。
 - 冻结 networkPolicy.metricsNamespace、独立附加策略/schema/校验、直接相关 Helm 用例、一次性支持 NetworkPolicy 的 CNI 运行场景和精确工作流/手册。目标 namespaceSelector 与 podSelector 在同一个 peer 内取交集，精确选择 fullnet-observability/telemetry-collector；来源限定 Release 和 api/worker 角色，不开放 Migrator、整命名空间或任意内网。默认空，不改变原 DNS/外部出口。
 - 集中五条真实 Helm 方法；实际 CNI 用例验证未开启拒绝→开启允许→移除后拒绝，以及其他角色/Release/命名空间/Pod 标签/端口拒绝。固定官方 Calico 3.33.0 清单摘要和镜像摘要，仅在本轮独立 Kind 中运行，不引入生产 CNI 选型、不用 Kind 默认 CNI 的成功连通冒充隔离。真实通知/Host/采集/PVC、.NET/双库及全量均不重跑，Capacity-not-verified 保持。
 - 本地一次性 Python 3.12 Debian 容器、禁网、CPU 1/内存 256 MiB/进程 128、源码与既有 Helm 3.16.4 只读，五个新增定向方法 5/5（10.492 秒），零失败/跳过。API/Worker 同 peer 的命名空间与 Collector 标签交集、精确 TCP 4317/4318、原策略输出不变、默认/Migrator 无增量、长名不冲突及无效配置拒绝通过。新 Python、workflow/schema/default 结构检查通过，后续仅增加运行夹具使用的可选 release 参数且默认路径不变，复用五条结果；实际 Calico 场景尚待执行，不提前登记隔离通过。
 - 首轮源码 0315a6cc7821b44c8378b5b15ea239faa6a30029 的作业 44865643529/136728572042 为失败（126.519 秒），不计隔离通过。固定清单/镜像的 Calico 3.33.0 与双节点均实际 Ready，失败在开启前 Worker 仍能连接。原应用 NetworkPolicy 渲染不写 metadata.namespace，由 Helm 安装选择 Release 命名空间；夹具用无 -n 的 kubectl apply 将三个基线策略放入 default，未隔离真实应用 Pod。修正为显式应用到 fullnet-production，并通过 API 读回校验三个 Release 选择器；新增 Service 可达对照及连续两次新连接拒绝，避免初次端点传播导致的偶发失败冒充隔离。产品模板/配置和五条 Helm 输入未变，只重跑该实际场景。本轮 Kind 容器已回收为 0。
+- 修正后验收源码 c2704aff7b59cb4ab774c01c5d94851a88cc66ea 的 [metrics-network-egress 精确作业](https://github.com/yan041108/Full.NET/actions/runs/44865991751/job/136729655352) 为 1/1（149.209 秒），零失败、零跳过，源码状态守卫通过。Linux/Python 3.12、Helm 3.16.4、Kind 0.30.0/固定 Kubernetes 1.34.0 镜像。Calico 3.33.0 官方清单 SHA-256 为 2de8f47595fb9c41b3f47d7b767a1f8e72ecf84057af834738ff12689a234da5，三个镜像均使用固定 OCI 摘要；Calico 与两个节点实际 Ready，无 Kind 默认 CNI。第三方清单仅在本轮临时目录下载、核验和创建，不复制入仓库或更改生产网络选型。
+- 原应用三个基线 NetworkPolicy 在 fullnet-production 实际读回，API/Worker 开启前的新连接均拒绝；DNS 解析与不受出口隔离的观察器访问 Service 成功，排除服务尚未就绪。新增正式 Helm 策略后 API 经 Service DNS 访问 4318、Worker 经 ClusterIP 访问 4317 成功，均为客户端工作节点到服务端控制平面节点的跨节点路径；三个端口服务器均有实际成功对照。
+- 未叠加平台入口前，错误目标命名空间、同平台错误 Pod 标签、额外 9090 端口、同 Release 的 Migrator 标签、未获许可的另一 Release 均连续新连接拒绝，直接验证本次出口交集。再应用现有平台入口策略，API 仍可达，其他命名空间来源被拒绝；显式删除两个新出口策略后 API/Worker 新连接再次拒绝，而平台观察器仍可访问。三个服务器 UID 与 Running 状态保持，未通过停服务/换 Pod 或 DNS 故障冒充隔离。
+- 本批固定任务关闭：剩余开发 0、待验收 0。五个本地独立方法与一个真实 CNI 方法为六个不重叠方法。本轮 Kind 容器实际回收为 0，临时 kubeconfig/Calico 清单随夹具与工作流清理，本地容器 --rm 回收；既有 Helm 工具只读复用，无整仓复制或仓库 artifacts。API/Worker 到平台 Collector 的可配置出口与本地 Calico 隔离差集闭合，不再重复安排；现场配置/实际生产 CNI/完整 Host 指标与外部采集、正式通知及物理故障域/容量继续归 D08-14/F15/F16。用端口夹具验证网络，不宣称真实业务/OTLP 协议或完整生产网络认证；未运行旧 Host/采集/PVC/通知、.NET/双库或全量，Capacity-not-verified 保持。
