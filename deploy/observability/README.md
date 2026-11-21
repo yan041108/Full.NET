@@ -273,6 +273,30 @@ node_exporter --web.listen-address="${INTERNAL_IP}:9100" \
 
 [真实 Node Exporter mTLS 作业](https://github.com/yan041108/Full.NET/actions/runs/44862338467/job/136718286681) 已通过：可信客户端读取正式函数原子替换的文件，容量正常→阻断→观测不可用，旧增长状态退出、新鲜度记录消失时目标仍 up=1。无证书、非受信 CA 和错误 SAN 均 down 且无容量样本；同时核对 exporter 的 TLS 握手拒绝日志，避免将任意网络失败当作认证拒绝。测试只在自有临时网络运行，不改变原巡检、新鲜度或告警窗口。
 
+#### Ubuntu 首次安装入口
+
+[Install-ObjectCapacityExporter.py](../../eng/deploy/ubuntu/Install-ObjectCapacityExporter.py) 面向 Ubuntu 24.04/Linux amd64，只安装对象容量 textfile 专用服务。Node Exporter 1.13.1 离线归档须从[官方发行页](https://github.com/prometheus/node_exporter/releases/tag/v1.13.1)取得，脚本内固定官方 SHA-256，不提供跳过校验或自定义摘要。仅读取归档中三个精确普通文件，保留 LICENSE/NOTICE，不自动下载或执行归档里的安装脚本。
+
+先以 root 运行默认预检；预检只写入自动清理的私有 PKI 临时目录，不写持久配置、服务、二进制或改变服务状态：
+
+```bash
+sudo python3 eng/deploy/ubuntu/Install-ObjectCapacityExporter.py \
+  --archive /PRIVATE_DIRECTORY/node_exporter-1.13.1.linux-amd64.tar.gz \
+  --bind-address 192.168.31.230 --client-san prometheus.observability.svc \
+  --server-certificate /PRIVATE_DIRECTORY/exporter.crt \
+  --server-key /PRIVATE_DIRECTORY/exporter.key \
+  --server-ca /PRIVATE_DIRECTORY/server-ca.pem \
+  --client-ca /PRIVATE_DIRECTORY/prometheus-client-ca.pem
+```
+
+该绑定地址必须实际属于安装主机，且为明确的 RFC 1918 IPv4；叶子证书须覆盖该 IP、支持 serverAuth、有效且与无口令私钥匹配。client-ca 必须是单张有效 CA 证书，client-san 是获准 Prometheus 客户端证书的精确 DNS SAN，不接受通配符。叶子私钥须由 root 持有且无组/其他用户访问权限，所有输入为有界、无链接且不可组/全局写的普通文件。脚本不持有客户端私钥，不签发证书、不修改巡检服务。
+
+预检前需已有 root 所有且不可组/全局写的 /etc/fullnet、/usr/local/lib/fullnet、/etc/systemd/system，以及 root 所有、其他用户可读/遍历的 /var/lib/fullnet-object-capacity 目录。现有容量巡检每五分钟发布该目录文件；没有巡检服务或目录时先按对象存储部署流程准备，安装器不会伪造健康样本。审核预检后在同一命令追加 --apply 才执行首次安装，地址须属于本机、9100 端口可绑定，安装需 root 与 systemd。已有服务、同名供应商 unit、目标目录/文件/链接均拒绝，不用该入口升级现存安装。
+
+安装输出在 /usr/local/lib/fullnet/object-capacity-exporter、/etc/fullnet/object-capacity-exporter 与 fullnet-object-capacity-exporter.service。配置目录 0700、凭据文件 0600，动态账号通过 LoadCredential 读取私有运行时副本，密钥不进入 unit/environment；只读系统、移除 capabilities，限制 CPU/内存/进程，只开启 textfile。依据 [systemd 255 凭据语义](https://github.com/systemd/systemd/blob/v255/man/systemd.exec.xml)，证书轮换须更新受控源文件并重启本服务，不能依赖运行时凭据副本自行更新。不会改防火墙、Kubernetes 配置或 Prometheus；仅对获准来源按现有网络策略放行内网 9100，再配置前述 mTLS 抓取和 CA/客户端 Secret。
+
+安装/启用失败或受控中断时只回收本轮创建的目录/unit；一旦尝试启动，先 disable --now 并复核停止再删除。停止无法确认或资源身份改变则返回 rollback_incomplete_preserved，保留现场供人工核对，不报告安装成功。并发使用独占安装锁，锁文件作为持续协调入口保留。installed 仅表示 unit 校验、启用及当时 ActiveState 核对通过，scrapeVerified/notificationVerified 始终 false；仍需从实际 Prometheus 验证 mTLS、up、textfile 错误、容量新鲜度、告警触发及恢复送达。断电/强制 SIGKILL、升级和无中断证书轮换不由首次安装事务保证。
+
 ### 可选节点条件与日志 DaemonSet 状态
 
 nodeState.enabled 默认为 false，daemonSetNamespace 默认为空。只有显式开启才渲染额外的 kube-state-nodes 或 kube-state-daemonsets Deployment/ClusterIP 及抓取任务，复用原固定 KSM 镜像和资源预算；不创建宿主 Agent 或日志 DaemonSet。下面的例子只渲染，日志命名空间必须已存在：

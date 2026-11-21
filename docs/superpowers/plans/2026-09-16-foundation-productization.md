@@ -7643,3 +7643,14 @@ Release 集成工程单节点构建及 Identity 模块隔离 AOT 分析均零警
 - 实际正式 publish_metrics 原子替换目录文件，由真实 textfile collector 读取；正常 growth_state=0→阻断=2→probe_success=0 均被观察。不可用后 growth_state 消失、原新鲜度记录消失，而 up=1；区分巡检失败与采集端点失败。node_textfile_scrape_error=0、node_exporter_build_info version=1.13.1 通过，不替换正式发布函数、不以手写 HTTP exporter 冒充真实 Node Exporter。
 - 三个负例实际 down、无容量样本，且服务端缺客户端证书和 SAN 不匹配的 TLS 握手拒绝日志存在。该成功作业中客户端分别报告 connection reset by peer、tls: unknown certificate authority、tls: bad certificate；因此原按字符串必须包含 tls 的断言过窄，现以目标失败加实际握手拒绝证据判定，不关闭服务端/客户端证书验证。客户端凭据挂载路径由实际渲染的 Prometheus Secret 引用推导；Docker 只读文件使用验证不冒充 Kubernetes 客户端证书实际投影。
 - 本批固定任务关闭：剩余开发 0、待验收 0。本地五条与 CI 一条为六个不重叠方法，本轮自有容器回收为 0、私有网络删除，临时配置/PKI 随夹具清理，本地验证容器 --rm 回收；既有 Helm 工具只读复用。外部 mTLS 与正式 textfile 发布到真实 exporter 的接线差集闭合，不重复安排；现场 exporter 安装、实际磁盘/SeaweedFS 巡检与持续窗口、Kubernetes 客户端证书投影、正式通知及生产故障域/容量仍归 D08-14/F15/F16。未操作现网或运行旧 Host/通知/Kubernetes/PVC、.NET/双库或全量，Capacity-not-verified 保持。
+
+### 8.398 D08-14 Ubuntu 对象容量采集器首次安装（2026-11-21）
+
+| 固定任务 | 当前状态 | 完成条件 |
+| --- | --- | --- |
+| D08-ObjectCapacityExporterInstall | 实现中，待集中验收 | 默认只预检；固定官方离线包、证书和明确内网绑定准入，显式安装生成受限服务；已有安装拒绝，失败仅回收本轮资源，停止未确认保留现场。 |
+
+- 基线 02f2df08d06f854320db424ee29e6ef72ebbafb4，快照 object-capacity-exporter-install-20261121。§8.397 已关闭 mTLS 与正式 textfile 到真实 exporter 的链路，现场仍缺 Ubuntu 安装入口；本批交付安装脚本，不重复采集链路，不在发布环境执行安装。
+- 冻结一个安装器、直接相关用例、精确手动工作流和现有运维手册。Linux amd64/Node Exporter 1.13.1 官方离线包固定摘要，拒绝不安全条目；服务端证书验证用途/IP/有效期/私钥匹配、客户端 CA 和明确 DNS SAN 准入。使用 systemd 255 已有 DynamicUser/LoadCredential，私钥不进环境、命令行或公开 unit；仅 textfile，不开放默认采集器或防火墙。
+- 先集中完成安装/失败回收实现，再运行本轮受控安装用例；另用官方真实归档及实际 systemd-analyze 校验新 unit，不将受控 systemctl 或语法校验冒充实际服务启动、生产安装、Kubernetes 投影、网络可达或通知送达。保留现场安装与正式端到端验收；不运行 .NET/双库、旧采集回路或全量，Capacity-not-verified 保持。
+- 本地集中受控安装方法首轮 14/14（0.665 秒），零失败/跳过。随后收紧客户端 CA 起止时间校验、可读目录和 /run 安全锁路径，仅复验九个受影响方法 9/9（0.584 秒）；二进制目录显式 chmod 防止调用者 umask=077 阻断动态账号执行后，仅三个写入/回收方法 3/3（0.503 秒）。独立方法数仍为十四，不累加重复方法。全部在一次性 Python 3.12 Debian 容器、禁网、CPU 1/内存 256 MiB/进程 128、只读源码与根文件系统、有界 tmpfs 中执行，systemctl 为受控执行器，PKI 校验使用实际 OpenSSL。归档/权限/并发/信号/启动未知结果/停止未确认边界通过；真实官方包与 systemd 单元校验尚待执行。workflow/新 Python 语法和差异结构检查通过。
