@@ -49,7 +49,7 @@ public sealed class ServiceDefaultsMetricsTests
         });
         await receiver.StartAsync();
         var address = receiver.Urls.Single();
-        var builder = Host.CreateApplicationBuilder();
+        var builder = Microsoft.Extensions.Hosting.Host.CreateApplicationBuilder();
         builder.Configuration["OTEL_EXPORTER_OTLP_ENDPOINT"] = mode.StartsWith("global", StringComparison.Ordinal)
             ? address : null;
         builder.Configuration["OTEL_EXPORTER_OTLP_PROTOCOL"] = "http/protobuf";
@@ -105,7 +105,7 @@ public sealed class ServiceDefaultsMetricsTests
     [DataRow(true)]
     public void Signal_options_are_isolated_and_override_common_protocol_headers_timeout_and_compression(bool overrides)
     {
-        var builder = Host.CreateApplicationBuilder();
+        var builder = Microsoft.Extensions.Hosting.Host.CreateApplicationBuilder();
         builder.Configuration["OTEL_EXPORTER_OTLP_ENDPOINT"] = null;
         builder.Configuration["OTEL_EXPORTER_OTLP_METRICS_ENDPOINT"] = "http://127.0.0.1:1/v1/metrics";
         builder.Configuration["OTEL_EXPORTER_OTLP_TRACES_ENDPOINT"] = "http://127.0.0.1:1/custom";
@@ -151,7 +151,7 @@ public sealed class ServiceDefaultsMetricsTests
     [DataRow("COMPRESSION", "secret-value")]
     public void Invalid_signal_configuration_fails_before_host_build_without_echoing_values(string suffix, string value)
     {
-        var builder = Host.CreateApplicationBuilder();
+        var builder = Microsoft.Extensions.Hosting.Host.CreateApplicationBuilder();
         builder.Configuration["OTEL_EXPORTER_OTLP_ENDPOINT"] = null;
         builder.Configuration["OTEL_EXPORTER_OTLP_METRICS_ENDPOINT"] = "https://host/v1/metrics";
         builder.Configuration["OTEL_EXPORTER_OTLP_METRICS_" + suffix] = value;
