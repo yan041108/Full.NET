@@ -112,7 +112,8 @@ public sealed class HostLoggingMetricsPipelineTests
             host = builder.Build();
             var meter = host.Services.GetRequiredService<MeterProvider>();
             var monitors = host.Services.GetRequiredService<FullNetLoggingMonitors>();
-            var instance = host.Services.GetRequiredService<LoggingResourceMetadata>().Instance;
+            var instance = meter.GetResource().Attributes.Single(pair => pair.Key == "service.instance.id").Value
+                as string ?? throw new InvalidOperationException("指标资源缺少实例标识。");
             var identity = "job=\"fullnet-logging-metrics-test\",instance=\"" + instance + "\"";
             Assert.IsNull(builder.Configuration["OTEL_EXPORTER_OTLP_ENDPOINT"]);
             var logger = host.Services.GetRequiredService<ILogger<HostLoggingMetricsPipelineTests>>();
