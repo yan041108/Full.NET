@@ -7657,3 +7657,14 @@ Release 集成工程单节点构建及 Identity 模块隔离 AOT 分析均零警
 - 实现/验收源码 1e3bf15761d2678caf0e0b81e27df1e364416422 的 [object-capacity-exporter-install 精确作业](https://github.com/yan041108/Full.NET/actions/runs/44863386267/job/136721568526) 为 1/1（0.795 秒），零失败、零跳过，源码状态守卫通过。Ubuntu 24.04/Python 3.12、实际 systemd 255.4-1ubuntu8.18；官方 Node Exporter 1.13.1 linux-amd64 归档 SHA-256 为 5c00c5234f1ee45900b25539a5a0ab82146a098c15c16a4ec3bc855b597a6477，下载与正式安装器两次独立核对通过，真实二进制 --version 确认为 1.13.1。
 - 使用真实 OpenSSL 临时 PKI 通过完整预检，正式安装函数写入自有隔离目录，证书副本与固定二进制/许可文件匹配；systemd-analyze verify 实际校验生成的 unit。真实 systemctl 只读查询确认同名服务 LoadState=not-found，安装/启停使用受控执行器，不创建或运行宿主服务、不改网络。并未将真实工具语法校验冒充 DynamicUser/LoadCredential 实际进程启动或现场 TLS 验收。
 - 本批固定任务关闭：剩余开发 0、待验收 0，十四个本地独立方法与一个真实包/单元方法共十五个不重叠方法。全部临时 PKI、安装目录和官方包由本轮夹具/工作流 trap 清理，本地验证容器 --rm 回收，无源码复制或仓库 artifacts。Ubuntu 首次安装入口已交付，不重复排为功能缺失；真实 systemd 启动、现场安装与 Prometheus 采集/新鲜度、获准网络策略、正式通知及物理故障域/容量仍归 D08-14/F15/F16。未执行实际发布、旧 mTLS/OTLP/Host/通知/Kubernetes/PVC、.NET/双库或全量，Capacity-not-verified 保持。
+
+### 8.399 D08-14 容量采集验收入口与真实 systemd 接线（2026-11-21）
+
+| 固定任务 | 当前状态 | 完成条件 |
+| --- | --- | --- |
+| D08-ObjectCapacityScrapeVerification | 实现中，待集中验收 | 只读精确目标查询，在同一时刻核对抓取/巡检新鲜度和容量，拒绝缺失/重复/异常输入；真实 systemd 动态账号/凭据服务与真实 Prometheus 上运行该入口。 |
+
+- 基线 1a4b54e2e9a2bdb8ff7e0687926bae8e2e7e59a5，快照 object-capacity-verification-20261121。§8.398 仅完成受控服务控制与 unit 语法，现场仍需逐项手查目标和样本，且真实 systemd 启动未验证；本批补齐只读验收工具并验证安装器运行时边界，不重做已交付 mTLS/发布函数或现场安装。
+- 冻结只读 Prometheus 验收器、直接相关受控 HTTP/TLS 用例、一个一次性 CI 真实 systemd/Prometheus 场景、精确手动工作流及既有手册。指定 cluster/instance，固定 job，查询有界、禁用代理/重定向、HTTPS 验证 CA，Token 只从私有文件读取且不通过 HTTP 发送；只允许回环明文入口。保留原十二分钟容量新鲜度，不发送通知、不改平台清单。
+- 集中验收工具的成功/容量风险/阻断、缺目标/up=0、textfile/probe 失败、时间异常、重复及非有限样本、HTTPS/凭据边界。真实场景仅对本轮专有临时资源运行固定官方 Node Exporter/Prometheus，按原安装器生成 unit，实际 systemd 启停并核对非 root 进程及 mTLS 读取；不向发布环境安装或读取真实凭据。真实磁盘/SeaweedFS、Kubernetes 投影、正式告警送达、生产存储/故障域仍保留，Capacity-not-verified 保持；不运行旧回路、.NET/双库或全量。
+- 本地集中新增十二个方法 12/12（13.267 秒），零失败/跳过；真实回环 HTTP/TLS、CA/主机名/Bearer、代理禁用、重定向/部分/超限拒绝、慢速字节流八秒总期限及状态/身份/新鲜度边界均通过。单查询显式按 __name__/job/cluster/instance 合并原始抓取时间后，仅复验一条直接 HTTP 查询方法 1/1（1.104 秒），其余输入未变结果复用，不累加方法数。Python 3.12 Debian 一次性容器、禁网、CPU 1/内存 256 MiB/进程 128、只读源码/根与有界临时目录；实际 systemd/Prometheus 方法尚待执行。新 Python、workflow 和差异结构检查通过。

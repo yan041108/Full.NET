@@ -299,6 +299,31 @@ sudo python3 eng/deploy/ubuntu/Install-ObjectCapacityExporter.py \
 
 [官方归档与实际单元校验](https://github.com/yan041108/Full.NET/actions/runs/44863386267/job/136721568526) 已通过，使用真实 Node Exporter 1.13.1 归档和 Ubuntu systemd 255.4。服务控制器使用受控执行器，真实 systemctl 只读核对未安装状态，不写宿主服务；因此此证据覆盖包、证书准入、文件安装和 unit 语法，实际 systemd 启动及发布环境安装仍需单独验收。
 
+#### 只读容量采集验收
+
+[Verify-ObjectCapacityScrape.py](../../eng/deploy/ubuntu/Verify-ObjectCapacityScrape.py) 在 Ubuntu/Linux 上只读核对一个精确目标，固定 job=fullnet-object-capacity，要求显式 cluster 与 instance。先将既有 Prometheus 转发到本机回环接口，再在另一终端执行：
+
+```bash
+kubectl -n observability port-forward service/prometheus 19090:9090 --address=127.0.0.1
+python3 eng/deploy/ubuntu/Verify-ObjectCapacityScrape.py \
+  --prometheus-url http://127.0.0.1:19090 \
+  --cluster reference-primary --instance 192.168.31.230:9100
+```
+
+支持经批准的 HTTPS API 地址及路径前缀，使用系统 CA 或 --ca-file；Bearer Token 只通过 --token-file 从当前账号持有的 0600 普通文件读取，不接受链接、内嵌 URL 凭据或 HTTP 携带 Token。明文仅允许回环地址，不使用环境代理、不跟随重定向、不提供跳过证书校验。单次响应最多 64 KiB/十六个序列、服务端查询三秒、套接字五秒，CLI 总墙钟上限八秒，缓慢逐字节响应不能无限延长执行。
+
+在同一次显式时间查询中读取当前值与 timestamp(up)，避免把查询结果的评估时间误认成实际抓取时间。目标 label、唯一指标、有限数值和完整样本须符合契约；重复/额外标签、警告/部分响应、缺失、非有限或负容量值均拒绝。抓取超过六十秒视为过期；容量使用原十二分钟新鲜度及最多六十秒超前容差，不修改现行告警窗口。容量判断仍由正式巡检发布，验收器不复制磁盘/卷槽阈值算法。
+
+| 输出 state | 退出码 | 运维含义 |
+| --- | --- | --- |
+| growth_headroom_available | 0 | 当前目标抓取与巡检样本新鲜，容量状态正常。 |
+| growth_at_risk / growth_blocked | 1 | 采集成功，正式巡检报告容量风险或增长阻断。 |
+| target_missing / target_down / scrape_stale | 2 | 精确目标不存在、抓取失败或实际抓取时间过期。 |
+| textfile_unavailable / probe_unavailable / capacity_sample_stale | 2 | textfile 读取失败、巡检失败或容量样本过期。 |
+| verification_failed | 2 | API/证书/输入/样本契约异常；code 为固定机器码，不输出凭据或原始响应。 |
+
+异常状态不输出旧 freeSlots/freeBytes；失败巡检仍携带容量读数时拒绝该不一致快照。JSON 始终输出到标准输出，供现有发布检查读取；工具不写配置或服务、不自动重试/修复、不发送通知。一次成功仅证明所选目标在查询时刻可用，不能代替告警持续窗口、正式通知、实际磁盘/SeaweedFS 巡检、跨节点故障或容量认证。查询语义依据 [Prometheus 3.15 HTTP API](https://github.com/prometheus/prometheus/blob/v3.15.0/docs/querying/api.md) 和 [timestamp 函数](https://github.com/prometheus/prometheus/blob/v3.15.0/docs/querying/functions.md#timestamp)。
+
 ### 可选节点条件与日志 DaemonSet 状态
 
 nodeState.enabled 默认为 false，daemonSetNamespace 默认为空。只有显式开启才渲染额外的 kube-state-nodes 或 kube-state-daemonsets Deployment/ClusterIP 及抓取任务，复用原固定 KSM 镜像和资源预算；不创建宿主 Agent 或日志 DaemonSet。下面的例子只渲染，日志命名空间必须已存在：
