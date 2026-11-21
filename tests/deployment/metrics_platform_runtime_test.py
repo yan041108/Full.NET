@@ -196,6 +196,7 @@ class MetricsPlatformRuntimeTests(unittest.TestCase):
         def send(value):
             attributes = [{'key': key, 'value': {'stringValue': 'fixture-identity-sentinel'}} for key in ('tenant_id', 'user_id', 'DiagnosticGroup')]
             resource = [{'key': 'service.name', 'value': {'stringValue': 'fullnet-worker'}},
+                        {'key': 'service.version', 'value': {'stringValue': 'isolated-fixture'}},
                         {'key': 'service.instance.id', 'value': {'stringValue': self.network}}, *attributes]
             result = self.request(ingest, {'resourceMetrics': [{'resource': {'attributes': resource}, 'scopeMetrics': [{'scope': {'name': 'Full.NET.PipelineProbe'},
                 'metrics': [{'name': 'fullnet_pipeline_probe_state', 'gauge': {'dataPoints': [{'asDouble': value, 'timeUnixNano': str(time.time_ns()), 'attributes': attributes}]}}]}]}]})
@@ -213,6 +214,7 @@ class MetricsPlatformRuntimeTests(unittest.TestCase):
         self.assertNotIn('fixture-identity-sentinel', json.dumps(series))
         info = self.request(query + 'target_info').get('data', {}).get('result', [])
         self.assertTrue(info)
+        self.assertTrue(any(value['metric'].get('service_version') == 'isolated-fixture' for value in info))
         self.assertNotIn('fixture-identity-sentinel', json.dumps(info))
         events = lambda: json.loads((fixture / 'events.json').read_text())
         firing = self.wait(lambda: next((event for event in events() if event['status'] == 'firing'), None), seconds=60)
