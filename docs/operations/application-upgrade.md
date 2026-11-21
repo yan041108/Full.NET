@@ -156,6 +156,8 @@ sudo /usr/local/lib/fullnet/Release-Application.sh "$CANDIDATE_CHART" all --ordi
 
 定向入口 helm-runtime-focused / ubuntu-role-batch 复用一个隔离环境集中覆盖直接受影响的单角色控制流与批量顺序、冻结、失败停止、DDL 恢复、部分进度；真实 Helm 3/4 只做渲染，不连接发布集群。计划核对不证明镜像内容、真实数据库迁移、线上切换、恢复目标或容量。
 
+该手动入口可选 v3.16.4、v4.0.0 或现场读到的 v4.3.1；两个 Helm 4 版本仅执行相应真实渲染方法，不重复受控控制流集合。v4.3.1 在执行前独立校验官方归档 SHA-256、与安装二进制逐字节比较及版本号。[现场同版定向作业](https://github.com/yan041108/Full.NET/actions/runs/44902114817/job/136840004791) 已用 v4.3.1+gc0d08d0 验证当前三角色同包渲染与候选版本回执；这份隔离结果不表示目标节点已完成预演或升级。
+
 ## 验证
 
 - `tests/deployment/foundation-preset-release.test.mjs`

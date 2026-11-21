@@ -7740,8 +7740,11 @@ Release 集成工程单节点构建及 Identity 模块隔离 AOT 分析均零警
 
 | 固定任务 | 当前状态 | 完成条件 |
 | --- | --- | --- |
-| F15-Helm431ReleasePlan | 已实现，待定向执行 | 工作流可选择现场同版 Helm 4.3.1，经官方归档摘要/二进制比较后，仅运行现行三角色真实渲染方法。 |
+| F15-Helm431ReleasePlan | 已完成，官方二进制与真实渲染通过 | 工作流可选择现场同版 Helm 4.3.1，经官方归档摘要/二进制比较后，仅运行现行三角色真实渲染方法。 |
 
 - 基线 ed1cc85eed701ef8380d1b61cb72c018286916c9，快照 release-helm431-20261121。§8.388 现场读数为 v4.3.1+gc0d08d0，不能由 4.0.0 证据推导同版兼容。本批仅接入固定版本和验证当前版本门禁/回执下的真实渲染，不上传或连接发布节点，不重试受限命令。
 - 官方发行来源 https://github.com/helm/helm/releases/tag/v4.3.1 ，Linux amd64 归档 SHA-256 为 0403a88ae20913d11b10a2467b50087721fea7581736da6b9d3992f5357fe54b。工作流核对归档、解出精确二进制并与 setup-helm 安装值逐字节比较，校验实际版本；工具临时文件使用 RUNNER_TEMP 并回收。
 - 仅派发 ubuntu-role-batch/v4.3.1，一个真实方法验证同包 Job/Worker/API、强制单角色、四份摘要及 candidateImageTag。复用已有 23 条本地门禁/回执证据，不重跑完整批量/单角色、.NET/双库或全量。真实 Helm 版本验证不替代目标预演或部署认证。
+- 实现/验收源码 4367a4f0ad4615cc350fe8cbc81f685984aa786b 的 [ubuntu-role-batch / Helm 4.3.1 精确作业](https://github.com/yan041108/Full.NET/actions/runs/44902114817/job/136840004791) 为 1/1（0.665 秒），零失败、零跳过，源码状态守卫通过。官方归档摘要正确、解出二进制与实际安装逐字节相同，工具回执 v4.3.1+gc0d08d0，与此前现场版本相同；未将 4.0.0 证据直接套用到现场版本。
+- 一次性 Linux/Python 3.12 容器、CPU 1/内存 256 MiB/进程 128、禁网、源码和 Helm 只读。正式 Bash 入口冻结现行 JSON，真实 Helm 将同一包各渲染一次，实际得到一个迁移 Job 和两个角色 Deployment，roles/四份 values 摘要/candidateImageTag 均核对。没有备份、MySQL、服务重载或真实 Helm upgrade；其余既有定向证据复用。
+- 本批剩余开发 0、待验收 0；本轮 Helm 下载和解包目录由工作流 trap 回收，隔离容器 --rm 回收，既有临时工具目录没有重复清理尝试。Helm 4.3.1 的隔离渲染差集关闭；目标整批预演受限、真实候选发布及 D08 现场复验仍开放，未上传或连接发布节点，其他主工作包/Quill 到期处置/Capacity-not-verified 保持。未执行 .NET/双库或全量。
