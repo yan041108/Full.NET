@@ -47,9 +47,12 @@ class MetricsNetworkEgressRuntimeTests(unittest.TestCase):
     def kubectl(self, *arguments, seconds=180):
         return self.command(['kubectl', '--context', 'kind-' + self.name, *arguments], seconds)
 
-    def apply(self, value):
+    def apply(self, value, namespace=None):
         content = value if isinstance(value, str) else json.dumps(value)
-        result = subprocess.run(['kubectl', '--context', 'kind-' + self.name, 'apply', '-f', '-'],
+        command = ['kubectl', '--context', 'kind-' + self.name]
+        if namespace:
+            command += ['--namespace', namespace]
+        result = subprocess.run([*command, 'apply', '-f', '-'],
             input=content, env=self.environment, capture_output=True, text=True, timeout=30)
         self.assertEqual(result.returncode, 0, (result.stdout + result.stderr)[-2000:])
 
@@ -115,10 +118,17 @@ class MetricsNetworkEgressRuntimeTests(unittest.TestCase):
     def check(self, name, destination, port, allowed, namespace='fullnet-production'):
         deadline = time.monotonic() + 45
         last = None
+        consecutive_denials = 0
         while time.monotonic() < deadline:
             last = self.probe(name, destination, port, namespace)
             if last['connected'] == allowed and (not allowed or last.get('payload') == 'fullnet-metrics-network:' + str(port)):
-                return
+                if allowed:
+                    return
+                consecutive_denials += 1
+                if consecutive_denials >= 2:
+                    return
+            else:
+                consecutive_denials = 0
             time.sleep(.5)
         self.fail(f'精确网络条件未满足：{name}:{port} allowed={allowed} actual={last}')
 
@@ -151,13 +161,18 @@ class MetricsNetworkEgressRuntimeTests(unittest.TestCase):
         for role, release in (('api', None), ('worker', None), ('api', 'metrics-other-release')):
             baseline = render(role, template='networkpolicy.yaml', release=release)
             self.assertEqual(baseline.returncode, 0, baseline.stderr)
-            self.apply(baseline.stdout)
+            # Helm 安装为省略 namespace 的资源选择 Release 命名空间，原样 apply 必须显式指定。
+            self.apply(baseline.stdout, namespace='fullnet-production')
+        installed = json.loads(self.kubectl('-n', 'fullnet-production', 'get', 'networkpolicies', '-o', 'json'))['items']
+        self.assertEqual({item['spec']['podSelector']['matchLabels']['app.kubernetes.io/instance'] for item in installed},
+            {'metrics-api', 'metrics-worker', 'metrics-other-release'})
         self.apply({'apiVersion': 'v1', 'kind': 'Service', 'metadata': {'name': 'telemetry-collector', 'namespace': 'observability'},
             'spec': {'selector': collector, 'ports': [{'name': 'grpc', 'port': 4317}, {'name': 'http', 'port': 4318}]}})
         cluster_ip = json.loads(self.kubectl('-n', 'observability', 'get', 'service', 'telemetry-collector', '-o', 'json'))['spec']['clusterIP']
         fqdn = 'telemetry-collector.observability.svc.cluster.local'
         self.assertEqual(self.kubectl('-n', 'fullnet-production', 'exec', 'api', '--', 'python3', '-c',
             'import socket,sys;print(socket.gethostbyname(sys.argv[1]))', fqdn), cluster_ip)
+        self.check('observer', cluster_ip, 4318, True, 'observability')
         for source in ('api', 'worker'):
             self.check(source, cluster_ip, 4318, False)
         permissions = [policy('api'), policy('worker')]
