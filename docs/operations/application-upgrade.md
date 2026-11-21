@@ -196,5 +196,9 @@ sudo /usr/local/lib/fullnet/Release-Application.sh "$CANDIDATE_CHART" all --plan
 
 [首个 Host 启动通过作业](https://github.com/yan041108/Full.NET/actions/runs/44906515239) 使用同一 OCI 候选，在 Testing/MySQL 下实际完成迁移（journal 397 条）、API/Worker 共六个健康端点及两个正常停止检查。verification.json 的 hostVerification 记录环境、Provider、数据库实际镜像摘要、空库备份 SHA-256/恢复校验和具体结果；顶层 runtimeStartupVerified/databaseMigrationVerified=true 仅适用于该测试组合，Production 配置、SQL Server、完整业务、Native AOT、部署和容量均未获认证。默认 verify_hosts=false 仍只执行导入与运行时发现，不能引用其他作业的启动结果。
 
+生产模式的隔离启动检查使用 verify_hosts=true、host_environment=Production，默认环境仍为 Testing。夹具创建本轮 CA/MySQL 服务证书并校验 DNS SAN，数据库强制 TLS、Host 使用 VerifyFull；另外启动带密码的真实 Redis，加载本轮真实 RSA 签名密钥和 Data Protection PFX，挂载共享 Key Ring。云 Provider 占位凭据通过私有 env-file 注入，内网不允许外部调用。只读根、UID 1654 和资源限额保持，只有共享挂载增加本轮目录组访问；证书、私钥和随机凭据不上传。
+
+[首个生产模式启动通过作业](https://github.com/yan041108/Full.NET/actions/runs/44907594656) 复用相同应用/镜像候选，实际完成 Production/MySQL 迁移、六个健康端点和两个正常停止检查；MySQL 观察到 36 次 TLS 接入。verification.json 的 hostVerification.productionConfigurationVerified=true 只表示该隔离配置启动通过，productionEvidence 记录 CA/PFX 摘要、Redis 实际镜像、VerifyFull/强制 TLS 和禁用临时签名等证据；不证明 Key Ring 跨实例解密、实际云 Provider、SQL Server、现场部署、完整业务、生产备份恢复或容量。回执保留三天，使用时核对应用、打包和验收三类提交，不能直接替代发布环境准入。
+
 - `tests/deployment/foundation-preset-release.test.mjs`
 - 发布清单：`docs/verification/f16-release-checklist.md`

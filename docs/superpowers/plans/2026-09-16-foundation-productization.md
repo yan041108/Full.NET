@@ -7847,10 +7847,14 @@ Release 集成工程单节点构建及 Identity 模块隔离 AOT 分析均零警
 
 | 固定任务 | 当前状态 | 完成条件 |
 | --- | --- | --- |
-| F15-CandidateProductionStartup | 已实现，待实际启动 | 同一 OCI 候选以 Production 环境在隔离 MySQL/Redis 中启动，启用真实证书与签名密钥、MySQL VerifyFull 和强制 TLS，健康/停止/清理通过。 |
+| F15-CandidateProductionStartup | 已完成，隔离 Production/MySQL 启动通过 | 同一 OCI 候选以 Production 环境在隔离 MySQL/Redis 中启动，启用真实证书与签名密钥、MySQL VerifyFull 和强制 TLS，健康/停止/清理通过。 |
 
 - 基线 a6ee0637611230e073258bbd2c33d3e023a3bc7a，快照 candidate-production-startup-20261121。冻结范围为原导入/启动工作流、Production 资产夹具与原手册/计划；不改应用实现、不重复编译。新增 host_environment 显式选择，默认 Testing，只有 verify_hosts=true 才执行业务 Host 检查；只派发新 Production/MySQL 差集，不重跑完整矩阵或旧 Testing 验收。
 - 复用已导入候选和隔离内网，独立随机本轮密钥/CA，MySQL 服务证书 SAN 匹配容器 DNS、VerifyFull 和 require_secure_transport=ON；真实有密码 Redis，真实 X509/PFX 保护共享 Key Ring，显式 RSA 签名且禁止开发临时签名。密钥仅供本轮私有目录和必要只读挂载，不入产物；API/Worker UID 1654、只读根和资源限额保持。云存储配置仅满足启动校验，内网禁止外联，不认证 Provider 调用。
 - 仍先执行空库备份恢复与正式 Migrator，再检查两角色三健康端点和正常停止，记录数据库 TLS 实际接入计数及依赖镜像身份，独立清理。完成条件限定隔离 Production 配置，不外推现场部署、SQL Server、AOT、完整业务、生产恢复或容量；其他外部主任务保持开放。
 - 首次 Production 作业 44907117783 完成迁移后在 Files S3/Oss 凭据来源校验失败，API 未进入服务，Worker 未启动；容器/网络及导入镜像均清理通过。根因为夹具把占位凭据写入临时 appsettings，而正式生产校验要求环境来源；改为仅在私有 env-file 提供本轮占位，配置文件移除这些字段，保留原来源校验和内网外联限制，未修改产品代码或关闭云 Provider 校验。
 - 第二次作业 44907336098 在首次就绪后的空库查询处失败，尚未启动 Migrator，清理通过；原日志没有数据库错误细节，不能直接归为产品缺陷。核对 [官方 MySQL entrypoint](https://github.com/docker-library/mysql/blob/master/docker-entrypoint.sh) 的临时服务使用 --skip-networking，原 Unix socket SELECT 1 不能区分初始化临时实例与最终服务。夹具改为只探测 TCP 正式实例，Production 同时使用 VERIFY_IDENTITY 和本轮 CA；故障诊断加入数据库/Redis 脱敏尾日志且各限制 16 KiB，不放宽 TLS 或重复相同条件重试。
+- 最终验收源码 3e8c24fdf1d2f9a19de36d51c8518f29acb5e30d 的 [实际 Production 作业](https://github.com/yan041108/Full.NET/actions/runs/44907594656/job/136856385804) 全部步骤成功。应用 sourceCommit 仍为 06caddffeb4f227f54acc38543a7d8f436c105a8，打包仍为 a879e7ed16b45291d922c4cc76d55fdd04dd2aad。内存下载并核对 verification.json：Production/MySql、空库恢复 true、397 条 journal、API/Worker 六个端点均 200/Healthy，两者正常停止 exit=0、无 OOM；三个候选的导入及运行时发现也通过。
+- 实际 MySQL 镜像同上一批 mysql@sha256:7dcddc01f13bab2f15cde676d44d01f61fc9f99fe7785e86196dfc07d358ae2b；Redis 为 redis@sha256:2e3eb11462c4e3759e6972678dd051d150ff54b1e60714b3c33b701260172a90，镜像 ID sha256:3a17a97bb6c7d9a7ee1bd3d5ecf7c6d02adf4bfd9fe73a974b3767b442dfbfaa。实际回执 mysqlObservedTlsAccepts=36、VerifyFull、mysqlSecureTransportRequired=true、ephemeralSigningEnabled=false，记录 CA/PFX 摘要及共享受证书保护 Key Ring 配置。没有把仅配置共享目录说成已完成跨实例加解密认证；cloudProviderCallsVerified=false。
+- 独立清理确认本轮容器/网络及导入镜像零残留，暂存清理与源码前后守卫通过。实际 artifact id=14708861467，名称 fullnet-oci-import-44907594656，大小 2,025 字节，API expired=false，2026-11-24 13:12:57 UTC 到期；仅内存读取验收回执，不下载保留镜像或私钥。初始 YAML/四段 Python 语法检查通过，最终以实际工作流运行验证；未重新编译、运行旧 Testing 批次、全量或双库矩阵。
+- 本批剩余开发 0、待验收 0。关闭该固定候选的隔离 Production/MySQL 配置启动缺口；hostVerification.productionConfigurationVerified=true 的范围仅为本轮配置，部署/容量/AOT/云 Provider 调用仍 false。原手册同步环境开关、证据和边界；未改应用/迁移实现或连接发布节点，SQL Server、完整业务、Key Ring 跨实例认证、真实生产恢复、现场部署/旧报表处置及 D08 复验仍开放。其他主工作包、受限目标预演、Quill 到期处置、Capacity-not-verified 和既有工作区改动保持。
