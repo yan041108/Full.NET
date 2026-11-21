@@ -287,6 +287,8 @@ migrator:
 
 networkPolicy:
   enabled: true
+  # 非空时仅为 API/Worker 放行该命名空间内平台 Collector 的 OTLP，不赋予 Migrator 出口。
+  metricsNamespace: ""
   # 仅允许入口来自 ingress-nginx 命名空间与同 Release 标签；出口放行 DNS 与外部依赖。
   ingressNamespace: ingress-nginx
   ingressPodSelector:

@@ -63,6 +63,9 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end -}}
 
 {{- define "fullnet.validate" -}}
+{{- if and .Values.networkPolicy.metricsNamespace (not .Values.networkPolicy.enabled) -}}
+  {{- fail "networkPolicy.metricsNamespace requires networkPolicy.enabled=true." -}}
+{{- end -}}
 {{- if lt (.Values.worker.messaging.cdcMonitoring.maximumSampleAgeSeconds | int) (add (.Values.worker.messaging.cdcMonitoring.pollSeconds | int) (.Values.worker.messaging.cdcMonitoring.sampleTimeoutSeconds | int)) -}}
   {{- fail "CDC monitoring maximumSampleAgeSeconds must cover pollSeconds plus sampleTimeoutSeconds." -}}
 {{- end -}}

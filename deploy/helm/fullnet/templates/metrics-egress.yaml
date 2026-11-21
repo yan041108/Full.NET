@@ -1,0 +1,13 @@
+{{- include "fullnet.validate" . -}}
+{{- if and .Values.networkPolicy.enabled .Values.networkPolicy.metricsNamespace (or .Values.roles.api .Values.roles.worker) -}}
+{{/* 独立出口许可与原策略取并集；精确绑定来源角色、命名空间和 Collector 标签，不开放整个内网。 */}}
+{{- $selector := dict "matchLabels" (dict "app.kubernetes.io/name" (include "fullnet.name" .) "app.kubernetes.io/instance" .Release.Name)
+  "matchExpressions" (list (dict "key" "app.kubernetes.io/component" "operator" "In" "values" (list "api" "worker"))) -}}
+{{- $peer := dict "namespaceSelector" (dict "matchLabels" (dict "kubernetes.io/metadata.name" .Values.networkPolicy.metricsNamespace))
+  "podSelector" (dict "matchLabels" (dict "app.kubernetes.io/part-of" "fullnet-observability" "app.kubernetes.io/name" "telemetry-collector")) -}}
+{{- $rule := dict "to" (list $peer) "ports" (list (dict "protocol" "TCP" "port" 4317) (dict "protocol" "TCP" "port" 4318)) -}}
+{{- $name := printf "%s-metrics-egress" (include "fullnet.fullname" . | trunc 48 | trimSuffix "-") -}}
+{{- toJson (dict "apiVersion" "networking.k8s.io/v1" "kind" "NetworkPolicy"
+  "metadata" (dict "name" $name "namespace" .Release.Namespace "labels" (include "fullnet.labels" . | fromYaml))
+  "spec" (dict "podSelector" $selector "policyTypes" (list "Egress") "egress" (list $rule))) -}}
+{{- end -}}

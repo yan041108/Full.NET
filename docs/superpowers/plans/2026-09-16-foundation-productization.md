@@ -7672,3 +7672,14 @@ Release 集成工程单节点构建及 Identity 模块隔离 AOT 分析均零警
 - 正式 prepare/install 函数实际生成服务并经 systemctl 启用，unit 写入本轮 /run/systemd/system，配置/二进制/textfile 位于专有临时根；没有以受控服务控制器代替此次启动。实际 MainPID 指向固定二进制，/proc 中 UID=65203（动态、非 root）、CapEff=0；LoadCredential 运行时配置和叶子凭据实际供服务使用，Prometheus 用真实 Helm 派生的客户端证书/CA 路径成功 mTLS 抓取。此项关闭 §8.398 的动态账号/凭据实际进程启动差集，不重复列为未验证；默认 /etc 安装路径与具体发布节点仍需现场验证。
 - 正式 publish_metrics 使用合成评估原子发布正常→增长阻断→巡检失败，真实验收 CLI 通过一次精确 PromQL 查询实际给出 growth_headroom_available/0、growth_blocked/1、probe_unavailable/2；正常 freeSlots=24、阻断=0、失败结果无旧容量，服务 MainPID 始终未变。保留原十五秒抓取与十二分钟新鲜度，不加载无关告警或启动通知接收器；不将合成容量、运行中的服务或一次成功查询外推为实际磁盘/SeaweedFS、持续告警/正式通知或容量认证。
 - 本批固定任务关闭：剩余开发 0、待验收 0。十二个本地独立方法与一个真实运行方法为十三个不重叠方法。本轮 Prometheus 容器实测回收为 0；systemctl 停止复核通过、临时 unit 删除并 daemon-reload，专有 PKI/安装文件及官方归档随夹具/工作流清理。本地验证容器 --rm 回收，无仓库 artifacts 或整仓复制。只读容量采集验收入口和真实 systemd 接线差集已闭合；现场平台/采集器安装与真实巡检、网络策略、Kubernetes 客户端凭据投影、正式通知及生产故障域/容量仍归 D08-14/F15/F16。未运行旧 mTLS/Host/OTLP/Kubernetes/PVC、.NET/双库或全量，Capacity-not-verified 保持。
+
+### 8.400 D08-14 应用指标的精确网络出口（2026-11-21）
+
+| 固定任务 | 当前状态 | 完成条件 |
+| --- | --- | --- |
+| D08-MetricsNetworkEgress | 实现中，待集中验收 | 显式配置目标命名空间后，仅本 Release 的 API/Worker 可访问平台 Collector 的 TCP 4317/4318；默认和 Migrator 不新增出口，选择器及端口越界拒绝。 |
+
+- 基线 9cf59fe200db342de0aceff95ec8255136ad01f9，快照 metrics-network-egress-20261121。应用 Chart 原策略排除 RFC 1918 网段，平台入口已存在，但缺少两者之间可复现的精确出口许可；本批补齐既有 D08-14 网络接线，不改变业务 Host、全局出口或平台发布环境。
+- 冻结 networkPolicy.metricsNamespace、独立附加策略/schema/校验、直接相关 Helm 用例、一次性支持 NetworkPolicy 的 CNI 运行场景和精确工作流/手册。目标 namespaceSelector 与 podSelector 在同一个 peer 内取交集，精确选择 fullnet-observability/telemetry-collector；来源限定 Release 和 api/worker 角色，不开放 Migrator、整命名空间或任意内网。默认空，不改变原 DNS/外部出口。
+- 集中五条真实 Helm 方法；实际 CNI 用例验证未开启拒绝→开启允许→移除后拒绝，以及其他角色/Release/命名空间/Pod 标签/端口拒绝。固定官方 Calico 3.33.0 清单摘要和镜像摘要，仅在本轮独立 Kind 中运行，不引入生产 CNI 选型、不用 Kind 默认 CNI 的成功连通冒充隔离。真实通知/Host/采集/PVC、.NET/双库及全量均不重跑，Capacity-not-verified 保持。
+- 本地一次性 Python 3.12 Debian 容器、禁网、CPU 1/内存 256 MiB/进程 128、源码与既有 Helm 3.16.4 只读，五个新增定向方法 5/5（10.492 秒），零失败/跳过。API/Worker 同 peer 的命名空间与 Collector 标签交集、精确 TCP 4317/4318、原策略输出不变、默认/Migrator 无增量、长名不冲突及无效配置拒绝通过。新 Python、workflow/schema/default 结构检查通过，后续仅增加运行夹具使用的可选 release 参数且默认路径不变，复用五条结果；实际 Calico 场景尚待执行，不提前登记隔离通过。

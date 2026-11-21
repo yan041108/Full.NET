@@ -192,6 +192,20 @@ OTEL_EXPORTER_OTLP_METRICS_ENDPOINT=http://telemetry-collector.observability.svc
 OTEL_EXPORTER_OTLP_METRICS_PROTOCOL=http/protobuf
 ```
 
+在 API/Worker 的应用 Chart values 中显式增加以下网络许可，目标命名空间须与 Collector 部署位置一致：
+
+```yaml
+networkPolicy:
+  enabled: true
+  metricsNamespace: observability
+```
+
+metricsNamespace 默认空，不新增出口。非空时生成独立的“应用资源全名-metrics-egress”策略（名称按长度截断），只选择本 Release 的 API/Worker，目标同时匹配该命名空间以及 app.kubernetes.io/part-of=fullnet-observability、app.kubernetes.io/name=telemetry-collector，端口仅 TCP 4317/4318。命名空间和 Pod 选择器放在同一个 peer 中取交集；不为 Migrator 生成许可，不开放其他平台后端或任意内网。禁止 networkPolicy.enabled=false 时配置该入口；由平台现有精确策略管理出口的环境可保持为空。
+
+应用原策略仅允许 DNS 和指定公网出口，原 RFC 1918 排除项保持；启用该规则使独立命名空间的 Collector 私网路径可配置。API/Worker 为独立 Release 时须分别配置；同一 values 供 Migrator 使用时不会新增该角色的指标出口。还须核对平台 applicationNamespace 入口选择及实际 Pod 标签。NetworkPolicy 按许可并集生效，其他宽策略仍可能放行，不能将新增精确策略视为全局拒绝或身份认证。
+
+停用或更换命名空间后，按当前发布管理方式核对旧策略已删除；仅重新 apply 省略对象的清单不会撤销旧许可。定向场景 metrics-network-egress 用独立双节点 Kind、固定 Calico 清单与镜像验证网络边界，不变更生产 CNI 选型，也不重复 OTLP 协议/应用指标/正式通知测试。策略语义见 [Kubernetes NetworkPolicy](https://kubernetes.io/docs/concepts/services-networking/network-policies/)。
+
 API、Worker 使用现有应用 Chart 的 runtime.configMapName 引用发布命名空间内的配置对象，由其 data 提供上述键；需要鉴权的 OTLP HEADERS 通过 runtime.secretName 引用的 Secret 注入，禁止放进 values、普通 ConfigMap 或日志。更新环境配置后需显式滚动应用；运行中的进程不会自动重读这些导出选项。启用前同时检查现有通用键和同名 Secret 键，避免意外覆盖或继续启用旧全局出口。
 
 已有全局出口时仍使用 SDK 全信号注册及其标准覆盖规则，不重复添加分信号导出器；该模式与分信号注册不可混用。禁止把指标专用后端设置为全局目的地。只有追踪后端时可单独配置 OTEL_EXPORTER_OTLP_TRACES_ENDPOINT 及协议。应用入口的现有 Egress 策略、TLS/CA 与实际可见性须在现场启用前核对；本轮不改现网配置，也不由回环 HTTP 接收测试推导生产采集完成。配置语义依据 [OpenTelemetry .NET 1.17 OTLP 配置](https://github.com/open-telemetry/opentelemetry-dotnet/blob/core-1.17.0/src/OpenTelemetry.Exporter.OpenTelemetryProtocol/README.md)。
