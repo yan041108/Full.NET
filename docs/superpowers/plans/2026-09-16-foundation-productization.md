@@ -7552,7 +7552,11 @@ Release 集成工程单节点构建及 Identity 模块隔离 AOT 分析均零警
 
 | 固定任务 | 当前状态 | 完成条件 |
 | --- | --- | --- |
-| D08-MetricsKubernetesDeploy | 已实现，待集中验收 | 在唯一隔离 Kind 集群应用原始平台清单，四个实际镜像就绪；真实 Deployment watch、RBAC 拒绝、OTLP 样本新鲜度、Prometheus 与 Alertmanager 独立 PVC 重建 Pod 后保留数据通过。 |
+| D08-MetricsKubernetesDeploy | 已完成，隔离 Kubernetes 验收通过 | 在唯一隔离 Kind 集群应用原始平台清单，四个实际镜像就绪；真实 Deployment watch、RBAC 拒绝、OTLP 样本新鲜度、Prometheus 与 Alertmanager 独立 PVC 重建 Pod 后保留数据通过。 |
 
 - 基线 b99e43682c0903998d1bc56ebb69fdcf5edf1ddb；快照 metrics-kubernetes-runtime-20261121。承接 §8.389/8.390 尚未验证的 Kubernetes 部署边界，只使用自有临时集群、配置和测试数据；失败直接修复本范围清单。测试是该完整部署能力的内部检查，不增加顶层任务。集中执行新增精确场景；不重复纯容器通知回路或无影响的 .NET/双库/全量。
 - 本批不安装到发布环境，不使用真实通知地址；Kind 默认 CNI 不执行 NetworkPolicy，不能据成功连通证明网络隔离。本地动态 PVC 的 Pod 重建恢复不代表生产存储、节点故障或 HA。实际 Host→该平台端到端及正式通知送达保留现场范围，不拼接独立证据；Capacity-not-verified 保持。
+- 候选 f69d02be4360ae16fad19f9860fa1316c2193864 的 [metrics-kubernetes 定向作业](https://github.com/yan041108/Full.NET/actions/runs/44847175955/job/136669650127) 为 1/1（117.626 秒），零失败、零跳过，源码状态守卫通过。Linux/Python 3.12、kind 0.30.0、固定 Kubernetes 1.34.0 节点摘要、真实 Helm 3.16.4；创建一个控制节点和一个工作节点，不接触用户默认集群。四个实际 Pod imageID 与清单固定摘要对应，原始资源不需要修复。
+- 原清单实际通过 Kubernetes 就绪、非 root/只读根和服务账号令牌分配；KSM 以平台服务账号观察应用 Deployment 可用副本 2→1，实际 Prometheus 查询确认变化，RBAC 实际 list Secrets 和 list default 命名空间 Deployment 均拒绝。合成 OTLP 从应用命名空间发往 Collector，查询由平台观察器发起；实际样本时间戳与本轮发出时间对应且在四十五秒窗口内，不把查询结果的查询时刻当作采集时刻。
+- 两个 1 GiB 动态 PVC 实际 Bound，原 fsGroup 权限下启动成功；删除并重建 Prometheus、Alertmanager 的 Pod，分别读到原合成指标值及原 active 测试 silence，新旧 Pod UID 不同、两个 PVC UID 保持。未向真实接收器投递；该本地动态卷证据不外推到生产 StorageClass、物理故障或 HA，也不认证 Kind 默认 CNI 未实施的 NetworkPolicy。
+- 固定任务关闭：剩余开发 0、待验收 0。本轮 Kind 容器已实际回收为 0，临时 kubeconfig/配置随夹具回收；无仓库 artifacts 或整仓复制。未运行既有纯容器回路、.NET、双库或全量。现场平台安装/新版本发布、实际 Host→该平台采集、正式通知触发与恢复及生产存储/CNI/故障域仍保留在 D08-14/F15/F16；本批仅关闭原清单的本地 Kubernetes 部署差集，不重复安排已通过的 watch 和同节点 Pod/PVC 恢复场景，Capacity-not-verified 保持。

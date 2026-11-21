@@ -224,3 +224,5 @@ FULLNET_METRICS_KUBERNETES=isolated FULLNET_TEST_REAL_HELM=helm PYTHONDONTWRITEB
 该入口创建唯一 Kind 集群和独立 kubeconfig，应用本渲染包的原始清单。两个 1 GiB 动态 PVC 只是本轮夹具，不改变生产存储建议；测试 Deployment 使用合成身份，应用命名空间只发 OTLP，平台命名空间执行内部查询。验证四个组件就绪、非 root/只读根、服务账号令牌分配、Deployment watch、副本变化、Secret/其他命名空间读取拒绝和 OTLP 时间戳；更换 Prometheus、Alertmanager Pod 后分别读取原样本与原测试 silence，并核对 PVC UID 保持。测试 silence 无真实通知地址，默认 discard 保持。
 
 Kind 默认 CNI 不执行 NetworkPolicy，此入口不认证网络隔离；同节点动态卷恢复也不认证生产卷、节点丢失或 HA。HTTP OTLP 源为合成夹具，不替代实际 Host 到本平台的现场链路。入口结束回收本轮集群和临时文件，失败或跳过不得报告为通过；对应手动 workflow 场景为 metrics-kubernetes，不触发其他平台或 .NET 套件。
+
+本清单的首次实际 Kubernetes 部署及上述 watch/PVC 场景已在[定向作业](https://github.com/yan041108/Full.NET/actions/runs/44847175955/job/136669650127)通过；该结果只覆盖原始组件与隔离集群，不代表现网已安装。
