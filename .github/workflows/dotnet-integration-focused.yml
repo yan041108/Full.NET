@@ -8,7 +8,7 @@ on:
         required: true
         default: enterprise-delivery
         type: choice
-        options: [enterprise-delivery, oidc-proof, import-receipt, ai-files-tenant, identity-browser, password-recovery-session, tenant-seat-process, cache-backplane-process]
+        options: [enterprise-delivery, oidc-proof, import-receipt, ai-files-tenant, identity-browser, password-recovery-session, tenant-seat-process, cache-backplane-process, host-platform-metrics]
 
 permissions:
   contents: read
@@ -36,8 +36,31 @@ jobs:
         with:
           global-json-file: global.json
       - name: Prepare the two database providers
-        if: inputs.scenario != 'cache-backplane-process'
+        if: inputs.scenario != 'cache-backplane-process' && inputs.scenario != 'host-platform-metrics'
         run: node scripts/testing/prepare-ci-test-images.mjs
+      - uses: azure/setup-helm@v4
+        if: inputs.scenario == 'host-platform-metrics'
+        with:
+          version: v3.16.4
+      - name: Prepare only images referenced by the current metrics platform
+        if: inputs.scenario == 'host-platform-metrics'
+        run: |
+          set -euo pipefail
+          bash eng/deploy/Render-Observability.sh \
+            --set cluster=integration-host-platform,prometheusClaim=prometheus-data,alertmanagerClaim=alertmanager-data \
+            > "$RUNNER_TEMP/host-platform.yaml"
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          import {execFileSync} from 'node:child_process';
+          const text = fs.readFileSync(process.env.RUNNER_TEMP + '/host-platform.yaml', 'utf8');
+          const value = JSON.parse(text.split('\n').filter(line => !line.startsWith('#') && line.trim() !== '---').join('\n'));
+          for (const name of ['prometheus', 'telemetry-collector']) {
+            const item = value.items.find(item => item.kind === 'Deployment' && item.metadata.name === name);
+            const image = item.spec.template.spec.containers[0].image;
+            if (!/@sha256:[a-f0-9]{64}$/.test(image)) throw new Error('指标镜像必须固定摘要');
+            execFileSync('docker', ['pull', image], {stdio: 'inherit'});
+          }
+          NODE
       - name: Restore the frozen integration inputs
         run: |
           dotnet restore tests/Full.NET.IntegrationTests/Full.NET.IntegrationTests.csproj --force-evaluate
@@ -73,6 +96,9 @@ jobs:
             cache-backplane-process)
               filter='FullyQualifiedName~Full.NET.IntegrationTests.Caching.CacheBackplaneProcessTests.'
               minimum=2 ;;
+            host-platform-metrics)
+              filter='FullyQualifiedName=Full.NET.IntegrationTests.Observability.HostLoggingMetricsPipelineTests.Host_queue_metrics_reach_prometheus_and_priority_drop_alert_fires_then_resolves'
+              minimum=1 ;;
             *) exit 64 ;;
           esac
           git rev-parse HEAD

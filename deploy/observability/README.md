@@ -271,3 +271,9 @@ FullNetNodeDiskPressure 观察 DiskPressure=true；Fluent Bit 可用性规则选
 本工具是清单渲染器，不管理资源删除：已启用后仅改回 false/空再 apply 不会自动删除旧观察器或撤销已创建权限。停用时先核对对象归属并撤销对应 ClusterRoleBinding/RoleBinding，再回收观察 Deployment、Service、ServiceAccount 及专属 Role/ClusterRole；不要删除原应用观察器的授权。定向运行场景为 infrastructure-state-metrics，只在自有集群验证；节点条件使用不可调度的合成 Node，真实节点不改。
 
 默认关闭、显式账号范围与原阈值已通过真实 Helm 定向检查；[实际 Kubernetes 状态和权限作业](https://github.com/yan041108/Full.NET/actions/runs/44850873746/job/136681668955)通过合成节点条件与测试 DaemonSet 的变化/恢复。此证据不代表物理磁盘压力、真实日志 Agent 或现网告警已经验证。
+
+### 真实 Host 到平台指标的定向链路
+
+手动工作流 dotnet-integration-focused / host-platform-metrics 只运行现有 HostLoggingMetricsPipelineTests 的链路方法。用例从当前本地 Helm 清单读取实际 Collector/Prometheus 配置与规则，Host 只设置指标端点与协议，Collector 使用 UID 10001 和有界临时 WAL；不需要数据库或业务账号。保留当前十五秒规则评估、一分钟优先日志丢弃 for 及五分钟 increase/恢复窗口，因此真实窗口需要数分钟，不能用快速合成 probe 替代。
+
+本用例移除未启动服务的抓取/通知，只验证真实 Full.NET 默认 Host 注册、双日志通道指标、共享实例标识、Prometheus 原告警 firing/恢复及 Remote Write 无乱序拒绝。运行环境需 .NET 10、真实 Helm 3.16.4、本地 Docker 及两个实际固定镜像；定向入口会按当前清单准备镜像。它不代表完整 Api/Worker 业务启动、Kubernetes 放置/存储/CNI、正式通知或容量已认证。

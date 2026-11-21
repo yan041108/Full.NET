@@ -7600,3 +7600,12 @@ Release 集成工程单节点构建及 Identity 模块隔离 AOT 分析均零警
 - Node 场景只创建无 kubelet、unschedulable 且带 fullnet.io/fixture:NoSchedule 污点的合成 Node，由本轮管理凭据写该对象条件；DiskPressure 序列 0→1→0 实际进入 Prometheus，未写真实节点条件或制造物理故障。删除后该序列消失，同时节点读取器 up=1，DaemonSet 恢复数据仍在，避免以读取器停止造成的整体消失冒充删除观察成功。未把合成状态升级为物理压力、真实 Fluent Bit、持续告警或生产可用性证明。
 - 实际 API 权限检查通过：节点账号允许 list nodes，但拒绝 nodes/proxy、patch nodes、Secret 与日志命名空间 DaemonSet；DaemonSet 账号只允许选定命名空间 list daemonsets，其他命名空间、nodes、patch daemonsets、pods/log 均拒绝。两个账号不共享角色，原应用账号不扩权。默认关闭仅表示不渲染这些资源；曾启用的部署仍须按手册显式撤销旧绑定和回收对象，不能把重新 apply 省略项当作撤权。
 - 本批固定任务关闭：剩余开发 0、待验收 0。本地六条加 CI 一条为七个不重叠方法；Kind 容器实际回收为 0，合成资源、临时 kubeconfig 和配置随本轮夹具回收，本地验证容器 --rm 回收，既有 Helm 工具只读复用。节点条件与日志 DaemonSet 状态源的框架接线已闭合，不再重复安排；现场启用及实际日志 Agent、Node Exporter/外部源、实际 Host 链路、正式通知和生产故障域/容量仍归 D08-14/F15/F16。未操作现网或运行 HPA/PDB、HTTPS/通知/PVC 恢复、.NET/双库/全量，Capacity-not-verified 保持。
+### 8.395 D08-14 仅指标 Host 与当前平台的实际链路（2026-11-21）
+
+| 固定任务 | 当前状态 | 完成条件 |
+| --- | --- | --- |
+| D08-HostPlatformMetricsLoop | 已实现，待集中验收 | 真实 Host 仅配置指标端点，经当前 Helm 派生 Collector 到 Prometheus，验证双通道和共享实例；原一分钟告警触发、原五分钟窗口滚动恢复，无乱序拒绝。 |
+
+- 基线 eda13251b2cd3ed691e192ed3626a3b9929c0794，快照 host-platform-metrics-chain-20261121。§8.390 的真实 HTTP 接收与 §8.389/391 平台回路分别通过，不能直接拼成同一路径证明；将已有 HostLoggingMetricsPipelineTests 直接升级到当前 Helm 清单/仅指标入口，不保留仅用于旧配置的并行测试版本。
+- 冻结原链路用例、精确集成工作流和手册。实际 Helm 从同一工作树生成 Collector/Prometheus/原规则与镜像；只替换本轮两容器地址/规则挂载，移除未启动 KSM/Alertmanager 的抓取和通知。保留真实五秒 WAL、十五秒评估、一分钟 for 与五分钟 increase。Collector 以原 UID 10001 和有界临时存储运行，不改生产代码或配置。
+- 集中只执行这一条 Integration 方法，原测试数量不变，矩阵既有 logging-metrics 范围复用；只准备实际两个固定镜像，不运行数据库、浏览器、完整 Native 或全量。证明 Full.NET 服务默认注册到平台指标配置的隔离链路，不冒充完整 Api/Worker 业务宿主、现场部署、真实通知或容量；Capacity-not-verified 保持。

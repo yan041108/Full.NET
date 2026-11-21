@@ -1,7 +1,8 @@
+using System.Diagnostics;
 using System.Globalization;
 using System.Text;
 using System.Text.Json;
-using System.Text.RegularExpressions;
+using System.Text.Json.Nodes;
 using DotNet.Testcontainers.Builders;
 using DotNet.Testcontainers.Containers;
 using DotNet.Testcontainers.Images;
@@ -16,7 +17,7 @@ using OpenTelemetry.Metrics;
 
 namespace Full.NET.IntegrationTests.Observability;
 
-/// <summary>使用真实 Host、OTLP Collector 和 Prometheus 验证双通道指标及原始告警窗口。</summary>
+/// <summary>从当前平台 Helm 清单取配置，验证仅指标 Host 的真实导出、双通道和原始告警窗口。</summary>
 [TestClass]
 [DoNotParallelize]
 public sealed class HostLoggingMetricsPipelineTests
@@ -30,38 +31,31 @@ public sealed class HostLoggingMetricsPipelineTests
         using var deadline = new CancellationTokenSource(TimeSpan.FromMinutes(10));
         var token = deadline.Token;
         var root = FindRoot();
-        var values = await File.ReadAllTextAsync(Path.Combine(root, "deploy/observability/otel-collector-values.yaml"), token);
-        Assert.IsTrue(values.Contains("tag: \"" + CollectorImage.Split('@')[0].Split(':')[1] + "\"", StringComparison.Ordinal)
-            && values.Contains(CollectorImage.Split('@')[1], StringComparison.Ordinal),
-            "镜像升级必须同步更新真实链路的固定镜像。 ");
-        var block = Regex.Match(values, @"^config:\r?\n([\s\S]*?)(?=^[^ \r\n#]|\z)", RegexOptions.Multiline);
-        Assert.IsTrue(block.Success, "没有找到实际部署中的 Collector config。");
-        // 直接使用部署配置，只替换隔离测试的目的地；保留处理器、队列、WAL 与批次参数。
-        var collectorConfig = Regex.Replace(block.Groups[1].Value, "^  ", "", RegexOptions.Multiline)
-            .Replace("http://prometheus.observability.svc:9090/api/v1/write",
-                "http://127.0.0.1:9090/api/v1/write", StringComparison.Ordinal);
-        var walInterval = Regex.Match(collectorConfig, @"truncate_frequency:\s*(\d+)([sm])");
-        Assert.IsTrue(walInterval.Success, "测试必须按实际 WAL 周期计算导出等待预算。");
-        var walSeconds = int.Parse(walInterval.Groups[1].Value, CultureInfo.InvariantCulture)
-            * (walInterval.Groups[2].Value == "m" ? 60 : 1);
-        Assert.IsTrue(walSeconds is > 0 and <= 120, "WAL 周期变化需要重新核对本场景的整体执行预算。");
-        // WAL 在收到后续批次时检查发送周期；留出部署 batch 和两秒观察轮询的余量。
-        var observationWindow = TimeSpan.FromSeconds(walSeconds + 20);
-        var rules = await File.ReadAllBytesAsync(Path.Combine(root, "deploy/observability/prometheus-rules.yaml"), token);
-        var prometheusConfig = Encoding.UTF8.GetBytes("""
-            global:
-              evaluation_interval: 1s
-              scrape_interval: 1s
-            rule_files:
-              - /work/rules.yaml
-            scrape_configs: []
-            """);
+        var platform = await RenderPlatformAsync(root, token);
+        var items = platform.GetProperty("items").EnumerateArray().ToArray();
+        foreach (var pair in new[] { ("telemetry-collector", CollectorImage), ("prometheus", PrometheusImage) })
+            Assert.AreEqual(pair.Item2, items.Single(item => item.GetProperty("kind").GetString() == "Deployment"
+                && item.GetProperty("metadata").GetProperty("name").GetString() == pair.Item1)
+                .GetProperty("spec").GetProperty("template").GetProperty("spec")
+                .GetProperty("containers")[0].GetProperty("image").GetString(), "固定镜像必须与原始清单一致。");
+        var data = items.Single(item => item.GetProperty("kind").GetString() == "ConfigMap").GetProperty("data");
+        var collectorConfig = JsonNode.Parse(data.GetProperty("collector.json").GetString()!)!;
+        var pipelines = collectorConfig["service"]!["pipelines"]!.AsObject();
+        CollectionAssert.AreEqual(new[] { "metrics" }, pipelines.Select(pair => pair.Key).ToArray());
+        Assert.AreEqual("5s", collectorConfig["exporters"]!["prometheus_remote_write"]!["wal"]!["truncate_frequency"]!.GetValue<string>());
+        // 仅启动两后端，调整目的地/规则路径并移除其他抓取和通知；保留原处理器、WAL、评估周期与规则窗口。
+        collectorConfig["exporters"]!["prometheus_remote_write"]!["http"]!["endpoint"] = "http://127.0.0.1:9090/api/v1/write";
+        var prometheusConfig = JsonNode.Parse(data.GetProperty("prometheus.json").GetString()!)!;
+        prometheusConfig["rule_files"] = new JsonArray("/work/rules.json");
+        prometheusConfig["scrape_configs"] = new JsonArray();
+        prometheusConfig["alerting"]!["alertmanagers"] = new JsonArray();
+        var observationWindow = TimeSpan.FromSeconds(45);
         await using var prometheus = Budget(new ContainerBuilder(PrometheusImage))
             .WithPortBinding(9090, true)
             .WithPortBinding(4318, true)
-            .WithResourceMapping(prometheusConfig, "/work/prometheus.yaml")
-            .WithResourceMapping(rules, "/work/rules.yaml")
-            .WithCommand("--config.file=/work/prometheus.yaml", "--storage.tsdb.path=/tmp/prometheus",
+            .WithResourceMapping(Encoding.UTF8.GetBytes(prometheusConfig.ToJsonString()), "/work/prometheus.json")
+            .WithResourceMapping(Encoding.UTF8.GetBytes(data.GetProperty("rules.json").GetString()!), "/work/rules.json")
+            .WithCommand("--config.file=/work/prometheus.json", "--storage.tsdb.path=/tmp/prometheus",
                 "--web.enable-remote-write-receiver")
             .WithWaitStrategy(Wait.ForUnixContainer().UntilInternalTcpPortIsAvailable(9090))
             .Build();
@@ -69,13 +63,16 @@ public sealed class HostLoggingMetricsPipelineTests
         await using var collector = Budget(new ContainerBuilder(CollectorImage))
             .WithCreateParameterModifier(parameters =>
             {
-                // 仅此隔离测试允许创建默认路径，卷的生产权限仍由平台负责。
-                parameters.User = "0:0";
-                (parameters.HostConfig ??= new()).NetworkMode = "container:" + prometheus.Id;
+                parameters.User = "10001:10001";
+                var limits = parameters.HostConfig ??= new();
+                limits.NetworkMode = "container:" + prometheus.Id;
+                limits.Tmpfs = new Dictionary<string, string>
+                {
+                    ["/var/otel-collector/storage"] = "rw,uid=10001,gid=10001,mode=0700,size=67108864,nosuid,nodev,noexec",
+                };
             })
-            .WithResourceMapping(Encoding.UTF8.GetBytes(collectorConfig), "/work/collector.yaml")
-            .WithResourceMapping(Array.Empty<byte>(), "/var/otel-collector/storage/.keep")
-            .WithCommand("--config=/work/collector.yaml")
+            .WithResourceMapping(Encoding.UTF8.GetBytes(collectorConfig.ToJsonString()), "/work/collector.json")
+            .WithCommand("--config=/work/collector.json")
             .WithWaitStrategy(Wait.ForUnixContainer().UntilMessageIsLogged("Everything is ready"))
             .Build();
         await collector.StartAsync(token);
@@ -99,9 +96,9 @@ public sealed class HostLoggingMetricsPipelineTests
             builder.Configuration["FullNet:Logging:ExpectedDeliveryMode"] = "Collector";
             builder.Configuration["FullNet:Logging:AsyncBufferSize"] = "2";
             builder.Configuration["FullNet:Logging:HighPriorityAsyncBufferSize"] = "2";
-            builder.Configuration["OTEL_EXPORTER_OTLP_ENDPOINT"] =
-                new UriBuilder("http", prometheus.Hostname, prometheus.GetMappedPublicPort(4318)).Uri.ToString();
-            builder.Configuration["OTEL_EXPORTER_OTLP_PROTOCOL"] = "http/protobuf";
+            builder.Configuration["OTEL_EXPORTER_OTLP_METRICS_ENDPOINT"] =
+                new UriBuilder("http", prometheus.Hostname, prometheus.GetMappedPublicPort(4318), "/v1/metrics").Uri.ToString();
+            builder.Configuration["OTEL_EXPORTER_OTLP_METRICS_PROTOCOL"] = "http/protobuf";
             builder.Configuration["OTEL_SERVICE_NAME"] = "fullnet-logging-metrics-test";
             builder.AddFullNetServiceDefaults();
             // 观察传输不能写入正在阻塞的被测队列；仅隔离本夹具的 OTLP 客户端。
@@ -115,6 +112,9 @@ public sealed class HostLoggingMetricsPipelineTests
             host = builder.Build();
             var meter = host.Services.GetRequiredService<MeterProvider>();
             var monitors = host.Services.GetRequiredService<FullNetLoggingMonitors>();
+            var instance = host.Services.GetRequiredService<LoggingResourceMetadata>().Instance;
+            var identity = "job=\"fullnet-logging-metrics-test\",instance=\"" + instance + "\"";
+            Assert.IsNull(builder.Configuration["OTEL_EXPORTER_OTLP_ENDPOINT"]);
             var logger = host.Services.GetRequiredService<ILogger<HostLoggingMetricsPipelineTests>>();
             logger.LogInformation("Metrics pipeline baseline");
             logger.LogError("Metrics pipeline priority baseline");
@@ -163,7 +163,7 @@ public sealed class HostLoggingMetricsPipelineTests
                 Assert.AreEqual(1, monitors.HighPriority.Snapshot.DroppedMessagesCount);
                 foreach (var channel in new[] { "general", "high_priority" })
                 {
-                    var selector = "{channel=\"" + channel + "\"}";
+                    var selector = "{channel=\"" + channel + "\"," + identity + "}";
                     if (await ValueAsync(http, "fullnet_logging_queue_depth" + selector, token) != 2
                         || await ValueAsync(http, "fullnet_logging_queue_capacity" + selector, token) != 2
                         || !(await ValueAsync(http, "fullnet_logging_queue_bytes" + selector, token) > 0)
@@ -184,7 +184,7 @@ public sealed class HostLoggingMetricsPipelineTests
             await WaitAsync(async () =>
             {
                 await Flush();
-                return await AlertFiringAsync(http, token);
+                return await AlertFiringAsync(http, instance, token);
             }, TimeSpan.FromSeconds(100), token, "正式优先丢弃告警触发");
             // 保留正式五分钟 increase 与一分钟 for，不通过缩短规则窗口伪造恢复验收。
             await WaitAsync(async () =>
@@ -194,7 +194,7 @@ public sealed class HostLoggingMetricsPipelineTests
                     "increase(fullnet_logging_events_dropped_total{channel=\"high_priority\"}[5m])", token);
                 return samples.GetArrayLength() == 1
                     && double.Parse(samples[0].GetProperty("value")[1].GetString()!, CultureInfo.InvariantCulture) == 0
-                    && !await AlertFiringAsync(http, token);
+                    && !await AlertFiringAsync(http, instance, token);
             }, TimeSpan.FromMinutes(6), token, "正式五分钟窗口滚动后告警恢复");
             var completedLogs = await collector.GetLogsAsync();
             Assert.IsFalse((completedLogs.Stdout + completedLogs.Stderr)
@@ -215,6 +215,55 @@ public sealed class HostLoggingMetricsPipelineTests
             writer.Release.Set();
             Console.SetOut(original);
             host?.Dispose();
+        }
+    }
+
+    /// <summary>直接渲染当前本地 Chart；超时后终止本轮子进程，不读取集群或复用外部清单。</summary>
+    private static async Task<JsonElement> RenderPlatformAsync(string root, CancellationToken token)
+    {
+        var start = new ProcessStartInfo("helm")
+        {
+            WorkingDirectory = root,
+            UseShellExecute = false,
+            CreateNoWindow = true,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+        };
+        foreach (var argument in new[]
+        {
+            "template", "fullnet-observability", Path.Combine(root, "deploy/helm/fullnet-observability"),
+            "--namespace", "observability", "--set",
+            "cluster=integration-host-platform,prometheusClaim=prometheus-data,alertmanagerClaim=alertmanager-data",
+            "--set-file", "rulesSource=" + Path.Combine(root, "deploy/observability/prometheus-rules.yaml"),
+            "--set-file", "collectorSource=" + Path.Combine(root, "deploy/observability/otel-collector-values.yaml"),
+        })
+            start.ArgumentList.Add(argument);
+        using var process = new Process { StartInfo = start };
+        Assert.IsTrue(process.Start(), "没有启动当前平台渲染器。");
+        var output = process.StandardOutput.ReadToEndAsync(token);
+        var error = process.StandardError.ReadToEndAsync(token);
+        try
+        {
+            await process.WaitForExitAsync(token);
+            var stderr = await error;
+            Assert.AreEqual(0, process.ExitCode,
+                "平台渲染失败：" + (stderr.Length > 2000 ? stderr[^2000..] : stderr));
+            // Helm 来源注释与文档分隔符不属于 JSON，清单数据本身必须原样解析。
+            var json = string.Join('\n', (await output).Split('\n').Where(line =>
+                !line.StartsWith('#') && line.Trim() != "---"));
+            using var document = JsonDocument.Parse(json);
+            Assert.AreEqual("List", document.RootElement.GetProperty("kind").GetString());
+            return document.RootElement.Clone();
+        }
+        finally
+        {
+            if (!process.HasExited)
+            {
+                // 子进程可能在判断后自然退出，只忽略已经证实退出的竞态。
+                try { process.Kill(entireProcessTree: true); }
+                catch (InvalidOperationException) when (process.HasExited) { }
+                await process.WaitForExitAsync(CancellationToken.None);
+            }
         }
     }
 
@@ -243,13 +292,15 @@ public sealed class HostLoggingMetricsPipelineTests
         return document.RootElement.GetProperty("data").GetProperty("result").Clone();
     }
 
-    private static async Task<bool> AlertFiringAsync(HttpClient client, CancellationToken token)
+    private static async Task<bool> AlertFiringAsync(HttpClient client, string instance, CancellationToken token)
     {
         using var response = await client.GetAsync("api/v1/alerts", token);
         response.EnsureSuccessStatusCode();
         using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync(token));
         return document.RootElement.GetProperty("data").GetProperty("alerts").EnumerateArray().Any(alert =>
             alert.GetProperty("labels").GetProperty("alertname").GetString() == "FullNetPriorityLogDrop"
+            && alert.GetProperty("labels").GetProperty("job").GetString() == "fullnet-logging-metrics-test"
+            && alert.GetProperty("labels").GetProperty("instance").GetString() == instance
             && alert.GetProperty("labels").GetProperty("channel").GetString() == "high_priority"
             && alert.GetProperty("labels").GetProperty("severity").GetString() == "critical"
             && alert.GetProperty("state").GetString() == "firing");
