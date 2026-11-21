@@ -34,6 +34,9 @@ public static class ServiceDefaultsExtensions
     /// <exception cref="OptionsValidationException">
     /// LoggingOptions 存在阻塞、条数/字节容量、单事件上限或刷新超时配置非法时启动期抛出。
     /// </exception>
+    /// <exception cref="InvalidOperationException">
+    /// 未设置全局 OTLP 端点且显式信号端点、协议、超时或压缩配置非法时，在注册阶段抛出；错误不包含配置值。
+    /// </exception>
     public static IHostApplicationBuilder AddFullNetServiceDefaults(
         this IHostApplicationBuilder builder,
         Func<IConfiguration, IHostLogSnapshotExporter>? createLogExporter = null)

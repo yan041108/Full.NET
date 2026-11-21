@@ -7534,12 +7534,17 @@ Release 集成工程单节点构建及 Identity 模块隔离 AOT 分析均零警
 - Prometheus 的专用十秒合成规则实际 firing→resolved，Alertmanager 以 CA 校验及 credentials_file 合成凭据请求本轮 TLS 接收器（未验证 Kubernetes Secret 投影），两次状态使用同一指纹。错误 CA 独立对照实际出现 x509 拒绝，未增加接收事件；该对照只证明 TLS 拒绝，不冒充另一条 Prometheus 规则链。原规则名字和阈值保留、默认 discard/禁用合成告警、字符串布尔拒绝、只读权限及 PVC/Secret 引用均通过规定边界。
 - 本轮五个运行容器及四个校验容器均回收，私有网络删除（own_containers=0），合成 CA/密钥/Token 与配置随夹具目录回收。独立 Windows 临时 Helm 工具目录 `C:\Users\dai27\AppData\Local\Temp\fullnet-monitor-helm-2dd462dfc6484d66a2d4b8762e90499f` 的清理在执行前被自动审批审查拒绝，仅返回 blocked by policy，未提供具体原因；74,520,601 字节（约 71.1 MiB）保留，未换方式绕过或报告已清理。
 - 本批两个固定开发项及规定功能验收均完成，剩余开发 0、功能待验收 0、临时工具清理受限 1。补充只读全 Pod 镜像清单确认现场仅有 Kubernetes metrics-server，未发现本批 Prometheus/Alertmanager/Collector/KSM 的 Pod、无 monitoring.coreos.com CRD；平台采集链仍需授权安装和验证；Host 全局 OTLP/分信号导出接线、真实 Deployment watch/CNI/PVC、Node/HPA 等未提供源、正式告警地址及故障域继续归 D08-14/F16，不能据合成回路关闭整体任务。F15 原目标整批预演受限状态保留，未重试。未操作生产或运行无影响的 .NET/双库/全量，Capacity-not-verified 和其他工作区改动保持。
+
 ### 8.390 D08-14 应用按信号导出接线（2026-11-21）
 
 | 固定任务 | 当前状态 | 完成条件 |
 | --- | --- | --- |
-| D08-OtlpSignalRegistration | 已实现，待集中验收 | 无全局端点时按显式 METRICS/TRACES 端点独立注册，命名选项隔离，完整 HTTP 路径和通用/信号配置优先级正确，不启用额外日志出口；非法配置不回显值。 |
-| D08-OtlpSignalRuntimeProof | 验收中 | 自有回环 HTTP 接收器证明指标、追踪、两者、禁用、全局与全局覆盖；复核资源实例与无重复注册，并完成 Host 可达 AOT 分析。 |
+| D08-OtlpSignalRegistration | 已完成，定向验收通过 | 无全局端点时按显式 METRICS/TRACES 端点独立注册，命名选项隔离，完整 HTTP 路径和通用/信号配置优先级正确，不启用额外日志出口；非法配置不回显值。 |
+| D08-OtlpSignalRuntimeProof | 已完成，HTTP 运行与分析通过 | 自有回环 HTTP 接收器证明指标、追踪、两者、禁用、全局与全局覆盖；复核资源实例与无重复注册，并完成 Host 可达 AOT 分析。 |
 
 - 基线 892de4cefb589e3fbca0f770cecbd3bc3708fc32；快照 otlp-signal-host-20261121。接续 §8.389 已明确的 Host 全局端点准入缺口，冻结范围仅为 Hosting 注册、直接相关测试及配置手册。沿用 main，既有无关工作区改动保留。
 - 分信号注册使用 SDK 静态 API，不增加包、不改日志持久化通道。集中执行 ServiceDefaultsMetricsTests 精确类与 API/Worker AOT 分析；不运行全量或数据库测试，不部署现网。正式采集新鲜度、正式路由送达与物理故障域仍归 D08-14/F16；Capacity-not-verified 保持。
+- 首轮候选 421632979e248afb723c0d254ac810c773a1503e 的定向 Unit [作业 136662572747](https://github.com/yan041108/Full.NET/actions/runs/44845043960/job/136662572747) 在编译阶段失败，三处 Host.CreateApplicationBuilder 被解析为 Full.NET.Host 命名空间，未执行用例；改用完整类型名，未改生产实现或降低门槛。
+- 修正测试源码 8f2fc51588a1115b640861bc1f41c32fe3fd3bac 的 [定向 Unit 作业](https://github.com/yan041108/Full.NET/actions/runs/44845764403/job/136664959705) 为 22/22（5.876 秒），零失败、零跳过；Release 构建零警告/错误。六种真实回环 HTTP 场景覆盖仅指标、仅追踪、两者、禁用、全局、全局信号覆盖；断言实际 protobuf POST、完整路径、唯一出口、指标名、追踪名和日志共享实例标识。仅分信号模式没有日志 POST；无出口时请求数为零。命名配置隔离/覆盖及九组非法配置拒绝也实际通过。配置测试不外发到真实后端；gRPC、压缩、Header 和超时的选项断言不外推为对应远端传输验收。
+- 生产实现候选 421632979 的 [API 分析作业](https://github.com/yan041108/Full.NET/actions/runs/44845048801/job/136662574064) 与 [Worker 分析作业](https://github.com/yan041108/Full.NET/actions/runs/44845053252/job/136662589045) 均通过，零警告/零错误；Worker 后续 JIT 恢复构建也通过。测试修正提交仅改测试文件，收据补充仅为注释、手册、计划及 JSON 等价缩进，未改变分析覆盖的运行实现；复用该精确实现结果，不运行完整 Native 发布/Provider 或全量测试，不升级为新的 Aot-published 认证。
+- 本批两个固定项关闭：剩余开发 0、功能待验收 0。运行夹具持有的回环接收器和 Host 随测试释放；未创建本地平台容器或发布目录。Host 无全局地址时按指标/追踪独立导出已关闭，不再重复安排；应用 Chart 既有 runtime.configMapName/runtime.secretName 注入入口已说明。现网仍需固定新版本发布、平台部署、实际应用到 Collector 的采集/新鲜度、真实 Deployment watch/CNI/PVC、正式通知触发与恢复送达，继续归 D08-14/F15/F16。HTTP 接收器验收与 §8.389 合成平台回路是各自边界证据，不能拼接宣称现网端到端通过；Capacity-not-verified 保持。

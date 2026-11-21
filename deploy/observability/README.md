@@ -192,6 +192,8 @@ OTEL_EXPORTER_OTLP_METRICS_ENDPOINT=http://telemetry-collector.observability.svc
 OTEL_EXPORTER_OTLP_METRICS_PROTOCOL=http/protobuf
 ```
 
+API、Worker 使用现有应用 Chart 的 runtime.configMapName 引用发布命名空间内的配置对象，由其 data 提供上述键；需要鉴权的 OTLP HEADERS 通过 runtime.secretName 引用的 Secret 注入，禁止放进 values、普通 ConfigMap 或日志。更新环境配置后需显式滚动应用；运行中的进程不会自动重读这些导出选项。启用前同时检查现有通用键和同名 Secret 键，避免意外覆盖或继续启用旧全局出口。
+
 已有全局出口时仍使用 SDK 全信号注册及其标准覆盖规则，不重复添加分信号导出器；该模式与分信号注册不可混用。禁止把指标专用后端设置为全局目的地。只有追踪后端时可单独配置 OTEL_EXPORTER_OTLP_TRACES_ENDPOINT 及协议。应用入口的现有 Egress 策略、TLS/CA 与实际可见性须在现场启用前核对；本轮不改现网配置，也不由回环 HTTP 接收测试推导生产采集完成。配置语义依据 [OpenTelemetry .NET 1.17 OTLP 配置](https://github.com/open-telemetry/opentelemetry-dotnet/blob/core-1.17.0/src/OpenTelemetry.Exporter.OpenTelemetryProtocol/README.md)。
 
 通知默认 discard，不外发。只有显式 receiver.enabled=true 才渲染 webhook，要求 HTTPS、无 URL 凭据/query/fragment，使用 receiver.caSecretName 的 ca.pem；可选 receiver.authorizationSecretName 的 token 仅以 Bearer credentials_file 引用。清单不包含 Secret 数据，也不创建 Secret。默认 receiver.probeOnly=true 只转发合成探针，其他规则继续 discard；正式启用获准路由时另行审查 receiver.probeOnly=false、CA/凭据投影与真实触发/恢复送达。证书轮换后重新验证或滚动，不假定 TLS 客户端热加载。

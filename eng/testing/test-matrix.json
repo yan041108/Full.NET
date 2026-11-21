@@ -7,11 +7,11 @@
       "minimum": 9732,
       "timeout": "10m",
       "selections": {
-      "otlp-signal-host": {
-        "filter": "FullyQualifiedName~Full.NET.UnitTests.Hosting.ServiceDefaultsMetricsTests.",
-        "minimum": 22,
-        "timeout": "3m"
-      },
+        "otlp-signal-host": {
+          "filter": "FullyQualifiedName~Full.NET.UnitTests.Hosting.ServiceDefaultsMetricsTests.",
+          "minimum": 22,
+          "timeout": "3m"
+        },
         "ai-document-tenant-file-recovery": {
           "filter": "FullyQualifiedName=Full.NET.UnitTests.Ai.AiKnowledgeDocumentPlanningServiceTests.Tenant_file_list_unavailable_before_reservation_rejects_without_charging|FullyQualifiedName=Full.NET.UnitTests.Ai.AiKnowledgeDocumentPlanningServiceTests.Tenant_file_list_unavailable_after_dispatch_preserves_usage_and_prevents_replay",
           "minimum": 3,
