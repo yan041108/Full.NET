@@ -43,6 +43,16 @@ class BatchReleaseTests(_Base):
             pathlib.Path('/etc/fullnet/release/' + role + '.json').write_text(json.dumps({'image': {'tag': 'same-candidate'}}))
         result = self.batch(plan=True)
         self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(json.loads(result.stdout)['candidateImageTag'], 'same-candidate')
+
+    def test_ambiguous_json_and_nonstandard_numbers_block_before_commands(self):
+        for content in ('{"image":{"tag":"first","tag":"second"}}',
+                '{"image":{"tag":"first"},"image":{"tag":"second"}}',
+                '{"image":{"tag":"valid"},"other":NaN}',
+                '{"image":{"tag":"valid"},"other":Infinity}'):
+            self.common.write_text(content)
+            self.assert_no_success(self.batch(plan=True))
+            self.assertEqual(self.state()['events'], [])
 
     def failure_receipt(self, result):
         self.assert_no_success(result)
@@ -61,6 +71,7 @@ class BatchReleaseTests(_Base):
         self.assertEqual(receipt['roles'], ROLES)
         self.assertEqual(receipt['completedRoles'], [])
         self.assertEqual(receipt['action'], 'plan')
+        self.assertEqual(receipt['candidateImageTag'], '1.0.0-fixture')
         state = self.state()
         self.assertEqual([record['role'] for record in state['template_records']], ROLES)
         self.assertEqual(len(set(record['package'] for record in state['template_records'])), 1)
@@ -73,6 +84,7 @@ class BatchReleaseTests(_Base):
         self.assertEqual(result.returncode, 0, result.stderr)
         receipt = json.loads(result.stdout)
         self.assertEqual(receipt['completedRoles'], ROLES)
+        self.assertEqual(receipt['candidateImageTag'], '1.0.0-fixture')
         state = self.state()
         self.assertEqual([record['role'] for record in state['upgrade_records']], ROLES)
         self.assertEqual([record['mysql_value'] for record in state['upgrade_records']], [1, 0, 0])
@@ -99,6 +111,7 @@ class BatchReleaseTests(_Base):
         result = self.batch()
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(self.common.read_text(), 'changed-after-render')
+        self.assertEqual(json.loads(result.stdout)['candidateImageTag'], '1.0.0-fixture')
         state = self.state()
         self.assertEqual([record['values'] for record in state['template_records']],
                          [record['values'] for record in state['upgrade_records']])

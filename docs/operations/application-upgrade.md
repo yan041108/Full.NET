@@ -152,7 +152,7 @@ sudo /usr/local/lib/fullnet/Release-Application.sh "$CANDIDATE_CHART" all --ordi
 
 执行顺序固定 Migrator → Worker → API。只在 Migrator 前启动备份，沿原流程启用/恢复临时 DDL；恢复并核对原值后才能继续 Worker。API 完成后沿原入口刷新网关。任一阶段失败立即停止，不执行后续角色，也不自动回滚已经完成的数据库或宿主发布。涉及报表格式变化仍须先走本文开头及 reporting-output-cutover.md 的既有专用门禁，不能用 ordinary 标志跳过。
 
-成功回执保留 role/action/chartSha256，增加有序 roles、completedRoles 及四份 valuesSha256；plan 的 completedRoles 为空，不能当成发布完成。失败标准错误报告 completedRoles 和 ddlRestorePending，标准输出无成功回执；只有完成实际 DDL 恢复和暂存清理才输出成功。执行与先前预览是不同调用，应逐项比较候选及四份配置摘要；文件变化时重新审查，不以旧预览批准新输入。单角色入口仍可独立使用。
+成功回执保留 role/action/chartSha256，增加有序 roles、completedRoles 及四份 valuesSha256；plan 的 completedRoles 为空，不能当成发布完成。candidateImageTag 为本批冻结 values 实际核对的统一版本，单角色为 null，表示未执行跨角色版本认证；该字段不代表镜像内容不可变或运行版本已验证。批量 JSON 在任意对象层级出现重复键，或含 NaN/Infinity 时，在外部发布命令前拒绝，避免解析器对同一配置得出不同结果。失败标准错误报告 completedRoles 和 ddlRestorePending，标准输出无成功回执；只有完成实际 DDL 恢复和暂存清理才输出成功。执行与先前预览是不同调用，应逐项比较候选及四份配置摘要；文件变化时重新审查，不以旧预览批准新输入。单角色入口仍可独立使用。
 
 定向入口 helm-runtime-focused / ubuntu-role-batch 复用一个隔离环境集中覆盖直接受影响的单角色控制流与批量顺序、冻结、失败停止、DDL 恢复、部分进度；真实 Helm 3/4 只做渲染，不连接发布集群。计划核对不证明镜像内容、真实数据库迁移、线上切换、恢复目标或容量。
 

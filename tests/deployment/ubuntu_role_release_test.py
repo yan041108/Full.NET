@@ -126,6 +126,7 @@ class ReleaseControlTests(_Base):
         result = self.execute('migrator', '--plan')
         self.assertEqual(0, result.returncode, result.stderr)
         self.assertEqual('plan', json.loads(result.stdout)['action'])
+        self.assertIsNone(json.loads(result.stdout)['candidateImageTag'])
         events = self.state()['events']
         self.assertFalse(any(event[0] in ('mysql', 'systemctl') or event[1] == 'upgrade' for event in events))
         self.assertEqual(self.before, set(pathlib.Path('/run').glob('fullnet-release-*')))
@@ -136,6 +137,7 @@ class ReleaseControlTests(_Base):
         state = self.state()
         self.assertEqual(0, state['mysql_value'])
         self.assertEqual('applied', json.loads(result.stdout)['action'])
+        self.assertIsNone(json.loads(result.stdout)['candidateImageTag'])
         self.assertEqual(state['template_package'], state['upgrade_package'])
         self.assertEqual(state['template_values'], state['upgrade_values'])
 
@@ -290,6 +292,7 @@ class RealHelmRolePlanTests(_Base):
         self.assertEqual(result.returncode, 0, result.stderr)
         receipt = json.loads(result.stdout)
         self.assertEqual(receipt['roles'], ['migrator', 'worker', 'api'])
+        self.assertEqual(receipt['candidateImageTag'], 'fixed-candidate')
         self.assertEqual(receipt['completedRoles'], [])
         self.assertEqual(set(receipt['valuesSha256']), {'common', 'migrator', 'worker', 'api'})
         for role in ('migrator', 'worker', 'api'):

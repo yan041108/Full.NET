@@ -27,6 +27,7 @@ chart_digest=''
 failure_logs=()
 completed_roles=()
 values_digest_json=''
+candidate_image_tag_json=null
 
 roles_json() {
   local separator=''
@@ -91,8 +92,8 @@ finish() {
       "$requested_role" "$(roles_json "${completed_roles[@]}")" "$restore_required" >&2
   fi
   if [[ $result == 0 ]]; then
-    printf '{"schemaVersion":1,"role":"%s","roles":%s,"completedRoles":%s,"namespace":"fullnet-production","action":"%s","chartSha256":"%s","valuesSha256":{%s}}\n' \
-      "$requested_role" "$(roles_json "${roles[@]}")" "$(roles_json "${completed_roles[@]}")" "$action" "$chart_digest" "$values_digest_json"
+    printf '{"schemaVersion":1,"role":"%s","roles":%s,"completedRoles":%s,"namespace":"fullnet-production","action":"%s","chartSha256":"%s","valuesSha256":{%s},"candidateImageTag":%s}\n' \
+      "$requested_role" "$(roles_json "${roles[@]}")" "$(roles_json "${completed_roles[@]}")" "$action" "$chart_digest" "$values_digest_json" "$candidate_image_tag_json"
   fi
   exit "$result"
 }
@@ -107,13 +108,21 @@ if [[ $requested_role == all ]]; then
   # 批量共用一个候选；禁止角色覆盖成不同版本，且不依赖 Chart 的隐含默认镜像标签。
   perform batch-image-version python3 - "$work/common.json" "$work/migrator.json" "$work/worker.json" "$work/api.json" <<'PY'
 import json,re,sys
+def unique_object(pairs):
+    result={}
+    for key,value in pairs:
+        if key in result: raise ValueError()
+        result[key]=value
+    return result
+def invalid_constant(_value):
+    raise ValueError()
 try:
     documents=[]
     for filename in sys.argv[1:]:
         with open(filename, encoding='utf-8') as stream:
             content=stream.read(1048577)
         if len(content)>1048576: raise ValueError()
-        document=json.loads(content)
+        document=json.loads(content,object_pairs_hook=unique_object,parse_constant=invalid_constant)
         if not isinstance(document,dict) or not isinstance(document.get('image',{}),dict): raise ValueError()
         documents.append(document.get('image',{}))
     identities=[]
@@ -125,10 +134,13 @@ try:
         if any(value is not None and not isinstance(value,str) for value in identity): raise ValueError()
         identities.append(identity)
     if len(set(identities))!=1: raise ValueError()
+    print(json.dumps(identities[0][2]))
 except (ValueError,TypeError,OSError):
     print('批量 values 必须为有界 JSON 对象，并显式解析为同一镜像 registry/repository/tag，禁止 latest。',file=sys.stderr)
     sys.exit(1)
 PY
+  # 只保存已通过格式与一致性检查的 JSON 字符串；暂存清理后仍可签发相同候选回执。
+  candidate_image_tag_json=$(< "$last_output")
 fi
 perform package timeout --foreground --kill-after=5s 60s helm package "$chart" --destination "$work"
 shopt -s nullglob
