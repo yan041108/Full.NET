@@ -1,0 +1,95 @@
+name: source-candidate
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  candidate:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Build the pinned source candidate
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          test -z "$(git status --porcelain --untracked-files=all)"
+          candidate="$RUNNER_TEMP/fullnet-source-candidate"
+          test ! -e "$candidate"
+          mkdir -m 0700 "$candidate"
+          echo "FULLNET_SOURCE_CANDIDATE=$candidate" >> "$GITHUB_ENV"
+          node scripts/templates/build-source-bundle.mjs --output "$candidate/source" --source-commit "$GITHUB_SHA"
+      - name: Verify every packaged source file
+        run: |
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import fs from 'node:fs';
+          import path from 'node:path';
+          import { createHash } from 'node:crypto';
+          const root = path.join(process.env.FULLNET_SOURCE_CANDIDATE, 'source');
+          const manifest = JSON.parse(fs.readFileSync(path.join(root, 'framework-manifest.json'), 'utf8'));
+          assert.equal(manifest.sourceCommit, process.env.GITHUB_SHA);
+          assert.equal(manifest.schemaVersion, 3);
+          const files = [];
+          function walk(directory, prefix = '') {
+            for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
+              assert(!entry.isSymbolicLink());
+              const relative = prefix + entry.name;
+              if (entry.isDirectory()) walk(path.join(directory, entry.name), relative + '/');
+              else { assert(entry.isFile()); files.push(relative); }
+            }
+          }
+          walk(root);
+          assert.deepEqual(files.sort(), [...Object.keys(manifest.managedFiles), 'framework-manifest.json'].sort());
+          for (const [relative, digest] of Object.entries(manifest.managedFiles)) {
+            const target = path.resolve(root, relative);
+            assert(target.startsWith(root + path.sep));
+            assert.match(digest, /^[a-f0-9]{64}$/);
+            assert.equal(createHash('sha256').update(fs.readFileSync(target)).digest('hex'), digest);
+          }
+          console.log(`source_candidate_verified: commit=${manifest.sourceCommit} managed_files=${Object.keys(manifest.managedFiles).length}`);
+          NODE
+      - name: Archive the candidate and bind its receipt
+        run: |
+          set -euo pipefail
+          tar -C "$FULLNET_SOURCE_CANDIDATE/source" -czf "$FULLNET_SOURCE_CANDIDATE/fullnet-source-$GITHUB_SHA.tar.gz" .
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          import path from 'node:path';
+          import { createHash } from 'node:crypto';
+          const directory = process.env.FULLNET_SOURCE_CANDIDATE;
+          const archive = `fullnet-source-${process.env.GITHUB_SHA}.tar.gz`;
+          const manifestBytes = fs.readFileSync(path.join(directory, 'source/framework-manifest.json'));
+          const manifest = JSON.parse(manifestBytes);
+          const hash = bytes => createHash('sha256').update(bytes).digest('hex');
+          const receipt = { schemaVersion: 1, sourceCommit: process.env.GITHUB_SHA, scope: 'framework-source',
+            archive, archiveSha256: hash(fs.readFileSync(path.join(directory, archive))),
+            frameworkManifestSha256: hash(manifestBytes), managedFileCount: Object.keys(manifest.managedFiles).length,
+            runtimeBuildVerified: false, deploymentVerified: false, capacityVerified: false };
+          fs.writeFileSync(path.join(directory, 'candidate.json'), JSON.stringify(receipt, null, 2) + '\n');
+          console.log(JSON.stringify(receipt));
+          NODE
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          test -z "$(git status --porcelain --untracked-files=all)"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: fullnet-source-${{ github.sha }}
+          path: |
+            ${{ env.FULLNET_SOURCE_CANDIDATE }}/*.tar.gz
+            ${{ env.FULLNET_SOURCE_CANDIDATE }}/candidate.json
+          if-no-files-found: error
+          retention-days: 3
+          compression-level: 0
+      - name: Clean candidate staging
+        if: always()
+        run: |
+          if test -n "${FULLNET_SOURCE_CANDIDATE:-}" && test "$FULLNET_SOURCE_CANDIDATE" = "$RUNNER_TEMP/fullnet-source-candidate"; then
+            rm -rf -- "$FULLNET_SOURCE_CANDIDATE"
+          fi
