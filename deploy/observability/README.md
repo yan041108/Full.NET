@@ -271,6 +271,8 @@ node_exporter --web.listen-address="${INTERNAL_IP}:9100" \
 
 手动定向入口 node-exporter-mtls 使用固定 Node Exporter 1.13.1 镜像、正式容量发布函数和本轮临时证书，验证正常→阻断→观测不可用的样本变化与客户端拒绝。容量评估输入为合成数据，不调用真实磁盘/SeaweedFS 巡检，不代表现场安装、Kubernetes 客户端证书实际投影、持续容量告警或正式通知通过。协议依据 [exporter-toolkit 0.20.0 Web 配置](https://github.com/prometheus/exporter-toolkit/blob/v0.20.0/docs/web-configuration.md)；正式 textfile 目录仍由既有巡检服务更新。
 
+[真实 Node Exporter mTLS 作业](https://github.com/yan041108/Full.NET/actions/runs/44862338467/job/136718286681) 已通过：可信客户端读取正式函数原子替换的文件，容量正常→阻断→观测不可用，旧增长状态退出、新鲜度记录消失时目标仍 up=1。无证书、非受信 CA 和错误 SAN 均 down 且无容量样本；同时核对 exporter 的 TLS 握手拒绝日志，避免将任意网络失败当作认证拒绝。测试只在自有临时网络运行，不改变原巡检、新鲜度或告警窗口。
+
 ### 可选节点条件与日志 DaemonSet 状态
 
 nodeState.enabled 默认为 false，daemonSetNamespace 默认为空。只有显式开启才渲染额外的 kube-state-nodes 或 kube-state-daemonsets Deployment/ClusterIP 及抓取任务，复用原固定 KSM 镜像和资源预算；不创建宿主 Agent 或日志 DaemonSet。下面的例子只渲染，日志命名空间必须已存在：

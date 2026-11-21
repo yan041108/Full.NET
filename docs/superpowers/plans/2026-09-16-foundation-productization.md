@@ -7632,10 +7632,14 @@ Release 集成工程单节点构建及 Identity 模块隔离 AOT 分析均零警
 
 | 固定任务 | 当前状态 | 完成条件 |
 | --- | --- | --- |
-| D08-ExternalMetricsMtls | 实现中，待集中验收 | HTTPS 客户端证书仅引用既有 Secret；正式发布函数经真实 Node Exporter 到 Prometheus，正常/阻断/不可用样本可观察，缺证书、错误签发者或 SAN 均拒绝。 |
+| D08-ExternalMetricsMtls | 已完成，实际 exporter 与 mTLS 验收通过 | HTTPS 客户端证书仅引用既有 Secret；正式发布函数经真实 Node Exporter 到 Prometheus，正常/阻断/不可用样本可观察，缺证书、错误签发者或 SAN 均拒绝。 |
 
 - 基线 35ef15f8caec243336478856e80b807c27055d1a，快照 external-metrics-mtls-20261121。§8.393 仅有服务端 CA/Bearer 与合成 exporter，未覆盖客户端证书或真实 Node Exporter；本批补齐既有 D08-14 外部源边界，不重复原 Kubernetes/Host/OTLP/状态采集任务。
 - 冻结 externalScrapes 的 clientCertificateSecretName/schema/只读投影、示例与手册、直接渲染用例和一个真实 exporter 方法、精确手动工作流。客户端证书 Secret 使用 tls.crt/tls.key，只投影 Prometheus、权限 0440，不产生 Secret 或明文凭据；HTTP 配合客户端证书直接拒绝。服务端验证与既有抓取预算保持。
 - 本地集中两条新增 mTLS 方法及三条直接受影响外部抓取方法；复用后 CI 仅运行新增真实 Node Exporter 方法。正式 publish_metrics 使用合成容量评估，不调用 collect 或真实磁盘/SeaweedFS；原十二分钟新鲜度和告警窗口不变。使用自有临时 PKI、私有 internal 网络、固定官方镜像，无宿主端口、安装、现网部署或凭据读取。不运行 .NET/双库、Host/通知/Kubernetes/PVC 旧回路或全量，Capacity-not-verified 保持。
 - 本地实现批次：Python 3.12 Debian 一次性容器、禁网、CPU 1/内存 256 MiB/进程 128，源码与既有 Helm 3.16.4 只读。两条新增 mTLS 与三条原外部抓取方法集中 5/5（14.660 秒），零失败/跳过；配置投影、HTTP/内嵌凭据拒绝、默认无目标、CA/Bearer/标签和预算边界通过。新 Python 语法与 workflow/schema/两个示例结构检查通过；实际 Node Exporter 方法尚待执行，不提前登记通过。
 - 首轮实现源码 196b06b0045ce7f19d4b185fcc0d92df77d5baed 的作业 44862096443/136717526138 在负例错误文本断言失败：真实 exporter 的可信客户端、正常容量、新鲜度与三个负例 up=0/无容量样本均已通过，但不能假定 Prometheus 对端拒绝总返回含 tls 的字符串。尚未执行后续阻断/不可用阶段；本轮自有容器已回收为 0、网络删除。修正为同时要求三目标 down/非空错误、真实 exporter TLS handshake error、缺客户端证书和 SAN 不匹配的服务端拒绝原因，输出有界目标错误；不关闭校验或以任意网络失败替代 TLS 证据。五条未变渲染用例结果复用，仅重跑该实际方法。
+- 修正后验收源码 5b8e0d22b0927ce7e7bc78437f2e3e172784ab68 的 [node-exporter-mtls 精确作业](https://github.com/yan041108/Full.NET/actions/runs/44862338467/job/136718286681) 为 1/1（51.096 秒），零失败、零跳过，源码状态守卫通过。Linux/Python 3.12、Helm 3.16.4、原固定 Prometheus 3.15.0 与官方 Node Exporter 1.13.1 OCI 摘要 sha256:011e2d12c5bff759b90804bda642664775d7b4b127bf5148539bb82d3f590bb7；仅启动三个必要容器，私有 internal 网络、无宿主发布端口、只读挂载、非 root 和有界资源。
+- 实际正式 publish_metrics 原子替换目录文件，由真实 textfile collector 读取；正常 growth_state=0→阻断=2→probe_success=0 均被观察。不可用后 growth_state 消失、原新鲜度记录消失，而 up=1；区分巡检失败与采集端点失败。node_textfile_scrape_error=0、node_exporter_build_info version=1.13.1 通过，不替换正式发布函数、不以手写 HTTP exporter 冒充真实 Node Exporter。
+- 三个负例实际 down、无容量样本，且服务端缺客户端证书和 SAN 不匹配的 TLS 握手拒绝日志存在。该成功作业中客户端分别报告 connection reset by peer、tls: unknown certificate authority、tls: bad certificate；因此原按字符串必须包含 tls 的断言过窄，现以目标失败加实际握手拒绝证据判定，不关闭服务端/客户端证书验证。客户端凭据挂载路径由实际渲染的 Prometheus Secret 引用推导；Docker 只读文件使用验证不冒充 Kubernetes 客户端证书实际投影。
+- 本批固定任务关闭：剩余开发 0、待验收 0。本地五条与 CI 一条为六个不重叠方法，本轮自有容器回收为 0、私有网络删除，临时配置/PKI 随夹具清理，本地验证容器 --rm 回收；既有 Helm 工具只读复用。外部 mTLS 与正式 textfile 发布到真实 exporter 的接线差集闭合，不重复安排；现场 exporter 安装、实际磁盘/SeaweedFS 巡检与持续窗口、Kubernetes 客户端证书投影、正式通知及生产故障域/容量仍归 D08-14/F15/F16。未操作现网或运行旧 Host/通知/Kubernetes/PVC、.NET/双库或全量，Capacity-not-verified 保持。
