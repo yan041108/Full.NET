@@ -9,6 +9,11 @@ probeAlert: false
 evaluationInterval: 15s
 # 仅显式列出的外部指标目标；默认无外部抓取，凭据/私有 CA 仅引用既有 Secret。
 externalScrapes: []
+# 节点状态需要独立的 nodes 只读 ClusterRole；默认关闭，不改变现有应用读取权限。
+nodeState:
+  enabled: false
+# 非空时仅观察该既有命名空间的 DaemonSet，不创建命名空间或安装日志 Agent。
+daemonSetNamespace: ""
 receiver:
   enabled: false
   url: ""

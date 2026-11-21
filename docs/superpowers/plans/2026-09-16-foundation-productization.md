@@ -7586,3 +7586,12 @@ Release 集成工程单节点构建及 Identity 模块隔离 AOT 分析均零警
 - [external-metrics-scrapes 精确运行作业](https://github.com/yan041108/Full.NET/actions/runs/44849608109/job/136677573725) 为 1/1（106.006 秒），零失败、零跳过，源码状态守卫通过。Linux/Python 3.12、kind 0.30.0/固定 Kubernetes 1.34.0 节点、原 Prometheus 3.15.0 固定镜像；非 root Prometheus 通过真实 Kubernetes Secret 投影读取 CA 和 Bearer 文件，实际 HTTPS 抓取本轮端点，得到固定 cluster/job/instance 的合成容量样本，原 fullnet:object_storage_capacity_sample_fresh 记录规则返回 1。
 - 同一自有 TLS 服务的三个独立目标分别使用错误 CA、错误 Token 和 302 路径；实际 target lastError 对应 x509、401、302，up 均为 0，三个失败 job 均无被测容量成功样本。不跳过证书校验、不跟随跳转、不用文件配置断言替代实际读取与传输；这些 job 只是本轮拒绝夹具，不冒充真实 WAF/Fluent Bit/DDoS 系统。合成端点不是已安装的 Node Exporter 或现场容量探针，也没有走真实告警持续窗口/通知。
 - 本批固定任务关闭：剩余开发 0、待验收 0。本地四条与 CI 一条为五个不重叠定向方法；Kind 容器实际回收为 0，临时 CA/私钥/Token/kubeconfig/配置随夹具清理，本地验证容器 --rm 回收；既有 Helm 工具仅只读复用，没有新增根 artifacts 或源码复制。外部指标的安全接线能力已交付，不再重复安排该配置入口；实际 exporter 安装、已存在宿主容量样本的现场抓取/新鲜度、目标出口策略、正式通知以及 Node 状态等其他未提供源仍归 D08-14/F15/F16，Capacity-not-verified 保持。未操作现网、读取真实凭据或运行无影响的 .NET/双库/全量。
+### 8.394 D08-14 可选节点条件与日志 DaemonSet 状态采集（2026-11-21）
+
+| 固定任务 | 当前状态 | 完成条件 |
+| --- | --- | --- |
+| D08-InfrastructureStateMetrics | 已实现，待集中验收 | 默认不增加权限或组件；显式开启独立 Node/DaemonSet 观察器，只读账号隔离，实际状态变化进入 Prometheus、越界/代理/写入拒绝，原一分钟阈值保持。 |
+
+- 基线 1934105ec724143eccb2456a9b2b6473e2144ce1，快照 infrastructure-state-metrics-20261121。FullNetNodeDiskPressure/FullNetFluentBitDaemonSetUnavailable 已有规则，但原平台 KSM 不读取 Node 或日志命名空间 DaemonSet；补齐既有 D08-14 状态源，不新建日志收集系统或宿主 exporter。
+- nodeState.enabled 默认 false，daemonSetNamespace 默认空。启用后复用原 KSM 固定镜像、独立服务与账号：节点只授予 core/nodes 的 get/list/watch，DaemonSet 只授予显式既有命名空间 apps/daemonsets 的 get/list/watch；默认应用账号、无 Secret/日志/代理/写入权限及后端 Token 禁用保持。只输出所需状态指标，不挂载宿主路径或依赖特权。
+- 冻结模板/配置/直接相关测试、定向工作流和手册；本地集中六条真实 Helm 方法，复用后 CI 仅执行新增实际 Kubernetes 方法，不重跑 HPA/PDB、外部 HTTPS、通知、双卷恢复或 .NET/双库/全量。运行时用真实 DaemonSet 就绪变化和无 kubelet 的不可调度、带阻断污点的合成 Node；不改真实节点条件、不制造磁盘压力，不冒充物理故障、真实 Fluent Bit 或现场告警送达。Capacity-not-verified 保持。

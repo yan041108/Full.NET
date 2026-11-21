@@ -1,0 +1,6 @@
+# 仅渲染明确需要的状态源；平台/日志命名空间与实际资源归属须先核对。
+nodeState:
+  # 此选项额外创建只允许读取 nodes 的 ClusterRole/Binding，默认配置保持 false。
+  enabled: true
+# 必须是已有日志 Agent 所在命名空间；本包不创建命名空间或安装日志 Agent。
+daemonSetNamespace: fullnet-logging

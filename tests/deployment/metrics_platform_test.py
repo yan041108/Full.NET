@@ -64,7 +64,8 @@ class MetricsPlatformTests(unittest.TestCase):
         self.assertEqual({rule['alert'] for rule in rules if 'alert' in rule}, set(re.findall(r'^\s+- alert: (\S+)', original, re.M)))
         no_replicas = next(rule for rule in rules if rule.get('alert') == 'FullNetDeploymentNoAvailableReplicas')
         self.assertEqual(no_replicas['for'], '2m')
-        for name, window in (('FullNetHpaAtMaxReplicas', '15m'), ('FullNetPdbUnsatisfied', '10m')):
+        for name, window in (('FullNetHpaAtMaxReplicas', '15m'), ('FullNetPdbUnsatisfied', '10m'),
+                ('FullNetNodeDiskPressure', '1m'), ('FullNetFluentBitDaemonSetUnavailable', '1m')):
             self.assertEqual(next(rule for rule in rules if rule.get('alert') == name)['for'], window)
 
     def test_collector_is_metrics_only_with_bounded_existing_wal_and_translation(self):

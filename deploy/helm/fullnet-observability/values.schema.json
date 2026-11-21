@@ -11,6 +11,11 @@
     "collectorSource": { "type": "string" },
     "probeAlert": { "type": "boolean" },
     "evaluationInterval": { "type": "string" },
+    "nodeState": {
+      "type": "object", "additionalProperties": false,
+      "properties": { "enabled": { "type": "boolean" } }
+    },
+    "daemonSetNamespace": { "type": "string", "maxLength": 63, "pattern": "^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?$" },
     "externalScrapes": {
       "type": "array", "maxItems": 6,
       "items": {

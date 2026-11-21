@@ -179,9 +179,9 @@ bash eng/deploy/Render-Observability.sh \
   --set alertmanagerClaim=platform-alertmanager-data > /PRIVATE_REVIEW_DIRECTORY/metrics.json
 ```
 
-输出包括独立 observability 命名空间、四个固定摘要镜像的单副本 Deployment/ClusterIP Service、配置、只读工作负载状态观测角色及入口 NetworkPolicy。Prometheus 与 Alertmanager 必须引用两个不同的既有 PVC，本包不创建卷，不选择 StorageClass。Prometheus 数据保留上限为七天/10 GB，运维应为其单独准备至少 20 GiB 的存储并核对权限/备份；两者 Recreate，不能作为高可用或无中断方案。Collector WAL 复用原有 emptyDir 边界，Pod 替换/节点丢失可能丢失在途指标。本次未认证 PVC、CNI、存储故障或容量。
+默认输出包括独立 observability 命名空间、四个固定摘要镜像的单副本 Deployment/ClusterIP Service、配置、只读工作负载状态观测角色及入口 NetworkPolicy。Prometheus 与 Alertmanager 必须引用两个不同的既有 PVC，本包不创建卷，不选择 StorageClass。Prometheus 数据保留上限为七天/10 GB，运维应为其单独准备至少 20 GiB 的存储并核对权限/备份；两者 Recreate，不能作为高可用或无中断方案。Collector WAL 复用原有 emptyDir 边界，Pod 替换/节点丢失可能丢失在途指标。本次未认证 PVC、CNI、存储故障或容量。
 
-kube-state-metrics 只读取 applicationNamespace（默认 fullnet-production）的 Deployment、HPA 和 PDB，保留 Full.NET 角色/归属标签。Role 仅允许 get/list/watch apps/deployments、autoscaling/horizontalpodautoscalers、policy/poddisruptionbudgets；无 Secret、写入或集群级权限。其余组件禁用服务账号 Token。全部容器非 root、只读根文件系统、去除 capabilities，具有资源预算及启动/就绪探针。服务仅 ClusterIP；NetworkPolicy 允许平台内部访问和应用命名空间的 OTLP 4317/4318，不代替实际 CNI 验证或其他适用策略的许可并集核对。不要向已有平台命名空间盲目应用命名空间标签/同名资源。
+kube-state-metrics 只读取 applicationNamespace（默认 fullnet-production）的 Deployment、HPA 和 PDB，保留 Full.NET 角色/归属标签。Role 仅允许 get/list/watch apps/deployments、autoscaling/horizontalpodautoscalers、policy/poddisruptionbudgets；无 Secret、写入或集群级权限。可选节点/DaemonSet 观察器各用独立只读账号，应用账号不共享它们的权限；其余后端禁用服务账号 Token。全部容器非 root、只读根文件系统、去除 capabilities，具有资源预算及启动/就绪探针。服务仅 ClusterIP；NetworkPolicy 允许平台内部访问和应用命名空间的 OTLP 4317/4318，不代替实际 CNI 验证或其他适用策略的许可并集核对。不要向已有平台命名空间盲目应用命名空间标签/同名资源。
 
 该派生 Collector **仅接收指标**，从现有配置复用单消费者、单请求并发、WAL、指标名翻译和点标签过滤；该平台派生配置将 WAL 刷新/截断周期明确设为五秒，防止低流量等待原一分钟周期而延迟可见性，并补充资源属性过滤，移除 tenant_id/user_id/DiagnosticGroup，避免 target_info 再携带这些属性。这不能代替应用自己的低基数与敏感信息策略，也不代表处理任意未知敏感字段。内部 metrics 8888 显式绑定所有容器接口，平台 Prometheus 抓取该端点与 Deployment 观测器。
 
@@ -210,7 +210,7 @@ bash eng/deploy/Render-Observability.sh --set cluster=reference-primary \
 probeAlert 默认关闭，显式启用才增加 FullNetTelemetryPipelineProbe（fullnet_pipeline_probe_state == 1，持续十秒）；生产既有规则及阈值保留。定向入口 helm-runtime-focused / metrics-platform 覆盖渲染边界和固定镜像真实配置校验、OTLP→查询→firing/resolved→自有 TLS 接收器，以及错误 CA 拒绝，合成身份值在点标签与 target_info 中均应移除。所有容器/网络/CA/Token 由本轮持有并回收，不发送真实通知；合成回路不是现网应用采集、KSM 实际 watch、正式地址送达或生产认证。
 
 配置语义依据 [Collector 内部指标](https://opentelemetry.io/docs/collector/internal-telemetry/) 和 [kube-state-metrics 2.17 CLI](https://github.com/kubernetes/kube-state-metrics/blob/v2.17.0/docs/developer/cli-arguments.md)。Prometheus/Alertmanager/Collector 复用仓库既有固定摘要；KSM 固定官方 registry 的 2.17.0 摘要。平台尚须按现场逐项核对采集新鲜度、实例标签、持久卷、真实告警路由、接收恢复及故障域，D08-14 不因本包渲染而整体关闭。
-本渲染包保留全部原有规则，但提供 Deployment/HPA/PDB 与 Collector 的抓取、外部 OTLP 指标入口及 externalScrapes 显式外部源接线。Node、Ingress/WAF 等 exporter 不由本包自动安装；不能用规则文件存在推导全部规则都有数据或能够报警。五秒 WAL 参数只用于本派生平台，不改现有通用 Collector values，不据功能窗口推导吞吐、分位延迟或容量。WAL 低流量批次行为参见[对应 exporter 实现](https://github.com/open-telemetry/opentelemetry-collector-contrib/blob/v0.163.0/exporter/prometheusremotewriteexporter/wal.go)。
+本渲染包保留全部原有规则，但提供 Deployment/HPA/PDB 与 Collector 的抓取、外部 OTLP 指标入口及 externalScrapes 显式外部源接线。Node Exporter、Ingress/WAF 等宿主或外部 exporter 不由本包自动安装；节点条件与 DaemonSet 可用性有下文的显式只读采集选项；不能用规则文件存在推导全部规则都有数据或能够报警。五秒 WAL 参数只用于本派生平台，不改现有通用 Collector values，不据功能窗口推导吞吐、分位延迟或容量。WAL 低流量批次行为参见[对应 exporter 实现](https://github.com/open-telemetry/opentelemetry-collector-contrib/blob/v0.163.0/exporter/prometheusremotewriteexporter/wal.go)。
 
 ### 隔离 Kubernetes 部署验证
 
@@ -253,3 +253,19 @@ bash eng/deploy/Render-Observability.sh --set cluster=reference-primary \
 本入口不安装 exporter、开启宿主端口或放行出站网络；目标、DNS、端口、Prometheus 出口许可与 exporter 访问策略必须在启用前核对。Secret 更新后显式滚动/验证 Prometheus，不能假定 CA/客户端状态已经热更新。对象容量 job 应指向已安装的 Node Exporter textfile 端点并确认定时样本确实更新；新增目标和规则存在都不能代替实际数据、持续窗口和正式通知送达证据。配置语义依据 [Prometheus 3.15 配置](https://github.com/prometheus/prometheus/blob/v3.15.0/docs/configuration/configuration.md)。定向 workflow 场景为 external-metrics-scrapes，实际证书与 Token 测试只使用本轮自有 HTTPS 夹具。
 
 此配置入口已通过本地真实 Helm 定向检查及[真实 Kubernetes HTTPS/Secret 投影作业](https://github.com/yan041108/Full.NET/actions/runs/44849608109/job/136677573725)；错误 CA、错误 Token、重定向均被拒绝。该证明只覆盖自有合成目标，不表示真实 exporter、现场采集或通知已启用。
+
+### 可选节点条件与日志 DaemonSet 状态
+
+nodeState.enabled 默认为 false，daemonSetNamespace 默认为空。只有显式开启才渲染额外的 kube-state-nodes 或 kube-state-daemonsets Deployment/ClusterIP 及抓取任务，复用原固定 KSM 镜像和资源预算；不创建宿主 Agent 或日志 DaemonSet。下面的例子只渲染，日志命名空间必须已存在：
+
+```bash
+bash eng/deploy/Render-Observability.sh --set cluster=reference-primary \
+  --set prometheusClaim=platform-prometheus-data,alertmanagerClaim=platform-alertmanager-data \
+  --values deploy/observability/examples/infrastructure-state.yaml
+```
+
+节点观察使用独立 fullnet-metrics-node-reader，只授予 get/list/watch nodes。ClusterRole/Binding 名为 <平台命名空间>-fullnet-metrics-nodes，不授予 nodes/proxy、Secret、Pod 日志或写入权限；仅输出 kube_node_status_condition。日志状态观察使用另一个 fullnet-metrics-daemonset-reader，只读取 daemonSetNamespace 内的 DaemonSet，并仅输出 kube_daemonset_status_number_unavailable；不读取日志、Pod 或其他命名空间。原应用 Deployment/HPA/PDB 账号的权限保持。两个选项可独立使用，默认不会创建 ClusterRole。
+
+FullNetNodeDiskPressure 观察 DiskPressure=true；Fluent Bit 可用性规则选择 daemonset=fullnet-fluent-bit，两个原保持期均为一分钟。新增指标源不会代替实际探针/告警持续窗口、正式通知、物理磁盘故障或 Node Exporter 的文件系统容量。实现依据 [KSM 2.17 Node](https://github.com/kubernetes/kube-state-metrics/blob/v2.17.0/docs/metrics/cluster/node-metrics.md) 与 [DaemonSet](https://github.com/kubernetes/kube-state-metrics/blob/v2.17.0/docs/metrics/workload/daemonset-metrics.md)。
+
+本工具是清单渲染器，不管理资源删除：已启用后仅改回 false/空再 apply 不会自动删除旧观察器或撤销已创建权限。停用时先核对对象归属并撤销对应 ClusterRoleBinding/RoleBinding，再回收观察 Deployment、Service、ServiceAccount 及专属 Role/ClusterRole；不要删除原应用观察器的授权。定向运行场景为 infrastructure-state-metrics，只在自有集群验证；节点条件使用不可调度的合成 Node，真实节点不改。

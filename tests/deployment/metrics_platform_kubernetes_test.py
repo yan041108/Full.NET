@@ -134,6 +134,103 @@ class MetricsPlatformKubernetesTests(unittest.TestCase):
         self.assertEqual(len(new), 1)
         self.assertNotEqual(new[0]['metadata']['uid'], old_uid)
 
+    def test_opt_in_node_and_daemonset_readers_export_changes_without_shared_privileges(self):
+        logging_namespace = 'fullnet-logging-fixture'
+        platform = bundle('--set', 'nodeState.enabled=true,daemonSetNamespace=' + logging_namespace)
+        for namespace in ('fullnet-production', logging_namespace):
+            self.apply({'apiVersion': 'v1', 'kind': 'Namespace', 'metadata': {'name': namespace,
+                'labels': {'pod-security.kubernetes.io/enforce': 'restricted'}}})
+        self.apply(next(item for item in platform['items'] if item['kind'] == 'Namespace'))
+        self.apply({'apiVersion': 'v1', 'kind': 'PersistentVolumeClaim',
+            'metadata': {'name': 'prometheus-data', 'namespace': 'observability'},
+            'spec': {'accessModes': ['ReadWriteOnce'], 'storageClassName': 'standard',
+                'resources': {'requests': {'storage': '1Gi'}}}})
+        active = ('prometheus', 'kube-state-nodes', 'kube-state-daemonsets')
+        platform['items'] = [item for item in platform['items'] if item['kind'] not in ('Deployment', 'Service')
+            or item['metadata']['name'] in active]
+        self.apply(platform)
+        container = {'name': 'fixture', 'image': 'python:3.12-slim-bookworm',
+            'command': ['python3', '-c', 'import time; time.sleep(3600)'],
+            'resources': {'requests': {'cpu': '50m', 'memory': '32Mi'}, 'limits': {'cpu': '200m', 'memory': '128Mi'}},
+            'securityContext': {'allowPrivilegeEscalation': False, 'readOnlyRootFilesystem': True,
+                'capabilities': {'drop': ['ALL']}}}
+        pod = {'automountServiceAccountToken': False, 'nodeSelector': {'kubernetes.io/os': 'linux'},
+            'securityContext': {'runAsNonRoot': True, 'runAsUser': 65534, 'fsGroup': 65534,
+                'seccompProfile': {'type': 'RuntimeDefault'}}, 'containers': [container]}
+        self.apply({'apiVersion': 'apps/v1', 'kind': 'Deployment',
+            'metadata': {'name': 'metrics-observer', 'namespace': 'observability'},
+            'spec': {'replicas': 1, 'selector': {'matchLabels': {'app': 'metrics-observer'}},
+                'template': {'metadata': {'labels': {'app': 'metrics-observer'}}, 'spec': pod}}})
+        self.kubectl('label', 'node', self.name + '-worker', 'fullnet.io/state-fixture=true')
+        daemon_pod = json.loads(json.dumps(pod))
+        daemon_pod['nodeSelector']['fullnet.io/state-fixture'] = 'true'
+        daemon_pod['volumes'] = [{'name': 'state', 'emptyDir': {'sizeLimit': '1Mi'}}]
+        daemon_container = daemon_pod['containers'][0]
+        daemon_container['command'] = ['python3', '-c',
+            "import pathlib,time; pathlib.Path('/state/ready').touch(); time.sleep(3600)"]
+        daemon_container['volumeMounts'] = [{'name': 'state', 'mountPath': '/state'}]
+        daemon_container['readinessProbe'] = {'exec': {'command': ['python3', '-c',
+            "import pathlib,sys; sys.exit(not pathlib.Path('/state/ready').exists())"]},
+            'periodSeconds': 2, 'failureThreshold': 1}
+        self.apply({'apiVersion': 'apps/v1', 'kind': 'DaemonSet',
+            'metadata': {'name': 'fullnet-fluent-bit', 'namespace': logging_namespace},
+            'spec': {'selector': {'matchLabels': {'app': 'state-fixture'}},
+                'template': {'metadata': {'labels': {'app': 'state-fixture'}}, 'spec': daemon_pod}}})
+        for name in (*active, 'metrics-observer'):
+            self.kubectl('-n', 'observability', 'rollout', 'status', 'deployment/' + name, '--timeout=180s', seconds=190)
+        self.kubectl('-n', logging_namespace, 'rollout', 'status', 'daemonset/fullnet-fluent-bit', '--timeout=120s')
+        node_account = 'system:serviceaccount:observability:fullnet-metrics-node-reader'
+        daemon_account = 'system:serviceaccount:observability:fullnet-metrics-daemonset-reader'
+        for account, verb, resource, namespace, subresource, allowed in (
+                (node_account, 'list', 'nodes', 'default', None, True),
+                (node_account, 'get', 'nodes', 'default', 'proxy', False),
+                (node_account, 'patch', 'nodes', 'default', None, False),
+                (node_account, 'list', 'secrets', 'observability', None, False),
+                (node_account, 'list', 'daemonsets.apps', logging_namespace, None, False),
+                (daemon_account, 'list', 'daemonsets.apps', logging_namespace, None, True),
+                (daemon_account, 'list', 'daemonsets.apps', 'default', None, False),
+                (daemon_account, 'list', 'nodes', 'default', None, False),
+                (daemon_account, 'patch', 'daemonsets.apps', logging_namespace, None, False),
+                (daemon_account, 'get', 'pods', logging_namespace, 'log', False)):
+            args = ['kubectl', '--context', 'kind-' + self.name, 'auth', 'can-i', verb, resource,
+                '-n', namespace, '--as=' + account]
+            if subresource:
+                args.append('--subresource=' + subresource)
+            result = subprocess.run(args, env=self.environment, capture_output=True, text=True, timeout=20)
+            self.assertEqual(result.returncode, 0 if allowed else 1, result.stderr[-500:])
+            self.assertEqual(result.stdout.strip(), 'yes' if allowed else 'no')
+        unavailable = ('kube_daemonset_status_number_unavailable{cluster="test-cluster",namespace="' +
+            logging_namespace + '",daemonset="fullnet-fluent-bit"}')
+        self.wait(lambda: any(float(v['value'][1]) == 0 for v in self.query(unavailable)))
+        fixture_pods = json.loads(self.kubectl('-n', logging_namespace, 'get', 'pods',
+            '-l', 'app=state-fixture', '-o', 'json'))['items']
+        self.assertEqual(len(fixture_pods), 1)
+        fixture_name = fixture_pods[0]['metadata']['name']
+        for code, expected in (("import pathlib; pathlib.Path('/state/ready').unlink()", 1),
+                ("import pathlib; pathlib.Path('/state/ready').touch()", 0)):
+            self.kubectl('-n', logging_namespace, 'exec', fixture_name, '--', 'python3', '-c', code)
+            self.wait(lambda: any(float(v['value'][1]) == expected for v in self.query(unavailable)))
+        # 只操作无 kubelet、禁止调度且带独立阻断污点的合成 Node；不改真实节点条件或制造磁盘压力。
+        synthetic = 'fullnet-metrics-state-fixture'
+        self.apply({'apiVersion': 'v1', 'kind': 'Node', 'metadata': {'name': synthetic},
+            'spec': {'unschedulable': True, 'taints': [{'key': 'fullnet.io/fixture', 'effect': 'NoSchedule'}]}})
+        pressure = ('kube_node_status_condition{cluster="test-cluster",node="' + synthetic +
+            '",condition="DiskPressure",status="true"}')
+        for state, expected in (('False', 0), ('True', 1), ('False', 0)):
+            now = datetime.datetime.now(datetime.timezone.utc).isoformat()
+            conditions = [{'type': kind, 'status': value, 'lastHeartbeatTime': now, 'lastTransitionTime': now,
+                'reason': 'IsolatedFixture', 'message': 'Synthetic API fixture'}
+                for kind, value in (('Ready', 'False'), ('DiskPressure', state))]
+            self.kubectl('patch', 'node', synthetic, '--subresource=status', '--type=merge',
+                '-p', json.dumps({'status': {'conditions': conditions}}))
+            self.wait(lambda: any(float(v['value'][1]) == expected for v in self.query(pressure)))
+        self.kubectl('delete', 'node', synthetic, '--wait=true')
+        self.wait(lambda: not self.query(pressure) and any(float(v['value'][1]) == 1
+            for v in self.query('up{job="fullnet-kube-state-nodes"}')))
+        self.assertTrue(any(float(v['value'][1]) == 0 for v in self.query(unavailable)))
+        print('infrastructure_state_runtime: daemonset_unavailable=0->1->0 synthetic_node_disk_pressure=0->1->0 deleted_node=absent reader_up=1', flush=True)
+        print('infrastructure_state_rbac: node_read=allowed proxy_write_secret=denied daemonset_namespace_only=true accounts_separate=true', flush=True)
+
     def test_external_scrapes_use_projected_ca_and_token_and_reject_tls_auth_and_redirect_errors(self):
         target = 'metrics-source.observability.svc:8443'
         sources = [
