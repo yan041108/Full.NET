@@ -17,6 +17,8 @@
 {{- $_ := set $collector.service.pipelines.metrics "processors" (list "memory_limiter" "resource/drop_high_cardinality" "attributes/drop_high_cardinality" "batch") -}}
 {{- $_ := set $collector "exporters" (dict "prometheus_remote_write" $collector.exporters.prometheus_remote_write) -}}
 {{- $_ := set $collector.exporters.prometheus_remote_write.http "endpoint" (printf "http://prometheus.%s.svc:9090/api/v1/write" $ns) -}}
+{{/* 原 WAL 一分钟周期会延迟低流量可见性；新平台明确五秒刷新/截断，保留单消费者和 WAL。 */}}
+{{- $_ := set $collector.exporters.prometheus_remote_write.wal "truncate_frequency" "5s" -}}
 {{- $_ := set $collector.service.telemetry "metrics" (dict "readers" (list (dict "pull" (dict "exporter" (dict "prometheus" (dict "host" "0.0.0.0" "port" 8888)))))) -}}
 {{- $groups := $rules.groups -}}
 {{- if .Values.probeAlert -}}

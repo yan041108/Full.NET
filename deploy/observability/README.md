@@ -183,7 +183,7 @@ bash eng/deploy/Render-Observability.sh \
 
 kube-state-metrics 只读取 applicationNamespace（默认 fullnet-production）的 Deployment，保留 Full.NET 角色/归属标签，Role 只含 get/list/watch deployments，无 Secret 或全局权限。其余组件禁用服务账号 Token。全部容器非 root、只读根文件系统、去除 capabilities，具有资源预算及启动/就绪探针。服务仅 ClusterIP；NetworkPolicy 允许平台内部访问和应用命名空间的 OTLP 4317/4318，不代替实际 CNI 验证或其他适用策略的许可并集核对。不要向已有平台命名空间盲目应用命名空间标签/同名资源。
 
-该派生 Collector **仅接收指标**，从现有配置复用单消费者、单请求并发、WAL、指标名翻译和点标签过滤，并补充资源属性过滤，移除 tenant_id/user_id/DiagnosticGroup，避免 target_info 再携带这些属性。这不能代替应用自己的低基数与敏感信息策略，也不代表处理任意未知敏感字段。内部 metrics 8888 显式绑定所有容器接口，平台 Prometheus 抓取该端点与 Deployment 观测器。
+该派生 Collector **仅接收指标**，从现有配置复用单消费者、单请求并发、WAL、指标名翻译和点标签过滤；该平台派生配置将 WAL 刷新/截断周期明确设为五秒，防止低流量等待原一分钟周期而延迟可见性，并补充资源属性过滤，移除 tenant_id/user_id/DiagnosticGroup，避免 target_info 再携带这些属性。这不能代替应用自己的低基数与敏感信息策略，也不代表处理任意未知敏感字段。内部 metrics 8888 显式绑定所有容器接口，平台 Prometheus 抓取该端点与 Deployment 观测器。
 
 应用端不由本包自动改写：当前 Host 在全局 OTEL_EXPORTER_OTLP_ENDPOINT 非空时注册 OTLP 导出器。已有独立 Trace 后端的应用可保留全局 Trace 接线，用 OTEL_EXPORTER_OTLP_METRICS_ENDPOINT 单独指向本指标端点并配置协议；没有全局接线时仍须完成 Host 的分信号导出注册，不能仅设置指标端点便声称已经采集。禁止把指标专用端点直接替换为全局 Trace/日志目的地。标准 OTLP HTTP 指标地址为 http://telemetry-collector.observability.svc:4318/v1/metrics；应用入口的现有 Egress 策略也须在实际启用前审核 OTLP 出站许可。本次不修改 Host 或现网配置。
 
@@ -201,3 +201,4 @@ bash eng/deploy/Render-Observability.sh --set cluster=reference-primary \
 probeAlert 默认关闭，显式启用才增加 FullNetTelemetryPipelineProbe（fullnet_pipeline_probe_state == 1，持续十秒）；生产既有规则及阈值保留。定向入口 helm-runtime-focused / metrics-platform 覆盖渲染边界和固定镜像真实配置校验、OTLP→查询→firing/resolved→自有 TLS 接收器，以及错误 CA 拒绝，合成身份值在点标签与 target_info 中均应移除。所有容器/网络/CA/Token 由本轮持有并回收，不发送真实通知；合成回路不是现网应用采集、KSM 实际 watch、正式地址送达或生产认证。
 
 配置语义依据 [Collector 内部指标](https://opentelemetry.io/docs/collector/internal-telemetry/) 和 [kube-state-metrics 2.17 CLI](https://github.com/kubernetes/kube-state-metrics/blob/v2.17.0/docs/developer/cli-arguments.md)。Prometheus/Alertmanager/Collector 复用仓库既有固定摘要；KSM 固定官方 registry 的 2.17.0 摘要。平台尚须按现场逐项核对采集新鲜度、实例标签、持久卷、真实告警路由、接收恢复及故障域，D08-14 不因本包渲染而整体关闭。
+本渲染包保留全部原有规则，但只提供 Deployment/Collector 的抓取与外部 OTLP 指标入口。Node、HPA、Ingress/WAF 等其他 exporter 未由本包提供；不能用规则文件存在推导全部规则都有数据或能够报警。五秒 WAL 参数只用于本派生平台，不改现有通用 Collector values，不据功能窗口推导吞吐、分位延迟或容量。WAL 低流量批次行为参见[对应 exporter 实现](https://github.com/open-telemetry/opentelemetry-collector-contrib/blob/v0.163.0/exporter/prometheusremotewriteexporter/wal.go)。

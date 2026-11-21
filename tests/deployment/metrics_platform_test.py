@@ -73,6 +73,7 @@ class MetricsPlatformTests(unittest.TestCase):
         self.assertEqual(exporter['remote_write_queue']['num_consumers'], 1)
         self.assertEqual(exporter['max_batch_request_parallelism'], 1)
         self.assertIn('wal', exporter)
+        self.assertEqual(exporter['wal']['truncate_frequency'], '5s')
         self.assertEqual(exporter['translation_strategy'], 'UnderscoreEscapingWithSuffixes')
         self.assertEqual(exporter['http']['endpoint'], 'http://prometheus.observability.svc:9090/api/v1/write')
 

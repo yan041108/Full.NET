@@ -201,8 +201,10 @@ class MetricsPlatformRuntimeTests(unittest.TestCase):
                 'metrics': [{'name': 'fullnet_pipeline_probe_state', 'gauge': {'dataPoints': [{'asDouble': value, 'timeUnixNano': str(time.time_ns()), 'attributes': attributes}]}}]}]}]})
             self.assertEqual(result.get('partialSuccess', {}).get('rejectedDataPoints', 0), 0)
             return True
+        visibility_start = time.monotonic()
         self.wait(lambda: send(0))
         self.wait(lambda: self.request(query + 'fullnet_pipeline_probe_state').get('data', {}).get('result'))
+        visibility_ms = round((time.monotonic() - visibility_start) * 1000, 3)
         send(1)
         series = self.wait(lambda: (result if result and result[0]['value'][1] == '1' else None)
             if (result := self.request(query + 'fullnet_pipeline_probe_state').get('data', {}).get('result')) else None)
@@ -231,6 +233,7 @@ class MetricsPlatformRuntimeTests(unittest.TestCase):
         self.wait(tls_failed, seconds=30)
         self.assertEqual(events(), baseline)
         print('metrics_platform_live_receipt: ' + json.dumps({'otlpAccepted': True, 'prometheusReadback': True,
+            'initialSinglePointVisibilityMilliseconds': visibility_ms,
             'identityLabelsRemoved': True, 'tlsFiringResolvedSameFingerprint': True, 'wrongCaRejected': True,
             'receiver': 'self-owned-isolated-fixture', 'productionNotificationVerified': False}), flush=True)
 
