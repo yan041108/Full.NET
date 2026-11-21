@@ -7534,3 +7534,12 @@ Release 集成工程单节点构建及 Identity 模块隔离 AOT 分析均零警
 - Prometheus 的专用十秒合成规则实际 firing→resolved，Alertmanager 以 CA 校验及 credentials_file 合成凭据请求本轮 TLS 接收器（未验证 Kubernetes Secret 投影），两次状态使用同一指纹。错误 CA 独立对照实际出现 x509 拒绝，未增加接收事件；该对照只证明 TLS 拒绝，不冒充另一条 Prometheus 规则链。原规则名字和阈值保留、默认 discard/禁用合成告警、字符串布尔拒绝、只读权限及 PVC/Secret 引用均通过规定边界。
 - 本轮五个运行容器及四个校验容器均回收，私有网络删除（own_containers=0），合成 CA/密钥/Token 与配置随夹具目录回收。独立 Windows 临时 Helm 工具目录 `C:\Users\dai27\AppData\Local\Temp\fullnet-monitor-helm-2dd462dfc6484d66a2d4b8762e90499f` 的清理在执行前被自动审批审查拒绝，仅返回 blocked by policy，未提供具体原因；74,520,601 字节（约 71.1 MiB）保留，未换方式绕过或报告已清理。
 - 本批两个固定开发项及规定功能验收均完成，剩余开发 0、功能待验收 0、临时工具清理受限 1。补充只读全 Pod 镜像清单确认现场仅有 Kubernetes metrics-server，未发现本批 Prometheus/Alertmanager/Collector/KSM 的 Pod、无 monitoring.coreos.com CRD；平台采集链仍需授权安装和验证；Host 全局 OTLP/分信号导出接线、真实 Deployment watch/CNI/PVC、Node/HPA 等未提供源、正式告警地址及故障域继续归 D08-14/F16，不能据合成回路关闭整体任务。F15 原目标整批预演受限状态保留，未重试。未操作生产或运行无影响的 .NET/双库/全量，Capacity-not-verified 和其他工作区改动保持。
+### 8.390 D08-14 应用按信号导出接线（2026-11-21）
+
+| 固定任务 | 当前状态 | 完成条件 |
+| --- | --- | --- |
+| D08-OtlpSignalRegistration | 已实现，待集中验收 | 无全局端点时按显式 METRICS/TRACES 端点独立注册，命名选项隔离，完整 HTTP 路径和通用/信号配置优先级正确，不启用额外日志出口；非法配置不回显值。 |
+| D08-OtlpSignalRuntimeProof | 验收中 | 自有回环 HTTP 接收器证明指标、追踪、两者、禁用、全局与全局覆盖；复核资源实例与无重复注册，并完成 Host 可达 AOT 分析。 |
+
+- 基线 892de4cefb589e3fbca0f770cecbd3bc3708fc32；快照 otlp-signal-host-20261121。接续 §8.389 已明确的 Host 全局端点准入缺口，冻结范围仅为 Hosting 注册、直接相关测试及配置手册。沿用 main，既有无关工作区改动保留。
+- 分信号注册使用 SDK 静态 API，不增加包、不改日志持久化通道。集中执行 ServiceDefaultsMetricsTests 精确类与 API/Worker AOT 分析；不运行全量或数据库测试，不部署现网。正式采集新鲜度、正式路由送达与物理故障域仍归 D08-14/F16；Capacity-not-verified 保持。

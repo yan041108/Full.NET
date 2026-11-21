@@ -300,6 +300,16 @@ public static class ServiceDefaultsExtensions
         {
             openTelemetry.UseOtlpExporter();
         }
+        else
+        {
+            // 指标专用后端不能被当作全局出口；命名选项隔离两种信号，且不额外启用日志出口。
+            var metricsExporter = SignalOtlpConfiguration.Create(builder.Configuration, "METRICS");
+            var tracesExporter = SignalOtlpConfiguration.Create(builder.Configuration, "TRACES");
+            if (metricsExporter is not null)
+                openTelemetry.WithMetrics(metrics => metrics.AddOtlpExporter("fullnet-metrics", metricsExporter));
+            if (tracesExporter is not null)
+                openTelemetry.WithTracing(tracing => tracing.AddOtlpExporter("fullnet-traces", tracesExporter));
+        }
 
         builder.Services.AddOptions<HttpOperationLogOptions>()
             .BindConfiguration(HttpOperationLogOptions.SectionName)

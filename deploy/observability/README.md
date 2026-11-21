@@ -185,7 +185,14 @@ kube-state-metrics 只读取 applicationNamespace（默认 fullnet-production）
 
 该派生 Collector **仅接收指标**，从现有配置复用单消费者、单请求并发、WAL、指标名翻译和点标签过滤；该平台派生配置将 WAL 刷新/截断周期明确设为五秒，防止低流量等待原一分钟周期而延迟可见性，并补充资源属性过滤，移除 tenant_id/user_id/DiagnosticGroup，避免 target_info 再携带这些属性。这不能代替应用自己的低基数与敏感信息策略，也不代表处理任意未知敏感字段。内部 metrics 8888 显式绑定所有容器接口，平台 Prometheus 抓取该端点与 Deployment 观测器。
 
-应用端不由本包自动改写：当前 Host 在全局 OTEL_EXPORTER_OTLP_ENDPOINT 非空时注册 OTLP 导出器。已有独立 Trace 后端的应用可保留全局 Trace 接线，用 OTEL_EXPORTER_OTLP_METRICS_ENDPOINT 单独指向本指标端点并配置协议；没有全局接线时仍须完成 Host 的分信号导出注册，不能仅设置指标端点便声称已经采集。禁止把指标专用端点直接替换为全局 Trace/日志目的地。标准 OTLP HTTP 指标地址为 http://telemetry-collector.observability.svc:4318/v1/metrics；应用入口的现有 Egress 策略也须在实际启用前审核 OTLP 出站许可。本次不修改 Host 或现网配置。
+应用端使用更新后的 Host 时，无全局 OTEL_EXPORTER_OTLP_ENDPOINT 也能按显式 METRICS/TRACES 端点独立导出，仅配置指标时不启用追踪或日志出口。每种信号的 PROTOCOL、HEADERS、TIMEOUT（正整数毫秒）、COMPRESSION（none/gzip）优先于通用 OTLP 配置；未设置协议沿用 SDK 的 gRPC 默认值，HTTP 必须显式使用 http/protobuf。信号 ENDPOINT 必须是完整 http/https URL，HTTP 路径不自动追加；配置错误在注册时失败且只报告键名。标准指标配置如下，设置后须重启应用；这些变量应由应用 Chart 的显式环境配置注入，不由本平台渲染包改写。
+
+```bash
+OTEL_EXPORTER_OTLP_METRICS_ENDPOINT=http://telemetry-collector.observability.svc:4318/v1/metrics
+OTEL_EXPORTER_OTLP_METRICS_PROTOCOL=http/protobuf
+```
+
+已有全局出口时仍使用 SDK 全信号注册及其标准覆盖规则，不重复添加分信号导出器；该模式与分信号注册不可混用。禁止把指标专用后端设置为全局目的地。只有追踪后端时可单独配置 OTEL_EXPORTER_OTLP_TRACES_ENDPOINT 及协议。应用入口的现有 Egress 策略、TLS/CA 与实际可见性须在现场启用前核对；本轮不改现网配置，也不由回环 HTTP 接收测试推导生产采集完成。配置语义依据 [OpenTelemetry .NET 1.17 OTLP 配置](https://github.com/open-telemetry/opentelemetry-dotnet/blob/core-1.17.0/src/OpenTelemetry.Exporter.OpenTelemetryProtocol/README.md)。
 
 通知默认 discard，不外发。只有显式 receiver.enabled=true 才渲染 webhook，要求 HTTPS、无 URL 凭据/query/fragment，使用 receiver.caSecretName 的 ca.pem；可选 receiver.authorizationSecretName 的 token 仅以 Bearer credentials_file 引用。清单不包含 Secret 数据，也不创建 Secret。默认 receiver.probeOnly=true 只转发合成探针，其他规则继续 discard；正式启用获准路由时另行审查 receiver.probeOnly=false、CA/凭据投影与真实触发/恢复送达。证书轮换后重新验证或滚动，不假定 TLS 客户端热加载。
 
