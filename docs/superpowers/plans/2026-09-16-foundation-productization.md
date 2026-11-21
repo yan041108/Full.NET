@@ -7832,10 +7832,13 @@ Release 集成工程单节点构建及 Identity 模块隔离 AOT 分析均零警
 
 | 固定任务 | 当前状态 | 完成条件 |
 | --- | --- | --- |
-| F15-CandidateHostStartup | 已实现，待实际启动 | 复用固定 OCI 候选，隔离内网与一次性 MySQL，实际 Migrator 成功且有 journal；API/Worker 三健康端点成功并正常停止，清理所有本轮资源。 |
+| F15-CandidateHostStartup | 已完成，Testing/MySQL 实际迁移、健康和停止通过 | 复用固定 OCI 候选，隔离内网与一次性 MySQL，实际 Migrator 成功且有 journal；API/Worker 三健康端点成功并正常停止，清理所有本轮资源。 |
 
 - 基线 9d572bc6ae3aca25d2019db2de7f1cc4bb70a3f3，快照 candidate-host-startup-20261121。冻结范围为既有导入工作流的显式 verify_hosts 开关、专用启动夹具、原手册与计划；复用三角色已发布镜像，不重新编译。只验证 Testing/MySQL 组合，不据此认证 Production 配置、SQL Server、完整业务或 Native AOT。
 - 数据库镜像实际身份写入回执；容器使用随机本轮凭据、内网、不映射宿主端口和临时数据库存储。实际 Migrator 先执行必要 schema，API/Worker 再以镜像自身入口、UID、只读根、无附加 capability 和资源限额启动；检查 live/startup/ready=Healthy、SIGTERM 后 exit=0 且无 OOM。所有新资源先登记唯一名称与标签，always 独立清理并检查零残留。失败诊断只输出脱敏有界日志，随机凭据不入产物。
 - 本批只运行这条候选启动流程和直接结构检查，不运行测试矩阵/全量，不连接发布节点或重试受限操作。实际业务进程启动和一次性数据库迁移通过时才更新对应回执；部署/容量/生产配置仍 false，现场任务保持开放。
 - 首次作业 44906029311 在 UUID 009 maintenance mode 门禁处实际失败，尚未启动 API/Worker；always 清理确认容器/网络及镜像均零残留。定位为夹具未提供 Contract 维护证据，未修改应用或迁移。夹具修正为先独立查询确认本轮目标库确实为空，再实际 mysqldump 并恢复至同容器独立校验库、检查空库一致后删除校验库；仅向 Migrator 注入 UUID/Naming 既有维护参数，记录 ci-empty-作业号与备份摘要。API/Worker 不继承维护参数，不跳过门禁，也不将一次性空库恢复说成生产备份认证。
 - 第二次作业 44906270853 实际迁移成功，API 在 CodeGeneration 归档目录不存在的启动校验处失败，Worker 尚未启动，清理仍全部通过。定位为夹具只配置路径而未预建目录；改为 Docker 管理的专属 tmpfs 挂载，UID/GID 1654、0700、16 MiB，目录随容器生命周期存在，不关闭原目录校验或改变 Host 入口。
+- 最终验收源码 b74a267b05ed26086140a8e1fca466e6e1e298fe 的 [实际 Host 作业](https://github.com/yan041108/Full.NET/actions/runs/44906515239/job/136853159954) 全部步骤成功；应用仍为 06caddffeb4f227f54acc38543a7d8f436c105a8，镜像打包仍为 a879e7ed16b45291d922c4cc76d55fdd04dd2aad。实际下载 1,719 字节验收 artifact 并在内存解压核对 verification.json：Testing/MySql、Migrator exit=0、journal 397 条、API/Worker 六个端点均 200/Healthy、两者正常停止 exit=0 且无 OOM。397 为数据库 journal 行数，不是测试用例数量。
+- 数据库实际 mysql@sha256:7dcddc01f13bab2f15cde676d44d01f61fc9f99fe7785e86196dfc07d358ae2b，镜像 ID sha256:6cd09145362dfe6831b14545de3d5fd6cc75c37cfd6ef8561429c1fc73518b39；空库备份 SHA-256 de04e28ec91b0ce7e6977594bf0e018d52129aff74b6819e87c78ffef5d76df3、实际恢复校验 true。容器/网络及导入镜像独立清理后均无本轮残留，暂存清理与前后源码守卫通过。正式回执 artifact id=14707149762、名称 fullnet-oci-import-44906515239，API 确认 expired=false，2026-11-24 12:59:45 UTC 到期；本地仅内存读取回执，无候选源码副本或下载包堆积。
+- 本批剩余开发 0、待验收 0。闭合实际候选 Testing/MySQL 的三角色启动顺序、必要迁移、健康与停止缺口，未改业务源代码或迁移门禁。原候选历史回执不修改，新的 verification.json 顶层 runtimeStartupVerified/databaseMigrationVerified=true，hostVerification 明确 environment/provider 和 productionConfigurationVerified=false；Native AOT、SQL Server、完整业务、生产配置、现场部署、旧报表处置、D08 现场复验和容量仍未认证。运维手册同步显式开关与边界；其他主工作包、受限预演、Quill 到期处置、Capacity-not-verified 和既有工作区改动保持。

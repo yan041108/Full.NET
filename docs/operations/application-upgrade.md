@@ -192,5 +192,9 @@ sudo /usr/local/lib/fullnet/Release-Application.sh "$CANDIDATE_CHART" all --plan
 
 [首个实际候选导入作业](https://github.com/yan041108/Full.NET/actions/runs/44905410676) 输入 oci_run_id=44904939460，三角色均通过；Artifacts 中 fullnet-oci-import-44905410676 的 verification.json 绑定原候选回执摘要、应用/打包/验收提交、镜像 ID、层 DiffID 和实际运行时读数，保留三天。其 imageImportVerified/runtimeDiscoveryVerified=true，runtimeStartupVerified/databaseMigrationVerified/deploymentVerified/nativeAotVerified/capacityVerified=false。此回执补充原 candidate.json，不改写已上传候选的历史状态；运行时发现不能作为业务启动、迁移或现场发布验收。
 
+需要进一步检查真实 Host 启动时，在同一工作流显式选择 verify_hosts=true。它创建不映射宿主端口的 Docker 内网与一次性 MySQL，使用随机本轮凭据，确认空库、实际备份并恢复到独立校验库后，仅向 Migrator 提供现有 UUID/Naming Contract 维护参数；API/Worker 不继承维护参数。随后运行原镜像入口，检查 live/startup/ready 的 Healthy 响应及正常停止。Host 保持 UID 1654、只读根、资源限额，归档目录使用独立临时挂载；凭据与容器数据随本轮清理，不修改镜像或部署配置。
+
+[首个 Host 启动通过作业](https://github.com/yan041108/Full.NET/actions/runs/44906515239) 使用同一 OCI 候选，在 Testing/MySQL 下实际完成迁移（journal 397 条）、API/Worker 共六个健康端点及两个正常停止检查。verification.json 的 hostVerification 记录环境、Provider、数据库实际镜像摘要、空库备份 SHA-256/恢复校验和具体结果；顶层 runtimeStartupVerified/databaseMigrationVerified=true 仅适用于该测试组合，Production 配置、SQL Server、完整业务、Native AOT、部署和容量均未获认证。默认 verify_hosts=false 仍只执行导入与运行时发现，不能引用其他作业的启动结果。
+
 - `tests/deployment/foundation-preset-release.test.mjs`
 - 发布清单：`docs/verification/f16-release-checklist.md`
