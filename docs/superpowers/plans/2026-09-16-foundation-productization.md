@@ -7827,3 +7827,13 @@ Release 集成工程单节点构建及 Identity 模块隔离 AOT 分析均零警
 - 实际 Docker 镜像 ID：Migrator sha256:203ee4edc7cfe991ee20b783d2ef20da8f9d9fe14450ba2c7e4d2ad31269da1c，Worker sha256:6dee650abc2c6ade270e8354ee0425f4147d01eacfcb877f6ac3eb8ca0dbc7f7，Api sha256:2ed69f4fd14ebf3f4189afce27eb32878990b79a5fc50a7d922e5069630d274e。三个角色的实际配置和全部 RootFS DiffID 均与原 OCI 一致，三个受限容器均实际发现 NETCore/ASP.NET Core 10。没有将 Docker 配置检查或运行时发现说成 Host 业务入口启动。
 - 独立清理日志确认 owned_images=0、owned_containers=0，暂存清理成功，源码前后守卫通过。实际上传 artifact id=14707926530，名称 fullnet-oci-import-44905410676，大小 1,382 字节，API 确认 expired=false，2026-11-24 12:45:27 UTC 到期；verification.json 含原 candidate.json SHA-256、三类提交身份、镜像 ID、层身份及运行时读数，供原候选的补充回执，不修改原包。
 - 本批剩余开发 0、待验收 0。仅关闭实际候选的隔离本机导入和运行时发现缺口；业务 Host 启动、数据库迁移、Native AOT、现场发布、旧报表处置和 D08 现场复验保持开放。运维手册已补参数、回执下载和能力边界；无重新编译、基础镜像重打包、测试矩阵或全量，无发布节点变更、整仓快照或仓库 artifacts。其他主工作包、受限目标预演、Quill 到期处置、Capacity-not-verified 及既有工作区改动保持。
+
+### 8.412 F15 实际候选的 Testing Host 启动（2026-11-21）
+
+| 固定任务 | 当前状态 | 完成条件 |
+| --- | --- | --- |
+| F15-CandidateHostStartup | 已实现，待实际启动 | 复用固定 OCI 候选，隔离内网与一次性 MySQL，实际 Migrator 成功且有 journal；API/Worker 三健康端点成功并正常停止，清理所有本轮资源。 |
+
+- 基线 9d572bc6ae3aca25d2019db2de7f1cc4bb70a3f3，快照 candidate-host-startup-20261121。冻结范围为既有导入工作流的显式 verify_hosts 开关、专用启动夹具、原手册与计划；复用三角色已发布镜像，不重新编译。只验证 Testing/MySQL 组合，不据此认证 Production 配置、SQL Server、完整业务或 Native AOT。
+- 数据库镜像实际身份写入回执；容器使用随机本轮凭据、内网、不映射宿主端口和临时数据库存储。实际 Migrator 先执行必要 schema，API/Worker 再以镜像自身入口、UID、只读根、无附加 capability 和资源限额启动；检查 live/startup/ready=Healthy、SIGTERM 后 exit=0 且无 OOM。所有新资源先登记唯一名称与标签，always 独立清理并检查零残留。失败诊断只输出脱敏有界日志，随机凭据不入产物。
+- 本批只运行这条候选启动流程和直接结构检查，不运行测试矩阵/全量，不连接发布节点或重试受限操作。实际业务进程启动和一次性数据库迁移通过时才更新对应回执；部署/容量/生产配置仍 false，现场任务保持开放。

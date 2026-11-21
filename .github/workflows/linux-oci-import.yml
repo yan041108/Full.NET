@@ -7,6 +7,11 @@ on:
         description: Successful main linux-oci-candidate run ID
         required: true
         type: string
+      verify_hosts:
+        description: Verify Testing hosts with an isolated disposable MySQL database
+        required: true
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -17,6 +22,8 @@ jobs:
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
     timeout-minutes: 20
+    env:
+      PYTHONDONTWRITEBYTECODE: '1'
     steps:
       - uses: actions/checkout@v4
       - name: Verify the upstream OCI run
@@ -66,6 +73,7 @@ jobs:
           OCI_SOURCE: ${{ steps.upstream.outputs.source }}
           OCI_PACKAGING: ${{ steps.upstream.outputs.packaging }}
           OCI_RUN_ID: ${{ inputs.oci_run_id }}
+          VERIFY_HOSTS: ${{ inputs.verify_hosts }}
         run: |
           set -euo pipefail
           python3 - <<'PY'
@@ -171,6 +179,14 @@ jobs:
                     'roles': results, 'imageImportVerified': True, 'runtimeDiscoveryVerified': True,
                     'runtimeStartupVerified': False, 'nativeAotVerified': False, 'databaseMigrationVerified': False,
                     'deploymentVerified': False, 'capacityVerified': False}
+          if os.environ['VERIFY_HOSTS'] == 'true':
+              import importlib.util
+              spec = importlib.util.spec_from_file_location('candidate_startup', 'tests/deployment/oci_candidate_startup.py')
+              startup = importlib.util.module_from_spec(spec)
+              spec.loader.exec_module(startup)
+              result['hostVerification'] = startup.verify(root)
+              result['runtimeStartupVerified'] = True
+              result['databaseMigrationVerified'] = True
           (root / 'verification.json').write_text(json.dumps(result, sort_keys=True, indent=2) + '\n')
           PY
           test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
@@ -180,9 +196,13 @@ jobs:
         if: always()
         run: |
           python3 - <<'PY'
-          import json, os, pathlib, subprocess
+          import importlib.util, json, os, pathlib, subprocess
           stage = os.environ.get('FULLNET_OCI_IMPORT')
           if stage:
+              spec = importlib.util.spec_from_file_location('candidate_startup', 'tests/deployment/oci_candidate_startup.py')
+              startup = importlib.util.module_from_spec(spec)
+              spec.loader.exec_module(startup)
+              startup.clean(pathlib.Path(stage))
               path = pathlib.Path(stage) / 'owned.json'
               if path.exists():
                   socket = 'unix:///var/run/docker.sock'
