@@ -7525,3 +7525,5 @@ Release 集成工程单节点构建及 Identity 模块隔离 AOT 分析均零警
 - 复用已有 OTel Contrib 0.163.1、Prometheus 3.15.0、Alertmanager 0.34.0 固定镜像和现有规则；kube-state-metrics 固定 2.17.0 与官方 registry 摘要。只提供平台独立渲染及隔离验证，不修改应用 Chart、业务数据或生产资源。指标后端与通知配置分开准入，默认无外部接收器，显式配置仅引用 CA/凭据 Secret，不嵌入秘密。
 - 两项集中交付，使用真实模板/容器/OTLP/HTTPS；原规则阈值不为测试缩短，仅明确启用的合成探针走快速 firing/resolved。不以合成源证明现网应用已导出、KSM/CNI/持久卷/物理故障接管、真实通知地址或容量；正式采集部署、Host 接线和现场送达继续归 D08-14，Capacity-not-verified 保持。
 - 模板本地首轮因 Prometheus 配置字典括号错误出现 9 错误/1 失败/2 通过，未升级通过；拆分嵌套配置后真实 Helm 3.16.4 的十二条定向方法 12/12（2.250 秒）、零跳过。关联实现完成，集中选择该十二条与一条真实镜像回路方法，合计十三条；原生产阈值保持，probe 专门启用。发现现行 Host 只有全局 OTLP 非空才注册导出，已在手册明确本指标包不自动启用 Host；该现场接线仍归 D08-14，不将合成源外推为应用已采集。
+
+- 候选 2c4fd42a9 的 [首次真实镜像作业](https://github.com/yan041108/Full.NET/actions/runs/44842295498/job/136653415003) 为 12/13（14.589 秒），零跳过；四个镜像的真实配置/CLI 校验完成，但在读取 Prometheus 宿主映射端口时错误，尚未进入 OTLP 链路。最小真实 Docker 复现中进程仍 running，HostConfig 已配置发布而 internal 网络的 Ports 为空；将请求改为在本轮内部接收器内执行，不关闭 internal 网络或公开端口。增加布尔 schema 和一条字符串 false 拒绝用例，避免通知开关字符串被当作 true；后续集中十四条，原失败与清理零容器记录保留。

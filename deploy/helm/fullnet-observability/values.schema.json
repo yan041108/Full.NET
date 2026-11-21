@@ -1,0 +1,26 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "cluster": { "type": "string", "maxLength": 63 },
+    "applicationNamespace": { "type": "string", "maxLength": 63 },
+    "prometheusClaim": { "type": "string", "maxLength": 63 },
+    "alertmanagerClaim": { "type": "string", "maxLength": 63 },
+    "rulesSource": { "type": "string" },
+    "collectorSource": { "type": "string" },
+    "probeAlert": { "type": "boolean" },
+    "evaluationInterval": { "type": "string" },
+    "receiver": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "url": { "type": "string" },
+        "caSecretName": { "type": "string", "maxLength": 63 },
+        "authorizationSecretName": { "type": "string", "maxLength": 63 },
+        "probeOnly": { "type": "boolean" }
+      }
+    }
+  }
+}

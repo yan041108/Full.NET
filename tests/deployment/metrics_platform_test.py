@@ -139,6 +139,13 @@ class MetricsPlatformTests(unittest.TestCase):
             with self.subTest(arguments=arguments):
                 self.assertNotEqual(render(*arguments).returncode, 0)
 
+    def test_notification_switches_reject_string_booleans(self):
+        for key in ('receiver.enabled', 'receiver.probeOnly', 'probeAlert'):
+            with self.subTest(key=key):
+                result = render('--set-string', key + '=false')
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn('Invalid type', result.stderr)
+
 
 if __name__ == '__main__':
     unittest.main()

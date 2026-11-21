@@ -340,7 +340,7 @@ jobs:
           for pattern in ('metrics_platform_test.py', 'metrics_platform_runtime_test.py'):
               suite.addTests(unittest.defaultTestLoader.discover('tests/deployment', pattern=pattern))
           result = unittest.TextTestRunner(verbosity=2).run(suite)
-          if not result.wasSuccessful() or result.skipped or result.testsRun != 13:
+          if not result.wasSuccessful() or result.skipped or result.testsRun != 14:
               raise SystemExit(1)
           print(f'metrics_platform: passed={result.testsRun} failed=0 skipped=0')
           PY
