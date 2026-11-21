@@ -1,0 +1,172 @@
+name: linux-oci-candidate
+
+on:
+  workflow_dispatch:
+    inputs:
+      jit_run_id:
+        description: Successful main linux-jit-candidate run ID
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  candidate:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify the upstream candidate run
+        id: upstream
+        uses: actions/github-script@v7
+        env:
+          JIT_RUN_ID: ${{ inputs.jit_run_id }}
+        with:
+          script: |
+            const id = process.env.JIT_RUN_ID;
+            if (!/^[1-9][0-9]{0,14}$/.test(id)) throw new Error('jit_run_id_invalid');
+            const {data: run} = await github.rest.actions.getWorkflowRun({...context.repo, run_id: id});
+            if (run.path !== '.github/workflows/linux-jit-candidate.yml' ||
+                run.head_branch !== 'main' || run.event !== 'workflow_dispatch' ||
+                run.head_repository.full_name !== `${context.repo.owner}/${context.repo.repo}` ||
+                run.status !== 'completed' || run.conclusion !== 'success' ||
+                !/^[0-9a-f]{40}$/.test(run.head_sha)) throw new Error('jit_run_untrusted');
+            core.setOutput('source', run.head_sha);
+      - name: Prepare owned staging
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          test -z "$(git status --porcelain --untracked-files=all)"
+          candidate="$RUNNER_TEMP/fullnet-linux-oci-candidate"
+          test ! -e "$candidate"
+          mkdir -m 0700 "$candidate"
+          echo "FULLNET_OCI_CANDIDATE=$candidate" >> "$GITHUB_ENV"
+      - uses: actions/download-artifact@v4
+        with:
+          name: fullnet-linux-jit-${{ steps.upstream.outputs.source }}
+          path: ${{ env.FULLNET_OCI_CANDIDATE }}/input
+          github-token: ${{ github.token }}
+          run-id: ${{ inputs.jit_run_id }}
+      - name: Pack and verify the three OCI images
+        env:
+          JIT_SOURCE: ${{ steps.upstream.outputs.source }}
+          JIT_RUN_ID: ${{ inputs.jit_run_id }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import gzip, hashlib, json, os, pathlib, subprocess, tarfile
+          root = pathlib.Path(os.environ['FULLNET_OCI_CANDIDATE'])
+          incoming, output = root / 'input', root / 'delivery'
+          output.mkdir(mode=0o700)
+          source = os.environ['JIT_SOURCE']
+          roles = ('migrator', 'worker', 'api')
+          def require(condition, code):
+              if not condition:
+                  raise RuntimeError(code)
+          def digest(path):
+              with path.open('rb') as stream:
+                  return hashlib.file_digest(stream, 'sha256').hexdigest()
+          receipt = json.loads((incoming / 'candidate.json').read_text())
+          require(type(receipt['schemaVersion']) is int and receipt['schemaVersion'] == 1 and
+                  receipt['sourceCommit'] == source and receipt['scope'] == 'linux-jit-publish' and
+                  receipt['runtimeIdentifier'] == 'linux-x64' and receipt['jitPublishVerified'] is True and
+                  set(receipt['roles']) == set(roles), 'jit_receipt_invalid')
+          require(not any(p.is_symlink() or not p.is_file() for p in incoming.iterdir()), 'jit_input_invalid')
+          require({p.name for p in incoming.iterdir()} == {'candidate.json'} |
+                  {'fullnet-' + role + '-' + source + '-linux-x64-jit.tar.gz' for role in roles}, 'jit_input_set_invalid')
+          # 只消费已成功的正式 JIT 产物，校验全部输入后才访问 MCR。
+          for role in roles:
+              entry = receipt['roles'][role]
+              expected = 'fullnet-' + role + '-' + source + '-linux-x64-jit.tar.gz'
+              require(entry['archive'] == expected and digest(incoming / expected) == entry['archiveSha256'],
+                      'jit_archive_mismatch')
+              with tarfile.open(incoming / expected, 'r:gz') as archive:
+                  members = archive.getmembers()
+                  require(len(members) == len(entry['files']) and {m.name for m in members} == set(entry['files']) and
+                          all(m.isfile() for m in members), 'jit_entries_invalid')
+                  for member in members:
+                      require(hashlib.file_digest(archive.extractfile(member), 'sha256').hexdigest() ==
+                              entry['files'][member.name], 'jit_file_mismatch')
+          results, base_layers = {}, None
+          first_image, first_manifest = None, None
+          for role in roles:
+              image = output / ('fullnet-' + role + '-' + source + '.oci.tar')
+              command = ['python3', 'eng/deploy/ubuntu/Pack-OciImage.py', '--publish',
+                         str(incoming / receipt['roles'][role]['archive']), '--role', role, '--tag', source,
+                         '--output', str(image), '--cache', str(root / 'cache')]
+              # 后两角色离线复用首次取得的运行时层，避免可变上游标签在批次内漂移。
+              if first_image is not None:
+                  command += ['--base-oci', str(first_image), '--base-digest', first_manifest]
+              packed = json.loads(subprocess.check_output(command, text=True, timeout=900))
+              require(packed['status'] == 'packed' and packed['archiveSha256'] == 'sha256:' + digest(image),
+                      'oci_archive_mismatch')
+              with tarfile.open(image, 'r:') as archive:
+                  def blob(descriptor):
+                      member = archive.getmember('blobs/sha256/' + descriptor['digest'][7:])
+                      require(member.isfile() and member.size == descriptor['size'], 'oci_blob_size_invalid')
+                      with archive.extractfile(member) as stream:
+                          require('sha256:' + hashlib.file_digest(stream, 'sha256').hexdigest() == descriptor['digest'],
+                                  'oci_blob_digest_invalid')
+                      return member
+                  index = json.load(archive.extractfile('index.json'))
+                  require(len(index['manifests']) == 1, 'oci_index_invalid')
+                  descriptor = index['manifests'][0]
+                  require(descriptor['digest'] == packed['manifestDigest'], 'oci_manifest_mismatch')
+                  manifest = json.load(archive.extractfile(blob(descriptor)))
+                  configuration = json.load(archive.extractfile(blob(manifest['config'])))
+                  require(configuration['os'] == 'linux' and configuration['architecture'] == 'amd64' and
+                          configuration['config']['User'] == '1654' and
+                          configuration['config']['WorkingDir'] == '/app' and
+                          configuration['config']['Entrypoint'] == ['dotnet', 'Full.NET.Host.' + role.capitalize() + '.dll'],
+                          'oci_entrypoint_invalid')
+                  for layer in manifest['layers']:
+                      blob(layer)
+                  current_base = manifest['layers'][:-1]
+                  require(base_layers is None or base_layers == current_base, 'oci_runtime_drift')
+                  base_layers = current_base
+                  layer = blob(manifest['layers'][-1])
+                  with archive.extractfile(layer) as stream, gzip.GzipFile(fileobj=stream) as raw:
+                      require('sha256:' + hashlib.file_digest(raw, 'sha256').hexdigest() ==
+                              configuration['rootfs']['diff_ids'][-1], 'oci_application_diff_invalid')
+                  with archive.extractfile(layer) as stream, tarfile.open(fileobj=stream, mode='r:gz') as app:
+                      members = app.getmembers()
+                      expected = {'app/' + name: sha for name, sha in receipt['roles'][role]['files'].items()}
+                      require(len(members) == len(expected) and {m.name for m in members} == set(expected) and
+                              all(m.isfile() for m in members), 'oci_application_entries_invalid')
+                      for member in members:
+                          require(hashlib.file_digest(app.extractfile(member), 'sha256').hexdigest() == expected[member.name],
+                                  'oci_application_file_invalid')
+              results[role] = {**packed, 'archive': image.name,
+                               'publishArchiveSha256': receipt['roles'][role]['archiveSha256']}
+              if first_image is None:
+                  first_image, first_manifest = image, packed['manifestDigest']
+              print('oci_candidate_role: ' + role + ' application_files=' + str(len(expected)) + ' verified=true', flush=True)
+          result = {'schemaVersion': 1, 'scope': 'linux-jit-oci', 'sourceCommit': source,
+                    'packagingCommit': os.environ['GITHUB_SHA'], 'jitRunId': os.environ['JIT_RUN_ID'],
+                    'runtimeIdentifier': 'linux-x64', 'roles': results,
+                    'runtimeBaseManifestDigest': results['migrator']['baseManifestDigest'],
+                    'runtimeLayers': base_layers, 'imageBuildVerified': True, 'imageImportVerified': False,
+                    'runtimeStartupVerified': False, 'nativeAotVerified': False,
+                    'databaseMigrationVerified': False, 'deploymentVerified': False, 'capacityVerified': False}
+          (output / 'candidate.json').write_text(json.dumps(result, sort_keys=True, indent=2) + '\n')
+          print('oci_candidate_verified: source=' + source + ' base=' + result['runtimeBaseManifestDigest'], flush=True)
+          PY
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          test -z "$(git status --porcelain --untracked-files=all)"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: fullnet-linux-oci-${{ steps.upstream.outputs.source }}
+          path: ${{ env.FULLNET_OCI_CANDIDATE }}/delivery/*
+          if-no-files-found: error
+          retention-days: 3
+          compression-level: 0
+      - name: Clean candidate staging
+        if: always()
+        run: |
+          # 仅回收本轮排他创建并登记的暂存目录，不处理历史候选。
+          if test -n "${FULLNET_OCI_CANDIDATE:-}" && test "$FULLNET_OCI_CANDIDATE" = "$RUNNER_TEMP/fullnet-linux-oci-candidate"; then
+            rm -rf -- "$FULLNET_OCI_CANDIDATE"
+          fi

@@ -7799,3 +7799,13 @@ Release 集成工程单节点构建及 Identity 模块隔离 AOT 分析均零警
 - 实现/候选源码 06caddffeb4f227f54acc38543a7d8f436c105a8 的 [linux-jit-candidate 实际作业](https://github.com/yan041108/Full.NET/actions/runs/44903920154/job/136845376337) 成功。Ubuntu 24.04/.NET SDK 10.0.404，三个 Host 顺序 Release/linux-x64、self-contained=false、UseAppHost=false 发布通过；Migrator 291、Worker 296、Api 298 个文件均从实际 tar.gz 读回核对 SHA-256，全部归档条目和运行目标检查通过。未将文件数当成测试用例数，也未执行测试矩阵。
 - 实际上传 artifact id=14707301210，名称 fullnet-linux-jit-06caddffeb4f227f54acc38543a7d8f436c105a8，大小 117,050,190 字节，API 确认 expired=false，2026-11-24 12:31:48 UTC 到期。归档与逐文件摘要保存在 candidate.json；源码前后守卫和暂存清理步骤成功。运维手册已补下载、校验、运行时要求和 OCI 打包衔接说明，后续文档提交不改写候选来源。
 - 本批剩余开发 0、待验收 0。只关闭三角色 JIT 编译发布与候选下载缺口；进程启动、Native AOT、OCI 镜像、真实迁移/部署、旧报表处置与 D08 现场复验保持开放。没有连接发布节点或重试受限命令，没有整仓快照或仓库 artifacts；其他工作区改动、Quill 到期处置及 Capacity-not-verified 保持。
+
+### 8.410 F15 三 Host 的 OCI 镜像候选（2026-11-21）
+
+| 固定任务 | 当前状态 | 完成条件 |
+| --- | --- | --- |
+| F15-LinuxOciCandidate | 已实现，待实际打包 | 复用成功 main JIT 作业和正式 OCI 打包器，交付三角色镜像，绑定应用提交/打包提交/基础运行时及全部归档摘要。 |
+
+- 基线 3b0a37eb4c1f2adb11b3681045695d79f57407d9，快照 linux-oci-candidate-20261121。接续 §8.409 的实际发布包，仅补手动工作流，不修改正式打包器或重复编译。冻结范围为工作流、原手册和计划；从同仓成功 main/workflow_dispatch 的指定 JIT 作业读取精确 artifact，核对来源回执、完整文件集合、各归档和全部文件 SHA-256 后才取得 MCR 基础运行时。
+- 首角色在线使用正式打包器，后两角色按首角色 manifest 摘要离线替换应用层，核对三者运行时层完全一致。逐一验证 OCI 描述符大小/摘要、linux/amd64、UID 1654、角色入口、应用 DiffID 与全部应用文件。候选分别记录 sourceCommit 和 packagingCommit，不把后续编排代码提交冒充程序集来源。
+- 本批只执行这一正式打包与内建完整性核对，不运行测试矩阵、业务进程或数据库，不导入远程容器平台、连接发布环境或重试受限操作。imageBuildVerified 与导入/启动/迁移/部署/容量分开记录，后者保持 false；Actions 正式产物保留三天，工作流清理本轮暂存。实际完成以作业回执为准。
