@@ -1,0 +1,112 @@
+name: linux-jit-candidate
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  candidate:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    env:
+      DOTNET_CLI_TELEMETRY_OPTOUT: '1'
+      DOTNET_NOLOGO: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - name: Publish only the three Linux JIT hosts
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          test -z "$(git status --porcelain --untracked-files=all)"
+          candidate="$RUNNER_TEMP/fullnet-linux-jit-candidate"
+          test ! -e "$candidate"
+          mkdir -m 0700 "$candidate"
+          echo "FULLNET_JIT_CANDIDATE=$candidate" >> "$GITHUB_ENV"
+          dotnet --version > "$candidate/sdk-version.txt"
+          for role in Migrator Worker Api; do
+            dotnet publish "src/Hosts/Full.NET.Host.$role/Full.NET.Host.$role.csproj" \
+              -c Release -r linux-x64 --self-contained false -p:FullNetPublishMode=Jit \
+              -p:PublishAot=false -p:UseAppHost=false -p:UseSharedCompilation=false \
+              -m:1 -nr:false -o "$candidate/publish/$role"
+          done
+      - name: Validate and seal the JIT publish artifacts
+        run: |
+          python3 - <<'PY'
+          import hashlib, json, os, pathlib, tarfile
+          root = pathlib.Path(os.environ['FULLNET_JIT_CANDIDATE'])
+          output = root / 'delivery'
+          output.mkdir(mode=0o700)
+          def digest(path):
+              value = hashlib.sha256()
+              with path.open('rb') as stream:
+                  while block := stream.read(1024 * 1024):
+                      value.update(block)
+              return value.hexdigest()
+          roles = {}
+          for role in ('Migrator', 'Worker', 'Api'):
+              directory = root / 'publish' / role
+              host = 'Full.NET.Host.' + role
+              for suffix in ('.dll', '.deps.json', '.runtimeconfig.json'):
+                  path = directory / (host + suffix)
+                  if not path.is_file() or path.stat().st_size == 0:
+                      raise RuntimeError('publish_host_missing')
+              if (directory / (host + '.dll')).read_bytes()[:2] != b'MZ':
+                  raise RuntimeError('managed_host_invalid')
+              runtime = json.loads((directory / (host + '.runtimeconfig.json')).read_text())
+              deps = json.loads((directory / (host + '.deps.json')).read_text())
+              if runtime['runtimeOptions']['tfm'] != 'net10.0' or not deps['runtimeTarget']['name'].endswith('/linux-x64'):
+                  raise RuntimeError('publish_target_invalid')
+              files = {}
+              for path in sorted(directory.rglob('*')):
+                  if path.is_symlink():
+                      raise RuntimeError('publish_link_invalid')
+                  if path.is_dir():
+                      continue
+                  if not path.is_file() or path.suffix.lower() in ('.pfx', '.p12', '.key', '.pem') or path.name.startswith('.env'):
+                      raise RuntimeError('publish_sensitive_or_special_file')
+                  if path.name == 'appsettings.Development.json':
+                      path.unlink()
+                      continue
+                  files[path.relative_to(directory).as_posix()] = digest(path)
+              name = 'fullnet-' + role.lower() + '-' + os.environ['GITHUB_SHA'] + '-linux-x64-jit.tar.gz'
+              archive = output / name
+              with tarfile.open(archive, 'w:gz') as package:
+                  for relative in files:
+                      package.add(directory / relative, arcname=relative, recursive=False)
+              with tarfile.open(archive, 'r:gz') as package:
+                  members = package.getmembers()
+                  if len(members) != len(files) or {m.name for m in members} != set(files) or not all(m.isfile() for m in members):
+                      raise RuntimeError('publish_archive_entries_invalid')
+                  for member in members:
+                      if hashlib.file_digest(package.extractfile(member), 'sha256').hexdigest() != files[member.name]:
+                          raise RuntimeError('publish_archive_digest_invalid')
+              roles[role.lower()] = {'archive': name, 'archiveSha256': digest(archive), 'files': files}
+              print('jit_candidate_role: ' + role.lower() + ' files=' + str(len(files)) + ' archive_verified=true')
+          receipt = {'schemaVersion': 1, 'sourceCommit': os.environ['GITHUB_SHA'], 'scope': 'linux-jit-publish',
+              'runtimeIdentifier': 'linux-x64', 'dotnetSdk': (root / 'sdk-version.txt').read_text().strip(), 'roles': roles,
+              'jitPublishVerified': True, 'runtimeStartupVerified': False, 'nativeAotVerified': False,
+              'imageBuildVerified': False, 'databaseMigrationVerified': False, 'deploymentVerified': False, 'capacityVerified': False}
+          (output / 'candidate.json').write_text(json.dumps(receipt, sort_keys=True, indent=2) + '\n')
+          print('jit_candidate_verified: commit=' + receipt['sourceCommit'] + ' sdk=' + receipt['dotnetSdk'] + ' roles=3')
+          PY
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          test -z "$(git status --porcelain --untracked-files=all)"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: fullnet-linux-jit-${{ github.sha }}
+          path: ${{ env.FULLNET_JIT_CANDIDATE }}/delivery/*
+          if-no-files-found: error
+          retention-days: 3
+          compression-level: 0
+      - name: Clean candidate staging
+        if: always()
+        run: |
+          if test -n "${FULLNET_JIT_CANDIDATE:-}" && test "$FULLNET_JIT_CANDIDATE" = "$RUNNER_TEMP/fullnet-linux-jit-candidate"; then
+            rm -rf -- "$FULLNET_JIT_CANDIDATE"
+          fi

@@ -7786,3 +7786,13 @@ Release 集成工程单节点构建及 Identity 模块隔离 AOT 分析均零警
 - 实现/候选源码 a5f1d34356dad20e3c114e2550aa5bda98689328 的 [source-candidate 实际作业](https://github.com/yan041108/Full.NET/actions/runs/44903514174/job/136844176936) 全部步骤成功。Ubuntu 24.04/Node 24、GitHub 干净 main 检出，正式构建器生成 6,581 个受管文件，独立完整性阶段逐个核对全部 SHA-256、精确文件集合/无链接、manifest schema=3 和 sourceCommit；前后源码状态守卫通过。未安装依赖或运行编译/测试矩阵。
 - 实际上传 artifact id=14707260372，名称 fullnet-source-a5f1d34356dad20e3c114e2550aa5bda98689328，大小 9,430,446 字节，API 确认 expired=false，2026-11-24 12:22:07 UTC 到期。内层归档 SHA-256 为 9979375c25a4132fc3199d19741dc1cafd56fbc7c0cf55946d148790fd09bcec，framework-manifest SHA-256 为 988d0c4c93b5fc501bfe87ed143bff179ff2bf9aac4073c956a2ac3d18a16079。candidate.json 明确 scope=framework-source，runtimeBuildVerified/deploymentVerified/capacityVerified 均为 false；没有把 6,581 文件核对数量说成测试方法数。
 - 本批剩余开发 0、待验收 0。正式产物按明确保留范围存于 Actions，暂存清理步骤成功；无本地整仓复制或仓库 artifacts，工作区原改动未纳入候选。当前 main 后续文档提交不改变已上传包的 sourceCommit。源码候选交付入口关闭，应用二进制/镜像构建、真实候选发布、旧报表处置与 D08 现场复验仍按 F15-R2 保留；目标预演受限、Quill 到期处置与 Capacity-not-verified 状态不变。
+
+### 8.409 F15 三 Host 的 Linux JIT 发布候选（2026-11-21）
+
+| 固定任务 | 当前状态 | 完成条件 |
+| --- | --- | --- |
+| F15-LinuxJitCandidate | 已实现，待实际 publish | 干净固定 main 上发布 API/Worker/Migrator，检查 RID/依赖清单、全部归档字节与来源回执并提供下载。 |
+
+- 基线 be0a25efcacc581d2ea88d5823a050d7491775bf，快照 linux-jit-candidate-20261121。接续 framework-source 候选，新增独立手动入口生成三个 Host 的框架依赖 Linux x64 JIT 发布包，不重建源码分发器。Microsoft Learn 官方部署文档核对 Release/RID/UseAppHost=false，沿项目 FullNetPublishMode=Jit，不修改 Native AOT 状态或抑制告警。
+- 固定范围为工作流及现有手册/计划。只编译三个 Host 的必要依赖，单节点顺序 publish、不启动数据库/业务进程或测试套件。产物位于 RUNNER_TEMP，拒绝链接/私钥/环境文件，排除 Development 配置；核对 Host 三件套、net10.0/linux-x64、全部文件及归档读回摘要。candidate.json 绑定源提交/SDK/三个归档与逐文件摘要，仅 jitPublishVerified=true，其余启动、AOT、镜像、迁移、部署和容量均 false。
+- 正式候选保留三天，上传完成后回收暂存；不采纳本地脏文件、不复制整仓、不进行现场上传/预演或实际发布。未运行全量或双库测试，实际完成以工作流结果为准。
