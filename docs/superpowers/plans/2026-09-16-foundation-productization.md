@@ -7916,3 +7916,13 @@ Release 集成工程单节点构建及 Identity 模块隔离 AOT 分析均零警
 - 内存下载并核对 verification.json：mode=recovery，恢复一个加密密钥、原密文读取与恢复后反向进程往返 true；损坏 ZIP/缺 PFX 写前拒绝 true，备份后新密钥载荷拒绝 true，原备份摘要不变 true。实际 ZIP SHA-256 6249333512a23f650e1cff9b401d0313b06b1bbed2f265758c7acee7d6a86aa9，清单 0bfc2cf1cb2403ae349aa1c0536a928c189aa2026d4ab1bcb916cda0f62c63f0，PFX 4aa15d57f5b046c1233fe1097630ef18ec572970dd32e3cc3fb99685697cb139。密码未进入备份，源 Key Ring 新增密钥与恢复副本的旧快照边界实际区分，不以同一目录或同一 Provider 缓存证明恢复。
 - 真实回执 artifact id=14743222617、名称 fullnet-oci-import-44994510715、大小 1,868 字节，API expired=false，2026-11-25 06:37:59 UTC 到期。scope 仍为候选镜像内独立进程，businessHostConsumerVerified/productionRecoveryVerified/nativeAotVerified=false；本轮 runtimeStartupVerified/databaseMigrationVerified/deploymentVerified=false，旧业务 Host 结果不改写。只上传回执，密钥/PFX/密文/备份归档/密码均不进入正式 artifact。
 - 本批剩余开发 0、待验收 0。独立清理确认本轮导入镜像/容器零残留，暂存、编译引用、备份/恢复目录均回收，源码前后守卫通过；本地仅内存读取回执，无整仓副本或仓库 artifacts。原手册同步显式场景、密码独立供给及夹具限制；仅关闭本轮候选介质恢复的独立进程差集，业务消费者/多代撤销材料/真实跨节点联合恢复、现场发布/旧报表、外部渠道、D08 复验及容量仍按原主工作包开放。临期 Quill、受限预演、Capacity-not-verified 和无关工作区改动保持。
+
+### 8.418 F15 候选实际模块保护器与通知介质恢复（2026-11-22）
+
+| 固定任务 | 当前状态 | 完成条件 |
+| --- | --- | --- |
+| F15-CandidateModuleProtectors | 已实现，待实际执行 | 固定候选的六类真实模块保护器双向跨进程和用途拒绝通过，实际通知收件端点保护器在恢复介质上读取原值并验证快照边界。 |
+
+- 基线 61adcdf9454c7f6e60ff4cb6f70b3c9b990a37df，快照 candidate-module-protectors-20261122。冻结范围为原工作流 consumers 场景、原 JIT 探针的固定模块类型桥接、专用夹具及原手册/计划。直接读取候选 Identity/Notifications/Payments 三程序集摘要，在原镜像中加载真实 NotificationRecipientEndpointProtector、LDAP/OAuth/TOTP 保护器与支付 API/商户私钥保护器；不复制保护器源码、不扩展模块公开性，不新建业务端点。
+- 仅 JIT 夹具通过固定类型/方法清单调用 internal 组件，依赖从实际 Host deps 闭包解析；不把测试反射引入产品或 Native AOT。六类组件各 API→Worker/Worker→API，六个不同用途拒绝、通用探针用途拒绝及支付两个用途反向拒绝，共八个精确密码学拒绝。实际通知组件复用独立介质恢复、缺件/篡改写前拒绝、原值读取及备份后新 KeyId 快照拒绝；这些实际组件调用替代通用 purpose，不发送邮件/支付或启动任务处理器。
+- 回执区分 moduleProtectorComponentsVerified 与 businessHostPipelineVerified/externalDeliveryVerified/paymentChannelVerified/nativeAotVerified，后者仍 false；不把构造组件说成真实 API/Worker DI、数据库、队列或外部渠道闭环。只跑本批相关组件与通知恢复差集，不重跑 basic/rotation/通用 recovery、数据库或全量。资源/秘密介质/编译引用按原入口清理，其他主工作包与临期 Quill 风险保持开放。

@@ -42,6 +42,7 @@ on:
           - basic
           - rotation
           - recovery
+          - consumers
 
 permissions:
   contents: read

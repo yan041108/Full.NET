@@ -1,5 +1,7 @@
 using System.Globalization;
 using System.IO.Compression;
+using System.Reflection;
+using System.Runtime.Loader;
 using System.Security.Cryptography;
 using System.Xml;
 using System.Xml.Linq;
@@ -14,14 +16,43 @@ using Microsoft.Extensions.Logging;
 // 只检查候选已发布的注册边界；不新增业务 Host 端点，不输出密钥或异常详情。
 try
 {
-    if (args.Length is < 1 or > 2 || args[0] is not ("protect" or "unprotect" or "inspect" or "rotate" or "backup")) return 2;
+    if (args.Length is < 1 or > 2 || args[0] is not ("protect" or "unprotect" or "inspect" or "rotate" or "backup"
+        or "consumer-protect" or "consumer-unprotect" or "consumer-inventory")) return 2;
     var builder = Host.CreateApplicationBuilder();
     if (!builder.Environment.IsProduction()) return 2;
     builder.Logging.ClearProviders();
     builder.Services.AddFullNetDataProtection(builder.Configuration, builder.Environment);
     // 消费进程只读取已有密钥，拒绝场景不得自动生成新密钥污染共享介质。
-    if (args[0] is "unprotect" or "inspect" or "backup") builder.Services.AddDataProtection().DisableAutomaticKeyGeneration();
+    if (args[0] is "unprotect" or "inspect" or "backup" or "consumer-unprotect" or "consumer-inventory")
+        builder.Services.AddDataProtection().DisableAutomaticKeyGeneration();
     using var host = builder.Build();
+    if (args[0].StartsWith("consumer-", StringComparison.Ordinal))
+    {
+        if (args[0] == "consumer-inventory")
+        {
+            foreach (var module in new[] { "Identity", "Notifications", "Payments" })
+            {
+                var name = "Full.NET.Modules." + module + ".dll";
+                Console.WriteLine(name + "=" + Convert.ToHexStringLower(SHA256.HashData(File.ReadAllBytes("/app/" + name))));
+            }
+            return 0;
+        }
+        if (args.Length != 2) return 2;
+        var value = Console.In.ReadToEnd();
+        if (value.Length is < 1 or > 4096) return 2;
+        // 仅 JIT 验收使用固定类型清单；依赖严格从候选 Host 的 deps 闭包解析，不扩大产品可见性。
+        var entry = File.Exists("/app/Full.NET.Host.Api.dll") ? "/app/Full.NET.Host.Api.dll" : "/app/Full.NET.Host.Worker.dll";
+        var resolver = new AssemblyDependencyResolver(entry);
+        AssemblyLoadContext.Default.Resolving += (context, name) =>
+        {
+            var path = resolver.ResolveAssemblyToPath(name);
+            return path is not null && path.StartsWith("/app/", StringComparison.Ordinal)
+                ? context.LoadFromAssemblyPath(path) : null;
+        };
+        Console.Write(InvokeConsumer(host.Services.GetRequiredService<IDataProtectionProvider>(), args[1], value,
+            args[0] == "consumer-protect"));
+        return 0;
+    }
     if (args[0] == "backup")
     {
         // 仅支持本轮无撤销记录的夹具介质；未知条目直接拒绝，不作为生产通用备份器。
@@ -77,8 +108,35 @@ catch (CryptographicException)
     Console.Error.Write("keyring.unprotect.rejected");
     return 3;
 }
-catch (Exception)
+catch (TargetInvocationException exception) when (exception.InnerException is CryptographicException)
 {
-    Console.Error.Write("keyring.probe.failed");
+    Console.Error.Write("keyring.unprotect.rejected");
+    return 3;
+}
+catch (Exception exception)
+{
+    Console.Error.Write("keyring.probe.failed." + exception.GetType().Name);
     return 1;
+}
+
+// 只构造候选中真实的保护器组件，不启动渠道客户端、任务处理器或业务 Host。
+static string InvokeConsumer(IDataProtectionProvider provider, string alias, string value, bool protect)
+{
+    var (module, typeName, protectMethod, unprotectMethod) = alias switch
+    {
+        "notification" => ("Notifications", "Domain.NotificationRecipientEndpointProtector", "Protect", "Unprotect"),
+        "ldap" => ("Identity", "Security.LdapBindPasswordProtector", "Protect", "Unprotect"),
+        "oauth" => ("Identity", "Security.OAuthClientSecretProtector", "Protect", "Unprotect"),
+        "totp" => ("Identity", "Security.TotpSecretProtector", "Protect", "Unprotect"),
+        "payment-api" => ("Payments", "Security.PaymentSecretProtector", "ProtectApiV3Key", "UnprotectApiV3Key"),
+        "payment-private" => ("Payments", "Security.PaymentSecretProtector", "ProtectPrivateKey", "UnprotectPrivateKey"),
+        _ => throw new ArgumentException("consumer.alias.invalid")
+    };
+    var name = "Full.NET.Modules." + module;
+    var assembly = AssemblyLoadContext.Default.LoadFromAssemblyPath("/app/" + name + ".dll");
+    var type = assembly.GetType(name + "." + typeName, throwOnError: true)!;
+    var instance = Activator.CreateInstance(type, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic,
+        binder: null, args: [provider], culture: CultureInfo.InvariantCulture) ?? throw new InvalidOperationException();
+    var method = type.GetMethod(protect ? protectMethod : unprotectMethod, [typeof(string)]) ?? throw new InvalidOperationException();
+    return method.Invoke(instance, [value]) as string ?? throw new InvalidOperationException();
 }

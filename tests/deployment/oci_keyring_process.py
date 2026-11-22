@@ -4,13 +4,14 @@ import importlib.util
 import json
 import os
 from pathlib import Path
+import re
 import secrets
 import subprocess
 
 
 def verify(root):
     mode = os.environ.get("KEYRING_MODE", "basic")
-    if mode not in ("basic", "rotation", "recovery"):
+    if mode not in ("basic", "rotation", "recovery", "consumers"):
         raise RuntimeError("keyring_mode_invalid")
     socket = "unix:///var/run/docker.sock"
     if os.environ.get("CI") != "true" or not Path("/var/run/docker.sock").is_socket():
@@ -76,13 +77,15 @@ def verify(root):
                    "-e", "DOTNET_ENVIRONMENT=Production", "-e", "ASPNETCORE_ENVIRONMENT=Production", *mounts,
                    *(assets["hostArguments"] if arguments is None else arguments), "--entrypoint", "dotnet",
                    image(role), "/app/" + assembly + ".dll", mode]
-        if mode not in ("inspect", "rotate", "backup"):
+        if mode not in ("inspect", "rotate", "backup", "consumer-inventory"):
             command += [purpose]
         result = subprocess.run(command, input=text, text=True, capture_output=True, timeout=30)
         if rejected:
             if result.returncode != 3 or result.stdout or result.stderr != "keyring.unprotect.rejected":
                 raise RuntimeError("keyring_rejection_not_verified")
         elif result.returncode != 0 or result.stderr:
+            if re.fullmatch(r"keyring\.probe\.failed\.[A-Za-z0-9]+", result.stderr):
+                raise RuntimeError("keyring_probe_execution_failed_" + result.stderr.rsplit(".", 1)[-1])
             raise RuntimeError("keyring_probe_execution_failed")
         return result.stdout
 
@@ -97,6 +100,12 @@ def verify(root):
             "candidateHostingSha256": digests["api"], "apiToWorkerVerified": True, "workerToApiVerified": True,
             "freshProcessReloadVerified": True,
             "businessHostConsumerVerified": False, "nativeAotVerified": False}
+    if mode == "consumers":
+        spec = importlib.util.spec_from_file_location("module_consumers", Path(__file__).with_name("oci_keyring_consumers.py"))
+        consumers = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(consumers)
+        result["consumers"] = consumers.verify(root, assets, assets_root, invoke, api_token)
+        return result
     if mode == "recovery":
         spec = importlib.util.spec_from_file_location("keyring_recovery", Path(__file__).with_name("oci_keyring_recovery.py"))
         recovery = importlib.util.module_from_spec(spec)
