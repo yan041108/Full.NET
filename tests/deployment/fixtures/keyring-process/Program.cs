@@ -4,6 +4,7 @@ using System.Xml;
 using System.Xml.Linq;
 using Full.NET.Hosting.Security;
 using Microsoft.AspNetCore.DataProtection;
+using Microsoft.AspNetCore.DataProtection.KeyManagement;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -12,14 +13,22 @@ using Microsoft.Extensions.Logging;
 // 只检查候选已发布的注册边界；不新增业务 Host 端点，不输出密钥或异常详情。
 try
 {
-    if (args.Length is < 1 or > 2 || args[0] is not ("protect" or "unprotect" or "inspect")) return 2;
+    if (args.Length is < 1 or > 2 || args[0] is not ("protect" or "unprotect" or "inspect" or "rotate")) return 2;
     var builder = Host.CreateApplicationBuilder();
     if (!builder.Environment.IsProduction()) return 2;
     builder.Logging.ClearProviders();
     builder.Services.AddFullNetDataProtection(builder.Configuration, builder.Environment);
     // 消费进程只读取已有密钥，拒绝场景不得自动生成新密钥污染共享介质。
-    if (args[0] != "protect") builder.Services.AddDataProtection().DisableAutomaticKeyGeneration();
+    if (args[0] is "unprotect" or "inspect") builder.Services.AddDataProtection().DisableAutomaticKeyGeneration();
     using var host = builder.Build();
+    if (args[0] == "rotate")
+    {
+        // 强制产生可区分的新密钥，调用方继续核对新密文的实际 KeyId，避免只复用旧密钥。
+        var now = DateTimeOffset.UtcNow;
+        var key = host.Services.GetRequiredService<IKeyManager>().CreateNewKey(now, now.AddDays(90));
+        Console.Write(key.KeyId.ToString("D", CultureInfo.InvariantCulture));
+        return 0;
+    }
     if (args[0] == "inspect")
     {
         var root = builder.Configuration["DataProtection:KeyRingPath"] ?? throw new InvalidOperationException();

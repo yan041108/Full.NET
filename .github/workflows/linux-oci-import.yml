@@ -33,6 +33,14 @@ on:
         required: true
         default: false
         type: boolean
+      keyring_mode:
+        description: Exact independent-process key-ring scenario
+        required: true
+        default: basic
+        type: choice
+        options:
+          - basic
+          - rotation
 
 permissions:
   contents: read
@@ -102,6 +110,7 @@ jobs:
           HOST_ENVIRONMENT: ${{ inputs.host_environment }}
           HOST_PROVIDER: ${{ inputs.host_provider }}
           VERIFY_KEYRING: ${{ inputs.verify_keyring }}
+          KEYRING_MODE: ${{ inputs.keyring_mode }}
         run: |
           set -euo pipefail
           python3 - <<'PY'

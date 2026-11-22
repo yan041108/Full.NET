@@ -7887,3 +7887,13 @@ Release 集成工程单节点构建及 Identity 模块隔离 AOT 分析均零警
 - 实际十个独立容器探针进程完成 API→Worker、Worker→API、另一个新进程重载、错误 purpose/篡改/不同证书/无关目录的四个精确拒绝及 XML 检查，encryptedKeyCount=1，未出现明文 masterKey。四个拒绝均要求 exit=3、空 stdout 和固定密码学错误码，不接受任意失败或进程崩溃；目录与证书因素分别隔离。没有把这些探针进程说成十个业务 Host 或测试矩阵方法。
 - YAML/三段 Python 语法检查通过，最终 C# 探针实际 publish 和执行通过。下载 1,629 字节 artifact 在内存核对 verification.json，keyRingVerification 的双向/重载/四拒绝均 true，scope 为独立进程，businessHostConsumerVerified/nativeAotVerified=false；本轮未启用 verify_hosts，所以 runtimeStartupVerified/databaseMigrationVerified/deploymentVerified=false，旧 Host 结果不重写。实际 artifact id=14742371688、名称 fullnet-oci-import-44991798834，API expired=false，2026-11-25 06:01:39 UTC 到期。
 - 本批剩余开发 0、待验收 0。独立清理确认本轮导入镜像/容器零残留，暂存和编译引用随工作流回收，源码前后守卫通过；本地只内存读取回执，无整仓副本、运行产物堆积或仓库 artifacts。原手册同步开关与边界，仅关闭固定候选 Key Ring 独立进程基础能力；业务消费者、轮换/真实跨节点恢复、外部渠道、现场发布/旧报表及 D08 复验、容量保持原归属。七个主工作包、Quill 临期处置、受限预演、Capacity-not-verified 和其他工作区改动均保持。
+
+### 8.416 F15 候选 Key Ring 的证书轮换边界（2026-11-22）
+
+| 固定任务 | 当前状态 | 完成条件 |
+| --- | --- | --- |
+| F15-CandidateKeyRingRotation | 已实现，待实际执行 | 同一候选独立进程完成新/历史证书读取、强制新密钥及实际 KeyId、代次拒绝和保留历史材料的配置回退，确认两代密钥加密保存。 |
+
+- 基线 22e9e4c2c4b32efef8529ecb205002f6805e708c，快照 candidate-keyring-rotation-20261122。冻结范围为原工作流的 keyring_mode=rotation、原探针及专用轮换夹具、原手册/计划。默认 basic 保持；复用已发布角色镜像和实际 Hosting 引用，不重新构建业务 Host。轮换专项复用双向/冷加载作为建档前提，不重复 basic 已关闭的四类拒绝、数据库或健康批次。
+- 只对本轮隔离 Key Ring 使用 IKeyManager.CreateNewKey，解析 .NET 10 公开载荷格式的 KeyId，要求新密文确实采用新 KeyId 且不同于旧代，不能仅写一个文件或用旧密钥往返就报告轮换。新活动证书+旧历史证书读取两代；仅新证书读取新代并拒绝旧代；仅旧证书拒绝新代；旧活动证书+新历史材料配置回退可读取两代。两代 key XML 必须均为 encryptedSecret、无明文 masterKey，消费进程禁用自动生成密钥。
+- 精确拒绝仍要求固定密码学退出码，原有密钥不删除或撤销；只在独立非 root/只读/禁网进程和本轮介质执行。回执明确 businessHostConsumerVerified/productionRotationVerified/nativeAotVerified=false，不把配置回退当作现场变更授权。源码状态、资源独立清理及暂存回收保持；其他主工作包、临期 Quill、受限预演和 Capacity-not-verified 继续开放。

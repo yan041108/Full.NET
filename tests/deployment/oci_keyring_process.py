@@ -9,6 +9,9 @@ import subprocess
 
 
 def verify(root):
+    mode = os.environ.get("KEYRING_MODE", "basic")
+    if mode not in ("basic", "rotation"):
+        raise RuntimeError("keyring_mode_invalid")
     socket = "unix:///var/run/docker.sock"
     if os.environ.get("CI") != "true" or not Path("/var/run/docker.sock").is_socket():
         raise RuntimeError("keyring_isolated_ci_required")
@@ -73,7 +76,7 @@ def verify(root):
                    "-e", "DOTNET_ENVIRONMENT=Production", "-e", "ASPNETCORE_ENVIRONMENT=Production", *mounts,
                    *(assets["hostArguments"] if arguments is None else arguments), "--entrypoint", "dotnet",
                    image(role), "/app/" + assembly + ".dll", mode]
-        if mode != "inspect":
+        if mode not in ("inspect", "rotate"):
             command += [purpose]
         result = subprocess.run(command, input=text, text=True, capture_output=True, timeout=30)
         if rejected:
@@ -90,6 +93,16 @@ def verify(root):
     worker_token = invoke("worker", "protect", text=second)
     if invoke("api", "unprotect", text=worker_token) != second or invoke("worker", "unprotect", text=api_token) != first:
         raise RuntimeError("keyring_reverse_or_reload_failed")
+    result = {"scope": "independent-processes-in-candidate-images", "environment": "Production", "mode": mode,
+            "candidateHostingSha256": digests["api"], "apiToWorkerVerified": True, "workerToApiVerified": True,
+            "freshProcessReloadVerified": True,
+            "businessHostConsumerVerified": False, "nativeAotVerified": False}
+    if mode == "rotation":
+        spec = importlib.util.spec_from_file_location("keyring_rotation", Path(__file__).with_name("oci_keyring_rotation.py"))
+        rotation = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(rotation)
+        result["rotation"] = rotation.verify(root, assets, assets_root, wrong_root, invoke, api_token, first)
+        return result
     invoke("worker", "unprotect", purpose="different", text=api_token, rejected=True)
     position = len(api_token) // 2
     tampered = api_token[:position] + ("A" if api_token[position] != "A" else "B") + api_token[position + 1:]
@@ -100,8 +113,6 @@ def verify(root):
     if not count.isdigit() or int(count) < 1:
         raise RuntimeError("keyring_at_rest_encryption_missing")
     print("candidate_keyring_verified: directions=2 reload=true rejection_cases=4 encrypted_keys=" + count, flush=True)
-    return {"scope": "independent-processes-in-candidate-images", "environment": "Production",
-            "candidateHostingSha256": digests["api"], "apiToWorkerVerified": True, "workerToApiVerified": True,
-            "freshProcessReloadVerified": True, "wrongPurposeRejected": True, "tamperedPayloadRejected": True,
-            "wrongCertificateRejected": True, "unrelatedKeyRingRejected": True, "encryptedKeyCount": int(count),
-            "businessHostConsumerVerified": False, "nativeAotVerified": False}
+    result.update({"wrongPurposeRejected": True, "tamperedPayloadRejected": True,
+                   "wrongCertificateRejected": True, "unrelatedKeyRingRejected": True, "encryptedKeyCount": int(count)})
+    return result
