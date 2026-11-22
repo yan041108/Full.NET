@@ -67,6 +67,8 @@ elif name=='helm':
                 pathlib.Path('/etc/fullnet/release/'+member+'.json').write_text('changed-original-'+member)
         if operation=='template' and state.get('tamper_frozen') and role==state.get('tamper_after_role','migrator'):
             (values[0].parent/(state['tamper_frozen']+'.json')).write_text('changed-frozen-input')
+        if operation=='template' and state.get('mutate_candidate_original'):
+            pathlib.Path(state['mutate_candidate_original']).write_text('changed-original-evidence')
         if operation=='upgrade' and state.get('wait_for_signal'):
             pathlib.Path(os.environ['FULLNET_RELEASE_TEST_WAIT']).touch();save();time.sleep(30)
 save()
@@ -134,6 +136,8 @@ class ReleaseControlTests(_Base):
         self.assertEqual(0, result.returncode, result.stderr)
         self.assertEqual('plan', json.loads(result.stdout)['action'])
         self.assertIsNone(json.loads(result.stdout)['candidateImageTag'])
+        self.assertIsNone(json.loads(result.stdout)['candidateEvidenceMatched'])
+        self.assertIsNone(json.loads(result.stdout)['candidateEvidenceSha256'])
         events = self.state()['events']
         self.assertFalse(any(event[0] in ('mysql', 'systemctl') or event[1] == 'upgrade' for event in events))
         self.assertEqual(self.before, set(pathlib.Path('/run').glob('fullnet-release-*')))

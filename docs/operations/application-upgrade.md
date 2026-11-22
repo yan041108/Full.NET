@@ -243,5 +243,17 @@ python3 eng/deploy/ubuntu/Verify-CandidateEvidence.py \
 
 定向命令 node --test tests/deployment/helm-image-digests.test.mjs 检查三个角色、tag 改变不影响固定引用、空值、非法格式及命名空间/拉取策略；使用 FULLNET_HELM_BINARY 指定工具。实际 Helm 3.16.4 与 [4.3.1 专项](https://github.com/yan041108/Full.NET/actions/runs/44997140758) 均通过。本证据仅为真实渲染和发布入口受控流程，不证明注册表来源、Kubernetes 离线摘要命中或现场已升级；部署前仍核对实际镜像与既有发布门禁。
 
+把 Verify-CandidateEvidence.py 输出接入批量入口时，在 root shell 中以 umask 077 和禁止覆盖方式保存到独占普通文件，再传 --candidate-evidence；文件须 root 所有、单链接、不可被组/其他用户写入，最多 64 KiB。值应来自所选可信回执的校验输出，仍保留来源认证、部署授权及现场状态为 false。该参数只核对应用和镜像身份；所选环境/Provider、渠道与发布条件仍按原清单核对。
+
+```bash
+sudo /usr/local/lib/fullnet/Release-Application.sh "$CANDIDATE_CHART" all --plan \
+  --candidate-evidence /var/lib/fullnet/release-plans/candidate-evidence.json
+sudo /usr/local/lib/fullnet/Release-Application.sh "$CANDIDATE_CHART" all --plan \
+  --expected-plan /var/lib/fullnet/release-plans/expected.json \
+  --candidate-evidence /var/lib/fullnet/release-plans/candidate-evidence.json
+```
+
+两个选项可交换顺序，重复选项及单角色拒绝。提供候选证据时三角色必须全部按 digest 固定，image.tag 必须等于回执的应用 sourceCommit，各角色摘要须等于回执的 manifestDigest；tag-only 配置不能借此获得匹配。入口先冻结本轮需要的内容，纳入调用内摘要保护，全部渲染后、备份/DDL/upgrade 前匹配；不匹配不执行升级副作用。成功回执 candidateEvidenceMatched=true、candidateEvidenceSha256 为原输入字节 SHA-256，未提供时两项为 null；原文件后续变化不替代已冻结输入。该匹配不验证回执签名、最终仓库身份、实际集群或授权，也不绕过旧报表切版门禁。
+
 - `tests/deployment/foundation-preset-release.test.mjs`
 - 发布清单：`docs/verification/f16-release-checklist.md`

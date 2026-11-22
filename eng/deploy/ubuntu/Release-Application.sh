@@ -3,16 +3,27 @@
 set -Eeuo pipefail
 umask 077
 [[ $EUID == 0 ]] || exit 2
-[[ $# == 2 || $# == 3 || $# == 5 ]] || { echo '用法：Release-Application.sh CHART ROLE [MODE]；批量可追加 --expected-plan FILE' >&2; exit 2; }
+[[ $# == 2 || $# == 3 || $# == 5 || $# == 7 ]] || { echo '用法：Release-Application.sh CHART ROLE [MODE]；批量可追加 --expected-plan FILE、--candidate-evidence FILE' >&2; exit 2; }
 chart=$1
 role=$2
 requested_role=$role
 [[ $role == migrator || $role == worker || $role == api || $role == all ]] || exit 2
 mode=${3:-}
 expected_plan=''
-if [[ $# == 5 ]]; then
-  [[ $role == all && $4 == --expected-plan && -n $5 ]] || exit 2
-  expected_plan=$5
+candidate_evidence=''
+if (( $# > 3 )); then
+  [[ $role == all ]] || exit 2
+  for (( argument=4; argument<=$#; argument+=2 )); do
+    option=${!argument}
+    value_index=$((argument+1))
+    value=${!value_index}
+    [[ -n $value ]] || exit 2
+    case "$option" in
+      --expected-plan) [[ -z $expected_plan ]] || exit 2; expected_plan=$value ;;
+      --candidate-evidence) [[ -z $candidate_evidence ]] || exit 2; candidate_evidence=$value ;;
+      *) exit 2 ;;
+    esac
+  done
 fi
 [[ -z $mode || $mode == --plan || ( $role == all && $mode == --ordinary-upgrade ) ]] || exit 2
 [[ $role != all || $mode == --plan || $mode == --ordinary-upgrade ]] || { echo '批量须明确 --plan 或 --ordinary-upgrade；报表格式切版仍走专用门禁。' >&2; exit 2; }
@@ -36,6 +47,8 @@ values_digest_json=''
 candidate_image_tag_json=null
 candidate_image_digests_json=null
 expected_plan_matched=null
+candidate_evidence_matched=null
+candidate_evidence_sha_json=null
 
 roles_json() {
   local separator=''
@@ -100,13 +113,58 @@ finish() {
       "$requested_role" "$(roles_json "${completed_roles[@]}")" "$restore_required" >&2
   fi
   if [[ $result == 0 ]]; then
-    printf '{"schemaVersion":1,"role":"%s","roles":%s,"completedRoles":%s,"namespace":"fullnet-production","action":"%s","chartSha256":"%s","chartContentSha256":"%s","valuesSha256":{%s},"candidateImageTag":%s,"candidateImageDigests":%s,"expectedPlanMatched":%s}\n' \
-      "$requested_role" "$(roles_json "${roles[@]}")" "$(roles_json "${completed_roles[@]}")" "$action" "$chart_digest" "$chart_content_digest" "$values_digest_json" "$candidate_image_tag_json" "$candidate_image_digests_json" "$expected_plan_matched"
+    printf '{"schemaVersion":1,"role":"%s","roles":%s,"completedRoles":%s,"namespace":"fullnet-production","action":"%s","chartSha256":"%s","chartContentSha256":"%s","valuesSha256":{%s},"candidateImageTag":%s,"candidateImageDigests":%s,"expectedPlanMatched":%s,"candidateEvidenceMatched":%s,"candidateEvidenceSha256":%s}\n' \
+      "$requested_role" "$(roles_json "${roles[@]}")" "$(roles_json "${completed_roles[@]}")" "$action" "$chart_digest" "$chart_content_digest" "$values_digest_json" "$candidate_image_tag_json" "$candidate_image_digests_json" "$expected_plan_matched" "$candidate_evidence_matched" "$candidate_evidence_sha_json"
   fi
   exit "$result"
 }
 trap finish EXIT
 trap 'exit 143' TERM INT
+
+if [[ -n $candidate_evidence ]]; then
+  # 只冻结 root 控制的普通回执；一致性结果不能转化成权限或现场通过。
+  perform candidate-evidence-freeze python3 - "$candidate_evidence" "$work/candidate-evidence.json" <<'PY'
+import hashlib,json,math,os,re,stat,sys
+def unique(pairs):
+    value={}
+    for key,item in pairs:
+        if key in value: raise ValueError()
+        value[key]=item
+    return value
+def invalid(_value): raise ValueError()
+def finite(value):
+    result=float(value)
+    if not math.isfinite(result): raise ValueError()
+    return result
+try:
+    descriptor=os.open(sys.argv[1],os.O_RDONLY|os.O_NOFOLLOW|os.O_NONBLOCK)
+    with os.fdopen(descriptor,'rb') as stream:
+        info=os.fstat(stream.fileno())
+        if not stat.S_ISREG(info.st_mode) or info.st_uid!=os.geteuid() or info.st_nlink!=1 or info.st_mode&0o022 or not 0<info.st_size<=65536: raise ValueError()
+        content=stream.read(65537)
+        if len(content)!=info.st_size: raise ValueError()
+    value=json.loads(content,object_pairs_hook=unique,parse_constant=invalid,parse_float=finite)
+    if not isinstance(value,dict) or type(value.get('schemaVersion')) is not int or value['schemaVersion']!=1 or value.get('status')!='consistent': raise ValueError()
+    source=value.get('sourceCommit')
+    if not isinstance(source,str) or not re.fullmatch(r'[0-9a-f]{40}',source): raise ValueError()
+    if not all(value.get(key) is False for key in ('receiptAuthenticityVerified','deploymentAuthorized','deploymentVerified','businessHostPipelineVerified','externalChannelsVerified','capacityVerified')): raise ValueError()
+    for key,pattern in (('packagingCommit',r'[0-9a-f]{40}'),('ociRunId',r'[1-9][0-9]{0,14}'),('candidateReceiptSha256',r'sha256:[0-9a-f]{64}')):
+        if not isinstance(value.get(key),str) or not re.fullmatch(pattern,value[key]): raise ValueError()
+    roles=value.get('roles')
+    if not isinstance(roles,dict) or set(roles)!={'api','worker','migrator'}: raise ValueError()
+    digests={}
+    for role,item in roles.items():
+        if not isinstance(item,dict) or not isinstance(item.get('manifestDigest'),str) or not re.fullmatch(r'sha256:[0-9a-f]{64}',item['manifestDigest']): raise ValueError()
+        digests[role]=item['manifestDigest']
+    with open(sys.argv[2],'x',encoding='utf-8') as output:
+        json.dump({'sourceCommit':source,'digests':digests},output,sort_keys=True,separators=(',',':'))
+    print(json.dumps(hashlib.sha256(content).hexdigest()))
+except (OSError,ValueError,TypeError,RecursionError):
+    print('候选一致性回执无效或文件权限不安全。',file=sys.stderr)
+    sys.exit(1)
+PY
+  candidate_evidence_sha_json=$(< "$last_output")
+fi
 
 if [[ -n $expected_plan ]]; then
   # 预期回执只表示输入一致性，不是权限或签名；在读取候选前冻结受保护的普通文件。
@@ -234,6 +292,7 @@ except (OSError,ValueError,tarfile.TarError,EOFError):
 PY
 chart_content_digest=$(< "$last_output")
 frozen_files=("$package" "$work/common.json")
+if [[ -n $candidate_evidence ]]; then frozen_files+=("$work/candidate-evidence.json"); fi
 if [[ -n $expected_plan ]]; then frozen_files+=("$work/expected-plan.json"); fi
 values_digest=$(sha256sum "$work/common.json")
 values_digest_json="\"common\":\"${values_digest%% *}\""
@@ -262,6 +321,18 @@ for role in "${roles[@]}"; do
     --namespace fullnet-production "${values[@]}"
 done
 verify_frozen
+if [[ -n $candidate_evidence ]]; then
+  perform candidate-evidence-match python3 - "$work/candidate-evidence.json" "$candidate_image_tag_json" "$candidate_image_digests_json" <<'PY'
+import json,pathlib,sys
+try:
+    expected=json.loads(pathlib.Path(sys.argv[1]).read_text())
+    if expected['sourceCommit']!=json.loads(sys.argv[2]) or expected['digests']!=json.loads(sys.argv[3]): raise ValueError()
+except (OSError,ValueError,KeyError):
+    print('发布 tag 或三角色 manifest 摘要与已冻结的候选回执不一致。',file=sys.stderr)
+    sys.exit(1)
+PY
+  candidate_evidence_matched=true
+fi
 if [[ -n $expected_plan ]]; then
   perform expected-plan-match python3 - "$work/expected-plan.json" "$chart_content_digest" "$candidate_image_tag_json" "$work" "$candidate_image_digests_json" <<'PY'
 import hashlib,json,pathlib,sys

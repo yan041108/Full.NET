@@ -34,6 +34,114 @@ class BatchReleaseTests(_Base):
         self.common.write_text(json.dumps(common))
         return digests
 
+    def evidence(self):
+        digests = self.pin()
+        value = json.loads(self.common.read_text())
+        value['image']['tag'] = 'a' * 40
+        self.common.write_text(json.dumps(value))
+        receipt = {'schemaVersion': 1, 'status': 'consistent', 'sourceCommit': 'a' * 40,
+                   'packagingCommit': 'b' * 40, 'ociRunId': '123456', 'candidateReceiptSha256': 'sha256:' + 'c' * 64,
+                   **{key: False for key in ('receiptAuthenticityVerified', 'deploymentAuthorized', 'deploymentVerified',
+                                             'businessHostPipelineVerified', 'externalChannelsVerified', 'capacityVerified')},
+                   'roles': {role: {'manifestDigest': digest} for role, digest in digests.items()}}
+        path = self.root / 'candidate-evidence.json'
+        path.write_text(json.dumps(receipt)); path.chmod(0o600)
+        return path
+
+    def test_candidate_evidence_plan_binds_source_digests_and_original_receipt_hash(self):
+        path = self.evidence()
+        expected_hash = hashlib.sha256(path.read_bytes()).hexdigest()
+        result = self.execute('all', '--plan', '--candidate-evidence', str(path))
+        self.assertEqual(0, result.returncode, result.stderr)
+        receipt = json.loads(result.stdout)
+        self.assertIs(receipt['candidateEvidenceMatched'], True)
+        self.assertEqual(expected_hash, receipt['candidateEvidenceSha256'])
+        self.assertFalse(any(event[0] in ('mysql', 'systemctl') for event in self.state()['events']))
+
+    def test_both_input_options_accept_either_order_for_controlled_execution(self):
+        evidence = self.evidence()
+        expected = self.expected()
+        for options in (('--candidate-evidence', str(evidence), '--expected-plan', str(expected)),
+                        ('--expected-plan', str(expected), '--candidate-evidence', str(evidence))):
+            self.configure(events=[])
+            result = self.execute('all', '--ordinary-upgrade', *options)
+            self.assertEqual(0, result.returncode, result.stderr)
+            receipt = json.loads(result.stdout)
+            self.assertIs(receipt['candidateEvidenceMatched'], True)
+            self.assertIs(receipt['expectedPlanMatched'], True)
+
+    def test_evidence_source_or_role_digest_drift_blocks_before_services(self):
+        path = self.evidence()
+        original = path.read_text()
+        for change in ('source', 'digest'):
+            value = json.loads(original)
+            if change == 'source': value['sourceCommit'] = 'f' * 40
+            else: value['roles']['api']['manifestDigest'] = 'sha256:' + 'f' * 64
+            path.write_text(json.dumps(value)); self.configure(events=[])
+            self.assert_no_success(self.execute('all', '--ordinary-upgrade', '--candidate-evidence', str(path)))
+            self.assertFalse(any(event[0] in ('mysql', 'systemctl') or event[:2] == ['helm', 'upgrade'] for event in self.state()['events']))
+
+    def test_tag_only_values_cannot_match_immutable_candidate_evidence(self):
+        path = self.evidence()
+        value = json.loads(self.common.read_text()); del value['image']['digests']; self.common.write_text(json.dumps(value))
+        self.assert_no_success(self.execute('all', '--ordinary-upgrade', '--candidate-evidence', str(path)))
+        self.assertFalse(any(event[0] in ('mysql', 'systemctl') or event[:2] == ['helm', 'upgrade'] for event in self.state()['events']))
+
+    def test_invalid_or_unsafe_evidence_rejected_before_helm(self):
+        path = self.evidence(); baseline = path.read_text()
+        for change in ({'schemaVersion': True}, {'status': 'passed'}, {'deploymentAuthorized': True}, {'roles': {}}, {'sourceCommit': None}):
+            path.write_text(json.dumps({**json.loads(baseline), **change}))
+            self.assert_no_success(self.execute('all', '--plan', '--candidate-evidence', str(path)))
+            self.assertEqual([], self.state()['events'])
+        for content in (baseline[:-1] + ',"overflow":1e309}', '{"status":"consistent","status":"consistent"}', ' ' * 65537):
+            path.write_text(content)
+            self.assert_no_success(self.execute('all', '--plan', '--candidate-evidence', str(path)))
+            self.assertEqual([], self.state()['events'])
+        path.write_text(baseline); path.chmod(0o666)
+        self.assert_no_success(self.execute('all', '--plan', '--candidate-evidence', str(path)))
+        path.chmod(0o600)
+        linked = self.root / 'evidence-link.json'; linked.symlink_to(path)
+        self.assert_no_success(self.execute('all', '--plan', '--candidate-evidence', str(linked)))
+        self.assertEqual([], self.state()['events'])
+
+    def test_duplicate_or_single_role_evidence_option_rejected(self):
+        for arguments in (('api', '--plan', '--candidate-evidence', 'unused'),
+                          ('all', '--plan', '--candidate-evidence', 'unused', '--candidate-evidence', 'duplicate')):
+            self.assert_no_success(self.execute(*arguments))
+            self.assertEqual([], self.state()['events'])
+
+    def test_frozen_evidence_tampering_blocks_before_services(self):
+        path = self.evidence()
+        self.configure(tamper_frozen='candidate-evidence')
+        self.assert_no_success(self.execute('all', '--ordinary-upgrade', '--candidate-evidence', str(path)))
+        self.assertFalse(any(event[0] in ('mysql', 'systemctl') or event[:2] == ['helm', 'upgrade'] for event in self.state()['events']))
+
+    def test_original_evidence_changes_do_not_replace_frozen_input(self):
+        path = self.evidence(); expected_hash = hashlib.sha256(path.read_bytes()).hexdigest()
+        self.configure(mutate_candidate_original=str(path))
+        result = self.execute('all', '--plan', '--candidate-evidence', str(path))
+        self.assertEqual(0, result.returncode, result.stderr)
+        self.assertEqual('changed-original-evidence', path.read_text())
+        self.assertEqual(expected_hash, json.loads(result.stdout)['candidateEvidenceSha256'])
+
+    def test_evidence_matches_actual_three_role_chart_plan(self):
+        self.chart = pathlib.Path(__file__).resolve().parents[2] / 'deploy/helm/fullnet'
+        self.common.write_text(json.dumps({'image': {'tag': 'candidate'},
+            'dataProtection': {'existingClaimName': 'fullnet-data-protection-rwx'},
+            'codeGeneration': {'workspace': {'existingClaimName': 'fullnet-codegeneration-rwx'}},
+            'edgeProtection': {'declared': True, 'provider': 'WAF', 'globalRateLimitPerSecond': 100,
+                'globalBurst': 200, 'globalConcurrentConnections': 5000, 'unavailablePolicy': 'fail-closed',
+                'secretName': 'fullnet-edge', 'serviceName': 'fullnet-edge'}}))
+        path = self.evidence(); self.configure(real_helm=True)
+        result = self.execute('all', '--plan', '--candidate-evidence', str(path))
+        self.assertEqual(0, result.returncode, result.stderr)
+        receipt = json.loads(result.stdout)
+        self.assertIs(receipt['candidateEvidenceMatched'], True)
+        for role in ROLES:
+            manifest = self.render.with_name(self.render.stem + '-' + role + '.yaml').read_text()
+            self.assertIn('fullnet-' + role + '@' + receipt['candidateImageDigests'][role], manifest)
+        self.assertFalse(any(event[0] in ('mysql', 'systemctl') or event[:2] == ['helm', 'upgrade'] for event in self.state()['events']))
+
     def test_pinned_batch_plan_records_three_distinct_manifest_digests(self):
         expected = self.pin()
         result = self.batch(plan=True)
