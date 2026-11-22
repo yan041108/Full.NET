@@ -200,5 +200,9 @@ sudo /usr/local/lib/fullnet/Release-Application.sh "$CANDIDATE_CHART" all --plan
 
 [首个生产模式启动通过作业](https://github.com/yan041108/Full.NET/actions/runs/44907594656) 复用相同应用/镜像候选，实际完成 Production/MySQL 迁移、六个健康端点和两个正常停止检查；MySQL 观察到 36 次 TLS 接入。verification.json 的 hostVerification.productionConfigurationVerified=true 只表示该隔离配置启动通过，productionEvidence 记录 CA/PFX 摘要、Redis 实际镜像、VerifyFull/强制 TLS 和禁用临时签名等证据；不证明 Key Ring 跨实例解密、实际云 Provider、SQL Server、现场部署、完整业务、生产备份恢复或容量。回执保留三天，使用时核对应用、打包和验收三类提交，不能直接替代发布环境准入。
 
+SQL Server 的当前候选启动检查选择 verify_hosts=true、host_provider=SqlServer、host_environment=Testing；默认 Provider 仍为 MySql，SqlServer/Production 组合会明确拒绝。夹具复用仓库既有 SQL Server 2022 CU14 测试镜像，在独占内网使用随机密码和临时数据库存储，不映射端口。实际 BACKUP CHECKSUM、VERIFYONLY 及恢复至独立空库后核对，再运行正式 Migrator 与两业务 Host；仅 Migrator 获得本轮 Contract 维护参数。Testing 连接启用加密并信任隔离自签名证书，不能据此宣称验证了服务器 TLS 身份。
+
+[首个 SQL Server 候选作业](https://github.com/yan041108/Full.NET/actions/runs/44971433580) 对同一应用/OCI 候选完成空库恢复、397 条 journal、六个健康端点及两个正常停止检查，资源清理通过。Artifacts 的 verification.json 明确 environment=Testing、provider=SqlServer、productionConfigurationVerified=false、tlsServerIdentityVerified=false，记录数据库实际镜像摘要、备份摘要和三类源码身份。此结果补充 MySQL 的既有证据，不表示 SQL Server 生产配置、完整业务、现场恢复/部署、Native AOT 或容量已获认证；不触发其他 Provider 或全量矩阵。
+
 - `tests/deployment/foundation-preset-release.test.mjs`
 - 发布清单：`docs/verification/f16-release-checklist.md`

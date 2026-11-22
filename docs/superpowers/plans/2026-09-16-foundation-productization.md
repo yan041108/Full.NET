@@ -7863,8 +7863,12 @@ Release 集成工程单节点构建及 Identity 模块隔离 AOT 分析均零警
 
 | 固定任务 | 当前状态 | 完成条件 |
 | --- | --- | --- |
-| F15-CandidateSqlServerStartup | 已实现，待实际启动 | 同一 OCI 候选在隔离 Testing/SQL Server 完成空库备份恢复、正式迁移、API/Worker 健康和正常停止，清理并交付范围明确的回执。 |
+| F15-CandidateSqlServerStartup | 已完成，Testing/SQL Server 实际启动通过 | 同一 OCI 候选在隔离 Testing/SQL Server 完成空库备份恢复、正式迁移、API/Worker 健康和正常停止，清理并交付范围明确的回执。 |
 
 - 基线 a9a01493a0c9d6283ba079b39e766a20b7a712f9，快照 candidate-sqlserver-startup-20261122。Quill 临期风险先做只读上游核对：npm latest 仍为 2.0.3，GHSA-v3m3-f69x-jf25 未撤回且 first_patched_version=null；锁文件 SHA-256 仍为 a4053772a09ce8eb6f3ce8df525aede94c3b4c5d8c101785978636ed88171f3c。没有可直接升级的正式修复，不延期 11-23 例外，不把 DOMPurify 缓解当作关闭；该项继续开放，独立推进已授权交付差集。
 - 冻结范围为原导入工作流的 host_provider 开关、SQL Server 启动夹具、公共健康/停止断言提取、原手册与计划。默认 MySql 保持，SqlServer 仅支持显式 Testing；复用原三角色 OCI 包与仓库已有 SQL Server 2022 CU14 测试镜像，不重新编译/打包，不运行无变化的 MySQL 或全量矩阵。
 - 一次性 SQL Server 内网、不映射端口、随机凭据、资源限额与临时数据库存储。先实际 BACKUP CHECKSUM、VERIFYONLY 并恢复至独立空库核对，再向 Migrator 单独提供 Contract 维护证据；API/Worker 不继承维护参数。检查 journal、两角色六个健康端点、正常停止及无 OOM，独立清理登记资源。Testing 使用加密连接并信任隔离 SQL Server 自签名证书，明确 tlsServerIdentityVerified=false，不外推生产 TLS、现场恢复、Provider/完整业务、AOT 或容量。
+- YAML/四段 Python 语法检查通过，使用禁网、CPU 1/内存 128 MiB/PID 64 的一次性 Python 3.12 容器；提取前后健康/停止断言逐行核对一致。实现/验收源码 4d0fd31e2715bde8c5304ad01a6f52df925696e6 的 [实际 SQL Server 作业](https://github.com/yan041108/Full.NET/actions/runs/44971433580/job/137051872949) 全部步骤成功。应用 sourceCommit 仍为 06caddffeb4f227f54acc38543a7d8f436c105a8，打包仍为 a879e7ed16b45291d922c4cc76d55fdd04dd2aad；没有把验收入口的后续提交写成镜像来源。
+- 下载 1,744 字节 artifact 并在内存核对 verification.json：Testing/SqlServer、实际空库备份恢复 true、397 条 journal、API/Worker 六个端点均 200/Healthy、两者正常停止 exit=0 且无 OOM；productionConfigurationVerified/tlsServerIdentityVerified=false。数据库实际 mcr.microsoft.com/mssql/server@sha256:c1aa8afe9b06eab64c9774a4802dcd032205d1be785b1fd51e1c0151e7586b74，镜像 ID sha256:004f8fbb046cd906f39ce3042e0ade32760907acc60a5acc8bfe2c3623c72937；初始备份 SHA-256 512b8d0e5fe1f32ff86330ba4d30f3b684b3151e32743dff945bd3c5dc8a5c5e。397 是 journal 行数，不是测试用例数。
+- 独立清理确认本轮容器/网络与导入镜像零残留，暂存清理及前后源码守卫通过。正式回执 artifact id=14733314394、名称 fullnet-oci-import-44971433580，API expired=false，2026-11-25 01:27:30 UTC 到期。仅内存读取回执，无候选源码/镜像下载副本堆积；未运行旧 MySQL/Production 批次、完整双库或全量矩阵。
+- 本批剩余开发 0、待验收 0。关闭该候选 Testing/SQL Server 的迁移/Host 启动缺口，原手册已补 Provider 参数、限制与回执。原 MySQL 既有结论保持，SQL Server 生产配置/TLS 身份、Key Ring 跨实例、外部渠道、完整业务、真实生产恢复、现场部署/旧报表与 D08 复验、容量仍开放；七个主工作包归属不变。Quill 正式修复/替代方案及 11-23 到期处置继续开放，不延期例外；受限目标预演、Capacity-not-verified 及既有工作区改动保持。
