@@ -7960,8 +7960,12 @@ Release 集成工程单节点构建及 Identity 模块隔离 AOT 分析均零警
 
 | 固定任务 | 当前状态 | 完成条件 |
 | --- | --- | --- |
-| F15-ImmutableRoleImages | 已实现，集中验收中 | Chart 支持各角色 manifest digest，批量禁止部分固定，预期 plan 和回执绑定摘要；tag 模式保持，真实 Helm 及直接发布边界通过。 |
+| F15-ImmutableRoleImages | 已完成，真实双版本渲染与受控发布边界通过 | Chart 支持各角色 manifest digest，批量禁止部分固定，预期 plan 和回执绑定摘要；tag 模式保持，真实 Helm 及直接发布边界通过。 |
 
 - 基线 ae6b7cb9e0c1fb0857a90b886839547ed0eedb87，快照 immutable-role-images-20261122。核对主计划后发现实际 Chart 仅渲染 repository-role:tag，§8.410 已说明同源重新打包会取得新的基础镜像，单靠 tag 不能固定原已验字节。冻结 Chart 值/Schema/镜像 helper、原批量入口与直接测试、工作流精确接线、原手册/计划；不增加业务功能或现场发布授权。
 - 新增 image.digests.api/worker/migrator，非空时使用 repository-role@sha256，保留逻辑 tag。严格拒绝错误算法/格式/类型/未知角色。批量只允许三角色全固定或全 tag，不接受部分固定；按 Helm 嵌套合并解析角色覆盖。candidateImageDigests 加入回执与预期 plan 匹配，原 values 摘要/冻结保护保持；没有把 JSON 证据校验当成注册表/运行镜像认证。
 - 关联实现集中后执行六个真实 Helm 渲染方法、三十一条批量及两个直接单角色回执方法；不重跑其余单角色、业务/.NET/双库或全量。工作流新增 image-digests 精确场景，既有完整批量发现数接线为 53，不因此自动派发整组；目标 Helm 4.3.1 另只执行新六个渲染方法。现场 SSH 信息仍待用户提供，不连接目标环境或重试受限预演。
+- 本地两组独立轻量容器集中完成：Node 24/真实 Helm 3.16.4 六条方法 6/6（14.321 秒）；Python 3.12 三十一条批量加两个直接单角色共 33/33（26.696 秒），均零失败/跳过。容器禁网、CPU 1/内存 256 MiB/PID 128、源码与既有 Helm 工具只读，输出/配置彼此隔离；每次真实渲染用同一既有 Chart，未复制仓库。覆核 pin 后改变 tag 仍同一镜像、每角色摘要选择、空值保留 tag、格式/类型/角色拒绝、嵌套覆盖、部分固定写前拒绝、预期摘要漂移及匹配执行；MySQL/服务/Helm upgrade 仍为命令替身，不冒充部署。
+- 实现/验收源码 69ab4680903315eaa2e7d6d0cbe6bfaa2814c527 的 [image-digests/Helm 4.3.1 作业](https://github.com/yan041108/Full.NET/actions/runs/44997140758/job/137130507939) 成功，六条方法 6/6（0.753 秒），零失败/跳过，源码状态守卫通过。官方归档 SHA-256 0403a88ae20913d11b10a2467b50087721fea7581736da6b9d3992f5357fe54b 校验成功、解出二进制与实际安装逐字节一致，实际 v4.3.1+gc0d08d0。该版本复验不计新增六个独立方法，也未执行完整旧矩阵。
+- 工作流 YAML、values JSON Schema 和 Bash 语法检查通过；只发现不执行的数量核对为 single=18、batch=31、realHelm=4，总 53，与既有手动批量入口接线相同。没有以发现数量充当执行通过；本轮独立执行方法为本地六条渲染和三十三条发布边界，跨版本重复证据按同一方法另列。
+- 本批剩余开发 0、待验收 0。原手册补摘要字段、manifest 与归档/config ID 区别、传输转换注意及 candidateImageDigests/expected-plan 语义。临时配置/归档随隔离容器回收，CI 工具暂存 trap 回收；既有本地 Helm 目录仅只读复用、未重试先前受限清理，无整仓副本或根 artifacts。仅关闭按角色固定不可变镜像的交付能力，注册表身份/最终导入摘要、Kubernetes 离线命中及现场按摘要运行未验证；原七个主工作包、SSH 认证等待、受限预演、Quill 临期处置、Capacity-not-verified 和无关工作区改动保持。

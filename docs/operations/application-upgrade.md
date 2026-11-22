@@ -237,5 +237,11 @@ python3 eng/deploy/ubuntu/Verify-CandidateEvidence.py \
 
 完整性检查还要求三角色实际 NETCore/ASP.NET Core 10 运行时读数、数据库镜像来源与初始备份摘要，以及 Production/MySql 的 CA/PFX/Redis 元数据。模块回执必须包含候选 Hosting 摘要、两角色三模块清单和通知恢复摘要/密钥数量；同一镜像的两份模块回执清单发生冲突会拒绝。不能删除关键元数据后只保留 verified=true；源文件中的 NaN/Infinity 或 1e309 这类转换溢出数值也拒绝。输出 moduleEvidence 仅保留已核对的 Hosting/模块摘要，不提升回执来源可信度或发布权限。
 
+固定镜像内容可在 common.json 的 image.digests 中分别设置 api、worker、migrator 的 sha256 manifest 摘要。设置后该角色渲染为 registry/repository-role@sha256:…，image.tag 保留逻辑版本但不再决定运行镜像；空值沿用显式 tag。各值必须是 sha256: 加 64 位小写十六进制，不能填写归档 SHA 或 Docker imageId/config 摘要。单角色可独立固定，all 批量要求三个角色全部固定或全部使用 tag，部分固定在任何 Helm/数据库/服务动作前拒绝。
+
+只有导入/传输保留原 manifest 字节时，才可直接采用 OCI candidate.json 的 roles.<角色>.manifestDigest；转换 Docker schema/mediaType 后须重新核对最终仓库/运行时的 manifest 摘要。目标摘要及仓库归属确认后合并配置，角色 values 覆盖按嵌套对象合并。plan/执行回执新增 candidateImageDigests，批量固定时为三角色映射，未固定或单角色为 null；--expected-plan 同时核对该映射和原 values 摘要，防止预演与执行使用不同摘要。
+
+定向命令 node --test tests/deployment/helm-image-digests.test.mjs 检查三个角色、tag 改变不影响固定引用、空值、非法格式及命名空间/拉取策略；使用 FULLNET_HELM_BINARY 指定工具。实际 Helm 3.16.4 与 [4.3.1 专项](https://github.com/yan041108/Full.NET/actions/runs/44997140758) 均通过。本证据仅为真实渲染和发布入口受控流程，不证明注册表来源、Kubernetes 离线摘要命中或现场已升级；部署前仍核对实际镜像与既有发布门禁。
+
 - `tests/deployment/foundation-preset-release.test.mjs`
 - 发布清单：`docs/verification/f16-release-checklist.md`
