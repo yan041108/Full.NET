@@ -7931,3 +7931,15 @@ Release 集成工程单节点构建及 Identity 模块隔离 AOT 分析均零警
 - 实际通知保护器在恢复目录完成原值读取和反向进程往返、损坏 ZIP/缺 PFX 写前拒绝、备份后新 KeyId 载荷拒绝、原备份不变。通知恢复 ZIP SHA-256 083462a214fa06f1862a40f5dfaabb8d4b4646222dda0f2c3404b5b822cd08ca，清单 ce51a41fb503e1143f95b8eeb0946a67eb4218796da8d1bc326a7c03ef24458e；恢复一个加密密钥，密码不在备份中。该场景实际调用模块 Protect/Unprotect，仍不是 Endpoint Store/DeliveryBatchProcessor 或原 Host 管线。
 - 下载 2,298 字节 artifact 并在内存核对 verification.json，mode=consumers、moduleProtectorComponentsVerified=true，所有用途/通知恢复检查通过，businessHostPipelineVerified/externalDeliveryVerified/paymentChannelVerified/nativeAotVerified=false。artifact id=14743348238、名称 fullnet-oci-import-44995063566，API expired=false，2026-11-25 06:45:33 UTC 到期。本轮未启动业务 Host 或迁移，顶层 runtimeStartupVerified/databaseMigrationVerified/deploymentVerified=false，既有启动证据不改写。
 - 本批剩余开发 0、待验收 0。导入镜像/容器实际清理为零，秘密备份/恢复介质、编译引用和暂存回收，源码前后守卫通过；本地只内存读取回执，无整仓副本或仓库 artifacts。原手册同步精确组件与管线边界，仅关闭该固定候选的实际保护器组件和通知介质恢复差集；真实业务/外部渠道、生产联合恢复、现场发布/旧报表、D08 复验及容量仍按七个主工作包开放。Quill 临期处置、受限预演、Capacity-not-verified 和无关工作区改动保持。
+
+### 8.419 F15 固定候选回执的一致性准入（2026-11-22）
+
+| 固定任务 | 当前状态 | 完成条件 |
+| --- | --- | --- |
+| F15-CandidateEvidenceConsistency | 已完成，定向及实际回执核对通过 | 只读核对指定应用/OCI 作业的多份 Host/模块回执，拒绝镜像漂移、缺失范围与越界声明，不冒充来源认证、部署授权或现场验证。 |
+
+- 基线 bc553b1f468014d310102a97d425c05764e3e350，快照 candidate-evidence-consistency-20261122。先按既有部署报告/known_hosts，用 BatchMode 和 StrictHostKeyChecking 对记录中的主节点发起只读 SSH 巡检；连接返回 Permission denied (publickey)，远程命令未执行，没有改主机信任/凭据、上传候选或重试受限 plan。该事实是认证不可用，不是新的自动审批拒绝，不据此声称现场日志/版本或故障已核对。
+- 独立推进 F15-R2 的现有候选一致性缺口：已取得多种验收，但此前主要人工拼接不同 verificationCommit 的回执。冻结范围为 Verify-CandidateEvidence.py、八条直接用例及原手册/计划；只接受已知 Host 与 consumers 组件范围，显式要求应用/OCI 作业，校验共享来源、原候选摘要、角色镜像/归档/manifest/层，以及健康/停止、生产 TLS 与组件恢复声明。不同验收源码合法，不同候选绑定拒绝；所需范围必须显式存在。
+- 本地禁网、CPU 1/内存 256 MiB/PID 128、源码只读的一次性 Python 3.12 容器，定向八条方法 8/8（最终 0.161 秒），零失败/跳过。覆盖身份漂移、缺失范围、布尔冒用数值、部署越界、Production TLS 放宽、部分组件/恢复、重复键/非有限/超限 JSON，以及 CLI 不泄露未受信内容。未运行 .NET/数据库/旧探针或全量矩阵。
+- 从 GitHub 获取已成功的 Production/MySql 作业 44907594656、Testing/SqlServer 作业 44971433580、模块组件作业 44995063566 的三个小型 artifact，仅内存解 ZIP，并在隔离容器临时目录中调用正式 CLI。三份实际回执对应用 06caddffeb4f227f54acc38543a7d8f436c105a8、OCI 作业 44904939460 及同一三角色镜像/原候选摘要通过，输出两个 Host 范围和模块组件。再只改变一次性副本的 API manifest 摘要，CLI 精确以 receipt_image_binding_mismatch 拒绝；原回执未改，没有重新执行这些原验收作业。首次下载因传输失败未取得输入，后续只读获取成功，不将下载失败当作测试或产品失败。
+- 本批剩余开发 0、待验收 0。仅关闭已知范围的离线回执一致性检查；receiptAuthenticityVerified/deploymentAuthorized/deploymentVerified/businessHostPipelineVerified/externalChannelsVerified/capacityVerified=false。普通文件有界读取、稳定错误码、只读输入，临时回执随容器 --rm 回收，无整仓副本、私钥/候选镜像下载或仓库 artifacts；原手册同步命令和来源核对责任。现场 SSH 认证、受限目标预演、实际发布/旧报表、外部渠道、D08 现场复验、真实联合恢复和容量仍按原七个主工作包开放；Quill 临期处置和其他工作区改动保持。

@@ -220,5 +220,20 @@ SQL Server 的当前候选启动检查选择 verify_hosts=true、host_provider=S
 
 [实际保护器专项通过作业](https://github.com/yan041108/Full.NET/actions/runs/44995063566) 完成六类用途、八个精确密码学拒绝，并用候选 NotificationRecipientEndpointProtector 完成独立介质恢复、损坏/缺证书写前拒绝、原值读取及备份后新密钥快照拒绝。verification.json 的 keyRingVerification.consumers 记录实际模块 DLL 摘要和各项结果，moduleProtectorComponentsVerified=true；businessHostPipelineVerified/externalDeliveryVerified/paymentChannelVerified/nativeAotVerified=false。它证明真实模块组件与介质边界，不能替代 API 授权、数据库记录、Worker 队列、验证码消费、真实收件或商户认证。
 
+下载可信来源的 verification.json 后，可只读核对多份回执是否属于同一候选：
+
+```bash
+python3 eng/deploy/ubuntu/Verify-CandidateEvidence.py \
+  --source-commit 06caddffeb4f227f54acc38543a7d8f436c105a8 --oci-run-id 44904939460 \
+  --receipt /secure/receipts/mysql-production.json \
+  --receipt /secure/receipts/sqlserver-testing.json \
+  --receipt /secure/receipts/module-protectors.json \
+  --require-host Production/MySql --require-host Testing/SqlServer --require-modules
+```
+
+当前支持上述 Host 范围和 consumers 模块回执；不要求重跑完整 Provider 矩阵。校验应用/打包提交、OCI 作业、原候选回执摘要、各角色镜像/归档/manifest/层身份，以及声明的健康/停止/用途隔离/通知恢复结果。验收代码提交可以不同，候选绑定必须相同；遗漏所需范围、混用候选、数值冒用布尔值或越界部署声明均拒绝。输入普通 JSON 文件每份最多 256 KiB、最多 16 份，拒绝重复键和非有限数，不修改输入或连接环境；成功 stdout 为 status=consistent，失败 exit=1、stderr 为稳定机器码，不回显输入内容。
+
+三份上述实际 Actions 回执已按该命令核对一致；只修改一份 API manifest 摘要会得到 receipt_image_binding_mismatch。consistent 仅说明所选回执内部一致，receiptAuthenticityVerified/deploymentAuthorized/deploymentVerified/businessHostPipelineVerified/externalChannelsVerified/capacityVerified 仍为 false；来源真伪由操作者另行核对，不能把此工具当作签名、授权或现场通过。下载回执不代替正式发布门禁，额外未知范围须另行审查。
+
 - `tests/deployment/foundation-preset-release.test.mjs`
 - 发布清单：`docs/verification/f16-release-checklist.md`
