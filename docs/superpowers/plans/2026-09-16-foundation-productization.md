@@ -7906,9 +7906,13 @@ Release 集成工程单节点构建及 Identity 模块隔离 AOT 分析均零警
 
 | 固定任务 | 当前状态 | 完成条件 |
 | --- | --- | --- |
-| F15-CandidateKeyRingRecovery | 已实现，待实际执行 | 本轮加密 Key Ring/PFX 备份到独立介质，完整性预检后恢复并读取旧密文，损坏/缺证书在写入前拒绝，恢复快照拒绝备份后新密钥密文。 |
+| F15-CandidateKeyRingRecovery | 已完成，独立介质恢复与快照边界通过 | 本轮加密 Key Ring/PFX 备份到独立介质，完整性预检后恢复并读取旧密文，损坏/缺证书在写入前拒绝，恢复快照拒绝备份后新密钥密文。 |
 
 - 基线 f44a8caa0101e3ce63bba11f2b9f374aa7edc109，快照 candidate-keyring-recovery-20261122。冻结范围为原工作流 keyring_mode=recovery、原探针备份操作与恢复夹具、原手册/计划。复用实际候选程序集及双向/冷加载建档前提，只跑恢复差集，不重跑 basic 四拒绝、rotation、数据库/健康或全量。备份操作明确仅支持本轮无撤销记录的夹具，未知条目拒绝，不能当作生产通用 Key Ring 备份器。
 - 真实非 root 进程读取加密 key XML 生成 ZIP，独立保存 PFX 与精确 SHA-256 清单；密码不进入备份，由夹具独立 Secret 配置供给。先验证输入集合、普通文件/大小、归档成员/摘要，再创建恢复目录；损坏 ZIP 和缺 PFX 必须精确拒绝且无目标写入。恢复过程不解密或输出主密钥，分别挂载恢复后的目录/证书和最小 DP 配置，独立进程读取原密文并反向保护/解密。
 - 备份后仅在原 Key Ring 创建新密钥并验证实际载荷 KeyId，恢复副本必须拒绝其密文且仍读取备份前密文，备份摘要始终不变。回执限定独立探针，businessHostConsumerVerified/productionRecoveryVerified=false，不代表数据库/文件/会话联合恢复或现场回退。所有介质及编译引用仅在 RUNNER_TEMP，上传只含非秘密摘要与布尔回执；资源清理、源码守卫、其他主工作包与临期风险保持。
 - 首次作业 44994389758 在最小 C# 探针编译时因备份分支 input 与外层既有变量重名（CS0136）失败，未执行恢复；实际镜像/容器清理通过。仅修正新分支变量名为 keyInput，不改业务候选或降低断言，按同一专项重跑。
+- 最终验收源码 dfbf3dd06b159287b0be23ada98aa39bff8c77b4 的 [实际恢复专项](https://github.com/yan041108/Full.NET/actions/runs/44994510715/job/137122537104) 全部步骤成功，最小 C# 探针实际 publish/执行通过。原应用 sourceCommit=06caddffeb4f227f54acc38543a7d8f436c105a8、打包 packagingCommit=a879e7ed16b45291d922c4cc76d55fdd04dd2aad、Hosting DLL SHA-256 a975433678aa80a7dd8b1c7a65a5c0f0dfd86a8be7a7fb0352dffa485ac8adfd 保持。初始 YAML/四段 Python 语法检查通过，未把语法通过或首次编译失败当作恢复通过。
+- 内存下载并核对 verification.json：mode=recovery，恢复一个加密密钥、原密文读取与恢复后反向进程往返 true；损坏 ZIP/缺 PFX 写前拒绝 true，备份后新密钥载荷拒绝 true，原备份摘要不变 true。实际 ZIP SHA-256 6249333512a23f650e1cff9b401d0313b06b1bbed2f265758c7acee7d6a86aa9，清单 0bfc2cf1cb2403ae349aa1c0536a928c189aa2026d4ab1bcb916cda0f62c63f0，PFX 4aa15d57f5b046c1233fe1097630ef18ec572970dd32e3cc3fb99685697cb139。密码未进入备份，源 Key Ring 新增密钥与恢复副本的旧快照边界实际区分，不以同一目录或同一 Provider 缓存证明恢复。
+- 真实回执 artifact id=14743222617、名称 fullnet-oci-import-44994510715、大小 1,868 字节，API expired=false，2026-11-25 06:37:59 UTC 到期。scope 仍为候选镜像内独立进程，businessHostConsumerVerified/productionRecoveryVerified/nativeAotVerified=false；本轮 runtimeStartupVerified/databaseMigrationVerified/deploymentVerified=false，旧业务 Host 结果不改写。只上传回执，密钥/PFX/密文/备份归档/密码均不进入正式 artifact。
+- 本批剩余开发 0、待验收 0。独立清理确认本轮导入镜像/容器零残留，暂存、编译引用、备份/恢复目录均回收，源码前后守卫通过；本地仅内存读取回执，无整仓副本或仓库 artifacts。原手册同步显式场景、密码独立供给及夹具限制；仅关闭本轮候选介质恢复的独立进程差集，业务消费者/多代撤销材料/真实跨节点联合恢复、现场发布/旧报表、外部渠道、D08 复验及容量仍按原主工作包开放。临期 Quill、受限预演、Capacity-not-verified 和无关工作区改动保持。

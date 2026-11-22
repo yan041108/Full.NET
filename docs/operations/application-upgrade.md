@@ -212,5 +212,9 @@ SQL Server 的当前候选启动检查选择 verify_hosts=true、host_provider=S
 
 [轮换专项通过作业](https://github.com/yan041108/Full.NET/actions/runs/44993805923) 的 verification.json 在 keyRingVerification.rotation 中记录新旧 KeyId/PFX 摘要、新密钥实际使用、历史读取、移除历史配置后的拒绝、保留材料的配置回退及 encryptedKeyCount=2。作用范围仍是候选镜像内的独立进程，businessHostConsumerVerified/productionRotationVerified=false；不表示现场轮换、证书退役或业务消费者恢复已认证。本轮不启动数据库/业务 Host，也不把 basic 未执行的拒绝项写成新鲜通过；现有发布环境应按自己的轮换顺序和历史密文生命周期评估，不能直接删除旧证书。
 
+介质恢复的独立进程检查使用 verify_keyring=true、keyring_mode=recovery。夹具只为本轮无撤销记录的 Key Ring 创建加密 key XML ZIP、PFX 和精确摘要清单，不是生产通用备份器，遇到未知条目拒绝。PFX 密码不在备份中，恢复时从夹具独立 Secret 配置供给；实际恢复到新目录后，探针仅挂载恢复目录/证书及最小 Data Protection 配置，读取原密文并反向加解密。损坏归档和缺 PFX 要求在创建恢复目录前失败。
+
+[恢复专项通过作业](https://github.com/yan041108/Full.NET/actions/runs/44994510715) 实际恢复一个加密密钥，确认原备份摘要不变。随后只在原介质创建新密钥，核对新载荷 KeyId，恢复快照拒绝该载荷且仍可读取旧载荷，证明没有回退读取原目录或沿用旧进程缓存。verification.json 的 keyRingVerification.recovery 记录 ZIP/清单/PFX 摘要和这些检查，businessHostConsumerVerified/productionRecoveryVerified=false；不证明业务消费者、撤销/多代证书介质、数据库/文件/会话联合恢复或真实跨节点恢复。本轮备份、PFX、恢复目录和秘密配置随暂存回收，下载产物仅为非秘密验收回执。
+
 - `tests/deployment/foundation-preset-release.test.mjs`
 - 发布清单：`docs/verification/f16-release-checklist.md`
