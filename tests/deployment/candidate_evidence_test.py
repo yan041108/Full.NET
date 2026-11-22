@@ -21,7 +21,10 @@ def base():
             "imageImportVerified": True, "runtimeDiscoveryVerified": True, "runtimeStartupVerified": False,
             "databaseMigrationVerified": False, "deploymentVerified": False, "nativeAotVerified": False,
             "capacityVerified": False, "roles": {role: {"imageId": SHA, "archiveSha256": SHA,
-                "manifestDigest": SHA, "rootfsDiffIds": [SHA]} for role in ("api", "worker", "migrator")}}
+                "manifestDigest": SHA, "rootfsDiffIds": [SHA], "runtimeDiscovery": [
+                    "Microsoft.NETCore.App 10.0.1 [/usr/share/dotnet/shared/Microsoft.NETCore.App]",
+                    "Microsoft.AspNetCore.App 10.0.1 [/usr/share/dotnet/shared/Microsoft.AspNetCore.App]"]}
+                for role in ("api", "worker", "migrator")}}
 
 
 def host(environment="Testing", provider="SqlServer"):
@@ -31,9 +34,13 @@ def host(environment="Testing", provider="SqlServer"):
         "databaseMigrationVerified": True, "initialEmptyDatabaseRestoreVerified": True, "migrationJournalCount": 397,
         "productionConfigurationVerified": environment == "Production", "hosts": {role: {
             "live": 200, "startup": 200, "ready": 200, "gracefulStopExitCode": 0} for role in ("api", "worker")}}
+    result["hostVerification"].update(databaseImageId=SHA, databaseRepoDigests=["fixture@" + SHA],
+                                      initialEmptyDatabaseBackupSha256="b" * 64)
     if environment == "Production":
         result["hostVerification"]["productionEvidence"] = {"mysqlTlsMode": "VerifyFull", "mysqlSecureTransportRequired": True,
-            "ephemeralSigningEnabled": False, "mysqlObservedTlsAccepts": 36}
+            "ephemeralSigningEnabled": False, "mysqlObservedTlsAccepts": 36, "mysqlCaSha256": "b" * 64,
+            "dataProtectionCertificateSha256": "b" * 64, "redisImageId": SHA, "redisRepoDigests": ["fixture@" + SHA],
+            "sharedCertificateProtectedKeyRingConfigured": True, "cloudProviderCallsVerified": False}
     return result
 
 
@@ -48,6 +55,14 @@ def modules():
         "notificationRecipientMediaRecovery": {**{key: True for key in ("originalPayloadRestoredVerified",
             "restoredRoleRoundTripVerified", "corruptedBackupRejectedBeforeWrites", "missingCertificateRejectedBeforeWrites",
             "postBackupKeyPayloadRejected", "sourceBackupUnchanged")}, "productionRecoveryVerified": False}}}
+    result["keyRingVerification"].update(scope="independent-processes-in-candidate-images", environment="Production",
+        nativeAotVerified=False, candidateHostingSha256="b" * 64, apiToWorkerVerified=True, workerToApiVerified=True,
+        freshProcessReloadVerified=True)
+    consumers = result["keyRingVerification"]["consumers"]
+    consumers.update(scope="actual-module-protector-components-in-independent-processes", moduleAssemblies={role: {
+        "Full.NET.Modules." + name + ".dll": "b" * 64 for name in ("Identity", "Notifications", "Payments")} for role in ("api", "worker")})
+    consumers["notificationRecipientMediaRecovery"].update(businessHostConsumerVerified=False, certificatePasswordIncludedInBackup=False,
+        restoredEncryptedKeyCount=1, backupArchiveSha256="b" * 64, backupManifestSha256="b" * 64, certificateSha256="b" * 64)
     return result
 
 
@@ -108,10 +123,43 @@ class CandidateEvidenceTests(unittest.TestCase):
     def test_duplicate_nonfinite_and_oversized_json_rejected(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "receipt.json"
-            for content in ('{"a":1,"a":2}', '{"a":NaN}', ' ' * 262145):
+            for content in ('{"a":1,"a":2}', '{"a":NaN}', '{"a":1e309}', '{"a":-1e309}', ' ' * 262145):
                 path.write_text(content)
                 with self.assertRaises(ValueError):
                     module.load(path)
+
+    def test_role_runtime_proof_cannot_be_missing_or_wrong_major(self):
+        first, second = host(), host()
+        del first["roles"]["api"]["runtimeDiscovery"]
+        second["roles"]["api"]["runtimeDiscovery"][0] = "Microsoft.NETCore.App 9.0.1 [/runtime]"
+        for value in (first, second):
+            with self.assertRaisesRegex(ValueError, "receipt_runtime_proof_invalid"):
+                module.verify([value], SOURCE, RUN)
+
+    def test_database_and_production_sources_require_metadata(self):
+        first, second = host(), host("Production", "MySql")
+        del first["hostVerification"]["initialEmptyDatabaseBackupSha256"]
+        del second["hostVerification"]["productionEvidence"]["redisRepoDigests"]
+        for value in (first, second):
+            with self.assertRaises(ValueError):
+                module.verify([value], SOURCE, RUN)
+
+    def test_module_inventory_missing_or_conflicting_rejected(self):
+        first, second = modules(), modules()
+        del first["keyRingVerification"]["consumers"]["moduleAssemblies"]["api"]["Full.NET.Modules.Identity.dll"]
+        with self.assertRaisesRegex(ValueError, "receipt_module_inventory_invalid"):
+            module.verify([first], SOURCE, RUN)
+        second["keyRingVerification"]["consumers"]["moduleAssemblies"]["api"]["Full.NET.Modules.Identity.dll"] = "f" * 64
+        with self.assertRaisesRegex(ValueError, "receipt_module_binding_mismatch"):
+            module.verify([modules(), second], SOURCE, RUN)
+
+    def test_recovery_hash_and_numeric_key_count_required(self):
+        first, second = modules(), modules()
+        del first["keyRingVerification"]["consumers"]["notificationRecipientMediaRecovery"]["certificateSha256"]
+        second["keyRingVerification"]["consumers"]["notificationRecipientMediaRecovery"]["restoredEncryptedKeyCount"] = True
+        for value in (first, second):
+            with self.assertRaisesRegex(ValueError, "receipt_recovery_metadata_invalid"):
+                module.verify([value], SOURCE, RUN)
 
     def test_cli_rejects_without_disclosing_untrusted_contents(self):
         with tempfile.TemporaryDirectory() as directory:

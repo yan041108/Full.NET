@@ -235,5 +235,7 @@ python3 eng/deploy/ubuntu/Verify-CandidateEvidence.py \
 
 三份上述实际 Actions 回执已按该命令核对一致；只修改一份 API manifest 摘要会得到 receipt_image_binding_mismatch。consistent 仅说明所选回执内部一致，receiptAuthenticityVerified/deploymentAuthorized/deploymentVerified/businessHostPipelineVerified/externalChannelsVerified/capacityVerified 仍为 false；来源真伪由操作者另行核对，不能把此工具当作签名、授权或现场通过。下载回执不代替正式发布门禁，额外未知范围须另行审查。
 
+完整性检查还要求三角色实际 NETCore/ASP.NET Core 10 运行时读数、数据库镜像来源与初始备份摘要，以及 Production/MySql 的 CA/PFX/Redis 元数据。模块回执必须包含候选 Hosting 摘要、两角色三模块清单和通知恢复摘要/密钥数量；同一镜像的两份模块回执清单发生冲突会拒绝。不能删除关键元数据后只保留 verified=true；源文件中的 NaN/Infinity 或 1e309 这类转换溢出数值也拒绝。输出 moduleEvidence 仅保留已核对的 Hosting/模块摘要，不提升回执来源可信度或发布权限。
+
 - `tests/deployment/foundation-preset-release.test.mjs`
 - 发布清单：`docs/verification/f16-release-checklist.md`

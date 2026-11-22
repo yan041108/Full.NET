@@ -7943,3 +7943,15 @@ Release 集成工程单节点构建及 Identity 模块隔离 AOT 分析均零警
 - 本地禁网、CPU 1/内存 256 MiB/PID 128、源码只读的一次性 Python 3.12 容器，定向八条方法 8/8（最终 0.161 秒），零失败/跳过。覆盖身份漂移、缺失范围、布尔冒用数值、部署越界、Production TLS 放宽、部分组件/恢复、重复键/非有限/超限 JSON，以及 CLI 不泄露未受信内容。未运行 .NET/数据库/旧探针或全量矩阵。
 - 从 GitHub 获取已成功的 Production/MySql 作业 44907594656、Testing/SqlServer 作业 44971433580、模块组件作业 44995063566 的三个小型 artifact，仅内存解 ZIP，并在隔离容器临时目录中调用正式 CLI。三份实际回执对应用 06caddffeb4f227f54acc38543a7d8f436c105a8、OCI 作业 44904939460 及同一三角色镜像/原候选摘要通过，输出两个 Host 范围和模块组件。再只改变一次性副本的 API manifest 摘要，CLI 精确以 receipt_image_binding_mismatch 拒绝；原回执未改，没有重新执行这些原验收作业。首次获取未成功，原因未确定，后续只读获取成功，不将获取失败当作测试或产品失败。
 - 本批剩余开发 0、待验收 0。仅关闭已知范围的离线回执一致性检查；receiptAuthenticityVerified/deploymentAuthorized/deploymentVerified/businessHostPipelineVerified/externalChannelsVerified/capacityVerified=false。普通文件有界读取、稳定错误码、只读输入，临时回执随容器 --rm 回收，无整仓副本、私钥/候选镜像下载或仓库 artifacts；原手册同步命令和来源核对责任。现场 SSH 认证、受限目标预演、实际发布/旧报表、外部渠道、D08 现场复验、真实联合恢复和容量仍按原七个主工作包开放；Quill 临期处置和其他工作区改动保持。
+
+### 8.420 F15 回执数值溢出与完整证据边界（2026-11-22）
+
+| 固定任务 | 当前状态 | 完成条件 |
+| --- | --- | --- |
+| F15-CandidateEvidenceBoundaries | 已完成，定向及实际回执复核通过 | JSON 溢出非有限数拒绝，运行时/数据库/模块/恢复关键元数据缺失或冲突不得只凭布尔声明汇总通过，原实际回执保持可用。 |
+
+- 基线 e725c1ba431c218090b6adf36b2415c9b783b54c，快照 candidate-evidence-boundaries-20261122。现场所需 SSH 用户/本机密钥信息已向用户询问，等待期间只推进独立修复；未猜测账号、关闭主机校验、重试受限预演或操作发布环境。沿 §8.419 输入边界核对，在禁网 Python 3.12 容器中最小复现 load({value:1e309}) 实际得到 inf，违反非有限数拒绝契约；parse_constant 只处理特殊字面量，正常浮点语法必须另经 parse_float 检查，依据 [Python 3.12 json.load 文档](https://docs.python.org/3.12/library/json.html#json.load)。
+- 冻结原校验器、直接测试和原手册/计划。增加浮点转换有限性检查，要求三角色实际 .NET 10 运行时读数、数据库实际来源/备份摘要、Production CA/PFX/Redis 与安全配置元数据；模块必须有精确 Hosting/两角色三模块清单、明确范围与实际恢复摘要/数量，冲突模块清单拒绝。数值继续区分 bool 与 int，输出 moduleEvidence 仅为已验证输入摘要，不签发来源认证或现场结论。未修改业务实现或既有运行候选。
+- 源码只读、禁网、CPU 1/内存 256 MiB/PID 128 的一次性 Python 3.12 容器，直接受影响十二条方法 12/12（0.172 秒），零失败/跳过；含原八条及四条元数据检查，扩展 1e309/-1e309、缺运行时/错误主版本、缺数据库来源/备份、缺模块/冲突清单、恢复摘要与 bool 冒用密钥数。只验证改变的准入器，不运行 .NET、数据库、原探针或全量。
+- 复用 §8.419 已从实际 Actions 取得并留于会话内存的三份原始回执字节，不重新执行原验收或声明已刷新现场状态。在隔离容器临时目录运行正式 CLI，原 Production/MySql、Testing/SqlServer 与实际模块证据仍 consistent；分别只在一次性副本加入 1e309、删除 Identity 清单、删除初始备份摘要，精确以 receipt_nonfinite、receipt_module_inventory_invalid、receipt_database_proof_invalid 拒绝。原回执字节不变，临时副本与容器回收，无本地整仓/镜像或 artifacts 堆积。
+- 本批剩余开发 0、待验收 0；原手册同步完整元数据要求，receiptAuthenticityVerified/deploymentAuthorized/deploymentVerified 等未验证权限/现场状态仍 false。现场 SSH 认证仍待用户信息，未将无法连接当成环境正常；原七个主工作包、外部渠道/真实联合恢复、受限预演、Quill 临期处置、Capacity-not-verified 与无关工作区改动保持开放。
