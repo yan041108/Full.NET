@@ -11,6 +11,7 @@ import subprocess
 import sys
 import tempfile
 import threading
+import time
 import unittest
 from unittest import mock
 
@@ -61,11 +62,27 @@ class ReleaseEvidenceTests(unittest.TestCase):
         self.response = b"Healthy"
         self.http_status = 200
         self.requests = []
+        self.slow_response = None
         owner = self
 
         class Handler(http.server.BaseHTTPRequestHandler):
             def do_GET(self):
                 owner.requests.append(self.path)
+                if owner.slow_response:
+                    try:
+                        self.wfile.write(b"HTTP/1.0 200 OK\r\n")
+                        if owner.slow_response == "body":
+                            self.wfile.write(b"\r\nHealthy")
+                        # 每次间隔小于 socket timeout，但总响应超过三秒；旧入口会误判 Healthy。
+                        for _ in range(7):
+                            self.wfile.write(b"X-Heartbeat: 1\r\n" if owner.slow_response == "headers" else b" ")
+                            self.wfile.flush()
+                            time.sleep(0.55)
+                        if owner.slow_response == "headers":
+                            self.wfile.write(b"\r\nHealthy")
+                    except (BrokenPipeError, ConnectionResetError):
+                        pass
+                    return
                 self.send_response(owner.http_status)
                 self.send_header("Location", "http://127.0.0.1:1/forbidden")
                 self.end_headers()
@@ -190,6 +207,23 @@ print(json.dumps(config.get(kind + "_after", config[kind]) if number else config
     def test_failed_health_http_status_is_rejected(self):
         self.http_status = 503
         self.failure("evidence_capture_failed")
+
+    def slow_health_failure(self, part):
+        self.slow_response = part
+        start = time.monotonic()
+        self.failure("pod_health_timeout")
+        self.assertLess(time.monotonic() - start, 4.5)
+        self.assertEqual(self.requests, ["/health/ready"])
+        # 失败不封存证据，且退出后发布锁可重新取得。
+        import fcntl
+        with self.lock.open("a") as lock:
+            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+
+    def test_slow_headers_obey_total_health_deadline(self):
+        self.slow_health_failure("headers")
+
+    def test_slow_body_obeys_total_health_deadline(self):
+        self.slow_health_failure("body")
 
     def test_tunnel_failure_does_not_echo_raw_output(self):
         self.config["tunnel_failure"] = True

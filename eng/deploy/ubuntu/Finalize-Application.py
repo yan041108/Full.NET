@@ -9,6 +9,7 @@ import os
 from pathlib import Path
 import re
 import select
+import signal
 import shutil
 import stat
 import subprocess
@@ -120,6 +121,24 @@ class NoRedirect(urllib.request.HTTPRedirectHandler):
         return None
 
 
+def health_response(port):
+    # Linux CLI 在主线程独占此计时器；socket timeout 不能限制持续滴流的响应头或正文。
+    def expired(*_):
+        raise InvalidEvidence("pod_health_timeout")
+
+    previous = signal.signal(signal.SIGALRM, expired)
+    try:
+        signal.setitimer(signal.ITIMER_REAL, 3)
+        opener = urllib.request.build_opener(urllib.request.ProxyHandler({}), NoRedirect())
+        with opener.open(f"http://127.0.0.1:{port}/health/ready", timeout=3) as response:
+            body = response.read(513)
+            require(response.status == 200 and len(body) <= 512 and body.strip() == b"Healthy", "pod_health_not_healthy")
+    finally:
+        # 先撤销本轮闹钟再还原处理器，失败也不能影响后续采集或隧道回收。
+        signal.setitimer(signal.ITIMER_REAL, 0)
+        signal.signal(signal.SIGALRM, previous)
+
+
 def health(prefix, pod, port):
     process = subprocess.Popen([*prefix, "port-forward", "pod/" + pod["name"], f":{port}",
                                 "--address=127.0.0.1"], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
@@ -135,10 +154,7 @@ def health(prefix, pod, port):
             line.extend(chunk)
         match = re.fullmatch(rb"Forwarding from 127\.0\.0\.1:([0-9]{1,5}) -> [0-9]+\r?\n", bytes(line))
         require(match is not None and 1 <= int(match[1]) <= 65535, "health_tunnel_unavailable")
-        opener = urllib.request.build_opener(urllib.request.ProxyHandler({}), NoRedirect())
-        with opener.open(f"http://127.0.0.1:{int(match[1])}/health/ready", timeout=3) as response:
-            body = response.read(513)
-            require(response.status == 200 and len(body) <= 512 and body.strip() == b"Healthy", "pod_health_not_healthy")
+        health_response(int(match[1]))
         require(process.poll() is None, "health_tunnel_unavailable")
         return {"uid": pod["uid"], "role": pod["role"], "status": "Healthy"}
     finally:

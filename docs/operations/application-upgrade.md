@@ -111,7 +111,7 @@ sudo python3 /usr/local/lib/fullnet/Finalize-Application.py /srv/fullnet/release
 
 两个预期镜像必须显式给出，推荐使用固定摘要引用。默认每角色 2 副本、健康端口 8080；可用 --replicas 1～4、--health-port、--kubectl 指定实际拓扑与工具。每角色副本须位于不同节点，同角色实际 imageID 须一致。默认 k3s，也支持独立 kubectl 可执行路径；凭据由已有 KUBECONFIG 提供，不放入命令参数。采集与 Release-Application.sh 共用 /run/fullnet-release.lock，锁冲突直接拒绝。
 
-仅当 Deployment 已观察本代、目标/更新/就绪/可用数一致，选中 Pod 都为 Ready 且镜像匹配预期时，才逐 Pod 建立仅监听回环的健康隧道；HTTP 200 且正文 Healthy 才通过，Degraded、重定向和过大响应均拒绝。采集前后再次核对部署代次、Pod UID、容器身份和源摘要；中途滚动、重启或修改候选需重新采集，原始集群错误不回显。单个集群命令有二十秒期限和 4 MiB 输出上限，隧道启动十秒、健康请求三秒，退出回收本轮子进程。
+仅当 Deployment 已观察本代、目标/更新/就绪/可用数一致，选中 Pod 都为 Ready 且镜像匹配预期时，才逐 Pod 建立仅监听回环的健康隧道；HTTP 200 且正文 Healthy 才通过，Degraded、重定向和过大响应均拒绝。采集前后再次核对部署代次、Pod UID、容器身份和源摘要；中途滚动、重启或修改候选需重新采集，原始集群错误不回显。单个集群命令有二十秒期限和 4 MiB 输出上限，隧道启动十秒、健康请求三秒总期限（涵盖连接、响应头及正文，持续滴流不能续期）；总期限耗尽以 pod_health_timeout 拒绝封存，退出回收本轮子进程并释放发布锁。
 
 前端默认 RELEASE_TAG/frontend；混合角色发布可用 --frontend 显式指定 releases 下另一前端目录，回执记录相对位置。候选至少包含 source-manifest.json、chart.tar、前端 index.html；只对前端文件和根目录明确的 manifest/OCI/chart 产物计算摘要，不复制源码或归档。拒绝链接和硬链接产物；前端最多一万文件，发布根产物最多 128 个。操作员应冻结候选的写入，脚本不代替发布包签名或产物来源认证。
 
