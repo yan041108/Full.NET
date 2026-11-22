@@ -61,6 +61,8 @@ def verify(root):
         mounts += ["--mount", "type=bind,source=" + str(path) + ",target=/app/" + path.name + ",readonly"]
     wrong_certificate = [arg.replace(str(assets_root / "production-private" / "host"),
                                      str(wrong_root / "production-private" / "host")) for arg in assets["hostArguments"]]
+    unrelated_ring = [arg.replace(str(assets_root / "production-private" / "keyring"),
+                                  str(wrong_root / "production-private" / "keyring")) for arg in assets["hostArguments"]]
 
     def invoke(role, mode, purpose="shared", text="", arguments=None, rejected=False):
         if run("ps", "-aq", "--filter", "name=^/" + name(role) + "$"):
@@ -93,7 +95,7 @@ def verify(root):
     tampered = api_token[:position] + ("A" if api_token[position] != "A" else "B") + api_token[position + 1:]
     invoke("worker", "unprotect", text=tampered, rejected=True)
     invoke("worker", "unprotect", text=api_token, arguments=wrong_certificate, rejected=True)
-    invoke("worker", "unprotect", text=api_token, arguments=wrong["hostArguments"], rejected=True)
+    invoke("worker", "unprotect", text=api_token, arguments=unrelated_ring, rejected=True)
     count = invoke("api", "inspect")
     if not count.isdigit() or int(count) < 1:
         raise RuntimeError("keyring_at_rest_encryption_missing")
