@@ -55,11 +55,52 @@ def clean(root):
     print("candidate_startup_cleanup: containers=0 networks=0", flush=True)
 
 
+def probe_hosts(containers, network, start, shared, image):
+    """两种数据库共用健康与停止断言，不以进程存在替代就绪成功。"""
+    checks = {}
+    client = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+    for role in ("api", "worker"):
+        start(role, *shared, image(role))
+        deadline = time.monotonic() + 90
+        address = json.loads(run("inspect", containers[role]))[0]["NetworkSettings"]["Networks"][network]["IPAddress"]
+        for endpoint in ("live", "startup", "ready"):
+            while True:
+                if not json.loads(run("inspect", containers[role]))[0]["State"]["Running"]:
+                    raise RuntimeError("candidate_host_exited_" + role)
+                try:
+                    with client.open("http://" + address + ":8080/health/" + endpoint, timeout=3) as response:
+                        if response.status == 200 and response.read(64) == b"Healthy":
+                            break
+                except (OSError, urllib.error.URLError):
+                    pass
+                if time.monotonic() >= deadline:
+                    raise RuntimeError("candidate_health_failed_" + role + "_" + endpoint)
+                time.sleep(1)
+        checks[role] = {"live": 200, "startup": 200, "ready": 200}
+        print("candidate_host_verified: role=" + role + " health=live+startup+ready", flush=True)
+    for role in ("worker", "api"):
+        run("stop", "--time", "20", containers[role], timeout=30)
+        status = json.loads(run("inspect", containers[role]))[0]["State"]
+        if status["Running"] or status["ExitCode"] != 0 or status["OOMKilled"]:
+            raise RuntimeError("candidate_host_shutdown_failed_" + role)
+        checks[role]["gracefulStopExitCode"] = 0
+    return checks
+
+
 def verify(root):
     """仅在隔离 CI 验证选定环境的启动，不把探针结果外推为现场或完整业务认证。"""
     network, containers = names()
     if os.environ.get("CI") != "true" or not Path("/var/run/docker.sock").is_socket():
         raise RuntimeError("startup_isolated_ci_required")
+    provider = os.environ.get("HOST_PROVIDER", "MySql")
+    if provider == "SqlServer":
+        import importlib.util
+        spec = importlib.util.spec_from_file_location("sqlserver_startup", Path(__file__).with_name("oci_sqlserver_startup.py"))
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        return module.verify(root, run, network, containers, probe_hosts)
+    if provider != "MySql":
+        raise RuntimeError("candidate_host_provider_invalid")
     owned = {"network": None, "containers": []}
     state = root / "host-owned.json"
     if state.exists() or run("network", "ls", "-q", "--filter", "name=^" + network + "$"):
@@ -182,33 +223,7 @@ def verify(root):
                     "SELECT COUNT(*) FROM fullnet_candidate.schemaversions")
         if not count.isdigit() or int(count) == 0:
             raise RuntimeError("candidate_migration_journal_missing")
-        checks = {}
-        client = urllib.request.build_opener(urllib.request.ProxyHandler({}))
-        for role in ("api", "worker"):
-            start(role, *shared, image(role))
-            deadline = time.monotonic() + 90
-            address = json.loads(run("inspect", containers[role]))[0]["NetworkSettings"]["Networks"][network]["IPAddress"]
-            for endpoint in ("live", "startup", "ready"):
-                while True:
-                    if not json.loads(run("inspect", containers[role]))[0]["State"]["Running"]:
-                        raise RuntimeError("candidate_host_exited_" + role)
-                    try:
-                        with client.open("http://" + address + ":8080/health/" + endpoint, timeout=3) as response:
-                            if response.status == 200 and response.read(64) == b"Healthy":
-                                break
-                    except (OSError, urllib.error.URLError):
-                        pass
-                    if time.monotonic() >= deadline:
-                        raise RuntimeError("candidate_health_failed_" + role + "_" + endpoint)
-                    time.sleep(1)
-            checks[role] = {"live": 200, "startup": 200, "ready": 200}
-            print("candidate_host_verified: role=" + role + " health=live+startup+ready", flush=True)
-        for role in ("worker", "api"):
-            run("stop", "--time", "20", containers[role], timeout=30)
-            status = json.loads(run("inspect", containers[role]))[0]["State"]
-            if status["Running"] or status["ExitCode"] != 0 or status["OOMKilled"]:
-                raise RuntimeError("candidate_host_shutdown_failed_" + role)
-            checks[role]["gracefulStopExitCode"] = 0
+        checks = probe_hosts(containers, network, start, shared, image)
         evidence = None
         if production:
             tls = run(*mysql, "SHOW GLOBAL STATUS LIKE 'Ssl_accepts'").split()

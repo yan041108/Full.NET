@@ -8,7 +8,7 @@ on:
         required: true
         type: string
       verify_hosts:
-        description: Verify Testing hosts with an isolated disposable MySQL database
+        description: Verify hosts with an isolated disposable database
         required: true
         default: false
         type: boolean
@@ -20,6 +20,14 @@ on:
         options:
           - Testing
           - Production
+      host_provider:
+        description: Database provider for host verification (SqlServer supports Testing only)
+        required: true
+        default: MySql
+        type: choice
+        options:
+          - MySql
+          - SqlServer
 
 permissions:
   contents: read
@@ -83,6 +91,7 @@ jobs:
           OCI_RUN_ID: ${{ inputs.oci_run_id }}
           VERIFY_HOSTS: ${{ inputs.verify_hosts }}
           HOST_ENVIRONMENT: ${{ inputs.host_environment }}
+          HOST_PROVIDER: ${{ inputs.host_provider }}
         run: |
           set -euo pipefail
           python3 - <<'PY'
