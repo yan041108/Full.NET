@@ -34,6 +34,7 @@ failure_logs=()
 completed_roles=()
 values_digest_json=''
 candidate_image_tag_json=null
+candidate_image_digests_json=null
 expected_plan_matched=null
 
 roles_json() {
@@ -99,8 +100,8 @@ finish() {
       "$requested_role" "$(roles_json "${completed_roles[@]}")" "$restore_required" >&2
   fi
   if [[ $result == 0 ]]; then
-    printf '{"schemaVersion":1,"role":"%s","roles":%s,"completedRoles":%s,"namespace":"fullnet-production","action":"%s","chartSha256":"%s","chartContentSha256":"%s","valuesSha256":{%s},"candidateImageTag":%s,"expectedPlanMatched":%s}\n' \
-      "$requested_role" "$(roles_json "${roles[@]}")" "$(roles_json "${completed_roles[@]}")" "$action" "$chart_digest" "$chart_content_digest" "$values_digest_json" "$candidate_image_tag_json" "$expected_plan_matched"
+    printf '{"schemaVersion":1,"role":"%s","roles":%s,"completedRoles":%s,"namespace":"fullnet-production","action":"%s","chartSha256":"%s","chartContentSha256":"%s","valuesSha256":{%s},"candidateImageTag":%s,"candidateImageDigests":%s,"expectedPlanMatched":%s}\n' \
+      "$requested_role" "$(roles_json "${roles[@]}")" "$(roles_json "${completed_roles[@]}")" "$action" "$chart_digest" "$chart_content_digest" "$values_digest_json" "$candidate_image_tag_json" "$candidate_image_digests_json" "$expected_plan_matched"
   fi
   exit "$result"
 }
@@ -133,6 +134,8 @@ try:
     if not all(isinstance(item,str) and re.fullmatch('[0-9a-f]{64}',item) for item in [value.get('chartContentSha256'),*hashes.values()]): raise ValueError()
     tag=value.get('candidateImageTag')
     if not isinstance(tag,str) or not re.fullmatch(r'[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}',tag) or tag.lower()=='latest': raise ValueError()
+    digests=value.get('candidateImageDigests')
+    if digests is not None and (not isinstance(digests,dict) or set(digests)!={'api','worker','migrator'} or not all(isinstance(item,str) and re.fullmatch(r'sha256:[0-9a-f]{64}',item) for item in digests.values())): raise ValueError()
     with open(sys.argv[2],'x',encoding='utf-8') as output: json.dump(value,output,separators=(',',':'))
 except (OSError,ValueError,TypeError):
     print('预期 plan 回执无效或文件权限不安全。',file=sys.stderr)
@@ -166,21 +169,35 @@ try:
         if not isinstance(document,dict) or not isinstance(document.get('image',{}),dict): raise ValueError()
         documents.append(document.get('image',{}))
     identities=[]
-    for overlay in documents[1:]:
+    selected_digests={}
+    for role,overlay in zip(('migrator','worker','api'),documents[1:]):
         image={**documents[0],**overlay}
         tag=image.get('tag')
         if not isinstance(tag,str) or not re.fullmatch(r'[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}',tag) or tag.lower()=='latest': raise ValueError()
         identity=(image.get('registry',''),image.get('repository'),tag)
         if any(value is not None and not isinstance(value,str) for value in identity): raise ValueError()
         identities.append(identity)
+        maps=[]
+        for document in (documents[0],overlay):
+            digests=document.get('digests',{})
+            if not isinstance(digests,dict) or set(digests)-{'api','worker','migrator'}: raise ValueError()
+            if not all(isinstance(value,str) and (not value or re.fullmatch(r'sha256:[0-9a-f]{64}',value)) for value in digests.values()): raise ValueError()
+            maps.append(digests)
+        selected_digests[role]={**maps[0],**maps[1]}.get(role,'')
     if len(set(identities))!=1: raise ValueError()
+    # 批量要么全部固定角色摘要，要么沿用显式 tag；禁止把两种身份混成一批。
+    if any(selected_digests.values()) and not all(selected_digests.values()): raise ValueError()
     print(json.dumps(identities[0][2]))
+    print(json.dumps(selected_digests if all(selected_digests.values()) else None,sort_keys=True))
 except (ValueError,TypeError,OSError):
-    print('批量 values 必须为有界 JSON 对象，并显式解析为同一镜像 registry/repository/tag，禁止 latest。',file=sys.stderr)
+    print('批量 values 必须解析为同一 registry/repository/tag，禁止 latest；摘要须为合法 sha256 且三个角色同时固定。',file=sys.stderr)
     sys.exit(1)
 PY
   # 只保存已通过格式与一致性检查的 JSON 字符串；暂存清理后仍可签发相同候选回执。
-  candidate_image_tag_json=$(< "$last_output")
+  mapfile -t image_identity_json < "$last_output"
+  [[ ${#image_identity_json[@]} == 2 ]] || exit 1
+  candidate_image_tag_json=${image_identity_json[0]}
+  candidate_image_digests_json=${image_identity_json[1]}
 fi
 perform package timeout --foreground --kill-after=5s 60s helm package "$chart" --destination "$work"
 shopt -s nullglob
@@ -246,12 +263,13 @@ for role in "${roles[@]}"; do
 done
 verify_frozen
 if [[ -n $expected_plan ]]; then
-  perform expected-plan-match python3 - "$work/expected-plan.json" "$chart_content_digest" "$candidate_image_tag_json" "$work" <<'PY'
+  perform expected-plan-match python3 - "$work/expected-plan.json" "$chart_content_digest" "$candidate_image_tag_json" "$work" "$candidate_image_digests_json" <<'PY'
 import hashlib,json,pathlib,sys
 try:
     expected=json.loads(pathlib.Path(sys.argv[1]).read_text())
     actual={name:hashlib.sha256((pathlib.Path(sys.argv[4])/(name+'.json')).read_bytes()).hexdigest() for name in ('common','migrator','worker','api')}
     if expected['chartContentSha256']!=sys.argv[2] or expected['candidateImageTag']!=json.loads(sys.argv[3]) or expected['valuesSha256']!=actual: raise ValueError()
+    if expected.get('candidateImageDigests')!=json.loads(sys.argv[5]): raise ValueError()
 except (OSError,ValueError,KeyError):
     print('当前候选或 values 与预期 plan 不一致。',file=sys.stderr)
     sys.exit(1)

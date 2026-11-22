@@ -26,6 +26,11 @@ image:
   registry: ""
   repository: fullnet
   tag: "1.0.0"
+  # 按角色固定已审查的 manifest 摘要；非空时实际镜像使用 @digest，tag 仅保留版本标识。
+  digests:
+    api: ""
+    worker: ""
+    migrator: ""
   pullPolicy: IfNotPresent
   # 各角色镜像名：{repository}-api|worker|migrator
   pullSecrets: []

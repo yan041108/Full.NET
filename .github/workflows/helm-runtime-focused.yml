@@ -8,7 +8,7 @@ on:
         required: true
         default: runtime-config
         type: choice
-        options: [runtime-config, cdc-identities, cache-cluster-driver, infrastructure-backup, ubuntu-role-release, network-readiness, release-evidence, oci-packaging, object-restore, oci-runtime, cluster-network, cache-cluster-runtime, object-certificate, edge-reload-recovery, web-certificate-recovery, gateway-trust, gateway-configuration-admission, ubuntu-role-batch, metrics-platform, metrics-kubernetes, workload-metrics-watch, external-metrics-scrapes, infrastructure-state-metrics, metrics-cluster-context, node-exporter-mtls, object-capacity-exporter-install, object-capacity-verification, metrics-network-egress]
+        options: [runtime-config, image-digests, cdc-identities, cache-cluster-driver, infrastructure-backup, ubuntu-role-release, network-readiness, release-evidence, oci-packaging, object-restore, oci-runtime, cluster-network, cache-cluster-runtime, object-certificate, edge-reload-recovery, web-certificate-recovery, gateway-trust, gateway-configuration-admission, ubuntu-role-batch, metrics-platform, metrics-kubernetes, workload-metrics-watch, external-metrics-scrapes, infrastructure-state-metrics, metrics-cluster-context, node-exporter-mtls, object-capacity-exporter-install, object-capacity-verification, metrics-network-egress]
       helm_version:
         description: Helm 场景使用的固定版本
         required: true
@@ -33,10 +33,10 @@ jobs:
           SCENARIO: ${{ inputs.scenario }}
           HELM_VERSION: ${{ inputs.helm_version }}
         run: |
-          case "$SCENARIO" in runtime-config|cdc-identities|cache-cluster-driver|infrastructure-backup|ubuntu-role-release|network-readiness|release-evidence|oci-packaging|object-restore|oci-runtime|cluster-network|cache-cluster-runtime|object-certificate|edge-reload-recovery|web-certificate-recovery|gateway-trust|gateway-configuration-admission|ubuntu-role-batch|metrics-platform|metrics-kubernetes|workload-metrics-watch|external-metrics-scrapes|infrastructure-state-metrics|metrics-cluster-context|node-exporter-mtls|object-capacity-exporter-install|object-capacity-verification|metrics-network-egress) ;; *) exit 64 ;; esac
+          case "$SCENARIO" in runtime-config|image-digests|cdc-identities|cache-cluster-driver|infrastructure-backup|ubuntu-role-release|network-readiness|release-evidence|oci-packaging|object-restore|oci-runtime|cluster-network|cache-cluster-runtime|object-certificate|edge-reload-recovery|web-certificate-recovery|gateway-trust|gateway-configuration-admission|ubuntu-role-batch|metrics-platform|metrics-kubernetes|workload-metrics-watch|external-metrics-scrapes|infrastructure-state-metrics|metrics-cluster-context|node-exporter-mtls|object-capacity-exporter-install|object-capacity-verification|metrics-network-egress) ;; *) exit 64 ;; esac
           case "$HELM_VERSION" in v3.16.4|v4.0.0|v4.3.1) ;; *) exit 64 ;; esac
       - uses: actions/setup-node@v4
-        if: inputs.scenario == 'runtime-config' || inputs.scenario == 'cdc-identities'
+        if: inputs.scenario == 'runtime-config' || inputs.scenario == 'image-digests' || inputs.scenario == 'cdc-identities'
         with:
           node-version: 24
       - uses: actions/setup-python@v5
@@ -76,11 +76,11 @@ jobs:
           docker --version
           dotnet --version
       - uses: azure/setup-helm@v4
-        if: inputs.scenario == 'runtime-config' || inputs.scenario == 'cdc-identities' || inputs.scenario == 'ubuntu-role-release' || inputs.scenario == 'ubuntu-role-batch' || inputs.scenario == 'metrics-platform' || inputs.scenario == 'metrics-cluster-context' || inputs.scenario == 'object-capacity-verification' || inputs.scenario == 'node-exporter-mtls' || inputs.scenario == 'metrics-kubernetes' || inputs.scenario == 'metrics-network-egress' || inputs.scenario == 'workload-metrics-watch' || inputs.scenario == 'external-metrics-scrapes' || inputs.scenario == 'infrastructure-state-metrics'
+        if: inputs.scenario == 'runtime-config' || inputs.scenario == 'image-digests' || inputs.scenario == 'cdc-identities' || inputs.scenario == 'ubuntu-role-release' || inputs.scenario == 'ubuntu-role-batch' || inputs.scenario == 'metrics-platform' || inputs.scenario == 'metrics-cluster-context' || inputs.scenario == 'object-capacity-verification' || inputs.scenario == 'node-exporter-mtls' || inputs.scenario == 'metrics-kubernetes' || inputs.scenario == 'metrics-network-egress' || inputs.scenario == 'workload-metrics-watch' || inputs.scenario == 'external-metrics-scrapes' || inputs.scenario == 'infrastructure-state-metrics'
         with:
           version: ${{ inputs.helm_version }}
       - name: Verify the Helm 4.3.1 binary against the official archive
-        if: inputs.helm_version == 'v4.3.1' && (inputs.scenario == 'ubuntu-role-release' || inputs.scenario == 'ubuntu-role-batch')
+        if: inputs.helm_version == 'v4.3.1' && (inputs.scenario == 'ubuntu-role-release' || inputs.scenario == 'ubuntu-role-batch' || inputs.scenario == 'image-digests')
         run: |
           set -euo pipefail
           tool_directory=$(mktemp -d "$RUNNER_TEMP/fullnet-helm431-XXXXXX")
@@ -100,6 +100,10 @@ jobs:
           set -euo pipefail
           before="$(git status --porcelain --untracked-files=all)"
           case "$SCENARIO" in
+            image-digests)
+              helm version --short
+              FULLNET_HELM_BINARY="$(command -v helm)" node --test tests/deployment/helm-image-digests.test.mjs
+              ;;
             ubuntu-role-release|ubuntu-role-batch)
               helm version --short
               helm_binary="$(command -v helm)"
@@ -128,7 +132,7 @@ jobs:
                   suite.addTest(fixture.RealHelmRolePlanTests('test_actual_chart_renders_exactly_the_selected_role_despite_all_roles_in_values'))
                   suite.addTest(fixture.RealHelmRolePlanTests('test_content_identity_survives_repackaging_and_changes_with_file_bytes'))
                   suite.addTest(fixture.RealHelmRolePlanTests('test_expected_plan_accepts_repackaging_and_rejects_changed_content'))
-                  expected = 47
+                  expected = 53
           result = unittest.TextTestRunner(verbosity=2).run(suite)
           if not result.wasSuccessful() or result.skipped or result.testsRun != expected:
               raise SystemExit(1)

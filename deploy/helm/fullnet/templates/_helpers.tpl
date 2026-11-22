@@ -40,10 +40,20 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- $root := .root -}}
 {{- $registry := $root.Values.image.registry -}}
 {{- $repo := printf "%s-%s" $root.Values.image.repository $role -}}
+{{- $digest := get (default dict $root.Values.image.digests) $role | default "" -}}
+{{- if $digest -}}
+{{- if not (regexMatch "^sha256:[0-9a-f]{64}$" $digest) -}}{{ fail "image.digests 必须使用 sha256 manifest 摘要" }}{{- end -}}
+{{- if $registry -}}
+{{- printf "%s/%s@%s" $registry $repo $digest -}}
+{{- else -}}
+{{- printf "%s@%s" $repo $digest -}}
+{{- end -}}
+{{- else -}}
 {{- if $registry -}}
 {{- printf "%s/%s:%s" $registry $repo $root.Values.image.tag -}}
 {{- else -}}
 {{- printf "%s:%s" $repo $root.Values.image.tag -}}
+{{- end -}}
 {{- end -}}
 {{- end -}}
 

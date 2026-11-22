@@ -22,6 +22,19 @@
     "else": {"properties": {"api": {"properties": {"replicaCount": {"minimum": 2}}}, "worker": {"properties": {"replicaCount": {"minimum": 2}}}}}
   }],
   "properties": {
+    "image": {
+      "type": "object",
+      "properties": {
+        "digests": {
+          "type": "object", "additionalProperties": false,
+          "properties": {
+            "api": { "type": "string", "pattern": "^$|^sha256:[0-9a-f]{64}$" },
+            "worker": { "type": "string", "pattern": "^$|^sha256:[0-9a-f]{64}$" },
+            "migrator": { "type": "string", "pattern": "^$|^sha256:[0-9a-f]{64}$" }
+          }
+        }
+      }
+    },
     "networkPolicy": {
       "type": "object",
       "properties": {

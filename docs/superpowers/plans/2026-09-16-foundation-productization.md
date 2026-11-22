@@ -7955,3 +7955,13 @@ Release 集成工程单节点构建及 Identity 模块隔离 AOT 分析均零警
 - 源码只读、禁网、CPU 1/内存 256 MiB/PID 128 的一次性 Python 3.12 容器，直接受影响十二条方法 12/12（0.172 秒），零失败/跳过；含原八条及四条元数据检查，扩展 1e309/-1e309、缺运行时/错误主版本、缺数据库来源/备份、缺模块/冲突清单、恢复摘要与 bool 冒用密钥数。只验证改变的准入器，不运行 .NET、数据库、原探针或全量。
 - 复用 §8.419 已从实际 Actions 取得并留于会话内存的三份原始回执字节，不重新执行原验收或声明已刷新现场状态。在隔离容器临时目录运行正式 CLI，原 Production/MySql、Testing/SqlServer 与实际模块证据仍 consistent；分别只在一次性副本加入 1e309、删除 Identity 清单、删除初始备份摘要，精确以 receipt_nonfinite、receipt_module_inventory_invalid、receipt_database_proof_invalid 拒绝。原回执字节不变，临时副本与容器回收，无本地整仓/镜像或 artifacts 堆积。
 - 本批剩余开发 0、待验收 0；原手册同步完整元数据要求，receiptAuthenticityVerified/deploymentAuthorized/deploymentVerified 等未验证权限/现场状态仍 false。现场 SSH 认证仍待用户信息，未将无法连接当成环境正常；原七个主工作包、外部渠道/真实联合恢复、受限预演、Quill 临期处置、Capacity-not-verified 与无关工作区改动保持开放。
+
+### 8.421 F15 三角色不可变镜像引用（2026-11-22）
+
+| 固定任务 | 当前状态 | 完成条件 |
+| --- | --- | --- |
+| F15-ImmutableRoleImages | 已实现，集中验收中 | Chart 支持各角色 manifest digest，批量禁止部分固定，预期 plan 和回执绑定摘要；tag 模式保持，真实 Helm 及直接发布边界通过。 |
+
+- 基线 ae6b7cb9e0c1fb0857a90b886839547ed0eedb87，快照 immutable-role-images-20261122。核对主计划后发现实际 Chart 仅渲染 repository-role:tag，§8.410 已说明同源重新打包会取得新的基础镜像，单靠 tag 不能固定原已验字节。冻结 Chart 值/Schema/镜像 helper、原批量入口与直接测试、工作流精确接线、原手册/计划；不增加业务功能或现场发布授权。
+- 新增 image.digests.api/worker/migrator，非空时使用 repository-role@sha256，保留逻辑 tag。严格拒绝错误算法/格式/类型/未知角色。批量只允许三角色全固定或全 tag，不接受部分固定；按 Helm 嵌套合并解析角色覆盖。candidateImageDigests 加入回执与预期 plan 匹配，原 values 摘要/冻结保护保持；没有把 JSON 证据校验当成注册表/运行镜像认证。
+- 关联实现集中后执行六个真实 Helm 渲染方法、三十一条批量及两个直接单角色回执方法；不重跑其余单角色、业务/.NET/双库或全量。工作流新增 image-digests 精确场景，既有完整批量发现数接线为 53，不因此自动派发整组；目标 Helm 4.3.1 另只执行新六个渲染方法。现场 SSH 信息仍待用户提供，不连接目标环境或重试受限预演。

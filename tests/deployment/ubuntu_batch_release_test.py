@@ -27,6 +27,62 @@ class BatchReleaseTests(_Base):
         self.configure(events=[])
         return path
 
+    def pin(self, value=None):
+        digests = {role: 'sha256:' + str(index + 1) * 64 for index, role in enumerate(ROLES)} if value is None else value
+        common = json.loads(self.common.read_text())
+        common['image']['digests'] = digests
+        self.common.write_text(json.dumps(common))
+        return digests
+
+    def test_pinned_batch_plan_records_three_distinct_manifest_digests(self):
+        expected = self.pin()
+        result = self.batch(plan=True)
+        self.assertEqual(0, result.returncode, result.stderr)
+        self.assertEqual(expected, json.loads(result.stdout)['candidateImageDigests'])
+        self.assertFalse(any(event[0] in ('mysql', 'systemctl') for event in self.state()['events']))
+
+    def test_role_digest_overlays_follow_helm_nested_merge(self):
+        expected = self.pin()
+        for role in ROLES:
+            path = pathlib.Path('/etc/fullnet/release/' + role + '.json')
+            value = json.loads(path.read_text())
+            expected[role] = 'sha256:' + 'a' * 64
+            value['image'] = {'digests': {role: expected[role]}}
+            path.write_text(json.dumps(value))
+        result = self.batch(plan=True)
+        self.assertEqual(0, result.returncode, result.stderr)
+        self.assertEqual(expected, json.loads(result.stdout)['candidateImageDigests'])
+
+    def test_partial_digest_pinning_rejected_before_any_helm_or_service_command(self):
+        for selected in (ROLES[:1], ROLES[:2]):
+            self.pin({role: 'sha256:' + 'a' * 64 for role in selected})
+            self.assert_no_success(self.batch())
+            self.assertEqual([], self.state()['events'])
+
+    def test_invalid_digest_maps_rejected_before_any_release_command(self):
+        for value in ({'api': True}, {'api': 'sha256:short'}, {'unknown': 'sha256:' + 'a' * 64}, [], 'invalid'):
+            self.pin(value)
+            self.assert_no_success(self.batch())
+            self.assertEqual([], self.state()['events'])
+
+    def test_expected_plan_digest_drift_blocks_before_service_or_upgrade(self):
+        self.pin()
+        path = self.expected()
+        value = json.loads(path.read_text())
+        value['candidateImageDigests']['api'] = 'sha256:' + 'f' * 64
+        path.write_text(json.dumps(value))
+        self.assert_no_success(self.execute('all', '--ordinary-upgrade', '--expected-plan', str(path)))
+        self.assertFalse(any(event[0] in ('mysql', 'systemctl') or event[:2] == ['helm', 'upgrade'] for event in self.state()['events']))
+
+    def test_matching_pinned_expected_plan_allows_controlled_execution(self):
+        expected = self.pin()
+        path = self.expected()
+        result = self.execute('all', '--ordinary-upgrade', '--expected-plan', str(path))
+        self.assertEqual(0, result.returncode, result.stderr)
+        receipt = json.loads(result.stdout)
+        self.assertEqual(expected, receipt['candidateImageDigests'])
+        self.assertIs(receipt['expectedPlanMatched'], True)
+
     def test_matching_expected_plan_allows_execution_and_reports_match(self):
         path=self.expected()
         result=self.execute('all','--ordinary-upgrade','--expected-plan',str(path))
