@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <UseAppHost>false</UseAppHost>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <Reference Include="Full.NET.Hosting">
+      <HintPath>$(CandidateReferenceDirectory)/Full.NET.Hosting.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+  <Target Name="RequireCandidateReference" BeforeTargets="ResolveReferences">
+    <Error Condition="'$(CandidateReferenceDirectory)' == '' Or !Exists('$(CandidateReferenceDirectory)/Full.NET.Hosting.dll')"
+           Text="必须引用实际候选的 Hosting 程序集，禁止隐式回退到源码构建。" />
+  </Target>
+</Project>

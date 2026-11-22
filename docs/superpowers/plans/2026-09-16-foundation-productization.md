@@ -7872,3 +7872,13 @@ Release 集成工程单节点构建及 Identity 模块隔离 AOT 分析均零警
 - 下载 1,744 字节 artifact 并在内存核对 verification.json：Testing/SqlServer、实际空库备份恢复 true、397 条 journal、API/Worker 六个端点均 200/Healthy、两者正常停止 exit=0 且无 OOM；productionConfigurationVerified/tlsServerIdentityVerified=false。数据库实际 mcr.microsoft.com/mssql/server@sha256:c1aa8afe9b06eab64c9774a4802dcd032205d1be785b1fd51e1c0151e7586b74，镜像 ID sha256:004f8fbb046cd906f39ce3042e0ade32760907acc60a5acc8bfe2c3623c72937；初始备份 SHA-256 512b8d0e5fe1f32ff86330ba4d30f3b684b3151e32743dff945bd3c5dc8a5c5e。397 是 journal 行数，不是测试用例数。
 - 独立清理确认本轮容器/网络与导入镜像零残留，暂存清理及前后源码守卫通过。正式回执 artifact id=14733314394、名称 fullnet-oci-import-44971433580，API expired=false，2026-11-25 01:27:30 UTC 到期。仅内存读取回执，无候选源码/镜像下载副本堆积；未运行旧 MySQL/Production 批次、完整双库或全量矩阵。
 - 本批剩余开发 0、待验收 0。关闭该候选 Testing/SQL Server 的迁移/Host 启动缺口，原手册已补 Provider 参数、限制与回执。原 MySQL 既有结论保持，SQL Server 生产配置/TLS 身份、Key Ring 跨实例、外部渠道、完整业务、真实生产恢复、现场部署/旧报表与 D08 复验、容量仍开放；七个主工作包归属不变。Quill 正式修复/替代方案及 11-23 到期处置继续开放，不延期例外；受限目标预演、Capacity-not-verified 及既有工作区改动保持。
+
+### 8.415 F15 候选 Key Ring 的独立进程边界（2026-11-22）
+
+| 固定任务 | 当前状态 | 完成条件 |
+| --- | --- | --- |
+| F15-CandidateKeyRingProcesses | 已实现，待实际执行 | 实际 API/Worker 镜像加载候选 Hosting 程序集，独立进程双向加解密、冷加载、四类拒绝及落盘密钥加密检查通过，清理并提供范围明确回执。 |
+
+- 基线 22c6661f56a908ee8f3e737d6373ba64805880b4，快照 candidate-keyring-processes-20261122。冻结范围为原导入工作流显式 verify_keyring 开关、最小 JIT 探针及其夹具、原手册与计划。复用已交付 OCI 候选，不重建业务 Host，不运行已通过的数据库/健康批次。仅提取两份实际 Hosting DLL 核对一致后用于编译引用；探针运行仅挂载自身 DLL/deps/runtimeconfig，实际 Hosting 仍从角色镜像 /app 加载，避免使用当前源码重编译替代候选。
+- 独立非 root/只读/禁网/资源受限容器复用原 Production 证书与共享 Key Ring 挂载。API 保护→Worker 解密、Worker 保护→API 解密、另一个新进程再次解密；错误 purpose、篡改密文、不同证书、无关 Key Ring 必须返回精确密码学拒绝，消费进程禁止自动生成新密钥。读取真实 key XML 验证 encryptedSecret 且无明文 masterKey，不输出密文/随机明文/密钥内容。依据 Microsoft Learn 的 ASP.NET Core 10 Key storage format/ProtectKeysWithCertificate 文档，不将仅配置目录当作加解密成功。
+- 回执明确 independent-processes-in-candidate-images，businessHostConsumerVerified/nativeAotVerified=false；不新增业务端点，不把独立探针当作完整业务 Host 的消费者/现场认证。固定专属容器名称由原导入阶段登记，always 清理并核对无残留；暂存位于 RUNNER_TEMP。只运行本批精确流程，不执行数据库、旧 Host 启动、完整 Native 或全量，其他主工作包和临期 Quill 风险保持开放。

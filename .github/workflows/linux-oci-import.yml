@@ -28,6 +28,11 @@ on:
         options:
           - MySql
           - SqlServer
+      verify_keyring:
+        description: Verify shared key ring using independent processes in candidate images
+        required: true
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -79,6 +84,10 @@ jobs:
           path: ${{ env.FULLNET_OCI_IMPORT }}/input
           github-token: ${{ github.token }}
           run-id: ${{ inputs.oci_run_id }}
+      - uses: actions/setup-dotnet@v4
+        if: inputs.verify_keyring
+        with:
+          dotnet-version: 10.0.x
       - name: Install the local OCI importer
         run: |
           sudo apt-get update -qq
@@ -92,6 +101,7 @@ jobs:
           VERIFY_HOSTS: ${{ inputs.verify_hosts }}
           HOST_ENVIRONMENT: ${{ inputs.host_environment }}
           HOST_PROVIDER: ${{ inputs.host_provider }}
+          VERIFY_KEYRING: ${{ inputs.verify_keyring }}
         run: |
           set -euo pipefail
           python3 - <<'PY'
@@ -205,6 +215,12 @@ jobs:
               result['hostVerification'] = startup.verify(root)
               result['runtimeStartupVerified'] = True
               result['databaseMigrationVerified'] = True
+          if os.environ['VERIFY_KEYRING'] == 'true':
+              import importlib.util
+              spec = importlib.util.spec_from_file_location('keyring_process', 'tests/deployment/oci_keyring_process.py')
+              keyring = importlib.util.module_from_spec(spec)
+              spec.loader.exec_module(keyring)
+              result['keyRingVerification'] = keyring.verify(root)
           (root / 'verification.json').write_text(json.dumps(result, sort_keys=True, indent=2) + '\n')
           PY
           test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
