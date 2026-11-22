@@ -7877,9 +7877,13 @@ Release 集成工程单节点构建及 Identity 模块隔离 AOT 分析均零警
 
 | 固定任务 | 当前状态 | 完成条件 |
 | --- | --- | --- |
-| F15-CandidateKeyRingProcesses | 已实现，待实际执行 | 实际 API/Worker 镜像加载候选 Hosting 程序集，独立进程双向加解密、冷加载、四类拒绝及落盘密钥加密检查通过，清理并提供范围明确回执。 |
+| F15-CandidateKeyRingProcesses | 已完成，独立进程加解密和边界检查通过 | 实际 API/Worker 镜像加载候选 Hosting 程序集，独立进程双向加解密、冷加载、四类拒绝及落盘密钥加密检查通过，清理并提供范围明确回执。 |
 
 - 基线 22c6661f56a908ee8f3e737d6373ba64805880b4，快照 candidate-keyring-processes-20261122。冻结范围为原导入工作流显式 verify_keyring 开关、最小 JIT 探针及其夹具、原手册与计划。复用已交付 OCI 候选，不重建业务 Host，不运行已通过的数据库/健康批次。仅提取两份实际 Hosting DLL 核对一致后用于编译引用；探针运行仅挂载自身 DLL/deps/runtimeconfig，实际 Hosting 仍从角色镜像 /app 加载，避免使用当前源码重编译替代候选。
 - 独立非 root/只读/禁网/资源受限容器复用原 Production 证书与共享 Key Ring 挂载。API 保护→Worker 解密、Worker 保护→API 解密、另一个新进程再次解密；错误 purpose、篡改密文、不同证书、无关 Key Ring 必须返回精确密码学拒绝，消费进程禁止自动生成新密钥。读取真实 key XML 验证 encryptedSecret 且无明文 masterKey，不输出密文/随机明文/密钥内容。依据 Microsoft Learn 的 ASP.NET Core 10 Key storage format/ProtectKeysWithCertificate 文档，不将仅配置目录当作加解密成功。
 - 回执明确 independent-processes-in-candidate-images，businessHostConsumerVerified/nativeAotVerified=false；不新增业务端点，不把独立探针当作完整业务 Host 的消费者/现场认证。固定专属容器名称由原导入阶段登记，always 清理并核对无残留；暂存位于 RUNNER_TEMP。只运行本批精确流程，不执行数据库、旧 Host 启动、完整 Native 或全量，其他主工作包和临期 Quill 风险保持开放。
 - 首轮作业 44991618954 实际通过，双向/冷加载、四次密码学拒绝与一个 encryptedSecret key 文件均有回执，清理成功。复核发现“无关 Key Ring”同时替换了证书/配置/目录，不能单独证明目录因素；夹具收紧为只替换共享目录，保留原证书与配置，必须重新执行该专项后才关闭。错误证书场景继续只替换证书挂载，保留原 Key Ring，避免混淆拒绝原因。
+- 最终验收源码 bd3957591ab63282a352b96b0c892e1b75e2d14b 的 [实际 Key Ring 专项](https://github.com/yan041108/Full.NET/actions/runs/44991798834/job/137114264507) 全部步骤成功。原应用 sourceCommit=06caddffeb4f227f54acc38543a7d8f436c105a8、打包 packagingCommit=a879e7ed16b45291d922c4cc76d55fdd04dd2aad 保持；实际 API/Worker 两份 Hosting DLL SHA-256 同为 a975433678aa80a7dd8b1c7a65a5c0f0dfd86a8be7a7fb0352dffa485ac8adfd。只引用候选程序集编译最小探针，运行时原镜像 Hosting DLL 未替换。
+- 实际十个独立容器探针进程完成 API→Worker、Worker→API、另一个新进程重载、错误 purpose/篡改/不同证书/无关目录的四个精确拒绝及 XML 检查，encryptedKeyCount=1，未出现明文 masterKey。四个拒绝均要求 exit=3、空 stdout 和固定密码学错误码，不接受任意失败或进程崩溃；目录与证书因素分别隔离。没有把这些探针进程说成十个业务 Host 或测试矩阵方法。
+- YAML/三段 Python 语法检查通过，最终 C# 探针实际 publish 和执行通过。下载 1,629 字节 artifact 在内存核对 verification.json，keyRingVerification 的双向/重载/四拒绝均 true，scope 为独立进程，businessHostConsumerVerified/nativeAotVerified=false；本轮未启用 verify_hosts，所以 runtimeStartupVerified/databaseMigrationVerified/deploymentVerified=false，旧 Host 结果不重写。实际 artifact id=14742371688、名称 fullnet-oci-import-44991798834，API expired=false，2026-11-25 06:01:39 UTC 到期。
+- 本批剩余开发 0、待验收 0。独立清理确认本轮导入镜像/容器零残留，暂存和编译引用随工作流回收，源码前后守卫通过；本地只内存读取回执，无整仓副本、运行产物堆积或仓库 artifacts。原手册同步开关与边界，仅关闭固定候选 Key Ring 独立进程基础能力；业务消费者、轮换/真实跨节点恢复、外部渠道、现场发布/旧报表及 D08 复验、容量保持原归属。七个主工作包、Quill 临期处置、受限预演、Capacity-not-verified 和其他工作区改动均保持。

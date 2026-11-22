@@ -204,5 +204,9 @@ SQL Server 的当前候选启动检查选择 verify_hosts=true、host_provider=S
 
 [首个 SQL Server 候选作业](https://github.com/yan041108/Full.NET/actions/runs/44971433580) 对同一应用/OCI 候选完成空库恢复、397 条 journal、六个健康端点及两个正常停止检查，资源清理通过。Artifacts 的 verification.json 明确 environment=Testing、provider=SqlServer、productionConfigurationVerified=false、tlsServerIdentityVerified=false，记录数据库实际镜像摘要、备份摘要和三类源码身份。此结果补充 MySQL 的既有证据，不表示 SQL Server 生产配置、完整业务、现场恢复/部署、Native AOT 或容量已获认证；不触发其他 Provider 或全量矩阵。
 
+共享 Key Ring 的独立进程检查选择 verify_keyring=true，可以同时保持 verify_hosts=false，避免重复启动数据库。入口从已导入 API/Worker 镜像各提取实际 Full.NET.Hosting.dll 并核对摘要一致，只编译最小 JIT 探针；运行时仅把探针自己的三个文件挂载到 /app，Hosting 程序集仍来自原镜像。探针使用原 AddFullNetDataProtection 注册和 Production 配置，独立非 root、只读、禁网容器双向加解密并重新加载落盘密钥；消费进程禁用自动生成密钥。分别检查错误 purpose、篡改内容、仅替换证书、仅替换 Key Ring 目录时的精确密码学拒绝，并检查实际密钥 XML 有 encryptedSecret、无明文 masterKey。不上传证书私钥、令牌或随机明文。
+
+[Key Ring 专项通过作业](https://github.com/yan041108/Full.NET/actions/runs/44991798834) 对同一候选通过上述检查，实际一个落盘密钥受加密保护。verification.json 的 keyRingVerification 记录候选 Hosting SHA-256、双向/重载/四类拒绝和 encryptedKeyCount；scope=independent-processes-in-candidate-images、businessHostConsumerVerified=false、nativeAotVerified=false。它证明该候选注册与介质的独立进程边界，不代表业务 API/Worker 已执行某个消费链路、证书轮换或现场跨节点恢复。未选择 verify_hosts 的本轮 runtimeStartupVerified/databaseMigrationVerified 仍为 false，其他作业的 Host 结论单独保留。
+
 - `tests/deployment/foundation-preset-release.test.mjs`
 - 发布清单：`docs/verification/f16-release-checklist.md`
