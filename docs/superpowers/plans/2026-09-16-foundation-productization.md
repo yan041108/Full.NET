@@ -7901,3 +7901,13 @@ Release 集成工程单节点构建及 Identity 模块隔离 AOT 分析均零警
 - 实际载荷旧 KeyId=12ee677f-6f62-4864-bdc6-1d600a43c686、新 KeyId=db9e8007-a7df-4b98-962c-d93eea6efb41，明确不同，新密文 ID 与 IKeyManager 新建 ID 相同。新活动+旧历史读取两代、仅新读取新代且拒绝旧代、仅旧拒绝新代、旧活动+新历史的配置回退读取两代均通过；消费进程禁止自动建钥，拒绝要求精确密码学退出码，encryptedKeyCount=2 且均无明文 masterKey。
 - 下载 1,835 字节 artifact 在内存核对 verification.json：mode=rotation，以上轮换/代次项均为 true，businessHostConsumerVerified/productionRotationVerified/nativeAotVerified=false；本轮未启用业务 Host 验收，runtimeStartupVerified/databaseMigrationVerified/deploymentVerified=false，不改旧结果。实际 artifact id=14743121590、名称 fullnet-oci-import-44993805923，API expired=false，2026-11-25 06:28:43 UTC 到期。PFX 摘要与非秘密 KeyId 入回执，证书私钥/明文/密文未上传。
 - 本批剩余开发 0、待验收 0。独立清理确认本轮导入镜像/容器零残留，暂存/引用/编译输出回收、源码前后守卫通过；本地无整仓/镜像副本或仓库 artifacts。原手册同步显式场景及证据边界，仅关闭候选注册和本轮介质的独立进程轮换能力；业务消费者、真实跨节点/生产轮换与恢复、现场发布/旧报表、外部渠道、D08 复验、容量仍按原主工作包开放。Quill 临期处置、受限预演、Capacity-not-verified 及无关工作区改动保持，不扩展新的业务或发布授权。
+
+### 8.417 F15 候选 Key Ring 的介质恢复边界（2026-11-22）
+
+| 固定任务 | 当前状态 | 完成条件 |
+| --- | --- | --- |
+| F15-CandidateKeyRingRecovery | 已实现，待实际执行 | 本轮加密 Key Ring/PFX 备份到独立介质，完整性预检后恢复并读取旧密文，损坏/缺证书在写入前拒绝，恢复快照拒绝备份后新密钥密文。 |
+
+- 基线 f44a8caa0101e3ce63bba11f2b9f374aa7edc109，快照 candidate-keyring-recovery-20261122。冻结范围为原工作流 keyring_mode=recovery、原探针备份操作与恢复夹具、原手册/计划。复用实际候选程序集及双向/冷加载建档前提，只跑恢复差集，不重跑 basic 四拒绝、rotation、数据库/健康或全量。备份操作明确仅支持本轮无撤销记录的夹具，未知条目拒绝，不能当作生产通用 Key Ring 备份器。
+- 真实非 root 进程读取加密 key XML 生成 ZIP，独立保存 PFX 与精确 SHA-256 清单；密码不进入备份，由夹具独立 Secret 配置供给。先验证输入集合、普通文件/大小、归档成员/摘要，再创建恢复目录；损坏 ZIP 和缺 PFX 必须精确拒绝且无目标写入。恢复过程不解密或输出主密钥，分别挂载恢复后的目录/证书和最小 DP 配置，独立进程读取原密文并反向保护/解密。
+- 备份后仅在原 Key Ring 创建新密钥并验证实际载荷 KeyId，恢复副本必须拒绝其密文且仍读取备份前密文，备份摘要始终不变。回执限定独立探针，businessHostConsumerVerified/productionRecoveryVerified=false，不代表数据库/文件/会话联合恢复或现场回退。所有介质及编译引用仅在 RUNNER_TEMP，上传只含非秘密摘要与布尔回执；资源清理、源码守卫、其他主工作包与临期风险保持。

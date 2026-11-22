@@ -41,6 +41,7 @@ on:
         options:
           - basic
           - rotation
+          - recovery
 
 permissions:
   contents: read

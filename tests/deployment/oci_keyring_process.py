@@ -10,7 +10,7 @@ import subprocess
 
 def verify(root):
     mode = os.environ.get("KEYRING_MODE", "basic")
-    if mode not in ("basic", "rotation"):
+    if mode not in ("basic", "rotation", "recovery"):
         raise RuntimeError("keyring_mode_invalid")
     socket = "unix:///var/run/docker.sock"
     if os.environ.get("CI") != "true" or not Path("/var/run/docker.sock").is_socket():
@@ -76,7 +76,7 @@ def verify(root):
                    "-e", "DOTNET_ENVIRONMENT=Production", "-e", "ASPNETCORE_ENVIRONMENT=Production", *mounts,
                    *(assets["hostArguments"] if arguments is None else arguments), "--entrypoint", "dotnet",
                    image(role), "/app/" + assembly + ".dll", mode]
-        if mode not in ("inspect", "rotate"):
+        if mode not in ("inspect", "rotate", "backup"):
             command += [purpose]
         result = subprocess.run(command, input=text, text=True, capture_output=True, timeout=30)
         if rejected:
@@ -97,6 +97,12 @@ def verify(root):
             "candidateHostingSha256": digests["api"], "apiToWorkerVerified": True, "workerToApiVerified": True,
             "freshProcessReloadVerified": True,
             "businessHostConsumerVerified": False, "nativeAotVerified": False}
+    if mode == "recovery":
+        spec = importlib.util.spec_from_file_location("keyring_recovery", Path(__file__).with_name("oci_keyring_recovery.py"))
+        recovery = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(recovery)
+        result["recovery"] = recovery.verify(root, assets, assets_root, invoke, api_token, first)
+        return result
     if mode == "rotation":
         spec = importlib.util.spec_from_file_location("keyring_rotation", Path(__file__).with_name("oci_keyring_rotation.py"))
         rotation = importlib.util.module_from_spec(spec)

@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.IO.Compression;
 using System.Security.Cryptography;
 using System.Xml;
 using System.Xml.Linq;
@@ -13,14 +14,33 @@ using Microsoft.Extensions.Logging;
 // 只检查候选已发布的注册边界；不新增业务 Host 端点，不输出密钥或异常详情。
 try
 {
-    if (args.Length is < 1 or > 2 || args[0] is not ("protect" or "unprotect" or "inspect" or "rotate")) return 2;
+    if (args.Length is < 1 or > 2 || args[0] is not ("protect" or "unprotect" or "inspect" or "rotate" or "backup")) return 2;
     var builder = Host.CreateApplicationBuilder();
     if (!builder.Environment.IsProduction()) return 2;
     builder.Logging.ClearProviders();
     builder.Services.AddFullNetDataProtection(builder.Configuration, builder.Environment);
     // 消费进程只读取已有密钥，拒绝场景不得自动生成新密钥污染共享介质。
-    if (args[0] is "unprotect" or "inspect") builder.Services.AddDataProtection().DisableAutomaticKeyGeneration();
+    if (args[0] is "unprotect" or "inspect" or "backup") builder.Services.AddDataProtection().DisableAutomaticKeyGeneration();
     using var host = builder.Build();
+    if (args[0] == "backup")
+    {
+        // 仅支持本轮无撤销记录的夹具介质；未知条目直接拒绝，不作为生产通用备份器。
+        var root = builder.Configuration["DataProtection:KeyRingPath"] ?? throw new InvalidOperationException();
+        var files = Directory.GetFiles(root, "key-*.xml");
+        if (files.Length is < 1 or > 32 || Directory.GetFileSystemEntries(root).Length != files.Length) return 1;
+        using var output = File.Open("/var/fullnet/recovery/keyring.zip", FileMode.CreateNew, FileAccess.Write, FileShare.None);
+        using var archive = new ZipArchive(output, ZipArchiveMode.Create);
+        foreach (var file in files)
+        {
+            var info = new FileInfo(file);
+            if (info.LinkTarget is not null || info.Length is < 1 or > 65536) return 1;
+            using var input = File.OpenRead(file);
+            using var entry = archive.CreateEntry(info.Name, CompressionLevel.NoCompression).Open();
+            input.CopyTo(entry);
+        }
+        Console.Write(files.Length.ToString(CultureInfo.InvariantCulture));
+        return 0;
+    }
     if (args[0] == "rotate")
     {
         // 强制产生可区分的新密钥，调用方继续核对新密文的实际 KeyId，避免只复用旧密钥。
