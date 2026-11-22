@@ -208,5 +208,9 @@ SQL Server 的当前候选启动检查选择 verify_hosts=true、host_provider=S
 
 [Key Ring 专项通过作业](https://github.com/yan041108/Full.NET/actions/runs/44991798834) 对同一候选通过上述检查，实际一个落盘密钥受加密保护。verification.json 的 keyRingVerification 记录候选 Hosting SHA-256、双向/重载/四类拒绝和 encryptedKeyCount；scope=independent-processes-in-candidate-images、businessHostConsumerVerified=false、nativeAotVerified=false。它证明该候选注册与介质的独立进程边界，不代表业务 API/Worker 已执行某个消费链路、证书轮换或现场跨节点恢复。未选择 verify_hosts 的本轮 runtimeStartupVerified/databaseMigrationVerified 仍为 false，其他作业的 Host 结论单独保留。
 
+证书轮换的独立进程检查使用 verify_keyring=true、keyring_mode=rotation，默认仍为 basic。专项在本轮介质中用新活动证书和旧历史证书读取旧密文，显式创建新密钥，并核对新密文公开头部的 KeyId 确实切换。仅新证书必须可读取新代、拒绝旧代；仅旧证书必须拒绝新代；以旧证书为活动证书并保留新证书历史解密材料时，两代均应可读。两个 key XML 均检查落盘加密，原密钥不删除或撤销。
+
+[轮换专项通过作业](https://github.com/yan041108/Full.NET/actions/runs/44993805923) 的 verification.json 在 keyRingVerification.rotation 中记录新旧 KeyId/PFX 摘要、新密钥实际使用、历史读取、移除历史配置后的拒绝、保留材料的配置回退及 encryptedKeyCount=2。作用范围仍是候选镜像内的独立进程，businessHostConsumerVerified/productionRotationVerified=false；不表示现场轮换、证书退役或业务消费者恢复已认证。本轮不启动数据库/业务 Host，也不把 basic 未执行的拒绝项写成新鲜通过；现有发布环境应按自己的轮换顺序和历史密文生命周期评估，不能直接删除旧证书。
+
 - `tests/deployment/foundation-preset-release.test.mjs`
 - 发布清单：`docs/verification/f16-release-checklist.md`
