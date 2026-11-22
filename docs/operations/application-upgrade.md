@@ -216,5 +216,9 @@ SQL Server 的当前候选启动检查选择 verify_hosts=true、host_provider=S
 
 [恢复专项通过作业](https://github.com/yan041108/Full.NET/actions/runs/44994510715) 实际恢复一个加密密钥，确认原备份摘要不变。随后只在原介质创建新密钥，核对新载荷 KeyId，恢复快照拒绝该载荷且仍可读取旧载荷，证明没有回退读取原目录或沿用旧进程缓存。verification.json 的 keyRingVerification.recovery 记录 ZIP/清单/PFX 摘要和这些检查，businessHostConsumerVerified/productionRecoveryVerified=false；不证明业务消费者、撤销/多代证书介质、数据库/文件/会话联合恢复或真实跨节点恢复。本轮备份、PFX、恢复目录和秘密配置随暂存回收，下载产物仅为非秘密验收回执。
 
+实际模块保护器检查选择 verify_keyring=true、keyring_mode=consumers。该 JIT 专项在角色镜像内按固定类型/方法清单调用原 Identity、Notifications、Payments 程序集，不复制实现或扩展 internal 类型可见性，依赖从原 Host deps 解析。覆盖通知端点、LDAP、OAuth、TOTP、支付 API 密钥和商户私钥六类用途的双向跨进程保护/解保护，以及不同用途、支付两种用途相互使用和通用探针密文的拒绝。仅调用保护器组件，不连接 LDAP、OIDC、通知或支付渠道。
+
+[实际保护器专项通过作业](https://github.com/yan041108/Full.NET/actions/runs/44995063566) 完成六类用途、八个精确密码学拒绝，并用候选 NotificationRecipientEndpointProtector 完成独立介质恢复、损坏/缺证书写前拒绝、原值读取及备份后新密钥快照拒绝。verification.json 的 keyRingVerification.consumers 记录实际模块 DLL 摘要和各项结果，moduleProtectorComponentsVerified=true；businessHostPipelineVerified/externalDeliveryVerified/paymentChannelVerified/nativeAotVerified=false。它证明真实模块组件与介质边界，不能替代 API 授权、数据库记录、Worker 队列、验证码消费、真实收件或商户认证。
+
 - `tests/deployment/foundation-preset-release.test.mjs`
 - 发布清单：`docs/verification/f16-release-checklist.md`

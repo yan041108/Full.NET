@@ -7921,8 +7921,13 @@ Release 集成工程单节点构建及 Identity 模块隔离 AOT 分析均零警
 
 | 固定任务 | 当前状态 | 完成条件 |
 | --- | --- | --- |
-| F15-CandidateModuleProtectors | 已实现，待实际执行 | 固定候选的六类真实模块保护器双向跨进程和用途拒绝通过，实际通知收件端点保护器在恢复介质上读取原值并验证快照边界。 |
+| F15-CandidateModuleProtectors | 已完成，实际组件与通知介质恢复通过 | 固定候选的六类真实模块保护用途双向跨进程和用途拒绝通过，实际通知收件端点保护器在恢复介质上读取原值并验证快照边界。 |
 
 - 基线 61adcdf9454c7f6e60ff4cb6f70b3c9b990a37df，快照 candidate-module-protectors-20261122。冻结范围为原工作流 consumers 场景、原 JIT 探针的固定模块类型桥接、专用夹具及原手册/计划。直接读取候选 Identity/Notifications/Payments 三程序集摘要，在原镜像中加载真实 NotificationRecipientEndpointProtector、LDAP/OAuth/TOTP 保护器与支付 API/商户私钥保护器；不复制保护器源码、不扩展模块公开性，不新建业务端点。
 - 仅 JIT 夹具通过固定类型/方法清单调用 internal 组件，依赖从实际 Host deps 闭包解析；不把测试反射引入产品或 Native AOT。六类组件各 API→Worker/Worker→API，六个不同用途拒绝、通用探针用途拒绝及支付两个用途反向拒绝，共八个精确密码学拒绝。实际通知组件复用独立介质恢复、缺件/篡改写前拒绝、原值读取及备份后新 KeyId 快照拒绝；这些实际组件调用替代通用 purpose，不发送邮件/支付或启动任务处理器。
 - 回执区分 moduleProtectorComponentsVerified 与 businessHostPipelineVerified/externalDeliveryVerified/paymentChannelVerified/nativeAotVerified，后者仍 false；不把构造组件说成真实 API/Worker DI、数据库、队列或外部渠道闭环。只跑本批相关组件与通知恢复差集，不重跑 basic/rotation/通用 recovery、数据库或全量。资源/秘密介质/编译引用按原入口清理，其他主工作包与临期 Quill 风险保持开放。
+- YAML/四段 Python 语法检查通过，实现/验收源码 66232a5c85366683034ec831d3d64d21e3ef99e8 的 [实际保护器专项](https://github.com/yan041108/Full.NET/actions/runs/44995063566/job/137124217675) 全部步骤成功，最小 JIT 探针真实 publish/执行通过。原应用 06caddffeb4f227f54acc38543a7d8f436c105a8、打包 a879e7ed16b45291d922c4cc76d55fdd04dd2aad 与候选 Hosting 摘要保持；本批没有修改模块源码、授权接口或 Native AOT 路径。
+- 两角色实际模块 DLL 摘要分别相同：Identity 94181099615a3b7e8f5892852af518529c456ac46b19eb3a7c41ccf353817f7b、Notifications 2c109ffcfcfd29c005c08d983e26b4bc5d9a7155b4ab0aae3013660ab3f4d12b、Payments 01679a4dc621cbf98120f2eee63fe279211e1fb2e4bdbfc609c1fc24c39637e6。五个实际类型的六类保护用途各双向通过，八个密码学拒绝通过；反射异常仅在 InnerException 确实为 CryptographicException 时映射拒绝，其余失败不计通过。没有把通用 purpose 的结果冒充真实模块保护器，也没有调用实际渠道。
+- 实际通知保护器在恢复目录完成原值读取和反向进程往返、损坏 ZIP/缺 PFX 写前拒绝、备份后新 KeyId 载荷拒绝、原备份不变。通知恢复 ZIP SHA-256 083462a214fa06f1862a40f5dfaabb8d4b4646222dda0f2c3404b5b822cd08ca，清单 ce51a41fb503e1143f95b8eeb0946a67eb4218796da8d1bc326a7c03ef24458e；恢复一个加密密钥，密码不在备份中。该场景实际调用模块 Protect/Unprotect，仍不是 Endpoint Store/DeliveryBatchProcessor 或原 Host 管线。
+- 下载 2,298 字节 artifact 并在内存核对 verification.json，mode=consumers、moduleProtectorComponentsVerified=true，所有用途/通知恢复检查通过，businessHostPipelineVerified/externalDeliveryVerified/paymentChannelVerified/nativeAotVerified=false。artifact id=14743348238、名称 fullnet-oci-import-44995063566，API expired=false，2026-11-25 06:45:33 UTC 到期。本轮未启动业务 Host 或迁移，顶层 runtimeStartupVerified/databaseMigrationVerified/deploymentVerified=false，既有启动证据不改写。
+- 本批剩余开发 0、待验收 0。导入镜像/容器实际清理为零，秘密备份/恢复介质、编译引用和暂存回收，源码前后守卫通过；本地只内存读取回执，无整仓副本或仓库 artifacts。原手册同步精确组件与管线边界，仅关闭该固定候选的实际保护器组件和通知介质恢复差集；真实业务/外部渠道、生产联合恢复、现场发布/旧报表、D08 复验及容量仍按七个主工作包开放。Quill 临期处置、受限预演、Capacity-not-verified 和无关工作区改动保持。
