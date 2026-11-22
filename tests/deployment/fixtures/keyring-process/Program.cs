@@ -34,9 +34,9 @@ try
         {
             var info = new FileInfo(file);
             if (info.LinkTarget is not null || info.Length is < 1 or > 65536) return 1;
-            using var input = File.OpenRead(file);
+            using var keyInput = File.OpenRead(file);
             using var entry = archive.CreateEntry(info.Name, CompressionLevel.NoCompression).Open();
-            input.CopyTo(entry);
+            keyInput.CopyTo(entry);
         }
         Console.Write(files.Length.ToString(CultureInfo.InvariantCulture));
         return 0;
